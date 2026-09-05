@@ -17,7 +17,7 @@
  * lokale Module importiert.
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { accessSync, constants, existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { createInterface, type Interface } from 'readline';
 import { pathToFileURL } from 'url';
@@ -217,6 +217,35 @@ function titleCase(slug: string): string {
 		.join(' ');
 }
 
+/**
+ * Eine gemeinsame enge Definition für Prüfung und Zerlegung: Nutzerteil, erste
+ * Domainkomponente und restlicher Domainname. Zusätzliche @, Leerzeichen innerhalb
+ * der Segmente und leere Domainlabels fallen damit durch. Kein RFC-Anspruch und
+ * keine Zustellbarkeitsprüfung.
+ */
+const EMAIL_PATTERN = /^([^\s@]+)@([^\s@.]+)\.([^\s@.]+(?:\.[^\s@.]+)*)$/;
+
+/**
+ * Zerlegt die Adresse in Nutzerteil, erste Domainkomponente und restlichen
+ * Domainnamen. Prüfung und Zerlegung teilen sich damit eine Definition.
+ */
+export function parseContactEmail(
+	value: string
+): { user: string; domain: string; tld: string } | undefined {
+	const match = EMAIL_PATTERN.exec(value);
+	if (!match) return undefined;
+	return { user: match[1]!, domain: match[2]!, tld: match[3]! };
+}
+
+/**
+ * Brand und Operator landen als Rohtext in den Absätzen von Privacy und Terms.
+ * Ein Zeilenumbruch zerlegt dort den Absatz und kann eine zusätzliche Überschrift
+ * erzeugen. Die Adresse bleibt bewusst mehrzeilig.
+ */
+function singleLineValidator(label: string): Validator {
+	return (value) => (/[\r\n]/.test(value) ? `${label} must be a single line` : undefined);
+}
+
 // ---------------------------------------------------------------------------
 // Sichere Serialisierung
 // ---------------------------------------------------------------------------
@@ -247,7 +276,7 @@ function tsKey(key: string): string {
 }
 
 /**
- * Serialisiert die Konfiguration als TypeScript-Objektliteral. Zusätzliche
+ * Serialisiert die Einstellungen als TypeScript-Objektliteral. Zusätzliche
  * Schlüssel eines Forks bleiben erhalten, weil über die tatsächlichen Einträge
  * iteriert wird.
  */
@@ -323,6 +352,12 @@ function readString(source: Record<string, unknown>, key: string): string {
 	return typeof value === 'string' ? value : '';
 }
 
+/** Unterscheidet einen vorhandenen (auch leeren) String von einem fehlenden Schlüssel. */
+function readOptionalString(source: Record<string, unknown>, key: string): string | undefined {
+	const value = source[key];
+	return typeof value === 'string' ? value : undefined;
+}
+
 export function isValidGithubRepository(value: string): boolean {
 	const match = /^([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)$/.exec(value);
 	if (!match) return false;
@@ -352,7 +387,7 @@ export function replaceGithubSlugSource(source: string, value: string): string {
 		throw new Error('Could not find githubSlug in src/lib/config/site.ts');
 	}
 	// Ein zweites Vorkommen, etwa ein Beispiel im Doc-Kommentar, würde sonst still den
-	// falschen Treffer ersetzen und die echte Konfiguration unverändert lassen.
+	// falschen Treffer ersetzen und den echten Eintrag unverändert lassen.
 	if (matches.length > 1) {
 		throw new Error(
 			`Expected exactly one githubSlug in src/lib/config/site.ts, found ${matches.length}`
@@ -420,20 +455,45 @@ export function replaceReadmeSource(
 	// Der Demo-Absatz gehört zum Template und fehlt nach dem ersten Lauf.
 	updated = updated.replace(/^> \[Live demo!\][^\n]*\n\n/m, () => '');
 
-	const clonePattern =
-		/^(?:gh repo create [^\n]*|git clone https:\/\/github\.com\/[^\n]*)\ncd [^\n]*$/gm;
-	const cloneMatches = updated.match(clonePattern);
+	const cloneMatches = updated.match(cloneBlockPattern());
 	if (cloneMatches?.length !== 1) {
 		throw new Error(
 			`Expected exactly one quick start clone block in README.md, found ${cloneMatches?.length ?? 0}`
 		);
 	}
 	updated = updated.replace(
-		clonePattern,
-		() => `git clone ${githubUrl}.git\ncd ${repositoryBasename}`
+		cloneBlockPattern(),
+		// Das gelesene Zeilenende zurückschreiben, damit eine CRLF-Datei CRLF bleibt.
+		(_match, lineBreak: string) => `git clone ${githubUrl}.git${lineBreak}cd ${repositoryBasename}`
 	);
 
 	return updated;
+}
+
+/**
+ * Der Quick-Start-Klonblock. Das Zeilenende wird mitgelesen, damit eine Datei mit
+ * CRLF unverändert bleibt.
+ */
+function cloneBlockPattern(): RegExp {
+	return /^(?:gh repo create [^\r\n]*|git clone https:\/\/github\.com\/[^\r\n]*)(\r?\n)cd [^\r\n]*$/gm;
+}
+
+/**
+ * Sagt, ob der Quick Start bereits auf genau dieses Repository umgeschrieben wurde.
+ * Nur der konvertierte git-clone-Block zählt als eingerichtet, die gh-repo-create-Form
+ * des Templates ausdrücklich nicht. Das ist eine Aussage über den vorliegenden
+ * Endzustand, kein Nachweis darüber, wie er entstanden ist.
+ */
+export function readmeShowsConvertedQuickStart(source: string, repository: string): boolean {
+	const matches = source.match(cloneBlockPattern());
+	if (matches?.length !== 1) return false;
+	const repositoryBasename = repository.split('/')[1];
+	if (!repositoryBasename) return false;
+	const [cloneLine, directoryLine] = matches[0]!.split(/\r?\n/);
+	return (
+		cloneLine === `git clone https://github.com/${repository}.git` &&
+		directoryLine === `cd ${repositoryBasename}`
+	);
 }
 
 export function replaceWranglerNameSource(source: string, slug: string): string {
@@ -487,7 +547,9 @@ async function main() {
 	const oldSlug = currentSlug();
 	const oldRepo = currentRepo();
 	const oldBrand = readString(legalConfig, 'brandName');
-	const oldCompany = readString(legalConfig, 'companyName');
+	// Ein vorhandener Wert bleibt erhalten, auch der leere String; nur ein wirklich
+	// fehlender Schlüssel bekommt den abgeleiteten Vorschlag.
+	const oldCompany = readOptionalString(legalConfig, 'companyName');
 	const oldOperator = readString(legalConfig, 'operatorName');
 	const oldAddress = readString(legalConfig, 'address');
 	const oldUser = readString(legalEmail, 'user');
@@ -495,17 +557,25 @@ async function main() {
 	const oldTld = readString(legalEmail, 'tld');
 	const oldEmail = oldUser && oldDomain && oldTld ? `${oldUser}@${oldDomain}.${oldTld}` : '';
 
-	// Der Markenname darf legitim 'SaaS Starter' lauten. Ob er gesetzt wurde, verrät erst
-	// Slug oder Repository: solange beide auf dem Template stehen, ist noch nichts gewählt.
-	const alreadySetUp = oldSlug !== TEMPLATE_SLUG || oldRepo !== TEMPLATE_REPOSITORY;
+	let readmeSource: string;
+	try {
+		readmeSource = read('README.md');
+	} catch (error) {
+		fail(error instanceof Error ? error.message : String(error));
+	}
 
-	if (!interactive) {
-		// Nur noch nicht gebrandete Werte sind Pflicht, damit ein erneuter Lauf ohne
-		// Identitätsflags die gesetzte Identität erhält.
+	// Der Markenname darf legitim 'SaaS Starter' lauten, und ein von Hand geänderter
+	// Package-Name beweist keine Einrichtung. Maßgeblich ist der Endzustand des Quick
+	// Starts für dieses Repository, nicht ein Nachweis über frühere Läufe.
+	const alreadySetUp = readmeShowsConvertedQuickStart(readmeSource, oldRepo);
+
+	if (!interactive && !alreadySetUp) {
+		// Solange der Quick Start die Bootstrapform trägt, sind die drei Kernwerte Pflicht.
+		// Danach ist nichts mehr Pflicht, auch ein bewusst beibehaltener Template-Slug nicht.
 		const missing: string[] = [];
 		if (!slugFlag && oldSlug === TEMPLATE_SLUG) missing.push('--slug');
 		if (!repoFlag && oldRepo === TEMPLATE_REPOSITORY) missing.push('--repo');
-		if (!brandFlag && !alreadySetUp) missing.push('--brand');
+		if (!brandFlag) missing.push('--brand');
 		if (missing.length > 0) {
 			console.error(
 				`Error: bun run setup needs --slug, --repo, --brand in non-interactive mode.\nMissing: ${missing.join(', ')}\nExample: bun run setup --slug my-app --repo owner/my-app --brand "My App"`
@@ -534,19 +604,21 @@ async function main() {
 		// titleCase nur als Vorschlag für das unberührte Template, nie als Ersatz für
 		// einen bereits gewählten Namen.
 		!alreadySetUp && (oldBrand === '' || oldBrand === TEMPLATE_BRAND) ? titleCase(slug) : oldBrand,
-		(value) => (value.trim() === '' ? 'brand must not be empty' : undefined)
+		(value) =>
+			value.trim() === '' ? 'brand must not be empty' : singleLineValidator('brand')(value)
 	);
 
 	const company = await resolveValue(
 		companyFlag,
 		'Company name (legal entity)',
-		oldCompany || `${brand} Inc.`
+		oldCompany ?? `${brand} Inc.`
 	);
 
 	const operator = await resolveValue(
 		operatorFlag,
 		'Operator name (person or org running the service)',
-		oldOperator
+		oldOperator,
+		singleLineValidator('operator')
 	);
 
 	const address = await resolveValue(
@@ -560,11 +632,11 @@ async function main() {
 		'Contact email (user@domain.tld)',
 		oldEmail,
 		(value) =>
-			/^([^@]+)@([^.]+)\.(.+)$/.test(value)
+			parseContactEmail(value)
 				? undefined
 				: `email must match user@domain.tld pattern, got: ${value}`
 	);
-	const [, emailUser, emailDomain, emailTld] = /^([^@]+)@([^.]+)\.(.+)$/.exec(email)!;
+	const { user: emailUser, domain: emailDomain, tld: emailTld } = parseContactEmail(email)!;
 
 	const githubUrl = `https://github.com/${repo}`;
 	const oldGithubUrl = `https://github.com/${oldRepo}`;
@@ -601,7 +673,7 @@ async function main() {
 		pkg.author = operator;
 		nextPackageJson = JSON.stringify(pkg, null, '\t') + '\n';
 		nextWrangler = replaceWranglerNameSource(read('wrangler.toml'), slug);
-		nextReadme = replaceReadmeSource(read('README.md'), {
+		nextReadme = replaceReadmeSource(readmeSource, {
 			brand,
 			repository: repo,
 			oldGithubUrl,
@@ -615,6 +687,25 @@ async function main() {
 		);
 		nextLegalSource = replaceLegalConfigSource(read('src/lib/config/legal.ts'), nextLegalConfig);
 		nextLock = hasLock ? replaceLockRootNameSource(read('bun.lock'), slug) : undefined;
+		// Erst wenn alle Inhalte stehen, prüfen, ob jede vorgesehene Datei beschreibbar
+		// ist. Sonst schreibt der Lauf die ersten Dateien und scheitert an einer späteren.
+		// Das deckt die schreibgeschützte Datei ab; eine Rechteänderung nach dieser
+		// Prüfung, ein voller Datenträger und ein Prozessabbruch bleiben außerhalb.
+		for (const rel of [
+			'package.json',
+			...(hasLock ? ['bun.lock'] : []),
+			'wrangler.toml',
+			'README.md',
+			'src/lib/config/site.ts',
+			'src/lib/content/legal-metadata.ts',
+			'src/lib/config/legal.ts'
+		]) {
+			try {
+				accessSync(join(ROOT, rel), constants.W_OK);
+			} catch {
+				throw new Error(`Cannot write ${rel}; check file permissions`);
+			}
+		}
 	} catch (error) {
 		fail(error instanceof Error ? error.message : String(error));
 	}

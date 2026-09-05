@@ -8,7 +8,7 @@
  * Module importiert.
  */
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -53,7 +53,9 @@ function snapshot(dir: string): Record<string, string> {
 }
 
 function runSetup(dir: string, args: string[]) {
-	const result = spawnSync(BUN, [join(dir, 'scripts/template-setup.ts'), ...args], {
+	// Der öffentliche Einstieg, damit auch das Skript-Dispatch aus dem Manifest geprüft
+	// wird. Die Fixture bringt das reale package.json mit und braucht keine Dependencies.
+	const result = spawnSync(BUN, ['run', 'setup', ...args], {
 		cwd: dir,
 		encoding: 'utf-8',
 		// stdin bleibt ohne TTY: das Setup läuft nicht-interaktiv, wie unter CI und in der CLI.
@@ -104,6 +106,16 @@ const IDENTITY = [
 ];
 
 const REQUIRED = ['--slug', 'northwind-labs', '--repo', 'northwind/northwind-labs'];
+
+/** Wie IDENTITY, aber ohne --brand und --company, damit deren Defaults greifen. */
+const IDENTITY_WITHOUT_COMPANY = [
+	'--operator',
+	'Anne Weber',
+	'--address',
+	'Hauptstrasse 5, 12345 Berlin',
+	'--email',
+	'kontakt@northwind-labs.de'
+];
 
 describe('template setup writes importable branding values', () => {
 	// Gewöhnliche Namen genügen: ein Apostroph reicht, um den erzeugten Code zu brechen.
@@ -328,6 +340,224 @@ describe('template setup rejects input before writing', () => {
 		expect(run.code).toBe(1);
 		expect(run.stderr).toMatch(expected);
 		expect(snapshot(dir)).toEqual(before);
+	});
+});
+
+describe('template setup recognizes a genuinely set up project', () => {
+	// Ein von Hand geänderter Package-Name oder githubSlug beweist keine Einrichtung:
+	// solange der Quick Start die gh-repo-create-Form trägt, bleibt --brand Pflicht.
+	it.each([
+		{
+			label: 'only the package name was renamed by hand',
+			mutate: (dir: string) => {
+				const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf-8'));
+				pkg.name = 'renamed-by-hand';
+				writeFileSync(join(dir, 'package.json'), JSON.stringify(pkg, null, '\t') + '\n', 'utf-8');
+			}
+		},
+		{
+			label: 'the package name and the githubSlug were edited by hand',
+			mutate: (dir: string) => {
+				const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf-8'));
+				pkg.name = 'renamed-by-hand';
+				writeFileSync(join(dir, 'package.json'), JSON.stringify(pkg, null, '\t') + '\n', 'utf-8');
+				const site = join(dir, 'src/lib/config/site.ts');
+				writeFileSync(
+					site,
+					readFileSync(site, 'utf-8').replace(
+						"githubSlug: 'stickerdaniel/saas-starter'",
+						"githubSlug: 'someone/edited-by-hand'"
+					),
+					'utf-8'
+				);
+			}
+		}
+	])('still demands --brand when $label', ({ mutate }) => {
+		const dir = createFixture();
+		mutate(dir);
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, ['--slug', 'renamed-by-hand', '--repo', 'northwind/northwind-labs']);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/Missing: --brand/);
+		expect(snapshot(dir)).toEqual(before);
+	});
+
+	it('stops demanding flags once the quick start names this repository', () => {
+		const dir = createFixture();
+		// Der Slug bleibt bewusst auf dem Template-Wert.
+		expect(
+			runSetup(dir, [
+				'--slug',
+				'saas-starter',
+				'--repo',
+				'northwind/northwind-labs',
+				'--brand',
+				'Northwind Labs',
+				...IDENTITY
+			]).code
+		).toBe(0);
+		const afterFirst = snapshot(dir);
+
+		const rerun = runSetup(dir, []);
+		expect(rerun.code, rerun.stderr).toBe(0);
+		expect(rerun.stderr).not.toMatch(/Missing:/);
+		expect(snapshot(dir)).toEqual(afterFirst);
+	});
+
+	it('leaves a CRLF README byte-identical on a re-run', () => {
+		const dir = createFixture();
+		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
+		const readme = join(dir, 'README.md');
+		writeFileSync(readme, readFileSync(readme, 'utf-8').replace(/\n/g, '\r\n'), 'utf-8');
+		const afterFirst = snapshot(dir);
+
+		const rerun = runSetup(dir, []);
+		expect(rerun.code, rerun.stderr).toBe(0);
+		expect(snapshot(dir)).toEqual(afterFirst);
+		expect(readFileSync(readme, 'utf-8')).toContain('\r\n');
+	});
+
+	it('keeps an existing empty company name instead of deriving one', () => {
+		const dir = createFixture();
+		const legal = join(dir, 'src/lib/config/legal.ts');
+		writeFileSync(
+			legal,
+			readFileSync(legal, 'utf-8').replace(/companyName: '[^']*'/, "companyName: ''"),
+			'utf-8'
+		);
+
+		expect(
+			runSetup(dir, [...REQUIRED, '--brand', 'Northwind', ...IDENTITY_WITHOUT_COMPANY]).code
+		).toBe(0);
+		const imported = importLegalConfig(dir);
+		expect(imported.code, imported.stderr).toBe(0);
+		expect(imported.value?.config.companyName).toBe('');
+		const afterFirst = snapshot(dir);
+
+		const rerun = runSetup(dir, []);
+		expect(rerun.code, rerun.stderr).toBe(0);
+		expect(snapshot(dir)).toEqual(afterFirst);
+	});
+
+	it('derives a company name only when the key is truly absent', () => {
+		const dir = createFixture();
+		const legal = join(dir, 'src/lib/config/legal.ts');
+		writeFileSync(
+			legal,
+			readFileSync(legal, 'utf-8').replace(/\tcompanyName: '[^']*',\n/, ''),
+			'utf-8'
+		);
+
+		expect(
+			runSetup(dir, [...REQUIRED, '--brand', 'Northwind', ...IDENTITY_WITHOUT_COMPANY]).code
+		).toBe(0);
+		const imported = importLegalConfig(dir);
+		expect(imported.code, imported.stderr).toBe(0);
+		expect(imported.value?.config.companyName).toBe('Northwind Inc.');
+	});
+});
+
+describe('template setup keeps prose values on one line', () => {
+	const multiline = 'Northwind Labs\n\n## Injected Heading\n\nmore text';
+
+	// Brand und Operator werden roh in die Absätze von Privacy und Terms eingesetzt.
+	it.each([
+		{ flag: '--brand', expected: /brand must be a single line/ },
+		{ flag: '--operator', expected: /operator must be a single line/ }
+	])('rejects a multi-line $flag before writing', ({ flag, expected }) => {
+		const dir = createFixture();
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, flag, multiline]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(expected);
+		expect(snapshot(dir)).toEqual(before);
+	});
+
+	it('still accepts a multi-line address', () => {
+		const dir = createFixture();
+		const run = runSetup(dir, [
+			...REQUIRED,
+			...IDENTITY,
+			'--address',
+			'Hauptstrasse 5\n12345 Berlin\nDeutschland'
+		]);
+
+		expect(run.code, run.stderr).toBe(0);
+		const imported = importLegalConfig(dir);
+		expect(imported.code, imported.stderr).toBe(0);
+		expect(imported.value?.config.address).toBe('Hauptstrasse 5\n12345 Berlin\nDeutschland');
+	});
+});
+
+describe('template setup contact email end to end', () => {
+	it.each(['a@b@c.de', 'erste person@example.de', 'a@ex ample.de', 'a@example..de'])(
+		'rejects %s before writing',
+		(value) => {
+			const dir = createFixture();
+			const before = snapshot(dir);
+
+			const run = runSetup(dir, [...REQUIRED, ...IDENTITY.slice(0, 6), '--email', value]);
+			expect(run.code).toBe(1);
+			expect(run.stderr).toMatch(/email must match user@domain\.tld pattern/);
+			expect(snapshot(dir)).toEqual(before);
+		}
+	);
+
+	it('keeps a subdomain address split into three parts', () => {
+		const dir = createFixture();
+		expect(
+			runSetup(dir, [...REQUIRED, ...IDENTITY.slice(0, 6), '--email', 'a@mail.example.com']).code
+		).toBe(0);
+
+		const imported = importLegalConfig(dir);
+		expect(imported.code, imported.stderr).toBe(0);
+		expect(imported.value?.config.email).toEqual({
+			user: 'a',
+			domain: 'mail',
+			tld: 'example.com'
+		});
+		expect(imported.value?.mailto).toBe('a@mail.example.com');
+	});
+});
+
+/**
+ * Gemessen, nicht angenommen: nur wenn ein echter Schreibversuch auf eine 0444-Datei
+ * scheitert, prüft der folgende Test überhaupt eine Schreibverweigerung. Als root
+ * bleibt der Fall unbeobachtbar und der Test meldet das, statt Erfolg zu behaupten.
+ */
+const writeDenialEnforced = (() => {
+	const dir = mkdtempSync(join(tmpdir(), 'template-setup-wperm-'));
+	fixtures.push(dir);
+	const probe = join(dir, 'probe.txt');
+	writeFileSync(probe, 'x', 'utf-8');
+	chmodSync(probe, 0o444);
+	try {
+		writeFileSync(probe, 'y', 'utf-8');
+		return false;
+	} catch {
+		return true;
+	} finally {
+		chmodSync(probe, 0o644);
+	}
+})();
+
+describe('template setup checks write access before the first write', () => {
+	it.skipIf(!writeDenialEnforced)('writes nothing when a planned output file is read-only', () => {
+		const dir = createFixture();
+		const readme = join(dir, 'README.md');
+		chmodSync(readme, 0o444);
+		const before = snapshot(dir);
+
+		try {
+			const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+			expect(run.code).toBe(1);
+			expect(run.stderr).toMatch(/Cannot write README\.md; check file permissions/);
+			expect(snapshot(dir)).toEqual(before);
+		} finally {
+			chmodSync(readme, 0o644);
+		}
 	});
 });
 
