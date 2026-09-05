@@ -19,6 +19,7 @@
 	import { slide } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
+	import { authPageURL } from '$lib/utils/url';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
@@ -34,6 +35,16 @@
 
 	// Get token directly from SvelteKit's page state
 	const token = $derived(page.url.searchParams.get('token'));
+
+	/**
+	 * Ziel neben dem Token, nicht hineingemischt. Ungeprüft; `authPageURL`
+	 * verengt es.
+	 *
+	 * Ein Href für Erfolgs- und Zurück-Link: beide führen zur selben Anmeldung.
+	 * Das Token bleibt draußen, es ist verbraucht und gehört in keinen Link.
+	 */
+	const rawDestination = $derived(page.url.searchParams.get('redirectTo') ?? '');
+	const signInHref = $derived(authPageURL(localizedHref('/signin'), rawDestination));
 
 	// Form data
 	let formData = $state({ password: '', confirmPassword: '' });
@@ -207,7 +218,11 @@
 									class="rounded-md bg-success/10 p-3 text-sm text-success"
 								>
 									<T keyName={message} />
-									<a href={resolve(localizedHref('/signin'))} class="underline">
+									<a
+										href={resolve(signInHref)}
+										data-testid="reset-password-signin-link"
+										class="underline"
+									>
 										<T keyName="auth.reset_password.sign_in_link" defaultValue="Sign in" />
 									</a>
 								</div>
@@ -281,7 +296,7 @@
 							</Field.Field>
 							<Field.Description class="text-center">
 								<a
-									href={resolve(localizedHref('/signin'))}
+									href={resolve(signInHref)}
 									data-testid="reset-password-back-link"
 									class="underline underline-offset-4"
 								>

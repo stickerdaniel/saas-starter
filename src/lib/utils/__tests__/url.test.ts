@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+	authPageURL,
+	callbackURLFor,
 	oauthErrorCallbackURL,
 	safeAuthDestination,
 	safeRedirectPath,
@@ -257,5 +259,102 @@ describe('safeAuthDestination', () => {
 		expect(safeAuthDestination('//evil.example/en/app', '/en/app')).toBe('/en/app');
 		expect(safeAuthDestination('https://evil.example/en/app', '/en/app')).toBe('/en/app');
 		expect(safeAuthDestination('', '/en/app')).toBe('/en/app');
+	});
+});
+
+describe('authPageURL', () => {
+	/** Das Ziel, wie die Seite am anderen Ende es zurückliest. */
+	function carried(url: string): string | null {
+		return new URL(url, 'https://redirect.invalid').searchParams.get('redirectTo');
+	}
+
+	it('hands a whole destination on to the next auth page', () => {
+		const url = authPageURL('/de/forgot-password', '/de/app/settings?tab=profile#section');
+
+		expect(url).toBe(
+			'/de/forgot-password?redirectTo=%2Fde%2Fapp%2Fsettings%3Ftab%3Dprofile%23section'
+		);
+		expect(carried(url)).toBe('/de/app/settings?tab=profile#section');
+	});
+
+	/**
+	 * Der Grund für das Wrapping: die Callback-Regel erlaubt kein `#`, ein Ziel mit
+	 * Fragment fällt also ganz weg. Im Query ist es `%23` und kommt durch.
+	 */
+	it('keeps a fragment the callback grammar would have cost', () => {
+		expect(callbackURLFor('/de/app/settings#section', '/de/app')).toBe('/de/app');
+
+		const url = authPageURL('/de/signin', '/de/app/settings#section');
+		expect(callbackURLFor(url, '/de/app')).toBe(url);
+		expect(carried(url)).toBe('/de/app/settings#section');
+	});
+
+	it.each(['en', 'de', 'es', 'fr'])('carries a %s destination', (lang) => {
+		const destination = `/${lang}/app/settings?tab=profile#section`;
+		const url = authPageURL(`/${lang}/forgot-password`, destination);
+
+		expect(url.startsWith(`/${lang}/forgot-password?redirectTo=`)).toBe(true);
+		expect(carried(url)).toBe(destination);
+	});
+
+	/**
+	 * Die sechs Zeichen, die `encodeURIComponent` roh lässt. Ungeschützt antwortet
+	 * Better Auth mit `403 INVALID_CALLBACK_URL` und reißt die Anfrage mit.
+	 */
+	it.each([
+		['!', '%21'],
+		["'", '%27'],
+		['(', '%28'],
+		[')', '%29'],
+		['*', '%2A'],
+		['~', '%7E']
+	])('escapes %s, which the callback grammar refuses', (character, escaped) => {
+		const destination = `/de/app/a${character}b`;
+		const url = authPageURL('/de/signin', destination);
+
+		expect(url).toBe(`/de/signin?redirectTo=%2Fde%2Fapp%2Fa${escaped}b`);
+		expect(url).not.toContain(character);
+		expect(callbackURLFor(url, '/de/app')).toBe(url);
+		expect(carried(url)).toBe(destination);
+	});
+
+	/**
+	 * Jede Seite der Kette baut den Link für die nächste aus dem gelesenen Wert.
+	 * Doppelt kodiert käme das Ziel als eigene Escape-Sequenz an.
+	 */
+	it('does not add a layer per page in the chain', () => {
+		const destination = '/de/app/settings?tab=profile#section';
+
+		const forgot = authPageURL('/de/forgot-password', destination);
+		const reset = authPageURL('/de/reset-password', carried(forgot)!);
+		const signin = authPageURL('/de/signin', carried(reset)!);
+
+		expect(carried(signin)).toBe(destination);
+		expect(signin).toBe(authPageURL('/de/signin', destination));
+	});
+
+	it('gives the bare page when there is nothing to carry', () => {
+		expect(authPageURL('/de/forgot-password', '')).toBe('/de/forgot-password');
+	});
+
+	// Dieselbe Whitelist wie eine echte Navigation: der Wert landet in einem Link
+	// und im Callback, auf den Better Auth weiterleitet.
+	it.each([
+		'//evil.com',
+		'/\\evil.com',
+		'http://evil.com',
+		'http:evil.com',
+		'javascript:alert(1)',
+		'/%2f%2fevil.com',
+		'//user:pass@redirect.invalid/x',
+		'/de/%zz',
+		'/de/app%0d%0aLocation:%20https://evil.test',
+		'/de/app\nLocation: https://evil.test',
+		'/app',
+		'/pricing',
+		'/favicon.ico',
+		'/zz/app'
+	])('drops %s rather than carry it', (hostile) => {
+		expect(authPageURL('/de/signin', hostile)).toBe('/de/signin');
 	});
 });

@@ -30,7 +30,7 @@
 		getVerificationErrorKey
 	} from '$lib/utils/auth-messages';
 	import {
-		callbackURLFor,
+		authPageURL,
 		oauthErrorCallbackURL,
 		safeAuthDestination,
 		verificationErrorIn
@@ -55,6 +55,18 @@
 	const oauthProviders = useQuery(api.auth.getAvailableOAuthProviders, {}, () => ({
 		initialData: data.oauthProviders
 	}));
+
+	/**
+	 * Ziel aus der Page-URL, nicht aus `params`: die Links unten gehören zum
+	 * ersten Paint, und `params` ist beim SSR leer.
+	 *
+	 * `requestedDestination` bleibt leer, wenn nichts Brauchbares ankam, damit die
+	 * Links den Parameter weglassen. `finalDestination` ist, wohin diese Seite
+	 * tatsächlich navigiert.
+	 */
+	const rawDestination = $derived(page.url.searchParams.get('redirectTo') ?? '');
+	const requestedDestination = $derived(safeAuthDestination(rawDestination, ''));
+	const finalDestination = $derived(requestedDestination || localizedHref('/app'));
 
 	// Passkey always available on signin, so alternative auth is always shown
 	const hasAlternativeAuth = true;
@@ -142,7 +154,7 @@
 	function redirectAfterAuthentication() {
 		if (authRedirectStarted) return;
 		authRedirectStarted = true;
-		window.location.href = safeAuthDestination(params.redirectTo, localizedHref('/app'));
+		window.location.href = finalDestination;
 	}
 
 	// Redirect when authenticated, unless the server kept this visitor here to
@@ -197,10 +209,12 @@
 					// rejected right here, and Better Auth mints the recovery
 					// verification link from this same field, defaulting it to `/` and
 					// dropping both the locale and the continuation with it.
-					callbackURL: callbackURLFor(
-						safeAuthDestination(params.redirectTo, localizedHref('/app')),
-						localizedHref('/app')
-					)
+					//
+					// Trägt das Ziel, statt es zu sein: die Callback-Grammatik erlaubt
+					// kein Fragment. Der Umweg kostet einen Redirect, weil ein
+					// angemeldeter Besucher hier direkt an `redirectTo` weitergereicht
+					// wird.
+					callbackURL: authPageURL(localizedHref('/signin'), finalDestination)
 				},
 				{
 					onError: (ctx) => {
@@ -237,13 +251,13 @@
 		try {
 			await authClient.signIn.social({
 				provider,
-				callbackURL: callbackURLFor(
-					safeAuthDestination(params.redirectTo, localizedHref('/app')),
-					localizedHref('/app')
-				),
+				callbackURL: authPageURL(localizedHref('/signin'), finalDestination),
 				// Without this the callback reports a failure to Better Auth's default
 				// error URL, which is the marketing homepage in production.
-				errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signin'), params.redirectTo)
+				//
+				// Bleibt beim rohen Wert: hier gilt absichtlich die weitere Prüfung,
+				// und die Seite verengt das Ziel beim Navigieren erneut.
+				errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signin'), rawDestination)
 			});
 		} catch (error) {
 			clearPendingOAuthProvider();
@@ -334,7 +348,7 @@
 					{hasAlternativeAuth}
 					{enabledProviderCount}
 					oauthProviders={oauthProviders.data}
-					redirectTo={params.redirectTo}
+					redirectTo={requestedDestination}
 					{termsLink}
 					{isLastUsedAuthMethod}
 					onSubmit={handleSignIn}

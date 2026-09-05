@@ -11,10 +11,15 @@ import { getPreviewBypass } from './utils/preview-bypass';
 // This test runs without auth state - tests unauthenticated behavior
 test.use({ storageState: { cookies: [], origins: [] } });
 
-// All gotos pin the locale to English: unprefixed paths are redirected by
+// All gotos pin the locale: unprefixed paths are redirected by
 // src/hooks.server.ts based on Accept-Language (see the precedent in
 // e2e/upgrade-checkout-failure.spec.ts), which would serve translated copy
 // on non-English runners.
+//
+// Überall Englisch außer im Recovery-Durchlauf unten, der bewusst Deutsch
+// festlegt: das Locale-Präfix gehört zu dem, was die Kette überleben muss, und
+// auf der Standardsprache sähen verlorenes und erhaltenes Präfix gleich aus.
+// Jener Test wählt über Test-IDs, die Übersetzung kostet ihn also nichts.
 
 import type { TestCredentials } from './utils/types';
 
@@ -245,10 +250,32 @@ test.describe('Reset Password', () => {
 		await expect(page).toHaveURL(/signin/);
 	});
 
-	test('resetting the password revokes other active sessions', async ({ page, playwright }) => {
+	/**
+	 * Cheaper layers rejected because: Hier versagt eine Kette echter Navigationen,
+	 * die keine billigere Schicht ausführt. Better Auths Redirect vom Reset-Link,
+	 * der Hook darauf und die folgende Anmeldung sind drei ausgelieferte Round
+	 * Trips, und geprüft wird die URL, auf der der Browser am Ende steht,
+	 * einschließlich Fragment: Browser-Zustand, kein Response-Body. Ein
+	 * Request-only-Spec erreicht das ebenfalls nicht, denn jeder Schritt läuft über
+	 * einen gerenderten Link, und genau ein gerenderter Link verlor das Ziel.
+	 *
+	 * Läuft auf dem Revocation-Setup mit, statt es zu wiederholen: Konto anlegen,
+	 * verifizieren und anmelden ist der größte Teil beider Kosten.
+	 */
+	test('recovering a password revokes other sessions and keeps the destination', async ({
+		page,
+		playwright
+	}) => {
 		const client = getConvexClient();
 		const siteUrl = resolveSiteUrl();
 		const bypass = getPreviewBypass();
+
+		// Tief, lokalisiert, mit Query und Fragment: das Fragment lehnt die
+		// Callback-Grammatik rundweg ab, und `tab=profile` kennt die Seite absichtlich
+		// nicht, damit jedes Neuberechnen statt Durchreichen auffällt.
+		const destination = '/de/app/settings?tab=profile#section';
+		const encodedDestination = encodeURIComponent(destination);
+		const resetCallback = `/de/reset-password?redirectTo=${encodedDestination}`;
 
 		// Dedicated user: resetting the shared test user's password would break other specs
 		const email = `test-reset-revoke-${Date.now()}@e2e.example.com`;
@@ -282,12 +309,46 @@ test.describe('Reset Password', () => {
 			const sessionBefore = await otherSession.get('/api/auth/get-session');
 			expect(await sessionBefore.json()).not.toBeNull();
 
-			// Request a reset token. Delivery is skipped for @e2e.example.com addresses,
-			// so the token is read from the backend's verification model instead.
-			const resetRequest = await otherSession.post('/api/auth/request-password-reset', {
-				data: { email, redirectTo: '/reset-password' }
+			// Start wie nach einem Gate: auf der Anmeldung, mit dem Ziel im Gepäck.
+			const signInPath = `/de/signin?redirectTo=${encodedDestination}`;
+
+			// Serverseitiges Markup, vor jedem Skript. Der hydrierte Href unten allein
+			// trennt die Fälle nicht: aus einem Browser-Cache gelesen bliebe er richtig,
+			// während der erste Paint das Ziel schon verloren hätte. `resolve` liefert
+			// beim SSR einen relativen Href, deshalb wird nur der Query geprüft.
+			const serverHtml = await (await page.request.get(signInPath)).text();
+			expect(serverHtml).toContain(`forgot-password?redirectTo=${encodedDestination}`);
+
+			await page.goto(signInPath);
+			await page.waitForLoadState('domcontentloaded');
+			const forgotLink = page.getByTestId('signin-forgot-password-link');
+			await expect(forgotLink).toHaveAttribute(
+				'href',
+				`/de/forgot-password?redirectTo=${encodedDestination}`
+			);
+
+			await forgotLink.click();
+			await expect(page).toHaveURL(`/de/forgot-password?redirectTo=${encodedDestination}`);
+
+			// Reset wie ein Nutzer anfordern und lesen, was die Seite wirklich sendet.
+			// Delivery is skipped for @e2e.example.com addresses, so the token is read
+			// from the backend's verification model instead of a mailbox.
+			await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
+			await page.getByTestId('forgot-password-email-input').fill(email);
+			const resetRequest = page.waitForRequest(
+				(request) =>
+					request.url().includes('/request-password-reset') && request.method() === 'POST'
+			);
+			await page.getByTestId('forgot-password-submit-button').click();
+			await expect(page.getByTestId('forgot-password-success-message')).toBeVisible({
+				timeout: 10000
 			});
-			expect(resetRequest.ok()).toBeTruthy();
+			// Die Reset-SEITE mit dem Ziel eine Ebene tiefer. Das Ziel selbst hier
+			// einzutragen hieße, ein gültiges Token daran zu hängen.
+			expect((await resetRequest).postDataJSON()).toMatchObject({
+				email,
+				redirectTo: resetCallback
+			});
 
 			const { token } = await client.mutation(api.tests.getPasswordResetToken, {
 				email,
@@ -295,9 +356,17 @@ test.describe('Reset Password', () => {
 			});
 			expect(token).toBeTruthy();
 
-			// Complete the reset through the UI in a fresh browser session
-			await page.goto(`/en/reset-password?token=${token}`);
+			// Der Link aus der Mail, keine selbst gebaute Reset-URL: an diesem Endpunkt
+			// entscheidet Better Auth, was das Formular bekommt.
+			await page.goto(
+				`/api/auth/reset-password/${token}?callbackURL=${encodeURIComponent(resetCallback)}`
+			);
 			await page.waitForLoadState('domcontentloaded');
+			const onResetForm = new URL(page.url());
+			expect(onResetForm.pathname).toBe('/de/reset-password');
+			expect(onResetForm.searchParams.get('token')).toBeTruthy();
+			expect(onResetForm.searchParams.get('redirectTo')).toBe(destination);
+
 			await expect(page.getByTestId('reset-password-password-input')).toBeEnabled({
 				timeout: 30000
 			});
@@ -311,6 +380,36 @@ test.describe('Reset Password', () => {
 			// revokeSessionsOnPasswordReset must have invalidated the other session
 			const sessionAfter = await otherSession.get('/api/auth/get-session');
 			expect(await sessionAfter.json()).toBeNull();
+
+			// Das Angebot der Erfolgsmeldung, die letzte Stelle, an der das Ziel
+			// verloren gehen kann. Das verbrauchte Token bleibt zurück.
+			const signInLink = page.getByTestId('reset-password-signin-link');
+			await expect(signInLink).toHaveAttribute(
+				'href',
+				`/de/signin?redirectTo=${encodedDestination}`
+			);
+			await signInLink.click();
+			await expect(page).toHaveURL(`/de/signin?redirectTo=${encodedDestination}`);
+
+			await expect(page.getByTestId('email-input')).toBeEnabled({ timeout: 30000 });
+			await page.getByTestId('email-input').fill(email);
+			await page.getByTestId('password-input').fill(newPassword);
+			const signInSubmission = page.waitForRequest(
+				(request) => request.url().includes('/sign-in/email') && request.method() === 'POST'
+			);
+			await page.getByTestId('signin-button').click();
+
+			// Better Auth liest dieses Feld zweimal; auf dem Ablehnungspfad wird daraus
+			// der Recovery-Link. Es trägt das Ziel, statt es zu sein, weil die geprüfte
+			// Grammatik kein Fragment erlaubt. Feldweise gelesen, damit ein Fehlschlag
+			// nie den Body mit dem Passwort ausgibt.
+			const signInBody = (await signInSubmission).postDataJSON();
+			expect(signInBody.email).toBe(email);
+			expect(signInBody.callbackURL).toBe(`/de/signin?redirectTo=${encodedDestination}`);
+
+			await expect(page).toHaveURL(destination, { timeout: 30000 });
+			const landed = new URL(page.url());
+			expect(`${landed.pathname}${landed.search}${landed.hash}`).toBe(destination);
 		} finally {
 			await otherSession.dispose();
 			await client
