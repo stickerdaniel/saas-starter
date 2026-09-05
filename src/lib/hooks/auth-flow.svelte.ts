@@ -1,4 +1,4 @@
-import { Context } from 'runed';
+import { createContext } from 'svelte';
 
 /**
  * Shared email state across auth pages (sign-in, sign-up, forgot-password)
@@ -11,4 +11,5 @@ export class AuthFlowManager {
 	email = $state('');
 }
 
-export const authFlowContext = new Context<AuthFlowManager>('auth-flow');
+const [get, set] = createContext<AuthFlowManager>();
+export const authFlowContext = { get, set };

@@ -24,7 +24,7 @@
 	import { api } from '$lib/convex/_generated/api.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { toast } from 'svelte-sonner';
-	import { setContext } from 'svelte';
+	import { setUserActionHandler } from './user-actions-context';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
 	import type { PageData } from './$types';
 	import { type UserRole, type AdminUserData } from '$lib/convex/admin/types';
@@ -213,7 +213,7 @@
 	let isActionLoading = $state(false);
 
 	// Provide context for action component (currentUserId is set by admin layout)
-	setContext('onUserAction', handleUserAction);
+	setUserActionHandler(handleUserAction);
 
 	// Calculate skeleton rows: min(knownCount - offset, pageSize) or pageSize if unknown
 	const skeletonCount = $derived.by(() => {

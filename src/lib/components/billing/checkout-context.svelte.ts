@@ -1,4 +1,4 @@
-import { Context } from 'runed';
+import { createContext } from 'svelte';
 import type { AttachResult, CheckoutResult } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 import {
 	getAttachCheckoutUrl,
@@ -255,12 +255,12 @@ export class BillingCheckoutManager {
 	}
 }
 
-const billingCheckoutContext = new Context<BillingCheckoutManager>('billing-checkout');
+const [getBillingCheckout, setBillingCheckout] = createContext<BillingCheckoutManager>();
 
 export function setBillingCheckoutContext(deps: BillingCheckoutDeps): BillingCheckoutManager {
-	return billingCheckoutContext.set(new BillingCheckoutManager(deps));
+	return setBillingCheckout(new BillingCheckoutManager(deps));
 }
 
 export function useBillingCheckout(): BillingCheckoutManager {
-	return billingCheckoutContext.get();
+	return getBillingCheckout();
 }
