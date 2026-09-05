@@ -9,6 +9,7 @@ import type { GenericMutationCtx } from 'convex/server';
 import { passkey } from '@better-auth/passkey';
 import { admin } from 'better-auth/plugins/admin';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
+import { createAuthMiddleware } from 'better-auth/api';
 import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
 import { requireEnv, googleOAuth, githubOAuth } from './env';
@@ -360,6 +361,12 @@ function buildTrustedOrigins(): string[] {
 	}
 }
 
+// Das Convex-Plugin liefert das öffentliche Schlüsselset unter genau diesem
+// Pfad. Nur diese Antwort bekommt die kurze Cache-Policy; alle anderen
+// Auth-Endpunkte behalten ihre jeweils eigene.
+const JWKS_PATH = '/convex/jwks';
+const JWKS_CACHE_CONTROL = 'public, max-age=60, must-revalidate';
+
 // Creates Better Auth options object (used by adapter and betterAuth CLI).
 // Typed via `satisfies` (not a return annotation) so the concrete plugin
 // types survive into createAuth — admin/mutations.ts calls plugin endpoints
@@ -441,6 +448,23 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 				clientId: githubOAuth.clientId as string,
 				clientSecret: githubOAuth.clientSecret as string
 			}
+		},
+		hooks: {
+			// Das Schlüsselset ist für jeden Aufrufer identisch, deshalb darf der
+			// Consumer seinen eigenen HTTP-Cache nutzen statt vor jeder Verifikation
+			// neu zu laden. Die 60 Sekunden begrenzen die normale Frische einer
+			// Kopie und sind keine Widerrufsfrist: ein frisch rotierter `kid` bleibt
+			// bis zum nächsten erfolgreichen Refetch abgewiesen, und ein Consumer
+			// mit anhaltenden 5xx durfte seine alte Kopie schon bisher unbegrenzt
+			// weiterverwenden. Nur die erfolgreiche Antwort trägt das `keys`-Array,
+			// die Fehlerform des Dispatchers nicht.
+			after: createAuthMiddleware(async (ctx) => {
+				if (ctx.path !== JWKS_PATH || ctx.method !== 'GET') return;
+				const returned = ctx.context.returned;
+				if (typeof returned !== 'object' || returned === null) return;
+				if (!Array.isArray((returned as { keys?: unknown }).keys)) return;
+				ctx.setHeader('Cache-Control', JWKS_CACHE_CONTROL);
+			})
 		},
 		plugins: [
 			// The Convex plugin is required for Convex compatibility
