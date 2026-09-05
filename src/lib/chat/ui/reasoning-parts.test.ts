@@ -91,11 +91,16 @@ describe('reasoning keys', () => {
 		const live = [
 			{ type: 'step-start' },
 			{ type: 'reasoning', text: 'First', id: 'r-first' },
+			{ type: 'tool-lookup', toolCallId: 't1', state: 'output-available' },
 			{ type: 'step-start' },
 			{ type: 'reasoning', text: 'Second', id: 'r-second' }
 		] as MessagePart[];
+		// Measured against `toUIMessages`: the persisted copy drops the ids and opens
+		// its step before the tool call instead of before the thought.
 		const persisted = [
 			{ type: 'reasoning', text: 'First' },
+			{ type: 'step-start' },
+			{ type: 'tool-lookup', toolCallId: 't1', state: 'output-available' },
 			{ type: 'reasoning', text: 'Second' }
 		] as MessagePart[];
 

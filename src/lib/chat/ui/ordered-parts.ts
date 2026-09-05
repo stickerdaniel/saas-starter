@@ -30,6 +30,16 @@ export type OrderedPart =
  * `step-start` returns `[]` and the caller keeps the connecting fallback mounted instead
  * of rendering an empty list.
  */
+function toolPartKey(
+	toolCallId: string | undefined,
+	streamId: string | undefined,
+	index: number
+): string {
+	if (toolCallId) return `tool-call-${toolCallId}`;
+	if (streamId) return `tool-stream-${streamId}`;
+	return `tool-index-${index}`;
+}
+
 export function deriveOrderedParts(
 	parts: MessagePart[] | undefined,
 	status: MessageStatus
@@ -74,10 +84,14 @@ export function deriveOrderedParts(
 						toolCallId: (p as { toolCallId?: string }).toolCallId,
 						errorText: (p as { errorText?: string }).errorText
 					},
-					key:
-						(p as { toolCallId?: string }).toolCallId ??
-						(p as { streamId?: string }).streamId ??
-						`tool-${idx}`
+					// Every kind prefixes its own key, because all of them are siblings in one
+					// keyed block. A raw tool call id shares that namespace with the reasoning
+					// and text keys, and the provider decides what it contains.
+					key: toolPartKey(
+						(p as { toolCallId?: string }).toolCallId,
+						(p as { streamId?: string }).streamId,
+						idx
+					)
 				};
 			}
 			return null;
