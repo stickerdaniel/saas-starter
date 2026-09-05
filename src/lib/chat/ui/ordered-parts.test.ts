@@ -94,7 +94,10 @@ describe('deriveOrderedParts', () => {
 
 	it('does not replay settled text after a new step starts', () => {
 		const result = deriveOrderedParts(
-			[{ type: 'text', text: 'finished first step' }, { type: 'step-start' }] as MessagePart[],
+			[
+				{ type: 'text', text: 'finished first step', state: 'done' },
+				{ type: 'step-start' }
+			] as MessagePart[],
 			'streaming'
 		);
 
