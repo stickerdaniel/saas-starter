@@ -11,10 +11,15 @@
  * second reveal runs under. And an unwatched `updateCallbackDone` turns a
  * failed theme update into a page-level unhandled rejection while hiding the
  * error itself.
+ *
+ * The first of those four spans two files and neither half reaches jsdom, so the
+ * last describe pins both from parsed source instead of from searched text.
  */
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { parse, type AST } from 'svelte/compiler';
+import ts from 'typescript';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { startThemeReveal } from './theme-reveal';
 
@@ -264,18 +269,111 @@ describe('theme reveal', () => {
 	});
 });
 
-describe('root layout ModeWatcher', () => {
-	it('runs mode changes synchronously', () => {
-		const layout = readFileSync(
-			join(import.meta.dirname, '../../../../routes/+layout.svelte'),
-			'utf8'
-		);
-		const tag = /<ModeWatcher\b[^>]*>/.exec(layout)?.[0];
+/** The rendered `<ModeWatcher>`. A tag left in a comment is `Comment` data, not an element. */
+function findModeWatcher(node: unknown, seen = new Set<object>()): AST.Component | undefined {
+	if (node === null || typeof node !== 'object' || seen.has(node)) return undefined;
+	seen.add(node);
+	const candidate = node as Partial<AST.Component>;
+	if (candidate.type === 'Component' && candidate.name === 'ModeWatcher')
+		return node as AST.Component;
+	for (const value of Object.values(node)) {
+		const found = findModeWatcher(value, seen);
+		if (found) return found;
+	}
+	return undefined;
+}
 
-		expect(tag, 'the root layout has to render <ModeWatcher>').toBeDefined();
+/**
+ * Whether that `<ModeWatcher>` sets `synchronousModeChanges` to a literal true.
+ * A `{synchronousModeChanges}` binding carries whatever the script gives it.
+ */
+function changesModeSynchronously(template: string): boolean {
+	const prop = findModeWatcher(parse(template, { modern: true }).fragment)?.attributes.find(
+		(attribute): attribute is AST.Attribute =>
+			attribute.type === 'Attribute' && attribute.name === 'synchronousModeChanges'
+	);
+	if (prop?.value === true) return true;
+	const value = prop && !Array.isArray(prop.value) ? prop.value.expression : undefined;
+	return value?.type === 'Literal' && value.value === true;
+}
+
+/** The inline callback handed to `document.startViewTransition`, if there is one. */
+function updateCallback(file: ts.SourceFile): ts.ArrowFunction | undefined {
+	let found: ts.ArrowFunction | undefined;
+	const visit = (node: ts.Node): void => {
+		if (
+			ts.isCallExpression(node) &&
+			ts.isPropertyAccessExpression(node.expression) &&
+			node.expression.name.text === 'startViewTransition' &&
+			node.arguments[0] &&
+			ts.isArrowFunction(node.arguments[0])
+		) {
+			found ??= node.arguments[0];
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(file);
+	return found;
+}
+
+/** The position of a bare `name()` statement among `statements`, or -1. */
+const callIndex = (statements: ts.Statement[], name: string) =>
+	statements.findIndex(
+		(statement) =>
+			ts.isExpressionStatement(statement) &&
+			ts.isCallExpression(statement.expression) &&
+			ts.isIdentifier(statement.expression.expression) &&
+			statement.expression.expression.text === name
+	);
+
+/**
+ * Whether the update callback reaches `flushSync()` after `applyTheme()` on its
+ * own top level, cut at the first jump. A nested or branched call is not on it.
+ */
+function flushesAfterApplyTheme(source: string): boolean {
+	const body = updateCallback(
+		ts.createSourceFile('reveal.ts', source, ts.ScriptTarget.Latest, true)
+	)?.body;
+	if (!body || !ts.isBlock(body)) return false;
+	const jump = body.statements.findIndex(
+		(node) => ts.isReturnStatement(node) || ts.isThrowStatement(node)
+	);
+	const direct = [...body.statements].slice(0, jump === -1 ? undefined : jump);
+	const applied = callIndex(direct, 'applyTheme');
+	return applied !== -1 && callIndex(direct, 'flushSync') > applied;
+}
+
+describe('theme reveal source', () => {
+	const read = (file: string) => readFileSync(join(import.meta.dirname, file), 'utf8');
+
+	it('renders a root-layout <ModeWatcher> that changes mode synchronously', () => {
 		expect(
-			/\bsynchronousModeChanges\b(?!\s*=\s*\{false\})/.test(tag ?? ''),
-			'<ModeWatcher> needs `synchronousModeChanges`: without it mode-watcher defers the root class write to a requestAnimationFrame, which lands after the theme toggle has returned from its view-transition update callback, so the captured snapshot still shows the old theme'
+			changesModeSynchronously(read('../../../../routes/+layout.svelte')),
+			'<ModeWatcher> needs a literally true `synchronousModeChanges`: without it mode-watcher defers the root class write to a requestAnimationFrame, which lands after the theme toggle has returned from its view-transition update callback, so the captured snapshot still shows the old theme'
 		).toBe(true);
+	});
+
+	it('flushes the theme write before the update callback returns', () => {
+		expect(
+			flushesAfterApplyTheme(read('./theme-reveal.ts')),
+			"the update callback has to reach `flushSync()` after `applyTheme()`: the browser captures the incoming snapshot the moment this callback returns, and until the flush mode-watcher's root class write is still sitting in Svelte's queue"
+		).toBe(true);
+	});
+
+	it('reads past a commented, bare, or runtime-bound <ModeWatcher>', () => {
+		const commented = '<!-- <ModeWatcher synchronousModeChanges /> -->';
+		expect(changesModeSynchronously(commented)).toBe(false);
+		expect(changesModeSynchronously(`${commented}\n<ModeWatcher />`)).toBe(false);
+		expect(changesModeSynchronously('<ModeWatcher {synchronousModeChanges} />')).toBe(false);
+		expect(changesModeSynchronously('<ModeWatcher synchronousModeChanges={true} />')).toBe(true);
+	});
+
+	it('reads past a missing, early, or nested flush', () => {
+		const callback = (body: string) => `document.startViewTransition(() => {\n${body}\n});`;
+		expect(flushesAfterApplyTheme(callback('applyTheme();'))).toBe(false);
+		expect(flushesAfterApplyTheme(callback('flushSync();\napplyTheme();'))).toBe(false);
+		const nested = 'applyTheme();\nqueueMicrotask(() => flushSync());';
+		expect(flushesAfterApplyTheme(callback(nested))).toBe(false);
+		expect(flushesAfterApplyTheme(callback('applyTheme();\nflushSync();'))).toBe(true);
 	});
 });
