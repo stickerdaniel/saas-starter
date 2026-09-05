@@ -189,7 +189,7 @@
 
 <div bind:this={wrapperEl} class="relative h-full {className}">
 	<ChatContainerRoot ctx={chatCtx} class="h-full">
-		<ChatContainerContent class="!h-full">
+		<ChatContainerContent>
 			{#if ctx.displayMessages.length === 0}
 				<!-- Empty state -->
 				{#if emptyState}
