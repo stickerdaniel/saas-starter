@@ -148,8 +148,15 @@ function getReasoningPartId(part: UIMessage['parts'][number]): string | undefine
 	return typeof id === 'string' ? id : undefined;
 }
 
+/**
+ * A tool call in either of the two type spellings the AI SDK uses: a statically
+ * named `tool-<name>` and the `dynamic-tool` a runtime-registered tool produces
+ * (measured). Both carry the `toolCallId` that identifies the call across the
+ * two views, so both have to be matched by it rather than appended twice.
+ */
 function isToolUIPart(part: UIMessage['parts'][number]): boolean {
-	return part.type.startsWith('tool-') && typeof asRecord(part).toolCallId === 'string';
+	const named = part.type.startsWith('tool-') || part.type === 'dynamic-tool';
+	return named && typeof asRecord(part).toolCallId === 'string';
 }
 
 /**
@@ -722,6 +729,12 @@ function mergeMatchedParts(
 		// second live view that can be the newer one. The persisted reconstruction
 		// stamps `done` on everything it rebuilds, including a step still running
 		// (measured), and carries no id, which is what tells the two apart.
+		//
+		// Only reasoning is covered, because only reasoning carries that id: a live
+		// text part holds nothing but its type, text and state (measured), so a
+		// settled answer can still be handed back its streaming presentation for one
+		// frame. Separating the two would need the caller to say which view each side
+		// came from, which is issue #893 rather than another guess here.
 		merged.state = 'done';
 	}
 
@@ -785,11 +798,17 @@ function getToolCallId(part: UIMessage['parts'][number]) {
 	return isToolUIPart(part) ? (asRecord(part).toolCallId as string) : undefined;
 }
 
-/** The tool states that carry a result, after which the call cannot run again. */
-const TERMINAL_TOOL_STATES = new Set(['output-available', 'output-error']);
+/**
+ * The states that end a tool call. A denied call is as final as a returned or
+ * failed one: the AI SDK settles it there and the persisted reconstruction
+ * rebuilds it as a denial, so letting a lagging snapshot pull it back to
+ * `approval-requested` would ask the reader to decide something they already
+ * decided.
+ */
+const TERMINAL_TOOL_STATES = new Set(['output-available', 'output-error', 'output-denied']);
 
 function isSettledToolPart(part: UIMessage['parts'][number]): boolean {
-	if (!part.type.startsWith('tool-')) return false;
+	if (!isToolUIPart(part)) return false;
 	const state = asRecord(part).state;
 	return typeof state === 'string' && TERMINAL_TOOL_STATES.has(state);
 }

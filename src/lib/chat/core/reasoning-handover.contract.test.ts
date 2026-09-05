@@ -1,9 +1,18 @@
 // The reasoning merge exists because the two producers describe the same
-// response differently, so the shapes it merges are drawn here from the real
-// producers instead of written by hand: `readUIMessageStream` from the AI SDK
-// for the live snapshot, `toUIMessages` from the Convex agent for the persisted
-// copy. A hand-written pair is a claim about those packages, and this file is
-// what turns the claim into something an upgrade can fail.
+// response differently, so the shapes it merges come from the real producers
+// here rather than from hand-written parts: `readUIMessageStream` from the AI
+// SDK for the live snapshot, `toUIMessages` from the Convex agent for the
+// persisted copy. A hand-written pair is a claim about those packages, and this
+// file is what turns the claim into something an upgrade can fail.
+//
+// The stored rows the persisted producer reads are the one hand-written input,
+// because the Convex agent does not export the serializer that writes them. The
+// two shapes a hand-written row gets wrong are pinned instead: a tool call
+// carries `input` and the deprecated `args`, and a tool result wraps its output
+// in a tagged `{ type, value }` envelope (both measured against the agent's
+// mapping). `toUIMessages` normalizes an untagged output, so a row that skipped
+// the envelope would stay green while exercising a legacy form the producer no
+// longer writes.
 
 import { describe, expect, it } from 'vitest';
 import { readUIMessageStream } from 'ai';
@@ -52,7 +61,7 @@ function responseRows(firstThought: string, secondThought: string) {
 				role: 'assistant',
 				content: [
 					{ type: 'reasoning', text: firstThought },
-					{ type: 'tool-call', toolCallId: 'call-1', toolName: 'lookup', input: {} }
+					{ type: 'tool-call', toolCallId: 'call-1', toolName: 'lookup', input: {}, args: {} }
 				]
 			}
 		},
@@ -67,7 +76,12 @@ function responseRows(firstThought: string, secondThought: string) {
 			message: {
 				role: 'tool',
 				content: [
-					{ type: 'tool-result', toolCallId: 'call-1', toolName: 'lookup', output: { ok: true } }
+					{
+						type: 'tool-result',
+						toolCallId: 'call-1',
+						toolName: 'lookup',
+						output: { type: 'json', value: { ok: true } }
+					}
 				]
 			}
 		},
