@@ -1,6 +1,7 @@
 {
 	"name": "saas-starter",
 	"version": "0.1.0",
+	"templateSetupVersion": 1,
 	"license": "MIT",
 	"type": "module",
 	"scripts": {
