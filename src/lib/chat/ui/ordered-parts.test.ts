@@ -35,7 +35,7 @@ describe('deriveOrderedParts', () => {
 		expect(result[0]).toMatchObject({ key: LEADING_REASONING_KEY });
 	});
 
-	it('keeps the real part key for a non-leading reasoning block', () => {
+	it('keys a non-leading reasoning block by its ordinal', () => {
 		const result = deriveOrderedParts(
 			[
 				{ type: 'reasoning', text: 'First', streamPartId: 'r1' },
@@ -46,7 +46,22 @@ describe('deriveOrderedParts', () => {
 		);
 		const reasoning = result.filter((p) => p.kind === 'reasoning');
 		expect(reasoning[0]).toMatchObject({ key: LEADING_REASONING_KEY });
-		expect(reasoning[1]).toMatchObject({ key: 'reasoning-r2' });
+		expect(reasoning[1]).toMatchObject({ key: 'reasoning-1' });
+	});
+
+	// The persisted copy of the same message carries no part ids and no step-start,
+	// so a key read off either would move when it takes over from the live snapshot.
+	it('keeps the reasoning keys when the ids and step boundaries are gone', () => {
+		const result = deriveOrderedParts(
+			[
+				{ type: 'reasoning', text: 'First' },
+				{ type: 'tool-getWeather', toolCallId: 't1', state: 'output-available' },
+				{ type: 'reasoning', text: 'Second' }
+			] as MessagePart[],
+			'success'
+		);
+		const reasoning = result.filter((p) => p.kind === 'reasoning');
+		expect(reasoning.map((p) => p.key)).toEqual([LEADING_REASONING_KEY, 'reasoning-1']);
 	});
 
 	it('marks the trailing reasoning part as streaming only while in progress', () => {

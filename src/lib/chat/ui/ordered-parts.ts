@@ -15,8 +15,8 @@ export { LEADING_REASONING_KEY };
  * `key` is both the Svelte `{#each}` identity and the suffix of the accordion open-state
  * key (`${message.id}:${key}`). The leading reasoning block keys to
  * {@link LEADING_REASONING_KEY} (see `getReasoningKey`), so it stays mounted and keeps its
- * open-state across the connecting → thinking transition; later reasoning blocks keep their
- * per-part key.
+ * open-state across the connecting → thinking transition; later reasoning blocks are keyed
+ * by their ordinal among the reasoning blocks, which survives the same transition.
  */
 export type OrderedPart =
 	| { kind: 'reasoning'; text: string; isStreaming: boolean; hasContent: boolean; key: string }
@@ -37,9 +37,9 @@ export function deriveOrderedParts(
 	const messageParts = parts ?? [];
 	const isMessageInProgress = status === 'pending' || status === 'streaming';
 	const activeReasoningIndex = getActiveStreamingReasoningIndex(messageParts, isMessageInProgress);
-	// Source, file and data parts annotate an open text stream; step-start, tools
-	// and unknown parts remain boundaries. The shared selector follows that AI
-	// SDK lifecycle for text and reasoning alike.
+	// Source, file and data parts annotate an open text stream and a step-start
+	// only opens the next step; tools and unknown parts remain boundaries. The
+	// shared selector follows that AI SDK lifecycle for text and reasoning alike.
 	const activePartIndex = getActiveStreamingPartIndex(messageParts, isMessageInProgress);
 	const activeTextIndex = messageParts[activePartIndex]?.type === 'text' ? activePartIndex : -1;
 

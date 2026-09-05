@@ -141,7 +141,7 @@ describe('syncReasoningAccordionState', () => {
 			controller
 		);
 		expect(openState.has('msg-1:reasoning-lead')).toBe(false);
-		expect(openState.has('msg-1:reasoning-reason-2')).toBe(true);
+		expect(openState.has('msg-1:reasoning-1')).toBe(true);
 
 		syncReasoningAccordionState(
 			[
@@ -157,7 +157,7 @@ describe('syncReasoningAccordionState', () => {
 			],
 			controller
 		);
-		expect(openState.has('msg-1:reasoning-reason-2')).toBe(false);
+		expect(openState.has('msg-1:reasoning-1')).toBe(false);
 
 		syncReasoningAccordionState(
 			[
@@ -174,8 +174,8 @@ describe('syncReasoningAccordionState', () => {
 			controller
 		);
 		expect(openState.has('msg-1:reasoning-lead')).toBe(false);
-		expect(openState.has('msg-1:reasoning-reason-2')).toBe(false);
-		expect(openState.has('msg-1:reasoning-reason-3')).toBe(true);
+		expect(openState.has('msg-1:reasoning-1')).toBe(false);
+		expect(openState.has('msg-1:reasoning-2')).toBe(true);
 	});
 
 	it('keeps the message-level fallback behavior for messages without parts', () => {
@@ -328,9 +328,9 @@ describe('syncReasoningAccordionState', () => {
 			controller
 		);
 
-		// reason-1 should stay as user left it (closed), reason-2 should auto-open
+		// The first block stays as the user left it (closed), the second auto-opens
 		expect(openState.has('msg-1:reasoning-lead')).toBe(false);
-		expect(openState.has('msg-1:reasoning-reason-2')).toBe(true);
+		expect(openState.has('msg-1:reasoning-1')).toBe(true);
 	});
 
 	it('removes stale userToggled keys when reasoning parts disappear', () => {
