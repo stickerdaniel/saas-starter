@@ -65,6 +65,8 @@ For reviews and audits, fetch and inspect `origin/main` rather than the shared m
 
 Open PRs as drafts because ready PRs can auto-merge. Mark a PR ready only after all follow-up work is done, then run `gh pr merge <n> --squash --auto` without `--delete-branch`: the repository deletes merged branches itself, which lets GitHub retarget the next stacked PR onto the merged base. An explicit `--delete-branch` deletes the branch outside the merge flow and force-closes dependent stacked PRs instead. After each merge in a stack, rebase the retargeted PR onto the new base before merging it.
 
+That squash-and-auto flow is the only way the production branch moves, and only from a PR whose required checks pass on its current head. Update an out-of-date branch first and then wait for every required check again, because the passing ones ran against a different tree. Never merge with `--admin` and never push to the production branch directly. What the pre-merge checks certify is the tree the server ran them against rather than the squash commit the merge then creates; checks that run after the push see that squash commit themselves. The branch protection behind this is a GitHub setting rather than anything this repository can enforce.
+
 Except for truly small UI-only or docs-only changes, monitor the branch through green required CI, merge it, and verify a green production deployment. If a required check fails, read its provider logs and guide it to green; never override an unexplained failure.
 
 ### Commit messages

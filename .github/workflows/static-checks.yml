@@ -23,12 +23,37 @@ jobs:
           # convex-consumer-compat compares against a baseline commit, which a
           # shallow checkout cannot resolve.
           fetch-depth: 0
+      - name: Record checkout identity
+        run: |
+          {
+            echo "### Checkout identity"
+            echo
+            echo "- expected: \`$GITHUB_SHA\`"
+            echo "- commit: \`$(git rev-parse HEAD)\`"
+            echo "- tree: \`$(git rev-parse 'HEAD^{tree}')\`"
+            echo "- parents: \`$(git rev-parse 'HEAD^@' | tr '\n' ' ')\`"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: 'stable'
       - run: go install github.com/client9/misspell/cmd/misspell@latest
       - run: bun install
+      - name: Assert source identity after install
+        run: |
+          head="$(git rev-parse HEAD)"
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "Source identity lost: HEAD is $head, the event commit is $GITHUB_SHA." >&2
+            exit 1
+          fi
+          status="$(git status --porcelain=v1 --untracked-files=all)"
+          if [ -n "$status" ]; then
+            echo "Source identity lost: the working tree no longer matches $GITHUB_SHA." >&2
+            printf '%s\n' "$status" >&2
+            echo "Commit the regenerated file, or ignore it when it is build output." >&2
+            exit 1
+          fi
       - run: bun scripts/static-checks.ts --ci --scope lint
       # Refuses to remove a Convex function that deployed app code still calls
       # (see https://github.com/stickerdaniel/saas-starter/issues/789). The PR run
@@ -41,6 +66,20 @@ jobs:
       - run: bun run check:convex-compat
         env:
           CONVEX_COMPAT_BASE: ${{ github.event_name == 'push' && github.event.before || '' }}
+      - name: Assert source identity after checks
+        run: |
+          head="$(git rev-parse HEAD)"
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "Source identity lost: HEAD is $head, the event commit is $GITHUB_SHA." >&2
+            exit 1
+          fi
+          status="$(git status --porcelain=v1 --untracked-files=all)"
+          if [ -n "$status" ]; then
+            echo "Source identity lost: the working tree no longer matches $GITHUB_SHA." >&2
+            printf '%s\n' "$status" >&2
+            echo "Commit the regenerated file, or ignore it when it is build output." >&2
+            exit 1
+          fi
 
   typecheck:
     name: Type Check

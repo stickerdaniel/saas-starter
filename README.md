@@ -200,7 +200,9 @@ Set the required platform and Convex production variables listed in the [environ
 
 ### Deploy
 
-Push to your production branch (default: `main`) and the connected platform deploys automatically, or trigger a manual deploy:
+Merge a reviewed pull request into your production branch (default: `main`) and the connected platform deploys the resulting push. Deployment is push-driven, so whatever the merge puts on that branch becomes the production build. Keeping review in that path is a maintainer procedure; what branch protection enforces is the narrower technical half described under [Preview Deployments](#preview-deployments), that a pull request's required checks passed against an up-to-date branch. Verify or configure those settings separately for each fork, since they live in GitHub rather than in this repository and an organization rule may already supply some of them.
+
+Each supported platform also has a manual deploy:
 
 **Cloudflare Workers:**
 
