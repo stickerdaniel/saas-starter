@@ -1,4 +1,4 @@
-import type { TFnType, DefaultParamType, TranslationKey } from '@tolgee/web';
+import type { TFnType, DefaultParamType, TranslationKey } from '@tolgee/svelte';
 
 /**
  * Type alias for Tolgee's translate function
