@@ -9,14 +9,14 @@
 	"dependencyDashboardOSVVulnerabilitySummary": "all",
 	"dependencyDashboardHeader": "This issue lists Renovate updates and detected dependencies. Read the [Dependency Dashboard](https://docs.renovatebot.com/key-concepts/dashboard/) docs to learn more.\n\nAn advisory listed without a pull request has no fixed release Renovate can reach, and this list carries no severity for it. Open its OSV record before ranking it against the others.",
 	"vulnerabilityAlerts": {
-		"description": "Keep GitHub's advisory feed as a second source beside osvVulnerabilityAlerts, on its own schedule so a fix never waits for Monday. It is the source that still sees a scoped package whose OSV record encodes the scope separator as %2F, which Renovate's offline database looks up under a different spelling and never finds; GitHub matches on the package name and never compares a purl at all. This depends on a setting that is not in this file: Dependabot alerts have to be enabled on the repository, or the block is inert and OSV is the only source again.",
+		"description": "GitHub-Advisories ergänzen OSV unabhängig vom regulären Update-Zeitplan. Dafür müssen Dependabot-Alerts im Repository aktiviert sein. Der zweite Feed garantiert keine Abdeckung der OSV-Lücken: Ein Paket im Dependency Graph und ein passender Advisory-Versionsbereich reichen nicht als Nachweis, dass GitHub tatsächlich einen Alert erzeugt.",
 		"enabled": true,
 		"labels": ["security"],
 		"schedule": ["at any time"]
 	},
 	"packageRules": [
 		{
-			"description": "Pin the versions this manifest resolves itself, both its runtime dependencies and its overrides. A range wide enough to span a security fix hides a lockfile sitting below it: GitHub's dependency graph does not read bun.lock, and Renovate's bun manager attaches the lockfile without parsing it, so it never learns a locked version either. osvVulnerabilityAlerts then evaluates the newest version the range allows and correctly reports nothing. Pinning removes the gap rather than reporting it, and config:best-practices already pins devDependencies for the same reason. Pinning reaches the declared half and only the declared half: a package that exists nowhere but bun.lock is never extracted, so OSV cannot see it and no pin can reach it. Even inside that half OSV is not the whole answer. Renovate's offline database keeps an advisory only when its purl matches the string Renovate builds itself, `pkg:npm/%40scope/name`, and 1042 of the 17582 scoped npm packages in today's snapshot have a record spelled `pkg:npm/%40scope%2Fname`, which is dropped without a word. `@better-auth/oauth-provider` is one of them, and 95 packages carry records in both spellings, so a package is not safe merely because one of its advisories matched. GitHub finds a package by name and never performs that comparison, which is why vulnerabilityAlerts stays enabled above as a second source. `bun audit` does read the lockfile and currently reports advisories on transitive packages neither source can cover.",
+			"description": "Direkte Dependencies und Overrides werden gepinnt, weil Renovates Bun-Manager die tatsächlich installierten Versionen aus bun.lock nicht ausliest. Ein Versionsbereich kann eine behobene Version erlauben, während das Lockfile noch eine verwundbare enthält. Pinning hilft nur bei im Manifest deklarierten Paketen. Ausschließlich transitive Lockfile-Einträge fehlen weiterhin. Zusätzlich können unterschiedliche purl-Schreibweisen für Scoped-Pakete den OSV-Abgleich verhindern. Der GitHub-Feed bleibt als weitere Quelle aktiv, seine Abdeckung dieser Fälle ist jedoch nicht nachgewiesen. bun audit liest das Lockfile und ergänzt die Prüfung transitiver Pakete.",
 			"matchDepTypes": ["dependencies", "overrides"],
 			"rangeStrategy": "pin"
 		},
@@ -137,7 +137,7 @@
 			"abandonmentThreshold": "10 years"
 		},
 		{
-			"description": "Keep the pin conversion out of the upgrade groups. They list pin next to minor and patch, so the one-off conversion would join a branch that stays open for weeks, and until that branch merges the ranges it converts are still on main and still invisible to the advisory scan. The two ecosystem families get their own pin branches below rather than this one, for a different reason.",
+			"description": "Pin-Updates bleiben außerhalb der regulären Upgrade-Gruppen, damit eine verzögerte Gruppenaktualisierung nicht auch das Pinning aufhält. Solange Versionsbereiche im Manifest stehen, kann der OSV-Abgleich die installierte verwundbare Version weiterhin übersehen. Die beiden Ökosystem-Gruppen erhalten eigene Pin-Branches.",
 			"matchUpdateTypes": ["pin"],
 			"matchPackageNames": [
 				"!/^better-auth$/",
