@@ -15,8 +15,8 @@ export { LEADING_REASONING_KEY };
  * `key` is both the Svelte `{#each}` identity and the suffix of the accordion open-state
  * key (`${message.id}:${key}`). The leading reasoning block keys to
  * {@link LEADING_REASONING_KEY} (see `getReasoningKey`), so it stays mounted and keeps its
- * open-state across the connecting → thinking transition; later reasoning blocks keep their
- * per-part key.
+ * open-state across the connecting → thinking transition; later reasoning blocks are keyed
+ * by their ordinal among the reasoning blocks, which survives the same transition.
  */
 export type OrderedPart =
 	| { kind: 'reasoning'; text: string; isStreaming: boolean; hasContent: boolean; key: string }
@@ -30,6 +30,31 @@ export type OrderedPart =
  * `step-start` returns `[]` and the caller keeps the connecting fallback mounted instead
  * of rendering an empty list.
  */
+/**
+ * How many parts of `type` come before `index`. The array position itself cannot
+ * key a part, because the views of one message place their `step-start` parts
+ * differently: the live stream opens a step before each thought, the persisted
+ * row before each tool call (measured), so the same answer sits at a different
+ * index in each and a keyed block would remount it mid-handover.
+ */
+function ordinalAmongType(parts: MessagePart[], index: number, type: string): number {
+	let ordinal = 0;
+	for (let before = 0; before < index; before += 1) {
+		if (parts[before]?.type === type) ordinal += 1;
+	}
+	return ordinal;
+}
+
+function toolPartKey(
+	toolCallId: string | undefined,
+	streamId: string | undefined,
+	index: number
+): string {
+	if (toolCallId) return `tool-call-${toolCallId}`;
+	if (streamId) return `tool-stream-${streamId}`;
+	return `tool-index-${index}`;
+}
+
 export function deriveOrderedParts(
 	parts: MessagePart[] | undefined,
 	status: MessageStatus
@@ -37,9 +62,9 @@ export function deriveOrderedParts(
 	const messageParts = parts ?? [];
 	const isMessageInProgress = status === 'pending' || status === 'streaming';
 	const activeReasoningIndex = getActiveStreamingReasoningIndex(messageParts, isMessageInProgress);
-	// Source, file and data parts annotate an open text stream; step-start, tools
-	// and unknown parts remain boundaries. The shared selector follows that AI
-	// SDK lifecycle for text and reasoning alike.
+	// Source, file and data parts annotate an open text stream and a step-start
+	// only opens the next step; tools and unknown parts remain boundaries. The
+	// shared selector follows that AI SDK lifecycle for text and reasoning alike.
 	const activePartIndex = getActiveStreamingPartIndex(messageParts, isMessageInProgress);
 	const activeTextIndex = messageParts[activePartIndex]?.type === 'text' ? activePartIndex : -1;
 
@@ -60,7 +85,7 @@ export function deriveOrderedParts(
 					kind: 'text',
 					text: (p as { text?: string }).text ?? '',
 					isStreaming: idx === activeTextIndex,
-					key: `text-${idx}`
+					key: `text-${ordinalAmongType(messageParts, idx, 'text')}`
 				};
 			}
 			if (typeof p.type === 'string' && p.type.startsWith('tool-') && 'state' in p) {
@@ -74,10 +99,14 @@ export function deriveOrderedParts(
 						toolCallId: (p as { toolCallId?: string }).toolCallId,
 						errorText: (p as { errorText?: string }).errorText
 					},
-					key:
-						(p as { toolCallId?: string }).toolCallId ??
-						(p as { streamId?: string }).streamId ??
-						`tool-${idx}`
+					// Every kind prefixes its own key, because all of them are siblings in one
+					// keyed block. A raw tool call id shares that namespace with the reasoning
+					// and text keys, and the provider decides what it contains.
+					key: toolPartKey(
+						(p as { toolCallId?: string }).toolCallId,
+						(p as { streamId?: string }).streamId,
+						idx
+					)
 				};
 			}
 			return null;

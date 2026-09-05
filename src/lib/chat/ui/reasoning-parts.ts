@@ -9,31 +9,26 @@ import type { MessagePart } from '../core/types.js';
  */
 export const LEADING_REASONING_KEY = 'reasoning-lead';
 
-export function getReasoningPartKey(part: MessagePart, index: number): string {
-	if (part.type === 'reasoning') {
-		const record = part as { streamPartId?: unknown; id?: unknown };
-		const partId = record.streamPartId ?? record.id;
-		if (typeof partId === 'string') {
-			return `reasoning-${partId}`;
-		}
-	}
-
-	return `reasoning-${index}`;
-}
-
 /**
- * Key for a reasoning part at `index` within `parts`. The first reasoning part gets the
- * stable {@link LEADING_REASONING_KEY}; later reasoning blocks keep their per-part key.
- * Single source of truth shared by rendering (ordered-parts) and accordion sync, so both
- * agree on the leading reasoning key.
+ * Key for the reasoning part at `index` within `parts`. The first reasoning block gets the
+ * stable {@link LEADING_REASONING_KEY}; every later block is keyed by its ordinal among the
+ * reasoning blocks of the message. Single source of truth shared by rendering
+ * (ordered-parts) and accordion sync, so both agree on every reasoning key.
+ *
+ * The ordinal is the only part of a reasoning block that survives the handover from the
+ * live snapshot to the persisted row. A key built from the part id flips once the persisted
+ * copy takes over, because `toUIMessages` reconstructs reasoning without an id; a key built
+ * from the array index flips because the live snapshot carries `step-start` parts that the
+ * persisted row does not. Either flip remounts the block closed and discards the open state
+ * of a reader who had expanded it.
  */
 export function getReasoningKey(parts: MessagePart[] | undefined, index: number): string {
 	const list = parts ?? [];
-	const firstReasoningIndex = list.findIndex((p) => p.type === 'reasoning');
-	if (index === firstReasoningIndex) {
-		return LEADING_REASONING_KEY;
+	let ordinal = 0;
+	for (let before = 0; before < index; before += 1) {
+		if (list[before]?.type === 'reasoning') ordinal += 1;
 	}
-	return getReasoningPartKey(list[index]!, index);
+	return ordinal === 0 ? LEADING_REASONING_KEY : `reasoning-${ordinal}`;
 }
 
 /**

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { MessagePart } from '../core/types.js';
 import {
 	getActiveStreamingPartIndex,
-	getActiveStreamingReasoningIndex
+	getActiveStreamingReasoningIndex,
+	getReasoningKey,
+	LEADING_REASONING_KEY
 } from './reasoning-parts.js';
 
 const metadata = [
@@ -64,5 +66,48 @@ describe('active streaming content', () => {
 
 	it('returns no active content after completion', () => {
 		expect(getActiveStreamingPartIndex([{ type: 'text', text: 'done' }], false)).toBe(-1);
+	});
+});
+
+describe('reasoning keys', () => {
+	const keysOf = (parts: MessagePart[]) =>
+		parts.flatMap((part, index) =>
+			part.type === 'reasoning' ? [getReasoningKey(parts, index)] : []
+		);
+
+	it('keys reasoning blocks by their ordinal, leading block first', () => {
+		const parts = [
+			{ type: 'reasoning', text: 'First' },
+			{ type: 'tool-lookup', toolCallId: 't1', state: 'output-available' },
+			{ type: 'reasoning', text: 'Second' },
+			{ type: 'reasoning', text: 'Third' }
+		] as MessagePart[];
+		expect(keysOf(parts)).toEqual([LEADING_REASONING_KEY, 'reasoning-1', 'reasoning-2']);
+	});
+
+	// The live snapshot and the persisted row of one message differ in exactly these
+	// two ways, so a key that reads either would move at the handover.
+	it('ignores part ids and step boundaries', () => {
+		const live = [
+			{ type: 'step-start' },
+			{ type: 'reasoning', text: 'First', id: 'r-first' },
+			{ type: 'tool-lookup', toolCallId: 't1', state: 'output-available' },
+			{ type: 'step-start' },
+			{ type: 'reasoning', text: 'Second', id: 'r-second' }
+		] as MessagePart[];
+		// Measured against `toUIMessages`: the persisted copy drops the ids and opens
+		// its step before the tool call instead of before the thought.
+		const persisted = [
+			{ type: 'reasoning', text: 'First' },
+			{ type: 'step-start' },
+			{ type: 'tool-lookup', toolCallId: 't1', state: 'output-available' },
+			{ type: 'reasoning', text: 'Second' }
+		] as MessagePart[];
+
+		expect(keysOf(live)).toEqual(keysOf(persisted));
+	});
+
+	it('treats a missing parts array as an empty one', () => {
+		expect(getReasoningKey(undefined, 0)).toBe(LEADING_REASONING_KEY);
 	});
 });

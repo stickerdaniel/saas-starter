@@ -19,6 +19,8 @@ import { readUIMessageStream } from 'ai';
 import { toUIMessages } from '@convex-dev/agent';
 import type { UIMessage } from '@convex-dev/agent';
 import { mergeAssistantMessageParts } from './stream-materialization.js';
+import { getReasoningKey } from '../ui/reasoning-parts.js';
+import type { MessagePart } from './types.js';
 
 /** The wire chunks a two-step tool response produces, in order. */
 function responseChunks(firstThought: string, secondThought: string) {
@@ -145,6 +147,12 @@ function readPersistedMessage(first: string, second: string): UIMessage {
 	return assistant[0]!;
 }
 
+function reasoningKeys(parts: MessagePart[]): string[] {
+	return parts.flatMap((part, index) =>
+		part.type === 'reasoning' ? [getReasoningKey(parts, index)] : []
+	);
+}
+
 describe('the reasoning shapes the two producers emit', () => {
 	// The asymmetry the whole merge is built around. If an upgrade makes the two
 	// sides agree, the id-blind matching below stops being necessary; if it makes
@@ -183,5 +191,20 @@ describe.each(RESPONSES)('the persisted and streamed handover of $name', ({ firs
 
 		expect(merged.filter((part) => part.type === 'reasoning')).toHaveLength(2);
 		expect(merged.filter((part) => part.type === 'text')).toHaveLength(1);
+	});
+
+	// A key that moves remounts the block closed and discards the open state of a
+	// reader who had expanded it, so it has to survive the whole transition: live
+	// snapshot, merged view, persisted row.
+	it('keeps every reasoning key across the transition', async () => {
+		const live = await readLiveMessage(first, second);
+		const persisted = readPersistedMessage(first, second);
+
+		const merged = mergeAssistantMessageParts(persisted.parts, live.parts);
+
+		const whileLive = reasoningKeys(live.parts as MessagePart[]);
+		expect(whileLive).toHaveLength(2);
+		expect(reasoningKeys(merged as MessagePart[])).toEqual(whileLive);
+		expect(reasoningKeys(persisted.parts as MessagePart[])).toEqual(whileLive);
 	});
 });
