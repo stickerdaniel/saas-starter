@@ -149,14 +149,14 @@ function getReasoningPartId(part: UIMessage['parts'][number]): string | undefine
 }
 
 /**
- * A tool call in either of the two type spellings the AI SDK uses: a statically
- * named `tool-<name>` and the `dynamic-tool` a runtime-registered tool produces
- * (measured). Both carry the `toolCallId` that identifies the call across the
- * two views, so both have to be matched by it rather than appended twice.
+ * A statically named tool call. A runtime-registered one carries the same
+ * `toolCallId` but spells its type `dynamic-tool`, so the two views of one such
+ * call are not matched and both are kept (issue #894). Matching them here is not
+ * enough on its own: the two views also disagree on the type itself, and the
+ * merged part then names a type the renderer drops.
  */
 function isToolUIPart(part: UIMessage['parts'][number]): boolean {
-	const named = part.type.startsWith('tool-') || part.type === 'dynamic-tool';
-	return named && typeof asRecord(part).toolCallId === 'string';
+	return part.type.startsWith('tool-') && typeof asRecord(part).toolCallId === 'string';
 }
 
 /**
