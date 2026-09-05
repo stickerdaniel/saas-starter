@@ -218,7 +218,7 @@
 		<!-- Messages area -->
 		<div bind:this={wrapperEl} class="relative flex-1 overflow-hidden">
 			<ChatContainerRoot ctx={chatCtx} class="h-full">
-				<ChatContainerContent class="!h-full">
+				<ChatContainerContent>
 					{#if messages.data && messages.data.length > 0}
 						<!-- data-tolgee-restricted: user text may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
 						<div

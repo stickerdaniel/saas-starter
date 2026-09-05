@@ -37,9 +37,8 @@
 	watch(
 		() => ref,
 		() => {
-			if (ref) {
-				context.setElement(ref);
-			}
+			context.setElement(ref);
+			return () => context.setElement(null);
 		}
 	);
 </script>
