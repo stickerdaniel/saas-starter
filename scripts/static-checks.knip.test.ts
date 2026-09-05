@@ -6,6 +6,7 @@ import {
 	existsSync,
 	mkdtempSync,
 	readFileSync,
+	realpathSync,
 	rmSync,
 	symlinkSync,
 	writeFileSync
@@ -20,6 +21,10 @@ import { testExecutable } from './test-executable';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BUN = testExecutable('bun');
 const KNIP: CommandInvocation = { command: 'bun', args: ['knip', '--no-progress'] };
+const PRETTIER_README: CommandInvocation = {
+	command: 'bun',
+	args: ['prettier', '--check', '--ignore-unknown', '--', 'README.md']
+};
 const RECORDER_SOURCE = path.join(
 	ROOT,
 	'scripts',
@@ -27,6 +32,12 @@ const RECORDER_SOURCE = path.join(
 	'static-checks',
 	'command-recorder.ts'
 );
+// Bun kanonisiert den Modulpfad des Checkers über die Betriebssystem-API, `realpathSync` die
+// Aufruf-cwd dagegen nicht. Unter Windows liefert os.tmpdir() auf GitHub-Runnern den
+// 8.3-Kurznamen (C:\Users\RUNNER~1\...), während REPO_ROOT die Langform trägt; jedes relative
+// Dateiargument fällt damit aus dem Repository. `realpathSync.native` löst über dieselbe
+// Betriebssystem-API auf und liefert für beide Seiten dieselbe Schreibweise.
+const TEMP_ROOT = realpathSync.native(tmpdir());
 
 interface CommandInvocation {
 	command: string;
@@ -39,9 +50,15 @@ interface CheckerClone {
 	env: NodeJS.ProcessEnv;
 }
 
+interface CanaryOutcome {
+	status: number | null;
+	output: string;
+	log: CommandInvocation[];
+}
+
 let recorderDirectory: string;
-let recorderBun: string;
-let recorderMisspell: string;
+let bunVersion: string;
+let canary: CanaryOutcome;
 
 function readCommandLog(logPath: string): CommandInvocation[] {
 	if (!existsSync(logPath)) return [];
@@ -52,8 +69,49 @@ function readCommandLog(logPath: string): CommandInvocation[] {
 		.map((line) => JSON.parse(line) as CommandInvocation);
 }
 
+/**
+ * Legt die Recorder unter den Namen an, unter denen der Checker seine Kinder startet.
+ *
+ * Unter POSIX sind das Shebang-Skripte. Eine mit `bun build --compile` erzeugte Datei läuft
+ * auf dem in package.json gepinnten Bun 1.3.9 als Bun-CLI statt als eigener Einsprungpunkt,
+ * sobald argv[0] exakt `bun` lautet, und genau so startet der Checker sein Kind: die
+ * Aufzeichnung fiele aus und echte Formatter und Linter liefen los (gemessen unter Linux mit
+ * 1.3.9; 1.3.14 zeigt den Effekt nicht mehr). Ein Shebang-Skript wird stattdessen vom echten
+ * Bun mit absolutem argv[0] gestartet und behält seinen Einsprungpunkt. Windows kennt kein
+ * Shebang und behält deshalb die kompilierte Datei.
+ */
+function createRecorderShims(directory: string): void {
+	if (process.platform === 'win32') {
+		const compiledBun = path.join(directory, 'bun.exe');
+		const compiled = spawnSync(
+			BUN,
+			['build', RECORDER_SOURCE, '--compile', '--outfile', compiledBun],
+			{ cwd: directory, env: sanitizedGitEnv(), encoding: 'utf8' }
+		);
+		if (compiled.status !== 0) {
+			throw new Error(`Command recorder compilation failed: ${compiled.stdout}${compiled.stderr}`);
+		}
+		copyFileSync(compiledBun, path.join(directory, 'misspell.exe'));
+		return;
+	}
+	for (const name of ['bun', 'misspell']) {
+		const shim = path.join(directory, name);
+		writeFileSync(shim, `#!${BUN}\nimport ${JSON.stringify(RECORDER_SOURCE)};\n`);
+		chmodSync(shim, 0o755);
+	}
+}
+
+function recorderEnv(logPath: string): NodeJS.ProcessEnv {
+	return {
+		...sanitizedGitEnv(),
+		NO_COLOR: '1',
+		PATH: `${recorderDirectory}${path.delimiter}${process.env.PATH ?? ''}`,
+		STATIC_CHECKS_COMMAND_LOG: logPath
+	};
+}
+
 function createCheckerClone(): CheckerClone {
-	const directory = mkdtempSync(path.join(tmpdir(), 'static-knip-'));
+	const directory = mkdtempSync(path.join(TEMP_ROOT, 'static-knip-'));
 	const repository = path.join(directory, 'repository');
 	try {
 		const clone = spawnSync(
@@ -75,16 +133,10 @@ function createCheckerClone(): CheckerClone {
 			dereference: true
 		});
 
-		const logPath = path.join(directory, 'commands.jsonl');
 		return {
 			directory,
 			repository,
-			env: {
-				...sanitizedGitEnv(),
-				NO_COLOR: '1',
-				PATH: `${recorderDirectory}${path.delimiter}${process.env.PATH ?? ''}`,
-				STATIC_CHECKS_COMMAND_LOG: logPath
-			}
+			env: recorderEnv(path.join(directory, 'commands.jsonl'))
 		};
 	} catch (error) {
 		rmSync(directory, { recursive: true, force: true });
@@ -146,52 +198,66 @@ appendFileSync(logPath, JSON.stringify({ command: 'compat', args: process.argv.s
 	);
 }
 
+/**
+ * Nimmt den Formatter-Canary ab, bevor irgendein Matrixfall läuft.
+ *
+ * Greift die Aufzeichnung nicht, dann startet der Checker die echten Formatter, Linter und
+ * Typprüfungen: der Lauf ist nicht nur falsch, sondern dauert ein Vielfaches. Der Canary
+ * gehört deshalb ins Suite-Setup, und sein Fehler bricht die ganze Datei ab, statt in jedem
+ * Einzelfall erneut echte Werkzeuge zu starten.
+ */
+function runCanary(): CanaryOutcome {
+	const checkout = createCheckerClone();
+	checkout.env.STATIC_CHECKS_COMMAND_RESPONSE = JSON.stringify({ ...PRETTIER_README, status: 23 });
+	try {
+		const result = runChecker(checkout, ['--scope', 'format', 'README.md']);
+		const outcome: CanaryOutcome = {
+			status: result.status,
+			output: `${result.stdout}${result.stderr}`,
+			log: readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)
+		};
+		const recorded = JSON.stringify(outcome.log);
+		if (recorded !== JSON.stringify([PRETTIER_README]) || outcome.status !== 23) {
+			throw new Error(
+				`Der Recorder greift nicht: Status ${outcome.status} statt 23, aufgezeichnet ${recorded}. ` +
+					`Verwendetes Bun: ${BUN} (${bunVersion}), Plattform ${process.platform}. ` +
+					`Die Matrix wird nicht ausgeführt.\n${outcome.output}`
+			);
+		}
+		return outcome;
+	} finally {
+		rmSync(checkout.directory, { recursive: true, force: true });
+	}
+}
+
 beforeAll(() => {
-	recorderDirectory = mkdtempSync(path.join(tmpdir(), 'static-command-recorder-'));
-	recorderBun = path.join(recorderDirectory, process.platform === 'win32' ? 'bun.exe' : 'bun');
-	recorderMisspell = path.join(
-		recorderDirectory,
-		process.platform === 'win32' ? 'misspell.exe' : 'misspell'
-	);
-	const compiled = spawnSync(
-		BUN,
-		['build', RECORDER_SOURCE, '--compile', '--outfile', recorderBun],
-		{ cwd: recorderDirectory, env: sanitizedGitEnv(), encoding: 'utf8' }
-	);
-	if (compiled.status !== 0) {
-		throw new Error(`Command recorder compilation failed: ${compiled.stdout}${compiled.stderr}`);
-	}
-	copyFileSync(recorderBun, recorderMisspell);
-	if (process.platform !== 'win32') {
-		chmodSync(recorderBun, 0o755);
-		chmodSync(recorderMisspell, 0o755);
-	}
-});
+	recorderDirectory = mkdtempSync(path.join(TEMP_ROOT, 'static-command-recorder-'));
+	createRecorderShims(recorderDirectory);
+	// Das tatsächlich verwendete Binary festhalten: ein mit Bun X gestartetes Vitest belegt
+	// nicht, dass testExecutable('bun') dasselbe Bun auflöst.
+	bunVersion = (spawnSync(BUN, ['--version'], { encoding: 'utf8' }).stdout ?? '').trim();
+	canary = runCanary();
+}, 120_000);
 
 afterAll(() => {
 	rmSync(recorderDirectory, { recursive: true, force: true });
 });
 
 describe.sequential('Knip static-check CLI behavior', () => {
-	it('pins compiled recorder argv and executable identity', () => {
-		const directory = mkdtempSync(path.join(tmpdir(), 'static-recorder-contract-'));
+	it('resolves the recorder through the name the checker spawns', () => {
+		const directory = mkdtempSync(path.join(TEMP_ROOT, 'static-recorder-contract-'));
 		const logPath = path.join(directory, 'commands.jsonl');
-		const env = { ...sanitizedGitEnv(), STATIC_CHECKS_COMMAND_LOG: logPath };
+		const env = recorderEnv(logPath);
 		try {
-			const bun = spawnSync(recorderBun, ['prettier', '--check', 'README.md'], {
+			const bun = spawnSync('bun', ['prettier', '--check', 'README.md'], {
 				env,
 				encoding: 'utf8'
 			});
-			const misspell = spawnSync(recorderMisspell, ['-error', 'README.md'], {
-				env,
-				encoding: 'utf8'
-			});
+			const context = `Bun ${BUN} (${bunVersion}): ${bun.stdout}${bun.stderr}`;
 
-			expect(bun.status, `${bun.stdout}${bun.stderr}`).toBe(0);
-			expect(misspell.status, `${misspell.stdout}${misspell.stderr}`).toBe(0);
-			expect(readCommandLog(logPath)).toEqual([
-				{ command: 'bun', args: ['prettier', '--check', 'README.md'] },
-				{ command: 'misspell', args: ['-error', 'README.md'] }
+			expect(bun.status, context).toBe(0);
+			expect(readCommandLog(logPath), context).toEqual([
+				{ command: 'bun', args: ['prettier', '--check', 'README.md'] }
 			]);
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
@@ -199,40 +265,22 @@ describe.sequential('Knip static-check CLI behavior', () => {
 	});
 
 	it('propagates a recorded formatter failure through the real CLI boundary', () => {
-		const checkout = createCheckerClone();
-		const prettier = {
-			command: 'bun',
-			args: ['prettier', '--check', '--ignore-unknown', '--', 'README.md']
-		};
-		checkout.env.STATIC_CHECKS_COMMAND_RESPONSE = JSON.stringify({ ...prettier, status: 23 });
-		try {
-			const result = runChecker(checkout, ['--scope', 'format', 'README.md']);
-			const output = `${result.stdout}${result.stderr}`;
-
-			expect(result.status, output).toBe(23);
-			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([prettier]);
-			expect(knipInvocations(checkout)).toHaveLength(0);
-			expect(output).toContain(
-				'Command failed: bun prettier --check --ignore-unknown -- README.md'
-			);
-			expect(output).not.toContain('All checks passed!');
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}, 30_000);
+		expect(canary.status, canary.output).toBe(23);
+		expect(canary.log).toEqual([PRETTIER_README]);
+		expect(canary.output).toContain(
+			'Command failed: bun prettier --check --ignore-unknown -- README.md'
+		);
+		expect(canary.output).not.toContain('All checks passed!');
+	});
 
 	it('keeps knip out of a successful format scope', () => {
 		const checkout = createCheckerClone();
-		const prettier = {
-			command: 'bun',
-			args: ['prettier', '--check', '--ignore-unknown', '--', 'README.md']
-		};
 		try {
 			const result = runChecker(checkout, ['--ci', '--scope', 'format', 'README.md']);
 			const output = `${result.stdout}${result.stderr}`;
 
 			expect(result.status, output).toBe(0);
-			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([prettier]);
+			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([PRETTIER_README]);
 			expect(knipInvocations(checkout)).toHaveLength(0);
 			expect(output).toContain('All checks passed!');
 		} finally {
@@ -266,6 +314,30 @@ describe.sequential('Knip static-check CLI behavior', () => {
 		},
 		45_000
 	);
+
+	it('runs knip once in a local pre-push file run', () => {
+		const checkout = createCheckerClone();
+		// Der dokumentierte Pre-Push-Aufruf ist `static-checks.ts <geänderte Dateien>`: ohne
+		// --ci und ohne CI in der Umgebung. Erst dieser Fall unterscheidet die tatsächliche
+		// Bedingung `mode !== 'staged'` von einem reinen CI-Gate.
+		delete checkout.env.CI;
+		try {
+			const result = runChecker(checkout, ['README.md']);
+			const output = `${result.stdout}${result.stderr}`;
+
+			expect(result.status, output).toBe(0);
+			expect(knipInvocations(checkout)).toEqual([KNIP]);
+			// Der zweite über PATH aufgelöste Name: misspell wird nur hier tatsächlich
+			// abgesetzt und belegt, dass die Auflösung nicht bloß für bun greift.
+			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toContainEqual({
+				command: 'misspell',
+				args: ['-error', 'README.md']
+			});
+			expect(output).toContain('All checks passed!');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
 
 	it('keeps knip out of the types scope', () => {
 		const checkout = createCheckerClone();
