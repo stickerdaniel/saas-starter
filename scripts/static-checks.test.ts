@@ -524,6 +524,9 @@ describe('knip integration', () => {
 	// statement on the same line does not count as running.
 	// Block membership relies on Prettier's tab indentation, which CI enforces: the lint group
 	// opens at one tab and closes at the first bare `\t}` after it, the staged guard at two.
+	// The call must also be unique and the last command of the group: a duplicate outside the
+	// staged guard would run in the pre-commit path, and a command appended after it would
+	// displace knip from the end.
 	it('runs knip as the last lint-group step and skips the staged gate', () => {
 		const lines = readFileSync(SCRIPT, 'utf8').split('\n');
 		let inBlockComment = false;
@@ -553,6 +556,12 @@ describe('knip integration', () => {
 			(line) => line.trim() === "await runCommand('bun', ['knip', '--no-progress']);"
 		);
 		const typesGroup = lines.findIndex((line) => line.includes('// -- Types group'));
+		const knipCalls = code.filter(
+			(line) => line.trim() === "await runCommand('bun', ['knip', '--no-progress']);"
+		).length;
+		const trailingCall = code.findIndex(
+			(line, i) => i > knip && i < lintGroupEnd && line.trim().startsWith('await runCommand(')
+		);
 
 		expect(lintGroup, reason).toBeGreaterThan(-1);
 		expect(knip, reason).toBeGreaterThan(oxlint);
@@ -561,5 +570,7 @@ describe('knip integration', () => {
 		expect(stagedGuard, stagedReason).toBeGreaterThan(-1);
 		expect(knip, stagedReason).toBeGreaterThan(stagedGuard);
 		expect(knip, stagedReason).toBeLessThan(stagedGuardEnd);
+		expect(knipCalls, stagedReason).toBe(1);
+		expect(trailingCall, reason).toBe(-1);
 	});
 });

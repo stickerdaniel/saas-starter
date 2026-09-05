@@ -391,7 +391,7 @@
 			"name": "autumnJs",
 			"url": "https://github.com/useautumn/autumn",
 			"branch": "dev",
-			"specialNotes": "Autumn billing SDK and integrations. Package autumn-js current npm repository is useautumn/autumn; default branch dev. Check SDK constructor, Convex integration, check/track/checkout/attach, and migration notes."
+			"specialNotes": "Autumn billing SDK on the newer 1.x line (useautumn/autumn, branch dev). The version this repository installs lives in the autumnTypescript resource; use this one for the current upstream API and migration notes."
 		},
 		{
 			"type": "git",
@@ -505,7 +505,7 @@
 			"name": "autumnTypescript",
 			"url": "https://github.com/useautumn/typescript",
 			"branch": "main",
-			"specialNotes": "Autumn TypeScript monorepo. convex/ is the @useautumn/convex package behind src/lib/convex/autumn.ts, atmn/ the atmn CLI; autumn-js itself lives in the autumnJs resource."
+			"specialNotes": "Autumn TypeScript monorepo, the 0.1.x autumn-js line this repository installs. convex/ is the @useautumn/convex package behind src/lib/convex/autumn.ts, package/ the installed autumn-js line, atmn/ the atmn CLI. The autumnJs resource is the newer 1.x line, so read it only for migration questions."
 		}
 	]
 }
