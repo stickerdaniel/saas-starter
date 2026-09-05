@@ -9,7 +9,7 @@
  */
 
 import type { OptimisticLocalStore } from 'convex/browser';
-import type { FunctionReference, PaginationResult } from 'convex/server';
+import type { FunctionReference } from 'convex/server';
 import type { ChatMessage, Attachment } from './types.js';
 
 /**
@@ -20,17 +20,6 @@ export interface ListMessagesArgs {
 	anonymousUserId?: string;
 	paginationOpts: { numItems: number; cursor: string | null };
 	streamArgs: { kind: 'list'; startOrder: number };
-}
-
-/**
- * Query result shape for listMessages queries (paginated with streams)
- */
-export interface ListMessagesResult extends PaginationResult<ChatMessage> {
-	streams: {
-		kind: 'list' | 'deltas';
-		messages?: unknown[];
-		deltas?: unknown[];
-	};
 }
 
 /**

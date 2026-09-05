@@ -7,7 +7,7 @@
  * @example
  * ```typescript
  * // In a context class
- * threadsFade = new FadeOnLoad<ThreadSummary[]>();
+ * threadsFade = new FadeOnLoad();
  *
  * async loadThreads(client: ConvexClient) {
  *   this.threadsFade.setLoading(true);

@@ -313,10 +313,3 @@ export class ChatCore {
 		this.streamCache.clear();
 	}
 }
-
-/**
- * Create a new ChatCore instance
- */
-export function createChatCore(options: ChatCoreOptions): ChatCore {
-	return new ChatCore(options);
-}

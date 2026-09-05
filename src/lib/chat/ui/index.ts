@@ -15,14 +15,6 @@ export {
 	tryGetChatUIContext
 } from './chat-context.svelte.ts';
 
-// Types
-/**
- * File metadata for dimension lookup
- * Map of URL -> { width, height }. Keyed by URL because UIMessage file parts
- * carry no fileId (see ChatMessages.defaultExtractAttachments).
- */
-export type FileMetadataMap = Record<string, { width?: number; height?: number }>;
-
 // Components
 export { default as ChatRoot } from './ChatRoot.svelte';
 export { default as ChatMessages } from './ChatMessages.svelte';

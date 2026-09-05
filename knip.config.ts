@@ -23,7 +23,11 @@ export default {
 		// knip cannot trace. Naming the roots lets it check everything below them.
 		'src/lib/components/customer-support/customer-support.svelte',
 		'src/lib/components/customer-support/screenshot-editor/ScreenshotEditor.svelte',
-		'src/lib/components/global-search/command-menu.svelte'
+		'src/lib/components/global-search/command-menu.svelte',
+
+		// Chat-Beispiel zum Kopieren und Anpassen. Keine Route bindet es ein, daher hält
+		// die Nennung als Entry es am Leben, während src/lib/chat sonst geprüft bleibt.
+		'src/lib/chat/examples/SimpleChat.svelte'
 	],
 	project: ['src/**/*.{ts,svelte}', 'scripts/**/*.ts', 'e2e/**/*.ts'],
 	ignore: [
@@ -44,10 +48,7 @@ export default {
 		// its importer. Guarded live by motion-a11y.test.ts.
 		'src/lib/components/motion/shimmer-text.svelte',
 		// Template block kept as a starting point; not mounted by any route.
-		'src/blocks/team/team-two.svelte',
-		// Scaffolded chat module. Its example component and unused core exports are a
-		// pruning decision of their own, so knip skips the tree until that lands.
-		'src/lib/chat/**'
+		'src/blocks/team/team-two.svelte'
 	],
 	ignoreDependencies: [
 		// Tailwind v4 plugins referenced via CSS @plugin, not JS imports.

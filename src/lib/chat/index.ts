@@ -25,9 +25,9 @@
  *
  * @example Using core without UI
  * ```typescript
- * import { ChatCore, createChatCore } from '$lib/chat/core';
+ * import { ChatCore } from '$lib/chat/core';
  *
- * const core = createChatCore({
+ * const core = new ChatCore({
  *   threadId: 'thread_123',
  *   api: { sendMessage: api.support.messages.sendMessage }
  * });
@@ -50,7 +50,6 @@ export type {
 	TextUIPart,
 	ReasoningUIPart,
 	MessagePart,
-	PaginationState,
 	StreamStatus,
 	SendMessageOptions,
 	SendMessageResult,
@@ -84,14 +83,13 @@ export {
 	uploadToStorage,
 	UploadError,
 	ChatCore,
-	createChatCore,
 	ChatDraftManager,
 	ChatAttachmentStore,
 	clearPersistedChatState
 } from './core/index.js';
 
 // UI exports
-export type { UploadConfig, FileMetadataMap } from './ui/index.js';
+export type { UploadConfig } from './ui/index.js';
 
 export {
 	ChatUIContext,
