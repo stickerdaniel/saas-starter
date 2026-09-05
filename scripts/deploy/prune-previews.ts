@@ -1,3 +1,9 @@
+import { checkAborted, DeploymentError, requestJson, type ExecutionControls } from './execution';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 const API_BASE = 'https://api.convex.dev/v1';
 const FRESHNESS_PREFERENCE_MS = 5 * 60 * 1000;
 
@@ -6,47 +12,75 @@ export interface Preview {
 	previewIdentifier: string;
 	createTime: number;
 	expiresAt: number | null;
+	/** Non-preview/unknown types are never eligible for deletion. */
+	deploymentType: string;
 }
 
 export interface PruneDeps {
-	list: (token: string, projectId: string) => Promise<Preview[]>;
-	remove: (token: string, name: string) => Promise<void>;
+	list: (token: string, projectId: string, execution?: ExecutionControls) => Promise<Preview[]>;
+	remove: (token: string, name: string, execution?: ExecutionControls) => Promise<void>;
 }
 
-export type PruneResult = { pruned: string } | { pruned: null; reason: string };
-
-export async function listPreviewDeployments(token: string, projectId: string): Promise<Preview[]> {
-	const res = await fetch(`${API_BASE}/projects/${projectId}/list_deployments`, {
-		headers: { Authorization: `Bearer ${token}` }
-	});
-	if (!res.ok) {
-		throw new Error(`list_deployments failed: ${res.status} ${await res.text()}`);
+export async function listPreviewDeployments(
+	token: string,
+	projectId: string,
+	execution?: ExecutionControls
+): Promise<Preview[]> {
+	const body = await requestJson(
+		`${API_BASE}/projects/${encodeURIComponent(projectId)}/list_deployments`,
+		{ headers: { Authorization: `Bearer ${token}` } },
+		execution
+	);
+	if (!Array.isArray(body)) throw new DeploymentError('request_failed', 'Invalid deployment list.');
+	const previews: Preview[] = [];
+	const entries: unknown[] = body;
+	for (const item of entries) {
+		if (!isRecord(item)) {
+			throw new DeploymentError('request_failed', 'Invalid deployment list.');
+		}
+		// The management API lists all types. A preview identifier alone is not
+		// permission to delete a deployment with a non-preview or unknown type.
+		if (item.deploymentType !== 'preview') continue;
+		if (
+			typeof item.name !== 'string' ||
+			!item.name ||
+			typeof item.previewIdentifier !== 'string' ||
+			!normalizeIdentifier(item.previewIdentifier) ||
+			typeof item.createTime !== 'number' ||
+			!Number.isFinite(item.createTime) ||
+			item.createTime < 0 ||
+			(item.expiresAt != null &&
+				(typeof item.expiresAt !== 'number' || !Number.isFinite(item.expiresAt)))
+		)
+			throw new DeploymentError('request_failed', 'Invalid preview deployment.');
+		previews.push({
+			name: item.name,
+			previewIdentifier: item.previewIdentifier,
+			createTime: item.createTime,
+			expiresAt: item.expiresAt ?? null,
+			deploymentType: item.deploymentType
+		});
 	}
-	const body = (await res.json()) as Array<{
-		name: string;
-		previewIdentifier: string | null;
-		createTime: number;
-		expiresAt?: number | null;
-	}>;
-	return body
-		.filter((d): d is typeof d & { previewIdentifier: string } => d.previewIdentifier != null)
-		.map((d) => ({
-			name: d.name,
-			previewIdentifier: d.previewIdentifier,
-			createTime: d.createTime,
-			expiresAt: d.expiresAt ?? null
-		}));
+	return previews;
 }
 
-export async function deleteDeployment(token: string, name: string): Promise<void> {
-	const res = await fetch(`${API_BASE}/deployments/${name}/delete`, {
-		method: 'POST',
-		headers: { Authorization: `Bearer ${token}` }
-	});
-	if (!res.ok) {
-		throw new Error(`delete ${name} failed: ${res.status} ${await res.text()}`);
-	}
+export async function deleteDeployment(
+	token: string,
+	name: string,
+	execution?: ExecutionControls
+): Promise<void> {
+	await requestJson(
+		`${API_BASE}/deployments/${encodeURIComponent(name)}/delete`,
+		{ method: 'POST', headers: { Authorization: `Bearer ${token}` } },
+		execution,
+		'empty'
+	);
 }
+
+export const previewManagement: PruneDeps = {
+	list: listPreviewDeployments,
+	remove: deleteDeployment
+};
 
 export function normalizeIdentifier(value: string): string {
 	return value
@@ -55,138 +89,144 @@ export function normalizeIdentifier(value: string): string {
 		.replace(/^-+|-+$/g, '');
 }
 
-export function selectPrunable(
-	previews: Preview[],
-	currentBranch: string | null,
-	now: number,
-	liveBranches?: Set<string>
-): Preview | null {
-	if (previews.length === 0) return null;
-	// Without a current branch we cannot honour the "never prune current branch"
-	// safety guard. Fail safe rather than pruning blindly.
-	if (!currentBranch) return null;
+const approvedPrune: unique symbol = Symbol('approved preview prune');
 
-	const normalizedBranch = normalizeIdentifier(currentBranch);
-	// If normalization collapses to an empty string, treat it as missing.
-	if (!normalizedBranch) return null;
-
-	// Compute the absolute newest from the full set so a current-branch
-	// preview that is also the newest doesn't cause us to exclude a second
-	// preview unnecessarily.
-	const absoluteNewest = previews.reduce((a, b) => (a.createTime >= b.createTime ? a : b));
-	const candidates = previews.filter((p) => {
-		const normalizedId = normalizeIdentifier(p.previewIdentifier);
-		const isCurrentBranch = normalizedId === normalizedBranch;
-		const isAbsoluteNewest = p.name === absoluteNewest.name;
-		// Never prune a preview whose branch still exists on the remote: that
-		// branch may have an open PR or running E2E that depends on its backend.
-		// liveBranches holds normalized branch names; an undefined/empty set
-		// degrades to the original age-based behaviour.
-		const isLiveBranch = liveBranches?.has(normalizedId) ?? false;
-		return !isCurrentBranch && !isAbsoluteNewest && !isLiveBranch;
-	});
-	if (candidates.length === 0) return null;
-
-	const sorted = [...candidates].sort((a, b) => a.createTime - b.createTime);
-	const aged = sorted.find((p) => now - p.createTime > FRESHNESS_PREFERENCE_MS);
-	return aged ?? sorted[0];
+export interface ApprovedPreviewPrune {
+	readonly kind: 'candidate';
+	readonly projectId: string;
+	readonly target: Readonly<Preview>;
+	readonly [approvedPrune]: true;
 }
 
-const defaultDeps: PruneDeps = {
-	list: listPreviewDeployments,
-	remove: deleteDeployment
-};
+export type PreviewPrunePlan =
+	| ApprovedPreviewPrune
+	| {
+			kind: 'no_candidate';
+			reason:
+				'invalid_context' | 'live_branches_unknown' | 'no_candidates' | 'ambiguous_candidates';
+	  };
 
-export async function pruneOldestPreview(args: {
-	token: string;
+export interface PreviewPruneInputs {
 	projectId: string;
+	previews: readonly Preview[];
 	currentBranch: string | null;
-	now?: number;
-	deps?: PruneDeps;
-	liveBranches?: Set<string>;
-}): Promise<PruneResult> {
-	const deps = args.deps ?? defaultDeps;
-	const now = args.now ?? Date.now();
+	currentDeployment?: string | null;
+	/** null means remote state could not be established; an empty set is known empty. */
+	liveBranches: ReadonlySet<string> | null;
+	protectedBranches?: ReadonlySet<string>;
+	protectedDeployments?: ReadonlySet<string>;
+	now: number;
+}
 
-	let previews: Preview[];
-	try {
-		previews = await deps.list(args.token, args.projectId);
-	} catch (err) {
-		return { pruned: null, reason: `list failed: ${errMessage(err)}` };
+/** Pure selection. It neither lists remote state nor performs any deletion. */
+export function planPreviewPrune(inputs: PreviewPruneInputs): PreviewPrunePlan {
+	const { previews, now } = inputs;
+	const current = normalizeIdentifier(inputs.currentBranch ?? '');
+	if (!inputs.projectId || !current || !Number.isFinite(now)) {
+		return { kind: 'no_candidate', reason: 'invalid_context' };
 	}
+	if (inputs.liveBranches === null)
+		return { kind: 'no_candidate', reason: 'live_branches_unknown' };
+	const protectedBranches = new Set(
+		[...inputs.liveBranches, ...(inputs.protectedBranches ?? []), current].map(normalizeIdentifier)
+	);
+	const eligible = previews.filter((p) => p.deploymentType === 'preview');
+	const names = new Set<string>();
+	const identifiers = new Set<string>();
+	for (const p of eligible) {
+		const id = normalizeIdentifier(p.previewIdentifier);
+		if (
+			!p.name ||
+			!id ||
+			!Number.isFinite(p.createTime) ||
+			p.createTime < 0 ||
+			p.createTime > now ||
+			names.has(p.name) ||
+			identifiers.has(id) ||
+			previews.filter((other) => other.name === p.name).length !== 1
+		) {
+			return { kind: 'no_candidate', reason: 'ambiguous_candidates' };
+		}
+		names.add(p.name);
+		identifiers.add(id);
+	}
+	// Protect every newest deployment when timestamps tie, not an arbitrary one.
+	const newest = Math.max(...eligible.map((p) => p.createTime));
+	const candidates = eligible
+		.filter(
+			(p) =>
+				p.name !== inputs.currentDeployment &&
+				!inputs.protectedDeployments?.has(p.name) &&
+				!protectedBranches.has(normalizeIdentifier(p.previewIdentifier)) &&
+				p.createTime !== newest
+		)
+		.sort((a, b) => a.createTime - b.createTime);
+	const target =
+		candidates.find((p) => now - p.createTime > FRESHNESS_PREFERENCE_MS) ?? candidates[0];
+	if (!target) return { kind: 'no_candidate', reason: 'no_candidates' };
+	if (candidates.filter((p) => p.createTime === target.createTime).length !== 1) {
+		return { kind: 'no_candidate', reason: 'ambiguous_candidates' };
+	}
+	return Object.freeze({
+		kind: 'candidate',
+		projectId: inputs.projectId,
+		target: Object.freeze({ ...target }),
+		[approvedPrune]: true as const
+	});
+}
 
-	const target = selectPrunable(previews, args.currentBranch, now, args.liveBranches);
-	if (!target) {
-		return { pruned: null, reason: 'no candidates' };
+/** Only the pure planner can construct an approved, immutable deletion target. */
+export async function applyPreviewPrune(
+	plan: ApprovedPreviewPrune,
+	deps: { token: string; projectId: string; remove: PruneDeps['remove'] } & ExecutionControls
+): Promise<{ pruned: string }> {
+	checkAborted(deps.signal);
+	if (
+		plan?.[approvedPrune] !== true ||
+		!Object.isFrozen(plan) ||
+		!Object.isFrozen(plan.target) ||
+		plan.projectId !== deps.projectId ||
+		plan.target.deploymentType !== 'preview'
+	) {
+		throw new DeploymentError('prune_blocked', 'Preview deletion requires an approved plan.');
 	}
-
-	try {
-		await deps.remove(args.token, target.name);
-	} catch (err) {
-		return { pruned: null, reason: `delete failed: ${errMessage(err)}` };
-	}
-	return { pruned: target.name };
+	await deps.remove(deps.token, plan.target.name, {
+		signal: deps.signal,
+		timeoutMs: deps.timeoutMs
+	});
+	return { pruned: plan.target.name };
 }
 
 export type DeleteByBranchResult =
 	| { deleted: string }
-	| {
-			deleted: null;
-			reason: 'not_found' | 'ambiguous' | 'invalid_branch' | 'invalid_target' | string;
-	  };
+	| { deleted: null; reason: 'not_found' | 'ambiguous' | 'invalid_branch' | 'invalid_target' };
 
-/**
- * Delete the preview deployment that belongs to one git branch, resolved by its
- * canonical (normalized) identifier. Used by the pull_request:closed workflow so
- * a merged/closed PR's preview stops consuming a team quota slot within minutes
- * instead of lingering to the platform TTL.
- *
- * Safety, in order:
- *  - `list` only returns objects with a non-null previewIdentifier, so prod and
- *    dev deployments can never enter the candidate set.
- *  - Match is exact canonical equality, never prefix/substring, so a branch like
- *    `fix/auth` cannot delete `fix/auth-2`.
- *  - No match is a successful idempotent no-op (the preview already expired or
- *    was deleted).
- *  - Two matches after normalization is ambiguous and fails closed WITHOUT any
- *    delete, so a collision never deletes the wrong backend.
- */
+/** The PR-close path is exact-match deletion, not quota-recovery selection. */
 export async function deletePreviewForBranch(args: {
 	token: string;
 	projectId: string;
 	gitRef: string;
 	deps?: PruneDeps;
+	execution?: ExecutionControls;
 }): Promise<DeleteByBranchResult> {
-	const deps = args.deps ?? defaultDeps;
+	const deps = args.deps ?? previewManagement;
 	const wanted = normalizeIdentifier(args.gitRef);
 	if (!wanted) return { deleted: null, reason: 'invalid_branch' };
-
-	let previews: Preview[];
-	try {
-		previews = await deps.list(args.token, args.projectId);
-	} catch (err) {
-		return { deleted: null, reason: `list failed: ${errMessage(err)}` };
-	}
-
+	checkAborted(args.execution?.signal);
+	const previews = await deps.list(args.token, args.projectId, args.execution);
 	const matches = previews.filter((p) => normalizeIdentifier(p.previewIdentifier) === wanted);
-	if (matches.length === 0) return { deleted: null, reason: 'not_found' };
-	if (matches.length > 1) return { deleted: null, reason: 'ambiguous' };
-
 	const target = matches[0];
-	// Re-assert the target came from the listed preview set and still carries a
-	// non-empty previewIdentifier immediately before the irreversible delete.
-	if (!target.previewIdentifier || !previews.some((p) => p.name === target.name)) {
+	if (!target) return { deleted: null, reason: 'not_found' };
+	if (matches.length !== 1) return { deleted: null, reason: 'ambiguous' };
+	if (
+		!target.name ||
+		!target.previewIdentifier ||
+		target.deploymentType !== 'preview' ||
+		previews.filter((p) => p.name === target.name).length !== 1
+	) {
 		return { deleted: null, reason: 'invalid_target' };
 	}
-
-	try {
-		await deps.remove(args.token, target.name);
-	} catch (err) {
-		return { deleted: null, reason: `delete failed: ${errMessage(err)}` };
-	}
+	checkAborted(args.execution?.signal);
+	await deps.remove(args.token, target.name, args.execution);
 	return { deleted: target.name };
-}
-
-function errMessage(err: unknown): string {
-	return err instanceof Error ? err.message : String(err);
 }

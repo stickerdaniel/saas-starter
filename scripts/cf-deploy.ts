@@ -13,25 +13,43 @@
  * Set as the non-production deploy command in CF Workers Builds dashboard.
  */
 
-import { spawnSync } from 'child_process';
+import { reportCliFailure, withCliSignals } from './deploy/cli';
+import { createDeploymentExecution, DeploymentError, requireCommand } from './deploy/execution';
 import { sanitizeBranchAlias } from './deploy/platform';
 
-const branch = process.env.WORKERS_CI_BRANCH;
-const productionBranch = process.env.PRODUCTION_BRANCH || 'main';
-const isPreview = branch !== undefined && branch !== productionBranch;
-
-const args = ['varlock-wrangler', 'versions', 'upload'];
-
-if (isPreview && branch) {
-	const workerName = process.env.WORKERS_NAME;
-	if (!workerName) {
-		console.error('WORKERS_NAME is required to compute the preview alias slice limit.');
-		process.exit(1);
+export async function main(execution = createDeploymentExecution()): Promise<void> {
+	const branch = execution.env.WORKERS_CI_BRANCH;
+	const productionBranch = execution.env.PRODUCTION_BRANCH || 'main';
+	const isPreview = branch !== undefined && branch !== productionBranch;
+	const args = ['varlock-wrangler', 'versions', 'upload'];
+	if (isPreview && branch) {
+		const workerName = execution.env.WORKERS_NAME;
+		if (!workerName)
+			throw new DeploymentError(
+				'configuration',
+				'WORKERS_NAME is required to compute the preview alias slice limit.'
+			);
+		const alias = sanitizeBranchAlias(branch, workerName);
+		args.push('--preview-alias', alias);
+		console.log(`Preview alias: ${alias}`);
 	}
-	const alias = sanitizeBranchAlias(branch, workerName);
-	args.push('--preview-alias', alias);
-	console.log(`Preview alias: ${alias}`);
+	requireCommand(
+		await execution.run({ command: 'bunx', args, output: 'inherit' }),
+		'Cloudflare version upload failed.'
+	);
 }
 
-const result = spawnSync('bunx', args, { stdio: 'inherit' });
-process.exit(result.status ?? 1);
+export async function runCloudflareDeployCli(
+	execution = createDeploymentExecution()
+): Promise<void> {
+	try {
+		await main(execution);
+	} catch (error) {
+		reportCliFailure(error);
+		process.exitCode = error instanceof DeploymentError ? (error.exitCode ?? 1) : 1;
+	}
+}
+
+if (import.meta.main) {
+	await withCliSignals((signal) => runCloudflareDeployCli(createDeploymentExecution({ signal })));
+}

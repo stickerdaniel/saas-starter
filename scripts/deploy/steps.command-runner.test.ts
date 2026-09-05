@@ -1,170 +1,126 @@
+// @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { main } from '../deploy';
 import type {
-	runCommand as runCommandType,
 	CommandExit,
-	CommandFailure,
-	CommandSpec,
-	CommandSuccess,
-	SpawnedCommand
+	CommandRunnerDependencies,
+	SpawnedCommand,
+	SpawnRequest
 } from '../process/command-runner';
-import type { PlatformContext } from './platform';
-
-const runnerMocks = vi.hoisted(() => ({
-	runCommand: vi.fn(),
-	runCommandWithRetry: vi.fn()
-}));
-
-const utilityMocks = vi.hoisted(() => ({
-	runCommandCapture: vi.fn()
-}));
-
-vi.mock('../process/command-runner', () => runnerMocks);
-vi.mock('./utils', () => ({
-	colors: { reset: '', green: '', yellow: '', red: '' },
-	runCommandCapture: utilityMocks.runCommandCapture,
-	sleep: vi.fn(async () => undefined),
-	stripAnsi: (value: string) => value
-}));
-
 import {
-	buildSvelteKit,
-	setupPreviewEnv,
-	syncTranslations,
-	validateConvexEnv,
-	type ConvexDeployment
-} from './steps';
+	defaultReply,
+	harness,
+	previewEnv,
+	productionEnv,
+	settledChild,
+	SITE
+} from './__fixtures__/execution';
+import { createDeploymentExecution } from './execution';
+import { buildSvelteKit, setupPreviewEnv } from './steps';
 
-const commandSuccess: CommandSuccess = {
-	ok: true,
-	exitCode: 0,
-	description: 'command',
-	stdout: '',
-	stderr: '',
-	diagnostic: 'command: exited with code 0'
-};
+beforeEach(() => {
+	vi.spyOn(console, 'log').mockImplementation(() => {});
+	vi.spyOn(console, 'warn').mockImplementation(() => {});
+	vi.spyOn(console, 'error').mockImplementation(() => {});
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(async () => {
+			throw new Error('Unexpected network in deployment test');
+		})
+	);
+});
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
+});
 
-const commandFailure: CommandFailure = {
-	ok: false,
-	kind: 'non_zero_exit',
-	exitCode: 1,
-	description: 'command',
-	stdout: '',
-	stderr: 'failed',
-	diagnostic: 'command: exited with code 1\nstderr:\nfailed'
-};
+const deployment = { urlSlug: 'preview-backend', name: 'preview-backend' };
+const platform = {
+	platform: 'vercel',
+	environment: 'preview',
+	deployUrl: SITE,
+	gitRef: 'current',
+	isPreview: true,
+	siteUrl: SITE
+} as const;
 
-function makePlatform(overrides: Partial<PlatformContext> = {}): PlatformContext {
-	return {
-		platform: 'cloudflare',
-		environment: 'production',
-		deployUrl: null,
-		gitRef: 'main',
-		isPreview: false,
-		siteUrl: 'https://app.example.com',
-		...overrides
-	};
-}
-
-const deployment: ConvexDeployment = {
-	urlSlug: 'preview-name.eu-west-1',
-	name: 'preview-name'
-};
-
-describe('deployment command-runner migration', () => {
-	const originalTolgeeApiKey = process.env.TOLGEE_API_KEY;
-
-	beforeEach(() => {
-		runnerMocks.runCommand.mockReset().mockResolvedValue(commandSuccess);
-		runnerMocks.runCommandWithRetry.mockReset().mockResolvedValue({
-			result: commandSuccess,
-			attempts: 1
-		});
-		utilityMocks.runCommandCapture.mockReset();
-		vi.spyOn(console, 'log').mockImplementation(() => undefined);
-		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-		vi.spyOn(console, 'error').mockImplementation(() => undefined);
-	});
-
-	afterEach(() => {
-		if (originalTolgeeApiKey === undefined) delete process.env.TOLGEE_API_KEY;
-		else process.env.TOLGEE_API_KEY = originalTolgeeApiKey;
-		vi.restoreAllMocks();
-	});
-
-	it('runs translation commands through inherited-output specs in order', async () => {
-		process.env.TOLGEE_API_KEY = 'configured';
-
-		await syncTranslations(makePlatform());
-
-		expect(runnerMocks.runCommand.mock.calls).toEqual([
-			[
-				{
-					command: 'tolgee',
-					args: ['tag', '--filter-extracted', '--tag', 'production', '--untag', 'preview'],
-					output: 'inherit'
-				}
-			],
-			[
-				{
-					command: 'tolgee',
-					args: ['pull'],
-					output: 'inherit'
-				}
-			]
-		]);
-	});
-
-	it('runs preview environment validation through the shared runner', async () => {
-		await validateConvexEnv(
-			makePlatform({ environment: 'preview', isPreview: true, gitRef: 'feature/test' }),
-			deployment
+describe('deployment calls use the reviewed runner', () => {
+	it('uses inherited build output and removes the Varlock manifest', async () => {
+		const h = harness({ __VARLOCK_ENV: 'host-manifest' });
+		await buildSvelteKit(
+			{ PUBLIC_CONVEX_URL: 'https://preview.convex.cloud', __VARLOCK_ENV: 'manifest' },
+			h.execution
 		);
-
-		expect(runnerMocks.runCommand).toHaveBeenCalledWith({
-			command: 'bun',
-			args: ['scripts/validate-convex-env.ts', '--deployment-name', 'preview-name'],
-			output: 'inherit'
-		});
+		expect(h.spawn).toHaveBeenCalledWith(
+			expect.objectContaining({ command: 'bun', args: ['run', 'build'], output: 'inherit' })
+		);
+		expect(h.spawn.mock.calls[0]?.[0].env).not.toHaveProperty('__VARLOCK_ENV');
 	});
-
-	it('builds with inherited output and explicitly removes the injected Varlock manifest', async () => {
-		await buildSvelteKit({
-			PUBLIC_CONVEX_URL: 'https://preview.convex.cloud',
-			__VARLOCK_ENV: 'must-not-survive'
-		});
-
-		expect(runnerMocks.runCommand).toHaveBeenCalledWith({
-			command: 'bun',
-			args: ['run', 'build'],
-			env: {
-				PUBLIC_CONVEX_URL: 'https://preview.convex.cloud',
-				__VARLOCK_ENV: undefined
-			},
-			output: 'inherit'
-		});
+	it('executes exactly five SITE_URL attempts and only four delays on exhaustion', async () => {
+		const h = harness(previewEnv, (request) =>
+			request.args[2] === 'set' ? { exitCode: 1 } : defaultReply(request)
+		);
+		await expect(setupPreviewEnv(deployment, platform, h.execution)).rejects.toThrow(
+			'Failed to set SITE_URL'
+		);
+		expect(h.spawn).toHaveBeenCalledTimes(5);
+		expect(h.sleep).toHaveBeenCalledTimes(4);
+		expect(h.events.filter((event) => event === 'wait:5000')).toHaveLength(4);
 	});
-
-	it('forwards parent abort and timeout controls through the representative build caller', async () => {
-		const controller = new AbortController();
-
-		await buildSvelteKit({}, { signal: controller.signal, timeoutMs: 25 });
-
-		expect(runnerMocks.runCommand).toHaveBeenCalledWith({
-			command: 'bun',
-			args: ['run', 'build'],
-			env: { __VARLOCK_ENV: undefined },
-			output: 'inherit',
-			signal: controller.signal,
-			timeoutMs: 25
-		});
+	it('stops SITE_URL retries at first success', async () => {
+		let attempts = 0;
+		const h = harness(previewEnv, (request) =>
+			request.args[2] === 'set' && ++attempts < 3 ? { exitCode: 1 } : defaultReply(request)
+		);
+		await setupPreviewEnv(deployment, platform, h.execution);
+		expect(attempts).toBe(3);
+		expect(h.sleep).toHaveBeenCalledTimes(2);
 	});
+	it('keeps verification failure and seed failure non-blocking, without printing captures', async () => {
+		let lists = 0;
+		const h = harness(previewEnv, (request) => {
+			if (request.args[2] === 'list' && ++lists === 1)
+				return { exitCode: 1, stderr: 'runtime-secret' };
+			if (request.args[1] === 'run') return { exitCode: 1, stdout: 'runtime-secret' };
+			return defaultReply(request);
+		});
+		await setupPreviewEnv(deployment, platform, h.execution);
+		expect(console.warn).toHaveBeenCalledTimes(2);
+		expect(console.error).not.toHaveBeenCalled();
+		expect(JSON.stringify(vi.mocked(console.log).mock.calls)).not.toContain('runtime-secret');
+	});
+	it('refuses a mismatched SITE_URL and missing deployment/site metadata', async () => {
+		const h = harness(previewEnv, (request) =>
+			request.args[2] === 'list' ? { stdout: 'SITE_URL=https://wrong.test' } : defaultReply(request)
+		);
+		await expect(setupPreviewEnv(deployment, platform, h.execution)).rejects.toThrow(
+			'SITE_URL mismatch'
+		);
+		expect(h.spawn).toHaveBeenCalledTimes(2);
+		await expect(
+			setupPreviewEnv({ urlSlug: null, name: null }, platform, h.execution)
+		).rejects.toThrow('deployment name');
+		await expect(
+			setupPreviewEnv(deployment, { ...platform, siteUrl: null }, h.execution)
+		).rejects.toThrow('Site URL');
+		expect(h.spawn).toHaveBeenCalledTimes(2);
+	});
+});
 
-	it.each(['abort', 'timeout'] as const)(
-		'settles the representative build child before the existing %s failure boundary',
-		async (stop) => {
-			const { runCommand } = await vi.importActual<{ runCommand: typeof runCommandType }>(
-				'../process/command-runner'
-			);
+const stages: Array<[string, boolean, (request: SpawnRequest) => boolean]> = [
+	['translation', false, (r) => r.command === 'tolgee'],
+	['production validation', false, (r) => r.args.includes('--prod')],
+	['deployment', true, (r) => r.args[1] === 'deploy'],
+	['SITE_URL update', true, (r) => r.args[2] === 'set'],
+	['verification', true, (r) => r.args[2] === 'list'],
+	['seeding', true, (r) => r.args[1] === 'run'],
+	['build', true, (r) => r.command === 'bun']
+];
+
+describe.each(['aborted', 'timed_out'] as const)('pipeline %s propagation', (stop) => {
+	it.each(stages)(
+		'settles the %s child and stops later work',
+		async (_stage, isPreview, matches) => {
 			const controller = new AbortController();
 			let settle!: (exit: CommandExit) => void;
 			const child: SpawnedCommand = {
@@ -175,103 +131,48 @@ describe('deployment command-runner migration', () => {
 				}),
 				kill: vi.fn(() => true)
 			};
-			const spawn = vi.fn(() => child);
-			const killProcessTree = vi.fn((_child: SpawnedCommand, signal: NodeJS.Signals) => {
-				settle({ exitCode: null, signal });
-			});
-			const timers: Array<() => void> = [];
-			runnerMocks.runCommand.mockImplementation((spec: CommandSpec) =>
-				runCommand(spec, {
-					spawn,
-					killProcessTree,
-					baseEnv: {},
-					createTimer: (callback) => {
-						timers.push(callback);
-						return { cancel: vi.fn() };
-					}
-				})
+			const spawn = vi.fn((request: SpawnRequest) =>
+				matches(request) ? child : settledChild(defaultReply(request))
 			);
-			// Deep CLI exits intentionally remain until PR 6B. Never exit the test worker.
-			const exitError = new Error('intercepted deployment exit');
-			const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
-				throw exitError;
+			const timers = new Set<() => void>();
+			const createTimer: CommandRunnerDependencies['createTimer'] = (callback) => {
+				timers.add(callback);
+				return {
+					cancel: () => {
+						timers.delete(callback);
+					}
+				};
+			};
+			const killProcessTree = vi.fn((_child: SpawnedCommand, signal: NodeJS.Signals) =>
+				settle({ exitCode: null, signal })
+			);
+			const execution = createDeploymentExecution({
+				env: isPreview ? previewEnv : productionEnv,
+				signal: controller.signal,
+				timeoutMs: 25,
+				runner: { spawn, createTimer, killProcessTree }
 			});
-
-			const pending = buildSvelteKit({}, { signal: controller.signal, timeoutMs: 25 });
-			const rejected = expect(pending).rejects.toBe(exitError);
-			if (stop === 'abort') controller.abort();
-			else timers[0]?.();
+			const writeConfig = vi.fn();
+			const pending = main(execution, { writeConfig });
+			const rejected = expect(pending).rejects.toMatchObject({ code: stop });
+			await vi.waitFor(() => expect(spawn.mock.calls.some(([r]) => matches(r))).toBe(true));
+			const callsAtStop = spawn.mock.calls.length;
+			if (stop === 'aborted') controller.abort();
+			else for (const timer of [...timers]) timer();
 			await rejected;
-
-			expect(spawn).toHaveBeenCalledTimes(1);
+			expect(spawn).toHaveBeenCalledTimes(callsAtStop);
 			expect(killProcessTree.mock.calls).toEqual([
 				[child, 'SIGTERM'],
 				[child, 'SIGKILL']
 			]);
-			expect(exit).toHaveBeenCalledWith(1);
-			expect(console.error).toHaveBeenCalledWith(
-				expect.stringContaining(stop === 'abort' ? 'aborted' : 'timed out')
-			);
+			expect(timers.size).toBe(0);
+			expect(console.error).not.toHaveBeenCalled();
+			expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('Deployment complete!'));
 		}
 	);
-
-	it('declares exactly five SITE_URL attempts through the retry primitive', async () => {
-		runnerMocks.runCommand
-			.mockResolvedValueOnce({
-				...commandSuccess,
-				stdout: 'SITE_URL=https://preview.example.com\n'
-			})
-			.mockResolvedValueOnce(commandSuccess);
-		utilityMocks.runCommandCapture.mockReturnValueOnce({
-			success: true,
-			stdout: 'seeded',
-			stderr: ''
-		});
-
-		await setupPreviewEnv(
-			deployment,
-			makePlatform({
-				environment: 'preview',
-				isPreview: true,
-				gitRef: 'feature/test',
-				siteUrl: 'https://preview.example.com'
-			})
-		);
-
-		expect(runnerMocks.runCommandWithRetry).toHaveBeenCalledTimes(1);
-		const [spec, options] = runnerMocks.runCommandWithRetry.mock.calls[0] ?? [];
-		expect(spec).toEqual({
-			command: 'bunx',
-			args: [
-				'convex',
-				'env',
-				'set',
-				'--deployment-name',
-				'preview-name',
-				'SITE_URL',
-				'https://preview.example.com'
-			]
-		});
-		expect(options).toMatchObject({
-			maxAttempts: 5,
-			delay: { kind: 'fixed', delayMs: 5000 }
-		});
-		expect(options?.shouldRetry(commandFailure, 1)).toBe(true);
-		expect(runnerMocks.runCommand.mock.calls).toEqual([
-			[
-				{
-					command: 'bunx',
-					args: ['convex', 'env', 'list', '--deployment-name', 'preview-name'],
-					output: 'capture'
-				}
-			],
-			[
-				{
-					command: 'bun',
-					args: ['scripts/validate-convex-env.ts', '--deployment-name', 'preview-name'],
-					output: 'inherit'
-				}
-			]
-		]);
+	it('does no work for an already-aborted parent', async () => {
+		const h = harness(previewEnv, defaultReply, { signal: AbortSignal.abort() });
+		await expect(main(h.execution, h.options)).rejects.toMatchObject({ code: 'aborted' });
+		expect(h.spawn).not.toHaveBeenCalled();
 	});
 });

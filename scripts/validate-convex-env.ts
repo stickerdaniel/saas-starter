@@ -18,132 +18,105 @@
  */
 
 import * as fs from 'node:fs';
-import * as path from 'node:path';
+import { reportCliFailure, withCliSignals } from './deploy/cli';
+import {
+	createDeploymentExecution,
+	DeploymentError,
+	requireCommand,
+	throwIfStopped
+} from './deploy/execution';
 
-import { runCommandCapture } from './deploy/utils';
-
-/**
- * Parse `.env-convex.schema` to extract required var names.
- * Scans past the `# ---` header separator, then collects var names whose
- * preceding decorator block does NOT contain `@optional`.
- */
-function getRequiredVarNames(): string[] {
-	const schemaPath = path.resolve(import.meta.dirname, '..', '.env-convex.schema');
-	const content = fs.readFileSync(schemaPath, 'utf-8');
+export function getRequiredVarNames(
+	content = fs.readFileSync(new URL('../.env-convex.schema', import.meta.url), 'utf-8')
+): string[] {
 	const lines = content.split('\n');
-
-	// Skip header (everything before `# ---`)
 	const headerEnd = lines.findIndex((line) => line.trim() === '# ---');
-	if (headerEnd === -1) {
-		throw new Error('.env-convex.schema: missing `# ---` header separator');
-	}
-
+	if (headerEnd === -1)
+		throw new DeploymentError('configuration', '.env-convex.schema: missing header separator.');
 	const required: string[] = [];
 	let currentBlockIsOptional = false;
-
-	for (let i = headerEnd + 1; i < lines.length; i++) {
-		const line = lines[i].trim();
-
-		// Skip blank lines (reset decorator context)
+	for (const raw of lines.slice(headerEnd + 1)) {
+		const line = raw.trim();
 		if (!line) {
 			currentBlockIsOptional = false;
 			continue;
 		}
-
-		// Comment/decorator line
 		if (line.startsWith('#')) {
-			if (line.includes('@optional')) {
-				currentBlockIsOptional = true;
-			}
+			if (line.includes('@optional')) currentBlockIsOptional = true;
 			continue;
 		}
-
-		// Variable line: NAME= or NAME=value
-		const match = line.match(/^([A-Z_][A-Z0-9_]*)=/);
-		if (match && !currentBlockIsOptional) {
-			required.push(match[1]);
-		}
+		const name = line.match(/^([A-Z_][A-Z0-9_]*)=/)?.[1];
+		if (name && !currentBlockIsOptional) required.push(name);
 	}
-
 	return required;
 }
 
-const REQUIRED_VAR_NAMES = getRequiredVarNames();
-
-const isProd = process.argv.includes('--prod');
-const deploymentNameIndex = process.argv.indexOf('--deployment-name');
-const deploymentName = deploymentNameIndex !== -1 ? process.argv[deploymentNameIndex + 1] : null;
-const previewNameIndex = process.argv.indexOf('--preview-name');
-const previewName = previewNameIndex !== -1 ? process.argv[previewNameIndex + 1] : null;
-
-// Priority: --deployment-name > --prod > --preview-name > default (local dev)
-const deploymentArgs = deploymentName
-	? ['--deployment-name', deploymentName]
-	: isProd
-		? ['--prod']
-		: previewName
-			? ['--preview-name', previewName]
-			: [];
-
-if (deploymentName) {
-	console.log(`Using --deployment-name ${deploymentName}`);
-}
-
-const result = runCommandCapture('bunx', ['convex', 'env', 'list', ...deploymentArgs]);
-if (!result.success) {
-	const detail = `${result.stderr}\n${result.stdout}`;
-
-	// Convex deploy keys can deploy but are denied ViewEnvironmentVariables, so
-	// `convex env list` fails in CI when authenticated with a deploy key. Skip the
-	// pre-flight check on a permission error instead of failing the build; the deploy
-	// still runs and any genuinely missing required var is rejected by the Convex
-	// backend at push time (convex.config.ts declares them, so `convex deploy` fails
-	// with MissingEnvironmentVariables).
-	if (/ViewEnvironmentVariables|do not have permission/i.test(detail)) {
+export async function validateRequiredConvexEnv(
+	deploymentArgs: string[],
+	execution = createDeploymentExecution()
+): Promise<void> {
+	const required = getRequiredVarNames();
+	const result = await execution.run({
+		command: 'bunx',
+		args: ['convex', 'env', 'list', ...deploymentArgs],
+		output: 'capture'
+	});
+	throwIfStopped(result);
+	if (
+		!result.ok &&
+		/ViewEnvironmentVariables|do not have permission/i.test(result.stderr + '\n' + result.stdout)
+	) {
 		console.warn(
-			'⚠️  Skipping Convex env validation: the deploy key cannot list env vars. ' +
-				`Ensure these are set on the deployment: ${REQUIRED_VAR_NAMES.join(', ')}. ` +
+			'Skipping Convex env validation: the deploy key cannot list env vars. ' +
+				`Ensure these are set on the deployment: ${required.join(', ')}. ` +
 				'A missing required var still fails the deploy via backend env validation.'
 		);
-		process.exit(0);
+		return;
 	}
-
-	console.error('Failed to list Convex env vars:');
-	if (result.stderr) console.error(result.stderr);
-	if (result.stdout) console.error(result.stdout);
-	process.exit(1);
+	requireCommand(result, 'Failed to list Convex environment variables.');
+	const existing = new Set(
+		result.stdout
+			.split('\n')
+			.map((line) => line.match(/^(\w+)=/)?.[1])
+			.filter(Boolean)
+	);
+	const missing = required.filter((name) => !existing.has(name));
+	if (missing.length) {
+		throw new DeploymentError(
+			'configuration',
+			'Missing required Convex environment variables: ' +
+				missing.join(', ') +
+				`\nSet them via: bunx convex env set VARIABLE_NAME value ${deploymentArgs.join(' ')}`
+		);
+	}
+	console.log('All required Convex environment variables are set.');
 }
 
-// Parse "NAME=value" lines
-const existingVars = new Set(
-	result.stdout
-		.split('\n')
-		.map((line) => line.match(/^(\w+)=/)?.[1])
-		.filter(Boolean)
-);
-
-const missingVars = REQUIRED_VAR_NAMES.filter((name) => !existingVars.has(name));
-
-if (missingVars.length > 0) {
-	console.error('');
-	console.error('============================================================');
-	console.error('MISSING REQUIRED CONVEX ENVIRONMENT VARIABLES');
-	console.error('============================================================');
-	console.error('');
-	console.error('The following variables are not set in your Convex environment:');
-	for (const name of missingVars) {
-		console.error(`  - ${name}`);
-	}
-	console.error('');
-	const deploymentHint = deploymentArgs.length > 0 ? ` ${deploymentArgs.join(' ')}` : '';
-	console.error('Set them via CLI:');
-	console.error(`  bunx convex env set VARIABLE_NAME value${deploymentHint}`);
-	console.error('');
-	console.error('Or set in Convex Dashboard:');
-	console.error('  https://dashboard.convex.dev → Your Project → Settings → Environment Variables');
-	console.error('');
-	console.error('============================================================');
-	process.exit(1);
+export async function main(
+	args = process.argv.slice(2),
+	execution = createDeploymentExecution()
+): Promise<void> {
+	const valueAfter = (flag: string) => {
+		const index = args.indexOf(flag);
+		return index === -1 ? undefined : args[index + 1];
+	};
+	const deploymentName = valueAfter('--deployment-name');
+	const previewName = valueAfter('--preview-name');
+	const deploymentArgs = deploymentName
+		? ['--deployment-name', deploymentName]
+		: args.includes('--prod')
+			? ['--prod']
+			: previewName
+				? ['--preview-name', previewName]
+				: [];
+	await validateRequiredConvexEnv(deploymentArgs, execution);
 }
 
-console.log('✅ All required Convex environment variables are set');
+if (import.meta.main) {
+	await withCliSignals((signal) => main(undefined, createDeploymentExecution({ signal }))).catch(
+		(error) => {
+			reportCliFailure(error);
+			process.exitCode = 1;
+		}
+	);
+}

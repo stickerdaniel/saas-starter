@@ -65,3 +65,19 @@ describe('computeBuildEnv', () => {
 		expect(buildEnv.PUBLIC_SITE_URL).toBe('https://branch-myapp.example.workers.dev');
 	});
 });
+
+describe('deployment-key fallback in the invocation environment', () => {
+	it.each([
+		['prod:backend-123|fixture-key', 'backend-123'],
+		['backend-123.eu-west-1|fixture-key', 'backend-123.eu-west-1'],
+		['invalid-no-delimiter', null],
+		['|fixture-key', null],
+		['', null]
+	])('preserves the existing fallback for %s', (key, slug) => {
+		const env = { CONVEX_DEPLOY_KEY: key ?? '', __VARLOCK_ENV: 'manifest' };
+		const result = computeBuildEnv(makePlatform(), { urlSlug: null, name: null }, env);
+		expect(result.PUBLIC_CONVEX_URL).toBe(slug ? `https://${slug}.convex.cloud` : undefined);
+		expect(result).not.toHaveProperty('__VARLOCK_ENV');
+		expect(env.__VARLOCK_ENV).toBe('manifest');
+	});
+});

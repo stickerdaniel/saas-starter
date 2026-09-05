@@ -65,7 +65,7 @@ const CONFIG = {
 		staticSentryImport: /(?:import|export)\s+(?!type[\s{])[^'"]*from\s*['"]@sentry\/sveltekit['"]/,
 		/**
 		 * Shell-string spawning. Removed in #473/#514; build argument arrays and use
-		 * spawn-style helpers instead (see runCommandCapture in scripts/deploy/utils.ts).
+		 * spawn-style helpers instead (see runCommand in scripts/process/command-runner.ts).
 		 * Scope: this scanner only covers .svelte/.ts files under src/ (full runs glob
 		 * that set; --staged/file-args runs filter the given files down to it).
 		 */
@@ -588,7 +588,7 @@ async function main(): Promise<void> {
 					}
 					if (CONFIG.bannedPatterns.execSync.test(line)) {
 						violations.push(
-							`${file}:${i + 1}: execSync (use spawn-style argument arrays, see runCommandCapture in scripts/deploy/utils.ts): ${line.trim()}`
+							`${file}:${i + 1}: execSync (use spawn-style argument arrays, see runCommand in scripts/process/command-runner.ts): ${line.trim()}`
 						);
 					}
 					if (CONFIG.bannedPatterns.ungatedTolgeeApiKey.test(line)) {
