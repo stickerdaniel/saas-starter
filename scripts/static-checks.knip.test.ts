@@ -43,11 +43,21 @@ const RECORDER_SOURCE = path.join(
 // Eine getrackte TypeScript-Datei, die der lokale Pre-Push-Lauf an die schreibenden Linter
 // weiterreicht; mit einer reinen Markdown-Eingabe überspringt der Checker ESLint ganz.
 const LINTED_SOURCE = 'scripts/test-executable.ts';
+// Pfadsatz des Klon-Overlays: `scripts` plus die beiden Dateien außerhalb davon, die der
+// Checker direkt importiert. Ohne sie liefe der Klon auf der eingecheckten Fassung, während
+// der Arbeitsbaum bereits eine geänderte Policy benutzt.
+const OVERLAY_PATHSPECS = [
+	'scripts',
+	'eslint/control-character-policy.js',
+	'knowledge-policy.config.ts'
+];
 // Quellen, ohne die ein Klon-Lauf grün werden könnte, ohne die geprüfte Änderung zu sehen.
-const REQUIRED_SCRIPT_SOURCES = [
+const REQUIRED_SOURCES = [
 	'scripts/static-checks.ts',
 	'scripts/terminal-output.ts',
-	'scripts/convex-consumer-compat.ts'
+	'scripts/convex-consumer-compat.ts',
+	'eslint/control-character-policy.js',
+	'knowledge-policy.config.ts'
 ];
 // Bun kanonisiert den Modulpfad des Checkers über die Betriebssystem-API, `realpathSync` die
 // Aufruf-cwd dagegen nicht. Unter Windows liefert os.tmpdir() auf GitHub-Runnern den
@@ -128,7 +138,7 @@ function recorderEnv(logPath: string): NodeJS.ProcessEnv {
 }
 
 /**
- * Überlagert den Klon mit den Arbeitskopien der von Git geführten Script-Quellen.
+ * Überlagert den Klon mit den Arbeitskopien der von Git geführten Quellen.
  *
  * Ein rekursiver Kopiervorgang über ROOT/scripts traversiert ein Verzeichnis, in dem
  * static-checks.format.test.ts parallel seine `.format-*`-Fixtures anlegt und wieder
@@ -139,20 +149,20 @@ function recorderEnv(logPath: string): NodeJS.ProcessEnv {
  * Datei überlagert. Damit bleiben Änderungen an getrackten und bereits gestagten Quellen vor
  * dem Commit geprüft, ohne ein lebendes Verzeichnis zu durchlaufen.
  */
-function overlayIndexedScripts(repository: string): void {
-	const listed = spawnSync('git', ['ls-files', '-z', '--', 'scripts'], {
+function overlayIndexedSources(repository: string): void {
+	const listed = spawnSync('git', ['ls-files', '-z', '--', ...OVERLAY_PATHSPECS], {
 		cwd: ROOT,
 		env: sanitizedGitEnv(),
 		encoding: 'utf8',
 		maxBuffer: 16 * 1024 * 1024
 	});
-	if (listed.status !== 0) throw new Error(`Failed to list indexed scripts: ${listed.stderr}`);
+	if (listed.status !== 0) throw new Error(`Failed to list indexed sources: ${listed.stderr}`);
 	const files = listed.stdout.split('\0').filter(Boolean);
 	// Ein leerer oder unvollständiger Satz würde den Klon auf dem eingecheckten Stand laufen
 	// lassen und die Änderung, die geprüft werden soll, unbemerkt überspringen.
-	for (const required of REQUIRED_SCRIPT_SOURCES) {
+	for (const required of REQUIRED_SOURCES) {
 		if (!files.includes(required)) {
-			throw new Error(`Der Git-Index führt ${required} nicht: ${files.length} Script-Pfade.`);
+			throw new Error(`Der Git-Index führt ${required} nicht: ${files.length} Pfade.`);
 		}
 	}
 	for (const file of files) {
@@ -160,7 +170,7 @@ function overlayIndexedScripts(repository: string): void {
 		// Eine im Index geführte, aber im Arbeitsbaum fehlende Quelle darf nicht unbemerkt die
 		// eingecheckte Fassung im Klon stehen lassen.
 		if (!existsSync(source)) {
-			throw new Error(`Indexed script source is missing from the worktree: ${file}`);
+			throw new Error(`Indexed source is missing from the worktree: ${file}`);
 		}
 		mkdirSync(path.dirname(path.join(repository, file)), { recursive: true });
 		copyFileSync(source, path.join(repository, file));
@@ -185,7 +195,7 @@ function createCheckerClone(): CheckerClone {
 			path.join(repository, 'node_modules'),
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
-		overlayIndexedScripts(repository);
+		overlayIndexedSources(repository);
 
 		return {
 			directory,
@@ -217,10 +227,22 @@ function indexOfInvocation(log: CommandInvocation[], invocation: CommandInvocati
 	);
 }
 
+/**
+ * Zählt die Knip-Aufrufe in beiden üblichen Bun-Formen.
+ *
+ * `bun knip …` und `bun run knip …` starten gemessen dasselbe Package-Script mit denselben
+ * Argumenten. Nur die kurze Form zu zählen ließe einen zweiten Aufruf in der langen Form
+ * unsichtbar, und der Genau-einmal-Vertrag wäre wirkungslos. Das `run` wird deshalb allein
+ * beim Vergleich abgestreift; die Flags hinter dem Skriptnamen bleiben unverändert und
+ * werden weiterhin exakt geprüft.
+ */
 function knipInvocations(checkout: CheckerClone): CommandInvocation[] {
-	return readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!).filter(
-		(invocation) => invocation.command === 'bun' && invocation.args[0] === 'knip'
-	);
+	return readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)
+		.filter((invocation) => invocation.command === 'bun')
+		.map((invocation) =>
+			invocation.args[0] === 'run' ? { ...invocation, args: invocation.args.slice(1) } : invocation
+		)
+		.filter((invocation) => invocation.args[0] === 'knip');
 }
 
 function stageReadme(checkout: CheckerClone): void {
@@ -413,6 +435,24 @@ describe.sequential('Knip static-check CLI behavior', () => {
 			rmSync(checkout.directory, { recursive: true, force: true });
 		}
 	}, 45_000);
+
+	it('runs knip once in a local full-project run', () => {
+		const checkout = createCheckerClone();
+		// Der dokumentierte lokale Vollprojektlauf: keine Argumente, kein --ci, kein CI in der
+		// Umgebung. Erst dieser Fall unterscheidet `mode !== 'staged'` von einem Guard, der
+		// zusätzlich `ciMode` oder `mode === 'files'` verlangt.
+		delete checkout.env.CI;
+		try {
+			const result = runChecker(checkout, []);
+			const output = `${result.stdout}${result.stderr}`;
+
+			expect(result.status, output).toBe(0);
+			expect(knipInvocations(checkout)).toEqual([KNIP]);
+			expect(output).toContain('All checks passed!');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 60_000);
 
 	it('keeps knip out of the types scope', () => {
 		const checkout = createCheckerClone();
