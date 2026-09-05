@@ -160,7 +160,8 @@
 		"vaul-svelte": "1.0.0-next.7",
 		"vite": "8.1.4",
 		"vite-plugin-devtools-json": "1.0.0",
-		"vitest": "4.1.10"
+		"vitest": "4.1.10",
+		"yaml": "^2.9.0"
 	},
 	"patchedDependencies": {
 		"oxlint-plugin-convex@0.1.1": "patches/oxlint-plugin-convex@0.1.1.patch",

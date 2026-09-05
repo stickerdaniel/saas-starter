@@ -1,6 +1,10 @@
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { parse as parseYaml } from 'yaml';
+import { sanitizedGitEnv } from './git-context';
 
 /**
  * Actions artifacts and caches share one account-wide storage quota. When it
@@ -140,5 +144,178 @@ describe('docker build records', () => {
 			// registry tags are the authoritative build evidence.
 			expect(source, workflow).toContain('DOCKER_BUILD_RECORD_UPLOAD: false');
 		}
+	});
+});
+
+describe.skipIf(process.platform === 'win32')('lint job source identity', () => {
+	const lintSteps = (() => {
+		const workflow = parseYaml(
+			fs.readFileSync(path.join(WORKFLOWS_DIR, 'static-checks.yml'), 'utf-8')
+		) as { jobs?: Record<string, { steps?: unknown }> };
+		const steps = workflow.jobs?.lint?.steps;
+		if (!Array.isArray(steps)) throw new TypeError('the lint job carried no step list');
+		return steps as Array<{ name?: string; run?: string }>;
+	})();
+
+	const guards = lintSteps.filter((step) => step.name?.startsWith('Assert source identity'));
+
+	function git(cwd: string, args: string[]): string {
+		const result = spawnSync('git', args, {
+			cwd,
+			encoding: 'utf-8',
+			env: sanitizedGitEnv()
+		});
+		if (result.status !== 0) throw new Error(result.stderr);
+		return result.stdout.trim();
+	}
+
+	function fixture(): string {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'source-identity-'));
+		git(dir, ['init', '-q', '-b', 'main']);
+		git(dir, ['config', 'user.email', 'guard@example.test']);
+		git(dir, ['config', 'user.name', 'Guard Fixture']);
+		git(dir, ['config', 'commit.gpgsign', 'false']);
+		fs.writeFileSync(path.join(dir, '.gitignore'), 'generated/\nsrc/env.d.ts\n');
+		fs.mkdirSync(path.join(dir, 'src'));
+		fs.writeFileSync(path.join(dir, 'src', 'env.d.ts'), 'export {};\n');
+		fs.writeFileSync(path.join(dir, 'app.ts'), 'export const version = 1;\n');
+		git(dir, ['add', '-A', '-f']);
+		git(dir, ['commit', '-q', '-m', 'base']);
+		return dir;
+	}
+
+	function exec(script: string, dir: string, sha: string): number {
+		const result = spawnSync('bash', ['-e', '-o', 'pipefail', '-c', script], {
+			cwd: dir,
+			env: { ...sanitizedGitEnv(), GITHUB_SHA: sha },
+			encoding: 'utf-8'
+		});
+		return result.status ?? 1;
+	}
+
+	function withoutGuard(script: string, marker: string): string {
+		const lines = script.split('\n');
+		const start = lines.findIndex(
+			(line) => line.trimStart().startsWith('if ') && line.includes(marker)
+		);
+		const end = lines.findIndex((line, index) => index > start && line.trim() === 'fi');
+		if (start < 0 || end <= start) throw new Error(`no guard block around ${marker}`);
+		return [...lines.slice(0, start), ...lines.slice(end + 1)].join('\n');
+	}
+
+	function withInlinedStatus(script: string): string {
+		return script
+			.replace(/^\t*status="[^\n]*\n/m, '')
+			.replace(
+				'if [ -n "$status" ]',
+				'if [ -n "$(git status --porcelain=v1 --untracked-files=all)" ]'
+			);
+	}
+
+	function onEachGuard(dir: string, sha: string, expected: number): void {
+		expect(guards, 'the lint job carries both guard steps').toHaveLength(2);
+		for (const guard of guards) {
+			expect(exec(String(guard.run), dir, sha), String(guard.name)).toBe(expected);
+		}
+	}
+
+	function inFixture(body: (dir: string, head: string) => void): void {
+		const dir = fixture();
+		try {
+			body(dir, git(dir, ['rev-parse', 'HEAD']));
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	}
+
+	it('reasserts the source identity after install and after the checks', () => {
+		expect(guards.map((step) => step.name)).toEqual([
+			'Assert source identity after install',
+			'Assert source identity after checks'
+		]);
+		const installIndex = lintSteps.findIndex((step) => step.run === 'bun install');
+		expect(installIndex).toBeGreaterThanOrEqual(0);
+		expect(lintSteps[installIndex + 1]?.name).toBe('Assert source identity after install');
+		expect(lintSteps.at(-1)?.name).toBe('Assert source identity after checks');
+		expect(String(guards[0]?.run)).toBe(String(guards[1]?.run));
+	});
+
+	it('accepts the tree the event commit describes', () => {
+		inFixture((dir, head) => onEachGuard(dir, head, 0));
+	});
+
+	it('rejects a tracked file that a generator rewrote, ignored or not', () => {
+		inFixture((dir, head) => {
+			fs.writeFileSync(path.join(dir, 'src', 'env.d.ts'), 'export const generated = true;\n');
+			onEachGuard(dir, head, 1);
+		});
+	});
+
+	it('rejects a staged change', () => {
+		inFixture((dir, head) => {
+			fs.writeFileSync(path.join(dir, 'app.ts'), 'export const version = 2;\n');
+			git(dir, ['add', 'app.ts']);
+			onEachGuard(dir, head, 1);
+		});
+	});
+
+	it('rejects a new file no ignore rule covers', () => {
+		inFixture((dir, head) => {
+			fs.writeFileSync(path.join(dir, 'report.txt'), 'left behind\n');
+			onEachGuard(dir, head, 1);
+		});
+	});
+
+	it('accepts ignored generator output', () => {
+		inFixture((dir, head) => {
+			fs.mkdirSync(path.join(dir, 'generated'));
+			fs.writeFileSync(path.join(dir, 'generated', 'out.js'), 'export const built = true;\n');
+			onEachGuard(dir, head, 0);
+		});
+	});
+
+	it('rejects a clean tree once HEAD left the event commit', () => {
+		inFixture((dir, head) => {
+			fs.writeFileSync(path.join(dir, 'app.ts'), 'export const version = 2;\n');
+			git(dir, ['add', '-A']);
+			git(dir, ['commit', '-q', '-m', 'second']);
+			onEachGuard(dir, head, 1);
+		});
+	});
+
+	it('fails the job when the index cannot be read at all', () => {
+		inFixture((dir, head) => {
+			fs.writeFileSync(path.join(dir, '.git', 'index'), 'DIRC');
+			expect(git(dir, ['rev-parse', 'HEAD'])).toBe(head);
+			expect(guards, 'the lint job carries both guard steps').toHaveLength(2);
+			for (const guard of guards) {
+				expect(exec(String(guard.run), dir, head), String(guard.name)).not.toBe(0);
+			}
+		});
+	});
+
+	it('owes the unreadable index to the separate status capture', () => {
+		const script = String(guards[0]?.run);
+		inFixture((dir, head) => {
+			fs.writeFileSync(path.join(dir, '.git', 'index'), 'DIRC');
+			expect(exec(script, dir, head)).not.toBe(0);
+			expect(exec(withInlinedStatus(script), dir, head)).toBe(0);
+		});
+	});
+
+	it('owes each rejection to its own guard', () => {
+		const script = String(guards[0]?.run);
+		inFixture((dir, head) => {
+			fs.writeFileSync(path.join(dir, 'src', 'env.d.ts'), 'export const generated = true;\n');
+			expect(exec(script, dir, head)).toBe(1);
+			expect(exec(withoutGuard(script, '-n "$status"'), dir, head)).toBe(0);
+		});
+		inFixture((dir, head) => {
+			fs.writeFileSync(path.join(dir, 'app.ts'), 'export const version = 2;\n');
+			git(dir, ['add', '-A']);
+			git(dir, ['commit', '-q', '-m', 'second']);
+			expect(exec(script, dir, head)).toBe(1);
+			expect(exec(withoutGuard(script, '"$head" != "$GITHUB_SHA"'), dir, head)).toBe(0);
+		});
 	});
 });

@@ -502,6 +502,13 @@
 		},
 		{
 			"type": "git",
+			"name": "yaml",
+			"url": "https://github.com/eemeli/yaml",
+			"branch": "main",
+			"specialNotes": "yaml package. Parser behind the workflow guards in scripts/workflow-artifacts.test.ts, which read GitHub Actions definitions as YAML instead of approximating them with regexes."
+		},
+		{
+			"type": "git",
 			"name": "autumnTypescript",
 			"url": "https://github.com/useautumn/typescript",
 			"branch": "main",
