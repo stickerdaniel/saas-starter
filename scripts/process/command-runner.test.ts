@@ -205,6 +205,37 @@ describe('runCommand', () => {
 		expect(result.cause?.name).toBe('Spawn [REDACTED]');
 	});
 
+	it.each(['stdout', 'stderr'] as const)(
+		'handles an early %s failure while still waiting for child settlement',
+		async (stream) => {
+			const exit = deferred<CommandExit>();
+			const secret = 'stream-secret';
+			async function* brokenOutput(): AsyncIterable<string> {
+				yield 'partial output';
+				throw new Error(`read failed with ${secret}`);
+			}
+			const spawn = vi.fn(() => spawnedCommand(exit.promise, { [stream]: brokenOutput() }));
+			let settled = false;
+			const pending = runCommand(
+				{ command: 'tool', redact: [secret] },
+				{ spawn, baseEnv: {} }
+			).then((result) => {
+				settled = true;
+				return result;
+			});
+
+			// Give an unhandled rejection a full event-loop turn to surface before exit.
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			expect(settled).toBe(false);
+			exit.resolve({ exitCode: 0, signal: null });
+			const result = await pending;
+
+			expect(result).toMatchObject({ ok: false, kind: 'spawn_failed' });
+			if (result.ok) throw new Error('Expected stream failure');
+			expect(result.cause?.message).toBe('read failed with [REDACTED]');
+		}
+	);
+
 	it('returns before spawning when the parent signal is already aborted', async () => {
 		const controller = new AbortController();
 		controller.abort();

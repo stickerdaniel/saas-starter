@@ -425,6 +425,8 @@ export async function runCommand(
 		output === 'capture' ? readCapturedOutput(child.stdout) : Promise.resolve('');
 	const stderrPromise =
 		output === 'capture' ? readCapturedOutput(child.stderr) : Promise.resolve('');
+	// Observe stream failures immediately, even while the child is still running.
+	const capturedOutput = Promise.allSettled([stdoutPromise, stderrPromise]);
 
 	let exited = false;
 	let stopReason: 'aborted' | 'timed_out' | undefined;
@@ -464,7 +466,7 @@ export async function runCommand(
 	spec.signal?.removeEventListener('abort', onAbort);
 	if (termination) await termination;
 
-	const [stdoutRead, stderrRead] = await Promise.allSettled([stdoutPromise, stderrPromise]);
+	const [stdoutRead, stderrRead] = await capturedOutput;
 	const stdout = stdoutRead.status === 'fulfilled' ? stdoutRead.value : '';
 	const stderr = stderrRead.status === 'fulfilled' ? stderrRead.value : '';
 	const streamError =
