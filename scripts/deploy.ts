@@ -33,11 +33,11 @@ async function main(): Promise<void> {
 	console.log(`Environment: ${platform.environment}`);
 
 	// 1. Sync translations
-	syncTranslations(platform);
+	await syncTranslations(platform);
 
 	// 2. Pre-deploy validation (production only; preview validated after deploy)
 	if (!platform.isPreview) {
-		validateConvexEnv(platform);
+		await validateConvexEnv(platform);
 	}
 
 	// 3. Deploy Convex functions
@@ -53,7 +53,7 @@ async function main(): Promise<void> {
 	writeE2eConfig(platform, buildEnv);
 
 	// 6. Build SvelteKit
-	buildSvelteKit(buildEnv);
+	await buildSvelteKit(buildEnv);
 
 	console.log(`${colors.green}Deployment complete!${colors.reset}`);
 }
