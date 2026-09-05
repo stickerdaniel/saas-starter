@@ -680,7 +680,7 @@ function mergeMatchedParts(
 	// The id belongs to the live snapshot, which goes away at the handover, and
 	// the persisted reconstruction has none of its own. A borrowed one reads as a
 	// live part to every consumer that matches on it, such as the delta
-	// application keyed by stream part id. The renderer keys by reasoning ordinal.
+	// application keyed by stream part id.
 	if (existingPart.type === 'reasoning' && getReasoningPartId(existingPart) === undefined) {
 		delete merged.streamPartId;
 		delete merged.id;

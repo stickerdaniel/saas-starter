@@ -50,9 +50,20 @@ function isCompletedContentPart(part: MessagePart): boolean {
 }
 
 /**
+ * A step boundary says a step opened, never that the content before it closed. Merging the
+ * persisted row with the live snapshot leaves one behind the block that is still being
+ * written, because the two views place their `step-start` parts differently (measured), so
+ * reading it as the stream tail would render an actively streaming block as finished. The
+ * `state` of the content part before it decides instead.
+ */
+function isStepBoundary(part: MessagePart): boolean {
+	return part.type === 'step-start';
+}
+
+/**
  * Find the content or lifecycle boundary currently at the stream tail. Unknown
- * parts stay boundaries by default; only AI SDK metadata with measured
- * transparent behavior is skipped.
+ * parts stay boundaries by default; only step boundaries and AI SDK metadata
+ * with measured transparent behavior are skipped.
  */
 export function getActiveStreamingPartIndex(
 	parts: MessagePart[] | undefined,
@@ -62,7 +73,7 @@ export function getActiveStreamingPartIndex(
 
 	for (let index = parts.length - 1; index >= 0; index -= 1) {
 		const part = parts[index]!;
-		if (isTransparentStreamMetadata(part)) continue;
+		if (isTransparentStreamMetadata(part) || isStepBoundary(part)) continue;
 		return isCompletedContentPart(part) ? -1 : index;
 	}
 	return -1;

@@ -148,8 +148,14 @@ describe('the reasoning shapes the two producers emit', () => {
 		for (const part of liveReasoning) {
 			expect(typeof (part as { id?: unknown }).id).toBe('string');
 		}
+		// Both fields are identifiers to the merge (`getReasoningPartId` reads `id`
+		// and the legacy decoder's `streamPartId`), so pinning only one would let a
+		// release that starts stamping the other pass while the id-blind path it
+		// guards stops being exercised at all.
 		for (const part of persistedReasoning) {
-			expect((part as { id?: unknown }).id).toBeUndefined();
+			const record = part as { id?: unknown; streamPartId?: unknown };
+			expect(record.id).toBeUndefined();
+			expect(record.streamPartId).toBeUndefined();
 		}
 	});
 });
