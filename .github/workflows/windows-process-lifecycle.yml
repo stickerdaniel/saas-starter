@@ -6,6 +6,9 @@ on:
     paths:
       - 'package.json'
       - 'bun.lock'
+      - 'knowledge-policy.config.ts'
+      - 'eslint/control-character-policy.js'
+      - 'scripts/knowledge-policy/**'
       - 'scripts/dev-cloud.ts'
       - 'scripts/dev-cloud.test.ts'
       - 'scripts/git-context.ts'
@@ -44,7 +47,7 @@ jobs:
             exit 0
           }
 
-          $pattern = '^(package\.json|bun\.lock|scripts/(dev-cloud(\.test)?\.ts|git-context\.ts|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1))|\.github/workflows/windows-process-lifecycle\.yml)$'
+          $pattern = '^(package\.json|bun\.lock|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|scripts/(dev-cloud(\.test)?\.ts|git-context\.ts|knowledge-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1))|\.github/workflows/windows-process-lifecycle\.yml)$'
           $files = gh api --paginate "repos/$env:GITHUB_REPOSITORY/pulls/$env:PR_NUMBER/files" --jq '.[].filename'
           $runTests = @($files | Where-Object { $_ -match $pattern }).Count -gt 0
           "run_tests=$($runTests.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT

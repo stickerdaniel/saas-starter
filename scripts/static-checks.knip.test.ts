@@ -2,8 +2,8 @@ import { spawnSync } from 'node:child_process';
 import {
 	chmodSync,
 	copyFileSync,
-	cpSync,
 	existsSync,
+	mkdirSync,
 	mkdtempSync,
 	readFileSync,
 	realpathSync,
@@ -25,6 +25,14 @@ const PRETTIER_README: CommandInvocation = {
 	command: 'bun',
 	args: ['prettier', '--check', '--ignore-unknown', '--', 'README.md']
 };
+const PRETTIER_WRITE: CommandInvocation = {
+	command: 'bun',
+	args: ['prettier', '--write', '--ignore-unknown', '--', 'README.md', 'scripts/test-executable.ts']
+};
+const ESLINT_FIX: CommandInvocation = {
+	command: 'bun',
+	args: ['eslint', '--fix', 'scripts/test-executable.ts']
+};
 const RECORDER_SOURCE = path.join(
 	ROOT,
 	'scripts',
@@ -32,6 +40,15 @@ const RECORDER_SOURCE = path.join(
 	'static-checks',
 	'command-recorder.ts'
 );
+// Eine getrackte TypeScript-Datei, die der lokale Pre-Push-Lauf an die schreibenden Linter
+// weiterreicht; mit einer reinen Markdown-Eingabe überspringt der Checker ESLint ganz.
+const LINTED_SOURCE = 'scripts/test-executable.ts';
+// Quellen, ohne die ein Klon-Lauf grün werden könnte, ohne die geprüfte Änderung zu sehen.
+const REQUIRED_SCRIPT_SOURCES = [
+	'scripts/static-checks.ts',
+	'scripts/terminal-output.ts',
+	'scripts/convex-consumer-compat.ts'
+];
 // Bun kanonisiert den Modulpfad des Checkers über die Betriebssystem-API, `realpathSync` die
 // Aufruf-cwd dagegen nicht. Unter Windows liefert os.tmpdir() auf GitHub-Runnern den
 // 8.3-Kurznamen (C:\Users\RUNNER~1\...), während REPO_ROOT die Langform trägt; jedes relative
@@ -110,6 +127,46 @@ function recorderEnv(logPath: string): NodeJS.ProcessEnv {
 	};
 }
 
+/**
+ * Überlagert den Klon mit den Arbeitskopien der von Git geführten Script-Quellen.
+ *
+ * Ein rekursiver Kopiervorgang über ROOT/scripts traversiert ein Verzeichnis, in dem
+ * static-checks.format.test.ts parallel seine `.format-*`-Fixtures anlegt und wieder
+ * entfernt. Verschwindet eines davon zwischen Auflisten und Betreten, bricht der Kopiervorgang
+ * ab; im gemessenen Fall beendete die native directory_iterator-Ausnahme den ganzen
+ * Vitest-Worker, sodass die letzten Knip-Fälle stillschweigend ausfielen. Der Index nennt
+ * dagegen einen stabilen Pfadsatz, der temporäre Fixtures nie enthält, und wird Datei für
+ * Datei überlagert. Damit bleiben Änderungen an getrackten und bereits gestagten Quellen vor
+ * dem Commit geprüft, ohne ein lebendes Verzeichnis zu durchlaufen.
+ */
+function overlayIndexedScripts(repository: string): void {
+	const listed = spawnSync('git', ['ls-files', '-z', '--', 'scripts'], {
+		cwd: ROOT,
+		env: sanitizedGitEnv(),
+		encoding: 'utf8',
+		maxBuffer: 16 * 1024 * 1024
+	});
+	if (listed.status !== 0) throw new Error(`Failed to list indexed scripts: ${listed.stderr}`);
+	const files = listed.stdout.split('\0').filter(Boolean);
+	// Ein leerer oder unvollständiger Satz würde den Klon auf dem eingecheckten Stand laufen
+	// lassen und die Änderung, die geprüft werden soll, unbemerkt überspringen.
+	for (const required of REQUIRED_SCRIPT_SOURCES) {
+		if (!files.includes(required)) {
+			throw new Error(`Der Git-Index führt ${required} nicht: ${files.length} Script-Pfade.`);
+		}
+	}
+	for (const file of files) {
+		const source = path.join(ROOT, file);
+		// Eine im Index geführte, aber im Arbeitsbaum fehlende Quelle darf nicht unbemerkt die
+		// eingecheckte Fassung im Klon stehen lassen.
+		if (!existsSync(source)) {
+			throw new Error(`Indexed script source is missing from the worktree: ${file}`);
+		}
+		mkdirSync(path.dirname(path.join(repository, file)), { recursive: true });
+		copyFileSync(source, path.join(repository, file));
+	}
+}
+
 function createCheckerClone(): CheckerClone {
 	const directory = mkdtempSync(path.join(TEMP_ROOT, 'static-knip-'));
 	const repository = path.join(directory, 'repository');
@@ -128,10 +185,7 @@ function createCheckerClone(): CheckerClone {
 			path.join(repository, 'node_modules'),
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
-		cpSync(path.join(ROOT, 'scripts'), path.join(repository, 'scripts'), {
-			recursive: true,
-			dereference: true
-		});
+		overlayIndexedScripts(repository);
 
 		return {
 			directory,
@@ -151,6 +205,16 @@ function runChecker(checkout: CheckerClone, args: string[], input?: string) {
 		encoding: 'utf8',
 		input
 	});
+}
+
+/** Position einer exakten Aufzeichnung, damit Reihenfolgen vergleichbar werden. */
+function indexOfInvocation(log: CommandInvocation[], invocation: CommandInvocation): number {
+	return log.findIndex(
+		(entry) =>
+			entry.command === invocation.command &&
+			entry.args.length === invocation.args.length &&
+			entry.args.every((argument, index) => argument === invocation.args[index])
+	);
 }
 
 function knipInvocations(checkout: CheckerClone): CommandInvocation[] {
@@ -322,17 +386,28 @@ describe.sequential('Knip static-check CLI behavior', () => {
 		// Bedingung `mode !== 'staged'` von einem reinen CI-Gate.
 		delete checkout.env.CI;
 		try {
-			const result = runChecker(checkout, ['README.md']);
+			const result = runChecker(checkout, ['README.md', LINTED_SOURCE]);
 			const output = `${result.stdout}${result.stderr}`;
+			const log = readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!);
 
 			expect(result.status, output).toBe(0);
 			expect(knipInvocations(checkout)).toEqual([KNIP]);
 			// Der zweite über PATH aufgelöste Name: misspell wird nur hier tatsächlich
 			// abgesetzt und belegt, dass die Auflösung nicht bloß für bun greift.
-			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toContainEqual({
+			expect(log).toContainEqual({
 				command: 'misspell',
-				args: ['-error', 'README.md']
+				args: ['-error', 'README.md', LINTED_SOURCE]
 			});
+
+			// Außerhalb von --ci schreiben Prettier (--write) und ESLint (--fix) in den
+			// Arbeitsbaum. Knip liest den Abhängigkeitsgraphen und muss deshalb nach den
+			// schreibenden Kindprozessen laufen, sonst beurteilt es einen Stand, den der Lauf
+			// danach noch verändert. Reine Lese-Checks dürfen folgen, daher kein Vertrag
+			// darüber, dass Knip der letzte Schritt ist.
+			expect(log, JSON.stringify(log)).toContainEqual(PRETTIER_WRITE);
+			expect(log, JSON.stringify(log)).toContainEqual(ESLINT_FIX);
+			expect(indexOfInvocation(log, KNIP)).toBeGreaterThan(indexOfInvocation(log, PRETTIER_WRITE));
+			expect(indexOfInvocation(log, KNIP)).toBeGreaterThan(indexOfInvocation(log, ESLINT_FIX));
 			expect(output).toContain('All checks passed!');
 		} finally {
 			rmSync(checkout.directory, { recursive: true, force: true });
