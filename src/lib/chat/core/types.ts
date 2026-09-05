@@ -174,15 +174,6 @@ export type MessagePart =
 	TextUIPart | ReasoningUIPart | ToolCallPart | { type: string; [key: string]: unknown };
 
 /**
- * Pagination state
- */
-export interface PaginationState {
-	hasMore: boolean;
-	continueCursor: string | null;
-	isLoadingMore: boolean;
-}
-
-/**
  * Stream status
  */
 export type StreamStatus = 'streaming' | 'finished' | 'aborted';

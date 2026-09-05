@@ -15,22 +15,6 @@ import { isSupportAiEnabled } from '$lib/config/support';
 export type SupportView = 'overview' | 'chat' | 'compose';
 
 /**
- * Thread summary for the overview list
- */
-export interface ThreadSummary {
-	_id: string;
-	_creationTime: number;
-	userId?: string;
-	title?: string;
-	summary?: string;
-	status: 'active' | 'archived';
-	lastAgentName?: string;
-	lastMessageRole?: 'user' | 'assistant' | 'tool' | 'system';
-	lastMessage?: string;
-	lastMessageAt?: number;
-}
-
-/**
  * Thread context state
  */
 export class SupportThreadContext {

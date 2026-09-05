@@ -16,7 +16,6 @@ export type {
 	TextUIPart,
 	ReasoningUIPart,
 	MessagePart,
-	PaginationState,
 	StreamStatus,
 	SendMessageOptions,
 	SendMessageResult,
@@ -61,7 +60,7 @@ export { uploadFileWithProgress, uploadToStorage, UploadError } from './file-upl
 // Chat core
 export type { ChatCoreAPI, ChatCoreOptions, CreateThreadResult } from './chat-core.svelte.ts';
 
-export { ChatCore, createChatCore } from './chat-core.svelte.ts';
+export { ChatCore } from './chat-core.svelte.ts';
 
 // Composer persistence
 export { ChatDraftManager } from './chat-draft-manager.svelte.ts';

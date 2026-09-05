@@ -31,5 +31,3 @@ export function useSupportUrlState() {
 		noScroll: true
 	});
 }
-
-export type SupportUrlState = ReturnType<typeof useSupportUrlState>;
