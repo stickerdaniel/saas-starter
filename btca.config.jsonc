@@ -391,7 +391,7 @@
 			"name": "autumnJs",
 			"url": "https://github.com/useautumn/autumn",
 			"branch": "dev",
-			"specialNotes": "Autumn billing SDK and integrations. Package autumn-js current npm repository is useautumn/autumn; default branch dev. Check SDK constructor, Convex integration, check/track/checkout/attach, and migration notes."
+			"specialNotes": "Autumn billing SDK on the newer 1.x line (useautumn/autumn, branch dev). The version this repository installs lives in the autumnTypescript resource; use this one for the current upstream API and migration notes."
 		},
 		{
 			"type": "git",
@@ -485,6 +485,27 @@
 			"url": "https://github.com/Jakubantalik/transitions.dev",
 			"branch": "main",
 			"specialNotes": "Portable CSS transition recipes behind the app's motion vocabulary (the `t-*` block in src/routes/layout.css). skills/transitions-dev/NN-<name>.md holds each recipe's snippet, HTML hooks and JS orchestration, _root.css the shared motion-token scale, and transitions/<name>/ the live demo page."
+		},
+		{
+			"type": "git",
+			"name": "stripAnsi",
+			"url": "https://github.com/chalk/strip-ansi",
+			"branch": "main",
+			"specialNotes": "strip-ansi package. Removes ANSI escape sequences; eslint/config-coverage.test.ts uses it to assert against ESLint's stylish formatter output."
+		},
+		{
+			"type": "git",
+			"name": "svelteEslintParser",
+			"url": "https://github.com/sveltejs/svelte-eslint-parser",
+			"branch": "main",
+			"specialNotes": "Svelte ESLint parser. AST node shapes and parserOptions used by the wrapper in eslint/parsers/safe-svelte-parser.js and by the rule tests under eslint/rules."
+		},
+		{
+			"type": "git",
+			"name": "autumnTypescript",
+			"url": "https://github.com/useautumn/typescript",
+			"branch": "main",
+			"specialNotes": "Autumn TypeScript monorepo, the 0.1.x autumn-js line this repository installs. convex/ is the @useautumn/convex package behind src/lib/convex/autumn.ts, package/ the installed autumn-js line, atmn/ the atmn CLI. The autumnJs resource is the newer 1.x line, so read it only for migration questions."
 		}
 	]
 }
