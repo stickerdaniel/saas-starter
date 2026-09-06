@@ -9,8 +9,8 @@
  */
 
 import type { OptimisticLocalStore } from 'convex/browser';
-import type { FunctionReference, PaginationResult } from 'convex/server';
-import type { ChatMessage, Attachment } from './types.js';
+import type { PaginationResult } from 'convex/server';
+import type { ChatMessage, Attachment, ChatMessagesQuery } from './types.js';
 
 /**
  * Query args shape for listMessages queries
@@ -73,7 +73,9 @@ function sanitizeAttachmentsForClone(attachments?: Attachment[]): Attachment[] |
 	});
 
 	// Use JSON round-trip to break ALL proxy wrappers (Svelte 5 $state proxies)
-	// This is the nuclear option but guaranteed to work
+	// JSON.parse erases the type even though these already-typed attachment records
+	// contain only JSON fields after File/Blob omission. Keep that serialization
+	// assertion local; optimistic.test.ts covers proxy detachment and revoked URLs.
 	return JSON.parse(JSON.stringify(serializableAttachments)) as Attachment[];
 }
 
@@ -176,7 +178,7 @@ export function createOptimisticMessage(
  * ```
  */
 export function createOptimisticUpdate(
-	listMessagesQuery: FunctionReference<'query'>,
+	listMessagesQuery: ChatMessagesQuery,
 	queryArgs: ListMessagesArgs,
 	role: 'user' | 'assistant',
 	prompt: string,

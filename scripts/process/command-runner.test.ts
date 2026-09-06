@@ -501,3 +501,24 @@ describe('runCommandWithRetry', () => {
 		expect(sleep).not.toHaveBeenCalled();
 	});
 });
+
+describe('spawn error code narrowing', () => {
+	it.each([42, null, {}, ['ENOENT']].map((value) => [value]))(
+		'does not trust malformed errno code %j',
+		async (code) => {
+			const error = Object.assign(new Error('spawn failed'), { code });
+			const result = await runCommand(
+				{ command: 'tool' },
+				{
+					spawn: () => {
+						throw error;
+					}
+				}
+			);
+			expect(result.ok).toBe(false);
+			if (result.ok) throw new Error('Expected a spawn failure');
+			expect(result.kind).toBe('spawn_failed');
+			expect(result.cause).not.toHaveProperty('code');
+		}
+	);
+});

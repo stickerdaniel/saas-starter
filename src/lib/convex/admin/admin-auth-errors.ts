@@ -9,10 +9,6 @@ export type AdminAuthErrorCode =
 
 export type AdminAuthOperation = 'ban_user' | 'unban_user' | 'revoke_user_sessions';
 
-type ApiErrorBody = {
-	code?: unknown;
-};
-
 const PROVIDER_CODE_MAP: Record<string, AdminAuthErrorCode> = {
 	YOU_CANNOT_BAN_YOURSELF: 'ADMIN_CANNOT_BAN_SELF',
 	USER_NOT_FOUND: 'ADMIN_USER_NOT_FOUND',
@@ -23,7 +19,7 @@ const PROVIDER_CODE_MAP: Record<string, AdminAuthErrorCode> = {
 function getProviderCode(error: unknown): string | undefined {
 	if (!isAPIError(error)) return undefined;
 
-	const code = (error.body as ApiErrorBody | undefined)?.code;
+	const code: unknown = error.body?.code;
 	return typeof code === 'string' ? code : undefined;
 }
 

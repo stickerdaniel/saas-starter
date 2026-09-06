@@ -1,5 +1,6 @@
 import {
 	readUIMessageStream,
+	isStaticToolUIPart,
 	type ProviderMetadata,
 	type TextStreamPart,
 	type ToolSet,
@@ -15,7 +16,7 @@ import type { ReasoningUIPart, TextUIPart, ToolCallPart } from './types.js';
  * - TextStreamPart format: content is in `text` field
  */
 function getDeltaText(part: { text?: string; delta?: string }): string {
-	return (part as { delta?: string }).delta ?? part.text ?? '';
+	return part.delta ?? part.text ?? '';
 }
 
 /**
@@ -59,9 +60,15 @@ export function statusFromStreamStatus(
 }
 
 /**
- * Get parts from deltas with cursor tracking
+ * Get parts from deltas with cursor tracking.
+ *
+ * Agent's validator stores parts as v.any() and doesn't relate them to the
+ * stream's format tag. The two callers select the AI SDK type only after
+ * branching on that tag. This is a vendor wire-format adapter, not a cast
+ * between first-party message models; stream-processor.test.ts covers both
+ * declared formats, cursor gaps, and materialization.
  */
-export function getParts<T extends StreamDelta['parts'][number]>(
+export function getParts<T extends UIMessageChunk | TextStreamPart<ToolSet>>(
 	deltas: StreamDelta[],
 	fromCursor?: number
 ): { parts: T[]; cursor: number } {
@@ -116,30 +123,18 @@ function joinText(parts: UIMessage['parts']): string {
 		.join('');
 }
 
-function asRecord(part: UIMessage['parts'][number]): Record<string, unknown> {
-	return part as Record<string, unknown>;
+/** Metadata extensions aren't declared on every AI SDK part variant. */
+function getStreamPartId(part: { type: string }): string | undefined {
+	return 'streamPartId' in part && typeof part.streamPartId === 'string'
+		? part.streamPartId
+		: undefined;
 }
 
-function getStreamPartId(part: UIMessage['parts'][number]): string | undefined {
-	const streamPartId = asRecord(part).streamPartId;
-	return typeof streamPartId === 'string' ? streamPartId : undefined;
-}
-
-function getReasoningPartId(part: UIMessage['parts'][number]): string | undefined {
+function getReasoningPartId(part: { type: string }): string | undefined {
 	if (part.type !== 'reasoning') return undefined;
-
-	const record = asRecord(part);
-	const streamPartId = record.streamPartId;
-	if (typeof streamPartId === 'string') {
-		return streamPartId;
-	}
-
-	const id = record.id;
-	return typeof id === 'string' ? id : undefined;
-}
-
-function isToolUIPart(part: UIMessage['parts'][number]): boolean {
-	return part.type.startsWith('tool-') && typeof asRecord(part).toolCallId === 'string';
+	return (
+		getStreamPartId(part) ?? ('id' in part && typeof part.id === 'string' ? part.id : undefined)
+	);
 }
 
 /**
@@ -214,15 +209,12 @@ export function updateFromTextStreamParts(
 	message.status = statusFromStreamStatus(streamMessage.status);
 
 	const textPartsById = new Map<string, TextUIPart>();
-	const reasoningPartsById = new Map<string, ReasoningUIPart & { streamPartId: string }>();
+	const reasoningPartsById = new Map<string, ReasoningUIPart>();
 
 	for (const existingPart of message.parts) {
 		const streamPartId = getStreamPartId(existingPart);
 		if (existingPart.type === 'reasoning' && streamPartId) {
-			reasoningPartsById.set(
-				streamPartId,
-				existingPart as ReasoningUIPart & { streamPartId: string }
-			);
+			reasoningPartsById.set(streamPartId, existingPart);
 		}
 	}
 
@@ -285,8 +277,8 @@ export function updateFromTextStreamParts(
 						existingPart.type === toolPartType && getToolCallId(existingPart) === part.toolCallId
 				);
 
-				if (existingToolPart) {
-					const toolPart = existingToolPart as ToolCallPart;
+				if (existingToolPart && isStaticToolUIPart(existingToolPart)) {
+					const toolPart = existingToolPart;
 					toolPart.input = part.input;
 					toolPart.state = 'input-available';
 				} else {
@@ -305,8 +297,8 @@ export function updateFromTextStreamParts(
 					(existingPart) => getToolCallId(existingPart) === part.toolCallId
 				);
 
-				if (matchingToolPart) {
-					const toolPart = matchingToolPart as ToolCallPart;
+				if (matchingToolPart && isStaticToolUIPart(matchingToolPart)) {
+					const toolPart = matchingToolPart;
 					if (part.input !== undefined) {
 						toolPart.input = part.input;
 					}
@@ -450,10 +442,10 @@ export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
 	}, []);
 }
 
-export function mergeAssistantMessageParts(
-	existingParts: UIMessage['parts'],
-	incomingParts: UIMessage['parts']
-): UIMessage['parts'] {
+export function mergeAssistantMessageParts<T extends { type: string }>(
+	existingParts: T[],
+	incomingParts: T[]
+): T[] {
 	if (existingParts.length === 0) return [...incomingParts];
 	if (incomingParts.length === 0) return [...existingParts];
 
@@ -517,8 +509,8 @@ export function mergeAssistantMessageParts(
 }
 
 function getCompatiblePrefixLength(
-	existingParts: UIMessage['parts'],
-	incomingParts: UIMessage['parts']
+	existingParts: { type: string }[],
+	incomingParts: { type: string }[]
 ): number {
 	const maxLength = Math.min(existingParts.length, incomingParts.length);
 	let index = 0;
@@ -531,8 +523,8 @@ function getCompatiblePrefixLength(
 }
 
 function arePartsCompatible(
-	existingPart: UIMessage['parts'][number],
-	incomingPart: UIMessage['parts'][number]
+	existingPart: { type: string },
+	incomingPart: { type: string }
 ): boolean {
 	if (existingPart.type !== incomingPart.type) return false;
 
@@ -559,9 +551,8 @@ function arePartsCompatible(
 	return false;
 }
 
-function getPartText(part: UIMessage['parts'][number]): string {
-	const text = asRecord(part).text;
-	return typeof text === 'string' ? text : '';
+function getPartText(part: { type: string }): string {
+	return 'text' in part && typeof part.text === 'string' ? part.text : '';
 }
 
 function areTextsCompatible(existingText: string, incomingText: string): boolean {
@@ -569,19 +560,21 @@ function areTextsCompatible(existingText: string, incomingText: string): boolean
 	return existingText.startsWith(incomingText) || incomingText.startsWith(existingText);
 }
 
-function getToolCallId(part: UIMessage['parts'][number]) {
-	return isToolUIPart(part) ? (asRecord(part).toolCallId as string) : undefined;
+function getToolCallId(part: { type: string }): string | undefined {
+	return part.type.startsWith('tool-') &&
+		'toolCallId' in part &&
+		typeof part.toolCallId === 'string'
+		? part.toolCallId
+		: undefined;
 }
 
-function mergeStreamParts(
-	previousPart: UIMessage['parts'][number],
-	part: UIMessage['parts'][number]
-): UIMessage['parts'][number] {
-	const merged: Record<string, unknown> = { ...previousPart };
-	for (const [key, value] of Object.entries(part)) {
-		if (value !== undefined) {
-			merged[key] = value;
-		}
+/** Preserve the caller's part contract; undefined streamed fields never erase persisted fields. */
+function mergeStreamParts<T extends { type: string }>(previousPart: T, part: T): T {
+	const merged = { ...previousPart };
+	for (const key in part) {
+		if (!Object.prototype.hasOwnProperty.call(part, key)) continue;
+		const value = part[key];
+		if (value !== undefined) merged[key] = value;
 	}
-	return merged as UIMessage['parts'][number];
+	return merged;
 }

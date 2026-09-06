@@ -15,7 +15,7 @@ export function getConvexErrorData(error: unknown): StructuredErrorData | undefi
 		return undefined;
 	}
 
-	const data = (error as { data?: unknown }).data;
+	const data = error.data;
 	return isStructuredErrorData(data) ? data : undefined;
 }
 

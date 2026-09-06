@@ -33,15 +33,13 @@ type SignupNotificationUser = {
 	createdAt: number;
 };
 
-type BetterAuthCallbackArg<T extends (...args: any[]) => Promise<void>> = Parameters<T>[0];
-
-type SendResetPasswordArgs = BetterAuthCallbackArg<
+type SendResetPasswordArgs = Parameters<
 	NonNullable<NonNullable<BetterAuthOptions['emailAndPassword']>['sendResetPassword']>
->;
+>[0];
 
-type SendVerificationEmailArgs = BetterAuthCallbackArg<
+type SendVerificationEmailArgs = Parameters<
 	NonNullable<NonNullable<BetterAuthOptions['emailVerification']>['sendVerificationEmail']>
->;
+>[0];
 
 function requireAuthUserEmail(
 	user: { email?: string | null },
@@ -73,7 +71,7 @@ const detectSignupMethod = async (
 		where: [{ field: 'userId', operator: 'eq', value: userId }],
 		select: ['providerId']
 	});
-	const account = accountResult.page[0] as { providerId?: string } | undefined;
+	const account = accountResult.page[0];
 	return account?.providerId === 'google'
 		? 'Google'
 		: account?.providerId === 'github'
@@ -160,7 +158,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 				if (!seededLocalAdmin) {
 					const contactSetting = await ctx.db
 						.query('adminSettings')
-						.withIndex('by_key', (q: any) => q.eq('key', 'founderWelcome.contactUserId'))
+						.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.contactUserId'))
 						.unique();
 
 					if (!contactSetting) {
@@ -246,7 +244,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 					// Founder welcome email: schedule if pending
 					const founderRow = await ctx.db
 						.query('founderWelcomeEmails')
-						.withIndex('by_user', (q: any) => q.eq('userId', newUser._id))
+						.withIndex('by_user', (q) => q.eq('userId', newUser._id))
 						.unique();
 
 					if (founderRow && founderRow.status === 'pending_verification') {
@@ -412,16 +410,22 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			autoSignInAfterVerification: true
 		},
 		socialProviders: {
-			google: {
-				enabled: googleOAuth.enabled,
-				clientId: googleOAuth.clientId as string,
-				clientSecret: googleOAuth.clientSecret as string
-			},
-			github: {
-				enabled: githubOAuth.enabled,
-				clientId: githubOAuth.clientId as string,
-				clientSecret: githubOAuth.clientSecret as string
-			}
+			google:
+				googleOAuth.clientId && googleOAuth.clientSecret
+					? {
+							enabled: googleOAuth.enabled,
+							clientId: googleOAuth.clientId,
+							clientSecret: googleOAuth.clientSecret
+						}
+					: undefined,
+			github:
+				githubOAuth.clientId && githubOAuth.clientSecret
+					? {
+							enabled: githubOAuth.enabled,
+							clientId: githubOAuth.clientId,
+							clientSecret: githubOAuth.clientSecret
+						}
+					: undefined
 		},
 		plugins: [
 			// The Convex plugin is required for Convex compatibility

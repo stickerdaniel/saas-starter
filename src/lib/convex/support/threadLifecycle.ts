@@ -32,7 +32,7 @@ export async function getLatestCompletedThreadMessage(
 		paginationOpts: { numItems: 1, cursor: null }
 	});
 
-	return messages.page[0] as SupportLatestThreadMessage | undefined;
+	return messages.page[0];
 }
 
 export async function getSupportOwnerProfile(

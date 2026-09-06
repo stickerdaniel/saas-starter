@@ -5,9 +5,19 @@
 
 import { StateHistory } from 'runed';
 import { createContext } from 'svelte';
+import type { Stage } from 'konva/lib/Stage';
+import type { Layer } from 'konva/lib/Layer';
 import { preCache } from '@zumer/snapdom';
 import { getPreCacheConfig } from '$lib/utils/snapdom-config';
-import type { Shape, DrawingTool, LineShape, RectShape, CircleShape, ArrowShape } from './types';
+import type {
+	Shape,
+	ShapeUpdate,
+	DrawingTool,
+	LineShape,
+	RectShape,
+	CircleShape,
+	ArrowShape
+} from './types';
 import {
 	DEFAULT_STROKE_COLOR,
 	DEFAULT_STROKE_WIDTH,
@@ -57,8 +67,8 @@ export class ScreenshotEditorState {
 	selectedShapeIds = $state<string[]>([]);
 
 	// ===== Canvas State =====
-	stageRef = $state<any>(null); // Konva.Stage reference
-	layerRef = $state<any>(null); // Konva.Layer reference
+	stageRef = $state<Stage | null>(null);
+	layerRef = $state<Layer | null>(null);
 
 	// ===== Loading State =====
 	isSaving = $state(false);
@@ -88,8 +98,8 @@ export class ScreenshotEditorState {
 		this.shapes = [...this.shapes, shape];
 	}
 
-	updateShape(id: string, updates: Partial<Shape>) {
-		this.shapes = this.shapes.map((s) => (s.id === id ? ({ ...s, ...updates } as Shape) : s));
+	updateShape(id: string, updates: ShapeUpdate) {
+		this.shapes = this.shapes.map((s) => (s.id === id ? { ...s, ...updates } : s));
 	}
 
 	deleteShape(id: string) {

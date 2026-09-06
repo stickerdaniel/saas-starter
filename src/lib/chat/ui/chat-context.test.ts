@@ -8,13 +8,13 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { toast } from 'svelte-sonner';
 import { ChatUIContext } from './chat-context.svelte.ts';
-import type { ChatCore } from '../core/chat-core.svelte.ts';
+import { createChatSession } from '../__tests__/session-fixture';
 import type { ConvexClient } from 'convex/browser';
 import type { Attachment } from '../core/types.js';
 
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-const mockCore = {} as ChatCore;
+const mockCore = createChatSession();
 const mockClient = {} as ConvexClient;
 
 function fileAttachment(preview?: string): Attachment {
@@ -347,12 +347,12 @@ describe('ChatUIContext upload failures', () => {
 		// Every surface reuses one context across threads and swaps only the text
 		// draft, so an attachment left in place would be sent in the wrong thread —
 		// and a failed one would block sending there.
-		const core = { threadId: 'thread-a' } as unknown as ChatCore;
+		const core = createChatSession('thread-a');
 		const ctx = new ChatUIContext(core, succeedingClient(), uploadConfig);
 		ctx.setDisplayMessages([]);
 		ctx.addAttachments([fileAttachment(undefined)]);
 
-		(core as { threadId: string }).threadId = 'thread-b';
+		core.threadId = 'thread-b';
 		ctx.setDisplayMessages([]);
 
 		expect(ctx.attachments).toHaveLength(0);
@@ -361,12 +361,12 @@ describe('ChatUIContext upload failures', () => {
 	it('keeps attachments when a new thread gets its id', () => {
 		// null -> id is this conversation being created, not a move to another
 		// one: a file attached while creation was in flight belongs here.
-		const core = { threadId: null } as unknown as ChatCore;
+		const core = createChatSession(null);
 		const ctx = new ChatUIContext(core, succeedingClient(), uploadConfig);
 		ctx.setDisplayMessages([]);
 		ctx.addAttachments([fileAttachment(undefined)]);
 
-		(core as { threadId: string | null }).threadId = 'thread-a';
+		core.threadId = 'thread-a';
 		ctx.setDisplayMessages([]);
 
 		expect(ctx.attachments).toHaveLength(1);

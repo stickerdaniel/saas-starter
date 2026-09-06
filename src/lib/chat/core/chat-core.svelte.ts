@@ -11,7 +11,8 @@ import type {
 	SendMessageOptions,
 	SendMessageResult,
 	ChatConfig,
-	CreateThreadOptions
+	CreateThreadOptions,
+	ChatMessagesQuery
 } from './types.js';
 import { DEFAULT_CHAT_CONFIG } from './types.js';
 import { StreamCacheManager } from './stream-cache.js';
@@ -33,11 +34,21 @@ export interface CreateThreadResult {
  */
 export interface ChatCoreAPI {
 	/** Mutation to send a message */
-	sendMessage: Parameters<ConvexClient['mutation']>[0];
+	sendMessage: FunctionReference<
+		'mutation',
+		'public',
+		{
+			threadId: string;
+			prompt: string;
+			userId?: string;
+			fileIds?: string[];
+		},
+		SendMessageResult
+	>;
 	/** Mutation to create a thread - returns CreateThreadResult */
-	createThread?: Parameters<ConvexClient['mutation']>[0];
+	createThread?: FunctionReference<'mutation', 'public', CreateThreadOptions, CreateThreadResult>;
 	/** Query to list messages (required for optimistic updates) */
-	listMessages?: FunctionReference<'query'>;
+	listMessages?: ChatMessagesQuery;
 }
 
 /**
@@ -211,10 +222,10 @@ export class ChatCore implements ChatSessionPort {
 					throw new Error('Cannot send message: no thread and createThread not configured');
 				}
 
-				const result = (await client.mutation(
+				const result = await client.mutation(
 					this.api.createThread,
 					options?.createThreadOptions ?? {}
-				)) as CreateThreadResult;
+				);
 
 				threadId = result.threadId;
 				threadCreated = result;
@@ -288,10 +299,7 @@ export class ChatCore implements ChatSessionPort {
 
 		this.setLoading(true);
 		try {
-			const result = (await client.mutation(
-				this.api.createThread,
-				options ?? {}
-			)) as CreateThreadResult;
+			const result = await client.mutation(this.api.createThread, options ?? {});
 			this.setThread(result.threadId);
 			return result;
 		} catch (error) {

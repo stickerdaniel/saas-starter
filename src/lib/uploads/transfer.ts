@@ -97,12 +97,14 @@ function abortIfRequested(signal?: AbortSignal): void {
 
 type StructuredProviderData = Record<string, unknown>;
 
+function isStructuredProviderData(data: unknown): data is StructuredProviderData {
+	return data !== null && typeof data === 'object' && !Array.isArray(data);
+}
+
 function providerData(error: unknown): StructuredProviderData | undefined {
 	if (error === null || typeof error !== 'object' || !('data' in error)) return undefined;
-	const data = (error as { data?: unknown }).data;
-	return data !== null && typeof data === 'object' && !Array.isArray(data)
-		? (data as StructuredProviderData)
-		: undefined;
+	const data = error.data;
+	return isStructuredProviderData(data) ? data : undefined;
 }
 
 /**

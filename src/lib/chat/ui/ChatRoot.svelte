@@ -4,7 +4,7 @@
 	import type { UIMessage } from '@convex-dev/agent';
 	import { ChatCore, type ChatCoreAPI } from '../core/chat-core.svelte.ts';
 	import type { ChatSessionPort } from '../core/chat-session-port.js';
-	import { CHAT_PAGE_SIZE, type DisplayMessage } from '../core/types.js';
+	import { CHAT_PAGE_SIZE, type DisplayMessage, type ChatMessagesQuery } from '../core/types.js';
 	import {
 		ChatUIContext,
 		setChatUIContext,
@@ -19,8 +19,7 @@
 		getListStreamMessages,
 		getNormalizedMessages,
 		getStreamDeltas,
-		hasAssistantResponseStarted,
-		type MessagesQueryResponse
+		hasAssistantResponseStarted
 	} from './streaming-display.js';
 	import { syncReasoningAccordionState } from './reasoning-accordion-sync.js';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
@@ -40,7 +39,7 @@
 		threadId: string | null;
 		/** Convex API endpoints */
 		api: ChatCoreAPI & {
-			listMessages: Parameters<typeof useQuery>[0];
+			listMessages: ChatMessagesQuery;
 		};
 		/** External chat session state (optional - if provided, uses external state) */
 		externalCore?: ChatSessionPort;
@@ -49,7 +48,7 @@
 		/** Upload configuration for file attachments */
 		uploadConfig?: UploadConfig;
 		/** Additional args for the listMessages query */
-		listMessagesArgs?: Record<string, unknown>;
+		listMessagesArgs?: { anonymousUserId?: string };
 		/** User message alignment - 'right' (default) or 'left' for admin view */
 		userAlignment?: ChatAlignment;
 		/** Number of messages per page */
@@ -113,9 +112,7 @@
 
 	// Extract active stream IDs for delta query
 	const activeStreamIds = $derived.by(() => {
-		return getActiveStreamIds(
-			getListStreamMessages(messagesQuery.data as MessagesQueryResponse | undefined)
-		);
+		return getActiveStreamIds(getListStreamMessages(messagesQuery.data));
 	});
 
 	// Second query: Get text deltas for active streams
@@ -141,15 +138,15 @@
 	// When a mutation calls createOptimisticUpdate(), the query cache is updated immediately
 	// and automatically reverts if the mutation fails
 	const allMessages = $derived.by(() => {
-		return getNormalizedMessages(messagesQuery.data as MessagesQueryResponse | undefined);
+		return getNormalizedMessages(messagesQuery.data);
 	});
 
 	const streamMessages = $derived.by(() => {
-		return getListStreamMessages(messagesQuery.data as MessagesQueryResponse | undefined);
+		return getListStreamMessages(messagesQuery.data);
 	});
 
 	const allDeltas = $derived.by(() => {
-		return getStreamDeltas(deltasQuery.data as MessagesQueryResponse | undefined);
+		return getStreamDeltas(deltasQuery.data);
 	});
 
 	let streamingUIMessages: UIMessage[] = $state([]);

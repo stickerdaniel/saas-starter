@@ -621,3 +621,24 @@ describe('extractUserMessageText', () => {
 		expect(extractUserMessageText(msg)).toBe('Fallback content');
 	});
 });
+
+describe('structural assistant part merge', () => {
+	it('preserves first-party extensions and defined persisted values without requiring an SDK cast', () => {
+		const persisted: MessagePart[] = [
+			{
+				type: 'tool-weather',
+				toolCallId: 't',
+				state: 'output-available',
+				output: { ok: true },
+				appOnly: 'kept'
+			}
+		];
+		const incoming: MessagePart[] = [
+			{ type: 'tool-weather', toolCallId: 't', state: 'output-available', output: undefined }
+		];
+		const result = mergeAssistantMessageParts(persisted, incoming);
+		expect(result).toEqual(persisted);
+		expect(result).not.toBe(persisted);
+		expect(result[0]).not.toBe(persisted[0]);
+	});
+});

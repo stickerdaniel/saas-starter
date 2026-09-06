@@ -5,7 +5,7 @@ import {
 	combineStreamingUIMessages,
 	deriveUIMessagesFromDeltas
 } from '../../chat/core/stream-materialization';
-import type { ChatMessage } from '../../chat/core/types';
+import type { ChatMessage, MessagesQueryResponse } from '../../chat/core/types';
 import type { UIMessage } from '@convex-dev/agent';
 import type { StreamMessage } from '@convex-dev/agent/validators';
 
@@ -40,7 +40,7 @@ export async function listMessagesForThread(
 		paginationOpts: MessagePaginationArgs;
 		streamArgs?: MessageStreamArgs;
 	}
-): Promise<unknown> {
+): Promise<MessagesQueryResponse> {
 	const paginated = await listUIMessages(ctx, components.agent, {
 		threadId: args.threadId,
 		paginationOpts: args.paginationOpts
@@ -169,7 +169,7 @@ export function mergeAssistantMessage(message: ChatMessage, materialized: UIMess
 		...message,
 		status: materialized.status,
 		text: materialized.text,
-		parts: materialized.parts as ChatMessage['parts'],
+		parts: materialized.parts,
 		agentName: materialized.agentName ?? message.agentName
 	};
 }

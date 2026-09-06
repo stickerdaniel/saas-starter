@@ -1,5 +1,6 @@
 import type { ToolPart } from '$lib/components/prompt-kit/tool/types.js';
 import type { MessagePart, MessageStatus } from '../core/types.js';
+import { toToolRenderPart } from './tool-part-adapter.js';
 import {
 	getActiveStreamingReasoningIndex,
 	getReasoningKey,
@@ -40,7 +41,7 @@ export function deriveOrderedParts(
 	return messageParts
 		.map((p, idx): OrderedPart | null => {
 			if (p.type === 'reasoning') {
-				const text = (p as { text?: string }).text ?? '';
+				const text = typeof p.text === 'string' ? p.text : '';
 				return {
 					kind: 'reasoning',
 					text,
@@ -52,25 +53,18 @@ export function deriveOrderedParts(
 			if (p.type === 'text') {
 				return {
 					kind: 'text',
-					text: (p as { text?: string }).text ?? '',
+					text: typeof p.text === 'string' ? p.text : '',
 					key: `text-${idx}`
 				};
 			}
-			if (typeof p.type === 'string' && p.type.startsWith('tool-') && 'state' in p) {
+			const toolPart = toToolRenderPart(p);
+			if (toolPart) {
 				return {
 					kind: 'tool',
-					toolPart: {
-						type: p.type,
-						state: (p as { state: ToolPart['state'] }).state,
-						input: (p as { input?: Record<string, unknown> }).input,
-						output: (p as { output?: unknown }).output as Record<string, unknown> | undefined,
-						toolCallId: (p as { toolCallId?: string }).toolCallId,
-						errorText: (p as { errorText?: string }).errorText
-					},
+					toolPart,
 					key:
-						(p as { toolCallId?: string }).toolCallId ??
-						(p as { streamId?: string }).streamId ??
-						`tool-${idx}`
+						toolPart.toolCallId ??
+						('streamId' in p && typeof p.streamId === 'string' ? p.streamId : `tool-${idx}`)
 				};
 			}
 			return null;

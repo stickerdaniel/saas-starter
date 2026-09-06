@@ -1,3 +1,4 @@
+import type { MessagesQueryResponse } from '../../chat/core/types';
 import { internalAction, internalMutation, mutation, query } from '../_generated/server';
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
@@ -347,7 +348,7 @@ export const listMessages = query({
 	},
 	// v.any(): paginated message + stream shape is owned by @convex-dev/agent
 	returns: v.any(),
-	handler: async (ctx, args): Promise<unknown> => {
+	handler: async (ctx, args): Promise<MessagesQueryResponse> => {
 		await requireSupportThreadAccess(ctx, {
 			threadId: args.threadId,
 			anonymousUserId: args.anonymousUserId

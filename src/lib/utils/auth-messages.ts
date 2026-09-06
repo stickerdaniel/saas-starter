@@ -1,5 +1,3 @@
-type ErrorWithCode = { code?: string | null };
-
 // Maps Better Auth and local admin error codes to i18n translation keys.
 // Provider codes were verified against @better-auth/core/src/error/codes.ts.
 const ERROR_CODE_MAP: Record<string, string> = {
@@ -59,10 +57,10 @@ export function getAuthErrorKey(
 		return fallbackKey;
 	}
 
-	const code = (error as ErrorWithCode).code;
+	const code = error.code;
 
-	if (code && ERROR_CODE_MAP[code]) {
-		return ERROR_CODE_MAP[code];
+	if (typeof code === 'string' && Object.prototype.hasOwnProperty.call(ERROR_CODE_MAP, code)) {
+		return ERROR_CODE_MAP[code] ?? fallbackKey;
 	}
 
 	return fallbackKey;

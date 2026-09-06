@@ -1,3 +1,4 @@
+import type { MessagesQueryResponse } from '../../chat/core/types';
 import { internalAction } from '../_generated/server';
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
@@ -255,7 +256,7 @@ export const listMessages = authedQuery({
 	},
 	// v.any(): paginated message + stream shape is owned by @convex-dev/agent
 	returns: v.any(),
-	handler: async (ctx, args): Promise<unknown> => {
+	handler: async (ctx, args): Promise<MessagesQueryResponse> => {
 		// Verify ownership
 		await requireAiChatThreadRecord(ctx, {
 			threadId: args.threadId,

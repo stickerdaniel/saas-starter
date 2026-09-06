@@ -163,12 +163,12 @@ function defaultSpawn(request: SpawnRequest): SpawnedCommand {
 	let spawnError: NodeJS.ErrnoException | undefined;
 	const exited = new Promise<CommandExit>((resolve) => {
 		child.once('error', (error) => {
-			spawnError = error as NodeJS.ErrnoException;
+			spawnError = error;
 		});
 		child.once('close', (exitCode, signal) => {
 			resolve({
 				exitCode,
-				signal: signal as NodeJS.Signals | null,
+				signal,
 				error: spawnError
 			});
 		});
@@ -176,8 +176,8 @@ function defaultSpawn(request: SpawnRequest): SpawnedCommand {
 
 	return {
 		pid: child.pid,
-		stdout: child.stdout as AsyncIterable<Uint8Array | string> | null,
-		stderr: child.stderr as AsyncIterable<Uint8Array | string> | null,
+		stdout: child.stdout,
+		stderr: child.stderr,
 		exited,
 		kill: (signal) => child.kill(signal)
 	};
@@ -286,12 +286,21 @@ function commandDescription(spec: CommandSpec, redactions: readonly string[]): s
 		.join(' ');
 }
 
+function errorCode(error: unknown): string | undefined {
+	return error !== null &&
+		typeof error === 'object' &&
+		'code' in error &&
+		typeof error.code === 'string'
+		? error.code
+		: undefined;
+}
+
 function sanitizedCause(error: unknown, redactions: readonly string[]): Error {
 	const source = error instanceof Error ? error : new Error(String(error));
-	const safe = new Error(redactCommandText(source.message, redactions));
+	const safe: NodeJS.ErrnoException = new Error(redactCommandText(source.message, redactions));
 	safe.name = redactCommandText(source.name, redactions);
-	const code = (source as NodeJS.ErrnoException).code;
-	if (code !== undefined) (safe as NodeJS.ErrnoException).code = code;
+	const code = errorCode(source);
+	if (code !== undefined) safe.code = code;
 	return safe;
 }
 
@@ -390,7 +399,7 @@ async function terminateAndWait(
 }
 
 function classifySpawnFailure(error: Error): 'not_found' | 'spawn_failed' {
-	return (error as NodeJS.ErrnoException).code === 'ENOENT' ? 'not_found' : 'spawn_failed';
+	return errorCode(error) === 'ENOENT' ? 'not_found' : 'spawn_failed';
 }
 
 export async function runCommand(

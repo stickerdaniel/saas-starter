@@ -7,7 +7,11 @@ import type {
 	ChatAttachmentStore
 } from '../core/chat-attachment-store.svelte.ts';
 import { registerPersistedChatHolder } from '../core/chat-persisted-state.ts';
-import { uploadFileWithProgress } from '../core/file-uploader.js';
+import {
+	uploadFileWithProgress,
+	type ChatUploadApi,
+	type AttachmentTextAction
+} from '../core/file-uploader.js';
 import { MAX_ATTACHMENTS, type Attachment } from '../core/types.js';
 import {
 	AttachmentTransfer,
@@ -22,22 +26,24 @@ import {
 } from './attachment-transfer.js';
 
 /** Configuration for composer attachment uploads. */
-export interface UploadConfig {
-	generateUploadUrl: Parameters<ConvexClient['mutation']>[0];
-	saveUploadedFile: Parameters<ConvexClient['action']>[0];
-	/** Locale for translated error messages. */
-	locale?: string;
+export interface UploadConfig extends ChatUploadApi {
 	/** Translate upload errors in the current locale. */
 	translate?: (key: string, params?: Record<string, string | number | bigint | Date>) => string;
 	/** Optional access key provider for file control. */
 	getAccessKey?: () => string | undefined;
 	/** Existing persistence adapter for successful attachment references. */
 	attachmentStore?: ChatAttachmentStore;
-	/** Extra args for upload URL generation, such as an anonymous user id. */
-	getGenerateUploadUrlArgs?: () => Record<string, unknown>;
 	/** Optional action used by the attachment text preview. */
-	getAttachmentText?: Parameters<ConvexClient['action']>[0];
+	getAttachmentText?: AttachmentTextAction;
 }
+
+/** A transfer cannot change a composer's discriminant, identity, or local source. */
+type AttachmentSnapshotPatch = Partial<
+	Pick<
+		Extract<Attachment, { type: 'file' }>,
+		'name' | 'mimeType' | 'size' | 'uploadState' | 'width' | 'height' | 'url'
+	>
+>;
 
 /** The part of the app-wide upload registry needed by a composer. */
 export interface ActiveUploadsRegistry {
@@ -497,7 +503,7 @@ export class ComposerAttachmentCoordinator {
 				: snapshot.phase === 'error'
 					? { status: 'error' as const, progress: 0, error: snapshot.error }
 					: { status: 'uploading' as const, progress: snapshot.progress };
-		const patch: Partial<Attachment> = {
+		const patch: AttachmentSnapshotPatch = {
 			name: snapshot.name,
 			mimeType: snapshot.mimeType,
 			size: snapshot.size,
@@ -538,12 +544,10 @@ export class ComposerAttachmentCoordinator {
 		return undefined;
 	}
 
-	private patchAttachment(key: string, patch: Partial<Attachment>): void {
+	private patchAttachment(key: string, patch: AttachmentSnapshotPatch): void {
 		this.rewriteLists(key, (attachments) =>
 			attachments.map((attachment) =>
-				'key' in attachment && attachment.key === key
-					? ({ ...attachment, ...patch } as Attachment)
-					: attachment
+				'key' in attachment && attachment.key === key ? { ...attachment, ...patch } : attachment
 			)
 		);
 	}

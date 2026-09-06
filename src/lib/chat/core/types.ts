@@ -6,6 +6,8 @@
  */
 
 import type { ProviderMetadata } from 'ai';
+import type { PaginationResult, FunctionReference } from 'convex/server';
+import type { StreamArgs, SyncStreamsReturnValue } from '@convex-dev/agent';
 import { acceptAttribute, allowedMimeTypes, UPLOAD_PROFILES } from '../../uploads/profiles';
 import type { UploadErrorCode } from '../../uploads/transfer.js';
 
@@ -113,6 +115,25 @@ export interface ChatMessage {
 	localAttachments?: Attachment[];
 }
 
+/** Wire envelope shared by the query, optimistic store, and rendering consumers. */
+export type MessagesQueryResponse = PaginationResult<ChatMessage> & {
+	streams: SyncStreamsReturnValue;
+};
+
+export type ChatMessagesArgs = {
+	threadId: string | null;
+	anonymousUserId?: string;
+	paginationOpts: { numItems: number; cursor: string | null };
+	streamArgs?: StreamArgs;
+};
+
+export type ChatMessagesQuery = FunctionReference<
+	'query',
+	'public',
+	ChatMessagesArgs,
+	MessagesQueryResponse
+>;
+
 /**
  * Message with display fields (after stream processing)
  */
@@ -189,11 +210,11 @@ export type StreamStatus = 'streaming' | 'finished' | 'aborted';
 /**
  * Options for creating a thread
  */
-export interface CreateThreadOptions {
+export type CreateThreadOptions = {
 	userId?: string;
 	pageUrl?: string;
 	title?: string;
-}
+};
 
 /**
  * Options for sending a message

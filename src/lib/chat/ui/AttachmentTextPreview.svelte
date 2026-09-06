@@ -55,11 +55,11 @@
 					truncated = capped.truncated;
 				} else if (remoteUrl && action && ctx?.client) {
 					const extraArgs = ctx.uploadConfig?.getGenerateUploadUrlArgs?.() ?? {};
-					const res = (await ctx.client.action(action, {
+					const res = await ctx.client.action(action, {
 						url: remoteUrl,
 						locale: ctx.uploadConfig?.locale,
 						...extraArgs
-					})) as { text: string; truncated: boolean };
+					});
 					if (cancelled) return;
 					text = res.text;
 					truncated = res.truncated;

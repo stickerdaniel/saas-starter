@@ -1,7 +1,6 @@
 import { type MutationCtx, type QueryCtx } from '../_generated/server';
 import { components } from '../_generated/api';
 import type { Doc } from '../_generated/dataModel';
-import type { BetterAuthUser } from '../admin/types';
 
 const COUNTER_DEFAULTS: Omit<Doc<'dashboardCounters'>, '_id' | '_creationTime'> = {
 	totalUsers: 0,
@@ -72,7 +71,7 @@ export async function recalculateCounters(ctx: MutationCtx): Promise<{
 			paginationOpts: { cursor, numItems: 200 }
 		});
 		for (const raw of result.page) {
-			const user = raw as unknown as BetterAuthUser;
+			const user = raw;
 			computed.totalUsers++;
 			if (user.role === 'admin') computed.adminCount++;
 			if (user.banned === true) computed.bannedCount++;

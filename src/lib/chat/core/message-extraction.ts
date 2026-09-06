@@ -53,7 +53,7 @@ export function extractUserMessageText(msg: ChatMessage): string {
 
 		// Object content with text field
 		if (typeof content === 'object' && content !== null && 'text' in content) {
-			return (content as { text: string }).text;
+			return typeof content.text === 'string' ? content.text : '';
 		}
 	}
 

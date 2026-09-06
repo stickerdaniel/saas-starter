@@ -1,3 +1,4 @@
+import { api } from '$lib/convex/_generated/api';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
 import { MAX_ATTACHMENTS, type Attachment } from '../core/types.js';
@@ -16,9 +17,11 @@ const { ComposerAttachmentCoordinator } =
 type Coordinator = InstanceType<typeof ComposerAttachmentCoordinator>;
 
 const uploadConfig = {
-	generateUploadUrl: 'storage:generateUploadUrl',
-	saveUploadedFile: 'storage:saveUploadedFile'
-} as unknown as ConstructorParameters<typeof ComposerAttachmentCoordinator>[0]['uploadConfig'];
+	generateUploadUrl: api.support.files.generateUploadUrl,
+	saveUploadedFile: api.support.files.saveUploadedFile
+} satisfies NonNullable<
+	ConstructorParameters<typeof ComposerAttachmentCoordinator>[0]['uploadConfig']
+>;
 
 function successfulAttachment(name = 'saved.png'): Attachment {
 	return {
@@ -129,6 +132,8 @@ describe('ComposerAttachmentCoordinator', () => {
 		expect(coordinator.hasFile(source.name, source.size)).toBe(true);
 		expect(coordinator.hasFile('photo.webp', transformed.size)).toBe(true);
 		expect(coordinator.attachments[0]).toMatchObject({
+			type: 'file',
+			file: source,
 			name: 'photo.webp',
 			sourceName: source.name,
 			sourceSize: source.size,

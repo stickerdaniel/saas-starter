@@ -175,6 +175,12 @@ describe('getAuthErrorKey', () => {
 
 	// Fallback behavior
 	describe('fallback behavior', () => {
+		it.each([42, null, {}, ['INVALID_EMAIL'], 'toString', '__proto__'].map((value) => [value]))(
+			'rejects malformed and inherited provider code %j',
+			(code) => {
+				expect(getAuthErrorKey({ code })).toBe(DEFAULT_AUTH_ERROR_KEY);
+			}
+		);
 		it('returns the fallback key for an unknown error code', () => {
 			expect(getAuthErrorKey({ code: 'TOTALLY_UNKNOWN_CODE' })).toBe(DEFAULT_AUTH_ERROR_KEY);
 		});

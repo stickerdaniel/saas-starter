@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 /**
  * Dev-only console notice for gracefully-degraded features.
  *
@@ -28,8 +30,8 @@ function isDev(scope: DevFeatureScope): boolean {
 	// SvelteKit and browser code run under Vite, which statically replaces the
 	// `import.meta.env.DEV` member expression at build time. Vite 8 rejects a
 	// *dynamic* read (e.g. via an intermediate variable), so the expression must
-	// stay a direct member access. The inline cast keeps it usable from the
-	// Convex tsconfig (no Vite ambient types); the convex scope returns above, so
+	// stay a direct member access. The type-only Vite reference makes that access
+	// available in the Convex tsconfig too; the convex scope returns above, so
 	// this line only ever runs in the Vite-built app/browser.
 	//
 	// The obvious alternative `process.env.NODE_ENV === 'development'` looks
@@ -39,7 +41,7 @@ function isDev(scope: DevFeatureScope): boolean {
 	// the browser. devNotice is called from hooks.client.ts and posthog.ts, so
 	// going that route would drop browser dev warnings. `import.meta.env.DEV` is
 	// the only form Vite statically replaces in both targets.
-	return (import.meta as unknown as { env: { DEV: boolean } }).env.DEV === true;
+	return import.meta.env.DEV === true;
 }
 
 export type DevNoticeOptions = {

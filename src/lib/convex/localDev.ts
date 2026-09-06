@@ -2,23 +2,8 @@ import { v } from 'convex/values';
 import { components } from './_generated/api';
 import { internalMutation, type MutationCtx } from './_generated/server';
 import { createAuth } from './auth';
+import { readSeedUser, type SeedUser } from './betterAuth/seed-user';
 import { syncAdminPreferences } from './admin/notificationPreferences/helpers';
-
-type BetterAuthUser = {
-	_id: string;
-	email: string;
-	role?: string | null;
-	emailVerified?: boolean | null;
-};
-
-type LocalCreateUserApi = (context: {
-	body: {
-		email: string;
-		password: string;
-		name: string;
-		role: 'admin';
-	};
-}) => Promise<unknown>;
 
 function getRequiredLocalSeedEnv(name: string): string {
 	const value = process.env[name]?.trim();
@@ -28,12 +13,12 @@ function getRequiredLocalSeedEnv(name: string): string {
 	return value;
 }
 
-async function findUserByEmail(ctx: MutationCtx, email: string): Promise<BetterAuthUser | null> {
+async function findUserByEmail(ctx: MutationCtx, email: string): Promise<SeedUser | null> {
 	const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 		model: 'user',
 		where: [{ field: 'email', operator: 'eq', value: email }]
 	});
-	return (user as BetterAuthUser | null) ?? null;
+	return readSeedUser(user);
 }
 
 export const ensureSeededAdmin = internalMutation({
@@ -59,7 +44,7 @@ export const ensureSeededAdmin = internalMutation({
 		let user = await findUserByEmail(ctx, email);
 
 		if (!user) {
-			const authApi = createAuth(ctx).api as unknown as { createUser: LocalCreateUserApi };
+			const authApi = createAuth(ctx).api;
 			await authApi.createUser({
 				body: {
 					email,

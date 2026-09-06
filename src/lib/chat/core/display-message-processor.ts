@@ -142,10 +142,7 @@ export function transformToDisplayMessage(
 
 	const mergedParts =
 		msg.role === 'assistant' && streamParts
-			? (mergeAssistantMessageParts(
-					(msg.parts ?? []) as UIMessage['parts'],
-					streamParts
-				) as ChatMessage['parts'])
+			? mergeAssistantMessageParts(msg.parts ?? [], streamParts)
 			: (streamParts ?? msg.parts);
 
 	return {

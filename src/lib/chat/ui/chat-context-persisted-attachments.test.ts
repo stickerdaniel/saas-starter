@@ -1,3 +1,4 @@
+import { api } from '$lib/convex/_generated/api';
 /**
  * An uploaded attachment survives a reload.
  *
@@ -10,7 +11,7 @@
 
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
-import type { ChatCore } from '../core/chat-core.svelte.ts';
+import { createChatSession } from '../__tests__/session-fixture';
 
 const uploadFileWithProgress = vi.fn();
 
@@ -65,19 +66,19 @@ function pendingTransfer() {
  * closed, so `setDisplayMessages` may never run.
  */
 function chatAt(threadId: string | null, { rendered = true } = {}) {
-	const core = { threadId } as unknown as ChatCore;
+	const core = createChatSession(threadId);
 	const uploadConfig = {
-		generateUploadUrl: 'storage:generateUploadUrl',
-		saveUploadedFile: 'storage:saveUploadedFile',
+		generateUploadUrl: api.support.files.generateUploadUrl,
+		saveUploadedFile: api.support.files.saveUploadedFile,
 		attachmentStore: new ChatAttachmentStore(surface)
-	} as unknown as ConstructorParameters<typeof ChatUIContext>[2];
+	} satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[2]>;
 	const ctx = new ChatUIContext(core, {} as ConvexClient, uploadConfig, 'right', null);
 	// The first call is what gives the context a thread to compare against.
 	if (rendered) ctx.setDisplayMessages([]);
 	return {
 		ctx,
 		switchTo(next: string | null) {
-			(core as { threadId: string | null }).threadId = next;
+			core.threadId = next;
 			ctx.setDisplayMessages([]);
 		}
 	};

@@ -11,8 +11,7 @@ export const LEADING_REASONING_KEY = 'reasoning-lead';
 
 export function getReasoningPartKey(part: MessagePart, index: number): string {
 	if (part.type === 'reasoning') {
-		const record = part as { streamPartId?: unknown; id?: unknown };
-		const partId = record.streamPartId ?? record.id;
+		const partId = part.streamPartId ?? ('id' in part ? part.id : undefined);
 		if (typeof partId === 'string') {
 			return `reasoning-${partId}`;
 		}

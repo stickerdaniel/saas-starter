@@ -10,20 +10,17 @@ import {
 	type TransformContext
 } from './display-message-processor.js';
 import type { ChatMessage, MessagePart } from './types.js';
-import type { StreamCacheManager } from './stream-cache.js';
+import type { StreamCachePort } from './chat-session-port.js';
 
-// Mock StreamCacheManager
-function createMockStreamCache(cachedReasoning?: Map<number, string>): StreamCacheManager {
+// Mock StreamCachePort
+function createMockStreamCache(cachedReasoning?: Map<number, string>): StreamCachePort {
 	const cache = cachedReasoning ?? new Map<number, string>();
 	return {
 		getCachedReasoning: vi.fn((order: number) => cache.get(order)),
 		updateReasoningCache: vi.fn((order: number, reasoning: string) => cache.set(order, reasoning)),
 		clearReasoningCache: vi.fn((order: number) => cache.delete(order)),
-		getCachedStatus: vi.fn(),
-		updateStatusCache: vi.fn(),
-		hasStatusCache: vi.fn(),
-		clear: vi.fn()
-	} as unknown as StreamCacheManager;
+		updateStatusCache: vi.fn()
+	};
 }
 
 // Factory for creating test messages
@@ -40,7 +37,7 @@ function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
 }
 
 describe('resolveReasoning', () => {
-	let mockCache: StreamCacheManager;
+	let mockCache: StreamCachePort;
 
 	beforeEach(() => {
 		mockCache = createMockStreamCache();
@@ -144,7 +141,7 @@ describe('resolveReasoning', () => {
 });
 
 describe('transformToDisplayMessage', () => {
-	let mockCache: StreamCacheManager;
+	let mockCache: StreamCachePort;
 	let baseContext: TransformContext;
 
 	beforeEach(() => {

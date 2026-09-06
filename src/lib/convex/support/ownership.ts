@@ -92,10 +92,6 @@ export async function requireSupportThreadAccess(
 	return { supportThread, thread, owner };
 }
 
-type AgentMessageLookupResult = {
-	threadId: string;
-};
-
 export async function assertMessageOwnership(
 	ctx: SupportAccessCtx,
 	args: {
@@ -103,9 +99,9 @@ export async function assertMessageOwnership(
 		anonymousUserId?: string;
 	}
 ) {
-	const [message] = (await ctx.runQuery(components.agent.messages.getMessagesByIds, {
+	const [message] = await ctx.runQuery(components.agent.messages.getMessagesByIds, {
 		messageIds: [args.messageId]
-	})) as Array<AgentMessageLookupResult | null>;
+	});
 
 	if (!message) {
 		throw createSupportError(SUPPORT_ERROR_CODES.messageNotFound);

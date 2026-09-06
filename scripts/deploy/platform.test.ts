@@ -109,3 +109,9 @@ describe('detectPlatform (Vercel)', () => {
 		expect(platform.siteUrl).toBeNull();
 	});
 });
+
+it('rejects an unknown Vercel environment rather than returning a falsely typed deployment', () => {
+	expect(() => detectPlatform({ ...process.env, VERCEL: '1', VERCEL_ENV: 'staging' })).toThrow(
+		'Unsupported VERCEL_ENV'
+	);
+});
