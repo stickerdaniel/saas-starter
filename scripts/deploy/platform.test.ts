@@ -53,7 +53,7 @@ describe('sanitizeBranchAlias', () => {
 	});
 });
 
-describe('detectPlatform (Vercel)', () => {
+describe.each([undefined, ''])('detectPlatform (Vercel, unset=%s)', (unset) => {
 	// detectPlatform reads process.env, so isolate the vars it touches
 	const vars = [
 		'VERCEL',
@@ -67,7 +67,8 @@ describe('detectPlatform (Vercel)', () => {
 	beforeEach(() => {
 		for (const key of vars) {
 			saved[key] = process.env[key];
-			delete process.env[key];
+			if (unset === undefined) delete process.env[key];
+			else process.env[key] = unset;
 		}
 		process.env.VERCEL = '1';
 		process.env.VERCEL_URL = 'myapp-abc123xyz.vercel.app';
@@ -110,7 +111,7 @@ describe('detectPlatform (Vercel)', () => {
 	});
 });
 
-describe('detectPlatform (Cloudflare)', () => {
+describe.each([undefined, ''])('detectPlatform (Cloudflare, unset=%s)', (unset) => {
 	const vars = [
 		'VERCEL',
 		'WORKERS_CI',
@@ -129,7 +130,8 @@ describe('detectPlatform (Cloudflare)', () => {
 	beforeEach(() => {
 		for (const key of vars) {
 			saved[key] = process.env[key];
-			delete process.env[key];
+			if (unset === undefined) delete process.env[key];
+			else process.env[key] = unset;
 		}
 		process.env.PRODUCTION_BRANCH = 'main';
 	});
@@ -150,6 +152,9 @@ describe('detectPlatform (Cloudflare)', () => {
 		const platform = detectPlatform();
 		expect(platform.siteUrl).toBe('https://app.example.com');
 		expect(platform.deployUrl).toBe('https://generated.pages.dev');
+		expect(platform.environment).toBe('production');
+		expect(platform.isPreview).toBe(false);
+		expect(platform.gitRef).toBe('main');
 	});
 
 	it('uses the Pages deployment URL for a preview despite inherited production values', () => {

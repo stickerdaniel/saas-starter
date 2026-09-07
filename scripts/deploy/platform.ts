@@ -39,21 +39,21 @@ export function detectPlatform(): PlatformContext {
 	// Vercel: VERCEL is set to "1" by the platform
 	if (process.env.VERCEL) {
 		const env = process.env.VERCEL_ENV as 'production' | 'preview' | 'development' | undefined;
-		const environment = env ?? 'development';
-		const vercelUrl = process.env.VERCEL_URL ?? null;
+		const environment = env || 'development';
+		const vercelUrl = process.env.VERCEL_URL || null;
 		// VERCEL_URL is the per-deployment generated host (changes every deploy).
 		// For production builds prefer VERCEL_PROJECT_PRODUCTION_URL, the stable
 		// production domain, so baked canonical/og URLs don't point at an
 		// ephemeral deployment host.
 		const productionUrl =
-			environment === 'production' ? (process.env.VERCEL_PROJECT_PRODUCTION_URL ?? null) : null;
-		const siteHost = productionUrl ?? vercelUrl;
+			environment === 'production' ? process.env.VERCEL_PROJECT_PRODUCTION_URL || null : null;
+		const siteHost = productionUrl || vercelUrl;
 
 		return {
 			platform: 'vercel',
 			environment,
 			deployUrl: vercelUrl,
-			gitRef: process.env.VERCEL_GIT_COMMIT_REF ?? null,
+			gitRef: process.env.VERCEL_GIT_COMMIT_REF || null,
 			isPreview: environment === 'preview',
 			// Vercel provides hostnames only (no protocol)
 			siteUrl: siteHost ? `https://${siteHost}` : null
@@ -62,14 +62,14 @@ export function detectPlatform(): PlatformContext {
 
 	// Cloudflare Workers (WORKERS_CI) or Pages (CF_PAGES)
 	if (process.env.WORKERS_CI || process.env.CF_PAGES) {
-		const branch = process.env.WORKERS_CI_BRANCH ?? process.env.CF_PAGES_BRANCH ?? null;
+		const branch = process.env.WORKERS_CI_BRANCH || process.env.CF_PAGES_BRANCH || null;
 		const productionBranch = process.env.PRODUCTION_BRANCH || 'main';
 		const isPreview = branch !== null && branch !== productionBranch;
 		const environment = isPreview ? 'preview' : 'production';
 
 		// CF_PAGES_URL is a full URL with https:// (Pages only)
-		const deployUrl = process.env.CF_PAGES_URL ?? null;
-		const productionSiteUrl = process.env.PUBLIC_SITE_URL ?? process.env.SITE_URL ?? null;
+		const deployUrl = process.env.CF_PAGES_URL || null;
+		const productionSiteUrl = process.env.PUBLIC_SITE_URL || process.env.SITE_URL || null;
 
 		let siteUrl: string | null = null;
 		if (isPreview) {
@@ -105,6 +105,6 @@ export function detectPlatform(): PlatformContext {
 		deployUrl: null,
 		gitRef: null,
 		isPreview: false,
-		siteUrl: process.env.PUBLIC_SITE_URL ?? process.env.SITE_URL ?? null
+		siteUrl: process.env.PUBLIC_SITE_URL || process.env.SITE_URL || null
 	};
 }
