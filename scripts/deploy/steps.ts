@@ -18,11 +18,29 @@ export interface ConvexDeployment {
 	name: string | null;
 }
 
-export function convexDeployEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+function convexDeployEnvironment(
+	platform: PlatformContext,
+	env: NodeJS.ProcessEnv = process.env
+): NodeJS.ProcessEnv {
 	const deployEnv = { ...env };
 	// Convex checks the Pages branch before the Workers branch. Varlock represents
 	// an unset schema entry as "", so remove it and preserve Convex's production guard.
 	if (deployEnv.CF_PAGES_BRANCH === '') delete deployEnv.CF_PAGES_BRANCH;
+
+	const productionBranch = env.PRODUCTION_BRANCH || 'main';
+	if (
+		platform.platform === 'cloudflare' &&
+		platform.environment === 'production' &&
+		!platform.isPreview &&
+		platform.gitRef !== null &&
+		platform.gitRef === productionBranch
+	) {
+		// Convex 1.42 recognizes only "main" as Cloudflare's production branch.
+		// The platform detector already compared the actual branch with PRODUCTION_BRANCH.
+		if (deployEnv.CF_PAGES) deployEnv.CF_PAGES_BRANCH = 'main';
+		if (deployEnv.WORKERS_CI) deployEnv.WORKERS_CI_BRANCH = 'main';
+	}
+
 	return deployEnv;
 }
 
@@ -124,7 +142,7 @@ export async function deployConvex(platform: PlatformContext): Promise<ConvexDep
 	}
 
 	console.log('Deploying Convex functions...');
-	let result = runCommandCapture('bunx', args, convexDeployEnvironment());
+	let result = runCommandCapture('bunx', args, convexDeployEnvironment(platform));
 
 	if (result.stdout) console.log(result.stdout);
 	if (result.stderr) console.error(result.stderr);
@@ -279,7 +297,7 @@ async function tryRecoverFromQuota(
 		await sleep(POST_PRUNE_DELAY_MS);
 
 		console.log(`  Retrying deploy...`);
-		lastResult = runCommandCapture('bunx', args);
+		lastResult = runCommandCapture('bunx', args, convexDeployEnvironment(platform));
 		if (lastResult.stdout) console.log(lastResult.stdout);
 		if (lastResult.stderr) console.error(lastResult.stderr);
 
