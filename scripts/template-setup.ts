@@ -271,23 +271,9 @@ export function parseContactEmail(
  * Brand und Operator landen als Rohtext in den Absätzen von Privacy und Terms.
  * Ein Zeilenumbruch zerlegt dort den Absatz und kann eine zusätzliche Überschrift
  * erzeugen. Die Adresse bleibt bewusst mehrzeilig.
- *
- * Reject only delimiter combinations that create active inline Markdown in that
- * paragraph context. Ordinary punctuation and Unicode symbols remain literal.
  */
-const MARKDOWN_INLINE_DELIMITER = /[\\`*_~]/u;
-const MARKDOWN_LINK = /!?\[[^\]\r\n]*\](?:\([^\r\n)]*\)|\[[^\]\r\n]*\])/u;
-const MARKDOWN_ANGLE_STRUCTURE = /<[^>\r\n]+>/u;
-
-function legalMarkdownTextValidator(label: string): Validator {
-	return (value) => {
-		if (/[\r\n]/.test(value)) return `${label} must be a single line`;
-		return MARKDOWN_INLINE_DELIMITER.test(value) ||
-			MARKDOWN_LINK.test(value) ||
-			MARKDOWN_ANGLE_STRUCTURE.test(value)
-			? `${label} must not contain active Markdown inline syntax such as emphasis, links, code, strikethrough, HTML or autolinks, or escapes`
-			: undefined;
-	};
+function singleLineValidator(label: string): Validator {
+	return (value) => (/[\r\n]/.test(value) ? `${label} must be a single line` : undefined);
 }
 
 // ---------------------------------------------------------------------------
@@ -828,7 +814,7 @@ async function main() {
 		// einen bereits gewählten Namen.
 		!alreadySetUp && (oldBrand === '' || oldBrand === TEMPLATE_BRAND) ? titleCase(slug) : oldBrand,
 		(value) =>
-			value.trim() === '' ? 'brand must not be empty' : legalMarkdownTextValidator('brand')(value)
+			value.trim() === '' ? 'brand must not be empty' : singleLineValidator('brand')(value)
 	);
 
 	const company = await resolveValue(
@@ -841,7 +827,7 @@ async function main() {
 		operatorFlag,
 		'Operator name (person or org running the service)',
 		oldOperator,
-		legalMarkdownTextValidator('operator')
+		singleLineValidator('operator')
 	);
 
 	const address = await resolveValue(

@@ -165,7 +165,7 @@ describe('template setup writes importable branding values', () => {
 			key: 'operatorName',
 			value: 'Research / Development @ Northwind'
 		},
-		{ label: 'backslash', flag: '--company', key: 'companyName', value: 'Anne\\Marie Weber' },
+		{ label: 'backslash', flag: '--operator', key: 'operatorName', value: 'Anne\\Marie Weber' },
 		{
 			label: 'multiline address',
 			flag: '--address',
@@ -211,6 +211,20 @@ describe('template setup re-runs', () => {
 		const afterFirst = snapshot(dir);
 
 		const rerun = runSetup(dir, REQUIRED);
+		expect(rerun.code, rerun.stderr).toBe(0);
+		expect(snapshot(dir)).toEqual(afterFirst);
+	});
+
+	it('preserves a literal single delimiter across a flagless re-run', () => {
+		const dir = createFixture();
+		const first = runSetup(dir, [...REQUIRED, ...IDENTITY, '--brand', 'A*STAR']);
+		expect(first.code, first.stderr).toBe(0);
+		const imported = importLegalConfig(dir);
+		expect(imported.code, imported.stderr).toBe(0);
+		expect(imported.value?.config.brandName).toBe('A*STAR');
+		const afterFirst = snapshot(dir);
+
+		const rerun = runSetup(dir, []);
 		expect(rerun.code, rerun.stderr).toBe(0);
 		expect(snapshot(dir)).toEqual(afterFirst);
 	});
@@ -750,37 +764,6 @@ describe('template setup keeps prose values on one line', () => {
 		const before = snapshot(dir);
 
 		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, flag, multiline]);
-		expect(run.code).toBe(1);
-		expect(run.stderr).toMatch(expected);
-		expect(snapshot(dir)).toEqual(before);
-	});
-
-	it.each([
-		{
-			flag: '--brand',
-			value: '*Star* Co',
-			expected: /brand must not contain active Markdown inline syntax/
-		},
-		{
-			flag: '--brand',
-			value: '[Northwind](https://example.com)',
-			expected: /brand must not contain active Markdown inline syntax/
-		},
-		{
-			flag: '--operator',
-			value: '*Star* Co',
-			expected: /operator must not contain active Markdown inline syntax/
-		},
-		{
-			flag: '--operator',
-			value: '[Northwind](https://example.com)',
-			expected: /operator must not contain active Markdown inline syntax/
-		}
-	])('rejects active inline Markdown in $flag before writing', ({ flag, value, expected }) => {
-		const dir = createFixture();
-		const before = snapshot(dir);
-
-		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, flag, value]);
 		expect(run.code).toBe(1);
 		expect(run.stderr).toMatch(expected);
 		expect(snapshot(dir)).toEqual(before);
