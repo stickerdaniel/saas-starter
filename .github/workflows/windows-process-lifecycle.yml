@@ -18,9 +18,40 @@ permissions:
   pull-requests: read
 
 jobs:
+  runner:
+    name: Select lifecycle runner
+    runs-on: ubicloud-standard-2
+    outputs:
+      label: ${{ steps.runner.outputs.label }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 2
+      - name: Select runner
+        id: runner
+        shell: bash
+        run: |
+          # Workflow syntax and cross-platform wiring run on Ubicloud. Source
+          # and test changes whose behavior differs on Windows use Windows.
+          pattern='^(package\.json|bun\.lock|scripts/(dev-cloud(\.test)?\.ts|windows-job(\.ts|-runner\.ps1)))$'
+          set +e
+          set -o pipefail
+          git diff --name-only --no-renames HEAD^1 HEAD | grep -E "$pattern" > /dev/null
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo 'label=windows-latest' >> "$GITHUB_OUTPUT"
+          elif [[ $status -eq 1 ]]; then
+            echo 'label=ubicloud-standard-2' >> "$GITHUB_OUTPUT"
+          else
+            # Never select the cheaper runner from a failed read.
+            echo 'label=windows-latest' >> "$GITHUB_OUTPUT"
+          fi
+
   lifecycle:
     name: Windows Process Lifecycle
-    runs-on: windows-latest
+    needs: runner
+    runs-on: ${{ needs.runner.outputs.label }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
