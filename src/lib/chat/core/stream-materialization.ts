@@ -125,16 +125,6 @@ function getStreamPartId(part: UIMessage['parts'][number]): string | undefined {
 	return typeof streamPartId === 'string' ? streamPartId : undefined;
 }
 
-/**
- * Whether the part comes from a live materialization rather than a persisted
- * reconstruction. Only a live snapshot carries the AI SDK's part id, so only
- * there does its lifecycle `state` report what the model actually did.
- */
-function carriesStreamIdentity(part: UIMessage['parts'][number]): boolean {
-	const record = asRecord(part);
-	return typeof record.streamPartId === 'string' || typeof record.id === 'string';
-}
-
 function getReasoningPartId(part: UIMessage['parts'][number]): string | undefined {
 	if (part.type !== 'reasoning') return undefined;
 
@@ -461,7 +451,7 @@ export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
 			return combined;
 		}
 
-		const mergedParts = mergeAssistantMessageParts(previous.parts, message.parts);
+		const mergedParts = mergeAssistantMessageParts(previous.parts, message.parts, 'live');
 
 		combined[combined.length - 1] = {
 			...previous,
@@ -477,7 +467,8 @@ export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
 
 export function mergeAssistantMessageParts(
 	existingParts: UIMessage['parts'],
-	incomingParts: UIMessage['parts']
+	incomingParts: UIMessage['parts'],
+	existingView: 'live' | 'persisted'
 ): UIMessage['parts'] {
 	if (existingParts.length === 0) return [...incomingParts];
 	if (incomingParts.length === 0) return [...existingParts];
@@ -502,7 +493,7 @@ export function mergeAssistantMessageParts(
 	if (prefixCarriesContent && !hasToolPartAfter(existingParts, compatiblePrefixLength - 1)) {
 		const mergedPrefix = existingParts
 			.slice(0, compatiblePrefixLength)
-			.map((part, index) => mergeMatchedParts(part, incomingParts[index]!));
+			.map((part, index) => mergeMatchedParts(part, incomingParts[index]!, existingView));
 
 		const tail =
 			incomingParts.length > compatiblePrefixLength
@@ -553,7 +544,11 @@ export function mergeAssistantMessageParts(
 					: -1;
 
 				if (existingIndex !== -1) {
-					mergedParts[existingIndex] = mergeMatchedParts(mergedParts[existingIndex]!, part);
+					mergedParts[existingIndex] = mergeMatchedParts(
+						mergedParts[existingIndex]!,
+						part,
+						existingView
+					);
 					claimedIndices.add(existingIndex);
 					cursor = Math.max(cursor, existingIndex);
 					continue;
@@ -568,7 +563,11 @@ export function mergeAssistantMessageParts(
 				hasToolPartAfter(incomingParts, incomingIndex)
 			);
 			if (counterpartIndex !== -1) {
-				mergedParts[counterpartIndex] = mergeMatchedParts(mergedParts[counterpartIndex]!, part);
+				mergedParts[counterpartIndex] = mergeMatchedParts(
+					mergedParts[counterpartIndex]!,
+					part,
+					existingView
+				);
 				claimedIndices.add(counterpartIndex);
 				cursor = Math.max(cursor, counterpartIndex);
 				continue;
@@ -682,7 +681,8 @@ function hasToolPartAfter(parts: UIMessage['parts'], index: number): boolean {
 
 function mergeMatchedParts(
 	existingPart: UIMessage['parts'][number],
-	incomingPart: UIMessage['parts'][number]
+	incomingPart: UIMessage['parts'][number],
+	existingView: 'live' | 'persisted'
 ): UIMessage['parts'][number] {
 	const carriesText =
 		existingPart.type === incomingPart.type &&
@@ -719,22 +719,14 @@ function mergeMatchedParts(
 		}
 	} else if (
 		existingText.length === incomingText.length &&
-		asRecord(existingPart).state === 'done' &&
-		carriesStreamIdentity(existingPart)
+		existingView === 'live' &&
+		asRecord(existingPart).state === 'done'
 	) {
-		// `reasoning-end` and `text-end` close a block without adding to its text, so
-		// the two snapshots read identically and length cannot say which is newer.
-		// A `done` means the block really closed only on a live snapshot: the message
-		// list materializes an active stream into its own page, so this side is a
-		// second live view that can be the newer one. The persisted reconstruction
-		// stamps `done` on everything it rebuilds, including a step still running
-		// (measured), and carries no id, which is what tells the two apart.
-		//
-		// Only reasoning is covered, because only reasoning carries that id: a live
-		// text part holds nothing but its type, text and state (measured), so a
-		// settled answer can still be handed back its streaming presentation for one
-		// frame. Separating the two would need the caller to say which view each side
-		// came from, which is issue #893 rather than another guess here.
+		// `reasoning-end` und `text-end` schließen einen Block ohne neue Bytes. Daher
+		// sehen beide Live-Snapshots identisch aus und die Länge verrät nicht, welcher
+		// neuer ist. Der Listenstatus belegt die Live-Provenienz der vorhandenen Seite;
+		// Part-IDs können das nicht, da Live-Text keine trägt und die persistierte
+		// Rekonstruktion selbst Inhalte eines laufenden Schritts als `done` markiert.
 		merged.state = 'done';
 	}
 

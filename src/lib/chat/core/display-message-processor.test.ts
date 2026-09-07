@@ -11,6 +11,7 @@ import {
 } from './display-message-processor.js';
 import type { ChatMessage, MessagePart } from './types.js';
 import type { StreamCacheManager } from './stream-cache.js';
+import type { UIMessage } from '@convex-dev/agent';
 
 // Mock StreamCacheManager
 function createMockStreamCache(cachedReasoning?: Map<number, string>): StreamCacheManager {
@@ -247,6 +248,47 @@ describe('transformToDisplayMessage', () => {
 		expect(result.isStreaming).toBe(true);
 		expect(result.hasReasoningStream).toBe(true);
 	});
+
+	it.each([
+		{ listStatus: 'streaming', expectedState: 'done' },
+		{ listStatus: 'success', expectedState: 'streaming' },
+		{ listStatus: 'pending', expectedState: 'streaming' }
+	] as const)(
+		'uses $listStatus list status to choose the existing part provenance',
+		({ listStatus, expectedState }) => {
+			const msg = createMessage({
+				order: 5,
+				status: listStatus,
+				parts: [
+					{ type: 'text', text: 'Complete answer', state: 'done' }
+				] as unknown as MessagePart[]
+			});
+			const context: TransformContext = {
+				...baseContext,
+				streamMessageMap: new Map([
+					[
+						5,
+						{
+							id: 'stream:5',
+							key: 'thread-1-5-0',
+							order: 5,
+							stepOrder: 0,
+							agentName: 'assistant',
+							text: 'Complete answer',
+							_creationTime: 1,
+							role: 'assistant',
+							status: 'streaming',
+							parts: [{ type: 'text', text: 'Complete answer', state: 'streaming' }]
+						} as unknown as UIMessage
+					]
+				])
+			};
+
+			const result = transformToDisplayMessage(msg, context);
+
+			expect(result.parts).toMatchObject([{ state: expectedState }]);
+		}
+	);
 
 	it('does not apply streaming data to non-streamed messages', () => {
 		// streamedMsg would be at order 5, but we're testing otherMsg at order 6

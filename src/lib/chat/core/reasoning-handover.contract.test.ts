@@ -18,9 +18,17 @@ import { describe, expect, it } from 'vitest';
 import { readUIMessageStream } from 'ai';
 import { toUIMessages } from '@convex-dev/agent';
 import type { UIMessage } from '@convex-dev/agent';
-import { mergeAssistantMessageParts } from './stream-materialization.js';
-import { getReasoningKey } from '../ui/reasoning-parts.js';
-import type { MessagePart } from './types.js';
+import type { StreamMessage } from '@convex-dev/agent/validators';
+import {
+	deriveUIMessagesFromDeltas,
+	mergeAssistantMessageParts
+} from './stream-materialization.js';
+import { normalizeMessage } from './message-extraction.js';
+import { StreamCacheManager } from './stream-cache.js';
+import { buildDisplayMessages } from '../ui/streaming-display.js';
+import { getActiveStreamingPartIndex, getReasoningKey } from '../ui/reasoning-parts.js';
+import { mergeMaterializedStreamsIntoPage } from '../../convex/support/messageListing.js';
+import type { ChatMessage, MessagePart } from './types.js';
 
 /** The wire chunks a two-step tool response produces, in order. */
 function responseChunks(firstThought: string, secondThought: string) {
@@ -121,10 +129,10 @@ const RESPONSES = [
 	}
 ];
 
-async function readLiveMessage(first: string, second: string): Promise<UIMessage> {
+async function readLiveChunks(chunks: ReturnType<typeof responseChunks>): Promise<UIMessage> {
 	const stream = new ReadableStream({
 		start(controller) {
-			for (const chunk of responseChunks(first, second)) controller.enqueue(chunk);
+			for (const chunk of chunks) controller.enqueue(chunk);
 			controller.close();
 		}
 	});
@@ -138,6 +146,10 @@ async function readLiveMessage(first: string, second: string): Promise<UIMessage
 	return latest;
 }
 
+async function readLiveMessage(first: string, second: string): Promise<UIMessage> {
+	return readLiveChunks(responseChunks(first, second));
+}
+
 function readPersistedMessage(first: string, second: string): UIMessage {
 	const messages = toUIMessages(responseRows(first, second) as any) as UIMessage[];
 	const assistant = messages.filter((message) => message.role === 'assistant');
@@ -145,6 +157,66 @@ function readPersistedMessage(first: string, second: string): UIMessage {
 		throw new Error(`expected one grouped assistant message, got ${assistant.length}`);
 	}
 	return assistant[0]!;
+}
+
+function readPersistedRunningMessage(): UIMessage {
+	const messages = toUIMessages([
+		{
+			_id: 'm-running',
+			_creationTime: 1,
+			order: 0,
+			stepOrder: 0,
+			status: 'pending',
+			threadId: 'thread-1',
+			tool: false,
+			message: {
+				role: 'assistant',
+				content: [
+					{ type: 'reasoning', text: 'second thought' },
+					{ type: 'text', text: 'the answer' }
+				]
+			}
+		}
+	] as any) as UIMessage[];
+
+	if (messages.length !== 1) {
+		throw new Error(`expected one running assistant message, got ${messages.length}`);
+	}
+	return messages[0]!;
+}
+
+function activeStreamMessage(): StreamMessage {
+	return {
+		streamId: 'stream-1',
+		order: 0,
+		stepOrder: 0,
+		status: 'streaming',
+		agentName: undefined,
+		format: 'UIMessageChunk'
+	} as StreamMessage;
+}
+
+async function materializeLiveChunks(
+	chunks: ReturnType<typeof responseChunks>
+): Promise<UIMessage> {
+	const messages = await deriveUIMessagesFromDeltas('thread-1', [activeStreamMessage()], [
+		{
+			streamId: 'stream-1',
+			start: 0,
+			end: chunks.length,
+			parts: chunks
+		}
+	] as any);
+	return messages[0]!;
+}
+
+function displayMessage(listMessage: ChatMessage, deltaMessage?: UIMessage) {
+	return buildDisplayMessages({
+		allMessages: [normalizeMessage(listMessage)],
+		streamMessages: deltaMessage ? [activeStreamMessage()] : [],
+		streamingUIMessages: deltaMessage ? [deltaMessage] : [],
+		streamCache: new StreamCacheManager()
+	})[0]!;
 }
 
 function reasoningKeys(parts: MessagePart[]): string[] {
@@ -180,6 +252,45 @@ describe('the reasoning shapes the two producers emit', () => {
 			expect(record.streamPartId).toBeUndefined();
 		}
 	});
+
+	it('changes only lifecycle state at reasoning-end and text-end', async () => {
+		const chunks = responseChunks('first thought', 'second thought');
+		const reasoningEndIndex = chunks.findIndex(
+			(chunk) => chunk.type === 'reasoning-end' && 'id' in chunk && chunk.id === 'r-first'
+		);
+		const textEndIndex = chunks.findIndex(
+			(chunk) => chunk.type === 'text-end' && 'id' in chunk && chunk.id === 't-1'
+		);
+		const [beforeReasoningEnd, afterReasoningEnd, beforeTextEnd, afterTextEnd] = await Promise.all([
+			readLiveChunks(chunks.slice(0, reasoningEndIndex)),
+			readLiveChunks(chunks.slice(0, reasoningEndIndex + 1)),
+			readLiveChunks(chunks.slice(0, textEndIndex)),
+			readLiveChunks(chunks.slice(0, textEndIndex + 1))
+		]);
+
+		expect(beforeReasoningEnd.parts.filter((part) => part.type === 'reasoning')).toMatchObject([
+			{ id: 'r-first', text: 'first thought', state: 'streaming' }
+		]);
+		expect(afterReasoningEnd.parts.filter((part) => part.type === 'reasoning')).toMatchObject([
+			{ id: 'r-first', text: 'first thought', state: 'done' }
+		]);
+		expect(beforeTextEnd.parts.filter((part) => part.type === 'text')).toEqual([
+			{ type: 'text', text: 'the answer', state: 'streaming' }
+		]);
+		expect(afterTextEnd.parts.filter((part) => part.type === 'text')).toEqual([
+			{ type: 'text', text: 'the answer', state: 'done' }
+		]);
+	});
+
+	it('reconstructs a pending persisted step with done content and no live ids', () => {
+		const persisted = readPersistedRunningMessage();
+
+		expect(persisted.status).toBe('pending');
+		expect(persisted.parts).toEqual([
+			{ state: 'done', type: 'reasoning', text: 'second thought' },
+			{ state: 'done', type: 'text', text: 'the answer' }
+		]);
+	});
 });
 
 describe.each(RESPONSES)('the persisted and streamed handover of $name', ({ first, second }) => {
@@ -187,7 +298,7 @@ describe.each(RESPONSES)('the persisted and streamed handover of $name', ({ firs
 		const live = await readLiveMessage(first, second);
 		const persisted = readPersistedMessage(first, second);
 
-		const merged = mergeAssistantMessageParts(persisted.parts, live.parts);
+		const merged = mergeAssistantMessageParts(persisted.parts, live.parts, 'persisted');
 
 		expect(merged.filter((part) => part.type === 'reasoning')).toHaveLength(2);
 		expect(merged.filter((part) => part.type === 'text')).toHaveLength(1);
@@ -200,11 +311,58 @@ describe.each(RESPONSES)('the persisted and streamed handover of $name', ({ firs
 		const live = await readLiveMessage(first, second);
 		const persisted = readPersistedMessage(first, second);
 
-		const merged = mergeAssistantMessageParts(persisted.parts, live.parts);
+		const merged = mergeAssistantMessageParts(persisted.parts, live.parts, 'persisted');
 
 		const whileLive = reasoningKeys(live.parts as MessagePart[]);
 		expect(whileLive).toHaveLength(2);
 		expect(reasoningKeys(merged as MessagePart[])).toEqual(whileLive);
 		expect(reasoningKeys(persisted.parts as MessagePart[])).toEqual(whileLive);
+	});
+});
+
+describe('the producer handover through list materialization and display', () => {
+	it('keeps lifecycle state monotonic across both query arrival orders', async () => {
+		const chunks = responseChunks('first thought', 'second thought');
+		const textEndIndex = chunks.findIndex(
+			(chunk) => chunk.type === 'text-end' && 'id' in chunk && chunk.id === 't-1'
+		);
+		const beforeTextEnd = await materializeLiveChunks(chunks.slice(0, textEndIndex));
+		const afterTextEnd = await materializeLiveChunks(chunks.slice(0, textEndIndex + 1));
+		const persistedRunning = readPersistedRunningMessage() as unknown as ChatMessage;
+		const persistedComplete = readPersistedMessage(
+			'first thought',
+			'second thought'
+		) as unknown as ChatMessage;
+
+		const olderList = mergeMaterializedStreamsIntoPage([persistedRunning], [beforeTextEnd])[0]!;
+		const newerList = mergeMaterializedStreamsIntoPage([persistedRunning], [afterTextEnd])[0]!;
+
+		const stillStreaming = displayMessage(olderList, beforeTextEnd);
+		const newerListWithOlderDeltas = displayMessage(newerList, beforeTextEnd);
+		const olderListWithNewerDeltas = displayMessage(olderList, afterTextEnd);
+		const persistedWithoutOverlay = displayMessage(persistedComplete);
+
+		const activeIndex = getActiveStreamingPartIndex(stillStreaming.parts, true);
+		expect(stillStreaming.parts?.[activeIndex]).toMatchObject({
+			type: 'text',
+			state: 'streaming'
+		});
+
+		for (const message of [newerListWithOlderDeltas, olderListWithNewerDeltas]) {
+			expect(message.parts?.filter((part) => part.type === 'text')).toMatchObject([
+				{ text: 'the answer', state: 'done' }
+			]);
+			expect(getActiveStreamingPartIndex(message.parts, true)).toBe(-1);
+			expect(message.parts?.filter((part) => part.type === 'reasoning')).toHaveLength(2);
+			expect(message.parts?.filter((part) => part.type.startsWith('tool-'))).toMatchObject([
+				{ toolCallId: 'call-1', state: 'output-available' }
+			]);
+		}
+
+		expect(persistedWithoutOverlay.status).toBe('success');
+		expect(persistedWithoutOverlay.parts?.filter((part) => part.type === 'text')).toEqual([
+			{ state: 'done', type: 'text', text: 'the answer' }
+		]);
+		expect(getActiveStreamingPartIndex(persistedWithoutOverlay.parts, false)).toBe(-1);
 	});
 });
