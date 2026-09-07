@@ -313,13 +313,13 @@ function unwrapInterstitial(destination: string, lang: string): string {
 			return `/${lang}/app`;
 		}
 
-		// Reset-Seite eingeschlossen: Better Auth hängt `INVALID_TOKEN` an den
-		// Reset-Callback (`requestPasswordResetCallback` in
-		// better-auth/dist/api/routes/password.mjs), womit ein Formular ohne Token
-		// sonst das Ende der Reise wäre.
+		// Include the reset page because Better Auth appends `INVALID_TOKEN` to the
+		// reset callback (`requestPasswordResetCallback` in
+		// better-auth/dist/api/routes/password.mjs). Without unwrapping it, a form
+		// without a token would end the journey.
 		if (!/^\/[a-z]{2}\/(email-verified|reset-password)$/.test(parsed.pathname)) return current;
-		// Nur `redirectTo`, damit ein danebenstehendes `token` liegen bleibt statt
-		// ins Ziel befördert zu werden.
+		// Read only `redirectTo`, leaving an adjacent `token` behind instead of carrying
+		// it into the destination.
 		current = safeAuthDestination(parsed.searchParams.get('redirectTo') ?? '', `/${lang}/app`);
 	}
 

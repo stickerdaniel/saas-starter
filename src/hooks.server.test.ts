@@ -182,9 +182,9 @@ describe('verificationFailureRedirect', () => {
 	});
 
 	/**
-	 * Eine Reset-Seite mit abgelehntem Token ist ebenfalls ein Wartezimmer: Better
-	 * Auth hängt `INVALID_TOKEN` an den Callback, statt ein Token mitzugeben. In
-	 * der Kette belassen endete die Reise auf einem Formular ohne Token.
+	 * A reset page carrying a rejected token is another waiting room. Better Auth
+	 * appends `INVALID_TOKEN` to the callback instead of providing a token, so
+	 * leaving it in the chain would end the journey on a form without a token.
 	 */
 	it('unwraps a rejected reset page rather than ending on it', () => {
 		expect(
@@ -219,8 +219,8 @@ describe('verificationFailureRedirect', () => {
 	});
 
 	/**
-	 * Nur `redirectTo` wird aus einer Schicht gelesen. Ein danebenstehendes Token
-	 * bliebe sonst in Link, Adresszeile und Referrer jeder Folgeseite stehen.
+	 * Read only `redirectTo` from each layer. An adjacent token would otherwise
+	 * remain in the link, address bar, and referrer of every following page.
 	 */
 	it('leaves the token behind instead of carrying it into the destination', () => {
 		const redirect = verificationFailureRedirect(
@@ -256,8 +256,7 @@ describe('verificationFailureRedirect', () => {
 		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN');
 	});
 
-	// Eine Reset-Seite mit Token ist kein Fehlerfall: das Formular rendert und
-	// verbraucht das Token.
+	// A reset page with a token is not a failure. The form renders and consumes it.
 	it('leaves a reset page that actually got a token alone', () => {
 		expect(
 			verificationFailureRedirect(
@@ -270,11 +269,11 @@ describe('verificationFailureRedirect', () => {
 });
 
 /**
- * Dieselben zwei URLs, wie das installierte Better Auth sie wirklich ausgibt.
+ * These are the two URLs the installed Better Auth version actually produces.
  *
- * Der Handler liefert echten Reset-Link und echte Ablehnung, beide gehen
- * unbearbeitet in den Hook. Ein handgebautes Paar würde nur die Annahme
- * wiederholen, aus der der Fehler entstand.
+ * The handler supplies a real reset link and a real rejection, and both enter
+ * the hook unchanged. A hand-built pair would only repeat the assumption that
+ * caused the defect.
  */
 describe('verificationFailureRedirect against a real Better Auth redirect', () => {
 	const BASE = 'https://example.test';
@@ -323,7 +322,7 @@ describe('verificationFailureRedirect against a real Better Auth redirect', () =
 		expect(requested.status, await requested.text()).toBe(200);
 	});
 
-	/** Wohin der Handler den Browser für diesen Link schickt. */
+	/** Return the browser destination the handler produces for this link. */
 	async function landing(url: string | URL): Promise<URL> {
 		const response = await auth.handler(new Request(url));
 		expect(response.status).toBe(302);

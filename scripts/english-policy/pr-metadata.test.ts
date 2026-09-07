@@ -38,24 +38,43 @@ afterEach(() => {
 });
 
 describe('pull request metadata policy', () => {
-	it('checks the title independently from an English body', () => {
+	it.each([
+		'fix(auth): Passwort zurücksetzen',
+		'fix: Fehler beheben',
+		'docs: Anleitung schreiben',
+		'test: Daten laden',
+		'feat: Benutzer anmelden',
+		'fix(auth): PASSWORT ZURUECKSETZEN'
+	])('checks a clear non-English title independently: %s', (title) => {
 		const result = evaluatePullRequestMetadata({
 			pull_request: {
-				title: 'fix(auth): Passwort zurücksetzen',
+				title,
 				body: 'This body explains the account recovery correction in English.'
 			}
 		});
 		expect(result.findings).toMatchObject([{ field: 'title', language: 'de' }]);
 	});
 
-	it('checks body paragraphs independently from an English title', () => {
+	it.each(['Fix API', 'Cache JWKS', 'fix(auth): Reset password', 'Update docs', 'Ship change'])(
+		'passes a short English title conservatively: %s',
+		(title) => {
+			expect(evaluatePullRequestMetadata({ pull_request: { title, body: null } }).findings).toEqual(
+				[]
+			);
+		}
+	);
+
+	it.each([
+		[foreignFixtures.french, 'fr'],
+		['ESTE TEXTO ESTA CLARAMENTE ESCRITO EN ESPANOL', 'es']
+	])('checks non-English body paragraphs independently: %s', (body, language) => {
 		const result = evaluatePullRequestMetadata({
 			pull_request: {
 				title: 'fix(auth): Reset password',
-				body: `This paragraph is English.\n\n${foreignFixtures.french}`
+				body: `This paragraph is English.\n\n${body}`
 			}
 		});
-		expect(result.findings).toMatchObject([{ field: 'body', paragraph: 2, language: 'fr' }]);
+		expect(result.findings).toMatchObject([{ field: 'body', paragraph: 2, language }]);
 	});
 
 	it('ignores fenced code even when it contains blank lines', () => {
@@ -66,6 +85,24 @@ describe('pull request metadata policy', () => {
 			}
 		});
 		expect(result.findings).toEqual([]);
+	});
+
+	it.each([
+		['backtick', '````', '```'],
+		['tilde', '~~~~', '~~~']
+	])('does not close a %s fence with a shorter nested marker', (_label, outer, inner) => {
+		const body = [
+			'This paragraph explains the example.',
+			'',
+			`${outer}markdown`,
+			inner,
+			foreignFixtures.german,
+			inner,
+			outer
+		].join('\n');
+		expect(
+			evaluatePullRequestMetadata({ pull_request: { title: 'Fix API', body } }).findings
+		).toEqual([]);
 	});
 
 	it('allows a null body', () => {

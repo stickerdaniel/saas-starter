@@ -2,6 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { normalizePolicyIdentity, proseKindForFile } from './english-policy/content';
+import { MAX_INPUT_BYTES, policyIdentityForFile, readBoundedStdin } from './check-english';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const SCRIPT = path.join(ROOT, 'scripts/check-english.ts');
@@ -50,6 +52,43 @@ describe('explicit English artifact checker', () => {
 		expect(result.status).toBe(1);
 		expect(output).toContain('clear non-English prose');
 		expect(output).not.toContain('input could not be read or validated');
+	});
+
+	it('keeps absolute repository paths tied to their policy identity', () => {
+		const englishLocale = path.join(ROOT, 'src/i18n/en.json');
+		const identity = policyIdentityForFile(englishLocale, ROOT);
+		expect(identity).toBe('src/i18n/en.json');
+		expect(proseKindForFile(identity)).toBe('english-locale');
+	});
+
+	it('normalizes Windows separators without platform-dependent path resolution', () => {
+		expect(normalizePolicyIdentity('src\\i18n\\en.json')).toBe('src/i18n/en.json');
+		expect(proseKindForFile(normalizePolicyIdentity('src\\i18n\\en.json'))).toBe('english-locale');
+	});
+
+	it('stops reading standard input immediately after the byte limit', () => {
+		let remaining = MAX_INPUT_BYTES + 10_000;
+		let readBytes = 0;
+		const reader = (
+			_fd: number,
+			buffer: NodeJS.ArrayBufferView,
+			offset: number,
+			length: number
+		): number => {
+			const bytes = Math.min(length, remaining);
+			Buffer.from(buffer.buffer, buffer.byteOffset, buffer.byteLength).fill(
+				0x61,
+				offset,
+				offset + bytes
+			);
+			remaining -= bytes;
+			readBytes += bytes;
+			return bytes;
+		};
+
+		expect(() => readBoundedStdin(reader)).toThrow('Input exceeds the inspection limit.');
+		expect(readBytes).toBe(MAX_INPUT_BYTES + 1);
+		expect(remaining).toBe(9_999);
 	});
 
 	it('checks prose supplied on standard input', () => {

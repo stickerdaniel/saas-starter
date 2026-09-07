@@ -38,12 +38,39 @@ export interface TextWindow {
 const detector = eld.newInstance();
 const CONVENTIONAL_COMMIT =
 	/^(?:build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(?:\([^)\r\n]+\))?!?:\s*/iu;
+const TECHNICAL_ACRONYMS = new Set([
+	'API',
+	'ASCII',
+	'BUN',
+	'CDN',
+	'CI',
+	'CLI',
+	'CSS',
+	'ELD',
+	'HTML',
+	'HTTP',
+	'HTTPS',
+	'JS',
+	'JSON',
+	'JSONC',
+	'JWT',
+	'JWKS',
+	'PR',
+	'SDK',
+	'SSR',
+	'SVELTE',
+	'TS',
+	'UI',
+	'URL',
+	'UTF'
+]);
 const SHORT_TECHNICAL_WORDS = new Set([
 	'add',
 	'allow',
 	'api',
 	'auth',
 	'build',
+	'bun',
 	'bump',
 	'cache',
 	'check',
@@ -69,6 +96,8 @@ const SHORT_TECHNICAL_WORDS = new Set([
 	'restore',
 	'retry',
 	'run',
+	'script',
+	'scripts',
 	'set',
 	'skip',
 	'support',
@@ -83,14 +112,18 @@ function words(text: string): string[] {
 	return text.match(/\p{L}[\p{L}\p{M}'’-]*/gu) ?? [];
 }
 
+function isTechnicalToken(token: string): boolean {
+	return TECHNICAL_ACRONYMS.has(token) || /[0-9_]/u.test(token);
+}
+
 function isShortTechnicalEnglish(text: string): boolean {
 	const withoutPrefix = text.replace(CONVENTIONAL_COMMIT, '').trim();
 	const tokens = words(withoutPrefix);
 	return (
 		tokens.length > 0 &&
 		tokens.length <= 4 &&
-		tokens.every((token) =>
-			/^[A-Z][A-Z0-9]*$/.test(token) ? true : SHORT_TECHNICAL_WORDS.has(token.toLowerCase())
+		tokens.every(
+			(token) => isTechnicalToken(token) || SHORT_TECHNICAL_WORDS.has(token.toLowerCase())
 		)
 	);
 }
@@ -107,7 +140,7 @@ export function normalizeTechnicalSyntax(text: string): string {
 		.replace(/\b[\w.@+-]+(?:[\\/][\w.@+-]+)+\b/g, ' ')
 		.replace(/\b[0-9a-f]{7,64}\b/giu, ' ')
 		.replace(/--?[a-z][\w-]*/giu, ' ')
-		.replace(/\b[A-Z][A-Z0-9_-]{1,}\b/g, ' ')
+		.replace(/\b[A-Z][A-Z0-9_-]{1,}\b/g, (token) => (isTechnicalToken(token) ? ' ' : token))
 		.replace(/\b(?:[$_][\w$]*|[a-z]+(?:[A-Z][\w$]*)+)\b/g, ' ')
 		.replace(/[\p{P}\p{S}]+/gu, ' ')
 		.replace(/\s+/g, ' ')
@@ -129,7 +162,7 @@ export function classifyEnglish(
 	if (normalizedText === '') {
 		return { outcome: 'insufficient-evidence', reason: 'empty', normalizedText };
 	}
-	if (isShortTechnicalEnglish(text)) {
+	if (isShortTechnicalEnglish(normalizedText)) {
 		return { outcome: 'accepted', reason: 'technical-english', normalizedText };
 	}
 
@@ -139,10 +172,9 @@ export function classifyEnglish(
 	const nonAsciiLetters = letterCharacters.filter(
 		(character) => (character.codePointAt(0) ?? 0) > 0x7f
 	).length;
-	const nonLatinLetters =
-		normalizedText.match(
-			/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Cyrillic}\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Devanagari}]/gu
-		)?.length ?? 0;
+	const nonLatinLetters = letterCharacters.filter(
+		(character) => !/\p{Script=Latin}/u.test(character)
+	).length;
 
 	if ((tokens.length < 2 || letters < 8) && nonLatinLetters < 3) {
 		return { outcome: 'insufficient-evidence', reason: 'short', normalizedText };
@@ -160,13 +192,20 @@ export function classifyEnglish(
 	const english = scores.find((score) => score.language === 'en');
 	const englishScore = english?.score ?? null;
 	const margin = top.score - (englishScore ?? 0);
+	const shortAsciiProse = nonAsciiLetters === 0 && tokens.length < 5;
+	const uppercaseProse = tokens.every(
+		(token) => token === token.toUpperCase() && token !== token.toLowerCase()
+	);
 	const enoughText =
 		nonLatinLetters >= 3 ||
 		(nonAsciiLetters > 0 && tokens.length >= 2) ||
-		(tokens.length >= 5 && letters >= 20);
-	const scoreThreshold = nonLatinLetters >= 3 ? 0.55 : 0.72;
+		(tokens.length >= 5 && letters >= 20) ||
+		(shortAsciiProse && tokens.length >= 2 && letters >= 8);
+	const scoreThreshold =
+		nonLatinLetters >= 3 ? 0.55 : shortAsciiProse ? (uppercaseProse ? 0.65 : 0.76) : 0.72;
+	const marginThreshold = shortAsciiProse ? (uppercaseProse ? 0.25 : 0.3) : 0.12;
 
-	if (enoughText && top.score >= scoreThreshold && margin >= 0.12) {
+	if (enoughText && top.score >= scoreThreshold && margin >= marginThreshold) {
 		return {
 			outcome: 'violation',
 			language: top.language,
@@ -185,23 +224,21 @@ function lineAt(text: string, offset: number, startLine: number): number {
 
 function sentenceWindows(text: string, startLine: number): TextWindow[] {
 	const windows: TextWindow[] = [];
-	const sentencePattern = /[^.!?。！？\n]+(?:[.!?。！？]+|$)/gu;
+	const sentencePattern = /[^.!?。！？]+(?:[.!?。！？]+|$)/gu;
 	for (const match of text.matchAll(sentencePattern)) {
 		const sentence = match[0].trim();
 		if (sentence === '') continue;
 		const line = lineAt(text, match.index ?? 0, startLine);
 		const sentenceWords = words(sentence);
-		if (sentenceWords.length <= 24) {
-			windows.push({ text: sentence, line });
-			continue;
+		windows.push({ text: sentence, line });
+		if (sentenceWords.length < 8) continue;
+
+		for (let offset = 0; offset + 4 <= sentenceWords.length; offset += 4) {
+			const window = sentenceWords.slice(offset, offset + 8).join(' ');
+			if (window !== sentence) windows.push({ text: window, line });
 		}
-		for (let offset = 0; offset < sentenceWords.length; offset += 12) {
-			const window = sentenceWords.slice(offset, offset + 16);
-			if (window.length < 4 && offset > 0) break;
-			windows.push({ text: window.join(' '), line });
-		}
-		const tail = sentenceWords.slice(-16).join(' ');
-		if (tail !== windows.at(-1)?.text) windows.push({ text: tail, line });
+		const tail = sentenceWords.slice(-8).join(' ');
+		if (tail !== windows.at(-1)?.text && tail !== sentence) windows.push({ text: tail, line });
 	}
 	return windows;
 }

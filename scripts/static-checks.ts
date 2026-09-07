@@ -56,6 +56,7 @@ import {
 	checkEnglishText,
 	formatEnglishFinding,
 	isEnglishPolicyFile,
+	isJavaScriptSourceFile,
 	type EnglishFinding
 } from './english-policy/content';
 import {
@@ -555,10 +556,11 @@ export const ROUTES = {
 	'literal-control-char': (f: string) => /\.(md|txt)$/.test(f) && !f.startsWith('scratch/'),
 	'english-prose': isEnglishPolicyFile,
 	'knowledge-placement': (f: string) => matchesKnowledgeCandidate(knowledgePolicy, f),
-	eslint: (f: string) => /\.(js|ts|svelte)$/.test(f),
+	eslint: (f: string) =>
+		f !== 'scripts/english-policy/pr-metadata.bundle.mjs' && isJavaScriptSourceFile(f),
 	// The old gate was `jsTsSvelteFiles.length === 0 && svelteFiles.length === 0`;
 	// svelteFiles is a subset of jsTsSvelteFiles, so the second clause was dead.
-	'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f),
+	'svelte-check': isJavaScriptSourceFile,
 	'skill-types': (f: string) =>
 		f === '.agents/skills/upstream-report/tsconfig.json' ||
 		(f.startsWith('.agents/skills/upstream-report/scripts/') && f.endsWith('.ts')),

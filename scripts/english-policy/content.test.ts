@@ -37,18 +37,56 @@ describe('repository prose extraction', () => {
 		]);
 	});
 
-	it('checks source comments without scanning localized assertion strings', () => {
+	it('uses TypeScript comment ranges around templates and regular expressions', () => {
 		const source = [
-			`const localizedAssertion = ${JSON.stringify(foreignFixtures.german)};`,
-			`// ${foreignFixtures.french}`
+			`const localizedAssertion = \`${foreignFixtures.german}\`;`,
+			`const marker = /[/][/]/u; // ${foreignFixtures.french}`,
+			'const complete = true;',
+			`/* ${foreignFixtures.spanish} */`
 		].join('\n');
-		expect(checkEnglishText('src/example.ts', source)).toMatchObject([{ language: 'fr', line: 2 }]);
+		expect(checkEnglishText('src/example.ts', source)).toMatchObject([
+			{ language: 'fr', line: 2 },
+			{ language: 'es', line: 4 }
+		]);
 	});
 
-	it('checks Svelte markup comments', () => {
-		const source = `<p>Localized product copy stays outside this scope.</p>\n<!-- ${foreignFixtures.german} -->`;
+	it('groups only directly consecutive line comments', () => {
+		const joined = '// Das Passwort muss\n// sofort zurückgesetzt werden.';
+		const separated = '// Das Passwort muss\n\n// sofort zurückgesetzt werden.';
+		const interrupted =
+			'// Das Passwort muss\nconst ready = true;\n// sofort zurückgesetzt werden.';
+		expect(checkEnglishText('src/example.ts', joined)).toMatchObject([{ language: 'de', line: 1 }]);
+		expect(proseWindows('src/example.ts', separated)).toHaveLength(2);
+		expect(proseWindows('src/example.ts', interrupted)).toHaveLength(2);
+	});
+
+	it('preserves uppercase prose in source comments', () => {
+		const source = [
+			'// PASSWORT ZURUECKSETZEN',
+			'/* ESTE TEXTO ESTA CLARAMENTE ESCRITO EN ESPANOL */'
+		].join('\n');
+		expect(checkEnglishText('src/example.ts', source)).toMatchObject([
+			{ language: 'de', line: 1 },
+			{ language: 'es', line: 2 }
+		]);
+	});
+
+	it('checks Svelte script, markup, and CSS parser comments', () => {
+		const source = [
+			'<script lang="ts">',
+			`const marker: RegExp = /[/][/]/u; // ${foreignFixtures.french}`,
+			`const localized = \`${foreignFixtures.spanish}\`;`,
+			'</script>',
+			`<!-- ${foreignFixtures.german} -->`,
+			'<style>',
+			`.example { content: "/* ${foreignFixtures.spanish} */"; }`,
+			`/* ${foreignFixtures.spanish} */`,
+			'</style>'
+		].join('\n');
 		expect(checkEnglishText('src/Example.svelte', source)).toMatchObject([
-			{ language: 'de', line: 2 }
+			{ language: 'fr', line: 2 },
+			{ language: 'de', line: 5 },
+			{ language: 'es', line: 8 }
 		]);
 	});
 
@@ -72,6 +110,36 @@ describe('repository prose extraction', () => {
 		expect(isEnglishPolicyFile('src/i18n/es.json')).toBe(false);
 		expect(isEnglishPolicyFile('src/i18n/fr.json')).toBe(false);
 		expect(isEnglishPolicyFile('src/i18n/it.json')).toBe(true);
+	});
+
+	it.each(['js', 'mjs', 'cjs', 'jsx', 'ts', 'mts', 'cts', 'tsx', 'svelte'])(
+		'checks .%s source files',
+		(extension) => {
+			expect(isEnglishPolicyFile(`src/example.${extension}`)).toBe(true);
+		}
+	);
+
+	it('exempts only the generated pull request metadata bundle', () => {
+		expect(isEnglishPolicyFile('scripts/english-policy/pr-metadata.bundle.mjs')).toBe(false);
+		expect(isEnglishPolicyFile('scripts/example.bundle.mjs')).toBe(true);
+	});
+
+	it.each([
+		['backtick', '````', '```'],
+		['tilde', '~~~~', '~~~']
+	])('keeps shorter %s fences nested inside code examples', (_label, outer, inner) => {
+		const markdown = [
+			'Use the example below.',
+			'',
+			`${outer}markdown`,
+			inner,
+			foreignFixtures.german,
+			inner,
+			outer,
+			'',
+			'Continue with the English explanation.'
+		].join('\n');
+		expect(checkEnglishText('docs/example.md', markdown)).toEqual([]);
 	});
 
 	it('skips fenced code and inline technical syntax', () => {

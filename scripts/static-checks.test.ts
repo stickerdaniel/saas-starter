@@ -224,17 +224,32 @@ describe('route predicates', () => {
 		]);
 	});
 
-	it('excludes only the generated English policy bundle from spell checking', () => {
+	it('excludes only the generated English policy bundle from authored checks', async () => {
 		const generatedBundle = 'scripts/english-policy/pr-metadata.bundle.mjs';
 		const authoredSource = 'scripts/english-policy/pr-metadata.ts';
 		const otherBundle = 'scripts/example.bundle.mjs';
 
 		expect(ROUTES.misspell(generatedBundle)).toBe(false);
+		expect(ROUTES['english-prose'](generatedBundle)).toBe(false);
+		expect(ROUTES.eslint(generatedBundle)).toBe(false);
+		expect(await prettierFormattableFiles([generatedBundle])).toEqual([]);
 		expect(spellcheckFiles([generatedBundle, authoredSource, otherBundle])).toEqual([
 			authoredSource,
 			otherBundle
 		]);
+		expect(ROUTES['english-prose'](otherBundle)).toBe(true);
+		expect(ROUTES.eslint(otherBundle)).toBe(true);
 	});
+
+	it.each(['js', 'mjs', 'cjs', 'jsx', 'ts', 'mts', 'cts', 'tsx', 'svelte'])(
+		'routes .%s source files through prose and source checks',
+		(extension) => {
+			const file = `scripts/example.${extension}`;
+			expect(ROUTES['english-prose'](file)).toBe(true);
+			expect(ROUTES.eslint(file)).toBe(true);
+			expect(ROUTES['svelte-check'](file)).toBe(true);
+		}
+	);
 
 	it('routes upstream-report TypeScript through its dedicated project', () => {
 		expect(

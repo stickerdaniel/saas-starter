@@ -1,5 +1,6 @@
 import { readFileSync, statSync } from 'node:fs';
 import { classifyEnglish, splitTextWindows } from './classifier';
+import { withoutFencedCode } from './markdown';
 
 interface PullRequestEvent {
 	pull_request: {
@@ -45,22 +46,6 @@ export function parsePullRequestEvent(value: unknown): PullRequestEvent {
 		throw new TypeError('Pull request body exceeds the inspection limit.');
 	}
 	return { pull_request: { title, body } };
-}
-
-function withoutFencedCode(text: string): string {
-	const kept: string[] = [];
-	let fence: string | null = null;
-	for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
-		const marker = line.match(/^\s*(`{3,}|~{3,})/u)?.[1];
-		if (marker !== undefined) {
-			if (fence === null) fence = marker[0]!;
-			else if (marker.startsWith(fence)) fence = null;
-			kept.push('');
-			continue;
-		}
-		kept.push(fence === null ? line : '');
-	}
-	return kept.join('\n');
 }
 
 function paragraphTexts(text: string): string[] {

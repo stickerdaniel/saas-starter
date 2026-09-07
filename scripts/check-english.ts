@@ -1,20 +1,60 @@
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, readSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import {
 	checkEnglishText,
 	formatEnglishFinding,
+	normalizePolicyIdentity,
 	proseKindForFile,
 	type EnglishFinding
 } from './english-policy/content';
 import { sanitizeTerminalField } from './terminal-output';
 
-const MAX_INPUT_BYTES = 5 * 1024 * 1024;
+export const MAX_INPUT_BYTES = 5 * 1024 * 1024;
 const MAX_DIAGNOSTICS = 20;
+const READ_CHUNK_BYTES = 64 * 1024;
+const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+type ReadInput = (
+	fd: number,
+	buffer: NodeJS.ArrayBufferView,
+	offset: number,
+	length: number,
+	position: number | null
+) => number;
 
 function readBoundedFile(file: string): string {
 	if (statSync(file).size > MAX_INPUT_BYTES) throw new Error('Input exceeds the inspection limit.');
 	return readFileSync(file, 'utf8');
+}
+
+export function policyIdentityForFile(file: string, repositoryRoot = REPOSITORY_ROOT): string {
+	const absolute = path.resolve(file);
+	const relative = path.relative(repositoryRoot, absolute);
+	if (
+		relative === '' ||
+		(!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))
+	) {
+		return normalizePolicyIdentity(relative);
+	}
+	return normalizePolicyIdentity(path.normalize(file));
+}
+
+export function readBoundedStdin(readInput: ReadInput = readSync): string {
+	const chunks: Buffer[] = [];
+	let total = 0;
+
+	while (total <= MAX_INPUT_BYTES) {
+		const remaining = MAX_INPUT_BYTES + 1 - total;
+		const chunk = Buffer.allocUnsafe(Math.min(READ_CHUNK_BYTES, remaining));
+		const bytesRead = readInput(0, chunk, 0, chunk.byteLength, null);
+		if (bytesRead === 0) break;
+		chunks.push(chunk.subarray(0, bytesRead));
+		total += bytesRead;
+	}
+	if (total > MAX_INPUT_BYTES) throw new Error('Input exceeds the inspection limit.');
+	return Buffer.concat(chunks, total).toString('utf8');
 }
 
 function main(): number {
@@ -36,16 +76,18 @@ function main(): number {
 
 		const findings: EnglishFinding[] = [];
 		for (const file of files) {
-			const label = path.normalize(file);
+			const diagnosticLabel = path.normalize(file);
+			const policyIdentity = policyIdentityForFile(file);
 			findings.push(
-				...checkEnglishText(label, readBoundedFile(file), proseKindForFile(label) ?? 'text')
+				...checkEnglishText(
+					diagnosticLabel,
+					readBoundedFile(file),
+					proseKindForFile(policyIdentity) ?? 'text'
+				)
 			);
 		}
 		if (stdinLabel !== undefined) {
-			const bytes = readFileSync(0);
-			if (bytes.byteLength > MAX_INPUT_BYTES)
-				throw new Error('Input exceeds the inspection limit.');
-			findings.push(...checkEnglishText(stdinLabel, bytes.toString('utf8'), 'text'));
+			findings.push(...checkEnglishText(stdinLabel, readBoundedStdin(), 'text'));
 		}
 
 		for (const finding of findings.slice(0, MAX_DIAGNOSTICS)) {

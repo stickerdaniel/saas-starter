@@ -12,7 +12,9 @@ const foreignFixtures = {
 	german: 'Das Passwort muss sofort zurückgesetzt werden.',
 	french: 'Ceci est un texte français clairement rédigé.',
 	spanish: 'Este texto está claramente escrito en español.',
-	japanese: 'これは明確に日本語で書かれた文章です。'
+	japanese: 'これは明確に日本語で書かれた文章です。',
+	thai: 'นี่เป็นข้อความภาษาไทยที่ชัดเจน',
+	korean: '한국어로 작성된 명확한 문장입니다'
 } as const;
 
 describe('English classifier', () => {
@@ -20,17 +22,36 @@ describe('English classifier', () => {
 		['German', foreignFixtures.german, 'de'],
 		['French', foreignFixtures.french, 'fr'],
 		['Spanish', foreignFixtures.spanish, 'es'],
-		['Japanese', foreignFixtures.japanese, 'ja']
+		['Japanese', foreignFixtures.japanese, 'ja'],
+		['Thai', foreignFixtures.thai, 'th'],
+		['Korean', foreignFixtures.korean, 'ko']
 	])('finds clear %s prose', (_label, text, language) => {
 		expect(classifyEnglish(text)).toMatchObject({ outcome: 'violation', language });
 	});
 
-	it.each(['Fix API', 'Cache JWKS', 'fix(auth): Reset password'])(
-		'accepts short technical English: %s',
-		(text) => {
-			expect(classifyEnglish(text).outcome).toBe('accepted');
-		}
-	);
+	it.each([
+		'Fix API',
+		'Cache JWKS',
+		'fix(auth): Reset password',
+		'Update docs',
+		'Load data',
+		'Write guide',
+		'Sign in user',
+		'Ship change',
+		'Improve auth',
+		'Handle retry'
+	])('accepts or conservatively passes short English: %s', (text) => {
+		expect(classifyEnglish(text).outcome).not.toBe('violation');
+	});
+
+	it.each([
+		'fix: Fehler beheben',
+		'docs: Anleitung schreiben',
+		'test: Daten laden',
+		'feat: Benutzer anmelden'
+	])('finds clear short German titles: %s', (text) => {
+		expect(classifyEnglish(text)).toMatchObject({ outcome: 'violation', language: 'de' });
+	});
 
 	it('finds the required conventional-commit fixture after removing its prefix', () => {
 		const germanCommitFixture = 'fix(auth): Passwort zurücksetzen';
@@ -39,6 +60,18 @@ describe('English classifier', () => {
 			outcome: 'violation',
 			language: 'de'
 		});
+	});
+
+	it.each([
+		['fix(auth): PASSWORT ZURUECKSETZEN', 'PASSWORT ZURUECKSETZEN', 'de'],
+		[
+			'ESTE TEXTO ESTA CLARAMENTE ESCRITO EN ESPANOL',
+			'ESTE TEXTO ESTA CLARAMENTE ESCRITO EN ESPANOL',
+			'es'
+		]
+	])('preserves uppercase prose for detection: %s', (text, normalized, language) => {
+		expect(normalizeTechnicalSyntax(text)).toBe(normalized);
+		expect(classifyEnglish(text)).toMatchObject({ outcome: 'violation', language });
 	});
 
 	it('returns insufficient evidence for content too short to classify conservatively', () => {
@@ -79,6 +112,14 @@ describe('English classifier', () => {
 			foreignFixtures.german;
 		const outcomes = splitTextWindows(mixed).map((window) => classifyEnglish(window.text).outcome);
 		expect(outcomes).toContain('accepted');
+		expect(outcomes).toContain('violation');
+	});
+
+	it.each([
+		'This updates authentication while das Passwort sofort zurückgesetzt werden muss.',
+		'Das Passwort muss sofort zurückgesetzt werden while authentication stays available.'
+	])('finds a foreign clause in a shorter mixed sentence: %s', (mixed) => {
+		const outcomes = splitTextWindows(mixed).map((window) => classifyEnglish(window.text).outcome);
 		expect(outcomes).toContain('violation');
 	});
 });

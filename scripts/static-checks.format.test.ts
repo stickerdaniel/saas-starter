@@ -78,6 +78,7 @@ function createCheckerClone(): { directory: string; repository: string } {
 			'scripts/static-checks.ts',
 			'scripts/english-policy/content.ts',
 			'scripts/english-policy/classifier.ts',
+			'scripts/english-policy/markdown.ts',
 			'src/lib/i18n/language-codes.generated.js'
 		]) {
 			const destination = path.join(repository, relative);

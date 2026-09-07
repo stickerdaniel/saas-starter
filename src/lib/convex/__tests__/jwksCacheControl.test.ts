@@ -39,12 +39,11 @@ type StoredJwk = {
 };
 
 /**
- * Erzeugt ein echtes RS256-Schlüsselpaar nach der Vorgabe des Convex-Plugins
- * für customJwt und legt es in der Form ab, die das jwt-Plugin schreibt und
- * liest: `publicKey` und `privateKey` als JSON-Strings plus `createdAt`. Die
- * private Hälfte liegt absichtlich unverschlüsselt im Fixture, damit eine
- * Antwort mit Schlüsselmaterial an den Leak-Assertions scheitert statt sich
- * hinter Ciphertext zu verstecken.
+ * Create a real RS256 key pair under the Convex plugin's customJwt contract and
+ * store it in the shape the jwt plugin writes and reads: `publicKey` and
+ * `privateKey` as JSON strings plus `createdAt`. The fixture deliberately keeps
+ * the private half unencrypted so a response containing key material fails the
+ * leak assertions instead of hiding behind ciphertext.
  */
 async function createStoredJwk(): Promise<{ stored: StoredJwk; privateJwk: JsonWebKey }> {
 	const { publicKey, privateKey } = await crypto.subtle.generateKey(
@@ -82,10 +81,10 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-// Alle Tests dieser Datei brauchen die oben gesetzten Env-Stubs, deshalb wird
-// erst am Dateiende aufgeräumt. Unter dem Standard-Pool (forks, isoliert)
-// bekommt ohnehin jede Datei ihren eigenen Prozess; mit `--no-isolate` teilen
-// sich die Dateien einen Prozess und sähen die Stubs sonst weiter.
+// Every test in this file needs the environment stubs above, so cleanup waits
+// until the file finishes. The default isolated forks give each file its own
+// process. Under `--no-isolate`, files share a process and would otherwise keep
+// seeing these stubs.
 afterAll(() => {
 	vi.unstubAllEnvs();
 });
@@ -140,7 +139,7 @@ describe('public JWKS cache policy', () => {
 		expect(openIdConfig.status).toBe(200);
 		expect(openIdConfig.headers.get('cache-control')).toBeNull();
 
-		// get-session bringt sein eigenes no-store mit; der Hook darf es nicht aufweichen.
+		// get-session supplies its own no-store policy, which the hook must preserve.
 		const session = await auth.handler(
 			new Request(`${BASE_URL}/api/auth/get-session`, { method: 'GET' })
 		);
@@ -157,11 +156,10 @@ describe('public JWKS cache policy', () => {
 	});
 
 	it('leaves a failing key set request uncached', async () => {
-		// Das Convex-Plugin macht Adapter-Writes außerhalb eines Mutation-Kontexts
-		// zu No-Ops, ein leerer Speicher heilt sich hier also nicht selbst und der
-		// Endpunkt scheitert echt. Better Auth protokolliert das über
-		// console.error; stummgeschaltet, damit der erwartete Fehler nicht wie ein
-		// kaputter Testlauf aussieht.
+		// The Convex plugin turns adapter writes outside a mutation context into no-ops,
+		// so an empty store cannot repair itself here and the endpoint genuinely fails.
+		// Better Auth reports that through console.error. Silence it so the expected
+		// failure does not look like a broken test run.
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		const auth = createTestAuth({ jwks: [] });
 

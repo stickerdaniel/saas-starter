@@ -1,6 +1,10 @@
+import { parse as parseSvelte } from 'svelte/compiler';
+import svelteParser from 'svelte-eslint-parser';
 import * as ts from 'typescript';
+import tseslint from 'typescript-eslint';
 import { SUPPORTED_LANGUAGE_CODES } from '../../src/lib/i18n/language-codes.generated.js';
 import { classifyEnglish, splitTextWindows, type TextWindow } from './classifier';
+import { withoutFencedCode } from './markdown';
 
 export interface EnglishFinding {
 	label: string;
@@ -12,10 +16,21 @@ export interface EnglishFinding {
 
 export type ProseKind = 'markdown' | 'text' | 'source' | 'json' | 'english-locale';
 
+interface SourceComment {
+	kind: 'line' | 'block';
+	start: number;
+	end: number;
+}
+
+const GENERATED_PR_METADATA_BUNDLE = 'scripts/english-policy/pr-metadata.bundle.mjs';
 const TARGET_LOCALE_FILES = new Set(
 	SUPPORTED_LANGUAGE_CODES.filter((code) => code !== 'en').map((code) => `src/i18n/${code}.json`)
 );
 const LOCALE_LABELS = new Set(SUPPORTED_LANGUAGE_CODES.filter((code) => code !== 'en'));
+
+export function normalizePolicyIdentity(file: string): string {
+	return file.replace(/\\/g, '/').replace(/^\.\/+/, '');
+}
 
 function localeLabelledQuotation(line: string): boolean {
 	const match = line.match(
@@ -25,11 +40,10 @@ function localeLabelledQuotation(line: string): boolean {
 }
 
 function markdownBlocks(text: string): TextWindow[] {
-	const lines = text.replace(/\r\n?/g, '\n').split('\n');
+	const lines = withoutFencedCode(text).split('\n');
 	const blocks: TextWindow[] = [];
 	let block: string[] = [];
 	let blockLine = 1;
-	let fence: string | null = null;
 
 	const flush = (): void => {
 		if (block.length === 0) return;
@@ -39,14 +53,8 @@ function markdownBlocks(text: string): TextWindow[] {
 
 	for (let index = 0; index < lines.length; index++) {
 		const raw = lines[index]!;
-		const fenceMatch = raw.match(/^\s*(```+|~~~+)/);
-		if (fenceMatch) {
-			flush();
-			if (fence === null) fence = fenceMatch[1]![0]!;
-			else if (fenceMatch[1]!.startsWith(fence)) fence = null;
-			continue;
-		}
-		if (fence !== null) continue;
+		const tableRow = /^\s*\|/u.test(raw);
+		if (tableRow) flush();
 		if (localeLabelledQuotation(raw)) {
 			flush();
 			continue;
@@ -54,6 +62,7 @@ function markdownBlocks(text: string): TextWindow[] {
 
 		const cleaned = raw
 			.replace(/<!--|-->/g, ' ')
+			.replace(/`[^`\r\n]+`/g, ' ')
 			.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
 			.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
 			.replace(/<[^>]+>/g, ' ')
@@ -65,6 +74,7 @@ function markdownBlocks(text: string): TextWindow[] {
 		}
 		if (block.length === 0) blockLine = index + 1;
 		block.push(cleaned);
+		if (tableRow) flush();
 	}
 	flush();
 	return blocks;
@@ -75,40 +85,155 @@ function cleanComment(comment: string): string {
 		.replace(/^\/\//, '')
 		.replace(/^\/\*/, '')
 		.replace(/\*\/$/, '')
+		.replace(/^<!--/, '')
+		.replace(/-->$/, '')
 		.split('\n')
 		.map((line) => line.replace(/^\s*\*?\s?/, ''))
 		.join('\n')
 		.trim();
 }
 
-function sourceComments(text: string, svelte: boolean): TextWindow[] {
-	const comments: TextWindow[] = [];
-	const scanner = ts.createScanner(
-		ts.ScriptTarget.Latest,
-		false,
-		svelte ? ts.LanguageVariant.JSX : ts.LanguageVariant.Standard,
-		text
-	);
-	for (let token = scanner.scan(); token !== ts.SyntaxKind.EndOfFileToken; token = scanner.scan()) {
-		if (
-			token !== ts.SyntaxKind.SingleLineCommentTrivia &&
-			token !== ts.SyntaxKind.MultiLineCommentTrivia
-		)
-			continue;
-		const comment = cleanComment(scanner.getTokenText());
-		if (comment === '') continue;
-		const line = text.slice(0, scanner.getTokenPos()).split('\n').length;
-		comments.push(...splitTextWindows(comment, line));
+function lineAtOffset(text: string, offset: number): number {
+	return (text.slice(0, offset).match(/\n/g)?.length ?? 0) + 1;
+}
+
+function addCommentRange(
+	comments: Map<string, SourceComment>,
+	kind: SourceComment['kind'],
+	start: number,
+	end: number
+): void {
+	if (start < 0 || end <= start) return;
+	comments.set(`${start}:${end}`, { kind, start, end });
+}
+
+function addTypeScriptCommentRanges(
+	comments: Map<string, SourceComment>,
+	text: string,
+	position: number,
+	trailing: boolean
+): void {
+	const ranges = trailing
+		? ts.getTrailingCommentRanges(text, position)
+		: ts.getLeadingCommentRanges(text, position);
+	for (const range of ranges ?? []) {
+		addCommentRange(
+			comments,
+			range.kind === ts.SyntaxKind.SingleLineCommentTrivia ? 'line' : 'block',
+			range.pos,
+			range.end
+		);
 	}
-	if (svelte) {
-		for (const match of text.matchAll(/<!--([\s\S]*?)-->/g)) {
-			const comment = match[1]!.trim();
-			if (comment === '') continue;
-			const line = text.slice(0, match.index ?? 0).split('\n').length;
-			comments.push(...splitTextWindows(comment, line));
+}
+
+function scriptKind(file: string): ts.ScriptKind {
+	const extension = normalizePolicyIdentity(file).toLowerCase();
+	if (extension.endsWith('.jsx')) return ts.ScriptKind.JSX;
+	if (extension.endsWith('.tsx')) return ts.ScriptKind.TSX;
+	if (extension.endsWith('.js') || extension.endsWith('.mjs') || extension.endsWith('.cjs')) {
+		return ts.ScriptKind.JS;
+	}
+	return ts.ScriptKind.TS;
+}
+
+function typeScriptComments(file: string, text: string): SourceComment[] {
+	const comments = new Map<string, SourceComment>();
+	const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, false, scriptKind(file));
+
+	const visit = (node: ts.Node): void => {
+		addTypeScriptCommentRanges(comments, text, node.getFullStart(), false);
+		addTypeScriptCommentRanges(comments, text, node.getEnd(), true);
+		for (const child of node.getChildren(source)) visit(child);
+	};
+	visit(source);
+	return [...comments.values()];
+}
+
+function markupComments(value: unknown, comments: Map<string, SourceComment>): void {
+	if (Array.isArray(value)) {
+		for (const item of value) markupComments(item, comments);
+		return;
+	}
+	if (typeof value !== 'object' || value === null) return;
+	const node = value as Record<string, unknown>;
+	if (node.type === 'Comment' && typeof node.start === 'number' && typeof node.end === 'number') {
+		addCommentRange(comments, 'block', node.start, node.end);
+		return;
+	}
+	for (const child of Object.values(node)) markupComments(child, comments);
+}
+
+function svelteComments(file: string, text: string): SourceComment[] {
+	const comments = new Map<string, SourceComment>();
+	const root = parseSvelte(text, { filename: file, modern: true });
+	for (const comment of root.comments) {
+		addCommentRange(
+			comments,
+			comment.type === 'Line' ? 'line' : 'block',
+			comment.start,
+			comment.end
+		);
+	}
+	markupComments(root.fragment, comments);
+
+	const parsed = svelteParser.parseForESLint(text, {
+		comment: true,
+		filePath: file,
+		loc: true,
+		parser: tseslint.parser,
+		range: true,
+		tokens: true
+	});
+	const styleContext = parsed.services.getStyleContext();
+	if (styleContext.status === 'success') {
+		styleContext.sourceAst.walkComments((comment) => {
+			const [start, end] = parsed.services.styleNodeRange(comment);
+			if (start !== undefined && end !== undefined) addCommentRange(comments, 'block', start, end);
+		});
+	}
+	return [...comments.values()];
+}
+
+function sourceCommentWindows(file: string, text: string): TextWindow[] {
+	const ranges = (
+		file.toLowerCase().endsWith('.svelte')
+			? svelteComments(file, text)
+			: typeScriptComments(file, text)
+	).sort((left, right) => left.start - right.start || left.end - right.end);
+	const windows: TextWindow[] = [];
+	let lineGroup: SourceComment[] = [];
+
+	const flushLineGroup = (): void => {
+		if (lineGroup.length === 0) return;
+		const comment = lineGroup
+			.map((range) => cleanComment(text.slice(range.start, range.end)))
+			.join(' ');
+		if (comment !== '') {
+			windows.push(...splitTextWindows(comment, lineAtOffset(text, lineGroup[0]!.start)));
 		}
+		lineGroup = [];
+	};
+
+	for (const range of ranges) {
+		if (range.kind === 'block') {
+			flushLineGroup();
+			const comment = cleanComment(text.slice(range.start, range.end));
+			if (comment !== '')
+				windows.push(...splitTextWindows(comment, lineAtOffset(text, range.start)));
+			continue;
+		}
+
+		const previous = lineGroup.at(-1);
+		if (
+			previous !== undefined &&
+			!/^[ \t]*\r?\n[ \t]*$/u.test(text.slice(previous.end, range.start))
+		) {
+			flushLineGroup();
+		}
+		lineGroup.push(range);
 	}
-	return comments;
+	flushLineGroup();
+	return windows;
 }
 
 function propertyName(node: ts.PropertyName): string | null {
@@ -155,19 +280,25 @@ function jsonStrings(text: string, label: string, allLeaves: boolean): TextWindo
 	return strings;
 }
 
+export function isJavaScriptSourceFile(file: string): boolean {
+	return /\.(?:[cm]?[jt]s|[jt]sx|svelte)$/iu.test(normalizePolicyIdentity(file));
+}
+
 export function isEnglishPolicyFile(file: string): boolean {
-	if (TARGET_LOCALE_FILES.has(file)) return false;
-	if (file === 'src/i18n/en.json') return true;
-	return /\.(?:md|markdown|txt|js|ts|svelte|json|jsonc)$/i.test(file);
+	const identity = normalizePolicyIdentity(file);
+	if (identity === GENERATED_PR_METADATA_BUNDLE || TARGET_LOCALE_FILES.has(identity)) return false;
+	if (identity === 'src/i18n/en.json') return true;
+	return /\.(?:md|markdown|txt|json|jsonc)$/iu.test(identity) || isJavaScriptSourceFile(identity);
 }
 
 export function proseKindForFile(file: string): ProseKind | null {
-	if (!isEnglishPolicyFile(file)) return null;
-	if (file === 'src/i18n/en.json') return 'english-locale';
-	if (/\.(?:md|markdown)$/i.test(file)) return 'markdown';
-	if (/\.txt$/i.test(file)) return 'text';
-	if (/\.(?:js|ts|svelte)$/i.test(file)) return 'source';
-	if (/\.(?:json|jsonc)$/i.test(file)) return 'json';
+	const identity = normalizePolicyIdentity(file);
+	if (!isEnglishPolicyFile(identity)) return null;
+	if (identity === 'src/i18n/en.json') return 'english-locale';
+	if (/\.(?:md|markdown)$/iu.test(identity)) return 'markdown';
+	if (/\.txt$/iu.test(identity)) return 'text';
+	if (isJavaScriptSourceFile(identity)) return 'source';
+	if (/\.(?:json|jsonc)$/iu.test(identity)) return 'json';
 	return null;
 }
 
@@ -176,7 +307,7 @@ export function proseWindows(file: string, text: string, forcedKind?: ProseKind)
 	if (kind === null) return [];
 	if (kind === 'markdown') return markdownBlocks(text);
 	if (kind === 'text') return splitTextWindows(text);
-	if (kind === 'source') return sourceComments(text, file.endsWith('.svelte'));
+	if (kind === 'source') return sourceCommentWindows(file, text);
 	return jsonStrings(text, file, kind === 'english-locale');
 }
 
