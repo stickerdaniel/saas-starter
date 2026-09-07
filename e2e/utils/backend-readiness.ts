@@ -6,9 +6,9 @@ const DEFAULT_TIMEOUT_MS = 90_000;
 const DEFAULT_POLL_INTERVAL_MS = 1000;
 
 export interface BackendReadinessOptions {
-	/** Gesamtbudget für alle Versuche. Nur Tests weichen vom Default ab. */
+	/** Total budget for all attempts. Only tests override the default. */
 	timeoutMs?: number;
-	/** Pause zwischen zwei Health-Abfragen. Nur Tests weichen vom Default ab. */
+	/** Pause between two health checks. Only tests override the default. */
 	pollIntervalMs?: number;
 }
 
@@ -26,11 +26,11 @@ export interface BackendReadinessOptions {
  * reach the backend (vite.config.ts envVars wiring), the call returns
  * Unauthorized and we fail fast with a clear error.
  *
- * Das Zeitbudget ist verbindlich: ConvexHttpClient.query kennt selbst keine
- * Frist, also hängt hier alles an einem AbortController, den ein Gesamttimer
- * auslöst. Ein Backend, das die Verbindung annimmt und dann schweigt, ließ den
- * Aufruf sonst über die Frist hinaus warten, weil sie erst nach der Abfrage
- * geprüft wurde.
+ * The time budget is binding: ConvexHttpClient.query has no deadline of its
+ * own, so everything here relies on an AbortController triggered by a single
+ * overall timer. A backend that accepts the connection and then stays silent
+ * would otherwise let the call wait past the deadline because it was only
+ * checked after the query.
  */
 export async function waitForBackendReady(
 	convexUrl: string,
@@ -43,17 +43,16 @@ export async function waitForBackendReady(
 	const controller = new AbortController();
 	const deadlineTimer = setTimeout(() => controller.abort(), timeoutMs);
 
-	// Eigener Client nur für die Readiness-Schleife: sein Transport hängt am
-	// Signal, der reguläre Setup-Client des Aufrufers bleibt davon unberührt und
-	// überlebt den Abbruch.
+	// Dedicated client for the readiness loop: its transport uses the signal,
+	// while the caller's regular setup client remains unaffected and survives
+	// the abort.
 	const client = new ConvexHttpClient(convexUrl, {
 		fetch: (input, init) => fetch(input, { ...init, signal: controller.signal })
 	});
 
 	const start = Date.now();
-	// Der Timer allein genügt nicht: läuft das Budget zwischen zwei Ticks ab,
-	// dürfen weder eine weitere Abfrage starten noch eine späte Antwort als
-	// Erfolg zählen.
+	// The timer alone is not enough: if the budget expires between two ticks,
+	// neither another query may start nor may a late response count as success.
 	const pastDeadline = () => controller.signal.aborted || Date.now() - start >= timeoutMs;
 
 	let lastError: unknown;
@@ -69,7 +68,7 @@ export async function waitForBackendReady(
 					return;
 				}
 			} catch (err) {
-				// Ein Abbruch ist die abgelaufene Frist, kein Backend-Fehler.
+				// An abort means the deadline expired, not that the backend failed.
 				if (pastDeadline()) break;
 
 				// Distinguish auth failure (config bug, fail fast) from cold-boot/network errors (retry).
@@ -87,8 +86,8 @@ export async function waitForBackendReady(
 			}
 
 			try {
-				// Die Pause hängt am selben Signal, damit der Timer sie beendet, statt
-				// einen unbeobachteten Verlierer eines Promise-Rennens zu hinterlassen.
+				// The pause uses the same signal so the timer ends it instead of leaving
+				// behind an unobserved loser in a promise race.
 				await sleep(pollIntervalMs, undefined, { signal: controller.signal });
 			} catch {
 				break;
@@ -99,8 +98,8 @@ export async function waitForBackendReady(
 		throw new Error(`Test backend never reported ready (api.tests.health) within ${timeoutMs}ms`);
 	} finally {
 		clearTimeout(deadlineTimer);
-		// Beendet einen noch laufenden Request samt offenem Antwortbody, auch wenn
-		// die Schleife über den Auth-Fehlerpfad verlassen wird.
+		// End any request still in flight along with its open response body, even
+		// when the loop exits through the authentication error path.
 		controller.abort();
 	}
 }

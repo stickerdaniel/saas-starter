@@ -5,9 +5,9 @@ import type { Socket } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { waitForBackendReady } from '../e2e/utils/backend-readiness';
 
-// Aufgenommen von einem echten lokalen Convex-1.42.1-Backend über
-// POST /api/query für tests:health. Beide Envelopes kamen mit HTTP 200; die
-// Fehlerform ist damit die reale UDF-Form, keine nachgebaute Annahme.
+// Captured from a real local Convex 1.42.1 backend via POST /api/query for
+// tests:health. Both envelopes arrived with HTTP 200, so the error shape is the
+// actual UDF shape rather than a reconstructed assumption.
 const HEALTH_READY_ENVELOPE = { status: 'success', value: { ok: true } };
 const UNAUTHORIZED_ENVELOPE = {
 	status: 'error',
@@ -44,8 +44,8 @@ async function startBackend(
 
 	const server = createServer((request, response) => {
 		requestCount += 1;
-		// 'close' feuert auch nach einer vollständigen Antwort, deshalb zählt nur
-		// der Fall, in dem die Verbindung vor dem Ende der Antwort wegbricht.
+		// 'close' also fires after a complete response, so only count the case
+		// where the connection drops before the response ends.
 		response.on('close', () => {
 			if (!response.writableFinished) markDisconnected();
 		});
@@ -89,7 +89,8 @@ afterEach(async () => {
 
 describe('waitForBackendReady deadline', { timeout: 20_000 }, () => {
 	it('ends the wait when the backend accepts the connection and never answers', async () => {
-		// Absichtlich keine Antwort: der Client wartet ohne Frist ewig auf sie.
+		// Deliberately leave the request unanswered: without a deadline, the client
+		// waits forever.
 		const backend = await startBackend(() => {});
 
 		const started = Date.now();
@@ -98,15 +99,15 @@ describe('waitForBackendReady deadline', { timeout: 20_000 }, () => {
 		).rejects.toThrow('Test backend never reported ready (api.tests.health) within 300ms');
 		expect(Date.now() - started).toBeLessThan(300 + RUNTIME_BUDGET_MS);
 
-		// Vor dem eigenen Cleanup: der Abbruch muss vom Client kommen.
+		// Before our own cleanup, the client must initiate the abort.
 		await backend.clientDisconnected;
 	});
 
 	it('ends the wait when headers are flushed and the response body stays open', async () => {
 		const backend = await startBackend((_request, response) => {
 			response.writeHead(200, { 'content-type': 'application/json' });
-			// Unvollständiges JSON: die Antwort ist angefangen und wird nie beendet,
-			// der Client hängt also im Lesen des Bodys statt im Request.
+			// Incomplete JSON: the response has started and never finishes, so the
+			// hang occurs while the client reads the body after sending the request.
 			response.write('{"status":"suc');
 		});
 
@@ -120,8 +121,8 @@ describe('waitForBackendReady deadline', { timeout: 20_000 }, () => {
 	});
 
 	it('ends the polling pause instead of waiting out the interval', async () => {
-		// Erste Abfrage scheitert transient, danach würde die Pause weit über die
-		// Frist hinaus laufen.
+		// The first query fails transiently; the subsequent pause would run far
+		// past the deadline.
 		const backend = await startBackend((request) => request.socket.destroy());
 
 		const started = Date.now();
