@@ -78,6 +78,20 @@ describe('LegalMarkdown', () => {
 		).toBeNull();
 	});
 
+	it('renders table-cell values as literal text', () => {
+		const value = '**Bold** <script>alert(1)</script> [Link](https://evil.example)';
+		const document = renderDocument(
+			createLegalMarkdown('sample', '| Header |\n| --- |\n| {{VALUE}} |', { VALUE: value })
+		);
+		const literal = document.querySelector<HTMLElement>('td .legal-literal');
+
+		expect(document.querySelector('th')?.textContent).toBe('Header');
+		expect(document.querySelectorAll('table, thead, tbody')).toHaveLength(3);
+		expect(literal?.textContent).toBe(value);
+		expect(literal?.children).toHaveLength(0);
+		expect(document.querySelector('strong, script, a')).toBeNull();
+	});
+
 	it('keeps same-named literals isolated between documents', () => {
 		const first = renderDocument(createLegalMarkdown('first', '{{NAME}}', { NAME: 'First value' }));
 		const second = renderDocument(

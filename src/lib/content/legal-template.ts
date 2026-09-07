@@ -45,7 +45,7 @@ interface LegalLiteralToken {
 
 interface TokenRecord {
 	readonly type: string;
-	readonly raw: string;
+	readonly raw?: string;
 	readonly tokens?: readonly unknown[];
 }
 
@@ -80,15 +80,16 @@ function tokenRecord(value: unknown, documentName: string): TokenRecord {
 		throw new Error(`Invalid Markdown token in ${documentName}.`);
 	}
 	const record = value as Record<string, unknown>;
-	if (typeof record.type !== 'string' || typeof record.raw !== 'string') {
-		throw new Error(`Invalid Markdown token in ${documentName}.`);
-	}
-	if (record.tokens !== undefined && !Array.isArray(record.tokens)) {
+	if (
+		typeof record.type !== 'string' ||
+		(record.raw !== undefined && typeof record.raw !== 'string') ||
+		(record.tokens !== undefined && !Array.isArray(record.tokens))
+	) {
 		throw new Error(`Invalid Markdown token in ${documentName}.`);
 	}
 	return {
 		type: record.type,
-		raw: record.raw,
+		...(record.raw === undefined ? {} : { raw: record.raw }),
 		...(record.tokens === undefined ? {} : { tokens: record.tokens })
 	};
 }
@@ -110,6 +111,9 @@ function collectLegalLiterals(
 	for (const value of values) {
 		const token = tokenRecord(value, documentName);
 		if (token.type === 'legalLiteral') {
+			if (typeof token.raw !== 'string') {
+				throw new Error(`Invalid legal literal token in ${documentName}.`);
+			}
 			if (!pathRendersChildren) {
 				throw new Error(`Legal literal appears in a non-rendered position in ${documentName}.`);
 			}

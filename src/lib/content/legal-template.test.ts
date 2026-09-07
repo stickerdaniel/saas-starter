@@ -4,7 +4,7 @@ import { createLegalMarkdown, legalLiteralExtensions, resolveLegalLiteral } from
 
 interface TestToken {
 	readonly type: string;
-	readonly raw: string;
+	readonly raw?: string;
 	readonly name?: string;
 	readonly tokens?: readonly unknown[];
 }
@@ -14,7 +14,12 @@ function tokenRecords(values: unknown): TestToken[] {
 	return values.flatMap((value) => {
 		if (!value || typeof value !== 'object') return [];
 		const record = value as Record<string, unknown>;
-		if (typeof record.type !== 'string' || typeof record.raw !== 'string') return [];
+		if (
+			typeof record.type !== 'string' ||
+			(record.raw !== undefined && typeof record.raw !== 'string')
+		) {
+			return [];
+		}
 		const token = record as unknown as TestToken;
 		return [token, ...tokenRecords(token.tokens)];
 	});
@@ -141,6 +146,20 @@ describe('createLegalMarkdown', () => {
 		expect(types).toEqual(
 			expect.arrayContaining(['heading', 'list', 'em', 'link', 'image', 'legalLiteral'])
 		);
+	});
+
+	it('keeps authored tables and table-cell literals active', () => {
+		const result = createLegalMarkdown('sample', '| Header |\n| --- |\n| {{VALUE}} |', {
+			VALUE: 'literal'
+		});
+		const tokens = tokenRecords(lex(result.markdown, legalLiteralExtensions) as unknown);
+
+		expect(tokens.map((token) => token.type)).toEqual(
+			expect.arrayContaining(['table', 'thead', 'tbody', 'tr', 'th', 'td', 'legalLiteral'])
+		);
+		expect(
+			tokens.filter((token) => token.type === 'legalLiteral').map((token) => token.name)
+		).toEqual(['VALUE']);
 	});
 });
 
