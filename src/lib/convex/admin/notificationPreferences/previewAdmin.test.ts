@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MutationCtx } from '../../_generated/server';
 import { ensurePreviewAdmin } from '../../previewDev';
 import { syncAdminPreferences } from './helpers';
+import { getNotificationTargetEmails } from '../support/notifications';
 import { getRecipientsForNotificationType, type NotificationType } from './queries';
 
 type Preference = {
@@ -35,6 +36,16 @@ const ensurePreviewAdminHandler = (
 
 const getRecipientsHandler = (
 	getRecipientsForNotificationType as unknown as ConvexHandler<{ type: NotificationType }, string[]>
+)._handler;
+
+const getSupportRecipientsHandler = (
+	getNotificationTargetEmails as unknown as ConvexHandler<
+		{
+			assignedTo?: string;
+			notificationType: 'newTickets' | 'userReplies';
+		},
+		string[]
+	>
 )._handler;
 
 function makePreference(
@@ -114,6 +125,7 @@ function expectEmailToggles(preference: Preference, enabled: boolean) {
 }
 
 afterEach(() => {
+	vi.restoreAllMocks();
 	vi.unstubAllEnvs();
 });
 
@@ -135,12 +147,12 @@ describe('preview admin notification preferences', () => {
 		expectEmailToggles(rows[0], false);
 	});
 
-	it('repairs an unchanged preview admin on every idempotent ensure run', async () => {
+	it('reattaches a stale preview preference during idempotent ensure runs', async () => {
 		const { db, rows } = createPreferenceStore([
-			makePreference('admin@preview.dev', 'preview-user')
+			makePreference('admin@preview.dev', 'stale-preview-user')
 		]);
 		const user = {
-			_id: 'preview-user',
+			_id: 'current-preview-user',
 			email: 'admin@preview.dev',
 			role: 'admin',
 			emailVerified: true
@@ -164,9 +176,29 @@ describe('preview admin notification preferences', () => {
 		});
 		expect(second).toEqual(first);
 		expect(rows).toHaveLength(1);
-		expect(rows[0].isAdminUser).toBe(true);
+		expect(rows[0]).toMatchObject({
+			email: 'admin@preview.dev',
+			userId: 'current-preview-user',
+			isAdminUser: true
+		});
 		expectEmailToggles(rows[0], false);
 		expect(ctx.runMutation).not.toHaveBeenCalled();
+	});
+
+	it('keeps a real email collision attached to its existing user', async () => {
+		const existing = makePreference('owner@example.com', 'existing-owner');
+		const { db, rows } = createPreferenceStore([existing]);
+		const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+		await syncAdminPreferences(dbContext(db), {
+			userId: 'different-owner',
+			email: ' OWNER@EXAMPLE.COM '
+		});
+
+		expect(rows).toEqual([existing]);
+		expect(warning).toHaveBeenCalledWith(
+			expect.stringContaining('email=owner@example.com already belongs to userId=existing-owner')
+		);
 	});
 
 	it('excludes the preview admin from every recipient type despite stored toggles', async () => {
@@ -177,6 +209,32 @@ describe('preview admin notification preferences', () => {
 
 		for (const type of ['newTickets', 'userReplies', 'newSignups'] as const) {
 			await expect(getRecipientsHandler({ db }, { type })).resolves.toEqual(['owner@example.com']);
+		}
+	});
+
+	it('excludes a normalized preview address from both support notification types', async () => {
+		const { db } = createPreferenceStore([
+			makePreference('  ADMIN@PREVIEW.DEV ', 'preview-user'),
+			makePreference('owner@example.com', 'owner-user')
+		]);
+
+		for (const notificationType of ['newTickets', 'userReplies'] as const) {
+			await expect(getSupportRecipientsHandler({ db }, { notificationType })).resolves.toEqual([
+				'owner@example.com'
+			]);
+		}
+	});
+
+	it('falls back to a real admin when a support ticket is assigned to the preview admin', async () => {
+		const { db } = createPreferenceStore([
+			makePreference('admin@preview.dev', 'preview-user'),
+			makePreference('owner@example.com', 'owner-user')
+		]);
+
+		for (const notificationType of ['newTickets', 'userReplies'] as const) {
+			await expect(
+				getSupportRecipientsHandler({ db }, { assignedTo: 'preview-user', notificationType })
+			).resolves.toEqual(['owner@example.com']);
 		}
 	});
 

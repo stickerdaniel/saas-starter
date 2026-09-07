@@ -78,6 +78,13 @@ export async function syncAdminPreferences(
 				...previewAdminPatch,
 				updatedAt: now
 			});
+		} else if (existingByEmail && isPreviewAdminEmail(email)) {
+			await ctx.db.patch(existingByEmail._id, {
+				userId: args.userId,
+				isAdminUser: true,
+				...previewAdminPatch,
+				updatedAt: now
+			});
 		} else if (!existingByEmail) {
 			// Create new preference with the appropriate notification defaults
 			await ctx.db.insert('adminNotificationPreferences', {
