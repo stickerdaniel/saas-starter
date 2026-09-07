@@ -2,7 +2,12 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PlatformContext } from './platform';
-import { computeBuildEnv, resolveDeploymentSiteOrigin, type ConvexDeployment } from './steps';
+import {
+	computeBuildEnv,
+	convexDeployEnvironment,
+	resolveDeploymentSiteOrigin,
+	type ConvexDeployment
+} from './steps';
 
 const deployment: ConvexDeployment = {
 	urlSlug: 'curious-lark-703.eu-west-1',
@@ -120,5 +125,22 @@ describe('resolveDeploymentSiteOrigin', () => {
 				{ PUBLIC_SITE_URL: 'not a url', SITE_URL: 'https://production.example.com' }
 			)
 		).toBe('https://preview.example.com');
+	});
+});
+
+describe('convexDeployEnvironment', () => {
+	it('lets Convex read the Workers production branch after Varlock injection', () => {
+		const sourceEnv: NodeJS.ProcessEnv = {
+			CF_PAGES: '',
+			CF_PAGES_BRANCH: '',
+			WORKERS_CI: '1',
+			WORKERS_CI_BRANCH: 'main'
+		};
+
+		const deployEnv = convexDeployEnvironment(sourceEnv);
+
+		expect(deployEnv).not.toHaveProperty('CF_PAGES_BRANCH');
+		expect(deployEnv.WORKERS_CI_BRANCH).toBe('main');
+		expect(sourceEnv.CF_PAGES_BRANCH).toBe('');
 	});
 });
