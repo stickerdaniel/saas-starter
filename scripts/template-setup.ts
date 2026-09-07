@@ -233,9 +233,10 @@ export function parseContactEmail(
 	if (at <= 0 || at !== value.lastIndexOf('@')) return undefined;
 
 	const user = value.slice(0, at);
+	const userBytes = new TextEncoder().encode(user).byteLength;
 	const domainName = value.slice(at + 1);
 	if (
-		new TextEncoder().encode(user).byteLength > 64 ||
+		userBytes > 64 ||
 		!EMAIL_LOCAL_PART.test(user) ||
 		user.startsWith('.') ||
 		user.endsWith('.') ||
@@ -260,7 +261,8 @@ export function parseContactEmail(
 		}
 		asciiLabels.push(ascii);
 	}
-	if (asciiLabels.join('.').length > 253) return undefined;
+	const asciiDomain = asciiLabels.join('.');
+	if (asciiDomain.length > 253 || userBytes + 1 + asciiDomain.length > 254) return undefined;
 
 	return { user, domain: labels[0]!, tld: labels.slice(1).join('.') };
 }
@@ -269,9 +271,23 @@ export function parseContactEmail(
  * Brand und Operator landen als Rohtext in den Absätzen von Privacy und Terms.
  * Ein Zeilenumbruch zerlegt dort den Absatz und kann eine zusätzliche Überschrift
  * erzeugen. Die Adresse bleibt bewusst mehrzeilig.
+ *
+ * Reject only delimiter combinations that create active inline Markdown in that
+ * paragraph context. Ordinary punctuation and Unicode symbols remain literal.
  */
-function singleLineValidator(label: string): Validator {
-	return (value) => (/[\r\n]/.test(value) ? `${label} must be a single line` : undefined);
+const MARKDOWN_INLINE_DELIMITER = /[\\`*_~]/u;
+const MARKDOWN_LINK = /!?\[[^\]\r\n]*\](?:\([^\r\n)]*\)|\[[^\]\r\n]*\])/u;
+const MARKDOWN_ANGLE_STRUCTURE = /<[^>\r\n]+>/u;
+
+function legalMarkdownTextValidator(label: string): Validator {
+	return (value) => {
+		if (/[\r\n]/.test(value)) return `${label} must be a single line`;
+		return MARKDOWN_INLINE_DELIMITER.test(value) ||
+			MARKDOWN_LINK.test(value) ||
+			MARKDOWN_ANGLE_STRUCTURE.test(value)
+			? `${label} must not contain active Markdown inline syntax such as emphasis, links, code, strikethrough, HTML or autolinks, or escapes`
+			: undefined;
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -394,6 +410,11 @@ export function isValidWorkerSlug(value: string): boolean {
 	return value.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(value);
 }
 
+function hasReservedWindowsDeviceBasename(value: string): boolean {
+	const repository = /^[A-Za-z0-9-]+\/([A-Za-z0-9._-]+)$/.exec(value)?.[1];
+	return repository ? /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(repository) : false;
+}
+
 export function isValidGithubRepository(value: string): boolean {
 	const match = /^([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)$/.exec(value);
 	if (!match) return false;
@@ -406,7 +427,9 @@ export function isValidGithubRepository(value: string): boolean {
 		!owner.endsWith('-') &&
 		!owner.includes('--') &&
 		!['.', '..'].includes(repository) &&
-		!repository.toLowerCase().endsWith('.git')
+		!repository.toLowerCase().endsWith('.git') &&
+		// The generated clone directory must remain portable across ordinary Win32 filesystems.
+		!hasReservedWindowsDeviceBasename(value)
 	);
 }
 
@@ -633,7 +656,7 @@ export function replaceReadmeSource(
 	updated = updated.replace(heading, () => `# ${escapeMarkdownInline(brand)}`);
 
 	// Der Demo-Absatz gehört zum Template und fehlt nach dem ersten Lauf.
-	updated = updated.replace(/^> \[Live demo!\][^\r\n]*(?:\r?\n){2}/m, () => '');
+	updated = updated.replace(liveDemoParagraphPattern(), () => '');
 
 	const cloneMatches = updated.match(cloneBlockPattern());
 	if (cloneMatches?.length !== 1) {
@@ -659,22 +682,33 @@ function cloneBlockPattern(): RegExp {
 	return /^(?:gh repo create [^\r\n]*|git clone https:\/\/github\.com\/[^\r\n]*)(\r?\n)cd [^\r\n]*$/gm;
 }
 
+function liveDemoParagraphPattern(): RegExp {
+	return /^> \[Live demo!\][^\r\n]*(?:\r?\n){2}/m;
+}
+
 /**
- * Sagt, ob der Quick Start bereits auf genau dieses Repository umgeschrieben wurde.
- * Nur der konvertierte git-clone-Block zählt als eingerichtet, die gh-repo-create-Form
- * des Templates ausdrücklich nicht. Das ist eine Aussage über den vorliegenden
- * Endzustand, kein Nachweis darüber, wie er entstanden ist.
+ * Reports whether the README has the complete generated state for the current
+ * repository and legal brand. Manually produced consistent states remain valid.
  */
-export function readmeShowsConvertedQuickStart(source: string, repository: string): boolean {
+export function readmeShowsCompletedSetup(
+	source: string,
+	repository: string,
+	brand: string
+): boolean {
 	const matches = source.match(cloneBlockPattern());
 	if (matches?.length !== 1) return false;
 	const repositoryBasename = repository.split('/')[1];
 	if (!repositoryBasename) return false;
 	const [cloneLine, directoryLine] = matches[0]!.split(/\r?\n/);
-	return (
-		cloneLine === `git clone https://github.com/${repository}.git` &&
-		(directoryLine === `cd ${repositoryBasename}` || directoryLine === `cd ./${repositoryBasename}`)
-	);
+	if (
+		cloneLine !== `git clone https://github.com/${repository}.git` ||
+		(directoryLine !== `cd ${repositoryBasename}` && directoryLine !== `cd ./${repositoryBasename}`)
+	) {
+		return false;
+	}
+
+	const heading = /^# .+$/m.exec(source)?.[0];
+	return heading === `# ${escapeMarkdownInline(brand)}` && !liveDemoParagraphPattern().test(source);
 }
 
 export function replaceWranglerNameSource(source: string, slug: string): string {
@@ -749,9 +783,9 @@ async function main() {
 	}
 
 	// Der Markenname darf legitim 'SaaS Starter' lauten, und ein von Hand geänderter
-	// Package-Name beweist keine Einrichtung. Maßgeblich ist der Endzustand des Quick
-	// Starts für dieses Repository, nicht ein Nachweis über frühere Läufe.
-	const alreadySetUp = readmeShowsConvertedQuickStart(readmeSource, oldRepo);
+	// Package-Name beweist keine Einrichtung. Maßgeblich ist der konsistente README-
+	// Endzustand für dieses Repository und die aktuelle rechtliche Marke.
+	const alreadySetUp = readmeShowsCompletedSetup(readmeSource, oldRepo, oldBrand);
 
 	if (!interactive && !alreadySetUp) {
 		// Solange der Quick Start die Bootstrapform trägt, sind die drei Kernwerte Pflicht.
@@ -778,9 +812,14 @@ async function main() {
 				: 'slug must match the 1-63 character worker name format (lowercase letters, numbers, inner hyphens)'
 	);
 
-	const repo = await resolveValue(repoFlag, 'GitHub repo (owner/name)', oldRepo, (value) =>
-		isValidGithubRepository(value) ? undefined : 'repo must use a safe GitHub owner/name format'
-	);
+	const repo = await resolveValue(repoFlag, 'GitHub repo (owner/name)', oldRepo, (value) => {
+		if (hasReservedWindowsDeviceBasename(value)) {
+			return 'repo basename must be safe for the generated cross-platform clone directory; Windows device names remain reserved before an extension';
+		}
+		return isValidGithubRepository(value)
+			? undefined
+			: 'repo must use a safe GitHub owner/name format';
+	});
 
 	const brand = await resolveValue(
 		brandFlag,
@@ -789,7 +828,7 @@ async function main() {
 		// einen bereits gewählten Namen.
 		!alreadySetUp && (oldBrand === '' || oldBrand === TEMPLATE_BRAND) ? titleCase(slug) : oldBrand,
 		(value) =>
-			value.trim() === '' ? 'brand must not be empty' : singleLineValidator('brand')(value)
+			value.trim() === '' ? 'brand must not be empty' : legalMarkdownTextValidator('brand')(value)
 	);
 
 	const company = await resolveValue(
@@ -802,7 +841,7 @@ async function main() {
 		operatorFlag,
 		'Operator name (person or org running the service)',
 		oldOperator,
-		singleLineValidator('operator')
+		legalMarkdownTextValidator('operator')
 	);
 
 	const address = await resolveValue(

@@ -110,6 +110,17 @@ const IDENTITY = [
 
 const REQUIRED = ['--slug', 'northwind-labs', '--repo', 'northwind/northwind-labs'];
 
+function asciiDomainOfLength(length: number): string {
+	const labels: string[] = [];
+	let remaining = length;
+	while (remaining > 63) {
+		labels.push('a'.repeat(63));
+		remaining -= 64;
+	}
+	labels.push('a'.repeat(remaining));
+	return labels.join('.');
+}
+
 /** Wie IDENTITY, aber ohne --brand und --company, damit deren Defaults greifen. */
 const IDENTITY_WITHOUT_COMPANY = [
 	'--operator',
@@ -130,7 +141,31 @@ describe('template setup writes importable branding values', () => {
 			key: 'companyName',
 			value: 'The "Blue Door" GmbH'
 		},
-		{ label: 'backslash', flag: '--operator', key: 'operatorName', value: 'Anne\\Marie Weber' },
+		{
+			label: 'ampersand, apostrophe, and hyphen',
+			flag: '--operator',
+			key: 'operatorName',
+			value: "Anne-Marie & O'Connor"
+		},
+		{
+			label: 'literal entity text',
+			flag: '--brand',
+			key: 'brandName',
+			value: 'Research &copy; Labs'
+		},
+		{
+			label: 'parentheses and Unicode symbols',
+			flag: '--brand',
+			key: 'brandName',
+			value: 'Northwind (Europe)™ 🚀'
+		},
+		{
+			label: 'slash and at sign',
+			flag: '--operator',
+			key: 'operatorName',
+			value: 'Research / Development @ Northwind'
+		},
+		{ label: 'backslash', flag: '--company', key: 'companyName', value: 'Anne\\Marie Weber' },
 		{
 			label: 'multiline address',
 			flag: '--address',
@@ -140,8 +175,8 @@ describe('template setup writes importable branding values', () => {
 		{
 			// $&, $1 und $` dürfen nicht als Ersetzungsmuster interpretiert werden.
 			label: 'replacement metacharacters',
-			flag: '--brand',
-			key: 'brandName',
+			flag: '--company',
+			key: 'companyName',
 			value: "Ampersand $& Backref $1 Tick $` Quote $' Co"
 		}
 	])('keeps a $label intact', ({ flag, key, value }) => {
@@ -401,6 +436,16 @@ describe('template setup rejects input before writing', () => {
 			expected: /repo must use a safe GitHub owner\/name format/
 		},
 		{
+			label: 'a reserved clone directory basename',
+			args: ['--slug', 'northwind-labs', '--repo', 'northwind/con', ...IDENTITY],
+			expected: /repo basename must be safe for the generated cross-platform clone directory/
+		},
+		{
+			label: 'a reserved clone directory basename before an extension',
+			args: ['--slug', 'northwind-labs', '--repo', 'northwind/COM1.project', ...IDENTITY],
+			expected: /repo basename must be safe for the generated cross-platform clone directory/
+		},
+		{
 			label: 'an invalid email',
 			args: [...REQUIRED, ...IDENTITY.slice(0, -1), 'kaputt'],
 			expected: /email must use the consumer-compatible user@domain\.tld subset/
@@ -408,6 +453,20 @@ describe('template setup rejects input before writing', () => {
 		{
 			label: 'a Unicode email localpart longer than 64 UTF-8 bytes',
 			args: [...REQUIRED, ...IDENTITY.slice(0, -1), `${'é'.repeat(33)}@example.de`],
+			expected: /email must use the consumer-compatible user@domain\.tld subset/
+		},
+		{
+			label: 'a 64-byte localpart with a 190-byte ASCII domain',
+			args: [
+				...REQUIRED,
+				...IDENTITY.slice(0, -1),
+				`${'a'.repeat(64)}@${asciiDomainOfLength(190)}`
+			],
+			expected: /email must use the consumer-compatible user@domain\.tld subset/
+		},
+		{
+			label: 'a one-byte localpart with a 253-byte ASCII domain',
+			args: [...REQUIRED, ...IDENTITY.slice(0, -1), `a@${asciiDomainOfLength(253)}`],
 			expected: /email must use the consumer-compatible user@domain\.tld subset/
 		},
 		{
@@ -560,7 +619,35 @@ describe('template setup recognizes a genuinely set up project', () => {
 		expect(snapshot(dir)).toEqual(before);
 	});
 
-	it('stops demanding flags once the quick start names this repository', () => {
+	it('rejects a flagless run when only githubSlug and the clone block were edited', () => {
+		const dir = createFixture();
+		const site = join(dir, 'src/lib/config/site.ts');
+		writeFileSync(
+			site,
+			readFileSync(site, 'utf-8').replace(
+				"githubSlug: 'stickerdaniel/saas-starter'",
+				"githubSlug: 'northwind/northwind-labs'"
+			),
+			'utf-8'
+		);
+		const readme = join(dir, 'README.md');
+		writeFileSync(
+			readme,
+			readFileSync(readme, 'utf-8').replace(
+				'gh repo create my-saas-product --template stickerdaniel/saas-starter --clone\ncd my-saas-product',
+				'git clone https://github.com/northwind/northwind-labs.git\ncd ./northwind-labs'
+			),
+			'utf-8'
+		);
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, []);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/needs --slug, --repo, --brand in non-interactive mode/);
+		expect(snapshot(dir)).toEqual(before);
+	});
+
+	it('stops demanding flags once the full generated README state is consistent', () => {
 		const dir = createFixture();
 		// Der Slug bleibt bewusst auf dem Template-Wert.
 		expect(
@@ -663,6 +750,37 @@ describe('template setup keeps prose values on one line', () => {
 		const before = snapshot(dir);
 
 		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, flag, multiline]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(expected);
+		expect(snapshot(dir)).toEqual(before);
+	});
+
+	it.each([
+		{
+			flag: '--brand',
+			value: '*Star* Co',
+			expected: /brand must not contain active Markdown inline syntax/
+		},
+		{
+			flag: '--brand',
+			value: '[Northwind](https://example.com)',
+			expected: /brand must not contain active Markdown inline syntax/
+		},
+		{
+			flag: '--operator',
+			value: '*Star* Co',
+			expected: /operator must not contain active Markdown inline syntax/
+		},
+		{
+			flag: '--operator',
+			value: '[Northwind](https://example.com)',
+			expected: /operator must not contain active Markdown inline syntax/
+		}
+	])('rejects active inline Markdown in $flag before writing', ({ flag, value, expected }) => {
+		const dir = createFixture();
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, flag, value]);
 		expect(run.code).toBe(1);
 		expect(run.stderr).toMatch(expected);
 		expect(snapshot(dir)).toEqual(before);

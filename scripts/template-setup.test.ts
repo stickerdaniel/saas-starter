@@ -6,7 +6,7 @@ import {
 	isValidGithubRepository,
 	isValidWorkerSlug,
 	parseContactEmail,
-	readmeShowsConvertedQuickStart,
+	readmeShowsCompletedSetup,
 	replaceGithubSlugSource,
 	replaceLegalConfigSource,
 	replaceLegalContentDatesSource,
@@ -18,13 +18,31 @@ import {
 	updateLegalContentDatesSource
 } from './template-setup';
 
+function asciiDomainOfLength(length: number): string {
+	const labels: string[] = [];
+	let remaining = length;
+	while (remaining > 63) {
+		labels.push('a'.repeat(63));
+		remaining -= 64;
+	}
+	labels.push('a'.repeat(remaining));
+	return labels.join('.');
+}
+
 describe('template setup repository configuration', () => {
-	it.each(['owner/repo', 'owner-name/repo.name', 'Owner123/repo_name', `owner/${'r'.repeat(100)}`])(
-		'accepts %s',
-		(value) => {
-			expect(isValidGithubRepository(value)).toBe(true);
-		}
-	);
+	it.each([
+		'owner/repo',
+		'owner-name/repo.name',
+		'Owner123/repo_name',
+		`owner/${'r'.repeat(100)}`,
+		'owner/com0',
+		'owner/com10',
+		'owner/lpt0',
+		'owner/lpt10',
+		'owner/console'
+	])('accepts %s', (value) => {
+		expect(isValidGithubRepository(value)).toBe(true);
+	});
 
 	it.each([
 		'owner',
@@ -38,7 +56,15 @@ describe('template setup repository configuration', () => {
 		`owner/${'r'.repeat(101)}`,
 		'/repo',
 		'owner/.',
-		'owner/..'
+		'owner/..',
+		...[
+			'con',
+			'prn',
+			'aux',
+			'nul',
+			...Array.from({ length: 9 }, (_, index) => `com${index + 1}`),
+			...Array.from({ length: 9 }, (_, index) => `lpt${index + 1}`)
+		].flatMap((basename) => [`owner/${basename}`, `owner/${basename.toUpperCase()}.project`])
 	])('rejects unsafe repository value %s', (value) => {
 		expect(isValidGithubRepository(value)).toBe(false);
 		expect(() => githubSlugProperty(value)).toThrow(/Invalid GitHub repository/);
@@ -307,39 +333,81 @@ Unrelated prose stays.
 	});
 });
 
-describe('template setup detects the converted quick start', () => {
+describe('template setup detects a consistent generated README', () => {
+	const liveDemo =
+		'> [Live demo!](https://demo.example) The public demo covers the user-facing features.\n\n';
 	const bootstrap =
-		'# Title\n\n```bash\ngh repo create my-saas-product --template stickerdaniel/saas-starter --clone\ncd my-saas-product\nbun install\n```\n';
+		'# Northwind Labs\n\n```bash\ngh repo create my-saas-product --template stickerdaniel/saas-starter --clone\ncd my-saas-product\nbun install\n```\n';
 	const converted =
-		'# Title\n\n```bash\ngit clone https://github.com/northwind/northwind-labs.git\ncd ./northwind-labs\nbun install\n```\n';
+		'# Northwind Labs\n\n```bash\ngit clone https://github.com/northwind/northwind-labs.git\ncd ./northwind-labs\nbun install\n```\n';
 	const previouslyConverted = converted.replace('cd ./northwind-labs', 'cd northwind-labs');
 
 	it('treats the template bootstrap form as not set up', () => {
-		expect(readmeShowsConvertedQuickStart(bootstrap, 'stickerdaniel/saas-starter')).toBe(false);
-		expect(readmeShowsConvertedQuickStart(bootstrap, 'northwind/northwind-labs')).toBe(false);
+		expect(
+			readmeShowsCompletedSetup(bootstrap, 'stickerdaniel/saas-starter', 'Northwind Labs')
+		).toBe(false);
+		expect(readmeShowsCompletedSetup(bootstrap, 'northwind/northwind-labs', 'Northwind Labs')).toBe(
+			false
+		);
 	});
 
-	it('accepts both converted directory forms only for the repository they name', () => {
-		expect(readmeShowsConvertedQuickStart(converted, 'northwind/northwind-labs')).toBe(true);
-		expect(readmeShowsConvertedQuickStart(previouslyConverted, 'northwind/northwind-labs')).toBe(
+	it('accepts both converted directory forms only for the current repository and brand', () => {
+		expect(readmeShowsCompletedSetup(converted, 'northwind/northwind-labs', 'Northwind Labs')).toBe(
 			true
 		);
-		expect(readmeShowsConvertedQuickStart(converted, 'someone/other-repo')).toBe(false);
+		expect(
+			readmeShowsCompletedSetup(previouslyConverted, 'northwind/northwind-labs', 'Northwind Labs')
+		).toBe(true);
+		expect(readmeShowsCompletedSetup(converted, 'someone/other-repo', 'Northwind Labs')).toBe(
+			false
+		);
+		expect(readmeShowsCompletedSetup(converted, 'northwind/northwind-labs', 'Other Brand')).toBe(
+			false
+		);
 	});
 
-	it('reads the converted block with CRLF line endings', () => {
+	it('requires the escaped generated heading and no template live demo paragraph', () => {
+		const escapedHeading = converted.replace('# Northwind Labs', '# Research \\&copy; Labs');
 		expect(
-			readmeShowsConvertedQuickStart(converted.replace(/\n/g, '\r\n'), 'northwind/northwind-labs')
+			readmeShowsCompletedSetup(escapedHeading, 'northwind/northwind-labs', 'Research &copy; Labs')
+		).toBe(true);
+		expect(
+			readmeShowsCompletedSetup(
+				converted.replace('# Northwind Labs', '# Other Brand'),
+				'northwind/northwind-labs',
+				'Northwind Labs'
+			)
+		).toBe(false);
+		expect(
+			readmeShowsCompletedSetup(
+				converted.replace('\n\n```bash', `\n\n${liveDemo}\`\`\`bash`),
+				'northwind/northwind-labs',
+				'Northwind Labs'
+			)
+		).toBe(false);
+	});
+
+	it('reads the consistent state with CRLF line endings', () => {
+		expect(
+			readmeShowsCompletedSetup(
+				converted.replace(/\n/g, '\r\n'),
+				'northwind/northwind-labs',
+				'Northwind Labs'
+			)
 		).toBe(true);
 	});
 
-	it('reports not set up when the block is missing or ambiguous', () => {
-		expect(readmeShowsConvertedQuickStart('# Title\n\nprose\n', 'northwind/northwind-labs')).toBe(
-			false
-		);
-		expect(readmeShowsConvertedQuickStart(converted + converted, 'northwind/northwind-labs')).toBe(
-			false
-		);
+	it('reports not set up when the clone block is missing or ambiguous', () => {
+		expect(
+			readmeShowsCompletedSetup(
+				'# Northwind Labs\n\nprose\n',
+				'northwind/northwind-labs',
+				'Northwind Labs'
+			)
+		).toBe(false);
+		expect(
+			readmeShowsCompletedSetup(converted + converted, 'northwind/northwind-labs', 'Northwind Labs')
+		).toBe(false);
 	});
 });
 
@@ -351,6 +419,24 @@ describe('template setup contact email', () => {
 		);
 		expect(parseContactEmail(`${astralLetter.repeat(17)}@example.de`)).toBeUndefined();
 		expect(parseContactEmail(`${'é'.repeat(33)}@example.de`)).toBeUndefined();
+	});
+
+	it('enforces the combined 254-byte SMTP path boundary', () => {
+		expect(parseContactEmail(`${'a'.repeat(64)}@${asciiDomainOfLength(189)}`)).toBeDefined();
+		expect(parseContactEmail(`${'a'.repeat(64)}@${asciiDomainOfLength(190)}`)).toBeUndefined();
+		expect(parseContactEmail(`a@${asciiDomainOfLength(252)}`)).toBeDefined();
+		expect(parseContactEmail(`a@${asciiDomainOfLength(253)}`)).toBeUndefined();
+	});
+
+	it('measures Unicode localparts as UTF-8 and Unicode domains after IDNA conversion', () => {
+		const unicodeLocal = 'é'.repeat(32);
+		expect(parseContactEmail(`${unicodeLocal}@${asciiDomainOfLength(189)}`)).toBeDefined();
+		expect(parseContactEmail(`${unicodeLocal}@${asciiDomainOfLength(190)}`)).toBeUndefined();
+
+		const unicodeDomainAtLimit = `münchen.${asciiDomainOfLength(174)}`;
+		const unicodeDomainOverLimit = `münchen.${asciiDomainOfLength(175)}`;
+		expect(parseContactEmail(`${'a'.repeat(64)}@${unicodeDomainAtLimit}`)).toBeDefined();
+		expect(parseContactEmail(`${'a'.repeat(64)}@${unicodeDomainOverLimit}`)).toBeUndefined();
 	});
 
 	it.each([
