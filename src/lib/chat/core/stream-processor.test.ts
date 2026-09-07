@@ -49,6 +49,13 @@ function createChatMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
 	};
 }
 
+function mergePersistedAndLiveParts(
+	existingParts: UIMessage['parts'],
+	incomingParts: UIMessage['parts']
+): UIMessage['parts'] {
+	return mergeAssistantMessageParts(existingParts, incomingParts, 'persisted');
+}
+
 // ─── blankUIMessage ───────────────────────────────────────────────────────────
 
 describe('blankUIMessage', () => {
@@ -589,7 +596,7 @@ describe('combineStreamingUIMessages', () => {
 
 describe('mergeAssistantMessageParts', () => {
 	it('treats a grouped streamed prefix as authoritative instead of appending duplicate reasoning blocks', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'step-start' },
 				{ type: 'reasoning', text: 'Find coordinates' },
@@ -614,7 +621,7 @@ describe('mergeAssistantMessageParts', () => {
 	});
 
 	it('keeps the persisted prefix when the live stream only exposes a new tail step', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' },
 				{
@@ -664,7 +671,7 @@ describe('mergeAssistantMessageParts', () => {
 	// with that `step-start` and stamps an `id` on. Nothing lines the two up, and
 	// the step separator lands between them.
 	it('grows a persisted reasoning block across the step separator the live stream adds', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[{ type: 'reasoning', text: 'Find coordinates', state: 'done' }] as UIMessage['parts'],
 			[
 				{ type: 'step-start' },
@@ -678,7 +685,7 @@ describe('mergeAssistantMessageParts', () => {
 	});
 
 	it('keeps a second live block apart across the step separator', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[{ type: 'reasoning', text: 'Analyze', state: 'done' }] as UIMessage['parts'],
 			[
 				{ type: 'step-start' },
@@ -698,7 +705,7 @@ describe('mergeAssistantMessageParts', () => {
 	// block back and restore it on the next frame, which reads as flicker, and a
 	// finished block would start showing as still running.
 	it('keeps the longer text when the live snapshot lags behind the persisted one', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[{ type: 'reasoning', text: 'Find coordinates', state: 'done' }] as UIMessage['parts'],
 			[
 				{ type: 'reasoning', text: 'Find coord', id: 'reason-1', state: 'streaming' }
@@ -709,7 +716,7 @@ describe('mergeAssistantMessageParts', () => {
 	});
 
 	it('grows a persisted reasoning block that the live stream carries an id for', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[{ type: 'reasoning', text: 'Find coord' }] as UIMessage['parts'],
 			[
 				{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' }
@@ -720,7 +727,7 @@ describe('mergeAssistantMessageParts', () => {
 	});
 
 	it('grows a reasoning block whose snapshot dropped the streaming id', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'reasoning', text: 'Find coord', streamPartId: 'reason-1' }
 			] as unknown as UIMessage['parts'],
@@ -733,7 +740,7 @@ describe('mergeAssistantMessageParts', () => {
 	});
 
 	it('keeps two reasoning blocks apart when only one carries a streaming id', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' }
 			] as unknown as UIMessage['parts'],
@@ -751,7 +758,7 @@ describe('mergeAssistantMessageParts', () => {
 	// snapshot already claimed is off limits to the next one, so an overlap costs
 	// a missed merge and never a lost block.
 	it('does not fold two overlapping blocks into the one they both extend', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'reasoning', text: 'Analyze', streamPartId: 'reason-1' }
 			] as unknown as UIMessage['parts'],
@@ -768,7 +775,7 @@ describe('mergeAssistantMessageParts', () => {
 	});
 
 	it('keeps a finished reasoning block when a later step opens an empty one', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'reasoning', text: 'Check weather forecast' },
 				{
@@ -794,7 +801,7 @@ describe('mergeAssistantMessageParts', () => {
 	});
 
 	it('does not let an empty reasoning snapshot erase the block it follows', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'tool-getWeather', toolCallId: 'tool-2', state: 'output-available' },
 				{ type: 'reasoning', text: 'Draft final answer' }
@@ -814,7 +821,7 @@ describe('mergeAssistantMessageParts', () => {
 	// empty incoming block left the live copy with nothing to merge into, so the
 	// one block rendered as two rows for as long as the stream was open.
 	it('matches an empty reasoning block to its empty copy', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'reasoning', text: '', state: 'done' },
 				{ type: 'step-start' },
@@ -849,7 +856,7 @@ describe('mergeAssistantMessageParts', () => {
 	});
 
 	it('merges a grown reasoning block that follows a completed tool call', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'tool-getWeather', toolCallId: 'tool-2', state: 'output-available' },
 				{ type: 'reasoning', text: 'Draft final' }
@@ -868,7 +875,7 @@ describe('mergeAssistantMessageParts', () => {
 	// continuation. Merging it backward would delete the earlier block and move
 	// the new one in front of the tool call that ran between them.
 	it('opens a new block when the words repeat one a tool call already closed', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'reasoning', text: 'Analyze' },
 				{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' }
@@ -891,7 +898,7 @@ describe('mergeAssistantMessageParts', () => {
 	// carries the whole message, because there the tool call sits behind the
 	// incoming part too.
 	it('still grows a closed block when the snapshot repeats the tool call', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'reasoning', text: 'Analyze' },
 				{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' }
@@ -913,7 +920,7 @@ describe('mergeAssistantMessageParts', () => {
 	// closed block and has to grow it; the sentence used to render a second time on
 	// the other side of the tool card until the next delta arrived.
 	it('grows a closed block from the snapshot that lags behind its tool call', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'step-start' },
 				{ type: 'text', text: 'I will check' },
@@ -938,7 +945,7 @@ describe('mergeAssistantMessageParts', () => {
 	// live id and the streaming state. The longer text and its finished state win,
 	// and the persisted block keeps its own key.
 	it('keeps a lagging reasoning snapshot inside its closed block', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'reasoning', text: 'Find coordinates', state: 'done' },
 				{ type: 'step-start' },
@@ -966,7 +973,7 @@ describe('mergeAssistantMessageParts', () => {
 	// carries no counterpart for it. A persisted block holding a borrowed id would
 	// read as a live part to any consumer that matches on `id` or `streamPartId`.
 	it('leaves a persisted block without the id of the snapshot it merged', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[{ type: 'reasoning', text: 'Second block' }] as UIMessage['parts'],
 			[
 				{ type: 'step-start' },
@@ -984,7 +991,7 @@ describe('mergeAssistantMessageParts', () => {
 	// by length handed it to the first one, which left the second with nothing to
 	// merge into and appended a copy of the block and of the answer with it.
 	it('matches two blocks that share their opening words in order', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'reasoning', text: 'Analyze' },
 				{ type: 'step-start' },
@@ -1013,7 +1020,7 @@ describe('mergeAssistantMessageParts', () => {
 	// cursor keeps each incoming block behind the one its predecessor matched, so
 	// neither block can be overwritten by the words of the other.
 	it('keeps two blocks of one step apart when the words overlap', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'reasoning', text: 'Analyze' },
 				{ type: 'reasoning', text: 'Analyze more' },
@@ -1040,7 +1047,7 @@ describe('mergeAssistantMessageParts', () => {
 	// leaves the persisted answer one position further up. Merging text into the
 	// last part alone missed it there and rendered the answer a second time.
 	it('merges the answer across the separator pushed behind it', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'reasoning', text: 'think' },
 				{ type: 'text', text: 'answer' }
@@ -1070,7 +1077,8 @@ describe('mergeAssistantMessageParts', () => {
 			[
 				{ type: 'step-start' },
 				{ type: 'reasoning', id: 'r1', text: 'complete thought', state: 'streaming' }
-			] as unknown as UIMessage['parts']
+			] as unknown as UIMessage['parts'],
+			'live'
 		);
 
 		expect(merged.filter((part) => part.type === 'reasoning')).toMatchObject([
@@ -1078,11 +1086,90 @@ describe('mergeAssistantMessageParts', () => {
 		]);
 	});
 
+	it('keeps id-less live text done when an equally long live view lags', () => {
+		const merged = mergeAssistantMessageParts(
+			[{ type: 'text', text: 'complete answer', state: 'done' }] as unknown as UIMessage['parts'],
+			[
+				{ type: 'text', text: 'complete answer', state: 'streaming' }
+			] as unknown as UIMessage['parts'],
+			'live'
+		);
+
+		expect(merged).toMatchObject([{ text: 'complete answer', state: 'done' }]);
+	});
+
+	it.each(['reasoning', 'text'] as const)(
+		'lets a newer live %s end state close an equally long live block',
+		(type) => {
+			const merged = mergeAssistantMessageParts(
+				[{ type, text: 'complete', state: 'streaming' }] as unknown as UIMessage['parts'],
+				[{ type, text: 'complete', state: 'done' }] as unknown as UIMessage['parts'],
+				'live'
+			);
+
+			expect(merged).toMatchObject([{ text: 'complete', state: 'done' }]);
+		}
+	);
+
+	it('keeps a live done state through the text fallback path', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'text', text: 'complete answer', state: 'done' },
+				{ type: 'tool-lookup', toolCallId: 'call-1', state: 'output-available' }
+			] as unknown as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'text', text: 'complete answer', state: 'streaming' }
+			] as unknown as UIMessage['parts'],
+			'live'
+		);
+
+		expect(merged.filter((part) => part.type === 'text')).toMatchObject([
+			{ text: 'complete answer', state: 'done' }
+		]);
+	});
+
+	it('keeps a live done state through the reasoning id path', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', id: 'r1', text: 'complete thought', state: 'done' }
+			] as unknown as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', id: 'r1', text: 'complete thought', state: 'streaming' }
+			] as unknown as UIMessage['parts'],
+			'live'
+		);
+
+		expect(merged.filter((part) => part.type === 'reasoning')).toMatchObject([
+			{ text: 'complete thought', state: 'done' }
+		]);
+	});
+
+	it.each(['reasoning', 'text'] as const)(
+		'lets the live %s state decide when persisted text is equally long',
+		(type) => {
+			const streaming = mergeAssistantMessageParts(
+				[{ type, text: 'complete', state: 'done' }] as unknown as UIMessage['parts'],
+				[{ type, text: 'complete', state: 'streaming' }] as unknown as UIMessage['parts'],
+				'persisted'
+			);
+			const done = mergeAssistantMessageParts(
+				[{ type, text: 'complete', state: 'done' }] as unknown as UIMessage['parts'],
+				[{ type, text: 'complete', state: 'done' }] as unknown as UIMessage['parts'],
+				'persisted'
+			);
+
+			expect(streaming).toMatchObject([{ text: 'complete', state: 'streaming' }]);
+			expect(done).toMatchObject([{ text: 'complete', state: 'done' }]);
+		}
+	);
+
 	// The persisted reconstruction stamps `done` on every block it rebuilds, even
 	// one whose step is still running, and carries no id. Its state says nothing,
 	// so the live side still decides.
 	it('lets the live side reopen a block the persisted copy only calls done', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[{ type: 'reasoning', text: 'Find coordinates', state: 'done' }] as UIMessage['parts'],
 			[
 				{ type: 'step-start' },
@@ -1098,7 +1185,7 @@ describe('mergeAssistantMessageParts', () => {
 	// A tool call runs once, so the side holding its result is the newer one. Taking
 	// the incoming state left a spinner sitting above a finished result.
 	it('keeps a settled tool call settled when the other side lags', () => {
-		const merged = mergeAssistantMessageParts(
+		const merged = mergePersistedAndLiveParts(
 			[
 				{ type: 'step-start' },
 				{

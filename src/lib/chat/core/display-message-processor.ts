@@ -144,7 +144,8 @@ export function transformToDisplayMessage(
 		msg.role === 'assistant' && streamParts
 			? (mergeAssistantMessageParts(
 					(msg.parts ?? []) as UIMessage['parts'],
-					streamParts
+					streamParts,
+					msg.status === 'streaming' ? 'live' : 'persisted'
 				) as ChatMessage['parts'])
 			: (streamParts ?? msg.parts);
 
