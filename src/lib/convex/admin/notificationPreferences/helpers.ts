@@ -12,6 +12,16 @@
 
 import type { MutationCtx } from '../../_generated/server';
 
+export const PREVIEW_ADMIN_EMAIL = 'admin@preview.dev';
+
+function normalizeNotificationEmail(email: string): string {
+	return email.trim().toLowerCase();
+}
+
+export function isPreviewAdminEmail(email: string): boolean {
+	return normalizeNotificationEmail(email) === PREVIEW_ADMIN_EMAIL;
+}
+
 /**
  * Upsert admin notification preferences
  *
@@ -21,13 +31,23 @@ import type { MutationCtx } from '../../_generated/server';
  * - User signs up as admin (rare)
  *
  * If preference exists: updates isAdminUser=true and email
- * If not exists: creates with all toggles ON
+ * If not exists: creates with the identity's notification defaults
+ * Preview admins keep the admin role marker but never receive email
  */
 export async function syncAdminPreferences(
 	ctx: MutationCtx,
 	args: { userId: string; email: string }
 ): Promise<void> {
 	const now = Date.now();
+	const email = normalizeNotificationEmail(args.email);
+	const receivesAdminNotifications = !isPreviewAdminEmail(email);
+	const previewAdminPatch = receivesAdminNotifications
+		? {}
+		: {
+				notifyNewSupportTickets: false,
+				notifyUserReplies: false,
+				notifyNewSignups: false
+			};
 
 	// Check if preference already exists for this user
 	const existing = await ctx.db
@@ -38,15 +58,16 @@ export async function syncAdminPreferences(
 	if (existing) {
 		// Reactivate and update email if changed
 		await ctx.db.patch(existing._id, {
-			email: args.email.toLowerCase().trim(),
+			email,
 			isAdminUser: true,
+			...previewAdminPatch,
 			updatedAt: now
 		});
 	} else {
 		// Check if there's a custom email entry with same email
 		const existingByEmail = await ctx.db
 			.query('adminNotificationPreferences')
-			.withIndex('by_email', (q) => q.eq('email', args.email.toLowerCase().trim()))
+			.withIndex('by_email', (q) => q.eq('email', email))
 			.first();
 
 		if (existingByEmail && existingByEmail.userId === undefined) {
@@ -54,17 +75,18 @@ export async function syncAdminPreferences(
 			await ctx.db.patch(existingByEmail._id, {
 				userId: args.userId,
 				isAdminUser: true,
+				...previewAdminPatch,
 				updatedAt: now
 			});
 		} else if (!existingByEmail) {
-			// Create new preference with all notifications enabled
+			// Create new preference with the appropriate notification defaults
 			await ctx.db.insert('adminNotificationPreferences', {
-				email: args.email.toLowerCase().trim(),
+				email,
 				userId: args.userId,
 				isAdminUser: true,
-				notifyNewSupportTickets: true,
-				notifyUserReplies: true,
-				notifyNewSignups: true,
+				notifyNewSupportTickets: receivesAdminNotifications,
+				notifyUserReplies: receivesAdminNotifications,
+				notifyNewSignups: receivesAdminNotifications,
 				createdAt: now,
 				updatedAt: now
 			});
@@ -73,7 +95,7 @@ export async function syncAdminPreferences(
 			// Log warning but don't throw to avoid blocking auth flow
 			console.warn(
 				`[syncAdminPreferences] Email collision detected: ` +
-					`email=${args.email} already belongs to userId=${existingByEmail.userId} ` +
+					`email=${email} already belongs to userId=${existingByEmail.userId} ` +
 					`but attempting to assign to userId=${args.userId}. Skipping update.`
 			);
 		}
