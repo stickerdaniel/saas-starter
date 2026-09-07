@@ -20,7 +20,7 @@
 import { accessSync, constants, existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { createInterface, type Interface } from 'readline';
-import { pathToFileURL } from 'url';
+import { domainToASCII, pathToFileURL } from 'url';
 import { parseArgs } from 'util';
 import { isIsoCalendarDate } from '../src/lib/content/legal-metadata';
 
@@ -85,7 +85,7 @@ Usage:
   bun run setup --slug <s> --repo <owner/name> --brand <s> [--company <s>] [--operator <s>] [--address <s>] [--email <user@domain.tld>]
 
 Flags:
-  --slug      Project slug (lowercase, hyphens; matches ^[a-z0-9-]+$)
+  --slug      Worker slug (1-63 lowercase letters, numbers, or inner hyphens)
   --repo      GitHub repo in owner/name format
   --brand     Brand display name
   --company   Company name (legal entity)
@@ -218,23 +218,51 @@ function titleCase(slug: string): string {
 }
 
 /**
- * Eine gemeinsame enge Definition für Prüfung und Zerlegung: Nutzerteil, erste
- * Domainkomponente und restlicher Domainname. Zusätzliche @, Leerzeichen innerhalb
- * der Segmente und leere Domainlabels fallen damit durch. Kein RFC-Anspruch und
- * keine Zustellbarkeitsprüfung.
+ * Bewusst enges Subset für die vorhandenen unkodierten mailto-Consumer. Plus,
+ * Apostroph und Unicode-Buchstaben bleiben erlaubt; URI-Strukturzeichen und
+ * kodierungspflichtige Localparts werden abgelehnt. Kein vollständiger RFC- oder
+ * Zustellbarkeitsvalidator.
  */
-const EMAIL_PATTERN = /^([^\s@]+)@([^\s@.]+)\.([^\s@.]+(?:\.[^\s@.]+)*)$/;
+const EMAIL_LOCAL_PART = /^[\p{L}\p{N}\p{M}._+'-]+$/u;
 
-/**
- * Zerlegt die Adresse in Nutzerteil, erste Domainkomponente und restlichen
- * Domainnamen. Prüfung und Zerlegung teilen sich damit eine Definition.
- */
+/** Zerlegt und prüft die Adresse, ohne gültige Originalteile zu normalisieren. */
 export function parseContactEmail(
 	value: string
 ): { user: string; domain: string; tld: string } | undefined {
-	const match = EMAIL_PATTERN.exec(value);
-	if (!match) return undefined;
-	return { user: match[1]!, domain: match[2]!, tld: match[3]! };
+	const at = value.indexOf('@');
+	if (at <= 0 || at !== value.lastIndexOf('@')) return undefined;
+
+	const user = value.slice(0, at);
+	const domainName = value.slice(at + 1);
+	if (
+		user.length > 64 ||
+		!EMAIL_LOCAL_PART.test(user) ||
+		user.startsWith('.') ||
+		user.endsWith('.') ||
+		user.includes('..')
+	) {
+		return undefined;
+	}
+
+	const labels = domainName.split('.');
+	if (labels.length < 2 || labels.some((label) => label === '')) return undefined;
+	const asciiLabels: string[] = [];
+	for (const label of labels) {
+		const ascii = domainToASCII(label);
+		if (
+			ascii === '' ||
+			ascii.length > 63 ||
+			!/^[A-Za-z0-9-]+$/.test(ascii) ||
+			ascii.startsWith('-') ||
+			ascii.endsWith('-')
+		) {
+			return undefined;
+		}
+		asciiLabels.push(ascii);
+	}
+	if (asciiLabels.join('.').length > 253) return undefined;
+
+	return { user, domain: labels[0]!, tld: labels.slice(1).join('.') };
 }
 
 /**
@@ -284,6 +312,9 @@ export function serializeConfigValue(value: unknown, indent: string): string {
 	if (typeof value === 'string') return tsStringLiteral(value);
 	if (typeof value === 'number' || typeof value === 'boolean') return String(value);
 	if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+		if (Object.getPrototypeOf(value) !== Object.prototype || Object.hasOwn(value, '__proto__')) {
+			throw new Error('Unsupported LEGAL_CONFIG object type or __proto__ data property');
+		}
 		const entries = Object.entries(value as Record<string, unknown>);
 		if (entries.length === 0) return '{}';
 		const inner = `${indent}\t`;
@@ -326,9 +357,7 @@ function currentSlug(): string {
 }
 
 function currentRepo(): string {
-	const siteConfig = read('src/lib/config/site.ts');
-	const match = siteConfig.match(/githubSlug:\s*['"]([^'"]+)['"]/);
-	return match?.[1] ?? 'user/my-saas';
+	return findGithubSlugProperty(read('src/lib/config/site.ts')).value;
 }
 
 /**
@@ -344,6 +373,9 @@ async function readLegalConfig(): Promise<Record<string, unknown>> {
 	if (config === null || typeof config !== 'object' || Array.isArray(config)) {
 		throw new Error('Could not read LEGAL_CONFIG from src/lib/config/legal.ts');
 	}
+	// Vor structuredClone prüfen: Klasseninstanzen und Null-Prototyp-Objekte würden
+	// dort zu gewöhnlichen Objekten und könnten anschließend unbemerkt Daten verlieren.
+	serializeConfigValue(config, '');
 	return structuredClone(config) as Record<string, unknown>;
 }
 
@@ -358,6 +390,10 @@ function readOptionalString(source: Record<string, unknown>, key: string): strin
 	return typeof value === 'string' ? value : undefined;
 }
 
+export function isValidWorkerSlug(value: string): boolean {
+	return value.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(value);
+}
+
 export function isValidGithubRepository(value: string): boolean {
 	const match = /^([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)$/.exec(value);
 	if (!match) return false;
@@ -365,6 +401,7 @@ export function isValidGithubRepository(value: string): boolean {
 	const repository = match[2]!;
 	return (
 		owner.length <= 39 &&
+		repository.length <= 100 &&
 		!owner.startsWith('-') &&
 		!owner.endsWith('-') &&
 		!owner.includes('--') &&
@@ -380,20 +417,163 @@ export function githubSlugProperty(value: string): string {
 	return `githubSlug: '${value}'`;
 }
 
-export function replaceGithubSlugSource(source: string, value: string): string {
-	const pattern = /githubSlug:\s*['"][^'"]+['"]/g;
-	const matches = source.match(pattern);
-	if (!matches) {
-		throw new Error('Could not find githubSlug in src/lib/config/site.ts');
+interface GithubSlugMatch {
+	start: number;
+	end: number;
+	value: string;
+}
+
+/**
+ * Blendet Kommentare sowie String- und Template-Inhalte aus, behält aber Länge,
+ * Zeilenumbrüche und Literalgrenzen. Damit lassen sich die wenigen benötigten
+ * Strukturanker bestimmen, ohne beliebige TypeScript-Syntax zu interpretieren.
+ */
+function maskTypeScriptNonCode(source: string): string {
+	const masked = source.split('');
+	let index = 0;
+	while (index < source.length) {
+		const char = source[index];
+		const next = source[index + 1];
+		if (char === '/' && next === '/') {
+			masked[index++] = ' ';
+			masked[index++] = ' ';
+			while (index < source.length && source[index] !== '\n') masked[index++] = ' ';
+			continue;
+		}
+		if (char === '/' && next === '*') {
+			masked[index++] = ' ';
+			masked[index++] = ' ';
+			while (index < source.length) {
+				if (source[index] === '*' && source[index + 1] === '/') {
+					masked[index++] = ' ';
+					masked[index++] = ' ';
+					break;
+				}
+				if (source[index] !== '\n' && source[index] !== '\r') masked[index] = ' ';
+				index += 1;
+			}
+			continue;
+		}
+		if (char === "'" || char === '"' || char === '`') {
+			const quote = char;
+			index += 1;
+			while (index < source.length) {
+				if (source[index] === '\\') {
+					masked[index++] = ' ';
+					if (index < source.length && source[index] !== '\n' && source[index] !== '\r') {
+						masked[index] = ' ';
+					}
+					index += 1;
+					continue;
+				}
+				if (source[index] === quote) {
+					index += 1;
+					break;
+				}
+				if (source[index] !== '\n' && source[index] !== '\r') masked[index] = ' ';
+				index += 1;
+			}
+			continue;
+		}
+		index += 1;
 	}
-	// Ein zweites Vorkommen, etwa ein Beispiel im Doc-Kommentar, würde sonst still den
-	// falschen Treffer ersetzen und den echten Eintrag unverändert lassen.
-	if (matches.length > 1) {
+	return masked.join('');
+}
+
+function findGithubSlugProperty(source: string): GithubSlugMatch {
+	const masked = maskTypeScriptNonCode(source);
+	const initializers = [...masked.matchAll(/\bexport\s+const\s+SITE_CONFIG\s*=\s*\{/g)];
+	if (initializers.length !== 1) {
 		throw new Error(
-			`Expected exactly one githubSlug in src/lib/config/site.ts, found ${matches.length}`
+			`Expected exactly one direct SITE_CONFIG initializer in src/lib/config/site.ts, found ${initializers.length}`
 		);
 	}
-	return source.replace(pattern, () => githubSlugProperty(value));
+
+	const initializer = initializers[0]!;
+	const open = initializer.index + initializer[0].lastIndexOf('{');
+	let close = -1;
+	let braceDepth = 1;
+	for (let index = open + 1; index < masked.length; index += 1) {
+		if (masked[index] === '{') braceDepth += 1;
+		if (masked[index] === '}') {
+			braceDepth -= 1;
+			if (braceDepth === 0) {
+				close = index;
+				break;
+			}
+		}
+	}
+	if (close === -1) {
+		throw new Error('Could not find the end of SITE_CONFIG in src/lib/config/site.ts');
+	}
+
+	const candidates: Array<GithubSlugMatch | undefined> = [];
+	let segmentStart = open + 1;
+	braceDepth = 1;
+	let bracketDepth = 0;
+	let parenthesisDepth = 0;
+	for (let index = open + 1; index <= close; index += 1) {
+		const char = masked[index];
+		const atBoundary =
+			index === close ||
+			(char === ',' && braceDepth === 1 && bracketDepth === 0 && parenthesisDepth === 0);
+		if (atBoundary) {
+			const segment = masked.slice(segmentStart, index);
+			const leading = /^\s*/.exec(segment)![0].length;
+			const propertyStart = segmentStart + leading;
+			if (
+				masked.startsWith('githubSlug', propertyStart) &&
+				!/[A-Za-z0-9_$]/.test(masked[propertyStart + 'githubSlug'.length] ?? '')
+			) {
+				let cursor = propertyStart + 'githubSlug'.length;
+				while (/\s/.test(masked[cursor] ?? '')) cursor += 1;
+				if (masked[cursor] !== ':') {
+					candidates.push(undefined);
+				} else {
+					cursor += 1;
+					while (/\s/.test(masked[cursor] ?? '')) cursor += 1;
+					const quote = masked[cursor];
+					const literalEnd =
+						quote === "'" || quote === '"' ? masked.indexOf(quote, cursor + 1) : -1;
+					const trailing = literalEnd === -1 ? '' : masked.slice(literalEnd + 1, index).trim();
+					const value = literalEnd === -1 ? '' : source.slice(cursor + 1, literalEnd);
+					candidates.push(
+						literalEnd !== -1 && trailing === '' && !value.includes('\\')
+							? { start: propertyStart, end: literalEnd + 1, value }
+							: undefined
+					);
+				}
+			}
+			segmentStart = index + 1;
+			continue;
+		}
+		if (char === '{') braceDepth += 1;
+		else if (char === '}') braceDepth -= 1;
+		else if (char === '[') bracketDepth += 1;
+		else if (char === ']') bracketDepth -= 1;
+		else if (char === '(') parenthesisDepth += 1;
+		else if (char === ')') parenthesisDepth -= 1;
+	}
+
+	if (candidates.length === 0) {
+		throw new Error('Could not find githubSlug as a direct property in src/lib/config/site.ts');
+	}
+	if (candidates.length !== 1) {
+		throw new Error(
+			`Expected exactly one direct githubSlug property in src/lib/config/site.ts, found ${candidates.length}`
+		);
+	}
+	const match = candidates[0];
+	if (!match) {
+		throw new Error('githubSlug must use a direct string literal in src/lib/config/site.ts');
+	}
+	return match;
+}
+
+export function replaceGithubSlugSource(source: string, value: string): string {
+	const replacement = githubSlugProperty(value);
+	const match = findGithubSlugProperty(source);
+	return source.slice(0, match.start) + replacement + source.slice(match.end);
 }
 
 export function replaceLegalContentDatesSource(source: string, value: string): string {
@@ -453,7 +633,7 @@ export function replaceReadmeSource(
 	updated = updated.replace(heading, () => `# ${escapeMarkdownInline(brand)}`);
 
 	// Der Demo-Absatz gehört zum Template und fehlt nach dem ersten Lauf.
-	updated = updated.replace(/^> \[Live demo!\][^\n]*\n\n/m, () => '');
+	updated = updated.replace(/^> \[Live demo!\][^\r\n]*(?:\r?\n){2}/m, () => '');
 
 	const cloneMatches = updated.match(cloneBlockPattern());
 	if (cloneMatches?.length !== 1) {
@@ -464,7 +644,8 @@ export function replaceReadmeSource(
 	updated = updated.replace(
 		cloneBlockPattern(),
 		// Das gelesene Zeilenende zurückschreiben, damit eine CRLF-Datei CRLF bleibt.
-		(_match, lineBreak: string) => `git clone ${githubUrl}.git${lineBreak}cd ${repositoryBasename}`
+		(_match, lineBreak: string) =>
+			`git clone ${githubUrl}.git${lineBreak}cd ./${repositoryBasename}`
 	);
 
 	return updated;
@@ -492,7 +673,7 @@ export function readmeShowsConvertedQuickStart(source: string, repository: strin
 	const [cloneLine, directoryLine] = matches[0]!.split(/\r?\n/);
 	return (
 		cloneLine === `git clone https://github.com/${repository}.git` &&
-		directoryLine === `cd ${repositoryBasename}`
+		(directoryLine === `cd ${repositoryBasename}` || directoryLine === `cd ./${repositoryBasename}`)
 	);
 }
 
@@ -589,9 +770,9 @@ async function main() {
 		'Project slug (lowercase, no spaces)',
 		oldSlug,
 		(value) =>
-			/^[a-z0-9-]+$/.test(value)
+			isValidWorkerSlug(value)
 				? undefined
-				: 'slug must match ^[a-z0-9-]+$ (lowercase letters, numbers, hyphens)'
+				: 'slug must match the 1-63 character worker name format (lowercase letters, numbers, inner hyphens)'
 	);
 
 	const repo = await resolveValue(repoFlag, 'GitHub repo (owner/name)', oldRepo, (value) =>
@@ -634,7 +815,7 @@ async function main() {
 		(value) =>
 			parseContactEmail(value)
 				? undefined
-				: `email must match user@domain.tld pattern, got: ${value}`
+				: `email must use the consumer-compatible user@domain.tld subset without URI separators or encoded localparts, got: ${value}`
 	);
 	const { user: emailUser, domain: emailDomain, tld: emailTld } = parseContactEmail(email)!;
 

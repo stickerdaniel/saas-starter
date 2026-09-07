@@ -4,6 +4,7 @@ import {
 	escapeMarkdownInline,
 	githubSlugProperty,
 	isValidGithubRepository,
+	isValidWorkerSlug,
 	parseContactEmail,
 	readmeShowsConvertedQuickStart,
 	replaceGithubSlugSource,
@@ -18,9 +19,12 @@ import {
 } from './template-setup';
 
 describe('template setup repository configuration', () => {
-	it.each(['owner/repo', 'owner-name/repo.name', 'Owner123/repo_name'])('accepts %s', (value) => {
-		expect(isValidGithubRepository(value)).toBe(true);
-	});
+	it.each(['owner/repo', 'owner-name/repo.name', 'Owner123/repo_name', `owner/${'r'.repeat(100)}`])(
+		'accepts %s',
+		(value) => {
+			expect(isValidGithubRepository(value)).toBe(true);
+		}
+	);
 
 	it.each([
 		'owner',
@@ -31,6 +35,7 @@ describe('template setup repository configuration', () => {
 		'owner--name/repo',
 		'owner/repository.git',
 		`${'a'.repeat(40)}/repo`,
+		`owner/${'r'.repeat(101)}`,
 		'/repo',
 		'owner/.',
 		'owner/..'
@@ -54,15 +59,54 @@ describe('template setup repository configuration', () => {
 		);
 	});
 
-	it('fails instead of replacing the wrong one of two occurrences', () => {
-		// Ein Beispiel im Doc-Kommentar steht vor dem echten Feld: der erste Treffer ist
-		// nicht der, der die Laufzeit steuert.
-		const source =
-			"export interface SiteConfig {\n\t/** Example: githubSlug: 'octocat/hello-world' */\n\tgithubSlug: `${string}/${string}`;\n}\n\nexport const SITE_CONFIG = {\n\tgithubSlug: 'old-owner/old-repo'\n};\n";
+	it('replaces only the direct property in the SITE_CONFIG initializer', () => {
+		const source = `// githubSlug: 'comment/line'
+export interface SiteConfig {
+	/** Example: githubSlug: 'comment/doc' */
+	githubSlug: \`${'${string}/${string}'}\`;
+}
 
-		expect(() => replaceGithubSlugSource(source, 'new-owner/new-repo')).toThrow(
-			/Expected exactly one githubSlug in src\/lib\/config\/site\.ts, found 2/
+const example = "githubSlug: 'string/example'";
+export const SITE_CONFIG = {
+	/*
+	 * githubSlug: 'comment/block'
+	 */
+	githubSlug: 'old-owner/old-repo', // githubSlug: 'comment/trailing'
+	structuredData: {}
+};
+`;
+
+		const updated = replaceGithubSlugSource(source, 'new-owner/new-repo');
+		expect(updated).toContain(
+			"githubSlug: 'new-owner/new-repo', // githubSlug: 'comment/trailing'"
 		);
+		expect(updated).toContain("githubSlug: 'comment/block'");
+		expect(updated).toContain("githubSlug: 'string/example'");
+	});
+
+	it('fails for duplicate or unsupported direct githubSlug properties', () => {
+		expect(() =>
+			replaceGithubSlugSource(
+				"export const SITE_CONFIG = { githubSlug: 'owner/one', githubSlug: 'owner/two' };",
+				'new-owner/new-repo'
+			)
+		).toThrow(/Expected exactly one direct githubSlug property/);
+		expect(() =>
+			replaceGithubSlugSource(
+				'export const SITE_CONFIG = { githubSlug: repository };',
+				'new-owner/new-repo'
+			)
+		).toThrow(/direct string literal/);
+	});
+});
+
+describe('template setup worker slug', () => {
+	it('accepts the 63-character boundary', () => {
+		expect(isValidWorkerSlug('n'.repeat(63))).toBe(true);
+	});
+
+	it.each(['-northwind', 'northwind-', 'n'.repeat(64)])('rejects %s', (value) => {
+		expect(isValidWorkerSlug(value)).toBe(false);
 	});
 });
 
@@ -117,8 +161,23 @@ describe('template setup config serialization', () => {
 		).toBe("{\n\tbrandName: 'Acme',\n\temail: {\n\t\tuser: 'a'\n\t},\n\tforkKey: 'kept'\n}");
 	});
 
-	it('rejects values it cannot represent instead of writing broken code', () => {
-		expect(() => serializeConfigValue({ list: [1, 2] }, '')).toThrow(/Unsupported LEGAL_CONFIG/);
+	it.each([
+		['array', [1, 2]],
+		['date', new Date('2026-09-06T00:00:00Z')],
+		['map', new Map([['key', 'value']])],
+		['set', new Set(['value'])],
+		['regular expression', /value/],
+		['class instance', new (class UnsupportedConfigValue {})()],
+		['null-prototype object', Object.assign(Object.create(null), { key: 'value' })],
+		['own __proto__ property', JSON.parse('{"__proto__":"value"}')]
+	])('rejects an unsupported %s instead of losing data', (_label, value) => {
+		expect(() => serializeConfigValue({ value }, '')).toThrow(/Unsupported LEGAL_CONFIG/);
+	});
+
+	it('keeps supported primitive values in ordinary data objects', () => {
+		expect(serializeConfigValue({ text: 'value', count: 2, enabled: false }, '')).toBe(
+			"{\n\ttext: 'value',\n\tcount: 2,\n\tenabled: false\n}"
+		);
 	});
 
 	const source = `export const LEGAL_CONFIG = {
@@ -184,7 +243,7 @@ Unrelated prose stays.
 		expect(updated.split('\n')[0]).toBe('# Northwind Labs');
 		expect(updated).not.toContain('Live demo!');
 		expect(updated).toContain(
-			'git clone https://github.com/northwind/northwind-labs.git\ncd northwind-labs\nbun install'
+			'git clone https://github.com/northwind/northwind-labs.git\ncd ./northwind-labs\nbun install'
 		);
 		expect(updated).not.toContain('gh repo create');
 		expect(updated).toContain('Unrelated prose stays.');
@@ -202,7 +261,7 @@ Unrelated prose stays.
 			githubUrl: 'https://github.com/northwind/northwind-cloud'
 		});
 		expect(renamed).toContain(
-			'git clone https://github.com/northwind/northwind-cloud.git\ncd northwind-cloud'
+			'git clone https://github.com/northwind/northwind-cloud.git\ncd ./northwind-cloud'
 		);
 		expect(renamed).not.toContain('northwind-labs');
 	});
@@ -229,8 +288,9 @@ Unrelated prose stays.
 		const updated = replaceReadmeSource(crlf, options);
 
 		expect(updated).toContain(
-			'git clone https://github.com/northwind/northwind-labs.git\r\ncd northwind-labs\r\n'
+			'git clone https://github.com/northwind/northwind-labs.git\r\ncd ./northwind-labs\r\n'
 		);
+		expect(updated).not.toContain('Live demo!');
 		expect(updated).not.toMatch(/[^\r]\n/);
 	});
 
@@ -251,15 +311,19 @@ describe('template setup detects the converted quick start', () => {
 	const bootstrap =
 		'# Title\n\n```bash\ngh repo create my-saas-product --template stickerdaniel/saas-starter --clone\ncd my-saas-product\nbun install\n```\n';
 	const converted =
-		'# Title\n\n```bash\ngit clone https://github.com/northwind/northwind-labs.git\ncd northwind-labs\nbun install\n```\n';
+		'# Title\n\n```bash\ngit clone https://github.com/northwind/northwind-labs.git\ncd ./northwind-labs\nbun install\n```\n';
+	const previouslyConverted = converted.replace('cd ./northwind-labs', 'cd northwind-labs');
 
 	it('treats the template bootstrap form as not set up', () => {
 		expect(readmeShowsConvertedQuickStart(bootstrap, 'stickerdaniel/saas-starter')).toBe(false);
 		expect(readmeShowsConvertedQuickStart(bootstrap, 'northwind/northwind-labs')).toBe(false);
 	});
 
-	it('accepts the converted block only for the repository it names', () => {
+	it('accepts both converted directory forms only for the repository they name', () => {
 		expect(readmeShowsConvertedQuickStart(converted, 'northwind/northwind-labs')).toBe(true);
+		expect(readmeShowsConvertedQuickStart(previouslyConverted, 'northwind/northwind-labs')).toBe(
+			true
+		);
 		expect(readmeShowsConvertedQuickStart(converted, 'someone/other-repo')).toBe(false);
 	});
 
@@ -289,6 +353,10 @@ describe('template setup contact email', () => {
 		{
 			value: 'first.last@example.co.uk',
 			parts: { user: 'first.last', domain: 'example', tld: 'co.uk' }
+		},
+		{
+			value: "jörg+o'connor@münchen.example",
+			parts: { user: "jörg+o'connor", domain: 'münchen', tld: 'example' }
 		}
 	])('splits $value into three parts', ({ value, parts }) => {
 		expect(parseContactEmail(value)).toEqual(parts);
@@ -303,6 +371,17 @@ describe('template setup contact email', () => {
 		'a@.de',
 		'a@example..de',
 		'a@example.',
+		'a@-example.de',
+		'a@example-.de',
+		`a@${'d'.repeat(64)}.de`,
+		`a@${['a'.repeat(63), 'b'.repeat(63), 'c'.repeat(63), 'd'.repeat(63)].join('.')}`,
+		'a?subject=changed@example.de',
+		'a#fragment@example.de',
+		'a/path@example.de',
+		'a%20name@example.de',
+		'a..b@example.de',
+		'.a@example.de',
+		'a.@example.de',
 		'@example.de',
 		'plain-text'
 	])('rejects %s', (value) => {

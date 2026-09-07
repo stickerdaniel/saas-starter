@@ -206,7 +206,7 @@ describe('template setup re-runs', () => {
 
 		const readme = readFileSync(join(dir, 'README.md'), 'utf-8');
 		expect(readme).toContain('git clone https://github.com/northwind/northwind-cloud.git');
-		expect(readme).toContain('cd northwind-cloud');
+		expect(readme).toContain('cd ./northwind-cloud');
 		expect(readme).not.toContain('northwind-labs');
 	});
 });
@@ -219,13 +219,40 @@ describe('template setup quick start', () => {
 		const readme = readFileSync(join(dir, 'README.md'), 'utf-8');
 		expect(readme.split('\n')[0]).toBe('# Northwind Labs');
 		expect(readme).toContain(
-			'```bash\ngit clone https://github.com/northwind/northwind-labs.git\ncd northwind-labs\nbun install\nbun run dev\n```'
+			'```bash\ngit clone https://github.com/northwind/northwind-labs.git\ncd ./northwind-labs\nbun install\nbun run dev\n```'
 		);
 		expect(readme).not.toContain('gh repo create');
 		expect(readme).not.toContain('my-saas-product');
 		expect(readme).not.toContain('Live demo!');
 		// Unverwandte Prosa bleibt erhalten.
 		expect(readme).toContain('## Why This Exists');
+	});
+
+	it('uses an option-safe directory for a repository basename starting with a hyphen', () => {
+		const dir = createFixture();
+		const run = runSetup(dir, [
+			'--slug',
+			'northwind-project',
+			'--repo',
+			'northwind/-project',
+			...IDENTITY
+		]);
+		expect(run.code, run.stderr).toBe(0);
+		expect(readFileSync(join(dir, 'README.md'), 'utf-8')).toContain(
+			'git clone https://github.com/northwind/-project.git\ncd ./-project\n'
+		);
+	});
+
+	it('removes the live demo from a fully CRLF-encoded README', () => {
+		const dir = createFixture();
+		const readme = join(dir, 'README.md');
+		writeFileSync(readme, readFileSync(readme, 'utf-8').replace(/\n/g, '\r\n'), 'utf-8');
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		const updated = readFileSync(readme, 'utf-8');
+		expect(updated).not.toContain('Live demo!');
+		expect(updated).not.toMatch(/[^\r]\n/);
 	});
 
 	it('keeps the root name in manifest and lockfile in sync', () => {
@@ -248,6 +275,33 @@ describe('template setup quick start', () => {
 	});
 });
 
+describe('template setup finds the runtime repository property', () => {
+	it('ignores comments, strings, and interface signatures around SITE_CONFIG', () => {
+		const dir = createFixture();
+		const site = join(dir, 'src/lib/config/site.ts');
+		writeFileSync(
+			site,
+			readFileSync(site, 'utf-8')
+				.replace(
+					'export interface SiteConfig {',
+					"// githubSlug: 'comment/line'\nconst example = \"githubSlug: 'string/example'\";\n\nexport interface SiteConfig {\n\t/** githubSlug: 'comment/doc' */"
+				)
+				.replace(
+					"\tgithubSlug: 'stickerdaniel/saas-starter',",
+					"\t/*\n\t * githubSlug: 'comment/block'\n\t */\n\tgithubSlug: 'stickerdaniel/saas-starter',"
+				),
+			'utf-8'
+		);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		const updated = readFileSync(site, 'utf-8');
+		expect(updated).toContain("githubSlug: 'northwind/northwind-labs'");
+		expect(updated).toContain("githubSlug: 'comment/block'");
+		expect(updated).toContain("githubSlug: 'string/example'");
+	});
+});
+
 describe('template setup rejects input before writing', () => {
 	it.each([
 		{
@@ -266,14 +320,34 @@ describe('template setup rejects input before writing', () => {
 			expected: /slug must match/
 		},
 		{
+			label: 'a leading slug hyphen in attached flag form',
+			args: ['--slug=-northwind', '--repo', 'northwind/northwind-labs', ...IDENTITY],
+			expected: /slug must match/
+		},
+		{
+			label: 'a trailing slug hyphen',
+			args: ['--slug', 'northwind-', '--repo', 'northwind/northwind-labs', ...IDENTITY],
+			expected: /slug must match/
+		},
+		{
+			label: 'a 64-character worker slug',
+			args: ['--slug', 'n'.repeat(64), '--repo', 'northwind/northwind-labs', ...IDENTITY],
+			expected: /slug must match/
+		},
+		{
 			label: 'an unsafe repository',
 			args: ['--slug', 'northwind-labs', '--repo', 'northwind/repo.git', ...IDENTITY],
 			expected: /repo must use a safe GitHub owner\/name format/
 		},
 		{
+			label: 'a 101-character repository name',
+			args: ['--slug', 'northwind-labs', '--repo', `northwind/${'r'.repeat(101)}`, ...IDENTITY],
+			expected: /repo must use a safe GitHub owner\/name format/
+		},
+		{
 			label: 'an invalid email',
 			args: [...REQUIRED, ...IDENTITY.slice(0, -1), 'kaputt'],
-			expected: /email must match user@domain\.tld pattern/
+			expected: /email must use the consumer-compatible user@domain\.tld subset/
 		},
 		{
 			label: 'missing required values without a TTY',
@@ -298,16 +372,21 @@ describe('template setup rejects input before writing', () => {
 			expected: /Could not find githubSlug/
 		},
 		{
-			// Gültige Datei mit einem zweiten Treffer: der erste steht im Doc-Kommentar und
-			// steuert die Laufzeit nicht. Stilles Ersetzen träfe den falschen Wert.
-			label: 'the site config carries a second githubSlug example',
+			label: 'the site config carries duplicate direct githubSlug properties',
 			file: 'src/lib/config/site.ts',
 			mutate: (source: string) =>
 				source.replace(
-					'export interface SiteConfig {',
-					"export interface SiteConfig {\n\t/** Example: githubSlug: 'octocat/hello-world' */"
+					"\tgithubSlug: 'stickerdaniel/saas-starter',",
+					"\tgithubSlug: 'stickerdaniel/saas-starter',\n\tgithubSlug: 'other/repository',"
 				),
-			expected: /Expected exactly one githubSlug in src\/lib\/config\/site\.ts, found 2/
+			expected: /Expected exactly one direct githubSlug property/
+		},
+		{
+			label: 'the site config uses a non-literal githubSlug value',
+			file: 'src/lib/config/site.ts',
+			mutate: (source: string) =>
+				source.replace("githubSlug: 'stickerdaniel/saas-starter'", 'githubSlug: repository'),
+			expected: /direct string literal/
 		},
 		{
 			label: 'the legal config lost its export block',
@@ -339,6 +418,43 @@ describe('template setup rejects input before writing', () => {
 		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
 		expect(run.code).toBe(1);
 		expect(run.stderr).toMatch(expected);
+		expect(snapshot(dir)).toEqual(before);
+	});
+
+	it.each([
+		['Date', (source: string) => source.replace('{\n', '{\n\tunsupported: new Date(0),\n')],
+		['Map', (source: string) => source.replace('{\n', '{\n\tunsupported: new Map(),\n')],
+		['Set', (source: string) => source.replace('{\n', '{\n\tunsupported: new Set(),\n')],
+		['RegExp', (source: string) => source.replace('{\n', '{\n\tunsupported: /value/,\n')],
+		[
+			'class instance',
+			(source: string) =>
+				`class UnsupportedConfigValue {}\n${source.replace(
+					'{\n',
+					'{\n\tunsupported: new UnsupportedConfigValue(),\n'
+				)}`
+		],
+		[
+			'null-prototype object',
+			(source: string) =>
+				source.replace(
+					'{\n',
+					"{\n\tunsupported: Object.assign(Object.create(null), { value: 'kept' }),\n"
+				)
+		],
+		[
+			'own __proto__ data property',
+			(source: string) => source.replace('{\n', "{\n\t['__proto__']: 'kept',\n")
+		]
+	])('rejects an imported %s before normalization or writes', (_label, mutate) => {
+		const dir = createFixture();
+		const legal = join(dir, 'src/lib/config/legal.ts');
+		writeFileSync(legal, mutate(readFileSync(legal, 'utf-8')), 'utf-8');
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/Unsupported LEGAL_CONFIG/);
 		expect(snapshot(dir)).toEqual(before);
 	});
 });
@@ -403,6 +519,22 @@ describe('template setup recognizes a genuinely set up project', () => {
 		expect(rerun.code, rerun.stderr).toBe(0);
 		expect(rerun.stderr).not.toMatch(/Missing:/);
 		expect(snapshot(dir)).toEqual(afterFirst);
+	});
+
+	it('recognizes the previous bare cd form on a re-run', () => {
+		const dir = createFixture();
+		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
+		const readme = join(dir, 'README.md');
+		writeFileSync(
+			readme,
+			readFileSync(readme, 'utf-8').replace('cd ./northwind-labs', 'cd northwind-labs'),
+			'utf-8'
+		);
+
+		const rerun = runSetup(dir, []);
+		expect(rerun.code, rerun.stderr).toBe(0);
+		expect(rerun.stderr).not.toMatch(/Missing:/);
+		expect(readFileSync(readme, 'utf-8')).toContain('cd ./northwind-labs');
 	});
 
 	it('leaves a CRLF README byte-identical on a re-run', () => {
@@ -492,18 +624,42 @@ describe('template setup keeps prose values on one line', () => {
 });
 
 describe('template setup contact email end to end', () => {
-	it.each(['a@b@c.de', 'erste person@example.de', 'a@ex ample.de', 'a@example..de'])(
-		'rejects %s before writing',
-		(value) => {
-			const dir = createFixture();
-			const before = snapshot(dir);
+	it.each([
+		'a@b@c.de',
+		'erste person@example.de',
+		'a@ex ample.de',
+		'a@example..de',
+		'a?subject=changed@example.de',
+		'a#fragment@example.de',
+		'a/path@example.de',
+		'a%20name@example.de',
+		'a@-example.de',
+		'a@example-.de',
+		`a@${'d'.repeat(64)}.de`
+	])('rejects %s before writing', (value) => {
+		const dir = createFixture();
+		const before = snapshot(dir);
 
-			const run = runSetup(dir, [...REQUIRED, ...IDENTITY.slice(0, 6), '--email', value]);
-			expect(run.code).toBe(1);
-			expect(run.stderr).toMatch(/email must match user@domain\.tld pattern/);
-			expect(snapshot(dir)).toEqual(before);
-		}
-	);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY.slice(0, 6), '--email', value]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/email must use the consumer-compatible user@domain\.tld subset/);
+		expect(snapshot(dir)).toEqual(before);
+	});
+
+	it('keeps plus, apostrophe, and Unicode in the supported subset', () => {
+		const dir = createFixture();
+		const email = "jörg+o'connor@münchen.example";
+		expect(runSetup(dir, [...REQUIRED, ...IDENTITY.slice(0, 6), '--email', email]).code).toBe(0);
+
+		const imported = importLegalConfig(dir);
+		expect(imported.code, imported.stderr).toBe(0);
+		expect(imported.value?.config.email).toEqual({
+			user: "jörg+o'connor",
+			domain: 'münchen',
+			tld: 'example'
+		});
+		expect(imported.value?.mailto).toBe(email);
+	});
 
 	it('keeps a subdomain address split into three parts', () => {
 		const dir = createFixture();
