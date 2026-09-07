@@ -248,6 +248,59 @@ describe('ChatAttachmentStore', () => {
 		]);
 	});
 
+	it('restores a sent snapshot before later attachments without touching other threads', () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-08-01T08:00:00Z'));
+		const store = new ChatAttachmentStore(surface);
+		const first = uploaded({ key: 'upload-a', name: 'a.txt', url: 'https://files.example/a' });
+		const second = uploaded({ key: 'upload-b', name: 'b.txt', url: 'https://files.example/b' });
+		const later = uploaded({ key: 'upload-c', name: 'c.txt', url: 'https://files.example/c' });
+		const other = uploaded({ key: 'upload-other', url: 'https://files.example/other' });
+		store.write(
+			new Map([
+				['thread-1', [first, second]],
+				['thread-2', [other]]
+			])
+		);
+		const savedAt = (written() as Record<string, Array<{ savedAt: number }>>)['thread-1']?.[0]
+			?.savedAt;
+		store.write(new Map([['thread-1', [later]]]));
+
+		vi.setSystemTime(new Date('2026-08-01T09:00:00Z'));
+		store.restoreThreadAttachments('thread-1', [first, second]);
+
+		expect(
+			store
+				.readThread('thread-1')
+				.map((attachment) => ('key' in attachment ? attachment.key : undefined))
+		).toEqual(['upload-a', 'upload-b', 'upload-c']);
+		expect(
+			store
+				.readThread('thread-2')
+				.map((attachment) => ('key' in attachment ? attachment.key : undefined))
+		).toEqual(['upload-other']);
+		expect(
+			(written() as Record<string, Array<{ savedAt: number }>>)['thread-1']
+				?.slice(0, 2)
+				.map((attachment) => attachment.savedAt)
+		).toEqual([savedAt, savedAt]);
+	});
+
+	it('deduplicates restored attachments by transfer identity and omits dead previews', () => {
+		const store = new ChatAttachmentStore(surface);
+		const snapshot = uploaded({
+			key: 'upload-a',
+			preview: 'blob:https://chat.test/dead-preview'
+		});
+		store.write(new Map([['thread-1', [snapshot]]]));
+
+		store.restoreThreadAttachments('thread-1', [snapshot, snapshot]);
+
+		const restored = store.readThread('thread-1');
+		expect(restored).toEqual([expect.objectContaining({ key: 'upload-a' })]);
+		expect(restored[0]).not.toHaveProperty('preview');
+	});
+
 	it('does not rewrite storage when nothing changed', () => {
 		const store = new ChatAttachmentStore(surface);
 		store.write(new Map([['thread-1', [uploaded()]]]));

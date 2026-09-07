@@ -202,31 +202,18 @@
 	async function handleSend() {
 		if (!canSend) return;
 		haptic.trigger('medium');
-		const prompt = ctx.inputValue.trim();
-		const prevAttachments = [...ctx.attachments];
-		ctx.clearInput();
+		const snapshot = ctx.captureSendSnapshot();
+		const prompt = snapshot.inputValue.trim();
+		ctx.clearInputForSend(snapshot);
 		try {
-			// Invoke onSend before clearAttachments so consumers can still read
-			// ctx.attachments synchronously in their onSend prefix.
+			// Invoke onSend before clearing attachments so existing consumers can
+			// capture their exact transport payload synchronously.
 			const sendPromise = onSend?.(prompt);
-			ctx.clearAttachments();
+			ctx.clearAttachmentsForSend(snapshot);
 			await sendPromise;
 		} catch (error) {
 			console.error('[ChatInput] onSend failed:', error);
-			// Rollback so a failed send does not silently eat the message.
-			// Consumers that handle errors themselves (toasts, rate limits)
-			// rethrow so this restore still runs. Skip restore if the user
-			// already typed or attached something new in the meantime.
-			if (!ctx.inputValue.trim()) ctx.setInputValue(prompt);
-			if (ctx.attachments.length === 0) {
-				// clearAttachments revoked blob: previews; strip them so the
-				// thumbnail falls back to the uploaded url, not a dead blob.
-				ctx.addAttachments(
-					prevAttachments.map((a) =>
-						'preview' in a && a.preview?.startsWith('blob:') ? { ...a, preview: undefined } : a
-					)
-				);
-			}
+			ctx.restoreSendSnapshot(snapshot);
 		}
 	}
 

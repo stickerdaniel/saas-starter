@@ -100,6 +100,16 @@ export interface ActiveUploadsRegistry {
 	release(owner: object): void;
 }
 
+export type ChatSendSnapshot = {
+	threadId: string | null;
+	threadGeneration: number;
+	wasNewConversation: boolean;
+	inputValue: string;
+	inputRevision: number;
+	inputClearedRevision?: number;
+	attachments: Attachment[];
+};
+
 /**
  * Chat UI Context class
  *
@@ -138,6 +148,7 @@ export class ChatUIContext {
 
 	/** Current input value */
 	inputValue = $state('');
+	private inputRevision = 0;
 
 	/** Attachments for current message. Each entry's `key` is the stable id
 	 * used by upload methods to apply progress/success/error updates by value
@@ -198,6 +209,8 @@ export class ChatUIContext {
 
 	/** Last known thread ID for detecting navigation */
 	private _lastThreadId: string | null | undefined = undefined;
+	/** The real thread assigned to the current new-conversation generation. */
+	private resolvedNewConversation?: { threadId: string; generation: number };
 
 	/**
 	 * Whether the surface this belongs to is gone.
@@ -362,6 +375,12 @@ export class ChatUIContext {
 			this.adoptParked(currentThreadId);
 		} else if (currentThreadId !== this._lastThreadId) {
 			if (this._lastThreadId === null) {
+				if (currentThreadId && untrack(() => this.core.isNewConversation)) {
+					this.resolvedNewConversation = {
+						threadId: currentThreadId,
+						generation: untrack(() => this.core.threadGeneration)
+					};
+				}
 				// The conversation with no id is this thread now, and what its
 				// composer holds comes along in the live list. Its own leavings may
 				// not stay behind under the empty key: sending would clear this
@@ -422,14 +441,39 @@ export class ChatUIContext {
 	 * Set input value
 	 */
 	setInputValue(value: string): void {
+		if (this.inputValue === value) return;
 		this.inputValue = value;
+		this.inputRevision++;
 	}
 
 	/**
 	 * Clear input
 	 */
 	clearInput(): void {
-		this.inputValue = '';
+		this.setInputValue('');
+	}
+
+	captureSendSnapshot(): ChatSendSnapshot {
+		return {
+			threadId: untrack(() => this.core.threadId),
+			threadGeneration: untrack(() => this.core.threadGeneration),
+			wasNewConversation: untrack(() => this.core.isNewConversation),
+			inputValue: this.inputValue,
+			inputRevision: this.inputRevision,
+			attachments: this.attachments.map((attachment) =>
+				(attachment.type === 'file' || attachment.type === 'screenshot') && attachment.uploadState
+					? { ...attachment, uploadState: { ...attachment.uploadState } }
+					: { ...attachment }
+			)
+		};
+	}
+
+	clearInputForSend(snapshot: ChatSendSnapshot): void {
+		if (this.inputRevision !== snapshot.inputRevision || this.inputValue !== snapshot.inputValue) {
+			return;
+		}
+		this.clearInput();
+		snapshot.inputClearedRevision = this.inputRevision;
 	}
 
 	/**
@@ -559,6 +603,124 @@ export class ChatUIContext {
 		}
 		this.attachments = [];
 		this.persist();
+	}
+
+	clearAttachmentsForSend(snapshot: ChatSendSnapshot): void {
+		// Counts preserve exact multiplicity for legacy unkeyed attachments while
+		// keyed uploads use their transfer identity.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const remaining = new Map<string, number>();
+		for (const attachment of snapshot.attachments) {
+			const identity = ChatUIContext.attachmentIdentity(attachment);
+			remaining.set(identity, (remaining.get(identity) ?? 0) + 1);
+		}
+
+		const kept: Attachment[] = [];
+		for (const attachment of this.attachments) {
+			const identity = ChatUIContext.attachmentIdentity(attachment);
+			const count = remaining.get(identity) ?? 0;
+			if (count === 0) {
+				kept.push(attachment);
+				continue;
+			}
+			remaining.set(identity, count - 1);
+			this.releaseUpload(attachment);
+			this.revokePreview(attachment);
+		}
+		this.attachments = kept;
+		this.persist();
+	}
+
+	restoreSendSnapshot(snapshot: ChatSendSnapshot): void {
+		const sameConversation = this.isSnapshotConversationCurrent(snapshot);
+		const originThreadId = this.snapshotOriginThreadId(snapshot, sameConversation);
+
+		if (this.disposed || !sameConversation) {
+			this.uploadConfig?.attachmentStore?.restoreThreadAttachments(
+				originThreadId,
+				snapshot.attachments
+			);
+			return;
+		}
+
+		if (
+			snapshot.inputClearedRevision !== undefined &&
+			this.inputRevision === snapshot.inputClearedRevision &&
+			this.inputValue === ''
+		) {
+			this.setInputValue(snapshot.inputValue);
+		}
+		this.attachments = ChatUIContext.mergeSnapshotAttachments(
+			snapshot.attachments,
+			this.attachments
+		);
+		this.persist();
+	}
+
+	private snapshotOriginThreadId(
+		snapshot: ChatSendSnapshot,
+		sameConversation: boolean
+	): string | null {
+		if (snapshot.threadId !== null) return snapshot.threadId;
+		const resolved = this.resolvedNewConversation;
+		if (snapshot.wasNewConversation && resolved?.generation === snapshot.threadGeneration) {
+			return resolved.threadId;
+		}
+		return sameConversation ? untrack(() => this.core.threadId) : null;
+	}
+
+	private isSnapshotConversationCurrent(snapshot: ChatSendSnapshot): boolean {
+		const currentThreadId = untrack(() => this.core.threadId);
+		if (currentThreadId === snapshot.threadId) return true;
+		return (
+			snapshot.threadId === null &&
+			currentThreadId !== null &&
+			snapshot.wasNewConversation &&
+			untrack(() => this.core.isNewConversation) &&
+			untrack(() => this.core.threadGeneration) === snapshot.threadGeneration
+		);
+	}
+
+	private static mergeSnapshotAttachments(
+		snapshot: Attachment[],
+		current: Attachment[]
+	): Attachment[] {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const currentByIdentity = new Map(
+			current.map((attachment) => [ChatUIContext.attachmentIdentity(attachment), attachment])
+		);
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const included = new Set<string>();
+		const merged: Attachment[] = [];
+		for (const attachment of snapshot) {
+			const identity = ChatUIContext.attachmentIdentity(attachment);
+			if (included.has(identity)) continue;
+			included.add(identity);
+			merged.push(
+				currentByIdentity.get(identity) ?? ChatUIContext.withoutRevokedPreview(attachment)
+			);
+		}
+		for (const attachment of current) {
+			const identity = ChatUIContext.attachmentIdentity(attachment);
+			if (included.has(identity)) continue;
+			included.add(identity);
+			merged.push(attachment);
+		}
+		return merged;
+	}
+
+	private static withoutRevokedPreview(attachment: Attachment): Attachment {
+		return 'preview' in attachment && attachment.preview?.startsWith('blob:')
+			? { ...attachment, preview: undefined }
+			: attachment;
+	}
+
+	private static attachmentIdentity(attachment: Attachment): string {
+		if ('key' in attachment && attachment.key) return `transfer:${attachment.key}`;
+		if (attachment.type === 'file' || attachment.type === 'screenshot') {
+			return `upload:${attachment.type}:${attachment.name}:${attachment.size}:${attachment.mimeType}:${attachment.url ?? ''}:${attachment.uploadState?.fileId ?? ''}`;
+		}
+		return `${attachment.type}:${attachment.url}:${attachment.filename ?? ''}`;
 	}
 
 	/**

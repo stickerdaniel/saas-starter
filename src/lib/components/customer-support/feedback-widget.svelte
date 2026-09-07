@@ -368,24 +368,18 @@
 						// In handed-off mode, allow fire-and-forget like admin view
 						if (!isHumanOnly && chatUIContext.isProcessing) return;
 
+						const originThreadId = threadContext.threadId;
+						const draftCheckpoint = threadContext.captureDraftCheckpoint(originThreadId);
+						const fileIds = chatUIContext.uploadedFileIds;
+						const attachments = [...chatUIContext.attachments];
 						try {
-							await threadContext.sendMessage(client, prompt, {
-								fileIds: chatUIContext.uploadedFileIds,
-								attachments: chatUIContext.attachments
+							const result = await threadContext.sendMessage(client, prompt, {
+								fileIds,
+								attachments
 							});
-							// The composer clears these itself, synchronously, before this
-							// await can yield. Clearing them again here reaches only what
-							// was attached afterwards, which a human-only thread invites:
-							// nothing blocks the composer while a send is in flight, so a
-							// second screenshot picked meanwhile would vanish.
-							// Clear draft after successful send
-							threadContext.clearDraft(threadContext.threadId);
+							threadContext.clearDraftIfUnchanged(draftCheckpoint, result.threadId);
 						} catch (error) {
 							console.error('[handleSend] Error:', error);
-
-							// Restore the cleared input so the visitor's message is not
-							// lost, unless they already started typing again
-							if (!chatUIContext.inputValue.trim()) chatUIContext.setInputValue(prompt);
 
 							// Handle rate limit errors with user-friendly toast
 							if (error instanceof ConvexError) {
@@ -405,9 +399,7 @@
 								toast.error($t('support.widget.error.send_failed'));
 							}
 
-							// Rethrow so ChatInput's rollback restores the attachments.
-							// Its input-restore guard sees the value set above and skips
-							// the double restore.
+							// Rethrow so ChatInput restores its captured composer state.
 							throw error;
 						}
 					}}

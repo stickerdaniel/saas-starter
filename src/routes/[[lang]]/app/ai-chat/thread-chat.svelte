@@ -192,14 +192,14 @@
 				isRateLimited={!hasMessagesAvailable}
 				onSend={async (prompt) => {
 					if (!hasMessagesAvailable || !prompt?.trim()) return;
+					const originThreadId = threadId;
+					const draftCheckpoint = draftManager.captureCheckpoint(originThreadId);
+					const fileIds = chatUIContext.uploadedFileIds;
+					const attachments = [...chatUIContext.attachments];
 					sending = true;
 					try {
-						await chatCore.sendMessage(client, prompt, {
-							fileIds: chatUIContext.uploadedFileIds,
-							attachments: chatUIContext.attachments
-						});
-						chatUIContext.clearAttachments();
-						draftManager.clearDraft(threadId);
+						await chatCore.sendMessage(client, prompt, { fileIds, attachments });
+						draftManager.clearDraftIfUnchanged(draftCheckpoint);
 						onMessageSent?.();
 					} catch (error) {
 						console.error('[AI Chat sendMessage] Error:', error);

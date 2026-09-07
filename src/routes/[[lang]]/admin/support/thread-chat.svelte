@@ -99,6 +99,7 @@
 	let sending = $state(false);
 
 	// Load saved draft on mount (threadId is constant per {#key} instance)
+	// svelte-ignore state_referenced_locally
 	if (draftManager) {
 		const draft = draftManager.getDraft(threadId);
 		if (draft) chatUIContext.setInputValue(draft);
@@ -372,13 +373,15 @@
 			onSend={async (prompt) => {
 				if (!prompt?.trim()) return;
 
+				const originThreadId = threadId;
+				const draftCheckpoint = draftManager?.captureCheckpoint(originThreadId);
 				// Get uploaded file IDs and attachments from context
 				const fileIds = chatUIContext.uploadedFileIds;
-				const attachments = chatUIContext.attachments;
+				const attachments = [...chatUIContext.attachments];
 
 				// Build query args for optimistic update (must match ChatRoot's query)
 				const queryArgs: ListMessagesArgs = {
-					threadId,
+					threadId: originThreadId,
 					paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
 					streamArgs: { kind: 'list' as const, startOrder: 0 }
 				};
@@ -389,7 +392,7 @@
 					await client.mutation(
 						api.admin.support.mutations.sendAdminReply,
 						{
-							threadId,
+							threadId: originThreadId,
 							prompt,
 							fileIds: fileIds.length > 0 ? fileIds : undefined
 						},
@@ -407,9 +410,7 @@
 						}
 					);
 
-					// Clear attachments and draft after successful send
-					chatUIContext.clearAttachments();
-					draftManager?.clearDraft(threadId);
+					if (draftCheckpoint) draftManager?.clearDraftIfUnchanged(draftCheckpoint);
 				} catch (error) {
 					console.error('[Admin sendAdminReply] Error:', error);
 					toast.error($t('admin.support.chat.send_error'));

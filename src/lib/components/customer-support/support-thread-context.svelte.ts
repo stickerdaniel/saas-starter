@@ -1,5 +1,8 @@
 import { Context } from 'runed';
-import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
+import {
+	ChatDraftManager,
+	type ChatDraftCheckpoint
+} from '$lib/chat/core/chat-draft-manager.svelte.ts';
 import type { ConvexClient } from 'convex/browser';
 import { api } from '$lib/convex/_generated/api';
 import type { Attachment } from '$lib/chat';
@@ -83,6 +86,17 @@ export class SupportThreadContext {
 
 	clearDraft(threadId: string | null): void {
 		this.draftManager.clearDraft(threadId);
+	}
+
+	captureDraftCheckpoint(threadId: string | null): ChatDraftCheckpoint {
+		return this.draftManager.captureCheckpoint(threadId);
+	}
+
+	clearDraftIfUnchanged(
+		checkpoint: ChatDraftCheckpoint,
+		threadId: string | null = checkpoint.threadId
+	): boolean {
+		return this.draftManager.clearDraftIfUnchanged(checkpoint, threadId);
 	}
 
 	/**
