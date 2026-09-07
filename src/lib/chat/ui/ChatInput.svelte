@@ -24,6 +24,7 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { getChatUIContext } from './chat-context.svelte.ts';
 	import { processImage } from '$lib/media/process-image';
+	import { isChatSessionCurrent } from '../core/chat-persisted-state.ts';
 	import {
 		ALLOWED_FILE_EXT_MIME,
 		ALLOWED_FILE_EXTENSIONS,
@@ -212,6 +213,7 @@
 			ctx.clearAttachmentsForSend(snapshot);
 			await sendPromise;
 		} catch (error) {
+			if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
 			console.error('[ChatInput] onSend failed:', error);
 			ctx.restoreSendSnapshot(snapshot);
 		}

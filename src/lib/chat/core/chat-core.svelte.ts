@@ -16,6 +16,7 @@ import type {
 import { DEFAULT_CHAT_CONFIG } from './types.js';
 import { StreamCacheManager } from './stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from './optimistic.js';
+import { getChatSessionEpoch, isChatSessionCurrent } from './chat-persisted-state.js';
 
 /**
  * Result from creating a thread
@@ -88,6 +89,7 @@ export class ChatCore {
 	// Configuration
 	private readonly api: ChatCoreAPI;
 	private readonly config: Required<ChatConfig>;
+	private sendRevision = 0;
 
 	constructor(options: ChatCoreOptions) {
 		this.threadId = options.threadId ?? null;
@@ -191,6 +193,8 @@ export class ChatCore {
 			throw new Error('Cannot send message: validation failed');
 		}
 
+		const sessionEpoch = getChatSessionEpoch();
+		const sendRevision = ++this.sendRevision;
 		this.setSending(true);
 		this.setAwaitingStream(true);
 
@@ -209,6 +213,7 @@ export class ChatCore {
 					this.api.createThread,
 					options?.createThreadOptions ?? {}
 				)) as CreateThreadResult;
+				if (!isChatSessionCurrent(sessionEpoch)) throw new Error('Chat session ended');
 
 				threadId = result.threadId;
 				threadCreated = result;
@@ -247,6 +252,7 @@ export class ChatCore {
 				},
 				mutationOptions
 			);
+			if (!isChatSessionCurrent(sessionEpoch)) return { ...result, threadCreated };
 
 			// Request widget to open if requested
 			if (options?.openWidgetAfter) {
@@ -255,13 +261,17 @@ export class ChatCore {
 
 			return { ...result, threadCreated };
 		} catch (error) {
-			console.error('[ChatCore.sendMessage] Failed to send message:', error);
-			this.setError('Failed to send message. Please try again.');
-			this.setAwaitingStream(false);
+			if (isChatSessionCurrent(sessionEpoch)) {
+				console.error('[ChatCore.sendMessage] Failed to send message:', error);
+				this.setError('Failed to send message. Please try again.');
+				this.setAwaitingStream(false);
+			}
 			// Optimistic update automatically rolled back on failure
 			throw error;
 		} finally {
-			this.setSending(false);
+			if (isChatSessionCurrent(sessionEpoch) && this.sendRevision === sendRevision) {
+				this.setSending(false);
+			}
 		}
 	}
 
@@ -295,6 +305,15 @@ export class ChatCore {
 		} finally {
 			this.setLoading(false);
 		}
+	}
+
+	/** Reset session-owned flags without changing the selected thread. */
+	forgetChatSession(): void {
+		this.sendRevision++;
+		this.isSending = false;
+		this.isAwaitingStream = false;
+		this.error = null;
+		this.shouldOpenWidget = false;
 	}
 
 	/**

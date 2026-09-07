@@ -1,7 +1,10 @@
 import { PersistedState } from 'runed';
 import * as v from 'valibot';
 import type { Attachment } from './types.js';
-import { ATTACHMENT_STORAGE_PREFIX } from './chat-persisted-state.js';
+import {
+	ATTACHMENT_STORAGE_PREFIX,
+	reconcilePersistedChatAttachments
+} from './chat-persisted-state.js';
 
 /**
  * How long a stored attachment is offered back.
@@ -119,6 +122,7 @@ function fromStored(stored: StoredAttachment): Attachment {
  * in storage once its upload finished.
  */
 export class ChatAttachmentStore {
+	readonly namespace: string;
 	private readonly stored: PersistedState<StoredRecord>;
 
 	/**
@@ -152,7 +156,8 @@ export class ChatAttachmentStore {
 	 * is added here so no caller can spell it differently.
 	 */
 	constructor(surface: string) {
-		this.stored = new PersistedState<StoredRecord>(`${ATTACHMENT_STORAGE_PREFIX}${surface}`, {});
+		this.namespace = `${ATTACHMENT_STORAGE_PREFIX}${surface}`;
+		this.stored = new PersistedState<StoredRecord>(this.namespace, {});
 	}
 
 	/** Everything still on offer, anything too old already dropped. */
@@ -255,8 +260,15 @@ export class ChatAttachmentStore {
 		const next = { ...previous };
 		if (alive.length > 0) next[key] = alive;
 		else delete next[key];
-		if (JSON.stringify(next) === JSON.stringify(previous)) return;
-		this.stored.current = next;
+		try {
+			if (JSON.stringify(next) !== JSON.stringify(previous)) this.stored.current = next;
+		} finally {
+			reconcilePersistedChatAttachments(
+				this.namespace,
+				threadId,
+				alive.map((item) => this.revive(item))
+			);
+		}
 	}
 
 	/** Drop what the vacuum may already have collected. */

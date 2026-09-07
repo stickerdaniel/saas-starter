@@ -16,7 +16,11 @@ import type {
 	AttachmentsByThread,
 	ChatAttachmentStore
 } from '../core/chat-attachment-store.svelte.ts';
-import { registerPersistedChatHolder } from '../core/chat-persisted-state.ts';
+import {
+	getChatSessionEpoch,
+	isChatSessionCurrent,
+	registerPersistedChatHolder
+} from '../core/chat-persisted-state.ts';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
 
 /**
@@ -100,10 +104,14 @@ export interface ActiveUploadsRegistry {
 	release(owner: object): void;
 }
 
-export type ChatSendSnapshot = {
+type ChatConversationOrigin = {
+	generation: number;
 	threadId: string | null;
-	threadGeneration: number;
-	wasNewConversation: boolean;
+};
+
+export type ChatSendSnapshot = {
+	sessionEpoch: number;
+	origin: ChatConversationOrigin;
 	inputValue: string;
 	inputRevision: number;
 	inputClearedRevision?: number;
@@ -209,8 +217,8 @@ export class ChatUIContext {
 
 	/** Last known thread ID for detecting navigation */
 	private _lastThreadId: string | null | undefined = undefined;
-	/** The real thread assigned to the current new-conversation generation. */
-	private resolvedNewConversation?: { threadId: string; generation: number };
+	/** Identity object shared with snapshots from the current conversation. */
+	private conversationOrigin: ChatConversationOrigin;
 
 	/**
 	 * Whether the surface this belongs to is gone.
@@ -233,6 +241,20 @@ export class ChatUIContext {
 		this.uploadConfig = uploadConfig;
 		this.userAlignment = userAlignment;
 		this.activeUploads = activeUploads;
+		this.conversationOrigin = {
+			generation: untrack(() => core.threadGeneration),
+			threadId: untrack(() => core.threadId)
+		};
+		const originOwner = core as ChatCore & {
+			setThreadOriginBinder?: (
+				binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
+			) => void;
+		};
+		originOwner.setThreadOriginBinder?.((threadId, epoch, generation) => {
+			if (!isChatSessionCurrent(epoch)) return;
+			const origin = this.syncConversationOrigin();
+			if (origin.generation === generation && origin.threadId === null) origin.threadId = threadId;
+		});
 
 		// Composers a reload took away arrive parked, under the thread they were
 		// left in. From here on nothing knows the difference between one that came
@@ -260,6 +282,12 @@ export class ChatUIContext {
 	 * still mounted on whatever page the user lands on after signing out.
 	 */
 	forgetPersistedState(): void {
+		const resettableCore = this.core as ChatCore & { forgetChatSession?: () => void };
+		resettableCore.forgetChatSession?.();
+		this.conversationOrigin = {
+			generation: untrack(() => this.core.threadGeneration),
+			threadId: untrack(() => this.core.threadId)
+		};
 		const abandoned = [...this.parked.keys()];
 		for (const attachments of this.parked.values()) {
 			for (const attachment of attachments) {
@@ -271,7 +299,7 @@ export class ChatUIContext {
 		// A transfer still running belongs to an identity that is gone, so it is
 		// stopped here for the same reason sign-out does not wait for one.
 		this.clearAttachments();
-		this.inputValue = '';
+		this.setInputValue('');
 		// Named so they are struck from storage rather than merely dropped here.
 		// The sweep empties the whole key anyway; doing it from this side too
 		// means letting go stays complete on its own terms.
@@ -365,6 +393,7 @@ export class ChatUIContext {
 	setDisplayMessages(messages: DisplayMessage[]): void {
 		// Detect thread navigation (reset when changing between existing threads)
 		const currentThreadId = untrack(() => this.core.threadId);
+		this.syncConversationOrigin();
 
 		// Reset only on actual navigation between threads
 		// NOT on null → threadId (thread creation) or during brief empty states
@@ -375,12 +404,6 @@ export class ChatUIContext {
 			this.adoptParked(currentThreadId);
 		} else if (currentThreadId !== this._lastThreadId) {
 			if (this._lastThreadId === null) {
-				if (currentThreadId && untrack(() => this.core.isNewConversation)) {
-					this.resolvedNewConversation = {
-						threadId: currentThreadId,
-						generation: untrack(() => this.core.threadGeneration)
-					};
-				}
 				// The conversation with no id is this thread now, and what its
 				// composer holds comes along in the live list. Its own leavings may
 				// not stay behind under the empty key: sending would clear this
@@ -455,9 +478,8 @@ export class ChatUIContext {
 
 	captureSendSnapshot(): ChatSendSnapshot {
 		return {
-			threadId: untrack(() => this.core.threadId),
-			threadGeneration: untrack(() => this.core.threadGeneration),
-			wasNewConversation: untrack(() => this.core.isNewConversation),
+			sessionEpoch: getChatSessionEpoch(),
+			origin: this.syncConversationOrigin(),
 			inputValue: this.inputValue,
 			inputRevision: this.inputRevision,
 			attachments: this.attachments.map((attachment) =>
@@ -468,8 +490,28 @@ export class ChatUIContext {
 		};
 	}
 
+	private syncConversationOrigin(): ChatConversationOrigin {
+		const generation = untrack(() => this.core.threadGeneration);
+		const threadId = untrack(() => this.core.threadId);
+		if (this.conversationOrigin.generation !== generation) {
+			this.conversationOrigin = { generation, threadId };
+		} else if (this.conversationOrigin.threadId !== threadId) {
+			const assignedCurrentConversation =
+				this.conversationOrigin.threadId === null &&
+				threadId !== null &&
+				untrack(() => this.core.isNewConversation);
+			if (assignedCurrentConversation) this.conversationOrigin.threadId = threadId;
+			else this.conversationOrigin = { generation, threadId };
+		}
+		return this.conversationOrigin;
+	}
+
 	clearInputForSend(snapshot: ChatSendSnapshot): void {
-		if (this.inputRevision !== snapshot.inputRevision || this.inputValue !== snapshot.inputValue) {
+		if (
+			!isChatSessionCurrent(snapshot.sessionEpoch) ||
+			this.inputRevision !== snapshot.inputRevision ||
+			this.inputValue !== snapshot.inputValue
+		) {
 			return;
 		}
 		this.clearInput();
@@ -606,6 +648,7 @@ export class ChatUIContext {
 	}
 
 	clearAttachmentsForSend(snapshot: ChatSendSnapshot): void {
+		if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
 		// Counts preserve exact multiplicity for legacy unkeyed attachments while
 		// keyed uploads use their transfer identity.
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
@@ -632,14 +675,16 @@ export class ChatUIContext {
 	}
 
 	restoreSendSnapshot(snapshot: ChatSendSnapshot): void {
-		const sameConversation = this.isSnapshotConversationCurrent(snapshot);
-		const originThreadId = this.snapshotOriginThreadId(snapshot, sameConversation);
+		if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
+		const sameConversation = this.syncConversationOrigin() === snapshot.origin;
 
 		if (this.disposed || !sameConversation) {
-			this.uploadConfig?.attachmentStore?.restoreThreadAttachments(
-				originThreadId,
-				snapshot.attachments
-			);
+			if (snapshot.origin.threadId !== null) {
+				this.uploadConfig?.attachmentStore?.restoreThreadAttachments(
+					snapshot.origin.threadId,
+					snapshot.attachments
+				);
+			}
 			return;
 		}
 
@@ -657,28 +702,19 @@ export class ChatUIContext {
 		this.persist();
 	}
 
-	private snapshotOriginThreadId(
-		snapshot: ChatSendSnapshot,
-		sameConversation: boolean
-	): string | null {
-		if (snapshot.threadId !== null) return snapshot.threadId;
-		const resolved = this.resolvedNewConversation;
-		if (snapshot.wasNewConversation && resolved?.generation === snapshot.threadGeneration) {
-			return resolved.threadId;
+	reconcilePersistedAttachments(
+		namespace: string,
+		threadId: string | null,
+		attachments: Attachment[]
+	): void {
+		if (
+			this.disposed ||
+			this.uploadConfig?.attachmentStore?.namespace !== namespace ||
+			untrack(() => this.core.threadId) !== threadId
+		) {
+			return;
 		}
-		return sameConversation ? untrack(() => this.core.threadId) : null;
-	}
-
-	private isSnapshotConversationCurrent(snapshot: ChatSendSnapshot): boolean {
-		const currentThreadId = untrack(() => this.core.threadId);
-		if (currentThreadId === snapshot.threadId) return true;
-		return (
-			snapshot.threadId === null &&
-			currentThreadId !== null &&
-			snapshot.wasNewConversation &&
-			untrack(() => this.core.isNewConversation) &&
-			untrack(() => this.core.threadGeneration) === snapshot.threadGeneration
-		);
+		this.attachments = ChatUIContext.mergeSnapshotAttachments(attachments, this.attachments);
 	}
 
 	private static mergeSnapshotAttachments(
@@ -851,6 +887,12 @@ export class ChatUIContext {
 	 */
 	dispose(): void {
 		this.unregister();
+		const originOwner = this.core as ChatCore & {
+			setThreadOriginBinder?: (
+				binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
+			) => void;
+		};
+		originOwner.setThreadOriginBinder?.(undefined);
 		// Before anything is dropped. What follows empties both lists, and saving
 		// that would erase the composers this surface is supposed to hand back the
 		// next time it is built. Leaving is not the same as letting go.

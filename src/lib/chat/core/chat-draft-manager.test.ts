@@ -115,4 +115,16 @@ describe('ChatDraftManager', () => {
 		expect(manager.clearDraftIfUnchanged(checkpoint, 'thread-created')).toBe(true);
 		expect(manager.getDraft('thread-created')).toBe('');
 	});
+
+	it('two managers do not clear an equal-valued later write from another manager', () => {
+		const surface = 'shared-' + Math.random();
+		const managerA = new ChatDraftManager(surface);
+		const managerB = new ChatDraftManager(surface);
+		managerA.setDraft('same-thread', 'identical text');
+		const checkpoint = managerA.captureCheckpoint('same-thread');
+		managerB.setDraft('same-thread', 'identical text');
+
+		expect(managerA.clearDraftIfUnchanged(checkpoint)).toBe(false);
+		expect(managerB.getDraft('same-thread')).toBe('identical text');
+	});
 });

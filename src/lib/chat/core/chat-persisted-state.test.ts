@@ -12,7 +12,11 @@ const localStorageMock: Storage = {
 	key: (index: number) => [...storage.keys()][index] ?? null
 };
 
-import { clearPersistedChatState } from './chat-persisted-state.ts';
+import {
+	clearPersistedChatState,
+	getChatSessionEpoch,
+	registerPersistedChatHolder
+} from './chat-persisted-state.ts';
 
 /** What the composers are keeping, without the signal that sits beside them. */
 function composerValues(): string[] {
@@ -80,5 +84,44 @@ describe('clearPersistedChatState', () => {
 		expect(() => clearPersistedChatState()).not.toThrow();
 
 		vi.stubGlobal('localStorage', localStorageMock);
+	});
+
+	it('advances the epoch before holders and before failing storage cleanup', () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const before = getChatSessionEpoch();
+		const holderEpochs: number[] = [];
+		const unregister = registerPersistedChatHolder({
+			forgetPersistedState: () => holderEpochs.push(getChatSessionEpoch())
+		});
+		const denied: Storage = {
+			...localStorageMock,
+			setItem: () => {
+				throw new DOMException('QuotaExceededError');
+			}
+		};
+		vi.stubGlobal('localStorage', denied);
+
+		clearPersistedChatState();
+
+		expect(getChatSessionEpoch()).toBe(before + 1);
+		expect(holderEpochs).toEqual([before + 1]);
+		unregister();
+		vi.stubGlobal('localStorage', localStorageMock);
+	});
+
+	it('advances the epoch before forgetting state from another document', () => {
+		const before = getChatSessionEpoch();
+		const holderEpochs: number[] = [];
+		const unregister = registerPersistedChatHolder({
+			forgetPersistedState: () => holderEpochs.push(getChatSessionEpoch())
+		});
+
+		window.dispatchEvent(
+			new StorageEvent('storage', { key: 'chat:session-ended', newValue: 'new-session' })
+		);
+
+		expect(getChatSessionEpoch()).toBe(before + 1);
+		expect(holderEpochs).toEqual([before + 1]);
+		unregister();
 	});
 });

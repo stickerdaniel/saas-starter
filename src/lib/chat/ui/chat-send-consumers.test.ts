@@ -13,6 +13,7 @@ import { SupportThreadContext } from '../../components/customer-support/support-
 import { ChatUIContext } from './chat-context.svelte.ts';
 import type { ChatCore } from '../core/chat-core.svelte.ts';
 import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import ThreadChatConsumerHarness, {
 	threadChatConsumerHarness
@@ -280,6 +281,43 @@ describe('AI thread switch failure', () => {
 		expect(capturedInput.context!.inputValue).toBe('');
 		expect(storedDrafts('ai-chat')).toEqual({ 'thread-a': 'retry in A' });
 	});
+});
+
+describe('AI session boundary', () => {
+	it.each(['success', 'rejection'] as const)(
+		'suppresses stale $0 side effects after session clear',
+		async (outcome) => {
+			const pending = Promise.withResolvers<Record<string, never>>();
+			vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+			const onMessageSent = vi.fn();
+			const contentProps = {
+				threadId: 'thread-ai',
+				hasMessagesAvailable: true,
+				onMessageSent
+			};
+			component = mount(ChatTestProvider<typeof contentProps>, {
+				target: document.body,
+				props: { client, content: AIThreadChat, contentProps }
+			});
+			await tick();
+			const result = capturedInput.props!.onSend!('old session message');
+			clearPersistedChatState();
+
+			if (outcome === 'success') {
+				pending.resolve({});
+				await expect(result).resolves.toBeUndefined();
+			} else {
+				const error = new Error('Send rejected');
+				pending.reject(error);
+				await expect(result).rejects.toBe(error);
+			}
+
+			expect(onMessageSent).not.toHaveBeenCalled();
+			expect(toast.error).not.toHaveBeenCalled();
+			expect(capturedInput.context?.core.isSending).toBe(false);
+			expect(capturedInput.context?.core.isAwaitingStream).toBe(false);
+		}
+	);
 });
 
 describe('support feedback send callback', () => {

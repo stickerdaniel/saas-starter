@@ -14,6 +14,7 @@
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
+	import { getChatSessionEpoch } from '$lib/chat/core/chat-persisted-state.ts';
 
 	// Import new chat components
 	import { ChatRoot, ChatMessages, ChatInput, type ChatUIContext } from '$lib/chat';
@@ -169,27 +170,28 @@
 		() => void markVisibleReplyRead()
 	);
 
-	// Sync drafts when thread changes
+	// Sync drafts when the selected conversation changes.
 	watch(
-		() => threadContext.threadId,
-		(currentThreadId, previousThreadId) => {
-			// Save draft from old thread (if we had one and input has content)
+		() => [threadContext.threadId, threadContext.threadGeneration] as const,
+		([currentThreadId, currentGeneration], previous) => {
+			const [previousThreadId, previousGeneration] = previous ?? [undefined, -1];
+			const assignedCurrentConversation =
+				previousThreadId === null &&
+				currentThreadId !== null &&
+				currentGeneration === previousGeneration &&
+				threadContext.isNewConversation;
+			if (assignedCurrentConversation) {
+				threadContext.setDraft(currentThreadId, chatUIContext.inputValue);
+				return;
+			}
+
 			if (previousThreadId && chatUIContext.inputValue.trim()) {
 				threadContext.setDraft(previousThreadId, chatUIContext.inputValue);
 			}
+			chatUIContext.setInputValue(threadContext.getDraft(currentThreadId));
 
-			// Load draft for new thread (or empty for new conversation)
-			const draft = threadContext.getDraft(currentThreadId);
-			chatUIContext.setInputValue(draft);
-
-			// ChatUIContext drops attachments when the thread id changes, but it
-			// cannot tell an abandoned compose from a conversation receiving its
-			// warm id: both look like null -> id. Compose that is left without
-			// ever getting an id (back out, or creation fails) would otherwise
-			// carry its attachment into whichever thread is opened next.
-			// isNewConversation is the missing signal — selectThread clears it,
-			// warm-id assignment does not.
-			if (previousThreadId === null && !threadContext.isNewConversation) {
+			const generationChanged = currentGeneration !== previousGeneration;
+			if (generationChanged || (previousThreadId === null && !threadContext.isNewConversation)) {
 				chatUIContext.clearAttachments();
 			}
 		}
@@ -369,6 +371,8 @@
 						if (!isHumanOnly && chatUIContext.isProcessing) return;
 
 						const originThreadId = threadContext.threadId;
+						const sessionEpoch = getChatSessionEpoch();
+						const threadGeneration = threadContext.threadGeneration;
 						const draftCheckpoint = threadContext.captureDraftCheckpoint(originThreadId);
 						const fileIds = chatUIContext.uploadedFileIds;
 						const attachments = [...chatUIContext.attachments];
@@ -377,8 +381,12 @@
 								fileIds,
 								attachments
 							});
+							if (!threadContext.isSendOperationCurrent(sessionEpoch, threadGeneration)) return;
 							threadContext.clearDraftIfUnchanged(draftCheckpoint, result.threadId);
 						} catch (error) {
+							if (!threadContext.isSendOperationCurrent(sessionEpoch, threadGeneration)) {
+								throw error;
+							}
 							console.error('[handleSend] Error:', error);
 
 							// Handle rate limit errors with user-friendly toast

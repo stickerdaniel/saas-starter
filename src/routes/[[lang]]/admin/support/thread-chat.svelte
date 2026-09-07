@@ -31,6 +31,10 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import {
+		getChatSessionEpoch,
+		isChatSessionCurrent
+	} from '$lib/chat/core/chat-persisted-state.ts';
 
 	const { t } = getTranslate();
 
@@ -97,6 +101,7 @@
 
 	// Draft persistence — load saved draft on mount, save continuously
 	let sending = $state(false);
+	let sendRevision = 0;
 
 	// Load saved draft on mount (threadId is constant per {#key} instance)
 	// svelte-ignore state_referenced_locally
@@ -375,6 +380,8 @@
 
 				const originThreadId = threadId;
 				const draftCheckpoint = draftManager?.captureCheckpoint(originThreadId);
+				const sessionEpoch = getChatSessionEpoch();
+				const operationRevision = ++sendRevision;
 				// Get uploaded file IDs and attachments from context
 				const fileIds = chatUIContext.uploadedFileIds;
 				const attachments = [...chatUIContext.attachments];
@@ -410,13 +417,18 @@
 						}
 					);
 
+					if (!isChatSessionCurrent(sessionEpoch)) return;
 					if (draftCheckpoint) draftManager?.clearDraftIfUnchanged(draftCheckpoint);
 				} catch (error) {
-					console.error('[Admin sendAdminReply] Error:', error);
-					toast.error($t('admin.support.chat.send_error'));
+					if (isChatSessionCurrent(sessionEpoch)) {
+						console.error('[Admin sendAdminReply] Error:', error);
+						toast.error($t('admin.support.chat.send_error'));
+					}
 					throw error;
 				} finally {
-					sending = false;
+					if (isChatSessionCurrent(sessionEpoch) && sendRevision === operationRevision) {
+						sending = false;
+					}
 				}
 			}}
 		/>

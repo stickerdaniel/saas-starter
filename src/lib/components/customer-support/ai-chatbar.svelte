@@ -13,6 +13,11 @@
 	import { CHAT_PAGE_SIZE, MAX_MESSAGE_LENGTH } from '$lib/chat/core/types';
 	import { getTranslate } from '@tolgee/svelte';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import {
+		getChatSessionEpoch,
+		isChatSessionCurrent,
+		registerPersistedChatHolder
+	} from '$lib/chat/core/chat-persisted-state.ts';
 
 	const { t } = getTranslate();
 
@@ -36,8 +41,13 @@
 
 	// Local thread tracking - separate from shared context
 	// A warm support thread is acquired on first keystroke and reused until submit.
-	let pendingThreadId = $state<string | null>(null);
-	let threadCreationPromise: Promise<string> | null = null;
+	let pendingThread: { epoch: number; generation: number; threadId: string } | null = null;
+	let threadCreation: {
+		epoch: number;
+		generation: number;
+		promise: Promise<string>;
+	} | null = null;
+	let warmGeneration = 0;
 	// After a failed creation (e.g. rate limited), passive keystroke retries
 	// are suppressed until this timestamp; an explicit submit always retries.
 	let threadCreationBlockedUntil = 0;
@@ -53,23 +63,45 @@
 	// after cleanup already ran (mutation still in flight during unmount)
 	let destroyed = false;
 
-	// The pre-warm subscription lives on the module-level ConvexClient singleton,
-	// so it must not outlive this component (user types, then navigates away
-	// before submitting)
-	onDestroy(() => {
-		destroyed = true;
+	function releaseWarmResources(): void {
 		if (cleanupTimeoutId !== null) {
 			clearTimeout(cleanupTimeoutId);
 			cleanupTimeoutId = null;
 		}
 		queryUnsubscribe?.();
 		queryUnsubscribe = null;
+	}
+
+	function forgetPersistedState(): void {
+		warmGeneration++;
+		input = '';
+		const ownedThreadId = pendingThread?.threadId;
+		if (ownedThreadId && threadContext.threadId === ownedThreadId) threadContext.setThread(null);
+		pendingThread = null;
+		threadCreation = null;
+		threadCreationBlockedUntil = 0;
+		releaseWarmResources();
+	}
+
+	const unregisterPersistedHolder = registerPersistedChatHolder({ forgetPersistedState });
+
+	// The pre-warm subscription lives on the module-level ConvexClient singleton,
+	// so it must not outlive this component (user types, then navigates away
+	// before submitting)
+	onDestroy(() => {
+		destroyed = true;
+		unregisterPersistedHolder();
+		releaseWarmResources();
 	});
 
 	async function handleSubmit() {
 		if (!input.trim() || threadContext.isSending) return;
 
 		const trimmedPrompt = input.trim();
+		const sessionEpoch = getChatSessionEpoch();
+		const generation = warmGeneration;
+		const isCurrent = () =>
+			isChatSessionCurrent(sessionEpoch) && warmGeneration === generation && !destroyed;
 
 		// Clear input and request widget open before sending
 		// (isSending flag is set by sendMessage)
@@ -77,33 +109,42 @@
 		threadContext.requestWidgetOpen();
 
 		try {
-			// Wait for pending thread if still creating; if the first-keystroke
-			// attempt failed earlier, retry creation now instead of re-awaiting
-			// a cached rejection
-			const threadId = pendingThreadId ?? (await (threadCreationPromise ?? createWarmThread()));
+			const warm = pendingThread;
+			const threadId =
+				warm?.epoch === sessionEpoch && warm.generation === generation
+					? warm.threadId
+					: await (threadCreation?.epoch === sessionEpoch &&
+						threadCreation.generation === generation
+							? threadCreation.promise
+							: createWarmThread());
+			if (!isCurrent()) return;
 
 			// Update shared context (selectThread sets view='chat' + URL sync)
 			threadContext.selectThread(threadId);
 
 			// Force Svelte to re-render so ChatRoot subscribes before mutation
 			await tick();
+			if (!isCurrent()) return;
 
 			// Send message using centralized method (handles flags + optimistic update)
 			await threadContext.sendMessage(client, trimmedPrompt, { threadId });
+			if (!isCurrent()) return;
 
-			// Reset local state so the next interaction can acquire a fresh warm thread
-			pendingThreadId = null;
-			threadCreationPromise = null;
+			warmGeneration++;
+			pendingThread = null;
+			threadCreation = null;
 
-			// Cleanup query subscription after ChatRoot takes over
+			// Cleanup only the subscription this send handed to ChatRoot.
+			const ownedUnsubscribe = queryUnsubscribe;
 			cleanupTimeoutId = setTimeout(() => {
 				cleanupTimeoutId = null;
-				if (queryUnsubscribe) {
-					queryUnsubscribe();
+				if (queryUnsubscribe === ownedUnsubscribe) {
+					queryUnsubscribe?.();
 					queryUnsubscribe = null;
 				}
 			}, 500);
 		} catch (error) {
+			if (!isCurrent()) return;
 			console.error('[AI Chatbar] handleSubmit Error:', error);
 
 			// Restore the cleared input so the visitor's message is not lost
@@ -127,49 +168,55 @@
 	}
 
 	function createWarmThread(): Promise<string> {
-		threadCreationPromise = client
+		const epoch = getChatSessionEpoch();
+		const generation = warmGeneration;
+		const operation = {} as NonNullable<typeof threadCreation>;
+		operation.epoch = epoch;
+		operation.generation = generation;
+		operation.promise = client
 			.mutation(api.support.threads.getOrCreateWarmThread, {
 				anonymousUserId,
 				pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
 			})
 			.then((result) => {
-				pendingThreadId = result.threadId;
-
-				// Pre-subscribe to messages query so it's cached by submit time
-				// This ensures optimistic update finds the query in cache.
-				// Skip if the component was destroyed while the mutation was in
-				// flight: onDestroy already ran, so nothing would unsubscribe it.
-				if (!destroyed) {
-					const preSubscribeArgs = {
-						threadId: result.threadId,
-						...(anonymousUserId ? { anonymousUserId } : {}),
-						paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
-						streamArgs: { kind: 'list' as const, startOrder: 0 }
-					};
-					queryUnsubscribe = client.onUpdate(
-						api.support.messages.listMessages,
-						preSubscribeArgs,
-						() => {
-							// Query cache warmed
-						}
-					);
+				if (!isChatSessionCurrent(epoch) || warmGeneration !== generation || destroyed) {
+					return result.threadId;
 				}
+				pendingThread = { epoch, generation, threadId: result.threadId };
+
+				// Pre-subscribe to messages query so it's cached by submit time.
+				const preSubscribeArgs = {
+					threadId: result.threadId,
+					...(anonymousUserId ? { anonymousUserId } : {}),
+					paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
+					streamArgs: { kind: 'list' as const, startOrder: 0 }
+				};
+				queryUnsubscribe = client.onUpdate(
+					api.support.messages.listMessages,
+					preSubscribeArgs,
+					() => {
+						// Query cache warmed
+					}
+				);
 
 				return result.threadId;
 			})
 			.catch((error) => {
-				console.error('[AI Chatbar] Thread creation failed:', error);
-				// Don't cache the rejection: clear the promise so a later submit or
-				// keystroke (after the cooldown) can retry instead of re-awaiting it
-				threadCreationPromise = null;
-				const data =
-					error instanceof ConvexError
-						? (error.data as { retryAfter?: number } | undefined)
-						: undefined;
-				threadCreationBlockedUntil = Date.now() + (data?.retryAfter ?? 30000);
+				if (isChatSessionCurrent(epoch) && warmGeneration === generation && !destroyed) {
+					console.error('[AI Chatbar] Thread creation failed:', error);
+					const data =
+						error instanceof ConvexError
+							? (error.data as { retryAfter?: number } | undefined)
+							: undefined;
+					threadCreationBlockedUntil = Date.now() + (data?.retryAfter ?? 30000);
+				}
 				throw error;
+			})
+			.finally(() => {
+				if (threadCreation === operation) threadCreation = null;
 			});
-		return threadCreationPromise;
+		threadCreation = operation;
+		return operation.promise;
 	}
 
 	function handleValueChange(value: string) {
@@ -178,8 +225,8 @@
 		// Acquire a warm thread on first keystroke (or reuse the existing pending one)
 		if (
 			value.trim() &&
-			!pendingThreadId &&
-			!threadCreationPromise &&
+			!pendingThread &&
+			!threadCreation &&
 			Date.now() >= threadCreationBlockedUntil
 		) {
 			// Keystroke-time failure is non-fatal: submit retries and surfaces errors
