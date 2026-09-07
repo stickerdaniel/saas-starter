@@ -360,11 +360,18 @@ declare module 'varlock/env' {
 
 export type EnvSchemaAsStrings = {
   [Property in keyof CoercedEnvSchema]:
-    CoercedEnvSchema[Property] extends string ? CoercedEnvSchema[Property]
-      : (CoercedEnvSchema[Property] extends boolean ? ('true' | 'false') : string)
+    NonNullable<CoercedEnvSchema[Property]> extends string ? NonNullable<CoercedEnvSchema[Property]>
+      : (NonNullable<CoercedEnvSchema[Property]> extends boolean ? ('true' | 'false') : string)
 };
 
 type _EnvSchemaAsStrings_33b62389 = EnvSchemaAsStrings;
+
+export type ProcessEnvSchemaAsStrings = {
+  [Property in keyof EnvSchemaAsStrings]-?:
+    EnvSchemaAsStrings[Property] | ({} extends Pick<CoercedEnvSchema, Property> ? '' : never)
+};
+
+type _ProcessEnvSchemaAsStrings_33b62389 = ProcessEnvSchemaAsStrings;
 declare global {
 
   // add types for global import.meta.env
@@ -375,6 +382,6 @@ declare global {
 
   // add types for global process.env
   namespace NodeJS {
-    interface ProcessEnv extends _EnvSchemaAsStrings_33b62389 {}
+    interface ProcessEnv extends _ProcessEnvSchemaAsStrings_33b62389 {}
   }
 }

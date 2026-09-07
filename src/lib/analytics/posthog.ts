@@ -66,6 +66,8 @@ export async function initPosthog(): Promise<PostHogClient | null> {
 				api_host: apiHost,
 				ui_host: 'https://eu.posthog.com',
 				disable_surveys: true,
+				disable_conversations: true,
+				disable_product_tours: true,
 				person_profiles: 'identified_only',
 				// Cookieless: store nothing in cookies/localStorage so the privacy
 				// policy's "essential cookies only, no consent banner" claim holds
