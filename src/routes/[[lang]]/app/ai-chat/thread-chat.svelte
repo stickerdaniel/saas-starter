@@ -203,8 +203,8 @@
 						onMessageSent?.();
 					} catch (error) {
 						console.error('[AI Chat sendMessage] Error:', error);
-						chatUIContext.setInputValue(prompt);
 						toast.error($t('chat.messages.send_failed'));
+						throw error;
 					} finally {
 						sending = false;
 					}

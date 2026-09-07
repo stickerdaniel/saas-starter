@@ -412,9 +412,8 @@
 					draftManager?.clearDraft(threadId);
 				} catch (error) {
 					console.error('[Admin sendAdminReply] Error:', error);
-					// Restore prompt so user can retry and $effect re-persists draft
-					chatUIContext.setInputValue(prompt);
 					toast.error($t('admin.support.chat.send_error'));
+					throw error;
 				} finally {
 					sending = false;
 				}
