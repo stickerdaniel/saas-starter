@@ -16,10 +16,10 @@ test.use({ storageState: { cookies: [], origins: [] } });
 // e2e/upgrade-checkout-failure.spec.ts), which would serve translated copy
 // on non-English runners.
 //
-// Überall Englisch außer im Recovery-Durchlauf unten, der bewusst Deutsch
-// festlegt: das Locale-Präfix gehört zu dem, was die Kette überleben muss, und
-// auf der Standardsprache sähen verlorenes und erhaltenes Präfix gleich aus.
-// Jener Test wählt über Test-IDs, die Übersetzung kostet ihn also nichts.
+// Keep every flow in English except the recovery pass below, which deliberately
+// selects German. The locale prefix is part of what must survive the chain, and
+// a lost prefix looks the same as a preserved prefix in the default locale.
+// That test selects by test ID, so translated copy adds no selector cost.
 
 import type { TestCredentials } from './utils/types';
 

@@ -1,7 +1,13 @@
 {
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
 	"jsPlugins": ["oxlint-plugin-convex"],
-	"ignorePatterns": ["scratch/**", "**/node_modules/**", "**/_generated/**", "**/references/**"],
+	"ignorePatterns": [
+		"scratch/**",
+		"**/node_modules/**",
+		"**/_generated/**",
+		"**/references/**",
+		"scripts/english-policy/pr-metadata.bundle.mjs"
+	],
 	"rules": {
 		"convex/no-unused-functions": [
 			"warn",

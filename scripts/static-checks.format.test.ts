@@ -74,7 +74,16 @@ function createCheckerClone(): { directory: string; repository: string } {
 			path.join(repository, 'node_modules'),
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
-		copyFileSync(SCRIPT, path.join(repository, 'scripts', 'static-checks.ts'));
+		for (const relative of [
+			'scripts/static-checks.ts',
+			'scripts/english-policy/content.ts',
+			'scripts/english-policy/classifier.ts',
+			'src/lib/i18n/language-codes.generated.js'
+		]) {
+			const destination = path.join(repository, relative);
+			mkdirSync(path.dirname(destination), { recursive: true });
+			copyFileSync(path.join(ROOT, relative), destination);
+		}
 		return { directory, repository };
 	} catch (error) {
 		rmSync(directory, { recursive: true, force: true });

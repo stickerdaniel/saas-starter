@@ -5,15 +5,15 @@ import { betterAuth } from 'better-auth';
 import { memoryAdapter } from 'better-auth/adapters/memory';
 
 /**
- * Wire-Vertrag der Cache-Policy auf dem öffentlichen JWKS-Endpunkt.
+ * Wire contract for the cache policy on the public JWKS endpoint.
  *
- * Die Anfragen laufen durch den echten Better-Auth-Dispatcher mit den Optionen
- * der Anwendung, also mit allen konfigurierten Plugins und deren Hooks. Das ist
- * nötig, weil ein User-`hooks.after` vor jedem Plugin-`hooks.after` läuft
- * (better-auth/dist/api/dispatch.mjs, `getHooks`): erst die fertige Antwort
- * belegt, dass danach nichts mehr personalisiert oder ein Cookie setzt.
- * Einzige Substitution ist der offizielle memoryAdapter, deshalb prüfen diese
- * Tests HTTP- und Header-Policy und behaupten keinen Convex-Speichervertrag.
+ * Requests pass through the real Better Auth dispatcher with the application's
+ * options, including every configured plugin and hook. This matters because a
+ * user `hooks.after` runs before every plugin `hooks.after`
+ * (better-auth/dist/api/dispatch.mjs, `getHooks`): only the final response proves
+ * that nothing later personalizes it or sets a cookie. The sole substitution is
+ * the official memoryAdapter, so these tests cover HTTP and header policy without
+ * claiming a Convex storage contract.
  */
 
 const BASE_URL = 'https://jwks-cache.test';
@@ -23,8 +23,8 @@ const EXPECTED_CACHE_CONTROL = 'public, max-age=60, must-revalidate';
 const PRIVATE_JWK_PARAMETERS = ['d', 'p', 'q', 'dp', 'dq', 'qi', 'k'];
 const STORED_KEY_ID = 'jwks-cache-control-test-key';
 
-// auth.config.ts liest CONVEX_SITE_URL schon beim Auswerten des Moduls, die
-// Umgebung muss also vor dem Import von ../auth stehen.
+// auth.config.ts reads CONVEX_SITE_URL while evaluating the module, so the
+// environment must be ready before ../auth is imported.
 vi.stubEnv('SITE_URL', BASE_URL);
 vi.stubEnv('BETTER_AUTH_SECRET', 'jwks-cache-control-test-secret-value');
 vi.stubEnv('CONVEX_SITE_URL', CONVEX_SITE_URL);

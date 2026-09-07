@@ -34,11 +34,11 @@
 	const id = $props.id();
 
 	/**
-	 * Ziel aus der Page-URL, damit der Zurück-Link es schon im ersten Render
-	 * trägt. Ungeprüft; `authPageURL` verengt es.
+	 * Read the destination from the page URL so the back link carries it on the
+	 * first render. It remains untrusted until `authPageURL` narrows it.
 	 *
-	 * Der Reset-Callback ist die Reset-SEITE, nicht das Ziel: Better Auth hängt
-	 * `?token=` daran, und das gehört ins Formular, nicht an den Deep Link.
+	 * The reset callback is the reset page, not the destination: Better Auth adds
+	 * `?token=` there, and that belongs in the form rather than on the deep link.
 	 */
 	const rawDestination = $derived(page.url.searchParams.get('redirectTo') ?? '');
 	const resetCallbackURL = $derived(authPageURL(localizedHref('/reset-password'), rawDestination));

@@ -25,8 +25,8 @@ export default {
 		'src/lib/components/customer-support/screenshot-editor/ScreenshotEditor.svelte',
 		'src/lib/components/global-search/command-menu.svelte',
 
-		// Chat-Beispiel zum Kopieren und Anpassen. Keine Route bindet es ein, daher hält
-		// die Nennung als Entry es am Leben, während src/lib/chat sonst geprüft bleibt.
+		// Chat example intended for copying and adaptation. No route imports it, so naming
+		// it as an entry keeps it available while the rest of src/lib/chat stays checked.
 		'src/lib/chat/examples/SimpleChat.svelte'
 	],
 	project: ['src/**/*.{ts,svelte}', 'scripts/**/*.ts', 'e2e/**/*.ts'],

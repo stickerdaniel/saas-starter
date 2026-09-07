@@ -1,0 +1,105 @@
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { parse as parseYaml } from 'yaml';
+
+const ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKFLOW_PATH = path.join(ROOT, '.github/workflows/require-english-pr.yml');
+const BUNDLE_PATH = path.join(ROOT, 'scripts/english-policy/pr-metadata.bundle.mjs');
+const ENTRY_PATH = path.join(ROOT, 'scripts/english-policy/pr-metadata.ts');
+const source = readFileSync(WORKFLOW_PATH, 'utf8');
+
+interface Step {
+	name?: string;
+	uses?: string;
+	run?: string;
+	with?: Record<string, unknown>;
+}
+
+interface Workflow {
+	on?: Record<string, { types?: string[] }>;
+	permissions?: Record<string, string>;
+	jobs?: Record<string, { steps?: Step[] }>;
+}
+
+function policyErrors(workflow: Workflow): string[] {
+	const errors: string[] = [];
+	const trigger = workflow.on?.pull_request_target;
+	if (
+		JSON.stringify(trigger?.types) !==
+		JSON.stringify(['opened', 'edited', 'reopened', 'synchronize'])
+	) {
+		errors.push('trigger');
+	}
+	if (JSON.stringify(workflow.permissions) !== JSON.stringify({ contents: 'read' })) {
+		errors.push('permissions');
+	}
+	const steps = workflow.jobs?.['english-metadata']?.steps ?? [];
+	const checkout = steps.find((step) => step.uses?.startsWith('actions/checkout@'));
+	if (checkout?.with?.ref !== '${{ github.workflow_sha }}') errors.push('checkout ref');
+	if (checkout?.with?.['persist-credentials'] !== false) errors.push('checkout credentials');
+	if (!steps.some((step) => step.run === 'bun scripts/english-policy/pr-metadata.bundle.mjs')) {
+		errors.push('policy command');
+	}
+	return errors;
+}
+
+const workflow = parseYaml(source) as Workflow;
+const steps = workflow.jobs?.['english-metadata']?.steps ?? [];
+
+describe('English pull request workflow', () => {
+	it('uses the metadata-only trigger and minimal permissions', () => {
+		expect(policyErrors(workflow)).toEqual([]);
+	});
+
+	it('checks out only the trusted workflow revision without credentials', () => {
+		const checkout = steps.find((step) => step.uses?.startsWith('actions/checkout@'));
+		expect(checkout?.with).toMatchObject({
+			ref: '${{ github.workflow_sha }}',
+			'persist-credentials': false,
+			'fetch-depth': 1
+		});
+		expect(source).not.toContain('pull_request.head');
+		expect(source).not.toContain('github.head_ref');
+		expect(source).not.toContain('refs/pull/');
+	});
+
+	it('pins every action to a full commit SHA', () => {
+		const actions = steps.filter((step) => step.uses).map((step) => step.uses!);
+		expect(actions.length).toBeGreaterThan(0);
+		for (const action of actions) expect(action).toMatch(/^[^@]+@[0-9a-f]{40}$/);
+	});
+
+	it('runs only the committed bundle after setting up Bun', () => {
+		const commands = steps.flatMap((step) => (step.run === undefined ? [] : [step.run]));
+		expect(commands).toEqual(['bun scripts/english-policy/pr-metadata.bundle.mjs']);
+		expect(source).not.toMatch(/bun install|cache|artifact/i);
+	});
+
+	it('fails the structural policy when the trusted checkout route is removed', () => {
+		const mutated = structuredClone(workflow);
+		const checkout = mutated.jobs?.['english-metadata']?.steps?.find((step) =>
+			step.uses?.startsWith('actions/checkout@')
+		);
+		if (checkout?.with) delete checkout.with.ref;
+		expect(policyErrors(mutated)).toContain('checkout ref');
+	});
+
+	it('keeps the standalone bundle generated from the reviewed source', () => {
+		const directory = mkdtempSync(path.join(tmpdir(), 'english-policy-bundle-'));
+		const generated = path.join(directory, 'pr-metadata.bundle.mjs');
+		try {
+			const build = spawnSync(
+				'bun',
+				['build', ENTRY_PATH, '--target=bun', '--minify', `--outfile=${generated}`],
+				{ cwd: ROOT, encoding: 'utf8' }
+			);
+			expect(build.status, build.stderr).toBe(0);
+			expect(readFileSync(generated, 'utf8')).toBe(readFileSync(BUNDLE_PATH, 'utf8'));
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+});

@@ -25,6 +25,7 @@ import { sanitizedGitEnv } from './git-context';
 import {
 	argumentBatches,
 	authoredTextFiles,
+	englishProseFindings,
 	existingRepositoryPaths,
 	formatPathForDiagnostic,
 	isIgnoredPath,
@@ -102,6 +103,19 @@ describe('route predicates', () => {
 		expect(ROUTES['literal-control-char']('src/lib/content/llms.txt')).toBe(true);
 		expect(ROUTES['literal-control-char']('src/lib/content/privacy.ts')).toBe(false);
 		expect(ROUTES['literal-control-char']('scratch/session/log.txt')).toBe(false);
+	});
+
+	it('routes supported prose into the English policy and records its findings', async () => {
+		const files = ['docs/example.md', 'src/i18n/de.json'];
+		const contents = new Map([
+			['docs/example.md', 'Das Passwort muss sofort zurückgesetzt werden.'],
+			['src/i18n/de.json', '{"message":"Das Passwort muss sofort zurückgesetzt werden."}']
+		]);
+		expect(ROUTES['english-prose'](files[0]!)).toBe(true);
+		expect(ROUTES['english-prose'](files[1]!)).toBe(false);
+		expect(
+			await englishProseFindings(files, async (file) => contents.get(file) ?? '')
+		).toMatchObject([{ label: 'docs/example.md', language: 'de' }]);
 	});
 
 	// The Prettier route is the one route that is not a path predicate. It used to be a
@@ -207,6 +221,18 @@ describe('route predicates', () => {
 		expect(spellcheckFiles(files)).toEqual([
 			'.agents/skills/example.md',
 			'src/lib/scratch/editor.md'
+		]);
+	});
+
+	it('excludes only the generated English policy bundle from spell checking', () => {
+		const generatedBundle = 'scripts/english-policy/pr-metadata.bundle.mjs';
+		const authoredSource = 'scripts/english-policy/pr-metadata.ts';
+		const otherBundle = 'scripts/example.bundle.mjs';
+
+		expect(ROUTES.misspell(generatedBundle)).toBe(false);
+		expect(spellcheckFiles([generatedBundle, authoredSource, otherBundle])).toEqual([
+			authoredSource,
+			otherBundle
 		]);
 	});
 

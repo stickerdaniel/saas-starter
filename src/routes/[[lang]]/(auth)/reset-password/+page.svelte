@@ -37,11 +37,11 @@
 	const token = $derived(page.url.searchParams.get('token'));
 
 	/**
-	 * Ziel neben dem Token, nicht hineingemischt. Ungeprüft; `authPageURL`
-	 * verengt es.
+	 * Keep the destination beside the token rather than mixing them. It remains
+	 * untrusted until `authPageURL` narrows it.
 	 *
-	 * Ein Href für Erfolgs- und Zurück-Link: beide führen zur selben Anmeldung.
-	 * Das Token bleibt draußen, es ist verbraucht und gehört in keinen Link.
+	 * One href serves the success and back links because both lead to the same
+	 * sign-in page. The consumed token stays out of every link.
 	 */
 	const rawDestination = $derived(page.url.searchParams.get('redirectTo') ?? '');
 	const signInHref = $derived(authPageURL(localizedHref('/signin'), rawDestination));
