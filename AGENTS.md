@@ -61,6 +61,8 @@ Never use `EnterWorktree`. Prefix every later action with the absolute worktree 
 
 The pre-commit hook intentionally runs fast staged lint only, so commit freely while iterating. Immediately before every push, including after a rebase or CI fix, run `bun scripts/static-checks.ts <all changed files...>` and do not push unless the full lint-and-types check passes.
 
+Every change requires the narrowest executable verification that covers the changed behavior and its failure mode. Expand to a broader local suite only when the diff crosses feature or test boundaries, the narrow check exposes wider breakage, or no narrower check provides credible coverage.
+
 For reviews and audits, fetch and inspect `origin/main` rather than the shared main checkout, which may intentionally lag behind. Revalidate every finding against that baseline before reporting or changing code.
 
 Open PRs as drafts because ready PRs can auto-merge. Mark a PR ready only after all follow-up work is done, then run `gh pr merge <n> --squash --auto` without `--delete-branch`: the repository deletes merged branches itself, which lets GitHub retarget the next stacked PR onto the merged base. An explicit `--delete-branch` deletes the branch outside the merge flow and force-closes dependent stacked PRs instead. After each merge in a stack, rebase the retargeted PR onto the new base before merging it.
