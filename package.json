@@ -138,7 +138,7 @@
 		"fontaine": "0.8.1",
 		"globals": "17.12.0",
 		"husky": "9.1.7",
-		"jsdom": "30.0.1",
+		"jsdom": "29.1.1",
 		"knip": "6.26.0",
 		"oxlint": "1.81.0",
 		"oxlint-plugin-convex": "0.1.1",
@@ -160,7 +160,7 @@
 		"vaul-svelte": "1.0.0-next.7",
 		"vite": "8.2.2",
 		"vite-plugin-devtools-json": "1.1.0",
-		"vitest": "5.0.0",
+		"vitest": "4.1.10",
 		"yaml": "2.9.0"
 	},
 	"patchedDependencies": {
