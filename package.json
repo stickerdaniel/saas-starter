@@ -171,6 +171,7 @@
 		"zod": "$zod",
 		"@peculiar/asn1-schema": "2.9.4",
 		"acorn": "8.18.0",
-		"vite": "$vite"
+		"vite": "$vite",
+		"convex-helpers": "$convex-helpers"
 	}
 }
