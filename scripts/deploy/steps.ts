@@ -18,6 +18,14 @@ export interface ConvexDeployment {
 	name: string | null;
 }
 
+export function convexDeployEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+	const deployEnv = { ...env };
+	// Convex checks the Pages branch before the Workers branch. Varlock represents
+	// an unset schema entry as "", so remove it and preserve Convex's production guard.
+	if (deployEnv.CF_PAGES_BRANCH === '') delete deployEnv.CF_PAGES_BRANCH;
+	return deployEnv;
+}
+
 /**
  * Sync translations with Tolgee (optional, skipped without TOLGEE_API_KEY)
  */
@@ -116,7 +124,7 @@ export async function deployConvex(platform: PlatformContext): Promise<ConvexDep
 	}
 
 	console.log('Deploying Convex functions...');
-	let result = runCommandCapture('bunx', args);
+	let result = runCommandCapture('bunx', args, convexDeployEnvironment());
 
 	if (result.stdout) console.log(result.stdout);
 	if (result.stderr) console.error(result.stderr);
