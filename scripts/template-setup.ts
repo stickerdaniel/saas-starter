@@ -235,7 +235,7 @@ export function parseContactEmail(
 	const user = value.slice(0, at);
 	const domainName = value.slice(at + 1);
 	if (
-		user.length > 64 ||
+		new TextEncoder().encode(user).byteLength > 64 ||
 		!EMAIL_LOCAL_PART.test(user) ||
 		user.startsWith('.') ||
 		user.endsWith('.') ||
@@ -678,14 +678,17 @@ export function readmeShowsConvertedQuickStart(source: string, repository: strin
 }
 
 export function replaceWranglerNameSource(source: string, slug: string): string {
+	const firstTable = /^[ \t]*\[\[?[^\r\n\]]+\]\]?[ \t]*(?:#.*)?$/m.exec(source);
+	const rootEnd = firstTable?.index ?? source.length;
+	const root = source.slice(0, rootEnd);
 	const pattern = /^name = "[^"]*"/gm;
-	const matches = source.match(pattern);
+	const matches = root.match(pattern);
 	if (matches?.length !== 1) {
 		throw new Error(
 			`Expected exactly one name assignment in wrangler.toml, found ${matches?.length ?? 0}`
 		);
 	}
-	return source.replace(pattern, () => `name = ${JSON.stringify(slug)}`);
+	return root.replace(pattern, () => `name = ${JSON.stringify(slug)}`) + source.slice(rootEnd);
 }
 
 /**
@@ -904,13 +907,6 @@ async function main() {
 	write('wrangler.toml', nextWrangler);
 	console.log('  ✓ wrangler.toml');
 
-	write('README.md', nextReadme);
-	console.log('  ✓ README.md');
-
-	// Site config — single source for runtime repository links
-	write('src/lib/config/site.ts', nextSiteConfig);
-	console.log('  ✓ site.ts');
-
 	write('src/lib/content/legal-metadata.ts', nextLegalMetadata);
 	console.log(
 		legalIdentityChanged
@@ -921,6 +917,13 @@ async function main() {
 	// Legal config — single source of truth for brand identity
 	write('src/lib/config/legal.ts', nextLegalSource);
 	console.log('  ✓ legal.ts');
+
+	write('README.md', nextReadme);
+	console.log('  ✓ README.md');
+
+	// Site config — single source for runtime repository links
+	write('src/lib/config/site.ts', nextSiteConfig);
+	console.log('  ✓ site.ts');
 
 	console.log('\n✅ Done! Next steps:');
 	console.log('  1. Replace static/logo.svg with your logo, then run: bun run build:emails');

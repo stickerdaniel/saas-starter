@@ -344,6 +344,15 @@ describe('template setup detects the converted quick start', () => {
 });
 
 describe('template setup contact email', () => {
+	it('enforces the 64-byte UTF-8 localpart boundary', () => {
+		const astralLetter = '𐐀';
+		expect(parseContactEmail(`${astralLetter.repeat(16)}@example.de`)?.user).toBe(
+			astralLetter.repeat(16)
+		);
+		expect(parseContactEmail(`${astralLetter.repeat(17)}@example.de`)).toBeUndefined();
+		expect(parseContactEmail(`${'é'.repeat(33)}@example.de`)).toBeUndefined();
+	});
+
 	it.each([
 		{
 			value: 'kontakt@northwind-labs.de',
@@ -396,8 +405,18 @@ describe('template setup manifest metadata', () => {
 		);
 	});
 
-	it('fails before writes when the worker name is missing or ambiguous', () => {
-		expect(() => replaceWranglerNameSource('main = "x"\n', 'new')).toThrow(/found 0/);
+	it('renames only the root worker when environments have their own names', () => {
+		const source =
+			'name = "base-worker"\nmain = "x"\n\n[env.staging]\nname = "staging-worker" # keep me\n';
+		expect(replaceWranglerNameSource(source, 'new-name')).toBe(
+			'name = "new-name"\nmain = "x"\n\n[env.staging]\nname = "staging-worker" # keep me\n'
+		);
+	});
+
+	it('fails before writes when the root worker name is missing or ambiguous', () => {
+		expect(() =>
+			replaceWranglerNameSource('[env.staging]\nname = "staging-worker"\n', 'new')
+		).toThrow(/found 0/);
 		expect(() => replaceWranglerNameSource('name = "a"\nname = "b"\n', 'new')).toThrow(/found 2/);
 	});
 

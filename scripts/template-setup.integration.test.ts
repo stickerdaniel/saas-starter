@@ -52,10 +52,13 @@ function snapshot(dir: string): Record<string, string> {
 	);
 }
 
-function runSetup(dir: string, args: string[]) {
-	// Der öffentliche Einstieg, damit auch das Skript-Dispatch aus dem Manifest geprüft
-	// wird. Die Fixture bringt das reale package.json mit und braucht keine Dependencies.
-	const result = spawnSync(BUN, ['run', 'setup', ...args], {
+function runSetup(dir: string, args: string[], preload?: string) {
+	// Normalerweise der öffentliche Einstieg, damit auch das Skript-Dispatch aus dem
+	// Manifest geprüft wird. Die Fehler-Injektion lädt sich direkt vor das echte Skript.
+	const command = preload
+		? ['--preload', preload, 'scripts/template-setup.ts', ...args]
+		: ['run', 'setup', ...args];
+	const result = spawnSync(BUN, command, {
 		cwd: dir,
 		encoding: 'utf-8',
 		// stdin bleibt ohne TTY: das Setup läuft nicht-interaktiv, wie unter CI und in der CLI.
@@ -177,6 +180,46 @@ describe('template setup re-runs', () => {
 		expect(snapshot(dir)).toEqual(afterFirst);
 	});
 
+	it('keeps completion signals unset when legal.ts fails and rejects a flagless re-run', () => {
+		const dir = createFixture();
+		const preload = join(dir, 'fail-legal-write.mjs');
+		writeFileSync(
+			preload,
+			`import { mock } from 'bun:test';
+import * as fs from 'node:fs';
+
+const realWriteFileSync = fs.writeFileSync;
+mock.module('fs', () => ({
+	...fs,
+	writeFileSync(path, ...args) {
+		if (String(path).replaceAll('\\\\', '/').endsWith('/src/lib/config/legal.ts')) {
+			const error = new Error('Injected EIO for legal.ts');
+			error.code = 'EIO';
+			throw error;
+		}
+		return realWriteFileSync(path, ...args);
+	}
+}));
+`,
+			'utf-8'
+		);
+		const before = snapshot(dir);
+
+		const failed = runSetup(dir, [...REQUIRED, ...IDENTITY], preload);
+		expect(failed.code).toBe(1);
+		expect(failed.stderr).toMatch(/Injected EIO for legal\.ts/);
+		const partial = snapshot(dir);
+		expect(partial['package.json']).not.toBe(before['package.json']);
+		expect(partial['src/lib/config/legal.ts']).toBe(before['src/lib/config/legal.ts']);
+		expect(partial['README.md']).toBe(before['README.md']);
+		expect(partial['src/lib/config/site.ts']).toBe(before['src/lib/config/site.ts']);
+
+		const rerun = runSetup(dir, []);
+		expect(rerun.code).toBe(1);
+		expect(rerun.stderr).toMatch(/Missing: --repo, --brand/);
+		expect(snapshot(dir)).toEqual(partial);
+	});
+
 	it('keeps a brand that was deliberately set to the template name', () => {
 		const dir = createFixture();
 		expect(runSetup(dir, [...REQUIRED, ...IDENTITY.slice(2), '--brand', 'SaaS Starter']).code).toBe(
@@ -273,6 +316,19 @@ describe('template setup quick start', () => {
 			)
 		);
 	});
+
+	it('keeps environment worker names byte-identical', () => {
+		const dir = createFixture();
+		const wrangler = join(dir, 'wrangler.toml');
+		const environment = '\n[env.staging]\nname = "staging-worker" # keep me\n';
+		writeFileSync(wrangler, readFileSync(wrangler, 'utf-8') + environment, 'utf-8');
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		const updated = readFileSync(wrangler, 'utf-8');
+		expect(updated).toMatch(/^name = "northwind-labs"/m);
+		expect(updated.endsWith(environment)).toBe(true);
+	});
 });
 
 describe('template setup finds the runtime repository property', () => {
@@ -347,6 +403,11 @@ describe('template setup rejects input before writing', () => {
 		{
 			label: 'an invalid email',
 			args: [...REQUIRED, ...IDENTITY.slice(0, -1), 'kaputt'],
+			expected: /email must use the consumer-compatible user@domain\.tld subset/
+		},
+		{
+			label: 'a Unicode email localpart longer than 64 UTF-8 bytes',
+			args: [...REQUIRED, ...IDENTITY.slice(0, -1), `${'é'.repeat(33)}@example.de`],
 			expected: /email must use the consumer-compatible user@domain\.tld subset/
 		},
 		{
