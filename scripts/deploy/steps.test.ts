@@ -1,18 +1,53 @@
 import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
 import * as path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { PlatformContext } from './platform';
+import * as vm from 'node:vm';
+import ts from 'typescript';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { detectPlatform, type PlatformContext } from './platform';
 import {
 	computeBuildEnv,
-	convexDeployEnvironment,
+	deployConvex,
 	resolveDeploymentSiteOrigin,
 	type ConvexDeployment
 } from './steps';
+import * as deployUtils from './utils';
 
 const deployment: ConvexDeployment = {
 	urlSlug: 'curious-lark-703.eu-west-1',
 	name: 'curious-lark-703'
 };
+
+const require = createRequire(import.meta.url);
+const convexPackagePath = require.resolve('convex/package.json');
+const convexCliPath = path.resolve(path.dirname(convexPackagePath), 'dist/cli.bundle.cjs');
+
+function convexProductionClassifier(): string {
+	const source = ts.createSourceFile(
+		convexCliPath,
+		fs.readFileSync(convexCliPath, 'utf8'),
+		ts.ScriptTarget.Latest,
+		true,
+		ts.ScriptKind.JS
+	);
+	let classifier: ts.FunctionDeclaration | undefined;
+	const visit = (node: ts.Node): void => {
+		if (ts.isFunctionDeclaration(node) && node.name?.text === 'isNonProdBuildEnvironment') {
+			classifier = node;
+			return;
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(source);
+	if (!classifier) throw new Error(`Convex production classifier not found in ${convexCliPath}`);
+	return classifier.getText(source);
+}
+
+const convexClassifier = new vm.Script(`(${convexProductionClassifier()})()`);
+
+function convexTreatsAsNonProduction(env: NodeJS.ProcessEnv): boolean {
+	return convexClassifier.runInNewContext({ process: { env } }) as boolean;
+}
 
 function makePlatform(overrides: Partial<PlatformContext> = {}): PlatformContext {
 	return {
@@ -128,19 +163,162 @@ describe('resolveDeploymentSiteOrigin', () => {
 	});
 });
 
-describe('convexDeployEnvironment', () => {
-	it('lets Convex read the Workers production branch after Varlock injection', () => {
-		const sourceEnv: NodeJS.ProcessEnv = {
-			CF_PAGES: '',
-			CF_PAGES_BRANCH: '',
-			WORKERS_CI: '1',
-			WORKERS_CI_BRANCH: 'main'
-		};
+describe('deployConvex Cloudflare environment', () => {
+	const vars = [
+		'VERCEL',
+		'NETLIFY',
+		'CF_PAGES',
+		'CF_PAGES_BRANCH',
+		'WORKERS_CI',
+		'WORKERS_CI_BRANCH',
+		'PRODUCTION_BRANCH',
+		'CONVEX_DEPLOY_KEY',
+		'CONVEX_PREVIEW_DEPLOY_KEY'
+	] as const;
+	const saved: Record<string, string | undefined> = {};
+	const runCommandCaptureMock = vi.spyOn(deployUtils, 'runCommandCapture');
 
-		const deployEnv = convexDeployEnvironment(sourceEnv);
+	beforeEach(() => {
+		for (const key of vars) {
+			saved[key] = process.env[key];
+			delete process.env[key];
+		}
+		runCommandCaptureMock.mockReset().mockReturnValue({
+			success: true,
+			stdout: 'https://curious-lark-703.convex.cloud',
+			stderr: ''
+		});
+	});
 
-		expect(deployEnv).not.toHaveProperty('CF_PAGES_BRANCH');
-		expect(deployEnv.WORKERS_CI_BRANCH).toBe('main');
-		expect(sourceEnv.CF_PAGES_BRANCH).toBe('');
+	afterEach(() => {
+		for (const key of vars) {
+			if (saved[key] === undefined) delete process.env[key];
+			else process.env[key] = saved[key];
+		}
+	});
+
+	it.each([
+		{
+			name: 'Workers Builds',
+			env: {
+				CF_PAGES: '',
+				CF_PAGES_BRANCH: '',
+				WORKERS_CI: '1',
+				WORKERS_CI_BRANCH: 'production'
+			},
+			branchKey: 'WORKERS_CI_BRANCH'
+		},
+		{
+			name: 'Cloudflare Pages',
+			env: {
+				CF_PAGES: '1',
+				CF_PAGES_BRANCH: 'production',
+				WORKERS_CI: '',
+				WORKERS_CI_BRANCH: ''
+			},
+			branchKey: 'CF_PAGES_BRANCH'
+		}
+	])(
+		'passes a Convex-compatible custom production branch for $name',
+		async ({ env, branchKey }) => {
+			Object.assign(process.env, env, { PRODUCTION_BRANCH: 'production' });
+			const platform = detectPlatform();
+			expect(platform.environment).toBe('production');
+			expect(platform.isPreview).toBe(false);
+
+			await deployConvex(platform);
+
+			expect(runCommandCaptureMock).toHaveBeenCalledTimes(1);
+			const [command, args, deployEnv] = runCommandCaptureMock.mock.calls[0]!;
+			expect(command).toBe('bunx');
+			expect(args).toEqual(['convex', 'deploy']);
+			expect(deployEnv?.[branchKey]).toBe('main');
+			expect(convexTreatsAsNonProduction(deployEnv!)).toBe(false);
+			expect(process.env[branchKey]).toBe('production');
+		}
+	);
+
+	it.each([
+		{
+			name: 'Workers Builds without a branch',
+			env: {
+				CF_PAGES: '',
+				CF_PAGES_BRANCH: '',
+				WORKERS_CI: '1'
+			},
+			branchKey: 'WORKERS_CI_BRANCH'
+		},
+		{
+			name: 'Cloudflare Pages with an empty branch',
+			env: {
+				CF_PAGES: '1',
+				CF_PAGES_BRANCH: '',
+				WORKERS_CI: '',
+				WORKERS_CI_BRANCH: ''
+			},
+			branchKey: 'CF_PAGES_BRANCH'
+		}
+	])('keeps $name fail-closed for Convex', async ({ env, branchKey }) => {
+		Object.assign(process.env, env, {
+			PRODUCTION_BRANCH: 'production',
+			CONVEX_DEPLOY_KEY: 'prod:key'
+		});
+		const platform = detectPlatform();
+		expect(platform.gitRef).toBeNull();
+		expect(platform.environment).toBe('production');
+		expect(platform.isPreview).toBe(false);
+
+		await deployConvex(platform);
+
+		expect(runCommandCaptureMock).toHaveBeenCalledTimes(1);
+		const [command, args, deployEnv] = runCommandCaptureMock.mock.calls[0]!;
+		expect(command).toBe('bunx');
+		expect(args).toEqual(['convex', 'deploy']);
+		expect(deployEnv?.[branchKey]).not.toBe('main');
+		expect(convexTreatsAsNonProduction(deployEnv!)).toBe(true);
+		expect(process.env[branchKey]).not.toBe('main');
+	});
+
+	it.each([
+		{
+			name: 'Workers Builds',
+			env: {
+				CF_PAGES: '',
+				CF_PAGES_BRANCH: '',
+				WORKERS_CI: '1',
+				WORKERS_CI_BRANCH: 'feature/workers'
+			},
+			branchKey: 'WORKERS_CI_BRANCH'
+		},
+		{
+			name: 'Cloudflare Pages',
+			env: {
+				CF_PAGES: '1',
+				CF_PAGES_BRANCH: 'feature/pages',
+				WORKERS_CI: '',
+				WORKERS_CI_BRANCH: ''
+			},
+			branchKey: 'CF_PAGES_BRANCH'
+		}
+	])('keeps $name preview branches non-production for Convex', async ({ env, branchKey }) => {
+		Object.assign(process.env, env, {
+			PRODUCTION_BRANCH: 'production',
+			CONVEX_DEPLOY_KEY: 'prod:key',
+			CONVEX_PREVIEW_DEPLOY_KEY: 'preview:key'
+		});
+		const originalBranch = process.env[branchKey];
+		const platform = detectPlatform();
+		expect(platform.environment).toBe('preview');
+		expect(platform.isPreview).toBe(true);
+
+		await deployConvex(platform);
+
+		expect(runCommandCaptureMock).toHaveBeenCalledTimes(1);
+		const [command, args, deployEnv] = runCommandCaptureMock.mock.calls[0]!;
+		expect(command).toBe('bunx');
+		expect(args).toEqual(['convex', 'deploy', '--preview-create', originalBranch]);
+		expect(deployEnv?.[branchKey]).toBe(originalBranch);
+		expect(convexTreatsAsNonProduction(deployEnv!)).toBe(true);
+		expect(process.env[branchKey]).toBe(originalBranch);
 	});
 });
