@@ -24,6 +24,61 @@ describe('passwordValidation', () => {
 		}
 	});
 
+	it.each(['Éléphant12', 'PASSWORD1é', 'Жжabcdef12', '𐐀𐐨123456'])(
+		'accepts Unicode letters without changing the value: %s',
+		(password) => {
+			const result = v.safeParse(passwordValidation, password);
+			expect(result.success).toBe(true);
+			if (result.success) {
+				expect(result.output).toBe(password);
+			}
+		}
+	);
+
+	it('rejects Unicode passwords without an uppercase letter', () => {
+		const result = v.safeParse(passwordValidation, 'éléphant12');
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.issues.some((i) => i.message === 'validation.password.uppercase')).toBe(true);
+		}
+	});
+
+	it('rejects Unicode passwords without a lowercase letter', () => {
+		const result = v.safeParse(passwordValidation, 'ÉLÉPHANT12');
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.issues.some((i) => i.message === 'validation.password.lowercase')).toBe(true);
+		}
+	});
+
+	it('rejects uncased letters as uppercase and lowercase letters', () => {
+		const result = v.safeParse(passwordValidation, '漢字漢字漢字漢字12');
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.issues.some((i) => i.message === 'validation.password.uppercase')).toBe(true);
+			expect(result.issues.some((i) => i.message === 'validation.password.lowercase')).toBe(true);
+		}
+	});
+
+	it.each(['Éléphantab', 'Éléphant١٢'])(
+		'rejects Unicode password without ASCII number: %s',
+		(password) => {
+			const result = v.safeParse(passwordValidation, password);
+			expect(result.success).toBe(false);
+			if (!result.success) {
+				expect(result.issues.some((i) => i.message === 'validation.password.number')).toBe(true);
+			}
+		}
+	);
+
+	it('rejects Unicode passwords shorter than minimum length', () => {
+		const result = v.safeParse(passwordValidation, 'Éléphant1');
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.issues.some((i) => i.message === 'validation.password.min_length')).toBe(true);
+		}
+	});
+
 	it('rejects passwords shorter than minimum length', () => {
 		const result = v.safeParse(passwordValidation, 'Pass123'); // 7 chars
 		expect(result.success).toBe(false);
