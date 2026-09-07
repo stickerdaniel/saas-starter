@@ -170,6 +170,7 @@
 	"overrides": {
 		"zod": "$zod",
 		"@peculiar/asn1-schema": "2.9.4",
-		"acorn": "8.18.0"
+		"acorn": "8.18.0",
+		"vite": "$vite"
 	}
 }
