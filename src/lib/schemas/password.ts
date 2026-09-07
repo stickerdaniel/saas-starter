@@ -14,8 +14,8 @@ export const PASSWORD_MIN_LENGTH = 10;
 export const passwordValidation = v.pipe(
 	v.string(),
 	v.minLength(PASSWORD_MIN_LENGTH, 'validation.password.min_length'),
-	v.regex(/[A-Z]/, 'validation.password.uppercase'),
-	v.regex(/[a-z]/, 'validation.password.lowercase'),
+	v.regex(/\p{Lu}/u, 'validation.password.uppercase'),
+	v.regex(/\p{Ll}/u, 'validation.password.lowercase'),
 	v.regex(/[0-9]/, 'validation.password.number')
 );
 
