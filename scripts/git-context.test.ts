@@ -6,6 +6,7 @@ import {
 	realpathSync,
 	rmSync,
 	symlinkSync,
+	utimesSync,
 	writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -390,6 +391,12 @@ describe('staged Git context', () => {
 	});
 
 	it.skipIf(process.platform === 'win32')('accepts a clean-filtered staged blob', () => {
+		// The setup staged a.ts before this filter existed. Age the file and refresh the still
+		// unfiltered index so its stat data is trusted rather than racily clean, which is the
+		// state a real commit reaches: from there `git add` skips the path and stages nothing.
+		const stale = new Date(Date.now() - 60_000);
+		utimesSync(path.join(repository, 'a.ts'), stale, stale);
+		git(repository, ['update-index', '--refresh']);
 		const filter = path.join(directory, 'filter');
 		writeFileSync(
 			filter,
@@ -399,7 +406,8 @@ describe('staged Git context', () => {
 		git(repository, ['config', 'filter.corrupt.clean', filter]);
 		git(repository, ['config', 'filter.corrupt.required', 'true']);
 		writeFileSync(path.join(repository, '.gitattributes'), 'a.ts filter=corrupt\n');
-		git(repository, ['add', '.gitattributes', 'a.ts']);
+		git(repository, ['add', '.gitattributes']);
+		git(repository, ['add', '--renormalize', 'a.ts']);
 
 		expect(stagedFilesMatchWorktree(['a.ts'], repository)).toBe(true);
 		expect(stagedFilesWithCleanFilters(['a.ts'], repository)).toEqual(['a.ts']);
