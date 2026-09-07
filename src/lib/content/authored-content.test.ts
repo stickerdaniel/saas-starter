@@ -19,21 +19,34 @@ function markdownDestinations(document: string): string[] {
 }
 
 describe('authored legal content', () => {
-	it('renders configured identity and authored dates', () => {
-		expect(privacyMarkdown).toContain(`# Privacy Policy`);
-		expect(privacyMarkdown).toContain(LEGAL_CONFIG.brandName);
-		expect(privacyMarkdown).toContain(LEGAL_CONFIG.operatorName);
-		expect(privacyMarkdown).toContain(formatLegalContentDate(LEGAL_CONTENT_DATES.privacy));
+	it('keeps configured identity and authored dates in literal side tables', () => {
+		expect(privacyMarkdown.markdown).toContain('# Privacy Policy');
+		expect(privacyMarkdown.markdown).toContain('{{BRAND_NAME}}');
+		expect(privacyMarkdown.markdown).toContain('{{OPERATOR_NAME}}');
+		expect(privacyMarkdown.markdown).toContain('{{LAST_UPDATED}}');
+		expect(privacyMarkdown.literals).toEqual({
+			BRAND_NAME: LEGAL_CONFIG.brandName,
+			LAST_UPDATED: formatLegalContentDate(LEGAL_CONTENT_DATES.privacy),
+			OPERATOR_NAME: LEGAL_CONFIG.operatorName
+		});
 
-		expect(termsMarkdown).toContain(`# Terms of Service`);
-		expect(termsMarkdown).toContain(LEGAL_CONFIG.brandName);
-		expect(termsMarkdown).toContain(formatLegalContentDate(LEGAL_CONTENT_DATES.terms));
-		expect(termsMarkdown).toContain('[Privacy Policy](privacy)');
+		expect(termsMarkdown.markdown).toContain('# Terms of Service');
+		expect(termsMarkdown.markdown).toContain('{{BRAND_NAME}}');
+		expect(termsMarkdown.markdown).toContain('[Privacy Policy](privacy)');
+		expect(termsMarkdown.literals).toEqual({
+			BRAND_NAME: LEGAL_CONFIG.brandName,
+			LAST_UPDATED: formatLegalContentDate(LEGAL_CONTENT_DATES.terms),
+			OPERATOR_NAME: LEGAL_CONFIG.operatorName
+		});
 
-		expect(impressumMarkdown).toContain(`# Impressum`);
-		expect(impressumMarkdown).toContain(LEGAL_CONFIG.operatorName);
-		expect(impressumMarkdown).toContain(LEGAL_CONFIG.address);
-		expect(impressumMarkdown).toContain(formatLegalContentDate(LEGAL_CONTENT_DATES.impressum));
+		expect(impressumMarkdown.markdown).toContain('# Impressum');
+		expect(impressumMarkdown.markdown).toContain('{{OPERATOR_NAME}}');
+		expect(impressumMarkdown.markdown).toContain('{{ADDRESS}}');
+		expect(impressumMarkdown.literals).toEqual({
+			ADDRESS: LEGAL_CONFIG.address,
+			LAST_UPDATED: formatLegalContentDate(LEGAL_CONTENT_DATES.impressum),
+			OPERATOR_NAME: LEGAL_CONFIG.operatorName
+		});
 	});
 
 	it('recognizes inline and reference-style destinations for route validation', () => {
@@ -45,9 +58,9 @@ describe('authored legal content', () => {
 	});
 
 	it.each([
-		['Privacy Policy', privacyMarkdown],
-		['Terms of Service', termsMarkdown],
-		['Impressum', impressumMarkdown]
+		['Privacy Policy', privacyMarkdown.markdown],
+		['Terms of Service', termsMarkdown.markdown],
+		['Impressum', impressumMarkdown.markdown]
 	])('keeps every relative link in %s on a public marketing route', (_name, document) => {
 		const allowed = new Set(
 			PUBLIC_MARKETING_ROUTES.map((route) => route.pathSuffix.replace(/^\//, '')).filter(Boolean)
@@ -61,7 +74,8 @@ describe('authored legal content', () => {
 
 	it('leaves contact addresses to the obfuscated page controls', () => {
 		for (const document of legalDocuments) {
-			expect(document).not.toContain(getLegalEmailAddress());
+			expect(document.markdown).not.toContain(getLegalEmailAddress());
+			expect(Object.values(document.literals)).not.toContain(getLegalEmailAddress());
 		}
 	});
 });
