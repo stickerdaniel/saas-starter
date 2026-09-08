@@ -5,14 +5,14 @@
   Copy and customize this for your own chat implementations.
 -->
 <script lang="ts">
-	import { ChatRoot, ChatMessages, ChatInput } from '$lib/chat';
+	import { ChatCore, ChatRoot, ChatMessages, ChatInput } from '$lib/chat';
 	import { Avatar, AvatarImage } from '$lib/components/ui/avatar';
 	import memberFour from '$blocks/team/avatars/member-four.webp';
 	import memberTwo from '$blocks/team/avatars/member-two.webp';
 	import memberFive from '$blocks/team/avatars/member-five.webp';
 
 	import type { ChatCoreAPI } from '$lib/chat';
-	import type { useQuery } from 'convex-svelte';
+	import { useConvexClient, type useQuery } from 'convex-svelte';
 
 	type ChatAPI = ChatCoreAPI & {
 		listMessages: Parameters<typeof useQuery>[0];
@@ -24,8 +24,8 @@
 		title = 'Chat',
 		greeting = 'How can we help?'
 	}: {
-		/** Thread ID for the conversation */
-		threadId: string | null;
+		/** Existing thread ID for the conversation */
+		threadId: string;
 		/** Convex API endpoints */
 		api: ChatAPI;
 		/** Chat title */
@@ -33,6 +33,19 @@
 		/** Greeting message */
 		greeting?: string;
 	} = $props();
+
+	const client = useConvexClient();
+	// API references are fixed for this mounted example; threadId is synchronized below.
+	// svelte-ignore state_referenced_locally
+	const core = new ChatCore({ threadId, api });
+
+	$effect(() => {
+		if (core.threadId !== threadId) core.setThread(threadId);
+	});
+
+	async function handleSend(prompt: string) {
+		await core.sendMessage(client, prompt);
+	}
 
 	// Intentionally English-only: this is a copy-and-customize example, not shipped UI.
 	const suggestions = [
@@ -49,7 +62,7 @@
 	</div>
 
 	<!-- Chat area -->
-	<ChatRoot {threadId} {api}>
+	<ChatRoot {threadId} {api} externalCore={core}>
 		<div class="relative flex-1 overflow-hidden">
 			<ChatMessages>
 				{#snippet emptyState()}
@@ -83,7 +96,8 @@
 		<ChatInput
 			{suggestions}
 			placeholder="Type a message..."
-			showFileButton={true}
+			showFileButton={false}
+			onSend={handleSend}
 			class="mx-4 mb-4"
 		/>
 	</ChatRoot>

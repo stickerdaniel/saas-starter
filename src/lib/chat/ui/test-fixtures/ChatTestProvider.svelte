@@ -33,8 +33,15 @@
 	// svelte-ignore state_referenced_locally
 	if (supportThread) supportThreadContext.set(supportThread);
 	const tolgee = Tolgee().use(FormatSimple()).init({ language: 'en', staticData: { en } });
+	// Tests may replace the child props without remounting its providers.
+	// svelte-ignore state_referenced_locally
+	let renderedContentProps = $state.raw(contentProps);
+
+	export function setContentProps(next: Props) {
+		renderedContentProps = next;
+	}
 </script>
 
 <TolgeeProvider {tolgee}>
-	<Content {...contentProps} />
+	<Content {...renderedContentProps} />
 </TolgeeProvider>

@@ -4,23 +4,22 @@
  * A reusable AI chat library built on top of Convex Agent.
  * Provides both headless core functionality and UI components.
  *
- * @example Basic usage with UI components
+ * @example Executable text-only chat
+ * Render this inside the existing Convex and authentication providers. The signed-in user must
+ * already own the supplied thread.
  * ```svelte
- * <script>
- *   import { ChatRoot, ChatMessages, ChatInput } from '$lib/chat';
+ * <script lang="ts">
+ *   import SimpleChat from '$lib/chat/examples/SimpleChat.svelte';
  *   import { api } from '$lib/convex/_generated/api';
+ *   let { ownedThreadId }: { ownedThreadId: string } = $props();
  * </script>
- *
- * <ChatRoot
- *   threadId="thread_123"
+ * <SimpleChat
+ *   threadId={ownedThreadId}
  *   api={{
- *     sendMessage: api.support.messages.sendMessage,
- *     listMessages: api.support.messages.listMessages
+ *     sendMessage: api.aiChat.messages.sendMessage,
+ *     listMessages: api.aiChat.messages.listMessages
  *   }}
- * >
- *   <ChatMessages />
- *   <ChatInput />
- * </ChatRoot>
+ * />
  * ```
  *
  * @example Using core without UI
