@@ -1,21 +1,23 @@
+import type { MarketingMarkdownContent } from './literals';
+
 export interface MarkdownLink {
-	label: string;
+	label: MarketingMarkdownContent;
 	href: string;
-	description?: string;
+	description?: MarketingMarkdownContent;
 }
 
 export interface MarketingMarkdownSection {
-	heading: string;
-	paragraphs?: string[];
-	bullets?: string[];
+	heading: MarketingMarkdownContent;
+	paragraphs?: MarketingMarkdownContent[];
+	bullets?: MarketingMarkdownContent[];
 	links?: MarkdownLink[];
 }
 
 export interface MarketingMarkdownDocument {
-	title: string;
-	description: string;
+	title: MarketingMarkdownContent;
+	description: MarketingMarkdownContent;
 	canonicalPath?: string;
-	robots?: string;
+	robots?: MarketingMarkdownContent;
 	sections: MarketingMarkdownSection[];
 }
 
