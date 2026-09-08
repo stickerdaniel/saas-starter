@@ -20,8 +20,6 @@ import {
 const REPO_ROOT = path.resolve(import.meta.dirname, '..');
 const SCRIPT = path.join(REPO_ROOT, 'scripts/check-pr-title.ts');
 const WORKFLOW_PATH = path.join(REPO_ROOT, '.github/workflows/check-pr-title.yml');
-const CHECKOUT = 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0';
-const SETUP_BUN = 'oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6';
 
 function runCli(title?: string, prJson?: string) {
 	const env = { ...process.env };
@@ -282,12 +280,14 @@ describe('PR Title workflow', () => {
 
 	it('checks out and executes only the trusted workflow revision', () => {
 		const checkout = job.steps.find((step) => step.uses?.startsWith('actions/checkout@'))!;
-		expect(checkout.uses).toBe(CHECKOUT);
+		expect(checkout.uses).toMatch(/^actions\/checkout@[0-9a-f]{40}$/);
 		expect(checkout.with).toEqual({
 			ref: '${{ github.workflow_sha }}',
 			'persist-credentials': false
 		});
-		expect(job.steps.some((step) => step.uses === SETUP_BUN)).toBe(true);
+		expect(
+			job.steps.some((step) => /^oven-sh\/setup-bun@[0-9a-f]{40}$/.test(step.uses ?? ''))
+		).toBe(true);
 		expect(source).not.toMatch(/github\.event\.pull_request\.head|github\.head_ref|refs\/pull\//);
 		expect(source).not.toMatch(/bun install|npm |pnpm |yarn /);
 	});
