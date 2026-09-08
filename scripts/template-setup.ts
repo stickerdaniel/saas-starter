@@ -1,5 +1,5 @@
 /**
- * Template setup script — replaces project-specific placeholders after
+ * Template setup script: replaces project-specific placeholders after
  * generating a new repo from the GitHub template.
  *
  * Safe to re-run: prompts with current values as defaults.
@@ -13,12 +13,24 @@
  * operator, address, email) preserve the current legal.ts values when no flag is
  * given, so a re-run without flags keeps the configured identity.
  *
- * Läuft ohne installierte Dependencies: es werden nur Node-Builtins und reine
- * lokale Module importiert.
+ * Runs before dependencies are installed: imports are limited to Node built-ins
+ * and dependency-free local modules.
  */
 
-import { accessSync, constants, existsSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import {
+	accessSync,
+	chmodSync,
+	constants,
+	lstatSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	renameSync,
+	rmdirSync,
+	unlinkSync,
+	writeFileSync
+} from 'fs';
+import { basename, dirname, isAbsolute, join, relative, sep } from 'path';
 import { createInterface, type Interface } from 'readline';
 import { domainToASCII, pathToFileURL } from 'url';
 import { parseArgs } from 'util';
@@ -26,7 +38,7 @@ import { isIsoCalendarDate } from '../src/lib/content/legal-metadata';
 
 const ROOT = join(import.meta.dirname, '..');
 
-/** Werte, die noch auf dem Template-Stand stehen und daher gesetzt werden müssen. */
+/** Values that still carry the template identity and must be configured. */
 const TEMPLATE_SLUG = 'saas-starter';
 const TEMPLATE_REPOSITORY = 'stickerdaniel/saas-starter';
 const TEMPLATE_BRAND = 'SaaS Starter';
@@ -54,8 +66,7 @@ interface SetupFlags {
 function readFlags(): SetupFlags {
 	let values: Record<string, unknown>;
 	try {
-		// strict: unbekannte Flags sind Tippfehler und dürfen nicht stillschweigend
-		// verworfen werden, bevor irgendetwas geschrieben wird.
+		// Unknown flags are likely typos and must fail before any file is written.
 		({ values } = parseArgs({
 			args: process.argv.slice(2),
 			options: {
@@ -118,14 +129,13 @@ let rl: Interface | undefined;
 function ensureReadline(): Interface {
 	if (!rl) {
 		rl = createInterface({ input: process.stdin, output: process.stdout });
-		// Ctrl-C beendet die Eingabe wie ein EOF, statt den Prozess mit offener
-		// Schnittstelle hängen zu lassen.
+		// Treat Ctrl-C like EOF so the process does not retain an open interface.
 		rl.on('SIGINT', () => rl?.close());
 	}
 	return rl;
 }
 
-/** Bricht kontrolliert ab: immer vor dem ersten Write und mit geschlossener Eingabe. */
+/** Exits cleanly before mutation and closes any interactive input. */
 function fail(message: string): never {
 	console.error(`Error: ${message}`);
 	rl?.close();
@@ -136,18 +146,250 @@ function fail(message: string): never {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function read(rel: string): string {
-	return readFileSync(join(ROOT, rel), 'utf-8');
+interface CanonicalFile {
+	rel: string;
+	path: string;
+	parent: string;
+	bytes: Buffer;
+	source: string;
+	mode: number;
 }
 
-function write(rel: string, content: string): void {
-	writeFileSync(join(ROOT, rel), content, 'utf-8');
+interface StagedFile {
+	file: CanonicalFile;
+	directory: string;
+	path: string;
+}
+
+const REAL_ROOT = realpathSync(ROOT);
+
+function isWithinRepository(path: string): boolean {
+	const fromRoot = relative(REAL_ROOT, path);
+	return (
+		fromRoot === '' ||
+		(!isAbsolute(fromRoot) && fromRoot !== '..' && !fromRoot.startsWith(`..${sep}`))
+	);
+}
+
+function inspectCanonicalFile(rel: string): CanonicalFile {
+	const path = join(ROOT, rel);
+	const parent = realpathSync(dirname(path));
+	if (!isWithinRepository(parent)) {
+		throw new Error(`Refusing ${rel}: real parent is outside the repository root`);
+	}
+
+	const stat = lstatSync(path);
+	if (!stat.isFile()) throw new Error(`Refusing ${rel}: canonical target must be a regular file`);
+	if (stat.nlink !== 1) {
+		throw new Error(`Refusing ${rel}: canonical target must have link count 1, got ${stat.nlink}`);
+	}
+	try {
+		accessSync(path, constants.W_OK);
+	} catch {
+		throw new Error(`Cannot write ${rel}; check file permissions`);
+	}
+	const bytes = readFileSync(path);
+	return { rel, path, parent, bytes, source: bytes.toString('utf-8'), mode: stat.mode & 0o7777 };
+}
+
+function inspectOptionalCanonicalFile(rel: string): CanonicalFile | undefined {
+	try {
+		return inspectCanonicalFile(rel);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+		throw error;
+	}
+}
+
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+function removeOwnedFile(path: string, errors: string[]): void {
+	try {
+		unlinkSync(path);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+			errors.push(`${path}: ${errorMessage(error)}`);
+		}
+	}
+}
+
+function removeOwnedDirectory(path: string, errors: string[]): void {
+	try {
+		rmdirSync(path);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+			errors.push(`${path}: ${errorMessage(error)}`);
+		}
+	}
 }
 
 /**
- * Fragt eine Eingabe ab. Liefert undefined, wenn stdin schließt (EOF, Ctrl-D,
- * Ctrl-C), damit der Aufrufer sauber abbrechen kann.
+ * Canonical files stay wholly old or new for handled synchronous failures. Process
+ * termination, ENOSPC, permission races, concurrent writers, network filesystems, and
+ * preservation of owners, ACLs, xattrs, or birthtime remain outside this contract.
  */
+function stageFile(file: CanonicalFile, content: string): StagedFile {
+	const directory = mkdtempSync(join(file.parent, `.template-setup-${basename(file.path)}-`));
+	const path = join(directory, basename(file.path));
+	try {
+		writeFileSync(path, content, { encoding: 'utf-8', flag: 'wx' });
+		chmodSync(path, file.mode);
+		return { file, directory, path };
+	} catch (error) {
+		const cleanupErrors: string[] = [];
+		removeOwnedFile(path, cleanupErrors);
+		removeOwnedDirectory(directory, cleanupErrors);
+		if (cleanupErrors.length > 0) {
+			throw new Error(
+				`${errorMessage(error)}; staging cleanup failed: ${cleanupErrors.join('; ')}`,
+				{ cause: error }
+			);
+		}
+		throw error;
+	}
+}
+
+function replaceAtomically(file: CanonicalFile, content: string): void {
+	const staged = stageFile(file, content);
+	try {
+		renameSync(staged.path, file.path);
+	} catch (error) {
+		const cleanupErrors: string[] = [];
+		removeOwnedFile(staged.path, cleanupErrors);
+		removeOwnedDirectory(staged.directory, cleanupErrors);
+		if (cleanupErrors.length > 0) {
+			throw new Error(
+				`${errorMessage(error)}; staging cleanup failed: ${cleanupErrors.join('; ')}`,
+				{ cause: error }
+			);
+		}
+		throw error;
+	}
+
+	const cleanupErrors: string[] = [];
+	removeOwnedDirectory(staged.directory, cleanupErrors);
+	if (cleanupErrors.length > 0) {
+		throw new Error(
+			`Replacement committed for ${file.rel}, but cleanup failed: ${cleanupErrors.join('; ')}`
+		);
+	}
+}
+
+function canonicalState(file: CanonicalFile): string {
+	try {
+		const bytes = readFileSync(file.path);
+		return bytes.equals(file.bytes) ? 'original' : 'changed';
+	} catch (error) {
+		return (error as NodeJS.ErrnoException).code === 'ENOENT' ? 'missing' : 'unreadable';
+	}
+}
+
+function assertOriginalBytes(file: CanonicalFile): void {
+	const current = readFileSync(file.path);
+	if (!current.equals(file.bytes)) {
+		throw new Error(`Refusing to replace ${file.rel}: canonical bytes changed after preflight`);
+	}
+}
+
+type LegalPairState =
+	'PREPARED' | 'CONFIG_BACKED_UP' | 'CONFIG_INSTALLED' | 'COMMITTED' | 'RESTORED';
+
+function replaceLegalPair(
+	config: CanonicalFile,
+	configContent: string,
+	metadata: CanonicalFile,
+	metadataContent: string
+): void {
+	const stagedConfig = stageFile(config, configContent);
+	let stagedMetadata: StagedFile;
+	try {
+		stagedMetadata = stageFile(metadata, metadataContent);
+	} catch (error) {
+		const cleanupErrors: string[] = [];
+		removeOwnedFile(stagedConfig.path, cleanupErrors);
+		removeOwnedDirectory(stagedConfig.directory, cleanupErrors);
+		if (cleanupErrors.length > 0) {
+			throw new Error(
+				`${errorMessage(error)}; legal staging cleanup failed: ${cleanupErrors.join('; ')}`,
+				{ cause: error }
+			);
+		}
+		throw error;
+	}
+
+	const backupPath = join(stagedConfig.directory, `${basename(config.path)}.backup`);
+	const recoveryPath = join(stagedConfig.directory, `${basename(config.path)}.recovery`);
+	let state: LegalPairState = 'PREPARED';
+	try {
+		assertOriginalBytes(config);
+		assertOriginalBytes(metadata);
+		renameSync(config.path, backupPath);
+		state = 'CONFIG_BACKED_UP';
+		renameSync(stagedConfig.path, config.path);
+		state = 'CONFIG_INSTALLED';
+		renameSync(stagedMetadata.path, metadata.path);
+		state = 'COMMITTED';
+	} catch (error) {
+		if (state === 'CONFIG_BACKED_UP') {
+			try {
+				renameSync(backupPath, config.path);
+				state = 'RESTORED';
+			} catch (restoreError) {
+				throw new Error(
+					`Recovery required after legal pair failure: state=${state}; backup=${backupPath}; ` +
+						`recovery=${recoveryPath}; canonical config=${canonicalState(config)}; ` +
+						`canonical metadata=${canonicalState(metadata)}; operation failed: ${errorMessage(error)}; ` +
+						`restore failed: ${errorMessage(restoreError)}`,
+					{ cause: restoreError }
+				);
+			}
+		} else if (state === 'CONFIG_INSTALLED') {
+			try {
+				renameSync(config.path, recoveryPath);
+				renameSync(backupPath, config.path);
+				state = 'RESTORED';
+			} catch (restoreError) {
+				throw new Error(
+					`Recovery required after legal pair failure: state=${state}; backup=${backupPath}; ` +
+						`recovery=${recoveryPath}; canonical config=${canonicalState(config)}; ` +
+						`canonical metadata=${canonicalState(metadata)}; operation failed: ${errorMessage(error)}; ` +
+						`restore failed: ${errorMessage(restoreError)}`,
+					{ cause: restoreError }
+				);
+			}
+		}
+
+		const cleanupErrors: string[] = [];
+		removeOwnedFile(stagedConfig.path, cleanupErrors);
+		removeOwnedFile(recoveryPath, cleanupErrors);
+		removeOwnedFile(stagedMetadata.path, cleanupErrors);
+		removeOwnedDirectory(stagedConfig.directory, cleanupErrors);
+		removeOwnedDirectory(stagedMetadata.directory, cleanupErrors);
+		if (cleanupErrors.length > 0) {
+			throw new Error(
+				`${errorMessage(error)}; legal pair state=${state}; cleanup failed: ${cleanupErrors.join('; ')}`,
+				{ cause: error }
+			);
+		}
+		throw error;
+	}
+
+	const cleanupErrors: string[] = [];
+	removeOwnedFile(backupPath, cleanupErrors);
+	removeOwnedFile(stagedConfig.path, cleanupErrors);
+	removeOwnedFile(stagedMetadata.path, cleanupErrors);
+	removeOwnedDirectory(stagedConfig.directory, cleanupErrors);
+	removeOwnedDirectory(stagedMetadata.directory, cleanupErrors);
+	if (cleanupErrors.length > 0) {
+		throw new Error(
+			`Legal pair state=${state}; commit completed, but cleanup failed: ${cleanupErrors.join('; ')}`
+		);
+	}
+}
+
+/** Prompts once and returns undefined when stdin closes through EOF, Ctrl-D, or Ctrl-C. */
 function prompt(question: string, fallback: string): Promise<string | undefined> {
 	const iface = ensureReadline();
 	return new Promise((resolve) => {
@@ -164,13 +406,10 @@ function prompt(question: string, fallback: string): Promise<string | undefined>
 	});
 }
 
-/** Gibt eine Fehlermeldung zurück, wenn der Wert unbrauchbar ist, sonst undefined. */
+/** Returns a validation message for an unusable value. */
 export type Validator = (value: string) => string | undefined;
 
-/**
- * Fragt so lange erneut, bis eine gültige Antwort vorliegt. Liefert undefined,
- * wenn die Eingabe endet (EOF, Ctrl-D, Ctrl-C), damit der Aufrufer abbrechen kann.
- */
+/** Repeats a prompt until it validates, or returns undefined when input closes. */
 export async function askUntilValid(
 	ask: (question: string, fallback: string) => Promise<string | undefined>,
 	question: string,
@@ -218,14 +457,13 @@ function titleCase(slug: string): string {
 }
 
 /**
- * Bewusst enges Subset für die vorhandenen unkodierten mailto-Consumer. Plus,
- * Apostroph und Unicode-Buchstaben bleiben erlaubt; URI-Strukturzeichen und
- * kodierungspflichtige Localparts werden abgelehnt. Kein vollständiger RFC- oder
- * Zustellbarkeitsvalidator.
+ * Deliberately narrow subset for existing unencoded mailto consumers. Plus signs,
+ * apostrophes, and Unicode letters remain valid; URI separators and local parts that
+ * require encoding are rejected. This is not full RFC or deliverability validation.
  */
 const EMAIL_LOCAL_PART = /^[\p{L}\p{N}\p{M}._+'-]+$/u;
 
-/** Zerlegt und prüft die Adresse, ohne gültige Originalteile zu normalisieren. */
+/** Splits and validates the address without normalizing accepted source parts. */
 export function parseContactEmail(
 	value: string
 ): { user: string; domain: string; tld: string } | undefined {
@@ -268,25 +506,22 @@ export function parseContactEmail(
 }
 
 /**
- * Brand und Operator landen als Rohtext in den Absätzen von Privacy und Terms.
- * Ein Zeilenumbruch zerlegt dort den Absatz und kann eine zusätzliche Überschrift
- * erzeugen. Die Adresse bleibt bewusst mehrzeilig.
+ * Brand and operator values enter Privacy and Terms paragraphs as raw text. A line
+ * break would split the paragraph and can create another heading. Address stays multiline.
  */
 function singleLineValidator(label: string): Validator {
 	return (value) => (/[\r\n]/.test(value) ? `${label} must be a single line` : undefined);
 }
 
 // ---------------------------------------------------------------------------
-// Sichere Serialisierung
+// Safe serialization
 // ---------------------------------------------------------------------------
 
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 /**
- * Erzeugt ein TypeScript-Stringliteral. JSON.stringify maskiert Backslashes,
- * Steuerzeichen und Zeilenumbrüche korrekt; anschließend wird auf die Quote-Wahl
- * umgestellt, die Prettier für diese Datei träfe (einfache Quotes, außer der Wert
- * enthält davon mehr als doppelte).
+ * Emits a TypeScript string literal. JSON.stringify escapes backslashes, control
+ * characters, and line breaks before matching Prettier's quote preference for this file.
  */
 export function tsStringLiteral(value: string): string {
 	const singleQuotes = value.split("'").length - 1;
@@ -305,11 +540,7 @@ function tsKey(key: string): string {
 	return IDENTIFIER.test(key) ? key : tsStringLiteral(key);
 }
 
-/**
- * Serialisiert die Einstellungen als TypeScript-Objektliteral. Zusätzliche
- * Schlüssel eines Forks bleiben erhalten, weil über die tatsächlichen Einträge
- * iteriert wird.
- */
+/** Serializes supported values as a TypeScript object while preserving fork-owned keys. */
 export function serializeConfigValue(value: unknown, indent: string): string {
 	if (typeof value === 'string') return tsStringLiteral(value);
 	if (typeof value === 'number' || typeof value === 'boolean') return String(value);
@@ -328,55 +559,240 @@ export function serializeConfigValue(value: unknown, indent: string): string {
 	throw new Error(`Unsupported LEGAL_CONFIG value of type ${typeof value}`);
 }
 
-function legalConfigBlockPattern(): RegExp {
-	return /^export const LEGAL_CONFIG = \{[\s\S]*?^\} as const;$/gm;
+function maskTypeScriptTopLevelCode(source: string): string {
+	const masked = source.split('');
+	const mask = (index: number): void => {
+		if (source[index] !== '\n' && source[index] !== '\r') masked[index] = ' ';
+	};
+
+	function consumeQuoted(index: number, quote: "'" | '"'): number {
+		mask(index++);
+		while (index < source.length) {
+			if (source[index] === '\\') {
+				mask(index++);
+				if (index >= source.length) break;
+				mask(index++);
+				continue;
+			}
+			if (source[index] === quote) {
+				mask(index++);
+				return index;
+			}
+			if (source[index] === '\n' || source[index] === '\r') {
+				throw new Error('Unsupported unterminated string in src/lib/config/legal.ts');
+			}
+			mask(index++);
+		}
+		throw new Error('Unsupported unterminated string in src/lib/config/legal.ts');
+	}
+
+	function consumeLineComment(index: number): number {
+		mask(index++);
+		mask(index++);
+		while (index < source.length && source[index] !== '\n' && source[index] !== '\r') {
+			mask(index++);
+		}
+		return index;
+	}
+
+	function consumeBlockComment(index: number): number {
+		mask(index++);
+		mask(index++);
+		while (index < source.length) {
+			if (source[index] === '*' && source[index + 1] === '/') {
+				mask(index++);
+				mask(index++);
+				return index;
+			}
+			mask(index++);
+		}
+		throw new Error('Unsupported unterminated block comment in src/lib/config/legal.ts');
+	}
+
+	function consumeTemplateInterpolation(index: number): number {
+		let depth = 1;
+		while (index < source.length) {
+			const char = source[index];
+			const next = source[index + 1];
+			if (char === "'" || char === '"') {
+				index = consumeQuoted(index, char);
+				continue;
+			}
+			if (char === '`') {
+				index = consumeTemplate(index);
+				continue;
+			}
+			if (char === '/' && next === '/') {
+				index = consumeLineComment(index);
+				continue;
+			}
+			if (char === '/' && next === '*') {
+				index = consumeBlockComment(index);
+				continue;
+			}
+			if (char === '/') {
+				throw new Error('Unsupported slash syntax in template interpolation in legal.ts');
+			}
+			if (char === '{') depth += 1;
+			if (char === '}') {
+				depth -= 1;
+				mask(index++);
+				if (depth === 0) return index;
+				continue;
+			}
+			mask(index++);
+		}
+		throw new Error('Unsupported unterminated template interpolation in legal.ts');
+	}
+
+	function consumeTemplate(index: number): number {
+		mask(index++);
+		while (index < source.length) {
+			if (source[index] === '\\') {
+				mask(index++);
+				if (index >= source.length) break;
+				mask(index++);
+				continue;
+			}
+			if (source[index] === '`') {
+				mask(index++);
+				return index;
+			}
+			if (source[index] === '$' && source[index + 1] === '{') {
+				mask(index++);
+				mask(index++);
+				index = consumeTemplateInterpolation(index);
+				continue;
+			}
+			mask(index++);
+		}
+		throw new Error('Unsupported unterminated template in src/lib/config/legal.ts');
+	}
+
+	let index = 0;
+	while (index < source.length) {
+		const char = source[index];
+		const next = source[index + 1];
+		if (char === "'" || char === '"') {
+			index = consumeQuoted(index, char);
+			continue;
+		}
+		if (char === '`') {
+			index = consumeTemplate(index);
+			continue;
+		}
+		if (char === '/' && next === '/') {
+			index = consumeLineComment(index);
+			continue;
+		}
+		if (char === '/' && next === '*') {
+			index = consumeBlockComment(index);
+			continue;
+		}
+		if (char === '/') {
+			throw new Error('Unsupported slash syntax in src/lib/config/legal.ts');
+		}
+		index += 1;
+	}
+	return masked.join('');
 }
 
-/**
- * Ersetzt den eindeutigen LEGAL_CONFIG-Exportblock. Die Hilfsfunktionen und alle
- * übrigen Dateiinhalte bleiben unberührt.
- */
-export function replaceLegalConfigSource(source: string, config: Record<string, unknown>): string {
-	const matches = source.match(legalConfigBlockPattern());
-	if (matches?.length !== 1) {
+interface LegalConfigSourceMatch {
+	start: number;
+	end: number;
+}
+
+function findLegalConfigSource(source: string): LegalConfigSourceMatch {
+	const masked = maskTypeScriptTopLevelCode(source);
+	const topLevel = new Set<number>();
+	let braceDepth = 0;
+	let bracketDepth = 0;
+	let parenthesisDepth = 0;
+	for (let index = 0; index < masked.length; index += 1) {
+		if (braceDepth === 0 && bracketDepth === 0 && parenthesisDepth === 0) topLevel.add(index);
+		if (masked[index] === '{') braceDepth += 1;
+		else if (masked[index] === '}') braceDepth -= 1;
+		else if (masked[index] === '[') bracketDepth += 1;
+		else if (masked[index] === ']') bracketDepth -= 1;
+		else if (masked[index] === '(') parenthesisDepth += 1;
+		else if (masked[index] === ')') parenthesisDepth -= 1;
+		if (braceDepth < 0 || bracketDepth < 0 || parenthesisDepth < 0) {
+			throw new Error('Unsupported unbalanced syntax in src/lib/config/legal.ts');
+		}
+	}
+	if (braceDepth !== 0 || bracketDepth !== 0 || parenthesisDepth !== 0) {
+		throw new Error('Unsupported unbalanced syntax in src/lib/config/legal.ts');
+	}
+
+	const declarations = [...masked.matchAll(/\bexport\s+const\s+LEGAL_CONFIG\b/g)].filter(
+		(match) => match.index !== undefined && topLevel.has(match.index)
+	);
+	if (declarations.length !== 1) {
 		throw new Error(
-			`Expected exactly one LEGAL_CONFIG block in src/lib/config/legal.ts, found ${matches?.length ?? 0}`
+			`Expected exactly one LEGAL_CONFIG export in src/lib/config/legal.ts, found ${declarations.length}`
 		);
 	}
+
+	const declaration = declarations[0]!;
+	let cursor = declaration.index + declaration[0].length;
+	while (/\s/.test(masked[cursor] ?? '')) cursor += 1;
+	if (masked[cursor++] !== '=') {
+		throw new Error('LEGAL_CONFIG must use a direct object initializer followed by as const;');
+	}
+	while (/\s/.test(masked[cursor] ?? '')) cursor += 1;
+	if (masked[cursor] !== '{') {
+		throw new Error('LEGAL_CONFIG must use a direct object initializer followed by as const;');
+	}
+
+	let objectDepth = 1;
+	let close = cursor + 1;
+	for (; close < masked.length; close += 1) {
+		if (masked[close] === '{') objectDepth += 1;
+		if (masked[close] === '}') {
+			objectDepth -= 1;
+			if (objectDepth === 0) break;
+		}
+	}
+	if (objectDepth !== 0) throw new Error('Could not find the end of LEGAL_CONFIG');
+
+	const suffix = /^\s+as\s+const\s*;/.exec(masked.slice(close + 1));
+	if (!suffix) {
+		throw new Error('LEGAL_CONFIG must use a direct object initializer followed by as const;');
+	}
+	return { start: declaration.index, end: close + 1 + suffix[0].length };
+}
+
+/** Replaces the one supported top-level LEGAL_CONFIG initializer. */
+export function replaceLegalConfigSource(source: string, config: Record<string, unknown>): string {
+	const match = findLegalConfigSource(source);
 	const block = `export const LEGAL_CONFIG = ${serializeConfigValue(config, '')} as const;`;
-	// Replacement-Callback: $&, $1 und $` in Branding-Werten dürfen nicht als
-	// Ersetzungsmuster interpretiert werden.
-	return source.replace(legalConfigBlockPattern(), () => block);
+	return source.slice(0, match.start) + block + source.slice(match.end);
 }
 
 // ---------------------------------------------------------------------------
 // Detect current values (for re-run defaults)
 // ---------------------------------------------------------------------------
 
-function currentSlug(): string {
-	const pkg = JSON.parse(read('package.json'));
+function currentSlug(source: string): string {
+	const pkg = JSON.parse(source);
 	return pkg.name ?? TEMPLATE_SLUG;
 }
 
-function currentRepo(): string {
-	return findGithubSlugProperty(read('src/lib/config/site.ts')).value;
+function currentRepo(source: string): string {
+	return findGithubSlugProperty(source).value;
 }
 
-/**
- * Liest die rechtlichen Defaults aus dem reinen Modul statt per Regex. Ist die
- * Datei beschädigt, scheitert der Import hier — vor jedem Write.
- */
-async function readLegalConfig(): Promise<Record<string, unknown>> {
-	const modulePath = join(ROOT, 'src/lib/config/legal.ts');
-	const imported = (await import(pathToFileURL(modulePath).href)) as {
+/** Reads legal defaults from the real module and validates the supported data shape. */
+async function readLegalConfig(file: CanonicalFile): Promise<Record<string, unknown>> {
+	const imported = (await import(pathToFileURL(file.path).href)) as {
 		LEGAL_CONFIG?: unknown;
 	};
+	assertOriginalBytes(file);
 	const config = imported.LEGAL_CONFIG;
 	if (config === null || typeof config !== 'object' || Array.isArray(config)) {
 		throw new Error('Could not read LEGAL_CONFIG from src/lib/config/legal.ts');
 	}
-	// Vor structuredClone prüfen: Klasseninstanzen und Null-Prototyp-Objekte würden
-	// dort zu gewöhnlichen Objekten und könnten anschließend unbemerkt Daten verlieren.
+	// Validate before structuredClone can normalize class instances or null-prototype objects.
 	serializeConfigValue(config, '');
 	return structuredClone(config) as Record<string, unknown>;
 }
@@ -386,7 +802,7 @@ function readString(source: Record<string, unknown>, key: string): string {
 	return typeof value === 'string' ? value : '';
 }
 
-/** Unterscheidet einen vorhandenen (auch leeren) String von einem fehlenden Schlüssel. */
+/** Distinguishes an existing string, including empty, from a missing key. */
 function readOptionalString(source: Record<string, unknown>, key: string): string | undefined {
 	const value = source[key];
 	return typeof value === 'string' ? value : undefined;
@@ -434,9 +850,8 @@ interface GithubSlugMatch {
 }
 
 /**
- * Blendet Kommentare sowie String- und Template-Inhalte aus, behält aber Länge,
- * Zeilenumbrüche und Literalgrenzen. Damit lassen sich die wenigen benötigten
- * Strukturanker bestimmen, ohne beliebige TypeScript-Syntax zu interpretieren.
+ * Masks comments, strings, and template contents while retaining offsets and line
+ * breaks. The remaining code supports the few required anchors without parsing TypeScript.
  */
 function maskTypeScriptNonCode(source: string): string {
 	const masked = source.split('');
@@ -715,19 +1130,218 @@ export function updateLegalContentDatesSource(
 // README, wrangler, lockfile
 // ---------------------------------------------------------------------------
 
-/**
- * Maskiert Zeichen, die den Markennamen in einer Markdown-Überschrift anders rendern
- * würden. `&` gehört dazu, weil `&copy;` sonst als Entity ankommt, `#` wegen der
- * schließenden Zeichenfolge einer ATX-Überschrift.
- */
+/** Escapes characters that would change the literal rendering of a Markdown heading. */
 export function escapeMarkdownInline(value: string): string {
 	return value.replace(/[\\`*_[\]<>&#~]/g, (char) => `\\${char}`);
+}
+
+interface MarkdownLine {
+	start: number;
+	end: number;
+	fullEnd: number;
+	content: string;
+	lineBreak: '' | '\n' | '\r\n';
+}
+
+interface MarkdownFence {
+	openLine: number;
+	closeLine: number;
+	marker: '`' | '~';
+	length: number;
+	info: string;
+}
+
+interface MarkdownHeading {
+	line: number;
+	level: number;
+	text: string;
+}
+
+interface QuickStartCandidate {
+	cloneLine: MarkdownLine;
+	directoryLine: MarkdownLine;
+	clone: string;
+	directory: string;
+}
+
+interface ReadmeStructure {
+	lines: MarkdownLine[];
+	fences: MarkdownFence[];
+	headings: MarkdownHeading[];
+	candidate: QuickStartCandidate;
+}
+
+function markdownLines(source: string): MarkdownLine[] {
+	const lines: MarkdownLine[] = [];
+	let start = 0;
+	while (start < source.length) {
+		const lf = source.indexOf('\n', start);
+		if (lf === -1) {
+			lines.push({
+				start,
+				end: source.length,
+				fullEnd: source.length,
+				content: source.slice(start),
+				lineBreak: ''
+			});
+			return lines;
+		}
+		const crlf = lf > start && source[lf - 1] === '\r';
+		const end = crlf ? lf - 1 : lf;
+		lines.push({
+			start,
+			end,
+			fullEnd: lf + 1,
+			content: source.slice(start, end),
+			lineBreak: crlf ? '\r\n' : '\n'
+		});
+		start = lf + 1;
+	}
+	if (source === '' || source.endsWith('\n')) {
+		lines.push({ start, end: start, fullEnd: start, content: '', lineBreak: '' });
+	}
+	return lines;
+}
+
+function openingFence(
+	line: string
+): { marker: '`' | '~'; length: number; info: string } | undefined {
+	const match = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+	if (!match) return undefined;
+	const marker = match[1]![0] as '`' | '~';
+	const info = match[2]!.trim();
+	if (marker === '`' && info.includes('`')) return undefined;
+	return { marker, length: match[1]!.length, info };
+}
+
+function closesFence(line: string, fence: { marker: '`' | '~'; length: number }): boolean {
+	const match = /^ {0,3}(`+|~+)[ \t]*$/.exec(line);
+	return !!match && match[1]![0] === fence.marker && match[1]!.length >= fence.length;
+}
+
+function markdownHeading(line: string): { level: number; text: string } | undefined {
+	const match = /^ {0,3}(#{1,6})(?:[ \t]+(.*)|[ \t]*)$/.exec(line);
+	if (!match) return undefined;
+	const text = (match[2] ?? '').replace(/[ \t]+#+[ \t]*$/, '').trim();
+	return { level: match[1]!.length, text };
+}
+
+function installationCandidate(lines: MarkdownLine[]): QuickStartCandidate | undefined {
+	if (
+		lines.length !== 4 ||
+		lines[2]!.content !== 'bun install' ||
+		lines[3]!.content !== 'bun run dev'
+	) {
+		return undefined;
+	}
+	const clone = lines[0]!.content;
+	const directory = lines[1]!.content;
+	const git = /^git clone https:\/\/github\.com\/[A-Za-z0-9-]+\/([A-Za-z0-9._-]+)\.git$/.exec(
+		clone
+	);
+	if (git) {
+		const expected = git[1]!;
+		if (directory !== `cd ${expected}` && directory !== `cd ./${expected}`) return undefined;
+		return { cloneLine: lines[0]!, directoryLine: lines[1]!, clone, directory };
+	}
+	const bootstrap =
+		/^gh repo create ([A-Za-z0-9._-]+) --template [A-Za-z0-9-]+\/[A-Za-z0-9._-]+ --clone$/.exec(
+			clone
+		);
+	if (!bootstrap || (directory !== `cd ${bootstrap[1]}` && directory !== `cd ./${bootstrap[1]}`)) {
+		return undefined;
+	}
+	return { cloneLine: lines[0]!, directoryLine: lines[1]!, clone, directory };
+}
+
+function findReadmeStructure(source: string): ReadmeStructure {
+	const lines = markdownLines(source);
+	const fences: MarkdownFence[] = [];
+	const headings: MarkdownHeading[] = [];
+	let open: { line: number; marker: '`' | '~'; length: number; info: string } | undefined;
+	for (let index = 0; index < lines.length; index += 1) {
+		const content = lines[index]!.content;
+		if (open) {
+			if (closesFence(content, open)) {
+				fences.push({
+					openLine: open.line,
+					closeLine: index,
+					marker: open.marker,
+					length: open.length,
+					info: open.info
+				});
+				open = undefined;
+			}
+			continue;
+		}
+		const fence = openingFence(content);
+		if (fence) {
+			open = { line: index, ...fence };
+			continue;
+		}
+		const heading = markdownHeading(content);
+		if (heading) headings.push({ line: index, ...heading });
+	}
+	if (open) throw new Error('README.md contains an unterminated fenced code block');
+
+	const quickStarts = headings.filter(({ level, text }) => level === 2 && text === 'Quick Start');
+	if (quickStarts.length !== 1) {
+		throw new Error(
+			`Expected exactly one Quick Start H2 in README.md, found ${quickStarts.length}`
+		);
+	}
+	const quickStart = quickStarts[0]!;
+	const nextSection = headings.find(
+		({ line, level }) => line > quickStart.line && (level === 1 || level === 2)
+	);
+	const sectionEnd = nextSection?.line ?? lines.length;
+	const candidates = fences
+		.filter(
+			({ openLine, closeLine, info }) =>
+				openLine > quickStart.line && closeLine < sectionEnd && info.toLowerCase() === 'bash'
+		)
+		.map(({ openLine, closeLine }) => installationCandidate(lines.slice(openLine + 1, closeLine)))
+		.filter((candidate): candidate is QuickStartCandidate => candidate !== undefined);
+	if (candidates.length !== 1) {
+		throw new Error(
+			`Expected exactly one Quick Start installation candidate in README.md, found ${candidates.length}`
+		);
+	}
+	const candidate = candidates[0]!;
+	const cloneLine = lines.indexOf(candidate.cloneLine);
+	const candidateLineBreaks = new Set(
+		lines
+			.slice(cloneLine - 1, cloneLine + 5)
+			.map(({ lineBreak }) => lineBreak)
+			.filter((lineBreak) => lineBreak !== '')
+	);
+	if (candidateLineBreaks.size > 1) throw new Error('Quick Start contains mixed line endings');
+	return { lines, fences, headings, candidate };
+}
+
+function repositoryUrlBoundary(source: string, end: number): boolean {
+	const next = source[end];
+	if (next === undefined) return true;
+	if (source.startsWith('.git', end)) {
+		const afterGit = source[end + 4];
+		if (afterGit === '.') {
+			const afterPeriod = source[end + 5];
+			return afterPeriod === undefined || /\s/.test(afterPeriod);
+		}
+		return afterGit === undefined || !/[A-Za-z0-9._-]/.test(afterGit);
+	}
+	if (next === '.') {
+		const afterPeriod = source[end + 1];
+		return afterPeriod === undefined || /\s/.test(afterPeriod);
+	}
+	return !/[A-Za-z0-9._-]/.test(next);
 }
 
 function replaceGithubRepositoryUrls(
 	source: string,
 	oldGithubUrl: string,
-	githubUrl: string
+	githubUrl: string,
+	excluded: Array<{ start: number; end: number }>
 ): string {
 	let updated = '';
 	let cursor = 0;
@@ -735,99 +1349,75 @@ function replaceGithubRepositoryUrls(
 		const start = source.indexOf(oldGithubUrl, cursor);
 		if (start === -1) return updated + source.slice(cursor);
 		const end = start + oldGithubUrl.length;
-		const next = source[end];
-		const gitSuffix = source.startsWith('.git', end);
-		const afterGit = gitSuffix ? source[end + '.git'.length] : undefined;
-		const isBoundary =
-			next === undefined ||
-			!/[A-Za-z0-9._-]/.test(next) ||
-			(gitSuffix && (afterGit === undefined || !/[A-Za-z0-9._-]/.test(afterGit)));
-
+		const protectedRange = excluded.some((range) => start >= range.start && start < range.end);
 		updated += source.slice(cursor, start);
-		updated += isBoundary ? githubUrl : oldGithubUrl;
+		updated += !protectedRange && repositoryUrlBoundary(source, end) ? githubUrl : oldGithubUrl;
 		cursor = end;
 	}
 }
 
-/**
- * Repariert Überschrift, Demo-Absatz und Quick Start. Der Quick Start erklärt danach
- * die Einrichtung des erzeugten Projekts statt der Template-Erzeugung. Der Aufruf ist
- * idempotent: die bereits erzeugte Form wird erneut erkannt.
- */
+/** Updates the heading, template demo paragraph, repository URLs, and exact Quick Start candidate. */
 export function replaceReadmeSource(
 	source: string,
 	options: { brand: string; repository: string; oldGithubUrl: string; githubUrl: string }
 ): string {
 	const { brand, repository, oldGithubUrl, githubUrl } = options;
 	const repositoryBasename = repository.split('/')[1]!;
-
-	// Zuerst die Repository-Links, damit der danach erzeugte Quick-Start-Block nicht
-	// noch einmal umgeschrieben wird.
+	const structure = findReadmeStructure(source);
+	const { cloneLine, directoryLine } = structure.candidate;
 	let updated =
-		oldGithubUrl === githubUrl
-			? source
-			: replaceGithubRepositoryUrls(source, oldGithubUrl, githubUrl);
+		source.slice(0, cloneLine.start) +
+		`git clone ${githubUrl}.git${cloneLine.lineBreak}cd ./${repositoryBasename}` +
+		source.slice(directoryLine.end);
 
-	const heading = /^# .+$/m;
-	if (!heading.test(updated)) {
-		throw new Error('Could not find the top-level heading in README.md');
+	if (oldGithubUrl !== githubUrl) {
+		const updatedStructure = findReadmeStructure(updated);
+		const excluded = updatedStructure.fences.map(({ openLine, closeLine }) => ({
+			start: updatedStructure.lines[openLine]!.start,
+			end: updatedStructure.lines[closeLine]!.fullEnd
+		}));
+		updated = replaceGithubRepositoryUrls(updated, oldGithubUrl, githubUrl, excluded);
 	}
-	updated = updated.replace(heading, () => `# ${escapeMarkdownInline(brand)}`);
-
-	// Der Demo-Absatz gehört zum Template und fehlt nach dem ersten Lauf.
 	updated = updated.replace(liveDemoParagraphPattern(), () => '');
 
-	const cloneMatches = updated.match(cloneBlockPattern());
-	if (cloneMatches?.length !== 1) {
-		throw new Error(
-			`Expected exactly one quick start clone block in README.md, found ${cloneMatches?.length ?? 0}`
-		);
-	}
-	updated = updated.replace(
-		cloneBlockPattern(),
-		// Das gelesene Zeilenende zurückschreiben, damit eine CRLF-Datei CRLF bleibt.
-		(_match, lineBreak: string) =>
-			`git clone ${githubUrl}.git${lineBreak}cd ./${repositoryBasename}`
-	);
-
+	const finalStructure = findReadmeStructure(updated);
+	const heading = finalStructure.headings.find(({ level }) => level === 1);
+	if (!heading) throw new Error('Could not find the top-level heading in README.md');
+	const headingLine = finalStructure.lines[heading.line]!;
+	updated =
+		updated.slice(0, headingLine.start) +
+		`# ${escapeMarkdownInline(brand)}` +
+		updated.slice(headingLine.end);
 	return updated;
-}
-
-/**
- * Der Quick-Start-Klonblock. Das Zeilenende wird mitgelesen, damit eine Datei mit
- * CRLF unverändert bleibt.
- */
-function cloneBlockPattern(): RegExp {
-	return /^(?:gh repo create [^\r\n]*|git clone https:\/\/github\.com\/[^\r\n]*)(\r?\n)cd [^\r\n]*$/gm;
 }
 
 function liveDemoParagraphPattern(): RegExp {
 	return /^> \[Live demo!\][^\r\n]*(?:\r?\n){2}/m;
 }
 
-/**
- * Reports whether the README has the complete generated state for the current
- * repository and legal brand. Manually produced consistent states remain valid.
- */
+/** Reports whether the README carries the generated identity in the exact Quick Start section. */
 export function readmeShowsCompletedSetup(
 	source: string,
 	repository: string,
 	brand: string
 ): boolean {
-	const matches = source.match(cloneBlockPattern());
-	if (matches?.length !== 1) return false;
+	let structure: ReadmeStructure;
+	try {
+		structure = findReadmeStructure(source);
+	} catch {
+		return false;
+	}
 	const repositoryBasename = repository.split('/')[1];
 	if (!repositoryBasename) return false;
-	const [cloneLine, directoryLine] = matches[0]!.split(/\r?\n/);
+	const { clone, directory } = structure.candidate;
 	if (
-		cloneLine !== `git clone https://github.com/${repository}.git` ||
-		(directoryLine !== `cd ${repositoryBasename}` && directoryLine !== `cd ./${repositoryBasename}`)
+		clone !== `git clone https://github.com/${repository}.git` ||
+		(directory !== `cd ${repositoryBasename}` && directory !== `cd ./${repositoryBasename}`)
 	) {
 		return false;
 	}
-
-	const heading = /^# .+$/m.exec(source)?.[0];
-	return heading === `# ${escapeMarkdownInline(brand)}` && !liveDemoParagraphPattern().test(source);
+	const heading = structure.headings.find(({ level }) => level === 1);
+	return heading?.text === escapeMarkdownInline(brand) && !liveDemoParagraphPattern().test(source);
 }
 
 function maskTomlNonCode(source: string): string {
@@ -897,10 +1487,7 @@ export function replaceWranglerNameSource(source: string, slug: string): string 
 	return source.slice(0, literalStart) + JSON.stringify(slug) + source.slice(literalEnd);
 }
 
-/**
- * Synchronisiert allein den Root-Namen im Lockfile. Dependency-Einträge und
- * Versionen bleiben bytegleich; der Abhängigkeitsgraph wird nicht neu berechnet.
- */
+/** Synchronizes only the lockfile root name without recalculating dependencies. */
 export function replaceLockRootNameSource(source: string, slug: string): string {
 	const pattern = /("workspaces"\s*:\s*\{\s*""\s*:\s*\{\s*"name"\s*:\s*)"(?:[^"\\]|\\.)*"/g;
 	const matches = source.match(pattern);
@@ -929,16 +1516,33 @@ async function main() {
 		email: emailFlag
 	} = readFlags();
 
-	const legalConfig = await readLegalConfig().catch((error: unknown) =>
-		fail(error instanceof Error ? error.message : String(error))
+	let packageFile: CanonicalFile;
+	let lockFile: CanonicalFile | undefined;
+	let wranglerFile: CanonicalFile;
+	let readmeFile: CanonicalFile;
+	let siteFile: CanonicalFile;
+	let legalConfigFile: CanonicalFile;
+	let legalMetadataFile: CanonicalFile;
+	try {
+		packageFile = inspectCanonicalFile('package.json');
+		lockFile = inspectOptionalCanonicalFile('bun.lock');
+		wranglerFile = inspectCanonicalFile('wrangler.toml');
+		readmeFile = inspectCanonicalFile('README.md');
+		siteFile = inspectCanonicalFile('src/lib/config/site.ts');
+		legalConfigFile = inspectCanonicalFile('src/lib/config/legal.ts');
+		legalMetadataFile = inspectCanonicalFile('src/lib/content/legal-metadata.ts');
+	} catch (error) {
+		fail(errorMessage(error));
+	}
+
+	const legalConfig = await readLegalConfig(legalConfigFile).catch((error: unknown) =>
+		fail(errorMessage(error))
 	);
 	const legalEmail = (legalConfig.email ?? {}) as Record<string, unknown>;
-
-	const oldSlug = currentSlug();
-	const oldRepo = currentRepo();
+	const oldSlug = currentSlug(packageFile.source);
+	const oldRepo = currentRepo(siteFile.source);
 	const oldBrand = readString(legalConfig, 'brandName');
-	// Ein vorhandener Wert bleibt erhalten, auch der leere String; nur ein wirklich
-	// fehlender Schlüssel bekommt den abgeleiteten Vorschlag.
+	// Preserve an existing string, including an empty one. Only a missing key gets a suggestion.
 	const oldCompany = readOptionalString(legalConfig, 'companyName');
 	const oldOperator = readString(legalConfig, 'operatorName');
 	const oldAddress = readString(legalConfig, 'address');
@@ -947,21 +1551,11 @@ async function main() {
 	const oldTld = readString(legalEmail, 'tld');
 	const oldEmail = oldUser && oldDomain && oldTld ? `${oldUser}@${oldDomain}.${oldTld}` : '';
 
-	let readmeSource: string;
-	try {
-		readmeSource = read('README.md');
-	} catch (error) {
-		fail(error instanceof Error ? error.message : String(error));
-	}
-
-	// Der Markenname darf legitim 'SaaS Starter' lauten, und ein von Hand geänderter
-	// Package-Name beweist keine Einrichtung. Maßgeblich ist der konsistente README-
-	// Endzustand für dieses Repository und die aktuelle rechtliche Marke.
-	const alreadySetUp = readmeShowsCompletedSetup(readmeSource, oldRepo, oldBrand);
+	// A chosen template brand and hand-edited package name are valid only with a complete README state.
+	const alreadySetUp = readmeShowsCompletedSetup(readmeFile.source, oldRepo, oldBrand);
 
 	if (!interactive && !alreadySetUp) {
-		// Solange der Quick Start die Bootstrapform trägt, sind die drei Kernwerte Pflicht.
-		// Danach ist nichts mehr Pflicht, auch ein bewusst beibehaltener Template-Slug nicht.
+		// The three core values remain required until Quick Start carries the generated form.
 		const missing: string[] = [];
 		if (!slugFlag && oldSlug === TEMPLATE_SLUG) missing.push('--slug');
 		if (!repoFlag && oldRepo === TEMPLATE_REPOSITORY) missing.push('--repo');
@@ -996,8 +1590,7 @@ async function main() {
 	const brand = await resolveValue(
 		brandFlag,
 		'Brand name (display name)',
-		// titleCase nur als Vorschlag für das unberührte Template, nie als Ersatz für
-		// einen bereits gewählten Namen.
+		// Use titleCase only as a suggestion for the untouched template identity.
 		!alreadySetUp && (oldBrand === '' || oldBrand === TEMPLATE_BRAND) ? titleCase(slug) : oldBrand,
 		(value) =>
 			value.trim() === '' ? 'brand must not be empty' : singleLineValidator('brand')(value)
@@ -1043,17 +1636,13 @@ async function main() {
 		address !== oldAddress ||
 		email !== oldEmail;
 
-	// Alle nächsten Dateiinhalte vor dem ersten Write berechnen. Ein fehlender oder
-	// mehrdeutiger Anker scheitert damit, bevor irgendetwas auf der Platte steht.
+	// Compute every next canonical value before creating a staging directory.
 	const nextLegalConfig = { ...legalConfig };
 	nextLegalConfig.brandName = brand;
 	nextLegalConfig.companyName = company;
 	nextLegalConfig.operatorName = operator;
 	nextLegalConfig.address = address;
 	nextLegalConfig.email = { ...legalEmail, user: emailUser, domain: emailDomain, tld: emailTld };
-
-	const lockPath = join(ROOT, 'bun.lock');
-	const hasLock = existsSync(lockPath);
 
 	let nextPackageJson: string;
 	let nextWrangler: string;
@@ -1063,77 +1652,54 @@ async function main() {
 	let nextLegalSource: string;
 	let nextLock: string | undefined;
 	try {
-		const pkg = JSON.parse(read('package.json'));
+		const pkg = JSON.parse(packageFile.source);
 		pkg.name = slug;
 		pkg.author = operator;
 		nextPackageJson = JSON.stringify(pkg, null, '\t') + '\n';
-		nextWrangler = replaceWranglerNameSource(read('wrangler.toml'), slug);
-		nextReadme = replaceReadmeSource(readmeSource, {
+		nextWrangler = replaceWranglerNameSource(wranglerFile.source, slug);
+		nextReadme = replaceReadmeSource(readmeFile.source, {
 			brand,
 			repository: repo,
 			oldGithubUrl,
 			githubUrl
 		});
-		nextSiteConfig = replaceGithubSlugSource(read('src/lib/config/site.ts'), repo);
+		nextSiteConfig = replaceGithubSlugSource(siteFile.source, repo);
 		nextLegalMetadata = updateLegalContentDatesSource(
-			read('src/lib/content/legal-metadata.ts'),
+			legalMetadataFile.source,
 			setupDate,
 			legalIdentityChanged
 		);
-		nextLegalSource = replaceLegalConfigSource(read('src/lib/config/legal.ts'), nextLegalConfig);
-		nextLock = hasLock ? replaceLockRootNameSource(read('bun.lock'), slug) : undefined;
-		// Erst wenn alle Inhalte stehen, prüfen, ob jede vorgesehene Datei beschreibbar
-		// ist. Sonst schreibt der Lauf die ersten Dateien und scheitert an einer späteren.
-		// Das deckt die schreibgeschützte Datei ab; eine Rechteänderung nach dieser
-		// Prüfung, ein voller Datenträger und ein Prozessabbruch bleiben außerhalb.
-		for (const rel of [
-			'package.json',
-			...(hasLock ? ['bun.lock'] : []),
-			'wrangler.toml',
-			'README.md',
-			'src/lib/config/site.ts',
-			'src/lib/content/legal-metadata.ts',
-			'src/lib/config/legal.ts'
-		]) {
-			try {
-				accessSync(join(ROOT, rel), constants.W_OK);
-			} catch {
-				throw new Error(`Cannot write ${rel}; check file permissions`);
-			}
-		}
+		nextLegalSource = replaceLegalConfigSource(legalConfigFile.source, nextLegalConfig);
+		nextLock = lockFile ? replaceLockRootNameSource(lockFile.source, slug) : undefined;
 	} catch (error) {
-		fail(error instanceof Error ? error.message : String(error));
+		fail(errorMessage(error));
 	}
 
 	console.log(`\nApplying: slug=${slug}, repo=${repo}, brand="${brand}"\n`);
 
-	write('package.json', nextPackageJson);
-	console.log('  ✓ package.json');
-
-	if (nextLock !== undefined) {
-		write('bun.lock', nextLock);
-		console.log('  ✓ bun.lock (root name)');
-	}
-
-	write('wrangler.toml', nextWrangler);
-	console.log('  ✓ wrangler.toml');
-
-	write('src/lib/content/legal-metadata.ts', nextLegalMetadata);
+	replaceLegalPair(legalConfigFile, nextLegalSource, legalMetadataFile, nextLegalMetadata);
+	console.log('  ✓ legal.ts');
 	console.log(
 		legalIdentityChanged
 			? `  ✓ legal-metadata.ts (Last Updated: ${setupDate})`
 			: '  ✓ legal-metadata.ts (unchanged)'
 	);
 
-	// Legal config — single source of truth for brand identity
-	write('src/lib/config/legal.ts', nextLegalSource);
-	console.log('  ✓ legal.ts');
+	replaceAtomically(packageFile, nextPackageJson);
+	console.log('  ✓ package.json');
 
-	write('README.md', nextReadme);
+	if (lockFile && nextLock !== undefined) {
+		replaceAtomically(lockFile, nextLock);
+		console.log('  ✓ bun.lock (root name)');
+	}
+
+	replaceAtomically(wranglerFile, nextWrangler);
+	console.log('  ✓ wrangler.toml');
+
+	replaceAtomically(readmeFile, nextReadme);
 	console.log('  ✓ README.md');
 
-	// Site config — single source for runtime repository links
-	write('src/lib/config/site.ts', nextSiteConfig);
+	replaceAtomically(siteFile, nextSiteConfig);
 	console.log('  ✓ site.ts');
 
 	console.log('\n✅ Done! Next steps:');

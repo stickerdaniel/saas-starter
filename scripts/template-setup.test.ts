@@ -188,11 +188,10 @@ const example = { impressum: '2001-01-01' };`;
 });
 
 describe('template setup string literals', () => {
-	// Erwartet wird der Literaltext Zeichen für Zeichen. Dass er beim Einlesen wieder
-	// denselben Wert ergibt, prüft template-setup.integration.test.ts mit echtem Import.
+	// These expectations compare source text. The integration test imports it to verify semantics.
 	it.each([
 		{ value: 'Plain Name', literal: "'Plain Name'" },
-		// Prettier bevorzugt einfache Quotes und weicht nur aus, wenn das Escapes spart.
+		// Prettier prefers single quotes unless another choice avoids escapes.
 		{ value: "O'Connor Software", literal: '"O\'Connor Software"' },
 		{ value: 'The "Blue Door" GmbH', literal: '\'The "Blue Door" GmbH\'' },
 		{ value: 'Anne\\Marie Weber', literal: "'Anne\\\\Marie Weber'" },
@@ -262,6 +261,67 @@ export function helper(): string {
 			/found 0/
 		);
 		expect(() => replaceLegalConfigSource(source + source, { a: 'b' })).toThrow(/found 2/);
+	});
+
+	it.each([
+		{
+			label: 'plain template text',
+			decoy: "const decoy = `export const LEGAL_CONFIG = { brandName: 'Decoy' } as const;`;\n"
+		},
+		{
+			label: 'template interpolation',
+			decoy:
+				'const decoy = `before ${"export const LEGAL_CONFIG = { brandName: \'Decoy\' } as const;"} after`;\n'
+		},
+		{
+			label: 'nested template interpolation',
+			decoy:
+				"const decoy = `before ${`nested export const LEGAL_CONFIG = { brandName: 'Decoy' } as const;`} after`;\n"
+		},
+		{
+			label: 'escaped template delimiter',
+			decoy:
+				"const decoy = `before \\` export const LEGAL_CONFIG = { brandName: 'Decoy' } as const; after`;\n"
+		},
+		{
+			label: 'comments and braces in interpolation',
+			decoy:
+				"const decoy = `before ${{ value: '} /* export const LEGAL_CONFIG = { */' /* } */ }} after`;\n"
+		},
+		{
+			label: 'block comment',
+			decoy: "/*\nexport const LEGAL_CONFIG = { brandName: 'Decoy' } as const;\n*/\n"
+		}
+	])('ignores a LEGAL_CONFIG decoy in $label', ({ decoy }) => {
+		const updated = replaceLegalConfigSource(decoy + source, { brandName: 'Updated' });
+
+		expect(updated.startsWith(decoy)).toBe(true);
+		expect(updated).toContain("brandName: 'Updated'");
+	});
+
+	it('fails closed for an unterminated template', () => {
+		expect(() =>
+			replaceLegalConfigSource("const decoy = `unterminated ${'${'}{ value: 1 }}\\n" + source, {
+				brandName: 'Updated'
+			})
+		).toThrow(/unterminated|unsupported/i);
+	});
+
+	it.each([
+		"const currentConfig = { brandName: 'Old' } as const;\nexport const LEGAL_CONFIG = currentConfig;\n",
+		"const LEGAL_CONFIG = { brandName: 'Old' } as const;\nexport { LEGAL_CONFIG };\n",
+		"export const LEGAL_CONFIG = { brandName: 'Old' } satisfies Record<string, unknown>;\n"
+	])('rejects an indirect, aliased, or unsupported initializer', (unsupported) => {
+		expect(() => replaceLegalConfigSource(unsupported, { brandName: 'Updated' })).toThrow(
+			/LEGAL_CONFIG/
+		);
+	});
+
+	it('rejects two real top-level exports despite template decoys', () => {
+		const decoy = 'const text = `export const LEGAL_CONFIG = { decoy: true } as const;`;\n';
+		expect(() =>
+			replaceLegalConfigSource(decoy + source + source, { brandName: 'Updated' })
+		).toThrow(/found 2/);
 	});
 });
 
@@ -387,8 +447,7 @@ Unrelated prose stays.
 		});
 	});
 
-	// Ohne Maskierung rendert marked "Research &copy; Labs" als "Research © Labs" und
-	// "Project ###" als "Project", weil ### die schließende Zeichenfolge der Überschrift ist.
+	// Without escaping, entities decode and closing ATX markers disappear from rendered text.
 	it.each([
 		{ brand: 'Research &copy; Labs', heading: '# Research \\&copy; Labs' },
 		{ brand: 'Project ###', heading: '# Project \\#\\#\\#' },
@@ -409,15 +468,180 @@ Unrelated prose stays.
 	});
 
 	it('fails before writes when an anchor is missing or ambiguous', () => {
-		expect(() => replaceReadmeSource('no heading here\n', options)).toThrow(
-			/Could not find the top-level heading/
-		);
+		expect(() => replaceReadmeSource('no heading here\n', options)).toThrow(/Quick Start|heading/);
 		expect(() => replaceReadmeSource('# Title\n\nprose\n', options)).toThrow(
-			/quick start clone block in README.md, found 0/
+			/Quick Start|candidate/
 		);
-		expect(() => replaceReadmeSource(source + source, options)).toThrow(
-			/quick start clone block in README.md, found 2/
+		expect(() => replaceReadmeSource(source + source, options)).toThrow(/Quick Start|candidate/);
+	});
+
+	it('rewrites only the installation candidate in the real Quick Start section', () => {
+		const foreign = `## Vendor Example
+
+\`\`\`bash
+git clone https://github.com/old-owner/old-repo.git
+cd old-repo
+bun install
+bun run dev
+\`\`\`
+`;
+		const updated = replaceReadmeSource(`${source}\n${foreign}`, options);
+
+		expect(updated.endsWith(foreign)).toBe(true);
+		expect(updated).toContain(
+			'git clone https://github.com/northwind/northwind-labs.git\ncd ./northwind-labs'
 		);
+	});
+
+	it('does not substitute a foreign clone block for a missing Quick Start candidate', () => {
+		const missingCandidate = source.replace(
+			'gh repo create my-saas-product --template old-owner/old-repo --clone\ncd my-saas-product\nbun install\nbun run dev',
+			'mkdir my-saas-product\nbun install\nbun run dev'
+		);
+		const foreign = `
+## Vendor Example
+
+\`\`\`bash
+git clone https://github.com/example/vendor.git
+cd vendor
+bun install
+bun run dev
+\`\`\`
+`;
+
+		expect(() => replaceReadmeSource(missingCandidate + foreign, options)).toThrow(/candidate/);
+	});
+
+	it.each([
+		['no Quick Start H2', source.replace('## Quick Start', '## Getting Started')],
+		['two Quick Start H2s', `${source}\n## Quick Start\n\nText only.\n`],
+		[
+			'a Quick Start heading only inside a fence',
+			source.replace('## Quick Start', '## Getting Started') + '\n```text\n## Quick Start\n```\n'
+		]
+	])('fails closed with $0', (_label, invalid) => {
+		expect(() => replaceReadmeSource(invalid, options)).toThrow(/Quick Start/);
+	});
+
+	it('ignores apparent headings inside fences when finding the section end', () => {
+		const fencedHeading = source.replace(
+			'bun run dev\n```',
+			'bun run dev\n```\n\n```text\n## Not A Real Section\n```'
+		);
+		expect(replaceReadmeSource(fencedHeading, options)).toContain(
+			'git clone https://github.com/northwind/northwind-labs.git'
+		);
+	});
+
+	it('rejects multiple installation candidates in Quick Start', () => {
+		const duplicate = source.replace(
+			'```bash\ngh repo create',
+			'```bash\ngit clone https://github.com/another/example.git\ncd example\nbun install\nbun run dev\n```\n\n```bash\ngh repo create'
+		);
+		expect(() => replaceReadmeSource(duplicate, options)).toThrow(/candidate/);
+	});
+
+	it.each([
+		[
+			'an unclosed fence',
+			source.replace(/```\n\nUnrelated prose stays\./, '\n\nUnrelated prose stays.')
+		],
+		[
+			'a closing fence with the wrong marker',
+			source.replace('bun run dev\n```', 'bun run dev\n~~~')
+		],
+		[
+			'a closing fence shorter than its opener',
+			source.replace('```bash', '````bash').replace('bun run dev\n```', 'bun run dev\n```')
+		]
+	])('fails closed for $0', (_label, invalid) => {
+		expect(() => replaceReadmeSource(invalid, options)).toThrow(/fence|unterminated/i);
+	});
+
+	it.each([
+		{
+			label: 'tilde fences with indentation',
+			opening: '   ~~~~bash',
+			closing: '  ~~~~',
+			lineBreak: '\n'
+		},
+		{ label: 'CRLF backtick fences', opening: '```bash', closing: '```', lineBreak: '\r\n' }
+	])('supports $label', ({ opening, closing, lineBreak }) => {
+		const candidate = [
+			'# Old',
+			'',
+			'## Quick Start',
+			'',
+			opening,
+			'git clone https://github.com/old-owner/old-repo.git',
+			'cd old-repo',
+			'bun install',
+			'bun run dev',
+			closing,
+			'',
+			'## Next'
+		].join(lineBreak);
+		const updated = replaceReadmeSource(candidate, options);
+
+		expect(updated).toContain(
+			`git clone https://github.com/northwind/northwind-labs.git${lineBreak}cd ./northwind-labs`
+		);
+	});
+
+	it('rejects mixed line endings inside the Quick Start block', () => {
+		const mixed = source.replace(
+			'cd my-saas-product\nbun install',
+			'cd my-saas-product\r\nbun install'
+		);
+		expect(() => replaceReadmeSource(mixed, options)).toThrow(/mixed line endings/i);
+	});
+
+	it('recognizes bootstrap, generated, and historical directory forms', () => {
+		const safeBootstrap = source.replace('cd my-saas-product', 'cd ./my-saas-product');
+		const generated = replaceReadmeSource(source, options);
+		const historical = generated.replace('cd ./northwind-labs', 'cd northwind-labs');
+
+		expect(replaceReadmeSource(safeBootstrap, options)).toBe(generated);
+		expect(readmeShowsCompletedSetup(source, 'old-owner/old-repo', 'Ship SaaS faster')).toBe(false);
+		expect(readmeShowsCompletedSetup(generated, 'northwind/northwind-labs', 'Northwind Labs')).toBe(
+			true
+		);
+		expect(
+			readmeShowsCompletedSetup(historical, 'northwind/northwind-labs', 'Northwind Labs')
+		).toBe(true);
+	});
+
+	it.each([
+		{ suffix: '. ', changed: true },
+		{ suffix: '.\t', changed: true },
+		{ suffix: '.\n', changed: true },
+		{ suffix: '.\r\n', changed: true },
+		{ suffix: '.', changed: true },
+		{ suffix: '.git. ', changed: true },
+		{ suffix: '-tools ', changed: false },
+		{ suffix: '_tools ', changed: false },
+		{ suffix: '.tools ', changed: false },
+		{ suffix: '.git-tools ', changed: false }
+	])('uses the exact repository URL boundary before $suffix', ({ suffix, changed }) => {
+		const marker = `${options.oldGithubUrl}${suffix}`;
+		const linked = source.replace('## Quick Start', `${marker}\n## Quick Start`);
+		const updated = replaceReadmeSource(linked, options);
+		const expected = `${changed ? options.githubUrl : options.oldGithubUrl}${suffix}`;
+
+		expect(updated).toContain(expected);
+	});
+
+	it('handles an old repository name that already contains a period', () => {
+		const dottedOptions = {
+			...options,
+			oldGithubUrl: 'https://github.com/old-owner/old.repo'
+		};
+		const linked = source
+			.replaceAll(options.oldGithubUrl, dottedOptions.oldGithubUrl)
+			.replace('Unrelated prose stays.', `${dottedOptions.oldGithubUrl}. `);
+		const updated = replaceReadmeSource(linked, dottedOptions);
+
+		expect(updated).toContain(`${options.githubUrl}. `);
 	});
 });
 
@@ -425,9 +649,9 @@ describe('template setup detects a consistent generated README', () => {
 	const liveDemo =
 		'> [Live demo!](https://demo.example) The public demo covers the user-facing features.\n\n';
 	const bootstrap =
-		'# Northwind Labs\n\n```bash\ngh repo create my-saas-product --template stickerdaniel/saas-starter --clone\ncd my-saas-product\nbun install\n```\n';
+		'# Northwind Labs\n\n## Quick Start\n\n```bash\ngh repo create my-saas-product --template stickerdaniel/saas-starter --clone\ncd my-saas-product\nbun install\nbun run dev\n```\n';
 	const converted =
-		'# Northwind Labs\n\n```bash\ngit clone https://github.com/northwind/northwind-labs.git\ncd ./northwind-labs\nbun install\n```\n';
+		'# Northwind Labs\n\n## Quick Start\n\n```bash\ngit clone https://github.com/northwind/northwind-labs.git\ncd ./northwind-labs\nbun install\nbun run dev\n```\n';
 	const previouslyConverted = converted.replace('cd ./northwind-labs', 'cd northwind-labs');
 
 	it('treats the template bootstrap form as not set up', () => {
@@ -545,7 +769,7 @@ describe('template setup contact email', () => {
 		expect(parseContactEmail(value)).toEqual(parts);
 	});
 
-	// Zusätzliche @, Leerzeichen in den Segmenten und leere Domainlabels müssen durchfallen.
+	// Extra at signs, whitespace, and empty domain labels must be rejected.
 	it.each([
 		'a@b@c.de',
 		'erste person@example.de',

@@ -1,22 +1,46 @@
 /**
- * Führt das echte Setup als eigenen Prozess gegen private Fixture-Kopien aus.
- * Nur der vollständige Lauf zeigt, dass gequotete Branding-Werte importierbaren
- * Code ergeben und dass abgelehnte Eingaben vor dem ersten Write scheitern.
- *
- * Die Fixtures kopieren die tatsächlichen Repository-Dateien und benötigen keine
- * installierten Dependencies, weil das Setup nur Builtins und reine lokale
- * Module importiert.
+ * Runs the real setup process against private fixture copies. Full processes prove
+ * generated branding remains importable and rejected inputs fail before mutation.
+ * Fixtures need no installed dependencies because setup imports only built-ins and
+ * dependency-free local modules.
  */
 import { spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import {
+	chmodSync,
+	cpSync,
+	existsSync,
+	linkSync,
+	lstatSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	renameSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync
+} from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { testExecutable } from './test-executable';
 
 const ROOT = join(import.meta.dirname, '..');
-/** Vorab aufgelöstes reales Bun; der Testrunner selbst läuft unter Node. */
+/** Real Bun executable resolved before tests; the test runner itself uses Node. */
 const BUN = testExecutable('bun');
+const CHILD_ENV: NodeJS.ProcessEnv = Object.fromEntries(
+	[
+		'PATH',
+		'HOME',
+		'TMPDIR',
+		'TEMP',
+		'TMP',
+		'SystemRoot',
+		'ComSpec',
+		'PATHEXT',
+		'USERPROFILE'
+	].flatMap((key) => (process.env[key] === undefined ? [] : [[key, process.env[key]]]))
+);
 
 const FIXTURE_FILES = [
 	'package.json',
@@ -53,15 +77,18 @@ function snapshot(dir: string): Record<string, string> {
 }
 
 function runSetup(dir: string, args: string[], preload?: string) {
-	// Normalerweise der öffentliche Einstieg, damit auch das Skript-Dispatch aus dem
-	// Manifest geprüft wird. Die Fehler-Injektion lädt sich direkt vor das echte Skript.
+	// Use the public manifest dispatch so preload faults exercise the same process path as users.
 	const command = preload
-		? ['--preload', preload, 'scripts/template-setup.ts', ...args]
+		? [`--preload=${preload}`, 'run', 'setup', ...args]
 		: ['run', 'setup', ...args];
 	const result = spawnSync(BUN, command, {
 		cwd: dir,
 		encoding: 'utf-8',
-		// stdin bleibt ohne TTY: das Setup läuft nicht-interaktiv, wie unter CI und in der CLI.
+		// The manifest script starts a nested Bun runtime; propagate the same CLI preload to it.
+		env: preload
+			? { ...CHILD_ENV, BUN_OPTIONS: `--preload=${preload.replaceAll('\\', '/')}` }
+			: CHILD_ENV,
+		// Keep stdin detached from a TTY, matching CI and non-interactive CLI use.
 		stdio: ['ignore', 'pipe', 'pipe'],
 		timeout: 60_000,
 		killSignal: 'SIGKILL'
@@ -69,7 +96,172 @@ function runSetup(dir: string, args: string[], preload?: string) {
 	return { code: result.status ?? -1, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
 }
 
-/** Importiert die erzeugte legal.ts in einem frischen Prozess. */
+type FaultPhase =
+	| 'write'
+	| 'partial-write'
+	| 'chmod'
+	| 'single-install'
+	| 'single-cleanup-rmdir'
+	| 'legal-backup'
+	| 'legal-config-install'
+	| 'legal-metadata-install'
+	| 'legal-metadata-and-restore'
+	| 'legal-cleanup-unlink'
+	| 'legal-cleanup-rmdir';
+
+let faultSequence = 0;
+
+function createFaultPreload(
+	dir: string,
+	spec: { phase: FaultPhase; target: (typeof FIXTURE_FILES)[number] }
+): { id: string; path: string } {
+	faultSequence += 1;
+	const id = `SETUP_FAULT_${faultSequence}_${spec.phase.replaceAll('-', '_').toUpperCase()}`;
+	const preload = join(dir, `fault-${faultSequence}.mjs`);
+	const source = `import { mock } from 'bun:test';
+import defaultFs, * as fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
+
+const id = ${JSON.stringify(id)};
+const phase = ${JSON.stringify(spec.phase)};
+const target = ${JSON.stringify(spec.target)};
+const targetSuffix = '/' + target;
+const targetBasename = target.slice(target.lastIndexOf('/') + 1);
+const targetParent = target.slice(0, target.lastIndexOf('/'));
+const prefix = Buffer.from('SETUP_PARTIAL_PREFIX');
+const normalize = (value) => String(value).replaceAll('\\\\', '/');
+const isStage = (value) => normalize(value).includes('/.template-setup-');
+const realWriteFileSync = fs.writeFileSync;
+const realReadFileSync = fs.readFileSync;
+const realChmodSync = fs.chmodSync;
+const realRenameSync = fs.renameSync;
+const realUnlinkSync = fs.unlinkSync;
+const realRmdirSync = fs.rmdirSync;
+let metadataFaulted = false;
+
+function fail(operation, detail) {
+	console.error('FAULT_HIT ' + id + ' operation=' + operation + ' ' + detail);
+	const error = new Error(id + ' injected ' + operation);
+	error.code = 'EIO';
+	throw error;
+}
+
+const replacements = {
+	writeFileSync(path, data, options) {
+		const normalized = normalize(path);
+		if ((phase === 'write' || phase === 'partial-write') && normalized.endsWith('/' + targetBasename)) {
+			const flag = typeof options === 'object' && options ? options.flag : undefined;
+			if (phase === 'partial-write') {
+				realWriteFileSync(path, prefix, options);
+				const observed = realReadFileSync(path);
+				fail('writeFileSync', 'path=' + normalized + ' stage=' + isStage(path) + ' flag=' + flag + ' prefix=' + observed.equals(prefix));
+			}
+			fail('writeFileSync', 'path=' + normalized + ' stage=' + isStage(path) + ' flag=' + flag);
+		}
+		return realWriteFileSync(path, data, options);
+	},
+	chmodSync(path, mode) {
+		const normalized = normalize(path);
+		if (phase === 'chmod' && normalized.endsWith('/' + targetBasename)) {
+			fail('chmodSync', 'path=' + normalized + ' stage=' + isStage(path) + ' mode=' + mode.toString(8));
+		}
+		return realChmodSync(path, mode);
+	},
+	renameSync(from, to) {
+		const source = normalize(from);
+		const destination = normalize(to);
+		const singleInstall =
+			phase === 'single-install' &&
+			isStage(source) &&
+			source.endsWith('/' + targetBasename) &&
+			destination.endsWith(targetSuffix);
+		const legalBackup =
+			phase === 'legal-backup' &&
+			source.endsWith('/src/lib/config/legal.ts') &&
+			isStage(destination) &&
+			destination.endsWith('/legal.ts.backup');
+		const legalConfigInstall =
+			phase === 'legal-config-install' &&
+			isStage(source) &&
+			source.endsWith('/legal.ts') &&
+			destination.endsWith('/src/lib/config/legal.ts');
+		const legalMetadataInstall =
+			(phase === 'legal-metadata-install' || phase === 'legal-metadata-and-restore') &&
+			isStage(source) &&
+			source.endsWith('/legal-metadata.ts') &&
+			destination.endsWith('/src/lib/content/legal-metadata.ts');
+		const legalRestore =
+			phase === 'legal-metadata-and-restore' &&
+			metadataFaulted &&
+			source.endsWith('/legal.ts.backup') &&
+			destination.endsWith('/src/lib/config/legal.ts');
+		if (singleInstall || legalBackup || legalConfigInstall) {
+			fail('renameSync', 'from=' + source + ' to=' + destination);
+		}
+		if (legalMetadataInstall) {
+			metadataFaulted = true;
+			fail('renameSync', 'from=' + source + ' to=' + destination);
+		}
+		if (legalRestore) {
+			fail('renameSync-restore', 'from=' + source + ' to=' + destination);
+		}
+		return realRenameSync(from, to);
+	},
+	unlinkSync(path) {
+		const normalized = normalize(path);
+		if (phase === 'legal-cleanup-unlink' && normalized.endsWith('/legal.ts.backup')) {
+			fail('unlinkSync', 'path=' + normalized + ' stage=' + isStage(path));
+		}
+		return realUnlinkSync(path);
+	},
+	rmdirSync(path) {
+		const normalized = normalize(path);
+		if (
+			(phase === 'legal-cleanup-rmdir' || phase === 'single-cleanup-rmdir') &&
+			isStage(path) &&
+			normalized.includes('/' + targetParent + '/.template-setup-' + targetBasename + '-')
+		) {
+			fail('rmdirSync', 'path=' + normalized + ' stage=true');
+		}
+		return realRmdirSync(path);
+	}
+};
+Object.assign(defaultFs, replacements);
+syncBuiltinESMExports();
+mock.module('fs', () => ({ ...fs, ...replacements }));
+`;
+	writeFileSync(preload, source, 'utf-8');
+	return { id, path: preload };
+}
+
+function expectFault(
+	run: ReturnType<typeof runSetup>,
+	fault: { id: string },
+	operation: string
+): void {
+	expect(run.code).toBe(1);
+	expect(run.stderr).toContain(`FAULT_HIT ${fault.id} operation=${operation}`);
+	expect(run.stderr).toContain('template-setup.ts');
+}
+
+function stagingArtifacts(dir: string): string[] {
+	const found: string[] = [];
+	function visit(current: string): void {
+		for (const entry of readdirSync(current, { withFileTypes: true })) {
+			const path = join(current, entry.name);
+			if (entry.name.startsWith('.template-setup-')) found.push(path);
+			if (entry.isDirectory()) visit(path);
+		}
+	}
+	visit(dir);
+	return found;
+}
+
+function mode(dir: string, rel: (typeof FIXTURE_FILES)[number]): number {
+	return lstatSync(join(dir, rel)).mode & 0o7777;
+}
+
+/** Imports the generated legal.ts in a fresh process. */
 function importLegalConfig(dir: string) {
 	const importer = join(dir, 'import-legal.ts');
 	writeFileSync(
@@ -121,7 +313,7 @@ function asciiDomainOfLength(length: number): string {
 	return labels.join('.');
 }
 
-/** Wie IDENTITY, aber ohne --brand und --company, damit deren Defaults greifen. */
+/** IDENTITY without brand and company so their defaults apply. */
 const IDENTITY_WITHOUT_COMPANY = [
 	'--operator',
 	'Anne Weber',
@@ -132,7 +324,7 @@ const IDENTITY_WITHOUT_COMPANY = [
 ];
 
 describe('template setup writes importable branding values', () => {
-	// Gewöhnliche Namen genügen: ein Apostroph reicht, um den erzeugten Code zu brechen.
+	// Ordinary names are sufficient: an apostrophe used to break generated code.
 	it.each([
 		{ label: 'apostrophe', flag: '--brand', key: 'brandName', value: "O'Connor Software" },
 		{
@@ -173,7 +365,7 @@ describe('template setup writes importable branding values', () => {
 			value: 'Hauptstrasse 5\n12345 Berlin\nDeutschland'
 		},
 		{
-			// $&, $1 und $` dürfen nicht als Ersetzungsmuster interpretiert werden.
+			// Replacement metacharacters must remain literal data.
 			label: 'replacement metacharacters',
 			flag: '--company',
 			key: 'companyName',
@@ -241,7 +433,8 @@ const realWriteFileSync = fs.writeFileSync;
 mock.module('fs', () => ({
 	...fs,
 	writeFileSync(path, ...args) {
-		if (String(path).replaceAll('\\\\', '/').endsWith('/src/lib/config/legal.ts')) {
+		const normalized = String(path).replaceAll('\\\\', '/');
+		if (normalized.includes('/.template-setup-') && normalized.endsWith('/legal.ts')) {
 			const error = new Error('Injected EIO for legal.ts');
 			error.code = 'EIO';
 			throw error;
@@ -258,14 +451,11 @@ mock.module('fs', () => ({
 		expect(failed.code).toBe(1);
 		expect(failed.stderr).toMatch(/Injected EIO for legal\.ts/);
 		const partial = snapshot(dir);
-		expect(partial['package.json']).not.toBe(before['package.json']);
-		expect(partial['src/lib/config/legal.ts']).toBe(before['src/lib/config/legal.ts']);
-		expect(partial['README.md']).toBe(before['README.md']);
-		expect(partial['src/lib/config/site.ts']).toBe(before['src/lib/config/site.ts']);
+		expect(partial).toEqual(before);
 
 		const rerun = runSetup(dir, []);
 		expect(rerun.code).toBe(1);
-		expect(rerun.stderr).toMatch(/Missing: --repo, --brand/);
+		expect(rerun.stderr).toMatch(/Missing: --slug, --repo, --brand/);
 		expect(snapshot(dir)).toEqual(partial);
 	});
 
@@ -276,7 +466,7 @@ mock.module('fs', () => ({
 		);
 		const afterFirst = snapshot(dir);
 
-		// titleCase('northwind-labs') wäre 'Northwind Labs'; der gewählte Name gewinnt.
+		// The explicitly chosen name takes precedence over titleCase('northwind-labs').
 		const rerun = runSetup(dir, REQUIRED);
 		expect(rerun.code, rerun.stderr).toBe(0);
 		expect(snapshot(dir)).toEqual(afterFirst);
@@ -359,7 +549,7 @@ describe('template setup quick start', () => {
 		expect(readme).not.toContain('gh repo create');
 		expect(readme).not.toContain('my-saas-product');
 		expect(readme).not.toContain('Live demo!');
-		// Unverwandte Prosa bleibt erhalten.
+		// Unrelated prose remains unchanged.
 		expect(readme).toContain('## Why This Exists');
 	});
 
@@ -425,7 +615,7 @@ describe('template setup quick start', () => {
 		expect(/"workspaces"\s*:\s*\{\s*""\s*:\s*\{\s*"name"\s*:\s*"([^"]*)"/.exec(lock)?.[1]).toBe(
 			'northwind-labs'
 		);
-		// Nur der Root-Name ändert sich; der Abhängigkeitsgraph bleibt bytegleich.
+		// Only the root name changes; the dependency graph remains byte-identical.
 		expect(lock).toBe(
 			readFileSync(join(ROOT, 'bun.lock'), 'utf-8').replace(
 				'"name": "saas-starter"',
@@ -624,13 +814,13 @@ describe('template setup rejects input before writing', () => {
 					/^export const LEGAL_CONFIG[\s\S]*?^\} as const;$/m,
 					"export const LEGAL_CONFIG = { brandName: 'X' };"
 				),
-			expected: /Expected exactly one LEGAL_CONFIG block/
+			expected: /LEGAL_CONFIG must use a direct object initializer/
 		},
 		{
 			label: 'the README lost its quick start',
 			file: 'README.md',
 			mutate: () => '# Custom Title\n\nUnrelated prose.\n',
-			expected: /Expected exactly one quick start clone block/
+			expected: /Expected exactly one Quick Start H2/
 		},
 		{
 			label: 'wrangler.toml lost its name assignment',
@@ -700,8 +890,7 @@ describe('template setup rejects input before writing', () => {
 });
 
 describe('template setup recognizes a genuinely set up project', () => {
-	// Ein von Hand geänderter Package-Name oder githubSlug beweist keine Einrichtung:
-	// solange der Quick Start die gh-repo-create-Form trägt, bleibt --brand Pflicht.
+	// A hand-edited package name or githubSlug does not prove setup while Quick Start is bootstrap.
 	it.each([
 		{
 			label: 'only the package name was renamed by hand',
@@ -769,7 +958,7 @@ describe('template setup recognizes a genuinely set up project', () => {
 
 	it('stops demanding flags once the full generated README state is consistent', () => {
 		const dir = createFixture();
-		// Der Slug bleibt bewusst auf dem Template-Wert.
+		// Deliberately retain the template slug.
 		expect(
 			runSetup(dir, [
 				'--slug',
@@ -861,7 +1050,7 @@ describe('template setup recognizes a genuinely set up project', () => {
 describe('template setup keeps prose values on one line', () => {
 	const multiline = 'Northwind Labs\n\n## Injected Heading\n\nmore text';
 
-	// Brand und Operator werden roh in die Absätze von Privacy und Terms eingesetzt.
+	// Brand and operator enter Privacy and Terms paragraphs as raw text.
 	it.each([
 		{ flag: '--brand', expected: /brand must be a single line/ },
 		{ flag: '--operator', expected: /operator must be a single line/ }
@@ -946,10 +1135,308 @@ describe('template setup contact email end to end', () => {
 	});
 });
 
+const SINGLE_REPLACE_OUTPUTS = [
+	'package.json',
+	'bun.lock',
+	'wrangler.toml',
+	'README.md',
+	'src/lib/config/site.ts'
+] as const;
+
+const SINGLE_REPLACE_FAULTS = ['write', 'partial-write', 'single-install'] as const;
+
+describe('template setup atomic single-file replacements', () => {
+	it.each(
+		SINGLE_REPLACE_OUTPUTS.flatMap((target) =>
+			SINGLE_REPLACE_FAULTS.map((phase) => ({ target, phase }))
+		)
+	)('keeps $target whole after a $phase fault and converges on retry', ({ target, phase }) => {
+		const expectedDir = createFixture();
+		const expectedRun = runSetup(expectedDir, [...REQUIRED, ...IDENTITY]);
+		expect(expectedRun.code, expectedRun.stderr).toBe(0);
+		const expected = snapshot(expectedDir);
+
+		const dir = createFixture();
+		const before = snapshot(dir);
+		const fault = createFaultPreload(dir, { phase, target });
+		const failed = runSetup(dir, [...REQUIRED, ...IDENTITY], fault.path);
+		expectFault(failed, fault, phase === 'single-install' ? 'renameSync' : 'writeFileSync');
+		if (phase !== 'single-install') {
+			expect(failed.stderr).toContain('stage=true');
+			expect(failed.stderr).toContain('flag=wx');
+		}
+		if (phase === 'partial-write') expect(failed.stderr).toContain('prefix=true');
+
+		const partial = snapshot(dir);
+		expect(partial[target]).toBe(before[target]);
+		for (const rel of FIXTURE_FILES) {
+			expect([before[rel], expected[rel]]).toContain(partial[rel]);
+		}
+
+		const retry = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(retry.code, retry.stderr).toBe(0);
+		expect(snapshot(dir)).toEqual(expected);
+	});
+
+	it('accepts a flagless retry after the final site replacement committed before cleanup failed', () => {
+		const dir = createFixture();
+		const fault = createFaultPreload(dir, {
+			phase: 'single-cleanup-rmdir',
+			target: 'src/lib/config/site.ts'
+		});
+		const failed = runSetup(dir, [...REQUIRED, ...IDENTITY], fault.path);
+		expectFault(failed, fault, 'rmdirSync');
+		expect(readFileSync(join(dir, 'README.md'), 'utf-8')).toContain(
+			'git clone https://github.com/northwind/northwind-labs.git'
+		);
+		expect(readFileSync(join(dir, 'src/lib/config/site.ts'), 'utf-8')).toContain(
+			"githubSlug: 'northwind/northwind-labs'"
+		);
+
+		const retry = runSetup(dir, []);
+		expect(retry.code, retry.stderr).toBe(0);
+	});
+});
+
+const LEGAL_OUTPUTS = ['src/lib/config/legal.ts', 'src/lib/content/legal-metadata.ts'] as const;
+
+function setLegalModes(dir: string): { config: number; metadata: number } {
+	chmodSync(join(dir, LEGAL_OUTPUTS[0]), 0o640);
+	chmodSync(join(dir, LEGAL_OUTPUTS[1]), 0o604);
+	const modes = { config: mode(dir, LEGAL_OUTPUTS[0]), metadata: mode(dir, LEGAL_OUTPUTS[1]) };
+	if (process.platform !== 'win32') expect(modes.config).not.toBe(modes.metadata);
+	return modes;
+}
+
+const LEGAL_PREPARE_FAULTS = ['write', 'partial-write', 'chmod'] as const;
+
+describe('template setup legal pair commit protocol', () => {
+	it.each(
+		LEGAL_OUTPUTS.flatMap((target) => LEGAL_PREPARE_FAULTS.map((phase) => ({ target, phase })))
+	)('leaves the original pair after a $phase fault for $target', ({ target, phase }) => {
+		const expectedDir = createFixture();
+		setLegalModes(expectedDir);
+		const expectedRun = runSetup(expectedDir, [...REQUIRED, ...IDENTITY]);
+		expect(expectedRun.code, expectedRun.stderr).toBe(0);
+		const expected = snapshot(expectedDir);
+
+		const dir = createFixture();
+		const originalModes = setLegalModes(dir);
+		const before = snapshot(dir);
+		const fault = createFaultPreload(dir, { phase, target });
+		const failed = runSetup(dir, [...REQUIRED, ...IDENTITY], fault.path);
+		expectFault(failed, fault, phase === 'chmod' ? 'chmodSync' : 'writeFileSync');
+		expect(failed.stderr).toContain('stage=true');
+		if (phase !== 'chmod') expect(failed.stderr).toContain('flag=wx');
+		if (phase === 'partial-write') expect(failed.stderr).toContain('prefix=true');
+		expect(snapshot(dir)).toEqual(before);
+		expect(mode(dir, LEGAL_OUTPUTS[0])).toBe(originalModes.config);
+		expect(mode(dir, LEGAL_OUTPUTS[1])).toBe(originalModes.metadata);
+
+		const retry = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(retry.code, retry.stderr).toBe(0);
+		expect(snapshot(dir)).toEqual(expected);
+		expect(mode(dir, LEGAL_OUTPUTS[0])).toBe(originalModes.config);
+		expect(mode(dir, LEGAL_OUTPUTS[1])).toBe(originalModes.metadata);
+	});
+
+	it.each([
+		{ phase: 'legal-backup' as const, operation: 'renameSync' },
+		{ phase: 'legal-config-install' as const, operation: 'renameSync' },
+		{ phase: 'legal-metadata-install' as const, operation: 'renameSync' }
+	])('restores the original pair after $phase fails before commit', ({ phase, operation }) => {
+		const dir = createFixture();
+		const originalModes = setLegalModes(dir);
+		const before = snapshot(dir);
+		const fault = createFaultPreload(dir, { phase, target: LEGAL_OUTPUTS[0] });
+		const failed = runSetup(dir, [...REQUIRED, ...IDENTITY], fault.path);
+		expectFault(failed, fault, operation);
+		expect(snapshot(dir)).toEqual(before);
+		expect(mode(dir, LEGAL_OUTPUTS[0])).toBe(originalModes.config);
+		expect(mode(dir, LEGAL_OUTPUTS[1])).toBe(originalModes.metadata);
+
+		const retry = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(retry.code, retry.stderr).toBe(0);
+	});
+
+	it('preserves the backup and recovery file when restoring the config fails', () => {
+		const dir = createFixture();
+		const beforeConfig = readFileSync(join(dir, LEGAL_OUTPUTS[0]));
+		const beforeMetadata = readFileSync(join(dir, LEGAL_OUTPUTS[1]));
+		const fault = createFaultPreload(dir, {
+			phase: 'legal-metadata-and-restore',
+			target: LEGAL_OUTPUTS[0]
+		});
+		const failed = runSetup(dir, [...REQUIRED, ...IDENTITY], fault.path);
+
+		expect(failed.code).toBe(1);
+		expect(failed.stderr).toContain(`FAULT_HIT ${fault.id} operation=renameSync`);
+		expect(failed.stderr).toContain(`FAULT_HIT ${fault.id} operation=renameSync-restore`);
+		expect(failed.stderr).toContain('template-setup.ts');
+		expect(failed.stderr).toMatch(/Recovery required/);
+		expect(failed.stderr).toMatch(/legal\.ts\.backup/);
+		expect(failed.stderr).toMatch(/canonical config=.*canonical metadata=/);
+		expect(existsSync(join(dir, LEGAL_OUTPUTS[0]))).toBe(false);
+		expect(readFileSync(join(dir, LEGAL_OUTPUTS[1]))).toEqual(beforeMetadata);
+
+		const stages = stagingArtifacts(dir);
+		expect(stages.length).toBeGreaterThan(0);
+		const retained = stages.flatMap((stage) =>
+			readdirSync(stage).map((entry) => ({
+				path: join(stage, entry),
+				bytes: readFileSync(join(stage, entry))
+			}))
+		);
+		expect(retained.some(({ path }) => path.endsWith('legal.ts.backup'))).toBe(true);
+		expect(retained.some(({ bytes }) => bytes.equals(beforeConfig))).toBe(true);
+		expect(retained.some(({ path }) => path.endsWith('legal.ts.recovery'))).toBe(true);
+	});
+
+	it.each([
+		{ phase: 'legal-cleanup-unlink' as const, operation: 'unlinkSync' },
+		{ phase: 'legal-cleanup-rmdir' as const, operation: 'rmdirSync' }
+	])('keeps the committed pair after $phase fails', ({ phase, operation }) => {
+		const expectedDir = createFixture();
+		setLegalModes(expectedDir);
+		expect(runSetup(expectedDir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
+		const expectedConfig = readFileSync(join(expectedDir, LEGAL_OUTPUTS[0]));
+		const expectedMetadata = readFileSync(join(expectedDir, LEGAL_OUTPUTS[1]));
+
+		const dir = createFixture();
+		const originalModes = setLegalModes(dir);
+		const fault = createFaultPreload(dir, { phase, target: LEGAL_OUTPUTS[0] });
+		const failed = runSetup(dir, [...REQUIRED, ...IDENTITY], fault.path);
+		expectFault(failed, fault, operation);
+		expect(readFileSync(join(dir, LEGAL_OUTPUTS[0]))).toEqual(expectedConfig);
+		expect(readFileSync(join(dir, LEGAL_OUTPUTS[1]))).toEqual(expectedMetadata);
+		expect(mode(dir, LEGAL_OUTPUTS[0])).toBe(originalModes.config);
+		expect(mode(dir, LEGAL_OUTPUTS[1])).toBe(originalModes.metadata);
+		expect(stagingArtifacts(dir).length).toBeGreaterThan(0);
+
+		const retry = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(retry.code, retry.stderr).toBe(0);
+		expect(readFileSync(join(dir, LEGAL_OUTPUTS[0]))).toEqual(expectedConfig);
+		expect(readFileSync(join(dir, LEGAL_OUTPUTS[1]))).toEqual(expectedMetadata);
+	});
+});
+
+describe('template setup path preflight', () => {
+	it('rejects a symlink target before creating staging directories', () => {
+		const dir = createFixture();
+		const readme = join(dir, 'README.md');
+		const realReadme = join(dir, 'README.real.md');
+		renameSync(readme, realReadme);
+		symlinkSync('README.real.md', readme, 'file');
+		const before = readFileSync(realReadme);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/regular file|symbolic link|symlink/i);
+		expect(readFileSync(realReadme)).toEqual(before);
+		expect(stagingArtifacts(dir)).toEqual([]);
+	});
+
+	it('rejects a hardlink target before creating staging directories', () => {
+		const dir = createFixture();
+		const readme = join(dir, 'README.md');
+		const peer = join(dir, 'README.peer.md');
+		renameSync(readme, peer);
+		linkSync(peer, readme);
+		const before = readFileSync(peer);
+		expect(lstatSync(readme).nlink).toBeGreaterThan(1);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/hardlink|link count|nlink/i);
+		expect(readFileSync(peer)).toEqual(before);
+		expect(stagingArtifacts(dir)).toEqual([]);
+	});
+
+	it('rejects a real parent outside the repository root before staging', () => {
+		const dir = createFixture();
+		const config = join(dir, 'src/lib/config');
+		const outside = mkdtempSync(join(tmpdir(), 'template-setup-outside-'));
+		fixtures.push(outside);
+		cpSync(config, outside, { recursive: true });
+		rmSync(config, { recursive: true });
+		symlinkSync(outside, config, process.platform === 'win32' ? 'junction' : 'dir');
+		const beforeLegal = readFileSync(join(outside, 'legal.ts'));
+		const beforeSite = readFileSync(join(outside, 'site.ts'));
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/outside.*repository|repository root/i);
+		expect(readFileSync(join(outside, 'legal.ts'))).toEqual(beforeLegal);
+		expect(readFileSync(join(outside, 'site.ts'))).toEqual(beforeSite);
+		expect(stagingArtifacts(dir)).toEqual([]);
+	});
+});
+
+describe('template setup structural process guards', () => {
+	it('rejects a template decoy with an indirect real LEGAL_CONFIG before writes', () => {
+		const dir = createFixture();
+		const legal = join(dir, 'src/lib/config/legal.ts');
+		const direct = readFileSync(legal, 'utf-8');
+		const block = /^export const LEGAL_CONFIG = \{[\s\S]*?^\} as const;$/m.exec(direct)?.[0];
+		expect(block).toBeDefined();
+		const indirect = direct.replace(
+			block!,
+			`const currentConfig = ${block!.replace('export const LEGAL_CONFIG = ', '')}\nconst decoy = \`export const LEGAL_CONFIG = { brandName: 'Decoy' } as const;\`;\nexport const LEGAL_CONFIG = currentConfig;`
+		);
+		writeFileSync(legal, indirect, 'utf-8');
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/LEGAL_CONFIG/);
+		expect(snapshot(dir)).toEqual(before);
+		expect(stagingArtifacts(dir)).toEqual([]);
+	});
+
+	it('rejects a foreign clone example when the real Quick Start candidate is missing', () => {
+		const dir = createFixture();
+		const readme = join(dir, 'README.md');
+		const source = readFileSync(readme, 'utf-8')
+			.replace(
+				'gh repo create my-saas-product --template stickerdaniel/saas-starter --clone\ncd my-saas-product\nbun install\nbun run dev',
+				'mkdir my-saas-product\nbun install\nbun run dev'
+			)
+			.concat(
+				'\n## Unrelated Vendor Checkout\n\n```bash\ngit clone https://github.com/example/vendor-tool.git\ncd vendor-tool\nbun install\nbun run dev\n```\n'
+			);
+		writeFileSync(readme, source, 'utf-8');
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/candidate/);
+		expect(snapshot(dir)).toEqual(before);
+		expect(stagingArtifacts(dir)).toEqual([]);
+	});
+
+	it('rewrites an exact repository URL before sentence punctuation in the public process', () => {
+		const dir = createFixture();
+		const readme = join(dir, 'README.md');
+		writeFileSync(
+			readme,
+			readFileSync(readme, 'utf-8').replace(
+				'## Why This Exists',
+				'Exact prose URL: https://github.com/stickerdaniel/saas-starter. \n\n## Why This Exists'
+			),
+			'utf-8'
+		);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		expect(readFileSync(readme, 'utf-8')).toContain(
+			'Exact prose URL: https://github.com/northwind/northwind-labs. '
+		);
+	});
+});
+
 /**
- * Gemessen, nicht angenommen: nur wenn ein echter Schreibversuch auf eine 0444-Datei
- * scheitert, prüft der folgende Test überhaupt eine Schreibverweigerung. Als root
- * bleibt der Fall unbeobachtbar und der Test meldet das, statt Erfolg zu behaupten.
+ * This test measures a real denied write. Root can bypass 0444 permissions, so the
+ * case reports itself as unobservable there instead of claiming coverage.
  */
 const writeDenialEnforced = (() => {
 	const dir = mkdtempSync(join(tmpdir(), 'template-setup-wperm-'));

@@ -1,0 +1,36 @@
+name: Template Setup Windows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/template-setup.ts'
+      - 'scripts/template-setup.test.ts'
+      - 'scripts/template-setup.integration.test.ts'
+      - '.github/workflows/template-setup-windows.yml'
+  pull_request:
+    paths:
+      - 'scripts/template-setup.ts'
+      - 'scripts/template-setup.test.ts'
+      - 'scripts/template-setup.integration.test.ts'
+      - '.github/workflows/template-setup-windows.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-setup-windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Template Setup Windows
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.9
+      - run: bun install --frozen-lockfile
+      - run: bun vitest --run scripts/template-setup.test.ts scripts/template-setup.integration.test.ts
