@@ -9,6 +9,8 @@ on:
       - 'knowledge-policy.config.ts'
       - 'eslint/control-character-policy.js'
       - 'scripts/knowledge-policy/**'
+      - 'scripts/english-policy/**'
+      - 'src/lib/i18n/language-codes.generated.js'
       - 'scripts/dev-cloud.ts'
       - 'scripts/dev-cloud.test.ts'
       - 'scripts/git-context.ts'
@@ -36,25 +38,44 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - name: Select runner
         id: runner
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
         run: |
-          # Workflow syntax and cross-platform wiring run on Ubicloud. Source
-          # and test changes whose behavior differs on Windows use Windows.
-          pattern='^(package\.json|bun\.lock|scripts/(dev-cloud(\.test)?\.ts|windows-job(\.ts|-runner\.ps1)))$'
+          # Workflow-only changes run on Ubicloud. Every source or test dependency whose
+          # behavior differs on Windows runs natively on Windows.
+          pattern='^(package\.json|bun\.lock|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|git-context\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1)))$'
           set +e
-          set -o pipefail
-          git diff --name-only --no-renames HEAD^1 HEAD | grep -E "$pattern" > /dev/null
-          status=$?
+          if [[ "$EVENT_NAME" == 'pull_request' ]]; then
+            files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename')
+          else
+            files=$(git diff --name-only --no-renames "$BEFORE_SHA" "$CURRENT_SHA")
+          fi
+          read_status=$?
           set -e
-          if [[ $status -eq 0 ]]; then
+          if [[ $read_status -ne 0 ]]; then
+            # Never select the cheaper runner from a failed read.
             echo 'label=windows-latest' >> "$GITHUB_OUTPUT"
-          elif [[ $status -eq 1 ]]; then
+            exit 0
+          fi
+
+          set +e
+          printf '%s\n' "$files" | grep -E "$pattern" > /dev/null
+          match_status=$?
+          set -e
+          if [[ $match_status -eq 0 ]]; then
+            echo 'label=windows-latest' >> "$GITHUB_OUTPUT"
+          elif [[ $match_status -eq 1 ]]; then
             echo 'label=ubicloud-standard-2' >> "$GITHUB_OUTPUT"
           else
-            # Never select the cheaper runner from a failed read.
+            # Never select the cheaper runner when matching fails.
             echo 'label=windows-latest' >> "$GITHUB_OUTPUT"
           fi
 
@@ -78,8 +99,12 @@ jobs:
             exit 0
           }
 
-          $pattern = '^(package\.json|bun\.lock|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|scripts/(dev-cloud(\.test)?\.ts|git-context\.ts|knowledge-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1))|\.github/workflows/windows-process-lifecycle\.yml)$'
+          $pattern = '^(package\.json|bun\.lock|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|git-context\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1))|\.github/workflows/windows-process-lifecycle\.yml)$'
           $files = gh api --paginate "repos/$env:GITHUB_REPOSITORY/pulls/$env:PR_NUMBER/files" --jq '.[].filename'
+          if ($LASTEXITCODE -ne 0) {
+            'run_tests=true' >> $env:GITHUB_OUTPUT
+            exit 0
+          }
           $runTests = @($files | Where-Object { $_ -match $pattern }).Count -gt 0
           "run_tests=$($runTests.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
       - if: steps.changes.outputs.run_tests == 'true'

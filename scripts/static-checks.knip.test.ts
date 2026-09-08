@@ -7,6 +7,7 @@ import {
 	mkdtempSync,
 	readFileSync,
 	realpathSync,
+	renameSync,
 	rmSync,
 	symlinkSync,
 	writeFileSync
@@ -40,24 +41,74 @@ const RECORDER_SOURCE = path.join(
 	'static-checks',
 	'command-recorder.ts'
 );
+const WINDOWS_LIFECYCLE_WORKFLOW = path.join(
+	ROOT,
+	'.github',
+	'workflows',
+	'windows-process-lifecycle.yml'
+);
+const WINDOWS_LIFECYCLE_PUSH_PATHS = [
+	'package.json',
+	'bun.lock',
+	'knowledge-policy.config.ts',
+	'eslint/control-character-policy.js',
+	'scripts/knowledge-policy/**',
+	'scripts/english-policy/**',
+	'src/lib/i18n/language-codes.generated.js',
+	'scripts/dev-cloud.ts',
+	'scripts/dev-cloud.test.ts',
+	'scripts/git-context.ts',
+	'scripts/static-checks.ts',
+	'scripts/static-checks.test.ts',
+	'scripts/static-checks.knip.test.ts',
+	'scripts/terminal-output.ts',
+	'scripts/test-executable.ts',
+	'scripts/__fixtures__/static-checks/**',
+	'scripts/windows-job.ts',
+	'scripts/windows-job-runner.ps1',
+	'.github/workflows/windows-process-lifecycle.yml'
+];
+const WINDOWS_LIFECYCLE_DEPENDENCIES = [
+	'package.json',
+	'bun.lock',
+	'knowledge-policy.config.ts',
+	'eslint/control-character-policy.js',
+	'scripts/knowledge-policy/example.ts',
+	'scripts/english-policy/example.ts',
+	'src/lib/i18n/language-codes.generated.js',
+	'scripts/dev-cloud.ts',
+	'scripts/dev-cloud.test.ts',
+	'scripts/git-context.ts',
+	'scripts/static-checks.ts',
+	'scripts/static-checks.test.ts',
+	'scripts/static-checks.knip.test.ts',
+	'scripts/terminal-output.ts',
+	'scripts/test-executable.ts',
+	'scripts/__fixtures__/static-checks/command-recorder.ts',
+	'scripts/windows-job.ts',
+	'scripts/windows-job-runner.ps1'
+];
 // A tracked TypeScript file that the local pre-push run passes to the mutating linters;
 // with only Markdown input, the checker skips ESLint entirely.
 const LINTED_SOURCE = 'scripts/test-executable.ts';
-// Clone overlay pathspecs: `scripts` plus the two files outside it that the checker imports
-// directly. Without them, the clone would run the committed version while the worktree
+// Clone overlay pathspecs include `scripts` and the checker dependencies outside it. Without
+// them, the clone would run the committed version while the worktree
 // already uses a modified policy.
 const OVERLAY_PATHSPECS = [
 	'scripts',
 	'eslint/control-character-policy.js',
-	'knowledge-policy.config.ts'
+	'knowledge-policy.config.ts',
+	'src/lib/i18n/language-codes.generated.js'
 ];
 // Sources required to keep a clone run from passing without seeing the change under test.
 const REQUIRED_SOURCES = [
 	'scripts/static-checks.ts',
 	'scripts/terminal-output.ts',
 	'scripts/convex-consumer-compat.ts',
+	'scripts/english-policy/content.ts',
 	'eslint/control-character-policy.js',
-	'knowledge-policy.config.ts'
+	'knowledge-policy.config.ts',
+	'src/lib/i18n/language-codes.generated.js'
 ];
 // Bun canonicalizes the checker's module path through the operating-system API, while
 // `realpathSync` does not canonicalize the invocation cwd. On Windows GitHub runners,
@@ -96,22 +147,57 @@ function readCommandLog(logPath: string): CommandInvocation[] {
 		.map((line) => JSON.parse(line) as CommandInvocation);
 }
 
+function rootIndexSnapshot(): string {
+	const result = spawnSync('git', ['diff', '--cached', '--raw', '-z'], {
+		cwd: ROOT,
+		env: sanitizedGitEnv(),
+		encoding: 'utf8'
+	});
+	if (result.status !== 0) throw new Error(`Root index snapshot failed: ${result.stderr}`);
+	return result.stdout;
+}
+
+function runFixtureGit(repository: string, args: string[]): void {
+	const result = spawnSync('git', args, {
+		cwd: repository,
+		env: sanitizedGitEnv(),
+		encoding: 'utf8'
+	});
+	if (result.status !== 0) {
+		throw new Error(`Fixture git ${args.join(' ')} failed: ${result.stdout}${result.stderr}`);
+	}
+}
+
+function configureFixtureGitIdentity(repository: string): void {
+	runFixtureGit(repository, ['config', '--local', 'user.name', 'Static Checks Fixture']);
+	runFixtureGit(repository, [
+		'config',
+		'--local',
+		'user.email',
+		'static-checks-fixture@example.invalid'
+	]);
+}
+
+function shellSingleQuote(value: string): string {
+	return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
 /**
  * Creates the recorders under the names the checker uses to start its child processes.
  *
- * On POSIX these are shebang scripts. With the Bun 1.3.9 pinned in package.json, a file built
+ * On POSIX these are /bin/sh wrappers. With the Bun 1.3.9 pinned in package.json, a file built
  * by `bun build --compile` runs as the Bun CLI instead of its own entry point as soon as
  * argv[0] is exactly `bun`, which is precisely how the checker starts its child: recording
  * would fail and the real formatters and linters would run (measured on Linux with 1.3.9;
- * 1.3.14 no longer exhibits the effect). A shebang script is instead started by the real Bun
- * with an absolute argv[0] and retains its entry point. Windows does not support shebangs and
- * therefore keeps the compiled file.
+ * 1.3.14 no longer exhibits the effect). The wrapper instead starts the real Bun by its safely
+ * quoted absolute path and passes the recorder source as one argument. Windows does not support
+ * this wrapper and therefore keeps the compiled file.
  */
-function createRecorderShims(directory: string): void {
+function createRecorderShims(directory: string, bunPath = BUN): void {
 	if (process.platform === 'win32') {
 		const compiledBun = path.join(directory, 'bun.exe');
 		const compiled = spawnSync(
-			BUN,
+			bunPath,
 			['build', RECORDER_SOURCE, '--compile', '--outfile', compiledBun],
 			{ cwd: directory, env: sanitizedGitEnv(), encoding: 'utf8' }
 		);
@@ -123,18 +209,23 @@ function createRecorderShims(directory: string): void {
 	}
 	for (const name of ['bun', 'misspell']) {
 		const shim = path.join(directory, name);
-		writeFileSync(shim, `#!${BUN}\nimport ${JSON.stringify(RECORDER_SOURCE)};\n`);
+		writeFileSync(
+			shim,
+			`#!/bin/sh\nSTATIC_CHECKS_COMMAND_NAME=${shellSingleQuote(name)} exec ${shellSingleQuote(bunPath)} ${shellSingleQuote(RECORDER_SOURCE)} "$@"\n`
+		);
 		chmodSync(shim, 0o755);
 	}
 }
 
 function recorderEnv(logPath: string): NodeJS.ProcessEnv {
-	return {
+	const env: NodeJS.ProcessEnv = {
 		...sanitizedGitEnv(),
 		NO_COLOR: '1',
 		PATH: `${recorderDirectory}${path.delimiter}${process.env.PATH ?? ''}`,
 		STATIC_CHECKS_COMMAND_LOG: logPath
 	};
+	delete env.STATIC_CHECKS_COMMAND_NAME;
+	return env;
 }
 
 /**
@@ -145,12 +236,40 @@ function recorderEnv(logPath: string): NodeJS.ProcessEnv {
  * directory enumeration and traversal, the copy aborts; in the measured case, the native
  * directory_iterator exception terminated the entire Vitest worker, silently omitting the
  * final Knip cases. The index instead provides a stable path set that never contains temporary
- * fixtures, and each file is overlaid individually. This keeps changes to tracked and already
- * staged sources under test before the commit without traversing a live directory.
+ * fixtures, and each file is overlaid individually. Deleted index paths are removed explicitly
+ * with rename detection disabled, so a staged rename cannot leave the old HEAD path beside the
+ * new file. This keeps staged sources under test without traversing or recursively deleting a
+ * live directory.
  */
-function overlayIndexedSources(repository: string): void {
+function overlayIndexedSources(repository: string, sourceRoot = ROOT): void {
+	const deleted = spawnSync(
+		'git',
+		[
+			'diff',
+			'--cached',
+			'--name-only',
+			'--diff-filter=D',
+			'--no-renames',
+			'-z',
+			'--',
+			...OVERLAY_PATHSPECS
+		],
+		{
+			cwd: sourceRoot,
+			env: sanitizedGitEnv(),
+			encoding: 'utf8',
+			maxBuffer: 16 * 1024 * 1024
+		}
+	);
+	if (deleted.status !== 0) {
+		throw new Error(`Failed to list deleted indexed sources: ${deleted.stderr}`);
+	}
+	for (const file of deleted.stdout.split('\0').filter(Boolean)) {
+		rmSync(path.join(repository, file), { force: true });
+	}
+
 	const listed = spawnSync('git', ['ls-files', '-z', '--', ...OVERLAY_PATHSPECS], {
-		cwd: ROOT,
+		cwd: sourceRoot,
 		env: sanitizedGitEnv(),
 		encoding: 'utf8',
 		maxBuffer: 16 * 1024 * 1024
@@ -159,13 +278,15 @@ function overlayIndexedSources(repository: string): void {
 	const files = listed.stdout.split('\0').filter(Boolean);
 	// An empty or incomplete set would let the clone run the committed state and silently skip
 	// the change under test.
-	for (const required of REQUIRED_SOURCES) {
-		if (!files.includes(required)) {
-			throw new Error(`Git index does not contain ${required}: ${files.length} paths.`);
+	if (sourceRoot === ROOT) {
+		for (const required of REQUIRED_SOURCES) {
+			if (!files.includes(required)) {
+				throw new Error(`Git index does not contain ${required}: ${files.length} paths.`);
+			}
 		}
 	}
 	for (const file of files) {
-		const source = path.join(ROOT, file);
+		const source = path.join(sourceRoot, file);
 		// A source tracked in the index but missing from the worktree must not silently leave the
 		// committed version in the clone.
 		if (!existsSync(source)) {
@@ -271,6 +392,25 @@ function stageReadme(checkout: CheckerClone): void {
 	}
 }
 
+function stageDeletionOnly(checkout: CheckerClone): void {
+	const relative = 'scripts/__fixtures__/static-checks/deletion-only.md';
+	const fixture = path.join(checkout.repository, relative);
+	writeFileSync(fixture, 'Fixture deleted only from the private test repository.\n');
+	runFixtureGit(checkout.repository, ['add', '--', relative]);
+	configureFixtureGitIdentity(checkout.repository);
+	runFixtureGit(checkout.repository, [
+		'commit',
+		'--quiet',
+		'--no-gpg-sign',
+		'-m',
+		'Add deletion-only fixture',
+		'--',
+		relative
+	]);
+	rmSync(fixture);
+	runFixtureGit(checkout.repository, ['add', '-u', '--', relative]);
+}
+
 function replaceCompatWithRecorder(checkout: CheckerClone): void {
 	writeFileSync(
 		path.join(checkout.repository, 'scripts', 'convex-consumer-compat.ts'),
@@ -328,6 +468,74 @@ afterAll(() => {
 	rmSync(recorderDirectory, { recursive: true, force: true });
 });
 
+describe('Windows lifecycle workflow coverage', () => {
+	it('keeps push, pull-request, and native-runner dependencies aligned', () => {
+		const workflow = readFileSync(WINDOWS_LIFECYCLE_WORKFLOW, 'utf8');
+		const pushBlock = workflow.match(/^ {4}paths:\n([\s\S]*?)^ {2}pull_request:/m)?.[1];
+		const selectorPattern = workflow.match(/^ {10}pattern='([^']+)'$/m)?.[1];
+		const pullRequestPattern = workflow.match(/^ {10}\$pattern = '([^']+)'$/m)?.[1];
+
+		expect(pushBlock, 'push paths block').toBeDefined();
+		expect(selectorPattern, 'native runner selector').toBeDefined();
+		expect(pullRequestPattern, 'pull-request test selector').toBeDefined();
+
+		const pushPaths = [...pushBlock!.matchAll(/^ {6}- '([^']+)'$/gm)].map((match) => match[1]);
+		expect(pushPaths).toEqual(WINDOWS_LIFECYCLE_PUSH_PATHS);
+		expect(workflow).toContain("if ($LASTEXITCODE -ne 0) {\n            'run_tests=true'");
+
+		const selectsWindows = new RegExp(selectorPattern!);
+		const runsTests = new RegExp(pullRequestPattern!);
+		for (const dependency of WINDOWS_LIFECYCLE_DEPENDENCIES) {
+			expect(selectsWindows.test(dependency), `native runner: ${dependency}`).toBe(true);
+			expect(runsTests.test(dependency), `pull request: ${dependency}`).toBe(true);
+		}
+		expect(selectsWindows.test('.github/workflows/windows-process-lifecycle.yml')).toBe(false);
+		expect(runsTests.test('.github/workflows/windows-process-lifecycle.yml')).toBe(true);
+		expect(selectsWindows.test('docs/example.md')).toBe(false);
+		expect(runsTests.test('docs/example.md')).toBe(false);
+	});
+});
+
+describe('indexed source overlay', () => {
+	it('removes the old path and copies the new path for a staged indirect-source rename', () => {
+		const directory = mkdtempSync(path.join(TEMP_ROOT, 'static-overlay-'));
+		const source = path.join(directory, 'source');
+		const checkout = path.join(directory, 'checkout');
+		const oldRelative = 'scripts/english-policy/old-name.ts';
+		const newRelative = 'scripts/english-policy/new-name.ts';
+		const rootIndex = rootIndexSnapshot();
+		mkdirSync(path.dirname(path.join(source, oldRelative)), { recursive: true });
+		runFixtureGit(source, ['init', '--quiet']);
+		writeFileSync(path.join(source, oldRelative), 'export const fixture = "old";\n');
+		runFixtureGit(source, ['add', '--', oldRelative]);
+		configureFixtureGitIdentity(source);
+		runFixtureGit(source, ['commit', '--quiet', '--no-gpg-sign', '-m', 'Add overlay fixture']);
+		const cloned = spawnSync(
+			'git',
+			['clone', '--quiet', '--local', '--no-hardlinks', source, checkout],
+			{
+				env: sanitizedGitEnv(),
+				encoding: 'utf8'
+			}
+		);
+		if (cloned.status !== 0) throw new Error(`Overlay fixture clone failed: ${cloned.stderr}`);
+		renameSync(path.join(source, oldRelative), path.join(source, newRelative));
+		writeFileSync(path.join(source, newRelative), 'export const fixture = "new";\n');
+		runFixtureGit(source, ['add', '-A', '--', 'scripts/english-policy']);
+		try {
+			overlayIndexedSources(checkout, source);
+
+			expect(existsSync(path.join(checkout, oldRelative))).toBe(false);
+			expect(readFileSync(path.join(checkout, newRelative), 'utf8')).toBe(
+				'export const fixture = "new";\n'
+			);
+			expect(rootIndexSnapshot()).toBe(rootIndex);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+});
+
 describe.sequential('Knip static-check CLI behavior', () => {
 	it('resolves the recorder through the name the checker spawns', () => {
 		const directory = mkdtempSync(path.join(TEMP_ROOT, 'static-recorder-contract-'));
@@ -348,6 +556,36 @@ describe.sequential('Knip static-check CLI behavior', () => {
 			rmSync(directory, { recursive: true, force: true });
 		}
 	});
+
+	it.skipIf(process.platform === 'win32')(
+		'preserves argv through a Bun alias whose path contains spaces and quotes',
+		() => {
+			const directory = mkdtempSync(path.join(TEMP_ROOT, "static bun alias 'quoted' "));
+			const aliasDirectory = path.join(directory, "bun alias 'quoted'");
+			const shims = path.join(directory, 'shims');
+			const logPath = path.join(directory, 'commands.jsonl');
+			mkdirSync(aliasDirectory);
+			mkdirSync(shims);
+			const bunAlias = path.join(aliasDirectory, 'bun executable');
+			symlinkSync(BUN, bunAlias);
+			createRecorderShims(shims, bunAlias);
+			const env = {
+				...sanitizedGitEnv(),
+				PATH: `${shims}${path.delimiter}${process.env.PATH ?? ''}`,
+				STATIC_CHECKS_COMMAND_LOG: logPath,
+				STATIC_CHECKS_COMMAND_RESPONSE: JSON.stringify({ ...PRETTIER_README, status: 23 })
+			};
+			try {
+				const result = spawnSync('bun', PRETTIER_README.args, { env, encoding: 'utf8' });
+				const output = `${result.stdout}${result.stderr}`;
+
+				expect(result.status, output).toBe(23);
+				expect(readCommandLog(logPath), output).toEqual([PRETTIER_README]);
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
+			}
+		}
+	);
 
 	it('propagates a recorded formatter failure through the real CLI boundary', () => {
 		expect(canary.status, canary.output).toBe(23);
@@ -406,6 +644,10 @@ describe.sequential('Knip static-check CLI behavior', () => {
 		// and without CI in the environment. Only this case distinguishes the actual condition
 		// `mode !== 'staged'` from a CI-only gate.
 		delete checkout.env.CI;
+		checkout.env.STATIC_CHECKS_COMMAND_RESPONSE = JSON.stringify([
+			{ ...PRETTIER_WRITE, status: 0, delayMs: 300 },
+			{ ...ESLINT_FIX, status: 0, delayMs: 300 }
+		]);
 		try {
 			const result = runChecker(checkout, ['README.md', LINTED_SOURCE]);
 			const output = `${result.stdout}${result.stderr}`;
@@ -420,10 +662,10 @@ describe.sequential('Knip static-check CLI behavior', () => {
 				args: ['-error', 'README.md', LINTED_SOURCE]
 			});
 
-			// Outside --ci, Prettier (--write) and ESLint (--fix) write to the worktree. Knip reads
-			// the dependency graph and must therefore run after the mutating child processes, or it
-			// would evaluate a state that the run subsequently changes. Read-only checks may follow,
-			// so there is no contract that Knip is the final step.
+			// Outside --ci, Prettier (--write) and ESLint (--fix) write to the worktree. Delayed
+			// recorders append only when those processes complete, so this compares completion rather
+			// than start order. Knip must observe both completions before it reads the dependency graph.
+			// Read-only checks may follow, so there is no contract that Knip is the final step.
 			expect(log, JSON.stringify(log)).toContainEqual(PRETTIER_WRITE);
 			expect(log, JSON.stringify(log)).toContainEqual(ESLINT_FIX);
 			expect(indexOfInvocation(log, KNIP)).toBeGreaterThan(indexOfInvocation(log, PRETTIER_WRITE));
@@ -500,6 +742,38 @@ describe.sequential('Knip static-check CLI behavior', () => {
 			rmSync(checkout.directory, { recursive: true, force: true });
 		}
 	}, 45_000);
+
+	it('keeps knip out when a nonempty staged change leaves no final index inputs', () => {
+		const checkout = createCheckerClone();
+		const rootIndex = rootIndexSnapshot();
+		try {
+			stageDeletionOnly(checkout);
+			const changes = spawnSync('git', ['diff', '--cached', '--name-status', '--no-renames'], {
+				cwd: checkout.repository,
+				env: sanitizedGitEnv(),
+				encoding: 'utf8'
+			});
+			const inputs = spawnSync(
+				'git',
+				['diff', '--cached', '--name-only', '--diff-filter=d', '-z'],
+				{ cwd: checkout.repository, env: sanitizedGitEnv(), encoding: 'utf8' }
+			);
+			expect(changes.status, changes.stderr).toBe(0);
+			expect(changes.stdout).toContain('D\t');
+			expect(inputs.status, inputs.stderr).toBe(0);
+			expect(inputs.stdout).toBe('');
+
+			const result = runChecker(checkout, ['--staged', '--scope', 'lint']);
+			const output = `${result.stdout}${result.stderr}`;
+
+			expect(result.status, output).toBe(0);
+			expect(knipInvocations(checkout)).toHaveLength(0);
+			expect(output).toContain('staged changes only delete paths absent from the final index');
+			expect(rootIndexSnapshot()).toBe(rootIndex);
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 30_000);
 
 	it('returns before command dispatch when the staged index is empty', () => {
 		const checkout = createCheckerClone();
