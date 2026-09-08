@@ -50,6 +50,7 @@
 		"worktree:setup": "bun scripts/create-worktree.ts --setup-only",
 		"worktree:prune": "bun scripts/prune-worktrees.ts",
 		"setup": "bun scripts/template-setup.ts",
+		"check:skills": "tsc -p .agents/skills/tsconfig.json && bun run check:upstream-report",
 		"check:upstream-report": "tsc -p .agents/skills/upstream-report/tsconfig.json",
 		"upstream:report": "bun .agents/skills/upstream-report/scripts/upstream-relevance.ts",
 		"upstream:sync": "bun .agents/skills/upstream-sync/scripts/find-fork-point.ts",

@@ -21,7 +21,8 @@
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 const MARKER = '.upstream-sync.json';
@@ -79,7 +80,7 @@ export function classify(subject: string, author: string): { priority: string; t
 	const security =
 		/\[security\]/.test(s) || SECURITY_RE.test(s) || /^(fix|chore|sec)\((auth|security)\)/.test(s);
 	const m = subject.match(/^(\w+)(\([^)]*\))?!?:/);
-	const type = m ? m[1].toLowerCase() : 'other';
+	const type = m ? m[1]!.toLowerCase() : 'other';
 	const isBot = /(renovate|dependabot)\[bot\]/i.test(author);
 	// Bot dependency bumps are routine chores even when typed fix(deps); only a real
 	// security signal lifts them above chore.
@@ -89,7 +90,7 @@ export function classify(subject: string, author: string): { priority: string; t
 
 function main() {
 	const { values } = parseArgs({
-		args: Bun.argv.slice(2),
+		args: process.argv.slice(2),
 		options: {
 			json: { type: 'boolean', default: false },
 			type: { type: 'string' },
@@ -111,7 +112,8 @@ function main() {
 	if (!base) {
 		// First run, no marker yet: derive the fork point from the sibling script.
 		console.error('No marker yet, deriving fork point via find-fork-point.ts ...');
-		const out = execFileSync('bun', [join(import.meta.dir, 'find-fork-point.ts'), '--json'], {
+		const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+		const out = execFileSync('bun', [join(scriptDirectory, 'find-fork-point.ts'), '--json'], {
 			encoding: 'utf-8',
 			env: gitEnv(),
 			maxBuffer: 16 * 1024 * 1024
@@ -135,6 +137,9 @@ function main() {
 
 	const commits = rows.map((line) => {
 		const [sha, author, subject] = line.split('\t');
+		if (!sha || author === undefined || subject === undefined) {
+			throw new Error('Malformed upstream commit row.');
+		}
 		const files = git(['show', '--name-only', '--format=', sha], true).split('\n').filter(Boolean);
 		const { priority, type } = classify(subject, author);
 		return {

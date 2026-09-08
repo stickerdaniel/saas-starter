@@ -6,6 +6,7 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
+	readlinkSync,
 	rmSync,
 	symlinkSync,
 	writeFileSync
@@ -58,14 +59,28 @@ function formatCheckFilesFrom(
 	return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
 }
 
-function createCheckerClone(): { directory: string; repository: string } {
+function git(cwd: string, args: string[], env: NodeJS.ProcessEnv = sanitizedGitEnv()): string {
+	const result = spawnSync('git', args, { cwd, env, encoding: 'utf8' });
+	if (result.status !== 0) throw new Error(result.stderr);
+	return result.stdout;
+}
+
+function createCheckerClone(coreSymlinks = true): { directory: string; repository: string } {
 	const directory = path.join(ROOT, 'scratch', `format-ledger-${process.pid}-${Date.now()}`);
 	const repository = path.join(directory, 'repository');
 	mkdirSync(directory, { recursive: true });
 	try {
 		const result = spawnSync(
 			'git',
-			['clone', '--quiet', '--local', '--no-hardlinks', ROOT, repository],
+			[
+				...(coreSymlinks ? [] : ['-c', 'core.symlinks=false']),
+				'clone',
+				'--quiet',
+				'--local',
+				'--no-hardlinks',
+				ROOT,
+				repository
+			],
 			{ env: sanitizedGitEnv(), encoding: 'utf8' }
 		);
 		if (result.status !== 0) throw new Error(`Local checker clone failed: ${result.stderr}`);
@@ -74,7 +89,17 @@ function createCheckerClone(): { directory: string; repository: string } {
 			path.join(repository, 'node_modules'),
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
-		copyFileSync(SCRIPT, path.join(repository, 'scripts', 'static-checks.ts'));
+		for (const file of [
+			'.agents/skills/tsconfig.json',
+			'.agents/skills/upstream-sync/scripts/find-fork-point.ts',
+			'.agents/skills/upstream-sync/scripts/list-upstream-changes.ts',
+			'package.json',
+			'src/lib/convex/support/instructions.generated.ts',
+			'scripts/git-context.ts',
+			'scripts/static-checks.ts'
+		]) {
+			copyFileSync(path.join(ROOT, file), path.join(repository, file));
+		}
 		return { directory, repository };
 	} catch (error) {
 		rmSync(directory, { recursive: true, force: true });
@@ -293,8 +318,155 @@ describe('format-only static checks', () => {
 		expect(`${vanished.stdout}${vanished.stderr}`).toContain('No files matching the pattern');
 	});
 
-	// A Windows checkout with core.symlinks=false materializes the tracked link as an
-	// ordinary file holding its target's path, and there is nothing to expand there.
+	it.skipIf(process.platform === 'win32')(
+		'erlaubt nur die kanonischen Metadaten-Platzhalter im vollständigen Checkout',
+		() => {
+			const checkout = createCheckerClone(false);
+			try {
+				const placeholder = path.join(checkout.repository, 'CLAUDE.md');
+				expect(lstatSync(placeholder).isFile()).toBe(true);
+				const format = spawnSync(
+					testExecutable('bun'),
+					[
+						checkout.repository + '/scripts/static-checks.ts',
+						'--ci',
+						'--scope',
+						'format',
+						placeholder
+					],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+				expect(format.status, `${format.stdout}${format.stderr}`).toBe(0);
+				expect(`${format.stdout}${format.stderr}`).toContain('No formatter work');
+
+				for (const scope of ['types', 'lint']) {
+					const result = spawnSync(
+						testExecutable('bun'),
+						[checkout.repository + '/scripts/static-checks.ts', '--scope', scope],
+						{
+							cwd: checkout.repository,
+							env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+							encoding: 'utf8'
+						}
+					);
+					expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
+				}
+
+				const alias = path.join(checkout.repository, 'SOURCE.md');
+				writeFileSync(alias, 'AGENTS.md');
+				const sourceObject = spawnSync('git', ['hash-object', '-w', '--stdin'], {
+					cwd: checkout.repository,
+					env: sanitizedGitEnv(),
+					input: 'AGENTS.md',
+					encoding: 'utf8'
+				}).stdout.trim();
+				git(checkout.repository, [
+					'update-index',
+					'--add',
+					'--cacheinfo',
+					`120000,${sourceObject},SOURCE.md`
+				]);
+				const rejected = spawnSync(
+					testExecutable('bun'),
+					[checkout.repository + '/scripts/static-checks.ts', '--scope', 'types'],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+				expect(rejected.status, `${rejected.stdout}${rejected.stderr}`).toBe(1);
+				expect(`${rejected.stdout}${rejected.stderr}`).toContain('no materialized source content');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		600_000
+	);
+
+	it('aktualisiert nur den kalten und warmen .svelte-kit-Snapshot nach Sync', () => {
+		const checkout = createCheckerClone();
+		try {
+			rmSync(path.join(checkout.repository, '.svelte-kit'), { recursive: true, force: true });
+			for (let run = 0; run < 2; run++) {
+				const result = spawnSync(
+					testExecutable('bun'),
+					[path.join(checkout.repository, 'scripts/static-checks.ts'), '--scope', 'lint'],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+				expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
+			}
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 900_000);
+
+	it('verwirft fremde Source-Erzeugung unmittelbar nach SvelteKit sync', () => {
+		const checkout = createCheckerClone();
+		try {
+			const config = path.join(checkout.repository, 'svelte.config.js');
+			writeFileSync(
+				config,
+				`import { writeFileSync } from 'node:fs';\nwriteFileSync(new URL('./src/sync-created.ts', import.meta.url), 'export const created = true;\\n');\n${readFileSync(config, 'utf8')}`
+			);
+			const result = spawnSync(
+				testExecutable('bun'),
+				[path.join(checkout.repository, 'scripts/static-checks.ts'), '--scope', 'lint'],
+				{
+					cwd: checkout.repository,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					encoding: 'utf8'
+				}
+			);
+			expect(result.status, `${result.stdout}${result.stderr}`).toBe(1);
+			expect(`${result.stdout}${result.stderr}`).toContain(
+				'Formatter parser classification changed during SvelteKit sync'
+			);
+			expect(`${result.stdout}${result.stderr}`).not.toContain('Spell checking');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 120_000);
+
+	it.skipIf(process.platform === 'win32')(
+		'verwirft einen Aliaswechsel unmittelbar nach SvelteKit sync',
+		() => {
+			const checkout = createCheckerClone();
+			try {
+				const config = path.join(checkout.repository, 'svelte.config.js');
+				writeFileSync(
+					config,
+					`import { rmSync, symlinkSync } from 'node:fs';\nconst alias = new URL('./.claude/skills/upstream-sync', import.meta.url);\nrmSync(alias);\nsymlinkSync('../../.agents/skills/upstream-report', alias, 'dir');\n${readFileSync(config, 'utf8')}`
+				);
+				const result = spawnSync(
+					testExecutable('bun'),
+					[path.join(checkout.repository, 'scripts/static-checks.ts'), '--scope', 'lint'],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+				expect(result.status, `${result.stdout}${result.stderr}`).toBe(1);
+				expect(`${result.stdout}${result.stderr}`).toContain(
+					'Symbolic-link chain changed before launch'
+				);
+				expect(`${result.stdout}${result.stderr}`).not.toContain('Spell checking');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		120_000
+	);
+
 	it.skipIf(!lstatSync(path.join(ROOT, '.claude/skills/upstream-sync')).isSymbolicLink())(
 		'expands a symlinked directory for every scope except format',
 		() => {
@@ -399,6 +571,493 @@ describe('format-only static checks', () => {
 		const once = resolveInputs(['scripts'], 'arguments', ROOT);
 		expect(resolveInputs(['scripts', 'scripts'], 'arguments', ROOT)).toEqual(once);
 	});
+
+	it.skipIf(process.platform === 'win32')(
+		'prüft ein explizites Kind auch neben seinem überlappenden Aliasverzeichnis',
+		() => {
+			const target = path.join(ROOT, 'scratch', `format-overlap-target-${process.pid}`);
+			const alias = path.join(ROOT, `.format-overlap-${process.pid}`);
+			const child = `${path.basename(alias)}/probe.ts`;
+			mkdirSync(target, { recursive: true });
+			writeFileSync(path.join(target, 'probe.ts'), 'export const value   =1\n');
+			symlinkSync(target, alias, 'dir');
+			try {
+				for (const records of [
+					[path.basename(alias), child],
+					[child, path.basename(alias)]
+				]) {
+					const result = formatCheck(...records);
+					expect(result.status, result.output).toBe(1);
+					expect(result.output).toContain(child);
+				}
+				for (const records of [
+					`${path.basename(alias)}\0${child}\0`,
+					`${child}\0${path.basename(alias)}\0`
+				]) {
+					const result = formatCheckFilesFrom(records);
+					expect(result.status, result.output).toBe(1);
+					expect(result.output).toContain(child);
+				}
+				const directory = formatCheck(path.basename(alias));
+				expect(directory.status, directory.output).toBe(0);
+				expect(directory.output).toContain('No formatter work');
+			} finally {
+				rmSync(alias, { force: true });
+				rmSync(target, { recursive: true, force: true });
+			}
+		},
+		120_000
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'behandelt echte Gitlinks atomar und prüft ihren Index-OID',
+		() => {
+			const checkout = createCheckerClone();
+			const source = path.join(checkout.directory, 'submodule-source');
+			const submodule = path.join(checkout.repository, 'vendor', 'probe');
+			try {
+				mkdirSync(source);
+				git(source, ['init', '-q', '-b', 'main']);
+				git(source, ['config', 'user.email', 'test@example.com']);
+				git(source, ['config', 'user.name', 'Test']);
+				git(source, ['config', 'commit.gpgsign', 'false']);
+				writeFileSync(path.join(source, 'probe.ts'), 'export const probe = 1;\n');
+				git(source, ['add', 'probe.ts']);
+				git(source, ['commit', '-qm', 'Initial']);
+				const first = git(source, ['rev-parse', 'HEAD']).trim();
+
+				git(checkout.repository, ['config', 'user.email', 'test@example.com']);
+				git(checkout.repository, ['config', 'user.name', 'Test']);
+				git(checkout.repository, ['config', 'commit.gpgsign', 'false']);
+				git(checkout.repository, [
+					'-c',
+					'protocol.file.allow=always',
+					'submodule',
+					'add',
+					'-q',
+					source,
+					'vendor/probe'
+				]);
+				git(checkout.repository, ['add', '.']);
+				git(checkout.repository, ['commit', '-qm', 'Checker fixture']);
+
+				for (const scope of ['types', 'lint']) {
+					const result = spawnSync(
+						testExecutable('bun'),
+						[path.join(checkout.repository, 'scripts/static-checks.ts'), '--scope', scope],
+						{
+							cwd: checkout.repository,
+							env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+							encoding: 'utf8'
+						}
+					);
+					expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
+				}
+
+				writeFileSync(path.join(source, 'probe.ts'), 'export const probe = 2;\n');
+				git(source, ['add', 'probe.ts']);
+				git(source, ['commit', '-qm', 'Update']);
+				const second = git(source, ['rev-parse', 'HEAD']).trim();
+				git(submodule, ['fetch', '-q', 'origin']);
+				git(submodule, ['checkout', '-q', second]);
+				git(checkout.repository, ['add', 'vendor/probe']);
+
+				const staged = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts/static-checks.ts'),
+						'--staged',
+						'--scope',
+						'lint'
+					],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+				expect(staged.status, `${staged.stdout}${staged.stderr}`).toBe(0);
+				expect(`${staged.stdout}${staged.stderr}`).toContain('verified gitlink object IDs');
+
+				git(submodule, ['checkout', '-q', first]);
+				const mismatch = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts/static-checks.ts'),
+						'--staged',
+						'--scope',
+						'lint'
+					],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+				expect(mismatch.status, `${mismatch.stdout}${mismatch.stderr}`).toBe(1);
+				expect(`${mismatch.stdout}${mismatch.stderr}`).toContain(
+					'Staged file contents differ from the worktree'
+				);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		360_000
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'behandelt Gitlinks durch einen Alias-Vorfahren atomar',
+		() => {
+			const checkout = createCheckerClone();
+			const source = path.join(checkout.directory, 'aliased-submodule-source');
+			const submodule = path.join(checkout.repository, 'vendor', 'probe');
+			const aliasRelative = 'alias';
+			const alias = path.join(checkout.repository, aliasRelative);
+			const aliasGitlinkRelative = `${aliasRelative}/probe`;
+			const gitlinkRelative = 'vendor/probe';
+			const leafAliasRelative = 'vendor/probe-link';
+			const leafAlias = path.join(checkout.repository, leafAliasRelative);
+			const deletionRelative = 'scripts/gitlink-deletion.md';
+			const contentRelative = 'scripts/gitlink-content.ts';
+			try {
+				mkdirSync(source);
+				git(source, ['init', '-q', '-b', 'main']);
+				git(source, ['config', 'user.email', 'test@example.com']);
+				git(source, ['config', 'user.name', 'Test']);
+				git(source, ['config', 'commit.gpgsign', 'false']);
+				writeFileSync(path.join(source, 'probe.ts'), 'export const probe = 1;\n');
+				git(source, ['add', 'probe.ts']);
+				git(source, ['commit', '-qm', 'Initial']);
+
+				git(checkout.repository, ['config', 'user.email', 'test@example.com']);
+				git(checkout.repository, ['config', 'user.name', 'Test']);
+				git(checkout.repository, ['config', 'commit.gpgsign', 'false']);
+				git(checkout.repository, [
+					'-c',
+					'protocol.file.allow=always',
+					'submodule',
+					'add',
+					'-q',
+					source,
+					gitlinkRelative
+				]);
+				symlinkSync('vendor', alias, 'dir');
+				symlinkSync('probe', leafAlias, 'dir');
+				writeFileSync(path.join(checkout.repository, deletionRelative), '# delete me\n');
+				git(checkout.repository, ['add', '.']);
+				git(checkout.repository, ['commit', '-qm', 'Aliased gitlink fixture']);
+
+				const resolveRecord = (requested: string) => {
+					const resolved = spawnSync(
+						testExecutable('bun'),
+						[
+							'-e',
+							`import { resolveInputRecords } from './scripts/static-checks.ts'; const record = resolveInputRecords(${JSON.stringify([requested])}, 'test', process.cwd())[0]; console.log(JSON.stringify({ path: record?.path, target: record?.target, kind: record?.kind, linkChain: record?.linkChain, inventoryPaths: record?.inventoryPaths, formatterLinkNoop: record?.formatterLinkNoop }));`
+						],
+						{ cwd: checkout.repository, env: sanitizedGitEnv(), encoding: 'utf8' }
+					);
+					expect(resolved.status, `${resolved.stdout}${resolved.stderr}`).toBe(0);
+					return JSON.parse(resolved.stdout);
+				};
+				for (const requested of [aliasRelative, aliasGitlinkRelative]) {
+					expect(resolveRecord(requested)).toMatchObject({
+						path: aliasGitlinkRelative,
+						target: gitlinkRelative,
+						kind: 'gitlink',
+						linkChain: [{ path: aliasRelative, target: 'vendor' }],
+						inventoryPaths: [aliasRelative, gitlinkRelative],
+						formatterLinkNoop: true
+					});
+				}
+				expect(resolveRecord(leafAliasRelative)).toMatchObject({
+					path: leafAliasRelative,
+					target: gitlinkRelative,
+					kind: 'gitlink',
+					linkChain: [{ path: leafAliasRelative, target: 'probe' }],
+					inventoryPaths: [leafAliasRelative, gitlinkRelative],
+					formatterLinkNoop: true
+				});
+
+				const tools = path.join(checkout.directory, 'gitlink-tools');
+				mkdirSync(tools);
+				const childBun = path.join(tools, 'bun');
+				writeFileSync(childBun, '#!/bin/sh\nexit 0\n');
+				chmodSync(childBun, 0o755);
+				const env = {
+					...sanitizedGitEnv(),
+					NO_COLOR: '1',
+					PATH: `${tools}${path.delimiter}${process.env.PATH ?? ''}`
+				};
+				const runTypes = (paths: string[], nul = false) => {
+					const result = spawnSync(
+						testExecutable('bun'),
+						[
+							path.join(checkout.repository, 'scripts/static-checks.ts'),
+							'--scope',
+							'types',
+							...(nul ? ['--files-from', '-'] : paths)
+						],
+						{
+							cwd: checkout.repository,
+							env,
+							input: nul ? `${paths.join('\0')}\0` : undefined,
+							encoding: 'utf8'
+						}
+					);
+					return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
+				};
+
+				const fileGitlink = runTypes([gitlinkRelative]);
+				const aliases = [
+					runTypes([aliasRelative]),
+					runTypes([aliasGitlinkRelative]),
+					runTypes([leafAliasRelative]),
+					runTypes([aliasRelative, aliasGitlinkRelative]),
+					runTypes([aliasGitlinkRelative, aliasRelative]),
+					runTypes([aliasRelative, aliasGitlinkRelative], true),
+					runTypes([aliasGitlinkRelative, aliasRelative], true)
+				];
+
+				writeFileSync(
+					path.join(checkout.repository, contentRelative),
+					'export const content   =1\n'
+				);
+				const content = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts/static-checks.ts'),
+						'--ci',
+						'--scope',
+						'format',
+						gitlinkRelative,
+						contentRelative
+					],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+
+				writeFileSync(path.join(source, 'probe.ts'), 'export const probe = 2;\n');
+				git(source, ['add', 'probe.ts']);
+				git(source, ['commit', '-qm', 'Update']);
+				const second = git(source, ['rev-parse', 'HEAD']).trim();
+				git(submodule, ['fetch', '-q', 'origin']);
+				git(submodule, ['checkout', '-q', second]);
+				git(checkout.repository, ['add', gitlinkRelative]);
+				git(checkout.repository, ['rm', '--quiet', '--', deletionRelative]);
+				const staged = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts/static-checks.ts'),
+						'--staged',
+						'--scope',
+						'types'
+					],
+					{ cwd: checkout.repository, env, encoding: 'utf8' }
+				);
+
+				const config = path.join(checkout.repository, 'svelte.config.js');
+				writeFileSync(
+					config,
+					`import { rmSync, symlinkSync } from 'node:fs';\nconst alias = new URL('./${aliasRelative}', import.meta.url);\nrmSync(alias);\nsymlinkSync('scripts', alias, 'dir');\n${readFileSync(config, 'utf8')}`
+				);
+				const switched = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts/static-checks.ts'),
+						'--scope',
+						'types',
+						aliasRelative
+					],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+
+				const allOutput = [
+					fileGitlink.output,
+					...aliases.map((result) => result.output),
+					`${content.stdout}${content.stderr}`,
+					`${staged.stdout}${staged.stderr}`,
+					`${switched.stdout}${switched.stderr}`
+				].join('\n--- RUN ---\n');
+				expect(
+					[
+						fileGitlink.status,
+						...aliases.map((result) => result.status),
+						content.status,
+						staged.status,
+						switched.status
+					],
+					allOutput
+				).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1]);
+				expect(fileGitlink.output).toContain('verified gitlink without source files to check');
+				for (const result of aliases) {
+					expect(result.output).toContain('verified gitlink');
+					expect(result.output).toContain('without source files to check');
+					expect(result.output).not.toContain('Directory contains no files to check');
+				}
+				expect(`${content.stdout}${content.stderr}`).toContain(`[warn] ${contentRelative}`);
+				expect(`${content.stdout}${content.stderr}`).not.toContain(`${gitlinkRelative}/probe.ts`);
+				expect(`${staged.stdout}${staged.stderr}`).toContain(
+					'verified gitlink updates and deletions without source files to check'
+				);
+				expect(`${switched.stdout}${switched.stderr}`).toContain(
+					'Symbolic-link chain changed before launch'
+				);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		240_000
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'verwirft einen neuen Symlink in einem Gitlink-Elternsegment vor dem Verbrauch',
+		() => {
+			const checkout = createCheckerClone();
+			const source = path.join(checkout.directory, 'retargeted-submodule-source');
+			const gitlinkRelative = 'vendor/probe';
+			const submodule = path.join(checkout.repository, gitlinkRelative);
+			const aliasRelative = 'alias';
+			const aliasGitlinkRelative = `${aliasRelative}/probe`;
+			try {
+				mkdirSync(source);
+				git(source, ['init', '-q', '-b', 'main']);
+				git(source, ['config', 'user.email', 'test@example.com']);
+				git(source, ['config', 'user.name', 'Test']);
+				git(source, ['config', 'commit.gpgsign', 'false']);
+				writeFileSync(path.join(source, 'probe.ts'), 'export const probe = 1;\n');
+				git(source, ['add', 'probe.ts']);
+				git(source, ['commit', '-qm', 'Initial']);
+
+				git(checkout.repository, ['config', 'user.email', 'test@example.com']);
+				git(checkout.repository, ['config', 'user.name', 'Test']);
+				git(checkout.repository, ['config', 'commit.gpgsign', 'false']);
+				git(checkout.repository, [
+					'-c',
+					'protocol.file.allow=always',
+					'submodule',
+					'add',
+					'-q',
+					source,
+					gitlinkRelative
+				]);
+				const initialHead = git(submodule, ['rev-parse', 'HEAD']).trim();
+				symlinkSync('vendor', path.join(checkout.repository, aliasRelative), 'dir');
+				git(checkout.repository, ['add', '.']);
+				git(checkout.repository, ['commit', '-qm', 'Gitlink retarget fixture']);
+
+				const config = path.join(checkout.repository, 'svelte.config.js');
+				writeFileSync(
+					config,
+					`import { existsSync, renameSync, symlinkSync } from 'node:fs';\nconst vendor = new URL('./vendor', import.meta.url);\nconst vendorReal = new URL('./vendor-real', import.meta.url);\nif (!existsSync(vendorReal)) {\n\trenameSync(vendor, vendorReal);\n\tsymlinkSync('vendor-real', vendor, 'dir');\n}\n${readFileSync(config, 'utf8')}`
+				);
+				const result = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts/static-checks.ts'),
+						'--ci',
+						'--scope',
+						'lint',
+						aliasRelative,
+						'README.md'
+					],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				const vendor = path.join(checkout.repository, 'vendor');
+				expect(lstatSync(vendor).isSymbolicLink()).toBe(true);
+				expect(readlinkSync(vendor)).toBe('vendor-real');
+				expect(readlinkSync(path.join(checkout.repository, aliasRelative))).toBe('vendor');
+				expect(git(submodule, ['rev-parse', 'HEAD']).trim()).toBe(initialHead);
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('Path target changed before launch');
+				expect(output).toContain(aliasGitlinkRelative);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		120_000
+	);
+
+	it.each([true, false])(
+		'hasht einen regulären Mode-120000-Typwechsel mit core.symlinks=%s',
+		(coreSymlinks) => {
+			const checkout = createCheckerClone(coreSymlinks);
+			try {
+				const relative = 'scripts/type-change.ts';
+				const file = path.join(checkout.repository, relative);
+				const pointer = 'target.ts';
+				const objectId = spawnSync('git', ['hash-object', '-w', '--stdin'], {
+					cwd: checkout.repository,
+					env: sanitizedGitEnv(),
+					input: pointer,
+					encoding: 'utf8'
+				}).stdout.trim();
+				git(checkout.repository, [
+					'update-index',
+					'--add',
+					'--cacheinfo',
+					`120000,${objectId},${relative}`
+				]);
+				writeFileSync(file, pointer);
+
+				const unchanged = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts/static-checks.ts'),
+						'--ci',
+						'--scope',
+						'format',
+						relative
+					],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+				expect(unchanged.status, `${unchanged.stdout}${unchanged.stderr}`).toBe(0);
+
+				writeFileSync(file, 'export const changed   =1\n');
+				const direct = spawnSync(testExecutable('bun'), ['prettier', '--check', '--', relative], {
+					cwd: checkout.repository,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					encoding: 'utf8'
+				});
+				expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(1);
+				const changed = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts/static-checks.ts'),
+						'--ci',
+						'--scope',
+						'format',
+						relative
+					],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+				expect(changed.status, `${changed.stdout}${changed.stderr}`).toBe(1);
+				expect(`${changed.stdout}${changed.stderr}`).toContain(relative);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		120_000
+	);
 
 	it('ignores only the repository root CLAUDE.md pointer', () => {
 		const ignore = readFileSync(path.join(ROOT, '.prettierignore'), 'utf8');
@@ -862,6 +1521,33 @@ describe('format-only static checks', () => {
 });
 
 describe('scope routing', () => {
+	it('erfasst einen echten Typfehler in einem zuvor ungedeckten Skill', () => {
+		const checkout = createCheckerClone();
+		const skill = path.join(checkout.repository, '.agents', 'skills', 'type-error', 'scripts');
+		mkdirSync(skill, { recursive: true });
+		copyFileSync(
+			path.join(ROOT, '.agents', 'skills', 'tsconfig.json'),
+			path.join(checkout.repository, '.agents', 'skills', 'tsconfig.json')
+		);
+		writeFileSync(path.join(skill, 'probe.ts'), 'const value: string = 1;\nvoid value;\n');
+		try {
+			const result = spawnSync(
+				testExecutable('bun'),
+				['tsc', '-p', '.agents/skills/tsconfig.json'],
+				{
+					cwd: checkout.repository,
+					env: sanitizedGitEnv(),
+					encoding: 'utf8'
+				}
+			);
+			expect(result.status, `${result.stdout}${result.stderr}`).toBe(2);
+			expect(`${result.stdout}${result.stderr}`).toContain('type-error/scripts/probe.ts');
+			expect(`${result.stdout}${result.stderr}`).toContain("not assignable to type 'string'");
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 120_000);
+
 	// Session artifacts and an interrupted fixture both leave whole trees under `scratch/`,
 	// and every project-wide tool walks the repository itself. Asserting the configuration
 	// files contain the string proves nothing: it stays green when the pattern moves into a
@@ -1014,6 +1700,133 @@ describe('scope routing', () => {
 				const output = `${result.stdout}${result.stderr}`;
 				expect(result.status, output).toBe(1);
 				expect(output).toContain('No check in the active scope (lint) is responsible');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		180_000
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'prüft ein dereferenziertes Ziel gegen denselben aktiven Index',
+		() => {
+			const checkout = createCheckerClone();
+			const target = path.join(checkout.repository, 'scripts', 'staged-link-target.ts');
+			const link = path.join(checkout.repository, 'scripts', 'staged-link.ts');
+			const git = (args: string[]) =>
+				spawnSync('git', args, {
+					cwd: checkout.repository,
+					env: sanitizedGitEnv(),
+					encoding: 'utf8'
+				});
+			try {
+				writeFileSync(target, 'export const stagedTarget = 1;\n');
+				expect(git(['add', '--', 'scripts/staged-link-target.ts']).status).toBe(0);
+				expect(
+					git([
+						'-c',
+						'user.name=Probe',
+						'-c',
+						'user.email=probe@example.com',
+						'commit',
+						'--quiet',
+						'--no-gpg-sign',
+						'--no-verify',
+						'-m',
+						'Staged link fixture'
+					]).status
+				).toBe(0);
+				symlinkSync('staged-link-target.ts', link);
+				expect(git(['add', '--', 'scripts/staged-link.ts']).status).toBe(0);
+				writeFileSync(target, 'export const stagedTarget = 2;\n');
+
+				const result = spawnSync(
+					testExecutable('bun'),
+					[checkout.repository + '/scripts/static-checks.ts', '--staged', '--scope', 'lint'],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('Staged file contents differ from the worktree');
+				expect(output).not.toContain('SvelteKit sync');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		120_000
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'verlangt jedes Glied einer staged Linkkette aus demselben aktiven Index',
+		() => {
+			const checkout = createCheckerClone();
+			const targetRelative = 'scripts/staged-chain-target.ts';
+			const middleRelative = 'scripts/staged-chain-middle.ts';
+			const outerRelative = 'scripts/staged-chain-outer.ts';
+			const target = path.join(checkout.repository, targetRelative);
+			const middle = path.join(checkout.repository, middleRelative);
+			const outer = path.join(checkout.repository, outerRelative);
+			try {
+				git(checkout.repository, ['config', 'user.email', 'test@example.com']);
+				git(checkout.repository, ['config', 'user.name', 'Test']);
+				git(checkout.repository, ['config', 'commit.gpgsign', 'false']);
+				writeFileSync(target, 'export const stagedChainTarget = 1;\n');
+				git(checkout.repository, ['add', targetRelative]);
+				git(checkout.repository, ['commit', '-qm', 'Staged chain target']);
+				symlinkSync(path.basename(target), middle);
+				symlinkSync(path.basename(middle), outer);
+				git(checkout.repository, ['add', outerRelative]);
+
+				const tools = path.join(checkout.directory, 'staged-chain-tools');
+				mkdirSync(tools);
+				for (const command of ['bun', 'misspell']) {
+					const executable = path.join(tools, command);
+					writeFileSync(executable, '#!/bin/sh\nexit 0\n');
+					chmodSync(executable, 0o755);
+				}
+				const env = {
+					...sanitizedGitEnv(),
+					NO_COLOR: '1',
+					PATH: `${tools}${path.delimiter}${process.env.PATH ?? ''}`
+				};
+				const runStaged = (runEnv = env) => {
+					const result = spawnSync(
+						testExecutable('bun'),
+						[
+							path.join(checkout.repository, 'scripts/static-checks.ts'),
+							'--staged',
+							'--scope',
+							'lint'
+						],
+						{ cwd: checkout.repository, env: runEnv, encoding: 'utf8' }
+					);
+					return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
+				};
+
+				const missing = runStaged();
+				git(checkout.repository, ['add', middleRelative]);
+				const complete = runStaged();
+				const alternativeIndex = path.join(checkout.directory, 'staged-chain-index');
+				copyFileSync(path.join(checkout.repository, '.git', 'index'), alternativeIndex);
+				const alternative = runStaged({
+					...env,
+					GIT_INDEX_FILE: alternativeIndex,
+					STATIC_CHECKS_ALLOW_EXTERNAL_GIT_INDEX: '1'
+				});
+
+				const output = [missing.output, complete.output, alternative.output].join(
+					'\n--- RUN ---\n'
+				);
+				expect([missing.status, complete.status, alternative.status], output).toEqual([1, 0, 0]);
+				expect(missing.output).toContain(middleRelative);
+				expect(missing.output).toContain('absent from the active Git index');
+				expect(missing.output).not.toContain('SvelteKit sync');
+				expect(complete.output).toContain('All checks passed');
+				expect(alternative.output).toContain('All checks passed');
 			} finally {
 				rmSync(checkout.directory, { recursive: true, force: true });
 			}
