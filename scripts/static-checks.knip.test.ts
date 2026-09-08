@@ -561,7 +561,25 @@ describe('Windows lifecycle workflow coverage', () => {
 			);
 
 			expect(outcome.status, outcome.output).toBe(0);
+			expect(outcome.output).toBe('');
 			expect(outcome.values).toEqual({ label: 'windows-latest', run_tests: 'true' });
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'skips Windows tests for a complete irrelevant pull-request file list',
+		() => {
+			const outcome = runWindowsLifecycleSelectorFixture(
+				[[{ filename: 'docs/first.md' }], [{ filename: 'docs/second.md' }]],
+				'2'
+			);
+
+			expect(outcome.status, outcome.output).toBe(0);
+			expect(outcome.output).toBe('');
+			expect(outcome.values).toEqual({
+				label: 'ubicloud-standard-2',
+				run_tests: 'false'
+			});
 		}
 	);
 
@@ -598,6 +616,7 @@ describe('Windows lifecycle workflow coverage', () => {
 			);
 
 			expect(outcome.status, outcome.output).toBe(0);
+			expect(outcome.output).toBe('');
 			expect(outcome.values).toEqual({ label: 'windows-latest', run_tests: 'true' });
 		}
 	);
