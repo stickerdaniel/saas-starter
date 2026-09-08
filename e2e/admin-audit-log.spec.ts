@@ -333,12 +333,15 @@ test.describe('Admin Audit Log', () => {
 
 		// Every visible row references our target.
 		const targetCells = page.getByTestId('audit-log-target-cell');
-		await expect(targetCells.first()).toBeVisible({ timeout: 10000 });
-		const count = await targetCells.count();
-		expect(count).toBeGreaterThan(0);
-		for (let i = 0; i < count; i++) {
-			await expect(targetCells.nth(i)).toContainText(targetEmail);
-		}
+		await expect
+			.poll(
+				async () => {
+					const targets = await targetCells.allTextContents();
+					return targets.length > 0 && targets.every((target) => target.includes(targetEmail));
+				},
+				{ timeout: 10000 }
+			)
+			.toBe(true);
 
 		// A partial substring still matches: the backend does a case-insensitive
 		// substring match on email + name, mirroring the users table.
