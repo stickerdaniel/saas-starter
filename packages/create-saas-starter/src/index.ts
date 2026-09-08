@@ -14,7 +14,8 @@ import {
 	confirmTemplateTrust,
 	isNonInteractive,
 	PromptCancelledError,
-	resolveOptions
+	resolveOptions,
+	type PromptAdapter
 } from './prompts.js';
 import { runSetupAndInstall, verifyBun } from './process.js';
 import {
@@ -36,6 +37,12 @@ export interface CliIo {
 	stdin: NodeJS.ReadStream;
 	environment: NodeJS.ProcessEnv;
 	cwd: string;
+	prompts?: PromptAdapter;
+}
+
+export interface CliRuntime {
+	runSetupAndInstall: typeof runSetupAndInstall;
+	updateMarker: typeof updateMarker;
 }
 
 const defaultIo: CliIo = {
@@ -44,6 +51,11 @@ const defaultIo: CliIo = {
 	stdin: process.stdin,
 	environment: process.env,
 	cwd: process.cwd()
+};
+
+const defaultRuntime: CliRuntime = {
+	runSetupAndInstall,
+	updateMarker
 };
 
 interface InterruptEmitter {
@@ -76,7 +88,11 @@ function navigation(target: string, platform: NodeJS.Platform = process.platform
 	return `cd '${target.replaceAll("'", "'\\''")}'`;
 }
 
-export async function runCli(args: string[], io: CliIo = defaultIo): Promise<number> {
+export async function runCli(
+	args: string[],
+	io: CliIo = defaultIo,
+	runtime: CliRuntime = defaultRuntime
+): Promise<number> {
 	const controller = new AbortController();
 	let interrupted = false;
 	const onSigint = () => {
@@ -100,7 +116,11 @@ export async function runCli(args: string[], io: CliIo = defaultIo): Promise<num
 		assertSupportedNodeVersion();
 		validateProvidedValues(parsed);
 		const interactive = !parsed.dryRun && !isNonInteractive(parsed, io.stdin, io.environment);
-		const options = await resolveOptions(parsed, { interactive });
+		const options = await resolveOptions(parsed, {
+			interactive,
+			prompts: io.prompts,
+			signal: controller.signal
+		});
 		const target = await inspectTarget(options.directory, io.cwd);
 
 		if (options.dryRun) {
@@ -119,7 +139,13 @@ export async function runCli(args: string[], io: CliIo = defaultIo): Promise<num
 		throwIfAborted(controller.signal);
 		const archive = await validateTemplateArchive(compressed);
 		throwIfAborted(controller.signal);
-		await confirmTemplateTrust(resolved.sha, interactive, options.trustTemplate);
+		await confirmTemplateTrust(
+			resolved.sha,
+			interactive,
+			options.trustTemplate,
+			controller.signal,
+			io.prompts
+		);
 		throwIfAborted(controller.signal);
 
 		marker = initialMarker({
@@ -136,9 +162,9 @@ export async function runCli(args: string[], io: CliIo = defaultIo): Promise<num
 		claimedTarget = target.path;
 		await writeArchive(target.path, archive, controller.signal);
 		phase = 'setup';
-		marker = await updateMarker(target.path, marker, 'incomplete', phase);
+		marker = await runtime.updateMarker(target.path, marker, 'incomplete', phase);
 
-		const state = await runSetupAndInstall({
+		const state = await runtime.runSetupAndInstall({
 			bun: bun.executable,
 			environment: bun.environment,
 			target: target.path,
@@ -146,11 +172,13 @@ export async function runCli(args: string[], io: CliIo = defaultIo): Promise<num
 			signal: controller.signal,
 			onSetupComplete: async () => {
 				phase = 'install';
-				marker = await updateMarker(target.path, marker!, 'incomplete', phase);
+				marker = await runtime.updateMarker(target.path, marker!, 'incomplete', phase);
 			}
 		});
+		throwIfAborted(controller.signal);
 		phase = 'complete';
-		marker = await updateMarker(target.path, marker, state, phase);
+		marker = await runtime.updateMarker(target.path, marker, state, phase);
+		throwIfAborted(controller.signal);
 
 		io.stdout(`Created ${options.brand} at ${target.path}`);
 		io.stdout(navigation(target.path));
@@ -162,10 +190,11 @@ export async function runCli(args: string[], io: CliIo = defaultIo): Promise<num
 		);
 		const reminder = legalReminder(options);
 		if (reminder) io.stdout(reminder);
+		throwIfAborted(controller.signal);
 		return 0;
 	} catch (error) {
 		if (claimedTarget && marker) {
-			await updateMarker(claimedTarget, marker, 'incomplete', phase).catch(() => {});
+			await runtime.updateMarker(claimedTarget, marker, 'incomplete', phase).catch(() => {});
 		}
 		if (interrupted || controller.signal.aborted) {
 			io.stderr('Scaffolding interrupted. The created target was preserved for inspection.');

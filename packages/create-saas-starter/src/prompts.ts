@@ -76,6 +76,7 @@ function hasLineBreakOrNull(value: string | undefined): boolean {
 
 async function promptText(
 	prompts: PromptAdapter,
+	signal: AbortSignal | undefined,
 	message: string,
 	options: {
 		initialValue?: string;
@@ -83,11 +84,12 @@ async function promptText(
 		validate?: (value: string | undefined) => string | undefined;
 	} = {}
 ): Promise<string> {
-	return required(await prompts.text({ message, ...options }), prompts);
+	return required(await prompts.text({ message, ...options, signal }), prompts);
 }
 
 async function promptOptional(
 	prompts: PromptAdapter,
+	signal: AbortSignal | undefined,
 	message: string,
 	value: string | undefined,
 	validate?: (value: string | undefined) => string | undefined
@@ -96,6 +98,7 @@ async function promptOptional(
 	return optional(
 		await prompts.text({
 			message,
+			signal,
 			placeholder: 'Leave blank to keep the template value',
 			validate: (candidate) =>
 				candidate === undefined || candidate.trim() === '' ? undefined : validate?.(candidate)
@@ -109,10 +112,12 @@ export async function resolveOptions(
 	configuration: {
 		interactive?: boolean;
 		prompts?: PromptAdapter;
+		signal?: AbortSignal;
 	} = {}
 ): Promise<ResolvedOptions> {
 	validateProvidedValues(options);
 	const prompts = configuration.prompts ?? defaultPrompts;
+	const signal = configuration.signal;
 	const interactive = configuration.interactive ?? !isNonInteractive(options);
 
 	if (!interactive) {
@@ -134,12 +139,12 @@ export async function resolveOptions(
 
 	const directory =
 		options.directory ??
-		(await promptText(prompts, 'Where should the project be created?', {
+		(await promptText(prompts, signal, 'Where should the project be created?', {
 			placeholder: 'my-saas-app'
 		}));
 	const slug =
 		options.slug ??
-		(await promptText(prompts, 'Project slug', {
+		(await promptText(prompts, signal, 'Project slug', {
 			initialValue: deriveSlug(directory),
 			validate: (value) =>
 				isValidSlug(value ?? '')
@@ -148,13 +153,13 @@ export async function resolveOptions(
 		}));
 	const repo =
 		options.repo ??
-		(await promptText(prompts, 'GitHub repository for project branding (owner/name)', {
+		(await promptText(prompts, signal, 'GitHub repository for project branding (owner/name)', {
 			validate: (value) =>
 				isValidRepository(value ?? '') ? undefined : 'Use a portable GitHub owner/name value.'
 		}));
 	const brand =
 		options.brand ??
-		(await promptText(prompts, 'Brand display name', {
+		(await promptText(prompts, signal, 'Brand display name', {
 			initialValue: slug,
 			validate: (value) => (hasLineBreakOrNull(value) ? 'Use a single-line value.' : undefined)
 		}));
@@ -162,16 +167,28 @@ export async function resolveOptions(
 		hasLineBreakOrNull(value) ? 'Use a single-line value.' : undefined;
 	const nonEmpty = (value: string | undefined) =>
 		value?.includes('\0') ? 'The value must not contain a null character.' : undefined;
-	const company = await promptOptional(prompts, 'Legal company name', options.company, nonEmpty);
+	const company = await promptOptional(
+		prompts,
+		signal,
+		'Legal company name',
+		options.company,
+		nonEmpty
+	);
 	const operator = await promptOptional(
 		prompts,
+		signal,
 		'Legal operator name',
 		options.operator,
 		singleLine
 	);
-	const address = await promptOptional(prompts, 'Legal address', options.address, nonEmpty);
-	const email = await promptOptional(prompts, 'Legal contact email', options.email, (value) =>
-		isValidContactEmail(value ?? '') ? undefined : 'Use the supported user@domain.tld format.'
+	const address = await promptOptional(prompts, signal, 'Legal address', options.address, nonEmpty);
+	const email = await promptOptional(
+		prompts,
+		signal,
+		'Legal contact email',
+		options.email,
+		(value) =>
+			isValidContactEmail(value ?? '') ? undefined : 'Use the supported user@domain.tld format.'
 	);
 
 	const resolved: ResolvedOptions = {
@@ -193,6 +210,7 @@ export async function confirmTemplateTrust(
 	sha: string,
 	interactive: boolean,
 	alreadyTrusted: boolean,
+	signal?: AbortSignal,
 	prompts: PromptAdapter = defaultPrompts
 ): Promise<void> {
 	if (alreadyTrusted) return;
@@ -201,6 +219,7 @@ export async function confirmTemplateTrust(
 	}
 	const answer = await prompts.confirm({
 		message: `Trust and execute github.com/stickerdaniel/saas-starter at commit ${sha}?`,
+		signal,
 		initialValue: false,
 		active: 'Trust',
 		inactive: 'Do not trust'
