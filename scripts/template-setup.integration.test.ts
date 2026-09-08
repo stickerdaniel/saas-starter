@@ -6,7 +6,9 @@
  */
 import { spawnSync } from 'node:child_process';
 import {
+	accessSync,
 	chmodSync,
+	constants,
 	cpSync,
 	existsSync,
 	linkSync,
@@ -591,6 +593,25 @@ describe('template setup quick start', () => {
 		expect(readFileSync(join(dir, 'README.md'), 'utf-8')).toContain(
 			'git clone https://github.com/northwind/-project.git\ncd ./-project\n'
 		);
+	});
+
+	it('keeps a foreign fenced demo while removing the template paragraph', () => {
+		const dir = createFixture();
+		const readme = join(dir, 'README.md');
+		const foreignFence =
+			'```markdown\n> [Live demo!](https://vendor.example) Keep this example byte-identical.\n\n```\n\n';
+		writeFileSync(
+			readme,
+			readFileSync(readme, 'utf-8').replace('> [Live demo!]', foreignFence + '> [Live demo!]'),
+			'utf-8'
+		);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		const updated = readFileSync(readme, 'utf-8');
+		expect(updated).toContain(foreignFence);
+		expect(updated.match(/Live demo!/g)).toHaveLength(1);
+		expect(updated).not.toContain('https://saas.daniel.sticker.name');
 	});
 
 	it('removes the live demo from a fully CRLF-encoded README', () => {
@@ -1414,23 +1435,63 @@ describe('template setup structural process guards', () => {
 		expect(stagingArtifacts(dir)).toEqual([]);
 	});
 
-	it('rewrites an exact repository URL before sentence punctuation in the public process', () => {
+	it('rejects multiple real live demo paragraphs before writes', () => {
 		const dir = createFixture();
 		const readme = join(dir, 'README.md');
 		writeFileSync(
 			readme,
 			readFileSync(readme, 'utf-8').replace(
 				'## Why This Exists',
-				'Exact prose URL: https://github.com/stickerdaniel/saas-starter. \n\n## Why This Exists'
+				'> [Live demo!](https://another.example) Another template demo.\n\n## Why This Exists'
+			),
+			'utf-8'
+		);
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/live demo.*found 2/i);
+		expect(run.stdout).not.toContain('Applying:');
+		expect(snapshot(dir)).toEqual(before);
+		expect(stagingArtifacts(dir)).toEqual([]);
+	});
+
+	it('rewrites repository URLs before closing punctuation in the public process', () => {
+		const dir = createFixture();
+		const readme = join(dir, 'README.md');
+		const oldUrl = 'https://github.com/stickerdaniel/saas-starter';
+		const newUrl = 'https://github.com/northwind/northwind-labs';
+		const sentenceUrls = [
+			`${oldUrl}.)`,
+			`${oldUrl}."`,
+			`${oldUrl}.']`,
+			`${oldUrl}.git.)`,
+			`${oldUrl}.git."`,
+			`${oldUrl}.git.']`
+		].join('\n');
+		writeFileSync(
+			readme,
+			readFileSync(readme, 'utf-8').replace(
+				'## Why This Exists',
+				`${sentenceUrls}\n\n## Why This Exists`
 			),
 			'utf-8'
 		);
 
 		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
 		expect(run.code, run.stderr).toBe(0);
-		expect(readFileSync(readme, 'utf-8')).toContain(
-			'Exact prose URL: https://github.com/northwind/northwind-labs. '
-		);
+		const afterFirst = readFileSync(readme, 'utf-8');
+		expect(afterFirst).not.toContain(oldUrl);
+		expect(afterFirst).toContain(`${newUrl}.)`);
+		expect(afterFirst).toContain(`${newUrl}."`);
+		expect(afterFirst).toContain(`${newUrl}.']`);
+		expect(afterFirst).toContain(`${newUrl}.git.)`);
+		expect(afterFirst).toContain(`${newUrl}.git."`);
+		expect(afterFirst).toContain(`${newUrl}.git.']`);
+
+		const rerun = runSetup(dir, []);
+		expect(rerun.code, rerun.stderr).toBe(0);
+		expect(readFileSync(readme, 'utf-8')).not.toContain(oldUrl);
 	});
 });
 
@@ -1454,6 +1515,21 @@ const writeDenialEnforced = (() => {
 	}
 })();
 
+const parentWriteDenialEnforced = (() => {
+	const dir = mkdtempSync(join(tmpdir(), 'template-setup-dperm-'));
+	fixtures.push(dir);
+	chmodSync(dir, 0o555);
+	try {
+		const probe = mkdtempSync(join(dir, 'probe-'));
+		rmSync(probe, { recursive: true, force: true });
+		return false;
+	} catch {
+		return true;
+	} finally {
+		chmodSync(dir, 0o755);
+	}
+})();
+
 describe('template setup checks write access before the first write', () => {
 	it.skipIf(!writeDenialEnforced)('writes nothing when a planned output file is read-only', () => {
 		const dir = createFixture();
@@ -1470,6 +1546,34 @@ describe('template setup checks write access before the first write', () => {
 			chmodSync(readme, 0o644);
 		}
 	});
+
+	it.skipIf(!parentWriteDenialEnforced)(
+		'writes nothing when a canonical parent directory is read-only',
+		() => {
+			const dir = createFixture();
+			const rootFiles = ['package.json', 'bun.lock', 'README.md', 'wrangler.toml'] as const;
+			const before = snapshot(dir);
+			chmodSync(dir, 0o555);
+
+			try {
+				expect(() => mkdtempSync(join(dir, '.write-probe-'))).toThrow();
+				for (const rel of rootFiles) accessSync(join(dir, rel), constants.W_OK);
+				accessSync(join(dir, 'src/lib/config'), constants.W_OK);
+				accessSync(join(dir, 'src/lib/content'), constants.W_OK);
+
+				const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+				expect(run.code).toBe(1);
+				expect(run.stderr).toMatch(
+					/Cannot write parent directory for package\.json; check directory permissions/
+				);
+				expect(run.stdout).not.toContain('Applying:');
+				expect(snapshot(dir)).toEqual(before);
+				expect(stagingArtifacts(dir)).toEqual([]);
+			} finally {
+				chmodSync(dir, 0o755);
+			}
+		}
+	);
 });
 
 describe('template setup help', () => {

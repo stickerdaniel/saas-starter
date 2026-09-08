@@ -177,6 +177,11 @@ function inspectCanonicalFile(rel: string): CanonicalFile {
 	if (!isWithinRepository(parent)) {
 		throw new Error(`Refusing ${rel}: real parent is outside the repository root`);
 	}
+	try {
+		accessSync(parent, constants.W_OK);
+	} catch {
+		throw new Error(`Cannot write parent directory for ${rel}; check directory permissions`);
+	}
 
 	const stat = lstatSync(path);
 	if (!stat.isFile()) throw new Error(`Refusing ${rel}: canonical target must be a regular file`);
@@ -1319,21 +1324,27 @@ function findReadmeStructure(source: string): ReadmeStructure {
 	return { lines, fences, headings, candidate };
 }
 
+function repositorySentencePeriodBoundary(source: string, period: number): boolean {
+	let cursor = period + 1;
+	const afterPeriod = source[cursor];
+	if (afterPeriod === undefined || /\s/.test(afterPeriod)) return true;
+
+	const closing = /^[\])}"'’”]+/.exec(source.slice(cursor));
+	if (!closing) return false;
+	cursor += closing[0].length;
+	const afterClosing = source[cursor];
+	return afterClosing === undefined || /[\s,;:!?]/.test(afterClosing);
+}
+
 function repositoryUrlBoundary(source: string, end: number): boolean {
 	const next = source[end];
 	if (next === undefined) return true;
 	if (source.startsWith('.git', end)) {
 		const afterGit = source[end + 4];
-		if (afterGit === '.') {
-			const afterPeriod = source[end + 5];
-			return afterPeriod === undefined || /\s/.test(afterPeriod);
-		}
+		if (afterGit === '.') return repositorySentencePeriodBoundary(source, end + 4);
 		return afterGit === undefined || !/[A-Za-z0-9._-]/.test(afterGit);
 	}
-	if (next === '.') {
-		const afterPeriod = source[end + 1];
-		return afterPeriod === undefined || /\s/.test(afterPeriod);
-	}
+	if (next === '.') return repositorySentencePeriodBoundary(source, end);
 	return !/[A-Za-z0-9._-]/.test(next);
 }
 
@@ -1378,7 +1389,7 @@ export function replaceReadmeSource(
 		}));
 		updated = replaceGithubRepositoryUrls(updated, oldGithubUrl, githubUrl, excluded);
 	}
-	updated = updated.replace(liveDemoParagraphPattern(), () => '');
+	updated = removeTemplateLiveDemoParagraph(updated, findReadmeStructure(updated));
 
 	const finalStructure = findReadmeStructure(updated);
 	const heading = finalStructure.headings.find(({ level }) => level === 1);
@@ -1392,7 +1403,35 @@ export function replaceReadmeSource(
 }
 
 function liveDemoParagraphPattern(): RegExp {
-	return /^> \[Live demo!\][^\r\n]*(?:\r?\n){2}/m;
+	return /^> \[Live demo!\][^\r\n]*(?:\r?\n){2}/gm;
+}
+
+function liveDemoParagraphRanges(
+	source: string,
+	structure: ReadmeStructure
+): Array<{ start: number; end: number }> {
+	const fences = structure.fences.map(({ openLine, closeLine }) => ({
+		start: structure.lines[openLine]!.start,
+		end: structure.lines[closeLine]!.fullEnd
+	}));
+	return [...source.matchAll(liveDemoParagraphPattern())].flatMap((match) => {
+		const start = match.index;
+		if (start === undefined || fences.some((range) => start >= range.start && start < range.end)) {
+			return [];
+		}
+		return [{ start, end: start + match[0].length }];
+	});
+}
+
+function removeTemplateLiveDemoParagraph(source: string, structure: ReadmeStructure): string {
+	const matches = liveDemoParagraphRanges(source, structure);
+	if (matches.length > 1) {
+		throw new Error(
+			`Expected at most one live demo paragraph outside fences in README.md, found ${matches.length}`
+		);
+	}
+	const match = matches[0];
+	return match ? source.slice(0, match.start) + source.slice(match.end) : source;
 }
 
 /** Reports whether the README carries the generated identity in the exact Quick Start section. */
@@ -1417,7 +1456,10 @@ export function readmeShowsCompletedSetup(
 		return false;
 	}
 	const heading = structure.headings.find(({ level }) => level === 1);
-	return heading?.text === escapeMarkdownInline(brand) && !liveDemoParagraphPattern().test(source);
+	return (
+		heading?.text === escapeMarkdownInline(brand) &&
+		liveDemoParagraphRanges(source, structure).length === 0
+	);
 }
 
 function maskTomlNonCode(source: string): string {

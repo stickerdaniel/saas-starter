@@ -364,6 +364,30 @@ Unrelated prose stays.
 		expect(updated).toContain('https://github.com/northwind/northwind-labs/actions');
 	});
 
+	it('removes only the live demo paragraph outside foreign fences', () => {
+		const foreignFence =
+			'```markdown\n> [Live demo!](https://vendor.example) Keep this example byte-identical.\n\n```\n\n';
+		const withForeignFence = source.replace(
+			'> [Live demo!](https://demo.example) The public demo covers the user-facing features.\n\n',
+			foreignFence +
+				'> [Live demo!](https://demo.example) The public demo covers the user-facing features.\n\n'
+		);
+		const updated = replaceReadmeSource(withForeignFence, options);
+
+		expect(updated).toContain(foreignFence);
+		expect(updated.match(/Live demo!/g)).toHaveLength(1);
+		expect(updated).not.toContain('https://demo.example');
+	});
+
+	it('fails closed when multiple live demo paragraphs exist outside fences', () => {
+		const duplicate = source.replace(
+			'## Quick Start',
+			'> [Live demo!](https://another.example) Another template demo.\n\n## Quick Start'
+		);
+
+		expect(() => replaceReadmeSource(duplicate, options)).toThrow(/live demo.*found 2/i);
+	});
+
 	it('is idempotent and follows a later repository rename', () => {
 		const once = replaceReadmeSource(source, options);
 		expect(replaceReadmeSource(once, options)).toBe(once);
@@ -617,7 +641,13 @@ bun run dev
 		{ suffix: '.\n', changed: true },
 		{ suffix: '.\r\n', changed: true },
 		{ suffix: '.', changed: true },
+		{ suffix: '.)', changed: true },
+		{ suffix: '."', changed: true },
+		{ suffix: ".']", changed: true },
 		{ suffix: '.git. ', changed: true },
+		{ suffix: '.git.)', changed: true },
+		{ suffix: '.git."', changed: true },
+		{ suffix: ".git.']", changed: true },
 		{ suffix: '-tools ', changed: false },
 		{ suffix: '_tools ', changed: false },
 		{ suffix: '.tools ', changed: false },
