@@ -3,6 +3,12 @@ import type {
 	MarketingMarkdownRenderContext,
 	MarketingMarkdownSection
 } from './types';
+import {
+	encodeMarkdownLiteral,
+	renderMarkdownText,
+	renderPlainText,
+	type MarketingMarkdownContent
+} from './literals';
 import { getLocalizedMarketingUrl, PUBLIC_MARKETING_ROUTES } from '$lib/marketing/public-routes';
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
 import { LEGAL_CONFIG } from '$lib/config/legal';
@@ -28,29 +34,31 @@ interface PublicMarkdownNotFoundContext {
 	head?: boolean;
 }
 
-function quoteFrontmatterValue(value: string): string {
-	return JSON.stringify(value);
+function quoteFrontmatterValue(value: MarketingMarkdownContent): string {
+	return JSON.stringify(renderPlainText(value));
 }
 
 function renderSection(section: MarketingMarkdownSection): string {
-	const parts: string[] = [`## ${section.heading}`];
+	const parts: string[] = [`## ${renderMarkdownText(section.heading)}`];
 
 	for (const paragraph of section.paragraphs ?? []) {
-		parts.push(paragraph);
+		parts.push(renderMarkdownText(paragraph));
 	}
 
 	if (section.bullets?.length) {
-		parts.push(section.bullets.map((bullet) => `- ${bullet}`).join('\n'));
+		parts.push(section.bullets.map((bullet) => `- ${renderMarkdownText(bullet)}`).join('\n'));
 	}
 
 	if (section.links?.length) {
 		parts.push(
 			section.links
-				.map((link) =>
-					link.description
-						? `- [${link.label}](${link.href}): ${link.description}`
-						: `- [${link.label}](${link.href})`
-				)
+				.map((link) => {
+					const label = renderMarkdownText(link.label);
+					const description = link.description ? renderMarkdownText(link.description) : undefined;
+					return description
+						? `- [${label}](${link.href}): ${description}`
+						: `- [${label}](${link.href})`;
+				})
 				.join('\n')
 		);
 	}
@@ -68,7 +76,7 @@ export function renderMarketingMarkdown(
 ): string {
 	const canonicalPath = document.canonicalPath ?? context.pathname;
 	const canonical = new URL(canonicalPath, context.origin).toString();
-	const frontmatterEntries = [
+	const frontmatterEntries: Array<[string, MarketingMarkdownContent]> = [
 		['title', document.title],
 		['description', document.description],
 		['canonical', canonical],
@@ -89,8 +97,8 @@ export function renderMarketingMarkdown(
 	].join('\n');
 
 	const body = [
-		`# ${document.title}`,
-		document.description,
+		`# ${renderMarkdownText(document.title)}`,
+		renderMarkdownText(document.description),
 		...document.sections.map((section) => renderSection(section))
 	].join('\n\n');
 
@@ -189,7 +197,7 @@ export function renderLlmsTxt(origin: string): string {
 
 	return renderAuthoredTemplate('llms.txt', llmsTemplate, {
 		AGENT_INSTRUCTIONS_URL: getRepositoryDocumentUrl('AGENTS.md'),
-		BRAND_NAME: LEGAL_CONFIG.brandName,
+		BRAND_NAME: encodeMarkdownLiteral(LEGAL_CONFIG.brandName),
 		CANONICAL_PAGES: canonicalPages,
 		DEVELOPER_GUIDE_URL: getRepositoryDocumentUrl('README.md'),
 		REPOSITORY_URL: getRepositoryUrl()

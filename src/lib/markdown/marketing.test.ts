@@ -1,4 +1,37 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { lex } from 'svelte-streamdown';
+
+const { maliciousAddress, maliciousBrandName, maliciousEmail, maliciousOperatorName } = vi.hoisted(
+	() => ({
+		maliciousAddress: 'Hauptstrasse 5\n\n## Forged section',
+		maliciousBrandName: 'SaaS *Starter* [beta]',
+		maliciousEmail: 'legal [at] example [dot] test',
+		maliciousOperatorName: 'Operator #1'
+	})
+);
+
+vi.mock('$lib/config/legal', () => ({
+	LEGAL_CONFIG: {
+		address: maliciousAddress,
+		brandName: maliciousBrandName,
+		companyName: 'Example Company',
+		email: {
+			domain: 'example',
+			tld: 'test',
+			user: 'legal'
+		},
+		operatorName: maliciousOperatorName
+	},
+	getLegalEmailAddress: () => 'legal@example.test',
+	getObfuscatedLegalEmailAddress: () => maliciousEmail
+}));
+
+import {
+	encodeMarkdownLiteral,
+	markdownText,
+	renderMarkdownText,
+	renderPlainText
+} from './literals';
 import {
 	createLlmsTxtResponse,
 	createMarketingMarkdownResponse,
@@ -14,6 +47,7 @@ import {
 } from './marketing';
 import type { MarketingMarkdownDocument } from './types';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
+import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
 import { LEGAL_CONFIG } from '$lib/config/legal';
 
 const sampleDocument: MarketingMarkdownDocument = {
@@ -27,6 +61,127 @@ const sampleDocument: MarketingMarkdownDocument = {
 		}
 	]
 };
+
+const maliciousMarkdownLiteral = [
+	'Literal text',
+	'',
+	'## Forged heading',
+	'- Forged list',
+	'> Forged quote',
+	'```ts',
+	'forgedCode()',
+	'```',
+	'    Forged indented code',
+	'<div>Forged HTML</div>',
+	'[Forged link](https://evil.example)'
+].join('\r\n');
+
+type LexToken = {
+	type: string;
+	text?: string;
+	tokens?: LexToken[];
+};
+
+function collectTokenTypes(tokens: LexToken[]): string[] {
+	return tokens.flatMap((token) => [
+		token.type,
+		...(token.tokens ? collectTokenTypes(token.tokens) : [])
+	]);
+}
+
+function getMarketingBody(markdown: string): string {
+	const boundary = markdown.indexOf('---\n\n', 4);
+	return markdown.slice(boundary + 5);
+}
+
+describe('markdown text literals', () => {
+	it('keeps authored segments active and encodes only interpolations', () => {
+		const rendered = renderMarkdownText(markdownText`**Authored** ${'*runtime*'} text`);
+		const tokenTypes = collectTokenTypes(lex(rendered) as LexToken[]);
+
+		expect(rendered).toBe('**Authored** \\*runtime\\* text');
+		expect(tokenTypes.filter((type) => type === 'strong')).toHaveLength(1);
+		expect(tokenTypes).not.toContain('em');
+	});
+
+	it('escapes the complete CommonMark ASCII punctuation set', () => {
+		const punctuation = [
+			'!',
+			'"',
+			'#',
+			'$',
+			'%',
+			'&',
+			"'",
+			'(',
+			')',
+			'*',
+			'+',
+			',',
+			'-',
+			'.',
+			'/',
+			':',
+			';',
+			'<',
+			'=',
+			'>',
+			'?',
+			'@',
+			'[',
+			'\\',
+			']',
+			'^',
+			'_',
+			'`',
+			'{',
+			'|',
+			'}',
+			'~'
+		];
+
+		expect(encodeMarkdownLiteral(punctuation.join(''))).toBe(
+			punctuation.map((character) => `\\${character}`).join('')
+		);
+	});
+
+	it('normalizes line endings and keeps consecutive newlines as hard breaks', () => {
+		expect(encodeMarkdownLiteral('first\r\nsecond\rthird\nfourth')).toBe(
+			'first\\\nsecond\\\nthird\\\nfourth'
+		);
+		expect(encodeMarkdownLiteral('before\n\n## after')).toBe('before\\\n\\\n\\#\\# after');
+		expect(
+			collectTokenTypes(lex(encodeMarkdownLiteral('before\n\n## after')) as LexToken[])
+		).not.toContain('heading');
+	});
+
+	it('keeps leading indentation out of code blocks', () => {
+		for (const value of ['    indented code', '\tindented code']) {
+			const encoded = encodeMarkdownLiteral(value);
+			const tokenTypes = collectTokenTypes(lex(encoded) as LexToken[]);
+
+			expect(tokenTypes).not.toContain('code');
+			expect(tokenTypes).toContain('paragraph');
+		}
+	});
+
+	it.each([
+		['NUL', '\0', 'NUL characters'],
+		['lone high surrogate', '\ud800', 'lone high UTF-16 surrogates'],
+		['lone low surrogate', '\udc00', 'lone low UTF-16 surrogates']
+	])('rejects %s', (_name, value, message) => {
+		expect(() => encodeMarkdownLiteral(value)).toThrow(message);
+		expect(() => renderPlainText(markdownText`${value}`)).toThrow(message);
+	});
+
+	it('renders plain text without markdown escapes', () => {
+		expect(renderPlainText(markdownText`Authored *\r\n${'value_[x]\rline'}`)).toBe(
+			'Authored *\nvalue_[x]\nline'
+		);
+		expect(renderPlainText('plain\r\ntext')).toBe('plain\ntext');
+		expect(renderPlainText(markdownText`${'Valid 😀 pair'}`)).toBe('Valid 😀 pair');
+	});
+});
 
 describe('marketing markdown helpers', () => {
 	it('detects markdown accept headers case-insensitively', () => {
@@ -67,6 +222,98 @@ describe('marketing markdown helpers', () => {
 		expect(markdown).toContain('- First bullet');
 	});
 
+	it('measures the forged heading produced by direct interpolation', () => {
+		const markdown = renderMarketingMarkdown(
+			{
+				title: 'Legal notice',
+				description: 'Provider details.',
+				sections: [
+					{
+						heading: 'Contact',
+						paragraphs: ['Address: Hauptstrasse 5\n\n## Forged section']
+					}
+				]
+			},
+			{ origin: 'https://example.com', pathname: '/en/impressum', lang: 'en' }
+		);
+
+		expect(
+			lex(getMarketingBody(markdown)).some(
+				(token) => token.type === 'heading' && token.text === 'Forged section'
+			)
+		).toBe(true);
+	});
+
+	it('keeps configured values literal in every rendered text field', () => {
+		const literal = markdownText`${maliciousMarkdownLiteral}`;
+		const markdown = renderMarketingMarkdown(
+			{
+				title: literal,
+				description: literal,
+				sections: [
+					{
+						heading: literal,
+						paragraphs: [literal],
+						bullets: [literal],
+						links: [
+							{
+								label: literal,
+								href: 'https://example.com/resource',
+								description: literal
+							}
+						]
+					}
+				]
+			},
+			{ origin: 'https://example.com', pathname: '/en/test', lang: 'en' }
+		);
+		const tokens = lex(getMarketingBody(markdown)) as LexToken[];
+		const tokenTypes = collectTokenTypes(tokens);
+
+		expect(tokenTypes.filter((type) => type === 'heading')).toHaveLength(2);
+		expect(tokenTypes.filter((type) => type === 'list')).toHaveLength(1);
+		expect(tokenTypes.filter((type) => type === 'link')).toHaveLength(1);
+		expect(tokenTypes).not.toContain('code');
+		expect(tokenTypes).not.toContain('html');
+		expect(tokenTypes).not.toContain('blockquote');
+		expect(markdown).toContain('(https://example.com/resource)');
+		expect(JSON.stringify(tokens)).toContain('Forged heading');
+		expect(JSON.stringify(tokens)).toContain('Forged indented code');
+		expect(JSON.stringify(tokens)).toContain('Forged HTML');
+	});
+
+	it('keeps structured frontmatter plain and on one physical line per value', () => {
+		const markdown = renderMarketingMarkdown(
+			{
+				title: markdownText`${'Brand *name*\r\nsecond line'}`,
+				description: markdownText`Address: ${maliciousAddress}`,
+				sections: []
+			},
+			{ origin: 'https://example.com', pathname: '/en/test', lang: 'en' }
+		);
+		const frontmatter = markdown.slice(0, markdown.indexOf('---\n\n', 4));
+
+		expect(frontmatter).toContain('title: "Brand *name*\\nsecond line"');
+		expect(frontmatter).toContain('description: "Address: Hauptstrasse 5\\n\\n## Forged section"');
+		expect(frontmatter).not.toContain('\\*name\\*');
+		expect(frontmatter.split('\n')).not.toContain('second line');
+		expect(frontmatter.split('\n')).not.toContain('## Forged section');
+	});
+
+	it('keeps the configured legal address inside the Impressum paragraph', () => {
+		const markdown = renderMarketingMarkdown(impressumMarketingMarkdown, {
+			origin: 'https://example.com',
+			pathname: '/en/impressum',
+			lang: 'en'
+		});
+		const bodyTokens = lex(getMarketingBody(markdown));
+
+		expect(markdown).toContain('Address: Hauptstrasse 5\\\n\\\n\\#\\# Forged section');
+		expect(
+			bodyTokens.some((token) => token.type === 'heading' && token.text === 'Forged section')
+		).toBe(false);
+	});
+
 	it('returns markdown responses with caching and vary headers', async () => {
 		const response = createMarketingMarkdownResponse(homeMarketingMarkdown, {
 			origin: 'https://example.com',
@@ -84,6 +331,9 @@ describe('marketing markdown helpers', () => {
 
 		const body = await response.text();
 		expect(body).toContain('# Build & Ship Your Product Faster');
+		expect(body).toContain(
+			`${encodeMarkdownLiteral(LEGAL_CONFIG.brandName)} packages the core infrastructure`
+		);
 		expect(body).toContain('lang_served: "de"');
 		expect(body).toContain('content_language: "en"');
 	});
@@ -98,8 +348,12 @@ describe('marketing markdown helpers', () => {
 
 	it('renders llms discovery content with canonical marketing links', () => {
 		const llms = renderLlmsTxt('https://example.com');
+		const heading = lex(llms).find((token) => token.type === 'heading');
 
-		expect(llms).toContain(`# ${LEGAL_CONFIG.brandName}`);
+		expect(llms).toContain(`# ${encodeMarkdownLiteral(LEGAL_CONFIG.brandName)}`);
+		expect(heading?.text).toBe(encodeMarkdownLiteral(LEGAL_CONFIG.brandName));
+		expect(collectTokenTypes([heading as LexToken])).not.toContain('em');
+		expect(collectTokenTypes([heading as LexToken])).not.toContain('link');
 		expect(llms).toContain('https://example.com/en/privacy');
 		expect(llms).toContain('https://example.com/en/terms');
 		expect(llms).toContain('https://example.com/en/impressum');
