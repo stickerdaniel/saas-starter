@@ -124,11 +124,29 @@ describe('windowsJobCommand', () => {
 		expect(payload.command).toBe(String.raw`C:\Program Files\Bun\bun.exe`);
 		expect(payload.args).toEqual(['run', 'space value', 'quote"value', '', '--once']);
 		expect(payload.environment.includes('EXAMPLE=value')).toBe(true);
+		expect(payload.environment.some((entry: string) => /^PATH=/i.test(entry))).toBe(true);
 		expect(
 			payload.environment.some((entry: string) => entry.startsWith(`${WINDOWS_JOB_TOKEN_ENV}=`))
 		).toBe(false);
 		expect(wrapped.env?.EXAMPLE).toBe('value');
 		expect(wrapped.env?.[WINDOWS_JOB_TOKEN_ENV]).toBe('test-lifetime-token');
+	});
+
+	it('can pass only the explicitly provided environment', () => {
+		let encodedPayload = '';
+		const lifetime = {
+			pipeName: 'test-lifetime-pipe',
+			token: 'test-lifetime-token',
+			setPayload: (value: string) => (encodedPayload = value),
+			close: async () => {}
+		};
+		windowsJobCommand(
+			{ command: 'bun', args: ['--version'], env: { FILTERED: 'value' } },
+			{ platform: 'win32', lifetime, inheritEnvironment: false }
+		);
+		const payload = JSON.parse(Buffer.from(encodedPayload, 'base64').toString('utf8'));
+
+		expect(payload.environment).toEqual(['FILTERED=value']);
 	});
 
 	it.runIf(process.platform === 'win32')(
