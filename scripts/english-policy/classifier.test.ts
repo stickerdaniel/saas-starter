@@ -39,7 +39,8 @@ describe('English classifier', () => {
 		'Sign in user',
 		'Ship change',
 		'Improve auth',
-		'Handle retry'
+		'Handle retry',
+		'invalid format'
 	])('accepts or conservatively passes short English: %s', (text) => {
 		expect(classifyEnglish(text).outcome).not.toBe('violation');
 	});
@@ -104,6 +105,16 @@ describe('English classifier', () => {
 		});
 		const detector: LanguageDetector = { detect: () => result };
 		expect(classifyEnglish(foreignFixtures.german, detector).outcome).toBe('violation');
+	});
+
+	it('keeps technical periods inside the surrounding sentence', () => {
+		const releaseNote =
+			'Update details at https://github.com/vitest-dev/vitest/compare/v4.0.14...v4.0.15 before reviewing version 4.0.15.';
+		const windows = splitTextWindows(releaseNote);
+		expect(windows[0]?.text).toBe(releaseNote);
+		expect(windows.map((window) => classifyEnglish(window.text).outcome)).not.toContain(
+			'violation'
+		);
 	});
 
 	it('finds a foreign tail after a long English prefix', () => {

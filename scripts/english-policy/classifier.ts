@@ -202,7 +202,7 @@ export function classifyEnglish(
 		(tokens.length >= 5 && letters >= 20) ||
 		(shortAsciiProse && tokens.length >= 2 && letters >= 8);
 	const scoreThreshold =
-		nonLatinLetters >= 3 ? 0.55 : shortAsciiProse ? (uppercaseProse ? 0.65 : 0.76) : 0.72;
+		nonLatinLetters >= 3 ? 0.55 : shortAsciiProse ? (uppercaseProse ? 0.65 : 0.77) : 0.72;
 	const marginThreshold = shortAsciiProse ? (uppercaseProse ? 0.25 : 0.3) : 0.12;
 
 	if (enoughText && top.score >= scoreThreshold && margin >= marginThreshold) {
@@ -224,22 +224,30 @@ function lineAt(text: string, offset: number, startLine: number): number {
 
 function sentenceWindows(text: string, startLine: number): TextWindow[] {
 	const windows: TextWindow[] = [];
-	const sentencePattern = /[^.!?。！？]+(?:[.!?。！？]+|$)/gu;
-	for (const match of text.matchAll(sentencePattern)) {
-		const sentence = match[0].trim();
-		if (sentence === '') continue;
-		const line = lineAt(text, match.index ?? 0, startLine);
-		const sentenceWords = words(sentence);
-		windows.push({ text: sentence, line });
-		if (sentenceWords.length < 8) continue;
+	let sentenceStart = 0;
 
-		for (let offset = 0; offset + 4 <= sentenceWords.length; offset += 4) {
-			const window = sentenceWords.slice(offset, offset + 8).join(' ');
+	const addSentence = (end: number): void => {
+		const sentence = text.slice(sentenceStart, end).trim();
+		const offset = sentenceStart;
+		sentenceStart = end;
+		if (sentence === '') return;
+		const line = lineAt(text, offset, startLine);
+		const sentenceWords = words(normalizeTechnicalSyntax(sentence));
+		windows.push({ text: sentence, line });
+		if (sentenceWords.length < 8) return;
+
+		for (let wordOffset = 0; wordOffset + 4 <= sentenceWords.length; wordOffset += 4) {
+			const window = sentenceWords.slice(wordOffset, wordOffset + 8).join(' ');
 			if (window !== sentence) windows.push({ text: window, line });
 		}
 		const tail = sentenceWords.slice(-8).join(' ');
 		if (tail !== windows.at(-1)?.text && tail !== sentence) windows.push({ text: tail, line });
+	};
+
+	for (const boundary of text.matchAll(/[.!?。！？]+(?=\s|$)/gu)) {
+		addSentence((boundary.index ?? 0) + boundary[0].length);
 	}
+	addSentence(text.length);
 	return windows;
 }
 

@@ -16,6 +16,25 @@ const foreignFixtures = {
 	german: 'Das Passwort muss sofort zurückgesetzt werden.',
 	french: 'Ceci est un texte français clairement rédigé.'
 } as const;
+const renovateReleaseNotes = [
+	[
+		'### [`v4.0.15`](https://redirect.github.com/vitest-dev/vitest/releases/tag/v4.0.15)',
+		'',
+		'[Compare Source](https://redirect.github.com/vitest-dev/vitest/compare/v4.0.14...v4.0.15)',
+		'',
+		'##### Bug Fixes',
+		'',
+		'- preserve the invalid format diagnostic ([#8463](https://redirect.github.com/vitest-dev/vitest/pull/8463)) [<samp>view source</samp>]'
+	].join('\n'),
+	[
+		'### [`v3.2.4`](https://redirect.github.com/vitest-dev/vitest/releases/tag/v3.2.4)',
+		'',
+		'##### Performance Improvements',
+		'',
+		'- avoid duplicate source-map work in browser mode ([#8120](https://github.com/vitest-dev/vitest/pull/8120))',
+		'- update coverage output for Node.js 24.1.0'
+	].join('\n')
+] as const;
 
 function fixture(value: unknown): string {
 	const directory = mkdtempSync(path.join(tmpdir(), 'pr-metadata-'));
@@ -55,16 +74,21 @@ describe('pull request metadata policy', () => {
 		expect(result.findings).toMatchObject([{ field: 'title', language: 'de' }]);
 	});
 
-	it.each(['Fix API', 'Cache JWKS', 'fix(auth): Reset password', 'Update docs', 'Ship change'])(
-		'passes a short English title conservatively: %s',
-		(title) => {
-			expect(evaluatePullRequestMetadata({ pull_request: { title, body: null } }).findings).toEqual(
-				[]
-			);
-		}
-	);
+	it.each([
+		'Fix API',
+		'Cache JWKS',
+		'fix(auth): Reset password',
+		'Update docs',
+		'Ship change',
+		'fix: invalid format'
+	])('passes a short English title conservatively: %s', (title) => {
+		expect(evaluatePullRequestMetadata({ pull_request: { title, body: null } }).findings).toEqual(
+			[]
+		);
+	});
 
 	it.each([
+		[foreignFixtures.german, 'de'],
 		[foreignFixtures.french, 'fr'],
 		['ESTE TEXTO ESTA CLARAMENTE ESCRITO EN ESPANOL', 'es']
 	])('checks non-English body paragraphs independently: %s', (body, language) => {
@@ -75,6 +99,14 @@ describe('pull request metadata policy', () => {
 			}
 		});
 		expect(result.findings).toMatchObject([{ field: 'body', paragraph: 2, language }]);
+	});
+
+	it.each(renovateReleaseNotes)('passes embedded Renovate release-note Markdown', (body) => {
+		expect(
+			evaluatePullRequestMetadata({
+				pull_request: { title: 'chore(deps): Update Vitest', body }
+			}).findings
+		).toEqual([]);
 	});
 
 	it('ignores fenced code even when it contains blank lines', () => {
