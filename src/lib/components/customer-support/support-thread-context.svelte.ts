@@ -45,6 +45,7 @@ export class SupportThreadContext {
 	private threadCreation: ThreadCreation | null = null;
 	private navigationRevision = 0;
 	private sendRevision = 0;
+	private threadAcquisitionSendRevision: number | null = null;
 	private bindThreadOrigin?: (threadId: string, epoch: number, generation: number) => void;
 
 	private getAnonymousUserId(): string | undefined {
@@ -161,6 +162,12 @@ export class SupportThreadContext {
 		);
 	}
 
+	private releaseAbandonedThreadAcquisition(): void {
+		if (this.threadAcquisitionSendRevision !== this.sendRevision) return;
+		this.threadAcquisitionSendRevision = null;
+		this.isSending = false;
+	}
+
 	/**
 	 * Ensure a thread exists, creating one if needed
 	 * Returns existing threadId or acquires a warm one
@@ -255,6 +262,7 @@ export class SupportThreadContext {
 		// re-entering the same thread, whose reply may still be streaming.
 		if (threadId !== this.threadId) {
 			this.navigationRevision++;
+			this.threadAcquisitionSendRevision = null;
 			this.isSending = false;
 			this.isAwaitingStream = false;
 		}
@@ -440,14 +448,17 @@ export class SupportThreadContext {
 		const generation = this.threadGeneration;
 		const navigationRevision = this.navigationRevision;
 		const sendRevision = ++this.sendRevision;
+		this.threadAcquisitionSendRevision = null;
 		// Set sending state (used for blocking in AI mode)
 		this.setSending(true);
 
 		let threadCreated = false;
+		let messageDispatched = false;
 
 		try {
 			// Use provided threadId, context threadId, or await in-flight creation.
 			let threadId = options?.threadId ?? this.threadId;
+			if (!threadId) this.threadAcquisitionSendRevision = sendRevision;
 			const inFlight = this.threadCreation;
 			if (
 				!threadId &&
@@ -505,6 +516,10 @@ export class SupportThreadContext {
 			if (!this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision)) {
 				throw new Error('Support conversation changed');
 			}
+			if (this.threadAcquisitionSendRevision === sendRevision) {
+				this.threadAcquisitionSendRevision = null;
+			}
+			messageDispatched = true;
 			await client.mutation(
 				api.support.messages.sendMessage,
 				{
@@ -535,18 +550,22 @@ export class SupportThreadContext {
 
 			return { threadId, threadCreated };
 		} catch (error) {
-			if (this.isSendOperationCurrent(sessionEpoch, generation)) {
+			const operationCurrent = messageDispatched
+				? this.isSendOperationCurrent(sessionEpoch, generation)
+				: this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision);
+			if (operationCurrent) {
 				console.error('[sendMessage] Failed:', error);
 				this.setError(error instanceof Error ? error.message : 'Failed to send message');
 			}
 			throw error;
 		} finally {
-			if (
-				this.isSendOperationCurrent(sessionEpoch, generation) &&
-				this.sendRevision === sendRevision
-			) {
-				this.setSending(false);
+			if (this.threadAcquisitionSendRevision === sendRevision) {
+				this.threadAcquisitionSendRevision = null;
 			}
+			const operationCurrent = messageDispatched
+				? this.isSendOperationCurrent(sessionEpoch, generation)
+				: this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision);
+			if (operationCurrent && this.sendRevision === sendRevision) this.setSending(false);
 		}
 	}
 
@@ -639,7 +658,12 @@ export class SupportThreadContext {
 		// Set thread ID and switch to chat view
 		// Full thread details (agentName, isHandedOff, etc.) will be loaded
 		// reactively by the chat component's query
-		if (threadId !== this.threadId) this.navigationRevision++;
+		if (threadId !== this.threadId) {
+			this.navigationRevision++;
+			this.threadAcquisitionSendRevision = null;
+			this.isSending = false;
+			this.isAwaitingStream = false;
+		}
 		this.threadId = threadId;
 		this.currentView = 'chat';
 		this.isNewConversation = false;
@@ -653,6 +677,7 @@ export class SupportThreadContext {
 	 */
 	startNewThread() {
 		this.sendRevision++;
+		this.threadAcquisitionSendRevision = null;
 		this.isSending = false;
 		this.isAwaitingStream = false;
 		this.setThread(null);
@@ -678,6 +703,7 @@ export class SupportThreadContext {
 	 */
 	goBack() {
 		this.navigationRevision++;
+		this.releaseAbandonedThreadAcquisition();
 		this.currentView = 'overview';
 		this.onThreadChange?.(null);
 	}
@@ -686,6 +712,7 @@ export class SupportThreadContext {
 	forgetChatSession(): void {
 		this.sendRevision++;
 		this.threadCreation = null;
+		this.threadAcquisitionSendRevision = null;
 		this.isSending = false;
 		this.isAwaitingStream = false;
 		this.error = null;

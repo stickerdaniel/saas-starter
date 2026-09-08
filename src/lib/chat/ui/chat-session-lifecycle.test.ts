@@ -101,6 +101,15 @@ function sendButton(): HTMLButtonElement {
 	return document.querySelector<HTMLButtonElement>(`button[aria-label="${en.chat.aria.send}"]`)!;
 }
 
+function sendLoader(): SVGElement | null {
+	const loaderClass = ['motion-safe', ['animate', 'spin'].join('-')].join(':');
+	return (
+		[...sendButton().querySelectorAll('svg')].find((icon) =>
+			icon.classList.contains(loaderClass)
+		) ?? null
+	);
+}
+
 async function settleComponentWork(): Promise<void> {
 	await Promise.resolve();
 	await tick();
@@ -739,6 +748,127 @@ describe('chat session lifecycle', () => {
 });
 
 describe('AI chatbar session lifecycle', () => {
+	it.each([
+		{
+			boundary: 'goBack',
+			navigate: (thread: SupportThreadContext) => thread.goBack(),
+			oldOutcome: 'fulfilled' as const
+		},
+		{
+			boundary: 'selectThreadFromUrl',
+			navigate: (thread: SupportThreadContext) => thread.selectThreadFromUrl('thread-b-b-b'),
+			oldOutcome: 'rejected' as const
+		}
+	])(
+		'$boundary releases an abandoned acquisition without letting it disturb a newer send',
+		async ({ boundary, navigate, oldOutcome }) => {
+			const thread = new SupportThreadContext();
+			const oldCreation = Promise.withResolvers<{
+				threadId: string;
+				notificationEmail: null;
+			}>();
+			const newerCreation = Promise.withResolvers<{
+				threadId: string;
+				notificationEmail: null;
+			}>();
+			const newerMessage = Promise.withResolvers<Record<string, never>>();
+			const oldError = new Error('Old acquisition rejected');
+			let warmCalls = 0;
+			const mutation = vi.spyOn(client, 'mutation').mockImplementation((reference) => {
+				const name = getFunctionName(reference);
+				if (name === 'support/threads:getOrCreateWarmThread') {
+					warmCalls++;
+					if (warmCalls === 1) {
+						return Promise.resolve({ threadId: 'chatbar-warm-thread', notificationEmail: null });
+					}
+					return warmCalls === 2 ? oldCreation.promise : newerCreation.promise;
+				}
+				if (name === 'support/messages:sendMessage') return newerMessage.promise;
+				return Promise.resolve({});
+			});
+			vi.spyOn(client, 'onUpdate').mockReturnValue(mockUnsubscribe());
+			const input = await mountChatbar(thread);
+			typeInto(input, 'visible prompt');
+			await settleComponentWork();
+			expect(mutation).toHaveBeenCalledTimes(1);
+
+			const oldSend = thread.sendMessage(client, 'old prompt');
+			await settleComponentWork();
+			expect(mutation).toHaveBeenCalledTimes(2);
+			expect(thread.isSending).toBe(true);
+			expect(sendButton().disabled).toBe(true);
+			expect(sendLoader()).not.toBeNull();
+
+			flushSync(() => navigate(thread));
+			expect(thread.isSending).toBe(false);
+			expect(sendButton().disabled).toBe(false);
+			expect(sendLoader()).toBeNull();
+
+			const newerSend = thread.sendMessage(client, 'newer prompt');
+			await settleComponentWork();
+			expect(mutation).toHaveBeenCalledTimes(3);
+			expect(thread.isSending).toBe(true);
+			expect(sendLoader()).not.toBeNull();
+
+			if (oldOutcome === 'fulfilled') {
+				oldCreation.resolve({ threadId: 'old-created-thread', notificationEmail: null });
+				await expect(oldSend).rejects.toThrow('Support conversation changed');
+			} else {
+				oldCreation.reject(oldError);
+				await expect(oldSend).rejects.toBe(oldError);
+			}
+			await settleComponentWork();
+			expect(thread.isSending).toBe(true);
+			expect(sendLoader()).not.toBeNull();
+			expect(thread.error).toBeNull();
+
+			if (boundary === 'goBack') {
+				newerCreation.resolve({ threadId: 'newer-created-thread', notificationEmail: null });
+				await settleComponentWork();
+			}
+			newerMessage.resolve({});
+			await expect(newerSend).resolves.toEqual({
+				threadId: boundary === 'goBack' ? 'newer-created-thread' : 'thread-b-b-b',
+				threadCreated: boundary === 'goBack'
+			});
+		}
+	);
+
+	it('keeps an existing thread locked while its dispatched mutation completes behind the overview', async () => {
+		const thread = new SupportThreadContext();
+		thread.selectThread('existing-thread');
+		const message = Promise.withResolvers<Record<string, never>>();
+		const mutation = vi
+			.spyOn(client, 'mutation')
+			.mockImplementation((reference) =>
+				getFunctionName(reference) === 'support/messages:sendMessage'
+					? message.promise
+					: Promise.resolve({})
+			);
+		await mountChatbar(thread);
+		const result = thread.sendMessage(client, 'existing thread prompt');
+		await settleComponentWork();
+		expect(mutation).toHaveBeenCalledTimes(1);
+
+		flushSync(() => thread.goBack());
+		expect(thread.isSending).toBe(true);
+		expect(sendLoader()).not.toBeNull();
+		flushSync(() => thread.selectThread('existing-thread'));
+		expect(thread.isSending).toBe(true);
+		expect(sendLoader()).not.toBeNull();
+
+		message.resolve({});
+		await expect(result).resolves.toEqual({
+			threadId: 'existing-thread',
+			threadCreated: false
+		});
+		expect(thread.isSending).toBe(false);
+		expect(thread.isAwaitingStream).toBe(true);
+
+		thread.goBack();
+		expect(thread.isAwaitingStream).toBe(true);
+	});
+
 	it.each(['success', 'rejection'] as const)(
 		'forgets input and ignores stale warm creation $0 after session clear',
 		async (outcome) => {
