@@ -24,6 +24,7 @@ interface Step {
 interface Workflow {
 	on?: Record<string, { types?: string[] }>;
 	permissions?: Record<string, string>;
+	concurrency?: { group?: string; 'cancel-in-progress'?: boolean };
 	jobs?: Record<string, { steps?: Step[] }>;
 }
 
@@ -38,6 +39,12 @@ function policyErrors(workflow: Workflow): string[] {
 	}
 	if (JSON.stringify(workflow.permissions) !== JSON.stringify({ contents: 'read' })) {
 		errors.push('permissions');
+	}
+	if (workflow.concurrency?.group !== 'english-pr-${{ github.event.pull_request.number }}') {
+		errors.push('concurrency group');
+	}
+	if (workflow.concurrency?.['cancel-in-progress'] !== true) {
+		errors.push('concurrency cancellation');
 	}
 	const steps = workflow.jobs?.['english-metadata']?.steps ?? [];
 	const checkout = steps.find((step) => step.uses?.startsWith('actions/checkout@'));
@@ -55,6 +62,13 @@ const steps = workflow.jobs?.['english-metadata']?.steps ?? [];
 describe('English pull request workflow', () => {
 	it('uses the metadata-only trigger and minimal permissions', () => {
 		expect(policyErrors(workflow)).toEqual([]);
+	});
+
+	it('cancels stale runs for the same pull request', () => {
+		expect(workflow.concurrency).toEqual({
+			group: 'english-pr-${{ github.event.pull_request.number }}',
+			'cancel-in-progress': true
+		});
 	});
 
 	it('checks out only the trusted workflow revision without credentials', () => {
@@ -75,10 +89,15 @@ describe('English pull request workflow', () => {
 		for (const action of actions) expect(action).toMatch(/^[^@]+@[0-9a-f]{40}$/);
 	});
 
-	it('runs only the committed bundle after setting up Bun', () => {
+	it('runs only the committed bundle with public read-only inputs', () => {
 		const commands = steps.flatMap((step) => (step.run === undefined ? [] : [step.run]));
+		const entry = readFileSync(ENTRY_PATH, 'utf8');
 		expect(commands).toEqual(['bun scripts/english-policy/pr-metadata.bundle.mjs']);
 		expect(source).not.toMatch(/bun install|cache|artifact/i);
+		expect(source).not.toMatch(/secrets\.|github\.token|GH_TOKEN|Authorization/);
+		expect(entry).toContain("endpoint.hostname !== 'api.github.com'");
+		expect(entry).toContain("Accept: 'application/vnd.github+json'");
+		expect(entry).not.toMatch(/Authorization|process\.env\.(?:GH_TOKEN|GITHUB_TOKEN)/);
 	});
 
 	it('fails the structural policy when the trusted checkout route is removed', () => {

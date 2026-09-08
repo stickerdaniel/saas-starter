@@ -191,7 +191,8 @@ export function classifyEnglish(
 		(character) => !/\p{Script=Latin}/u.test(character)
 	).length;
 
-	if ((tokens.length < 2 || letters < 8) && nonLatinLetters < 3) {
+	const singleLongWord = tokens.length === 1 && letters >= 10;
+	if ((tokens.length < 2 || letters < 8) && nonLatinLetters < 3 && !singleLongWord) {
 		return { outcome: 'insufficient-evidence', reason: 'short', normalizedText };
 	}
 
@@ -215,10 +216,24 @@ export function classifyEnglish(
 		nonLatinLetters >= 3 ||
 		(nonAsciiLetters > 0 && tokens.length >= 2) ||
 		(tokens.length >= 5 && letters >= 20) ||
-		(shortAsciiProse && tokens.length >= 2 && letters >= 8);
-	const scoreThreshold =
-		nonLatinLetters >= 3 ? 0.55 : shortAsciiProse ? (uppercaseProse ? 0.65 : 0.77) : 0.72;
-	const marginThreshold = shortAsciiProse ? (uppercaseProse ? 0.25 : 0.3) : 0.12;
+		(shortAsciiProse && tokens.length >= 2 && letters >= 8) ||
+		singleLongWord;
+	const scoreThreshold = singleLongWord
+		? 0.78
+		: nonLatinLetters >= 3
+			? 0.55
+			: shortAsciiProse
+				? uppercaseProse
+					? 0.65
+					: 0.77
+				: 0.72;
+	const marginThreshold = singleLongWord
+		? 0.35
+		: shortAsciiProse
+			? uppercaseProse
+				? 0.25
+				: 0.3
+			: 0.12;
 
 	if (enoughText && top.score >= scoreThreshold && margin >= marginThreshold) {
 		return {

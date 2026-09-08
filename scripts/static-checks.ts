@@ -626,12 +626,16 @@ export function spellcheckFiles(files: string[]): string[] {
 	return files.filter((file) => ROUTES.misspell(file) && !isIgnoredPath(file));
 }
 
+export function englishProseFiles(files: string[]): string[] {
+	return files.filter((file) => ROUTES['english-prose'](file) && !isIgnoredPath(file));
+}
+
 export async function englishProseFindings(
 	files: string[],
 	readText: (file: string) => Promise<string> = (file) => Bun.file(file).text()
 ): Promise<EnglishFinding[]> {
 	const findings: EnglishFinding[] = [];
-	for (const file of files.filter(ROUTES['english-prose'])) {
+	for (const file of englishProseFiles(files)) {
 		findings.push(...checkEnglishText(file, await readText(file)));
 	}
 	return findings;
@@ -1391,9 +1395,9 @@ async function main(): Promise<void> {
 		// `--stdin-label <label>`.
 		printHeader(step++, 'English prose');
 		{
-			const files = scopedMode
-				? ledger.filesFor('english-prose')
-				: fullExistingPaths.filter(isEnglishPolicyFile);
+			const files = englishProseFiles(
+				scopedMode ? ledger.filesFor('english-prose') : fullExistingPaths
+			);
 			const findings = await englishProseFindings(files);
 			for (const finding of findings) {
 				console.error(

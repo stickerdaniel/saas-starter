@@ -31,6 +31,9 @@ describe('English classifier', () => {
 
 	it.each([
 		'Fix API',
+		'Update API',
+		'API documentation',
+		'API configuration',
 		'Cache JWKS',
 		'fix(auth): Reset password',
 		'Update docs',
@@ -52,6 +55,22 @@ describe('English classifier', () => {
 		'feat: Benutzer anmelden'
 	])('finds clear short German titles: %s', (text) => {
 		expect(classifyEnglish(text)).toMatchObject({ outcome: 'violation', language: 'de' });
+	});
+
+	it.each(['docs: API aktualisieren', 'API aktualisieren'])(
+		'finds a clear foreign subject after removing an acronym: %s',
+		(text) => {
+			expect(normalizeTechnicalSyntax(text)).toBe('aktualisieren');
+			expect(classifyEnglish(text)).toMatchObject({ outcome: 'violation', language: 'de' });
+		}
+	);
+
+	it('pins strong ELD evidence for the single German subject', () => {
+		const scores = finiteLanguageScores(eld.detect('aktualisieren').getScores());
+		expect(scores[0]).toMatchObject({ language: 'de' });
+		expect(scores[0]!.score).toBeGreaterThan(0.79);
+		expect(scores[0]!.score).toBeLessThan(0.8);
+		expect(scores.find((score) => score.language === 'en')).toBeUndefined();
 	});
 
 	it('finds the required conventional-commit fixture after removing its prefix', () => {

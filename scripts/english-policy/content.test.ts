@@ -60,6 +60,12 @@ describe('repository prose extraction', () => {
 		expect(proseWindows('src/example.ts', interrupted)).toHaveLength(2);
 	});
 
+	it('finds a clear foreign source-comment subject after an acronym', () => {
+		expect(checkEnglishText('src/example.ts', '// API aktualisieren')).toMatchObject([
+			{ language: 'de', line: 1 }
+		]);
+	});
+
 	it('preserves uppercase prose with technical-looking suffixes in source comments', () => {
 		const source = [
 			'// PASSWORT ZURUECKSETZEN',

@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: english-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   english-metadata:
     name: English PR Metadata
