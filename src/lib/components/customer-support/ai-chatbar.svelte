@@ -68,8 +68,9 @@
 			clearTimeout(cleanupTimeoutId);
 			cleanupTimeoutId = null;
 		}
-		queryUnsubscribe?.();
+		const unsubscribe = queryUnsubscribe;
 		queryUnsubscribe = null;
+		unsubscribe?.();
 	}
 
 	function forgetPersistedState(): void {
@@ -138,10 +139,8 @@
 			const ownedUnsubscribe = queryUnsubscribe;
 			cleanupTimeoutId = setTimeout(() => {
 				cleanupTimeoutId = null;
-				if (queryUnsubscribe === ownedUnsubscribe) {
-					queryUnsubscribe?.();
-					queryUnsubscribe = null;
-				}
+				if (queryUnsubscribe === ownedUnsubscribe) queryUnsubscribe = null;
+				ownedUnsubscribe?.();
 			}, 500);
 		} catch (error) {
 			if (!isCurrent()) return;
@@ -191,6 +190,7 @@
 					paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
 					streamArgs: { kind: 'list' as const, startOrder: 0 }
 				};
+				releaseWarmResources();
 				queryUnsubscribe = client.onUpdate(
 					api.support.messages.listMessages,
 					preSubscribeArgs,

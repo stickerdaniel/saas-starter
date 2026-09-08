@@ -21,6 +21,7 @@ export type SupportView = 'overview' | 'chat' | 'compose';
 type ThreadCreation = {
 	epoch: number;
 	generation: number;
+	navigationRevision: number;
 	promise: Promise<string>;
 };
 
@@ -42,6 +43,7 @@ export class SupportThreadContext {
 
 	// Track in-flight thread creation to avoid duplicates within one conversation.
 	private threadCreation: ThreadCreation | null = null;
+	private navigationRevision = 0;
 	private sendRevision = 0;
 	private bindThreadOrigin?: (threadId: string, epoch: number, generation: number) => void;
 
@@ -148,6 +150,17 @@ export class SupportThreadContext {
 		return isChatSessionCurrent(epoch) && this.threadGeneration === generation;
 	}
 
+	private isSendOwnershipCurrent(
+		epoch: number,
+		generation: number,
+		navigationRevision: number
+	): boolean {
+		return (
+			this.isSendOperationCurrent(epoch, generation) &&
+			this.navigationRevision === navigationRevision
+		);
+	}
+
 	/**
 	 * Ensure a thread exists, creating one if needed
 	 * Returns existing threadId or acquires a warm one
@@ -158,19 +171,29 @@ export class SupportThreadContext {
 
 		const epoch = getChatSessionEpoch();
 		const generation = this.threadGeneration;
+		const navigationRevision = this.navigationRevision;
 		const current = this.threadCreation;
-		if (current?.epoch === epoch && current.generation === generation) return current.promise;
+		if (
+			current?.epoch === epoch &&
+			current.generation === generation &&
+			current.navigationRevision === navigationRevision
+		) {
+			return current.promise;
+		}
 
 		const creation = {} as ThreadCreation;
 		creation.epoch = epoch;
 		creation.generation = generation;
+		creation.navigationRevision = navigationRevision;
 		creation.promise = client
 			.mutation(api.support.threads.getOrCreateWarmThread, {
 				anonymousUserId: this.getAnonymousUserId(),
 				pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
 			})
 			.then((result) => {
-				if (!this.isSendOperationCurrent(epoch, generation)) return result.threadId;
+				if (!this.isSendOwnershipCurrent(epoch, generation, navigationRevision)) {
+					return result.threadId;
+				}
 				this.bindThreadOrigin?.(result.threadId, epoch, generation);
 				// Only update state if user is still in chat view (didn't navigate away)
 				if (!this.threadId && this.currentView === 'chat') {
@@ -231,6 +254,7 @@ export class SupportThreadContext {
 		// clear it and the next conversation's composer stays blocked. Kept when
 		// re-entering the same thread, whose reply may still be streaming.
 		if (threadId !== this.threadId) {
+			this.navigationRevision++;
 			this.isSending = false;
 			this.isAwaitingStream = false;
 		}
@@ -414,6 +438,7 @@ export class SupportThreadContext {
 
 		const sessionEpoch = getChatSessionEpoch();
 		const generation = this.threadGeneration;
+		const navigationRevision = this.navigationRevision;
 		const sendRevision = ++this.sendRevision;
 		// Set sending state (used for blocking in AI mode)
 		this.setSending(true);
@@ -424,14 +449,21 @@ export class SupportThreadContext {
 			// Use provided threadId, context threadId, or await in-flight creation.
 			let threadId = options?.threadId ?? this.threadId;
 			const inFlight = this.threadCreation;
-			if (!threadId && inFlight?.epoch === sessionEpoch && inFlight.generation === generation) {
+			if (
+				!threadId &&
+				inFlight?.epoch === sessionEpoch &&
+				inFlight.generation === generation &&
+				inFlight.navigationRevision === navigationRevision
+			) {
 				try {
 					threadId = await inFlight.promise;
 				} catch (error) {
-					if (!this.isSendOperationCurrent(sessionEpoch, generation)) throw error;
+					if (!this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision)) {
+						throw error;
+					}
 					// The same conversation may retry a failed eager acquisition below.
 				}
-				if (!this.isSendOperationCurrent(sessionEpoch, generation)) {
+				if (!this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision)) {
 					throw new Error('Support conversation changed');
 				}
 			}
@@ -439,9 +471,13 @@ export class SupportThreadContext {
 			if (!threadId) {
 				threadId = await this.ensureThread(client);
 				threadCreated = true;
-				if (!this.isSendOperationCurrent(sessionEpoch, generation)) {
+				if (!this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision)) {
 					throw new Error('Support conversation changed');
 				}
+			}
+
+			if (!this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision)) {
+				throw new Error('Support conversation changed');
 			}
 
 			if (!this.threadId) {
@@ -450,7 +486,7 @@ export class SupportThreadContext {
 				this.currentView = 'chat';
 			}
 
-			if (!this.isSendOperationCurrent(sessionEpoch, generation)) {
+			if (!this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision)) {
 				throw new Error('Support conversation changed');
 			}
 
@@ -466,6 +502,9 @@ export class SupportThreadContext {
 			// Send message with optimistic update
 			// Note: File dimensions are now stored in fileMetadata table at upload time,
 			// so we no longer need to pass fileDimensions here
+			if (!this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision)) {
+				throw new Error('Support conversation changed');
+			}
 			await client.mutation(
 				api.support.messages.sendMessage,
 				{
@@ -600,6 +639,7 @@ export class SupportThreadContext {
 		// Set thread ID and switch to chat view
 		// Full thread details (agentName, isHandedOff, etc.) will be loaded
 		// reactively by the chat component's query
+		if (threadId !== this.threadId) this.navigationRevision++;
 		this.threadId = threadId;
 		this.currentView = 'chat';
 		this.isNewConversation = false;
@@ -637,6 +677,7 @@ export class SupportThreadContext {
 	 * State is cleared when entering a new thread/compose via setThread().
 	 */
 	goBack() {
+		this.navigationRevision++;
 		this.currentView = 'overview';
 		this.onThreadChange?.(null);
 	}

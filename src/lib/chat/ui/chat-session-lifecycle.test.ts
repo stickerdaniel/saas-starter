@@ -6,7 +6,7 @@ import { getFunctionName } from 'convex/server';
 import { api } from '$lib/convex/_generated/api';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
-import type { Attachment } from '../core/types.js';
+import { CHAT_PAGE_SIZE, type Attachment } from '../core/types.js';
 import type { ChatCore } from '../core/chat-core.svelte.ts';
 import { ChatUIContext } from './chat-context.svelte.ts';
 import { SupportThreadContext } from '$lib/components/customer-support/support-thread-context.svelte.ts';
@@ -64,9 +64,20 @@ const generationTwoAttachment: Attachment = {
 	uploadState: { status: 'success', progress: 100, fileId: 'generation-two-file-id' }
 };
 
+const sharedFileAttachment: Attachment = {
+	type: 'file',
+	key: 'shared-file-second-key',
+	name: 'shared-copy.txt',
+	size: 24,
+	mimeType: 'text/plain',
+	url: 'https://chat.test/shared-copy.txt',
+	uploadState: { status: 'success', progress: 100, fileId: 'old-file-id' }
+};
+
 let component: ReturnType<typeof mount> | undefined;
 let client: ConvexClient;
 const contexts: ChatUIContext[] = [];
+const originalElementAnimate = Element.prototype.animate;
 
 function storedAttachment(attachment: Extract<Attachment, { type: 'file' | 'screenshot' }>) {
 	return {
@@ -88,6 +99,12 @@ function typeInto(input: HTMLTextAreaElement, value: string): void {
 
 function sendButton(): HTMLButtonElement {
 	return document.querySelector<HTMLButtonElement>(`button[aria-label="${en.chat.aria.send}"]`)!;
+}
+
+async function settleComponentWork(): Promise<void> {
+	await Promise.resolve();
+	await tick();
+	await Promise.resolve();
 }
 
 function mockUnsubscribe() {
@@ -124,8 +141,39 @@ async function mountChatbar(thread: SupportThreadContext): Promise<HTMLTextAreaE
 	return document.querySelector('textarea')!;
 }
 
+const navigationBoundaries = [
+	{
+		name: 'goBack',
+		navigate: (thread: SupportThreadContext) => thread.goBack(),
+		selectedThreadId: null,
+		view: 'overview' as const
+	},
+	{
+		name: 'selectThread',
+		navigate: (thread: SupportThreadContext) => thread.selectThread('thread-b'),
+		selectedThreadId: 'thread-b',
+		view: 'chat' as const
+	},
+	{
+		name: 'selectThreadFromUrl',
+		navigate: (thread: SupportThreadContext) => thread.selectThreadFromUrl('thread-b'),
+		selectedThreadId: 'thread-b',
+		view: 'chat' as const
+	}
+];
+
 beforeEach(() => {
 	localStorage.clear();
+	Object.defineProperty(Element.prototype, 'animate', {
+		configurable: true,
+		value: vi.fn(() => ({
+			cancel: vi.fn(),
+			currentTime: 0,
+			effect: null,
+			onfinish: null,
+			playState: 'finished'
+		}))
+	});
 	client = new ConvexClient('https://chat-test.convex.cloud', { disabled: true });
 	delete keyedAdminThreadLifecycle.setThreadId;
 	delete capturedAttachments.props;
@@ -134,12 +182,20 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-	if (component) await unmount(component);
-	component = undefined;
-	for (const context of contexts.splice(0)) context.dispose();
-	await client.close();
-	localStorage.clear();
-	vi.restoreAllMocks();
+	try {
+		if (component) await unmount(component);
+		component = undefined;
+		for (const context of contexts.splice(0)) context.dispose();
+		await client.close();
+		localStorage.clear();
+		vi.restoreAllMocks();
+	} finally {
+		Object.defineProperty(Element.prototype, 'animate', {
+			configurable: true,
+			value: originalElementAnimate
+		});
+		vi.useRealTimers();
+	}
 });
 
 describe('chat session lifecycle', () => {
@@ -353,6 +409,225 @@ describe('chat session lifecycle', () => {
 		expect(thread.rateLimitedUntil).toBeNull();
 	});
 
+	it('does not retry a rejected eager send into a thread selected after going back', async () => {
+		const thread = new SupportThreadContext();
+		const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+			generateUploadUrl: api.support.files.generateUploadUrl,
+			saveUploadedFile: api.support.files.saveUploadedFile,
+			attachmentStore: new ChatAttachmentStore('support')
+		});
+		const creation = Promise.withResolvers<{
+			threadId: string;
+			notificationEmail: null;
+		}>();
+		const creationError = new Error('Original eager creation rejected');
+		const mutation = vi.spyOn(client, 'mutation').mockImplementation((reference) => {
+			const name = getFunctionName(reference);
+			if (name === 'support/threads:getOrCreateWarmThread') return creation.promise;
+			if (name === 'support/messages:sendMessage') return Promise.resolve({});
+			return Promise.resolve({});
+		});
+		thread.setClient(client);
+		thread.startNewThread();
+		await mountSupport(thread, context);
+		await vi.waitFor(() => expect(mutation).toHaveBeenCalledTimes(1));
+		context.addAttachments([oldAttachment, sharedFileAttachment]);
+
+		const result = thread.sendMessage(client, ' old prompt ', {
+			fileIds: context.uploadedFileIds,
+			attachments: [...context.attachments]
+		});
+		expect(thread.isSending).toBe(true);
+		thread.goBack();
+		thread.selectThread('thread-b');
+		expect(thread.isSending).toBe(false);
+
+		creation.reject(creationError);
+		await expect(result).rejects.toBe(creationError);
+		await tick();
+
+		expect(thread.isSending).toBe(false);
+		expect(thread.threadId).toBe('thread-b');
+		expect(context.captureSendSnapshot().origin).toEqual({
+			generation: thread.threadGeneration,
+			threadId: 'thread-b'
+		});
+		expect(context.displayMessages).toEqual([]);
+		expect(mutation).toHaveBeenCalledTimes(1);
+		const [reference, args] = mutation.mock.calls[0]!;
+		expect(getFunctionName(reference)).toBe('support/threads:getOrCreateWarmThread');
+		expect(args).toEqual({
+			anonymousUserId: undefined,
+			pageUrl: window.location.href
+		});
+	});
+
+	it.each(
+		navigationBoundaries.flatMap((boundary) =>
+			(['fulfilled', 'rejected'] as const).map((outcome) => ({ ...boundary, outcome }))
+		)
+	)(
+		'a $outcome eager creation after $name neither binds nor dispatches',
+		async ({ navigate, selectedThreadId, view, outcome }) => {
+			const thread = new SupportThreadContext();
+			const context = new ChatUIContext(thread as unknown as ChatCore, client);
+			const creation = Promise.withResolvers<{
+				threadId: string;
+				notificationEmail: null;
+			}>();
+			const creationError = new Error('Retained creation error');
+			const mutation = vi.spyOn(client, 'mutation').mockImplementation((reference) => {
+				if (getFunctionName(reference) === 'support/threads:getOrCreateWarmThread') {
+					return creation.promise;
+				}
+				throw new Error('A stale send must not dispatch');
+			});
+			thread.setClient(client);
+			thread.startNewThread();
+			await mountSupport(thread, context);
+			const result = thread.sendMessage(client, 'stale prompt');
+			await vi.waitFor(() => expect(mutation).toHaveBeenCalledTimes(1));
+
+			navigate(thread);
+			if (outcome === 'fulfilled') {
+				creation.resolve({ threadId: 'stale-created-thread', notificationEmail: null });
+				await expect(result).rejects.toThrow('Support conversation changed');
+			} else {
+				creation.reject(creationError);
+				await expect(result).rejects.toBe(creationError);
+			}
+
+			expect(mutation).toHaveBeenCalledTimes(1);
+			expect(thread.threadId).toBe(selectedThreadId);
+			expect(context.captureSendSnapshot().origin).toEqual({
+				generation: thread.threadGeneration,
+				threadId: selectedThreadId
+			});
+			expect(thread.currentView).toBe(view);
+			expect(thread.isSending).toBe(false);
+		}
+	);
+
+	it('uses a same-navigation eager creation with exact attachment order and optimistic payload', async () => {
+		const thread = new SupportThreadContext();
+		const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+			generateUploadUrl: api.support.files.generateUploadUrl,
+			saveUploadedFile: api.support.files.saveUploadedFile,
+			attachmentStore: new ChatAttachmentStore('support')
+		});
+		contexts.push(context);
+		const creation = Promise.withResolvers<{
+			threadId: string;
+			notificationEmail: null;
+		}>();
+		const mutation = vi.spyOn(client, 'mutation').mockImplementation((reference) => {
+			if (getFunctionName(reference) === 'support/threads:getOrCreateWarmThread') {
+				return creation.promise;
+			}
+			return Promise.resolve({});
+		});
+		thread.setClient(client);
+		thread.startNewThread();
+		context.addAttachments([oldAttachment, sharedFileAttachment, generationTwoAttachment]);
+		const attachments = [...context.attachments];
+		const result = thread.sendMessage(client, ' ordered prompt ', {
+			fileIds: context.uploadedFileIds,
+			attachments
+		});
+
+		creation.resolve({ threadId: 'same-navigation-thread', notificationEmail: null });
+		await expect(result).resolves.toEqual({
+			threadId: 'same-navigation-thread',
+			threadCreated: false
+		});
+		expect(context.captureSendSnapshot().origin).toEqual({
+			generation: thread.threadGeneration,
+			threadId: 'same-navigation-thread'
+		});
+		expect(mutation).toHaveBeenCalledTimes(2);
+		const [warmReference, warmArgs] = mutation.mock.calls[0]!;
+		expect(getFunctionName(warmReference)).toBe('support/threads:getOrCreateWarmThread');
+		expect(warmArgs).toEqual({
+			anonymousUserId: undefined,
+			pageUrl: window.location.href
+		});
+		const [messageReference, messageArgs, options] = mutation.mock.calls[1]!;
+		expect(getFunctionName(messageReference)).toBe('support/messages:sendMessage');
+		expect(messageArgs).toEqual({
+			threadId: 'same-navigation-thread',
+			prompt: 'ordered prompt',
+			anonymousUserId: undefined,
+			fileIds: ['old-file-id', 'old-file-id', 'generation-two-file-id']
+		});
+
+		const current = { page: [], isDone: true, continueCursor: '' };
+		const store = {
+			getQuery: vi.fn().mockReturnValue(current),
+			setQuery: vi.fn()
+		};
+		expect(options?.optimisticUpdate).toBeTypeOf('function');
+		(options!.optimisticUpdate as (store: unknown) => void)(store);
+		expect(store.getQuery).toHaveBeenCalledWith(expect.anything(), {
+			threadId: 'same-navigation-thread',
+			paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
+			streamArgs: { kind: 'list', startOrder: 0 }
+		});
+		expect(getFunctionName(store.getQuery.mock.calls[0]![0])).toBe('support/messages:listMessages');
+		expect(store.setQuery).toHaveBeenCalledTimes(1);
+		const [listReference, listArgs, optimisticResult] = store.setQuery.mock.calls[0]!;
+		expect(getFunctionName(listReference)).toBe('support/messages:listMessages');
+		expect(listArgs).toEqual(store.getQuery.mock.calls[0]![1]);
+		expect(optimisticResult).toEqual({
+			...current,
+			page: [
+				expect.objectContaining({
+					threadId: 'same-navigation-thread',
+					role: 'user',
+					message: { role: 'user', content: 'ordered prompt' },
+					text: 'ordered prompt',
+					status: 'success',
+					order: 0,
+					metadata: { optimistic: true },
+					localAttachments: attachments
+				})
+			]
+		});
+	});
+
+	it('retries a rejected eager creation when the conversation has not navigated', async () => {
+		const thread = new SupportThreadContext();
+		const firstCreation = Promise.withResolvers<{
+			threadId: string;
+			notificationEmail: null;
+		}>();
+		let warmCalls = 0;
+		const mutation = vi.spyOn(client, 'mutation').mockImplementation((reference) => {
+			const name = getFunctionName(reference);
+			if (name === 'support/threads:getOrCreateWarmThread') {
+				warmCalls++;
+				return warmCalls === 1
+					? firstCreation.promise
+					: Promise.resolve({ threadId: 'retry-thread', notificationEmail: null });
+			}
+			if (name === 'support/messages:sendMessage') return Promise.resolve({});
+			return Promise.resolve({});
+		});
+		thread.setClient(client);
+		thread.startNewThread();
+		const result = thread.sendMessage(client, 'retry prompt');
+		const firstError = new Error('First eager creation rejected');
+		firstCreation.reject(firstError);
+
+		await expect(result).resolves.toEqual({ threadId: 'retry-thread', threadCreated: true });
+		expect(mutation.mock.calls.map(([reference]) => getFunctionName(reference))).toEqual([
+			'support/threads:getOrCreateWarmThread',
+			'support/threads:getOrCreateWarmThread',
+			'support/messages:sendMessage'
+		]);
+		expect(thread.threadId).toBe('retry-thread');
+		expect(thread.isSending).toBe(false);
+	});
+
 	it.each([
 		{ boundary: 'generation' as const, outcome: 'success' as const },
 		{ boundary: 'generation' as const, outcome: 'rejection' as const },
@@ -394,6 +669,42 @@ describe('chat session lifecycle', () => {
 			expect(thread.isSending).toBe(false);
 		}
 	);
+
+	it('does not roll a successful dispatched send back into a later selected thread', async () => {
+		const thread = new SupportThreadContext();
+		thread.selectThread('thread-a');
+		const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+			generateUploadUrl: api.support.files.generateUploadUrl,
+			saveUploadedFile: api.support.files.saveUploadedFile,
+			attachmentStore: new ChatAttachmentStore('support')
+		});
+		const message = Promise.withResolvers<Record<string, never>>();
+		const mutation = vi.spyOn(client, 'mutation').mockImplementation((reference) => {
+			if (getFunctionName(reference) === 'support/messages:sendMessage') return message.promise;
+			return Promise.resolve({});
+		});
+		await mountSupport(thread, context);
+		const input = document.querySelector('textarea')!;
+		typeInto(input, 'send from A');
+		context.addAttachments([oldAttachment]);
+		await tick();
+		sendButton().click();
+		await vi.waitFor(() => expect(mutation).toHaveBeenCalledTimes(1));
+
+		thread.selectThread('thread-b');
+		await tick();
+		typeInto(input, 'keep in B');
+		context.addAttachments([generationTwoAttachment]);
+		await tick();
+		message.resolve({});
+		await tick();
+
+		expect(thread.threadId).toBe('thread-b');
+		expect(input.value).toBe('keep in B');
+		expect(
+			context.attachments.map((attachment) => ('key' in attachment ? attachment.key : ''))
+		).toEqual(['generation-two-file']);
+	});
 
 	it('later support text cleared before assignment is not rolled back', async () => {
 		const thread = new SupportThreadContext();
@@ -463,6 +774,135 @@ describe('AI chatbar session lifecycle', () => {
 			await vi.waitFor(() => expect(mutation).toHaveBeenCalledTimes(2));
 		}
 	);
+
+	it('retires a replaced warm subscription without its old timer touching the replacement', async () => {
+		vi.useFakeTimers();
+		const firstUnsubscribe = mockUnsubscribe();
+		const secondUnsubscribe = mockUnsubscribe();
+		const onUpdate = vi
+			.spyOn(client, 'onUpdate')
+			.mockReturnValueOnce(firstUnsubscribe)
+			.mockReturnValueOnce(secondUnsubscribe);
+		const message = Promise.withResolvers<Record<string, never>>();
+		let warmThread = 0;
+		const mutation = vi.spyOn(client, 'mutation').mockImplementation((reference) => {
+			const name = getFunctionName(reference);
+			if (name === 'support/threads:getOrCreateWarmThread') {
+				warmThread++;
+				return Promise.resolve({ threadId: `warm-thread-${warmThread}`, notificationEmail: null });
+			}
+			if (name === 'support/messages:sendMessage') return message.promise;
+			return Promise.resolve({});
+		});
+		const input = await mountChatbar(new SupportThreadContext());
+		typeInto(input, 'first prompt');
+		await settleComponentWork();
+		expect(onUpdate).toHaveBeenCalledTimes(1);
+		sendButton().click();
+		await settleComponentWork();
+		await settleComponentWork();
+		expect(mutation.mock.calls.map(([reference]) => getFunctionName(reference))).toEqual([
+			'support/threads:getOrCreateWarmThread',
+			'support/messages:sendMessage'
+		]);
+		message.resolve({});
+		await settleComponentWork();
+		await settleComponentWork();
+
+		await vi.advanceTimersByTimeAsync(250);
+		typeInto(input, 'second prompt');
+		await settleComponentWork();
+		expect(onUpdate).toHaveBeenCalledTimes(2);
+		expect(firstUnsubscribe).toHaveBeenCalledTimes(1);
+		expect(secondUnsubscribe).not.toHaveBeenCalled();
+
+		await vi.advanceTimersByTimeAsync(250);
+		expect(firstUnsubscribe).toHaveBeenCalledTimes(1);
+		expect(secondUnsubscribe).not.toHaveBeenCalled();
+
+		clearPersistedChatState();
+		expect(firstUnsubscribe).toHaveBeenCalledTimes(1);
+		expect(secondUnsubscribe).toHaveBeenCalledTimes(1);
+	});
+
+	it('releases an unreplaced warm subscription once after the grace period', async () => {
+		vi.useFakeTimers();
+		const unsubscribe = mockUnsubscribe();
+		const onUpdate = vi.spyOn(client, 'onUpdate').mockReturnValue(unsubscribe);
+		const message = Promise.withResolvers<Record<string, never>>();
+		const mutation = vi.spyOn(client, 'mutation').mockImplementation((reference) => {
+			const name = getFunctionName(reference);
+			if (name === 'support/threads:getOrCreateWarmThread') {
+				return Promise.resolve({ threadId: 'ordinary-warm-thread', notificationEmail: null });
+			}
+			if (name === 'support/messages:sendMessage') return message.promise;
+			return Promise.resolve({});
+		});
+		const input = await mountChatbar(new SupportThreadContext());
+		typeInto(input, 'ordinary prompt');
+		await settleComponentWork();
+		expect(onUpdate).toHaveBeenCalledTimes(1);
+		sendButton().click();
+		await settleComponentWork();
+		await settleComponentWork();
+		expect(mutation).toHaveBeenCalledTimes(2);
+		message.resolve({});
+		await settleComponentWork();
+		await settleComponentWork();
+
+		await vi.advanceTimersByTimeAsync(499);
+		expect(unsubscribe).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(unsubscribe).toHaveBeenCalledTimes(1);
+
+		clearPersistedChatState();
+		await unmount(component!);
+		component = undefined;
+		expect(unsubscribe).toHaveBeenCalledTimes(1);
+	});
+
+	it('releases the current replacement on unmount without repeating the retired owner', async () => {
+		vi.useFakeTimers();
+		const firstUnsubscribe = mockUnsubscribe();
+		const secondUnsubscribe = mockUnsubscribe();
+		const onUpdate = vi
+			.spyOn(client, 'onUpdate')
+			.mockReturnValueOnce(firstUnsubscribe)
+			.mockReturnValueOnce(secondUnsubscribe);
+		const message = Promise.withResolvers<Record<string, never>>();
+		let warmThread = 0;
+		const mutation = vi.spyOn(client, 'mutation').mockImplementation((reference) => {
+			const name = getFunctionName(reference);
+			if (name === 'support/threads:getOrCreateWarmThread') {
+				warmThread++;
+				return Promise.resolve({ threadId: `unmount-warm-${warmThread}`, notificationEmail: null });
+			}
+			if (name === 'support/messages:sendMessage') return message.promise;
+			return Promise.resolve({});
+		});
+		const input = await mountChatbar(new SupportThreadContext());
+		typeInto(input, 'first prompt');
+		await settleComponentWork();
+		expect(onUpdate).toHaveBeenCalledTimes(1);
+		sendButton().click();
+		await settleComponentWork();
+		await settleComponentWork();
+		expect(mutation).toHaveBeenCalledTimes(2);
+		message.resolve({});
+		await settleComponentWork();
+		await settleComponentWork();
+		typeInto(input, 'replacement prompt');
+		await settleComponentWork();
+		expect(onUpdate).toHaveBeenCalledTimes(2);
+
+		await unmount(component!);
+		component = undefined;
+		expect(firstUnsubscribe).toHaveBeenCalledTimes(1);
+		expect(secondUnsubscribe).toHaveBeenCalledTimes(1);
+		await vi.advanceTimersByTimeAsync(500);
+		expect(firstUnsubscribe).toHaveBeenCalledTimes(1);
+		expect(secondUnsubscribe).toHaveBeenCalledTimes(1);
+	});
 
 	it('releases a prewarmed subscription when the session ends', async () => {
 		const thread = new SupportThreadContext();
