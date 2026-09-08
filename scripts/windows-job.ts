@@ -12,6 +12,7 @@ export interface ChildCommand {
 export interface WindowsJobCommandOptions {
 	platform?: NodeJS.Platform;
 	lifetime?: WindowsJobLifetime;
+	inheritEnvironment?: boolean;
 }
 
 export interface WindowsJobLifetimeOptions {
@@ -108,9 +109,12 @@ export async function openWindowsJobLifetime(
 	};
 }
 
-function environmentEntries(overrides: NodeJS.ProcessEnv | undefined): string[] {
+function environmentEntries(
+	overrides: NodeJS.ProcessEnv | undefined,
+	inheritEnvironment: boolean
+): string[] {
 	const entries = new Map<string, { name: string; value: string }>();
-	for (const environment of [process.env, overrides]) {
+	for (const environment of inheritEnvironment ? [process.env, overrides] : [overrides]) {
 		for (const [name, value] of Object.entries(environment ?? {})) {
 			const key = name.toUpperCase();
 			if (value === undefined) entries.delete(key);
@@ -130,7 +134,7 @@ export function windowsJobCommand(
 		JSON.stringify({
 			command: command.command,
 			args: command.args,
-			environment: environmentEntries(command.env)
+			environment: environmentEntries(command.env, options.inheritEnvironment ?? true)
 		}),
 		'utf8'
 	).toString('base64');
