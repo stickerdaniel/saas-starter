@@ -53,6 +53,7 @@ function executableNames(platform: NodeJS.Platform): string[] {
 
 export async function resolveBunExecutable(
 	environment: NodeJS.ProcessEnv = process.env,
+	cwd: string = process.cwd(),
 	platform: NodeJS.Platform = process.platform,
 	currentBun: string | null = process.versions.bun ? process.execPath : null
 ): Promise<string> {
@@ -61,8 +62,9 @@ export async function resolveBunExecutable(
 	if (!searchPath) throw new Error('Bun was not found because PATH is unavailable.');
 	for (const directory of searchPath.split(path.delimiter)) {
 		if (!directory) continue;
+		const absoluteDirectory = path.resolve(cwd, directory);
 		for (const name of executableNames(platform)) {
-			const candidate = path.join(directory, name);
+			const candidate = path.join(absoluteDirectory, name);
 			try {
 				await access(candidate, platform === 'win32' ? constants.F_OK : constants.X_OK);
 				return candidate;
@@ -75,11 +77,19 @@ export async function resolveBunExecutable(
 }
 
 export function filteredEnvironment(
-	environment: NodeJS.ProcessEnv = process.env
+	environment: NodeJS.ProcessEnv = process.env,
+	cwd: string = process.cwd()
 ): NodeJS.ProcessEnv {
 	const result: NodeJS.ProcessEnv = {};
 	for (const [name, value] of Object.entries(environment)) {
-		if (value !== undefined && ENVIRONMENT_ALLOWLIST.has(name.toUpperCase())) result[name] = value;
+		if (value === undefined || !ENVIRONMENT_ALLOWLIST.has(name.toUpperCase())) continue;
+		result[name] =
+			name.toUpperCase() === 'PATH'
+				? value
+						.split(path.delimiter)
+						.map((directory) => path.resolve(cwd, directory || '.'))
+						.join(path.delimiter)
+				: value;
 	}
 	result.HUSKY = '0';
 	return result;
@@ -210,10 +220,11 @@ export function assertSupportedBunVersion(value: string): void {
 
 export async function verifyBun(
 	signal: AbortSignal,
-	environment: NodeJS.ProcessEnv = process.env
+	environment: NodeJS.ProcessEnv = process.env,
+	cwd: string = process.cwd()
 ): Promise<{ executable: string; environment: NodeJS.ProcessEnv }> {
-	const executable = await resolveBunExecutable(environment);
-	const filtered = filteredEnvironment(environment);
+	const executable = await resolveBunExecutable(environment, cwd);
+	const filtered = filteredEnvironment(environment, cwd);
 	const result = await runProcess(
 		{ command: executable, args: ['--version'], env: filtered },
 		{ env: filtered, signal, capture: true }

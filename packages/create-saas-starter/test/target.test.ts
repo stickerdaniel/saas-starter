@@ -28,6 +28,10 @@ function marker() {
 	return initialMarker({ ref: 'main', sha: 'a'.repeat(40), archiveSha256: 'b'.repeat(64) });
 }
 
+function activeSignal(): AbortSignal {
+	return new AbortController().signal;
+}
+
 describe('target ownership', () => {
 	it.each(['file', 'empty directory', 'dangling symlink'])(
 		'rejects an existing %s without changing it',
@@ -52,6 +56,11 @@ describe('target ownership', () => {
 		await expect(inspectTarget(path.parse(parent).root, parent)).rejects.toThrow('filesystem root');
 		await expect(inspectTarget('missing/project', parent)).rejects.toThrow('parent does not exist');
 		await expect(inspectTarget('CON', parent)).rejects.toThrow('not portable');
+		await expect(inspectTarget('COM¹.txt', parent)).rejects.toThrow('not portable');
+		await expect(inspectTarget('LPT³', parent)).rejects.toThrow('not portable');
+		if (process.platform !== 'win32') {
+			await expect(inspectTarget(String.raw`bad\name`, parent)).rejects.toThrow('not portable');
+		}
 	});
 
 	it.runIf(process.platform !== 'win32')('rejects an unwritable target parent', async () => {
@@ -64,14 +73,28 @@ describe('target ownership', () => {
 		}
 	});
 
+	it('does not claim a target after an earlier abort', async () => {
+		const parent = await temporaryParent('create-saas-starter-pre-claim-abort-');
+		const plan = await inspectTarget('project', parent);
+		const controller = new AbortController();
+		controller.abort(new Error('abort before claim'));
+
+		await expect(claimTarget(plan, marker(), controller.signal)).rejects.toThrow(
+			'abort before claim'
+		);
+		await expect(lstat(plan.path)).rejects.toMatchObject({ code: 'ENOENT' });
+	});
+
 	it('claims the target exclusively and keeps a concurrently claimed target', async () => {
 		const parent = await temporaryParent('create-saas-starter-race-');
 		const first = await inspectTarget('project', parent);
 		const second = await inspectTarget('project', parent);
-		await claimTarget(first, marker());
+		await claimTarget(first, marker(), activeSignal());
 		await writeFile(path.join(first.path, 'sentinel'), 'preserve');
 
-		await expect(claimTarget(second, marker())).rejects.toMatchObject({ code: 'EEXIST' });
+		await expect(claimTarget(second, marker(), activeSignal())).rejects.toMatchObject({
+			code: 'EEXIST'
+		});
 		expect(await readFile(path.join(first.path, 'sentinel'), 'utf8')).toBe('preserve');
 	});
 
@@ -79,7 +102,7 @@ describe('target ownership', () => {
 		const parent = await temporaryParent('create-saas-starter-marker-');
 		const plan = await inspectTarget('project', parent);
 		let current = marker();
-		await claimTarget(plan, current);
+		await claimTarget(plan, current, activeSignal());
 		const archive: ValidatedArchive = {
 			sha256: 'b'.repeat(64),
 			files: [
@@ -87,7 +110,7 @@ describe('target ownership', () => {
 				{ path: 'nested/file.txt', type: 'file', data: Buffer.from('content'), mode: 0o644 }
 			]
 		};
-		await writeArchive(plan.path, archive);
+		await writeArchive(plan.path, archive, activeSignal());
 		expect(await readFile(path.join(plan.path, 'nested/file.txt'), 'utf8')).toBe('content');
 
 		current = await updateMarker(plan.path, current, 'incomplete', 'install');
@@ -106,17 +129,51 @@ describe('target ownership', () => {
 		);
 	});
 
+	it('stops deterministically at an abort boundary and preserves completed writes', async () => {
+		const parent = await temporaryParent('create-saas-starter-write-abort-');
+		const plan = await inspectTarget('project', parent);
+		await claimTarget(plan, marker(), activeSignal());
+		const archive: ValidatedArchive = {
+			sha256: 'b'.repeat(64),
+			files: [
+				{ path: 'first.txt', type: 'file', data: Buffer.from('first'), mode: 0o644 },
+				{ path: 'second.txt', type: 'file', data: Buffer.from('second'), mode: 0o644 }
+			]
+		};
+		const controller = new AbortController();
+		let checks = 0;
+		const signal = {
+			get aborted() {
+				checks += 1;
+				if (checks === 4) controller.abort(new Error('abort between files'));
+				return controller.signal.aborted;
+			},
+			get reason() {
+				return controller.signal.reason;
+			}
+		} as AbortSignal;
+
+		await expect(writeArchive(plan.path, archive, signal)).rejects.toThrow('abort between files');
+		expect(await readFile(path.join(plan.path, 'first.txt'), 'utf8')).toBe('first');
+		await expect(readFile(path.join(plan.path, 'second.txt'))).rejects.toMatchObject({
+			code: 'ENOENT'
+		});
+		expect(await lstat(plan.path)).toBeDefined();
+	});
+
 	it('preserves files created before a later write failure', async () => {
 		const parent = await temporaryParent('create-saas-starter-preserve-');
 		const plan = await inspectTarget('project', parent);
-		await claimTarget(plan, marker());
+		await claimTarget(plan, marker(), activeSignal());
 		await writeFile(path.join(plan.path, 'foreign.txt'), 'foreign');
 		const archive: ValidatedArchive = {
 			sha256: 'b'.repeat(64),
 			files: [{ path: 'foreign.txt', type: 'file', data: Buffer.from('creator'), mode: 0o644 }]
 		};
 
-		await expect(writeArchive(plan.path, archive)).rejects.toMatchObject({ code: 'EEXIST' });
+		await expect(writeArchive(plan.path, archive, activeSignal())).rejects.toMatchObject({
+			code: 'EEXIST'
+		});
 		expect(await readFile(path.join(plan.path, 'foreign.txt'), 'utf8')).toBe('foreign');
 	});
 });

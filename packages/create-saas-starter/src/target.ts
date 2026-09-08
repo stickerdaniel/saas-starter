@@ -13,7 +13,7 @@ import {
 } from 'node:fs/promises';
 import path from 'node:path';
 import { archivePathForTarget, SCAFFOLD_MARKER, type ValidatedArchive } from './archive.js';
-import { CLI_VERSION } from './options.js';
+import { CLI_VERSION, isReservedWindowsDeviceName } from './options.js';
 
 export type ScaffoldState = 'incomplete' | 'ready' | 'needs-install';
 export type ScaffoldPhase = 'files' | 'setup' | 'install' | 'complete';
@@ -66,9 +66,10 @@ function validateTargetBasename(value: string): void {
 		value === '.' ||
 		value === '..' ||
 		hasControlCharacter(value) ||
+		value.includes('\\') ||
 		/[<>:"|?*]/.test(value) ||
 		/[. ]$/.test(value) ||
-		/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(value) ||
+		isReservedWindowsDeviceName(value) ||
 		Buffer.byteLength(value, 'utf8') > 255 ||
 		value.length > 255
 	) {
@@ -118,16 +119,33 @@ async function writeExclusive(file: string, data: Buffer | string, mode: number)
 	await chmod(file, mode);
 }
 
-export async function claimTarget(plan: TargetPlan, marker: ScaffoldMarker): Promise<void> {
+export async function claimTarget(
+	plan: TargetPlan,
+	marker: ScaffoldMarker,
+	signal: AbortSignal
+): Promise<void> {
+	throwIfAborted(signal);
 	await mkdir(plan.path, { mode: 0o755 });
 	try {
+		throwIfAborted(signal);
 		await writeExclusive(markerPath(plan.path), `${JSON.stringify(marker, null, 2)}\n`, 0o600);
+		throwIfAborted(signal);
 	} catch (error) {
 		throw new TargetClaimError(plan.path, error);
 	}
 }
 
-export async function writeArchive(target: string, archive: ValidatedArchive): Promise<void> {
+export function throwIfAborted(signal: AbortSignal): void {
+	if (!signal.aborted) return;
+	throw signal.reason instanceof Error ? signal.reason : new Error('Scaffold write aborted.');
+}
+
+export async function writeArchive(
+	target: string,
+	archive: ValidatedArchive,
+	signal: AbortSignal
+): Promise<void> {
+	throwIfAborted(signal);
 	const directories = new Set<string>(['']);
 	for (const entry of archive.files) {
 		const segments = entry.path.split('/');
@@ -138,15 +156,19 @@ export async function writeArchive(target: string, archive: ValidatedArchive): P
 		const depth = a.split('/').length - b.split('/').length;
 		return depth || a.localeCompare(b);
 	})) {
+		throwIfAborted(signal);
 		await mkdir(archivePathForTarget(target, directory), { mode: 0o755 });
+		throwIfAborted(signal);
 	}
 	for (const entry of archive.files) {
 		if (entry.type === 'directory') continue;
+		throwIfAborted(signal);
 		await writeExclusive(
 			archivePathForTarget(target, entry.path),
 			entry.data ?? Buffer.alloc(0),
 			entry.mode
 		);
+		throwIfAborted(signal);
 	}
 }
 
