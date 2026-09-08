@@ -18,8 +18,9 @@
  *   --ci         Assert mode: uses --check for formatting, omits --fix for ESLint.
  *                Requires misspell to be installed (fails if missing).
  *   --staged     Assert-only staged-file gate; skips knip. Run fix mode before staging and retrying.
- *   --scope      Run a subset of checks: "lint" (misspell, literal controls, banned patterns, prettier,
- *                eslint, oxlint, knip), "types" (build-emails, svelte-check), assert-only "format"
+ *   --scope      Run a subset of checks: "lint" (misspell, literal controls, English prose,
+ *                banned patterns, prettier, eslint, oxlint, knip), "types" (build-emails,
+ *                svelte-check), assert-only "format"
  *                (prettier), or full-project-only "compat" (Convex consumer compatibility).
  *                Lint and types run svelte-kit sync first.
  *                Omit to run lint and types.
@@ -51,6 +52,13 @@ import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
 import knowledgePolicy from '../knowledge-policy.config';
 import { findLiteralControlCharacters } from '../eslint/control-character-policy.js';
+import {
+	checkEnglishText,
+	formatEnglishFinding,
+	isEnglishPolicyFile,
+	isJavaScriptSourceFile,
+	type EnglishFinding
+} from './english-policy/content';
 import {
 	activeGitIndexFingerprint,
 	getStagedChanges,
@@ -541,11 +549,15 @@ export function isIgnoredPath(file: string): boolean {
  * route does, through filesFor().
  */
 export const ROUTES = {
-	misspell: (f: string) => !CONFIG.misspell.ignore.some((i) => f.includes(i)),
+	misspell: (f: string) =>
+		f !== 'scripts/english-policy/pr-metadata.bundle.mjs' &&
+		!CONFIG.misspell.ignore.some((i) => f.includes(i)),
 	'banned-patterns': (f: string) => /\.(svelte|ts)$/.test(f) && f.startsWith('src/'),
 	'literal-control-char': (f: string) => /\.(md|txt)$/.test(f) && !f.startsWith('scratch/'),
+	'english-prose': isEnglishPolicyFile,
 	'knowledge-placement': (f: string) => matchesKnowledgeCandidate(knowledgePolicy, f),
-	eslint: (f: string) => /\.(js|ts|svelte)$/.test(f),
+	eslint: (f: string) =>
+		f !== 'scripts/english-policy/pr-metadata.bundle.mjs' && isJavaScriptSourceFile(f),
 	// The old gate was `jsTsSvelteFiles.length === 0 && svelteFiles.length === 0`;
 	// svelteFiles is a subset of jsTsSvelteFiles, so the second clause was dead.
 	'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f),
@@ -614,12 +626,28 @@ export function spellcheckFiles(files: string[]): string[] {
 	return files.filter((file) => ROUTES.misspell(file) && !isIgnoredPath(file));
 }
 
+export function englishProseFiles(files: string[]): string[] {
+	return files.filter((file) => ROUTES['english-prose'](file) && !isIgnoredPath(file));
+}
+
+export async function englishProseFindings(
+	files: string[],
+	readText: (file: string) => Promise<string> = (file) => Bun.file(file).text()
+): Promise<EnglishFinding[]> {
+	const findings: EnglishFinding[] = [];
+	for (const file of englishProseFiles(files)) {
+		findings.push(...checkEnglishText(file, await readText(file)));
+	}
+	return findings;
+}
+
 type CheckId = keyof typeof ROUTES | 'prettier';
 const CHECK_IDS: CheckId[] = [...(Object.keys(ROUTES) as Array<keyof typeof ROUTES>), 'prettier'];
 const LINT_CHECKS: CheckId[] = [
 	'misspell',
 	'banned-patterns',
 	'literal-control-char',
+	'english-prose',
 	'knowledge-placement',
 	'prettier',
 	'eslint'
@@ -1357,6 +1385,30 @@ async function main(): Promise<void> {
 				`Scanned ${files.length} Markdown/text files — no literal control characters found`
 			);
 			ledger.ran('literal-control-char', files.length);
+		}
+		console.log('\n');
+
+		// Conservative English-language policy for authored prose. Registered target locale
+		// files are exact exemptions; arbitrary localized assertions in source stay outside
+		// the V1 source scope because only comments are inspected there. Ignored reports can
+		// be checked explicitly with `bun scripts/check-english.ts --artifact <path>` or
+		// `--stdin-label <label>`.
+		printHeader(step++, 'English prose');
+		{
+			const files = englishProseFiles(
+				scopedMode ? ledger.filesFor('english-prose') : fullExistingPaths
+			);
+			const findings = await englishProseFindings(files);
+			for (const finding of findings) {
+				console.error(
+					`${colors.red}${sanitizeTerminalField(formatEnglishFinding(finding))}${colors.reset}`
+				);
+			}
+			if (findings.length > 0) {
+				fail(`Found ${findings.length} clear non-English prose violation(s).`);
+			}
+			console.log(`Scanned ${files.length} files — no clear non-English prose found`);
+			ledger.ran('english-prose', files.length);
 		}
 		console.log('\n');
 

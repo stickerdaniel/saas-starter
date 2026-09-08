@@ -9,14 +9,14 @@
 	"dependencyDashboardOSVVulnerabilitySummary": "all",
 	"dependencyDashboardHeader": "This issue lists Renovate updates and detected dependencies. Read the [Dependency Dashboard](https://docs.renovatebot.com/key-concepts/dashboard/) docs to learn more.\n\nAn advisory listed without a pull request has no fixed release Renovate can reach, and this list carries no severity for it. Open its OSV record before ranking it against the others.",
 	"vulnerabilityAlerts": {
-		"description": "GitHub-Advisories ergänzen OSV unabhängig vom regulären Update-Zeitplan. Dafür müssen Dependabot-Alerts im Repository aktiviert sein. Der zweite Feed garantiert keine Abdeckung der OSV-Lücken: Ein Paket im Dependency Graph und ein passender Advisory-Versionsbereich reichen nicht als Nachweis, dass GitHub tatsächlich einen Alert erzeugt.",
+		"description": "GitHub advisories supplement OSV independently of the regular update schedule. Dependabot alerts must be enabled for the repository. This second feed does not guarantee coverage of OSV gaps: a package in the dependency graph and a matching advisory version range do not prove that GitHub actually creates an alert.",
 		"enabled": true,
 		"labels": ["security"],
 		"schedule": ["at any time"]
 	},
 	"packageRules": [
 		{
-			"description": "Direkte Dependencies und Overrides werden gepinnt, weil Renovates Bun-Manager die tatsächlich installierten Versionen aus bun.lock nicht ausliest. Ein Versionsbereich kann eine behobene Version erlauben, während das Lockfile noch eine verwundbare enthält. Pinning hilft nur bei im Manifest deklarierten Paketen. Ausschließlich transitive Lockfile-Einträge fehlen weiterhin. Zusätzlich können unterschiedliche purl-Schreibweisen für Scoped-Pakete den OSV-Abgleich verhindern. Der GitHub-Feed bleibt als weitere Quelle aktiv, seine Abdeckung dieser Fälle ist jedoch nicht nachgewiesen. bun audit liest das Lockfile und ergänzt die Prüfung transitiver Pakete.",
+			"description": "Direct dependencies and overrides are pinned because Renovate's Bun manager does not read the versions actually installed in bun.lock. A version range can allow a fixed release while the lockfile still contains a vulnerable one. Pinning helps only for packages declared in the manifest, so exclusively transitive lockfile entries remain absent. Different purl spellings for scoped packages can also prevent OSV matching. The GitHub feed remains active as another source, although its coverage of these cases is unproven. bun audit reads the lockfile and supplements the check for transitive packages.",
 			"matchDepTypes": ["dependencies", "overrides"],
 			"rangeStrategy": "pin"
 		},
@@ -137,7 +137,7 @@
 			"abandonmentThreshold": "10 years"
 		},
 		{
-			"description": "Pin-Updates bleiben außerhalb der regulären Upgrade-Gruppen, damit eine verzögerte Gruppenaktualisierung nicht auch das Pinning aufhält. Solange Versionsbereiche im Manifest stehen, kann der OSV-Abgleich die installierte verwundbare Version weiterhin übersehen. Die beiden Ökosystem-Gruppen erhalten eigene Pin-Branches.",
+			"description": "Pin updates stay outside the regular upgrade groups so a delayed group update does not also block pinning. While version ranges remain in the manifest, OSV matching can still miss the installed vulnerable version. The two ecosystem groups receive their own pin branches.",
 			"matchUpdateTypes": ["pin"],
 			"matchPackageNames": [
 				"!/^better-auth$/",

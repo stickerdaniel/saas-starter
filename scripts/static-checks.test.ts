@@ -25,6 +25,7 @@ import { sanitizedGitEnv } from './git-context';
 import {
 	argumentBatches,
 	authoredTextFiles,
+	englishProseFindings,
 	existingRepositoryPaths,
 	formatPathForDiagnostic,
 	isIgnoredPath,
@@ -102,6 +103,24 @@ describe('route predicates', () => {
 		expect(ROUTES['literal-control-char']('src/lib/content/llms.txt')).toBe(true);
 		expect(ROUTES['literal-control-char']('src/lib/content/privacy.ts')).toBe(false);
 		expect(ROUTES['literal-control-char']('scratch/session/log.txt')).toBe(false);
+	});
+
+	it('routes supported prose while excluding ignored reports and artifacts', async () => {
+		const foreign = 'Das Passwort muss sofort zurückgesetzt werden.';
+		const files = [
+			'docs/example.md',
+			'references/report.md',
+			'scratch/session/report.md',
+			'src/i18n/de.json'
+		];
+		const contents = new Map(files.map((file) => [file, foreign]));
+		expect(ROUTES['english-prose'](files[0]!)).toBe(true);
+		expect(ROUTES['english-prose'](files[1]!)).toBe(true);
+		expect(ROUTES['english-prose'](files[2]!)).toBe(true);
+		expect(ROUTES['english-prose'](files[3]!)).toBe(false);
+		const findings = await englishProseFindings(files, async (file) => contents.get(file) ?? '');
+		expect(findings).toHaveLength(1);
+		expect(findings).toMatchObject([{ label: 'docs/example.md', language: 'de' }]);
 	});
 
 	// The Prettier route is the one route that is not a path predicate. It used to be a
@@ -209,6 +228,32 @@ describe('route predicates', () => {
 			'src/lib/scratch/editor.md'
 		]);
 	});
+
+	it('excludes only the generated English policy bundle from authored checks', async () => {
+		const generatedBundle = 'scripts/english-policy/pr-metadata.bundle.mjs';
+		const authoredSource = 'scripts/english-policy/pr-metadata.ts';
+		const otherBundle = 'scripts/example.bundle.mjs';
+
+		expect(ROUTES.misspell(generatedBundle)).toBe(false);
+		expect(ROUTES['english-prose'](generatedBundle)).toBe(false);
+		expect(ROUTES.eslint(generatedBundle)).toBe(false);
+		expect(await prettierFormattableFiles([generatedBundle])).toEqual([]);
+		expect(spellcheckFiles([generatedBundle, authoredSource, otherBundle])).toEqual([
+			authoredSource,
+			otherBundle
+		]);
+		expect(ROUTES['english-prose'](otherBundle)).toBe(true);
+		expect(ROUTES.eslint(otherBundle)).toBe(true);
+	});
+
+	it.each(['js', 'mjs', 'cjs', 'jsx', 'ts', 'mts', 'cts', 'tsx', 'svelte'])(
+		'routes .%s source files through prose and source checks',
+		(extension) => {
+			const file = `scripts/example.${extension}`;
+			expect(ROUTES['english-prose'](file)).toBe(true);
+			expect(ROUTES.eslint(file)).toBe(true);
+		}
+	);
 
 	it('routes upstream-report TypeScript through its dedicated project', () => {
 		expect(

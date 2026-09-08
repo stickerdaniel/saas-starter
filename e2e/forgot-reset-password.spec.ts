@@ -16,10 +16,10 @@ test.use({ storageState: { cookies: [], origins: [] } });
 // e2e/upgrade-checkout-failure.spec.ts), which would serve translated copy
 // on non-English runners.
 //
-// Überall Englisch außer im Recovery-Durchlauf unten, der bewusst Deutsch
-// festlegt: das Locale-Präfix gehört zu dem, was die Kette überleben muss, und
-// auf der Standardsprache sähen verlorenes und erhaltenes Präfix gleich aus.
-// Jener Test wählt über Test-IDs, die Übersetzung kostet ihn also nichts.
+// Keep every flow in English except the recovery pass below, which deliberately
+// selects German. The locale prefix is part of what must survive the chain, and
+// a lost prefix looks the same as a preserved prefix in the default locale.
+// That test selects by test ID, so translated copy adds no selector cost.
 
 import type { TestCredentials } from './utils/types';
 
@@ -251,16 +251,16 @@ test.describe('Reset Password', () => {
 	});
 
 	/**
-	 * Cheaper layers rejected because: Hier versagt eine Kette echter Navigationen,
-	 * die keine billigere Schicht ausführt. Better Auths Redirect vom Reset-Link,
-	 * der Hook darauf und die folgende Anmeldung sind drei ausgelieferte Round
-	 * Trips, und geprüft wird die URL, auf der der Browser am Ende steht,
-	 * einschließlich Fragment: Browser-Zustand, kein Response-Body. Ein
-	 * Request-only-Spec erreicht das ebenfalls nicht, denn jeder Schritt läuft über
-	 * einen gerenderten Link, und genau ein gerenderter Link verlor das Ziel.
+	 * Cheaper layers rejected because this failure crosses a chain of real
+	 * navigations that no cheaper layer performs. Better Auth's redirect from the
+	 * reset link, the hook that handles it, and the following sign-in are three
+	 * shipped round trips. The assertion covers the final browser URL including its
+	 * fragment, which is browser state rather than a response body. A request-only
+	 * spec also cannot reach this because every step follows a rendered link, and a
+	 * rendered link was the exact place that lost the destination.
 	 *
-	 * Läuft auf dem Revocation-Setup mit, statt es zu wiederholen: Konto anlegen,
-	 * verifizieren und anmelden ist der größte Teil beider Kosten.
+	 * This shares the revocation setup instead of repeating it. Creating, verifying,
+	 * and signing in the account is most of the cost for both assertions.
 	 */
 	test('recovering a password revokes other sessions and keeps the destination', async ({
 		page,
@@ -270,9 +270,9 @@ test.describe('Reset Password', () => {
 		const siteUrl = resolveSiteUrl();
 		const bypass = getPreviewBypass();
 
-		// Tief, lokalisiert, mit Query und Fragment: das Fragment lehnt die
-		// Callback-Grammatik rundweg ab, und `tab=profile` kennt die Seite absichtlich
-		// nicht, damit jedes Neuberechnen statt Durchreichen auffällt.
+		// Deep, localized, and carrying both a query and fragment. The callback grammar
+		// rejects the fragment outright, and the page deliberately does not recognize
+		// `tab=profile`, so recomputing the destination is distinguishable from forwarding it.
 		const destination = '/de/app/settings?tab=profile#section';
 		const encodedDestination = encodeURIComponent(destination);
 		const resetCallback = `/de/reset-password?redirectTo=${encodedDestination}`;
@@ -309,13 +309,13 @@ test.describe('Reset Password', () => {
 			const sessionBefore = await otherSession.get('/api/auth/get-session');
 			expect(await sessionBefore.json()).not.toBeNull();
 
-			// Start wie nach einem Gate: auf der Anmeldung, mit dem Ziel im Gepäck.
+			// Start after the gate on the sign-in page with the destination still attached.
 			const signInPath = `/de/signin?redirectTo=${encodedDestination}`;
 
-			// Serverseitiges Markup, vor jedem Skript. Der hydrierte Href unten allein
-			// trennt die Fälle nicht: aus einem Browser-Cache gelesen bliebe er richtig,
-			// während der erste Paint das Ziel schon verloren hätte. `resolve` liefert
-			// beim SSR einen relativen Href, deshalb wird nur der Query geprüft.
+			// Check server-rendered markup before any script runs. The hydrated href below
+			// cannot distinguish the cases by itself because a browser-cached value would
+			// stay correct after the first paint had already lost the destination. `resolve`
+			// returns a relative href during SSR, so this assertion checks only the query.
 			const serverHtml = await (await page.request.get(signInPath)).text();
 			expect(serverHtml).toContain(`forgot-password?redirectTo=${encodedDestination}`);
 
@@ -330,7 +330,7 @@ test.describe('Reset Password', () => {
 			await forgotLink.click();
 			await expect(page).toHaveURL(`/de/forgot-password?redirectTo=${encodedDestination}`);
 
-			// Reset wie ein Nutzer anfordern und lesen, was die Seite wirklich sendet.
+			// Request the reset through the user flow and inspect what the page actually sends.
 			// Delivery is skipped for @e2e.example.com addresses, so the token is read
 			// from the backend's verification model instead of a mailbox.
 			await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
@@ -343,8 +343,8 @@ test.describe('Reset Password', () => {
 			await expect(page.getByTestId('forgot-password-success-message')).toBeVisible({
 				timeout: 10000
 			});
-			// Die Reset-SEITE mit dem Ziel eine Ebene tiefer. Das Ziel selbst hier
-			// einzutragen hieße, ein gültiges Token daran zu hängen.
+			// Put the reset page here and carry the destination one level deeper. Supplying
+			// the destination itself would attach a valid token to that destination.
 			expect((await resetRequest).postDataJSON()).toMatchObject({
 				email,
 				redirectTo: resetCallback
@@ -356,8 +356,8 @@ test.describe('Reset Password', () => {
 			});
 			expect(token).toBeTruthy();
 
-			// Der Link aus der Mail, keine selbst gebaute Reset-URL: an diesem Endpunkt
-			// entscheidet Better Auth, was das Formular bekommt.
+			// Follow the link from the email instead of constructing a reset URL. Better
+			// Auth decides what reaches the form at this endpoint.
 			await page.goto(
 				`/api/auth/reset-password/${token}?callbackURL=${encodeURIComponent(resetCallback)}`
 			);
@@ -381,8 +381,8 @@ test.describe('Reset Password', () => {
 			const sessionAfter = await otherSession.get('/api/auth/get-session');
 			expect(await sessionAfter.json()).toBeNull();
 
-			// Das Angebot der Erfolgsmeldung, die letzte Stelle, an der das Ziel
-			// verloren gehen kann. Das verbrauchte Token bleibt zurück.
+			// Follow the success message's link, the last place that can lose the destination.
+			// The consumed token stays behind.
 			const signInLink = page.getByTestId('reset-password-signin-link');
 			await expect(signInLink).toHaveAttribute(
 				'href',
@@ -399,10 +399,10 @@ test.describe('Reset Password', () => {
 			);
 			await page.getByTestId('signin-button').click();
 
-			// Better Auth liest dieses Feld zweimal; auf dem Ablehnungspfad wird daraus
-			// der Recovery-Link. Es trägt das Ziel, statt es zu sein, weil die geprüfte
-			// Grammatik kein Fragment erlaubt. Feldweise gelesen, damit ein Fehlschlag
-			// nie den Body mit dem Passwort ausgibt.
+			// Better Auth reads this field twice and uses it as the recovery link after a
+			// rejection. It carries the destination instead of being the destination because
+			// the validated grammar forbids fragments. Inspect fields individually so a
+			// failure never prints the request body containing the password.
 			const signInBody = (await signInSubmission).postDataJSON();
 			expect(signInBody.email).toBe(email);
 			expect(signInBody.callbackURL).toBe(`/de/signin?redirectTo=${encodedDestination}`);

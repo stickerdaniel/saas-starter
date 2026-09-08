@@ -361,9 +361,9 @@ function buildTrustedOrigins(): string[] {
 	}
 }
 
-// Das Convex-Plugin liefert das öffentliche Schlüsselset unter genau diesem
-// Pfad. Nur diese Antwort bekommt die kurze Cache-Policy; alle anderen
-// Auth-Endpunkte behalten ihre jeweils eigene.
+// The Convex plugin serves the public key set at this exact path. Only that
+// response receives the short cache policy; every other auth endpoint keeps
+// its own policy.
 const JWKS_PATH = '/convex/jwks';
 const JWKS_CACHE_CONTROL = 'public, max-age=60, must-revalidate';
 
@@ -450,14 +450,13 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			}
 		},
 		hooks: {
-			// Das Schlüsselset ist für jeden Aufrufer identisch, deshalb darf der
-			// Consumer seinen eigenen HTTP-Cache nutzen statt vor jeder Prüfung
-			// neu zu laden. Die 60 Sekunden begrenzen die normale Frische einer
-			// Kopie und sind keine Widerrufsfrist: ein frisch rotierter `kid` bleibt
-			// bis zum nächsten erfolgreichen Refetch abgewiesen, und ein Consumer
-			// mit anhaltenden 5xx durfte seine alte Kopie schon bisher unbegrenzt
-			// weiterverwenden. Nur die erfolgreiche Antwort trägt das `keys`-Array,
-			// die Fehlerform des Dispatchers nicht.
+			// The key set is identical for every caller, so consumers may use their own
+			// HTTP cache instead of reloading before every verification. The 60-second
+			// value bounds normal copy freshness and is not a revocation deadline. A newly
+			// rotated `kid` remains rejected until the next successful refetch, while a
+			// consumer receiving persistent 5xx responses could already retain its old copy
+			// indefinitely. Only a successful response carries the `keys` array; the
+			// dispatcher's error shape does not.
 			after: createAuthMiddleware(async (ctx) => {
 				if (ctx.path !== JWKS_PATH || ctx.method !== 'GET') return;
 				const returned = ctx.context.returned;

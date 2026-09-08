@@ -86,16 +86,16 @@ describe('callbackURLFor against the installed Better Auth', () => {
 });
 
 /**
- * Der Recovery-Durchlauf gegen denselben echten Handler.
+ * Run account recovery against the same real handler.
  *
- * Der Reset-Callback muss zwei getrennte Prüfungen überstehen: `redirectTo` beim
- * Anfordern und `callbackURL` beim Öffnen des Links (`originCheck` auf
- * `/request-password-reset` und `/reset-password/:token` in
- * better-auth/dist/api/routes/password.mjs). Ob der Wrapper akzeptiert wird,
- * kann nur die Dependency selbst beantworten.
+ * The reset callback must pass two separate checks: `redirectTo` when requesting
+ * it and `callbackURL` when opening the link (`originCheck` on
+ * `/request-password-reset` and `/reset-password/:token` in
+ * better-auth/dist/api/routes/password.mjs). Only the dependency itself can
+ * establish whether it accepts the wrapper.
  *
- * Die Mail wird bei `sendResetPassword` abgegriffen statt versendet: kein
- * Transport und keine Adresse, die etwas empfangen könnte.
+ * Capture the email at `sendResetPassword` instead of sending it. No transport
+ * runs, and no address can receive anything.
  */
 const RECOVERY_EMAIL = 'recovery@example.test';
 const RECOVERY_PASSWORD = 'correct-horse-battery-staple';
@@ -116,7 +116,7 @@ const recoveryAuth = betterAuth({
 	advanced: { disableOriginCheck: false }
 });
 
-/** Das `redirectTo` einer URL, wie die Zielseite es lesen würde. */
+/** Read a URL's `redirectTo` value the way the destination page does. */
 function carriedDestination(url: string): string | null {
 	return new URL(url, BASE).searchParams.get('redirectTo');
 }
@@ -145,8 +145,8 @@ describe('the reset callback authPageURL builds', () => {
 				body: JSON.stringify({ email: RECOVERY_EMAIL, redirectTo: resetCallback })
 			})
 		);
-		// Ein abgelehntes `redirectTo` wäre hier ein 403, also genau der Fehler,
-		// den der Wrapper verhindern soll.
+		// A rejected `redirectTo` would return 403 here, which is the exact failure
+		// this wrapper must prevent.
 		expect(requested.status, await requested.text()).toBe(200);
 	});
 
@@ -175,8 +175,8 @@ describe('the reset callback authPageURL builds', () => {
 		const location = new URL(response.headers.get('location')!);
 		expect(location.pathname).toBe('/de/reset-password');
 		expect(location.searchParams.get('error')).toBe('INVALID_TOKEN');
-		// Kein Token: deshalb muss der Hook diese Seite auswickeln, statt sie das
-		// Ende der Reise sein zu lassen.
+		// With no token, the hook must unwrap this page instead of letting it end
+		// the journey.
 		expect(location.searchParams.get('token')).toBeNull();
 		expect(carriedDestination(location.href)).toBe(RECOVERY_DESTINATION);
 	});

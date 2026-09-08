@@ -42,6 +42,7 @@ A human starts the `upstream-sync` skill (`.agents/skills/upstream-sync/SKILL.md
 ## Global rules
 
 - English is the default for code, comments, docs, commits, PRs, and chat. User-facing copy is localized; English is the source locale.
+- The English policy guard covers authored Markdown/text prose, JS/TS/Svelte comments, JSON/JSONC `description` values, and every string leaf in `src/i18n/en.json`. Exact registered target-locale files and non-comment localized source assertions are outside this V1 scope. Check an ignored report before publication with `bun scripts/check-english.ts --artifact <path>` or pipe prose to `bun scripts/check-english.ts --stdin-label <label>`.
 - Use Bun, never npm, for project commands.
 - Scripts must work on macOS, Linux, and Windows. Use TypeScript with Bun for complex scripts and `bun-tasks` for parallel execution; avoid Bash-specific wrappers.
 - For current dependency behavior, use the `btca-local` skill and the resource clones registered in `btca.config.jsonc`.

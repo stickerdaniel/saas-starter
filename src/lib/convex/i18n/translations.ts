@@ -55,7 +55,7 @@ function getNestedValue(obj: Record<string, unknown>, path: string): string | un
  *
  * @example
  * t('de', 'admin.dialog.ban_description', { email: 'user@example.com' })
- * // Returns: "Möchten Sie user@example.com wirklich sperren? Der Zugriff auf die App wird blockiert."
+ * // Returns the interpolated German translation.
  */
 export function t(
 	locale: string | null | undefined,

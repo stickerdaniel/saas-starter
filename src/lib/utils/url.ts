@@ -59,21 +59,21 @@ export function safeAuthDestination(url: string, fallback: string): string {
 }
 
 /**
- * Eine eigene Auth-Seite, die ein noch offenes Ziel im Query mitführt.
+ * Build an auth page URL that carries an outstanding destination in its query.
  *
- * Better Auths relative Callback-Regel erlaubt kein `#` (`matchesOriginPattern`
- * in better-auth/dist/auth/trusted-origins.mjs), ein Ziel mit Fragment fällt als
- * Callback also ganz weg. Im Query ist es `%23` und kommt durch.
+ * Better Auth's relative callback rule forbids `#` (`matchesOriginPattern` in
+ * better-auth/dist/auth/trusted-origins.mjs), so a destination with a fragment
+ * would be dropped as a callback. Inside the query it becomes `%23` and passes.
  *
- * `pagePath` ist selbst gebaut und vertraut, `destination` nicht: ohne gültiges
- * Ziel bleibt die nackte Seite.
+ * `pagePath` is constructed locally and trusted, while `destination` is not. An
+ * invalid destination leaves the bare page.
  */
 export function authPageURL(pagePath: string, destination: string): string {
 	const safeDestination = safeAuthDestination(destination, '');
 	if (!safeDestination) return pagePath;
 
-	// Der Guard gilt `pagePath`: die Kodierung liefert nur unreservierte Zeichen
-	// und Prozent-Escapes, die die Grammatik im Query zulässt.
+	// The guard applies to `pagePath`. Encoding yields only unreserved characters
+	// and percent escapes that the query grammar permits.
 	return callbackURLFor(
 		`${pagePath}?redirectTo=${encodeCallbackComponent(safeDestination)}`,
 		pagePath
@@ -81,11 +81,11 @@ export function authPageURL(pagePath: string, destination: string): string {
 }
 
 /**
- * `encodeURIComponent` plus die sechs Zeichen, die es roh lässt.
+ * Apply `encodeURIComponent` plus the six characters it leaves raw.
  *
- * `!'()*~` stehen nicht in der Callback-Grammatik. Ein ungeschütztes davon
- * beantwortet Better Auth mit `403 INVALID_CALLBACK_URL` und reißt die Anfrage
- * selbst mit, statt nur den Deep Link zu verlieren.
+ * `!'()*~` are outside the callback grammar. If any remain unescaped, Better Auth
+ * returns `403 INVALID_CALLBACK_URL` and rejects the request instead of merely
+ * dropping the deep link.
  */
 function encodeCallbackComponent(value: string): string {
 	return encodeURIComponent(value).replace(

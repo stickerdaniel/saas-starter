@@ -89,9 +89,9 @@ describe('password sign-in callback URL', () => {
 	});
 
 	/**
-	 * Social-Sign-in kehrt zum Callback zurück, nicht zu dieser Seite, hat also
-	 * keine zweite Chance zu navigieren. Der E2E-Lauf meldet ein verifiziertes
-	 * Konto per Passwort an und erreicht diesen Pfad nie.
+	 * Social sign-in returns to the callback instead of this page, so it has no
+	 * second opportunity to navigate. The end-to-end flow signs in a verified
+	 * account with a password and never reaches this path.
 	 */
 	it('brings a social sign-in back through the same wrapper', () => {
 		const callStart = source.indexOf(normalized('authClient.signIn.social('));
@@ -104,9 +104,9 @@ describe('password sign-in callback URL', () => {
 	});
 
 	/**
-	 * Für die Fehler-URL gilt absichtlich die weitere Prüfung: der Wert ist
-	 * Beifahrer in einer selbst gewählten Seite, und die Seite verengt ihn beim
-	 * Navigieren erneut. Doppelt verengt verlöre man nur funktionierende Links.
+	 * The failure URL deliberately uses the broader check. Its value rides inside a
+	 * locally selected page, and that page narrows it again before navigating.
+	 * Narrowing it twice would only discard working links.
 	 */
 	it('keeps the OAuth failure URL on the unnarrowed value', () => {
 		expect(source).toContain(
@@ -121,9 +121,9 @@ describe('password sign-in callback URL', () => {
 	});
 
 	/**
-	 * Woran der Name hängt. Aus `params` gelesen sähe die Zeile gleich aus, aber
-	 * dessen Cache füllt sich nur im Browser: die Links dieser Seite gingen dann
-	 * ohne Ziel raus und blieben so, wo Hydration nie ankommt.
+	 * This is the reason for the test name. Reading from `params` would make the line
+	 * look identical, but that cache fills only in the browser. Server-rendered links
+	 * would leave without a destination and stay that way wherever hydration never runs.
 	 */
 	it('reads the destination from the page URL, not from the params cache', () => {
 		expect(source).toContain(
@@ -140,8 +140,8 @@ describe('password sign-in callback URL', () => {
 	});
 
 	/**
-	 * Das Formular rendert die Links und bekommt den verengten Wert: ein Ziel, das
-	 * diese Seite nicht anfahren würde, gehört auch in keinen Link.
+	 * The form renders these links and receives the narrowed value. A destination
+	 * this page would refuse to visit does not belong in any link either.
 	 */
 	it('gives the form the destination it validated', () => {
 		expect(source).toContain(normalized('redirectTo={requestedDestination}'));

@@ -31,7 +31,7 @@
 					github?: boolean;
 			  }
 			| undefined;
-		/** Von der Seite bereits verengt; leer, wenn nichts Brauchbares ankam. */
+		/** Already narrowed by the page; empty when no usable value arrived. */
 		redirectTo: string;
 		termsLink: HTMLAnchorElement | null;
 		isLastUsedAuthMethod: (method: LastAuthMethod) => boolean;
@@ -63,7 +63,7 @@
 	const hasEmailError = $derived((signInErrors.email?.length ?? 0) > 0);
 	const hasPasswordError = $derived((signInErrors.password?.length ?? 0) > 0);
 
-	// Beide Links reichen das Ziel weiter. Am Forgot-Link ging es bisher verloren.
+	// Both links forward the destination. The forgot-password link used to lose it.
 	const forgotPasswordHref = $derived(authPageURL(localizedHref('/forgot-password'), redirectTo));
 	const signUpHref = $derived(authPageURL(localizedHref('/signup'), redirectTo));
 

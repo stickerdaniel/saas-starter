@@ -106,3 +106,19 @@ describe('no-literal-control-char coverage', () => {
 		}
 	);
 });
+
+describe('generated English policy bundle linting', () => {
+	it('ignores the bundle without hiding authored policy source', async () => {
+		const generatedBundle = 'scripts/english-policy/pr-metadata.bundle.mjs';
+		const authoredSource = 'scripts/english-policy/pr-metadata.ts';
+		const oxlintConfig = JSON.parse(readFileSync('.oxlintrc.json', 'utf8')) as {
+			ignorePatterns: string[];
+		};
+
+		expect(await eslint.isPathIgnored(generatedBundle)).toBe(true);
+		expect(await eslint.isPathIgnored(authoredSource)).toBe(false);
+		expect(
+			oxlintConfig.ignorePatterns.filter((pattern) => pattern.startsWith('scripts/english-policy/'))
+		).toEqual([generatedBundle]);
+	});
+});

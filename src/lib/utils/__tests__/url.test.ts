@@ -263,7 +263,7 @@ describe('safeAuthDestination', () => {
 });
 
 describe('authPageURL', () => {
-	/** Das Ziel, wie die Seite am anderen Ende es zurückliest. */
+	/** Read the destination the way the page at the other end does. */
 	function carried(url: string): string | null {
 		return new URL(url, 'https://redirect.invalid').searchParams.get('redirectTo');
 	}
@@ -278,8 +278,8 @@ describe('authPageURL', () => {
 	});
 
 	/**
-	 * Der Grund für das Wrapping: die Callback-Regel erlaubt kein `#`, ein Ziel mit
-	 * Fragment fällt also ganz weg. Im Query ist es `%23` und kommt durch.
+	 * The wrapper exists because the callback rule forbids `#`, which would drop a
+	 * destination carrying a fragment. Inside the query it becomes `%23` and passes.
 	 */
 	it('keeps a fragment the callback grammar would have cost', () => {
 		expect(callbackURLFor('/de/app/settings#section', '/de/app')).toBe('/de/app');
@@ -298,8 +298,8 @@ describe('authPageURL', () => {
 	});
 
 	/**
-	 * Die sechs Zeichen, die `encodeURIComponent` roh lässt. Ungeschützt antwortet
-	 * Better Auth mit `403 INVALID_CALLBACK_URL` und reißt die Anfrage mit.
+	 * These are the six characters `encodeURIComponent` leaves raw. Without
+	 * protection, Better Auth returns `403 INVALID_CALLBACK_URL` and rejects the request.
 	 */
 	it.each([
 		['!', '%21'],
@@ -319,8 +319,8 @@ describe('authPageURL', () => {
 	});
 
 	/**
-	 * Jede Seite der Kette baut den Link für die nächste aus dem gelesenen Wert.
-	 * Doppelt kodiert käme das Ziel als eigene Escape-Sequenz an.
+	 * Every page in the chain builds the next link from the value it read. Double
+	 * encoding would deliver the destination as its own escape sequence.
 	 */
 	it('does not add a layer per page in the chain', () => {
 		const destination = '/de/app/settings?tab=profile#section';
@@ -337,8 +337,8 @@ describe('authPageURL', () => {
 		expect(authPageURL('/de/forgot-password', '')).toBe('/de/forgot-password');
 	});
 
-	// Dieselbe Whitelist wie eine echte Navigation: der Wert landet in einem Link
-	// und im Callback, auf den Better Auth weiterleitet.
+	// Apply the same allowlist as real navigation because this value enters both a
+	// link and the callback Better Auth follows.
 	it.each([
 		'//evil.com',
 		'/\\evil.com',

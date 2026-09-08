@@ -57,12 +57,11 @@
 	}));
 
 	/**
-	 * Ziel aus der Page-URL, nicht aus `params`: die Links unten gehören zum
-	 * ersten Paint, und `params` ist beim SSR leer.
+	 * Read the destination from the page URL rather than `params`: the links below
+	 * belong to the first paint, while `params` is empty during SSR.
 	 *
-	 * `requestedDestination` bleibt leer, wenn nichts Brauchbares ankam, damit die
-	 * Links den Parameter weglassen. `finalDestination` ist, wohin diese Seite
-	 * tatsächlich navigiert.
+	 * `requestedDestination` stays empty when no usable value arrived so the links
+	 * omit the parameter. `finalDestination` is where this page actually navigates.
 	 */
 	const rawDestination = $derived(page.url.searchParams.get('redirectTo') ?? '');
 	const requestedDestination = $derived(safeAuthDestination(rawDestination, ''));
@@ -210,10 +209,9 @@
 					// verification link from this same field, defaulting it to `/` and
 					// dropping both the locale and the continuation with it.
 					//
-					// Trägt das Ziel, statt es zu sein: die Callback-Grammatik erlaubt
-					// kein Fragment. Der Umweg kostet einen Redirect, weil ein
-					// angemeldeter Besucher hier direkt an `redirectTo` weitergereicht
-					// wird.
+					// Carries the destination instead of being it: the callback grammar
+					// does not allow a fragment. The detour adds one redirect because an
+					// authenticated visitor is forwarded straight to `redirectTo` here.
 					callbackURL: authPageURL(localizedHref('/signin'), finalDestination)
 				},
 				{
@@ -255,8 +253,8 @@
 				// Without this the callback reports a failure to Better Auth's default
 				// error URL, which is the marketing homepage in production.
 				//
-				// Bleibt beim rohen Wert: hier gilt absichtlich die weitere Prüfung,
-				// und die Seite verengt das Ziel beim Navigieren erneut.
+				// Keep the raw value here: this deliberately uses the broader validation,
+				// and the page narrows the destination again when it navigates.
 				errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signin'), rawDestination)
 			});
 		} catch (error) {
