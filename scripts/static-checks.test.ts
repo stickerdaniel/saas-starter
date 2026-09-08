@@ -247,7 +247,20 @@ describe('route predicates', () => {
 			const file = `scripts/example.${extension}`;
 			expect(ROUTES['english-prose'](file)).toBe(true);
 			expect(ROUTES.eslint(file)).toBe(true);
-			expect(ROUTES['svelte-check'](file)).toBe(true);
+		}
+	);
+
+	it.each(['js', 'ts', 'svelte'])(
+		'routes .%s files through the SvelteKit type project',
+		(extension) => {
+			expect(ROUTES['svelte-check'](`src/example.${extension}`)).toBe(true);
+		}
+	);
+
+	it.each(['mjs', 'cjs', 'jsx', 'tsx', 'mts', 'cts'])(
+		'does not claim .%s files are in the SvelteKit type project',
+		(extension) => {
+			expect(ROUTES['svelte-check'](`src/example.${extension}`)).toBe(false);
 		}
 	);
 

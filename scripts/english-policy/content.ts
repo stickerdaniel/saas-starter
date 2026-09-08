@@ -4,7 +4,7 @@ import * as ts from 'typescript';
 import tseslint from 'typescript-eslint';
 import { SUPPORTED_LANGUAGE_CODES } from '../../src/lib/i18n/language-codes.generated.js';
 import { classifyEnglish, splitTextWindows, type TextWindow } from './classifier';
-import { withoutFencedCode } from './markdown';
+import { withoutMarkdownCode } from './markdown';
 
 export interface EnglishFinding {
 	label: string;
@@ -40,7 +40,7 @@ function localeLabelledQuotation(line: string): boolean {
 }
 
 function markdownBlocks(text: string): TextWindow[] {
-	const lines = withoutFencedCode(text).split('\n');
+	const lines = withoutMarkdownCode(text).split('\n');
 	const blocks: TextWindow[] = [];
 	let block: string[] = [];
 	let blockLine = 1;

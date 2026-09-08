@@ -113,7 +113,22 @@ function words(text: string): string[] {
 }
 
 function isTechnicalToken(token: string): boolean {
-	return TECHNICAL_ACRONYMS.has(token) || /[0-9_]/u.test(token);
+	const segments = token.split(/[_-]/u).filter(Boolean);
+	return (
+		segments.length > 0 &&
+		segments.every((segment) => {
+			if (/^V?\d+$/u.test(segment)) return true;
+			const match = /^([A-Z]+)(?:V?\d+)?$/u.exec(segment);
+			return match !== null && TECHNICAL_ACRONYMS.has(match[1]!);
+		})
+	);
+}
+
+function normalizeUppercaseToken(token: string): string {
+	if (isTechnicalToken(token)) return ' ';
+	return (token.match(/[A-Z]+/gu) ?? [])
+		.filter((segment) => !TECHNICAL_ACRONYMS.has(segment))
+		.join(' ');
 }
 
 function isShortTechnicalEnglish(text: string): boolean {
@@ -140,7 +155,7 @@ export function normalizeTechnicalSyntax(text: string): string {
 		.replace(/\b[\w.@+-]+(?:[\\/][\w.@+-]+)+\b/g, ' ')
 		.replace(/\b[0-9a-f]{7,64}\b/giu, ' ')
 		.replace(/--?[a-z][\w-]*/giu, ' ')
-		.replace(/\b[A-Z][A-Z0-9_-]{1,}\b/g, (token) => (isTechnicalToken(token) ? ' ' : token))
+		.replace(/\b[A-Z][A-Z0-9_-]{1,}\b/g, normalizeUppercaseToken)
 		.replace(/\b(?:[$_][\w$]*|[a-z]+(?:[A-Z][\w$]*)+)\b/g, ' ')
 		.replace(/[\p{P}\p{S}]+/gu, ' ')
 		.replace(/\s+/g, ' ')
@@ -227,8 +242,10 @@ function sentenceWindows(text: string, startLine: number): TextWindow[] {
 	let sentenceStart = 0;
 
 	const addSentence = (end: number): void => {
-		const sentence = text.slice(sentenceStart, end).trim();
-		const offset = sentenceStart;
+		const rawSentence = text.slice(sentenceStart, end);
+		const leadingWhitespace = rawSentence.match(/^\s*/u)?.[0].length ?? 0;
+		const sentence = rawSentence.trim();
+		const offset = sentenceStart + leadingWhitespace;
 		sentenceStart = end;
 		if (sentence === '') return;
 		const line = lineAt(text, offset, startLine);

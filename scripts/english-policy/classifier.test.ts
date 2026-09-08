@@ -65,6 +65,9 @@ describe('English classifier', () => {
 
 	it.each([
 		['fix(auth): PASSWORT ZURUECKSETZEN', 'PASSWORT ZURUECKSETZEN', 'de'],
+		['fix: PASSWORT1 ZURUECKSETZEN1', 'PASSWORT ZURUECKSETZEN', 'de'],
+		['fix: PASSWORT_1 ZURUECKSETZEN_1', 'PASSWORT ZURUECKSETZEN', 'de'],
+		['fix: PASSWORT1_ZURUECKSETZEN1', 'PASSWORT ZURUECKSETZEN', 'de'],
 		[
 			'ESTE TEXTO ESTA CLARAMENTE ESCRITO EN ESPANOL',
 			'ESTE TEXTO ESTA CLARAMENTE ESCRITO EN ESPANOL',
@@ -73,6 +76,15 @@ describe('English classifier', () => {
 	])('preserves uppercase prose for detection: %s', (text, normalized, language) => {
 		expect(normalizeTechnicalSyntax(text)).toBe(normalized);
 		expect(classifyEnglish(text)).toMatchObject({ outcome: 'violation', language });
+	});
+
+	it.each([
+		['Fix API', 'Fix'],
+		['Use HTTP2 API_V2', 'Use'],
+		['Validate UTF_8 JSONC', 'Validate']
+	])('removes registered acronyms and technical version tokens: %s', (text, normalized) => {
+		expect(normalizeTechnicalSyntax(text)).toBe(normalized);
+		expect(classifyEnglish(text).outcome).not.toBe('violation');
 	});
 
 	it('returns insufficient evidence for content too short to classify conservatively', () => {
@@ -115,6 +127,14 @@ describe('English classifier', () => {
 		expect(windows.map((window) => classifyEnglish(window.text).outcome)).not.toContain(
 			'violation'
 		);
+	});
+
+	it('reports a sentence after a newline on its own line', () => {
+		const windows = splitTextWindows(`The first sentence is English.\n${foreignFixtures.german}`);
+		expect(windows).toMatchObject([
+			{ text: 'The first sentence is English.', line: 1 },
+			{ text: foreignFixtures.german, line: 2 }
+		]);
 	});
 
 	it('finds a foreign tail after a long English prefix', () => {

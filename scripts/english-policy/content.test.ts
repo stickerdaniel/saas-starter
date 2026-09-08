@@ -60,14 +60,21 @@ describe('repository prose extraction', () => {
 		expect(proseWindows('src/example.ts', interrupted)).toHaveLength(2);
 	});
 
-	it('preserves uppercase prose in source comments', () => {
+	it('preserves uppercase prose with technical-looking suffixes in source comments', () => {
 		const source = [
 			'// PASSWORT ZURUECKSETZEN',
+			'const first = true;',
+			'// PASSWORT1 ZURUECKSETZEN1',
+			'const second = true;',
+			'// PASSWORT_1 ZURUECKSETZEN_1',
+			'const third = true;',
 			'/* ESTE TEXTO ESTA CLARAMENTE ESCRITO EN ESPANOL */'
 		].join('\n');
 		expect(checkEnglishText('src/example.ts', source)).toMatchObject([
 			{ language: 'de', line: 1 },
-			{ language: 'es', line: 2 }
+			{ language: 'de', line: 3 },
+			{ language: 'de', line: 5 },
+			{ language: 'es', line: 7 }
 		]);
 	});
 
@@ -140,6 +147,27 @@ describe('repository prose extraction', () => {
 			'Continue with the English explanation.'
 		].join('\n');
 		expect(checkEnglishText('docs/example.md', markdown)).toEqual([]);
+	});
+
+	it('skips CommonMark indented code blocks', () => {
+		const markdown = [
+			'Use the example below.',
+			'',
+			`    ${foreignFixtures.german}`,
+			'',
+			'Continue with the English explanation.'
+		].join('\n');
+		expect(checkEnglishText('docs/example.md', markdown)).toEqual([]);
+	});
+
+	it('keeps indented prose that continues a paragraph', () => {
+		const markdown = [
+			'The explanation continues on the next line.',
+			`    ${foreignFixtures.german}`
+		].join('\n');
+		expect(checkEnglishText('docs/example.md', markdown)).toMatchObject([
+			{ language: 'de', line: 2 }
+		]);
 	});
 
 	it('skips fenced code and inline technical syntax', () => {

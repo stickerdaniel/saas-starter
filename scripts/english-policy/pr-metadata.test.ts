@@ -63,7 +63,9 @@ describe('pull request metadata policy', () => {
 		'docs: Anleitung schreiben',
 		'test: Daten laden',
 		'feat: Benutzer anmelden',
-		'fix(auth): PASSWORT ZURUECKSETZEN'
+		'fix(auth): PASSWORT ZURUECKSETZEN',
+		'fix: PASSWORT1 ZURUECKSETZEN1',
+		'fix: PASSWORT_1 ZURUECKSETZEN_1'
 	])('checks a clear non-English title independently: %s', (title) => {
 		const result = evaluatePullRequestMetadata({
 			pull_request: {
@@ -89,6 +91,8 @@ describe('pull request metadata policy', () => {
 
 	it.each([
 		[foreignFixtures.german, 'de'],
+		['PASSWORT1 ZURUECKSETZEN1', 'de'],
+		['PASSWORT_1 ZURUECKSETZEN_1', 'de'],
 		[foreignFixtures.french, 'fr'],
 		['ESTE TEXTO ESTA CLARAMENTE ESCRITO EN ESPANOL', 'es']
 	])('checks non-English body paragraphs independently: %s', (body, language) => {
@@ -117,6 +121,29 @@ describe('pull request metadata policy', () => {
 			}
 		});
 		expect(result.findings).toEqual([]);
+	});
+
+	it('ignores CommonMark indented code blocks in the body', () => {
+		const body = [
+			'This paragraph explains the example.',
+			'',
+			`    ${foreignFixtures.german}`,
+			'',
+			'This paragraph continues the explanation.'
+		].join('\n');
+		expect(
+			evaluatePullRequestMetadata({ pull_request: { title: 'Fix API', body } }).findings
+		).toEqual([]);
+	});
+
+	it('checks indented body prose that continues a paragraph', () => {
+		const body = [
+			'This paragraph introduces the correction.',
+			`    ${foreignFixtures.german}`
+		].join('\n');
+		expect(
+			evaluatePullRequestMetadata({ pull_request: { title: 'Fix API', body } }).findings
+		).toMatchObject([{ field: 'body', paragraph: 1, language: 'de' }]);
 	});
 
 	it.each([
