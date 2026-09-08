@@ -86,4 +86,45 @@ describe('ChatDraftManager', () => {
 		expect(manager.getDraft('thread-1')).toBe('');
 		expect(manager.getDraft('thread-2')).toBe('draft 2');
 	});
+
+	it('clears only the unchanged draft captured by a checkpoint', () => {
+		manager.setDraft('thread-1', 'send this');
+		const checkpoint = manager.captureCheckpoint('thread-1');
+		manager.setDraft('thread-2', 'keep this');
+
+		expect(manager.clearDraftIfUnchanged(checkpoint)).toBe(true);
+		expect(manager.getDraft('thread-1')).toBe('');
+		expect(manager.getDraft('thread-2')).toBe('keep this');
+	});
+
+	it.each(['a newer draft', 'send this'])(
+		'preserves a later %s write after the checkpoint',
+		(later) => {
+			manager.setDraft('thread-1', 'send this');
+			const checkpoint = manager.captureCheckpoint('thread-1');
+			manager.setDraft('thread-1', later);
+
+			expect(manager.clearDraftIfUnchanged(checkpoint)).toBe(false);
+			expect(manager.getDraft('thread-1')).toBe(later);
+		}
+	);
+
+	it('can clear the created thread for a null-origin conversation', () => {
+		const checkpoint = manager.captureCheckpoint(null);
+
+		expect(manager.clearDraftIfUnchanged(checkpoint, 'thread-created')).toBe(true);
+		expect(manager.getDraft('thread-created')).toBe('');
+	});
+
+	it('two managers do not clear an equal-valued later write from another manager', () => {
+		const surface = 'shared-' + Math.random();
+		const managerA = new ChatDraftManager(surface);
+		const managerB = new ChatDraftManager(surface);
+		managerA.setDraft('same-thread', 'identical text');
+		const checkpoint = managerA.captureCheckpoint('same-thread');
+		managerB.setDraft('same-thread', 'identical text');
+
+		expect(managerA.clearDraftIfUnchanged(checkpoint)).toBe(false);
+		expect(managerB.getDraft('same-thread')).toBe('identical text');
+	});
 });

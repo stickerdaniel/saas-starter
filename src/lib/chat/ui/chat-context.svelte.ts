@@ -16,7 +16,11 @@ import type {
 	AttachmentsByThread,
 	ChatAttachmentStore
 } from '../core/chat-attachment-store.svelte.ts';
-import { registerPersistedChatHolder } from '../core/chat-persisted-state.ts';
+import {
+	getChatSessionEpoch,
+	isChatSessionCurrent,
+	registerPersistedChatHolder
+} from '../core/chat-persisted-state.ts';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
 
 /**
@@ -100,6 +104,20 @@ export interface ActiveUploadsRegistry {
 	release(owner: object): void;
 }
 
+type ChatConversationOrigin = {
+	generation: number;
+	threadId: string | null;
+};
+
+export type ChatSendSnapshot = {
+	sessionEpoch: number;
+	origin: ChatConversationOrigin;
+	inputValue: string;
+	inputRevision: number;
+	inputClearedRevision?: number;
+	attachments: Attachment[];
+};
+
 /**
  * Chat UI Context class
  *
@@ -138,6 +156,7 @@ export class ChatUIContext {
 
 	/** Current input value */
 	inputValue = $state('');
+	private inputRevision = 0;
 
 	/** Attachments for current message. Each entry's `key` is the stable id
 	 * used by upload methods to apply progress/success/error updates by value
@@ -198,6 +217,8 @@ export class ChatUIContext {
 
 	/** Last known thread ID for detecting navigation */
 	private _lastThreadId: string | null | undefined = undefined;
+	/** Identity object shared with snapshots from the current conversation. */
+	private conversationOrigin: ChatConversationOrigin;
 
 	/**
 	 * Whether the surface this belongs to is gone.
@@ -220,6 +241,20 @@ export class ChatUIContext {
 		this.uploadConfig = uploadConfig;
 		this.userAlignment = userAlignment;
 		this.activeUploads = activeUploads;
+		this.conversationOrigin = {
+			generation: untrack(() => core.threadGeneration),
+			threadId: untrack(() => core.threadId)
+		};
+		const originOwner = core as ChatCore & {
+			setThreadOriginBinder?: (
+				binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
+			) => void;
+		};
+		originOwner.setThreadOriginBinder?.((threadId, epoch, generation) => {
+			if (!isChatSessionCurrent(epoch)) return;
+			const origin = this.syncConversationOrigin();
+			if (origin.generation === generation && origin.threadId === null) origin.threadId = threadId;
+		});
 
 		// Composers a reload took away arrive parked, under the thread they were
 		// left in. From here on nothing knows the difference between one that came
@@ -247,6 +282,12 @@ export class ChatUIContext {
 	 * still mounted on whatever page the user lands on after signing out.
 	 */
 	forgetPersistedState(): void {
+		const resettableCore = this.core as ChatCore & { forgetChatSession?: () => void };
+		resettableCore.forgetChatSession?.();
+		this.conversationOrigin = {
+			generation: untrack(() => this.core.threadGeneration),
+			threadId: untrack(() => this.core.threadId)
+		};
 		const abandoned = [...this.parked.keys()];
 		for (const attachments of this.parked.values()) {
 			for (const attachment of attachments) {
@@ -258,7 +299,7 @@ export class ChatUIContext {
 		// A transfer still running belongs to an identity that is gone, so it is
 		// stopped here for the same reason sign-out does not wait for one.
 		this.clearAttachments();
-		this.inputValue = '';
+		this.setInputValue('');
 		// Named so they are struck from storage rather than merely dropped here.
 		// The sweep empties the whole key anyway; doing it from this side too
 		// means letting go stays complete on its own terms.
@@ -352,6 +393,7 @@ export class ChatUIContext {
 	setDisplayMessages(messages: DisplayMessage[]): void {
 		// Detect thread navigation (reset when changing between existing threads)
 		const currentThreadId = untrack(() => this.core.threadId);
+		this.syncConversationOrigin();
 
 		// Reset only on actual navigation between threads
 		// NOT on null → threadId (thread creation) or during brief empty states
@@ -422,14 +464,58 @@ export class ChatUIContext {
 	 * Set input value
 	 */
 	setInputValue(value: string): void {
+		if (this.inputValue === value) return;
 		this.inputValue = value;
+		this.inputRevision++;
 	}
 
 	/**
 	 * Clear input
 	 */
 	clearInput(): void {
-		this.inputValue = '';
+		this.setInputValue('');
+	}
+
+	captureSendSnapshot(): ChatSendSnapshot {
+		return {
+			sessionEpoch: getChatSessionEpoch(),
+			origin: this.syncConversationOrigin(),
+			inputValue: this.inputValue,
+			inputRevision: this.inputRevision,
+			attachments: this.attachments.map((attachment) =>
+				(attachment.type === 'file' || attachment.type === 'screenshot') && attachment.uploadState
+					? { ...attachment, uploadState: { ...attachment.uploadState } }
+					: { ...attachment }
+			)
+		};
+	}
+
+	private syncConversationOrigin(): ChatConversationOrigin {
+		const generation = untrack(() => this.core.threadGeneration);
+		const threadId = untrack(() => this.core.threadId);
+		if (this.conversationOrigin.generation !== generation) {
+			this.conversationOrigin = { generation, threadId };
+		} else if (this.conversationOrigin.threadId !== threadId) {
+			const assignedCurrentConversation =
+				this.conversationOrigin.threadId === null &&
+				threadId !== null &&
+				untrack(() => this.core.isNewConversation);
+			if (assignedCurrentConversation) this.conversationOrigin.threadId = threadId;
+			else this.conversationOrigin = { generation, threadId };
+		}
+		return this.conversationOrigin;
+	}
+
+	clearInputForSend(snapshot: ChatSendSnapshot): void {
+		if (
+			!isChatSessionCurrent(snapshot.sessionEpoch) ||
+			this.inputRevision !== snapshot.inputRevision ||
+			this.inputValue !== snapshot.inputValue
+		) {
+			return;
+		}
+		this.clearInput();
+		snapshot.inputClearedRevision = this.inputRevision;
 	}
 
 	/**
@@ -561,6 +647,118 @@ export class ChatUIContext {
 		this.persist();
 	}
 
+	clearAttachmentsForSend(snapshot: ChatSendSnapshot): void {
+		if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
+		// Counts preserve exact multiplicity for legacy unkeyed attachments while
+		// keyed uploads use their transfer identity.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const remaining = new Map<string, number>();
+		for (const attachment of snapshot.attachments) {
+			const identity = ChatUIContext.attachmentIdentity(attachment);
+			remaining.set(identity, (remaining.get(identity) ?? 0) + 1);
+		}
+
+		const kept: Attachment[] = [];
+		for (const attachment of this.attachments) {
+			const identity = ChatUIContext.attachmentIdentity(attachment);
+			const count = remaining.get(identity) ?? 0;
+			if (count === 0) {
+				kept.push(attachment);
+				continue;
+			}
+			remaining.set(identity, count - 1);
+			this.releaseUpload(attachment);
+			this.revokePreview(attachment);
+		}
+		this.attachments = kept;
+		this.persist();
+	}
+
+	restoreSendSnapshot(snapshot: ChatSendSnapshot): void {
+		if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
+		const sameConversation = this.syncConversationOrigin() === snapshot.origin;
+
+		if (this.disposed || !sameConversation) {
+			if (snapshot.origin.threadId !== null) {
+				this.uploadConfig?.attachmentStore?.restoreThreadAttachments(
+					snapshot.origin.threadId,
+					snapshot.attachments
+				);
+			}
+			return;
+		}
+
+		if (
+			snapshot.inputClearedRevision !== undefined &&
+			this.inputRevision === snapshot.inputClearedRevision &&
+			this.inputValue === ''
+		) {
+			this.setInputValue(snapshot.inputValue);
+		}
+		this.attachments = ChatUIContext.mergeSnapshotAttachments(
+			snapshot.attachments,
+			this.attachments
+		);
+		this.persist();
+	}
+
+	reconcilePersistedAttachments(
+		namespace: string,
+		threadId: string | null,
+		attachments: Attachment[]
+	): void {
+		if (
+			this.disposed ||
+			this.uploadConfig?.attachmentStore?.namespace !== namespace ||
+			untrack(() => this.core.threadId) !== threadId
+		) {
+			return;
+		}
+		this.attachments = ChatUIContext.mergeSnapshotAttachments(attachments, this.attachments);
+	}
+
+	private static mergeSnapshotAttachments(
+		snapshot: Attachment[],
+		current: Attachment[]
+	): Attachment[] {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const currentByIdentity = new Map(
+			current.map((attachment) => [ChatUIContext.attachmentIdentity(attachment), attachment])
+		);
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const included = new Set<string>();
+		const merged: Attachment[] = [];
+		for (const attachment of snapshot) {
+			const identity = ChatUIContext.attachmentIdentity(attachment);
+			if (included.has(identity)) continue;
+			included.add(identity);
+			merged.push(
+				currentByIdentity.get(identity) ?? ChatUIContext.withoutRevokedPreview(attachment)
+			);
+		}
+		for (const attachment of current) {
+			const identity = ChatUIContext.attachmentIdentity(attachment);
+			if (included.has(identity)) continue;
+			included.add(identity);
+			merged.push(attachment);
+		}
+		return merged;
+	}
+
+	private static withoutRevokedPreview(attachment: Attachment): Attachment {
+		return 'preview' in attachment && attachment.preview?.startsWith('blob:')
+			? { ...attachment, preview: undefined }
+			: attachment;
+	}
+
+	private static attachmentIdentity(attachment: Attachment): string {
+		if ('key' in attachment && attachment.key) return `transfer:${attachment.key}`;
+		if (attachment.type === 'file' || attachment.type === 'screenshot') {
+			return `upload:${attachment.type}:${attachment.name}:${attachment.size}:${attachment.mimeType}:${attachment.url ?? ''}:${attachment.uploadState?.fileId ?? ''}`;
+		}
+		return `${attachment.type}:${attachment.url}:${attachment.filename ?? ''}`;
+	}
+
 	/**
 	 * Hand the composer over from one thread to another.
 	 *
@@ -689,6 +887,12 @@ export class ChatUIContext {
 	 */
 	dispose(): void {
 		this.unregister();
+		const originOwner = this.core as ChatCore & {
+			setThreadOriginBinder?: (
+				binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
+			) => void;
+		};
+		originOwner.setThreadOriginBinder?.(undefined);
 		// Before anything is dropped. What follows empties both lists, and saving
 		// that would erase the composers this surface is supposed to hand back the
 		// next time it is built. Leaving is not the same as letting go.

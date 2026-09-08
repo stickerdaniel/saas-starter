@@ -11,6 +11,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatCore } from '../core/chat-core.svelte.ts';
+import type { Attachment } from '../core/types.js';
 
 const uploadFileWithProgress = vi.fn();
 
@@ -96,6 +97,18 @@ async function uploadInto(ctx: InstanceType<typeof ChatUIContext>, filename: str
 
 function names(ctx: InstanceType<typeof ChatUIContext>) {
 	return ctx.attachments.map((a) => ('name' in a ? a.name : undefined));
+}
+
+function storedFile(key: string, name: string): Attachment {
+	return {
+		type: 'file',
+		key,
+		name,
+		size: name.length,
+		mimeType: 'text/plain',
+		url: `https://example.test/${name}`,
+		uploadState: { status: 'success', progress: 100, fileId: `file-${key}` }
+	};
 }
 
 describe('ChatUIContext persisted attachments', () => {
@@ -375,5 +388,49 @@ describe('ChatUIContext persisted attachments', () => {
 		reloaded.switchTo('thread-b');
 		reloaded.switchTo('thread-a');
 		expect(names(reloaded.ctx)).toEqual(['shot.png']);
+	});
+
+	it('reconciles only the matching surface and thread without replacing a later upload', () => {
+		const matching = chatAt('thread-a');
+		const otherThread = chatAt('thread-b');
+		const later: Attachment = {
+			type: 'file',
+			key: 'later',
+			name: 'later.txt',
+			size: 5,
+			mimeType: 'text/plain',
+			uploadState: { status: 'uploading', progress: 50 }
+		};
+		matching.ctx.addAttachments([later]);
+		const matchingSurface = surface;
+		surface = 'other-' + Math.random();
+		const otherSurface = chatAt('thread-a');
+
+		new ChatAttachmentStore(matchingSurface).restoreThreadAttachments('thread-a', [
+			storedFile('restored', 'restored.txt')
+		]);
+
+		expect(names(matching.ctx)).toEqual(['restored.txt', 'later.txt']);
+		expect(matching.ctx.attachments[1]).toEqual(later);
+		expect(otherThread.ctx.attachments).toHaveLength(0);
+		expect(otherSurface.ctx.attachments).toHaveLength(0);
+	});
+
+	it('reconciles a replacement context when persistence fails and permits removal', () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const replacement = chatAt('thread-a');
+		const setItem = vi.spyOn(localStorageMock, 'setItem').mockImplementation(() => {
+			throw new DOMException('QuotaExceededError');
+		});
+
+		new ChatAttachmentStore(surface).restoreThreadAttachments('thread-a', [
+			storedFile('restored', 'restored.txt')
+		]);
+
+		expect(names(replacement.ctx)).toEqual(['restored.txt']);
+		setItem.mockRestore();
+		replacement.ctx.removeAttachment(0);
+		expect(replacement.ctx.attachments).toHaveLength(0);
+		expect(new ChatAttachmentStore(surface).readThread('thread-a')).toHaveLength(0);
 	});
 });

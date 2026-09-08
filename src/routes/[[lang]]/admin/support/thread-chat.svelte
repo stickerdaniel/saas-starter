@@ -31,6 +31,10 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import {
+		getChatSessionEpoch,
+		isChatSessionCurrent
+	} from '$lib/chat/core/chat-persisted-state.ts';
 
 	const { t } = getTranslate();
 
@@ -97,8 +101,10 @@
 
 	// Draft persistence — load saved draft on mount, save continuously
 	let sending = $state(false);
+	let sendRevision = 0;
 
 	// Load saved draft on mount (threadId is constant per {#key} instance)
+	// svelte-ignore state_referenced_locally
 	if (draftManager) {
 		const draft = draftManager.getDraft(threadId);
 		if (draft) chatUIContext.setInputValue(draft);
@@ -372,13 +378,17 @@
 			onSend={async (prompt) => {
 				if (!prompt?.trim()) return;
 
+				const originThreadId = threadId;
+				const draftCheckpoint = draftManager?.captureCheckpoint(originThreadId);
+				const sessionEpoch = getChatSessionEpoch();
+				const operationRevision = ++sendRevision;
 				// Get uploaded file IDs and attachments from context
 				const fileIds = chatUIContext.uploadedFileIds;
-				const attachments = chatUIContext.attachments;
+				const attachments = [...chatUIContext.attachments];
 
 				// Build query args for optimistic update (must match ChatRoot's query)
 				const queryArgs: ListMessagesArgs = {
-					threadId,
+					threadId: originThreadId,
 					paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
 					streamArgs: { kind: 'list' as const, startOrder: 0 }
 				};
@@ -389,7 +399,7 @@
 					await client.mutation(
 						api.admin.support.mutations.sendAdminReply,
 						{
-							threadId,
+							threadId: originThreadId,
 							prompt,
 							fileIds: fileIds.length > 0 ? fileIds : undefined
 						},
@@ -407,16 +417,18 @@
 						}
 					);
 
-					// Clear attachments and draft after successful send
-					chatUIContext.clearAttachments();
-					draftManager?.clearDraft(threadId);
+					if (!isChatSessionCurrent(sessionEpoch)) return;
+					if (draftCheckpoint) draftManager?.clearDraftIfUnchanged(draftCheckpoint);
 				} catch (error) {
-					console.error('[Admin sendAdminReply] Error:', error);
-					// Restore prompt so user can retry and $effect re-persists draft
-					chatUIContext.setInputValue(prompt);
-					toast.error($t('admin.support.chat.send_error'));
+					if (isChatSessionCurrent(sessionEpoch)) {
+						console.error('[Admin sendAdminReply] Error:', error);
+						toast.error($t('admin.support.chat.send_error'));
+					}
+					throw error;
 				} finally {
-					sending = false;
+					if (isChatSessionCurrent(sessionEpoch) && sendRevision === operationRevision) {
+						sending = false;
+					}
 				}
 			}}
 		/>

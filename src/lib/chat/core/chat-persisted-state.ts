@@ -1,3 +1,5 @@
+import type { Attachment } from './types.js';
+
 /**
  * The chat state that outlives a document, and how to get rid of it.
  *
@@ -16,6 +18,12 @@ const PREFIXES = [DRAFT_STORAGE_PREFIX, ATTACHMENT_STORAGE_PREFIX];
 export interface PersistedChatHolder {
 	/** Let go of everything belonging to the session that is ending. */
 	forgetPersistedState(): void;
+	/** Adopt a rejected send restored for this holder's current composer. */
+	reconcilePersistedAttachments?(
+		namespace: string,
+		threadId: string | null,
+		attachments: Attachment[]
+	): void;
 }
 
 /**
@@ -25,6 +33,24 @@ export interface PersistedChatHolder {
  * anything it would otherwise have to import back.
  */
 const holders = new Set<PersistedChatHolder>();
+
+/** Invalidates asynchronous work captured by the previous browser session. */
+let sessionEpoch = 0;
+
+/** The current document-local chat session epoch. */
+export function getChatSessionEpoch(): number {
+	return sessionEpoch;
+}
+
+/** Whether asynchronous chat work still belongs to this browser session. */
+export function isChatSessionCurrent(epoch: number): boolean {
+	return epoch === sessionEpoch;
+}
+
+/** Start a new local session boundary before any fallible cleanup runs. */
+function advanceSessionEpoch(): void {
+	sessionEpoch++;
+}
 
 /**
  * The one key here that is not a composer: word that a session has ended.
@@ -43,6 +69,7 @@ function listenForSessionEnd(): void {
 	listening = true;
 	window.addEventListener('storage', (event) => {
 		if (event.key !== SESSION_END_KEY || event.newValue === null) return;
+		advanceSessionEpoch();
 		forgetEverything();
 	});
 }
@@ -65,6 +92,21 @@ export function registerPersistedChatHolder(holder: PersistedChatHolder): () => 
 	return () => holders.delete(holder);
 }
 
+/** Reconcile a restored attachment list into matching mounted composers. */
+export function reconcilePersistedChatAttachments(
+	namespace: string,
+	threadId: string | null,
+	attachments: Attachment[]
+): void {
+	for (const holder of holders) {
+		try {
+			holder.reconcilePersistedAttachments?.(namespace, threadId, attachments);
+		} catch (error) {
+			console.error('[chat] A composer could not reconcile restored attachments:', error);
+		}
+	}
+}
+
 /**
  * Drop every draft and every stored attachment.
  *
@@ -78,6 +120,7 @@ export function registerPersistedChatHolder(holder: PersistedChatHolder): () => 
  * on a page they have already signed out of.
  */
 export function clearPersistedChatState(): void {
+	advanceSessionEpoch();
 	// The composers on screen first, because storage is not where they keep it.
 	// One survives every sign-out: the support widget belongs to the shell, so
 	// it is still mounted on the page the user lands on afterwards, holding what

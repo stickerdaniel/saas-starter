@@ -16,6 +16,10 @@
 	import { page } from '$app/state';
 	import { onDestroy, tick } from 'svelte';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import {
+		getChatSessionEpoch,
+		isChatSessionCurrent
+	} from '$lib/chat/core/chat-persisted-state.ts';
 
 	const { t } = getTranslate();
 
@@ -91,6 +95,7 @@
 	// Draft persistence across thread switches and page refreshes
 	const draftManager = new ChatDraftManager('ai-chat');
 	let sending = $state(false);
+	let sendRevision = 0;
 
 	// Save draft on leave, restore on enter
 	watch(
@@ -192,21 +197,28 @@
 				isRateLimited={!hasMessagesAvailable}
 				onSend={async (prompt) => {
 					if (!hasMessagesAvailable || !prompt?.trim()) return;
+					const originThreadId = threadId;
+					const draftCheckpoint = draftManager.captureCheckpoint(originThreadId);
+					const sessionEpoch = getChatSessionEpoch();
+					const operationRevision = ++sendRevision;
+					const fileIds = chatUIContext.uploadedFileIds;
+					const attachments = [...chatUIContext.attachments];
 					sending = true;
 					try {
-						await chatCore.sendMessage(client, prompt, {
-							fileIds: chatUIContext.uploadedFileIds,
-							attachments: chatUIContext.attachments
-						});
-						chatUIContext.clearAttachments();
-						draftManager.clearDraft(threadId);
+						await chatCore.sendMessage(client, prompt, { fileIds, attachments });
+						if (!isChatSessionCurrent(sessionEpoch)) return;
+						draftManager.clearDraftIfUnchanged(draftCheckpoint);
 						onMessageSent?.();
 					} catch (error) {
-						console.error('[AI Chat sendMessage] Error:', error);
-						chatUIContext.setInputValue(prompt);
-						toast.error($t('chat.messages.send_failed'));
+						if (isChatSessionCurrent(sessionEpoch)) {
+							console.error('[AI Chat sendMessage] Error:', error);
+							toast.error($t('chat.messages.send_failed'));
+						}
+						throw error;
 					} finally {
-						sending = false;
+						if (isChatSessionCurrent(sessionEpoch) && sendRevision === operationRevision) {
+							sending = false;
+						}
 					}
 				}}
 			/>

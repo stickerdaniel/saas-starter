@@ -1,7 +1,10 @@
 import { PersistedState } from 'runed';
 import * as v from 'valibot';
 import type { Attachment } from './types.js';
-import { ATTACHMENT_STORAGE_PREFIX } from './chat-persisted-state.js';
+import {
+	ATTACHMENT_STORAGE_PREFIX,
+	reconcilePersistedChatAttachments
+} from './chat-persisted-state.js';
 
 /**
  * How long a stored attachment is offered back.
@@ -119,6 +122,7 @@ function fromStored(stored: StoredAttachment): Attachment {
  * in storage once its upload finished.
  */
 export class ChatAttachmentStore {
+	readonly namespace: string;
 	private readonly stored: PersistedState<StoredRecord>;
 
 	/**
@@ -152,7 +156,8 @@ export class ChatAttachmentStore {
 	 * is added here so no caller can spell it differently.
 	 */
 	constructor(surface: string) {
-		this.stored = new PersistedState<StoredRecord>(`${ATTACHMENT_STORAGE_PREFIX}${surface}`, {});
+		this.namespace = `${ATTACHMENT_STORAGE_PREFIX}${surface}`;
+		this.stored = new PersistedState<StoredRecord>(this.namespace, {});
 	}
 
 	/** Everything still on offer, anything too old already dropped. */
@@ -220,6 +225,50 @@ export class ChatAttachmentStore {
 		// a hundred times per file.
 		if (JSON.stringify(next) === JSON.stringify(previous)) return;
 		this.stored.current = next;
+	}
+
+	/** Restore one rejected send without overwriting newer persisted work. */
+	restoreThreadAttachments(threadId: string | null, snapshot: Attachment[]): void {
+		const key = threadId ?? '';
+		const previous = this.parse();
+		const current = previous[key] ?? [];
+		// Local collections used once to build a deterministic stored snapshot.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const currentById = new Map(current.map((item) => [item.id, item]));
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const included = new Set<string>();
+		const merged: StoredAttachment[] = [];
+		const now = Date.now();
+
+		for (const attachment of snapshot) {
+			const transfer = ChatAttachmentStore.transferId(attachment);
+			if (!transfer || included.has(transfer)) continue;
+			const existing = currentById.get(transfer);
+			const restored = existing ?? toStored(attachment, this.stamps.get(transfer) ?? now);
+			if (!restored) continue;
+			this.stamps.set(transfer, restored.savedAt);
+			included.add(transfer);
+			merged.push(restored);
+		}
+		for (const attachment of current) {
+			if (included.has(attachment.id)) continue;
+			included.add(attachment.id);
+			merged.push(attachment);
+		}
+
+		const alive = this.fresh({ [key]: merged })[key] ?? [];
+		const next = { ...previous };
+		if (alive.length > 0) next[key] = alive;
+		else delete next[key];
+		try {
+			if (JSON.stringify(next) !== JSON.stringify(previous)) this.stored.current = next;
+		} finally {
+			reconcilePersistedChatAttachments(
+				this.namespace,
+				threadId,
+				alive.map((item) => this.revive(item))
+			);
+		}
 	}
 
 	/** Drop what the vacuum may already have collected. */
