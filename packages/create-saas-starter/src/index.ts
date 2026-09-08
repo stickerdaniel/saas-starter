@@ -41,6 +41,7 @@ export interface CliIo {
 }
 
 export interface CliRuntime {
+	inspectTarget: typeof inspectTarget;
 	runSetupAndInstall: typeof runSetupAndInstall;
 	updateMarker: typeof updateMarker;
 }
@@ -54,6 +55,7 @@ const defaultIo: CliIo = {
 };
 
 const defaultRuntime: CliRuntime = {
+	inspectTarget,
 	runSetupAndInstall,
 	updateMarker
 };
@@ -91,8 +93,9 @@ function navigation(target: string, platform: NodeJS.Platform = process.platform
 export async function runCli(
 	args: string[],
 	io: CliIo = defaultIo,
-	runtime: CliRuntime = defaultRuntime
+	runtimeOverrides: Partial<CliRuntime> = {}
 ): Promise<number> {
+	const runtime = { ...defaultRuntime, ...runtimeOverrides };
 	const controller = new AbortController();
 	let interrupted = false;
 	const onSigint = () => {
@@ -121,7 +124,8 @@ export async function runCli(
 			prompts: io.prompts,
 			signal: controller.signal
 		});
-		const target = await inspectTarget(options.directory, io.cwd);
+		const target = await runtime.inspectTarget(options.directory, io.cwd);
+		throwIfAborted(controller.signal);
 
 		if (options.dryRun) {
 			io.stdout(`Dry run complete. Target is available: ${target.path}`);

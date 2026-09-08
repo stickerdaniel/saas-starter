@@ -13,6 +13,7 @@ import {
 	resolveOptions,
 	type PromptAdapter
 } from '../src/prompts.js';
+import { inspectTarget } from '../src/target.js';
 import { tarGz, validTemplateEntries } from './archive-fixture.js';
 
 class PromptInput extends Readable {
@@ -320,6 +321,47 @@ describe('interrupt handling', () => {
 });
 
 describe('dry run', () => {
+	it('returns 130 when interrupted during asynchronous target inspection', async () => {
+		const parent = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-dry-abort-'));
+		temporaryDirectories.push(parent);
+		const messages: string[] = [];
+		let announceInspected!: () => void;
+		let releaseInspection!: () => void;
+		const inspected = new Promise<void>((resolve) => (announceInspected = resolve));
+		const release = new Promise<void>((resolve) => (releaseInspection = resolve));
+		const fetchSpy = vi
+			.spyOn(globalThis, 'fetch')
+			.mockRejectedValue(new Error('fetch must not run'));
+		const running = runCli(
+			['project', '--repo', 'owner/project', '--yes', '--dry-run'],
+			{
+				stdout: (message) => messages.push(message),
+				stderr: (message) => messages.push(message),
+				stdin: process.stdin,
+				environment: { PATH: '' },
+				cwd: parent
+			},
+			{
+				inspectTarget: async (...input) => {
+					const target = await inspectTarget(...input);
+					announceInspected();
+					await release;
+					return target;
+				}
+			}
+		);
+		await inspected;
+		process.emit('SIGINT');
+		process.emit('SIGINT');
+		releaseInspection();
+
+		await expect(running).resolves.toBe(130);
+		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(await readdir(parent)).toEqual([]);
+		expect(messages.some((message) => message.startsWith('Dry run complete'))).toBe(false);
+		expect(messages.join('\n')).toContain('interrupted');
+	});
+
 	it('does not prompt, fetch, spawn, or write', async () => {
 		const parent = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-dry-'));
 		temporaryDirectories.push(parent);
