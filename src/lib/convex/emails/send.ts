@@ -16,6 +16,7 @@ import type { GenericMutationCtx } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
 import { buildSupportDeepLink, shouldSkipTestEmail } from './helpers';
 import { hasUsablePassword } from '../credentialAccounts';
+import { shouldSendNotification } from '../support/notificationPreferences';
 
 /** Type for user result from Better Auth adapter with optional locale field */
 type UserWithLocale = { locale?: string | null } | null;
@@ -57,12 +58,11 @@ export const sendVerificationEmail = internalMutation({
 		const { email, verificationUrl, expiryMinutes = 20 } = args;
 
 		if (shouldSkipTestEmail('sendVerificationEmail', email)) return null;
-		if (!getReadyEmailConfiguration()) return null;
+		assertResendApiKey();
 
 		const locale = await getLocaleForEmail(ctx, email);
 		const { html, text } = renderVerificationEmail(verificationUrl, expiryMinutes, locale);
-		const emailConfiguration = getReadyEmailConfiguration();
-		if (!emailConfiguration) return null;
+		const emailConfiguration = assertResendApiKey();
 
 		await resend.sendEmail(ctx, {
 			from: emailConfiguration.sender,
@@ -98,7 +98,7 @@ export const sendResetPasswordEmail = internalMutation({
 		const { email, resetUrl, userName } = args;
 
 		if (shouldSkipTestEmail('sendResetPasswordEmail', email)) return null;
-		if (!getReadyEmailConfiguration()) return null;
+		assertResendApiKey();
 
 		// Resolved here rather than in the caller: the reset hook awaits that
 		// caller, so the lookup would sit on the response path as its own round
@@ -106,8 +106,7 @@ export const sendResetPasswordEmail = internalMutation({
 		const hasPassword = await hasUsablePassword(ctx, args.userId);
 		const locale = await getLocaleForEmail(ctx, email);
 		const { html, text } = renderPasswordResetEmail(resetUrl, userName, locale, hasPassword);
-		const emailConfiguration = getReadyEmailConfiguration();
-		if (!emailConfiguration) return null;
+		const emailConfiguration = assertResendApiKey();
 
 		await resend.sendEmail(ctx, {
 			from: emailConfiguration.sender,
@@ -137,6 +136,7 @@ export const sendResetPasswordEmail = internalMutation({
  */
 export const sendAdminReplyNotification = internalMutation({
 	args: {
+		supportThreadId: v.id('supportThreads'),
 		email: v.string(),
 		adminName: v.string(),
 		messagePreview: v.string(),
@@ -145,10 +145,15 @@ export const sendAdminReplyNotification = internalMutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const { email, adminName, messagePreview, threadId, pageUrl } = args;
+		const { supportThreadId, email, adminName, messagePreview, threadId, pageUrl } = args;
 
 		if (shouldSkipTestEmail('sendAdminReplyNotification', email)) return null;
 		if (!getReadyEmailConfiguration()) return null;
+
+		const supportThread = await ctx.db.get(supportThreadId);
+		if (!supportThread || !shouldSendNotification(email, supportThread.notificationSentAt)) {
+			return null;
+		}
 
 		const locale = await getLocaleForEmail(ctx, email);
 		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
@@ -177,6 +182,7 @@ export const sendAdminReplyNotification = internalMutation({
 				{ name: 'X-Thread-ID', value: threadId }
 			]
 		});
+		await ctx.db.patch(supportThreadId, { notificationSentAt: Date.now() });
 		return null;
 	}
 });

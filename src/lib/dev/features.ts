@@ -127,7 +127,10 @@ function isPublicAssetUrl(value: string): boolean {
 		const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
 		if (!hostname || hostname === 'localhost' || hostname.endsWith('.local')) return false;
 		if (isPrivateIpv4(hostname)) return false;
-		if (hostname === '::' || hostname === '::1' || /^(?:fc|fd|fe[89ab])/i.test(hostname)) {
+		if (
+			hostname.includes(':') &&
+			(hostname === '::' || hostname === '::1' || /^(?:fc|fd|fe[89ab])/i.test(hostname))
+		) {
 			return false;
 		}
 		return hostname.includes('.') || hostname.includes(':');

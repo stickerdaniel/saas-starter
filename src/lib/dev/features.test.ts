@@ -72,6 +72,30 @@ describe('resolveCapabilityConfigurations', () => {
 	});
 
 	it.each([
+		'https://features.example.com',
+		'https://fcatalog.example.com',
+		'https://february.example.com',
+		'https://[2001:4860:4860::8888]'
+	])('accepts the public asset URL %s', (assetUrl) => {
+		expect(
+			resolveCapabilityConfigurations({ ...READY_ENVIRONMENT, EMAIL_ASSET_URL: assetUrl }).email
+		).toMatchObject({ state: 'ready' });
+	});
+
+	it.each([
+		'https://[fc00::1]',
+		'https://[fd12::1]',
+		'https://[fe80::1]',
+		'https://[febf::1]',
+		'https://[::1]',
+		'https://[::]'
+	])('rejects the non-public IPv6 asset URL %s', (assetUrl) => {
+		expect(
+			resolveCapabilityConfigurations({ ...READY_ENVIRONMENT, EMAIL_ASSET_URL: assetUrl }).email
+		).toEqual({ state: 'misconfigured', issue: 'invalid' });
+	});
+
+	it.each([
 		['RESEND_API_KEY', 're_your_api_key_here', 'email'],
 		['RESEND_API_KEY', 're_local_e2e_dummy', 'email'],
 		['AUTH_EMAIL', 'noreply@yourdomain.com', 'email'],
