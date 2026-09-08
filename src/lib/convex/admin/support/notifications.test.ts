@@ -1,6 +1,18 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 
-import { scheduleAdminNotification } from './notifications';
+vi.mock('../../emails/resend', () => ({
+	getEmailDeliveryConfiguration: vi.fn(() => ({
+		state: 'ready',
+		value: {
+			apiKey: 'configured',
+			sender: 'sender@example.com',
+			assetUrl: 'https://assets.example.com'
+		}
+	}))
+}));
+
+import { getEmailDeliveryConfiguration } from '../../emails/resend';
+import { scheduleAdminNotification, sendPendingAdminNotification } from './notifications';
 
 /**
  * Handler-level unit test (the codebase idiom): the Convex fn exposes its
@@ -23,6 +35,13 @@ const scheduleAdminNotificationH = scheduleAdminNotification as unknown as Fn<
 		notificationType: 'newTickets' | 'userReplies';
 	},
 	null
+>;
+const sendPendingAdminNotificationH = sendPendingAdminNotification as unknown as Fn<
+	{ notificationId: string },
+	null
+>;
+const getEmailConfigurationMock = getEmailDeliveryConfiguration as unknown as ReturnType<
+	typeof vi.fn
 >;
 
 function createCtx() {
@@ -65,6 +84,18 @@ function createCtx() {
 }
 
 describe('scheduleAdminNotification', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		getEmailConfigurationMock.mockReturnValue({
+			state: 'ready',
+			value: {
+				apiKey: 'configured',
+				sender: 'sender@example.com',
+				assetUrl: 'https://assets.example.com'
+			}
+		});
+	});
+
 	it('creates a pending row and schedules the send with no messages (bare handoff)', async () => {
 		const { ctx, rows, runAfter } = createCtx();
 
@@ -90,4 +121,56 @@ describe('scheduleAdminNotification', () => {
 		// The scheduled send targets the row we just created.
 		expect(runAfter.mock.calls[0][2]).toEqual({ notificationId: rows[0]._id });
 	});
+
+	it.each(['disabled', 'misconfigured'] as const)(
+		'does not create pending work when email is %s',
+		async (state) => {
+			getEmailConfigurationMock.mockReturnValue(
+				state === 'disabled' ? { state } : { state, issue: 'missing' }
+			);
+			const { ctx, rows, runAfter } = createCtx();
+
+			await scheduleAdminNotificationH._handler(ctx, {
+				threadId: 'thread_1',
+				messageIds: ['message_1'],
+				isReopen: false,
+				notificationType: 'newTickets'
+			});
+
+			expect(rows).toHaveLength(0);
+			expect(runAfter).not.toHaveBeenCalled();
+		}
+	);
+});
+
+describe('sendPendingAdminNotification', () => {
+	it.each(['disabled', 'misconfigured'] as const)(
+		'deletes a claimed row without queries, sends, or retries when email is %s',
+		async (state) => {
+			getEmailConfigurationMock.mockReturnValue(
+				state === 'disabled' ? { state } : { state, issue: 'missing' }
+			);
+			const notification = {
+				threadId: 'thread_1',
+				messageIds: ['message_1'],
+				isReopen: false,
+				notificationType: 'newTickets',
+				retryCount: 0
+			};
+			const runMutation = vi.fn().mockResolvedValueOnce(notification).mockResolvedValueOnce(true);
+			const runQuery = vi.fn();
+
+			expect(
+				await sendPendingAdminNotificationH._handler(
+					{ runMutation, runQuery },
+					{ notificationId: 'notification_1' }
+				)
+			).toBeNull();
+			expect(runMutation).toHaveBeenCalledTimes(2);
+			expect(runMutation.mock.calls[1][1]).toEqual({
+				notificationId: 'notification_1'
+			});
+			expect(runQuery).not.toHaveBeenCalled();
+		}
+	);
 });

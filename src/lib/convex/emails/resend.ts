@@ -1,6 +1,7 @@
 import { components, internal } from '../_generated/api';
 import { Resend } from '@convex-dev/resend';
-import { requireEnv } from '../env';
+import { getCapabilityConfigurations, requireEmailConfiguration } from '../env';
+import type { CapabilityConfiguration, EmailConfiguration } from '../../dev/features';
 import { devNotice } from '../../dev/notice';
 
 /**
@@ -42,22 +43,18 @@ export const resend: Resend = new Resend(components.resend, {
 	onEmailEvent: internal.emails.events.handleEmailEvent
 });
 
+/** Resolve the complete outbound email group at the enqueue boundary. */
+export function getEmailDeliveryConfiguration(): CapabilityConfiguration<EmailConfiguration> {
+	return getCapabilityConfigurations().email;
+}
+
 /**
- * Throws a loud, copy-paste-friendly error when RESEND_API_KEY is not set.
- *
- * Without this preflight, the Resend SDK accepts the send call and queues it,
- * but the actual API call fails inside the component's workpool. The Better
- * Auth verify-email flow then "succeeds" from the user's perspective while no
- * email ever arrives. Calling this at the top of every email-sending handler
- * converts that silent hang into an immediate, named failure in Convex logs.
- *
- * Delegates to `requireEnv` so the error format and docs path stay in one
- * place. AUTH_EMAIL presence is covered separately by `requireEnv('AUTH_EMAIL',
- * ...)` in each handler's `from` argument.
+ * Guard the component enqueue before it can accept work that will never send.
+ * The historical name remains stable for existing callers, but the guard now
+ * validates the API key, sender address, and public asset URL as one group.
  */
-export function assertResendApiKey(): void {
-	// E2E test runs propagate AUTH_E2E_TEST_SECRET into the Convex backend
-	// (vite.config.ts) and intentionally do not configure Resend. Stay quiet there.
-	if (process.env.AUTH_E2E_TEST_SECRET) return;
-	requireEnv('RESEND_API_KEY', { feature: 'email delivery' });
+export function assertResendApiKey(
+	configuration = getEmailDeliveryConfiguration()
+): EmailConfiguration {
+	return requireEmailConfiguration(configuration);
 }

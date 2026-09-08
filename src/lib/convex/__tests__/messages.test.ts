@@ -11,6 +11,10 @@ vi.mock('../autumn', () => ({
 	checkAndCountUsage: vi.fn()
 }));
 
+vi.mock('../env', () => ({
+	requireBillingConfiguration: vi.fn(() => ({ secretKey: 'configured' }))
+}));
+
 vi.mock('../rateLimit', () => ({
 	appRateLimiter: {
 		limit: vi.fn().mockResolvedValue({ ok: true, retryAfter: 0 })
@@ -30,11 +34,13 @@ vi.mock('../_generated/api', () => ({
 import { authComponent } from '../auth';
 import { checkAndCountUsage } from '../autumn';
 import { appRateLimiter } from '../rateLimit';
+import { requireBillingConfiguration } from '../env';
 import { enforceAndTrackMessageUsage, removeMessage, send } from '../messages';
 
 const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
 const checkAndCountUsageMock = checkAndCountUsage as unknown as ReturnType<typeof vi.fn>;
 const limitMock = appRateLimiter.limit as unknown as ReturnType<typeof vi.fn>;
+const requireBillingMock = requireBillingConfiguration as unknown as ReturnType<typeof vi.fn>;
 
 type RegisteredFunction<TArgs, TResult> = {
 	_handler: (ctx: unknown, args: TArgs) => Promise<TResult>;
@@ -124,6 +130,22 @@ describe('send', () => {
 		vi.clearAllMocks();
 		getAuthUserMock.mockResolvedValue({ _id: 'user_1' });
 		limitMock.mockResolvedValue({ ok: true, retryAfter: 0 });
+	});
+
+	it('does not save or schedule a message without ready billing configuration', async () => {
+		requireBillingMock.mockImplementationOnce(() => {
+			throw new Error('[capability] billing is misconfigured');
+		});
+		const insert = vi.fn();
+		const runAfter = vi.fn();
+		const ctx = { db: { insert }, scheduler: { runAfter } };
+
+		await expect(sendHandler._handler(ctx, { body: 'hello' })).rejects.toThrow(
+			'[capability] billing is misconfigured'
+		);
+		expect(limitMock).not.toHaveBeenCalled();
+		expect(insert).not.toHaveBeenCalled();
+		expect(runAfter).not.toHaveBeenCalled();
 	});
 
 	it('rejects with a structured error when the rate limit is exhausted', async () => {

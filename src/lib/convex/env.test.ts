@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { requireEnv } from './env';
+import { CapabilityConfigurationError, requireCapabilityConfiguration, requireEnv } from './env';
 
 const env = process.env as Record<string, string | undefined>;
 
@@ -41,14 +41,18 @@ describe('requireEnv', () => {
 		expect(requireEnv('BETTER_AUTH_SECRET')).toBe('placeholder-secret-for-analysis');
 	});
 
-	it('throws a structured error when no value and no placeholder', () => {
-		// AUTH_EMAIL has no ANALYSIS_PLACEHOLDER entry, so an unset value must throw.
-		withMissing('AUTH_EMAIL', () => {
-			expect(() => requireEnv('AUTH_EMAIL')).toThrowError(
-				/\[env\] Missing AUTH_EMAIL\n {2}Fix: bunx convex env set AUTH_EMAIL <value>\n {2}See: \.env\.convex\.example/
-			);
-		});
-	});
+	it.each(['AUTH_EMAIL', 'AUTUMN_SECRET_KEY'] as const)(
+		'throws a structured error for %s when no value and no placeholder exists',
+		(key) => {
+			withMissing(key, () => {
+				expect(() => requireEnv(key)).toThrowError(
+					new RegExp(
+						`\\[env\\] Missing ${key}\\n {2}Fix: bunx convex env set ${key} <value>\\n {2}See: \\.env\\.convex\\.example`
+					)
+				);
+			});
+		}
+	);
 
 	it('includes the feature name in the error message when provided', () => {
 		withMissing('AUTH_EMAIL', () => {
@@ -64,5 +68,28 @@ describe('requireEnv', () => {
 				requireEnv('AUTH_EMAIL', { feature: 'email delivery', docs: 'docs/email.md' })
 			).toThrowError(/See: docs\/email\.md/);
 		});
+	});
+});
+
+describe('requireCapabilityConfiguration', () => {
+	it.each(['disabled', 'misconfigured'] as const)(
+		'rejects %s configuration without exposing provider details',
+		(state) => {
+			expect(() =>
+				requireCapabilityConfiguration(
+					'billing',
+					state === 'disabled' ? { state } : { state, issue: 'missing' }
+				)
+			).toThrowError(CapabilityConfigurationError);
+		}
+	);
+
+	it('returns only the normalized ready value', () => {
+		expect(
+			requireCapabilityConfiguration('ai', {
+				state: 'ready',
+				value: { apiKey: 'configured' }
+			})
+		).toEqual({ apiKey: 'configured' });
 	});
 });

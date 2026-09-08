@@ -18,6 +18,11 @@ import { syncSupportLastMessage } from './threads';
 import { getFileMetadataByUrls } from '../files/metadata';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { recordAiUsage } from '../aiUsage/record';
+import {
+	CapabilityConfigurationError,
+	getCapabilityConfigurations,
+	requireAiConfiguration
+} from '../env';
 
 /**
  * Send a user message and get AI response with streaming
@@ -53,7 +58,7 @@ export const sendMessage = mutation({
 		// false, so the mode has to be re-read per message: otherwise disabling
 		// the agent would leave those threads waiting for a reply nobody sends.
 		const wasHandedOff = supportThread.isHandedOff === true;
-		const aiEnabled = isSupportAiEnabled();
+		const aiEnabled = isSupportAiEnabled() && getCapabilityConfigurations().ai.state === 'ready';
 		const isHumanOnly = wasHandedOff || !aiEnabled;
 
 		// Rate limit check - stricter limits for anonymous users
@@ -231,12 +236,19 @@ export const createAIResponse = internalAction({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		// sendMessage decides the mode, but the agent can be switched off while a
-		// job it scheduled is still queued. Dropping that job would strand the
-		// message: nothing answers, and the thread is not handed off, so it is
-		// absent from the admin lists too. Hand it to the team instead, which is
-		// what switching the agent off asks for.
-		if (!isSupportAiEnabled()) {
+		// sendMessage decides the mode, but the agent can be switched off or lose
+		// provider configuration while a scheduled job is still queued. Dropping
+		// that job would strand the message, so hand it to the team instead.
+		let aiReady = isSupportAiEnabled();
+		if (aiReady) {
+			try {
+				requireAiConfiguration();
+			} catch (error) {
+				if (!(error instanceof CapabilityConfigurationError)) throw error;
+				aiReady = false;
+			}
+		}
+		if (!aiReady) {
 			await ctx.runMutation(internal.support.handoff.internalSetHandoff, {
 				threadId: args.threadId,
 				// No model is going to speak in this turn, so the acknowledgement has
@@ -278,6 +290,17 @@ export const createAIResponse = internalAction({
 			// agent's built-in SUPPORT_AGENT_INSTRUCTIONS (agent.ts). The seam already
 			// accepts a locale; we pass none here and serve the global default.
 			const systemOverride = await ctx.runQuery(internal.support.promptStore.getActive, {});
+
+			try {
+				requireAiConfiguration();
+			} catch (error) {
+				if (!(error instanceof CapabilityConfigurationError)) throw error;
+				await ctx.runMutation(internal.support.handoff.internalSetHandoff, {
+					threadId: args.threadId,
+					acknowledge: true
+				});
+				return null;
+			}
 
 			// Stream the AI response with tool execution support
 			// maxSteps is configured at the agent level (agent.ts) for multi-step tool execution

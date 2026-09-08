@@ -1,7 +1,7 @@
 import { internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
 import { components, internal } from '../_generated/api';
-import { resend, assertResendApiKey } from './resend';
+import { resend, assertResendApiKey, getEmailDeliveryConfiguration } from './resend';
 import {
 	renderVerificationEmail,
 	renderPasswordResetEmail,
@@ -19,6 +19,11 @@ import { hasUsablePassword } from '../credentialAccounts';
 
 /** Type for user result from Better Auth adapter with optional locale field */
 type UserWithLocale = { locale?: string | null } | null;
+
+function getReadyEmailConfiguration() {
+	const configuration = getEmailDeliveryConfiguration();
+	return configuration.state === 'ready' ? assertResendApiKey(configuration) : null;
+}
 
 /**
  * Look up a user's locale preference by email address.
@@ -52,13 +57,15 @@ export const sendVerificationEmail = internalMutation({
 		const { email, verificationUrl, expiryMinutes = 20 } = args;
 
 		if (shouldSkipTestEmail('sendVerificationEmail', email)) return null;
-		assertResendApiKey();
+		if (!getReadyEmailConfiguration()) return null;
 
 		const locale = await getLocaleForEmail(ctx, email);
 		const { html, text } = renderVerificationEmail(verificationUrl, expiryMinutes, locale);
+		const emailConfiguration = getReadyEmailConfiguration();
+		if (!emailConfiguration) return null;
 
 		await resend.sendEmail(ctx, {
-			from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
+			from: emailConfiguration.sender,
 			to: email,
 			subject: t(locale, 'email.subject.verify'),
 			html,
@@ -91,7 +98,7 @@ export const sendResetPasswordEmail = internalMutation({
 		const { email, resetUrl, userName } = args;
 
 		if (shouldSkipTestEmail('sendResetPasswordEmail', email)) return null;
-		assertResendApiKey();
+		if (!getReadyEmailConfiguration()) return null;
 
 		// Resolved here rather than in the caller: the reset hook awaits that
 		// caller, so the lookup would sit on the response path as its own round
@@ -99,9 +106,11 @@ export const sendResetPasswordEmail = internalMutation({
 		const hasPassword = await hasUsablePassword(ctx, args.userId);
 		const locale = await getLocaleForEmail(ctx, email);
 		const { html, text } = renderPasswordResetEmail(resetUrl, userName, locale, hasPassword);
+		const emailConfiguration = getReadyEmailConfiguration();
+		if (!emailConfiguration) return null;
 
 		await resend.sendEmail(ctx, {
-			from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
+			from: emailConfiguration.sender,
 			to: email,
 			subject: t(
 				locale,
@@ -139,7 +148,7 @@ export const sendAdminReplyNotification = internalMutation({
 		const { email, adminName, messagePreview, threadId, pageUrl } = args;
 
 		if (shouldSkipTestEmail('sendAdminReplyNotification', email)) return null;
-		assertResendApiKey();
+		if (!getReadyEmailConfiguration()) return null;
 
 		const locale = await getLocaleForEmail(ctx, email);
 		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
@@ -152,9 +161,11 @@ export const sendAdminReplyNotification = internalMutation({
 			deepLink,
 			locale
 		);
+		const emailConfiguration = getReadyEmailConfiguration();
+		if (!emailConfiguration) return null;
 
 		await resend.sendEmail(ctx, {
-			from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
+			from: emailConfiguration.sender,
 			to: email,
 			subject: t(locale, 'email.subject.support_reply'),
 			html,
@@ -193,10 +204,10 @@ export const sendNewTicketAdminNotification = internalMutation({
 		),
 		threadId: v.string()
 	},
-	returns: v.null(),
+	returns: v.boolean(),
 	handler: async (ctx, args) => {
 		const { email, isReopen, isBareHandoff, userName, messages, threadId } = args;
-		assertResendApiKey();
+		if (!getReadyEmailConfiguration()) return false;
 		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
 		const locale = await getLocaleForEmail(ctx, email);
 
@@ -217,9 +228,11 @@ export const sendNewTicketAdminNotification = internalMutation({
 		const subject = isReopen
 			? t(locale, 'email.subject.ticket_reopened', { userName })
 			: t(locale, 'email.subject.ticket_new', { userName });
+		const emailConfiguration = getReadyEmailConfiguration();
+		if (!emailConfiguration) return false;
 
 		await resend.sendEmail(ctx, {
-			from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
+			from: emailConfiguration.sender,
 			to: email,
 			subject,
 			html,
@@ -231,7 +244,7 @@ export const sendNewTicketAdminNotification = internalMutation({
 				{ name: 'X-Thread-ID', value: threadId }
 			]
 		});
-		return null;
+		return true;
 	}
 });
 
@@ -256,6 +269,7 @@ export const sendNewUserSignupNotification = internalMutation({
 		const { userName, userEmail, signupMethod, signupTime } = args;
 
 		if (shouldSkipTestEmail('sendNewUserSignupNotification', userEmail)) return null;
+		if (!getReadyEmailConfiguration()) return null;
 
 		// Get recipients who have new signup notifications enabled
 		const recipients = await ctx.runQuery(
@@ -267,11 +281,6 @@ export const sendNewUserSignupNotification = internalMutation({
 			console.log('[sendNewUserSignupNotification] No recipients configured, skipping');
 			return null;
 		}
-
-		// Only require Resend once we know we'll actually send; with no recipients
-		// configured (common in fresh local-dev installs) the function short-circuits
-		// above and must not demand the API key.
-		assertResendApiKey();
 
 		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
 
@@ -285,6 +294,7 @@ export const sendNewUserSignupNotification = internalMutation({
 		// across re-runs of this loop comes from Convex's exactly-once scheduled-mutation
 		// execution (scheduled from the auth onCreate/onUpdate triggers, auth.ts).
 		let sentCount = 0;
+		let emailUnavailable = false;
 		for (const email of recipients) {
 			try {
 				// Per-recipient locale lookup and render: recipient list is small
@@ -300,8 +310,13 @@ export const sendNewUserSignupNotification = internalMutation({
 					},
 					locale
 				);
+				const emailConfiguration = getReadyEmailConfiguration();
+				if (!emailConfiguration) {
+					emailUnavailable = true;
+					break;
+				}
 				await resend.sendEmail(ctx, {
-					from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
+					from: emailConfiguration.sender,
 					to: email,
 					subject: t(locale, 'email.subject.new_signup', { userEmail }),
 					html,
@@ -321,6 +336,8 @@ export const sendNewUserSignupNotification = internalMutation({
 				);
 			}
 		}
+
+		if (emailUnavailable && sentCount === 0) return null;
 
 		if (sentCount > 0) {
 			console.log(
@@ -348,6 +365,13 @@ export const sendFounderWelcomeEmail = internalMutation({
 	handler: async (ctx, { founderWelcomeId }) => {
 		const row = await ctx.db.get(founderWelcomeId);
 		if (!row || row.status !== 'scheduled') return null;
+		if (!getReadyEmailConfiguration()) {
+			await ctx.db.patch(founderWelcomeId, {
+				status: 'skipped',
+				skippedReason: 'email_unavailable'
+			});
+			return null;
+		}
 
 		// Read config at send time
 		const config = await ctx.runQuery(
@@ -413,8 +437,6 @@ export const sendFounderWelcomeEmail = internalMutation({
 			return null;
 		}
 
-		assertResendApiKey();
-
 		// Render plain text with {{placeholder}} interpolation
 		const parts = (name?.trim() || 'there').split(/\s+/);
 		const templateVars: Record<string, string> = {
@@ -429,9 +451,17 @@ export const sendFounderWelcomeEmail = internalMutation({
 
 		const text = renderTemplate(config.body);
 		const subject = renderTemplate(config.subject);
+		const emailConfiguration = getReadyEmailConfiguration();
+		if (!emailConfiguration) {
+			await ctx.db.patch(founderWelcomeId, {
+				status: 'skipped',
+				skippedReason: 'email_unavailable'
+			});
+			return null;
+		}
 
 		await resend.sendEmail(ctx, {
-			from: `${config.name} <${requireEnv('AUTH_EMAIL', { feature: 'email delivery' })}>`,
+			from: `${config.name} <${emailConfiguration.sender}>`,
 			replyTo: config.replyTo ? [config.replyTo] : undefined,
 			to: email,
 			subject,

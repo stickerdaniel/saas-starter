@@ -6,6 +6,11 @@ import { TITLE_MODEL_ID } from '../utils/chatModel';
 import { getAutumnSdk } from '../autumn';
 import { orModel, captureDirect } from '../aiUsage/capture';
 import { recordAiUsage } from '../aiUsage/record';
+import {
+	CapabilityConfigurationError,
+	requireAiConfiguration,
+	requireBillingConfiguration
+} from '../env';
 
 // Clamp the stored title; the sidebar span also CSS-truncates for display.
 const MAX_TITLE_LENGTH = 60;
@@ -38,15 +43,35 @@ export const generateThreadTitle = internalAction({
 		const source = args.prompt.trim().slice(0, MAX_PROMPT_CHARS);
 		if (!source) return null;
 
+		try {
+			requireBillingConfiguration();
+			requireAiConfiguration();
+		} catch (error) {
+			if (error instanceof CapabilityConfigurationError) return null;
+			throw error;
+		}
+
 		// Billing gate (check only): skip when the user is out of AI chat
-		// allowance, matching createAIResponse. Autumn fails open on 5xx/network.
+		// allowance, matching createAIResponse. A missing data response fails open.
 		if (args.userId) {
-			const sdk = await getAutumnSdk();
-			const checkResult = await sdk.check({
-				customer_id: args.userId,
-				feature_id: 'ai_chat_messages'
-			});
-			if (checkResult.data && !checkResult.data.allowed) return null;
+			try {
+				const sdk = await getAutumnSdk();
+				const checkResult = await sdk.check({
+					customer_id: args.userId,
+					feature_id: 'ai_chat_messages'
+				});
+				if (checkResult.data && !checkResult.data.allowed) return null;
+			} catch (error) {
+				if (error instanceof CapabilityConfigurationError) return null;
+				throw error;
+			}
+		}
+
+		try {
+			requireAiConfiguration();
+		} catch (error) {
+			if (error instanceof CapabilityConfigurationError) return null;
+			throw error;
 		}
 
 		let raw: string;

@@ -1,12 +1,19 @@
 import { Autumn } from '@useautumn/convex';
 import { components } from './_generated/api';
 import { authComponent } from './auth';
-import { requireEnv } from './env';
+import type { BillingConfiguration, CapabilityConfiguration } from '../dev/features';
+import { CapabilityConfigurationError, requireBillingConfiguration } from './env';
 
-const secretKey = requireEnv('AUTUMN_SECRET_KEY', { feature: 'billing & checkout' });
+class GuardedAutumn extends Autumn {
+	override async getAuthParams(args: Parameters<Autumn['getAuthParams']>[0]) {
+		this.options.secretKey = requireBillingConfiguration().secretKey;
+		return await super.getAuthParams(args);
+	}
+}
 
-export const autumn = new Autumn(components.autumn, {
-	secretKey,
+export const autumn = new GuardedAutumn(components.autumn, {
+	// The wrapper does not construct autumn-js until guarded getAuthParams runs.
+	secretKey: '',
 	identify: async (ctx: Parameters<typeof authComponent.getAuthUser>[0]) => {
 		// Get the authenticated user from Better Auth
 		const user = await authComponent.getAuthUser(ctx);
@@ -48,7 +55,8 @@ export const {
  * Pass explicit customer_id to check/track methods.
  * See: https://github.com/useautumn/autumn-js/issues/51
  */
-export async function getAutumnSdk() {
+export async function getAutumnSdk(configuration?: CapabilityConfiguration<BillingConfiguration>) {
+	const { secretKey } = requireBillingConfiguration(configuration);
 	const { Autumn: AutumnSDK } = await import('autumn-js');
 	return new AutumnSDK({ secretKey });
 }
@@ -71,11 +79,12 @@ export type UsageCheckOutcome = 'counted' | 'denied' | 'unavailable';
  * Outcomes:
  * - 'counted': access granted, `value` units were deducted. The usage
  *   is recorded; no separate track call must follow.
- * - 'denied': access denied, nothing was deducted.
- * - 'unavailable': Autumn errored (the SDK returns `data: null` on a
- *   non-2xx response and throws on network failures). Nothing was
- *   deducted. Callers fail open: grant access uncounted rather than
- *   punishing legitimate users for a billing outage.
+ * - 'denied': access denied or billing is not structurally ready;
+ *   nothing was deducted. Configuration failures fail closed.
+ * - 'unavailable': a structurally ready Autumn attempt errored (the SDK
+ *   returns `data: null` on a non-2xx response and throws on network
+ *   failures). Nothing was deducted. Callers fail open rather than
+ *   punishing legitimate users for a provider outage.
  *
  * Only valid for metered features with a usage amount known up front
  * (Autumn rejects `send_event` for boolean features and publishable
@@ -91,9 +100,9 @@ export async function checkAndCountUsage({
 	featureId: string;
 	value?: number;
 }): Promise<UsageCheckOutcome> {
-	const sdk = await getAutumnSdk();
 	let result;
 	try {
+		const sdk = await getAutumnSdk();
 		result = await sdk.check({
 			customer_id: customerId,
 			feature_id: featureId,
@@ -102,6 +111,7 @@ export async function checkAndCountUsage({
 			send_event: true
 		});
 	} catch (error) {
+		if (error instanceof CapabilityConfigurationError) return 'denied';
 		console.warn(`[checkAndCountUsage] Autumn unreachable for ${featureId}:`, error);
 		return 'unavailable';
 	}

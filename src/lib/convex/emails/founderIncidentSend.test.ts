@@ -115,6 +115,7 @@ describe('founder incident application binding', () => {
 		registerTestIncident();
 		vi.stubEnv('RESEND_API_KEY', 're_test');
 		vi.stubEnv('AUTH_EMAIL', 'founder@example.com');
+		vi.stubEnv('EMAIL_ASSET_URL', 'https://assets.example.com');
 		const sendEmail = vi.spyOn(resend, 'sendEmail').mockResolvedValue('email_1' as never);
 		const { ctx } = makeCtx({
 			enabled: true,

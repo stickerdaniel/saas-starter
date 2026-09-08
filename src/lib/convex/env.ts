@@ -19,6 +19,14 @@
  * redacts values it loaded itself.
  */
 
+import {
+	resolveCapabilityConfigurations,
+	type AiConfiguration,
+	type BillingConfiguration,
+	type CapabilityConfiguration,
+	type CapabilityConfigurations,
+	type EmailConfiguration
+} from '../dev/features';
 import { env } from './_generated/server';
 
 // Required keys type as `string`; optional keys as `string | undefined`.
@@ -32,15 +40,14 @@ type RequiredKeys = {
  * Convex bundles and statically analyzes modules before env vars are available,
  * and `env` is just `process.env`, so a top-level read returns `undefined`
  * during that pass. `createApi()` in adapter.ts calls `createAuthOptions()` at
- * load time to extract the Better Auth schema, and `new Autumn()` in autumn.ts
- * runs at top level, so these vars must return something during analysis.
- * Placeholders are never used at runtime -- the declared `env` block makes
- * Convex reject a deploy that is missing the real values.
+ * load time to extract the Better Auth schema, so these vars must return
+ * something during analysis. Placeholders are never used at runtime -- the
+ * declared `env` block makes Convex reject a deploy that is missing the real
+ * values.
  */
 const ANALYSIS_PLACEHOLDERS: Partial<Record<string, string>> = {
 	BETTER_AUTH_SECRET: 'placeholder-secret-for-analysis',
-	SITE_URL: 'https://placeholder.invalid',
-	AUTUMN_SECRET_KEY: 'placeholder-key-for-analysis'
+	SITE_URL: 'https://placeholder.invalid'
 };
 
 export type RequireEnvOptions = {
@@ -75,6 +82,49 @@ export function requireEnv<K extends RequiredKeys>(name: K, opts?: RequireEnvOpt
 			`  Fix: bunx convex env set ${name} <value>\n` +
 			`  See: ${docs}`
 	);
+}
+
+export class CapabilityConfigurationError extends Error {
+	constructor(
+		readonly capability: keyof CapabilityConfigurations,
+		readonly state: Exclude<CapabilityConfiguration<unknown>['state'], 'ready'>
+	) {
+		super(`[capability] ${capability} is ${state}`);
+		this.name = 'CapabilityConfigurationError';
+	}
+}
+
+/** Resolve provider configuration from the current Convex environment. */
+export function getCapabilityConfigurations(): CapabilityConfigurations {
+	return resolveCapabilityConfigurations(env);
+}
+
+export function requireCapabilityConfiguration<Value>(
+	capability: keyof CapabilityConfigurations,
+	configuration: CapabilityConfiguration<Value>
+): Value {
+	if (configuration.state !== 'ready') {
+		throw new CapabilityConfigurationError(capability, configuration.state);
+	}
+	return configuration.value;
+}
+
+export function requireBillingConfiguration(
+	configuration = getCapabilityConfigurations().billing
+): BillingConfiguration {
+	return requireCapabilityConfiguration('billing', configuration);
+}
+
+export function requireEmailConfiguration(
+	configuration = getCapabilityConfigurations().email
+): EmailConfiguration {
+	return requireCapabilityConfiguration('email', configuration);
+}
+
+export function requireAiConfiguration(
+	configuration = getCapabilityConfigurations().ai
+): AiConfiguration {
+	return requireCapabilityConfiguration('ai', configuration);
 }
 
 // =============================================================================
