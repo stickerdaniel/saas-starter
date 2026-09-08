@@ -42,8 +42,15 @@
  * hard error, never a run that checks nothing and reports success.
  */
 
-import { spawnSync } from 'child_process';
-import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from 'fs';
+import {
+	existsSync,
+	lstatSync,
+	readFileSync,
+	readdirSync,
+	readlinkSync,
+	realpathSync,
+	statSync
+} from 'fs';
 import { availableParallelism } from 'os';
 import path from 'path';
 import { getFileInfo } from 'prettier';
@@ -53,8 +60,13 @@ import knowledgePolicy from '../knowledge-policy.config';
 import { findLiteralControlCharacters } from '../eslint/control-character-policy.js';
 import {
 	activeGitIndexFingerprint,
+	getGitInventory,
 	getStagedChanges,
 	getStagedFiles,
+	gitlinkHeadObjectId,
+	hashWorktreeFileNoFilters,
+	type GitInventoryEntry,
+	isGitIgnoredPath,
 	sanitizedGitEnv,
 	stagedFilesMatchWorktree,
 	stagedFilesWithCleanFilters,
@@ -224,14 +236,7 @@ function decodeUtf8(bytes: Uint8Array, error: string): string {
 }
 
 export function repositoryPaths(): string[] {
-	const result = spawnSync('git', ['ls-files', '-co', '--exclude-standard', '-z'], {
-		cwd: REPO_ROOT,
-		env: sanitizedGitEnv()
-	});
-	if (result.status !== 0) fail('Failed to list repository paths.');
-	return decodeUtf8(result.stdout, 'Repository contains a path whose bytes are not valid UTF-8.')
-		.split('\0')
-		.filter(Boolean);
+	return getGitInventory(REPO_ROOT).map((entry) => entry.path);
 }
 
 export function existingRepositoryPaths(files: string[]): string[] {
@@ -343,156 +348,473 @@ function toPosix(p: string): string {
 	return p.split(path.sep).join('/');
 }
 
+export interface ResolvedInput {
+	/** Der logische Repository-Name steuert Regeln, Ignore-Muster und Diagnosen. */
+	path: string;
+	/** Das validierte physische Ziel steuert Inhaltszugriff und Compiler-Zuständigkeit. */
+	target: string;
+	kind: 'file' | 'symlink' | 'git-symlink-placeholder' | 'git-metadata-placeholder' | 'gitlink';
+	linkChain: Array<{ path: string; target: string }>;
+	inventoryPaths: string[];
+	formatterLinkNoop: boolean;
+	gitObjectId?: string;
+	placeholderTarget?: string;
+	gitEnv?: NodeJS.ProcessEnv;
+}
+
+type InventoryProvider = (directory: string) => GitInventoryEntry[];
+type ResolverOptions = {
+	gitEnv?: NodeJS.ProcessEnv;
+	allowMetadataPlaceholders?: boolean;
+};
+
+function isOutsideRepository(absolute: string): boolean {
+	const native = path.relative(REPO_ROOT, absolute);
+	const relative = toPosix(native);
+	return relative === '..' || relative.startsWith('../') || path.isAbsolute(native);
+}
+
+function resolveFilesystemPath(
+	absolute: string,
+	seenLinks = new Set<string>(),
+	depth = 0,
+	linkChain?: Array<{ path: string; target: string }>
+): string {
+	if (process.platform === 'win32') return realpathSync(absolute);
+	if (depth > 40) {
+		const error = new Error('Too many symbolic links.') as NodeJS.ErrnoException;
+		error.code = 'ELOOP';
+		throw error;
+	}
+	const parsed = path.parse(path.resolve(absolute));
+	const segments = path.resolve(absolute).slice(parsed.root.length).split(path.sep).filter(Boolean);
+	let current = parsed.root;
+	for (let index = 0; index < segments.length; index++) {
+		current = path.join(current, segments[index]!);
+		const entry = lstatSync(current);
+		if (!entry.isSymbolicLink()) continue;
+		if (seenLinks.has(current)) {
+			const error = new Error('Symbolic-link cycle.') as NodeJS.ErrnoException;
+			error.code = 'ELOOP';
+			throw error;
+		}
+		seenLinks.add(current);
+		const linkTarget = readlinkSync(current);
+		if (linkChain && !isOutsideRepository(current)) {
+			linkChain.push({ path: toPosix(path.relative(REPO_ROOT, current)), target: linkTarget });
+		}
+		const target = path.isAbsolute(linkTarget)
+			? linkTarget
+			: path.resolve(path.dirname(current), linkTarget);
+		return resolveFilesystemPath(
+			path.join(target, ...segments.slice(index + 1)),
+			seenLinks,
+			depth + 1,
+			linkChain
+		);
+	}
+	return current;
+}
+
+function logicalInputPath(arg: string, baseDirectory: string, origin: string): string {
+	if (arg === '') {
+		fail(
+			`Empty path in ${origin}.`,
+			'  An empty string is not a file. Pass no arguments for the whole project, or use\n' +
+				'  --files-from - for a list that may legitimately be empty.'
+		);
+	}
+	if (/[\r\n]/.test(arg)) {
+		fail(
+			`Newline inside a single path argument (${origin}): ${JSON.stringify(arg.slice(0, 40))}`,
+			"  A computed list arrived as one positional argument. Pipe Git's native NUL records instead."
+		);
+	}
+
+	const invocationBase = path.resolve(baseDirectory);
+	const absolute = path.resolve(invocationBase, arg);
+	let entry;
+	try {
+		entry = lstatSync(absolute);
+	} catch (error) {
+		if (isMissingPathError(error)) {
+			fail(`No such file (${origin}): ${formatPathForDiagnostic(arg)}`);
+		}
+		throw error;
+	}
+
+	const fromInvocation = path.relative(invocationBase, absolute);
+	const insideInvocation =
+		fromInvocation === '' ||
+		(fromInvocation !== '..' &&
+			!fromInvocation.startsWith(`..${path.sep}`) &&
+			!path.isAbsolute(fromInvocation));
+	const named =
+		!path.isAbsolute(arg) || insideInvocation
+			? path.resolve(resolveFilesystemPath(invocationBase), fromInvocation)
+			: absolute;
+	if (isOutsideRepository(named)) {
+		fail(
+			`Path is outside the repository (${origin}): ${formatPathForDiagnostic(arg)}`,
+			`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
+		);
+	}
+	void entry;
+	return toPosix(path.relative(REPO_ROOT, named));
+}
+
+function checkedRealpath(
+	absolute: string,
+	logical: string,
+	origin: string,
+	linkChain?: Array<{ path: string; target: string }>
+): string {
+	try {
+		const target = resolveFilesystemPath(absolute, new Set(), 0, linkChain);
+		if (isOutsideRepository(target)) {
+			fail(
+				`Path target is outside the repository (${origin}): ${formatPathForDiagnostic(logical)}`,
+				`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
+			);
+		}
+		return target;
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException | null)?.code;
+		if (code === 'ENOENT' || code === 'ELOOP') {
+			fail(`Broken or cyclic symbolic link (${origin}): ${formatPathForDiagnostic(logical)}`);
+		}
+		throw error;
+	}
+}
+
+function directoryAncestors(directory: string): Set<string> {
+	const ancestors = new Set<string>();
+	let current = directory;
+	while (!isOutsideRepository(current)) {
+		ancestors.add(current);
+		if (current === REPO_ROOT) break;
+		current = path.dirname(current);
+	}
+	return ancestors;
+}
+
+function matchingPlaceholderObject(
+	logical: string,
+	entry: GitInventoryEntry | undefined,
+	gitEnv: NodeJS.ProcessEnv
+): boolean {
+	if (entry?.mode !== '120000' || !entry.objectId) return false;
+	try {
+		return hashWorktreeFileNoFilters(logical, REPO_ROOT, gitEnv) === entry.objectId;
+	} catch {
+		return false;
+	}
+}
+
+function metadataPlaceholder(
+	logical: string,
+	entry: GitInventoryEntry,
+	inventory: GitInventoryEntry[]
+): { target: string; inventoryPaths: string[]; placeholderTarget: string } | undefined {
+	const bytes = readFileSync(path.join(REPO_ROOT, logical));
+	let target: string | undefined;
+	let placeholderTarget: string | undefined;
+	if (logical === 'CLAUDE.md' && bytes.equals(Buffer.from('AGENTS.md'))) {
+		target = 'AGENTS.md';
+		placeholderTarget = 'AGENTS.md';
+	} else {
+		const match = /^\.claude\/skills\/([^/]+)$/.exec(logical);
+		if (match) {
+			placeholderTarget = `../../.agents/skills/${match[1]}`;
+			if (bytes.equals(Buffer.from(placeholderTarget))) target = `.agents/skills/${match[1]}`;
+		}
+	}
+	if (!target || !placeholderTarget) return undefined;
+
+	const represented = inventory
+		.filter((candidate) => candidate.path === target || candidate.path.startsWith(`${target}/`))
+		.map((candidate) => candidate.path);
+	if (represented.length === 0) return undefined;
+	const absoluteTarget = path.join(REPO_ROOT, target);
+	const canonical = checkedRealpath(absoluteTarget, target, 'metadata placeholder');
+	if (toPosix(path.relative(REPO_ROOT, canonical)) !== target) return undefined;
+	const targetStat = statSync(canonical);
+	if (!targetStat.isFile() && !targetStat.isDirectory()) return undefined;
+	return {
+		target,
+		inventoryPaths: [...new Set([entry.path, ...represented])],
+		placeholderTarget
+	};
+}
+
 /**
- * The single door every caller-supplied path comes through.
- *
- * Two failures used to hide behind this boundary, and both ended the same way: a run
- * that checked nothing and printed "All checks passed!".
- *
- *   1. Nothing VALIDATED a positional. `static-checks.ts ""` — a caller expanding an
- *      empty shell variable into a quoted argument — counted as one "specified file",
- *      matched no extension filter, skipped every check, and exited 0 (#691). A
- *      directory, a missing path, and a newline-joined blob all did the same.
- *
- *   2. Nothing NORMALIZED a positional. The banned-pattern scan and the Convex gate
- *      are `startsWith('src/')` prefix tests, so an ABSOLUTE path matched neither and
- *      those checks silently no-opped — while prettier, eslint and svelte-check
- *      accepted the very same path and made the run look substantive. AGENTS.md tells
- *      every agent to pass absolute paths, so this was the common case, not the exotic
- *      one.
- *
- * Normalizing here fixes (2) for every prefix gate at once, including the ones a fork
- * adds later, without touching a single gate.
+ * Eine Eingabe bleibt unter ihrem logischen Alias benannt. Das separat validierte Ziel
+ * bestimmt nur, welche Bytes gelesen werden und welches Compiler-Projekt zuständig ist.
  */
+export function resolveInputRecords(
+	raw: string[],
+	origin: string,
+	baseDirectory = process.cwd(),
+	inventoryProvider: InventoryProvider = () => getGitInventory(REPO_ROOT),
+	options: ResolverOptions = {}
+): ResolvedInput[] {
+	const out = new Map<string, ResolvedInput>();
+	const inventory = inventoryProvider(REPO_ROOT);
+	const byPath = new Map(inventory.map((entry) => [entry.path, entry]));
+	const gitEnv = options.gitEnv ?? sanitizedGitEnv();
+
+	const add = (record: ResolvedInput): void => {
+		const previous = out.get(record.path);
+		if (previous && previous.target !== record.target) {
+			fail(`Logical path resolved to multiple targets: ${formatPathForDiagnostic(record.path)}.`);
+		}
+		if (!previous) {
+			out.set(record.path, record);
+			return;
+		}
+		const chain = new Map(previous.linkChain.map((link) => [`${link.path}\0${link.target}`, link]));
+		for (const link of record.linkChain) chain.set(`${link.path}\0${link.target}`, link);
+		out.set(record.path, {
+			...previous,
+			kind: previous.kind === 'symlink' || record.kind === 'symlink' ? 'symlink' : previous.kind,
+			linkChain: [...chain.values()],
+			inventoryPaths: [...new Set([...previous.inventoryPaths, ...record.inventoryPaths])],
+			formatterLinkNoop: previous.formatterLinkNoop && record.formatterLinkNoop
+		});
+	};
+
+	const directChildren = (
+		physicalDirectory: string
+	): Map<string, GitInventoryEntry | undefined> => {
+		const relativeDirectory = toPosix(path.relative(REPO_ROOT, physicalDirectory));
+		const prefix = relativeDirectory === '' ? '' : `${relativeDirectory}/`;
+		const children = new Map<string, GitInventoryEntry | undefined>();
+		for (const candidate of inventory) {
+			if (prefix && !candidate.path.startsWith(prefix)) continue;
+			const suffix = prefix === '' ? candidate.path : candidate.path.slice(prefix.length);
+			if (!suffix) continue;
+			const separator = suffix.indexOf('/');
+			const name = separator < 0 ? suffix : suffix.slice(0, separator);
+			const exact = separator < 0 ? candidate : undefined;
+			if (!children.has(name) || exact) children.set(name, exact);
+		}
+		return children;
+	};
+
+	const inspect = (
+		logical: string,
+		physical: string,
+		inventoryEntry: GitInventoryEntry | undefined,
+		ancestors: Set<string>,
+		formatterLinkNoop: boolean
+	): void => {
+		if (isOutsideRepository(path.join(REPO_ROOT, logical)) || isOutsideRepository(physical)) {
+			fail(`Expanded path is outside the repository: ${formatPathForDiagnostic(logical)}.`);
+		}
+		if (isNeverWalked(logical)) return;
+
+		const logicalAbsolute = path.join(REPO_ROOT, logical);
+		let entry;
+		try {
+			entry = lstatSync(logicalAbsolute);
+		} catch (error) {
+			if (isMissingPathError(error)) {
+				fail(`Expanded path disappeared: ${formatPathForDiagnostic(logical)}.`);
+			}
+			throw error;
+		}
+
+		if (inventoryEntry?.mode === '160000') {
+			const chain: Array<{ path: string; target: string }> = [];
+			const canonical = checkedRealpath(logicalAbsolute, logical, origin, chain);
+			add({
+				path: logical,
+				target: toPosix(path.relative(REPO_ROOT, canonical)),
+				kind: 'gitlink',
+				linkChain: chain,
+				inventoryPaths: [...new Set([...chain.map((link) => link.path), inventoryEntry.path])],
+				formatterLinkNoop: true,
+				gitObjectId: inventoryEntry.objectId,
+				gitEnv
+			});
+			return;
+		}
+
+		if (
+			!entry.isSymbolicLink() &&
+			entry.isFile() &&
+			matchingPlaceholderObject(logical, inventoryEntry, gitEnv)
+		) {
+			const metadata =
+				options.allowMetadataPlaceholders && inventoryEntry
+					? metadataPlaceholder(logical, inventoryEntry, inventory)
+					: undefined;
+			add({
+				path: logical,
+				target: metadata?.target ?? toPosix(path.relative(REPO_ROOT, physical)),
+				kind: metadata ? 'git-metadata-placeholder' : 'git-symlink-placeholder',
+				linkChain: [],
+				inventoryPaths: metadata?.inventoryPaths ?? [inventoryEntry!.path],
+				formatterLinkNoop: true,
+				gitObjectId: inventoryEntry!.objectId,
+				placeholderTarget: metadata?.placeholderTarget,
+				gitEnv
+			});
+			return;
+		}
+
+		const chain: Array<{ path: string; target: string }> = [];
+		const canonical = checkedRealpath(logicalAbsolute, logical, origin, chain);
+		const targetStat = statSync(canonical);
+		const target = toPosix(path.relative(REPO_ROOT, canonical));
+		const targetInventory = byPath.get(target);
+		const inventoryPaths = [
+			...chain.map((link) => link.path),
+			...(targetInventory ? [targetInventory.path] : [])
+		];
+
+		if (targetInventory?.mode === '160000') {
+			add({
+				path: logical,
+				target,
+				kind: 'gitlink',
+				linkChain: chain,
+				inventoryPaths: [...new Set(inventoryPaths)],
+				formatterLinkNoop: true,
+				gitObjectId: targetInventory.objectId,
+				gitEnv
+			});
+			return;
+		}
+
+		if (targetStat.isDirectory()) {
+			if (ancestors.has(canonical)) {
+				fail(`Symbolic-link directory cycle: ${formatPathForDiagnostic(logical)}.`);
+			}
+			const nextAncestors = new Set(ancestors).add(canonical);
+			let matched = false;
+			for (const [name, childEntry] of directChildren(canonical)) {
+				matched = true;
+				inspect(
+					logical === '' ? name : `${logical}/${name}`,
+					path.join(canonical, name),
+					childEntry,
+					nextAncestors,
+					formatterLinkNoop
+				);
+			}
+			if (!matched) {
+				fail(
+					`Directory contains no files to check (${origin}): ${formatPathForDiagnostic(logical)}`
+				);
+			}
+			return;
+		}
+
+		if (!targetStat.isFile()) {
+			fail(`Named path is not a regular file: ${formatPathForDiagnostic(logical)}.`);
+		}
+		add({
+			path: logical,
+			target,
+			kind: chain.length > 0 ? 'symlink' : 'file',
+			linkChain: chain,
+			inventoryPaths: [...new Set(inventoryPaths.length > 0 ? inventoryPaths : [target])],
+			formatterLinkNoop
+		});
+	};
+
+	for (const arg of raw) {
+		const logical = logicalInputPath(arg, baseDirectory, origin);
+		const absolute = path.join(REPO_ROOT, logical);
+		const entry = lstatSync(absolute);
+		const inventoryEntry = byPath.get(logical);
+		if (
+			inventoryEntry?.mode === '160000' ||
+			(!entry.isSymbolicLink() &&
+				entry.isFile() &&
+				matchingPlaceholderObject(logical, inventoryEntry, gitEnv))
+		) {
+			inspect(logical, absolute, inventoryEntry, directoryAncestors(path.dirname(absolute)), true);
+			continue;
+		}
+		const chain: Array<{ path: string; target: string }> = [];
+		const canonical = checkedRealpath(absolute, logical, origin, chain);
+		const targetStat = statSync(canonical);
+		const directLink = entry.isSymbolicLink();
+		const target = toPosix(path.relative(REPO_ROOT, canonical));
+		const targetInventory = byPath.get(target);
+		if (targetInventory?.mode === '160000') {
+			add({
+				path: logical,
+				target,
+				kind: 'gitlink',
+				linkChain: chain,
+				inventoryPaths: [...new Set([...chain.map((link) => link.path), targetInventory.path])],
+				formatterLinkNoop: true,
+				gitObjectId: targetInventory.objectId,
+				gitEnv
+			});
+			continue;
+		}
+		if (targetStat.isDirectory()) {
+			const ancestors = directoryAncestors(canonical);
+			let matched = false;
+			for (const [name, childEntry] of directChildren(canonical)) {
+				matched = true;
+				inspect(
+					logical === '' ? name : `${logical}/${name}`,
+					path.join(canonical, name),
+					childEntry,
+					ancestors,
+					directLink
+				);
+			}
+			if (!matched) {
+				fail(`Directory contains no files to check (${origin}): ${formatPathForDiagnostic(arg)}`);
+			}
+		} else {
+			inspect(
+				logical,
+				canonical,
+				inventoryEntry,
+				directoryAncestors(path.dirname(canonical)),
+				directLink
+			);
+		}
+	}
+
+	return [...out.values()].sort((left, right) => left.path.localeCompare(right.path));
+}
+
+/** Kompatible String-Abbildung: ein Pfadstring bedeutet immer den logischen Repository-Namen. */
 export function resolveInputs(
 	raw: string[],
 	origin: string,
 	baseDirectory = process.cwd(),
 	directoryPaths: (directory: string) => string[] = repositoryPaths,
-	// Only the formatter refuses to resolve a symlink, because Prettier itself does
-	// (`followSymbolicLinks: false`, and an explicitly named link is an error): it has to see
-	// the link's own path so its ignore rules and its diagnostics name what was typed. Every
-	// other scope routes by extension and needs the target. Lint and types have always
-	// expanded a directory link, and .claude/skills is a tracked one whose target holds
-	// TypeScript, so refusing it here would drop those files from a types run that still
-	// reports success. A leaf link is the same question: `probe.md -> probe.ts` under the
-	// link's own name reaches no checker at all and the run exits 0 having checked nothing.
 	followSymbolicLinks = true
 ): string[] {
-	const out = new Set<string>();
-
-	for (const arg of raw) {
-		if (arg === '') {
-			fail(
-				`Empty path in ${origin}.`,
-				'  An empty string is not a file. This is usually a caller expanding an empty\n' +
-					'  variable into a quoted argument (`static-checks.ts "$FILES"`). Pass no\n' +
-					'  arguments to check the whole project, or use `--files-from -` for a list\n' +
-					'  that may legitimately be empty.'
-			);
-		}
-		if (/[\r\n]/.test(arg)) {
-			fail(
-				`Newline inside a single path argument (${origin}): ${JSON.stringify(arg.slice(0, 40))}`,
-				"  A computed list arrived as one positional argument. Pipe Git's native\n" +
-					'  path records instead: `git diff --no-relative --name-only --diff-filter=d -z | ... --files-from -`.'
-			);
-		}
-
-		// Resolve against the invocation cwd (what the caller typed is relative to),
-		// then re-express against the repo root (what every gate below assumes).
-		// realpath both sides so a checkout reached through a symlink (/tmp ->
-		// /private/tmp, a symlinked worktree) does not read as "outside the repo".
-		const invocationBase = path.resolve(baseDirectory);
-		const absolute = path.resolve(invocationBase, arg);
-		if (!existsSync(absolute)) fail(`No such file (${origin}): ${formatPathForDiagnostic(arg)}`);
-
-		const real = realpathSync(absolute);
-		const target = statSync(real);
-		const isOutside = (native: string): boolean => {
-			const relative = toPosix(native);
-			return relative === '..' || relative.startsWith('../') || path.isAbsolute(native);
-		};
-		// The resolved target and the named path must both live in the repository. Checking
-		// only the latter would let an in-repository symlink expose an external file.
-		if (isOutside(path.relative(REPO_ROOT, real))) {
-			fail(
-				`Path is outside the repository (${origin}): ${formatPathForDiagnostic(arg)}`,
-				`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
-			);
-		}
-		const isSymlink = lstatSync(absolute).isSymbolicLink();
-		// The formatter must classify the path the caller named, including every symlinked
-		// ancestor, because ignore rules are path rules. Canonicalizing `alias/probe.ts` to an
-		// ignored target under `scratch/` made a direct Prettier failure into a zero-file pass.
-		// A relative argument can be re-rooted through a symlinked invocation cwd without
-		// resolving any component it names. Absolute arguments keep their own spelling.
-		const fromInvocation = path.relative(invocationBase, absolute);
-		const insideInvocation =
-			fromInvocation === '' ||
-			(fromInvocation !== '..' &&
-				!fromInvocation.startsWith(`..${path.sep}`) &&
-				!path.isAbsolute(fromInvocation));
-		const named =
-			!path.isAbsolute(arg) || insideInvocation
-				? path.resolve(realpathSync(invocationBase), fromInvocation)
-				: absolute;
-		// An absolute alias outside the physical repository is rejected even when its target
-		// resolves inside. Preserving its spelling would require carrying absolute paths through
-		// a repository-relative ledger, while canonicalizing it changes anchored ignore rules:
-		// direct Prettier checked `alias/scratch/probe.ts`, the wrapper reclassified it as root
-		// `scratch/probe.ts`, and the ignored-path no-op exited 0. Failing closed is the only
-		// honest contract until the ledger can represent external aliases explicitly.
-		const located = followSymbolicLinks ? real : named;
-		const native = path.relative(REPO_ROOT, located);
-		const relative = toPosix(native);
-		if (isOutside(native)) {
-			fail(
-				`Path is outside the repository (${origin}): ${formatPathForDiagnostic(arg)}`,
-				`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
-			);
-		}
-
-		if (target.isDirectory() && (followSymbolicLinks || !isSymlink)) {
-			let matched = false;
-			// The resolved target, not the name that was typed. Git lists a directory symlink
-			// as one entry and knows nothing below it, so a prefix built from the link matches
-			// nothing and the expansion silently yields the link alone.
-			//
-			// A child of the expansion that is itself a link keeps the name Git listed, which is
-			// this repository's own view of it and the path every route is written against. It
-			// also means a directory link among those children is not descended into, so a
-			// `--scope types` run over a directory of directory links reports success having
-			// checked nothing; see #865, which is where that whole semantics belongs.
-			const walked = toPosix(path.relative(REPO_ROOT, real));
-			const prefix = walked === '' ? '' : `${walked}/`;
-			const namedDirectory = toPosix(path.relative(REPO_ROOT, located));
-			for (const file of directoryPaths(real)) {
-				if ((prefix && !file.startsWith(prefix)) || !existsSync(path.join(REPO_ROOT, file)))
-					continue;
-				if (isNeverWalked(file)) continue;
-				matched = true;
-				// Prettier traverses the caller-visible directory. The traversal function walks the
-				// resolved target so it can read the filesystem, then this maps each child back under
-				// the alias the caller named. Without that mapping, `alias/subdir` targeting root
-				// `scratch/` was classified under the target ignore rule and exited 0 on an
-				// unformatted file direct Prettier found through the alias.
-				if (!followSymbolicLinks) {
-					const suffix = prefix === '' ? file : file.slice(prefix.length);
-					out.add(namedDirectory === '' ? suffix : `${namedDirectory}/${suffix}`);
-				} else {
-					out.add(file);
-				}
+	const defaultInventory =
+		directoryPaths === repositoryPaths ? getGitInventory(REPO_ROOT) : undefined;
+	const provider: InventoryProvider = (directory) =>
+		defaultInventory ?? directoryPaths(directory).map((file) => ({ path: file }));
+	if (!followSymbolicLinks) {
+		const paths: string[] = [];
+		for (const arg of raw) {
+			const logical = logicalInputPath(arg, baseDirectory, origin);
+			if (lstatSync(path.join(REPO_ROOT, logical)).isSymbolicLink()) paths.push(logical);
+			else {
+				paths.push(
+					...resolveInputRecords([arg], origin, baseDirectory, provider).map(
+						(record) => record.path
+					)
+				);
 			}
-			if (!matched)
-				fail(`Directory contains no files to check (${origin}): ${formatPathForDiagnostic(arg)}`);
-			continue;
 		}
-
-		out.add(relative);
+		return [...new Set(paths)].sort();
 	}
-
-	return [...out].sort();
+	return resolveInputRecords(raw, origin, baseDirectory, provider).map((record) => record.path);
 }
 
 /** NUL-separated paths from a file, or from stdin with "-". An empty list is legal. */
@@ -548,10 +870,15 @@ export const ROUTES = {
 	eslint: (f: string) => /\.(js|ts|svelte)$/.test(f),
 	// The old gate was `jsTsSvelteFiles.length === 0 && svelteFiles.length === 0`;
 	// svelteFiles is a subset of jsTsSvelteFiles, so the second clause was dead.
-	'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f),
+	'svelte-check': (f: string) =>
+		(/^(src|test|tests)\//.test(f) || /^vite\.config\.(js|ts)$/.test(f)) &&
+		/\.(js|ts|svelte)$/.test(f) &&
+		!f.startsWith('src/lib/convex/') &&
+		!/^src\/service-worker(?:\/|\.|$)/.test(f),
 	'skill-types': (f: string) =>
+		f === '.agents/skills/tsconfig.json' ||
 		f === '.agents/skills/upstream-report/tsconfig.json' ||
-		(f.startsWith('.agents/skills/upstream-report/scripts/') && f.endsWith('.ts')),
+		(f.startsWith('.agents/skills/') && f.includes('/scripts/') && f.endsWith('.ts')),
 	convex: (f: string) => f.startsWith('src/lib/convex/')
 } as const;
 
@@ -671,6 +998,7 @@ type Outcome =
  */
 class Ledger {
 	readonly named: number;
+	readonly records: ResolvedInput[];
 	readonly files: string[];
 	readonly ignored: string[];
 	private readonly formattable: Set<string>;
@@ -679,20 +1007,34 @@ class Ledger {
 
 	constructor(
 		readonly mode: Mode,
-		inputs: string[],
+		inputs: ResolvedInput[],
 		/** The inputs Prettier reported a parser for. See prettierFormattableFiles(). */
 		formattable: string[] = []
 	) {
 		this.named = inputs.length;
-		this.ignored = inputs.filter(isIgnoredPath);
-		this.files = inputs.filter((f) => !this.ignored.includes(f));
+		this.ignored = inputs.map((input) => input.path).filter(isIgnoredPath);
+		this.records = inputs.filter((input) => !this.ignored.includes(input.path));
+		this.files = this.records.map((input) => input.path);
 		this.formattable = new Set(formattable);
 	}
 
+	recordsFor(id: CheckId): ResolvedInput[] {
+		const contentRecords = this.records.filter(
+			(record) => record.kind !== 'git-metadata-placeholder' && record.kind !== 'gitlink'
+		);
+		if (id === 'prettier') {
+			return contentRecords.filter(
+				(record) => !record.formatterLinkNoop && this.formattable.has(record.path)
+			);
+		}
+		if (id === 'svelte-check' || id === 'skill-types' || id === 'convex') {
+			return contentRecords.filter((record) => ROUTES[id](record.target));
+		}
+		return contentRecords.filter((record) => ROUTES[id](record.path));
+	}
+
 	filesFor(id: CheckId): string[] {
-		return id === 'prettier'
-			? this.files.filter((file) => this.formattable.has(file))
-			: this.files.filter(ROUTES[id]);
+		return this.recordsFor(id).map((record) => record.path);
 	}
 
 	ran(id: string, files: number | 'project' = 'project'): void {
@@ -704,13 +1046,12 @@ class Ledger {
 	}
 
 	/**
-	 * Record a reason this run legitimately had nothing to do.
+	 * Vermerkt einen Grund, aus dem dieser Lauf berechtigt keine Sourcebytes prüfen konnte.
 	 *
-	 * The zero-work invariant asks whether a check COULD have run over the named files. A
-	 * `--scope format` run over files Prettier does not format is the caller's answer rather
-	 * than a hole in the gate. A deletion-only staged change is the other honest zero: no
-	 * deleted bytes exist in the final index to check, while the final-index knowledge scan
-	 * still verifies that removing their paths broke no links. Nothing else may call this.
+	 * Ein Format-Scope darf melden, dass Prettier keinen benannten Pfad formatiert. Gelöschte
+	 * staged Pfade und vollständig validierte Gitlinks tragen ebenfalls keine Sourcebytes;
+	 * das gilt auch für Mischungen ausschließlich aus diesen Kategorien. Andere Fälle dürfen
+	 * die Nullarbeits-Invariante nicht umgehen.
 	 */
 	noWork(reason: string): void {
 		this.honestNoWork.push(reason);
@@ -1006,8 +1347,90 @@ function assertRegularFormatterPaths(files: string[]): void {
 	}
 }
 
-async function runPrettier(formatFlag: '--check' | '--write', files?: string[]): Promise<void> {
+function assertResolvedInputs(records: ResolvedInput[]): void {
+	for (const record of records) {
+		const absolute = path.join(REPO_ROOT, record.path);
+		if (record.kind === 'git-symlink-placeholder' || record.kind === 'git-metadata-placeholder') {
+			const entry = lstatSync(absolute);
+			if (!entry.isFile()) {
+				fail(
+					`Git symbolic-link placeholder changed type: ${formatPathForDiagnostic(record.path)}.`
+				);
+			}
+			if (
+				!record.gitObjectId ||
+				hashWorktreeFileNoFilters(record.path, REPO_ROOT, record.gitEnv ?? sanitizedGitEnv()) !==
+					record.gitObjectId
+			) {
+				fail(
+					`Git symbolic-link placeholder changed content: ${formatPathForDiagnostic(record.path)}.`
+				);
+			}
+			if (record.kind === 'git-metadata-placeholder') {
+				if (
+					!record.placeholderTarget ||
+					!readFileSync(absolute).equals(Buffer.from(record.placeholderTarget))
+				) {
+					fail(`Metadata pointer changed before launch: ${formatPathForDiagnostic(record.path)}.`);
+				}
+				const target = path.resolve(path.dirname(absolute), record.placeholderTarget);
+				const canonical = checkedRealpath(target, record.path, 'metadata revalidation');
+				if (toPosix(path.relative(REPO_ROOT, canonical)) !== record.target) {
+					fail(`Metadata target changed before launch: ${formatPathForDiagnostic(record.path)}.`);
+				}
+				const targetStat = statSync(canonical);
+				if (!targetStat.isFile() && !targetStat.isDirectory()) {
+					fail(`Metadata target changed type: ${formatPathForDiagnostic(record.path)}.`);
+				}
+			}
+			continue;
+		}
+		for (const link of record.linkChain) {
+			const entry = lstatSync(path.join(REPO_ROOT, link.path));
+			if (
+				!entry.isSymbolicLink() ||
+				readlinkSync(path.join(REPO_ROOT, link.path)) !== link.target
+			) {
+				fail(`Symbolic-link chain changed before launch: ${formatPathForDiagnostic(record.path)}.`);
+			}
+		}
+		const target = checkedRealpath(absolute, record.path, 'revalidation');
+		if (toPosix(path.relative(REPO_ROOT, target)) !== record.target) {
+			fail(`Path target changed before launch: ${formatPathForDiagnostic(record.path)}.`);
+		}
+		if (record.kind === 'gitlink') {
+			if (
+				!record.gitObjectId ||
+				gitlinkHeadObjectId(record.target, REPO_ROOT) !== record.gitObjectId
+			) {
+				fail(`Gitlink HEAD changed before launch: ${formatPathForDiagnostic(record.path)}.`);
+			}
+			continue;
+		}
+		if (!statSync(target).isFile()) {
+			fail(`Path is no longer a regular file: ${formatPathForDiagnostic(record.path)}.`);
+		}
+	}
+}
+
+async function runPrettier(
+	formatFlag: '--check' | '--write',
+	files?: string[],
+	records: ResolvedInput[] = [],
+	fullPlan?: { traversal: string[]; formattable: string[] }
+): Promise<void> {
 	if (files === undefined) {
+		assertResolvedInputs(records);
+		if (fullPlan) {
+			const traversal = prettierTraversalPaths(REPO_ROOT, true);
+			const formattable = await prettierFormattableFiles(prettierProjectPaths(traversal));
+			if (
+				traversal.join('\0') !== fullPlan.traversal.join('\0') ||
+				formattable.join('\0') !== fullPlan.formattable.join('\0')
+			) {
+				fail('Formatter traversal or parser classification changed before launch.');
+			}
+		}
 		await runCommand('bun', prettierArguments(formatFlag));
 		return;
 	}
@@ -1015,10 +1438,14 @@ async function runPrettier(formatFlag: '--check' | '--write', files?: string[]):
 	const patterns = files.map(prettierLiteralPattern);
 	let offset = 0;
 	for (const batch of argumentBatches(patterns, baseArguments)) {
-		// Prettier silently drops FIFOs, sockets and other special files when another argument
-		// matches, so the batch can exit 0 while the ledger counts a file it never checked.
-		// Revalidate immediately before each launch, after parser and ignore classification.
-		assertRegularFormatterPaths(files.slice(offset, offset + batch.length));
+		const batchFiles = files.slice(offset, offset + batch.length);
+		const batchRecords = records.slice(offset, offset + batch.length);
+		assertResolvedInputs(batchRecords);
+		assertRegularFormatterPaths(batchFiles);
+		const classified = await prettierFormattableFiles(batchFiles);
+		if (classified.join('\0') !== batchFiles.join('\0')) {
+			fail('Formatter parser classification changed before launch.');
+		}
 		offset += batch.length;
 		await runCommand('bun', [...baseArguments, ...batch]);
 	}
@@ -1078,6 +1505,54 @@ export function literalControlCharacterViolations(file: string, text: string): s
 	);
 }
 
+function changedSnapshotPaths(before: string[], after: string[]): string[] {
+	const beforeSet = new Set(before);
+	const afterSet = new Set(after);
+	return [...new Set([...beforeSet, ...afterSet])]
+		.filter((file) => beforeSet.has(file) !== afterSet.has(file))
+		.sort();
+}
+
+function inventorySnapshot(entries: GitInventoryEntry[]): string[] {
+	return entries.map((entry) => `${entry.path}\0${entry.mode ?? ''}\0${entry.objectId ?? ''}`);
+}
+
+function usesIgnoredDefaultSvelteKitOutDir(): boolean {
+	const config = readFileSync(path.join(REPO_ROOT, 'svelte.config.js'), 'utf8');
+	return (
+		!/\boutDir\s*:/.test(config) && isGitIgnoredPath('.svelte-kit/static-checks-probe', REPO_ROOT)
+	);
+}
+
+function existingInventoryEntries(
+	entries: GitInventoryEntry[],
+	origin: string
+): GitInventoryEntry[] {
+	return entries.filter((entry) => {
+		try {
+			lstatSync(path.join(REPO_ROOT, entry.path));
+			return true;
+		} catch (error) {
+			if (!isMissingPathError(error)) throw error;
+			if (entry.mode === '120000') {
+				fail(`Git symbolic link is missing (${origin}): ${formatPathForDiagnostic(entry.path)}.`);
+			}
+			return false;
+		}
+	});
+}
+
+function assertMaterializedLinks(records: ResolvedInput[]): void {
+	const placeholder = records.find((record) => record.kind === 'git-symlink-placeholder');
+	if (placeholder) {
+		fail(
+			`Git symbolic link has no materialized source content: ${formatPathForDiagnostic(placeholder.path)}.`,
+			'  The active checkout uses a regular placeholder for index mode 120000. Lint and type\n' +
+				'  checks cannot inspect its target; enable symbolic links and check out the repository again.'
+		);
+	}
+}
+
 // Main execution
 async function main(): Promise<void> {
 	const { ciMode, scope, mode, rawPositionals, filesFrom } = parseCli();
@@ -1088,39 +1563,45 @@ async function main(): Promise<void> {
 	const assertMode = usesAssertOnlyChecks(ciMode, mode);
 	const scopeLabel = scope ?? 'lint + types';
 
-	// Resolve caller-typed paths against the invocation cwd, BEFORE the chdir below.
-	let inputs: string[] = [];
-	// Staged mode keeps the exact Git paths and the complete starting index state.
-	let stagedIndexPaths: string[] = [];
-	let stagedDeletionOnly = false;
+	// Der Aufrufername wird vor dem chdir festgelegt; alle Ziele kommen aus einem Git-Inventar.
+	let inputs: ResolvedInput[] = [];
+	let stagedValidatedPaths: string[] = [];
+	let stagedNoSourceReason: string | undefined;
 	let stagedIndexFingerprint: string | undefined;
 	let stagedEnv: NodeJS.ProcessEnv | undefined;
 	if (mode === 'files') {
 		const raw = filesFrom !== undefined ? readFilesFrom(filesFrom) : rawPositionals;
 		if (filesFrom !== undefined && raw.length === 0) {
-			// The one channel that can carry an empty list. Positionals cannot say this
-			// (`f()` and `f("")` are the same empty set), which is why the `"$FILES"`
-			// idiom used to fake a green run.
 			console.log('No files to check (empty --files-from list)');
 			process.exit(0);
 		}
 		assertSafePaths(raw);
 		const baseDirectory = filesFrom !== undefined ? REPO_ROOT : process.cwd();
-		inputs = resolveInputs(
+		const gitInventory = getGitInventory(REPO_ROOT);
+		const gitEntries = new Map(gitInventory.map((entry) => [entry.path, entry]));
+		const provider: InventoryProvider =
+			scope === 'format'
+				? (directory) => {
+						// Prettiers Dateitraversal steigt in ausgecheckte Submodule ein. Die Gitlinks
+						// bleiben zusätzlich im Inventar, damit der Resolver sie vorher atomar stoppt.
+						const entries = prettierTraversalPaths(directory, false, REPO_ROOT).map(
+							(file) => gitEntries.get(file) ?? { path: file }
+						);
+						const paths = new Set(entries.map((entry) => entry.path));
+						for (const entry of gitInventory) {
+							if (entry.mode === '160000' && !paths.has(entry.path)) entries.push(entry);
+						}
+						return entries;
+					}
+				: () => gitInventory;
+		inputs = resolveInputRecords(
 			raw,
 			filesFrom !== undefined ? `--files-from ${filesFrom}` : 'arguments',
 			baseDirectory,
-			scope === 'format'
-				? (directory) => prettierTraversalPaths(directory, false, REPO_ROOT)
-				: repositoryPaths,
-			scope !== 'format'
+			provider
 		);
 	}
 
-	// Every glob and every subprocess below assumes the repo root (`bun prettier .`,
-	// `Bun.Glob('src/**/*')`, the `src/` prefix gates). Make that a fact rather than an
-	// unstated precondition — after resolving caller paths, so a relative argument still
-	// means what the caller meant.
 	process.chdir(REPO_ROOT);
 
 	if (mode === 'staged') {
@@ -1131,22 +1612,45 @@ async function main(): Promise<void> {
 			console.log('No staged files to check');
 			process.exit(0);
 		}
-		stagedDeletionOnly = stagedChanges.every((change) => change.status === 'D');
 		const stagedDeletedPaths = stagedChanges
 			.filter((change) => change.status === 'D')
 			.map((change) => change.path);
-		// Keep the original index paths. resolveInputs realpaths symlinks, while
-		// later comparisons must address the paths recorded by Git.
-		stagedIndexPaths = getStagedFiles(REPO_ROOT, stagedEnv);
+		const stagedIndexPaths = getStagedFiles(REPO_ROOT, stagedEnv);
 		assertSafePaths([...stagedIndexPaths, ...stagedDeletedPaths]);
-		const cleanFiltered = stagedFilesWithCleanFilters(stagedIndexPaths, REPO_ROOT, stagedEnv);
+		const stagedInventory = getGitInventory(REPO_ROOT, stagedEnv, false);
+		inputs =
+			stagedIndexPaths.length > 0
+				? resolveInputRecords(stagedIndexPaths, 'the git index', REPO_ROOT, () => stagedInventory, {
+						gitEnv: stagedEnv
+					})
+				: [];
+		const stagedInventoryPaths = new Set(stagedInventory.map((entry) => entry.path));
+		const unstagedLink = inputs
+			.flatMap((input) => input.linkChain)
+			.find((link) => !stagedInventoryPaths.has(link.path));
+		if (unstagedLink) {
+			fail(
+				`Symbolic-link chain path is absent from the active Git index: ${formatPathForDiagnostic(unstagedLink.path)}.`
+			);
+		}
+		const unstagedTarget = inputs.find(
+			(input) => input.kind === 'symlink' && !stagedInventoryPaths.has(input.target)
+		);
+		if (unstagedTarget) {
+			fail(
+				`Symbolic-link target is absent from the active Git index: ${formatPathForDiagnostic(unstagedTarget.path)}.`
+			);
+		}
+		stagedValidatedPaths = [
+			...new Set([...stagedIndexPaths, ...inputs.flatMap((input) => input.inventoryPaths)])
+		];
+		const cleanFiltered = stagedFilesWithCleanFilters(stagedValidatedPaths, REPO_ROOT, stagedEnv);
 		if (cleanFiltered.length > 0) {
 			fail(
 				'Custom Git clean filters are unsupported in staged checks.',
 				'  Remove the filter from checked paths, then stage the intended bytes and retry.'
 			);
 		}
-		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
 		const deletedPathStillExists = stagedDeletedPaths.some((file) => {
 			try {
 				lstatSync(path.join(REPO_ROOT, file));
@@ -1156,35 +1660,92 @@ async function main(): Promise<void> {
 				throw error;
 			}
 		});
-		if (
-			deletedPathStillExists ||
-			!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv)
-		) {
+		const stagedMatches = stagedFilesMatchWorktree(stagedValidatedPaths, REPO_ROOT, stagedEnv);
+		if (deletedPathStillExists || !stagedMatches) {
 			fail(
 				'Staged file contents differ from the worktree.',
 				'  Run the checks in fix mode, review the result, stage the intended bytes,\n' +
 					'  and retry the commit.'
 			);
 		}
+		const stagedEntries = new Map(stagedInventory.map((entry) => [entry.path, entry]));
+		const onlyDeletions = stagedChanges.every((change) => change.status === 'D');
+		const onlyGitlinks = stagedChanges.every(
+			(change) => change.status !== 'D' && stagedEntries.get(change.path)?.mode === '160000'
+		);
+		const onlyNoSourceChanges = stagedChanges.every(
+			(change) => change.status === 'D' || stagedEntries.get(change.path)?.mode === '160000'
+		);
+		if (onlyDeletions) {
+			stagedNoSourceReason = 'staged changes only delete paths absent from the final index';
+		} else if (onlyGitlinks) {
+			stagedNoSourceReason = 'staged changes only update verified gitlink object IDs';
+		} else if (onlyNoSourceChanges) {
+			stagedNoSourceReason =
+				'staged changes contain verified gitlink updates and deletions without source files to check';
+		}
 	}
 
-	const fullRepositoryPaths = mode === 'full' ? repositoryPaths() : [];
-	const fullExistingPaths = existingRepositoryPaths(fullRepositoryPaths);
-	const countFullFormatter = mode === 'full' && (scope === 'format' || shouldRunLint);
-	const fullFormatPaths = countFullFormatter ? prettierTraversalPaths(REPO_ROOT, true) : [];
-	if (scope !== 'format') assertSafePaths(mode === 'full' ? fullRepositoryPaths : inputs);
+	if (scope === 'compat') {
+		assertSafePaths(repositoryPaths());
+		const ledger = new Ledger(mode, []);
+		console.log('======================================================');
+		console.log('Static Checks (full project — compat)');
+		console.log('======================================================\n');
+		printHeader(1, 'Convex consumer compatibility');
+		const invocation = compatibilityInvocation(ciMode);
+		await runCommand(invocation.command, invocation.args, invocation.options);
+		ledger.ran('convex compat');
+		console.log('\n');
+		finish(ledger, scopeLabel);
+		return;
+	}
 
-	// Every file-scoped run needs the formatter route for the zero-work invariant. Every full
-	// run that includes lint counts the same filesystem traversal Prettier performs. Keeping
-	// this on `--scope format` alone left the required `--scope lint` workflow reporting
-	// "whole project" and exiting 0 when `.prettierignore` matched every file.
-	const ledgerInputs = countFullFormatter ? fullFormatPaths : inputs;
-	const prettierInputs = prettierProjectPaths(ledgerInputs, REPO_ROOT, scopedMode);
-	const formattable = await prettierFormattableFiles(prettierInputs);
+	const countFullFormatter = mode === 'full' && (scope === 'format' || shouldRunLint);
+	let fullFormatPaths = countFullFormatter ? prettierTraversalPaths(REPO_ROOT, true) : [];
+	let fullGitInventory: GitInventoryEntry[] = [];
+	if (mode === 'full') {
+		const gitInventory = getGitInventory(REPO_ROOT);
+		fullGitInventory = gitInventory;
+		const gitEntries = new Map(gitInventory.map((entry) => [entry.path, entry]));
+		const gitlinks = gitInventory
+			.filter((entry) => entry.mode === '160000')
+			.map((entry) => `${entry.path}/`);
+		const combined = [...gitInventory];
+		for (const file of fullFormatPaths) {
+			if (!gitEntries.has(file) && !gitlinks.some((prefix) => file.startsWith(prefix))) {
+				combined.push({ path: file });
+			}
+		}
+		const existing = existingInventoryEntries(combined, 'full repository inventory');
+		inputs = resolveInputRecords(
+			existing.map((entry) => entry.path),
+			'the repository inventory',
+			REPO_ROOT,
+			() => existing,
+			{ allowMetadataPlaceholders: true }
+		);
+	}
+	assertSafePaths(inputs.flatMap((input) => [input.path, input.target]));
+	if (scope !== 'format') assertMaterializedLinks(inputs);
+
+	const prettierInputs = prettierProjectPaths(
+		(countFullFormatter ? fullFormatPaths : inputs.map((input) => input.path)).filter(
+			(file) => !inputs.find((input) => input.path === file)?.formatterLinkNoop
+		),
+		REPO_ROOT,
+		scopedMode
+	);
+	let formattable = await prettierFormattableFiles(prettierInputs);
 	assertSafePaths(formattable);
-	const ledger = new Ledger(mode, ledgerInputs, formattable);
-	if (stagedDeletionOnly) {
-		ledger.noWork('staged changes only delete paths absent from the final index');
+	const ledger = new Ledger(mode, inputs, formattable);
+	const gitlinkInputs = inputs.filter((input) => input.kind === 'gitlink');
+	if (gitlinkInputs.length > 0) assertResolvedInputs(gitlinkInputs);
+	if (stagedNoSourceReason) ledger.noWork(stagedNoSourceReason);
+	if (mode === 'files' && inputs.length > 0 && gitlinkInputs.length === inputs.length) {
+		ledger.noWork(
+			`${inputs.length === 1 ? 'verified gitlink' : 'verified gitlinks'} without source files to check`
+		);
 	}
 
 	console.log('======================================================');
@@ -1196,16 +1757,6 @@ async function main(): Promise<void> {
 	console.log('======================================================\n');
 
 	let step = 1;
-	if (scope === 'compat') {
-		printHeader(step, 'Convex consumer compatibility');
-		const invocation = compatibilityInvocation(ciMode);
-		await runCommand(invocation.command, invocation.args, invocation.options);
-		ledger.ran('convex compat');
-		console.log('\n');
-		finish(ledger, scopeLabel);
-		return;
-	}
-
 	if (scope === 'format') {
 		printHeader(step, 'Code formatting');
 		const files = ledger.filesFor('prettier');
@@ -1213,10 +1764,13 @@ async function main(): Promise<void> {
 			if (files.length === 0) {
 				fail('Full-project format scope found no supported, nonignored files.');
 			}
-			await runPrettier('--check');
+			await runPrettier('--check', undefined, ledger.records, {
+				traversal: fullFormatPaths,
+				formattable
+			});
 			ledger.ran('prettier', files.length);
 		} else if (files.length > 0) {
-			await runPrettier('--check', files);
+			await runPrettier('--check', files, ledger.recordsFor('prettier'));
 			ledger.ran('prettier', files.length);
 		} else {
 			// Prettier is the only check in this scope, so it can answer for the whole run:
@@ -1231,6 +1785,7 @@ async function main(): Promise<void> {
 			ledger.noWork(`Prettier formats none of the ${ledger.named} named file(s)`);
 		}
 		console.log('\n');
+		if (mode === 'files') assertResolvedInputs(inputs);
 		finish(ledger, scopeLabel);
 		return;
 	}
@@ -1249,6 +1804,31 @@ async function main(): Promise<void> {
 	// SvelteKit sync (always runs — needed by both lint and types)
 	printHeader(step++, 'SvelteKit sync');
 	await runCommand('bun', ['svelte-kit', 'sync']);
+	if (countFullFormatter) {
+		const nextTraversal = prettierTraversalPaths(REPO_ROOT, true);
+		const nextFormattable = await prettierFormattableFiles(prettierProjectPaths(nextTraversal));
+		const nextInventory = getGitInventory(REPO_ROOT);
+		const traversalChanges = changedSnapshotPaths(fullFormatPaths, nextTraversal);
+		const inventoryChanges = changedSnapshotPaths(
+			inventorySnapshot(fullGitInventory),
+			inventorySnapshot(nextInventory)
+		).map((record) => record.split('\0', 1)[0]!);
+		if (nextFormattable.join('\0') !== formattable.join('\0')) {
+			fail('Formatter parser classification changed during SvelteKit sync.');
+		}
+		const changedPaths = [...new Set([...traversalChanges, ...inventoryChanges])];
+		if (
+			changedPaths.some((file) => !file.startsWith('.svelte-kit/')) ||
+			(changedPaths.length > 0 && !usesIgnoredDefaultSvelteKitOutDir())
+		) {
+			fail(
+				'Repository content outside the ignored default .svelte-kit output changed during sync.'
+			);
+		}
+		assertResolvedInputs(inputs);
+		fullFormatPaths = nextTraversal;
+		formattable = nextFormattable;
+	}
 	ledger.ran('svelte-kit sync');
 	console.log('\n');
 
@@ -1258,14 +1838,15 @@ async function main(): Promise<void> {
 		// Spell checking
 		printHeader(step++, 'Spell checking');
 		if (hasMisspell()) {
-			const files = scopedMode ? ledger.filesFor('misspell') : spellcheckFiles(fullExistingPaths);
+			const records = ledger.recordsFor('misspell');
+			const files = records.map((record) => record.path);
 
 			if (files.length === 0) {
 				console.log('No files to spell check');
 			} else {
-				// Batch files to avoid command line length limits
 				const chunkSize = 100;
 				for (let i = 0; i < files.length; i += chunkSize) {
+					assertResolvedInputs(records.slice(i, i + chunkSize));
 					await runCommand('misspell', ['-error', ...files.slice(i, i + chunkSize)]);
 				}
 			}
@@ -1288,9 +1869,9 @@ async function main(): Promise<void> {
 		// Banned patterns (deprecated tokens, bare animate-spin, static Sentry imports, execSync, ungated Tolgee apiKey)
 		printHeader(step++, 'Banned patterns');
 		{
-			const filesToScan = scopedMode
-				? ledger.filesFor('banned-patterns')
-				: [...new Bun.Glob('src/**/*.{svelte,ts}').scanSync({ absolute: false })].map(toPosix);
+			const records = ledger.recordsFor('banned-patterns');
+			const filesToScan = records.map((record) => record.path);
+			assertResolvedInputs(records);
 
 			const violations: string[] = [];
 			for (const file of filesToScan) {
@@ -1341,9 +1922,9 @@ async function main(): Promise<void> {
 		// ESLint covers code; this reaches source formats it does not parse.
 		printHeader(step++, 'Literal control characters');
 		{
-			const files = scopedMode
-				? ledger.filesFor('literal-control-char')
-				: authoredTextFiles(fullExistingPaths);
+			const records = ledger.recordsFor('literal-control-char');
+			const files = records.map((record) => record.path);
+			assertResolvedInputs(records);
 			const violations: string[] = [];
 			for (const file of files) {
 				violations.push(...literalControlCharacterViolations(file, await Bun.file(file).text()));
@@ -1366,10 +1947,13 @@ async function main(): Promise<void> {
 			const formatFlag = assertMode ? '--check' : '--write';
 			const files = ledger.filesFor('prettier');
 			if (!scopedMode) {
-				await runPrettier(formatFlag);
+				await runPrettier(formatFlag, undefined, ledger.records, {
+					traversal: fullFormatPaths,
+					formattable
+				});
 				ledger.ran('prettier', formattable.length);
 			} else if (files.length > 0) {
-				await runPrettier(formatFlag, files);
+				await runPrettier(formatFlag, files, ledger.recordsFor('prettier'));
 				ledger.ran('prettier', files.length);
 			} else {
 				console.log('No files to format');
@@ -1382,12 +1966,15 @@ async function main(): Promise<void> {
 		printHeader(step++, 'ESLint');
 		{
 			const fixArgs = assertMode ? [] : ['--fix'];
-			const files = ledger.filesFor('eslint');
-			if (!scopedMode) {
-				await runCommand('bun', ['eslint', '.', ...fixArgs]);
-				ledger.ran('eslint');
-			} else if (files.length > 0) {
-				await runCommand('bun', ['eslint', ...fixArgs, ...files]);
+			const records = ledger.recordsFor('eslint');
+			const files = records.map((record) => record.path);
+			if (files.length > 0) {
+				let offset = 0;
+				for (const batch of argumentBatches(files, ['eslint', ...fixArgs])) {
+					assertResolvedInputs(records.slice(offset, offset + batch.length));
+					offset += batch.length;
+					await runCommand('bun', ['eslint', ...fixArgs, ...batch]);
+				}
 				ledger.ran('eslint', files.length);
 			} else {
 				console.log('No JS/TS/Svelte files to lint');
@@ -1398,6 +1985,7 @@ async function main(): Promise<void> {
 
 		// oxlint
 		printHeader(step++, 'oxlint');
+		assertResolvedInputs(ledger.records);
 		await runCommand('bun', ['oxlint']);
 		ledger.ran('oxlint');
 		console.log('\n');
@@ -1410,6 +1998,7 @@ async function main(): Promise<void> {
 		// lint. The pre-push file run and CI's lint scope still fail on new dead code.
 		if (mode !== 'staged') {
 			printHeader(step++, 'knip');
+			assertResolvedInputs(ledger.records);
 			await runCommand('bun', ['knip', '--no-progress']);
 			ledger.ran('knip');
 			console.log('\n');
@@ -1428,16 +2017,15 @@ async function main(): Promise<void> {
 		// Type checking
 		printHeader(step++, 'Type checking');
 		{
-			const files = ledger.filesFor('svelte-check');
-			if (scopedMode && files.length === 0) {
-				console.log('No TypeScript/Svelte files to check');
+			const records = ledger.recordsFor('svelte-check');
+			if (records.length === 0) {
+				console.log('No SvelteKit project files to check');
 				ledger.ran('svelte-check', 0);
 			} else {
+				assertResolvedInputs(records);
 				await runCommand('bun', ['svelte-check', '--tsconfig', './tsconfig.json'], {
 					env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' }
 				});
-				// svelte-check is tsconfig-driven: the routed files decide WHETHER it runs,
-				// then it type-checks the whole project regardless.
 				ledger.ran('svelte-check', 'project');
 			}
 		}
@@ -1446,12 +2034,13 @@ async function main(): Promise<void> {
 		// Agent skill type checking
 		printHeader(step++, 'Agent skill type checking');
 		{
-			const files = ledger.filesFor('skill-types');
-			if (!scopedMode || files.length > 0) {
-				await runCommand('bun', ['run', 'check:upstream-report']);
+			const records = ledger.recordsFor('skill-types');
+			if (records.length > 0) {
+				assertResolvedInputs(records);
+				await runCommand('bun', ['run', 'check:skills']);
 				ledger.ran('skill-types', 'project');
 			} else {
-				console.log('No upstream-report TypeScript files to check');
+				console.log('No agent skill TypeScript files to check');
 				ledger.ran('skill-types', 0);
 			}
 		}
@@ -1460,8 +2049,9 @@ async function main(): Promise<void> {
 		// Convex type checking
 		printHeader(step++, 'Convex type checking');
 		{
-			const files = ledger.filesFor('convex');
-			if (!scopedMode || files.length > 0) {
+			const records = ledger.recordsFor('convex');
+			if (records.length > 0) {
+				assertResolvedInputs(records);
 				await runCommand('bun', ['run', 'check:convex']);
 				ledger.ran('convex', 'project');
 			} else {
@@ -1493,6 +2083,7 @@ async function main(): Promise<void> {
 				: mode === 'files'
 					? ({ kind: 'files', files: ledger.filesFor('knowledge-placement') } as const)
 					: ({ kind: 'full' } as const);
+		assertResolvedInputs(ledger.recordsFor('knowledge-placement'));
 		const result = runKnowledgePolicy({
 			root: REPO_ROOT,
 			policy: knowledgePolicy,
@@ -1523,12 +2114,15 @@ async function main(): Promise<void> {
 	}
 
 	if (stagedIndexFingerprint) {
-		if (!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv)) {
+		assertResolvedInputs(inputs);
+		if (!stagedFilesMatchWorktree(stagedValidatedPaths, REPO_ROOT, stagedEnv)) {
 			fail('Checked worktree bytes changed while staged checks were running.');
 		}
 		if (activeGitIndexFingerprint(REPO_ROOT, stagedEnv) !== stagedIndexFingerprint) {
 			fail('The active Git index changed while staged checks were running.');
 		}
+	} else if (mode === 'files') {
+		assertResolvedInputs(inputs);
 	}
 
 	finish(ledger, scopeLabel);

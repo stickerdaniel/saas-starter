@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import {
 	chmodSync,
+	lstatSync,
 	mkdirSync,
 	mkdtempSync,
 	realpathSync,
@@ -14,7 +15,9 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	activeGitIndexFingerprint,
+	getGitInventory,
 	getStagedFiles,
+	hashWorktreeFileNoFilters,
 	isolatedGitEnv,
 	sanitizedGitEnv,
 	stagedFilesMatchWorktree,
@@ -424,6 +427,22 @@ describe('staged Git context', () => {
 		);
 	});
 
+	it('hasht reguläre Dateien filterfrei im Objektformat des Repositorys', () => {
+		const sha256 = path.join(directory, 'sha256');
+		mkdirSync(sha256);
+		const initialized = spawnSync('git', ['init', '-q', '--object-format=sha256', '-b', 'main'], {
+			cwd: sha256,
+			env: sanitizedGitEnv(),
+			encoding: 'utf8'
+		});
+		if (initialized.status !== 0) return;
+		writeFileSync(path.join(sha256, 'pointer.ts'), 'target.ts');
+		const expected = git(sha256, ['hash-object', '--no-filters', '--', 'pointer.ts']).trim();
+
+		expect(hashWorktreeFileNoFilters('pointer.ts', sha256)).toBe(expected);
+		expect(expected).toHaveLength(64);
+	});
+
 	it('accepts a symlink placeholder when its raw blob matches', () => {
 		const target = Buffer.from('target.ts');
 		const objectId = spawnSync('git', ['hash-object', '-w', '--stdin'], {
@@ -437,4 +456,24 @@ describe('staged Git context', () => {
 
 		expect(stagedFilesMatchWorktree(['link.ts'], repository)).toBe(true);
 	});
+
+	it.skipIf(process.platform === 'win32')(
+		'erkennt einen echten core.symlinks=false-Checkout am Indexmodus',
+		() => {
+			const source = path.join(directory, 'symlink-source');
+			const clone = path.join(directory, 'symlink-clone');
+			mkdirSync(source);
+			git(source, ['init', '-q', '-b', 'main']);
+			git(source, ['config', 'user.email', 'test@example.com']);
+			git(source, ['config', 'user.name', 'Test']);
+			writeFileSync(path.join(source, 'target.ts'), 'export const target = true;\n');
+			symlinkSync('target.ts', path.join(source, 'link.ts'));
+			git(source, ['add', '.']);
+			git(source, ['commit', '-qm', 'Symlink fixture']);
+			git(directory, ['-c', 'core.symlinks=false', 'clone', '-q', source, clone]);
+
+			expect(lstatSync(path.join(clone, 'link.ts')).isFile()).toBe(true);
+			expect(getGitInventory(clone).find((entry) => entry.path === 'link.ts')?.mode).toBe('120000');
+		}
+	);
 });

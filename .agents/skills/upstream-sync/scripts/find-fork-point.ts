@@ -58,7 +58,7 @@ function readMarker(root: string): Record<string, unknown> | null {
 
 function main() {
 	const { values } = parseArgs({
-		args: Bun.argv.slice(2),
+		args: process.argv.slice(2),
 		options: {
 			upstream: { type: 'string' },
 			json: { type: 'boolean', default: false },
@@ -100,7 +100,8 @@ function main() {
 	const roots = git(['rev-list', '--max-parents=0', '--date-order', 'HEAD'])
 		.split('\n')
 		.filter(Boolean);
-	const forkRoot = roots[roots.length - 1];
+	const forkRoot = roots.at(-1);
+	if (!forkRoot) throw new Error('No root commit found in the fork history.');
 	const forkTree = git(['rev-parse', `${forkRoot}^{tree}`]);
 
 	// Scan upstream history for a commit whose tree SHA is identical (exact match).
@@ -110,7 +111,7 @@ function main() {
 	let forkPoint: string;
 	let method: string;
 	if (matches.length >= 1) {
-		forkPoint = matches[0]; // newest identical-tree commit (rev-list is newest-first)
+		forkPoint = matches[0]!; // newest identical-tree commit (rev-list is newest-first)
 		method =
 			matches.length === 1
 				? 'exact-tree'
@@ -124,6 +125,7 @@ function main() {
 		let best = '';
 		let bestChanges = Number.POSITIVE_INFINITY;
 		for (const c of pairs.map((l) => l.split(' ')[0]).slice(0, 400)) {
+			if (!c) continue;
 			const stat = git(['diff', '--shortstat', forkTree, `${c}^{tree}`], true);
 			const n = [...stat.matchAll(/(\d+) (insertion|deletion)/g)].reduce(
 				(a, m) => a + Number(m[1]),

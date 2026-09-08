@@ -231,6 +231,87 @@ export function activeGitIndexFingerprint(cwd = process.cwd(), env = stagedGitEn
 	return stripFinalLineEnding(result.stdout);
 }
 
+export interface GitInventoryEntry {
+	mode?: string;
+	objectId?: string;
+	path: string;
+}
+
+function decodeInventoryOutput(output: Buffer): string {
+	try {
+		return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(output);
+	} catch {
+		throw new Error('Repository contains a path whose bytes are not valid UTF-8.');
+	}
+}
+
+function parseStageZeroEntries(output: string): GitInventoryEntry[] {
+	const entries: GitInventoryEntry[] = [];
+	for (const record of output.split('\0').filter(Boolean)) {
+		const separator = record.indexOf('\t');
+		const metadata = separator < 0 ? [] : record.slice(0, separator).split(' ');
+		const file = separator < 0 ? '' : record.slice(separator + 1);
+		const [mode, objectId, stage] = metadata;
+		if (
+			!file ||
+			!mode ||
+			!objectId ||
+			stage !== '0' ||
+			!/^[0-7]{6}$/.test(mode) ||
+			!/^[0-9a-f]{40,64}$/.test(objectId)
+		) {
+			throw new Error('Malformed Git inventory entry.');
+		}
+		entries.push({ mode, objectId, path: file });
+	}
+	return entries;
+}
+
+export function isGitIgnoredPath(
+	file: string,
+	cwd = process.cwd(),
+	env: NodeJS.ProcessEnv = sanitizedGitEnv()
+): boolean {
+	const result = spawnSync('git', ['check-ignore', '--quiet', '--no-index', '--', file], {
+		cwd,
+		env
+	});
+	if (result.status === 0) return true;
+	if (result.status === 1) return false;
+	throw new Error(`Failed to inspect Git ignore rules for ${JSON.stringify(file)}.`);
+}
+
+/** Das vollständige Pfadinventar eines Index, optional ergänzt um unversionierte Dateien. */
+export function getGitInventory(
+	cwd = process.cwd(),
+	env: NodeJS.ProcessEnv = sanitizedGitEnv(),
+	includeUntracked = true
+): GitInventoryEntry[] {
+	const tracked = spawnSync('git', ['ls-files', '--stage', '-z'], {
+		cwd,
+		env,
+		encoding: 'buffer',
+		maxBuffer: 64 * 1024 * 1024
+	});
+	if (tracked.status !== 0) throw new Error('Failed to read Git inventory.');
+	const entries = parseStageZeroEntries(decodeInventoryOutput(tracked.stdout));
+
+	if (includeUntracked) {
+		const untracked = spawnSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], {
+			cwd,
+			env,
+			encoding: 'buffer',
+			maxBuffer: 64 * 1024 * 1024
+		});
+		if (untracked.status !== 0) throw new Error('Failed to read untracked Git inventory.');
+		for (const file of decodeInventoryOutput(untracked.stdout).split('\0').filter(Boolean)) {
+			entries.push({ path: file });
+		}
+	}
+
+	return entries.sort((left, right) => left.path.localeCompare(right.path));
+}
+
 export interface GitChange {
 	status: 'A' | 'C' | 'D' | 'M' | 'R' | 'T';
 	path: string;
@@ -365,6 +446,37 @@ export function getStageZeroIndexEntries(
 	});
 }
 
+export function hashWorktreeFileNoFilters(
+	file: string,
+	cwd = process.cwd(),
+	env: NodeJS.ProcessEnv = sanitizedGitEnv()
+): string {
+	const absolute = path.resolve(cwd, file);
+	if (!lstatSync(absolute).isFile()) {
+		throw new Error(`Worktree path is not a regular file: ${JSON.stringify(file)}.`);
+	}
+	const result = spawnSync('git', ['hash-object', '--no-filters', '--', absolute], {
+		cwd,
+		env,
+		encoding: 'utf-8'
+	});
+	if (result.status !== 0) throw new Error(`Failed to hash worktree path ${JSON.stringify(file)}.`);
+	return stripFinalLineEnding(result.stdout);
+}
+
+export function gitlinkHeadObjectId(file: string, cwd = process.cwd()): string {
+	const absolute = path.resolve(cwd, file);
+	if (!lstatSync(absolute).isDirectory()) {
+		throw new Error(`Gitlink path is not a directory: ${JSON.stringify(file)}.`);
+	}
+	const result = spawnSync('git', ['-C', absolute, 'rev-parse', 'HEAD'], {
+		env: sanitizedGitEnv(),
+		encoding: 'utf-8'
+	});
+	if (result.status !== 0) throw new Error(`Failed to read gitlink ${JSON.stringify(file)}.`);
+	return stripFinalLineEnding(result.stdout);
+}
+
 type WorktreeObject = { kind: 'file' | 'symlink' | 'gitlink'; id: string };
 
 function hashWorktreePaths(
@@ -380,12 +492,7 @@ function hashWorktreePaths(
 		const absolute = path.resolve(cwd, file);
 		const stat = lstatSync(absolute);
 		if (stat.isDirectory()) {
-			const result = spawnSync('git', ['-C', absolute, 'rev-parse', 'HEAD'], {
-				env: sanitizedGitEnv(),
-				encoding: 'utf-8'
-			});
-			if (result.status !== 0) throw new Error(`Failed to read gitlink ${JSON.stringify(file)}.`);
-			objects.set(file, { kind: 'gitlink', id: stripFinalLineEnding(result.stdout) });
+			objects.set(file, { kind: 'gitlink', id: gitlinkHeadObjectId(file, cwd) });
 		} else if (stat.isSymbolicLink()) {
 			const result = spawnSync('git', ['hash-object', '--stdin'], {
 				cwd,

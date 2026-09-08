@@ -15,13 +15,21 @@
  *      so these stay fast.
  */
 import { spawnSync } from 'child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+	chmodSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
-import { sanitizedGitEnv } from './git-context';
+import { getGitInventory, sanitizedGitEnv } from './git-context';
 import {
 	argumentBatches,
 	authoredTextFiles,
@@ -35,6 +43,7 @@ import {
 	prettierTraversalPaths,
 	repositoryPaths,
 	ROUTES,
+	resolveInputRecords,
 	resolveInputs,
 	spellcheckFiles,
 	unsafePathCodepoints,
@@ -47,6 +56,12 @@ const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
 /** Exit code only. Every case here fails at intake, so no check subprocess runs. */
 function run(...args: string[]): number {
 	return spawnSync('bun', [SCRIPT, ...args], { cwd: ROOT, encoding: 'utf8' }).status ?? -1;
+}
+
+function git(args: string[], env: NodeJS.ProcessEnv = sanitizedGitEnv()): string {
+	const result = spawnSync('git', args, { cwd: ROOT, env, encoding: 'utf8' });
+	if (result.status !== 0) throw new Error(result.stderr);
+	return result.stdout;
 }
 
 describe('checker mutation mode', () => {
@@ -215,6 +230,10 @@ describe('route predicates', () => {
 			ROUTES['skill-types']('.agents/skills/upstream-report/scripts/upstream-relevance.ts')
 		).toBe(true);
 		expect(ROUTES['skill-types']('.agents/skills/upstream-report/tsconfig.json')).toBe(true);
+		expect(ROUTES['skill-types']('.agents/skills/tsconfig.json')).toBe(true);
+		expect(ROUTES['skill-types']('.agents/skills/upstream-sync/scripts/find-fork-point.ts')).toBe(
+			true
+		);
 		expect(ROUTES['skill-types']('.agents/skills/upstream-report/helper.ts')).toBe(false);
 		expect(ROUTES['skill-types']('.agents/skills/upstream-report/SKILL.md')).toBe(false);
 	});
@@ -344,10 +363,9 @@ describe('repository path safety', () => {
 					relative
 				]);
 				expect(prettierProjectPaths([relative])).toEqual([]);
-				// Every other scope routes by extension, so it needs the target instead: under the
-				// link's own `.md` name a TypeScript target reaches no checker and the run passes
-				// having checked nothing.
-				expect(resolveInputs([file], 'test')).toEqual(['README.md']);
+				// Der String bleibt in jedem Scope der logische Repository-Name. Das physische Ziel
+				// wird separat getragen und darf Präfixregeln oder Diagnosen nicht umbenennen.
+				expect(resolveInputs([file], 'test')).toEqual([relative]);
 			} finally {
 				rmSync(file, { force: true });
 			}
@@ -440,6 +458,37 @@ describe('resolveInputs', () => {
 		}
 	});
 
+	it('wertet einen Mode-120000-Platzhalter aus dem aktiven alternativen Index aus', () => {
+		const relative = `scripts/.static-checks-alt-index-${process.pid}.ts`;
+		const file = path.join(ROOT, relative);
+		const index = path.join(ROOT, 'scratch', `static-checks-index-${process.pid}`);
+		const env = { ...sanitizedGitEnv(), GIT_INDEX_FILE: index };
+		writeFileSync(file, 'target.ts');
+		try {
+			git(['read-tree', 'HEAD'], env);
+			const object = spawnSync('git', ['hash-object', '-w', '--stdin'], {
+				cwd: ROOT,
+				env: sanitizedGitEnv(),
+				input: 'target.ts',
+				encoding: 'utf8'
+			}).stdout.trim();
+			git(['update-index', '--add', '--cacheinfo', `120000,${object},${relative}`], env);
+			const provider = () => getGitInventory(ROOT, env, false);
+
+			expect(
+				resolveInputRecords([relative], 'test', ROOT, provider, { gitEnv: env })[0]?.kind
+			).toBe('git-symlink-placeholder');
+			writeFileSync(file, 'export const changed   =1\n');
+			const changed = resolveInputRecords([relative], 'test', ROOT, provider, { gitEnv: env })[0];
+			expect(changed?.kind).toBe('file');
+			expect(changed?.formatterLinkNoop).toBe(false);
+		} finally {
+			rmSync(file, { force: true });
+			rmSync(index, { force: true });
+			rmSync(`${index}.lock`, { force: true });
+		}
+	});
+
 	it('includes dot-directory descendants of a directory argument', () => {
 		const directory = path.join(ROOT, 'src', '.static-checks-directory-test');
 		const file = path.join(directory, 'instructions.md');
@@ -455,21 +504,129 @@ describe('resolveInputs', () => {
 	});
 
 	it.skipIf(process.platform === 'win32')(
-		'accepts a directory whose files were already named',
+		'behält verschiedene Verzeichnis-Aliase desselben Ziels',
 		() => {
-			const directory = path.join(ROOT, `.static-checks-overlap-target-${process.pid}`);
-			const link = path.join(ROOT, `.static-checks-overlap-link-${process.pid}`);
-			const file = path.join(directory, 'only.ts');
+			const target = path.join(ROOT, 'scripts', `.static-checks-alias-target-${process.pid}`);
+			const first = path.join(ROOT, `.static-checks-alias-a-${process.pid}`);
+			const second = path.join(ROOT, `.static-checks-alias-b-${process.pid}`);
+			mkdirSync(target);
+			writeFileSync(path.join(target, 'only.ts'), 'export {};\n');
+			symlinkSync(target, first, 'dir');
+			symlinkSync(target, second, 'dir');
+			try {
+				const expected = [`${path.basename(first)}/only.ts`, `${path.basename(second)}/only.ts`];
+				expect(resolveInputs([first, second], 'test')).toEqual(expected);
+				expect(resolveInputs([second, first], 'test')).toEqual(expected);
+			} finally {
+				rmSync(first, { force: true });
+				rmSync(second, { force: true });
+				rmSync(target, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'behandelt einen Zugriffsfehler nicht als gelöschte Datei',
+		() => {
+			const directory = path.join(ROOT, 'scripts', `.static-checks-denied-${process.pid}`);
+			const file = path.join(directory, 'probe.ts');
 			mkdirSync(directory);
 			writeFileSync(file, 'export {};\n');
-			symlinkSync(directory, link);
+			chmodSync(directory, 0o000);
 			try {
-				expect(resolveInputs([file, link], 'test')).toEqual([
-					path.relative(ROOT, file).split(path.sep).join('/')
-				]);
+				const result = spawnSync('bun', [SCRIPT, '--scope', 'types', file], {
+					cwd: ROOT,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					encoding: 'utf8'
+				});
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toMatch(/EACCES|permission denied/i);
+				expect(output).not.toContain('No such file');
 			} finally {
-				rmSync(link, { force: true });
+				chmodSync(directory, 0o700);
 				rmSync(directory, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'verwirft einen kaputten Link neben einer gültigen Datei',
+		() => {
+			const directory = path.join(ROOT, 'scripts', `.static-checks-broken-${process.pid}`);
+			mkdirSync(directory);
+			writeFileSync(path.join(directory, 'valid.ts'), 'export {};\n');
+			symlinkSync('missing.ts', path.join(directory, 'broken.ts'));
+			try {
+				const result = spawnSync('bun', [SCRIPT, '--scope', 'types', directory], {
+					cwd: ROOT,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					encoding: 'utf8'
+				});
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('Broken or cyclic symbolic link');
+				expect(output).not.toContain('All checks passed');
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'lehnt einen Vorfahrenlink ab, ohne Geschwister zu inventarisieren',
+		() => {
+			const directory = path.join(ROOT, 'scripts', `.static-checks-cycle-${process.pid}`);
+			mkdirSync(path.join(directory, 'root'), { recursive: true });
+			writeFileSync(path.join(directory, 'root', 'probe.ts'), 'export {};\n');
+			symlinkSync('..', path.join(directory, 'root', 'up'), 'dir');
+			try {
+				const result = spawnSync(
+					'bun',
+					[SCRIPT, '--scope', 'types', path.join(directory, 'root')],
+					{
+						cwd: ROOT,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+						encoding: 'utf8'
+					}
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('Symbolic-link directory cycle');
+				expect(output).not.toContain('SvelteKit sync');
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'führt Präfixregeln unter dem logischen Alias aus',
+		() => {
+			const target = path.join(ROOT, 'scripts', `.static-checks-src-target-${process.pid}`);
+			const alias = path.join(ROOT, 'src', `.static-checks-src-alias-${process.pid}`);
+			mkdirSync(target);
+			writeFileSync(path.join(target, 'probe.ts'), 'execSync("unsafe");\n');
+			symlinkSync(target, alias, 'dir');
+			try {
+				const [record] = resolveInputRecords([alias], 'test');
+				expect(record?.path).toBe(`src/${path.basename(alias)}/probe.ts`);
+				expect(record?.target).toBe(`scripts/${path.basename(target)}/probe.ts`);
+				expect(ROUTES['banned-patterns'](record!.path)).toBe(true);
+				expect(ROUTES['svelte-check'](record!.target)).toBe(false);
+
+				const result = spawnSync('bun', [SCRIPT, '--scope', 'lint', alias], {
+					cwd: ROOT,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					encoding: 'utf8'
+				});
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('execSync');
+				expect(output).toContain(record!.path);
+			} finally {
+				rmSync(alias, { force: true });
+				rmSync(target, { recursive: true, force: true });
 			}
 		}
 	);
