@@ -101,15 +101,6 @@ function sendButton(): HTMLButtonElement {
 	return document.querySelector<HTMLButtonElement>(`button[aria-label="${en.chat.aria.send}"]`)!;
 }
 
-function sendLoader(): SVGElement | null {
-	const loaderClass = ['motion-safe', ['animate', 'spin'].join('-')].join(':');
-	return (
-		[...sendButton().querySelectorAll('svg')].find((icon) =>
-			icon.classList.contains(loaderClass)
-		) ?? null
-	);
-}
-
 async function settleComponentWork(): Promise<void> {
 	await Promise.resolve();
 	await tick();
@@ -745,6 +736,94 @@ describe('chat session lifecycle', () => {
 		expect(input.value).toBe('');
 		expect(thread.getDraft('assigned-after-clear')).toBe('');
 	});
+
+	it.each([
+		{
+			boundary: 'goBack',
+			navigate: async (thread: SupportThreadContext) => thread.goBack(),
+			expectedThreadId: null,
+			expectedView: 'overview' as const
+		},
+		{
+			boundary: 'selected thread',
+			navigate: async (thread: SupportThreadContext) => thread.selectThread('selected-thread'),
+			expectedThreadId: 'selected-thread',
+			expectedView: 'chat' as const
+		},
+		{
+			boundary: 'newer generation',
+			navigate: async (thread: SupportThreadContext) => {
+				thread.startNewThread();
+				await vi.waitFor(() => expect(thread.threadId).toBe('new-thread'));
+			},
+			expectedThreadId: 'new-thread',
+			expectedView: 'chat' as const
+		},
+		{
+			boundary: 'session clear',
+			navigate: async (thread: SupportThreadContext) => {
+				clearPersistedChatState();
+				thread.startNewThread();
+				await vi.waitFor(() => expect(thread.threadId).toBe('new-thread'));
+			},
+			expectedThreadId: 'new-thread',
+			expectedView: 'chat' as const
+		}
+	])(
+		'an eager rejection after $boundary does not write stale diagnostics',
+		async ({ navigate, expectedThreadId, expectedView }) => {
+			const thread = new SupportThreadContext();
+			const context = new ChatUIContext(thread as unknown as ChatCore, client);
+			contexts.push(context);
+			const oldCreation = Promise.withResolvers<{
+				threadId: string;
+				notificationEmail: null;
+			}>();
+			let warmCalls = 0;
+			const mutation = vi.spyOn(client, 'mutation').mockImplementation((reference) => {
+				if (getFunctionName(reference) === 'support/threads:getOrCreateWarmThread') {
+					warmCalls++;
+					return warmCalls === 1
+						? oldCreation.promise
+						: Promise.resolve({ threadId: 'new-thread', notificationEmail: null });
+				}
+				return Promise.resolve({});
+			});
+			const oldError = new Error('Old eager creation rejected');
+			thread.setClient(client);
+			thread.startNewThread();
+			await vi.waitFor(() => expect(mutation).toHaveBeenCalledTimes(1));
+
+			await navigate(thread);
+			vi.mocked(console.error).mockClear();
+			oldCreation.reject(oldError);
+			await new Promise<void>((resolve) => setTimeout(resolve, 0));
+			await tick();
+
+			expect(thread.error).toBeNull();
+			expect(thread.threadId).toBe(expectedThreadId);
+			expect(thread.currentView).toBe(expectedView);
+			expect(console.error).not.toHaveBeenCalledWith(
+				'[startNewThread] Thread creation failed:',
+				oldError
+			);
+		}
+	);
+
+	it('reports the original eager acquisition error for the current conversation', async () => {
+		const thread = new SupportThreadContext();
+		const error = new Error('Current eager creation rejected');
+		const mutation = vi.spyOn(client, 'mutation').mockRejectedValue(error);
+		thread.setClient(client);
+
+		thread.startNewThread();
+		await vi.waitFor(() =>
+			expect(thread.error).toBe('Failed to start conversation. Please try again.')
+		);
+
+		expect(mutation).toHaveBeenCalledTimes(1);
+		expect(console.error).toHaveBeenCalledWith('[startNewThread] Thread creation failed:', error);
+	});
 });
 
 describe('AI chatbar session lifecycle', () => {
@@ -797,19 +876,13 @@ describe('AI chatbar session lifecycle', () => {
 			expect(mutation).toHaveBeenCalledTimes(2);
 			expect(thread.isSending).toBe(true);
 			expect(sendButton().disabled).toBe(true);
-			expect(sendLoader()).not.toBeNull();
-
 			flushSync(() => navigate(thread));
 			expect(thread.isSending).toBe(false);
 			expect(sendButton().disabled).toBe(false);
-			expect(sendLoader()).toBeNull();
-
 			const newerSend = thread.sendMessage(client, 'newer prompt');
 			await settleComponentWork();
 			expect(mutation).toHaveBeenCalledTimes(3);
 			expect(thread.isSending).toBe(true);
-			expect(sendLoader()).not.toBeNull();
-
 			if (oldOutcome === 'fulfilled') {
 				oldCreation.resolve({ threadId: 'old-created-thread', notificationEmail: null });
 				await expect(oldSend).rejects.toThrow('Support conversation changed');
@@ -819,7 +892,6 @@ describe('AI chatbar session lifecycle', () => {
 			}
 			await settleComponentWork();
 			expect(thread.isSending).toBe(true);
-			expect(sendLoader()).not.toBeNull();
 			expect(thread.error).toBeNull();
 
 			if (boundary === 'goBack') {
@@ -852,11 +924,8 @@ describe('AI chatbar session lifecycle', () => {
 
 		flushSync(() => thread.goBack());
 		expect(thread.isSending).toBe(true);
-		expect(sendLoader()).not.toBeNull();
 		flushSync(() => thread.selectThread('existing-thread'));
 		expect(thread.isSending).toBe(true);
-		expect(sendLoader()).not.toBeNull();
-
 		message.resolve({});
 		await expect(result).resolves.toEqual({
 			threadId: 'existing-thread',

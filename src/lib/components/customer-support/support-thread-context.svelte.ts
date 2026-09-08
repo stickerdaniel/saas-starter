@@ -688,7 +688,11 @@ export class SupportThreadContext {
 
 		// Trigger eager thread creation if client is available
 		if (this.client) {
+			const epoch = getChatSessionEpoch();
+			const generation = this.threadGeneration;
+			const navigationRevision = this.navigationRevision;
 			void this.ensureThread(this.client).catch((error) => {
+				if (!this.isSendOwnershipCurrent(epoch, generation, navigationRevision)) return;
 				console.error('[startNewThread] Thread creation failed:', error);
 				this.setError('Failed to start conversation. Please try again.');
 			});
