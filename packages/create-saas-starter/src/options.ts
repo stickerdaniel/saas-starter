@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { domainToASCII } from 'node:url';
 import { parseArgs } from 'node:util';
 import packageJson from '../package.json' with { type: 'json' };
@@ -121,9 +122,13 @@ export function isValidSlug(value: string): boolean {
 	return value.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(value);
 }
 
+export function isReservedWindowsDeviceName(value: string): boolean {
+	return /^(?:con|prn|aux|nul|com(?:[1-9]|[¹²³])|lpt(?:[1-9]|[¹²³]))(?:\.|$)/i.test(value);
+}
+
 function hasReservedWindowsDeviceBasename(value: string): boolean {
 	const repository = /^[A-Za-z0-9-]+\/([A-Za-z0-9._-]+)$/.exec(value)?.[1];
-	return repository ? /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(repository) : false;
+	return repository ? isReservedWindowsDeviceName(repository) : false;
 }
 
 export function isValidRepository(value: string): boolean {
@@ -220,10 +225,11 @@ export function validateProvidedValues(options: ProvidedValues): void {
 	}
 }
 
-export function deriveSlug(directory: string): string | undefined {
-	const basename = directory
-		.replace(/[\\/]+$/, '')
-		.split(/[\\/]/)
-		.at(-1);
+export function deriveSlug(
+	directory: string,
+	platform: NodeJS.Platform = process.platform
+): string | undefined {
+	const basename =
+		platform === 'win32' ? path.win32.basename(directory) : path.posix.basename(directory);
 	return basename && isValidSlug(basename) ? basename : undefined;
 }

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { Parser, type ReadEntry } from 'tar';
+import { isReservedWindowsDeviceName } from './options.js';
 import { MAX_ARCHIVE_BYTES } from './template.js';
 
 export const MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024;
@@ -41,10 +42,6 @@ function portableKey(value: string): string {
 		.join('/');
 }
 
-function isReservedDevice(segment: string): boolean {
-	return /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(segment);
-}
-
 function hasControlCharacter(value: string): boolean {
 	return [...value].some((character) => {
 		const code = character.codePointAt(0)!;
@@ -65,7 +62,9 @@ function validatePortablePath(value: string): string[] {
 			fail('empty or traversing path segment');
 		if (/[<>"|?*:]/.test(segment)) fail(`Win32-reserved character in ${JSON.stringify(segment)}`);
 		if (/[. ]$/.test(segment)) fail(`trailing dot or space in ${JSON.stringify(segment)}`);
-		if (isReservedDevice(segment)) fail(`reserved Windows device name ${JSON.stringify(segment)}`);
+		if (isReservedWindowsDeviceName(segment)) {
+			fail(`reserved Windows device name ${JSON.stringify(segment)}`);
+		}
 		if (Buffer.byteLength(segment, 'utf8') > 255 || segment.length > 255) {
 			fail(`path segment exceeds the portable length limit: ${JSON.stringify(segment)}`);
 		}
@@ -250,12 +249,23 @@ function stripArchiveRoot(entries: ParsedEntry[]): ParsedEntry[] {
 
 function validateTemplateContract(entries: ParsedEntry[]): void {
 	const tree = new Map(entries.map((entry) => [portableKey(entry.path), entry]));
-	const manifest = tree.get('package.json');
-	const setup = tree.get('scripts/template-setup.ts');
-	const legalMetadata = tree.get('src/lib/content/legal-metadata.ts');
-	if (manifest?.type !== 'file' || setup?.type !== 'file' || legalMetadata?.type !== 'file') {
-		fail('template setup files are missing');
+	const requiredFiles = [
+		'package.json',
+		'bun.lock',
+		'scripts/template-setup.ts',
+		'wrangler.toml',
+		'README.md',
+		'src/lib/config/site.ts',
+		'src/lib/config/legal.ts',
+		'src/lib/content/legal-metadata.ts'
+	];
+	for (const requiredFile of requiredFiles) {
+		const entry = tree.get(portableKey(requiredFile));
+		if (entry?.type !== 'file' || entry.path !== requiredFile) {
+			fail(`public setup requires regular file ${requiredFile}`);
+		}
 	}
+	const manifest = tree.get('package.json')!;
 	let value: unknown;
 	try {
 		value = JSON.parse(manifest.data!.toString('utf8'));

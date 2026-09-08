@@ -45,6 +45,8 @@ describe('validateTemplateArchive', () => {
 		['backslash', String.raw`root\escape`],
 		['reserved character', 'root/a:b'],
 		['device name', 'root/CON.txt'],
+		['superscript COM device name', 'root/COM¹.txt'],
+		['superscript LPT device name', 'root/LPT².log'],
 		['trailing dot', 'root/file.'],
 		['control character', 'root/bad\u0001name']
 	])('rejects %s entries', async (_name, entryPath) => {
@@ -105,6 +107,42 @@ describe('validateTemplateArchive', () => {
 				tarGz(validTemplateEntries().filter((entry) => entry.path !== 'root/AGENTS.md'))
 			)
 		).rejects.toThrow(/target is missing/);
+	});
+
+	it.each([
+		'package.json',
+		'bun.lock',
+		'scripts/template-setup.ts',
+		'wrangler.toml',
+		'README.md',
+		'src/lib/config/site.ts',
+		'src/lib/config/legal.ts',
+		'src/lib/content/legal-metadata.ts'
+	])('rejects an archive missing setup input %s', async (requiredFile) => {
+		const entries = validTemplateEntries().filter((entry) => entry.path !== `root/${requiredFile}`);
+		await expect(validateTemplateArchive(tarGz(entries))).rejects.toThrow(
+			`public setup requires regular file ${requiredFile}`
+		);
+	});
+
+	it('requires the canonical setup input path casing', async () => {
+		const entries = replacing('root/README.md', {
+			path: 'root/readme.md',
+			data: '# Wrong case\n'
+		});
+		await expect(validateTemplateArchive(tarGz(entries))).rejects.toThrow(
+			'public setup requires regular file README.md'
+		);
+	});
+
+	it('rejects a setup input that is not a regular file', async () => {
+		const entries = replacing('root/wrangler.toml', {
+			path: 'root/wrangler.toml',
+			type: 'Directory'
+		});
+		await expect(validateTemplateArchive(tarGz(entries))).rejects.toThrow(
+			'public setup requires regular file wrangler.toml'
+		);
 	});
 
 	it('rejects multiple roots, private files, marker collisions, and invalid setup manifests', async () => {

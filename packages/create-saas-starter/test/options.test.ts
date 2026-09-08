@@ -1,17 +1,19 @@
+import { EventEmitter } from 'node:events';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Readable, Writable } from 'node:stream';
 import * as clack from '@clack/prompts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { runCli } from '../src/index.js';
-import { parseCliOptions, validateProvidedValues } from '../src/options.js';
+import { listenForInterrupt, runCli } from '../src/index.js';
+import { deriveSlug, parseCliOptions, validateProvidedValues } from '../src/options.js';
 import {
 	confirmTemplateTrust,
 	PromptCancelledError,
 	resolveOptions,
 	type PromptAdapter
 } from '../src/prompts.js';
+import { tarGz, validTemplateEntries } from './archive-fixture.js';
 
 class PromptInput extends Readable {
 	_read() {}
@@ -111,6 +113,12 @@ describe('option resolution and trust', () => {
 		).rejects.toThrow('--repo is required');
 	});
 
+	it('derives target names with the same platform path semantics as target inspection', () => {
+		expect(deriveSlug(String.raw`parent\my-app`, 'win32')).toBe('my-app');
+		expect(deriveSlug(String.raw`bad\name`, 'linux')).toBeUndefined();
+		expect(deriveSlug('parent/my-app', 'linux')).toBe('my-app');
+	});
+
 	it('requires explicit trust without prompts even with --yes', async () => {
 		await expect(confirmTemplateTrust('a'.repeat(40), false, false)).rejects.toThrow(
 			'--trust-template'
@@ -139,6 +147,19 @@ describe('option resolution and trust', () => {
 });
 
 describe('side-effect-free commands', () => {
+	it('keeps the interrupt listener installed through repeated SIGINT events', () => {
+		const emitter = new EventEmitter();
+		const listener = vi.fn();
+		const remove = listenForInterrupt(listener, emitter);
+
+		emitter.emit('SIGINT');
+		emitter.emit('SIGINT');
+		expect(listener).toHaveBeenCalledTimes(2);
+		expect(emitter.listenerCount('SIGINT')).toBe(1);
+		remove();
+		expect(emitter.listenerCount('SIGINT')).toBe(0);
+	});
+
 	it.each(['--help', '--version'])('runs %s without Bun or network access', async (option) => {
 		const messages: string[] = [];
 		const fetchSpy = vi
@@ -154,6 +175,37 @@ describe('side-effect-free commands', () => {
 		expect(code).toBe(0);
 		expect(fetchSpy).not.toHaveBeenCalled();
 		expect(messages).not.toEqual([]);
+	});
+});
+
+describe('interrupt handling', () => {
+	it('returns 130 and leaves no target when repeated SIGINT arrives before claim', async () => {
+		const parent = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-pre-claim-sigint-'));
+		temporaryDirectories.push(parent);
+		const messages: string[] = [];
+		const archive = tarGz(validTemplateEntries());
+		const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+			process.emit('SIGINT');
+			process.emit('SIGINT');
+			const body = archive.buffer.slice(
+				archive.byteOffset,
+				archive.byteOffset + archive.byteLength
+			) as ArrayBuffer;
+			return new Response(body);
+		});
+
+		const code = await runCli(['project', '--repo', 'owner/project', '--yes', '--trust-template'], {
+			stdout: (message) => messages.push(message),
+			stderr: (message) => messages.push(message),
+			stdin: process.stdin,
+			environment: process.env,
+			cwd: parent
+		});
+
+		expect(code).toBe(130);
+		expect(fetchSpy).toHaveBeenCalledOnce();
+		expect(await readdir(parent)).toEqual([]);
+		expect(messages.join('\n')).toContain('interrupted');
 	});
 });
 

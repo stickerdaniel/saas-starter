@@ -22,6 +22,7 @@ import {
 	initialMarker,
 	inspectTarget,
 	TargetClaimError,
+	throwIfAborted,
 	updateMarker,
 	writeArchive,
 	type ScaffoldMarker,
@@ -44,6 +45,19 @@ const defaultIo: CliIo = {
 	environment: process.env,
 	cwd: process.cwd()
 };
+
+interface InterruptEmitter {
+	on(event: 'SIGINT', listener: () => void): unknown;
+	off(event: 'SIGINT', listener: () => void): unknown;
+}
+
+export function listenForInterrupt(
+	listener: () => void,
+	emitter: InterruptEmitter = process
+): () => void {
+	emitter.on('SIGINT', listener);
+	return () => emitter.off('SIGINT', listener);
+}
 
 function assertSupportedNodeVersion(): void {
 	const [major, minor] = process.versions.node.split('.').map(Number);
@@ -69,7 +83,7 @@ export async function runCli(args: string[], io: CliIo = defaultIo): Promise<num
 		interrupted = true;
 		controller.abort(new Error('Scaffolding interrupted.'));
 	};
-	process.once('SIGINT', onSigint);
+	const removeInterruptListener = listenForInterrupt(onSigint);
 	let claimedTarget: string | undefined;
 	let marker: ScaffoldMarker | undefined;
 	let phase: ScaffoldPhase = 'files';
@@ -99,11 +113,14 @@ export async function runCli(args: string[], io: CliIo = defaultIo): Promise<num
 			throw new UsageError('Template execution requires explicit --trust-template.');
 		}
 
-		const bun = await verifyBun(controller.signal, io.environment);
+		const bun = await verifyBun(controller.signal, io.environment, io.cwd);
 		const resolved = await resolveTemplateRef(options.ref, controller.signal);
 		const compressed = await downloadTemplateArchive(resolved.sha, controller.signal);
+		throwIfAborted(controller.signal);
 		const archive = await validateTemplateArchive(compressed);
+		throwIfAborted(controller.signal);
 		await confirmTemplateTrust(resolved.sha, interactive, options.trustTemplate);
+		throwIfAborted(controller.signal);
 
 		marker = initialMarker({
 			ref: resolved.ref,
@@ -111,13 +128,13 @@ export async function runCli(args: string[], io: CliIo = defaultIo): Promise<num
 			archiveSha256: archive.sha256
 		});
 		try {
-			await claimTarget(target, marker);
+			await claimTarget(target, marker, controller.signal);
 		} catch (error) {
 			if (error instanceof TargetClaimError) claimedTarget = error.target;
 			throw error;
 		}
 		claimedTarget = target.path;
-		await writeArchive(target.path, archive);
+		await writeArchive(target.path, archive, controller.signal);
 		phase = 'setup';
 		marker = await updateMarker(target.path, marker, 'incomplete', phase);
 
@@ -168,7 +185,7 @@ export async function runCli(args: string[], io: CliIo = defaultIo): Promise<num
 		}
 		return 1;
 	} finally {
-		process.off('SIGINT', onSigint);
+		removeInterruptListener();
 	}
 }
 

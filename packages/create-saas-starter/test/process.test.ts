@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, mkdtemp, readFile, realpath, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -65,7 +65,46 @@ describe('process contract', () => {
 	});
 
 	it('rejects a missing Bun executable before target writes', async () => {
-		await expect(resolveBunExecutable({ PATH: '' }, process.platform, null)).rejects.toThrow('Bun');
+		await expect(
+			resolveBunExecutable({ PATH: '' }, process.cwd(), process.platform, null)
+		).rejects.toThrow('Bun');
+	});
+
+	it('resolves relative PATH entries against the original CLI cwd', async () => {
+		const originalCwd = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-relative-path-'));
+		temporaryDirectories.push(originalCwd);
+		const tools = path.join(originalCwd, 'tools');
+		const childCwd = path.join(originalCwd, 'target');
+		await mkdir(tools);
+		await mkdir(childCwd);
+		const executableName = process.platform === 'win32' ? 'bun.exe' : 'bun';
+		const fixtureBun = path.join(tools, executableName);
+		if (process.platform === 'win32') {
+			await copyFile(process.execPath, fixtureBun);
+			await chmod(fixtureBun, 0o755);
+		} else {
+			await symlink(process.execPath, fixtureBun);
+		}
+
+		const resolved = await resolveBunExecutable(
+			{ PATH: 'tools' },
+			originalCwd,
+			process.platform,
+			null
+		);
+		expect(resolved).toBe(fixtureBun);
+		expect(filteredEnvironment({ PATH: 'tools' }, originalCwd).PATH).toBe(tools);
+		const environment = filteredEnvironment(process.env, originalCwd);
+		const result = await runProcess(
+			{ command: resolved, args: ['-e', 'process.stdout.write(process.cwd())'], env: environment },
+			{
+				cwd: childCwd,
+				env: environment,
+				signal: new AbortController().signal,
+				capture: true
+			}
+		);
+		expect(result).toMatchObject({ code: 0, stdout: await realpath(childCwd) });
 	});
 
 	it.each(['1.3.9', '1.3.10', '2.0.0'])('accepts Bun %s', (version) => {

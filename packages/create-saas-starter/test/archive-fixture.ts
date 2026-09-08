@@ -50,7 +50,12 @@ export function validTemplateEntries(): TarFixtureEntry[] {
 			path: 'root/package.json',
 			data: '{"templateSetupVersion":1,"scripts":{"setup":"bun scripts/template-setup.ts"}}'
 		},
+		{ path: 'root/bun.lock', data: '{"lockfileVersion":1}\n' },
 		{ path: 'root/scripts/template-setup.ts', data: 'export {};' },
+		{ path: 'root/wrangler.toml', data: 'name = "fixture"\n' },
+		{ path: 'root/README.md', data: '# Fixture\n' },
+		{ path: 'root/src/lib/config/site.ts', data: 'export {};' },
+		{ path: 'root/src/lib/config/legal.ts', data: 'export {};' },
 		{ path: 'root/src/lib/content/legal-metadata.ts', data: 'export {};' },
 		{ path: 'root/AGENTS.md', data: '# Guidance\n' },
 		{ path: 'root/CLAUDE.md', type: 'SymbolicLink', linkpath: 'AGENTS.md' },
