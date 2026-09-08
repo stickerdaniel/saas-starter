@@ -21,6 +21,7 @@ import type { Id } from '../../_generated/dataModel';
 import { internalMutation, internalAction, internalQuery } from '../../_generated/server';
 import { internal, components } from '../../_generated/api';
 import { supportThreadFields } from '../../support/supportThreadFields';
+import { isPreviewAdminEmail } from '../notificationPreferences/helpers';
 
 /** Delay before sending a notification after the latest message. */
 const NOTIFICATION_DELAY_MS = 4 * 60 * 1000;
@@ -459,7 +460,8 @@ export const getNotificationTargetEmails = internalQuery({
 
 		// Filter to active recipients (admins or custom emails) with this notification enabled
 		const activePrefs = allPrefs.filter(
-			(p) => (p.isAdminUser || p.userId === undefined) && p[toggleField]
+			(p) =>
+				!isPreviewAdminEmail(p.email) && (p.isAdminUser || p.userId === undefined) && p[toggleField]
 		);
 
 		// If assigned admin has this notification enabled, prioritize them

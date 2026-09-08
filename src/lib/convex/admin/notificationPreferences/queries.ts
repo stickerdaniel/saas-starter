@@ -11,6 +11,7 @@ import { internalQuery } from '../../_generated/server';
 import type { QueryCtx } from '../../_generated/server';
 import { components } from '../../_generated/api';
 import { parseBetterAuthUsers } from '../types';
+import { isPreviewAdminEmail } from './helpers';
 
 /**
  * Notification type validator for internal queries
@@ -339,7 +340,8 @@ export const getRecipientsForNotificationType = internalQuery({
 
 		// Filter to active recipients with this notification enabled
 		const activePrefs = allPrefs.filter(
-			(p) => (p.isAdminUser || p.userId === undefined) && p[toggleField]
+			(p) =>
+				!isPreviewAdminEmail(p.email) && (p.isAdminUser || p.userId === undefined) && p[toggleField]
 		);
 
 		return activePrefs.map((p) => p.email);

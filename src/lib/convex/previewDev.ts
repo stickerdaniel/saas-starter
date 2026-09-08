@@ -2,9 +2,7 @@ import { v } from 'convex/values';
 import { components } from './_generated/api';
 import { internalMutation, type MutationCtx } from './_generated/server';
 import { createAuth } from './auth';
-import { syncAdminPreferences } from './admin/notificationPreferences/helpers';
-
-const PREVIEW_ADMIN_EMAIL = 'admin@preview.dev';
+import { PREVIEW_ADMIN_EMAIL, syncAdminPreferences } from './admin/notificationPreferences/helpers';
 const PREVIEW_ADMIN_NAME = 'Preview Admin';
 
 type BetterAuthUser = {
@@ -107,6 +105,7 @@ export const ensurePreviewAdmin = internalMutation({
 			});
 		}
 
+		// Unchanged users still reach the idempotent preference repair.
 		await syncAdminPreferences(ctx, { userId: user._id, email });
 
 		return {
