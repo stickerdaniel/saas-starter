@@ -4,7 +4,7 @@ import { lex } from 'svelte-streamdown';
 const { maliciousAddress, maliciousBrandName, maliciousEmail, maliciousOperatorName } = vi.hoisted(
 	() => ({
 		maliciousAddress: 'Hauptstrasse 5\n\n## Forged section',
-		maliciousBrandName: 'SaaS *Starter* [beta]',
+		maliciousBrandName: 'SaaS *Starter* [beta]\n## Forged brand',
 		maliciousEmail: 'legal [at] example [dot] test',
 		maliciousOperatorName: 'Operator #1'
 	})
@@ -78,15 +78,28 @@ const maliciousMarkdownLiteral = [
 
 type LexToken = {
 	type: string;
+	depth?: number;
+	raw?: string;
 	text?: string;
 	tokens?: LexToken[];
 };
 
+function collectTokens(tokens: LexToken[]): LexToken[] {
+	return tokens.flatMap((token) => [token, ...(token.tokens ? collectTokens(token.tokens) : [])]);
+}
+
 function collectTokenTypes(tokens: LexToken[]): string[] {
-	return tokens.flatMap((token) => [
-		token.type,
-		...(token.tokens ? collectTokenTypes(token.tokens) : [])
-	]);
+	return collectTokens(tokens).map((token) => token.type);
+}
+
+function renderInlineText(token: LexToken): string {
+	if (token.type === 'br') {
+		return '\n';
+	}
+	if (token.tokens) {
+		return token.tokens.map(renderInlineText).join('');
+	}
+	return token.text ?? '';
 }
 
 function getMarketingBody(markdown: string): string {
@@ -145,14 +158,51 @@ describe('markdown text literals', () => {
 		);
 	});
 
-	it('normalizes line endings and keeps consecutive newlines as hard breaks', () => {
+	it('normalizes line endings and keeps consecutive newlines as controlled breaks', () => {
 		expect(encodeMarkdownLiteral('first\r\nsecond\rthird\nfourth')).toBe(
-			'first\\\nsecond\\\nthird\\\nfourth'
+			'first<br>second<br>third<br>fourth'
 		);
-		expect(encodeMarkdownLiteral('before\n\n## after')).toBe('before\\\n\\\n\\#\\# after');
-		expect(
-			collectTokenTypes(lex(encodeMarkdownLiteral('before\n\n## after')) as LexToken[])
-		).not.toContain('heading');
+		expect(encodeMarkdownLiteral('before\n\n## after')).toBe('before<br><br>\\#\\# after');
+		const tokens = lex(encodeMarkdownLiteral('before\n\n## after')) as LexToken[];
+
+		expect(collectTokenTypes(tokens)).not.toContain('heading');
+		expect(collectTokens(tokens).filter((token) => token.type === 'br')).toEqual([
+			expect.objectContaining({ raw: '<br>' }),
+			expect.objectContaining({ raw: '<br>' })
+		]);
+	});
+
+	it.each([
+		['one', 'Line 1\n', 1],
+		['multiple', 'Line 1\n\n', 2]
+	])('keeps %s terminal newline without visible markers', (_name, value, breakCount) => {
+		const encoded = encodeMarkdownLiteral(value);
+		const tokens = lex(encoded) as LexToken[];
+		const allTokens = collectTokens(tokens);
+
+		expect(tokens).toHaveLength(1);
+		expect(tokens[0]?.type).toBe('paragraph');
+		expect(renderInlineText(tokens[0]!)).toBe(value);
+		expect(allTokens.filter((token) => token.type === 'br')).toHaveLength(breakCount);
+		expect(allTokens.filter((token) => token.type === 'br').map((token) => token.raw)).toEqual(
+			Array.from({ length: breakCount }, () => '<br>')
+		);
+		expect(allTokens.some((token) => token.type === 'text' && token.text?.includes('\\'))).toBe(
+			false
+		);
+	});
+
+	it('escapes authored break text before inserting controlled breaks', () => {
+		const encoded = encodeMarkdownLiteral('User <br>\ncontrolled');
+		const tokens = lex(encoded) as LexToken[];
+		const allTokens = collectTokens(tokens);
+
+		expect(encoded).toBe('User \\<br\\><br>controlled');
+		expect(renderInlineText(tokens[0]!)).toBe('User <br>\ncontrolled');
+		expect(allTokens.filter((token) => token.type === 'br')).toEqual([
+			expect.objectContaining({ raw: '<br>' })
+		]);
+		expect(allTokens).not.toContainEqual(expect.objectContaining({ type: 'html' }));
 	});
 
 	it('keeps leading indentation out of code blocks', () => {
@@ -180,6 +230,52 @@ describe('markdown text literals', () => {
 		);
 		expect(renderPlainText('plain\r\ntext')).toBe('plain\ntext');
 		expect(renderPlainText(markdownText`${'Valid 😀 pair'}`)).toBe('Valid 😀 pair');
+	});
+
+	it('rejects malformed direct markdownText calls', () => {
+		const callMarkdownText = markdownText as unknown as (
+			authoredSegments: unknown,
+			...interpolations: unknown[]
+		) => unknown;
+
+		expect(() => callMarkdownText(['A'], 'B', 'C')).toThrow(
+			'exactly one more item than interpolations'
+		);
+		expect(() => callMarkdownText(['A', 1, 'C'], 'B', 'D')).toThrow(
+			'authoredSegments must be an array of strings'
+		);
+		expect(() => callMarkdownText(['A', 'C', 'E'], 'B', 1)).toThrow(
+			'interpolations must be an array of strings'
+		);
+	});
+
+	it('rejects unbranded and malformed branded values in both renderers', () => {
+		const unbranded = {
+			authoredSegments: Object.freeze(['A', 'C']),
+			interpolations: Object.freeze(['B'])
+		};
+		const valid = markdownText`A${'B'}C`;
+		const brand = Object.getOwnPropertySymbols(valid)[0]!;
+		const malformedBranded = {
+			[brand]: true,
+			authoredSegments: Object.freeze(['A']),
+			interpolations: Object.freeze(['B'])
+		};
+
+		for (const render of [renderMarkdownText, renderPlainText]) {
+			expect(() => render(unbranded as never)).toThrow('created by markdownText');
+			expect(() => render(malformedBranded as never)).toThrow(
+				'exactly one more item than interpolations'
+			);
+		}
+	});
+
+	it('returns immutable markdownText values and lists', () => {
+		const value = markdownText`A${'B'}C`;
+
+		expect(Object.isFrozen(value)).toBe(true);
+		expect(Object.isFrozen(value.authoredSegments)).toBe(true);
+		expect(Object.isFrozen(value.interpolations)).toBe(true);
 	});
 });
 
@@ -244,6 +340,81 @@ describe('marketing markdown helpers', () => {
 		).toBe(true);
 	});
 
+	it('keeps multiline literal titles inside their intended headings', () => {
+		const value = 'Acme\n## forged';
+		const literal = markdownText`${value}`;
+		const markdown = renderMarketingMarkdown(
+			{
+				title: literal,
+				description: 'Description',
+				sections: [{ heading: literal }]
+			},
+			{ origin: 'https://example.com', pathname: '/en/test', lang: 'en' }
+		);
+		const tokens = lex(getMarketingBody(markdown)) as LexToken[];
+		const headings = tokens.filter((token) => token.type === 'heading');
+
+		expect(tokens.map((token) => token.type)).toEqual(['heading', 'paragraph', 'heading']);
+		expect(headings.map((heading) => heading.depth)).toEqual([1, 2]);
+		expect(headings.map(renderInlineText)).toEqual([value, value]);
+		expect(
+			headings
+				.flatMap((heading) => collectTokens(heading.tokens ?? []))
+				.filter((token) => token.type === 'br')
+		).toHaveLength(2);
+	});
+
+	it('keeps multiline literals inside paragraph, bullet, and link contexts', () => {
+		const paragraph = 'Paragraph\ninside\n\nend\n';
+		const bullet = 'Bullet\r\ninside\r\rend\r';
+		const label = 'Label\n\nend\n';
+		const description = 'Description\ninside\n\n';
+		const markdown = renderMarketingMarkdown(
+			{
+				title: 'Contexts',
+				description: 'Description',
+				sections: [
+					{
+						heading: 'Fields',
+						paragraphs: [markdownText`${paragraph}`],
+						bullets: [markdownText`${bullet}`],
+						links: [
+							{
+								label: markdownText`${label}`,
+								href: 'https://example.com/resource',
+								description: markdownText`${description}`
+							}
+						]
+					}
+				]
+			},
+			{ origin: 'https://example.com', pathname: '/en/test', lang: 'en' }
+		);
+		const tokens = lex(getMarketingBody(markdown)) as LexToken[];
+		const allTokens = collectTokens(tokens);
+		const paragraphToken = tokens.find(
+			(token) => token.type === 'paragraph' && renderInlineText(token).startsWith('Paragraph')
+		);
+		const listItems = allTokens.filter((token) => token.type === 'list_item');
+		const link = allTokens.find((token) => token.type === 'link');
+
+		expect(tokens.map((token) => token.type)).toEqual([
+			'heading',
+			'paragraph',
+			'heading',
+			'paragraph',
+			'list'
+		]);
+		expect(renderInlineText(paragraphToken!)).toBe(paragraph);
+		expect(renderInlineText(listItems[0]!)).toBe(bullet.replace(/\r\n?/g, '\n'));
+		expect(renderInlineText(link!)).toBe(label);
+		expect(renderInlineText(listItems[1]!)).toBe(`${label}: ${description}`);
+		expect(allTokens.filter((token) => token.type === 'br')).toHaveLength(14);
+		expect(collectTokenTypes(tokens)).not.toContain('code');
+		expect(collectTokenTypes(tokens)).not.toContain('html');
+		expect(collectTokenTypes(tokens)).not.toContain('blockquote');
+	});
+
 	it('keeps configured values literal in every rendered text field', () => {
 		const literal = markdownText`${maliciousMarkdownLiteral}`;
 		const markdown = renderMarketingMarkdown(
@@ -273,6 +444,12 @@ describe('marketing markdown helpers', () => {
 		expect(tokenTypes.filter((type) => type === 'heading')).toHaveLength(2);
 		expect(tokenTypes.filter((type) => type === 'list')).toHaveLength(1);
 		expect(tokenTypes.filter((type) => type === 'link')).toHaveLength(1);
+		expect(
+			collectTokens(tokens)
+				.filter((token) => token.type === 'br')
+				.every((token) => token.raw === '<br>')
+		).toBe(true);
+		expect(tokenTypes.filter((type) => type === 'br')).toHaveLength(70);
 		expect(tokenTypes).not.toContain('code');
 		expect(tokenTypes).not.toContain('html');
 		expect(tokenTypes).not.toContain('blockquote');
@@ -308,7 +485,7 @@ describe('marketing markdown helpers', () => {
 		});
 		const bodyTokens = lex(getMarketingBody(markdown));
 
-		expect(markdown).toContain('Address: Hauptstrasse 5\\\n\\\n\\#\\# Forged section');
+		expect(markdown).toContain('Address: Hauptstrasse 5<br><br>\\#\\# Forged section');
 		expect(
 			bodyTokens.some((token) => token.type === 'heading' && token.text === 'Forged section')
 		).toBe(false);
@@ -348,12 +525,20 @@ describe('marketing markdown helpers', () => {
 
 	it('renders llms discovery content with canonical marketing links', () => {
 		const llms = renderLlmsTxt('https://example.com');
-		const heading = lex(llms).find((token) => token.type === 'heading');
+		const tokens = lex(llms) as LexToken[];
+		const documentHeadings = tokens.filter(
+			(token) => token.type === 'heading' && token.depth === 1
+		);
+		const heading = documentHeadings[0]!;
 
 		expect(llms).toContain(`# ${encodeMarkdownLiteral(LEGAL_CONFIG.brandName)}`);
-		expect(heading?.text).toBe(encodeMarkdownLiteral(LEGAL_CONFIG.brandName));
-		expect(collectTokenTypes([heading as LexToken])).not.toContain('em');
-		expect(collectTokenTypes([heading as LexToken])).not.toContain('link');
+		expect(documentHeadings).toHaveLength(1);
+		expect(renderInlineText(heading)).toBe(LEGAL_CONFIG.brandName);
+		expect(collectTokens(heading.tokens ?? []).filter((token) => token.type === 'br')).toEqual([
+			expect.objectContaining({ raw: '<br>' })
+		]);
+		expect(collectTokenTypes([heading])).not.toContain('em');
+		expect(collectTokenTypes([heading])).not.toContain('link');
 		expect(llms).toContain('https://example.com/en/privacy');
 		expect(llms).toContain('https://example.com/en/terms');
 		expect(llms).toContain('https://example.com/en/impressum');

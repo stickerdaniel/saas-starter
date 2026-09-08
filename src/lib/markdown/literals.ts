@@ -9,6 +9,11 @@ export interface MarketingMarkdownText {
 
 export type MarketingMarkdownContent = string | MarketingMarkdownText;
 
+interface MarkdownTextParts {
+	readonly authoredSegments: readonly string[];
+	readonly interpolations: readonly string[];
+}
+
 function assertValidText(value: string): void {
 	for (let index = 0; index < value.length; index += 1) {
 		const codeUnit = value.charCodeAt(index);
@@ -38,14 +43,62 @@ function normalizePlainText(value: string): string {
 	return normalized;
 }
 
+function validateMarkdownTextParts(
+	authoredSegments: unknown,
+	interpolations: unknown
+): MarkdownTextParts {
+	if (
+		!Array.isArray(authoredSegments) ||
+		!authoredSegments.every((value) => typeof value === 'string')
+	) {
+		throw new Error('markdownText authoredSegments must be an array of strings.');
+	}
+	if (
+		!Array.isArray(interpolations) ||
+		!interpolations.every((value) => typeof value === 'string')
+	) {
+		throw new Error('markdownText interpolations must be an array of strings.');
+	}
+	if (authoredSegments.length !== interpolations.length + 1) {
+		throw new Error(
+			'markdownText authoredSegments must contain exactly one more item than interpolations.'
+		);
+	}
+
+	for (const segment of authoredSegments) {
+		assertValidText(segment);
+	}
+	for (const interpolation of interpolations) {
+		assertValidText(interpolation);
+	}
+
+	return { authoredSegments, interpolations };
+}
+
+function getMarkdownTextParts(value: unknown): MarkdownTextParts {
+	if (
+		typeof value !== 'object' ||
+		value === null ||
+		!Object.prototype.hasOwnProperty.call(value, MARKETING_MARKDOWN_TEXT) ||
+		(value as Record<PropertyKey, unknown>)[MARKETING_MARKDOWN_TEXT] !== true
+	) {
+		throw new Error('Markdown content objects must be created by markdownText.');
+	}
+
+	const branded = value as Record<PropertyKey, unknown>;
+	return validateMarkdownTextParts(branded.authoredSegments, branded.interpolations);
+}
+
 export function markdownText(
 	authoredSegments: TemplateStringsArray,
 	...interpolations: string[]
 ): MarketingMarkdownText {
+	const valid = validateMarkdownTextParts(authoredSegments, interpolations);
+
 	return Object.freeze({
 		[MARKETING_MARKDOWN_TEXT]: true as const,
-		authoredSegments: Object.freeze([...authoredSegments]),
-		interpolations: Object.freeze([...interpolations])
+		authoredSegments: Object.freeze([...valid.authoredSegments]),
+		interpolations: Object.freeze([...valid.interpolations])
 	});
 }
 
@@ -62,7 +115,7 @@ export function encodeMarkdownLiteral(value: string): string {
 			}
 			return line;
 		})
-		.join('\\\n');
+		.join('<br>');
 }
 
 export function renderMarkdownText(value: MarketingMarkdownContent): string {
@@ -71,14 +124,13 @@ export function renderMarkdownText(value: MarketingMarkdownContent): string {
 		return value;
 	}
 
-	return value.authoredSegments
-		.map((segment, index) => {
-			assertValidText(segment);
-			return index < value.interpolations.length
-				? `${segment}${encodeMarkdownLiteral(value.interpolations[index]!)}`
-				: segment;
-		})
-		.join('');
+	const { authoredSegments, interpolations } = getMarkdownTextParts(value);
+	let markdown = authoredSegments[0]!;
+	for (let index = 0; index < interpolations.length; index += 1) {
+		markdown += encodeMarkdownLiteral(interpolations[index]!);
+		markdown += authoredSegments[index + 1]!;
+	}
+	return markdown;
 }
 
 export function renderPlainText(value: MarketingMarkdownContent): string {
@@ -86,10 +138,11 @@ export function renderPlainText(value: MarketingMarkdownContent): string {
 		return normalizePlainText(value);
 	}
 
-	let plainText = value.authoredSegments[0] ?? '';
-	for (let index = 0; index < value.interpolations.length; index += 1) {
-		plainText += value.interpolations[index] ?? '';
-		plainText += value.authoredSegments[index + 1] ?? '';
+	const { authoredSegments, interpolations } = getMarkdownTextParts(value);
+	let plainText = authoredSegments[0]!;
+	for (let index = 0; index < interpolations.length; index += 1) {
+		plainText += interpolations[index]!;
+		plainText += authoredSegments[index + 1]!;
 	}
 
 	return normalizePlainText(plainText);
