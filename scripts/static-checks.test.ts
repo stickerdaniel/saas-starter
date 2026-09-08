@@ -250,20 +250,6 @@ describe('route predicates', () => {
 		}
 	);
 
-	it.each(['js', 'ts', 'svelte'])(
-		'routes .%s files through the SvelteKit type project',
-		(extension) => {
-			expect(ROUTES['svelte-check'](`src/example.${extension}`)).toBe(true);
-		}
-	);
-
-	it.each(['mjs', 'cjs', 'jsx', 'tsx', 'mts', 'cts'])(
-		'does not claim .%s files are in the SvelteKit type project',
-		(extension) => {
-			expect(ROUTES['svelte-check'](`src/example.${extension}`)).toBe(false);
-		}
-	);
-
 	it('routes upstream-report TypeScript through its dedicated project', () => {
 		expect(
 			ROUTES['skill-types']('.agents/skills/upstream-report/scripts/upstream-relevance.ts')

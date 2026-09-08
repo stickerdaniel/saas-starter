@@ -123,29 +123,6 @@ describe('pull request metadata policy', () => {
 		expect(result.findings).toEqual([]);
 	});
 
-	it('ignores CommonMark indented code blocks in the body', () => {
-		const body = [
-			'This paragraph explains the example.',
-			'',
-			`    ${foreignFixtures.german}`,
-			'',
-			'This paragraph continues the explanation.'
-		].join('\n');
-		expect(
-			evaluatePullRequestMetadata({ pull_request: { title: 'Fix API', body } }).findings
-		).toEqual([]);
-	});
-
-	it('checks indented body prose that continues a paragraph', () => {
-		const body = [
-			'This paragraph introduces the correction.',
-			`    ${foreignFixtures.german}`
-		].join('\n');
-		expect(
-			evaluatePullRequestMetadata({ pull_request: { title: 'Fix API', body } }).findings
-		).toMatchObject([{ field: 'body', paragraph: 1, language: 'de' }]);
-	});
-
 	it.each([
 		['backtick', '````', '```'],
 		['tilde', '~~~~', '~~~']

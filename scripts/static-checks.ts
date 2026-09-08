@@ -548,10 +548,6 @@ export function isIgnoredPath(file: string): boolean {
  * by prettierFormattableFiles() below and reaches the ledger the same way every other
  * route does, through filesFor().
  */
-export function isSvelteCheckSourceFile(file: string): boolean {
-	return /\.(?:js|ts|svelte)$/iu.test(file);
-}
-
 export const ROUTES = {
 	misspell: (f: string) =>
 		f !== 'scripts/english-policy/pr-metadata.bundle.mjs' &&
@@ -562,9 +558,9 @@ export const ROUTES = {
 	'knowledge-placement': (f: string) => matchesKnowledgeCandidate(knowledgePolicy, f),
 	eslint: (f: string) =>
 		f !== 'scripts/english-policy/pr-metadata.bundle.mjs' && isJavaScriptSourceFile(f),
-	// The generated SvelteKit project includes .js, .ts, and .svelte source files.
-	// Broader JavaScript-family extensions still belong to the prose and ESLint routes.
-	'svelte-check': isSvelteCheckSourceFile,
+	// The old gate was `jsTsSvelteFiles.length === 0 && svelteFiles.length === 0`;
+	// svelteFiles is a subset of jsTsSvelteFiles, so the second clause was dead.
+	'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f),
 	'skill-types': (f: string) =>
 		f === '.agents/skills/upstream-report/tsconfig.json' ||
 		(f.startsWith('.agents/skills/upstream-report/scripts/') && f.endsWith('.ts')),

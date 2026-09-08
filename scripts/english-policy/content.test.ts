@@ -149,27 +149,6 @@ describe('repository prose extraction', () => {
 		expect(checkEnglishText('docs/example.md', markdown)).toEqual([]);
 	});
 
-	it('skips CommonMark indented code blocks', () => {
-		const markdown = [
-			'Use the example below.',
-			'',
-			`    ${foreignFixtures.german}`,
-			'',
-			'Continue with the English explanation.'
-		].join('\n');
-		expect(checkEnglishText('docs/example.md', markdown)).toEqual([]);
-	});
-
-	it('keeps indented prose that continues a paragraph', () => {
-		const markdown = [
-			'The explanation continues on the next line.',
-			`    ${foreignFixtures.german}`
-		].join('\n');
-		expect(checkEnglishText('docs/example.md', markdown)).toMatchObject([
-			{ language: 'de', line: 2 }
-		]);
-	});
-
 	it('skips fenced code and inline technical syntax', () => {
 		const markdown = [
 			'Use the command below.',
