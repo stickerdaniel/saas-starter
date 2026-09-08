@@ -963,9 +963,9 @@ describe('format-only static checks', () => {
 						path.join(checkout.repository, 'scripts/static-checks.ts'),
 						'--ci',
 						'--scope',
-						'lint',
+						'types',
 						aliasRelative,
-						'README.md'
+						'src/lib/utils/math.ts'
 					],
 					{
 						cwd: checkout.repository,
