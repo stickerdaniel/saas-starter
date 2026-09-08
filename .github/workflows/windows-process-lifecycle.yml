@@ -3,14 +3,6 @@ name: Windows Process Lifecycle
 on:
   push:
     branches: [main]
-    paths:
-      - 'package.json'
-      - 'bun.lock'
-      - 'scripts/dev-cloud.ts'
-      - 'scripts/dev-cloud.test.ts'
-      - 'scripts/windows-job.ts'
-      - 'scripts/windows-job-runner.ps1'
-      - '.github/workflows/windows-process-lifecycle.yml'
   pull_request:
 
 permissions:
@@ -23,29 +15,108 @@ jobs:
     runs-on: ubicloud-standard-2
     outputs:
       label: ${{ steps.runner.outputs.label }}
+      run_tests: ${{ steps.runner.outputs.run_tests }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - name: Select runner
         id: runner
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
         run: |
-          # Workflow syntax and cross-platform wiring run on Ubicloud. Source
-          # and test changes whose behavior differs on Windows use Windows.
-          pattern='^(package\.json|bun\.lock|scripts/(dev-cloud(\.test)?\.ts|windows-job(\.ts|-runner\.ps1)))$'
+          # Workflow-only changes run their tests on Ubicloud. Every source or test dependency
+          # whose behavior differs on Windows runs natively on Windows.
+          runner_pattern='^(package\.json|bun\.lock|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|git-context\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1)))$'
+          test_pattern='^(package\.json|bun\.lock|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|git-context\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1))|\.github/workflows/windows-process-lifecycle\.yml)$'
+
+          fail_closed() {
+            echo 'label=windows-latest' >> "$GITHUB_OUTPUT"
+            echo 'run_tests=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          if [[ "$EVENT_NAME" == 'pull_request' ]]; then
+            if [[ ! "$CHANGED_FILES" =~ ^(0|[1-9][0-9]*)$ ]]; then
+              fail_closed
+            fi
+
+            set +e
+            files_json=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files")
+            read_status=$?
+            set -e
+            if [[ $read_status -ne 0 ]]; then
+              fail_closed
+            fi
+
+            set +e
+            selection=$(jq -er \
+              --arg runner_pattern "$runner_pattern" \
+              --arg test_pattern "$test_pattern" \
+              --arg expected "$CHANGED_FILES" '
+                def valid_entry:
+                  type == "object" and
+                  has("filename") and
+                  (.filename | type == "string" and length > 0) and
+                  ((has("previous_filename") | not) or
+                    (.previous_filename | type == "string" and length > 0));
+                def path_matches($pattern):
+                  (.filename | test($pattern)) or
+                  ((.previous_filename // "") | test($pattern));
+
+                if type != "array" then error("invalid pagination")
+                elif any(.[]; type != "array") then error("invalid page")
+                else [ .[][] ]
+                end
+                | if length != ($expected | tonumber) then error("incomplete file list")
+                  elif any(.[]; valid_entry | not) then error("invalid file entry")
+                  else .
+                  end
+                | "label=\(if any(.[]; path_matches($runner_pattern)) then "windows-latest" else "ubicloud-standard-2" end)\nrun_tests=\(any(.[]; path_matches($test_pattern)))"
+              ' <<< "$files_json")
+            selection_status=$?
+            set -e
+            if [[ $selection_status -ne 0 ]]; then
+              fail_closed
+            fi
+
+            printf '%s\n' "$selection" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           set +e
-          set -o pipefail
-          git diff --name-only --no-renames HEAD^1 HEAD | grep -E "$pattern" > /dev/null
-          status=$?
+          files=$(git diff --name-only --no-renames "$BEFORE_SHA" "$CURRENT_SHA")
+          read_status=$?
           set -e
-          if [[ $status -eq 0 ]]; then
+          if [[ $read_status -ne 0 ]]; then
+            fail_closed
+          fi
+
+          set +e
+          printf '%s\n' "$files" | grep -E "$runner_pattern" > /dev/null
+          runner_status=$?
+          printf '%s\n' "$files" | grep -E "$test_pattern" > /dev/null
+          test_status=$?
+          set -e
+          if [[ $runner_status -gt 1 || $test_status -gt 1 ]]; then
+            fail_closed
+          fi
+
+          if [[ $runner_status -eq 0 ]]; then
             echo 'label=windows-latest' >> "$GITHUB_OUTPUT"
-          elif [[ $status -eq 1 ]]; then
-            echo 'label=ubicloud-standard-2' >> "$GITHUB_OUTPUT"
           else
-            # Never select the cheaper runner from a failed read.
-            echo 'label=windows-latest' >> "$GITHUB_OUTPUT"
+            echo 'label=ubicloud-standard-2' >> "$GITHUB_OUTPUT"
+          fi
+          if [[ $test_status -eq 0 ]]; then
+            echo 'run_tests=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'run_tests=false' >> "$GITHUB_OUTPUT"
           fi
 
   lifecycle:
@@ -59,22 +130,20 @@ jobs:
         id: changes
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SELECTED_RUN_TESTS: ${{ needs.runner.outputs.run_tests }}
         run: |
-          if ($env:EVENT_NAME -eq 'push') {
+          if ($env:SELECTED_RUN_TESTS -notin @('true', 'false')) {
             'run_tests=true' >> $env:GITHUB_OUTPUT
             exit 0
           }
-
-          $pattern = '^(package\.json|bun\.lock|scripts/(dev-cloud(\.test)?\.ts|windows-job(\.ts|-runner\.ps1))|\.github/workflows/windows-process-lifecycle\.yml)$'
-          $files = gh api --paginate "repos/$env:GITHUB_REPOSITORY/pulls/$env:PR_NUMBER/files" --jq '.[].filename'
-          $runTests = @($files | Where-Object { $_ -match $pattern }).Count -gt 0
-          "run_tests=$($runTests.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "run_tests=$env:SELECTED_RUN_TESTS" >> $env:GITHUB_OUTPUT
       - if: steps.changes.outputs.run_tests == 'true'
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: package.json
       - if: steps.changes.outputs.run_tests == 'true'
         run: bun install --frozen-lockfile --ignore-scripts
       - if: steps.changes.outputs.run_tests == 'true'
         run: bun vitest --run scripts/dev-cloud.test.ts
+      - if: steps.changes.outputs.run_tests == 'true'
+        run: bun vitest --run scripts/static-checks.knip.test.ts
