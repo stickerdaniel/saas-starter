@@ -40,18 +40,18 @@ const RECORDER_SOURCE = path.join(
 	'static-checks',
 	'command-recorder.ts'
 );
-// Eine getrackte TypeScript-Datei, die der lokale Pre-Push-Lauf an die schreibenden Linter
-// weiterreicht; mit einer reinen Markdown-Eingabe überspringt der Checker ESLint ganz.
+// A tracked TypeScript file that the local pre-push run passes to the mutating linters;
+// with only Markdown input, the checker skips ESLint entirely.
 const LINTED_SOURCE = 'scripts/test-executable.ts';
-// Pfadsatz des Klon-Overlays: `scripts` plus die beiden Dateien außerhalb davon, die der
-// Checker direkt importiert. Ohne sie liefe der Klon auf der eingecheckten Fassung, während
-// der Arbeitsbaum bereits eine geänderte Policy benutzt.
+// Clone overlay pathspecs: `scripts` plus the two files outside it that the checker imports
+// directly. Without them, the clone would run the committed version while the worktree
+// already uses a modified policy.
 const OVERLAY_PATHSPECS = [
 	'scripts',
 	'eslint/control-character-policy.js',
 	'knowledge-policy.config.ts'
 ];
-// Quellen, ohne die ein Klon-Lauf grün werden könnte, ohne die geprüfte Änderung zu sehen.
+// Sources required to keep a clone run from passing without seeing the change under test.
 const REQUIRED_SOURCES = [
 	'scripts/static-checks.ts',
 	'scripts/terminal-output.ts',
@@ -59,11 +59,11 @@ const REQUIRED_SOURCES = [
 	'eslint/control-character-policy.js',
 	'knowledge-policy.config.ts'
 ];
-// Bun kanonisiert den Modulpfad des Checkers über die Betriebssystem-API, `realpathSync` die
-// Aufruf-cwd dagegen nicht. Unter Windows liefert os.tmpdir() auf GitHub-Runnern den
-// 8.3-Kurznamen (C:\Users\RUNNER~1\...), während REPO_ROOT die Langform trägt; jedes relative
-// Dateiargument fällt damit aus dem Repository. `realpathSync.native` löst über dieselbe
-// Betriebssystem-API auf und liefert für beide Seiten dieselbe Schreibweise.
+// Bun canonicalizes the checker's module path through the operating-system API, while
+// `realpathSync` does not canonicalize the invocation cwd. On Windows GitHub runners,
+// os.tmpdir() returns the 8.3 short name (C:\Users\RUNNER~1\...) while REPO_ROOT uses the long
+// form, so every relative file argument falls outside the repository. `realpathSync.native`
+// resolves through the same operating-system API and returns the same spelling for both sides.
 const TEMP_ROOT = realpathSync.native(tmpdir());
 
 interface CommandInvocation {
@@ -97,15 +97,15 @@ function readCommandLog(logPath: string): CommandInvocation[] {
 }
 
 /**
- * Legt die Recorder unter den Namen an, unter denen der Checker seine Kinder startet.
+ * Creates the recorders under the names the checker uses to start its child processes.
  *
- * Unter POSIX sind das Shebang-Skripte. Eine mit `bun build --compile` erzeugte Datei läuft
- * auf dem in package.json gepinnten Bun 1.3.9 als Bun-CLI statt als eigener Einsprungpunkt,
- * sobald argv[0] exakt `bun` lautet, und genau so startet der Checker sein Kind: die
- * Aufzeichnung fiele aus und echte Formatter und Linter liefen los (gemessen unter Linux mit
- * 1.3.9; 1.3.14 zeigt den Effekt nicht mehr). Ein Shebang-Skript wird stattdessen vom echten
- * Bun mit absolutem argv[0] gestartet und behält seinen Einsprungpunkt. Windows kennt kein
- * Shebang und behält deshalb die kompilierte Datei.
+ * On POSIX these are shebang scripts. With the Bun 1.3.9 pinned in package.json, a file built
+ * by `bun build --compile` runs as the Bun CLI instead of its own entry point as soon as
+ * argv[0] is exactly `bun`, which is precisely how the checker starts its child: recording
+ * would fail and the real formatters and linters would run (measured on Linux with 1.3.9;
+ * 1.3.14 no longer exhibits the effect). A shebang script is instead started by the real Bun
+ * with an absolute argv[0] and retains its entry point. Windows does not support shebangs and
+ * therefore keeps the compiled file.
  */
 function createRecorderShims(directory: string): void {
 	if (process.platform === 'win32') {
@@ -138,16 +138,15 @@ function recorderEnv(logPath: string): NodeJS.ProcessEnv {
 }
 
 /**
- * Überlagert den Klon mit den Arbeitskopien der von Git geführten Quellen.
+ * Overlays the clone with the worktree copies of Git-tracked sources.
  *
- * Ein rekursiver Kopiervorgang über ROOT/scripts traversiert ein Verzeichnis, in dem
- * static-checks.format.test.ts parallel seine `.format-*`-Fixtures anlegt und wieder
- * entfernt. Verschwindet eines davon zwischen Auflisten und Betreten, bricht der Kopiervorgang
- * ab; im gemessenen Fall beendete die native directory_iterator-Ausnahme den ganzen
- * Vitest-Worker, sodass die letzten Knip-Fälle stillschweigend ausfielen. Der Index nennt
- * dagegen einen stabilen Pfadsatz, der temporäre Fixtures nie enthält, und wird Datei für
- * Datei überlagert. Damit bleiben Änderungen an getrackten und bereits gestagten Quellen vor
- * dem Commit geprüft, ohne ein lebendes Verzeichnis zu durchlaufen.
+ * Recursively copying ROOT/scripts traverses a directory where static-checks.format.test.ts
+ * concurrently creates and removes its `.format-*` fixtures. If one disappears between
+ * directory enumeration and traversal, the copy aborts; in the measured case, the native
+ * directory_iterator exception terminated the entire Vitest worker, silently omitting the
+ * final Knip cases. The index instead provides a stable path set that never contains temporary
+ * fixtures, and each file is overlaid individually. This keeps changes to tracked and already
+ * staged sources under test before the commit without traversing a live directory.
  */
 function overlayIndexedSources(repository: string): void {
 	const listed = spawnSync('git', ['ls-files', '-z', '--', ...OVERLAY_PATHSPECS], {
@@ -158,17 +157,17 @@ function overlayIndexedSources(repository: string): void {
 	});
 	if (listed.status !== 0) throw new Error(`Failed to list indexed sources: ${listed.stderr}`);
 	const files = listed.stdout.split('\0').filter(Boolean);
-	// Ein leerer oder unvollständiger Satz würde den Klon auf dem eingecheckten Stand laufen
-	// lassen und die Änderung, die geprüft werden soll, unbemerkt überspringen.
+	// An empty or incomplete set would let the clone run the committed state and silently skip
+	// the change under test.
 	for (const required of REQUIRED_SOURCES) {
 		if (!files.includes(required)) {
-			throw new Error(`Der Git-Index führt ${required} nicht: ${files.length} Pfade.`);
+			throw new Error(`Git index does not contain ${required}: ${files.length} paths.`);
 		}
 	}
 	for (const file of files) {
 		const source = path.join(ROOT, file);
-		// Eine im Index geführte, aber im Arbeitsbaum fehlende Quelle darf nicht unbemerkt die
-		// eingecheckte Fassung im Klon stehen lassen.
+		// A source tracked in the index but missing from the worktree must not silently leave the
+		// committed version in the clone.
 		if (!existsSync(source)) {
 			throw new Error(`Indexed source is missing from the worktree: ${file}`);
 		}
@@ -217,7 +216,7 @@ function runChecker(checkout: CheckerClone, args: string[], input?: string) {
 	});
 }
 
-/** Position einer exakten Aufzeichnung, damit Reihenfolgen vergleichbar werden. */
+/** Position of an exact recording, making invocation order comparable. */
 function indexOfInvocation(log: CommandInvocation[], invocation: CommandInvocation): number {
 	return log.findIndex(
 		(entry) =>
@@ -228,13 +227,13 @@ function indexOfInvocation(log: CommandInvocation[], invocation: CommandInvocati
 }
 
 /**
- * Zählt die Knip-Aufrufe in beiden üblichen Bun-Formen.
+ * Counts Knip invocations in both common Bun forms.
  *
- * `bun knip …` und `bun run knip …` starten gemessen dasselbe Package-Script mit denselben
- * Argumenten. Nur die kurze Form zu zählen ließe einen zweiten Aufruf in der langen Form
- * unsichtbar, und der Genau-einmal-Vertrag wäre wirkungslos. Das `run` wird deshalb allein
- * beim Vergleich abgestreift; die Flags hinter dem Skriptnamen bleiben unverändert und
- * werden weiterhin exakt geprüft.
+ * Measurements show that `bun knip …` and `bun run knip …` start the same package script with
+ * the same arguments. Counting only the short form would hide a second invocation in the long
+ * form and render the exactly-once contract ineffective. Therefore, `run` is stripped only
+ * for comparison; the flags after the script name remain unchanged and are still checked
+ * exactly.
  */
 function knipInvocations(checkout: CheckerClone): CommandInvocation[] {
 	return readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)
@@ -285,12 +284,12 @@ appendFileSync(logPath, JSON.stringify({ command: 'compat', args: process.argv.s
 }
 
 /**
- * Nimmt den Formatter-Canary ab, bevor irgendein Matrixfall läuft.
+ * Validates the formatter canary before any matrix case runs.
  *
- * Greift die Aufzeichnung nicht, dann startet der Checker die echten Formatter, Linter und
- * Typprüfungen: der Lauf ist nicht nur falsch, sondern dauert ein Vielfaches. Der Canary
- * gehört deshalb ins Suite-Setup, und sein Fehler bricht die ganze Datei ab, statt in jedem
- * Einzelfall erneut echte Werkzeuge zu starten.
+ * If recording does not intercept the call, the checker starts the real formatters, linters,
+ * and type checks: the run is not only invalid but also takes several times longer. The canary
+ * therefore belongs in the suite setup, and its failure aborts the entire file instead of
+ * starting real tools again for every individual case.
  */
 function runCanary(): CanaryOutcome {
 	const checkout = createCheckerClone();
@@ -305,9 +304,9 @@ function runCanary(): CanaryOutcome {
 		const recorded = JSON.stringify(outcome.log);
 		if (recorded !== JSON.stringify([PRETTIER_README]) || outcome.status !== 23) {
 			throw new Error(
-				`Der Recorder greift nicht: Status ${outcome.status} statt 23, aufgezeichnet ${recorded}. ` +
-					`Verwendetes Bun: ${BUN} (${bunVersion}), Plattform ${process.platform}. ` +
-					`Die Matrix wird nicht ausgeführt.\n${outcome.output}`
+				`Recorder did not intercept the command: status ${outcome.status} instead of 23, recorded ${recorded}. ` +
+					`Bun used: ${BUN} (${bunVersion}), platform ${process.platform}. ` +
+					`The matrix will not run.\n${outcome.output}`
 			);
 		}
 		return outcome;
@@ -319,8 +318,8 @@ function runCanary(): CanaryOutcome {
 beforeAll(() => {
 	recorderDirectory = mkdtempSync(path.join(TEMP_ROOT, 'static-command-recorder-'));
 	createRecorderShims(recorderDirectory);
-	// Das tatsächlich verwendete Binary festhalten: ein mit Bun X gestartetes Vitest belegt
-	// nicht, dass testExecutable('bun') dasselbe Bun auflöst.
+	// Record the binary actually used: running Vitest with Bun X does not prove that
+	// testExecutable('bun') resolves to the same Bun.
 	bunVersion = (spawnSync(BUN, ['--version'], { encoding: 'utf8' }).stdout ?? '').trim();
 	canary = runCanary();
 }, 120_000);
@@ -403,9 +402,9 @@ describe.sequential('Knip static-check CLI behavior', () => {
 
 	it('runs knip once in a local pre-push file run', () => {
 		const checkout = createCheckerClone();
-		// Der dokumentierte Pre-Push-Aufruf ist `static-checks.ts <geänderte Dateien>`: ohne
-		// --ci und ohne CI in der Umgebung. Erst dieser Fall unterscheidet die tatsächliche
-		// Bedingung `mode !== 'staged'` von einem reinen CI-Gate.
+		// The documented pre-push invocation is `static-checks.ts <changed files>`: without --ci
+		// and without CI in the environment. Only this case distinguishes the actual condition
+		// `mode !== 'staged'` from a CI-only gate.
 		delete checkout.env.CI;
 		try {
 			const result = runChecker(checkout, ['README.md', LINTED_SOURCE]);
@@ -414,18 +413,17 @@ describe.sequential('Knip static-check CLI behavior', () => {
 
 			expect(result.status, output).toBe(0);
 			expect(knipInvocations(checkout)).toEqual([KNIP]);
-			// Der zweite über PATH aufgelöste Name: misspell wird nur hier tatsächlich
-			// abgesetzt und belegt, dass die Auflösung nicht bloß für bun greift.
+			// The second name resolved through PATH: only this case actually dispatches misspell and
+			// proves that resolution does not work merely for bun.
 			expect(log).toContainEqual({
 				command: 'misspell',
 				args: ['-error', 'README.md', LINTED_SOURCE]
 			});
 
-			// Außerhalb von --ci schreiben Prettier (--write) und ESLint (--fix) in den
-			// Arbeitsbaum. Knip liest den Abhängigkeitsgraphen und muss deshalb nach den
-			// schreibenden Kindprozessen laufen, sonst beurteilt es einen Stand, den der Lauf
-			// danach noch verändert. Reine Lese-Checks dürfen folgen, daher kein Vertrag
-			// darüber, dass Knip der letzte Schritt ist.
+			// Outside --ci, Prettier (--write) and ESLint (--fix) write to the worktree. Knip reads
+			// the dependency graph and must therefore run after the mutating child processes, or it
+			// would evaluate a state that the run subsequently changes. Read-only checks may follow,
+			// so there is no contract that Knip is the final step.
 			expect(log, JSON.stringify(log)).toContainEqual(PRETTIER_WRITE);
 			expect(log, JSON.stringify(log)).toContainEqual(ESLINT_FIX);
 			expect(indexOfInvocation(log, KNIP)).toBeGreaterThan(indexOfInvocation(log, PRETTIER_WRITE));
@@ -438,9 +436,9 @@ describe.sequential('Knip static-check CLI behavior', () => {
 
 	it('runs knip once in a local full-project run', () => {
 		const checkout = createCheckerClone();
-		// Der dokumentierte lokale Vollprojektlauf: keine Argumente, kein --ci, kein CI in der
-		// Umgebung. Erst dieser Fall unterscheidet `mode !== 'staged'` von einem Guard, der
-		// zusätzlich `ciMode` oder `mode === 'files'` verlangt.
+		// The documented local full-project run: no arguments, no --ci, and no CI in the
+		// environment. Only this case distinguishes `mode !== 'staged'` from a guard that also
+		// requires `ciMode` or `mode === 'files'`.
 		delete checkout.env.CI;
 		try {
 			const result = runChecker(checkout, []);

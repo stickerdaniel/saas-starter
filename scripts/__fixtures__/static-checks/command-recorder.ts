@@ -12,10 +12,10 @@ interface CommandResponse {
 const logPath = process.env.STATIC_CHECKS_COMMAND_LOG;
 if (!logPath) throw new Error('Static-check command log is not configured.');
 
-// Der Recorder wird in zwei Formen ausgeliefert: unter Windows als kompilierte Datei, deren
-// Aufrufname in process.execPath steht, unter POSIX als Shebang-Skript, das vom echten Bun
-// gestartet wird und seinen Aufrufnamen deshalb nur in process.argv[1] trägt. Die Argumente
-// beginnen in beiden Formen bei Index 2.
+// The recorder is delivered in two forms: on Windows as a compiled file whose invocation name
+// is stored in process.execPath, and on POSIX as a shebang script started by the real Bun whose
+// invocation name therefore appears only in process.argv[1]. In both forms, the arguments
+// start at index 2.
 const invokedAs =
 	process.platform === 'win32' ? process.execPath : (process.argv[1] ?? process.execPath);
 const command = path.basename(invokedAs).replace(/\.exe$/i, '');
