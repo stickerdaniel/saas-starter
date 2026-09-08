@@ -1,3 +1,4 @@
+import { lex } from 'svelte-streamdown';
 import { describe, expect, it } from 'vitest';
 import {
 	askUntilValid,
@@ -52,6 +53,7 @@ describe('template setup repository configuration', () => {
 		'owner-/repo',
 		'owner--name/repo',
 		'owner/repository.git',
+		'owner/project.',
 		`${'a'.repeat(40)}/repo`,
 		`owner/${'r'.repeat(101)}`,
 		'/repo',
@@ -148,8 +150,34 @@ describe('template setup legal dates', () => {
 		expect(updated.match(/2026-08-24/g)).toHaveLength(3);
 	});
 
+	it('updates only direct properties in the exported initializer', () => {
+		const misleadingSource = `// impressum: '1999-01-01'
+export const LEGAL_CONTENT_DATES = {
+	privacy: '2026-03-18',
+	terms: '2026-03-18',
+	// impressum: '2000-01-01'
+	impressum: "2026-03-21"
+} as const;
+
+const example = { impressum: '2001-01-01' };`;
+		const updated = replaceLegalContentDatesSource(misleadingSource, '2026-08-24');
+
+		expect(updated).toContain("// impressum: '1999-01-01'");
+		expect(updated).toContain("// impressum: '2000-01-01'");
+		expect(updated).toContain("const example = { impressum: '2001-01-01' };");
+		expect(updated).toContain('impressum: "2026-08-24"');
+		expect(updated.match(/2026-08-24/g)).toHaveLength(3);
+	});
+
 	it('preserves legal dates when the legal identity is unchanged', () => {
 		expect(updateLegalContentDatesSource(source, '2026-08-24', false)).toBe(source);
+	});
+
+	it('validates every direct property even when no date changes are needed', () => {
+		const missing = source.replace("impressum: '2026-03-21'", '');
+		expect(() => updateLegalContentDatesSource(missing, '2026-08-24', false)).toThrow(
+			/Could not update every date/
+		);
 	});
 
 	it('fails before writes when the metadata shape has drifted', () => {
@@ -292,11 +320,71 @@ Unrelated prose stays.
 		expect(renamed).not.toContain('northwind-labs');
 	});
 
+	it.each([
+		{
+			oldRepository: 'owner/app',
+			repository: 'owner/app-cloud',
+			relatedRepository: 'owner/app-tools'
+		},
+		{
+			oldRepository: 'owner/app-tools',
+			repository: 'owner/app',
+			relatedRepository: 'owner/app-tools-extra'
+		}
+	])(
+		'rewrites exact $oldRepository links without changing $relatedRepository',
+		({ oldRepository, repository, relatedRepository }) => {
+			const oldGithubUrl = `https://github.com/${oldRepository}`;
+			const githubUrl = `https://github.com/${repository}`;
+			const linkedSource = source
+				.replaceAll(options.oldGithubUrl, oldGithubUrl)
+				.replace(
+					'Unrelated prose stays.',
+					`${oldGithubUrl}\n${oldGithubUrl}/actions\n${oldGithubUrl}?tab=readme\n${oldGithubUrl}#readme\n${oldGithubUrl}.git\nhttps://github.com/${relatedRepository}`
+				);
+			const updated = replaceReadmeSource(linkedSource, {
+				brand: 'Northwind Labs',
+				repository,
+				oldGithubUrl,
+				githubUrl
+			});
+
+			expect(updated).toContain(`${githubUrl}\n`);
+			expect(updated).toContain(`${githubUrl}/actions`);
+			expect(updated).toContain(`${githubUrl}?tab=readme`);
+			expect(updated).toContain(`${githubUrl}#readme`);
+			expect(updated).toContain(`${githubUrl}.git`);
+			expect(updated).toContain(`https://github.com/${relatedRepository}`);
+		}
+	);
+
 	it('escapes a brand that would otherwise render as Markdown', () => {
 		expect(escapeMarkdownInline('A *bold* [link]')).toBe('A \\*bold\\* \\[link\\]');
 		expect(replaceReadmeSource(source, { ...options, brand: '*Star* Co' }).split('\n')[0]).toBe(
 			'# \\*Star\\* Co'
 		);
+	});
+
+	it('keeps a strikethrough-looking brand literal in the rendered heading', () => {
+		const heading = replaceReadmeSource(source, { ...options, brand: '~~Northwind~~' }).split(
+			'\n'
+		)[0]!;
+		const [token] = lex(heading);
+
+		expect(heading).toBe('# \\~\\~Northwind\\~\\~');
+		expect(token).toMatchObject({
+			type: 'heading',
+			tokens: [
+				{ type: 'escape', text: '~' },
+				{ type: 'escape', text: '~' },
+				{ type: 'text', text: 'Northwind' },
+				{ type: 'escape', text: '~' },
+				{ type: 'escape', text: '~' }
+			]
+		});
+		expect(token).not.toMatchObject({
+			tokens: expect.arrayContaining([expect.objectContaining({ type: 'del' })])
+		});
 	});
 
 	// Ohne Maskierung rendert marked "Research &copy; Labs" als "Research © Labs" und
@@ -497,6 +585,36 @@ describe('template setup manifest metadata', () => {
 		expect(replaceWranglerNameSource(source, 'new-name')).toBe(
 			'name = "new-name"\nmain = "x"\n\n[env.staging]\nname = "staging-worker" # keep me\n'
 		);
+	});
+
+	it('ignores table and name syntax inside multiline TOML strings', () => {
+		const source = `description = """
+name = "basic-string"
+[example.basic]
+"""
+literal = '''
+name = "literal-string"
+[example.literal]
+'''
+name = "base-worker"
+main = "x"
+
+[env.staging]
+name = "staging-worker"
+`;
+		const updated = replaceWranglerNameSource(source, 'new-name');
+
+		expect(updated).toBe(source.replace('name = "base-worker"', 'name = "new-name"'));
+		expect(updated).toContain('name = "basic-string"\n[example.basic]');
+		expect(updated).toContain('name = "literal-string"\n[example.literal]');
+		expect(updated).toContain('[env.staging]\nname = "staging-worker"');
+	});
+
+	it.each([
+		'name = """base-worker"""\n\n[env.staging]\nname = "staging-worker"\n',
+		"name = '''base-worker'''\n\n[env.staging]\nname = \"staging-worker\"\n"
+	])('fails closed when the root name uses a multiline string', (source) => {
+		expect(() => replaceWranglerNameSource(source, 'new-name')).toThrow(/name assignment/);
 	});
 
 	it('fails before writes when the root worker name is missing or ambiguous', () => {

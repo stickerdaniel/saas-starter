@@ -303,6 +303,49 @@ mock.module('fs', () => ({
 	});
 });
 
+describe('template setup legal metadata anchors', () => {
+	it('updates the three exported dates without matching a comment', () => {
+		const dir = createFixture();
+		const metadata = join(dir, 'src/lib/content/legal-metadata.ts');
+		writeFileSync(
+			metadata,
+			readFileSync(metadata, 'utf-8').replace(
+				"\timpressum: '2026-03-21'",
+				'\t// impressum: \'2000-01-01\'\n\timpressum: "2026-03-21"'
+			),
+			'utf-8'
+		);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		const updated = readFileSync(metadata, 'utf-8');
+		expect(updated).toContain("// impressum: '2000-01-01'");
+		const dates = [...updated.matchAll(/^\s*(privacy|terms|impressum): ['"]([^'"]+)['"]/gm)].map(
+			([, , date]) => date
+		);
+		expect(dates).toHaveLength(3);
+		expect(new Set(dates).size).toBe(1);
+		expect(dates[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+	});
+
+	it('rejects a flagless re-run with a missing exported date before writes', () => {
+		const dir = createFixture();
+		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
+		const metadata = join(dir, 'src/lib/content/legal-metadata.ts');
+		writeFileSync(
+			metadata,
+			readFileSync(metadata, 'utf-8').replace(/^\s*impressum: ['"][^'"]+['"]\r?\n/m, ''),
+			'utf-8'
+		);
+		const before = snapshot(dir);
+
+		const rerun = runSetup(dir, []);
+		expect(rerun.code).toBe(1);
+		expect(rerun.stderr).toMatch(/Could not update every date/);
+		expect(snapshot(dir)).toEqual(before);
+	});
+});
+
 describe('template setup quick start', () => {
 	it('replaces the template instructions with the generated project setup', () => {
 		const dir = createFixture();
@@ -318,6 +361,31 @@ describe('template setup quick start', () => {
 		expect(readme).not.toContain('Live demo!');
 		// Unverwandte Prosa bleibt erhalten.
 		expect(readme).toContain('## Why This Exists');
+	});
+
+	it('keeps links to prefix-related repositories byte-identical', () => {
+		const dir = createFixture();
+		const readme = join(dir, 'README.md');
+		const relatedLink = 'https://github.com/stickerdaniel/saas-starter-tools/issues/1';
+		writeFileSync(readme, `${readFileSync(readme, 'utf-8')}\n${relatedLink}\n`, 'utf-8');
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		const updated = readFileSync(readme, 'utf-8');
+		expect(updated).toContain(relatedLink);
+		expect(updated).toContain('https://github.com/northwind/northwind-labs/actions');
+	});
+
+	it('writes a literal strikethrough-looking brand and recognizes the end state', () => {
+		const dir = createFixture();
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, '--brand', '~~Northwind~~']);
+		expect(run.code, run.stderr).toBe(0);
+		const afterFirst = snapshot(dir);
+		expect(afterFirst['README.md'].split('\n')[0]).toBe('# \\~\\~Northwind\\~\\~');
+
+		const rerun = runSetup(dir, []);
+		expect(rerun.code, rerun.stderr).toBe(0);
+		expect(snapshot(dir)).toEqual(afterFirst);
 	});
 
 	it('uses an option-safe directory for a repository basename starting with a hyphen', () => {
@@ -377,6 +445,27 @@ describe('template setup quick start', () => {
 		const updated = readFileSync(wrangler, 'utf-8');
 		expect(updated).toMatch(/^name = "northwind-labs"/m);
 		expect(updated.endsWith(environment)).toBe(true);
+	});
+
+	it('ignores root-looking syntax inside multiline TOML strings', () => {
+		const dir = createFixture();
+		const wrangler = join(dir, 'wrangler.toml');
+		const stringValues = `description = """
+name = "basic-string"
+[example.basic]
+"""
+literal = '''
+name = "literal-string"
+[example.literal]
+'''
+`;
+		writeFileSync(wrangler, stringValues + readFileSync(wrangler, 'utf-8'), 'utf-8');
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		const updated = readFileSync(wrangler, 'utf-8');
+		expect(updated).toContain(stringValues);
+		expect(updated).toMatch(/^name = "northwind-labs" # TEMPLATE:/m);
 	});
 });
 
@@ -447,6 +536,11 @@ describe('template setup rejects input before writing', () => {
 		{
 			label: 'a 101-character repository name',
 			args: ['--slug', 'northwind-labs', '--repo', `northwind/${'r'.repeat(101)}`, ...IDENTITY],
+			expected: /repo must use a safe GitHub owner\/name format/
+		},
+		{
+			label: 'a repository basename ending in a period',
+			args: ['--slug', 'northwind-labs', '--repo', 'northwind/project.', ...IDENTITY],
 			expected: /repo must use a safe GitHub owner\/name format/
 		},
 		{
@@ -542,6 +636,18 @@ describe('template setup rejects input before writing', () => {
 			label: 'wrangler.toml lost its name assignment',
 			file: 'wrangler.toml',
 			mutate: (source: string) => source.replace(/^name = "[^"]*".*\n/m, ''),
+			expected: /Expected exactly one name assignment/
+		},
+		{
+			label: 'wrangler.toml uses a multiline basic string for the root name',
+			file: 'wrangler.toml',
+			mutate: (source: string) => source.replace(/^name = "[^"]*".*$/m, 'name = """base-worker"""'),
+			expected: /Expected exactly one name assignment/
+		},
+		{
+			label: 'wrangler.toml uses a multiline literal string for the root name',
+			file: 'wrangler.toml',
+			mutate: (source: string) => source.replace(/^name = "[^"]*".*$/m, "name = '''base-worker'''"),
 			expected: /Expected exactly one name assignment/
 		}
 	])('leaves every file untouched when $label', ({ file, mutate, expected }) => {

@@ -413,6 +413,7 @@ export function isValidGithubRepository(value: string): boolean {
 		!owner.endsWith('-') &&
 		!owner.includes('--') &&
 		!['.', '..'].includes(repository) &&
+		!repository.endsWith('.') &&
 		!repository.toLowerCase().endsWith('.git') &&
 		// The generated clone directory must remain portable across ordinary Win32 filesystems.
 		!hasReservedWindowsDeviceBasename(value)
@@ -585,17 +586,119 @@ export function replaceGithubSlugSource(source: string, value: string): string {
 	return source.slice(0, match.start) + replacement + source.slice(match.end);
 }
 
-export function replaceLegalContentDatesSource(source: string, value: string): string {
-	if (!isIsoCalendarDate(value)) throw new Error(`Invalid legal content date: ${value}`);
-	let replacements = 0;
-	const updated = source.replace(/(privacy|terms|impressum): '[^']+'/g, (_match, key: string) => {
-		replacements += 1;
-		return `${key}: '${value}'`;
-	});
-	if (replacements !== 3) {
+interface LegalContentDateMatch {
+	start: number;
+	end: number;
+	quote: "'" | '"';
+}
+
+function findLegalContentDateProperties(source: string): LegalContentDateMatch[] {
+	const masked = maskTypeScriptNonCode(source);
+	const initializers = [
+		...masked.matchAll(/^export[ \t]+const[ \t]+LEGAL_CONTENT_DATES[ \t]*=[ \t]*\{/gm)
+	];
+	if (initializers.length !== 1) {
 		throw new Error('Could not update every date in src/lib/content/legal-metadata.ts');
 	}
-	return updated;
+
+	const initializer = initializers[0]!;
+	const open = initializer.index + initializer[0].lastIndexOf('{');
+	let close = -1;
+	let braceDepth = 1;
+	for (let index = open + 1; index < masked.length; index += 1) {
+		if (masked[index] === '{') braceDepth += 1;
+		if (masked[index] === '}') {
+			braceDepth -= 1;
+			if (braceDepth === 0) {
+				close = index;
+				break;
+			}
+		}
+	}
+	if (close === -1) {
+		throw new Error('Could not update every date in src/lib/content/legal-metadata.ts');
+	}
+
+	const expected = new Set(['privacy', 'terms', 'impressum']);
+	const matches = new Map<string, LegalContentDateMatch[]>();
+	let segmentStart = open + 1;
+	braceDepth = 1;
+	let bracketDepth = 0;
+	let parenthesisDepth = 0;
+	for (let index = open + 1; index <= close; index += 1) {
+		const char = masked[index];
+		const atBoundary =
+			index === close ||
+			(char === ',' && braceDepth === 1 && bracketDepth === 0 && parenthesisDepth === 0);
+		if (atBoundary) {
+			const segment = masked.slice(segmentStart, index);
+			const leading = /^\s*/.exec(segment)![0].length;
+			const propertyStart = segmentStart + leading;
+			const key = /^(privacy|terms|impressum)\b/.exec(masked.slice(propertyStart))?.[1];
+			if (key && expected.has(key)) {
+				const keyMatches = matches.get(key) ?? [];
+				matches.set(key, keyMatches);
+				let cursor = propertyStart + key.length;
+				while (/\s/.test(masked[cursor] ?? '')) cursor += 1;
+				if (masked[cursor] !== ':') {
+					keyMatches.push({ start: -1, end: -1, quote: "'" });
+				} else {
+					cursor += 1;
+					while (/\s/.test(masked[cursor] ?? '')) cursor += 1;
+					const quote = masked[cursor];
+					if (quote !== "'" && quote !== '"') {
+						keyMatches.push({ start: -1, end: -1, quote: "'" });
+					} else {
+						const literalEnd = masked.indexOf(quote, cursor + 1);
+						const literal = literalEnd === -1 ? '' : source.slice(cursor + 1, literalEnd);
+						const trailing = literalEnd === -1 ? '' : masked.slice(literalEnd + 1, index).trim();
+						keyMatches.push(
+							literalEnd !== -1 &&
+								trailing === '' &&
+								!literal.includes('\\') &&
+								isIsoCalendarDate(literal)
+								? { start: cursor, end: literalEnd + 1, quote }
+								: { start: -1, end: -1, quote: "'" }
+						);
+					}
+				}
+			}
+			segmentStart = index + 1;
+			continue;
+		}
+		if (char === '{') braceDepth += 1;
+		else if (char === '}') braceDepth -= 1;
+		else if (char === '[') bracketDepth += 1;
+		else if (char === ']') bracketDepth -= 1;
+		else if (char === '(') parenthesisDepth += 1;
+		else if (char === ')') parenthesisDepth -= 1;
+	}
+
+	const properties = [...expected].flatMap((key) => matches.get(key) ?? []);
+	if (
+		properties.length !== expected.size ||
+		[...expected].some((key) => matches.get(key)?.length !== 1) ||
+		properties.some(({ start }) => start === -1)
+	) {
+		throw new Error('Could not update every date in src/lib/content/legal-metadata.ts');
+	}
+	return properties;
+}
+
+export function replaceLegalContentDatesSource(source: string, value: string): string {
+	if (!isIsoCalendarDate(value)) throw new Error(`Invalid legal content date: ${value}`);
+	const properties = findLegalContentDateProperties(source).sort(
+		(left, right) => right.start - left.start
+	);
+	return properties.reduce(
+		(updated, property) =>
+			updated.slice(0, property.start) +
+			property.quote +
+			value +
+			property.quote +
+			updated.slice(property.end),
+		source
+	);
 }
 
 export function updateLegalContentDatesSource(
@@ -603,7 +706,9 @@ export function updateLegalContentDatesSource(
 	value: string,
 	legalIdentityChanged: boolean
 ): string {
-	return legalIdentityChanged ? replaceLegalContentDatesSource(source, value) : source;
+	if (legalIdentityChanged) return replaceLegalContentDatesSource(source, value);
+	findLegalContentDateProperties(source);
+	return source;
 }
 
 // ---------------------------------------------------------------------------
@@ -616,7 +721,32 @@ export function updateLegalContentDatesSource(
  * schließenden Zeichenfolge einer ATX-Überschrift.
  */
 export function escapeMarkdownInline(value: string): string {
-	return value.replace(/[\\`*_[\]<>&#]/g, (char) => `\\${char}`);
+	return value.replace(/[\\`*_[\]<>&#~]/g, (char) => `\\${char}`);
+}
+
+function replaceGithubRepositoryUrls(
+	source: string,
+	oldGithubUrl: string,
+	githubUrl: string
+): string {
+	let updated = '';
+	let cursor = 0;
+	for (;;) {
+		const start = source.indexOf(oldGithubUrl, cursor);
+		if (start === -1) return updated + source.slice(cursor);
+		const end = start + oldGithubUrl.length;
+		const next = source[end];
+		const gitSuffix = source.startsWith('.git', end);
+		const afterGit = gitSuffix ? source[end + '.git'.length] : undefined;
+		const isBoundary =
+			next === undefined ||
+			!/[A-Za-z0-9._-]/.test(next) ||
+			(gitSuffix && (afterGit === undefined || !/[A-Za-z0-9._-]/.test(afterGit)));
+
+		updated += source.slice(cursor, start);
+		updated += isBoundary ? githubUrl : oldGithubUrl;
+		cursor = end;
+	}
 }
 
 /**
@@ -633,7 +763,10 @@ export function replaceReadmeSource(
 
 	// Zuerst die Repository-Links, damit der danach erzeugte Quick-Start-Block nicht
 	// noch einmal umgeschrieben wird.
-	let updated = oldGithubUrl === githubUrl ? source : source.split(oldGithubUrl).join(githubUrl);
+	let updated =
+		oldGithubUrl === githubUrl
+			? source
+			: replaceGithubRepositoryUrls(source, oldGithubUrl, githubUrl);
 
 	const heading = /^# .+$/m;
 	if (!heading.test(updated)) {
@@ -697,18 +830,71 @@ export function readmeShowsCompletedSetup(
 	return heading === `# ${escapeMarkdownInline(brand)}` && !liveDemoParagraphPattern().test(source);
 }
 
+function maskTomlNonCode(source: string): string {
+	const masked = source.split('');
+	let index = 0;
+	while (index < source.length) {
+		if (source[index] === '#') {
+			while (index < source.length && source[index] !== '\n' && source[index] !== '\r') {
+				masked[index++] = ' ';
+			}
+			continue;
+		}
+
+		const quote = source[index];
+		if (quote !== "'" && quote !== '"') {
+			index += 1;
+			continue;
+		}
+		const multiline = source.startsWith(quote.repeat(3), index);
+		const delimiterLength = multiline ? 3 : 1;
+		index += delimiterLength;
+		let closed = false;
+		while (index < source.length) {
+			if (multiline && source.startsWith(quote.repeat(3), index)) {
+				index += 3;
+				closed = true;
+				break;
+			}
+			if (!multiline && source[index] === quote) {
+				index += 1;
+				closed = true;
+				break;
+			}
+			if (!multiline && (source[index] === '\n' || source[index] === '\r')) break;
+			if (quote === '"' && source[index] === '\\') {
+				masked[index++] = ' ';
+				if (index < source.length && source[index] !== '\n' && source[index] !== '\r') {
+					masked[index] = ' ';
+				}
+				index += 1;
+				continue;
+			}
+			if (source[index] !== '\n' && source[index] !== '\r') masked[index] = ' ';
+			index += 1;
+		}
+		if (!closed) throw new Error('Unsupported or unterminated string in wrangler.toml');
+	}
+	return masked.join('');
+}
+
 export function replaceWranglerNameSource(source: string, slug: string): string {
-	const firstTable = /^[ \t]*\[\[?[^\r\n\]]+\]\]?[ \t]*(?:#.*)?$/m.exec(source);
+	const masked = maskTomlNonCode(source);
+	const firstTable = /^[ \t]*\[\[?[^\r\n\]]+\]\]?[ \t]*$/m.exec(masked);
 	const rootEnd = firstTable?.index ?? source.length;
-	const root = source.slice(0, rootEnd);
-	const pattern = /^name = "[^"]*"/gm;
-	const matches = root.match(pattern);
-	if (matches?.length !== 1) {
+	const root = masked.slice(0, rootEnd);
+	const pattern = /^[ \t]*name[ \t]*=[ \t]*"[^"\r\n]*"[ \t]*(?=\r?$)/gm;
+	const matches = [...root.matchAll(pattern)];
+	if (matches.length !== 1) {
 		throw new Error(
-			`Expected exactly one name assignment in wrangler.toml, found ${matches?.length ?? 0}`
+			`Expected exactly one name assignment in wrangler.toml, found ${matches.length}`
 		);
 	}
-	return root.replace(pattern, () => `name = ${JSON.stringify(slug)}`) + source.slice(rootEnd);
+	const match = matches[0]!;
+	const assignmentStart = match.index;
+	const literalStart = masked.indexOf('"', assignmentStart);
+	const literalEnd = masked.indexOf('"', literalStart + 1) + 1;
+	return source.slice(0, literalStart) + JSON.stringify(slug) + source.slice(literalEnd);
 }
 
 /**
