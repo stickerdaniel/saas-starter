@@ -76,7 +76,7 @@ describe('late lifecycle aborts', () => {
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
 			responseFromBuffer(tarGz(validTemplateEntries()))
 		);
-		const runtime: CliRuntime = {
+		const runtime: Partial<CliRuntime> = {
 			updateMarker,
 			runSetupAndInstall: async (input) => {
 				await input.onSetupComplete();
@@ -101,7 +101,7 @@ describe('late lifecycle aborts', () => {
 			responseFromBuffer(tarGz(validTemplateEntries()))
 		);
 		let interrupted = false;
-		const runtime: CliRuntime = {
+		const runtime: Partial<CliRuntime> = {
 			runSetupAndInstall: async (input) => {
 				await input.onSetupComplete();
 				return 'ready';

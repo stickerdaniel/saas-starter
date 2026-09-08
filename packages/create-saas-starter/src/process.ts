@@ -59,7 +59,7 @@ export async function resolveBunExecutable(
 ): Promise<string> {
 	if (currentBun) return currentBun;
 	const searchPath = environment.PATH ?? environment.Path ?? environment.path;
-	if (!searchPath) throw new Error('Bun was not found because PATH is unavailable.');
+	if (searchPath === undefined) throw new Error('Bun was not found because PATH is unavailable.');
 	for (const directory of searchPath.split(path.delimiter)) {
 		const absoluteDirectory = path.resolve(cwd, directory || '.');
 		for (const name of executableNames(platform)) {
