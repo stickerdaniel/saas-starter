@@ -9,6 +9,7 @@ import {
 	fetchCurrentPullRequest,
 	parsePullRequestDocument,
 	parsePullRequestEvent,
+	readCurrentPullRequest,
 	readPullRequestEvent,
 	runPrMetadataCli,
 	type MetadataCliOptions,
@@ -77,11 +78,11 @@ function currentDocument(number: number, title: string, body: string | null) {
 	};
 }
 
-function run(eventPath: string) {
-	return spawnSync('bun', [SCRIPT], {
+function run(eventPath: string, args: string[] = [], env: NodeJS.ProcessEnv = {}) {
+	return spawnSync('bun', [SCRIPT, ...args], {
 		cwd: ROOT,
 		encoding: 'utf8',
-		env: { ...process.env, GITHUB_EVENT_PATH: eventPath, NO_COLOR: '1' }
+		env: { ...process.env, ...env, GITHUB_EVENT_PATH: eventPath, NO_COLOR: '1' }
 	});
 }
 
@@ -220,6 +221,39 @@ describe('pull request metadata policy', () => {
 		expect(() => currentPullRequestUrl(apiUrl, repository, number)).toThrow();
 	});
 
+	it('classifies the trusted current-document file instead of the event snapshot', () => {
+		const number = 41;
+		const eventPath = fixture(trigger(number, foreignFixtures.german, foreignFixtures.french));
+		const prJsonPath = fixture(
+			currentDocument(number, 'fix(auth): Reset password', 'This body is current and English.')
+		);
+		const result = run(eventPath, ['--pr-json', prJsonPath], {
+			GITHUB_REPOSITORY: REPOSITORY
+		});
+		const output = `${result.stdout}${result.stderr}`;
+		expect(result.status, output).toBe(0);
+		expect(output).toContain('English policy passed');
+		expect(output).not.toContain(foreignFixtures.german);
+		expect(output).not.toContain(foreignFixtures.french);
+	});
+
+	it('reports trusted current-document findings without printing raw metadata', () => {
+		const number = 42;
+		const eventPath = fixture(trigger(number));
+		const prJsonPath = fixture(
+			currentDocument(number, 'docs: API aktualisieren', foreignFixtures.german)
+		);
+		const result = run(eventPath, ['--pr-json', prJsonPath], {
+			GITHUB_REPOSITORY: REPOSITORY
+		});
+		const output = `${result.stdout}${result.stderr}`;
+		expect(result.status).toBe(1);
+		expect(output).toContain('PR title: clear non-English prose');
+		expect(output).toContain('PR body paragraph 1: clear non-English prose');
+		expect(output).not.toContain('aktualisieren');
+		expect(output).not.toContain(foreignFixtures.german);
+	});
+
 	it('classifies the fetched document instead of the edited event snapshot', async () => {
 		const number = 42;
 		const eventPath = fixture(trigger(number, foreignFixtures.german, foreignFixtures.french));
@@ -305,6 +339,47 @@ describe('pull request metadata policy', () => {
 		expect(result.output).toBe(
 			'English policy failed: current pull request metadata could not be read or validated.'
 		);
+	});
+
+	it('bounds and identity-checks the trusted current-document file', () => {
+		const number = 49;
+		expect(
+			readCurrentPullRequest(fixture(currentDocument(number, 'Fix API', null)), number, REPOSITORY)
+		).toEqual({ pull_request: { title: 'Fix API', body: null } });
+		expect(() =>
+			readCurrentPullRequest(
+				fixture(currentDocument(number + 1, 'Fix API', null)),
+				number,
+				REPOSITORY
+			)
+		).toThrow('does not match');
+		expect(() =>
+			readCurrentPullRequest(
+				fixture({
+					...currentDocument(number, 'Fix API', null),
+					base: { repo: { full_name: 'other/project' } }
+				}),
+				number,
+				REPOSITORY
+			)
+		).toThrow('does not match');
+		expect(() =>
+			readCurrentPullRequest(
+				fixture({ ...currentDocument(number, 'Fix API', null), body: 42 }),
+				number,
+				REPOSITORY
+			)
+		).toThrow('body is invalid');
+		const malformedUtf8 = fixture(currentDocument(number, 'X', null));
+		const malformedBytes = Buffer.from(JSON.stringify(currentDocument(number, 'X', null)));
+		const titleOffset = malformedBytes.indexOf(0x58);
+		expect(titleOffset).toBeGreaterThan(-1);
+		malformedBytes[titleOffset] = 0xff;
+		writeFileSync(malformedUtf8, malformedBytes);
+		expect(() => readCurrentPullRequest(malformedUtf8, number, REPOSITORY)).toThrow();
+		expect(() =>
+			readCurrentPullRequest(fixture('x'.repeat(2 * 1024 * 1024 + 1)), number, REPOSITORY)
+		).toThrow('exceeds the inspection limit');
 	});
 
 	it('fails closed on malformed event JSON', () => {

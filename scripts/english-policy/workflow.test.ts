@@ -18,6 +18,7 @@ interface Step {
 	name?: string;
 	uses?: string;
 	run?: string;
+	env?: Record<string, string>;
 	with?: Record<string, unknown>;
 }
 
@@ -37,7 +38,10 @@ function policyErrors(workflow: Workflow): string[] {
 	) {
 		errors.push('trigger');
 	}
-	if (JSON.stringify(workflow.permissions) !== JSON.stringify({ contents: 'read' })) {
+	if (
+		JSON.stringify(workflow.permissions) !==
+		JSON.stringify({ contents: 'read', 'pull-requests': 'read' })
+	) {
 		errors.push('permissions');
 	}
 	if (workflow.concurrency?.group !== 'english-pr-${{ github.event.pull_request.number }}') {
@@ -50,7 +54,22 @@ function policyErrors(workflow: Workflow): string[] {
 	const checkout = steps.find((step) => step.uses?.startsWith('actions/checkout@'));
 	if (checkout?.with?.ref !== '${{ github.workflow_sha }}') errors.push('checkout ref');
 	if (checkout?.with?.['persist-credentials'] !== false) errors.push('checkout credentials');
-	if (!steps.some((step) => step.run === 'bun scripts/english-policy/pr-metadata.bundle.mjs')) {
+	const fetch = steps.find((step) => step.name === 'Fetch current pull request');
+	if (
+		fetch?.env?.GH_TOKEN !== '${{ secrets.GITHUB_TOKEN }}' ||
+		fetch.env.PR_NUMBER !== '${{ github.event.pull_request.number }}' ||
+		!fetch.run?.includes('gh api --method GET') ||
+		!fetch.run.includes('> "$RUNNER_TEMP/pull-request.json"')
+	) {
+		errors.push('metadata fetch');
+	}
+	if (
+		!steps.some(
+			(step) =>
+				step.run ===
+				'bun scripts/english-policy/pr-metadata.bundle.mjs --pr-json "$RUNNER_TEMP/pull-request.json"'
+		)
+	) {
 		errors.push('policy command');
 	}
 	return errors;
@@ -62,6 +81,14 @@ const steps = workflow.jobs?.['english-metadata']?.steps ?? [];
 describe('English pull request workflow', () => {
 	it('uses the metadata-only trigger and minimal permissions', () => {
 		expect(policyErrors(workflow)).toEqual([]);
+	});
+
+	it('warns that SHA-like source branches require a replacement pull request', () => {
+		expect(source).toContain(
+			'# GitHub suppresses pull_request_target for SHA-like source branch names.'
+		);
+		expect(source).toContain('Open a replacement pull');
+		expect(source).toContain('request from a non-SHA-like source branch so this check can run.');
 	});
 
 	it('cancels stale runs for the same pull request', () => {
@@ -89,14 +116,31 @@ describe('English pull request workflow', () => {
 		for (const action of actions) expect(action).toMatch(/^[^@]+@[0-9a-f]{40}$/);
 	});
 
-	it('runs only the committed bundle with public read-only inputs', () => {
+	it('fetches private metadata with the ephemeral token and passes only its temp file', () => {
 		const commands = steps.flatMap((step) => (step.run === undefined ? [] : [step.run]));
+		const fetch = steps.find((step) => step.name === 'Fetch current pull request');
 		const entry = readFileSync(ENTRY_PATH, 'utf8');
-		expect(commands).toEqual(['bun scripts/english-policy/pr-metadata.bundle.mjs']);
+		expect(commands).toEqual([
+			[
+				'set -euo pipefail',
+				'gh api --method GET \\',
+				'  "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \\',
+				'  > "$RUNNER_TEMP/pull-request.json"',
+				''
+			].join('\n'),
+			'bun scripts/english-policy/pr-metadata.bundle.mjs --pr-json "$RUNNER_TEMP/pull-request.json"'
+		]);
+		expect(fetch?.env).toEqual({
+			GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+			PR_NUMBER: '${{ github.event.pull_request.number }}'
+		});
 		expect(source).not.toMatch(/bun install|cache|artifact/i);
-		expect(source).not.toMatch(/secrets\.|github\.token|GH_TOKEN|Authorization/);
-		expect(entry).toContain("endpoint.hostname !== 'api.github.com'");
-		expect(entry).toContain("Accept: 'application/vnd.github+json'");
+		expect(source).not.toMatch(/pull_request\.(?:title|body|head)|github\.head_ref/);
+		expect(source).not.toMatch(/(?:cat|tee|printf|echo).*pull-request\.json/);
+		expect(source).not.toContain('set -x');
+		expect(entry).toContain('readCurrentPullRequest(options.prJsonPath');
+		expect(entry).toContain('statSync(prJsonPath).size > MAX_RESPONSE_BYTES');
+		expect(entry).toContain('value.base.repo.full_name !== expectedRepository');
 		expect(entry).not.toMatch(/Authorization|process\.env\.(?:GH_TOKEN|GITHUB_TOKEN)/);
 	});
 

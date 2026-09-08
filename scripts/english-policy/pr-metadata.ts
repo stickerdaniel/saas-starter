@@ -31,6 +31,7 @@ export type PullRequestFetch = (input: string, init: RequestInit) => Promise<Res
 
 export interface MetadataCliOptions {
 	eventPath?: string;
+	prJsonPath?: string;
 	repository?: string;
 	apiUrl?: string;
 	fetcher?: PullRequestFetch;
@@ -179,6 +180,25 @@ function parseCurrentPullRequest(
 	return parsePullRequestDocument({ pull_request: { title: value.title, body: value.body } });
 }
 
+export function readCurrentPullRequest(
+	prJsonPath: string | undefined,
+	expectedNumber: number,
+	expectedRepository: string | undefined
+): PullRequestDocument {
+	if (!prJsonPath || !expectedRepository || !validPullRequestNumber(expectedNumber)) {
+		throw new TypeError('Current pull request location is invalid.');
+	}
+	repositorySegments(expectedRepository);
+	if (statSync(prJsonPath).size > MAX_RESPONSE_BYTES) {
+		throw new TypeError('GitHub response exceeds the inspection limit.');
+	}
+	return parseCurrentPullRequest(
+		JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(readFileSync(prJsonPath))),
+		expectedNumber,
+		expectedRepository
+	);
+}
+
 export async function fetchCurrentPullRequest(
 	apiUrl: string | undefined,
 	repository: string | undefined,
@@ -267,12 +287,15 @@ function printFinding(finding: MetadataFinding): void {
 export async function runPrMetadataCli(options: MetadataCliOptions = {}): Promise<number> {
 	try {
 		const trigger = readPullRequestEvent(options.eventPath ?? process.env.GITHUB_EVENT_PATH);
-		const current = await fetchCurrentPullRequest(
-			options.apiUrl ?? process.env.GITHUB_API_URL,
-			options.repository ?? process.env.GITHUB_REPOSITORY,
-			trigger.number,
-			options.fetcher
-		);
+		const repository = options.repository ?? process.env.GITHUB_REPOSITORY;
+		const current = options.prJsonPath
+			? readCurrentPullRequest(options.prJsonPath, trigger.number, repository)
+			: await fetchCurrentPullRequest(
+					options.apiUrl ?? process.env.GITHUB_API_URL,
+					repository,
+					trigger.number,
+					options.fetcher
+				);
 		const result = evaluatePullRequestMetadata(current);
 		if (result.findings.length === 0) {
 			console.log(
@@ -296,4 +319,14 @@ export async function runPrMetadataCli(options: MetadataCliOptions = {}): Promis
 	}
 }
 
-if (import.meta.main) process.exit(await runPrMetadataCli());
+if (import.meta.main) {
+	const args = process.argv.slice(2);
+	const prJsonPath = args[0] === '--pr-json' && args.length === 2 ? args[1] : undefined;
+	if (args.length > 0 && prJsonPath === undefined) {
+		console.error(
+			'English policy failed: current pull request metadata could not be read or validated.'
+		);
+		process.exit(1);
+	}
+	process.exit(await runPrMetadataCli({ prJsonPath }));
+}
