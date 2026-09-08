@@ -107,6 +107,29 @@ describe('process contract', () => {
 		expect(result).toMatchObject({ code: 0, stdout: await realpath(childCwd) });
 	});
 
+	it('treats an empty PATH component as the original CLI cwd', async () => {
+		const originalCwd = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-empty-path-'));
+		temporaryDirectories.push(originalCwd);
+		const executableName = process.platform === 'win32' ? 'bun.exe' : 'bun';
+		const fixtureBun = path.join(originalCwd, executableName);
+		if (process.platform === 'win32') {
+			await copyFile(process.execPath, fixtureBun);
+			await chmod(fixtureBun, 0o755);
+		} else {
+			await symlink(process.execPath, fixtureBun);
+		}
+		const missing = path.join(originalCwd, 'missing');
+
+		await expect(
+			resolveBunExecutable(
+				{ PATH: `${path.delimiter}${missing}` },
+				originalCwd,
+				process.platform,
+				null
+			)
+		).resolves.toBe(fixtureBun);
+	});
+
 	it.each(['1.3.9', '1.3.10', '2.0.0'])('accepts Bun %s', (version) => {
 		expect(() => assertSupportedBunVersion(version)).not.toThrow();
 	});

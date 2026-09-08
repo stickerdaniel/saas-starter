@@ -16,7 +16,15 @@ import {
 import { tarGz, validTemplateEntries } from './archive-fixture.js';
 
 class PromptInput extends Readable {
+	isTTY = true;
+	rawMode = false;
+
 	_read() {}
+
+	setRawMode(value: boolean) {
+		this.rawMode = value;
+		return this;
+	}
 }
 
 class PromptOutput extends Writable {
@@ -26,6 +34,33 @@ class PromptOutput extends Writable {
 	_write(_chunk: unknown, _encoding: BufferEncoding, callback: (error?: Error | null) => void) {
 		callback();
 	}
+}
+
+function responseFromBuffer(buffer: Buffer): Response {
+	const body = buffer.buffer.slice(
+		buffer.byteOffset,
+		buffer.byteOffset + buffer.byteLength
+	) as ArrayBuffer;
+	return new Response(body);
+}
+
+function realPromptAdapter(
+	input: PromptInput,
+	output: PromptOutput,
+	hooks: { text?: () => void; confirm?: () => void } = {}
+): PromptAdapter {
+	return {
+		text: (options) => {
+			hooks.text?.();
+			return clack.text({ ...options, input, output });
+		},
+		confirm: (options) => {
+			hooks.confirm?.();
+			return clack.confirm({ ...options, input, output });
+		},
+		isCancel: clack.isCancel,
+		cancel: vi.fn()
+	};
 }
 
 const temporaryDirectories: string[] = [];
@@ -179,6 +214,85 @@ describe('side-effect-free commands', () => {
 });
 
 describe('interrupt handling', () => {
+	it('cancels a waiting real text prompt without orphaned listeners', async () => {
+		const parent = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-text-sigint-'));
+		temporaryDirectories.push(parent);
+		const input = new PromptInput();
+		const output = new PromptOutput();
+		let announceStarted!: () => void;
+		const started = new Promise<void>((resolve) => (announceStarted = resolve));
+		const baselineListeners = process.listenerCount('SIGINT');
+		const running = runCli([], {
+			stdout: () => {},
+			stderr: () => {},
+			stdin: input as unknown as NodeJS.ReadStream,
+			environment: process.env,
+			cwd: parent,
+			prompts: realPromptAdapter(input, output, { text: announceStarted })
+		});
+		await started;
+		expect(input.listenerCount('keypress')).toBeGreaterThan(0);
+
+		process.emit('SIGINT');
+		process.emit('SIGINT');
+		await expect(running).resolves.toBe(130);
+		expect(input.listenerCount('keypress')).toBe(0);
+		expect(output.listenerCount('resize')).toBe(0);
+		expect(input.rawMode).toBe(false);
+		expect(process.listenerCount('SIGINT')).toBe(baselineListeners);
+		expect(await readdir(parent)).toEqual([]);
+	});
+
+	it('cancels a waiting real trust prompt without claiming the target', async () => {
+		const parent = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-confirm-sigint-'));
+		temporaryDirectories.push(parent);
+		const input = new PromptInput();
+		const output = new PromptOutput();
+		let announceStarted!: () => void;
+		const started = new Promise<void>((resolve) => (announceStarted = resolve));
+		const archive = tarGz(validTemplateEntries());
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(responseFromBuffer(archive));
+		const baselineListeners = process.listenerCount('SIGINT');
+		const running = runCli(
+			[
+				'project',
+				'--slug',
+				'project',
+				'--repo',
+				'owner/project',
+				'--brand',
+				'Project',
+				'--company',
+				'Company',
+				'--operator',
+				'Operator',
+				'--address',
+				'Address',
+				'--email',
+				'contact@example.test'
+			],
+			{
+				stdout: () => {},
+				stderr: () => {},
+				stdin: input as unknown as NodeJS.ReadStream,
+				environment: process.env,
+				cwd: parent,
+				prompts: realPromptAdapter(input, output, { confirm: announceStarted })
+			}
+		);
+		await started;
+		expect(input.listenerCount('keypress')).toBeGreaterThan(0);
+
+		process.emit('SIGINT');
+		process.emit('SIGINT');
+		await expect(running).resolves.toBe(130);
+		expect(input.listenerCount('keypress')).toBe(0);
+		expect(output.listenerCount('resize')).toBe(0);
+		expect(input.rawMode).toBe(false);
+		expect(process.listenerCount('SIGINT')).toBe(baselineListeners);
+		expect(await readdir(parent)).toEqual([]);
+	});
+
 	it('returns 130 and leaves no target when repeated SIGINT arrives before claim', async () => {
 		const parent = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-pre-claim-sigint-'));
 		temporaryDirectories.push(parent);
@@ -187,11 +301,7 @@ describe('interrupt handling', () => {
 		const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
 			process.emit('SIGINT');
 			process.emit('SIGINT');
-			const body = archive.buffer.slice(
-				archive.byteOffset,
-				archive.byteOffset + archive.byteLength
-			) as ArrayBuffer;
-			return new Response(body);
+			return responseFromBuffer(archive);
 		});
 
 		const code = await runCli(['project', '--repo', 'owner/project', '--yes', '--trust-template'], {
