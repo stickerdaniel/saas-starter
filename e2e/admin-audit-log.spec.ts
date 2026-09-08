@@ -327,23 +327,33 @@ test.describe('Admin Audit Log', () => {
 		// Typing the target's email into the free-text search narrows the log to
 		// rows referencing that user (matched via the target column). The canonical
 		// `search` URL param carries the query.
-		await page.getByTestId('admin-audit-log-search').fill(targetEmail);
+		const searchInput = page.getByTestId('admin-audit-log-search');
+		const noMatch = `${targetEmail}.no-match`;
+		await searchInput.fill(noMatch);
+		await expect(page.getByTestId('admin-audit-log-empty')).toBeVisible({ timeout: 10000 });
+		await searchInput.fill(targetEmail);
 		await expect.poll(() => new URL(page.url()).searchParams.get('search')).toBe(targetEmail);
 		await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
 
 		// Every visible row references our target.
 		const targetCells = page.getByTestId('audit-log-target-cell');
-		await expect(targetCells.first()).toBeVisible({ timeout: 10000 });
-		const count = await targetCells.count();
-		expect(count).toBeGreaterThan(0);
-		for (let i = 0; i < count; i++) {
-			await expect(targetCells.nth(i)).toContainText(targetEmail);
-		}
+		await expect
+			.poll(
+				async () => {
+					const targets = await targetCells.allTextContents();
+					return targets.length > 0 && targets.every((target) => target.includes(targetEmail));
+				},
+				{ timeout: 10000 }
+			)
+			.toBe(true);
 
 		// A partial substring still matches: the backend does a case-insensitive
 		// substring match on email + name, mirroring the users table.
 		const partial = targetEmail.split('@')[0]!;
-		await page.getByTestId('admin-audit-log-search').fill(partial);
+		await searchInput.fill(noMatch);
+		await expect(page.getByTestId('admin-audit-log-empty')).toBeVisible({ timeout: 10000 });
+		await searchInput.fill(partial);
+		await expect.poll(() => new URL(page.url()).searchParams.get('search')).toBe(partial);
 		await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
 		await expect(
 			page.getByTestId('audit-log-target-cell').filter({ hasText: targetEmail }).first()
