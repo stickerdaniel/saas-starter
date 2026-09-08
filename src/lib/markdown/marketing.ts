@@ -38,11 +38,19 @@ function quoteFrontmatterValue(value: MarketingMarkdownContent): string {
 	return JSON.stringify(renderPlainText(value));
 }
 
+function renderMarkdownBlock(value: MarketingMarkdownContent): string {
+	const markdown = renderMarkdownText(value);
+	if (typeof value !== 'string' && markdown === '<br>') {
+		throw new Error('A standalone marketing markdown block must not contain only a line break.');
+	}
+	return markdown;
+}
+
 function renderSection(section: MarketingMarkdownSection): string {
 	const parts: string[] = [`## ${renderMarkdownText(section.heading)}`];
 
 	for (const paragraph of section.paragraphs ?? []) {
-		parts.push(renderMarkdownText(paragraph));
+		parts.push(renderMarkdownBlock(paragraph));
 	}
 
 	if (section.bullets?.length) {
@@ -98,7 +106,7 @@ export function renderMarketingMarkdown(
 
 	const body = [
 		`# ${renderMarkdownText(document.title)}`,
-		renderMarkdownText(document.description),
+		renderMarkdownBlock(document.description),
 		...document.sections.map((section) => renderSection(section))
 	].join('\n\n');
 

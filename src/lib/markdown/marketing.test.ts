@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { lex } from 'svelte-streamdown';
 
@@ -99,7 +100,7 @@ function renderInlineText(token: LexToken): string {
 	if (token.tokens) {
 		return token.tokens.map(renderInlineText).join('');
 	}
-	return (token.text ?? '').replaceAll('\u200b', '');
+	return token.text ?? '';
 }
 
 function getMarketingBody(markdown: string): string {
@@ -159,15 +160,28 @@ describe('markdown text literals', () => {
 	});
 
 	it('normalizes line endings and keeps consecutive newlines as controlled breaks', () => {
-		expect(encodeMarkdownLiteral('first\r\nsecond\rthird\nfourth')).toBe(
-			'first<br>second<br>third<br>fourth'
-		);
-		expect(encodeMarkdownLiteral('\n')).toBe('\u200b<br>');
-		expect(encodeMarkdownLiteral('\n\n')).toBe('<br><br>');
-		expect(encodeMarkdownLiteral('\ntext')).toBe('<br>text');
-		expect(encodeMarkdownLiteral('before\n\n## after')).toBe('before<br><br>\\#\\# after');
-		const tokens = lex(encodeMarkdownLiteral('before\n\n## after')) as LexToken[];
+		const forbiddenCharacter = String.fromCodePoint(8203);
+		const encodedValues = [
+			encodeMarkdownLiteral('first\r\nsecond\rthird\nfourth'),
+			encodeMarkdownLiteral('\n'),
+			encodeMarkdownLiteral('\n\n'),
+			encodeMarkdownLiteral('\ntext'),
+			encodeMarkdownLiteral('before\n\n## after')
+		];
 
+		expect(encodedValues).toEqual([
+			'first<br>second<br>third<br>fourth',
+			'<br>',
+			'<br><br>',
+			'<br>text',
+			'before<br><br>\\#\\# after'
+		]);
+		expect(encodedValues.join('')).not.toContain(forbiddenCharacter);
+		for (const sourcePath of ['src/lib/markdown/literals.ts', 'src/lib/markdown/marketing.ts']) {
+			expect(readFileSync(sourcePath, 'utf8')).not.toContain(forbiddenCharacter);
+		}
+
+		const tokens = lex(encodedValues[4]!) as LexToken[];
 		expect(collectTokenTypes(tokens)).not.toContain('heading');
 		expect(collectTokens(tokens).filter((token) => token.type === 'br')).toEqual([
 			expect.objectContaining({ raw: '<br>' }),
@@ -176,7 +190,7 @@ describe('markdown text literals', () => {
 	});
 
 	it.each(['document description', 'paragraph'] as const)(
-		'keeps a standalone break inline in a %s',
+		'rejects a standalone structured break in a %s before returning a response',
 		(location) => {
 			const standaloneBreak = markdownText`${'\n'}`;
 			const document: MarketingMarkdownDocument =
@@ -191,33 +205,18 @@ describe('markdown text literals', () => {
 							description: '',
 							sections: [{ heading: 'Break', paragraphs: [standaloneBreak] }]
 						};
-			const markdown = renderMarketingMarkdown(document, {
-				origin: 'https://example.com',
-				pathname: '/en/test',
-				lang: 'en'
-			});
-			const bodyTokens = lex(getMarketingBody(markdown)) as LexToken[];
-			const paragraphs = bodyTokens.filter((token) => token.type === 'paragraph');
-			const paragraphTokens = collectTokens(paragraphs);
-			const tokenTypes = paragraphTokens.map((token) => token.type);
+			let response: Response | undefined;
 
-			expect(paragraphs).toHaveLength(1);
-			expect(paragraphTokens.filter((token) => token.type === 'br')).toEqual([
-				expect.objectContaining({ raw: '<br>' })
-			]);
-			expect(
-				paragraphTokens.filter((token) => token.type === 'text' && token.text === '\u200b')
-			).toHaveLength(1);
-			for (const type of ['html', 'heading', 'link', 'code', 'blockquote']) {
-				expect(tokenTypes).not.toContain(type);
-			}
-			expect(
-				paragraphTokens.some((token) => token.type === 'text' && token.text?.includes('\\'))
-			).toBe(false);
-			expect(renderInlineText(paragraphs[0]!)).toBe('\n');
-			expect(markdown).toContain('\u200b<br>');
+			expect(() => {
+				response = createMarketingMarkdownResponse(document, {
+					origin: 'https://example.com',
+					pathname: '/en/test',
+					lang: 'en'
+				});
+			}).toThrow('A standalone marketing markdown block must not contain only a line break.');
+			expect(response).toBeUndefined();
+			expect(renderMarkdownText(standaloneBreak)).toBe('<br>');
 			expect(renderPlainText(standaloneBreak)).toBe('\n');
-			expect(renderPlainText(standaloneBreak)).not.toContain('\u200b');
 		}
 	);
 
@@ -241,10 +240,14 @@ describe('markdown text literals', () => {
 		);
 	});
 
-	it('escapes authored break text before inserting controlled breaks', () => {
+	it('keeps authored break markup active while escaping runtime break text', () => {
 		const encoded = encodeMarkdownLiteral('User <br>\ncontrolled');
 		const tokens = lex(encoded) as LexToken[];
 		const allTokens = collectTokens(tokens);
+		const authoredMarkdown = renderMarketingMarkdown(
+			{ title: 'Authored break', description: '<br>', sections: [] },
+			{ origin: 'https://example.com', pathname: '/en/test', lang: 'en' }
+		);
 
 		expect(encoded).toBe('User \\<br\\><br>controlled');
 		expect(renderInlineText(tokens[0]!)).toBe('User <br>\ncontrolled');
@@ -252,6 +255,10 @@ describe('markdown text literals', () => {
 			expect.objectContaining({ raw: '<br>' })
 		]);
 		expect(allTokens).not.toContainEqual(expect.objectContaining({ type: 'html' }));
+		expect(getMarketingBody(authoredMarkdown)).toBe('# Authored break\n\n<br>\n');
+		expect(collectTokenTypes(lex(getMarketingBody(authoredMarkdown)) as LexToken[])).toContain(
+			'html'
+		);
 	});
 
 	it('keeps leading indentation out of code blocks', () => {
@@ -389,28 +396,53 @@ describe('marketing markdown helpers', () => {
 		).toBe(true);
 	});
 
-	it('keeps multiline literal titles inside their intended headings', () => {
-		const value = 'Acme\n## forged';
-		const literal = markdownText`${value}`;
+	it('keeps standalone structured breaks inside surrounding inline syntax', () => {
+		const standaloneBreak = markdownText`${'\n'}`;
 		const markdown = renderMarketingMarkdown(
 			{
-				title: literal,
+				title: standaloneBreak,
 				description: 'Description',
-				sections: [{ heading: literal }]
+				sections: [
+					{
+						heading: standaloneBreak,
+						bullets: [standaloneBreak],
+						links: [
+							{
+								label: standaloneBreak,
+								href: 'https://example.com/resource',
+								description: standaloneBreak
+							}
+						]
+					}
+				]
 			},
 			{ origin: 'https://example.com', pathname: '/en/test', lang: 'en' }
 		);
 		const tokens = lex(getMarketingBody(markdown)) as LexToken[];
+		const allTokens = collectTokens(tokens);
 		const headings = tokens.filter((token) => token.type === 'heading');
+		const listItems = allTokens.filter((token) => token.type === 'list_item');
+		const links = allTokens.filter((token) => token.type === 'link');
+		const tokenTypes = allTokens.map((token) => token.type);
 
-		expect(tokens.map((token) => token.type)).toEqual(['heading', 'paragraph', 'heading']);
+		expect(tokens.map((token) => token.type)).toEqual(['heading', 'paragraph', 'heading', 'list']);
 		expect(headings.map((heading) => heading.depth)).toEqual([1, 2]);
-		expect(headings.map(renderInlineText)).toEqual([value, value]);
-		expect(
-			headings
-				.flatMap((heading) => collectTokens(heading.tokens ?? []))
-				.filter((token) => token.type === 'br')
-		).toHaveLength(2);
+		expect(headings.map(renderInlineText)).toEqual(['\n', '\n']);
+		expect(listItems).toHaveLength(2);
+		expect(links).toHaveLength(1);
+		expect(renderInlineText(links[0]!)).toBe('\n');
+		expect(getMarketingBody(markdown)).toBe(
+			'# <br>\n\nDescription\n\n## <br>\n\n- <br>\n\n- [<br>](https://example.com/resource): <br>\n'
+		);
+		expect(markdown.match(/<br>/g)).toHaveLength(5);
+		expect(allTokens.filter((token) => token.type === 'br')).toEqual(
+			Array.from({ length: 4 }, () => expect.objectContaining({ raw: '<br>' }))
+		);
+		expect(tokenTypes.filter((type) => type === 'heading')).toHaveLength(2);
+		for (const type of ['code', 'blockquote']) {
+			expect(tokenTypes).not.toContain(type);
+		}
+		expect(markdown).not.toContain(String.fromCodePoint(8203));
 	});
 
 	it('keeps multiline literals inside paragraph, bullet, and link contexts', () => {
@@ -498,6 +530,7 @@ describe('marketing markdown helpers', () => {
 				.filter((token) => token.type === 'br')
 				.every((token) => token.raw === '<br>')
 		).toBe(true);
+		expect(markdown.match(/<br>/g)).toHaveLength(70);
 		expect(tokenTypes.filter((type) => type === 'br')).toHaveLength(70);
 		expect(tokenTypes).not.toContain('code');
 		expect(tokenTypes).not.toContain('html');
@@ -511,7 +544,7 @@ describe('marketing markdown helpers', () => {
 	it('keeps structured frontmatter plain and on one physical line per value', () => {
 		const markdown = renderMarketingMarkdown(
 			{
-				title: markdownText`${'Brand *name*\r\nsecond line'}`,
+				title: markdownText`${'\n'}`,
 				description: markdownText`Address: ${maliciousAddress}`,
 				sections: []
 			},
@@ -519,11 +552,10 @@ describe('marketing markdown helpers', () => {
 		);
 		const frontmatter = markdown.slice(0, markdown.indexOf('---\n\n', 4));
 
-		expect(frontmatter).toContain('title: "Brand *name*\\nsecond line"');
+		expect(frontmatter).toContain('title: "\\n"');
 		expect(frontmatter).toContain('description: "Address: Hauptstrasse 5\\n\\n## Forged section"');
-		expect(frontmatter).not.toContain('\\*name\\*');
-		expect(frontmatter.split('\n')).not.toContain('second line');
 		expect(frontmatter.split('\n')).not.toContain('## Forged section');
+		expect(frontmatter).not.toContain(String.fromCodePoint(8203));
 	});
 
 	it('keeps the configured legal address inside the Impressum paragraph', () => {
