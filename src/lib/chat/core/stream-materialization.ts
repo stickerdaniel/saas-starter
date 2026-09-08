@@ -722,11 +722,11 @@ function mergeMatchedParts(
 		existingView === 'live' &&
 		asRecord(existingPart).state === 'done'
 	) {
-		// `reasoning-end` und `text-end` schließen einen Block ohne neue Bytes. Daher
-		// sehen beide Live-Snapshots identisch aus und die Länge verrät nicht, welcher
-		// neuer ist. Der Listenstatus belegt die Live-Provenienz der vorhandenen Seite;
-		// Part-IDs können das nicht, da Live-Text keine trägt und die persistierte
-		// Rekonstruktion selbst Inhalte eines laufenden Schritts als `done` markiert.
+		// `reasoning-end` and `text-end` close a block without adding new bytes. Both
+		// live snapshots therefore look identical, and their length does not reveal
+		// which one is newer. The list state establishes the live provenance of the
+		// existing side; part IDs cannot do so because live text carries none, while
+		// the persisted reconstruction marks even in-progress step content as `done`.
 		merged.state = 'done';
 	}
 
