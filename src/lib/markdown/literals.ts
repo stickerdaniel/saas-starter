@@ -103,7 +103,7 @@ export function markdownText(
 }
 
 export function encodeMarkdownLiteral(value: string): string {
-	return normalizePlainText(value)
+	const encoded = normalizePlainText(value)
 		.replace(COMMONMARK_ESCAPABLE_PUNCTUATION, '\\$&')
 		.split('\n')
 		.map((line) => {
@@ -116,6 +116,8 @@ export function encodeMarkdownLiteral(value: string): string {
 			return line;
 		})
 		.join('<br>');
+
+	return encoded === '<br>' ? `\u200b${encoded}` : encoded;
 }
 
 export function renderMarkdownText(value: MarketingMarkdownContent): string {

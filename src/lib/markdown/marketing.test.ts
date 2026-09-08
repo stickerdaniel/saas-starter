@@ -99,7 +99,7 @@ function renderInlineText(token: LexToken): string {
 	if (token.tokens) {
 		return token.tokens.map(renderInlineText).join('');
 	}
-	return token.text ?? '';
+	return (token.text ?? '').replaceAll('\u200b', '');
 }
 
 function getMarketingBody(markdown: string): string {
@@ -162,6 +162,9 @@ describe('markdown text literals', () => {
 		expect(encodeMarkdownLiteral('first\r\nsecond\rthird\nfourth')).toBe(
 			'first<br>second<br>third<br>fourth'
 		);
+		expect(encodeMarkdownLiteral('\n')).toBe('\u200b<br>');
+		expect(encodeMarkdownLiteral('\n\n')).toBe('<br><br>');
+		expect(encodeMarkdownLiteral('\ntext')).toBe('<br>text');
 		expect(encodeMarkdownLiteral('before\n\n## after')).toBe('before<br><br>\\#\\# after');
 		const tokens = lex(encodeMarkdownLiteral('before\n\n## after')) as LexToken[];
 
@@ -171,6 +174,52 @@ describe('markdown text literals', () => {
 			expect.objectContaining({ raw: '<br>' })
 		]);
 	});
+
+	it.each(['document description', 'paragraph'] as const)(
+		'keeps a standalone break inline in a %s',
+		(location) => {
+			const standaloneBreak = markdownText`${'\n'}`;
+			const document: MarketingMarkdownDocument =
+				location === 'document description'
+					? {
+							title: 'Standalone break',
+							description: standaloneBreak,
+							sections: []
+						}
+					: {
+							title: 'Standalone break',
+							description: '',
+							sections: [{ heading: 'Break', paragraphs: [standaloneBreak] }]
+						};
+			const markdown = renderMarketingMarkdown(document, {
+				origin: 'https://example.com',
+				pathname: '/en/test',
+				lang: 'en'
+			});
+			const bodyTokens = lex(getMarketingBody(markdown)) as LexToken[];
+			const paragraphs = bodyTokens.filter((token) => token.type === 'paragraph');
+			const paragraphTokens = collectTokens(paragraphs);
+			const tokenTypes = paragraphTokens.map((token) => token.type);
+
+			expect(paragraphs).toHaveLength(1);
+			expect(paragraphTokens.filter((token) => token.type === 'br')).toEqual([
+				expect.objectContaining({ raw: '<br>' })
+			]);
+			expect(
+				paragraphTokens.filter((token) => token.type === 'text' && token.text === '\u200b')
+			).toHaveLength(1);
+			for (const type of ['html', 'heading', 'link', 'code', 'blockquote']) {
+				expect(tokenTypes).not.toContain(type);
+			}
+			expect(
+				paragraphTokens.some((token) => token.type === 'text' && token.text?.includes('\\'))
+			).toBe(false);
+			expect(renderInlineText(paragraphs[0]!)).toBe('\n');
+			expect(markdown).toContain('\u200b<br>');
+			expect(renderPlainText(standaloneBreak)).toBe('\n');
+			expect(renderPlainText(standaloneBreak)).not.toContain('\u200b');
+		}
+	);
 
 	it.each([
 		['one', 'Line 1\n', 1],
