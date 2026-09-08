@@ -47,27 +47,6 @@ const WINDOWS_LIFECYCLE_WORKFLOW = path.join(
 	'workflows',
 	'windows-process-lifecycle.yml'
 );
-const WINDOWS_LIFECYCLE_PUSH_PATHS = [
-	'package.json',
-	'bun.lock',
-	'knowledge-policy.config.ts',
-	'eslint/control-character-policy.js',
-	'scripts/knowledge-policy/**',
-	'scripts/english-policy/**',
-	'src/lib/i18n/language-codes.generated.js',
-	'scripts/dev-cloud.ts',
-	'scripts/dev-cloud.test.ts',
-	'scripts/git-context.ts',
-	'scripts/static-checks.ts',
-	'scripts/static-checks.test.ts',
-	'scripts/static-checks.knip.test.ts',
-	'scripts/terminal-output.ts',
-	'scripts/test-executable.ts',
-	'scripts/__fixtures__/static-checks/**',
-	'scripts/windows-job.ts',
-	'scripts/windows-job-runner.ps1',
-	'.github/workflows/windows-process-lifecycle.yml'
-];
 const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 	'package.json',
 	'bun.lock',
@@ -132,6 +111,75 @@ interface CanaryOutcome {
 	status: number | null;
 	output: string;
 	log: CommandInvocation[];
+}
+
+interface WorkflowSelectorOutcome {
+	status: number | null;
+	output: string;
+	values: Record<string, string>;
+}
+
+function windowsLifecycleRunnerScript(workflow: string): string {
+	const script = workflow.match(
+		/^ {6}- name: Select runner\n[\s\S]*?^ {8}run: \|\n([\s\S]*?)^ {2}lifecycle:/m
+	)?.[1];
+	if (!script) throw new Error('Windows lifecycle runner script was not found.');
+	return script.replace(/^ {10}/gm, '').trimEnd();
+}
+
+function runWindowsLifecycleSelectorFixture(
+	pages: unknown,
+	changedFiles: string,
+	apiStatus = 0
+): WorkflowSelectorOutcome {
+	const directory = mkdtempSync(path.join(TEMP_ROOT, 'windows-lifecycle-'));
+	const outputPath = path.join(directory, 'github-output');
+	const gh = path.join(directory, 'gh');
+	writeFileSync(
+		gh,
+		'#!/bin/sh\nprintf \'%s\\n\' "$WINDOWS_LIFECYCLE_API_RESPONSE"\nexit "$WINDOWS_LIFECYCLE_API_STATUS"\n'
+	);
+	chmodSync(gh, 0o755);
+	try {
+		const workflow = readFileSync(WINDOWS_LIFECYCLE_WORKFLOW, 'utf8');
+		const result = spawnSync(
+			'bash',
+			['-e', '-o', 'pipefail', '-c', windowsLifecycleRunnerScript(workflow)],
+			{
+				env: {
+					...sanitizedGitEnv(),
+					PATH: `${directory}${path.delimiter}${process.env.PATH ?? ''}`,
+					EVENT_NAME: 'pull_request',
+					PR_NUMBER: '897',
+					CHANGED_FILES: changedFiles,
+					GITHUB_REPOSITORY: 'example/fixture',
+					GITHUB_OUTPUT: outputPath,
+					WINDOWS_LIFECYCLE_API_RESPONSE: JSON.stringify(pages),
+					WINDOWS_LIFECYCLE_API_STATUS: String(apiStatus)
+				},
+				encoding: 'utf8'
+			}
+		);
+		const values = existsSync(outputPath)
+			? Object.fromEntries(
+					readFileSync(outputPath, 'utf8')
+						.trim()
+						.split('\n')
+						.filter(Boolean)
+						.map((line) => {
+							const separator = line.indexOf('=');
+							return [line.slice(0, separator), line.slice(separator + 1)];
+						})
+				)
+			: {};
+		return {
+			status: result.status,
+			output: `${result.stdout}${result.stderr}`,
+			values
+		};
+	} finally {
+		rmSync(directory, { recursive: true, force: true });
+	}
 }
 
 let recorderDirectory: string;
@@ -471,29 +519,88 @@ afterAll(() => {
 describe('Windows lifecycle workflow coverage', () => {
 	it('keeps push, pull-request, and native-runner dependencies aligned', () => {
 		const workflow = readFileSync(WINDOWS_LIFECYCLE_WORKFLOW, 'utf8');
-		const pushBlock = workflow.match(/^ {4}paths:\n([\s\S]*?)^ {2}pull_request:/m)?.[1];
-		const selectorPattern = workflow.match(/^ {10}pattern='([^']+)'$/m)?.[1];
-		const pullRequestPattern = workflow.match(/^ {10}\$pattern = '([^']+)'$/m)?.[1];
+		const pushBlock = workflow.match(/^ {2}push:\n([\s\S]*?)^ {2}pull_request:/m)?.[1];
+		const selectorPattern = workflow.match(/^ {10}runner_pattern='([^']+)'$/m)?.[1];
+		const testPattern = workflow.match(/^ {10}test_pattern='([^']+)'$/m)?.[1];
 
-		expect(pushBlock, 'push paths block').toBeDefined();
+		expect(pushBlock, 'push trigger').toBeDefined();
+		expect(pushBlock).not.toContain('paths:');
 		expect(selectorPattern, 'native runner selector').toBeDefined();
-		expect(pullRequestPattern, 'pull-request test selector').toBeDefined();
-
-		const pushPaths = [...pushBlock!.matchAll(/^ {6}- '([^']+)'$/gm)].map((match) => match[1]);
-		expect(pushPaths).toEqual(WINDOWS_LIFECYCLE_PUSH_PATHS);
-		expect(workflow).toContain("if ($LASTEXITCODE -ne 0) {\n            'run_tests=true'");
+		expect(testPattern, 'test selector').toBeDefined();
+		expect(workflow.match(/gh api/g)).toHaveLength(1);
+		expect(workflow).toContain('gh api --paginate --slurp');
+		expect(workflow).toContain('CHANGED_FILES: ${{ github.event.pull_request.changed_files }}');
+		expect(workflow).toContain('SELECTED_RUN_TESTS: ${{ needs.runner.outputs.run_tests }}');
+		expect(workflow).toContain("if ($env:SELECTED_RUN_TESTS -notin @('true', 'false')) {");
 
 		const selectsWindows = new RegExp(selectorPattern!);
-		const runsTests = new RegExp(pullRequestPattern!);
+		const runsTests = new RegExp(testPattern!);
 		for (const dependency of WINDOWS_LIFECYCLE_DEPENDENCIES) {
 			expect(selectsWindows.test(dependency), `native runner: ${dependency}`).toBe(true);
-			expect(runsTests.test(dependency), `pull request: ${dependency}`).toBe(true);
+			expect(runsTests.test(dependency), `tests: ${dependency}`).toBe(true);
 		}
 		expect(selectsWindows.test('.github/workflows/windows-process-lifecycle.yml')).toBe(false);
 		expect(runsTests.test('.github/workflows/windows-process-lifecycle.yml')).toBe(true);
 		expect(selectsWindows.test('docs/example.md')).toBe(false);
 		expect(runsTests.test('docs/example.md')).toBe(false);
 	});
+
+	it.skipIf(process.platform === 'win32')(
+		'selects Windows tests when a dependency is renamed to an irrelevant path',
+		() => {
+			const outcome = runWindowsLifecycleSelectorFixture(
+				[
+					[
+						{
+							filename: 'docs/renamed.md',
+							previous_filename: 'scripts/dev-cloud.ts'
+						}
+					]
+				],
+				'1'
+			);
+
+			expect(outcome.status, outcome.output).toBe(0);
+			expect(outcome.values).toEqual({ label: 'windows-latest', run_tests: 'true' });
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'fails closed when the pull-request API file list is incomplete',
+		() => {
+			const outcome = runWindowsLifecycleSelectorFixture(
+				[[{ filename: 'docs/only-returned-file.md' }]],
+				'2'
+			);
+
+			expect(outcome.status, outcome.output).toBe(0);
+			expect(outcome.values).toEqual({ label: 'windows-latest', run_tests: 'true' });
+		}
+	);
+
+	it.skipIf(process.platform === 'win32').each([
+		['an API failure', [[{ filename: 'docs/example.md' }]], '1', 23],
+		['invalid pagination JSON', { filename: 'docs/example.md' }, '1', 0],
+		['invalid changed-file metadata', [[{ filename: 'docs/example.md' }]], 'unknown', 0]
+	] as const)('fails closed for %s', (_label, pages, changedFiles, apiStatus) => {
+		const outcome = runWindowsLifecycleSelectorFixture(pages, changedFiles, apiStatus);
+
+		expect(outcome.status, outcome.output).toBe(0);
+		expect(outcome.values).toEqual({ label: 'windows-latest', run_tests: 'true' });
+	});
+
+	it.skipIf(process.platform === 'win32')(
+		'combines complete pagination before selecting the runner and tests',
+		() => {
+			const outcome = runWindowsLifecycleSelectorFixture(
+				[[{ filename: 'docs/example.md' }], [{ filename: 'scripts/dev-cloud.test.ts' }]],
+				'2'
+			);
+
+			expect(outcome.status, outcome.output).toBe(0);
+			expect(outcome.values).toEqual({ label: 'windows-latest', run_tests: 'true' });
+		}
+	);
 });
 
 describe('indexed source overlay', () => {
