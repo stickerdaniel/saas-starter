@@ -124,7 +124,7 @@ export async function checkAndCountUsage({
 /** Outcome of a best-effort usage refund. */
 export type RefundUsageOutcome =
 	| { status: 'refunded' }
-	| { status: 'failed'; reason: 'non_2xx'; statusCode?: number }
+	| { status: 'failed'; reason: 'non_2xx'; statusCode: number }
 	| { status: 'failed'; reason: 'exception' };
 
 /**
@@ -145,24 +145,32 @@ export async function refundUsage({
 	featureId: string;
 	value?: number;
 }): Promise<RefundUsageOutcome> {
-	let result;
+	let response: Response;
 	try {
-		const sdk = await getAutumnSdk();
-		result = await sdk.track({
-			customer_id: customerId,
-			feature_id: featureId,
-			value: -value
+		const { secretKey } = requireBillingConfiguration();
+		response = await fetch('https://api.useautumn.com/v1/track', {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${secretKey}`,
+				'Content-Type': 'application/json',
+				'x-api-version': '1.2'
+			},
+			body: JSON.stringify({
+				customer_id: customerId,
+				feature_id: featureId,
+				value: -value
+			})
 		});
 	} catch {
 		const failure = { status: 'failed', reason: 'exception' } as const;
 		console.error('[refundUsage] Autumn refund failed', failure);
 		return failure;
 	}
-	if (result.data === null) {
+	if (!response.ok) {
 		const failure = {
 			status: 'failed',
 			reason: 'non_2xx',
-			...(typeof result.statusCode === 'number' ? { statusCode: result.statusCode } : {})
+			statusCode: response.status
 		} as const;
 		console.error('[refundUsage] Autumn refund failed', failure);
 		return failure;
