@@ -12,8 +12,18 @@ vi.mock('../../autumn', () => ({
 	refundUsage: vi.fn().mockResolvedValue(undefined)
 }));
 
+vi.mock('../../env', () => {
+	class CapabilityConfigurationError extends Error {}
+	return {
+		CapabilityConfigurationError,
+		requireAiConfiguration: vi.fn(() => ({ apiKey: 'configured' })),
+		requireBillingConfiguration: vi.fn(() => ({ secretKey: 'configured' }))
+	};
+});
+
 vi.mock('../agent', () => ({
 	aiChatAgent: {
+		saveMessage: vi.fn(),
 		streamText: vi.fn()
 	}
 }));
@@ -57,14 +67,26 @@ vi.mock('../../_generated/api', () => ({
 }));
 
 import { checkAndCountUsage, refundUsage } from '../../autumn';
+import {
+	CapabilityConfigurationError,
+	requireAiConfiguration,
+	requireBillingConfiguration
+} from '../../env';
+import { authComponent } from '../../auth';
 import { saveMessage } from '@convex-dev/agent';
 import { aiChatAgent } from '../agent';
-import { createAIResponse } from '../messages';
+import { requireAiChatThreadRecord } from '../ownership';
+import { createAIResponse, sendMessage } from '../messages';
 
 const checkAndCountUsageMock = checkAndCountUsage as unknown as ReturnType<typeof vi.fn>;
 const refundUsageMock = refundUsage as unknown as ReturnType<typeof vi.fn>;
 const saveMessageMock = saveMessage as unknown as ReturnType<typeof vi.fn>;
 const streamTextMock = aiChatAgent.streamText as unknown as ReturnType<typeof vi.fn>;
+const agentSaveMessageMock = aiChatAgent.saveMessage as unknown as ReturnType<typeof vi.fn>;
+const requireAiMock = requireAiConfiguration as unknown as ReturnType<typeof vi.fn>;
+const requireBillingMock = requireBillingConfiguration as unknown as ReturnType<typeof vi.fn>;
+const requireThreadMock = requireAiChatThreadRecord as unknown as ReturnType<typeof vi.fn>;
+const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
 
 type RegisteredFunction<TArgs> = {
 	_handler: (ctx: unknown, args: TArgs) => Promise<unknown>;
@@ -88,6 +110,8 @@ describe('createAIResponse', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		requireAiMock.mockReturnValue({ apiKey: 'configured' });
+		requireBillingMock.mockReturnValue({ secretKey: 'configured' });
 		refundUsageMock.mockResolvedValue(undefined);
 		saveMessageMock.mockResolvedValue({ messageId: 'notice_1' });
 		runMutation = vi.fn().mockResolvedValue(null);
@@ -116,6 +140,41 @@ describe('createAIResponse', () => {
 			}
 		});
 		warn.mockRestore();
+	});
+
+	it('persists a terminal notice when queued work loses provider configuration', async () => {
+		requireAiMock.mockImplementationOnce(() => {
+			throw new CapabilityConfigurationError('ai', 'misconfigured');
+		});
+
+		await handler._handler(ctx, args);
+
+		expect(checkAndCountUsageMock).not.toHaveBeenCalled();
+		expect(streamTextMock).not.toHaveBeenCalled();
+		expect(saveMessageMock).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.anything(),
+			expect.objectContaining({
+				threadId: 'thread_1',
+				message: { role: 'assistant', content: expect.stringContaining('AI is unavailable') }
+			})
+		);
+	});
+
+	it('refunds and terminates if AI is lost after billing succeeds', async () => {
+		checkAndCountUsageMock.mockResolvedValue('counted');
+		requireAiMock.mockReturnValueOnce({ apiKey: 'configured' }).mockImplementationOnce(() => {
+			throw new CapabilityConfigurationError('ai', 'misconfigured');
+		});
+
+		await handler._handler(ctx, args);
+
+		expect(refundUsageMock).toHaveBeenCalledWith({
+			customerId: 'user_1',
+			featureId: 'ai_chat_messages'
+		});
+		expect(streamTextMock).not.toHaveBeenCalled();
+		expect(saveMessageMock).toHaveBeenCalled();
 	});
 
 	it('generates and keeps the counted unit on success', async () => {
@@ -167,10 +226,51 @@ describe('createAIResponse', () => {
 		expect(refundUsageMock).not.toHaveBeenCalled();
 	});
 
-	it('skips billing entirely without a userId', async () => {
+	it('skips entitlement lookup without a userId after static configuration passes', async () => {
 		await handler._handler(ctx, { threadId: 'thread_1', promptMessageId: 'prompt_1' });
 
+		expect(requireBillingMock).toHaveBeenCalled();
+		expect(requireAiMock).toHaveBeenCalled();
 		expect(checkAndCountUsageMock).not.toHaveBeenCalled();
 		expect(streamTextMock).toHaveBeenCalled();
 	});
+});
+
+describe('sendMessage provider preflight', () => {
+	const sendHandler = sendMessage as unknown as RegisteredFunction<{
+		threadId: string;
+		prompt: string;
+	}>;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		getAuthUserMock.mockResolvedValue({ _id: 'user_1' });
+		requireThreadMock.mockResolvedValue({
+			_id: 'record_1',
+			isWarm: false,
+			lastMessageAt: undefined
+		});
+		requireAiMock.mockReturnValue({ apiKey: 'configured' });
+		requireBillingMock.mockReturnValue({ secretKey: 'configured' });
+		agentSaveMessageMock.mockResolvedValue({ messageId: 'message_1' });
+	});
+
+	it.each([requireBillingMock, requireAiMock])(
+		'does not save or schedule when a required provider is not ready',
+		async (requireConfiguration) => {
+			requireConfiguration.mockImplementationOnce(() => {
+				throw new CapabilityConfigurationError('ai', 'misconfigured');
+			});
+			const patch = vi.fn();
+			const runAfter = vi.fn();
+			const ctx = { db: { patch }, scheduler: { runAfter } };
+
+			await expect(
+				sendHandler._handler(ctx, { threadId: 'thread_1', prompt: 'hello' })
+			).rejects.toThrow(CapabilityConfigurationError);
+			expect(agentSaveMessageMock).not.toHaveBeenCalled();
+			expect(patch).not.toHaveBeenCalled();
+			expect(runAfter).not.toHaveBeenCalled();
+		}
+	);
 });

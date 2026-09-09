@@ -28,7 +28,7 @@ import {
 	NEWUSERSIGNUPNOTIFICATION_HTML,
 	NEWUSERSIGNUPNOTIFICATION_TEXT
 } from '../../emails/generated/index.js';
-import { requireEnv } from '../env';
+import { requireEmailConfiguration } from '../env';
 import { t, DEFAULT_LOCALE, getValidLocale } from '../i18n/translations';
 
 /**
@@ -59,12 +59,9 @@ function escapeHtml(str: string): string {
 	);
 }
 
-/**
- * Get base URL for email assets (images, footer links)
- * Uses EMAIL_ASSET_URL env var - should point to publicly accessible URL
- */
+/** Get the validated base URL for email assets and footer links. */
 function getBaseUrl(): string {
-	return requireEnv('EMAIL_ASSET_URL', { feature: 'email asset URLs (logo, etc.)' });
+	return requireEmailConfiguration().assetUrl;
 }
 
 /**

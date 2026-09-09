@@ -1,7 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 import { components } from '../_generated/api';
 import { internalMutation, type MutationCtx } from '../_generated/server';
-import { requireEnv } from '../env';
 import { getValidLocale } from '../i18n/translations';
 import { isTestEmail } from './helpers';
 import { assertResendApiKey, resend } from './resend';
@@ -90,9 +89,9 @@ export function createFounderIncidentEmailMutation<Registry extends FounderIncid
 			});
 			const { subject, text } = validateRenderedEmail(rendered.subject, rendered.text);
 
-			assertResendApiKey();
+			const emailConfiguration = assertResendApiKey();
 			const emailId = await resend.sendEmail(ctx, {
-				from: `${contact.name} <${requireEnv('AUTH_EMAIL', { feature: 'email delivery' })}>`,
+				from: `${contact.name} <${emailConfiguration.sender}>`,
 				replyTo: contact.replyTo ? [contact.replyTo] : undefined,
 				to: email,
 				subject,

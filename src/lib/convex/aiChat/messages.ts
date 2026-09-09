@@ -17,6 +17,11 @@ import { t } from '../i18n/translations';
 import { AI_CHAT_LIMIT_NOTICE, MAX_MESSAGE_LENGTH } from '../constants';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { recordAiUsage } from '../aiUsage/record';
+import {
+	CapabilityConfigurationError,
+	requireAiConfiguration,
+	requireBillingConfiguration
+} from '../env';
 
 const THREAD_PREVIEW_LENGTH = 100;
 
@@ -48,6 +53,9 @@ export const sendMessage = authedMutation({
 			threadId: args.threadId,
 			userId
 		});
+
+		requireBillingConfiguration();
+		requireAiConfiguration();
 
 		// First send in this thread → derive a descriptive title from it. Uses
 		// lastMessageAt (written on every send, never an empty string) rather than
@@ -145,6 +153,39 @@ export const createAIResponse = internalAction({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
+		const saveTerminalNotice = async ({
+			content,
+			notice
+		}: {
+			content: string;
+			notice?: typeof AI_CHAT_LIMIT_NOTICE;
+		}) => {
+			await saveMessage(ctx, components.agent, {
+				threadId: args.threadId,
+				userId: args.userId,
+				message: { role: 'assistant', content },
+				...(notice
+					? {
+							metadata: {
+								provider: 'system',
+								providerMetadata: { system: { notice } }
+							}
+						}
+					: {})
+			});
+		};
+
+		try {
+			requireBillingConfiguration();
+			requireAiConfiguration();
+		} catch (error) {
+			if (!(error instanceof CapabilityConfigurationError)) throw error;
+			await saveTerminalNotice({
+				content: "This reply couldn't be generated because AI is unavailable."
+			});
+			return null;
+		}
+
 		// Direct SDK path with explicit customer_id (no auth context in
 		// internalAction). See: https://github.com/useautumn/autumn-js/issues/51
 		let usageCounted = false;
@@ -158,25 +199,28 @@ export const createAIResponse = internalAction({
 				// Returning without an assistant message strands the client in its
 				// awaiting-stream state. Persist a terminal notice so the turn resolves;
 				// providerMetadata lets the UI replace this fallback with localized copy.
-				await saveMessage(ctx, components.agent, {
-					threadId: args.threadId,
-					userId: args.userId,
-					message: {
-						role: 'assistant',
-						content: "You've reached your message limit, so this reply couldn't be generated."
-					},
-					metadata: {
-						provider: 'system',
-						providerMetadata: {
-							system: { notice: AI_CHAT_LIMIT_NOTICE }
-						}
-					}
+				await saveTerminalNotice({
+					content: "You've reached your message limit, so this reply couldn't be generated.",
+					notice: AI_CHAT_LIMIT_NOTICE
 				});
 				return null;
 			}
 			// 'unavailable' fails open: generate uncounted rather than blocking
 			// a legitimate user on a billing outage
 			usageCounted = outcome === 'counted';
+		}
+
+		try {
+			requireAiConfiguration();
+		} catch (error) {
+			if (!(error instanceof CapabilityConfigurationError)) throw error;
+			if (args.userId && usageCounted) {
+				await refundUsage({ customerId: args.userId, featureId: 'ai_chat_messages' });
+			}
+			await saveTerminalNotice({
+				content: "This reply couldn't be generated because AI is unavailable."
+			});
+			return null;
 		}
 
 		const sink = makeAgentUsageSink();

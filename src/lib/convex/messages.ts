@@ -7,6 +7,7 @@ import { appRateLimiter } from './rateLimit';
 import { createRateLimitError } from './support/types';
 import { t } from './i18n/translations';
 import { MAX_MESSAGE_LENGTH } from './constants';
+import { requireBillingConfiguration } from './env';
 
 export const list = authedQuery({
 	args: {},
@@ -79,6 +80,8 @@ export const send = authedMutation({
 				t(undefined, 'backend.community.message_too_long', { max: MAX_MESSAGE_LENGTH })
 			);
 		}
+
+		requireBillingConfiguration();
 
 		const status = await appRateLimiter.limit(ctx, 'communityMessage', { key: ctx.user._id });
 		if (!status.ok) {

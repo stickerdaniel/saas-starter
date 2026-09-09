@@ -53,6 +53,26 @@ vi.mock('../../constants', () => ({ MAX_MESSAGE_LENGTH: 4000 }));
 
 vi.mock('../../../config/support', () => ({ isSupportAiEnabled: vi.fn(() => true) }));
 
+vi.mock('../../env', () => {
+	class CapabilityConfigurationError extends Error {}
+	return {
+		CapabilityConfigurationError,
+		getCapabilityConfigurations: vi.fn(() => ({
+			billing: { state: 'ready', value: { secretKey: 'configured' } },
+			email: {
+				state: 'ready',
+				value: {
+					apiKey: 'configured',
+					sender: 'sender@example.com',
+					assetUrl: 'https://assets.example.com'
+				}
+			},
+			ai: { state: 'ready', value: { apiKey: 'configured' } }
+		})),
+		requireAiConfiguration: vi.fn(() => ({ apiKey: 'configured' }))
+	};
+});
+
 vi.mock('@convex-dev/agent', () => ({ getFile: vi.fn() }));
 
 vi.mock('@convex-dev/agent/validators', async () => {
@@ -91,10 +111,17 @@ import { requireSupportThreadAccess } from '../ownership';
 import { createAIResponse, sendMessage } from '../messages';
 import { syncSupportLastMessage } from '../threads';
 import { isSupportAiEnabled } from '../../../config/support';
+import {
+	CapabilityConfigurationError,
+	getCapabilityConfigurations,
+	requireAiConfiguration
+} from '../../env';
 
 const syncMock = syncSupportLastMessage as unknown as ReturnType<typeof vi.fn>;
 
 const aiEnabledMock = isSupportAiEnabled as unknown as ReturnType<typeof vi.fn>;
+const getCapabilitiesMock = getCapabilityConfigurations as unknown as ReturnType<typeof vi.fn>;
+const requireAiMock = requireAiConfiguration as unknown as ReturnType<typeof vi.fn>;
 
 const streamTextMock = supportAgent.streamText as unknown as ReturnType<typeof vi.fn>;
 
@@ -137,6 +164,38 @@ describe('createAIResponse prompt override wiring', () => {
 		expect(ctx.runQuery).not.toHaveBeenCalled();
 		// acknowledge, because no model speaks in this turn: without it the visitor
 		// gets no reply at all, and an anonymous one gets no email prompt either.
+		expect(ctx.runMutation).toHaveBeenCalledWith('internal.support.handoff.internalSetHandoff', {
+			threadId: 'thread_1',
+			acknowledge: true
+		});
+	});
+
+	it('hands queued work to the team when AI configuration is lost', async () => {
+		requireAiMock.mockImplementationOnce(() => {
+			throw new CapabilityConfigurationError('ai', 'misconfigured');
+		});
+		const ctx = { runQuery: vi.fn(), runMutation: vi.fn().mockResolvedValue(null) };
+
+		await handler._handler(ctx, args);
+
+		expect(streamTextMock).not.toHaveBeenCalled();
+		expect(ctx.runQuery).not.toHaveBeenCalled();
+		expect(ctx.runMutation).toHaveBeenCalledWith('internal.support.handoff.internalSetHandoff', {
+			threadId: 'thread_1',
+			acknowledge: true
+		});
+	});
+
+	it('hands off if AI is lost immediately before model transport', async () => {
+		requireAiMock.mockReturnValueOnce({ apiKey: 'configured' }).mockImplementationOnce(() => {
+			throw new CapabilityConfigurationError('ai', 'misconfigured');
+		});
+		const ctx = makeCtx('stored override prompt');
+
+		await handler._handler(ctx, args);
+
+		expect(ctx.runQuery).toHaveBeenCalledWith(GET_ACTIVE_REF, {});
+		expect(streamTextMock).not.toHaveBeenCalled();
 		expect(ctx.runMutation).toHaveBeenCalledWith('internal.support.handoff.internalSetHandoff', {
 			threadId: 'thread_1',
 			acknowledge: true
@@ -322,6 +381,32 @@ describe('sendMessage routing between the agent and the team', () => {
 		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
 			expect.objectContaining({ messageIds: ['m1'] })
 		);
+	});
+
+	it('persists the human handoff when configured AI is unavailable before scheduling', async () => {
+		getCapabilitiesMock.mockReturnValueOnce({
+			billing: { state: 'ready', value: { secretKey: 'configured' } },
+			email: {
+				state: 'ready',
+				value: {
+					apiKey: 'configured',
+					sender: 'sender@example.com',
+					assetUrl: 'https://assets.example.com'
+				}
+			},
+			ai: { state: 'misconfigured', issue: 'missing' }
+		});
+		givenThread({ isWarm: true, isHandedOff: false });
+		const ctx = makeCtx();
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'the map is blank' });
+
+		expect(scheduledRefs(ctx)).toEqual([SCHEDULE_NOTIFICATION_REF]);
+		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'st_1',
+			expect.objectContaining({ isHandedOff: true })
+		);
+		expect(saveMessageMock).toHaveBeenCalledTimes(2);
 	});
 
 	// The history query keeps the newest 50 entries of any role and filters to

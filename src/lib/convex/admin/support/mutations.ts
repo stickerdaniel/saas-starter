@@ -253,7 +253,8 @@ export const sendAdminReply = adminMutation({
 			? (supportThread.unreadAdminReplyCount ?? 1) + 1
 			: 1;
 
-		// Update thread: response status, assignment, and notification timestamp
+		// Update the reply state. The scheduled email mutation owns the cooldown
+		// timestamp so only a committed provider enqueue can consume it.
 		await ctx.db.patch(supportThread._id, {
 			awaitingAdminResponse: false, // Admin has responded, user is no longer waiting
 			lastAdminReplyAt: replyTimestamp,
@@ -261,13 +262,13 @@ export const sendAdminReply = adminMutation({
 			hasUnreadAdminReply: true,
 			unreadAdminReplyCount,
 			updatedAt: replyTimestamp,
-			...(shouldAutoAssign && { assignedTo: ctx.user._id }),
-			...(shouldNotify && { notificationSentAt: replyTimestamp })
+			...(shouldAutoAssign && { assignedTo: ctx.user._id })
 		});
 
 		// Schedule notification email (async - doesn't block response)
 		if (shouldNotify && supportThread.notificationEmail) {
 			await ctx.scheduler.runAfter(0, internal.emails.send.sendAdminReplyNotification, {
+				supportThreadId: supportThread._id,
 				email: supportThread.notificationEmail,
 				adminName,
 				messagePreview: emailReplyPreview(args.prompt),

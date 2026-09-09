@@ -1,12 +1,35 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../env', () => ({
-	requireEnv: vi.fn(() => 'sk_test')
+const { PUBLISHED_ACTION_NAMES, autumnSdkConstruction, check, trackSdk } = vi.hoisted(() => ({
+	PUBLISHED_ACTION_NAMES: [
+		'track',
+		'cancel',
+		'query',
+		'attach',
+		'check',
+		'checkout',
+		'usage',
+		'setupPayment',
+		'createCustomer',
+		'listProducts',
+		'billingPortal',
+		'createReferralCode',
+		'redeemReferralCode',
+		'createEntity',
+		'getEntity'
+	] as const,
+	autumnSdkConstruction: vi.fn(),
+	check: vi.fn(),
+	trackSdk: vi.fn()
 }));
 
 vi.mock('../auth', () => ({
 	authComponent: {
-		getAuthUser: vi.fn()
+		getAuthUser: vi.fn().mockResolvedValue({
+			_id: 'user_1',
+			name: 'Test User',
+			email: 'user@example.com'
+		})
 	}
 }));
 
@@ -17,34 +40,109 @@ vi.mock('../_generated/api', () => ({
 
 vi.mock('@useautumn/convex', () => ({
 	Autumn: class {
+		options: { identify: (ctx: unknown) => unknown; secretKey: string; url?: string };
+
+		constructor(
+			_publicComponent: unknown,
+			options: { identify: (ctx: unknown) => unknown; secretKey: string; url?: string }
+		) {
+			this.options = options;
+		}
+
+		async getAuthParams(_args?: unknown) {
+			autumnSdkConstruction(this.options.secretKey);
+			return { autumn: {}, identifierOpts: {} };
+		}
+
 		api() {
-			return {};
+			return Object.fromEntries(
+				PUBLISHED_ACTION_NAMES.map((name) => [
+					name,
+					{
+						_handler: async (ctx: unknown) => {
+							await this.getAuthParams({ ctx });
+							return null;
+						}
+					}
+				])
+			);
 		}
 	}
 }));
 
-const check = vi.fn();
-const track = vi.fn();
-
-// The autumn-js factory only runs when getAutumnSdk() dynamically
-// imports it inside a test, so the mocks above are initialized by then
 vi.mock('autumn-js', () => ({
 	Autumn: class {
 		check = check;
-		track = track;
+		track = trackSdk;
+
+		constructor(options: { secretKey: string }) {
+			autumnSdkConstruction(options.secretKey);
+		}
 	}
 }));
 
-import { checkAndCountUsage, refundUsage } from '../autumn';
+import * as autumnModule from '../autumn';
+import { checkAndCountUsage, getAutumnSdk, refundUsage } from '../autumn';
 
-// checkAndCountUsage wraps Autumn's atomic check-with-send_event. The
-// outcome mapping is the single place that decides between counted,
-// denied, and fail-open behavior for every metered feature, so each
-// branch is pinned here. Call sites only branch on the outcome
-// (covered in messages.test.ts and createAIResponse.test.ts).
+function setReadyBilling() {
+	vi.stubEnv('AUTUMN_SECRET_KEY', 'configured-autumn-key');
+}
+
+function registeredAction(value: unknown) {
+	return value as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> };
+}
+
+afterEach(() => {
+	vi.unstubAllEnvs();
+});
+
+describe('published Autumn actions', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('keeps the complete published action surface guarded', async () => {
+		vi.stubEnv('AUTUMN_SECRET_KEY', 'am_sk_local_e2e_dummy');
+
+		for (const name of PUBLISHED_ACTION_NAMES) {
+			await expect(registeredAction(autumnModule[name])._handler({}, {})).rejects.toThrow(
+				'[capability] billing is misconfigured'
+			);
+		}
+
+		expect(autumnSdkConstruction).not.toHaveBeenCalled();
+	});
+
+	it('constructs autumn-js only after a ready action reaches getAuthParams', async () => {
+		setReadyBilling();
+
+		await registeredAction(autumnModule.check)._handler({}, {});
+
+		expect(autumnSdkConstruction).toHaveBeenCalledTimes(1);
+		expect(autumnSdkConstruction).toHaveBeenCalledWith('configured-autumn-key');
+	});
+});
+
+describe('getAutumnSdk', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it.each([
+		{ state: 'disabled' as const },
+		{ state: 'misconfigured' as const, issue: 'missing' as const }
+	])('does not import or construct the SDK for $state configuration', async (configuration) => {
+		await expect(getAutumnSdk(configuration)).rejects.toThrow(
+			`[capability] billing is ${configuration.state}`
+		);
+		expect(autumnSdkConstruction).not.toHaveBeenCalled();
+	});
+});
+
 describe('checkAndCountUsage', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		setReadyBilling();
 	});
 
 	it('sends an atomic check and maps allowed to counted', async () => {
@@ -64,26 +162,38 @@ describe('checkAndCountUsage', () => {
 	it('maps a definitive not-allowed response to denied', async () => {
 		check.mockResolvedValue({ data: { allowed: false } });
 
-		const outcome = await checkAndCountUsage({ customerId: 'user_1', featureId: 'messages' });
-
-		expect(outcome).toBe('denied');
+		expect(await checkAndCountUsage({ customerId: 'user_1', featureId: 'messages' })).toBe(
+			'denied'
+		);
 	});
 
-	it('maps a missing data payload (non-2xx response) to unavailable', async () => {
+	it('fails closed without SDK construction when billing is misconfigured', async () => {
+		vi.stubEnv('AUTUMN_SECRET_KEY', 'am_sk_local_e2e_dummy');
+
+		expect(await checkAndCountUsage({ customerId: 'user_1', featureId: 'messages' })).toBe(
+			'denied'
+		);
+		expect(autumnSdkConstruction).not.toHaveBeenCalled();
+		expect(check).not.toHaveBeenCalled();
+	});
+
+	it('maps a missing data payload after a ready attempt to unavailable', async () => {
 		check.mockResolvedValue({ data: null });
 
-		const outcome = await checkAndCountUsage({ customerId: 'user_1', featureId: 'messages' });
-
-		expect(outcome).toBe('unavailable');
+		expect(await checkAndCountUsage({ customerId: 'user_1', featureId: 'messages' })).toBe(
+			'unavailable'
+		);
+		expect(autumnSdkConstruction).toHaveBeenCalledTimes(1);
 	});
 
-	it('maps a thrown network error to unavailable', async () => {
+	it('maps a thrown provider error after a ready attempt to unavailable', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		check.mockRejectedValue(new Error('network down'));
 
-		const outcome = await checkAndCountUsage({ customerId: 'user_1', featureId: 'messages' });
-
-		expect(outcome).toBe('unavailable');
+		expect(await checkAndCountUsage({ customerId: 'user_1', featureId: 'messages' })).toBe(
+			'unavailable'
+		);
+		expect(autumnSdkConstruction).toHaveBeenCalledTimes(1);
 		warn.mockRestore();
 	});
 
@@ -99,29 +209,30 @@ describe('checkAndCountUsage', () => {
 describe('refundUsage', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		setReadyBilling();
 	});
 
 	it('credits the balance with a negative track value', async () => {
-		track.mockResolvedValue({ data: {} });
+		trackSdk.mockResolvedValue({ data: {} });
 
 		await refundUsage({ customerId: 'user_1', featureId: 'ai_chat_messages' });
 
-		expect(track).toHaveBeenCalledWith({
+		expect(trackSdk).toHaveBeenCalledWith({
 			customer_id: 'user_1',
 			feature_id: 'ai_chat_messages',
 			value: -1
 		});
 	});
 
-	it('never throws: a failed refund is logged, not propagated', async () => {
+	it('never throws when a refund fails', async () => {
 		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-		track.mockRejectedValue(new Error('network down'));
+		trackSdk.mockRejectedValue(new Error('network down'));
 
 		await expect(
 			refundUsage({ customerId: 'user_1', featureId: 'ai_chat_messages', value: 2 })
 		).resolves.toBeUndefined();
 
-		expect(track).toHaveBeenCalledWith(expect.objectContaining({ value: -2 }));
+		expect(trackSdk).toHaveBeenCalledWith(expect.objectContaining({ value: -2 }));
 		error.mockRestore();
 	});
 });

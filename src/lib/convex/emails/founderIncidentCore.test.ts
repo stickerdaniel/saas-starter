@@ -90,6 +90,7 @@ describe('createFounderIncidentEmailMutation', () => {
 	it('queues one localized plain-text email and records the component enqueue', async () => {
 		vi.stubEnv('RESEND_API_KEY', 're_test');
 		vi.stubEnv('AUTH_EMAIL', 'founder@example.com');
+		vi.stubEnv('EMAIL_ASSET_URL', 'https://assets.example.com');
 		const sendEmail = vi.spyOn(resend, 'sendEmail').mockResolvedValue('email_1' as never);
 		const { ctx, handler, rows } = setup();
 		const args = { userId: 'user_1', incident: 'service_restored_2026_08_24' };
@@ -119,6 +120,21 @@ describe('createFounderIncidentEmailMutation', () => {
 				deliveryStatus: 'waiting'
 			})
 		]);
+	});
+
+	it('does not enqueue or commit a delivery row when email configuration is malformed', async () => {
+		vi.stubEnv('RESEND_API_KEY', 're_local_e2e_dummy');
+		vi.stubEnv('AUTH_EMAIL', 'founder@example.com');
+		vi.stubEnv('EMAIL_ASSET_URL', 'https://assets.example.com');
+		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'test-selector-must-not-bypass');
+		const sendEmail = vi.spyOn(resend, 'sendEmail');
+		const { ctx, handler, rows } = setup();
+
+		await expect(
+			handler(ctx, { userId: 'user_1', incident: 'service_restored_2026_08_24' })
+		).rejects.toThrow('[capability] email is misconfigured');
+		expect(sendEmail).not.toHaveBeenCalled();
+		expect(rows).toHaveLength(0);
 	});
 
 	it.each([
@@ -169,6 +185,7 @@ describe('createFounderIncidentEmailMutation', () => {
 	it('falls back to the source locale before rendering', async () => {
 		vi.stubEnv('RESEND_API_KEY', 're_test');
 		vi.stubEnv('AUTH_EMAIL', 'founder@example.com');
+		vi.stubEnv('EMAIL_ASSET_URL', 'https://assets.example.com');
 		vi.spyOn(resend, 'sendEmail').mockResolvedValue('email_1' as never);
 		const render = vi.fn(() => ({ subject: 'Restored', text: 'Body' }));
 		const { ctx, handler } = setup({

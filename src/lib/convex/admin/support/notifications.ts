@@ -22,6 +22,7 @@ import { internalMutation, internalAction, internalQuery } from '../../_generate
 import { internal, components } from '../../_generated/api';
 import { supportThreadFields } from '../../support/supportThreadFields';
 import { isPreviewAdminEmail } from '../notificationPreferences/helpers';
+import { getEmailDeliveryConfiguration } from '../../emails/resend';
 
 /** Delay before sending a notification after the latest message. */
 const NOTIFICATION_DELAY_MS = 4 * 60 * 1000;
@@ -54,6 +55,8 @@ export const scheduleAdminNotification = internalMutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
+		if (getEmailDeliveryConfiguration().state !== 'ready') return null;
+
 		// A handoff with no prior user messages (a bare "Talk to a human") still
 		// notifies admins. Downstream the email renders a no-messages fallback line
 		// instead of message excerpts.
@@ -168,6 +171,13 @@ export const sendPendingAdminNotification = internalAction({
 			return null;
 		}
 
+		if (getEmailDeliveryConfiguration().state !== 'ready') {
+			await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
+				notificationId: args.notificationId
+			});
+			return null;
+		}
+
 		// Get support thread data
 		const supportThread = await ctx.runQuery(
 			internal.admin.support.notifications.getSupportThread,
@@ -216,18 +226,21 @@ export const sendPendingAdminNotification = internalAction({
 		let sentCount = 0;
 		for (const email of targetEmails) {
 			try {
-				await ctx.runMutation(internal.emails.send.sendNewTicketAdminNotification, {
-					email,
-					isReopen: notification.isReopen,
-					// A handoff with no accumulated messages is a bare "Talk to a human",
-					// so the email's empty-state line names the handoff instead of the
-					// neutral "no messages" shared with reopen/reply notifications.
-					isBareHandoff: notification.messageIds.length === 0,
-					userName: supportThread.userName || 'Anonymous',
-					messages,
-					threadId: notification.threadId
-				});
-				sentCount++;
+				const enqueued = await ctx.runMutation(
+					internal.emails.send.sendNewTicketAdminNotification,
+					{
+						email,
+						isReopen: notification.isReopen,
+						// A handoff with no accumulated messages is a bare "Talk to a human",
+						// so the email's empty-state line names the handoff instead of the
+						// neutral "no messages" shared with reopen/reply notifications.
+						isBareHandoff: notification.messageIds.length === 0,
+						userName: supportThread.userName || 'Anonymous',
+						messages,
+						threadId: notification.threadId
+					}
+				);
+				if (enqueued) sentCount++;
 			} catch (error) {
 				// Log error but continue to other recipients
 				console.error(
@@ -235,6 +248,15 @@ export const sendPendingAdminNotification = internalAction({
 					error instanceof Error ? error.message : error
 				);
 			}
+		}
+
+		// If configuration changed while recipient sends were running, finish the
+		// claimed row instead of retrying work that cannot reach the provider.
+		if (sentCount === 0 && getEmailDeliveryConfiguration().state !== 'ready') {
+			await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
+				notificationId: args.notificationId
+			});
+			return null;
 		}
 
 		// If all sends failed, reschedule for retry (up to MAX_RETRY_COUNT attempts)
