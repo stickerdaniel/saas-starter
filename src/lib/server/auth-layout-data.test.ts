@@ -9,6 +9,7 @@ const { createAutumnHandlers, getCustomer, query } = vi.hoisted(() => ({
 
 vi.mock('$lib/convex/_generated/api', () => ({
 	api: {
+		autumn: { check: 'autumn:check' },
 		capabilities: { getUsability: 'capabilities:getUsability' },
 		users: { viewer: 'users:viewer' }
 	}
