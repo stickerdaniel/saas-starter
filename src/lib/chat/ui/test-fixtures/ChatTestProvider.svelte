@@ -17,12 +17,14 @@
 		client,
 		content: Content,
 		contentProps,
-		supportThread
+		supportThread,
+		provideTolgee = true
 	}: {
 		client: ConvexClient;
 		content: Component<Props>;
 		contentProps: Props;
 		supportThread?: SupportThreadContext;
+		provideTolgee?: boolean;
 	} = $props();
 
 	// The provider is fixed for the mounted test instance.
@@ -33,8 +35,19 @@
 	// svelte-ignore state_referenced_locally
 	if (supportThread) supportThreadContext.set(supportThread);
 	const tolgee = Tolgee().use(FormatSimple()).init({ language: 'en', staticData: { en } });
+	// Tests may replace the child props without remounting its providers.
+	// svelte-ignore state_referenced_locally
+	let renderedContentProps = $state.raw(contentProps);
+
+	export function setContentProps(next: Props) {
+		renderedContentProps = next;
+	}
 </script>
 
-<TolgeeProvider {tolgee}>
-	<Content {...contentProps} />
-</TolgeeProvider>
+{#if provideTolgee}
+	<TolgeeProvider {tolgee}>
+		<Content {...renderedContentProps} />
+	</TolgeeProvider>
+{:else}
+	<Content {...renderedContentProps} />
+{/if}
