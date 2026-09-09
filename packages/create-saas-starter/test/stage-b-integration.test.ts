@@ -13,6 +13,10 @@ function triggerPaths(workflow: string, event: 'push' | 'pull_request'): string[
 	return [...eventBlock.matchAll(/^ {6}- (.+)$/gm)].map((match) => match[1]!);
 }
 
+function workflowSteps(workflow: string): string[] {
+	return workflow.split(/^ {6}- /m).slice(1);
+}
+
 describe('root creator commands', () => {
 	it('dispatches every CLI boundary through Bun with an explicit child cwd', () => {
 		const manifest = JSON.parse(read('package.json')) as { scripts: Record<string, string> };
@@ -50,6 +54,35 @@ describe('creator workflows', () => {
 		expect(workflow).toContain('CREATE_SAAS_STARTER_ARTIFACT_DIR:');
 		expect(workflow).toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a');
 		expect(workflow).not.toMatch(/\bnpm publish\b|\bbun publish\b/);
+	});
+
+	it('generates the root base tsconfig before child tests transform the shared helper', () => {
+		const workflow = read('.github/workflows/create-saas-starter.yml');
+		const steps = workflowSteps(workflow);
+		const commands = [
+			'bun install --cwd packages/create-saas-starter --frozen-lockfile',
+			'bun install --frozen-lockfile --ignore-scripts',
+			'bun svelte-kit sync',
+			'bun run --cwd packages/create-saas-starter test'
+		];
+		const indices = commands.map((command) =>
+			steps.findIndex((step) => step.startsWith(`run: ${command}\n`))
+		);
+
+		expect(indices.every((index) => index !== -1)).toBe(true);
+		expect(indices).toEqual([...indices].sort((left, right) => left - right));
+		const syncStep = steps[indices[2]!]!;
+		expect([...syncStep.matchAll(/^ {10}([A-Z][A-Z0-9_]+):/gm)].map((match) => match[1])).toEqual([
+			'PUBLIC_CONVEX_URL',
+			'PUBLIC_CONVEX_SITE_URL'
+		]);
+		expect(read('tsconfig.json')).toContain('"extends": "./.svelte-kit/tsconfig.json"');
+		expect(read('packages/create-saas-starter/tsconfig.json')).toContain(
+			'"../../scripts/windows-job.ts"'
+		);
+		expect(read('packages/create-saas-starter/src/process.ts')).toContain(
+			"from '../../../scripts/windows-job.ts'"
+		);
 	});
 
 	it('triggers child tests when covered external workflows change', () => {

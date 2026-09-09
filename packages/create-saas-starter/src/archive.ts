@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { Parser, type ReadEntry } from 'tar';
+import { Header, Parser, Pax, type ReadEntry } from 'tar';
 import { isReservedWindowsDeviceName } from './options.js';
 import { MAX_ARCHIVE_BYTES } from './template.js';
 
@@ -78,6 +78,127 @@ function validatePortablePath(value: string): string[] {
 		}
 	}
 	return segments;
+}
+
+function validateRawSpelling(value: Buffer, kind: 'path' | 'link path'): void {
+	const terminator = value.indexOf(0);
+	const spelling = terminator === -1 ? value : value.subarray(0, terminator);
+	if (spelling.includes(0x5c)) fail(`backslash ${kind} metadata`);
+}
+
+function validateRawHeaderSize(value: Buffer): void {
+	const terminator = value.indexOf(0);
+	const spelling = (terminator === -1 ? value : value.subarray(0, terminator))
+		.toString('ascii')
+		.trim();
+	if (value[0] === 0xff || spelling.startsWith('-')) fail('negative archive entry size');
+}
+
+function validatePaxMetadata(body: Buffer): void {
+	// Match node-tar's record acceptance so a malformed line cannot hide a later applied field.
+	for (const line of body.toString('utf8').replace(/\n$/, '').split('\n')) {
+		const length = Number.parseInt(line, 10);
+		if (length !== Buffer.byteLength(line) + 1) continue;
+		const payload = line.slice(`${length} `.length);
+		const equals = payload.indexOf('=');
+		if (equals === -1) continue;
+		const key = payload.slice(0, equals);
+		const value = payload.slice(equals + 1).replace(/\0.*/, '');
+		if (key === 'size') {
+			if (Number(value) < 0) fail('negative archive entry size');
+			continue;
+		}
+		if (key !== 'path' && key !== 'linkpath') continue;
+		if (value.includes('\\')) fail(`backslash ${key === 'path' ? 'path' : 'link path'} metadata`);
+	}
+}
+
+function validateRawTarMetadata(raw: Buffer): void {
+	// ReadEntry normalizes separators on Windows, so validate only original metadata before parsing.
+	let offset = 0;
+	let entries = 0;
+	let nullBlocks = 0;
+	let extended: Pax | undefined;
+	let globalExtended: Pax | undefined;
+	while (offset + 512 <= raw.length) {
+		const block = raw.subarray(offset, offset + 512);
+		let header: Header;
+		try {
+			header = new Header(block, 0, extended, globalExtended);
+		} catch {
+			return;
+		}
+		if (header.nullBlock) {
+			nullBlocks += 1;
+			offset += 512;
+			if (nullBlocks === 2) return;
+			continue;
+		}
+		nullBlocks = 0;
+		if (!header.cksumValid || !header.path) return;
+		validateRawHeaderSize(block.subarray(124, 136));
+		if (header.size === undefined || !Number.isSafeInteger(header.size)) {
+			fail('invalid archive entry size');
+		}
+		if (header.size < 0) fail('negative archive entry size');
+		const isPax =
+			header.type === 'ExtendedHeader' ||
+			header.type === 'OldExtendedHeader' ||
+			header.type === 'GlobalExtendedHeader';
+		const isGnuPath = header.type === 'NextFileHasLongPath' || header.type === 'OldGnuLongPath';
+		const isGnuLink = header.type === 'NextFileHasLongLinkpath';
+		if (!isPax && !isGnuPath && !isGnuLink && ++entries > MAX_ARCHIVE_ENTRIES) {
+			fail(`archive contains more than ${MAX_ARCHIVE_ENTRIES} entries`);
+		}
+
+		validateRawSpelling(block.subarray(0, 100), 'path');
+		validateRawSpelling(block.subarray(157, 257), 'link path');
+		if (block.subarray(257, 265).toString() === 'ustar\0' + '00') {
+			validateRawSpelling(block.subarray(345, 500), 'path');
+		}
+
+		const bodyStart = offset + 512;
+		const paddedSize = Math.ceil(header.size / 512) * 512;
+		const bodyEnd = bodyStart + header.size;
+		const nextOffset = bodyStart + paddedSize;
+		if (
+			!Number.isSafeInteger(bodyStart) ||
+			!Number.isSafeInteger(paddedSize) ||
+			!Number.isSafeInteger(bodyEnd) ||
+			!Number.isSafeInteger(nextOffset) ||
+			bodyStart <= offset ||
+			paddedSize < header.size ||
+			bodyEnd < bodyStart ||
+			nextOffset < bodyEnd ||
+			nextOffset <= offset
+		) {
+			fail('invalid archive entry size');
+		}
+		if (bodyEnd > raw.length || nextOffset > raw.length) return;
+		if (isPax || isGnuPath || isGnuLink) {
+			if (header.size > MAX_META_ENTRY_BYTES) {
+				fail(`metadata entry exceeds ${MAX_META_ENTRY_BYTES} bytes`);
+			}
+			const body = raw.subarray(bodyStart, bodyEnd);
+			const metadata = body.toString('utf8');
+			if (isPax) {
+				validatePaxMetadata(body);
+				if (header.type === 'GlobalExtendedHeader') {
+					globalExtended = Pax.parse(metadata, globalExtended, true);
+				} else {
+					extended = Pax.parse(metadata, extended);
+				}
+			} else {
+				validateRawSpelling(body, isGnuPath ? 'path' : 'link path');
+				extended ??= new Pax({});
+				if (isGnuPath) extended.path = metadata.replace(/\0.*/, '');
+				else extended.linkpath = metadata.replace(/\0.*/, '');
+			}
+		} else {
+			extended = undefined;
+		}
+		offset = nextOffset;
+	}
 }
 
 function isRejectedTemplatePath(value: string): boolean {
@@ -353,6 +474,7 @@ export async function validateTemplateArchive(
 		);
 	}
 	if (raw.length > MAX_DECOMPRESSED_BYTES) fail('decompressed archive exceeds the size limit');
+	validateRawTarMetadata(raw);
 	const parsed = await parseTar(raw);
 	const rooted = stripArchiveRoot(parsed);
 	const materialized = materializeAliases(rooted, metrics);
