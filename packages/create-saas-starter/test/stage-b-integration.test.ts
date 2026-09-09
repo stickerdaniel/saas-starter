@@ -24,6 +24,14 @@ describe('root creator commands', () => {
 			'test:cli:packed': 'bun run --cwd packages/create-saas-starter test:packed'
 		});
 	});
+
+	it('runs child tests exactly once from the complete root suite', () => {
+		const manifest = JSON.parse(read('package.json')) as { scripts: Record<string, string> };
+		const rootTestCommands = manifest.scripts.test.split('&&').map((command) => command.trim());
+
+		expect(rootTestCommands.filter((command) => command === 'bun run test:cli')).toHaveLength(1);
+		expect(read('vite.config.ts')).toContain("'packages/create-saas-starter/test/**'");
+	});
 });
 
 describe('creator workflows', () => {
