@@ -7,102 +7,28 @@
 
 import { getContext, setContext, untrack } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatCore } from '../core/chat-core.svelte.ts';
-import type { DisplayMessage, Attachment, MessageRole, UploadState } from '../core/types.js';
-import { uploadFileWithProgress, UploadError } from '../core/file-uploader.js';
-import type {
-	AttachmentsByThread,
-	ChatAttachmentStore
-} from '../core/chat-attachment-store.svelte.ts';
-import {
-	getChatSessionEpoch,
-	isChatSessionCurrent,
-	registerPersistedChatHolder
-} from '../core/chat-persisted-state.ts';
+import type { Attachment, DisplayMessage, MessageRole } from '../core/types.js';
+import { getChatSessionEpoch, isChatSessionCurrent } from '../core/chat-persisted-state.js';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
+import type { AttachmentPreprocess } from './attachment-transfer.js';
+import { ComposerAttachmentCoordinator } from './composer-attachment-coordinator.svelte.ts';
+import type {
+	ActiveUploadsRegistry,
+	ComposerAttachmentSendSnapshot,
+	UploadConfig
+} from './composer-attachment-coordinator.svelte.ts';
+
+export type {
+	ActiveUploadsRegistry,
+	UploadConfig
+} from './composer-attachment-coordinator.svelte.ts';
 
 /**
  * Message alignment - controls which side messages appear on
  */
 export type ChatAlignment = 'left' | 'right';
-
-/**
- * A ready-to-send upload: what the transport receives after any client-side
- * preprocessing. Retained per attachment so a retry repeats the same transfer
- * instead of redoing the preprocessing, which is neither free nor idempotent
- * (image re-encoding renames the file and changes its bytes).
- */
-type UploadJob = {
-	blob: File | Blob;
-	filename: string;
-	dimensions?: { width: number; height: number };
-	/**
-	 * Who the stored file belongs to, read when the file was picked.
-	 *
-	 * Every surface derives this from the thread it is showing, and the transfer
-	 * can start long after the pick: an image spends its encoding time first, and
-	 * a retry happens whenever the user gets to it. Reading it at that point would
-	 * file the attachment under whatever thread is on screen by then.
-	 */
-	accessKey?: string;
-};
-
-/** Ranks for a transfer that is over, and one that has to start again, against
- * the 0-100 progress of any still running. */
-const SETTLED_RANK = 101;
-const FAILED_RANK = -1;
-
-/** A canceled upload, which the user caused and does not need to be told about. */
-function isAbortError(error: unknown): boolean {
-	return error instanceof DOMException && error.name === 'AbortError';
-}
-
-/**
- * Configuration for file uploads
- */
-export interface UploadConfig {
-	generateUploadUrl: Parameters<ConvexClient['mutation']>[0];
-	saveUploadedFile: Parameters<ConvexClient['action']>[0];
-	/** Locale for translated error messages */
-	locale?: string;
-	/**
-	 * Tolgee translate function supplied by the parent Svelte component (this
-	 * is a `.svelte.ts` class with no `$t` rune). Used to localize upload error
-	 * toasts; falls back to English when not provided. The param value type
-	 * matches Tolgee's `DefaultParamType` so the wrapper passes through to `$t`.
-	 */
-	translate?: (key: string, params?: Record<string, string | number | bigint | Date>) => string;
-	/** Optional access key provider for file control */
-	getAccessKey?: () => string | undefined;
-	/**
-	 * Where uploaded attachments are kept so a reload does not lose them.
-	 *
-	 * Carried here rather than as its own constructor argument because only a
-	 * configured upload can produce anything worth keeping: what survives is the
-	 * reference to a file that is already stored.
-	 */
-	attachmentStore?: ChatAttachmentStore;
-	/** Provider for extra args to pass to generateUploadUrl (e.g., anonymousUserId for rate limiting) */
-	getGenerateUploadUrlArgs?: () => Record<string, unknown>;
-	/**
-	 * Optional action that returns the text of a stored attachment for the
-	 * preview dialog. Required to render markdown/text/code previews of
-	 * already-sent attachments (no local blob); without it the preview falls
-	 * back to the raw iframe. Receives `{ url, locale, ...getGenerateUploadUrlArgs() }`.
-	 */
-	getAttachmentText?: Parameters<ConvexClient['action']>[0];
-}
-
-/**
- * The part of the app's in-flight upload registry this context reports to.
- * Structural on purpose, so the chat module stays independent of the app hook.
- */
-export interface ActiveUploadsRegistry {
-	claim(owner: object): void;
-	release(owner: object): void;
-}
 
 type ChatConversationOrigin = {
 	generation: number;
@@ -115,7 +41,7 @@ export type ChatSendSnapshot = {
 	inputValue: string;
 	inputRevision: number;
 	inputClearedRevision?: number;
-	attachments: Attachment[];
+	attachments: ComposerAttachmentSendSnapshot;
 };
 
 /**
@@ -157,77 +83,16 @@ export class ChatUIContext {
 	/** Current input value */
 	inputValue = $state('');
 	private inputRevision = 0;
+	private conversationOrigin: ChatConversationOrigin;
 
-	/** Attachments for current message. Each entry's `key` is the stable id
-	 * used by upload methods to apply progress/success/error updates by value
-	 * rather than by array index. */
-	attachments = $state<Attachment[]>([]);
-
-	/**
-	 * Attachments of threads the user stepped away from, by thread id.
-	 *
-	 * Deliberately unbounded: evicting one would be the silent loss this exists
-	 * to prevent. What it can grow to is bounded by the user's own picking, one
-	 * file dialog at a time, and a retry payload is only retained while its
-	 * attachment can still fail. Everything here is released on dispose.
-	 */
-	private readonly parked = new SvelteMap<string, Attachment[]>();
-
-	/** Takes this context back out of the register of mounted composers. */
-	private readonly unregister: () => void;
-
-	/** Cancels the in-flight upload of an attachment, keyed by its stable `key`. */
-	private readonly uploadAborters = new SvelteMap<string, AbortController>();
-
-	/**
-	 * Where to report work in progress, so navigating away asks first.
-	 *
-	 * Reported from here rather than watched from a component: this context
-	 * outlives the chat rendering it. Closing the support panel unmounts the chat
-	 * while the work keeps running, and the screenshot flow uploads through this
-	 * context with no chat mounted at all, so a component-scoped claim would be
-	 * given up, or never taken, while the file is still going somewhere.
-	 */
-	private readonly activeUploads: ActiveUploadsRegistry | null;
-
-	/**
-	 * Attachments the user is still waiting on, by key.
-	 *
-	 * Wider than `uploadAborters`, which only covers the transfer. An image
-	 * spends a visible stretch in the WebP encoder first, with the tile already
-	 * showing progress, and losing the page there loses the pick just the same.
-	 * Also narrower where it matters: a discarded attachment leaves this set at
-	 * once, even though the request it started may take a while to unwind.
-	 */
-	private readonly pendingUploads = new SvelteSet<string>();
-
-	/**
-	 * The exact payload each failed attachment would need to try again. Held
-	 * because retrying from the picked file is not equivalent: images are
-	 * re-encoded before upload, and screenshots never had a File to begin with.
-	 * Only kept while the attachment is present, so a discarded blob is freed.
-	 */
-	private readonly retryJobs = new SvelteMap<string, UploadJob>();
+	/** Attachment collection and lifecycle owner behind this UI facade. */
+	private readonly attachmentCoordinator: ComposerAttachmentCoordinator;
 
 	/** The one composer mounted inside this ChatRoot. */
 	private composerFocus?: () => void;
 
 	/** Tracks if we've ever displayed messages in this session */
 	private _hasEverDisplayedMessages = false;
-
-	/** Last known thread ID for detecting navigation */
-	private _lastThreadId: string | null | undefined = undefined;
-	/** Identity object shared with snapshots from the current conversation. */
-	private conversationOrigin: ChatConversationOrigin;
-
-	/**
-	 * Whether the surface this belongs to is gone.
-	 *
-	 * Read only by `persist`, so tearing the context down is not mistaken for
-	 * the user emptying their composer: `dispose` drops every attachment, and
-	 * saving that would erase exactly what a reload is supposed to bring back.
-	 */
-	private disposed = false;
 
 	constructor(
 		core: ChatCore,
@@ -240,7 +105,6 @@ export class ChatUIContext {
 		this.client = client;
 		this.uploadConfig = uploadConfig;
 		this.userAlignment = userAlignment;
-		this.activeUploads = activeUploads;
 		this.conversationOrigin = {
 			generation: untrack(() => core.threadGeneration),
 			threadId: untrack(() => core.threadId)
@@ -255,21 +119,22 @@ export class ChatUIContext {
 			const origin = this.syncConversationOrigin();
 			if (origin.generation === generation && origin.threadId === null) origin.threadId = threadId;
 		});
-
-		// Composers a reload took away arrive parked, under the thread they were
-		// left in. From here on nothing knows the difference between one that came
-		// off disk and one the user stepped away from a moment ago, and each waits
-		// to be walked back into.
-		for (const [threadId, attachments] of uploadConfig?.attachmentStore?.read() ?? []) {
-			this.parked.set(threadId, attachments);
-		}
-		// The thread already on screen claims its own here rather than waiting for
-		// the first render. Waiting would leave its own attachments parked under
-		// the id it is standing in, and a save before then writes the live list
-		// over them: the screenshot flow uploads through this context with no chat
-		// mounted at all, so that first render may never come.
-		this.adoptParked(untrack(() => core.threadId));
-		this.unregister = registerPersistedChatHolder(this);
+		this.attachmentCoordinator = new ComposerAttachmentCoordinator({
+			getThreadId: () => core.threadId,
+			client,
+			uploadConfig,
+			activeUploads,
+			onForgetPersistedState: () => {
+				const resettableCore = core as ChatCore & { forgetChatSession?: () => void };
+				resettableCore.forgetChatSession?.();
+				this.conversationOrigin = {
+					generation: untrack(() => core.threadGeneration),
+					threadId: untrack(() => core.threadId)
+				};
+				this.inputValue = '';
+				this.inputRevision++;
+			}
+		});
 	}
 
 	/**
@@ -282,28 +147,7 @@ export class ChatUIContext {
 	 * still mounted on whatever page the user lands on after signing out.
 	 */
 	forgetPersistedState(): void {
-		const resettableCore = this.core as ChatCore & { forgetChatSession?: () => void };
-		resettableCore.forgetChatSession?.();
-		this.conversationOrigin = {
-			generation: untrack(() => this.core.threadGeneration),
-			threadId: untrack(() => this.core.threadId)
-		};
-		const abandoned = [...this.parked.keys()];
-		for (const attachments of this.parked.values()) {
-			for (const attachment of attachments) {
-				this.releaseUpload(attachment);
-				this.revokePreview(attachment);
-			}
-		}
-		this.parked.clear();
-		// A transfer still running belongs to an identity that is gone, so it is
-		// stopped here for the same reason sign-out does not wait for one.
-		this.clearAttachments();
-		this.setInputValue('');
-		// Named so they are struck from storage rather than merely dropped here.
-		// The sweep empties the whole key anyway; doing it from this side too
-		// means letting go stays complete on its own terms.
-		this.persist(...abandoned);
+		this.attachmentCoordinator.forgetPersistedState();
 	}
 
 	/**
@@ -391,40 +235,14 @@ export class ChatUIContext {
 	 * Update display messages
 	 */
 	setDisplayMessages(messages: DisplayMessage[]): void {
-		// Detect thread navigation (reset when changing between existing threads)
-		const currentThreadId = untrack(() => this.core.threadId);
 		this.syncConversationOrigin();
-
-		// Reset only on actual navigation between threads
-		// NOT on null → threadId (thread creation) or during brief empty states
-		if (this._lastThreadId === undefined) {
-			// First sight of any thread here. After a reload this thread's composer
-			// is parked, restored from storage by the constructor, and the live one
-			// is empty, so the same take-back that serves a warm thread serves this.
-			this.adoptParked(currentThreadId);
-		} else if (currentThreadId !== this._lastThreadId) {
-			if (this._lastThreadId === null) {
-				// The conversation with no id is this thread now, and what its
-				// composer holds comes along in the live list. Its own leavings may
-				// not stay behind under the empty key: sending would clear this
-				// thread's entry and not that one, and the next load with no id
-				// would offer back a file that has already gone out.
-				//
-				// Only its own. That key belongs to every conversation still waiting
-				// for an id, so another tab may be sitting on one, and its files are
-				// not this page's to strike.
-				this.parked.delete('');
-				this.adoptParked(currentThreadId);
-				this.parked.set('', this.strangersUnderEmptyKey());
-				this.persist('');
-			} else {
-				this.messagesFade.reset();
-				this._hasEverDisplayedMessages = false;
-				this.parkAttachments(this._lastThreadId, currentThreadId);
-			}
+		// The attachment coordinator owns thread identity and preserves the
+		// historical park/adopt transitions. UI animation resets only when leaving
+		// a real thread, never when a new conversation first receives its id.
+		if (this.attachmentCoordinator.syncThread()) {
+			this.messagesFade.reset();
+			this._hasEverDisplayedMessages = false;
 		}
-		this._lastThreadId = currentThreadId;
-
 		this.displayMessages = messages;
 
 		// Only trigger animation on truly first display of messages
@@ -482,11 +300,7 @@ export class ChatUIContext {
 			origin: this.syncConversationOrigin(),
 			inputValue: this.inputValue,
 			inputRevision: this.inputRevision,
-			attachments: this.attachments.map((attachment) =>
-				(attachment.type === 'file' || attachment.type === 'screenshot') && attachment.uploadState
-					? { ...attachment, uploadState: { ...attachment.uploadState } }
-					: { ...attachment }
-			)
+			attachments: this.attachmentCoordinator.captureSendAttachments()
 		};
 	}
 
@@ -518,801 +332,96 @@ export class ChatUIContext {
 		snapshot.inputClearedRevision = this.inputRevision;
 	}
 
-	/**
-	 * Add attachments
-	 */
-	addAttachments(newAttachments: Attachment[]): void {
-		this.attachments = [...this.attachments, ...newAttachments];
-		this.persist();
-	}
-
-	/**
-	 * Write down what the composers this call changed are holding, so a reload
-	 * can hand them back.
-	 *
-	 * Called from each method that changes either list, naming the threads it
-	 * changed. Only settled uploads reach storage, so the progress of a running
-	 * one passes through here without producing a write.
-	 *
-	 * Nothing else goes into the save, not even the parked lists this page is
-	 * holding: they were written when they were parked, and another tab on the
-	 * same chat may have moved them on since. Sending this page's copy back
-	 * would undo whatever that tab did, and revive what it had removed.
-	 *
-	 * What is left is two tabs both standing in one thread and both changing it,
-	 * where the later save wins. The draft beside it settles that the same way.
-	 * Walking into a thread is not that case: entering takes storage as the
-	 * authority for everything it speaks for, so moving around cannot cost
-	 * another tab its work.
-	 */
-	/**
-	 * What is filed under the empty key that this composer did not put there.
-	 *
-	 * Every conversation still waiting for an id shares that key, so a page that
-	 * has just been given one has to leave the rest alone. Told apart by the
-	 * transfer that stored each one: anything this composer is carrying into its
-	 * thread is its own, and everything else belongs to a conversation elsewhere,
-	 * even where two of them uploaded the very same file.
-	 */
-	private strangersUnderEmptyKey(): Attachment[] {
-		const stored = this.uploadConfig?.attachmentStore?.readThread(null) ?? [];
-		// Lives and dies inside this call.
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const mine = new Set(this.attachments.map((a) => ('key' in a ? a.key : undefined)));
-		return stored.filter((a) => !('key' in a) || !mine.has(a.key));
-	}
-
-	private persist(...alsoChanged: Array<string | null>): void {
-		const store = this.uploadConfig?.attachmentStore;
-		if (!store || this.disposed) return;
-		// Same empty key the parked lists use for a conversation with no id yet.
-		const liveKey = untrack(() => this.core.threadId) ?? '';
-
-		// Handed straight to the store, never rendered.
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const snapshot: AttachmentsByThread = new Map();
-		for (const threadId of alsoChanged) {
-			const key = threadId ?? '';
-			// An empty list where the thread has nothing any more, which is how a
-			// composer that was emptied gets struck from storage rather than left.
-			if (key !== liveKey) snapshot.set(key, this.parked.get(key) ?? []);
-		}
-		snapshot.set(liveKey, this.attachments);
-		store.write(snapshot);
-	}
-
-	/**
-	 * Revoke an attachment's blob preview URL (no-op for non-blob previews).
-	 * Optimistic clones strip `preview` (see `sanitizeAttachmentsForClone`),
-	 * so revoking when an attachment leaves the composer cannot break the
-	 * optimistic message render, which falls back to the uploaded `url`.
-	 */
-	private revokePreview(attachment: Attachment): void {
-		if ('preview' in attachment && attachment.preview?.startsWith('blob:')) {
-			URL.revokeObjectURL(attachment.preview);
-		}
-	}
-
-	/**
-	 * Cancel an attachment's in-flight upload and drop everything held for it.
-	 * Attachments handed in from outside may have no `key` and never started an
-	 * upload, so a missing entry is normal rather than an error.
-	 */
-	private releaseUpload(attachment: Attachment): void {
-		const key = 'key' in attachment ? attachment.key : undefined;
-		if (!key) return;
-		this.uploadAborters.get(key)?.abort();
-		this.uploadAborters.delete(key);
-		this.retryJobs.delete(key);
-		// Straight away, not when the aborted attempt unwinds: an abort cannot
-		// stop a Convex mutation already in flight, so waiting for it would keep
-		// asking about a file the user has already thrown away.
-		this.settlePending(key);
-	}
-
-	/** Start counting an attachment as work in progress. Idempotent. */
-	private markPending(key: string): void {
-		this.pendingUploads.add(key);
-		this.activeUploads?.claim(this);
-	}
-
-	/** Stop counting it, and let go once nothing is left. Idempotent. */
-	private settlePending(key: string): void {
-		this.pendingUploads.delete(key);
-		if (this.pendingUploads.size === 0) this.activeUploads?.release(this);
-	}
-
-	/**
-	 * Remove attachment at index
-	 */
-	removeAttachment(index: number): void {
-		const removed = this.attachments[index];
-		if (removed) {
-			this.releaseUpload(removed);
-			this.revokePreview(removed);
-		}
-		this.attachments = this.attachments.filter((_, i) => i !== index);
-		this.persist();
-	}
-
-	/**
-	 * Clear all attachments
-	 */
-	clearAttachments(): void {
-		for (const attachment of this.attachments) {
-			this.releaseUpload(attachment);
-			this.revokePreview(attachment);
-		}
-		this.attachments = [];
-		this.persist();
-	}
-
 	clearAttachmentsForSend(snapshot: ChatSendSnapshot): void {
 		if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
-		// Counts preserve exact multiplicity for legacy unkeyed attachments while
-		// keyed uploads use their transfer identity.
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const remaining = new Map<string, number>();
-		for (const attachment of snapshot.attachments) {
-			const identity = ChatUIContext.attachmentIdentity(attachment);
-			remaining.set(identity, (remaining.get(identity) ?? 0) + 1);
-		}
-
-		const kept: Attachment[] = [];
-		for (const attachment of this.attachments) {
-			const identity = ChatUIContext.attachmentIdentity(attachment);
-			const count = remaining.get(identity) ?? 0;
-			if (count === 0) {
-				kept.push(attachment);
-				continue;
-			}
-			remaining.set(identity, count - 1);
-			this.releaseUpload(attachment);
-			this.revokePreview(attachment);
-		}
-		this.attachments = kept;
-		this.persist();
+		this.attachmentCoordinator.clearSendAttachments(snapshot.attachments);
 	}
 
 	restoreSendSnapshot(snapshot: ChatSendSnapshot): void {
 		if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
 		const sameConversation = this.syncConversationOrigin() === snapshot.origin;
-
-		if (this.disposed || !sameConversation) {
-			if (snapshot.origin.threadId !== null) {
-				this.uploadConfig?.attachmentStore?.restoreThreadAttachments(
-					snapshot.origin.threadId,
-					snapshot.attachments
-				);
-			}
-			return;
-		}
-
 		if (
+			sameConversation &&
 			snapshot.inputClearedRevision !== undefined &&
 			this.inputRevision === snapshot.inputClearedRevision &&
 			this.inputValue === ''
 		) {
 			this.setInputValue(snapshot.inputValue);
 		}
-		this.attachments = ChatUIContext.mergeSnapshotAttachments(
+		this.attachmentCoordinator.restoreSendAttachments(
 			snapshot.attachments,
-			this.attachments
+			snapshot.origin.threadId,
+			sameConversation
 		);
-		this.persist();
 	}
 
-	reconcilePersistedAttachments(
-		namespace: string,
-		threadId: string | null,
-		attachments: Attachment[]
-	): void {
-		if (
-			this.disposed ||
-			this.uploadConfig?.attachmentStore?.namespace !== namespace ||
-			untrack(() => this.core.threadId) !== threadId
-		) {
-			return;
-		}
-		this.attachments = ChatUIContext.mergeSnapshotAttachments(attachments, this.attachments);
+	/** Rendered attachments for the current composer. */
+	get attachments(): Attachment[] {
+		return this.attachmentCoordinator.attachments;
 	}
 
-	private static mergeSnapshotAttachments(
-		snapshot: Attachment[],
-		current: Attachment[]
-	): Attachment[] {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const currentByIdentity = new Map(
-			current.map((attachment) => [ChatUIContext.attachmentIdentity(attachment), attachment])
-		);
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const included = new Set<string>();
-		const merged: Attachment[] = [];
-		for (const attachment of snapshot) {
-			const identity = ChatUIContext.attachmentIdentity(attachment);
-			if (included.has(identity)) continue;
-			included.add(identity);
-			merged.push(
-				currentByIdentity.get(identity) ?? ChatUIContext.withoutRevokedPreview(attachment)
-			);
-		}
-		for (const attachment of current) {
-			const identity = ChatUIContext.attachmentIdentity(attachment);
-			if (included.has(identity)) continue;
-			included.add(identity);
-			merged.push(attachment);
-		}
-		return merged;
+	/** Existing picker cap, now owned by the attachment coordinator. */
+	get maxAttachments(): number {
+		return this.attachmentCoordinator.maxAttachments;
 	}
 
-	private static withoutRevokedPreview(attachment: Attachment): Attachment {
-		return 'preview' in attachment && attachment.preview?.startsWith('blob:')
-			? { ...attachment, preview: undefined }
-			: attachment;
+	/** Whether another picked attachment fits the cap. */
+	get canAddAttachment(): boolean {
+		return this.attachmentCoordinator.canAddAttachment;
 	}
 
-	private static attachmentIdentity(attachment: Attachment): string {
-		if ('key' in attachment && attachment.key) return `transfer:${attachment.key}`;
-		if (attachment.type === 'file' || attachment.type === 'screenshot') {
-			return `upload:${attachment.type}:${attachment.name}:${attachment.size}:${attachment.mimeType}:${attachment.url ?? ''}:${attachment.uploadState?.fileId ?? ''}`;
-		}
-		return `${attachment.type}:${attachment.url}:${attachment.filename ?? ''}`;
+	/** Add already-built attachment snapshots. */
+	addAttachments(newAttachments: Attachment[]): void {
+		this.attachmentCoordinator.addAttachments(newAttachments);
 	}
 
-	/**
-	 * Hand the composer over from one thread to another.
-	 *
-	 * Attachments belong to the thread they were picked in. Every surface reuses
-	 * one context across threads and swaps only the text draft, so a file left
-	 * in place would be sent in the wrong conversation, and a failed one would
-	 * block sending there. Set aside rather than thrown away: the transfer keeps
-	 * running, and the composer looks the same on the way back, so a switch mid
-	 * transfer no longer costs the file.
-	 */
-	private parkAttachments(leaving: string, entering: string | null): void {
-		if (this.attachments.length > 0) this.parked.set(leaving, this.attachments);
-		// A thread that has none is a thread with an empty composer, so the
-		// lookup miss is the answer rather than a case to handle. A conversation
-		// with no id yet is filed under the empty key, which no real thread can
-		// collide with.
-		const key = entering ?? '';
-		const store = this.uploadConfig?.attachmentStore;
-		const held = this.parked.get(key) ?? [];
-		// What this page is holding for the thread it is entering, minus anything
-		// storage speaks for. Another tab on the same chat may have added to that
-		// thread, or taken something out of it, since this page last looked, and
-		// on the way in storage is the one that knows. Where there is no storage
-		// this page is the only one that knows, and keeps all of it.
-		const carried: Attachment[] = [];
-		for (const attachment of held) {
-			if (store && ChatUIContext.isStored(attachment)) {
-				// Its copy off disk is the same file without the local preview, so
-				// the tile falls back to the uploaded url. The preview this one is
-				// holding has to go now: nothing else will ever see this object
-				// again, and an image kept this way outlives the page.
-				this.revokePreview(attachment);
-				continue;
-			}
-			carried.push(attachment);
-		}
-		this.attachments = carried;
-		this.parked.delete(key);
-		// What it says now, which is not what this page took when it started. Read
-		// on the way in for the same reason the draft beside it is, and merged
-		// rather than taken whole, because a transfer still running exists only
-		// here and storage has no way to know about it.
-		const stored = store?.readThread(entering) ?? [];
-		if (stored.length > 0) {
-			this.parked.set(key, stored);
-			this.adoptParked(entering);
-		}
-		this.persist(leaving);
+	/** Remove the attachment at an index. */
+	removeAttachment(index: number): void {
+		this.attachmentCoordinator.removeAttachment(index);
 	}
 
-	/**
-	 * Whether storage is the authority on this attachment.
-	 *
-	 * The same three things the store writes down, and no fewer: an attachment
-	 * that looks settled but is missing either of the others is not in storage,
-	 * and handing it over to something that does not have it would lose it.
-	 * Everything else, a transfer still running or one that failed, exists only
-	 * in the page holding it and has to be carried by hand.
-	 */
-	private static isStored(attachment: Attachment): boolean {
-		if (!('uploadState' in attachment)) return false;
-		const state = attachment.uploadState;
-		return state?.status === 'success' && !!state.fileId && !!attachment.url;
+	/** Remove every attachment from the live composer. */
+	clearAttachments(): void {
+		this.attachmentCoordinator.clearAttachments();
 	}
 
-	/**
-	 * Take back what was parked for a thread that is only now getting its id.
-	 *
-	 * Starting a conversation is not a move to another one, so the composer keeps
-	 * what it holds. It can still land on a thread with something parked: leaving
-	 * an unused warm thread parks under its id, and asking for a new conversation
-	 * hands the very same warm thread back out. Without this the attachment would
-	 * be stranded under an id the user is standing in, invisible and still
-	 * transferring.
-	 */
-	private adoptParked(threadId: string | null): void {
-		const key = threadId ?? '';
-		const parked = this.parked.get(key);
-		if (!parked) return;
-		this.parked.delete(key);
-
-		// The composer's own duplicate check could only see the live list while
-		// this was parked, so the same file can be in both. Whichever copy got
-		// further stays, because the loser costs the user a retry it did not need.
-		// Indices rather than identities: reading `attachments` hands out proxies,
-		// so comparing the objects would not reliably match.
-		const supersededLive = this.attachments.map(() => false);
-		const adopted: Attachment[] = [];
-		for (const candidate of parked) {
-			const rivalIndex = this.attachments.findIndex(
-				(live, index) => !supersededLive[index] && ChatUIContext.isSameFile(candidate, live)
-			);
-			const rival = rivalIndex === -1 ? undefined : this.attachments[rivalIndex];
-			if (!rival) {
-				adopted.push(candidate);
-				continue;
-			}
-			// Ties go to the parked copy, which has the head start on its transfer.
-			if (ChatUIContext.uploadProgressRank(candidate) >= ChatUIContext.uploadProgressRank(rival)) {
-				supersededLive[rivalIndex] = true;
-				this.releaseUpload(rival);
-				this.revokePreview(rival);
-				adopted.push(candidate);
-			} else {
-				this.releaseUpload(candidate);
-				this.revokePreview(candidate);
-			}
-		}
-
-		// Adopted first: they were picked before whatever is in the composer now.
-		// The result can sit above the pick-time attachment cap, which is the
-		// lesser evil. The cap keeps one pick reasonable; dropping a file the user
-		// picked, to hold a number they never see, is the loss this path exists to
-		// avoid. They are all destined for this thread, and any one can be removed.
-		this.attachments = [
-			...adopted,
-			...this.attachments.filter((_, index) => !supersededLive[index])
-		];
-		this.persist(threadId);
-	}
-
-	/**
-	 * Release resources held by this context. Call on unmount of the owning
-	 * component so blob preview URLs of unsent attachments do not leak until
-	 * the document unloads.
-	 */
+	/** Release resources held by this mounted chat surface. */
 	dispose(): void {
-		this.unregister();
 		const originOwner = this.core as ChatCore & {
 			setThreadOriginBinder?: (
 				binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
 			) => void;
 		};
 		originOwner.setThreadOriginBinder?.(undefined);
-		// Before anything is dropped. What follows empties both lists, and saving
-		// that would erase the composers this surface is supposed to hand back the
-		// next time it is built. Leaving is not the same as letting go.
-		this.disposed = true;
-		// Parked attachments hold aborters and blob previews just like live ones,
-		// and no thread switch is coming to pick them up any more.
-		for (const attachments of this.parked.values()) {
-			for (const attachment of attachments) {
-				this.releaseUpload(attachment);
-				this.revokePreview(attachment);
-			}
-		}
-		this.parked.clear();
-		this.clearAttachments();
-		// The surface is gone for good, so nothing is left that could report an
-		// outcome, whatever is still unwinding.
-		this.pendingUploads.clear();
-		this.activeUploads?.release(this);
+		this.attachmentCoordinator.dispose();
 	}
 
-	/**
-	 * How an attachment answers "is this the same file", as name and size.
-	 *
-	 * Two answers, because preprocessing renames an image to .webp and changes
-	 * its bytes: without the pre-preprocessing pair, re-pasting the same source
-	 * image would slip past dedup and upload twice.
-	 */
-	private static fileIdentity(attachment: Attachment): string[] {
-		if (attachment.type !== 'file' && attachment.type !== 'screenshot') return [];
-		const identities = [`${attachment.name}:${attachment.size}`];
-		if (attachment.sourceName !== undefined && attachment.sourceSize !== undefined) {
-			identities.push(`${attachment.sourceName}:${attachment.sourceSize}`);
-		}
-		return identities;
-	}
-
-	/** Whether two attachments are the same picked file. */
-	private static isSameFile(a: Attachment, b: Attachment): boolean {
-		const other = ChatUIContext.fileIdentity(b);
-		return ChatUIContext.fileIdentity(a).some((identity) => other.includes(identity));
-	}
-
-	/**
-	 * How far an attachment got, so the better of two copies of one file wins.
-	 *
-	 * A stored file beats one still moving, which beats a failure the user would
-	 * have to retry. Between two that are still moving the percentage decides:
-	 * ranking them equal would let a stalled transfer cancel one at 99%. An
-	 * attachment handed in from outside has no upload state and nothing pending,
-	 * so it counts as settled.
-	 */
-	private static uploadProgressRank(attachment: Attachment): number {
-		const state = 'uploadState' in attachment ? attachment.uploadState : undefined;
-		if (!state || state.status === 'success') return SETTLED_RANK;
-		if (state.status === 'error') return FAILED_RANK;
-		return state.progress;
-	}
-
-	/**
-	 * Check if a file with the same name and size already exists
-	 */
+	/** Check source and transformed identities for an existing file. */
 	hasFile(name: string, size: number): boolean {
-		const picked = `${name}:${size}`;
-		return this.attachments.some((a) => ChatUIContext.fileIdentity(a).includes(picked));
+		return this.attachmentCoordinator.hasFile(name, size);
 	}
 
-	/**
-	 * Get image dimensions from a file
-	 */
-	private getImageDimensions(file: File | Blob): Promise<{ width: number; height: number }> {
-		return new Promise((resolve) => {
-			const img = new Image();
-			img.onload = () => {
-				resolve({ width: img.naturalWidth, height: img.naturalHeight });
-				URL.revokeObjectURL(img.src);
-			};
-			img.onerror = () => {
-				resolve({ width: 0, height: 0 });
-				URL.revokeObjectURL(img.src);
-			};
-			img.src = URL.createObjectURL(file);
-		});
-	}
-
-	/**
-	 * Upload a file and add it as an attachment
-	 * Progress is tracked automatically
-	 * Images are re-encoded before upload when the caller passes `preprocess`
-	 * (ChatInput does: it resizes and converts to WebP). Non-images upload as-is.
-	 */
-	async uploadFile(
+	/** Upload a file through the attachment coordinator. */
+	uploadFile(
 		file: File | Blob,
 		filename?: string,
-		options?: {
-			/**
-			 * Optional async transform applied between placeholder insertion and the
-			 * actual upload. Used by ChatInput to route image attachments through
-			 * the WebP encoder. The placeholder is inserted synchronously so
-			 * `hasFile`, `MAX_ATTACHMENTS`, and `canSend` see the in-progress
-			 * attachment for the entire preprocess + upload window.
-			 */
-			preprocess?: (input: File | Blob) => Promise<{
-				blob: Blob;
-				mimeType: string;
-				filename?: string;
-				width?: number;
-				height?: number;
-			}>;
-		}
+		options?: { preprocess?: AttachmentPreprocess }
 	): Promise<void> {
-		if (!this.uploadConfig) {
-			throw new Error('Upload config not provided to ChatUIContext');
-		}
-
-		const initialName = filename ?? (file instanceof File ? file.name : 'file');
-		// Stable identity used to update/remove this attachment by value rather
-		// than by array index. User removals or other concurrent uploads shift
-		// the index, so a captured `currentIndex` would target the wrong row.
-		const key = crypto.randomUUID();
-
-		// Synchronously insert the placeholder BEFORE any await so concurrent
-		// callers (e.g. handleFilesAdded looping over a batch) see the limit
-		// and dedup state immediately.
-		const isImageType = file.type.startsWith('image/');
-		const initialPreview = isImageType ? URL.createObjectURL(file) : undefined;
-		const placeholder: Attachment = {
-			type: 'file',
-			key,
-			name: initialName,
-			size: file.size,
-			mimeType: file.type,
-			preview: initialPreview,
-			// Retain the original blob for non-image files (bounded by the 5MB
-			// upload cap) so the attachment preview can read their text locally,
-			// with no round-trip. Images are omitted: they are re-encoded on
-			// upload and never use the text preview.
-			file: !isImageType && file instanceof File ? file : undefined,
-			uploadState: { status: 'uploading', progress: 0 },
-			// Source metadata persists across the rename in preprocess so dedup
-			// still matches when the user re-pastes the same image.
-			sourceName: initialName,
-			sourceSize: file.size
-		};
-		this.attachments = [...this.attachments, placeholder];
-		// Before the first await: the tile already shows progress, so leaving now
-		// costs the user the same file whether or not the transfer has started.
-		this.markPending(key);
-		// Read here too, for the same reason: this is the thread the file was
-		// picked in, and encoding can outlast the user's stay in it.
-		const accessKey = this.uploadConfig.getAccessKey?.();
-
-		try {
-			let uploadBlob: File | Blob = file;
-			let uploadName = initialName;
-			let uploadMime = file.type;
-			let width: number | undefined;
-			let height: number | undefined;
-
-			if (options?.preprocess) {
-				const processed = await options.preprocess(file);
-				uploadBlob = processed.blob;
-				uploadMime = processed.mimeType;
-				if (processed.filename) uploadName = processed.filename;
-				width = processed.width;
-				height = processed.height;
-				// Reflect post-process metadata on the placeholder so the UI shows
-				// the final size and name during the actual upload.
-				this.patchAttachment(key, {
-					name: uploadName,
-					mimeType: uploadMime,
-					size: uploadBlob.size
-				});
-			}
-
-			// Read dimensions only when preprocess didn't supply them. Image-typed
-			// files paths from preprocess always do; SVG/animated-GIF passthrough
-			// reports valid dims too. This is the legacy fallback.
-			if (uploadMime.startsWith('image/') && (width === undefined || height === undefined)) {
-				const dims = await this.getImageDimensions(uploadBlob);
-				if (dims.width > 0 && dims.height > 0) {
-					width = dims.width;
-					height = dims.height;
-				}
-			}
-			if (width && height) {
-				this.patchAttachment(key, { width, height });
-			}
-
-			// Preprocessing and dimension reading are awaited above and cannot be
-			// canceled, so the user may have discarded the attachment by now.
-			// Starting the transfer would upload a file nothing references and
-			// leave map entries behind for a key that is gone.
-			if (!this.findAttachment(key)) {
-				this.retryJobs.delete(key);
-				return;
-			}
-
-			await this.runUpload(key, {
-				blob: uploadBlob,
-				filename: uploadName,
-				dimensions: width && height ? { width, height } : undefined,
-				accessKey
-			});
-		} catch (error) {
-			// A failure before the transfer (image preprocessing, dimension
-			// reading) leaves nothing to retry, and preprocessing already throws
-			// its own translated message. Those keep the old behavior: drop the
-			// attachment, say why once.
-			//
-			// Unless the user got there first: preprocessing cannot be canceled,
-			// so it may still reject long after the chip was discarded, and
-			// reporting a failure for a file nobody is waiting on is noise.
-			const stillPresent = this.findAttachment(key) !== undefined;
-			this.discardAttachment(key);
-			if (isAbortError(error) || !stillPresent) return;
-			const translate = this.uploadConfig?.translate;
-			toast.error(
-				translate?.('chat.error.upload_failed', { filename: initialName }) ??
-					`Failed to upload "${initialName}"`,
-				{ description: error instanceof Error ? error.message : undefined }
-			);
-		} finally {
-			// Every exit above already settles this key one way or another; saying
-			// so here too keeps the claim from outliving the attempt if a path is
-			// ever added that forgets.
-			this.settlePending(key);
-		}
+		return this.attachmentCoordinator.uploadFile(file, filename, options);
 	}
 
-	/**
-	 * Run one upload attempt for an existing attachment and record the outcome
-	 * on it. Shared by the file path, the screenshot path, and retry, so all
-	 * three produce the same states.
-	 *
-	 * Never throws: a failure becomes a visible, retryable attachment state
-	 * rather than an exception the caller has to translate again.
-	 */
-	private async runUpload(key: string, job: UploadJob): Promise<void> {
-		if (!this.uploadConfig) return;
-
-		// Starting an attempt cancels any earlier one for the same attachment, so
-		// a double-click on retry cannot leave a request running unattended.
-		this.uploadAborters.get(key)?.abort();
-		const aborter = new AbortController();
-		this.uploadAborters.set(key, aborter);
-		this.retryJobs.set(key, job);
-		// Also for a retry, which starts here rather than in uploadFile.
-		this.markPending(key);
-		this.patchAttachment(key, { uploadState: { status: 'uploading', progress: 0 } });
-
-		/**
-		 * Whether this attempt is still the current one. A superseded attempt
-		 * must not write state or clear the live attempt's aborter; without this
-		 * a slow first try could stamp its failure over a newer success.
-		 */
-		const isCurrent = () => this.uploadAborters.get(key) === aborter;
-
-		try {
-			const result = await uploadFileWithProgress(
-				this.client,
-				job.blob,
-				job.filename,
-				(progress) => {
-					if (isCurrent()) this.patchUploadState(key, (state) => ({ ...state, progress }));
-				},
-				this.uploadConfig,
-				job.dimensions,
-				job.accessKey,
-				aborter.signal
-			);
-
-			if (!isCurrent()) return;
-			this.patchAttachment(key, {
-				url: result.url,
-				uploadState: { status: 'success', progress: 100, fileId: result.fileId }
-			});
-			// The bytes are on the server now; holding them would pin memory for
-			// an attachment that can no longer fail.
-			this.retryJobs.delete(key);
-		} catch (error) {
-			// Cancelation is not a failure: removeAttachment/clearAttachments
-			// already took the attachment away, so there is no state to write.
-			if (isAbortError(error) || !isCurrent()) return;
-			// The tile shows a translated cause; the specifics that identify the
-			// failure — HTTP status, and the Convex message kept in `cause` — have
-			// no place in the UI but are what makes a report actionable.
-			console.error('[ChatUIContext] Upload failed:', error);
-			this.patchAttachment(key, {
-				uploadState: {
-					status: 'error',
-					progress: 0,
-					error: error instanceof UploadError ? error.code : 'server'
-				}
-			});
-		} finally {
-			// Only the live attempt settles the attachment: a superseded one is
-			// finishing behind a newer transfer that is still running.
-			if (isCurrent()) {
-				this.uploadAborters.delete(key);
-				this.settlePending(key);
-			}
-		}
-	}
-
-	/**
-	 * Try a failed upload again with the exact payload of the first attempt.
-	 * No-op when the attachment has no retained job, which is the case for
-	 * failures that happened before the transfer.
-	 */
+	/** Retry the retained payload for a failed attachment. */
 	retryUpload(index: number): void {
-		const attachment = this.attachments[index];
-		if (!attachment || !('key' in attachment) || !attachment.key) return;
-		const job = this.retryJobs.get(attachment.key);
-		if (!job) return;
-		void this.runUpload(attachment.key, job);
+		this.attachmentCoordinator.retryUpload(index);
 	}
 
-	/**
-	 * Rewrite every list holding this attachment, the live one and any parked.
-	 *
-	 * An upload outlives the composer showing it: switching threads parks its
-	 * attachment while the transfer keeps running. Writing only through the live
-	 * list would drop the outcome of a transfer that lands while its thread is
-	 * parked, leaving a tile loading forever for a file that is already stored.
-	 */
-	private rewriteLists(key: string, rewrite: (list: Attachment[]) => Attachment[]): void {
-		const holds = (list: Attachment[]) => list.some((a) => 'key' in a && a.key === key);
-		if (holds(this.attachments)) this.attachments = rewrite(this.attachments);
-		// Bounded by the threads the user stepped away from with something open.
-		const rewritten: string[] = [];
-		for (const [threadId, list] of this.parked) {
-			if (!holds(list)) continue;
-			rewritten.push(threadId);
-			const next = rewrite(list);
-			if (next.length > 0) this.parked.set(threadId, next);
-			else this.parked.delete(threadId);
-		}
-		this.persist(...rewritten);
-	}
-
-	/** The attachment with this key, live or parked. */
-	private findAttachment(key: string): Attachment | undefined {
-		const match = (a: Attachment) => 'key' in a && a.key === key;
-		const live = this.attachments.find(match);
-		if (live) return live;
-		for (const list of this.parked.values()) {
-			const found = list.find(match);
-			if (found) return found;
-		}
-		return undefined;
-	}
-
-	/** Apply a partial update to the attachment with this key. */
-	private patchAttachment(key: string, patch: Partial<Attachment>): void {
-		this.rewriteLists(key, (list) =>
-			list.map((a) => ('key' in a && a.key === key ? ({ ...a, ...patch } as Attachment) : a))
-		);
-	}
-
-	/** Update the upload state of the attachment with this key, if it has one. */
-	private patchUploadState(key: string, next: (state: UploadState) => UploadState): void {
-		this.rewriteLists(key, (list) =>
-			list.map((a) =>
-				'key' in a &&
-				a.key === key &&
-				(a.type === 'file' || a.type === 'screenshot') &&
-				a.uploadState
-					? { ...a, uploadState: next(a.uploadState) }
-					: a
-			)
-		);
-	}
-
-	/** Remove an attachment by key and release everything held for it. */
-	private discardAttachment(key: string): void {
-		const attachment = this.findAttachment(key);
-		if (attachment) {
-			this.releaseUpload(attachment);
-			this.revokePreview(attachment);
-		}
-		this.rewriteLists(key, (list) => list.filter((a) => !('key' in a) || a.key !== key));
-	}
-
-	/**
-	 * Upload a screenshot blob
-	 */
-	async uploadScreenshot(
+	/** Upload a screenshot through the same composer attachment lifecycle. */
+	uploadScreenshot(
 		blob: Blob,
 		filename: string,
 		dimensions?: { width: number; height: number }
 	): Promise<void> {
-		if (!this.uploadConfig) {
-			throw new Error('Upload config not provided to ChatUIContext');
-		}
-
-		const key = crypto.randomUUID();
-
-		// Add optimistic attachment with uploading state
-		const newAttachment: Attachment = {
-			type: 'screenshot',
-			key,
-			name: filename,
-			size: blob.size,
-			mimeType: blob.type,
-			preview: URL.createObjectURL(blob),
-			uploadState: { status: 'uploading', progress: 0 },
-			width: dimensions?.width,
-			height: dimensions?.height
-		};
-
-		this.attachments = [...this.attachments, newAttachment];
-
-		// No preprocessing here: the blob and its dimensions are already what
-		// gets uploaded, so they double as the retry payload unchanged.
-		await this.runUpload(key, {
-			blob,
-			filename,
-			dimensions,
-			accessKey: this.uploadConfig.getAccessKey?.()
-		});
+		return this.attachmentCoordinator.uploadScreenshot(blob, filename, dimensions);
 	}
 
 	/**
@@ -1350,9 +459,7 @@ export class ChatUIContext {
 	 * Check if any upload is in progress
 	 */
 	get hasUploadingFiles(): boolean {
-		return this.attachments.some(
-			(a) => (a.type === 'file' || a.type === 'screenshot') && a.uploadState?.status === 'uploading'
-		);
+		return this.attachmentCoordinator.hasUploadingFiles;
 	}
 
 	/**
@@ -1364,9 +471,7 @@ export class ChatUIContext {
 	 * and discard, so this is a prompt to decide, not a dead end.
 	 */
 	get hasFailedUploads(): boolean {
-		return this.attachments.some(
-			(a) => (a.type === 'file' || a.type === 'screenshot') && a.uploadState?.status === 'error'
-		);
+		return this.attachmentCoordinator.hasFailedUploads;
 	}
 
 	/**
@@ -1398,13 +503,7 @@ export class ChatUIContext {
 	 * Get all successfully uploaded file IDs
 	 */
 	get uploadedFileIds(): string[] {
-		return this.attachments
-			.filter(
-				(a): a is Extract<Attachment, { type: 'file' | 'screenshot' }> =>
-					(a.type === 'file' || a.type === 'screenshot') && a.uploadState?.status === 'success'
-			)
-			.map((a) => a.uploadState!.fileId!)
-			.filter(Boolean);
+		return this.attachmentCoordinator.uploadedFileIds;
 	}
 }
 

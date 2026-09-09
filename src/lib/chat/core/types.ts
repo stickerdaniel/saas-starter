@@ -9,7 +9,7 @@ import type { StreamArgs, SyncStreamsReturnValue } from '@convex-dev/agent';
 import type { FunctionReference, PaginationResult } from 'convex/server';
 import type { ProviderMetadata } from 'ai';
 import { acceptAttribute, allowedMimeTypes, UPLOAD_PROFILES } from '../../uploads/profiles';
-import type { UploadErrorCode } from './file-uploader.js';
+import type { UploadErrorCode } from '../../uploads/transfer.js';
 
 /**
  * Upload state for tracking file upload progress
@@ -32,7 +32,7 @@ export type UploadState = {
 export type Attachment =
 	| {
 			type: 'file';
-			/** Stable identity used by ChatUIContext to update/remove this entry while
+			/** Stable identity used by ComposerAttachmentCoordinator to update/remove this entry while
 			 * concurrent uploads or user removals shift array indices. */
 			key?: string;
 			name: string;

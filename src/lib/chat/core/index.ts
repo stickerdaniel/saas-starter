@@ -23,6 +23,8 @@ export type {
 	CreateThreadOptions
 } from './types.js';
 
+export type { ChatSessionPort, StreamCachePort } from './chat-session-port.js';
+
 export {
 	CHAT_PAGE_SIZE,
 	DEFAULT_CHAT_CONFIG,
@@ -53,9 +55,11 @@ export {
 export { StreamCacheManager } from './stream-cache.js';
 
 // File upload
-export type { UploadResult, ProgressCallback, UploadErrorCode } from './file-uploader.js';
+export type { UploadResult, ProgressCallback } from './file-uploader.js';
+export type { UploadErrorCode } from '../../uploads/transfer.js';
 
-export { uploadFileWithProgress, uploadToStorage, UploadError } from './file-uploader.js';
+export { uploadFileWithProgress } from './file-uploader.js';
+export { uploadToStorage, UploadError } from '../../uploads/transfer.js';
 
 // Chat core
 export type { ChatCoreAPI, ChatCoreOptions, CreateThreadResult } from './chat-core.svelte.ts';
