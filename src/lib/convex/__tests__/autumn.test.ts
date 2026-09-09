@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { PUBLISHED_ACTION_NAMES, autumnSdkConstruction, check, trackSdk } = vi.hoisted(() => ({
+const { PUBLISHED_ACTION_NAMES, autumnSdkConstruction, check } = vi.hoisted(() => ({
 	PUBLISHED_ACTION_NAMES: [
 		'track',
 		'cancel',
@@ -19,8 +19,7 @@ const { PUBLISHED_ACTION_NAMES, autumnSdkConstruction, check, trackSdk } = vi.ho
 		'getEntity'
 	] as const,
 	autumnSdkConstruction: vi.fn(),
-	check: vi.fn(),
-	trackSdk: vi.fn()
+	check: vi.fn()
 }));
 
 vi.mock('../auth', () => ({
@@ -73,7 +72,6 @@ vi.mock('@useautumn/convex', () => ({
 vi.mock('autumn-js', () => ({
 	Autumn: class {
 		check = check;
-		track = trackSdk;
 
 		constructor(options: { secretKey: string }) {
 			autumnSdkConstruction(options.secretKey);
@@ -94,6 +92,7 @@ function registeredAction(value: unknown) {
 
 afterEach(() => {
 	vi.unstubAllEnvs();
+	vi.unstubAllGlobals();
 });
 
 describe('published Autumn actions', () => {
@@ -212,27 +211,76 @@ describe('refundUsage', () => {
 		setReadyBilling();
 	});
 
-	it('credits the balance with a negative track value', async () => {
-		trackSdk.mockResolvedValue({ data: {} });
+	it('posts a negative usage event with the Autumn API contract', async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+		vi.stubGlobal('fetch', fetchMock);
 
-		await refundUsage({ customerId: 'user_1', featureId: 'ai_chat_messages' });
-
-		expect(trackSdk).toHaveBeenCalledWith({
-			customer_id: 'user_1',
-			feature_id: 'ai_chat_messages',
-			value: -1
+		const outcome = await refundUsage({
+			customerId: 'user_1',
+			featureId: 'ai_chat_messages'
 		});
+
+		expect(outcome).toEqual({ status: 'refunded' });
+		expect(autumnSdkConstruction).not.toHaveBeenCalled();
+		expect(fetchMock).toHaveBeenCalledOnce();
+		expect(fetchMock).toHaveBeenCalledWith('https://api.useautumn.com/v1/track', {
+			method: 'POST',
+			headers: {
+				Authorization: 'Bearer configured-autumn-key',
+				'Content-Type': 'application/json',
+				'x-api-version': '1.2'
+			},
+			body: JSON.stringify({
+				customer_id: 'user_1',
+				feature_id: 'ai_chat_messages',
+				value: -1
+			})
+		});
+		expect(error).not.toHaveBeenCalled();
+		error.mockRestore();
 	});
 
-	it('never throws when a refund fails', async () => {
+	it('does not read or log a provider-controlled non-2xx body', async () => {
+		const providerMessage = 'provider rejected refund for user_1';
+		const response = new Response(providerMessage, { status: 503 });
+		const fetchMock = vi.fn().mockResolvedValue(response);
 		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-		trackSdk.mockRejectedValue(new Error('network down'));
+		vi.stubGlobal('fetch', fetchMock);
+
+		const outcome = await refundUsage({
+			customerId: 'user_1',
+			featureId: 'ai_chat_messages',
+			value: 2
+		});
+
+		expect(outcome).toEqual({ status: 'failed', reason: 'non_2xx', statusCode: 503 });
+		expect(fetchMock).toHaveBeenCalledOnce();
+		expect(response.bodyUsed).toBe(false);
+		expect(error).toHaveBeenCalledOnce();
+		expect(error).toHaveBeenCalledWith('[refundUsage] Autumn refund failed', outcome);
+		expect(error.mock.calls.flat().map(String).join(' ')).not.toContain(providerMessage);
+		error.mockRestore();
+	});
+
+	it('does not log a raw thrown fetch failure or mask the caller failure', async () => {
+		const providerError = new Error('raw transport failure for user_1');
+		const fetchMock = vi.fn().mockRejectedValue(providerError);
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.stubGlobal('fetch', fetchMock);
 
 		await expect(
 			refundUsage({ customerId: 'user_1', featureId: 'ai_chat_messages', value: 2 })
-		).resolves.toBeUndefined();
+		).resolves.toEqual({ status: 'failed', reason: 'exception' });
 
-		expect(trackSdk).toHaveBeenCalledWith(expect.objectContaining({ value: -2 }));
+		expect(fetchMock).toHaveBeenCalledOnce();
+		expect(error).toHaveBeenCalledOnce();
+		expect(error).toHaveBeenCalledWith('[refundUsage] Autumn refund failed', {
+			status: 'failed',
+			reason: 'exception'
+		});
+		expect(error.mock.calls.flat()).not.toContain(providerError);
+		expect(error.mock.calls.flat().map(String).join(' ')).not.toContain(providerError.message);
 		error.mockRestore();
 	});
 });

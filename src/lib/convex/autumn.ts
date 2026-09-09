@@ -121,14 +121,20 @@ export async function checkAndCountUsage({
 	return result.data.allowed ? 'counted' : 'denied';
 }
 
+/** Outcome of a best-effort usage refund. */
+export type RefundUsageOutcome =
+	| { status: 'refunded' }
+	| { status: 'failed'; reason: 'non_2xx'; statusCode: number }
+	| { status: 'failed'; reason: 'exception' };
+
 /**
  * Credit back usage previously counted by `checkAndCountUsage`, for
  * when the operation the usage paid for failed afterwards. Negative
  * track values credit the balance (documented Autumn behavior).
  *
- * Best effort: a failed refund is logged, never thrown, so it cannot
- * mask the original failure. The cost of a lost refund is one unit on
- * a double fault (operation AND refund both failed).
+ * Best effort: failures return a structured outcome and are logged
+ * without request or provider details. They are never thrown, so a
+ * refund failure cannot mask the original failure.
  */
 export async function refundUsage({
 	customerId,
@@ -138,11 +144,36 @@ export async function refundUsage({
 	customerId: string;
 	featureId: string;
 	value?: number;
-}): Promise<void> {
+}): Promise<RefundUsageOutcome> {
+	let response: Response;
 	try {
-		const sdk = await getAutumnSdk();
-		await sdk.track({ customer_id: customerId, feature_id: featureId, value: -value });
-	} catch (error) {
-		console.error(`[refundUsage] Failed to refund ${value} ${featureId} for ${customerId}:`, error);
+		const { secretKey } = requireBillingConfiguration();
+		response = await fetch('https://api.useautumn.com/v1/track', {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${secretKey}`,
+				'Content-Type': 'application/json',
+				'x-api-version': '1.2'
+			},
+			body: JSON.stringify({
+				customer_id: customerId,
+				feature_id: featureId,
+				value: -value
+			})
+		});
+	} catch {
+		const failure = { status: 'failed', reason: 'exception' } as const;
+		console.error('[refundUsage] Autumn refund failed', failure);
+		return failure;
 	}
+	if (!response.ok) {
+		const failure = {
+			status: 'failed',
+			reason: 'non_2xx',
+			statusCode: response.status
+		} as const;
+		console.error('[refundUsage] Autumn refund failed', failure);
+		return failure;
+	}
+	return { status: 'refunded' };
 }
