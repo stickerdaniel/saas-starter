@@ -405,13 +405,17 @@ export function resolveProfileCapabilityConfigurations(
 	);
 }
 
-/** Reject malformed groups in every profile and missing providers in strict profiles. */
+/** Reject malformed required groups while optional profiles keep them unusable. */
 export function validateCapabilityEnvironment(
 	input: CapabilityEnvironment
 ): CapabilityConfigurations {
-	const configurations = resolveProfileCapabilityConfigurations(input);
-	for (const [capability, configuration] of Object.entries(configurations)) {
-		if (configuration.state === 'misconfigured') {
+	const requirements = getCapabilityRequirements(input.CAPABILITY_PROFILE);
+	const configurations = resolveCapabilityConfigurations(input, requirements);
+	for (const capability of ['billing', 'email', 'ai'] as const) {
+		if (
+			requirements[capability] === 'required' &&
+			configurations[capability].state === 'misconfigured'
+		) {
 			throw new Error(`[capability] ${capability} configuration is invalid`);
 		}
 	}

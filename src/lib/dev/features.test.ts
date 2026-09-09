@@ -23,6 +23,14 @@ const READY_ENVIRONMENT: CapabilityEnvironment = {
 	OPENROUTER_API_KEY: 'openrouter-key'
 };
 
+const LEGACY_TEST_SENTINEL_ENVIRONMENT: CapabilityEnvironment = {
+	RESEND_API_KEY: 're_local_e2e_dummy',
+	AUTH_EMAIL: 'noreply@e2e.example.com',
+	EMAIL_ASSET_URL: 'http://localhost',
+	AUTUMN_SECRET_KEY: 'am_sk_local_e2e_dummy',
+	OPENROUTER_API_KEY: 'sk-or-local-e2e-dummy'
+};
+
 describe('resolveCapabilityConfigurations', () => {
 	it('keeps absent optional providers distinct from required misconfiguration', () => {
 		expect(resolveCapabilityConfigurations({}, OPTIONAL_REQUIREMENTS)).toEqual({
@@ -235,6 +243,26 @@ describe('capability profiles', () => {
 		expect(() => validateCapabilityEnvironment({ CAPABILITY_PROFILE: profile })).not.toThrow();
 	});
 
+	it.each(['local', 'test'] as const)(
+		'keeps persisted test sentinels unusable without rejecting the %s definition',
+		(profile) => {
+			const configurations = validateCapabilityEnvironment({
+				...LEGACY_TEST_SENTINEL_ENVIRONMENT,
+				CAPABILITY_PROFILE: profile
+			});
+
+			expect(configurations).toEqual({
+				billing: { state: 'misconfigured', issue: 'sentinel' },
+				email: { state: 'misconfigured', issue: 'sentinel' },
+				ai: { state: 'misconfigured', issue: 'sentinel' }
+			});
+			expect(projectCapabilityUsability(configurations)).toEqual({
+				billing: { usable: false, reason: 'unavailable' },
+				ai: { usable: false, reason: 'unavailable' }
+			});
+		}
+	);
+
 	it.each(['preview', 'production'] as const)('requires every provider group in %s', (profile) => {
 		expect(() => validateCapabilityEnvironment({ CAPABILITY_PROFILE: profile })).toThrow();
 		expect(() =>
@@ -272,6 +300,19 @@ describe('capability profiles', () => {
 		['billing sentinel', { ...READY_ENVIRONMENT, AUTUMN_SECRET_KEY: 'am_sk_local_e2e_dummy' }],
 		['AI sentinel', { ...READY_ENVIRONMENT, OPENROUTER_API_KEY: 'sk-or-local-e2e-dummy' }]
 	] as const;
+
+	it.each(['local', 'test'] as const)('admits non-ready optional providers in %s', (profile) => {
+		for (const [description, environment] of invalidCases) {
+			const configurations = validateCapabilityEnvironment({
+				...environment,
+				CAPABILITY_PROFILE: profile
+			});
+			expect(
+				Object.values(configurations).some(({ state }) => state !== 'ready'),
+				description
+			).toBe(true);
+		}
+	});
 
 	it.each(['preview', 'production'] as const)(
 		'rejects every malformed provider case in %s',
