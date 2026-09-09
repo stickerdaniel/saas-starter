@@ -4,7 +4,7 @@ import type * as Svelte from 'svelte';
 import { ConvexClient } from 'convex/browser';
 import { api } from '$lib/convex/_generated/api';
 import { getFunctionName } from 'convex/server';
-import { SupportThreadContext } from '$lib/components/customer-support/support-thread-context.svelte.ts';
+import { SupportContext } from '$lib/components/customer-support/support-context.svelte.ts';
 import { ChatCore } from '../core/chat-core.svelte.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
 import type { Attachment } from '../core/types.js';
@@ -353,13 +353,24 @@ describe('ChatInput send rollback through ChatRoot', () => {
 
 	it('keeps a lazy support conversation retryable after thread creation fails to send', async () => {
 		ctx.dispose();
-		const support = new SupportThreadContext();
+		const support = new SupportContext();
 		support.startNewThread();
-		ctx = new ChatUIContext(support as unknown as ChatCore, client, {
-			generateUploadUrl: api.support.files.generateUploadUrl,
-			saveUploadedFile: api.support.files.saveUploadedFile,
-			attachmentStore: new ChatAttachmentStore(surface)
-		});
+		const conversation = support.conversation;
+		ctx = new ChatUIContext(
+			conversation,
+			client,
+			{
+				generateUploadUrl: api.support.files.generateUploadUrl,
+				saveUploadedFile: api.support.files.saveUploadedFile,
+				attachmentStore: new ChatAttachmentStore(surface)
+			},
+			'right',
+			null,
+			{
+				bindThreadOrigin: (binder) => conversation.setThreadOriginBinder(binder),
+				forgetSession: () => conversation.forgetChatSession()
+			}
+		);
 		ctx.setDisplayMessages([]);
 		const error = new Error('Send rejected');
 		vi.spyOn(client, 'mutation').mockImplementation((reference) => {
@@ -371,7 +382,7 @@ describe('ChatInput send rollback through ChatRoot', () => {
 			throw new Error(`Unexpected mutation: ${name}`);
 		});
 		const onSend = async (prompt: string) => {
-			await support.sendMessage(client, prompt, {
+			await conversation.sendMessage(client, prompt, {
 				fileIds: ctx.uploadedFileIds,
 				attachments: [...ctx.attachments]
 			});
@@ -391,7 +402,7 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		await tick();
 		await vi.waitFor(() => expect(client.mutation).toHaveBeenCalledTimes(2));
 		await vi.waitFor(() => expect(input.value).toBe('Retry the new conversation'));
-		expect(support.threadId).toBe('thread-created');
+		expect(conversation.threadId).toBe('thread-created');
 		expect(console.error).toHaveBeenCalledWith('[ChatInput] onSend failed:', error);
 		expect(
 			ctx.attachments.map((attachment) => ('key' in attachment ? attachment.key : undefined))

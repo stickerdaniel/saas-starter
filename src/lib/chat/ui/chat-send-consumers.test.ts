@@ -9,9 +9,8 @@ import { ConvexError } from 'convex/values';
 import AIThreadChat from '../../../routes/[[lang]]/app/ai-chat/thread-chat.svelte';
 import AdminThreadChat from '../../../routes/[[lang]]/admin/support/thread-chat.svelte';
 import FeedbackWidget from '../../components/customer-support/feedback-widget.svelte';
-import { SupportThreadContext } from '../../components/customer-support/support-thread-context.svelte.ts';
+import { SupportContext } from '../../components/customer-support/support-context.svelte.ts';
 import { ChatUIContext } from './chat-context.svelte.ts';
-import type { ChatCore } from '../core/chat-core.svelte.ts';
 import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
@@ -48,6 +47,20 @@ vi.mock('$lib/components/customer-support/threads-overview.svelte', () => ({ def
 
 let component: ReturnType<typeof mount> | undefined;
 let client: ConvexClient;
+
+function createSupportFixture(): {
+	support: SupportContext;
+	context: ChatUIContext;
+} {
+	const support = new SupportContext();
+	const { conversation } = support;
+	support.selectThread('thread-support');
+	const context = new ChatUIContext(conversation, client, undefined, 'right', null, {
+		bindThreadOrigin: (binder) => conversation.setThreadOriginBinder(binder),
+		forgetSession: () => conversation.forgetChatSession()
+	});
+	return { support, context };
+}
 
 function stallUpload() {
 	const handlers: Record<string, () => void> = {};
@@ -322,10 +335,8 @@ describe('AI session boundary', () => {
 
 describe('support feedback send callback', () => {
 	it('keeps rate-limit UX, rethrows the same error, and leaves rollback to ChatInput', async () => {
-		const thread = new SupportThreadContext();
-		thread.setThread('thread-support');
-		thread.currentView = 'chat';
-		const ctx = new ChatUIContext(thread as unknown as ChatCore, client);
+		const { support, context: ctx } = createSupportFixture();
+		const thread = support.conversation;
 		const contentProps = { chatUIContext: ctx };
 		const error = new ConvexError({ code: 'RATE_LIMITED', retryAfter: 3000 });
 		vi.spyOn(client, 'mutation').mockRejectedValue(error);
@@ -335,7 +346,7 @@ describe('support feedback send callback', () => {
 				client,
 				content: FeedbackWidget,
 				contentProps,
-				supportThread: thread
+				supportThread: support
 			}
 		});
 		await tick();
@@ -355,11 +366,9 @@ describe('support feedback send callback', () => {
 	});
 
 	it('preserves a later support draft after success', async () => {
-		const thread = new SupportThreadContext();
-		thread.setThread('thread-support');
-		thread.currentView = 'chat';
+		const { support, context: ctx } = createSupportFixture();
+		const thread = support.conversation;
 		thread.setDraft('thread-support', 'send this');
-		const ctx = new ChatUIContext(thread as unknown as ChatCore, client);
 		const contentProps = { chatUIContext: ctx };
 		const pending = Promise.withResolvers<Record<string, never>>();
 		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
@@ -369,7 +378,7 @@ describe('support feedback send callback', () => {
 				client,
 				content: FeedbackWidget,
 				contentProps,
-				supportThread: thread
+				supportThread: support
 			}
 		});
 		await tick();

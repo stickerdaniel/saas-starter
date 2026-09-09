@@ -8,7 +8,7 @@ import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
 import { CHAT_PAGE_SIZE, type Attachment } from '../core/types.js';
 import { ChatUIContext, type UploadConfig } from './chat-context.svelte.ts';
-import { SupportThreadContext } from '$lib/components/customer-support/support-thread-context.svelte.ts';
+import { SupportContext } from '$lib/components/customer-support/support-context.svelte.ts';
 import FeedbackWidget from '$lib/components/customer-support/feedback-widget.svelte';
 import AIChatbar from '$lib/components/customer-support/ai-chatbar.svelte';
 import { toast } from 'svelte-sonner';
@@ -74,6 +74,78 @@ const sharedFileAttachment: Attachment = {
 };
 
 let component: ReturnType<typeof mount> | undefined;
+class SupportThreadContext extends SupportContext {
+	get threadId() {
+		return this.conversation.threadId;
+	}
+	get threadGeneration() {
+		return this.conversation.threadGeneration;
+	}
+	get isSending() {
+		return this.conversation.isSending;
+	}
+	set isSending(value: boolean) {
+		this.conversation.isSending = value;
+	}
+	get isAwaitingStream() {
+		return this.conversation.isAwaitingStream;
+	}
+	set isAwaitingStream(value: boolean) {
+		this.conversation.isAwaitingStream = value;
+	}
+	get error() {
+		return this.conversation.error;
+	}
+	set error(value: string | null) {
+		this.conversation.error = value;
+	}
+	get rateLimitedUntil() {
+		return this.conversation.rateLimitedUntil;
+	}
+	get shouldOpenWidget() {
+		return this.navigation.shouldOpenWidget;
+	}
+	set shouldOpenWidget(value: boolean) {
+		this.navigation.shouldOpenWidget = value;
+	}
+	get currentView() {
+		return this.navigation.currentView;
+	}
+	set currentView(value: 'overview' | 'chat' | 'compose') {
+		this.navigation.setView(value);
+	}
+	setThread(threadId: string | null): void {
+		this.conversation.setThread(threadId);
+	}
+	setClient(client: ConvexClient): void {
+		this.conversation.setClient(client);
+	}
+	setOnThreadChange(callback: ((threadId: string | null) => void) | undefined): void {
+		this.navigation.setOnThreadChange(callback);
+	}
+	setDraft(threadId: string | null, value: string): void {
+		this.conversation.setDraft(threadId, value);
+	}
+	getDraft(threadId: string | null): string {
+		return this.conversation.getDraft(threadId);
+	}
+	setRateLimited(retryAfterMs: number): void {
+		this.conversation.setRateLimited(retryAfterMs);
+	}
+	setThreadOriginBinder(
+		binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
+	): void {
+		this.conversation.setThreadOriginBinder(binder);
+	}
+	forgetChatSession(): void {
+		this.conversation.forgetChatSession();
+		this.navigation.clearWidgetOpenRequest();
+	}
+	sendMessage(...args: Parameters<SupportContext['conversation']['sendMessage']>) {
+		return this.conversation.sendMessage(...args);
+	}
+}
+
 let client: ConvexClient;
 const contexts: ChatUIContext[] = [];
 
@@ -81,7 +153,7 @@ function createSupportContext(
 	thread: SupportThreadContext,
 	uploadConfig?: UploadConfig
 ): ChatUIContext {
-	return new ChatUIContext(thread, client, uploadConfig, 'right', null, {
+	return new ChatUIContext(thread.conversation, client, uploadConfig, 'right', null, {
 		bindThreadOrigin: (binder) => thread.setThreadOriginBinder(binder),
 		forgetSession: () => thread.forgetChatSession()
 	});
@@ -826,9 +898,7 @@ describe('chat session lifecycle', () => {
 		thread.setClient(client);
 
 		thread.startNewThread();
-		await vi.waitFor(() =>
-			expect(thread.error).toBe('Failed to start conversation. Please try again.')
-		);
+		await vi.waitFor(() => expect(thread.error).toBe('thread_start_failed'));
 
 		expect(mutation).toHaveBeenCalledTimes(1);
 		expect(console.error).toHaveBeenCalledWith('[startNewThread] Thread creation failed:', error);

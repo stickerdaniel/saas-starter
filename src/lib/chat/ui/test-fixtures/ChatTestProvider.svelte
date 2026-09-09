@@ -9,9 +9,9 @@
 		adminSupportUIContext
 	} from '$lib/hooks/admin-support-ui.svelte.ts';
 	import {
-		supportThreadContext,
-		type SupportThreadContext
-	} from '$lib/components/customer-support/support-thread-context.svelte.ts';
+		supportContext,
+		type SupportContext
+	} from '$lib/components/customer-support/support-context.svelte.ts';
 
 	let {
 		client,
@@ -23,7 +23,7 @@
 		client: ConvexClient;
 		content: Component<Props>;
 		contentProps: Props;
-		supportThread?: SupportThreadContext;
+		supportThread?: SupportContext;
 		provideTolgee?: boolean;
 	} = $props();
 
@@ -33,7 +33,7 @@
 	adminSupportUIContext.set(new AdminSupportUIManager());
 	// The optional support context is fixed for the mounted test instance.
 	// svelte-ignore state_referenced_locally
-	if (supportThread) supportThreadContext.set(supportThread);
+	if (supportThread) supportContext.set(supportThread);
 	const tolgee = Tolgee().use(FormatSimple()).init({ language: 'en', staticData: { en } });
 	// Tests may replace the child props without remounting its providers.
 	// svelte-ignore state_referenced_locally

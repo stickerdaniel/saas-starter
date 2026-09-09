@@ -23,7 +23,7 @@ vi.mock('@stickerdaniel/convex-autumn-svelte/sveltekit/server', () => ({
 	createAutumnHandlers
 }));
 
-import { SupportThreadContext } from '$lib/components/customer-support/support-thread-context.svelte.ts';
+import { SupportContext } from '$lib/components/customer-support/support-context.svelte.ts';
 import { load as rootLayoutLoad } from '../../+layout.server';
 import { load as homepageLoad } from './+page.server';
 
@@ -71,12 +71,12 @@ describe('homepage capability load', () => {
 		expect(event.depends).toHaveBeenCalledWith('app:auth');
 		expect(event.depends).toHaveBeenCalledWith('app:capabilities');
 
-		const support = new SupportThreadContext(() => loadedData.capabilities.ai.usable);
-		expect(support.awaitsAgentReply).toBe(true);
-		support.setSending(true);
-		await expect(support.sendMessage(null as never, 'Second message')).rejects.toThrow(
-			'Cannot send message: waiting for AI response'
-		);
+		const support = new SupportContext(() => loadedData.capabilities.ai.usable);
+		expect(support.conversation.awaitsAgentReply).toBe(true);
+		support.conversation.setSending(true);
+		await expect(
+			support.conversation.sendMessage(null as never, 'Second message')
+		).rejects.toMatchObject({ code: 'send_in_progress' });
 	});
 
 	it('fails closed without loading customer or viewer data', async () => {

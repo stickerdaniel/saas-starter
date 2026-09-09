@@ -29,12 +29,14 @@ describe('browser capability controls', () => {
 
 	it('uses human-only support and hides the AI launcher when AI is unavailable', () => {
 		const support = source('src/lib/components/customer-support/customer-support.svelte');
-		const context = source('src/lib/components/customer-support/support-thread-context.svelte.ts');
+		const conversation = source(
+			'src/lib/components/customer-support/support-conversation.svelte.ts'
+		);
 		expect(support).toContain('const capabilityQuery = useQuery(');
 		expect(support).toContain('api.capabilities.getUsability,');
 		expect(support).toContain('capabilityQuery.data?.ai.usable === true');
 		expect(support).toContain('disabled={!capabilitiesResolved}');
 		expect(support).toContain('{#if isSupportAiEnabled() && aiUsable}');
-		expect(context).toContain('isSupportAiEnabled() && this.isAiUsable()');
+		expect(conversation).toContain('isSupportAiEnabled() && this.isAiUsable()');
 	});
 });
