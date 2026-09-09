@@ -473,6 +473,10 @@
 			}
 		}
 	},
+	"capabilities": {
+		"billing_unavailable": "Les fonctionnalités de facturation sont actuellement indisponibles.",
+		"ai_unavailable": "Les fonctionnalités d’IA sont actuellement indisponibles."
+	},
 	"billing": {
 		"checkout_failed": "Échec du paiement. Veuillez réessayer.",
 		"portal_failed": "Impossible d'ouvrir le portail de facturation. Veuillez réessayer.",

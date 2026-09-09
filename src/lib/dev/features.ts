@@ -26,6 +26,7 @@ export type DevFeature = {
 };
 
 export type CapabilityRequirement = 'optional' | 'required';
+export type CapabilityProfile = 'local' | 'test' | 'preview' | 'production';
 
 type ConfigurationIssue = 'blank' | 'incomplete' | 'invalid' | 'missing' | 'sentinel';
 
@@ -35,6 +36,7 @@ export type CapabilityConfiguration<Value> =
 	| { state: 'ready'; value: Value };
 
 export type CapabilityEnvironment = {
+	CAPABILITY_PROFILE?: string | null;
 	RESEND_API_KEY?: string | null;
 	AUTH_EMAIL?: string | null;
 	EMAIL_ASSET_URL?: string | null;
@@ -63,11 +65,52 @@ export type CapabilityConfigurations = {
 	ai: CapabilityConfiguration<AiConfiguration>;
 };
 
+export type PublicCapabilityStatus = { usable: true } | { usable: false; reason: 'unavailable' };
+
+export type PublicCapabilityUsability = {
+	billing: PublicCapabilityStatus;
+	ai: PublicCapabilityStatus;
+};
+
+export const UNAVAILABLE_CAPABILITY_USABILITY: PublicCapabilityUsability = {
+	billing: { usable: false, reason: 'unavailable' },
+	ai: { usable: false, reason: 'unavailable' }
+};
+
 export const STRICT_CAPABILITY_REQUIREMENTS: CapabilityRequirements = {
 	billing: 'required',
 	email: 'required',
 	ai: 'required'
 };
+
+const OPTIONAL_CAPABILITY_REQUIREMENTS: CapabilityRequirements = {
+	billing: 'optional',
+	email: 'optional',
+	ai: 'optional'
+};
+
+export class InvalidCapabilityProfileError extends Error {
+	constructor() {
+		super('[capability] CAPABILITY_PROFILE is invalid');
+		this.name = 'InvalidCapabilityProfileError';
+	}
+}
+
+/** Absence remains the production-strict legacy/bootstrap profile. */
+export function getCapabilityRequirements(
+	profile: string | null | undefined
+): CapabilityRequirements {
+	if (
+		profile === undefined ||
+		profile === null ||
+		profile === 'preview' ||
+		profile === 'production'
+	) {
+		return STRICT_CAPABILITY_REQUIREMENTS;
+	}
+	if (profile === 'local' || profile === 'test') return OPTIONAL_CAPABILITY_REQUIREMENTS;
+	throw new InvalidCapabilityProfileError();
+}
 
 const BILLING_SENTINELS = new Set([
 	'am_sk_your_secret_key_here',
@@ -350,6 +393,43 @@ export function resolveCapabilityConfigurations(
 		ai: resolveSingle(input.OPENROUTER_API_KEY, requirements.ai, AI_SENTINELS, (apiKey) => ({
 			apiKey
 		}))
+	};
+}
+
+export function resolveProfileCapabilityConfigurations(
+	input: CapabilityEnvironment
+): CapabilityConfigurations {
+	return resolveCapabilityConfigurations(
+		input,
+		getCapabilityRequirements(input.CAPABILITY_PROFILE)
+	);
+}
+
+/** Reject malformed required groups while optional profiles keep them unusable. */
+export function validateCapabilityEnvironment(
+	input: CapabilityEnvironment
+): CapabilityConfigurations {
+	const requirements = getCapabilityRequirements(input.CAPABILITY_PROFILE);
+	const configurations = resolveCapabilityConfigurations(input, requirements);
+	for (const capability of ['billing', 'email', 'ai'] as const) {
+		if (
+			requirements[capability] === 'required' &&
+			configurations[capability].state === 'misconfigured'
+		) {
+			throw new Error(`[capability] ${capability} configuration is invalid`);
+		}
+	}
+	return configurations;
+}
+
+export function projectCapabilityUsability(
+	configurations: CapabilityConfigurations
+): PublicCapabilityUsability {
+	const project = (configuration: CapabilityConfiguration<unknown>): PublicCapabilityStatus =>
+		configuration.state === 'ready' ? { usable: true } : { usable: false, reason: 'unavailable' };
+	return {
+		billing: project(configurations.billing),
+		ai: project(configurations.ai)
 	};
 }
 

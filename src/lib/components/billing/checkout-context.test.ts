@@ -86,12 +86,15 @@ function setup(overrides: Partial<BillingCheckoutDeps> = {}) {
 			message: 'ok'
 		} as AttachResult),
 		redirect: vi.fn(),
+		isUsable: () => true,
+		onUnavailable: vi.fn(),
 		onError: vi.fn(),
 		...overrides
 	} as unknown as BillingCheckoutDeps & {
 		checkout: ReturnType<typeof operation<CheckoutResult>>;
 		attach: ReturnType<typeof operation<AttachResult>>;
 		redirect: ReturnType<typeof vi.fn>;
+		onUnavailable: ReturnType<typeof vi.fn>;
 		onError: ReturnType<typeof vi.fn>;
 	};
 
@@ -99,6 +102,16 @@ function setup(overrides: Partial<BillingCheckoutDeps> = {}) {
 }
 
 describe('BillingCheckoutManager.start', () => {
+	it('performs no provider operation when billing is unavailable', async () => {
+		const { deps, manager } = setup({ isUsable: () => false });
+
+		await manager.start({ productId: 'pro' });
+
+		expect(deps.onUnavailable).toHaveBeenCalledOnce();
+		expect(deps.checkout.execute).not.toHaveBeenCalled();
+		expect(deps.attach.execute).not.toHaveBeenCalled();
+	});
+
 	it('reports a thrown checkout instead of leaving the button silent', async () => {
 		const boom = new Error('network');
 		const { deps, manager } = setup({ checkout: operation<CheckoutResult>(null, boom) as never });

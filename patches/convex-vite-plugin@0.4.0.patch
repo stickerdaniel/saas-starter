@@ -5,51 +5,62 @@ diff --git a/node_modules/convex-vite-plugin/.bun-tag-f7bcc5c18e81cda6 b/.bun-ta
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
-index a2446d37d147b021fb5315b9d3ffbd9e5f0e8ca0..8c8db83dcd5c3aa93a3bdcc8544d8927691a66e4 100644
 --- a/dist/backend-CgypcZjo.mjs
 +++ b/dist/backend-CgypcZjo.mjs
-@@ -565,6 +565,9 @@ var ConvexBackend = class {
- 			cwd: backendDir,
- 			stdio: this.stdio
- 		});
+@@ -567,0 +568,3 @@
 +		this.process.on("error", (error) => {
 +			this.logger.error(`Convex backend process failed to start: ${error instanceof Error ? error.message : String(error)}`, { timestamp: true });
 +		});
- 		if (!this.process.pid) throw new Error("Convex process failed to start - no PID assigned");
- 		this.logger.info(`Backend spawned on port ${this.port} (waiting for ready...)`, { timestamp: true });
- 	}
-@@ -576,8 +579,8 @@ var ConvexBackend = class {
- 		await this.healthCheck();
- 		this.logger.info("Backend ready", { timestamp: true });
- 		this.logger.info(`  Instance name:   ${this.instanceName}`, { timestamp: true });
+@@ -579,2 +582,2 @@
 -		this.logger.info(`  Instance secret: ${this.instanceSecret}`, { timestamp: true });
 -		this.logger.info(`  Admin key:       ${this.adminKey}`, { timestamp: true });
 +		this.logger.info(`  Instance secret: [REDACTED]`, { timestamp: true });
 +		this.logger.info(`  Admin key:       [REDACTED]`, { timestamp: true });
- 		this.logger.info(`  Backend URL:     ${this.backendUrl}`, { timestamp: true });
- 	}
- 	/**
+diff --git a/dist/index.d.mts b/dist/index.d.mts
+--- a/dist/index.d.mts
++++ b/dist/index.d.mts
+@@ -38,0 +39 @@
++   * Null values are removed after the initial deploy succeeds.
+@@ -40 +41 @@
+-  envVars?: Record<string, string> | ((info: {
++  envVars?: Record<string, string | null> | ((info: {
+@@ -43 +44 @@
+-  }) => Record<string, string> | Promise<Record<string, string>>) | undefined;
++  }) => Record<string, string | null> | Promise<Record<string, string | null>>) | undefined;
 diff --git a/dist/index.mjs b/dist/index.mjs
-index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..0d377d80ae7648b9f12158dec1adce3dd4b8f6f7 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
-@@ -208,7 +208,7 @@ function convexLocal(options = {}) {
- 							}) : options.envVars;
- 							for (const [name, value] of Object.entries(envVars)) {
- 								await backend.setEnv(name, value);
+@@ -71 +71 @@
+-			return;
++			return false;
+@@ -75 +75 @@
+-			return;
++			return false;
+@@ -81,0 +82 @@
++			return true;
+@@ -87,0 +89 @@
++			return false;
+@@ -203,0 +206 @@
++						const envVarsToRemove = [];
+@@ -209,0 +213,4 @@
++								if (value === null) {
++									envVarsToRemove.push(name);
++									continue;
++								}
+@@ -211 +218 @@
 -								logger.info(`Set environment variable: ${name} = ${value}`, { timestamp: true });
 +								logger.info(`Set environment variable: ${name} = [REDACTED]`, { timestamp: true });
- 							}
- 						}
- 						deploy();
+@@ -214 +221,5 @@
+-						deploy();
++						const initialDeploySucceeded = deploy();
++						if (initialDeploySucceeded) for (const name of envVarsToRemove) {
++							await backend.setEnv(name, null);
++							logger.info(`Removed environment variable: ${name}`, { timestamp: true });
++						}
 diff --git a/src/backend.ts b/src/backend.ts
-index 27271554f6ed8c2c8aba185bbb62f8a16c7e8c7d..15fedc76750edfbfb8960d2e7a398114dcb10ff6 100644
 --- a/src/backend.ts
 +++ b/src/backend.ts
-@@ -180,6 +180,18 @@ export class ConvexBackend {
-       },
-     );
- 
+@@ -182,0 +183,12 @@
 +    // A failed exec leaves pid undefined, so the check below already rejects
 +    // spawn() and reports the failure. What it does not stop is the 'error'
 +    // event that lands afterwards: with no listener Node prints the whole error
@@ -62,30 +73,58 @@ index 27271554f6ed8c2c8aba185bbb62f8a16c7e8c7d..15fedc76750edfbfb8960d2e7a398114
 +      );
 +    });
 +
-     if (!this.process.pid) {
-       throw new Error("Convex process failed to start - no PID assigned");
-     }
-@@ -198,8 +210,8 @@ export class ConvexBackend {
- 
-     this.logger.info("Backend ready", { timestamp: true });
-     this.logger.info(`  Instance name:   ${this.instanceName}`, { timestamp: true });
+@@ -201,2 +213,2 @@
 -    this.logger.info(`  Instance secret: ${this.instanceSecret}`, { timestamp: true });
 -    this.logger.info(`  Admin key:       ${this.adminKey}`, { timestamp: true });
 +    this.logger.info(`  Instance secret: [REDACTED]`, { timestamp: true });
 +    this.logger.info(`  Admin key:       [REDACTED]`, { timestamp: true });
-     this.logger.info(`  Backend URL:     ${this.backendUrl}`, { timestamp: true });
-   }
- 
+@@ -263 +275 @@
+-  async setEnv(name: string, value: string): Promise<void> {
++  async setEnv(name: string, value: string | null): Promise<void> {
 diff --git a/src/index.ts b/src/index.ts
-index 9ed17e6d7512b75cce299b04e762380e6636a2d3..8a345bf32c34a86edef863a69fd576241b4e425e 100644
 --- a/src/index.ts
 +++ b/src/index.ts
-@@ -382,7 +382,7 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
- 
-               for (const [name, value] of Object.entries(envVars)) {
-                 await backend.setEnv(name, value);
+@@ -85,0 +86 @@
++   * Null values are removed after the initial deploy succeeds.
+@@ -88 +89 @@
+-    | Record<string, string>
++    | Record<string, string | null>
+@@ -92 +93 @@
+-      }) => Record<string, string> | Promise<Record<string, string>>)
++      }) => Record<string, string | null> | Promise<Record<string, string | null>>)
+@@ -186 +187 @@
+-  const deploy = (): void => {
++  const deploy = (): boolean => {
+@@ -189 +190 @@
+-      return;
++      return false;
+@@ -194 +195 @@
+-      return;
++      return false;
+@@ -202,0 +204 @@
++      return true;
+@@ -208,0 +211 @@
++      return false;
+@@ -376 +379,4 @@
+-            // Set user-provided env vars
++            // Set non-null env vars before deploy so the current definition can boot.
++            // Removals wait until the new definition has deployed successfully because
++            // a persisted backend may still require those variables until then.
++            const envVarsToRemove: string[] = [];
+@@ -383,0 +390,4 @@
++                if (value === null) {
++                  envVarsToRemove.push(name);
++                  continue;
++                }
+@@ -385 +395 @@
 -                logger.info(`Set environment variable: ${name} = ${value}`, { timestamp: true });
 +                logger.info(`Set environment variable: ${name} = [REDACTED]`, { timestamp: true });
-               }
-             }
- 
+@@ -390 +400,7 @@
+-            deploy();
++            const initialDeploySucceeded = deploy();
++            if (initialDeploySucceeded) {
++              for (const name of envVarsToRemove) {
++                await backend.setEnv(name, null);
++                logger.info(`Removed environment variable: ${name}`, { timestamp: true });
++              }
++            }

@@ -1,5 +1,27 @@
 import type { ServerLoadEvent } from '@sveltejs/kit';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { createAutumnHandlers, getCustomer, query } = vi.hoisted(() => ({
+	createAutumnHandlers: vi.fn(),
+	getCustomer: vi.fn(),
+	query: vi.fn()
+}));
+
+vi.mock('$lib/convex/_generated/api', () => ({
+	api: {
+		capabilities: { getUsability: 'capabilities:getUsability' },
+		users: { viewer: 'users:viewer' }
+	}
+}));
+
+vi.mock('$lib/server/convex-http', () => ({
+	createServerConvexHttpClient: vi.fn(() => ({ query }))
+}));
+
+vi.mock('@stickerdaniel/convex-autumn-svelte/sveltekit/server', () => ({
+	createAutumnHandlers
+}));
+
 import { resolveAuthLayoutData, resolvePublicAuthLayoutData } from './auth-layout-data';
 import { shouldUsePublicAuthSnapshot } from './auth-route';
 
@@ -7,8 +29,7 @@ import { shouldUsePublicAuthSnapshot } from './auth-route';
 // subtree layout AND any parent()-forced root layout load both resolve the
 // auth block, and the memo (keyed on the request-scoped event.locals) is what
 // keeps that at one Autumn call + one Convex query per request.
-// Unauthenticated events (no locals.token) never touch Convex/Autumn, so
-// these tests exercise the memo without any network.
+// The client is mocked so these tests exercise the memo without any network.
 
 function fakeEvent(locals: App.Locals, cookies: Record<string, string> = {}): ServerLoadEvent {
 	return {
@@ -18,6 +39,20 @@ function fakeEvent(locals: App.Locals, cookies: Record<string, string> = {}): Se
 		cookies: { get: (name: string) => cookies[name] }
 	} as unknown as ServerLoadEvent;
 }
+
+beforeEach(() => {
+	vi.clearAllMocks();
+	createAutumnHandlers.mockReturnValue({ getCustomer });
+	getCustomer.mockResolvedValue(null);
+	query.mockImplementation(async (reference: string) =>
+		reference === 'capabilities:getUsability'
+			? {
+					billing: { usable: false, reason: 'unavailable' },
+					ai: { usable: false, reason: 'unavailable' }
+				}
+			: null
+	);
+});
 
 describe('resolveAuthLayoutData per-request memo', () => {
 	it('resolves once per request when called from multiple loads', async () => {
@@ -43,6 +78,56 @@ describe('resolveAuthLayoutData per-request memo', () => {
 			expect(event.depends).toHaveBeenCalledWith('app:auth');
 			expect(event.depends).toHaveBeenCalledWith('autumn:customer');
 		}
+	});
+});
+
+describe('capability-aware SSR', () => {
+	it('loads the viewer independently and makes zero Autumn calls when billing is disabled', async () => {
+		let releaseCapabilities!: (value: {
+			billing: { usable: false; reason: 'unavailable' };
+			ai: { usable: true };
+		}) => void;
+		query.mockImplementation((reference: string) => {
+			if (reference === 'users:viewer') {
+				return Promise.resolve({ _id: 'user_1', email: 'viewer@example.com' });
+			}
+			return new Promise((resolve) => {
+				releaseCapabilities = resolve;
+			});
+		});
+
+		const pending = resolveAuthLayoutData(fakeEvent({ token: 'signed-token' } as App.Locals));
+
+		expect(query).toHaveBeenCalledWith('users:viewer', {});
+		expect(query).toHaveBeenCalledWith('capabilities:getUsability', {});
+		expect(createAutumnHandlers).not.toHaveBeenCalled();
+		releaseCapabilities({
+			billing: { usable: false, reason: 'unavailable' },
+			ai: { usable: true }
+		});
+
+		await expect(pending).resolves.toMatchObject({
+			viewer: { _id: 'user_1' },
+			autumnState: { customer: null },
+			capabilities: { billing: { usable: false }, ai: { usable: true } }
+		});
+		expect(createAutumnHandlers).not.toHaveBeenCalled();
+		expect(getCustomer).not.toHaveBeenCalled();
+	});
+
+	it('loads Autumn only after billing is projected usable', async () => {
+		query.mockImplementation(async (reference: string) =>
+			reference === 'capabilities:getUsability'
+				? { billing: { usable: true }, ai: { usable: true } }
+				: { _id: 'user_1' }
+		);
+		getCustomer.mockResolvedValue({ id: 'customer_1' });
+
+		await expect(
+			resolveAuthLayoutData(fakeEvent({ token: 'signed-token' } as App.Locals))
+		).resolves.toMatchObject({ autumnState: { customer: { id: 'customer_1' } } });
+		expect(createAutumnHandlers).toHaveBeenCalledOnce();
+		expect(getCustomer).toHaveBeenCalledOnce();
 	});
 });
 
@@ -99,10 +184,12 @@ describe('public auth snapshot', () => {
 		expect(resolvePublicAuthLayoutData(event)).toMatchObject({
 			authState: { isAuthenticated: false, hasSession: false },
 			autumnState: { customer: null },
-			viewer: null
+			viewer: null,
+			capabilitiesResolved: false
 		});
 		expect(event.depends).toHaveBeenCalledWith('app:auth');
 		expect(event.depends).not.toHaveBeenCalledWith('autumn:customer');
+		expect(query).not.toHaveBeenCalled();
 	});
 
 	it('reports a surviving Better Auth session without minting a Convex JWT', () => {
@@ -127,5 +214,6 @@ describe('public auth snapshot', () => {
 			viewer: { _id: 'user_123', email: 'user@example.com', role: 'user' }
 		});
 		expect(event.depends).not.toHaveBeenCalledWith('autumn:customer');
+		expect(query).not.toHaveBeenCalled();
 	});
 });

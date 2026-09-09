@@ -6,6 +6,9 @@ import autumn from '@useautumn/convex/convex.config';
 import agent from '@convex-dev/agent/convex.config';
 import rateLimiter from '@convex-dev/rate-limiter/convex.config';
 import convexFilesControl from '@gilhrpenner/convex-files-control/convex.config';
+import { validateCapabilityEnvironment } from '../dev/features';
+
+validateCapabilityEnvironment(process.env);
 
 /**
  * Declared Convex backend environment variables.
@@ -27,12 +30,16 @@ const app = defineApp({
 		// Required, string-like (deploy-time presence + value guard)
 		BETTER_AUTH_SECRET: v.string(),
 		SITE_URL: v.string(), // @type=url in the schema documents intent only
-		RESEND_API_KEY: v.string(),
-		AUTH_EMAIL: v.string(),
-		EMAIL_ASSET_URL: v.string(), // @type=url in the schema documents intent only
-		AUTUMN_SECRET_KEY: v.string(),
-		OPENROUTER_API_KEY: v.string(),
+		// Provider groups are structurally validated above against CAPABILITY_PROFILE.
+		RESEND_API_KEY: v.optional(v.string()),
+		AUTH_EMAIL: v.optional(v.string()),
+		EMAIL_ASSET_URL: v.optional(v.string()), // @type=url in the schema documents intent only
+		AUTUMN_SECRET_KEY: v.optional(v.string()),
+		OPENROUTER_API_KEY: v.optional(v.string()),
 		// Optional
+		CAPABILITY_PROFILE: v.optional(
+			v.union(v.literal('local'), v.literal('test'), v.literal('preview'), v.literal('production'))
+		),
 		BETTER_AUTH_SECRETS: v.optional(v.string()),
 		RESEND_WEBHOOK_SECRET: v.optional(v.string()),
 		AUTH_GOOGLE_ID: v.optional(v.string()),

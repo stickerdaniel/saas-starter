@@ -47,6 +47,7 @@
 	// Autumn subscription state
 	const autumn = useCustomer();
 	const billingCheckout = useBillingCheckout();
+	const billingUsable = $derived(billingCheckout.isUsable);
 	const portalOperation = useAutumnOperation(autumn.openBillingPortal);
 	const isPro = $derived(autumn.customer?.products?.some((p) => p.id === 'pro') ?? false);
 
@@ -69,6 +70,11 @@
 	}
 
 	async function handleBilling() {
+		if (!billingUsable) {
+			haptic.trigger('error');
+			toast.error($t('capabilities.billing_unavailable'));
+			return;
+		}
 		haptic.trigger('light');
 		// Return here after the portal; without returnUrl Autumn defaults to useautumn.com.
 		await portalOperation.execute({ returnUrl: window.location.href });
@@ -159,7 +165,11 @@
 				<DropdownMenu.Separator />
 				{#if !isPro}
 					<DropdownMenu.Group>
-						<DropdownMenu.Item onclick={handleUpgrade} disabled={billingCheckout.isLoading}>
+						<DropdownMenu.Item
+							onclick={handleUpgrade}
+							disabled={!billingUsable || billingCheckout.isLoading}
+							title={!billingUsable ? $t('capabilities.billing_unavailable') : undefined}
+						>
 							{#if billingCheckout.isLoading}
 								<LoaderCircleIcon class="motion-safe:animate-spin" />
 							{:else}
@@ -177,7 +187,11 @@
 							<T keyName="app.user_menu.settings" />
 						</DropdownMenu.Item>
 					</a>
-					<DropdownMenu.Item onclick={handleBilling} disabled={portalOperation.isLoading}>
+					<DropdownMenu.Item
+						onclick={handleBilling}
+						disabled={!billingUsable || portalOperation.isLoading}
+						title={!billingUsable ? $t('capabilities.billing_unavailable') : undefined}
+					>
 						{#if portalOperation.isLoading}
 							<LoaderCircleIcon class="motion-safe:animate-spin" />
 						{:else}

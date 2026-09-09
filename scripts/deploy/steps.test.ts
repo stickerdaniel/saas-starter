@@ -9,6 +9,9 @@ import {
 	computeBuildEnv,
 	deployConvex,
 	resolveDeploymentSiteOrigin,
+	setProductionCapabilityProfile,
+	setupPreviewEnv,
+	validateConvexEnv,
 	type ConvexDeployment
 } from './steps';
 import * as deployUtils from './utils';
@@ -160,6 +163,108 @@ describe('resolveDeploymentSiteOrigin', () => {
 				{ PUBLIC_SITE_URL: 'not a url', SITE_URL: 'https://production.example.com' }
 			)
 		).toBe('https://preview.example.com');
+	});
+});
+
+describe('deployment capability profile ownership', () => {
+	it('sets and validates production before deployment', () => {
+		const run = vi.spyOn(deployUtils, 'runCommand').mockReturnValue(true);
+		const platform = makePlatform();
+
+		setProductionCapabilityProfile(platform);
+		validateConvexEnv(platform);
+
+		expect(run).toHaveBeenNthCalledWith(1, 'bunx', [
+			'convex',
+			'env',
+			'set',
+			'CAPABILITY_PROFILE',
+			'production',
+			'--prod'
+		]);
+		expect(run).toHaveBeenNthCalledWith(2, 'bun', [
+			'scripts/validate-convex-env.ts',
+			'--prod',
+			'--expected-profile',
+			'production'
+		]);
+		run.mockRestore();
+	});
+
+	it('keeps Preview Deploy Key setup deployment-scoped before validation and seeding', async () => {
+		const calls: Array<[string, string[]]> = [];
+		const run = vi.spyOn(deployUtils, 'runCommand').mockImplementation((command, args) => {
+			calls.push([command, args]);
+			return true;
+		});
+		const retry = vi
+			.spyOn(deployUtils, 'runCommandWithRetry')
+			.mockImplementation(async (command, args) => {
+				calls.push([command, args]);
+				return { success: true, stdout: '', stderr: '' };
+			});
+		vi.spyOn(deployUtils, 'runCommandCapture').mockImplementation((command, args) => {
+			calls.push([command, args]);
+			return args.includes('list')
+				? {
+						success: true,
+						stdout: 'CAPABILITY_PROFILE=preview\nSITE_URL=https://preview.example.com',
+						stderr: ''
+					}
+				: { success: true, stdout: '', stderr: '' };
+		});
+		const platform = makePlatform({
+			environment: 'preview',
+			isPreview: true,
+			siteUrl: 'https://preview.example.com'
+		});
+
+		await setupPreviewEnv(deployment, platform);
+
+		// Preview Deploy Keys cannot authorize project-level `env default` writes.
+		expect(calls).toEqual([
+			[
+				'bunx',
+				[
+					'convex',
+					'env',
+					'set',
+					'--deployment-name',
+					deployment.name,
+					'CAPABILITY_PROFILE',
+					'preview'
+				]
+			],
+			[
+				'bunx',
+				[
+					'convex',
+					'env',
+					'set',
+					'--deployment-name',
+					deployment.name,
+					'SITE_URL',
+					'https://preview.example.com'
+				]
+			],
+			['bunx', ['convex', 'env', 'list', '--deployment-name', deployment.name]],
+			[
+				'bun',
+				[
+					'scripts/validate-convex-env.ts',
+					'--deployment-name',
+					deployment.name,
+					'--expected-profile',
+					'preview'
+				]
+			],
+			[
+				'bunx',
+				['convex', 'run', '--deployment-name', deployment.name, 'previewDev:ensurePreviewAdmin']
+			]
+		]);
+		retry.mockRestore();
+		run.mockRestore();
 	});
 });
 

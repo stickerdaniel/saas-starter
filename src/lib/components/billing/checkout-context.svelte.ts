@@ -31,6 +31,8 @@ export type BillingCheckoutDeps = {
 	attach: Operation<CheckoutStartParams, AttachResult>;
 	/** Leaves the document. Suspends the upload guard first. */
 	redirect: (url: string) => void;
+	isUsable: () => boolean;
+	onUnavailable: () => void;
 	onError: (stage: 'checkout' | 'confirm', error: Error | null) => void;
 };
 
@@ -84,6 +86,10 @@ export class BillingCheckoutManager {
 		return this.#updating;
 	}
 
+	get isUsable(): boolean {
+		return this.#deps.isUsable();
+	}
+
 	/**
 	 * True while a call is in flight, false while the open dialog waits for the
 	 * user. Upgrade buttons bind to this, and a spinner behind a modal that is
@@ -94,6 +100,10 @@ export class BillingCheckoutManager {
 	}
 
 	async start(params: CheckoutStartParams): Promise<void> {
+		if (!this.isUsable) {
+			this.#deps.onUnavailable();
+			return;
+		}
 		if (this.#inFlight) return;
 
 		this.#clear();
@@ -130,6 +140,10 @@ export class BillingCheckoutManager {
 	}
 
 	async confirm(): Promise<void> {
+		if (!this.isUsable) {
+			this.#deps.onUnavailable();
+			return;
+		}
 		const preview = this.#preview;
 		const params = this.#params;
 		if (!preview || !params || this.#inFlight) return;
@@ -171,6 +185,10 @@ export class BillingCheckoutManager {
 	 * without touching the shared flow.
 	 */
 	async updateOptions(options: CheckoutAttachOption[]): Promise<void> {
+		if (!this.isUsable) {
+			this.#deps.onUnavailable();
+			return;
+		}
 		const params = this.#params;
 		if (!params || this.#inFlight) return;
 

@@ -473,6 +473,10 @@
 			}
 		}
 	},
+	"capabilities": {
+		"billing_unavailable": "Die Abrechnungsfunktionen sind derzeit nicht verfügbar.",
+		"ai_unavailable": "KI-Funktionen sind derzeit nicht verfügbar."
+	},
 	"billing": {
 		"checkout_failed": "Bezahlvorgang fehlgeschlagen. Bitte versuchen Sie es erneut.",
 		"portal_failed": "Abrechnungsportal konnte nicht geöffnet werden. Bitte versuchen Sie es erneut.",

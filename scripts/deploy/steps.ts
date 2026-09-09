@@ -90,19 +90,45 @@ export function syncTranslations(platform: PlatformContext): void {
 }
 
 /**
+ * Production deployment scripts own the production capability profile. Preview
+ * profiles are established after the deployment exists in setupPreviewEnv().
+ */
+export function setProductionCapabilityProfile(platform: PlatformContext): void {
+	if (platform.environment !== 'production' || platform.isPreview) return;
+	console.log('Setting Convex capability profile to production...');
+	if (!runCommand('bunx', ['convex', 'env', 'set', 'CAPABILITY_PROFILE', 'production', '--prod'])) {
+		console.error(`${colors.red}Failed to set the production capability profile${colors.reset}`);
+		process.exit(1);
+	}
+}
+
+/**
  * Validate required Convex environment variables
  */
 export function validateConvexEnv(platform: PlatformContext, deployment?: ConvexDeployment): void {
 	if (platform.environment === 'production') {
 		console.log('Checking required Convex environment variables (production)...');
-		if (!runCommand('bun', ['scripts/validate-convex-env.ts', '--prod'])) {
+		if (
+			!runCommand('bun', [
+				'scripts/validate-convex-env.ts',
+				'--prod',
+				'--expected-profile',
+				'production'
+			])
+		) {
 			console.error(`${colors.red}Environment variable validation failed${colors.reset}`);
 			process.exit(1);
 		}
 	} else if (platform.isPreview && deployment?.name) {
 		console.log('Checking required Convex environment variables (preview)...');
 		if (
-			!runCommand('bun', ['scripts/validate-convex-env.ts', '--deployment-name', deployment.name])
+			!runCommand('bun', [
+				'scripts/validate-convex-env.ts',
+				'--deployment-name',
+				deployment.name,
+				'--expected-profile',
+				'preview'
+			])
 		) {
 			console.error(`${colors.red}Environment variable validation failed${colors.reset}`);
 			process.exit(1);
@@ -359,6 +385,19 @@ export async function setupPreviewEnv(
 	}
 
 	const previewSiteUrl = platform.siteUrl;
+
+	// A new preview can deploy once through the strict absence fallback. Preview
+	// Deploy Keys may then configure that deployment, but cannot write project defaults.
+	console.log('Setting Convex capability profile to preview...');
+	const profileResult = await runCommandWithRetry(
+		'bunx',
+		['convex', 'env', 'set', '--deployment-name', deployment.name, 'CAPABILITY_PROFILE', 'preview'],
+		{ maxRetries: 5, delayMs: 5000, description: 'convex env set CAPABILITY_PROFILE' }
+	);
+	if (!profileResult.success) {
+		console.error(`${colors.red}Failed to set the preview capability profile${colors.reset}`);
+		process.exit(1);
+	}
 
 	console.log(`Setting SITE_URL for preview: ${previewSiteUrl}`);
 	console.log(`  Using --deployment-name ${deployment.name}`);
