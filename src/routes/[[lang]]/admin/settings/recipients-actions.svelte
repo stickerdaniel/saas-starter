@@ -2,7 +2,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { getContext } from 'svelte';
+	import { getRemoveEmailContext } from './recipients-context';
 	import { confirmDelete } from '$lib/components/ui/confirm-delete-dialog';
 	import { toast } from 'svelte-sonner';
 
@@ -16,7 +16,7 @@
 	const { t } = getTranslate();
 
 	// Get the remove handler from context (provided by the table)
-	const onRemove = getContext<(email: string) => Promise<void>>('onRemoveEmail');
+	const onRemove = getRemoveEmailContext();
 
 	function handleRemove() {
 		confirmDelete({
@@ -33,9 +33,7 @@
 					await onRemove(email);
 				} catch (error) {
 					console.error('[recipients-actions] Failed to remove email:', error);
-					toast.error(
-						error instanceof Error ? error.message : $t('admin.settings.preference_update_failed')
-					);
+					toast.error($t('admin.settings.preference_update_failed'));
 					throw error; // Re-throw so confirmDelete knows it failed
 				}
 			}

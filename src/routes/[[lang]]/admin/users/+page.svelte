@@ -21,11 +21,10 @@
 
 	const { t } = getTranslate();
 	import { useConvexClient, useQuery } from 'convex-svelte';
-	import { ConvexError } from 'convex/values';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { toast } from 'svelte-sonner';
-	import { setContext } from 'svelte';
+	import { setUserActionHandler } from './user-actions-context';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
 	import type { PageData } from './$types';
 	import { type UserRole, type AdminUserData } from '$lib/convex/admin/types';
@@ -37,6 +36,8 @@
 	import DataTableFilters from './data-table-filters.svelte';
 	import type { ActionEvent } from './data-table-actions.svelte';
 	import { browser } from '$app/environment';
+	import { getAuthErrorKey } from '$lib/utils/auth-messages';
+	import { getConvexErrorCode, getConvexErrorData } from '$lib/utils/convex-errors';
 
 	let { data }: { data: PageData } = $props();
 
@@ -212,7 +213,7 @@
 	let isActionLoading = $state(false);
 
 	// Provide context for action component (currentUserId is set by admin layout)
-	setContext('onUserAction', handleUserAction);
+	setUserActionHandler(handleUserAction);
 
 	// Calculate skeleton rows: min(knownCount - offset, pageSize) or pageSize if unknown
 	const skeletonCount = $derived.by(() => {
@@ -329,13 +330,26 @@
 		}
 	}
 
-	// ConvexError.message is the hybrid stacktrace; the server's actual
-	// message (e.g. "You cannot ban yourself") travels in error.data.
 	function actionErrorMessage(error: unknown): string {
-		if (error instanceof ConvexError && typeof error.data === 'string') {
-			return error.data;
-		}
-		return error instanceof Error ? error.message : 'Unknown error';
+		const key = (() => {
+			switch (getConvexErrorCode(error)) {
+				case 'ADMIN_ACCESS_REQUIRED':
+					return 'admin.users.errors.access_required';
+				case 'ADMIN_CANNOT_CHANGE_OWN_ROLE':
+					return 'admin.users.errors.cannot_change_own_role';
+				case 'ADMIN_USER_NOT_FOUND':
+					return 'admin.users.errors.user_not_found';
+				case 'ADMIN_LAST_ADMIN':
+					return 'admin.users.errors.last_admin';
+				default:
+					return 'admin.users.errors.unknown';
+			}
+		})();
+		return $t(key);
+	}
+
+	function adminAuthErrorMessage(error: unknown): string {
+		return $t(getAuthErrorKey(getConvexErrorData(error)));
 	}
 
 	async function impersonateUser(userId: string) {
@@ -344,7 +358,7 @@
 			// cookies); its audit entries are written by session triggers.
 			const result = await authClient.admin.impersonateUser({ userId });
 			if (result.error) {
-				const message = result.error.message || 'Unknown error';
+				const message = $t(getAuthErrorKey(result.error));
 				toast.error($t('admin.users.toast.impersonate_failed', { message }));
 				console.error('Impersonation error:', result.error);
 				return;
@@ -362,8 +376,7 @@
 			// identity.
 			window.location.assign(localizedHref('/app'));
 		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Unknown error';
-			toast.error($t('admin.users.toast.impersonate_failed', { message }));
+			toast.error($t('admin.users.toast.impersonate_failed', { message: $t('common.error') }));
 			console.error('Impersonation error:', error);
 		}
 	}
@@ -382,7 +395,7 @@
 			toast.success($t('admin.users.toast.banned'));
 			closeDialog();
 		} catch (error) {
-			const message = actionErrorMessage(error);
+			const message = adminAuthErrorMessage(error);
 			toast.error($t('admin.users.toast.ban_failed', { message }));
 			console.error('Ban error:', error);
 		} finally {
@@ -402,7 +415,7 @@
 			toast.success($t('admin.users.toast.unbanned'));
 			closeDialog();
 		} catch (error) {
-			const message = actionErrorMessage(error);
+			const message = adminAuthErrorMessage(error);
 			toast.error($t('admin.users.toast.unban_failed', { message }));
 			console.error('Unban error:', error);
 		} finally {
@@ -422,7 +435,7 @@
 			toast.success($t('admin.users.toast.revoked'));
 			closeDialog();
 		} catch (error) {
-			const message = actionErrorMessage(error);
+			const message = adminAuthErrorMessage(error);
 			toast.error($t('admin.users.toast.revoke_failed', { message }));
 			console.error('Revoke sessions error:', error);
 		} finally {

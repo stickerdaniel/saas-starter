@@ -7,7 +7,7 @@
  * @see https://stack.convex.dev/custom-functions
  */
 import { customQuery, customMutation, customCtx } from 'convex-helpers/server/customFunctions';
-import { ConvexError } from 'convex/values';
+import { ADMIN_ERROR_CODES, createAdminError } from './admin/errors';
 import { query, mutation } from './_generated/server';
 import { authComponent } from './auth';
 import type { BetterAuthUser } from './admin/types';
@@ -65,7 +65,7 @@ export const adminQuery = customQuery(
 		// getAuthUser throws ConvexError('Unauthenticated') when there is no user
 		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser;
 		if (user.role !== 'admin') {
-			throw new ConvexError('Unauthorized: Admin access required');
+			throw createAdminError(ADMIN_ERROR_CODES.accessRequired);
 		}
 		return { user };
 	})
@@ -80,7 +80,7 @@ export const adminMutation = customMutation(
 		// getAuthUser throws ConvexError('Unauthenticated') when there is no user
 		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser;
 		if (user.role !== 'admin') {
-			throw new ConvexError('Unauthorized: Admin access required');
+			throw createAdminError(ADMIN_ERROR_CODES.accessRequired);
 		}
 		return { user };
 	})

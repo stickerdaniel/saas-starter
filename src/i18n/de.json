@@ -279,7 +279,14 @@
 				"unbanned": "Benutzersperre wurde aufgehoben"
 			},
 			"unverified": "Nicht verifiziert",
-			"verified": "Verifiziert"
+			"verified": "Verifiziert",
+			"errors": {
+				"access_required": "Administratorzugriff ist erforderlich.",
+				"cannot_change_own_role": "Sie können Ihre eigene Rolle nicht ändern.",
+				"user_not_found": "Der Benutzer existiert nicht mehr.",
+				"last_admin": "Der letzte Administrator kann nicht herabgestuft werden.",
+				"unknown": "Die Administratoraktion konnte nicht abgeschlossen werden."
+			}
 		}
 	},
 	"ai_chat": {
@@ -451,25 +458,12 @@
 		}
 	},
 	"backend": {
-		"aiChat": {
-			"message_too_long": "Nachricht ist zu lang (max. {max} Zeichen)"
-		},
-		"community": {
-			"message_too_long": "Nachricht ist zu lang (max. {max} Zeichen)"
-		},
-		"files": {
-			"fetch_failed": "Die hochgeladene Datei konnte nicht abgerufen werden. Bitte versuchen Sie es erneut.",
-			"file_too_large": "Datei zu groß: {size} überschreitet das Maximum von {max}",
-			"type_not_allowed": "Dateityp nicht erlaubt. Unterstützt: PNG, JPEG, WebP, GIF, PDF"
-		},
 		"support": {
 			"handoff": {
 				"response": "Ich habe das Team dazugeholt. Es antwortet Ihnen direkt hier im Chat. Tragen Sie unten Ihre E-Mail-Adresse ein, dann sagen wir Ihnen Bescheid, sobald es geantwortet hat. Ergänzen Sie in der Zwischenzeit gern alles, was weiterhilft."
 			},
-			"message_too_long": "Nachricht ist zu lang (max. {max} Zeichen)",
 			"rate_limit": {
-				"global": "Ich habe gerade eine hohe Auslastung. Bitte versuchen Sie es in einem Moment erneut.",
-				"user": "Zu viele Nachrichten. Bitte warten Sie, bevor Sie eine weitere senden."
+				"global": "Ich habe gerade eine hohe Auslastung. Bitte versuchen Sie es in einem Moment erneut."
 			}
 		}
 	},

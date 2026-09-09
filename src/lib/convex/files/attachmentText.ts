@@ -1,5 +1,4 @@
-import { ConvexError } from 'convex/values';
-import { t } from '../i18n/translations';
+import { FILE_ERROR_CODES, createFileError } from './errors';
 
 /**
  * Max bytes of attachment text returned to the client for the preview dialog.
@@ -49,22 +48,22 @@ function isPreviewableContentType(contentType: string): boolean {
  */
 export async function fetchAttachmentText(
 	url: string,
-	locale?: string
+	_locale?: string
 ): Promise<{ text: string; truncated: boolean }> {
 	// SSRF guard. CONVEX_CLOUD_URL is a Convex system env var (available in app
 	// functions on cloud and self-hosted) and is the origin ctx.storage.getUrl()
 	// serves from. Fail closed if it is unset or the URL is not our storage.
 	if (!isAllowedStorageUrl(url, process.env.CONVEX_CLOUD_URL)) {
-		throw new ConvexError(t(locale, 'backend.files.fetch_failed'));
+		throw createFileError(FILE_ERROR_CODES.fetchFailed);
 	}
 
 	const response = await fetch(url, { redirect: 'manual' });
 	if (!response.ok) {
-		throw new ConvexError(t(locale, 'backend.files.fetch_failed'));
+		throw createFileError(FILE_ERROR_CODES.fetchFailed);
 	}
 
 	if (!isPreviewableContentType(response.headers.get('content-type') ?? '')) {
-		throw new ConvexError(t(locale, 'backend.files.type_not_allowed'));
+		throw createFileError(FILE_ERROR_CODES.typeNotAllowed);
 	}
 
 	// Bounded read: stop once we have MAX_PREVIEW_TEXT_SIZE bytes so a large

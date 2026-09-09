@@ -7,7 +7,6 @@ import { ConvexError } from 'convex/values';
  */
 export type RateLimitErrorData = {
 	code: 'RATE_LIMITED';
-	message: string;
 	retryAfter: number;
 };
 
@@ -15,15 +14,10 @@ export type RateLimitErrorData = {
  * Create a rate limit ConvexError with consistent structure
  *
  * @param retryAfter - Time in milliseconds until the rate limit resets
- * @param message - User-friendly error message
  */
-export function createRateLimitError(
-	retryAfter: number,
-	message: string
-): ConvexError<RateLimitErrorData> {
+export function createRateLimitError(retryAfter: number): ConvexError<RateLimitErrorData> {
 	return new ConvexError({
 		code: 'RATE_LIMITED' as const,
-		message,
 		retryAfter
 	});
 }

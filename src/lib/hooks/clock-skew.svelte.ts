@@ -1,4 +1,4 @@
-import { Context } from 'runed';
+import { createContext } from 'svelte';
 import { browser } from '$app/environment';
 import { computeSkewMs, isClockSkewed, formatSkewMagnitude } from '$lib/utils/clock-skew';
 
@@ -45,4 +45,5 @@ export class ClockSkewState {
 	}
 }
 
-export const clockSkewContext = new Context<ClockSkewState>('clock-skew');
+const [get, set] = createContext<ClockSkewState>();
+export const clockSkewContext = { get, set };

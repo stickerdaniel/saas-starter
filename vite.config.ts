@@ -362,13 +362,13 @@ export default defineConfig(async ({ mode }) => {
 						template: 'treemap',
 						gzipSize: true,
 						brotliSize: true
-					}) as PluginOption
+					})
 				]
 			: [])
 	);
 
 	return {
-		plugins: plugins as any,
+		plugins,
 		test: {
 			exclude: [
 				'e2e/**',

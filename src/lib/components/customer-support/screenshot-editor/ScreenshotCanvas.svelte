@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { Stage, Layer, Line, Rect, Ellipse, Arrow } from 'svelte-konva';
 	import { screenshotEditorContext } from './screenshot-editor-context.svelte.ts';
-	import type { LineShape, RectShape, CircleShape, ArrowShape } from './types';
+	import type { KonvaEventObject } from 'konva/lib/Node';
+	import type { Shape, LineShape, RectShape, CircleShape, ArrowShape } from './types';
 
 	const editor = screenshotEditorContext.get();
 
@@ -10,8 +11,8 @@
 	const height = typeof window !== 'undefined' ? window.innerHeight : 1080;
 
 	// Konva Stage/Layer ref binding (assigned by Svelte bind:this at runtime)
-	let stageComponent = $state<any>(null);
-	let layerComponent = $state<any>(null);
+	let stageComponent = $state<ReturnType<typeof Stage> | null>(null);
+	let layerComponent = $state<ReturnType<typeof Layer> | null>(null);
 
 	// Bind refs to context when mounted
 	$effect(() => {
@@ -22,7 +23,7 @@
 	});
 
 	// ===== Mouse/Touch Event Handlers =====
-	function handleMouseDown(e: any) {
+	function handleMouseDown(e: KonvaEventObject<MouseEvent | TouchEvent>) {
 		// Prevent default to avoid selection
 		e.evt?.preventDefault();
 
@@ -55,7 +56,7 @@
 		}
 	}
 
-	function handleMouseMove(e: any) {
+	function handleMouseMove(e: KonvaEventObject<MouseEvent | TouchEvent>) {
 		if (!editor.isDrawing || !editor.currentShape) return;
 
 		const stage = e.target.getStage();
@@ -67,12 +68,12 @@
 		// Modify the current shape directly (no history tracking)
 		switch (editor.currentShape.type) {
 			case 'pen': {
-				const lineShape = editor.currentShape as LineShape;
+				const lineShape = editor.currentShape;
 				lineShape.points = [...lineShape.points, pos.x, pos.y];
 				break;
 			}
 			case 'rect': {
-				const rectShape = editor.currentShape as RectShape;
+				const rectShape = editor.currentShape;
 				const startX = editor.drawStartPos!.x;
 				const startY = editor.drawStartPos!.y;
 				// Always calculate from original starting position
@@ -83,7 +84,7 @@
 				break;
 			}
 			case 'circle': {
-				const circleShape = editor.currentShape as CircleShape;
+				const circleShape = editor.currentShape;
 				const startX = editor.drawStartPos!.x;
 				const startY = editor.drawStartPos!.y;
 				// Calculate center as midpoint of bounding box
@@ -95,8 +96,10 @@
 				break;
 			}
 			case 'arrow': {
-				const arrowShape = editor.currentShape as ArrowShape;
-				arrowShape.points = [arrowShape.points[0], arrowShape.points[1], pos.x, pos.y];
+				const arrowShape = editor.currentShape;
+				const [startX, startY] = arrowShape.points;
+				if (startX === undefined || startY === undefined) break;
+				arrowShape.points = [startX, startY, pos.x, pos.y];
 				break;
 			}
 		}
@@ -110,19 +113,19 @@
 	}
 
 	// ===== Helper Functions for Rendering =====
-	function isLineShape(shape: any): shape is LineShape {
+	function isLineShape(shape: Shape): shape is LineShape {
 		return shape.type === 'pen';
 	}
 
-	function isRectShape(shape: any): shape is RectShape {
+	function isRectShape(shape: Shape): shape is RectShape {
 		return shape.type === 'rect';
 	}
 
-	function isCircleShape(shape: any): shape is CircleShape {
+	function isCircleShape(shape: Shape): shape is CircleShape {
 		return shape.type === 'circle';
 	}
 
-	function isArrowShape(shape: any): shape is ArrowShape {
+	function isArrowShape(shape: Shape): shape is ArrowShape {
 		return shape.type === 'arrow';
 	}
 </script>

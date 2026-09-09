@@ -1,12 +1,18 @@
 import { createAuthClient } from 'better-auth/svelte';
 import { convexClient } from '@convex-dev/better-auth/client/plugins';
-import { adminClient } from 'better-auth/client/plugins';
+import { adminClient, inferAdditionalFields } from 'better-auth/client/plugins';
+import type { createAuth } from './convex/auth';
 import { passkeyClient } from '@better-auth/passkey/client';
 import { browser } from '$app/environment';
 
 export const authClient = createAuthClient({
 	baseURL: browser ? window.location.origin : undefined,
-	plugins: [convexClient(), passkeyClient(), adminClient()]
+	plugins: [
+		convexClient(),
+		passkeyClient(),
+		adminClient(),
+		inferAdditionalFields<ReturnType<typeof createAuth>>()
+	]
 });
 
 /**
@@ -19,7 +25,5 @@ export async function updateUserWithLocale(data: {
 	image?: string | null;
 	locale?: string;
 }): Promise<void> {
-	// Cast to bypass TypeScript since additionalFields are defined on the server
-	// but not automatically inferred by the client
-	await authClient.updateUser(data as Parameters<typeof authClient.updateUser>[0]);
+	await authClient.updateUser(data);
 }

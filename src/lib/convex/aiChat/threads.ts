@@ -78,7 +78,7 @@ export const createThread = authedMutation({
 
 		const status = await aiChatRateLimiter.limit(ctx, 'aiChatThreadCreate', { key: userId });
 		if (!status.ok) {
-			throw createRateLimitError(status.retryAfter, 'Too many new chats. Please wait a moment.');
+			throw createRateLimitError(status.retryAfter);
 		}
 
 		const { threadId } = await aiChatAgent.createThread(ctx, {
@@ -165,7 +165,7 @@ export const getOrCreateWarmThread = authedMutation({
 		// Only the creation branch consumes a token; idempotent reads above don't
 		const status = await aiChatRateLimiter.limit(ctx, 'aiChatThreadCreate', { key: userId });
 		if (!status.ok) {
-			throw createRateLimitError(status.retryAfter, 'Too many new chats. Please wait a moment.');
+			throw createRateLimitError(status.retryAfter);
 		}
 
 		// No warm thread exists — create one

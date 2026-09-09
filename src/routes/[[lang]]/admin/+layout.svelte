@@ -8,7 +8,7 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
-	import { setContext } from 'svelte';
+	import { setAdminViewerId } from './viewer-context';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 
@@ -40,7 +40,7 @@
 	// Provide current user ID for child components (e.g., preventing self-modification in admin actions)
 	// Context value is intentionally snapshot for layout lifetime.
 	// svelte-ignore state_referenced_locally
-	setContext('currentUserId', viewer?._id);
+	setAdminViewerId(viewer?._id);
 
 	// Keyboard shortcuts for admin sidebar navigation (⌃⇧1-5, ⌘.)
 	function handleKeydown(e: KeyboardEvent) {

@@ -1,4 +1,4 @@
-import { Context } from 'runed';
+import { createContext } from 'svelte';
 
 class GlobalSearchState {
 	open = $state(false);
@@ -22,12 +22,12 @@ class GlobalSearchState {
 
 export type GlobalSearchContextState = GlobalSearchState;
 
-const globalSearchContext = new Context<GlobalSearchContextState>('global-search');
+const [getGlobalSearch, setGlobalSearch] = createContext<GlobalSearchContextState>();
 
 export function setGlobalSearchContext(): GlobalSearchContextState {
-	return globalSearchContext.set(new GlobalSearchState());
+	return setGlobalSearch(new GlobalSearchState());
 }
 
 export function useGlobalSearchContext(): GlobalSearchContextState {
-	return globalSearchContext.get();
+	return getGlobalSearch();
 }

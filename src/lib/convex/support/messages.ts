@@ -1,5 +1,6 @@
+import type { MessagesQueryResponse } from '../../chat/core/types';
 import { internalAction, internalMutation, mutation, query } from '../_generated/server';
-import { v, ConvexError } from 'convex/values';
+import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import { supportAgent } from './agent';
 import { paginationOptsValidator } from 'convex/server';
@@ -10,6 +11,7 @@ import type { UserContent } from 'ai';
 import { supportRateLimiter } from './rateLimit';
 import { isSupportAiEnabled } from '../../config/support';
 import { createRateLimitError } from './types';
+import { SUPPORT_ERROR_CODES, createSupportError } from './errors';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
 import { MAX_MESSAGE_LENGTH } from '../constants';
 import { requireSupportThreadAccess } from './ownership';
@@ -23,7 +25,6 @@ import {
 	getCapabilityConfigurations,
 	requireAiConfiguration
 } from '../env';
-import type { MessagesQueryResponse } from '../../chat/core/types';
 import {
 	prepareToolErrorRedactionStep,
 	toolErrorRedactionTransform
@@ -47,9 +48,9 @@ export const sendMessage = mutation({
 	returns: v.object({ messageId: v.string() }),
 	handler: async (ctx, args) => {
 		if (args.prompt.length > MAX_MESSAGE_LENGTH) {
-			throw new ConvexError(
-				t(undefined, 'backend.support.message_too_long', { max: MAX_MESSAGE_LENGTH })
-			);
+			throw createSupportError(SUPPORT_ERROR_CODES.messageTooLong, {
+				maxLength: MAX_MESSAGE_LENGTH
+			});
 		}
 
 		const { owner, supportThread } = await requireSupportThreadAccess(ctx, {
@@ -75,13 +76,7 @@ export const sendMessage = mutation({
 		const rateLimitStatus = await supportRateLimiter.limit(ctx, limitName, { key: userKey });
 
 		if (!rateLimitStatus.ok) {
-			// Get locale from thread's pageUrl for translated error message
-			const locale = extractLocaleFromUrl(supportThread.pageUrl);
-
-			throw createRateLimitError(
-				rateLimitStatus.retryAfter,
-				t(locale, 'backend.support.rate_limit.user')
-			);
+			throw createRateLimitError(rateLimitStatus.retryAfter);
 		}
 
 		let messageId: string;

@@ -1,5 +1,6 @@
+import type { MessagesQueryResponse } from '../../chat/core/types';
 import { internalAction } from '../_generated/server';
-import { v, ConvexError } from 'convex/values';
+import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import { aiChatAgent } from './agent';
 import { paginationOptsValidator } from 'convex/server';
@@ -13,7 +14,8 @@ import { authedMutation, authedQuery } from '../functions';
 import { getFileMetadataByUrls } from '../files/metadata';
 import { checkAndCountUsage, refundUsage } from '../autumn';
 import { requireAiChatThreadRecord } from './ownership';
-import { t } from '../i18n/translations';
+import { createRateLimitError } from '../support/types';
+import { AI_CHAT_ERROR_CODES, createAiChatError } from './errors';
 import { AI_CHAT_LIMIT_NOTICE, MAX_MESSAGE_LENGTH } from '../constants';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { recordAiUsage } from '../aiUsage/record';
@@ -22,7 +24,6 @@ import {
 	requireAiConfiguration,
 	requireBillingConfiguration
 } from '../env';
-import type { MessagesQueryResponse } from '../../chat/core/types';
 import {
 	prepareToolErrorRedactionStep,
 	toolErrorRedactionTransform
@@ -46,9 +47,9 @@ export const sendMessage = authedMutation({
 	returns: v.object({ messageId: v.string() }),
 	handler: async (ctx, args) => {
 		if (args.prompt.length > MAX_MESSAGE_LENGTH) {
-			throw new ConvexError(
-				t(undefined, 'backend.aiChat.message_too_long', { max: MAX_MESSAGE_LENGTH })
-			);
+			throw createAiChatError(AI_CHAT_ERROR_CODES.messageTooLong, {
+				maxLength: MAX_MESSAGE_LENGTH
+			});
 		}
 
 		const userId = ctx.user._id;
@@ -76,7 +77,7 @@ export const sendMessage = authedMutation({
 		// Rate limit check
 		const rateLimitStatus = await aiChatRateLimiter.limit(ctx, 'aiChatMessage', { key: userId });
 		if (!rateLimitStatus.ok) {
-			throw new ConvexError('Too many messages. Please wait a moment.');
+			throw createRateLimitError(rateLimitStatus.retryAfter);
 		}
 
 		let messageId: string;

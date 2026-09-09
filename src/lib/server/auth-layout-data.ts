@@ -1,6 +1,7 @@
 import type { ServerLoadEvent } from '@sveltejs/kit';
 import type { FunctionReturnType } from 'convex/server';
 import { api } from '$lib/convex/_generated/api';
+import { toAutumnClientApi } from '$lib/billing/autumn-api-adapter';
 import { createAutumnHandlers } from '@stickerdaniel/convex-autumn-svelte/sveltekit/server';
 import { createServerConvexHttpClient } from '$lib/server/convex-http';
 import { decodeJwtPayload } from '$lib/server/jwt';
@@ -164,7 +165,7 @@ async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
 		const customerPromise =
 			isAuthenticated && capabilities.billing.usable
 				? createAutumnHandlers({
-						convexApi: (api as any).autumn,
+						convexApi: toAutumnClientApi(api.autumn),
 						createClient: () => client
 					})
 						.getCustomer(event)

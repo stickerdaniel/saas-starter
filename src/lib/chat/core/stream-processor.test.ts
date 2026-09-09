@@ -1290,3 +1290,30 @@ describe('extractUserMessageText', () => {
 		expect(extractUserMessageText(msg)).toBe('Fallback content');
 	});
 });
+
+describe('structural assistant part merge', () => {
+	it('preserves defined persisted tool values without requiring a cast', () => {
+		const persisted: UIMessage['parts'] = [
+			{
+				type: 'tool-weather',
+				toolCallId: 't',
+				state: 'output-available',
+				input: {},
+				output: { ok: true }
+			}
+		];
+		const incoming: UIMessage['parts'] = [
+			{
+				type: 'tool-weather',
+				toolCallId: 't',
+				state: 'output-available',
+				input: {},
+				output: undefined
+			}
+		];
+		const result = mergeAssistantMessageParts(persisted, incoming, 'persisted');
+		expect(result).toEqual(persisted);
+		expect(result).not.toBe(persisted);
+		expect(result[0]).not.toBe(persisted[0]);
+	});
+});

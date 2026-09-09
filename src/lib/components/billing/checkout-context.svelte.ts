@@ -10,6 +10,8 @@ import {
 export type CheckoutStartParams = {
 	productId: string;
 	successUrl?: string;
+	/** Quantities owned by this checkout flow; remaining vendor options stay opaque. */
+	options?: CheckoutAttachOption[];
 	[key: string]: unknown;
 };
 

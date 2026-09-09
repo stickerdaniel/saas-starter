@@ -1,6 +1,7 @@
-import { ConvexError, v } from 'convex/values';
+import { v } from 'convex/values';
 import { internalMutation } from '../_generated/server';
 import type { QueryCtx } from '../_generated/server';
+import { FILE_ERROR_CODES, createFileError } from './errors';
 
 /**
  * Shared file metadata (image dimensions) used by both aiChat and support.
@@ -22,7 +23,7 @@ export async function getFileMetadataByUrls(
 ): Promise<Record<string, { width?: number; height?: number }>> {
 	const uniqueUrls = [...new Set(urls)];
 	if (uniqueUrls.length > 100) {
-		throw new ConvexError('Too many file metadata URLs.');
+		throw createFileError(FILE_ERROR_CODES.metadataLimit, { maxUrls: 100 });
 	}
 
 	const results: Record<string, { width?: number; height?: number }> = {};

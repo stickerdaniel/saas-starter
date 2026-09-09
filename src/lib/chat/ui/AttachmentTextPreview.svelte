@@ -5,6 +5,7 @@
 	import { mode } from 'mode-watcher';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { getTranslate } from '@tolgee/svelte';
+	import { resolve } from '$app/paths';
 	import { tryGetChatUIContext } from './chat-context.svelte.ts';
 	import { getPreviewKind, buildCodeMarkdown, capPreviewText } from '../core/attachmentPreview.js';
 
@@ -55,11 +56,11 @@
 					truncated = capped.truncated;
 				} else if (remoteUrl && action && ctx?.client) {
 					const extraArgs = ctx.uploadConfig?.getGenerateUploadUrlArgs?.() ?? {};
-					const res = (await ctx.client.action(action, {
+					const res = await ctx.client.action(action, {
 						url: remoteUrl,
 						locale: ctx.uploadConfig?.locale,
 						...extraArgs
-					})) as { text: string; truncated: boolean };
+					});
 					if (cancelled) return;
 					text = res.text;
 					truncated = res.truncated;
@@ -140,7 +141,7 @@
 				{/snippet}
 				{#snippet link({ token, children })}
 					{#if isSafeHttpUrl(token.href)}
-						<a href={token.href} target="_blank" rel="noopener noreferrer nofollow">
+						<a href={resolve(token.href)} target="_blank" rel="noopener noreferrer nofollow">
 							{@render children()}
 						</a>
 					{:else}

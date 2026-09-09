@@ -1,4 +1,4 @@
-import { Context } from 'runed';
+import { createContext } from 'svelte';
 import { getChatSessionEpoch } from '$lib/chat/core/chat-persisted-state.ts';
 import { SupportConversation, type SupportAssignedAdmin } from './support-conversation.svelte.ts';
 import { SupportHandoffCommands } from './support-handoff-commands.svelte.ts';
@@ -74,4 +74,5 @@ export class SupportContext {
 }
 
 /** One feature-level provider; collaborators are reached through this root. */
-export const supportContext = new Context<SupportContext>('customer-support');
+const [get, set] = createContext<SupportContext>();
+export const supportContext = { get, set };

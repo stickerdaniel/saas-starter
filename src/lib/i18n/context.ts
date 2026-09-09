@@ -1,11 +1,11 @@
-import { Context } from 'runed';
-import { DEFAULT_LANGUAGE } from './languages';
+import { createContext } from 'svelte';
 
 /**
  * Language context for sharing the current language across the component tree
- * Uses Runed's type-safe Context with a function to maintain reactivity
+ * The root layout provides a getter so descendants retain language reactivity.
  */
-export const languageContext = new Context<() => string>('language');
+const [get, set] = createContext<() => string>();
+export const languageContext = { get, set };
 
 /**
  * Get the current language from context
@@ -24,7 +24,7 @@ export const languageContext = new Context<() => string>('language');
  * ```
  */
 export function useLanguage(): string {
-	const getLang = languageContext.getOr(() => DEFAULT_LANGUAGE);
+	const getLang = languageContext.get();
 	// Call the function to get the current language value
 	return getLang();
 }

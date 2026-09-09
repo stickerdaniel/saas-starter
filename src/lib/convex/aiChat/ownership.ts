@@ -1,4 +1,4 @@
-import { ConvexError } from 'convex/values';
+import { AI_CHAT_ERROR_CODES, createAiChatError } from './errors';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 
 type AiChatAccessCtx = QueryCtx | MutationCtx;
@@ -16,7 +16,7 @@ export async function requireAiChatThreadRecord(
 		.first();
 
 	if (!record || record.userId !== args.userId) {
-		throw new ConvexError('Thread not found');
+		throw createAiChatError(AI_CHAT_ERROR_CODES.threadNotFound);
 	}
 
 	return record;
