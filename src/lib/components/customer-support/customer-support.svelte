@@ -122,17 +122,20 @@
 		}
 	};
 
-	// Create ChatUIContext at this level so we can handle screenshot uploads
-	// Cast threadContext to ChatCore since it implements the required interface
+	// Create ChatUIContext at this level so we can handle screenshot uploads.
 	// Report transfers to the app so a navigation that would kill one asks first.
 	// Absent outside the app shell (isolated tests, the standalone example), where
 	// there is no layout to ask.
 	const chatUIContext = new ChatUIContext(
-		threadContext as any,
+		threadContext,
 		client,
 		uploadConfig,
 		'right',
-		activeUploadsContext.getOr(null)
+		activeUploadsContext.getOr(null),
+		{
+			bindThreadOrigin: (binder) => threadContext.setThreadOriginBinder(binder),
+			forgetSession: () => threadContext.forgetChatSession()
+		}
 	);
 
 	// Revoke blob preview URLs of unsent attachments when the widget unmounts

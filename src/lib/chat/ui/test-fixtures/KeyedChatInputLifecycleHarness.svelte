@@ -32,16 +32,23 @@
 	keyedChatInputLifecycle.setThreadId = (next) => (threadId = next);
 
 	function createContext(currentThreadId: string): ChatUIContext {
+		const core = new ChatCore({
+			threadId: currentThreadId,
+			api: { sendMessage: api.aiChat.messages.sendMessage }
+		});
 		const context = new ChatUIContext(
-			new ChatCore({
-				threadId: currentThreadId,
-				api: { sendMessage: api.aiChat.messages.sendMessage }
-			}),
+			core,
 			client,
 			{
 				generateUploadUrl: api.aiChat.files.generateUploadUrl,
 				saveUploadedFile: api.aiChat.files.saveUploadedFile,
 				attachmentStore: new ChatAttachmentStore(surface)
+			},
+			'right',
+			null,
+			{
+				bindThreadOrigin: (binder) => core.setThreadOriginBinder(binder),
+				forgetSession: () => core.forgetChatSession()
 			}
 		);
 		context.setDisplayMessages([]);

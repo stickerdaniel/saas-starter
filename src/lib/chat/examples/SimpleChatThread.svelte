@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { useConvexClient } from 'convex-svelte';
-	import { watch } from 'runed';
 	import { ChatRoot, ChatMessages, ChatInput, ChatUIContext } from '$lib/chat';
 	import type { SimpleChatSessionRegistry } from './simple-chat-session.svelte.ts';
 	import { Avatar, AvatarImage } from '$lib/components/ui/avatar';
@@ -25,14 +24,16 @@
 	// The parent keys this child by threadId, so this mount acquires exactly one thread session.
 	// svelte-ignore state_referenced_locally
 	const session = registry.acquire(threadId);
-	const uiContext = new ChatUIContext(session.core, client);
+	const contextHolder: { current?: ChatUIContext } = {};
+	const uiContext = new ChatUIContext(session.core, client, undefined, 'right', null, {
+		bindThreadOrigin: (binder) => session.core.setThreadOriginBinder(binder),
+		forgetSession: () => session.core.forgetChatSession(),
+		projectInput: (projection) => {
+			if (contextHolder.current) session.projectInput(contextHolder.current, projection);
+		}
+	});
+	contextHolder.current = uiContext;
 	session.attach(uiContext);
-
-	watch(
-		() => uiContext.inputValue,
-		(value) => session.recordInput(uiContext, value),
-		{ lazy: true }
-	);
 
 	onDestroy(() => {
 		session.detach(uiContext);

@@ -12,7 +12,7 @@ import {
 	transformToDisplayMessage,
 	type TransformContext
 } from '../core/display-message-processor.js';
-import type { StreamCacheManager } from '../core/stream-cache.js';
+import type { StreamCachePort } from '../core/chat-session-port.js';
 
 export type { MessagesQueryResponse } from '../core/types.js';
 
@@ -55,7 +55,7 @@ export async function decodeStreamingUIMessages(
 export function buildTransformContext(args: {
 	streamMessages: StreamMessage[];
 	streamingUIMessages: UIMessage[];
-	streamCache: StreamCacheManager;
+	streamCache: StreamCachePort;
 }): TransformContext {
 	const streamMessageMap = new Map<number, UIMessage>();
 
@@ -86,7 +86,7 @@ export function buildDisplayMessages(args: {
 	allMessages: ChatMessage[];
 	streamMessages: StreamMessage[];
 	streamingUIMessages: UIMessage[];
-	streamCache: StreamCacheManager;
+	streamCache: StreamCachePort;
 }): DisplayMessage[] {
 	const context = buildTransformContext({
 		streamMessages: args.streamMessages,

@@ -52,7 +52,11 @@ export type {
 	ProgressCallback,
 	UploadErrorCode,
 	ChatCoreAPI,
-	ChatCoreOptions
+	ChatCoreOptions,
+	ChatCoreErrorCode,
+	ChatCommandErrorCode,
+	ChatSessionPort,
+	StreamCachePort
 } from './core/index.js';
 
 export {
@@ -75,13 +79,20 @@ export {
 	uploadToStorage,
 	UploadError,
 	ChatCore,
+	createChatCore,
+	ChatCommandError,
 	ChatDraftManager,
 	ChatAttachmentStore,
 	clearPersistedChatState
 } from './core/index.js';
 
 // UI exports
-export type { UploadConfig } from './ui/index.js';
+export type {
+	ChatInputProjection,
+	ChatInputProjectionReason,
+	ChatUIContextOptions,
+	UploadConfig
+} from './ui/index.js';
 
 export {
 	ChatUIContext,

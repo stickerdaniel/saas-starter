@@ -8,7 +8,7 @@
 import { getContext, setContext, untrack } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { ConvexClient } from 'convex/browser';
-import type { ChatCore } from '../core/chat-core.svelte.ts';
+import type { ChatSessionPort } from '../core/chat-session-port.js';
 import type { Attachment, DisplayMessage, MessageRole } from '../core/types.js';
 import { getChatSessionEpoch, isChatSessionCurrent } from '../core/chat-persisted-state.js';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
@@ -25,12 +25,30 @@ export type {
 	UploadConfig
 } from './composer-attachment-coordinator.svelte.ts';
 
+type ThreadOriginBinder = (threadId: string, epoch: number, generation: number) => void;
+
+export type ChatInputProjectionReason = 'user-edit' | 'send-clear' | 'send-restore';
+
+export type ChatInputProjection = {
+	value: string;
+	reason: ChatInputProjectionReason;
+	sessionEpoch: number;
+	origin: ChatConversationOrigin;
+	inputRevision: number;
+};
+
+export type ChatUIContextOptions = {
+	bindThreadOrigin?: (binder: ThreadOriginBinder | undefined) => void;
+	forgetSession?: () => void;
+	projectInput?: (projection: ChatInputProjection) => void;
+};
+
 /**
  * Message alignment - controls which side messages appear on
  */
 export type ChatAlignment = 'left' | 'right';
 
-type ChatConversationOrigin = {
+export type ChatConversationOrigin = {
 	generation: number;
 	threadId: string | null;
 };
@@ -51,7 +69,7 @@ export type ChatSendSnapshot = {
  */
 export class ChatUIContext {
 	/** The core chat state manager */
-	readonly core: ChatCore;
+	readonly core: ChatSessionPort;
 
 	/** Convex client for queries/mutations */
 	readonly client: ConvexClient;
@@ -84,6 +102,8 @@ export class ChatUIContext {
 	inputValue = $state('');
 	private inputRevision = 0;
 	private conversationOrigin: ChatConversationOrigin;
+	private disposed = false;
+	private readonly options: ChatUIContextOptions;
 
 	/** Attachment collection and lifecycle owner behind this UI facade. */
 	private readonly attachmentCoordinator: ComposerAttachmentCoordinator;
@@ -95,26 +115,23 @@ export class ChatUIContext {
 	private _hasEverDisplayedMessages = false;
 
 	constructor(
-		core: ChatCore,
+		core: ChatSessionPort,
 		client: ConvexClient,
 		uploadConfig?: UploadConfig,
 		userAlignment: ChatAlignment = 'right',
-		activeUploads: ActiveUploadsRegistry | null = null
+		activeUploads: ActiveUploadsRegistry | null = null,
+		options: ChatUIContextOptions = {}
 	) {
 		this.core = core;
 		this.client = client;
 		this.uploadConfig = uploadConfig;
 		this.userAlignment = userAlignment;
+		this.options = options;
 		this.conversationOrigin = {
 			generation: untrack(() => core.threadGeneration),
 			threadId: untrack(() => core.threadId)
 		};
-		const originOwner = core as ChatCore & {
-			setThreadOriginBinder?: (
-				binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
-			) => void;
-		};
-		originOwner.setThreadOriginBinder?.((threadId, epoch, generation) => {
+		options.bindThreadOrigin?.((threadId, epoch, generation) => {
 			if (!isChatSessionCurrent(epoch)) return;
 			const origin = this.syncConversationOrigin();
 			if (origin.generation === generation && origin.threadId === null) origin.threadId = threadId;
@@ -125,8 +142,7 @@ export class ChatUIContext {
 			uploadConfig,
 			activeUploads,
 			onForgetPersistedState: () => {
-				const resettableCore = core as ChatCore & { forgetChatSession?: () => void };
-				resettableCore.forgetChatSession?.();
+				options.forgetSession?.();
 				this.conversationOrigin = {
 					generation: untrack(() => core.threadGeneration),
 					threadId: untrack(() => core.threadId)
@@ -282,9 +298,36 @@ export class ChatUIContext {
 	 * Set input value
 	 */
 	setInputValue(value: string): void {
-		if (this.inputValue === value) return;
+		if (!this.applyInputValue(value)) return;
+		this.emitInputProjection('user-edit', getChatSessionEpoch(), this.syncConversationOrigin());
+	}
+
+	/** Apply a same-session peer projection without rebroadcasting it. */
+	projectInputValue(value: string): void {
+		this.applyInputValue(value);
+	}
+
+	private applyInputValue(value: string): boolean {
+		if (this.disposed || this.inputValue === value) return false;
 		this.inputValue = value;
 		this.inputRevision++;
+		return true;
+	}
+
+	private emitInputProjection(
+		reason: ChatInputProjectionReason,
+		sessionEpoch: number,
+		origin: ChatConversationOrigin,
+		inputRevision = this.inputRevision,
+		value = this.inputValue
+	): void {
+		this.options.projectInput?.({
+			value,
+			reason,
+			sessionEpoch,
+			origin,
+			inputRevision
+		});
 	}
 
 	/**
@@ -328,8 +371,14 @@ export class ChatUIContext {
 		) {
 			return;
 		}
-		this.clearInput();
+		if (!this.applyInputValue('')) return;
 		snapshot.inputClearedRevision = this.inputRevision;
+		this.emitInputProjection(
+			'send-clear',
+			snapshot.sessionEpoch,
+			snapshot.origin,
+			snapshot.inputRevision
+		);
 	}
 
 	clearAttachmentsForSend(snapshot: ChatSendSnapshot): void {
@@ -346,7 +395,14 @@ export class ChatUIContext {
 			this.inputRevision === snapshot.inputClearedRevision &&
 			this.inputValue === ''
 		) {
-			this.setInputValue(snapshot.inputValue);
+			this.applyInputValue(snapshot.inputValue);
+			this.emitInputProjection(
+				'send-restore',
+				snapshot.sessionEpoch,
+				snapshot.origin,
+				snapshot.inputRevision,
+				snapshot.inputValue
+			);
 		}
 		this.attachmentCoordinator.restoreSendAttachments(
 			snapshot.attachments,
@@ -387,12 +443,9 @@ export class ChatUIContext {
 
 	/** Release resources held by this mounted chat surface. */
 	dispose(): void {
-		const originOwner = this.core as ChatCore & {
-			setThreadOriginBinder?: (
-				binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
-			) => void;
-		};
-		originOwner.setThreadOriginBinder?.(undefined);
+		if (this.disposed) return;
+		this.disposed = true;
+		this.options.bindThreadOrigin?.(undefined);
 		this.attachmentCoordinator.dispose();
 	}
 

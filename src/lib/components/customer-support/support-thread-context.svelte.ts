@@ -12,6 +12,7 @@ import { CHAT_PAGE_SIZE } from '$lib/chat/core/types.js';
 import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 import { isSupportAiEnabled } from '$lib/config/support';
 import { getChatSessionEpoch, isChatSessionCurrent } from '$lib/chat/core/chat-persisted-state.ts';
+import type { ChatSessionPort } from '$lib/chat/core/chat-session-port.js';
 
 /**
  * View types for the support widget navigation
@@ -28,7 +29,7 @@ type ThreadCreation = {
 /**
  * Thread context state
  */
-export class SupportThreadContext {
+export class SupportThreadContext implements ChatSessionPort {
 	constructor(private readonly isAiUsable: () => boolean = () => true) {}
 
 	// User identification

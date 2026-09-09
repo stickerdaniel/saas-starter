@@ -7,7 +7,7 @@
 
 import type { ChatMessage, DisplayMessage } from './types.js';
 import { extractReasoning, extractUserMessageText } from './message-extraction.js';
-import type { StreamCacheManager } from './stream-cache.js';
+import type { StreamCachePort } from './chat-session-port.js';
 import type { UIMessage } from '@convex-dev/agent';
 import { mergeAssistantMessageParts } from './stream-materialization.js';
 import { redactToolErrorParts } from './tool-error-redaction.js';
@@ -19,7 +19,7 @@ export interface TransformContext {
 	/** Map of order -> latest grouped streaming UI message */
 	streamMessageMap: Map<number, UIMessage>;
 	/** Cache manager for reasoning persistence */
-	streamCache: StreamCacheManager;
+	streamCache: StreamCachePort;
 }
 
 /**
@@ -66,7 +66,7 @@ export function resolveReasoning(
 	options: {
 		isBeingStreamed: boolean;
 		streamReasoning?: string;
-		streamCache: StreamCacheManager;
+		streamCache: StreamCachePort;
 	}
 ): ReasoningResult {
 	const { isBeingStreamed, streamReasoning, streamCache } = options;

@@ -7,8 +7,7 @@ import { api } from '$lib/convex/_generated/api';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
 import { CHAT_PAGE_SIZE, type Attachment } from '../core/types.js';
-import type { ChatCore } from '../core/chat-core.svelte.ts';
-import { ChatUIContext } from './chat-context.svelte.ts';
+import { ChatUIContext, type UploadConfig } from './chat-context.svelte.ts';
 import { SupportThreadContext } from '$lib/components/customer-support/support-thread-context.svelte.ts';
 import FeedbackWidget from '$lib/components/customer-support/feedback-widget.svelte';
 import AIChatbar from '$lib/components/customer-support/ai-chatbar.svelte';
@@ -77,6 +76,16 @@ const sharedFileAttachment: Attachment = {
 let component: ReturnType<typeof mount> | undefined;
 let client: ConvexClient;
 const contexts: ChatUIContext[] = [];
+
+function createSupportContext(
+	thread: SupportThreadContext,
+	uploadConfig?: UploadConfig
+): ChatUIContext {
+	return new ChatUIContext(thread, client, uploadConfig, 'right', null, {
+		bindThreadOrigin: (binder) => thread.setThreadOriginBinder(binder),
+		forgetSession: () => thread.forgetChatSession()
+	});
+}
 const originalElementAnimate = Element.prototype.animate;
 
 function storedAttachment(attachment: Extract<Attachment, { type: 'file' | 'screenshot' }>) {
@@ -245,7 +254,7 @@ describe('chat session lifecycle', () => {
 	it('a generation-one null-origin rejection cannot contaminate generation two', async () => {
 		const thread = new SupportThreadContext();
 		thread.startNewThread();
-		const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+		const context = createSupportContext(thread, {
 			generateUploadUrl: api.support.files.generateUploadUrl,
 			saveUploadedFile: api.support.files.saveUploadedFile,
 			attachmentStore: new ChatAttachmentStore('support')
@@ -335,7 +344,7 @@ describe('chat session lifecycle', () => {
 		async (outcome) => {
 			const thread = new SupportThreadContext();
 			thread.startNewThread();
-			const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+			const context = createSupportContext(thread, {
 				generateUploadUrl: api.support.files.generateUploadUrl,
 				saveUploadedFile: api.support.files.saveUploadedFile,
 				attachmentStore: new ChatAttachmentStore('support')
@@ -379,7 +388,7 @@ describe('chat session lifecycle', () => {
 		thread.setDraft('thread-b', 'draft B');
 		thread.setThread('thread-a');
 		thread.currentView = 'chat';
-		const context = new ChatUIContext(thread as unknown as ChatCore, client);
+		const context = createSupportContext(thread);
 		await mountSupport(thread, context);
 		const input = document.querySelector('textarea')!;
 		await vi.waitFor(() => expect(input.value).toBe('draft A'));
@@ -392,7 +401,7 @@ describe('chat session lifecycle', () => {
 
 	it('session clear resets support send state synchronously', () => {
 		const thread = new SupportThreadContext();
-		const context = new ChatUIContext(thread as unknown as ChatCore, client);
+		const context = createSupportContext(thread);
 		contexts.push(context);
 		thread.isSending = true;
 		thread.isAwaitingStream = true;
@@ -411,7 +420,7 @@ describe('chat session lifecycle', () => {
 
 	it('does not retry a rejected eager send into a thread selected after going back', async () => {
 		const thread = new SupportThreadContext();
-		const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+		const context = createSupportContext(thread, {
 			generateUploadUrl: api.support.files.generateUploadUrl,
 			saveUploadedFile: api.support.files.saveUploadedFile,
 			attachmentStore: new ChatAttachmentStore('support')
@@ -470,7 +479,7 @@ describe('chat session lifecycle', () => {
 		'a $outcome eager creation after $name neither binds nor dispatches',
 		async ({ navigate, selectedThreadId, view, outcome }) => {
 			const thread = new SupportThreadContext();
-			const context = new ChatUIContext(thread as unknown as ChatCore, client);
+			const context = createSupportContext(thread);
 			const creation = Promise.withResolvers<{
 				threadId: string;
 				notificationEmail: null;
@@ -510,7 +519,7 @@ describe('chat session lifecycle', () => {
 
 	it('uses a same-navigation eager creation with exact attachment order and optimistic payload', async () => {
 		const thread = new SupportThreadContext();
-		const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+		const context = createSupportContext(thread, {
 			generateUploadUrl: api.support.files.generateUploadUrl,
 			saveUploadedFile: api.support.files.saveUploadedFile,
 			attachmentStore: new ChatAttachmentStore('support')
@@ -638,7 +647,7 @@ describe('chat session lifecycle', () => {
 		async ({ boundary, outcome }) => {
 			const thread = new SupportThreadContext();
 			thread.startNewThread();
-			const context = new ChatUIContext(thread as unknown as ChatCore, client);
+			const context = createSupportContext(thread);
 			contexts.push(context);
 			const creation = Promise.withResolvers<{
 				threadId: string;
@@ -673,7 +682,7 @@ describe('chat session lifecycle', () => {
 	it('does not roll a successful dispatched send back into a later selected thread', async () => {
 		const thread = new SupportThreadContext();
 		thread.selectThread('thread-a');
-		const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+		const context = createSupportContext(thread, {
 			generateUploadUrl: api.support.files.generateUploadUrl,
 			saveUploadedFile: api.support.files.saveUploadedFile,
 			attachmentStore: new ChatAttachmentStore('support')
@@ -709,7 +718,7 @@ describe('chat session lifecycle', () => {
 	it('later support text cleared before assignment is not rolled back', async () => {
 		const thread = new SupportThreadContext();
 		thread.startNewThread();
-		const context = new ChatUIContext(thread as unknown as ChatCore, client);
+		const context = createSupportContext(thread);
 		const creation = Promise.withResolvers<{
 			threadId: string;
 			notificationEmail: null;
@@ -773,7 +782,7 @@ describe('chat session lifecycle', () => {
 		'an eager rejection after $boundary does not write stale diagnostics',
 		async ({ navigate, expectedThreadId, expectedView }) => {
 			const thread = new SupportThreadContext();
-			const context = new ChatUIContext(thread as unknown as ChatCore, client);
+			const context = createSupportContext(thread);
 			contexts.push(context);
 			const oldCreation = Promise.withResolvers<{
 				threadId: string;

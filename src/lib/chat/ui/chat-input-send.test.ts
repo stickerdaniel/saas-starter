@@ -51,6 +51,7 @@ const attachments: Attachment[] = [
 const originalRevokeObjectURL = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
 let component: ReturnType<typeof mount> | undefined;
 let client: ConvexClient;
+let core: ChatCore;
 let ctx: ChatUIContext;
 let surface: string;
 
@@ -75,16 +76,24 @@ function stallUpload() {
 }
 
 function createContext(threadId: string | null): ChatUIContext {
+	const contextCore = new ChatCore({
+		threadId,
+		api: { sendMessage: api.aiChat.messages.sendMessage }
+	});
+	core = contextCore;
 	return new ChatUIContext(
-		new ChatCore({
-			threadId,
-			api: { sendMessage: api.aiChat.messages.sendMessage }
-		}),
+		contextCore,
 		client,
 		{
 			generateUploadUrl: api.aiChat.files.generateUploadUrl,
 			saveUploadedFile: api.aiChat.files.saveUploadedFile,
 			attachmentStore: new ChatAttachmentStore(surface)
+		},
+		'right',
+		null,
+		{
+			bindThreadOrigin: (binder) => contextCore.setThreadOriginBinder(binder),
+			forgetSession: () => contextCore.forgetChatSession()
 		}
 	);
 }
@@ -227,7 +236,7 @@ describe('ChatInput send rollback through ChatRoot', () => {
 
 	it('does not restore an origin-thread snapshot into the thread now on screen', async () => {
 		const { pending, input } = await startSend();
-		ctx.core.setThread('thread-b');
+		core.setThread('thread-b');
 		ctx.setDisplayMessages([]);
 		const newer: Attachment = { type: 'image', url: 'https://chat.test/thread-b.png' };
 		ctx.addAttachments([newer]);
@@ -254,7 +263,7 @@ describe('ChatInput send rollback through ChatRoot', () => {
 	it('keeps a created null-origin snapshot bound after later navigation', async () => {
 		ctx.dispose();
 		ctx = createContext(null);
-		ctx.core.isNewConversation = true;
+		core.isNewConversation = true;
 		ctx.setDisplayMessages([]);
 		const pending = Promise.withResolvers<void>();
 		const contentProps = { context: ctx, onSend: () => pending.promise };
@@ -270,10 +279,10 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		await tick();
 		document.querySelector<HTMLButtonElement>(`button[aria-label="${en.chat.aria.send}"]`)!.click();
 		await tick();
-		ctx.core.threadId = 'thread-created';
+		core.threadId = 'thread-created';
 		ctx.setDisplayMessages([]);
-		ctx.core.threadId = 'thread-b';
-		ctx.core.isNewConversation = false;
+		core.threadId = 'thread-b';
+		core.isNewConversation = false;
 		ctx.setDisplayMessages([]);
 		const newer: Attachment = { type: 'image', url: 'https://chat.test/thread-b.png' };
 		ctx.addAttachments([newer]);

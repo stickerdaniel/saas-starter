@@ -86,7 +86,11 @@
 		client,
 		uploadConfig,
 		'right',
-		activeUploadsContext.getOr(null)
+		activeUploadsContext.getOr(null),
+		{
+			bindThreadOrigin: (binder) => chatCore.setThreadOriginBinder(binder),
+			forgetSession: () => chatCore.forgetChatSession()
+		}
 	);
 
 	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
@@ -141,10 +145,7 @@
 		threadId={threadId || null}
 		externalCore={chatCore}
 		externalUIContext={chatUIContext}
-		api={{
-			listMessages: api.aiChat.messages.listMessages,
-			sendMessage: api.aiChat.messages.sendMessage
-		}}
+		api={{ listMessages: api.aiChat.messages.listMessages }}
 	>
 		<div class="flex-1 overflow-hidden">
 			<ChatMessages />
