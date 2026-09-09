@@ -14,6 +14,8 @@
  * - SvelteKit build
  */
 
+import { reportCliFailure, withCliSignals } from './deploy/cli';
+import { checkAborted, createDeploymentExecution } from './deploy/execution';
 import { detectPlatform } from './deploy/platform';
 import {
 	buildSvelteKit,
@@ -24,48 +26,48 @@ import {
 	setupPreviewEnv,
 	syncTranslations,
 	validateConvexEnv,
-	writeE2eConfig
+	writeE2eConfig,
+	type PreviewRecovery
 } from './deploy/steps';
 import { colors } from './deploy/utils';
 
-async function main(): Promise<void> {
-	const platform = detectPlatform();
-
+export async function main(
+	execution = createDeploymentExecution(),
+	options: { recovery?: PreviewRecovery; writeConfig?: typeof writeE2eConfig } = {}
+): Promise<void> {
+	checkAborted(execution.signal);
+	const platform = detectPlatform(execution.env);
 	console.log(`Platform: ${platform.platform}`);
 	console.log(`Environment: ${platform.environment}`);
-
-	// Validate local build inputs before Tolgee or Convex is mutated.
-	const siteOrigin = resolveDeploymentSiteOrigin(platform);
-
-	// 1. Sync translations
-	syncTranslations(platform);
-
-	// 2. Production owns its profile before pre-deploy validation. Preview is
-	// established after its first deployment is created.
+	const siteOrigin = resolveDeploymentSiteOrigin(platform, execution.env);
+	await syncTranslations(platform, execution);
 	if (!platform.isPreview) {
-		setProductionCapabilityProfile(platform);
-		validateConvexEnv(platform);
+		await setProductionCapabilityProfile(platform, execution);
+		await validateConvexEnv(platform, undefined, execution);
 	}
-
-	// 3. Deploy Convex functions
-	const deployment = await deployConvex(platform);
-
-	// 4. Preview: set SITE_URL, validate, seed admin
-	if (platform.isPreview) {
-		await setupPreviewEnv(deployment, platform);
-	}
-
-	// 5. Compute build env and write E2E config
-	const buildEnv = computeBuildEnv(platform, deployment, siteOrigin);
-	writeE2eConfig(platform, buildEnv);
-
-	// 6. Build SvelteKit
-	buildSvelteKit(buildEnv);
-
+	const deployment = await deployConvex(platform, execution, options.recovery);
+	if (platform.isPreview) await setupPreviewEnv(deployment, platform, execution);
+	checkAborted(execution.signal);
+	const buildEnv = computeBuildEnv(platform, deployment, execution.env, siteOrigin);
+	(options.writeConfig ?? writeE2eConfig)(platform, buildEnv);
+	await buildSvelteKit(buildEnv, execution);
+	checkAborted(execution.signal);
 	console.log(`${colors.green}Deployment complete!${colors.reset}`);
 }
 
-main().catch((err) => {
-	console.error(err);
-	process.exit(1);
-});
+/** This CLI boundary alone owns failure reporting and its process exit code. */
+export async function runDeploymentCli(
+	execution = createDeploymentExecution(),
+	options: Parameters<typeof main>[1] = {}
+): Promise<void> {
+	try {
+		await main(execution, options);
+	} catch (error) {
+		reportCliFailure(error);
+		process.exitCode = 1;
+	}
+}
+
+if (import.meta.main) {
+	await withCliSignals((signal) => runDeploymentCli(createDeploymentExecution({ signal })));
+}

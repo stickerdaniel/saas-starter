@@ -35,25 +35,33 @@ export function sanitizeBranchAlias(branch: string, workerName: string): string 
 	return sanitized || FALLBACK_ALIAS;
 }
 
-export function detectPlatform(): PlatformContext {
+export function detectPlatform(env: NodeJS.ProcessEnv = process.env): PlatformContext {
 	// Vercel: VERCEL is set to "1" by the platform
-	if (process.env.VERCEL) {
-		const env = process.env.VERCEL_ENV as 'production' | 'preview' | 'development' | undefined;
-		const environment = env || 'development';
-		const vercelUrl = process.env.VERCEL_URL || null;
+	if (env.VERCEL) {
+		const vercelEnvironment = env.VERCEL_ENV;
+		if (
+			vercelEnvironment &&
+			vercelEnvironment !== 'production' &&
+			vercelEnvironment !== 'preview' &&
+			vercelEnvironment !== 'development'
+		) {
+			throw new Error('Unsupported VERCEL_ENV; expected production, preview, or development');
+		}
+		const environment = vercelEnvironment || 'development';
+		const vercelUrl = env.VERCEL_URL || null;
 		// VERCEL_URL is the per-deployment generated host (changes every deploy).
 		// For production builds prefer VERCEL_PROJECT_PRODUCTION_URL, the stable
 		// production domain, so baked canonical/og URLs don't point at an
 		// ephemeral deployment host.
 		const productionUrl =
-			environment === 'production' ? process.env.VERCEL_PROJECT_PRODUCTION_URL || null : null;
+			environment === 'production' ? env.VERCEL_PROJECT_PRODUCTION_URL || null : null;
 		const siteHost = productionUrl || vercelUrl;
 
 		return {
 			platform: 'vercel',
 			environment,
 			deployUrl: vercelUrl,
-			gitRef: process.env.VERCEL_GIT_COMMIT_REF || null,
+			gitRef: env.VERCEL_GIT_COMMIT_REF || null,
 			isPreview: environment === 'preview',
 			// Vercel provides hostnames only (no protocol)
 			siteUrl: siteHost ? `https://${siteHost}` : null
@@ -61,31 +69,31 @@ export function detectPlatform(): PlatformContext {
 	}
 
 	// Cloudflare Workers (WORKERS_CI) or Pages (CF_PAGES)
-	if (process.env.WORKERS_CI || process.env.CF_PAGES) {
-		const branch = process.env.WORKERS_CI_BRANCH || process.env.CF_PAGES_BRANCH || null;
-		const productionBranch = process.env.PRODUCTION_BRANCH || 'main';
+	if (env.WORKERS_CI || env.CF_PAGES) {
+		const branch = env.WORKERS_CI_BRANCH || env.CF_PAGES_BRANCH || null;
+		const productionBranch = env.PRODUCTION_BRANCH || 'main';
 		const isPreview = branch !== null && branch !== productionBranch;
 		const environment = isPreview ? 'preview' : 'production';
 
 		// CF_PAGES_URL is a full URL with https:// (Pages only)
-		const deployUrl = process.env.CF_PAGES_URL || null;
-		const productionSiteUrl = process.env.PUBLIC_SITE_URL || process.env.SITE_URL || null;
+		const deployUrl = env.CF_PAGES_URL || null;
+		const productionSiteUrl = env.PUBLIC_SITE_URL || env.SITE_URL || null;
 
 		let siteUrl: string | null = null;
 		if (isPreview) {
 			if (deployUrl) {
 				siteUrl = deployUrl;
-			} else if (branch && process.env.WORKERS_NAME && process.env.WORKERS_SUBDOMAIN) {
-				const alias = sanitizeBranchAlias(branch, process.env.WORKERS_NAME);
-				siteUrl = `https://${alias}-${process.env.WORKERS_NAME}.${process.env.WORKERS_SUBDOMAIN}.workers.dev`;
+			} else if (branch && env.WORKERS_NAME && env.WORKERS_SUBDOMAIN) {
+				const alias = sanitizeBranchAlias(branch, env.WORKERS_NAME);
+				siteUrl = `https://${alias}-${env.WORKERS_NAME}.${env.WORKERS_SUBDOMAIN}.workers.dev`;
 			}
 		} else if (productionSiteUrl) {
 			// Explicit custom domains beat Pages and Workers generated hosts.
 			siteUrl = productionSiteUrl;
 		} else if (deployUrl) {
 			siteUrl = deployUrl;
-		} else if (process.env.WORKERS_NAME && process.env.WORKERS_SUBDOMAIN) {
-			siteUrl = `https://${process.env.WORKERS_NAME}.${process.env.WORKERS_SUBDOMAIN}.workers.dev`;
+		} else if (env.WORKERS_NAME && env.WORKERS_SUBDOMAIN) {
+			siteUrl = `https://${env.WORKERS_NAME}.${env.WORKERS_SUBDOMAIN}.workers.dev`;
 		}
 
 		return {
@@ -105,6 +113,6 @@ export function detectPlatform(): PlatformContext {
 		deployUrl: null,
 		gitRef: null,
 		isPreview: false,
-		siteUrl: process.env.PUBLIC_SITE_URL || process.env.SITE_URL || null
+		siteUrl: env.PUBLIC_SITE_URL || env.SITE_URL || null
 	};
 }

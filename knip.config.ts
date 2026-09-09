@@ -62,6 +62,8 @@ export default {
 		// Loaded by @sveltejs/adapter-auto when deploying to Vercel; the Vercel path stays
 		// alive through .github/workflows/e2e-preview-vercel.yml and vercel.json.
 		'@sveltejs/adapter-vercel',
+		// Dynamically loaded by Varlock's SvelteKit plugin for Cloudflare runtime injection.
+		'@varlock/cloudflare-integration',
 		// Required by patches/oxlint-plugin-convex@0.1.1.patch.
 		'@oxlint/plugins'
 	],

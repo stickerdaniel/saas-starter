@@ -1,26 +1,58 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+	applyPreviewPrune,
+	deleteDeployment,
 	deletePreviewForBranch,
+	listPreviewDeployments,
 	normalizeIdentifier,
-	pruneOldestPreview,
-	selectPrunable,
+	planPreviewPrune,
+	type ApprovedPreviewPrune,
 	type Preview,
-	type PruneDeps
+	type PruneDeps,
+	type PreviewPruneInputs
 } from './prune-previews';
 
 const NOW = 1_700_000_000_000;
 const MIN = 60 * 1000;
-
 function preview(
-	overrides: Partial<Preview> & { ageMin: number; id: string; name?: string }
+	overrides: { ageMin: number; id: string; name?: string } & Partial<Preview>
 ): Preview {
+	const { ageMin, id, ...fields } = overrides;
 	return {
-		name: overrides.name ?? `dep-${overrides.id}`,
-		previewIdentifier: overrides.id,
-		createTime: NOW - overrides.ageMin * MIN,
-		expiresAt: null
+		name: fields.name ?? `dep-${id}`,
+		previewIdentifier: id,
+		createTime: NOW - ageMin * MIN,
+		expiresAt: null,
+		deploymentType: 'preview',
+		...fields
 	};
 }
+function plan(overrides: Partial<PreviewPruneInputs> = {}) {
+	return planPreviewPrune({
+		projectId: 'project',
+		currentBranch: 'current',
+		now: NOW,
+		liveBranches: new Set(),
+		previews: [preview({ id: 'old', ageMin: 100 }), preview({ id: 'new', ageMin: 1 })],
+		...overrides
+	});
+}
+function candidate(
+	previews: Preview[],
+	currentBranch: string | null,
+	now: number,
+	liveBranches = new Set<string>()
+) {
+	const result = plan({ previews, currentBranch, now, liveBranches });
+	return result.kind === 'candidate' ? result.target : null;
+}
+function approved(overrides: Partial<PreviewPruneInputs> = {}): ApprovedPreviewPrune {
+	const result = plan(overrides);
+	if (result.kind !== 'candidate') throw new Error('test requires an approved plan');
+	return result;
+}
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('normalizeIdentifier', () => {
 	it('lowercases and slugifies', () => {
@@ -29,15 +61,14 @@ describe('normalizeIdentifier', () => {
 		expect(normalizeIdentifier('--already-slug--')).toBe('already-slug');
 	});
 });
-
-describe('selectPrunable', () => {
+describe('candidate', () => {
 	it('picks oldest preview older than 5 min excluding current branch', () => {
 		const previews = [
 			preview({ id: 'feature-a', ageMin: 120 }),
 			preview({ id: 'feature-b', ageMin: 60 }),
 			preview({ id: 'feature-c', ageMin: 10 })
 		];
-		const target = selectPrunable(previews, 'feature-c', NOW);
+		const target = candidate(previews, 'feature-c', NOW);
 		expect(target?.name).toBe('dep-feature-a');
 	});
 
@@ -47,7 +78,7 @@ describe('selectPrunable', () => {
 			preview({ id: 'other', ageMin: 100 }),
 			preview({ id: 'newer', ageMin: 10 })
 		];
-		const target = selectPrunable(previews, 'Feature/Foo-Bar', NOW);
+		const target = candidate(previews, 'Feature/Foo-Bar', NOW);
 		expect(target?.previewIdentifier).toBe('other');
 	});
 
@@ -57,7 +88,7 @@ describe('selectPrunable', () => {
 			preview({ id: 'middle', ageMin: 100 }),
 			preview({ id: 'newest', ageMin: 1 })
 		];
-		const target = selectPrunable(previews, 'unrelated', NOW);
+		const target = candidate(previews, 'unrelated', NOW);
 		expect(target?.previewIdentifier).not.toBe('newest');
 		expect(target?.previewIdentifier).toBe('oldest');
 	});
@@ -68,13 +99,13 @@ describe('selectPrunable', () => {
 			preview({ id: 'fresh-2', ageMin: 2 }),
 			preview({ id: 'fresh-3', ageMin: 1 })
 		];
-		const target = selectPrunable(previews, 'unrelated', NOW);
+		const target = candidate(previews, 'unrelated', NOW);
 		expect(target?.previewIdentifier).toBe('fresh-1');
 	});
 
 	it('returns null when only candidate is current branch', () => {
 		const previews = [preview({ id: 'only-one', ageMin: 100 })];
-		expect(selectPrunable(previews, 'only-one', NOW)).toBeNull();
+		expect(candidate(previews, 'only-one', NOW)).toBeNull();
 	});
 
 	it('returns null when the only non-current-branch preview is the newest', () => {
@@ -82,11 +113,11 @@ describe('selectPrunable', () => {
 			preview({ id: 'current', ageMin: 200 }),
 			preview({ id: 'newest', ageMin: 1 })
 		];
-		expect(selectPrunable(previews, 'current', NOW)).toBeNull();
+		expect(candidate(previews, 'current', NOW)).toBeNull();
 	});
 
 	it('returns null on empty input', () => {
-		expect(selectPrunable([], 'any', NOW)).toBeNull();
+		expect(candidate([], 'any', NOW)).toBeNull();
 	});
 
 	it('returns null when currentBranch is null (fail-safe: never prune blindly)', () => {
@@ -95,17 +126,17 @@ describe('selectPrunable', () => {
 			preview({ id: 'b', ageMin: 100 }),
 			preview({ id: 'c', ageMin: 10 })
 		];
-		expect(selectPrunable(previews, null, NOW)).toBeNull();
+		expect(candidate(previews, null, NOW)).toBeNull();
 	});
 
 	it('returns null when currentBranch is an empty string', () => {
 		const previews = [preview({ id: 'a', ageMin: 200 }), preview({ id: 'b', ageMin: 100 })];
-		expect(selectPrunable(previews, '', NOW)).toBeNull();
+		expect(candidate(previews, '', NOW)).toBeNull();
 	});
 
 	it('returns null when currentBranch normalizes to empty (e.g. all punctuation)', () => {
 		const previews = [preview({ id: 'a', ageMin: 200 })];
-		expect(selectPrunable(previews, '///', NOW)).toBeNull();
+		expect(candidate(previews, '///', NOW)).toBeNull();
 	});
 
 	it('prunes the older preview when current branch IS the absolute newest', () => {
@@ -114,7 +145,7 @@ describe('selectPrunable', () => {
 		// branch was the absolute newest, we erroneously excluded a second
 		// preview and could not prune at all when previews were scarce.
 		const previews = [preview({ id: 'stale', ageMin: 200 }), preview({ id: 'current', ageMin: 1 })];
-		const target = selectPrunable(previews, 'current', NOW);
+		const target = candidate(previews, 'current', NOW);
 		expect(target?.previewIdentifier).toBe('stale');
 	});
 
@@ -125,7 +156,7 @@ describe('selectPrunable', () => {
 			preview({ id: 'newest', ageMin: 1 })
 		];
 		const liveBranches = new Set(['open-pr']);
-		const target = selectPrunable(previews, 'unrelated', NOW, liveBranches);
+		const target = candidate(previews, 'unrelated', NOW, liveBranches);
 		// 'open-pr' is the oldest but live, so the oldest non-live candidate wins.
 		expect(target?.previewIdentifier).toBe('abandoned');
 	});
@@ -138,7 +169,7 @@ describe('selectPrunable', () => {
 		];
 		// liveBranches is expected to already be normalized by the caller.
 		const liveBranches = new Set([normalizeIdentifier('Feature/Foo-Bar')]);
-		const target = selectPrunable(previews, 'unrelated', NOW, liveBranches);
+		const target = candidate(previews, 'unrelated', NOW, liveBranches);
 		expect(target?.previewIdentifier).toBe('abandoned');
 	});
 
@@ -150,96 +181,9 @@ describe('selectPrunable', () => {
 			preview({ id: 'newest', ageMin: 1 })
 		];
 		const liveBranches = new Set(['live-a', 'live-b']);
-		expect(selectPrunable(previews, 'current', NOW, liveBranches)).toBeNull();
-	});
-
-	it('back-compat: omitting liveBranches behaves exactly as before', () => {
-		const previews = [
-			preview({ id: 'oldest', ageMin: 200 }),
-			preview({ id: 'middle', ageMin: 100 }),
-			preview({ id: 'newest', ageMin: 1 })
-		];
-		// Identical to the bare-call result with no live set.
-		expect(selectPrunable(previews, 'unrelated', NOW)?.previewIdentifier).toBe('oldest');
-		expect(selectPrunable(previews, 'unrelated', NOW, undefined)?.previewIdentifier).toBe('oldest');
-		expect(selectPrunable(previews, 'unrelated', NOW, new Set())?.previewIdentifier).toBe('oldest');
+		expect(candidate(previews, 'current', NOW, liveBranches)).toBeNull();
 	});
 });
-
-describe('pruneOldestPreview', () => {
-	const token = 'tok';
-	const projectId = 'proj-1';
-
-	it('deletes the selected preview and returns its name', async () => {
-		const remove = vi.fn().mockResolvedValue(undefined);
-		const result = await pruneOldestPreview({
-			token,
-			projectId,
-			currentBranch: 'current',
-			now: NOW,
-			deps: {
-				list: async () => [
-					preview({ id: 'old', ageMin: 200 }),
-					preview({ id: 'mid', ageMin: 60 }),
-					preview({ id: 'newest', ageMin: 1 })
-				],
-				remove
-			}
-		});
-		expect(result).toEqual({ pruned: 'dep-old' });
-		expect(remove).toHaveBeenCalledWith(token, 'dep-old');
-	});
-
-	it('returns no-candidates when selector returns null', async () => {
-		const result = await pruneOldestPreview({
-			token,
-			projectId,
-			currentBranch: 'only',
-			now: NOW,
-			deps: {
-				list: async () => [preview({ id: 'only', ageMin: 100 })],
-				remove: vi.fn()
-			}
-		});
-		expect(result).toEqual({ pruned: null, reason: 'no candidates' });
-	});
-
-	it('surfaces list failure', async () => {
-		const result = await pruneOldestPreview({
-			token,
-			projectId,
-			currentBranch: 'x',
-			now: NOW,
-			deps: {
-				list: async () => {
-					throw new Error('network down');
-				},
-				remove: vi.fn()
-			}
-		});
-		expect(result).toEqual({ pruned: null, reason: 'list failed: network down' });
-	});
-
-	it('surfaces delete failure', async () => {
-		const result = await pruneOldestPreview({
-			token,
-			projectId,
-			currentBranch: 'current',
-			now: NOW,
-			deps: {
-				list: async () => [
-					preview({ id: 'old', ageMin: 200 }),
-					preview({ id: 'newer', ageMin: 10 })
-				],
-				remove: async () => {
-					throw new Error('403 forbidden');
-				}
-			}
-		});
-		expect(result).toEqual({ pruned: null, reason: 'delete failed: 403 forbidden' });
-	});
-});
-
 describe('deletePreviewForBranch', () => {
 	function deps(previews: Preview[], remove = vi.fn(async () => {})): PruneDeps {
 		return { list: vi.fn(async () => previews), remove };
@@ -257,7 +201,7 @@ describe('deletePreviewForBranch', () => {
 			)
 		});
 		expect(result).toEqual({ deleted: 'dep-feature-foo-bar' });
-		expect(remove).toHaveBeenCalledExactlyOnceWith('t', 'dep-feature-foo-bar');
+		expect(remove).toHaveBeenCalledExactlyOnceWith('t', 'dep-feature-foo-bar', undefined);
 	});
 
 	it('never matches a prefix/suffix of another branch', async () => {
@@ -318,7 +262,7 @@ describe('deletePreviewForBranch', () => {
 	});
 
 	it('propagates a list failure', async () => {
-		const result = await deletePreviewForBranch({
+		const result = deletePreviewForBranch({
 			token: 't',
 			projectId: 'p',
 			gitRef: 'feature/x',
@@ -329,11 +273,11 @@ describe('deletePreviewForBranch', () => {
 				remove: vi.fn(async () => {})
 			}
 		});
-		expect(result).toEqual({ deleted: null, reason: 'list failed: 500 boom' });
+		await expect(result).rejects.toThrow('500 boom');
 	});
 
 	it('propagates a delete failure', async () => {
-		const result = await deletePreviewForBranch({
+		const result = deletePreviewForBranch({
 			token: 't',
 			projectId: 'p',
 			gitRef: 'feature/x',
@@ -344,6 +288,158 @@ describe('deletePreviewForBranch', () => {
 				})
 			}
 		});
-		expect(result).toEqual({ deleted: null, reason: 'delete failed: 403 forbidden' });
+		await expect(result).rejects.toThrow('403 forbidden');
+	});
+});
+
+describe('pure prune approval and apply boundary', () => {
+	it('requires known remote state, but distinguishes a successful empty listing', () => {
+		expect(plan({ liveBranches: null })).toEqual({
+			kind: 'no_candidate',
+			reason: 'live_branches_unknown'
+		});
+		expect(plan({ liveBranches: new Set() }).kind).toBe('candidate');
+	});
+	it('protects a current deployment even when its identifier differs from the branch', () => {
+		expect(plan({ currentDeployment: 'dep-old' }).kind).toBe('no_candidate');
+	});
+	it('protects explicit environments by name and normalized branch', () => {
+		expect(plan({ protectedDeployments: new Set(['dep-old']) }).kind).toBe('no_candidate');
+		expect(plan({ protectedBranches: new Set(['OLD']) }).kind).toBe('no_candidate');
+	});
+	it.each(['prod', 'dev', 'custom', 'unknown'])(
+		'cannot approve a %s deployment',
+		(deploymentType) => {
+			expect(
+				plan({
+					previews: [
+						preview({ id: 'old', ageMin: 100, deploymentType }),
+						preview({ id: 'new', ageMin: 1 })
+					]
+				}).kind
+			).toBe('no_candidate');
+		}
+	);
+	it('fails closed on duplicate names, canonical collisions, or tied oldest candidates', () => {
+		for (const duplicate of [
+			preview({ id: 'other', name: 'dep-old', ageMin: 50 }),
+			preview({ id: 'OLD', ageMin: 50 }),
+			preview({ id: 'other', ageMin: 100 })
+		]) {
+			expect(
+				plan({
+					previews: [
+						preview({ id: 'old', ageMin: 100 }),
+						duplicate,
+						preview({ id: 'new', ageMin: 1 })
+					]
+				})
+			).toEqual({ kind: 'no_candidate', reason: 'ambiguous_candidates' });
+		}
+	});
+	it('protects all newest ties and rejects invalid timestamps', () => {
+		expect(
+			plan({ previews: [preview({ id: 'one', ageMin: 1 }), preview({ id: 'two', ageMin: 1 })] })
+				.kind
+		).toBe('no_candidate');
+		expect(plan({ previews: [preview({ id: 'bad', ageMin: 1, createTime: NaN })] }).kind).toBe(
+			'no_candidate'
+		);
+	});
+	it('does not mutate inputs and snapshots the approved target', () => {
+		const target = preview({ id: 'old', ageMin: 100 });
+		const input = Object.freeze([target, preview({ id: 'new', ageMin: 1 })]);
+		const result = approved({ previews: input });
+		target.name = 'changed-after-planning';
+		expect(result.target.name).toBe('dep-old');
+		expect(Object.isFrozen(result.target)).toBe(true);
+		expect(Object.isFrozen(result)).toBe(true);
+	});
+	it('applies exactly the approved target through the injected management client', async () => {
+		const remove = vi.fn(async () => {});
+		const signal = new AbortController().signal;
+		await expect(
+			applyPreviewPrune(approved(), {
+				token: 'secret',
+				projectId: 'project',
+				remove,
+				signal,
+				timeoutMs: 50
+			})
+		).resolves.toEqual({ pruned: 'dep-old' });
+		expect(remove).toHaveBeenCalledExactlyOnceWith('secret', 'dep-old', { signal, timeoutMs: 50 });
+	});
+	it('rejects unapproved inputs and a different project without calling delete', async () => {
+		const remove = vi.fn(async () => {});
+		const deps = { token: 'secret', projectId: 'project', remove };
+		// @ts-expect-error A no-candidate outcome is not deletion authorization.
+		await expect(applyPreviewPrune(plan({ previews: [] }), deps)).rejects.toThrow('approved plan');
+		await expect(
+			applyPreviewPrune(
+				// @ts-expect-error A caller cannot construct the planner-private approval brand.
+				Object.freeze({
+					kind: 'candidate',
+					projectId: 'project',
+					target: Object.freeze(preview({ id: 'fake', ageMin: 2 }))
+				}),
+				deps
+			)
+		).rejects.toThrow('approved plan');
+		await expect(
+			applyPreviewPrune(approved(), { ...deps, projectId: 'another-project' })
+		).rejects.toThrow('approved plan');
+		expect(remove).not.toHaveBeenCalled();
+	});
+	it('propagates apply failures and rejects cancellation before deletion', async () => {
+		const remove = vi.fn(async () => {
+			throw new Error('delete failed');
+		});
+		await expect(
+			applyPreviewPrune(approved(), { token: 't', projectId: 'project', remove })
+		).rejects.toThrow('delete failed');
+		await expect(
+			applyPreviewPrune(approved(), {
+				token: 't',
+				projectId: 'project',
+				remove,
+				signal: AbortSignal.abort()
+			})
+		).rejects.toMatchObject({ code: 'aborted' });
+		expect(remove).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('management adapter', () => {
+	it('filters non-preview types and refuses malformed preview records', async () => {
+		const fetcher = vi
+			.fn()
+			.mockResolvedValue(
+				new Response(
+					JSON.stringify([
+						preview({ id: 'preview', ageMin: 5 }),
+						preview({ id: 'production', ageMin: 5, deploymentType: 'prod' }),
+						{ name: 'unknown', previewIdentifier: 'looks-like-preview' }
+					])
+				)
+			);
+		vi.stubGlobal('fetch', fetcher);
+		await expect(listPreviewDeployments('token', 'project')).resolves.toEqual([
+			preview({ id: 'preview', ageMin: 5 })
+		]);
+		fetcher.mockResolvedValue(
+			new Response(JSON.stringify([{ deploymentType: 'preview', name: 'bad' }]))
+		);
+		await expect(listPreviewDeployments('token', 'project')).rejects.toThrow('Invalid preview');
+	});
+	it('does not expose HTTP response bodies and handles empty successful deletes', async () => {
+		const fetcher = vi.fn().mockResolvedValue(new Response('provider-secret', { status: 403 }));
+		vi.stubGlobal('fetch', fetcher);
+		await expect(listPreviewDeployments('token', 'project')).rejects.toThrow('HTTP 403');
+		fetcher.mockResolvedValue(new Response(null, { status: 204 }));
+		await expect(deleteDeployment('token', 'preview')).resolves.toBeUndefined();
+		expect(fetcher).toHaveBeenLastCalledWith(
+			'https://api.convex.dev/v1/deployments/preview/delete',
+			expect.objectContaining({ method: 'POST', signal: expect.any(AbortSignal) })
+		);
 	});
 });

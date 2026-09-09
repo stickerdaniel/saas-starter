@@ -37,6 +37,12 @@ import type {
 } from '$lib/components/billing/checkout-context.svelte.ts';
 import type { CheckoutAttachOption } from '$lib/billing/checkout-result';
 import type { AttachResult, CheckoutResult } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
+import type {
+	CommandRunnerDependencies,
+	SpawnCommand,
+	SpawnedCommand
+} from '../../../scripts/process/command-runner';
+import type { createDeploymentExecution } from '../../../scripts/deploy/execution';
 import type { authClient, updateUserWithLocale } from '$lib/auth-client';
 import type { ShapeUpdate } from '$lib/components/customer-support/screenshot-editor/types';
 
@@ -155,5 +161,12 @@ describe('first-party boundary compile-time contracts', () => {
 			productId: string;
 			options: Array<{ featureId: string; quantity: string }>;
 		}>().not.toExtend<CheckoutStartParams>();
+	});
+	it('injects the command-runner port into deployment without a concrete process cast', () => {
+		expectTypeOf<CommandRunnerDependencies['spawn']>().toEqualTypeOf<SpawnCommand>();
+		expectTypeOf<ReturnType<SpawnCommand>>().toEqualTypeOf<SpawnedCommand>();
+		expectTypeOf<
+			NonNullable<Parameters<typeof createDeploymentExecution>[0]>['runner']
+		>().toEqualTypeOf<Partial<CommandRunnerDependencies> | undefined>();
 	});
 });

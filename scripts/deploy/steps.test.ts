@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import * as path from 'node:path';
 import * as vm from 'node:vm';
 import ts from 'typescript';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { detectPlatform, type PlatformContext } from './platform';
 import {
 	computeBuildEnv,
@@ -14,7 +14,7 @@ import {
 	validateConvexEnv,
 	type ConvexDeployment
 } from './steps';
-import * as deployUtils from './utils';
+import { harness } from './__fixtures__/execution';
 
 const deployment: ConvexDeployment = {
 	urlSlug: 'curious-lark-703.eu-west-1',
@@ -82,10 +82,10 @@ describe('computeBuildEnv', () => {
 
 	it('runs canonical-origin validation before remote deployment steps', () => {
 		const source = fs.readFileSync(path.resolve('scripts/deploy.ts'), 'utf8');
-		const preflight = source.indexOf('resolveDeploymentSiteOrigin(platform)');
+		const preflight = source.indexOf('resolveDeploymentSiteOrigin(platform, execution.env)');
 		expect(preflight).toBeGreaterThanOrEqual(0);
-		expect(preflight).toBeLessThan(source.indexOf('syncTranslations(platform)'));
-		expect(preflight).toBeLessThan(source.indexOf('deployConvex(platform)'));
+		expect(preflight).toBeLessThan(source.indexOf('syncTranslations(platform, execution)'));
+		expect(preflight).toBeLessThan(source.indexOf('deployConvex(platform, execution'));
 	});
 
 	it('uses the stable platform origin for production', () => {
@@ -167,14 +167,18 @@ describe('resolveDeploymentSiteOrigin', () => {
 });
 
 describe('deployment capability profile ownership', () => {
-	it('sets and validates production before deployment', () => {
-		const run = vi.spyOn(deployUtils, 'runCommand').mockReturnValue(true);
+	it('sets and validates production before deployment', async () => {
+		const h = harness();
 		const platform = makePlatform();
 
-		setProductionCapabilityProfile(platform);
-		validateConvexEnv(platform);
+		await setProductionCapabilityProfile(platform, h.execution);
+		await validateConvexEnv(platform, undefined, h.execution);
 
-		expect(run).toHaveBeenNthCalledWith(1, 'bunx', [
+		expect(h.events).toEqual([
+			'bunx convex env set CAPABILITY_PROFILE production --prod',
+			'bunx convex env list --prod'
+		]);
+		expect(h.spawn.mock.calls[0]?.[0].args).toEqual([
 			'convex',
 			'env',
 			'set',
@@ -182,89 +186,42 @@ describe('deployment capability profile ownership', () => {
 			'production',
 			'--prod'
 		]);
-		expect(run).toHaveBeenNthCalledWith(2, 'bun', [
-			'scripts/validate-convex-env.ts',
-			'--prod',
-			'--expected-profile',
-			'production'
-		]);
-		run.mockRestore();
+		expect(h.spawn.mock.calls[1]?.[0].args).toEqual(['convex', 'env', 'list', '--prod']);
 	});
 
-	it('keeps Preview Deploy Key setup deployment-scoped before validation and seeding', async () => {
-		const calls: Array<[string, string[]]> = [];
-		const run = vi.spyOn(deployUtils, 'runCommand').mockImplementation((command, args) => {
-			calls.push([command, args]);
-			return true;
-		});
-		const retry = vi
-			.spyOn(deployUtils, 'runCommandWithRetry')
-			.mockImplementation(async (command, args) => {
-				calls.push([command, args]);
-				return { success: true, stdout: '', stderr: '' };
-			});
-		vi.spyOn(deployUtils, 'runCommandCapture').mockImplementation((command, args) => {
-			calls.push([command, args]);
-			return args.includes('list')
-				? {
-						success: true,
-						stdout: 'CAPABILITY_PROFILE=preview\nSITE_URL=https://preview.example.com',
-						stderr: ''
-					}
-				: { success: true, stdout: '', stderr: '' };
-		});
+	it('keeps preview profile setup deployment-scoped before validation and seeding', async () => {
+		const h = harness();
 		const platform = makePlatform({
 			environment: 'preview',
 			isPreview: true,
-			siteUrl: 'https://preview.example.com'
+			siteUrl: 'https://preview.example.test'
 		});
 
-		await setupPreviewEnv(deployment, platform);
+		await setupPreviewEnv(deployment, platform, h.execution);
 
-		// Preview Deploy Keys cannot authorize project-level `env default` writes.
-		expect(calls).toEqual([
+		expect(h.spawn.mock.calls.map(([request]) => request.args)).toEqual([
 			[
-				'bunx',
-				[
-					'convex',
-					'env',
-					'set',
-					'--deployment-name',
-					deployment.name,
-					'CAPABILITY_PROFILE',
-					'preview'
-				]
+				'convex',
+				'env',
+				'set',
+				'--deployment-name',
+				deployment.name,
+				'CAPABILITY_PROFILE',
+				'preview'
 			],
 			[
-				'bunx',
-				[
-					'convex',
-					'env',
-					'set',
-					'--deployment-name',
-					deployment.name,
-					'SITE_URL',
-					'https://preview.example.com'
-				]
+				'convex',
+				'env',
+				'set',
+				'--deployment-name',
+				deployment.name,
+				'SITE_URL',
+				'https://preview.example.test'
 			],
-			['bunx', ['convex', 'env', 'list', '--deployment-name', deployment.name]],
-			[
-				'bun',
-				[
-					'scripts/validate-convex-env.ts',
-					'--deployment-name',
-					deployment.name,
-					'--expected-profile',
-					'preview'
-				]
-			],
-			[
-				'bunx',
-				['convex', 'run', '--deployment-name', deployment.name, 'previewDev:ensurePreviewAdmin']
-			]
+			['convex', 'env', 'list', '--deployment-name', deployment.name],
+			['convex', 'env', 'list', '--deployment-name', deployment.name],
+			['convex', 'run', '--deployment-name', deployment.name, 'previewDev:ensurePreviewAdmin']
 		]);
-		retry.mockRestore();
-		run.mockRestore();
 	});
 });
 
@@ -281,18 +238,12 @@ describe('deployConvex Cloudflare environment', () => {
 		'CONVEX_PREVIEW_DEPLOY_KEY'
 	] as const;
 	const saved: Record<string, string | undefined> = {};
-	const runCommandCaptureMock = vi.spyOn(deployUtils, 'runCommandCapture');
 
 	beforeEach(() => {
 		for (const key of vars) {
 			saved[key] = process.env[key];
 			delete process.env[key];
 		}
-		runCommandCaptureMock.mockReset().mockReturnValue({
-			success: true,
-			stdout: 'https://curious-lark-703.convex.cloud',
-			stderr: ''
-		});
 	});
 
 	afterEach(() => {
@@ -331,14 +282,15 @@ describe('deployConvex Cloudflare environment', () => {
 			expect(platform.environment).toBe('production');
 			expect(platform.isPreview).toBe(false);
 
-			await deployConvex(platform);
+			const h = harness({ ...process.env });
+			await deployConvex(platform, h.execution);
 
-			expect(runCommandCaptureMock).toHaveBeenCalledTimes(1);
-			const [command, args, deployEnv] = runCommandCaptureMock.mock.calls[0]!;
-			expect(command).toBe('bunx');
-			expect(args).toEqual(['convex', 'deploy']);
-			expect(deployEnv?.[branchKey]).toBe('main');
-			expect(convexTreatsAsNonProduction(deployEnv!)).toBe(false);
+			expect(h.spawn).toHaveBeenCalledTimes(1);
+			const request = h.spawn.mock.calls[0]![0];
+			expect(request.command).toBe('bunx');
+			expect(request.args).toEqual(['convex', 'deploy']);
+			expect(request.env?.[branchKey]).toBe('main');
+			expect(convexTreatsAsNonProduction(request.env!)).toBe(false);
 			expect(process.env[branchKey]).toBe('production');
 		}
 	);
@@ -373,14 +325,15 @@ describe('deployConvex Cloudflare environment', () => {
 		expect(platform.environment).toBe('production');
 		expect(platform.isPreview).toBe(false);
 
-		await deployConvex(platform);
+		const h = harness({ ...process.env });
+		await deployConvex(platform, h.execution);
 
-		expect(runCommandCaptureMock).toHaveBeenCalledTimes(1);
-		const [command, args, deployEnv] = runCommandCaptureMock.mock.calls[0]!;
-		expect(command).toBe('bunx');
-		expect(args).toEqual(['convex', 'deploy']);
-		expect(deployEnv?.[branchKey]).not.toBe('main');
-		expect(convexTreatsAsNonProduction(deployEnv!)).toBe(true);
+		expect(h.spawn).toHaveBeenCalledTimes(1);
+		const request = h.spawn.mock.calls[0]![0];
+		expect(request.command).toBe('bunx');
+		expect(request.args).toEqual(['convex', 'deploy']);
+		expect(request.env?.[branchKey]).not.toBe('main');
+		expect(convexTreatsAsNonProduction(request.env!)).toBe(true);
 		expect(process.env[branchKey]).not.toBe('main');
 	});
 
@@ -416,14 +369,31 @@ describe('deployConvex Cloudflare environment', () => {
 		expect(platform.environment).toBe('preview');
 		expect(platform.isPreview).toBe(true);
 
-		await deployConvex(platform);
+		const h = harness({ ...process.env });
+		await deployConvex(platform, h.execution);
 
-		expect(runCommandCaptureMock).toHaveBeenCalledTimes(1);
-		const [command, args, deployEnv] = runCommandCaptureMock.mock.calls[0]!;
-		expect(command).toBe('bunx');
-		expect(args).toEqual(['convex', 'deploy', '--preview-create', originalBranch]);
-		expect(deployEnv?.[branchKey]).toBe(originalBranch);
-		expect(convexTreatsAsNonProduction(deployEnv!)).toBe(true);
+		expect(h.spawn).toHaveBeenCalledTimes(1);
+		const request = h.spawn.mock.calls[0]![0];
+		expect(request.command).toBe('bunx');
+		expect(request.args).toEqual(['convex', 'deploy', '--preview-create', originalBranch]);
+		expect(request.env?.[branchKey]).toBe(originalBranch);
+		expect(convexTreatsAsNonProduction(request.env!)).toBe(true);
 		expect(process.env[branchKey]).toBe(originalBranch);
+	});
+});
+
+describe('deployment-key fallback in the invocation environment', () => {
+	it.each([
+		['prod:backend-123|fixture-key', 'backend-123'],
+		['backend-123.eu-west-1|fixture-key', 'backend-123.eu-west-1'],
+		['invalid-no-delimiter', null],
+		['|fixture-key', null],
+		['', null]
+	])('preserves the existing fallback for %s', (key, slug) => {
+		const env = { CONVEX_DEPLOY_KEY: key ?? '', __VARLOCK_ENV: 'manifest' };
+		const result = computeBuildEnv(makePlatform(), { urlSlug: null, name: null }, env);
+		expect(result.PUBLIC_CONVEX_URL).toBe(slug ? `https://${slug}.convex.cloud` : undefined);
+		expect(result).not.toHaveProperty('__VARLOCK_ENV');
+		expect(env.__VARLOCK_ENV).toBe('manifest');
 	});
 });

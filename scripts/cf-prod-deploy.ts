@@ -24,49 +24,72 @@
  * string; it is only ever sent in the Authorization header below.
  */
 
-import { spawnSync } from 'child_process';
+import { reportCliFailure, withCliSignals } from './deploy/cli';
+import {
+	checkAborted,
+	createDeploymentExecution,
+	DeploymentError,
+	requestJson,
+	requireCommand
+} from './deploy/execution';
 
-const result = spawnSync('bunx', ['varlock-wrangler', 'deploy'], { stdio: 'inherit' });
-if (result.status !== 0) {
-	process.exit(result.status ?? 1);
-}
-
-const token = process.env.CF_PURGE_TOKEN;
-const zoneId = process.env.CF_ZONE_ID;
-
-if (!token || !zoneId) {
-	console.log('Cache purge skipped (CF_PURGE_TOKEN / CF_ZONE_ID not set).');
-	process.exit(0);
-}
-
-// The worker is already published at this point, so the purge is fail-open: any failure
-// (HTTP error or a network-level throw like DNS/connection refused/timeout) only means the
-// edge may serve a legacy stale HTML entry until its TTL expires. Log loudly but exit 0
-// so the build doesn't fail and trigger a confusing retry of an already-live deploy.
-// purge_everything is intentional: a tag/prefix purge could miss stale paths, and the
-// app's immutable assets are content-hashed, so purging them costs one revalidation.
-try {
-	const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${token}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ purge_everything: true })
-	});
-
-	const body = (await res.json().catch(() => null)) as {
-		success?: boolean;
-		errors?: unknown;
-	} | null;
-
-	if (!res.ok || !body?.success) {
-		console.error(`Cache purge failed (HTTP ${res.status}):`, JSON.stringify(body));
-		process.exit(0);
+export async function main(execution = createDeploymentExecution()): Promise<void> {
+	requireCommand(
+		await execution.run({
+			command: 'bunx',
+			args: ['varlock-wrangler', 'deploy'],
+			output: 'inherit'
+		}),
+		'Cloudflare deployment failed.'
+	);
+	const token = execution.env.CF_PURGE_TOKEN;
+	const zoneId = execution.env.CF_ZONE_ID;
+	if (!token || !zoneId) {
+		console.log('Cache purge skipped (CF_PURGE_TOKEN / CF_ZONE_ID not set).');
+		return;
 	}
+	checkAborted(execution.signal);
+	// Already published: purge failures remain non-blocking and must not cause
+	// another deployment. Explicit parent cancellation is still terminal.
+	try {
+		const body = await requestJson(
+			`https://api.cloudflare.com/client/v4/zones/${encodeURIComponent(zoneId)}/purge_cache`,
+			{
+				method: 'POST',
+				headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+				body: JSON.stringify({ purge_everything: true })
+			},
+			execution
+		);
+		if (
+			typeof body !== 'object' ||
+			body === null ||
+			!('success' in body) ||
+			body.success !== true
+		) {
+			console.warn('Cache purge failed; the worker is already deployed.');
+			return;
+		}
+		console.log('Cloudflare edge cache purged.');
+	} catch (error) {
+		if (error instanceof DeploymentError && error.code === 'aborted') throw error;
+		console.warn('Cache purge request failed; the worker is already deployed.');
+	}
+}
 
-	console.log('Cloudflare edge cache purged.');
-} catch (err) {
-	console.error('Cache purge request failed (network error):', err);
-	process.exit(0);
+export async function runCloudflareProductionCli(
+	execution = createDeploymentExecution()
+): Promise<void> {
+	try {
+		await main(execution);
+	} catch (error) {
+		reportCliFailure(error);
+		process.exitCode = error instanceof DeploymentError ? (error.exitCode ?? 1) : 1;
+	}
+}
+
+if (import.meta.main) {
+	await withCliSignals((signal) =>
+		runCloudflareProductionCli(createDeploymentExecution({ signal }))
+	);
 }
