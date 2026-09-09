@@ -5,21 +5,14 @@
  * Provides both headless core functionality and UI components.
  *
  * @example Executable text-only chat
- * Render this inside the existing Convex and authentication providers. The signed-in user must
- * already own the supplied thread.
+ * Mount below a Convex client provider, an authentication provider such as `AppAuthProvider`, and
+ * `TolgeeProvider`. The signed-in user must already own the supplied AI chat thread.
  * ```svelte
  * <script lang="ts">
  *   import SimpleChat from '$lib/chat/examples/SimpleChat.svelte';
- *   import { api } from '$lib/convex/_generated/api';
  *   let { ownedThreadId }: { ownedThreadId: string } = $props();
  * </script>
- * <SimpleChat
- *   threadId={ownedThreadId}
- *   api={{
- *     sendMessage: api.aiChat.messages.sendMessage,
- *     listMessages: api.aiChat.messages.listMessages
- *   }}
- * />
+ * <SimpleChat threadId={ownedThreadId} />
  * ```
  *
  * @example Using core without UI

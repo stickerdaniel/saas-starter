@@ -17,12 +17,14 @@
 		client,
 		content: Content,
 		contentProps,
-		supportThread
+		supportThread,
+		provideTolgee = true
 	}: {
 		client: ConvexClient;
 		content: Component<Props>;
 		contentProps: Props;
 		supportThread?: SupportThreadContext;
+		provideTolgee?: boolean;
 	} = $props();
 
 	// The provider is fixed for the mounted test instance.
@@ -42,6 +44,10 @@
 	}
 </script>
 
-<TolgeeProvider {tolgee}>
+{#if provideTolgee}
+	<TolgeeProvider {tolgee}>
+		<Content {...renderedContentProps} />
+	</TolgeeProvider>
+{:else}
 	<Content {...renderedContentProps} />
-</TolgeeProvider>
+{/if}

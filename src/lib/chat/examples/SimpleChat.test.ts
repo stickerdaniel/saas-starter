@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mount, tick, unmount } from 'svelte';
+import { mount, tick, unmount, type ComponentProps } from 'svelte';
 import type * as Svelte from 'svelte';
 import { ConvexClient } from 'convex/browser';
 import { getFunctionName } from 'convex/server';
-import { api } from '$lib/convex/_generated/api';
 import en from '../../../i18n/en.json';
+import { ChatUIContext } from '../ui/chat-context.svelte.ts';
 import ChatTestProvider from '../ui/test-fixtures/ChatTestProvider.svelte';
 import SimpleChat from './SimpleChat.svelte';
 
@@ -17,15 +17,8 @@ vi.mock('$lib/chat/ui/ChatMessages.svelte', () => ({ default: () => {} }));
 vi.mock('$lib/chat/ui/ChatAttachments.svelte', () => ({ default: () => {} }));
 vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 
-const chatApi = {
-	sendMessage: api.aiChat.messages.sendMessage,
-	listMessages: api.aiChat.messages.listMessages
-};
-
-type ContentProps = {
-	threadId: string;
-	api: typeof chatApi;
-};
+type ContentProps = ComponentProps<typeof SimpleChat>;
+type RejectsApiOverride = 'api' extends keyof ContentProps ? false : true;
 
 let component: ReturnType<typeof mount> | undefined;
 let client: ConvexClient;
@@ -44,11 +37,11 @@ afterEach(async () => {
 	vi.restoreAllMocks();
 });
 
-function mountChat(threadId: string) {
-	const contentProps: ContentProps = { threadId, api: chatApi };
+function mountChat(threadId: string, provideTolgee = true) {
+	const contentProps: ContentProps = { threadId };
 	const provider = mount(ChatTestProvider<ContentProps>, {
 		target: document.body,
-		props: { client, content: SimpleChat, contentProps }
+		props: { client, content: SimpleChat, contentProps, provideTolgee }
 	});
 	component = provider;
 	return provider;
@@ -62,6 +55,20 @@ async function enterMessage(value: string) {
 	const button = document.querySelector<HTMLButtonElement>('[data-testid="chat-input-send"]')!;
 	expect(button.disabled).toBe(false);
 	return { input, button };
+}
+
+function pasteItems(input: HTMLTextAreaElement, items: DataTransferItem[]) {
+	const event = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent;
+	Object.defineProperty(event, 'clipboardData', {
+		value: { items },
+		configurable: true
+	});
+	input.dispatchEvent(event);
+	return event;
+}
+
+function storedDrafts(): Record<string, string> {
+	return JSON.parse(localStorage.getItem('drafts:simple-chat') ?? '{}');
 }
 
 describe('SimpleChat', () => {
@@ -125,7 +132,7 @@ describe('SimpleChat', () => {
 		const provider = mountChat('thread-before');
 		await tick();
 
-		provider.setContentProps({ threadId: 'thread-after', api: chatApi });
+		provider.setContentProps({ threadId: 'thread-after' });
 		await tick();
 		const { button } = await enterMessage('Use the current thread');
 		button.click();
@@ -139,5 +146,104 @@ describe('SimpleChat', () => {
 			userId: undefined,
 			fileIds: undefined
 		});
+	});
+
+	it('restores the exact origin draft after switching away from a rejected send', async () => {
+		const pending = Promise.withResolvers<never>();
+		const error = new Error('Send rejected');
+		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		const provider = mountChat('thread-a');
+		await tick();
+		const exactText = '  Retry in thread A  ';
+		const { button } = await enterMessage(exactText);
+		button.click();
+		await tick();
+
+		provider.setContentProps({ threadId: 'thread-b' });
+		await tick();
+		expect(
+			document.querySelector<HTMLTextAreaElement>('[data-testid="chat-input-textarea"]')!.value
+		).toBe('');
+		expect(storedDrafts()).toEqual({ 'thread-a': exactText });
+		pending.reject(error);
+		await vi.waitFor(() =>
+			expect(console.error).toHaveBeenCalledWith('[ChatInput] onSend failed:', error)
+		);
+		const { button: selectedButton } = await enterMessage('Thread B stays independent');
+		expect(selectedButton.disabled).toBe(false);
+
+		provider.setContentProps({ threadId: 'thread-a' });
+		await tick();
+		expect(
+			document.querySelector<HTMLTextAreaElement>('[data-testid="chat-input-textarea"]')!.value
+		).toBe(exactText);
+	});
+
+	it('keeps the selected thread sendable when an origin send succeeds', async () => {
+		const pending = Promise.withResolvers<Record<string, never>>();
+		const mutation = vi.spyOn(client, 'mutation').mockImplementation((_reference, args) => {
+			return (args as { threadId?: string }).threadId === 'thread-a'
+				? pending.promise
+				: Promise.resolve({});
+		});
+		const provider = mountChat('thread-a');
+		await tick();
+		const { button: originButton } = await enterMessage('Send from A');
+		originButton.click();
+		await tick();
+
+		provider.setContentProps({ threadId: 'thread-b' });
+		await tick();
+		const { button: selectedButton } = await enterMessage('Send from B');
+		expect(selectedButton.disabled).toBe(false);
+		pending.resolve({});
+		await vi.waitFor(() => expect(storedDrafts()).toEqual({ 'thread-b': 'Send from B' }));
+		expect(selectedButton.disabled).toBe(false);
+
+		selectedButton.click();
+		await vi.waitFor(() => expect(mutation).toHaveBeenCalledTimes(2));
+		expect(mutation.mock.calls[1]?.[1]).toEqual({
+			threadId: 'thread-b',
+			prompt: 'Send from B',
+			userId: undefined,
+			fileIds: undefined
+		});
+	});
+
+	it.each([
+		{ name: 'file-only', includeText: false },
+		{ name: 'mixed', includeText: true }
+	])('ignores $name clipboard files when uploads are hidden', async ({ includeText }) => {
+		mountChat('thread-paste');
+		await tick();
+		const uploadFile = vi.spyOn(ChatUIContext.prototype, 'uploadFile');
+		const input = document.querySelector<HTMLTextAreaElement>(
+			'[data-testid="chat-input-textarea"]'
+		)!;
+		const file = new File(['notes'], 'notes.txt', { type: 'text/plain' });
+		const fileItem = {
+			kind: 'file',
+			type: file.type,
+			getAsFile: () => file
+		} as DataTransferItem;
+		const textItem = {
+			kind: 'string',
+			type: 'text/plain',
+			getAsFile: () => null
+		} as DataTransferItem;
+		const event = pasteItems(input, includeText ? [textItem, fileItem] : [fileItem]);
+		await tick();
+
+		expect(event.defaultPrevented).toBe(false);
+		expect(uploadFile).not.toHaveBeenCalled();
+	});
+
+	it('does not accept an API override prop', () => {
+		const rejectsApiOverride: RejectsApiOverride = true;
+		expect(rejectsApiOverride).toBe(true);
+	});
+
+	it('requires the documented TolgeeProvider context', () => {
+		expect(() => mountChat('thread-without-tolgee', false)).toThrow(/TolgeeProvider/);
 	});
 });

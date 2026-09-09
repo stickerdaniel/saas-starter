@@ -498,6 +498,7 @@
 	}
 
 	function handlePaste(event: ClipboardEvent) {
+		if (!showFileButton) return;
 		const items = event.clipboardData?.items;
 		if (!items) return;
 
