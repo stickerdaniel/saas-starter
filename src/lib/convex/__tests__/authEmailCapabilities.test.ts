@@ -85,7 +85,8 @@ describe('authentication email capability failures', () => {
 			secret: 'test-secret-that-is-long-enough-for-signing',
 			database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
 			emailAndPassword: options.emailAndPassword,
-			emailVerification: options.emailVerification
+			emailVerification: options.emailVerification,
+			hooks: options.hooks
 		});
 
 		await auth.api.signUpEmail({ body: credentials });
@@ -133,16 +134,100 @@ describe('authentication email capability failures', () => {
 			})
 		).rejects.toBeInstanceOf(CapabilityConfigurationError);
 
-		const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
 		await expect(
 			auth.api.sendVerificationEmail({ body: { email: credentials.email } })
 		).rejects.toThrow();
-		const resetResult = await auth.api.requestPasswordReset({
+		await expect(
+			auth.api.requestPasswordReset({
+				body: { email: credentials.email, redirectTo: '/reset-password' }
+			})
+		).rejects.toThrow();
+		expect(enqueue).not.toHaveBeenCalled();
+	});
+
+	it('rejects malformed email routes before Better Auth writes state', async () => {
+		vi.stubEnv('SITE_URL', 'https://example.test');
+		vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret-that-is-long-enough-for-signing');
+		vi.stubEnv('RESEND_API_KEY', 'configured-resend-key');
+		vi.stubEnv('AUTH_EMAIL', 'malformed-sender');
+		vi.stubEnv('EMAIL_ASSET_URL', 'https://assets.example.com');
+
+		const [{ createAuthOptions }, resendModule] = await Promise.all([
+			import('../auth'),
+			import('../emails/resend')
+		]);
+		const enqueue = vi.spyOn(resendModule.resend, 'sendEmail');
+		const runMutation = vi.fn().mockResolvedValue(null);
+		const options = createAuthOptions({ runMutation } as never);
+		const existingUser = {
+			id: 'existing-user',
+			email: 'known@example.test',
+			name: 'Known User',
+			emailVerified: true,
+			createdAt: new Date('2026-01-01T00:00:00.000Z'),
+			updatedAt: new Date('2026-01-01T00:00:00.000Z')
+		};
+		const database = {
+			user: [existingUser] as Array<Record<string, unknown>>,
+			session: [] as Array<Record<string, unknown>>,
+			account: [] as Array<Record<string, unknown>>,
+			verification: [] as Array<Record<string, unknown>>
+		};
+		const auth = betterAuth({
+			baseURL: 'https://example.test',
+			secret: 'test-secret-that-is-long-enough-for-signing',
+			database: memoryAdapter(database),
+			emailAndPassword: options.emailAndPassword,
+			emailVerification: options.emailVerification,
+			hooks: options.hooks
+		});
+
+		await expect(auth.api.signUpEmail({ body: credentials })).rejects.toThrow();
+		await expect(
+			auth.api.requestPasswordReset({
+				body: { email: existingUser.email, redirectTo: '/reset-password' }
+			})
+		).rejects.toThrow();
+		await expect(
+			auth.api.sendVerificationEmail({ body: { email: credentials.email } })
+		).rejects.toThrow();
+
+		expect(database.user).toEqual([existingUser]);
+		expect(database.account).toHaveLength(0);
+		expect(database.verification).toHaveLength(0);
+		expect(database.session).toHaveLength(0);
+		expect(runMutation).not.toHaveBeenCalled();
+		expect(enqueue).not.toHaveBeenCalled();
+	});
+
+	it('keeps ready password reset responses enumeration-safe', async () => {
+		vi.stubEnv('SITE_URL', 'https://example.test');
+		vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret-that-is-long-enough-for-signing');
+		vi.stubEnv('RESEND_API_KEY', 'configured-resend-key');
+		vi.stubEnv('AUTH_EMAIL', 'sender@example.com');
+		vi.stubEnv('EMAIL_ASSET_URL', 'https://assets.example.com');
+
+		const { createAuthOptions } = await import('../auth');
+		const runMutation = vi.fn().mockResolvedValue(null);
+		const options = createAuthOptions({ runMutation } as never);
+		const auth = betterAuth({
+			baseURL: 'https://example.test',
+			secret: 'test-secret-that-is-long-enough-for-signing',
+			database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
+			emailAndPassword: options.emailAndPassword,
+			emailVerification: options.emailVerification,
+			hooks: options.hooks
+		});
+
+		const unknown = await auth.api.requestPasswordReset({
+			body: { email: 'unknown@example.test', redirectTo: '/reset-password' }
+		});
+		await auth.api.signUpEmail({ body: credentials });
+		const known = await auth.api.requestPasswordReset({
 			body: { email: credentials.email, redirectTo: '/reset-password' }
 		});
 
-		expect(resetResult.status).toBe(true);
-		await vi.waitFor(() => expect(errorLog).toHaveBeenCalled());
-		expect(enqueue).not.toHaveBeenCalled();
+		expect(unknown).toEqual(known);
+		expect(known.status).toBe(true);
 	});
 });

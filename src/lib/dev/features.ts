@@ -103,37 +103,104 @@ function isValidSenderEmail(value: string): boolean {
 	return /^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(value);
 }
 
-function isPrivateIpv4(hostname: string): boolean {
+function parseIpv4(hostname: string): number[] | null {
 	const parts = hostname.split('.');
-	if (parts.length !== 4 || parts.some((part) => !/^\d+$/.test(part))) return false;
+	if (parts.length !== 4 || parts.some((part) => !/^\d+$/.test(part))) return null;
 	const octets = parts.map(Number);
-	if (octets.some((octet) => octet < 0 || octet > 255)) return true;
-	const [first, second] = octets;
+	return octets.some((octet) => octet < 0 || octet > 255) ? null : octets;
+}
+
+function isNonGlobalIpv4(octets: readonly number[]): boolean {
+	const [first, second, third, fourth] = octets;
 	return (
 		first === 0 ||
 		first === 10 ||
+		(first === 100 && second !== undefined && second >= 64 && second <= 127) ||
 		first === 127 ||
 		(first === 169 && second === 254) ||
 		(first === 172 && second !== undefined && second >= 16 && second <= 31) ||
-		(first === 192 && second === 168)
+		(first === 192 &&
+			second === 0 &&
+			((third === 0 && fourth !== 9 && fourth !== 10) || third === 2)) ||
+		(first === 192 && second === 88 && third === 99 && fourth !== 2) ||
+		(first === 192 && second === 168) ||
+		(first === 198 && (second === 18 || second === 19)) ||
+		(first === 198 && second === 51 && third === 100) ||
+		(first === 203 && second === 0 && third === 113) ||
+		(first !== undefined && first >= 224)
 	);
 }
 
+function parseIpv6(hostname: string): number[] | null {
+	if (!hostname.includes(':')) return null;
+	const halves = hostname.split('::');
+	if (halves.length > 2) return null;
+	const left = halves[0] ? halves[0].split(':') : [];
+	const right = halves[1] ? halves[1].split(':') : [];
+	const missing = 8 - left.length - right.length;
+	if ((halves.length === 1 && missing !== 0) || (halves.length === 2 && missing < 1)) return null;
+
+	const segments = [...left, ...Array.from({ length: missing }, () => '0'), ...right];
+	if (segments.length !== 8 || segments.some((segment) => !/^[\da-f]{1,4}$/i.test(segment))) {
+		return null;
+	}
+	return segments.map((segment) => Number.parseInt(segment, 16));
+}
+
+function isNonGlobalIpv6(words: readonly number[]): boolean {
+	const [first, second] = words;
+	const unspecified = words.every((word) => word === 0);
+	const loopback = words.slice(0, 7).every((word) => word === 0) && words[7] === 1;
+	const uniqueLocal = first !== undefined && (first & 0xfe00) === 0xfc00;
+	const localPrefix = first === undefined ? undefined : first & 0xffc0;
+	const linkOrSiteLocal = localPrefix === 0xfe80 || localPrefix === 0xfec0;
+	const multicast = first !== undefined && (first & 0xff00) === 0xff00;
+	const documentation =
+		(first === 0x2001 && second === 0x0db8) ||
+		(first === 0x3fff && second !== undefined && (second & 0xf000) === 0);
+	const mappedIpv4 =
+		words.slice(0, 5).every((word) => word === 0) && words[5] === 0xffff
+			? [words[6]! >> 8, words[6]! & 0xff, words[7]! >> 8, words[7]! & 0xff]
+			: null;
+	const compatibleIpv4 = words.slice(0, 6).every((word) => word === 0);
+
+	return (
+		unspecified ||
+		loopback ||
+		compatibleIpv4 ||
+		uniqueLocal ||
+		linkOrSiteLocal ||
+		multicast ||
+		documentation ||
+		(mappedIpv4 !== null && isNonGlobalIpv4(mappedIpv4))
+	);
+}
+
+// Syntactic screening only: DNS names are never resolved here.
 function isPublicAssetUrl(value: string): boolean {
 	try {
 		const url = new URL(value);
 		if (url.protocol !== 'https:' || url.username || url.password) return false;
 
-		const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-		if (!hostname || hostname === 'localhost' || hostname.endsWith('.local')) return false;
-		if (isPrivateIpv4(hostname)) return false;
+		const hostname = url.hostname
+			.toLowerCase()
+			.replace(/^\[|\]$/g, '')
+			.replace(/\.+$/, '');
 		if (
-			hostname.includes(':') &&
-			(hostname === '::' || hostname === '::1' || /^(?:fc|fd|fe[89ab])/i.test(hostname))
+			!hostname ||
+			hostname === 'localhost' ||
+			hostname.endsWith('.localhost') ||
+			hostname === 'local' ||
+			hostname.endsWith('.local')
 		) {
 			return false;
 		}
-		return hostname.includes('.') || hostname.includes(':');
+
+		const ipv4 = parseIpv4(hostname);
+		if (ipv4) return !isNonGlobalIpv4(ipv4);
+		const ipv6 = parseIpv6(hostname);
+		if (ipv6) return !isNonGlobalIpv6(ipv6);
+		return hostname.includes('.');
 	} catch {
 		return false;
 	}

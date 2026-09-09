@@ -12,7 +12,7 @@ import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { createAuthMiddleware } from 'better-auth/api';
 import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
-import { requireEnv, googleOAuth, githubOAuth } from './env';
+import { requireEmailConfiguration, requireEnv, googleOAuth, githubOAuth } from './env';
 import { getFounderWelcomeDelay } from './emails/helpers';
 import { incrementCounter } from './admin/counters';
 import { DISABLED_ADMIN_PATHS } from './admin/adminHttpPaths';
@@ -366,6 +366,11 @@ function buildTrustedOrigins(): string[] {
 // its own policy.
 const JWKS_PATH = '/convex/jwks';
 const JWKS_CACHE_CONTROL = 'public, max-age=60, must-revalidate';
+const EMAIL_CAPABILITY_PREFLIGHT_PATHS = new Set([
+	'/sign-up/email',
+	'/request-password-reset',
+	'/send-verification-email'
+]);
 
 // Creates Better Auth options object (used by adapter and betterAuth CLI).
 // Typed via `satisfies` (not a return annotation) so the concrete plugin
@@ -450,6 +455,13 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			}
 		},
 		hooks: {
+			// Better Auth runs some email callbacks in the background after committing
+			// user or verification state. Reject email-producing routes before their
+			// handlers can write when the complete delivery group is unavailable.
+			before: createAuthMiddleware(async (ctx) => {
+				if (!EMAIL_CAPABILITY_PREFLIGHT_PATHS.has(ctx.path)) return;
+				requireEmailConfiguration();
+			}),
 			// The key set is identical for every caller, so consumers may use their own
 			// HTTP cache instead of reloading before every verification. The 60-second
 			// value bounds normal copy freshness and is not a revocation deadline. A newly

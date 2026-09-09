@@ -75,21 +75,53 @@ describe('resolveCapabilityConfigurations', () => {
 		'https://features.example.com',
 		'https://fcatalog.example.com',
 		'https://february.example.com',
-		'https://[2001:4860:4860::8888]'
-	])('accepts the public asset URL %s', (assetUrl) => {
+		'https://assets.example.com.',
+		'https://8.8.8.8',
+		'https://192.0.0.9',
+		'https://192.0.0.10',
+		'https://192.88.99.2',
+		'https://[2001:4860:4860::8888]',
+		'https://[::ffff:8.8.8.8]'
+	])('accepts the syntactically public asset URL %s', (assetUrl) => {
 		expect(
 			resolveCapabilityConfigurations({ ...READY_ENVIRONMENT, EMAIL_ASSET_URL: assetUrl }).email
 		).toMatchObject({ state: 'ready' });
 	});
 
 	it.each([
+		'https://localhost.',
+		'https://assets.localhost',
+		'https://assets.localhost.',
+		'https://assets.local',
+		'https://0.0.0.1',
+		'https://10.0.0.1',
+		'https://100.64.0.1',
+		'https://127.0.0.1',
+		'https://169.254.0.1',
+		'https://172.16.0.1',
+		'https://192.0.0.1',
+		'https://192.0.2.1',
+		'https://192.88.99.1',
+		'https://192.168.0.1',
+		'https://198.18.0.1',
+		'https://198.51.100.1',
+		'https://203.0.113.1',
+		'https://224.0.0.1',
+		'https://240.0.0.1',
 		'https://[fc00::1]',
 		'https://[fd12::1]',
 		'https://[fe80::1]',
-		'https://[febf::1]',
+		'https://[fec0::1]',
+		'https://[ff02::1]',
+		'https://[2001:db8::1]',
+		'https://[3fff:0::1]',
 		'https://[::1]',
-		'https://[::]'
-	])('rejects the non-public IPv6 asset URL %s', (assetUrl) => {
+		'https://[::]',
+		'https://[::8.8.8.8]',
+		'https://[::ffff:10.0.0.1]',
+		'https://[::ffff:192.0.2.1]',
+		'https://[::ffff:224.0.0.1]'
+	])('rejects the syntactically non-public asset URL %s', (assetUrl) => {
 		expect(
 			resolveCapabilityConfigurations({ ...READY_ENVIRONMENT, EMAIL_ASSET_URL: assetUrl }).email
 		).toEqual({ state: 'misconfigured', issue: 'invalid' });

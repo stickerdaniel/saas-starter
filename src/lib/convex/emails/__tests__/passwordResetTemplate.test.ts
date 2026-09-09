@@ -12,7 +12,9 @@ describe('renderPasswordResetEmail', () => {
 	// The renderer resolves asset URLs from the Convex environment, which a unit
 	// run does not have.
 	beforeAll(() => {
-		vi.stubEnv('EMAIL_ASSET_URL', 'https://assets.example.test');
+		vi.stubEnv('RESEND_API_KEY', 'configured-resend-key');
+		vi.stubEnv('AUTH_EMAIL', 'sender@example.com');
+		vi.stubEnv('EMAIL_ASSET_URL', '  https://assets.example.test/email  ');
 	});
 	afterAll(() => {
 		vi.unstubAllEnvs();
@@ -25,6 +27,12 @@ describe('renderPasswordResetEmail', () => {
 		rendered.replaceAll('&#39;', "'").replaceAll('&quot;', '"').replaceAll('&amp;', '&');
 	const reset = en.email.reset_password;
 	const set = en.email.set_password;
+
+	it('renders the trimmed validated asset URL', () => {
+		const { html } = renderPasswordResetEmail(url, undefined, 'en', true);
+		expect(html).toContain('https://assets.example.test/email');
+		expect(html).not.toContain('  https://assets.example.test/email  ');
+	});
 
 	it('reports a reset for an account that has a password', () => {
 		const { html, text } = renderPasswordResetEmail(url, undefined, 'en', true);

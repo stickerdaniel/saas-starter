@@ -1,16 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 
-// Mock the env module before importing templates
+// Mock the validated email capability before importing templates.
 vi.mock('$lib/convex/env', () => ({
-	requireEnv: (name: string) => {
-		const vars: Record<string, string> = {
-			EMAIL_ASSET_URL: 'https://test.example.com',
-			SITE_URL: 'https://test.example.com',
-			AUTH_EMAIL: 'test@example.com'
-		};
-		if (name in vars) return vars[name];
-		throw new Error(`Unexpected env var requested in test: ${name}`);
-	}
+	requireEmailConfiguration: () => ({
+		apiKey: 'configured',
+		sender: 'test@example.com',
+		assetUrl: 'https://test.example.com'
+	})
 }));
 
 import { sanitizeEmailCss } from '../email-css';
