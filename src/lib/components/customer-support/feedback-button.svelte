@@ -22,15 +22,18 @@
 		isFeedbackOpen = false,
 		isScreenshotMode = $bindable(false),
 		chatUIContext,
+		disabled = false,
 		onToggle
 	}: {
 		isFeedbackOpen?: boolean;
 		isScreenshotMode?: boolean;
 		chatUIContext: ChatUIContext;
+		disabled?: boolean;
 		onToggle?: (open: boolean) => void;
 	} = $props();
 
 	function toggleOpen() {
+		if (disabled) return;
 		haptic.trigger('light');
 		onToggle?.(!isFeedbackOpen);
 	}
@@ -48,12 +51,13 @@
 
 {#if !isScreenshotMode}
 	<div class="fixed right-5 bottom-5 z-40 flex flex-col items-end justify-end gap-3">
-		{#if isFeedbackOpen}
+		{#if isFeedbackOpen && !disabled}
 			<FeedbackWidget onClose={closeWidget} bind:isScreenshotMode {chatUIContext} />
 		{/if}
 		<Button
 			variant="default"
 			size="icon"
+			{disabled}
 			onclick={toggleOpen}
 			aria-label={isFeedbackOpen ? $t('aria.feedback_close') : unreadLabel}
 			class="relative size-12 rounded-xl transition-transform duration-150 ease-out active:not-aria-[haspopup]:translate-y-0 active:scale-[0.97]"

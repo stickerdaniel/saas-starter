@@ -58,7 +58,8 @@ export function resolvePublicAuthLayoutData(event: ServerLoadEvent) {
 			_timeFetched: Date.now()
 		},
 		viewer: getViewerFromJwt(event.locals.token),
-		capabilities: UNAVAILABLE_CAPABILITY_USABILITY
+		capabilities: UNAVAILABLE_CAPABILITY_USABILITY,
+		capabilitiesResolved: false
 	};
 }
 
@@ -68,11 +69,15 @@ export async function resolvePublicCapabilityData(event: ServerLoadEvent) {
 	try {
 		const client = createServerConvexHttpClient({});
 		return {
-			capabilities: await client.query(api.capabilities.getUsability, {})
+			capabilities: await client.query(api.capabilities.getUsability, {}),
+			capabilitiesResolved: true
 		};
 	} catch (e) {
 		console.error('[auth-layout-data] Public capability lookup failed:', e);
-		return { capabilities: UNAVAILABLE_CAPABILITY_USABILITY };
+		return {
+			capabilities: UNAVAILABLE_CAPABILITY_USABILITY,
+			capabilitiesResolved: false
+		};
 	}
 }
 

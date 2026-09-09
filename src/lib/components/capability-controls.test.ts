@@ -30,7 +30,10 @@ describe('browser capability controls', () => {
 	it('uses human-only support and hides the AI launcher when AI is unavailable', () => {
 		const support = source('src/lib/components/customer-support/customer-support.svelte');
 		const context = source('src/lib/components/customer-support/support-thread-context.svelte.ts');
-		expect(support).toContain('page.data.capabilities?.ai.usable === true');
+		expect(support).toContain('const capabilityQuery = useQuery(');
+		expect(support).toContain('api.capabilities.getUsability,');
+		expect(support).toContain('capabilityQuery.data?.ai.usable === true');
+		expect(support).toContain('disabled={!capabilitiesResolved}');
 		expect(support).toContain('{#if isSupportAiEnabled() && aiUsable}');
 		expect(context).toContain('isSupportAiEnabled() && this.isAiUsable()');
 	});

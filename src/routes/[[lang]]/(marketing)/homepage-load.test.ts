@@ -51,6 +51,7 @@ describe('homepage capability load', () => {
 		const rootData = await rootLayoutLoad(event as never);
 		const pageData = (await homepageLoad(event as never)) as {
 			capabilities: PublicCapabilityUsability;
+			capabilitiesResolved: boolean;
 		};
 		const loadedData = { ...rootData, ...pageData };
 
@@ -61,7 +62,8 @@ describe('homepage capability load', () => {
 			capabilities: {
 				billing: { usable: false, reason: 'unavailable' },
 				ai: { usable: true }
-			}
+			},
+			capabilitiesResolved: true
 		});
 		expect(query).toHaveBeenCalledOnce();
 		expect(query).toHaveBeenCalledWith('capabilities:getUsability', {});
@@ -86,7 +88,8 @@ describe('homepage capability load', () => {
 			capabilities: {
 				billing: { usable: false, reason: 'unavailable' },
 				ai: { usable: false, reason: 'unavailable' }
-			}
+			},
+			capabilitiesResolved: false
 		});
 		expect(query).toHaveBeenCalledOnce();
 		expect(createAutumnHandlers).not.toHaveBeenCalled();

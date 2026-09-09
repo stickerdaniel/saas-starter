@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { useConvexClient } from 'convex-svelte';
+	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '$lib/auth-client';
@@ -25,7 +25,15 @@
 	import { isSupportAiEnabled } from '$lib/config/support';
 
 	const { t } = getTranslate();
-	const aiUsable = $derived(page.data.capabilities?.ai.usable === true);
+	const capabilityQuery = useQuery(
+		api.capabilities.getUsability,
+		{},
+		{
+			initialData: page.data.capabilitiesResolved ? page.data.capabilities : undefined
+		}
+	);
+	const capabilitiesResolved = $derived(capabilityQuery.data !== undefined);
+	const aiUsable = $derived(capabilityQuery.data?.ai.usable === true);
 
 	// URL state for shareable links
 	const urlState = useSupportUrlState();
@@ -261,7 +269,13 @@
 {#if isSupportAiEnabled() && aiUsable}
 	<AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
 {/if}
-<FeedbackButton {isFeedbackOpen} onToggle={setWidgetOpen} bind:isScreenshotMode {chatUIContext} />
+<FeedbackButton
+	{isFeedbackOpen}
+	disabled={!capabilitiesResolved}
+	onToggle={setWidgetOpen}
+	bind:isScreenshotMode
+	{chatUIContext}
+/>
 
 <!--
 	The editor is loaded on demand, and an await block with no catch rethrows a

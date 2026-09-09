@@ -184,7 +184,8 @@ describe('public auth snapshot', () => {
 		expect(resolvePublicAuthLayoutData(event)).toMatchObject({
 			authState: { isAuthenticated: false, hasSession: false },
 			autumnState: { customer: null },
-			viewer: null
+			viewer: null,
+			capabilitiesResolved: false
 		});
 		expect(event.depends).toHaveBeenCalledWith('app:auth');
 		expect(event.depends).not.toHaveBeenCalledWith('autumn:customer');
