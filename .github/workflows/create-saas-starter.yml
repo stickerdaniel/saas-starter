@@ -9,6 +9,8 @@ on:
       - packages/create-saas-starter/**
       - scripts/windows-job.ts
       - scripts/windows-job-runner.ps1
+      - .github/workflows/static-checks.yml
+      - .github/workflows/windows-process-lifecycle.yml
       - .github/workflows/create-saas-starter.yml
   pull_request:
     paths:
@@ -17,6 +19,8 @@ on:
       - packages/create-saas-starter/**
       - scripts/windows-job.ts
       - scripts/windows-job-runner.ps1
+      - .github/workflows/static-checks.yml
+      - .github/workflows/windows-process-lifecycle.yml
       - .github/workflows/create-saas-starter.yml
   workflow_dispatch:
 

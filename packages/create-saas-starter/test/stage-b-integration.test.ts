@@ -8,6 +8,11 @@ function read(relative: string): string {
 	return readFileSync(path.join(REPOSITORY_ROOT, relative), 'utf8');
 }
 
+function triggerPaths(workflow: string, event: 'push' | 'pull_request'): string[] {
+	const eventBlock = workflow.split(`  ${event}:\n`)[1]?.split(/\n {2}[a-z_]+:/)[0] ?? '';
+	return [...eventBlock.matchAll(/^ {6}- (.+)$/gm)].map((match) => match[1]!);
+}
+
 describe('root creator commands', () => {
 	it('dispatches every CLI boundary through Bun with an explicit child cwd', () => {
 		const manifest = JSON.parse(read('package.json')) as { scripts: Record<string, string> };
@@ -37,6 +42,24 @@ describe('creator workflows', () => {
 		expect(workflow).toContain('CREATE_SAAS_STARTER_ARTIFACT_DIR:');
 		expect(workflow).toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a');
 		expect(workflow).not.toMatch(/\bnpm publish\b|\bbun publish\b/);
+	});
+
+	it('triggers child tests when covered external workflows change', () => {
+		const creatorWorkflowPath = '.github/workflows/create-saas-starter.yml';
+		const integrationTest = read('packages/create-saas-starter/test/stage-b-integration.test.ts');
+		const creatorWorkflow = read(creatorWorkflowPath);
+		const coveredWorkflowPaths = [
+			...integrationTest.matchAll(/read\('(\.github\/workflows\/[^']+\.yml)'\)/g)
+		]
+			.map((match) => match[1]!)
+			.filter((workflowPath) => workflowPath !== creatorWorkflowPath);
+
+		expect(coveredWorkflowPaths.length).toBeGreaterThan(0);
+		for (const event of ['push', 'pull_request'] as const) {
+			expect(triggerPaths(creatorWorkflow, event)).toEqual(
+				expect.arrayContaining(coveredWorkflowPaths)
+			);
+		}
 	});
 
 	it('installs the child lock before static and Windows checks', () => {
