@@ -139,13 +139,45 @@ describe('reusable Convex validation and close-preview entry', () => {
 			);
 		});
 	}
-	it('preserves permission skips but rejects missing configuration with no fatal helper logging', async () => {
-		const denied = harness({}, () => ({
-			exitCode: 1,
-			stderr: 'ViewEnvironmentVariables forbidden secret'
-		}));
+	it.each([
+		['stdout', 'ViewEnvironmentVariables'],
+		['stderr', '\x1b[31mViewEnvironmentVariables\x1b[0m'],
+		['stdout', 'deployment:env:view'],
+		['stderr', '\x1b[31mdeployment:env:view\x1b[0m']
+	] as const)('skips the known Convex env permission marker from %s', async (stream, marker) => {
+		const denied = harness({}, () => ({ exitCode: 1, [stream]: `${marker} forbidden secret` }));
+
 		await expect(validate([], denied.execution)).resolves.toBeUndefined();
 		expect(console.warn).toHaveBeenCalledTimes(1);
+		expect(vi.mocked(console.warn).mock.calls[0]?.join(' ')).not.toContain('forbidden secret');
+	});
+	it.each(['do not have permission', 'deployment:data:view'])(
+		'fails closed for unrelated permission text: %s',
+		async (marker) => {
+			const denied = harness({}, () => ({ exitCode: 1, stderr: marker }));
+
+			await expect(validate([], denied.execution)).rejects.toMatchObject({
+				code: 'command_failed'
+			});
+			expect(console.warn).not.toHaveBeenCalled();
+		}
+	);
+	it.each(['aborted', 'timed_out'] as const)('fails closed for %s env listing', async (kind) => {
+		const execution = {
+			run: vi.fn(async () => ({
+				ok: false,
+				kind,
+				description: 'bunx convex env list',
+				stdout: 'ViewEnvironmentVariables secret',
+				stderr: '',
+				diagnostic: 'redacted'
+			}))
+		} as unknown as NonNullable<Parameters<typeof validate>[1]>;
+
+		await expect(validate([], execution)).rejects.toMatchObject({ code: kind });
+		expect(console.warn).not.toHaveBeenCalled();
+	});
+	it('rejects missing configuration with no fatal helper logging', async () => {
 		const missing = harness({}, () => ({ stdout: 'UNUSED=secret' }));
 		await expect(validate([], missing.execution)).rejects.toMatchObject({ code: 'configuration' });
 		expect(console.error).not.toHaveBeenCalled();

@@ -60,6 +60,10 @@ import { checkAndCountUsage, refundUsage } from '../../autumn';
 import { saveMessage } from '@convex-dev/agent';
 import { aiChatAgent } from '../agent';
 import { createAIResponse } from '../messages';
+import {
+	prepareToolErrorRedactionStep,
+	toolErrorRedactionTransform
+} from '../../../chat/core/tool-error-redaction';
 
 const checkAndCountUsageMock = checkAndCountUsage as unknown as ReturnType<typeof vi.fn>;
 const refundUsageMock = refundUsage as unknown as ReturnType<typeof vi.fn>;
@@ -127,7 +131,12 @@ describe('createAIResponse', () => {
 			customerId: 'user_1',
 			featureId: 'ai_chat_messages'
 		});
-		expect(streamTextMock).toHaveBeenCalled();
+		expect(streamTextMock).toHaveBeenCalledTimes(1);
+		expect(streamTextMock.mock.calls[0][2]).toEqual({
+			promptMessageId: 'prompt_1',
+			prepareStep: prepareToolErrorRedactionStep,
+			experimental_transform: toolErrorRedactionTransform
+		});
 		expect(refundUsageMock).not.toHaveBeenCalled();
 		expect(runMutation).toHaveBeenCalledWith(
 			'internal.aiChat.threads.updateThreadMetadata',

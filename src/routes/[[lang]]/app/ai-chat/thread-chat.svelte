@@ -137,8 +137,7 @@
 		externalCore={chatCore}
 		externalUIContext={chatUIContext}
 		api={{
-			listMessages: api.aiChat.messages.listMessages,
-			sendMessage: api.aiChat.messages.sendMessage
+			listMessages: api.aiChat.messages.listMessages
 		}}
 	>
 		<div class="flex-1 overflow-hidden">
@@ -198,13 +197,12 @@
 							fileIds: chatUIContext.uploadedFileIds,
 							attachments: chatUIContext.attachments
 						});
-						chatUIContext.clearAttachments();
 						draftManager.clearDraft(threadId);
 						onMessageSent?.();
 					} catch (error) {
 						console.error('[AI Chat sendMessage] Error:', error);
-						chatUIContext.setInputValue(prompt);
 						toast.error($t('chat.messages.send_failed'));
+						throw error;
 					} finally {
 						sending = false;
 					}

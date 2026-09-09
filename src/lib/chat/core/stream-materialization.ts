@@ -9,6 +9,7 @@ import {
 import type { UIMessage } from '@convex-dev/agent';
 import type { StreamDelta, StreamMessage, MessageStatus } from '@convex-dev/agent/validators';
 import type { ReasoningUIPart, TextUIPart, ToolCallPart } from './types.js';
+import { SAFE_TOOL_ERROR_MESSAGE } from './tool-error-redaction.js';
 
 /**
  * Extract text content from a stream delta part, handling both formats:
@@ -307,6 +308,22 @@ export function updateFromTextStreamParts(
 				}
 				break;
 			}
+			case 'tool-error': {
+				const matchingToolPart = message.parts.find(
+					(existingPart) => getToolCallId(existingPart) === part.toolCallId
+				);
+
+				if (matchingToolPart && isStaticToolUIPart(matchingToolPart)) {
+					const toolPart = matchingToolPart;
+					if (part.input !== undefined) {
+						toolPart.input = part.input;
+					}
+					delete toolPart.output;
+					toolPart.errorText = SAFE_TOOL_ERROR_MESSAGE;
+					toolPart.state = 'output-error';
+				}
+				break;
+			}
 			case 'reasoning-end': {
 				const reasoningPart = reasoningPartsById.get(part.id);
 				if (reasoningPart) {
@@ -509,8 +526,8 @@ export function mergeAssistantMessageParts<T extends { type: string }>(
 }
 
 function getCompatiblePrefixLength(
-	existingParts: { type: string }[],
-	incomingParts: { type: string }[]
+	existingParts: Array<{ type: string }>,
+	incomingParts: Array<{ type: string }>
 ): number {
 	const maxLength = Math.min(existingParts.length, incomingParts.length);
 	let index = 0;

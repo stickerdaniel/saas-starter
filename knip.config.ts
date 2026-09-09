@@ -12,6 +12,8 @@ export default {
 
 		// Scripts & test infra
 		'scripts/*.ts',
+		// Loaded by the TypeScript compiler API, including deliberately invalid fixtures.
+		'scripts/__fixtures__/convex-surface*/**/*.ts',
 		'e2e/**/*.ts'
 	],
 	project: ['src/**/*.{ts,svelte}', 'scripts/**/*.ts', 'e2e/**/*.ts'],
@@ -35,6 +37,8 @@ export default {
 		'src/lib/utils/snapdom-config.ts'
 	],
 	ignoreDependencies: [
+		// Intentionally unresolved import in the convex-surface-broken negative fixture.
+		'a-package-that-does-not-exist',
 		// Tailwind v4 plugins — referenced via CSS @plugin, not JS imports
 		'@tailwindcss/typography',
 		'tw-animate-css',
@@ -43,20 +47,25 @@ export default {
 		// ESLint legacy compat — referenced in eslint.config.js as string
 		'@typescript-eslint/eslint-plugin',
 		'@typescript-eslint/parser',
-		// Used by customer-support screenshot editor (dynamic import, ignored above)
-		'@zumer/snapdom',
-		// Used via Svelte dynamic imports or runtime-only
-		'@svelte-put/lockscroll',
-		'konva',
-		'svelte-konva',
+		// Loaded by vite.ssrLoadModule in scripts/build-emails.ts.
+		'@better-svelte-email/server',
+		// Injected into the generated worker by @varlock/vite-integration.
+		'@varlock/cloudflare-integration',
+		// Imported by our checked-in oxlint-plugin-convex patch.
+		'@oxlint/plugins',
+		// adapter-auto selects this installed adapter when VERCEL is set.
+		'@sveltejs/adapter-vercel',
+		// Operator CLI documented in README.md; not an application import.
+		'vercel',
 		// Used by autumn integration in Convex
-		'autumn-js',
 		'atmn',
 		// Sub-package of autumn-js, imported directly in Convex files
 		'@useautumn/convex',
 		// Re-exported by @tolgee/svelte
 		'@tolgee/web'
 	],
+	// Windows system command used to terminate an owned child process tree.
+	ignoreBinaries: ['taskkill'],
 	ignoreExportsUsedInFile: true,
 	rules: {
 		// shadcn barrel re-exports and Valibot schema types are part of the API surface

@@ -10,14 +10,8 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
-	import { getContext } from 'svelte';
 
 	const { t } = getTranslate();
-
-	// Get user count context from admin layout
-	const userCountContext = getContext<{ get: () => number | null; set: (n: number) => void }>(
-		'adminUserCount'
-	);
 
 	// Fetch dashboard metrics
 	const metrics = useQuery(api.admin.queries.getDashboardMetrics, {});
@@ -25,13 +19,6 @@
 	// Derive loading state from isLoading, not !data: on a query throw data
 	// stays undefined while isLoading turns false, which would freeze skeletons
 	let isLoading = $derived(metrics.isLoading);
-
-	// Update user count context when metrics load
-	$effect(() => {
-		if (metrics.data?.totalUsers !== undefined) {
-			userCountContext?.set(metrics.data.totalUsers);
-		}
-	});
 </script>
 
 <SEOHead

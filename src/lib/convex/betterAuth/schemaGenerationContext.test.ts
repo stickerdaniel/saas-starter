@@ -4,7 +4,7 @@ import { betterAuth } from 'better-auth';
 import { createClient } from '@convex-dev/better-auth';
 import { components } from '../_generated/api';
 import type { DataModel } from '../_generated/dataModel';
-import { createSchemaGenerationContext } from './schema-generation-context';
+import { createSchemaGenerationContext } from './schemaGenerationContext';
 
 describe('Better Auth schema-generation context adapter', () => {
 	it('advertises no runtime capabilities and fails every attempted context read', () => {

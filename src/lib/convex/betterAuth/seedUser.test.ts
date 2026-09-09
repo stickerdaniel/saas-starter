@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readSeedUser } from './seed-user';
+import { readSeedUser } from './seedUser';
 
 describe('Better Auth seed user adapter', () => {
 	it.each([undefined, null])('preserves absent user %j', (record) => {

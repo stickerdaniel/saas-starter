@@ -1112,20 +1112,6 @@
 		},
 		"rows_per_page": "Rows per page"
 	},
-	"team": {
-		"description": "During the working process, we perform regular fitting with the client because he is the only person who can feel whether a new suit fits or not.",
-		"linktree": "Linktree",
-		"member_alt": "Photo of {name}",
-		"roles": {
-			"cofounder_cto": "Co-Founder - CTO",
-			"founder_ceo": "Founder - CEO",
-			"interaction_designer": "Interaction Designer",
-			"sales_manager": "Sales Manager",
-			"ux_engineer": "UX Engineer",
-			"visual_designer": "Visual Designer"
-		},
-		"title": "Our dream team"
-	},
 	"validation": {
 		"confirm_password": {
 			"mismatch": "Passwords do not match.",

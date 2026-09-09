@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APIError } from 'better-auth/api';
-import { normalizeAdminAuthError, runAdminAuthApi } from './admin-auth-errors';
+import { normalizeAdminAuthError, runAdminAuthApi } from './adminAuthErrors';
 
 describe('Better Auth admin error normalization', () => {
 	let errorSpy: ReturnType<typeof vi.spyOn>;

@@ -18,7 +18,9 @@
  */
 
 import * as fs from 'node:fs';
+import type { CommandResult } from './process/command-runner';
 import { reportCliFailure, withCliSignals } from './deploy/cli';
+import { stripAnsi } from './deploy/utils';
 import {
 	createDeploymentExecution,
 	DeploymentError,
@@ -51,6 +53,13 @@ export function getRequiredVarNames(
 	return required;
 }
 
+/** Convex CLI 1.42.x permission markers for `convex env list`. */
+export function isConvex142EnvListPermissionDenied(result: CommandResult): boolean {
+	if (result.ok || result.kind !== 'non_zero_exit') return false;
+	const output = stripAnsi(`${result.stdout}\n${result.stderr}`);
+	return /\b(ViewEnvironmentVariables|deployment:env:view)\b/i.test(output);
+}
+
 export async function validateRequiredConvexEnv(
 	deploymentArgs: string[],
 	execution = createDeploymentExecution()
@@ -62,10 +71,7 @@ export async function validateRequiredConvexEnv(
 		output: 'capture'
 	});
 	throwIfStopped(result);
-	if (
-		!result.ok &&
-		/ViewEnvironmentVariables|do not have permission/i.test(result.stderr + '\n' + result.stdout)
-	) {
+	if (isConvex142EnvListPermissionDenied(result)) {
 		console.warn(
 			'Skipping Convex env validation: the deploy key cannot list env vars. ' +
 				`Ensure these are set on the deployment: ${required.join(', ')}. ` +

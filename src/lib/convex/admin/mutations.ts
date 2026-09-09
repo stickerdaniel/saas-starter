@@ -9,19 +9,8 @@ import {
 	syncAdminPreferences,
 	deactivateAdminPreferencesHelper
 } from './notificationPreferences/helpers';
-import { runAdminAuthApi } from './admin-auth-errors';
+import { runAdminAuthApi } from './adminAuthErrors';
 import { ADMIN_ERROR_CODES, createAdminError } from './errors';
-
-/**
- * Helper to fetch all users from the BetterAuth component
- */
-async function fetchAllUsers(ctx: MutationCtx): Promise<BetterAuthUser[]> {
-	const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-		model: 'user',
-		paginationOpts: { cursor: null, numItems: 1000 }
-	});
-	return result.page as BetterAuthUser[];
-}
 
 /**
  * Helper to find a user by email from the BetterAuth component
@@ -238,20 +227,26 @@ export const seedFirstAdmin = internalMutation({
 	args: {
 		email: v.string()
 	},
-	returns: v.object({ success: v.boolean(), message: v.optional(v.string()) }),
+	returns: v.union(
+		v.object({ success: v.literal(true) }),
+		v.object({
+			success: v.literal(false),
+			code: v.literal(ADMIN_ERROR_CODES.seedAdminExists)
+		})
+	),
 	handler: async (ctx, args) => {
-		const user = await findUserByEmail(ctx, args.email);
-
-		if (!user) {
-			throw createAdminError(ADMIN_ERROR_CODES.userNotFound);
+		const existingAdmins = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			where: [{ field: 'role', operator: 'eq', value: 'admin' }],
+			paginationOpts: { cursor: null, numItems: 1 }
+		});
+		if (existingAdmins.page.length > 0) {
+			return { success: false, code: ADMIN_ERROR_CODES.seedAdminExists } as const;
 		}
 
-		// Check if there are already admins
-		const allUsers = await fetchAllUsers(ctx);
-		const existingAdmins = allUsers.filter((u) => u.role === 'admin');
-		if (existingAdmins.length > 0) {
-			console.log('Admin already exists, skipping seed');
-			return { success: false, message: 'Admin already exists' };
+		const user = await findUserByEmail(ctx, args.email);
+		if (!user) {
+			throw createAdminError(ADMIN_ERROR_CODES.userNotFound);
 		}
 
 		// Set user as admin using the component adapter (now includes role field in schema)
@@ -267,6 +262,6 @@ export const seedFirstAdmin = internalMutation({
 		await syncAdminPreferences(ctx, { userId: user._id, email: user.email });
 
 		console.log(`User ${args.email} has been set as admin`);
-		return { success: true };
+		return { success: true } as const;
 	}
 });

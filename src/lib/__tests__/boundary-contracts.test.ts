@@ -1,7 +1,10 @@
+import type { ComponentProps } from 'svelte';
+import type ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
 import { describe, expectTypeOf, it } from 'vitest';
 import type { FunctionArgs, FunctionReturnType } from 'convex/server';
 import type { api } from '$lib/convex/_generated/api';
 import type { ChatCore, ChatCoreAPI } from '$lib/chat/core/chat-core.svelte.ts';
+import type { ChatCoreErrorCode } from '$lib/chat';
 import type { ChatSessionPort, StreamCachePort } from '$lib/chat/core/chat-session-port';
 import type { ChatUIContext } from '$lib/chat/ui/chat-context.svelte.ts';
 import type {
@@ -48,11 +51,30 @@ describe('first-party boundary compile-time contracts', () => {
 		expectTypeOf<ChatCore>().toExtend<ChatSessionPort>();
 		expectTypeOf<SupportConversation>().toExtend<ChatSessionPort>();
 		expectTypeOf<ConstructorParameters<typeof ChatUIContext>[0]>().toEqualTypeOf<ChatSessionPort>();
+		expectTypeOf<
+			ComponentProps<typeof ChatRoot>['externalCore']
+		>().toEqualTypeOf<ChatSessionPort>();
+		expectTypeOf<{ api: never }>().not.toExtend<
+			Pick<ComponentProps<typeof ChatRoot>, 'externalCore'>
+		>();
 		expectTypeOf<ChatSessionPort['streamCache']>().toEqualTypeOf<StreamCachePort>();
 		expectTypeOf<ChatSessionPort['setAwaitingStream']>().toEqualTypeOf<
 			(awaiting: boolean) => void
 		>();
+		expectTypeOf<ChatCore['error']>().toEqualTypeOf<ChatCoreErrorCode | null>();
+		expectTypeOf<Parameters<ChatCore['setError']>[0]>().toEqualTypeOf<ChatCoreErrorCode | null>();
 		expectTypeOf<{ threadId: number }>().not.toExtend<ChatSessionPort>();
+	});
+	it('separates message subscriptions from the surface-owned send contract', () => {
+		expectTypeOf<ComponentProps<typeof ChatRoot>['api']>().toEqualTypeOf<{
+			listMessages: ChatMessagesQuery;
+		}>();
+		expectTypeOf<
+			FunctionReturnType<typeof api.admin.support.mutations.sendAdminReply>
+		>().toEqualTypeOf<null>();
+		expectTypeOf<typeof api.admin.support.mutations.sendAdminReply>().not.toExtend<
+			ChatCoreAPI['sendMessage']
+		>();
 	});
 	it('keeps support collaborators independent of the composition root', () => {
 		expectTypeOf<SupportContext['conversation']>().toEqualTypeOf<SupportConversation>();
@@ -137,7 +159,7 @@ describe('first-party boundary compile-time contracts', () => {
 		expectTypeOf<{ productId: number }>().not.toExtend<CheckoutStartParams>();
 		expectTypeOf<{
 			productId: string;
-			options: { featureId: string; quantity: string }[];
+			options: Array<{ featureId: string; quantity: string }>;
 		}>().not.toExtend<CheckoutStartParams>();
 	});
 	it('injects the command-runner port into deployment without a concrete process cast', () => {

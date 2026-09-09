@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import parser from 'svelte-eslint-parser';
+import parser from '../svelte-test-parser.js';
 import rule from './no-hardcoded-aria-label.js';
 
 function lint(template: string): Array<{ messageId: string }> {

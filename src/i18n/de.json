@@ -1112,20 +1112,6 @@
 		},
 		"rows_per_page": "Zeilen pro Seite"
 	},
-	"team": {
-		"description": "Während des Arbeitsprozesses führen wir regelmäßige Anpassungen mit dem Kunden durch, denn er ist die einzige Person, die spüren kann, ob ein neuer Anzug passt oder nicht.",
-		"linktree": "Linktree",
-		"member_alt": "Foto von {name}",
-		"roles": {
-			"cofounder_cto": "Mitgründer - CTO",
-			"founder_ceo": "Gründer - CEO",
-			"interaction_designer": "Interaction Designer",
-			"sales_manager": "Vertriebsleiter",
-			"ux_engineer": "UX Engineer",
-			"visual_designer": "Visual Designer"
-		},
-		"title": "Unser Traumteam"
-	},
 	"validation": {
 		"confirm_password": {
 			"mismatch": "Passwörter stimmen nicht überein.",

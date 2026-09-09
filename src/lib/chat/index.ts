@@ -7,19 +7,27 @@
  * @example Basic usage with UI components
  * ```svelte
  * <script>
- *   import { ChatRoot, ChatMessages, ChatInput } from '$lib/chat';
+ *   import { ChatCore, ChatRoot, ChatMessages, ChatInput } from '$lib/chat';
+ *   import { useConvexClient } from 'convex-svelte';
  *   import { api } from '$lib/convex/_generated/api';
+ *
+ *   const client = useConvexClient();
+ *   const core = new ChatCore({
+ *     threadId: 'thread_123',
+ *     api: {
+ *       sendMessage: api.support.messages.sendMessage,
+ *       listMessages: api.support.messages.listMessages
+ *     }
+ *   });
  * </script>
  *
  * <ChatRoot
  *   threadId="thread_123"
- *   api={{
- *     sendMessage: api.support.messages.sendMessage,
- *     listMessages: api.support.messages.listMessages
- *   }}
+ *   api={{ listMessages: api.support.messages.listMessages }}
+ *   externalCore={core}
  * >
  *   <ChatMessages />
- *   <ChatInput />
+ *   <ChatInput onSend={(prompt) => core.sendMessage(client, prompt)} />
  * </ChatRoot>
  * ```
  *
@@ -62,6 +70,7 @@ export type {
 	UploadErrorCode,
 	ChatCoreAPI,
 	ChatCoreOptions,
+	ChatCoreErrorCode,
 	ChatSessionPort,
 	StreamCachePort,
 	ChatCommandErrorCode

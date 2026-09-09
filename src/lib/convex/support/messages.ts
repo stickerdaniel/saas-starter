@@ -20,6 +20,10 @@ import { syncSupportLastMessage } from './threads';
 import { getFileMetadataByUrls } from '../files/metadata';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { recordAiUsage } from '../aiUsage/record';
+import {
+	prepareToolErrorRedactionStep,
+	toolErrorRedactionTransform
+} from '../../chat/core/tool-error-redaction';
 
 /**
  * Send a user message and get AI response with streaming
@@ -284,7 +288,9 @@ export const createAIResponse = internalAction({
 					promptMessageId: args.promptMessageId,
 					// AgentPrompt.system overrides the agent's instructions for this turn;
 					// undefined leaves SUPPORT_AGENT_INSTRUCTIONS in place.
-					system: systemOverride ?? undefined
+					system: systemOverride ?? undefined,
+					prepareStep: prepareToolErrorRedactionStep,
+					experimental_transform: toolErrorRedactionTransform
 				},
 				{
 					usageHandler: sink.usageHandler,

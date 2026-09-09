@@ -63,7 +63,12 @@ export type { UploadErrorCode } from '../../uploads/transfer.js';
 export { uploadFileWithProgress } from './file-uploader.js';
 
 // Chat core
-export type { ChatCoreAPI, ChatCoreOptions, CreateThreadResult } from './chat-core.svelte.ts';
+export type {
+	ChatCoreAPI,
+	ChatCoreOptions,
+	ChatCoreErrorCode,
+	CreateThreadResult
+} from './chat-core.svelte.ts';
 
 export { ChatCore, createChatCore } from './chat-core.svelte.ts';
 export { ChatCommandError } from './chat-command-error.js';

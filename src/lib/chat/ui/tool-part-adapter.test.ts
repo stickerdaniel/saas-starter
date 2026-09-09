@@ -29,6 +29,24 @@ describe('copied tool UI boundary adapter', () => {
 				errorText: 42,
 				toolCallId: {}
 			})
-		).toMatchObject({ errorText: undefined, toolCallId: undefined });
+		).toMatchObject({ toolCallId: undefined });
+	});
+	it('drops raw error text and failed output without mutating the source message', () => {
+		const rawError = 'Provider failure: private diagnostic';
+		const part = {
+			type: 'tool-weather',
+			state: 'output-error',
+			errorText: rawError,
+			output: { error: rawError },
+			toolCallId: 'call-1'
+		};
+		const rendered = toToolRenderPart(part);
+		expect(rendered).not.toHaveProperty('errorText');
+		expect(rendered?.output).toBeUndefined();
+		expect(rendered?.state).toBe('output-error');
+		expect(rendered?.toolCallId).toBe('call-1');
+		expect(JSON.stringify(rendered)).not.toContain(rawError);
+		expect(part.errorText).toBe(rawError);
+		expect(part.output).toEqual({ error: rawError });
 	});
 });

@@ -15,6 +15,7 @@ import { extractReasoning, extractUserMessageText } from './message-extraction.j
 import type { MessagePart, ChatMessage } from './types.js';
 import type { UIMessage } from '@convex-dev/agent';
 import type { StreamMessage } from '@convex-dev/agent/validators';
+import { SAFE_TOOL_ERROR_MESSAGE } from './tool-error-redaction';
 
 // Minimal StreamMessage factory matching @convex-dev/agent shape
 function createStreamMessage(
@@ -402,6 +403,52 @@ describe('deriveUIMessagesFromDeltas', () => {
 				output: { temperature: 10.1, unit: 'C' }
 			})
 		);
+	});
+
+	it('materializes legacy tool-error parts without exposing their error value', async () => {
+		const messages = await deriveUIMessagesFromDeltas(
+			'thread-1',
+			[
+				createStreamMessage({
+					streamId: 'stream-1',
+					order: 1,
+					stepOrder: 0,
+					format: 'TextStreamPart'
+				}) as StreamMessage
+			],
+			[
+				{
+					streamId: 'stream-1',
+					start: 0,
+					end: 2,
+					parts: [
+						{
+							type: 'tool-call',
+							toolCallId: 'tool-1',
+							toolName: 'getWeather',
+							input: { city: 'Berlin' }
+						},
+						{
+							type: 'tool-error',
+							toolCallId: 'tool-1',
+							toolName: 'getWeather',
+							input: { city: 'Berlin' },
+							error: 'PRIVATE_PROVIDER_DIAGNOSTIC'
+						}
+					]
+				}
+			] as any
+		);
+
+		expect(messages[0]!.parts).toContainEqual(
+			expect.objectContaining({
+				type: 'tool-getWeather',
+				toolCallId: 'tool-1',
+				state: 'output-error',
+				errorText: SAFE_TOOL_ERROR_MESSAGE
+			})
+		);
+		expect(JSON.stringify(messages)).not.toContain('PRIVATE_PROVIDER_DIAGNOSTIC');
 	});
 });
 

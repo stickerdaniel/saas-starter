@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { components } from './_generated/api';
 import { internalMutation, type MutationCtx } from './_generated/server';
 import { createAuth } from './auth';
-import { readSeedUser, type SeedUser } from './betterAuth/seed-user';
+import { readSeedUser, type SeedUser } from './betterAuth/seedUser';
 import { syncAdminPreferences } from './admin/notificationPreferences/helpers';
 
 const PREVIEW_ADMIN_EMAIL = 'admin@preview.dev';

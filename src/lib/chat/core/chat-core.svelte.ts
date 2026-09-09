@@ -18,7 +18,9 @@ import { DEFAULT_CHAT_CONFIG } from './types.js';
 import { StreamCacheManager } from './stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from './optimistic.js';
 import type { ChatSessionPort } from './chat-session-port.js';
-import { ChatCommandError } from './chat-command-error.js';
+import { ChatCommandError, type ChatCommandErrorCode } from './chat-command-error.js';
+
+export type ChatCoreErrorCode = ChatCommandErrorCode | 'send_failed' | 'create_thread_failed';
 
 /**
  * Result from creating a thread
@@ -57,8 +59,8 @@ export interface ChatCoreAPI {
 export interface ChatCoreOptions {
 	/** Initial thread ID (optional) */
 	threadId?: string | null;
-	/** Convex API endpoints */
-	api: ChatCoreAPI;
+	/** Bind commands for headless sends; omit when the surface owns its commands. */
+	api?: ChatCoreAPI;
 	/** Chat configuration */
 	config?: ChatConfig;
 }
@@ -83,7 +85,7 @@ export class ChatCore implements ChatSessionPort {
 	isSending = $state(false);
 
 	// Error state
-	error = $state<string | null>(null);
+	error = $state<ChatCoreErrorCode | null>(null);
 
 	// Pagination state
 	hasMore = $state(false);
@@ -99,7 +101,7 @@ export class ChatCore implements ChatSessionPort {
 	readonly streamCache = new StreamCacheManager();
 
 	// Configuration
-	private readonly api: ChatCoreAPI;
+	private readonly api?: ChatCoreAPI;
 	private readonly config: Required<ChatConfig>;
 
 	constructor(options: ChatCoreOptions) {
@@ -143,7 +145,7 @@ export class ChatCore implements ChatSessionPort {
 	/**
 	 * Set error state
 	 */
-	setError(error: string | null): void {
+	setError(error: ChatCoreErrorCode | null): void {
 		this.error = error;
 	}
 
@@ -208,24 +210,28 @@ export class ChatCore implements ChatSessionPort {
 			throw new ChatCommandError('send_in_progress');
 		}
 
+		const api = this.api;
+		if (!api) {
+			throw new Error('Chat commands are not configured for this session');
+		}
+
+		this.clearError();
 		this.setSending(true);
 		this.setAwaitingStream(true);
 
 		let threadCreated: CreateThreadResult | undefined;
+		let failureCode: ChatCoreErrorCode = 'send_failed';
 
 		try {
 			// Ensure thread exists (lazy thread creation)
 			let threadId = this.threadId;
 			if (!threadId) {
-				if (!this.api.createThread) {
-					this.setError('No thread and createThread not configured');
+				failureCode = 'create_thread_failed';
+				if (!api.createThread) {
 					throw new Error('Cannot send message: no thread and createThread not configured');
 				}
 
-				const result = await client.mutation(
-					this.api.createThread,
-					options?.createThreadOptions ?? {}
-				);
+				const result = await client.mutation(api.createThread, options?.createThreadOptions ?? {});
 
 				threadId = result.threadId;
 				threadCreated = result;
@@ -234,13 +240,14 @@ export class ChatCore implements ChatSessionPort {
 				// and the pagination cursors)
 				this.threadId = threadId;
 				this.isNewConversation = false;
+				failureCode = 'send_failed';
 			}
 
 			// Build optimistic update if listMessages query is available
-			const mutationOptions = this.api.listMessages
+			const mutationOptions = api.listMessages
 				? {
 						optimisticUpdate: createOptimisticUpdate(
-							this.api.listMessages,
+							api.listMessages,
 							{
 								threadId,
 								paginationOpts: { numItems: this.config.pageSize, cursor: null },
@@ -255,7 +262,7 @@ export class ChatCore implements ChatSessionPort {
 
 			// Send message with optional attachments and optimistic update
 			const result = await client.mutation(
-				this.api.sendMessage,
+				api.sendMessage,
 				{
 					threadId,
 					prompt: trimmedPrompt,
@@ -273,7 +280,7 @@ export class ChatCore implements ChatSessionPort {
 			return { ...result, threadCreated };
 		} catch (error) {
 			console.error('[ChatCore.sendMessage] Failed to send message:', error);
-			this.setError('send_failed');
+			this.setError(failureCode);
 			this.setAwaitingStream(false);
 			// Optimistic update automatically rolled back on failure
 			throw error;
@@ -293,7 +300,7 @@ export class ChatCore implements ChatSessionPort {
 		client: ConvexClient,
 		options?: CreateThreadOptions
 	): Promise<CreateThreadResult> {
-		if (!this.api.createThread) {
+		if (!this.api?.createThread) {
 			throw new Error('createThread API not configured');
 		}
 
@@ -304,7 +311,7 @@ export class ChatCore implements ChatSessionPort {
 			return result;
 		} catch (error) {
 			console.error('[ChatCore.createThread] Failed to create thread:', error);
-			this.setError('Failed to create thread. Please try again.');
+			this.setError('create_thread_failed');
 			throw error;
 		} finally {
 			this.setLoading(false);

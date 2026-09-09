@@ -217,7 +217,6 @@
 
 	// API configuration for ChatRoot
 	const chatApi = {
-		sendMessage: api.support.messages.sendMessage,
 		listMessages: api.support.messages.listMessages
 	};
 

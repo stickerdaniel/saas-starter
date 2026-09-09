@@ -25,7 +25,7 @@
 		return String(value);
 	}
 
-	const { input, output, state, toolCallId, errorText } = $derived(toolPart);
+	const { input, output, state, toolCallId } = $derived(toolPart);
 </script>
 
 <div class={cn('space-y-3 bg-background p-3', className)} {...restProps}>
@@ -43,7 +43,7 @@
 		</div>
 	{/if}
 
-	{#if output}
+	{#if output && state !== 'output-error'}
 		<div>
 			<h4 class="mb-2 text-sm font-medium text-muted-foreground">{$t('chat.tool.output')}</h4>
 			<div class="max-h-60 overflow-auto rounded border bg-background p-2 font-mono text-sm">
@@ -52,11 +52,12 @@
 		</div>
 	{/if}
 
-	{#if state === 'output-error' && errorText}
+	<!-- Provider errors are diagnostic data, never product copy (including direct callers). -->
+	{#if state === 'output-error'}
 		<div>
 			<h4 class="mb-2 text-sm font-medium text-destructive">{$t('chat.tool.error')}</h4>
 			<div class="rounded border border-destructive/20 bg-destructive/10 p-2 text-sm">
-				{errorText}
+				{$t('common.error')}
 			</div>
 		</div>
 	{/if}

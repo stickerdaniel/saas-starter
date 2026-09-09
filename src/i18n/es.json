@@ -1112,20 +1112,6 @@
 		},
 		"rows_per_page": "Filas por página"
 	},
-	"team": {
-		"description": "Durante el proceso de trabajo, realizamos ajustes regulares con el cliente porque él es la única persona que puede sentir si un traje nuevo le queda bien o no.",
-		"linktree": "Linktree",
-		"member_alt": "Foto de {name}",
-		"roles": {
-			"cofounder_cto": "Cofundador - CTO",
-			"founder_ceo": "Fundador - CEO",
-			"interaction_designer": "Diseñador de Interacción",
-			"sales_manager": "Gerente de Ventas",
-			"ux_engineer": "Ingeniero UX",
-			"visual_designer": "Diseñador Visual"
-		},
-		"title": "Nuestro equipo soñado"
-	},
 	"validation": {
 		"confirm_password": {
 			"mismatch": "Las contraseñas no coinciden.",

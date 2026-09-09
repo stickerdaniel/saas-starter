@@ -1,6 +1,5 @@
-import { openrouter } from '@openrouter/ai-sdk-provider';
+import { openrouter, type LanguageModelV3 } from '@openrouter/ai-sdk-provider';
 import type { LanguageModelUsage } from 'ai';
-import type { LanguageModelV3 } from '@ai-sdk/provider';
 
 export type CapturedModelUsage = {
 	model: string;

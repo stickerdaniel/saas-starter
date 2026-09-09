@@ -2,7 +2,6 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { onDestroy, type Snippet } from 'svelte';
 	import type { UIMessage } from '@convex-dev/agent';
-	import { ChatCore, type ChatCoreAPI } from '../core/chat-core.svelte.ts';
 	import type { ChatSessionPort } from '../core/chat-session-port.js';
 	import { CHAT_PAGE_SIZE, type DisplayMessage, type ChatMessagesQuery } from '../core/types.js';
 	import {
@@ -37,12 +36,12 @@
 	}: {
 		/** Thread ID (required for loading messages) */
 		threadId: string | null;
-		/** Convex API endpoints */
-		api: ChatCoreAPI & {
+		/** Read-only message subscriptions; the sending surface owns its command API. */
+		api: {
 			listMessages: ChatMessagesQuery;
 		};
-		/** External chat session state (optional - if provided, uses external state) */
-		externalCore?: ChatSessionPort;
+		/** Chat session state owned by the embedding surface. */
+		externalCore: ChatSessionPort;
 		/** External UI context (optional - if provided, uses existing context) */
 		externalUIContext?: ChatUIContext;
 		/** Upload configuration for file attachments */
@@ -60,20 +59,9 @@
 	// Get Convex client
 	const client = useConvexClient();
 
-	// Create ChatCore instance (only if not using external core)
-	// Intentional mount-time config capture; threadId is synced later via $effect.
+	// Core ownership is fixed for the component lifetime; swapping requires remount.
 	// svelte-ignore state_referenced_locally
-	const internalCore = externalCore
-		? null
-		: new ChatCore({
-				threadId,
-				api
-			});
-
-	// Use either external or internal core
-	// Core selection is fixed for component lifetime; swapping requires remount.
-	// svelte-ignore state_referenced_locally
-	const core: ChatSessionPort = externalCore ?? internalCore!;
+	const core: ChatSessionPort = externalCore;
 
 	// Create and set UI context (use external if provided)
 	// Context object is created once and placed in Svelte context.
@@ -87,13 +75,6 @@
 	// URLs of unsent attachments). External contexts are owned by their creator.
 	onDestroy(() => {
 		if (!externalUIContext) uiContext.dispose();
-	});
-
-	// Update core threadId when prop changes (only for internal core)
-	$effect(() => {
-		if (internalCore && internalCore.threadId !== threadId) {
-			internalCore.setThread(threadId);
-		}
 	});
 
 	// Query messages with streamArgs for streaming support

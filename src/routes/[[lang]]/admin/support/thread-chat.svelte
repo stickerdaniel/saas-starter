@@ -60,15 +60,10 @@
 		attachmentStore: new ChatAttachmentStore('admin-support')
 	};
 
-	// Create ChatCore for this thread (needed for ChatUIContext)
+	// Share session state with ChatUIContext; admin commands stay in the onSend handler.
 	// Seed at creation; kept in sync via $effect below.
 	// svelte-ignore state_referenced_locally
-	const chatCore = new ChatCore({
-		threadId,
-		api: {
-			sendMessage: api.admin.support.mutations.sendAdminReply
-		}
-	});
+	const chatCore = new ChatCore({ threadId });
 
 	$effect(() => {
 		if (chatCore.threadId !== threadId) {
@@ -290,8 +285,7 @@
 		externalCore={chatCore}
 		externalUIContext={chatUIContext}
 		api={{
-			listMessages: api.admin.support.queries.listMessagesForAdmin,
-			sendMessage: api.admin.support.mutations.sendAdminReply
+			listMessages: api.admin.support.queries.listMessagesForAdmin
 		}}
 	>
 		<div class="flex-1 overflow-hidden">
@@ -340,14 +334,12 @@
 						}
 					);
 
-					// Clear attachments and draft after successful send
-					chatUIContext.clearAttachments();
+					// Clear the persisted draft after a successful send.
 					draftManager?.clearDraft(threadId);
 				} catch (error) {
 					console.error('[Admin sendAdminReply] Error:', error);
-					// Restore prompt so user can retry and $effect re-persists draft
-					chatUIContext.setInputValue(prompt);
 					toast.error($t('admin.support.chat.send_error'));
+					throw error;
 				} finally {
 					sending = false;
 				}

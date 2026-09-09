@@ -5,17 +5,18 @@
   Copy and customize this for your own chat implementations.
 -->
 <script lang="ts">
-	import { ChatRoot, ChatMessages, ChatInput } from '$lib/chat';
+	import { ChatRoot, ChatMessages, ChatInput, ChatCore, type ChatCoreAPI } from '$lib/chat';
+	import { useConvexClient } from 'convex-svelte';
 	import { Avatar, AvatarImage } from '$lib/components/ui/avatar';
 	import memberFour from '$blocks/team/avatars/member-four.webp';
 	import memberTwo from '$blocks/team/avatars/member-two.webp';
 	import memberFive from '$blocks/team/avatars/member-five.webp';
 
-	import type { ChatCoreAPI } from '$lib/chat';
-	import type { useQuery } from 'convex-svelte';
+	import type { ChatMessagesQuery } from '../core/types.js';
 
-	type ChatAPI = ChatCoreAPI & {
-		listMessages: Parameters<typeof useQuery>[0];
+	type ChatAPI = {
+		listMessages: ChatMessagesQuery;
+		sendMessage: ChatCoreAPI['sendMessage'];
 	};
 
 	let {
@@ -25,7 +26,7 @@
 		greeting = 'How can we help?'
 	}: {
 		/** Thread ID for the conversation */
-		threadId: string | null;
+		threadId: string;
 		/** Convex API endpoints */
 		api: ChatAPI;
 		/** Chat title */
@@ -33,6 +34,15 @@
 		/** Greeting message */
 		greeting?: string;
 	} = $props();
+
+	const client = useConvexClient();
+	// Command bindings are captured for this demo instance; remount to replace its API.
+	// svelte-ignore state_referenced_locally
+	const chatCore = new ChatCore({ threadId, api });
+
+	$effect(() => {
+		if (chatCore.threadId !== threadId) chatCore.setThread(threadId);
+	});
 
 	// Intentionally English-only: this is a copy-and-customize example, not shipped UI.
 	const suggestions = [
@@ -49,7 +59,7 @@
 	</div>
 
 	<!-- Chat area -->
-	<ChatRoot {threadId} {api}>
+	<ChatRoot {threadId} {api} externalCore={chatCore}>
 		<div class="relative flex-1 overflow-hidden">
 			<ChatMessages>
 				{#snippet emptyState()}
@@ -83,8 +93,11 @@
 		<ChatInput
 			{suggestions}
 			placeholder="Type a message..."
-			showFileButton={true}
+			showFileButton={false}
 			class="mx-4 mb-4"
+			onSend={async (prompt) => {
+				await chatCore.sendMessage(client, prompt);
+			}}
 		/>
 	</ChatRoot>
 </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import parser from 'svelte-eslint-parser';
+import parser from '../svelte-test-parser.js';
 import rule from './require-motion-guard-transition.js';
 
 function lint(template: string): Array<{ messageId: string }> {

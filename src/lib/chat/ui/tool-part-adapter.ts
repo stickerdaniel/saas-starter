@@ -16,11 +16,11 @@ export function toToolRenderPart(part: MessagePart): ToolPart | undefined {
 		type: part.type,
 		state,
 		input: 'input' in part ? part.input : undefined,
-		output: 'output' in part ? part.output : undefined,
+		// Failed calls may carry an unfiltered provider error in either field.
+		// Keep diagnostics out of the render model; ToolDetails localizes the state.
+		output: state !== 'output-error' && 'output' in part ? part.output : undefined,
 		toolCallId:
-			'toolCallId' in part && typeof part.toolCallId === 'string' ? part.toolCallId : undefined,
-		errorText:
-			'errorText' in part && typeof part.errorText === 'string' ? part.errorText : undefined
+			'toolCallId' in part && typeof part.toolCallId === 'string' ? part.toolCallId : undefined
 	};
 	// Copied prompt-kit ToolPart declares Record payloads, but ToolDetails uses
 	// Object.entries(input) and formatValue(unknown), including primitive output.

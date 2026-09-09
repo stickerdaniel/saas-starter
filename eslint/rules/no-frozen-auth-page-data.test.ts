@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import parser from 'svelte-eslint-parser';
+import parser from '../svelte-test-parser.js';
 import rule from './no-frozen-auth-page-data.js';
 
 const MARKETING_FILE = '/repo/src/lib/components/marketing/marketing-header.svelte';

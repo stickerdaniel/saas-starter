@@ -19,6 +19,10 @@ import { AI_CHAT_ERROR_CODES, createAiChatError } from './errors';
 import { AI_CHAT_LIMIT_NOTICE, MAX_MESSAGE_LENGTH } from '../constants';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { recordAiUsage } from '../aiUsage/record';
+import {
+	prepareToolErrorRedactionStep,
+	toolErrorRedactionTransform
+} from '../../chat/core/tool-error-redaction';
 
 const THREAD_PREVIEW_LENGTH = 100;
 
@@ -187,7 +191,11 @@ export const createAIResponse = internalAction({
 			result = await aiChatAgent.streamText(
 				ctx,
 				{ threadId: args.threadId, userId: args.userId },
-				{ promptMessageId: args.promptMessageId },
+				{
+					promptMessageId: args.promptMessageId,
+					prepareStep: prepareToolErrorRedactionStep,
+					experimental_transform: toolErrorRedactionTransform
+				},
 				{
 					saveStreamDeltas: {
 						chunking: 'line',
