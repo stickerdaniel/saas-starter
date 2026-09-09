@@ -219,7 +219,7 @@ function setupWorktree(
 	console.log('');
 
 	console.log('Installing dependencies...');
-	if (!runCommandInherit('bun', ['install'])) {
+	if (!runCommandInherit('bun', ['install', '--frozen-lockfile'])) {
 		console.error(`${colors.red}Failed to install dependencies${colors.reset}`);
 		process.exit(1);
 	}
