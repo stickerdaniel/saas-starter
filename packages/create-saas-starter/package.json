@@ -23,7 +23,7 @@
 		"knip": "knip",
 		"build": "bun scripts/build.ts",
 		"prepack": "bun run build",
-		"test:packed": "bun run build && bun scripts/test-packed.ts"
+		"test:packed": "bun scripts/test-packed.ts"
 	},
 	"devDependencies": {
 		"@types/node": "26.4.1",

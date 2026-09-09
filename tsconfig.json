@@ -31,6 +31,7 @@
 		"src/service-worker/**/*.ts",
 		"src/service-worker.d.ts",
 		"src/service-worker/**/*.d.ts",
+		"packages/create-saas-starter/**",
 		"src/lib/convex/**",
 		"src/lib/convex/**/*.ts",
 		"src/lib/convex/**/*.js"
