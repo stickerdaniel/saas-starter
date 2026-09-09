@@ -14,7 +14,7 @@ describe('renderPasswordResetEmail', () => {
 	beforeAll(() => {
 		vi.stubEnv('RESEND_API_KEY', 'configured-resend-key');
 		vi.stubEnv('AUTH_EMAIL', 'sender@example.com');
-		vi.stubEnv('EMAIL_ASSET_URL', '  https://assets.example.test/email  ');
+		vi.stubEnv('EMAIL_ASSET_URL', '  https://assets.example.com/email  ');
 	});
 	afterAll(() => {
 		vi.unstubAllEnvs();
@@ -30,8 +30,8 @@ describe('renderPasswordResetEmail', () => {
 
 	it('renders the trimmed validated asset URL', () => {
 		const { html } = renderPasswordResetEmail(url, undefined, 'en', true);
-		expect(html).toContain('https://assets.example.test/email');
-		expect(html).not.toContain('  https://assets.example.test/email  ');
+		expect(html).toContain('https://assets.example.com/email');
+		expect(html).not.toContain('  https://assets.example.com/email  ');
 	});
 
 	it('reports a reset for an account that has a password', () => {
