@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -70,7 +70,25 @@ async function markerAt(parent: string): Promise<{ state: string; phase: string 
 	};
 }
 
-describe('late lifecycle aborts', () => {
+describe('CLI lifecycle', () => {
+	it('rejects an overlong materialized path before claiming the target', async () => {
+		const { parent, messages, io } = await fixtureIo();
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			responseFromBuffer(
+				tarGz([
+					...validTemplateEntries(),
+					{ path: `root/${'a'.repeat(255)}`, data: 'too long for a portable absolute path' }
+				])
+			)
+		);
+		const claimTarget = vi.fn(async () => {});
+
+		await expect(runCli(argumentsForProject(), io, { claimTarget })).resolves.toBe(1);
+		expect(claimTarget).not.toHaveBeenCalled();
+		await expect(lstat(path.join(parent, 'project'))).rejects.toMatchObject({ code: 'ENOENT' });
+		expect(messages.join('\n')).toMatch(/Target path is not portable.*archive file/);
+	});
+
 	it('turns an abort after setup completion into preserved incomplete state', async () => {
 		const { parent, messages, io } = await fixtureIo();
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(

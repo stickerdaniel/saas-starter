@@ -109,6 +109,61 @@ function markerPath(target: string): string {
 	return path.join(target, SCAFFOLD_MARKER);
 }
 
+// macOS has the tightest supported POSIX PATH_MAX: 1024 UTF-8 bytes including NUL.
+const PORTABLE_POSIX_PATH_BYTES = 1024;
+// Legacy Win32 file APIs allow 260 UTF-16 code units including NUL; directories need 12 fewer.
+const PORTABLE_WINDOWS_PATH_UNITS = 260;
+const PORTABLE_WINDOWS_DIRECTORY_PATH_UNITS = PORTABLE_WINDOWS_PATH_UNITS - 12;
+const MAX_PROCESS_ID_DIGITS = 10;
+const MAX_TEMPORARY_MARKER_NAME = `${SCAFFOLD_MARKER}.tmp-${'9'.repeat(MAX_PROCESS_ID_DIGITS)}-00000000-0000-4000-8000-000000000000`;
+
+function assertPortablePathLength(
+	value: string,
+	description: string,
+	windowsLimit = PORTABLE_WINDOWS_PATH_UNITS
+): void {
+	const posixBytesWithTerminator = Buffer.byteLength(value, 'utf8') + 1;
+	if (posixBytesWithTerminator > PORTABLE_POSIX_PATH_BYTES) {
+		throw new Error(
+			`Target path is not portable: ${description} exceeds ${PORTABLE_POSIX_PATH_BYTES} POSIX bytes.`
+		);
+	}
+	const windowsUnitsWithTerminator = value.length + 1;
+	if (windowsUnitsWithTerminator > windowsLimit) {
+		throw new Error(
+			`Target path is not portable: ${description} exceeds ${windowsLimit} Windows UTF-16 code units.`
+		);
+	}
+}
+
+export function validateArchiveTargetPaths(target: string, archive: ValidatedArchive): void {
+	if (!path.isAbsolute(target))
+		throw new Error('Target path must be absolute before archive validation.');
+	assertPortablePathLength(target, 'target directory', PORTABLE_WINDOWS_DIRECTORY_PATH_UNITS);
+	assertPortablePathLength(markerPath(target), 'scaffold marker');
+	assertPortablePathLength(
+		path.join(target, MAX_TEMPORARY_MARKER_NAME),
+		'temporary scaffold marker'
+	);
+	for (const entry of archive.files) {
+		const destination = archivePathForTarget(target, entry.path);
+		if (entry.type === 'directory') {
+			assertPortablePathLength(
+				destination,
+				`archive directory ${JSON.stringify(entry.path)}`,
+				PORTABLE_WINDOWS_DIRECTORY_PATH_UNITS
+			);
+		} else {
+			assertPortablePathLength(
+				path.dirname(destination),
+				`archive parent directory for ${JSON.stringify(entry.path)}`,
+				PORTABLE_WINDOWS_DIRECTORY_PATH_UNITS
+			);
+			assertPortablePathLength(destination, `archive file ${JSON.stringify(entry.path)}`);
+		}
+	}
+}
+
 async function writeExclusive(file: string, data: Buffer | string, mode: number): Promise<void> {
 	const handle = await open(file, 'wx', mode);
 	try {

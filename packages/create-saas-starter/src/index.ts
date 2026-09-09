@@ -25,6 +25,7 @@ import {
 	TargetClaimError,
 	throwIfAborted,
 	updateMarker,
+	validateArchiveTargetPaths,
 	writeArchive,
 	type ScaffoldMarker,
 	type ScaffoldPhase
@@ -42,6 +43,7 @@ export interface CliIo {
 
 export interface CliRuntime {
 	inspectTarget: typeof inspectTarget;
+	claimTarget: typeof claimTarget;
 	runSetupAndInstall: typeof runSetupAndInstall;
 	updateMarker: typeof updateMarker;
 }
@@ -56,6 +58,7 @@ const defaultIo: CliIo = {
 
 const defaultRuntime: CliRuntime = {
 	inspectTarget,
+	claimTarget,
 	runSetupAndInstall,
 	updateMarker
 };
@@ -143,6 +146,7 @@ export async function runCli(
 		throwIfAborted(controller.signal);
 		const archive = await validateTemplateArchive(compressed);
 		throwIfAborted(controller.signal);
+		validateArchiveTargetPaths(target.path, archive);
 		await confirmTemplateTrust(
 			resolved.sha,
 			interactive,
@@ -158,7 +162,7 @@ export async function runCli(
 			archiveSha256: archive.sha256
 		});
 		try {
-			await claimTarget(target, marker, controller.signal);
+			await runtime.claimTarget(target, marker, controller.signal);
 		} catch (error) {
 			if (error instanceof TargetClaimError) claimedTarget = error.target;
 			throw error;

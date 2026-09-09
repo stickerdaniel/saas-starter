@@ -1,6 +1,10 @@
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { MAX_DECOMPRESSED_BYTES, validateTemplateArchive } from '../src/archive.js';
+import {
+	MAX_DECOMPRESSED_BYTES,
+	validateTemplateArchive,
+	type ArchiveValidationMetrics
+} from '../src/archive.js';
 import { MAX_ARCHIVE_BYTES } from '../src/template.js';
 import { tarGz, validTemplateEntries, type TarFixtureEntry } from './archive-fixture.js';
 
@@ -10,6 +14,16 @@ async function validates(extra: TarFixtureEntry[] = []) {
 
 function replacing(path: string, replacement: TarFixtureEntry): TarFixtureEntry[] {
 	return validTemplateEntries().map((entry) => (entry.path === path ? replacement : entry));
+}
+
+function validationMetrics(): ArchiveValidationMetrics {
+	return {
+		treeParentLookups: 0,
+		aliasIndexComparisons: 0,
+		aliasDescendantVisits: 0,
+		aliasEntriesMaterialized: 0,
+		aliasBytesMaterialized: 0
+	};
 }
 
 describe('validateTemplateArchive', () => {
@@ -69,16 +83,22 @@ describe('validateTemplateArchive', () => {
 		).rejects.toThrow(/collision/);
 	});
 
-	it('rejects duplicate entries and file-parent conflicts', async () => {
+	it('rejects duplicate entries and file-parent conflicts in either archive order', async () => {
 		await expect(validates([{ path: 'root/AGENTS.md', data: 'duplicate' }])).rejects.toThrow(
 			/duplicate/
 		);
-		await expect(
-			validates([
+		for (const conflict of [
+			[
 				{ path: 'root/conflict', data: 'file' },
 				{ path: 'root/conflict/child', data: 'child' }
-			])
-		).rejects.toThrow(/conflict/);
+			],
+			[
+				{ path: 'root/reversed/child', data: 'child' },
+				{ path: 'root/reversed', data: 'file' }
+			]
+		]) {
+			await expect(validates(conflict)).rejects.toThrow(/conflict/);
+		}
 	});
 
 	it.each(['Link', 'CharacterDevice', 'BlockDevice', 'FIFO'] as const)(
@@ -163,17 +183,75 @@ describe('validateTemplateArchive', () => {
 		).rejects.toThrow(/templateSetupVersion/);
 	});
 
-	it('enforces entry and alias-materialization limits', async () => {
+	it('bounds tree and alias indexing work at the materialized entry limit', async () => {
+		const base = validTemplateEntries();
+		const fillers = Array.from({ length: 19_999 - base.length }, (_, index) => ({
+			path: `root/entries/${index.toString().padStart(5, '0')}`,
+			data: ''
+		}));
+		const metrics = validationMetrics();
+
+		const archive = await validateTemplateArchive(tarGz([...fillers, ...base]), metrics);
+
+		expect(archive.files).toHaveLength(20_000);
+		expect(metrics.treeParentLookups).toBeLessThan(100_000);
+		expect(metrics.aliasIndexComparisons).toBeLessThanOrEqual(32);
+		expect(metrics.aliasDescendantVisits).toBe(1);
+	});
+
+	it('stops alias entry materialization as soon as the limit is reached', async () => {
+		const base = validTemplateEntries().filter(
+			(entry) =>
+				!entry.path.startsWith('root/.agents/skills/example') &&
+				entry.path !== 'root/.claude/skills/example'
+		);
+		const aliases = Array.from({ length: 20 }, (_, index) => [
+			{ path: `root/.agents/skills/alias-${index}`, type: 'Directory' as const },
+			{ path: `root/.agents/skills/alias-${index}/SKILL.md`, data: 'x' },
+			{
+				path: `root/.claude/skills/alias-${index}`,
+				type: 'SymbolicLink' as const,
+				linkpath: `../../.agents/skills/alias-${index}`
+			}
+		]).flat();
+		const fillers = Array.from({ length: 20_000 - base.length - aliases.length }, (_, index) => ({
+			path: `root/entries/${index.toString().padStart(5, '0')}`,
+			data: ''
+		}));
+		const metrics = validationMetrics();
+
+		await expect(
+			validateTemplateArchive(tarGz([...base, ...fillers, ...aliases]), metrics)
+		).rejects.toThrow(/alias materialization exceeds the entry limit/);
+		expect(metrics.aliasEntriesMaterialized).toBe(21);
+		expect(metrics.aliasEntriesMaterialized).toBeLessThan(41);
+	});
+
+	it('checks alias bytes before copying the entry that exceeds the limit', async () => {
+		const metrics = validationMetrics();
+
+		await expect(
+			validateTemplateArchive(
+				tarGz([
+					...validTemplateEntries(),
+					{
+						path: 'root/.agents/skills/example/large.bin',
+						data: Buffer.alloc(33 * 1024 * 1024)
+					}
+				]),
+				metrics
+			)
+		).rejects.toThrow(/alias materialization exceeds the size limit/);
+		expect(metrics.aliasEntriesMaterialized).toBe(2);
+		expect(metrics.aliasBytesMaterialized).toBe(11);
+	});
+
+	it('rejects archives above the parsed entry limit', async () => {
 		const entries = Array.from({ length: 20_000 }, (_, index) => ({
 			path: `root/entries/${index}`,
 			data: ''
 		}));
 		await expect(validates(entries)).rejects.toThrow(/more than 20000 entries/);
-		await expect(
-			validates([
-				{ path: 'root/.agents/skills/example/large.bin', data: Buffer.alloc(33 * 1024 * 1024) }
-			])
-		).rejects.toThrow(/alias materialization exceeds the size limit/);
 	});
 
 	it('enforces compressed, decompressed, depth, and metadata limits', async () => {

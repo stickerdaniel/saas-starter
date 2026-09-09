@@ -2,12 +2,13 @@ import { chmod, lstat, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from '
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { SCAFFOLD_MARKER, type ValidatedArchive } from '../src/archive.js';
+import { archivePathForTarget, SCAFFOLD_MARKER, type ValidatedArchive } from '../src/archive.js';
 import {
 	claimTarget,
 	initialMarker,
 	inspectTarget,
 	updateMarker,
+	validateArchiveTargetPaths,
 	writeArchive
 } from '../src/target.js';
 
@@ -32,7 +33,48 @@ function activeSignal(): AbortSignal {
 	return new AbortController().signal;
 }
 
+function archive(files: ValidatedArchive['files'] = []): ValidatedArchive {
+	return { sha256: 'b'.repeat(64), files };
+}
+
 describe('target ownership', () => {
+	it('accepts safe dot-dot prefixes and Svelte route names without weakening traversal checks', () => {
+		const target = path.join(path.parse(path.resolve('.')).root, 'target');
+		expect(archivePathForTarget(target, '..config')).toBe(path.join(target, '..config'));
+		expect(archivePathForTarget(target, 'src/routes/[[lang]]/(marketing)/+page.svelte')).toBe(
+			path.join(target, 'src/routes/[[lang]]/(marketing)/+page.svelte')
+		);
+		expect(() => archivePathForTarget(target, '../escape')).toThrow(/traversing|escape/);
+		expect(() => archivePathForTarget(target, '/absolute')).toThrow(/absolute/);
+	});
+
+	it('checks marker and worst-case temporary marker paths portably', () => {
+		const root = path.parse(path.resolve('.')).root;
+		expect(() => validateArchiveTargetPaths(path.join(root, 'a'.repeat(235)), archive())).toThrow(
+			/scaffold marker.*Windows UTF-16/
+		);
+		expect(() => validateArchiveTargetPaths(path.join(root, 'a'.repeat(180)), archive())).toThrow(
+			/temporary scaffold marker.*Windows UTF-16/
+		);
+	});
+
+	it('checks full archive paths in POSIX bytes and Windows UTF-16 units', () => {
+		const target = path.join(path.parse(path.resolve('.')).root, 'target');
+		expect(() =>
+			validateArchiveTargetPaths(
+				target,
+				archive([{ path: 'a'.repeat(255), type: 'file', data: Buffer.alloc(0), mode: 0o644 }])
+			)
+		).toThrow(/archive file.*Windows UTF-16/);
+		const utf8Path = Array.from({ length: 6 }, () => '界'.repeat(80)).join('/');
+		expect(() =>
+			validateArchiveTargetPaths(
+				target,
+				archive([{ path: utf8Path, type: 'file', data: Buffer.alloc(0), mode: 0o644 }])
+			)
+		).toThrow(/archive parent directory.*POSIX bytes/);
+	});
+
 	it.each(['file', 'empty directory', 'dangling symlink'])(
 		'rejects an existing %s without changing it',
 		async (kind) => {
