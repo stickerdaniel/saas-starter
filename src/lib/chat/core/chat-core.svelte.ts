@@ -106,6 +106,7 @@ export class ChatCore implements ChatSessionPort {
 	private readonly api?: ChatCoreAPI;
 	private readonly config: Required<ChatConfig>;
 	private sendRevision = 0;
+	private provisionalThreadBinding: { threadId: string; sendRevision: number } | null = null;
 	private threadOriginBinder?: (threadId: string, epoch: number, generation: number) => void;
 
 	constructor(options: ChatCoreOptions) {
@@ -130,6 +131,17 @@ export class ChatCore implements ChatSessionPort {
 	}
 
 	setThread(threadId: string | null): void {
+		const bindsActiveProvisionalThread =
+			this.threadId === null &&
+			threadId !== null &&
+			this.provisionalThreadBinding?.threadId === threadId &&
+			this.provisionalThreadBinding.sendRevision === this.sendRevision;
+		if (threadId !== this.threadId && !bindsActiveProvisionalThread) {
+			this.sendRevision++;
+			this.provisionalThreadBinding = null;
+			this.isSending = false;
+			this.isAwaitingStream = false;
+		}
 		this.threadId = threadId;
 		this.isNewConversation = threadId === null;
 		this.hasMore = false;
@@ -185,6 +197,10 @@ export class ChatCore implements ChatSessionPort {
 	 */
 	setAwaitingStream(awaiting: boolean): void {
 		this.isAwaitingStream = awaiting;
+	}
+
+	private isSendOperationCurrent(sessionEpoch: number, sendRevision: number): boolean {
+		return isChatSessionCurrent(sessionEpoch) && this.sendRevision === sendRevision;
 	}
 
 	/**
@@ -246,15 +262,19 @@ export class ChatCore implements ChatSessionPort {
 				const result = await client.mutation(api.createThread, {
 					...options?.createThreadOptions
 				});
-				if (!isChatSessionCurrent(sessionEpoch)) throw new Error('Chat session ended');
+				if (!this.isSendOperationCurrent(sessionEpoch, sendRevision)) {
+					throw new Error('Chat session ended');
+				}
 
 				threadId = result.threadId;
 				threadCreated = result;
+				this.provisionalThreadBinding = { threadId, sendRevision };
 				this.threadOriginBinder?.(threadId, sessionEpoch, this.threadGeneration);
 
 				// Update threadId directly (setThread would clear streamCache, error,
 				// and the pagination cursors)
 				this.threadId = threadId;
+				this.provisionalThreadBinding = null;
 				this.isNewConversation = false;
 				failureCode = 'send_failed';
 			}
@@ -287,7 +307,9 @@ export class ChatCore implements ChatSessionPort {
 				},
 				mutationOptions
 			);
-			if (!isChatSessionCurrent(sessionEpoch)) return { ...result, threadCreated };
+			if (!this.isSendOperationCurrent(sessionEpoch, sendRevision)) {
+				return { ...result, threadCreated };
+			}
 
 			// Request widget to open if requested
 			if (options?.openWidgetAfter) {
@@ -296,15 +318,15 @@ export class ChatCore implements ChatSessionPort {
 
 			return { ...result, threadCreated };
 		} catch (error) {
-			if (isChatSessionCurrent(sessionEpoch)) {
-				console.error('[ChatCore.sendMessage] Failed to send message:', error);
+			if (this.isSendOperationCurrent(sessionEpoch, sendRevision)) {
+				console.error('[ChatCore.sendMessage] Failed');
 				this.setError(failureCode);
 				this.setAwaitingStream(false);
 			}
 			// Optimistic update automatically rolled back on failure
 			throw error;
 		} finally {
-			if (isChatSessionCurrent(sessionEpoch) && this.sendRevision === sendRevision) {
+			if (this.isSendOperationCurrent(sessionEpoch, sendRevision)) {
 				this.setSending(false);
 			}
 		}
@@ -331,7 +353,7 @@ export class ChatCore implements ChatSessionPort {
 			this.setThread(result.threadId);
 			return result;
 		} catch (error) {
-			console.error('[ChatCore.createThread] Failed to create thread:', error);
+			console.error('[ChatCore.createThread] Failed');
 			this.setError('create_thread_failed');
 			throw error;
 		} finally {
@@ -342,6 +364,7 @@ export class ChatCore implements ChatSessionPort {
 	/** Reset session-owned flags without changing the selected thread. */
 	forgetChatSession(): void {
 		this.sendRevision++;
+		this.provisionalThreadBinding = null;
 		this.isSending = false;
 		this.isAwaitingStream = false;
 		this.error = null;
@@ -352,6 +375,8 @@ export class ChatCore implements ChatSessionPort {
 	 * Reset the core state
 	 */
 	reset(): void {
+		this.sendRevision++;
+		this.provisionalThreadBinding = null;
 		this.threadId = null;
 		this.isNewConversation = false;
 		this.isLoading = false;

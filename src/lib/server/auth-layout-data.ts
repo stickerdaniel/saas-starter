@@ -26,10 +26,7 @@ type JwtViewer = {
 
 type LayoutViewer = FunctionReturnType<typeof api.users.viewer> | JwtViewer;
 
-const E2E_CAPABILITIES: PublicCapabilityUsability = {
-	billing: { usable: true },
-	ai: { usable: true }
-};
+const E2E_UI = { aiChat: true, billing: true } as const;
 const E2E_CUSTOMER = {
 	id: 'local-e2e-customer',
 	products: [],
@@ -159,6 +156,7 @@ async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
 	let customer = null;
 	let viewer: LayoutViewer | null = fallbackViewer;
 	let capabilities: PublicCapabilityUsability = UNAVAILABLE_CAPABILITY_USABILITY;
+	const localE2E = isLocalE2E();
 
 	// Public marketing routes never reach this block. Other routes read the public
 	// projection even before sign-in so billing and AI controls have truthful state.
@@ -177,8 +175,7 @@ async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
 
 		// Viewer loading is already in flight while capability state resolves. Autumn
 		// is constructed and called only after billing is confirmed usable.
-		const localE2E = isLocalE2E();
-		capabilities = localE2E ? E2E_CAPABILITIES : await capabilityPromise;
+		capabilities = await capabilityPromise;
 		const customerPromise = localE2E
 			? Promise.resolve(E2E_CUSTOMER)
 			: isAuthenticated && capabilities.billing.usable
@@ -205,7 +202,8 @@ async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
 			_timeFetched: Date.now()
 		},
 		viewer,
-		capabilities
+		capabilities,
+		localE2E: localE2E ? E2E_UI : undefined
 	};
 }
 

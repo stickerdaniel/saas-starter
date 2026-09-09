@@ -53,14 +53,14 @@ export class SupportContext {
 		const generation = this.conversation.threadGeneration;
 		const navigationRevision = this.navigation.operationRevision;
 
-		void this.conversation.ensureConfiguredThread()?.catch((error) => {
+		void this.conversation.ensureConfiguredThread()?.catch(() => {
 			if (
 				!this.conversation.isSendOperationCurrent(epoch, generation) ||
 				this.navigation.operationRevision !== navigationRevision
 			) {
 				return;
 			}
-			console.error('[startNewThread] Thread creation failed:', error);
+			console.error('[SupportContext.startNewThread] Failed');
 			this.conversation.setError('thread_start_failed');
 		});
 	}

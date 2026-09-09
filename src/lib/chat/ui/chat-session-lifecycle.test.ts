@@ -356,8 +356,10 @@ describe('chat session lifecycle', () => {
 		context.addAttachments([generationTwoAttachment]);
 		await tick();
 		message.reject(new Error('Generation one rejected'));
-		await vi.waitFor(() => expect(console.error).toHaveBeenCalled());
+		await new Promise<void>((resolve) => setTimeout(resolve, 0));
+		await tick();
 
+		expect(console.error).not.toHaveBeenCalled();
 		expect(input.value).toBe('generation two text');
 		expect(
 			context.attachments.map((attachment) => ('key' in attachment ? attachment.key : ''))
@@ -885,7 +887,7 @@ describe('chat session lifecycle', () => {
 			expect(thread.threadId).toBe(expectedThreadId);
 			expect(thread.currentView).toBe(expectedView);
 			expect(console.error).not.toHaveBeenCalledWith(
-				'[startNewThread] Thread creation failed:',
+				'[SupportContext.startNewThread] Failed',
 				oldError
 			);
 		}
@@ -901,7 +903,8 @@ describe('chat session lifecycle', () => {
 		await vi.waitFor(() => expect(thread.error).toBe('thread_start_failed'));
 
 		expect(mutation).toHaveBeenCalledTimes(1);
-		expect(console.error).toHaveBeenCalledWith('[startNewThread] Thread creation failed:', error);
+		expect(console.error).toHaveBeenCalledWith('[SupportContext.startNewThread] Failed');
+		expect(console.error).not.toHaveBeenCalledWith(expect.anything(), error);
 	});
 });
 

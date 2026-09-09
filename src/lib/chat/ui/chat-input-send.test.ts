@@ -163,7 +163,9 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		pending.reject(error);
 		await tick();
 
-		expect(console.error).toHaveBeenCalledWith('[ChatInput] onSend failed:', error);
+		expect(console.error).toHaveBeenCalledWith('[ChatInput] Send failed');
+		expect(console.error).not.toHaveBeenCalledWith(expect.anything(), error);
+		expect(vi.mocked(console.error).mock.calls.flat().join(' ')).not.toContain(error.message);
 		await vi.waitFor(() => expect(input.value).toBe('Retry this message'));
 		expect(ctx.attachments).toEqual([{ ...attachments[0], preview: undefined }, attachments[1]]);
 		expect(ctx.uploadedFileIds).toEqual(['screenshot-file', 'document-file']);
@@ -198,7 +200,7 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		pending.reject(error);
 		await tick();
 
-		expect(console.error).toHaveBeenCalledWith('[ChatInput] onSend failed:', error);
+		expect(console.error).toHaveBeenCalledWith('[ChatInput] Send failed');
 		await vi.waitFor(() =>
 			expect(input.value).toBe(editText ? 'A newer draft' : 'Retry this message')
 		);
@@ -221,9 +223,7 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		const error = new Error('Send rejected');
 
 		pending.reject(error);
-		await vi.waitFor(() =>
-			expect(console.error).toHaveBeenCalledWith('[ChatInput] onSend failed:', error)
-		);
+		await vi.waitFor(() => expect(console.error).toHaveBeenCalledWith('[ChatInput] Send failed'));
 
 		expect(
 			ctx.attachments.map((attachment) => ('name' in attachment ? attachment.name : ''))
@@ -244,11 +244,9 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		const error = new Error('Send rejected');
 
 		pending.reject(error);
-		await tick();
+		await vi.waitFor(() => expect(restoreStored).toHaveBeenCalled());
 
-		await vi.waitFor(() =>
-			expect(console.error).toHaveBeenCalledWith('[ChatInput] onSend failed:', error)
-		);
+		expect(console.error).not.toHaveBeenCalled();
 		expect(input.value).toBe('');
 		expect(ctx.attachments).toEqual([newer]);
 		expect(restoreStored).toHaveBeenCalledWith('thread-input', expect.any(Array));
@@ -288,8 +286,11 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		ctx.addAttachments([newer]);
 
 		pending.reject(new Error('Send rejected'));
-		await vi.waitFor(() => expect(console.error).toHaveBeenCalled());
+		await vi.waitFor(() =>
+			expect(new ChatAttachmentStore(surface).readThread('thread-created')).toHaveLength(2)
+		);
 
+		expect(console.error).not.toHaveBeenCalled();
 		expect(input.value).toBe('');
 		expect(ctx.attachments).toEqual([newer]);
 		expect(
@@ -324,9 +325,7 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		expect(keyedChatInputLifecycle.context?.attachments).toEqual([]);
 		const error = new Error('Send rejected');
 		pending.reject(error);
-		await vi.waitFor(() =>
-			expect(console.error).toHaveBeenCalledWith('[ChatInput] onSend failed:', error)
-		);
+		await vi.waitFor(() => expect(console.error).toHaveBeenCalledWith('[ChatInput] Send failed'));
 		expect(
 			new ChatAttachmentStore(surface)
 				.readThread('thread-admin-a')
@@ -403,7 +402,7 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		await vi.waitFor(() => expect(client.mutation).toHaveBeenCalledTimes(2));
 		await vi.waitFor(() => expect(input.value).toBe('Retry the new conversation'));
 		expect(conversation.threadId).toBe('thread-created');
-		expect(console.error).toHaveBeenCalledWith('[ChatInput] onSend failed:', error);
+		expect(console.error).toHaveBeenCalledWith('[ChatInput] Send failed');
 		expect(
 			ctx.attachments.map((attachment) => ('key' in attachment ? attachment.key : undefined))
 		).toEqual(['screenshot-first', 'document-second']);

@@ -245,6 +245,46 @@ describe('SupportConversation', () => {
 		expect(conversation.isAwaitingStream).toBe(true);
 	});
 
+	it.each(['resolve', 'reject'] as const)(
+		'keeps a stale thread A send from changing thread B after it %s',
+		async (outcome) => {
+			const threadA = deferred<void>();
+			const mutation = vi
+				.fn()
+				.mockImplementationOnce(() => threadA.promise)
+				.mockResolvedValueOnce(undefined);
+			const client = clientWith(mutation);
+			conversation.setThread('thread-a');
+
+			const sendA = conversation.sendMessage(client, 'from A');
+			expect(conversation.isSending).toBe(true);
+
+			conversation.setThread('thread-b');
+			expect(conversation.isSending).toBe(false);
+			expect(conversation.isAwaitingStream).toBe(false);
+			await expect(conversation.sendMessage(client, 'from B')).resolves.toEqual({
+				threadId: 'thread-b',
+				threadCreated: false
+			});
+			expect(conversation.isAwaitingStream).toBe(true);
+
+			const defect = new Error('thread A provider detail');
+			if (outcome === 'resolve') {
+				threadA.resolve();
+				await expect(sendA).resolves.toEqual({ threadId: 'thread-a', threadCreated: false });
+			} else {
+				threadA.reject(defect);
+				await expect(sendA).rejects.toBe(defect);
+			}
+
+			expect(conversation.threadId).toBe('thread-b');
+			expect(conversation.error).toBeNull();
+			expect(conversation.isSending).toBe(false);
+			expect(conversation.isAwaitingStream).toBe(true);
+			expect(errorSpy).not.toHaveBeenCalled();
+		}
+	);
+
 	it('keeps unexpected send failures throwable while storing only a stable code', async () => {
 		const defect = new Error('provider transport detail');
 		const mutation = vi.fn().mockRejectedValue(defect);
@@ -252,6 +292,8 @@ describe('SupportConversation', () => {
 
 		await expect(conversation.sendMessage(clientWith(mutation), 'hello')).rejects.toBe(defect);
 		expect(conversation.error).toBe('send_failed');
-		expect(errorSpy).toHaveBeenCalledWith('[sendMessage] Failed:', defect);
+		expect(errorSpy).toHaveBeenCalledExactlyOnceWith('[SupportConversation.sendMessage] Failed');
+		expect(errorSpy).not.toHaveBeenCalledWith(expect.anything(), defect);
+		expect(errorSpy.mock.calls.flat().join(' ')).not.toContain(defect.message);
 	});
 });

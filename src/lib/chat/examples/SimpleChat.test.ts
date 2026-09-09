@@ -167,11 +167,8 @@ describe('SimpleChat', () => {
 
 		await vi.waitFor(() => expect(input.value).toBe(exactText));
 		expect(button.disabled).toBe(false);
-		expect(console.error).toHaveBeenCalledWith(
-			'[ChatCore.sendMessage] Failed to send message:',
-			error
-		);
-		expect(console.error).toHaveBeenCalledWith('[ChatInput] onSend failed:', error);
+		expect(console.error).toHaveBeenCalledWith('[ChatCore.sendMessage] Failed');
+		expect(console.error).toHaveBeenCalledWith('[ChatInput] Send failed');
 	});
 
 	it('uses a changed thread ID for the next send', async () => {
@@ -213,9 +210,7 @@ describe('SimpleChat', () => {
 		).toBe('');
 		expect(storedDrafts()).toEqual({ 'thread-a': exactText });
 		pending.reject(error);
-		await vi.waitFor(() =>
-			expect(console.error).toHaveBeenCalledWith('[ChatInput] onSend failed:', error)
-		);
+		await vi.waitFor(() => expect(console.error).toHaveBeenCalledWith('[ChatInput] Send failed'));
 		const { button: selectedButton } = await enterMessage('Thread B stays independent');
 		expect(selectedButton.disabled).toBe(false);
 

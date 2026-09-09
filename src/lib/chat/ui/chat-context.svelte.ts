@@ -386,6 +386,13 @@ export class ChatUIContext {
 		this.attachmentCoordinator.clearSendAttachments(snapshot.attachments);
 	}
 
+	isSendSnapshotCurrent(snapshot: ChatSendSnapshot): boolean {
+		return (
+			isChatSessionCurrent(snapshot.sessionEpoch) &&
+			this.syncConversationOrigin() === snapshot.origin
+		);
+	}
+
 	restoreSendSnapshot(snapshot: ChatSendSnapshot): void {
 		if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
 		const sameConversation = this.syncConversationOrigin() === snapshot.origin;

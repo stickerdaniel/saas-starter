@@ -209,15 +209,20 @@
 						await chatCore.sendMessage(client, prompt, { fileIds, attachments });
 						if (!isChatSessionCurrent(sessionEpoch)) return;
 						draftManager.clearDraftIfUnchanged(draftCheckpoint);
+						if (threadId !== originThreadId) return;
 						onMessageSent?.();
 					} catch (error) {
-						if (isChatSessionCurrent(sessionEpoch)) {
-							console.error('[AI Chat sendMessage] Error:', error);
+						if (isChatSessionCurrent(sessionEpoch) && threadId === originThreadId) {
+							console.error('[AIChat.sendMessage] Failed');
 							toast.error($t('chat.messages.send_failed'));
 						}
 						throw error;
 					} finally {
-						if (isChatSessionCurrent(sessionEpoch) && sendRevision === operationRevision) {
+						if (
+							isChatSessionCurrent(sessionEpoch) &&
+							threadId === originThreadId &&
+							sendRevision === operationRevision
+						) {
 							sending = false;
 						}
 					}

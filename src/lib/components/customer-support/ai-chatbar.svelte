@@ -101,8 +101,12 @@
 		const trimmedPrompt = input.trim();
 		const sessionEpoch = getChatSessionEpoch();
 		const generation = warmGeneration;
+		let sendOperation: ReturnType<typeof conversation.captureOperationIdentity> | undefined;
 		const isCurrent = () =>
-			isChatSessionCurrent(sessionEpoch) && warmGeneration === generation && !destroyed;
+			isChatSessionCurrent(sessionEpoch) &&
+			warmGeneration === generation &&
+			!destroyed &&
+			(!sendOperation || conversation.isOperationIdentityCurrent(sendOperation));
 
 		// Clear input and request widget open before sending
 		// (isSending flag is set by sendMessage)
@@ -122,6 +126,7 @@
 
 			// Update shared context (selectThread sets view='chat' + URL sync)
 			support.selectThread(threadId);
+			sendOperation = conversation.captureOperationIdentity();
 
 			// Force Svelte to re-render so ChatRoot subscribes before mutation
 			await tick();
@@ -144,7 +149,7 @@
 			}, 500);
 		} catch (error) {
 			if (!isCurrent()) return;
-			console.error('[AI Chatbar] handleSubmit Error:', error);
+			console.error('[SupportChatbar.send] Failed');
 
 			// Restore the cleared input so the visitor's message is not lost
 			if (!input) input = trimmedPrompt;
@@ -203,7 +208,7 @@
 			})
 			.catch((error) => {
 				if (isChatSessionCurrent(epoch) && warmGeneration === generation && !destroyed) {
-					console.error('[AI Chatbar] Thread creation failed:', error);
+					console.error('[SupportChatbar.createThread] Failed');
 					const data =
 						error instanceof ConvexError
 							? (error.data as { retryAfter?: number } | undefined)

@@ -53,6 +53,40 @@ describe('SupportHandoffCommands', () => {
 		});
 		expect(conversation.isHandedOff).toBe(false);
 		expect(conversation.error).toBe('handoff_failed');
-		expect(errorSpy).toHaveBeenCalledWith('[requestHandoff] Failed:', defect);
+		expect(errorSpy).toHaveBeenCalledExactlyOnceWith('[SupportHandoffCommands.request] Failed');
+		expect(errorSpy).not.toHaveBeenCalledWith(expect.anything(), defect);
+	});
+
+	it.each(['resolve', 'reject'] as const)(
+		'ignores a stale thread A handoff after it %s',
+		async (outcome) => {
+			const pending = Promise.withResolvers<void>();
+			conversation.setThread('thread-a');
+			const request = commands.request(clientWith(vi.fn(() => pending.promise)));
+			expect(conversation.isHandedOff).toBe(true);
+
+			conversation.setThread('thread-b', undefined, false);
+			const defect = new Error('thread A provider detail');
+			if (outcome === 'resolve') pending.resolve();
+			else pending.reject(defect);
+
+			await expect(request).resolves.toEqual({ kind: 'stale' });
+			expect(conversation.threadId).toBe('thread-b');
+			expect(conversation.isHandedOff).toBe(false);
+			expect(conversation.error).toBeNull();
+			expect(errorSpy).not.toHaveBeenCalled();
+		}
+	);
+
+	it('preserves a same-thread handoff completion', async () => {
+		const pending = Promise.withResolvers<void>();
+		conversation.setThread('thread-1');
+		const request = commands.request(clientWith(vi.fn(() => pending.promise)));
+
+		conversation.setThread('thread-1', undefined, true);
+		pending.resolve();
+
+		await expect(request).resolves.toEqual({ kind: 'applied' });
+		expect(conversation.isHandedOff).toBe(true);
 	});
 });

@@ -615,8 +615,7 @@ export class ComposerAttachmentCoordinator {
 				if (active) this.markPending(key);
 				else this.settlePending(key);
 			},
-			onAttemptError: (error) =>
-				console.error('[ComposerAttachmentCoordinator] Upload failed:', error)
+			onAttemptError: () => console.error('[ComposerAttachmentCoordinator] Upload failed')
 		});
 		this.transfers.set(key, transfer);
 		return transfer;

@@ -1,11 +1,14 @@
 import type { ConvexClient } from 'convex/browser';
 import { api } from '$lib/convex/_generated/api';
+import type { SupportOperationIdentity } from './support-conversation.svelte.ts';
 import type { NotificationEmailOutcome } from './support-types.js';
 
 export interface SupportNotificationConversationPort {
 	readonly threadId: string | null;
 	readonly notificationEmail: string | null;
 	getAnonymousUserId(): string | undefined;
+	captureOperationIdentity(): SupportOperationIdentity;
+	isOperationIdentityCurrent(identity: SupportOperationIdentity): boolean;
 	setNotificationEmail(email: string | null): void;
 	setError(error: string | null): void;
 	clearError(): void;
@@ -14,6 +17,7 @@ export interface SupportNotificationConversationPort {
 /** Notification-email command and its in-flight state. */
 export class SupportNotificationCommands {
 	isPending = $state(false);
+	private operationRevision = 0;
 
 	constructor(private readonly conversation: SupportNotificationConversationPort) {}
 
@@ -25,6 +29,8 @@ export class SupportNotificationCommands {
 		}
 
 		const normalizedEmail = email.trim().toLowerCase();
+		const operation = this.conversation.captureOperationIdentity();
+		const operationRevision = ++this.operationRevision;
 		this.isPending = true;
 		try {
 			const anonymousUserId = this.conversation.getAnonymousUserId();
@@ -45,19 +51,22 @@ export class SupportNotificationCommands {
 				}
 			);
 
+			if (!this.conversation.isOperationIdentityCurrent(operation)) return { kind: 'stale' };
 			this.conversation.setNotificationEmail(normalizedEmail || null);
 			this.conversation.clearError();
 			return { kind: 'saved', email: this.conversation.notificationEmail };
-		} catch (error) {
-			console.error('[setNotificationEmail] Failed:', error);
+		} catch {
+			if (!this.conversation.isOperationIdentityCurrent(operation)) return { kind: 'stale' };
+			console.error('[SupportNotificationCommands.setEmail] Failed');
 			this.conversation.setError('notification_update_failed');
 			return { kind: 'failed', code: 'notification_update_failed' };
 		} finally {
-			this.isPending = false;
+			if (this.operationRevision === operationRevision) this.isPending = false;
 		}
 	}
 
 	reset(): void {
+		this.operationRevision++;
 		this.isPending = false;
 	}
 }

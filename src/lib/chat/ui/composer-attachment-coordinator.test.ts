@@ -217,6 +217,21 @@ describe('ComposerAttachmentCoordinator', () => {
 		expect(activeUploads.release).toHaveBeenCalledExactlyOnceWith(coordinator);
 	});
 
+	it('keeps raw upload failures out of browser diagnostics', async () => {
+		const defect = new Error('raw upload provider detail');
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		uploadFileWithProgress.mockRejectedValueOnce(defect);
+		const coordinator = coordinatorAt({ current: 'thread-a' });
+
+		await coordinator.uploadScreenshot(shot(), 'shot.png');
+
+		expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
+			'[ComposerAttachmentCoordinator] Upload failed'
+		);
+		expect(errorSpy).not.toHaveBeenCalledWith(expect.anything(), defect);
+		expect(errorSpy.mock.calls.flat().join(' ')).not.toContain(defect.message);
+	});
+
 	it('releases the global claim and blob preview when permanently disposed', () => {
 		const owners = new Set<object>();
 		const activeUploads = {

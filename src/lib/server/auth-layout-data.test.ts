@@ -120,15 +120,23 @@ describe('capability-aware SSR', () => {
 		expect(getCustomer).not.toHaveBeenCalled();
 	});
 
-	it('uses local E2E entitlements without invoking Autumn', async () => {
+	it('uses local E2E UI entitlements without claiming provider readiness', async () => {
 		vi.stubEnv('LOCAL_E2E_RUNTIME', '1');
 		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'local-test-secret');
-		query.mockResolvedValue({ _id: 'user_1' });
+		query.mockImplementation(async (reference: string) =>
+			reference === 'capabilities:getUsability'
+				? {
+						billing: { usable: false, reason: 'unavailable' },
+						ai: { usable: false, reason: 'unavailable' }
+					}
+				: { _id: 'user_1' }
+		);
 
 		await expect(
 			resolveAuthLayoutData(fakeEvent({ token: 'signed-token' } as App.Locals))
 		).resolves.toMatchObject({
-			capabilities: { billing: { usable: true }, ai: { usable: true } },
+			capabilities: { billing: { usable: false }, ai: { usable: false } },
+			localE2E: { aiChat: true, billing: true },
 			autumnState: {
 				customer: {
 					id: 'local-e2e-customer',

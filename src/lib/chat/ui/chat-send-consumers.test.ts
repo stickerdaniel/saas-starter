@@ -108,7 +108,8 @@ describe.each([
 		content: AIThreadChat,
 		contentProps: { threadId: 'thread-ai', hasMessagesAvailable: true },
 		mutationName: 'aiChat/messages:sendMessage',
-		log: '[AI Chat sendMessage] Error:',
+		log: '[AIChat.sendMessage] Failed',
+		safeDiagnostic: true,
 		translation: en.chat.messages.send_failed
 	},
 	{
@@ -117,99 +118,108 @@ describe.each([
 		contentProps: { threadId: 'thread-admin' },
 		mutationName: 'admin/support/mutations:sendAdminReply',
 		log: '[Admin sendAdminReply] Error:',
+		safeDiagnostic: false,
 		translation: en.admin.support.chat.send_error
 	}
-])('$name send callback', ({ content, contentProps, mutationName, log, translation }) => {
-	it('rethrows the mutation error after reporting it and leaves input rollback to ChatInput', async () => {
-		const error = new Error('Send rejected');
-		const pending = Promise.withResolvers<never>();
-		const mutation = vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
-		component = mount(ChatTestProvider<typeof contentProps>, {
-			target: document.body,
-			props: { client, content, contentProps }
-		});
-		await tick();
-		const ctx = capturedInput.context!;
-		ctx.addAttachments([
-			{
-				type: 'file',
-				key: 'attached-document',
-				name: 'notes.txt',
-				size: 42,
-				mimeType: 'text/plain',
-				uploadState: { status: 'success', progress: 100, fileId: 'document-file' }
+])(
+	'$name send callback',
+	({ content, contentProps, mutationName, log, safeDiagnostic, translation }) => {
+		it('rethrows the mutation error after reporting it and leaves input rollback to ChatInput', async () => {
+			const error = new Error('Send rejected');
+			const pending = Promise.withResolvers<never>();
+			const mutation = vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+			component = mount(ChatTestProvider<typeof contentProps>, {
+				target: document.body,
+				props: { client, content, contentProps }
+			});
+			await tick();
+			const ctx = capturedInput.context!;
+			ctx.addAttachments([
+				{
+					type: 'file',
+					key: 'attached-document',
+					name: 'notes.txt',
+					size: 42,
+					mimeType: 'text/plain',
+					uploadState: { status: 'success', progress: 100, fileId: 'document-file' }
+				}
+			]);
+			const restore = vi.spyOn(ctx, 'setInputValue');
+			const result = capturedInput.props!.onSend!('Retry this message');
+			const rejection = expect
+				.soft(result, 'Consumers must reject so ChatInput restores its attachment snapshot')
+				.rejects.toBe(error);
+			expect(mutation).toHaveBeenCalledTimes(1);
+			const [reference, args, options] = mutation.mock.calls[0]!;
+			expect(getFunctionName(reference)).toBe(mutationName);
+			expect(args).toEqual({
+				threadId: contentProps.threadId,
+				prompt: 'Retry this message',
+				fileIds: ['document-file'],
+				...(content === AIThreadChat ? { userId: undefined } : {})
+			});
+			expect(options?.optimisticUpdate).toBeTypeOf('function');
+			pending.reject(error);
+			await rejection;
+
+			if (safeDiagnostic) {
+				expect(console.error).toHaveBeenCalledWith(log);
+				expect(console.error).not.toHaveBeenCalledWith(expect.anything(), error);
+			} else {
+				expect(console.error).toHaveBeenCalledWith(log, error);
 			}
-		]);
-		const restore = vi.spyOn(ctx, 'setInputValue');
-		const result = capturedInput.props!.onSend!('Retry this message');
-		const rejection = expect
-			.soft(result, 'Consumers must reject so ChatInput restores its attachment snapshot')
-			.rejects.toBe(error);
-		expect(mutation).toHaveBeenCalledTimes(1);
-		const [reference, args, options] = mutation.mock.calls[0]!;
-		expect(getFunctionName(reference)).toBe(mutationName);
-		expect(args).toEqual({
-			threadId: contentProps.threadId,
-			prompt: 'Retry this message',
-			fileIds: ['document-file'],
-			...(content === AIThreadChat ? { userId: undefined } : {})
+			expect(toast.error).toHaveBeenCalledExactlyOnceWith(translation);
+			expect(
+				restore,
+				'Only ChatInput may restore the captured composer state'
+			).not.toHaveBeenCalled();
 		});
-		expect(options?.optimisticUpdate).toBeTypeOf('function');
-		pending.reject(error);
-		await rejection;
 
-		expect(console.error).toHaveBeenCalledWith(log, error);
-		expect(toast.error).toHaveBeenCalledExactlyOnceWith(translation);
-		expect(
-			restore,
-			'Only ChatInput may restore the captured composer state'
-		).not.toHaveBeenCalled();
-	});
+		it('leaves a later pending upload active after success', async () => {
+			const pending = Promise.withResolvers<Record<string, never>>();
+			vi.spyOn(client, 'mutation').mockImplementation((reference) =>
+				getFunctionName(reference) === mutationName
+					? pending.promise
+					: Promise.resolve({ uploadUrl: 'https://storage.test', uploadToken: 'token' })
+			);
+			const abort = stallUpload();
+			component = mount(ChatTestProvider<typeof contentProps>, {
+				target: document.body,
+				props: { client, content, contentProps }
+			});
+			await tick();
+			const ctx = capturedInput.context!;
+			ctx.addAttachments([
+				{
+					type: 'file',
+					key: 'sent-file',
+					name: 'sent.txt',
+					size: 10,
+					mimeType: 'text/plain',
+					url: 'https://chat.test/sent.txt',
+					uploadState: { status: 'success', progress: 100, fileId: 'sent-file-id' }
+				}
+			]);
+			const result = capturedInput.props!.onSend!('Send this');
+			ctx.clearAttachments();
+			const clearAttachments = vi.spyOn(ctx, 'clearAttachments');
+			void ctx.uploadFile(new File(['later'], 'later.txt', { type: 'text/plain' }));
+			await vi.waitFor(() => expect(ctx.hasUploadingFiles).toBe(true));
 
-	it('leaves a later pending upload active after success', async () => {
-		const pending = Promise.withResolvers<Record<string, never>>();
-		vi.spyOn(client, 'mutation').mockImplementation((reference) =>
-			getFunctionName(reference) === mutationName
-				? pending.promise
-				: Promise.resolve({ uploadUrl: 'https://storage.test', uploadToken: 'token' })
-		);
-		const abort = stallUpload();
-		component = mount(ChatTestProvider<typeof contentProps>, {
-			target: document.body,
-			props: { client, content, contentProps }
+			pending.resolve({});
+			await expect(result).resolves.toBeUndefined();
+
+			expect(clearAttachments).not.toHaveBeenCalled();
+			expect(abort).not.toHaveBeenCalled();
+			expect(ctx.attachments).toEqual([
+				expect.objectContaining({
+					name: 'later.txt',
+					uploadState: { status: 'uploading', progress: 0 }
+				})
+			]);
 		});
-		await tick();
-		const ctx = capturedInput.context!;
-		ctx.addAttachments([
-			{
-				type: 'file',
-				key: 'sent-file',
-				name: 'sent.txt',
-				size: 10,
-				mimeType: 'text/plain',
-				url: 'https://chat.test/sent.txt',
-				uploadState: { status: 'success', progress: 100, fileId: 'sent-file-id' }
-			}
-		]);
-		const result = capturedInput.props!.onSend!('Send this');
-		ctx.clearAttachments();
-		const clearAttachments = vi.spyOn(ctx, 'clearAttachments');
-		void ctx.uploadFile(new File(['later'], 'later.txt', { type: 'text/plain' }));
-		await vi.waitFor(() => expect(ctx.hasUploadingFiles).toBe(true));
-
-		pending.resolve({});
-		await expect(result).resolves.toBeUndefined();
-
-		expect(clearAttachments).not.toHaveBeenCalled();
-		expect(abort).not.toHaveBeenCalled();
-		expect(ctx.attachments).toEqual([
-			expect.objectContaining({
-				name: 'later.txt',
-				uploadState: { status: 'uploading', progress: 0 }
-			})
-		]);
-	});
-});
+	}
+);
 
 function storedDrafts(surface: 'ai-chat' | 'admin-support'): Record<string, string> {
 	return JSON.parse(localStorage.getItem(`drafts:${surface}`) ?? '{}');
@@ -355,13 +365,42 @@ describe('support feedback send callback', () => {
 		const result = capturedInput.props!.onSend!('Retry this message');
 
 		await expect(result).rejects.toBe(error);
-		expect(console.error).toHaveBeenCalledWith('[handleSend] Error:', error);
+		expect(console.error).toHaveBeenCalledWith('[FeedbackWidget.send] Failed');
+		expect(console.error).not.toHaveBeenCalledWith(expect.anything(), error);
 		expect(thread.isRateLimited).toBe(true);
 		expect(haptic.trigger).toHaveBeenCalledExactlyOnceWith('error');
 		expect(toast.error).toHaveBeenCalledExactlyOnceWith(
 			en.support.widget.error.rate_limit.replace('{seconds}', '3')
 		);
 		expect(restore).not.toHaveBeenCalled();
+		ctx.dispose();
+	});
+
+	it('suppresses a stale thread A failure after navigation to thread B', async () => {
+		const { support, context: ctx } = createSupportFixture();
+		const pending = Promise.withResolvers<Record<string, never>>();
+		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		component = mount(ChatTestProvider<{ chatUIContext: ChatUIContext }>, {
+			target: document.body,
+			props: {
+				client,
+				content: FeedbackWidget,
+				contentProps: { chatUIContext: ctx },
+				supportThread: support
+			}
+		});
+		await tick();
+		const result = capturedInput.props!.onSend!('from thread A');
+
+		support.selectThread('thread-b');
+		const defect = new Error('thread A provider detail');
+		pending.reject(defect);
+
+		await expect(result).rejects.toBe(defect);
+		expect(support.conversation.threadId).toBe('thread-b');
+		expect(support.conversation.error).toBeNull();
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(console.error).not.toHaveBeenCalled();
 		ctx.dispose();
 	});
 

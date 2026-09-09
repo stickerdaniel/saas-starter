@@ -6,6 +6,10 @@ function makeClient(mutation: ReturnType<typeof vi.fn>): ConvexClient {
 	return { mutation } as unknown as ConvexClient;
 }
 
+function deferred<T>() {
+	return Promise.withResolvers<T>();
+}
+
 function makeCore() {
 	return new ChatCore({
 		threadId: 'thread_1',
@@ -87,7 +91,9 @@ describe('ChatCore command outcomes', () => {
 		expect(core.error).toBe('send_failed');
 		expect(core.isSending).toBe(false);
 		expect(core.isAwaitingStream).toBe(false);
-		expect(errorSpy).toHaveBeenCalledWith('[ChatCore.sendMessage] Failed to send message:', defect);
+		expect(errorSpy).toHaveBeenCalledExactlyOnceWith('[ChatCore.sendMessage] Failed');
+		expect(errorSpy).not.toHaveBeenCalledWith(expect.anything(), defect);
+		expect(errorSpy.mock.calls.flat().join(' ')).not.toContain(defect.message);
 	});
 
 	it('clears an earlier failure when a valid retry starts', async () => {
@@ -132,6 +138,74 @@ describe('ChatCore command outcomes', () => {
 		expect(core.isSending).toBe(false);
 		expect(core.isAwaitingStream).toBe(true);
 		expect(mutation).toHaveBeenCalledTimes(1);
+	});
+
+	it.each(['resolve', 'reject'] as const)(
+		'keeps a stale thread A send from changing thread B after it %s',
+		async (outcome) => {
+			const threadA = deferred<{ messageId: string }>();
+			const mutation = vi
+				.fn()
+				.mockImplementationOnce(() => threadA.promise)
+				.mockResolvedValueOnce({ messageId: 'message_b' });
+			const core = makeCore();
+			const client = makeClient(mutation);
+
+			const sendA = core.sendMessage(client, 'from A');
+			expect(core.isSending).toBe(true);
+			expect(core.isAwaitingStream).toBe(true);
+
+			core.setThread('thread_b');
+			expect(core.isSending).toBe(false);
+			expect(core.isAwaitingStream).toBe(false);
+
+			await expect(core.sendMessage(client, 'from B')).resolves.toEqual({
+				messageId: 'message_b'
+			});
+			expect(mutation.mock.calls[1]?.[1]).toMatchObject({ threadId: 'thread_b' });
+			expect(core.isSending).toBe(false);
+			expect(core.isAwaitingStream).toBe(true);
+
+			const defect = new Error('thread A provider detail');
+			if (outcome === 'resolve') {
+				threadA.resolve({ messageId: 'message_a' });
+				await expect(sendA).resolves.toEqual({ messageId: 'message_a' });
+			} else {
+				threadA.reject(defect);
+				await expect(sendA).rejects.toBe(defect);
+			}
+
+			expect(core.threadId).toBe('thread_b');
+			expect(core.error).toBeNull();
+			expect(core.isSending).toBe(false);
+			expect(core.isAwaitingStream).toBe(true);
+			expect(errorSpy).not.toHaveBeenCalled();
+		}
+	);
+
+	it('preserves a matching provisional null-to-real thread binding', async () => {
+		const message = deferred<{ messageId: string }>();
+		const mutation = vi
+			.fn()
+			.mockResolvedValueOnce({ threadId: 'thread_created' })
+			.mockImplementationOnce(() => message.promise);
+		const core = new ChatCore({
+			threadId: null,
+			api: {
+				sendMessage: 'api.messages.send' as never,
+				createThread: 'api.threads.create' as never
+			}
+		});
+		core.setThreadOriginBinder((threadId) => core.setThread(threadId));
+
+		const send = core.sendMessage(makeClient(mutation), 'hello');
+		await vi.waitFor(() => expect(mutation).toHaveBeenCalledTimes(2));
+
+		expect(core.threadId).toBe('thread_created');
+		expect(core.isSending).toBe(true);
+		expect(core.isAwaitingStream).toBe(true);
+		message.resolve({ messageId: 'message_1' });
+		await expect(send).resolves.toMatchObject({ messageId: 'message_1' });
 	});
 
 	it('uses a typed code when lazy thread creation fails', async () => {

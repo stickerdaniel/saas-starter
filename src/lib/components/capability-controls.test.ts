@@ -13,6 +13,7 @@ describe('browser capability controls', () => {
 		const pricing = source('src/blocks/pricing/pricing-three.svelte');
 		const navigation = source('src/lib/components/nav-user.svelte');
 		expect(provider).toContain('page.data.capabilities?.billing.usable === true');
+		expect(provider).toContain('page.data.localE2E?.billing === true');
 		expect(checkout).toContain('if (!this.isUsable)');
 		expect(checkout).toContain('this.#deps.onUnavailable()');
 		expect(pricing).toContain('disabled={!billingUsable || billingCheckout.isLoading}');
@@ -23,6 +24,8 @@ describe('browser capability controls', () => {
 		const aiPage = source('src/routes/[[lang]]/app/ai-chat/+page.svelte');
 		expect(aiPage).toContain('data.capabilities?.billing.usable === true');
 		expect(aiPage).toContain('data.capabilities?.ai.usable === true');
+		expect(aiPage).toContain('data.localE2E?.aiChat === true');
+		expect(aiPage).toContain('(billingUsable && aiUsable) || localE2EAiChat');
 		expect(aiPage).toContain('viewer.data && aiChatUsable');
 		expect(aiPage).toContain('{#if !aiChatUsable}');
 	});

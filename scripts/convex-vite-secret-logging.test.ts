@@ -164,6 +164,18 @@ describe('local Convex backend telemetry isolation', () => {
 		expect(assignment).toBeGreaterThan(configureServer);
 		expect(backend).toBeGreaterThan(assignment);
 	});
+
+	it('never turns the E2E helper secret into provider readiness', () => {
+		const source = fs.readFileSync(path.resolve('vite.config.ts'), 'utf8');
+		const helperSecret = source.indexOf('// AUTH_E2E_TEST_SECRET authorizes test helpers only');
+		const profile = source.indexOf('// Launcher ownership is last', helperSecret);
+		const e2eEnvironment = source.slice(helperSecret, profile);
+
+		expect(helperSecret).toBeGreaterThanOrEqual(0);
+		expect(profile).toBeGreaterThan(helperSecret);
+		expect(e2eEnvironment).not.toContain('OPENROUTER_API_KEY');
+		expect(source).toContain('getManagedProviderUpdates(isTestMode ? {} : convexLocalEnv)');
+	});
 });
 
 describe('convex-vite-plugin secret logging', () => {

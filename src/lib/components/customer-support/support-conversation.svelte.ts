@@ -17,9 +17,16 @@ import type { SupportNavigationState } from './support-navigation-state.svelte.t
 
 export type SupportAssignedAdmin = { name?: string; image: string | null };
 
+export type SupportOperationIdentity = {
+	threadId: string | null;
+	generation: number;
+	operationRevision: number;
+};
+
 type ThreadCreation = {
 	epoch: number;
 	generation: number;
+	operationRevision: number;
 	navigationRevision: number;
 	promise: Promise<string>;
 };
@@ -54,6 +61,7 @@ export class SupportConversation implements ChatSessionPort {
 	private client: ConvexClient | null = null;
 	private threadCreation: ThreadCreation | null = null;
 	private sendRevision = 0;
+	private operationRevision = 0;
 	private threadAcquisitionSendRevision: number | null = null;
 	private bindThreadOrigin?: (threadId: string, epoch: number, generation: number) => void;
 
@@ -167,17 +175,54 @@ export class SupportConversation implements ChatSessionPort {
 		this.bindThreadOrigin = binder;
 	}
 
-	isSendOperationCurrent(epoch: number, generation: number): boolean {
-		return isChatSessionCurrent(epoch) && this.threadGeneration === generation;
+	get currentOperationRevision(): number {
+		return this.operationRevision;
+	}
+
+	isSendOperationCurrent(
+		epoch: number,
+		generation: number,
+		operationRevision = this.operationRevision
+	): boolean {
+		return (
+			isChatSessionCurrent(epoch) &&
+			this.threadGeneration === generation &&
+			this.operationRevision === operationRevision
+		);
+	}
+
+	captureOperationIdentity(): SupportOperationIdentity {
+		return {
+			threadId: this.threadId,
+			generation: this.threadGeneration,
+			operationRevision: this.operationRevision
+		};
+	}
+
+	isOperationIdentityCurrent(identity: SupportOperationIdentity): boolean {
+		return (
+			this.threadId === identity.threadId &&
+			this.threadGeneration === identity.generation &&
+			this.operationRevision === identity.operationRevision
+		);
+	}
+
+	private isSendOperationOwned(
+		epoch: number,
+		generation: number,
+		operationRevision: number
+	): boolean {
+		return this.isSendOperationCurrent(epoch, generation, operationRevision);
 	}
 
 	private isSendOwnershipCurrent(
 		epoch: number,
 		generation: number,
+		operationRevision: number,
 		navigationRevision: number
 	): boolean {
 		return (
-			this.isSendOperationCurrent(epoch, generation) &&
+			this.isSendOperationOwned(epoch, generation, operationRevision) &&
 			this.navigation.operationRevision === navigationRevision
 		);
 	}
@@ -209,7 +254,11 @@ export class SupportConversation implements ChatSessionPort {
 		notificationEmail?: string | null
 	): void {
 		if (threadId !== this.threadId) {
+			const establishedThreadChanged = this.threadId !== null;
 			this.invalidateWarmThreadAcquisition();
+			this.sendRevision++;
+			this.operationRevision++;
+			if (establishedThreadChanged) this.threadGeneration++;
 			this.isSending = false;
 			this.isAwaitingStream = false;
 		}
@@ -224,7 +273,15 @@ export class SupportConversation implements ChatSessionPort {
 
 	/** Adopt a URL-selected thread without resetting metadata loaded by the query. */
 	selectThreadFromUrl(threadId: string): void {
-		this.invalidateWarmThreadAcquisition();
+		if (threadId !== this.threadId) {
+			const establishedThreadChanged = this.threadId !== null;
+			this.invalidateWarmThreadAcquisition();
+			this.sendRevision++;
+			this.operationRevision++;
+			if (establishedThreadChanged) this.threadGeneration++;
+			this.isSending = false;
+			this.isAwaitingStream = false;
+		}
 		this.threadId = threadId;
 		this.isNewConversation = false;
 	}
@@ -232,6 +289,8 @@ export class SupportConversation implements ChatSessionPort {
 	/** Begin a distinct compose session even when the previous thread was null. */
 	beginNewConversation(): void {
 		this.invalidateWarmThreadAcquisition();
+		this.sendRevision++;
+		this.operationRevision++;
 		this.isSending = false;
 		this.isAwaitingStream = false;
 		this.threadId = null;
@@ -254,11 +313,13 @@ export class SupportConversation implements ChatSessionPort {
 
 		const epoch = getChatSessionEpoch();
 		const generation = this.threadGeneration;
+		const operationRevision = this.operationRevision;
 		const navigationRevision = this.navigation.operationRevision;
 		const current = this.threadCreation;
 		if (
 			current?.epoch === epoch &&
 			current.generation === generation &&
+			current.operationRevision === operationRevision &&
 			current.navigationRevision === navigationRevision
 		) {
 			return current.promise;
@@ -267,6 +328,7 @@ export class SupportConversation implements ChatSessionPort {
 		const creation = {} as ThreadCreation;
 		creation.epoch = epoch;
 		creation.generation = generation;
+		creation.operationRevision = operationRevision;
 		creation.navigationRevision = navigationRevision;
 		creation.promise = client
 			.mutation(api.support.threads.getOrCreateWarmThread, {
@@ -274,7 +336,9 @@ export class SupportConversation implements ChatSessionPort {
 				pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
 			})
 			.then((result) => {
-				if (!this.isSendOwnershipCurrent(epoch, generation, navigationRevision)) {
+				if (
+					!this.isSendOwnershipCurrent(epoch, generation, operationRevision, navigationRevision)
+				) {
 					return result.threadId;
 				}
 				this.bindThreadOrigin?.(result.threadId, epoch, generation);
@@ -313,13 +377,13 @@ export class SupportConversation implements ChatSessionPort {
 
 		const sessionEpoch = getChatSessionEpoch();
 		const generation = this.threadGeneration;
+		const operationRevision = this.operationRevision;
 		const navigationRevision = this.navigation.operationRevision;
 		const sendRevision = ++this.sendRevision;
 		this.threadAcquisitionSendRevision = null;
 		this.setSending(true);
 
 		let threadCreated = false;
-		let messageDispatched = false;
 
 		try {
 			let threadId = options?.threadId ?? this.threadId;
@@ -329,16 +393,31 @@ export class SupportConversation implements ChatSessionPort {
 				!threadId &&
 				inFlight?.epoch === sessionEpoch &&
 				inFlight.generation === generation &&
+				inFlight.operationRevision === operationRevision &&
 				inFlight.navigationRevision === navigationRevision
 			) {
 				try {
 					threadId = await inFlight.promise;
 				} catch (error) {
-					if (!this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision)) {
+					if (
+						!this.isSendOwnershipCurrent(
+							sessionEpoch,
+							generation,
+							operationRevision,
+							navigationRevision
+						)
+					) {
 						throw error;
 					}
 				}
-				if (!this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision)) {
+				if (
+					!this.isSendOwnershipCurrent(
+						sessionEpoch,
+						generation,
+						operationRevision,
+						navigationRevision
+					)
+				) {
 					throw new Error('Support conversation changed');
 				}
 			}
@@ -347,7 +426,14 @@ export class SupportConversation implements ChatSessionPort {
 				threadId = await this.ensureThread(client);
 				threadCreated = true;
 			}
-			if (!this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision)) {
+			if (
+				!this.isSendOwnershipCurrent(
+					sessionEpoch,
+					generation,
+					operationRevision,
+					navigationRevision
+				)
+			) {
 				throw new Error('Support conversation changed');
 			}
 
@@ -365,13 +451,19 @@ export class SupportConversation implements ChatSessionPort {
 				streamArgs: { kind: 'list' as const, startOrder: 0 }
 			};
 
-			if (!this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision)) {
+			if (
+				!this.isSendOwnershipCurrent(
+					sessionEpoch,
+					generation,
+					operationRevision,
+					navigationRevision
+				)
+			) {
 				throw new Error('Support conversation changed');
 			}
 			if (this.threadAcquisitionSendRevision === sendRevision) {
 				this.threadAcquisitionSendRevision = null;
 			}
-			messageDispatched = true;
 			await client.mutation(
 				api.support.messages.sendMessage,
 				{
@@ -392,18 +484,21 @@ export class SupportConversation implements ChatSessionPort {
 					)
 				}
 			);
-			if (!this.isSendOperationCurrent(sessionEpoch, generation)) {
-				throw new Error('Support conversation changed');
+			if (
+				!this.isSendOperationOwned(sessionEpoch, generation, operationRevision) ||
+				this.sendRevision !== sendRevision
+			) {
+				return { threadId, threadCreated };
 			}
 
 			if (this.awaitsAgentReply) this.isAwaitingStream = true;
 			return { threadId, threadCreated };
 		} catch (error) {
-			const operationCurrent = messageDispatched
-				? this.isSendOperationCurrent(sessionEpoch, generation)
-				: this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision);
-			if (operationCurrent) {
-				console.error('[sendMessage] Failed:', error);
+			if (
+				this.isSendOperationOwned(sessionEpoch, generation, operationRevision) &&
+				this.sendRevision === sendRevision
+			) {
+				console.error('[SupportConversation.sendMessage] Failed');
 				this.setError('send_failed');
 			}
 			throw error;
@@ -411,15 +506,18 @@ export class SupportConversation implements ChatSessionPort {
 			if (this.threadAcquisitionSendRevision === sendRevision) {
 				this.threadAcquisitionSendRevision = null;
 			}
-			const operationCurrent = messageDispatched
-				? this.isSendOperationCurrent(sessionEpoch, generation)
-				: this.isSendOwnershipCurrent(sessionEpoch, generation, navigationRevision);
-			if (operationCurrent && this.sendRevision === sendRevision) this.setSending(false);
+			if (
+				this.isSendOperationOwned(sessionEpoch, generation, operationRevision) &&
+				this.sendRevision === sendRevision
+			) {
+				this.setSending(false);
+			}
 		}
 	}
 
 	forgetChatSession(): void {
 		this.sendRevision++;
+		this.operationRevision++;
 		this.threadCreation = null;
 		this.threadAcquisitionSendRevision = null;
 		this.isSending = false;
@@ -430,6 +528,8 @@ export class SupportConversation implements ChatSessionPort {
 
 	reset(): void {
 		this.invalidateWarmThreadAcquisition();
+		this.sendRevision++;
+		this.operationRevision++;
 		this.userId = null;
 		this.threadId = null;
 		this.threadAgentName = undefined;

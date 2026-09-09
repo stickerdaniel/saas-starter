@@ -211,9 +211,9 @@
 			const sendPromise = onSend?.(prompt);
 			ctx.clearAttachmentsForSend(snapshot);
 			await sendPromise;
-		} catch (error) {
+		} catch {
 			if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
-			console.error('[ChatInput] onSend failed:', error);
+			if (ctx.isSendSnapshotCurrent(snapshot)) console.error('[ChatInput] Send failed');
 			ctx.restoreSendSnapshot(snapshot);
 		}
 	}

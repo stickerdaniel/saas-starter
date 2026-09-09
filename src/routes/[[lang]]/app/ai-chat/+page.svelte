@@ -28,7 +28,8 @@
 	const billingCheckout = useBillingCheckout();
 	const billingUsable = $derived(data.capabilities?.billing.usable === true);
 	const aiUsable = $derived(data.capabilities?.ai.usable === true);
-	const aiChatUsable = $derived(billingUsable && aiUsable);
+	const localE2EAiChat = $derived(data.localE2E?.aiChat === true);
+	const aiChatUsable = $derived((billingUsable && aiUsable) || localE2EAiChat);
 	const isPro = $derived(autumn.customer?.products?.some((p) => p.id === 'pro') ?? false);
 	const aiChatFeature = $derived(autumn.customer?.features?.ai_chat_messages);
 	const remainingMessages = $derived(aiChatFeature?.balance ?? 0);

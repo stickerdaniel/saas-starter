@@ -201,6 +201,7 @@
 	// Handle handoff request
 	async function handleRequestHandoff() {
 		const outcome = await handoff.request(client);
+		if (outcome.kind === 'stale') return;
 		if (outcome.kind !== 'applied') {
 			haptic.trigger('error');
 			toast.error($t('support.widget.error.handoff_failed'));
@@ -210,6 +211,7 @@
 	// Handle email notification submission
 	async function handleSubmitEmail(email: string) {
 		const outcome = await notifications.setEmail(client, email);
+		if (outcome.kind === 'stale') return;
 		if (outcome.kind !== 'saved') {
 			throw new Error(outcome.kind === 'missing_thread' ? outcome.kind : outcome.code);
 		}
@@ -373,6 +375,7 @@
 						const originThreadId = conversation.threadId;
 						const sessionEpoch = getChatSessionEpoch();
 						const threadGeneration = conversation.threadGeneration;
+						const operationRevision = conversation.currentOperationRevision;
 						const draftCheckpoint = conversation.captureDraftCheckpoint(originThreadId);
 						const fileIds = chatUIContext.uploadedFileIds;
 						const attachments = [...chatUIContext.attachments];
@@ -381,13 +384,27 @@
 								fileIds,
 								attachments
 							});
-							if (!conversation.isSendOperationCurrent(sessionEpoch, threadGeneration)) return;
+							if (
+								!conversation.isSendOperationCurrent(
+									sessionEpoch,
+									threadGeneration,
+									operationRevision
+								)
+							) {
+								return;
+							}
 							conversation.clearDraftIfUnchanged(draftCheckpoint, result.threadId);
 						} catch (error) {
-							if (!conversation.isSendOperationCurrent(sessionEpoch, threadGeneration)) {
+							if (
+								!conversation.isSendOperationCurrent(
+									sessionEpoch,
+									threadGeneration,
+									operationRevision
+								)
+							) {
 								throw error;
 							}
-							console.error('[handleSend] Error:', error);
+							console.error('[FeedbackWidget.send] Failed');
 
 							// Handle rate limit errors with user-friendly toast
 							if (error instanceof ConvexError) {
