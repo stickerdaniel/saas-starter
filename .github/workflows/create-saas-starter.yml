@@ -65,6 +65,11 @@ jobs:
         with:
           bun-version: ${{ matrix.bun }}
       - run: bun install --cwd packages/create-saas-starter --frozen-lockfile
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun svelte-kit sync
+        env:
+          PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
+          PUBLIC_CONVEX_SITE_URL: https://placeholder.convex.site
       - run: bun run --cwd packages/create-saas-starter typecheck
       - run: bun run --cwd packages/create-saas-starter test
       - run: bun run --cwd packages/create-saas-starter knip

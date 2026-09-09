@@ -1,4 +1,4 @@
-import { gzipSync } from 'node:zlib';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import {
 	MAX_DECOMPRESSED_BYTES,
@@ -14,6 +14,20 @@ async function validates(extra: TarFixtureEntry[] = []) {
 
 function replacing(path: string, replacement: TarFixtureEntry): TarFixtureEntry[] {
 	return validTemplateEntries().map((entry) => (entry.path === path ? replacement : entry));
+}
+
+function replacingWith(path: string, replacements: TarFixtureEntry[]): TarFixtureEntry[] {
+	return validTemplateEntries().flatMap((entry) => (entry.path === path ? replacements : [entry]));
+}
+
+function paxRecord(key: string, value: string): string {
+	let length = Buffer.byteLength(`0 ${key}=${value}\n`);
+	while (true) {
+		const record = `${length} ${key}=${value}\n`;
+		const actualLength = Buffer.byteLength(record);
+		if (actualLength === length) return record;
+		length = actualLength;
+	}
 }
 
 function validationMetrics(): ArchiveValidationMetrics {
@@ -56,7 +70,6 @@ describe('validateTemplateArchive', () => {
 		['traversal', '../escape'],
 		['absolute path', '/escape'],
 		['drive path', 'C:/escape'],
-		['backslash', String.raw`root\escape`],
 		['reserved character', 'root/a:b'],
 		['device name', 'root/CON.txt'],
 		['superscript COM device name', 'root/COM¹.txt'],
@@ -69,6 +82,148 @@ describe('validateTemplateArchive', () => {
 				tarGz(replacing('root/scripts/executable.ts', { path: entryPath, data: 'bad' }))
 			)
 		).rejects.toThrow('Unsafe template archive');
+	});
+
+	it('rejects raw backslashes in ustar path bytes on every platform', async () => {
+		const rawPath = String.raw`root\escape`;
+		const compressed = tarGz(
+			replacing('root/scripts/executable.ts', {
+				path: 'root/escape',
+				rawPath,
+				data: 'bad'
+			})
+		);
+
+		expect(gunzipSync(compressed).includes(Buffer.from(rawPath))).toBe(true);
+		await expect(validateTemplateArchive(compressed)).rejects.toThrow(/backslash path metadata/);
+	});
+
+	it.each([
+		[
+			'ustar link',
+			replacing('root/CLAUDE.md', {
+				path: 'root/CLAUDE.md',
+				type: 'SymbolicLink',
+				linkpath: 'AGENTS.md',
+				rawLinkpath: String.raw`AGENTS\md`
+			})
+		],
+		[
+			'PAX path',
+			replacing('root/scripts/executable.ts', {
+				path: 'root/pax-placeholder',
+				paxPath: String.raw`root\pax`,
+				data: 'bad'
+			})
+		],
+		[
+			'PAX path after malformed metadata',
+			replacingWith('root/scripts/executable.ts', [
+				{
+					path: 'PaxHeader/path',
+					type: 'ExtendedHeader',
+					data: `malformed\n${paxRecord('path', String.raw`root\pax`)}`
+				},
+				{ path: 'root/pax-placeholder', data: 'bad' }
+			])
+		],
+		[
+			'ustar path after a PAX size override',
+			replacingWith('root/scripts/executable.ts', [
+				{
+					path: 'PaxHeader/size',
+					type: 'ExtendedHeader',
+					data: paxRecord('size', '1024')
+				},
+				{ path: 'root/padded.bin', data: Buffer.alloc(1024), rawSize: 0 },
+				{
+					path: 'root/escape',
+					rawPath: String.raw`root\escape`,
+					data: 'bad'
+				}
+			])
+		],
+		[
+			'PAX link',
+			replacing('root/CLAUDE.md', {
+				path: 'root/CLAUDE.md',
+				type: 'SymbolicLink',
+				linkpath: 'AGENTS.md',
+				paxLinkpath: String.raw`AGENTS\md`
+			})
+		],
+		[
+			'GNU path',
+			replacingWith('root/scripts/executable.ts', [
+				{
+					path: '././@LongLink',
+					type: 'NextFileHasLongPath',
+					data: `${String.raw`root\gnu`}\0`
+				},
+				{ path: 'root/gnu-placeholder', data: 'bad' }
+			])
+		],
+		[
+			'GNU link',
+			replacingWith('root/CLAUDE.md', [
+				{
+					path: '././@LongLink',
+					type: 'NextFileHasLongLinkpath',
+					data: `${String.raw`AGENTS\md`}\0`
+				},
+				{ path: 'root/CLAUDE.md', type: 'SymbolicLink', linkpath: 'AGENTS.md' }
+			])
+		]
+	] satisfies Array<[string, TarFixtureEntry[]]>)(
+		'rejects backslashes in %s metadata',
+		async (_name, entries) => {
+			await expect(validateTemplateArchive(tarGz(entries))).rejects.toThrow(/backslash/);
+		}
+	);
+
+	it('allows backslashes in regular file contents', async () => {
+		const contents = String.raw`C:\Users\example\project`;
+		const archive = await validates([{ path: 'root/windows.txt', data: contents }]);
+
+		expect(archive.files.find((entry) => entry.path === 'windows.txt')?.data?.toString()).toBe(
+			contents
+		);
+	});
+
+	it('rejects a signed base-256 negative size before offset arithmetic', async () => {
+		const compressed = tarGz(
+			replacing('root/scripts/executable.ts', {
+				path: 'root/negative.bin',
+				data: '',
+				rawBase256Size: -512
+			})
+		);
+		const raw = gunzipSync(compressed);
+		const headerOffset = raw.indexOf(Buffer.from('root/negative.bin'));
+
+		expect(headerOffset % 512).toBe(0);
+		expect(raw[headerOffset + 124]).toBe(0xff);
+		await expect(validateTemplateArchive(compressed)).rejects.toThrow(
+			'negative archive entry size'
+		);
+	});
+
+	it('rejects a negative PAX size before applying it to an entry', async () => {
+		const compressed = tarGz(
+			replacingWith('root/scripts/executable.ts', [
+				{
+					path: 'PaxHeader/size',
+					type: 'ExtendedHeader',
+					data: paxRecord('size', '-512')
+				},
+				{ path: 'root/negative.bin', data: '' }
+			])
+		);
+
+		expect(gunzipSync(compressed).includes(Buffer.from('size=-512\n'))).toBe(true);
+		await expect(validateTemplateArchive(compressed)).rejects.toThrow(
+			'negative archive entry size'
+		);
 	});
 
 	it('rejects case and Unicode normalization collisions', async () => {
