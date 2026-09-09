@@ -51,14 +51,19 @@ function mountChat(threadId: string, provideTolgee = true) {
 	return provider;
 }
 
-async function enterMessage(value: string) {
+async function setComposerValue(value: string) {
 	const input = document.querySelector<HTMLTextAreaElement>('[data-testid="chat-input-textarea"]')!;
 	input.value = value;
 	input.dispatchEvent(new Event('input', { bubbles: true }));
 	await tick();
 	const button = document.querySelector<HTMLButtonElement>('[data-testid="chat-input-send"]')!;
-	expect(button.disabled).toBe(false);
 	return { input, button };
+}
+
+async function enterMessage(value: string) {
+	const composer = await setComposerValue(value);
+	expect(composer.button.disabled).toBe(false);
+	return composer;
 }
 
 function pasteItems(input: HTMLTextAreaElement, items: DataTransferItem[]) {
@@ -275,12 +280,13 @@ describe('SimpleChat', () => {
 		expect(mutation).toHaveBeenCalledTimes(1);
 	});
 
-	it('preserves a genuine edit made after returning to a pending origin', async () => {
+	it('preserves a same-text new edit through locked remounts and success', async () => {
 		const pending = Promise.withResolvers<Record<string, never>>();
-		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		const mutation = vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
 		const provider = mountChat('thread-a');
 		await tick();
-		const { button: originButton } = await enterMessage('Original A draft');
+		const sentDraft = 'Original A draft';
+		const { button: originButton } = await enterMessage(sentDraft);
 		originButton.click();
 		await tick();
 
@@ -288,20 +294,73 @@ describe('SimpleChat', () => {
 		await tick();
 		provider.setContentProps({ threadId: 'thread-a' });
 		await tick();
-		const newerDraft = 'A newer draft while pending';
+		const newerDraft = sentDraft;
+		const { button: lockedButton } = await setComposerValue(newerDraft);
+		expect(lockedButton.disabled).toBe(true);
+		expect(storedDrafts()).toEqual({ 'thread-a': newerDraft });
+
+		provider.setContentProps({ threadId: 'thread-b' });
+		await tick();
+		provider.setContentProps({ threadId: 'thread-a' });
+		await tick();
 		const input = document.querySelector<HTMLTextAreaElement>(
 			'[data-testid="chat-input-textarea"]'
 		)!;
-		input.value = newerDraft;
-		input.dispatchEvent(new Event('input', { bubbles: true }));
-		await tick();
-		expect(storedDrafts()).toEqual({ 'thread-a': newerDraft });
+		expect(input.value).toBe(newerDraft);
+		expect(
+			document.querySelector<HTMLButtonElement>('[data-testid="chat-input-send"]')!.disabled
+		).toBe(true);
+		expect(mutation).toHaveBeenCalledTimes(1);
 
 		pending.resolve({});
 		await vi.waitFor(() => expect(capturedChatMessages.context?.core.isSending).toBe(false));
 		expect(storedDrafts()).toEqual({ 'thread-a': newerDraft });
 		expect(input.value).toBe(newerDraft);
 		expect(capturedChatMessages.context?.core.isAwaitingStream).toBe(true);
+		capturedChatMessages.context?.core.setAwaitingStream(false);
+		await tick();
+		expect(storedDrafts()).toEqual({ 'thread-a': newerDraft });
+		expect(input.value).toBe(newerDraft);
+		expect(
+			document.querySelector<HTMLButtonElement>('[data-testid="chat-input-send"]')!.disabled
+		).toBe(false);
+	});
+
+	it('preserves a genuine edit through repeated locked remounts and rejection', async () => {
+		const pending = Promise.withResolvers<never>();
+		const mutation = vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		const provider = mountChat('thread-a');
+		await tick();
+		const { button: originButton } = await enterMessage('Rejected A draft');
+		originButton.click();
+		await tick();
+
+		provider.setContentProps({ threadId: 'thread-b' });
+		await tick();
+		provider.setContentProps({ threadId: 'thread-a' });
+		await tick();
+		const newerDraft = 'Keep this newer A draft';
+		const { button: lockedButton } = await setComposerValue(newerDraft);
+		expect(lockedButton.disabled).toBe(true);
+
+		provider.setContentProps({ threadId: 'thread-b' });
+		await tick();
+		provider.setContentProps({ threadId: 'thread-a' });
+		await tick();
+		const input = document.querySelector<HTMLTextAreaElement>(
+			'[data-testid="chat-input-textarea"]'
+		)!;
+		expect(input.value).toBe(newerDraft);
+		expect(mutation).toHaveBeenCalledTimes(1);
+
+		pending.reject(new Error('Send rejected'));
+		await vi.waitFor(() => expect(capturedChatMessages.context?.core.isSending).toBe(false));
+		expect(input.value).toBe(newerDraft);
+		expect(storedDrafts()).toEqual({ 'thread-a': newerDraft });
+		expect(
+			document.querySelector<HTMLButtonElement>('[data-testid="chat-input-send"]')!.disabled
+		).toBe(false);
+		expect(mutation).toHaveBeenCalledTimes(1);
 	});
 
 	it('releases an inactive retained session after its stream lock ends', async () => {
@@ -324,6 +383,121 @@ describe('SimpleChat', () => {
 		await tick();
 
 		expect(capturedChatMessages.context?.core).not.toBe(originCore);
+		expect(capturedChatMessages.context?.core.isAwaitingStream).toBe(false);
+	});
+
+	it('retains an in-flight rejection across a full provider remount', async () => {
+		const pending = Promise.withResolvers<never>();
+		const error = new Error('Send rejected');
+		const mutation = vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		mountChat('thread-a');
+		await tick();
+		const originCore = capturedChatMessages.context!.core;
+		const exactText = '  Retry after a full remount  ';
+		const { button: originButton } = await enterMessage(exactText);
+		originButton.click();
+		await tick();
+
+		await unmount(component!);
+		component = undefined;
+		mountChat('thread-a');
+		await tick();
+		const input = document.querySelector<HTMLTextAreaElement>(
+			'[data-testid="chat-input-textarea"]'
+		)!;
+		const button = document.querySelector<HTMLButtonElement>('[data-testid="chat-input-send"]')!;
+		expect(capturedChatMessages.context?.core).toBe(originCore);
+		expect(input.value).toBe('');
+		expect(button.disabled).toBe(true);
+		expect(mutation).toHaveBeenCalledTimes(1);
+
+		pending.reject(error);
+		await vi.waitFor(() => expect(input.value).toBe(exactText));
+		expect(button.disabled).toBe(false);
+		expect(storedDrafts()).toEqual({ 'thread-a': exactText });
+		expect(mutation).toHaveBeenCalledTimes(1);
+	});
+
+	it('retains an in-flight success across a full provider remount', async () => {
+		const pending = Promise.withResolvers<Record<string, never>>();
+		const mutation = vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		mountChat('thread-a');
+		await tick();
+		const originCore = capturedChatMessages.context!.core;
+		const { button: originButton } = await enterMessage('Send across a full remount');
+		originButton.click();
+		await tick();
+
+		await unmount(component!);
+		component = undefined;
+		mountChat('thread-a');
+		await tick();
+		const input = document.querySelector<HTMLTextAreaElement>(
+			'[data-testid="chat-input-textarea"]'
+		)!;
+		const button = document.querySelector<HTMLButtonElement>('[data-testid="chat-input-send"]')!;
+		expect(capturedChatMessages.context?.core).toBe(originCore);
+		expect(input.value).toBe('');
+		expect(button.disabled).toBe(true);
+
+		pending.resolve({});
+		await vi.waitFor(() => expect(originCore.isSending).toBe(false));
+		expect(originCore.isAwaitingStream).toBe(true);
+		expect(input.value).toBe('');
+		expect(storedDrafts()).toEqual({});
+		button.click();
+		expect(mutation).toHaveBeenCalledTimes(1);
+
+		originCore.setAwaitingStream(false);
+		await tick();
+		await unmount(component!);
+		component = undefined;
+		mountChat('thread-a');
+		await tick();
+		expect(capturedChatMessages.context?.core).not.toBe(originCore);
+		expect(capturedChatMessages.context?.core.isAwaitingStream).toBe(false);
+		expect(
+			document.querySelector<HTMLTextAreaElement>('[data-testid="chat-input-textarea"]')!.value
+		).toBe('');
+	});
+
+	it('cleans up an ownerless rejection before a later mount', async () => {
+		const pending = Promise.withResolvers<never>();
+		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		mountChat('thread-a');
+		await tick();
+		const originCore = capturedChatMessages.context!.core;
+		const exactText = '  Restore after ownerless rejection  ';
+		const { button } = await enterMessage(exactText);
+		button.click();
+		await tick();
+		await unmount(component!);
+		component = undefined;
+
+		pending.reject(new Error('Send rejected'));
+		await vi.waitFor(() => expect(originCore.isSending).toBe(false));
+		mountChat('thread-a');
+		await tick();
+		expect(capturedChatMessages.context?.core).not.toBe(originCore);
+		expect(capturedChatMessages.context?.core.isSending).toBe(false);
+		expect(
+			document.querySelector<HTMLTextAreaElement>('[data-testid="chat-input-textarea"]')!.value
+		).toBe(exactText);
+	});
+
+	it('does not retain idle core state across sequential mounts', async () => {
+		mountChat('thread-a');
+		await tick();
+		const originCore = capturedChatMessages.context!.core;
+		originCore.setError('stale error');
+		await unmount(component!);
+		component = undefined;
+
+		mountChat('thread-a');
+		await tick();
+		expect(capturedChatMessages.context?.core).not.toBe(originCore);
+		expect(capturedChatMessages.context?.core.error).toBeNull();
+		expect(capturedChatMessages.context?.core.isSending).toBe(false);
 		expect(capturedChatMessages.context?.core.isAwaitingStream).toBe(false);
 	});
 
