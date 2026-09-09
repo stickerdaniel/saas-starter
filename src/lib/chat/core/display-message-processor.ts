@@ -10,6 +10,7 @@ import { extractReasoning, extractUserMessageText } from './message-extraction.j
 import type { StreamCacheManager } from './stream-cache.js';
 import type { UIMessage } from '@convex-dev/agent';
 import { mergeAssistantMessageParts } from './stream-materialization.js';
+import { redactToolErrorParts } from './tool-error-redaction.js';
 
 /**
  * Context for transforming messages with streaming data
@@ -148,10 +149,11 @@ export function transformToDisplayMessage(
 					msg.status === 'streaming' ? 'live' : 'persisted'
 				) as ChatMessage['parts'])
 			: (streamParts ?? msg.parts);
+	const safeParts = mergedParts ? redactToolErrorParts(mergedParts) : undefined;
 
 	return {
 		...msg,
-		parts: mergedParts,
+		parts: safeParts,
 		displayText,
 		displayReasoning: reasoningResult.displayReasoning,
 		isStreaming,

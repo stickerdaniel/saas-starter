@@ -116,6 +116,10 @@ import {
 	getCapabilityConfigurations,
 	requireAiConfiguration
 } from '../../env';
+import {
+	prepareToolErrorRedactionStep,
+	toolErrorRedactionTransform
+} from '../../../chat/core/tool-error-redaction';
 
 const syncMock = syncSupportLastMessage as unknown as ReturnType<typeof vi.fn>;
 
@@ -211,7 +215,9 @@ describe('createAIResponse prompt override wiring', () => {
 		expect(streamTextMock).toHaveBeenCalledTimes(1);
 		expect(streamTextMock.mock.calls[0][2]).toEqual({
 			promptMessageId: 'prompt_1',
-			instructions: 'stored override prompt'
+			instructions: 'stored override prompt',
+			prepareStep: prepareToolErrorRedactionStep,
+			experimental_transform: toolErrorRedactionTransform
 		});
 	});
 
@@ -222,7 +228,9 @@ describe('createAIResponse prompt override wiring', () => {
 
 		expect(streamTextMock.mock.calls[0][2]).toEqual({
 			promptMessageId: 'prompt_1',
-			instructions: undefined
+			instructions: undefined,
+			prepareStep: prepareToolErrorRedactionStep,
+			experimental_transform: toolErrorRedactionTransform
 		});
 	});
 });

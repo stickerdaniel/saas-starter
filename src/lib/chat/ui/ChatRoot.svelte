@@ -3,7 +3,7 @@
 	import { onDestroy, type Snippet } from 'svelte';
 	import type { UIMessage } from '@convex-dev/agent';
 	import { ChatCore, type ChatCoreAPI } from '../core/chat-core.svelte.ts';
-	import { CHAT_PAGE_SIZE, type DisplayMessage } from '../core/types.js';
+	import { CHAT_PAGE_SIZE, type ChatMessagesQuery, type DisplayMessage } from '../core/types.js';
 	import {
 		ChatUIContext,
 		setChatUIContext,
@@ -55,7 +55,7 @@
 		threadId: string | null;
 		/** Convex API endpoints */
 		api: ChatCoreAPI & {
-			listMessages: Parameters<typeof useQuery>[0];
+			listMessages: ChatMessagesQuery;
 		};
 		/** External core adapter (optional - if provided, uses external state) */
 		externalCore?: ExternalCoreAdapter | ChatCore;
@@ -189,9 +189,8 @@
 				);
 				if (cancelled) return;
 				streamingUIMessages = decodedMessages;
-			} catch (error) {
+			} catch {
 				if (cancelled) return;
-				console.error('Failed to decode streaming UI messages', error);
 				streamingUIMessages = [];
 			}
 		})();

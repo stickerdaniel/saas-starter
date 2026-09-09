@@ -23,6 +23,11 @@ import {
 	getCapabilityConfigurations,
 	requireAiConfiguration
 } from '../env';
+import type { MessagesQueryResponse } from '../../chat/core/types';
+import {
+	prepareToolErrorRedactionStep,
+	toolErrorRedactionTransform
+} from '../../chat/core/tool-error-redaction';
 
 /**
  * Send a user message and get AI response with streaming
@@ -311,7 +316,9 @@ export const createAIResponse = internalAction({
 					promptMessageId: args.promptMessageId,
 					// AgentPrompt.instructions overrides the agent's instructions for this turn;
 					// undefined leaves SUPPORT_AGENT_INSTRUCTIONS in place.
-					instructions: systemOverride ?? undefined
+					instructions: systemOverride ?? undefined,
+					prepareStep: prepareToolErrorRedactionStep,
+					experimental_transform: toolErrorRedactionTransform
 				},
 				{
 					usageHandler: sink.usageHandler,
@@ -375,7 +382,7 @@ export const listMessages = query({
 	},
 	// v.any(): paginated message + stream shape is owned by @convex-dev/agent
 	returns: v.any(),
-	handler: async (ctx, args): Promise<unknown> => {
+	handler: async (ctx, args): Promise<MessagesQueryResponse> => {
 		await requireSupportThreadAccess(ctx, {
 			threadId: args.threadId,
 			anonymousUserId: args.anonymousUserId

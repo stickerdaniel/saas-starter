@@ -22,6 +22,11 @@ import {
 	requireAiConfiguration,
 	requireBillingConfiguration
 } from '../env';
+import type { MessagesQueryResponse } from '../../chat/core/types';
+import {
+	prepareToolErrorRedactionStep,
+	toolErrorRedactionTransform
+} from '../../chat/core/tool-error-redaction';
 
 const THREAD_PREVIEW_LENGTH = 100;
 
@@ -229,7 +234,11 @@ export const createAIResponse = internalAction({
 			result = await aiChatAgent.streamText(
 				ctx,
 				{ threadId: args.threadId, userId: args.userId },
-				{ promptMessageId: args.promptMessageId },
+				{
+					promptMessageId: args.promptMessageId,
+					prepareStep: prepareToolErrorRedactionStep,
+					experimental_transform: toolErrorRedactionTransform
+				},
 				{
 					saveStreamDeltas: {
 						chunking: 'line',
@@ -298,7 +307,7 @@ export const listMessages = authedQuery({
 	},
 	// v.any(): paginated message + stream shape is owned by @convex-dev/agent
 	returns: v.any(),
-	handler: async (ctx, args): Promise<unknown> => {
+	handler: async (ctx, args): Promise<MessagesQueryResponse> => {
 		// Verify ownership
 		await requireAiChatThreadRecord(ctx, {
 			threadId: args.threadId,

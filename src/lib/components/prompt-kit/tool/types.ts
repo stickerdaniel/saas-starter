@@ -4,7 +4,7 @@ export type ToolPart = {
 	type: string;
 	state: ToolState;
 	input?: Record<string, unknown>;
-	output?: Record<string, unknown>;
+	output?: unknown;
 	toolCallId?: string;
 	errorText?: string;
 };
