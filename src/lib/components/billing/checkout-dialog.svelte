@@ -3,7 +3,6 @@
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { getTranslate } from '@tolgee/svelte';
 	import { languageContext } from '$lib/i18n/context';
-	import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { useBillingCheckout } from './checkout-context.svelte.ts';
 
@@ -13,7 +12,7 @@
 	// The context holds a getter, not a snapshot: this dialog is mounted once in
 	// the root layout and outlives language switches, so reading it eagerly
 	// would pin currency and date formatting to whatever locale loaded first.
-	const getLang = languageContext.getOr(() => DEFAULT_LANGUAGE);
+	const getLang = languageContext.get();
 	const locale = $derived(getLang());
 
 	const preview = $derived(checkout.preview);
