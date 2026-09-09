@@ -213,10 +213,23 @@ describe('refundUsage', () => {
 	});
 
 	it('credits the balance with a negative track value', async () => {
-		trackSdk.mockResolvedValue({ data: {} });
+		trackSdk.mockResolvedValue({
+			data: {
+				id: 'event_1',
+				code: 'event_received',
+				customer_id: 'user_1',
+				feature_id: 'ai_chat_messages'
+			},
+			error: null,
+			statusCode: 200
+		});
 
-		await refundUsage({ customerId: 'user_1', featureId: 'ai_chat_messages' });
+		const outcome = await refundUsage({
+			customerId: 'user_1',
+			featureId: 'ai_chat_messages'
+		});
 
+		expect(outcome).toEqual({ status: 'refunded' });
 		expect(trackSdk).toHaveBeenCalledWith({
 			customer_id: 'user_1',
 			feature_id: 'ai_chat_messages',
@@ -224,15 +237,41 @@ describe('refundUsage', () => {
 		});
 	});
 
-	it('never throws when a refund fails', async () => {
+	it('reports a non-2xx result without provider or request details', async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		trackSdk.mockResolvedValue({
+			data: null,
+			error: new Error('provider rejected the refund'),
+			statusCode: 503
+		});
+
+		const outcome = await refundUsage({
+			customerId: 'user_1',
+			featureId: 'ai_chat_messages',
+			value: 2
+		});
+
+		expect(outcome).toEqual({ status: 'failed', reason: 'non_2xx', statusCode: 503 });
+		expect(trackSdk).toHaveBeenCalledWith(expect.objectContaining({ value: -2 }));
+		expect(error).toHaveBeenCalledOnce();
+		expect(error).toHaveBeenCalledWith('[refundUsage] Autumn refund failed', outcome);
+		error.mockRestore();
+	});
+
+	it('reports a thrown exception without masking the caller failure', async () => {
 		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
 		trackSdk.mockRejectedValue(new Error('network down'));
 
 		await expect(
 			refundUsage({ customerId: 'user_1', featureId: 'ai_chat_messages', value: 2 })
-		).resolves.toBeUndefined();
+		).resolves.toEqual({ status: 'failed', reason: 'exception' });
 
 		expect(trackSdk).toHaveBeenCalledWith(expect.objectContaining({ value: -2 }));
+		expect(error).toHaveBeenCalledOnce();
+		expect(error).toHaveBeenCalledWith('[refundUsage] Autumn refund failed', {
+			status: 'failed',
+			reason: 'exception'
+		});
 		error.mockRestore();
 	});
 });

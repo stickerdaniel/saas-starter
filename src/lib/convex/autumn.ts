@@ -121,14 +121,20 @@ export async function checkAndCountUsage({
 	return result.data.allowed ? 'counted' : 'denied';
 }
 
+/** Outcome of a best-effort usage refund. */
+export type RefundUsageOutcome =
+	| { status: 'refunded' }
+	| { status: 'failed'; reason: 'non_2xx'; statusCode?: number }
+	| { status: 'failed'; reason: 'exception' };
+
 /**
  * Credit back usage previously counted by `checkAndCountUsage`, for
  * when the operation the usage paid for failed afterwards. Negative
  * track values credit the balance (documented Autumn behavior).
  *
- * Best effort: a failed refund is logged, never thrown, so it cannot
- * mask the original failure. The cost of a lost refund is one unit on
- * a double fault (operation AND refund both failed).
+ * Best effort: failures return a structured outcome and are logged
+ * without request or provider details. They are never thrown, so a
+ * refund failure cannot mask the original failure.
  */
 export async function refundUsage({
 	customerId,
@@ -138,11 +144,28 @@ export async function refundUsage({
 	customerId: string;
 	featureId: string;
 	value?: number;
-}): Promise<void> {
+}): Promise<RefundUsageOutcome> {
+	let result;
 	try {
 		const sdk = await getAutumnSdk();
-		await sdk.track({ customer_id: customerId, feature_id: featureId, value: -value });
-	} catch (error) {
-		console.error(`[refundUsage] Failed to refund ${value} ${featureId} for ${customerId}:`, error);
+		result = await sdk.track({
+			customer_id: customerId,
+			feature_id: featureId,
+			value: -value
+		});
+	} catch {
+		const failure = { status: 'failed', reason: 'exception' } as const;
+		console.error('[refundUsage] Autumn refund failed', failure);
+		return failure;
 	}
+	if (result.data === null) {
+		const failure = {
+			status: 'failed',
+			reason: 'non_2xx',
+			...(typeof result.statusCode === 'number' ? { statusCode: result.statusCode } : {})
+		} as const;
+		console.error('[refundUsage] Autumn refund failed', failure);
+		return failure;
+	}
+	return { status: 'refunded' };
 }
