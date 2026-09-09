@@ -4,9 +4,13 @@ import type * as Svelte from 'svelte';
 import { ConvexClient } from 'convex/browser';
 import { getFunctionName } from 'convex/server';
 import en from '../../../i18n/en.json';
+import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { ChatUIContext } from '../ui/chat-context.svelte.ts';
 import { capturedChatMessages } from '../ui/test-fixtures/CapturedChatMessages.svelte';
 import ChatTestProvider from '../ui/test-fixtures/ChatTestProvider.svelte';
+import SimpleChatOwnersHarness, {
+	simpleChatOwnersHarness
+} from '../ui/test-fixtures/SimpleChatOwnersHarness.svelte';
 import SimpleChat from './SimpleChat.svelte';
 
 // Vitest resolves Svelte's server entry by default; use its real client runtime for mounting.
@@ -29,6 +33,10 @@ let client: ConvexClient;
 beforeEach(() => {
 	localStorage.clear();
 	delete capturedChatMessages.context;
+	delete simpleChatOwnersHarness.setFirstThreadId;
+	delete simpleChatOwnersHarness.setSecondThreadId;
+	delete simpleChatOwnersHarness.hideFirst;
+	delete simpleChatOwnersHarness.hideSecond;
 	client = new ConvexClient('https://chat-test.convex.cloud', { disabled: true });
 	vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -49,6 +57,30 @@ function mountChat(threadId: string, provideTolgee = true) {
 	});
 	component = provider;
 	return provider;
+}
+
+function mountOwners(firstThreadId: string, secondThreadId: string) {
+	const contentProps = { firstThreadId, secondThreadId };
+	component = mount(ChatTestProvider<typeof contentProps>, {
+		target: document.body,
+		props: { client, content: SimpleChatOwnersHarness, contentProps }
+	});
+}
+
+function ownerComposer(owner: 'first' | 'second') {
+	const surface = document.querySelector<HTMLElement>(`[data-simple-chat-owner="${owner}"]`)!;
+	return {
+		input: surface.querySelector<HTMLTextAreaElement>('[data-testid="chat-input-textarea"]')!,
+		button: surface.querySelector<HTMLButtonElement>('[data-testid="chat-input-send"]')!
+	};
+}
+
+async function setOwnerComposerValue(owner: 'first' | 'second', value: string) {
+	const composer = ownerComposer(owner);
+	composer.input.value = value;
+	composer.input.dispatchEvent(new Event('input', { bubbles: true }));
+	await tick();
+	return ownerComposer(owner);
 }
 
 async function setComposerValue(value: string) {
@@ -499,6 +531,134 @@ describe('SimpleChat', () => {
 		expect(capturedChatMessages.context?.core.error).toBeNull();
 		expect(capturedChatMessages.context?.core.isSending).toBe(false);
 		expect(capturedChatMessages.context?.core.isAwaitingStream).toBe(false);
+	});
+
+	it('discards an ownerless awaiting session after the chat epoch changes', async () => {
+		const pending = Promise.withResolvers<Record<string, never>>();
+		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		const onUpdate = vi.spyOn(client, 'onUpdate');
+		mountChat('thread-before-logout');
+		await tick();
+		const originCore = capturedChatMessages.context!.core;
+		const { button } = await enterMessage('Do not retain this session');
+		button.click();
+		await tick();
+		await unmount(component!);
+		component = undefined;
+		pending.resolve({});
+		await vi.waitFor(() => expect(originCore.isAwaitingStream).toBe(true));
+
+		clearPersistedChatState();
+		onUpdate.mockClear();
+		mountChat('thread-after-logout');
+		await tick();
+		const subscribedThreads = onUpdate.mock.calls.map(([, args]) =>
+			'threadId' in args ? args.threadId : undefined
+		);
+
+		expect(subscribedThreads).not.toContain('thread-before-logout');
+		expect(
+			document.querySelector(
+				'[data-testid="simple-chat-session-observer"][data-thread-id="thread-before-logout"]'
+			)
+		).toBeNull();
+		expect(capturedChatMessages.context?.core).not.toBe(originCore);
+		expect(capturedChatMessages.context?.core.isSending).toBe(false);
+		expect(capturedChatMessages.context?.core.isAwaitingStream).toBe(false);
+		expect(
+			document.querySelector<HTMLTextAreaElement>('[data-testid="chat-input-textarea"]')!.value
+		).toBe('');
+		expect(storedDrafts()).toEqual({});
+	});
+
+	it('keeps stale async callbacks out of the replacement epoch registry', async () => {
+		const pending = Promise.withResolvers<never>();
+		const mutation = vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		mountChat('thread-a');
+		await tick();
+		const oldCore = capturedChatMessages.context!.core;
+		const { button } = await enterMessage('Old session draft');
+		button.click();
+		await tick();
+		await unmount(component!);
+		component = undefined;
+
+		clearPersistedChatState();
+		mountChat('thread-a');
+		await tick();
+		const newCore = capturedChatMessages.context!.core;
+		const newDraft = 'New session draft';
+		const { input } = await enterMessage(newDraft);
+		pending.reject(new Error('Old session rejected'));
+		await tick();
+		await Promise.resolve();
+
+		expect(newCore).not.toBe(oldCore);
+		expect(capturedChatMessages.context?.core).toBe(newCore);
+		expect(input.value).toBe(newDraft);
+		expect(storedDrafts()).toEqual({ 'thread-a': newDraft });
+		expect(mutation).toHaveBeenCalledTimes(1);
+	});
+
+	it.each([
+		{ hidden: 'first' as const, remaining: 'second' as const },
+		{ hidden: 'second' as const, remaining: 'first' as const }
+	])('shares one thread context when the $hidden owner unmounts', async ({ hidden, remaining }) => {
+		const pending = Promise.withResolvers<never>();
+		const mutation = vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		mountOwners('thread-shared', 'thread-shared');
+		await tick();
+
+		await setOwnerComposerValue('first', 'Draft from first');
+		expect(ownerComposer('second').input.value).toBe('Draft from first');
+		const sharedDraft = 'Draft from second';
+		await setOwnerComposerValue('second', sharedDraft);
+		expect(ownerComposer('first').input.value).toBe(sharedDraft);
+
+		ownerComposer('first').button.click();
+		await tick();
+		expect(ownerComposer('first').input.value).toBe('');
+		expect(ownerComposer('second').input.value).toBe('');
+		expect(ownerComposer('first').button.disabled).toBe(true);
+		expect(ownerComposer('second').button.disabled).toBe(true);
+		ownerComposer('second').button.click();
+		expect(mutation).toHaveBeenCalledTimes(1);
+
+		if (hidden === 'first') simpleChatOwnersHarness.hideFirst?.();
+		else simpleChatOwnersHarness.hideSecond?.();
+		await tick();
+		pending.reject(new Error('Send rejected'));
+		await vi.waitFor(() => expect(ownerComposer(remaining).input.value).toBe(sharedDraft));
+		expect(ownerComposer(remaining).button.disabled).toBe(false);
+		expect(storedDrafts()).toEqual({ 'thread-shared': sharedDraft });
+		expect(mutation).toHaveBeenCalledTimes(1);
+	});
+
+	it('renders one retained observer and transfers primary ownership', async () => {
+		const pending = Promise.withResolvers<never>();
+		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		const observersFor = (threadId: string) =>
+			Array.from(
+				document.querySelectorAll<HTMLElement>(
+					`[data-testid="simple-chat-session-observer"][data-thread-id="${threadId}"]`
+				)
+			);
+		mountOwners('thread-a', 'thread-c');
+		await tick();
+		await setOwnerComposerValue('first', 'Retain A while hidden');
+		ownerComposer('first').button.click();
+		await tick();
+
+		simpleChatOwnersHarness.setFirstThreadId?.('thread-b');
+		await vi.waitFor(() => expect(observersFor('thread-a')).toHaveLength(1));
+		const firstObserver = observersFor('thread-a')[0];
+
+		simpleChatOwnersHarness.hideFirst?.();
+		await vi.waitFor(() => expect(observersFor('thread-a')).toHaveLength(1));
+		expect(observersFor('thread-a')[0]).not.toBe(firstObserver);
+
+		pending.reject(new Error('Send rejected'));
+		await vi.waitFor(() => expect(observersFor('thread-a')).toHaveLength(0));
 	});
 
 	it.each([

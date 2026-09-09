@@ -7,6 +7,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { useConvexClient } from 'convex-svelte';
+	import { registerPersistedChatHolder } from '../core/chat-persisted-state.ts';
 	import SimpleChatSessionObserver from './SimpleChatSessionObserver.svelte';
 	import SimpleChatThread from './SimpleChatThread.svelte';
 	import { acquireSimpleChatSessionRegistry } from './simple-chat-session.svelte.ts';
@@ -25,14 +26,27 @@
 	} = $props();
 
 	const client = useConvexClient();
-	const sessionRegistry = acquireSimpleChatSessionRegistry(client);
-	onDestroy(() => sessionRegistry.releaseOwner());
+	let registryLease = $state.raw(acquireSimpleChatSessionRegistry(client));
+	const unregisterSessionHolder = registerPersistedChatHolder({
+		forgetPersistedState() {
+			const previousLease = registryLease;
+			registryLease = acquireSimpleChatSessionRegistry(client);
+			previousLease.registry.releaseOwner(previousLease.owner);
+		}
+	});
+
+	onDestroy(() => {
+		unregisterSessionHolder();
+		registryLease.registry.releaseOwner(registryLease.owner);
+	});
 </script>
 
-{#each sessionRegistry.retainedSessions as session (session.threadId)}
+{#each registryLease.registry.retainedSessionsFor(registryLease.owner) as session (session.threadId)}
 	<SimpleChatSessionObserver {session} />
 {/each}
 
-{#key threadId}
-	<SimpleChatThread {threadId} {title} {greeting} registry={sessionRegistry} />
+{#key registryLease.owner}
+	{#key threadId}
+		<SimpleChatThread {threadId} {title} {greeting} registry={registryLease.registry} />
+	{/key}
 {/key}

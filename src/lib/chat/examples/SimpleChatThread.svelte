@@ -40,7 +40,7 @@
 	});
 
 	async function handleSend(prompt: string) {
-		await session.send(client, prompt);
+		await session.send(client, prompt, uiContext);
 	}
 
 	// Intentionally English-only: this is a copy-and-customize example, not shipped UI.

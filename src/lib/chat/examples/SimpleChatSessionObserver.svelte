@@ -6,5 +6,10 @@
 </script>
 
 <ChatRoot threadId={session.threadId} api={session.api} externalCore={session.core}>
-	<span hidden aria-hidden="true"></span>
+	<span
+		hidden
+		aria-hidden="true"
+		data-testid="simple-chat-session-observer"
+		data-thread-id={session.threadId}
+	></span>
 </ChatRoot>
