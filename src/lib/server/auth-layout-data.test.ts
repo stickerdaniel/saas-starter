@@ -1,5 +1,5 @@
 import type { ServerLoadEvent } from '@sveltejs/kit';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { createAutumnHandlers, getCustomer, query } = vi.hoisted(() => ({
 	createAutumnHandlers: vi.fn(),
@@ -53,6 +53,10 @@ beforeEach(() => {
 				}
 			: null
 	);
+});
+
+afterEach(() => {
+	vi.unstubAllEnvs();
 });
 
 describe('resolveAuthLayoutData per-request memo', () => {
@@ -111,6 +115,26 @@ describe('capability-aware SSR', () => {
 			viewer: { _id: 'user_1' },
 			autumnState: { customer: null },
 			capabilities: { billing: { usable: false }, ai: { usable: true } }
+		});
+		expect(createAutumnHandlers).not.toHaveBeenCalled();
+		expect(getCustomer).not.toHaveBeenCalled();
+	});
+
+	it('uses local E2E entitlements without invoking Autumn', async () => {
+		vi.stubEnv('LOCAL_E2E_RUNTIME', '1');
+		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'local-test-secret');
+		query.mockResolvedValue({ _id: 'user_1' });
+
+		await expect(
+			resolveAuthLayoutData(fakeEvent({ token: 'signed-token' } as App.Locals))
+		).resolves.toMatchObject({
+			capabilities: { billing: { usable: true }, ai: { usable: true } },
+			autumnState: {
+				customer: {
+					id: 'local-e2e-customer',
+					features: { ai_chat_messages: { balance: 3, included_usage: 3 } }
+				}
+			}
 		});
 		expect(createAutumnHandlers).not.toHaveBeenCalled();
 		expect(getCustomer).not.toHaveBeenCalled();

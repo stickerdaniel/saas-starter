@@ -88,8 +88,10 @@ test.describe('Forgot Password', () => {
 			timeout: 30000
 		});
 
-		// Submit with valid email (doesn't need to exist for this test)
-		await page.getByTestId('forgot-password-email-input').fill('test@example.com');
+		// Submit with a valid E2E address that does not need to exist for this test.
+		await page
+			.getByTestId('forgot-password-email-input')
+			.fill(`forgot-unknown-${Date.now()}@e2e.example.com`);
 		await page.getByTestId('forgot-password-submit-button').click();
 
 		// Should show success message (API returns success even for non-existent emails — security best practice)

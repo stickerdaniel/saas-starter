@@ -145,6 +145,49 @@ describe('authentication email capability failures', () => {
 		expect(enqueue).not.toHaveBeenCalled();
 	});
 
+	it('lets the test profile create E2E users without enabling or calling email delivery', async () => {
+		vi.stubEnv('SITE_URL', 'https://example.test');
+		vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret-that-is-long-enough-for-signing');
+		vi.stubEnv('CAPABILITY_PROFILE', 'test');
+
+		const [{ createAuthOptions }, sendModule, resendModule] = await Promise.all([
+			import('../auth'),
+			import('../emails/send'),
+			import('../emails/resend')
+		]);
+		const sendVerificationEmail = sendModule.sendVerificationEmail as unknown as RegisteredMutation;
+		const enqueue = vi.spyOn(resendModule.resend, 'sendEmail');
+		const mutationCtx = { runQuery: vi.fn() };
+		const runMutation = vi.fn((_reference: unknown, args: Record<string, unknown>) =>
+			sendVerificationEmail._handler(mutationCtx, args)
+		);
+		const options = createAuthOptions({ runMutation } as never);
+		const database = { user: [], session: [], account: [], verification: [] };
+		const auth = betterAuth({
+			baseURL: 'https://example.test',
+			secret: 'test-secret-that-is-long-enough-for-signing',
+			database: memoryAdapter(database),
+			emailAndPassword: options.emailAndPassword,
+			emailVerification: options.emailVerification,
+			hooks: options.hooks
+		});
+
+		await expect(
+			auth.api.signUpEmail({
+				body: { ...credentials, email: 'local-user@e2e.example.com' }
+			})
+		).resolves.toBeDefined();
+		expect(database.user).toHaveLength(1);
+		expect(runMutation).toHaveBeenCalledOnce();
+		expect(enqueue).not.toHaveBeenCalled();
+		expect(mutationCtx.runQuery).not.toHaveBeenCalled();
+
+		await expect(
+			auth.api.signUpEmail({ body: { ...credentials, email: 'real-user@example.com' } })
+		).rejects.toBeInstanceOf(Error);
+		expect(database.user).toHaveLength(1);
+	});
+
 	it('rejects malformed email routes before Better Auth writes state', async () => {
 		vi.stubEnv('SITE_URL', 'https://example.test');
 		vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret-that-is-long-enough-for-signing');

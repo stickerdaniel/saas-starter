@@ -151,6 +151,21 @@ function loggedSecrets(file: string, banned: string[]): string[] {
 		.map((call) => call.getText().replace(/\s+/g, ' ').slice(0, 120));
 }
 
+describe('local Convex backend telemetry isolation', () => {
+	it('sets the beacon switch only when the dev server starts, after Varlock config capture', () => {
+		const source = fs.readFileSync(path.resolve('vite.config.ts'), 'utf8');
+		const plugin = source.indexOf("name: 'disable-local-convex-beacon'");
+		const configureServer = source.indexOf('configureServer()', plugin);
+		const assignment = source.indexOf("process.env.DISABLE_BEACON = '1'", configureServer);
+		const backend = source.indexOf('convexLocal({', assignment);
+
+		expect(plugin).toBeGreaterThanOrEqual(0);
+		expect(configureServer).toBeGreaterThan(plugin);
+		expect(assignment).toBeGreaterThan(configureServer);
+		expect(backend).toBeGreaterThan(assignment);
+	});
+});
+
 describe('convex-vite-plugin secret logging', () => {
 	it('resolves to the bundled entry the plugin actually runs', () => {
 		expect(entry).toMatch(/[\\/]dist[\\/]index\.mjs$/);

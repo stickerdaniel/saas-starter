@@ -5,7 +5,6 @@
 	import { mode } from 'mode-watcher';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { getTranslate } from '@tolgee/svelte';
-	import { resolve } from '$app/paths';
 	import { tryGetChatUIContext } from './chat-context.svelte.ts';
 	import { getPreviewKind, buildCodeMarkdown, capPreviewText } from '../core/attachmentPreview.js';
 
@@ -141,7 +140,7 @@
 				{/snippet}
 				{#snippet link({ token, children })}
 					{#if isSafeHttpUrl(token.href)}
-						<a href={resolve(token.href)} target="_blank" rel="noopener noreferrer nofollow">
+						<a href={token.href} target="_blank" rel="noopener noreferrer nofollow">
 							{@render children()}
 						</a>
 					{:else}

@@ -26,6 +26,22 @@ type JwtViewer = {
 
 type LayoutViewer = FunctionReturnType<typeof api.users.viewer> | JwtViewer;
 
+const E2E_CAPABILITIES: PublicCapabilityUsability = {
+	billing: { usable: true },
+	ai: { usable: true }
+};
+const E2E_CUSTOMER = {
+	id: 'local-e2e-customer',
+	products: [],
+	features: {
+		ai_chat_messages: { balance: 3, included_usage: 3, usage: 0 }
+	}
+};
+
+function isLocalE2E(): boolean {
+	return process.env.LOCAL_E2E_RUNTIME === '1' && !!process.env.AUTH_E2E_TEST_SECRET;
+}
+
 function getViewerFromJwt(token: string | undefined): JwtViewer | null {
 	const decoded = decodeJwtPayload(token);
 	if (!decoded) return null;
@@ -161,9 +177,11 @@ async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
 
 		// Viewer loading is already in flight while capability state resolves. Autumn
 		// is constructed and called only after billing is confirmed usable.
-		capabilities = await capabilityPromise;
-		const customerPromise =
-			isAuthenticated && capabilities.billing.usable
+		const localE2E = isLocalE2E();
+		capabilities = localE2E ? E2E_CAPABILITIES : await capabilityPromise;
+		const customerPromise = localE2E
+			? Promise.resolve(E2E_CUSTOMER)
+			: isAuthenticated && capabilities.billing.usable
 				? createAutumnHandlers({
 						convexApi: toAutumnClientApi(api.autumn),
 						createClient: () => client

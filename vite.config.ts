@@ -229,6 +229,14 @@ export default defineConfig(async ({ mode }) => {
 		process.env.ISOLATE_MAX_HEAP_EXTRA_SIZE ??= '134217728';
 
 		plugins.push(
+			{
+				name: 'disable-local-convex-beacon',
+				configureServer() {
+					// Keep backend/test-only runtime switches out of Varlock's frontend manifest.
+					process.env.DISABLE_BEACON = '1';
+					if (isTestMode) process.env.LOCAL_E2E_RUNTIME = '1';
+				}
+			},
 			convexLocal({
 				convexDir: 'src/lib/convex',
 				port: backendPort,
@@ -266,7 +274,13 @@ export default defineConfig(async ({ mode }) => {
 						...managedProviderUpdates,
 						// AUTH_E2E_TEST_SECRET authorizes test helpers only; it never enables providers.
 						...(isTestMode && process.env.AUTH_E2E_TEST_SECRET
-							? { AUTH_E2E_TEST_SECRET: process.env.AUTH_E2E_TEST_SECRET }
+							? {
+									AUTH_E2E_TEST_SECRET: process.env.AUTH_E2E_TEST_SECRET,
+									// The browser suite exercises AI-owned surfaces but never sends a
+									// model request. A non-provider key keeps capability UI reachable
+									// without placing a usable credential in the test environment.
+									OPENROUTER_API_KEY: 'e2e-no-provider-openrouter-key'
+								}
 							: {}),
 						// Launcher ownership is last so .env.convex.local cannot override the profile.
 						CAPABILITY_PROFILE: isTestMode ? 'test' : 'local'

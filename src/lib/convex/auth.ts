@@ -13,7 +13,7 @@ import { createAuthMiddleware } from 'better-auth/api';
 import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
 import { requireEmailConfiguration, requireEnv, googleOAuth, githubOAuth } from './env';
-import { getFounderWelcomeDelay } from './emails/helpers';
+import { getFounderWelcomeDelay, isTestEmail } from './emails/helpers';
 import { incrementCounter } from './admin/counters';
 import { DISABLED_ADMIN_PATHS } from './admin/adminHttpPaths';
 import {
@@ -370,6 +370,14 @@ const EMAIL_CAPABILITY_PREFLIGHT_PATHS = new Set([
 	'/send-verification-email'
 ]);
 
+function isTestEmailRequest(body: unknown): boolean {
+	if (process.env.CAPABILITY_PROFILE !== 'test' || typeof body !== 'object' || body === null) {
+		return false;
+	}
+	const email = 'email' in body ? body.email : undefined;
+	return typeof email === 'string' && isTestEmail(email);
+}
+
 // Creates Better Auth options object (used by adapter and betterAuth CLI).
 // Typed via `satisfies` (not a return annotation) so the concrete plugin
 // types survive into createAuth — admin/mutations.ts calls plugin endpoints
@@ -463,7 +471,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			// user or verification state. Reject email-producing routes before their
 			// handlers can write when the complete delivery group is unavailable.
 			before: createAuthMiddleware(async (ctx) => {
-				if (!EMAIL_CAPABILITY_PREFLIGHT_PATHS.has(ctx.path)) return;
+				if (!EMAIL_CAPABILITY_PREFLIGHT_PATHS.has(ctx.path) || isTestEmailRequest(ctx.body)) return;
 				requireEmailConfiguration();
 			}),
 			// The key set is identical for every caller, so consumers may use their own
