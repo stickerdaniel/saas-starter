@@ -191,22 +191,28 @@ describe('deployment capability profile ownership', () => {
 		run.mockRestore();
 	});
 
-	it('sets the preview deployment and default before validation and seeding', async () => {
-		const run = vi.spyOn(deployUtils, 'runCommand').mockReturnValue(true);
-		const retry = vi.spyOn(deployUtils, 'runCommandWithRetry').mockResolvedValue({
-			success: true,
-			stdout: '',
-			stderr: ''
+	it('keeps Preview Deploy Key setup deployment-scoped before validation and seeding', async () => {
+		const calls: Array<[string, string[]]> = [];
+		const run = vi.spyOn(deployUtils, 'runCommand').mockImplementation((command, args) => {
+			calls.push([command, args]);
+			return true;
 		});
-		vi.spyOn(deployUtils, 'runCommandCapture').mockImplementation((_command, args) =>
-			args.includes('list')
+		const retry = vi
+			.spyOn(deployUtils, 'runCommandWithRetry')
+			.mockImplementation(async (command, args) => {
+				calls.push([command, args]);
+				return { success: true, stdout: '', stderr: '' };
+			});
+		vi.spyOn(deployUtils, 'runCommandCapture').mockImplementation((command, args) => {
+			calls.push([command, args]);
+			return args.includes('list')
 				? {
 						success: true,
 						stdout: 'CAPABILITY_PROFILE=preview\nSITE_URL=https://preview.example.com',
 						stderr: ''
 					}
-				: { success: true, stdout: '', stderr: '' }
-		);
+				: { success: true, stdout: '', stderr: '' };
+		});
 		const platform = makePlatform({
 			environment: 'preview',
 			isPreview: true,
@@ -215,33 +221,47 @@ describe('deployment capability profile ownership', () => {
 
 		await setupPreviewEnv(deployment, platform);
 
-		expect(retry.mock.calls.map(([, args]) => args)).toEqual([
+		// Preview Deploy Keys cannot authorize project-level `env default` writes.
+		expect(calls).toEqual([
 			[
-				'convex',
-				'env',
-				'set',
-				'--deployment-name',
-				deployment.name,
-				'CAPABILITY_PROFILE',
-				'preview'
+				'bunx',
+				[
+					'convex',
+					'env',
+					'set',
+					'--deployment-name',
+					deployment.name,
+					'CAPABILITY_PROFILE',
+					'preview'
+				]
 			],
-			['convex', 'env', 'default', 'set', '--type', 'preview', 'CAPABILITY_PROFILE', 'preview'],
 			[
-				'convex',
-				'env',
-				'set',
-				'--deployment-name',
-				deployment.name,
-				'SITE_URL',
-				'https://preview.example.com'
+				'bunx',
+				[
+					'convex',
+					'env',
+					'set',
+					'--deployment-name',
+					deployment.name,
+					'SITE_URL',
+					'https://preview.example.com'
+				]
+			],
+			['bunx', ['convex', 'env', 'list', '--deployment-name', deployment.name]],
+			[
+				'bun',
+				[
+					'scripts/validate-convex-env.ts',
+					'--deployment-name',
+					deployment.name,
+					'--expected-profile',
+					'preview'
+				]
+			],
+			[
+				'bunx',
+				['convex', 'run', '--deployment-name', deployment.name, 'previewDev:ensurePreviewAdmin']
 			]
-		]);
-		expect(run).toHaveBeenCalledWith('bun', [
-			'scripts/validate-convex-env.ts',
-			'--deployment-name',
-			deployment.name,
-			'--expected-profile',
-			'preview'
 		]);
 		retry.mockRestore();
 		run.mockRestore();

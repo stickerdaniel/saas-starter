@@ -386,6 +386,8 @@ export async function setupPreviewEnv(
 
 	const previewSiteUrl = platform.siteUrl;
 
+	// A new preview can deploy once through the strict absence fallback. Preview
+	// Deploy Keys may then configure that deployment, but cannot write project defaults.
 	console.log('Setting Convex capability profile to preview...');
 	const profileResult = await runCommandWithRetry(
 		'bunx',
@@ -394,20 +396,6 @@ export async function setupPreviewEnv(
 	);
 	if (!profileResult.success) {
 		console.error(`${colors.red}Failed to set the preview capability profile${colors.reset}`);
-		process.exit(1);
-	}
-
-	// The first preview can deploy through the strict absence fallback. Persisting
-	// the default here makes every later preview declare ownership before push.
-	const defaultProfileResult = await runCommandWithRetry(
-		'bunx',
-		['convex', 'env', 'default', 'set', '--type', 'preview', 'CAPABILITY_PROFILE', 'preview'],
-		{ maxRetries: 5, delayMs: 5000, description: 'convex preview default CAPABILITY_PROFILE' }
-	);
-	if (!defaultProfileResult.success) {
-		console.error(
-			`${colors.red}Failed to set the preview capability profile default${colors.reset}`
-		);
 		process.exit(1);
 	}
 
