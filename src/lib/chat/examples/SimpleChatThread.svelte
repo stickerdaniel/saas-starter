@@ -2,15 +2,8 @@
 	import { onDestroy } from 'svelte';
 	import { useConvexClient } from 'convex-svelte';
 	import { watch } from 'runed';
-	import { api } from '$lib/convex/_generated/api';
-	import {
-		ChatCore,
-		ChatRoot,
-		ChatMessages,
-		ChatInput,
-		ChatUIContext,
-		type ChatDraftManager
-	} from '$lib/chat';
+	import { ChatRoot, ChatMessages, ChatInput, ChatUIContext } from '$lib/chat';
+	import type { SimpleChatSessionRegistry } from './simple-chat-session.svelte.ts';
 	import { Avatar, AvatarImage } from '$lib/components/ui/avatar';
 	import memberFour from '$blocks/team/avatars/member-four.webp';
 	import memberTwo from '$blocks/team/avatars/member-two.webp';
@@ -20,53 +13,34 @@
 		threadId,
 		title,
 		greeting,
-		draftManager
+		registry
 	}: {
 		threadId: string;
 		title: string;
 		greeting: string;
-		draftManager: ChatDraftManager;
+		registry: SimpleChatSessionRegistry;
 	} = $props();
 
 	const client = useConvexClient();
-	const chatApi = {
-		sendMessage: api.aiChat.messages.sendMessage,
-		listMessages: api.aiChat.messages.listMessages
-	};
-	// The parent keys this child by threadId, so the core and context belong to one thread lifetime.
+	// The parent keys this child by threadId, so this mount acquires exactly one thread session.
 	// svelte-ignore state_referenced_locally
-	const core = new ChatCore({ threadId, api: chatApi });
-	const uiContext = new ChatUIContext(core, client);
-	// Restore this thread before ChatInput mounts and reads the context.
-	// svelte-ignore state_referenced_locally
-	uiContext.setInputValue(draftManager.getDraft(threadId));
-	let sending = $state(false);
+	const session = registry.acquire(threadId);
+	const uiContext = new ChatUIContext(session.core, client);
+	session.attach(uiContext);
 
 	watch(
-		() => [uiContext.inputValue, sending] as const,
-		([value, isSending]) => {
-			// ChatInput clears before calling onSend. Keep the origin draft while its send is pending.
-			if (isSending && value === '') return;
-			draftManager.setDraft(threadId, value);
-		}
+		() => uiContext.inputValue,
+		(value) => session.recordInput(uiContext, value),
+		{ lazy: true }
 	);
 
 	onDestroy(() => {
-		if (!sending || uiContext.inputValue !== '') {
-			draftManager.setDraft(threadId, uiContext.inputValue);
-		}
+		session.detach(uiContext);
 		uiContext.dispose();
 	});
 
 	async function handleSend(prompt: string) {
-		const checkpoint = draftManager.captureCheckpoint(threadId);
-		sending = true;
-		try {
-			await core.sendMessage(client, prompt);
-			draftManager.clearDraftIfUnchanged(checkpoint);
-		} finally {
-			sending = false;
-		}
+		await session.send(client, prompt);
 	}
 
 	// Intentionally English-only: this is a copy-and-customize example, not shipped UI.
@@ -84,7 +58,7 @@
 	</div>
 
 	<!-- Chat area -->
-	<ChatRoot {threadId} api={chatApi} externalCore={core} externalUIContext={uiContext}>
+	<ChatRoot {threadId} api={session.api} externalCore={session.core} externalUIContext={uiContext}>
 		<div class="relative flex-1 overflow-hidden">
 			<ChatMessages>
 				{#snippet emptyState()}
