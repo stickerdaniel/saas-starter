@@ -23,6 +23,14 @@ export interface ValidatedArchive {
 	sha256: string;
 }
 
+export interface ArchiveValidationMetrics {
+	treeParentLookups: number;
+	aliasIndexComparisons: number;
+	aliasDescendantVisits: number;
+	aliasEntriesMaterialized: number;
+	aliasBytesMaterialized: number;
+}
+
 interface ParsedEntry {
 	path: string;
 	type: 'file' | 'directory' | 'symlink';
@@ -154,37 +162,81 @@ async function parseTar(raw: Buffer): Promise<ParsedEntry[]> {
 	});
 }
 
-function validateTree(entries: ParsedEntry[]): Map<string, ParsedEntry> {
+function validateTree(
+	entries: ParsedEntry[],
+	metrics?: ArchiveValidationMetrics
+): Map<string, ParsedEntry> {
 	const tree = new Map<string, ParsedEntry>();
 	for (const entry of entries) {
 		validatePortablePath(entry.path);
 		if (isRejectedTemplatePath(entry.path)) fail(`forbidden template path ${entry.path}`);
 		const key = portableKey(entry.path);
 		if (tree.has(key)) fail(`duplicate or portable path collision at ${entry.path}`);
+		tree.set(key, entry);
+	}
+	for (const [key, entry] of tree) {
 		const segments = key.split('/');
-		for (let index = 1; index < segments.length; index++) {
-			const parent = tree.get(segments.slice(0, index).join('/'));
+		let parentKey = '';
+		for (let index = 0; index < segments.length - 1; index++) {
+			parentKey = parentKey === '' ? segments[index]! : `${parentKey}/${segments[index]}`;
+			if (metrics) metrics.treeParentLookups += 1;
+			const parent = tree.get(parentKey);
 			if (parent && parent.type !== 'directory') fail(`file/parent conflict at ${entry.path}`);
 		}
-		if (entry.type !== 'directory') {
-			for (const existing of tree.keys()) {
-				if (existing.startsWith(`${key}/`)) fail(`file/child conflict at ${entry.path}`);
-			}
-		}
-		tree.set(key, entry);
 	}
 	return tree;
 }
 
-function materializeAliases(entries: ParsedEntry[]): ParsedEntry[] {
-	const tree = validateTree(entries);
+function lowerBoundEntries(
+	entries: Array<[string, ParsedEntry]>,
+	key: string,
+	metrics?: ArchiveValidationMetrics
+): number {
+	let low = 0;
+	let high = entries.length;
+	while (low < high) {
+		const middle = low + Math.floor((high - low) / 2);
+		if (metrics) metrics.aliasIndexComparisons += 1;
+		if (entries[middle]![0] < key) low = middle + 1;
+		else high = middle;
+	}
+	return low;
+}
+
+function materializeAliases(
+	entries: ParsedEntry[],
+	metrics?: ArchiveValidationMetrics
+): ParsedEntry[] {
+	const tree = validateTree(entries, metrics);
+	const indexedEntries = [...tree.entries()].sort(([left], [right]) =>
+		left < right ? -1 : left > right ? 1 : 0
+	);
 	const result = entries.filter((entry) => entry.type !== 'symlink');
-	const add = (entry: ParsedEntry) => {
-		const key = portableKey(entry.path);
-		if (tree.has(key) && tree.get(key)?.type !== 'symlink')
-			fail(`alias collision at ${entry.path}`);
+	let bytes = result.reduce((total, entry) => total + (entry.data?.length ?? 0), 0);
+	const add = (sourceItem: ParsedEntry, destination: string) => {
+		const dataBytes = sourceItem.data?.length ?? 0;
+		if (result.length === MAX_ARCHIVE_ENTRIES) {
+			fail('alias materialization exceeds the entry limit');
+		}
+		if (bytes + dataBytes > MAX_DECOMPRESSED_BYTES) {
+			fail('alias materialization exceeds the size limit');
+		}
+		const key = portableKey(destination);
+		if (tree.has(key) && tree.get(key)?.type !== 'symlink') {
+			fail(`alias collision at ${destination}`);
+		}
+		const entry = {
+			...sourceItem,
+			path: destination,
+			data: sourceItem.data ? Buffer.from(sourceItem.data) : undefined
+		};
 		tree.set(key, entry);
 		result.push(entry);
+		bytes += dataBytes;
+		if (metrics) {
+			metrics.aliasEntriesMaterialized += 1;
+			metrics.aliasBytesMaterialized += dataBytes;
+		}
 	};
 
 	for (const alias of entries.filter((entry) => entry.type === 'symlink')) {
@@ -200,12 +252,19 @@ function materializeAliases(entries: ParsedEntry[]): ParsedEntry[] {
 		}
 		const sourceKey = portableKey(source);
 		const sourceEntry = tree.get(sourceKey);
-		if (!sourceEntry || sourceEntry.type === 'symlink')
+		if (!sourceEntry || sourceEntry.type === 'symlink') {
 			fail(`symbolic link target is missing: ${alias.path}`);
-		const descendants = entries.filter((entry) => {
-			const key = portableKey(entry.path);
-			return key === sourceKey || key.startsWith(`${sourceKey}/`);
-		});
+		}
+		const descendants = [sourceEntry];
+		const descendantPrefix = `${sourceKey}/`;
+		for (
+			let index = lowerBoundEntries(indexedEntries, descendantPrefix, metrics);
+			index < indexedEntries.length && indexedEntries[index]![0].startsWith(descendantPrefix);
+			index++
+		) {
+			if (metrics) metrics.aliasDescendantVisits += 1;
+			descendants.push(indexedEntries[index]![1]);
+		}
 		if (descendants.some((entry) => entry.type === 'symlink')) {
 			fail(`symbolic link target contains another link: ${alias.path}`);
 		}
@@ -213,18 +272,11 @@ function materializeAliases(entries: ParsedEntry[]): ParsedEntry[] {
 			const suffix = sourceItem.path.slice(source.length);
 			const destination = `${alias.path}${suffix}`;
 			validatePortablePath(destination);
-			add({
-				...sourceItem,
-				path: destination,
-				data: sourceItem.data ? Buffer.from(sourceItem.data) : undefined
-			});
+			add(sourceItem, destination);
 		}
 	}
 
-	if (result.length > MAX_ARCHIVE_ENTRIES) fail('alias materialization exceeds the entry limit');
-	const bytes = result.reduce((total, entry) => total + (entry.data?.length ?? 0), 0);
-	if (bytes > MAX_DECOMPRESSED_BYTES) fail('alias materialization exceeds the size limit');
-	validateTree(result);
+	validateTree(result, metrics);
 	return result;
 }
 
@@ -284,7 +336,10 @@ function validateTemplateContract(entries: ParsedEntry[]): void {
 	}
 }
 
-export async function validateTemplateArchive(compressed: Buffer): Promise<ValidatedArchive> {
+export async function validateTemplateArchive(
+	compressed: Buffer,
+	metrics?: ArchiveValidationMetrics
+): Promise<ValidatedArchive> {
 	if (compressed.length === 0 || compressed.length > MAX_ARCHIVE_BYTES) {
 		fail(`compressed archive must be at most ${MAX_ARCHIVE_BYTES} bytes`);
 	}
@@ -300,8 +355,7 @@ export async function validateTemplateArchive(compressed: Buffer): Promise<Valid
 	if (raw.length > MAX_DECOMPRESSED_BYTES) fail('decompressed archive exceeds the size limit');
 	const parsed = await parseTar(raw);
 	const rooted = stripArchiveRoot(parsed);
-	validateTree(rooted);
-	const materialized = materializeAliases(rooted);
+	const materialized = materializeAliases(rooted, metrics);
 	validateTemplateContract(materialized);
 	return {
 		files: materialized.map((entry) => ({
@@ -318,7 +372,12 @@ export function archivePathForTarget(target: string, relativePath: string): stri
 	const segments = validatePortablePath(relativePath);
 	const destination = path.join(target, ...segments);
 	const fromTarget = path.relative(target, destination);
-	if (fromTarget.startsWith('..') || path.isAbsolute(fromTarget))
+	if (
+		fromTarget === '..' ||
+		fromTarget.startsWith(`..${path.sep}`) ||
+		path.isAbsolute(fromTarget)
+	) {
 		fail(`target escape at ${relativePath}`);
+	}
 	return destination;
 }
