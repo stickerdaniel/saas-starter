@@ -6,7 +6,7 @@ import { varlockLoadedEnv, varlockVitePlugin } from '@varlock/vite-integration';
 import { convexLocal } from 'convex-vite-plugin';
 import { DEV_FEATURES, type DevFeature } from './src/lib/dev/features';
 import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
-import { TEST_ONLY_ENV_PLACEHOLDERS, logSafeOrigin } from './scripts/local-convex-env';
+import { getManagedProviderUpdates, logSafeOrigin } from './scripts/local-convex-env';
 import { stripSensitiveManifestValues } from './scripts/strip-varlock-secrets';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import devtoolsJson from 'vite-plugin-devtools-json';
@@ -195,9 +195,12 @@ export default defineConfig(async ({ mode }) => {
 		// Better Auth's trusted origin to the wrong origin and silently break
 		// sign-in. The envVars callback below derives it and warns when a stripped
 		// value differed.
-		const { SITE_URL: ignoredLocalSiteUrl, ...convexLocalEnv } = parseEnvFile(
-			path.join(cwd, '.env.convex.local')
-		);
+		const {
+			SITE_URL: ignoredLocalSiteUrl,
+			CAPABILITY_PROFILE: _ignoredLocalCapabilityProfile,
+			...convexLocalEnv
+		} = parseEnvFile(path.join(cwd, '.env.convex.local'));
+		const managedProviderUpdates = getManagedProviderUpdates(convexLocalEnv);
 		// The Convex backend env values used to be merged into varlock's redaction
 		// map here so that convex-vite-plugin's startup logging was masked. That
 		// never worked: `resetRedactionMap` replaces the whole map rather than
@@ -258,18 +261,15 @@ export default defineConfig(async ({ mode }) => {
 						LOCAL_SEEDED_ADMIN_EMAIL: 'admin@local.dev',
 						LOCAL_SEEDED_ADMIN_PASSWORD: 'LocalDevAdmin123!',
 						LOCAL_SEEDED_ADMIN_NAME: 'Local Admin',
-						// Test mode: inert placeholders for the deploy-required secrets the
-						// e2e suite never exercises, so a fresh test backend passes Convex's
-						// push-time env validation with no real secret. See local-convex-env.ts;
-						// real values in .env.convex.local override them (spread below).
-						...(isTestMode ? TEST_ONLY_ENV_PLACEHOLDERS : {}),
-						// User overrides from .env.convex.local (takes precedence)
+						// User values persist unless one of the five managed provider keys was removed.
 						...convexLocalEnv,
-						// Test mode: forward AUTH_E2E_TEST_SECRET so api.tests.* mutations
-						// authorize correctly. Source: process.env loaded from .env.test by varlock.
+						...managedProviderUpdates,
+						// AUTH_E2E_TEST_SECRET authorizes test helpers only; it never enables providers.
 						...(isTestMode && process.env.AUTH_E2E_TEST_SECRET
 							? { AUTH_E2E_TEST_SECRET: process.env.AUTH_E2E_TEST_SECRET }
-							: {})
+							: {}),
+						// Launcher ownership is last so .env.convex.local cannot override the profile.
+						CAPABILITY_PROFILE: isTestMode ? 'test' : 'local'
 					};
 				}
 			})

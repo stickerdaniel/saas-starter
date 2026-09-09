@@ -12,6 +12,7 @@
  *   bun scripts/validate-convex-env.ts --prod                       # production deployment
  *   bun scripts/validate-convex-env.ts --deployment-name <name>     # specific deployment by name
  *   bun scripts/validate-convex-env.ts --preview-name <branch>      # preview deployment (legacy)
+ *   bun scripts/validate-convex-env.ts --expected-profile preview   # require selected profile
  *
  * For preview deployments, prefer --deployment-name with the actual deployment name
  * instead of --preview-name, as --preview-name uses a separate namespace.
@@ -20,6 +21,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import { validateCapabilityEnvironment, type CapabilityProfile } from '../src/lib/dev/features';
 import { runCommandCapture } from './deploy/utils';
 
 /**
@@ -75,6 +77,17 @@ const deploymentNameIndex = process.argv.indexOf('--deployment-name');
 const deploymentName = deploymentNameIndex !== -1 ? process.argv[deploymentNameIndex + 1] : null;
 const previewNameIndex = process.argv.indexOf('--preview-name');
 const previewName = previewNameIndex !== -1 ? process.argv[previewNameIndex + 1] : null;
+const expectedProfileIndex = process.argv.indexOf('--expected-profile');
+const expectedProfile =
+	expectedProfileIndex !== -1
+		? (process.argv[expectedProfileIndex + 1] as CapabilityProfile | undefined)
+		: undefined;
+if (
+	expectedProfileIndex !== -1 &&
+	(!expectedProfile || !['local', 'test', 'preview', 'production'].includes(expectedProfile))
+) {
+	throw new Error('--expected-profile requires local, test, preview, or production');
+}
 
 // Priority: --deployment-name > --prod > --preview-name > default (local dev)
 const deploymentArgs = deploymentName
@@ -114,15 +127,17 @@ if (!result.success) {
 	process.exit(1);
 }
 
-// Parse "NAME=value" lines
-const existingVars = new Set(
-	result.stdout
-		.split('\n')
-		.map((line) => line.match(/^(\w+)=/)?.[1])
-		.filter(Boolean)
-);
+// Parse "NAME=value" lines without logging values.
+const environment: Record<string, string> = {};
+for (const line of result.stdout.split('\n')) {
+	const separator = line.indexOf('=');
+	if (separator <= 0) continue;
+	const name = line.slice(0, separator);
+	if (!/^\w+$/.test(name)) continue;
+	environment[name] = line.slice(separator + 1);
+}
 
-const missingVars = REQUIRED_VAR_NAMES.filter((name) => !existingVars.has(name));
+const missingVars = REQUIRED_VAR_NAMES.filter((name) => !(name in environment));
 
 if (missingVars.length > 0) {
 	console.error('');
@@ -146,4 +161,20 @@ if (missingVars.length > 0) {
 	process.exit(1);
 }
 
-console.log('✅ All required Convex environment variables are set');
+if (expectedProfile && environment.CAPABILITY_PROFILE !== expectedProfile) {
+	console.error(
+		`Convex capability profile does not match the intended ${expectedProfile} profile.`
+	);
+	process.exit(1);
+}
+
+try {
+	validateCapabilityEnvironment(environment);
+} catch {
+	console.error(
+		'Convex provider configuration is incomplete or invalid for its capability profile.'
+	);
+	process.exit(1);
+}
+
+console.log('✅ Convex environment and capability profile are valid');

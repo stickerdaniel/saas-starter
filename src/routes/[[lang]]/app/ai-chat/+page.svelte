@@ -26,10 +26,13 @@
 	// Pro check
 	const autumn = useCustomer();
 	const billingCheckout = useBillingCheckout();
+	const billingUsable = $derived(data.capabilities?.billing.usable === true);
+	const aiUsable = $derived(data.capabilities?.ai.usable === true);
+	const aiChatUsable = $derived(billingUsable && aiUsable);
 	const isPro = $derived(autumn.customer?.products?.some((p) => p.id === 'pro') ?? false);
 	const aiChatFeature = $derived(autumn.customer?.features?.ai_chat_messages);
 	const remainingMessages = $derived(aiChatFeature?.balance ?? 0);
-	const hasMessagesAvailable = $derived(remainingMessages > 0);
+	const hasMessagesAvailable = $derived(aiChatUsable && remainingMessages > 0);
 	const totalMessages = $derived(
 		aiChatFeature?.included_usage === 'inf'
 			? Infinity
@@ -55,7 +58,7 @@
 	let resolveGeneration = 0;
 
 	$effect(() => {
-		if (!threadId && !resolvingThread && !resolveThreadBlocked && viewer.data) {
+		if (!threadId && !resolvingThread && !resolveThreadBlocked && viewer.data && aiChatUsable) {
 			resolvingThread = true;
 			const generation = ++resolveGeneration;
 			client
@@ -106,7 +109,13 @@
 
 {#if viewer.data}
 	<div class="flex h-full flex-col">
-		{#if threadId}
+		{#if !aiChatUsable}
+			<div class="flex h-full items-center justify-center px-6 text-center" role="status">
+				<p class="text-sm text-muted-foreground">
+					{$t(aiUsable ? 'capabilities.billing_unavailable' : 'capabilities.ai_unavailable')}
+				</p>
+			</div>
+		{:else if threadId}
 			<ThreadChat
 				{threadId}
 				{isPro}

@@ -25,6 +25,7 @@
 	import { isSupportAiEnabled } from '$lib/config/support';
 
 	const { t } = getTranslate();
+	const aiUsable = $derived(page.data.capabilities?.ai.usable === true);
 
 	// URL state for shareable links
 	const urlState = useSupportUrlState();
@@ -38,7 +39,7 @@
 	let shouldShowAIChatbar = $derived(!isScreenshotMode && !isFeedbackOpen);
 
 	// Initialize thread context
-	const threadContext = new SupportThreadContext();
+	const threadContext = new SupportThreadContext(() => aiUsable);
 	supportThreadContext.set(threadContext);
 
 	// Pre-set skipAnimation if URL already has a thread (before FeedbackWidget mounts)
@@ -257,7 +258,7 @@
      and carries the AI disclosure. With no agent behind it, it would promise
      a conversation partner that does not exist, so the widget is the only way
      in on such a build. -->
-{#if isSupportAiEnabled()}
+{#if isSupportAiEnabled() && aiUsable}
 	<AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
 {/if}
 <FeedbackButton {isFeedbackOpen} onToggle={setWidgetOpen} bind:isScreenshotMode {chatUIContext} />

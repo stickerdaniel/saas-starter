@@ -23,6 +23,7 @@
 
 	const { customer, openBillingPortal } = useCustomer();
 	const billingCheckout = useBillingCheckout();
+	const billingUsable = $derived(billingCheckout.isUsable);
 	const portalOperation = useAutumnOperation(openBillingPortal);
 	const { isAuthenticated } = useAuth();
 
@@ -32,8 +33,10 @@
 	});
 
 	// Check current subscription status
-	const isPro = $derived(customer?.products?.some((p) => p.id === 'pro') ?? false);
-	const isFree = $derived(!isPro);
+	const isPro = $derived(
+		billingUsable && (customer?.products?.some((p) => p.id === 'pro') ?? false)
+	);
+	const isFree = $derived(billingUsable && !isPro);
 
 	// Get translation function
 	const { t } = getTranslate();
@@ -60,6 +63,11 @@
 	const enterpriseFeatureKeys = $derived(getFeatureKeys('pricing.features.enterprise'));
 
 	async function handleCheckout(productId: string) {
+		if (!billingUsable) {
+			haptic.trigger('error');
+			toast.error($t('capabilities.billing_unavailable'));
+			return;
+		}
 		// Check authentication first
 		if (!isAuthenticated) {
 			const redirectUrl = localizedHref('/signin');
@@ -77,6 +85,11 @@
 	}
 
 	async function handleManageBilling() {
+		if (!billingUsable) {
+			haptic.trigger('error');
+			toast.error($t('capabilities.billing_unavailable'));
+			return;
+		}
 		// Return the user to the current page after the portal; without returnUrl
 		// Autumn falls back to its org success_url, which defaults to useautumn.com.
 		await portalOperation.execute({ returnUrl: window.location.href });
@@ -89,7 +102,7 @@
 
 	// Auto-trigger checkout after signin if checkout param is present
 	$effect(() => {
-		if (params.checkout && isAuthenticated) {
+		if (params.checkout && isAuthenticated && billingUsable) {
 			handleCheckout(params.checkout);
 			// Clean up URL param after triggering checkout
 			params.checkout = '';
@@ -181,7 +194,7 @@
 							variant="outline"
 							class="mt-4 w-full"
 							onclick={handleManageBilling}
-							disabled={portalOperation.isLoading}
+							disabled={!billingUsable || portalOperation.isLoading}
 						>
 							{#if portalOperation.isLoading}
 								<T keyName="pricing.buttons.loading" />
@@ -194,7 +207,7 @@
 							data-testid="pricing-checkout-pro"
 							class="mt-4 w-full"
 							onclick={() => handleCheckout('pro')}
-							disabled={billingCheckout.isLoading}
+							disabled={!billingUsable || billingCheckout.isLoading}
 						>
 							{#if billingCheckout.isLoading}
 								<T keyName="pricing.tiers.pro.button_loading" />
@@ -202,6 +215,11 @@
 								<T keyName="pricing.tiers.pro.button" />
 							{/if}
 						</Button>
+					{/if}
+					{#if !billingUsable}
+						<p class="mt-2 text-sm text-muted-foreground" role="status">
+							{$t('capabilities.billing_unavailable')}
+						</p>
 					{/if}
 				</CardHeader>
 

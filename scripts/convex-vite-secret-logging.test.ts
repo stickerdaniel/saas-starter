@@ -157,9 +157,9 @@ describe('convex-vite-plugin secret logging', () => {
 	});
 
 	it('logs env var names without their values', () => {
-		expect(fs.readFileSync(entry, 'utf-8')).toContain(
-			'Set environment variable: ${name} = [REDACTED]'
-		);
+		const source = fs.readFileSync(entry, 'utf-8');
+		expect(source).toContain('Set environment variable: ${name} = [REDACTED]');
+		expect(source).toContain('Removed environment variable: ${name}');
 		// Not just the statement we patched: any logger call that reaches the
 		// loop's `value` binding, in any form, has to fail here.
 		expect(loggedSecrets(entry, ['value'])).toEqual([]);

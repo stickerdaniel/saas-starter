@@ -1,7 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { TEST_ONLY_ENV_PLACEHOLDERS } from './local-convex-env';
 
 /**
  * The Convex `env` block in `src/lib/convex/convex.config.ts` and the varlock
@@ -72,6 +71,30 @@ function parseEnvBlock(): VarMap {
 	return vars;
 }
 
+describe('local capability profile ownership', () => {
+	const viteSource = fs.readFileSync(
+		path.resolve(import.meta.dirname, '..', 'vite.config.ts'),
+		'utf-8'
+	);
+
+	it('strips a local-file profile and writes the launcher profile last', () => {
+		expect(viteSource).toContain('CAPABILITY_PROFILE: _ignoredLocalCapabilityProfile');
+		const localValues = viteSource.indexOf('...convexLocalEnv');
+		const managedUpdates = viteSource.indexOf('...managedProviderUpdates', localValues);
+		const launcherProfile = viteSource.indexOf("CAPABILITY_PROFILE: isTestMode ? 'test' : 'local'");
+		expect(localValues).toBeGreaterThan(-1);
+		expect(managedUpdates).toBeGreaterThan(localValues);
+		expect(launcherProfile).toBeGreaterThan(managedUpdates);
+	});
+
+	it('does not inject provider dummies in test mode', () => {
+		expect(viteSource).not.toContain('TEST_ONLY_ENV_PLACEHOLDERS');
+		expect(viteSource).not.toContain('re_local_e2e_dummy');
+		expect(viteSource).not.toContain('am_sk_local_e2e_dummy');
+		expect(viteSource).not.toContain('sk-or-local-e2e-dummy');
+	});
+});
+
 describe('Convex env declaration parity', () => {
 	const schema = parseSchema();
 	const envBlock = parseEnvBlock();
@@ -106,31 +129,25 @@ describe('Convex env declaration parity', () => {
 		).toEqual([]);
 	});
 
-	// A fresh `bun run dev:test` backend gets its env only from vite.config.ts:
-	// auto-generated dev defaults, the TEST_ONLY_ENV_PLACEHOLDERS, and the
-	// forwarded test secret. Any var convex.config.ts declares required but that
-	// isn't provided here fails Convex's push-time validation, so a fresh worktree
-	// can't boot e2e — and CI wouldn't catch it (it uses real preview-default env).
-	it('every required env-block var is provided to a fresh local test backend', () => {
-		// Always injected by vite.config.ts for a local backend (runtime values).
-		const alwaysProvided = new Set([
-			'BETTER_AUTH_SECRET',
-			'SITE_URL',
-			'LOCAL_CONVEX_DEV',
-			'LOCAL_SEEDED_ADMIN_EMAIL',
-			'LOCAL_SEEDED_ADMIN_PASSWORD',
-			'LOCAL_SEEDED_ADMIN_NAME',
-			'AUTH_E2E_TEST_SECRET'
-		]);
-		const provided = new Set([...alwaysProvided, ...Object.keys(TEST_ONLY_ENV_PLACEHOLDERS)]);
-
-		const requiredButUnprovided = [...envBlock.entries()]
-			.filter(([name, { required }]) => required && !provided.has(name))
-			.map(([name]) => name);
+	it('keeps only bootstrap auth inputs required at the declaration layer', () => {
 		expect(
-			requiredButUnprovided,
-			`convex.config.ts requires these vars but a fresh local test backend isn't given them ` +
-				`(add to TEST_ONLY_ENV_PLACEHOLDERS in scripts/local-convex-env.ts): ${requiredButUnprovided}`
-		).toEqual([]);
+			[...envBlock.entries()]
+				.filter(([, { required }]) => required)
+				.map(([name]) => name)
+				.sort()
+		).toEqual(['BETTER_AUTH_SECRET', 'SITE_URL']);
+	});
+
+	it('declares exactly the managed provider values optional', () => {
+		for (const name of [
+			'RESEND_API_KEY',
+			'AUTH_EMAIL',
+			'EMAIL_ASSET_URL',
+			'AUTUMN_SECRET_KEY',
+			'OPENROUTER_API_KEY'
+		]) {
+			expect(envBlock.get(name)).toEqual({ required: false });
+		}
+		expect(envBlock.get('CAPABILITY_PROFILE')).toEqual({ required: false });
 	});
 });

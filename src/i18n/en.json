@@ -473,6 +473,10 @@
 			}
 		}
 	},
+	"capabilities": {
+		"billing_unavailable": "Billing features are currently unavailable.",
+		"ai_unavailable": "AI features are currently unavailable."
+	},
 	"billing": {
 		"checkout_failed": "Checkout failed. Please try again.",
 		"portal_failed": "Could not open billing portal. Please try again.",

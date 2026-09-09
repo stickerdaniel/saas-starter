@@ -1,9 +1,14 @@
 import type { ServerLoadEvent } from '@sveltejs/kit';
+import type { FunctionReturnType } from 'convex/server';
 import { api } from '$lib/convex/_generated/api';
 import { createAutumnHandlers } from '@stickerdaniel/convex-autumn-svelte/sveltekit/server';
 import { createServerConvexHttpClient } from '$lib/server/convex-http';
 import { decodeJwtPayload } from '$lib/server/jwt';
 import { hasBetterAuthSessionCookie } from '$lib/server/convex-jwt';
+import {
+	UNAVAILABLE_CAPABILITY_USABILITY,
+	type PublicCapabilityUsability
+} from '$lib/dev/features';
 
 type JwtViewer = {
 	_id: string;
@@ -17,6 +22,8 @@ type JwtViewer = {
 	banned?: boolean;
 	locale?: string;
 };
+
+type LayoutViewer = FunctionReturnType<typeof api.users.viewer> | JwtViewer;
 
 function getViewerFromJwt(token: string | undefined): JwtViewer | null {
 	const decoded = decodeJwtPayload(token);
@@ -50,7 +57,8 @@ export function resolvePublicAuthLayoutData(event: ServerLoadEvent) {
 			customer: null,
 			_timeFetched: Date.now()
 		},
-		viewer: getViewerFromJwt(event.locals.token)
+		viewer: getViewerFromJwt(event.locals.token),
+		capabilities: UNAVAILABLE_CAPABILITY_USABILITY
 	};
 }
 
@@ -112,40 +120,44 @@ async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
 	const authState = { isAuthenticated, hasSession: hasBetterAuthSessionCookie(event) };
 	const fallbackViewer = getViewerFromJwt(event.locals.token);
 
-	// Only create Convex/Autumn clients when authenticated (avoids invalid URL during prerendering)
 	let customer = null;
-	let viewer = null;
+	let viewer: LayoutViewer | null = fallbackViewer;
+	let capabilities: PublicCapabilityUsability = UNAVAILABLE_CAPABILITY_USABILITY;
 
-	if (isAuthenticated) {
-		// The whole block is guarded: client construction (a missing
-		// CONVEX_INTERNAL_URL/PUBLIC_CONVEX_URL throws here) and the autumn
-		// handler setup run before the per-query .catch, so an unguarded failure
-		// here would 500 every authenticated SSR page. Fall back to the JWT
-		// viewer + null customer; the client subscriptions recover after hydration.
-		try {
-			const client = createServerConvexHttpClient({ token: event.locals.token });
-
-			const { getCustomer } = createAutumnHandlers({
-				convexApi: (api as any).autumn,
-				createClient: () => client
-			});
-
-			// Fetch customer and viewer in PARALLEL for faster initial load
-			[customer, viewer] = await Promise.all([
-				getCustomer(event).catch((e) => {
-					console.error('[auth-layout-data] Autumn getCustomer failed:', e);
-					return null;
-				}),
-				client.query(api.users.viewer, {}).catch((e) => {
+	// Public marketing routes never reach this block. Other routes read the public
+	// projection even before sign-in so billing and AI controls have truthful state.
+	try {
+		const client = createServerConvexHttpClient({ token: event.locals.token });
+		const viewerPromise = isAuthenticated
+			? client.query(api.users.viewer, {}).catch((e) => {
 					console.error('[auth-layout-data] Viewer lookup failed, falling back to JWT payload:', e);
 					return fallbackViewer;
 				})
-			]);
-		} catch (e) {
-			console.error('[auth-layout-data] Convex client unavailable, using JWT fallback:', e);
-			customer = null;
-			viewer = fallbackViewer;
-		}
+			: Promise.resolve(null);
+		const capabilityPromise = client.query(api.capabilities.getUsability, {}).catch((e) => {
+			console.error('[auth-layout-data] Capability lookup failed:', e);
+			return UNAVAILABLE_CAPABILITY_USABILITY;
+		});
+
+		// Viewer loading is already in flight while capability state resolves. Autumn
+		// is constructed and called only after billing is confirmed usable.
+		capabilities = await capabilityPromise;
+		const customerPromise =
+			isAuthenticated && capabilities.billing.usable
+				? createAutumnHandlers({
+						convexApi: (api as any).autumn,
+						createClient: () => client
+					})
+						.getCustomer(event)
+						.catch((e) => {
+							console.error('[auth-layout-data] Autumn getCustomer failed:', e);
+							return null;
+						})
+				: Promise.resolve(null);
+
+		[customer, viewer] = await Promise.all([customerPromise, viewerPromise]);
+	} catch (e) {
+		console.error('[auth-layout-data] Convex client unavailable, using JWT fallback:', e);
 	}
 
 	return {
@@ -154,7 +166,8 @@ async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
 			customer,
 			_timeFetched: Date.now()
 		},
-		viewer
+		viewer,
+		capabilities
 	};
 }
 

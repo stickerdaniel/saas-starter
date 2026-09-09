@@ -3,7 +3,35 @@
 // typed can carry userinfo or a query token, so only the origin is logged.
 
 import { describe, expect, it } from 'vitest';
-import { logSafeOrigin } from './local-convex-env';
+import {
+	getManagedProviderUpdates,
+	logSafeOrigin,
+	MANAGED_LOCAL_PROVIDER_KEYS
+} from './local-convex-env';
+
+describe('managed local provider updates', () => {
+	it('deletes only the five managed provider values when absent', () => {
+		expect(MANAGED_LOCAL_PROVIDER_KEYS).toEqual([
+			'RESEND_API_KEY',
+			'AUTH_EMAIL',
+			'EMAIL_ASSET_URL',
+			'AUTUMN_SECRET_KEY',
+			'OPENROUTER_API_KEY'
+		]);
+		expect(
+			getManagedProviderUpdates({
+				AUTH_EMAIL: 'sender@example.com',
+				UNRELATED_BACKEND_VALUE: 'preserve-me'
+			})
+		).toEqual({
+			RESEND_API_KEY: null,
+			AUTH_EMAIL: 'sender@example.com',
+			EMAIL_ASSET_URL: null,
+			AUTUMN_SECRET_KEY: null,
+			OPENROUTER_API_KEY: null
+		});
+	});
+});
 
 describe('logSafeOrigin', () => {
 	it('drops userinfo, path, query and fragment', () => {

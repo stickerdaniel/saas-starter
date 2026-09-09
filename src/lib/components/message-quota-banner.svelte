@@ -7,6 +7,7 @@
 
 	let {
 		isPro = false,
+		billingUsable = true,
 		hasMessagesAvailable = false,
 		remaining = 0,
 		total = 0,
@@ -14,6 +15,7 @@
 		isUpgrading = false
 	}: {
 		isPro?: boolean;
+		billingUsable?: boolean;
 		hasMessagesAvailable?: boolean;
 		remaining?: number;
 		total?: number;
@@ -28,7 +30,15 @@
 	);
 </script>
 
-{#if !hasMessagesAvailable}
+{#if !billingUsable}
+	<div
+		class="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-border/50 bg-muted/50 px-4 py-3 text-sm text-muted-foreground backdrop-blur-sm"
+		role="status"
+	>
+		<LockIcon class="size-4 shrink-0" />
+		<span>{$t('capabilities.billing_unavailable')}</span>
+	</div>
+{:else if !hasMessagesAvailable}
 	<!-- Out of messages: free users get an upgrade CTA, Pro users an info notice -->
 	<div
 		class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"

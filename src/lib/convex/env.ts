@@ -20,7 +20,7 @@
  */
 
 import {
-	resolveCapabilityConfigurations,
+	resolveProfileCapabilityConfigurations,
 	type AiConfiguration,
 	type BillingConfiguration,
 	type CapabilityConfiguration,
@@ -96,7 +96,7 @@ export class CapabilityConfigurationError extends Error {
 
 /** Resolve provider configuration from the current Convex environment. */
 export function getCapabilityConfigurations(): CapabilityConfigurations {
-	return resolveCapabilityConfigurations(env);
+	return resolveProfileCapabilityConfigurations(env);
 }
 
 export function requireCapabilityConfiguration<Value>(

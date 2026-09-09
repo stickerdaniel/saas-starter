@@ -53,9 +53,12 @@
 	// Billing
 	const autumn = useCustomer();
 	const billingCheckout = useBillingCheckout();
+	const billingUsable = $derived(data.capabilities?.billing.usable === true);
 	const isPro = $derived(autumn.customer?.products?.some((p) => p.id === 'pro') ?? false);
 	const messagesFeature = $derived(autumn.customer?.features?.messages);
-	const hasMessagesAvailable = $derived(isPro || (messagesFeature?.balance ?? 0) > 0);
+	const hasMessagesAvailable = $derived(
+		billingUsable && (isPro || (messagesFeature?.balance ?? 0) > 0)
+	);
 	const remainingMessages = $derived(messagesFeature?.balance ?? 0);
 	const totalMessages = $derived(
 		messagesFeature?.included_usage === 'inf'
@@ -309,6 +312,7 @@
 			     total is Infinity), so the banner's Pro branches never fire here -->
 			<MessageQuotaBanner
 				{isPro}
+				{billingUsable}
 				{hasMessagesAvailable}
 				remaining={remainingMessages}
 				total={totalMessages}

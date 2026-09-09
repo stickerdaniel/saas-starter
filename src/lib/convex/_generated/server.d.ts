@@ -26,21 +26,24 @@ import type { DataModel } from "./dataModel.js";
  */
 type Env = {
   readonly AUTH_E2E_TEST_SECRET: string | undefined;
-  readonly AUTH_EMAIL: string;
+  readonly AUTH_EMAIL: string | undefined;
   readonly AUTH_GITHUB_ID: string | undefined;
   readonly AUTH_GITHUB_SECRET: string | undefined;
   readonly AUTH_GOOGLE_ID: string | undefined;
   readonly AUTH_GOOGLE_SECRET: string | undefined;
-  readonly AUTUMN_SECRET_KEY: string;
+  readonly AUTUMN_SECRET_KEY: string | undefined;
   readonly BETTER_AUTH_SECRET: string;
-  readonly EMAIL_ASSET_URL: string;
+  readonly BETTER_AUTH_SECRETS: string | undefined;
+  readonly CAPABILITY_PROFILE:
+    "local" | "test" | "preview" | "production" | undefined;
+  readonly EMAIL_ASSET_URL: string | undefined;
   readonly LOCAL_CONVEX_DEV: string | undefined;
   readonly LOCAL_SEEDED_ADMIN_EMAIL: string | undefined;
   readonly LOCAL_SEEDED_ADMIN_NAME: string | undefined;
   readonly LOCAL_SEEDED_ADMIN_PASSWORD: string | undefined;
-  readonly OPENROUTER_API_KEY: string;
+  readonly OPENROUTER_API_KEY: string | undefined;
   readonly PREVIEW_ADMIN_PASSWORD: string | undefined;
-  readonly RESEND_API_KEY: string;
+  readonly RESEND_API_KEY: string | undefined;
   readonly RESEND_WEBHOOK_SECRET: string | undefined;
   readonly SITE_URL: string;
 };

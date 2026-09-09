@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
+	import { page } from '$app/state';
 	import { getTranslate } from '@tolgee/svelte';
 	import { toast } from 'svelte-sonner';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
@@ -14,6 +15,7 @@
 	const attachOperation = useAutumnOperation(autumn.attach);
 	const activeUploads = activeUploadsContext.getOr(null);
 	const { t } = getTranslate();
+	const billingUsable = $derived(page.data.capabilities?.billing.usable === true);
 
 	setBillingCheckoutContext({
 		checkout: checkoutOperation,
@@ -24,6 +26,11 @@
 			// hosted checkout session and the attach fallback go through here.
 			activeUploads?.suspendOnce();
 			window.location.href = url;
+		},
+		isUsable: () => billingUsable,
+		onUnavailable: () => {
+			haptic.trigger('error');
+			toast.error($t('capabilities.billing_unavailable'));
 		},
 		onError: (stage, error) => {
 			haptic.trigger('error');

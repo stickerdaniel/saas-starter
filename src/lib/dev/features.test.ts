@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+	getCapabilityRequirements,
+	projectCapabilityUsability,
 	resolveCapabilityConfigurations,
+	resolveProfileCapabilityConfigurations,
+	validateCapabilityEnvironment,
 	type CapabilityEnvironment,
 	type CapabilityRequirements
 } from './features';
@@ -207,5 +211,96 @@ describe('resolveCapabilityConfigurations', () => {
 	] as const)('rejects the exact known sentinel in %s', (key, value, capability) => {
 		const resolved = resolveCapabilityConfigurations({ ...READY_ENVIRONMENT, [key]: value });
 		expect(resolved[capability]).toEqual({ state: 'misconfigured', issue: 'sentinel' });
+	});
+});
+
+describe('capability profiles', () => {
+	it('keeps an absent profile as the production-strict legacy alias', () => {
+		expect(getCapabilityRequirements(undefined)).toEqual({
+			billing: 'required',
+			email: 'required',
+			ai: 'required'
+		});
+		expect(() => validateCapabilityEnvironment({})).toThrow(
+			'[capability] billing configuration is invalid'
+		);
+	});
+
+	it.each(['local', 'test'] as const)('allows providerless %s configuration', (profile) => {
+		expect(resolveProfileCapabilityConfigurations({ CAPABILITY_PROFILE: profile })).toEqual({
+			billing: { state: 'disabled' },
+			email: { state: 'disabled' },
+			ai: { state: 'disabled' }
+		});
+		expect(() => validateCapabilityEnvironment({ CAPABILITY_PROFILE: profile })).not.toThrow();
+	});
+
+	it.each(['preview', 'production'] as const)('requires every provider group in %s', (profile) => {
+		expect(() => validateCapabilityEnvironment({ CAPABILITY_PROFILE: profile })).toThrow();
+		expect(() =>
+			validateCapabilityEnvironment({ ...READY_ENVIRONMENT, CAPABILITY_PROFILE: profile })
+		).not.toThrow();
+	});
+
+	it('rejects unknown profiles without reproducing their value', () => {
+		expect(() =>
+			validateCapabilityEnvironment({ ...READY_ENVIRONMENT, CAPABILITY_PROFILE: 'staging-secret' })
+		).toThrow('[capability] CAPABILITY_PROFILE is invalid');
+	});
+
+	const missingOrBlankCases = (
+		[
+			'RESEND_API_KEY',
+			'AUTH_EMAIL',
+			'EMAIL_ASSET_URL',
+			'AUTUMN_SECRET_KEY',
+			'OPENROUTER_API_KEY'
+		] as const
+	).flatMap(
+		(key) =>
+			[
+				[`missing ${key}`, { ...READY_ENVIRONMENT, [key]: undefined }],
+				[`blank ${key}`, { ...READY_ENVIRONMENT, [key]: '   ' }]
+			] as const
+	);
+
+	const invalidCases = [
+		...missingOrBlankCases,
+		['invalid sender', { ...READY_ENVIRONMENT, AUTH_EMAIL: 'not-an-email' }],
+		['invalid asset URL', { ...READY_ENVIRONMENT, EMAIL_ASSET_URL: 'https://localhost' }],
+		['email sentinel', { ...READY_ENVIRONMENT, RESEND_API_KEY: 're_local_e2e_dummy' }],
+		['billing sentinel', { ...READY_ENVIRONMENT, AUTUMN_SECRET_KEY: 'am_sk_local_e2e_dummy' }],
+		['AI sentinel', { ...READY_ENVIRONMENT, OPENROUTER_API_KEY: 'sk-or-local-e2e-dummy' }]
+	] as const;
+
+	it.each(['preview', 'production'] as const)(
+		'rejects every malformed provider case in %s',
+		(profile) => {
+			for (const [description, environment] of invalidCases) {
+				expect(
+					() => validateCapabilityEnvironment({ ...environment, CAPABILITY_PROFILE: profile }),
+					description
+				).toThrow();
+			}
+		}
+	);
+
+	it('collapses internal states into the fixed public projection', () => {
+		expect(
+			projectCapabilityUsability(
+				resolveProfileCapabilityConfigurations({ CAPABILITY_PROFILE: 'local' })
+			)
+		).toEqual({
+			billing: { usable: false, reason: 'unavailable' },
+			ai: { usable: false, reason: 'unavailable' }
+		});
+		expect(
+			projectCapabilityUsability(
+				resolveProfileCapabilityConfigurations({
+					...READY_ENVIRONMENT,
+					CAPABILITY_PROFILE: 'production'
+				})
+			)
+		).toEqual({ billing: { usable: true }, ai: { usable: true } });
 	});
 });

@@ -29,6 +29,8 @@ type ThreadCreation = {
  * Thread context state
  */
 export class SupportThreadContext {
+	constructor(private readonly isAiUsable: () => boolean = () => true) {}
+
 	// User identification
 	userId = $state<string | null>(null);
 
@@ -228,7 +230,7 @@ export class SupportThreadContext {
 	 * would lock the composer on a build that has no agent at all.
 	 */
 	get awaitsAgentReply(): boolean {
-		return !this.isHandedOff && isSupportAiEnabled();
+		return !this.isHandedOff && isSupportAiEnabled() && this.isAiUsable();
 	}
 
 	get hasThread() {

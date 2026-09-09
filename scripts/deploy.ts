@@ -20,6 +20,7 @@ import {
 	computeBuildEnv,
 	deployConvex,
 	resolveDeploymentSiteOrigin,
+	setProductionCapabilityProfile,
 	setupPreviewEnv,
 	syncTranslations,
 	validateConvexEnv,
@@ -39,8 +40,10 @@ async function main(): Promise<void> {
 	// 1. Sync translations
 	syncTranslations(platform);
 
-	// 2. Pre-deploy validation (production only; preview validated after deploy)
+	// 2. Production owns its profile before pre-deploy validation. Preview is
+	// established after its first deployment is created.
 	if (!platform.isPreview) {
+		setProductionCapabilityProfile(platform);
 		validateConvexEnv(platform);
 	}
 
