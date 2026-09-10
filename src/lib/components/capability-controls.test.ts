@@ -6,6 +6,33 @@ function source(relativePath: string): string {
 	return fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf-8');
 }
 
+describe('browser diagnostics', () => {
+	it('keeps provider, backend, and user errors out of console callbacks', () => {
+		const aiPage = source('src/routes/[[lang]]/app/ai-chat/+page.svelte');
+		const checkout = source('src/lib/components/billing/checkout-provider.svelte');
+		const migration = source(
+			'src/lib/components/customer-support/support-ticket-migration-bootstrap.svelte'
+		);
+		const screenshot = source(
+			'src/lib/components/customer-support/screenshot-editor/ScreenshotEditor.svelte'
+		);
+
+		expect(aiPage).toMatch(/console\.error\(\s*'\[AIChat\.resolveWarmThread\] Failed'\s*\)/);
+		expect(aiPage).not.toMatch(/console\.error\([^)]*,\s*err\s*\)/);
+		expect(checkout).toMatch(/onError: \(stage\) =>/);
+		expect(checkout).toContain("'[BillingCheckout.confirm] Failed'");
+		expect(checkout).toContain("'[BillingCheckout.start] Failed'");
+		expect(checkout).not.toMatch(/console\.error\([^)]*,\s*error\s*\)/);
+		expect(migration).toMatch(
+			/console\.error\(\s*'\[SupportMigration\.migrateAnonymousTickets\] Failed'\s*\)/
+		);
+		expect(migration).not.toMatch(/onMigrationError\([^)]/);
+		expect(screenshot).toMatch(/console\.error\(\s*'\[ScreenshotEditor\.capture\] Failed'\s*\)/);
+		expect(screenshot).toContain('onCaptureError?.(error)');
+		expect(screenshot).not.toMatch(/console\.error\([^)]*,\s*error\s*\)/);
+	});
+});
+
 describe('browser capability controls', () => {
 	it('gates billing operations through the public projection', () => {
 		const provider = source('src/lib/components/billing/checkout-provider.svelte');

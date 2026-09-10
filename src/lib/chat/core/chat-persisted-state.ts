@@ -79,8 +79,8 @@ function forgetEverything(): void {
 	for (const holder of holders) {
 		try {
 			holder.forgetPersistedState();
-		} catch (error) {
-			console.error('[chat] A composer would not let go of its state:', error);
+		} catch {
+			console.error('[ChatPersistence.forgetHolder] Failed');
 		}
 	}
 }
@@ -101,8 +101,8 @@ export function reconcilePersistedChatAttachments(
 	for (const holder of holders) {
 		try {
 			holder.reconcilePersistedAttachments?.(namespace, threadId, attachments);
-		} catch (error) {
-			console.error('[chat] A composer could not reconcile restored attachments:', error);
+		} catch {
+			console.error('[ChatPersistence.reconcileAttachments] Failed');
 		}
 	}
 }
@@ -147,7 +147,7 @@ export function clearPersistedChatState(): void {
 		// emptied. A value that never repeats, because a storage event only
 		// fires when one actually changes.
 		localStorage.setItem(SESSION_END_KEY, `${Date.now()}-${Math.random()}`);
-	} catch (error) {
-		console.error('[chat] Could not clear persisted chat state:', error);
+	} catch {
+		console.error('[ChatPersistence.clearStorage] Failed');
 	}
 }

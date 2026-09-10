@@ -75,7 +75,7 @@
 					// Back off instead of retrying at network pace: the effect re-runs
 					// when resolvingThread resets while threadId is still empty, so a
 					// deterministic failure (e.g. thread-create rate limit) would loop.
-					console.error('[ai-chat] Failed to resolve warm thread:', err);
+					console.error('[AIChat.resolveWarmThread] Failed');
 					resolveThreadBlocked = true;
 					const retryAfter =
 						err instanceof ConvexError

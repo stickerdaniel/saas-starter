@@ -34,12 +34,14 @@
 			haptic.trigger('error');
 			toast.error($t('capabilities.billing_unavailable'));
 		},
-		onError: (stage, error) => {
+		onError: (stage) => {
 			haptic.trigger('error');
 			toast.error(
 				stage === 'confirm' ? $t('billing.attach_failed') : $t('billing.checkout_failed')
 			);
-			console.error(`[billing] ${stage} failed:`, error);
+			console.error(
+				stage === 'confirm' ? '[BillingCheckout.confirm] Failed' : '[BillingCheckout.start] Failed'
+			);
 		}
 	});
 </script>

@@ -92,6 +92,7 @@ describe('createOptimisticUpdate', () => {
 	let queryArgs: ListMessagesArgs;
 
 	beforeEach(() => {
+		vi.restoreAllMocks();
 		getQueryMock = vi.fn();
 		setQueryMock = vi.fn();
 		mockStore = {
@@ -194,6 +195,27 @@ describe('createOptimisticUpdate', () => {
 		updateFn(mockStore);
 
 		expect(setQueryMock).not.toHaveBeenCalled();
+	});
+
+	it('does not forward unsafe option diagnostics to the console', () => {
+		const diagnostic = 'provider response included private user content';
+		const metadata: Record<string, unknown> = { diagnostic };
+		metadata.circular = metadata;
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		getQueryMock.mockReturnValue({ page: [], isDone: false, continueCursor: null });
+
+		const updateFn = createOptimisticUpdate(mockQuery, queryArgs, 'user', 'Hello', { metadata });
+		updateFn(mockStore);
+
+		expect(error).toHaveBeenCalledExactlyOnceWith('[Optimistic.sanitizeOptions] Failed');
+		expect(error.mock.calls.flat().join(' ')).not.toContain(diagnostic);
+		expect(setQueryMock).toHaveBeenCalledWith(
+			mockQuery,
+			queryArgs,
+			expect.objectContaining({
+				page: [expect.objectContaining({ metadata: { optimistic: true } })]
+			})
+		);
 	});
 
 	it('passes attachments through to optimistic message', () => {

@@ -15,6 +15,7 @@ const localStorageMock: Storage = {
 import {
 	clearPersistedChatState,
 	getChatSessionEpoch,
+	reconcilePersistedChatAttachments,
 	registerPersistedChatHolder
 } from './chat-persisted-state.ts';
 
@@ -35,6 +36,7 @@ describe('clearPersistedChatState', () => {
 	});
 
 	beforeEach(() => {
+		vi.restoreAllMocks();
 		storage.clear();
 	});
 
@@ -83,6 +85,60 @@ describe('clearPersistedChatState', () => {
 
 		expect(() => clearPersistedChatState()).not.toThrow();
 
+		vi.stubGlobal('localStorage', localStorageMock);
+	});
+
+	it('logs only a safe marker when a holder fails during cleanup', () => {
+		const diagnostic = new Error('draft contained private customer content');
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const unregister = registerPersistedChatHolder({
+			forgetPersistedState: () => {
+				throw diagnostic;
+			}
+		});
+
+		expect(() => clearPersistedChatState()).not.toThrow();
+
+		expect(error).toHaveBeenCalledExactlyOnceWith('[ChatPersistence.forgetHolder] Failed');
+		expect(error.mock.calls.flat()).not.toContain(diagnostic);
+		expect(error.mock.calls.flat().join(' ')).not.toContain(diagnostic.message);
+		unregister();
+	});
+
+	it('logs only a safe marker when attachment reconciliation fails', () => {
+		const diagnostic = new Error('attachment URL contained a signed user token');
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const unregister = registerPersistedChatHolder({
+			forgetPersistedState: () => {},
+			reconcilePersistedAttachments: () => {
+				throw diagnostic;
+			}
+		});
+
+		expect(() => reconcilePersistedChatAttachments('support', 'thread-1', [])).not.toThrow();
+
+		expect(error).toHaveBeenCalledExactlyOnceWith('[ChatPersistence.reconcileAttachments] Failed');
+		expect(error.mock.calls.flat()).not.toContain(diagnostic);
+		expect(error.mock.calls.flat().join(' ')).not.toContain(diagnostic.message);
+		unregister();
+	});
+
+	it('logs only a safe marker when storage cleanup fails', () => {
+		const diagnostic = new Error('storage backend exposed private draft data');
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const denied: Storage = {
+			...localStorageMock,
+			setItem: () => {
+				throw diagnostic;
+			}
+		};
+		vi.stubGlobal('localStorage', denied);
+
+		expect(() => clearPersistedChatState()).not.toThrow();
+
+		expect(error).toHaveBeenCalledExactlyOnceWith('[ChatPersistence.clearStorage] Failed');
+		expect(error.mock.calls.flat()).not.toContain(diagnostic);
+		expect(error.mock.calls.flat().join(' ')).not.toContain(diagnostic.message);
 		vi.stubGlobal('localStorage', localStorageMock);
 	});
 

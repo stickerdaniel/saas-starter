@@ -139,7 +139,7 @@
 			// Close the editor after successful save
 			onCancel?.();
 		} catch (error) {
-			console.error('Failed to capture screenshot:', error);
+			console.error('[ScreenshotEditor.capture] Failed');
 			// Hand the failure to the parent, which tears down this overlay and
 			// surfaces a recoverable error dialog (retry / contact support).
 			onCaptureError?.(error);
