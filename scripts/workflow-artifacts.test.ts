@@ -30,7 +30,7 @@ const DIAGNOSTIC_ARTIFACTS = new Set(['playwright-report']);
 
 // Name prefixes of artifacts a machine consumer reads later (deploy manifests,
 // audit evidence). They may upload unconditionally and keep the maximum.
-const LONG_LIVED_ARTIFACT_PREFIXES: string[] = [];
+const LONG_LIVED_ARTIFACT_PREFIXES = ['create-saas-starter-'];
 
 const DIAGNOSTIC_RETENTION_DAYS = 7;
 const MAX_RETENTION_DAYS = 30;
@@ -233,7 +233,9 @@ describe.skipIf(process.platform === 'win32')('lint job source identity', () => 
 			'Assert source identity after install',
 			'Assert source identity after checks'
 		]);
-		const installIndex = lintSteps.findIndex((step) => step.run === 'bun install');
+		const installIndex = lintSteps.findIndex(
+			(step) => step.run === 'bun install --frozen-lockfile'
+		);
 		expect(installIndex).toBeGreaterThanOrEqual(0);
 		expect(lintSteps[installIndex + 1]?.name).toBe('Assert source identity after install');
 		expect(lintSteps.at(-1)?.name).toBe('Assert source identity after checks');

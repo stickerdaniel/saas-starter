@@ -520,6 +520,18 @@
 			"url": "https://github.com/nitotm/efficient-language-detector-js",
 			"branch": "main",
 			"specialNotes": "ELD 2.x offline language detector. Inspect detect(), getScores(), database sizes, and package exports. Policy code sorts finite scores itself and does not call isReliable()."
+		},
+		{
+			"type": "git",
+			"name": "clack",
+			"url": "https://github.com/bombshell-dev/clack",
+			"branch": "main"
+		},
+		{
+			"type": "git",
+			"name": "nodeTar",
+			"url": "https://github.com/isaacs/node-tar",
+			"branch": "main"
 		}
 	]
 }

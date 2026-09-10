@@ -33,8 +33,8 @@ jobs:
         run: |
           # Workflow-only changes run their tests on Ubicloud. Every source or test dependency
           # whose behavior differs on Windows runs natively on Windows.
-          runner_pattern='^(package\.json|bun\.lock|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|git-context\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1)))$'
-          test_pattern='^(package\.json|bun\.lock|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|git-context\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1))|\.github/workflows/windows-process-lifecycle\.yml)$'
+          runner_pattern='^(package\.json|bun\.lock|packages/create-saas-starter/.*|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|git-context\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1)))$'
+          test_pattern='^(package\.json|bun\.lock|packages/create-saas-starter/.*|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|git-context\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1))|\.github/workflows/windows-process-lifecycle\.yml)$'
 
           fail_closed() {
             echo 'label=windows-latest' >> "$GITHUB_OUTPUT"
@@ -144,6 +144,10 @@ jobs:
       - if: steps.changes.outputs.run_tests == 'true'
         run: bun install --frozen-lockfile --ignore-scripts
       - if: steps.changes.outputs.run_tests == 'true'
+        run: bun install --cwd packages/create-saas-starter --frozen-lockfile --ignore-scripts
+      - if: steps.changes.outputs.run_tests == 'true'
         run: bun vitest --run scripts/dev-cloud.test.ts
       - if: steps.changes.outputs.run_tests == 'true'
         run: bun vitest --run scripts/static-checks.knip.test.ts
+      - if: steps.changes.outputs.run_tests == 'true'
+        run: bun run --cwd packages/create-saas-starter vitest --run test/process.test.ts test/lifecycle.test.ts

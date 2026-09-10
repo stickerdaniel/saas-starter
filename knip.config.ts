@@ -31,6 +31,8 @@ export default {
 	],
 	project: ['src/**/*.{ts,svelte}', 'scripts/**/*.ts', 'e2e/**/*.ts'],
 	ignore: [
+		// Checked by packages/create-saas-starter/knip.config.ts in the same lint gate.
+		'packages/create-saas-starter/**',
 		'src/lib/convex/_generated/**',
 		// Email templates are loaded through vite.ssrLoadModule in scripts/build-emails.ts,
 		// never imported statically.

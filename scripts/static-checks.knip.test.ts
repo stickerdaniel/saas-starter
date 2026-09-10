@@ -22,6 +22,11 @@ import { testExecutable } from './test-executable';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BUN = testExecutable('bun');
 const KNIP: CommandInvocation = { command: 'bun', args: ['knip', '--no-progress'] };
+const CLI_KNIP: CommandInvocation = {
+	command: 'bun',
+	args: ['run', '--cwd', 'packages/create-saas-starter', 'knip', '--no-progress']
+};
+const CLI_TYPES: CommandInvocation = { command: 'bun', args: ['run', 'check:cli'] };
 const PRETTIER_README: CommandInvocation = {
 	command: 'bun',
 	args: ['prettier', '--check', '--ignore-unknown', '--', 'README.md']
@@ -50,6 +55,11 @@ const WINDOWS_LIFECYCLE_WORKFLOW = path.join(
 const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 	'package.json',
 	'bun.lock',
+	'packages/create-saas-starter/package.json',
+	'packages/create-saas-starter/bun.lock',
+	'packages/create-saas-starter/src/process.ts',
+	'packages/create-saas-starter/test/lifecycle.test.ts',
+	'packages/create-saas-starter/scripts/test-packed.ts',
 	'knowledge-policy.config.ts',
 	'eslint/control-character-policy.js',
 	'scripts/knowledge-policy/example.ts',
@@ -413,6 +423,12 @@ function knipInvocations(checkout: CheckerClone): CommandInvocation[] {
 		.filter((invocation) => invocation.args[0] === 'knip');
 }
 
+function cliKnipInvocations(checkout: CheckerClone): CommandInvocation[] {
+	return readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!).filter(
+		(invocation) => JSON.stringify(invocation) === JSON.stringify(CLI_KNIP)
+	);
+}
+
 function stageReadme(checkout: CheckerClone): void {
 	const readme = path.join(checkout.repository, 'README.md');
 	writeFileSync(readme, `${readFileSync(readme, 'utf8')}\n`);
@@ -532,6 +548,12 @@ describe('Windows lifecycle workflow coverage', () => {
 		expect(workflow).toContain('CHANGED_FILES: ${{ github.event.pull_request.changed_files }}');
 		expect(workflow).toContain('SELECTED_RUN_TESTS: ${{ needs.runner.outputs.run_tests }}');
 		expect(workflow).toContain("if ($env:SELECTED_RUN_TESTS -notin @('true', 'false')) {");
+		expect(workflow).toContain(
+			'run: bun install --cwd packages/create-saas-starter --frozen-lockfile --ignore-scripts'
+		);
+		expect(workflow).toContain(
+			'run: bun run --cwd packages/create-saas-starter vitest --run test/process.test.ts test/lifecycle.test.ts'
+		);
 
 		const selectsWindows = new RegExp(selectorPattern!);
 		const runsTests = new RegExp(testPattern!);
@@ -731,6 +753,7 @@ describe.sequential('Knip static-check CLI behavior', () => {
 			expect(result.status, output).toBe(0);
 			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([PRETTIER_README]);
 			expect(knipInvocations(checkout)).toHaveLength(0);
+			expect(cliKnipInvocations(checkout)).toHaveLength(0);
 			expect(output).toContain('All checks passed!');
 		} finally {
 			rmSync(checkout.directory, { recursive: true, force: true });
@@ -747,7 +770,7 @@ describe.sequential('Knip static-check CLI behavior', () => {
 			'README.md\0'
 		]
 	] as const)(
-		'runs knip once in %s',
+		'runs both Knip configs once in %s',
 		(_label, args, input) => {
 			const checkout = createCheckerClone();
 			try {
@@ -756,6 +779,7 @@ describe.sequential('Knip static-check CLI behavior', () => {
 
 				expect(result.status, output).toBe(0);
 				expect(knipInvocations(checkout)).toEqual([KNIP]);
+				expect(cliKnipInvocations(checkout)).toEqual([CLI_KNIP]);
 				expect(output).toContain('All checks passed!');
 			} finally {
 				rmSync(checkout.directory, { recursive: true, force: true });
@@ -781,6 +805,7 @@ describe.sequential('Knip static-check CLI behavior', () => {
 
 			expect(result.status, output).toBe(0);
 			expect(knipInvocations(checkout)).toEqual([KNIP]);
+			expect(cliKnipInvocations(checkout)).toEqual([CLI_KNIP]);
 			// The second name resolved through PATH: only this case actually dispatches misspell and
 			// proves that resolution does not work merely for bun.
 			expect(log).toContainEqual({
@@ -814,6 +839,7 @@ describe.sequential('Knip static-check CLI behavior', () => {
 
 			expect(result.status, output).toBe(0);
 			expect(knipInvocations(checkout)).toEqual([KNIP]);
+			expect(cliKnipInvocations(checkout)).toEqual([CLI_KNIP]);
 			expect(output).toContain('All checks passed!');
 		} finally {
 			rmSync(checkout.directory, { recursive: true, force: true });
@@ -828,7 +854,52 @@ describe.sequential('Knip static-check CLI behavior', () => {
 
 			expect(result.status, output).toBe(0);
 			expect(knipInvocations(checkout)).toHaveLength(0);
+			expect(cliKnipInvocations(checkout)).toHaveLength(0);
 			expect(output).toContain('All checks passed!');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
+	it('routes creator files only through the dedicated CLI type project', () => {
+		const checkout = createCheckerClone();
+		try {
+			const result = runChecker(checkout, [
+				'--ci',
+				'--scope',
+				'types',
+				'packages/create-saas-starter/src/options.ts'
+			]);
+			const output = `${result.stdout}${result.stderr}`;
+			const log = readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!);
+
+			expect(result.status, output).toBe(0);
+			expect(
+				log.filter((invocation) => JSON.stringify(invocation) === JSON.stringify(CLI_TYPES))
+			).toEqual([CLI_TYPES]);
+			expect(log.some((invocation) => invocation.args[0] === 'svelte-check')).toBe(false);
+			expect(output).toContain('create-saas-starter type checking');
+			expect(output).toContain('All checks passed!');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
+	it('propagates a creator typecheck failure', () => {
+		const checkout = createCheckerClone();
+		checkout.env.STATIC_CHECKS_COMMAND_RESPONSE = JSON.stringify({ ...CLI_TYPES, status: 25 });
+		try {
+			const result = runChecker(checkout, [
+				'--ci',
+				'--scope',
+				'types',
+				'packages/create-saas-starter/tsconfig.json'
+			]);
+			const output = `${result.stdout}${result.stderr}`;
+
+			expect(result.status, output).toBe(25);
+			expect(output).toContain('Command failed: bun run check:cli');
+			expect(output).not.toContain('All checks passed!');
 		} finally {
 			rmSync(checkout.directory, { recursive: true, force: true });
 		}
@@ -848,6 +919,7 @@ describe.sequential('Knip static-check CLI behavior', () => {
 				{ command: 'compat', args: [] }
 			]);
 			expect(knipInvocations(checkout)).toHaveLength(0);
+			expect(cliKnipInvocations(checkout)).toHaveLength(0);
 			expect(output).toContain('All checks passed!');
 		} finally {
 			rmSync(checkout.directory, { recursive: true, force: true });
@@ -863,6 +935,7 @@ describe.sequential('Knip static-check CLI behavior', () => {
 
 			expect(result.status, output).toBe(0);
 			expect(knipInvocations(checkout)).toHaveLength(0);
+			expect(cliKnipInvocations(checkout)).toHaveLength(0);
 			expect(output).toContain('All checks passed!');
 		} finally {
 			rmSync(checkout.directory, { recursive: true, force: true });
@@ -894,6 +967,7 @@ describe.sequential('Knip static-check CLI behavior', () => {
 
 			expect(result.status, output).toBe(0);
 			expect(knipInvocations(checkout)).toHaveLength(0);
+			expect(cliKnipInvocations(checkout)).toHaveLength(0);
 			expect(output).toContain('staged changes only delete paths absent from the final index');
 			expect(rootIndexSnapshot()).toBe(rootIndex);
 		} finally {
@@ -930,10 +1004,30 @@ describe.sequential('Knip static-check CLI behavior', () => {
 
 			expect(result.status, output).toBe(23);
 			expect(knipInvocations(checkout)).toEqual([KNIP]);
+			expect(cliKnipInvocations(checkout)).toHaveLength(0);
 			expect(output).toContain('knipU+001B]0;fixtureU+0007');
 			expect(output).toContain('Command failed: bun knip --no-progress');
 			expect(output).not.toContain(escape);
 			expect(output).not.toContain(bell);
+			expect(output).not.toContain('All checks passed!');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
+	it('propagates a create-saas-starter Knip failure', () => {
+		const checkout = createCheckerClone();
+		checkout.env.STATIC_CHECKS_COMMAND_RESPONSE = JSON.stringify({ ...CLI_KNIP, status: 24 });
+		try {
+			const result = runChecker(checkout, ['--ci', '--scope', 'lint']);
+			const output = `${result.stdout}${result.stderr}`;
+
+			expect(result.status, output).toBe(24);
+			expect(knipInvocations(checkout)).toEqual([KNIP]);
+			expect(cliKnipInvocations(checkout)).toEqual([CLI_KNIP]);
+			expect(output).toContain(
+				'Command failed: bun run --cwd packages/create-saas-starter knip --no-progress'
+			);
 			expect(output).not.toContain('All checks passed!');
 		} finally {
 			rmSync(checkout.directory, { recursive: true, force: true });

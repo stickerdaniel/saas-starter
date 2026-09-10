@@ -19,8 +19,8 @@
  *                Requires misspell to be installed (fails if missing).
  *   --staged     Assert-only staged-file gate; skips knip. Run fix mode before staging and retrying.
  *   --scope      Run a subset of checks: "lint" (misspell, literal controls, English prose,
- *                banned patterns, prettier, eslint, oxlint, knip), "types" (build-emails,
- *                svelte-check), assert-only "format"
+ *                banned patterns, prettier, eslint, oxlint, root and CLI knip), "types"
+ *                (build-emails, svelte-check, CLI typecheck), assert-only "format"
  *                (prettier), or full-project-only "compat" (Convex consumer compatibility).
  *                Lint and types run svelte-kit sync first.
  *                Omit to run lint and types.
@@ -548,6 +548,9 @@ export function isIgnoredPath(file: string): boolean {
  * by prettierFormattableFiles() below and reaches the ledger the same way every other
  * route does, through filesFor().
  */
+const CLI_PACKAGE_DIRECTORY = 'packages/create-saas-starter';
+const CLI_PACKAGE_PREFIX = `${CLI_PACKAGE_DIRECTORY}/`;
+
 export const ROUTES = {
 	misspell: (f: string) =>
 		f !== 'scripts/english-policy/pr-metadata.bundle.mjs' &&
@@ -560,7 +563,12 @@ export const ROUTES = {
 		f !== 'scripts/english-policy/pr-metadata.bundle.mjs' && isJavaScriptSourceFile(f),
 	// The old gate was `jsTsSvelteFiles.length === 0 && svelteFiles.length === 0`;
 	// svelteFiles is a subset of jsTsSvelteFiles, so the second clause was dead.
-	'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f),
+	'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f) && !f.startsWith(CLI_PACKAGE_PREFIX),
+	'cli-types': (f: string) =>
+		(f.startsWith(CLI_PACKAGE_PREFIX) &&
+			/(?:^|\/)(?:package\.json|bun\.lock|tsconfig\.json)$/.test(f)) ||
+		(f.startsWith(CLI_PACKAGE_PREFIX) && f.endsWith('.ts')) ||
+		f === 'scripts/windows-job.ts',
 	'skill-types': (f: string) =>
 		f === '.agents/skills/upstream-report/tsconfig.json' ||
 		(f.startsWith('.agents/skills/upstream-report/scripts/') && f.endsWith('.ts')),
@@ -652,7 +660,7 @@ const LINT_CHECKS: CheckId[] = [
 	'prettier',
 	'eslint'
 ];
-const TYPE_CHECKS: CheckId[] = ['svelte-check', 'skill-types', 'convex'];
+const TYPE_CHECKS: CheckId[] = ['svelte-check', 'cli-types', 'skill-types', 'convex'];
 
 type Mode = 'files' | 'staged' | 'full';
 
@@ -1465,10 +1473,15 @@ async function main(): Promise<void> {
 			await runCommand('bun', ['knip', '--no-progress']);
 			ledger.ran('knip');
 			console.log('\n');
+
+			printHeader(step++, 'create-saas-starter knip');
+			await runCommand('bun', ['run', '--cwd', CLI_PACKAGE_DIRECTORY, 'knip', '--no-progress']);
+			ledger.ran('cli knip');
+			console.log('\n');
 		}
 	}
 
-	// -- Types group: build-emails, svelte-check --
+	// -- Types group: build-emails, svelte-check and dedicated TypeScript projects --
 
 	if (shouldRunTypes) {
 		// Build emails (required before type checking)
@@ -1491,6 +1504,21 @@ async function main(): Promise<void> {
 				// svelte-check is tsconfig-driven: the routed files decide WHETHER it runs,
 				// then it type-checks the whole project regardless.
 				ledger.ran('svelte-check', 'project');
+			}
+		}
+		console.log('\n');
+
+		// create-saas-starter has a separate NodeNext project and also owns the shared
+		// Windows process helper. App svelte-check deliberately excludes the package.
+		printHeader(step++, 'create-saas-starter type checking');
+		{
+			const files = ledger.filesFor('cli-types');
+			if (!scopedMode || files.length > 0) {
+				await runCommand('bun', ['run', 'check:cli']);
+				ledger.ran('cli-types', 'project');
+			} else {
+				console.log('No create-saas-starter TypeScript inputs to check');
+				ledger.ran('cli-types', 0);
 			}
 		}
 		console.log('\n');
