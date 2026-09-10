@@ -16,6 +16,12 @@ describe('browser diagnostics', () => {
 		const screenshot = source(
 			'src/lib/components/customer-support/screenshot-editor/ScreenshotEditor.svelte'
 		);
+		const adminSupport = source('src/routes/[[lang]]/admin/support/thread-chat.svelte');
+		const feedback = source('src/lib/components/customer-support/feedback-widget.svelte');
+		const customerSupport = source('src/lib/components/customer-support/customer-support.svelte');
+		const screenshotContext = source(
+			'src/lib/components/customer-support/screenshot-editor/screenshot-editor-context.svelte.ts'
+		);
 
 		expect(aiPage).toMatch(/console\.error\(\s*'\[AIChat\.resolveWarmThread\] Failed'\s*\)/);
 		expect(aiPage).not.toMatch(/console\.error\([^)]*,\s*err\s*\)/);
@@ -30,6 +36,18 @@ describe('browser diagnostics', () => {
 		expect(screenshot).toMatch(/console\.error\(\s*'\[ScreenshotEditor\.capture\] Failed'\s*\)/);
 		expect(screenshot).toContain('onCaptureError?.(error)');
 		expect(screenshot).not.toMatch(/console\.error\([^)]*,\s*error\s*\)/);
+		expect(adminSupport).toMatch(/console\.error\(\s*'\[AdminSupport\.sendReply\] Failed'\s*\)/);
+		expect(adminSupport).not.toMatch(/console\.error\([^)]*,\s*error\s*\)/);
+		expect(feedback).toMatch(/console\.warn\(\s*'\[FeedbackWidget\.markReplyRead\] Failed'\s*\)/);
+		expect(feedback).not.toMatch(/console\.warn\([^)]*,\s*error\s*\)/);
+		expect(customerSupport).toMatch(
+			/console\.warn\(\s*'\[CustomerSupport\.resolveThreadUrl\] Invalid'\s*\)/
+		);
+		expect(customerSupport).not.toMatch(/console\.warn\([^)]*,\s*error\s*\)/);
+		expect(screenshotContext).toMatch(
+			/console\.warn\(\s*'\[ScreenshotEditor\.preCache\] Failed'\s*\)/
+		);
+		expect(screenshotContext).not.toMatch(/console\.warn\([^)]*,\s*error\s*\)/);
 	});
 });
 

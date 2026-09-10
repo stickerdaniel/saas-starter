@@ -416,7 +416,7 @@
 					if (draftCheckpoint) draftManager?.clearDraftIfUnchanged(draftCheckpoint);
 				} catch (error) {
 					if (isChatSessionCurrent(sessionEpoch)) {
-						console.error('[Admin sendAdminReply] Error:', error);
+						console.error('[AdminSupport.sendReply] Failed');
 						toast.error($t('admin.support.chat.send_error'));
 					}
 					throw error;

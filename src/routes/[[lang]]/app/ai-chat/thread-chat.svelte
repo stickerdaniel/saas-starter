@@ -98,8 +98,9 @@
 
 	// Draft persistence across thread switches and page refreshes
 	const draftManager = new ChatDraftManager('ai-chat');
-	let sending = $state(false);
+	let sendingThreadId = $state<string | null>(null);
 	let sendRevision = 0;
+	const sending = $derived(sendingThreadId === threadId);
 
 	// Save draft on leave, restore on enter
 	watch(
@@ -204,7 +205,7 @@
 					const operationRevision = ++sendRevision;
 					const fileIds = chatUIContext.uploadedFileIds;
 					const attachments = [...chatUIContext.attachments];
-					sending = true;
+					sendingThreadId = originThreadId;
 					try {
 						await chatCore.sendMessage(client, prompt, { fileIds, attachments });
 						if (!isChatSessionCurrent(sessionEpoch)) return;
@@ -218,12 +219,8 @@
 						}
 						throw error;
 					} finally {
-						if (
-							isChatSessionCurrent(sessionEpoch) &&
-							threadId === originThreadId &&
-							sendRevision === operationRevision
-						) {
-							sending = false;
+						if (sendingThreadId === originThreadId && sendRevision === operationRevision) {
+							sendingThreadId = null;
 						}
 					}
 				}}

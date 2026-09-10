@@ -151,8 +151,8 @@
 				anonymousUserId,
 				readThroughMessageId: lastAdminReplyMessageId
 			});
-		} catch (error) {
-			console.warn('[customer-support] Failed to mark support reply read:', error);
+		} catch {
+			console.warn('[FeedbackWidget.markReplyRead] Failed');
 		} finally {
 			if (markingReplyMessageId === lastAdminReplyMessageId) markingReplyMessageId = null;
 		}

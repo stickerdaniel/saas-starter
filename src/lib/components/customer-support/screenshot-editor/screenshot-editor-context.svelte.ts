@@ -151,8 +151,8 @@ export class ScreenshotEditorState {
 		// Preload resources on first drawing action (fire-and-forget, runs in background)
 		if (!this.hasPreCached) {
 			this.hasPreCached = true;
-			void preCache(document.body, getPreCacheConfig()).catch((error) => {
-				console.warn('Failed to preload screenshot resources:', error);
+			void preCache(document.body, getPreCacheConfig()).catch(() => {
+				console.warn('[ScreenshotEditor.preCache] Failed');
 			});
 		}
 	}

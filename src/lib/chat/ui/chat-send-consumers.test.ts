@@ -117,8 +117,8 @@ describe.each([
 		content: AdminThreadChat,
 		contentProps: { threadId: 'thread-admin' },
 		mutationName: 'admin/support/mutations:sendAdminReply',
-		log: '[Admin sendAdminReply] Error:',
-		safeDiagnostic: false,
+		log: '[AdminSupport.sendReply] Failed',
+		safeDiagnostic: true,
 		translation: en.admin.support.chat.send_error
 	}
 ])(
@@ -303,6 +303,83 @@ describe('AI thread switch failure', () => {
 
 		expect(capturedInput.context!.inputValue).toBe('');
 		expect(storedDrafts('ai-chat')).toEqual({ 'thread-a': 'retry in A' });
+	});
+});
+
+describe('AI thread send ownership', () => {
+	async function mountHarness() {
+		const contentProps = { kind: 'ai' as const, initialThreadId: 'thread-a' };
+		component = mount(ChatTestProvider<typeof contentProps>, {
+			target: document.body,
+			props: { client, content: ThreadChatConsumerHarness, contentProps }
+		});
+		await tick();
+		return capturedInput.context!;
+	}
+
+	it.each(['success', 'rejection'] as const)(
+		'keeps a cleared B draft deleted after stale A $0',
+		async (outcome) => {
+			const pending = Promise.withResolvers<Record<string, never>>();
+			vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+			const ctx = await mountHarness();
+			ctx.setInputValue('send from A');
+			await tick();
+			const result = capturedInput.props!.onSend!('send from A');
+			ctx.clearInput();
+			threadChatConsumerHarness.setThreadId?.('thread-b');
+			await tick();
+			ctx.setInputValue('draft in B');
+			await tick();
+			expect(storedDrafts('ai-chat')['thread-b']).toBe('draft in B');
+			ctx.clearInput();
+			await tick();
+			expect(storedDrafts('ai-chat')).not.toHaveProperty('thread-b');
+
+			if (outcome === 'success') {
+				pending.resolve({});
+				await expect(result).resolves.toBeUndefined();
+			} else {
+				const error = new Error('thread A provider detail');
+				pending.reject(error);
+				await expect(result).rejects.toBe(error);
+			}
+
+			expect(storedDrafts('ai-chat')).not.toHaveProperty('thread-b');
+		}
+	);
+
+	it('does not let stale A completion release a newer B send', async () => {
+		const pendingA = Promise.withResolvers<Record<string, never>>();
+		const pendingB = Promise.withResolvers<Record<string, never>>();
+		vi.spyOn(client, 'mutation')
+			.mockReturnValueOnce(pendingA.promise)
+			.mockReturnValueOnce(pendingB.promise);
+		const ctx = await mountHarness();
+		ctx.setInputValue('send from A');
+		await tick();
+		const resultA = capturedInput.props!.onSend!('send from A');
+		ctx.clearInput();
+		threadChatConsumerHarness.setThreadId?.('thread-b');
+		await tick();
+		ctx.setInputValue('send from B');
+		await tick();
+		const resultB = capturedInput.props!.onSend!('send from B');
+		ctx.clearInput();
+		await tick();
+
+		pendingA.resolve({});
+		await expect(resultA).resolves.toBeUndefined();
+		ctx.setInputValue('newer B draft');
+		await tick();
+		ctx.clearInput();
+		await tick();
+		expect(storedDrafts('ai-chat')['thread-b']).toBe('newer B draft');
+
+		pendingB.resolve({});
+		await expect(resultB).resolves.toBeUndefined();
+		await tick();
+		expect(storedDrafts('ai-chat')).not.toHaveProperty('thread-b');
 	});
 });
 

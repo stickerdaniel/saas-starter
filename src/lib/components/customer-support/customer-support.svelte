@@ -195,10 +195,10 @@
 				if (cancelled || urlState.thread !== threadFromUrl) return;
 				support.selectThreadFromUrl(threadFromUrl);
 			})
-			.catch((error) => {
+			.catch(() => {
 				if (cancelled || urlState.thread !== threadFromUrl) return;
 
-				console.warn('[customer-support] Ignoring invalid support thread URL:', error);
+				console.warn('[CustomerSupport.resolveThreadUrl] Invalid');
 				conversation.setThread(null);
 				navigation.setView('overview');
 				navigation.skipAnimation = false;
