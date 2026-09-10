@@ -1,5 +1,5 @@
 import type { ServerLoadEvent } from '@sveltejs/kit';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { createAutumnHandlers, getCustomer, query } = vi.hoisted(() => ({
 	createAutumnHandlers: vi.fn(),
@@ -9,6 +9,7 @@ const { createAutumnHandlers, getCustomer, query } = vi.hoisted(() => ({
 
 vi.mock('$lib/convex/_generated/api', () => ({
 	api: {
+		autumn: { check: 'autumn:check' },
 		capabilities: { getUsability: 'capabilities:getUsability' },
 		users: { viewer: 'users:viewer' }
 	}
@@ -52,6 +53,10 @@ beforeEach(() => {
 				}
 			: null
 	);
+});
+
+afterEach(() => {
+	vi.unstubAllEnvs();
 });
 
 describe('resolveAuthLayoutData per-request memo', () => {
@@ -110,6 +115,34 @@ describe('capability-aware SSR', () => {
 			viewer: { _id: 'user_1' },
 			autumnState: { customer: null },
 			capabilities: { billing: { usable: false }, ai: { usable: true } }
+		});
+		expect(createAutumnHandlers).not.toHaveBeenCalled();
+		expect(getCustomer).not.toHaveBeenCalled();
+	});
+
+	it('uses local E2E UI entitlements without claiming provider readiness', async () => {
+		vi.stubEnv('LOCAL_E2E_RUNTIME', '1');
+		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'local-test-secret');
+		query.mockImplementation(async (reference: string) =>
+			reference === 'capabilities:getUsability'
+				? {
+						billing: { usable: false, reason: 'unavailable' },
+						ai: { usable: false, reason: 'unavailable' }
+					}
+				: { _id: 'user_1' }
+		);
+
+		await expect(
+			resolveAuthLayoutData(fakeEvent({ token: 'signed-token' } as App.Locals))
+		).resolves.toMatchObject({
+			capabilities: { billing: { usable: false }, ai: { usable: false } },
+			localE2E: { aiChat: true, billing: true },
+			autumnState: {
+				customer: {
+					id: 'local-e2e-customer',
+					features: { ai_chat_messages: { balance: 3, included_usage: 3 } }
+				}
+			}
 		});
 		expect(createAutumnHandlers).not.toHaveBeenCalled();
 		expect(getCustomer).not.toHaveBeenCalled();

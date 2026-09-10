@@ -29,7 +29,6 @@
 		ALLOWED_FILE_EXT_MIME,
 		ALLOWED_FILE_EXTENSIONS,
 		ALLOWED_FILE_TYPES,
-		MAX_ATTACHMENTS,
 		MAX_FILE_SIZE,
 		MAX_FILE_SIZE_LABEL,
 		MAX_INPUT_IMAGE_SIZE,
@@ -212,9 +211,9 @@
 			const sendPromise = onSend?.(prompt);
 			ctx.clearAttachmentsForSend(snapshot);
 			await sendPromise;
-		} catch (error) {
+		} catch {
 			if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
-			console.error('[ChatInput] onSend failed:', error);
+			if (ctx.isSendSnapshotCurrent(snapshot)) console.error('[ChatInput] Send failed');
 			ctx.restoreSendSnapshot(snapshot);
 		}
 	}
@@ -383,7 +382,7 @@
 	 * Route image-typed files through processImage (resize + WebP encode on a
 	 * worker) before handing them to the upload context. The preprocess
 	 * callback runs INSIDE ctx.uploadFile, after the placeholder attachment
-	 * is inserted, so canSend / hasFile / MAX_ATTACHMENTS guards see the
+	 * is inserted, so canSend / hasFile / attachment-cap guards see the
 	 * in-progress attachment during the encode window.
 	 */
 	function attachFile(file: File | Blob, filename: string) {
@@ -443,9 +442,9 @@
 		// Upload files through context (with duplicate detection and size validation)
 		for (const raw of files) {
 			// Check attachment limit
-			if (ctx.attachments.length >= MAX_ATTACHMENTS) {
+			if (!ctx.canAddAttachment) {
 				haptic.trigger('error');
-				toast.error($t('chat.error.max_attachments', { max: MAX_ATTACHMENTS }));
+				toast.error($t('chat.error.max_attachments', { max: ctx.maxAttachments }));
 				break;
 			}
 
@@ -517,9 +516,9 @@
 			if (!isAllowedKind(raw)) continue;
 
 			// Check attachment limit
-			if (ctx.attachments.length >= MAX_ATTACHMENTS) {
+			if (!ctx.canAddAttachment) {
 				haptic.trigger('error');
-				toast.error($t('chat.error.max_attachments', { max: MAX_ATTACHMENTS }));
+				toast.error($t('chat.error.max_attachments', { max: ctx.maxAttachments }));
 				break;
 			}
 

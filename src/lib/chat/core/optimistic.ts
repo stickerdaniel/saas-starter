@@ -184,9 +184,9 @@ export function createOptimisticUpdate(
 					attachments: sanitizeAttachmentsForClone(options.attachments)
 				}
 			: undefined;
-	} catch (error) {
+	} catch {
 		// If sanitization fails (circular refs, BigInt, etc), skip optimistic update
-		console.error('[Optimistic] Failed to sanitize options:', error);
+		console.error('[Optimistic.sanitizeOptions] Failed');
 		sanitizedOptions = undefined;
 	}
 

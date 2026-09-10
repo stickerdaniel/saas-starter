@@ -63,8 +63,8 @@
 				supportUserId.current = null;
 				localStorage.removeItem('supportUserId');
 			})
-			.catch(function onMigrationError(err: unknown) {
-				console.error('Failed to migrate anonymous tickets:', err);
+			.catch(function onMigrationError() {
+				console.error('[SupportMigration.migrateAnonymousTickets] Failed');
 			});
 	});
 </script>

@@ -1,4 +1,4 @@
-import { Context } from 'runed';
+import { createContext } from 'svelte';
 
 /**
  * UI state for the admin support details overlay (Sheet/Drawer).
@@ -19,4 +19,5 @@ export class AdminSupportUIManager {
 	}
 }
 
-export const adminSupportUIContext = new Context<AdminSupportUIManager>('admin-support-ui');
+const [get, set] = createContext<AdminSupportUIManager>();
+export const adminSupportUIContext = { get, set };

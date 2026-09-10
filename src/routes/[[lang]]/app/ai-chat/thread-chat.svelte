@@ -86,7 +86,11 @@
 		client,
 		uploadConfig,
 		'right',
-		activeUploadsContext.getOr(null)
+		activeUploadsContext.getOr(null),
+		{
+			bindThreadOrigin: (binder) => chatCore.setThreadOriginBinder(binder),
+			forgetSession: () => chatCore.forgetChatSession()
+		}
 	);
 
 	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
@@ -94,8 +98,9 @@
 
 	// Draft persistence across thread switches and page refreshes
 	const draftManager = new ChatDraftManager('ai-chat');
-	let sending = $state(false);
+	let sendingThreadId = $state<string | null>(null);
 	let sendRevision = 0;
+	const sending = $derived(sendingThreadId === threadId);
 
 	// Save draft on leave, restore on enter
 	watch(
@@ -141,10 +146,7 @@
 		threadId={threadId || null}
 		externalCore={chatCore}
 		externalUIContext={chatUIContext}
-		api={{
-			listMessages: api.aiChat.messages.listMessages,
-			sendMessage: api.aiChat.messages.sendMessage
-		}}
+		api={{ listMessages: api.aiChat.messages.listMessages }}
 	>
 		<div class="flex-1 overflow-hidden">
 			<ChatMessages />
@@ -203,21 +205,22 @@
 					const operationRevision = ++sendRevision;
 					const fileIds = chatUIContext.uploadedFileIds;
 					const attachments = [...chatUIContext.attachments];
-					sending = true;
+					sendingThreadId = originThreadId;
 					try {
 						await chatCore.sendMessage(client, prompt, { fileIds, attachments });
 						if (!isChatSessionCurrent(sessionEpoch)) return;
 						draftManager.clearDraftIfUnchanged(draftCheckpoint);
+						if (threadId !== originThreadId) return;
 						onMessageSent?.();
 					} catch (error) {
-						if (isChatSessionCurrent(sessionEpoch)) {
-							console.error('[AI Chat sendMessage] Error:', error);
+						if (isChatSessionCurrent(sessionEpoch) && threadId === originThreadId) {
+							console.error('[AIChat.sendMessage] Failed');
 							toast.error($t('chat.messages.send_failed'));
 						}
 						throw error;
 					} finally {
-						if (isChatSessionCurrent(sessionEpoch) && sendRevision === operationRevision) {
-							sending = false;
+						if (sendingThreadId === originThreadId && sendRevision === operationRevision) {
+							sendingThreadId = null;
 						}
 					}
 				}}

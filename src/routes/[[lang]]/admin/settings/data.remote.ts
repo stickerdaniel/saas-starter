@@ -1,7 +1,9 @@
 import { form, getRequestEvent } from '$app/server';
 import { invalid } from '@sveltejs/kit';
 import { api } from '$lib/convex/_generated/api';
+import { NOTIFICATION_EMAIL_ALREADY_EXISTS } from '$lib/convex/admin/notificationPreferences/errors';
 import { createServerConvexHttpClient } from '$lib/server/convex-http';
+import { getConvexErrorCode } from '$lib/utils/convex-errors';
 import { addEmailSchema } from './email-schema';
 
 /**
@@ -22,7 +24,7 @@ export const addEmailForm = form(addEmailSchema, async ({ email }, issue) => {
 		});
 		return { success: true };
 	} catch (err) {
-		if (err instanceof Error && err.message.includes('already exists')) {
+		if (getConvexErrorCode(err) === NOTIFICATION_EMAIL_ALREADY_EXISTS) {
 			// Return validation error - don't re-throw. The translation key is
 			// resolved client-side via translateRemoteFormIssues.
 			return invalid(issue.email('admin.settings.email_exists'));

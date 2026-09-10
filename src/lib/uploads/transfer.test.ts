@@ -1,14 +1,19 @@
 /**
- * Unit tests for the upload transport layer.
+ * Unit tests for the shared upload transport and configured adapter boundary.
  *
- * These pin the error vocabulary the UI depends on: every failure mode maps to
- * a stable UploadErrorCode, and a cancelation stays an AbortError DOMException
- * rather than becoming an UploadError, because callers outside the chat (the
- * avatar upload) distinguish the two.
+ * These pin the stable error vocabulary, progress/cancelation semantics, and
+ * provider metadata used by both chat attachments and profile images.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { UploadError, uploadToStorage, uploadFileWithProgress } from './file-uploader.js';
+import {
+	requestUploadGrant,
+	uploadGrantedWithAdapter,
+	uploadToStorage,
+	UploadError,
+	type UploadAdapter
+} from './transfer.js';
+import { uploadFileWithProgress } from '../chat/core/file-uploader.js';
 import type { ConvexClient } from 'convex/browser';
 
 type XhrHandlers = Record<string, () => void>;
@@ -149,6 +154,98 @@ describe('uploadToStorage cancelation', () => {
 		).catch((e) => e);
 
 		expect(error.name).toBe('AbortError');
+	});
+});
+
+describe('configured upload adapter', () => {
+	it('normalizes structured grant errors for surface-specific copy', async () => {
+		const cause = { data: { code: 'RATE_LIMITED', retryAfter: 1_250 } };
+		const adapter: UploadAdapter<string> = {
+			grant: vi.fn(async () => {
+				throw cause;
+			}),
+			commit: vi.fn(async () => 'unused')
+		};
+
+		const error = await requestUploadGrant(adapter).catch((value) => value);
+
+		expect(error).toBeInstanceOf(UploadError);
+		expect(error).toMatchObject({
+			code: 'server',
+			providerCode: 'RATE_LIMITED',
+			retryAfterMs: 1_250,
+			cause
+		});
+	});
+
+	it('shares transport, progress, and exact grant/commit arguments', async () => {
+		stubXhr({ responseText: JSON.stringify({ storageId: 'storage-77' }) });
+		const progress = vi.fn();
+		const commit = vi.fn(async () => 'https://cdn.test/avatar');
+		const adapter: UploadAdapter<string> = {
+			grant: vi.fn(async () => ({
+				uploadUrl: 'https://storage.test',
+				uploadToken: 'token-77'
+			})),
+			commit
+		};
+
+		await expect(
+			uploadGrantedWithAdapter({
+				adapter,
+				grant: { uploadUrl: 'https://storage.test', uploadToken: 'token-77' },
+				blob,
+				onProgress: progress
+			})
+		).resolves.toEqual({ storageId: 'storage-77', value: 'https://cdn.test/avatar' });
+		expect(commit).toHaveBeenCalledWith({
+			storageId: 'storage-77',
+			uploadToken: 'token-77'
+		});
+		expect(progress).toHaveBeenLastCalledWith(100);
+	});
+
+	it('normalizes structured commit errors through the same boundary', async () => {
+		stubXhr({});
+		const cause = { data: { code: 'FILE_TOO_LARGE' } };
+		const adapter: UploadAdapter<string> = {
+			grant: vi.fn(async () => ({
+				uploadUrl: 'https://storage.test',
+				uploadToken: 'token-1'
+			})),
+			commit: vi.fn(async () => {
+				throw cause;
+			})
+		};
+
+		const error = await uploadGrantedWithAdapter({
+			adapter,
+			grant: { uploadUrl: 'https://storage.test', uploadToken: 'token-1' },
+			blob,
+			onProgress: noProgress
+		}).catch((value) => value);
+
+		expect(error).toBeInstanceOf(UploadError);
+		expect(error).toMatchObject({ code: 'server', providerCode: 'FILE_TOO_LARGE', cause });
+	});
+
+	it('does not request a grant when already canceled', async () => {
+		const controller = new AbortController();
+		controller.abort();
+		const grant = vi.fn(async () => ({
+			uploadUrl: 'https://storage.test',
+			uploadToken: 'token-1'
+		}));
+		const adapter: UploadAdapter<string> = {
+			grant,
+			commit: vi.fn(async () => 'unused')
+		};
+
+		const error = await requestUploadGrant(adapter, controller.signal).catch((value) => value);
+
+		expect(error).toBeInstanceOf(DOMException);
+		expect(error.name).toBe('AbortError');
+		expect(grant).not.toHaveBeenCalled();
 	});
 });
 

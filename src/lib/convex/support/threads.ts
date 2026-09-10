@@ -52,7 +52,7 @@ export const createThread = mutation({
 	}),
 	handler: async (ctx, args) => {
 		const owner = await requireSupportOwnerIdentity(ctx, args.anonymousUserId);
-		await limitSupportThreadCreate(ctx, owner, args.pageUrl);
+		await limitSupportThreadCreate(ctx, owner);
 		return await createSupportThreadRecord(ctx, {
 			resolvedUserId: owner.ownerId,
 			isAnonymous: owner.isAnonymous,
@@ -102,7 +102,7 @@ export const getOrCreateWarmThread = mutation({
 		}
 
 		// Only the creation branch consumes a token; the idempotent read above doesn't
-		await limitSupportThreadCreate(ctx, owner, args.pageUrl);
+		await limitSupportThreadCreate(ctx, owner);
 
 		return await createSupportThreadRecord(ctx, {
 			resolvedUserId: owner.ownerId,

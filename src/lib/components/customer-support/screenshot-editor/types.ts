@@ -72,6 +72,13 @@ export type ArrowShape = BaseShape & {
  */
 export type Shape = LineShape | RectShape | CircleShape | ArrowShape;
 
+export type ShapeUpdate = Partial<
+	Omit<LineShape, 'id' | 'type'> &
+		Omit<RectShape, 'id' | 'type'> &
+		Omit<CircleShape, 'id' | 'type'> &
+		Omit<ArrowShape, 'id' | 'type'>
+>;
+
 /**
  * Color preset for quick selection
  */

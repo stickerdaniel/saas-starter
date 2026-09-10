@@ -1,14 +1,14 @@
-import { v, ConvexError } from 'convex/values';
+import { v } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
 import { action, internalMutation } from '../_generated/server';
 import { components, internal } from '../_generated/api';
-import { t } from '../i18n/translations';
 import { aiChatRateLimiter } from './rateLimit';
 import { authComponent } from '../auth';
 import { authedMutation } from '../functions';
 import { fetchAttachmentText } from '../files/attachmentText';
 import { vGenerateUploadUrlResult } from '../files/validators';
 import { validateUploadBlob } from '../files/upload';
+import { FILE_ERROR_CODES, createFileError } from '../files/errors';
 
 /**
  * Generate a URL for uploading files to Convex storage
@@ -23,7 +23,9 @@ export const generateUploadUrl = authedMutation({
 			key: ctx.user._id
 		});
 		if (!rateLimitStatus.ok) {
-			throw new ConvexError('Too many file uploads. Please try again later.');
+			throw createFileError(FILE_ERROR_CODES.uploadRateLimited, {
+				retryAfter: rateLimitStatus.retryAfter
+			});
 		}
 
 		return await ctx.runMutation(components.convexFilesControl.upload.generateUploadUrl, {
@@ -117,7 +119,7 @@ export const saveUploadedFile = action({
 
 			const response = await fetch(downloadResult.downloadUrl);
 			if (!response.ok) {
-				throw new ConvexError(t(args.locale, 'backend.files.fetch_failed'));
+				throw createFileError(FILE_ERROR_CODES.fetchFailed);
 			}
 			const blob = await response.blob();
 
@@ -172,7 +174,9 @@ export const checkPreviewAccess = internalMutation({
 			key: user._id
 		});
 		if (!rateLimitStatus.ok) {
-			throw new ConvexError('Too many preview requests. Please try again later.');
+			throw createFileError(FILE_ERROR_CODES.previewRateLimited, {
+				retryAfter: rateLimitStatus.retryAfter
+			});
 		}
 		return null;
 	}

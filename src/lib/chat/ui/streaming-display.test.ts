@@ -9,18 +9,15 @@ import {
 	hasAssistantResponseStarted,
 	hasStreamingAssistantMessage
 } from './streaming-display.js';
-import type { StreamCacheManager } from '../core/stream-cache.js';
+import type { StreamCachePort } from '../core/chat-session-port.js';
 
-function createStreamCache(): StreamCacheManager {
+function createStreamCache(): StreamCachePort {
 	return {
 		getCachedReasoning: vi.fn(),
 		updateReasoningCache: vi.fn(),
 		clearReasoningCache: vi.fn(),
-		getCachedStatus: vi.fn(),
-		updateStatusCache: vi.fn(),
-		hasStatusCache: vi.fn(),
-		clear: vi.fn()
-	} as unknown as StreamCacheManager;
+		updateStatusCache: vi.fn()
+	};
 }
 
 function createAssistantMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {

@@ -1,13 +1,23 @@
-import { listUIMessages, syncStreams } from '@convex-dev/agent';
+import {
+	listMessages,
+	syncStreams,
+	toUIMessages,
+	type SyncStreamsReturnValue,
+	type UIMessage
+} from '@convex-dev/agent';
+import type { StreamMessage } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
 import type { QueryCtx } from '../_generated/server';
 import {
 	combineStreamingUIMessages,
 	deriveUIMessagesFromDeltas
 } from '../../chat/core/stream-materialization';
-import type { ChatMessage } from '../../chat/core/types';
-import type { UIMessage } from '@convex-dev/agent';
-import type { StreamMessage } from '@convex-dev/agent/validators';
+import type { ChatMessage, MessagesQueryResponse } from '../../chat/core/types';
+import {
+	redactMessageDocToolErrors,
+	redactStreamDeltas,
+	redactUIMessageToolErrors
+} from '../../chat/core/tool-error-redaction';
 
 type MessagePaginationArgs = {
 	numItems: number;
@@ -27,12 +37,6 @@ type MessageStreamArgs =
 			}>;
 	  };
 
-type RawMessageRow = {
-	_id: string;
-	provider?: string;
-	providerMetadata?: Record<string, unknown>;
-};
-
 export async function listMessagesForThread(
 	ctx: QueryCtx,
 	args: {
@@ -40,39 +44,30 @@ export async function listMessagesForThread(
 		paginationOpts: MessagePaginationArgs;
 		streamArgs?: MessageStreamArgs;
 	}
-): Promise<unknown> {
-	const paginated = await listUIMessages(ctx, components.agent, {
+): Promise<MessagesQueryResponse> {
+	const rawPaginated = await listMessages(ctx, components.agent, {
 		threadId: args.threadId,
 		paginationOpts: args.paginationOpts
 	});
-
-	let rawMessages: { page: RawMessageRow[] } = {
-		page: []
-	};
-	if (args.paginationOpts.numItems > 0) {
-		rawMessages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-			threadId: args.threadId,
-			paginationOpts: args.paginationOpts,
-			// listUIMessages uses descending order; matching it keeps metadata on the
-			// same page after the thread grows beyond one pagination window.
-			order: 'desc'
-		});
-	}
+	const redactedMessages = rawPaginated.page.map(redactMessageDocToolErrors);
+	const paginated = { ...rawPaginated, page: toUIMessages(redactedMessages) };
 
 	const metadataMap = new Map<string, Record<string, unknown>>();
-	for (const rawMsg of rawMessages.page) {
-		if (rawMsg.provider || rawMsg.providerMetadata) {
-			metadataMap.set(rawMsg._id, {
-				provider: rawMsg.provider,
-				providerMetadata: rawMsg.providerMetadata
+	for (const rawMessage of redactedMessages) {
+		if (rawMessage.provider || rawMessage.providerMetadata) {
+			metadataMap.set(rawMessage._id, {
+				provider: rawMessage.provider,
+				providerMetadata: rawMessage.providerMetadata
 			});
 		}
 	}
 
-	const enrichedPage = paginated.page.map((msg) => ({
-		...msg,
-		metadata: metadataMap.get(msg.id)
-	}));
+	const enrichedPage = paginated.page.map((message) =>
+		redactUIMessageToolErrors({
+			...message,
+			metadata: metadataMap.get(message.id)
+		})
+	);
 
 	const streamArgs =
 		args.streamArgs?.kind === 'list'
@@ -82,11 +77,15 @@ export async function listMessagesForThread(
 				}
 			: (args.streamArgs ?? { kind: 'list' as const, startOrder: 0 });
 
-	const streams = await syncStreams(ctx, components.agent, {
+	const syncedStreams = await syncStreams(ctx, components.agent, {
 		threadId: args.threadId,
 		streamArgs,
 		includeStatuses: ['streaming', 'finished', 'aborted']
 	});
+	const streams: SyncStreamsReturnValue =
+		syncedStreams?.kind === 'deltas'
+			? { ...syncedStreams, deltas: redactStreamDeltas(syncedStreams.deltas) }
+			: syncedStreams;
 
 	if (streams?.kind !== 'list' || args.paginationOpts.numItems === 0) {
 		return { ...paginated, page: enrichedPage, streams };
@@ -130,17 +129,19 @@ async function mergeRecentStreamsIntoPage(
 		return args.page;
 	}
 
-	const deltas = await ctx.runQuery(components.agent.streams.listDeltas, {
-		threadId: args.threadId,
-		cursors: args.streamMessages.map((streamMessage) => ({
-			streamId: streamMessage.streamId,
-			cursor: 0
-		}))
-	});
+	const deltas = redactStreamDeltas(
+		await ctx.runQuery(components.agent.streams.listDeltas, {
+			threadId: args.threadId,
+			cursors: args.streamMessages.map((streamMessage) => ({
+				streamId: streamMessage.streamId,
+				cursor: 0
+			}))
+		})
+	);
 
 	const materializedStreams = combineStreamingUIMessages(
 		await deriveUIMessagesFromDeltas(args.threadId, args.streamMessages, deltas)
-	);
+	).map(redactUIMessageToolErrors);
 	return mergeMaterializedStreamsIntoPage(args.page, materializedStreams);
 }
 
@@ -169,7 +170,7 @@ export function mergeAssistantMessage(message: ChatMessage, materialized: UIMess
 		...message,
 		status: materialized.status,
 		text: materialized.text,
-		parts: materialized.parts as ChatMessage['parts'],
+		parts: materialized.parts,
 		agentName: materialized.agentName ?? message.agentName
 	};
 }

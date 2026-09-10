@@ -127,6 +127,8 @@ describe('readOpenRouterCost', () => {
 	});
 	it('returns undefined when absent or the wrong shape', () => {
 		expect(readOpenRouterCost(undefined)).toBeUndefined();
+		expect(readOpenRouterCost({ openrouter: [] })).toBeUndefined();
+		expect(readOpenRouterCost({ openrouter: { usage: null } })).toBeUndefined();
 		expect(readOpenRouterCost({ openrouter: { usage: {} } })).toBeUndefined();
 		expect(readOpenRouterCost({ openrouter: { usage: { cost: 'x' } } })).toBeUndefined();
 	});

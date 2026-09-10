@@ -10,7 +10,7 @@
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UsersRoundIcon from '@lucide/svelte/icons/users-round';
-	import { supportThreadContext } from './support-thread-context.svelte.ts';
+	import { supportContext } from './support-context.svelte.ts';
 	import AvatarHeading from './avatar-heading.svelte';
 	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
 	import memberFour from '$blocks/team/avatars/member-four.webp';
@@ -28,9 +28,10 @@
 
 	const { t } = getTranslate();
 
-	const ctx = supportThreadContext.get();
+	const support = supportContext.get();
+	const { navigation, conversation } = support;
 	const anonymousUserId = $derived.by(() => {
-		const userId = ctx.userId;
+		const userId = conversation.userId;
 		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
 	});
 
@@ -41,13 +42,13 @@
 	// yet, and the greeting claims an empty inbox to someone who has threads.
 	const threadsQuery = usePaginatedQuery(
 		api.support.threads.listThreads,
-		() => (ctx.userId ? { anonymousUserId } : 'skip'),
+		() => (conversation.userId ? { anonymousUserId } : 'skip'),
 		{ initialNumItems: 20 }
 	);
 
 	// Filter out threads with no messages (e.g., eagerly created but never used threads)
 	const threads = $derived(threadsQuery.results.filter(hasConversationActivity));
-	const isLoading = $derived(!ctx.userId ? true : threadsQuery.isLoading);
+	const isLoading = $derived(!conversation.userId ? true : threadsQuery.isLoading);
 	const loadError = $derived(threadsQuery.error);
 
 	// One name per visible state, rather than conditions combined at each place
@@ -205,7 +206,7 @@
 	}
 </script>
 
-<div class="flex h-full flex-col" inert={ctx.currentView !== 'overview' ? true : undefined}>
+<div class="flex h-full flex-col" inert={navigation.currentView !== 'overview' ? true : undefined}>
 	<!-- Thread List -->
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		<!-- Announced for the same reason as the paging failure below: it arrives
@@ -321,14 +322,14 @@
 			<!-- data-tolgee-restricted: thread previews may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
 			<div data-tolgee-restricted class={threadsFade.animationClass}>
 				{#each threads as thread (thread._id)}
-					{@const isSelected = thread._id === ctx.threadId}
+					{@const isSelected = thread._id === conversation.threadId}
 					{@const showAdminAvatar = thread.isHandedOff && thread.assignedAdmin}
 					<button
 						class="t-learn flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors duration-150 {isSelected
 							? 'bg-muted-foreground/[0.04]'
 							: 'hover:bg-muted-foreground/[0.06]'}"
 						onclick={() =>
-							ctx.selectThread(
+							support.selectThread(
 								thread._id,
 								thread.lastAgentName,
 								thread.isHandedOff,
@@ -415,9 +416,9 @@
 	<div class="shrink-0 border-t border-border/50 bg-secondary p-4">
 		<Button
 			class="w-full rounded-full"
-			onclick={() => ctx.startNewThread()}
+			onclick={() => support.startNewThread()}
 			size="lg"
-			disabled={ctx.isRateLimited}
+			disabled={conversation.isRateLimited}
 		>
 			<PlusIcon />
 			{$t('support.button.start_new_conversation')}

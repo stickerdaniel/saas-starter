@@ -1,4 +1,5 @@
 import {
+	isStaticToolUIPart,
 	readUIMessageStream,
 	type ProviderMetadata,
 	type TextStreamPart,
@@ -8,6 +9,12 @@ import {
 import type { UIMessage } from '@convex-dev/agent';
 import type { StreamDelta, StreamMessage, MessageStatus } from '@convex-dev/agent/validators';
 import type { ReasoningUIPart, TextUIPart, ToolCallPart } from './types.js';
+import {
+	redactStreamDeltas,
+	redactToolErrorStreamPart,
+	redactUIMessageToolErrors,
+	SAFE_TOOL_ERROR_MESSAGE
+} from './tool-error-redaction.js';
 
 /**
  * Extract text content from a stream delta part, handling both formats:
@@ -15,7 +22,7 @@ import type { ReasoningUIPart, TextUIPart, ToolCallPart } from './types.js';
  * - TextStreamPart format: content is in `text` field
  */
 function getDeltaText(part: { text?: string; delta?: string }): string {
-	return (part as { delta?: string }).delta ?? part.text ?? '';
+	return part.delta ?? part.text ?? '';
 }
 
 /**
@@ -59,9 +66,13 @@ export function statusFromStreamStatus(
 }
 
 /**
- * Get parts from deltas with cursor tracking
+ * Get parts from deltas with cursor tracking.
+ *
+ * Agent stores delta parts as `v.any()` and relates them to the declared stream
+ * format only at this application boundary. Callers select the SDK type after
+ * branching on that format; stream fixtures cover both supported encodings.
  */
-export function getParts<T extends StreamDelta['parts'][number]>(
+export function getParts<T extends UIMessageChunk | TextStreamPart<ToolSet>>(
 	deltas: StreamDelta[],
 	fromCursor?: number
 ): { parts: T[]; cursor: number } {
@@ -159,7 +170,7 @@ export async function updateFromUIMessageChunks(
 	const partsStream = new ReadableStream<UIMessageChunk>({
 		start(controller) {
 			for (const part of parts) {
-				controller.enqueue(part);
+				controller.enqueue(redactToolErrorStreamPart(part));
 			}
 			controller.close();
 		}
@@ -169,9 +180,8 @@ export async function updateFromUIMessageChunks(
 	const messageStream = readUIMessageStream({
 		message: uiMessage,
 		stream: partsStream,
-		onError: (error) => {
+		onError: () => {
 			failed = true;
-			console.error('Error in UI message stream', error);
 		},
 		terminateOnError: true
 	});
@@ -188,7 +198,7 @@ export async function updateFromUIMessageChunks(
 		message.status = 'failed';
 	}
 	message.text = joinText(message.parts);
-	return message;
+	return redactUIMessageToolErrors(message);
 }
 
 /**
@@ -200,7 +210,10 @@ export function updateFromTextStreamParts(
 	existing: { streamId: string; cursor: number; message: UIMessage } | undefined,
 	deltas: StreamDelta[]
 ): [{ streamId: string; cursor: number; message: UIMessage }, boolean] {
-	const { cursor, parts } = getParts<TextStreamPart<ToolSet>>(deltas, existing?.cursor);
+	const { cursor, parts } = getParts<TextStreamPart<ToolSet>>(
+		redactStreamDeltas(deltas),
+		existing?.cursor
+	);
 	const changed =
 		parts.length > 0 ||
 		(existing && statusFromStreamStatus(streamMessage.status) !== existing.message.status);
@@ -217,7 +230,7 @@ export function updateFromTextStreamParts(
 		];
 	}
 
-	const message: UIMessage = structuredClone(existingMessage);
+	const message = redactUIMessageToolErrors(structuredClone(existingMessage));
 	message.status = statusFromStreamStatus(streamMessage.status);
 
 	const textPartsById = new Map<string, TextUIPart>();
@@ -292,10 +305,9 @@ export function updateFromTextStreamParts(
 						existingPart.type === toolPartType && getToolCallId(existingPart) === part.toolCallId
 				);
 
-				if (existingToolPart) {
-					const toolPart = existingToolPart as ToolCallPart;
-					toolPart.input = part.input;
-					toolPart.state = 'input-available';
+				if (existingToolPart && isStaticToolUIPart(existingToolPart)) {
+					existingToolPart.input = part.input;
+					existingToolPart.state = 'input-available';
 				} else {
 					const newToolPart = {
 						type: toolPartType,
@@ -312,13 +324,27 @@ export function updateFromTextStreamParts(
 					(existingPart) => getToolCallId(existingPart) === part.toolCallId
 				);
 
-				if (matchingToolPart) {
-					const toolPart = matchingToolPart as ToolCallPart;
+				if (matchingToolPart && isStaticToolUIPart(matchingToolPart)) {
 					if (part.input !== undefined) {
-						toolPart.input = part.input;
+						matchingToolPart.input = part.input;
 					}
-					toolPart.output = part.output;
-					toolPart.state = 'output-available';
+					matchingToolPart.output = part.output;
+					matchingToolPart.state = 'output-available';
+				}
+				break;
+			}
+			case 'tool-error': {
+				const matchingToolPart = message.parts.find(
+					(existingPart) => getToolCallId(existingPart) === part.toolCallId
+				);
+
+				if (matchingToolPart && isStaticToolUIPart(matchingToolPart)) {
+					if (part.input !== undefined) {
+						matchingToolPart.input = part.input;
+					}
+					delete matchingToolPart.output;
+					matchingToolPart.errorText = SAFE_TOOL_ERROR_MESSAGE;
+					matchingToolPart.state = 'output-error';
 				}
 				break;
 			}

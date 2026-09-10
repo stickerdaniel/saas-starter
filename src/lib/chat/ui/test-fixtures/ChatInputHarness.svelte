@@ -15,10 +15,7 @@
 	threadId={context.core.threadId}
 	externalCore={context.core}
 	externalUIContext={context}
-	api={{
-		listMessages: api.aiChat.messages.listMessages,
-		sendMessage: api.aiChat.messages.sendMessage
-	}}
+	api={{ listMessages: api.aiChat.messages.listMessages }}
 >
 	<ChatInput {onSend} showFileButton={false} />
 </ChatRoot>

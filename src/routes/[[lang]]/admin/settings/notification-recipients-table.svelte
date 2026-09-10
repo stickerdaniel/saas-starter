@@ -10,7 +10,12 @@
 	import { getTranslate, T } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
-	import { setContext } from 'svelte';
+	import {
+		setTogglePreferenceContext,
+		setRemoveEmailContext,
+		setRowSelectionContext,
+		setRecipientsContext
+	} from './recipients-context';
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
@@ -190,10 +195,10 @@
 	}
 
 	// Provide context for cell components
-	setContext('onTogglePreference', togglePreference);
-	setContext('onRemoveEmail', removeEmail);
-	setContext('getRowSelection', () => rowSelection);
-	setContext('getRecipients', () => recipientsWithUpdates);
+	setTogglePreferenceContext(togglePreference);
+	setRemoveEmailContext(removeEmail);
+	setRowSelectionContext(() => rowSelection);
+	setRecipientsContext(() => recipientsWithUpdates);
 
 	const table = createSvelteTable({
 		get data() {

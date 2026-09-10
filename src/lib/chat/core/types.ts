@@ -5,9 +5,11 @@
  * Types are extracted from the customer-support implementation to be reusable.
  */
 
+import type { StreamArgs, SyncStreamsReturnValue } from '@convex-dev/agent';
+import type { FunctionReference, PaginationResult } from 'convex/server';
 import type { ProviderMetadata } from 'ai';
 import { acceptAttribute, allowedMimeTypes, UPLOAD_PROFILES } from '../../uploads/profiles';
-import type { UploadErrorCode } from './file-uploader.js';
+import type { UploadErrorCode } from '../../uploads/transfer.js';
 
 /**
  * Upload state for tracking file upload progress
@@ -30,7 +32,7 @@ export type UploadState = {
 export type Attachment =
 	| {
 			type: 'file';
-			/** Stable identity used by ChatUIContext to update/remove this entry while
+			/** Stable identity used by ComposerAttachmentCoordinator to update/remove this entry while
 			 * concurrent uploads or user removals shift array indices. */
 			key?: string;
 			name: string;
@@ -112,6 +114,22 @@ export interface ChatMessage {
 	// Optimistic attachments
 	localAttachments?: Attachment[];
 }
+
+/** Wire envelope shared by query producers, subscriptions, and optimistic consumers. */
+export type MessagesQueryResponse = PaginationResult<ChatMessage> & {
+	streams: SyncStreamsReturnValue;
+};
+
+export type ChatMessagesArgs = {
+	threadId: string | null;
+	anonymousUserId?: string;
+	paginationOpts: { numItems: number; cursor: string | null };
+	streamArgs?: StreamArgs;
+};
+
+// Public validators intentionally retain the Agent-owned `v.any()` envelope.
+// Consumers normalize that unknown result to MessagesQueryResponse locally.
+export type ChatMessagesQuery = FunctionReference<'query', 'public', ChatMessagesArgs, unknown>;
 
 /**
  * Message with display fields (after stream processing)

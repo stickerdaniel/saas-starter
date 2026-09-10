@@ -69,7 +69,7 @@ vi.mock('$lib/components/customer-support/feedback-widget.svelte', async () => (
 
 import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import CustomerSupport from './customer-support.svelte';
-import { supportThreadContext } from './support-thread-context.svelte.ts';
+import { supportContext } from './support-context.svelte.ts';
 
 let component: ReturnType<typeof mount> | undefined;
 let queryValue: unknown;
@@ -154,9 +154,9 @@ describe('customer support capability lifecycle', () => {
 	});
 
 	it('enables the AI disclosure and reply lock together after capability recovery', async () => {
-		const setContext = vi.spyOn(supportThreadContext, 'set');
+		const setContext = vi.spyOn(supportContext, 'set');
 		await mountSupport();
-		const thread = setContext.mock.calls[0]![0];
+		const thread = setContext.mock.calls[0]![0].conversation;
 
 		expect(feedbackLauncher().disabled).toBe(true);
 		expect(thread.awaitsAgentReply).toBe(false);
@@ -173,8 +173,8 @@ describe('customer support capability lifecycle', () => {
 		expect(document.body.textContent).toContain(en.support.chatbar.disclosure);
 		expect(thread.awaitsAgentReply).toBe(true);
 		thread.setSending(true);
-		await expect(thread.sendMessage(null as never, 'Second message')).rejects.toThrow(
-			'Cannot send message: waiting for AI response'
-		);
+		await expect(thread.sendMessage(null as never, 'Second message')).rejects.toMatchObject({
+			code: 'send_in_progress'
+		});
 	});
 });

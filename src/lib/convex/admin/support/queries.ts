@@ -1,3 +1,4 @@
+import type { MessagesQueryResponse } from '../../../chat/core/types';
 import { v } from 'convex/values';
 import * as val from 'valibot';
 import { components } from '../../_generated/api';
@@ -318,7 +319,7 @@ export const listMessagesForAdmin = adminQuery({
 	},
 	// v.any(): paginated message + stream shape is owned by @convex-dev/agent
 	returns: v.any(),
-	handler: async (ctx, args): Promise<unknown> => {
+	handler: async (ctx, args): Promise<MessagesQueryResponse> => {
 		const supportThread = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))

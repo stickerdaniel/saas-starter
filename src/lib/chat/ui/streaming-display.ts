@@ -1,8 +1,8 @@
-import type { PaginationResult } from 'convex/server';
 import type { UIMessage } from '@convex-dev/agent';
 import type { StreamDelta, StreamMessage } from '@convex-dev/agent/validators';
-import type { ChatMessage, DisplayMessage } from '../core/types.js';
+import type { ChatMessage, DisplayMessage, MessagesQueryResponse } from '../core/types.js';
 import { extractReasoning, normalizeMessage } from '../core/message-extraction.js';
+import { normalizeMessageMetadata } from '../core/provider-metadata.js';
 import {
 	combineStreamingUIMessages,
 	deriveUIMessagesFromDeltas
@@ -12,15 +12,9 @@ import {
 	transformToDisplayMessage,
 	type TransformContext
 } from '../core/display-message-processor.js';
-import type { StreamCacheManager } from '../core/stream-cache.js';
+import type { StreamCachePort } from '../core/chat-session-port.js';
 
-export type MessagesQueryResponse = PaginationResult<ChatMessage> & {
-	streams: {
-		kind: 'list' | 'deltas';
-		messages?: StreamMessage[];
-		deltas?: StreamDelta[];
-	};
-};
+export type { MessagesQueryResponse } from '../core/types.js';
 
 export function getNormalizedMessages(
 	messagesData: MessagesQueryResponse | undefined
@@ -35,9 +29,7 @@ export function getListStreamMessages(
 }
 
 export function getStreamDeltas(messagesData: MessagesQueryResponse | undefined): StreamDelta[] {
-	return messagesData?.streams?.kind === 'deltas'
-		? ((messagesData.streams.deltas ?? []) as StreamDelta[])
-		: [];
+	return messagesData?.streams?.kind === 'deltas' ? messagesData.streams.deltas : [];
 }
 
 export function getActiveStreamIds(streamMessages: StreamMessage[]): string[] {
@@ -63,7 +55,7 @@ export async function decodeStreamingUIMessages(
 export function buildTransformContext(args: {
 	streamMessages: StreamMessage[];
 	streamingUIMessages: UIMessage[];
-	streamCache: StreamCacheManager;
+	streamCache: StreamCachePort;
 }): TransformContext {
 	const streamMessageMap = new Map<number, UIMessage>();
 
@@ -94,7 +86,7 @@ export function buildDisplayMessages(args: {
 	allMessages: ChatMessage[];
 	streamMessages: StreamMessage[];
 	streamingUIMessages: UIMessage[];
-	streamCache: StreamCacheManager;
+	streamCache: StreamCachePort;
 }): DisplayMessage[] {
 	const context = buildTransformContext({
 		streamMessages: args.streamMessages,
@@ -130,9 +122,9 @@ function createStreamOnlyChatMessage(uiMessage: UIMessage): ChatMessage {
 		order: uiMessage.order,
 		stepOrder: uiMessage.stepOrder,
 		text: uiMessage.text,
-		parts: uiMessage.parts as ChatMessage['parts'],
+		parts: uiMessage.parts,
 		agentName: uiMessage.agentName,
-		metadata: uiMessage.metadata as Record<string, unknown> | undefined
+		metadata: normalizeMessageMetadata(uiMessage.metadata)
 	};
 }
 

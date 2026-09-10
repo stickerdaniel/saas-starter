@@ -15,7 +15,9 @@
 	const attachOperation = useAutumnOperation(autumn.attach);
 	const activeUploads = activeUploadsContext.getOr(null);
 	const { t } = getTranslate();
-	const billingUsable = $derived(page.data.capabilities?.billing.usable === true);
+	const billingUsable = $derived(
+		page.data.capabilities?.billing.usable === true || page.data.localE2E?.billing === true
+	);
 
 	setBillingCheckoutContext({
 		checkout: checkoutOperation,
@@ -32,12 +34,14 @@
 			haptic.trigger('error');
 			toast.error($t('capabilities.billing_unavailable'));
 		},
-		onError: (stage, error) => {
+		onError: (stage) => {
 			haptic.trigger('error');
 			toast.error(
 				stage === 'confirm' ? $t('billing.attach_failed') : $t('billing.checkout_failed')
 			);
-			console.error(`[billing] ${stage} failed:`, error);
+			console.error(
+				stage === 'confirm' ? '[BillingCheckout.confirm] Failed' : '[BillingCheckout.start] Failed'
+			);
 		}
 	});
 </script>

@@ -7,9 +7,8 @@ import { api } from '$lib/convex/_generated/api';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
 import { CHAT_PAGE_SIZE, type Attachment } from '../core/types.js';
-import type { ChatCore } from '../core/chat-core.svelte.ts';
-import { ChatUIContext } from './chat-context.svelte.ts';
-import { SupportThreadContext } from '$lib/components/customer-support/support-thread-context.svelte.ts';
+import { ChatUIContext, type UploadConfig } from './chat-context.svelte.ts';
+import { SupportContext } from '$lib/components/customer-support/support-context.svelte.ts';
 import FeedbackWidget from '$lib/components/customer-support/feedback-widget.svelte';
 import AIChatbar from '$lib/components/customer-support/ai-chatbar.svelte';
 import { toast } from 'svelte-sonner';
@@ -75,8 +74,90 @@ const sharedFileAttachment: Attachment = {
 };
 
 let component: ReturnType<typeof mount> | undefined;
+class SupportThreadContext extends SupportContext {
+	get threadId() {
+		return this.conversation.threadId;
+	}
+	get threadGeneration() {
+		return this.conversation.threadGeneration;
+	}
+	get isSending() {
+		return this.conversation.isSending;
+	}
+	set isSending(value: boolean) {
+		this.conversation.isSending = value;
+	}
+	get isAwaitingStream() {
+		return this.conversation.isAwaitingStream;
+	}
+	set isAwaitingStream(value: boolean) {
+		this.conversation.isAwaitingStream = value;
+	}
+	get error() {
+		return this.conversation.error;
+	}
+	set error(value: string | null) {
+		this.conversation.error = value;
+	}
+	get rateLimitedUntil() {
+		return this.conversation.rateLimitedUntil;
+	}
+	get shouldOpenWidget() {
+		return this.navigation.shouldOpenWidget;
+	}
+	set shouldOpenWidget(value: boolean) {
+		this.navigation.shouldOpenWidget = value;
+	}
+	get currentView() {
+		return this.navigation.currentView;
+	}
+	set currentView(value: 'overview' | 'chat' | 'compose') {
+		this.navigation.setView(value);
+	}
+	setThread(threadId: string | null): void {
+		this.conversation.setThread(threadId);
+	}
+	setClient(client: ConvexClient): void {
+		this.conversation.setClient(client);
+	}
+	setOnThreadChange(callback: ((threadId: string | null) => void) | undefined): void {
+		this.navigation.setOnThreadChange(callback);
+	}
+	setDraft(threadId: string | null, value: string): void {
+		this.conversation.setDraft(threadId, value);
+	}
+	getDraft(threadId: string | null): string {
+		return this.conversation.getDraft(threadId);
+	}
+	setRateLimited(retryAfterMs: number): void {
+		this.conversation.setRateLimited(retryAfterMs);
+	}
+	setThreadOriginBinder(
+		binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
+	): void {
+		this.conversation.setThreadOriginBinder(binder);
+	}
+	forgetChatSession(): void {
+		this.conversation.forgetChatSession();
+		this.navigation.clearWidgetOpenRequest();
+	}
+	sendMessage(...args: Parameters<SupportContext['conversation']['sendMessage']>) {
+		return this.conversation.sendMessage(...args);
+	}
+}
+
 let client: ConvexClient;
 const contexts: ChatUIContext[] = [];
+
+function createSupportContext(
+	thread: SupportThreadContext,
+	uploadConfig?: UploadConfig
+): ChatUIContext {
+	return new ChatUIContext(thread.conversation, client, uploadConfig, 'right', null, {
+		bindThreadOrigin: (binder) => thread.setThreadOriginBinder(binder),
+		forgetSession: () => thread.forgetChatSession()
+	});
+}
 const originalElementAnimate = Element.prototype.animate;
 
 function storedAttachment(attachment: Extract<Attachment, { type: 'file' | 'screenshot' }>) {
@@ -245,7 +326,7 @@ describe('chat session lifecycle', () => {
 	it('a generation-one null-origin rejection cannot contaminate generation two', async () => {
 		const thread = new SupportThreadContext();
 		thread.startNewThread();
-		const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+		const context = createSupportContext(thread, {
 			generateUploadUrl: api.support.files.generateUploadUrl,
 			saveUploadedFile: api.support.files.saveUploadedFile,
 			attachmentStore: new ChatAttachmentStore('support')
@@ -275,8 +356,10 @@ describe('chat session lifecycle', () => {
 		context.addAttachments([generationTwoAttachment]);
 		await tick();
 		message.reject(new Error('Generation one rejected'));
-		await vi.waitFor(() => expect(console.error).toHaveBeenCalled());
+		await new Promise<void>((resolve) => setTimeout(resolve, 0));
+		await tick();
 
+		expect(console.error).not.toHaveBeenCalled();
 		expect(input.value).toBe('generation two text');
 		expect(
 			context.attachments.map((attachment) => ('key' in attachment ? attachment.key : ''))
@@ -335,7 +418,7 @@ describe('chat session lifecycle', () => {
 		async (outcome) => {
 			const thread = new SupportThreadContext();
 			thread.startNewThread();
-			const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+			const context = createSupportContext(thread, {
 				generateUploadUrl: api.support.files.generateUploadUrl,
 				saveUploadedFile: api.support.files.saveUploadedFile,
 				attachmentStore: new ChatAttachmentStore('support')
@@ -379,7 +462,7 @@ describe('chat session lifecycle', () => {
 		thread.setDraft('thread-b', 'draft B');
 		thread.setThread('thread-a');
 		thread.currentView = 'chat';
-		const context = new ChatUIContext(thread as unknown as ChatCore, client);
+		const context = createSupportContext(thread);
 		await mountSupport(thread, context);
 		const input = document.querySelector('textarea')!;
 		await vi.waitFor(() => expect(input.value).toBe('draft A'));
@@ -392,7 +475,7 @@ describe('chat session lifecycle', () => {
 
 	it('session clear resets support send state synchronously', () => {
 		const thread = new SupportThreadContext();
-		const context = new ChatUIContext(thread as unknown as ChatCore, client);
+		const context = createSupportContext(thread);
 		contexts.push(context);
 		thread.isSending = true;
 		thread.isAwaitingStream = true;
@@ -411,7 +494,7 @@ describe('chat session lifecycle', () => {
 
 	it('does not retry a rejected eager send into a thread selected after going back', async () => {
 		const thread = new SupportThreadContext();
-		const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+		const context = createSupportContext(thread, {
 			generateUploadUrl: api.support.files.generateUploadUrl,
 			saveUploadedFile: api.support.files.saveUploadedFile,
 			attachmentStore: new ChatAttachmentStore('support')
@@ -470,7 +553,7 @@ describe('chat session lifecycle', () => {
 		'a $outcome eager creation after $name neither binds nor dispatches',
 		async ({ navigate, selectedThreadId, view, outcome }) => {
 			const thread = new SupportThreadContext();
-			const context = new ChatUIContext(thread as unknown as ChatCore, client);
+			const context = createSupportContext(thread);
 			const creation = Promise.withResolvers<{
 				threadId: string;
 				notificationEmail: null;
@@ -510,7 +593,7 @@ describe('chat session lifecycle', () => {
 
 	it('uses a same-navigation eager creation with exact attachment order and optimistic payload', async () => {
 		const thread = new SupportThreadContext();
-		const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+		const context = createSupportContext(thread, {
 			generateUploadUrl: api.support.files.generateUploadUrl,
 			saveUploadedFile: api.support.files.saveUploadedFile,
 			attachmentStore: new ChatAttachmentStore('support')
@@ -638,7 +721,7 @@ describe('chat session lifecycle', () => {
 		async ({ boundary, outcome }) => {
 			const thread = new SupportThreadContext();
 			thread.startNewThread();
-			const context = new ChatUIContext(thread as unknown as ChatCore, client);
+			const context = createSupportContext(thread);
 			contexts.push(context);
 			const creation = Promise.withResolvers<{
 				threadId: string;
@@ -673,7 +756,7 @@ describe('chat session lifecycle', () => {
 	it('does not roll a successful dispatched send back into a later selected thread', async () => {
 		const thread = new SupportThreadContext();
 		thread.selectThread('thread-a');
-		const context = new ChatUIContext(thread as unknown as ChatCore, client, {
+		const context = createSupportContext(thread, {
 			generateUploadUrl: api.support.files.generateUploadUrl,
 			saveUploadedFile: api.support.files.saveUploadedFile,
 			attachmentStore: new ChatAttachmentStore('support')
@@ -709,7 +792,7 @@ describe('chat session lifecycle', () => {
 	it('later support text cleared before assignment is not rolled back', async () => {
 		const thread = new SupportThreadContext();
 		thread.startNewThread();
-		const context = new ChatUIContext(thread as unknown as ChatCore, client);
+		const context = createSupportContext(thread);
 		const creation = Promise.withResolvers<{
 			threadId: string;
 			notificationEmail: null;
@@ -773,7 +856,7 @@ describe('chat session lifecycle', () => {
 		'an eager rejection after $boundary does not write stale diagnostics',
 		async ({ navigate, expectedThreadId, expectedView }) => {
 			const thread = new SupportThreadContext();
-			const context = new ChatUIContext(thread as unknown as ChatCore, client);
+			const context = createSupportContext(thread);
 			contexts.push(context);
 			const oldCreation = Promise.withResolvers<{
 				threadId: string;
@@ -804,7 +887,7 @@ describe('chat session lifecycle', () => {
 			expect(thread.threadId).toBe(expectedThreadId);
 			expect(thread.currentView).toBe(expectedView);
 			expect(console.error).not.toHaveBeenCalledWith(
-				'[startNewThread] Thread creation failed:',
+				'[SupportContext.startNewThread] Failed',
 				oldError
 			);
 		}
@@ -817,12 +900,11 @@ describe('chat session lifecycle', () => {
 		thread.setClient(client);
 
 		thread.startNewThread();
-		await vi.waitFor(() =>
-			expect(thread.error).toBe('Failed to start conversation. Please try again.')
-		);
+		await vi.waitFor(() => expect(thread.error).toBe('thread_start_failed'));
 
 		expect(mutation).toHaveBeenCalledTimes(1);
-		expect(console.error).toHaveBeenCalledWith('[startNewThread] Thread creation failed:', error);
+		expect(console.error).toHaveBeenCalledWith('[SupportContext.startNewThread] Failed');
+		expect(console.error).not.toHaveBeenCalledWith(expect.anything(), error);
 	});
 });
 

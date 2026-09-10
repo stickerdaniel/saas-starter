@@ -17,6 +17,7 @@
 -->
 
 <script lang="ts">
+	import type { Rive } from '@rive-app/canvas';
 	import { onMount, tick } from 'svelte';
 	import { useMutationObserver } from 'runed';
 	import { TAILWIND_BREAKPOINTS, useMedia } from '$lib/hooks/use-media.svelte.ts';
@@ -60,7 +61,7 @@
 	const opacity = $derived(isDark ? 1 : media.lg ? 1 : 0.3);
 
 	let canvas = $state<HTMLCanvasElement | null>(null);
-	let riveInstance: any = null;
+	let riveInstance: Rive | null = null;
 	let isLoaded = $state(false);
 	let shouldRender = $state(false);
 	let FollowingPointerComponent = $state.raw<Component | null>(null);
@@ -98,10 +99,8 @@
 				// Clone the buffer so each Rive instance gets a fresh, non-detached copy
 				const riveBuffer = cachedBuffer.slice(0);
 
-				const RiveModule = await import('@rive-app/canvas');
+				const { Rive } = await import('@rive-app/canvas');
 				if (destroyed) return;
-
-				const Rive = RiveModule.Rive || (RiveModule as any).default || RiveModule;
 
 				riveInstance = new Rive({
 					buffer: riveBuffer,
@@ -113,7 +112,7 @@
 						riveInstance?.resizeDrawingSurfaceToCanvas();
 						isLoaded = true;
 					},
-					onLoadError: (error: any) => {
+					onLoadError: (error) => {
 						if (destroyed) return;
 						console.error('Error loading Rive file:', error);
 						isLoaded = true; // Fade out even on error to show content
@@ -121,7 +120,7 @@
 				});
 			} catch (error) {
 				if (destroyed) return;
-				if ((error as Error).name === 'AbortError') return;
+				if (error instanceof Error && error.name === 'AbortError') return;
 				console.error('Error initializing Rive:', error);
 				isLoaded = true; // Fade out even on error to show content
 			}

@@ -200,7 +200,7 @@ export default defineConfig(async ({ mode }) => {
 			CAPABILITY_PROFILE: _ignoredLocalCapabilityProfile,
 			...convexLocalEnv
 		} = parseEnvFile(path.join(cwd, '.env.convex.local'));
-		const managedProviderUpdates = getManagedProviderUpdates(convexLocalEnv);
+		const managedProviderUpdates = getManagedProviderUpdates(isTestMode ? {} : convexLocalEnv);
 		// The Convex backend env values used to be merged into varlock's redaction
 		// map here so that convex-vite-plugin's startup logging was masked. That
 		// never worked: `resetRedactionMap` replaces the whole map rather than
@@ -229,6 +229,14 @@ export default defineConfig(async ({ mode }) => {
 		process.env.ISOLATE_MAX_HEAP_EXTRA_SIZE ??= '134217728';
 
 		plugins.push(
+			{
+				name: 'disable-local-convex-beacon',
+				configureServer() {
+					// Keep backend/test-only runtime switches out of Varlock's frontend manifest.
+					process.env.DISABLE_BEACON = '1';
+					if (isTestMode) process.env.LOCAL_E2E_RUNTIME = '1';
+				}
+			},
 			convexLocal({
 				convexDir: 'src/lib/convex',
 				port: backendPort,
@@ -362,13 +370,13 @@ export default defineConfig(async ({ mode }) => {
 						template: 'treemap',
 						gzipSize: true,
 						brotliSize: true
-					}) as PluginOption
+					})
 				]
 			: [])
 	);
 
 	return {
-		plugins: plugins as any,
+		plugins,
 		test: {
 			exclude: [
 				'e2e/**',

@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import { getContext } from 'svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { getTranslate } from '@tolgee/svelte';
-	import type { RowSelectionState } from '@tanstack/table-core';
-	import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
-
-	type ToggleField = 'notifyNewSupportTickets' | 'notifyUserReplies' | 'notifyNewSignups';
+	import {
+		getTogglePreferenceContext,
+		getRowSelectionContext,
+		getRecipientsContext,
+		type ToggleField
+	} from './recipients-context';
 
 	interface Props {
 		email: string;
@@ -20,14 +21,11 @@
 	const { t } = getTranslate();
 
 	// Get the toggle handler from context (provided by the table)
-	const onToggle =
-		getContext<(email: string, field: ToggleField, currentValue: boolean) => Promise<void>>(
-			'onTogglePreference'
-		);
+	const onToggle = getTogglePreferenceContext();
 
 	// Get selection state and recipients for bulk operations
-	const getRowSelection = getContext<() => RowSelectionState>('getRowSelection');
-	const getRecipients = getContext<() => NotificationRecipient[]>('getRecipients');
+	const getRowSelection = getRowSelectionContext();
+	const getRecipients = getRecipientsContext();
 
 	// Map field to translation key
 	const fieldTranslationKeys: Record<ToggleField, string> = {

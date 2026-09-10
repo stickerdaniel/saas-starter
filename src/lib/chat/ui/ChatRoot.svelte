@@ -2,13 +2,14 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { onDestroy, type Snippet } from 'svelte';
 	import type { UIMessage } from '@convex-dev/agent';
-	import { ChatCore, type ChatCoreAPI } from '../core/chat-core.svelte.ts';
-	import { CHAT_PAGE_SIZE, type DisplayMessage } from '../core/types.js';
+	import type { ChatSessionPort } from '../core/chat-session-port.js';
+	import { CHAT_PAGE_SIZE, type ChatMessagesQuery, type DisplayMessage } from '../core/types.js';
 	import {
 		ChatUIContext,
 		setChatUIContext,
 		type UploadConfig,
-		type ChatAlignment
+		type ChatAlignment,
+		type ChatUIContextOptions
 	} from './chat-context.svelte.ts';
 	import {
 		buildDisplayMessages,
@@ -24,28 +25,13 @@
 	import { syncReasoningAccordionState } from './reasoning-accordion-sync.js';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 
-	/**
-	 * External core adapter interface
-	 *
-	 * When using an external state manager (like SupportThreadContext),
-	 * provide an adapter that maps to the ChatCore interface.
-	 */
-	export interface ExternalCoreAdapter {
-		threadId: string | null;
-		isLoading: boolean;
-		isSending: boolean;
-		error: string | null;
-		isAwaitingStream: boolean;
-		setAwaitingStream: (awaiting: boolean) => void;
-		streamCache: ChatCore['streamCache'];
-	}
-
 	let {
 		threadId,
 		api,
 		externalCore,
 		externalUIContext,
 		uploadConfig,
+		contextOptions,
 		listMessagesArgs,
 		userAlignment = 'right',
 		pageSize = CHAT_PAGE_SIZE,
@@ -53,16 +39,18 @@
 	}: {
 		/** Thread ID (required for loading messages) */
 		threadId: string | null;
-		/** Convex API endpoints */
-		api: ChatCoreAPI & {
-			listMessages: Parameters<typeof useQuery>[0];
+		/** Read-only message subscriptions; the sending surface owns its command API. */
+		api: {
+			listMessages: ChatMessagesQuery;
 		};
-		/** External core adapter (optional - if provided, uses external state) */
-		externalCore?: ExternalCoreAdapter | ChatCore;
+		/** Chat session state owned by the embedding surface. */
+		externalCore: ChatSessionPort;
 		/** External UI context (optional - if provided, uses existing context) */
 		externalUIContext?: ChatUIContext;
 		/** Upload configuration for file attachments */
 		uploadConfig?: UploadConfig;
+		/** Lifecycle and input projection hooks owned by the embedding surface. */
+		contextOptions?: ChatUIContextOptions;
 		/** Additional args for the listMessages query */
 		listMessagesArgs?: Record<string, unknown>;
 		/** User message alignment - 'right' (default) or 'left' for admin view */
@@ -76,40 +64,29 @@
 	// Get Convex client
 	const client = useConvexClient();
 
-	// Create ChatCore instance (only if not using external core)
-	// Intentional mount-time config capture; threadId is synced later via $effect.
+	// Core ownership is fixed for the component lifetime; swapping requires remount.
 	// svelte-ignore state_referenced_locally
-	const internalCore = externalCore
-		? null
-		: new ChatCore({
-				threadId,
-				api
-			});
-
-	// Use either external or internal core
-	// Core selection is fixed for component lifetime; swapping requires remount.
-	// svelte-ignore state_referenced_locally
-	const core = (externalCore as unknown as ChatCore) ?? internalCore!;
+	const core: ChatSessionPort = externalCore;
 
 	// Create and set UI context (use external if provided)
 	// Context object is created once and placed in Svelte context.
 	// svelte-ignore state_referenced_locally
 	const uiContext =
 		externalUIContext ??
-		new ChatUIContext(core, client, uploadConfig, userAlignment, activeUploadsContext.getOr(null));
+		new ChatUIContext(
+			core,
+			client,
+			uploadConfig,
+			userAlignment,
+			activeUploadsContext.getOr(null),
+			contextOptions
+		);
 	setChatUIContext(uiContext);
 
 	// Dispose the internally created context on unmount (revokes blob preview
 	// URLs of unsent attachments). External contexts are owned by their creator.
 	onDestroy(() => {
 		if (!externalUIContext) uiContext.dispose();
-	});
-
-	// Update core threadId when prop changes (only for internal core)
-	$effect(() => {
-		if (internalCore && internalCore.threadId !== threadId) {
-			internalCore.setThread(threadId);
-		}
 	});
 
 	// Query messages with streamArgs for streaming support
@@ -189,9 +166,8 @@
 				);
 				if (cancelled) return;
 				streamingUIMessages = decodedMessages;
-			} catch (error) {
+			} catch {
 				if (cancelled) return;
-				console.error('Failed to decode streaming UI messages', error);
 				streamingUIMessages = [];
 			}
 		})();

@@ -28,7 +28,7 @@
 	//    means a brand-new tab starts fresh, so the guard never permanently suppresses
 	//    a legitimately needed future reload.
 
-	const skew = clockSkewContext.getOr(undefined);
+	const skew = clockSkewContext.get();
 	const auth = useAuth();
 
 	let timedOut = $state(false);

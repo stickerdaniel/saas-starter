@@ -10,6 +10,7 @@
 	import { deriveOrderedParts, LEADING_REASONING_KEY, type OrderedPart } from './ordered-parts.js';
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
 	import { AI_CHAT_LIMIT_NOTICE } from '$lib/convex/constants';
+	import { getMessageProviderFlags } from '../core/provider-metadata.js';
 	import { T } from '@tolgee/svelte';
 	import LockIcon from '@lucide/svelte/icons/lock';
 
@@ -47,17 +48,11 @@
 	const ctx = getChatUIContext();
 
 	const isUser = $derived(message.role === 'user');
-	const isAdminMessage = $derived(
-		message.metadata?.provider === 'human' ||
-			(message.metadata?.providerMetadata as { admin?: { isAdminMessage?: boolean } })?.admin
-				?.isAdminMessage === true
-	);
+	const providerFlags = $derived(getMessageProviderFlags(message.metadata));
+	const isAdminMessage = $derived(providerFlags.isAdminMessage);
 	const usesFilledBubble = $derived(isUser || isAdminMessage);
 	const align = $derived(ctx.getAlignment(message.role));
-	const isLimitNotice = $derived(
-		(message.metadata?.providerMetadata as { system?: { notice?: string } })?.system?.notice ===
-			AI_CHAT_LIMIT_NOTICE
-	);
+	const isLimitNotice = $derived(providerFlags.systemNotice === AI_CHAT_LIMIT_NOTICE);
 	function handleReasoningOpenChange(stateKey: string, open: boolean) {
 		ctx.setReasoningOpen(stateKey, open);
 		ctx.markUserToggled(stateKey);

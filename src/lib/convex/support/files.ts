@@ -1,14 +1,14 @@
-import { v, ConvexError } from 'convex/values';
+import { v } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
 import { action, internalMutation, mutation } from '../_generated/server';
 import { components, internal } from '../_generated/api';
-import { t } from '../i18n/translations';
 import { supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 import { getSupportOwnerIdentity } from './ownership';
 import { fetchAttachmentText } from '../files/attachmentText';
 import { vGenerateUploadUrlResult } from '../files/validators';
 import { validateUploadBlob } from '../files/upload';
+import { FILE_ERROR_CODES, createFileError } from '../files/errors';
 
 /**
  * Generate a URL and token for uploading files directly to Convex storage
@@ -37,10 +37,7 @@ export const generateUploadUrl = mutation({
 		const rateLimitStatus = await supportRateLimiter.limit(ctx, limitName, { key: userKey });
 
 		if (!rateLimitStatus.ok) {
-			throw createRateLimitError(
-				rateLimitStatus.retryAfter,
-				'Too many file uploads. Please try again later.'
-			);
+			throw createRateLimitError(rateLimitStatus.retryAfter);
 		}
 
 		return await ctx.runMutation(components.convexFilesControl.upload.generateUploadUrl, {
@@ -135,7 +132,7 @@ export const saveUploadedFile = action({
 			// Fetch blob from component storage
 			const response = await fetch(downloadResult.downloadUrl);
 			if (!response.ok) {
-				throw new ConvexError(t(args.locale, 'backend.files.fetch_failed'));
+				throw createFileError(FILE_ERROR_CODES.fetchFailed);
 			}
 			const blob = await response.blob();
 
@@ -196,10 +193,7 @@ export const checkPreviewAccess = internalMutation({
 
 		const rateLimitStatus = await supportRateLimiter.limit(ctx, limitName, { key: userKey });
 		if (!rateLimitStatus.ok) {
-			throw createRateLimitError(
-				rateLimitStatus.retryAfter,
-				'Too many preview requests. Please try again later.'
-			);
+			throw createRateLimitError(rateLimitStatus.retryAfter);
 		}
 		return null;
 	}

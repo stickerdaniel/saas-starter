@@ -1,3 +1,4 @@
+import { api } from '$lib/convex/_generated/api';
 /**
  * An attachment survives the switch to another thread.
  *
@@ -10,7 +11,7 @@
 
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
-import type { ChatCore } from '../core/chat-core.svelte.ts';
+import { createChatSession } from '../__tests__/session-fixture';
 
 const uploadFileWithProgress = vi.fn();
 
@@ -24,9 +25,9 @@ const { ChatUIContext } = await import('./chat-context.svelte.ts');
 const { ActiveUploads } = await import('$lib/hooks/active-uploads.svelte.ts');
 
 const uploadConfig = {
-	generateUploadUrl: 'storage:generateUploadUrl',
-	saveUploadedFile: 'storage:saveUploadedFile'
-} as unknown as ConstructorParameters<typeof ChatUIContext>[2];
+	generateUploadUrl: api.support.files.generateUploadUrl,
+	saveUploadedFile: api.support.files.saveUploadedFile
+} satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[2]>;
 
 /** A transfer the test decides the outcome of, plus the signal that cancels it. */
 function pendingTransfer() {
@@ -55,14 +56,14 @@ function pendingTransfer() {
 
 /** A chat sitting in one thread, able to move to another. */
 function threadedChat(threadId: string, uploads: InstanceType<typeof ActiveUploads> | null = null) {
-	const core = { threadId } as unknown as ChatCore;
+	const core = createChatSession(threadId);
 	const ctx = new ChatUIContext(core, {} as ConvexClient, uploadConfig, 'right', uploads);
 	// The first call is what gives the context a thread to compare against.
 	ctx.setDisplayMessages([]);
 	return {
 		ctx,
 		switchTo(next: string | null) {
-			(core as { threadId: string | null }).threadId = next;
+			core.threadId = next;
 			ctx.setDisplayMessages([]);
 		}
 	};
@@ -309,11 +310,11 @@ describe('ChatUIContext parked attachments', () => {
 		// key is what the stored file is filed under. Reading it when the encoder
 		// finally hands over would file the image in the thread the user moved to.
 		const transfer = pendingTransfer();
-		const core = { threadId: 'thread-a' } as unknown as ChatCore;
+		const core = createChatSession('thread-a');
 		const keyedConfig = {
 			...uploadConfig,
 			getAccessKey: () => core.threadId ?? undefined
-		} as ConstructorParameters<typeof ChatUIContext>[2];
+		} satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[2]>;
 		const ctx = new ChatUIContext(core, {} as ConvexClient, keyedConfig, 'right', null);
 		ctx.setDisplayMessages([]);
 
@@ -337,7 +338,7 @@ describe('ChatUIContext parked attachments', () => {
 		return vi
 			.waitFor(() => expect(ctx.attachments).toHaveLength(1))
 			.then(async () => {
-				(core as { threadId: string }).threadId = 'thread-b';
+				core.threadId = 'thread-b';
 				ctx.setDisplayMessages([]);
 				finishEncoding();
 				await vi.waitFor(() => expect(uploadFileWithProgress).toHaveBeenCalledTimes(1));

@@ -77,6 +77,10 @@ import { saveMessage } from '@convex-dev/agent';
 import { aiChatAgent } from '../agent';
 import { requireAiChatThreadRecord } from '../ownership';
 import { createAIResponse, sendMessage } from '../messages';
+import {
+	prepareToolErrorRedactionStep,
+	toolErrorRedactionTransform
+} from '../../../chat/core/tool-error-redaction';
 
 const checkAndCountUsageMock = checkAndCountUsage as unknown as ReturnType<typeof vi.fn>;
 const refundUsageMock = refundUsage as unknown as ReturnType<typeof vi.fn>;
@@ -187,6 +191,10 @@ describe('createAIResponse', () => {
 			featureId: 'ai_chat_messages'
 		});
 		expect(streamTextMock).toHaveBeenCalled();
+		expect(streamTextMock.mock.calls[0][2]).toMatchObject({
+			prepareStep: prepareToolErrorRedactionStep,
+			experimental_transform: toolErrorRedactionTransform
+		});
 		expect(refundUsageMock).not.toHaveBeenCalled();
 		expect(runMutation).toHaveBeenCalledWith(
 			'internal.aiChat.threads.updateThreadMetadata',

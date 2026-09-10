@@ -4,6 +4,7 @@ import type * as Svelte from 'svelte';
 import { ConvexClient } from 'convex/browser';
 import { getFunctionName } from 'convex/server';
 import en from '../../../i18n/en.json';
+import { ChatCore } from '../core/chat-core.svelte.ts';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { ChatUIContext } from '../ui/chat-context.svelte.ts';
 import { capturedChatMessages } from '../ui/test-fixtures/CapturedChatMessages.svelte';
@@ -29,6 +30,11 @@ type RejectsApiOverride = 'api' extends keyof ContentProps ? false : true;
 
 let component: ReturnType<typeof mount> | undefined;
 let client: ConvexClient;
+
+function requireChatCore(context: ChatUIContext): ChatCore {
+	if (!(context.core instanceof ChatCore)) throw new Error('Expected a concrete ChatCore fixture');
+	return context.core;
+}
 
 beforeEach(() => {
 	localStorage.clear();
@@ -161,11 +167,8 @@ describe('SimpleChat', () => {
 
 		await vi.waitFor(() => expect(input.value).toBe(exactText));
 		expect(button.disabled).toBe(false);
-		expect(console.error).toHaveBeenCalledWith(
-			'[ChatCore.sendMessage] Failed to send message:',
-			error
-		);
-		expect(console.error).toHaveBeenCalledWith('[ChatInput] onSend failed:', error);
+		expect(console.error).toHaveBeenCalledWith('[ChatCore.sendMessage] Failed');
+		expect(console.error).toHaveBeenCalledWith('[ChatInput] Send failed');
 	});
 
 	it('uses a changed thread ID for the next send', async () => {
@@ -207,9 +210,7 @@ describe('SimpleChat', () => {
 		).toBe('');
 		expect(storedDrafts()).toEqual({ 'thread-a': exactText });
 		pending.reject(error);
-		await vi.waitFor(() =>
-			expect(console.error).toHaveBeenCalledWith('[ChatInput] onSend failed:', error)
-		);
+		await vi.waitFor(() => expect(console.error).toHaveBeenCalledWith('[ChatInput] Send failed'));
 		const { button: selectedButton } = await enterMessage('Thread B stays independent');
 		expect(selectedButton.disabled).toBe(false);
 
@@ -520,16 +521,17 @@ describe('SimpleChat', () => {
 	it('does not retain idle core state across sequential mounts', async () => {
 		mountChat('thread-a');
 		await tick();
-		const originCore = capturedChatMessages.context!.core;
-		originCore.setError('stale error');
+		const originCore = requireChatCore(capturedChatMessages.context!);
+		originCore.setError('send_failed');
 		await unmount(component!);
 		component = undefined;
 
 		mountChat('thread-a');
 		await tick();
-		expect(capturedChatMessages.context?.core).not.toBe(originCore);
-		expect(capturedChatMessages.context?.core.error).toBeNull();
-		expect(capturedChatMessages.context?.core.isSending).toBe(false);
+		const nextContext = capturedChatMessages.context!;
+		expect(nextContext.core).not.toBe(originCore);
+		expect(requireChatCore(nextContext).error).toBeNull();
+		expect(nextContext.core.isSending).toBe(false);
 		expect(capturedChatMessages.context?.core.isAwaitingStream).toBe(false);
 	});
 

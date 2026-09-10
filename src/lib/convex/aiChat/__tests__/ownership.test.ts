@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { requireAiChatThreadRecord } from '../ownership';
+import { AI_CHAT_ERROR_CODES } from '../errors';
 
 function createCtx(record: { threadId: string; userId: string } | null) {
 	return {
@@ -37,7 +38,7 @@ describe('ai chat ownership helper', () => {
 				threadId: 'missing_thread',
 				userId: 'user_1'
 			})
-		).rejects.toThrow('Thread not found');
+		).rejects.toMatchObject({ data: { code: AI_CHAT_ERROR_CODES.threadNotFound } });
 	});
 
 	it('rejects a thread owned by a different user', async () => {
@@ -48,6 +49,6 @@ describe('ai chat ownership helper', () => {
 				threadId: 'thread_1',
 				userId: 'user_1'
 			})
-		).rejects.toThrow('Thread not found');
+		).rejects.toMatchObject({ data: { code: AI_CHAT_ERROR_CODES.threadNotFound } });
 	});
 });

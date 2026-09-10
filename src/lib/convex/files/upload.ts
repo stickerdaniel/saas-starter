@@ -1,5 +1,4 @@
-import { ConvexError } from 'convex/values';
-import { t } from '../i18n/translations';
+import { FILE_ERROR_CODES, createFileError } from './errors';
 import { acceptsMimeType, UPLOAD_PROFILES, type UploadProfile } from '../../uploads/profiles';
 
 /**
@@ -30,22 +29,21 @@ export const ALLOWED_MIME_TYPES = Array.from(
  */
 export function validateUploadBlob(
 	blob: Blob,
-	locale: string | undefined,
+	_locale: string | undefined,
 	profile: UploadProfile = UPLOAD_PROFILES.chatAttachment
 ): string {
 	if (blob.size > profile.maxBytes) {
-		const maxMB = Math.round(profile.maxBytes / 1024 / 1024);
-		throw new ConvexError(
-			t(locale, 'backend.files.file_too_large', {
-				size: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
-				max: `${maxMB}MB`
-			})
-		);
+		throw createFileError(FILE_ERROR_CODES.tooLarge, {
+			maxBytes: profile.maxBytes,
+			actualBytes: blob.size
+		});
 	}
 
 	const mimeEssence = blob.type.split(';')[0]!.trim().toLowerCase();
 	if (!acceptsMimeType(profile, mimeEssence)) {
-		throw new ConvexError(t(locale, 'backend.files.type_not_allowed'));
+		throw createFileError(FILE_ERROR_CODES.typeNotAllowed, {
+			allowedTypes: Object.keys(profile.extensions)
+		});
 	}
 
 	return mimeEssence;

@@ -1,6 +1,6 @@
 import { internalMutation, type MutationCtx } from '../_generated/server';
 import { components } from '../_generated/api';
-import { v, ConvexError } from 'convex/values';
+import { v } from 'convex/values';
 import type { BetterAuthUser } from './types';
 import { roleValidator } from './types';
 import { adminMutation } from '../functions';
@@ -9,17 +9,8 @@ import {
 	syncAdminPreferences,
 	deactivateAdminPreferencesHelper
 } from './notificationPreferences/helpers';
-
-/**
- * Helper to fetch all users from the BetterAuth component
- */
-async function fetchAllUsers(ctx: MutationCtx): Promise<BetterAuthUser[]> {
-	const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-		model: 'user',
-		paginationOpts: { cursor: null, numItems: 1000 }
-	});
-	return result.page as BetterAuthUser[];
-}
+import { runAdminAuthApi } from './adminAuthErrors';
+import { ADMIN_ERROR_CODES, createAdminError } from './errors';
 
 /**
  * Helper to find a user by email from the BetterAuth component
@@ -44,19 +35,6 @@ async function findUserById(ctx: MutationCtx, userId: string): Promise<BetterAut
 }
 
 /**
- * Run a Better Auth admin API call, mapping its APIError to a ConvexError
- * so the client sees the actual failure message (e.g. "You cannot ban
- * yourself") instead of a generic server error.
- */
-async function runAdminAuthApi(call: () => Promise<unknown>, fallback: string): Promise<void> {
-	try {
-		await call();
-	} catch (error) {
-		throw new ConvexError(error instanceof Error && error.message ? error.message : fallback);
-	}
-}
-
-/**
  * Ban a user
  *
  * Calls the Better Auth admin API in-process (which also revokes the
@@ -76,9 +54,8 @@ export const banUser = adminMutation({
 	returns: v.object({ success: v.boolean() }),
 	handler: async (ctx, args) => {
 		const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
-		await runAdminAuthApi(
-			() => auth.api.banUser({ body: { userId: args.userId, banReason: args.reason }, headers }),
-			'Failed to ban user'
+		await runAdminAuthApi('ban_user', () =>
+			auth.api.banUser({ body: { userId: args.userId, banReason: args.reason }, headers })
 		);
 
 		await ctx.db.insert('adminAuditLogs', {
@@ -109,9 +86,8 @@ export const unbanUser = adminMutation({
 	returns: v.object({ success: v.boolean() }),
 	handler: async (ctx, args) => {
 		const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
-		await runAdminAuthApi(
-			() => auth.api.unbanUser({ body: { userId: args.userId }, headers }),
-			'Failed to unban user'
+		await runAdminAuthApi('unban_user', () =>
+			auth.api.unbanUser({ body: { userId: args.userId }, headers })
 		);
 
 		await ctx.db.insert('adminAuditLogs', {
@@ -142,9 +118,8 @@ export const revokeUserSessions = adminMutation({
 	returns: v.object({ success: v.boolean() }),
 	handler: async (ctx, args) => {
 		const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
-		await runAdminAuthApi(
-			() => auth.api.revokeUserSessions({ body: { userId: args.userId }, headers }),
-			'Failed to revoke sessions'
+		await runAdminAuthApi('revoke_user_sessions', () =>
+			auth.api.revokeUserSessions({ body: { userId: args.userId }, headers })
 		);
 
 		await ctx.db.insert('adminAuditLogs', {
@@ -181,13 +156,13 @@ export const setUserRole = adminMutation({
 	handler: async (ctx, args) => {
 		// Prevent admin from changing their own role
 		if (ctx.user._id === args.userId) {
-			throw new ConvexError('Cannot change your own role');
+			throw createAdminError(ADMIN_ERROR_CODES.cannotChangeOwnRole);
 		}
 
 		const user = await findUserById(ctx, args.userId);
 
 		if (!user) {
-			throw new ConvexError('User not found');
+			throw createAdminError(ADMIN_ERROR_CODES.userNotFound);
 		}
 
 		const wasAdmin = user.role === 'admin';
@@ -206,7 +181,7 @@ export const setUserRole = adminMutation({
 				paginationOpts: { cursor: null, numItems: 2 }
 			});
 			if (admins.page.length < 2) {
-				throw new ConvexError('Cannot demote the last admin');
+				throw createAdminError(ADMIN_ERROR_CODES.lastAdmin);
 			}
 		}
 
@@ -252,20 +227,26 @@ export const seedFirstAdmin = internalMutation({
 	args: {
 		email: v.string()
 	},
-	returns: v.object({ success: v.boolean(), message: v.optional(v.string()) }),
+	returns: v.union(
+		v.object({ success: v.literal(true) }),
+		v.object({
+			success: v.literal(false),
+			code: v.literal(ADMIN_ERROR_CODES.seedAdminExists)
+		})
+	),
 	handler: async (ctx, args) => {
-		const user = await findUserByEmail(ctx, args.email);
-
-		if (!user) {
-			throw new ConvexError(`User with email ${args.email} not found`);
+		const existingAdmins = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			where: [{ field: 'role', operator: 'eq', value: 'admin' }],
+			paginationOpts: { cursor: null, numItems: 1 }
+		});
+		if (existingAdmins.page.length > 0) {
+			return { success: false, code: ADMIN_ERROR_CODES.seedAdminExists } as const;
 		}
 
-		// Check if there are already admins
-		const allUsers = await fetchAllUsers(ctx);
-		const existingAdmins = allUsers.filter((u) => u.role === 'admin');
-		if (existingAdmins.length > 0) {
-			console.log('Admin already exists, skipping seed');
-			return { success: false, message: 'Admin already exists' };
+		const user = await findUserByEmail(ctx, args.email);
+		if (!user) {
+			throw createAdminError(ADMIN_ERROR_CODES.userNotFound);
 		}
 
 		// Set user as admin using the component adapter (now includes role field in schema)
@@ -281,6 +262,6 @@ export const seedFirstAdmin = internalMutation({
 		await syncAdminPreferences(ctx, { userId: user._id, email: user.email });
 
 		console.log(`User ${args.email} has been set as admin`);
-		return { success: true };
+		return { success: true } as const;
 	}
 });

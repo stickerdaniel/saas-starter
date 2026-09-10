@@ -5,7 +5,15 @@
 	let { session }: { session: SimpleChatSession } = $props();
 </script>
 
-<ChatRoot threadId={session.threadId} api={session.api} externalCore={session.core}>
+<ChatRoot
+	threadId={session.threadId}
+	api={session.api}
+	externalCore={session.core}
+	contextOptions={{
+		bindThreadOrigin: (binder) => session.core.setThreadOriginBinder(binder),
+		forgetSession: () => session.core.forgetChatSession()
+	}}
+>
 	<span
 		hidden
 		aria-hidden="true"

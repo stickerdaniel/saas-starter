@@ -1,6 +1,7 @@
 import { openrouter } from '@openrouter/ai-sdk-provider';
 import type { LanguageModelUsage } from 'ai';
 import type { LanguageModelV4 } from '@ai-sdk/provider';
+import { redactLanguageModelProviderErrors } from '../../chat/core/tool-error-redaction';
 
 export type CapturedModelUsage = {
 	model: string;
@@ -13,11 +14,16 @@ export type CapturedModelUsage = {
 	nativeCostUsd?: number;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 // providerMetadata is Record<string, JSONObject> -> read defensively, no hard cast.
 export function readOpenRouterCost(pm: unknown): number | undefined {
-	const usage = (pm as { openrouter?: { usage?: { cost?: unknown } } } | undefined)?.openrouter
-		?.usage;
-	return typeof usage?.cost === 'number' ? usage.cost : undefined;
+	if (!isRecord(pm) || !isRecord(pm.openrouter) || !isRecord(pm.openrouter.usage)) {
+		return undefined;
+	}
+	return typeof pm.openrouter.usage.cost === 'number' ? pm.openrouter.usage.cost : undefined;
 }
 
 // Uniformly enable native cost accounting on every OpenRouter model we build.
@@ -31,11 +37,13 @@ export function readOpenRouterCost(pm: unknown): number | undefined {
 // (which still lists the deprecated pdf-text) but the union ends in
 // `string & {}`, so the documented value is what we pass.
 export function orModel(modelId: string, opts?: Record<string, unknown>): LanguageModelV4 {
-	return openrouter(modelId, {
-		usage: { include: true },
-		plugins: [{ id: 'file-parser', pdf: { engine: 'cloudflare-ai' } }],
-		...opts
-	});
+	return redactLanguageModelProviderErrors(
+		openrouter(modelId, {
+			usage: { include: true },
+			plugins: [{ id: 'file-parser', pdf: { engine: 'cloudflare-ai' } }],
+			...opts
+		})
+	);
 }
 
 // Sum two optional counters, staying undefined when neither side reported one,

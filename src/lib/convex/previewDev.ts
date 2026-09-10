@@ -2,31 +2,18 @@ import { v } from 'convex/values';
 import { components } from './_generated/api';
 import { internalMutation, type MutationCtx } from './_generated/server';
 import { createAuth } from './auth';
-import { PREVIEW_ADMIN_EMAIL, syncAdminPreferences } from './admin/notificationPreferences/helpers';
+import { readSeedUser, type SeedUser } from './betterAuth/seedUser';
+import { syncAdminPreferences } from './admin/notificationPreferences/helpers';
+
+const PREVIEW_ADMIN_EMAIL = 'admin@preview.dev';
 const PREVIEW_ADMIN_NAME = 'Preview Admin';
 
-type BetterAuthUser = {
-	_id: string;
-	email: string;
-	role?: string | null;
-	emailVerified?: boolean | null;
-};
-
-type CreateUserApi = (context: {
-	body: {
-		email: string;
-		password: string;
-		name: string;
-		role: 'admin';
-	};
-}) => Promise<unknown>;
-
-async function findUserByEmail(ctx: MutationCtx, email: string): Promise<BetterAuthUser | null> {
+async function findUserByEmail(ctx: MutationCtx, email: string): Promise<SeedUser | null> {
 	const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 		model: 'user',
 		where: [{ field: 'email', operator: 'eq', value: email }]
 	});
-	return (user as BetterAuthUser | null) ?? null;
+	return readSeedUser(user);
 }
 
 // Invoked by preview deploy script (scripts/deploy.ts). NOT for local dev:
@@ -68,7 +55,7 @@ export const ensurePreviewAdmin = internalMutation({
 		let user = await findUserByEmail(ctx, email);
 
 		if (!user) {
-			const authApi = createAuth(ctx).api as unknown as { createUser: CreateUserApi };
+			const authApi = createAuth(ctx).api;
 			await authApi.createUser({
 				body: {
 					email,
@@ -105,7 +92,6 @@ export const ensurePreviewAdmin = internalMutation({
 			});
 		}
 
-		// Unchanged users still reach the idempotent preference repair.
 		await syncAdminPreferences(ctx, { userId: user._id, email });
 
 		return {

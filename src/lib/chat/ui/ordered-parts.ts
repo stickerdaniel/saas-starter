@@ -1,5 +1,6 @@
 import type { ToolPart } from '$lib/components/prompt-kit/tool/types.js';
 import type { MessagePart, MessageStatus } from '../core/types.js';
+import { toToolRenderPart } from './tool-part-adapter.js';
 import {
 	getActiveStreamingPartIndex,
 	getActiveStreamingReasoningIndex,
@@ -88,23 +89,17 @@ export function deriveOrderedParts(
 					key: `text-${ordinalAmongType(messageParts, idx, 'text')}`
 				};
 			}
-			if (typeof p.type === 'string' && p.type.startsWith('tool-') && 'state' in p) {
+			const toolPart = toToolRenderPart(p);
+			if (toolPart) {
 				return {
 					kind: 'tool',
-					toolPart: {
-						type: p.type,
-						state: (p as { state: ToolPart['state'] }).state,
-						input: (p as { input?: Record<string, unknown> }).input,
-						output: (p as { output?: unknown }).output as Record<string, unknown> | undefined,
-						toolCallId: (p as { toolCallId?: string }).toolCallId,
-						errorText: (p as { errorText?: string }).errorText
-					},
+					toolPart,
 					// Every kind prefixes its own key, because all of them are siblings in one
 					// keyed block. A raw tool call id shares that namespace with the reasoning
 					// and text keys, and the provider decides what it contains.
 					key: toolPartKey(
-						(p as { toolCallId?: string }).toolCallId,
-						(p as { streamId?: string }).streamId,
+						toolPart.toolCallId,
+						'streamId' in p && typeof p.streamId === 'string' ? p.streamId : undefined,
 						idx
 					)
 				};

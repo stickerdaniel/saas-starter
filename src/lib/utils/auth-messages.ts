@@ -1,5 +1,3 @@
-type ErrorWithCode = { code?: string | null };
-
 // Maps Better Auth error codes to i18n translation keys.
 // Codes verified against @better-auth/core/src/error/codes.ts
 const ERROR_CODE_MAP: Record<string, string> = {
@@ -60,7 +58,13 @@ const ERROR_CODE_MAP: Record<string, string> = {
 	// Server errors
 	FAILED_TO_CREATE_USER: 'auth.messages.signup_failed',
 	FAILED_TO_CREATE_SESSION: 'auth.messages.generic_error',
-	USER_NOT_FOUND: 'auth.messages.generic_error'
+	USER_NOT_FOUND: 'auth.messages.generic_error',
+
+	// Stable application codes from the Convex Better Auth admin boundary
+	ADMIN_CANNOT_BAN_SELF: 'auth.messages.admin_cannot_ban_self',
+	ADMIN_USER_NOT_FOUND: 'auth.messages.admin_user_not_found',
+	ADMIN_ACTION_NOT_ALLOWED: 'auth.messages.admin_action_not_allowed',
+	ADMIN_AUTH_ACTION_FAILED: 'auth.messages.admin_action_failed'
 };
 
 // Better Auth cannot hand an OAuth callback failure to the page that started it,
@@ -122,10 +126,10 @@ export function getAuthErrorKey(
 		return fallbackKey;
 	}
 
-	const code = (error as ErrorWithCode).code;
+	const code = error.code;
 
-	if (code && ERROR_CODE_MAP[code]) {
-		return ERROR_CODE_MAP[code];
+	if (typeof code === 'string' && Object.prototype.hasOwnProperty.call(ERROR_CODE_MAP, code)) {
+		return ERROR_CODE_MAP[code] ?? fallbackKey;
 	}
 
 	return fallbackKey;

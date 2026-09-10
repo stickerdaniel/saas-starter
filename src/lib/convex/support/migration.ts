@@ -1,9 +1,10 @@
 import { mutation } from '../_generated/server';
-import { v, ConvexError } from 'convex/values';
+import { v } from 'convex/values';
 import { authComponent } from '../auth';
 import { isAnonymousUser } from '../utils/anonymousUser';
 import { supportAgent } from './agent';
 import { buildSupportSearchText } from './denormalization';
+import { SUPPORT_ERROR_CODES, createSupportError } from './errors';
 
 /**
  * Migrate anonymous support tickets to an authenticated user account.
@@ -32,7 +33,7 @@ export const migrateAnonymousTickets = mutation({
 
 		// 2. Validate anonymous ID format
 		if (!isAnonymousUser(args.anonymousUserId)) {
-			throw new ConvexError('Invalid anonymous user ID');
+			throw createSupportError(SUPPORT_ERROR_CODES.anonymousUserInvalid);
 		}
 
 		// Bounded: per-user index scan, a single anonymous user's support threads are few

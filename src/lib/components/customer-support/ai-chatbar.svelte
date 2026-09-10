@@ -9,7 +9,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import { supportThreadContext } from './support-thread-context.svelte.ts';
+	import { supportContext } from './support-context.svelte.ts';
 	import { CHAT_PAGE_SIZE, MAX_MESSAGE_LENGTH } from '$lib/chat/core/types';
 	import { getTranslate } from '@tolgee/svelte';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
@@ -24,10 +24,10 @@
 	let input = $state('');
 	const { isFeedbackOpen = false } = $props<{ isFeedbackOpen?: boolean }>();
 
-	// Get thread context
-	const threadContext = supportThreadContext.get();
+	const support = supportContext.get();
+	const { conversation } = support;
 	const anonymousUserId = $derived.by(() => {
-		const userId = threadContext.userId;
+		const userId = conversation.userId;
 		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
 	});
 
@@ -77,7 +77,7 @@
 		warmGeneration++;
 		input = '';
 		const ownedThreadId = pendingThread?.threadId;
-		if (ownedThreadId && threadContext.threadId === ownedThreadId) threadContext.setThread(null);
+		if (ownedThreadId && conversation.threadId === ownedThreadId) conversation.setThread(null);
 		pendingThread = null;
 		threadCreation = null;
 		threadCreationBlockedUntil = 0;
@@ -96,18 +96,22 @@
 	});
 
 	async function handleSubmit() {
-		if (!input.trim() || threadContext.isSending) return;
+		if (!input.trim() || conversation.isSending) return;
 
 		const trimmedPrompt = input.trim();
 		const sessionEpoch = getChatSessionEpoch();
 		const generation = warmGeneration;
+		let sendOperation: ReturnType<typeof conversation.captureOperationIdentity> | undefined;
 		const isCurrent = () =>
-			isChatSessionCurrent(sessionEpoch) && warmGeneration === generation && !destroyed;
+			isChatSessionCurrent(sessionEpoch) &&
+			warmGeneration === generation &&
+			!destroyed &&
+			(!sendOperation || conversation.isOperationIdentityCurrent(sendOperation));
 
 		// Clear input and request widget open before sending
 		// (isSending flag is set by sendMessage)
 		input = '';
-		threadContext.requestWidgetOpen();
+		support.requestWidgetOpen();
 
 		try {
 			const warm = pendingThread;
@@ -121,14 +125,15 @@
 			if (!isCurrent()) return;
 
 			// Update shared context (selectThread sets view='chat' + URL sync)
-			threadContext.selectThread(threadId);
+			support.selectThread(threadId);
+			sendOperation = conversation.captureOperationIdentity();
 
 			// Force Svelte to re-render so ChatRoot subscribes before mutation
 			await tick();
 			if (!isCurrent()) return;
 
 			// Send message using centralized method (handles flags + optimistic update)
-			await threadContext.sendMessage(client, trimmedPrompt, { threadId });
+			await conversation.sendMessage(client, trimmedPrompt, { threadId });
 			if (!isCurrent()) return;
 
 			warmGeneration++;
@@ -144,7 +149,7 @@
 			}, 500);
 		} catch (error) {
 			if (!isCurrent()) return;
-			console.error('[AI Chatbar] handleSubmit Error:', error);
+			console.error('[SupportChatbar.send] Failed');
 
 			// Restore the cleared input so the visitor's message is not lost
 			if (!input) input = trimmedPrompt;
@@ -155,7 +160,7 @@
 				if (data?.code === 'RATE_LIMITED') {
 					const retryAfter = data.retryAfter || 60000;
 					const seconds = Math.ceil(retryAfter / 1000);
-					threadContext.setRateLimited(retryAfter);
+					conversation.setRateLimited(retryAfter);
 					toast.error($t('support.widget.error.rate_limit', { seconds }));
 				} else {
 					toast.error($t('support.widget.error.send_failed'));
@@ -203,7 +208,7 @@
 			})
 			.catch((error) => {
 				if (isChatSessionCurrent(epoch) && warmGeneration === generation && !destroyed) {
-					console.error('[AI Chatbar] Thread creation failed:', error);
+					console.error('[SupportChatbar.createThread] Failed');
 					const data =
 						error instanceof ConvexError
 							? (error.data as { retryAfter?: number } | undefined)
@@ -262,7 +267,7 @@
 			<PromptInput
 				value={input}
 				onValueChange={handleValueChange}
-				isLoading={threadContext.isSending}
+				isLoading={conversation.isSending}
 				onSubmit={handleSubmit}
 				class="relative z-[1] mb-1 flex w-full flex-row items-center border-0 bg-transparent !p-1 shadow-none"
 			>
@@ -277,10 +282,10 @@
 					size="icon"
 					class="h-8 w-8 rounded-full text-muted-foreground"
 					onclick={handleSubmit}
-					disabled={!input.trim() || threadContext.isSending}
+					disabled={!input.trim() || conversation.isSending}
 					aria-label={$t('chat.aria.send')}
 				>
-					{#if threadContext.isSending}
+					{#if conversation.isSending}
 						<LoaderCircleIcon class="size-5 motion-safe:animate-spin" />
 					{:else}
 						<ArrowUpIcon class="size-5" />

@@ -8,25 +8,31 @@
  * @module
  */
 
+import type * as admin_adminAuthErrors from "../admin/adminAuthErrors.js";
 import type * as admin_adminHttpPaths from "../admin/adminHttpPaths.js";
 import type * as admin_auditLog_queries from "../admin/auditLog/queries.js";
 import type * as admin_auditLog_search from "../admin/auditLog/search.js";
 import type * as admin_counters from "../admin/counters.js";
+import type * as admin_errors from "../admin/errors.js";
+import type * as admin_founderWelcome_errors from "../admin/founderWelcome/errors.js";
 import type * as admin_founderWelcome_mutations from "../admin/founderWelcome/mutations.js";
 import type * as admin_founderWelcome_queries from "../admin/founderWelcome/queries.js";
 import type * as admin_mutations from "../admin/mutations.js";
+import type * as admin_notificationPreferences_errors from "../admin/notificationPreferences/errors.js";
 import type * as admin_notificationPreferences_helpers from "../admin/notificationPreferences/helpers.js";
 import type * as admin_notificationPreferences_index from "../admin/notificationPreferences/index.js";
 import type * as admin_notificationPreferences_mutations from "../admin/notificationPreferences/mutations.js";
 import type * as admin_notificationPreferences_queries from "../admin/notificationPreferences/queries.js";
 import type * as admin_queries from "../admin/queries.js";
 import type * as admin_support_constants from "../admin/support/constants.js";
+import type * as admin_support_errors from "../admin/support/errors.js";
 import type * as admin_support_mutations from "../admin/support/mutations.js";
 import type * as admin_support_notifications from "../admin/support/notifications.js";
 import type * as admin_support_queries from "../admin/support/queries.js";
 import type * as admin_types from "../admin/types.js";
 import type * as admin_userSearch from "../admin/userSearch.js";
 import type * as aiChat_agent from "../aiChat/agent.js";
+import type * as aiChat_errors from "../aiChat/errors.js";
 import type * as aiChat_files from "../aiChat/files.js";
 import type * as aiChat_messages from "../aiChat/messages.js";
 import type * as aiChat_ownership from "../aiChat/ownership.js";
@@ -58,6 +64,7 @@ import type * as emails_templates from "../emails/templates.js";
 import type * as env from "../env.js";
 import type * as files_attachmentText from "../files/attachmentText.js";
 import type * as files_cleanup from "../files/cleanup.js";
+import type * as files_errors from "../files/errors.js";
 import type * as files_metadata from "../files/metadata.js";
 import type * as files_upload from "../files/upload.js";
 import type * as files_vacuum from "../files/vacuum.js";
@@ -73,6 +80,7 @@ import type * as rateLimit from "../rateLimit.js";
 import type * as storage from "../storage.js";
 import type * as support_agent from "../support/agent.js";
 import type * as support_denormalization from "../support/denormalization.js";
+import type * as support_errors from "../support/errors.js";
 import type * as support_files from "../support/files.js";
 import type * as support_handoff from "../support/handoff.js";
 import type * as support_messageListing from "../support/messageListing.js";
@@ -101,25 +109,31 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "admin/adminAuthErrors": typeof admin_adminAuthErrors;
   "admin/adminHttpPaths": typeof admin_adminHttpPaths;
   "admin/auditLog/queries": typeof admin_auditLog_queries;
   "admin/auditLog/search": typeof admin_auditLog_search;
   "admin/counters": typeof admin_counters;
+  "admin/errors": typeof admin_errors;
+  "admin/founderWelcome/errors": typeof admin_founderWelcome_errors;
   "admin/founderWelcome/mutations": typeof admin_founderWelcome_mutations;
   "admin/founderWelcome/queries": typeof admin_founderWelcome_queries;
   "admin/mutations": typeof admin_mutations;
+  "admin/notificationPreferences/errors": typeof admin_notificationPreferences_errors;
   "admin/notificationPreferences/helpers": typeof admin_notificationPreferences_helpers;
   "admin/notificationPreferences/index": typeof admin_notificationPreferences_index;
   "admin/notificationPreferences/mutations": typeof admin_notificationPreferences_mutations;
   "admin/notificationPreferences/queries": typeof admin_notificationPreferences_queries;
   "admin/queries": typeof admin_queries;
   "admin/support/constants": typeof admin_support_constants;
+  "admin/support/errors": typeof admin_support_errors;
   "admin/support/mutations": typeof admin_support_mutations;
   "admin/support/notifications": typeof admin_support_notifications;
   "admin/support/queries": typeof admin_support_queries;
   "admin/types": typeof admin_types;
   "admin/userSearch": typeof admin_userSearch;
   "aiChat/agent": typeof aiChat_agent;
+  "aiChat/errors": typeof aiChat_errors;
   "aiChat/files": typeof aiChat_files;
   "aiChat/messages": typeof aiChat_messages;
   "aiChat/ownership": typeof aiChat_ownership;
@@ -151,6 +165,7 @@ declare const fullApi: ApiFromModules<{
   env: typeof env;
   "files/attachmentText": typeof files_attachmentText;
   "files/cleanup": typeof files_cleanup;
+  "files/errors": typeof files_errors;
   "files/metadata": typeof files_metadata;
   "files/upload": typeof files_upload;
   "files/vacuum": typeof files_vacuum;
@@ -166,6 +181,7 @@ declare const fullApi: ApiFromModules<{
   storage: typeof storage;
   "support/agent": typeof support_agent;
   "support/denormalization": typeof support_denormalization;
+  "support/errors": typeof support_errors;
   "support/files": typeof support_files;
   "support/handoff": typeof support_handoff;
   "support/messageListing": typeof support_messageListing;

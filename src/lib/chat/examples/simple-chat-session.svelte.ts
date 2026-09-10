@@ -3,7 +3,7 @@ import { api } from '$lib/convex/_generated/api';
 import { ChatCore, type ChatCoreOptions } from '../core/chat-core.svelte.ts';
 import { ChatDraftManager, type ChatDraftCheckpoint } from '../core/chat-draft-manager.svelte.ts';
 import { getChatSessionEpoch, isChatSessionCurrent } from '../core/chat-persisted-state.ts';
-import type { ChatUIContext } from '../ui/chat-context.svelte.ts';
+import type { ChatInputProjection, ChatUIContext } from '../ui/chat-context.svelte.ts';
 
 const SIMPLE_CHAT_API = {
 	sendMessage: api.aiChat.messages.sendMessage,
@@ -47,7 +47,6 @@ export class SimpleChatSession {
 	// Component-local contexts. Their count is mirrored through activeMounts for registry rendering.
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	private readonly contexts = new Set<ChatUIContext>();
-	private readonly ignoredInputs = new WeakMap<ChatUIContext, string>();
 	private inputRevision = 0;
 	private activeSend: ActiveSend | null = null;
 
@@ -78,16 +77,43 @@ export class SimpleChatSession {
 		this.setContextInput(context, hideSentDraft ? '' : this.draftManager.getDraft(this.threadId));
 	}
 
-	recordInput(context: ChatUIContext, value: string): void {
-		if (!this.contexts.has(context) || !isChatSessionCurrent(this.sessionEpoch)) return;
-		if (this.ignoredInputs.get(context) === value) {
-			this.ignoredInputs.delete(context);
+	projectInput(context: ChatUIContext, projection: ChatInputProjection): void {
+		if (
+			projection.sessionEpoch !== this.sessionEpoch ||
+			projection.origin.threadId !== this.threadId ||
+			!isChatSessionCurrent(this.sessionEpoch) ||
+			(projection.reason !== 'send-restore' && !this.contexts.has(context))
+		) {
 			return;
 		}
-		this.ignoredInputs.delete(context);
-		this.inputRevision += 1;
-		this.draftManager.setDraft(this.threadId, value);
-		this.setOtherContextInputs(context, value);
+
+		if (projection.reason === 'user-edit') {
+			this.inputRevision += 1;
+			this.draftManager.setDraft(this.threadId, projection.value);
+			this.setOtherContextInputs(context, projection.value);
+			return;
+		}
+
+		if (projection.reason === 'send-clear') {
+			this.setOtherContextInputs(context, '');
+			return;
+		}
+
+		if (this.activeSend?.inputRevision !== this.inputRevision) return;
+		this.setOtherContextInputs(context, projection.value);
+		this.activeSend = null;
+		this.releaseIfIdle(this);
+	}
+
+	/** Compatibility helper for direct session tests and non-component consumers. */
+	recordInput(context: ChatUIContext, value: string): void {
+		this.projectInput(context, {
+			value,
+			reason: 'user-edit',
+			sessionEpoch: this.sessionEpoch,
+			origin: { generation: context.core.threadGeneration, threadId: this.threadId },
+			inputRevision: 0
+		});
 	}
 
 	detach(context: ChatUIContext): void {
@@ -102,7 +128,6 @@ export class SimpleChatSession {
 				this.setAllContextInputs(value);
 			}
 		}
-		this.ignoredInputs.delete(context);
 		this.activeMounts = this.contexts.size;
 		this.releaseIfIdle(this);
 	}
@@ -118,28 +143,15 @@ export class SimpleChatSession {
 			succeeded: false
 		};
 		this.activeSend = activeSend;
-		this.setAllContextInputs('');
 
 		try {
 			await this.core.sendMessage(client, prompt);
 			if (!isChatSessionCurrent(this.sessionEpoch)) return;
 			activeSend.succeeded = true;
-			if (this.draftManager.clearDraftIfUnchanged(activeSend.checkpoint)) {
-				if (this.inputRevision === activeSend.inputRevision) this.setAllContextInputs('');
-			}
+			this.draftManager.clearDraftIfUnchanged(activeSend.checkpoint);
 			if (!this.core.isAwaitingStream && this.activeSend === activeSend) {
 				this.activeSend = null;
 			}
-		} catch (error) {
-			if (
-				isChatSessionCurrent(this.sessionEpoch) &&
-				this.inputRevision === activeSend.inputRevision &&
-				this.draftManager.getDraft(this.threadId) === activeSend.checkpoint.value
-			) {
-				this.setAllContextInputs(activeSend.checkpoint.value);
-			}
-			if (this.activeSend === activeSend) this.activeSend = null;
-			throw error;
 		} finally {
 			this.releaseIfIdle(this);
 		}
@@ -161,8 +173,7 @@ export class SimpleChatSession {
 	}
 
 	private setContextInput(context: ChatUIContext, value: string): void {
-		this.ignoredInputs.set(context, value);
-		context.setInputValue(value);
+		context.projectInputValue(value);
 	}
 }
 

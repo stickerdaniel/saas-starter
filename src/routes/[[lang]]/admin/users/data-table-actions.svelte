@@ -21,7 +21,8 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { T } from '@tolgee/svelte';
 	import { USER_ROLES } from '$lib/convex/admin/types';
-	import { getContext } from 'svelte';
+	import { getAdminViewerId } from '../viewer-context';
+	import { getUserActionHandler } from './user-actions-context';
 
 	type Props = {
 		user: AdminUserData;
@@ -30,10 +31,10 @@
 	let { user }: Props = $props();
 
 	// Get current viewer ID from context to prevent self-modification
-	const currentUserId = getContext<string>('currentUserId');
+	const currentUserId = getAdminViewerId();
 
 	// Get action handler from context
-	const onAction = getContext<(event: ActionEvent) => void>('onUserAction');
+	const onAction = getUserActionHandler();
 
 	const isCurrentUser = $derived(currentUserId === user.id);
 

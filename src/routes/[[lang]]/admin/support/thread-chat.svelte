@@ -77,12 +77,7 @@
 	// Create ChatCore for this thread (needed for ChatUIContext)
 	// Seed at creation; kept in sync via $effect below.
 	// svelte-ignore state_referenced_locally
-	const chatCore = new ChatCore({
-		threadId,
-		api: {
-			sendMessage: api.admin.support.mutations.sendAdminReply
-		}
-	});
+	const chatCore = new ChatCore({ threadId });
 
 	$effect(() => {
 		if (chatCore.threadId !== threadId) {
@@ -94,7 +89,10 @@
 	// Report transfers to the app so a navigation that would kill one asks first.
 	// Absent outside the app shell (isolated tests, the standalone example), where
 	// there is no layout to ask.
-	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'left', activeUploads);
+	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'left', activeUploads, {
+		bindThreadOrigin: (binder) => chatCore.setThreadOriginBinder(binder),
+		forgetSession: () => chatCore.forgetChatSession()
+	});
 
 	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
 	onDestroy(() => chatUIContext.dispose());
@@ -362,10 +360,7 @@
 		userAlignment="left"
 		externalCore={chatCore}
 		externalUIContext={chatUIContext}
-		api={{
-			listMessages: api.admin.support.queries.listMessagesForAdmin,
-			sendMessage: api.admin.support.mutations.sendAdminReply
-		}}
+		api={{ listMessages: api.admin.support.queries.listMessagesForAdmin }}
 	>
 		<div class="flex-1 overflow-hidden">
 			<ChatMessages />
@@ -421,7 +416,7 @@
 					if (draftCheckpoint) draftManager?.clearDraftIfUnchanged(draftCheckpoint);
 				} catch (error) {
 					if (isChatSessionCurrent(sessionEpoch)) {
-						console.error('[Admin sendAdminReply] Error:', error);
+						console.error('[AdminSupport.sendReply] Failed');
 						toast.error($t('admin.support.chat.send_error'));
 					}
 					throw error;

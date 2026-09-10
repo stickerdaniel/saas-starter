@@ -116,6 +116,10 @@ import {
 	getCapabilityConfigurations,
 	requireAiConfiguration
 } from '../../env';
+import {
+	prepareToolErrorRedactionStep,
+	toolErrorRedactionTransform
+} from '../../../chat/core/tool-error-redaction';
 
 const syncMock = syncSupportLastMessage as unknown as ReturnType<typeof vi.fn>;
 
@@ -211,7 +215,9 @@ describe('createAIResponse prompt override wiring', () => {
 		expect(streamTextMock).toHaveBeenCalledTimes(1);
 		expect(streamTextMock.mock.calls[0][2]).toEqual({
 			promptMessageId: 'prompt_1',
-			instructions: 'stored override prompt'
+			instructions: 'stored override prompt',
+			prepareStep: prepareToolErrorRedactionStep,
+			experimental_transform: toolErrorRedactionTransform
 		});
 	});
 
@@ -222,7 +228,9 @@ describe('createAIResponse prompt override wiring', () => {
 
 		expect(streamTextMock.mock.calls[0][2]).toEqual({
 			promptMessageId: 'prompt_1',
-			instructions: undefined
+			instructions: undefined,
+			prepareStep: prepareToolErrorRedactionStep,
+			experimental_transform: toolErrorRedactionTransform
 		});
 	});
 });
@@ -314,6 +322,7 @@ describe('sendMessage routing between the agent and the team', () => {
 
 	afterEach(() => {
 		aiEnabledMock.mockReturnValue(true);
+		vi.unstubAllEnvs();
 	});
 
 	function makeCtx(recentUserMessages: string[] = []) {
@@ -407,6 +416,29 @@ describe('sendMessage routing between the agent and the team', () => {
 			expect.objectContaining({ isHandedOff: true })
 		);
 		expect(saveMessageMock).toHaveBeenCalledTimes(2);
+	});
+
+	it('keeps a local E2E support prompt out of agent scheduling and provider transport', async () => {
+		vi.stubEnv('CAPABILITY_PROFILE', 'test');
+		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'local-e2e-helper');
+		getCapabilitiesMock.mockReturnValueOnce({
+			billing: { state: 'disabled', issue: 'missing' },
+			email: { state: 'disabled', issue: 'missing' },
+			ai: { state: 'disabled', issue: 'missing' }
+		});
+		givenThread({ isWarm: true, isHandedOff: false });
+		const ctx = makeCtx();
+		const prompt = 'local-e2e-prompt-must-not-egress';
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt });
+
+		expect(scheduledRefs(ctx)).toEqual([SCHEDULE_NOTIFICATION_REF]);
+		expect(ctx.scheduler.runAfter.mock.calls).not.toContainEqual(
+			expect.arrayContaining([expect.anything(), CREATE_AI_RESPONSE_REF, expect.anything()])
+		);
+		expect(JSON.stringify(ctx.scheduler.runAfter.mock.calls)).not.toContain(prompt);
+		expect(streamTextMock).not.toHaveBeenCalled();
+		expect(requireAiMock).not.toHaveBeenCalled();
 	});
 
 	// The history query keeps the newest 50 entries of any role and filters to
