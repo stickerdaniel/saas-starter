@@ -12,7 +12,14 @@ vi.mock('../../emails/resend', () => ({
 }));
 
 import { getEmailDeliveryConfiguration } from '../../emails/resend';
-import { scheduleAdminNotification, sendPendingAdminNotification } from './notifications';
+import { getFunctionName } from 'convex/server';
+import {
+	claimNotificationForSending,
+	deletePendingNotification,
+	reschedulePendingNotification,
+	scheduleAdminNotification,
+	sendPendingAdminNotification
+} from './notifications';
 
 /**
  * Handler-level unit test (the codebase idiom): the Convex fn exposes its
@@ -77,10 +84,17 @@ function createCtx() {
 			if (!row) throw new Error(`patch: unknown id ${id}`);
 			Object.assign(row, patch);
 		}),
+		get: vi.fn(async (id: string) => rows.find((r) => r._id === id) ?? null),
+		delete: vi.fn(async (id: string) => {
+			const index = rows.findIndex((r) => r._id === id);
+			if (index !== -1) rows.splice(index, 1);
+		}),
 		system: { get: async () => null }
 	};
 
-	return { ctx: { db, scheduler: { runAfter } }, rows, runAfter };
+	const cancel = vi.fn(async (_id: string) => {});
+
+	return { ctx: { db, scheduler: { runAfter, cancel } }, rows, runAfter, cancel };
 }
 
 describe('scheduleAdminNotification', () => {
@@ -173,4 +187,178 @@ describe('sendPendingAdminNotification', () => {
 			expect(runQuery).not.toHaveBeenCalled();
 		}
 	);
+});
+
+/**
+ * Ownership of a pending row is signalled by `scheduledFnId === undefined`:
+ * `claimNotificationForSending` clears it, and a customer message arriving
+ * during the action's multi-second send window re-arms the row with a fresh
+ * scheduled function, taking ownership back. The tests below force exactly that
+ * interleaving, because an in-flight action that still writes to a re-armed row
+ * deletes the follow-up digest and the customer's message is never emailed.
+ */
+const claimNotificationForSendingH = claimNotificationForSending as unknown as Fn<
+	{ notificationId: string },
+	unknown
+>;
+const deletePendingNotificationH = deletePendingNotification as unknown as Fn<
+	{ notificationId: string },
+	boolean
+>;
+const reschedulePendingNotificationH = reschedulePendingNotification as unknown as Fn<
+	{ notificationId: string; delayMs?: number },
+	boolean
+>;
+
+/**
+ * Drive the action against the real claim/delete/reschedule handlers over one
+ * shared store, so ownership transitions are exercised rather than stubbed.
+ * `onFirstSend` runs inside the first email send, which is the window the
+ * production action spends off-transaction.
+ */
+function createActionCtx(
+	ctx: unknown,
+	options: { onFirstSend?: () => Promise<void>; sendThrows?: boolean } = {}
+) {
+	let pendingHook = options.onFirstSend;
+	const sentEmails: Array<Record<string, unknown>> = [];
+	const messageIdsSeen: string[][] = [];
+
+	const runMutation = vi.fn(async (reference: unknown, args: Record<string, unknown>) => {
+		const name = getFunctionName(reference as Parameters<typeof getFunctionName>[0]);
+		switch (name) {
+			case 'admin/support/notifications:claimNotificationForSending':
+				return claimNotificationForSendingH._handler(ctx, args as { notificationId: string });
+			case 'admin/support/notifications:deletePendingNotification':
+				return deletePendingNotificationH._handler(ctx, args as { notificationId: string });
+			case 'admin/support/notifications:reschedulePendingNotification':
+				return reschedulePendingNotificationH._handler(
+					ctx,
+					args as { notificationId: string; delayMs?: number }
+				);
+			case 'emails/send:sendNewTicketAdminNotification': {
+				if (pendingHook) {
+					const hook = pendingHook;
+					pendingHook = undefined;
+					await hook();
+				}
+				if (options.sendThrows) throw new Error('provider unreachable');
+				sentEmails.push(args);
+				return true;
+			}
+			default:
+				throw new Error(`unexpected mutation ${name}`);
+		}
+	});
+
+	const runQuery = vi.fn(async (reference: unknown, args: Record<string, unknown>) => {
+		const name = getFunctionName(reference as Parameters<typeof getFunctionName>[0]);
+		switch (name) {
+			case 'admin/support/notifications:getSupportThread':
+				return { threadId: args.threadId, userName: 'Visitor', assignedTo: undefined };
+			case 'admin/support/notifications:getNotificationTargetEmails':
+				return ['admin@example.com'];
+			case 'admin/support/notifications:getMessageContents':
+				messageIdsSeen.push(args.messageIds as string[]);
+				return [];
+			default:
+				throw new Error(`unexpected query ${name}`);
+		}
+	});
+
+	return { runMutation, runQuery, sentEmails, messageIdsSeen };
+}
+
+describe('pending notification ownership', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		getEmailConfigurationMock.mockReturnValue({
+			state: 'ready',
+			value: {
+				apiKey: 'configured',
+				sender: 'sender@example.com',
+				assetUrl: 'https://assets.example.com'
+			}
+		});
+	});
+
+	it('delivers a message that arrives while the send is in flight', async () => {
+		const { ctx, rows, runAfter } = createCtx();
+
+		await scheduleAdminNotificationH._handler(ctx, {
+			threadId: 'thread_race',
+			messageIds: ['message_1'],
+			isReopen: false,
+			notificationType: 'newTickets'
+		});
+		expect(rows).toHaveLength(1);
+		const armedFnId = rows[0].scheduledFnId;
+		expect(armedFnId).toBeDefined();
+
+		const notificationId = rows[0]._id as string;
+		let reArmedFnId: unknown;
+		const firstSend = createActionCtx(ctx, {
+			// The customer replies while the first digest is still being emailed.
+			onFirstSend: async () => {
+				await scheduleAdminNotificationH._handler(ctx, {
+					threadId: 'thread_race',
+					messageIds: ['message_2'],
+					isReopen: false,
+					notificationType: 'userReplies'
+				});
+				reArmedFnId = rows[0].scheduledFnId;
+			}
+		});
+
+		await sendPendingAdminNotificationH._handler(firstSend, { notificationId });
+
+		// The re-arm owns the row now, so the finished send must leave it alone.
+		expect(rows).toHaveLength(1);
+		expect(rows[0].messageIds).toEqual(['message_1', 'message_2']);
+		expect(rows[0].scheduledFnId).toBe(reArmedFnId);
+		expect(reArmedFnId).not.toBe(armedFnId);
+		expect(runAfter).toHaveBeenCalledTimes(2);
+
+		// The re-armed send then delivers both messages and clears the row.
+		const secondSend = createActionCtx(ctx);
+		await sendPendingAdminNotificationH._handler(secondSend, { notificationId });
+
+		expect(secondSend.sentEmails).toHaveLength(1);
+		expect(secondSend.messageIdsSeen).toEqual([['message_1', 'message_2']]);
+		expect(rows).toHaveLength(0);
+	});
+
+	it('does not reschedule a row that was re-armed during failed sends', async () => {
+		const { ctx, rows, runAfter } = createCtx();
+
+		await scheduleAdminNotificationH._handler(ctx, {
+			threadId: 'thread_retry',
+			messageIds: ['message_1'],
+			isReopen: false,
+			notificationType: 'newTickets'
+		});
+		const notificationId = rows[0]._id as string;
+
+		let reArmedFnId: unknown;
+		const failingSend = createActionCtx(ctx, {
+			sendThrows: true,
+			onFirstSend: async () => {
+				await scheduleAdminNotificationH._handler(ctx, {
+					threadId: 'thread_retry',
+					messageIds: ['message_2'],
+					isReopen: false,
+					notificationType: 'userReplies'
+				});
+				reArmedFnId = rows[0].scheduledFnId;
+			}
+		});
+
+		await sendPendingAdminNotificationH._handler(failingSend, { notificationId });
+
+		// The retry belongs to the re-armed send, not to the evicted one.
+		expect(rows).toHaveLength(1);
+		expect(rows[0].scheduledFnId).toBe(reArmedFnId);
+		expect(rows[0].retryCount).toBeUndefined();
+		expect(runAfter).toHaveBeenCalledTimes(2);
+	});
 });
