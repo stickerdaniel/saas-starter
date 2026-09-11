@@ -30,6 +30,10 @@ const NOTIFICATION_DELAY_MS = 4 * 60 * 1000;
 /** Maximum number of retry attempts before giving up */
 const MAX_RETRY_COUNT = 5;
 
+/** Logged when a re-armed row revoked the running send's ownership. */
+const OWNERSHIP_MOVED_LOG =
+	'[sendPendingAdminNotification] Pending notification re-armed by a newer send, leaving it to the new owner:';
+
 /**
  * Schedule or update an admin notification for a support thread
  *
@@ -92,6 +96,8 @@ export const scheduleAdminNotification = internalMutation({
 				}
 			);
 
+			// Writing scheduledFnId also evicts an in-flight sender: a send owns the row
+			// only while it is unscheduled, so this patch hands ownership to the new job.
 			await ctx.db.patch(existing._id, {
 				messageIds: updatedMessageIds,
 				scheduledFor,
@@ -141,9 +147,12 @@ export const scheduleAdminNotification = internalMutation({
  * - If ticket is assigned AND assignee has the notification type enabled → only assignee
  * - Otherwise → all recipients with the notification type enabled (admins + custom emails)
  *
- * Race condition protection: Before deleting the pending notification, we verify
- * that scheduledFnId hasn't changed. If it has, a new notification was scheduled
- * while this action was running, and we should not delete the record.
+ * Ownership protocol: the claim clears scheduledFnId, and every mutation this
+ * action runs afterwards may only touch the row while it is still unscheduled.
+ * Email sends take seconds outside any transaction, so a customer message can
+ * arrive in that window, re-arm the row with a fresh scheduled function and take
+ * ownership back. The delete and reschedule below then do nothing, and the
+ * re-armed send delivers the accumulated messages.
  *
  * @param args.notificationId - The pending notification record ID
  */
@@ -172,9 +181,13 @@ export const sendPendingAdminNotification = internalAction({
 		}
 
 		if (getEmailDeliveryConfiguration().state !== 'ready') {
-			await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
-				notificationId: args.notificationId
-			});
+			const deleted = await ctx.runMutation(
+				internal.admin.support.notifications.deletePendingNotification,
+				{
+					notificationId: args.notificationId
+				}
+			);
+			if (!deleted) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
 			return null;
 		}
 
@@ -190,10 +203,14 @@ export const sendPendingAdminNotification = internalAction({
 			console.log(
 				`[sendPendingAdminNotification] Thread ${notification.threadId} not found, skipping`
 			);
-			// Clean up the pending notification (force delete since thread is gone)
-			await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
-				notificationId: args.notificationId
-			});
+			// Clean up the pending notification (the thread is gone)
+			const deleted = await ctx.runMutation(
+				internal.admin.support.notifications.deletePendingNotification,
+				{
+					notificationId: args.notificationId
+				}
+			);
+			if (!deleted) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
 			return null;
 		}
 
@@ -210,10 +227,14 @@ export const sendPendingAdminNotification = internalAction({
 
 		if (targetEmails.length === 0) {
 			console.log('[sendPendingAdminNotification] No target emails found, skipping notification');
-			// Clean up the pending notification (force delete since no recipients)
-			await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
-				notificationId: args.notificationId
-			});
+			// Clean up the pending notification (there are no recipients)
+			const deleted = await ctx.runMutation(
+				internal.admin.support.notifications.deletePendingNotification,
+				{
+					notificationId: args.notificationId
+				}
+			);
+			if (!deleted) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
 			return null;
 		}
 
@@ -253,9 +274,13 @@ export const sendPendingAdminNotification = internalAction({
 		// If configuration changed while recipient sends were running, finish the
 		// claimed row instead of retrying work that cannot reach the provider.
 		if (sentCount === 0 && getEmailDeliveryConfiguration().state !== 'ready') {
-			await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
-				notificationId: args.notificationId
-			});
+			const deleted = await ctx.runMutation(
+				internal.admin.support.notifications.deletePendingNotification,
+				{
+					notificationId: args.notificationId
+				}
+			);
+			if (!deleted) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
 			return null;
 		}
 
@@ -266,9 +291,13 @@ export const sendPendingAdminNotification = internalAction({
 				console.error(
 					`[sendPendingAdminNotification] All ${targetEmails.length} email sends failed for thread ${notification.threadId} after ${currentRetry} retries, giving up`
 				);
-				await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
-					notificationId: args.notificationId
-				});
+				const deleted = await ctx.runMutation(
+					internal.admin.support.notifications.deletePendingNotification,
+					{
+						notificationId: args.notificationId
+					}
+				);
+				if (!deleted) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
 				return null;
 			}
 
@@ -276,18 +305,25 @@ export const sendPendingAdminNotification = internalAction({
 				`[sendPendingAdminNotification] All ${targetEmails.length} email sends failed for thread ${notification.threadId}, retry ${currentRetry + 1}/${MAX_RETRY_COUNT}...`
 			);
 			// Reschedule with 1 minute delay via mutation (for guaranteed delivery semantics)
-			await ctx.runMutation(internal.admin.support.notifications.reschedulePendingNotification, {
-				notificationId: args.notificationId,
-				delayMs: 60_000 // 1 minute retry delay
-			});
+			const rescheduled = await ctx.runMutation(
+				internal.admin.support.notifications.reschedulePendingNotification,
+				{
+					notificationId: args.notificationId,
+					delayMs: 60_000 // 1 minute retry delay
+				}
+			);
+			if (!rescheduled) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
 			return null;
 		}
 
 		// Clean up the pending notification
-		// We already claimed ownership at the start, so we can delete unconditionally
-		await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
-			notificationId: args.notificationId
-		});
+		const deleted = await ctx.runMutation(
+			internal.admin.support.notifications.deletePendingNotification,
+			{
+				notificationId: args.notificationId
+			}
+		);
+		if (!deleted) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
 
 		console.log(
 			`[sendPendingAdminNotification] Sent ${notification.isReopen ? 'reopen' : 'new ticket'} notification for thread ${notification.threadId} to ${sentCount}/${targetEmails.length} recipient(s)`
@@ -374,20 +410,19 @@ export const getSupportThread = internalQuery({
 });
 
 /**
- * Delete a pending notification
+ * Delete a pending notification that the running send still owns
  *
- * If expectedScheduledFnId is provided, only deletes if the notification's
- * scheduledFnId matches. This prevents race conditions where a new notification
- * was scheduled while the action was running.
+ * A send owns its row only while the row is unscheduled, the marker
+ * claimNotificationForSending writes. Any scheduledFnId means a newer job owns
+ * the row: it was re-armed with additional messages while this send was running,
+ * so deleting it would drop those messages.
  *
  * @param args.notificationId - The notification to delete
- * @param args.expectedScheduledFnId - If provided, only delete if scheduledFnId matches
- * @returns true if deleted, false if not found or scheduledFnId didn't match
+ * @returns true if deleted, false if not found or owned by a newer scheduled send
  */
 export const deletePendingNotification = internalMutation({
 	args: {
-		notificationId: v.id('pendingAdminNotifications'),
-		expectedScheduledFnId: v.optional(v.id('_scheduled_functions'))
+		notificationId: v.id('pendingAdminNotifications')
 	},
 	returns: v.boolean(),
 	handler: async (ctx, args) => {
@@ -398,9 +433,8 @@ export const deletePendingNotification = internalMutation({
 			return false;
 		}
 
-		// If expectedScheduledFnId provided, check it matches
-		// This prevents deleting a notification that was rescheduled
-		if (args.expectedScheduledFnId && notification.scheduledFnId !== args.expectedScheduledFnId) {
+		// Re-armed while the send was running, so the new job owns the row
+		if (notification.scheduledFnId !== undefined) {
 			return false;
 		}
 
@@ -415,8 +449,12 @@ export const deletePendingNotification = internalMutation({
  * Called when all email sends fail to ensure the notification is retried later.
  * Updates the scheduledFnId to point to the new scheduled function.
  *
+ * Only the send that owns the row may retry it. A row re-armed during the failed
+ * sends already carries a newer job for the same messages, so it is left alone.
+ *
  * @param args.notificationId - The notification to reschedule
  * @param args.delayMs - Delay in milliseconds before retry (default 60 seconds)
+ * @returns true if rescheduled, false if not found or owned by a newer scheduled send
  */
 export const reschedulePendingNotification = internalMutation({
 	args: {
@@ -428,6 +466,11 @@ export const reschedulePendingNotification = internalMutation({
 		const notification = await ctx.db.get(args.notificationId);
 
 		if (!notification) {
+			return false;
+		}
+
+		// Re-armed while the send was running, so the new job owns the retry
+		if (notification.scheduledFnId !== undefined) {
 			return false;
 		}
 
