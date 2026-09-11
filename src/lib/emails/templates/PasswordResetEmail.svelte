@@ -33,7 +33,7 @@
 
 <Html {lang}>
 	<EmailHead />
-	<Body class="mx-auto my-auto bg-white px-2 font-sans">
+	<Body class="mx-auto my-auto bg-white px-2 font-sans dark:bg-zinc-950">
 		<Preview preview={previewText} />
 		<Container class="mx-auto my-10 max-w-md p-5">
 			<Card.Root>
@@ -45,7 +45,7 @@
 				</Card.Header>
 
 				<Card.Content>
-					<p class="mb-4 text-sm text-foreground">
+					<p class="mb-4 text-sm text-foreground dark:text-zinc-50">
 						{bodyText}
 					</p>
 
@@ -57,7 +57,7 @@
 						</Alert.Description>
 					</Alert.Root>
 
-					<p class="text-sm text-muted-foreground">
+					<p class="text-sm text-muted-foreground dark:text-zinc-400">
 						{disclaimerText}
 					</p>
 				</Card.Content>

@@ -17,7 +17,7 @@
 <div
 	bind:this={ref}
 	data-slot="alert-description"
-	class={cn('text-sm text-muted-foreground', className)}
+	class={cn('text-sm text-muted-foreground dark:text-zinc-400', className)}
 	{...restProps}
 >
 	{@render children?.()}

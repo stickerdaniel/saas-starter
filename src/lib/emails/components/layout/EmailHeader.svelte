@@ -22,7 +22,9 @@
 				alt={`${appName} Logo`}
 				class="my-0 mr-2 inline-block align-middle"
 			/>
-			<Text class="my-0 inline-block align-middle text-[20px] font-bold text-black">
+			<Text
+				class="my-0 inline-block align-middle text-[20px] font-bold text-black dark:text-zinc-50"
+			>
 				{appName}
 			</Text>
 		</Column>

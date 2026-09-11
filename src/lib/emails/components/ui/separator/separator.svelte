@@ -21,7 +21,7 @@
 	data-orientation={orientation}
 	role="separator"
 	class={cn(
-		'shrink-0 bg-border',
+		'shrink-0 bg-border dark:bg-zinc-800',
 		orientation === 'horizontal' ? 'h-px w-full' : 'h-full w-px',
 		className
 	)}

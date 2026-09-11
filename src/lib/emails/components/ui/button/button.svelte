@@ -5,13 +5,20 @@
 	export const buttonVariants = tv({
 		base: 'block text-center shrink-0 overflow-hidden rounded-md text-sm font-medium whitespace-nowrap',
 		variants: {
+			// The primary button inverts in dark mode the same way --primary does in
+			// the .dark block of src/routes/layout.css: a zinc-900 button on a
+			// zinc-900 card would be unreadable. The destructive variant keeps its
+			// red fill and white label, which carry in both schemes.
 			variant: {
-				default: 'bg-primary text-primary-foreground shadow-2xs',
+				default:
+					'bg-primary text-primary-foreground shadow-2xs dark:bg-zinc-200 dark:text-zinc-900',
 				destructive: 'bg-destructive text-white shadow-2xs',
-				outline: 'bg-background text-foreground border shadow-2xs',
-				secondary: 'bg-secondary text-secondary-foreground shadow-2xs',
-				ghost: 'text-foreground',
-				link: 'text-primary underline underline-offset-4'
+				outline:
+					'bg-background text-foreground border shadow-2xs dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50',
+				secondary:
+					'bg-secondary text-secondary-foreground shadow-2xs dark:bg-zinc-800 dark:text-zinc-50',
+				ghost: 'text-foreground dark:text-zinc-50',
+				link: 'text-primary underline underline-offset-4 dark:text-zinc-200'
 			},
 			size: {
 				default: 'h-9 px-4 py-2',

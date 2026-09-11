@@ -20,11 +20,12 @@
 <div class={className} {...restProps}>
 	<Separator class="mb-6" />
 	<div class="space-y-1 text-left">
-		<p class="text-xs text-muted-foreground">
+		<p class="text-xs text-muted-foreground dark:text-zinc-400">
 			Copyright © {currentYear}
-			<Link href="__BASEURL__/" class="text-muted-foreground underline">{companyName}</Link> All rights
-			reserved.
+			<Link href="__BASEURL__/" class="text-muted-foreground underline dark:text-zinc-400"
+				>{companyName}</Link
+			> All rights reserved.
 		</p>
-		<p class="text-xs text-muted-foreground">{address}</p>
+		<p class="text-xs text-muted-foreground dark:text-zinc-400">{address}</p>
 	</div>
 </div>
