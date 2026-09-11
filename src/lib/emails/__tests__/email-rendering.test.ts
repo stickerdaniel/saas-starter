@@ -30,6 +30,30 @@ describe('Email Template Rendering', () => {
 		it('retains ordinary cursor declarations', () => {
 			expect(sanitizeEmailCss('a { cursor: pointer; }')).toBe('a { cursor: pointer; }');
 		});
+
+		// The app's `dark` variant resolves to a `.dark` ancestor that no email
+		// client renders, so it has to go for darkMode: 'media' to take effect. The
+		// other custom variants are still needed to resolve their own utilities.
+		it('removes the dark custom variant and keeps the data-* ones', () => {
+			const css = [
+				'@custom-variant dark (&:is(.dark *));',
+				'@custom-variant data-open {',
+				"\t&[data-state='open'] {",
+				'\t\t@slot;',
+				'\t}',
+				'}',
+				'@custom-variant data-closed (&[data-state="closed"]);',
+				'@custom-variant data-checked (&[data-state="checked"]);'
+			].join('\n');
+
+			const sanitized = sanitizeEmailCss(css);
+
+			expect(sanitized).not.toContain('@custom-variant dark');
+			expect(sanitized).toContain('@custom-variant data-open');
+			expect(sanitized).toContain("&[data-state='open']");
+			expect(sanitized).toContain('@custom-variant data-closed');
+			expect(sanitized).toContain('@custom-variant data-checked');
+		});
 	});
 
 	describe('HTML escaping', () => {

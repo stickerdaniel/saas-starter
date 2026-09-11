@@ -31,7 +31,7 @@
 
 <Html {lang}>
 	<EmailHead />
-	<Body class="mx-auto my-auto bg-white px-2 font-sans">
+	<Body class="mx-auto my-auto bg-white px-2 font-sans dark:bg-zinc-950">
 		<Preview preview={previewText} />
 		<Container class="mx-auto my-10 max-w-md p-5">
 			<Card.Root>
@@ -48,7 +48,7 @@
 
 					<Button class="mt-4 mb-4" href={adminDashboardLink}>{buttonText}</Button>
 
-					<p class="text-xs text-muted-foreground">
+					<p class="text-xs text-muted-foreground dark:text-zinc-400">
 						{footerText}
 					</p>
 				</Card.Content>

@@ -18,9 +18,29 @@
 @font-face{font-family:'Outfit';font-style:normal;font-weight:500;font-display:swap;src:url('__BASEURL__/fonts/outfit-v15-latin-500.woff2') format('woff2');mso-generic-font-family:sans-serif;mso-font-alt:'Arial';}
 @font-face{font-family:'Outfit';font-style:normal;font-weight:600;font-display:swap;src:url('__BASEURL__/fonts/outfit-v15-latin-600.woff2') format('woff2');mso-generic-font-family:sans-serif;mso-font-alt:'Arial';}
 </style>`;
+
+	// Apple Mail on iOS and macOS never enters dark mode without both of these
+	// meta tags; it renders the message on a pure white page instead. They also
+	// switch Apple into a partial auto-invert that darkens the card but leaves
+	// light boxes light, so they must not ship without the dark: utilities on the
+	// shared email components. Same {@html} reason as above: the rules belong in
+	// the real <head>, and a Svelte <style> block never gets there.
+	//
+	// <body> needs a hand-written rule because better-svelte-email puts the Body
+	// class on the wrapping <td>, leaving <body> with the background the app's
+	// `body { @apply bg-background }` base rule inlines. The rule is nested inside
+	// its selector on purpose, matching what the compiler emits for dark:
+	// utilities: Outlook ignores CSS nesting and keeps its own inversion, where a
+	// flat @media block flattens the layout into one surface. Colours mirror the
+	// .dark block in src/routes/layout.css (zinc-950 page, zinc-50 foreground).
+	const colorSchemeStyle = `<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<style>
+body{@media (prefers-color-scheme:dark){background-color:#09090b!important;color:#fafafa!important;}}
+</style>`;
 </script>
 
 <Head>
-	<!-- eslint-disable-next-line svelte/no-at-html-tags -- hardcoded constant, no user input -->
-	{@html fontFaceStyle}{@render children?.()}
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- hardcoded constants, no user input -->
+	{@html `${colorSchemeStyle}${fontFaceStyle}`}{@render children?.()}
 </Head>

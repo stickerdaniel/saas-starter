@@ -5,8 +5,9 @@
 		base: 'relative w-full rounded-lg border px-4 py-3 text-sm',
 		variants: {
 			variant: {
-				default: 'bg-card text-card-foreground',
-				destructive: 'text-destructive bg-card border-destructive'
+				default:
+					'bg-card text-card-foreground dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50',
+				destructive: 'text-destructive bg-card border-destructive dark:bg-zinc-900'
 			}
 		},
 		defaultVariants: {

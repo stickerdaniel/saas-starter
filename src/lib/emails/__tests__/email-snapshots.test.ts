@@ -1,6 +1,26 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { EMAIL_TEMPLATES } from '../templates/registry';
+
+/**
+ * Returns the brace nesting depth of every `prefers-color-scheme` at-rule in a
+ * stylesheet. Depth 0 is a flat top-level block, anything deeper is nested
+ * inside the selector it styles.
+ */
+function darkAtRuleDepths(css: string): number[] {
+	const depths: number[] = [];
+	let depth = 0;
+	for (let index = 0; index < css.length; index++) {
+		if (css.startsWith('@media', index)) {
+			const prelude = css.slice(index, css.indexOf('{', index) + 1);
+			if (prelude.includes('prefers-color-scheme')) depths.push(depth);
+		}
+		if (css[index] === '{') depth++;
+		else if (css[index] === '}') depth--;
+	}
+	return depths;
+}
 
 describe('Generated Email Templates', () => {
 	const generatedDir = join(process.cwd(), 'src/lib/emails/generated');
@@ -219,6 +239,83 @@ describe('Generated Email Templates', () => {
 					/Outfit fallback/
 				);
 			}
+		});
+	});
+
+	// Dark mode has two halves that are each easy to drop by accident, and each
+	// half fails silently: removing the meta tags keeps Apple Mail on a pure white
+	// page, and letting the app's `dark` custom variant back into the CSS the
+	// renderer sees compiles every dark: utility to an unmatchable `.dark`
+	// ancestor. Assert on the rendered output, which is what the mail client sees.
+	describe('Dark mode', () => {
+		const generatedFiles = Object.values(EMAIL_TEMPLATES).map(
+			(config) => `${config.outputName}.ts`
+		);
+
+		it.each(generatedFiles)('%s declares both colour-scheme meta tags', (file) => {
+			const content = readFileSync(join(generatedDir, file), 'utf-8');
+
+			for (const meta of [
+				'name="color-scheme" content="light dark"',
+				'name="supported-color-schemes" content="light dark"'
+			]) {
+				expect(
+					content,
+					`${file} is missing <meta ${meta}>. Apple Mail never enters dark mode without both colour-scheme meta tags and renders the message pure white instead. Keep them in src/lib/emails/components/layout/EmailHead.svelte.`
+				).toContain(meta);
+			}
+		});
+
+		it.each(generatedFiles)('%s ships nested prefers-color-scheme rules', (file) => {
+			const content = readFileSync(join(generatedDir, file), 'utf-8');
+			const depths = [...content.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].flatMap((match) =>
+				darkAtRuleDepths(match[1]!)
+			);
+
+			expect(
+				depths.length,
+				`${file} has no prefers-color-scheme rule, so it carries the colour-scheme meta tags without matching dark styles, which is worse than no dark mode at all. Keep darkMode: 'media' in renderer.ts and keep the app's dark custom variant out of the CSS the renderer sees.`
+			).toBeGreaterThan(0);
+
+			expect(
+				depths.filter((depth) => depth === 0),
+				`${file} has a flat top-level @media (prefers-color-scheme: dark) block. The shape must stay nested inside its selector, as \`selector { @media (prefers-color-scheme: dark) { ... } }\`: Outlook does not parse CSS nesting and leaves its own inversion alone, where a flat block collapses the card into the surrounding greys.`
+			).toEqual([]);
+		});
+
+		// The two assertions above are both satisfied by the single hand-written
+		// body rule in EmailHead.svelte, so on their own they still pass while every
+		// dark: utility silently compiles to an unmatchable `.dark` ancestor and the
+		// card stays white on a dark page. These two pin the compiled utilities
+		// themselves, which is the half that actually regresses.
+		it.each(generatedFiles)('%s compiles dark: utilities to media queries', (file) => {
+			const styles = [
+				...readFileSync(join(generatedDir, file), 'utf-8').matchAll(
+					/<style[^>]*>([\s\S]*?)<\/style>/g
+				)
+			]
+				.map((match) => match[1]!)
+				.join('\n');
+
+			expect(
+				/\.dark_[\w-]+\s*\{\s*@media[^{]*prefers-color-scheme/.test(styles),
+				`${file} carries no compiled dark: utility rule. A dark: class must emit \`.dark_<name> { @media (prefers-color-scheme: dark) { ... } }\`. Keep darkMode: 'media' in renderer.ts, and keep the app's dark custom variant out of the CSS the renderer sees via sanitizeEmailCss.`
+			).toBe(true);
+		});
+
+		it.each(generatedFiles)('%s has no unmatchable .dark ancestor selector', (file) => {
+			const styles = [
+				...readFileSync(join(generatedDir, file), 'utf-8').matchAll(
+					/<style[^>]*>([\s\S]*?)<\/style>/g
+				)
+			]
+				.map((match) => match[1]!)
+				.join('\n');
+
+			expect(
+				styles,
+				`${file} styles a \`.dark\` ancestor, which no mail client ever renders, so every dark: utility is dead. The app's \`@custom-variant dark\` reached the renderer: sanitizeEmailCss in src/lib/emails/email-css.ts must strip it before the CSS is compiled.`
+			).not.toMatch(/\.dark\s*\*|:is\(\.dark\b/);
 		});
 	});
 });
