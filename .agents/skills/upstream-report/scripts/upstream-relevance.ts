@@ -958,19 +958,33 @@ function useScratchIndex(root: string): void {
 		fail('The system temporary directory or Git storage is not readable.');
 	}
 	const ownedRoots = new Set([rootPath, commonPath, gitPath]);
-	const worktreeFields = decodeZRecords(gitBytes(['worktree', 'list', '--porcelain', '-z'])).filter(
-		(field) => field.startsWith('worktree ')
-	);
-	if (worktreeFields.length === 0) {
+	const worktreeRecords: string[][] = [];
+	let currentWorktree: string[] | undefined;
+	for (const field of decodeZRecords(gitBytes(['worktree', 'list', '--porcelain', '-z']))) {
+		if (field.startsWith('worktree ')) {
+			currentWorktree = [field];
+			worktreeRecords.push(currentWorktree);
+		} else {
+			currentWorktree?.push(field);
+		}
+	}
+	if (worktreeRecords.length === 0) {
 		fail('Git did not identify any checkout for this repository.');
 	}
-	for (const field of worktreeFields) {
+	for (const [worktreeField, ...fields] of worktreeRecords) {
+		const listedPath = worktreeField!.slice('worktree '.length);
+		const prunable = fields.some((field) => field.startsWith('prunable '));
 		let worktreePath: string;
 		try {
-			worktreePath = realpathSync(field.slice('worktree '.length));
+			worktreePath = realpathSync(listedPath);
 		} catch {
+			// Prunable can mean only the checkout's .git file is missing. Skip the record
+			// only when its checkout directory no longer resolves; remain read-only rather
+			// than pruning shared Git metadata.
+			if (prunable) continue;
 			fail(
-				'Git listed a checkout whose path is not readable. Prune stale worktrees, then try again.'
+				`Git listed a checkout whose path is not readable: ${terminalSafe(listedPath)}. ` +
+					'Repair or prune that worktree, then try again.'
 			);
 		}
 		if (worktreePath === commonPath) {
@@ -986,6 +1000,8 @@ function useScratchIndex(root: string): void {
 			);
 		}
 		ownedRoots.add(worktreePath);
+		// commonPath already fences this checkout's broken Git administration.
+		if (prunable) continue;
 		try {
 			ownedRoots.add(
 				realpathSync(git(['-C', worktreePath, 'rev-parse', '--path-format=absolute', '--git-dir']))
