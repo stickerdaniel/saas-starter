@@ -30,9 +30,9 @@ const NOTIFICATION_DELAY_MS = 4 * 60 * 1000;
 /** Maximum number of retry attempts before giving up */
 const MAX_RETRY_COUNT = 5;
 
-/** Logged when a re-armed row revoked the running send's ownership. */
+/** Logged when the running send no longer owns its row and skips cleanup. */
 const OWNERSHIP_MOVED_LOG =
-	'[sendPendingAdminNotification] Pending notification re-armed by a newer send, leaving it to the new owner:';
+	'[sendPendingAdminNotification] Pending notification no longer owned by this send; row was re-armed or cancelled, skipping cleanup:';
 
 /**
  * Schedule or update an admin notification for a support thread
