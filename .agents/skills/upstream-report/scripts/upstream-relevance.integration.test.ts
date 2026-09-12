@@ -1167,8 +1167,50 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stderr).toMatch(/shared Git storage/);
 	});
 
-	it('refuses a temporary directory inside a sibling linked worktree', () => {
-		const sibling = join(tmp, 'sibling-worktree');
+	it('ignores a prunable linked worktree whose directory is missing', () => {
+		const linked = join(tmp, 'stale-worktree');
+		git(fork, ['worktree', 'add', '-q', '-b', 'stale-test', linked, 'HEAD']);
+		rmSync(linked, { recursive: true, force: true });
+
+		const r = run(fork, ['--json']);
+
+		expect(r.status, r.stderr).toBe(0);
+	});
+
+	it('fences an existing checkout that Git marks prunable', () => {
+		const linked = join(tmp, 'prunable-worktree');
+		git(fork, ['worktree', 'add', '-q', '-b', 'prunable-test', linked, 'HEAD']);
+		const linkedCanonical = realpathSync(linked);
+		rmSync(join(linked, '.git'));
+		const worktrees = git(fork, ['worktree', 'list', '--porcelain', '-z']);
+		expect(worktrees).toContain(`worktree ${linkedCanonical}\0`);
+		expect(worktrees.split('\0').some((field) => field.startsWith('prunable '))).toBe(true);
+		const insideLinked = join(linked, 'detector-temp');
+		mkdirSync(insideLinked);
+		const sentinel = join(insideLinked, 'keep');
+		writeFileSync(sentinel, 'unrelated');
+
+		const r = run(fork, ['--json'], { TMPDIR: insideLinked });
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/temporary directory resolves inside this repository/);
+		expect(readFileSync(sentinel, 'utf8')).toBe('unrelated');
+	});
+
+	it('names a locked linked worktree whose directory is missing', () => {
+		const linked = join(tmp, 'locked-worktree');
+		git(fork, ['worktree', 'add', '-q', '-b', 'locked-test', linked, 'HEAD']);
+		git(fork, ['worktree', 'lock', linked]);
+		rmSync(linked, { recursive: true, force: true });
+
+		const r = run(fork, ['--json']);
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toContain(linked);
+	});
+
+	itWithPosixPaths('preserves a newline in a sibling linked-worktree path', () => {
+		const sibling = join(tmp, 'sibling\nworktree');
 		git(fork, ['worktree', 'add', '-q', '-b', 'sibling-test', sibling, 'HEAD']);
 		const insideSibling = join(sibling, 'detector-temp');
 		mkdirSync(insideSibling);
