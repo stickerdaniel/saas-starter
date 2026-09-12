@@ -361,4 +361,27 @@ describe('pending notification ownership', () => {
 		expect(rows[0].retryCount).toBeUndefined();
 		expect(runAfter).toHaveBeenCalledTimes(2);
 	});
+
+	it('reschedules an owned row after failed sends', async () => {
+		const { ctx, rows, runAfter } = createCtx();
+
+		await scheduleAdminNotificationH._handler(ctx, {
+			threadId: 'thread_retry',
+			messageIds: ['message_1'],
+			isReopen: false,
+			notificationType: 'newTickets'
+		});
+		const notificationId = rows[0]._id as string;
+		const armedFnId = rows[0].scheduledFnId;
+
+		const failingSend = createActionCtx(ctx, { sendThrows: true });
+		await sendPendingAdminNotificationH._handler(failingSend, { notificationId });
+
+		expect(rows).toHaveLength(1);
+		expect(rows[0].retryCount).toBe(1);
+		expect(rows[0].scheduledFnId).toBeDefined();
+		expect(rows[0].scheduledFnId).not.toBe(armedFnId);
+		expect(runAfter).toHaveBeenCalledTimes(2);
+		expect(runAfter.mock.calls[1][0]).toBe(60_000);
+	});
 });
