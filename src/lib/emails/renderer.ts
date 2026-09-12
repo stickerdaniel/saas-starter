@@ -5,8 +5,17 @@ import { sanitizeEmailCss } from './email-css';
 
 const emailLayoutStyles = sanitizeEmailCss(layoutStyles);
 
+// Tailwind uses the last definition for duplicate custom variants. Keep the
+// email-safe media definition after the app CSS so its class-based `dark`
+// variant cannot override email rendering.
+const EMAIL_DARK_VARIANT_OVERRIDE = `@custom-variant dark {
+	@media (prefers-color-scheme: dark) {
+		@slot;
+	}
+}`;
+
 export const renderer = new Renderer({
-	customCSS: `${preflightCss}\n${emailLayoutStyles}`,
+	customCSS: `${preflightCss}\n${emailLayoutStyles}\n${EMAIL_DARK_VARIANT_OVERRIDE}`,
 	tailwindConfig: {
 		// Media is the only dark-mode strategy an email can use: a mail client never
 		// toggles a `.dark` ancestor, it only reports the system colour scheme. The

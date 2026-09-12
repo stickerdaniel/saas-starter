@@ -31,87 +31,28 @@ describe('Email Template Rendering', () => {
 			expect(sanitizeEmailCss('a { cursor: pointer; }')).toBe('a { cursor: pointer; }');
 		});
 
-		// The app's `dark` variant resolves to a `.dark` ancestor that no email
-		// client renders, so it has to go for darkMode: 'media' to take effect. The
-		// other custom variants are still needed to resolve their own utilities.
-		it('removes the dark custom variant and keeps the data-* ones', () => {
+		it('retains all custom variant declarations verbatim', () => {
 			const css = [
 				'@custom-variant dark (&:is(.dark *));',
+				'@custom-variant /* explanation */ dark (&:is(.dark *));',
 				'@custom-variant data-open {',
 				"\t&[data-state='open'] {",
 				'\t\t@slot;',
 				'\t}',
 				'}',
-				'@custom-variant data-closed (&[data-state="closed"]);',
-				'@custom-variant data-checked (&[data-state="checked"]);'
-			].join('\n');
-
-			const sanitized = sanitizeEmailCss(css);
-
-			expect(sanitized).not.toContain('@custom-variant dark');
-			expect(sanitized).toContain('@custom-variant data-open');
-			expect(sanitized).toContain("&[data-state='open']");
-			expect(sanitized).toContain('@custom-variant data-closed');
-			expect(sanitized).toContain('@custom-variant data-checked');
-		});
-
-		it('retains dark custom variant text inside comments', () => {
-			const css = ['/* @custom-variant dark (&:is(.dark *)); */', '.card { color: black; }'].join(
-				'\n'
-			);
-
-			expect(sanitizeEmailCss(css)).toBe(css);
-		});
-
-		it('retains dark custom variant text inside strings', () => {
-			const css = [
-				`.single::before { content: '@custom-variant dark { ; }'; }`,
-				`.double::before { content: "escaped \\" @custom-variant dark (&:is(.dark *));"; }`
-			].join('\n');
-
-			expect(sanitizeEmailCss(css)).toBe(css);
-		});
-
-		it('retains an at-keyword inside a custom property value', () => {
-			const css = '.x { --documentation: @custom-variant dark; color: red; }';
-
-			expect(sanitizeEmailCss(css)).toBe(css);
-		});
-
-		it('removes a dark custom variant nested at a statement boundary', () => {
-			const css = [
-				'@media screen {',
-				'\t@custom-variant dark (&:is(.dark *));',
-				'\t.card { color: black; }',
-				'}'
-			].join('\n');
-
-			expect(sanitizeEmailCss(css)).toBe(
-				['@media screen {', '\t', '\t.card { color: black; }', '}'].join('\n')
-			);
-		});
-
-		it('skips protected punctuation while finding the at-rule end', () => {
-			const css = [
-				'.before { color: black; }',
-				'@custom-variant dark {',
-				'\t/* } ; */',
-				'\t.example::before { content: "} ; \\" still string"; }',
-				'\t.escaped { --value: \\}; }',
-				'}',
-				'@custom-variant dark (&:is([data-label=");"] *));',
-				'.after { color: white; }'
-			].join('\n');
-
-			expect(sanitizeEmailCss(css)).toBe(
-				['.before { color: black; }', '', '', '.after { color: white; }'].join('\n')
-			);
-		});
-
-		it('retains similarly named and incomplete custom variants', () => {
-			const css = [
-				'@custom-variant dark-mode (&:is(.dark-mode *));',
 				'@custom-variant dark { .card { color: black; }'
+			].join('\n');
+
+			expect(sanitizeEmailCss(css)).toBe(css);
+		});
+
+		it('retains custom variant text in arbitrary CSS values', () => {
+			const css = [
+				'.plain { --documentation: @custom-variant dark; color: red; }',
+				'.structured { --documentation: fn(a; @custom-variant dark; b); }',
+				`.single::before { content: '@custom-variant dark { ; }'; }`,
+				`.double::before { content: "escaped \\" @custom-variant dark (&:is(.dark *));"; }`,
+				'/* @custom-variant dark (&:is(.dark *)); */'
 			].join('\n');
 
 			expect(sanitizeEmailCss(css)).toBe(css);

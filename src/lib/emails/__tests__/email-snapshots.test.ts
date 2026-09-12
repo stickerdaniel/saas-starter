@@ -14,13 +14,16 @@ function darkAtRuleDepths(css: string): number[] {
 	for (let index = 0; index < css.length; index++) {
 		if (css.startsWith('@media', index)) {
 			const prelude = css.slice(index, css.indexOf('{', index) + 1);
-			if (prelude.includes('prefers-color-scheme')) depths.push(depth);
+			if (/prefers-color-scheme\s*:\s*dark/.test(prelude)) depths.push(depth);
 		}
 		if (css[index] === '{') depth++;
 		else if (css[index] === '}') depth--;
 	}
 	return depths;
 }
+
+const compiledDarkUtilityPattern =
+	/\.dark_[\w-]+\s*\{\s*@media[^{]*prefers-color-scheme\s*:\s*dark/;
 
 describe('Generated Email Templates', () => {
 	const generatedDir = join(process.cwd(), 'src/lib/emails/generated');
@@ -244,9 +247,9 @@ describe('Generated Email Templates', () => {
 
 	// Dark mode has two halves that are each easy to drop by accident, and each
 	// half fails silently: removing the meta tags keeps Apple Mail on a pure white
-	// page, and letting the app's `dark` custom variant back into the CSS the
-	// renderer sees compiles every dark: utility to an unmatchable `.dark`
-	// ancestor. Assert on the rendered output, which is what the mail client sees.
+	// page, and dropping the renderer's final email-safe `dark` definition lets the
+	// app variant compile every dark: utility to an unmatchable `.dark` ancestor.
+	// Assert on the rendered output, which is what the mail client sees.
 	describe('Dark mode', () => {
 		const generatedFiles = Object.values(EMAIL_TEMPLATES).map(
 			(config) => `${config.outputName}.ts`
@@ -274,7 +277,7 @@ describe('Generated Email Templates', () => {
 
 			expect(
 				depths.length,
-				`${file} has no prefers-color-scheme rule, so it carries the colour-scheme meta tags without matching dark styles, which is worse than no dark mode at all. Keep darkMode: 'media' in renderer.ts and keep the app's dark custom variant out of the CSS the renderer sees.`
+				`${file} has no prefers-color-scheme: dark rule, so it carries the colour-scheme meta tags without matching dark styles, which is worse than no dark mode at all. Keep the final email-safe dark variant definition in renderer.ts.`
 			).toBeGreaterThan(0);
 
 			expect(
@@ -298,9 +301,19 @@ describe('Generated Email Templates', () => {
 				.join('\n');
 
 			expect(
-				/\.dark_[\w-]+\s*\{\s*@media[^{]*prefers-color-scheme/.test(styles),
-				`${file} carries no compiled dark: utility rule. A dark: class must emit \`.dark_<name> { @media (prefers-color-scheme: dark) { ... } }\`. Keep darkMode: 'media' in renderer.ts, and keep the app's dark custom variant out of the CSS the renderer sees via sanitizeEmailCss.`
+				compiledDarkUtilityPattern.test(styles),
+				`${file} carries no compiled dark: utility rule. A dark: class must emit \`.dark_<name> { @media (prefers-color-scheme: dark) { ... } }\`. Keep the final email-safe dark variant definition after the app CSS in renderer.ts.`
 			).toBe(true);
+		});
+
+		it('does not accept light media queries as dark utility output', () => {
+			const lightStyles =
+				'.dark_bg-zinc-800 { @media (prefers-color-scheme: light) { background-color: black; } }';
+
+			expect(
+				compiledDarkUtilityPattern.test(lightStyles),
+				'A compiled dark: utility must explicitly target prefers-color-scheme: dark. A light query does not activate the intended email dark-mode override.'
+			).toBe(false);
 		});
 
 		it('signup output keeps its template-specific dark surfaces', () => {
@@ -320,7 +333,7 @@ describe('Generated Email Templates', () => {
 				styles,
 				`${file} must compile dark:bg-zinc-800 as a nested dark media rule with background-color rgb(39, 39, 42). Otherwise the signup detail panel keeps its light background in dark mode.`
 			).toMatch(
-				/\.dark_bg-zinc-800\s*\{\s*@media[^{]*prefers-color-scheme[^{]*\{\s*background-color:\s*rgb\(39,\s*39,\s*42\)\s*!important;/
+				/\.dark_bg-zinc-800\s*\{\s*@media[^{]*prefers-color-scheme\s*:\s*dark[^{]*\{\s*background-color:\s*rgb\(39,\s*39,\s*42\)\s*!important;/
 			);
 
 			expect(
@@ -331,13 +344,13 @@ describe('Generated Email Templates', () => {
 				styles,
 				`${file} must compile dark:bg-blue-600 as a nested dark media rule with background-color rgb(21, 93, 252). The explicit blue override prevents client inversion from changing the signup badge colour.`
 			).toMatch(
-				/\.dark_bg-blue-600\s*\{\s*@media[^{]*prefers-color-scheme[^{]*\{\s*background-color:\s*rgb\(21,\s*93,\s*252\)\s*!important;/
+				/\.dark_bg-blue-600\s*\{\s*@media[^{]*prefers-color-scheme\s*:\s*dark[^{]*\{\s*background-color:\s*rgb\(21,\s*93,\s*252\)\s*!important;/
 			);
 			expect(
 				styles,
 				`${file} must compile dark:text-white as a nested dark media rule with color rgb(255, 255, 255). The explicit white override preserves readable signup badge text after client inversion.`
 			).toMatch(
-				/\.dark_text-white\s*\{\s*@media[^{]*prefers-color-scheme[^{]*\{\s*color:\s*rgb\(255,\s*255,\s*255\)\s*!important;/
+				/\.dark_text-white\s*\{\s*@media[^{]*prefers-color-scheme\s*:\s*dark[^{]*\{\s*color:\s*rgb\(255,\s*255,\s*255\)\s*!important;/
 			);
 		});
 
@@ -352,7 +365,7 @@ describe('Generated Email Templates', () => {
 
 			expect(
 				styles,
-				`${file} styles a \`.dark\` ancestor, which no mail client ever renders, so every dark: utility is dead. The app's \`@custom-variant dark\` reached the renderer: sanitizeEmailCss in src/lib/emails/email-css.ts must strip it before the CSS is compiled.`
+				`${file} styles a \`.dark\` ancestor, which no mail client ever renders, so every dark: utility is dead. Keep the email-safe \`@custom-variant dark\` definition after the app CSS in renderer.ts so Tailwind uses it last.`
 			).not.toMatch(/\.dark\s*\*|:is\(\.dark\b/);
 		});
 	});
