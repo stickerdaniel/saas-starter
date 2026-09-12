@@ -8,6 +8,7 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import AttachmentTextPreview from './AttachmentTextPreview.svelte';
 	import { isTextPreviewable } from '../core/attachmentPreview.js';
 	import type { Attachment, UploadState } from '../core/types.js';
@@ -72,6 +73,30 @@
 	let isDialogOpen = $state(false);
 	let selectedAttachment = $state<Attachment | null>(null);
 	let displayDimensions = $state<{ width: number; height: number } | null>(null);
+	let dialogContent = $state<HTMLElement | null>(null);
+	let titleTruncated = $state(false);
+	const dialogTitle = $derived(
+		selectedAttachment ? getFilename(selectedAttachment) : $t('chat.attachment.dialog_title')
+	);
+
+	function measureTitle(_filename: string) {
+		return (element: HTMLElement) => {
+			function update() {
+				titleTruncated = element.scrollWidth > element.clientWidth;
+			}
+
+			update();
+			const observer = new ResizeObserver(update);
+			observer.observe(element);
+
+			return () => observer.disconnect();
+		};
+	}
+
+	function focusDialogClose(event: Event) {
+		event.preventDefault();
+		dialogContent?.querySelector<HTMLElement>('[data-slot="dialog-close"]')?.focus();
+	}
 
 	/**
 	 * Get filename from attachment
@@ -226,17 +251,29 @@
 
 <Dialog.Root bind:open={isDialogOpen}>
 	<Dialog.Content
+		bind:ref={dialogContent}
 		class={displayDimensions ? '!max-w-none' : 'sm:max-w-4xl'}
 		style={displayDimensions
 			? `width: calc(${displayDimensions.width}px + var(--dialog-inset) * 2);`
 			: ''}
+		onOpenAutoFocus={focusDialogClose}
 	>
-		<Dialog.Header>
-			<Dialog.Title
-				>{selectedAttachment
-					? getFilename(selectedAttachment)
-					: $t('chat.attachment.dialog_title')}</Dialog.Title
-			>
+		<Dialog.Header class="min-w-0">
+			<Tooltip.Root disabled={!titleTruncated}>
+				<Tooltip.Trigger disabled={!titleTruncated}>
+					{#snippet child({ props })}
+						<Dialog.Title
+							{...props}
+							class="min-w-0 truncate pr-10"
+							data-slot="attachment-preview-title"
+							{@attach measureTitle(dialogTitle)}
+						>
+							{dialogTitle}
+						</Dialog.Title>
+					{/snippet}
+				</Tooltip.Trigger>
+				<Tooltip.Content class="wrap-anywhere">{dialogTitle}</Tooltip.Content>
+			</Tooltip.Root>
 		</Dialog.Header>
 		{#if selectedAttachment}
 			{@const openUrl = getOpenUrl(selectedAttachment)}
