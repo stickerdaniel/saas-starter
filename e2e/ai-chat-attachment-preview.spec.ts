@@ -88,6 +88,7 @@ test.describe('AI Chat - attachment text preview', () => {
 		await expect(title).toHaveText(longName);
 		await expect(title).toHaveCSS('white-space', 'nowrap');
 		await expect(title).toHaveCSS('text-overflow', 'ellipsis');
+		await expect(title).toHaveCSS('overflow', 'hidden');
 		const titleGeometry = await title.evaluate((element) => {
 			const style = getComputedStyle(element);
 			const rect = element.getBoundingClientRect();
@@ -107,11 +108,36 @@ test.describe('AI Chat - attachment text preview', () => {
 		await page.mouse.move(0, 0);
 		await close.focus();
 		await expect(tooltip).toHaveCount(0);
-		await title.focus();
+		await page.keyboard.press('Tab');
+		await expect(title).toBeFocused();
 		await expect(tooltip).toHaveText(longName);
 
-		await close.click();
-		await shortChip.evaluate((element) => (element as HTMLElement).click());
+		const reopenedBeforeUnmount = await page.evaluate((filename) => {
+			return new Promise<boolean>((resolve) => {
+				const content = document.querySelector<HTMLElement>('[data-slot="dialog-content"]');
+				const closeButton = content?.querySelector<HTMLElement>('[data-slot="dialog-close"]');
+				const shortAttachment = [
+					...document.querySelectorAll<HTMLElement>('[data-testid="attachment-chip"]')
+				].find((element) => element.textContent?.includes(filename));
+				if (!content || !closeButton || !shortAttachment) {
+					resolve(false);
+					return;
+				}
+
+				const reopen = () => {
+					if (content.dataset.state !== 'closed') return;
+					const remainedConnected = content.isConnected;
+					observer.disconnect();
+					shortAttachment.click();
+					resolve(remainedConnected);
+				};
+				const observer = new MutationObserver(reopen);
+				observer.observe(content, { attributes: true, attributeFilter: ['data-state'] });
+				closeButton.click();
+				reopen();
+			});
+		}, shortName);
+		expect(reopenedBeforeUnmount).toBe(true);
 		await expect(dialog).toBeVisible();
 		await expect(dialog).toHaveAccessibleName(shortName);
 
