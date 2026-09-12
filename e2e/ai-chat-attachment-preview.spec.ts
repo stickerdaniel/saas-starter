@@ -46,4 +46,88 @@ test.describe('AI Chat - attachment text preview', () => {
 		// The hardened renderer blocks images entirely (no <img> is loaded).
 		await expect(content.locator('img')).toHaveCount(0);
 	});
+
+	// Cheaper layers rejected because truncation and tooltip hover/focus behavior
+	// require browser layout; a request-only check cannot render the dialog DOM.
+	test('preview titles reveal only visually truncated filenames', async ({ page }) => {
+		await page.goto('/app/ai-chat');
+		await waitForAuthenticated(page);
+		await page.waitForURL(/\/app\/ai-chat\?thread=/, { timeout: 15000 });
+		await expect(page.locator('textarea')).toBeVisible({ timeout: 10000 });
+
+		const fileInput = page.locator('input[type="file"]').first();
+		const longName = `quarterly-strategy-${'very-long-'.repeat(18)}notes.md`;
+		await fileInput.setInputFiles({
+			name: longName,
+			mimeType: 'text/markdown',
+			buffer: Buffer.from('# Long title\nPreview title geometry.', 'utf8')
+		});
+
+		const longChip = page.getByTestId('attachment-chip').filter({ hasText: longName });
+		await expect(longChip).toHaveAttribute('role', 'button', { timeout: 20000 });
+
+		const shortName = 'brief.md';
+		await fileInput.setInputFiles({
+			name: shortName,
+			mimeType: 'text/markdown',
+			buffer: Buffer.from('# Brief\nNo hidden title text.', 'utf8')
+		});
+		const shortChip = page.getByTestId('attachment-chip').filter({ hasText: shortName });
+		await expect(shortChip).toHaveAttribute('role', 'button', { timeout: 20000 });
+		await longChip.click();
+
+		const dialog = page.getByRole('dialog');
+		await expect(dialog).toBeVisible();
+		await expect(dialog).toHaveAccessibleName(longName);
+		const close = dialog.locator('[data-slot="dialog-close"]');
+		const tooltip = page.locator('[data-slot="tooltip-content"]');
+		await expect(close).toBeFocused();
+		await expect(tooltip).toHaveCount(0);
+
+		const title = dialog.locator('[data-slot="attachment-preview-title"]');
+		await expect(title).toHaveText(longName);
+		await expect(title).toHaveCSS('white-space', 'nowrap');
+		await expect(title).toHaveCSS('text-overflow', 'ellipsis');
+		const titleGeometry = await title.evaluate((element) => {
+			const style = getComputedStyle(element);
+			const rect = element.getBoundingClientRect();
+			return {
+				clientWidth: element.clientWidth,
+				scrollWidth: element.scrollWidth,
+				visibleTextRight: rect.right - Number.parseFloat(style.paddingRight)
+			};
+		});
+		expect(titleGeometry.scrollWidth).toBeGreaterThan(titleGeometry.clientWidth);
+		const closeBox = await close.boundingBox();
+		expect(closeBox).not.toBeNull();
+		expect(titleGeometry.visibleTextRight).toBeLessThanOrEqual(closeBox!.x);
+
+		await title.hover();
+		await expect(tooltip).toHaveText(longName);
+		await page.mouse.move(0, 0);
+		await close.focus();
+		await expect(tooltip).toHaveCount(0);
+		await title.focus();
+		await expect(tooltip).toHaveText(longName);
+
+		await close.click();
+		await shortChip.evaluate((element) => (element as HTMLElement).click());
+		await expect(dialog).toBeVisible();
+		await expect(dialog).toHaveAccessibleName(shortName);
+
+		const shortTitle = dialog.locator('[data-slot="attachment-preview-title"]');
+		await expect(shortTitle).toHaveText(shortName);
+		await expect(close).toBeFocused();
+		await expect(shortTitle).not.toHaveAttribute('tabindex');
+		await expect(tooltip).toHaveCount(0);
+		const shortTitleGeometry = await shortTitle.evaluate((element) => ({
+			clientWidth: element.clientWidth,
+			scrollWidth: element.scrollWidth
+		}));
+		expect(shortTitleGeometry.scrollWidth).toBeLessThanOrEqual(shortTitleGeometry.clientWidth);
+		await shortTitle.hover();
+		await expect(tooltip).toHaveCount(0);
+		await shortTitle.focus();
+		await expect(tooltip).toHaveCount(0);
+	});
 });
