@@ -54,6 +54,68 @@ describe('Email Template Rendering', () => {
 			expect(sanitized).toContain('@custom-variant data-closed');
 			expect(sanitized).toContain('@custom-variant data-checked');
 		});
+
+		it('retains dark custom variant text inside comments', () => {
+			const css = ['/* @custom-variant dark (&:is(.dark *)); */', '.card { color: black; }'].join(
+				'\n'
+			);
+
+			expect(sanitizeEmailCss(css)).toBe(css);
+		});
+
+		it('retains dark custom variant text inside strings', () => {
+			const css = [
+				`.single::before { content: '@custom-variant dark { ; }'; }`,
+				`.double::before { content: "escaped \\" @custom-variant dark (&:is(.dark *));"; }`
+			].join('\n');
+
+			expect(sanitizeEmailCss(css)).toBe(css);
+		});
+
+		it('retains an at-keyword inside a custom property value', () => {
+			const css = '.x { --documentation: @custom-variant dark; color: red; }';
+
+			expect(sanitizeEmailCss(css)).toBe(css);
+		});
+
+		it('removes a dark custom variant nested at a statement boundary', () => {
+			const css = [
+				'@media screen {',
+				'\t@custom-variant dark (&:is(.dark *));',
+				'\t.card { color: black; }',
+				'}'
+			].join('\n');
+
+			expect(sanitizeEmailCss(css)).toBe(
+				['@media screen {', '\t', '\t.card { color: black; }', '}'].join('\n')
+			);
+		});
+
+		it('skips protected punctuation while finding the at-rule end', () => {
+			const css = [
+				'.before { color: black; }',
+				'@custom-variant dark {',
+				'\t/* } ; */',
+				'\t.example::before { content: "} ; \\" still string"; }',
+				'\t.escaped { --value: \\}; }',
+				'}',
+				'@custom-variant dark (&:is([data-label=");"] *));',
+				'.after { color: white; }'
+			].join('\n');
+
+			expect(sanitizeEmailCss(css)).toBe(
+				['.before { color: black; }', '', '', '.after { color: white; }'].join('\n')
+			);
+		});
+
+		it('retains similarly named and incomplete custom variants', () => {
+			const css = [
+				'@custom-variant dark-mode (&:is(.dark-mode *));',
+				'@custom-variant dark { .card { color: black; }'
+			].join('\n');
+
+			expect(sanitizeEmailCss(css)).toBe(css);
+		});
 	});
 
 	describe('HTML escaping', () => {

@@ -303,6 +303,44 @@ describe('Generated Email Templates', () => {
 			).toBe(true);
 		});
 
+		it('signup output keeps its template-specific dark surfaces', () => {
+			const file = 'newUserSignupNotification.ts';
+			const content = readFileSync(join(generatedDir, file), 'utf-8');
+			const styles = [...content.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)]
+				.map((match) => match[1]!)
+				.join('\n');
+
+			expect(
+				content,
+				`${file} must apply dark:bg-zinc-800 to the signup detail panel. Without that class, the generated detail surface stays light against the dark card even if another element still emits the shared CSS rule.`
+			).toMatch(
+				/<div class="dark_bg-zinc-800"[^>]*>[\s\S]*?\{\{nameLabel\}\}[\s\S]*?\{\{signupTime\}\}[\s\S]*?<\/div>/
+			);
+			expect(
+				styles,
+				`${file} must compile dark:bg-zinc-800 as a nested dark media rule with background-color rgb(39, 39, 42). Otherwise the signup detail panel keeps its light background in dark mode.`
+			).toMatch(
+				/\.dark_bg-zinc-800\s*\{\s*@media[^{]*prefers-color-scheme[^{]*\{\s*background-color:\s*rgb\(39,\s*39,\s*42\)\s*!important;/
+			);
+
+			expect(
+				content,
+				`${file} must apply dark:bg-blue-600 and dark:text-white together to the signup badge. These explicit overrides keep client dark-mode inversion from washing out the blue badge or reducing its text contrast.`
+			).toMatch(/<span data-slot="badge" class="dark_bg-blue-600 dark_text-white"/);
+			expect(
+				styles,
+				`${file} must compile dark:bg-blue-600 as a nested dark media rule with background-color rgb(21, 93, 252). The explicit blue override prevents client inversion from changing the signup badge colour.`
+			).toMatch(
+				/\.dark_bg-blue-600\s*\{\s*@media[^{]*prefers-color-scheme[^{]*\{\s*background-color:\s*rgb\(21,\s*93,\s*252\)\s*!important;/
+			);
+			expect(
+				styles,
+				`${file} must compile dark:text-white as a nested dark media rule with color rgb(255, 255, 255). The explicit white override preserves readable signup badge text after client inversion.`
+			).toMatch(
+				/\.dark_text-white\s*\{\s*@media[^{]*prefers-color-scheme[^{]*\{\s*color:\s*rgb\(255,\s*255,\s*255\)\s*!important;/
+			);
+		});
+
 		it.each(generatedFiles)('%s has no unmatchable .dark ancestor selector', (file) => {
 			const styles = [
 				...readFileSync(join(generatedDir, file), 'utf-8').matchAll(
