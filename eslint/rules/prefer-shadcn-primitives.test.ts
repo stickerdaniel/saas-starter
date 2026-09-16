@@ -183,6 +183,166 @@ async function assertConfiguredAtError(filename: string) {
 	expect(config.rules?.['local/prefer-shadcn-primitives']?.[0]).toBe(2);
 }
 
+const EXPECTED_MESSAGES = {
+	nativeButton:
+		'Use shadcn Button from $lib/components/ui/button instead of a native <button>. Spread {...props} onto <button> only as a bits-ui child host.',
+	nativeDialog: 'Use shadcn Dialog from $lib/components/ui/dialog instead of a native <dialog>.',
+	nativeTitle:
+		'Use shadcn Tooltip from $lib/components/ui/tooltip instead of the HTML title tooltip.',
+	nativeCheckbox:
+		'Use shadcn Checkbox from $lib/components/ui/checkbox instead of a native <input type="checkbox">.',
+	nativeSelect: 'Use shadcn Select from $lib/components/ui/select instead of a native <select>.',
+	nativeTextarea:
+		'Use shadcn Textarea from $lib/components/ui/textarea instead of a native <textarea>.',
+	nativeInput:
+		'Use shadcn Input from $lib/components/ui/input instead of a native text-like <input>.'
+} as const;
+
+const TEXT_LIKE_TYPES = ['text', 'email', 'password', 'search', 'tel', 'url', 'number'] as const;
+
+const ALL_EXEMPT_PATHS = [
+	...EMAIL_PATHS,
+	'src/lib/emails/templates/VerificationEmail.svelte',
+	...EXEMPT_PATH_CASES
+];
+
+const SCOPED_CASES = [
+	{
+		name: 'host button plus title',
+		source: '<button type="button" {...props} title="Help">Save</button>',
+		expected: ['nativeTitle']
+	},
+	{
+		name: 'host button plus shorthand title',
+		source: '<button type="button" {...props} {title}>Save</button>',
+		expected: ['nativeTitle']
+	},
+	{
+		name: 'rest spread plus title',
+		source: '<button type="button" {...rest} title="Help">Save</button>',
+		expected: ['nativeButton', 'nativeTitle']
+	},
+	{ name: 'dialog props', source: '<dialog {...props}>Help</dialog>', expected: ['nativeDialog'] },
+	{
+		name: 'dialog props plus title',
+		source: '<dialog {...props} title="Help">Help</dialog>',
+		expected: ['nativeDialog', 'nativeTitle']
+	},
+	{
+		name: 'checkbox props',
+		source: '<input type="checkbox" {...props} />',
+		expected: ['nativeCheckbox']
+	},
+	{
+		name: 'checkbox props-first',
+		source: '<input {...props} type="checkbox" />',
+		expected: ['nativeCheckbox']
+	},
+	{
+		name: 'checkbox props plus title',
+		source: '<input type="checkbox" {...props} title="Help" />',
+		expected: ['nativeCheckbox', 'nativeTitle']
+	},
+	{ name: 'select props', source: '<select {...props}></select>', expected: ['nativeSelect'] },
+	{
+		name: 'textarea props',
+		source: '<textarea {...props}></textarea>',
+		expected: ['nativeTextarea']
+	},
+	{
+		name: 'select props plus title',
+		source: '<select {...props} title="Help"></select>',
+		expected: ['nativeSelect', 'nativeTitle']
+	},
+	{
+		name: 'textarea props plus title',
+		source: '<textarea {...props} title="Help"></textarea>',
+		expected: ['nativeTextarea', 'nativeTitle']
+	},
+	{
+		name: 'text props',
+		source: '<input type="text" {...props} />',
+		expected: ['nativeInput']
+	},
+	{
+		name: 'text props-first',
+		source: '<input {...props} type="text" />',
+		expected: ['nativeInput']
+	},
+	{
+		name: 'email props plus title',
+		source: '<input type="email" {...props} title="Help" />',
+		expected: ['nativeInput', 'nativeTitle']
+	},
+	{
+		name: 'file hidden props plus title',
+		source: '<input type="file" hidden {...props} title="Help" />',
+		expected: ['nativeTitle']
+	},
+	{
+		name: 'hidden shorthand title',
+		source: '<input type="hidden" {title} />',
+		expected: ['nativeTitle']
+	},
+	{
+		name: 'file then text',
+		source: '<input type="file" hidden /><input type="text" />',
+		expected: ['nativeInput']
+	},
+	{
+		name: 'hidden then checkbox',
+		source: '<input type="hidden" /><input type="checkbox" />',
+		expected: ['nativeCheckbox']
+	},
+	{
+		name: 'text hidden attribute',
+		source: '<input type="text" hidden />',
+		expected: ['nativeInput']
+	},
+	{
+		name: 'checkbox hidden class',
+		source: '<input type="checkbox" class="hidden" />',
+		expected: ['nativeCheckbox']
+	},
+	{
+		name: 'checkbox inside titled link',
+		source: '<a href="/" title="Help"><input type="checkbox" /></a>',
+		expected: ['nativeCheckbox']
+	},
+	{
+		name: 'checkbox beside titled iframe',
+		source: '<iframe src="about:blank" title="Help"></iframe><input type="checkbox" />',
+		expected: ['nativeCheckbox']
+	},
+	{
+		name: 'text inside role=dialog',
+		source: '<div role="dialog"><input type="text" /></div>',
+		expected: ['nativeInput']
+	},
+	{
+		name: 'role=dialog title',
+		source: '<div role="dialog" title="Help"></div>',
+		expected: ['nativeTitle']
+	},
+	{
+		name: 'checkbox inside PromptSuggestion',
+		source: '<PromptSuggestion title="Help"><input type="checkbox" /></PromptSuggestion>',
+		expected: ['nativeCheckbox']
+	},
+	{
+		name: 'span shorthand title',
+		source: '<span {title}>Help</span>',
+		expected: ['nativeTitle']
+	},
+	{
+		name: 'Button shorthand title',
+		source: '<Button {title}>Save</Button>',
+		expected: ['nativeTitle']
+	}
+] as const;
+
+const REAL_APP_FILE = 'src/lib/components/authenticated/authenticated-sidebar.svelte';
+
 async function lintWithRealConfig(source: string, filename: string) {
 	expect(existsSync(path.isAbsolute(filename) ? filename : path.join(repoRoot, filename))).toBe(
 		true
@@ -193,11 +353,43 @@ async function lintWithRealConfig(source: string, filename: string) {
 	const result = results[0];
 	expect(result.fatalErrorCount).toBe(0);
 	expect(result.messages.some((message) => message.fatal)).toBe(false);
-	expect(result.messages.some((message) => message.ruleId == null && message.fatal)).toBe(false);
+	expect(result.messages.some((message) => message.ruleId == null)).toBe(false);
 	const local = result.messages.filter(
 		(message) => message.ruleId === 'local/prefer-shadcn-primitives'
 	);
-	return { result, local };
+	const otherErrors = result.messages.filter(
+		(message) => message.severity === 2 && message.ruleId !== 'local/prefer-shadcn-primitives'
+	);
+	return { result, local, otherErrors };
+}
+
+function expectLocalOnly(
+	outcome: Awaited<ReturnType<typeof lintWithRealConfig>>,
+	messageId: keyof typeof EXPECTED_MESSAGES
+) {
+	expect(outcome.otherErrors).toEqual([]);
+	expect(outcome.local).toHaveLength(1);
+	expect(outcome.local[0].severity).toBe(2);
+	expect(outcome.local[0].messageId).toBe(messageId);
+	expect(outcome.local[0].message).toBe(EXPECTED_MESSAGES[messageId]);
+	expect(outcome.result.errorCount).toBe(1);
+}
+
+function expectClean(outcome: Awaited<ReturnType<typeof lintWithRealConfig>>) {
+	expect(outcome.local).toEqual([]);
+	expect(outcome.otherErrors).toEqual([]);
+	expect(outcome.result.errorCount).toBe(0);
+}
+
+function typeSyntaxes(type: string): Array<[string, string]> {
+	return [
+		['double', `<input type="${type}" />`],
+		['single', `<input type='${type}' />`],
+		['unquoted', `<input type=${type} />`],
+		['mustache', `<input type={'${type}'} />`],
+		['uppercase', `<input type="${type.toUpperCase()}" />`],
+		['multiline', `<input\n\ttype="${type}"\n/>`]
+	];
 }
 
 describe('prefer-shadcn-primitives', () => {
@@ -266,15 +458,18 @@ describe('prefer-shadcn-primitives', () => {
 });
 
 describe('message contracts', () => {
-	it.each(PRIMITIVE_CASES)('$key names $importPath', ({ messageId, importPath }) => {
-		const text = rule.meta.messages[messageId];
-		expect(text).toBeTruthy();
-		expect(text).toContain(importPath);
-	});
+	it.each(Object.entries(EXPECTED_MESSAGES))(
+		'%s matches the independently authored contract',
+		(messageId, expected) => {
+			expect(rule.meta.messages[messageId as keyof typeof EXPECTED_MESSAGES]).toBe(expected);
+		}
+	);
 
-	it('does not tell checkbox authors to use Input', () => {
-		expect(rule.meta.messages.nativeCheckbox).not.toContain('$lib/components/ui/input');
-		expect(rule.meta.messages.nativeCheckbox).toContain('$lib/components/ui/checkbox');
+	it('checkbox names Checkbox and does not start as Input', () => {
+		const text = rule.meta.messages.nativeCheckbox;
+		expect(text.startsWith('Use shadcn Checkbox from $lib/components/ui/checkbox')).toBe(true);
+		expect(text.startsWith('Use shadcn Input ')).toBe(false);
+		expect(text).toBe(EXPECTED_MESSAGES.nativeCheckbox);
 	});
 });
 
@@ -298,7 +493,6 @@ describe('email path policy', () => {
 		EMAIL_PATHS.flatMap((file) =>
 			PRIMITIVE_CASES.flatMap((primitive) =>
 				filenameVariants(file).map((filename) => ({
-					file,
 					filename,
 					key: primitive.key,
 					source: primitive.source
@@ -343,7 +537,6 @@ describe('other documented path exemptions', () => {
 		EXEMPT_PATH_CASES.flatMap((file) =>
 			PRIMITIVE_CASES.flatMap((primitive) =>
 				filenameVariants(file).map((filename) => ({
-					file,
 					filename,
 					key: primitive.key,
 					source: primitive.source
@@ -356,24 +549,15 @@ describe('other documented path exemptions', () => {
 });
 
 describe('input literal syntax', () => {
-	it.each([
-		['double', '<input type="checkbox" />'],
-		['single', "<input type='checkbox' />"],
-		['unquoted', '<input type=checkbox />'],
-		['mustache', `<input type={'checkbox'} />`],
-		['uppercase', '<input type="CHECKBOX" />'],
-		['multiline', '<input\n\ttype="checkbox"\n/>']
-	])('checkbox %s', (_label, source) => {
+	it.each(typeSyntaxes('checkbox'))('checkbox %s', (_label, source) => {
 		expect(ids(lint(source))).toEqual(['nativeCheckbox']);
 	});
 
-	it.each([
-		['double', '<input type="email" />'],
-		['single', "<input type='email' />"],
-		['unquoted', '<input type=email />'],
-		['mustache', `<input type={"email"} />`],
-		['uppercase', '<input type="EMAIL" />']
-	])('email %s', (_label, source) => {
+	it.each(
+		TEXT_LIKE_TYPES.flatMap((type) =>
+			typeSyntaxes(type).map(([label, source]) => [type, label, source])
+		)
+	)('%s %s', (_type, _label, source) => {
 		expect(ids(lint(source))).toEqual(['nativeInput']);
 	});
 });
@@ -459,7 +643,10 @@ describe('file and hidden types stay allowed', () => {
 		'<input type="FILE" />',
 		'<input type="file" {...props} />',
 		'<input {...props} type="file" />',
-		'<input type="hidden" {...props} />'
+		'<input type="hidden" {...props} />',
+		`<input type={'hidden'} />`,
+		'<input type="HIDDEN" />',
+		'<input {...props} type="hidden" />'
 	])('%s', (source) => {
 		expect(lint(source)).toEqual([]);
 	});
@@ -508,8 +695,8 @@ describe('deferred type categories are not guessed', () => {
 		expect(lint('<input type={kind} />')).toEqual([]);
 	});
 
-	it('deferred types still report native title', () => {
-		expect(ids(lint('<input type="radio" title="Help" />'))).toEqual(['nativeTitle']);
+	it.each(['radio', 'range', 'color'])('type=%s still reports native title', (type) => {
+		expect(ids(lint(`<input type="${type}" title="Help" />`))).toEqual(['nativeTitle']);
 	});
 });
 
@@ -523,52 +710,37 @@ describe('checkbox is not Switch inference', () => {
 	});
 });
 
-describe('exception non-transfer', () => {
-	it.each([
-		['<button type="button" {...props} title="Help">Save</button>', ['nativeTitle']],
-		['<button type="button" {...props} {title}>Save</button>', ['nativeTitle']],
-		['<button type="button" {...rest} title="Help">Save</button>', ['nativeButton', 'nativeTitle']],
-		['<dialog {...props}>Help</dialog>', ['nativeDialog']],
-		['<dialog {...props} title="Help">Help</dialog>', ['nativeDialog', 'nativeTitle']],
-		['<input type="checkbox" {...props} />', ['nativeCheckbox']],
-		['<input {...props} type="checkbox" />', ['nativeCheckbox']],
-		['<input type="checkbox" {...props} title="Help" />', ['nativeCheckbox', 'nativeTitle']],
-		['<select {...props}></select>', ['nativeSelect']],
-		['<textarea {...props}></textarea>', ['nativeTextarea']],
-		['<select {...props} title="Help"></select>', ['nativeSelect', 'nativeTitle']],
-		['<textarea {...props} title="Help"></textarea>', ['nativeTextarea', 'nativeTitle']],
-		['<input type="text" {...props} />', ['nativeInput']],
-		['<input {...props} type="text" />', ['nativeInput']],
-		['<input type="email" {...props} title="Help" />', ['nativeInput', 'nativeTitle']],
-		['<input type="file" hidden {...props} title="Help" />', ['nativeTitle']],
-		['<input type="hidden" {title} />', ['nativeTitle']],
-		['<input type="file" hidden /><input type="text" />', ['nativeInput']],
-		['<input type="hidden" /><input type="checkbox" />', ['nativeCheckbox']],
-		['<input type="text" hidden />', ['nativeInput']],
-		['<input type="checkbox" class="hidden" />', ['nativeCheckbox']],
-		['<a href="/" title="Help"><input type="checkbox" /></a>', ['nativeCheckbox']],
-		[
-			'<iframe src="about:blank" title="Help"></iframe><input type="checkbox" />',
-			['nativeCheckbox']
-		],
-		['<div role="dialog"><input type="text" /></div>', ['nativeInput']],
-		['<div role="dialog" title="Help"></div>', ['nativeTitle']],
-		[
-			'<PromptSuggestion title="Help"><input type="checkbox" /></PromptSuggestion>',
-			['nativeCheckbox']
-		]
-	] as const)('%s', (source, expected) => {
+describe('text-like spread orders', () => {
+	it.each(
+		TEXT_LIKE_TYPES.flatMap((type) => [
+			[`<input type="${type}" {...props} />`, type, 'after'],
+			[`<input {...props} type="${type}" />`, type, 'before']
+		])
+	)('%s', (source) => {
+		expect(ids(lint(source))).toEqual(['nativeInput']);
+	});
+});
+
+describe('exception non-transfer on app paths', () => {
+	it.each(SCOPED_CASES)('$name', ({ source, expected }) => {
 		expect(sortedIds(lint(source))).toEqual([...expected].sort());
 	});
+});
 
-	it.each([...EMAIL_PATHS, ...EXEMPT_PATH_CASES])(
-		'exempt path skips multi-diagnostic samples at %s',
-		(file) => {
-			expect(lint('<button type="button" {...rest} title="Help">Save</button>', file)).toEqual([]);
-			expect(lint('<span {title}>Help</span>', file)).toEqual([]);
-			expect(lint('<input type="checkbox" />', file)).toEqual([]);
-		}
-	);
+describe('exception non-transfer on exempt paths', () => {
+	it.each(
+		SCOPED_CASES.flatMap((scoped) =>
+			ALL_EXEMPT_PATHS.flatMap((file) =>
+				filenameVariants(file).map((filename) => ({
+					name: scoped.name,
+					source: scoped.source,
+					filename
+				}))
+			)
+		)
+	)('$name at $filename', ({ source, filename }) => {
+		expect(lint(source, filename)).toEqual([]);
+	});
 });
 
 describe('real ESLint configuration', () => {
@@ -584,12 +756,8 @@ describe('real ESLint configuration', () => {
 
 	it.each(PRIMITIVE_CASES.flatMap((primitive) => appFiles.map((file) => ({ ...primitive, file }))))(
 		'$key at $file',
-		async ({ source, file, messageId, importPath }) => {
-			const { local } = await lintWithRealConfig(source, file);
-			expect(local).toHaveLength(1);
-			expect(local[0].severity).toBe(2);
-			expect(local[0].messageId).toBe(messageId);
-			expect(local[0].message).toContain(importPath);
+		async ({ source, file, messageId }) => {
+			expectLocalOnly(await lintWithRealConfig(source, file), messageId);
 		},
 		60_000
 	);
@@ -606,9 +774,7 @@ describe('real ESLint configuration', () => {
 	)(
 		'$key at email $filename',
 		async ({ source, filename }) => {
-			const { local, result } = await lintWithRealConfig(source, filename);
-			expect(local).toEqual([]);
-			expect(result.errorCount).toBe(0);
+			expectClean(await lintWithRealConfig(source, filename));
 		},
 		60_000
 	);
@@ -623,14 +789,103 @@ describe('real ESLint configuration', () => {
 		}
 	}, 60_000);
 
+	it.each([
+		[
+			'empty object spread',
+			'<script>const rest = {};</script>\n<button type="button" {...{}}>Save</button>',
+			['nativeButton']
+		],
+		[
+			'rest spread',
+			'<script>const rest = {};</script>\n<button type="button" {...rest}>Save</button>',
+			['nativeButton']
+		],
+		[
+			'span shorthand title',
+			'<script>const title = "Help";</script>\n<span {title}>Help</span>',
+			['nativeTitle']
+		],
+		[
+			'Button explicit title',
+			'<script>import { Button } from "$lib/components/ui/button";</script>\n<Button title="Help">Save</Button>',
+			['nativeTitle']
+		],
+		[
+			'Button shorthand title',
+			'<script>import { Button } from "$lib/components/ui/button"; const title = "Help";</script>\n<Button {title}>Save</Button>',
+			['nativeTitle']
+		],
+		['default input', '<input />', ['nativeInput']],
+		[
+			'host plus title',
+			'<script>const props = {};</script>\n<button type="button" {...props} title="Help">Save</button>',
+			['nativeTitle']
+		],
+		[
+			'dialog props',
+			'<script>const props = {};</script>\n<dialog {...props}>Help</dialog>',
+			['nativeDialog']
+		],
+		[
+			'checkbox props plus title',
+			'<script>const props = {};</script>\n<input type="checkbox" {...props} title="Help" />',
+			['nativeCheckbox', 'nativeTitle']
+		],
+		[
+			'select props plus title',
+			'<script>const props = {};</script>\n<select {...props} title="Help"></select>',
+			['nativeSelect', 'nativeTitle']
+		],
+		[
+			'file hidden plus title',
+			'<script>const props = {};</script>\n<input type="file" hidden {...props} title="Help" />',
+			['nativeTitle']
+		],
+		[
+			'hidden plus title',
+			'<script>const title = "Help";</script>\n<input type="hidden" {title} />',
+			['nativeTitle']
+		]
+	] as const)(
+		'%s',
+		async (_name, source, messageIds) => {
+			const outcome = await lintWithRealConfig(source, REAL_APP_FILE);
+			expect(outcome.otherErrors).toEqual([]);
+			expect(outcome.local.map((message) => message.messageId).sort()).toEqual(
+				[...messageIds].sort()
+			);
+			expect(outcome.local.every((message) => message.severity === 2)).toBe(true);
+			for (const message of outcome.local) {
+				expect(message.message).toBe(
+					EXPECTED_MESSAGES[message.messageId as keyof typeof EXPECTED_MESSAGES]
+				);
+			}
+			expect(outcome.result.errorCount).toBe(messageIds.length);
+		},
+		60_000
+	);
+
+	it('checkbox mustache still reports nativeCheckbox under the production parser', async () => {
+		const outcome = await lintWithRealConfig(`<input type={'checkbox'} />`, REAL_APP_FILE);
+		expect(outcome.local.map((message) => message.messageId)).toEqual(['nativeCheckbox']);
+		expect(outcome.local[0]?.message).toBe(EXPECTED_MESSAGES.nativeCheckbox);
+		expect(
+			outcome.otherErrors.every((message) => message.ruleId === 'svelte/no-useless-mustaches')
+		).toBe(true);
+	}, 60_000);
+
 	it('keeps production hosts, file picker, overlay, and component titles clean', async () => {
 		const samples = [
 			{
 				source: '{#snippet child({ props })}<button type="button" {...props}>Go</button>{/snippet}',
-				file: 'src/lib/components/authenticated/authenticated-sidebar.svelte'
+				file: REAL_APP_FILE
 			},
 			{
 				source: '<input type="file" hidden />',
+				file: 'src/lib/chat/ui/ChatInput.svelte'
+			},
+			{
+				source: '<input type="hidden" />',
 				file: 'src/lib/chat/ui/ChatInput.svelte'
 			},
 			{
@@ -638,34 +893,37 @@ describe('real ESLint configuration', () => {
 				file: 'src/lib/components/customer-support/screenshot-editor/ScreenshotEditor.svelte'
 			},
 			{
-				source: '<iframe title={name} src={url}></iframe>',
-				file: 'src/lib/components/authenticated/authenticated-sidebar.svelte'
+				source:
+					'<script>const name = "n"; const url = "about:blank";</script>\n<iframe title={name} src={url}></iframe>',
+				file: REAL_APP_FILE
 			},
 			{
-				source: '<a href="/" title="Help">Help</a>',
-				file: 'src/lib/components/authenticated/authenticated-sidebar.svelte'
+				source: '<a href="https://example.com/" title="Help">Help</a>',
+				file: REAL_APP_FILE
 			},
 			{
-				source: '<SEOHead title={pageTitle} />',
-				file: 'src/lib/components/authenticated/authenticated-sidebar.svelte'
+				source:
+					'<script>import SEOHead from "$lib/components/SEOHead.svelte"; const title = "Help";</script>\n<SEOHead {title} />',
+				file: REAL_APP_FILE
 			},
 			{
-				source: '<AvatarHeading title={name} />',
+				source:
+					'<script>import AvatarHeading from "$lib/components/customer-support/avatar-heading.svelte"; const title = "Help";</script>\n<AvatarHeading {title} />',
 				file: 'src/lib/components/customer-support/threads-overview.svelte'
 			},
 			{
-				source: '<PromptSuggestion title={text} />',
+				source:
+					'<script>import { PromptSuggestion } from "$lib/components/prompt-kit/prompt-suggestion"; const title = "Help";</script>\n<PromptSuggestion {title} />',
 				file: 'src/lib/chat/ui/ChatInput.svelte'
 			},
 			{
-				source: '<DropdownMenu.Item title={label} />',
+				source:
+					'<script>import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js"; const title = "Help";</script>\n<DropdownMenu.Item {title} />',
 				file: 'src/lib/components/nav-user.svelte'
 			}
 		];
 		for (const { source, file } of samples) {
-			const { local, result } = await lintWithRealConfig(source, file);
-			expect(local, source).toEqual([]);
-			expect(result.fatalErrorCount, source).toBe(0);
+			expectClean(await lintWithRealConfig(source, file));
 		}
 	}, 60_000);
 });
