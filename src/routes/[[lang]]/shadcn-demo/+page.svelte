@@ -6,7 +6,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Item from '$lib/components/ui/item';
-	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import * as Avatar from '$lib/components/ui/avatar';
 	import { Progress } from '$lib/components/ui/progress';
@@ -167,25 +167,23 @@
 				{/key}
 			</div>
 			<div class="flex flex-wrap gap-2">
-				<button type="button" class={buttonVariants()} onclick={startStreamingDemo}>
-					Start live response
-				</button>
-				<button
+				<Button type="button" onclick={startStreamingDemo}>Start live response</Button>
+				<Button
 					type="button"
-					class={buttonVariants({ variant: 'outline' })}
+					variant="outline"
 					onclick={appendStreamingToken}
 					disabled={!streamDemoActive}
 				>
 					Append chunk
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					class={buttonVariants({ variant: 'outline' })}
+					variant="outline"
 					onclick={settleStreamingDemo}
 					disabled={!streamDemoActive}
 				>
 					Settle response
-				</button>
+				</Button>
 			</div>
 			<p class="text-sm text-muted-foreground">
 				Current state: {streamDemoActive ? 'streaming' : 'settled'}

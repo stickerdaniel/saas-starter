@@ -233,10 +233,11 @@
 							{' {{userFirstName}}, {{userLastName}}, {{founderName}}, {{founderTitle}}'}
 						</Field.Description>
 					{:else}
-						<button
+						<Button
+							variant="ghost"
 							id="config-body-preview"
 							type="button"
-							class="max-h-60 w-full cursor-text overflow-y-auto rounded-md border bg-muted/30 p-3 text-left text-sm"
+							class="max-h-60 h-auto w-full justify-start whitespace-normal font-normal shadow-none active:translate-y-0 cursor-text overflow-y-auto rounded-md border bg-muted/30 p-3 text-left text-sm"
 							onclick={async () => {
 								editingBody = true;
 								await tick();
@@ -245,7 +246,7 @@
 							}}
 						>
 							<p class="whitespace-pre-wrap">{previewText}</p>
-						</button>
+						</Button>
 					{/if}
 				</Field.Field>
 			</Field.Group>

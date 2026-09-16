@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { T, getTranslate } from '@tolgee/svelte';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import type { AuditLogItem } from '$lib/convex/admin/auditLog/queries';
 
 	interface Props {
@@ -62,15 +63,16 @@
 {/snippet}
 
 {#if onFilter}
-	<button
+	<Button
+		variant="ghost"
 		type="button"
 		onclick={onFilter}
 		aria-label={filterLabel}
 		data-testid={testId}
-		class="group flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+		class="group h-auto w-full justify-start whitespace-normal font-normal shadow-none active:translate-y-0 flex min-w-0 cursor-pointer items-center gap-2 rounded-md text-left"
 	>
 		{@render content()}
-	</button>
+	</Button>
 {:else}
 	<div class="group flex min-w-0 items-center gap-2" data-testid={testId}>
 		{@render content()}

@@ -124,15 +124,17 @@
 			{:else}
 				<Skeleton class="h-3.5 w-20" />
 			{/if}
-			<button
+			<Button
+				variant="ghost"
+				size="icon-xs"
 				type="button"
 				onclick={clearUserFilter}
 				aria-label={$t('admin.audit_log.filter.remove_user')}
 				data-testid="audit-log-user-filter-chip-remove"
-				class="flex size-4 cursor-pointer items-center justify-center rounded-full text-muted-foreground outline-none hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+				class="size-4 rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
 			>
 				<XIcon class="size-3" />
-			</button>
+			</Button>
 		</Badge>
 	{/if}
 </div>
