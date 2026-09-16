@@ -17,6 +17,9 @@ Load the `svelte-core-bestpractices` skill before writing or reviewing Svelte mo
 
 - Use Svelte 5 runes and current event syntax.
 - Prefer shadcn-svelte, then registered component resources, before creating a component.
+- Use the existing shadcn-svelte primitives for app UI: `Button` for native buttons, `Dialog` for native dialogs, `Tooltip` for HTML `title` tooltips and `Button` `title`, `Checkbox` for checkbox inputs, `Select`, `Textarea`, and `Input` for text/email/password/search/tel/url/number inputs, including the default-text form. `local/prefer-shadcn-primitives` enforces these recognizable source patterns in staged and CI lint.
+  - Path exemptions cover all of this rule's checks: the existing shadcn `components/ui` wrappers, all of `src/lib/emails/**` including future templates/layouts/components, `ai-elements`, `prompt-kit`, test-fixtures, and `obfuscated-email.svelte`. Email HTML is not app shadcn UI; app/admin email-settings files remain gated. Other ESLint checks still apply.
+  - Outside those paths, `{...props}` permits only a bits-ui native button host; iframe/link `title` permits only that element's title; native file/hidden input types remain allowed but do not waive title or other controls. A non-dialog overlay's `role="dialog"` is not a native dialog. Other component `title` props, dynamic input types, and Switch/radio judgments are outside this bounded signature; do not expand the rule by guessing.
 - Use project theme tokens when importing external blocks.
 - Prefer global Tailwind utilities for shared patterns over repeated component-local styles.
 - Shadowed surfaces use a translucent `ring-1 ring-foreground/10`; avoid muddy solid borders beside shadows.

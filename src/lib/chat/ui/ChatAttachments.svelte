@@ -393,10 +393,10 @@
 						{/if}
 					</div>
 					<div class="flex flex-1 flex-col gap-0 overflow-hidden leading-tight">
-						<span class="truncate text-sm" title={filename}>{filename}</span>
+						<span class="truncate text-sm">{filename}</span>
 						{#if hasFailed}
 							{@const code = uploadState?.error}
-							<span class="truncate text-xs text-destructive" title={failureText(code, canRetry)}>
+							<span class="truncate text-xs text-destructive">
 								{failureText(code, canRetry)}
 							</span>
 						{/if}
