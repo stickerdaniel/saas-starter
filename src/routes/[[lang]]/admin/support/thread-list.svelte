@@ -378,8 +378,11 @@
 					intersectionOptions={{ rootMargin: '0px 0px 200px 0px' }}
 				>
 					{#each threads as thread (thread._id)}
-						<button
-							class="w-full border-b p-4 text-left dark:bg-muted/20 {thread._id === selectedThreadId
+						<Button
+							variant="ghost"
+							type="button"
+							class="h-auto w-full justify-start whitespace-normal font-normal shadow-none active:translate-y-0 w-full border-b p-4 text-left dark:bg-muted/20 {thread._id ===
+							selectedThreadId
 								? 'bg-muted/70 dark:bg-muted/35'
 								: 'hover:bg-muted/30 dark:hover:bg-muted/50'}"
 							onclick={() => {
@@ -424,7 +427,7 @@
 									{/if}
 								</div>
 							</div>
-						</button>
+						</Button>
 					{/each}
 
 					{#snippet loading()}

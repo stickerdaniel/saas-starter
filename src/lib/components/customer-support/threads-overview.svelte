@@ -324,8 +324,10 @@
 				{#each threads as thread (thread._id)}
 					{@const isSelected = thread._id === conversation.threadId}
 					{@const showAdminAvatar = thread.isHandedOff && thread.assignedAdmin}
-					<button
-						class="t-learn flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors duration-150 {isSelected
+					<Button
+						variant="ghost"
+						type="button"
+						class="t-learn h-auto w-full justify-start whitespace-normal font-normal shadow-none active:translate-y-0 flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors duration-150 {isSelected
 							? 'bg-muted-foreground/[0.04]'
 							: 'hover:bg-muted-foreground/[0.06]'}"
 						onclick={() =>
@@ -361,7 +363,7 @@
 
 						<!-- Chevron -->
 						<LearnMoreChevron class="size-5 shrink-0 text-muted-foreground" />
-					</button>
+					</Button>
 				{/each}
 
 				<!-- The region outlives every message it carries, including the one that

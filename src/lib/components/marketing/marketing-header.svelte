@@ -239,12 +239,15 @@
 					</Button>
 					<LightSwitch variant="ghost" />
 					<LanguageSwitcher variant="ghost" />
-					<button
+					<Button
+						variant="ghost"
+						size="icon"
+						type="button"
 						onclick={() => (menuState = !menuState)}
 						aria-label={menuState ? $t('aria.menu_close') : $t('aria.menu_open')}
 						aria-expanded={menuState}
 						aria-controls="marketing-mobile-menu"
-						class="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 pl-4"
+						class="relative z-20"
 					>
 						<Menu
 							class={cn('m-auto size-6 duration-200', menuState && 'scale-0 rotate-180 opacity-0')}
@@ -255,7 +258,7 @@
 								menuState && 'scale-100 rotate-0 opacity-100'
 							)}
 						/>
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>

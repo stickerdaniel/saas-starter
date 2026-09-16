@@ -76,15 +76,20 @@
 		{/each}
 		{#if hasMore}
 			<Sidebar.MenuSubItem>
-				<button
-					class="w-full px-2 py-1 text-left text-xs text-muted-foreground hover:text-foreground active:translate-y-px"
-					onclick={() => {
-						haptic.trigger('light');
-						onShowMore();
-					}}
-				>
-					{$t('app.sidebar.show_more')}
-				</button>
+				<Sidebar.MenuSubButton>
+					{#snippet child({ props })}
+						<button
+							type="button"
+							{...props}
+							onclick={() => {
+								haptic.trigger('light');
+								onShowMore();
+							}}
+						>
+							{$t('app.sidebar.show_more')}
+						</button>
+					{/snippet}
+				</Sidebar.MenuSubButton>
 			</Sidebar.MenuSubItem>
 		{/if}
 	</Sidebar.MenuSub>
