@@ -17,6 +17,7 @@ Load the `svelte-core-bestpractices` skill before writing or reviewing Svelte mo
 
 - Use Svelte 5 runes and current event syntax.
 - Prefer shadcn-svelte, then registered component resources, before creating a component.
+- Do not add native `<button>`, `<dialog>`, or HTML `title` tooltips; use shadcn `Button`, `Dialog`, and `Tooltip`. `local/prefer-shadcn-primitives` enforces this.
 - Use project theme tokens when importing external blocks.
 - Prefer global Tailwind utilities for shared patterns over repeated component-local styles.
 - Shadowed surfaces use a translucent `ring-1 ring-foreground/10`; avoid muddy solid borders beside shadows.

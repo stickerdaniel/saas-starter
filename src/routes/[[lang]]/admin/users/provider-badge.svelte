@@ -1,8 +1,6 @@
 <script lang="ts">
-	import { T, getTranslate } from '@tolgee/svelte';
+	import { T } from '@tolgee/svelte';
 	import Mail from '@lucide/svelte/icons/mail';
-
-	const { t } = getTranslate();
 
 	interface Props {
 		providers: string[];
@@ -17,7 +15,6 @@
 		{#if provider === 'credential'}
 			<span
 				class="inline-flex items-center rounded-md border px-1.5 py-0.5 text-muted-foreground ring-1 ring-border ring-inset"
-				title={$t('admin.users.provider_email')}
 			>
 				<Mail class="size-3.5" aria-hidden="true" />
 				<span class="sr-only"><T keyName="admin.users.provider_email" /></span>
@@ -25,7 +22,6 @@
 		{:else if provider === 'google'}
 			<span
 				class="inline-flex items-center rounded-md border px-1.5 py-0.5 text-muted-foreground ring-1 ring-border ring-inset"
-				title={$t('admin.users.provider_google')}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -43,7 +39,6 @@
 		{:else if provider === 'github'}
 			<span
 				class="inline-flex items-center rounded-md border px-1.5 py-0.5 text-muted-foreground ring-1 ring-border ring-inset"
-				title={$t('admin.users.provider_github')}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -61,7 +56,6 @@
 		{:else if provider === 'passkey'}
 			<span
 				class="inline-flex items-center rounded-md border px-1.5 py-0.5 text-muted-foreground ring-1 ring-border ring-inset"
-				title={$t('admin.users.provider_passkey')}
 			>
 				<!-- Inlined lucide "fingerprint" glyph: a real module import resolves to a
 				     dev URL containing "fingerprint", which anti-tracking blockers drop,

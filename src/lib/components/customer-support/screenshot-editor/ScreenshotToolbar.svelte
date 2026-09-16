@@ -39,7 +39,6 @@
 			size="icon"
 			class="size-9 "
 			onclick={() => handleToolClick('rect')}
-			title={$t('support.screenshot.tool.rectangle')}
 			aria-label={$t('support.screenshot.tool.rectangle')}
 		>
 			<SquareIcon class="size-4" />
@@ -51,7 +50,6 @@
 			size="icon"
 			class="size-9 "
 			onclick={() => handleToolClick('circle')}
-			title={$t('support.screenshot.tool.circle')}
 			aria-label={$t('support.screenshot.tool.circle')}
 		>
 			<CircleIcon class="size-4" />
@@ -63,7 +61,6 @@
 			size="icon"
 			class="size-9 "
 			onclick={() => handleToolClick('arrow')}
-			title={$t('support.screenshot.tool.arrow')}
 			aria-label={$t('support.screenshot.tool.arrow')}
 		>
 			<ArrowRightIcon class="size-4" />
@@ -75,7 +72,6 @@
 			size="icon"
 			class="size-9 "
 			onclick={() => handleToolClick('pen')}
-			title={$t('support.screenshot.tool.pen')}
 			aria-label={$t('support.screenshot.tool.pen')}
 		>
 			<PencilIcon class="size-4" />
@@ -105,7 +101,6 @@
 			class="-order-3 size-9 sm:order-none"
 			onclick={() => editor.history.undo()}
 			disabled={!editor.history.canUndo}
-			title={$t('support.screenshot.action.undo')}
 			aria-label={$t('support.screenshot.action.undo')}
 		>
 			<Undo2Icon class="size-4" />
@@ -118,7 +113,6 @@
 			class="-order-2 size-9 sm:order-none"
 			onclick={() => editor.history.redo()}
 			disabled={!editor.history.canRedo}
-			title={$t('support.screenshot.action.redo')}
 			aria-label={$t('support.screenshot.action.redo')}
 		>
 			<Redo2Icon class="size-4" />
@@ -135,7 +129,6 @@
 			class="size-9 sm:hidden"
 			onclick={editor.handleSave}
 			disabled={editor.isSaving || !editor.hasShapes}
-			title={editor.isSaving ? $t('support.screenshot.capturing') : $t('support.screenshot.next')}
 			aria-label={editor.isSaving
 				? $t('support.screenshot.capturing')
 				: $t('support.screenshot.next')}
@@ -162,7 +155,6 @@
 			size="icon"
 			class="-order-4 size-9 sm:order-none"
 			onclick={editor.handleCancel}
-			title={$t('support.screenshot.action.cancel')}
 			aria-label={$t('support.screenshot.action.cancel')}
 		>
 			<XIcon class="size-4" />
