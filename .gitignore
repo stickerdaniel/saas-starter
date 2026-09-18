@@ -61,5 +61,13 @@ references/
 # local convex dev deployment
 .convex
 
+# Agent session artifacts and parked worktrees. Ignoring them globally is not
+# enough: the Tailwind oxide scanner disables global git excludes and reads only
+# repository .gitignore files, so without these lines every scratch file joins
+# the CSS source scan (measured 240k files / 43 s instead of 3k / 0.6 s, which
+# starved the Vite SSR module runner). scripts/tailwind-source-scan.test.ts guards it.
+scratch/
+.claude/worktrees/
+
 # Orchestration marker files written by worktree provisioning; must never be committed
 .worktree-ready
