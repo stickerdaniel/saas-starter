@@ -60,6 +60,9 @@
 	}
 </script>
 
+<!-- `placeholder-shown` keeps the clipping to the empty field: a placeholder that
+wraps swells the pill at narrow widths, while typed content is meant to wrap and
+grow the field. -->
 <Textarea
 	bind:ref={context.textareaRef}
 	value={context.value}
@@ -67,7 +70,7 @@
 	onkeydown={handleKeyDown}
 	{onpaste}
 	class={cn(
-		'min-h-[44px] w-full resize-none border-none !bg-transparent text-foreground shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
+		'min-h-[44px] w-full resize-none border-none !bg-transparent text-foreground shadow-none outline-none placeholder-shown:overflow-hidden placeholder-shown:whitespace-nowrap focus-visible:ring-0 focus-visible:ring-offset-0',
 		className
 	)}
 	style="max-height: {maxHeightStyle}"
