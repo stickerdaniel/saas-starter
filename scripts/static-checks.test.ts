@@ -255,6 +255,23 @@ describe('route predicates', () => {
 		}
 	);
 
+	it('routes the creator package and shared Windows helper through its dedicated project', () => {
+		for (const file of [
+			'packages/create-saas-starter/src/index.ts',
+			'packages/create-saas-starter/test/options.test.ts',
+			'packages/create-saas-starter/scripts/build.ts',
+			'packages/create-saas-starter/tsconfig.json',
+			'packages/create-saas-starter/package.json',
+			'packages/create-saas-starter/bun.lock',
+			'scripts/windows-job.ts'
+		]) {
+			expect(ROUTES['cli-types'](file), file).toBe(true);
+		}
+		expect(ROUTES['svelte-check']('packages/create-saas-starter/src/index.ts')).toBe(false);
+		expect(ROUTES['cli-types']('packages/create-saas-starter/README.md')).toBe(false);
+		expect(ROUTES['cli-types']('scripts/static-checks.ts')).toBe(false);
+	});
+
 	it('routes upstream-report TypeScript through its dedicated project', () => {
 		expect(
 			ROUTES['skill-types']('.agents/skills/upstream-report/scripts/upstream-relevance.ts')
