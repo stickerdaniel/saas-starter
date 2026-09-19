@@ -126,6 +126,7 @@
 		"@sveltejs/kit": "2.70.2",
 		"@sveltejs/package": "2.5.8",
 		"@sveltejs/vite-plugin-svelte": "7.3.0",
+		"@tailwindcss/oxide": "4.3.2",
 		"@tailwindcss/typography": "0.5.20",
 		"@tailwindcss/vite": "4.3.2",
 		"@tanstack/table-core": "8.21.3",
