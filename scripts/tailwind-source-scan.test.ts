@@ -35,6 +35,8 @@ afterEach(() => {
 describe('tailwind source scan', () => {
 	it('skips scratch/ and .claude/worktrees/ but still scans src/', () => {
 		const control = probeDir('src/lib');
+		// A nested scratch directory is source: the rule must stay root-anchored.
+		const nested = probeDir('src/lib/scratch');
 		const scratch = probeDir('scratch');
 		const worktree = probeDir('.claude/worktrees');
 		const scanner = new Scanner({
@@ -42,6 +44,7 @@ describe('tailwind source scan', () => {
 		});
 		const files = new Set(scanner.files.map((file) => path.resolve(file)));
 		expect(files.has(path.join(control, 'probe.svelte'))).toBe(true);
+		expect(files.has(path.join(nested, 'probe.svelte'))).toBe(true);
 		expect(files.has(path.join(scratch, 'probe.svelte'))).toBe(false);
 		expect(files.has(path.join(worktree, 'probe.svelte'))).toBe(false);
 	});
