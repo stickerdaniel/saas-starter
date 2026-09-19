@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { SOURCE_FIXTURE_DIRECTORY } from '../../scripts/source-tree';
 
 /**
  * The `t-*` block in layout.css drives every ported transition, and it drives it
@@ -16,7 +17,13 @@ function componentFiles(dir: string, out: string[] = []): string[] {
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
 		const path = join(dir, entry.name);
 		if (entry.isDirectory()) {
-			if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+			// __fixtures__: throwaway sources another suite creates and removes mid-run.
+			if (
+				entry.name === 'node_modules' ||
+				entry.name === SOURCE_FIXTURE_DIRECTORY ||
+				entry.name.startsWith('.')
+			)
+				continue;
 			componentFiles(path, out);
 		} else if (entry.name.endsWith('.svelte')) {
 			out.push(path);

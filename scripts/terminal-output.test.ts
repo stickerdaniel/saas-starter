@@ -4,6 +4,7 @@ import path from 'path';
 import { PassThrough, Writable } from 'stream';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
+import { SOURCE_FIXTURE_ROOT } from './source-tree';
 import {
 	colorlessEnvironment,
 	runSanitizedCommand,
@@ -369,9 +370,13 @@ describe('sanitized commands', () => {
 	});
 });
 
+// Both fixtures here have to be real files in the source tree: static-checks.ts fails any
+// argument outside the repository, and its banned-pattern route only claims paths under
+// `src/`. They build inside SOURCE_FIXTURE_ROOT, the one directory every source-tree walk
+// skips by name, so no suite can list a fixture and then race its removal.
 describe('static-check boundary', () => {
 	it('neutralizes a Prettier code frame built from malformed source', () => {
-		const directory = mkdtempSync(path.join(ROOT, 'terminal-output-prettier-'));
+		const directory = mkdtempSync(path.join(SOURCE_FIXTURE_ROOT, 'terminal-output-prettier-'));
 		const relative = path.relative(ROOT, path.join(directory, 'fixture.ts'));
 		const esc = ch(0x1b);
 		const bel = ch(0x07);
@@ -393,7 +398,7 @@ describe('static-check boundary', () => {
 	}, 60_000);
 
 	it('neutralizes a source line printed by the in-process banned-pattern check', () => {
-		const directory = mkdtempSync(path.join(ROOT, 'src/terminal-output-parent-'));
+		const directory = mkdtempSync(path.join(SOURCE_FIXTURE_ROOT, 'terminal-output-parent-'));
 		const relative = path.relative(ROOT, path.join(directory, 'fixture.ts'));
 		const esc = ch(0x1b);
 		const payload = `${esc}]0;title${ch(0x07)}`;

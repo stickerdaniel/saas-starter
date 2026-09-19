@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { SOURCE_FIXTURE_DIRECTORY } from './source-tree';
 import en from '../src/i18n/en.json';
 
 // Defined-but-unused guard for translation keys: every leaf key in en.json must
@@ -115,7 +116,13 @@ function walk(dir: string, out: string[] = []): string[] {
 	for (const entry of entries) {
 		const full = path.join(dir, entry.name);
 		if (entry.isDirectory()) {
-			if (entry.name === '_generated' || EXCLUDED_DIRS.has(full)) continue;
+			// __fixtures__: throwaway sources another suite creates and removes mid-run.
+			if (
+				entry.name === '_generated' ||
+				entry.name === SOURCE_FIXTURE_DIRECTORY ||
+				EXCLUDED_DIRS.has(full)
+			)
+				continue;
 			walk(full, out);
 		} else if (entry.isFile() && isScannable(full)) {
 			out.push(full);
