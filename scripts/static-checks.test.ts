@@ -22,6 +22,7 @@ import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
 import { sanitizedGitEnv } from './git-context';
+import { SOURCE_FIXTURE_ROOT } from './source-tree';
 import {
 	argumentBatches,
 	authoredTextFiles,
@@ -485,14 +486,19 @@ describe('resolveInputs', () => {
 		}
 	});
 
+	// The dot directory builds inside SOURCE_FIXTURE_ROOT, the one directory every recursive
+	// walk of `src/` skips by name. Directly under `src/` it appeared and vanished in the
+	// path of those walks, and a walk that listed it before this case removed it died on
+	// `ENOENT scandir` while this case still passed. The fixture root is itself a `src/`
+	// descendant, so the dot directory is still reached through the directory argument below.
 	it('includes dot-directory descendants of a directory argument', () => {
-		const directory = path.join(ROOT, 'src', '.static-checks-directory-test');
+		const directory = path.join(SOURCE_FIXTURE_ROOT, '.static-checks-directory-test');
 		const file = path.join(directory, 'instructions.md');
 		mkdirSync(directory, { recursive: true });
 		writeFileSync(file, 'safe');
 		try {
 			expect(resolveInputs([path.join(ROOT, 'src')], 'test')).toContain(
-				'src/.static-checks-directory-test/instructions.md'
+				path.relative(ROOT, file).split(path.sep).join('/')
 			);
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
