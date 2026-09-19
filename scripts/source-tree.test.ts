@@ -51,15 +51,21 @@ const MUTATING_CALLS = new Map<string, readonly number[]>([
 ]);
 
 /**
- * One path segment whose text the scan cannot read: a randomized name, a spread of further
- * segments, the random suffix `mkdtemp` appends. It stands in for exactly one segment rather
- * than making the whole path unknown, because where a fixture is parked is decided by the
- * segments in front of it and those are still readable.
+ * A segment whose text the scan cannot read but which provably names one child: the random
+ * suffix `mkdtemp` appends, or a template that starts with fixed non-dot text. Such a name
+ * cannot be `..`, so it cannot carry a path out of the directory it was joined onto.
  *
- * The angle brackets keep it apart from a real segment: no literal the scan splits can spell
- * this, and Windows rejects both characters in a path name.
+ * The angle brackets keep both sentinels apart from a real segment: no literal the scan
+ * splits can spell them, and Windows rejects either character in a path name.
  */
-const OPAQUE = '<unreadable>';
+const GENERATED = '<generated>';
+
+/**
+ * A segment the scan never read at all: a value computed at run time, a spread of an array
+ * it cannot see into. It stands in for one segment so the readable segments in front of it
+ * still place the path, but it is traversal-capable, because nothing rules out `..`.
+ */
+const UNRESOLVED = '<unresolved>';
 
 /**
  * A path a test builds, as segments below the checkout root. `undefined` covers everything
@@ -113,43 +119,40 @@ function normalize(segments: string[]): ResolvedPath {
 }
 
 /**
- * Reads one expression as the segments it contributes to a `path.join`, or reports that it
- * cannot be read. `..` is kept rather than resolved here, because only the whole joined path
- * knows what it climbs out of.
+ * Whether a template provably names one child. It has to start with fixed text that is not
+ * a dot, which is what rules out `..`: `scan-probe-${hex}` cannot climb anywhere no matter
+ * what the interpolation produces, while a bare `${name}` can be any segment at all.
+ *
+ * A separator anywhere in the template's own text already means several segments, so it is
+ * not read as one child either.
  */
-function argumentSegments(argument: ts.Expression, bindings: Map<string, Binding>): ResolvedPath {
+function namesOneChild(template: ts.TemplateExpression): boolean {
+	if (/[/\\]/.test(template.getText())) return false;
+	return /[^.]/.test(template.head.text);
+}
+
+/**
+ * Reads one expression as the segments it contributes to a `path.join`. `..` is kept rather
+ * than resolved here, because only the whole joined path knows what it climbs out of, and
+ * anything the scan cannot read becomes one unresolved segment rather than nothing: a value
+ * it never saw is not evidence that the path stays where it was joined.
+ */
+function argumentSegments(argument: ts.Expression, bindings: Map<string, Binding>): string[] {
+	if (ts.isSpreadElement(argument)) {
+		// A rest parameter carries the exact segments its call site passed, `..` included.
+		return argumentSegments(argument.expression, bindings);
+	}
 	if (ts.isStringLiteralLike(argument)) {
 		// A combined 'src/lib' literal and two separate segments describe the same path, so
 		// both are split the same way instead of being recognized by their spelling.
 		return argument.text.split(/[/\\]/);
 	}
-	// `scan-probe-${hex}` names one directory whatever it interpolates to. A template that
-	// spans separators describes an unknown number of them and is not read.
-	if (ts.isTemplateExpression(argument) && !/[/\\]/.test(argument.getText())) return [OPAQUE];
+	if (ts.isTemplateExpression(argument)) return [namesOneChild(argument) ? GENERATED : UNRESOLVED];
 	if (ts.isIdentifier(argument)) {
 		const binding = bindings.get(argument.text);
-		return binding?.kind === 'segments' ? binding.segments : undefined;
+		if (binding?.kind === 'segments') return binding.segments;
 	}
-	return undefined;
-}
-
-/** Appends one `path.join` argument, or reports that it cannot be read at all. */
-function appendArgument(
-	segments: string[],
-	argument: ts.Expression,
-	bindings: Map<string, Binding>
-): boolean {
-	if (ts.isSpreadElement(argument)) {
-		// A rest parameter carries the exact segments its call site passed, `..` included. One
-		// the scan never read stands for a single unreadable segment instead.
-		const spread = argumentSegments(argument.expression, bindings);
-		segments.push(...(spread ?? [OPAQUE]));
-		return true;
-	}
-	const read = argumentSegments(argument, bindings);
-	if (!read) return false;
-	segments.push(...read);
-	return true;
+	return [UNRESOLVED];
 }
 
 /** Resolves a path expression against the declarations `bindings` already holds. */
@@ -166,17 +169,18 @@ function resolvePath(node: ts.Expression, bindings: Map<string, Binding>): Resol
 	const [base, ...rest] = node.arguments;
 	if (!base) return undefined;
 
-	// `mkdtempSync(prefix)` creates a sibling of its prefix: same parent, unreadable name.
+	// `mkdtempSync(prefix)` creates a sibling of its prefix: same parent, a name the operating
+	// system generates and which therefore names one child.
 	if (callee === 'mkdtempSync' || callee === 'mkdtemp') {
 		const prefix = resolvePath(base, bindings);
-		return prefix && prefix.length > 0 ? [...prefix.slice(0, -1), OPAQUE] : undefined;
+		return prefix && prefix.length > 0 ? [...prefix.slice(0, -1), GENERATED] : undefined;
 	}
 	if (callee !== 'join' && callee !== 'resolve') return undefined;
 
 	const start = resolvePath(base, bindings);
 	if (!start) return undefined;
 	const segments = [...start];
-	for (const argument of rest) if (!appendArgument(segments, argument, bindings)) return undefined;
+	for (const argument of rest) segments.push(...argumentSegments(argument, bindings));
 	return normalize(segments);
 }
 
@@ -188,8 +192,7 @@ function parameterBinding(
 	if (!argument) return undefined;
 	const anchored = resolvePath(argument, bindings);
 	if (anchored) return { kind: 'path', segments: anchored };
-	const segments = argumentSegments(argument, bindings);
-	return segments && { kind: 'segments', segments };
+	return { kind: 'segments', segments: argumentSegments(argument, bindings) };
 }
 
 /**
@@ -198,18 +201,24 @@ function parameterBinding(
  */
 function restBinding(rest: readonly ts.Expression[], bindings: Map<string, Binding>): Binding {
 	const segments: string[] = [];
-	for (const argument of rest) {
-		const read = argumentSegments(argument, bindings);
-		if (!read) return undefined;
-		segments.push(...read);
-	}
+	for (const argument of rest) segments.push(...argumentSegments(argument, bindings));
 	return { kind: 'segments', segments };
 }
 
-/** A checkout path under `src/` that is not parked in the fixture root. */
-function isUnparkedSourcePath(resolved: ResolvedPath): boolean {
+/**
+ * A path a mutating call must not build. Two cases: anywhere under `src/` outside the fixture
+ * root, and inside the fixture root but reached through a segment the scan never read.
+ *
+ * The second is not a guess in the other direction. An unresolved segment is a value decided
+ * at run time, `..` among its possible values, so a path built through one is parked only if
+ * that value happens not to climb. Reporting it keeps the question in the test that owns the
+ * fixture, and it stays bounded to fixture-root mutations: an unresolved segment anywhere
+ * else still has to place the path under `src/` on its readable segments alone.
+ */
+function isReportablePath(resolved: ResolvedPath): boolean {
 	if (!resolved || resolved[0] !== 'src') return false;
-	return resolved[1] !== SOURCE_FIXTURE_DIRECTORY;
+	if (resolved[1] !== SOURCE_FIXTURE_DIRECTORY) return true;
+	return resolved.slice(2).includes(UNRESOLVED);
 }
 
 type Helper = { parameters: ts.ParameterDeclaration[]; body: ts.Node };
@@ -276,7 +285,7 @@ function transientSourceProducers(source: string, fileName = 'probe.test.ts'): n
 			const positions = MUTATING_CALLS.get(callee);
 			for (const position of positions ?? []) {
 				const argument = node.arguments[position];
-				if (!argument || !isUnparkedSourcePath(resolvePath(argument, bindings))) continue;
+				if (!argument || !isReportablePath(resolvePath(argument, bindings))) continue;
 				lines.add(lineOf(node));
 				break;
 			}
@@ -439,6 +448,40 @@ ${REST_HELPER}
 createFixture(SOURCE_FIXTURE_ROOT);
 createFixture(SOURCE_FIXTURE_ROOT, 'nested', '.probe');
 createFixture(SOURCE_FIXTURE_ROOT, 'nested/../.probe');`;
+		expect(transientSourceProducers(source)).toEqual([]);
+	});
+
+	it('reports a rest spread whose segments the scan never read', () => {
+		const source = `${CHECKOUT_ROOT}
+${REST_HELPER}
+const below = JSON.parse(readFileSync(manifest, 'utf8')).segments;
+createFixture(SOURCE_FIXTURE_ROOT, ...below);`;
+		expect(transientSourceProducers(source)).toEqual([4, 5]);
+	});
+
+	it('reports an ordinary parameter whose value the scan never read', () => {
+		const source = `${CHECKOUT_ROOT}
+${SEGMENT_HELPER}
+const up = readFileSync(manifest, 'utf8').trim();
+createFixture(SOURCE_FIXTURE_ROOT, up, '.probe');`;
+		expect(transientSourceProducers(source)).toEqual([4, 5]);
+	});
+
+	it('reports a dynamic name joined straight onto the fixture root', () => {
+		const source = `${CHECKOUT_ROOT}
+const directory = path.join(SOURCE_FIXTURE_ROOT, suffix);
+mkdirSync(directory, { recursive: true });
+writeFileSync(path.join(SOURCE_FIXTURE_ROOT, \`\${suffix}\`), 'safe');`;
+		expect(transientSourceProducers(source)).toEqual([3, 4]);
+	});
+
+	it('accepts a randomized child that cannot climb out of the fixture root', () => {
+		const source = `${CHECKOUT_ROOT}
+const probe = path.join(SOURCE_FIXTURE_ROOT, \`scan-probe-\${randomBytes(6).toString('hex')}\`);
+mkdirSync(probe, { recursive: true });
+const temporary = mkdtempSync(path.join(SOURCE_FIXTURE_ROOT, 'probe-'));
+writeFileSync(path.join(temporary, 'probe.svelte'), '<div></div>');
+rmSync(probe, { recursive: true, force: true });`;
 		expect(transientSourceProducers(source)).toEqual([]);
 	});
 
