@@ -52,8 +52,9 @@ const MUTATING_CALLS = new Map<string, readonly number[]>([
 
 /**
  * A segment whose text the scan cannot read but which provably names one child: the random
- * suffix `mkdtemp` appends, or a template that starts with fixed non-dot text. Such a name
- * cannot be `..`, so it cannot carry a path out of the directory it was joined onto.
+ * suffix `mkdtemp` appends, or a template `namesOneChild` accepts. Such a name can neither be
+ * `..` nor contain a separator, so it cannot carry a path out of the directory it was joined
+ * onto.
  *
  * The angle brackets keep both sentinels apart from a real segment: no literal the scan
  * splits can spell them, and Windows rejects either character in a path name.
@@ -119,16 +120,39 @@ function normalize(segments: string[]): ResolvedPath {
 }
 
 /**
- * Whether a template provably names one child. It has to start with fixed text that is not
- * a dot, which is what rules out `..`: `scan-probe-${hex}` cannot climb anywhere no matter
- * what the interpolation produces, while a bare `${name}` can be any segment at all.
+ * The interpolations whose value the scan can prove carries no path separator. Two forms,
+ * recognized by their shape rather than by their name, because each is provable on its own
+ * terms: `randomBytes(n).toString('hex')` is hexadecimal digits, and `process.pid` is a
+ * number. Anything else is a value this scan never evaluated, and a fixed prefix in front of
+ * it proves nothing about what it contains.
  *
- * A separator anywhere in the template's own text already means several segments, so it is
- * not read as one child either.
+ * Deliberately not a list of approved helper names. A name says nothing about a return
+ * value, and a scan that accepted one would be back to trusting text it never read.
+ */
+function producesNoSeparator(node: ts.Expression): boolean {
+	if (ts.isPropertyAccessExpression(node)) return node.getText() === 'process.pid';
+	if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression)) return false;
+	if (node.expression.name.text !== 'toString') return false;
+	const [encoding] = node.arguments;
+	if (!encoding || !ts.isStringLiteral(encoding) || encoding.text !== 'hex') return false;
+	const source = node.expression.expression;
+	return ts.isCallExpression(source) && calleeName(source) === 'randomBytes';
+}
+
+/**
+ * Whether a template provably names one child. Three conditions, and each removes a way out
+ * of the directory the template is joined onto: no separator in its own text, fixed leading
+ * text that is not a dot so the name cannot be `..`, and an interpolation whose value is
+ * provably separator-free.
+ *
+ * The third is what a fixed prefix alone does not give. `scan-probe-${suffix}` with a suffix
+ * of `/../../.probe` is a traversal wearing a prefix, so the prefix has to be read together
+ * with what follows it rather than as a guarantee by itself.
  */
 function namesOneChild(template: ts.TemplateExpression): boolean {
 	if (/[/\\]/.test(template.getText())) return false;
-	return /[^.]/.test(template.head.text);
+	if (!/[^.]/.test(template.head.text)) return false;
+	return template.templateSpans.every((span) => producesNoSeparator(span.expression));
 }
 
 /**
@@ -475,10 +499,30 @@ writeFileSync(path.join(SOURCE_FIXTURE_ROOT, \`\${suffix}\`), 'safe');`;
 		expect(transientSourceProducers(source)).toEqual([3, 4]);
 	});
 
+	it('reports a fixed prefix in front of an interpolation it never read', () => {
+		const source = [
+			CHECKOUT_ROOT,
+			'mkdirSync(path.join(SOURCE_FIXTURE_ROOT, `scan-probe-${suffix}`), { recursive: true });',
+			'rmSync(path.join(SOURCE_FIXTURE_ROOT, `scan-probe-${buildName()}`), { recursive: true });'
+		].join('\n');
+		expect(transientSourceProducers(source)).toEqual([2, 3]);
+	});
+
+	it('reports a traversal spelled in either separator behind a fixed prefix', () => {
+		const source = [
+			CHECKOUT_ROOT,
+			'mkdirSync(path.join(SOURCE_FIXTURE_ROOT, `scan-probe-${hex}/../../.probe`));',
+			'mkdirSync(path.join(SOURCE_FIXTURE_ROOT, `scan-probe-${hex}\\\\..\\\\..\\\\.probe`));'
+		].join('\n');
+		expect(transientSourceProducers(source)).toEqual([2, 3]);
+	});
+
 	it('accepts a randomized child that cannot climb out of the fixture root', () => {
 		const source = `${CHECKOUT_ROOT}
 const probe = path.join(SOURCE_FIXTURE_ROOT, \`scan-probe-\${randomBytes(6).toString('hex')}\`);
 mkdirSync(probe, { recursive: true });
+const owned = path.join(SOURCE_FIXTURE_ROOT, \`probe-\${process.pid}\`);
+mkdirSync(owned, { recursive: true });
 const temporary = mkdtempSync(path.join(SOURCE_FIXTURE_ROOT, 'probe-'));
 writeFileSync(path.join(temporary, 'probe.svelte'), '<div></div>');
 rmSync(probe, { recursive: true, force: true });`;
