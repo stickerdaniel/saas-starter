@@ -69,6 +69,14 @@ const OPAQUE = '<unreadable>';
  */
 type ResolvedPath = string[] | undefined;
 
+/**
+ * What a name stands for. A helper takes the directory as one parameter and the name below
+ * it as further ones, so a parameter is either an anchored path or the segments a caller
+ * passed for it. Keeping the two apart is what lets `createFixture(SOURCE_FIXTURE_ROOT,
+ * '..', '.probe')` normalize to the `src/` path it creates instead of reading as parked.
+ */
+type Binding = { kind: 'path' | 'segments'; segments: string[] } | undefined;
+
 /** `path.resolve(import.meta.dirname, '..')` and the `fileURLToPath` spelling of it. */
 function isCheckoutRoot(node: ts.Expression): boolean {
 	if (!ts.isCallExpression(node)) return false;
@@ -104,32 +112,52 @@ function normalize(segments: string[]): ResolvedPath {
 	return out;
 }
 
-/** Appends one `path.join` argument, or reports that it cannot be read at all. */
-function appendArgument(segments: string[], argument: ts.Expression): boolean {
-	if (ts.isSpreadElement(argument)) {
-		segments.push(OPAQUE);
-		return true;
-	}
+/**
+ * Reads one expression as the segments it contributes to a `path.join`, or reports that it
+ * cannot be read. `..` is kept rather than resolved here, because only the whole joined path
+ * knows what it climbs out of.
+ */
+function argumentSegments(argument: ts.Expression, bindings: Map<string, Binding>): ResolvedPath {
 	if (ts.isStringLiteralLike(argument)) {
 		// A combined 'src/lib' literal and two separate segments describe the same path, so
 		// both are split the same way instead of being recognized by their spelling.
-		segments.push(...argument.text.split(/[/\\]/));
-		return true;
+		return argument.text.split(/[/\\]/);
 	}
 	// `scan-probe-${hex}` names one directory whatever it interpolates to. A template that
 	// spans separators describes an unknown number of them and is not read.
-	if (ts.isTemplateExpression(argument) && !/[/\\]/.test(argument.getText())) {
-		segments.push(OPAQUE);
+	if (ts.isTemplateExpression(argument) && !/[/\\]/.test(argument.getText())) return [OPAQUE];
+	if (ts.isIdentifier(argument)) {
+		const binding = bindings.get(argument.text);
+		return binding?.kind === 'segments' ? binding.segments : undefined;
+	}
+	return undefined;
+}
+
+/** Appends one `path.join` argument, or reports that it cannot be read at all. */
+function appendArgument(
+	segments: string[],
+	argument: ts.Expression,
+	bindings: Map<string, Binding>
+): boolean {
+	if (ts.isSpreadElement(argument)) {
+		// A rest parameter carries the exact segments its call site passed, `..` included. One
+		// the scan never read stands for a single unreadable segment instead.
+		const spread = argumentSegments(argument.expression, bindings);
+		segments.push(...(spread ?? [OPAQUE]));
 		return true;
 	}
-	return false;
+	const read = argumentSegments(argument, bindings);
+	if (!read) return false;
+	segments.push(...read);
+	return true;
 }
 
 /** Resolves a path expression against the declarations `bindings` already holds. */
-function resolvePath(node: ts.Expression, bindings: Map<string, ResolvedPath>): ResolvedPath {
+function resolvePath(node: ts.Expression, bindings: Map<string, Binding>): ResolvedPath {
 	if (ts.isIdentifier(node)) {
 		if (node.text === 'SOURCE_FIXTURE_ROOT') return ['src', SOURCE_FIXTURE_DIRECTORY];
-		return bindings.get(node.text);
+		const binding = bindings.get(node.text);
+		return binding?.kind === 'path' ? binding.segments : undefined;
 	}
 	if (isCheckoutRoot(node)) return [];
 	if (!ts.isCallExpression(node)) return undefined;
@@ -148,8 +176,34 @@ function resolvePath(node: ts.Expression, bindings: Map<string, ResolvedPath>): 
 	const start = resolvePath(base, bindings);
 	if (!start) return undefined;
 	const segments = [...start];
-	for (const argument of rest) if (!appendArgument(segments, argument)) return undefined;
+	for (const argument of rest) if (!appendArgument(segments, argument, bindings)) return undefined;
 	return normalize(segments);
+}
+
+/** What one ordinary parameter stands for at a given call site. */
+function parameterBinding(
+	argument: ts.Expression | undefined,
+	bindings: Map<string, Binding>
+): Binding {
+	if (!argument) return undefined;
+	const anchored = resolvePath(argument, bindings);
+	if (anchored) return { kind: 'path', segments: anchored };
+	const segments = argumentSegments(argument, bindings);
+	return segments && { kind: 'segments', segments };
+}
+
+/**
+ * What a rest parameter stands for: the segments of every remaining argument in order, `..`
+ * included, so a climb spread back into a `path.join` normalizes there.
+ */
+function restBinding(rest: readonly ts.Expression[], bindings: Map<string, Binding>): Binding {
+	const segments: string[] = [];
+	for (const argument of rest) {
+		const read = argumentSegments(argument, bindings);
+		if (!read) return undefined;
+		segments.push(...read);
+	}
+	return { kind: 'segments', segments };
 }
 
 /** A checkout path under `src/` that is not parked in the fixture root. */
@@ -205,11 +259,7 @@ function transientSourceProducers(source: string, fileName = 'probe.test.ts'): n
 	const lineOf = (node: ts.Node): number =>
 		parsed.getLineAndCharacterOfPosition(node.getStart(parsed)).line + 1;
 
-	const analyze = (
-		node: ts.Node,
-		bindings: Map<string, ResolvedPath>,
-		stack: Set<string>
-	): void => {
+	const analyze = (node: ts.Node, bindings: Map<string, Binding>, stack: Set<string>): void => {
 		// A helper body is read once per call site with that site's arguments bound, never with
 		// its parameters unbound, so skip it where it is declared.
 		if (helperBodies.has(node)) return;
@@ -217,7 +267,8 @@ function transientSourceProducers(source: string, fileName = 'probe.test.ts'): n
 		// Declarations are recorded as they are reached, so a later call resolves the
 		// identifier it actually used rather than a same-named one from elsewhere.
 		if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
-			bindings.set(node.name.text, resolvePath(node.initializer, bindings));
+			const resolved = resolvePath(node.initializer, bindings);
+			bindings.set(node.name.text, resolved && { kind: 'path', segments: resolved });
 		}
 
 		if (ts.isCallExpression(node)) {
@@ -234,13 +285,19 @@ function transientSourceProducers(source: string, fileName = 'probe.test.ts'): n
 				? helpers.get(node.expression.text)
 				: undefined;
 			if (helper && !stack.has(callee)) {
-				// Only the arguments this call site passes are bound. A rest parameter takes an
-				// unknown number of them, so it stays unresolved rather than guessing a value.
+				// Only the arguments this call site passes are bound: an anchored path where the
+				// argument names one, the segments it spells otherwise. A rest parameter keeps the
+				// whole sequence its call site passed, and one argument the scan cannot read leaves
+				// the parameter unresolved rather than guessing what it contributes.
 				const scope = new Map(bindings);
 				helper.parameters.forEach((parameter, index) => {
 					if (!ts.isIdentifier(parameter.name)) return;
-					const argument = parameter.dotDotDotToken ? undefined : node.arguments[index];
-					scope.set(parameter.name.text, argument ? resolvePath(argument, bindings) : undefined);
+					scope.set(
+						parameter.name.text,
+						parameter.dotDotDotToken
+							? restBinding(node.arguments.slice(index), bindings)
+							: parameterBinding(node.arguments[index], bindings)
+					);
 				});
 				const nested = new Set([...stack, callee]);
 				// The body's children, because the body itself is on the skip list.
@@ -253,7 +310,7 @@ function transientSourceProducers(source: string, fileName = 'probe.test.ts'): n
 
 	// The helper bodies are skipped at their declaration, so start from the file itself. Every
 	// top-level statement shares one scope, which is what carries a declaration to its use.
-	const fileScope = new Map<string, ResolvedPath>();
+	const fileScope = new Map<string, Binding>();
 	ts.forEachChild(parsed, (child) => analyze(child, fileScope, new Set()));
 	return [...lines].sort((a, b) => a - b);
 }
@@ -280,6 +337,24 @@ const PROBE_HELPER = [
 	'\tconst file = path.join(dir, "probe.svelte");',
 	'\tfs.writeFileSync(file, "<div></div>");',
 	'\treturn file;',
+	'}'
+].join('\n');
+
+/** A helper that takes the parent and the name below it as ordinary parameters. */
+const SEGMENT_HELPER = [
+	'function createFixture(parent, up, name) {',
+	'\tconst directory = path.join(parent, up, name);',
+	'\tmkdirSync(directory, { recursive: true });',
+	'\trmSync(directory, { recursive: true, force: true });',
+	'}'
+].join('\n');
+
+/** The same helper taking the name below the parent as a rest parameter. */
+const REST_HELPER = [
+	'function createFixture(parent, ...segments) {',
+	'\tconst directory = path.join(parent, ...segments);',
+	'\tmkdirSync(directory, { recursive: true });',
+	'\trmSync(directory, { recursive: true, force: true });',
 	'}'
 ].join('\n');
 
@@ -334,6 +409,36 @@ ${PROBE_HELPER}
 probeFile(SOURCE_FIXTURE_ROOT);
 probeFile(SOURCE_FIXTURE_ROOT, 'scratch');
 probeFile(path.join(repoRoot, 'scratch'));`;
+		expect(transientSourceProducers(source)).toEqual([]);
+	});
+
+	it('follows segments passed as ordinary parameters out of the fixture root', () => {
+		const source = `${CHECKOUT_ROOT}
+${SEGMENT_HELPER}
+createFixture(SOURCE_FIXTURE_ROOT, '..', '.probe');`;
+		expect(transientSourceProducers(source)).toEqual([4, 5]);
+	});
+
+	it('accepts the same segments parked below the fixture root', () => {
+		const source = `${CHECKOUT_ROOT}
+${SEGMENT_HELPER}
+createFixture(SOURCE_FIXTURE_ROOT, 'nested', '.probe');`;
+		expect(transientSourceProducers(source)).toEqual([]);
+	});
+
+	it('follows a rest parameter out of the fixture root', () => {
+		const source = `${CHECKOUT_ROOT}
+${REST_HELPER}
+createFixture(SOURCE_FIXTURE_ROOT, '..', '.probe');`;
+		expect(transientSourceProducers(source)).toEqual([4, 5]);
+	});
+
+	it('accepts a rest parameter that stays below the fixture root', () => {
+		const source = `${CHECKOUT_ROOT}
+${REST_HELPER}
+createFixture(SOURCE_FIXTURE_ROOT);
+createFixture(SOURCE_FIXTURE_ROOT, 'nested', '.probe');
+createFixture(SOURCE_FIXTURE_ROOT, 'nested/../.probe');`;
 		expect(transientSourceProducers(source)).toEqual([]);
 	});
 
