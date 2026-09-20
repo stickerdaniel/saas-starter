@@ -1,6 +1,7 @@
 import 'varlock/auto-load';
 import { watchAuthoredContent } from './generate-authored-content';
 import { portlessOwnsPort, preflightOrExit, resolveTestPort } from './dev-ports';
+import { invalidateLocalTestBackendUrl } from '../e2e/utils/convex-url';
 
 const testPort = resolveTestPort();
 const TEST_BASE_URL = `http://localhost:${testPort}`;
@@ -38,6 +39,10 @@ if (!portlessOwnsPort()) {
 	await preflightOrExit(testPort, 'dev:test');
 	portArgs = ['--port', String(testPort), '--strictPort'];
 }
+
+// The owned local stack must publish its own randomized backend URL. Remove the
+// previous run's publication only after a conflicting stack has been rejected.
+invalidateLocalTestBackendUrl();
 
 const authoredContentWatcher = watchAuthoredContent();
 

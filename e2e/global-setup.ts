@@ -21,7 +21,7 @@ const SETUP_RETRY_ATTEMPTS = 3;
 const HTTP_RETRY_DELAYS_MS = [2000, 5000];
 
 import type { TestCredentials } from './utils/types';
-import { resolveConvexUrl } from './utils/convex-url';
+import { waitForConvexUrl } from './utils/convex-url';
 import { resolveSiteUrl } from './utils/site-url';
 import { getPreviewBypass, fetchVercelBypassCookie } from './utils/preview-bypass';
 import { waitForBackendReady } from './utils/backend-readiness';
@@ -99,7 +99,6 @@ async function fetchWithRetry(url: string, init: RequestInit, label: string): Pr
 
 async function globalSetup() {
 	const testSecret = process.env.AUTH_E2E_TEST_SECRET;
-	const convexUrl = resolveConvexUrl();
 
 	if (!testSecret) {
 		console.error('[Setup] Error: AUTH_E2E_TEST_SECRET missing from .env.test');
@@ -109,6 +108,7 @@ async function globalSetup() {
 		throw new Error('AUTH_E2E_TEST_SECRET not configured');
 	}
 
+	const convexUrl = await waitForConvexUrl();
 	if (!convexUrl) {
 		console.error('[Setup] Error: PUBLIC_CONVEX_URL not set and no local backend URL found');
 		console.error(
