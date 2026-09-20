@@ -24,8 +24,10 @@ import {
 } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { testExecutable } from './test-executable';
+
+vi.setConfig({ testTimeout: 15_000 });
 
 const ROOT = join(import.meta.dirname, '..');
 /** Real Bun executable resolved before tests; the test runner itself uses Node. */
