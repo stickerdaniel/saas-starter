@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runCli, type CliIo, type CliRuntime } from '../src/index.js';
 import { SCAFFOLD_MARKER } from '../src/archive.js';
-import { updateMarker } from '../src/target.js';
+import { publishStagedTarget, updateMarker } from '../src/target.js';
 import { tarGz, validTemplateEntries } from './archive-fixture.js';
 
 const temporaryDirectories: string[] = [];
@@ -181,6 +181,32 @@ describe('CLI lifecycle', () => {
 		expect(staging).toBeDefined();
 		await expect(lstat(staging!)).rejects.toMatchObject({ code: 'ENOENT' });
 		expect(messages).toContain(`Created Project at ${finalTarget}`);
+	});
+
+	it('treats an interrupt observed after publication as committed success', async () => {
+		const { parent, messages, interrupts, io } = await fixtureIo();
+		const finalTarget = path.join(await realpath(parent), 'project');
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			responseFromBuffer(tarGz(validTemplateEntries()))
+		);
+		const runtime: Partial<CliRuntime> = {
+			runSetupAndInstall: async (input) => {
+				await input.onSetupComplete();
+				return 'ready';
+			},
+			publishStagedTarget: async (...input) => {
+				await publishStagedTarget(...input);
+				interrupts.emit('SIGINT');
+			}
+		};
+
+		await expect(runCli(argumentsForProject(), io, runtime)).resolves.toBe(0);
+		await expect(markerAt(finalTarget)).resolves.toMatchObject({
+			state: 'ready',
+			phase: 'complete'
+		});
+		expect(messages).toContain(`Created Project at ${finalTarget}`);
+		expect(messages.join('\n')).not.toContain('Recovery files');
 	});
 
 	it('never executes a project that replaces the final target before publication', async () => {

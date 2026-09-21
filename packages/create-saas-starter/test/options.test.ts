@@ -124,9 +124,26 @@ describe('parseCliOptions', () => {
 		).not.toThrow();
 	});
 
+	it('normalizes CRLF in multiline argv values and rejects bare carriage returns', () => {
+		expect(
+			parseCliOptions(['--company', 'Company\r\nDivision', '--address', 'Line 1\r\nLine 2'])
+		).toMatchObject({
+			company: 'Company\nDivision',
+			address: 'Line 1\nLine 2'
+		});
+		expect(() =>
+			validateProvidedValues({
+				brand: 'Project',
+				company: 'Company\rDivision'
+			})
+		).toThrow('--company');
+	});
+
 	it.each([
 		['escape', 0x1b],
 		['bell', 0x07],
+		['line separator', 0x2028],
+		['paragraph separator', 0x2029],
 		['right-to-left override', 0x202e]
 	])('rejects %s in every free-text argv value', (_name, code) => {
 		const control = String.fromCodePoint(code);
@@ -183,18 +200,19 @@ describe('option resolution and trust', () => {
 	it('applies the safe-text contract to every interactive free-text prompt', async () => {
 		const escape = String.fromCodePoint(0x1b);
 		const bell = String.fromCodePoint(0x07);
+		const lineSeparator = String.fromCodePoint(0x2028);
 		const rightToLeftOverride = String.fromCodePoint(0x202e);
 		const unsafeByMessage = new Map([
 			['Brand display name', `before${escape}after`],
 			['Legal company name', `before${bell}after`],
 			['Legal operator name', `before${rightToLeftOverride}after`],
-			['Legal address', `before${escape}after`]
+			['Legal address', `before${lineSeparator}after`]
 		]);
 		const responseByMessage = new Map([
 			['Brand display name', 'Project'],
-			['Legal company name', 'Company\nDivision'],
+			['Legal company name', 'Company\r\nDivision'],
 			['Legal operator name', 'Operator'],
-			['Legal address', 'Line 1\nLine 2']
+			['Legal address', 'Line 1\r\nLine 2']
 		]);
 		const prompts: PromptAdapter = {
 			text: async (options) => {

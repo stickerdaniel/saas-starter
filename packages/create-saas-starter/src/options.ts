@@ -57,6 +57,11 @@ function normalizedString(value: string | undefined, option: string): string | u
 	return normalized;
 }
 
+function normalizedMultilineString(value: string | undefined, option: string): string | undefined {
+	const normalized = normalizedString(value, option);
+	return normalized === undefined ? undefined : normalizeMultilineText(normalized);
+}
+
 export function parseCliOptions(args: string[]): CliOptions {
 	let parsed: ReturnType<typeof parseArgs>;
 	try {
@@ -104,9 +109,9 @@ export function parseCliOptions(args: string[]): CliOptions {
 		slug: normalizedString(values.slug as string | undefined, 'slug'),
 		repo: normalizedString(values.repo as string | undefined, 'repo'),
 		brand: normalizedString(values.brand as string | undefined, 'brand'),
-		company: normalizedString(values.company as string | undefined, 'company'),
+		company: normalizedMultilineString(values.company as string | undefined, 'company'),
 		operator: normalizedString(values.operator as string | undefined, 'operator'),
-		address: normalizedString(values.address as string | undefined, 'address'),
+		address: normalizedMultilineString(values.address as string | undefined, 'address'),
 		email: normalizedString(values.email as string | undefined, 'email'),
 		ref: normalizedString(values.ref as string | undefined, 'ref'),
 		yes: values.yes === true,
@@ -159,11 +164,22 @@ function isBidiControl(code: number): boolean {
 	);
 }
 
+export function normalizeMultilineText(value: string): string {
+	return value.replaceAll('\r\n', '\n');
+}
+
 export function hasUnsafeTextControl(value: string, allowLineFeeds = false): boolean {
-	return [...value].some((character) => {
+	const normalized = allowLineFeeds ? normalizeMultilineText(value) : value;
+	return [...normalized].some((character) => {
 		const code = character.codePointAt(0)!;
 		if (allowLineFeeds && code === 0x0a) return false;
-		return code <= 0x1f || (code >= 0x7f && code <= 0x9f) || isBidiControl(code);
+		return (
+			code <= 0x1f ||
+			(code >= 0x7f && code <= 0x9f) ||
+			code === 0x2028 ||
+			code === 0x2029 ||
+			isBidiControl(code)
+		);
 	});
 }
 

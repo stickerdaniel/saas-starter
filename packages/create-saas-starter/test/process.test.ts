@@ -325,22 +325,32 @@ describe('process contract', () => {
 	});
 
 	it('uses ignored stdin and the provided filtered environment', async () => {
+		const environment = {
+			...filteredEnvironment({
+				...process.env,
+				ONLY_THIS: 'yes',
+				APP_SECRET: 'not-forwarded'
+			}),
+			ONLY_THIS: 'yes'
+		};
 		const result = await runProcess(
 			{
 				command: process.execPath,
 				args: ['-e', 'process.stdout.write(JSON.stringify(process.env))'],
-				env: { PATH: process.env.PATH, HUSKY: '0', ONLY_THIS: 'yes' }
+				env: environment
 			},
 			{
-				env: { PATH: process.env.PATH, HUSKY: '0', ONLY_THIS: 'yes' },
+				env: environment,
 				signal: new AbortController().signal,
 				capture: true
 			}
 		);
-		const environment = JSON.parse(result.stdout);
 		expect(result.code).toBe(0);
-		expect(environment.ONLY_THIS).toBe('yes');
-		expect(environment.APP_SECRET).toBeUndefined();
+		expect(result.stderr).toBe('');
+		expect(result.stdout).not.toBe('');
+		const childEnvironment = JSON.parse(result.stdout);
+		expect(childEnvironment.ONLY_THIS).toBe('yes');
+		expect(childEnvironment.APP_SECRET).toBeUndefined();
 	});
 
 	it.runIf(process.platform !== 'win32')(

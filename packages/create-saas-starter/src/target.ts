@@ -191,6 +191,7 @@ export interface StagingTargetOptions {
 	platform?: NodeJS.Platform;
 	environment?: NodeJS.ProcessEnv;
 	root?: string;
+	device?: (value: string) => Promise<number>;
 }
 
 export async function createStagingTarget(
@@ -202,22 +203,22 @@ export async function createStagingTarget(
 	throwIfAborted(signal);
 	const platform = options.platform ?? process.platform;
 	const environment = options.environment ?? process.env;
-	const root = await realpath(options.root ?? (await defaultStagingRoot(platform, environment)));
+	let root = await realpath(options.root ?? (await defaultStagingRoot(platform, environment)));
 	if (platform === 'win32') await assertSafeWindowsStagingRoot(root, environment);
-	else await assertSafePosixStagingRoot(root);
+	else {
+		await assertSafePosixStagingRoot(root);
+		const device = options.device ?? (async (value: string) => (await stat(value)).dev);
+		if ((await device(root)) !== (await device(plan.parent))) {
+			root = plan.parent;
+			await assertSafePosixStagingRoot(root);
+		}
+	}
 	const staging = await mkdtemp(path.join(root, 'create-saas-starter-'));
 	await chmod(staging, 0o700);
 	try {
 		throwIfAborted(signal);
 		await writeExclusive(markerPath(staging), `${JSON.stringify(marker, null, 2)}\n`, 0o600);
 		throwIfAborted(signal);
-		const [rootInfo, parentInfo] = await Promise.all([stat(root), stat(plan.parent)]);
-		if (rootInfo.dev !== parentInfo.dev) {
-			throw new StagingTargetError(
-				staging,
-				'The protected staging directory is on a different filesystem than the target.'
-			);
-		}
 	} catch (error) {
 		if (error instanceof StagingTargetError) throw error;
 		throw new StagingTargetError(staging, 'The staging directory could not be prepared.', error);
@@ -322,13 +323,22 @@ class TargetPublishError extends Error {
 	}
 }
 
+export interface PublishStagedTargetOptions {
+	platform?: NodeJS.Platform;
+	copy?: typeof cp;
+	cleanup?: (value: string) => Promise<void>;
+}
+
 export async function publishStagedTarget(
 	plan: TargetPlan,
 	staging: string,
 	signal: AbortSignal,
-	platform: NodeJS.Platform = process.platform
+	options: PublishStagedTargetOptions = {}
 ): Promise<void> {
 	throwIfAborted(signal);
+	const platform = options.platform ?? process.platform;
+	const copy = options.copy ?? cp;
+	let pendingMarker: string | undefined;
 	try {
 		await mkdir(plan.path, { mode: 0o755 });
 		throwIfAborted(signal);
@@ -336,9 +346,9 @@ export async function publishStagedTarget(
 			await rename(staging, plan.path);
 			return;
 		}
-		for (const entry of await readdir(staging)) {
+		for (const entry of (await readdir(staging)).filter((entry) => entry !== SCAFFOLD_MARKER)) {
 			throwIfAborted(signal);
-			await cp(path.join(staging, entry), path.join(plan.path, entry), {
+			await copy(path.join(staging, entry), path.join(plan.path, entry), {
 				recursive: true,
 				force: false,
 				errorOnExist: true,
@@ -347,10 +357,25 @@ export async function publishStagedTarget(
 			});
 		}
 		throwIfAborted(signal);
-		await rm(staging, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
+		pendingMarker = path.join(plan.path, `${SCAFFOLD_MARKER}.publish-${randomUUID()}`);
+		await copy(markerPath(staging), pendingMarker, {
+			force: false,
+			errorOnExist: true,
+			preserveTimestamps: true
+		});
+		throwIfAborted(signal);
+		await rename(pendingMarker, markerPath(plan.path));
+		pendingMarker = undefined;
 	} catch (error) {
+		if (pendingMarker) await unlink(pendingMarker).catch(() => {});
 		throw new TargetPublishError(plan.path, staging, error);
 	}
+	const cleanup =
+		options.cleanup ??
+		(async (value: string) => {
+			await rm(value, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
+		});
+	await cleanup(staging).catch(() => {});
 }
 
 export function throwIfAborted(signal: AbortSignal): void {

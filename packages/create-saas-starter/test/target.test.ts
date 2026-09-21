@@ -1,17 +1,19 @@
 import {
 	chmod,
+	cp,
 	lstat,
 	mkdtemp,
 	mkdir,
 	readFile,
 	readdir,
+	realpath,
 	rm,
 	symlink,
 	writeFile
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { archivePathForTarget, SCAFFOLD_MARKER, type ValidatedArchive } from '../src/archive.js';
 import {
 	claimTarget,
@@ -39,6 +41,13 @@ async function temporaryParent(prefix: string): Promise<string> {
 
 function marker() {
 	return initialMarker({ ref: 'main', sha: 'a'.repeat(40), archiveSha256: 'b'.repeat(64) });
+}
+
+async function markerAt(target: string): Promise<{ state: string; phase: string }> {
+	return JSON.parse(await readFile(path.join(target, SCAFFOLD_MARKER), 'utf8')) as {
+		state: string;
+		phase: string;
+	};
 }
 
 function activeSignal(): AbortSignal {
@@ -133,6 +142,44 @@ describe('target ownership', () => {
 	);
 
 	it.runIf(process.platform !== 'win32')(
+		'falls back to a protected target-parent root across POSIX devices',
+		async () => {
+			const parent = await temporaryParent('create-saas-starter-target-device-');
+			const preferredRoot = await temporaryParent('create-saas-starter-other-device-');
+			const plan = await inspectTarget('project', parent);
+			const canonicalPreferredRoot = await realpath(preferredRoot);
+			const device = vi.fn(async (value: string) => (value === canonicalPreferredRoot ? 1 : 2));
+
+			const staging = await createStagingTarget(plan, marker(), activeSignal(), {
+				root: preferredRoot,
+				device
+			});
+
+			expect(path.dirname(staging)).toBe(plan.parent);
+			expect(device).toHaveBeenCalledTimes(2);
+		}
+	);
+
+	it('does not apply the POSIX device contract to Windows profile staging', async () => {
+		const profile = await temporaryParent('create-saas-starter-windows-profile-');
+		const stagingRoot = path.join(profile, 'staging');
+		await mkdir(stagingRoot);
+		const parent = await temporaryParent('create-saas-starter-windows-target-');
+		const plan = await inspectTarget('project', parent);
+		const device = vi.fn(async () => 1);
+
+		const staging = await createStagingTarget(plan, marker(), activeSignal(), {
+			platform: 'win32',
+			environment: { USERPROFILE: profile },
+			root: stagingRoot,
+			device
+		});
+
+		expect(path.dirname(staging)).toBe(await realpath(stagingRoot));
+		expect(device).not.toHaveBeenCalled();
+	});
+
+	it.runIf(process.platform !== 'win32')(
 		'publishes a completed staging directory through an exclusive final claim',
 		async () => {
 			const parent = await temporaryParent('create-saas-starter-publish-parent-');
@@ -165,6 +212,79 @@ describe('target ownership', () => {
 			await expect(lstat(staging)).rejects.toMatchObject({ code: 'ENOENT' });
 		}
 	);
+
+	it('publishes the Windows ready marker only after every project entry', async () => {
+		const parent = await temporaryParent('create-saas-starter-marker-order-');
+		const plan = await inspectTarget('project', parent);
+		const current = marker();
+		const staging = await createStagingTarget(plan, current, activeSignal());
+		await writeFile(path.join(staging, 'content.txt'), 'complete');
+		await updateMarker(staging, current, 'ready', 'complete');
+		const copy = (async (
+			source: string,
+			destination: string,
+			options: Parameters<typeof cp>[2]
+		) => {
+			if (path.basename(source) === 'content.txt') throw new Error('copy failed');
+			await cp(source, destination, options);
+		}) as typeof cp;
+
+		await expect(
+			publishStagedTarget(plan, staging, activeSignal(), { platform: 'win32', copy })
+		).rejects.toThrow('Recovery files remain');
+		await expect(lstat(path.join(plan.path, SCAFFOLD_MARKER))).rejects.toMatchObject({
+			code: 'ENOENT'
+		});
+		await expect(markerAt(staging)).resolves.toMatchObject({ state: 'ready', phase: 'complete' });
+	});
+
+	it('removes the Windows marker when interrupted at the commit boundary', async () => {
+		const parent = await temporaryParent('create-saas-starter-marker-abort-');
+		const plan = await inspectTarget('project', parent);
+		const current = marker();
+		const staging = await createStagingTarget(plan, current, activeSignal());
+		await writeFile(path.join(staging, 'content.txt'), 'complete');
+		await updateMarker(staging, current, 'ready', 'complete');
+		const controller = new AbortController();
+		const copy = (async (
+			source: string,
+			destination: string,
+			options: Parameters<typeof cp>[2]
+		) => {
+			await cp(source, destination, options);
+			if (path.basename(source) === SCAFFOLD_MARKER)
+				controller.abort(new Error('interrupt commit'));
+		}) as typeof cp;
+
+		await expect(
+			publishStagedTarget(plan, staging, controller.signal, { platform: 'win32', copy })
+		).rejects.toThrow('Recovery files remain');
+		await expect(lstat(path.join(plan.path, SCAFFOLD_MARKER))).rejects.toMatchObject({
+			code: 'ENOENT'
+		});
+		await expect(markerAt(staging)).resolves.toMatchObject({ state: 'ready', phase: 'complete' });
+	});
+
+	it('does not turn a committed Windows target into failure when staging cleanup fails', async () => {
+		const parent = await temporaryParent('create-saas-starter-cleanup-');
+		const plan = await inspectTarget('project', parent);
+		const current = marker();
+		const staging = await createStagingTarget(plan, current, activeSignal());
+		await writeFile(path.join(staging, 'content.txt'), 'complete');
+		await updateMarker(staging, current, 'ready', 'complete');
+
+		await expect(
+			publishStagedTarget(plan, staging, activeSignal(), {
+				platform: 'win32',
+				cleanup: async () => {
+					throw new Error('cleanup failed');
+				}
+			})
+		).resolves.toBeUndefined();
+		await expect(markerAt(plan.path)).resolves.toMatchObject({ state: 'ready', phase: 'complete' });
+		expect(await readFile(path.join(plan.path, 'content.txt'), 'utf8')).toBe('complete');
+		expect(await lstat(staging)).toBeDefined();
+	});
 
 	it('preserves staging when another process wins the final target claim', async () => {
 		const parent = await temporaryParent('create-saas-starter-publish-race-');

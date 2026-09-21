@@ -5,6 +5,7 @@ import {
 	isValidContactEmail,
 	isValidRepository,
 	isValidSlug,
+	normalizeMultilineText,
 	type CliOptions,
 	UsageError,
 	validateProvidedValues
@@ -93,19 +94,25 @@ async function promptOptional(
 	signal: AbortSignal | undefined,
 	message: string,
 	value: string | undefined,
-	validate?: (value: string | undefined) => string | undefined
+	validate?: (value: string | undefined) => string | undefined,
+	multiline = false
 ): Promise<string | undefined> {
-	if (value !== undefined) return value;
-	return optional(
+	const normalize = (candidate: string) =>
+		multiline ? normalizeMultilineText(candidate) : candidate;
+	if (value !== undefined) return normalize(value);
+	const resolved = optional(
 		await prompts.text({
 			message,
 			signal,
 			placeholder: 'Leave blank to keep the template value',
 			validate: (candidate) =>
-				candidate === undefined || candidate.trim() === '' ? undefined : validate?.(candidate)
+				candidate === undefined || candidate.trim() === ''
+					? undefined
+					: validate?.(normalize(candidate))
 		}),
 		prompts
 	);
+	return resolved === undefined ? undefined : normalize(resolved);
 }
 
 export async function resolveOptions(
@@ -116,6 +123,11 @@ export async function resolveOptions(
 		signal?: AbortSignal;
 	} = {}
 ): Promise<ResolvedOptions> {
+	options = {
+		...options,
+		company: options.company === undefined ? undefined : normalizeMultilineText(options.company),
+		address: options.address === undefined ? undefined : normalizeMultilineText(options.address)
+	};
 	validateProvidedValues(options);
 	const prompts = configuration.prompts ?? defaultPrompts;
 	const signal = configuration.signal;
@@ -174,7 +186,8 @@ export async function resolveOptions(
 		signal,
 		'Legal company name',
 		options.company,
-		multiline
+		multiline,
+		true
 	);
 	const operator = await promptOptional(
 		prompts,
@@ -188,7 +201,8 @@ export async function resolveOptions(
 		signal,
 		'Legal address',
 		options.address,
-		multiline
+		multiline,
+		true
 	);
 	const email = await promptOptional(
 		prompts,
