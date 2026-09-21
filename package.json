@@ -72,7 +72,7 @@
 		"@formkit/auto-animate": "0.10.0",
 		"@gilhrpenner/convex-files-control": "0.5.8",
 		"@jsquash/webp": "1.5.0",
-		"@mmailaender/convex-better-auth-svelte": "0.8.2",
+		"@mmailaender/convex-better-auth-svelte": "0.9.0",
 		"@openrouter/ai-sdk-provider": "3.0.0",
 		"@rive-app/canvas": "2.42.0",
 		"@sentry/sveltekit": "10.73.0",
