@@ -33,6 +33,13 @@
 		},
 		{
 			"type": "git",
+			"name": "shadcnLint",
+			"url": "https://github.com/shadcn-ui/lint",
+			"branch": "main",
+			"specialNotes": "Agent-first linter for Tailwind design systems (@shadcn/lint). Oxlint and ESLint. Rules are no-restyle plus color/class/style contracts; no native-element forbid. React/TSX-first."
+		},
+		{
+			"type": "git",
 			"name": "bitsUi",
 			"url": "https://github.com/huntabyte/bits-ui",
 			"branch": "main",
@@ -499,6 +506,13 @@
 			"url": "https://github.com/sveltejs/svelte-eslint-parser",
 			"branch": "main",
 			"specialNotes": "Svelte ESLint parser. AST node shapes and parserOptions used by the wrapper in eslint/parsers/safe-svelte-parser.js and by the rule tests under eslint/rules."
+		},
+		{
+			"type": "git",
+			"name": "eslintPluginSvelte",
+			"url": "https://github.com/sveltejs/eslint-plugin-svelte",
+			"branch": "main",
+			"specialNotes": "Pinned in package.json as eslint-plugin-svelte 3.23.0. Contains svelte/no-restricted-html-elements (tag names + optional message only). Compare before proposing a richer restrict or a separate shadcn-svelte plugin."
 		},
 		{
 			"type": "git",
