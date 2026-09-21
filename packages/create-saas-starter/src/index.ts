@@ -39,6 +39,7 @@ export interface CliIo {
 	environment: NodeJS.ProcessEnv;
 	cwd: string;
 	prompts?: PromptAdapter;
+	interrupts?: InterruptEmitter;
 }
 
 export interface CliRuntime {
@@ -63,7 +64,7 @@ const defaultRuntime: CliRuntime = {
 	updateMarker
 };
 
-interface InterruptEmitter {
+export interface InterruptEmitter {
 	on(event: 'SIGINT', listener: () => void): unknown;
 	off(event: 'SIGINT', listener: () => void): unknown;
 }
@@ -105,7 +106,7 @@ export async function runCli(
 		interrupted = true;
 		controller.abort(new Error('Scaffolding interrupted.'));
 	};
-	const removeInterruptListener = listenForInterrupt(onSigint);
+	const removeInterruptListener = listenForInterrupt(onSigint, io.interrupts);
 	let claimedTarget: string | undefined;
 	let marker: ScaffoldMarker | undefined;
 	let phase: ScaffoldPhase = 'files';

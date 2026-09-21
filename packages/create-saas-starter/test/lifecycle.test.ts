@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events';
 import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -46,19 +47,27 @@ function argumentsForProject(extra: string[] = []): string[] {
 	];
 }
 
-async function fixtureIo(): Promise<{ parent: string; messages: string[]; io: CliIo }> {
+async function fixtureIo(): Promise<{
+	parent: string;
+	messages: string[];
+	interrupts: EventEmitter;
+	io: CliIo;
+}> {
 	const parent = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-late-abort-'));
 	temporaryDirectories.push(parent);
 	const messages: string[] = [];
+	const interrupts = new EventEmitter();
 	return {
 		parent,
 		messages,
+		interrupts,
 		io: {
 			stdout: (message) => messages.push(message),
 			stderr: (message) => messages.push(message),
 			stdin: process.stdin,
 			environment: process.env,
-			cwd: parent
+			cwd: parent,
+			interrupts
 		}
 	};
 }
@@ -90,7 +99,7 @@ describe('CLI lifecycle', () => {
 	});
 
 	it('turns an abort after setup completion into preserved incomplete state', async () => {
-		const { parent, messages, io } = await fixtureIo();
+		const { parent, messages, interrupts, io } = await fixtureIo();
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
 			responseFromBuffer(tarGz(validTemplateEntries()))
 		);
@@ -98,8 +107,8 @@ describe('CLI lifecycle', () => {
 			updateMarker,
 			runSetupAndInstall: async (input) => {
 				await input.onSetupComplete();
-				process.emit('SIGINT');
-				process.emit('SIGINT');
+				interrupts.emit('SIGINT');
+				interrupts.emit('SIGINT');
 				return 'needs-install';
 			}
 		};
@@ -114,7 +123,7 @@ describe('CLI lifecycle', () => {
 	});
 
 	it('replaces a final ready marker with incomplete state when marker I/O is followed by abort', async () => {
-		const { parent, messages, io } = await fixtureIo();
+		const { parent, messages, interrupts, io } = await fixtureIo();
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
 			responseFromBuffer(tarGz(validTemplateEntries()))
 		);
@@ -127,8 +136,8 @@ describe('CLI lifecycle', () => {
 			updateMarker: async (...input) => {
 				if (!interrupted && input[2] === 'ready' && input[3] === 'complete') {
 					interrupted = true;
-					process.emit('SIGINT');
-					process.emit('SIGINT');
+					interrupts.emit('SIGINT');
+					interrupts.emit('SIGINT');
 				}
 				return await updateMarker(...input);
 			}

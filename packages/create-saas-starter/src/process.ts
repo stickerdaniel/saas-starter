@@ -51,6 +51,10 @@ function executableNames(platform: NodeJS.Platform): string[] {
 	return platform === 'win32' ? ['bun.exe'] : ['bun'];
 }
 
+function pathContract(platform: NodeJS.Platform): typeof path.posix | typeof path.win32 {
+	return platform === 'win32' ? path.win32 : path.posix;
+}
+
 export async function resolveBunExecutable(
 	environment: NodeJS.ProcessEnv = process.env,
 	cwd: string = process.cwd(),
@@ -60,10 +64,11 @@ export async function resolveBunExecutable(
 	if (currentBun) return currentBun;
 	const searchPath = environment.PATH ?? environment.Path ?? environment.path;
 	if (searchPath === undefined) throw new Error('Bun was not found because PATH is unavailable.');
-	for (const directory of searchPath.split(path.delimiter)) {
-		const absoluteDirectory = path.resolve(cwd, directory || '.');
+	const paths = pathContract(platform);
+	for (const directory of searchPath.split(paths.delimiter)) {
+		const absoluteDirectory = paths.resolve(cwd, directory || '.');
 		for (const name of executableNames(platform)) {
-			const candidate = path.join(absoluteDirectory, name);
+			const candidate = paths.join(absoluteDirectory, name);
 			try {
 				await access(candidate, platform === 'win32' ? constants.F_OK : constants.X_OK);
 				return candidate;
@@ -77,17 +82,19 @@ export async function resolveBunExecutable(
 
 export function filteredEnvironment(
 	environment: NodeJS.ProcessEnv = process.env,
-	cwd: string = process.cwd()
+	cwd: string = process.cwd(),
+	platform: NodeJS.Platform = process.platform
 ): NodeJS.ProcessEnv {
 	const result: NodeJS.ProcessEnv = {};
+	const paths = pathContract(platform);
 	for (const [name, value] of Object.entries(environment)) {
 		if (value === undefined || !ENVIRONMENT_ALLOWLIST.has(name.toUpperCase())) continue;
 		result[name] =
 			name.toUpperCase() === 'PATH'
 				? value
-						.split(path.delimiter)
-						.map((directory) => path.resolve(cwd, directory || '.'))
-						.join(path.delimiter)
+						.split(paths.delimiter)
+						.map((directory) => paths.resolve(cwd, directory || '.'))
+						.join(paths.delimiter)
 				: value;
 	}
 	result.HUSKY = '0';
@@ -117,6 +124,14 @@ async function terminatePosixGroup(pid: number): Promise<void> {
 	} catch {
 		// Best effort while probing or terminating a process.
 	}
+}
+
+export function spawnEnvironment(
+	environment: NodeJS.ProcessEnv,
+	platform: NodeJS.Platform,
+	hostEnvironment: NodeJS.ProcessEnv = process.env
+): NodeJS.ProcessEnv {
+	return platform === 'win32' ? { ...hostEnvironment, ...environment } : environment;
 }
 
 function collect(stream: NodeJS.ReadableStream | null): { value: () => string } {
@@ -178,7 +193,7 @@ export async function runProcess(
 		if (aborted) return { code: 130, stdout: '', stderr: '' };
 		child = spawn(wrapped.command, wrapped.args, {
 			cwd: options.cwd,
-			env: wrapped.env,
+			env: spawnEnvironment(wrapped.env ?? {}, platform),
 			detached: platform !== 'win32',
 			stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'inherit', 'inherit'],
 			windowsHide: true

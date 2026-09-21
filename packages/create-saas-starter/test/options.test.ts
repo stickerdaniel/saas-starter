@@ -222,6 +222,7 @@ describe('interrupt handling', () => {
 		const output = new PromptOutput();
 		let announceStarted!: () => void;
 		const started = new Promise<void>((resolve) => (announceStarted = resolve));
+		const interrupts = new EventEmitter();
 		const baselineListeners = process.listenerCount('SIGINT');
 		const running = runCli([], {
 			stdout: () => {},
@@ -229,13 +230,14 @@ describe('interrupt handling', () => {
 			stdin: input as unknown as NodeJS.ReadStream,
 			environment: process.env,
 			cwd: parent,
-			prompts: realPromptAdapter(input, output, { text: announceStarted })
+			prompts: realPromptAdapter(input, output, { text: announceStarted }),
+			interrupts
 		});
 		await started;
 		expect(input.listenerCount('keypress')).toBeGreaterThan(0);
 
-		process.emit('SIGINT');
-		process.emit('SIGINT');
+		interrupts.emit('SIGINT');
+		interrupts.emit('SIGINT');
 		await expect(running).resolves.toBe(130);
 		expect(input.listenerCount('keypress')).toBe(0);
 		expect(output.listenerCount('resize')).toBe(0);
@@ -253,6 +255,7 @@ describe('interrupt handling', () => {
 		const started = new Promise<void>((resolve) => (announceStarted = resolve));
 		const archive = tarGz(validTemplateEntries());
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(responseFromBuffer(archive));
+		const interrupts = new EventEmitter();
 		const baselineListeners = process.listenerCount('SIGINT');
 		const running = runCli(
 			[
@@ -278,14 +281,15 @@ describe('interrupt handling', () => {
 				stdin: input as unknown as NodeJS.ReadStream,
 				environment: process.env,
 				cwd: parent,
-				prompts: realPromptAdapter(input, output, { confirm: announceStarted })
+				prompts: realPromptAdapter(input, output, { confirm: announceStarted }),
+				interrupts
 			}
 		);
 		await started;
 		expect(input.listenerCount('keypress')).toBeGreaterThan(0);
 
-		process.emit('SIGINT');
-		process.emit('SIGINT');
+		interrupts.emit('SIGINT');
+		interrupts.emit('SIGINT');
 		await expect(running).resolves.toBe(130);
 		expect(input.listenerCount('keypress')).toBe(0);
 		expect(output.listenerCount('resize')).toBe(0);
@@ -299,9 +303,10 @@ describe('interrupt handling', () => {
 		temporaryDirectories.push(parent);
 		const messages: string[] = [];
 		const archive = tarGz(validTemplateEntries());
+		const interrupts = new EventEmitter();
 		const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
-			process.emit('SIGINT');
-			process.emit('SIGINT');
+			interrupts.emit('SIGINT');
+			interrupts.emit('SIGINT');
 			return responseFromBuffer(archive);
 		});
 
@@ -310,7 +315,8 @@ describe('interrupt handling', () => {
 			stderr: (message) => messages.push(message),
 			stdin: process.stdin,
 			environment: process.env,
-			cwd: parent
+			cwd: parent,
+			interrupts
 		});
 
 		expect(code).toBe(130);

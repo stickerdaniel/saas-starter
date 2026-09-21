@@ -8,7 +8,8 @@ import {
 	resolveBunExecutable,
 	runProcess,
 	runSetupAndInstall,
-	setupArguments
+	setupArguments,
+	spawnEnvironment
 } from '../src/process.js';
 import type { ResolvedOptions } from '../src/prompts.js';
 
@@ -61,7 +62,50 @@ describe('process contract', () => {
 				NODE_OPTIONS: '--require unwanted',
 				BUN_CONFIG_TOKEN: 'not-forwarded'
 			})
-		).toEqual({ PATH: '/bin', HOME: '/home/test', LANG: 'en_US.UTF-8', HUSKY: '0' });
+		).toEqual({
+			PATH: path.resolve('/bin'),
+			HOME: '/home/test',
+			LANG: 'en_US.UTF-8',
+			HUSKY: '0'
+		});
+	});
+
+	it('uses the selected platform contract for PATH normalization', () => {
+		expect(
+			filteredEnvironment(
+				{ PATH: String.raw`tools;C:\shared;;D:\bin` },
+				String.raw`C:\workspace\app`,
+				'win32'
+			).PATH
+		).toBe(
+			[
+				String.raw`C:\workspace\app\tools`,
+				String.raw`C:\shared`,
+				String.raw`C:\workspace\app`,
+				String.raw`D:\bin`
+			].join(';')
+		);
+		expect(filteredEnvironment({ PATH: 'tools:/bin' }, '/workspace/app', 'linux').PATH).toBe(
+			'/workspace/app/tools:/bin'
+		);
+	});
+
+	it('keeps the Windows wrapper host environment separate from the managed child', () => {
+		const child = { PATH: String.raw`C:\filtered`, HUSKY: '0' };
+		const wrapper = spawnEnvironment(child, 'win32', {
+			PATH: String.raw`C:\host`,
+			SYSTEMROOT: String.raw`C:\Windows`,
+			APP_SECRET: 'wrapper-only'
+		});
+
+		expect(wrapper).toEqual({
+			PATH: String.raw`C:\filtered`,
+			SYSTEMROOT: String.raw`C:\Windows`,
+			APP_SECRET: 'wrapper-only',
+			HUSKY: '0'
+		});
+		expect(child).toEqual({ PATH: String.raw`C:\filtered`, HUSKY: '0' });
+		expect(spawnEnvironment(child, 'linux', { APP_SECRET: 'not-forwarded' })).toBe(child);
 	});
 
 	it('rejects a missing Bun executable before target writes', async () => {
