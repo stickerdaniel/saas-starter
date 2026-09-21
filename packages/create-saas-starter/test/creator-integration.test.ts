@@ -87,7 +87,7 @@ describe('creator workflows', () => {
 
 	it('triggers child tests when covered external workflows change', () => {
 		const creatorWorkflowPath = '.github/workflows/create-saas-starter.yml';
-		const integrationTest = read('packages/create-saas-starter/test/stage-b-integration.test.ts');
+		const integrationTest = read('packages/create-saas-starter/test/creator-integration.test.ts');
 		const creatorWorkflow = read(creatorWorkflowPath);
 		const coveredWorkflowPaths = [
 			...integrationTest.matchAll(/read\('(\.github\/workflows\/[^']+\.yml)'\)/g)

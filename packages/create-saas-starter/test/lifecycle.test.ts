@@ -98,57 +98,63 @@ describe('CLI lifecycle', () => {
 		expect(messages.join('\n')).toMatch(/Target path is not portable.*archive file/);
 	});
 
-	it('turns an abort after setup completion into preserved incomplete state', async () => {
-		const { parent, messages, interrupts, io } = await fixtureIo();
-		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-			responseFromBuffer(tarGz(validTemplateEntries()))
-		);
-		const runtime: Partial<CliRuntime> = {
-			updateMarker,
-			runSetupAndInstall: async (input) => {
-				await input.onSetupComplete();
-				interrupts.emit('SIGINT');
-				interrupts.emit('SIGINT');
-				return 'needs-install';
-			}
-		};
-
-		await expect(runCli(argumentsForProject(['--skip-install']), io, runtime)).resolves.toBe(130);
-		await expect(markerAt(parent)).resolves.toMatchObject({
-			state: 'incomplete',
-			phase: 'install'
-		});
-		expect(messages.some((message) => message.startsWith('Created '))).toBe(false);
-		expect(messages.join('\n')).toContain('interrupted');
-	});
-
-	it('replaces a final ready marker with incomplete state when marker I/O is followed by abort', async () => {
-		const { parent, messages, interrupts, io } = await fixtureIo();
-		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-			responseFromBuffer(tarGz(validTemplateEntries()))
-		);
-		let interrupted = false;
-		const runtime: Partial<CliRuntime> = {
-			runSetupAndInstall: async (input) => {
-				await input.onSetupComplete();
-				return 'ready';
-			},
-			updateMarker: async (...input) => {
-				if (!interrupted && input[2] === 'ready' && input[3] === 'complete') {
-					interrupted = true;
+	it.runIf(process.platform !== 'win32')(
+		'turns an abort after setup completion into preserved incomplete state',
+		async () => {
+			const { parent, messages, interrupts, io } = await fixtureIo();
+			vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+				responseFromBuffer(tarGz(validTemplateEntries()))
+			);
+			const runtime: Partial<CliRuntime> = {
+				updateMarker,
+				runSetupAndInstall: async (input) => {
+					await input.onSetupComplete();
 					interrupts.emit('SIGINT');
 					interrupts.emit('SIGINT');
+					return 'needs-install';
 				}
-				return await updateMarker(...input);
-			}
-		};
+			};
 
-		await expect(runCli(argumentsForProject(), io, runtime)).resolves.toBe(130);
-		await expect(markerAt(parent)).resolves.toMatchObject({
-			state: 'incomplete',
-			phase: 'complete'
-		});
-		expect(messages.some((message) => message.startsWith('Created '))).toBe(false);
-		expect(messages.join('\n')).toContain('interrupted');
-	});
+			await expect(runCli(argumentsForProject(['--skip-install']), io, runtime)).resolves.toBe(130);
+			await expect(markerAt(parent)).resolves.toMatchObject({
+				state: 'incomplete',
+				phase: 'install'
+			});
+			expect(messages.some((message) => message.startsWith('Created '))).toBe(false);
+			expect(messages.join('\n')).toContain('interrupted');
+		}
+	);
+
+	it.runIf(process.platform !== 'win32')(
+		'replaces a final ready marker with incomplete state when marker I/O is followed by abort',
+		async () => {
+			const { parent, messages, interrupts, io } = await fixtureIo();
+			vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+				responseFromBuffer(tarGz(validTemplateEntries()))
+			);
+			let interrupted = false;
+			const runtime: Partial<CliRuntime> = {
+				runSetupAndInstall: async (input) => {
+					await input.onSetupComplete();
+					return 'ready';
+				},
+				updateMarker: async (...input) => {
+					if (!interrupted && input[2] === 'ready' && input[3] === 'complete') {
+						interrupted = true;
+						interrupts.emit('SIGINT');
+						interrupts.emit('SIGINT');
+					}
+					return await updateMarker(...input);
+				}
+			};
+
+			await expect(runCli(argumentsForProject(), io, runtime)).resolves.toBe(130);
+			await expect(markerAt(parent)).resolves.toMatchObject({
+				state: 'incomplete',
+				phase: 'complete'
+			});
+			expect(messages.some((message) => message.startsWith('Created '))).toBe(false);
+			expect(messages.join('\n')).toContain('interrupted');
+		}
+	);
 });

@@ -125,6 +125,24 @@ describe('parseCliOptions', () => {
 	});
 
 	it.each([
+		['escape', 0x1b],
+		['bell', 0x07],
+		['right-to-left override', 0x202e]
+	])('rejects %s in every free-text argv value', (_name, code) => {
+		const control = String.fromCodePoint(code);
+		for (const option of ['brand', 'company', 'operator', 'address', 'ref'] as const) {
+			expect(() =>
+				validateProvidedValues({
+					slug: 'project',
+					repo: 'owner/project',
+					brand: 'Project',
+					[option]: `before${control}after`
+				})
+			).toThrow(`--${option}`);
+		}
+	});
+
+	it.each([
 		[['--unknown'], /Unknown option/],
 		[['one', 'two'], /Only one target/],
 		[['--repo', 'owner/one', '--repo', 'owner/two'], /only be provided once/],
@@ -160,6 +178,59 @@ describe('option resolution and trust', () => {
 			'--trust-template'
 		);
 		await expect(confirmTemplateTrust('a'.repeat(40), false, true)).resolves.toBeUndefined();
+	});
+
+	it('applies the safe-text contract to every interactive free-text prompt', async () => {
+		const escape = String.fromCodePoint(0x1b);
+		const bell = String.fromCodePoint(0x07);
+		const rightToLeftOverride = String.fromCodePoint(0x202e);
+		const unsafeByMessage = new Map([
+			['Brand display name', `before${escape}after`],
+			['Legal company name', `before${bell}after`],
+			['Legal operator name', `before${rightToLeftOverride}after`],
+			['Legal address', `before${escape}after`]
+		]);
+		const responseByMessage = new Map([
+			['Brand display name', 'Project'],
+			['Legal company name', 'Company\nDivision'],
+			['Legal operator name', 'Operator'],
+			['Legal address', 'Line 1\nLine 2']
+		]);
+		const prompts: PromptAdapter = {
+			text: async (options) => {
+				const message = String(options.message);
+				const unsafe = unsafeByMessage.get(message);
+				if (unsafe !== undefined) {
+					expect(typeof options.validate).toBe('function');
+					if (typeof options.validate === 'function')
+						expect(options.validate(unsafe)).toBeDefined();
+				}
+				return responseByMessage.get(message) ?? '';
+			},
+			confirm: async () => true,
+			isCancel: clack.isCancel,
+			cancel: vi.fn()
+		};
+
+		await expect(
+			resolveOptions(
+				parseCliOptions([
+					'project',
+					'--slug',
+					'project',
+					'--repo',
+					'owner/project',
+					'--email',
+					'contact@example.test'
+				]),
+				{ interactive: true, prompts }
+			)
+		).resolves.toMatchObject({
+			brand: 'Project',
+			company: 'Company\nDivision',
+			operator: 'Operator',
+			address: 'Line 1\nLine 2'
+		});
 	});
 
 	it('uses the real Clack cancellation result at every prompt boundary', async () => {

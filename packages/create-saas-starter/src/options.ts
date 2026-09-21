@@ -149,10 +149,26 @@ export function isValidRepository(value: string): boolean {
 	);
 }
 
-function isSingleLine(value: string): boolean {
+function isBidiControl(code: number): boolean {
 	return (
-		value.trim() !== '' && !value.includes('\r') && !value.includes('\n') && !value.includes('\0')
+		code === 0x061c ||
+		code === 0x200e ||
+		code === 0x200f ||
+		(code >= 0x202a && code <= 0x202e) ||
+		(code >= 0x2066 && code <= 0x2069)
 	);
+}
+
+export function hasUnsafeTextControl(value: string, allowLineFeeds = false): boolean {
+	return [...value].some((character) => {
+		const code = character.codePointAt(0)!;
+		if (allowLineFeeds && code === 0x0a) return false;
+		return code <= 0x1f || (code >= 0x7f && code <= 0x9f) || isBidiControl(code);
+	});
+}
+
+function isSingleLine(value: string): boolean {
+	return value.trim() !== '' && !hasUnsafeTextControl(value);
 }
 
 export function isValidContactEmail(value: string): boolean {
@@ -213,8 +229,8 @@ export function validateProvidedValues(options: ProvidedValues): void {
 		['company', options.company],
 		['address', options.address]
 	] as const) {
-		if (value !== undefined && (value.trim() === '' || value.includes('\0'))) {
-			throw new UsageError(`--${name} must be a non-empty value.`);
+		if (value !== undefined && (value.trim() === '' || hasUnsafeTextControl(value, true))) {
+			throw new UsageError(`--${name} must be non-empty text without unsafe controls.`);
 		}
 	}
 	if (options.email !== undefined && !isValidContactEmail(options.email)) {

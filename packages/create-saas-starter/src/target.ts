@@ -105,6 +105,42 @@ export async function inspectTarget(directory: string, cwd = process.cwd()): Pro
 	return { path: target, parent };
 }
 
+export async function assertSafeTargetParent(
+	parent: string,
+	platform: NodeJS.Platform = process.platform
+): Promise<void> {
+	if (platform === 'win32') {
+		throw new Error(
+			'Target parent safety cannot be verified on Windows, so no target was claimed.'
+		);
+	}
+	const effectiveUid = process.geteuid?.();
+	if (effectiveUid === undefined) {
+		throw new Error('Target parent ownership cannot be verified on this platform.');
+	}
+	const root = path.parse(parent).root;
+	const relative = path.relative(root, parent);
+	const ancestors = [root];
+	let current = root;
+	for (const segment of relative.split(path.sep).filter(Boolean)) {
+		current = path.join(current, segment);
+		ancestors.push(current);
+	}
+	for (const ancestor of ancestors) {
+		const info = await stat(ancestor);
+		if (!info.isDirectory())
+			throw new Error(`Target parent ancestor is not a directory: ${ancestor}`);
+		if (info.uid !== 0 && info.uid !== effectiveUid) {
+			throw new Error(`Target parent ancestor is owned by another user: ${ancestor}`);
+		}
+		if ((info.mode & 0o022) !== 0 && (info.mode & 0o1000) === 0) {
+			throw new Error(
+				`The target parent is writable by other users without sticky protection: ${ancestor}`
+			);
+		}
+	}
+}
+
 function markerPath(target: string): string {
 	return path.join(target, SCAFFOLD_MARKER);
 }
@@ -179,6 +215,8 @@ export async function claimTarget(
 	marker: ScaffoldMarker,
 	signal: AbortSignal
 ): Promise<void> {
+	throwIfAborted(signal);
+	await assertSafeTargetParent(plan.parent);
 	throwIfAborted(signal);
 	await mkdir(plan.path, { mode: 0o755 });
 	try {

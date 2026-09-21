@@ -1,6 +1,7 @@
 import * as clack from '@clack/prompts';
 import {
 	deriveSlug,
+	hasUnsafeTextControl,
 	isValidContactEmail,
 	isValidRepository,
 	isValidSlug,
@@ -70,8 +71,8 @@ function optional(value: string | symbol, prompts: PromptAdapter): string | unde
 	return normalized === '' ? undefined : normalized;
 }
 
-function hasLineBreakOrNull(value: string | undefined): boolean {
-	return value?.includes('\r') || value?.includes('\n') || value?.includes('\0') || false;
+function hasUnsafeControl(value: string | undefined, allowLineFeeds = false): boolean {
+	return value === undefined ? false : hasUnsafeTextControl(value, allowLineFeeds);
 }
 
 async function promptText(
@@ -161,18 +162,19 @@ export async function resolveOptions(
 		options.brand ??
 		(await promptText(prompts, signal, 'Brand display name', {
 			initialValue: slug,
-			validate: (value) => (hasLineBreakOrNull(value) ? 'Use a single-line value.' : undefined)
+			validate: (value) =>
+				hasUnsafeControl(value) ? 'Use text without line breaks or unsafe controls.' : undefined
 		}));
 	const singleLine = (value: string | undefined) =>
-		hasLineBreakOrNull(value) ? 'Use a single-line value.' : undefined;
-	const nonEmpty = (value: string | undefined) =>
-		value?.includes('\0') ? 'The value must not contain a null character.' : undefined;
+		hasUnsafeControl(value) ? 'Use text without line breaks or unsafe controls.' : undefined;
+	const multiline = (value: string | undefined) =>
+		hasUnsafeControl(value, true) ? 'Use text without unsafe controls.' : undefined;
 	const company = await promptOptional(
 		prompts,
 		signal,
 		'Legal company name',
 		options.company,
-		nonEmpty
+		multiline
 	);
 	const operator = await promptOptional(
 		prompts,
@@ -181,7 +183,13 @@ export async function resolveOptions(
 		options.operator,
 		singleLine
 	);
-	const address = await promptOptional(prompts, signal, 'Legal address', options.address, nonEmpty);
+	const address = await promptOptional(
+		prompts,
+		signal,
+		'Legal address',
+		options.address,
+		multiline
+	);
 	const email = await promptOptional(
 		prompts,
 		signal,
