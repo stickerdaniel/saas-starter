@@ -228,7 +228,7 @@ describe('interrupt handling', () => {
 			stdout: () => {},
 			stderr: () => {},
 			stdin: input as unknown as NodeJS.ReadStream,
-			environment: process.env,
+			environment: { ...process.env, CI: 'false' },
 			cwd: parent,
 			prompts: realPromptAdapter(input, output, { text: announceStarted }),
 			interrupts
@@ -279,7 +279,7 @@ describe('interrupt handling', () => {
 				stdout: () => {},
 				stderr: () => {},
 				stdin: input as unknown as NodeJS.ReadStream,
-				environment: process.env,
+				environment: { ...process.env, CI: 'false' },
 				cwd: parent,
 				prompts: realPromptAdapter(input, output, { confirm: announceStarted }),
 				interrupts

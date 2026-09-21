@@ -1,3 +1,5 @@
+import type { ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { chmod, copyFile, mkdir, mkdtemp, readFile, realpath, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -9,7 +11,8 @@ import {
 	runProcess,
 	runSetupAndInstall,
 	setupArguments,
-	spawnEnvironment
+	spawnEnvironment,
+	waitForChild
 } from '../src/process.js';
 import type { ResolvedOptions } from '../src/prompts.js';
 
@@ -52,6 +55,21 @@ async function waitUntil(predicate: () => boolean | Promise<boolean>): Promise<v
 }
 
 describe('process contract', () => {
+	it('waits for inherited output handles to close after process exit', async () => {
+		const child = new EventEmitter() as ChildProcess;
+		let settled = false;
+		const waiting = waitForChild(child).then((result) => {
+			settled = true;
+			return result;
+		});
+
+		child.emit('exit', 0, null);
+		await new Promise((resolve) => setImmediate(resolve));
+		expect(settled).toBe(false);
+		child.emit('close', 0, null);
+		await expect(waiting).resolves.toEqual({ code: 0, signal: null });
+	});
+
 	it('filters ambient secrets and preload controls while retaining required OS values', () => {
 		expect(
 			filteredEnvironment({

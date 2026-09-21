@@ -140,12 +140,12 @@ function collect(stream: NodeJS.ReadableStream | null): { value: () => string } 
 	return { value: () => output };
 }
 
-async function waitForChild(
+export async function waitForChild(
 	child: ChildProcess
 ): Promise<{ code: number | null; signal: NodeJS.Signals | null }> {
 	return await new Promise((resolve, reject) => {
 		child.once('error', reject);
-		child.once('exit', (code, signal) => resolve({ code, signal }));
+		child.once('close', (code, signal) => resolve({ code, signal }));
 	});
 }
 
