@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -72,8 +72,8 @@ async function fixtureIo(): Promise<{
 	};
 }
 
-async function markerAt(parent: string): Promise<{ state: string; phase: string }> {
-	return JSON.parse(await readFile(path.join(parent, 'project', SCAFFOLD_MARKER), 'utf8')) as {
+async function markerAt(target: string): Promise<{ state: string; phase: string }> {
+	return JSON.parse(await readFile(path.join(target, SCAFFOLD_MARKER), 'utf8')) as {
 		state: string;
 		phase: string;
 	};
@@ -90,71 +90,137 @@ describe('CLI lifecycle', () => {
 				])
 			)
 		);
-		const claimTarget = vi.fn(async () => {});
+		const createStagingTarget = vi.fn(async () => 'unused');
 
-		await expect(runCli(argumentsForProject(), io, { claimTarget })).resolves.toBe(1);
-		expect(claimTarget).not.toHaveBeenCalled();
+		await expect(runCli(argumentsForProject(), io, { createStagingTarget })).resolves.toBe(1);
+		expect(createStagingTarget).not.toHaveBeenCalled();
 		await expect(lstat(path.join(parent, 'project'))).rejects.toMatchObject({ code: 'ENOENT' });
 		expect(messages.join('\n')).toMatch(/Target path is not portable.*archive file/);
 	});
 
-	it.runIf(process.platform !== 'win32')(
-		'turns an abort after setup completion into preserved incomplete state',
-		async () => {
-			const { parent, messages, interrupts, io } = await fixtureIo();
-			vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-				responseFromBuffer(tarGz(validTemplateEntries()))
-			);
-			const runtime: Partial<CliRuntime> = {
-				updateMarker,
-				runSetupAndInstall: async (input) => {
-					await input.onSetupComplete();
+	it('turns an abort after setup completion into preserved incomplete state', async () => {
+		const { messages, interrupts, io } = await fixtureIo();
+		let recoveryPath: string | undefined;
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			responseFromBuffer(tarGz(validTemplateEntries()))
+		);
+		const runtime: Partial<CliRuntime> = {
+			updateMarker,
+			runSetupAndInstall: async (input) => {
+				recoveryPath = input.target;
+				await input.onSetupComplete();
+				interrupts.emit('SIGINT');
+				interrupts.emit('SIGINT');
+				return 'needs-install';
+			}
+		};
+
+		await expect(runCli(argumentsForProject(['--skip-install']), io, runtime)).resolves.toBe(130);
+		expect(recoveryPath).toBeDefined();
+		await expect(markerAt(recoveryPath!)).resolves.toMatchObject({
+			state: 'incomplete',
+			phase: 'install'
+		});
+		expect(messages.some((message) => message.startsWith('Created '))).toBe(false);
+		expect(messages.join('\n')).toContain(`Recovery files were preserved at ${recoveryPath}.`);
+	});
+
+	it('replaces a final ready marker with incomplete state when marker I/O is followed by abort', async () => {
+		const { messages, interrupts, io } = await fixtureIo();
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			responseFromBuffer(tarGz(validTemplateEntries()))
+		);
+		let recoveryPath: string | undefined;
+		let interrupted = false;
+		const runtime: Partial<CliRuntime> = {
+			runSetupAndInstall: async (input) => {
+				recoveryPath = input.target;
+				await input.onSetupComplete();
+				return 'ready';
+			},
+			updateMarker: async (...input) => {
+				if (!interrupted && input[2] === 'ready' && input[3] === 'complete') {
+					interrupted = true;
 					interrupts.emit('SIGINT');
 					interrupts.emit('SIGINT');
-					return 'needs-install';
 				}
-			};
+				return await updateMarker(...input);
+			}
+		};
 
-			await expect(runCli(argumentsForProject(['--skip-install']), io, runtime)).resolves.toBe(130);
-			await expect(markerAt(parent)).resolves.toMatchObject({
-				state: 'incomplete',
-				phase: 'install'
-			});
-			expect(messages.some((message) => message.startsWith('Created '))).toBe(false);
-			expect(messages.join('\n')).toContain('interrupted');
-		}
-	);
+		await expect(runCli(argumentsForProject(), io, runtime)).resolves.toBe(130);
+		expect(recoveryPath).toBeDefined();
+		await expect(markerAt(recoveryPath!)).resolves.toMatchObject({
+			state: 'incomplete',
+			phase: 'complete'
+		});
+		expect(messages.some((message) => message.startsWith('Created '))).toBe(false);
+		expect(messages.join('\n')).toContain(`Recovery files were preserved at ${recoveryPath}.`);
+	});
 
-	it.runIf(process.platform !== 'win32')(
-		'replaces a final ready marker with incomplete state when marker I/O is followed by abort',
-		async () => {
-			const { parent, messages, interrupts, io } = await fixtureIo();
-			vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-				responseFromBuffer(tarGz(validTemplateEntries()))
-			);
-			let interrupted = false;
-			const runtime: Partial<CliRuntime> = {
-				runSetupAndInstall: async (input) => {
-					await input.onSetupComplete();
-					return 'ready';
-				},
-				updateMarker: async (...input) => {
-					if (!interrupted && input[2] === 'ready' && input[3] === 'complete') {
-						interrupted = true;
-						interrupts.emit('SIGINT');
-						interrupts.emit('SIGINT');
-					}
-					return await updateMarker(...input);
-				}
-			};
+	it('publishes completed staging work and reports the final target', async () => {
+		const { parent, messages, io } = await fixtureIo();
+		const finalTarget = path.join(await realpath(parent), 'project');
+		let staging: string | undefined;
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			responseFromBuffer(tarGz(validTemplateEntries()))
+		);
+		const runtime: Partial<CliRuntime> = {
+			runSetupAndInstall: async (input) => {
+				staging = input.target;
+				await input.onSetupComplete();
+				return 'needs-install';
+			}
+		};
 
-			await expect(runCli(argumentsForProject(), io, runtime)).resolves.toBe(130);
-			await expect(markerAt(parent)).resolves.toMatchObject({
-				state: 'incomplete',
-				phase: 'complete'
-			});
-			expect(messages.some((message) => message.startsWith('Created '))).toBe(false);
-			expect(messages.join('\n')).toContain('interrupted');
-		}
-	);
+		await expect(runCli(argumentsForProject(['--skip-install']), io, runtime)).resolves.toBe(0);
+		await expect(markerAt(finalTarget)).resolves.toMatchObject({
+			state: 'needs-install',
+			phase: 'complete'
+		});
+		expect(staging).toBeDefined();
+		await expect(lstat(staging!)).rejects.toMatchObject({ code: 'ENOENT' });
+		expect(messages).toContain(`Created Project at ${finalTarget}`);
+	});
+
+	it('never executes a project that replaces the final target before publication', async () => {
+		const { parent, messages, io } = await fixtureIo();
+		const finalTarget = path.join(await realpath(parent), 'project');
+		const attackMarker = path.join(parent, 'attack-ran');
+		let recoveryPath: string | undefined;
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			responseFromBuffer(tarGz(validTemplateEntries()))
+		);
+		const runtime: Partial<CliRuntime> = {
+			runSetupAndInstall: async (input) => {
+				recoveryPath = input.target;
+				expect(input.target).not.toBe(finalTarget);
+				await mkdir(finalTarget);
+				await writeFile(
+					path.join(finalTarget, 'package.json'),
+					JSON.stringify({
+						scripts: {
+							setup: `node -e "require('node:fs').writeFileSync(${JSON.stringify(attackMarker)}, '')"`
+						}
+					})
+				);
+				await input.onSetupComplete();
+				return 'needs-install';
+			}
+		};
+
+		await expect(runCli(argumentsForProject(['--skip-install']), io, runtime)).resolves.toBe(1);
+		expect(recoveryPath).toBeDefined();
+		await expect(markerAt(recoveryPath!)).resolves.toMatchObject({
+			state: 'incomplete',
+			phase: 'complete'
+		});
+		await expect(lstat(attackMarker)).rejects.toMatchObject({ code: 'ENOENT' });
+		expect(
+			JSON.parse(await readFile(path.join(finalTarget, 'package.json'), 'utf8'))
+		).toMatchObject({
+			scripts: { setup: expect.stringContaining('attack-ran') }
+		});
+		expect(messages.join('\n')).toContain(`Recovery files were preserved at ${recoveryPath}.`);
+	});
 });

@@ -19,10 +19,11 @@ import {
 } from './prompts.js';
 import { runSetupAndInstall, verifyBun } from './process.js';
 import {
-	claimTarget,
+	createStagingTarget,
 	initialMarker,
 	inspectTarget,
-	TargetClaimError,
+	publishStagedTarget,
+	StagingTargetError,
 	throwIfAborted,
 	updateMarker,
 	validateArchiveTargetPaths,
@@ -44,7 +45,8 @@ export interface CliIo {
 
 export interface CliRuntime {
 	inspectTarget: typeof inspectTarget;
-	claimTarget: typeof claimTarget;
+	createStagingTarget: typeof createStagingTarget;
+	publishStagedTarget: typeof publishStagedTarget;
 	runSetupAndInstall: typeof runSetupAndInstall;
 	updateMarker: typeof updateMarker;
 }
@@ -59,7 +61,8 @@ const defaultIo: CliIo = {
 
 const defaultRuntime: CliRuntime = {
 	inspectTarget,
-	claimTarget,
+	createStagingTarget,
+	publishStagedTarget,
 	runSetupAndInstall,
 	updateMarker
 };
@@ -107,7 +110,7 @@ export async function runCli(
 		controller.abort(new Error('Scaffolding interrupted.'));
 	};
 	const removeInterruptListener = listenForInterrupt(onSigint, io.interrupts);
-	let claimedTarget: string | undefined;
+	let recoveryPath: string | undefined;
 	let marker: ScaffoldMarker | undefined;
 	let phase: ScaffoldPhase = 'files';
 	try {
@@ -162,32 +165,38 @@ export async function runCli(
 			sha: resolved.sha,
 			archiveSha256: archive.sha256
 		});
+		let staging: string;
 		try {
-			await runtime.claimTarget(target, marker, controller.signal);
+			staging = await runtime.createStagingTarget(target, marker, controller.signal, {
+				environment: io.environment
+			});
 		} catch (error) {
-			if (error instanceof TargetClaimError) claimedTarget = error.target;
+			if (error instanceof StagingTargetError) recoveryPath = error.recoveryPath;
 			throw error;
 		}
-		claimedTarget = target.path;
-		await writeArchive(target.path, archive, controller.signal);
+		recoveryPath = staging;
+		validateArchiveTargetPaths(staging, archive);
+		await writeArchive(staging, archive, controller.signal);
 		phase = 'setup';
-		marker = await runtime.updateMarker(target.path, marker, 'incomplete', phase);
+		marker = await runtime.updateMarker(staging, marker, 'incomplete', phase);
 
 		const state = await runtime.runSetupAndInstall({
 			bun: bun.executable,
 			environment: bun.environment,
-			target: target.path,
+			target: staging,
 			options,
 			signal: controller.signal,
 			onSetupComplete: async () => {
 				phase = 'install';
-				marker = await runtime.updateMarker(target.path, marker!, 'incomplete', phase);
+				marker = await runtime.updateMarker(staging, marker!, 'incomplete', phase);
 			}
 		});
 		throwIfAborted(controller.signal);
 		phase = 'complete';
-		marker = await runtime.updateMarker(target.path, marker, state, phase);
+		marker = await runtime.updateMarker(staging, marker, state, phase);
 		throwIfAborted(controller.signal);
+		await runtime.publishStagedTarget(target, staging, controller.signal);
+		recoveryPath = undefined;
 
 		io.stdout(`Created ${options.brand} at ${target.path}`);
 		io.stdout(navigation(target.path));
@@ -199,14 +208,17 @@ export async function runCli(
 		);
 		const reminder = legalReminder(options);
 		if (reminder) io.stdout(reminder);
-		throwIfAborted(controller.signal);
 		return 0;
 	} catch (error) {
-		if (claimedTarget && marker) {
-			await runtime.updateMarker(claimedTarget, marker, 'incomplete', phase).catch(() => {});
+		if (recoveryPath && marker) {
+			await runtime.updateMarker(recoveryPath, marker, 'incomplete', phase).catch(() => {});
 		}
 		if (interrupted || controller.signal.aborted) {
-			io.stderr('Scaffolding interrupted. The created target was preserved for inspection.');
+			io.stderr(
+				recoveryPath
+					? `Scaffolding interrupted. Recovery files were preserved at ${recoveryPath}.`
+					: 'Scaffolding interrupted before recovery files were created.'
+			);
 			return 130;
 		}
 		if (error instanceof PromptCancelledError) return 130;
@@ -216,9 +228,9 @@ export async function runCli(
 				? `Error: ${message}\nRun create-saas-starter --help for usage.`
 				: `Error: ${message}`
 		);
-		if (claimedTarget) {
+		if (recoveryPath) {
 			io.stderr(
-				`The target was preserved at ${claimedTarget}. Resolve the reported phase and continue manually.`
+				`Recovery files were preserved at ${recoveryPath}. Resolve the reported phase and continue manually.`
 			);
 		}
 		return 1;

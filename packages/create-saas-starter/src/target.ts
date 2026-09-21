@@ -3,14 +3,19 @@ import { constants } from 'node:fs';
 import {
 	access,
 	chmod,
+	cp,
 	lstat,
 	mkdir,
+	mkdtemp,
 	open,
+	readdir,
 	realpath,
 	rename,
+	rm,
 	stat,
 	unlink
 } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { archivePathForTarget, SCAFFOLD_MARKER, type ValidatedArchive } from './archive.js';
 import { CLI_VERSION, isReservedWindowsDeviceName } from './options.js';
@@ -34,12 +39,22 @@ export interface TargetPlan {
 	parent: string;
 }
 
-export class TargetClaimError extends Error {
+class TargetClaimError extends Error {
 	constructor(
 		readonly target: string,
 		cause: unknown
 	) {
 		super(`Target was created but its scaffold marker could not be written: ${target}`, { cause });
+	}
+}
+
+export class StagingTargetError extends Error {
+	constructor(
+		readonly recoveryPath: string,
+		message: string,
+		cause?: unknown
+	) {
+		super(`${message} Recovery files remain at ${recoveryPath}.`, { cause });
 	}
 }
 
@@ -105,40 +120,109 @@ export async function inspectTarget(directory: string, cwd = process.cwd()): Pro
 	return { path: target, parent };
 }
 
-export async function assertSafeTargetParent(
-	parent: string,
-	platform: NodeJS.Platform = process.platform
-): Promise<void> {
-	if (platform === 'win32') {
-		throw new Error(
-			'Target parent safety cannot be verified on Windows, so no target was claimed.'
-		);
-	}
+function isPathWithin(base: string, candidate: string, platform: NodeJS.Platform): boolean {
+	const paths = platform === 'win32' ? path.win32 : path.posix;
+	const relative = paths.relative(base, candidate);
+	return (
+		relative === '' ||
+		(!relative.startsWith(`..${paths.sep}`) && relative !== '..' && !paths.isAbsolute(relative))
+	);
+}
+
+async function assertSafePosixStagingRoot(root: string): Promise<void> {
 	const effectiveUid = process.geteuid?.();
 	if (effectiveUid === undefined) {
-		throw new Error('Target parent ownership cannot be verified on this platform.');
+		throw new Error('Staging ownership cannot be verified on this platform.');
 	}
-	const root = path.parse(parent).root;
-	const relative = path.relative(root, parent);
-	const ancestors = [root];
-	let current = root;
+	const filesystemRoot = path.parse(root).root;
+	const relative = path.relative(filesystemRoot, root);
+	const ancestors = [filesystemRoot];
+	let current = filesystemRoot;
 	for (const segment of relative.split(path.sep).filter(Boolean)) {
 		current = path.join(current, segment);
 		ancestors.push(current);
 	}
 	for (const ancestor of ancestors) {
 		const info = await stat(ancestor);
-		if (!info.isDirectory())
-			throw new Error(`Target parent ancestor is not a directory: ${ancestor}`);
+		if (!info.isDirectory()) throw new Error(`Staging ancestor is not a directory: ${ancestor}`);
 		if (info.uid !== 0 && info.uid !== effectiveUid) {
-			throw new Error(`Target parent ancestor is owned by another user: ${ancestor}`);
+			throw new Error(`Staging ancestor is owned by another user: ${ancestor}`);
 		}
 		if ((info.mode & 0o022) !== 0 && (info.mode & 0o1000) === 0) {
 			throw new Error(
-				`The target parent is writable by other users without sticky protection: ${ancestor}`
+				`The staging root is writable by other users without sticky protection: ${ancestor}`
 			);
 		}
 	}
+}
+
+async function assertSafeWindowsStagingRoot(
+	root: string,
+	environment: NodeJS.ProcessEnv
+): Promise<void> {
+	const profiles = [environment.LOCALAPPDATA, environment.USERPROFILE].filter(
+		(value): value is string => value !== undefined
+	);
+	for (const profile of profiles) {
+		const canonicalProfile = await realpath(profile).catch(() => undefined);
+		if (canonicalProfile && isPathWithin(canonicalProfile, root, 'win32')) return;
+	}
+	throw new Error('The Windows staging directory is outside the current user profile.');
+}
+
+async function defaultStagingRoot(
+	platform: NodeJS.Platform,
+	environment: NodeJS.ProcessEnv
+): Promise<string> {
+	if (platform !== 'win32') return await realpath(tmpdir());
+	const profile = environment.LOCALAPPDATA ?? environment.USERPROFILE;
+	if (!profile) throw new Error('A per-user Windows profile directory is required for staging.');
+	const canonicalProfile = await realpath(profile);
+	const root = path.join(canonicalProfile, '.create-saas-starter');
+	await mkdir(root, { recursive: true, mode: 0o700 });
+	const canonicalRoot = await realpath(root);
+	if (!isPathWithin(canonicalProfile, canonicalRoot, platform)) {
+		throw new Error('The Windows staging directory escaped the current user profile.');
+	}
+	return canonicalRoot;
+}
+
+export interface StagingTargetOptions {
+	platform?: NodeJS.Platform;
+	environment?: NodeJS.ProcessEnv;
+	root?: string;
+}
+
+export async function createStagingTarget(
+	plan: TargetPlan,
+	marker: ScaffoldMarker,
+	signal: AbortSignal,
+	options: StagingTargetOptions = {}
+): Promise<string> {
+	throwIfAborted(signal);
+	const platform = options.platform ?? process.platform;
+	const environment = options.environment ?? process.env;
+	const root = await realpath(options.root ?? (await defaultStagingRoot(platform, environment)));
+	if (platform === 'win32') await assertSafeWindowsStagingRoot(root, environment);
+	else await assertSafePosixStagingRoot(root);
+	const staging = await mkdtemp(path.join(root, 'create-saas-starter-'));
+	await chmod(staging, 0o700);
+	try {
+		throwIfAborted(signal);
+		await writeExclusive(markerPath(staging), `${JSON.stringify(marker, null, 2)}\n`, 0o600);
+		throwIfAborted(signal);
+		const [rootInfo, parentInfo] = await Promise.all([stat(root), stat(plan.parent)]);
+		if (rootInfo.dev !== parentInfo.dev) {
+			throw new StagingTargetError(
+				staging,
+				'The protected staging directory is on a different filesystem than the target.'
+			);
+		}
+	} catch (error) {
+		if (error instanceof StagingTargetError) throw error;
+		throw new StagingTargetError(staging, 'The staging directory could not be prepared.', error);
+	}
+	return staging;
 }
 
 function markerPath(target: string): string {
@@ -216,8 +300,6 @@ export async function claimTarget(
 	signal: AbortSignal
 ): Promise<void> {
 	throwIfAborted(signal);
-	await assertSafeTargetParent(plan.parent);
-	throwIfAborted(signal);
 	await mkdir(plan.path, { mode: 0o755 });
 	try {
 		throwIfAborted(signal);
@@ -225,6 +307,49 @@ export async function claimTarget(
 		throwIfAborted(signal);
 	} catch (error) {
 		throw new TargetClaimError(plan.path, error);
+	}
+}
+
+class TargetPublishError extends Error {
+	constructor(
+		readonly target: string,
+		readonly recoveryPath: string,
+		cause: unknown
+	) {
+		super(`The final target could not be published. Recovery files remain at ${recoveryPath}.`, {
+			cause
+		});
+	}
+}
+
+export async function publishStagedTarget(
+	plan: TargetPlan,
+	staging: string,
+	signal: AbortSignal,
+	platform: NodeJS.Platform = process.platform
+): Promise<void> {
+	throwIfAborted(signal);
+	try {
+		await mkdir(plan.path, { mode: 0o755 });
+		throwIfAborted(signal);
+		if (platform !== 'win32') {
+			await rename(staging, plan.path);
+			return;
+		}
+		for (const entry of await readdir(staging)) {
+			throwIfAborted(signal);
+			await cp(path.join(staging, entry), path.join(plan.path, entry), {
+				recursive: true,
+				force: false,
+				errorOnExist: true,
+				preserveTimestamps: true,
+				verbatimSymlinks: true
+			});
+		}
+		throwIfAborted(signal);
+		await rm(staging, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
+	} catch (error) {
+		throw new TargetPublishError(plan.path, staging, error);
 	}
 }
 

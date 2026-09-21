@@ -4,7 +4,7 @@ import {
 	mkdtemp,
 	mkdir,
 	readFile,
-	rename,
+	readdir,
 	rm,
 	symlink,
 	writeFile
@@ -14,10 +14,11 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { archivePathForTarget, SCAFFOLD_MARKER, type ValidatedArchive } from '../src/archive.js';
 import {
-	assertSafeTargetParent,
 	claimTarget,
+	createStagingTarget,
 	initialMarker,
 	inspectTarget,
+	publishStagedTarget,
 	updateMarker,
 	validateArchiveTargetPaths,
 	writeArchive
@@ -116,54 +117,70 @@ describe('target ownership', () => {
 		}
 	});
 
-	it('refuses Windows claims when parent ACL safety cannot be proven', async () => {
-		await expect(assertSafeTargetParent('C:\\Users\\example', 'win32')).rejects.toThrow(
-			'cannot be verified on Windows'
+	it.runIf(process.platform !== 'win32')(
+		'rejects an unprotected staging root before materializing files',
+		async () => {
+			const parent = await temporaryParent('create-saas-starter-target-parent-');
+			const stagingRoot = await temporaryParent('create-saas-starter-shared-staging-');
+			await chmod(stagingRoot, 0o777);
+			const plan = await inspectTarget('project', parent);
+
+			await expect(
+				createStagingTarget(plan, marker(), activeSignal(), { root: stagingRoot })
+			).rejects.toThrow(/staging root is writable by other users without sticky protection/i);
+			expect(await readdir(stagingRoot)).toEqual([]);
+		}
+	);
+
+	it.runIf(process.platform !== 'win32')(
+		'publishes a completed staging directory through an exclusive final claim',
+		async () => {
+			const parent = await temporaryParent('create-saas-starter-publish-parent-');
+			const stagingRoot = await temporaryParent('create-saas-starter-sticky-staging-');
+			await chmod(stagingRoot, 0o1777);
+			const plan = await inspectTarget('project', parent);
+			const staging = await createStagingTarget(plan, marker(), activeSignal(), {
+				root: stagingRoot
+			});
+			await writeFile(path.join(staging, 'content.txt'), 'complete');
+
+			await publishStagedTarget(plan, staging, activeSignal());
+
+			expect(await readFile(path.join(plan.path, 'content.txt'), 'utf8')).toBe('complete');
+			await expect(lstat(staging)).rejects.toMatchObject({ code: 'ENOENT' });
+		}
+	);
+
+	it.runIf(process.platform === 'win32')(
+		'publishes from the protected Windows user-profile staging directory',
+		async () => {
+			const parent = await temporaryParent('create-saas-starter-windows-publish-');
+			const plan = await inspectTarget('project', parent);
+			const staging = await createStagingTarget(plan, marker(), activeSignal());
+			await writeFile(path.join(staging, 'content.txt'), 'complete');
+
+			await publishStagedTarget(plan, staging, activeSignal());
+
+			expect(await readFile(path.join(plan.path, 'content.txt'), 'utf8')).toBe('complete');
+			await expect(lstat(staging)).rejects.toMatchObject({ code: 'ENOENT' });
+		}
+	);
+
+	it('preserves staging when another process wins the final target claim', async () => {
+		const parent = await temporaryParent('create-saas-starter-publish-race-');
+		const plan = await inspectTarget('project', parent);
+		const staging = await createStagingTarget(plan, marker(), activeSignal());
+		await writeFile(path.join(staging, 'content.txt'), 'complete');
+		await mkdir(plan.path);
+		const claimed = await lstat(plan.path);
+
+		await expect(publishStagedTarget(plan, staging, activeSignal())).rejects.toThrow(
+			'Recovery files remain'
 		);
+		expect((await lstat(plan.path)).ino).toBe(claimed.ino);
+		expect(await readdir(plan.path)).toEqual([]);
+		expect(await readFile(path.join(staging, 'content.txt'), 'utf8')).toBe('complete');
 	});
-
-	it.runIf(process.platform !== 'win32')(
-		'rejects a rename-capable shared parent before claiming the target',
-		async () => {
-			const parent = await temporaryParent('create-saas-starter-shared-parent-');
-			await chmod(parent, 0o777);
-			const plan = await inspectTarget('project', parent);
-			const displaced = path.join(parent, 'displaced-project');
-			const attack = async () => {
-				await claimTarget(plan, marker(), activeSignal());
-				await rename(plan.path, displaced);
-				await mkdir(plan.path);
-				await writeFile(path.join(plan.path, 'package.json'), '{"scripts":{"setup":"attack"}}');
-				await writeArchive(
-					plan.path,
-					archive([
-						{ path: 'archive.txt', type: 'file', data: Buffer.from('redirected'), mode: 0o644 }
-					]),
-					activeSignal()
-				);
-			};
-
-			await expect(attack()).rejects.toThrow(
-				/target parent is writable by other users without sticky protection/i
-			);
-			await expect(lstat(plan.path)).rejects.toMatchObject({ code: 'ENOENT' });
-			await expect(lstat(displaced)).rejects.toMatchObject({ code: 'ENOENT' });
-		}
-	);
-
-	it.runIf(process.platform !== 'win32')(
-		'allows a sticky shared parent owned by the current user',
-		async () => {
-			const parent = await temporaryParent('create-saas-starter-sticky-parent-');
-			await chmod(parent, 0o1777);
-			const plan = await inspectTarget('project', parent);
-
-			await expect(claimTarget(plan, marker(), activeSignal())).resolves.toBeUndefined();
-			await expect(readFile(path.join(plan.path, SCAFFOLD_MARKER), 'utf8')).resolves.toContain(
-				'"state": "incomplete"'
-			);
-		}
-	);
 
 	it.runIf(process.platform !== 'win32')('rejects an unwritable target parent', async () => {
 		const parent = await temporaryParent('create-saas-starter-permission-');
@@ -187,107 +204,95 @@ describe('target ownership', () => {
 		await expect(lstat(plan.path)).rejects.toMatchObject({ code: 'ENOENT' });
 	});
 
-	it.runIf(process.platform !== 'win32')(
-		'claims the target exclusively and keeps a concurrently claimed target',
-		async () => {
-			const parent = await temporaryParent('create-saas-starter-race-');
-			const first = await inspectTarget('project', parent);
-			const second = await inspectTarget('project', parent);
-			await claimTarget(first, marker(), activeSignal());
-			await writeFile(path.join(first.path, 'sentinel'), 'preserve');
+	it('claims the target exclusively and keeps a concurrently claimed target', async () => {
+		const parent = await temporaryParent('create-saas-starter-race-');
+		const first = await inspectTarget('project', parent);
+		const second = await inspectTarget('project', parent);
+		await claimTarget(first, marker(), activeSignal());
+		await writeFile(path.join(first.path, 'sentinel'), 'preserve');
 
-			await expect(claimTarget(second, marker(), activeSignal())).rejects.toMatchObject({
-				code: 'EEXIST'
-			});
-			expect(await readFile(path.join(first.path, 'sentinel'), 'utf8')).toBe('preserve');
-		}
-	);
+		await expect(claimTarget(second, marker(), activeSignal())).rejects.toMatchObject({
+			code: 'EEXIST'
+		});
+		expect(await readFile(path.join(first.path, 'sentinel'), 'utf8')).toBe('preserve');
+	});
 
-	it.runIf(process.platform !== 'win32')(
-		'writes files exclusively and advances marker states',
-		async () => {
-			const parent = await temporaryParent('create-saas-starter-marker-');
-			const plan = await inspectTarget('project', parent);
-			let current = marker();
-			await claimTarget(plan, current, activeSignal());
-			const archive: ValidatedArchive = {
-				sha256: 'b'.repeat(64),
-				files: [
-					{ path: 'nested', type: 'directory', mode: 0o755 },
-					{ path: 'nested/file.txt', type: 'file', data: Buffer.from('content'), mode: 0o644 }
-				]
-			};
-			await writeArchive(plan.path, archive, activeSignal());
-			expect(await readFile(path.join(plan.path, 'nested/file.txt'), 'utf8')).toBe('content');
+	it('writes files exclusively and advances marker states', async () => {
+		const parent = await temporaryParent('create-saas-starter-marker-');
+		const plan = await inspectTarget('project', parent);
+		let current = marker();
+		await claimTarget(plan, current, activeSignal());
+		const archive: ValidatedArchive = {
+			sha256: 'b'.repeat(64),
+			files: [
+				{ path: 'nested', type: 'directory', mode: 0o755 },
+				{ path: 'nested/file.txt', type: 'file', data: Buffer.from('content'), mode: 0o644 }
+			]
+		};
+		await writeArchive(plan.path, archive, activeSignal());
+		expect(await readFile(path.join(plan.path, 'nested/file.txt'), 'utf8')).toBe('content');
 
-			current = await updateMarker(plan.path, current, 'incomplete', 'install');
-			expect(
-				JSON.parse(await readFile(path.join(plan.path, SCAFFOLD_MARKER), 'utf8'))
-			).toMatchObject({
+		current = await updateMarker(plan.path, current, 'incomplete', 'install');
+		expect(JSON.parse(await readFile(path.join(plan.path, SCAFFOLD_MARKER), 'utf8'))).toMatchObject(
+			{
 				state: 'incomplete',
 				phase: 'install'
-			});
-			await updateMarker(plan.path, current, 'ready', 'complete');
-			expect(
-				JSON.parse(await readFile(path.join(plan.path, SCAFFOLD_MARKER), 'utf8'))
-			).toMatchObject({
+			}
+		);
+		await updateMarker(plan.path, current, 'ready', 'complete');
+		expect(JSON.parse(await readFile(path.join(plan.path, SCAFFOLD_MARKER), 'utf8'))).toMatchObject(
+			{
 				state: 'ready',
 				phase: 'complete'
-			});
-		}
-	);
+			}
+		);
+	});
 
-	it.runIf(process.platform !== 'win32')(
-		'stops deterministically at an abort boundary and preserves completed writes',
-		async () => {
-			const parent = await temporaryParent('create-saas-starter-write-abort-');
-			const plan = await inspectTarget('project', parent);
-			await claimTarget(plan, marker(), activeSignal());
-			const archive: ValidatedArchive = {
-				sha256: 'b'.repeat(64),
-				files: [
-					{ path: 'first.txt', type: 'file', data: Buffer.from('first'), mode: 0o644 },
-					{ path: 'second.txt', type: 'file', data: Buffer.from('second'), mode: 0o644 }
-				]
-			};
-			const controller = new AbortController();
-			let checks = 0;
-			const signal = {
-				get aborted() {
-					checks += 1;
-					if (checks === 4) controller.abort(new Error('abort between files'));
-					return controller.signal.aborted;
-				},
-				get reason() {
-					return controller.signal.reason;
-				}
-			} as AbortSignal;
+	it('stops deterministically at an abort boundary and preserves completed writes', async () => {
+		const parent = await temporaryParent('create-saas-starter-write-abort-');
+		const plan = await inspectTarget('project', parent);
+		await claimTarget(plan, marker(), activeSignal());
+		const archive: ValidatedArchive = {
+			sha256: 'b'.repeat(64),
+			files: [
+				{ path: 'first.txt', type: 'file', data: Buffer.from('first'), mode: 0o644 },
+				{ path: 'second.txt', type: 'file', data: Buffer.from('second'), mode: 0o644 }
+			]
+		};
+		const controller = new AbortController();
+		let checks = 0;
+		const signal = {
+			get aborted() {
+				checks += 1;
+				if (checks === 4) controller.abort(new Error('abort between files'));
+				return controller.signal.aborted;
+			},
+			get reason() {
+				return controller.signal.reason;
+			}
+		} as AbortSignal;
 
-			await expect(writeArchive(plan.path, archive, signal)).rejects.toThrow('abort between files');
-			expect(await readFile(path.join(plan.path, 'first.txt'), 'utf8')).toBe('first');
-			await expect(readFile(path.join(plan.path, 'second.txt'))).rejects.toMatchObject({
-				code: 'ENOENT'
-			});
-			expect(await lstat(plan.path)).toBeDefined();
-		}
-	);
+		await expect(writeArchive(plan.path, archive, signal)).rejects.toThrow('abort between files');
+		expect(await readFile(path.join(plan.path, 'first.txt'), 'utf8')).toBe('first');
+		await expect(readFile(path.join(plan.path, 'second.txt'))).rejects.toMatchObject({
+			code: 'ENOENT'
+		});
+		expect(await lstat(plan.path)).toBeDefined();
+	});
 
-	it.runIf(process.platform !== 'win32')(
-		'preserves files created before a later write failure',
-		async () => {
-			const parent = await temporaryParent('create-saas-starter-preserve-');
-			const plan = await inspectTarget('project', parent);
-			await claimTarget(plan, marker(), activeSignal());
-			await writeFile(path.join(plan.path, 'foreign.txt'), 'foreign');
-			const archive: ValidatedArchive = {
-				sha256: 'b'.repeat(64),
-				files: [{ path: 'foreign.txt', type: 'file', data: Buffer.from('creator'), mode: 0o644 }]
-			};
+	it('preserves files created before a later write failure', async () => {
+		const parent = await temporaryParent('create-saas-starter-preserve-');
+		const plan = await inspectTarget('project', parent);
+		await claimTarget(plan, marker(), activeSignal());
+		await writeFile(path.join(plan.path, 'foreign.txt'), 'foreign');
+		const archive: ValidatedArchive = {
+			sha256: 'b'.repeat(64),
+			files: [{ path: 'foreign.txt', type: 'file', data: Buffer.from('creator'), mode: 0o644 }]
+		};
 
-			await expect(writeArchive(plan.path, archive, activeSignal())).rejects.toMatchObject({
-				code: 'EEXIST'
-			});
-			expect(await readFile(path.join(plan.path, 'foreign.txt'), 'utf8')).toBe('foreign');
-		}
-	);
+		await expect(writeArchive(plan.path, archive, activeSignal())).rejects.toMatchObject({
+			code: 'EEXIST'
+		});
+		expect(await readFile(path.join(plan.path, 'foreign.txt'), 'utf8')).toBe('foreign');
+	});
 });
