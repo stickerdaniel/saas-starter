@@ -280,7 +280,7 @@ describe('target ownership', () => {
 					throw new Error('cleanup failed');
 				}
 			})
-		).resolves.toBeUndefined();
+		).resolves.toEqual({ retainedStaging: staging });
 		await expect(markerAt(plan.path)).resolves.toMatchObject({ state: 'ready', phase: 'complete' });
 		expect(await readFile(path.join(plan.path, 'content.txt'), 'utf8')).toBe('complete');
 		expect(await lstat(staging)).toBeDefined();

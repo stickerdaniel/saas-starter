@@ -195,8 +195,13 @@ export async function runCli(
 		phase = 'complete';
 		marker = await runtime.updateMarker(staging, marker, state, phase);
 		throwIfAborted(controller.signal);
-		await runtime.publishStagedTarget(target, staging, controller.signal);
+		const publication = await runtime.publishStagedTarget(target, staging, controller.signal);
 		recoveryPath = undefined;
+		if (publication.retainedStaging) {
+			io.stderr(
+				`Warning: The project was created successfully, but staging files remain at ${publication.retainedStaging}.`
+			);
+		}
 
 		io.stdout(`Created ${options.brand} at ${target.path}`);
 		io.stdout(navigation(target.path));

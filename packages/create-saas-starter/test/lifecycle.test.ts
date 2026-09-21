@@ -183,6 +183,41 @@ describe('CLI lifecycle', () => {
 		expect(messages).toContain(`Created Project at ${finalTarget}`);
 	});
 
+	it('warns with the retained staging path when post-commit cleanup fails', async () => {
+		const { parent, messages, io } = await fixtureIo();
+		const finalTarget = path.join(await realpath(parent), 'project');
+		let staging: string | undefined;
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			responseFromBuffer(tarGz(validTemplateEntries()))
+		);
+		const runtime: Partial<CliRuntime> = {
+			runSetupAndInstall: async (input) => {
+				staging = input.target;
+				await input.onSetupComplete();
+				return 'ready';
+			},
+			publishStagedTarget: async (plan, stagingPath, signal) =>
+				await publishStagedTarget(plan, stagingPath, signal, {
+					platform: 'win32',
+					cleanup: async () => {
+						throw new Error('cleanup failed');
+					}
+				})
+		};
+
+		await expect(runCli(argumentsForProject(), io, runtime)).resolves.toBe(0);
+		await expect(markerAt(finalTarget)).resolves.toMatchObject({
+			state: 'ready',
+			phase: 'complete'
+		});
+		expect(staging).toBeDefined();
+		expect(await lstat(staging!)).toBeDefined();
+		expect(messages).toContain(
+			`Warning: The project was created successfully, but staging files remain at ${staging}.`
+		);
+		expect(messages.join('\n')).not.toContain('Recovery files');
+	});
+
 	it('treats an interrupt observed after publication as committed success', async () => {
 		const { parent, messages, interrupts, io } = await fixtureIo();
 		const finalTarget = path.join(await realpath(parent), 'project');
@@ -195,8 +230,9 @@ describe('CLI lifecycle', () => {
 				return 'ready';
 			},
 			publishStagedTarget: async (...input) => {
-				await publishStagedTarget(...input);
+				const result = await publishStagedTarget(...input);
 				interrupts.emit('SIGINT');
+				return result;
 			}
 		};
 

@@ -341,6 +341,7 @@ describe('process contract', () => {
 			},
 			{
 				env: environment,
+				hostEnvironment: { ...process.env, APP_SECRET: 'wrapper-canary' },
 				signal: new AbortController().signal,
 				capture: true
 			}

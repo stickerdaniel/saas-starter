@@ -329,12 +329,16 @@ export interface PublishStagedTargetOptions {
 	cleanup?: (value: string) => Promise<void>;
 }
 
+export interface PublishStagedTargetResult {
+	retainedStaging?: string;
+}
+
 export async function publishStagedTarget(
 	plan: TargetPlan,
 	staging: string,
 	signal: AbortSignal,
 	options: PublishStagedTargetOptions = {}
-): Promise<void> {
+): Promise<PublishStagedTargetResult> {
 	throwIfAborted(signal);
 	const platform = options.platform ?? process.platform;
 	const copy = options.copy ?? cp;
@@ -344,7 +348,7 @@ export async function publishStagedTarget(
 		throwIfAborted(signal);
 		if (platform !== 'win32') {
 			await rename(staging, plan.path);
-			return;
+			return {};
 		}
 		for (const entry of (await readdir(staging)).filter((entry) => entry !== SCAFFOLD_MARKER)) {
 			throwIfAborted(signal);
@@ -375,7 +379,12 @@ export async function publishStagedTarget(
 		(async (value: string) => {
 			await rm(value, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
 		});
-	await cleanup(staging).catch(() => {});
+	try {
+		await cleanup(staging);
+		return {};
+	} catch {
+		return { retainedStaging: staging };
+	}
 }
 
 export function throwIfAborted(signal: AbortSignal): void {

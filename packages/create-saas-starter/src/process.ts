@@ -45,6 +45,7 @@ export interface RunProcessOptions {
 	signal: AbortSignal;
 	capture?: boolean;
 	platform?: NodeJS.Platform;
+	hostEnvironment?: NodeJS.ProcessEnv;
 }
 
 function executableNames(platform: NodeJS.Platform): string[] {
@@ -193,7 +194,7 @@ export async function runProcess(
 		if (aborted) return { code: 130, stdout: '', stderr: '' };
 		child = spawn(wrapped.command, wrapped.args, {
 			cwd: options.cwd,
-			env: spawnEnvironment(wrapped.env ?? {}, platform),
+			env: spawnEnvironment(wrapped.env ?? {}, platform, options.hostEnvironment),
 			detached: platform !== 'win32',
 			stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'inherit', 'inherit'],
 			windowsHide: true
