@@ -1,5 +1,8 @@
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 // Guards the deploy-recovery contract in svelte.config.js: the app version name
@@ -12,10 +15,35 @@ describe('kit.version config', () => {
 	it('derives version.name from a commit SHA, not a timestamp', () => {
 		expect(config).toContain('WORKERS_CI_COMMIT_SHA');
 		expect(config).toContain('VERCEL_GIT_COMMIT_SHA');
-		expect(config).toContain('git rev-parse HEAD');
+		expect(config).toContain("execFileSync('git', ['rev-parse', 'HEAD']");
 		// A timestamp or random source would defeat version detection.
 		expect(config).not.toMatch(/version[\s\S]{0,80}Date\.now/);
 		expect(config).not.toMatch(/version[\s\S]{0,80}Math\.random/);
+	});
+
+	it('quietly falls back to dev outside a Git checkout', () => {
+		const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'version-config-non-git-'));
+		const env = { ...process.env };
+		delete env.WORKERS_CI_COMMIT_SHA;
+		delete env.VERCEL_GIT_COMMIT_SHA;
+
+		try {
+			const configUrl = pathToFileURL(path.resolve('svelte.config.js')).href;
+			const result = spawnSync(
+				process.execPath,
+				[
+					'--eval',
+					`const config = (await import(${JSON.stringify(configUrl)})).default; console.log(config.kit.version.name);`
+				],
+				{ cwd: directory, env, encoding: 'utf8' }
+			);
+
+			expect(result.status).toBe(0);
+			expect(result.stdout.trim()).toBe('dev');
+			expect(result.stderr).toBe('');
+		} finally {
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
 	it('sets a non-zero pollInterval so updated.current can flip', () => {

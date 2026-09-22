@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import auto from '@sveltejs/adapter-auto';
 import cloudflare from '@sveltejs/adapter-cloudflare';
 import node from '@sveltejs/adapter-node';
@@ -24,7 +24,10 @@ function appVersion() {
 	const sha = process.env.WORKERS_CI_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA;
 	if (sha) return sha;
 	try {
-		return execSync('git rev-parse HEAD').toString().trim();
+		return execFileSync('git', ['rev-parse', 'HEAD'], {
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'ignore']
+		}).trim();
 	} catch {
 		return 'dev';
 	}
