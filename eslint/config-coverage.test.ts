@@ -122,3 +122,40 @@ describe('generated English policy bundle linting', () => {
 		).toEqual([generatedBundle]);
 	});
 });
+
+describe('create-saas-starter tool coverage', () => {
+	it('separates app and creator TypeScript and Vitest projects without hiding source', async () => {
+		const rootTsconfig = readFileSync('tsconfig.json', 'utf8');
+		const cliTsconfig = JSON.parse(
+			readFileSync('packages/create-saas-starter/tsconfig.json', 'utf8')
+		) as { include: string[] };
+		const rootVite = readFileSync('vite.config.ts', 'utf8');
+		const cliVite = readFileSync('packages/create-saas-starter/vitest.config.ts', 'utf8');
+		const oxlintConfig = JSON.parse(readFileSync('.oxlintrc.json', 'utf8')) as {
+			ignorePatterns: string[];
+		};
+
+		expect(rootTsconfig).toContain('"packages/create-saas-starter/**"');
+		expect(cliTsconfig.include).toEqual([
+			'src/**/*.ts',
+			'test/**/*.ts',
+			'scripts/**/*.ts',
+			'../../scripts/windows-job.ts'
+		]);
+		expect(rootVite).toContain("'packages/create-saas-starter/test/**'");
+		expect(cliVite).toContain("include: ['test/**/*.test.ts']");
+		expect(await eslint.isPathIgnored('packages/create-saas-starter/src/index.ts')).toBe(false);
+		expect(
+			oxlintConfig.ignorePatterns.some((pattern) => pattern.includes('create-saas-starter'))
+		).toBe(false);
+	});
+
+	it('runs a dedicated Knip project for every creator source boundary', () => {
+		const rootKnip = readFileSync('knip.config.ts', 'utf8');
+		const cliKnip = readFileSync('packages/create-saas-starter/knip.config.ts', 'utf8');
+
+		expect(rootKnip).toContain("'packages/create-saas-starter/**'");
+		expect(cliKnip).toContain("entry: ['src/index.ts', 'test/**/*.test.ts']");
+		expect(cliKnip).toContain("project: ['src/**/*.ts', 'scripts/**/*.ts', 'test/**/*.ts']");
+	});
+});

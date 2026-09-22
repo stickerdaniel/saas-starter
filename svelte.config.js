@@ -1,4 +1,6 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import auto from '@sveltejs/adapter-auto';
 import cloudflare from '@sveltejs/adapter-cloudflare';
 import node from '@sveltejs/adapter-node';
@@ -14,6 +16,16 @@ const adapter = process.env.WORKERS_CI
 		? node()
 		: auto();
 
+function hasGitMetadata() {
+	let directory = process.cwd();
+	while (true) {
+		if (existsSync(join(directory, '.git'))) return true;
+		const parent = dirname(directory);
+		if (parent === directory) return false;
+		directory = parent;
+	}
+}
+
 // A deterministic, per-commit app version so the client can detect a new
 // deploy and recover from dead chunk hashes. The default build timestamp is
 // non-deterministic across the two CI build steps within one deploy, which
@@ -24,7 +36,10 @@ function appVersion() {
 	const sha = process.env.WORKERS_CI_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA;
 	if (sha) return sha;
 	try {
-		return execSync('git rev-parse HEAD').toString().trim();
+		return execFileSync('git', ['rev-parse', 'HEAD'], {
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', hasGitMetadata() ? 'inherit' : 'ignore']
+		}).trim();
 	} catch {
 		return 'dev';
 	}
