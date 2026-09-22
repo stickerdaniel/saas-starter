@@ -5,6 +5,26 @@
 	"license": "MIT",
 	"type": "module",
 	"private": false,
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/stickerdaniel/saas-starter.git",
+		"directory": "packages/create-saas-starter"
+	},
+	"homepage": "https://github.com/stickerdaniel/saas-starter#readme",
+	"bugs": {
+		"url": "https://github.com/stickerdaniel/saas-starter/issues"
+	},
+	"keywords": [
+		"svelte",
+		"sveltekit",
+		"saas",
+		"starter",
+		"scaffold",
+		"cli"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"bin": {
 		"create-saas-starter": "dist/index.js"
 	},
