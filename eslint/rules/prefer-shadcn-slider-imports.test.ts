@@ -8,6 +8,9 @@ import { describe, expect, it } from 'vitest';
 const repoRoot = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const eslint = new ESLint({ cwd: repoRoot });
 const ruleId = 'local/prefer-shadcn-slider-imports';
+const boundaryMessage =
+	'Use named Bits UI imports and the shadcn Slider wrapper so Slider enforcement remains statically decidable.';
+const sliderMessage = 'Import Slider from $lib/components/ui/slider/index.js instead of bits-ui.';
 
 async function sliderMessages(source: string, filePath = 'src/lib/analytics/posthog.ts') {
 	const [result] = await eslint.lintText(source, { filePath });
@@ -15,184 +18,82 @@ async function sliderMessages(source: string, filePath = 'src/lib/analytics/post
 	return result.messages.filter((message) => message.ruleId === ruleId);
 }
 
-const prohibited = [
-	['named import', "import { Slider } from 'bits-ui'; void Slider;"],
-	['aliased import', "import { Slider as RangeControl } from 'bits-ui'; void RangeControl;"],
+function boundaryColumn(source: string, site: 'namespace' | 'dynamic' | 'export') {
+	if (site === 'namespace') return source.indexOf('*') + 1;
+	if (site === 'dynamic') return source.indexOf('import(') + 1;
+	return source.indexOf('export') + 1;
+}
+
+const prohibitedSliderBindings = [
+	['named import', "import { Slider } from 'bits-ui';"],
+	['aliased import', "import { Slider as RangeControl } from 'bits-ui';"],
+	['string-literal import', "import { 'Slider' as RangeControl } from 'bits-ui';"],
+	['named re-export', "export { Slider } from 'bits-ui';"],
+	['aliased re-export', "export { Slider as RangeControl } from 'bits-ui';"],
+	['string-literal re-export', "export { 'Slider' as RangeControl } from 'bits-ui';"]
+] as const;
+
+const prohibitedBoundaries = [
+	['namespace import', "import * as Bits from 'bits-ui';", 'namespace'],
+	['wildcard re-export', "export * from 'bits-ui';", 'export'],
+	['namespace re-export', "export * as Bits from 'bits-ui';", 'export'],
+	['literal dynamic import', "void import('bits-ui');", 'dynamic'],
+	['static template dynamic import', 'void import(`bits-ui`);', 'dynamic']
+] as const;
+
+const latestProScenarios = [
 	[
-		'string-literal named import',
-		"import { 'Slider' as RangeControl } from 'bits-ui'; void RangeControl;"
-	],
-	['direct re-export', "export { Slider } from 'bits-ui';"],
-	['aliased direct re-export', "export { Slider as RangeControl } from 'bits-ui';"],
-	['string-literal direct re-export', "export { 'Slider' as RangeControl } from 'bits-ui';"],
-	['wildcard direct re-export', "export * from 'bits-ui';"],
-	['namespace member access', "import * as Bits from 'bits-ui'; void Bits.Slider;"],
-	['namespace computed access', "import * as Bits from 'bits-ui'; void Bits['Slider'];"],
-	[
-		'namespace destructuring',
-		"import * as Bits from 'bits-ui'; const { Slider: RangeControl } = Bits; void RangeControl;"
-	],
-	[
-		'dynamic member access',
-		"const RangeControl = (await import('bits-ui')).Slider; void RangeControl;"
-	],
-	[
-		'dynamic destructuring',
-		"const { Slider: RangeControl } = await import('bits-ui'); void RangeControl;"
-	],
-	[
-		'dynamic namespace member access',
-		"const Bits = await import('bits-ui'); const RangeControl = Bits.Slider; void RangeControl;"
-	],
-	[
-		'dynamic then destructuring',
-		"await import('bits-ui').then(({ Slider: RangeControl }) => RangeControl);"
-	],
-	['dynamic then namespace access', "await import('bits-ui').then((Bits) => Bits.Slider);"],
-	[
-		'namespace alias',
-		"import * as Bits from 'bits-ui'; const primitives = Bits; void primitives.Slider;"
+		'namespace exported through an object',
+		"import * as Bits from 'bits-ui'; export const controls = { Bits };",
+		'namespace'
 	],
 	[
-		'use-before-import namespace alias',
-		"void primitives.Slider; const primitives = Bits; import * as Bits from 'bits-ui';"
+		'namespace stored by mutation',
+		"import * as Bits from 'bits-ui'; const controls = {}; controls.bits = Bits;",
+		'namespace'
 	],
 	[
-		'saved dynamic import then destructuring',
-		"const bitsPromise = import('bits-ui'); await bitsPromise.then(({ Slider }) => Slider);"
+		'namespace returned from a deferred function',
+		"import * as Bits from 'bits-ui'; const load = () => Bits; void load;",
+		'namespace'
 	],
 	[
-		'saved dynamic import then namespace access',
-		"const bitsPromise = import('bits-ui'); await bitsPromise.then((Bits) => Bits.Slider);"
+		'dynamic namespace exported as a promise',
+		"export const controls = import('bits-ui');",
+		'dynamic'
 	],
 	[
-		'static computed namespace access',
-		"import * as Bits from 'bits-ui'; const key = 'Slider'; void Bits[key];"
+		'dynamic namespace assigned after declaration',
+		"let controls; controls = import('bits-ui');",
+		'dynamic'
 	],
 	[
-		'static computed namespace destructuring',
-		"import * as Bits from 'bits-ui'; const key = 'Slider'; const { [key]: RangeControl } = Bits; void RangeControl;"
-	],
-	['local namespace export', "import * as Bits from 'bits-ui'; export { Bits };"],
-	['default namespace export', "import * as Bits from 'bits-ui'; export default Bits;"],
-	[
-		'local namespace alias export',
-		"import * as Bits from 'bits-ui'; const primitives = Bits; export { primitives as Controls };"
-	],
-	[
-		'exported namespace alias declaration',
-		"import * as Bits from 'bits-ui'; export const Controls = Bits;"
-	],
-	[
-		'assigned namespace alias',
-		"import * as Bits from 'bits-ui'; let primitives; primitives = Bits; void primitives.Slider;"
-	],
-	[
-		'assigned saved dynamic import',
-		"let bitsPromise; bitsPromise = import('bits-ui'); await bitsPromise.then((Bits) => Bits.Slider);"
-	],
-	[
-		'conditionally reassigned namespace alias',
-		"import * as Bits from 'bits-ui'; let primitives = Bits; if (replace) primitives = {}; void primitives.Slider;"
-	],
-	['asserted static key', "import * as Bits from 'bits-ui'; void Bits['Slider' as string];"],
-	[
-		'satisfied static key',
-		"import * as Bits from 'bits-ui'; void Bits['Slider' satisfies string];"
-	],
-	['type-asserted static key', "import * as Bits from 'bits-ui'; void Bits[<string>'Slider'];"],
-	['non-null static key', "import * as Bits from 'bits-ui'; void Bits['Slider'!];"],
-	[
-		'typed namespace alias',
-		"import * as Bits from 'bits-ui'; const primitives = Bits as typeof Bits; void primitives.Slider;"
-	],
-	[
-		'satisfied namespace alias',
-		"import * as Bits from 'bits-ui'; const primitives = Bits satisfies typeof Bits; void primitives.Slider;"
-	],
-	[
-		'type-asserted namespace alias',
-		"import * as Bits from 'bits-ui'; const primitives = <typeof Bits>Bits; void primitives.Slider;"
-	],
-	[
-		'non-null namespace alias',
-		"import * as Bits from 'bits-ui'; const primitives = Bits!; void primitives.Slider;"
-	],
-	[
-		'typed saved dynamic import',
-		"const bitsPromise = import('bits-ui') as Promise<typeof import('bits-ui')>; await bitsPromise.then((Bits) => Bits.Slider);"
+		'namespace captured by a Svelte script function',
+		"<script>import * as Bits from 'bits-ui'; const load = () => Bits;</script>",
+		'namespace',
+		'src/lib/components/authenticated/authenticated-sidebar.svelte'
 	]
 ] as const;
 
 const permitted = [
-	['type-only declaration', "import type { Slider } from 'bits-ui'; type RangeControl = Slider;"],
+	['named Button import', "import { Button } from 'bits-ui'; void Button;"],
+	['aliased Button import', "import { Button as Trigger } from 'bits-ui'; void Trigger;"],
+	['named Button re-export', "export { Button } from 'bits-ui';"],
+	['aliased Button re-export', "export { Button as Trigger } from 'bits-ui';"],
+	['type-only import declaration', "import type { Slider } from 'bits-ui';"],
+	['type-only namespace import', "import type * as Bits from 'bits-ui';"],
 	[
-		'type-only specifier',
+		'type-only import specifier',
 		"import { type Slider, Button } from 'bits-ui'; type RangeControl = Slider; void Button;"
 	],
 	['type-only re-export', "export type { Slider } from 'bits-ui';"],
+	['mixed type and runtime re-export', "export { type Slider, Button } from 'bits-ui';"],
 	['type-only wildcard re-export', "export type * from 'bits-ui';"],
-	['other namespace member', "import * as Bits from 'bits-ui'; void Bits.Button;"],
+	['type-only namespace re-export', "export type * as Bits from 'bits-ui';"],
+	['type query import', "type Bits = typeof import('bits-ui');"],
+	['TypeScript import type', "type Button = import('bits-ui').Button;"],
 	[
-		'other namespace destructuring',
-		"import * as Bits from 'bits-ui'; const { Button } = Bits; void Button;"
-	],
-	['other dynamic member', "const Button = (await import('bits-ui')).Button; void Button;"],
-	['other dynamic destructuring', "const { Button } = await import('bits-ui'); void Button;"],
-	[
-		'other dynamic namespace member',
-		"const Bits = await import('bits-ui'); const Button = Bits.Button; void Button;"
-	],
-	['other dynamic then member', "await import('bits-ui').then((Bits) => Bits.Button);"],
-	[
-		'other namespace alias member',
-		"import * as Bits from 'bits-ui'; const primitives = Bits; void primitives.Button;"
-	],
-	[
-		'computed alias for another primitive',
-		"import * as Bits from 'bits-ui'; const Slider = 'Button'; void Bits[Slider];"
-	],
-	[
-		'computed destructuring alias for another primitive',
-		"import * as Bits from 'bits-ui'; const Slider = 'Button'; const { [Slider]: Button } = Bits; void Button;"
-	],
-	[
-		'mutable computed key',
-		"import * as Bits from 'bits-ui'; let key = 'Slider'; key = 'Button'; void Bits[key];"
-	],
-	[
-		'reassigned namespace alias',
-		"import * as Bits from 'bits-ui'; let primitives = Bits; primitives = { Button: 1 }; void primitives.Slider;"
-	],
-	[
-		'reassigned saved dynamic import',
-		"let bitsPromise = import('bits-ui'); bitsPromise = Promise.resolve({ Button: 1 }); await bitsPromise.then((Bits) => Bits.Slider);"
-	],
-	['type-only local export', 'type Bits = { Slider: unknown }; export { type Bits };'],
-	['exported individual primitive', "import { Button } from 'bits-ui'; export { Button };"],
-	[
-		're-export from another module',
-		"import * as Bits from 'bits-ui'; export { Bits as Controls } from './controls.js';"
-	],
-	[
-		'reassigned namespace alias export',
-		"import * as Bits from 'bits-ui'; let primitives = Bits; primitives = { Button: 1 }; export { primitives };"
-	],
-	['asserted Button key', "import * as Bits from 'bits-ui'; void Bits['Button' as string];"],
-	[
-		'typed namespace alias Button',
-		"import * as Bits from 'bits-ui'; const primitives = Bits as typeof Bits; void primitives.Button;"
-	],
-	[
-		'typed saved dynamic import Button',
-		"const bitsPromise = import('bits-ui') as Promise<typeof import('bits-ui')>; await bitsPromise.then((Bits) => Bits.Button);"
-	],
-	[
-		'shadowed namespace alias',
-		"import * as Bits from 'bits-ui'; { const Bits = { Slider: 1 }; void Bits.Slider; }"
-	],
-	[
-		'nonliteral dynamic source',
+		'nonliteral dynamic import',
 		"const source = 'bits-ui'; const { Slider } = await import(source); void Slider;"
 	],
 	['wrapper import', "import { Slider } from '$lib/components/ui/slider/index.js'; void Slider;"]
@@ -203,62 +104,77 @@ describe('prefer-shadcn-slider-imports production configuration', () => {
 		[
 			'TypeScript',
 			'src/lib/analytics/posthog.ts',
-			"import { Slider } from 'bits-ui'; void Slider;"
+			"import { Slider } from 'bits-ui';",
+			'directSliderImport'
 		],
-		['JavaScript', 'src/lib/security/csp.js', "import { Slider } from 'bits-ui'; void Slider;"],
+		[
+			'JavaScript',
+			'src/lib/security/csp.js',
+			"import * as Bits from 'bits-ui';",
+			'staticBitsBoundary'
+		],
 		[
 			'Svelte module',
 			'src/lib/chat/core/chat-core.svelte.ts',
-			"import { Slider } from 'bits-ui'; void Slider;"
+			"void import('bits-ui');",
+			'staticBitsBoundary'
 		],
 		[
 			'Svelte component',
 			'src/lib/components/authenticated/authenticated-sidebar.svelte',
-			"<script>import { Slider } from 'bits-ui'; void Slider;</script>"
+			"<script>import * as Bits from 'bits-ui';</script>",
+			'staticBitsBoundary'
 		]
 	] as const)(
-		'rejects Slider in %s files',
-		async (_label, filePath, source) => {
+		'enforces the boundary in %s files',
+		async (_label, filePath, source, messageId) => {
 			expect(existsSync(path.join(repoRoot, filePath))).toBe(true);
 			const config = await eslint.calculateConfigForFile(filePath);
 			expect(config?.rules?.[ruleId]?.[0]).toBe(2);
 			if (!filePath.endsWith('.svelte')) {
 				expect(config?.rules?.['local/prefer-shadcn-primitives']).toBeUndefined();
 			}
-			expect(await sliderMessages(source, filePath)).toHaveLength(1);
+			const messages = await sliderMessages(source, filePath);
+			expect(messages).toHaveLength(1);
+			expect(messages[0].messageId).toBe(messageId);
 		},
 		60_000
 	);
 
-	it('rejects a Slider namespace component tag', async () => {
-		const source = "<script>import * as Bits from 'bits-ui';</script><Bits.Slider.Root />";
-		expect(
-			await sliderMessages(source, 'src/lib/components/authenticated/authenticated-sidebar.svelte')
-		).toHaveLength(1);
-	});
-
-	it('allows another primitive namespace component tag', async () => {
-		const source = "<script>import * as Bits from 'bits-ui';</script><Bits.Button.Root />";
-		expect(
-			await sliderMessages(source, 'src/lib/components/authenticated/authenticated-sidebar.svelte')
-		).toEqual([]);
-	});
-
-	it.each(prohibited)('rejects %s', async (_label, source) => {
+	it.each(prohibitedSliderBindings)('rejects %s', async (_label, source) => {
 		const messages = await sliderMessages(source);
 		expect(messages).toHaveLength(1);
-		expect(messages[0].message).toBe(
-			'Import Slider from $lib/components/ui/slider/index.js instead of bits-ui.'
-		);
+		expect(messages[0].message).toBe(sliderMessage);
 	});
+
+	it.each(prohibitedBoundaries)('rejects %s', async (_label, source, site) => {
+		const messages = await sliderMessages(source);
+		expect(messages).toHaveLength(1);
+		expect(messages[0]).toMatchObject({
+			message: boundaryMessage,
+			column: boundaryColumn(source, site)
+		});
+	});
+
+	it.each(latestProScenarios)(
+		'rejects the latest Pro scenario: %s',
+		async (_label, source, site, filePath) => {
+			const messages = await sliderMessages(source, filePath);
+			expect(messages).toHaveLength(1);
+			expect(messages[0]).toMatchObject({
+				message: boundaryMessage,
+				column: boundaryColumn(source, site)
+			});
+		}
+	);
 
 	it.each(permitted)('allows %s', async (_label, source) => {
 		expect(await sliderMessages(source)).toEqual([]);
 	});
 
-	it('exempts the Slider wrapper implementation', async () => {
-		const filePath = 'src/lib/components/ui/slider/slider.svelte';
-		const source = "<script>import { Slider } from 'bits-ui'; void Slider;</script>";
-		expect(await sliderMessages(source, filePath)).toEqual([]);
+	it('exempts the shadcn UI wrapper implementation', async () => {
+		const source =
+			"<script>import { Slider } from 'bits-ui'; import * as Bits from 'bits-ui'; void import('bits-ui');</script>";
+		expect(await sliderMessages(source, 'src/lib/components/ui/slider/slider.svelte')).toEqual([]);
 	}, 60_000);
 });
