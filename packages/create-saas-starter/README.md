@@ -3,8 +3,12 @@
 Create a project from the verified [SaaS Starter](https://github.com/stickerdaniel/saas-starter) template.
 
 ```bash
-npx create-saas-starter my-app
+npm create saas-starter@latest my-app
 ```
+
+Alternatively, use `bun create saas-starter@latest my-app` or `npx create-saas-starter@latest my-app`.
+
+Without arguments, the CLI interactively prompts for the target, project and repository branding, legal details, and template trust.
 
 The CLI downloads one resolved GitHub revision, validates the complete archive before writing, and runs the template's public setup command before installing its locked dependencies. It never overwrites an existing path.
 
