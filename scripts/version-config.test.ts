@@ -5,6 +5,23 @@ import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+function evaluateConfig(cwd: string, hostEnvironment: Record<string, string> = {}) {
+	const env = { ...process.env };
+	delete env.WORKERS_CI_COMMIT_SHA;
+	delete env.VERCEL_GIT_COMMIT_SHA;
+	Object.assign(env, hostEnvironment);
+	const configUrl = pathToFileURL(path.resolve('svelte.config.js')).href;
+
+	return spawnSync(
+		process.execPath,
+		[
+			'--eval',
+			`const config = (await import(${JSON.stringify(configUrl)})).default; console.log(config.kit.version.name);`
+		],
+		{ cwd, env, encoding: 'utf8' }
+	);
+}
+
 // Guards the deploy-recovery contract in svelte.config.js: the app version name
 // must be deterministic per commit (not the default build timestamp) and polling
 // must be enabled, otherwise updated.current never flips and the beforeNavigate
@@ -23,23 +40,51 @@ describe('kit.version config', () => {
 
 	it('quietly falls back to dev outside a Git checkout', () => {
 		const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'version-config-non-git-'));
-		const env = { ...process.env };
-		delete env.WORKERS_CI_COMMIT_SHA;
-		delete env.VERCEL_GIT_COMMIT_SHA;
 
 		try {
-			const configUrl = pathToFileURL(path.resolve('svelte.config.js')).href;
-			const result = spawnSync(
-				process.execPath,
-				[
-					'--eval',
-					`const config = (await import(${JSON.stringify(configUrl)})).default; console.log(config.kit.version.name);`
-				],
-				{ cwd: directory, env, encoding: 'utf8' }
-			);
+			const result = evaluateConfig(directory);
 
 			expect(result.status).toBe(0);
 			expect(result.stdout.trim()).toBe('dev');
+			expect(result.stderr).toBe('');
+		} finally {
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it.each(['directory', 'file'] as const)(
+		'preserves Git diagnostics for an invalid .git %s',
+		(metadataKind) => {
+			const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'version-config-invalid-git-'));
+			const metadata = path.join(directory, '.git');
+			const nested = path.join(directory, 'project', 'src');
+
+			try {
+				if (metadataKind === 'directory') fs.mkdirSync(metadata);
+				else fs.writeFileSync(metadata, 'gitdir: missing\n');
+				fs.mkdirSync(nested, { recursive: true });
+				const result = evaluateConfig(nested);
+
+				expect(result.status).toBe(0);
+				expect(result.stdout.trim()).toBe('dev');
+				expect(result.stderr).not.toBe('');
+			} finally {
+				fs.rmSync(directory, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it('prefers the Workers commit SHA over the Vercel commit SHA', () => {
+		const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'version-config-host-sha-'));
+
+		try {
+			const result = evaluateConfig(directory, {
+				WORKERS_CI_COMMIT_SHA: 'workers-commit',
+				VERCEL_GIT_COMMIT_SHA: 'vercel-commit'
+			});
+
+			expect(result.status).toBe(0);
+			expect(result.stdout.trim()).toBe('workers-commit');
 			expect(result.stderr).toBe('');
 		} finally {
 			fs.rmSync(directory, { recursive: true, force: true });
