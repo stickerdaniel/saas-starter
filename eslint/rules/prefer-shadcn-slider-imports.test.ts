@@ -48,7 +48,31 @@ const prohibited = [
 		'dynamic then destructuring',
 		"await import('bits-ui').then(({ Slider: RangeControl }) => RangeControl);"
 	],
-	['dynamic then namespace access', "await import('bits-ui').then((Bits) => Bits.Slider);"]
+	['dynamic then namespace access', "await import('bits-ui').then((Bits) => Bits.Slider);"],
+	[
+		'namespace alias',
+		"import * as Bits from 'bits-ui'; const primitives = Bits; void primitives.Slider;"
+	],
+	[
+		'use-before-import namespace alias',
+		"void primitives.Slider; const primitives = Bits; import * as Bits from 'bits-ui';"
+	],
+	[
+		'saved dynamic import then destructuring',
+		"const bitsPromise = import('bits-ui'); await bitsPromise.then(({ Slider }) => Slider);"
+	],
+	[
+		'saved dynamic import then namespace access',
+		"const bitsPromise = import('bits-ui'); await bitsPromise.then((Bits) => Bits.Slider);"
+	],
+	[
+		'static computed namespace access',
+		"import * as Bits from 'bits-ui'; const key = 'Slider'; void Bits[key];"
+	],
+	[
+		'static computed namespace destructuring',
+		"import * as Bits from 'bits-ui'; const key = 'Slider'; const { [key]: RangeControl } = Bits; void RangeControl;"
+	]
 ] as const;
 
 const permitted = [
@@ -71,6 +95,26 @@ const permitted = [
 		"const Bits = await import('bits-ui'); const Button = Bits.Button; void Button;"
 	],
 	['other dynamic then member', "await import('bits-ui').then((Bits) => Bits.Button);"],
+	[
+		'other namespace alias member',
+		"import * as Bits from 'bits-ui'; const primitives = Bits; void primitives.Button;"
+	],
+	[
+		'computed alias for another primitive',
+		"import * as Bits from 'bits-ui'; const Slider = 'Button'; void Bits[Slider];"
+	],
+	[
+		'computed destructuring alias for another primitive',
+		"import * as Bits from 'bits-ui'; const Slider = 'Button'; const { [Slider]: Button } = Bits; void Button;"
+	],
+	[
+		'mutable computed key',
+		"import * as Bits from 'bits-ui'; let key = 'Slider'; key = 'Button'; void Bits[key];"
+	],
+	[
+		'shadowed namespace alias',
+		"import * as Bits from 'bits-ui'; { const Bits = { Slider: 1 }; void Bits.Slider; }"
+	],
 	[
 		'nonliteral dynamic source',
 		"const source = 'bits-ui'; const { Slider } = await import(source); void Slider;"
@@ -109,6 +153,20 @@ describe('prefer-shadcn-slider-imports production configuration', () => {
 		},
 		60_000
 	);
+
+	it('rejects a Slider namespace component tag', async () => {
+		const source = "<script>import * as Bits from 'bits-ui';</script><Bits.Slider.Root />";
+		expect(
+			await sliderMessages(source, 'src/lib/components/authenticated/authenticated-sidebar.svelte')
+		).toHaveLength(1);
+	});
+
+	it('allows another primitive namespace component tag', async () => {
+		const source = "<script>import * as Bits from 'bits-ui';</script><Bits.Button.Root />";
+		expect(
+			await sliderMessages(source, 'src/lib/components/authenticated/authenticated-sidebar.svelte')
+		).toEqual([]);
+	});
 
 	it.each(prohibited)('rejects %s', async (_label, source) => {
 		const messages = await sliderMessages(source);

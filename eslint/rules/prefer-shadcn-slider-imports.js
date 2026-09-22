@@ -10,21 +10,6 @@ function importedName(node) {
 	return null;
 }
 
-function propertyName(node) {
-	if (node?.computed) return importedName(node.property);
-	return node?.property?.type === 'Identifier' ? node.property.name : importedName(node?.property);
-}
-
-function hasSliderProperty(pattern) {
-	return (
-		pattern?.type === 'ObjectPattern' &&
-		pattern.properties.some((property) => {
-			if (property.type !== 'Property') return false;
-			return importedName(property.key) === 'Slider';
-		})
-	);
-}
-
 function unwrapExpression(node) {
 	let current = node;
 	while (current?.type === 'AwaitExpression' || current?.type === 'ChainExpression') {
@@ -64,36 +49,120 @@ export default {
 		if (EXEMPT_PATH.test(posixFilename(context))) return {};
 
 		const sourceCode = context.sourceCode ?? context.getSourceCode();
-		const namespaceVariables = new WeakSet();
 
 		function report(node) {
 			context.report({ node, messageId: 'directSliderImport' });
 		}
 
-		function rememberDeclaredVariable(node, name) {
-			const variable = sourceCode
-				.getDeclaredVariables(node)
-				.find((candidate) => candidate.name === name);
-			if (variable) namespaceVariables.add(variable);
+		function variableForIdentifier(node) {
+			if (node?.type !== 'Identifier') return null;
+			return findVariable(sourceCode.getScope(node), node.name);
 		}
 
-		function isBitsNamespaceIdentifier(node) {
-			if (node?.type !== 'Identifier') return false;
-			const variable = findVariable(sourceCode.getScope(node), node.name);
-			return variable ? namespaceVariables.has(variable) : false;
+		function resolveStaticString(node, seenVariables = new Set()) {
+			const expression = unwrapExpression(node);
+			if (expression?.type === 'Literal' && typeof expression.value === 'string') {
+				return expression.value;
+			}
+			if (expression?.type === 'TemplateLiteral' && expression.expressions.length === 0) {
+				return expression.quasis[0]?.value.cooked ?? null;
+			}
+			const variable = variableForIdentifier(expression);
+			if (!variable || seenVariables.has(variable)) return null;
+			seenVariables.add(variable);
+			for (const definition of variable.defs) {
+				if (
+					definition.type === 'Variable' &&
+					definition.name?.type === 'Identifier' &&
+					definition.node?.id === definition.name &&
+					definition.parent?.kind === 'const'
+				) {
+					return resolveStaticString(definition.node.init, seenVariables);
+				}
+			}
+			return null;
 		}
 
-		function isBitsNamespaceExpression(node) {
-			return isBitsImportExpression(node) || isBitsNamespaceIdentifier(unwrapExpression(node));
+		function propertyName(node) {
+			if (node?.computed) return resolveStaticString(node.property);
+			return node?.property?.type === 'Identifier'
+				? node.property.name
+				: importedName(node?.property);
+		}
+
+		function patternPropertyName(property) {
+			return property.computed ? resolveStaticString(property.key) : importedName(property.key);
+		}
+
+		function hasSliderProperty(pattern) {
+			return (
+				pattern?.type === 'ObjectPattern' &&
+				pattern.properties.some(
+					(property) => property.type === 'Property' && patternPropertyName(property) === 'Slider'
+				)
+			);
+		}
+
+		function isBitsImportPromiseExpression(node, seenVariables = new Set()) {
+			const expression = unwrapExpression(node);
+			if (isBitsImportExpression(expression)) return true;
+			const variable = variableForIdentifier(expression);
+			if (!variable || seenVariables.has(variable)) return false;
+			seenVariables.add(variable);
+			return variable.defs.some(
+				(definition) =>
+					definition.type === 'Variable' &&
+					definition.name?.type === 'Identifier' &&
+					definition.node?.id === definition.name &&
+					isBitsImportPromiseExpression(definition.node.init, seenVariables)
+			);
+		}
+
+		function isBitsThenCallbackParameter(variable, seenVariables) {
+			return variable.defs.some((definition) => {
+				if (definition.type !== 'Parameter' || definition.name?.type !== 'Identifier') return false;
+				const callback = definition.node;
+				const call = callback?.parent;
+				return (
+					call?.type === 'CallExpression' &&
+					call.arguments[0] === callback &&
+					call.callee.type === 'MemberExpression' &&
+					propertyName(call.callee) === 'then' &&
+					isBitsImportPromiseExpression(call.callee.object, seenVariables)
+				);
+			});
+		}
+
+		function isBitsNamespaceExpression(node, seenVariables = new Set()) {
+			const expression = unwrapExpression(node);
+			if (isBitsImportExpression(expression)) return true;
+			const variable = variableForIdentifier(expression);
+			if (!variable || seenVariables.has(variable)) return false;
+			seenVariables.add(variable);
+			return variable.defs.some((definition) => {
+				if (
+					definition.type === 'ImportBinding' &&
+					definition.node?.type === 'ImportNamespaceSpecifier' &&
+					definition.parent?.source?.value === 'bits-ui'
+				) {
+					return true;
+				}
+				if (
+					definition.type === 'Variable' &&
+					definition.name?.type === 'Identifier' &&
+					definition.node?.id === definition.name
+				) {
+					return isBitsNamespaceExpression(definition.node.init, seenVariables);
+				}
+				return isBitsThenCallbackParameter(variable, seenVariables);
+			});
 		}
 
 		return {
 			ImportDeclaration(node) {
 				if (node.source.value !== 'bits-ui' || node.importKind === 'type') return;
 				for (const specifier of node.specifiers) {
-					if (specifier.type === 'ImportNamespaceSpecifier') {
-						rememberDeclaredVariable(node, specifier.local.name);
-					} else if (
+					if (
 						specifier.type === 'ImportSpecifier' &&
 						specifier.importKind !== 'type' &&
 						importedName(specifier.imported) === 'Slider'
@@ -116,10 +185,6 @@ export default {
 				}
 			},
 			VariableDeclarator(node) {
-				if (node.id.type === 'Identifier' && isBitsImportExpression(node.init)) {
-					rememberDeclaredVariable(node, node.id.name);
-					return;
-				}
 				if (hasSliderProperty(node.id) && isBitsNamespaceExpression(node.init)) {
 					report(node.id);
 				}
@@ -133,7 +198,7 @@ export default {
 				if (
 					node.callee.type !== 'MemberExpression' ||
 					propertyName(node.callee) !== 'then' ||
-					!isBitsImportExpression(node.callee.object)
+					!isBitsImportPromiseExpression(node.callee.object)
 				) {
 					return;
 				}
@@ -145,14 +210,15 @@ export default {
 					return;
 				}
 				const parameter = callback.params[0];
-				if (hasSliderProperty(parameter)) {
-					report(parameter);
-				} else if (parameter?.type === 'Identifier') {
-					rememberDeclaredVariable(callback, parameter.name);
-				}
+				if (hasSliderProperty(parameter)) report(parameter);
 			},
 			MemberExpression(node) {
 				if (propertyName(node) === 'Slider' && isBitsNamespaceExpression(node.object)) {
+					report(node);
+				}
+			},
+			SvelteMemberExpressionName(node) {
+				if (node.property?.name === 'Slider' && isBitsNamespaceExpression(node.object)) {
 					report(node);
 				}
 			}
