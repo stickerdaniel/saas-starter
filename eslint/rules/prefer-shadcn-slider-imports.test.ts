@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 const repoRoot = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const eslint = new ESLint({ cwd: repoRoot });
+const subdirectoryEslint = new ESLint({ cwd: path.join(repoRoot, 'src') });
 const ruleId = 'local/prefer-shadcn-slider-imports';
 const boundaryMessage =
 	'Use named Bits UI imports and the shadcn Slider wrapper so Slider enforcement remains statically decidable.';
@@ -216,4 +217,26 @@ describe('prefer-shadcn-slider-imports production configuration', () => {
 			"<script>import { Slider } from 'bits-ui'; import * as Bits from 'bits-ui'; void import('bits-ui');</script>";
 		expect(await sliderMessages(source, 'src/lib/components/ui/slider/slider.svelte')).toEqual([]);
 	}, 60_000);
+
+	it('exempts the absolute wrapper path when ESLint runs from src', async () => {
+		const source =
+			"<script>import { Slider } from 'bits-ui'; import * as Bits from 'bits-ui'; void import('bits-ui');</script>";
+		const filePath = path.join(repoRoot, 'src/lib/components/ui/slider/slider.svelte');
+		const [result] = await subdirectoryEslint.lintText(source, { filePath });
+		expect(result.fatalErrorCount).toBe(0);
+		expect(result.messages.filter((message) => message.ruleId === ruleId)).toEqual([]);
+	}, 60_000);
+
+	it('checks an absolute application lookalike path when ESLint runs from src', async () => {
+		const filePath = path.join(repoRoot, 'src/features/payments/components/ui/controls.ts');
+		const config = await subdirectoryEslint.calculateConfigForFile(filePath);
+		expect(config?.rules?.[ruleId]?.[0]).toBe(2);
+		const [result] = await subdirectoryEslint.lintText("import { Slider } from 'bits-ui';", {
+			filePath
+		});
+		expect(result.fatalErrorCount).toBe(0);
+		expect(result.messages.filter((message) => message.ruleId === ruleId)).toMatchObject([
+			{ messageId: 'directSliderImport' }
+		]);
+	});
 });

@@ -1,11 +1,15 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const EXEMPT_PATH_PREFIX = 'src/lib/components/ui/';
+const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function repositoryFilename(context) {
-	const cwd = String(context.cwd ?? context.getCwd?.() ?? process.cwd());
 	const filename = String(context.filename ?? context.getFilename?.() ?? '');
-	return path.relative(cwd, path.resolve(cwd, filename)).replaceAll('\\', '/');
+	const absoluteFilename = path.isAbsolute(filename)
+		? filename
+		: path.resolve(String(context.cwd ?? context.getCwd?.() ?? process.cwd()), filename);
+	return path.relative(REPOSITORY_ROOT, absoluteFilename).replaceAll('\\', '/');
 }
 
 function importedName(node) {
