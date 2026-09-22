@@ -385,14 +385,23 @@ describe('template setup writes importable branding values', () => {
 		expect(imported.value?.config[key]).toBe(value);
 	});
 
-	it('derives the contact email helpers from the supplied address', () => {
+	it('prints only plain ASCII in its own progress lines', () => {
 		const dir = createFixture();
-		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, '--brand', 'Northwind (Europe)\u2122']);
 		expect(run.code, run.stderr).toBe(0);
 		expect(run.stdout).toContain('Template setup');
 		expect(run.stdout).toContain('Setup complete.');
+		expect(run.stdout).toContain('brand="Northwind (Europe)\u2122"');
+		// The Applying line echoes user input, which may legitimately contain
+		// Unicode; every other line is fixed script output and must stay ASCII.
+		const scriptLines = run.stdout.split('\n').filter((line) => !line.startsWith('Applying:'));
 		// eslint-disable-next-line no-control-regex
-		expect(run.stdout).not.toMatch(/[^\x00-\x7F]/);
+		expect(scriptLines.join('\n')).not.toMatch(/[^\x00-\x7F]/);
+	});
+
+	it('derives the contact email helpers from the supplied address', () => {
+		const dir = createFixture();
+		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
 
 		const imported = importLegalConfig(dir);
 		expect(imported.code, imported.stderr).toBe(0);

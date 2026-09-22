@@ -1724,7 +1724,7 @@ async function main() {
 	console.log(
 		legalIdentityChanged
 			? `  updated legal-metadata.ts (Last Updated: ${setupDate})`
-			: '  unchanged legal-metadata.ts'
+			: '  updated legal-metadata.ts (content unchanged)'
 	);
 
 	replaceAtomically(packageFile, nextPackageJson);
