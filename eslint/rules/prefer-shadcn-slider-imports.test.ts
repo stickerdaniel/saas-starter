@@ -72,6 +72,55 @@ const prohibited = [
 	[
 		'static computed namespace destructuring',
 		"import * as Bits from 'bits-ui'; const key = 'Slider'; const { [key]: RangeControl } = Bits; void RangeControl;"
+	],
+	['local namespace export', "import * as Bits from 'bits-ui'; export { Bits };"],
+	['default namespace export', "import * as Bits from 'bits-ui'; export default Bits;"],
+	[
+		'local namespace alias export',
+		"import * as Bits from 'bits-ui'; const primitives = Bits; export { primitives as Controls };"
+	],
+	[
+		'exported namespace alias declaration',
+		"import * as Bits from 'bits-ui'; export const Controls = Bits;"
+	],
+	[
+		'assigned namespace alias',
+		"import * as Bits from 'bits-ui'; let primitives; primitives = Bits; void primitives.Slider;"
+	],
+	[
+		'assigned saved dynamic import',
+		"let bitsPromise; bitsPromise = import('bits-ui'); await bitsPromise.then((Bits) => Bits.Slider);"
+	],
+	[
+		'conditionally reassigned namespace alias',
+		"import * as Bits from 'bits-ui'; let primitives = Bits; if (replace) primitives = {}; void primitives.Slider;"
+	],
+	['asserted static key', "import * as Bits from 'bits-ui'; void Bits['Slider' as string];"],
+	[
+		'satisfied static key',
+		"import * as Bits from 'bits-ui'; void Bits['Slider' satisfies string];"
+	],
+	['type-asserted static key', "import * as Bits from 'bits-ui'; void Bits[<string>'Slider'];"],
+	['non-null static key', "import * as Bits from 'bits-ui'; void Bits['Slider'!];"],
+	[
+		'typed namespace alias',
+		"import * as Bits from 'bits-ui'; const primitives = Bits as typeof Bits; void primitives.Slider;"
+	],
+	[
+		'satisfied namespace alias',
+		"import * as Bits from 'bits-ui'; const primitives = Bits satisfies typeof Bits; void primitives.Slider;"
+	],
+	[
+		'type-asserted namespace alias',
+		"import * as Bits from 'bits-ui'; const primitives = <typeof Bits>Bits; void primitives.Slider;"
+	],
+	[
+		'non-null namespace alias',
+		"import * as Bits from 'bits-ui'; const primitives = Bits!; void primitives.Slider;"
+	],
+	[
+		'typed saved dynamic import',
+		"const bitsPromise = import('bits-ui') as Promise<typeof import('bits-ui')>; await bitsPromise.then((Bits) => Bits.Slider);"
 	]
 ] as const;
 
@@ -110,6 +159,33 @@ const permitted = [
 	[
 		'mutable computed key',
 		"import * as Bits from 'bits-ui'; let key = 'Slider'; key = 'Button'; void Bits[key];"
+	],
+	[
+		'reassigned namespace alias',
+		"import * as Bits from 'bits-ui'; let primitives = Bits; primitives = { Button: 1 }; void primitives.Slider;"
+	],
+	[
+		'reassigned saved dynamic import',
+		"let bitsPromise = import('bits-ui'); bitsPromise = Promise.resolve({ Button: 1 }); await bitsPromise.then((Bits) => Bits.Slider);"
+	],
+	['type-only local export', 'type Bits = { Slider: unknown }; export { type Bits };'],
+	['exported individual primitive', "import { Button } from 'bits-ui'; export { Button };"],
+	[
+		're-export from another module',
+		"import * as Bits from 'bits-ui'; export { Bits as Controls } from './controls.js';"
+	],
+	[
+		'reassigned namespace alias export',
+		"import * as Bits from 'bits-ui'; let primitives = Bits; primitives = { Button: 1 }; export { primitives };"
+	],
+	['asserted Button key', "import * as Bits from 'bits-ui'; void Bits['Button' as string];"],
+	[
+		'typed namespace alias Button',
+		"import * as Bits from 'bits-ui'; const primitives = Bits as typeof Bits; void primitives.Button;"
+	],
+	[
+		'typed saved dynamic import Button',
+		"const bitsPromise = import('bits-ui') as Promise<typeof import('bits-ui')>; await bitsPromise.then((Bits) => Bits.Button);"
 	],
 	[
 		'shadowed namespace alias',
