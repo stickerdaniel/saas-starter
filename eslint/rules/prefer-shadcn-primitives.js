@@ -118,7 +118,9 @@ export default {
 			nativeTextarea:
 				'Use shadcn Textarea from $lib/components/ui/textarea instead of a native <textarea>.',
 			nativeInput:
-				'Use shadcn Input from $lib/components/ui/input instead of a native text-like <input>.'
+				'Use shadcn Input from $lib/components/ui/input instead of a native text-like <input>.',
+			directSliderImport:
+				'Import Slider from $lib/components/ui/slider/index.js instead of bits-ui.'
 		}
 	},
 	create(context) {
@@ -139,6 +141,18 @@ export default {
 		}
 
 		return {
+			ImportDeclaration(node) {
+				if (node.source.value !== 'bits-ui' || node.importKind === 'type') return;
+				const importsSlider = node.specifiers.some(
+					(specifier) =>
+						specifier.type === 'ImportSpecifier' &&
+						specifier.importKind !== 'type' &&
+						specifier.imported.name === 'Slider'
+				);
+				if (importsSlider) {
+					context.report({ node, messageId: 'directSliderImport' });
+				}
+			},
 			SvelteElement(node) {
 				if (node.kind !== 'html') return;
 				const name = elementName(node);
