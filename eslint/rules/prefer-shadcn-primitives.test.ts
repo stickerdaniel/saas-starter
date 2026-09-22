@@ -195,8 +195,7 @@ const EXPECTED_MESSAGES = {
 	nativeTextarea:
 		'Use shadcn Textarea from $lib/components/ui/textarea instead of a native <textarea>.',
 	nativeInput:
-		'Use shadcn Input from $lib/components/ui/input instead of a native text-like <input>.',
-	directSliderImport: 'Import Slider from $lib/components/ui/slider/index.js instead of bits-ui.'
+		'Use shadcn Input from $lib/components/ui/input instead of a native text-like <input>.'
 } as const;
 
 const TEXT_LIKE_TYPES = ['text', 'email', 'password', 'search', 'tel', 'url', 'number'] as const;
@@ -394,15 +393,6 @@ function typeSyntaxes(type: string): Array<[string, string]> {
 }
 
 describe('prefer-shadcn-primitives', () => {
-	it('requires the shadcn Slider wrapper for runtime imports', () => {
-		expect(ids(lint('<script>import { Slider } from "bits-ui";</script>'))).toEqual([
-			'directSliderImport'
-		]);
-		expect(
-			lint('<script>import { Slider } from "$lib/components/ui/slider/index.js";</script>')
-		).toEqual([]);
-	});
-
 	it('flags a native button', () => {
 		const reports = lint('<button type="button">Save</button>');
 		expect(reports.map((r) => r.messageId)).toEqual(['nativeButton']);

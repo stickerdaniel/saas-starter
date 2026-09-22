@@ -7,8 +7,21 @@
 		value = $bindable(),
 		orientation = 'horizontal',
 		class: className,
+		'aria-label': ariaLabel,
+		'aria-labelledby': ariaLabelledby,
+		'aria-describedby': ariaDescribedby,
 		...restProps
 	}: WithoutChildrenOrChild<SliderPrimitive.RootProps> = $props();
+
+	function getDefaultValue() {
+		if (restProps.type === 'multiple') return [];
+		if (restProps.min !== undefined) return restProps.min;
+		return Array.isArray(restProps.step) ? Math.min(...restProps.step) : 0;
+	}
+
+	if (value === undefined) {
+		value = getDefaultValue();
+	}
 </script>
 
 <!--
@@ -43,6 +56,9 @@ get along, so we shut typescript up by casting `value` to `never`.
 			<SliderPrimitive.Thumb
 				data-slot="slider-thumb"
 				index={thumb.index}
+				aria-label={ariaLabel}
+				aria-labelledby={ariaLabelledby}
+				aria-describedby={ariaDescribedby}
 				class="h-4 w-6 rounded-full bg-white shadow-md ring-1 ring-black/10 transition-[color,box-shadow,background-color] not-dark:bg-clip-padding hover:ring-4 hover:ring-ring/30 focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-hidden data-vertical:h-6 data-vertical:w-4 block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50"
 			/>
 		{/each}

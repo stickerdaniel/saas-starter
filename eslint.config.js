@@ -24,6 +24,7 @@ import noFrozenAuthPageDataRule from './eslint/rules/no-frozen-auth-page-data.js
 import requireSvelteModuleExtensionRule from './eslint/rules/require-svelte-module-extension.js';
 import noAnimatedPixelPressRule from './eslint/rules/no-animated-pixel-press.js';
 import preferShadcnPrimitivesRule from './eslint/rules/prefer-shadcn-primitives.js';
+import preferShadcnSliderImportsRule from './eslint/rules/prefer-shadcn-slider-imports.js';
 import safeSvelteParser from './eslint/parsers/safe-svelte-parser.js';
 import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js';
 
@@ -60,6 +61,7 @@ const localPlugin = {
 		'require-svelte-module-extension': requireSvelteModuleExtensionRule,
 		'no-animated-pixel-press': noAnimatedPixelPressRule,
 		'prefer-shadcn-primitives': preferShadcnPrimitivesRule,
+		'prefer-shadcn-slider-imports': preferShadcnSliderImportsRule,
 		'no-literal-control-char': noLiteralControlCharRule
 	}
 };
@@ -220,6 +222,15 @@ export default defineConfig(
 		rules: {
 			'local/require-marketing-markdown': 'error',
 			'local/require-marketing-route-registration': 'error'
+		}
+	},
+	{
+		files: ['src/**/*.ts', 'src/**/*.js', 'src/**/*.svelte'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/prefer-shadcn-slider-imports': 'error'
 		}
 	},
 	{
