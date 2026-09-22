@@ -160,7 +160,7 @@ function renderPng(source: string, out: string, o: RenderOpts): void {
 		// an unsupported platform) does not break the build.
 		if (existsSync(join(ROOT, 'static', out))) {
 			console.warn(
-				`⚠️  Could not regenerate static/${out} (${err instanceof Error ? err.message : err})`
+				`Warning: Could not regenerate static/${out} (${err instanceof Error ? err.message : err})`
 			);
 			console.warn('   Using existing committed file.');
 		} else {
@@ -259,7 +259,7 @@ try {
 } catch (err) {
 	if (existsSync(OUT_PATH)) {
 		console.warn(
-			`⚠️  Could not regenerate logo-email.png (${err instanceof Error ? err.message : err})`
+			`Warning: Could not regenerate logo-email.png (${err instanceof Error ? err.message : err})`
 		);
 		console.warn('   Using existing committed file.');
 	} else {
@@ -320,7 +320,7 @@ try {
 } catch (err) {
 	if (existsSync(join(ROOT, 'static/favicon.svg'))) {
 		console.warn(
-			`⚠️  Could not regenerate static/favicon.svg (${err instanceof Error ? err.message : err})`
+			`Warning: Could not regenerate static/favicon.svg (${err instanceof Error ? err.message : err})`
 		);
 		console.warn('   Using existing committed file.');
 	} else {
@@ -357,7 +357,7 @@ try {
 } catch (err) {
 	if (existsSync(join(ROOT, 'static/favicon.ico'))) {
 		console.warn(
-			`⚠️  Could not regenerate static/favicon.ico (${err instanceof Error ? err.message : err})`
+			`Warning: Could not regenerate static/favicon.ico (${err instanceof Error ? err.message : err})`
 		);
 		console.warn('   Using existing committed file.');
 	} else {
@@ -365,6 +365,4 @@ try {
 	}
 }
 
-console.log(
-	'\n→ After a brand change, validate at https://realfavicongenerator.net/favicon-checker'
-);
+console.log('\nAfter a brand change, validate at https://realfavicongenerator.net/favicon-checker');
