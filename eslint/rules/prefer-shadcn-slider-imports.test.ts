@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { existsSync } from 'node:fs';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ESLint } from 'eslint';
@@ -38,7 +39,15 @@ const prohibitedBoundaries = [
 	['wildcard re-export', "export * from 'bits-ui';", 'export'],
 	['namespace re-export', "export * as Bits from 'bits-ui';", 'export'],
 	['literal dynamic import', "void import('bits-ui');", 'dynamic'],
-	['static template dynamic import', 'void import(`bits-ui`);', 'dynamic']
+	['static template dynamic import', 'void import(`bits-ui`);', 'dynamic'],
+	['as-wrapped literal dynamic import', "void import('bits-ui' as string);", 'dynamic'],
+	[
+		'satisfies-wrapped literal dynamic import',
+		"void import('bits-ui' satisfies string);",
+		'dynamic'
+	],
+	['assertion-wrapped literal dynamic import', "void import(<string>'bits-ui');", 'dynamic'],
+	['non-null-wrapped literal dynamic import', "void import('bits-ui'!);", 'dynamic']
 ] as const;
 
 const latestProScenarios = [
@@ -96,7 +105,11 @@ const permitted = [
 		'nonliteral dynamic import',
 		"const source = 'bits-ui'; const { Slider } = await import(source); void Slider;"
 	],
-	['wrapper import', "import { Slider } from '$lib/components/ui/slider/index.js'; void Slider;"]
+	['wrapper import', "import { Slider } from '$lib/components/ui/slider/index.js'; void Slider;"],
+	[
+		'nonliteral dynamic import with a non-null source',
+		"const source = 'bits-ui'; const { Slider } = await import(source!); void Slider;"
+	]
 ] as const;
 
 describe('prefer-shadcn-slider-imports production configuration', () => {
@@ -140,6 +153,32 @@ describe('prefer-shadcn-slider-imports production configuration', () => {
 		},
 		60_000
 	);
+
+	it.each([
+		'src/routes/components/ui/+page.svelte',
+		'src/features/payments/components/ui/controls.ts'
+	])('does not exempt application path %s', async (filePath) => {
+		const source = filePath.endsWith('.svelte')
+			? '<script lang="ts">import { Slider } from \'bits-ui\';</script>'
+			: "import { Slider } from 'bits-ui';";
+		const temporaryRoot = filePath.endsWith('.svelte')
+			? path.join(repoRoot, 'src/routes/components')
+			: null;
+		if (temporaryRoot) {
+			expect(existsSync(temporaryRoot)).toBe(false);
+			await mkdir(path.dirname(path.join(repoRoot, filePath)), { recursive: true });
+			await writeFile(path.join(repoRoot, filePath), source);
+		}
+		try {
+			const config = await eslint.calculateConfigForFile(filePath);
+			expect(config?.rules?.[ruleId]?.[0]).toBe(2);
+			const messages = await sliderMessages(source, filePath);
+			expect(messages).toHaveLength(1);
+			expect(messages[0].messageId).toBe('directSliderImport');
+		} finally {
+			if (temporaryRoot) await rm(temporaryRoot, { recursive: true, force: true });
+		}
+	});
 
 	it.each(prohibitedSliderBindings)('rejects %s', async (_label, source) => {
 		const messages = await sliderMessages(source);

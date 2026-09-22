@@ -1,7 +1,11 @@
-const EXEMPT_PATH = /(?:\/components\/ui\/)/u;
+import path from 'node:path';
 
-function posixFilename(context) {
-	return String(context.filename ?? context.getFilename?.() ?? '').replaceAll('\\', '/');
+const EXEMPT_PATH_PREFIX = 'src/lib/components/ui/';
+
+function repositoryFilename(context) {
+	const cwd = String(context.cwd ?? context.getCwd?.() ?? process.cwd());
+	const filename = String(context.filename ?? context.getFilename?.() ?? '');
+	return path.relative(cwd, path.resolve(cwd, filename)).replaceAll('\\', '/');
 }
 
 function importedName(node) {
@@ -11,11 +15,20 @@ function importedName(node) {
 }
 
 function isBitsSource(node) {
-	if (node?.type === 'Literal') return node.value === 'bits-ui';
+	let source = node;
+	while (
+		source?.type === 'TSAsExpression' ||
+		source?.type === 'TSSatisfiesExpression' ||
+		source?.type === 'TSTypeAssertion' ||
+		source?.type === 'TSNonNullExpression'
+	) {
+		source = source.expression;
+	}
+	if (source?.type === 'Literal') return source.value === 'bits-ui';
 	return (
-		node?.type === 'TemplateLiteral' &&
-		node.expressions.length === 0 &&
-		node.quasis[0]?.value.cooked === 'bits-ui'
+		source?.type === 'TemplateLiteral' &&
+		source.expressions.length === 0 &&
+		source.quasis[0]?.value.cooked === 'bits-ui'
 	);
 }
 
@@ -34,7 +47,7 @@ export default {
 		}
 	},
 	create(context) {
-		if (EXEMPT_PATH.test(posixFilename(context))) return {};
+		if (repositoryFilename(context).startsWith(EXEMPT_PATH_PREFIX)) return {};
 
 		function reportSlider(node) {
 			context.report({ node, messageId: 'directSliderImport' });
