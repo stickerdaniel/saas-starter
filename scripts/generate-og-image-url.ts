@@ -37,5 +37,5 @@ export const OG_IMAGE_URL = '/og-image.png?v=${hash}';
 if (import.meta.main) {
 	const hash = hashImage(readFileSync(IMAGE_PATH));
 	writeFileSync(OUTPUT_PATH, renderModule(hash));
-	console.log(`✓ /og-image.png?v=${hash} → ${OUTPUT_PATH}`);
+	console.log(`Wrote ${OUTPUT_PATH} for /og-image.png?v=${hash}`);
 }
