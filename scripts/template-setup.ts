@@ -1546,7 +1546,7 @@ export function replaceLockRootNameSource(source: string, slug: string): string 
 // ---------------------------------------------------------------------------
 
 async function main() {
-	console.log('\n📦 Template Setup\n');
+	console.log('\nTemplate setup\n');
 
 	const {
 		slug: slugFlag,
@@ -1720,31 +1720,31 @@ async function main() {
 	console.log(`\nApplying: slug=${slug}, repo=${repo}, brand="${brand}"\n`);
 
 	replaceLegalPair(legalConfigFile, nextLegalSource, legalMetadataFile, nextLegalMetadata);
-	console.log('  ✓ legal.ts');
+	console.log('  updated legal.ts');
 	console.log(
 		legalIdentityChanged
-			? `  ✓ legal-metadata.ts (Last Updated: ${setupDate})`
-			: '  ✓ legal-metadata.ts (unchanged)'
+			? `  updated legal-metadata.ts (Last Updated: ${setupDate})`
+			: '  unchanged legal-metadata.ts'
 	);
 
 	replaceAtomically(packageFile, nextPackageJson);
-	console.log('  ✓ package.json');
+	console.log('  updated package.json');
 
 	if (lockFile && nextLock !== undefined) {
 		replaceAtomically(lockFile, nextLock);
-		console.log('  ✓ bun.lock (root name)');
+		console.log('  updated bun.lock (root name)');
 	}
 
 	replaceAtomically(wranglerFile, nextWrangler);
-	console.log('  ✓ wrangler.toml');
+	console.log('  updated wrangler.toml');
 
 	replaceAtomically(readmeFile, nextReadme);
-	console.log('  ✓ README.md');
+	console.log('  updated README.md');
 
 	replaceAtomically(siteFile, nextSiteConfig);
-	console.log('  ✓ site.ts');
+	console.log('  updated site.ts');
 
-	console.log('\n✅ Done! Next steps:');
+	console.log('\nSetup complete. Next steps:');
 	console.log('  1. Replace static/logo.svg with your logo, then run: bun run build:emails');
 	console.log('  2. Refresh email snapshots: bun run test:unit -- email-snapshots.test.ts -u');
 	console.log(

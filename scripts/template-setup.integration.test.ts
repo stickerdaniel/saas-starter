@@ -387,7 +387,12 @@ describe('template setup writes importable branding values', () => {
 
 	it('derives the contact email helpers from the supplied address', () => {
 		const dir = createFixture();
-		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		expect(run.stdout).toContain('Template setup');
+		expect(run.stdout).toContain('Setup complete.');
+		// eslint-disable-next-line no-control-regex
+		expect(run.stdout).not.toMatch(/[^\x00-\x7F]/);
 
 		const imported = importLegalConfig(dir);
 		expect(imported.code, imported.stderr).toBe(0);
