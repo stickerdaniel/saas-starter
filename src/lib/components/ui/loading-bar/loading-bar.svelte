@@ -20,6 +20,7 @@
 		ref = $bindable(null),
 		class: className,
 		max = 100,
+		min = 0,
 		value,
 		mode,
 		showBackground = true,
@@ -27,9 +28,12 @@
 		...restProps
 	}: LoadingBarProps = $props();
 
-	const safeMax = $derived(Math.max(max ?? 100, 1));
-	const clampedValue = $derived(clamp(value ?? 0, 0, safeMax));
-	const progressPercent = $derived((clampedValue / safeMax) * 100);
+	const safeMin = $derived(min ?? 0);
+	const safeMax = $derived(Math.max(max ?? 100, safeMin + 1));
+	const clampedValue = $derived(value === null ? null : clamp(value ?? 0, safeMin, safeMax));
+	const progressPercent = $derived(
+		clampedValue === null ? 0 : ((clampedValue - safeMin) / (safeMax - safeMin)) * 100
+	);
 
 	// Intentional one-time capture: the spring's start position is the width at mount,
 	// later progressPercent changes flow through the spring-sync $effect below
@@ -126,6 +130,7 @@
 		className
 	)}
 	value={clampedValue}
+	min={safeMin}
 	max={safeMax}
 	{...restProps}
 >
