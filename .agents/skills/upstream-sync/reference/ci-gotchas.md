@@ -17,6 +17,12 @@ bun run lint        # eslint . && oxlint, the same gate CI runs
 Fix every pre-existing violation the new rule surfaces (it is part of integrating the
 rule), or the rule's PR cannot merge.
 
+`@shadcn/lint` rules are the one exception, because each fork finding needs a design
+judgement. Keep every `shadcn/*` rule that still reports fork findings out of
+`enforcedShadcnPolicy` in `eslint/shadcn-policy.js`, match `eslint/shadcn-policy.test.ts`
+to the rules actually enforced, and name the held-back rules in the sync PR body. Then
+tell the human to run `/shadcn-lint-migration`, which enforces them one at a time.
+
 ## 2. Typed-env deploys need a preview default
 
 If a ported commit adopts typed environment variables (declaring required vars that the
