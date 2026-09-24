@@ -1,8 +1,24 @@
 import { plugin } from '@shadcn/lint';
 
+/**
+ * Every script extension under src/ that the policy covers. The interim baseline gate
+ * derives the tracked files it expects to be covered from this same list.
+ */
+export const shadcnSourceExtensions = [
+	'svelte',
+	'ts',
+	'js',
+	'mts',
+	'cts',
+	'mjs',
+	'cjs',
+	'tsx',
+	'jsx'
+];
+
 // Used for integration tests until the source migration permits enforcement.
 export const shadcnPolicy = {
-	files: ['src/**/*.{svelte,ts,js}'],
+	files: [`src/**/*.{${shadcnSourceExtensions.join(',')}}`],
 	plugins: { shadcn: plugin },
 	rules: {
 		'shadcn/no-restyle': [

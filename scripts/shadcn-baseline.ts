@@ -15,7 +15,9 @@
  * The protected base is SHADCN_BASELINE_BASE (CI passes the pull request base or the
  * pre-push SHA), else `--base`, else the merge base with origin/main or main. The
  * baseline is read from that commit, so editing the committed file cannot accept a new
- * finding.
+ * finding. When there is no such baseline (a base without the file, or the all-zero SHA
+ * GitHub sends for a push that creates a branch or repository), the committed file is the
+ * bootstrap allowance, indexed by current paths, and needs review as a whole.
  *
  * Coverage is proven by the scan, not recorded: every tracked source file under src/ is
  * either linted with all policy rules active or ignored by eslint.config.js, and a file
@@ -48,7 +50,7 @@ import { isDeepStrictEqual, parseArgs } from 'node:util';
 import { ESLint } from 'eslint';
 import * as prettier from 'prettier';
 import safeSvelteParser from '../eslint/parsers/safe-svelte-parser.js';
-import { shadcnPolicy } from '../eslint/shadcn-policy.js';
+import { shadcnPolicy, shadcnSourceExtensions } from '../eslint/shadcn-policy.js';
 import { isolatedGitEnv } from './git-context';
 import { runCommand } from './process/command-runner';
 
@@ -60,8 +62,11 @@ const SCHEMA = 1;
 const RULE_PREFIX = 'shadcn/';
 const WRITE_COMMAND = 'bun scripts/shadcn-baseline.ts --write';
 
-/** Tracked files under src/ that are source code, whether or not the policy covers them. */
-export const WATCHED_SOURCE = /^src\/.*\.(?:svelte|[cm]?[jt]s|[jt]sx)$/;
+/**
+ * Tracked files under src/ that the policy must cover, from the policy's own extension
+ * list. The scan still fails closed on any of them without all policy rules active.
+ */
+export const WATCHED_SOURCE = new RegExp(`^src/.*\\.(?:${shadcnSourceExtensions.join('|')})$`);
 
 /**
  * Lockfile roots whose resolved dependency closure can change what the scan reports:
@@ -547,19 +552,50 @@ export function parseRenames(nameStatus: string): Map<string, string> {
 	return renames;
 }
 
-interface ProtectedBase {
+export interface ProtectedBase {
 	commit?: string;
 	label: string;
 	baseline?: Baseline;
 	bootstrap?: string;
 }
 
-function resolveProtectedBase(explicit: string | undefined): ProtectedBase {
-	const inCi = process.env.GITHUB_ACTIONS === 'true';
-	const requested = process.env.SHADCN_BASELINE_BASE?.trim() || explicit?.trim();
+/**
+ * The allowance the current findings are compared against, and how paths map onto it.
+ * Renames translate current paths to base paths, so they apply only to a baseline read
+ * from the base commit; the bootstrap allowance is the head baseline, already indexed by
+ * current paths.
+ */
+export function comparisonBase(
+	base: ProtectedBase,
+	head: Baseline,
+	readRenames: (commit: string) => Map<string, string>
+): { protectedBaseline: Baseline; protectedLabel: string; renames: Map<string, string> } {
+	if (!base.baseline || !base.commit) {
+		return { protectedBaseline: head, protectedLabel: BASELINE_PATH, renames: new Map() };
+	}
+	return {
+		protectedBaseline: base.baseline,
+		protectedLabel: base.label,
+		renames: readRenames(base.commit)
+	};
+}
+
+export function resolveProtectedBase(
+	explicit: string | undefined,
+	env: NodeJS.ProcessEnv = process.env
+): ProtectedBase {
+	const inCi = env.GITHUB_ACTIONS === 'true';
+	const requested = env.SHADCN_BASELINE_BASE?.trim() || explicit?.trim();
 	let commit: string | undefined;
 	if (requested) {
-		if (/^0+$/.test(requested)) throw new Error('SHADCN_BASELINE_BASE is the all-zero SHA.');
+		// GitHub sends the all-zero SHA as `before` on the push that creates a branch or a new
+		// repository from the template; there is no protected commit to read.
+		if (/^0+$/.test(requested)) {
+			return {
+				label: BASELINE_PATH,
+				bootstrap: `The protected base is the all-zero SHA (a push that created the branch); the committed ${BASELINE_PATH} is the bootstrap baseline and needs review as a whole.`
+			};
+		}
 		try {
 			commit = git(['rev-parse', '--verify', `${requested}^{commit}`]).trim();
 		} catch {
@@ -803,11 +839,9 @@ async function main(): Promise<number> {
 	const verdict = evaluate({
 		current,
 		head,
-		protectedBaseline: protectedBase.baseline ?? head,
-		protectedLabel: protectedBase.baseline ? protectedBase.label : BASELINE_PATH,
-		renames: protectedBase.commit
-			? parseRenames(git(['diff', '-z', '--name-status', '-M', protectedBase.commit, '--', 'src']))
-			: new Map()
+		...comparisonBase(protectedBase, head, (commit) =>
+			parseRenames(git(['diff', '-z', '--name-status', '-M', commit, '--', 'src']))
+		)
 	});
 	for (const note of verdict.notes) console.log(`shadcn baseline: ${note}`);
 	const seconds = ((performance.now() - started) / 1000).toFixed(1);

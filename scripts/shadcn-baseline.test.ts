@@ -8,6 +8,8 @@ import {
 	BASELINE_PATH,
 	PROBE_PATH,
 	PROBE_SOURCE,
+	WATCHED_SOURCE,
+	comparisonBase,
 	coverageProblems,
 	createScanner,
 	engineIdentity,
@@ -17,6 +19,7 @@ import {
 	parseBaseline,
 	parseRenames,
 	policyRuleIds,
+	resolveProtectedBase,
 	toBaseline,
 	type Finding,
 	type Snapshot
@@ -201,6 +204,85 @@ describe('baseline verdict', () => {
 		expect(blocking).toEqual([]);
 		expect(stale.join('\n')).toContain('Recorded findings differ for:\n    src/a.svelte');
 		expect(stale.join('\n')).toContain('The ignored source set differs:');
+	});
+});
+
+describe('protected base', () => {
+	const clean = { blocking: [], stale: [], notes: [] };
+	const renamed = snapshot({
+		included: ['src/renamed.svelte', 'src/b.svelte'],
+		findings: snapshot().findings.map((item) => ({ ...item, file: 'src/renamed.svelte' }))
+	});
+	const readRenames = () => new Map([['src/renamed.svelte', 'src/a.svelte']]);
+
+	function check(
+		current: Snapshot,
+		base: Parameters<typeof comparisonBase>[0],
+		head = toBaseline(current)
+	) {
+		return evaluate({ current, head, ...comparisonBase(base, head, readRenames) });
+	}
+
+	it('keeps current paths when the bootstrap baseline is the allowance', () => {
+		// The head baseline is indexed by current paths, so a base-to-head rename must not apply.
+		const bootstrap = { commit: 'c'.repeat(40), label: 'base c', bootstrap: 'no baseline' };
+		expect(check(renamed, bootstrap)).toEqual(clean);
+	});
+
+	it('follows renames when the allowance is read from the protected base', () => {
+		const base = { commit: 'c'.repeat(40), label: 'base c', baseline: toBaseline(snapshot()) };
+		expect(check(renamed, base)).toEqual(clean);
+	});
+
+	it('bootstraps from the committed baseline on an all-zero base', () => {
+		// GitHub sends 40 zeros as `before` on the push that creates a branch or repository.
+		const base = resolveProtectedBase(undefined, {
+			GITHUB_ACTIONS: 'true',
+			SHADCN_BASELINE_BASE: '0'.repeat(40)
+		});
+		expect(base.baseline).toBeUndefined();
+		expect(base.commit).toBeUndefined();
+		expect(base.bootstrap).toContain('needs review as a whole');
+		const committed = toBaseline(snapshot());
+		expect(check(snapshot(), base, committed)).toEqual(clean);
+		const added = snapshot({
+			findings: [...snapshot().findings, finding('src/b.svelte', 'shadcn/no-restyle', button, 7)]
+		});
+		expect(check(added, base, committed).blocking.join('\n')).toContain(
+			'src/b.svelte:7:1 shadcn/no-restyle'
+		);
+	});
+
+	it('still rejects a requested base that is not a commit', () => {
+		expect(() => resolveProtectedBase(undefined, { SHADCN_BASELINE_BASE: 'f'.repeat(40) })).toThrow(
+			'is not a commit'
+		);
+	});
+});
+
+describe('source extensions', () => {
+	const extensions = ['svelte', 'ts', 'js', 'mts', 'cts', 'mjs', 'cjs', 'tsx', 'jsx'];
+
+	it('covers every watched script extension with all policy rules', async () => {
+		const scanner = createScanner(root);
+		for (const extension of extensions) {
+			expect(WATCHED_SOURCE.test(`src/lib/probe.${extension}`), extension).toBe(true);
+			if (extension === 'svelte') continue; // Parser identity is covered separately above.
+			const file = `src/lib/probe.${extension}`;
+			const config = await scanner.calculateConfigForFile(path.join(root, file));
+			expect(coverageProblems(file, config), extension).toEqual([]);
+		}
+		expect(WATCHED_SOURCE.test('src/app.css')).toBe(false);
+	});
+
+	it('reports a finding in an .mjs module', async () => {
+		const scanner = createScanner(root);
+		const [result] = await scanner.lintText(
+			"import { cn } from '$lib/utils';\nexport const classes = cn('bg-red-500');\n",
+			{ filePath: path.join(root, 'src/lib/probe.mjs') }
+		);
+		expect(result.fatalErrorCount).toBe(0);
+		expect(result.messages.map((message) => message.ruleId)).toContain('shadcn/no-raw-colors');
 	});
 });
 
