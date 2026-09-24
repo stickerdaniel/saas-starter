@@ -144,7 +144,7 @@ Two Varlock schemas cover separate runtimes:
 | `.env.schema`        | SvelteKit / Worker / local | `src/env.d.ts`                   |
 | `.env-convex.schema` | Convex backend             | `src/lib/convex/convex-env.d.ts` |
 
-Use `.env.local` for SvelteKit and `.env.convex.local` for the local Convex backend. Never reproduce secrets in docs, logs, commits, or chat. Public browser variables must be declared `@public`; application code uses `$env/static/public` for `PUBLIC_*` variables.
+Use `.env.local` for SvelteKit and `.env.convex.local` for the local Convex backend. Public browser variables must be declared `@public`; application code uses `$env/static/public` for `PUBLIC_*` variables.
 
 ## Plan mode
 
