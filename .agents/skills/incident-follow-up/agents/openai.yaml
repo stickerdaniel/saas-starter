@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Incident Follow-up'
+  short_description: 'Assess bug impact and draft an incident email'
+  default_prompt: 'Use $incident-follow-up to assess who this fixed bug affected and draft an incident email for my approval.'
