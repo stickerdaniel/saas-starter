@@ -95,6 +95,12 @@
 	--warning-foreground: oklch(1 0 0);
 	--info: oklch(0.546 0.245 262.881);
 	--info-foreground: oklch(1 0 0);
+	/* Premium tier colors are theme-invariant, so .dark does not override them. */
+	--premium: oklch(62.7% 0.265 303.9);
+	--premium-foreground: oklch(71.4% 0.203 305.504);
+	--premium-accent: oklch(87.9% 0.169 91.605);
+	--premium-accent-foreground: oklch(27.9% 0.077 45.635);
+	--premium-ring: oklch(13% 0.028 261.692);
 }
 
 .dark {
@@ -187,6 +193,11 @@
 	--color-warning-foreground: var(--warning-foreground);
 	--color-info: var(--info);
 	--color-info-foreground: var(--info-foreground);
+	--color-premium: var(--premium);
+	--color-premium-foreground: var(--premium-foreground);
+	--color-premium-accent: var(--premium-accent);
+	--color-premium-accent-foreground: var(--premium-accent-foreground);
+	--color-premium-ring: var(--premium-ring);
 
 	/* keyframes for loaders */
 	@keyframes typing {

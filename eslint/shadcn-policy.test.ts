@@ -135,18 +135,19 @@ function getClasses(): string { return 'mt-4'; }
 
 describe('shadcn rules enforced by the application ESLint config', () => {
 	const production = new ESLint();
-	const enforced = ['shadcn/no-unknown-classes', 'shadcn/require-static-classes'];
-	const pending = [
-		'shadcn/no-restyle',
-		'shadcn/no-raw-colors',
-		'shadcn/no-arbitrary-values',
-		'shadcn/no-inline-styles'
+	const enforced = [
+		'shadcn/no-unknown-classes',
+		'shadcn/require-static-classes',
+		'shadcn/no-raw-colors'
 	];
+	const pending = ['shadcn/no-restyle', 'shadcn/no-arbitrary-values', 'shadcn/no-inline-styles'];
 	const pendingSource = `${button}<Button class="rounded-full">Save</Button>
-<div class="w-[550px] bg-red-500" style="color: red"></div>`;
+<div class="w-[550px]" style="color: red"></div>`;
 
-	async function productionMessages(source: string) {
-		const [result] = await production.lintText(source, { filePath: route });
+	async function productionMessages(source: string, filePath = route) {
+		expect(await production.isPathIgnored(filePath)).toBe(false);
+		const [result] = await production.lintText(source, { filePath });
+		expect(result.ignored).not.toBe(true);
 		expect(result.fatalErrorCount).toBe(0);
 		return result.messages.filter((message) => message.ruleId?.startsWith('shadcn/'));
 	}
@@ -163,6 +164,7 @@ describe('shadcn rules enforced by the application ESLint config', () => {
 		});
 		expect(invalid.messages.find((message) => message.fatal)?.message).toContain('U+001B');
 		expect(config.rules['shadcn/require-static-classes']).toEqual([2]);
+		expect(config.rules['shadcn/no-raw-colors']).toEqual([2]);
 		expect(config.rules['shadcn/no-unknown-classes']).toEqual([
 			2,
 			enforcedShadcnPolicy.rules['shadcn/no-unknown-classes'][1]
@@ -196,6 +198,46 @@ function getClasses(): string { return 'mt-4'; }
 			'shadcn/no-unknown-classes',
 			'shadcn/no-unknown-classes'
 		]);
+	}, 60_000);
+
+	it('rejects a raw palette color on a route', async () => {
+		const found = await productionMessages('<div class="bg-red-500"></div>');
+		expect(found.map((message) => [message.ruleId, message.severity])).toEqual([
+			['shadcn/no-raw-colors', 2]
+		]);
+		expect(found[0].message).toContain('bg-red-500');
+	}, 60_000);
+
+	// TypeScript paths: the typed Svelte parser rejects a Svelte file that is not on disk.
+	const exceptionSource = "export const classes = cn('bg-red-500 hovr:flex');";
+
+	it.each(['src/lib/emails/x.ts', 'src/blocks/logos/x.ts'])(
+		'admits raw colors under %s while other rules still apply',
+		async (filePath) => {
+			const found = await productionMessages(exceptionSource, filePath);
+			expect(found.map((message) => [message.ruleId, message.severity])).toEqual([
+				['shadcn/no-unknown-classes', 2]
+			]);
+		},
+		60_000
+	);
+
+	it.each(['src/lib/emails-archive/x.ts', 'src/blocks/logos-extra/x.ts'])(
+		'still rejects raw colors under the near-miss path %s',
+		async (filePath) => {
+			const found = await productionMessages(exceptionSource, filePath);
+			expect(found.map((message) => message.ruleId).sort()).toEqual([
+				'shadcn/no-raw-colors',
+				'shadcn/no-unknown-classes'
+			]);
+		},
+		60_000
+	);
+
+	it('admits the premium theme tokens', async () => {
+		expect(
+			await productionMessages('<div class="bg-premium/15 text-premium-foreground"></div>')
+		).toEqual([]);
 	}, 60_000);
 
 	it('does not yet report the pending rules', async () => {
