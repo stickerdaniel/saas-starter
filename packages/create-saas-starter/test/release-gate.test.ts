@@ -4,6 +4,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises
 import { readFileSync } from 'node:fs';
 import { devNull, tmpdir } from 'node:os';
 import path from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
@@ -84,39 +85,78 @@ async function createCheckout(checkout: string, environment: NodeJS.ProcessEnv) 
 	return templateSha;
 }
 
-async function runGate(manifest: Record<string, unknown>) {
+interface TarMember {
+	name: string;
+	data: string;
+	/** ustar typeflag: '0' is a regular file, '2' a symbolic link. */
+	type?: '0' | '2';
+	linkname?: string;
+}
+
+// System tar normalizes or refuses the duplicate, dot-segment, and symlink
+// members these tests need, so the archive is written as plain ustar here.
+function ustarArchive(members: TarMember[]): Buffer {
+	const blocks = members.flatMap(({ name, data, type = '0', linkname = '' }) => {
+		const content = Buffer.from(data);
+		const header = Buffer.alloc(512);
+		const field = (value: string, offset: number) => header.write(value, offset, 'latin1');
+		const number = (value: number, offset: number, length: number) =>
+			field(`${value.toString(8).padStart(length - 1, '0')}\0`, offset);
+		expect(Buffer.byteLength(name)).toBeLessThanOrEqual(100);
+		field(name, 0);
+		number(0o644, 100, 8);
+		number(0, 108, 8);
+		number(0, 116, 8);
+		number(type === '0' ? content.length : 0, 124, 12);
+		number(0, 136, 12);
+		field(' '.repeat(8), 148);
+		field(type, 156);
+		field(linkname, 157);
+		field('ustar\u000000', 257);
+		const checksum = header.reduce((sum, byte) => sum + byte, 0);
+		field(`${checksum.toString(8).padStart(6, '0')}\0 `, 148);
+		if (type !== '0') return [header];
+		const padded = Buffer.alloc(Math.ceil(content.length / 512) * 512);
+		content.copy(padded);
+		return [header, padded];
+	});
+	return gzipSync(Buffer.concat([...blocks, Buffer.alloc(1024)]));
+}
+
+function manifestText(manifest: Record<string, unknown>): string {
+	return `${JSON.stringify(manifest, null, '\t')}\n`;
+}
+
+// The six files Bun packs, which is the set test:packed requires.
+function packedMembers(manifest: Record<string, unknown>, templateSha: string): TarMember[] {
+	return [
+		{ name: 'package/package.json', data: manifestText(manifest) },
+		{ name: 'package/LICENSE', data: 'MIT License\n' },
+		{ name: 'package/README.md', data: '# create-saas-starter\n' },
+		{ name: 'package/dist/index.js', data: `const DEFAULT_TEMPLATE_SHA = '${templateSha}';\n` },
+		{ name: 'package/dist/index.js.map', data: '{}\n' },
+		{ name: 'package/dist/windows-job-runner.ps1', data: '# runner\n' }
+	];
+}
+
+async function runGate(
+	manifest: Record<string, unknown>,
+	adjust: (members: TarMember[]) => TarMember[] = (members) => members
+) {
 	const root = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-release-gate-'));
 	temporaryDirectories.push(root);
 	const checkout = path.join(root, 'checkout');
 	const releaseDir = path.join(root, 'release');
-	const packageDir = path.join(root, 'pack/package');
 	const binDir = path.join(root, 'bin');
-	await Promise.all([
-		mkdir(checkout),
-		mkdir(releaseDir),
-		mkdir(path.join(packageDir, 'dist'), { recursive: true }),
-		mkdir(binDir)
-	]);
+	await Promise.all([mkdir(checkout), mkdir(releaseDir), mkdir(binDir)]);
 	const environment = isolatedEnvironment(root, binDir);
 	const templateSha = await createCheckout(checkout, environment);
-	await writeFile(
-		path.join(packageDir, 'package.json'),
-		`${JSON.stringify(manifest, null, '\t')}\n`
-	);
-	await writeFile(
-		path.join(packageDir, 'dist/index.js'),
-		`const DEFAULT_TEMPLATE_SHA = '${templateSha}';\n`
-	);
 
 	const tarballName = `create-saas-starter-${SOURCE_MANIFEST.version}.tgz`;
 	const tarball = path.join(releaseDir, tarballName);
-	const packed = spawnSync('tar', ['-czf', tarball, '-C', path.dirname(packageDir), 'package'], {
-		env: { ...process.env, COPYFILE_DISABLE: '1' }
-	});
-	expect(packed.status).toBe(0);
-	const sha256 = createHash('sha256')
-		.update(await readFile(tarball))
-		.digest('hex');
+	const archive = ustarArchive(adjust(packedMembers(manifest, templateSha)));
+	await writeFile(tarball, archive);
+	const sha256 = createHash('sha256').update(archive).digest('hex');
 	await writeFile(`${tarball}.sha256`, `${sha256}  ${tarballName}\n`);
 
 	// npm 11 reports a missing version as E404 JSON on stdout and exits 1.
@@ -168,6 +208,53 @@ describe.skipIf(process.platform === 'win32')('release gate', () => {
 
 		expect(result.status).not.toBe(0);
 		expect(result.stdout).toContain('::error::Tarball publishConfig is');
+		expect(result.output).toBe('');
+	});
+
+	// npm strips package/ and reads whichever root package.json it extracts
+	// last, so these members could hand npm an unchecked manifest.
+	const UNSAFE_MANIFEST = manifestText({
+		...SOURCE_MANIFEST,
+		publishConfig: {
+			access: 'public',
+			scope: 'review',
+			'@review:registry': 'http://registry.npmjs.org/',
+			proxy: 'http://127.0.0.1:9/'
+		}
+	});
+	it.each<[string, (members: TarMember[]) => TarMember[]]>([
+		[
+			'an unsafe manifest under another root',
+			(members) => [...members, { name: 'shadow/package.json', data: UNSAFE_MANIFEST }]
+		],
+		[
+			'a duplicate package.json',
+			(members) => [...members, { name: 'package/package.json', data: UNSAFE_MANIFEST }]
+		],
+		[
+			'a dot-segment alias of package.json',
+			(members) => [...members, { name: 'package/./package.json', data: UNSAFE_MANIFEST }]
+		],
+		[
+			'an extra harmless file',
+			(members) => [...members, { name: 'package/dist/notes.txt', data: 'notes\n' }]
+		],
+		[
+			'a symbolic link in place of a published file',
+			(members) =>
+				members.map((member) =>
+					member.name === 'package/README.md'
+						? { name: member.name, data: '', type: '2', linkname: 'package.json' }
+						: member
+				)
+		]
+	])('rejects a tarball with %s', async (_, adjust) => {
+		const result = await runGate(SOURCE_MANIFEST, adjust);
+
+		expect(result.status).not.toBe(0);
+		expect(result.stdout).toContain(
+			'::error::Tarball entries are not exactly the published files.'
+		);
 		expect(result.output).toBe('');
 	});
 });

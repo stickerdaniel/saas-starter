@@ -151,6 +151,63 @@ jobs:
           [ "${#tarballs[@]}" -eq 1 ] || fail "Expected one create-saas-starter tarball, found ${#tarballs[@]}."
           tarball="${tarballs[0]}"
 
+          # npm strips the first path component and reads the extracted root
+          # package.json, so any other member could supply the manifest npm
+          # publishes. Only the files test:packed requires may appear, each once
+          # as a plain ustar file; anything unusual is rejected, not interpreted.
+          TARBALL="$tarball" node --input-type=commonjs - <<'JS' || fail "Tarball entries are not exactly the published files."
+          const { readFileSync } = require('node:fs');
+          const { gunzipSync } = require('node:zlib');
+          const allowed = new Set([
+            'package/LICENSE',
+            'package/README.md',
+            'package/package.json',
+            'package/dist/index.js',
+            'package/dist/index.js.map',
+            'package/dist/windows-job-runner.ps1'
+          ]);
+          const text = (header, start, length) => {
+            const bytes = header.subarray(start, start + length);
+            const end = bytes.indexOf(0);
+            return bytes.subarray(0, end === -1 ? length : end).toString('latin1');
+          };
+          const octal = (header, start, length) => {
+            const value = header.subarray(start, start + length).toString('latin1');
+            if (!/^[0-7]+[ \0]*$/.test(value)) throw new Error(`Invalid octal header field: ${JSON.stringify(value)}`);
+            return parseInt(value, 8);
+          };
+          try {
+            const archive = gunzipSync(readFileSync(process.env.TARBALL));
+            if (archive.length % 512 !== 0) throw new Error('The archive is not a whole number of tar blocks.');
+            const seen = new Set();
+            let offset = 0;
+            for (;;) {
+              const header = archive.subarray(offset, offset + 512);
+              if (header.length < 512) throw new Error('The archive has no end-of-archive marker.');
+              if (header.every((byte) => byte === 0)) {
+                if (!archive.subarray(offset).every((byte) => byte === 0)) throw new Error('Data follows the end-of-archive marker.');
+                break;
+              }
+              let checksum = 0;
+              for (let index = 0; index < 512; index++) checksum += index >= 148 && index < 156 ? 32 : header[index];
+              if (octal(header, 148, 8) !== checksum) throw new Error(`Invalid header checksum at byte ${offset}.`);
+              if (header.subarray(257, 265).toString('latin1') !== 'ustar\u000000') throw new Error(`Header at byte ${offset} is not POSIX ustar.`);
+              const prefix = text(header, 345, 155);
+              const name = prefix ? `${prefix}/${text(header, 0, 100)}` : text(header, 0, 100);
+              if (header[156] !== 0x30) throw new Error(`${name} is not a regular file.`);
+              if (!allowed.has(name)) throw new Error(`${name} is not a published file.`);
+              if (seen.has(name)) throw new Error(`${name} appears more than once.`);
+              seen.add(name);
+              offset += 512 + Math.ceil(octal(header, 124, 12) / 512) * 512;
+            }
+            const missing = [...allowed].filter((name) => !seen.has(name));
+            if (missing.length > 0) throw new Error(`Missing ${missing.join(', ')}.`);
+          } catch (error) {
+            console.log(`::error::${error.message}`);
+            process.exit(1);
+          }
+          JS
+
           manifest="$(tar -xzOf "$tarball" package/package.json)"
           name="$(jq -r .name <<<"$manifest")"
           version="$(jq -r .version <<<"$manifest")"

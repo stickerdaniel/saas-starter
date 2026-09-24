@@ -34,6 +34,34 @@ function normalizedCondition(job: WorkflowJob): string | undefined {
 	return job.if?.replace(/\s+/g, ' ').trim();
 }
 
+function normalizedRun(run: string | undefined): string | undefined {
+	return run?.replace(/\s+/g, ' ').trim();
+}
+
+const REQUIRE_NPM_RUN = [
+	'set -euo pipefail',
+	'npm_version="$(npm --version)"',
+	`printf '11.5.1\\n%s\\n' "$npm_version" | sort -V -C || {`,
+	'echo "::error::npm $npm_version is older than 11.5.1, which trusted publishing requires."',
+	'exit 1',
+	'}'
+].join(' ');
+
+const PUBLISH_RUN = [
+	'set -euo pipefail',
+	'tarball="$RELEASE_DIR/create-saas-starter-$VERSION.tgz"',
+	`[ "$(sha256sum "$tarball" | cut -d' ' -f1)" = "$SHA256" ] || {`,
+	'echo "::error::$tarball is not the tarball the release gate checked."',
+	'exit 1',
+	'}',
+	'npm publish "$tarball" --access public --ignore-scripts --registry https://registry.npmjs.org/',
+	'{',
+	'echo "Published create-saas-starter@$VERSION"',
+	'echo',
+	'echo "Tarball sha256: \\`$SHA256\\`"',
+	'} >> "$GITHUB_STEP_SUMMARY"'
+].join(' ');
+
 function expectCredentialIsolatedRelease({ permissions, jobs }: ReleaseWorkflow): void {
 	expect(permissions).toEqual({ contents: 'read' });
 	const publishSteps = Object.entries(jobs).flatMap(([id, job]) =>
@@ -55,17 +83,16 @@ function expectCredentialIsolatedRelease({ permissions, jobs }: ReleaseWorkflow)
 		'cancel-in-progress': false
 	});
 	// Every step of the credentialed job is pinned or reviewed here, so a new
-	// action or command cannot join the job without failing this list.
+	// action or command cannot join the job without failing this list, and
+	// each run block must match its complete reviewed text.
 	expect(publish.steps.map((step) => (step.uses ? step.uses : `run: ${step.name ?? ''}`))).toEqual([
 		SETUP_NODE,
 		'run: Require npm with trusted publishing support',
 		DOWNLOAD_ARTIFACT,
 		'run: Publish the tested tarball'
 	]);
-	expect(publish.steps[1]!.run).toContain('npm_version="$(npm --version)"');
-	expect(publish.steps[3]!.run).toContain(
-		'npm publish "$tarball" --access public --ignore-scripts --registry https://registry.npmjs.org/'
-	);
+	expect(normalizedRun(publish.steps[1]!.run)).toBe(REQUIRE_NPM_RUN);
+	expect(normalizedRun(publish.steps[3]!.run)).toBe(PUBLISH_RUN);
 
 	const gate = jobs['release-gate']!;
 	expect(gate.needs).toBe('verify');
@@ -179,7 +206,7 @@ describe('creator workflows', () => {
 		expectCredentialIsolatedRelease(parseYaml(source) as ReleaseWorkflow);
 	});
 
-	it('rejects a weakened release condition or an extra publish step', () => {
+	it('rejects a weakened release condition or changed publish commands', () => {
 		const workflow = parseYaml(
 			read('.github/workflows/create-saas-starter.yml')
 		) as ReleaseWorkflow;
@@ -189,8 +216,23 @@ describe('creator workflows', () => {
 		gateBypassed.jobs['release-gate']!.if = `${gateBypassed.jobs['release-gate']!.if} || true`;
 		const extraStep = structuredClone(workflow);
 		extraStep.jobs.publish!.steps.splice(3, 0, { run: 'node helper.js' });
+		const versionHelper = structuredClone(workflow);
+		versionHelper.jobs.publish!.steps[1]!.run += 'node helper.js\n';
+		const publishHelper = structuredClone(workflow);
+		publishHelper.jobs.publish!.steps[3]!.run += 'node helper.js\n';
+		const noVersionCheck = structuredClone(workflow);
+		const versionStep = noVersionCheck.jobs.publish!.steps[1]!;
+		versionStep.run = versionStep.run!.replace(/^printf[\s\S]*$/m, '');
+		expect(versionStep.run).toBe('set -euo pipefail\nnpm_version="$(npm --version)"\n');
 
-		for (const mutated of [bypassed, gateBypassed, extraStep]) {
+		for (const mutated of [
+			bypassed,
+			gateBypassed,
+			extraStep,
+			versionHelper,
+			publishHelper,
+			noVersionCheck
+		]) {
 			expect(() => expectCredentialIsolatedRelease(mutated)).toThrow();
 		}
 	});
