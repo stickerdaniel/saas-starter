@@ -11,6 +11,7 @@ export default {
 		'!src/lib/convex/_generated/**',
 
 		// Scripts and test infrastructure
+		'eslint/shadcn-policy.js',
 		'scripts/*.ts',
 		'e2e/**/*.ts',
 

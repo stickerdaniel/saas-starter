@@ -124,6 +124,7 @@
 		"@oxlint/plugins": "1.81.0",
 		"@playwright/test": "1.62.1",
 		"@resvg/resvg-js": "2.6.2",
+		"@shadcn/lint": "0.2.0",
 		"@sveltejs/adapter-auto": "7.0.1",
 		"@sveltejs/adapter-cloudflare": "7.2.9",
 		"@sveltejs/adapter-node": "5.5.7",
