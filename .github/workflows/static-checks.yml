@@ -55,6 +55,13 @@ jobs:
             exit 1
           fi
       - run: bun scripts/static-checks.ts --ci --scope lint
+      # Interim shadcn/lint ratchet, not enforcement: fails on any finding the
+      # baseline on the protected base commit does not already contain. The base
+      # copy is read from git, so editing the baseline in the same change cannot
+      # accept a new finding.
+      - run: bun scripts/shadcn-baseline.ts
+        env:
+          SHADCN_BASELINE_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
       # Refuses to remove a Convex function that deployed app code still calls
       # (see https://github.com/stickerdaniel/saas-starter/issues/789). The PR run
       # is preventative when branch protection requires this job and an up-to-date
