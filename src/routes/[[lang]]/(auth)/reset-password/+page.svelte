@@ -173,7 +173,10 @@
 />
 
 <noscript>
-	<div lang="en" class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">
+	<div
+		lang="en"
+		class="fixed inset-x-0 top-0 z-50 bg-warning p-4 text-center text-warning-foreground"
+	>
 		JavaScript is required for authentication. Please enable JavaScript to continue.
 	</div>
 </noscript>

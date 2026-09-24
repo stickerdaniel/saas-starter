@@ -15,9 +15,19 @@ export const enforcedShadcnPolicy = {
 			'error',
 			{ allow: ['is-user', 'is-assistant', 'not-prose', 'legal-literal', 'toaster'] }
 		],
-		'shadcn/require-static-classes': 'error'
+		'shadcn/require-static-classes': 'error',
+		'shadcn/no-raw-colors': 'error'
 	}
 };
+
+// Spread by eslint.config.js: the enforced policy followed by its path exceptions.
+export const enforcedShadcnConfig = [
+	enforcedShadcnPolicy,
+	// Email clients cannot read theme variables, so templates inline literal colors.
+	{ files: ['src/lib/emails/**'], rules: { 'shadcn/no-raw-colors': 'off' } },
+	// Brand logos reproduce each vendor's own fills.
+	{ files: ['src/blocks/logos/**'], rules: { 'shadcn/no-raw-colors': 'off' } }
+];
 
 // Used for integration tests until the source migration permits enforcing the
 // remaining rules.
