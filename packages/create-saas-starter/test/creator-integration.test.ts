@@ -1,11 +1,111 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '../../..');
 
+const SETUP_NODE = 'actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38';
+const DOWNLOAD_ARTIFACT = 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c';
+const MAIN_ONLY =
+	"github.repository == 'stickerdaniel/saas-starter' && " +
+	"(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && " +
+	"github.ref == 'refs/heads/main'";
+
+interface WorkflowJob {
+	if?: string;
+	needs?: string | string[];
+	permissions?: Record<string, string>;
+	environment?: string | { name: string };
+	concurrency?: unknown;
+	steps: Array<{ name?: string; uses?: string; run?: string }>;
+}
+
+interface ReleaseWorkflow {
+	permissions: unknown;
+	jobs: Record<string, WorkflowJob>;
+}
+
 function read(relative: string): string {
 	return readFileSync(path.join(REPOSITORY_ROOT, relative), 'utf8');
+}
+
+function normalizedCondition(job: WorkflowJob): string | undefined {
+	return job.if?.replace(/\s+/g, ' ').trim();
+}
+
+// Newlines and indentation separate shell commands, so only line endings and
+// one final newline are normalized.
+function normalizedRun(run: string | undefined): string | undefined {
+	return run?.replace(/\r\n/g, '\n').replace(/\n$/, '');
+}
+
+const REQUIRE_NPM_RUN = [
+	'set -euo pipefail',
+	'npm_version="$(npm --version)"',
+	`printf '11.5.1\\n%s\\n' "$npm_version" | sort -V -C || {`,
+	'  echo "::error::npm $npm_version is older than 11.5.1, which trusted publishing requires."',
+	'  exit 1',
+	'}'
+].join('\n');
+
+const PUBLISH_RUN = [
+	'set -euo pipefail',
+	'tarball="$RELEASE_DIR/create-saas-starter-$VERSION.tgz"',
+	`[ "$(sha256sum "$tarball" | cut -d' ' -f1)" = "$SHA256" ] || {`,
+	'  echo "::error::$tarball is not the tarball the release gate checked."',
+	'  exit 1',
+	'}',
+	'npm publish "$tarball" --access public --ignore-scripts --registry https://registry.npmjs.org/',
+	'{',
+	'  echo "Published create-saas-starter@$VERSION"',
+	'  echo',
+	'  echo "Tarball sha256: \\`$SHA256\\`"',
+	'} >> "$GITHUB_STEP_SUMMARY"'
+].join('\n');
+
+function expectCredentialIsolatedRelease({ permissions, jobs }: ReleaseWorkflow): void {
+	expect(permissions).toEqual({ contents: 'read' });
+	const publishSteps = Object.entries(jobs).flatMap(([id, job]) =>
+		job.steps.filter((step) => /\bnpm\s+publish\b/.test(step.run ?? '')).map(() => id)
+	);
+	expect(publishSteps).toEqual(['publish']);
+
+	const publish = jobs.publish!;
+	expect(publish.needs).toEqual(['verify', 'release-gate']);
+	expect(normalizedCondition(publish)).toBe(
+		`${MAIN_ONLY} && needs.release-gate.outputs.publish == 'true'`
+	);
+	expect(publish.permissions).toEqual({ 'id-token': 'write' });
+	expect(
+		typeof publish.environment === 'string' ? publish.environment : publish.environment?.name
+	).toBe('npm');
+	expect(publish.concurrency).toEqual({
+		group: 'create-saas-starter-npm-release',
+		'cancel-in-progress': false
+	});
+	// Every step of the credentialed job is pinned or reviewed here, so a new
+	// action or command cannot join the job without failing this list, and
+	// each run block must match its complete reviewed text.
+	expect(publish.steps.map((step) => (step.uses ? step.uses : `run: ${step.name ?? ''}`))).toEqual([
+		SETUP_NODE,
+		'run: Require npm with trusted publishing support',
+		DOWNLOAD_ARTIFACT,
+		'run: Publish the tested tarball'
+	]);
+	expect(normalizedRun(publish.steps[1]!.run)).toBe(REQUIRE_NPM_RUN);
+	expect(normalizedRun(publish.steps[3]!.run)).toBe(PUBLISH_RUN);
+
+	const gate = jobs['release-gate']!;
+	expect(gate.needs).toBe('verify');
+	expect(normalizedCondition(gate)).toBe(MAIN_ONLY);
+	expect(gate.permissions).toEqual({ contents: 'read' });
+
+	for (const [id, job] of Object.entries(jobs)) {
+		if (id === 'publish') continue;
+		expect(job.permissions ?? {}).not.toHaveProperty('id-token');
+		expect(job.concurrency).toBeUndefined();
+	}
 }
 
 function triggerPaths(workflow: string, event: 'push' | 'pull_request'): string[] {
@@ -99,7 +199,85 @@ describe('creator workflows', () => {
 		}
 		expect(workflow).toContain('CREATE_SAAS_STARTER_ARTIFACT_DIR:');
 		expect(workflow).toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a');
-		expect(workflow).not.toMatch(/\bnpm publish\b|\bbun publish\b/);
+	});
+
+	it('requires the release gate test only on the entry with the release npm', () => {
+		const { verify } = (
+			parseYaml(read('.github/workflows/create-saas-starter.yml')) as {
+				jobs: {
+					verify: {
+						strategy: { matrix: { include: Array<Record<string, unknown>> } };
+						steps: Array<{ run?: string; env?: Record<string, string> }>;
+					};
+				};
+			}
+		).jobs;
+		const required = verify.strategy.matrix.include.filter(
+			(entry) => entry.release_gate_test !== undefined
+		);
+
+		expect(required).toEqual([
+			expect.objectContaining({ node: '24.19.0', artifact: true, release_gate_test: 'required' })
+		]);
+		expect(
+			verify.steps.find((step) => step.run === 'bun run --cwd packages/create-saas-starter test')
+				?.env
+		).toEqual({ CREATE_SAAS_STARTER_RELEASE_GATE_TEST: '${{ matrix.release_gate_test }}' });
+	});
+
+	it('publishes only from the credential-isolated npm job after the release gate', () => {
+		const source = read('.github/workflows/create-saas-starter.yml');
+		expect(source).not.toMatch(/\bbun\s+publish\b/);
+		expect(source).not.toMatch(/secrets\.\w*TOKEN|NODE_AUTH_TOKEN|NPM_TOKEN/);
+		expectCredentialIsolatedRelease(parseYaml(source) as ReleaseWorkflow);
+	});
+
+	it('rejects a weakened release condition or changed publish commands', () => {
+		const workflow = parseYaml(
+			read('.github/workflows/create-saas-starter.yml')
+		) as ReleaseWorkflow;
+		const bypassed = structuredClone(workflow);
+		bypassed.jobs.publish!.if = `${bypassed.jobs.publish!.if} || true`;
+		const gateBypassed = structuredClone(workflow);
+		gateBypassed.jobs['release-gate']!.if = `${gateBypassed.jobs['release-gate']!.if} || true`;
+		const extraStep = structuredClone(workflow);
+		extraStep.jobs.publish!.steps.splice(3, 0, { run: 'node helper.js' });
+		const versionHelper = structuredClone(workflow);
+		versionHelper.jobs.publish!.steps[1]!.run += 'node helper.js\n';
+		const publishHelper = structuredClone(workflow);
+		publishHelper.jobs.publish!.steps[3]!.run += 'node helper.js\n';
+		const noVersionCheck = structuredClone(workflow);
+		const versionStep = noVersionCheck.jobs.publish!.steps[1]!;
+		versionStep.run = versionStep.run!.replace(/^printf[\s\S]*$/m, '');
+		expect(versionStep.run).toBe('set -euo pipefail\nnpm_version="$(npm --version)"\n');
+		// Joined onto the echo line, `exit 1` becomes echo arguments and the
+		// failed check no longer stops the step.
+		const joinExit = (run: string) => {
+			const joined = run.replace(/"\n\s*exit 1\n/, '" exit 1\n');
+			expect(joined).not.toBe(run);
+			return joined;
+		};
+		const versionExitJoined = structuredClone(workflow);
+		versionExitJoined.jobs.publish!.steps[1]!.run = joinExit(
+			versionExitJoined.jobs.publish!.steps[1]!.run!
+		);
+		const hashExitJoined = structuredClone(workflow);
+		hashExitJoined.jobs.publish!.steps[3]!.run = joinExit(
+			hashExitJoined.jobs.publish!.steps[3]!.run!
+		);
+
+		for (const mutated of [
+			bypassed,
+			gateBypassed,
+			extraStep,
+			versionHelper,
+			publishHelper,
+			noVersionCheck,
+			versionExitJoined,
+			hashExitJoined
+		]) {
+			expect(() => expectCredentialIsolatedRelease(mutated)).toThrow();
+		}
 	});
 
 	it('generates the root base tsconfig before child tests transform the shared helper', () => {

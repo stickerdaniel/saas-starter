@@ -70,14 +70,18 @@ jobs:
             node: 24.19.0
             bun: 1.3.14
             artifact: true
+            release_gate_test: required
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ matrix.node }}
+      # The artifact entry builds the release tarball, which must not come from
+      # a restored cache. setup-node caches nothing here: packageManager is bun.
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ matrix.bun }}
+          no-cache: ${{ matrix.artifact }}
       - run: bun install --cwd packages/create-saas-starter --frozen-lockfile
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun svelte-kit sync
@@ -85,7 +89,11 @@ jobs:
           PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
           PUBLIC_CONVEX_SITE_URL: https://placeholder.convex.site
       - run: bun run --cwd packages/create-saas-starter typecheck
+      # The release gate tests fail instead of skipping here, because this
+      # entry has the npm that publishes.
       - run: bun run --cwd packages/create-saas-starter test
+        env:
+          CREATE_SAAS_STARTER_RELEASE_GATE_TEST: ${{ matrix.release_gate_test }}
       - run: bun run --cwd packages/create-saas-starter knip
       - run: bun run --cwd packages/create-saas-starter build
       - if: matrix.artifact == false
@@ -101,3 +109,229 @@ jobs:
           path: ${{ runner.temp }}/create-saas-starter-artifact/*
           if-no-files-found: error
           retention-days: 30
+
+  # Releases publish the exact tarball the Current release tools entry packed
+  # and tested. Building it runs dependency and repository code, so that
+  # happens in verify without any publishing credential; this gate only reads
+  # the artifact and decides whether its version still needs a release.
+  release-gate:
+    name: Release gate
+    needs: verify
+    if: >-
+      github.repository == 'stickerdaniel/saas-starter' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      publish: ${{ steps.gate.outputs.publish }}
+      version: ${{ steps.gate.outputs.version }}
+      sha256: ${{ steps.gate.outputs.sha256 }}
+    steps:
+      # Full history: the default template commit must be an ancestor of main.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.19.0
+          package-manager-cache: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: create-saas-starter-${{ github.sha }}
+          path: ${{ runner.temp }}/release
+      - id: gate
+        name: Check the tested tarball against main and npm
+        env:
+          RELEASE_DIR: ${{ runner.temp }}/release
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+
+          shopt -s nullglob
+          tarballs=("$RELEASE_DIR"/create-saas-starter-*.tgz)
+          [ "${#tarballs[@]}" -eq 1 ] || fail "Expected one create-saas-starter tarball, found ${#tarballs[@]}."
+          tarball="${tarballs[0]}"
+
+          # The tarball is read with the tar and pacote bundled in the npm that
+          # publishes it, so the gate sees the entries and manifest npm sees.
+          npm_modules="$(npm root -g)/npm/node_modules"
+          for module in tar pacote; do
+            [ -f "$npm_modules/$module/package.json" ] || fail "npm does not bundle $module at $npm_modules."
+            echo "npm bundles $module $(jq -r .version "$npm_modules/$module/package.json")."
+          done
+
+          # npm strips the first path component and reads the extracted root
+          # package.json, so any other member could supply the manifest npm
+          # publishes. Only the files test:packed requires may appear, each once
+          # as a regular file. Strict parsing turns every header npm would skip
+          # and recover from into an error, so a skipped header cannot expose its
+          # body as further entries.
+          TARBALL="$tarball" NPM_MODULES="$npm_modules" INDEX_JS="$RUNNER_TEMP/index.js" \
+            node --input-type=commonjs - <<'JS' || fail "Tarball entries are not exactly the published files."
+          const { writeFileSync } = require('node:fs');
+          const path = require('node:path');
+          const tar = require(path.join(process.env.NPM_MODULES, 'tar'));
+          const allowed = new Set([
+            'package/LICENSE',
+            'package/README.md',
+            'package/package.json',
+            'package/dist/index.js',
+            'package/dist/index.js.map',
+            'package/dist/windows-job-runner.ps1'
+          ]);
+          (async () => {
+            const entries = [];
+            const index = [];
+            await tar.t({
+              file: process.env.TARBALL,
+              strict: true,
+              onwarn: (code, message) => {
+                throw new Error(`${code}: ${message}`);
+              },
+              onReadEntry: (entry) => {
+                entries.push({ path: entry.path, type: entry.type });
+                if (entry.path === 'package/dist/index.js') entry.on('data', (chunk) => index.push(chunk));
+              }
+            });
+            const seen = new Set();
+            for (const { path: name, type } of entries) {
+              if (type !== 'File') throw new Error(`${name} is a ${type}, not a regular file.`);
+              if (!allowed.has(name)) throw new Error(`${name} is not a published file.`);
+              if (seen.has(name)) throw new Error(`${name} appears more than once.`);
+              seen.add(name);
+            }
+            const missing = [...allowed].filter((name) => !seen.has(name));
+            if (missing.length > 0) throw new Error(`Missing ${missing.join(', ')}.`);
+            writeFileSync(process.env.INDEX_JS, Buffer.concat(index));
+          })().catch((error) => {
+            console.log(`::error::${error.message}`);
+            process.exit(1);
+          });
+          JS
+
+          # Publishing a tarball spec, npm reads its manifest through pacote and
+          # applies that manifest's publishConfig as its own configuration.
+          manifest="$(TARBALL="$tarball" NPM_MODULES="$npm_modules" node --input-type=commonjs - <<'JS'
+          const { mkdtempSync, rmSync } = require('node:fs');
+          const path = require('node:path');
+          const pacote = require(path.join(process.env.NPM_MODULES, 'pacote'));
+          const cache = mkdtempSync(path.join(process.env.RUNNER_TEMP, 'pacote-'));
+          pacote
+            .manifest(path.resolve(process.env.TARBALL), { cache, fullMetadata: true, fullReadJson: true })
+            .then(({ name, version, publishConfig }) => {
+              console.log(JSON.stringify({ name, version, publishConfig }));
+            })
+            .catch((error) => {
+              console.error(`::error::${error.message}`);
+              process.exitCode = 1;
+            })
+            .finally(() => rmSync(cache, { recursive: true, force: true }));
+          JS
+          )" || fail "npm cannot read the tarball manifest."
+          name="$(jq -r .name <<<"$manifest")"
+          version="$(jq -r .version <<<"$manifest")"
+          source_version="$(jq -r .version packages/create-saas-starter/package.json)"
+          [ "$name" = create-saas-starter ] || fail "Tarball package name is $name."
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Tarball version $version is not a stable release version."
+          [ "$version" = "$source_version" ] || fail "Tarball version $version differs from source version $source_version."
+
+          # When publishing, npm applies the tarball's publishConfig as its own
+          # configuration (registry, proxy, TLS), so only the exact source
+          # policy may pass. jq compares the parsed objects, not their text.
+          allowed_publish_config='{"access":"public"}'
+          allowed_policy() { jq -e --argjson allowed "$allowed_publish_config" '.publishConfig == $allowed' >/dev/null; }
+          allowed_policy < packages/create-saas-starter/package.json || fail "Source publishConfig is $(jq -c .publishConfig packages/create-saas-starter/package.json), expected $allowed_publish_config."
+          allowed_policy <<<"$manifest" || fail "Tarball publishConfig is $(jq -c .publishConfig <<<"$manifest"), expected $allowed_publish_config."
+
+          sha256="$(sha256sum "$tarball" | cut -d' ' -f1)"
+          [ "$sha256" = "$(cut -d' ' -f1 "$tarball.sha256")" ] || fail "Tarball differs from the one test:packed recorded."
+
+          template_sha="$(sed -nE "s/^export const DEFAULT_TEMPLATE_SHA = '([0-9a-f]{40})';$/\1/p" packages/create-saas-starter/src/options.ts)"
+          [[ "$template_sha" =~ ^[0-9a-f]{40}$ ]] || fail "DEFAULT_TEMPLATE_SHA is not one full commit SHA."
+          git cat-file -e "$template_sha^{commit}" || fail "DEFAULT_TEMPLATE_SHA $template_sha is not a commit in this repository."
+          git merge-base --is-ancestor "$template_sha" HEAD || fail "DEFAULT_TEMPLATE_SHA $template_sha is not an ancestor of $GITHUB_SHA."
+          grep -qF "$template_sha" "$RUNNER_TEMP/index.js" || fail "The bundled CLI does not contain DEFAULT_TEMPLATE_SHA $template_sha."
+
+          # npm view exits non-zero for a missing version; only E404 means
+          # unpublished, anything else (network, auth, registry) fails the gate.
+          status=0
+          view="$(npm view "create-saas-starter@$version" version --json 2>/dev/null)" || status=$?
+          if [ "$status" -eq 0 ] && [ -n "$view" ]; then
+            [ "$(jq -r . <<<"$view")" = "$version" ] || fail "npm view returned an unexpected answer: $view"
+            publish=false
+            echo "create-saas-starter@$version is already published."
+          elif [ "$status" -eq 0 ] || [ "$(jq -r '.error.code? // empty' <<<"$view" 2>/dev/null)" = E404 ]; then
+            publish=true
+            echo "create-saas-starter@$version is not published yet."
+          else
+            fail "npm view failed with exit $status: $view"
+          fi
+
+          {
+            echo "publish=$publish"
+            echo "version=$version"
+            echo "sha256=$sha256"
+          } >> "$GITHUB_OUTPUT"
+
+  # This job holds the npm trusted publishing identity, so it runs no
+  # repository code: no checkout, no install, only the artifact download, a
+  # hash check against the gate, and the upload of the tested tarball.
+  publish:
+    name: Publish to npm
+    needs: [verify, release-gate]
+    if: >-
+      github.repository == 'stickerdaniel/saas-starter' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main' &&
+      needs.release-gate.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Serialize releases without cancelling a publish that already started.
+    concurrency:
+      group: create-saas-starter-npm-release
+      cancel-in-progress: false
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/create-saas-starter/v/${{ needs.release-gate.outputs.version }}
+    permissions:
+      id-token: write # Required for npm trusted publishing
+    steps:
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.19.0
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Require npm with trusted publishing support
+        run: |
+          set -euo pipefail
+          npm_version="$(npm --version)"
+          printf '11.5.1\n%s\n' "$npm_version" | sort -V -C || {
+            echo "::error::npm $npm_version is older than 11.5.1, which trusted publishing requires."
+            exit 1
+          }
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: create-saas-starter-${{ github.sha }}
+          path: ${{ runner.temp }}/release
+      - name: Publish the tested tarball
+        env:
+          RELEASE_DIR: ${{ runner.temp }}/release
+          VERSION: ${{ needs.release-gate.outputs.version }}
+          SHA256: ${{ needs.release-gate.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          tarball="$RELEASE_DIR/create-saas-starter-$VERSION.tgz"
+          [ "$(sha256sum "$tarball" | cut -d' ' -f1)" = "$SHA256" ] || {
+            echo "::error::$tarball is not the tarball the release gate checked."
+            exit 1
+          }
+          npm publish "$tarball" --access public --ignore-scripts --registry https://registry.npmjs.org/
+          {
+            echo "Published create-saas-starter@$VERSION"
+            echo
+            echo "Tarball sha256: \`$SHA256\`"
+          } >> "$GITHUB_STEP_SUMMARY"
