@@ -494,24 +494,32 @@
 	border-radius: calc(9999px * sign(var(--radius)));
 }
 
-/* Tooltip arrow nudges per placed side, which the translate scale has no steps for. */
+/* Tooltip arrow nudges per placed side, which the translate scale has no steps for.
+   Each axis goes through Tailwind's --tw-translate-* variables so a caller's
+   translate-x-* or translate-y-* replaces only its own axis. */
 @utility tooltip-arrow-offset {
-	translate: 0 calc(-50% - 2px);
+	--tw-translate-x: 0;
+	--tw-translate-y: calc(-50% - 2px);
+	translate: var(--tw-translate-x) var(--tw-translate-y);
 
 	&[data-side='top'] {
-		translate: 50% calc(-50% + 2px);
+		--tw-translate-x: 50%;
+		--tw-translate-y: calc(-50% + 2px);
 	}
 
 	&[data-side='bottom'] {
-		translate: -50% calc(50% - 1px);
+		--tw-translate-x: -50%;
+		--tw-translate-y: calc(50% - 1px);
 	}
 
 	&[data-side='right'] {
-		translate: calc(50% + 2px) 50%;
+		--tw-translate-x: calc(50% + 2px);
+		--tw-translate-y: 50%;
 	}
 
 	&[data-side='left'] {
-		translate: 0 calc(-50% + 3px);
+		--tw-translate-x: 0;
+		--tw-translate-y: calc(-50% + 3px);
 	}
 }
 
