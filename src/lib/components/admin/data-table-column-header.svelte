@@ -5,6 +5,7 @@
 	import ArrowsVerticalIcon from '@lucide/svelte/icons/arrow-up-down';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { T } from '@tolgee/svelte';
+	import { cn } from '$lib/utils.js';
 
 	type Props = {
 		column?: Column<any, unknown>;
@@ -23,7 +24,7 @@
 	<Button
 		variant="ghost"
 		size="sm"
-		class={`-ml-3 h-8 data-[state=open]:bg-accent ${className}`.trim()}
+		class={cn('-ml-3 h-8', className)}
 		onclick={column.getToggleSortingHandler()}
 		data-testid={testId}
 	>

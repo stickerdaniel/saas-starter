@@ -27,6 +27,7 @@ import preferShadcnPrimitivesRule from './eslint/rules/prefer-shadcn-primitives.
 import preferShadcnSliderImportsRule from './eslint/rules/prefer-shadcn-slider-imports.js';
 import safeSvelteParser from './eslint/parsers/safe-svelte-parser.js';
 import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js';
+import { enforcedShadcnPolicy } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
@@ -367,6 +368,9 @@ export default defineConfig(
 			'local/no-literal-control-char': 'error'
 		}
 	},
+	// shadcn/lint: class names must produce CSS and stay readable to the linter.
+	// Options live in eslint/shadcn-policy.js, which the policy tests also read.
+	enforcedShadcnPolicy,
 	// Valid Svelte files keep the ordinary parser and rule lifecycle. The wrapper
 	// changes only a thrown parser message, which is the path that happens before a
 	// Program visitor can sanitize the invalid token itself.

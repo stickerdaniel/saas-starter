@@ -12,12 +12,10 @@
 
 	const id = crypto.randomUUID();
 
-	const avatarClasses = $derived.by(() => cn('ring-border size-8 ring-1', className));
-
 	const fallbackText = $derived.by(() => name?.slice(0, 2) || 'ME');
 </script>
 
-<Avatar class={avatarClasses} data-avatar-id={id} {...restProps}>
+<Avatar class={cn('ring-border size-8 ring-1', className)} data-avatar-id={id} {...restProps}>
 	<AvatarImage alt="" class="mt-0 mb-0" {src} />
 	<AvatarFallback>{fallbackText}</AvatarFallback>
 </Avatar>

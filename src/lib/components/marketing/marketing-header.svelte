@@ -99,7 +99,7 @@
 		stroke-width="2"
 		stroke-linecap="round"
 		stroke-linejoin="round"
-		class="lucide-icon lucide lucide-github size-4"
+		class="size-4"
 		aria-hidden="true"
 	>
 		<path
