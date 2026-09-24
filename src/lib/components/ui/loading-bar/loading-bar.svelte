@@ -13,21 +13,27 @@
 	type LoadingBarProps = WithoutChildrenOrChild<ProgressPrimitive.RootProps> & {
 		mode: 'progress' | 'loading';
 		showBackground?: boolean;
+		indicatorTone?: 'primary' | 'destructive' | 'muted';
 	};
 
 	let {
 		ref = $bindable(null),
 		class: className,
 		max = 100,
+		min = 0,
 		value,
 		mode,
 		showBackground = true,
+		indicatorTone = 'primary',
 		...restProps
 	}: LoadingBarProps = $props();
 
-	const safeMax = $derived(Math.max(max ?? 100, 1));
-	const clampedValue = $derived(clamp(value ?? 0, 0, safeMax));
-	const progressPercent = $derived((clampedValue / safeMax) * 100);
+	const safeMin = $derived(min ?? 0);
+	const safeMax = $derived(Math.max(max ?? 100, safeMin + 1));
+	const clampedValue = $derived(value === null ? null : clamp(value ?? 0, safeMin, safeMax));
+	const progressPercent = $derived(
+		clampedValue === null ? 0 : ((clampedValue - safeMin) / (safeMax - safeMin)) * 100
+	);
 
 	// Intentional one-time capture: the spring's start position is the width at mount,
 	// later progressPercent changes flow through the spring-sync $effect below
@@ -41,7 +47,7 @@
 	let prevSpringWidth = 0;
 
 	const progressStyle = $derived(
-		`width: ${reducedMotion.current ? progressPercent : Math.max(0, displayWidth)}%; background: var(--primary);`
+		`width: ${reducedMotion.current ? progressPercent : Math.max(0, displayWidth)}%;`
 	);
 
 	// Internal $effect auto-stops the loop on destroy; must be created at component init
@@ -53,6 +59,12 @@
 		springAnim?.stop();
 		if (reducedMotion.current) {
 			springWidth.set(progressPercent);
+			springReachedTarget = true;
+			return;
+		}
+		if (Math.abs(untrack(() => springWidth.get()) - progressPercent) < 0.01) {
+			springWidth.set(progressPercent);
+			displayWidth = progressPercent;
 			springReachedTarget = true;
 			return;
 		}
@@ -117,14 +129,21 @@
 		showBackground && 'bg-primary/20',
 		className
 	)}
-	{value}
-	{max}
+	value={clampedValue}
+	min={safeMin}
+	max={safeMax}
 	{...restProps}
 >
 	<!-- Progress bar (always present, shown when not loading) -->
 	<div
 		data-slot="progress-indicator"
-		class={cn('absolute inset-y-0 transition-opacity', isLoading ? 'opacity-0' : 'opacity-100')}
+		class={cn(
+			'absolute inset-y-0 transition',
+			indicatorTone === 'primary' && 'bg-primary',
+			indicatorTone === 'destructive' && 'bg-destructive',
+			indicatorTone === 'muted' && 'bg-muted-foreground/45',
+			isLoading ? 'opacity-0' : 'opacity-100'
+		)}
 		style={progressStyle}
 	></div>
 
