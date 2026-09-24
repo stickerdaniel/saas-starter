@@ -53,7 +53,7 @@
 							size="lg"
 							variant="ghost"
 							href="#link"
-							class="pointer-events-auto h-12 rounded-full px-5 text-base hover:bg-foreground/5"
+							class="pointer-events-auto h-12 rounded-full px-5 text-base hover:bg-foreground/5 dark:hover:bg-foreground/5"
 						>
 							<span class="text-nowrap"><T keyName="hero.cta_demo" /></span>
 						</Button>

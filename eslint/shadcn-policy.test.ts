@@ -234,6 +234,36 @@ function getClasses(): string { return 'mt-4'; }
 		60_000
 	);
 
+	// On-disk Svelte paths, because the typed Svelte parser rejects virtual ones.
+	const svelteExceptionSource = '<div class="bg-red-500 hovr:flex"></div>';
+
+	it.each([
+		['src/lib/emails/components/layout/EmailFooter.svelte', ['shadcn/no-unknown-classes']],
+		['src/blocks/logos/Convex.svelte', ['shadcn/no-unknown-classes']],
+		['src/blocks/hero/hero-five.svelte', ['shadcn/no-raw-colors', 'shadcn/no-unknown-classes']]
+	])(
+		'applies the raw color exceptions to the Svelte file %s',
+		async (filePath, expected) => {
+			expect(existsSync(filePath)).toBe(true);
+			const found = await productionMessages(svelteExceptionSource, filePath);
+			expect(found.every((message) => message.severity === 2)).toBe(true);
+			expect(found.map((message) => message.ruleId).sort()).toEqual(expected);
+		},
+		60_000
+	);
+
+	it.each([
+		['src/lib/emails/nested/deep/x.svelte', 0],
+		['src/blocks/logos/nested/x.svelte', 0],
+		['src/blocks/hero/x.svelte', 2],
+		['src/lib/emails-archive/x.svelte', 2],
+		['src/blocks/logos-extra/x.svelte', 2]
+	])('sets raw color severity for %s to %i', async (filePath, severity) => {
+		expect(await production.isPathIgnored(filePath)).toBe(false);
+		const config = await production.calculateConfigForFile(filePath);
+		expect(config.rules['shadcn/no-raw-colors'][0]).toBe(severity);
+	});
+
 	it('admits the premium theme tokens', async () => {
 		expect(
 			await productionMessages('<div class="bg-premium/15 text-premium-foreground"></div>')
