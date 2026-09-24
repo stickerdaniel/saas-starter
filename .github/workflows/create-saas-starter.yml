@@ -151,13 +151,25 @@ jobs:
           [ "${#tarballs[@]}" -eq 1 ] || fail "Expected one create-saas-starter tarball, found ${#tarballs[@]}."
           tarball="${tarballs[0]}"
 
+          # The tarball is read with the tar and pacote bundled in the npm that
+          # publishes it, so the gate sees the entries and manifest npm sees.
+          npm_modules="$(npm root -g)/npm/node_modules"
+          for module in tar pacote; do
+            [ -f "$npm_modules/$module/package.json" ] || fail "npm does not bundle $module at $npm_modules."
+            echo "npm bundles $module $(jq -r .version "$npm_modules/$module/package.json")."
+          done
+
           # npm strips the first path component and reads the extracted root
           # package.json, so any other member could supply the manifest npm
           # publishes. Only the files test:packed requires may appear, each once
-          # as a plain ustar file; anything unusual is rejected, not interpreted.
-          TARBALL="$tarball" node --input-type=commonjs - <<'JS' || fail "Tarball entries are not exactly the published files."
-          const { readFileSync } = require('node:fs');
-          const { gunzipSync } = require('node:zlib');
+          # as a regular file. Strict parsing turns every header npm would skip
+          # and recover from into an error, so a skipped header cannot expose its
+          # body as further entries.
+          TARBALL="$tarball" NPM_MODULES="$npm_modules" INDEX_JS="$RUNNER_TEMP/index.js" \
+            node --input-type=commonjs - <<'JS' || fail "Tarball entries are not exactly the published files."
+          const { writeFileSync } = require('node:fs');
+          const path = require('node:path');
+          const tar = require(path.join(process.env.NPM_MODULES, 'tar'));
           const allowed = new Set([
             'package/LICENSE',
             'package/README.md',
@@ -166,49 +178,55 @@ jobs:
             'package/dist/index.js.map',
             'package/dist/windows-job-runner.ps1'
           ]);
-          const text = (header, start, length) => {
-            const bytes = header.subarray(start, start + length);
-            const end = bytes.indexOf(0);
-            return bytes.subarray(0, end === -1 ? length : end).toString('latin1');
-          };
-          const octal = (header, start, length) => {
-            const value = header.subarray(start, start + length).toString('latin1');
-            if (!/^[0-7]+[ \0]*$/.test(value)) throw new Error(`Invalid octal header field: ${JSON.stringify(value)}`);
-            return parseInt(value, 8);
-          };
-          try {
-            const archive = gunzipSync(readFileSync(process.env.TARBALL));
-            if (archive.length % 512 !== 0) throw new Error('The archive is not a whole number of tar blocks.');
-            const seen = new Set();
-            let offset = 0;
-            for (;;) {
-              const header = archive.subarray(offset, offset + 512);
-              if (header.length < 512) throw new Error('The archive has no end-of-archive marker.');
-              if (header.every((byte) => byte === 0)) {
-                if (!archive.subarray(offset).every((byte) => byte === 0)) throw new Error('Data follows the end-of-archive marker.');
-                break;
+          (async () => {
+            const entries = [];
+            const index = [];
+            await tar.t({
+              file: process.env.TARBALL,
+              strict: true,
+              onwarn: (code, message) => {
+                throw new Error(`${code}: ${message}`);
+              },
+              onReadEntry: (entry) => {
+                entries.push({ path: entry.path, type: entry.type });
+                if (entry.path === 'package/dist/index.js') entry.on('data', (chunk) => index.push(chunk));
               }
-              let checksum = 0;
-              for (let index = 0; index < 512; index++) checksum += index >= 148 && index < 156 ? 32 : header[index];
-              if (octal(header, 148, 8) !== checksum) throw new Error(`Invalid header checksum at byte ${offset}.`);
-              if (header.subarray(257, 265).toString('latin1') !== 'ustar\u000000') throw new Error(`Header at byte ${offset} is not POSIX ustar.`);
-              const prefix = text(header, 345, 155);
-              const name = prefix ? `${prefix}/${text(header, 0, 100)}` : text(header, 0, 100);
-              if (header[156] !== 0x30) throw new Error(`${name} is not a regular file.`);
+            });
+            const seen = new Set();
+            for (const { path: name, type } of entries) {
+              if (type !== 'File') throw new Error(`${name} is a ${type}, not a regular file.`);
               if (!allowed.has(name)) throw new Error(`${name} is not a published file.`);
               if (seen.has(name)) throw new Error(`${name} appears more than once.`);
               seen.add(name);
-              offset += 512 + Math.ceil(octal(header, 124, 12) / 512) * 512;
             }
             const missing = [...allowed].filter((name) => !seen.has(name));
             if (missing.length > 0) throw new Error(`Missing ${missing.join(', ')}.`);
-          } catch (error) {
+            writeFileSync(process.env.INDEX_JS, Buffer.concat(index));
+          })().catch((error) => {
             console.log(`::error::${error.message}`);
             process.exit(1);
-          }
+          });
           JS
 
-          manifest="$(tar -xzOf "$tarball" package/package.json)"
+          # Publishing a tarball spec, npm reads its manifest through pacote and
+          # applies that manifest's publishConfig as its own configuration.
+          manifest="$(TARBALL="$tarball" NPM_MODULES="$npm_modules" node --input-type=commonjs - <<'JS'
+          const { mkdtempSync, rmSync } = require('node:fs');
+          const path = require('node:path');
+          const pacote = require(path.join(process.env.NPM_MODULES, 'pacote'));
+          const cache = mkdtempSync(path.join(process.env.RUNNER_TEMP, 'pacote-'));
+          pacote
+            .manifest(path.resolve(process.env.TARBALL), { cache, fullMetadata: true, fullReadJson: true })
+            .then(({ name, version, publishConfig }) => {
+              console.log(JSON.stringify({ name, version, publishConfig }));
+            })
+            .catch((error) => {
+              console.error(`::error::${error.message}`);
+              process.exitCode = 1;
+            })
+            .finally(() => rmSync(cache, { recursive: true, force: true }));
+          JS
+          )" || fail "npm cannot read the tarball manifest."
           name="$(jq -r .name <<<"$manifest")"
           version="$(jq -r .version <<<"$manifest")"
           source_version="$(jq -r .version packages/create-saas-starter/package.json)"
@@ -218,12 +236,11 @@ jobs:
 
           # When publishing, npm applies the tarball's publishConfig as its own
           # configuration (registry, proxy, TLS), so only the exact source
-          # policy may pass.
+          # policy may pass. jq compares the parsed objects, not their text.
           allowed_publish_config='{"access":"public"}'
-          source_publish_config="$(jq -c .publishConfig packages/create-saas-starter/package.json)"
-          [ "$source_publish_config" = "$allowed_publish_config" ] || fail "Source publishConfig is $source_publish_config, expected $allowed_publish_config."
-          publish_config="$(jq -c .publishConfig <<<"$manifest")"
-          [ "$publish_config" = "$allowed_publish_config" ] || fail "Tarball publishConfig is $publish_config, expected $allowed_publish_config."
+          allowed_policy() { jq -e --argjson allowed "$allowed_publish_config" '.publishConfig == $allowed' >/dev/null; }
+          allowed_policy < packages/create-saas-starter/package.json || fail "Source publishConfig is $(jq -c .publishConfig packages/create-saas-starter/package.json), expected $allowed_publish_config."
+          allowed_policy <<<"$manifest" || fail "Tarball publishConfig is $(jq -c .publishConfig <<<"$manifest"), expected $allowed_publish_config."
 
           sha256="$(sha256sum "$tarball" | cut -d' ' -f1)"
           [ "$sha256" = "$(cut -d' ' -f1 "$tarball.sha256")" ] || fail "Tarball differs from the one test:packed recorded."
@@ -232,7 +249,6 @@ jobs:
           [[ "$template_sha" =~ ^[0-9a-f]{40}$ ]] || fail "DEFAULT_TEMPLATE_SHA is not one full commit SHA."
           git cat-file -e "$template_sha^{commit}" || fail "DEFAULT_TEMPLATE_SHA $template_sha is not a commit in this repository."
           git merge-base --is-ancestor "$template_sha" HEAD || fail "DEFAULT_TEMPLATE_SHA $template_sha is not an ancestor of $GITHUB_SHA."
-          tar -xzOf "$tarball" package/dist/index.js > "$RUNNER_TEMP/index.js"
           grep -qF "$template_sha" "$RUNNER_TEMP/index.js" || fail "The bundled CLI does not contain DEFAULT_TEMPLATE_SHA $template_sha."
 
           # npm view exits non-zero for a missing version; only E404 means

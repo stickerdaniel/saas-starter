@@ -34,33 +34,35 @@ function normalizedCondition(job: WorkflowJob): string | undefined {
 	return job.if?.replace(/\s+/g, ' ').trim();
 }
 
+// Newlines and indentation separate shell commands, so only line endings and
+// one final newline are normalized.
 function normalizedRun(run: string | undefined): string | undefined {
-	return run?.replace(/\s+/g, ' ').trim();
+	return run?.replace(/\r\n/g, '\n').replace(/\n$/, '');
 }
 
 const REQUIRE_NPM_RUN = [
 	'set -euo pipefail',
 	'npm_version="$(npm --version)"',
 	`printf '11.5.1\\n%s\\n' "$npm_version" | sort -V -C || {`,
-	'echo "::error::npm $npm_version is older than 11.5.1, which trusted publishing requires."',
-	'exit 1',
+	'  echo "::error::npm $npm_version is older than 11.5.1, which trusted publishing requires."',
+	'  exit 1',
 	'}'
-].join(' ');
+].join('\n');
 
 const PUBLISH_RUN = [
 	'set -euo pipefail',
 	'tarball="$RELEASE_DIR/create-saas-starter-$VERSION.tgz"',
 	`[ "$(sha256sum "$tarball" | cut -d' ' -f1)" = "$SHA256" ] || {`,
-	'echo "::error::$tarball is not the tarball the release gate checked."',
-	'exit 1',
+	'  echo "::error::$tarball is not the tarball the release gate checked."',
+	'  exit 1',
 	'}',
 	'npm publish "$tarball" --access public --ignore-scripts --registry https://registry.npmjs.org/',
 	'{',
-	'echo "Published create-saas-starter@$VERSION"',
-	'echo',
-	'echo "Tarball sha256: \\`$SHA256\\`"',
+	'  echo "Published create-saas-starter@$VERSION"',
+	'  echo',
+	'  echo "Tarball sha256: \\`$SHA256\\`"',
 	'} >> "$GITHUB_STEP_SUMMARY"'
-].join(' ');
+].join('\n');
 
 function expectCredentialIsolatedRelease({ permissions, jobs }: ReleaseWorkflow): void {
 	expect(permissions).toEqual({ contents: 'read' });
@@ -224,6 +226,21 @@ describe('creator workflows', () => {
 		const versionStep = noVersionCheck.jobs.publish!.steps[1]!;
 		versionStep.run = versionStep.run!.replace(/^printf[\s\S]*$/m, '');
 		expect(versionStep.run).toBe('set -euo pipefail\nnpm_version="$(npm --version)"\n');
+		// Joined onto the echo line, `exit 1` becomes echo arguments and the
+		// failed check no longer stops the step.
+		const joinExit = (run: string) => {
+			const joined = run.replace(/"\n\s*exit 1\n/, '" exit 1\n');
+			expect(joined).not.toBe(run);
+			return joined;
+		};
+		const versionExitJoined = structuredClone(workflow);
+		versionExitJoined.jobs.publish!.steps[1]!.run = joinExit(
+			versionExitJoined.jobs.publish!.steps[1]!.run!
+		);
+		const hashExitJoined = structuredClone(workflow);
+		hashExitJoined.jobs.publish!.steps[3]!.run = joinExit(
+			hashExitJoined.jobs.publish!.steps[3]!.run!
+		);
 
 		for (const mutated of [
 			bypassed,
@@ -231,7 +248,9 @@ describe('creator workflows', () => {
 			extraStep,
 			versionHelper,
 			publishHelper,
-			noVersionCheck
+			noVersionCheck,
+			versionExitJoined,
+			hashExitJoined
 		]) {
 			expect(() => expectCredentialIsolatedRelease(mutated)).toThrow();
 		}

@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { devNull, tmpdir } from 'node:os';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
@@ -85,42 +86,73 @@ async function createCheckout(checkout: string, environment: NodeJS.ProcessEnv) 
 	return templateSha;
 }
 
+interface Pacote {
+	manifest(spec: string, options: Record<string, unknown>): Promise<{ publishConfig?: unknown }>;
+}
+
+// Loads a module from the npm installation on PATH, as the gate does.
+function npmBundled<T>(name: string): T {
+	const root = spawnSync('npm', ['root', '-g'], { encoding: 'utf8' });
+	expect(root.status, root.stderr).toBe(0);
+	return createRequire(import.meta.url)(
+		path.join(root.stdout.trim(), 'npm/node_modules', name)
+	) as T;
+}
+
 interface TarMember {
 	name: string;
-	data: string;
+	data: string | Buffer;
 	/** ustar typeflag: '0' is a regular file, '2' a symbolic link. */
 	type?: '0' | '2';
 	linkname?: string;
+	/** Changes the header before its checksum is computed. */
+	rewriteHeader?: (header: Buffer) => void;
+	/** Formats the checksum field; the default is six octal digits, NUL, space. */
+	checksumField?: (checksum: number) => string;
 }
 
-// System tar normalizes or refuses the duplicate, dot-segment, and symlink
-// members these tests need, so the archive is written as plain ustar here.
+// System tar normalizes or refuses the duplicate, dot-segment, symlink, and
+// malformed-header members these tests need, so they are written here.
+function ustarMembers(members: TarMember[]): Buffer {
+	const blocks = members.flatMap(
+		({
+			name,
+			data,
+			type = '0',
+			linkname = '',
+			rewriteHeader,
+			checksumField = (checksum) => `${checksum.toString(8).padStart(6, '0')}\0 `
+		}) => {
+			const content = Buffer.from(data);
+			const header = Buffer.alloc(512);
+			const field = (value: string, offset: number) => header.write(value, offset, 'latin1');
+			const number = (value: number, offset: number, length: number) =>
+				field(`${value.toString(8).padStart(length - 1, '0')}\0`, offset);
+			expect(Buffer.byteLength(name)).toBeLessThanOrEqual(100);
+			field(name, 0);
+			number(0o644, 100, 8);
+			number(0, 108, 8);
+			number(0, 116, 8);
+			number(type === '0' ? content.length : 0, 124, 12);
+			number(0, 136, 12);
+			field(' '.repeat(8), 148);
+			field(type, 156);
+			field(linkname, 157);
+			field('ustar\u000000', 257);
+			rewriteHeader?.(header);
+			const checksum = header.reduce((sum, byte) => sum + byte, 0);
+			expect(field(checksumField(checksum), 148)).toBe(8);
+			if (type !== '0') return [header];
+			const padded = Buffer.alloc(Math.ceil(content.length / 512) * 512);
+			content.copy(padded);
+			return [header, padded];
+		}
+	);
+	return Buffer.concat(blocks);
+}
+
 function ustarArchive(members: TarMember[]): Buffer {
-	const blocks = members.flatMap(({ name, data, type = '0', linkname = '' }) => {
-		const content = Buffer.from(data);
-		const header = Buffer.alloc(512);
-		const field = (value: string, offset: number) => header.write(value, offset, 'latin1');
-		const number = (value: number, offset: number, length: number) =>
-			field(`${value.toString(8).padStart(length - 1, '0')}\0`, offset);
-		expect(Buffer.byteLength(name)).toBeLessThanOrEqual(100);
-		field(name, 0);
-		number(0o644, 100, 8);
-		number(0, 108, 8);
-		number(0, 116, 8);
-		number(type === '0' ? content.length : 0, 124, 12);
-		number(0, 136, 12);
-		field(' '.repeat(8), 148);
-		field(type, 156);
-		field(linkname, 157);
-		field('ustar\u000000', 257);
-		const checksum = header.reduce((sum, byte) => sum + byte, 0);
-		field(`${checksum.toString(8).padStart(6, '0')}\0 `, 148);
-		if (type !== '0') return [header];
-		const padded = Buffer.alloc(Math.ceil(content.length / 512) * 512);
-		content.copy(padded);
-		return [header, padded];
-	});
-	return gzipSync(Buffer.concat([...blocks, Buffer.alloc(1024)]));
+	return gzipSync(Buffer.concat([ustarMembers(members), Buffer.alloc(1024)]));
 }
 
 function manifestText(manifest: Record<string, unknown>): string {
@@ -159,11 +191,25 @@ async function runGate(
 	const sha256 = createHash('sha256').update(archive).digest('hex');
 	await writeFile(`${tarball}.sha256`, `${sha256}  ${tarballName}\n`);
 
-	// npm 11 reports a missing version as E404 JSON on stdout and exits 1.
+	// npm 11 reports a missing version as E404 JSON on stdout and exits 1. Every
+	// other command, such as the gate's `npm root -g`, reaches the real npm, so
+	// the gate loads the same bundled tar and pacote it does in CI.
+	const realNpm = spawnSync('bash', ['-c', 'command -v npm'], { encoding: 'utf8' });
+	expect(realNpm.status, 'The release gate needs npm on PATH.').toBe(0);
+	const npmPath = realNpm.stdout.trim();
+	expect(npmPath).not.toContain("'");
 	const npm = path.join(binDir, 'npm');
 	await writeFile(
 		npm,
-		'#!/usr/bin/env bash\necho \'{"error":{"code":"E404","summary":"No match found"}}\'\nexit 1\n'
+		[
+			'#!/usr/bin/env bash',
+			'if [ "$1" = view ]; then',
+			'  echo \'{"error":{"code":"E404","summary":"No match found"}}\'',
+			'  exit 1',
+			'fi',
+			`exec '${npmPath}' "$@"`,
+			''
+		].join('\n')
 	);
 	await chmod(npm, 0o755);
 
@@ -182,7 +228,7 @@ async function runGate(
 			GITHUB_SHA: 'HEAD'
 		}
 	});
-	return { ...result, output: await readFile(outputPath, 'utf8'), sha256 };
+	return { ...result, output: await readFile(outputPath, 'utf8'), sha256, root, tarball };
 }
 
 // The gate is a bash step that needs sha256sum, jq, and an executable npm
@@ -192,6 +238,8 @@ describe.skipIf(process.platform === 'win32')('release gate', () => {
 		const result = await runGate(SOURCE_MANIFEST);
 
 		expect(result.status, result.stdout + result.stderr).toBe(0);
+		expect(result.stdout).toMatch(/^npm bundles tar \d+\.\d+\.\d+\.$/m);
+		expect(result.stdout).toMatch(/^npm bundles pacote \d+\.\d+\.\d+\.$/m);
 		expect(result.output).toBe(
 			`publish=true\nversion=${SOURCE_MANIFEST.version}\nsha256=${result.sha256}\n`
 		);
@@ -257,4 +305,47 @@ describe.skipIf(process.platform === 'win32')('release gate', () => {
 		);
 		expect(result.output).toBe('');
 	});
+
+	// npm's tar parser warns about a header it rejects and reads the next block
+	// as a header, so the rejected README's body becomes a member that supplies
+	// the root package.json. Each header below keeps the six allowed names.
+	const HIDDEN_MANIFEST = ustarMembers([{ name: 'shadow/package.json', data: UNSAFE_MANIFEST }]);
+	it.each<[string, string, Omit<TarMember, 'name' | 'data'>]>([
+		['a linkname on a regular file', 'linkpath forbidden', { linkname: 'ignored' }],
+		[
+			'a mode field in invalid base-256',
+			'invalid base256 encoding',
+			{ rewriteHeader: (header) => void header.writeUInt8(0x81, 100) }
+		],
+		[
+			'an unterminated eight-digit checksum',
+			'checksum failure',
+			{ checksumField: (checksum) => checksum.toString(8).padStart(8, '0') }
+		]
+	])(
+		'rejects a published file with %s that hides an unsafe manifest',
+		async (_, reason, header) => {
+			const result = await runGate(SOURCE_MANIFEST, (members) =>
+				members.map((member) =>
+					member.name === 'package/README.md'
+						? { ...header, name: member.name, data: HIDDEN_MANIFEST }
+						: member
+				)
+			);
+
+			expect(result.status).not.toBe(0);
+			expect(result.stdout).toContain(reason);
+			expect(result.stdout).toContain(
+				'::error::Tarball entries are not exactly the published files.'
+			);
+			expect(result.output).toBe('');
+			// Without the gate, npm would publish with the hidden manifest.
+			const manifest = await npmBundled<Pacote>('pacote').manifest(result.tarball, {
+				cache: path.join(result.root, 'pacote-cache'),
+				fullMetadata: true,
+				fullReadJson: true
+			});
+			expect(manifest.publishConfig).toEqual(JSON.parse(UNSAFE_MANIFEST).publishConfig);
+		}
+	);
 });
