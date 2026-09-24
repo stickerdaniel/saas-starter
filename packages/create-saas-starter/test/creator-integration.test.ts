@@ -18,6 +18,52 @@ function workflowSteps(workflow: string): string[] {
 }
 
 describe('root creator commands', () => {
+	it('retains the maintainer source, workflow, child lock, and install lifecycle', () => {
+		const manifest = JSON.parse(read('package.json')) as { scripts: Record<string, string> };
+		for (const file of [
+			'packages/create-saas-starter/package.json',
+			'packages/create-saas-starter/bun.lock',
+			'packages/create-saas-starter/src/index.ts',
+			'packages/create-saas-starter/test/lifecycle.test.ts',
+			'.github/workflows/create-saas-starter.yml'
+		]) {
+			expect(read(file).length).toBeGreaterThan(0);
+		}
+		expect(manifest.scripts['install:cli']).toBe(
+			'bun install --cwd packages/create-saas-starter --frozen-lockfile'
+		);
+		expect(manifest.scripts.postinstall).toBe(
+			'bun run install:cli && bun run generate:content && bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails'
+		);
+		expect(
+			manifest.scripts.test
+				.split('&&')
+				.map((command) => command.trim())
+				.filter((command) => command === 'bun run test:cli')
+		).toHaveLength(1);
+	});
+
+	it('keeps creator configuration in its dedicated projects', () => {
+		const tsconfig = JSON.parse(read('packages/create-saas-starter/tsconfig.json')) as {
+			include: string[];
+		};
+		expect(tsconfig.include).toEqual([
+			'src/**/*.ts',
+			'test/**/*.ts',
+			'scripts/**/*.ts',
+			'../../scripts/windows-job.ts'
+		]);
+		expect(read('packages/create-saas-starter/vitest.config.ts')).toContain(
+			"include: ['test/**/*.test.ts']"
+		);
+		expect(read('packages/create-saas-starter/knip.config.ts')).toContain(
+			"entry: ['src/index.ts', 'test/**/*.test.ts']"
+		);
+		expect(read('packages/create-saas-starter/knip.config.ts')).toContain(
+			"project: ['src/**/*.ts', 'scripts/**/*.ts', 'test/**/*.ts']"
+		);
+	});
+
 	it('dispatches every CLI boundary through Bun with an explicit child cwd', () => {
 		const manifest = JSON.parse(read('package.json')) as { scripts: Record<string, string> };
 
@@ -83,6 +129,22 @@ describe('creator workflows', () => {
 		expect(read('packages/create-saas-starter/src/process.ts')).toContain(
 			"from '../../../scripts/windows-job.ts'"
 		);
+	});
+
+	it('triggers child tests for their setup and configuration inputs', () => {
+		const workflow = read('.github/workflows/create-saas-starter.yml');
+		const inputs = [
+			'scripts/template-setup.ts',
+			'scripts/__fixtures__/template-setup/**',
+			'scripts/test-executable.ts',
+			'src/lib/content/legal-metadata.ts',
+			'tsconfig.json',
+			'vite.config.ts',
+			'knip.config.ts'
+		];
+		for (const event of ['push', 'pull_request'] as const) {
+			expect(triggerPaths(workflow, event)).toEqual(expect.arrayContaining(inputs));
+		}
 	});
 
 	it('triggers child tests when covered external workflows change', () => {

@@ -70,6 +70,7 @@ import {
 } from './git-context';
 import { formatPolicyFinding, matchesKnowledgeCandidate } from './knowledge-policy/policy';
 import { runKnowledgePolicy } from './knowledge-policy/repository';
+import { MAINTAINER_CLI_SCRIPTS, referencesMaintainerCli } from './template-setup';
 import {
 	runSanitizedCommand,
 	sanitizeTerminalField,
@@ -550,6 +551,73 @@ export function isIgnoredPath(file: string): boolean {
  */
 const CLI_PACKAGE_DIRECTORY = 'packages/create-saas-starter';
 const CLI_PACKAGE_PREFIX = `${CLI_PACKAGE_DIRECTORY}/`;
+
+function creatorPackageState(): 'present' | 'absent' {
+	const child = path.join(REPO_ROOT, CLI_PACKAGE_DIRECTORY);
+	const workflow = path.join(REPO_ROOT, '.github/workflows/create-saas-starter.yml');
+	const root = JSON.parse(readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8')) as unknown;
+	if (!root || typeof root !== 'object' || Array.isArray(root)) {
+		fail('Invalid root package.json: expected a manifest object.');
+	}
+	const scripts = (root as { scripts?: unknown }).scripts;
+	if (!scripts || typeof scripts !== 'object' || Array.isArray(scripts)) {
+		fail('Invalid root package.json: expected scripts.');
+	}
+	const commands = scripts as Record<string, unknown>;
+	const names = MAINTAINER_CLI_SCRIPTS;
+	const dispatch = names.filter((name) => Object.hasOwn(commands, name));
+	const invoked = Object.values(commands).some(
+		(command) => typeof command === 'string' && referencesMaintainerCli(command)
+	);
+	const inspect = (target: string): ReturnType<typeof lstatSync> | undefined => {
+		try {
+			return lstatSync(target);
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+			throw error;
+		}
+	};
+	const childStat = inspect(child);
+	const workflowStat = inspect(workflow);
+	if (!childStat && !workflowStat && dispatch.length === 0 && !invoked) return 'absent';
+	if (
+		!childStat?.isDirectory() ||
+		childStat.isSymbolicLink() ||
+		!workflowStat?.isFile() ||
+		workflowStat.isSymbolicLink() ||
+		dispatch.length !== names.length ||
+		!names.every((name) => typeof commands[name] === 'string') ||
+		typeof commands.postinstall !== 'string' ||
+		!commands.postinstall.startsWith('bun run install:cli && ') ||
+		typeof commands.test !== 'string' ||
+		!commands.test.includes(' && bun run test:cli && ')
+	) {
+		fail(
+			'Inconsistent creator package: maintain all CLI scripts, workflow, and child, or remove them together during setup.'
+		);
+	}
+	const manifest = inspect(path.join(child, 'package.json'));
+	if (!manifest?.isFile() || manifest.isSymbolicLink()) {
+		fail('Inconsistent creator package: child package.json is missing or invalid.');
+	}
+	try {
+		const parsed = JSON.parse(readFileSync(path.join(child, 'package.json'), 'utf8')) as unknown;
+		const childScripts =
+			parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+				? (parsed as { scripts?: unknown }).scripts
+				: undefined;
+		if (
+			!childScripts ||
+			typeof childScripts !== 'object' ||
+			Array.isArray(childScripts) ||
+			Object.values(childScripts).some((command) => typeof command !== 'string')
+		)
+			throw new Error('Invalid child scripts');
+	} catch {
+		fail('Inconsistent creator package: child package.json is malformed.');
+	}
+	return 'present';
+}
 
 export const ROUTES = {
 	misspell: (f: string) =>
@@ -1158,6 +1226,7 @@ async function main(): Promise<void> {
 	// unstated precondition — after resolving caller paths, so a relative argument still
 	// means what the caller meant.
 	process.chdir(REPO_ROOT);
+	const creatorState = scope === 'format' || scope === 'compat' ? undefined : creatorPackageState();
 
 	if (mode === 'staged') {
 		stagedEnv = stagedGitEnv(REPO_ROOT);
@@ -1475,8 +1544,13 @@ async function main(): Promise<void> {
 			console.log('\n');
 
 			printHeader(step++, 'create-saas-starter knip');
-			await runCommand('bun', ['run', '--cwd', CLI_PACKAGE_DIRECTORY, 'knip', '--no-progress']);
-			ledger.ran('cli knip');
+			if (creatorState === 'absent') {
+				console.log('Generated project has no creator package');
+				ledger.skipped('cli knip', 'creator package removed by setup');
+			} else {
+				await runCommand('bun', ['run', '--cwd', CLI_PACKAGE_DIRECTORY, 'knip', '--no-progress']);
+				ledger.ran('cli knip');
+			}
 			console.log('\n');
 		}
 	}
@@ -1513,7 +1587,10 @@ async function main(): Promise<void> {
 		printHeader(step++, 'create-saas-starter type checking');
 		{
 			const files = ledger.filesFor('cli-types');
-			if (!scopedMode || files.length > 0) {
+			if (creatorState === 'absent') {
+				console.log('Generated project has no creator package');
+				ledger.skipped('cli-types', 'creator package removed by setup');
+			} else if (!scopedMode || files.length > 0) {
 				await runCommand('bun', ['run', 'check:cli']);
 				ledger.ran('cli-types', 'project');
 			} else {

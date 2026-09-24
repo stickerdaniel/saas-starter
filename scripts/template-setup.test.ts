@@ -6,7 +6,10 @@ import {
 	githubSlugProperty,
 	isValidGithubRepository,
 	isValidWorkerSlug,
+	MAINTAINER_CLI_SCRIPTS,
 	parseContactEmail,
+	referencesMaintainerCli,
+	removeMaintainerCliScripts,
 	readmeShowsCompletedSetup,
 	replaceGithubSlugSource,
 	replaceLegalConfigSource,
@@ -29,6 +32,188 @@ function asciiDomainOfLength(length: number): string {
 	labels.push('a'.repeat(remaining));
 	return labels.join('.');
 }
+
+describe('template setup maintainer manifest', () => {
+	const postinstall =
+		'bun run install:cli && bun run generate:content && bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails';
+	const test =
+		'bun run test:e2e && bun run test:unit && bun run test:cli && bun run test:upstream-report';
+	const scripts = {
+		'install:cli': 'bun install --cwd packages/create-saas-starter --frozen-lockfile',
+		'check:cli': 'bun run --cwd packages/create-saas-starter typecheck',
+		'test:cli': 'bun run --cwd packages/create-saas-starter test',
+		'build:cli': 'bun run --cwd packages/create-saas-starter build',
+		'test:cli:packed': 'bun run --cwd packages/create-saas-starter test:packed',
+		postinstall,
+		test,
+		setup: 'bun scripts/template-setup.ts'
+	};
+	const manifest = { name: 'original', templateSetupVersion: 1, scripts };
+
+	it('keeps unrelated data and produces exact project chains without mutating input', () => {
+		const result = removeMaintainerCliScripts(manifest);
+		expect(result).not.toBe(manifest);
+		expect(result).toMatchObject({ name: 'original', templateSetupVersion: 1 });
+		const next = result.scripts as Record<string, string>;
+		expect(next.postinstall).toBe(
+			'bun run generate:content && bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails'
+		);
+		expect(next.test).toBe('bun run test:e2e && bun run test:unit && bun run test:upstream-report');
+		expect(next.setup).toBe('bun scripts/template-setup.ts');
+		expect(Object.keys(next)).toEqual(['postinstall', 'test', 'setup']);
+		expect(manifest.scripts).toEqual(scripts);
+		expect(removeMaintainerCliScripts(result)).toEqual(result);
+		expect(
+			removeMaintainerCliScripts({ ...result, scripts: { ...next, custom: 'bun run custom' } })
+		).toMatchObject({ scripts: { custom: 'bun run custom' } });
+	});
+
+	it.each([
+		{
+			label: 'missing script',
+			mutate: (value: Record<string, unknown>) => {
+				delete (value.scripts as Record<string, unknown>)['test:cli'];
+			}
+		},
+		{
+			label: 'moved install',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).postinstall =
+					'bun run generate:content && bun run install:cli';
+			}
+		},
+		{
+			label: 'duplicate test',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).test = `${test} && bun run test:cli`;
+			}
+		},
+		{
+			label: 'other reference',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).custom = 'bun run check:cli';
+			}
+		},
+		{
+			label: 'double-quoted extra invocation',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).test = `${test} && bun run "test:cli"`;
+			}
+		},
+		{
+			label: 'single-quoted wrapper',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).wrapper = "bun run 'test:cli'";
+			}
+		},
+		{
+			label: 'shorthand invocation',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).test = `${test} && bun test:cli`;
+			}
+		},
+		{
+			label: 'shorthand install',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).wrapper = 'bun install:cli';
+			}
+		},
+		...['bun run test:"cli"', 'bun run "test":cli', 'bun run test\\:cli'].map((command) => ({
+			label: `split or escaped operand ${command}`,
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).wrapper = command;
+			}
+		})),
+		{
+			label: 'Windows creator path',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).wrapper = 'cd .\\packages\\create-saas-starter';
+			}
+		},
+		{
+			label: 'creator path segment',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).wrapper = 'cd ./packages/create-saas-starter/';
+			}
+		},
+		{
+			label: 'workspace',
+			mutate: (value: Record<string, unknown>) => {
+				value.workspaces = [];
+			}
+		},
+		{
+			label: 'malformed script',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).postinstall = 42;
+			}
+		}
+	])('rejects $label drift', ({ mutate }) => {
+		const input = structuredClone(manifest) as Record<string, unknown>;
+		mutate(input);
+		expect(() => removeMaintainerCliScripts(input)).toThrow(/Invalid package.json/);
+	});
+
+	it.each([
+		{ 'test:cli:app': 'echo app', custom: 'bun run test:cli:app' },
+		{ 'test:cli-app': 'echo app', custom: 'bun test:cli-app' },
+		{ custom: 'bun run --cwd packages/create-saas-starter-docs build' },
+		{ custom: 'bun run --cwd packages/create-saas-starter+docs build' },
+		{ custom: 'curl https://example.invalid/?label=test:cli' },
+		{ custom: 'FOO=test:cli bun scripts/app-task.ts' }
+	])('preserves distinct custom names in a clean project: %o', (custom) => {
+		const clean = removeMaintainerCliScripts(manifest);
+		const input = { ...clean, scripts: { ...(clean.scripts as object), ...custom } };
+		const result = removeMaintainerCliScripts(input);
+		expect(result.scripts).toEqual(input.scripts);
+		expect(removeMaintainerCliScripts(result)).toEqual(result);
+	});
+
+	it('recognizes every owned script name as a complete token', () => {
+		for (const name of MAINTAINER_CLI_SCRIPTS) {
+			const [head, ...tail] = name.split(':');
+			const rest = tail.join(':');
+			for (const command of [
+				`bun run ${name}`,
+				`bun run "${name}"`,
+				`bun ${name} --flag`,
+				`bun run ${head}:"${rest}"`,
+				`bun run "${head}":${rest}`,
+				`bun run ${head}\\:${rest}`
+			]) {
+				expect(referencesMaintainerCli(command), command).toBe(true);
+			}
+			for (const command of [
+				`bun run ${name}:app`,
+				`bun run ${name}-app`,
+				`bun run x${name}`,
+				`FOO=${name} bun scripts/app-task.ts`,
+				`curl https://example.invalid/?label=${name}`
+			]) {
+				expect(referencesMaintainerCli(command), command).toBe(false);
+			}
+		}
+	});
+
+	it('recognizes the creator directory only as a complete path component', () => {
+		for (const command of [
+			'cd packages/create-saas-starter',
+			'cd ./packages/create-saas-starter',
+			'cd .\\packages\\create-saas-starter',
+			'bun --cwd packages/create-saas-starter/src test',
+			'cd "packages/create-saas-starter"&& bun test'
+		]) {
+			expect(referencesMaintainerCli(command), command).toBe(true);
+		}
+		for (const command of [
+			'cd packages/create-saas-starter-docs',
+			'cd packages/create-saas-starter+docs',
+			'cd packages/create-saas-starter.docs'
+		]) {
+			expect(referencesMaintainerCli(command), command).toBe(false);
+		}
+	});
+});
 
 describe('template setup repository configuration', () => {
 	it.each([

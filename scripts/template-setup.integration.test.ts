@@ -4,7 +4,7 @@
  * Fixtures need no installed dependencies because setup imports only built-ins and
  * dependency-free local modules.
  */
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import {
 	accessSync,
 	chmodSync,
@@ -63,14 +63,50 @@ afterAll(() => {
 	for (const dir of fixtures) rmSync(dir, { recursive: true, force: true });
 });
 
+const LEGAL_CONTENT_DATES_BLOCK = /^export const LEGAL_CONTENT_DATES = \{\n[^}]*\n\} as const;$/gm;
+
+/**
+ * Runs the live legal-metadata helper with fixture-owned template dates, so setup executes its
+ * real import while date preconditions stay independent of a generated caller.
+ */
+function legalMetadataSource(): string {
+	const live = readFileSync(join(ROOT, 'src/lib/content/legal-metadata.ts'), 'utf-8');
+	const dates = readFileSync(
+		join(ROOT, 'scripts/__fixtures__/template-setup/legal-content-dates.ts'),
+		'utf-8'
+	).trimEnd();
+	expect(live.match(LEGAL_CONTENT_DATES_BLOCK)).toHaveLength(1);
+	expect(dates.match(LEGAL_CONTENT_DATES_BLOCK)).toEqual([dates]);
+	return live.replace(LEGAL_CONTENT_DATES_BLOCK, () => dates);
+}
+
 function createFixture(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'template-setup-'));
 	fixtures.push(dir);
 	for (const rel of FIXTURE_FILES) {
 		const dest = join(dir, rel);
 		mkdirSync(dirname(dest), { recursive: true });
-		cpSync(join(ROOT, rel), dest);
+		if (rel === 'src/lib/content/legal-metadata.ts') {
+			writeFileSync(dest, legalMetadataSource());
+			continue;
+		}
+		cpSync(
+			join(
+				ROOT,
+				rel === 'scripts/template-setup.ts' ? rel : `scripts/__fixtures__/template-setup/${rel}`
+			),
+			dest
+		);
 	}
+	const child = join(dir, 'packages/create-saas-starter');
+	mkdirSync(join(child, 'src'), { recursive: true });
+	writeFileSync(join(child, 'package.json'), '{"name":"create-saas-starter"}\n');
+	writeFileSync(join(child, 'src/index.ts'), 'export const creator = true;\n');
+	mkdirSync(join(dir, 'packages/neighbor'), { recursive: true });
+	writeFileSync(join(dir, 'packages/neighbor/keep.txt'), 'neighbor');
+	mkdirSync(join(dir, '.github/workflows'), { recursive: true });
+	writeFileSync(join(dir, '.github/workflows/create-saas-starter.yml'), 'name: creator\n');
+	writeFileSync(join(dir, '.github/workflows/neighbor.yml'), 'name: neighbor\n');
 	return dir;
 }
 
@@ -111,7 +147,9 @@ type FaultPhase =
 	| 'legal-metadata-install'
 	| 'legal-metadata-and-restore'
 	| 'legal-cleanup-unlink'
-	| 'legal-cleanup-rmdir';
+	| 'legal-cleanup-rmdir'
+	| 'workflow-delete'
+	| 'child-delete';
 
 let faultSequence = 0;
 
@@ -141,6 +179,7 @@ const realChmodSync = fs.chmodSync;
 const realRenameSync = fs.renameSync;
 const realUnlinkSync = fs.unlinkSync;
 const realRmdirSync = fs.rmdirSync;
+const realRmSync = fs.rmSync;
 let metadataFaulted = false;
 
 function fail(operation, detail) {
@@ -213,7 +252,10 @@ const replacements = {
 	},
 	unlinkSync(path) {
 		const normalized = normalize(path);
-		if (phase === 'legal-cleanup-unlink' && normalized.endsWith('/legal.ts.backup')) {
+		if (phase === 'workflow-delete' && normalized.endsWith('/.github/workflows/create-saas-starter.yml')) {
+				fail('unlinkSync', 'path=' + normalized);
+			}
+			if (phase === 'legal-cleanup-unlink' && normalized.endsWith('/legal.ts.backup')) {
 			fail('unlinkSync', 'path=' + normalized + ' stage=' + isStage(path));
 		}
 		return realUnlinkSync(path);
@@ -228,6 +270,14 @@ const replacements = {
 			fail('rmdirSync', 'path=' + normalized + ' stage=true');
 		}
 		return realRmdirSync(path);
+	},
+	rmSync(path, options) {
+		const normalized = normalize(path);
+		if (phase === 'child-delete' && normalized.endsWith('/packages/create-saas-starter')) {
+			realUnlinkSync(String(path) + '/package.json');
+			fail('rmSync', 'path=' + normalized + ' partial=true');
+		}
+		return realRmSync(path, options);
 	}
 };
 Object.assign(defaultFs, replacements);
@@ -412,6 +462,320 @@ describe('template setup writes importable branding values', () => {
 			tld: 'de'
 		});
 	});
+});
+
+describe('template setup removes maintainer files', () => {
+	const workflow = '.github/workflows/create-saas-starter.yml';
+	const child = 'packages/create-saas-starter';
+
+	it('removes populated creator targets and keeps their siblings on public setup and retry', () => {
+		const dir = createFixture();
+		expect(readFileSync(join(dir, child, 'src/index.ts'), 'utf8')).toContain('creator');
+		expect(readFileSync(join(dir, workflow), 'utf8')).toContain('creator');
+		const first = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(first.code, first.stderr).toBe(0);
+		expect(existsSync(join(dir, workflow))).toBe(false);
+		expect(existsSync(join(dir, child))).toBe(false);
+		expect(readFileSync(join(dir, 'packages/neighbor/keep.txt'), 'utf8')).toBe('neighbor');
+		expect(readFileSync(join(dir, '.github/workflows/neighbor.yml'), 'utf8')).toBe(
+			'name: neighbor\n'
+		);
+		const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+		expect(pkg.templateSetupVersion).toBe(1);
+		expect(pkg.scripts.setup).toBe('bun scripts/template-setup.ts');
+		expect(pkg.scripts.postinstall).toBe(
+			'bun run generate:content && bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails'
+		);
+		expect(pkg.scripts.test).toBe(
+			'bun run test:e2e && bun run test:unit && bun run test:upstream-report'
+		);
+		for (const name of ['install:cli', 'check:cli', 'test:cli', 'build:cli', 'test:cli:packed']) {
+			expect(pkg.scripts).not.toHaveProperty(name);
+		}
+		const after = snapshot(dir);
+		const retry = runSetup(dir, []);
+		expect(retry.code, retry.stderr).toBe(0);
+		expect(snapshot(dir)).toEqual(after);
+	});
+
+	it.each([
+		{ phase: 'workflow-delete' as const, operation: 'unlinkSync' },
+		{ phase: 'child-delete' as const, operation: 'rmSync' }
+	])('recovers after $phase fails following canonical writes', ({ phase, operation }) => {
+		const dir = createFixture();
+		const fault = createFaultPreload(dir, { phase, target: 'package.json' });
+		const failed = runSetup(dir, [...REQUIRED, ...IDENTITY], fault.path);
+		expectFault(failed, fault, operation);
+		expect(failed.stdout).not.toContain('Setup complete.');
+		expect(JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).scripts).not.toHaveProperty(
+			'install:cli'
+		);
+		expect(existsSync(join(dir, child))).toBe(true);
+		expect(existsSync(join(dir, workflow))).toBe(phase === 'workflow-delete');
+		if (phase === 'child-delete') expect(existsSync(join(dir, child, 'package.json'))).toBe(false);
+		const retry = runSetup(dir, []);
+		expect(retry.code, retry.stderr).toBe(0);
+		expect(existsSync(join(dir, workflow))).toBe(false);
+		expect(existsSync(join(dir, child))).toBe(false);
+	});
+
+	it.skipIf(process.platform !== 'win32')(
+		'fails on a natively locked child file and completes after the lock is released',
+		async () => {
+			const dir = createFixture();
+			const locked = join(dir, child, 'src/index.ts');
+			// A FileStream without FileShare.Delete makes the real Windows delete fail with a sharing
+			// violation, unlike an interceptor that throws before Bun reaches the primitive.
+			const locker = spawn(
+				'powershell.exe',
+				[
+					'-NoProfile',
+					'-NonInteractive',
+					'-Command',
+					"$stream = [System.IO.File]::Open($env:SETUP_LOCK_PATH, 'Open', 'ReadWrite', 'None'); [Console]::Out.WriteLine('LOCKED'); [Console]::Out.Flush(); [void][Console]::In.ReadLine(); $stream.Dispose()"
+				],
+				{ env: { ...CHILD_ENV, SETUP_LOCK_PATH: locked }, stdio: ['pipe', 'pipe', 'pipe'] }
+			);
+			// A failed spawn emits `error` and may never emit `exit`; `close` also waits for stdio.
+			let spawnError: Error | undefined;
+			const closed = new Promise<number | null>((resolve) => {
+				locker.once('close', resolve);
+				locker.once('error', (error) => {
+					spawnError = error;
+					resolve(null);
+				});
+			});
+			locker.stdin.on('error', () => {});
+			const waitForClose = async (ms: number) => {
+				let timer: ReturnType<typeof setTimeout> | undefined;
+				const timeout = new Promise<'timeout'>((resolve) => {
+					timer = setTimeout(() => resolve('timeout'), ms);
+				});
+				try {
+					return await Promise.race([closed, timeout]);
+				} finally {
+					clearTimeout(timer);
+				}
+			};
+			// Never throws, so a failed assertion in the body stays the reported error.
+			const release = async (): Promise<number | string | null> => {
+				if (spawnError) return `Lock holder failed to spawn: ${spawnError.message}`;
+				locker.stdin.end('\n');
+				const cooperative = await waitForClose(10_000);
+				if (cooperative !== 'timeout') return cooperative;
+				locker.kill();
+				const killed = await waitForClose(10_000);
+				return killed === 'timeout'
+					? 'Lock holder did not exit after kill'
+					: `Lock holder ignored release and was killed (${killed})`;
+			};
+			let released: number | string | null;
+			try {
+				let output = '';
+				let onData = (_chunk: Buffer) => {};
+				let timer: ReturnType<typeof setTimeout> | undefined;
+				try {
+					await new Promise<void>((resolve, reject) => {
+						onData = (chunk) => {
+							output += chunk.toString();
+							if (output.includes('LOCKED')) resolve();
+						};
+						locker.stdout.on('data', onData);
+						locker.stderr.on('data', onData);
+						timer = setTimeout(() => reject(new Error(`Lock not acquired: ${output}`)), 30_000);
+						void closed.then((code) =>
+							reject(
+								spawnError ?? new Error(`Lock holder exited with ${code} before locking: ${output}`)
+							)
+						);
+					});
+				} finally {
+					clearTimeout(timer);
+					locker.stdout.off('data', onData);
+					locker.stderr.off('data', onData);
+				}
+
+				const failed = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+				expect(failed.code).not.toBe(0);
+				expect(failed.stdout).not.toContain('Setup complete.');
+				expect(failed.stderr).toMatch(/EBUSY|EPERM|EACCES/);
+				const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+				expect(pkg.name).toBe('northwind-labs');
+				expect(pkg.scripts).not.toHaveProperty('install:cli');
+				expect(readFileSync(join(dir, 'src/lib/config/legal.ts'), 'utf8')).toContain(
+					"brandName: 'Northwind Labs'"
+				);
+				expect(existsSync(join(dir, workflow))).toBe(false);
+				expect(existsSync(locked)).toBe(true);
+			} finally {
+				released = await release();
+			}
+			expect(released).toBe(0);
+
+			const retry = runSetup(dir, []);
+			expect(retry.code, retry.stderr).toBe(0);
+			expect(retry.stdout).toContain('Setup complete.');
+			expect(existsSync(join(dir, child))).toBe(false);
+			expect(readFileSync(join(dir, 'packages/neighbor/keep.txt'), 'utf8')).toBe('neighbor');
+		},
+		120_000
+	);
+
+	it.each([
+		{ target: '.github/workflows/create-saas-starter.yml', type: 'file' as const },
+		{ target: 'packages/create-saas-starter', type: 'dir' as const }
+	])('rejects a linked $target before canonical writes', ({ target, type }) => {
+		const dir = createFixture();
+		const leaf = join(dir, target);
+		rmSync(leaf, { recursive: true });
+		symlinkSync(
+			'missing-target',
+			leaf,
+			process.platform === 'win32' && type === 'dir' ? 'junction' : type
+		);
+		const before = snapshot(dir);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/redirected or invalid/);
+		expect(snapshot(dir)).toEqual(before);
+	});
+
+	it('does not traverse a linked child descendant during deletion', () => {
+		const dir = createFixture();
+		const outside = mkdtempSync(join(tmpdir(), 'setup-linked-descendant-'));
+		fixtures.push(outside);
+		writeFileSync(join(outside, 'keep.txt'), 'outside');
+		symlinkSync(
+			outside,
+			join(dir, 'packages/create-saas-starter/external'),
+			process.platform === 'win32' ? 'junction' : 'dir'
+		);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		expect(readFileSync(join(outside, 'keep.txt'), 'utf8')).toBe('outside');
+	});
+
+	it('rejects a workflow with multiple hard links before writing', () => {
+		const dir = createFixture();
+		const workflow = join(dir, '.github/workflows/create-saas-starter.yml');
+		const peer = join(dir, '.github/workflows/peer.yml');
+		linkSync(workflow, peer);
+		const before = snapshot(dir);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/invalid file target/);
+		expect(snapshot(dir)).toEqual(before);
+		expect(readFileSync(peer, 'utf8')).toBe('name: creator\n');
+	});
+
+	it.each([
+		{ target: 'packages', type: 'dir' as const },
+		{ target: '.github/workflows', type: 'file' as const }
+	])('rejects a redirected $target before canonical writes', ({ target, type }) => {
+		const dir = createFixture();
+		const outside = mkdtempSync(join(tmpdir(), 'setup-outside-'));
+		fixtures.push(outside);
+		const old = join(dir, target);
+		rmSync(old, { recursive: true });
+		mkdirSync(join(outside, type === 'file' ? '' : 'create-saas-starter'), { recursive: true });
+		if (type === 'file') writeFileSync(join(outside, 'create-saas-starter.yml'), 'outside');
+		symlinkSync(outside, old, process.platform === 'win32' ? 'junction' : 'dir');
+		const before = snapshot(dir);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/redirected or invalid parent/);
+		expect(snapshot(dir)).toEqual(before);
+		expect(
+			existsSync(join(outside, type === 'file' ? 'create-saas-starter.yml' : 'create-saas-starter'))
+		).toBe(true);
+	});
+});
+
+describe('template setup manifest preflight', () => {
+	it.each([
+		{
+			label: 'a moved install command',
+			mutate: (scripts: Record<string, string>) => {
+				scripts.postinstall =
+					scripts.postinstall.replace('bun run install:cli && ', '') + ' && bun run install:cli';
+			}
+		},
+		{
+			label: 'a duplicate test command',
+			mutate: (scripts: Record<string, string>) => {
+				scripts.test += ' && bun run test:cli';
+			}
+		},
+		{
+			label: 'a missing creator script',
+			mutate: (scripts: Record<string, string>) => {
+				delete scripts['build:cli'];
+			}
+		},
+		{
+			label: 'an unexpected creator reference',
+			mutate: (scripts: Record<string, string>) => {
+				scripts.custom = 'bun run check:cli';
+			}
+		},
+		{
+			label: 'a quoted extra test invocation',
+			mutate: (scripts: Record<string, string>) => {
+				scripts.test += ' && bun run "test:cli"';
+			}
+		},
+		{
+			label: 'a quoted wrapper script',
+			mutate: (scripts: Record<string, string>) => {
+				scripts['retry-cli'] = "bun run 'test:cli'";
+			}
+		},
+		{
+			label: 'a shorthand invocation',
+			mutate: (scripts: Record<string, string>) => {
+				scripts.test += ' && bun test:cli';
+			}
+		}
+	])('rejects $label before canonical writes', ({ mutate }) => {
+		const dir = createFixture();
+		const file = join(dir, 'package.json');
+		const manifest = JSON.parse(readFileSync(file, 'utf8'));
+		mutate(manifest.scripts);
+		writeFileSync(file, JSON.stringify(manifest, null, '\t') + '\n');
+		const before = snapshot(dir);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/Invalid package.json/);
+		expect(run.stdout).not.toContain('Applying:');
+		expect(snapshot(dir)).toEqual(before);
+		expect(existsSync(join(dir, '.github/workflows/create-saas-starter.yml'))).toBe(true);
+		expect(existsSync(join(dir, 'packages/create-saas-starter/package.json'))).toBe(true);
+	});
+
+	it.each(['test:cli:app', 'test:cli-app'])(
+		'keeps the distinct custom script %s across setup and rerun',
+		(name) => {
+			const dir = createFixture();
+			const file = join(dir, 'package.json');
+			const manifest = JSON.parse(readFileSync(file, 'utf8'));
+			manifest.scripts[name] = 'echo app';
+			manifest.scripts.custom = `bun run ${name}`;
+			writeFileSync(file, JSON.stringify(manifest, null, '\t') + '\n');
+
+			const first = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+			expect(first.code, first.stderr).toBe(0);
+			const scripts = JSON.parse(readFileSync(file, 'utf8')).scripts;
+			expect(scripts[name]).toBe('echo app');
+			expect(scripts.custom).toBe(`bun run ${name}`);
+			expect(scripts).not.toHaveProperty('test:cli');
+			expect(existsSync(join(dir, 'packages/create-saas-starter'))).toBe(false);
+
+			const after = snapshot(dir);
+			const rerun = runSetup(dir, []);
+			expect(rerun.code, rerun.stderr).toBe(0);
+			expect(snapshot(dir)).toEqual(after);
+		}
+	);
 });
 
 describe('template setup re-runs', () => {
@@ -654,7 +1018,7 @@ describe('template setup quick start', () => {
 		);
 		// Only the root name changes; the dependency graph remains byte-identical.
 		expect(lock).toBe(
-			readFileSync(join(ROOT, 'bun.lock'), 'utf-8').replace(
+			readFileSync(join(ROOT, 'scripts/__fixtures__/template-setup/bun.lock'), 'utf-8').replace(
 				'"name": "saas-starter"',
 				'"name": "northwind-labs"'
 			)
@@ -824,6 +1188,7 @@ describe('template setup rejects input before writing', () => {
 			label: 'the site config lost its githubSlug',
 			file: 'src/lib/config/site.ts',
 			mutate: (source: string) => source.replace(/\tgithubSlug: '[^']*',\n/, ''),
+			malformed: (source: string) => !source.includes("githubSlug: '"),
 			expected: /Could not find githubSlug/
 		},
 		{
@@ -834,6 +1199,7 @@ describe('template setup rejects input before writing', () => {
 					"\tgithubSlug: 'stickerdaniel/saas-starter',",
 					"\tgithubSlug: 'stickerdaniel/saas-starter',\n\tgithubSlug: 'other/repository',"
 				),
+			malformed: (source: string) => source.match(/^\tgithubSlug: '[^']*',$/gm)?.length === 2,
 			expected: /Expected exactly one direct githubSlug property/
 		},
 		{
@@ -841,6 +1207,8 @@ describe('template setup rejects input before writing', () => {
 			file: 'src/lib/config/site.ts',
 			mutate: (source: string) =>
 				source.replace("githubSlug: 'stickerdaniel/saas-starter'", 'githubSlug: repository'),
+			malformed: (source: string) =>
+				source.includes('\tgithubSlug: repository,') && !source.includes("githubSlug: '"),
 			expected: /direct string literal/
 		},
 		{
@@ -851,35 +1219,47 @@ describe('template setup rejects input before writing', () => {
 					/^export const LEGAL_CONFIG[\s\S]*?^\} as const;$/m,
 					"export const LEGAL_CONFIG = { brandName: 'X' };"
 				),
+			malformed: (source: string) =>
+				source.includes("export const LEGAL_CONFIG = { brandName: 'X' };") &&
+				!source.includes('} as const;'),
 			expected: /LEGAL_CONFIG must use a direct object initializer/
 		},
 		{
 			label: 'the README lost its quick start',
 			file: 'README.md',
 			mutate: () => '# Custom Title\n\nUnrelated prose.\n',
+			malformed: (source: string) => !/^## Quick Start/m.test(source),
 			expected: /Expected exactly one Quick Start H2/
 		},
 		{
 			label: 'wrangler.toml lost its name assignment',
 			file: 'wrangler.toml',
 			mutate: (source: string) => source.replace(/^name = "[^"]*".*\n/m, ''),
+			malformed: (source: string) => !/^name = /m.test(source),
 			expected: /Expected exactly one name assignment/
 		},
 		{
 			label: 'wrangler.toml uses a multiline basic string for the root name',
 			file: 'wrangler.toml',
 			mutate: (source: string) => source.replace(/^name = "[^"]*".*$/m, 'name = """base-worker"""'),
+			malformed: (source: string) => /^name = """base-worker"""$/m.test(source),
 			expected: /Expected exactly one name assignment/
 		},
 		{
 			label: 'wrangler.toml uses a multiline literal string for the root name',
 			file: 'wrangler.toml',
 			mutate: (source: string) => source.replace(/^name = "[^"]*".*$/m, "name = '''base-worker'''"),
+			malformed: (source: string) => /^name = '''base-worker'''$/m.test(source),
 			expected: /Expected exactly one name assignment/
 		}
-	])('leaves every file untouched when $label', ({ file, mutate, expected }) => {
+	])('leaves every file untouched when $label', ({ file, mutate, malformed, expected }) => {
 		const dir = createFixture();
-		writeFileSync(join(dir, file), mutate(readFileSync(join(dir, file), 'utf-8')), 'utf-8');
+		const original = readFileSync(join(dir, file), 'utf-8');
+		const mutated = mutate(original);
+		expect(mutated).not.toBe(original);
+		expect(malformed(original)).toBe(false);
+		expect(malformed(mutated)).toBe(true);
+		writeFileSync(join(dir, file), mutated, 'utf-8');
 		const before = snapshot(dir);
 
 		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
@@ -916,7 +1296,14 @@ describe('template setup rejects input before writing', () => {
 	])('rejects an imported %s before normalization or writes', (_label, mutate) => {
 		const dir = createFixture();
 		const legal = join(dir, 'src/lib/config/legal.ts');
-		writeFileSync(legal, mutate(readFileSync(legal, 'utf-8')), 'utf-8');
+		const original = readFileSync(legal, 'utf-8');
+		const mutated = mutate(original);
+		const unsupportedFirstProperty =
+			/^export const LEGAL_CONFIG = \{\n\t(?:unsupported|\['__proto__'\]):/m;
+		expect(mutated).not.toBe(original);
+		expect(original).not.toMatch(unsupportedFirstProperty);
+		expect(mutated).toMatch(unsupportedFirstProperty);
+		writeFileSync(legal, mutated, 'utf-8');
 		const before = snapshot(dir);
 
 		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);

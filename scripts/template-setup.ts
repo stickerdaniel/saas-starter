@@ -25,6 +25,7 @@ import {
 	mkdtempSync,
 	readFileSync,
 	realpathSync,
+	rmSync,
 	renameSync,
 	rmdirSync,
 	unlinkSync,
@@ -208,6 +209,132 @@ function inspectOptionalCanonicalFile(rel: string): CanonicalFile | undefined {
 
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+const CREATOR_WORKFLOW = '.github/workflows/create-saas-starter.yml';
+const CREATOR_PACKAGE = 'packages/create-saas-starter';
+
+function inspectRemovalTarget(rel: string, kind: 'file' | 'directory'): boolean {
+	let parent = REAL_ROOT;
+	const segments = rel.split('/');
+	for (const segment of segments.slice(0, -1)) {
+		const candidate = join(parent, segment);
+		let stat: ReturnType<typeof lstatSync>;
+		try {
+			stat = lstatSync(candidate);
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+			throw error;
+		}
+		if (!stat.isDirectory() || stat.isSymbolicLink() || realpathSync(candidate) !== candidate) {
+			throw new Error(`Refusing ${rel}: redirected or invalid parent ${candidate}`);
+		}
+		parent = candidate;
+	}
+	const target = join(parent, segments.at(-1)!);
+	let stat: ReturnType<typeof lstatSync>;
+	try {
+		stat = lstatSync(target);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+		throw error;
+	}
+	if (
+		stat.isSymbolicLink() ||
+		(kind === 'file' ? !stat.isFile() || stat.nlink !== 1 : !stat.isDirectory()) ||
+		realpathSync(target) !== target
+	) {
+		throw new Error(`Refusing ${rel}: redirected or invalid ${kind} target`);
+	}
+	return true;
+}
+
+/** Root scripts that exist only for the maintainer CLI; setup removes them with the child. */
+export const MAINTAINER_CLI_SCRIPTS = [
+	'install:cli',
+	'check:cli',
+	'test:cli',
+	'build:cli',
+	'test:cli:packed'
+] as const;
+
+/**
+ * Script names may contain `:` and `-`, so an owned name counts only as a complete token between
+ * whitespace or shell operators, matched after dropping quote characters and backslash escapes.
+ * That covers `bun run name`, quoted or split-quoted names such as `test:"cli"`, escaped names, and
+ * the `bun name` shorthand without parsing shell syntax; any other standalone word fails closed.
+ * A value after `=` (URL queries, environment assignments) is data, not a script operand. The
+ * creator directory counts only when its final path component ends at a separator, whitespace,
+ * quote, shell operator, or the end of the command.
+ */
+const MAINTAINER_CLI_REFERENCE = {
+	script:
+		/(?<![^\s;&|()<>])(?:install:cli|check:cli|test:cli|build:cli|test:cli:packed)(?![^\s;&|()<>=])/,
+	path: /(?<![\w.-])packages[\\/]create-saas-starter(?=$|[\\/\s"'`;&|()<>])/
+};
+
+/** Shared with static-checks.ts, which classifies completed projects by the same rule. */
+export function referencesMaintainerCli(command: string): boolean {
+	const unquoted = command.replace(/\\([\s\S])/g, '$1').replace(/["'`]/g, '');
+	return (
+		MAINTAINER_CLI_REFERENCE.script.test(unquoted) || MAINTAINER_CLI_REFERENCE.path.test(command)
+	);
+}
+
+export function removeMaintainerCliScripts(value: unknown): Record<string, unknown> {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		throw new Error('Invalid package.json: expected a manifest object');
+	}
+	const manifest = value as Record<string, unknown>;
+	if (Object.hasOwn(manifest, 'workspaces')) {
+		throw new Error('Invalid package.json: root workspaces are not supported');
+	}
+	const original = manifest.scripts;
+	if (!original || typeof original !== 'object' || Array.isArray(original)) {
+		throw new Error('Invalid package.json: expected a scripts object');
+	}
+	const scripts = original as Record<string, unknown>;
+	if (Object.values(scripts).some((command) => typeof command !== 'string')) {
+		throw new Error('Invalid package.json: scripts must contain strings');
+	}
+	const names = MAINTAINER_CLI_SCRIPTS;
+	const present = names.filter((name) => Object.hasOwn(scripts, name));
+	if (present.length !== 0 && present.length !== names.length) {
+		throw new Error('Invalid package.json: maintainer CLI scripts have drifted');
+	}
+	const postinstall = scripts.postinstall;
+	const test = scripts.test;
+	if (typeof postinstall !== 'string' || typeof test !== 'string') {
+		throw new Error('Invalid package.json: postinstall and test must be strings');
+	}
+	const installPrefix = 'bun run install:cli && ';
+	const testSegment = ' && bun run test:cli && ';
+	if (present.length === names.length) {
+		if (!postinstall.startsWith(installPrefix) || test.split(testSegment).length !== 2) {
+			throw new Error('Invalid package.json: maintainer CLI invocation has drifted');
+		}
+	} else if (postinstall.includes(installPrefix) || test.includes(testSegment)) {
+		throw new Error('Invalid package.json: maintainer CLI invocation has drifted');
+	}
+	const nextScripts = { ...scripts };
+	for (const name of names) delete nextScripts[name];
+	if (present.length) {
+		nextScripts.postinstall = postinstall.slice(installPrefix.length);
+		nextScripts.test = test.replace(testSegment, ' && ');
+	}
+	if (Object.values(nextScripts).some((command) => referencesMaintainerCli(command as string))) {
+		throw new Error('Invalid package.json: unexpected maintainer CLI reference');
+	}
+	return { ...manifest, scripts: nextScripts };
+}
+
+function removeMaintainerCliFiles(): void {
+	if (inspectRemovalTarget(CREATOR_WORKFLOW, 'file')) {
+		unlinkSync(join(ROOT, CREATOR_WORKFLOW));
+	}
+	if (inspectRemovalTarget(CREATOR_PACKAGE, 'directory')) {
+		rmSync(join(ROOT, CREATOR_PACKAGE), { recursive: true });
+	}
 }
 
 function removeOwnedFile(path: string, errors: string[]): void {
@@ -1573,6 +1700,8 @@ async function main() {
 		siteFile = inspectCanonicalFile('src/lib/config/site.ts');
 		legalConfigFile = inspectCanonicalFile('src/lib/config/legal.ts');
 		legalMetadataFile = inspectCanonicalFile('src/lib/content/legal-metadata.ts');
+		inspectRemovalTarget(CREATOR_WORKFLOW, 'file');
+		inspectRemovalTarget(CREATOR_PACKAGE, 'directory');
 	} catch (error) {
 		fail(errorMessage(error));
 	}
@@ -1694,7 +1823,7 @@ async function main() {
 	let nextLegalSource: string;
 	let nextLock: string | undefined;
 	try {
-		const pkg = JSON.parse(packageFile.source);
+		const pkg = removeMaintainerCliScripts(JSON.parse(packageFile.source));
 		pkg.name = slug;
 		pkg.author = operator;
 		nextPackageJson = JSON.stringify(pkg, null, '\t') + '\n';
@@ -1743,6 +1872,8 @@ async function main() {
 
 	replaceAtomically(siteFile, nextSiteConfig);
 	console.log('  updated site.ts');
+
+	removeMaintainerCliFiles();
 
 	console.log('\nSetup complete. Next steps:');
 	console.log('  1. Replace static/logo.svg with your logo, then run: bun run build:emails');
