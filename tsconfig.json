@@ -1,5 +1,6 @@
 {
 	"extends": "./.svelte-kit/tsconfig.json",
+	"files": ["scripts/windows-job.ts"],
 	"compilerOptions": {
 		// This app type-checks with noEmit and builds through Vite, so explicit .ts specifiers
 		// must be allowed rather than rewritten; rewriting rejects aliases with TS2877.

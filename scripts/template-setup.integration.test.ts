@@ -69,8 +69,23 @@ function createFixture(): string {
 	for (const rel of FIXTURE_FILES) {
 		const dest = join(dir, rel);
 		mkdirSync(dirname(dest), { recursive: true });
-		cpSync(join(ROOT, rel), dest);
+		cpSync(
+			join(
+				ROOT,
+				rel === 'scripts/template-setup.ts' ? rel : `scripts/__fixtures__/template-setup/${rel}`
+			),
+			dest
+		);
 	}
+	const child = join(dir, 'packages/create-saas-starter');
+	mkdirSync(join(child, 'src'), { recursive: true });
+	writeFileSync(join(child, 'package.json'), '{"name":"create-saas-starter"}\n');
+	writeFileSync(join(child, 'src/index.ts'), 'export const creator = true;\n');
+	mkdirSync(join(dir, 'packages/neighbor'), { recursive: true });
+	writeFileSync(join(dir, 'packages/neighbor/keep.txt'), 'neighbor');
+	mkdirSync(join(dir, '.github/workflows'), { recursive: true });
+	writeFileSync(join(dir, '.github/workflows/create-saas-starter.yml'), 'name: creator\n');
+	writeFileSync(join(dir, '.github/workflows/neighbor.yml'), 'name: neighbor\n');
 	return dir;
 }
 
@@ -111,7 +126,9 @@ type FaultPhase =
 	| 'legal-metadata-install'
 	| 'legal-metadata-and-restore'
 	| 'legal-cleanup-unlink'
-	| 'legal-cleanup-rmdir';
+	| 'legal-cleanup-rmdir'
+	| 'workflow-delete'
+	| 'child-delete';
 
 let faultSequence = 0;
 
@@ -141,6 +158,7 @@ const realChmodSync = fs.chmodSync;
 const realRenameSync = fs.renameSync;
 const realUnlinkSync = fs.unlinkSync;
 const realRmdirSync = fs.rmdirSync;
+const realRmSync = fs.rmSync;
 let metadataFaulted = false;
 
 function fail(operation, detail) {
@@ -213,7 +231,10 @@ const replacements = {
 	},
 	unlinkSync(path) {
 		const normalized = normalize(path);
-		if (phase === 'legal-cleanup-unlink' && normalized.endsWith('/legal.ts.backup')) {
+		if (phase === 'workflow-delete' && normalized.endsWith('/.github/workflows/create-saas-starter.yml')) {
+				fail('unlinkSync', 'path=' + normalized);
+			}
+			if (phase === 'legal-cleanup-unlink' && normalized.endsWith('/legal.ts.backup')) {
 			fail('unlinkSync', 'path=' + normalized + ' stage=' + isStage(path));
 		}
 		return realUnlinkSync(path);
@@ -228,6 +249,14 @@ const replacements = {
 			fail('rmdirSync', 'path=' + normalized + ' stage=true');
 		}
 		return realRmdirSync(path);
+	},
+	rmSync(path, options) {
+		const normalized = normalize(path);
+		if (phase === 'child-delete' && normalized.endsWith('/packages/create-saas-starter')) {
+			realUnlinkSync(String(path) + '/package.json');
+			fail('rmSync', 'path=' + normalized + ' partial=true');
+		}
+		return realRmSync(path, options);
 	}
 };
 Object.assign(defaultFs, replacements);
@@ -411,6 +440,175 @@ describe('template setup writes importable branding values', () => {
 			domain: 'northwind-labs',
 			tld: 'de'
 		});
+	});
+});
+
+describe('template setup removes maintainer files', () => {
+	const workflow = '.github/workflows/create-saas-starter.yml';
+	const child = 'packages/create-saas-starter';
+
+	it('removes populated creator targets and keeps their siblings on public setup and retry', () => {
+		const dir = createFixture();
+		expect(readFileSync(join(dir, child, 'src/index.ts'), 'utf8')).toContain('creator');
+		expect(readFileSync(join(dir, workflow), 'utf8')).toContain('creator');
+		const first = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(first.code, first.stderr).toBe(0);
+		expect(existsSync(join(dir, workflow))).toBe(false);
+		expect(existsSync(join(dir, child))).toBe(false);
+		expect(readFileSync(join(dir, 'packages/neighbor/keep.txt'), 'utf8')).toBe('neighbor');
+		expect(readFileSync(join(dir, '.github/workflows/neighbor.yml'), 'utf8')).toBe(
+			'name: neighbor\n'
+		);
+		const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+		expect(pkg.templateSetupVersion).toBe(1);
+		expect(pkg.scripts.setup).toBe('bun scripts/template-setup.ts');
+		expect(pkg.scripts.postinstall).toBe(
+			'bun run generate:content && bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails'
+		);
+		expect(pkg.scripts.test).toBe(
+			'bun run test:e2e && bun run test:unit && bun run test:upstream-report'
+		);
+		for (const name of ['install:cli', 'check:cli', 'test:cli', 'build:cli', 'test:cli:packed']) {
+			expect(pkg.scripts).not.toHaveProperty(name);
+		}
+		const after = snapshot(dir);
+		const retry = runSetup(dir, []);
+		expect(retry.code, retry.stderr).toBe(0);
+		expect(snapshot(dir)).toEqual(after);
+	});
+
+	it.each([
+		{ phase: 'workflow-delete' as const, operation: 'unlinkSync' },
+		{ phase: 'child-delete' as const, operation: 'rmSync' }
+	])('recovers after $phase fails following canonical writes', ({ phase, operation }) => {
+		const dir = createFixture();
+		const fault = createFaultPreload(dir, { phase, target: 'package.json' });
+		const failed = runSetup(dir, [...REQUIRED, ...IDENTITY], fault.path);
+		expectFault(failed, fault, operation);
+		expect(failed.stdout).not.toContain('Setup complete.');
+		expect(JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).scripts).not.toHaveProperty(
+			'install:cli'
+		);
+		expect(existsSync(join(dir, child))).toBe(true);
+		expect(existsSync(join(dir, workflow))).toBe(phase === 'workflow-delete');
+		if (phase === 'child-delete') expect(existsSync(join(dir, child, 'package.json'))).toBe(false);
+		const retry = runSetup(dir, []);
+		expect(retry.code, retry.stderr).toBe(0);
+		expect(existsSync(join(dir, workflow))).toBe(false);
+		expect(existsSync(join(dir, child))).toBe(false);
+	});
+
+	it.each([
+		{ target: '.github/workflows/create-saas-starter.yml', type: 'file' as const },
+		{ target: 'packages/create-saas-starter', type: 'dir' as const }
+	])('rejects a linked $target before canonical writes', ({ target, type }) => {
+		const dir = createFixture();
+		const leaf = join(dir, target);
+		rmSync(leaf, { recursive: true });
+		symlinkSync(
+			'missing-target',
+			leaf,
+			process.platform === 'win32' && type === 'dir' ? 'junction' : type
+		);
+		const before = snapshot(dir);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/redirected or invalid/);
+		expect(snapshot(dir)).toEqual(before);
+	});
+
+	it('does not traverse a linked child descendant during deletion', () => {
+		const dir = createFixture();
+		const outside = mkdtempSync(join(tmpdir(), 'setup-linked-descendant-'));
+		fixtures.push(outside);
+		writeFileSync(join(outside, 'keep.txt'), 'outside');
+		symlinkSync(
+			outside,
+			join(dir, 'packages/create-saas-starter/external'),
+			process.platform === 'win32' ? 'junction' : 'dir'
+		);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		expect(readFileSync(join(outside, 'keep.txt'), 'utf8')).toBe('outside');
+	});
+
+	it('rejects a workflow with multiple hard links before writing', () => {
+		const dir = createFixture();
+		const workflow = join(dir, '.github/workflows/create-saas-starter.yml');
+		const peer = join(dir, '.github/workflows/peer.yml');
+		linkSync(workflow, peer);
+		const before = snapshot(dir);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/invalid file target/);
+		expect(snapshot(dir)).toEqual(before);
+		expect(readFileSync(peer, 'utf8')).toBe('name: creator\n');
+	});
+
+	it.each([
+		{ target: 'packages', type: 'dir' as const },
+		{ target: '.github/workflows', type: 'file' as const }
+	])('rejects a redirected $target before canonical writes', ({ target, type }) => {
+		const dir = createFixture();
+		const outside = mkdtempSync(join(tmpdir(), 'setup-outside-'));
+		fixtures.push(outside);
+		const old = join(dir, target);
+		rmSync(old, { recursive: true });
+		mkdirSync(join(outside, type === 'file' ? '' : 'create-saas-starter'), { recursive: true });
+		if (type === 'file') writeFileSync(join(outside, 'create-saas-starter.yml'), 'outside');
+		symlinkSync(outside, old, process.platform === 'win32' ? 'junction' : 'dir');
+		const before = snapshot(dir);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/redirected or invalid parent/);
+		expect(snapshot(dir)).toEqual(before);
+		expect(
+			existsSync(join(outside, type === 'file' ? 'create-saas-starter.yml' : 'create-saas-starter'))
+		).toBe(true);
+	});
+});
+
+describe('template setup manifest preflight', () => {
+	it.each([
+		{
+			label: 'a moved install command',
+			mutate: (scripts: Record<string, string>) => {
+				scripts.postinstall =
+					scripts.postinstall.replace('bun run install:cli && ', '') + ' && bun run install:cli';
+			}
+		},
+		{
+			label: 'a duplicate test command',
+			mutate: (scripts: Record<string, string>) => {
+				scripts.test += ' && bun run test:cli';
+			}
+		},
+		{
+			label: 'a missing creator script',
+			mutate: (scripts: Record<string, string>) => {
+				delete scripts['build:cli'];
+			}
+		},
+		{
+			label: 'an unexpected creator reference',
+			mutate: (scripts: Record<string, string>) => {
+				scripts.custom = 'bun run check:cli';
+			}
+		}
+	])('rejects $label before canonical writes', ({ mutate }) => {
+		const dir = createFixture();
+		const file = join(dir, 'package.json');
+		const manifest = JSON.parse(readFileSync(file, 'utf8'));
+		mutate(manifest.scripts);
+		writeFileSync(file, JSON.stringify(manifest, null, '\t') + '\n');
+		const before = snapshot(dir);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toMatch(/Invalid package.json/);
+		expect(run.stdout).not.toContain('Applying:');
+		expect(snapshot(dir)).toEqual(before);
+		expect(existsSync(join(dir, '.github/workflows/create-saas-starter.yml'))).toBe(true);
+		expect(existsSync(join(dir, 'packages/create-saas-starter/package.json'))).toBe(true);
 	});
 });
 
@@ -654,7 +852,7 @@ describe('template setup quick start', () => {
 		);
 		// Only the root name changes; the dependency graph remains byte-identical.
 		expect(lock).toBe(
-			readFileSync(join(ROOT, 'bun.lock'), 'utf-8').replace(
+			readFileSync(join(ROOT, 'scripts/__fixtures__/template-setup/bun.lock'), 'utf-8').replace(
 				'"name": "saas-starter"',
 				'"name": "northwind-labs"'
 			)

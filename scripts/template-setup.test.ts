@@ -7,6 +7,7 @@ import {
 	isValidGithubRepository,
 	isValidWorkerSlug,
 	parseContactEmail,
+	removeMaintainerCliScripts,
 	readmeShowsCompletedSetup,
 	replaceGithubSlugSource,
 	replaceLegalConfigSource,
@@ -29,6 +30,86 @@ function asciiDomainOfLength(length: number): string {
 	labels.push('a'.repeat(remaining));
 	return labels.join('.');
 }
+
+describe('template setup maintainer manifest', () => {
+	const postinstall =
+		'bun run install:cli && bun run generate:content && bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails';
+	const test =
+		'bun run test:e2e && bun run test:unit && bun run test:cli && bun run test:upstream-report';
+	const scripts = {
+		'install:cli': 'bun install --cwd packages/create-saas-starter --frozen-lockfile',
+		'check:cli': 'bun run --cwd packages/create-saas-starter typecheck',
+		'test:cli': 'bun run --cwd packages/create-saas-starter test',
+		'build:cli': 'bun run --cwd packages/create-saas-starter build',
+		'test:cli:packed': 'bun run --cwd packages/create-saas-starter test:packed',
+		postinstall,
+		test,
+		setup: 'bun scripts/template-setup.ts'
+	};
+	const manifest = { name: 'original', templateSetupVersion: 1, scripts };
+
+	it('keeps unrelated data and produces exact project chains without mutating input', () => {
+		const result = removeMaintainerCliScripts(manifest);
+		expect(result).not.toBe(manifest);
+		expect(result).toMatchObject({ name: 'original', templateSetupVersion: 1 });
+		const next = result.scripts as Record<string, string>;
+		expect(next.postinstall).toBe(
+			'bun run generate:content && bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails'
+		);
+		expect(next.test).toBe('bun run test:e2e && bun run test:unit && bun run test:upstream-report');
+		expect(next.setup).toBe('bun scripts/template-setup.ts');
+		expect(Object.keys(next)).toEqual(['postinstall', 'test', 'setup']);
+		expect(manifest.scripts).toEqual(scripts);
+		expect(removeMaintainerCliScripts(result)).toEqual(result);
+		expect(
+			removeMaintainerCliScripts({ ...result, scripts: { ...next, custom: 'bun run custom' } })
+		).toMatchObject({ scripts: { custom: 'bun run custom' } });
+	});
+
+	it.each([
+		{
+			label: 'missing script',
+			mutate: (value: Record<string, unknown>) => {
+				delete (value.scripts as Record<string, unknown>)['test:cli'];
+			}
+		},
+		{
+			label: 'moved install',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).postinstall =
+					'bun run generate:content && bun run install:cli';
+			}
+		},
+		{
+			label: 'duplicate test',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).test = `${test} && bun run test:cli`;
+			}
+		},
+		{
+			label: 'other reference',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).custom = 'bun run check:cli';
+			}
+		},
+		{
+			label: 'workspace',
+			mutate: (value: Record<string, unknown>) => {
+				value.workspaces = [];
+			}
+		},
+		{
+			label: 'malformed script',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).postinstall = 42;
+			}
+		}
+	])('rejects $label drift', ({ mutate }) => {
+		const input = structuredClone(manifest) as Record<string, unknown>;
+		mutate(input);
+		expect(() => removeMaintainerCliScripts(input)).toThrow(/Invalid package.json/);
+	});
+});
 
 describe('template setup repository configuration', () => {
 	it.each([

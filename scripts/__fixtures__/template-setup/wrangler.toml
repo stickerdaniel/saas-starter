@@ -1,0 +1,15 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "saas-starter" # TEMPLATE: rename to your CF Workers project name
+main = ".svelte-kit/cloudflare/_worker.js"
+compatibility_date = "2026-03-31"
+compatibility_flags = ["nodejs_compat"]
+minify = true
+
+[assets]
+directory = ".svelte-kit/cloudflare"
+binding = "ASSETS"
+# Route marketing pages through the worker so Accept: text/markdown
+# content negotiation works on prerendered pages (see patch-cf-worker.ts).
+# Generated from SUPPORTED_LANGUAGES by `bun run i18n:sync` and guarded by
+# scripts/prerender-sync.test.ts.
+run_worker_first = ["/en", "/en/*", "/de", "/de/*", "/es", "/es/*", "/fr", "/fr/*"]

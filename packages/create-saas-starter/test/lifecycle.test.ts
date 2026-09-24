@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { readFileSync } from 'node:fs';
 import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -6,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runCli, type CliIo, type CliRuntime } from '../src/index.js';
 import { SCAFFOLD_MARKER } from '../src/archive.js';
 import { publishStagedTarget, updateMarker } from '../src/target.js';
+import { runProcess, runSetupAndInstall } from '../src/process.js';
 import { tarGz, validTemplateEntries } from './archive-fixture.js';
 
 const temporaryDirectories: string[] = [];
@@ -80,6 +82,97 @@ async function markerAt(target: string): Promise<{ state: string; phase: string 
 }
 
 describe('CLI lifecycle', () => {
+	it.each(['workflow', 'child'] as const)(
+		'preserves incomplete setup when real %s removal fails',
+		async (target) => {
+			const { parent, messages, io } = await fixtureIo();
+			const root = path.resolve(import.meta.dirname, '../../..');
+			const fixture = path.join(root, 'scripts/__fixtures__/template-setup');
+			const canonical = [
+				'package.json',
+				'bun.lock',
+				'README.md',
+				'wrangler.toml',
+				'src/lib/config/legal.ts',
+				'src/lib/config/site.ts',
+				'src/lib/content/legal-metadata.ts'
+			];
+			const entries = validTemplateEntries().map((entry) => {
+				const relative = entry.path.slice('root/'.length);
+				if (canonical.includes(relative))
+					return { ...entry, data: readFileSync(path.join(fixture, relative)) };
+				if (relative === 'scripts/template-setup.ts')
+					return { ...entry, data: readFileSync(path.join(root, relative)) };
+				return entry;
+			});
+			entries.push(
+				{ path: 'root/.github/workflows/create-saas-starter.yml', data: 'name: creator\n' },
+				{
+					path: 'root/packages/create-saas-starter/package.json',
+					data: '{"name":"create-saas-starter"}\n'
+				},
+				{
+					path: 'root/packages/create-saas-starter/src/index.ts',
+					data: 'export const creator = true;\n'
+				}
+			);
+			vi.spyOn(globalThis, 'fetch').mockResolvedValue(responseFromBuffer(tarGz(entries)));
+			const preload = path.join(parent, `fault-${target}.mjs`);
+			const receipt = `CREATOR_REMOVAL_FAULT_${target}`;
+			await writeFile(
+				preload,
+				`import { mock } from 'bun:test';\nimport * as fs from 'node:fs';\nconst original = fs.${target === 'workflow' ? 'unlinkSync' : 'rmSync'};\nmock.module('fs', () => ({ ...fs, ${target === 'workflow' ? 'unlinkSync' : 'rmSync'}(file, ...args) {\n if (String(file).replaceAll('\\\\', '/').endsWith('${target === 'workflow' ? '/.github/workflows/create-saas-starter.yml' : '/packages/create-saas-starter'}')) { console.error('${receipt}'); throw new Error('${receipt}'); }\n return original(file, ...args);\n} }));\n`
+			);
+			let recovery: string | undefined;
+			let installs = 0;
+			let publications = 0;
+			let faultHit = false;
+			const runtime: Partial<CliRuntime> = {
+				runSetupAndInstall: async (input) => {
+					recovery = input.target;
+					return await runSetupAndInstall({
+						...input,
+						run: async (command, options) => {
+							if (command.args[0] !== 'run') {
+								installs++;
+								throw new Error('Install reached');
+							}
+							const result = await runProcess(
+								{ ...command, env: { ...command.env, BUN_OPTIONS: `--preload=${preload}` } },
+								{
+									...options,
+									capture: true,
+									env: { ...options.env, BUN_OPTIONS: `--preload=${preload}` }
+								}
+							);
+							faultHit = result.stderr.includes(receipt);
+							return result;
+						}
+					});
+				},
+				publishStagedTarget: async (...input) => {
+					publications++;
+					return await publishStagedTarget(...input);
+				}
+			};
+			await expect(runCli(argumentsForProject(), io, runtime)).resolves.toBe(1);
+			expect(faultHit).toBe(true);
+			expect(installs).toBe(0);
+			expect(publications).toBe(0);
+			expect(recovery).toBeDefined();
+			await expect(markerAt(recovery!)).resolves.toMatchObject({
+				state: 'incomplete',
+				phase: 'setup'
+			});
+			const generated = JSON.parse(
+				await readFile(path.join(recovery!, 'package.json'), 'utf8')
+			) as { scripts: Record<string, string> };
+			expect(generated.scripts).not.toHaveProperty('install:cli');
+			expect(messages.some((message) => message.startsWith('Created '))).toBe(false);
+			await expect(lstat(path.join(parent, 'project'))).rejects.toMatchObject({ code: 'ENOENT' });
+		}
+	);
+
 	it('rejects an overlong materialized path before claiming the target', async () => {
 		const { parent, messages, io } = await fixtureIo();
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(

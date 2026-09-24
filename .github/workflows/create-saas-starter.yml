@@ -8,6 +8,13 @@ on:
       - bun.lock
       - packages/create-saas-starter/**
       - scripts/windows-job.ts
+      - scripts/template-setup.ts
+      - scripts/__fixtures__/template-setup/**
+      - scripts/test-executable.ts
+      - src/lib/content/legal-metadata.ts
+      - tsconfig.json
+      - vite.config.ts
+      - knip.config.ts
       - scripts/windows-job-runner.ps1
       - .github/workflows/static-checks.yml
       - .github/workflows/windows-process-lifecycle.yml
@@ -18,6 +25,13 @@ on:
       - bun.lock
       - packages/create-saas-starter/**
       - scripts/windows-job.ts
+      - scripts/template-setup.ts
+      - scripts/__fixtures__/template-setup/**
+      - scripts/test-executable.ts
+      - src/lib/content/legal-metadata.ts
+      - tsconfig.json
+      - vite.config.ts
+      - knip.config.ts
       - scripts/windows-job-runner.ps1
       - .github/workflows/static-checks.yml
       - .github/workflows/windows-process-lifecycle.yml

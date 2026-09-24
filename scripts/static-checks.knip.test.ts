@@ -59,6 +59,15 @@ const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 	'packages/create-saas-starter/bun.lock',
 	'packages/create-saas-starter/src/process.ts',
 	'packages/create-saas-starter/test/lifecycle.test.ts',
+	'tsconfig.json',
+	'scripts/template-setup.ts',
+	'scripts/template-setup.integration.test.ts',
+	'scripts/__fixtures__/template-setup/package.json',
+	'src/lib/content/legal-metadata.ts',
+	'src/lib/config/legal.ts',
+	'src/lib/config/site.ts',
+	'README.md',
+	'wrangler.toml',
 	'packages/create-saas-starter/scripts/test-packed.ts',
 	'knowledge-policy.config.ts',
 	'eslint/control-character-policy.js',
@@ -87,7 +96,8 @@ const OVERLAY_PATHSPECS = [
 	'scripts',
 	'eslint/control-character-policy.js',
 	'knowledge-policy.config.ts',
-	'src/lib/i18n/language-codes.generated.js'
+	'src/lib/i18n/language-codes.generated.js',
+	'tsconfig.json'
 ];
 // Sources required to keep a clone run from passing without seeing the change under test.
 const REQUIRED_SOURCES = [
@@ -355,7 +365,55 @@ function overlayIndexedSources(repository: string, sourceRoot = ROOT): void {
 	}
 }
 
-function createCheckerClone(): CheckerClone {
+function seedCreatorState(repository: string, state: 'present' | 'absent' | 'inconsistent'): void {
+	const manifestPath = path.join(repository, 'package.json');
+	const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+		scripts: Record<string, string>;
+	};
+	const template = JSON.parse(
+		readFileSync(path.join(ROOT, 'scripts/__fixtures__/template-setup/package.json'), 'utf8')
+	) as { scripts: Record<string, string> };
+	const names = ['install:cli', 'check:cli', 'test:cli', 'build:cli', 'test:cli:packed'];
+	const child = path.join(repository, 'packages/create-saas-starter');
+	const workflow = path.join(repository, '.github/workflows/create-saas-starter.yml');
+	if (state === 'absent') {
+		for (const name of names) delete manifest.scripts[name];
+		manifest.scripts.postinstall = template.scripts.postinstall.replace(
+			'bun run install:cli && ',
+			''
+		);
+		manifest.scripts.test = template.scripts.test.replace(' && bun run test:cli', '');
+		rmSync(child, { recursive: true, force: true });
+		rmSync(workflow, { force: true });
+	} else {
+		for (const name of names) manifest.scripts[name] = template.scripts[name]!;
+		manifest.scripts.postinstall = template.scripts.postinstall;
+		manifest.scripts.test = template.scripts.test;
+		mkdirSync(path.join(child, 'src'), { recursive: true });
+		writeFileSync(path.join(child, 'src/options.ts'), 'export const option = true;\n');
+		writeFileSync(path.join(child, 'tsconfig.json'), '{}\n');
+		mkdirSync(path.dirname(workflow), { recursive: true });
+		writeFileSync(workflow, 'name: creator\n');
+		if (state === 'present')
+			writeFileSync(
+				path.join(child, 'package.json'),
+				'{"name":"create-saas-starter","scripts":{"knip":"knip"}}\n'
+			);
+		else rmSync(path.join(child, 'package.json'), { force: true });
+	}
+	writeFileSync(manifestPath, JSON.stringify(manifest, null, '\t') + '\n');
+	const observed = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+		scripts: Record<string, string>;
+	};
+	expect(Object.hasOwn(observed.scripts, 'install:cli')).toBe(state !== 'absent');
+	expect(existsSync(child)).toBe(state !== 'absent');
+	expect(existsSync(workflow)).toBe(state !== 'absent');
+	expect(existsSync(path.join(child, 'package.json'))).toBe(state === 'present');
+}
+
+function createCheckerClone(
+	state: 'present' | 'absent' | 'inconsistent' = 'present'
+): CheckerClone {
 	const directory = mkdtempSync(path.join(TEMP_ROOT, 'static-knip-'));
 	const repository = path.join(directory, 'repository');
 	try {
@@ -374,6 +432,7 @@ function createCheckerClone(): CheckerClone {
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
 		overlayIndexedSources(repository);
+		seedCreatorState(repository, state);
 
 		return {
 			directory,
@@ -533,6 +592,42 @@ afterAll(() => {
 });
 
 describe('Windows lifecycle workflow coverage', () => {
+	it('runs only child steps when selected and the child manifest exists', () => {
+		const steps = readFileSync(WINDOWS_LIFECYCLE_WORKFLOW, 'utf8')
+			.split(/^ {6}- /m)
+			.slice(1);
+		const childCommands = [
+			'bun install --cwd packages/create-saas-starter --frozen-lockfile --ignore-scripts',
+			'bun run --cwd packages/create-saas-starter vitest --run test/process.test.ts test/lifecycle.test.ts'
+		];
+		for (const command of childCommands) {
+			const step = steps.find((entry) => entry.includes(`run: ${command}\n`));
+			expect(step).toBeDefined();
+			expect(step).toContain(
+				"if: steps.changes.outputs.run_tests == 'true' && hashFiles('packages/create-saas-starter/package.json') != ''"
+			);
+			const expression = step!.match(/^if: (.+)$/m)?.[1];
+			for (const selected of [false, true])
+				for (const present of [false, true]) {
+					const actual =
+						expression ===
+							"steps.changes.outputs.run_tests == 'true' && hashFiles('packages/create-saas-starter/package.json') != ''" &&
+						selected &&
+						present;
+					expect(actual, `${command}: selected=${selected}, present=${present}`).toBe(
+						selected && present
+					);
+				}
+		}
+		for (const command of [
+			'bun install --frozen-lockfile --ignore-scripts',
+			'bun vitest --run scripts/static-checks.knip.test.ts'
+		]) {
+			const step = steps.find((entry) => entry.includes(`run: ${command}\n`));
+			expect(step).toContain("if: steps.changes.outputs.run_tests == 'true'");
+			expect(step).not.toContain('hashFiles(');
+		}
+	});
 	it('keeps push, pull-request, and native-runner dependencies aligned', () => {
 		const workflow = readFileSync(WINDOWS_LIFECYCLE_WORKFLOW, 'utf8');
 		const pushBlock = workflow.match(/^ {2}push:\n([\s\S]*?)^ {2}pull_request:/m)?.[1];
@@ -1010,6 +1105,34 @@ describe.sequential('Knip static-check CLI behavior', () => {
 			expect(output).not.toContain(escape);
 			expect(output).not.toContain(bell);
 			expect(output).not.toContain('All checks passed!');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
+	it('skips only creator checks for a completed generated project', () => {
+		const checkout = createCheckerClone('absent');
+		try {
+			const result = runChecker(checkout, ['--ci']);
+			const output = `${result.stdout}${result.stderr}`;
+			expect(result.status, output).toBe(0);
+			expect(knipInvocations(checkout)).toEqual([KNIP]);
+			expect(cliKnipInvocations(checkout)).toEqual([]);
+			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).not.toContainEqual(CLI_TYPES);
+			expect(output).toContain('cli knip         skipped — creator package removed by setup');
+			expect(output).toContain('cli-types        skipped — creator package removed by setup');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
+	it('rejects a partially removed child before any command dispatch', () => {
+		const checkout = createCheckerClone('inconsistent');
+		try {
+			const result = runChecker(checkout, ['--ci', '--scope', 'types']);
+			expect(result.status).toBe(1);
+			expect(`${result.stdout}${result.stderr}`).toContain('child package.json is missing');
+			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([]);
 		} finally {
 			rmSync(checkout.directory, { recursive: true, force: true });
 		}

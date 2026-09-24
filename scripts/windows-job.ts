@@ -151,6 +151,8 @@ export function windowsJobCommand(
 			RUNNER,
 			options.lifetime.pipeName
 		],
-		env: { ...command.env, [WINDOWS_JOB_TOKEN_ENV]: options.lifetime.token }
+		env: Object.assign({} as NodeJS.ProcessEnv, command.env, {
+			[WINDOWS_JOB_TOKEN_ENV]: options.lifetime.token
+		})
 	};
 }
