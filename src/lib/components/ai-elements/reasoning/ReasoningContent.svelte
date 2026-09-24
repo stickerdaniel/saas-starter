@@ -8,11 +8,22 @@
 		content: string;
 		/** Only animate when actively streaming */
 		isStreaming?: boolean;
+		/** `muted` dims the reasoning so the answer stands out. */
+		tone?: 'default' | 'muted';
 	}
 
-	let { class: className = '', content, isStreaming = false, ...props }: Props = $props();
+	let {
+		class: className = '',
+		content,
+		isStreaming = false,
+		tone = 'default',
+		...props
+	}: Props = $props();
 </script>
 
-<AccordionContent class={cn('text-sm outline-none', className)} {...props}>
+<AccordionContent
+	class={cn('text-sm outline-none', tone === 'muted' && 'opacity-50', className)}
+	{...props}
+>
 	<Response {content} animation={streamingTextAnimation(isStreaming)} class="grid gap-2" />
 </AccordionContent>

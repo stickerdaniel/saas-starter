@@ -14,6 +14,8 @@
 		mode: 'progress' | 'loading';
 		showBackground?: boolean;
 		indicatorTone?: 'primary' | 'destructive' | 'muted';
+		/** `edge` is the thin square strip along the edge of an auth card. */
+		variant?: 'default' | 'edge';
 	};
 
 	let {
@@ -25,6 +27,7 @@
 		mode,
 		showBackground = true,
 		indicatorTone = 'primary',
+		variant = 'default',
 		...restProps
 	}: LoadingBarProps = $props();
 
@@ -127,6 +130,7 @@
 	class={cn(
 		'relative h-2 w-full overflow-hidden rounded-full',
 		showBackground && 'bg-primary/20',
+		variant === 'edge' && 'h-1 rounded-none',
 		className
 	)}
 	value={clampedValue}

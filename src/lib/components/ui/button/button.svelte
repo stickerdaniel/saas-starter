@@ -17,7 +17,14 @@
 						'hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground',
 					destructive:
 						'bg-destructive/10 hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/20 text-destructive focus-visible:border-destructive/40 dark:hover:bg-destructive/30',
-					link: 'text-primary underline-offset-4 hover:underline'
+					link: 'text-primary underline-offset-4 hover:underline',
+					'ghost-muted':
+						'hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground text-muted-foreground',
+					// The important hover tint keeps its priority over the ghost dark hover.
+					'ghost-tint':
+						'hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground hover:!bg-muted-foreground/10',
+					'outline-warning':
+						'border-border bg-background hover:bg-muted text-warning hover:text-warning dark:bg-input/30 dark:border-input dark:hover:bg-input/50 aria-expanded:bg-muted aria-expanded:text-foreground shadow-xs'
 				},
 				size: {
 					default:
@@ -30,12 +37,36 @@
 						"size-6 rounded-[min(var(--radius-md),8px)] in-data-[slot=button-group]:rounded-md [&_svg:not([class*='size-'])]:size-3",
 					'icon-sm':
 						'size-8 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md',
-					'icon-lg': 'size-10'
+					'icon-lg': 'size-10',
+					launcher: 'size-12 rounded-xl',
+					// The 28px marketing footer links and the admin clear-filter actions keep
+					// sm's radius and icon insets.
+					footer:
+						'h-7 px-2.5 text-xs gap-1 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5',
+					filter:
+						'h-8 px-2 gap-1 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5'
+				},
+				// Declared after size so the pill radius replaces a size's radius.
+				shape: {
+					default: '',
+					pill: 'rounded-full'
+				},
+				justify: {
+					center: '',
+					start: 'justify-start'
+				},
+				// layout.css animates the chevron of a t-learn button on hover and focus.
+				affordance: {
+					none: '',
+					'learn-more': 't-learn'
 				}
 			},
 			defaultVariants: {
 				variant: 'default',
-				size: 'default'
+				size: 'default',
+				shape: 'default',
+				justify: 'center',
+				affordance: 'none'
 			}
 		},
 		{ twMergeConfig }
@@ -43,11 +74,17 @@
 
 	export type ButtonVariant = VariantProps<typeof buttonVariants>['variant'];
 	export type ButtonSize = VariantProps<typeof buttonVariants>['size'];
+	export type ButtonShape = VariantProps<typeof buttonVariants>['shape'];
+	export type ButtonJustify = VariantProps<typeof buttonVariants>['justify'];
+	export type ButtonAffordance = VariantProps<typeof buttonVariants>['affordance'];
 
 	export type ButtonProps = WithElementRef<HTMLButtonAttributes> &
 		WithElementRef<HTMLAnchorAttributes> & {
 			variant?: ButtonVariant;
 			size?: ButtonSize;
+			shape?: ButtonShape;
+			justify?: ButtonJustify;
+			affordance?: ButtonAffordance;
 		};
 </script>
 
@@ -56,6 +93,9 @@
 		class: className,
 		variant = 'default',
 		size = 'default',
+		shape = 'default',
+		justify = 'center',
+		affordance = 'none',
 		ref = $bindable(null),
 		href = undefined,
 		type = 'button',
@@ -70,7 +110,7 @@
 	<a
 		bind:this={ref}
 		data-slot="button"
-		class={cn(buttonVariants({ variant, size }), className)}
+		class={cn(buttonVariants({ variant, size, shape, justify, affordance }), className)}
 		href={disabled ? undefined : href}
 		aria-disabled={disabled}
 		role={disabled ? 'link' : undefined}
@@ -84,7 +124,7 @@
 	<button
 		bind:this={ref}
 		data-slot="button"
-		class={cn(buttonVariants({ variant, size }), className)}
+		class={cn(buttonVariants({ variant, size, shape, justify, affordance }), className)}
 		{type}
 		{disabled}
 		{...restProps}

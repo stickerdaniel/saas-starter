@@ -107,27 +107,248 @@ export const enforcedShadcnConfig = [
 	{ files: ['src/blocks/logos/**'], rules: { 'shadcn/no-raw-colors': 'off' } }
 ];
 
-// Used for integration tests until the source migration permits enforcing the
-// remaining rules.
-export const shadcnPolicy = {
-	files,
-	plugins,
-	rules: {
-		'shadcn/no-restyle': [
-			'error',
-			{
-				allow: ['layout'],
-				contracts: [
+// no-restyle: a caller places a design-system component; its look comes from the
+// component's own options. A component no contract names keeps the layout default.
+// The rule applies only the last contract whose pattern matches, so order matters.
+
+// Where a control sits, never its size, padding, color, type, radius or motion.
+const placement = [
+	'm',
+	'mx',
+	'my',
+	'mt',
+	'mr',
+	'mb',
+	'ml',
+	'ms',
+	'me',
+	'w-full',
+	'min-w-0',
+	'max-w-full',
+	'shrink',
+	'shrink-0',
+	'grow',
+	'flex-1',
+	'order',
+	'align-self',
+	'place-self',
+	'justify-self',
+	'col-start-end',
+	'row-start-end',
+	'static',
+	'relative',
+	'absolute',
+	'fixed',
+	'sticky',
+	'inset',
+	'inset-x',
+	'inset-y',
+	'top',
+	'right',
+	'bottom',
+	'left',
+	'z',
+	'hidden',
+	'invisible',
+	'visible',
+	'sr-only',
+	'block',
+	'flex',
+	'inline-flex',
+	'pointer-events-none',
+	'pointer-events-auto',
+	'group'
+];
+
+// Controls and the names wrappers resolve to. The rule reports some wrappers under
+// the primitive they forward to and others under their own name, so both are listed.
+const strictControls = [
+	'Button',
+	'CopyButton',
+	'ScrollButton',
+	'PromptSuggestion',
+	'CommandTrigger',
+	'NavigationButton',
+	'AlertDialogAction',
+	'AlertDialogCancel',
+	'InputGroupButton',
+	'Badge',
+	'Input',
+	'SidebarInput',
+	'InputGroupInput',
+	'Textarea',
+	'PromptInputTextarea',
+	'InputGroupTextarea',
+	'SelectTrigger',
+	'TabsTrigger',
+	'Toggle',
+	'Avatar',
+	'AvatarImage',
+	'AvatarFallback',
+	'Kbd',
+	'KbdGroup'
+];
+
+// Private recipe owners under components/ui/owned. The rule reports each under its
+// own name, which would otherwise fall back to the layout default and reopen sizes.
+const privateOwners = [
+	'AdminThreadRow',
+	'AttachmentRemoveButton',
+	'ChatbarSendButton',
+	'ComposerAttachmentButton',
+	'FilterChipRemoveButton',
+	'FounderBodyPreviewButton',
+	'FounderResetConfirmAction',
+	'HeroFiveCta',
+	'IntegrationLearnMoreButton',
+	'MarketingWordmark',
+	'NavUserTrigger',
+	'PasskeyDeleteButton',
+	'ScreenshotSubmitButton',
+	'SidebarHeaderButton',
+	'SupportThreadRow',
+	'UserBanMenuItem'
+];
+
+export const restyleOptions = {
+	allow: ['layout'],
+	contracts: [
+		// Containers arrange their content; appearance stays with the component.
+		{ pattern: '^(Card|CardHeader|CardFooter|CardContent)$', allow: ['layout', 'spacing'] },
+		{ pattern: '^(Tabs|TabsContent)$', allow: ['layout', 'spacing'] },
+		{ pattern: '^(Field|FieldContent|FieldSet|FieldLegend)$', allow: ['layout', 'spacing'] },
+		{ pattern: '^FieldGroup$', allow: ['w-full'] },
+		// Auth helper text is balanced and centered below its form.
+		{
+			pattern: '^FieldDescription$',
+			allow: ['layout', 'spacing', 'text-center', 'text-balance']
+		},
+		{
+			pattern:
+				'^(DialogContent|DialogHeader|DialogFooter|DrawerContent|DrawerFooter|SheetContent|SheetFooter|AlertDialogContent|AlertDialogFooter)$',
+			allow: ['layout', 'spacing']
+		},
+		// A long attachment title truncates clear of the close button.
+		{ pattern: '^DialogTitle$', allow: ['layout', 'spacing', 'truncate'] },
+		{
+			pattern: '^(SidebarContent|SidebarGroup|SidebarGroupContent|SidebarMenu)$',
+			allow: ['layout', 'spacing']
+		},
+		{ pattern: '^SidebarMenuSub$', allow: ['layout', 'spacing', 'no-scrollbar'] },
+		{
+			pattern: '^(Table|TableHeader|TableBody|TableRow|TableHead|TableCell|TableFooter)$',
+			allow: ['layout', 'spacing']
+		},
+		{
+			pattern: '^(Item|ItemGroup|ItemHeader|ItemContent|ItemFooter)$',
+			allow: ['layout', 'spacing']
+		},
+		// Only the two non-default skeleton radii; shape would also admit rings and borders.
+		{ pattern: '^Skeleton$', allow: ['layout', 'rounded-full', 'rounded-4xl'] },
+		{ pattern: '^ColorSelector$', allow: ['layout', 'spacing'] },
+		{ pattern: '^BreadcrumbList$', allow: ['layout', 'truncate'] },
+		// Last, so no container entry reopens a control.
+		{ pattern: `^(${[...strictControls, ...privateOwners].join('|')})$`, allow: placement }
+	]
+};
+
+// The one file that owns each recipe may keep these classes on the named
+// components. Every other file, including callers of the owner, stays strict.
+export const restyleOwners = [
+	{
+		id: 'O06',
+		files: ['src/lib/components/prompt-kit/prompt-input/PromptInputTextarea.svelte'],
+		components: {
+			Textarea: [
+				'min-h-11',
+				'w-full',
+				'border-none',
+				'!bg-transparent',
+				'text-foreground',
+				'shadow-none',
+				'outline-none',
+				'placeholder-shown:overflow-hidden',
+				'placeholder-shown:whitespace-nowrap',
+				'focus-visible:ring-0',
+				'focus-visible:ring-offset-0',
+				'min-h-9',
+				'py-2',
+				'text-base',
+				'leading-5',
+				'pr-2',
+				'pl-3',
+				'px-1',
+				'composer-scroll-mask',
+				'pt-3',
+				'pl-4',
+				'leading-composer',
+				'!h-auto',
+				'!min-h-auto',
+				'rounded-full',
+				'bg-transparent',
+				'!py-0',
+				'max-h-(--prompt-max-height)'
+			]
+		}
+	},
+	{
+		id: 'O14',
+		files: ['src/lib/components/ai-elements/reasoning/ReasoningContent.svelte'],
+		components: { AccordionContent: ['opacity-50'] }
+	}
+];
+
+// Route directories such as [[lang]] are literal names, not glob character classes.
+function literalFile(path) {
+	return path.replaceAll('[', '\\[').replaceAll(']', '\\]');
+}
+
+function inheritedAllow(component) {
+	let allow = restyleOptions.allow;
+	for (const contract of restyleOptions.contracts) {
+		if (new RegExp(contract.pattern).test(component)) allow = contract.allow;
+	}
+	return allow;
+}
+
+// A later flat-config entry replaces the rule's options instead of merging them, so
+// each owner file gets one entry that repeats every base contract and then appends a
+// contract per owned component with the inherited allowance plus the owner's classes.
+export function restyleEntries(owners = restyleOwners) {
+	const byFile = new Map();
+	for (const owner of owners) {
+		for (const file of owner.files) {
+			const components = byFile.get(file) ?? new Map();
+			for (const [component, additions] of Object.entries(owner.components)) {
+				components.set(component, [
+					...new Set([...(components.get(component) ?? []), ...additions])
+				]);
+			}
+			byFile.set(file, components);
+		}
+	}
+	return [
+		{ files, plugins, rules: { 'shadcn/no-restyle': ['error', restyleOptions] } },
+		...Array.from(byFile, ([file, components]) => ({
+			files: [literalFile(file)],
+			rules: {
+				'shadcn/no-restyle': [
+					'error',
 					{
-						pattern: '^Button$',
-						allow: ['m', 'mx', 'my', 'mt', 'mr', 'mb', 'ml', 'ms', 'me', 'w-full']
-					},
-					{ pattern: '^FieldGroup$', allow: ['w-full'] },
-					{ pattern: '^CardContent$', allow: ['layout', 'spacing'] }
+						...restyleOptions,
+						contracts: [
+							...restyleOptions.contracts,
+							...Array.from(components, ([component, additions]) => ({
+								pattern: `^${component}$`,
+								allow: [...new Set([...inheritedAllow(component), ...additions])]
+							}))
+						]
+					}
 				]
 			}
-		],
-		'shadcn/no-raw-colors': 'error',
-		...enforcedShadcnPolicy.rules
-	}
-};
+		}))
+	];
+}
+
+// Measures the migration until no-restyle is clean enough to join the enforced config.
+export const shadcnPolicy = [enforcedShadcnPolicy, ...restyleEntries()];

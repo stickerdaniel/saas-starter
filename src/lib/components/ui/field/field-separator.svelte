@@ -6,11 +6,14 @@
 
 	let {
 		ref = $bindable(null),
+		surface = 'default',
 		class: className,
 		children,
 		...restProps
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>> & {
 		children?: Snippet;
+		/** Matches the label background to the card the separator sits on. */
+		surface?: 'default' | 'card';
 	} = $props();
 
 	const hasContent = $derived(!!children);
@@ -20,7 +23,11 @@
 	bind:this={ref}
 	data-slot="field-separator"
 	data-content={hasContent}
-	class={cn('relative -my-2 h-5 text-sm group-data-[variant=outline]/field-group:-mb-2', className)}
+	class={cn(
+		'relative -my-2 h-5 text-sm group-data-[variant=outline]/field-group:-mb-2',
+		surface === 'card' && '*:data-[slot=field-separator-content]:bg-card',
+		className
+	)}
 	{...restProps}
 >
 	<Separator class="absolute inset-0 top-1/2" />

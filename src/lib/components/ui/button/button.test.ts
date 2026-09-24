@@ -55,3 +55,62 @@ describe('buttonVariants', () => {
 		expect(classes).toContain('active:scale-97');
 	});
 });
+
+// Each option replaces caller classes that restyled a Button, so it must merge to the
+// same classes as that caller markup did.
+describe('buttonVariants options', () => {
+	const classSet = (classes: string) => new Set(cn(classes).split(' '));
+
+	it.each([
+		[
+			'pill over an icon radius',
+			cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'rounded-full'),
+			buttonVariants({ variant: 'ghost', size: 'icon-xs', shape: 'pill' })
+		],
+		[
+			'launcher',
+			cn(buttonVariants({ size: 'icon' }), 'size-12 rounded-xl'),
+			buttonVariants({ size: 'launcher' })
+		],
+		[
+			'footer link',
+			cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'h-7 text-xs text-muted-foreground'),
+			buttonVariants({ variant: 'ghost-muted', size: 'footer' })
+		],
+		[
+			'clear filter',
+			cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'h-8 px-2'),
+			buttonVariants({ variant: 'ghost', size: 'filter' })
+		],
+		[
+			'start alignment',
+			cn(buttonVariants({ variant: 'ghost' }), 'justify-start'),
+			buttonVariants({ variant: 'ghost', justify: 'start' })
+		],
+		[
+			'learn-more affordance',
+			cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 't-learn'),
+			buttonVariants({ variant: 'secondary', size: 'sm', affordance: 'learn-more' })
+		],
+		[
+			'muted ghost',
+			cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-muted-foreground'),
+			buttonVariants({ variant: 'ghost-muted', size: 'sm' })
+		],
+		[
+			'tinted ghost',
+			cn(buttonVariants({ variant: 'ghost', size: 'icon-lg' }), 'hover:!bg-muted-foreground/10'),
+			buttonVariants({ variant: 'ghost-tint', size: 'icon-lg' })
+		],
+		[
+			'warning outline',
+			cn(
+				buttonVariants({ variant: 'outline', size: 'icon-sm' }),
+				'text-warning hover:text-warning'
+			),
+			buttonVariants({ variant: 'outline-warning', size: 'icon-sm' })
+		]
+	])('%s', (_, before, after) => {
+		expect(classSet(after)).toEqual(classSet(before));
+	});
+});
