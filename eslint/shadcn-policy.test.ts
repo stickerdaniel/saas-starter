@@ -87,6 +87,41 @@ export const style = tv({ base: 'bg-red-500' });
 		}
 	);
 
+	it('requires readable classes on an imported Button', async () => {
+		const source = `<script lang="ts">
+import { Button } from '$lib/components/ui/button';
+function getClasses(): string { return 'mt-4'; }
+</script>
+<Button class={getClasses()}>Save</Button>`;
+		const found = await messages(source);
+		const unreadable = found.filter(
+			(message) => message.ruleId === 'shadcn/require-static-classes'
+		);
+		expect(unreadable).toHaveLength(1);
+		expect(unreadable[0].severity).toBe(2);
+		const withoutRule = new ESLint({
+			overrideConfig: [
+				{
+					...shadcnPolicy,
+					rules: { ...shadcnPolicy.rules, 'shadcn/require-static-classes': 'off' }
+				}
+			]
+		});
+		const [disabled] = await withoutRule.lintText(source, { filePath: route });
+		expect(disabled.fatalErrorCount).toBe(0);
+		expect(ids(disabled.messages)).not.toContain('shadcn/require-static-classes');
+	});
+
+	it('recognizes CardContent and allows only its approved spacing', async () => {
+		const found = await messages(`${fields}<Card.Content class="p-4 bg-primary rounded-full" />`);
+		const restyles = found.filter((message) => message.ruleId === 'shadcn/no-restyle');
+		expect(restyles).toHaveLength(2);
+		expect(restyles.every((message) => message.message.includes('CardContent'))).toBe(true);
+		expect(restyles.map((message) => message.message).join(' ')).toContain('bg-primary');
+		expect(restyles.map((message) => message.message).join(' ')).toContain('rounded-full');
+		expect(restyles.map((message) => message.message).join(' ')).not.toContain('"p-4"');
+	});
+
 	it('rejects Field.Group spacing but accepts CardContent spacing', async () => {
 		const found = await messages(
 			`${fields}<Field.Group class="gap-1 p-4 m-2" /><Card.Content class="p-4" />`
