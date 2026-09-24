@@ -28,10 +28,10 @@
 	{#each Array(3) as _, i (i)}
 		<div
 			class={cn(
-				'animate-[bounce-dots_1.4s_ease-in-out_infinite] rounded-full bg-primary motion-reduce:animate-none',
+				'animate-[bounce-dots_1.4s_ease-in-out_infinite] rounded-full bg-primary animation-delay-var motion-reduce:animate-none',
 				dotSizes[size]
 			)}
-			style:animation-delay="{i * 160}ms"
+			style:--delay="{i * 160}ms"
 		></div>
 	{/each}
 	<span class="sr-only">{$t('aria.loading')}</span>

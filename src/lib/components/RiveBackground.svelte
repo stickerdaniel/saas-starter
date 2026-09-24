@@ -198,7 +198,7 @@
 				<p class="text-xs">Rive animation by JcToon</p>
 			{/snippet}
 
-			<div class="h-full w-full" style="opacity: {opacity};">
+			<div class="h-full w-full opacity-(--rive-opacity)" style:--rive-opacity={opacity}>
 				<!-- Spotlight for dark mode -->
 				{#if isDark && isLoaded}
 					<Spotlight class="-top-50 right-[-285%] -z-5 lg:-top-72" fill="white" />
@@ -207,24 +207,22 @@
 				<!-- Rive Canvas -->
 				<canvas
 					bind:this={canvas}
-					class="pointer-events-none absolute -z-3 h-full w-full"
-					style="mix-blend-mode: multiply;"
+					class="pointer-events-none absolute -z-3 h-full w-full mix-blend-multiply"
 					tabindex="-1"
 				></canvas>
 
 				<!-- Canvas Cover (Fade in Effect) -->
 				<div
-					class="pointer-events-none absolute inset-0 -z-2 bg-background transition-opacity duration-1000 ease-out"
-					style="opacity: {isLoaded ? 0 : 1};"
+					class="pointer-events-none absolute inset-0 -z-2 bg-background transition-opacity duration-1000 ease-out {isLoaded
+						? 'opacity-0'
+						: 'opacity-100'}"
 				></div>
 
 				<!-- Cloud Fade Effect for light mode -->
 				{#if !isDark}
 					<div
-						class="pointer-events-none absolute -z-1 transition-all duration-1500 ease-out"
-						style="inset: -100%; background: radial-gradient(circle at center, transparent 0%, transparent 20%, rgba(255, 255, 255, 0.95) 35%, rgba(255, 255, 255, 1) 45%); transform: scale({isLoaded
-							? 1
-							: 0.35}); pointer-events: none;"
+						class="pointer-events-none absolute -z-1 transform-(--cloud-scale) rive-cloud-reveal transition-all duration-1500 ease-out"
+						style:--cloud-scale="scale({isLoaded ? 1 : 0.35})"
 					></div>
 				{/if}
 			</div>

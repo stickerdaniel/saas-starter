@@ -31,8 +31,11 @@
 
 <div
 	aria-live="polite"
-	class={cn('overflow-hidden transition-[height] duration-200 ease-out', className)}
-	style:height="{computedHeight}px"
+	class={cn(
+		'h-(--attachments-height) overflow-hidden transition-[height] duration-200 ease-out',
+		className
+	)}
+	style:--attachments-height="{computedHeight}px"
 	{...props}
 >
 	<div class="space-y-2 px-3 py-1" bind:this={contentRef}>

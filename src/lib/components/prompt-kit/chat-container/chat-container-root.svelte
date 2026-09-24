@@ -45,8 +45,7 @@
 
 <div
 	bind:this={ref}
-	class={cn('flex scrollbar-thin flex-col overflow-y-auto', className)}
-	style="scrollbar-gutter: stable;"
+	class={cn('flex scrollbar-thin scrollbar-stable flex-col overflow-y-auto', className)}
 	role="log"
 	{...restProps}
 >

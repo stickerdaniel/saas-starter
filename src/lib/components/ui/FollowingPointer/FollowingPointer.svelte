@@ -139,9 +139,8 @@
 	onmousemove={handleMouseMove}
 	onmousedown={handleBadgeMouseDown}
 	onmouseup={handleBadgeMouseUp}
-	style="cursor: none;"
 	tabindex="-1"
-	class={cn('relative', className)}
+	class={cn('relative', className, 'cursor-none')}
 >
 	<AnimatePresence>
 		{#if isInside}
@@ -150,8 +149,7 @@
 				animate={{ x, y, scale: isHolding ? 0.95 : 1, opacity: 1 }}
 				transition={currentTransition}
 				exit={{ scale: 0, opacity: 0 }}
-				style={{ pointerEvents: 'none' }}
-				class="absolute z-50 h-4 w-4 rounded-full"
+				class="pointer-events-none absolute z-50 h-4 w-4 rounded-full"
 			>
 				<svg
 					stroke="currentColor"
@@ -171,15 +169,15 @@
 					initial={{ scale: 0.5, opacity: 0 }}
 					animate={{ scale: 1, opacity: 1 }}
 					exit={{ scale: 0.5, opacity: 0 }}
-					style={{ pointerEvents: 'none' }}
-					class="relative min-w-max overflow-hidden rounded-full bg-accent p-2 text-xs whitespace-nowrap text-accent-foreground"
+					class="pointer-events-none relative min-w-max overflow-hidden rounded-full bg-accent p-2 text-xs whitespace-nowrap text-accent-foreground"
 				>
 					<!-- Progress bar background -->
 					<div
-						class="absolute inset-0 bg-primary opacity-20 transition-[width]"
-						style="width: {holdProgress}%; transform-origin: left; transition-duration: {isHolding
-							? '0ms'
-							: '150ms'}; transition-timing-function: {isHolding ? 'linear' : 'ease-out'};"
+						class="absolute inset-0 w-(--hold-width) origin-left bg-primary opacity-20 transition-[width] ease-(--hold-ease) {isHolding
+							? 'duration-0'
+							: 'duration-150'}"
+						style:--hold-width="{holdProgress}%"
+						style:--hold-ease={isHolding ? 'linear' : 'ease-out'}
 					></div>
 
 					<!-- Text content -->

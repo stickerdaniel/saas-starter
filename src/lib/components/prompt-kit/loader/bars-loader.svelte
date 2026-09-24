@@ -29,10 +29,10 @@
 		<!-- svelte-ignore element_invalid_self_closing_tag -->
 		<div
 			class={cn(
-				'h-full animate-[wave-bars_1.2s_ease-in-out_infinite] bg-primary motion-reduce:animate-none',
+				'h-full animate-[wave-bars_1.2s_ease-in-out_infinite] bg-primary animation-delay-var motion-reduce:animate-none',
 				barWidths[size]
 			)}
-			style:animation-delay="{i * 0.2}s"
+			style:--delay="{i * 0.2}s"
 		/>
 	{/each}
 	<span class="sr-only">{$t('aria.loading')}</span>

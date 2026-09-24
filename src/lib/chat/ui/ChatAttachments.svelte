@@ -67,9 +67,8 @@
 	// the other half sits empty.
 	const fullWidthTiles = $derived(attachments.length === 1);
 
-	// Flex direction and wrap based on alignment and readonly state
-	const flexDirection = $derived(readonly ? (align === 'right' ? 'row-reverse' : 'row') : 'row');
-	const flexWrap = $derived(readonly ? (align === 'right' ? 'wrap-reverse' : 'wrap') : 'wrap');
+	// Readonly right-aligned tiles reverse both flex direction and wrap
+	const reversed = $derived(readonly && align === 'right');
 
 	let isDialogOpen = $state(false);
 	let selectedAttachment = $state<Attachment | null>(null);
@@ -253,9 +252,9 @@
 <Dialog.Root bind:open={isDialogOpen}>
 	<Dialog.Content
 		bind:ref={dialogContent}
-		class={displayDimensions ? '!max-w-none' : 'sm:max-w-4xl'}
+		class={displayDimensions ? 'w-(--preview-dialog-width) !max-w-none' : 'sm:max-w-4xl'}
 		style={displayDimensions
-			? `width: calc(${displayDimensions.width}px + var(--dialog-inset) * 2);`
+			? `--preview-dialog-width: calc(${displayDimensions.width}px + var(--dialog-inset) * 2);`
 			: ''}
 		onOpenAutoFocus={focusDialogClose}
 	>
@@ -298,8 +297,9 @@
 			{:else if openUrl && isImage}
 				{#if displayDimensions}
 					<div
-						class="mx-auto overflow-hidden rounded-md"
-						style="width: {displayDimensions.width}px; height: {displayDimensions.height}px;"
+						class="mx-auto h-(--preview-height) w-(--preview-width) overflow-hidden rounded-md"
+						style:--preview-width="{displayDimensions.width}px"
+						style:--preview-height="{displayDimensions.height}px"
 					>
 						<img
 							src={openUrl}
@@ -321,8 +321,9 @@
 
 {#if attachments.length > 0}
 	<div
-		class="flex flex-wrap gap-2 {className}"
-		style="flex-direction: {flexDirection}; flex-wrap: {flexWrap}; justify-content: flex-start; align-content: flex-end;"
+		class="flex content-end justify-start gap-2 {reversed
+			? 'flex-row-reverse flex-wrap-reverse'
+			: 'flex-row flex-wrap'} {className}"
 	>
 		{#each readonly && align === 'right' ? [...attachments].reverse() : attachments as attachment, index (attachmentKey(attachment))}
 			{@const thumbnailUrl = getThumbnailUrl(attachment)}
@@ -352,14 +353,13 @@
 			<div
 				data-testid="attachment-chip"
 				data-upload-failed={hasFailed ? '' : undefined}
-				class="relative flex w-full items-center justify-between gap-2 overflow-hidden rounded-lg px-2 py-2 transition-transform {fullWidthTiles
+				class="relative box-border flex w-full items-center justify-between gap-2 overflow-hidden rounded-lg px-2 py-2 transition-transform {fullWidthTiles
 					? ''
 					: 'sm:w-[calc(50%-0.25rem)]'} {isInteractive
 					? 'cursor-pointer motion-safe:active:scale-[0.98]'
 					: ''} {readonly && !hasFailed
 					? 'border text-foreground transition-colors'
 					: 'bg-secondary/50'}"
-				style="box-sizing: border-box;"
 				role={isInteractive ? 'button' : undefined}
 				tabindex={isInteractive ? 0 : undefined}
 				onclick={activate}

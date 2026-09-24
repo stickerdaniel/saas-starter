@@ -73,40 +73,19 @@
 		const n = Number(repeat);
 		return Number.isFinite(n) ? Math.min(MAX_REPEAT, Math.max(1, Math.floor(n))) : 1;
 	});
-
-	const maskImage = $derived.by(() => {
-		if (!fade) {
-			return '';
-		}
-
-		const start = clampedFadeAmount;
-		const end = 100 - clampedFadeAmount;
-
-		return isVertical
-			? `linear-gradient(to bottom, transparent 0%, black ${start}%, black ${end}%, transparent 100%)`
-			: `linear-gradient(to right, transparent 0%, black ${start}%, black ${end}%, transparent 100%)`;
-	});
-
-	const containerStyle = $derived.by(() => {
-		const styles: string[] = [];
-
-		if (styleAttribute) {
-			styles.push(String(styleAttribute));
-		}
-
-		if (maskImage) {
-			styles.push(`mask-image: ${maskImage}`);
-			styles.push(`-webkit-mask-image: ${maskImage}`);
-		}
-
-		return styles.join('; ');
-	});
 </script>
 
 <div
 	{...props}
-	class={cn('group flex w-full overflow-hidden', isVertical && 'flex-col', className)}
-	style={containerStyle}
+	class={cn(
+		'group flex w-full overflow-hidden',
+		isVertical && 'flex-col',
+		fade && (isVertical ? 'spell-marquee--fade-vertical' : 'spell-marquee--fade-horizontal'),
+		className
+	)}
+	style={styleAttribute}
+	style:--spell-marquee-fade-start="{clampedFadeAmount}%"
+	style:--spell-marquee-fade-end="{100 - clampedFadeAmount}%"
 >
 	<div
 		class={cn(
@@ -130,7 +109,7 @@
 					<!-- Repeated copies fill the segment visually but must stay
 					     invisible to assistive tech and unreachable by keyboard.
 					     display:contents keeps the flex layout identical to copy 0. -->
-					<div style="display: contents" aria-hidden="true" inert>
+					<div class="contents" aria-hidden="true" inert>
 						{@render children()}
 					</div>
 				{/if}
@@ -191,6 +170,42 @@
 		to {
 			transform: translateY(0);
 		}
+	}
+
+	/* The fade mask used to be appended after the caller's inline style, so it won over
+	   a caller mask-image. !important keeps that order now that it lives in a class. */
+	.spell-marquee--fade-horizontal {
+		mask-image: linear-gradient(
+			to right,
+			transparent 0%,
+			black var(--spell-marquee-fade-start),
+			black var(--spell-marquee-fade-end),
+			transparent 100%
+		) !important;
+		-webkit-mask-image: linear-gradient(
+			to right,
+			transparent 0%,
+			black var(--spell-marquee-fade-start),
+			black var(--spell-marquee-fade-end),
+			transparent 100%
+		) !important;
+	}
+
+	.spell-marquee--fade-vertical {
+		mask-image: linear-gradient(
+			to bottom,
+			transparent 0%,
+			black var(--spell-marquee-fade-start),
+			black var(--spell-marquee-fade-end),
+			transparent 100%
+		) !important;
+		-webkit-mask-image: linear-gradient(
+			to bottom,
+			transparent 0%,
+			black var(--spell-marquee-fade-start),
+			black var(--spell-marquee-fade-end),
+			transparent 100%
+		) !important;
 	}
 
 	.spell-marquee__scroller {

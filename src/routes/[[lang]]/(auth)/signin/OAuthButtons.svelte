@@ -34,8 +34,8 @@
 </script>
 
 <div
-	class="grid gap-4"
-	style="grid-template-columns: repeat({enabledProviderCount}, minmax(0, 1fr));"
+	class="grid grid-cols-(--oauth-cols) gap-4"
+	style:--oauth-cols="repeat({enabledProviderCount}, minmax(0, 1fr))"
 >
 	{#if providers?.google}
 		<div class="group relative">
