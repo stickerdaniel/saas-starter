@@ -5,11 +5,13 @@ const plugins = { shadcn: plugin };
 
 // Arbitrary values with no theme token or scale step that reproduces them. The rule
 // matches each entry by exact class name, including its variant and negative forms;
-// it reads an entry containing ':' as the whole token and a '*' as a wildcard.
+// it reads an entry containing ':' as the whole token and a '*' as a wildcard. An
+// entry therefore also admits its sign flip and anything in place of a '*', so a value
+// whose negation or wildcard would admit other geometry needs a named utility instead.
 const arbitraryValueExceptions = [
-	// Button, InputGroup, Checkbox, Switch, and Tooltip primitives: radius clamps, kbd
-	// optical offsets, the drawn checkbox box and stroke length, the 18.4px switch
-	// track, and arrow nudges have no step on the radius, spacing, or translate scales.
+	// Button, InputGroup, Checkbox, and Switch primitives: radius clamps, kbd optical
+	// offsets, the drawn checkbox box and stroke length, and the 18.4px switch track
+	// have no step on the radius or spacing scales.
 	'rounded-[min(var(--radius-md),8px)]',
 	'rounded-[min(var(--radius-md),10px)]',
 	'rounded-[calc(var(--radius)-5px)]',
@@ -18,11 +20,6 @@ const arbitraryValueExceptions = [
 	'rounded-[4px]',
 	'[--check-len:23]',
 	'h-[18.4px]',
-	'translate-y-[calc(-50%-2px)]',
-	'translate-y-[calc(-50%+2px)]',
-	'-translate-y-[calc(-50%+1px)]',
-	'translate-x-[calc(50%+2px)]',
-	'-translate-y-[calc(50%-3px)]',
 	// AlertDialog, Alert, CardHeader, and the account settings upload row: track
 	// templates mixing auto and fr have no grid-cols-N or grid-rows-N spelling.
 	'grid-rows-[auto_1fr]',
@@ -31,12 +28,10 @@ const arbitraryValueExceptions = [
 	'grid-cols-[auto_1fr]',
 	'grid-cols-[1fr_auto]',
 	'grid-cols-[1fr_auto_1fr]',
-	// ScrollArea, ProgressiveBlur, the chat composer pill, and PromptSuggestion: an
-	// inherited radius, the composer's 25px pill, and a pill that turns square with a
-	// zero theme radius are not radius tokens.
+	// ScrollArea, ProgressiveBlur, and the chat composer pill: an inherited radius and
+	// the composer's 25px pill are not radius tokens.
 	'rounded-[inherit]',
 	'rounded-[25px]',
-	'rounded-[calc(9999px*sign(var(--radius)))]',
 	// Sidebar, Dialog, chat scroll buttons, marketing shell, hero, and attachment tiles:
 	// each calc couples a length to a variable, a percentage, or a sibling gap.
 	'w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]',

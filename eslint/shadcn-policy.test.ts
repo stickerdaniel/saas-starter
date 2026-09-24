@@ -340,10 +340,31 @@ function getClasses(): string { return 'mt-4'; }
 		expect(nearMiss[0].message).toContain('h-[71vh]');
 	}, 60_000);
 
+	// The rule reads '*' as a wildcard and strips a leading '-' before matching, so these
+	// shapes stay out of the allow list and their owners use named utilities.
+	it.each([
+		'rounded-[calc(9999px*sign(var(--radius)))]',
+		'rounded-[calc(9999px*0*sign(var(--radius)))]',
+		'md:rounded-[calc(9999px*0.001*sign(var(--radius)))]',
+		'-translate-y-[calc(-50%+1px)]',
+		'translate-y-[calc(-50%+1px)]',
+		'data-[side=bottom]:translate-y-[calc(-50%+1px)]'
+	])(
+		'rejects the arbitrary radius and arrow offset %s',
+		async (className) => {
+			const found = await productionMessages(`<div class="${className}"></div>`);
+			expect(found.map((message) => [message.ruleId, message.severity])).toEqual([
+				['shadcn/no-arbitrary-values', 2]
+			]);
+			expect(found[0].message).toContain(className);
+		},
+		60_000
+	);
+
 	it('knows the arbitrary-value replacement tokens and utilities from layout.css', async () => {
 		expect(
 			await productionMessages(
-				'<div class="text-2xs animate-loading-dots leading-composer transition-control-colors transition-field-colors auth-card-transition composer-scroll-mask sidebar-shortcut-mask thread-timestamp-mask marketing-footer-mask"></div>'
+				'<div class="text-2xs animate-loading-dots leading-composer transition-control-colors transition-field-colors auth-card-transition composer-scroll-mask sidebar-shortcut-mask thread-timestamp-mask marketing-footer-mask rounded-theme-pill tooltip-arrow-offset"></div>'
 			)
 		).toEqual([]);
 	}, 60_000);

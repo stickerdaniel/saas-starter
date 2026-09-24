@@ -88,14 +88,13 @@
 </script>
 
 <!-- Pill-shaped by default; collapses to sharp corners when the active theme
-	 sets --radius: 0 (fully squared-off themes). sign() is 0 at a zero radius,
-	 1 otherwise. -->
+	 sets --radius: 0 (fully squared-off themes). -->
 {#if !isHighlightMode}
 	<Button
 		bind:ref
 		variant={variant || 'outline'}
 		size={size || 'lg'}
-		class={cn('min-w-0 rounded-[calc(9999px*sign(var(--radius)))] px-4', className)}
+		class={cn('min-w-0 rounded-theme-pill px-4', className)}
 		{onclick}
 		{disabled}
 		{type}

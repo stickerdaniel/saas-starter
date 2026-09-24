@@ -487,6 +487,34 @@
 	transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+/* A pill that turns square when the theme sets --radius: 0; sign() is 0 at a zero
+   radius and 1 otherwise. twMergeConfig in utils.ts registers it as a radius so a
+   caller's rounded-* replaces it and it replaces Button's rounded-md. */
+@utility rounded-theme-pill {
+	border-radius: calc(9999px * sign(var(--radius)));
+}
+
+/* Tooltip arrow nudges per placed side, which the translate scale has no steps for. */
+@utility tooltip-arrow-offset {
+	translate: 0 calc(-50% - 2px);
+
+	&[data-side='top'] {
+		translate: 50% calc(-50% + 2px);
+	}
+
+	&[data-side='bottom'] {
+		translate: -50% calc(50% - 1px);
+	}
+
+	&[data-side='right'] {
+		translate: calc(50% + 2px) 50%;
+	}
+
+	&[data-side='left'] {
+		translate: 0 calc(-50% + 3px);
+	}
+}
+
 /* Composer elevation. The pill is white on a barely darker surface, so the edge
    has to come from the shadow rather than the fill: a hairline ring drawn as
    spread, one near shadow for contact, and a wide ambient pass. Dark mode keeps
