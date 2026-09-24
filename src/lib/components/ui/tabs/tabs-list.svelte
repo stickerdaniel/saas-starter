@@ -2,7 +2,7 @@
 	import { tv, type VariantProps } from 'tailwind-variants';
 
 	export const tabsListVariants = tv({
-		base: 'relative rounded-lg p-[3px] group-data-horizontal/tabs:h-9 data-[variant=line]:rounded-none group/tabs-list text-muted-foreground inline-flex w-fit items-center justify-center group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col',
+		base: 'relative rounded-lg p-0.75 group-data-horizontal/tabs:h-9 data-[variant=line]:rounded-none group/tabs-list text-muted-foreground inline-flex w-fit items-center justify-center group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col',
 		variants: {
 			variant: {
 				default: 'bg-muted',
@@ -115,7 +115,7 @@
 
 	const thumbClass = $derived(
 		cn(
-			'pointer-events-none absolute top-0 left-0 z-0 opacity-0 transition-[transform,width,height] duration-[var(--motion-duration-base)] ease-[var(--motion-ease-out)] motion-reduce:transition-none',
+			'pointer-events-none absolute top-0 left-0 z-0 opacity-0 transition-[transform,width,height] duration-(--motion-duration-base) ease-(--motion-ease-out) motion-reduce:transition-none',
 			variant === 'line'
 				? 'top-auto bottom-0 h-0.5 bg-foreground transition-[transform,width]'
 				: 'rounded-md border border-transparent bg-background shadow-sm dark:border-input dark:bg-input/30'

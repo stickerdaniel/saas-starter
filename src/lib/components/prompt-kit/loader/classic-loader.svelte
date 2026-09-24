@@ -40,7 +40,7 @@
 	<div class="absolute h-full w-full">
 		{#each Array(12) as _, i (i)}
 			<div
-				class="absolute top-0 left-1/2 ml-(--bar-margin-left) h-(--bar-height) w-(--bar-width) origin-(--bar-origin) transform-(--bar-transform) animate-[spinner-fade_1.2s_linear_infinite] rounded-full bg-primary opacity-0 animation-delay-var motion-reduce:animate-none"
+				class="absolute top-0 left-1/2 ml-(--bar-margin-left) h-(--bar-height) w-(--bar-width) origin-(--bar-origin) transform-(--bar-transform) animate-spinner-fade rounded-full bg-primary opacity-0 animation-delay-var motion-reduce:animate-none"
 				style:--bar-margin-left={marginLeft[size]}
 				style:--bar-origin={transformOrigin[size]}
 				style:--bar-transform="rotate({i * 30}deg)"

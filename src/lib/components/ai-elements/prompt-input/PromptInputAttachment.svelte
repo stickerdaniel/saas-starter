@@ -50,7 +50,7 @@
 				<Tooltip.Content>
 					<div class="text-xs text-muted-foreground">
 						<h4
-							class="max-w-[240px] overflow-hidden text-left text-sm font-semibold break-words whitespace-normal"
+							class="max-w-60 overflow-hidden text-left text-sm font-semibold break-words whitespace-normal"
 						>
 							{data.filename || 'Unknown file'}
 						</h4>

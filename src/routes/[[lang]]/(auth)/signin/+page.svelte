@@ -337,7 +337,7 @@
 
 <div class="flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
-		<Card.Root class="overflow-hidden p-0 [view-transition-name:auth-card]">
+		<Card.Root class="overflow-hidden p-0 auth-card-transition">
 			<Card.Content class="grid p-0 md:grid-cols-2">
 				<SignInForm
 					{id}
@@ -361,7 +361,7 @@
 						src="/placeholder.svg"
 						alt=""
 						draggable="false"
-						class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-[0.2] dark:grayscale"
+						class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-20 dark:grayscale"
 					/>
 				</div>
 			</Card.Content>

@@ -70,7 +70,7 @@ grow the field. -->
 	onkeydown={handleKeyDown}
 	{onpaste}
 	class={cn(
-		'min-h-[44px] w-full resize-none border-none !bg-transparent text-foreground shadow-none outline-none placeholder-shown:overflow-hidden placeholder-shown:whitespace-nowrap focus-visible:ring-0 focus-visible:ring-offset-0',
+		'min-h-11 w-full resize-none border-none !bg-transparent text-foreground shadow-none outline-none placeholder-shown:overflow-hidden placeholder-shown:whitespace-nowrap focus-visible:ring-0 focus-visible:ring-offset-0',
 		className,
 		'max-h-(--prompt-max-height)'
 	)}

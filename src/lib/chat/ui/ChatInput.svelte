@@ -577,7 +577,7 @@
 							class="size-9 rounded-full"
 							aria-label={$t('chat.tooltip.more_actions')}
 						>
-							<PlusIcon class="size-[18px]" aria-hidden="true" />
+							<PlusIcon class="size-4.5" aria-hidden="true" />
 						</Button>
 					{/snippet}
 				</DropdownMenu.Trigger>
@@ -627,7 +627,7 @@
 							onclick={handleCameraClick}
 							aria-label={$t('chat.tooltip.mark_bug')}
 						>
-							<CameraIcon class="h-[18px] w-[18px]" />
+							<CameraIcon class="h-4.5 w-4.5" />
 						</Button>
 					{/snippet}
 				</PromptInputAction>
@@ -653,7 +653,7 @@
 										: 'size-9 rounded-full'}
 									aria-label={$t('chat.tooltip.attach_files')}
 								>
-									<PaperclipIcon class="h-[18px] w-[18px]" />
+									<PaperclipIcon class="h-4.5 w-4.5" />
 								</Button>
 							</FileUploadTrigger>
 						{/snippet}
@@ -695,9 +695,9 @@
 				data-testid="chat-input-send"
 			>
 				{#if ctx.isProcessing && !isHumanOnly}
-					<LoaderCircleIcon class="h-[18px] w-[18px] motion-safe:animate-spin" />
+					<LoaderCircleIcon class="h-4.5 w-4.5 motion-safe:animate-spin" />
 				{:else}
-					<ArrowUpIcon class="h-[18px] w-[18px]" />
+					<ArrowUpIcon class="h-4.5 w-4.5" />
 				{/if}
 			</Button>
 		</div>
@@ -714,7 +714,7 @@
 				<div class="flex flex-wrap gap-2">
 					{#each suggestions as suggestion, i (suggestion.text)}
 						<div
-							class="max-w-full min-w-0 motion-safe:animate-[chip-in_375ms_ease-out_both] motion-safe:animation-delay-var sm:max-w-[14rem]"
+							class="max-w-full min-w-0 motion-safe:animate-chip-in motion-safe:animation-delay-var sm:max-w-56"
 							style:--delay="{i * 50}ms"
 						>
 							<PromptSuggestion
@@ -782,9 +782,7 @@
 							aria-label={composerLabel}
 							class="min-h-9 py-2 text-base leading-5 {compactMultiline
 								? 'pr-2 pl-3'
-								: 'px-1'} {compactScrollable
-								? '[mask-image:linear-gradient(to_bottom,transparent_0,black_20px,black_calc(100%-20px),transparent_100%)]'
-								: ''}"
+								: 'px-1'} {compactScrollable ? 'composer-scroll-mask' : ''}"
 							onpaste={handlePaste}
 							maxlength={MAX_MESSAGE_LENGTH}
 							data-testid="chat-input-textarea"
@@ -838,7 +836,7 @@
 				{/if}
 				<PromptInputTextarea
 					placeholder={activePlaceholder}
-					class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]"
+					class="min-h-11 pt-3 pl-4 text-base leading-composer"
 					onpaste={handlePaste}
 					maxlength={MAX_MESSAGE_LENGTH}
 					data-testid="chat-input-textarea"

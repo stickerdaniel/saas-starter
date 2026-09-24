@@ -34,7 +34,7 @@
 	{#each Array(5) as _, i (i)}
 		<div
 			class={cn(
-				'h-(--bar-height) animate-[wave_1s_ease-in-out_infinite] rounded-full bg-primary animation-delay-var motion-reduce:animate-none',
+				'h-(--bar-height) animate-wave rounded-full bg-primary animation-delay-var motion-reduce:animate-none',
 				barWidths[size]
 			)}
 			style:--delay="{i * 100}ms"

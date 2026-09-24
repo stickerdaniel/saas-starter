@@ -26,7 +26,7 @@
 	<div
 		role="alert"
 		data-testid="clock-skew-banner"
-		class="sticky top-0 z-[60] flex flex-wrap items-center justify-center gap-x-3 gap-y-2 border-b border-warning/20 bg-warning/10 px-4 py-2 text-center text-sm text-foreground backdrop-blur"
+		class="sticky top-0 z-60 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 border-b border-warning/20 bg-warning/10 px-4 py-2 text-center text-sm text-foreground backdrop-blur"
 	>
 		<TriangleAlertIcon class="size-4 shrink-0 text-warning" />
 		<span class="min-w-0">

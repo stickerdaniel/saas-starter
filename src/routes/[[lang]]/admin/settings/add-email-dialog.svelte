@@ -35,7 +35,7 @@
 			</Button>
 		{/snippet}
 	</Dialog.Trigger>
-	<Dialog.Content class="sm:max-w-[425px]">
+	<Dialog.Content class="sm:max-w-106.25">
 		<Dialog.Header>
 			<Dialog.Title><T keyName="admin.settings.add_email_dialog_title" /></Dialog.Title>
 			<Dialog.Description>

@@ -61,7 +61,7 @@
 	 menu-action chevron. -->
 {#snippet trailingOverlay(keys: string[] | undefined, badge: number | undefined)}
 	<span
-		class="pointer-events-none absolute inset-y-0 -right-2 flex items-center justify-end gap-2 overflow-hidden rounded-r-md [mask-image:linear-gradient(to_right,transparent,#000_2rem)] pr-3 pl-8 group-has-data-[sidebar=menu-action]/menu-item:pr-8 before:absolute before:inset-0 before:-z-10 before:rounded-r-md before:bg-sidebar-accent-hover before:opacity-0 group-hover/menu-button:before:opacity-100 group-data-[active=true]/menu-button:before:bg-sidebar-accent"
+		class="pointer-events-none absolute inset-y-0 -right-2 flex items-center justify-end gap-2 overflow-hidden rounded-r-md sidebar-shortcut-mask pr-3 pl-8 group-has-data-[sidebar=menu-action]/menu-item:pr-8 before:absolute before:inset-0 before:-z-10 before:rounded-r-md before:bg-sidebar-accent-hover before:opacity-0 group-hover/menu-button:before:opacity-100 group-data-[active=true]/menu-button:before:bg-sidebar-accent"
 	>
 		{#if keys}
 			<Kbd.Group class="opacity-0 group-hover/menu-button:opacity-100">

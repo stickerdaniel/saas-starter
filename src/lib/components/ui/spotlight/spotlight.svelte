@@ -11,7 +11,7 @@
 
 <svg
 	class={cn(
-		'pointer-events-none absolute z-[1] h-[300%] w-[250%] animate-spotlight opacity-0 motion-reduce:animate-none motion-reduce:opacity-100',
+		'pointer-events-none absolute z-1 h-3/1 w-5/2 animate-spotlight opacity-0 motion-reduce:animate-none motion-reduce:opacity-100',
 		className
 	)}
 	xmlns="http://www.w3.org/2000/svg"

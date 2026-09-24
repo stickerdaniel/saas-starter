@@ -7,18 +7,25 @@ describe('buttonVariants', () => {
 		const classes = buttonVariants();
 
 		expect(classes).toContain('active:not-aria-[haspopup]:translate-y-px');
-		expect(classes).toContain('transition-[color,background-color,border-color,box-shadow]');
+		expect(classes).toContain('transition-control-colors');
 		expect(classes).not.toContain('transition-all');
+	});
+
+	it('lets a caller transition replace the color lane', () => {
+		const classes = cn(buttonVariants(), 'transition-all').split(' ');
+
+		expect(classes).toContain('transition-all');
+		expect(classes).not.toContain('transition-control-colors');
 	});
 
 	it('lets intentional transform animations suppress the translate', () => {
 		const classes = cn(
 			buttonVariants(),
-			'active:not-aria-[haspopup]:translate-y-0 active:scale-[0.97]'
+			'active:not-aria-[haspopup]:translate-y-0 active:scale-97'
 		);
 
 		expect(classes).not.toContain('active:not-aria-[haspopup]:translate-y-px');
 		expect(classes).toContain('active:not-aria-[haspopup]:translate-y-0');
-		expect(classes).toContain('active:scale-[0.97]');
+		expect(classes).toContain('active:scale-97');
 	});
 });

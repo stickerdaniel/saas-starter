@@ -21,14 +21,17 @@
 		{text}
 	</span>
 	<span class="inline-flex">
-		<span class="animate-[loading-dots_1.4s_infinite_0.2s] text-primary motion-reduce:animate-none"
-			>.</span
+		<span
+			class="animate-loading-dots text-primary animation-delay-var motion-reduce:animate-none"
+			style:--delay="0.2s">.</span
 		>
-		<span class="animate-[loading-dots_1.4s_infinite_0.4s] text-primary motion-reduce:animate-none"
-			>.</span
+		<span
+			class="animate-loading-dots text-primary animation-delay-var motion-reduce:animate-none"
+			style:--delay="0.4s">.</span
 		>
-		<span class="animate-[loading-dots_1.4s_infinite_0.6s] text-primary motion-reduce:animate-none"
-			>.</span
+		<span
+			class="animate-loading-dots text-primary animation-delay-var motion-reduce:animate-none"
+			style:--delay="0.6s">.</span
 		>
 	</span>
 </div>

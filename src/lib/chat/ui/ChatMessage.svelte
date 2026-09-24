@@ -129,7 +129,7 @@
 		: 'items-start'} {isFirstInGroup ? 'mt-8' : 'mt-1'}"
 >
 	{#if attachments.length > 0}
-		<div class="max-w-[85%] md:max-w-[75%]">
+		<div class="max-w-17/20 md:max-w-3/4">
 			<ChatAttachments {attachments} readonly={true} columns={2} {align} class="px-0" />
 		</div>
 	{/if}

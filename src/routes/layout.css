@@ -357,6 +357,26 @@
 		}
 	}
 
+	/* Loader and chip recipes over the keyframes above. Phase offsets stay with each
+	   consumer through animation-delay-var. */
+	--animate-wave-bars: wave-bars 1.2s ease-in-out infinite;
+	--animate-spinner-fade: spinner-fade 1.2s linear infinite;
+	--animate-bounce-dots: bounce-dots 1.4s ease-in-out infinite;
+	--animate-pulse-dot: pulse-dot 1.2s ease-in-out infinite;
+	--animate-thin-pulse: thin-pulse 1.5s ease-in-out infinite;
+	--animate-blink: blink 1s step-end infinite;
+	--animate-text-blink: text-blink 2s ease-in-out infinite;
+	--animate-loading-dots: loading-dots 1.4s infinite;
+	--animate-typing: typing 1s infinite;
+	--animate-wave: wave 1s ease-in-out infinite;
+	--animate-chip-in: chip-in 375ms ease-out both;
+
+	/* Micro labels: avatar initials, unread counts, and small badges. No line-height
+	   companion, so the element keeps the one it inherits. */
+	--text-2xs: 0.625rem;
+	/* Line height of the full chat composers. */
+	--leading-composer: 1.3;
+
 	--radius-2xl: calc(var(--radius) * 1.8);
 
 	--radius-3xl: calc(var(--radius) * 2.2);
@@ -587,6 +607,51 @@
 /* Per-item stagger: the element sets --delay, for example style:--delay="{i * 50}ms". */
 @utility animation-delay-var {
 	animation-delay: var(--delay);
+}
+
+/* Button's lane from #803: colors and shadow ease, while the pixel press does not. */
+@utility transition-control-colors {
+	transition-property: color, background-color, border-color, box-shadow;
+	transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+	transition-duration: var(--tw-duration, var(--default-transition-duration));
+}
+
+/* Form fields ease their text color and focus ring. */
+@utility transition-field-colors {
+	transition-property: color, box-shadow;
+	transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+	transition-duration: var(--tw-duration, var(--default-transition-duration));
+}
+
+/* Shared-element identity that morphs the signin and signup card shells. */
+@utility auth-card-transition {
+	view-transition-name: auth-card;
+}
+
+/* Fades a scrolling compact composer's text 20px at the top and bottom edges. */
+@utility composer-scroll-mask {
+	mask-image: linear-gradient(
+		to bottom,
+		transparent 0,
+		black 20px,
+		black calc(100% - 20px),
+		transparent 100%
+	);
+}
+
+/* Fades the left edge of a sidebar row's shortcut overlay into the label over 2rem. */
+@utility sidebar-shortcut-mask {
+	mask-image: linear-gradient(to right, transparent, #000 2rem);
+}
+
+/* Fades the left edge of a thread row's timestamp overlay into the title over 1rem. */
+@utility thread-timestamp-mask {
+	mask-image: linear-gradient(to right, transparent, #000 1rem);
+}
+
+/* Fades the marketing footer panel out below 30% of its height. */
+@utility marketing-footer-mask {
+	mask-image: linear-gradient(to bottom, black 30%, transparent 100%);
 }
 
 @keyframes fade-in {

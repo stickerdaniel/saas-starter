@@ -12,10 +12,10 @@
 	let { class: className }: IconProps = $props();
 </script>
 
-<!-- The source SVG strokes in currentColor; text-[var(--logo-color,currentColor)]
+<!-- The source SVG strokes in currentColor; text-(color:--logo-color,currentColor)
      preserves the optional --logo-color override the mask version exposed. -->
 <span
-	class={cn('logo-mark inline-block text-[var(--logo-color,currentColor)]', className)}
+	class={cn('logo-mark inline-block text-(color:--logo-color,currentColor)', className)}
 	aria-hidden="true"
 >
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- Trusted build-time constant inlined from static/logo.svg, no user input -->

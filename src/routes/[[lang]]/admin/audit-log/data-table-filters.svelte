@@ -79,7 +79,7 @@
 
 <div class="flex items-center gap-2">
 	<Select.Root type="single" value={actionValue} onValueChange={handleActionChange}>
-		<Select.Trigger class="h-8 w-[180px]" data-testid="admin-audit-log-action-filter">
+		<Select.Trigger class="h-8 w-45" data-testid="admin-audit-log-action-filter">
 			{options.find((opt) => opt.value === actionValue)?.label ??
 				$t('admin.audit_log.filter.all_actions')}
 		</Select.Trigger>
@@ -120,7 +120,7 @@
 					: $t('admin.audit_log.filter.against')}
 			</span>
 			{#if userLabel !== undefined}
-				<span class="max-w-[160px] truncate font-medium">{userLabel}</span>
+				<span class="max-w-40 truncate font-medium">{userLabel}</span>
 			{:else}
 				<Skeleton class="h-3.5 w-20" />
 			{/if}

@@ -254,7 +254,7 @@
 	<!-- Idle keeps the original bottom-5 offset; focus lifts the bar so the
 		 disclosure fades into the freed space below it. -->
 	<div
-		class="group relative mx-auto max-w-[280px] focus-within:max-w-[430px] focus-within:-translate-y-5 motion-safe:transition-[max-width,translate] motion-safe:duration-300 motion-safe:ease-in-out"
+		class="group relative mx-auto max-w-70 focus-within:max-w-107.5 focus-within:-translate-y-5 motion-safe:transition-[max-width,translate] motion-safe:duration-300 motion-safe:ease-in-out"
 	>
 		<!-- Gradient glow layers (behind) - not affected by fade animation -->
 		<div class="ai-gradient-wrapper-glow pointer-events-none rounded-full"></div>
@@ -269,7 +269,7 @@
 				onValueChange={handleValueChange}
 				isLoading={conversation.isSending}
 				onSubmit={handleSubmit}
-				class="relative z-[1] mb-1 flex w-full flex-row items-center border-0 bg-transparent !p-1 shadow-none"
+				class="relative z-1 mb-1 flex w-full flex-row items-center border-0 bg-transparent !p-1 shadow-none"
 			>
 				<PromptInputTextarea
 					class="!h-auto !min-h-auto rounded-full bg-transparent !py-0 "
@@ -303,7 +303,7 @@
 			class="ai-chatbar-disclosure pointer-events-none absolute top-full right-0 left-0 mt-1.5 text-center"
 		>
 			<span
-				class="inline-block rounded-full bg-background/75 px-2 py-0.5 text-[11px] text-balance text-muted-foreground backdrop-blur-sm"
+				class="inline-block rounded-full bg-background/75 px-2 py-0.5 text-xs text-balance text-muted-foreground backdrop-blur-sm"
 			>
 				{$t('support.chatbar.disclosure')}
 			</span>

@@ -588,7 +588,7 @@
 										<Skeleton class="h-5 w-12 rounded-4xl" />
 									</Table.Cell>
 									<Table.Cell>
-										<Skeleton class="h-5 w-[65px] rounded-4xl" />
+										<Skeleton class="h-5 w-16.25 rounded-4xl" />
 									</Table.Cell>
 									<Table.Cell>
 										<div class="flex items-center gap-1">

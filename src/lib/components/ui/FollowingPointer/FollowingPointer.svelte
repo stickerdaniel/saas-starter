@@ -156,7 +156,7 @@
 					fill="currentColor"
 					stroke-width="1"
 					viewBox="0 0 16 16"
-					class="h-6 w-6 -translate-x-[12px] -rotate-[70deg] transform stroke-accent text-accent-foreground dark:stroke-accent-foreground dark:text-accent"
+					class="h-6 w-6 -translate-x-3 -rotate-70 transform stroke-accent text-accent-foreground dark:stroke-accent-foreground dark:text-accent"
 					height="1em"
 					width="1em"
 					xmlns="http://www.w3.org/2000/svg"

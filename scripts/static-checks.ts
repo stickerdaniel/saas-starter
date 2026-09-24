@@ -95,8 +95,8 @@ const CONFIG = {
 		/** Removed shadcn v1 / Tailwind v3 tokens and legacy class names */
 		deprecated:
 			/ring-offset-background|ring-offset-foreground|text-destructive-foreground|flex-shrink-0|bg-gradient-to-/,
-		/** animate-spin without motion-safe: prefix (WCAG 2.3.3) */
-		bareAnimateSpin: /(?<!motion-safe:)animate-spin/,
+		/** animate-spin without motion-safe: prefix (WCAG 2.3.3); not animate-spinner-fade */
+		bareAnimateSpin: /(?<!motion-safe:)animate-spin(?![\w-])/,
 		/**
 		 * Static value imports/re-exports of the Sentry SDK under src/. They defeat
 		 * dead-code elimination when PUBLIC_SENTRY_DSN is unset and ship the SDK to

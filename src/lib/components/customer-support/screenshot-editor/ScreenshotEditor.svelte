@@ -165,7 +165,7 @@
      away instead of snapping off. -->
 <div
 	data-screenshot-editor
-	class="fixed inset-0 z-[100]"
+	class="fixed inset-0 z-100"
 	out:fade|global={{ duration: prefersReducedMotion.current ? 0 : 150 }}
 	role="dialog"
 	aria-modal="true"
@@ -182,7 +182,7 @@
 		     opacity/transform), like the spinner: it keeps playing while snapdom's
 		     synchronous clone blocks the main thread right after the first paint. -->
 		<div
-			class="fixed inset-0 z-[120] flex items-center justify-center bg-background/60 backdrop-blur-sm ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200"
+			class="fixed inset-0 z-120 flex items-center justify-center bg-background/60 backdrop-blur-sm ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200"
 		>
 			<div
 				class="flex items-center gap-2.5 rounded-full bg-background px-4 py-2.5 shadow-lg ring-1 ring-foreground/10 ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-200"
