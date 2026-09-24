@@ -1,12 +1,13 @@
 <script lang="ts">
+	import { cn } from '$lib/utils.js';
+
 	let { class: className, ...rest } = $props();
 </script>
 
 <img
 	src="/autumn.webp"
 	alt="Autumn"
-	class={className}
-	style="flex: none; line-height: 1;"
+	class={cn('flex-none leading-none', className)}
 	loading="lazy"
 	decoding="async"
 	width="40"

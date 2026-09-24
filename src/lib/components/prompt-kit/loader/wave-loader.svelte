@@ -34,11 +34,11 @@
 	{#each Array(5) as _, i (i)}
 		<div
 			class={cn(
-				'animate-[wave_1s_ease-in-out_infinite] rounded-full bg-primary motion-reduce:animate-none',
+				'h-(--bar-height) animate-[wave_1s_ease-in-out_infinite] rounded-full bg-primary animation-delay-var motion-reduce:animate-none',
 				barWidths[size]
 			)}
-			style:animation-delay="{i * 100}ms"
-			style:height={heights[size][i]}
+			style:--delay="{i * 100}ms"
+			style:--bar-height={heights[size][i]}
 		></div>
 	{/each}
 	<span class="sr-only">{$t('aria.loading')}</span>

@@ -16,15 +16,20 @@ export const enforcedShadcnPolicy = {
 			{ allow: ['is-user', 'is-assistant', 'not-prose', 'legal-literal', 'toaster'] }
 		],
 		'shadcn/require-static-classes': 'error',
-		'shadcn/no-raw-colors': 'error'
+		'shadcn/no-raw-colors': 'error',
+		'shadcn/no-inline-styles': 'error'
 	}
 };
 
 // Spread by eslint.config.js: the enforced policy followed by its path exceptions.
 export const enforcedShadcnConfig = [
 	enforcedShadcnPolicy,
-	// Email clients cannot read theme variables, so templates inline literal colors.
-	{ files: ['src/lib/emails/**'], rules: { 'shadcn/no-raw-colors': 'off' } },
+	// Email clients cannot read theme variables or stylesheet classes reliably, so
+	// templates inline literal colors and styles.
+	{
+		files: ['src/lib/emails/**'],
+		rules: { 'shadcn/no-raw-colors': 'off', 'shadcn/no-inline-styles': 'off' }
+	},
 	// Brand logos reproduce each vendor's own fills.
 	{ files: ['src/blocks/logos/**'], rules: { 'shadcn/no-raw-colors': 'off' } }
 ];
@@ -51,7 +56,6 @@ export const shadcnPolicy = {
 		],
 		'shadcn/no-raw-colors': 'error',
 		'shadcn/no-arbitrary-values': 'error',
-		'shadcn/no-inline-styles': 'error',
 		...enforcedShadcnPolicy.rules
 	}
 };

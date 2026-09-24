@@ -193,11 +193,12 @@
 			type="button"
 			role="radio"
 			tabindex={index === tabbableIndex ? 0 : -1}
-			class={cn(colorSelectorDotVariants({ size, selected: isSelected }))}
-			style:background-color={colorValue}
-			style:box-shadow={isSelected
-				? `inset 0 0 0 2px var(--background), 0 0 0 2px ${colorValue}`
-				: undefined}
+			class={cn(
+				colorSelectorDotVariants({ size, selected: isSelected }),
+				'bg-(--swatch)',
+				isSelected && 'color-selector-swatch--selected'
+			)}
+			style:--swatch={colorValue}
 			aria-label={getColorLabel?.(color) ?? color}
 			aria-checked={isSelected}
 			onclick={() => selectColor(color)}
@@ -205,3 +206,14 @@
 		></button>
 	{/each}
 </div>
+
+<style>
+	/* The selected ring replaces every utility shadow, focus ring included, as the
+	   inline box-shadow it came from did. Unlayered component CSS outranks the
+	   Tailwind utility layer, so no specificity or !important is needed. */
+	.color-selector-swatch--selected {
+		box-shadow:
+			inset 0 0 0 2px var(--background),
+			0 0 0 2px var(--swatch);
+	}
+</style>

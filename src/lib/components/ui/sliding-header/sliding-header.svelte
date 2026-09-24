@@ -97,10 +97,7 @@
 	</div>
 
 	<!-- Center: Animated title swap (vertical slide with grid stacking) -->
-	<div
-		class="relative grid min-w-0 flex-1 py-1"
-		style="mask-image: linear-gradient(to bottom, transparent 0%, black 4px, black calc(100% - 4px), transparent 100%);"
-	>
+	<div class="relative grid min-w-0 flex-1 sliding-header-mask py-1">
 		<!-- Default title -->
 		{#if !isBackView}
 			<div

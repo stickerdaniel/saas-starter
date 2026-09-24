@@ -60,7 +60,7 @@ describe('LegalMarkdown', () => {
 			address.replace(/\r\n?/g, '\n')
 		]);
 		for (const literal of literals) {
-			expect(literal.style.whiteSpace).toBe('pre-wrap');
+			expect(literal.classList.contains('whitespace-pre-wrap')).toBe(true);
 			expect(literal.children).toHaveLength(0);
 		}
 

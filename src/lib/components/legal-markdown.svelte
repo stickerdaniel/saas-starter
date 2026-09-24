@@ -39,7 +39,7 @@
 
 {#snippet children({ token, children: fallbackChildren }: ChildrenSnippetProps)}
 	{#if token.type === 'legalLiteral'}
-		<span class="legal-literal" style="white-space: pre-wrap"
+		<span class="legal-literal whitespace-pre-wrap"
 			>{resolveLegalLiteral(token, content.literals)}</span
 		>
 	{:else}

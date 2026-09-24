@@ -278,8 +278,9 @@
 							<Table.Row class="hover:[&>th]:bg-muted dark:hover:[&>th]:bg-background">
 								{#each headerGroup.headers as header (header.id)}
 									<Table.Head
-										style="width: {header.getSize()}px; min-width: {header.column.columnDef
-											.minSize}px;"
+										class="w-(--column-width) min-w-(--column-min-width)"
+										style="--column-width: {header.getSize()}px; --column-min-width: {header.column
+											.columnDef.minSize}px;"
 									>
 										{#if !header.isPlaceholder}
 											<FlexRender
