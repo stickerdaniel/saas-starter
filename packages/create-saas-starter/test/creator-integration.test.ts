@@ -1,8 +1,17 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '../../..');
+
+interface WorkflowJob {
+	if?: string;
+	needs?: string | string[];
+	permissions?: Record<string, string>;
+	environment?: string | { name: string };
+	steps: Array<{ uses?: string; run?: string }>;
+}
 
 function read(relative: string): string {
 	return readFileSync(path.join(REPOSITORY_ROOT, relative), 'utf8');
@@ -99,7 +108,51 @@ describe('creator workflows', () => {
 		}
 		expect(workflow).toContain('CREATE_SAAS_STARTER_ARTIFACT_DIR:');
 		expect(workflow).toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a');
-		expect(workflow).not.toMatch(/\bnpm publish\b|\bbun publish\b/);
+	});
+
+	it('publishes only from the credential-isolated npm job after the release gate', () => {
+		const source = read('.github/workflows/create-saas-starter.yml');
+		const workflow = parseYaml(source) as {
+			permissions: unknown;
+			jobs: Record<string, WorkflowJob>;
+		};
+		const { jobs } = workflow;
+		const mainOnly = [
+			"github.repository == 'stickerdaniel/saas-starter'",
+			"(github.event_name == 'push' || github.event_name == 'workflow_dispatch')",
+			"github.ref == 'refs/heads/main'"
+		];
+
+		expect(workflow.permissions).toEqual({ contents: 'read' });
+		const publishSteps = Object.entries(jobs).flatMap(([id, job]) =>
+			job.steps
+				.filter((step) => /\bnpm\s+publish\b/.test(step.run ?? ''))
+				.map((step) => ({ id, run: step.run! }))
+		);
+		expect(publishSteps.map(({ id }) => id)).toEqual(['publish']);
+		expect(publishSteps[0]!.run).toContain('--access public --ignore-scripts');
+		expect(source).not.toMatch(/\bbun\s+publish\b/);
+		expect(source).not.toMatch(/secrets\.\w*TOKEN|NODE_AUTH_TOKEN|NPM_TOKEN/);
+
+		const publish = jobs.publish!;
+		expect(publish.needs).toEqual(['verify', 'release-gate']);
+		expect(publish.permissions).toEqual({ 'id-token': 'write' });
+		expect(
+			typeof publish.environment === 'string' ? publish.environment : publish.environment?.name
+		).toBe('npm');
+		expect(publish.steps.some((step) => step.uses?.startsWith('actions/checkout@'))).toBe(false);
+		for (const condition of [...mainOnly, "needs.release-gate.outputs.publish == 'true'"]) {
+			expect(publish.if).toContain(condition);
+		}
+
+		const gate = jobs['release-gate']!;
+		expect(gate.needs).toBe('verify');
+		expect(gate.permissions).toEqual({ contents: 'read' });
+		for (const condition of mainOnly) expect(gate.if).toContain(condition);
+
+		for (const [id, job] of Object.entries(jobs)) {
+			if (id !== 'publish') expect(job.permissions ?? {}).not.toHaveProperty('id-token');
+		}
 	});
 
 	it('generates the root base tsconfig before child tests transform the shared helper', () => {
