@@ -54,9 +54,9 @@ describe('LoadingBar', () => {
 		expect(root.getAttribute('aria-valuenow')).toBe('80');
 		expect(root.getAttribute('aria-valuemax')).toBe('80');
 		expect(root.getAttribute('data-state')).toBe('loaded');
-		expect(root.querySelector<HTMLElement>('[data-slot="progress-indicator"]')?.style.width).toBe(
-			'100%'
-		);
+		const indicator = root.querySelector<HTMLElement>('[data-slot="progress-indicator"]');
+		expect(indicator?.style.getPropertyValue('--indicator-width')).toBe('100%');
+		expect(indicator?.classList.contains('w-(--indicator-width)')).toBe(true);
 	});
 
 	it('clamps negative values and invalid maximums', async () => {
@@ -64,9 +64,11 @@ describe('LoadingBar', () => {
 		expect(root.getAttribute('aria-valuenow')).toBe('0');
 		expect(root.getAttribute('aria-valuemax')).toBe('1');
 		expect(root.getAttribute('data-state')).toBe('loading');
-		expect(root.querySelector<HTMLElement>('[data-slot="progress-indicator"]')?.style.width).toBe(
-			'0%'
-		);
+		expect(
+			root
+				.querySelector<HTMLElement>('[data-slot="progress-indicator"]')
+				?.style.getPropertyValue('--indicator-width')
+		).toBe('0%');
 	});
 
 	it('preserves indeterminate progress when loading has a null value', async () => {
@@ -74,9 +76,11 @@ describe('LoadingBar', () => {
 		expect(root.getAttribute('aria-valuenow')).toBeNull();
 		expect(root.getAttribute('data-indeterminate')).toBe('');
 		expect(root.getAttribute('data-state')).toBe('indeterminate');
-		expect(root.querySelector<HTMLElement>('[data-slot="progress-indicator"]')?.style.width).toBe(
-			'0%'
-		);
+		expect(
+			root
+				.querySelector<HTMLElement>('[data-slot="progress-indicator"]')
+				?.style.getPropertyValue('--indicator-width')
+		).toBe('0%');
 	});
 
 	it('measures a negative progress value from the supplied minimum', async () => {
@@ -84,9 +88,11 @@ describe('LoadingBar', () => {
 		expect(root.getAttribute('aria-valuemin')).toBe('-20');
 		expect(root.getAttribute('aria-valuenow')).toBe('-5');
 		expect(root.getAttribute('aria-valuemax')).toBe('80');
-		expect(root.querySelector<HTMLElement>('[data-slot="progress-indicator"]')?.style.width).toBe(
-			'15%'
-		);
+		expect(
+			root
+				.querySelector<HTMLElement>('[data-slot="progress-indicator"]')
+				?.style.getPropertyValue('--indicator-width')
+		).toBe('15%');
 	});
 
 	it('normalizes an inverted range before forwarding it to Progress.Root', async () => {
@@ -95,9 +101,11 @@ describe('LoadingBar', () => {
 		expect(root.getAttribute('aria-valuemax')).toBe('21');
 		expect(root.getAttribute('aria-valuenow')).toBe('21');
 		expect(root.getAttribute('data-state')).toBe('loaded');
-		expect(root.querySelector<HTMLElement>('[data-slot="progress-indicator"]')?.style.width).toBe(
-			'100%'
-		);
+		expect(
+			root
+				.querySelector<HTMLElement>('[data-slot="progress-indicator"]')
+				?.style.getPropertyValue('--indicator-width')
+		).toBe('100%');
 	});
 
 	it('does not animate a width already at its target', async () => {
@@ -153,9 +161,11 @@ describe('LoadingBar', () => {
 			max: 100,
 			indicatorTone: 'muted'
 		});
-		expect(root.querySelector<HTMLElement>('[data-slot="progress-indicator"]')?.style.width).toBe(
-			'100%'
-		);
+		expect(
+			root
+				.querySelector<HTMLElement>('[data-slot="progress-indicator"]')
+				?.style.getPropertyValue('--indicator-width')
+		).toBe('100%');
 		expect(root.querySelector('[data-slot="progress-indicator"]')?.className).toContain(
 			'bg-muted-foreground/45'
 		);

@@ -1,11 +1,14 @@
 <script lang="ts">
-	let { ...rest } = $props();
+	import type { SVGAttributes } from 'svelte/elements';
+	import { cn } from '$lib/utils.js';
+
+	let { class: className, ...rest }: SVGAttributes<SVGSVGElement> = $props();
 </script>
 
 <svg
 	height="1em"
 	width="1em"
-	style="flex: none; line-height: 1;"
+	class={cn('flex-none leading-none', className)}
 	viewBox="0 0 78 78"
 	xmlns="http://www.w3.org/2000/svg"
 	fill="none"

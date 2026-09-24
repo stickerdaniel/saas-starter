@@ -244,8 +244,8 @@
 			<!-- Gradient overlay: fades from transparent to parent background over the tucked-under portion -->
 			{#if resolvedBg}
 				<div
-					class="absolute inset-x-0 bottom-0 h-4"
-					style="background: linear-gradient(to bottom, transparent, {resolvedBg});"
+					class="absolute inset-x-0 bottom-0 h-4 bg-(image:--fade)"
+					style:--fade="linear-gradient(to bottom, transparent, {resolvedBg})"
 				></div>
 			{/if}
 		</div>

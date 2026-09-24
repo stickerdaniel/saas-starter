@@ -15,15 +15,16 @@
 		strength = state.strength;
 	});
 
-	const color = tv({
+	// The bar fills a quarter per score step.
+	const indicator = tv({
 		base: '',
 		variants: {
 			score: {
-				0: 'bg-destructive',
-				1: 'bg-destructive',
-				2: 'bg-warning',
-				3: 'bg-warning',
-				4: 'bg-success'
+				0: 'w-0 bg-destructive',
+				1: 'w-1/4 bg-destructive',
+				2: 'w-1/2 bg-warning',
+				3: 'w-3/4 bg-warning',
+				4: 'w-full bg-success'
 			}
 		}
 	});
@@ -35,10 +36,7 @@
 	min={0}
 	max={4}
 >
-	<div
-		class={cn('h-full transition-all duration-500', color({ score }))}
-		style="width: {(score / 4) * 100}%;"
-	></div>
+	<div class={cn('h-full transition-all duration-500', indicator({ score }))}></div>
 	<div class="absolute top-0 left-0 z-10 flex h-[6px] w-full place-items-center gap-1">
 		{#each Array.from({ length: 4 }) as _, i (i)}
 			<div class="h-[6px] w-1/4 rounded-full ring-3 ring-card"></div>

@@ -46,8 +46,8 @@
 	let displayWidth = $state(initialWidth);
 	let prevSpringWidth = 0;
 
-	const progressStyle = $derived(
-		`width: ${reducedMotion.current ? progressPercent : Math.max(0, displayWidth)}%;`
+	const indicatorWidth = $derived(
+		reducedMotion.current ? progressPercent : Math.max(0, displayWidth)
 	);
 
 	// Internal $effect auto-stops the loop on destroy; must be created at component init
@@ -138,13 +138,13 @@
 	<div
 		data-slot="progress-indicator"
 		class={cn(
-			'absolute inset-y-0 transition',
+			'absolute inset-y-0 w-(--indicator-width) transition',
 			indicatorTone === 'primary' && 'bg-primary',
 			indicatorTone === 'destructive' && 'bg-destructive',
 			indicatorTone === 'muted' && 'bg-muted-foreground/45',
 			isLoading ? 'opacity-0' : 'opacity-100'
 		)}
-		style={progressStyle}
+		style:--indicator-width="{indicatorWidth}%"
 	></div>
 
 	<!-- M3 indeterminate bars (CSS-animated, shown when loading) -->

@@ -143,8 +143,9 @@
 		<div
 			bind:this={barEl}
 			class="route-progress__bar"
-			style="transform: translate3d({(-1 + progress) *
-				100}%, 0, 0); opacity: {opacity}; transition: all {speed}ms linear;"
+			style:--route-progress-x="{(-1 + progress) * 100}%"
+			style:--route-progress-opacity={opacity}
+			style:--route-progress-speed="{speed}ms"
 		>
 			<div class="route-progress__peg"></div>
 		</div>
@@ -168,6 +169,9 @@
 		position: relative;
 		width: 100%;
 		height: 100%;
+		transform: translate3d(var(--route-progress-x), 0, 0);
+		opacity: var(--route-progress-opacity);
+		transition: all var(--route-progress-speed) linear;
 	}
 
 	.route-progress__peg {

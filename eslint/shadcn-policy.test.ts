@@ -138,11 +138,12 @@ describe('shadcn rules enforced by the application ESLint config', () => {
 	const enforced = [
 		'shadcn/no-unknown-classes',
 		'shadcn/require-static-classes',
-		'shadcn/no-raw-colors'
+		'shadcn/no-raw-colors',
+		'shadcn/no-inline-styles'
 	];
-	const pending = ['shadcn/no-restyle', 'shadcn/no-arbitrary-values', 'shadcn/no-inline-styles'];
+	const pending = ['shadcn/no-restyle', 'shadcn/no-arbitrary-values'];
 	const pendingSource = `${button}<Button class="rounded-full">Save</Button>
-<div class="w-[550px]" style="color: red"></div>`;
+<div class="w-[550px]"></div>`;
 
 	async function productionMessages(source: string, filePath = route) {
 		expect(await production.isPathIgnored(filePath)).toBe(false);
@@ -165,6 +166,7 @@ describe('shadcn rules enforced by the application ESLint config', () => {
 		expect(invalid.messages.find((message) => message.fatal)?.message).toContain('U+001B');
 		expect(config.rules['shadcn/require-static-classes']).toEqual([2]);
 		expect(config.rules['shadcn/no-raw-colors']).toEqual([2]);
+		expect(config.rules['shadcn/no-inline-styles']).toEqual([2]);
 		expect(config.rules['shadcn/no-unknown-classes']).toEqual([
 			2,
 			enforcedShadcnPolicy.rules['shadcn/no-unknown-classes'][1]
@@ -262,6 +264,59 @@ function getClasses(): string { return 'mt-4'; }
 		expect(await production.isPathIgnored(filePath)).toBe(false);
 		const config = await production.calculateConfigForFile(filePath);
 		expect(config.rules['shadcn/no-raw-colors'][0]).toBe(severity);
+	});
+
+	it('rejects an inline style on a route', async () => {
+		const found = await productionMessages('<div style="color: red"></div>');
+		expect(found.map((message) => [message.ruleId, message.severity])).toEqual([
+			['shadcn/no-inline-styles', 2]
+		]);
+		expect(found[0].message).toContain('color');
+	}, 60_000);
+
+	it('admits a runtime value passed through a custom property', async () => {
+		expect(await productionMessages('<div class="w-(--x)" style:--x="4px"></div>')).toEqual([]);
+	}, 60_000);
+
+	it('rejects a raw color in a custom property', async () => {
+		const found = await productionMessages('<div class="bg-(--c)" style:--c="#ec4899"></div>');
+		expect(found.map((message) => [message.ruleId, message.severity])).toEqual([
+			['shadcn/no-inline-styles', 2]
+		]);
+		expect(found[0].message).toContain('--c');
+	}, 60_000);
+
+	it('knows the inline-style replacement utilities from layout.css', async () => {
+		expect(
+			await productionMessages(
+				'<div class="animation-delay-var scrollbar-stable rive-cloud-reveal sliding-header-mask"></div>'
+			)
+		).toEqual([]);
+	}, 60_000);
+
+	// Email clients need inline styles; brand logos get no such exception.
+	it.each([
+		['src/lib/emails/components/layout/EmailFooter.svelte', []],
+		['src/blocks/logos/Convex.svelte', ['shadcn/no-inline-styles']]
+	])(
+		'applies the inline style exception to the Svelte file %s',
+		async (filePath, expected) => {
+			expect(existsSync(filePath)).toBe(true);
+			const found = await productionMessages('<div style="color: red"></div>', filePath);
+			expect(found.every((message) => message.severity === 2)).toBe(true);
+			expect(found.map((message) => message.ruleId)).toEqual(expected);
+		},
+		60_000
+	);
+
+	it.each([
+		['src/lib/emails/nested/deep/x.svelte', 0],
+		['src/blocks/logos/nested/x.svelte', 2],
+		['src/lib/emails-archive/x.svelte', 2]
+	])('sets inline style severity for %s to %i', async (filePath, severity) => {
+		expect(await production.isPathIgnored(filePath)).toBe(false);
+		const config = await production.calculateConfigForFile(filePath);
+		expect(config.rules['shadcn/no-inline-styles'][0]).toBe(severity);
 	});
 
 	it('admits the premium theme tokens', async () => {

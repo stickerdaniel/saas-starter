@@ -29,7 +29,7 @@
 >
 	<div
 		data-slot="progress-indicator"
-		class="size-full flex-1 bg-primary transition-all"
-		style="transform: translateX(-{100 - progressPercent}%)"
+		class="size-full flex-1 transform-(--indicator-transform) bg-primary transition-all"
+		style:--indicator-transform="translateX(-{100 - progressPercent}%)"
 	></div>
 </ProgressPrimitive.Root>

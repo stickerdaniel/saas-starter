@@ -28,23 +28,36 @@
 
 <div class={cn('relative', _class)}>
 	{#each { length: layers } as _, index (index)}
-		{@const angle = GRADIENT_ANGLES[direction]}
-		{@const gradientStops = [
-			index * segmentSize,
-			(index + 1) * segmentSize,
-			(index + 2) * segmentSize,
-			(index + 3) * segmentSize
-		].map(
-			(pos, posIndex) =>
-				`rgba(255, 255, 255, ${posIndex === 1 || posIndex === 2 ? 1 : 0}) ${pos * 100}%`
-		)}
-		{@const gradient = `linear-gradient(${angle}deg, ${gradientStops.join(', ')})`}
-
 		<div
-			class="pointer-events-none absolute inset-0 rounded-[inherit]"
-			style="mask-image: {gradient};
-  -webkit-mask-image: {gradient};
-  backdrop-filter: blur({index * blurIntensity}px); z-index: {index * 10};"
+			class="progressive-blur-layer pointer-events-none absolute inset-0 z-(--blur-z) rounded-[inherit] backdrop-blur-(--blur-radius)"
+			style:--blur-angle="{GRADIENT_ANGLES[direction]}deg"
+			style:--blur-stop-0="{index * segmentSize * 100}%"
+			style:--blur-stop-1="{(index + 1) * segmentSize * 100}%"
+			style:--blur-stop-2="{(index + 2) * segmentSize * 100}%"
+			style:--blur-stop-3="{(index + 3) * segmentSize * 100}%"
+			style:--blur-radius="{index * blurIntensity}px"
+			style:--blur-z={index * 10}
 		></div>
 	{/each}
 </div>
+
+<style>
+	/* Each layer shows its blur only across a band of the gradient: transparent,
+	   opaque, opaque, transparent at the four runtime stops. */
+	.progressive-blur-layer {
+		mask-image: linear-gradient(
+			var(--blur-angle),
+			rgba(255, 255, 255, 0) var(--blur-stop-0),
+			rgba(255, 255, 255, 1) var(--blur-stop-1),
+			rgba(255, 255, 255, 1) var(--blur-stop-2),
+			rgba(255, 255, 255, 0) var(--blur-stop-3)
+		);
+		-webkit-mask-image: linear-gradient(
+			var(--blur-angle),
+			rgba(255, 255, 255, 0) var(--blur-stop-0),
+			rgba(255, 255, 255, 1) var(--blur-stop-1),
+			rgba(255, 255, 255, 1) var(--blur-stop-2),
+			rgba(255, 255, 255, 0) var(--blur-stop-3)
+		);
+	}
+</style>

@@ -454,6 +454,11 @@
 	}
 }
 
+/* Reserve the scrollbar track up front so content does not shift when it appears. */
+@utility scrollbar-stable {
+	scrollbar-gutter: stable;
+}
+
 @utility no-drag {
 	-webkit-user-drag: none;
 }
@@ -516,6 +521,37 @@
 	border-color: rgb(255 255 255 / 0.06);
 }
 
+/* Light-mode cloud over the hero Rive canvas: a clear centre that fades into the page
+   background, so scaling it up reveals the animation. */
+@utility rive-cloud-reveal {
+	inset: -100%;
+	background: radial-gradient(
+		circle at center,
+		transparent 0%,
+		transparent 20%,
+		color-mix(in srgb, var(--background) 95%, transparent) 35%,
+		var(--background) 45%
+	);
+}
+
+/* Fades the sliding header title 4px at the top and bottom edges while it swaps. */
+@utility sliding-header-mask {
+	mask-image: linear-gradient(
+		to bottom,
+		transparent 0%,
+		black 4px,
+		black calc(100% - 4px),
+		transparent 100%
+	);
+	-webkit-mask-image: linear-gradient(
+		to bottom,
+		transparent 0%,
+		black 4px,
+		black calc(100% - 4px),
+		transparent 100%
+	);
+}
+
 @utility animate-fade-in {
 	animation: fade-in 200ms ease-out both;
 }
@@ -546,6 +582,11 @@
 		transform: none;
 		filter: none;
 	}
+}
+
+/* Per-item stagger: the element sets --delay, for example style:--delay="{i * 50}ms". */
+@utility animation-delay-var {
+	animation-delay: var(--delay);
 }
 
 @keyframes fade-in {

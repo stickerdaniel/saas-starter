@@ -40,16 +40,13 @@
 	<div class="absolute h-full w-full">
 		{#each Array(12) as _, i (i)}
 			<div
-				class="absolute animate-[spinner-fade_1.2s_linear_infinite] rounded-full bg-primary motion-reduce:animate-none"
-				style:top="0"
-				style:left="50%"
-				style:margin-left={marginLeft[size]}
-				style:transform-origin={transformOrigin[size]}
-				style:transform="rotate({i * 30}deg)"
-				style:opacity="0"
-				style:animation-delay="{i * 0.1}s"
-				style:height={barSizes[size].height}
-				style:width={barSizes[size].width}
+				class="absolute top-0 left-1/2 ml-(--bar-margin-left) h-(--bar-height) w-(--bar-width) origin-(--bar-origin) transform-(--bar-transform) animate-[spinner-fade_1.2s_linear_infinite] rounded-full bg-primary opacity-0 animation-delay-var motion-reduce:animate-none"
+				style:--bar-margin-left={marginLeft[size]}
+				style:--bar-origin={transformOrigin[size]}
+				style:--bar-transform="rotate({i * 30}deg)"
+				style:--delay="{i * 0.1}s"
+				style:--bar-height={barSizes[size].height}
+				style:--bar-width={barSizes[size].width}
 			></div>
 		{/each}
 	</div>
