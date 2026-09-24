@@ -159,6 +159,15 @@ jobs:
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Tarball version $version is not a stable release version."
           [ "$version" = "$source_version" ] || fail "Tarball version $version differs from source version $source_version."
 
+          # When publishing, npm applies the tarball's publishConfig as its own
+          # configuration (registry, proxy, TLS), so only the exact source
+          # policy may pass.
+          allowed_publish_config='{"access":"public"}'
+          source_publish_config="$(jq -c .publishConfig packages/create-saas-starter/package.json)"
+          [ "$source_publish_config" = "$allowed_publish_config" ] || fail "Source publishConfig is $source_publish_config, expected $allowed_publish_config."
+          publish_config="$(jq -c .publishConfig <<<"$manifest")"
+          [ "$publish_config" = "$allowed_publish_config" ] || fail "Tarball publishConfig is $publish_config, expected $allowed_publish_config."
+
           sha256="$(sha256sum "$tarball" | cut -d' ' -f1)"
           [ "$sha256" = "$(cut -d' ' -f1 "$tarball.sha256")" ] || fail "Tarball differs from the one test:packed recorded."
 
@@ -203,6 +212,10 @@ jobs:
       needs.release-gate.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Serialize releases without cancelling a publish that already started.
+    concurrency:
+      group: create-saas-starter-npm-release
+      cancel-in-progress: false
     environment:
       name: npm
       url: https://www.npmjs.com/package/create-saas-starter/v/${{ needs.release-gate.outputs.version }}
@@ -238,7 +251,7 @@ jobs:
             echo "::error::$tarball is not the tarball the release gate checked."
             exit 1
           }
-          npm publish "$tarball" --access public --ignore-scripts
+          npm publish "$tarball" --access public --ignore-scripts --registry https://registry.npmjs.org/
           {
             echo "Published create-saas-starter@$VERSION"
             echo

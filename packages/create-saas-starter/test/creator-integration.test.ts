@@ -5,16 +5,78 @@ import { parse as parseYaml } from 'yaml';
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '../../..');
 
+const SETUP_NODE = 'actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38';
+const DOWNLOAD_ARTIFACT = 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c';
+const MAIN_ONLY =
+	"github.repository == 'stickerdaniel/saas-starter' && " +
+	"(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && " +
+	"github.ref == 'refs/heads/main'";
+
 interface WorkflowJob {
 	if?: string;
 	needs?: string | string[];
 	permissions?: Record<string, string>;
 	environment?: string | { name: string };
-	steps: Array<{ uses?: string; run?: string }>;
+	concurrency?: unknown;
+	steps: Array<{ name?: string; uses?: string; run?: string }>;
+}
+
+interface ReleaseWorkflow {
+	permissions: unknown;
+	jobs: Record<string, WorkflowJob>;
 }
 
 function read(relative: string): string {
 	return readFileSync(path.join(REPOSITORY_ROOT, relative), 'utf8');
+}
+
+function normalizedCondition(job: WorkflowJob): string | undefined {
+	return job.if?.replace(/\s+/g, ' ').trim();
+}
+
+function expectCredentialIsolatedRelease({ permissions, jobs }: ReleaseWorkflow): void {
+	expect(permissions).toEqual({ contents: 'read' });
+	const publishSteps = Object.entries(jobs).flatMap(([id, job]) =>
+		job.steps.filter((step) => /\bnpm\s+publish\b/.test(step.run ?? '')).map(() => id)
+	);
+	expect(publishSteps).toEqual(['publish']);
+
+	const publish = jobs.publish!;
+	expect(publish.needs).toEqual(['verify', 'release-gate']);
+	expect(normalizedCondition(publish)).toBe(
+		`${MAIN_ONLY} && needs.release-gate.outputs.publish == 'true'`
+	);
+	expect(publish.permissions).toEqual({ 'id-token': 'write' });
+	expect(
+		typeof publish.environment === 'string' ? publish.environment : publish.environment?.name
+	).toBe('npm');
+	expect(publish.concurrency).toEqual({
+		group: 'create-saas-starter-npm-release',
+		'cancel-in-progress': false
+	});
+	// Every step of the credentialed job is pinned or reviewed here, so a new
+	// action or command cannot join the job without failing this list.
+	expect(publish.steps.map((step) => (step.uses ? step.uses : `run: ${step.name ?? ''}`))).toEqual([
+		SETUP_NODE,
+		'run: Require npm with trusted publishing support',
+		DOWNLOAD_ARTIFACT,
+		'run: Publish the tested tarball'
+	]);
+	expect(publish.steps[1]!.run).toContain('npm_version="$(npm --version)"');
+	expect(publish.steps[3]!.run).toContain(
+		'npm publish "$tarball" --access public --ignore-scripts --registry https://registry.npmjs.org/'
+	);
+
+	const gate = jobs['release-gate']!;
+	expect(gate.needs).toBe('verify');
+	expect(normalizedCondition(gate)).toBe(MAIN_ONLY);
+	expect(gate.permissions).toEqual({ contents: 'read' });
+
+	for (const [id, job] of Object.entries(jobs)) {
+		if (id === 'publish') continue;
+		expect(job.permissions ?? {}).not.toHaveProperty('id-token');
+		expect(job.concurrency).toBeUndefined();
+	}
 }
 
 function triggerPaths(workflow: string, event: 'push' | 'pull_request'): string[] {
@@ -112,46 +174,24 @@ describe('creator workflows', () => {
 
 	it('publishes only from the credential-isolated npm job after the release gate', () => {
 		const source = read('.github/workflows/create-saas-starter.yml');
-		const workflow = parseYaml(source) as {
-			permissions: unknown;
-			jobs: Record<string, WorkflowJob>;
-		};
-		const { jobs } = workflow;
-		const mainOnly = [
-			"github.repository == 'stickerdaniel/saas-starter'",
-			"(github.event_name == 'push' || github.event_name == 'workflow_dispatch')",
-			"github.ref == 'refs/heads/main'"
-		];
-
-		expect(workflow.permissions).toEqual({ contents: 'read' });
-		const publishSteps = Object.entries(jobs).flatMap(([id, job]) =>
-			job.steps
-				.filter((step) => /\bnpm\s+publish\b/.test(step.run ?? ''))
-				.map((step) => ({ id, run: step.run! }))
-		);
-		expect(publishSteps.map(({ id }) => id)).toEqual(['publish']);
-		expect(publishSteps[0]!.run).toContain('--access public --ignore-scripts');
 		expect(source).not.toMatch(/\bbun\s+publish\b/);
 		expect(source).not.toMatch(/secrets\.\w*TOKEN|NODE_AUTH_TOKEN|NPM_TOKEN/);
+		expectCredentialIsolatedRelease(parseYaml(source) as ReleaseWorkflow);
+	});
 
-		const publish = jobs.publish!;
-		expect(publish.needs).toEqual(['verify', 'release-gate']);
-		expect(publish.permissions).toEqual({ 'id-token': 'write' });
-		expect(
-			typeof publish.environment === 'string' ? publish.environment : publish.environment?.name
-		).toBe('npm');
-		expect(publish.steps.some((step) => step.uses?.startsWith('actions/checkout@'))).toBe(false);
-		for (const condition of [...mainOnly, "needs.release-gate.outputs.publish == 'true'"]) {
-			expect(publish.if).toContain(condition);
-		}
+	it('rejects a weakened release condition or an extra publish step', () => {
+		const workflow = parseYaml(
+			read('.github/workflows/create-saas-starter.yml')
+		) as ReleaseWorkflow;
+		const bypassed = structuredClone(workflow);
+		bypassed.jobs.publish!.if = `${bypassed.jobs.publish!.if} || true`;
+		const gateBypassed = structuredClone(workflow);
+		gateBypassed.jobs['release-gate']!.if = `${gateBypassed.jobs['release-gate']!.if} || true`;
+		const extraStep = structuredClone(workflow);
+		extraStep.jobs.publish!.steps.splice(3, 0, { run: 'node helper.js' });
 
-		const gate = jobs['release-gate']!;
-		expect(gate.needs).toBe('verify');
-		expect(gate.permissions).toEqual({ contents: 'read' });
-		for (const condition of mainOnly) expect(gate.if).toContain(condition);
-
-		for (const [id, job] of Object.entries(jobs)) {
-			if (id !== 'publish') expect(job.permissions ?? {}).not.toHaveProperty('id-token');
+		for (const mutated of [bypassed, gateBypassed, extraStep]) {
+			expect(() => expectCredentialIsolatedRelease(mutated)).toThrow();
 		}
 	});
 
