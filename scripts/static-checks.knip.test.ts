@@ -1161,7 +1161,10 @@ describe.sequential('Knip static-check CLI behavior', () => {
 	it.each([
 		['a double-quoted invocation', 'bun run "test:cli"'],
 		['a single-quoted invocation', "bun run 'test:cli'"],
-		['a shorthand invocation', 'bun test:cli']
+		['a shorthand invocation', 'bun test:cli'],
+		['a split-quoted suffix', 'bun run test:"cli"'],
+		['a split-quoted prefix', 'bun run "test":cli'],
+		['an escaped separator', 'bun run test\\:cli']
 	])(
 		'rejects a removed creator still referenced by %s before command dispatch',
 		(_label, command) => {
@@ -1192,6 +1195,26 @@ describe.sequential('Knip static-check CLI behavior', () => {
 				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).not.toContainEqual(
 					CLI_TYPES
 				);
+				expect(output).toContain('cli-types        skipped — creator package removed by setup');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
+
+	it.each([
+		'curl https://example.invalid/?label=test:cli',
+		'FOO=test:cli bun scripts/app-task.ts',
+		'bun run --cwd packages/create-saas-starter+docs build'
+	])(
+		'keeps a removed creator absent beside the unrelated command %s',
+		(command) => {
+			const checkout = createCheckerClone('absent', { scripts: { custom: command } });
+			try {
+				const result = runChecker(checkout, ['--ci', '--scope', 'types']);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(0);
 				expect(output).toContain('cli-types        skipped — creator package removed by setup');
 			} finally {
 				rmSync(checkout.directory, { recursive: true, force: true });

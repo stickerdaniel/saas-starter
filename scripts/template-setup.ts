@@ -260,16 +260,25 @@ export const MAINTAINER_CLI_SCRIPTS = [
 
 /**
  * Script names may contain `:` and `-`, so an owned name counts only as a complete token between
- * whitespace, quotes, shell operators, or `=`. That covers `bun run name`, quoted names, and the
- * `bun name` shorthand without parsing shell syntax; any other standalone mention fails closed.
- * The creator directory counts only as a complete path segment.
+ * whitespace or shell operators, matched after dropping quote characters and backslash escapes.
+ * That covers `bun run name`, quoted or split-quoted names such as `test:"cli"`, escaped names, and
+ * the `bun name` shorthand without parsing shell syntax; any other standalone word fails closed.
+ * A value after `=` (URL queries, environment assignments) is data, not a script operand. The
+ * creator directory counts only when its final path component ends at a separator, whitespace,
+ * quote, shell operator, or the end of the command.
  */
-const MAINTAINER_CLI_REFERENCE =
-	/(?<![^\s"'`;&|()<>=])(?:install:cli|check:cli|test:cli|build:cli|test:cli:packed)(?![^\s"'`;&|()<>=])|(?<![\w.-])packages[\\/]create-saas-starter(?![\w.-])/;
+const MAINTAINER_CLI_REFERENCE = {
+	script:
+		/(?<![^\s;&|()<>])(?:install:cli|check:cli|test:cli|build:cli|test:cli:packed)(?![^\s;&|()<>=])/,
+	path: /(?<![\w.-])packages[\\/]create-saas-starter(?=$|[\\/\s"'`;&|()<>])/
+};
 
 /** Shared with static-checks.ts, which classifies completed projects by the same rule. */
 export function referencesMaintainerCli(command: string): boolean {
-	return MAINTAINER_CLI_REFERENCE.test(command);
+	const unquoted = command.replace(/\\([\s\S])/g, '$1').replace(/["'`]/g, '');
+	return (
+		MAINTAINER_CLI_REFERENCE.script.test(unquoted) || MAINTAINER_CLI_REFERENCE.path.test(command)
+	);
 }
 
 export function removeMaintainerCliScripts(value: unknown): Record<string, unknown> {

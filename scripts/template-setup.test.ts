@@ -118,6 +118,18 @@ describe('template setup maintainer manifest', () => {
 				(value.scripts as Record<string, unknown>).wrapper = 'bun install:cli';
 			}
 		},
+		...['bun run test:"cli"', 'bun run "test":cli', 'bun run test\\:cli'].map((command) => ({
+			label: `split or escaped operand ${command}`,
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).wrapper = command;
+			}
+		})),
+		{
+			label: 'Windows creator path',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).wrapper = 'cd .\\packages\\create-saas-starter';
+			}
+		},
 		{
 			label: 'creator path segment',
 			mutate: (value: Record<string, unknown>) => {
@@ -145,7 +157,10 @@ describe('template setup maintainer manifest', () => {
 	it.each([
 		{ 'test:cli:app': 'echo app', custom: 'bun run test:cli:app' },
 		{ 'test:cli-app': 'echo app', custom: 'bun test:cli-app' },
-		{ custom: 'bun run --cwd packages/create-saas-starter-docs build' }
+		{ custom: 'bun run --cwd packages/create-saas-starter-docs build' },
+		{ custom: 'bun run --cwd packages/create-saas-starter+docs build' },
+		{ custom: 'curl https://example.invalid/?label=test:cli' },
+		{ custom: 'FOO=test:cli bun scripts/app-task.ts' }
 	])('preserves distinct custom names in a clean project: %o', (custom) => {
 		const clean = removeMaintainerCliScripts(manifest);
 		const input = { ...clean, scripts: { ...(clean.scripts as object), ...custom } };
@@ -156,12 +171,46 @@ describe('template setup maintainer manifest', () => {
 
 	it('recognizes every owned script name as a complete token', () => {
 		for (const name of MAINTAINER_CLI_SCRIPTS) {
-			for (const command of [`bun run ${name}`, `bun run "${name}"`, `bun ${name} --flag`]) {
+			const [head, ...tail] = name.split(':');
+			const rest = tail.join(':');
+			for (const command of [
+				`bun run ${name}`,
+				`bun run "${name}"`,
+				`bun ${name} --flag`,
+				`bun run ${head}:"${rest}"`,
+				`bun run "${head}":${rest}`,
+				`bun run ${head}\\:${rest}`
+			]) {
 				expect(referencesMaintainerCli(command), command).toBe(true);
 			}
-			for (const command of [`bun run ${name}:app`, `bun run ${name}-app`, `bun run x${name}`]) {
+			for (const command of [
+				`bun run ${name}:app`,
+				`bun run ${name}-app`,
+				`bun run x${name}`,
+				`FOO=${name} bun scripts/app-task.ts`,
+				`curl https://example.invalid/?label=${name}`
+			]) {
 				expect(referencesMaintainerCli(command), command).toBe(false);
 			}
+		}
+	});
+
+	it('recognizes the creator directory only as a complete path component', () => {
+		for (const command of [
+			'cd packages/create-saas-starter',
+			'cd ./packages/create-saas-starter',
+			'cd .\\packages\\create-saas-starter',
+			'bun --cwd packages/create-saas-starter/src test',
+			'cd "packages/create-saas-starter"&& bun test'
+		]) {
+			expect(referencesMaintainerCli(command), command).toBe(true);
+		}
+		for (const command of [
+			'cd packages/create-saas-starter-docs',
+			'cd packages/create-saas-starter+docs',
+			'cd packages/create-saas-starter.docs'
+		]) {
+			expect(referencesMaintainerCli(command), command).toBe(false);
 		}
 	});
 });

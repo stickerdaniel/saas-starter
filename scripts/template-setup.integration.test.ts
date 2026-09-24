@@ -536,24 +536,64 @@ describe('template setup removes maintainer files', () => {
 				],
 				{ env: { ...CHILD_ENV, SETUP_LOCK_PATH: locked }, stdio: ['pipe', 'pipe', 'pipe'] }
 			);
-			const exited = new Promise<number | null>((resolve) => locker.on('exit', resolve));
-			try {
-				await new Promise<void>((resolve, reject) => {
-					let output = '';
-					const timer = setTimeout(() => reject(new Error(`Lock not acquired: ${output}`)), 30_000);
-					locker.stdout.on('data', (chunk: Buffer) => {
-						output += chunk.toString();
-						if (output.includes('LOCKED')) {
-							clearTimeout(timer);
-							resolve();
-						}
-					});
-					locker.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
-					locker.on('exit', (code) => {
-						clearTimeout(timer);
-						reject(new Error(`Lock holder exited with ${code}: ${output}`));
-					});
+			// A failed spawn emits `error` and may never emit `exit`; `close` also waits for stdio.
+			let spawnError: Error | undefined;
+			const closed = new Promise<number | null>((resolve) => {
+				locker.once('close', resolve);
+				locker.once('error', (error) => {
+					spawnError = error;
+					resolve(null);
 				});
+			});
+			locker.stdin.on('error', () => {});
+			const waitForClose = async (ms: number) => {
+				let timer: ReturnType<typeof setTimeout> | undefined;
+				const timeout = new Promise<'timeout'>((resolve) => {
+					timer = setTimeout(() => resolve('timeout'), ms);
+				});
+				try {
+					return await Promise.race([closed, timeout]);
+				} finally {
+					clearTimeout(timer);
+				}
+			};
+			// Never throws, so a failed assertion in the body stays the reported error.
+			const release = async (): Promise<number | string | null> => {
+				if (spawnError) return `Lock holder failed to spawn: ${spawnError.message}`;
+				locker.stdin.end('\n');
+				const cooperative = await waitForClose(10_000);
+				if (cooperative !== 'timeout') return cooperative;
+				locker.kill();
+				const killed = await waitForClose(10_000);
+				return killed === 'timeout'
+					? 'Lock holder did not exit after kill'
+					: `Lock holder ignored release and was killed (${killed})`;
+			};
+			let released: number | string | null;
+			try {
+				let output = '';
+				let onData = (_chunk: Buffer) => {};
+				let timer: ReturnType<typeof setTimeout> | undefined;
+				try {
+					await new Promise<void>((resolve, reject) => {
+						onData = (chunk) => {
+							output += chunk.toString();
+							if (output.includes('LOCKED')) resolve();
+						};
+						locker.stdout.on('data', onData);
+						locker.stderr.on('data', onData);
+						timer = setTimeout(() => reject(new Error(`Lock not acquired: ${output}`)), 30_000);
+						void closed.then((code) =>
+							reject(
+								spawnError ?? new Error(`Lock holder exited with ${code} before locking: ${output}`)
+							)
+						);
+					});
+				} finally {
+					clearTimeout(timer);
+					locker.stdout.off('data', onData);
+					locker.stderr.off('data', onData);
+				}
 
 				const failed = runSetup(dir, [...REQUIRED, ...IDENTITY]);
 				expect(failed.code).not.toBe(0);
@@ -568,9 +608,9 @@ describe('template setup removes maintainer files', () => {
 				expect(existsSync(join(dir, workflow))).toBe(false);
 				expect(existsSync(locked)).toBe(true);
 			} finally {
-				locker.stdin.end('\n');
+				released = await release();
 			}
-			expect(await exited).toBe(0);
+			expect(released).toBe(0);
 
 			const retry = runSetup(dir, []);
 			expect(retry.code, retry.stderr).toBe(0);
