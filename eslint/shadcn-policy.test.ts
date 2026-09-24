@@ -2,7 +2,8 @@
 import { existsSync } from 'node:fs';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
-import { shadcnPolicy } from './shadcn-policy.js';
+import safeSvelteParser from './parsers/safe-svelte-parser.js';
+import { enforcedShadcnPolicy, shadcnPolicy } from './shadcn-policy.js';
 
 const eslint = new ESLint({ overrideConfig: [shadcnPolicy] });
 const route = 'src/routes/+layout.svelte';
@@ -130,4 +131,77 @@ function getClasses(): string { return 'mt-4'; }
 		expect(restyles).toHaveLength(3);
 		expect(restyles.every((message) => message.message.includes('FieldGroup'))).toBe(true);
 	});
+});
+
+describe('shadcn rules enforced by the application ESLint config', () => {
+	const production = new ESLint();
+	const enforced = ['shadcn/no-unknown-classes', 'shadcn/require-static-classes'];
+	const pending = [
+		'shadcn/no-restyle',
+		'shadcn/no-raw-colors',
+		'shadcn/no-arbitrary-values',
+		'shadcn/no-inline-styles'
+	];
+	const pendingSource = `${button}<Button class="rounded-full">Save</Button>
+<div class="w-[550px] bg-red-500" style="color: red"></div>`;
+
+	async function productionMessages(source: string) {
+		const [result] = await production.lintText(source, { filePath: route });
+		expect(result.fatalErrorCount).toBe(0);
+		return result.messages.filter((message) => message.ruleId?.startsWith('shadcn/'));
+	}
+
+	it('enables only the migrated rules, with the policy options, through the safe parser', async () => {
+		expect(existsSync(route)).toBe(true);
+		expect(await production.isPathIgnored(route)).toBe(false);
+		const config = await production.calculateConfigForFile(route);
+		// ESLint loads the config through its own module graph, so compare the parser by
+		// behavior: only the safe wrapper rewrites a control character in a parse failure.
+		expect(config.languageOptions.parser.meta).toEqual(safeSvelteParser.meta);
+		const [invalid] = await production.lintText(`<div>{${String.fromCharCode(0x1b)}}</div>`, {
+			filePath: route
+		});
+		expect(invalid.messages.find((message) => message.fatal)?.message).toContain('U+001B');
+		expect(config.rules['shadcn/require-static-classes']).toEqual([2]);
+		expect(config.rules['shadcn/no-unknown-classes']).toEqual([
+			2,
+			enforcedShadcnPolicy.rules['shadcn/no-unknown-classes'][1]
+		]);
+		for (const rule of pending) expect(config.rules[rule]).toBeUndefined();
+	}, 60_000);
+
+	it('rejects a dynamic class on an imported Button', async () => {
+		const found = await productionMessages(`<script lang="ts">
+import { Button } from '$lib/components/ui/button';
+function getClasses(): string { return 'mt-4'; }
+</script>
+<Button class={getClasses()}>Save</Button>`);
+		expect(found.map((message) => [message.ruleId, message.severity])).toEqual([
+			['shadcn/require-static-classes', 2]
+		]);
+	}, 60_000);
+
+	it('rejects a misspelled variant', async () => {
+		const found = await productionMessages('<div class="hovr:flex"></div>');
+		expect(found.map((message) => [message.ruleId, message.severity])).toEqual([
+			['shadcn/no-unknown-classes', 2]
+		]);
+		expect(found[0].message).toContain('hovr:flex');
+	}, 60_000);
+
+	it('admits allowed external classes by exact name only', async () => {
+		expect(await productionMessages('<div class="not-prose toaster"></div>')).toEqual([]);
+		const nearMisses = await productionMessages('<div class="not-proses toasters"></div>');
+		expect(nearMisses.map((message) => message.ruleId)).toEqual([
+			'shadcn/no-unknown-classes',
+			'shadcn/no-unknown-classes'
+		]);
+	}, 60_000);
+
+	it('does not yet report the pending rules', async () => {
+		const found = await productionMessages(pendingSource);
+		expect(found.filter((message) => !enforced.includes(message.ruleId ?? ''))).toEqual([]);
+		// The same source does trip every pending rule once the full policy is applied.
+		expect(new Set(ids(await messages(pendingSource)))).toEqual(new Set(pending));
+	}, 60_000);
 });

@@ -1,22 +1,5 @@
 <script lang="ts" module>
-	import { tv, type VariantProps } from 'tailwind-variants';
-
-	const inputGroupButtonVariants = tv({
-		base: 'gap-2 text-sm flex items-center shadow-none',
-		variants: {
-			size: {
-				xs: "h-6 gap-1 rounded-[calc(var(--radius)-5px)] px-1.5 [&>svg:not([class*='size-'])]:size-3.5",
-				sm: 'cn-input-group-button-size-sm',
-				'icon-xs': 'size-6 rounded-[calc(var(--radius)-5px)] p-0 has-[>svg]:p-0',
-				'icon-sm': 'size-8 p-0 has-[>svg]:p-0'
-			}
-		},
-		defaultVariants: {
-			size: 'xs'
-		}
-	});
-
-	export type InputGroupButtonSize = VariantProps<typeof inputGroupButtonVariants>['size'];
+	export type InputGroupButtonSize = 'xs' | 'sm' | 'icon-xs' | 'icon-sm' | undefined;
 </script>
 
 <script lang="ts">
@@ -42,7 +25,15 @@
 	{type}
 	data-size={size}
 	{variant}
-	class={cn(inputGroupButtonVariants({ size }), className)}
+	class={cn(
+		'flex items-center gap-2 text-sm shadow-none',
+		size === 'xs' &&
+			"h-6 gap-1 rounded-[calc(var(--radius)-5px)] px-1.5 [&>svg:not([class*='size-'])]:size-3.5",
+		size === 'sm' && '',
+		size === 'icon-xs' && 'size-6 rounded-[calc(var(--radius)-5px)] p-0 has-[>svg]:p-0',
+		size === 'icon-sm' && 'size-8 p-0 has-[>svg]:p-0',
+		className
+	)}
 	{...restProps}
 >
 	{@render children?.()}
