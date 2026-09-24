@@ -76,6 +76,7 @@ function createCheckerClone(): { directory: string; repository: string } {
 		);
 		for (const relative of [
 			'scripts/static-checks.ts',
+			'scripts/template-setup.ts',
 			'scripts/english-policy/content.ts',
 			'scripts/english-policy/classifier.ts',
 			'scripts/english-policy/markdown.ts',

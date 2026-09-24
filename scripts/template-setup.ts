@@ -249,6 +249,29 @@ function inspectRemovalTarget(rel: string, kind: 'file' | 'directory'): boolean 
 	return true;
 }
 
+/** Root scripts that exist only for the maintainer CLI; setup removes them with the child. */
+export const MAINTAINER_CLI_SCRIPTS = [
+	'install:cli',
+	'check:cli',
+	'test:cli',
+	'build:cli',
+	'test:cli:packed'
+] as const;
+
+/**
+ * Script names may contain `:` and `-`, so an owned name counts only as a complete token between
+ * whitespace, quotes, shell operators, or `=`. That covers `bun run name`, quoted names, and the
+ * `bun name` shorthand without parsing shell syntax; any other standalone mention fails closed.
+ * The creator directory counts only as a complete path segment.
+ */
+const MAINTAINER_CLI_REFERENCE =
+	/(?<![^\s"'`;&|()<>=])(?:install:cli|check:cli|test:cli|build:cli|test:cli:packed)(?![^\s"'`;&|()<>=])|(?<![\w.-])packages[\\/]create-saas-starter(?![\w.-])/;
+
+/** Shared with static-checks.ts, which classifies completed projects by the same rule. */
+export function referencesMaintainerCli(command: string): boolean {
+	return MAINTAINER_CLI_REFERENCE.test(command);
+}
+
 export function removeMaintainerCliScripts(value: unknown): Record<string, unknown> {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) {
 		throw new Error('Invalid package.json: expected a manifest object');
@@ -265,7 +288,7 @@ export function removeMaintainerCliScripts(value: unknown): Record<string, unkno
 	if (Object.values(scripts).some((command) => typeof command !== 'string')) {
 		throw new Error('Invalid package.json: scripts must contain strings');
 	}
-	const names = ['install:cli', 'check:cli', 'test:cli', 'build:cli', 'test:cli:packed'];
+	const names = MAINTAINER_CLI_SCRIPTS;
 	const present = names.filter((name) => Object.hasOwn(scripts, name));
 	if (present.length !== 0 && present.length !== names.length) {
 		throw new Error('Invalid package.json: maintainer CLI scripts have drifted');
@@ -290,13 +313,7 @@ export function removeMaintainerCliScripts(value: unknown): Record<string, unkno
 		nextScripts.postinstall = postinstall.slice(installPrefix.length);
 		nextScripts.test = test.replace(testSegment, ' && ');
 	}
-	if (
-		Object.values(nextScripts).some((command) =>
-			/(?:packages\/create-saas-starter|(?:bun\s+run\s+)(?:install:cli|check:cli|test:cli|build:cli|test:cli:packed)\b)/.test(
-				command as string
-			)
-		)
-	) {
+	if (Object.values(nextScripts).some((command) => referencesMaintainerCli(command as string))) {
 		throw new Error('Invalid package.json: unexpected maintainer CLI reference');
 	}
 	return { ...manifest, scripts: nextScripts };

@@ -63,6 +63,7 @@ const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 	'scripts/template-setup.ts',
 	'scripts/template-setup.integration.test.ts',
 	'scripts/__fixtures__/template-setup/package.json',
+	'scripts/__fixtures__/template-setup/legal-content-dates.ts',
 	'src/lib/content/legal-metadata.ts',
 	'src/lib/config/legal.ts',
 	'src/lib/config/site.ts',
@@ -96,12 +97,15 @@ const OVERLAY_PATHSPECS = [
 	'scripts',
 	'eslint/control-character-policy.js',
 	'knowledge-policy.config.ts',
+	'src/lib/content/legal-metadata.ts',
 	'src/lib/i18n/language-codes.generated.js',
 	'tsconfig.json'
 ];
 // Sources required to keep a clone run from passing without seeing the change under test.
 const REQUIRED_SOURCES = [
 	'scripts/static-checks.ts',
+	'scripts/template-setup.ts',
+	'src/lib/content/legal-metadata.ts',
 	'scripts/terminal-output.ts',
 	'scripts/convex-consumer-compat.ts',
 	'scripts/english-policy/content.ts',
@@ -365,7 +369,18 @@ function overlayIndexedSources(repository: string, sourceRoot = ROOT): void {
 	}
 }
 
-function seedCreatorState(repository: string, state: 'present' | 'absent' | 'inconsistent'): void {
+interface CreatorSeed {
+	/** Root scripts added after the state's canonical scripts. */
+	scripts?: Record<string, string>;
+	/** Child manifest bytes for the present state. */
+	childManifest?: string;
+}
+
+function seedCreatorState(
+	repository: string,
+	state: 'present' | 'absent' | 'inconsistent',
+	seed: CreatorSeed = {}
+): void {
 	const manifestPath = path.join(repository, 'package.json');
 	const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
 		scripts: Record<string, string>;
@@ -397,22 +412,27 @@ function seedCreatorState(repository: string, state: 'present' | 'absent' | 'inc
 		if (state === 'present')
 			writeFileSync(
 				path.join(child, 'package.json'),
-				'{"name":"create-saas-starter","scripts":{"knip":"knip"}}\n'
+				seed.childManifest ?? '{"name":"create-saas-starter","scripts":{"knip":"knip"}}\n'
 			);
 		else rmSync(path.join(child, 'package.json'), { force: true });
 	}
+	Object.assign(manifest.scripts, seed.scripts);
 	writeFileSync(manifestPath, JSON.stringify(manifest, null, '\t') + '\n');
 	const observed = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
 		scripts: Record<string, string>;
 	};
 	expect(Object.hasOwn(observed.scripts, 'install:cli')).toBe(state !== 'absent');
+	expect(observed.scripts).toMatchObject(seed.scripts ?? {});
+	if (seed.childManifest !== undefined)
+		expect(readFileSync(path.join(child, 'package.json'), 'utf8')).toBe(seed.childManifest);
 	expect(existsSync(child)).toBe(state !== 'absent');
 	expect(existsSync(workflow)).toBe(state !== 'absent');
 	expect(existsSync(path.join(child, 'package.json'))).toBe(state === 'present');
 }
 
 function createCheckerClone(
-	state: 'present' | 'absent' | 'inconsistent' = 'present'
+	state: 'present' | 'absent' | 'inconsistent' = 'present',
+	seed?: CreatorSeed
 ): CheckerClone {
 	const directory = mkdtempSync(path.join(TEMP_ROOT, 'static-knip-'));
 	const repository = path.join(directory, 'repository');
@@ -432,7 +452,7 @@ function createCheckerClone(
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
 		overlayIndexedSources(repository);
-		seedCreatorState(repository, state);
+		seedCreatorState(repository, state, seed);
 
 		return {
 			directory,
@@ -1137,6 +1157,69 @@ describe.sequential('Knip static-check CLI behavior', () => {
 			rmSync(checkout.directory, { recursive: true, force: true });
 		}
 	}, 45_000);
+
+	it.each([
+		['a double-quoted invocation', 'bun run "test:cli"'],
+		['a single-quoted invocation', "bun run 'test:cli'"],
+		['a shorthand invocation', 'bun test:cli']
+	])(
+		'rejects a removed creator still referenced by %s before command dispatch',
+		(_label, command) => {
+			const checkout = createCheckerClone('absent', { scripts: { 'retry-cli': command } });
+			try {
+				const result = runChecker(checkout, ['--ci', '--scope', 'types']);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('Inconsistent creator package');
+				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([]);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
+
+	it.each(['test:cli:app', 'test:cli-app'])(
+		'keeps a removed creator absent beside the distinct custom script %s',
+		(name) => {
+			const checkout = createCheckerClone('absent', {
+				scripts: { [name]: 'echo app', custom: `bun run ${name}` }
+			});
+			try {
+				const result = runChecker(checkout, ['--ci', '--scope', 'types']);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(0);
+				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).not.toContainEqual(
+					CLI_TYPES
+				);
+				expect(output).toContain('cli-types        skipped — creator package removed by setup');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
+
+	it.each([
+		['null', '{"name":"create-saas-starter","scripts":null}\n'],
+		['an array', '{"name":"create-saas-starter","scripts":[]}\n'],
+		['a non-string command', '{"name":"create-saas-starter","scripts":{"knip":1}}\n']
+	])(
+		'rejects child scripts that are %s before command dispatch',
+		(_label, childManifest) => {
+			const checkout = createCheckerClone('present', { childManifest });
+			try {
+				const result = runChecker(checkout, ['--ci', '--scope', 'types']);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('child package.json is malformed');
+				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([]);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
 
 	it('propagates a create-saas-starter Knip failure', () => {
 		const checkout = createCheckerClone();

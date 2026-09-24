@@ -6,7 +6,9 @@ import {
 	githubSlugProperty,
 	isValidGithubRepository,
 	isValidWorkerSlug,
+	MAINTAINER_CLI_SCRIPTS,
 	parseContactEmail,
+	referencesMaintainerCli,
 	removeMaintainerCliScripts,
 	readmeShowsCompletedSetup,
 	replaceGithubSlugSource,
@@ -93,6 +95,36 @@ describe('template setup maintainer manifest', () => {
 			}
 		},
 		{
+			label: 'double-quoted extra invocation',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).test = `${test} && bun run "test:cli"`;
+			}
+		},
+		{
+			label: 'single-quoted wrapper',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).wrapper = "bun run 'test:cli'";
+			}
+		},
+		{
+			label: 'shorthand invocation',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).test = `${test} && bun test:cli`;
+			}
+		},
+		{
+			label: 'shorthand install',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).wrapper = 'bun install:cli';
+			}
+		},
+		{
+			label: 'creator path segment',
+			mutate: (value: Record<string, unknown>) => {
+				(value.scripts as Record<string, unknown>).wrapper = 'cd ./packages/create-saas-starter/';
+			}
+		},
+		{
 			label: 'workspace',
 			mutate: (value: Record<string, unknown>) => {
 				value.workspaces = [];
@@ -108,6 +140,29 @@ describe('template setup maintainer manifest', () => {
 		const input = structuredClone(manifest) as Record<string, unknown>;
 		mutate(input);
 		expect(() => removeMaintainerCliScripts(input)).toThrow(/Invalid package.json/);
+	});
+
+	it.each([
+		{ 'test:cli:app': 'echo app', custom: 'bun run test:cli:app' },
+		{ 'test:cli-app': 'echo app', custom: 'bun test:cli-app' },
+		{ custom: 'bun run --cwd packages/create-saas-starter-docs build' }
+	])('preserves distinct custom names in a clean project: %o', (custom) => {
+		const clean = removeMaintainerCliScripts(manifest);
+		const input = { ...clean, scripts: { ...(clean.scripts as object), ...custom } };
+		const result = removeMaintainerCliScripts(input);
+		expect(result.scripts).toEqual(input.scripts);
+		expect(removeMaintainerCliScripts(result)).toEqual(result);
+	});
+
+	it('recognizes every owned script name as a complete token', () => {
+		for (const name of MAINTAINER_CLI_SCRIPTS) {
+			for (const command of [`bun run ${name}`, `bun run "${name}"`, `bun ${name} --flag`]) {
+				expect(referencesMaintainerCli(command), command).toBe(true);
+			}
+			for (const command of [`bun run ${name}:app`, `bun run ${name}-app`, `bun run x${name}`]) {
+				expect(referencesMaintainerCli(command), command).toBe(false);
+			}
+		}
 	});
 });
 

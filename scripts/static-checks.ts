@@ -70,6 +70,7 @@ import {
 } from './git-context';
 import { formatPolicyFinding, matchesKnowledgeCandidate } from './knowledge-policy/policy';
 import { runKnowledgePolicy } from './knowledge-policy/repository';
+import { MAINTAINER_CLI_SCRIPTS, referencesMaintainerCli } from './template-setup';
 import {
 	runSanitizedCommand,
 	sanitizeTerminalField,
@@ -563,14 +564,10 @@ function creatorPackageState(): 'present' | 'absent' {
 		fail('Invalid root package.json: expected scripts.');
 	}
 	const commands = scripts as Record<string, unknown>;
-	const names = ['install:cli', 'check:cli', 'test:cli', 'build:cli', 'test:cli:packed'];
+	const names = MAINTAINER_CLI_SCRIPTS;
 	const dispatch = names.filter((name) => Object.hasOwn(commands, name));
 	const invoked = Object.values(commands).some(
-		(command) =>
-			typeof command === 'string' &&
-			/(?:packages\/create-saas-starter|bun\s+run\s+(?:install:cli|check:cli|test:cli|build:cli|test:cli:packed)\b)/.test(
-				command
-			)
+		(command) => typeof command === 'string' && referencesMaintainerCli(command)
 	);
 	const inspect = (target: string): ReturnType<typeof lstatSync> | undefined => {
 		try {
@@ -605,11 +602,15 @@ function creatorPackageState(): 'present' | 'absent' {
 	}
 	try {
 		const parsed = JSON.parse(readFileSync(path.join(child, 'package.json'), 'utf8')) as unknown;
+		const childScripts =
+			parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+				? (parsed as { scripts?: unknown }).scripts
+				: undefined;
 		if (
-			!parsed ||
-			typeof parsed !== 'object' ||
-			Array.isArray(parsed) ||
-			typeof (parsed as { scripts?: unknown }).scripts !== 'object'
+			!childScripts ||
+			typeof childScripts !== 'object' ||
+			Array.isArray(childScripts) ||
+			Object.values(childScripts).some((command) => typeof command !== 'string')
 		)
 			throw new Error('Invalid child scripts');
 	} catch {

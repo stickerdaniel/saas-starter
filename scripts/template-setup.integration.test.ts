@@ -4,7 +4,7 @@
  * Fixtures need no installed dependencies because setup imports only built-ins and
  * dependency-free local modules.
  */
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import {
 	accessSync,
 	chmodSync,
@@ -63,12 +63,33 @@ afterAll(() => {
 	for (const dir of fixtures) rmSync(dir, { recursive: true, force: true });
 });
 
+const LEGAL_CONTENT_DATES_BLOCK = /^export const LEGAL_CONTENT_DATES = \{\n[^}]*\n\} as const;$/gm;
+
+/**
+ * Runs the live legal-metadata helper with fixture-owned template dates, so setup executes its
+ * real import while date preconditions stay independent of a generated caller.
+ */
+function legalMetadataSource(): string {
+	const live = readFileSync(join(ROOT, 'src/lib/content/legal-metadata.ts'), 'utf-8');
+	const dates = readFileSync(
+		join(ROOT, 'scripts/__fixtures__/template-setup/legal-content-dates.ts'),
+		'utf-8'
+	).trimEnd();
+	expect(live.match(LEGAL_CONTENT_DATES_BLOCK)).toHaveLength(1);
+	expect(dates.match(LEGAL_CONTENT_DATES_BLOCK)).toEqual([dates]);
+	return live.replace(LEGAL_CONTENT_DATES_BLOCK, () => dates);
+}
+
 function createFixture(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'template-setup-'));
 	fixtures.push(dir);
 	for (const rel of FIXTURE_FILES) {
 		const dest = join(dir, rel);
 		mkdirSync(dirname(dest), { recursive: true });
+		if (rel === 'src/lib/content/legal-metadata.ts') {
+			writeFileSync(dest, legalMetadataSource());
+			continue;
+		}
 		cpSync(
 			join(
 				ROOT,
@@ -498,6 +519,68 @@ describe('template setup removes maintainer files', () => {
 		expect(existsSync(join(dir, child))).toBe(false);
 	});
 
+	it.skipIf(process.platform !== 'win32')(
+		'fails on a natively locked child file and completes after the lock is released',
+		async () => {
+			const dir = createFixture();
+			const locked = join(dir, child, 'src/index.ts');
+			// A FileStream without FileShare.Delete makes the real Windows delete fail with a sharing
+			// violation, unlike an interceptor that throws before Bun reaches the primitive.
+			const locker = spawn(
+				'powershell.exe',
+				[
+					'-NoProfile',
+					'-NonInteractive',
+					'-Command',
+					"$stream = [System.IO.File]::Open($env:SETUP_LOCK_PATH, 'Open', 'ReadWrite', 'None'); [Console]::Out.WriteLine('LOCKED'); [Console]::Out.Flush(); [void][Console]::In.ReadLine(); $stream.Dispose()"
+				],
+				{ env: { ...CHILD_ENV, SETUP_LOCK_PATH: locked }, stdio: ['pipe', 'pipe', 'pipe'] }
+			);
+			const exited = new Promise<number | null>((resolve) => locker.on('exit', resolve));
+			try {
+				await new Promise<void>((resolve, reject) => {
+					let output = '';
+					const timer = setTimeout(() => reject(new Error(`Lock not acquired: ${output}`)), 30_000);
+					locker.stdout.on('data', (chunk: Buffer) => {
+						output += chunk.toString();
+						if (output.includes('LOCKED')) {
+							clearTimeout(timer);
+							resolve();
+						}
+					});
+					locker.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
+					locker.on('exit', (code) => {
+						clearTimeout(timer);
+						reject(new Error(`Lock holder exited with ${code}: ${output}`));
+					});
+				});
+
+				const failed = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+				expect(failed.code).not.toBe(0);
+				expect(failed.stdout).not.toContain('Setup complete.');
+				expect(failed.stderr).toMatch(/EBUSY|EPERM|EACCES/);
+				const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+				expect(pkg.name).toBe('northwind-labs');
+				expect(pkg.scripts).not.toHaveProperty('install:cli');
+				expect(readFileSync(join(dir, 'src/lib/config/legal.ts'), 'utf8')).toContain(
+					"brandName: 'Northwind Labs'"
+				);
+				expect(existsSync(join(dir, workflow))).toBe(false);
+				expect(existsSync(locked)).toBe(true);
+			} finally {
+				locker.stdin.end('\n');
+			}
+			expect(await exited).toBe(0);
+
+			const retry = runSetup(dir, []);
+			expect(retry.code, retry.stderr).toBe(0);
+			expect(retry.stdout).toContain('Setup complete.');
+			expect(existsSync(join(dir, child))).toBe(false);
+			expect(readFileSync(join(dir, 'packages/neighbor/keep.txt'), 'utf8')).toBe('neighbor');
+		},
+		120_000
+	);
+
 	it.each([
 		{ target: '.github/workflows/create-saas-starter.yml', type: 'file' as const },
 		{ target: 'packages/create-saas-starter', type: 'dir' as const }
@@ -594,6 +677,24 @@ describe('template setup manifest preflight', () => {
 			mutate: (scripts: Record<string, string>) => {
 				scripts.custom = 'bun run check:cli';
 			}
+		},
+		{
+			label: 'a quoted extra test invocation',
+			mutate: (scripts: Record<string, string>) => {
+				scripts.test += ' && bun run "test:cli"';
+			}
+		},
+		{
+			label: 'a quoted wrapper script',
+			mutate: (scripts: Record<string, string>) => {
+				scripts['retry-cli'] = "bun run 'test:cli'";
+			}
+		},
+		{
+			label: 'a shorthand invocation',
+			mutate: (scripts: Record<string, string>) => {
+				scripts.test += ' && bun test:cli';
+			}
 		}
 	])('rejects $label before canonical writes', ({ mutate }) => {
 		const dir = createFixture();
@@ -610,6 +711,31 @@ describe('template setup manifest preflight', () => {
 		expect(existsSync(join(dir, '.github/workflows/create-saas-starter.yml'))).toBe(true);
 		expect(existsSync(join(dir, 'packages/create-saas-starter/package.json'))).toBe(true);
 	});
+
+	it.each(['test:cli:app', 'test:cli-app'])(
+		'keeps the distinct custom script %s across setup and rerun',
+		(name) => {
+			const dir = createFixture();
+			const file = join(dir, 'package.json');
+			const manifest = JSON.parse(readFileSync(file, 'utf8'));
+			manifest.scripts[name] = 'echo app';
+			manifest.scripts.custom = `bun run ${name}`;
+			writeFileSync(file, JSON.stringify(manifest, null, '\t') + '\n');
+
+			const first = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+			expect(first.code, first.stderr).toBe(0);
+			const scripts = JSON.parse(readFileSync(file, 'utf8')).scripts;
+			expect(scripts[name]).toBe('echo app');
+			expect(scripts.custom).toBe(`bun run ${name}`);
+			expect(scripts).not.toHaveProperty('test:cli');
+			expect(existsSync(join(dir, 'packages/create-saas-starter'))).toBe(false);
+
+			const after = snapshot(dir);
+			const rerun = runSetup(dir, []);
+			expect(rerun.code, rerun.stderr).toBe(0);
+			expect(snapshot(dir)).toEqual(after);
+		}
+	);
 });
 
 describe('template setup re-runs', () => {
@@ -1022,6 +1148,7 @@ describe('template setup rejects input before writing', () => {
 			label: 'the site config lost its githubSlug',
 			file: 'src/lib/config/site.ts',
 			mutate: (source: string) => source.replace(/\tgithubSlug: '[^']*',\n/, ''),
+			malformed: (source: string) => !source.includes("githubSlug: '"),
 			expected: /Could not find githubSlug/
 		},
 		{
@@ -1032,6 +1159,7 @@ describe('template setup rejects input before writing', () => {
 					"\tgithubSlug: 'stickerdaniel/saas-starter',",
 					"\tgithubSlug: 'stickerdaniel/saas-starter',\n\tgithubSlug: 'other/repository',"
 				),
+			malformed: (source: string) => source.match(/^\tgithubSlug: '[^']*',$/gm)?.length === 2,
 			expected: /Expected exactly one direct githubSlug property/
 		},
 		{
@@ -1039,6 +1167,8 @@ describe('template setup rejects input before writing', () => {
 			file: 'src/lib/config/site.ts',
 			mutate: (source: string) =>
 				source.replace("githubSlug: 'stickerdaniel/saas-starter'", 'githubSlug: repository'),
+			malformed: (source: string) =>
+				source.includes('\tgithubSlug: repository,') && !source.includes("githubSlug: '"),
 			expected: /direct string literal/
 		},
 		{
@@ -1049,35 +1179,47 @@ describe('template setup rejects input before writing', () => {
 					/^export const LEGAL_CONFIG[\s\S]*?^\} as const;$/m,
 					"export const LEGAL_CONFIG = { brandName: 'X' };"
 				),
+			malformed: (source: string) =>
+				source.includes("export const LEGAL_CONFIG = { brandName: 'X' };") &&
+				!source.includes('} as const;'),
 			expected: /LEGAL_CONFIG must use a direct object initializer/
 		},
 		{
 			label: 'the README lost its quick start',
 			file: 'README.md',
 			mutate: () => '# Custom Title\n\nUnrelated prose.\n',
+			malformed: (source: string) => !/^## Quick Start/m.test(source),
 			expected: /Expected exactly one Quick Start H2/
 		},
 		{
 			label: 'wrangler.toml lost its name assignment',
 			file: 'wrangler.toml',
 			mutate: (source: string) => source.replace(/^name = "[^"]*".*\n/m, ''),
+			malformed: (source: string) => !/^name = /m.test(source),
 			expected: /Expected exactly one name assignment/
 		},
 		{
 			label: 'wrangler.toml uses a multiline basic string for the root name',
 			file: 'wrangler.toml',
 			mutate: (source: string) => source.replace(/^name = "[^"]*".*$/m, 'name = """base-worker"""'),
+			malformed: (source: string) => /^name = """base-worker"""$/m.test(source),
 			expected: /Expected exactly one name assignment/
 		},
 		{
 			label: 'wrangler.toml uses a multiline literal string for the root name',
 			file: 'wrangler.toml',
 			mutate: (source: string) => source.replace(/^name = "[^"]*".*$/m, "name = '''base-worker'''"),
+			malformed: (source: string) => /^name = '''base-worker'''$/m.test(source),
 			expected: /Expected exactly one name assignment/
 		}
-	])('leaves every file untouched when $label', ({ file, mutate, expected }) => {
+	])('leaves every file untouched when $label', ({ file, mutate, malformed, expected }) => {
 		const dir = createFixture();
-		writeFileSync(join(dir, file), mutate(readFileSync(join(dir, file), 'utf-8')), 'utf-8');
+		const original = readFileSync(join(dir, file), 'utf-8');
+		const mutated = mutate(original);
+		expect(mutated).not.toBe(original);
+		expect(malformed(original)).toBe(false);
+		expect(malformed(mutated)).toBe(true);
+		writeFileSync(join(dir, file), mutated, 'utf-8');
 		const before = snapshot(dir);
 
 		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
@@ -1114,7 +1256,14 @@ describe('template setup rejects input before writing', () => {
 	])('rejects an imported %s before normalization or writes', (_label, mutate) => {
 		const dir = createFixture();
 		const legal = join(dir, 'src/lib/config/legal.ts');
-		writeFileSync(legal, mutate(readFileSync(legal, 'utf-8')), 'utf-8');
+		const original = readFileSync(legal, 'utf-8');
+		const mutated = mutate(original);
+		const unsupportedFirstProperty =
+			/^export const LEGAL_CONFIG = \{\n\t(?:unsupported|\['__proto__'\]):/m;
+		expect(mutated).not.toBe(original);
+		expect(original).not.toMatch(unsupportedFirstProperty);
+		expect(mutated).toMatch(unsupportedFirstProperty);
+		writeFileSync(legal, mutated, 'utf-8');
 		const before = snapshot(dir);
 
 		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);

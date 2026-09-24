@@ -94,13 +94,26 @@ describe('CLI lifecycle', () => {
 				'README.md',
 				'wrangler.toml',
 				'src/lib/config/legal.ts',
-				'src/lib/config/site.ts',
-				'src/lib/content/legal-metadata.ts'
+				'src/lib/config/site.ts'
 			];
+			// Setup imports the live legal-metadata helper; only its date block is fixture-owned.
+			const datesBlock = /^export const LEGAL_CONTENT_DATES = \{\n[^}]*\n\} as const;$/gm;
+			const liveMetadata = readFileSync(
+				path.join(root, 'src/lib/content/legal-metadata.ts'),
+				'utf8'
+			);
+			const fixtureDates = readFileSync(
+				path.join(fixture, 'legal-content-dates.ts'),
+				'utf8'
+			).trimEnd();
+			expect(liveMetadata.match(datesBlock)).toHaveLength(1);
+			expect(fixtureDates.match(datesBlock)).toEqual([fixtureDates]);
 			const entries = validTemplateEntries().map((entry) => {
 				const relative = entry.path.slice('root/'.length);
 				if (canonical.includes(relative))
 					return { ...entry, data: readFileSync(path.join(fixture, relative)) };
+				if (relative === 'src/lib/content/legal-metadata.ts')
+					return { ...entry, data: liveMetadata.replace(datesBlock, () => fixtureDates) };
 				if (relative === 'scripts/template-setup.ts')
 					return { ...entry, data: readFileSync(path.join(root, relative)) };
 				return entry;
