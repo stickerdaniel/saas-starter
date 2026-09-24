@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { devNull, tmpdir } from 'node:os';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -231,9 +231,62 @@ async function runGate(
 	return { ...result, output: await readFile(outputPath, 'utf8'), sha256, root, tarball };
 }
 
-// The gate is a bash step that needs sha256sum, jq, and an executable npm
-// stub, which Windows runners do not provide on this path.
-describe.skipIf(process.platform === 'win32')('release gate', () => {
+// The gate reads tarballs with the tar and pacote bundled in the npm on PATH,
+// and CI runs it with the release toolchain's npm, which must support trusted
+// publishing. npm 10 bundles tar 6, which ignores the gate's onReadEntry
+// listener, so the gate fails closed there. The release tools CI entry sets
+// this variable to `required` so these cases can never be skipped there.
+const RELEASE_GATE_TEST = process.env.CREATE_SAAS_STARTER_RELEASE_GATE_TEST ?? '';
+const RELEASE_NPM_MINIMUM = '11.5.1';
+if (RELEASE_GATE_TEST !== '' && RELEASE_GATE_TEST !== 'required') {
+	throw new Error(
+		`CREATE_SAAS_STARTER_RELEASE_GATE_TEST must be unset or 'required', not '${RELEASE_GATE_TEST}'.`
+	);
+}
+
+function npmVersion(): { text: string; parts: number[] } | undefined {
+	const result = spawnSync('npm', ['--version'], { encoding: 'utf8' });
+	const text = result.status === 0 ? result.stdout.trim() : '';
+	const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(text);
+	return match ? { text, parts: match.slice(1, 4).map(Number) } : undefined;
+}
+
+function atLeast(parts: number[], minimum: string): boolean {
+	const required = minimum.split('.').map(Number);
+	const index = parts.findIndex((part, position) => part !== required[position]);
+	return index === -1 || parts[index]! > required[index]!;
+}
+
+// Undefined when the cases run. A missing npm still runs them, so they fail.
+function skipReason(): string | undefined {
+	if (RELEASE_GATE_TEST === 'required') return undefined;
+	// The gate is a bash step that needs sha256sum, jq, and an executable npm
+	// stub, which Windows runners do not provide on this path.
+	if (process.platform === 'win32') return 'The release gate does not run on Windows.';
+	const npm = npmVersion();
+	if (npm && npm.parts[0]! < 11) {
+		return `Found npm ${npm.text}; the release gate needs the tar that npm 11 or later bundles.`;
+	}
+	return undefined;
+}
+
+const SKIP_REASON = skipReason();
+
+describe('release gate', () => {
+	beforeAll(() => {
+		if (RELEASE_GATE_TEST !== 'required') return;
+		const npm = npmVersion();
+		expect(
+			npm !== undefined && atLeast(npm.parts, RELEASE_NPM_MINIMUM),
+			`The release gate test is required and needs npm ${RELEASE_NPM_MINIMUM} or later, ` +
+				`but found ${npm ? `npm ${npm.text}` : 'no readable npm version'}.`
+		).toBe(true);
+	});
+
+	beforeEach(({ skip }) => {
+		if (SKIP_REASON !== undefined) skip(SKIP_REASON);
+	});
+
 	it('authorizes the source manifest with the pinned template for an unpublished version', async () => {
 		const result = await runGate(SOURCE_MANIFEST);
 

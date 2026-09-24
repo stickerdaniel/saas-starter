@@ -201,6 +201,30 @@ describe('creator workflows', () => {
 		expect(workflow).toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a');
 	});
 
+	it('requires the release gate test only on the entry with the release npm', () => {
+		const { verify } = (
+			parseYaml(read('.github/workflows/create-saas-starter.yml')) as {
+				jobs: {
+					verify: {
+						strategy: { matrix: { include: Array<Record<string, unknown>> } };
+						steps: Array<{ run?: string; env?: Record<string, string> }>;
+					};
+				};
+			}
+		).jobs;
+		const required = verify.strategy.matrix.include.filter(
+			(entry) => entry.release_gate_test !== undefined
+		);
+
+		expect(required).toEqual([
+			expect.objectContaining({ node: '24.19.0', artifact: true, release_gate_test: 'required' })
+		]);
+		expect(
+			verify.steps.find((step) => step.run === 'bun run --cwd packages/create-saas-starter test')
+				?.env
+		).toEqual({ CREATE_SAAS_STARTER_RELEASE_GATE_TEST: '${{ matrix.release_gate_test }}' });
+	});
+
 	it('publishes only from the credential-isolated npm job after the release gate', () => {
 		const source = read('.github/workflows/create-saas-starter.yml');
 		expect(source).not.toMatch(/\bbun\s+publish\b/);
