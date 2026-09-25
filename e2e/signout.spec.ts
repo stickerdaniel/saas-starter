@@ -1,13 +1,13 @@
 import { test, expect, type Route } from '@playwright/test';
-import { waitForAuthenticated } from './utils/auth';
+import { signInAsTestUser, waitForAuthenticated } from './utils/auth';
 
-// Uses pre-authenticated session state from setup.
-//
-// Signing out revokes the shared session on the server, so this project runs
-// last and the suite can afford exactly one logout. The upload guard has to be
-// exercised on that one: it exempts sign-out deliberately, and getting that
-// wrong strands the user on a page whose session is already gone.
+// Signing out revokes the session it runs in, so this project starts without
+// setup's stored session and each attempt signs in to its own. A retry therefore
+// does not land on /signin after an earlier attempt's logout. The upload guard
+// has to be exercised on this logout: it exempts sign-out deliberately, and
+// getting that wrong strands the user on a page whose session is already gone.
 test('signout works, and is not stopped by an upload in flight', async ({ page }) => {
+	await signInAsTestUser(page);
 	await page.goto('/app/ai-chat');
 	await waitForAuthenticated(page);
 	await page.waitForURL(/\/app\/ai-chat\?thread=/, { timeout: 15000 });

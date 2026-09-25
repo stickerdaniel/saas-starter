@@ -101,15 +101,11 @@ export default defineConfig({
 			use: { ...devices['Desktop Chrome'] },
 			testMatch: '**/public-*.spec.ts'
 		},
-		// Signout test - runs LAST to avoid invalidating session for other tests
-		// The signout test logs out on the server, which would break subsequent tests
-		// that reuse the same session token from user.json
+		// Signout test - signs in to a session of its own, so its logout leaves
+		// user.json valid and every retry starts signed in
 		{
 			name: 'chromium-signout',
-			use: {
-				...devices['Desktop Chrome'],
-				storageState: 'e2e/.auth/user.json'
-			},
+			use: { ...devices['Desktop Chrome'] },
 			dependencies: ['chromium'], // Runs after all chromium tests
 			testMatch: '**/signout.spec.ts'
 		},
