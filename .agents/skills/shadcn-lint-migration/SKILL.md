@@ -57,7 +57,7 @@ Done when every unit has one final verdict and every policy question has a decis
 
 ## 6. Migrate rule by rule
 
-Each PR takes one rule: apply its verdicts, reach zero findings over every linted file with the real config, enforce the rule in `enforcedShadcnPolicy`, and extend `eslint/shadcn-policy.test.ts`. Run the real typed config in chunks of at most 20 files.
+Each PR takes one rule: apply its verdicts, reach zero findings over every linted file with the real config, enforce the rule in `enforcedShadcnPolicy` (for `no-restyle`, also restore `...restyleEntries()` in `enforcedShadcnConfig`), and extend `eslint/shadcn-policy.test.ts` or `eslint/shadcn-restyle-policy.test.ts`. Run the real typed config in chunks of at most 20 files.
 
 Done when the rule is an error on trunk.
 

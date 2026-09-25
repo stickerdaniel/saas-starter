@@ -19,8 +19,11 @@ rule), or the rule's PR cannot merge.
 
 `@shadcn/lint` rules are the one exception, because each fork finding needs a design
 judgement. Keep every `shadcn/*` rule that still reports fork findings out of
-`enforcedShadcnPolicy` in `eslint/shadcn-policy.js`, match `eslint/shadcn-policy.test.ts`
-to the rules actually enforced, and name the held-back rules in the sync PR body. Then
+`enforcedShadcnPolicy` in `eslint/shadcn-policy.js`; holding back `shadcn/no-restyle` also
+means dropping `...restyleEntries()` from `enforcedShadcnConfig`, whose per-owner entries
+enforce it on their own. Match `eslint/shadcn-policy.test.ts` and
+`eslint/shadcn-restyle-policy.test.ts` to the rules actually enforced, and name the
+held-back rules in the sync PR body. Then
 tell the human to run `/shadcn-lint-migration`, which enforces them one at a time.
 
 ## 2. Typed-env deploys need a preview default
