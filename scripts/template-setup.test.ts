@@ -759,10 +759,7 @@ bun run dev
 			'a closing fence with the wrong marker',
 			source.replace('bun run dev\n```', 'bun run dev\n~~~')
 		],
-		[
-			'a closing fence shorter than its opener',
-			source.replace('```bash', '````bash').replace('bun run dev\n```', 'bun run dev\n```')
-		]
+		['a closing fence shorter than its opener', source.replace('```bash', '````bash')]
 	])('fails closed for $0', (_label, invalid) => {
 		expect(() => replaceReadmeSource(invalid, options)).toThrow(/fence|unterminated/i);
 	});

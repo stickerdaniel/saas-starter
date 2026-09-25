@@ -4,6 +4,9 @@ name: Check Attribution
 # on repos that call it main and repos that call it master.
 on: pull_request
 
+permissions:
+  contents: read
+
 # Coding agents sign their work either with a Co-Authored-By trailer or by
 # claiming the author/committer field. Squash-merging collects the trailers of
 # every commit in the PR into the merge commit, so a single unnoticed trailer
