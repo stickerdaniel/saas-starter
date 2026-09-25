@@ -14,9 +14,6 @@ docs/references/
 # Cross-platform symlink pointer
 /CLAUDE.md
 
-# Written by published create-saas-starter releases with 2-space JSON
-/.saas-starter-scaffold.json
-
 # Generated files
 **/_generated/
 src/env.d.ts

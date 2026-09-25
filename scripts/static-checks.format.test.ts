@@ -75,7 +75,6 @@ function createCheckerClone(): { directory: string; repository: string } {
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
 		for (const relative of [
-			'.prettierignore',
 			'scripts/static-checks.ts',
 			'scripts/template-setup.ts',
 			'scripts/english-policy/content.ts',
@@ -926,23 +925,6 @@ describe('scope routing', () => {
 	it('records a numeric formatter count in an isolated full-project run', () => {
 		const checkout = createCheckerClone();
 		try {
-			// Every generated project starts with this marker. Published CLIs serialize it as
-			// `${JSON.stringify(marker, null, 2)}\n` (packages/create-saas-starter/src/target.ts),
-			// which the tab-indented Prettier config rejects, and those releases cannot change.
-			const marker = {
-				version: 1,
-				state: 'ready',
-				phase: 'complete',
-				source: 'stickerdaniel/saas-starter',
-				ref: 'main',
-				sha: '0'.repeat(40),
-				cliVersion: '0.1.1',
-				archiveSha256: '0'.repeat(64)
-			};
-			writeFileSync(
-				path.join(checkout.repository, '.saas-starter-scaffold.json'),
-				`${JSON.stringify(marker, null, 2)}\n`
-			);
 			const result = spawnSync(
 				testExecutable('bun'),
 				[
