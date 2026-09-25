@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as Helpers from './helpers';
 
 const { sendEmail, getEmailDeliveryConfiguration, assertResendApiKey } = vi.hoisted(() => {
 	const getConfiguration = vi.fn();
@@ -30,9 +31,9 @@ vi.mock('./templates', () => ({
 	renderNewUserSignupNotificationEmail: vi.fn(() => ({ html: 'html', text: 'text' }))
 }));
 
-vi.mock('./helpers', () => ({
-	buildSupportDeepLink: vi.fn(() => 'https://app.example.com/support'),
-	shouldSkipTestEmail: vi.fn(() => false)
+vi.mock('./helpers', async (importOriginal) => ({
+	...(await importOriginal<typeof Helpers>()),
+	buildSupportDeepLink: vi.fn(() => 'https://app.example.com/support')
 }));
 
 vi.mock('../credentialAccounts', () => ({ hasUsablePassword: vi.fn(() => true) }));
@@ -339,6 +340,29 @@ describe('email send provider preflights', () => {
 			})
 		).toBe(true);
 		expect(sendEmail).toHaveBeenCalledTimes(1);
+	});
+
+	it('skips E2E test recipients of new ticket notifications and sends to real ones', async () => {
+		const ctx = { runQuery: vi.fn().mockResolvedValue({ locale: 'en' }) };
+		const args = {
+			isReopen: false,
+			isBareHandoff: false,
+			userName: 'User',
+			messages: [],
+			threadId: 'thread_1'
+		};
+		const handler = (sendNewTicketAdminNotification as unknown as RegisteredMutation)._handler;
+
+		expect(await handler(ctx, { ...args, email: 'admin@e2e.example.com' })).toBe(false);
+		expect(sendEmail).not.toHaveBeenCalled();
+		expect(ctx.runQuery).not.toHaveBeenCalled();
+
+		expect(await handler(ctx, { ...args, email: 'admin@example.com' })).toBe(true);
+		expect(sendEmail).toHaveBeenCalledTimes(1);
+		expect(sendEmail).toHaveBeenCalledWith(
+			ctx,
+			expect.objectContaining({ to: 'admin@example.com' })
+		);
 	});
 });
 

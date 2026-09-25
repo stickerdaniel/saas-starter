@@ -23,6 +23,7 @@ import { internal, components } from '../../_generated/api';
 import { supportThreadFields } from '../../support/supportThreadFields';
 import { isPreviewAdminEmail } from '../notificationPreferences/helpers';
 import { getEmailDeliveryConfiguration } from '../../emails/resend';
+import { shouldSkipTestEmail } from '../../emails/helpers';
 
 /** Delay before sending a notification after the latest message. */
 const NOTIFICATION_DELAY_MS = 4 * 60 * 1000;
@@ -217,13 +218,14 @@ export const sendPendingAdminNotification = internalAction({
 		// Determine target emails based on stored notification type
 		// - 'newTickets' for handoffs and reopened tickets
 		// - 'userReplies' for follow-up messages to handed-off tickets
-		const targetEmails = await ctx.runQuery(
-			internal.admin.support.notifications.getNotificationTargetEmails,
-			{
+		// E2E test addresses are never sent to, so they are dropped here: they must
+		// neither count as a delivery nor keep an all-test notification retrying.
+		const targetEmails = (
+			await ctx.runQuery(internal.admin.support.notifications.getNotificationTargetEmails, {
 				assignedTo: supportThread.assignedTo,
 				notificationType: notification.notificationType
-			}
-		);
+			})
+		).filter((email) => !shouldSkipTestEmail('sendPendingAdminNotification', email));
 
 		if (targetEmails.length === 0) {
 			console.log('[sendPendingAdminNotification] No target emails found, skipping notification');
