@@ -2,10 +2,11 @@
 import { existsSync } from 'node:fs';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
+import spec from './__fixtures__/shadcn-restyle-spec.json';
 import safeSvelteParser from './parsers/safe-svelte-parser.js';
-import { enforcedShadcnPolicy, shadcnPolicy } from './shadcn-policy.js';
+import { enforcedShadcnPolicy } from './shadcn-policy.js';
 
-const eslint = new ESLint({ overrideConfig: shadcnPolicy });
+const eslint = new ESLint();
 const route = 'src/routes/+layout.svelte';
 const helper = 'src/lib/utils.ts';
 const button = `<script lang="ts">import { Button } from '$lib/components/ui/button';</script>\n`;
@@ -39,7 +40,7 @@ describe('shadcn policy through the application ESLint config', () => {
 		const source = `${button}<Button class="rounded-full">Save</Button>`;
 		expect(ids(await messages(source))).toContain('shadcn/no-restyle');
 		const withoutRule = new ESLint({
-			overrideConfig: [...shadcnPolicy, { files: [route], rules: { 'shadcn/no-restyle': 'off' } }]
+			overrideConfig: [{ files: [route], rules: { 'shadcn/no-restyle': 'off' } }]
 		});
 		const [disabled] = await withoutRule.lintText(source, { filePath: route });
 		expect(disabled.fatalErrorCount).toBe(0);
@@ -99,10 +100,7 @@ function getClasses(): string { return 'mt-4'; }
 		expect(unreadable).toHaveLength(1);
 		expect(unreadable[0].severity).toBe(2);
 		const withoutRule = new ESLint({
-			overrideConfig: [
-				...shadcnPolicy,
-				{ files: [route], rules: { 'shadcn/require-static-classes': 'off' } }
-			]
+			overrideConfig: [{ files: [route], rules: { 'shadcn/require-static-classes': 'off' } }]
 		});
 		const [disabled] = await withoutRule.lintText(source, { filePath: route });
 		expect(disabled.fatalErrorCount).toBe(0);
@@ -130,33 +128,31 @@ function getClasses(): string { return 'mt-4'; }
 });
 
 describe('shadcn rules enforced by the application ESLint config', () => {
-	const production = new ESLint();
 	const enforced = [
 		'shadcn/no-unknown-classes',
 		'shadcn/require-static-classes',
 		'shadcn/no-raw-colors',
 		'shadcn/no-inline-styles',
-		'shadcn/no-arbitrary-values'
+		'shadcn/no-arbitrary-values',
+		'shadcn/no-restyle'
 	];
-	const pending = ['shadcn/no-restyle'];
-	const pendingSource = `${button}<Button class="rounded-full">Save</Button>`;
 
 	async function productionMessages(source: string, filePath = route) {
-		expect(await production.isPathIgnored(filePath)).toBe(false);
-		const [result] = await production.lintText(source, { filePath });
+		expect(await eslint.isPathIgnored(filePath)).toBe(false);
+		const [result] = await eslint.lintText(source, { filePath });
 		expect(result.ignored).not.toBe(true);
 		expect(result.fatalErrorCount).toBe(0);
 		return result.messages.filter((message) => message.ruleId?.startsWith('shadcn/'));
 	}
 
-	it('enables only the migrated rules, with the policy options, through the safe parser', async () => {
+	it('enables all six rules, with the policy options, through the safe parser', async () => {
 		expect(existsSync(route)).toBe(true);
-		expect(await production.isPathIgnored(route)).toBe(false);
-		const config = await production.calculateConfigForFile(route);
+		expect(await eslint.isPathIgnored(route)).toBe(false);
+		const config = await eslint.calculateConfigForFile(route);
 		// ESLint loads the config through its own module graph, so compare the parser by
 		// behavior: only the safe wrapper rewrites a control character in a parse failure.
 		expect(config.languageOptions.parser.meta).toEqual(safeSvelteParser.meta);
-		const [invalid] = await production.lintText(`<div>{${String.fromCharCode(0x1b)}}</div>`, {
+		const [invalid] = await eslint.lintText(`<div>{${String.fromCharCode(0x1b)}}</div>`, {
 			filePath: route
 		});
 		expect(invalid.messages.find((message) => message.fatal)?.message).toContain('U+001B');
@@ -171,7 +167,11 @@ describe('shadcn rules enforced by the application ESLint config', () => {
 			2,
 			enforcedShadcnPolicy.rules['shadcn/no-arbitrary-values'][1]
 		]);
-		for (const rule of pending) expect(config.rules[rule]).toBeUndefined();
+		// The committed decision, not the implementation under test, fixes these options.
+		expect(config.rules['shadcn/no-restyle']).toEqual([2, spec.base]);
+		const shadcnRules = Object.keys(config.rules).filter((rule) => rule.startsWith('shadcn/'));
+		expect(shadcnRules.sort()).toEqual([...enforced].sort());
+		for (const rule of enforced) expect(config.rules[rule][0], rule).toBe(2);
 	}, 60_000);
 
 	it('rejects a dynamic class on an imported Button', async () => {
@@ -261,8 +261,8 @@ function getClasses(): string { return 'mt-4'; }
 		['src/lib/emails-archive/x.svelte', 2],
 		['src/blocks/logos-extra/x.svelte', 2]
 	])('sets raw color severity for %s to %i', async (filePath, severity) => {
-		expect(await production.isPathIgnored(filePath)).toBe(false);
-		const config = await production.calculateConfigForFile(filePath);
+		expect(await eslint.isPathIgnored(filePath)).toBe(false);
+		const config = await eslint.calculateConfigForFile(filePath);
 		expect(config.rules['shadcn/no-raw-colors'][0]).toBe(severity);
 	});
 
@@ -314,8 +314,8 @@ function getClasses(): string { return 'mt-4'; }
 		['src/blocks/logos/nested/x.svelte', 2],
 		['src/lib/emails-archive/x.svelte', 2]
 	])('sets inline style severity for %s to %i', async (filePath, severity) => {
-		expect(await production.isPathIgnored(filePath)).toBe(false);
-		const config = await production.calculateConfigForFile(filePath);
+		expect(await eslint.isPathIgnored(filePath)).toBe(false);
+		const config = await eslint.calculateConfigForFile(filePath);
 		expect(config.rules['shadcn/no-inline-styles'][0]).toBe(severity);
 	});
 
@@ -371,10 +371,11 @@ function getClasses(): string { return 'mt-4'; }
 		).toEqual([]);
 	}, 60_000);
 
-	it('does not yet report the pending rules', async () => {
-		const found = await productionMessages(pendingSource);
-		expect(found.filter((message) => !enforced.includes(message.ruleId ?? ''))).toEqual([]);
-		// The same source does trip every pending rule once the full policy is applied.
-		expect(new Set(ids(await messages(pendingSource)))).toEqual(new Set(pending));
+	it('rejects a restyle on an imported Button', async () => {
+		const found = await productionMessages(`${button}<Button class="rounded-full">Save</Button>`);
+		expect(found.map((message) => [message.ruleId, message.severity])).toEqual([
+			['shadcn/no-restyle', 2]
+		]);
+		expect(found[0].message).toContain('"rounded-full"');
 	}, 60_000);
 });

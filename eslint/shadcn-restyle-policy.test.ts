@@ -8,8 +8,7 @@ import {
 	enforcedShadcnPolicy,
 	restyleEntries,
 	restyleOptions,
-	restyleOwners,
-	shadcnPolicy
+	restyleOwners
 } from './shadcn-policy.js';
 
 // Real files, because the typed Svelte parser rejects a Svelte path that is not on disk.
@@ -18,7 +17,8 @@ const signin = 'src/routes/[[lang]]/(auth)/signin/+page.svelte';
 const signup = 'src/routes/[[lang]]/(auth)/signup/+page.svelte';
 const composer = 'src/lib/components/prompt-kit/prompt-input/PromptInputTextarea.svelte';
 
-const measurement = new ESLint({ overrideConfig: shadcnPolicy });
+// The application config, which enforces no-restyle with every owner profile.
+const production = new ESLint();
 
 // The expected policy is the committed decision, not the implementation under test, so
 // a category or class added to shadcn-policy.js alone fails here.
@@ -84,9 +84,9 @@ const appearance = ['bg-primary', 'p-4', 'h-12', 'rounded-full', 'text-lg', 'sha
 const placementSample = ['-mt-2', 'w-full', 'shrink-0', 'relative', 'top-1', 'z-10', 'sm:hidden'];
 const classes = [...appearance, ...placementSample].join(' ');
 
-describe('no-restyle measurement options', () => {
+describe('no-restyle options in the application config', () => {
 	it('gives files without an owner profile the ordered base contracts', async () => {
-		expect(await restyleOptionsFor(measurement, route)).toEqual([2, specBase]);
+		expect(await restyleOptionsFor(production, route)).toEqual([2, specBase]);
 		// No container contract after STRICT may reopen a control.
 		const strict = specBase.contracts.at(-1)!;
 		for (const name of ['Button', 'Badge', 'AdminThreadRow']) {
@@ -102,12 +102,12 @@ describe('no-restyle measurement options', () => {
 		);
 		for (const file of [...files, route]) {
 			expect(existsSync(file), file).toBe(true);
-			expect(await restyleOptionsFor(measurement, file), file).toEqual([2, specOptionsFor(file)]);
+			expect(await restyleOptionsFor(production, file), file).toEqual([2, specOptionsFor(file)]);
 		}
 	}, 120_000);
 
 	it('repeats the base contracts in an owner file and unions the inherited allowance', async () => {
-		const [severity, options] = await restyleOptionsFor(measurement, composer);
+		const [severity, options] = await restyleOptionsFor(production, composer);
 		expect(severity).toBe(2);
 		expect(options.allow).toEqual(specBase.allow);
 		expect(options.contracts.slice(0, -1)).toEqual(specBase.contracts);
@@ -120,7 +120,7 @@ describe('no-restyle measurement options', () => {
 	it('keeps borders, rings and color off a Skeleton', async () => {
 		const source = `<script lang="ts">import { Skeleton } from '$lib/components/ui/skeleton';</script>
 <Skeleton class="rounded-full ring-2 border-4 bg-primary" />`;
-		const found = await restyles(measurement, source, route);
+		const found = await restyles(production, source, route);
 		expect(found.map((entry) => entry.token).sort()).toEqual(['bg-primary', 'border-4', 'ring-2']);
 	}, 60_000);
 
@@ -128,22 +128,24 @@ describe('no-restyle measurement options', () => {
 		const owner = specOwners.find((entry) => entry.id === 'O02')!;
 		const source = `<script lang="ts">import { Button } from '$lib/components/ui/button';</script>
 <Button class="${owner.components.Button!.join(' ')} bg-primary" />`;
-		const found = await restyles(measurement, source, owner.files[0]!);
+		const found = await restyles(production, source, owner.files[0]!);
 		expect(found.map((entry) => entry.token)).toEqual(['bg-primary']);
 	}, 60_000);
 
 	it('admits an owner recipe only in the owner file', async () => {
 		const source = `<script lang="ts">import { Textarea } from '$lib/components/ui/textarea';</script>
 <Textarea class="mt-2 composer-scroll-mask !py-0 bg-primary" />`;
-		const inOwner = await restyles(measurement, source, composer);
+		const inOwner = await restyles(production, source, composer);
 		expect(inOwner.map((found) => found.token)).toEqual(['bg-primary']);
-		const elsewhere = await restyles(measurement, source, route);
+		const elsewhere = await restyles(production, source, route);
 		expect(elsewhere.map((found) => found.token).sort()).toEqual(
 			['!py-0', 'bg-primary', 'composer-scroll-mask'].sort()
 		);
 	}, 60_000);
 });
 
+// Each fixture config loads after the application config. Its enforcedShadcnPolicy
+// resets every file to the base options, so only the fixture's owners apply.
 describe('no-restyle flat-config precedence', () => {
 	// The O48 auth card hook, attached to one literal [[lang]] route file.
 	const authCard = {
@@ -287,7 +289,7 @@ import * as Kbd from '$lib/components/ui/kbd';
 		const firstLine = imports.split('\n').length;
 		const source =
 			imports + controls.map(([, markup]) => markup.replace('CLASSES', classes)).join('\n');
-		const found = await restyles(measurement, source, route);
+		const found = await restyles(production, source, route);
 
 		controls.forEach(([name], index) => {
 			const onLine = found.filter((entry) => entry.line === firstLine + index);
@@ -316,7 +318,7 @@ describe('no-restyle private owners', () => {
 		const firstLine = header.split('\n').length;
 		const source =
 			header + owners.map((owner) => `<${pascal(owner)} class="${classes}" />`).join('\n');
-		const found = await restyles(measurement, source, route);
+		const found = await restyles(production, source, route);
 
 		owners.forEach((owner, index) => {
 			const onLine = found.filter((entry) => entry.line === firstLine + index);
@@ -461,7 +463,7 @@ describe('no-restyle owner profiles', () => {
 		for (const file of readdirSync(ownedDir)) owned.set(`${ownedDir}/${file}`, new Set(['*']));
 
 		for (const [file, names] of owned) {
-			const found = await restyles(measurement, readFileSync(file, 'utf-8'), file);
+			const found = await restyles(production, readFileSync(file, 'utf-8'), file);
 			const reported = found
 				.filter((entry) => names.has('*') || names.has(entry.component))
 				.map((entry) => `${entry.token}@${entry.component}`);
@@ -478,11 +480,11 @@ describe('no-restyle owner profiles', () => {
 		it(`${owner.id} admits its recipe in its owner file only`, async () => {
 			const { source, firstLine, names } = recipeSource(owner.components);
 			for (const file of owner.files) {
-				expect(await restyles(measurement, source, file), file).toEqual([]);
+				expect(await restyles(production, source, file), file).toEqual([]);
 			}
 			// Elsewhere every component keeps its strict or default contract, so each
 			// recipe loses at least one class, and only classes from the recipe.
-			const elsewhere = await restyles(measurement, source, route);
+			const elsewhere = await restyles(production, source, route);
 			names.forEach((name, index) => {
 				const onLine = elsewhere.filter((entry) => entry.line === firstLine + index);
 				expect(onLine.length, name).toBeGreaterThan(0);

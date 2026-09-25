@@ -75,38 +75,6 @@ const arbitraryValueExceptions = [
 	'ease-[cubic-bezier(0.23,1,0.32,1)]'
 ];
 
-// Enforced by eslint.config.js. Each allowed unknown class is supplied outside
-// Tailwind's class grammar: ai-elements selectors read is-user/is-assistant, the
-// typography plugin defines not-prose, legal-markdown.test.ts asserts legal-literal,
-// and svelte-sonner styles toaster. Allow further classes by exact name only.
-export const enforcedShadcnPolicy = {
-	files,
-	plugins,
-	rules: {
-		'shadcn/no-unknown-classes': [
-			'error',
-			{ allow: ['is-user', 'is-assistant', 'not-prose', 'legal-literal', 'toaster'] }
-		],
-		'shadcn/require-static-classes': 'error',
-		'shadcn/no-raw-colors': 'error',
-		'shadcn/no-inline-styles': 'error',
-		'shadcn/no-arbitrary-values': ['error', { allow: arbitraryValueExceptions }]
-	}
-};
-
-// Spread by eslint.config.js: the enforced policy followed by its path exceptions.
-export const enforcedShadcnConfig = [
-	enforcedShadcnPolicy,
-	// Email clients cannot read theme variables or stylesheet classes reliably, so
-	// templates inline literal colors and styles.
-	{
-		files: ['src/lib/emails/**'],
-		rules: { 'shadcn/no-raw-colors': 'off', 'shadcn/no-inline-styles': 'off' }
-	},
-	// Brand logos reproduce each vendor's own fills.
-	{ files: ['src/blocks/logos/**'], rules: { 'shadcn/no-raw-colors': 'off' } }
-];
-
 // no-restyle: a caller places a design-system component; its look comes from the
 // component's own options. A component no contract names keeps the layout default.
 // The rule applies only the last contract whose pattern matches, so order matters.
@@ -1026,28 +994,57 @@ export function restyleEntries(owners = restyleOwners) {
 			byFile.set(file, components);
 		}
 	}
-	return [
-		{ files, plugins, rules: { 'shadcn/no-restyle': ['error', restyleOptions] } },
-		...Array.from(byFile, ([file, components]) => ({
-			files: [literalFile(file)],
-			rules: {
-				'shadcn/no-restyle': [
-					'error',
-					{
-						...restyleOptions,
-						contracts: [
-							...restyleOptions.contracts,
-							...Array.from(components, ([component, additions]) => ({
-								pattern: `^${component}$`,
-								allow: [...new Set([...inheritedAllow(component), ...additions])]
-							}))
-						]
-					}
-				]
-			}
-		}))
-	];
+	return Array.from(byFile, ([file, components]) => ({
+		files: [literalFile(file)],
+		rules: {
+			'shadcn/no-restyle': [
+				'error',
+				{
+					...restyleOptions,
+					contracts: [
+						...restyleOptions.contracts,
+						...Array.from(components, ([component, additions]) => ({
+							pattern: `^${component}$`,
+							allow: [...new Set([...inheritedAllow(component), ...additions])]
+						}))
+					]
+				}
+			]
+		}
+	}));
 }
 
-// Measures the migration until no-restyle is clean enough to join the enforced config.
-export const shadcnPolicy = [enforcedShadcnPolicy, ...restyleEntries()];
+// Enforced by eslint.config.js. Each allowed unknown class is supplied outside
+// Tailwind's class grammar: ai-elements selectors read is-user/is-assistant, the
+// typography plugin defines not-prose, legal-markdown.test.ts asserts legal-literal,
+// and svelte-sonner styles toaster. Allow further classes by exact name only.
+export const enforcedShadcnPolicy = {
+	files,
+	plugins,
+	rules: {
+		'shadcn/no-unknown-classes': [
+			'error',
+			{ allow: ['is-user', 'is-assistant', 'not-prose', 'legal-literal', 'toaster'] }
+		],
+		'shadcn/require-static-classes': 'error',
+		'shadcn/no-raw-colors': 'error',
+		'shadcn/no-inline-styles': 'error',
+		'shadcn/no-arbitrary-values': ['error', { allow: arbitraryValueExceptions }],
+		'shadcn/no-restyle': ['error', restyleOptions]
+	}
+};
+
+// Spread by eslint.config.js: the enforced policy, the no-restyle owner files, and
+// the path exceptions.
+export const enforcedShadcnConfig = [
+	enforcedShadcnPolicy,
+	...restyleEntries(),
+	// Email clients cannot read theme variables or stylesheet classes reliably, so
+	// templates inline literal colors and styles.
+	{
+		files: ['src/lib/emails/**'],
+		rules: { 'shadcn/no-raw-colors': 'off', 'shadcn/no-inline-styles': 'off' }
+	},
+	// Brand logos reproduce each vendor's own fills.
+	{ files: ['src/blocks/logos/**'], rules: { 'shadcn/no-raw-colors': 'off' } }
+];
