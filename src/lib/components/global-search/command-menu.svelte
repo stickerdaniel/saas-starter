@@ -230,7 +230,7 @@
 			class="absolute inset-x-0 bottom-0 z-20 flex h-10 items-center gap-2 rounded-b-xl border-t border-border bg-muted/50 px-4 text-xs font-medium text-muted-foreground"
 		>
 			<div class="flex items-center gap-2">
-				<Kbd.Root class="border bg-background"><CornerDownLeftIcon /></Kbd.Root>
+				<Kbd.Root variant="outline" class="bg-background"><CornerDownLeftIcon /></Kbd.Root>
 				{$t('search.command.footer.go_to_page')}
 			</div>
 		</div>

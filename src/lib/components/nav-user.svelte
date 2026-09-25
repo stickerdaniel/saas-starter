@@ -2,7 +2,7 @@
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import NavUserTrigger from '$lib/components/ui/owned/nav-user-trigger.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import { authClient } from '$lib/auth-client';
@@ -116,13 +116,7 @@
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger id="user-menu-trigger">
 				{#snippet child({ props })}
-					<Button
-						variant="ghost"
-						class="h-12 w-full justify-start gap-2 px-2 data-[state=open]:bg-muted {impersonation.isImpersonating
-							? 'ring-2 ring-warning'
-							: ''}"
-						{...props}
-					>
+					<NavUserTrigger impersonating={impersonation.isImpersonating} {...props}>
 						<Avatar.Root class="size-8 rounded-lg after:rounded-lg">
 							<Avatar.Image src={user.avatar} alt={user.name} class="rounded-lg" />
 							<Avatar.Fallback class="rounded-lg">{initials}</Avatar.Fallback>
@@ -132,7 +126,7 @@
 							<span class="truncate text-xs">{user.email}</span>
 						</div>
 						<ChevronsUpDownIcon class="ml-auto size-4" />
-					</Button>
+					</NavUserTrigger>
 				{/snippet}
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content

@@ -333,7 +333,7 @@
 						placeholder={hasMessagesAvailable
 							? $t('chat.input.placeholder')
 							: $t('chat.input.placeholder_disabled')}
-						class="min-h-11 pt-3 pl-4 text-base leading-composer"
+						layout="full"
 						maxlength={MAX_MESSAGE_LENGTH}
 						disabled={!hasMessagesAvailable}
 					/>

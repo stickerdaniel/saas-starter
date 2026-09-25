@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { authClient } from '$lib/auth-client.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import PasskeyDeleteButton from '$lib/components/ui/owned/passkey-delete-button.svelte';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
@@ -206,15 +207,12 @@
 								</Item.Description>
 							</Item.Content>
 							<Item.Actions>
-								<Button
-									variant="ghost"
-									size="icon"
+								<PasskeyDeleteButton
 									onclick={() => handleDeletePasskey(passkey.id)}
-									class="text-destructive hover:text-destructive"
 									aria-label={$t('settings.security.delete_passkey')}
 								>
 									<Trash2Icon class="h-4 w-4" />
-								</Button>
+								</PasskeyDeleteButton>
 							</Item.Actions>
 						</Item.Root>
 						{#if index !== passkeys.length - 1}

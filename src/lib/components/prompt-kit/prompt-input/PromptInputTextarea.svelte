@@ -87,8 +87,9 @@ grow the field. -->
 	oninput={handleInput}
 	onkeydown={handleKeyDown}
 	{onpaste}
+	resize="none"
 	class={cn(
-		'min-h-11 w-full resize-none border-none !bg-transparent text-foreground shadow-none outline-none placeholder-shown:overflow-hidden placeholder-shown:whitespace-nowrap focus-visible:ring-0 focus-visible:ring-offset-0',
+		'min-h-11 w-full border-none !bg-transparent text-foreground shadow-none outline-none placeholder-shown:overflow-hidden placeholder-shown:whitespace-nowrap focus-visible:ring-0 focus-visible:ring-offset-0',
 		layout === 'full' && 'min-h-11 pt-3 pl-4 text-base leading-composer',
 		layout === 'compact' && 'min-h-9 py-2 text-base leading-5',
 		layout === 'compact' && (multiline ? 'pr-2 pl-3' : 'px-1'),

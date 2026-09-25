@@ -3,7 +3,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import SidebarHeaderButton from '$lib/components/ui/owned/sidebar-header-button.svelte';
 	import { resolve } from '$app/paths';
 	import type { ComponentProps } from 'svelte';
 	import { T } from '@tolgee/svelte';
@@ -89,11 +89,7 @@
 					<DropdownMenu.Root>
 						<DropdownMenu.Trigger>
 							{#snippet child({ props })}
-								<Button
-									variant="ghost"
-									class="w-full justify-start gap-2 px-1.5 data-[state=open]:bg-muted"
-									{...props}
-								>
+								<SidebarHeaderButton {...props}>
 									<config.header.icon class="!size-5" />
 									<span class="text-base font-semibold">
 										{#if config.header.title !== undefined}
@@ -102,7 +98,7 @@
 											<T keyName={config.header.titleKey} />
 										{/if}
 									</span>
-								</Button>
+								</SidebarHeaderButton>
 							{/snippet}
 						</DropdownMenu.Trigger>
 						<DropdownMenu.Content align="start" class="w-56">
@@ -117,11 +113,7 @@
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
 				{:else}
-					<Button
-						variant="ghost"
-						href={resolve(config.header.href)}
-						class="w-full justify-start gap-2 px-1.5"
-					>
+					<SidebarHeaderButton href={resolve(config.header.href)}>
 						<config.header.icon class="!size-5" />
 						<span class="text-base font-semibold">
 							{#if config.header.title !== undefined}
@@ -130,7 +122,7 @@
 								<T keyName={config.header.titleKey} />
 							{/if}
 						</span>
-					</Button>
+					</SidebarHeaderButton>
 				{/if}
 			</Sidebar.MenuItem>
 		</Sidebar.Menu>

@@ -4,6 +4,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Button } from '$lib/components/ui/button';
+	import AdminThreadRow from '$lib/components/ui/owned/admin-thread-row.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import AvatarHeading from '$lib/components/customer-support/avatar-heading.svelte';
@@ -378,13 +379,9 @@
 					intersectionOptions={{ rootMargin: '0px 0px 200px 0px' }}
 				>
 					{#each threads as thread (thread._id)}
-						<Button
-							variant="ghost"
+						<AdminThreadRow
 							type="button"
-							class="h-auto w-full justify-start whitespace-normal font-normal shadow-none active:translate-y-0 w-full border-b p-4 text-left dark:bg-muted/20 {thread._id ===
-							selectedThreadId
-								? 'bg-muted/70 dark:bg-muted/35'
-								: 'hover:bg-muted/30 dark:hover:bg-muted/50'}"
+							selected={thread._id === selectedThreadId}
 							onclick={() => {
 								if (thread._id !== selectedThreadId) {
 									haptic.trigger('light');
@@ -427,7 +424,7 @@
 									{/if}
 								</div>
 							</div>
-						</Button>
+						</AdminThreadRow>
 					{/each}
 
 					{#snippet loading()}

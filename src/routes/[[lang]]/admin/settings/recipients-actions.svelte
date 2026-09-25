@@ -44,8 +44,8 @@
 {#if !isAdminUser}
 	<Button
 		variant="ghost"
-		size="icon"
-		class="h-8 w-8 text-muted-foreground hover:text-destructive"
+		size="icon-sm"
+		class="text-muted-foreground hover:text-destructive"
 		onclick={handleRemove}
 		data-testid="delete-email-{email}"
 	>

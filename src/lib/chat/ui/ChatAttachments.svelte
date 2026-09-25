@@ -6,7 +6,7 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-	import { Button } from '$lib/components/ui/button';
+	import AttachmentRemoveButton from '$lib/components/ui/owned/attachment-remove-button.svelte';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Tooltip from '$lib/components/ui/tooltip';
@@ -403,20 +403,18 @@
 					</div>
 				</div>
 				{#if !readonly}
-					<Button
-						variant="ghost"
-						size="icon-xs"
+					<AttachmentRemoveButton
 						type="button"
 						onclick={(e) => {
 							e.stopPropagation();
 							haptic.trigger('light');
 							onRemove?.(originalIndex);
 						}}
-						class="shrink-0 rounded-full p-1 hover:bg-secondary/50"
+						class="shrink-0"
 						aria-label={$t('chat.aria.remove_attachment', { filename })}
 					>
 						<XIcon class="size-4" />
-					</Button>
+					</AttachmentRemoveButton>
 				{/if}
 
 				{#if uploadState?.status === 'uploading'}

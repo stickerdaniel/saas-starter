@@ -2,6 +2,7 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import FilterChipRemoveButton from '$lib/components/ui/owned/filter-chip-remove-button.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
@@ -124,17 +125,14 @@
 			{:else}
 				<Skeleton class="h-3.5 w-20" />
 			{/if}
-			<Button
-				variant="ghost"
-				size="icon-xs"
+			<FilterChipRemoveButton
 				type="button"
 				onclick={clearUserFilter}
 				aria-label={$t('admin.audit_log.filter.remove_user')}
 				data-testid="audit-log-user-filter-chip-remove"
-				class="size-4 rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
 			>
 				<XIcon class="size-3" />
-			</Button>
+			</FilterChipRemoveButton>
 		</Badge>
 	{/if}
 </div>

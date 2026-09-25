@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import ScreenshotSubmitButton from '$lib/components/ui/owned/screenshot-submit-button.svelte';
 	import { ColorSelector } from '$lib/components/ui/color-selector';
 	import SquareIcon from '@lucide/svelte/icons/square';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
@@ -141,13 +142,12 @@
 		</Button>
 
 		<!-- Next Button - Desktop: Text -->
-		<Button
-			class="hidden h-9 px-4 sm:inline-flex"
+		<ScreenshotSubmitButton
 			onclick={editor.handleSave}
 			disabled={editor.isSaving || !editor.hasShapes}
 		>
 			{editor.isSaving ? $t('support.screenshot.capturing') : $t('support.screenshot.next')}
-		</Button>
+		</ScreenshotSubmitButton>
 
 		<!-- Close Button -->
 		<Button

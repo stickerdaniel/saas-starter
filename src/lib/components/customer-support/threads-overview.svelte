@@ -4,6 +4,7 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { Button } from '$lib/components/ui/button';
+	import SupportThreadRow from '$lib/components/ui/owned/support-thread-row.svelte';
 	import { Avatar, AvatarImage, AvatarFallback } from '$lib/components/ui/avatar';
 	import BotIcon from '@lucide/svelte/icons/bot';
 	import LearnMoreChevron from '$lib/components/motion/learn-more-chevron.svelte';
@@ -324,12 +325,9 @@
 				{#each threads as thread (thread._id)}
 					{@const isSelected = thread._id === conversation.threadId}
 					{@const showAdminAvatar = thread.isHandedOff && thread.assignedAdmin}
-					<Button
-						variant="ghost"
+					<SupportThreadRow
 						type="button"
-						class="t-learn h-auto w-full justify-start whitespace-normal font-normal shadow-none active:translate-y-0 flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors duration-150 {isSelected
-							? 'bg-muted-foreground/[0.04]'
-							: 'hover:bg-muted-foreground/[0.06]'}"
+						selected={isSelected}
 						onclick={() =>
 							support.selectThread(
 								thread._id,
@@ -363,7 +361,7 @@
 
 						<!-- Chevron -->
 						<LearnMoreChevron class="size-5 shrink-0 text-muted-foreground" />
-					</Button>
+					</SupportThreadRow>
 				{/each}
 
 				<!-- The region outlives every message it carries, including the one that

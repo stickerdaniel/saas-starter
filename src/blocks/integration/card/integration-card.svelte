@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Button from '$lib/components/ui/button/button.svelte';
+	import IntegrationLearnMoreButton from '$lib/components/ui/owned/integration-learn-more-button.svelte';
 	import Card from '$lib/components/ui/card/card.svelte';
 	import LearnMoreChevron from '$lib/components/motion/learn-more-chevron.svelte';
 	import type { Snippet } from 'svelte';
@@ -34,27 +34,15 @@
 			<p class="line-clamp-3 text-sm text-muted-foreground">{description}</p>
 		</div>
 		<div class="flex gap-3 border-t border-dashed pt-6">
-			<Button
-				variant="secondary"
-				size="sm"
-				class="t-learn gap-1 pr-2 shadow-none"
-				href={link}
-				target="_blank"
-			>
+			<IntegrationLearnMoreButton href={link} target="_blank">
 				{buttonText}
 				<LearnMoreChevron class="ml-0 !size-3.5 opacity-50" />
-			</Button>
+			</IntegrationLearnMoreButton>
 			{#if secondaryLink && secondaryButtonText}
-				<Button
-					variant="secondary"
-					size="sm"
-					class="t-learn gap-1 pr-2 shadow-none"
-					href={secondaryLink}
-					target="_blank"
-				>
+				<IntegrationLearnMoreButton href={secondaryLink} target="_blank">
 					{secondaryButtonText}
 					<LearnMoreChevron class="ml-0 !size-3.5 opacity-50" />
-				</Button>
+				</IntegrationLearnMoreButton>
 			{/if}
 		</div>
 	</div>

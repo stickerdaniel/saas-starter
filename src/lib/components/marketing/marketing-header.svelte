@@ -3,6 +3,7 @@
 	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import MarketingWordmark from '$lib/components/ui/owned/marketing-wordmark.svelte';
 	import { cn } from '$lib/utils';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
@@ -118,14 +119,10 @@
 				class="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between rounded-2xl border marketing-shell-panel px-6 py-4 transition-[height,transform,background-color,border-color] duration-300 lg:-mx-8 lg:w-[calc(100%+4rem)] lg:px-8"
 			>
 				<!-- Logo -->
-				<Button
-					variant="ghost"
-					href={resolve(localizedHref('/'))}
-					class="-ml-3.5 flex items-center gap-2 px-3 font-semibold"
-				>
+				<MarketingWordmark href={resolve(localizedHref('/'))}>
 					<Logo class="size-5" />
 					{LEGAL_CONFIG.brandName}
-				</Button>
+				</MarketingWordmark>
 
 				<!-- Desktop Navigation -->
 				<ul class="hidden gap-2 text-sm lg:flex">

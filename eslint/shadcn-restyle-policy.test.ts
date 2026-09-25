@@ -1,11 +1,8 @@
 // @vitest-environment node
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { ESLint } from 'eslint';
-import * as svelteParser from 'svelte-eslint-parser';
-import ts from 'typescript-eslint';
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
 	enforcedShadcnPolicy,
 	restyleEntries,
@@ -36,7 +33,8 @@ async function restyles(
 	return result.messages
 		.filter((message) => message.ruleId === 'shadcn/no-restyle')
 		.map((message) => {
-			const match = /^"([^"]+)" is not allowed on <([^>]+)>/.exec(message.message);
+			// A token may itself contain quotes, such as [&[aria-expanded="true"]]:bg-accent.
+			const match = /^"(.+?)" is not allowed on <([^>]+)>/.exec(message.message);
 			expect(match, message.message).not.toBeNull();
 			return { line: message.line, token: match![1], component: match![2] };
 		});
@@ -244,66 +242,25 @@ import * as Kbd from '$lib/components/ui/kbd';
 });
 
 describe('no-restyle private owners', () => {
-	const owners = [
-		'admin-thread-row',
-		'attachment-remove-button',
-		'chatbar-send-button',
-		'composer-attachment-button',
-		'filter-chip-remove-button',
-		'founder-body-preview-button',
-		'founder-reset-confirm-action',
-		'hero-five-cta',
-		'integration-learn-more-button',
-		'marketing-wordmark',
-		'nav-user-trigger',
-		'passkey-delete-button',
-		'screenshot-submit-button',
-		'sidebar-header-button',
-		'support-thread-row',
-		'user-ban-menu-item'
-	];
+	const ownedDir = 'src/lib/components/ui/owned';
+	const owners = readdirSync(ownedDir)
+		.filter((file) => file.endsWith('.svelte'))
+		.map((file) => file.replace(/\.svelte$/, ''));
 	const pascal = (file: string) =>
 		file.replace(/(^|-)([a-z])/g, (_, __, letter: string) => letter.toUpperCase());
 
-	// The owners arrive with their migration, so a throwaway project registers them the
-	// way components/ui/owned will: files under the project's ui directory.
-	const project = mkdtempSync(path.join(tmpdir(), 'restyle-owners-'));
-	afterAll(() => rmSync(project, { recursive: true, force: true }));
-	writeFileSync(
-		path.join(project, 'package.json'),
-		'{ "name": "restyle-owners", "type": "module" }'
-	);
-	mkdirSync(path.join(project, 'src/components/ui/owned'), { recursive: true });
-	mkdirSync(path.join(project, 'src/routes'), { recursive: true });
-	for (const owner of owners) {
-		writeFileSync(
-			path.join(project, 'src/components/ui/owned', `${owner}.svelte`),
-			'<script lang="ts">let { class: className }: { class?: string } = $props();</script>\n<button class={className}>x</button>\n'
-		);
-	}
-	writeFileSync(path.join(project, 'src/routes/caller.svelte'), '');
-
-	const eslint = new ESLint({
-		cwd: project,
-		overrideConfigFile: true,
-		overrideConfig: [
-			{
-				files: ['**/*.svelte'],
-				languageOptions: { parser: svelteParser, parserOptions: { parser: ts.parser } }
-			},
-			...restyleEntries()
-		]
-	});
-
+	// Every file in components/ui/owned is reported under its own name, so a new owner
+	// that STRICT does not list would fall back to the layout default here.
 	it('rejects appearance and admits placement at every caller', async () => {
+		expect(owners).toHaveLength(16);
 		const imports = owners
-			.map((owner) => `import ${pascal(owner)} from '../components/ui/owned/${owner}.svelte';`)
+			.map((owner) => `import ${pascal(owner)} from '$lib/components/ui/owned/${owner}.svelte';`)
 			.join('\n');
 		const header = `<script lang="ts">\n${imports}\n</script>\n`;
 		const firstLine = header.split('\n').length;
 		const source =
 			header + owners.map((owner) => `<${pascal(owner)} class="${classes}" />`).join('\n');
-		const found = await restyles(eslint, source, 'src/routes/caller.svelte', project);
+		const found = await restyles(measurement, source, route);
 
 		owners.forEach((owner, index) => {
 			const onLine = found.filter((entry) => entry.line === firstLine + index);
@@ -312,4 +269,191 @@ describe('no-restyle private owners', () => {
 		});
 		expect(found).toHaveLength(owners.length * appearance.length);
 	}, 60_000);
+});
+
+describe('no-restyle owner profiles', () => {
+	// How a fixture writes each owned component, with an import that resolves it to the
+	// name the rule reports.
+	const fixtures: Record<string, { from: string; tag: string }> = {
+		Accordion: {
+			from: 'import * as Accordion from "$lib/components/ui/accordion";',
+			tag: 'Accordion.Root type="single"'
+		},
+		AccordionContent: {
+			from: 'import * as Accordion from "$lib/components/ui/accordion";',
+			tag: 'Accordion.Content'
+		},
+		AccordionItem: {
+			from: 'import * as Accordion from "$lib/components/ui/accordion";',
+			tag: 'Accordion.Item value="x"'
+		},
+		AccordionTrigger: {
+			from: 'import * as Accordion from "$lib/components/ui/accordion";',
+			tag: 'Accordion.Trigger'
+		},
+		AlertDialogAction: {
+			from: 'import * as AlertDialog from "$lib/components/ui/alert-dialog";',
+			tag: 'AlertDialog.Action'
+		},
+		Avatar: { from: 'import * as Avatar from "$lib/components/ui/avatar";', tag: 'Avatar.Root' },
+		Badge: { from: 'import { Badge } from "$lib/components/ui/badge";', tag: 'Badge' },
+		Button: { from: 'import { Button } from "$lib/components/ui/button";', tag: 'Button' },
+		Card: { from: 'import * as Card from "$lib/components/ui/card";', tag: 'Card.Root' },
+		CardDescription: {
+			from: 'import * as Card from "$lib/components/ui/card";',
+			tag: 'Card.Description'
+		},
+		CardFooter: { from: 'import * as Card from "$lib/components/ui/card";', tag: 'Card.Footer' },
+		CardTitle: { from: 'import * as Card from "$lib/components/ui/card";', tag: 'Card.Title' },
+		Collapsible: {
+			from: 'import * as Collapsible from "$lib/components/ui/collapsible";',
+			tag: 'Collapsible.Root'
+		},
+		CollapsibleContent: {
+			from: 'import * as Collapsible from "$lib/components/ui/collapsible";',
+			tag: 'Collapsible.Content'
+		},
+		Command: {
+			from: 'import * as Command from "$lib/components/ui/command";',
+			tag: 'Command.Root'
+		},
+		CommandEmpty: {
+			from: 'import * as Command from "$lib/components/ui/command";',
+			tag: 'Command.Empty'
+		},
+		CommandGroup: {
+			from: 'import * as Command from "$lib/components/ui/command";',
+			tag: 'Command.Group'
+		},
+		CommandItem: {
+			from: 'import * as Command from "$lib/components/ui/command";',
+			tag: 'Command.Item'
+		},
+		CopyButton: {
+			from: 'import { CopyButton } from "$lib/components/ui/copy-button";',
+			tag: 'CopyButton text="x"'
+		},
+		DialogContent: {
+			from: 'import * as Dialog from "$lib/components/ui/dialog";',
+			tag: 'Dialog.Content'
+		},
+		DropdownMenuContent: {
+			from: 'import * as DropdownMenu from "$lib/components/ui/dropdown-menu";',
+			tag: 'DropdownMenu.Content'
+		},
+		DropdownMenuItem: {
+			from: 'import * as DropdownMenu from "$lib/components/ui/dropdown-menu";',
+			tag: 'DropdownMenu.Item'
+		},
+		Empty: { from: 'import * as Empty from "$lib/components/ui/empty";', tag: 'Empty.Root' },
+		Input: { from: 'import { Input } from "$lib/components/ui/input";', tag: 'Input' },
+		InputGroup: {
+			from: 'import * as InputGroup from "$lib/components/ui/input-group";',
+			tag: 'InputGroup.Root'
+		},
+		Kbd: { from: 'import * as Kbd from "$lib/components/ui/kbd";', tag: 'Kbd.Root' },
+		Label: { from: 'import { Label } from "$lib/components/ui/label";', tag: 'Label' },
+		Progress: { from: 'import { Progress } from "$lib/components/ui/progress";', tag: 'Progress' },
+		SelectTrigger: {
+			from: 'import * as Select from "$lib/components/ui/select";',
+			tag: 'Select.Trigger'
+		},
+		Separator: {
+			from: 'import { Separator } from "$lib/components/ui/separator";',
+			tag: 'Separator'
+		},
+		SheetContent: {
+			from: 'import * as Sheet from "$lib/components/ui/sheet";',
+			tag: 'Sheet.Content'
+		},
+		SidebarMenuAction: {
+			from: 'import * as Sidebar from "$lib/components/ui/sidebar";',
+			tag: 'Sidebar.MenuAction'
+		},
+		Textarea: { from: 'import { Textarea } from "$lib/components/ui/textarea";', tag: 'Textarea' },
+		Toggle: { from: 'import { Toggle } from "$lib/components/ui/toggle";', tag: 'Toggle' }
+	};
+
+	// One element per owned component carrying the whole recipe, in a quote the recipe's
+	// own attribute selectors do not use.
+	function recipeSource(components: Record<string, string[]>) {
+		const names = Object.keys(components);
+		const imports = [...new Set(names.map((name) => fixtures[name].from))];
+		const header = `<script lang="ts">\n${imports.join('\n')}\n</script>\n`;
+		const firstLine = header.split('\n').length;
+		const lines = names.map((name) => {
+			const recipe = components[name].join(' ');
+			const quote = recipe.includes('"') ? "'" : '"';
+			expect(recipe.includes(quote), name).toBe(false);
+			return `<${fixtures[name].tag} class=${quote}${recipe}${quote} />`;
+		});
+		return { source: header + lines.join('\n'), firstLine, names };
+	}
+
+	// Classes still reported inside an owner until a later migration step removes them:
+	// ReasoningContent repeats AccordionContent's base type and focus reset, MessageAvatar
+	// repeats Avatar's default size, and the PromptSuggestion pill utility replaced the
+	// calc radius its profile names.
+	const pending: Record<string, string[]> = {
+		'src/lib/components/ai-elements/message/MessageAvatar.svelte': ['size-8@Avatar'],
+		'src/lib/components/ai-elements/reasoning/ReasoningContent.svelte': [
+			'text-sm@AccordionContent',
+			'outline-none@AccordionContent'
+		],
+		'src/lib/components/prompt-kit/prompt-suggestion/prompt-suggestion.svelte': [
+			'rounded-theme-pill@Button'
+		]
+	};
+
+	it('keeps every owner file clean on the components it owns', async () => {
+		const owned = new Map<string, Set<string>>();
+		for (const owner of restyleOwners) {
+			for (const file of owner.files) {
+				const names = owned.get(file) ?? new Set<string>();
+				for (const name of Object.keys(owner.components)) names.add(name);
+				owned.set(file, names);
+			}
+		}
+		// A private owner exists only for its recipe, so all of it must pass, and a
+		// profile that names another file leaves the owner reported here.
+		const ownedDir = 'src/lib/components/ui/owned';
+		for (const file of readdirSync(ownedDir)) owned.set(`${ownedDir}/${file}`, new Set(['*']));
+
+		for (const [file, names] of owned) {
+			const found = await restyles(measurement, readFileSync(file, 'utf-8'), file);
+			const reported = found
+				.filter((entry) => names.has('*') || names.has(entry.component))
+				.map((entry) => `${entry.token}@${entry.component}`);
+			expect(
+				reported.filter((token) => !pending[file]?.includes(token)),
+				file
+			).toEqual([]);
+		}
+	}, 180_000);
+
+	it('names every owned component in a fixture', () => {
+		const owned = new Set(restyleOwners.flatMap((owner) => Object.keys(owner.components)));
+		expect([...owned].filter((name) => !fixtures[name])).toEqual([]);
+	});
+
+	for (const owner of restyleOwners) {
+		it(`${owner.id} admits its recipe in its owner file only`, async () => {
+			const { source, firstLine, names } = recipeSource(owner.components);
+			for (const file of owner.files) {
+				expect(await restyles(measurement, source, file), file).toEqual([]);
+			}
+			// Elsewhere every component keeps its strict or default contract, so each
+			// recipe loses at least one class, and only classes from the recipe.
+			const elsewhere = await restyles(measurement, source, route);
+			names.forEach((name, index) => {
+				const onLine = elsewhere.filter((entry) => entry.line === firstLine + index);
+				expect(onLine.length, name).toBeGreaterThan(0);
+				for (const entry of onLine) {
+					expect(entry.component).toBe(name);
+					expect(owner.components[name]).toContain(entry.token);
+				}
+			});
+			expect(elsewhere.every((entry) => entry.line >= firstLine)).toBe(true);
+		}, 60_000);
+	}
 });

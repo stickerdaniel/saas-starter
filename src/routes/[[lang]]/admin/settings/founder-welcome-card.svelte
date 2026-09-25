@@ -6,6 +6,8 @@
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import FounderBodyPreviewButton from '$lib/components/ui/owned/founder-body-preview-button.svelte';
+	import FounderResetConfirmAction from '$lib/components/ui/owned/founder-reset-confirm-action.svelte';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { TemplateTextarea } from '$lib/components/ui/template-textarea/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
@@ -233,11 +235,9 @@
 							{' {{userFirstName}}, {{userLastName}}, {{founderName}}, {{founderTitle}}'}
 						</Field.Description>
 					{:else}
-						<Button
-							variant="ghost"
+						<FounderBodyPreviewButton
 							id="config-body-preview"
 							type="button"
-							class="max-h-60 h-auto w-full justify-start whitespace-normal font-normal shadow-none active:translate-y-0 cursor-text overflow-y-auto rounded-md border bg-muted/30 p-3 text-left text-sm"
 							onclick={async () => {
 								editingBody = true;
 								await tick();
@@ -246,7 +246,7 @@
 							}}
 						>
 							<p class="whitespace-pre-wrap">{previewText}</p>
-						</Button>
+						</FounderBodyPreviewButton>
 					{/if}
 				</Field.Field>
 			</Field.Group>
@@ -278,13 +278,9 @@
 								<AlertDialog.Cancel>
 									<T keyName="admin.settings.founder_welcome.cancel" />
 								</AlertDialog.Cancel>
-								<AlertDialog.Action
-									onclick={handleStepDown}
-									disabled={isStepping}
-									class="bg-destructive text-white hover:bg-destructive/90"
-								>
+								<FounderResetConfirmAction onclick={handleStepDown} disabled={isStepping}>
 									<T keyName="admin.settings.founder_welcome.step_down" />
-								</AlertDialog.Action>
+								</FounderResetConfirmAction>
 							</AlertDialog.Footer>
 						</AlertDialog.Content>
 					</AlertDialog.Root>
