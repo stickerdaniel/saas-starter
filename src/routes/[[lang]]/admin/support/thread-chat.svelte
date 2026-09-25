@@ -186,9 +186,9 @@
 				<!-- Back button (functional) -->
 				<div class="relative flex size-10 items-center justify-center">
 					<Button
-						variant="ghost"
-						size="icon"
-						class="h-10 w-10 rounded-full hover:!bg-muted-foreground/10"
+						variant="ghost-tint"
+						size="icon-lg"
+						shape="pill"
 						onclick={onBackClick}
 						aria-label={$t('aria.go_back')}
 					>
@@ -206,7 +206,7 @@
 					</div>
 				</div>
 				<!-- Details panel toggle (functional) -->
-				<Button variant="ghost" size="icon" onclick={() => adminSupportUI.toggle()} class="h-9 w-9">
+				<Button variant="ghost" size="icon" onclick={() => adminSupportUI.toggle()}>
 					{#if media.sm}
 						<PanelRightIcon class="h-5 w-5" />
 					{:else}
@@ -223,12 +223,7 @@
 			<!-- Error header (back button stays functional) -->
 			<header class="flex shrink-0 items-center gap-2 border-b border-border/50 p-4">
 				<div class="relative flex size-10 items-center justify-center">
-					<Button
-						variant="ghost"
-						size="icon"
-						class="h-10 w-10 rounded-full hover:!bg-muted-foreground/10"
-						onclick={onBackClick}
-					>
+					<Button variant="ghost-tint" size="icon-lg" shape="pill" onclick={onBackClick}>
 						<ChevronLeft class="size-5" />
 					</Button>
 				</div>
@@ -267,12 +262,7 @@
 							<span class="sr-only"><T keyName="admin.actions.impersonate" /></span>
 						</Button>
 					{/if}
-					<Button
-						variant="ghost"
-						size="icon"
-						onclick={() => adminSupportUI.toggle()}
-						class="h-9 w-9"
-					>
+					<Button variant="ghost" size="icon" onclick={() => adminSupportUI.toggle()}>
 						{#if media.sm}
 							<PanelRightIcon class="h-5 w-5" />
 						{:else}
@@ -320,7 +310,6 @@
 					<Button
 						variant="outline"
 						size="sm"
-						class="shrink-0"
 						onclick={impersonateThreadStarter}
 						disabled={impersonating}
 						data-testid="admin-support-impersonate"
@@ -336,12 +325,7 @@
 
 				<!-- Toggle button for Sheet overlay (lg && !xl) -->
 				{#if !media.xl}
-					<Button
-						variant="ghost"
-						size="icon"
-						onclick={() => adminSupportUI.toggle()}
-						class="shrink-0"
-					>
+					<Button variant="ghost" size="icon" onclick={() => adminSupportUI.toggle()}>
 						<PanelRightIcon class="size-4" />
 						<span class="sr-only">
 							{adminSupportUI.detailsOpen

@@ -273,9 +273,9 @@
 
 			{#snippet tableContent()}
 				<Table.Root class="table-fixed">
-					<Table.Header class="sticky top-0 z-10 bg-muted dark:bg-background">
+					<Table.Header sticky>
 						{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-							<Table.Row class="hover:[&>th]:bg-muted dark:hover:[&>th]:bg-background">
+							<Table.Row variant="header">
 								{#each headerGroup.headers as header (header.id)}
 									<Table.Head
 										class="w-(--column-width) min-w-(--column-min-width)"
@@ -332,23 +332,23 @@
 								</Table.Row>
 							{/each}
 						{:else if loadError}
-							<Table.Row class="hover:!bg-transparent">
+							<Table.Row variant="inert">
 								<Table.Cell
 									colspan={columns.length}
-									class="h-24 text-center text-destructive"
+									class="h-24 text-center"
 									data-testid="admin-audit-log-error"
 								>
-									<T keyName="common.load_error" />
+									<span class="text-destructive"><T keyName="common.load_error" /></span>
 								</Table.Cell>
 							</Table.Row>
 						{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
-							<Table.Row class="hover:!bg-transparent">
+							<Table.Row variant="inert">
 								<Table.Cell
 									colspan={columns.length}
-									class="h-24 text-center text-muted-foreground"
+									class="h-24 text-center"
 									data-testid="admin-audit-log-empty"
 								>
-									<T keyName="admin.audit_log.empty" />
+									<span class="text-muted-foreground"><T keyName="admin.audit_log.empty" /></span>
 								</Table.Cell>
 							</Table.Row>
 						{:else}
