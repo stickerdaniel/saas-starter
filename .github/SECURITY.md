@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the latest commit on the default branch receives security fixes. Projects created from this template own their copy and should pull fixes from upstream.
+Only the latest commit on the default branch receives security fixes. Projects created from this template own their copy. To pull fixes from upstream, run `bun run upstream:sync` and follow the [upstream sync skill](../.agents/skills/upstream-sync/SKILL.md).
 
 ## Reporting a vulnerability
 
