@@ -128,7 +128,7 @@
 		<div class="mt-12 grid gap-6 md:mt-24 md:grid-cols-2 lg:grid-cols-3">
 			<Card>
 				<CardHeader>
-					<CardTitle class="font-medium">
+					<CardTitle>
 						<T keyName="pricing.tiers.free.name" />
 						{#if isFree}
 							<span class="ml-2 text-xs font-normal text-muted-foreground">
@@ -141,7 +141,7 @@
 						<T keyName="pricing.tiers.free.price" />
 					</span>
 
-					<CardDescription class="text-sm">
+					<CardDescription>
 						<T keyName="pricing.tiers.free.description" />
 					</CardDescription>
 					<Button variant="outline" class="mt-4 w-full" disabled>
@@ -171,7 +171,7 @@
 				</span>
 
 				<CardHeader>
-					<CardTitle class="font-medium">
+					<CardTitle>
 						<T keyName="pricing.tiers.pro.name" />
 						{#if isPro}
 							<span class="ml-2 text-xs font-normal text-muted-foreground">
@@ -184,7 +184,7 @@
 						<T keyName="pricing.tiers.pro.price" />
 					</span>
 
-					<CardDescription class="text-sm">
+					<CardDescription>
 						<T keyName="pricing.tiers.pro.description" />
 					</CardDescription>
 
@@ -239,7 +239,7 @@
 
 			<Card>
 				<CardHeader>
-					<CardTitle class="font-medium">
+					<CardTitle>
 						<T keyName="pricing.tiers.enterprise.name" />
 					</CardTitle>
 
@@ -247,7 +247,7 @@
 						<T keyName="pricing.tiers.enterprise.price" />
 					</span>
 
-					<CardDescription class="text-sm">
+					<CardDescription>
 						<T keyName="pricing.tiers.enterprise.description" />
 					</CardDescription>
 

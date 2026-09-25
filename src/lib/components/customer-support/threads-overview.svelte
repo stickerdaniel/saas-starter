@@ -246,8 +246,8 @@
 									y: { type: 'spring', stiffness: 260, damping: 12, mass: 0.8, delay: 0.1 }
 								}}
 							>
-								<Avatar class="t-avatar size-12 bg-primary outline outline-4 outline-secondary">
-									<AvatarFallback class="bg-primary text-primary-foreground">
+								<Avatar size="xl" outline="secondary" surface="primary" motion="stack">
+									<AvatarFallback variant="primary">
 										<BotIcon class="size-8" />
 									</AvatarFallback>
 								</Avatar>
@@ -266,21 +266,19 @@
 								}}
 							>
 								<Avatar
-									class="t-avatar size-12 outline outline-4 outline-secondary"
+									size="xl"
+									outline="secondary"
+									motion="stack"
 									onLoadingStatusChange={(status) => markAvatarSettled(avatar.src, status)}
 								>
 									<AvatarImage
 										src={avatar.src}
 										alt={avatar.alt}
-										class={avatar.isPlaceholder ? 'object-cover grayscale' : 'object-cover'}
+										appearance={avatar.isPlaceholder ? 'placeholder' : 'default'}
 									/>
 									<!-- Never transparent while loading: neutral circle for placeholders,
 									     the admin's initial otherwise (also the timeout-path safety net). -->
-									<AvatarFallback
-										class={avatar.isPlaceholder
-											? 'bg-muted text-muted-foreground'
-											: 'bg-primary text-primary-foreground'}
-									>
+									<AvatarFallback variant={avatar.isPlaceholder ? 'default' : 'primary'}>
 										{#if avatar.isPlaceholder}
 											<UsersRoundIcon class="size-6" />
 										{:else}
@@ -415,7 +413,8 @@
 	<!-- New Message Button -->
 	<div class="shrink-0 border-t border-border/50 bg-secondary p-4">
 		<Button
-			class="w-full rounded-full"
+			shape="pill"
+			class="w-full"
 			onclick={() => support.startNewThread()}
 			size="lg"
 			disabled={conversation.isRateLimited}

@@ -51,12 +51,11 @@
 			<CommandTrigger class="hidden md:inline-flex" />
 			<Button
 				variant="ghost"
-				size="icon"
+				size="icon-sm"
 				href={getRepositoryUrl()}
 				target="_blank"
 				rel="noopener noreferrer"
 				aria-label={$t('aria.github_repository')}
-				class="size-8"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

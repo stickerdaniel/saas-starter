@@ -333,7 +333,7 @@
 		<ThreadsOverview />
 
 		<!-- Chat sheet - slides in from right like iOS/Android navigation -->
-		<SlidingPanel open={isChatOpen} duration={panelDuration} class="bg-secondary">
+		<SlidingPanel open={isChatOpen} duration={panelDuration} surface="secondary">
 			<ChatRoot
 				threadId={conversation.threadId}
 				api={chatApi}

@@ -67,13 +67,13 @@
 						<div class="m-10 flex flex-col items-start">
 							<!-- Avatar stack -->
 							<div class="mb-6 flex -space-x-3">
-								<Avatar class="size-12 outline outline-4 outline-background">
+								<Avatar size="xl" outline="background">
 									<AvatarImage src={memberFour} alt="Team member" class="object-cover" />
 								</Avatar>
-								<Avatar class="size-12 outline outline-4 outline-background">
+								<Avatar size="xl" outline="background">
 									<AvatarImage src={memberTwo} alt="Team member" class="object-cover" />
 								</Avatar>
-								<Avatar class="size-12 outline outline-4 outline-background">
+								<Avatar size="xl" outline="background">
 									<AvatarImage src={memberFive} alt="Team member" class="object-cover" />
 								</Avatar>
 							</div>

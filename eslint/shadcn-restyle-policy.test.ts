@@ -446,21 +446,6 @@ describe('no-restyle owner profiles', () => {
 		return { source: header + lines.join('\n'), firstLine, names };
 	}
 
-	// Classes still reported inside an owner until a later migration step removes them:
-	// ReasoningContent repeats AccordionContent's base type and focus reset, MessageAvatar
-	// repeats Avatar's default size, and the PromptSuggestion pill utility replaced the
-	// calc radius its profile names.
-	const pending: Record<string, string[]> = {
-		'src/lib/components/ai-elements/message/MessageAvatar.svelte': ['size-8@Avatar'],
-		'src/lib/components/ai-elements/reasoning/ReasoningContent.svelte': [
-			'text-sm@AccordionContent',
-			'outline-none@AccordionContent'
-		],
-		'src/lib/components/prompt-kit/prompt-suggestion/prompt-suggestion.svelte': [
-			'rounded-theme-pill@Button'
-		]
-	};
-
 	it('keeps every owner file clean on the components it owns', async () => {
 		const owned = new Map<string, Set<string>>();
 		for (const owner of specOwners) {
@@ -480,10 +465,7 @@ describe('no-restyle owner profiles', () => {
 			const reported = found
 				.filter((entry) => names.has('*') || names.has(entry.component))
 				.map((entry) => `${entry.token}@${entry.component}`);
-			expect(
-				reported.filter((token) => !pending[file]?.includes(token)),
-				file
-			).toEqual([]);
+			expect(reported, file).toEqual([]);
 		}
 	}, 180_000);
 

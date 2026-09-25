@@ -199,7 +199,7 @@
 		</Dialog.Header>
 		<Command.Root class="rounded-none bg-transparent">
 			<Command.Input placeholder={$t('search.command.input_placeholder')} />
-			<Command.List tabindex={-1} class="no-scrollbar min-h-80 scroll-pt-2 scroll-pb-1.5">
+			<Command.List tabindex={-1} class="min-h-80 scroll-pt-2 scroll-pb-1.5">
 				<Command.Empty class="py-12 text-center text-sm text-muted-foreground">
 					{$t('search.command.no_results')}
 				</Command.Empty>

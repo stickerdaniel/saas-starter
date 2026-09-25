@@ -29,9 +29,9 @@
 	<span class="hidden lg:inline-flex">{$t('search.command.trigger_desktop')}</span>
 	<span class="inline-flex lg:hidden">{$t('search.command.trigger_mobile')}</span>
 	<div class="absolute inset-y-0 end-1.5 hidden items-center gap-1 sm:flex">
-		<Kbd.Group class="opacity-0 group-hover/button:opacity-100">
-			<Kbd.Root class="border">{cmdOrCtrl}</Kbd.Root>
-			<Kbd.Root class="border">K</Kbd.Root>
+		<Kbd.Group reveal="button-hover">
+			<Kbd.Root variant="outline">{cmdOrCtrl}</Kbd.Root>
+			<Kbd.Root variant="outline">K</Kbd.Root>
 		</Kbd.Group>
 	</div>
 </Button>

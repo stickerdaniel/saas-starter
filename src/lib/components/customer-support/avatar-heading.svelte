@@ -23,11 +23,11 @@
 </script>
 
 <div class={cn('flex min-w-0 flex-1 items-center gap-2', className)}>
-	<Avatar class="size-8 shrink-0 bg-primary">
+	<Avatar surface="primary">
 		{#if image}
 			<AvatarImage src={image} alt={title} />
 		{/if}
-		<AvatarFallback class="bg-primary text-primary-foreground">
+		<AvatarFallback variant="primary">
 			{#if Icon}
 				<Icon class="size-5" />
 			{:else}

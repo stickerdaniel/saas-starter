@@ -38,7 +38,6 @@
 		<Button
 			variant={editor.currentTool === 'rect' ? 'secondary' : 'ghost'}
 			size="icon"
-			class="size-9 "
 			onclick={() => handleToolClick('rect')}
 			aria-label={$t('support.screenshot.tool.rectangle')}
 		>
@@ -49,7 +48,6 @@
 		<Button
 			variant={editor.currentTool === 'circle' ? 'secondary' : 'ghost'}
 			size="icon"
-			class="size-9 "
 			onclick={() => handleToolClick('circle')}
 			aria-label={$t('support.screenshot.tool.circle')}
 		>
@@ -60,7 +58,6 @@
 		<Button
 			variant={editor.currentTool === 'arrow' ? 'secondary' : 'ghost'}
 			size="icon"
-			class="size-9 "
 			onclick={() => handleToolClick('arrow')}
 			aria-label={$t('support.screenshot.tool.arrow')}
 		>
@@ -71,7 +68,6 @@
 		<Button
 			variant={editor.currentTool === 'pen' ? 'secondary' : 'ghost'}
 			size="icon"
-			class="size-9 "
 			onclick={() => handleToolClick('pen')}
 			aria-label={$t('support.screenshot.tool.pen')}
 		>
@@ -99,7 +95,7 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="-order-3 size-9 sm:order-none"
+			class="-order-3 sm:order-none"
 			onclick={() => editor.history.undo()}
 			disabled={!editor.history.canUndo}
 			aria-label={$t('support.screenshot.action.undo')}
@@ -111,7 +107,7 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="-order-2 size-9 sm:order-none"
+			class="-order-2 sm:order-none"
 			onclick={() => editor.history.redo()}
 			disabled={!editor.history.canRedo}
 			aria-label={$t('support.screenshot.action.redo')}
@@ -127,7 +123,7 @@
 		<!-- Next Button - Mobile: Icon -->
 		<Button
 			size="icon"
-			class="size-9 sm:hidden"
+			class="sm:hidden"
 			onclick={editor.handleSave}
 			disabled={editor.isSaving || !editor.hasShapes}
 			aria-label={editor.isSaving
@@ -153,7 +149,7 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="-order-4 size-9 sm:order-none"
+			class="-order-4 sm:order-none"
 			onclick={editor.handleCancel}
 			aria-label={$t('support.screenshot.action.cancel')}
 		>

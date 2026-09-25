@@ -226,13 +226,19 @@
 		</ChatContainerContent>
 	</ChatContainerRoot>
 
-	<!-- Scroll button: right-aligned in narrow views, centered when content is max-w constrained -->
+	<!-- Scroll button: right-aligned in narrow views, centered when content is max-w constrained.
+	     The wrapper owns placement and the centering shift, so ScrollButton keeps its own
+	     translate and scale motion; it sizes to the button and passes pointer events through. -->
 	<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 w-full">
-		<ScrollButton
-			class="pointer-events-auto absolute right-9 bottom-6 z-20 @min-3xl/main:right-auto @min-3xl/main:left-1/2 @min-3xl/main:-translate-x-1/2"
-			isAtBottom={chatCtx.isAtBottom}
-			onScrollToBottom={() => chatCtx.scrollToBottom()}
-		/>
+		<div
+			class="absolute right-9 bottom-6 z-20 flex @min-3xl/main:right-auto @min-3xl/main:left-1/2 @min-3xl/main:-translate-x-1/2"
+		>
+			<ScrollButton
+				class="pointer-events-auto"
+				isAtBottom={chatCtx.isAtBottom}
+				onScrollToBottom={() => chatCtx.scrollToBottom()}
+			/>
+		</div>
 	</div>
 
 	<!-- Blur pinned to chat viewport bottom, inset to avoid the scrollbar -->

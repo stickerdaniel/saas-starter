@@ -21,9 +21,6 @@
 	}: Props = $props();
 </script>
 
-<AccordionContent
-	class={cn('text-sm outline-none', tone === 'muted' && 'opacity-50', className)}
-	{...props}
->
+<AccordionContent class={cn(tone === 'muted' && 'opacity-50', className)} {...props}>
 	<Response {content} animation={streamingTextAnimation(isStreaming)} class="grid gap-2" />
 </AccordionContent>

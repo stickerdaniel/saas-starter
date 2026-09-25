@@ -575,7 +575,7 @@
 							{...props}
 							variant="ghost"
 							size="icon"
-							class="size-9 rounded-full"
+							shape="pill"
 							aria-label={$t('chat.tooltip.more_actions')}
 						>
 							<PlusIcon class="size-4.5" aria-hidden="true" />
@@ -681,9 +681,9 @@
 			{/if}
 			<Button
 				size="icon"
+				shape="pill"
 				disabled={!canSend}
 				onclick={handleSend}
-				class="size-9 shrink-0 rounded-full"
 				aria-label={$t('chat.aria.send')}
 				data-testid="chat-input-send"
 			>

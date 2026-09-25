@@ -78,7 +78,8 @@
 		     sidebar and popover are the same value and only background differs. -->
 		<Sidebar.Inset
 			id="main-content"
-			class={fullControl ? 'flex flex-col overflow-hidden bg-sidebar dark:bg-background' : ''}
+			surface={fullControl ? 'sidebar' : 'default'}
+			class={fullControl ? 'flex flex-col overflow-hidden' : ''}
 		>
 			<AuthenticatedHeader {routePrefix} {rootLabel} />
 

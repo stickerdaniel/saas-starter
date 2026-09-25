@@ -82,14 +82,14 @@
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div class="flex flex-wrap items-center gap-4">
 			{#if showSearch}
-				<div class="relative w-full max-w-sm sm:w-auto">
+				<div class="relative w-full max-w-sm sm:w-64">
 					<SearchIcon
 						class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 					/>
 					<Input
 						type="search"
 						placeholder={searchPlaceholder}
-						class="w-full pl-10 sm:w-64"
+						adornment="leading-icon"
 						data-testid={searchTestId}
 						value={searchValue}
 						oninput={(event) => onSearchChange((event.currentTarget as HTMLInputElement).value)}
@@ -149,7 +149,8 @@
 			<div class="ml-auto flex items-center gap-2 lg:ml-0">
 				<Button
 					variant="outline"
-					class="hidden h-8 w-8 p-0 lg:flex"
+					size="icon-sm"
+					class="hidden lg:flex"
 					onclick={() => {
 						haptic.trigger('light');
 						onFirstPage();
@@ -161,8 +162,7 @@
 				</Button>
 				<Button
 					variant="outline"
-					class="size-8"
-					size="icon"
+					size="icon-sm"
 					onclick={() => {
 						haptic.trigger('light');
 						onPreviousPage();
@@ -175,8 +175,7 @@
 				</Button>
 				<Button
 					variant="outline"
-					class="size-8"
-					size="icon"
+					size="icon-sm"
 					onclick={() => {
 						haptic.trigger('light');
 						onNextPage();
@@ -189,7 +188,8 @@
 				</Button>
 				<Button
 					variant="outline"
-					class="hidden h-8 w-8 p-0 lg:flex"
+					size="icon-sm"
+					class="hidden lg:flex"
 					onclick={() => {
 						haptic.trigger('light');
 						void onLastPage();
