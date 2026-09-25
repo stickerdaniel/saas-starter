@@ -353,7 +353,7 @@ describe('email send provider preflights', () => {
 		};
 		const handler = (sendNewTicketAdminNotification as unknown as RegisteredMutation)._handler;
 
-		expect(await handler(ctx, { ...args, email: 'admin@e2e.example.com' })).toBe(true);
+		expect(await handler(ctx, { ...args, email: 'admin@e2e.example.com' })).toBe(false);
 		expect(sendEmail).not.toHaveBeenCalled();
 		expect(ctx.runQuery).not.toHaveBeenCalled();
 

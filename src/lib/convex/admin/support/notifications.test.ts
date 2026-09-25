@@ -12,6 +12,7 @@ vi.mock('../../emails/resend', () => ({
 }));
 
 import { getEmailDeliveryConfiguration } from '../../emails/resend';
+import { shouldSkipTestEmail } from '../../emails/helpers';
 import { getFunctionName } from 'convex/server';
 import {
 	claimNotificationForSending,
@@ -218,10 +219,15 @@ const reschedulePendingNotificationH = reschedulePendingNotification as unknown 
  */
 function createActionCtx(
 	ctx: unknown,
-	options: { onFirstSend?: () => Promise<void>; sendThrows?: boolean } = {}
+	options: {
+		onFirstSend?: () => Promise<void>;
+		sendThrows?: boolean;
+		targetEmails?: string[];
+	} = {}
 ) {
 	let pendingHook = options.onFirstSend;
 	const sentEmails: Array<Record<string, unknown>> = [];
+	const sendAttempts: string[] = [];
 	const messageIdsSeen: string[][] = [];
 
 	const runMutation = vi.fn(async (reference: unknown, args: Record<string, unknown>) => {
@@ -237,6 +243,10 @@ function createActionCtx(
 					args as { notificationId: string; delayMs?: number }
 				);
 			case 'emails/send:sendNewTicketAdminNotification': {
+				const email = args.email as string;
+				sendAttempts.push(email);
+				// Mirrors the sender's own guard: nothing is enqueued for a test address.
+				if (shouldSkipTestEmail('sendNewTicketAdminNotification', email)) return false;
 				if (pendingHook) {
 					const hook = pendingHook;
 					pendingHook = undefined;
@@ -257,7 +267,7 @@ function createActionCtx(
 			case 'admin/support/notifications:getSupportThread':
 				return { threadId: args.threadId, userName: 'Visitor', assignedTo: undefined };
 			case 'admin/support/notifications:getNotificationTargetEmails':
-				return ['admin@example.com'];
+				return options.targetEmails ?? ['admin@example.com'];
 			case 'admin/support/notifications:getMessageContents':
 				messageIdsSeen.push(args.messageIds as string[]);
 				return [];
@@ -266,7 +276,7 @@ function createActionCtx(
 		}
 	});
 
-	return { runMutation, runQuery, sentEmails, messageIdsSeen };
+	return { runMutation, runQuery, sentEmails, sendAttempts, messageIdsSeen };
 }
 
 describe('pending notification ownership', () => {
@@ -383,5 +393,65 @@ describe('pending notification ownership', () => {
 		expect(rows[0].scheduledFnId).not.toBe(armedFnId);
 		expect(runAfter).toHaveBeenCalledTimes(2);
 		expect(runAfter.mock.calls[1][0]).toBe(60_000);
+	});
+});
+
+/**
+ * E2E test addresses can be notification recipients. They are never sent to,
+ * so they must not count as a delivery that discards a real recipient's retry,
+ * and a notification with only test recipients must finish instead of retrying.
+ */
+describe('test recipients in pending notifications', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		getEmailConfigurationMock.mockReturnValue({
+			state: 'ready',
+			value: {
+				apiKey: 'configured',
+				sender: 'sender@example.com',
+				assetUrl: 'https://assets.example.com'
+			}
+		});
+	});
+
+	async function schedulePending(ctx: unknown, rows: Array<Record<string, unknown>>) {
+		await scheduleAdminNotificationH._handler(ctx, {
+			threadId: 'thread_test_recipients',
+			messageIds: ['message_1'],
+			isReopen: false,
+			notificationType: 'newTickets'
+		});
+		return rows[0]._id as string;
+	}
+
+	it('retries a failed real recipient alongside a test recipient', async () => {
+		const { ctx, rows, runAfter } = createCtx();
+		const notificationId = await schedulePending(ctx, rows);
+
+		const send = createActionCtx(ctx, {
+			sendThrows: true,
+			targetEmails: ['admin@e2e.example.com', 'admin@example.com']
+		});
+		await sendPendingAdminNotificationH._handler(send, { notificationId });
+
+		expect(rows).toHaveLength(1);
+		expect(rows[0].retryCount).toBe(1);
+		expect(runAfter).toHaveBeenCalledTimes(2);
+		expect(runAfter.mock.calls[1][0]).toBe(60_000);
+		expect(send.sendAttempts).toEqual(['admin@example.com']);
+	});
+
+	it('completes without sends or retries when every recipient is a test address', async () => {
+		const { ctx, rows, runAfter } = createCtx();
+		const notificationId = await schedulePending(ctx, rows);
+
+		const send = createActionCtx(ctx, {
+			targetEmails: ['admin@e2e.example.com', 'support@e2e.example.com']
+		});
+		await sendPendingAdminNotificationH._handler(send, { notificationId });
+
+		expect(rows).toHaveLength(0);
+		expect(runAfter).toHaveBeenCalledTimes(1);
+		expect(send.sendAttempts).toEqual([]);
 	});
 });

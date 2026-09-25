@@ -217,9 +217,9 @@ export const sendNewTicketAdminNotification = internalMutation({
 	handler: async (ctx, args) => {
 		const { email, isReopen, isBareHandoff, userName, messages, threadId } = args;
 
-		// A skipped test recipient counts as handled so the pending notification
-		// is not retried for an address that is never sent to.
-		if (shouldSkipTestEmail('sendNewTicketAdminNotification', email)) return true;
+		// Nothing is enqueued for a test recipient, so it must not count as a send.
+		// sendPendingAdminNotification drops these addresses before sending.
+		if (shouldSkipTestEmail('sendNewTicketAdminNotification', email)) return false;
 		if (!getReadyEmailConfiguration()) return false;
 		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
 		const locale = await getLocaleForEmail(ctx, email);
