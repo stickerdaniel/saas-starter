@@ -16,6 +16,7 @@ import type { GenericMutationCtx } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
 import { buildSupportDeepLink, shouldSkipTestEmail } from './helpers';
 import { hasUsablePassword } from '../credentialAccounts';
+import { withPasswordLinkPurpose } from '../utils/passwordLinkPurpose';
 import { shouldSendNotification } from '../support/notificationPreferences';
 
 /** Type for user result from Better Auth adapter with optional locale field */
@@ -105,7 +106,9 @@ export const sendResetPasswordEmail = internalMutation({
 		// trip. Inside the mutation it shares this transaction.
 		const hasPassword = await hasUsablePassword(ctx, args.userId);
 		const locale = await getLocaleForEmail(ctx, email);
-		const { html, text } = renderPasswordResetEmail(resetUrl, userName, locale, hasPassword);
+		// The page the link opens words itself from this too.
+		const link = withPasswordLinkPurpose(resetUrl, hasPassword ? 'reset' : 'set');
+		const { html, text } = renderPasswordResetEmail(link, userName, locale, hasPassword);
 		const emailConfiguration = assertResendApiKey();
 
 		await resend.sendEmail(ctx, {

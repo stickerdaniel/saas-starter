@@ -4,6 +4,10 @@ import { betterAuth } from 'better-auth';
 import { memoryAdapter } from 'better-auth/adapters/memory';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { authPageURL, callbackURLFor } from '../url';
+import {
+	passwordLinkPurpose,
+	withPasswordLinkPurpose
+} from '../../convex/utils/passwordLinkPurpose';
 
 /**
  * `callbackURLFor` carries a copy of a rule that lives in Better Auth, and a
@@ -179,5 +183,26 @@ describe('the reset callback authPageURL builds', () => {
 		// the journey.
 		expect(location.searchParams.get('token')).toBeNull();
 		expect(carriedDestination(location.href)).toBe(RECOVERY_DESTINATION);
+	});
+
+	/**
+	 * The set-password mail marks its link so the form can say "set" instead of
+	 * "reset". The marker has to survive the same origin check and redirect as
+	 * the token, and only the dependency can say whether it does.
+	 */
+	it.each([
+		['set', 'set'],
+		['reset', 'reset']
+	] as const)('brings a %s link to the form worded as %s', async (purpose, expected) => {
+		const response = await recoveryAuth.handler(
+			new Request(withPasswordLinkPurpose(resetEmailURL, purpose))
+		);
+		expect(response.status).toBe(302);
+
+		const location = new URL(response.headers.get('location')!);
+		expect(location.pathname).toBe('/de/reset-password');
+		expect(location.searchParams.get('token')).toBeTruthy();
+		expect(carriedDestination(location.href)).toBe(RECOVERY_DESTINATION);
+		expect(passwordLinkPurpose(location.searchParams)).toBe(expected);
 	});
 });

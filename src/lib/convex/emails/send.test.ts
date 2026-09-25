@@ -71,6 +71,9 @@ vi.mock('../_generated/api', () => ({
 }));
 
 import { shouldSendNotification } from '../support/notificationPreferences';
+import { hasUsablePassword } from '../credentialAccounts';
+import { renderPasswordResetEmail } from './templates';
+import { passwordLinkPurpose } from '../utils/passwordLinkPurpose';
 import {
 	sendAdminReplyNotification,
 	sendFounderWelcomeEmail,
@@ -336,5 +339,39 @@ describe('email send provider preflights', () => {
 			})
 		).toBe(true);
 		expect(sendEmail).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('sendResetPasswordEmail link', () => {
+	// The shape Better Auth puts in the mail (`requestPasswordReset` in
+	// better-auth/dist/api/routes/password.mjs).
+	const resetUrl = `https://app.example.com/api/auth/reset-password/tok?callbackURL=${encodeURIComponent('/de/reset-password?redirectTo=%2Fde%2Fapp')}`;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		getEmailDeliveryConfiguration.mockReturnValue(readyEmailConfiguration());
+		sendEmail.mockResolvedValue('email_1');
+	});
+
+	it.each([
+		[true, 'reset'],
+		[false, 'set']
+	] as const)('words the page for hasPassword=%s as %s', async (hasPassword, expected) => {
+		vi.mocked(hasUsablePassword).mockResolvedValueOnce(hasPassword);
+		const ctx = { runQuery: vi.fn().mockResolvedValue({ locale: 'de' }) };
+
+		await (sendResetPasswordEmail as unknown as RegisteredMutation)._handler(ctx, {
+			email: 'user@example.com',
+			resetUrl,
+			userId: 'user_1'
+		});
+
+		const link = vi.mocked(renderPasswordResetEmail).mock.calls[0][0];
+		const callback = new URL(
+			new URL(link).searchParams.get('callbackURL')!,
+			'https://app.example.com'
+		);
+		expect(passwordLinkPurpose(callback.searchParams)).toBe(expected);
+		expect(callback.searchParams.get('redirectTo')).toBe('/de/app');
 	});
 });

@@ -392,6 +392,7 @@
 			"password_reset_success": "Your password has been reset successfully.",
 			"password_set": "Password set successfully",
 			"password_set_failed": "Failed to set password",
+			"password_set_success": "Your password has been set successfully.",
 			"password_too_long": "Password is too long",
 			"password_too_short": "Password is too short",
 			"password_too_weak": "Password must be at least 10 characters and include an uppercase letter, a lowercase letter and a number.",
@@ -414,6 +415,12 @@
 			"new_password_label": "New password",
 			"sign_in_link": "Sign in",
 			"title": "Reset password"
+		},
+		"set_password": {
+			"button_loading": "Setting...",
+			"button_submit": "Set password",
+			"description": "Choose a password for your account",
+			"title": "Set a password"
 		},
 		"signin": {
 			"button_signin": "Sign In",

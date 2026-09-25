@@ -392,6 +392,7 @@
 			"password_reset_success": "Tu contraseña se restableció correctamente.",
 			"password_set": "Contraseña establecida correctamente",
 			"password_set_failed": "No se pudo establecer la contraseña",
+			"password_set_success": "Tu contraseña se estableció correctamente.",
 			"password_too_long": "La contraseña es demasiado larga",
 			"password_too_short": "La contraseña es demasiado corta",
 			"password_too_weak": "La contraseña debe tener al menos 10 caracteres e incluir una mayúscula, una minúscula y un número.",
@@ -414,6 +415,12 @@
 			"new_password_label": "Nueva contraseña",
 			"sign_in_link": "Iniciar sesión",
 			"title": "Restablecer contraseña"
+		},
+		"set_password": {
+			"button_loading": "Estableciendo...",
+			"button_submit": "Establecer contraseña",
+			"description": "Elige una contraseña para tu cuenta",
+			"title": "Establece una contraseña"
 		},
 		"signin": {
 			"button_signin": "Iniciar sesión",

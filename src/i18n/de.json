@@ -392,6 +392,7 @@
 			"password_reset_success": "Ihr Passwort wurde erfolgreich zurückgesetzt.",
 			"password_set": "Passwort erfolgreich eingerichtet",
 			"password_set_failed": "Passwort konnte nicht eingerichtet werden",
+			"password_set_success": "Ihr Passwort wurde erfolgreich eingerichtet.",
 			"password_too_long": "Passwort ist zu lang",
 			"password_too_short": "Passwort ist zu kurz",
 			"password_too_weak": "Das Passwort muss mindestens 10 Zeichen lang sein und einen Großbuchstaben, einen Kleinbuchstaben und eine Ziffer enthalten.",
@@ -414,6 +415,12 @@
 			"new_password_label": "Neues Passwort",
 			"sign_in_link": "Anmelden",
 			"title": "Passwort zurücksetzen"
+		},
+		"set_password": {
+			"button_loading": "Wird eingerichtet...",
+			"button_submit": "Passwort einrichten",
+			"description": "Wählen Sie ein Passwort für Ihr Konto",
+			"title": "Passwort einrichten"
 		},
 		"signin": {
 			"button_signin": "Anmelden",
