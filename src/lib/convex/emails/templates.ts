@@ -239,6 +239,7 @@ export function renderAdminReplyNotificationEmail(
 		descriptionText: t(locale, 'email.admin_reply.description', { adminName }),
 		previewText: t(locale, 'email.admin_reply.preview', { adminName }),
 		buttonText: t(locale, 'email.admin_reply.button'),
+		replyHintText: t(locale, 'email.admin_reply.reply_hint'),
 		footerText: t(locale, 'email.admin_reply.footer')
 	};
 

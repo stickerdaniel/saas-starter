@@ -597,6 +597,7 @@
 			"description": "{adminName} a répondu à votre conversation de support",
 			"footer": "Vous recevez cet email car vous avez une demande de support en cours.",
 			"preview": "{adminName} a répondu à votre demande de support",
+			"reply_hint": "Pour répondre, ouvrez la conversation de support. Les réponses à cet email ne sont pas ajoutées à votre demande.",
 			"title": "Nouvelle réponse à votre demande"
 		},
 		"badge": {

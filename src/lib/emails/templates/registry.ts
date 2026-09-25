@@ -79,6 +79,7 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 			descriptionText: '__ETA_descriptionText__',
 			previewText: '__ETA_previewText__',
 			buttonText: '__ETA_buttonText__',
+			replyHintText: '__ETA_replyHintText__',
 			footerText: '__ETA_footerText__'
 		}
 	},

@@ -597,6 +597,7 @@
 			"description": "{adminName} ha respondido a tu conversación de soporte",
 			"footer": "Recibes este email porque tienes una solicitud de soporte abierta.",
 			"preview": "{adminName} ha respondido a tu solicitud de soporte",
+			"reply_hint": "Para responder, abre la conversación de soporte. Las respuestas a este email no se añaden a tu solicitud.",
 			"title": "Nueva respuesta a tu solicitud"
 		},
 		"badge": {

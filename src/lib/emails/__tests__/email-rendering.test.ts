@@ -10,6 +10,7 @@ vi.mock('$lib/convex/env', () => ({
 }));
 
 import { sanitizeEmailCss } from '../email-css';
+import { STATIC_TRANSLATIONS, SUPPORTED_LOCALES } from '$lib/i18n/static-translations.generated';
 import {
 	renderVerificationEmail,
 	renderVerificationCodeEmail,
@@ -234,6 +235,21 @@ describe('Email Template Rendering', () => {
 			);
 			expect(result.html).toContain('Alice a répondu à votre conversation de support');
 			expect(result.text).toContain('Voir la conversation');
+		});
+
+		// Replies go out from AUTH_EMAIL with no replyTo or inbound path, so the
+		// email itself must say that answering it does not reach the thread.
+		it.each(SUPPORTED_LOCALES)('tells %s readers to reply in the conversation', (locale) => {
+			const hint = STATIC_TRANSLATIONS[locale].email.admin_reply.reply_hint;
+			const result = renderAdminReplyNotificationEmail(
+				'Alice',
+				'Hi',
+				'https://example.com',
+				locale
+			);
+			expect(hint).toBeTruthy();
+			expect(result.html).toContain(hint);
+			expect(result.text).toContain(hint);
 		});
 
 		it('renders German new ticket notification button and footer', () => {

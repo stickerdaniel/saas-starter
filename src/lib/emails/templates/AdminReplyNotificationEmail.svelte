@@ -15,6 +15,7 @@
 		descriptionText = 'Support Team has responded to your support thread',
 		previewText = 'Support Team has replied to your support request',
 		buttonText = 'View Conversation',
+		replyHintText = 'To respond, open the support conversation. Replies to this email are not added to your request.',
 		footerText = "You're receiving this email because you have an open support request."
 	}: {
 		lang?: string;
@@ -25,6 +26,7 @@
 		descriptionText?: string;
 		previewText?: string;
 		buttonText?: string;
+		replyHintText?: string;
 		footerText?: string;
 	} = $props();
 </script>
@@ -48,6 +50,10 @@
 					</Alert.Root>
 
 					<Button class="mb-4" href={deepLink}>{buttonText}</Button>
+
+					<p class="mb-2 text-xs text-muted-foreground dark:text-zinc-400">
+						{replyHintText}
+					</p>
 
 					<p class="text-xs text-muted-foreground dark:text-zinc-400">
 						{footerText}

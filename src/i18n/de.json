@@ -597,6 +597,7 @@
 			"description": "{adminName} hat auf Ihren Support-Thread geantwortet",
 			"footer": "Sie erhalten diese E-Mail, weil Sie eine offene Support-Anfrage haben.",
 			"preview": "{adminName} hat auf Ihre Support-Anfrage geantwortet",
+			"reply_hint": "Um zu antworten, öffnen Sie die Support-Unterhaltung. Antworten auf diese E-Mail werden Ihrer Anfrage nicht hinzugefügt.",
 			"title": "Neue Antwort auf Ihre Anfrage"
 		},
 		"badge": {
