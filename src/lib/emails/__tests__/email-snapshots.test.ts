@@ -143,6 +143,7 @@ describe('Generated Email Templates', () => {
 			expect(content).toContain('{{titleText}}');
 			expect(content).toContain('{{descriptionText}}');
 			expect(content).toContain('{{buttonText}}');
+			expect(content).toContain('{{replyHintText}}');
 			expect(content).toContain('{{footerText}}');
 		});
 

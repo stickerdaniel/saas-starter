@@ -597,6 +597,7 @@
 			"description": "{adminName} has responded to your support thread",
 			"footer": "You're receiving this email because you have an open support request.",
 			"preview": "{adminName} has replied to your support request",
+			"reply_hint": "To respond, open the support conversation. Replies to this email are not added to your request.",
 			"title": "New reply to your request"
 		},
 		"badge": {
