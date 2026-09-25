@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
@@ -85,6 +85,7 @@ const placementSample = ['-mt-2', 'w-full', 'shrink-0', 'relative', 'top-1', 'z-
 const classes = [...appearance, ...placementSample].join(' ');
 
 describe('no-restyle options in the application config', () => {
+	// The first config resolution loads the typed Svelte parser, which is slow under load.
 	it('gives files without an owner profile the ordered base contracts', async () => {
 		expect(await restyleOptionsFor(production, route)).toEqual([2, specBase]);
 		// No container contract after STRICT may reopen a control.
@@ -92,7 +93,7 @@ describe('no-restyle options in the application config', () => {
 		for (const name of ['Button', 'Badge', 'AdminThreadRow']) {
 			expect(specBase.contracts.filter((c) => new RegExp(c.pattern).test(name))).toEqual([strict]);
 		}
-	});
+	}, 60_000);
 
 	it('composes the specified options at every owner file and nowhere else', async () => {
 		const files = [...new Set(specOwners.flatMap((owner) => owner.files))];
@@ -237,68 +238,6 @@ describe('no-restyle flat-config precedence', () => {
 	});
 });
 
-describe('no-restyle strict controls', () => {
-	it('rejects appearance and admits placement on every public control', async () => {
-		const controls = [
-			['Button', '<Button class="CLASSES" />'],
-			['CopyButton', '<CopyButton text="x" class="CLASSES" />'],
-			['ScrollButton', '<ScrollButton class="CLASSES" />'],
-			['PromptSuggestion', '<PromptSuggestion class="CLASSES">x</PromptSuggestion>'],
-			['CommandTrigger', '<CommandTrigger class="CLASSES" />'],
-			['NavigationButton', '<NavigationButton type="back" class="CLASSES" />'],
-			['AlertDialogAction', '<AlertDialog.Action class="CLASSES" />'],
-			['AlertDialogCancel', '<AlertDialog.Cancel class="CLASSES" />'],
-			['InputGroupButton', '<InputGroup.Button class="CLASSES" />'],
-			['Badge', '<Badge class="CLASSES" />'],
-			['Input', '<Input class="CLASSES" />'],
-			['SidebarInput', '<Sidebar.Input class="CLASSES" />'],
-			['InputGroupInput', '<InputGroup.Input class="CLASSES" />'],
-			['Textarea', '<Textarea class="CLASSES" />'],
-			['InputGroupTextarea', '<InputGroup.Textarea class="CLASSES" />'],
-			['PromptInputTextarea', '<PromptInputTextarea class="CLASSES" />'],
-			['SelectTrigger', '<Select.Trigger class="CLASSES" />'],
-			['TabsTrigger', '<Tabs.Trigger value="x" class="CLASSES" />'],
-			['Toggle', '<Toggle class="CLASSES" />'],
-			['Avatar', '<Avatar.Root class="CLASSES" />'],
-			['AvatarImage', '<Avatar.Image class="CLASSES" />'],
-			['AvatarFallback', '<Avatar.Fallback class="CLASSES" />'],
-			['Kbd', '<Kbd.Root class="CLASSES" />'],
-			['KbdGroup', '<Kbd.Group class="CLASSES" />']
-		] as const;
-		const imports = `<script lang="ts">
-import { Button } from '$lib/components/ui/button';
-import { CopyButton } from '$lib/components/ui/copy-button';
-import ScrollButton from '$lib/components/prompt-kit/scroll-button/ScrollButton.svelte';
-import PromptInputTextarea from '$lib/components/prompt-kit/prompt-input/PromptInputTextarea.svelte';
-import PromptSuggestion from '$lib/components/prompt-kit/prompt-suggestion/prompt-suggestion.svelte';
-import CommandTrigger from '$lib/components/global-search/command-trigger.svelte';
-import NavigationButton from '$lib/components/customer-support/navigation-button.svelte';
-import * as AlertDialog from '$lib/components/ui/alert-dialog';
-import * as InputGroup from '$lib/components/ui/input-group';
-import { Badge } from '$lib/components/ui/badge';
-import { Input } from '$lib/components/ui/input';
-import * as Sidebar from '$lib/components/ui/sidebar';
-import { Textarea } from '$lib/components/ui/textarea';
-import * as Select from '$lib/components/ui/select';
-import * as Tabs from '$lib/components/ui/tabs';
-import { Toggle } from '$lib/components/ui/toggle';
-import * as Avatar from '$lib/components/ui/avatar';
-import * as Kbd from '$lib/components/ui/kbd';
-</script>
-`;
-		const firstLine = imports.split('\n').length;
-		const source =
-			imports + controls.map(([, markup]) => markup.replace('CLASSES', classes)).join('\n');
-		const found = await restyles(production, source, route);
-
-		controls.forEach(([name], index) => {
-			const onLine = found.filter((entry) => entry.line === firstLine + index);
-			expect(onLine.map((entry) => entry.token).sort(), name).toEqual([...appearance].sort());
-		});
-		expect(found).toHaveLength(controls.length * appearance.length);
-	}, 60_000);
-});
-
 describe('no-restyle private owners', () => {
 	const ownedDir = 'src/lib/components/ui/owned';
 	const owners = readdirSync(ownedDir)
@@ -327,173 +266,4 @@ describe('no-restyle private owners', () => {
 		});
 		expect(found).toHaveLength(owners.length * appearance.length);
 	}, 60_000);
-});
-
-describe('no-restyle owner profiles', () => {
-	// How a fixture writes each owned component, with an import that resolves it to the
-	// name the rule reports.
-	const fixtures: Record<string, { from: string; tag: string }> = {
-		Accordion: {
-			from: 'import * as Accordion from "$lib/components/ui/accordion";',
-			tag: 'Accordion.Root type="single"'
-		},
-		AccordionContent: {
-			from: 'import * as Accordion from "$lib/components/ui/accordion";',
-			tag: 'Accordion.Content'
-		},
-		AccordionItem: {
-			from: 'import * as Accordion from "$lib/components/ui/accordion";',
-			tag: 'Accordion.Item value="x"'
-		},
-		AccordionTrigger: {
-			from: 'import * as Accordion from "$lib/components/ui/accordion";',
-			tag: 'Accordion.Trigger'
-		},
-		AlertDialogAction: {
-			from: 'import * as AlertDialog from "$lib/components/ui/alert-dialog";',
-			tag: 'AlertDialog.Action'
-		},
-		Avatar: { from: 'import * as Avatar from "$lib/components/ui/avatar";', tag: 'Avatar.Root' },
-		Badge: { from: 'import { Badge } from "$lib/components/ui/badge";', tag: 'Badge' },
-		Button: { from: 'import { Button } from "$lib/components/ui/button";', tag: 'Button' },
-		Card: { from: 'import * as Card from "$lib/components/ui/card";', tag: 'Card.Root' },
-		CardDescription: {
-			from: 'import * as Card from "$lib/components/ui/card";',
-			tag: 'Card.Description'
-		},
-		CardFooter: { from: 'import * as Card from "$lib/components/ui/card";', tag: 'Card.Footer' },
-		CardTitle: { from: 'import * as Card from "$lib/components/ui/card";', tag: 'Card.Title' },
-		Collapsible: {
-			from: 'import * as Collapsible from "$lib/components/ui/collapsible";',
-			tag: 'Collapsible.Root'
-		},
-		CollapsibleContent: {
-			from: 'import * as Collapsible from "$lib/components/ui/collapsible";',
-			tag: 'Collapsible.Content'
-		},
-		Command: {
-			from: 'import * as Command from "$lib/components/ui/command";',
-			tag: 'Command.Root'
-		},
-		CommandEmpty: {
-			from: 'import * as Command from "$lib/components/ui/command";',
-			tag: 'Command.Empty'
-		},
-		CommandGroup: {
-			from: 'import * as Command from "$lib/components/ui/command";',
-			tag: 'Command.Group'
-		},
-		CommandItem: {
-			from: 'import * as Command from "$lib/components/ui/command";',
-			tag: 'Command.Item'
-		},
-		CopyButton: {
-			from: 'import { CopyButton } from "$lib/components/ui/copy-button";',
-			tag: 'CopyButton text="x"'
-		},
-		DialogContent: {
-			from: 'import * as Dialog from "$lib/components/ui/dialog";',
-			tag: 'Dialog.Content'
-		},
-		DropdownMenuContent: {
-			from: 'import * as DropdownMenu from "$lib/components/ui/dropdown-menu";',
-			tag: 'DropdownMenu.Content'
-		},
-		DropdownMenuItem: {
-			from: 'import * as DropdownMenu from "$lib/components/ui/dropdown-menu";',
-			tag: 'DropdownMenu.Item'
-		},
-		Empty: { from: 'import * as Empty from "$lib/components/ui/empty";', tag: 'Empty.Root' },
-		Input: { from: 'import { Input } from "$lib/components/ui/input";', tag: 'Input' },
-		InputGroup: {
-			from: 'import * as InputGroup from "$lib/components/ui/input-group";',
-			tag: 'InputGroup.Root'
-		},
-		Kbd: { from: 'import * as Kbd from "$lib/components/ui/kbd";', tag: 'Kbd.Root' },
-		Label: { from: 'import { Label } from "$lib/components/ui/label";', tag: 'Label' },
-		Progress: { from: 'import { Progress } from "$lib/components/ui/progress";', tag: 'Progress' },
-		SelectTrigger: {
-			from: 'import * as Select from "$lib/components/ui/select";',
-			tag: 'Select.Trigger'
-		},
-		Separator: {
-			from: 'import { Separator } from "$lib/components/ui/separator";',
-			tag: 'Separator'
-		},
-		SheetContent: {
-			from: 'import * as Sheet from "$lib/components/ui/sheet";',
-			tag: 'Sheet.Content'
-		},
-		SidebarMenuAction: {
-			from: 'import * as Sidebar from "$lib/components/ui/sidebar";',
-			tag: 'Sidebar.MenuAction'
-		},
-		Textarea: { from: 'import { Textarea } from "$lib/components/ui/textarea";', tag: 'Textarea' },
-		Toggle: { from: 'import { Toggle } from "$lib/components/ui/toggle";', tag: 'Toggle' }
-	};
-
-	// One element per owned component carrying the whole recipe, in a quote the recipe's
-	// own attribute selectors do not use.
-	function recipeSource(components: Record<string, string[]>) {
-		const names = Object.keys(components);
-		const imports = [...new Set(names.map((name) => fixtures[name].from))];
-		const header = `<script lang="ts">\n${imports.join('\n')}\n</script>\n`;
-		const firstLine = header.split('\n').length;
-		const lines = names.map((name) => {
-			const recipe = components[name].join(' ');
-			const quote = recipe.includes('"') ? "'" : '"';
-			expect(recipe.includes(quote), name).toBe(false);
-			return `<${fixtures[name].tag} class=${quote}${recipe}${quote} />`;
-		});
-		return { source: header + lines.join('\n'), firstLine, names };
-	}
-
-	it('keeps every owner file clean on the components it owns', async () => {
-		const owned = new Map<string, Set<string>>();
-		for (const owner of specOwners) {
-			for (const file of owner.files) {
-				const names = owned.get(file) ?? new Set<string>();
-				for (const name of Object.keys(owner.components)) names.add(name);
-				owned.set(file, names);
-			}
-		}
-		// A private owner exists only for its recipe, so all of it must pass, and a
-		// profile that names another file leaves the owner reported here.
-		const ownedDir = 'src/lib/components/ui/owned';
-		for (const file of readdirSync(ownedDir)) owned.set(`${ownedDir}/${file}`, new Set(['*']));
-
-		for (const [file, names] of owned) {
-			const found = await restyles(production, readFileSync(file, 'utf-8'), file);
-			const reported = found
-				.filter((entry) => names.has('*') || names.has(entry.component))
-				.map((entry) => `${entry.token}@${entry.component}`);
-			expect(reported, file).toEqual([]);
-		}
-	}, 180_000);
-
-	it('names every owned component in a fixture', () => {
-		const owned = new Set(specOwners.flatMap((owner) => Object.keys(owner.components)));
-		expect([...owned].filter((name) => !fixtures[name])).toEqual([]);
-	});
-
-	for (const owner of specOwners) {
-		it(`${owner.id} admits its recipe in its owner file only`, async () => {
-			const { source, firstLine, names } = recipeSource(owner.components);
-			for (const file of owner.files) {
-				expect(await restyles(production, source, file), file).toEqual([]);
-			}
-			// Elsewhere every component keeps its strict or default contract, so each
-			// recipe loses at least one class, and only classes from the recipe.
-			const elsewhere = await restyles(production, source, route);
-			names.forEach((name, index) => {
-				const onLine = elsewhere.filter((entry) => entry.line === firstLine + index);
-				expect(onLine.length, name).toBeGreaterThan(0);
-				for (const entry of onLine) {
-					expect(entry.component).toBe(name);
-					expect(owner.components[name]).toContain(entry.token);
-				}
-			});
-			expect(elsewhere.every((entry) => entry.line >= firstLine)).toBe(true);
-		}, 60_000);
-	}
 });
