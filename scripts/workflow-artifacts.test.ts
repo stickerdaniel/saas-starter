@@ -184,13 +184,18 @@ describe.skipIf(process.platform === 'win32')('lint job source identity', () => 
 		return dir;
 	}
 
-	function exec(script: string, dir: string, sha: string): number {
+	function run(script: string, dir: string, sha: string): { status: number; stderr: string } {
 		const result = spawnSync('bash', ['-e', '-o', 'pipefail', '-c', script], {
 			cwd: dir,
 			env: { ...sanitizedGitEnv(), GITHUB_SHA: sha },
-			encoding: 'utf-8'
+			encoding: 'utf-8',
+			maxBuffer: 16 * 1024 * 1024
 		});
-		return result.status ?? 1;
+		return { status: result.status ?? 1, stderr: result.stderr };
+	}
+
+	function exec(script: string, dir: string, sha: string): number {
+		return run(script, dir, sha).status;
 	}
 
 	function withoutGuard(script: string, marker: string): string {
@@ -250,6 +255,36 @@ describe.skipIf(process.platform === 'win32')('lint job source identity', () => 
 		inFixture((dir, head) => {
 			fs.writeFileSync(path.join(dir, 'src', 'env.d.ts'), 'export const generated = true;\n');
 			onEachGuard(dir, head, 1);
+		});
+	});
+
+	it('prints the diff of a rewritten tracked file before it fails', () => {
+		inFixture((dir, head) => {
+			fs.writeFileSync(path.join(dir, 'src', 'env.d.ts'), 'export const generated = true;\n');
+			expect(guards, 'the lint job carries both guard steps').toHaveLength(2);
+			for (const guard of guards) {
+				const result = run(String(guard.run), dir, head);
+				expect(result.status, String(guard.name)).toBe(1);
+				expect(result.stderr, String(guard.name)).toMatch(/src\/env\.d\.ts \| 2 \+-/);
+				expect(result.stderr, String(guard.name)).toContain(
+					'-export {};\n+export const generated = true;\n'
+				);
+			}
+		});
+	});
+
+	it('bounds the printed diff of a large rewrite', () => {
+		inFixture((dir, head) => {
+			fs.writeFileSync(
+				path.join(dir, 'app.ts'),
+				`export const version = 1;\n${'// generated line\n'.repeat(100_000)}`
+			);
+			for (const guard of guards) {
+				const result = run(String(guard.run), dir, head);
+				expect(result.status, String(guard.name)).toBe(1);
+				expect(result.stderr, String(guard.name)).toMatch(/app\.ts \| 100000 \+/);
+				expect(result.stderr.length, String(guard.name)).toBeLessThan(30_000);
+			}
 		});
 	});
 

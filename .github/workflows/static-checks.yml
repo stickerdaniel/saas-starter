@@ -51,6 +51,10 @@ jobs:
           if [ -n "$status" ]; then
             echo "Source identity lost: the working tree no longer matches $GITHUB_SHA." >&2
             printf '%s\n' "$status" >&2
+            # Show what changed so a one-off generator difference stays diagnosable.
+            git diff --stat HEAD >&2 || true
+            echo "Diff against HEAD (first 20000 bytes):" >&2
+            git diff HEAD | head -c 20000 >&2 || true
             echo "Commit the regenerated file, or ignore it when it is build output." >&2
             exit 1
           fi
@@ -77,6 +81,10 @@ jobs:
           if [ -n "$status" ]; then
             echo "Source identity lost: the working tree no longer matches $GITHUB_SHA." >&2
             printf '%s\n' "$status" >&2
+            # Show what changed so a one-off generator difference stays diagnosable.
+            git diff --stat HEAD >&2 || true
+            echo "Diff against HEAD (first 20000 bytes):" >&2
+            git diff HEAD | head -c 20000 >&2 || true
             echo "Commit the regenerated file, or ignore it when it is build output." >&2
             exit 1
           fi
