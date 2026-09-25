@@ -2,6 +2,54 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { EMAIL_TEMPLATES } from '../templates/registry';
+import { LEGAL_CONFIG } from '$lib/config/legal';
+
+const LEGAL_PLACEHOLDER = '[legal]';
+
+/**
+ * Setup writes each project's brand, company, and address into LEGAL_CONFIG, and the
+ * email header and footer render them. The snapshots pin the markup around those values
+ * rather than the values themselves, so a configured project matches the template's
+ * snapshots. The plain-text export wraps at 80 columns, so whitespace inside a text
+ * paragraph that holds a legal value is collapsed as well.
+ */
+function withLegalPlaceholders(content: string): string {
+	const forms = (['brandName', 'companyName', 'address'] as const)
+		.flatMap((key) => {
+			const value: string = LEGAL_CONFIG[key];
+			// Raw text, then Svelte's escaping for element content and for attributes.
+			return [value, escapeHtml(value, /[&<]/g), escapeHtml(value, /[&"<]/g)];
+		})
+		.map((form) => form.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${'))
+		.filter((form) => form.trim() !== '')
+		.sort((left, right) => right.length - left.length);
+	let normalized = content;
+	for (const form of new Set(forms)) {
+		const words = form
+			.trim()
+			.split(/\s+/)
+			.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+		const pattern = new RegExp(
+			`(?<![\\p{L}\\p{N}_])${words.join('\\s+')}(?![\\p{L}\\p{N}_])`,
+			'gu'
+		);
+		normalized = normalized.replace(pattern, LEGAL_PLACEHOLDER);
+	}
+	const textStart = normalized.search(/_TEXT = `/);
+	if (textStart === -1) return normalized;
+	const text = normalized
+		.slice(textStart)
+		.split('\n\n')
+		.map((paragraph) =>
+			paragraph.includes(LEGAL_PLACEHOLDER) ? paragraph.replace(/\s+/g, ' ') : paragraph
+		)
+		.join('\n\n');
+	return normalized.slice(0, textStart) + text;
+}
+
+function escapeHtml(value: string, pattern: RegExp): string {
+	return value.replace(pattern, (char) => ({ '&': '&amp;', '"': '&quot;', '<': '&lt;' })[char]!);
+}
 
 /**
  * Returns the brace nesting depth of every `prefers-color-scheme` at-rule in a
@@ -74,7 +122,7 @@ describe('Generated Email Templates', () => {
 
 		it('matches snapshot structure', () => {
 			const content = readFileSync(join(generatedDir, 'verification.ts'), 'utf-8');
-			expect(content).toMatchSnapshot();
+			expect(withLegalPlaceholders(content)).toMatchSnapshot();
 		});
 	});
 
@@ -117,7 +165,7 @@ describe('Generated Email Templates', () => {
 
 		it('matches snapshot structure', () => {
 			const content = readFileSync(join(generatedDir, 'passwordReset.ts'), 'utf-8');
-			expect(content).toMatchSnapshot();
+			expect(withLegalPlaceholders(content)).toMatchSnapshot();
 		});
 	});
 
@@ -164,7 +212,7 @@ describe('Generated Email Templates', () => {
 
 		it('matches snapshot structure', () => {
 			const content = readFileSync(join(generatedDir, 'adminReplyNotification.ts'), 'utf-8');
-			expect(content).toMatchSnapshot();
+			expect(withLegalPlaceholders(content)).toMatchSnapshot();
 		});
 	});
 

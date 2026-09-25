@@ -68,8 +68,13 @@ describe('favicon set', () => {
 		expect(appHtml).toContain('sizes="180x180"');
 		expect(appHtml).toContain('name="apple-mobile-web-app-title"');
 		// the home-screen app title is a literal in app.html (no LEGAL_CONFIG access
-		// there), so guard it against drifting from the configured brand name.
-		expect(appHtml).toContain(`content="${LEGAL_CONFIG.brandName}"`);
+		// there), so guard it against drifting from the configured brand name. Setup
+		// writes it as an HTML attribute, so decode its escapes before comparing.
+		const title = /<meta name="apple-mobile-web-app-title" content="([^"]*)"/.exec(appHtml)?.[1];
+		const entities: Record<string, string> = { amp: '&', quot: '"', lt: '<', gt: '>' };
+		expect(title?.replace(/&(amp|quot|lt|gt);/g, (_, name: string) => entities[name]!)).toBe(
+			LEGAL_CONFIG.brandName
+		);
 	});
 
 	it('no longer references the legacy favicon.png', () => {

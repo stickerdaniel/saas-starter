@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LEGAL_CONTENT_DATES } from '$lib/content/legal-metadata';
 import {
 	PUBLIC_MARKETING_ROUTES,
 	getDefaultLanguageMarketingUrl,
@@ -28,9 +29,10 @@ describe('public marketing route registry', () => {
 		).toEqual({
 			home: undefined,
 			pricing: undefined,
-			privacy: '2026-03-18',
-			terms: '2026-03-18',
-			impressum: '2026-03-21'
+			// Setup moves the authored dates to the setup day, so read them from their source.
+			privacy: LEGAL_CONTENT_DATES.privacy,
+			terms: LEGAL_CONTENT_DATES.terms,
+			impressum: LEGAL_CONTENT_DATES.impressum
 		});
 		expect(
 			PUBLIC_MARKETING_ROUTES.every((route) => route.agentLabel && route.agentDescription)
