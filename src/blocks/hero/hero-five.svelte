@@ -6,7 +6,7 @@
 
 	import { Marquee } from '$lib/components/spell/marquee';
 	import ProgressiveBlur from '../magic/ProgressiveBlur.svelte';
-	import Button from '$lib/components/ui/button/button.svelte';
+	import HeroFiveCta from '$lib/components/ui/owned/hero-five-cta.svelte';
 	import LearnMoreChevron from '$lib/components/motion/learn-more-chevron.svelte';
 	import RiveBackground from '$lib/components/RiveBackground.svelte';
 	import nvidiaLogo from './logos/nvidia.svg';
@@ -41,22 +41,13 @@
 					<div
 						class="mt-12 flex flex-col items-center justify-center gap-2 sm:flex-row lg:justify-start"
 					>
-						<Button
-							size="lg"
-							href={localizedHref('/signup')}
-							class="t-learn pointer-events-auto h-12 rounded-full pr-3 pl-5 text-sm"
-						>
+						<HeroFiveCta emphasis="primary" href={localizedHref('/signup')}>
 							<span class="text-nowrap"><T keyName="hero.cta" /></span>
 							<LearnMoreChevron class="ml-1" />
-						</Button>
-						<Button
-							size="lg"
-							variant="ghost"
-							href="#link"
-							class="pointer-events-auto h-12 rounded-full px-5 text-base hover:bg-foreground/5 dark:hover:bg-foreground/5"
-						>
+						</HeroFiveCta>
+						<HeroFiveCta emphasis="demo" href="#link">
 							<span class="text-nowrap"><T keyName="hero.cta_demo" /></span>
-						</Button>
+						</HeroFiveCta>
 					</div>
 				</div>
 			</div>

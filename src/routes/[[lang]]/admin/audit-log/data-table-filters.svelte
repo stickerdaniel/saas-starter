@@ -2,6 +2,7 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import FilterChipRemoveButton from '$lib/components/ui/owned/filter-chip-remove-button.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
@@ -79,10 +80,12 @@
 
 <div class="flex items-center gap-2">
 	<Select.Root type="single" value={actionValue} onValueChange={handleActionChange}>
-		<Select.Trigger class="h-8 w-45" data-testid="admin-audit-log-action-filter">
-			{options.find((opt) => opt.value === actionValue)?.label ??
-				$t('admin.audit_log.filter.all_actions')}
-		</Select.Trigger>
+		<div class="w-45">
+			<Select.Trigger class="w-full" data-testid="admin-audit-log-action-filter">
+				{options.find((opt) => opt.value === actionValue)?.label ??
+					$t('admin.audit_log.filter.all_actions')}
+			</Select.Trigger>
+		</div>
 		<Select.Content>
 			{#each options as option (option.value)}
 				<Select.Item
@@ -98,8 +101,7 @@
 	{#if hasActiveFilter}
 		<Button
 			variant="ghost"
-			size="sm"
-			class="h-8 px-2"
+			size="filter"
 			onclick={clearFilter}
 			data-testid="admin-audit-log-filter-clear"
 		>
@@ -109,11 +111,7 @@
 	{/if}
 
 	{#if userFilterKind}
-		<Badge
-			variant="secondary"
-			class="h-8 gap-1.5 pr-1 pl-2.5"
-			data-testid="audit-log-user-filter-chip"
-		>
+		<Badge variant="secondary" size="chip" data-testid="audit-log-user-filter-chip">
 			<span class="text-muted-foreground">
 				{userFilterKind === 'admin'
 					? $t('admin.audit_log.filter.by')
@@ -124,17 +122,14 @@
 			{:else}
 				<Skeleton class="h-3.5 w-20" />
 			{/if}
-			<Button
-				variant="ghost"
-				size="icon-xs"
+			<FilterChipRemoveButton
 				type="button"
 				onclick={clearUserFilter}
 				aria-label={$t('admin.audit_log.filter.remove_user')}
 				data-testid="audit-log-user-filter-chip-remove"
-				class="size-4 rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
 			>
 				<XIcon class="size-3" />
-			</Button>
+			</FilterChipRemoveButton>
 		</Badge>
 	{/if}
 </div>

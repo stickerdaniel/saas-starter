@@ -4,9 +4,13 @@
 
 	let {
 		ref = $bindable(null),
+		size = 'default',
 		class: className,
 		...restProps
-	}: TabsPrimitive.TriggerProps = $props();
+	}: TabsPrimitive.TriggerProps & {
+		/** `compact` fits several short labels into a narrow list. */
+		size?: 'default' | 'compact';
+	} = $props();
 </script>
 
 <TabsPrimitive.Trigger
@@ -17,6 +21,7 @@
 		'group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent',
 		'data-active:text-foreground group-[[data-variant=default]:not([data-thumb-ready])]/tabs-list:data-active:bg-background dark:data-active:text-foreground group-[[data-variant=default]:not([data-thumb-ready])]/tabs-list:dark:data-active:border-input group-[[data-variant=default]:not([data-thumb-ready])]/tabs-list:dark:data-active:bg-input/30',
 		'after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:-bottom-1.25 group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-[[data-variant=line]:not([data-thumb-ready])]/tabs-list:data-active:after:opacity-100',
+		size === 'compact' && 'min-w-0 overflow-hidden px-1 text-xs',
 		className
 	)}
 	{...restProps}

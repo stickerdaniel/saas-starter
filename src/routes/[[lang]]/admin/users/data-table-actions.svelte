@@ -12,6 +12,7 @@
 <script lang="ts">
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import UserBanMenuItem from '$lib/components/ui/owned/user-ban-menu-item.svelte';
 	import DotsVerticalIcon from '@lucide/svelte/icons/ellipsis-vertical';
 	import UserCheckIcon from '@lucide/svelte/icons/user-check';
 	import UserOffIcon from '@lucide/svelte/icons/user-x';
@@ -109,14 +110,10 @@
 				<T keyName="admin.actions.unban" />
 			</DropdownMenu.Item>
 		{:else}
-			<DropdownMenu.Item
-				onclick={handleBan}
-				class="text-destructive"
-				data-testid="admin-users-action-ban"
-			>
+			<UserBanMenuItem onclick={handleBan} data-testid="admin-users-action-ban">
 				<UserOffIcon class="mr-2 size-4" />
 				<T keyName="admin.actions.ban" />
-			</DropdownMenu.Item>
+			</UserBanMenuItem>
 		{/if}
 		<DropdownMenu.Item onclick={handleRevoke} data-testid="admin-users-action-revoke-sessions">
 			<LogoutIcon class="mr-2 size-4" />

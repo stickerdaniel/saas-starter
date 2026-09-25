@@ -84,9 +84,9 @@
 				class="absolute inset-0 flex items-center justify-center"
 			>
 				<Button
-					variant="ghost"
-					size="icon"
-					class="h-10 w-10 rounded-full hover:!bg-muted-foreground/10"
+					variant="ghost-tint"
+					size="icon-lg"
+					shape="pill"
 					aria-label={$t('aria.go_back')}
 					onclick={onBackClick}
 				>

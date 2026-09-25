@@ -104,10 +104,12 @@
 <div class="flex items-center gap-2">
 	<!-- Role Filter -->
 	<Select.Root type="single" value={roleValue} onValueChange={handleRoleChange}>
-		<Select.Trigger class="h-8 w-32.5" data-testid="admin-users-role-filter-trigger">
-			{roleOptions.find((opt) => opt.value === roleValue)?.label ??
-				$t('admin.users.filter.all_roles')}
-		</Select.Trigger>
+		<div class="w-32.5">
+			<Select.Trigger class="w-full" data-testid="admin-users-role-filter-trigger">
+				{roleOptions.find((opt) => opt.value === roleValue)?.label ??
+					$t('admin.users.filter.all_roles')}
+			</Select.Trigger>
+		</div>
 		<Select.Content>
 			{#each roleOptions as option (option.value)}
 				<Select.Item value={option.value} data-testid={`admin-users-role-filter-${option.value}`}>
@@ -119,10 +121,12 @@
 
 	<!-- Status Filter -->
 	<Select.Root type="single" value={statusValue} onValueChange={handleStatusChange}>
-		<Select.Trigger class="h-8 w-32.5" data-testid="admin-users-status-filter-trigger">
-			{statusOptions.find((opt) => opt.value === statusValue)?.label ??
-				$t('admin.users.filter.all_status')}
-		</Select.Trigger>
+		<div class="w-32.5">
+			<Select.Trigger class="w-full" data-testid="admin-users-status-filter-trigger">
+				{statusOptions.find((opt) => opt.value === statusValue)?.label ??
+					$t('admin.users.filter.all_status')}
+			</Select.Trigger>
+		</div>
 		<Select.Content>
 			{#each statusOptions as option (option.value)}
 				<Select.Item value={option.value} data-testid={`admin-users-status-filter-${option.value}`}>
@@ -134,10 +138,12 @@
 
 	<!-- Provider Filter -->
 	<Select.Root type="single" value={providerValue} onValueChange={handleProviderChange}>
-		<Select.Trigger class="h-8 w-32.5" data-testid="admin-users-provider-filter-trigger">
-			{providerOptions.find((opt) => opt.value === providerValue)?.label ??
-				$t('admin.users.filter.all_providers')}
-		</Select.Trigger>
+		<div class="w-32.5">
+			<Select.Trigger class="w-full" data-testid="admin-users-provider-filter-trigger">
+				{providerOptions.find((opt) => opt.value === providerValue)?.label ??
+					$t('admin.users.filter.all_providers')}
+			</Select.Trigger>
+		</div>
 		<Select.Content>
 			{#each providerOptions as option (option.value)}
 				<Select.Item
@@ -154,8 +160,7 @@
 	{#if hasActiveFilters}
 		<Button
 			variant="ghost"
-			size="sm"
-			class="h-8 px-2"
+			size="filter"
 			onclick={clearFilters}
 			data-testid="admin-users-filter-clear"
 		>

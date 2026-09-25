@@ -279,7 +279,7 @@
 			/>
 
 			<!-- Chat (slides over thread list from right) -->
-			<SlidingPanel open={!!threadId} class="bg-background">
+			<SlidingPanel open={!!threadId} surface="background">
 				{#if threadId}
 					{#key threadId}
 						<ThreadChat

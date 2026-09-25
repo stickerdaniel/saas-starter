@@ -1,5 +1,8 @@
 import Root, {
+	type ButtonAffordance,
+	type ButtonJustify,
 	type ButtonProps,
+	type ButtonShape,
 	type ButtonSize,
 	type ButtonVariant,
 	buttonVariants
@@ -11,7 +14,10 @@ export {
 	//
 	Root as Button,
 	buttonVariants,
+	type ButtonAffordance,
+	type ButtonJustify,
 	type ButtonProps,
+	type ButtonShape,
 	type ButtonSize,
 	type ButtonVariant
 };

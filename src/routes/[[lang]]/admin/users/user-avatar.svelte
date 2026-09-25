@@ -7,11 +7,11 @@
 </script>
 
 <div class="flex items-center gap-2">
-	<Avatar.Root class="size-8">
+	<Avatar.Root>
 		{#if image}
 			<Avatar.Image src={image} alt={name || 'User'} referrerpolicy="no-referrer" />
 		{/if}
-		<Avatar.Fallback class="text-xs">{initials}</Avatar.Fallback>
+		<Avatar.Fallback size="xs">{initials}</Avatar.Fallback>
 	</Avatar.Root>
 	<span class="font-medium">{name || 'Unnamed'}</span>
 </div>

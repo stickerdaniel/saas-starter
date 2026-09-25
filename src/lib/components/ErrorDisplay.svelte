@@ -118,7 +118,7 @@
 					<SearchIcon />
 				</InputGroup.Addon>
 				<InputGroup.Addon align="inline-end">
-					<Kbd.Root class="border">/</Kbd.Root>
+					<Kbd.Root variant="outline">/</Kbd.Root>
 				</InputGroup.Addon>
 			</InputGroup.Root>
 			<Empty.Description>

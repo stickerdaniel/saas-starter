@@ -6,6 +6,8 @@
 		open: boolean;
 		direction?: 'left' | 'right';
 		duration?: number;
+		/** The panel is transparent unless a surface is chosen. */
+		surface?: 'none' | 'background' | 'secondary';
 		class?: string;
 		children: Snippet;
 	}
@@ -14,6 +16,7 @@
 		open = $bindable(),
 		direction = 'right',
 		duration = 300,
+		surface = 'none',
 		class: className,
 		children
 	}: Props = $props();
@@ -29,11 +32,22 @@
 				: `transition-[transform,opacity] ${durationClass} ease-[cubic-bezier(0.23,1,0.32,1)]`;
 		const baseClasses = `absolute inset-0 flex flex-col overflow-hidden ${transitionClass}`;
 
+		const surfaceClass = cn(
+			surface === 'background' && 'bg-background',
+			surface === 'secondary' && 'bg-secondary'
+		);
+
 		if (open) {
-			return cn(baseClasses, 'translate-x-0 opacity-100', className);
+			return cn(baseClasses, 'translate-x-0 opacity-100', surfaceClass, className);
 		} else {
 			const hideTransform = direction === 'right' ? 'translate-x-full' : '-translate-x-full';
-			return cn(baseClasses, hideTransform, 'opacity-0 pointer-events-none', className);
+			return cn(
+				baseClasses,
+				hideTransform,
+				'opacity-0 pointer-events-none',
+				surfaceClass,
+				className
+			);
 		}
 	});
 </script>

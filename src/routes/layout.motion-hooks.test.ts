@@ -195,12 +195,23 @@ describe('learn-more consumers', () => {
 		join(root, 'src/lib/components/customer-support/threads-overview.svelte'),
 		'utf8'
 	);
-	const wiredControl =
-		/<(?:Button|button)\b[^>]*class="[^"]*\bt-learn\b[^"]*"[^>]*>[\s\S]*?<LearnMoreChevron\b[\s\S]*?<\/(?:Button|button)>/g;
+	// Each chevron sits inside a private owner whose Button selects the learn-more
+	// affordance, which renders t-learn on the focusable control.
+	const owner = (file: string) =>
+		readFileSync(join(root, 'src/lib/components/ui/owned', file), 'utf8');
+	const wiredControl = (tag: string) =>
+		new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<LearnMoreChevron\\b[\\s\\S]*?<\\/${tag}>`, 'g');
 
 	it('keeps every real chevron below a focusable motion owner', () => {
-		expect(hero.match(wiredControl)).toHaveLength(1);
-		expect(integration.match(wiredControl)).toHaveLength(2);
-		expect(support.match(wiredControl)).toHaveLength(1);
+		const heroControls = hero.match(wiredControl('HeroFiveCta'));
+		expect(heroControls).toHaveLength(1);
+		expect(heroControls![0]).toMatch(/emphasis="primary"/);
+		expect(owner('hero-five-cta.svelte')).toMatch(
+			/affordance=\{emphasis === 'primary' \? 'learn-more' : 'none'\}/
+		);
+		expect(integration.match(wiredControl('IntegrationLearnMoreButton'))).toHaveLength(2);
+		expect(owner('integration-learn-more-button.svelte')).toMatch(/affordance="learn-more"/);
+		expect(support.match(wiredControl('SupportThreadRow'))).toHaveLength(1);
+		expect(owner('support-thread-row.svelte')).toMatch(/affordance="learn-more"/);
 	});
 });

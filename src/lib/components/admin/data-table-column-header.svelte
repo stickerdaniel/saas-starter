@@ -24,7 +24,7 @@
 	<Button
 		variant="ghost"
 		size="sm"
-		class={cn('-ml-3 h-8', className)}
+		class={cn('-ml-3', className)}
 		onclick={column.getToggleSortingHandler()}
 		data-testid={testId}
 	>

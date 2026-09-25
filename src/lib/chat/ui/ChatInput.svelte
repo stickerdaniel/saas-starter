@@ -13,6 +13,7 @@
 	import { PromptSuggestion } from '$lib/components/prompt-kit/prompt-suggestion';
 	import { FileUpload, FileUploadTrigger } from '$lib/components/prompt-kit/file-upload';
 	import { Button } from '$lib/components/ui/button';
+	import ComposerAttachmentButton from '$lib/components/ui/owned/composer-attachment-button.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
@@ -574,7 +575,7 @@
 							{...props}
 							variant="ghost"
 							size="icon"
-							class="size-9 rounded-full"
+							shape="pill"
 							aria-label={$t('chat.tooltip.more_actions')}
 						>
 							<PlusIcon class="size-4.5" aria-hidden="true" />
@@ -617,18 +618,14 @@
 						<p>{$t('chat.tooltip.mark_bug')}</p>
 					{/snippet}
 					{#snippet children(props)}
-						<Button
+						<ComposerAttachmentButton
 							{...props}
-							variant="outline"
-							size="icon"
-							class={compact
-								? 'size-9 rounded-full border-0 bg-transparent shadow-none'
-								: 'size-9 rounded-full'}
+							{compact}
 							onclick={handleCameraClick}
 							aria-label={$t('chat.tooltip.mark_bug')}
 						>
 							<CameraIcon class="h-4.5 w-4.5" />
-						</Button>
+						</ComposerAttachmentButton>
 					{/snippet}
 				</PromptInputAction>
 			{/if}
@@ -644,17 +641,13 @@
 						{/snippet}
 						{#snippet children(props)}
 							<FileUploadTrigger asChild={true}>
-								<Button
+								<ComposerAttachmentButton
 									{...props}
-									variant="outline"
-									size="icon"
-									class={compact
-										? 'size-9 rounded-full border-0 bg-transparent shadow-none'
-										: 'size-9 rounded-full'}
+									{compact}
 									aria-label={$t('chat.tooltip.attach_files')}
 								>
 									<PaperclipIcon class="h-4.5 w-4.5" />
-								</Button>
+								</ComposerAttachmentButton>
 							</FileUploadTrigger>
 						{/snippet}
 					</PromptInputAction>
@@ -688,9 +681,9 @@
 			{/if}
 			<Button
 				size="icon"
+				shape="pill"
 				disabled={!canSend}
 				onclick={handleSend}
-				class="size-9 shrink-0 rounded-full"
 				aria-label={$t('chat.aria.send')}
 				data-testid="chat-input-send"
 			>
@@ -780,9 +773,9 @@
 						<PromptInputTextarea
 							placeholder=""
 							aria-label={composerLabel}
-							class="min-h-9 py-2 text-base leading-5 {compactMultiline
-								? 'pr-2 pl-3'
-								: 'px-1'} {compactScrollable ? 'composer-scroll-mask' : ''}"
+							layout="compact"
+							multiline={compactMultiline}
+							scrollMask={compactScrollable}
 							onpaste={handlePaste}
 							maxlength={MAX_MESSAGE_LENGTH}
 							data-testid="chat-input-textarea"
@@ -836,7 +829,7 @@
 				{/if}
 				<PromptInputTextarea
 					placeholder={activePlaceholder}
-					class="min-h-11 pt-3 pl-4 text-base leading-composer"
+					layout="full"
 					onpaste={handlePaste}
 					maxlength={MAX_MESSAGE_LENGTH}
 					data-testid="chat-input-textarea"

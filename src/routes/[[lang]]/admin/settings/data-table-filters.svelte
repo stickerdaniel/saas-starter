@@ -37,10 +37,12 @@
 <div class="flex items-center gap-2">
 	<!-- Type Filter -->
 	<Select.Root type="single" value={typeFilter} onValueChange={handleTypeChange}>
-		<Select.Trigger class="h-8 w-32.5" data-testid="admin-settings-type-filter-trigger">
-			{typeOptions.find((opt) => opt.value === typeFilter)?.label ??
-				$t('admin.settings.filter.all_types')}
-		</Select.Trigger>
+		<div class="w-32.5">
+			<Select.Trigger class="w-full" data-testid="admin-settings-type-filter-trigger">
+				{typeOptions.find((opt) => opt.value === typeFilter)?.label ??
+					$t('admin.settings.filter.all_types')}
+			</Select.Trigger>
+		</div>
 		<Select.Content>
 			{#each typeOptions as option (option.value)}
 				<Select.Item value={option.value} data-testid="admin-settings-type-filter-{option.value}"
@@ -54,8 +56,7 @@
 	{#if hasActiveFilter}
 		<Button
 			variant="ghost"
-			size="sm"
-			class="h-8 px-2"
+			size="filter"
 			onclick={clearFilter}
 			data-testid="admin-settings-filter-clear"
 		>

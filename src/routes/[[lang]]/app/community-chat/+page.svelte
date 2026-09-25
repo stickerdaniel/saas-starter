@@ -241,9 +241,9 @@
 									{#if !own}
 										<div class="mt-auto w-7 shrink-0">
 											{#if firstInGroup}
-												<Avatar.Root size="sm" class="size-7">
+												<Avatar.Root size="sm">
 													<Avatar.Image src={message.authorImage} alt={message.author} />
-													<Avatar.Fallback class="text-2xs">
+													<Avatar.Fallback>
 														{getInitials(message.author)}
 													</Avatar.Fallback>
 												</Avatar.Root>
@@ -281,13 +281,19 @@
 				</ChatContainerContent>
 			</ChatContainerRoot>
 
-			<!-- Scroll button -->
+			<!-- Scroll button. The wrapper owns placement and the centering shift, so ScrollButton
+			     keeps its own translate and scale motion; it sizes to the button and passes
+			     pointer events through. -->
 			<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 w-full">
-				<ScrollButton
-					class="pointer-events-auto absolute right-9 bottom-6 z-20 @min-3xl/main:right-auto @min-3xl/main:left-1/2 @min-3xl/main:-translate-x-1/2"
-					isAtBottom={chatCtx.isAtBottom}
-					onScrollToBottom={() => chatCtx.scrollToBottom()}
-				/>
+				<div
+					class="absolute right-9 bottom-6 z-20 flex @min-3xl/main:right-auto @min-3xl/main:left-1/2 @min-3xl/main:-translate-x-1/2"
+				>
+					<ScrollButton
+						class="pointer-events-auto"
+						isAtBottom={chatCtx.isAtBottom}
+						onScrollToBottom={() => chatCtx.scrollToBottom()}
+					/>
+				</div>
 			</div>
 
 			<!-- Progressive blur at bottom -->
@@ -333,7 +339,7 @@
 						placeholder={hasMessagesAvailable
 							? $t('chat.input.placeholder')
 							: $t('chat.input.placeholder_disabled')}
-						class="min-h-11 pt-3 pl-4 text-base leading-composer"
+						layout="full"
 						maxlength={MAX_MESSAGE_LENGTH}
 						disabled={!hasMessagesAvailable}
 					/>
@@ -341,9 +347,9 @@
 					<PromptInputActions class="mt-5 flex w-full items-center justify-end gap-2 px-3 pb-3">
 						<Button
 							size="icon"
+							shape="pill"
 							disabled={!inputValue.trim() || isSending || !hasMessagesAvailable}
 							onclick={handleSend}
-							class="size-9 shrink-0 rounded-full"
 							aria-label={$t('chat.input.send_tooltip')}
 						>
 							<ArrowUpIcon class="h-4.5 w-4.5" />

@@ -136,7 +136,7 @@
 									</InputGroup.Text>
 								</div>
 							{:else}
-								<InputGroup.Text class="text-muted-foreground">
+								<InputGroup.Text>
 									<T keyName="settings.email.unverified_badge" />
 								</InputGroup.Text>
 							{/if}

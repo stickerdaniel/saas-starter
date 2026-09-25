@@ -4,7 +4,8 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
+	import AdminThreadRow from '$lib/components/ui/owned/admin-thread-row.svelte';
+	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import AvatarHeading from '$lib/components/customer-support/avatar-heading.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -53,6 +54,15 @@
 		userEmail?: string;
 		userImage?: string;
 	}
+
+	const PRIORITY_VARIANTS: Record<
+		NonNullable<Thread['supportMetadata']['priority']>,
+		BadgeVariant
+	> = {
+		low: 'bordered-success',
+		medium: 'bordered-warning',
+		high: 'bordered-destructive'
+	};
 
 	let {
 		filterMode,
@@ -221,7 +231,7 @@
 				<SearchIcon class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
 				<Input
 					placeholder={$t('admin.support.search.placeholder')}
-					class="pl-10"
+					adornment="leading-icon"
 					value={searchQuery}
 					oninput={(e) => onSearchChange(e.currentTarget.value)}
 				/>
@@ -266,7 +276,7 @@
 								data-slot="tabs-trigger"
 								aria-describedby={undefined}
 								value="my-inbox"
-								class="min-w-0 overflow-hidden px-1 text-xs"
+								size="compact"
 							>
 								<span class="min-w-0 truncate" {@attach trackLabelClip('my-inbox')}
 									><T keyName="admin.support.filter.my_inbox" /></span
@@ -289,7 +299,7 @@
 								data-slot="tabs-trigger"
 								aria-describedby={undefined}
 								value="all"
-								class="min-w-0 overflow-hidden px-1 text-xs"
+								size="compact"
 							>
 								<span class="min-w-0 truncate" {@attach trackLabelClip('all')}
 									><T keyName="admin.support.filter.all" /></span
@@ -312,7 +322,7 @@
 								data-slot="tabs-trigger"
 								aria-describedby={undefined}
 								value="unassigned"
-								class="min-w-0 overflow-hidden px-1 text-xs"
+								size="compact"
 							>
 								<span class="min-w-0 truncate" {@attach trackLabelClip('unassigned')}
 									><T keyName="admin.support.filter.unassigned" /></span
@@ -378,13 +388,9 @@
 					intersectionOptions={{ rootMargin: '0px 0px 200px 0px' }}
 				>
 					{#each threads as thread (thread._id)}
-						<Button
-							variant="ghost"
+						<AdminThreadRow
 							type="button"
-							class="h-auto w-full justify-start whitespace-normal font-normal shadow-none active:translate-y-0 w-full border-b p-4 text-left dark:bg-muted/20 {thread._id ===
-							selectedThreadId
-								? 'bg-muted/70 dark:bg-muted/35'
-								: 'hover:bg-muted/30 dark:hover:bg-muted/50'}"
+							selected={thread._id === selectedThreadId}
 							onclick={() => {
 								if (thread._id !== selectedThreadId) {
 									haptic.trigger('light');
@@ -404,30 +410,21 @@
 								<!-- Badges -->
 								<div class="flex flex-wrap items-center gap-1.5 pl-10">
 									{#if thread.supportMetadata.awaitingAdminResponse}
-										<Badge variant="default" class="text-xs"
-											><T keyName="admin.support.thread.badge.new" /></Badge
-										>
+										<Badge variant="default"><T keyName="admin.support.thread.badge.new" /></Badge>
 									{/if}
 									{#if thread.supportMetadata.priority}
-										<Badge
-											variant="outline"
-											class="text-xs capitalize {thread.supportMetadata.priority === 'low'
-												? 'border-success bg-success/10 text-success'
-												: thread.supportMetadata.priority === 'medium'
-													? 'border-warning bg-warning/10 text-warning'
-													: 'border-destructive bg-destructive/10 text-destructive'}"
-										>
-											{thread.supportMetadata.priority}
+										<Badge variant={PRIORITY_VARIANTS[thread.supportMetadata.priority]}>
+											<span class="capitalize">{thread.supportMetadata.priority}</span>
 										</Badge>
 									{/if}
 									{#if thread.supportMetadata.status}
-										<Badge variant="secondary" class="text-xs capitalize"
-											>{thread.supportMetadata.status}</Badge
+										<Badge variant="secondary"
+											><span class="capitalize">{thread.supportMetadata.status}</span></Badge
 										>
 									{/if}
 								</div>
 							</div>
-						</Button>
+						</AdminThreadRow>
 					{/each}
 
 					{#snippet loading()}

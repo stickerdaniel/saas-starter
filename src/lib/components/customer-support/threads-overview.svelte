@@ -4,6 +4,7 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { Button } from '$lib/components/ui/button';
+	import SupportThreadRow from '$lib/components/ui/owned/support-thread-row.svelte';
 	import { Avatar, AvatarImage, AvatarFallback } from '$lib/components/ui/avatar';
 	import BotIcon from '@lucide/svelte/icons/bot';
 	import LearnMoreChevron from '$lib/components/motion/learn-more-chevron.svelte';
@@ -245,8 +246,8 @@
 									y: { type: 'spring', stiffness: 260, damping: 12, mass: 0.8, delay: 0.1 }
 								}}
 							>
-								<Avatar class="t-avatar size-12 bg-primary outline outline-4 outline-secondary">
-									<AvatarFallback class="bg-primary text-primary-foreground">
+								<Avatar size="xl" outline="secondary" surface="primary" motion="stack">
+									<AvatarFallback variant="primary">
 										<BotIcon class="size-8" />
 									</AvatarFallback>
 								</Avatar>
@@ -265,21 +266,19 @@
 								}}
 							>
 								<Avatar
-									class="t-avatar size-12 outline outline-4 outline-secondary"
+									size="xl"
+									outline="secondary"
+									motion="stack"
 									onLoadingStatusChange={(status) => markAvatarSettled(avatar.src, status)}
 								>
 									<AvatarImage
 										src={avatar.src}
 										alt={avatar.alt}
-										class={avatar.isPlaceholder ? 'object-cover grayscale' : 'object-cover'}
+										appearance={avatar.isPlaceholder ? 'placeholder' : 'default'}
 									/>
 									<!-- Never transparent while loading: neutral circle for placeholders,
 									     the admin's initial otherwise (also the timeout-path safety net). -->
-									<AvatarFallback
-										class={avatar.isPlaceholder
-											? 'bg-muted text-muted-foreground'
-											: 'bg-primary text-primary-foreground'}
-									>
+									<AvatarFallback variant={avatar.isPlaceholder ? 'default' : 'primary'}>
 										{#if avatar.isPlaceholder}
 											<UsersRoundIcon class="size-6" />
 										{:else}
@@ -324,12 +323,9 @@
 				{#each threads as thread (thread._id)}
 					{@const isSelected = thread._id === conversation.threadId}
 					{@const showAdminAvatar = thread.isHandedOff && thread.assignedAdmin}
-					<Button
-						variant="ghost"
+					<SupportThreadRow
 						type="button"
-						class="t-learn h-auto w-full justify-start whitespace-normal font-normal shadow-none active:translate-y-0 flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors duration-150 {isSelected
-							? 'bg-muted-foreground/[0.04]'
-							: 'hover:bg-muted-foreground/[0.06]'}"
+						selected={isSelected}
 						onclick={() =>
 							support.selectThread(
 								thread._id,
@@ -363,7 +359,7 @@
 
 						<!-- Chevron -->
 						<LearnMoreChevron class="size-5 shrink-0 text-muted-foreground" />
-					</Button>
+					</SupportThreadRow>
 				{/each}
 
 				<!-- The region outlives every message it carries, including the one that
@@ -417,7 +413,8 @@
 	<!-- New Message Button -->
 	<div class="shrink-0 border-t border-border/50 bg-secondary p-4">
 		<Button
-			class="w-full rounded-full"
+			shape="pill"
+			class="w-full"
 			onclick={() => support.startNewThread()}
 			size="lg"
 			disabled={conversation.isRateLimited}

@@ -24,30 +24,15 @@
 				<nav
 					class="flex flex-col items-end gap-0 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-1"
 				>
-					<Button
-						variant="ghost"
-						size="sm"
-						href={resolve(localizedHref('/impressum'))}
-						class="h-7 text-xs text-muted-foreground"
-					>
+					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/impressum'))}>
 						<T keyName="footer.impressum" />
 					</Button>
 					<span class="hidden sm:inline" aria-hidden="true">&middot;</span>
-					<Button
-						variant="ghost"
-						size="sm"
-						href={resolve(localizedHref('/terms'))}
-						class="h-7 text-xs text-muted-foreground"
-					>
+					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/terms'))}>
 						<T keyName="footer.terms" />
 					</Button>
 					<span class="hidden sm:inline" aria-hidden="true">&middot;</span>
-					<Button
-						variant="ghost"
-						size="sm"
-						href={resolve(localizedHref('/privacy'))}
-						class="h-7 text-xs text-muted-foreground"
-					>
+					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/privacy'))}>
 						<T keyName="footer.privacy" />
 					</Button>
 				</nav>

@@ -40,6 +40,7 @@ const markup = readFileSync(
 	path.resolve('src/routes/[[lang]]/(auth)/signin/OAuthButtons.svelte'),
 	'utf8'
 );
+const badge = readFileSync(path.resolve('src/lib/components/ui/badge/badge.svelte'), 'utf8');
 
 const UTILITY = 'badge-secondary-disabled';
 
@@ -66,6 +67,10 @@ describe('disabled last-used badge theming', () => {
 	});
 
 	it('applies the utility to the badge it themes', () => {
-		expect(markup).toContain(`group-has-[[data-slot=button]:disabled]:${UTILITY}`);
+		// Badge's oauth-last-used attachment owns the hook, and every OAuth badge selects it.
+		const attachment = badge.match(/'oauth-last-used':\s*'([^']*)'/)?.[1];
+		expect(attachment).toContain(`group-has-[[data-slot=button]:disabled]:${UTILITY}`);
+		expect(markup.match(/<Badge\b[^>]*>/g)).toHaveLength(3);
+		expect(markup.match(/<Badge\b[^>]*\battachment="oauth-last-used"[^>]*>/g)).toHaveLength(3);
 	});
 });

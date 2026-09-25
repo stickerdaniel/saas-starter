@@ -88,7 +88,6 @@
 					type="button"
 					disabled={checkout.isAttaching}
 					aria-disabled={checkout.isAttaching}
-					class="aria-disabled:pointer-events-none aria-disabled:opacity-50"
 					onclick={() => {
 						haptic.trigger('light');
 						checkout.cancel();

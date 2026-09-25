@@ -289,9 +289,9 @@
 
 		{#snippet tableContent()}
 			<Table.Root class="table-fixed">
-				<Table.Header class="sticky top-0 z-10 bg-muted dark:bg-background">
+				<Table.Header sticky>
 					{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-						<Table.Row class="hover:[&>th]:bg-muted dark:hover:[&>th]:bg-background">
+						<Table.Row variant="header">
 							{#each headerGroup.headers as header (header.id)}
 								<Table.Head
 									class="w-(--column-width) min-w-(--column-min-width) [&:has([role=checkbox])]:ps-3"
@@ -349,20 +349,16 @@
 						{/each}
 					{:else if loadError}
 						<Table.Row data-testid="recipients-error">
-							<Table.Cell
-								colspan={columns.length}
-								class="h-24 text-center text-destructive hover:!bg-transparent"
-							>
-								<T keyName="common.load_error" />
+							<Table.Cell colspan={columns.length} class="h-24 text-center">
+								<span class="text-destructive"><T keyName="common.load_error" /></span>
 							</Table.Cell>
 						</Table.Row>
 					{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
 						<Table.Row data-testid="recipients-empty">
-							<Table.Cell
-								colspan={columns.length}
-								class="h-24 text-center text-muted-foreground hover:!bg-transparent"
-							>
-								<T keyName="admin.settings.no_recipients" />
+							<Table.Cell colspan={columns.length} class="h-24 text-center">
+								<span class="text-muted-foreground"
+									><T keyName="admin.settings.no_recipients" /></span
+								>
 							</Table.Cell>
 						</Table.Row>
 					{:else}

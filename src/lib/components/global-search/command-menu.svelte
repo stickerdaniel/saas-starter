@@ -199,7 +199,7 @@
 		</Dialog.Header>
 		<Command.Root class="rounded-none bg-transparent">
 			<Command.Input placeholder={$t('search.command.input_placeholder')} />
-			<Command.List tabindex={-1} class="no-scrollbar min-h-80 scroll-pt-2 scroll-pb-1.5">
+			<Command.List tabindex={-1} class="min-h-80 scroll-pt-2 scroll-pb-1.5">
 				<Command.Empty class="py-12 text-center text-sm text-muted-foreground">
 					{$t('search.command.no_results')}
 				</Command.Empty>
@@ -230,7 +230,7 @@
 			class="absolute inset-x-0 bottom-0 z-20 flex h-10 items-center gap-2 rounded-b-xl border-t border-border bg-muted/50 px-4 text-xs font-medium text-muted-foreground"
 		>
 			<div class="flex items-center gap-2">
-				<Kbd.Root class="border bg-background"><CornerDownLeftIcon /></Kbd.Root>
+				<Kbd.Root variant="outline" class="bg-background"><CornerDownLeftIcon /></Kbd.Root>
 				{$t('search.command.footer.go_to_page')}
 			</div>
 		</div>

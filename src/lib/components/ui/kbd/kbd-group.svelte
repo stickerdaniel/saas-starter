@@ -4,16 +4,25 @@
 
 	let {
 		ref = $bindable(null),
+		reveal = 'none',
 		class: className,
 		children,
 		...restProps
-	}: WithElementRef<HTMLAttributes<HTMLElement>> = $props();
+	}: WithElementRef<HTMLAttributes<HTMLElement>> & {
+		/** Hides the shortcut until the named group around it is hovered. */
+		reveal?: 'none' | 'menu-hover' | 'button-hover';
+	} = $props();
 </script>
 
 <kbd
 	bind:this={ref}
 	data-slot="kbd-group"
-	class={cn('inline-flex items-center gap-1', className)}
+	class={cn(
+		'inline-flex items-center gap-1',
+		reveal === 'menu-hover' && 'opacity-0 group-hover/menu-button:opacity-100',
+		reveal === 'button-hover' && 'opacity-0 group-hover/button:opacity-100',
+		className
+	)}
 	{...restProps}
 >
 	{@render children?.()}

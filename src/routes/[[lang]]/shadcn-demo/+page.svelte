@@ -92,7 +92,7 @@
 			<LoadingBar
 				mode={loadingBarDebugState.mode}
 				value={loadingBarDebugState.mode === 'progress' ? loadingBarDebugState.value : undefined}
-				class="h-1 rounded-none"
+				variant="edge"
 			/>
 
 			<div class="flex flex-wrap gap-2">

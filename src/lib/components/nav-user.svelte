@@ -2,7 +2,7 @@
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import NavUserTrigger from '$lib/components/ui/owned/nav-user-trigger.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import { authClient } from '$lib/auth-client';
@@ -116,23 +116,17 @@
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger id="user-menu-trigger">
 				{#snippet child({ props })}
-					<Button
-						variant="ghost"
-						class="h-12 w-full justify-start gap-2 px-2 data-[state=open]:bg-muted {impersonation.isImpersonating
-							? 'ring-2 ring-warning'
-							: ''}"
-						{...props}
-					>
-						<Avatar.Root class="size-8 rounded-lg after:rounded-lg">
-							<Avatar.Image src={user.avatar} alt={user.name} class="rounded-lg" />
-							<Avatar.Fallback class="rounded-lg">{initials}</Avatar.Fallback>
+					<NavUserTrigger impersonating={impersonation.isImpersonating} {...props}>
+						<Avatar.Root shape="square">
+							<Avatar.Image src={user.avatar} alt={user.name} />
+							<Avatar.Fallback>{initials}</Avatar.Fallback>
 						</Avatar.Root>
 						<div class="grid flex-1 text-left text-sm leading-tight">
 							<span class="truncate font-medium">{user.name}</span>
 							<span class="truncate text-xs">{user.email}</span>
 						</div>
 						<ChevronsUpDownIcon class="ml-auto size-4" />
-					</Button>
+					</NavUserTrigger>
 				{/snippet}
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content
@@ -141,19 +135,19 @@
 				align="end"
 				sideOffset={4}
 			>
-				<DropdownMenu.Label class="p-0 font-normal">
+				<!-- A plain wrapper keeps the menu label's muted color, small type and normal
+				     weight for the user row, without the label's padding. -->
+				<div class="text-xs font-normal text-muted-foreground">
 					<div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-						<Avatar.Root class="size-8 rounded-lg after:rounded-lg">
-							<Avatar.Image src={user.avatar} alt={user.name} class="rounded-lg" />
-							<Avatar.Fallback class="rounded-lg">{initials}</Avatar.Fallback>
+						<Avatar.Root shape="square">
+							<Avatar.Image src={user.avatar} alt={user.name} />
+							<Avatar.Fallback>{initials}</Avatar.Fallback>
 						</Avatar.Root>
 						<div class="grid flex-1 text-left text-sm leading-tight">
 							<span class="flex items-center gap-1.5 truncate font-medium">
 								{user.name}
 								{#if isPro}
-									<Badge
-										class="h-auto bg-premium/15 px-1.5 py-0.5 text-2xs leading-none text-premium-foreground"
-									>
+									<Badge variant="premium">
 										<T keyName="app.user_menu.pro_badge" />
 									</Badge>
 								{/if}
@@ -161,7 +155,7 @@
 							<span class="truncate text-xs">{user.email}</span>
 						</div>
 					</div>
-				</DropdownMenu.Label>
+				</div>
 				<DropdownMenu.Separator />
 				{#if !isPro}
 					<DropdownMenu.Group>

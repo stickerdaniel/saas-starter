@@ -67,8 +67,9 @@
 </script>
 
 <Textarea
+	resize="none"
 	class={cn(
-		'w-full resize-none rounded-none border-none p-3 shadow-none ring-0 outline-none',
+		'w-full rounded-none border-none p-3 shadow-none ring-0 outline-none',
 		'field-sizing-content bg-transparent dark:bg-transparent',
 		'max-h-48 min-h-16',
 		'focus-visible:ring-0',

@@ -3,6 +3,7 @@
 	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import MarketingWordmark from '$lib/components/ui/owned/marketing-wordmark.svelte';
 	import { cn } from '$lib/utils';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
@@ -118,25 +119,16 @@
 				class="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between rounded-2xl border marketing-shell-panel px-6 py-4 transition-[height,transform,background-color,border-color] duration-300 lg:-mx-8 lg:w-[calc(100%+4rem)] lg:px-8"
 			>
 				<!-- Logo -->
-				<Button
-					variant="ghost"
-					href={resolve(localizedHref('/'))}
-					class="-ml-3.5 flex items-center gap-2 px-3 font-semibold"
-				>
+				<MarketingWordmark href={resolve(localizedHref('/'))}>
 					<Logo class="size-5" />
 					{LEGAL_CONFIG.brandName}
-				</Button>
+				</MarketingWordmark>
 
 				<!-- Desktop Navigation -->
 				<ul class="hidden gap-2 text-sm lg:flex">
 					{#each menuItems as item (item.translationKey)}
 						<li>
-							<Button
-								variant="ghost"
-								size="sm"
-								href={resolve(item.href)}
-								class="text-muted-foreground"
-							>
+							<Button variant="ghost-muted" size="sm" href={resolve(item.href)}>
 								<T keyName={item.translationKey} />
 							</Button>
 						</li>
@@ -148,12 +140,11 @@
 					<CommandTrigger />
 					<Button
 						variant="ghost"
-						size="icon"
+						size="icon-sm"
 						href={getRepositoryUrl()}
 						target="_blank"
 						rel="noopener noreferrer"
 						aria-label={$t('aria.github_repository')}
-						class="size-8"
 					>
 						{@render githubIcon()}
 					</Button>
@@ -186,9 +177,8 @@
 									</Button>
 									{#if impersonation.isImpersonating}
 										<Button
-											variant="outline"
-											size="icon"
-											class="size-8 text-warning hover:text-warning"
+											variant="outline-warning"
+											size="icon-sm"
 											onclick={() => impersonation.stop($t, activeUploads)}
 											aria-label={$t('app.user_menu.stop_impersonating')}
 											data-testid="marketing-nav-stop-impersonating"
@@ -198,8 +188,7 @@
 									{:else if impersonation.canSignOut}
 										<Button
 											variant="outline"
-											size="icon"
-											class="size-8"
+											size="icon-sm"
 											onclick={() => signOut()}
 											aria-label={$t('aria.logout')}
 											data-testid="marketing-nav-logout"
@@ -228,12 +217,11 @@
 				<div class="flex items-center gap-1 lg:hidden">
 					<Button
 						variant="ghost"
-						size="icon"
+						size="icon-sm"
 						href={getRepositoryUrl()}
 						target="_blank"
 						rel="noopener noreferrer"
 						aria-label={$t('aria.github_repository')}
-						class="size-8"
 					>
 						{@render githubIcon()}
 					</Button>
@@ -274,9 +262,10 @@
 				{#each menuItems as item (item.translationKey)}
 					<li>
 						<Button
-							variant="ghost"
+							variant="ghost-muted"
+							justify="start"
 							href={resolve(item.href)}
-							class="w-full justify-start text-muted-foreground"
+							class="w-full"
 							onclick={() => (menuState = false)}
 						>
 							<T keyName={item.translationKey} />

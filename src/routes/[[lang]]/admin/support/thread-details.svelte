@@ -174,8 +174,8 @@
 							value={thread.supportMetadata?.status || 'open'}
 							onValueChange={(v) => updateStatus(v as 'open' | 'done')}
 						>
-							<Select.Trigger class="capitalize">
-								{thread.supportMetadata?.status || 'open'}
+							<Select.Trigger>
+								<span class="capitalize">{thread.supportMetadata?.status || 'open'}</span>
 							</Select.Trigger>
 							<Select.Content>
 								<Select.Item value="open"><T keyName="admin.support.status.open" /></Select.Item>
@@ -213,8 +213,10 @@
 							value={thread.supportMetadata?.priority ?? ''}
 							onValueChange={(v) => updatePriority(v as 'low' | 'medium' | 'high' | '' | undefined)}
 						>
-							<Select.Trigger class="capitalize">
-								{thread.supportMetadata?.priority || $t('admin.support.priority.none')}
+							<Select.Trigger>
+								<span class="capitalize"
+									>{thread.supportMetadata?.priority || $t('admin.support.priority.none')}</span
+								>
 							</Select.Trigger>
 							<Select.Content>
 								<Select.Item value=""><T keyName="admin.support.priority.none" /></Select.Item>
@@ -272,7 +274,7 @@
 								placeholder={$t('admin.support.note.placeholder')}
 								bind:value={newNoteContent}
 								rows={INTERNAL_NOTE_TEXTAREA_ROWS}
-								class="resize-none"
+								resize="none"
 							/>
 							<div class="flex justify-end">
 								<Button

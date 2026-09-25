@@ -56,11 +56,11 @@
 		{/if}
 		<Button
 			variant="default"
-			size="icon"
+			size="launcher"
 			{disabled}
 			onclick={toggleOpen}
 			aria-label={isFeedbackOpen ? $t('aria.feedback_close') : unreadLabel}
-			class="relative size-12 rounded-xl transition-transform duration-150 ease-out active:not-aria-[haspopup]:translate-y-0 active:scale-97"
+			class="relative transition-transform duration-150 ease-out active:not-aria-[haspopup]:translate-y-0 active:scale-97"
 		>
 			<IconSwap showSecond={isFeedbackOpen} class="size-6">
 				{#snippet first()}

@@ -6,7 +6,7 @@
 	import { IsMounted } from 'runed';
 	import { api } from '$lib/convex/_generated/api';
 	import { PromptInput, PromptInputTextarea } from '$lib/components/prompt-kit/prompt-input';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import ChatbarSendButton from '$lib/components/ui/owned/chatbar-send-button.svelte';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { supportContext } from './support-context.svelte.ts';
@@ -272,15 +272,12 @@
 				class="relative z-1 mb-1 flex w-full flex-row items-center border-0 bg-transparent !p-1 shadow-none"
 			>
 				<PromptInputTextarea
-					class="!h-auto !min-h-auto rounded-full bg-transparent !py-0 "
+					layout="chatbar"
 					placeholder={$t('support.chatbar.placeholder')}
 					maxlength={MAX_MESSAGE_LENGTH}
 				/>
 
-				<Button
-					variant="secondary"
-					size="icon"
-					class="h-8 w-8 rounded-full text-muted-foreground"
+				<ChatbarSendButton
 					onclick={handleSubmit}
 					disabled={!input.trim() || conversation.isSending}
 					aria-label={$t('chat.aria.send')}
@@ -290,7 +287,7 @@
 					{:else}
 						<ArrowUpIcon class="size-5" />
 					{/if}
-				</Button>
+				</ChatbarSendButton>
 			</PromptInput>
 		</div>
 

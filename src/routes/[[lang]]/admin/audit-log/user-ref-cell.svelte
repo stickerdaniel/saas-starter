@@ -34,12 +34,12 @@
 </script>
 
 {#snippet content()}
-	<Avatar.Root class="size-8 shrink-0">
+	<Avatar.Root class="shrink-0">
 		{#if user.exists && user.image}
 			<!-- Decorative: the name/email text next to it carries the accessible name -->
 			<Avatar.Image src={user.image} alt="" referrerpolicy="no-referrer" />
 		{/if}
-		<Avatar.Fallback class="text-xs">{initials}</Avatar.Fallback>
+		<Avatar.Fallback size="xs">{initials}</Avatar.Fallback>
 	</Avatar.Root>
 	<div class="min-w-0">
 		{#if user.exists}
