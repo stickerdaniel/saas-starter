@@ -40,33 +40,12 @@ export async function waitForAuthenticated(page: Page, timeout = 60000) {
 	await expect(page.locator('#user-menu-trigger')).toBeVisible({ timeout: 15000 });
 }
 
-/**
- * Fills the sign-in form once it is ready and submits it.
- *
- * The inputs enable on onMount, but Svelte's bind:value listener can attach a
- * microtask later. A fill landing in that window sets the DOM value without
- * updating the reactive form state, and the next flush re-renders the input
- * empty, so submit fails with "invalid email" and never navigates. Each field
- * is re-filled until its value survives a reactive tick.
- */
+/** Submits the sign-in form once its controls are enabled. */
 export async function submitSignInForm(page: Page, email: string, password: string) {
 	await expect(page.locator('[data-testid="email-input"]')).toBeEnabled({ timeout: 30000 });
 	await expect(page.locator('[data-testid="signin-button"]')).toBeEnabled({ timeout: 30000 });
-	for (const [testid, value] of [
-		['email-input', email],
-		['password-input', password]
-	] as const) {
-		const input = page.locator(`[data-testid="${testid}"]`);
-		let attempt = 0;
-		for (; attempt < 4; attempt++) {
-			await input.fill(value);
-			await page.waitForTimeout(150);
-			if ((await input.inputValue()) === value) break;
-		}
-		if (attempt === 4) {
-			throw new Error(`${testid} value did not persist after re-fills (hydration race)`);
-		}
-	}
+	await page.fill('[data-testid="email-input"]', email);
+	await page.fill('[data-testid="password-input"]', password);
 	await page.click('[data-testid="signin-button"]');
 }
 
