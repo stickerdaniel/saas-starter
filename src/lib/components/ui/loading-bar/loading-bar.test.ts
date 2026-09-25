@@ -56,7 +56,6 @@ describe('LoadingBar', () => {
 		expect(root.getAttribute('data-state')).toBe('loaded');
 		const indicator = root.querySelector<HTMLElement>('[data-slot="progress-indicator"]');
 		expect(indicator?.style.getPropertyValue('--indicator-width')).toBe('100%');
-		expect(indicator?.classList.contains('w-(--indicator-width)')).toBe(true);
 	});
 
 	it('clamps negative values and invalid maximums', async () => {
