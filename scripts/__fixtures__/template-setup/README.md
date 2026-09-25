@@ -21,7 +21,21 @@ The stack is deliberately opinionated, following [Rich Harris's case](https://ww
 
 ## Quick Start
 
-Start the app with a local Convex backend and a seeded admin account:
+Start the app with a local Convex backend and a seeded admin account.
+
+<!-- template-only -->
+
+Create a project with the CLI. It downloads a pinned template revision, runs `bun run setup` with your branding, and installs dependencies:
+
+```bash
+npm create saas-starter@latest my-app
+```
+
+Alternatively, use `bun create saas-starter@latest my-app` or `npx create-saas-starter@latest my-app`. See the [CLI README](https://github.com/stickerdaniel/saas-starter/blob/main/packages/create-saas-starter/README.md) for options and requirements. When it finishes, run `bun run dev` inside `my-app`.
+
+To create a GitHub template repository instead, run the commands below and then [rebrand it](#rebrand-the-template):
+
+<!-- /template-only -->
 
 ```bash
 gh repo create my-saas-product --template stickerdaniel/saas-starter --clone
@@ -80,7 +94,7 @@ This stays optional: a plain clone needs nothing extra and never has to install 
 
 ### Rebrand the template
 
-Once the app runs, rebrand it:
+Projects created with the CLI have already run this step. Otherwise, rebrand the app once it runs:
 
 ```bash
 bun run setup
