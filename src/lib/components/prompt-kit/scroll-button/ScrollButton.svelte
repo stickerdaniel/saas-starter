@@ -5,6 +5,8 @@
 	export type ScrollButtonProps = {
 		class?: string;
 		variant?: ButtonVariant;
+		// Kept for compatibility. ScrollButton's 40px circle is fixed and this prop does
+		// not change it; it only ever shifted the padding of this icon-only button.
 		size?: ButtonSize;
 		ref?: HTMLElement | null;
 		isAtBottom?: boolean;
@@ -25,7 +27,7 @@
 	let {
 		class: className,
 		variant = 'outline',
-		size = 'icon-lg',
+		size: _size,
 		ref = $bindable(null),
 		isAtBottom,
 		onScrollToBottom,
@@ -50,7 +52,7 @@
 <Button
 	bind:ref
 	{variant}
-	{size}
+	size="icon-lg"
 	shape="pill"
 	aria-label={$t('aria.scroll_to_bottom')}
 	class={cn(
