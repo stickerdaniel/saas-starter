@@ -50,7 +50,7 @@
 			y: prefersReducedMotion.current ? 0 : 10,
 			easing: backOut
 		}}
-		class="absolute bottom-4 left-[50%] translate-x-[-50%]"
+		class="absolute bottom-4 left-1/2 -translate-x-1/2"
 	>
 		<button
 			class={cn(

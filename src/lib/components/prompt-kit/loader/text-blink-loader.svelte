@@ -18,7 +18,7 @@
 
 <div
 	class={cn(
-		'animate-[text-blink_2s_ease-in-out_infinite] font-medium motion-reduce:animate-none',
+		'animate-text-blink font-medium motion-reduce:animate-none',
 		textSizes[size],
 		className
 	)}

@@ -139,11 +139,11 @@ describe('shadcn rules enforced by the application ESLint config', () => {
 		'shadcn/no-unknown-classes',
 		'shadcn/require-static-classes',
 		'shadcn/no-raw-colors',
-		'shadcn/no-inline-styles'
+		'shadcn/no-inline-styles',
+		'shadcn/no-arbitrary-values'
 	];
-	const pending = ['shadcn/no-restyle', 'shadcn/no-arbitrary-values'];
-	const pendingSource = `${button}<Button class="rounded-full">Save</Button>
-<div class="w-[550px]"></div>`;
+	const pending = ['shadcn/no-restyle'];
+	const pendingSource = `${button}<Button class="rounded-full">Save</Button>`;
 
 	async function productionMessages(source: string, filePath = route) {
 		expect(await production.isPathIgnored(filePath)).toBe(false);
@@ -170,6 +170,10 @@ describe('shadcn rules enforced by the application ESLint config', () => {
 		expect(config.rules['shadcn/no-unknown-classes']).toEqual([
 			2,
 			enforcedShadcnPolicy.rules['shadcn/no-unknown-classes'][1]
+		]);
+		expect(config.rules['shadcn/no-arbitrary-values']).toEqual([
+			2,
+			enforcedShadcnPolicy.rules['shadcn/no-arbitrary-values'][1]
 		]);
 		for (const rule of pending) expect(config.rules[rule]).toBeUndefined();
 	}, 60_000);
@@ -318,6 +322,52 @@ function getClasses(): string { return 'mt-4'; }
 		const config = await production.calculateConfigForFile(filePath);
 		expect(config.rules['shadcn/no-inline-styles'][0]).toBe(severity);
 	});
+
+	it('rejects an arbitrary width on a route', async () => {
+		const found = await productionMessages('<div class="w-[550px]"></div>');
+		expect(found.map((message) => [message.ruleId, message.severity])).toEqual([
+			['shadcn/no-arbitrary-values', 2]
+		]);
+		expect(found[0].message).toContain('w-[550px]');
+	}, 60_000);
+
+	it('admits an allowed arbitrary value by exact name only', async () => {
+		expect(await productionMessages('<div class="h-[70vh] md:h-[70vh]"></div>')).toEqual([]);
+		const nearMiss = await productionMessages('<div class="h-[71vh]"></div>');
+		expect(nearMiss.map((message) => [message.ruleId, message.severity])).toEqual([
+			['shadcn/no-arbitrary-values', 2]
+		]);
+		expect(nearMiss[0].message).toContain('h-[71vh]');
+	}, 60_000);
+
+	// The rule reads '*' as a wildcard and strips a leading '-' before matching, so these
+	// shapes stay out of the allow list and their owners use named utilities.
+	it.each([
+		'rounded-[calc(9999px*sign(var(--radius)))]',
+		'rounded-[calc(9999px*0*sign(var(--radius)))]',
+		'md:rounded-[calc(9999px*0.001*sign(var(--radius)))]',
+		'-translate-y-[calc(-50%+1px)]',
+		'translate-y-[calc(-50%+1px)]',
+		'data-[side=bottom]:translate-y-[calc(-50%+1px)]'
+	])(
+		'rejects the arbitrary radius and arrow offset %s',
+		async (className) => {
+			const found = await productionMessages(`<div class="${className}"></div>`);
+			expect(found.map((message) => [message.ruleId, message.severity])).toEqual([
+				['shadcn/no-arbitrary-values', 2]
+			]);
+			expect(found[0].message).toContain(className);
+		},
+		60_000
+	);
+
+	it('knows the arbitrary-value replacement tokens and utilities from layout.css', async () => {
+		expect(
+			await productionMessages(
+				'<div class="text-2xs animate-loading-dots leading-composer transition-control-colors transition-field-colors auth-card-transition composer-scroll-mask sidebar-shortcut-mask thread-timestamp-mask marketing-footer-mask rounded-theme-pill tooltip-arrow-offset"></div>'
+			)
+		).toEqual([]);
+	}, 60_000);
 
 	it('admits the premium theme tokens', async () => {
 		expect(

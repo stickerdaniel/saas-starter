@@ -55,7 +55,7 @@
 		<span
 			class={cn(
 				't-badge-dot grid place-items-center rounded-full bg-destructive text-white',
-				inline ? 'size-2.5' : 'h-4 min-w-4 px-1 text-[10px] leading-none font-medium'
+				inline ? 'size-2.5' : 'h-4 min-w-4 px-1 text-2xs leading-none font-medium'
 			)}
 			data-testid="support-unread-indicator"
 		>

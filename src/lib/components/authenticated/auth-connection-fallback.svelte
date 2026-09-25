@@ -72,7 +72,7 @@
 
 <main
 	id="main-content"
-	class="grid min-h-[100dvh] w-full place-items-center px-4 py-8"
+	class="grid min-h-dvh w-full place-items-center px-4 py-8"
 	data-testid="auth-connection-fallback"
 >
 	<Empty.Root class="w-full max-w-xl">

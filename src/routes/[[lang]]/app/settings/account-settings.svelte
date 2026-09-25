@@ -315,7 +315,7 @@
 
 						<div class="flex h-10 items-center justify-center">
 							<div
-								class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase"
+								class="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase"
 							>
 								<span class="hidden h-px w-8 bg-border md:block" aria-hidden="true"></span>
 								<span><T keyName="settings.account.or" /></span>

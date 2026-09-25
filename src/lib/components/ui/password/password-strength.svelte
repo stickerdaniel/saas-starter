@@ -32,14 +32,14 @@
 
 <Meter.Root
 	value={state.strength.score}
-	class={cn('relative h-[6px] w-full gap-1 overflow-hidden rounded-full bg-accent', className)}
+	class={cn('relative h-1.5 w-full gap-1 overflow-hidden rounded-full bg-accent', className)}
 	min={0}
 	max={4}
 >
 	<div class={cn('h-full transition-all duration-500', indicator({ score }))}></div>
-	<div class="absolute top-0 left-0 z-10 flex h-[6px] w-full place-items-center gap-1">
+	<div class="absolute top-0 left-0 z-10 flex h-1.5 w-full place-items-center gap-1">
 		{#each Array.from({ length: 4 }) as _, i (i)}
-			<div class="h-[6px] w-1/4 rounded-full ring-3 ring-card"></div>
+			<div class="h-1.5 w-1/4 rounded-full ring-3 ring-card"></div>
 		{/each}
 	</div>
 </Meter.Root>

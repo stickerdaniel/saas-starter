@@ -27,7 +27,7 @@ describe('Slider', () => {
 			'bg-primary absolute select-none data-horizontal:h-full data-vertical:w-full'
 		);
 		expect(host.querySelector('[data-slot="slider-thumb"]')?.getAttribute('class')).toBe(
-			'border-primary ring-ring/50 size-4 rounded-full border bg-white shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50'
+			'border-primary ring-ring/50 size-4 rounded-full border bg-white shadow-sm transition-field-colors hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50'
 		);
 	});
 

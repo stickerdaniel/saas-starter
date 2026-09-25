@@ -28,7 +28,7 @@
 </script>
 
 <div
-	class="fixed top-1/2 right-4 z-[110] -translate-y-1/2 sm:top-[1.625rem] sm:right-auto sm:left-1/2 sm:-translate-x-1/2 sm:translate-y-0"
+	class="fixed top-1/2 right-4 z-110 -translate-y-1/2 sm:top-6.5 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 sm:translate-y-0"
 >
 	<div
 		class="flex flex-col items-center gap-1 rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur-sm sm:flex-row"

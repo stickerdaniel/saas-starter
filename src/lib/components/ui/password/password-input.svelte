@@ -38,8 +38,7 @@
 				// either or is mounted (offset 36px)
 				'pr-9': state.root.passwordState.copyMounted || state.root.passwordState.toggleMounted,
 				// both are mounted (offset 36px * 2)
-				'pr-[4.5rem]':
-					state.root.passwordState.copyMounted && state.root.passwordState.toggleMounted
+				'pr-18': state.root.passwordState.copyMounted && state.root.passwordState.toggleMounted
 			},
 			className
 		)}

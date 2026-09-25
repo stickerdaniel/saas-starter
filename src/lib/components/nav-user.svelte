@@ -152,7 +152,7 @@
 								{user.name}
 								{#if isPro}
 									<Badge
-										class="h-auto bg-premium/15 px-1.5 py-0.5 text-[10px] leading-none text-premium-foreground"
+										class="h-auto bg-premium/15 px-1.5 py-0.5 text-2xs leading-none text-premium-foreground"
 									>
 										<T keyName="app.user_menu.pro_badge" />
 									</Badge>

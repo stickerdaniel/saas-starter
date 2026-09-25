@@ -37,7 +37,7 @@
 <div class="flex items-center gap-2">
 	<!-- Type Filter -->
 	<Select.Root type="single" value={typeFilter} onValueChange={handleTypeChange}>
-		<Select.Trigger class="h-8 w-[130px]" data-testid="admin-settings-type-filter-trigger">
+		<Select.Trigger class="h-8 w-32.5" data-testid="admin-settings-type-filter-trigger">
 			{typeOptions.find((opt) => opt.value === typeFilter)?.label ??
 				$t('admin.settings.filter.all_types')}
 		</Select.Trigger>

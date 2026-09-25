@@ -356,7 +356,7 @@
 				class="relative box-border flex w-full items-center justify-between gap-2 overflow-hidden rounded-lg px-2 py-2 transition-transform {fullWidthTiles
 					? ''
 					: 'sm:w-[calc(50%-0.25rem)]'} {isInteractive
-					? 'cursor-pointer motion-safe:active:scale-[0.98]'
+					? 'cursor-pointer motion-safe:active:scale-98'
 					: ''} {readonly && !hasFailed
 					? 'border text-foreground transition-colors'
 					: 'bg-secondary/50'}"

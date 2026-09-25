@@ -243,7 +243,7 @@
 											{#if firstInGroup}
 												<Avatar.Root size="sm" class="size-7">
 													<Avatar.Image src={message.authorImage} alt={message.author} />
-													<Avatar.Fallback class="text-[10px]">
+													<Avatar.Fallback class="text-2xs">
 														{getInitials(message.author)}
 													</Avatar.Fallback>
 												</Avatar.Root>
@@ -260,7 +260,7 @@
 											</span>
 										{/if}
 										<div
-											class="relative max-w-[85%] rounded-2xl bg-primary/15 px-4 py-2.5 break-words text-foreground md:max-w-[75%]"
+											class="relative max-w-17/20 rounded-2xl bg-primary/15 px-4 py-2.5 break-words text-foreground md:max-w-3/4"
 										>
 											<span class="whitespace-pre-wrap">{message.body}</span>
 											<span class="invisible ml-2 text-xs" aria-hidden="true">
@@ -333,7 +333,7 @@
 						placeholder={hasMessagesAvailable
 							? $t('chat.input.placeholder')
 							: $t('chat.input.placeholder_disabled')}
-						class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]"
+						class="min-h-11 pt-3 pl-4 text-base leading-composer"
 						maxlength={MAX_MESSAGE_LENGTH}
 						disabled={!hasMessagesAvailable}
 					/>
@@ -346,7 +346,7 @@
 							class="size-9 shrink-0 rounded-full"
 							aria-label={$t('chat.input.send_tooltip')}
 						>
-							<ArrowUpIcon class="h-[18px] w-[18px]" />
+							<ArrowUpIcon class="h-4.5 w-4.5" />
 						</Button>
 					</PromptInputActions>
 				</div>

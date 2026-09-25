@@ -357,6 +357,26 @@
 		}
 	}
 
+	/* Loader and chip recipes over the keyframes above. Phase offsets stay with each
+	   consumer through animation-delay-var. */
+	--animate-wave-bars: wave-bars 1.2s ease-in-out infinite;
+	--animate-spinner-fade: spinner-fade 1.2s linear infinite;
+	--animate-bounce-dots: bounce-dots 1.4s ease-in-out infinite;
+	--animate-pulse-dot: pulse-dot 1.2s ease-in-out infinite;
+	--animate-thin-pulse: thin-pulse 1.5s ease-in-out infinite;
+	--animate-blink: blink 1s step-end infinite;
+	--animate-text-blink: text-blink 2s ease-in-out infinite;
+	--animate-loading-dots: loading-dots 1.4s infinite;
+	--animate-typing: typing 1s infinite;
+	--animate-wave: wave 1s ease-in-out infinite;
+	--animate-chip-in: chip-in 375ms ease-out both;
+
+	/* Micro labels: avatar initials, unread counts, and small badges. No line-height
+	   companion, so the element keeps the one it inherits. */
+	--text-2xs: 0.625rem;
+	/* Line height of the full chat composers. */
+	--leading-composer: 1.3;
+
 	--radius-2xl: calc(var(--radius) * 1.8);
 
 	--radius-3xl: calc(var(--radius) * 2.2);
@@ -465,6 +485,42 @@
 
 @utility ease-sidebar {
 	transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* A pill that turns square when the theme sets --radius: 0; sign() is 0 at a zero
+   radius and 1 otherwise. twMergeConfig in utils.ts registers it as a radius so a
+   caller's rounded-* replaces it and it replaces Button's rounded-md. */
+@utility rounded-theme-pill {
+	border-radius: calc(9999px * sign(var(--radius)));
+}
+
+/* Tooltip arrow nudges per placed side, which the translate scale has no steps for.
+   Each axis goes through Tailwind's --tw-translate-* variables so a caller's
+   translate-x-* or translate-y-* replaces only its own axis. */
+@utility tooltip-arrow-offset {
+	--tw-translate-x: 0;
+	--tw-translate-y: calc(-50% - 2px);
+	translate: var(--tw-translate-x) var(--tw-translate-y);
+
+	&[data-side='top'] {
+		--tw-translate-x: 50%;
+		--tw-translate-y: calc(-50% + 2px);
+	}
+
+	&[data-side='bottom'] {
+		--tw-translate-x: -50%;
+		--tw-translate-y: calc(50% - 1px);
+	}
+
+	&[data-side='right'] {
+		--tw-translate-x: calc(50% + 2px);
+		--tw-translate-y: 50%;
+	}
+
+	&[data-side='left'] {
+		--tw-translate-x: 0;
+		--tw-translate-y: calc(-50% + 3px);
+	}
 }
 
 /* Composer elevation. The pill is white on a barely darker surface, so the edge
@@ -587,6 +643,51 @@
 /* Per-item stagger: the element sets --delay, for example style:--delay="{i * 50}ms". */
 @utility animation-delay-var {
 	animation-delay: var(--delay);
+}
+
+/* Button's lane from #803: colors and shadow ease, while the pixel press does not. */
+@utility transition-control-colors {
+	transition-property: color, background-color, border-color, box-shadow;
+	transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+	transition-duration: var(--tw-duration, var(--default-transition-duration));
+}
+
+/* Form fields ease their text color and focus ring. */
+@utility transition-field-colors {
+	transition-property: color, box-shadow;
+	transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+	transition-duration: var(--tw-duration, var(--default-transition-duration));
+}
+
+/* Shared-element identity that morphs the signin and signup card shells. */
+@utility auth-card-transition {
+	view-transition-name: auth-card;
+}
+
+/* Fades a scrolling compact composer's text 20px at the top and bottom edges. */
+@utility composer-scroll-mask {
+	mask-image: linear-gradient(
+		to bottom,
+		transparent 0,
+		black 20px,
+		black calc(100% - 20px),
+		transparent 100%
+	);
+}
+
+/* Fades the left edge of a sidebar row's shortcut overlay into the label over 2rem. */
+@utility sidebar-shortcut-mask {
+	mask-image: linear-gradient(to right, transparent, #000 2rem);
+}
+
+/* Fades the left edge of a thread row's timestamp overlay into the title over 1rem. */
+@utility thread-timestamp-mask {
+	mask-image: linear-gradient(to right, transparent, #000 1rem);
+}
+
+/* Fades the marketing footer panel out below 30% of its height. */
+@utility marketing-footer-mask {
+	mask-image: linear-gradient(to bottom, black 30%, transparent 100%);
 }
 
 @keyframes fade-in {

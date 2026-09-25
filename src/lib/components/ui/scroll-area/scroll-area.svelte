@@ -29,7 +29,7 @@
 	<ScrollAreaPrimitive.Viewport
 		bind:ref={viewportRef}
 		data-slot="scroll-area-viewport"
-		class="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+		class="size-full rounded-[inherit] transition-field-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-1"
 	>
 		{@render children?.()}
 	</ScrollAreaPrimitive.Viewport>

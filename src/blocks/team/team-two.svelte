@@ -62,7 +62,7 @@
 				{#each members as member, index (member.name)}
 					<div class="group overflow-hidden">
 						<img
-							class="h-96 w-full rounded-md object-cover object-top grayscale no-drag group-hover:h-[22.5rem] group-hover:rounded-xl hover:grayscale-0 motion-safe:transition-all motion-safe:duration-300"
+							class="h-96 w-full rounded-md object-cover object-top grayscale no-drag group-hover:h-90 group-hover:rounded-xl hover:grayscale-0 motion-safe:transition-all motion-safe:duration-300"
 							src={member.avatar}
 							alt={$t('team.member_alt', { name: member.name })}
 							width="826"

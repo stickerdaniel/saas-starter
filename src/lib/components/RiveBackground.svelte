@@ -201,7 +201,7 @@
 			<div class="h-full w-full opacity-(--rive-opacity)" style:--rive-opacity={opacity}>
 				<!-- Spotlight for dark mode -->
 				{#if isDark && isLoaded}
-					<Spotlight class="-top-50 right-[-285%] -z-5 lg:-top-72" fill="white" />
+					<Spotlight class="-top-50 -right-57/20 -z-5 lg:-top-72" fill="white" />
 				{/if}
 
 				<!-- Rive Canvas -->

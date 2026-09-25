@@ -159,7 +159,7 @@
 						<div class="flex flex-wrap gap-2">
 							{#each suggestions as suggestion, i (suggestion.text)}
 								<div
-									class="max-w-full min-w-0 motion-safe:animate-[chip-in_375ms_ease-out_both] motion-safe:animation-delay-var sm:max-w-[14rem]"
+									class="max-w-full min-w-0 motion-safe:animate-chip-in motion-safe:animation-delay-var sm:max-w-56"
 									style:--delay="{i * 50}ms"
 								>
 									<PromptSuggestion
@@ -226,7 +226,7 @@
 				}}
 			/>
 			<p
-				class="pointer-events-none mt-1.5 px-4 pb-2 text-center text-[11px] text-balance text-muted-foreground"
+				class="pointer-events-none mt-1.5 px-4 pb-2 text-center text-xs text-balance text-muted-foreground"
 			>
 				{$t('support.chatbar.disclosure')}
 			</p>

@@ -276,7 +276,7 @@
 						src="/placeholder.svg"
 						alt=""
 						draggable="false"
-						class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-[0.2] dark:grayscale"
+						class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-20 dark:grayscale"
 					/>
 				</div>
 			</Card.Content>
