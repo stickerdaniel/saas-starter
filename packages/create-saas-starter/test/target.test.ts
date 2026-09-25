@@ -11,8 +11,10 @@ import {
 	symlink,
 	writeFile
 } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { archivePathForTarget, SCAFFOLD_MARKER, type ValidatedArchive } from '../src/archive.js';
 import {
@@ -48,6 +50,32 @@ async function markerAt(target: string): Promise<{ state: string; phase: string 
 		state: string;
 		phase: string;
 	};
+}
+
+// Generated projects keep the marker at their root, where the template's own
+// Prettier config and ignore file apply. Template setup deletes this package, so
+// the check loads the root project's Prettier instead of depending on it here.
+const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '../../..');
+
+interface RootPrettier {
+	resolveConfig(file: string, options: { config: string }): Promise<Record<string, unknown> | null>;
+	getFileInfo(file: string, options: { ignorePath: string }): Promise<{ ignored: boolean }>;
+	check(source: string, options: Record<string, unknown>): Promise<boolean>;
+}
+
+async function expectRootPrettierFormatted(bytes: string): Promise<void> {
+	const entry = createRequire(path.join(REPOSITORY_ROOT, 'package.json')).resolve('prettier');
+	const prettier = (await import(pathToFileURL(entry).href)) as RootPrettier;
+	const file = path.join(REPOSITORY_ROOT, SCAFFOLD_MARKER);
+	const config = await prettier.resolveConfig(file, {
+		config: path.join(REPOSITORY_ROOT, '.prettierrc')
+	});
+	expect(config).not.toBeNull();
+	const info = await prettier.getFileInfo(file, {
+		ignorePath: path.join(REPOSITORY_ROOT, '.prettierignore')
+	});
+	expect(info.ignored).toBe(false);
+	expect(await prettier.check(bytes, { ...config, filepath: file })).toBe(true);
 }
 
 function activeSignal(): AbortSignal {
@@ -335,6 +363,22 @@ describe('target ownership', () => {
 			code: 'EEXIST'
 		});
 		expect(await readFile(path.join(first.path, 'sentinel'), 'utf8')).toBe('preserve');
+	});
+
+	it("writes every marker in the generated project's Prettier format", async () => {
+		const parent = await temporaryParent('create-saas-starter-marker-format-');
+		const claimed = await inspectTarget('claimed', parent);
+		const current = marker();
+		await claimTarget(claimed, current, activeSignal());
+		const claimedMarker = path.join(claimed.path, SCAFFOLD_MARKER);
+		await expectRootPrettierFormatted(await readFile(claimedMarker, 'utf8'));
+		await updateMarker(claimed.path, current, 'ready', 'complete');
+		await expectRootPrettierFormatted(await readFile(claimedMarker, 'utf8'));
+
+		const staged = await inspectTarget('staged', parent);
+		const staging = await createStagingTarget(staged, current, activeSignal());
+		temporaryDirectories.push(staging);
+		await expectRootPrettierFormatted(await readFile(path.join(staging, SCAFFOLD_MARKER), 'utf8'));
 	});
 
 	it('writes files exclusively and advances marker states', async () => {

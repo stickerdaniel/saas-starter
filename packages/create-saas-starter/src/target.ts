@@ -217,7 +217,7 @@ export async function createStagingTarget(
 	await chmod(staging, 0o700);
 	try {
 		throwIfAborted(signal);
-		await writeExclusive(markerPath(staging), `${JSON.stringify(marker, null, 2)}\n`, 0o600);
+		await writeExclusive(markerPath(staging), serializeMarker(marker), 0o600);
 		throwIfAborted(signal);
 	} catch (error) {
 		if (error instanceof StagingTargetError) throw error;
@@ -228,6 +228,11 @@ export async function createStagingTarget(
 
 function markerPath(target: string): string {
 	return path.join(target, SCAFFOLD_MARKER);
+}
+
+// Generated projects format JSON with tabs, so the marker must already match their Prettier config.
+function serializeMarker(marker: ScaffoldMarker): string {
+	return `${JSON.stringify(marker, null, '\t')}\n`;
 }
 
 // macOS has the tightest supported POSIX PATH_MAX: 1024 UTF-8 bytes including NUL.
@@ -304,7 +309,7 @@ export async function claimTarget(
 	await mkdir(plan.path, { mode: 0o755 });
 	try {
 		throwIfAborted(signal);
-		await writeExclusive(markerPath(plan.path), `${JSON.stringify(marker, null, 2)}\n`, 0o600);
+		await writeExclusive(markerPath(plan.path), serializeMarker(marker), 0o600);
 		throwIfAborted(signal);
 	} catch (error) {
 		throw new TargetClaimError(plan.path, error);
@@ -433,7 +438,7 @@ export async function updateMarker(
 	const next = { ...marker, state, phase };
 	const temporary = path.join(target, `${SCAFFOLD_MARKER}.tmp-${process.pid}-${randomUUID()}`);
 	try {
-		await writeExclusive(temporary, `${JSON.stringify(next, null, 2)}\n`, 0o600);
+		await writeExclusive(temporary, serializeMarker(next), 0o600);
 		await rename(temporary, markerPath(target));
 	} catch (error) {
 		await unlink(temporary).catch(() => {});
