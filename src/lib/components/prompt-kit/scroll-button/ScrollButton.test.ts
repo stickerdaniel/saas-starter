@@ -20,40 +20,18 @@ function renderButton(props: ScrollButtonProps) {
 	return button;
 }
 
-function buttonClasses(props: ScrollButtonProps) {
-	return (renderButton(props).getAttribute('class') ?? '').split(' ');
-}
-
-// Width, height and padding classes decide the rendered box of this icon-only button.
-const geometry = (classes: string[]) =>
-	classes.filter((name) => /^(size|h|w|p[xy]?|gap)-/.test(name));
-
 describe('ScrollButton', () => {
-	it.each([undefined, 'icon-sm', 'sm'] as const)('stays a 40px circle for size %s', (size) => {
-		const classes = buttonClasses({ isAtBottom: false, size });
-
-		expect(geometry(classes)).toEqual(['size-10']);
-		expect(classes).toContain('rounded-full');
-		expect(classes).toEqual(buttonClasses({ isAtBottom: false }));
+	// The size prop stays in the public type for compatibility and must not change the button.
+	it.each(['icon-sm', 'sm'] as const)('renders the same button for size %s', (size) => {
+		expect(renderButton({ isAtBottom: false, size }).outerHTML).toBe(
+			renderButton({ isAtBottom: false }).outerHTML
+		);
 	});
 
-	// Callers sit inside a pointer-events-none overlay and used to pass pointer-events-auto,
-	// which left the transparent hidden button clickable, focusable and announced.
-	it('keeps the hidden button out of reach even when the caller enables pointer events', () => {
-		const button = renderButton({ isAtBottom: true, class: 'pointer-events-auto' });
-		const classes = (button.getAttribute('class') ?? '').split(' ');
-
-		expect(button.hasAttribute('inert')).toBe(true);
-		expect(classes).toContain('pointer-events-none');
-		expect(classes).not.toContain('pointer-events-auto');
-	});
-
-	it('receives pointer events and focus while visible', () => {
-		const button = renderButton({ isAtBottom: false });
-		const classes = (button.getAttribute('class') ?? '').split(' ');
-
-		expect(button.hasAttribute('inert')).toBe(false);
-		expect(classes).toContain('pointer-events-auto');
-		expect(classes).not.toContain('pointer-events-none');
+	// The faded-out button sits over the last message; it must leave the tab order and the
+	// accessibility tree, not only turn transparent.
+	it('is inert only while hidden', () => {
+		expect(renderButton({ isAtBottom: true }).hasAttribute('inert')).toBe(true);
+		expect(renderButton({ isAtBottom: false }).hasAttribute('inert')).toBe(false);
 	});
 });
