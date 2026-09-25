@@ -105,6 +105,7 @@ const RECOVERY_EMAIL = 'recovery@example.test';
 const RECOVERY_PASSWORD = 'correct-horse-battery-staple';
 const RECOVERY_DESTINATION = '/de/app/settings?tab=profile#section';
 
+let capturedResetURL = '';
 let resetEmailURL = '';
 
 const recoveryAuth = betterAuth({
@@ -114,11 +115,27 @@ const recoveryAuth = betterAuth({
 	emailAndPassword: {
 		enabled: true,
 		sendResetPassword: async ({ url }) => {
-			resetEmailURL = url;
+			capturedResetURL = url;
 		}
 	},
 	advanced: { disableOriginCheck: false }
 });
+
+/** Request a reset for the recovery account and return the link from its mail. */
+async function requestResetLink(redirectTo: string): Promise<string> {
+	capturedResetURL = '';
+	const requested = await recoveryAuth.handler(
+		new Request(`${BASE}/api/auth/request-password-reset`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', origin: BASE },
+			body: JSON.stringify({ email: RECOVERY_EMAIL, redirectTo })
+		})
+	);
+	// A rejected `redirectTo` would return 403 here, which is the exact failure
+	// the callback wrappers must prevent.
+	expect(requested.status, await requested.text()).toBe(200);
+	return capturedResetURL;
+}
 
 /** Read a URL's `redirectTo` value the way the destination page does. */
 function carriedDestination(url: string): string | null {
@@ -142,16 +159,7 @@ describe('the reset callback authPageURL builds', () => {
 		);
 		expect(signUp.status, await signUp.text()).toBe(200);
 
-		const requested = await recoveryAuth.handler(
-			new Request(`${BASE}/api/auth/request-password-reset`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json', origin: BASE },
-				body: JSON.stringify({ email: RECOVERY_EMAIL, redirectTo: resetCallback })
-			})
-		);
-		// A rejected `redirectTo` would return 403 here, which is the exact failure
-		// this wrapper must prevent.
-		expect(requested.status, await requested.text()).toBe(200);
+		resetEmailURL = await requestResetLink(resetCallback);
 	});
 
 	it('is the callback the dependency puts in the mail', () => {
@@ -204,5 +212,31 @@ describe('the reset callback authPageURL builds', () => {
 		expect(location.searchParams.get('token')).toBeTruthy();
 		expect(carriedDestination(location.href)).toBe(RECOVERY_DESTINATION);
 		expect(passwordLinkPurpose(location.searchParams)).toBe(expected);
+	});
+
+	/**
+	 * Callbacks the app does not build but Better Auth still accepts: a trusted
+	 * absolute URL may carry a fragment, and a caller may already have put a
+	 * purpose on the page. The marker has to land in the real query as the only
+	 * purpose, or the page reads the old one.
+	 */
+	it.each([
+		[
+			'a trusted absolute callback with a fragment',
+			`${BASE}/de/reset-password#section`,
+			'#section'
+		],
+		['a relative callback that already says reset', '/de/reset-password?purpose=reset', '']
+	])('marks %s as set', async (_, callback, hash) => {
+		const link = withPasswordLinkPurpose(await requestResetLink(callback), 'set');
+		const response = await recoveryAuth.handler(new Request(link));
+		expect(response.status).toBe(302);
+
+		const location = new URL(response.headers.get('location')!);
+		expect(location.pathname).toBe('/de/reset-password');
+		expect(location.searchParams.get('token')).toBeTruthy();
+		expect(location.searchParams.getAll('purpose')).toEqual(['set']);
+		expect(passwordLinkPurpose(location.searchParams)).toBe('set');
+		expect(location.hash).toBe(hash);
 	});
 });
