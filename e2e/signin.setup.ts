@@ -1,11 +1,7 @@
 import { test as setup, expect } from '@playwright/test';
-import fs from 'fs';
-import path from 'path';
-import { waitForAuthenticated } from './utils/auth';
+import { readTestCredentials, submitSignInForm, waitForAuthenticated } from './utils/auth';
 
 const authFile = 'e2e/.auth/user.json';
-
-import type { TestCredentials } from './utils/types';
 
 /**
  * This setup test authenticates the regular test user and saves the session state.
@@ -14,27 +10,13 @@ import type { TestCredentials } from './utils/types';
  * Credentials are read from e2e/.auth/test-credentials.json (created by globalSetup).
  */
 setup('signin with regular user credentials', async ({ page }) => {
-	const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
-
-	if (!fs.existsSync(credentialsPath)) {
-		throw new Error('test-credentials.json not found. globalSetup may have failed.');
-	}
-
-	const credentials: TestCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
-	const { email, password } = credentials.user;
+	const { email, password } = readTestCredentials().user;
 
 	// Go to signin page and wait for form to be ready
 	await page.goto('/signin');
 	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 30000 });
-	await expect(page.locator('[data-testid="email-input"]')).toBeEnabled({ timeout: 30000 });
-	await expect(page.locator('[data-testid="signin-button"]')).toBeEnabled({ timeout: 30000 });
 
-	// Fill in credentials using data-testid attributes
-	await page.fill('[data-testid="email-input"]', email);
-	await page.fill('[data-testid="password-input"]', password);
-
-	// Click sign in button
-	await page.click('[data-testid="signin-button"]');
+	await submitSignInForm(page, email, password);
 
 	// Wait for authenticated state
 	await waitForAuthenticated(page);
