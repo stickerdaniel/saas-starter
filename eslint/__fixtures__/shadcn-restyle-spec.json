@@ -470,7 +470,7 @@
 			"components": {
 				"Button": [
 					"min-w-0",
-					"rounded-[calc(9999px*sign(var(--radius)))]",
+					"rounded-theme-pill",
 					"px-4",
 					"w-full",
 					"cursor-pointer",
