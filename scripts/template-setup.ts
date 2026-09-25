@@ -1494,7 +1494,7 @@ function replaceGithubRepositoryUrls(
 	}
 }
 
-/** Updates the heading, template demo paragraph, repository URLs, and exact Quick Start candidate. */
+/** Updates the heading, template-only content, repository URLs, and exact Quick Start candidate. */
 export function replaceReadmeSource(
 	source: string,
 	options: { brand: string; repository: string; oldGithubUrl: string; githubUrl: string }
@@ -1517,6 +1517,7 @@ export function replaceReadmeSource(
 		updated = replaceGithubRepositoryUrls(updated, oldGithubUrl, githubUrl, excluded);
 	}
 	updated = removeTemplateLiveDemoParagraph(updated, findReadmeStructure(updated));
+	updated = removeTemplateOnlyRegions(updated, findReadmeStructure(updated));
 
 	const finalStructure = findReadmeStructure(updated);
 	const heading = finalStructure.headings.find(({ level }) => level === 1);
@@ -1561,6 +1562,45 @@ function removeTemplateLiveDemoParagraph(source: string, structure: ReadmeStruct
 	return match ? source.slice(0, match.start) + source.slice(match.end) : source;
 }
 
+const TEMPLATE_ONLY_START = '<!-- template-only -->';
+const TEMPLATE_ONLY_END = '<!-- /template-only -->';
+
+/** Finds marker-delimited README regions that only make sense before a project exists. */
+function templateOnlyRanges(structure: ReadmeStructure): Array<{ start: number; end: number }> {
+	const fenced = new Set(
+		structure.fences.flatMap(({ openLine, closeLine }) =>
+			Array.from({ length: closeLine - openLine + 1 }, (_, offset) => openLine + offset)
+		)
+	);
+	const ranges: Array<{ start: number; end: number }> = [];
+	let openLine: number | undefined;
+	structure.lines.forEach(({ content }, index) => {
+		if (fenced.has(index)) return;
+		if (content === TEMPLATE_ONLY_START) {
+			if (openLine !== undefined) throw new Error('README.md nests a template-only region');
+			openLine = index;
+		} else if (content === TEMPLATE_ONLY_END) {
+			if (openLine === undefined) {
+				throw new Error('README.md closes a template-only region that was never opened');
+			}
+			// Drop the blank line after the closing marker so the surrounding prose stays spaced once.
+			const next = structure.lines[index + 1];
+			const last = next?.content === '' ? next : structure.lines[index]!;
+			ranges.push({ start: structure.lines[openLine]!.start, end: last.fullEnd });
+			openLine = undefined;
+		}
+	});
+	if (openLine !== undefined)
+		throw new Error('README.md contains an unterminated template-only region');
+	return ranges;
+}
+
+function removeTemplateOnlyRegions(source: string, structure: ReadmeStructure): string {
+	return templateOnlyRanges(structure)
+		.reverse()
+		.reduce((updated, { start, end }) => updated.slice(0, start) + updated.slice(end), source);
+}
+
 /** Reports whether the README carries the generated identity in the exact Quick Start section. */
 export function readmeShowsCompletedSetup(
 	source: string,
@@ -1583,9 +1623,16 @@ export function readmeShowsCompletedSetup(
 		return false;
 	}
 	const heading = structure.headings.find(({ level }) => level === 1);
+	let templateOnly: Array<{ start: number; end: number }>;
+	try {
+		templateOnly = templateOnlyRanges(structure);
+	} catch {
+		return false;
+	}
 	return (
 		heading?.text === escapeMarkdownInline(brand) &&
-		liveDemoParagraphRanges(source, structure).length === 0
+		liveDemoParagraphRanges(source, structure).length === 0 &&
+		templateOnly.length === 0
 	);
 }
 

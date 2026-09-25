@@ -573,6 +573,35 @@ Unrelated prose stays.
 		expect(() => replaceReadmeSource(duplicate, options)).toThrow(/live demo.*found 2/i);
 	});
 
+	it('removes template-only regions outside foreign fences', () => {
+		const region =
+			'<!-- template-only -->\n\nCreate a project:\n\n```bash\nnpm create saas-starter@latest my-app\n```\n\n<!-- /template-only -->\n\n';
+		const foreignFence = '```markdown\n<!-- template-only -->\nKeep this example.\n```\n\n';
+		const withRegion = source
+			.replace('```bash\ngh repo create', `${region}\`\`\`bash\ngh repo create`)
+			.replace('Unrelated prose stays.', `${foreignFence}Unrelated prose stays.`);
+		const updated = replaceReadmeSource(withRegion, options);
+
+		expect(updated).not.toContain('npm create saas-starter');
+		expect(updated).toContain('## Quick Start\n\n```bash\ngit clone');
+		expect(updated).toContain(foreignFence);
+		expect(replaceReadmeSource(withRegion.replace(/\n/g, '\r\n'), options)).toBe(
+			updated.replace(/\n/g, '\r\n')
+		);
+	});
+
+	it.each([
+		['an unterminated region', '<!-- template-only -->\n\n'],
+		['a stray closing marker', '<!-- /template-only -->\n\n'],
+		[
+			'a nested region',
+			'<!-- template-only -->\n\n<!-- template-only -->\n\n<!-- /template-only -->\n\n'
+		]
+	])('fails closed for %s', (_label, markers) => {
+		const invalid = source.replace('## Quick Start', `${markers}## Quick Start`);
+		expect(() => replaceReadmeSource(invalid, options)).toThrow(/template-only/);
+	});
+
 	it('is idempotent and follows a later repository rename', () => {
 		const once = replaceReadmeSource(source, options);
 		expect(replaceReadmeSource(once, options)).toBe(once);
@@ -909,6 +938,18 @@ describe('template setup detects a consistent generated README', () => {
 				'Northwind Labs'
 			)
 		).toBe(false);
+		for (const markers of [
+			'<!-- template-only -->\n\nCreate a project.\n\n<!-- /template-only -->\n\n',
+			'<!-- template-only -->\n\n'
+		]) {
+			expect(
+				readmeShowsCompletedSetup(
+					converted.replace('```bash', `${markers}\`\`\`bash`),
+					'northwind/northwind-labs',
+					'Northwind Labs'
+				)
+			).toBe(false);
+		}
 	});
 
 	it('reads the consistent state with CRLF line endings', () => {

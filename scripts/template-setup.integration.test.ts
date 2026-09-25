@@ -926,11 +926,15 @@ describe('template setup quick start', () => {
 		const readme = readFileSync(join(dir, 'README.md'), 'utf-8');
 		expect(readme.split('\n')[0]).toBe('# Northwind Labs');
 		expect(readme).toContain(
-			'```bash\ngit clone https://github.com/northwind/northwind-labs.git\ncd ./northwind-labs\nbun install\nbun run dev\n```'
+			'seeded admin account.\n\n```bash\ngit clone https://github.com/northwind/northwind-labs.git\ncd ./northwind-labs\nbun install\nbun run dev\n```'
 		);
 		expect(readme).not.toContain('gh repo create');
 		expect(readme).not.toContain('my-saas-product');
 		expect(readme).not.toContain('Live demo!');
+		// A generated project neither creates itself again nor links the removed CLI package.
+		expect(readme).not.toContain('create saas-starter');
+		expect(readme).not.toContain('packages/create-saas-starter');
+		expect(readme).not.toContain('template-only');
 		// Unrelated prose remains unchanged.
 		expect(readme).toContain('## Why This Exists');
 	});
