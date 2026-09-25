@@ -1,7 +1,7 @@
 // @vitest-environment node
 // The real-render cases start the builder's Vite server, and esbuild refuses to run under jsdom.
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ViteDevServer } from 'vite';
 import { EMAIL_TEMPLATES } from '../templates/registry';
@@ -27,14 +27,28 @@ function splitTemplate(content: string) {
 }
 
 /**
+ * The footer bakes the build's calendar year into the generated files, so their build year is
+ * the year the builder last wrote them, not the year the tests run in.
+ */
+function generatedYear(): number {
+	return statSync(join(process.cwd(), 'src/lib/emails/generated/index.ts')).mtime.getFullYear();
+}
+
+/**
  * Setup writes each project's brand, company, and address into LEGAL_CONFIG, and the
  * email header and footer render them. The snapshots pin the markup around those values
  * rather than the values themselves, so a configured project matches the template's
  * snapshots. Each value is replaced only at the slot that owns it, after checking that the
  * slot renders exactly that value, so a slot showing the wrong field still fails. The
- * plain-text export wraps at 80 columns, so whitespace inside those text slots is collapsed.
+ * copyright year gets the same treatment against the build year, so the snapshots survive
+ * New Year. The plain-text export wraps at 80 columns, so whitespace inside those text slots
+ * is collapsed.
  */
-function withLegalPlaceholders(content: string, identity: LegalSlots = LEGAL_CONFIG): string {
+function withLegalPlaceholders(
+	content: string,
+	identity: LegalSlots = LEGAL_CONFIG,
+	year = generatedYear()
+): string {
 	const { head, html, separator, text } = splitTemplate(content);
 	const attribute = (key: keyof LegalSlots) =>
 		escapeTemplateLiteral(serializeAttribute(identity[key]));
@@ -52,7 +66,8 @@ function withLegalPlaceholders(content: string, identity: LegalSlots = LEGAL_CON
 			element('companyName'),
 			'[companyName]'
 		],
-		[/(All rights reserved\.<\/p> <p [^>]*>)([^<]*)(<\/p>)/g, element('address'), '[address]']
+		[/(All rights reserved\.<\/p> <p [^>]*>)([^<]*)(<\/p>)/g, element('address'), '[address]'],
+		[/(>Copyright © )([^ <]*)( <a href="\{\{baseUrl\}\}\/")/g, String(year), '[year]']
 	] as const) {
 		normalizedHtml = replaceSlot(normalizedHtml, pattern, expected, placeholder);
 	}
@@ -67,12 +82,17 @@ function withLegalPlaceholders(content: string, identity: LegalSlots = LEGAL_CON
 	paragraphs[paragraphs.length - 1] = '[address]';
 	const copyright = paragraphs.findIndex((paragraph) => paragraph.startsWith('Copyright © '));
 	// An empty link text makes html-to-text print the bare URL instead of `name [url]`.
-	const [, year, company = ''] =
-		/^Copyright © (\d{4}) (?:(.*) \[\{\{baseUrl\}\}\/\]|\{\{baseUrl\}\}\/) All rights reserved\.$/.exec(
+	const [, renderedYear, company = ''] =
+		/^Copyright © (\S*) (?:(.*) \[\{\{baseUrl\}\}\/\]|\{\{baseUrl\}\}\/) All rights reserved\.$/.exec(
 			collapse(paragraphs[copyright] ?? '')
 		) ?? [];
-	expectSlot(year === undefined ? undefined : company, plain('companyName'), '[companyName]');
-	paragraphs[copyright] = `Copyright © ${year} [companyName] [{{baseUrl}}/] All rights reserved.`;
+	expectSlot(
+		renderedYear === undefined ? undefined : company,
+		plain('companyName'),
+		'[companyName]'
+	);
+	expectSlot(renderedYear, String(year), '[year]');
+	paragraphs[copyright] = 'Copyright © [year] [companyName] [{{baseUrl}}/] All rights reserved.';
 
 	return `${head}${normalizedHtml}${separator}${paragraphs.join('\n\n')}\`;\n`;
 }
@@ -128,7 +148,12 @@ function serializeText(value: string): string {
  * from the marker form the builder converts, since marker length affects line wrapping.
  * `headerText` lets a test render a different field in the visible header brand slot.
  */
-function renderForIdentity(content: string, identity: LegalSlots, headerText = identity.brandName) {
+function renderForIdentity(
+	content: string,
+	identity: LegalSlots,
+	year = generatedYear(),
+	headerText = identity.brandName
+) {
 	const { head, html, separator } = splitTemplate(withLegalPlaceholders(content));
 	const rendered = html
 		.replace(/\\(\\|`|\$(?=\{))/g, '$1')
@@ -141,7 +166,8 @@ function renderForIdentity(content: string, identity: LegalSlots, headerText = i
 			'<!---->[companyName]<!---->',
 			() => `<!---->${serializeText(identity.companyName)}<!---->`
 		)
-		.replace('>[address]</p>', () => `>${serializeText(identity.address)}</p>`);
+		.replace('>[address]</p>', () => `>${serializeText(identity.address)}</p>`)
+		.replace('>Copyright © [year] ', () => `>Copyright © ${year} `);
 	const toTemplate = (value: string) => escapeTemplateLiteral(convertMarkersToTemplate(value));
 	return `${head}${toTemplate(rendered)}${separator}${toTemplate(toPlainText(rendered))}\`;\n`;
 }
@@ -150,9 +176,15 @@ function renderForIdentity(content: string, identity: LegalSlots, headerText = i
  * Builds the snapshot templates for an identity the way `bun run build:emails` does: the
  * builder's Vite server renders the Svelte components through the repository renderer, and
  * the builder's own functions convert markers and write the module. The served LEGAL_CONFIG
- * is changed only in that server's memory and restored afterwards.
+ * is changed only in that server's memory and restored afterwards. `year` fakes the clock the
+ * footer reads its copyright year from.
  */
-async function buildForIdentity(vite: ViteDevServer, identity: LegalSlots, files: string[]) {
+async function buildForIdentity(
+	vite: ViteDevServer,
+	identity: LegalSlots,
+	files: string[],
+	year: number
+) {
 	const { LEGAL_CONFIG: served } = (await vite.ssrLoadModule('/src/lib/config/legal.ts')) as {
 		LEGAL_CONFIG: LegalSlots;
 	};
@@ -164,6 +196,7 @@ async function buildForIdentity(vite: ViteDevServer, identity: LegalSlots, files
 	};
 	const original = { ...served };
 	Object.assign(served, identity);
+	vi.useFakeTimers({ toFake: ['Date'], now: new Date(year, 5, 15) });
 	try {
 		const built: Record<string, string> = {};
 		for (const [name, { outputName, props }] of Object.entries(EMAIL_TEMPLATES)) {
@@ -182,6 +215,7 @@ async function buildForIdentity(vite: ViteDevServer, identity: LegalSlots, files
 		}
 		return built;
 	} finally {
+		vi.useRealTimers();
 		Object.assign(served, original);
 	}
 }
@@ -368,7 +402,12 @@ describe('Generated Email Templates', () => {
 
 		it.each(snapshotFiles)('%s fails when the header renders the company name', (file) => {
 			const content = readFileSync(join(generatedDir, file), 'utf-8');
-			const swapped = renderForIdentity(content, distinctIdentity, distinctIdentity.companyName);
+			const swapped = renderForIdentity(
+				content,
+				distinctIdentity,
+				undefined,
+				distinctIdentity.companyName
+			);
 			expect(() => withLegalPlaceholders(swapped, distinctIdentity)).toThrow(
 				'[brandName] slot renders'
 			);
@@ -391,27 +430,31 @@ describe('Generated Email Templates', () => {
 				await vite?.close();
 			});
 
-			it.each<[string, LegalSlots]>([
+			const thisYear = new Date().getFullYear();
+			it.each<[string, LegalSlots, number]>([
 				[
 					'markup characters',
 					{
 						brandName: 'Northwind <Labs> & "Co"',
 						companyName: 'Northwind & <Partners> "Ltd."',
 						address: '1 <Harbour> Road & "Quay",\u00a0Portsmouth'
-					}
+					},
+					thisYear
 				],
-				['equal brand and company', { ...distinctIdentity, companyName: 'Northwind' }]
+				['equal brand and company', { ...distinctIdentity, companyName: 'Northwind' }, thisYear],
+				// The committed snapshots must keep matching after New Year without an update.
+				['another calendar year', LEGAL_CONFIG, thisYear + 1]
 			])(
 				'normalizes and rebuilds the build output for %s',
-				async (_, identity) => {
-					const built = await buildForIdentity(vite!, identity, snapshotFiles);
+				async (_, identity, year) => {
+					const built = await buildForIdentity(vite!, identity, snapshotFiles, year);
 					for (const file of snapshotFiles) {
 						const content = readFileSync(join(generatedDir, file), 'utf-8');
 						const output = built[file]!;
-						expect(withLegalPlaceholders(output, identity), file).toBe(
+						expect(withLegalPlaceholders(output, identity, year), file).toBe(
 							withLegalPlaceholders(content)
 						);
-						expect(renderForIdentity(content, identity), file).toBe(output);
+						expect(renderForIdentity(content, identity, year), file).toBe(output);
 					}
 				},
 				60_000
