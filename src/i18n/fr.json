@@ -392,6 +392,7 @@
 			"password_reset_success": "Votre mot de passe a été réinitialisé avec succès.",
 			"password_set": "Mot de passe défini avec succès",
 			"password_set_failed": "Impossible de définir le mot de passe",
+			"password_set_success": "Votre mot de passe a été défini avec succès.",
 			"password_too_long": "Le mot de passe est trop long",
 			"password_too_short": "Le mot de passe est trop court",
 			"password_too_weak": "Le mot de passe doit comporter au moins 10 caractères et inclure une majuscule, une minuscule et un chiffre.",
@@ -414,6 +415,12 @@
 			"new_password_label": "Nouveau mot de passe",
 			"sign_in_link": "Se connecter",
 			"title": "Réinitialiser le mot de passe"
+		},
+		"set_password": {
+			"button_loading": "Définition...",
+			"button_submit": "Définir le mot de passe",
+			"description": "Choisissez un mot de passe pour votre compte",
+			"title": "Définir un mot de passe"
 		},
 		"signin": {
 			"button_signin": "Se connecter",

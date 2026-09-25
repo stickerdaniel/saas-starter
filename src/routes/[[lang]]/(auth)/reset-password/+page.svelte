@@ -21,6 +21,7 @@
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { authPageURL } from '$lib/utils/url';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
+	import { passwordLinkPurpose } from '$lib/convex/utils/passwordLinkPurpose';
 
 	const { t } = getTranslate();
 	const auth = useAuth();
@@ -45,6 +46,29 @@
 	 */
 	const rawDestination = $derived(page.url.searchParams.get('redirectTo') ?? '');
 	const signInHref = $derived(authPageURL(localizedHref('/signin'), rawDestination));
+
+	/**
+	 * The mail marks a link that sets a first password, because `resetPassword`
+	 * creates the password an OAuth-only account lacks. The marker is editable,
+	 * so it picks wording and nothing else.
+	 */
+	const copy = $derived(
+		passwordLinkPurpose(page.url.searchParams) === 'set'
+			? {
+					title: 'auth.set_password.title',
+					description: 'auth.set_password.description',
+					submit: 'auth.set_password.button_submit',
+					loading: 'auth.set_password.button_loading',
+					success: 'auth.messages.password_set_success'
+				}
+			: {
+					title: 'auth.reset_password.title',
+					description: 'auth.reset_password.description',
+					submit: 'auth.reset_password.button_submit',
+					loading: 'auth.reset_password.button_loading',
+					success: 'auth.messages.password_reset_success'
+				}
+	);
 
 	// Form data
 	let formData = $state({ password: '', confirmPassword: '' });
@@ -154,7 +178,7 @@
 				formError = getAuthErrorKey(err, 'auth.messages.reset_failed');
 			} else {
 				haptic.trigger('success');
-				message = 'auth.messages.password_reset_success';
+				message = copy.success;
 			}
 		} catch (error) {
 			console.error('[ResetPassword] Reset error:', error);
@@ -196,13 +220,10 @@
 						<Field.Group>
 							<div class="flex flex-col items-center gap-2 text-center">
 								<h1 class="text-2xl font-bold">
-									<T keyName="auth.reset_password.title" defaultValue="Reset password" />
+									<T keyName={copy.title} />
 								</h1>
 								<p class="text-balance text-muted-foreground">
-									<T
-										keyName="auth.reset_password.description"
-										defaultValue="Enter your new password"
-									/>
+									<T keyName={copy.description} />
 								</p>
 							</div>
 							{#if formError}
@@ -291,9 +312,9 @@
 									disabled={isFormDisabled}
 								>
 									{#if isLoading}
-										<T keyName="auth.reset_password.button_loading" defaultValue="Resetting..." />
+										<T keyName={copy.loading} />
 									{:else}
-										<T keyName="auth.reset_password.button_submit" defaultValue="Reset password" />
+										<T keyName={copy.submit} />
 									{/if}
 								</Button>
 							</Field.Field>
