@@ -68,13 +68,13 @@
 							<!-- Avatar stack -->
 							<div class="mb-6 flex -space-x-3">
 								<Avatar size="xl" outline="background">
-									<AvatarImage src={memberFour} alt="Team member" class="object-cover" />
+									<AvatarImage src={memberFour} alt="Team member" />
 								</Avatar>
 								<Avatar size="xl" outline="background">
-									<AvatarImage src={memberTwo} alt="Team member" class="object-cover" />
+									<AvatarImage src={memberTwo} alt="Team member" />
 								</Avatar>
 								<Avatar size="xl" outline="background">
-									<AvatarImage src={memberFive} alt="Team member" class="object-cover" />
+									<AvatarImage src={memberFive} alt="Team member" />
 								</Avatar>
 							</div>
 

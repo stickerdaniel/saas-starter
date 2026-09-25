@@ -58,7 +58,9 @@
 			{#if isLastUsedAuthMethod('google')}
 				<Badge
 					variant="secondary"
-					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-2xs whitespace-nowrap transition-colors group-has-[[data-slot=button]:active:not([aria-haspopup])]:translate-y-px group-has-[[data-slot=button]:disabled]:badge-secondary-disabled"
+					size="xs"
+					attachment="oauth-last-used"
+					class="pointer-events-none absolute -top-2 -right-2"
 					data-testid="oauth-google-last-used-badge"
 				>
 					<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
@@ -87,7 +89,9 @@
 			{#if isLastUsedAuthMethod('github')}
 				<Badge
 					variant="secondary"
-					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-2xs whitespace-nowrap transition-colors group-has-[[data-slot=button]:active:not([aria-haspopup])]:translate-y-px group-has-[[data-slot=button]:disabled]:badge-secondary-disabled"
+					size="xs"
+					attachment="oauth-last-used"
+					class="pointer-events-none absolute -top-2 -right-2"
 					data-testid="oauth-github-last-used-badge"
 				>
 					<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
@@ -113,7 +117,9 @@
 			{#if isLastUsedAuthMethod('passkey')}
 				<Badge
 					variant="secondary"
-					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-2xs whitespace-nowrap transition-colors group-has-[[data-slot=button]:active:not([aria-haspopup])]:translate-y-px group-has-[[data-slot=button]:disabled]:badge-secondary-disabled"
+					size="xs"
+					attachment="oauth-last-used"
+					class="pointer-events-none absolute -top-2 -right-2"
 					data-testid="oauth-passkey-last-used-badge"
 				>
 					<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />

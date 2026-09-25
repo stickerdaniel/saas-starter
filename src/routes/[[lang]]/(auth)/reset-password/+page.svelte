@@ -214,7 +214,7 @@
 						value={progress}
 						mode={isLoading ? 'loading' : 'progress'}
 						showBackground={false}
-						class="h-1 rounded-none"
+						variant="edge"
 					/>
 					<div class="p-6 md:p-8">
 						<Field.Group>

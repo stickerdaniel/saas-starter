@@ -79,7 +79,7 @@
 		value={signUpProgress}
 		mode={isLoading ? 'loading' : 'progress'}
 		showBackground={false}
-		class="h-1 rounded-none"
+		variant="edge"
 	/>
 	<div class="p-6 md:p-8">
 		<Field.Group>
@@ -169,7 +169,7 @@
 				</Button>
 			</Field.Field>
 			{#if hasOAuthAuth}
-				<Field.Separator class="*:data-[slot=field-separator-content]:bg-card">
+				<Field.Separator surface="card">
 					<T keyName="auth.signin.or_continue_with" />
 				</Field.Separator>
 				<Field.Field>

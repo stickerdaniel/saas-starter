@@ -127,9 +127,12 @@
 							onPageSizeChange(Number(value));
 						}}
 					>
-						<Select.Trigger size="sm" class="w-20">
-							{pageSize}
-						</Select.Trigger>
+						<!-- The wrapper owns the fixed width; the trigger fills it. -->
+						<div class="w-20">
+							<Select.Trigger size="sm" class="w-full">
+								{pageSize}
+							</Select.Trigger>
+						</div>
 						<Select.Content side="top">
 							{#each pageSizeOptions as option (option)}
 								<Select.Item value={`${option}`}>{option}</Select.Item>
