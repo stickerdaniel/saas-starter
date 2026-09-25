@@ -26,6 +26,9 @@ export interface ResolvedMarkdownLink {
 	outsideRepository: boolean;
 }
 
+export const REFERENCE_DEFINITION =
+	/^\s{0,3}\[([^\]]+)\]:\s*(?:<([^>]+)>|((?:\\.|[^\s\\])+\\?|\\))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*$/;
+
 function unquoteScalar(value: string): string | null {
 	if (value.length < 2) return value;
 	const first = value[0];
@@ -210,9 +213,7 @@ export function extractMarkdownLinks(text: string): MarkdownLink[] {
 	const definitionLines = new Set<number>();
 
 	for (const entry of active) {
-		const match = entry.text.match(
-			/^\s{0,3}\[([^\]]+)\]:\s*(?:<([^>]+)>|((?:\\.|[^\s])+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*$/
-		);
+		const match = entry.text.match(REFERENCE_DEFINITION);
 		if (!match) continue;
 		references.set(normalizeReferenceLabel(match[1]!), match[2] ?? match[3]!);
 		definitionLines.add(entry.line);

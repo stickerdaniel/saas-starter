@@ -38,6 +38,7 @@ export interface TextWindow {
 const detector = eld.newInstance();
 const CONVENTIONAL_COMMIT =
 	/^(?:build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(?:\([^)\r\n]+\))?!?:\s*/iu;
+export const CODE_IDENTIFIER = /\b(?:[$_][\w$]*|[a-z]+[A-Z][\w$]*)\b/g;
 const TECHNICAL_ACRONYMS = new Set([
 	'API',
 	'ASCII',
@@ -156,7 +157,7 @@ export function normalizeTechnicalSyntax(text: string): string {
 		.replace(/\b[0-9a-f]{7,64}\b/giu, ' ')
 		.replace(/--?[a-z][\w-]*/giu, ' ')
 		.replace(/\b[A-Z][A-Z0-9_-]{1,}\b/g, normalizeUppercaseToken)
-		.replace(/\b(?:[$_][\w$]*|[a-z]+(?:[A-Z][\w$]*)+)\b/g, ' ')
+		.replace(CODE_IDENTIFIER, ' ')
 		.replace(/[\p{P}\p{S}]+/gu, ' ')
 		.replace(/\s+/g, ' ')
 		.trim();

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { extractMarkdownLinks, parseFlatFrontmatter, resolveRelativeLink } from './markdown';
+import {
+	REFERENCE_DEFINITION,
+	extractMarkdownLinks,
+	parseFlatFrontmatter,
+	resolveRelativeLink
+} from './markdown';
 
 describe('parseFlatFrontmatter', () => {
 	it('parses flat quoted and unquoted fields with line numbers', () => {
@@ -71,6 +76,61 @@ describe('extractMarkdownLinks', () => {
 			{ target: '/app', line: 8 },
 			{ target: 'docs/real.md?view=1#part', line: 9 }
 		]);
+	});
+});
+
+describe('REFERENCE_DEFINITION', () => {
+	// Reference only: the ambiguous destination group CodeQL flagged as js/redos.
+	const previous =
+		/^\s{0,3}\[([^\]]+)\]:\s*(?:<([^>]+)>|((?:\\.|[^\s])+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*$/;
+
+	function* strings(alphabet: readonly string[], maxLength: number): Generator<string> {
+		let level = [''];
+		for (let length = 1; length <= maxLength; length += 1) {
+			level = level.flatMap((prefix) => alphabet.map((char) => prefix + char));
+			yield* level;
+		}
+	}
+
+	it('rejects a long backslash run in linear time', () => {
+		const line = `[a]: ${'\\'.repeat(40)} x y`;
+		const started = performance.now();
+		expect(extractMarkdownLinks(`${line}\n[b][a]`)).toEqual([]);
+		expect(performance.now() - started).toBeLessThan(100);
+	});
+
+	it('captures the same definitions as the ambiguous previous pattern', () => {
+		const samples = [
+			'[a]: docs/guide.md',
+			'  [Guide Name]: ../docs/guide.md#part "Title"',
+			"[a]: docs/guide.md 'Title'",
+			'[a]: docs/guide.md (Title)',
+			'[a]: docs/guide.md "Title with spaces"   ',
+			'[a]: <docs/path with spaces.md>',
+			'[a]: <x y> "Title"',
+			'[a]: foo\\ bar',
+			'[a]: foo\\ bar "Title"',
+			'[a]: foo\\',
+			'[a]: foo\\ ',
+			'[a]: \\',
+			'[a]: foo\\ "a b"',
+			'[a]: docs/\\(escaped\\)\\[chars\\].md',
+			'[a]: C:\\\\docs\\\\guide.md',
+			'[a]: foo "unterminated',
+			'    [a]: indented/code.md',
+			'[a]:',
+			...Array.from(
+				strings(['a', '\\', ' ', '"', "'", '<', '>', '('], 5),
+				(destination) => `[a]: ${destination}`
+			)
+		];
+		for (const sample of samples) {
+			const expected = sample.match(previous);
+			// The previous pattern also read `\\` plus whitespace as a lone backslash
+			// before an escaped space. CommonMark ends the destination there instead.
+			if (expected?.[3] && /(?<!\\)(?:\\\\)+\s/.test(expected[3])) continue;
+			expect(sample.match(REFERENCE_DEFINITION), sample).toEqual(expected);
+		}
 	});
 });
 

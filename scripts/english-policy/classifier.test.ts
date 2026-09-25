@@ -1,6 +1,7 @@
 import { eld } from 'eld/extrasmall';
 import { describe, expect, it } from 'vitest';
 import {
+	CODE_IDENTIFIER,
 	classifyEnglish,
 	finiteLanguageScores,
 	normalizeTechnicalSyntax,
@@ -171,5 +172,31 @@ describe('English classifier', () => {
 	])('finds a foreign clause in a shorter mixed sentence: %s', (mixed) => {
 		const outcomes = splitTextWindows(mixed).map((window) => classifyEnglish(window.text).outcome);
 		expect(outcomes).toContain('violation');
+	});
+});
+
+describe('CODE_IDENTIFIER', () => {
+	// Reference only: the nested quantifier CodeQL flagged as js/redos.
+	const previous = /\b(?:[$_][\w$]*|[a-z]+(?:[A-Z][\w$]*)+)\b/g;
+
+	function* strings(alphabet: readonly string[], maxLength: number): Generator<string> {
+		let level = [''];
+		for (let length = 1; length <= maxLength; length += 1) {
+			level = level.flatMap((prefix) => alphabet.map((char) => prefix + char));
+			yield* level;
+		}
+	}
+
+	it('masks the same identifiers as the ambiguous previous pattern', () => {
+		const samples = [
+			'Call getUserById before $store and _private updates.',
+			`a${'A'.repeat(40)}!`,
+			'camelCase camelCase2 xmlHTTPRequest iOS eBay a$B aB$ $ _ $$ __x',
+			'Ärger über fooBar und naïveTest',
+			...strings(['a', 'A', '$', '_', '1', ' ', '-'], 5)
+		];
+		for (const sample of samples) {
+			expect(sample.replace(CODE_IDENTIFIER, '|'), sample).toBe(sample.replace(previous, '|'));
+		}
 	});
 });
