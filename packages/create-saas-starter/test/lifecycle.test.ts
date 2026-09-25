@@ -118,6 +118,13 @@ describe('CLI lifecycle', () => {
 					return { ...entry, data: readFileSync(path.join(root, relative)) };
 				return entry;
 			});
+			// Setup rebrands these live files, so it needs them before reaching the faulted removal.
+			for (const relative of ['static/manifest.webmanifest', 'src/app.html']) {
+				entries.push({
+					path: `root/${relative}`,
+					data: readFileSync(path.join(root, relative))
+				});
+			}
 			entries.push(
 				{ path: 'root/.github/workflows/create-saas-starter.yml', data: 'name: creator\n' },
 				{

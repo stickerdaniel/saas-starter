@@ -1,7 +1,190 @@
-import { describe, it, expect } from 'vitest';
+// @vitest-environment node
+// The real-render cases start the builder's Vite server, and esbuild refuses to run under jsdom.
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import type { ViteDevServer } from 'vite';
 import { EMAIL_TEMPLATES } from '../templates/registry';
+import { toPlainText } from '@better-svelte-email/server';
+import { LEGAL_CONFIG } from '$lib/config/legal';
+import {
+	convertMarkersToTemplate,
+	createViteServer,
+	escapeTemplateLiteral,
+	generateTemplateFile
+} from '../../../../scripts/build-emails';
+
+type LegalSlots = Record<'brandName' | 'companyName' | 'address', string>;
+
+/** Splits a module written by scripts/build-emails.ts into its HTML and text literals. */
+function splitTemplate(content: string) {
+	const match = /^([\s\S]*?_HTML = `)([\s\S]*)(`;\n\nexport const \w+_TEXT = `)([\s\S]*)`;\n$/.exec(
+		content
+	);
+	if (!match) throw new Error('Unexpected generated template layout');
+	const [, head = '', html = '', separator = '', text = ''] = match;
+	return { head, html, separator, text };
+}
+
+/**
+ * Setup writes each project's brand, company, and address into LEGAL_CONFIG, and the
+ * email header and footer render them. The snapshots pin the markup around those values
+ * rather than the values themselves, so a configured project matches the template's
+ * snapshots. Each value is replaced only at the slot that owns it, after checking that the
+ * slot renders exactly that value, so a slot showing the wrong field still fails. The
+ * plain-text export wraps at 80 columns, so whitespace inside those text slots is collapsed.
+ */
+function withLegalPlaceholders(content: string, identity: LegalSlots = LEGAL_CONFIG): string {
+	const { head, html, separator, text } = splitTemplate(content);
+	const attribute = (key: keyof LegalSlots) =>
+		escapeTemplateLiteral(serializeAttribute(identity[key]));
+	const element = (key: keyof LegalSlots) => escapeTemplateLiteral(serializeText(identity[key]));
+	let normalizedHtml = html;
+	for (const [pattern, expected, placeholder] of [
+		[
+			/(<img alt=")([^"]*)( Logo" src="\{\{baseUrl\}\}\/logo-email\.png")/g,
+			attribute('brandName'),
+			'[brandName]'
+		],
+		[/(class="dark_text-zinc-50"><!---->)([^<]*)(<!---->)/g, element('brandName'), '[brandName]'],
+		[
+			/(<a href="\{\{baseUrl\}\}\/"[^>]*><!---->)([^<]*)(<!----><\/a><!----> All rights reserved\.)/g,
+			element('companyName'),
+			'[companyName]'
+		],
+		[/(All rights reserved\.<\/p> <p [^>]*>)([^<]*)(<\/p>)/g, element('address'), '[address]']
+	] as const) {
+		normalizedHtml = replaceSlot(normalizedHtml, pattern, expected, placeholder);
+	}
+
+	const paragraphs = text.split('\n\n');
+	const plain = (key: keyof LegalSlots) => collapse(escapeTemplateLiteral(identity[key]));
+	// html-to-text drops an empty header paragraph and keeps an empty trailing one.
+	if (plain('brandName') === '') paragraphs.unshift('');
+	expectSlot(collapse(paragraphs[0] ?? ''), plain('brandName'), '[brandName]');
+	paragraphs[0] = '[brandName]';
+	expectSlot(collapse(paragraphs.at(-1) ?? ''), plain('address'), '[address]');
+	paragraphs[paragraphs.length - 1] = '[address]';
+	const copyright = paragraphs.findIndex((paragraph) => paragraph.startsWith('Copyright © '));
+	// An empty link text makes html-to-text print the bare URL instead of `name [url]`.
+	const [, year, company = ''] =
+		/^Copyright © (\d{4}) (?:(.*) \[\{\{baseUrl\}\}\/\]|\{\{baseUrl\}\}\/) All rights reserved\.$/.exec(
+			collapse(paragraphs[copyright] ?? '')
+		) ?? [];
+	expectSlot(year === undefined ? undefined : company, plain('companyName'), '[companyName]');
+	paragraphs[copyright] = `Copyright © ${year} [companyName] [{{baseUrl}}/] All rights reserved.`;
+
+	return `${head}${normalizedHtml}${separator}${paragraphs.join('\n\n')}\`;\n`;
+}
+
+function replaceSlot(source: string, pattern: RegExp, expected: string, placeholder: string) {
+	const matches = [...source.matchAll(pattern)];
+	const match = matches[0];
+	if (matches.length !== 1 || !match) {
+		throw new Error(`Expected one ${placeholder} slot, found ${matches.length}`);
+	}
+	const [slot, before = '', value, after = ''] = match;
+	expectSlot(value, expected, placeholder);
+	const start = match.index;
+	return source.slice(0, start) + before + placeholder + after + source.slice(start + slot.length);
+}
+
+function expectSlot(value: string | undefined, expected: string, placeholder: string) {
+	if (value !== expected) {
+		throw new Error(
+			`${placeholder} slot renders ${JSON.stringify(value)}, expected ${JSON.stringify(expected)}`
+		);
+	}
+}
+
+function collapse(value: string): string {
+	return value.replace(/\s+/g, ' ').trim();
+}
+
+const HTML_ESCAPES: Record<string, string> = {
+	'&': '&amp;',
+	'\u00a0': '&nbsp;',
+	'"': '&quot;',
+	'<': '&lt;',
+	'>': '&gt;'
+};
+
+/**
+ * The renderer's final HTML comes from parse5's serializer, which escapes `&`, `"`, and
+ * no-break spaces in attribute values but leaves `<` and `>` as they are.
+ */
+function serializeAttribute(value: string): string {
+	return value.replace(/[&\u00a0"]/g, (char) => HTML_ESCAPES[char]!);
+}
+
+/** parse5 escapes `&`, `<`, `>`, and no-break spaces in text, but not `"`. */
+function serializeText(value: string): string {
+	return value.replace(/[&\u00a0<>]/g, (char) => HTML_ESCAPES[char]!);
+}
+
+/**
+ * Rebuilds a generated template for another identity the way scripts/build-emails.ts does:
+ * the header and footer slots take the given values, and the plain text is converted anew
+ * from the marker form the builder converts, since marker length affects line wrapping.
+ * `headerText` lets a test render a different field in the visible header brand slot.
+ */
+function renderForIdentity(content: string, identity: LegalSlots, headerText = identity.brandName) {
+	const { head, html, separator } = splitTemplate(withLegalPlaceholders(content));
+	const rendered = html
+		.replace(/\\(\\|`|\$(?=\{))/g, '$1')
+		.replace(/\{\{(\w+)\}\}/g, (_, name: string) =>
+			name === 'baseUrl' ? '__BASEURL__' : `__ETA_${name}__`
+		)
+		.replace('alt="[brandName] Logo"', () => `alt="${serializeAttribute(identity.brandName)} Logo"`)
+		.replace('<!---->[brandName]<!---->', () => `<!---->${serializeText(headerText)}<!---->`)
+		.replace(
+			'<!---->[companyName]<!---->',
+			() => `<!---->${serializeText(identity.companyName)}<!---->`
+		)
+		.replace('>[address]</p>', () => `>${serializeText(identity.address)}</p>`);
+	const toTemplate = (value: string) => escapeTemplateLiteral(convertMarkersToTemplate(value));
+	return `${head}${toTemplate(rendered)}${separator}${toTemplate(toPlainText(rendered))}\`;\n`;
+}
+
+/**
+ * Builds the snapshot templates for an identity the way `bun run build:emails` does: the
+ * builder's Vite server renders the Svelte components through the repository renderer, and
+ * the builder's own functions convert markers and write the module. The served LEGAL_CONFIG
+ * is changed only in that server's memory and restored afterwards.
+ */
+async function buildForIdentity(vite: ViteDevServer, identity: LegalSlots, files: string[]) {
+	const { LEGAL_CONFIG: served } = (await vite.ssrLoadModule('/src/lib/config/legal.ts')) as {
+		LEGAL_CONFIG: LegalSlots;
+	};
+	const { renderer } = (await vite.ssrLoadModule('/src/lib/emails/renderer.ts')) as {
+		renderer: { render: (component: unknown, options: { props: unknown }) => Promise<string> };
+	};
+	const server = (await vite.ssrLoadModule('@better-svelte-email/server')) as {
+		toPlainText: (html: string) => string;
+	};
+	const original = { ...served };
+	Object.assign(served, identity);
+	try {
+		const built: Record<string, string> = {};
+		for (const [name, { outputName, props }] of Object.entries(EMAIL_TEMPLATES)) {
+			if (!files.includes(`${outputName}.ts`)) continue;
+			const component = (
+				(await vite.ssrLoadModule(`/src/lib/emails/templates/${name}.svelte`)) as {
+					default: unknown;
+				}
+			).default;
+			const rawHtml = await renderer.render(component, { props });
+			built[`${outputName}.ts`] = generateTemplateFile(
+				outputName,
+				convertMarkersToTemplate(rawHtml),
+				convertMarkersToTemplate(server.toPlainText(rawHtml))
+			);
+		}
+		return built;
+	} finally {
+		Object.assign(served, original);
+	}
+}
 
 /**
  * Returns the brace nesting depth of every `prefers-color-scheme` at-rule in a
@@ -74,7 +257,7 @@ describe('Generated Email Templates', () => {
 
 		it('matches snapshot structure', () => {
 			const content = readFileSync(join(generatedDir, 'verification.ts'), 'utf-8');
-			expect(content).toMatchSnapshot();
+			expect(withLegalPlaceholders(content)).toMatchSnapshot();
 		});
 	});
 
@@ -117,7 +300,7 @@ describe('Generated Email Templates', () => {
 
 		it('matches snapshot structure', () => {
 			const content = readFileSync(join(generatedDir, 'passwordReset.ts'), 'utf-8');
-			expect(content).toMatchSnapshot();
+			expect(withLegalPlaceholders(content)).toMatchSnapshot();
 		});
 	});
 
@@ -164,7 +347,75 @@ describe('Generated Email Templates', () => {
 
 		it('matches snapshot structure', () => {
 			const content = readFileSync(join(generatedDir, 'adminReplyNotification.ts'), 'utf-8');
-			expect(content).toMatchSnapshot();
+			expect(withLegalPlaceholders(content)).toMatchSnapshot();
+		});
+	});
+
+	describe('Legal identity normalization', () => {
+		const snapshotFiles = ['verification.ts', 'passwordReset.ts', 'adminReplyNotification.ts'];
+		// A project may configure equal brand and company names, so the wrong-field case
+		// supplies its own distinct values instead of reading them from LEGAL_CONFIG.
+		const distinctIdentity: LegalSlots = {
+			brandName: 'Northwind',
+			companyName: 'Northwind Holdings Ltd.',
+			address: '1 Harbour Road, Portsmouth'
+		};
+
+		it.each(snapshotFiles)('%s rebuilds byte-identically for the configured identity', (file) => {
+			const content = readFileSync(join(generatedDir, file), 'utf-8');
+			expect(renderForIdentity(content, LEGAL_CONFIG)).toBe(content);
+		});
+
+		it.each(snapshotFiles)('%s fails when the header renders the company name', (file) => {
+			const content = readFileSync(join(generatedDir, file), 'utf-8');
+			const swapped = renderForIdentity(content, distinctIdentity, distinctIdentity.companyName);
+			expect(() => withLegalPlaceholders(swapped, distinctIdentity)).toThrow(
+				'[brandName] slot renders'
+			);
+		});
+
+		it.each(snapshotFiles)('%s normalizes brand "Logo" and an empty company name', (file) => {
+			const content = readFileSync(join(generatedDir, file), 'utf-8');
+			const identity = { brandName: 'Logo', companyName: '', address: LEGAL_CONFIG.address };
+			expect(withLegalPlaceholders(renderForIdentity(content, identity), identity)).toBe(
+				withLegalPlaceholders(content)
+			);
+		});
+
+		describe('against the real renderer', () => {
+			let vite: ViteDevServer | undefined;
+			beforeAll(async () => {
+				vite = await createViteServer();
+			}, 60_000);
+			afterAll(async () => {
+				await vite?.close();
+			});
+
+			it.each<[string, LegalSlots]>([
+				[
+					'markup characters',
+					{
+						brandName: 'Northwind <Labs> & "Co"',
+						companyName: 'Northwind & <Partners> "Ltd."',
+						address: '1 <Harbour> Road & "Quay",\u00a0Portsmouth'
+					}
+				],
+				['equal brand and company', { ...distinctIdentity, companyName: 'Northwind' }]
+			])(
+				'normalizes and rebuilds the build output for %s',
+				async (_, identity) => {
+					const built = await buildForIdentity(vite!, identity, snapshotFiles);
+					for (const file of snapshotFiles) {
+						const content = readFileSync(join(generatedDir, file), 'utf-8');
+						const output = built[file]!;
+						expect(withLegalPlaceholders(output, identity), file).toBe(
+							withLegalPlaceholders(content)
+						);
+						expect(renderForIdentity(content, identity), file).toBe(output);
+					}
+				},
+				60_000
+			);
 		});
 	});
 

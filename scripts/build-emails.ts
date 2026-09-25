@@ -29,14 +29,14 @@ const TEMPLATES_PATH = '/src/lib/emails/templates';
 /**
  * Escapes backticks and ${} in strings for use in template literals
  */
-function escapeTemplateLiteral(str: string): string {
+export function escapeTemplateLiteral(str: string): string {
 	return str.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
 }
 
 /**
  * Generates a TypeScript file with exported HTML and text constants
  */
-function generateTemplateFile(name: string, html: string, text: string): string {
+export function generateTemplateFile(name: string, html: string, text: string): string {
 	const escapedHtml = escapeTemplateLiteral(html);
 	const escapedText = escapeTemplateLiteral(text);
 
@@ -53,14 +53,14 @@ export const ${name.toUpperCase()}_TEXT = \`${escapedText}\`;
  * Convert __ETA_xxx__ markers to {{xxx}} template syntax
  * Also converts __BASEURL__ to {{baseUrl}}
  */
-function convertMarkersToTemplate(html: string): string {
+export function convertMarkersToTemplate(html: string): string {
 	return html.replace(/__ETA_(\w+)__/g, '{{$1}}').replace(/__BASEURL__/g, '{{baseUrl}}');
 }
 
 /**
  * Create Vite server in middleware mode (no HTTP server)
  */
-async function createViteServer(): Promise<ViteDevServer> {
+export async function createViteServer(): Promise<ViteDevServer> {
 	return createServer({
 		server: { middlewareMode: true },
 		appType: 'custom',
@@ -176,7 +176,9 @@ ${exportStatements}
 	}
 }
 
-buildEmails().catch((err) => {
-	console.error(err);
-	process.exit(1);
-});
+if (import.meta.main) {
+	buildEmails().catch((err) => {
+		console.error(err);
+		process.exit(1);
+	});
+}

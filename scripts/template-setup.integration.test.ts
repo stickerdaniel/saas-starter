@@ -54,8 +54,17 @@ const FIXTURE_FILES = [
 	'scripts/template-setup.ts',
 	'src/lib/config/legal.ts',
 	'src/lib/config/site.ts',
-	'src/lib/content/legal-metadata.ts'
+	'src/lib/content/legal-metadata.ts',
+	'static/manifest.webmanifest',
+	'src/app.html'
 ] as const;
+
+/** Copied from the live template so the rewrite runs against the files a project ships. */
+const LIVE_FILES: ReadonlySet<string> = new Set([
+	'scripts/template-setup.ts',
+	'static/manifest.webmanifest',
+	'src/app.html'
+]);
 
 const fixtures: string[] = [];
 
@@ -91,10 +100,7 @@ function createFixture(): string {
 			continue;
 		}
 		cpSync(
-			join(
-				ROOT,
-				rel === 'scripts/template-setup.ts' ? rel : `scripts/__fixtures__/template-setup/${rel}`
-			),
+			join(ROOT, LIVE_FILES.has(rel) ? rel : `scripts/__fixtures__/template-setup/${rel}`),
 			dest
 		);
 	}
@@ -447,6 +453,19 @@ describe('template setup writes importable branding values', () => {
 		const scriptLines = run.stdout.split('\n').filter((line) => !line.startsWith('Applying:'));
 		// eslint-disable-next-line no-control-regex
 		expect(scriptLines.join('\n')).not.toMatch(/[^\x00-\x7F]/);
+	});
+
+	it('brands the PWA manifest and the iOS home-screen title', () => {
+		const dir = createFixture();
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, '--brand', 'Northwind "Labs" & Co']);
+		expect(run.code, run.stderr).toBe(0);
+
+		const manifest = JSON.parse(readFileSync(join(dir, 'static/manifest.webmanifest'), 'utf-8'));
+		expect(manifest.name).toBe('Northwind "Labs" & Co');
+		expect(manifest.short_name).toBe('Northwind "Labs" & Co');
+		expect(readFileSync(join(dir, 'src/app.html'), 'utf-8')).toContain(
+			'<meta name="apple-mobile-web-app-title" content="Northwind &quot;Labs&quot; &amp; Co" />'
+		);
 	});
 
 	it('derives the contact email helpers from the supplied address', () => {

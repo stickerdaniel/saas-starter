@@ -50,6 +50,7 @@ import type { MarketingMarkdownDocument } from './types';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
 import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
 import { LEGAL_CONFIG } from '$lib/config/legal';
+import { LEGAL_CONTENT_DATES } from '$lib/content/legal-metadata';
 
 const sampleDocument: MarketingMarkdownDocument = {
 	title: 'Sample Page',
@@ -718,7 +719,7 @@ describe('marketing markdown helpers', () => {
 		).not.toContain('<lastmod>');
 		expect(
 			entries.find((entry) => entry.includes('<loc>https://example.com/en/privacy</loc>'))
-		).toContain('<lastmod>2026-03-18</lastmod>');
+		).toContain(`<lastmod>${LEGAL_CONTENT_DATES.privacy}</lastmod>`);
 		expect(sitemap).not.toContain('1970-01-01');
 	});
 

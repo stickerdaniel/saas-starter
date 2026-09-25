@@ -1716,6 +1716,55 @@ export function replaceLockRootNameSource(source: string, slug: string): string 
 }
 
 // ---------------------------------------------------------------------------
+// PWA manifest, app.html
+// ---------------------------------------------------------------------------
+
+/**
+ * Rewrites the top-level name and short_name in place, keeping the tab-indented formatting.
+ * Deeper members such as shortcut names sit at a deeper indentation and stay untouched.
+ */
+export function replaceWebManifestNameSource(source: string, brand: string): string {
+	let updated = source;
+	for (const key of ['name', 'short_name']) {
+		const pattern = new RegExp(`^(\\t"${key}"[ \\t]*:[ \\t]*)"(?:[^"\\\\\\r\\n]|\\\\.)*"`, 'gm');
+		const matches = updated.match(pattern);
+		if (matches?.length !== 1) {
+			throw new Error(
+				`Expected exactly one top-level ${key} in static/manifest.webmanifest, found ${matches?.length ?? 0}`
+			);
+		}
+		updated = updated.replace(pattern, (_match, prefix: string) => prefix + JSON.stringify(brand));
+	}
+	const manifest = JSON.parse(updated) as Record<string, unknown>;
+	if (manifest.name !== brand || manifest.short_name !== brand) {
+		throw new Error('Could not update name and short_name in static/manifest.webmanifest');
+	}
+	return updated;
+}
+
+function escapeHtmlAttribute(value: string): string {
+	return value.replace(
+		/[&"<>]/g,
+		(char) => `&${{ '&': 'amp', '"': 'quot', '<': 'lt', '>': 'gt' }[char]};`
+	);
+}
+
+/** The iOS home-screen title is a literal in app.html, which cannot read LEGAL_CONFIG. */
+export function replaceAppleWebAppTitleSource(source: string, brand: string): string {
+	const pattern = /(<meta name="apple-mobile-web-app-title" content=)"[^"]*"/g;
+	const matches = source.match(pattern);
+	if (matches?.length !== 1) {
+		throw new Error(
+			`Expected exactly one apple-mobile-web-app-title meta tag in src/app.html, found ${matches?.length ?? 0}`
+		);
+	}
+	return source.replace(
+		pattern,
+		(_match, prefix: string) => `${prefix}"${escapeHtmlAttribute(brand)}"`
+	);
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -1739,6 +1788,8 @@ async function main() {
 	let siteFile: CanonicalFile;
 	let legalConfigFile: CanonicalFile;
 	let legalMetadataFile: CanonicalFile;
+	let webManifestFile: CanonicalFile;
+	let appHtmlFile: CanonicalFile;
 	try {
 		packageFile = inspectCanonicalFile('package.json');
 		lockFile = inspectOptionalCanonicalFile('bun.lock');
@@ -1747,6 +1798,8 @@ async function main() {
 		siteFile = inspectCanonicalFile('src/lib/config/site.ts');
 		legalConfigFile = inspectCanonicalFile('src/lib/config/legal.ts');
 		legalMetadataFile = inspectCanonicalFile('src/lib/content/legal-metadata.ts');
+		webManifestFile = inspectCanonicalFile('static/manifest.webmanifest');
+		appHtmlFile = inspectCanonicalFile('src/app.html');
 		inspectRemovalTarget(CREATOR_WORKFLOW, 'file');
 		inspectRemovalTarget(CREATOR_PACKAGE, 'directory');
 	} catch (error) {
@@ -1869,6 +1922,8 @@ async function main() {
 	let nextLegalMetadata: string;
 	let nextLegalSource: string;
 	let nextLock: string | undefined;
+	let nextWebManifest: string;
+	let nextAppHtml: string;
 	try {
 		const pkg = removeMaintainerCliScripts(JSON.parse(packageFile.source));
 		pkg.name = slug;
@@ -1889,6 +1944,8 @@ async function main() {
 		);
 		nextLegalSource = replaceLegalConfigSource(legalConfigFile.source, nextLegalConfig);
 		nextLock = lockFile ? replaceLockRootNameSource(lockFile.source, slug) : undefined;
+		nextWebManifest = replaceWebManifestNameSource(webManifestFile.source, brand);
+		nextAppHtml = replaceAppleWebAppTitleSource(appHtmlFile.source, brand);
 	} catch (error) {
 		fail(errorMessage(error));
 	}
@@ -1919,6 +1976,12 @@ async function main() {
 
 	replaceAtomically(siteFile, nextSiteConfig);
 	console.log('  updated site.ts');
+
+	replaceAtomically(webManifestFile, nextWebManifest);
+	console.log('  updated manifest.webmanifest');
+
+	replaceAtomically(appHtmlFile, nextAppHtml);
+	console.log('  updated app.html');
 
 	removeMaintainerCliFiles();
 
