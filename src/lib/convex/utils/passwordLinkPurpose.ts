@@ -57,10 +57,13 @@ export function withPasswordLinkPurpose(resetUrl: string, purpose: PasswordLinkP
 	const query = queryAt === -1 ? '' : beforeHash.slice(queryAt + 1);
 
 	// Each pair is decoded on its own, so a key spelled with escapes still counts
-	// while the kept pairs stay exactly as they were written.
+	// while the kept pairs stay exactly as they were written. The leading `&`
+	// stops the parser from reading a `?` that starts a key as a query prefix.
 	const pairs = query
 		.split('&')
-		.filter((pair) => pair !== '' && !new URLSearchParams(pair).has(PASSWORD_LINK_PURPOSE_PARAM));
+		.filter(
+			(pair) => pair !== '' && !new URLSearchParams(`&${pair}`).has(PASSWORD_LINK_PURPOSE_PARAM)
+		);
 	pairs.push(`${PASSWORD_LINK_PURPOSE_PARAM}=set`);
 
 	url.searchParams.set('callbackURL', `${path}?${pairs.join('&')}${fragment}`);

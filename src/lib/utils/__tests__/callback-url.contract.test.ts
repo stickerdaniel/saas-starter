@@ -239,4 +239,23 @@ describe('the reset callback authPageURL builds', () => {
 		expect(passwordLinkPurpose(location.searchParams)).toBe('set');
 		expect(location.hash).toBe(hash);
 	});
+
+	/**
+	 * Only a key that decodes to exactly `purpose` belongs to the marker. A key
+	 * named `?purpose`, raw or escaped, is the caller's and has to survive.
+	 */
+	it.each([
+		['raw', `${BASE}/de/reset-password?x=a&?purpose=old`],
+		['escaped', `${BASE}/de/reset-password?x=a&%3Fpurpose=old`]
+	])('keeps a %s ?purpose key while marking the link as set', async (_, callback) => {
+		const link = withPasswordLinkPurpose(await requestResetLink(callback), 'set');
+		const response = await recoveryAuth.handler(new Request(link));
+		expect(response.status).toBe(302);
+
+		const location = new URL(response.headers.get('location')!);
+		expect(location.searchParams.get('token')).toBeTruthy();
+		expect(location.searchParams.get('x')).toBe('a');
+		expect(location.searchParams.get('?purpose')).toBe('old');
+		expect(location.searchParams.getAll('purpose')).toEqual(['set']);
+	});
 });
