@@ -289,7 +289,6 @@
 					class="absolute right-9 bottom-6 z-20 flex @min-3xl/main:right-auto @min-3xl/main:left-1/2 @min-3xl/main:-translate-x-1/2"
 				>
 					<ScrollButton
-						class="pointer-events-auto"
 						isAtBottom={chatCtx.isAtBottom}
 						onScrollToBottom={() => chatCtx.scrollToBottom()}
 					/>

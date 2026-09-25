@@ -55,12 +55,14 @@
 	size="icon-lg"
 	shape="pill"
 	aria-label={$t('aria.scroll_to_bottom')}
+	inert={resolvedIsAtBottom}
 	class={cn(
 		'transition-all duration-150 ease-out active:not-aria-[haspopup]:translate-y-0',
+		className,
+		// Merged after the caller class so no caller can make the hidden button hittable.
 		!resolvedIsAtBottom
-			? 'translate-y-0 scale-100 opacity-100'
-			: 'pointer-events-none translate-y-4 scale-95 opacity-0',
-		className
+			? 'pointer-events-auto translate-y-0 scale-100 opacity-100'
+			: 'pointer-events-none translate-y-4 scale-95 opacity-0'
 	)}
 	onclick={handleClick}
 >
