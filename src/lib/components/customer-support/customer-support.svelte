@@ -304,22 +304,25 @@
 	where no <svelte:boundary> sees it, and the page would stay in screenshot mode
 	with neither editor nor launcher. loadScreenshotEditor handles the rejection
 	outside Vite's preload wrapper, so the reload still fires first; the boundary
-	handles errors thrown by the loaded editor's effects. Both go where a failed
-	capture goes: overlay down, retry offered. The boundary sits inside the
-	screenshot-mode block so every retry gets a fresh one.
+	handles errors thrown by the loaded editor, whether its effects throw or it
+	fails while being created. It sits inside the fulfilled branch because that
+	branch is also created in a promise callback, so a boundary around the await
+	block would miss a creation error. Both go where a failed capture goes:
+	overlay down, retry offered. The boundary sits inside the screenshot-mode
+	block so every retry gets a fresh one.
 -->
 {#if isScreenshotMode}
-	<svelte:boundary onerror={handleScreenshotCaptureError}>
-		{#await loadScreenshotEditor() then ScreenshotEditor}
-			{#if ScreenshotEditor}
+	{#await loadScreenshotEditor() then ScreenshotEditor}
+		{#if ScreenshotEditor}
+			<svelte:boundary onerror={handleScreenshotCaptureError}>
 				<ScreenshotEditor
 					onCancel={handleScreenshotCancel}
 					onScreenshotSaved={handleScreenshotSaved}
 					onCaptureError={handleScreenshotCaptureError}
 				/>
-			{/if}
-		{/await}
-	</svelte:boundary>
+			</svelte:boundary>
+		{/if}
+	{/await}
 {/if}
 
 <AlertDialog.Root bind:open={captureErrorOpen}>
