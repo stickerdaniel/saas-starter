@@ -121,6 +121,19 @@ describe('deployment pipeline', () => {
 		expect(h.events).toEqual(['tolgee tag --filter-extracted --tag preview', 'tolgee pull']);
 		expect(console.error).not.toHaveBeenCalled();
 	});
+	it('rejects conflicting production origins before any remote work', async () => {
+		const h = harness({
+			...productionEnv,
+			PUBLIC_SITE_URL: 'https://one.example.com',
+			SITE_URL: 'https://two.example.com'
+		});
+		await expect(main(h.execution, h.options)).rejects.toMatchObject({
+			code: 'configuration',
+			message: expect.stringMatching(/conflicts with SITE_URL/)
+		});
+		expect(h.events).toEqual([]);
+		expect(h.writeConfig).not.toHaveBeenCalled();
+	});
 	it('propagates helper failures without logging or starting later steps', async () => {
 		const h = harness(productionEnv, () => ({ exitCode: 7, stderr: 'provider-secret' }));
 		await expect(main(h.execution, h.options)).rejects.toBeInstanceOf(DeploymentError);

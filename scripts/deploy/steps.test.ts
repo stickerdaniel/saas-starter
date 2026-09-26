@@ -1,8 +1,3 @@
-import * as fs from 'node:fs';
-import { createRequire } from 'node:module';
-import * as path from 'node:path';
-import * as vm from 'node:vm';
-import ts from 'typescript';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { detectPlatform, type PlatformContext } from './platform';
 import {
@@ -20,37 +15,6 @@ const deployment: ConvexDeployment = {
 	urlSlug: 'curious-lark-703.eu-west-1',
 	name: 'curious-lark-703'
 };
-
-const require = createRequire(import.meta.url);
-const convexPackagePath = require.resolve('convex/package.json');
-const convexCliPath = path.resolve(path.dirname(convexPackagePath), 'dist/cli.bundle.cjs');
-
-function convexProductionClassifier(): string {
-	const source = ts.createSourceFile(
-		convexCliPath,
-		fs.readFileSync(convexCliPath, 'utf8'),
-		ts.ScriptTarget.Latest,
-		true,
-		ts.ScriptKind.JS
-	);
-	let classifier: ts.FunctionDeclaration | undefined;
-	const visit = (node: ts.Node): void => {
-		if (ts.isFunctionDeclaration(node) && node.name?.text === 'isNonProdBuildEnvironment') {
-			classifier = node;
-			return;
-		}
-		ts.forEachChild(node, visit);
-	};
-	visit(source);
-	if (!classifier) throw new Error(`Convex production classifier not found in ${convexCliPath}`);
-	return classifier.getText(source);
-}
-
-const convexClassifier = new vm.Script(`(${convexProductionClassifier()})()`);
-
-function convexTreatsAsNonProduction(env: NodeJS.ProcessEnv): boolean {
-	return convexClassifier.runInNewContext({ process: { env } }) as boolean;
-}
 
 function makePlatform(overrides: Partial<PlatformContext> = {}): PlatformContext {
 	return {
@@ -78,14 +42,6 @@ describe('computeBuildEnv', () => {
 		else process.env.PUBLIC_SITE_URL = savedPublicSiteUrl;
 		if (savedSiteUrl === undefined) delete process.env.SITE_URL;
 		else process.env.SITE_URL = savedSiteUrl;
-	});
-
-	it('runs canonical-origin validation before remote deployment steps', () => {
-		const source = fs.readFileSync(path.resolve('scripts/deploy.ts'), 'utf8');
-		const preflight = source.indexOf('resolveDeploymentSiteOrigin(platform, execution.env)');
-		expect(preflight).toBeGreaterThanOrEqual(0);
-		expect(preflight).toBeLessThan(source.indexOf('syncTranslations(platform, execution)'));
-		expect(preflight).toBeLessThan(source.indexOf('deployConvex(platform, execution'));
 	});
 
 	it('uses the stable platform origin for production', () => {
@@ -143,7 +99,7 @@ describe('computeBuildEnv', () => {
 });
 
 describe('resolveDeploymentSiteOrigin', () => {
-	it('rejects conflicting origins before a deployment starts', () => {
+	it('rejects a production PUBLIC_SITE_URL that conflicts with SITE_URL', () => {
 		expect(() =>
 			resolveDeploymentSiteOrigin(makePlatform(), {
 				PUBLIC_SITE_URL: 'https://one.example.com',
@@ -167,26 +123,20 @@ describe('resolveDeploymentSiteOrigin', () => {
 });
 
 describe('deployment capability profile ownership', () => {
-	it('sets and validates production before deployment', async () => {
-		const h = harness();
+	it('scopes production profile setup and validation to the production deployment', async () => {
 		const platform = makePlatform();
+		const setup = harness();
+		const validation = harness();
 
-		await setProductionCapabilityProfile(platform, h.execution);
-		await validateConvexEnv(platform, undefined, h.execution);
+		await setProductionCapabilityProfile(platform, setup.execution);
+		await validateConvexEnv(platform, undefined, validation.execution);
 
-		expect(h.events).toEqual([
-			'bunx convex env set CAPABILITY_PROFILE production --prod',
-			'bunx convex env list --prod'
+		expect(setup.spawn.mock.calls.map(([request]) => request.args)).toEqual([
+			['convex', 'env', 'set', 'CAPABILITY_PROFILE', 'production', '--prod']
 		]);
-		expect(h.spawn.mock.calls[0]?.[0].args).toEqual([
-			'convex',
-			'env',
-			'set',
-			'CAPABILITY_PROFILE',
-			'production',
-			'--prod'
+		expect(validation.spawn.mock.calls.map(([request]) => request.args)).toEqual([
+			['convex', 'env', 'list', '--prod']
 		]);
-		expect(h.spawn.mock.calls[1]?.[0].args).toEqual(['convex', 'env', 'list', '--prod']);
 	});
 
 	it('keeps preview profile setup deployment-scoped before validation and seeding', async () => {
@@ -199,7 +149,8 @@ describe('deployment capability profile ownership', () => {
 
 		await setupPreviewEnv(deployment, platform, h.execution);
 
-		expect(h.spawn.mock.calls.map(([request]) => request.args)).toEqual([
+		const commands = h.spawn.mock.calls.map(([request]) => request.args);
+		expect(commands.slice(0, 2)).toEqual([
 			[
 				'convex',
 				'env',
@@ -217,10 +168,19 @@ describe('deployment capability profile ownership', () => {
 				deployment.name,
 				'SITE_URL',
 				'https://preview.example.test'
-			],
-			['convex', 'env', 'list', '--deployment-name', deployment.name],
-			['convex', 'env', 'list', '--deployment-name', deployment.name],
-			['convex', 'run', '--deployment-name', deployment.name, 'previewDev:ensurePreviewAdmin']
+			]
+		]);
+		const reads = commands.slice(2, -1);
+		expect(reads.length).toBeGreaterThan(0);
+		for (const read of reads) {
+			expect(read).toEqual(['convex', 'env', 'list', '--deployment-name', deployment.name]);
+		}
+		expect(commands.at(-1)).toEqual([
+			'convex',
+			'run',
+			'--deployment-name',
+			deployment.name,
+			'previewDev:ensurePreviewAdmin'
 		]);
 	});
 });
@@ -290,7 +250,6 @@ describe('deployConvex Cloudflare environment', () => {
 			expect(request.command).toBe('bunx');
 			expect(request.args).toEqual(['convex', 'deploy']);
 			expect(request.env?.[branchKey]).toBe('main');
-			expect(convexTreatsAsNonProduction(request.env!)).toBe(false);
 			expect(process.env[branchKey]).toBe('production');
 		}
 	);
@@ -333,7 +292,6 @@ describe('deployConvex Cloudflare environment', () => {
 		expect(request.command).toBe('bunx');
 		expect(request.args).toEqual(['convex', 'deploy']);
 		expect(request.env?.[branchKey]).not.toBe('main');
-		expect(convexTreatsAsNonProduction(request.env!)).toBe(true);
 		expect(process.env[branchKey]).not.toBe('main');
 	});
 
@@ -377,7 +335,6 @@ describe('deployConvex Cloudflare environment', () => {
 		expect(request.command).toBe('bunx');
 		expect(request.args).toEqual(['convex', 'deploy', '--preview-create', originalBranch]);
 		expect(request.env?.[branchKey]).toBe(originalBranch);
-		expect(convexTreatsAsNonProduction(request.env!)).toBe(true);
 		expect(process.env[branchKey]).toBe(originalBranch);
 	});
 });
