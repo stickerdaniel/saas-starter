@@ -249,6 +249,19 @@
 		}
 	}
 
+	// Resolves to null after routing a failed chunk load to the capture-error flow.
+	// A handler chained onto import() would run inside Vite's preload wrapper and
+	// swallow the vite:preloadError that app.html answers with a reload.
+	async function loadScreenshotEditor() {
+		try {
+			const module = await import('./screenshot-editor/ScreenshotEditor.svelte');
+			return module.default;
+		} catch (error) {
+			handleScreenshotCaptureError(error);
+			return null;
+		}
+	}
+
 	function retryScreenshotCapture() {
 		captureErrorOpen = false;
 		isScreenshotMode = true;
@@ -283,24 +296,31 @@
 />
 
 <!--
-	The editor is loaded on demand, and an await block with no catch rethrows a
-	rejected import (svelte/src/internal/client/dom/blocks/await.js). A deploy can
-	delete the chunk under a page that is still open, and the reload that would
-	normally rescue it waits for confirmation while a file is uploading — so this
-	failure is reachable, and without a boundary it takes the whole page down.
-	Routed to the same place a failed capture goes: overlay down, retry offered.
+	The editor is loaded on demand. A deploy can delete its chunk under a page
+	that is still open. The stale-deploy reload in app.html is the first rescue,
+	but the browser's unload confirmation can hold it while a file is uploading,
+	and it fires only once per session, so the import can still reject here. An
+	await block with no catch rethrows that rejection from a promise callback,
+	where no <svelte:boundary> sees it, and the page would stay in screenshot mode
+	with neither editor nor launcher. loadScreenshotEditor handles the rejection
+	outside Vite's preload wrapper, so the reload still fires first; the boundary
+	handles errors thrown by the loaded editor's effects. Both go where a failed
+	capture goes: overlay down, retry offered. The boundary sits inside the
+	screenshot-mode block so every retry gets a fresh one.
 -->
-<svelte:boundary onerror={handleScreenshotCaptureError}>
-	{#if isScreenshotMode}
-		{#await import('./screenshot-editor/ScreenshotEditor.svelte') then { default: ScreenshotEditor }}
-			<ScreenshotEditor
-				onCancel={handleScreenshotCancel}
-				onScreenshotSaved={handleScreenshotSaved}
-				onCaptureError={handleScreenshotCaptureError}
-			/>
+{#if isScreenshotMode}
+	<svelte:boundary onerror={handleScreenshotCaptureError}>
+		{#await loadScreenshotEditor() then ScreenshotEditor}
+			{#if ScreenshotEditor}
+				<ScreenshotEditor
+					onCancel={handleScreenshotCancel}
+					onScreenshotSaved={handleScreenshotSaved}
+					onCaptureError={handleScreenshotCaptureError}
+				/>
+			{/if}
 		{/await}
-	{/if}
-</svelte:boundary>
+	</svelte:boundary>
+{/if}
 
 <AlertDialog.Root bind:open={captureErrorOpen}>
 	<AlertDialog.Content>

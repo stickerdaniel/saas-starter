@@ -1,7 +1,7 @@
 <script lang="ts">
 	let {
 		onClose: _onClose,
-		isScreenshotMode: _isScreenshotMode = $bindable(false),
+		isScreenshotMode = $bindable(false),
 		chatUIContext: _chatUIContext
 	}: {
 		onClose: () => void;
@@ -11,3 +11,4 @@
 </script>
 
 <button type="button" data-testid="support-message-send">Send</button>
+<button type="button" onclick={() => (isScreenshotMode = true)}>Screenshot</button>
