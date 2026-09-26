@@ -188,7 +188,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 							internal.emails.send.sendFounderWelcomeEmail,
 							{ founderWelcomeId: id }
 						);
-						await ctx.db.patch(id, { scheduledFnId });
+						await ctx.db.patch('founderWelcomeEmails', id, { scheduledFnId });
 					} else {
 						// Email signup: wait for verification
 						await ctx.db.insert('founderWelcomeEmails', {
@@ -262,9 +262,12 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 								internal.emails.send.sendFounderWelcomeEmail,
 								{ founderWelcomeId: founderRow._id }
 							);
-							await ctx.db.patch(founderRow._id, { status: 'scheduled', scheduledFnId });
+							await ctx.db.patch('founderWelcomeEmails', founderRow._id, {
+								status: 'scheduled',
+								scheduledFnId
+							});
 						} else {
-							await ctx.db.patch(founderRow._id, {
+							await ctx.db.patch('founderWelcomeEmails', founderRow._id, {
 								status: 'skipped',
 								skippedReason: 'email_changed'
 							});

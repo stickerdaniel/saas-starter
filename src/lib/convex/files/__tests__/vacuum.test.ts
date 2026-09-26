@@ -74,7 +74,7 @@ function createCtx(options: {
 					}
 				)
 			})),
-			delete: vi.fn(async (id: string) => {
+			delete: vi.fn(async (_table: string, id: string) => {
 				deletedMetadataIds.push(id);
 			})
 		}

@@ -69,7 +69,7 @@ export const storeFileMetadata = internalMutation({
 
 		if (existing) {
 			// Update existing metadata
-			await ctx.db.patch(existing._id, {
+			await ctx.db.patch('fileMetadata', existing._id, {
 				width: args.width,
 				height: args.height
 			});

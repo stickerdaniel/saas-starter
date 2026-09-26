@@ -45,7 +45,7 @@ export const internalSetHandoff = internalMutation({
 		}
 
 		// Mark as handed off - user is waiting for admin response
-		await ctx.db.patch(supportThread._id, {
+		await ctx.db.patch('supportThreads', supportThread._id, {
 			isHandedOff: true,
 			awaitingAdminResponse: true,
 			updatedAt: Date.now()

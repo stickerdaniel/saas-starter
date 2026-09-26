@@ -82,6 +82,7 @@ describe('internalSetHandoff', () => {
 		await internalSetHandoffH._handler(ctx, { threadId: 'thread_1' });
 
 		expect(patch).toHaveBeenCalledWith(
+			'supportThreads',
 			'st_1',
 			expect.objectContaining({ isHandedOff: true, awaitingAdminResponse: true })
 		);

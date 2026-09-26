@@ -361,6 +361,7 @@ describe('sendMessage routing between the agent and the team', () => {
 
 		expect(scheduledRefs(ctx)).toEqual([CREATE_AI_RESPONSE_REF]);
 		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'supportThreads',
 			'st_1',
 			expect.objectContaining({ isHandedOff: false })
 		);
@@ -412,6 +413,7 @@ describe('sendMessage routing between the agent and the team', () => {
 
 		expect(scheduledRefs(ctx)).toEqual([SCHEDULE_NOTIFICATION_REF]);
 		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'supportThreads',
 			'st_1',
 			expect.objectContaining({ isHandedOff: true })
 		);
@@ -469,6 +471,7 @@ describe('sendMessage routing between the agent and the team', () => {
 
 		expect(scheduledRefs(ctx)).toEqual([SCHEDULE_NOTIFICATION_REF]);
 		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'supportThreads',
 			'st_1',
 			expect.objectContaining({ isHandedOff: true })
 		);

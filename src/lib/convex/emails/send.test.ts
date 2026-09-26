@@ -209,7 +209,7 @@ describe('email send provider preflights', () => {
 					founderWelcomeId: 'welcome_1'
 				})
 			).toBeNull();
-			expect(patch).toHaveBeenCalledWith('welcome_1', {
+			expect(patch).toHaveBeenCalledWith('founderWelcomeEmails', 'welcome_1', {
 				status: 'skipped',
 				skippedReason: 'email_unavailable'
 			});
@@ -266,7 +266,7 @@ describe('email send provider preflights', () => {
 			})
 		).toBeNull();
 		expect(sendEmail).toHaveBeenCalledTimes(1);
-		expect(patch).toHaveBeenCalledWith('support_thread_1', {
+		expect(patch).toHaveBeenCalledWith('supportThreads', 'support_thread_1', {
 			notificationSentAt: Date.now()
 		});
 		expect(sendEmail.mock.invocationCallOrder[0]).toBeLessThan(patch.mock.invocationCallOrder[0]);
@@ -301,7 +301,7 @@ describe('email send provider preflights', () => {
 			(email: string | undefined, sentAt: number | undefined) => Boolean(email) && !sentAt
 		);
 		const supportThread: Record<string, unknown> = { notificationSentAt: undefined };
-		const patch = vi.fn(async (_id: string, update: Record<string, unknown>) => {
+		const patch = vi.fn(async (_table: string, _id: string, update: Record<string, unknown>) => {
 			Object.assign(supportThread, update);
 		});
 		const ctx = {

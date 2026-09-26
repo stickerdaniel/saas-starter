@@ -106,7 +106,8 @@ function createPreferenceStore(initial: Preference[] = []) {
 			rows.push({ _id: id, _creationTime: Date.now(), ...value });
 			return id;
 		},
-		patch: async (id: string, value: Partial<Preference>) => {
+		patch: async (table: string, id: string, value: Partial<Preference>) => {
+			expect(table).toBe('adminNotificationPreferences');
 			const row = rows.find((candidate) => candidate._id === id);
 			if (!row) throw new Error(`Unknown preference: ${id}`);
 			Object.assign(row, value);

@@ -26,8 +26,7 @@ export const getActive = internalQuery({
 	args: { locale: v.optional(v.string()) },
 	returns: v.union(v.string(), v.null()),
 	handler: async (ctx, { locale }) => {
-		// Bounded: at most one active row per locale. The by_active index keeps
-		// this off a full-table scan.
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: at most one active row per locale, read through the by_active index
 		const active = await ctx.db
 			.query('supportAgentPrompts')
 			.withIndex('by_active', (q) => q.eq('active', true))
@@ -56,8 +55,7 @@ export const savePrompt = internalMutation({
 	},
 	returns: v.id('supportAgentPrompts'),
 	handler: async (ctx, { systemPrompt, locale, note }) => {
-		// Bounded: at most one active row per locale; the by_active index keeps
-		// this off a full scan.
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: at most one active row per locale, read through the by_active index
 		const active = await ctx.db
 			.query('supportAgentPrompts')
 			.withIndex('by_active', (q) => q.eq('active', true))
@@ -65,7 +63,7 @@ export const savePrompt = internalMutation({
 		for (const row of active) {
 			// Sequential patches over a tiny active set (one row per locale).
 			if (row.locale === locale) {
-				await ctx.db.patch(row._id, { active: false });
+				await ctx.db.patch('supportAgentPrompts', row._id, { active: false });
 			}
 		}
 		return await ctx.db.insert('supportAgentPrompts', {
@@ -90,19 +88,20 @@ export const setActive = internalMutation({
 	returns: v.null(),
 	handler: async (ctx, { id, active }) => {
 		if (active) {
-			const target = await ctx.db.get(id);
+			const target = await ctx.db.get('supportAgentPrompts', id);
 			if (target === null) return null;
+			// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: at most one active row per locale, read through the by_active index
 			const siblings = await ctx.db
 				.query('supportAgentPrompts')
 				.withIndex('by_active', (q) => q.eq('active', true))
 				.collect();
 			for (const row of siblings) {
 				if (row._id !== id && row.locale === target.locale) {
-					await ctx.db.patch(row._id, { active: false });
+					await ctx.db.patch('supportAgentPrompts', row._id, { active: false });
 				}
 			}
 		}
-		await ctx.db.patch(id, { active });
+		await ctx.db.patch('supportAgentPrompts', id, { active });
 		return null;
 	}
 });

@@ -49,7 +49,9 @@ export default defineSchema({
 		),
 		timestamp: v.number()
 	})
+		// eslint-disable-next-line @convex-dev/no-duplicate-indexes -- by_admin_action would sort one admin's log by action before time (see admin/auditLog/queries.ts)
 		.index('by_admin', ['adminUserId'])
+		// eslint-disable-next-line @convex-dev/no-duplicate-indexes -- by_target_action would sort one target's log by action before time (see admin/auditLog/queries.ts)
 		.index('by_target', ['targetUserId'])
 		.index('by_action', ['action'])
 		.index('by_admin_action', ['adminUserId', 'action'])
@@ -71,7 +73,6 @@ export default defineSchema({
 	// agent:threads remains generic conversation storage/runtime shared across features.
 	supportThreads: defineTable(supportThreadFields)
 		.index('by_thread', ['threadId'])
-		.index('by_user', ['userId'])
 		.index('by_user_warm', ['userId', 'isWarm'])
 		.index('by_user_and_last_message', ['userId', 'lastMessageAt'])
 		.index('by_user_and_unread_admin_reply', ['userId', 'hasUnreadAdminReply'])
@@ -212,6 +213,7 @@ export default defineSchema({
 		lastMessage: v.optional(v.string()),
 		lastMessageAt: v.optional(v.number())
 	})
+		// eslint-disable-next-line @convex-dev/no-duplicate-indexes -- listThreads takes one user's newest threads by creation time; by_user_warm would group them by isWarm first
 		.index('by_user', ['userId'])
 		.index('by_thread', ['threadId'])
 		.index('by_user_warm', ['userId', 'isWarm']),

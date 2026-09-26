@@ -117,7 +117,7 @@ describe('support maintenance helpers', () => {
 		expect(result).toEqual({ updated: 2, total: 2 });
 
 		// Authenticated thread: stale denormalized values are replaced by the live profile
-		expect(patch).toHaveBeenNthCalledWith(1, 'support_doc_1', {
+		expect(patch).toHaveBeenNthCalledWith(1, 'supportThreads', 'support_doc_1', {
 			title: 'Billing',
 			summary: 'Upgrade issue',
 			userName: 'Ada',
@@ -130,7 +130,7 @@ describe('support maintenance helpers', () => {
 		});
 
 		// Anonymous thread: no profile fetch, no identity in searchText
-		expect(patch).toHaveBeenNthCalledWith(2, 'support_doc_anon', {
+		expect(patch).toHaveBeenNthCalledWith(2, 'supportThreads', 'support_doc_anon', {
 			title: 'Billing',
 			summary: 'Upgrade issue',
 			userName: undefined,
@@ -188,12 +188,12 @@ describe('support maintenance helpers', () => {
 
 		expect(result).toBeNull();
 		// Exact patch objects: notificationEmail and updatedAt are intentionally untouched
-		expect(patch).toHaveBeenNthCalledWith(1, 'support_doc_1', {
+		expect(patch).toHaveBeenNthCalledWith(1, 'supportThreads', 'support_doc_1', {
 			userName: 'Ada New',
 			userEmail: 'new@example.com',
 			searchText: 'billing | upgrade issue | latest support reply | ada new | new@example.com'
 		});
-		expect(patch).toHaveBeenNthCalledWith(2, 'support_doc_2', {
+		expect(patch).toHaveBeenNthCalledWith(2, 'supportThreads', 'support_doc_2', {
 			userName: 'Ada New',
 			userEmail: 'new@example.com',
 			searchText: 'ada new | new@example.com'
@@ -250,7 +250,7 @@ describe('support maintenance helpers', () => {
 		expect(deleteThreadAsyncMock).toHaveBeenCalledWith(ctx, {
 			threadId: 'thread_support_warm'
 		});
-		expect(patch).not.toHaveBeenCalledWith('support_doc_warm', expect.anything());
+		expect(patch).not.toHaveBeenCalledWith('supportThreads', 'support_doc_warm', expect.anything());
 		expect(updateThreadMetadataMock).toHaveBeenCalledTimes(2);
 		expect(updateThreadMetadataMock).toHaveBeenNthCalledWith(1, ctx, {
 			threadId: 'thread_support_1',
@@ -260,7 +260,7 @@ describe('support maintenance helpers', () => {
 			threadId: 'thread_support_2',
 			patch: { userId: 'user_1' }
 		});
-		expect(patch).toHaveBeenNthCalledWith(1, 'support_doc_1', {
+		expect(patch).toHaveBeenNthCalledWith(1, 'supportThreads', 'support_doc_1', {
 			userId: 'user_1',
 			userName: 'Ada',
 			userEmail: 'ada@example.com',
@@ -268,7 +268,7 @@ describe('support maintenance helpers', () => {
 			notificationEmail: 'ada@example.com',
 			updatedAt: expect.any(Number)
 		});
-		expect(patch).toHaveBeenNthCalledWith(2, 'support_doc_2', {
+		expect(patch).toHaveBeenNthCalledWith(2, 'supportThreads', 'support_doc_2', {
 			userId: 'user_1',
 			userName: 'Ada',
 			userEmail: 'ada@example.com',
@@ -276,6 +276,6 @@ describe('support maintenance helpers', () => {
 			notificationEmail: 'custom@example.com',
 			updatedAt: expect.any(Number)
 		});
-		expect(deleteDoc).toHaveBeenCalledWith('support_doc_warm');
+		expect(deleteDoc).toHaveBeenCalledWith('supportThreads', 'support_doc_warm');
 	});
 });

@@ -72,7 +72,7 @@ export async function applyFounderIncidentEmailEvent(
 	const timestamp = eventTimestamp(event);
 	if (event.type === 'email.complained') {
 		if (!incidentEmail.complainedAt) {
-			await ctx.db.patch(incidentEmail._id, { complainedAt: timestamp });
+			await ctx.db.patch('founderIncidentEmails', incidentEmail._id, { complainedAt: timestamp });
 		}
 		return;
 	}
@@ -85,7 +85,7 @@ export async function applyFounderIncidentEmailEvent(
 	);
 	if (deliveryStatus === incidentEmail.deliveryStatus) return;
 
-	await ctx.db.patch(incidentEmail._id, {
+	await ctx.db.patch('founderIncidentEmails', incidentEmail._id, {
 		deliveryStatus,
 		deliveryUpdatedAt: timestamp
 	});
@@ -133,7 +133,7 @@ export const reconcileFounderIncidentEmailDelivery = internalMutation({
 		const deliveryStatus = snapshot
 			? mergeFounderIncidentDeliveryStatus(incidentEmail.deliveryStatus, snapshot.status)
 			: 'unknown';
-		await ctx.db.patch(incidentEmail._id, {
+		await ctx.db.patch('founderIncidentEmails', incidentEmail._id, {
 			deliveryStatus,
 			deliveryUpdatedAt: now,
 			...(!incidentEmail.complainedAt && snapshot?.complained ? { complainedAt: now } : {})

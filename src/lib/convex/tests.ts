@@ -346,10 +346,10 @@ export const getSupportThreadsByUserId = mutation({
 	handler: async (ctx, { secret, userId }) => {
 		requireTestSecret(secret);
 
-		// Bounded: per-user index scan over test-created support threads (test-only, small dataset)
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: per-user index scan over test-created support threads (test-only, small dataset)
 		const threads = await ctx.db
 			.query('supportThreads')
-			.withIndex('by_user', (q) => q.eq('userId', userId))
+			.withIndex('by_user_warm', (q) => q.eq('userId', userId))
 			.collect();
 
 		return threads.map((t) => ({
@@ -463,7 +463,7 @@ export const cleanupAnonymousSupportThreads = mutation({
 				.first();
 
 			if (supportThread) {
-				await ctx.db.delete(supportThread._id);
+				await ctx.db.delete('supportThreads', supportThread._id);
 				deletedSupportThreads++;
 			}
 		}
@@ -594,13 +594,13 @@ export const cleanupTestData = mutation({
 
 		let deletedCount = 0;
 
-		// Bounded: adminNotificationPreferences table is small (admin users + custom emails, typically <100 rows)
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: rows exist only through admin actions (promotions, custom recipients), one per email
 		const allPreferences = await ctx.db.query('adminNotificationPreferences').collect();
 
 		// Sequential deletes in test cleanup (test-only, small dataset)
 		for (const pref of allPreferences) {
 			if (pref.email.endsWith('@e2e.example.com')) {
-				await ctx.db.delete(pref._id);
+				await ctx.db.delete('adminNotificationPreferences', pref._id);
 				deletedCount++;
 			}
 		}
@@ -660,7 +660,7 @@ export const cleanupAllTestUsers = mutation({
 				.query('adminNotificationPreferences')
 				.withIndex('by_email', (q) => q.eq('email', user.email))
 				.first();
-			if (pref) await ctx.db.delete(pref._id);
+			if (pref) await ctx.db.delete('adminNotificationPreferences', pref._id);
 			await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
 				input: { model: 'user', where: [{ field: 'email', value: user.email }] }
 			});

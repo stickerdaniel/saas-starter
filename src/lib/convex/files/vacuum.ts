@@ -27,13 +27,13 @@ export const deleteUnusedFiles = internalMutation({
 		// The vacuum is the cascade point on purpose: agent files are hash-deduped and
 		// refcounted, and thread deletion only decrements refcounts, so metadata must
 		// outlive any single thread and die with the file itself.
-		// Bounded: <=100 files per batch, fileMetadata is deduped by URL (~1 row per file)
 		for (const f of toDelete) {
+			// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: <=100 files per batch, fileMetadata is deduped by URL (~1 row per file)
 			const metadataRows = await ctx.db
 				.query('fileMetadata')
 				.withIndex('by_storageId', (q) => q.eq('storageId', f.storageId))
 				.collect();
-			await Promise.all(metadataRows.map((row) => ctx.db.delete(row._id)));
+			await Promise.all(metadataRows.map((row) => ctx.db.delete('fileMetadata', row._id)));
 		}
 		// Also mark them as deleted in the component.
 		// This is in a transaction (mutation), so there's no races.

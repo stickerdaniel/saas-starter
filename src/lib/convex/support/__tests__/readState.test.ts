@@ -99,12 +99,12 @@ describe('support human-reply read state', () => {
 			threadId: 'thread_1',
 			anonymousUserId: 'anon_owner'
 		});
-		expect(ctx.db.patch).toHaveBeenCalledWith('support_1', {
+		expect(ctx.db.patch).toHaveBeenCalledWith('supportThreads', 'support_1', {
 			userReadAt: Date.now(),
 			hasUnreadAdminReply: false,
 			unreadAdminReplyCount: 0
 		});
-		expect(ctx.db.patch.mock.calls[0][1]).not.toHaveProperty('updatedAt');
+		expect(ctx.db.patch.mock.calls[0][2]).not.toHaveProperty('updatedAt');
 	});
 
 	it('keeps a same-millisecond newer reply unread when its message ID differs', async () => {

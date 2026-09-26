@@ -151,7 +151,7 @@ async function getFilteredSortedRecipients(
 		sortBy?: NotificationRecipientSortBy;
 	}
 ) {
-	// Bounded: adminNotificationPreferences table is small (admin users + custom emails, typically <100 rows)
+	// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: rows exist only through admin actions (promotions, custom recipients), one per email; search, sort and count need every row
 	const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
 	const activePrefs = allPrefs.filter(
 		(preference) => preference.isAdminUser || preference.userId === undefined
@@ -327,7 +327,7 @@ export const getRecipientsForNotificationType = internalQuery({
 	},
 	returns: v.array(v.string()),
 	handler: async (ctx, args): Promise<string[]> => {
-		// Bounded: adminNotificationPreferences table is small (admin users + custom emails, typically <100 rows)
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: rows exist only through admin actions (promotions, custom recipients), one per email
 		const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
 
 		// Map notification type to field name

@@ -57,7 +57,7 @@ export async function syncAdminPreferences(
 
 	if (existing) {
 		// Reactivate and update email if changed
-		await ctx.db.patch(existing._id, {
+		await ctx.db.patch('adminNotificationPreferences', existing._id, {
 			email,
 			isAdminUser: true,
 			...previewAdminPatch,
@@ -72,14 +72,14 @@ export async function syncAdminPreferences(
 
 		if (existingByEmail && existingByEmail.userId === undefined) {
 			// Convert custom email to admin user preference
-			await ctx.db.patch(existingByEmail._id, {
+			await ctx.db.patch('adminNotificationPreferences', existingByEmail._id, {
 				userId: args.userId,
 				isAdminUser: true,
 				...previewAdminPatch,
 				updatedAt: now
 			});
 		} else if (existingByEmail && isPreviewAdminEmail(email)) {
-			await ctx.db.patch(existingByEmail._id, {
+			await ctx.db.patch('adminNotificationPreferences', existingByEmail._id, {
 				userId: args.userId,
 				isAdminUser: true,
 				...previewAdminPatch,
@@ -125,7 +125,7 @@ export async function deactivateAdminPreferencesHelper(
 		.first();
 
 	if (existing) {
-		await ctx.db.patch(existing._id, {
+		await ctx.db.patch('adminNotificationPreferences', existing._id, {
 			isAdminUser: false,
 			updatedAt: Date.now()
 		});

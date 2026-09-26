@@ -71,7 +71,7 @@ export const sendMessage = authedMutation({
 
 		// Consume warm thread on first message (backend-driven, no client coordination needed)
 		if (record.isWarm) {
-			await ctx.db.patch(record._id, { isWarm: false });
+			await ctx.db.patch('aiChatThreads', record._id, { isWarm: false });
 		}
 
 		// Rate limit check
@@ -115,7 +115,7 @@ export const sendMessage = authedMutation({
 		// signal (drives visibility + first-send); lastMessage is a display-only
 		// preview, so skip it for a file-only send rather than persisting ''.
 		const preview = args.prompt.trim().slice(0, THREAD_PREVIEW_LENGTH);
-		await ctx.db.patch(record._id, {
+		await ctx.db.patch('aiChatThreads', record._id, {
 			...(preview ? { lastMessage: preview } : {}),
 			lastMessageAt: Date.now()
 		});

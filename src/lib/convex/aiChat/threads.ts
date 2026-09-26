@@ -115,7 +115,7 @@ export const deleteThread = authedMutation({
 			userId
 		});
 
-		await ctx.db.delete(record._id);
+		await ctx.db.delete('aiChatThreads', record._id);
 		return null;
 	}
 });
@@ -210,7 +210,7 @@ export const deleteStaleWarmThreads = internalMutation({
 
 		let deleted = 0;
 		for (const record of staleRecords) {
-			await ctx.db.delete(record._id);
+			await ctx.db.delete('aiChatThreads', record._id);
 			deleted++;
 		}
 
@@ -240,7 +240,7 @@ export const updateThreadMetadata = internalMutation({
 		if (args.lastMessageAt !== undefined) patch.lastMessageAt = args.lastMessageAt;
 
 		if (Object.keys(patch).length > 0) {
-			await ctx.db.patch(record._id, patch);
+			await ctx.db.patch('aiChatThreads', record._id, patch);
 		}
 		return null;
 	}
@@ -265,7 +265,7 @@ export const setThreadTitleIfEmpty = internalMutation({
 			.first();
 		if (!record || record.title) return null;
 
-		await ctx.db.patch(record._id, { title: args.title });
+		await ctx.db.patch('aiChatThreads', record._id, { title: args.title });
 		return null;
 	}
 });
@@ -278,7 +278,7 @@ export const backfillThreadMetadata = internalMutation({
 	args: {},
 	returns: v.object({ updated: v.number(), total: v.number() }),
 	handler: async (ctx) => {
-		// One-time backfill for pre-release data; aiChatThreads volume is bounded in this repo.
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Manual one-time backfill for pre-release data; the table grows per user, so past the read limit this mutation fails whole instead of skipping rows
 		const records = await ctx.db.query('aiChatThreads').collect();
 		let updated = 0;
 
@@ -299,7 +299,7 @@ export const backfillThreadMetadata = internalMutation({
 
 			const lastMsg = messages.page[0];
 			if (lastMsg?.text) {
-				await ctx.db.patch(record._id, {
+				await ctx.db.patch('aiChatThreads', record._id, {
 					title: agentThread?.title,
 					lastMessage:
 						lastMsg.text.length > THREAD_PREVIEW_LENGTH

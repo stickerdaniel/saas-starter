@@ -80,13 +80,13 @@ function createCtx() {
 			rows.push({ _id, _creationTime: Date.now(), ...doc });
 			return _id;
 		}),
-		patch: vi.fn(async (id: string, patch: Record<string, unknown>) => {
+		patch: vi.fn(async (_table: string, id: string, patch: Record<string, unknown>) => {
 			const row = rows.find((r) => r._id === id);
 			if (!row) throw new Error(`patch: unknown id ${id}`);
 			Object.assign(row, patch);
 		}),
-		get: vi.fn(async (id: string) => rows.find((r) => r._id === id) ?? null),
-		delete: vi.fn(async (id: string) => {
+		get: vi.fn(async (_table: string, id: string) => rows.find((r) => r._id === id) ?? null),
+		delete: vi.fn(async (_table: string, id: string) => {
 			const index = rows.findIndex((r) => r._id === id);
 			if (index !== -1) rows.splice(index, 1);
 		}),

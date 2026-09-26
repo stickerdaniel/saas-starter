@@ -50,7 +50,7 @@ export const updatePreference = adminMutation({
 		}
 
 		// Update the specific field
-		await ctx.db.patch(pref._id, {
+		await ctx.db.patch('adminNotificationPreferences', pref._id, {
 			[args.field]: args.value,
 			updatedAt: Date.now()
 		});
@@ -138,7 +138,7 @@ export const removeCustomEmail = adminMutation({
 			);
 		}
 
-		await ctx.db.delete(pref._id);
+		await ctx.db.delete('adminNotificationPreferences', pref._id);
 		return null;
 	}
 });
