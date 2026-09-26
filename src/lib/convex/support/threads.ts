@@ -522,11 +522,12 @@ export const syncUserProfile = internalMutation({
 		userId: v.string(),
 		userName: v.optional(v.string()),
 		userEmail: v.optional(v.string()),
-		cursor: v.optional(v.string())
+		cursor: v.optional(v.string()),
+		endCursor: v.optional(v.string())
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		if (args.cursor !== undefined) {
+		if (args.cursor !== undefined || args.endCursor !== undefined) {
 			// A later profile change restarts from the first page, so a continuation
 			// carrying an older name or email stops instead of overwriting it.
 			const user = await authComponent.getAnyUserById(ctx, args.userId);
@@ -535,11 +536,13 @@ export const syncUserProfile = internalMutation({
 			}
 		}
 
-		const { isDone, continueCursor } = await syncSupportUserProfile(ctx, args);
-		if (!isDone) {
+		const { next } = await syncSupportUserProfile(ctx, args);
+		for (const range of next) {
 			await ctx.scheduler.runAfter(0, internal.support.threads.syncUserProfile, {
-				...args,
-				cursor: continueCursor
+				userId: args.userId,
+				userName: args.userName,
+				userEmail: args.userEmail,
+				...range
 			});
 		}
 		return null;

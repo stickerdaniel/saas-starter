@@ -36,7 +36,7 @@ export const migrateAnonymousTickets = mutation({
 			throw createSupportError(SUPPORT_ERROR_CODES.anonymousUserInvalid);
 		}
 
-		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: anonymous threads come from one global creation bucket (100/hour for all visitors); the migration stays atomic so every thread goes to one account (see #1029)
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Not capped over time: one global bucket (100/hour for all visitors) only slows anonymous thread creation; kept atomic because splitting lets a second account claim part of a history (see #1029)
 		const supportThreads = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_user_warm', (q) => q.eq('userId', args.anonymousUserId))
