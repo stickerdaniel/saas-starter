@@ -1,6 +1,6 @@
 /**
  * Content-Security-Policy building blocks shared between the SvelteKit config
- * (svelte.config.js) and the hash regression guard (csp.test.ts).
+ * (svelte.config.js) and the post-build hash check (scripts/csp-hashes.ts).
  *
  * Enforced everywhere today: object-src 'none' and base-uri 'self' (via kit.csp
  * below) plus frame-ancestors 'none' (header-only, set in hooks.server.ts and
@@ -15,20 +15,14 @@
 // sha256 of the two inline <script> blocks that SvelteKit does not hash itself:
 //  - APP_HTML: the vite:preloadError + __deployReloadArmed bootstrap in src/app.html
 //  - MODE_WATCHER: the FOUC-prevention head script mode-watcher injects via {@html}
-// Both are byte-identical across every rendered page. Regenerate after editing
-// app.html or bumping mode-watcher: run `bun run build`, then read the sha256 of
-// each inline block from a prerendered page (csp.test.ts documents the exact
-// command). The mode-watcher block is the production bundler's reformatted output,
-// so its hash can only be regenerated from a real build, not from source text.
+// Both are byte-identical across every rendered page. The mode-watcher block is
+// the production bundler's output stringified at render time, so its hash comes
+// only from a real build rendered under Node. Outside Cloudflare, `bun run build`
+// checks both against the SSR HTML it emits (scripts/csp-hashes.ts) and prints
+// the emitted hashes when one is stale, e.g. after editing app.html or bumping
+// mode-watcher.
 export const APP_HTML_SCRIPT_HASH = 'sha256-Ml0GII2JIRPFSoeoBdrueYbrawv5r1xJB41NAsxXDxw=';
 export const MODE_WATCHER_SCRIPT_HASH = 'sha256-Cr3r+iKjDTUxJaxM3r/Iq0ow6clOB9AqoT6j0wMFMIM=';
-
-// Fingerprint of mode-watcher's setInitialMode source (node_modules/mode-watcher/
-// dist/mode.js), NOT the deployed hash. A change here means the FOUC script moved
-// and MODE_WATCHER_SCRIPT_HASH must be regenerated from a build. Lets the guard
-// fail loudly on a mode-watcher bump without running the production bundler.
-export const MODE_WATCHER_SOURCE_FINGERPRINT =
-	'sha256-NNW8Woh/BBAB32UgnIohmp5dmS5tYyx630lkf4nITzY=';
 
 /**
  * Derive a Sentry CSP report endpoint from a Sentry DSN.

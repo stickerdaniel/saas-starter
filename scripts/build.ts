@@ -1,5 +1,6 @@
 import { loadEnv } from 'vite';
 import { normalizeSiteOrigin } from '../src/lib/config/origin';
+import { verifyEmittedScriptHashes } from './csp-hashes';
 
 const LOCAL_PREVIEW_ORIGIN = 'http://localhost:4173';
 
@@ -69,9 +70,13 @@ if (import.meta.main) {
 		process.exit(1);
 	}
 
+	const env = { ...buildEnvironment, PUBLIC_SITE_URL: siteOrigin };
 	const child = Bun.spawn(viteBuildCommand(args), {
 		stdio: ['inherit', 'inherit', 'inherit'],
-		env: { ...buildEnvironment, PUBLIC_SITE_URL: siteOrigin }
+		env
 	});
-	process.exit((await child.exited) ?? 0);
+	const exitCode = (await child.exited) ?? 0;
+	// A failed build keeps its own exit code and never reads output it did not write.
+	if (exitCode !== 0) process.exit(exitCode);
+	process.exit(verifyEmittedScriptHashes({ env, siteOrigin }) ? 0 : 1);
 }
