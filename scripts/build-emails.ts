@@ -10,7 +10,7 @@
 import { writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createServer, type ViteDevServer } from 'vite';
+import { createServer, type Plugin, type ViteDevServer } from 'vite';
 import {
 	EMAIL_TEMPLATES,
 	getOutputFileName,
@@ -57,6 +57,21 @@ export function convertMarkersToTemplate(html: string): string {
 	return html.replace(/__ETA_(\w+)__/g, '{{$1}}').replace(/__BASEURL__/g, '{{baseUrl}}');
 }
 
+// The generator reads its inputs once, so it needs no file watcher, and under Bun
+// 1.3.9 a watcher can hang it. Bun's Linux fs.watch registers each watched
+// directory on its thread pool; when a watcher closes before that registration
+// finishes, the pool thread deadlocks on the watcher's own mutex. On a two-CPU
+// runner two such threads are the whole pool, and the process stops making
+// progress. Bun 1.3.14 replaced that backend.
+// Assigned after resolution because Vite's config merge skips a null override,
+// so `server.watch: null` passed to createServer loses to SvelteKit's watch options.
+const disableFileWatching: Plugin = {
+	name: 'email-generator:disable-file-watching',
+	configResolved(config) {
+		config.server.watch = null;
+	}
+};
+
 /**
  * Create Vite server in middleware mode (no HTTP server)
  */
@@ -65,6 +80,7 @@ export async function createViteServer(): Promise<ViteDevServer> {
 		server: { middlewareMode: true },
 		appType: 'custom',
 		logLevel: 'warn',
+		plugins: [disableFileWatching],
 		ssr: {
 			noExternal: ['@better-svelte-email/server', '@better-svelte-email/components', 'prettier']
 		}
