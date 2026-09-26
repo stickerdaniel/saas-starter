@@ -127,6 +127,14 @@ describe('customer support screenshot editor', () => {
 		await expectCaptureErrorRecovery();
 	});
 
+	it('offers the capture-error dialog when the loaded editor throws while it is created', async () => {
+		vi.doMock(
+			'./screenshot-editor/ScreenshotEditor.svelte',
+			() => import('./test-fixtures/ThrowingScreenshotEditor.svelte')
+		);
+		await expectCaptureErrorRecovery();
+	});
+
 	it('mounts a fresh editor on retry after an editor effect threw', async () => {
 		vi.doMock(
 			'./screenshot-editor/ScreenshotEditor.svelte',
