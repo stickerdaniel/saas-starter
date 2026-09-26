@@ -11,6 +11,7 @@ exclude:
   - 'src/lib/components/prompt-kit/**'
   - 'src/lib/emails/**'
   - '**/test-fixtures/**'
+  - '**/obfuscated-email.svelte'
 requires:
   - 'Lint & Format'
 maxBudgetPerRun: 2
@@ -26,7 +27,6 @@ Enforce the section **Svelte and UI** of the application guide below on the chan
 
 ## What lint cannot see
 
-- A call site that restyles a shadcn primitive (height, radius, padding, focus ring, base colors) with its own class string instead of a variant or size on the primitive.
 - New markup that copies an existing component's structure and classes instead of composing or extending it.
 - The same treatment written as component-local styles in several places where the guide asks for a shared global utility.
 - A shadowed surface with a solid border instead of `ring-1 ring-foreground/10`.
