@@ -47,24 +47,36 @@ export const SUPPORT_THREAD_BATCH_SIZE = 100;
 // 16 MiB transaction read limit and leaves room for those re-reads.
 const SUPPORT_THREAD_PAGE_MAX_BYTES = 4 * 1024 * 1024;
 
+/** A range of one user's threads still to rewrite, scheduled as its own transaction. */
+export type SupportThreadRange = { cursor?: string; endCursor?: string };
+
 export async function syncUserProfile(
 	ctx: MutationCtx,
-	args: { userId: string; userName?: string; userEmail?: string; cursor?: string }
-): Promise<{ isDone: boolean; continueCursor: string }> {
-	const {
-		page: supportThreads,
-		isDone,
-		continueCursor
-	} = await ctx.db
+	args: { userId: string; userName?: string; userEmail?: string } & SupportThreadRange
+): Promise<{ next: SupportThreadRange[] }> {
+	const { page, isDone, continueCursor, pageStatus, splitCursor } = await ctx.db
 		.query('supportThreads')
 		.withIndex('by_user_warm', (q) => q.eq('userId', args.userId))
 		.paginate({
 			numItems: SUPPORT_THREAD_BATCH_SIZE,
 			cursor: args.cursor ?? null,
+			endCursor: args.endCursor ?? null,
 			maximumBytesRead: SUPPORT_THREAD_PAGE_MAX_BYTES
 		});
 
-	for (const supportThread of supportThreads) {
+	// Past the byte cap the page may be incomplete, and continuing from
+	// `continueCursor` would skip the missing threads. Rewrite nothing here and
+	// schedule the two halves instead, as Convex's pagination contract prescribes.
+	if (pageStatus === 'SplitRequired' && splitCursor) {
+		return {
+			next: [
+				{ cursor: args.cursor, endCursor: splitCursor },
+				{ cursor: splitCursor, endCursor: args.endCursor }
+			]
+		};
+	}
+
+	for (const supportThread of page) {
 		await ctx.db.patch('supportThreads', supportThread._id, {
 			userName: args.userName,
 			userEmail: args.userEmail,
@@ -78,7 +90,9 @@ export async function syncUserProfile(
 		});
 	}
 
-	return { isDone, continueCursor };
+	// A range with an end was fully covered by this page.
+	if (args.endCursor !== undefined || isDone) return { next: [] };
+	return { next: [{ cursor: continueCursor }] };
 }
 
 export async function backfillThreadMetadata(

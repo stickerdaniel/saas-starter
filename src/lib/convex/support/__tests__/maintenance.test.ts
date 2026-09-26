@@ -62,21 +62,45 @@ const migrateAnonymousTicketsHandler = migrateAnonymousTickets as unknown as Mut
 	{ migratedCount: number }
 >;
 const syncUserProfileHandler = syncUserProfile as unknown as MutationHandler<
-	{ userId: string; userName?: string; userEmail?: string; cursor?: string },
+	{ userId: string; userName?: string; userEmail?: string; cursor?: string; endCursor?: string },
 	null
 >;
 
-/** Serves `threads` in index order the way `.paginate()` does, one page per call. */
-function paginateOver<T>(threads: T[]) {
-	return vi.fn(async ({ numItems, cursor }: { numItems: number; cursor: string | null }) => {
-		const start = cursor === null ? 0 : Number(cursor);
-		const end = start + numItems;
-		return {
-			page: threads.slice(start, end),
-			isDone: end >= threads.length,
-			continueCursor: String(end)
-		};
-	});
+/**
+ * Serves `threads` in index order the way `.paginate()` does, one page per call.
+ * A range longer than `splitAbove` comes back incomplete with `SplitRequired`,
+ * as a page that hit `maximumBytesRead` does.
+ */
+function paginateOver<T>(threads: T[], splitAbove = Infinity) {
+	return vi.fn(
+		async ({
+			numItems,
+			cursor,
+			endCursor
+		}: {
+			numItems: number;
+			cursor: string | null;
+			endCursor?: string | null;
+		}) => {
+			const start = cursor === null ? 0 : Number(cursor);
+			const end =
+				endCursor == null ? Math.min(start + numItems, threads.length) : Number(endCursor);
+			if (end - start > splitAbove) {
+				return {
+					page: threads.slice(start, start + splitAbove),
+					isDone: false,
+					continueCursor: String(end),
+					pageStatus: 'SplitRequired' as const,
+					splitCursor: String(start + Math.floor((end - start) / 2))
+				};
+			}
+			return {
+				page: threads.slice(start, end),
+				isDone: end >= threads.length,
+				continueCursor: String(end)
+			};
+		}
+	);
 }
 
 function threadRows(count: number) {
@@ -268,6 +292,41 @@ describe('support maintenance helpers', () => {
 			expect(fields).toMatchObject({ userName: 'Ada New', userEmail: 'new@example.com' });
 		}
 		expect(runAfter.mock.calls.map(([, , args]) => args.cursor)).toEqual(['100', '200']);
+	});
+
+	it('splits a page the byte cap left incomplete instead of skipping its threads', async () => {
+		const threads = threadRows(250);
+		const patch = vi.fn().mockResolvedValue(undefined);
+		const runAfter = vi.fn().mockResolvedValue(undefined);
+		const ctx = {
+			db: {
+				query: vi.fn(() => ({
+					withIndex: vi.fn(() => ({ paginate: paginateOver(threads, 60) }))
+				})),
+				patch
+			},
+			scheduler: { runAfter }
+		};
+		getAnyUserByIdMock.mockResolvedValue({ name: 'Ada New', email: 'new@example.com' });
+
+		await syncUserProfileHandler._handler(ctx, {
+			userId: 'user_1',
+			userName: 'Ada New',
+			userEmail: 'new@example.com'
+		});
+		// The incomplete page is not written; its two halves are scheduled instead
+		expect(patch).not.toHaveBeenCalled();
+		expect(runAfter.mock.calls.map(([, , args]) => [args.cursor, args.endCursor])).toEqual([
+			[undefined, '50'],
+			['50', undefined]
+		]);
+
+		await drainScheduled(runAfter, ctx, {
+			'internal.support.threads.syncUserProfile': syncUserProfileHandler
+		});
+
+		expect(new Set(patch.mock.calls.map(([, id]) => id)).size).toBe(250);
+		expect(patch).toHaveBeenCalledTimes(250);
 	});
 
 	it('stops a profile continuation once a newer profile has been saved', async () => {
