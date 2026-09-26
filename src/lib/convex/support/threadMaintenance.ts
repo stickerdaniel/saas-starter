@@ -43,6 +43,10 @@ export async function updateThreadMetadata(
  */
 export const SUPPORT_THREAD_BATCH_SIZE = 100;
 
+// Each patch reads its thread again, so a page reads at most a quarter of the
+// 16 MiB transaction read limit and leaves room for those re-reads.
+const SUPPORT_THREAD_PAGE_MAX_BYTES = 4 * 1024 * 1024;
+
 export async function syncUserProfile(
 	ctx: MutationCtx,
 	args: { userId: string; userName?: string; userEmail?: string; cursor?: string }
@@ -54,7 +58,11 @@ export async function syncUserProfile(
 	} = await ctx.db
 		.query('supportThreads')
 		.withIndex('by_user_warm', (q) => q.eq('userId', args.userId))
-		.paginate({ numItems: SUPPORT_THREAD_BATCH_SIZE, cursor: args.cursor ?? null });
+		.paginate({
+			numItems: SUPPORT_THREAD_BATCH_SIZE,
+			cursor: args.cursor ?? null,
+			maximumBytesRead: SUPPORT_THREAD_PAGE_MAX_BYTES
+		});
 
 	for (const supportThread of supportThreads) {
 		await ctx.db.patch('supportThreads', supportThread._id, {
