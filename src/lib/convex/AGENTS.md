@@ -41,6 +41,19 @@ A hand-written provider payload, context double, or auth session is a claim abou
 
 When an intentional bounded `.collect()`, sequential mutation, or other normally flagged pattern is correct, add a short inline reason at the call site.
 
+## Load and scheduling
+
+Each rule below comes from a measured incident on a Convex deployment. They keep background work proportional to real work and every transaction inside its limits (16 MiB and 32,000 rows read, 16,000 documents written).
+
+- A cron handler writes and schedules nothing when there is no work: it first checks for work with a cheap bounded read, such as an indexed `.first()` or one capped page. Every scheduled function leaves a system row after it completes, kept for 7 days by default on a self-hosted backend.
+- A retry or timeout is scheduled with `ctx.scheduler.runAt` for the moment it becomes due, and its target checks that it is still current (a status or generation field). A cron that scans for due rows is polling; keep crons as a slow safety net.
+- A cron or scheduled mutation that walks a table has a row and byte budget per run. `patch`, `replace`, and `delete` each read the whole document, so they count against the read limit.
+- A job that reschedules itself saves its cursor and schedules its next run in a transaction that commits. A mutation that throws drops everything it scheduled, so an item too large for a batch gets its own transaction instead of failing every run.
+- Each document has one scheduled writer. Loops that share a cursor or counter row conflict with each other, and a mutation that still conflicts after its retries (4 by default) fails.
+- A module that exports queries imports no heavy library at the top level. A cold isolate loads the whole import graph of the function's file, and a large one made queries time out. Put heavy code in its own module behind a function reference.
+- A reactive query does no CPU-heavy work per row. It reruns on every change it read, so compute the value when the row is written and store it.
+- A component mounted on every page subscribes only while its content is visible or opened. Subscriptions for UI nobody had opened added enough query load to return 503s.
+
 ## Email
 
 Production email uses `@convex-dev/resend`. Keep send helpers, templates, generated email output, and webhook event handling in their existing `emails/` boundaries. Use the `convexResend` btca resource for component behavior and `betterSvelteEmail` for template tooling.
