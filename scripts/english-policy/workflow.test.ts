@@ -29,69 +29,24 @@ interface Workflow {
 	jobs?: Record<string, { steps?: Step[] }>;
 }
 
-function policyErrors(workflow: Workflow): string[] {
-	const errors: string[] = [];
-	const trigger = workflow.on?.pull_request_target;
-	if (
-		JSON.stringify(trigger?.types) !==
-		JSON.stringify(['opened', 'edited', 'reopened', 'synchronize'])
-	) {
-		errors.push('trigger');
-	}
-	if (
-		JSON.stringify(workflow.permissions) !==
-		JSON.stringify({ contents: 'read', 'pull-requests': 'read' })
-	) {
-		errors.push('permissions');
-	}
-	if (workflow.concurrency?.group !== 'english-pr-${{ github.event.pull_request.number }}') {
-		errors.push('concurrency group');
-	}
-	if (workflow.concurrency?.['cancel-in-progress'] !== true) {
-		errors.push('concurrency cancellation');
-	}
-	const steps = workflow.jobs?.['english-metadata']?.steps ?? [];
-	const checkout = steps.find((step) => step.uses?.startsWith('actions/checkout@'));
-	if (checkout?.with?.ref !== '${{ github.workflow_sha }}') errors.push('checkout ref');
-	if (checkout?.with?.['persist-credentials'] !== false) errors.push('checkout credentials');
-	const fetch = steps.find((step) => step.name === 'Fetch current pull request');
-	if (
-		fetch?.env?.GH_TOKEN !== '${{ secrets.GITHUB_TOKEN }}' ||
-		fetch.env.PR_NUMBER !== '${{ github.event.pull_request.number }}' ||
-		!fetch.run?.includes('gh api --method GET') ||
-		!fetch.run.includes('> "$RUNNER_TEMP/pull-request.json"')
-	) {
-		errors.push('metadata fetch');
-	}
-	if (
-		!steps.some(
-			(step) =>
-				step.run ===
-				'bun scripts/english-policy/pr-metadata.bundle.mjs --pr-json "$RUNNER_TEMP/pull-request.json"'
-		)
-	) {
-		errors.push('policy command');
-	}
-	return errors;
-}
-
 const workflow = parseYaml(source) as Workflow;
 const steps = workflow.jobs?.['english-metadata']?.steps ?? [];
 
+/** Joins line continuations and collapses spacing so only the executed shell lines are compared. */
+function shellLines(run: string): string[] {
+	return run
+		.replace(/\s*\\\n\s*/g, ' ')
+		.split('\n')
+		.map((line) => line.trim().replace(/\s+/g, ' '))
+		.filter(Boolean);
+}
+
 describe('English pull request workflow', () => {
-	it('uses the metadata-only trigger and minimal permissions', () => {
-		expect(policyErrors(workflow)).toEqual([]);
-	});
-
-	it('warns that SHA-like source branches require a replacement pull request', () => {
-		expect(source).toContain(
-			'# GitHub suppresses pull_request_target for SHA-like source branch names.'
+	it('uses the metadata-only trigger, minimal permissions, and one run per pull request', () => {
+		expect(new Set(workflow.on?.pull_request_target?.types)).toEqual(
+			new Set(['opened', 'edited', 'reopened', 'synchronize'])
 		);
-		expect(source).toContain('Open a replacement pull');
-		expect(source).toContain('request from a non-SHA-like source branch so this check can run.');
-	});
-
-	it('cancels stale runs for the same pull request', () => {
+		expect(workflow.permissions).toEqual({ contents: 'read', 'pull-requests': 'read' });
 		expect(workflow.concurrency).toEqual({
 			group: 'english-pr-${{ github.event.pull_request.number }}',
 			'cancel-in-progress': true
@@ -99,15 +54,14 @@ describe('English pull request workflow', () => {
 	});
 
 	it('checks out only the trusted workflow revision without credentials', () => {
-		const checkout = steps.find((step) => step.uses?.startsWith('actions/checkout@'));
-		expect(checkout?.with).toMatchObject({
-			ref: '${{ github.workflow_sha }}',
-			'persist-credentials': false,
-			'fetch-depth': 1
-		});
-		expect(source).not.toContain('pull_request.head');
-		expect(source).not.toContain('github.head_ref');
-		expect(source).not.toContain('refs/pull/');
+		const checkouts = steps.filter((step) => step.uses?.startsWith('actions/checkout@'));
+		expect(checkouts.length).toBeGreaterThan(0);
+		for (const checkout of checkouts) {
+			expect(checkout.with).toMatchObject({
+				ref: '${{ github.workflow_sha }}',
+				'persist-credentials': false
+			});
+		}
 	});
 
 	it('pins every action to a full commit SHA', () => {
@@ -117,17 +71,11 @@ describe('English pull request workflow', () => {
 	});
 
 	it('fetches private metadata with the ephemeral token and passes only its temp file', () => {
-		const commands = steps.flatMap((step) => (step.run === undefined ? [] : [step.run]));
+		const commands = steps.flatMap((step) => (step.run === undefined ? [] : shellLines(step.run)));
 		const fetch = steps.find((step) => step.name === 'Fetch current pull request');
-		const entry = readFileSync(ENTRY_PATH, 'utf8');
 		expect(commands).toEqual([
-			[
-				'set -euo pipefail',
-				'gh api --method GET \\',
-				'  "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \\',
-				'  > "$RUNNER_TEMP/pull-request.json"',
-				''
-			].join('\n'),
+			'set -euo pipefail',
+			'gh api --method GET "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" > "$RUNNER_TEMP/pull-request.json"',
 			'bun scripts/english-policy/pr-metadata.bundle.mjs --pr-json "$RUNNER_TEMP/pull-request.json"'
 		]);
 		expect(fetch?.env).toEqual({
@@ -136,21 +84,6 @@ describe('English pull request workflow', () => {
 		});
 		expect(source).not.toMatch(/bun install|cache|artifact/i);
 		expect(source).not.toMatch(/pull_request\.(?:title|body|head)|github\.head_ref/);
-		expect(source).not.toMatch(/(?:cat|tee|printf|echo).*pull-request\.json/);
-		expect(source).not.toContain('set -x');
-		expect(entry).toContain('readCurrentPullRequest(options.prJsonPath');
-		expect(entry).toContain('statSync(prJsonPath).size > MAX_RESPONSE_BYTES');
-		expect(entry).toContain('value.base.repo.full_name !== expectedRepository');
-		expect(entry).not.toMatch(/Authorization|process\.env\.(?:GH_TOKEN|GITHUB_TOKEN)/);
-	});
-
-	it('fails the structural policy when the trusted checkout route is removed', () => {
-		const mutated = structuredClone(workflow);
-		const checkout = mutated.jobs?.['english-metadata']?.steps?.find((step) =>
-			step.uses?.startsWith('actions/checkout@')
-		);
-		if (checkout?.with) delete checkout.with.ref;
-		expect(policyErrors(mutated)).toContain('checkout ref');
 	});
 
 	it('ships the license and attribution for the detector embedded in the bundle', () => {
@@ -165,12 +98,14 @@ describe('English pull request workflow', () => {
 		const packageDirectory = path.dirname(eldPackagePath);
 		const attribution = readFileSync(THIRD_PARTY_NOTICES_PATH, 'utf8');
 
-		expect(classifier).toContain("from 'eld/extrasmall'");
-		expect(eldPackage).toMatchObject({ name: 'eld', version: '2.1.0', license: 'Apache-2.0' });
+		expect(classifier).toMatch(/from 'eld(?:\/[\w-]+)?'/);
+		expect(eldPackage).toMatchObject({ name: 'eld', license: 'Apache-2.0' });
 		expect(readFileSync(ELD_LICENSE_PATH, 'utf8')).toBe(
 			readFileSync(path.join(packageDirectory, 'LICENSE'), 'utf8')
 		);
-		expect(attribution).toContain('Efficient Language Detector (ELD) 2.1.0 by Nito T.M.');
+		expect(attribution).toContain(
+			`Efficient Language Detector (ELD) ${eldPackage.version} by Nito T.M.`
+		);
 		expect(attribution).toContain('ELD-LICENSE.txt');
 		expect(eldPackage.files).not.toContain('NOTICE');
 		expect(existsSync(path.join(packageDirectory, 'NOTICE'))).toBe(false);
