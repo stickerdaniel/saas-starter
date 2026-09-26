@@ -56,7 +56,7 @@ function setup(row: IncidentRow | null) {
 				}
 			};
 		},
-		async patch(_id: string, patch: Record<string, unknown>) {
+		async patch(_table: string, _id: string, patch: Record<string, unknown>) {
 			patches.push(patch);
 			if (row) Object.assign(row, patch);
 		}

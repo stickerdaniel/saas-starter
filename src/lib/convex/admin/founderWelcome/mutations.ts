@@ -11,7 +11,7 @@ async function upsertSetting(ctx: MutationCtx, key: string, value: string, admin
 		.unique();
 
 	if (existing) {
-		await ctx.db.patch(existing._id, {
+		await ctx.db.patch('adminSettings', existing._id, {
 			value,
 			updatedAt: Date.now(),
 			updatedBy: adminUserId
@@ -34,7 +34,7 @@ async function deleteSetting(ctx: MutationCtx, key: string) {
 		.unique();
 
 	if (existing) {
-		await ctx.db.delete(existing._id);
+		await ctx.db.delete('adminSettings', existing._id);
 	}
 }
 
@@ -79,7 +79,7 @@ export const updateConfig = adminMutation({
 			.unique();
 
 		if (existingProfile) {
-			await ctx.db.patch(existingProfile._id, {
+			await ctx.db.patch('adminProfiles', existingProfile._id, {
 				founderWelcomeName: name,
 				founderWelcomeTitle: title,
 				founderWelcomeReplyTo: replyTo

@@ -50,11 +50,11 @@ function makeDb() {
 			rows.push({ _id, ...doc });
 			return _id;
 		},
-		patch: async (id: string, patch: Partial<Row>) => {
+		patch: async (_table: string, id: string, patch: Partial<Row>) => {
 			const row = rows.find((r) => r._id === id);
 			if (row) Object.assign(row, patch);
 		},
-		get: async (id: string) => rows.find((r) => r._id === id) ?? null
+		get: async (_table: string, id: string) => rows.find((r) => r._id === id) ?? null
 	};
 	return db;
 }

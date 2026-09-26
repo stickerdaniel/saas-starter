@@ -22,7 +22,7 @@ export async function updateThreadMetadata(
 
 	const title = args.title ?? supportThread.title;
 	const summary = args.summary ?? supportThread.summary;
-	await ctx.db.patch(supportThread._id, {
+	await ctx.db.patch('supportThreads', supportThread._id, {
 		title,
 		summary,
 		searchText: buildSupportSearchText({
@@ -40,14 +40,14 @@ export async function syncUserProfile(
 	ctx: MutationCtx,
 	args: { userId: string; userName?: string; userEmail?: string }
 ): Promise<void> {
-	// Bounded: per-user index scan; one user's support-thread count is small.
+	// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: per-user index scan; one user's support-thread count is small, and every thread must get the new profile
 	const supportThreads = await ctx.db
 		.query('supportThreads')
-		.withIndex('by_user', (q) => q.eq('userId', args.userId))
+		.withIndex('by_user_warm', (q) => q.eq('userId', args.userId))
 		.collect();
 
 	for (const supportThread of supportThreads) {
-		await ctx.db.patch(supportThread._id, {
+		await ctx.db.patch('supportThreads', supportThread._id, {
 			userName: args.userName,
 			userEmail: args.userEmail,
 			searchText: buildSupportSearchText({
@@ -64,7 +64,7 @@ export async function syncUserProfile(
 export async function backfillThreadMetadata(
 	ctx: MutationCtx
 ): Promise<{ updated: number; total: number }> {
-	// One-time pre-release backfill; the supportThreads table is bounded here.
+	// eslint-disable-next-line @convex-dev/no-collect-in-query -- Manual one-time backfill for pre-release data; the table grows per user, so past the read limit this mutation fails whole instead of skipping rows
 	const supportThreads = await ctx.db.query('supportThreads').collect();
 	let updated = 0;
 
@@ -85,7 +85,7 @@ export async function backfillThreadMetadata(
 			isAnonymousUser(supportThread.userId)
 		);
 
-		await ctx.db.patch(supportThread._id, {
+		await ctx.db.patch('supportThreads', supportThread._id, {
 			title: agentThread.title,
 			summary: agentThread.summary,
 			userName,
@@ -138,7 +138,7 @@ export async function deleteEmptyThreads(ctx: MutationCtx): Promise<{ deleted: n
 			continue;
 		}
 
-		await ctx.db.delete(supportThread._id);
+		await ctx.db.delete('supportThreads', supportThread._id);
 		deleted++;
 	}
 

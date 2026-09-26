@@ -153,7 +153,7 @@ export const sendAdminReplyNotification = internalMutation({
 		if (shouldSkipTestEmail('sendAdminReplyNotification', email)) return null;
 		if (!getReadyEmailConfiguration()) return null;
 
-		const supportThread = await ctx.db.get(supportThreadId);
+		const supportThread = await ctx.db.get('supportThreads', supportThreadId);
 		if (!supportThread || !shouldSendNotification(email, supportThread.notificationSentAt)) {
 			return null;
 		}
@@ -185,7 +185,7 @@ export const sendAdminReplyNotification = internalMutation({
 				{ name: 'X-Thread-ID', value: threadId }
 			]
 		});
-		await ctx.db.patch(supportThreadId, { notificationSentAt: Date.now() });
+		await ctx.db.patch('supportThreads', supportThreadId, { notificationSentAt: Date.now() });
 		return null;
 	}
 });
@@ -376,10 +376,10 @@ export const sendFounderWelcomeEmail = internalMutation({
 	args: { founderWelcomeId: v.id('founderWelcomeEmails') },
 	returns: v.null(),
 	handler: async (ctx, { founderWelcomeId }) => {
-		const row = await ctx.db.get(founderWelcomeId);
+		const row = await ctx.db.get('founderWelcomeEmails', founderWelcomeId);
 		if (!row || row.status !== 'scheduled') return null;
 		if (!getReadyEmailConfiguration()) {
-			await ctx.db.patch(founderWelcomeId, {
+			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
 				status: 'skipped',
 				skippedReason: 'email_unavailable'
 			});
@@ -392,7 +392,7 @@ export const sendFounderWelcomeEmail = internalMutation({
 			{}
 		);
 		if (!config.enabled) {
-			await ctx.db.patch(founderWelcomeId, {
+			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
 				status: 'skipped',
 				skippedReason: 'feature_disabled'
 			});
@@ -405,7 +405,7 @@ export const sendFounderWelcomeEmail = internalMutation({
 			where: [{ field: '_id', operator: 'eq', value: row.userId }]
 		});
 		if (!user) {
-			await ctx.db.patch(founderWelcomeId, {
+			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
 				status: 'skipped',
 				skippedReason: 'user_deleted'
 			});
@@ -420,21 +420,21 @@ export const sendFounderWelcomeEmail = internalMutation({
 
 		// Guards
 		if (!emailVerified) {
-			await ctx.db.patch(founderWelcomeId, {
+			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
 				status: 'skipped',
 				skippedReason: 'not_verified'
 			});
 			return null;
 		}
 		if (email !== row.signupEmail) {
-			await ctx.db.patch(founderWelcomeId, {
+			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
 				status: 'skipped',
 				skippedReason: 'email_changed'
 			});
 			return null;
 		}
 		if (shouldSkipTestEmail('sendFounderWelcomeEmail', email)) {
-			await ctx.db.patch(founderWelcomeId, {
+			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
 				status: 'skipped',
 				skippedReason: 'test_email'
 			});
@@ -443,7 +443,7 @@ export const sendFounderWelcomeEmail = internalMutation({
 
 		// Guard against empty config (subject/body required for a valid email)
 		if (!config.subject.trim() || !config.body.trim()) {
-			await ctx.db.patch(founderWelcomeId, {
+			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
 				status: 'skipped',
 				skippedReason: 'empty_template'
 			});
@@ -466,7 +466,7 @@ export const sendFounderWelcomeEmail = internalMutation({
 		const subject = renderTemplate(config.subject);
 		const emailConfiguration = getReadyEmailConfiguration();
 		if (!emailConfiguration) {
-			await ctx.db.patch(founderWelcomeId, {
+			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
 				status: 'skipped',
 				skippedReason: 'email_unavailable'
 			});
@@ -485,7 +485,10 @@ export const sendFounderWelcomeEmail = internalMutation({
 			]
 		});
 
-		await ctx.db.patch(founderWelcomeId, { status: 'sent', sentAt: Date.now() });
+		await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
+			status: 'sent',
+			sentAt: Date.now()
+		});
 		return null;
 	}
 });

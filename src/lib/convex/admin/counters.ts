@@ -38,7 +38,7 @@ export async function incrementCounter(
 ): Promise<void> {
 	const doc = await ctx.db.query('dashboardCounters').first();
 	if (doc) {
-		await ctx.db.patch(doc._id, { [field]: doc[field] + delta });
+		await ctx.db.patch('dashboardCounters', doc._id, { [field]: doc[field] + delta });
 	} else {
 		// First write — initialise with defaults then apply delta
 		await ctx.db.insert('dashboardCounters', {
@@ -82,7 +82,7 @@ export async function recalculateCounters(ctx: MutationCtx): Promise<{
 
 	const doc = await ctx.db.query('dashboardCounters').first();
 	if (doc) {
-		await ctx.db.patch(doc._id, computed);
+		await ctx.db.patch('dashboardCounters', doc._id, computed);
 	} else {
 		await ctx.db.insert('dashboardCounters', computed);
 	}

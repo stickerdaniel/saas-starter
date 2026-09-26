@@ -87,7 +87,7 @@ function makeCtx({
 					first: vi.fn().mockResolvedValue(supportThread)
 				}))
 			})),
-			patch: vi.fn(async (_id: string, patch: Record<string, unknown>) => {
+			patch: vi.fn(async (_table: string, _id: string, patch: Record<string, unknown>) => {
 				Object.assign(supportThread, patch);
 			})
 		},
@@ -152,6 +152,7 @@ describe('sendAdminReply', () => {
 		await replyHandler._handler(ctx, { threadId: 't1', prompt: 'hi' });
 
 		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'supportThreads',
 			'st_1',
 			expect.objectContaining({
 				awaitingAdminResponse: false,
@@ -161,7 +162,7 @@ describe('sendAdminReply', () => {
 				lastAdminReplyMessageId: 'm1'
 			})
 		);
-		const patch = ctx.db.patch.mock.calls[0][1];
+		const patch = ctx.db.patch.mock.calls[0][2];
 		expect(patch.updatedAt).toBe(patch.lastAdminReplyAt);
 	});
 
@@ -171,6 +172,7 @@ describe('sendAdminReply', () => {
 		await replyHandler._handler(ctx, { threadId: 't1', prompt: 'another reply' });
 
 		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'supportThreads',
 			'st_1',
 			expect.objectContaining({ unreadAdminReplyCount: 2 })
 		);
@@ -182,6 +184,7 @@ describe('sendAdminReply', () => {
 		await replyHandler._handler(ctx, { threadId: 't1', prompt: 'another reply' });
 
 		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'supportThreads',
 			'st_1',
 			expect.objectContaining({ unreadAdminReplyCount: 4 })
 		);
@@ -204,7 +207,7 @@ describe('sendAdminReply', () => {
 				messagePreview: `${'a'.repeat(199)}…`
 			})
 		);
-		expect(ctx.db.patch.mock.calls[0][1]).not.toHaveProperty('notificationSentAt');
+		expect(ctx.db.patch.mock.calls[0][2]).not.toHaveProperty('notificationSentAt');
 	});
 
 	it('does not suppress a later reply before a notification enqueue commits', async () => {
@@ -220,7 +223,7 @@ describe('sendAdminReply', () => {
 			(call) => call[1] === 'internal.emails.send.sendAdminReplyNotification'
 		);
 		expect(emailSchedules).toHaveLength(2);
-		expect(ctx.db.patch.mock.calls[0][1]).not.toHaveProperty('notificationSentAt');
-		expect(ctx.db.patch.mock.calls[1][1]).not.toHaveProperty('notificationSentAt');
+		expect(ctx.db.patch.mock.calls[0][2]).not.toHaveProperty('notificationSentAt');
+		expect(ctx.db.patch.mock.calls[1][2]).not.toHaveProperty('notificationSentAt');
 	});
 });

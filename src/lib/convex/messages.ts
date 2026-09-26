@@ -110,9 +110,9 @@ export const removeMessage = internalMutation({
 	args: { messageId: v.id('messages') },
 	returns: v.null(),
 	handler: async (ctx, { messageId }) => {
-		const message = await ctx.db.get(messageId);
+		const message = await ctx.db.get('messages', messageId);
 		if (message) {
-			await ctx.db.delete(messageId);
+			await ctx.db.delete('messages', messageId);
 		}
 		return null;
 	}

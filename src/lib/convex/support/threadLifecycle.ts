@@ -140,5 +140,5 @@ export async function syncSupportLastMessage(ctx: MutationCtx, threadId: string)
 		latestMessage
 	});
 
-	await ctx.db.patch(supportThread._id, { ...patch, updatedAt: Date.now() });
+	await ctx.db.patch('supportThreads', supportThread._id, { ...patch, updatedAt: Date.now() });
 }

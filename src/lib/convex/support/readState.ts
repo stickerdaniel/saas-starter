@@ -86,7 +86,7 @@ export const markThreadRead = mutation({
 		}
 
 		// Reading is not thread activity, so it must not reorder either inbox.
-		await ctx.db.patch(supportThread._id, {
+		await ctx.db.patch('supportThreads', supportThread._id, {
 			userReadAt: Date.now(),
 			hasUnreadAdminReply: false,
 			unreadAdminReplyCount: 0

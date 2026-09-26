@@ -110,7 +110,7 @@ describe('removeMessage', () => {
 
 		await removeHandler._handler(ctx, { messageId: 'msg_1' });
 
-		expect(del).toHaveBeenCalledWith('msg_1');
+		expect(del).toHaveBeenCalledWith('messages', 'msg_1');
 	});
 
 	it('is a no-op when the message is already gone', async () => {

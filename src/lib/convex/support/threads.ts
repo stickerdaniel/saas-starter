@@ -89,7 +89,7 @@ export const getOrCreateWarmThread = mutation({
 
 		if (existingWarm) {
 			if (args.pageUrl && existingWarm.pageUrl !== args.pageUrl) {
-				await ctx.db.patch(existingWarm._id, {
+				await ctx.db.patch('supportThreads', existingWarm._id, {
 					pageUrl: args.pageUrl,
 					updatedAt: Date.now()
 				});
@@ -350,7 +350,7 @@ export const updateThreadHandoff = mutation({
 		});
 
 		// Mark as handed off - user is waiting for admin response
-		await ctx.db.patch(supportThread._id, {
+		await ctx.db.patch('supportThreads', supportThread._id, {
 			isHandedOff: true,
 			awaitingAdminResponse: true,
 			updatedAt: Date.now()
@@ -457,7 +457,7 @@ export const updateNotificationEmail = mutation({
 			anonymousUserId: args.anonymousUserId
 		});
 
-		await ctx.db.patch(supportThread._id, {
+		await ctx.db.patch('supportThreads', supportThread._id, {
 			notificationEmail: normalizeNotificationEmail(args.email),
 			updatedAt: Date.now()
 		});

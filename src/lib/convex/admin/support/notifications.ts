@@ -99,7 +99,7 @@ export const scheduleAdminNotification = internalMutation({
 
 			// Writing scheduledFnId also evicts an in-flight sender: a send owns the row
 			// only while it is unscheduled, so this patch hands ownership to the new job.
-			await ctx.db.patch(existing._id, {
+			await ctx.db.patch('pendingAdminNotifications', existing._id, {
 				messageIds: updatedMessageIds,
 				scheduledFor,
 				scheduledFnId: newScheduledFnId,
@@ -129,7 +129,7 @@ export const scheduleAdminNotification = internalMutation({
 			);
 
 			// Update with the scheduled function ID
-			await ctx.db.patch(notificationId, {
+			await ctx.db.patch('pendingAdminNotifications', notificationId, {
 				scheduledFnId
 			});
 		}
@@ -367,7 +367,7 @@ export const claimNotificationForSending = internalMutation({
 		v.null()
 	),
 	handler: async (ctx, args) => {
-		const notification = await ctx.db.get(args.notificationId);
+		const notification = await ctx.db.get('pendingAdminNotifications', args.notificationId);
 
 		// Not found or already claimed (scheduledFnId is undefined when claimed)
 		if (!notification || notification.scheduledFnId === undefined) {
@@ -376,7 +376,9 @@ export const claimNotificationForSending = internalMutation({
 
 		// Clear scheduledFnId to claim ownership atomically
 		// This prevents other actions from claiming this notification
-		await ctx.db.patch(args.notificationId, { scheduledFnId: undefined });
+		await ctx.db.patch('pendingAdminNotifications', args.notificationId, {
+			scheduledFnId: undefined
+		});
 
 		return {
 			threadId: notification.threadId,
@@ -428,7 +430,7 @@ export const deletePendingNotification = internalMutation({
 	},
 	returns: v.boolean(),
 	handler: async (ctx, args) => {
-		const notification = await ctx.db.get(args.notificationId);
+		const notification = await ctx.db.get('pendingAdminNotifications', args.notificationId);
 
 		// Not found - already deleted
 		if (!notification) {
@@ -440,7 +442,7 @@ export const deletePendingNotification = internalMutation({
 			return false;
 		}
 
-		await ctx.db.delete(args.notificationId);
+		await ctx.db.delete('pendingAdminNotifications', args.notificationId);
 		return true;
 	}
 });
@@ -465,7 +467,7 @@ export const reschedulePendingNotification = internalMutation({
 	},
 	returns: v.boolean(),
 	handler: async (ctx, args) => {
-		const notification = await ctx.db.get(args.notificationId);
+		const notification = await ctx.db.get('pendingAdminNotifications', args.notificationId);
 
 		if (!notification) {
 			return false;
@@ -487,7 +489,7 @@ export const reschedulePendingNotification = internalMutation({
 		);
 
 		// Update notification with new scheduled function ID and incremented retry count
-		await ctx.db.patch(args.notificationId, {
+		await ctx.db.patch('pendingAdminNotifications', args.notificationId, {
 			scheduledFor: Date.now() + delayMs,
 			scheduledFnId: newScheduledFnId,
 			retryCount: nextRetryCount
@@ -518,7 +520,7 @@ export const getNotificationTargetEmails = internalQuery({
 	},
 	returns: v.array(v.string()),
 	handler: async (ctx, args) => {
-		// Bounded: adminNotificationPreferences table is small (admin users + custom emails, typically <100 rows)
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: adminNotificationPreferences is small (admin users + custom emails, typically <100 rows)
 		const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
 
 		// Map notification type to field name
@@ -673,7 +675,7 @@ export const cancelPendingNotification = internalMutation({
 		}
 
 		// Delete the pending notification
-		await ctx.db.delete(pending._id);
+		await ctx.db.delete('pendingAdminNotifications', pending._id);
 		return true;
 	}
 });

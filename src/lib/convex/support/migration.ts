@@ -36,10 +36,10 @@ export const migrateAnonymousTickets = mutation({
 			throw createSupportError(SUPPORT_ERROR_CODES.anonymousUserInvalid);
 		}
 
-		// Bounded: per-user index scan, a single anonymous user's support threads are few
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: per-user index scan, a single anonymous user's support threads are few; the atomic migration must move all of them
 		const supportThreads = await ctx.db
 			.query('supportThreads')
-			.withIndex('by_user', (q) => q.eq('userId', args.anonymousUserId))
+			.withIndex('by_user_warm', (q) => q.eq('userId', args.anonymousUserId))
 			.collect();
 
 		if (supportThreads.length === 0) {
@@ -62,7 +62,7 @@ export const migrateAnonymousTickets = mutation({
 					continue;
 				}
 
-				await ctx.db.delete(supportThread._id);
+				await ctx.db.delete('supportThreads', supportThread._id);
 				continue;
 			}
 
@@ -74,7 +74,7 @@ export const migrateAnonymousTickets = mutation({
 
 			// Update supportThreads.userId and enrich with user data.
 			// Rebuild searchText so the migrated thread is searchable by the new identity.
-			await ctx.db.patch(supportThread._id, {
+			await ctx.db.patch('supportThreads', supportThread._id, {
 				userId: authUserId,
 				userName: authUserName,
 				userEmail: authUserEmail,

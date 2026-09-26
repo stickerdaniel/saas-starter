@@ -187,7 +187,7 @@ export const sendMessage = mutation({
 		// Check if this is a reopened ticket (was closed, now being reopened)
 		const wasClosedBeforeThisMessage = supportThread.status === 'done';
 
-		await ctx.db.patch(supportThread._id, {
+		await ctx.db.patch('supportThreads', supportThread._id, {
 			isWarm: wasWarmThread ? false : supportThread.isWarm,
 			status: 'open',
 			// Latch the mode onto the record so the widget stops offering the AI

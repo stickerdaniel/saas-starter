@@ -47,7 +47,7 @@ export const updateThreadAssignment = adminMutation({
 		}
 
 		// Update assignedTo
-		await ctx.db.patch(supportThread._id, {
+		await ctx.db.patch('supportThreads', supportThread._id, {
 			assignedTo: args.adminUserId,
 			updatedAt: Date.now()
 		});
@@ -90,7 +90,7 @@ export const updateThreadStatus = adminMutation({
 			throw createAdminSupportError(ADMIN_SUPPORT_ERROR_CODES.threadNotFound);
 		}
 
-		await ctx.db.patch(supportThread._id, {
+		await ctx.db.patch('supportThreads', supportThread._id, {
 			status: args.status,
 			updatedAt: Date.now()
 		});
@@ -133,7 +133,7 @@ export const updateThreadPriority = adminMutation({
 			throw createAdminSupportError(ADMIN_SUPPORT_ERROR_CODES.threadNotFound);
 		}
 
-		await ctx.db.patch(supportThread._id, {
+		await ctx.db.patch('supportThreads', supportThread._id, {
 			priority: args.priority,
 			updatedAt: Date.now()
 		});
@@ -255,7 +255,7 @@ export const sendAdminReply = adminMutation({
 
 		// Update the reply state. The scheduled email mutation owns the cooldown
 		// timestamp so only a committed provider enqueue can consume it.
-		await ctx.db.patch(supportThread._id, {
+		await ctx.db.patch('supportThreads', supportThread._id, {
 			awaitingAdminResponse: false, // Admin has responded, user is no longer waiting
 			lastAdminReplyAt: replyTimestamp,
 			lastAdminReplyMessageId: result.messageId,

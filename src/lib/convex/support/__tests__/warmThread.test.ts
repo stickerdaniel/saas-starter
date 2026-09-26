@@ -104,7 +104,7 @@ describe('support warm thread acquisition', () => {
 		// The reuse branch must not consume a rate-limit token, otherwise
 		// warm-thread polling would drain the thread-creation bucket
 		expect(limitMock).not.toHaveBeenCalled();
-		expect(patch).toHaveBeenCalledWith('support_doc_1', {
+		expect(patch).toHaveBeenCalledWith('supportThreads', 'support_doc_1', {
 			pageUrl: 'https://example.com/new',
 			updatedAt: expect.any(Number)
 		});
