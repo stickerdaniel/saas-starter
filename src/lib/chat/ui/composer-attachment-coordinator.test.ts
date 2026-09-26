@@ -141,6 +141,39 @@ describe('ComposerAttachmentCoordinator', () => {
 		});
 	});
 
+	it('uploads a prepared screenshot unchanged and cancels it on removal', async () => {
+		uploadFileWithProgress.mockImplementationOnce(() => new Promise(() => {}));
+		const coordinator = coordinatorAt({ current: 'thread-a' });
+		const blob = new Blob(['edited screenshot'], { type: 'image/png' });
+
+		void coordinator.uploadScreenshot(blob, 'shot.png', { width: 640, height: 480 });
+
+		expect(coordinator.attachments).toMatchObject([
+			{
+				type: 'screenshot',
+				name: 'shot.png',
+				size: blob.size,
+				mimeType: 'image/png',
+				width: 640,
+				height: 480,
+				uploadState: { status: 'uploading' }
+			}
+		]);
+		await vi.waitFor(() => expect(uploadFileWithProgress).toHaveBeenCalledOnce());
+		const [, payload, filename, , , dimensions, , signal] = uploadFileWithProgress.mock
+			.calls[0] as [unknown, Blob, string, unknown, unknown, unknown, unknown, AbortSignal];
+		expect(payload.type).toBe('image/png');
+		expect(await payload.text()).toBe('edited screenshot');
+		expect(filename).toBe('shot.png');
+		expect(dimensions).toEqual({ width: 640, height: 480 });
+		expect(signal.aborted).toBe(false);
+
+		coordinator.removeAttachment(0);
+
+		expect(coordinator.attachments).toEqual([]);
+		expect(signal.aborted).toBe(true);
+	});
+
 	it('owns the pick-time attachment cap even when called without ChatInput', async () => {
 		const coordinator = coordinatorAt({ current: 'thread-a' });
 		coordinator.addAttachments(

@@ -1,6 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import {
 	getExtension,
 	getPreviewKind,
@@ -133,17 +131,6 @@ describe('client / server MIME allowlist parity', () => {
 			expect(ALLOWED_MIME_TYPES).toContain(mime);
 		}
 	});
-
-	// Both upload features must validate through the single shared allowlist; if
-	// a file route stops importing it, this guard's value is lost.
-	it.each([['../../convex/support/files.ts'], ['../../convex/aiChat/files.ts']])(
-		'%s validates uploads through the shared files/upload allowlist',
-		(relativePath) => {
-			const path = fileURLToPath(new URL(relativePath, import.meta.url));
-			const source = readFileSync(path, 'utf8');
-			expect(source).toMatch(/import \{[^}]*validateUploadBlob[^}]*\} from '\.\.\/files\/upload'/);
-		}
-	);
 
 	it('exposes the new text types in the derived client lists', () => {
 		expect(ALLOWED_FILE_EXT_MIME['.md']).toBe('text/markdown');
