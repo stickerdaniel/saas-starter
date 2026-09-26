@@ -98,6 +98,7 @@ async function captureCli(
 afterEach(() => {
 	for (const directory of fixtures.splice(0)) rmSync(directory, { recursive: true, force: true });
 	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
 });
 
 describe('pull request metadata policy', () => {
@@ -254,31 +255,51 @@ describe('pull request metadata policy', () => {
 		expect(output).not.toContain(foreignFixtures.german);
 	});
 
-	it('classifies the fetched document instead of the edited event snapshot', async () => {
-		const number = 42;
-		const eventPath = fixture(trigger(number, foreignFixtures.german, foreignFixtures.french));
-		const requestUrl = currentPullRequestUrl(API_URL, REPOSITORY, number);
-		const fetcher = vi.fn<PullRequestFetch>(async (input, init) => {
+	it.each([
+		['GH_TOKEN', { GH_TOKEN: 'synthetic-gh-token', GITHUB_TOKEN: undefined }],
+		['GITHUB_TOKEN', { GH_TOKEN: undefined, GITHUB_TOKEN: 'synthetic-github-token' }],
+		[
+			'GH_TOKEN and GITHUB_TOKEN',
+			{ GH_TOKEN: 'synthetic-gh-token', GITHUB_TOKEN: 'synthetic-github-token' }
+		]
+	] as const)(
+		'classifies the fetched document anonymously even with %s set',
+		async (_label, tokens) => {
+			for (const [name, value] of Object.entries(tokens)) vi.stubEnv(name, value);
+			const number = 42;
+			const eventPath = fixture(trigger(number, foreignFixtures.german, foreignFixtures.french));
+			const requestUrl = currentPullRequestUrl(API_URL, REPOSITORY, number);
+			const requests: Array<{ input: string; init: RequestInit }> = [];
+			const fetcher: PullRequestFetch = async (input, init) => {
+				requests.push({ input, init });
+				return response(
+					requestUrl,
+					currentDocument(number, 'fix(auth): Reset password', 'This body is current and English.')
+				);
+			};
+			const result = await captureCli({
+				eventPath,
+				repository: REPOSITORY,
+				apiUrl: API_URL,
+				fetcher
+			});
+			expect(result.status).toBe(0);
+			expect(result.output).toContain('English policy passed');
+			expect(result.output).not.toContain(foreignFixtures.german);
+			expect(result.output).not.toContain(foreignFixtures.french);
+
+			expect(requests).toHaveLength(1);
+			const [{ input, init }] = requests;
+			const headers = new Headers(init.headers);
 			expect(input).toBe(requestUrl);
 			expect(init).toMatchObject({ method: 'GET', redirect: 'error' });
-			expect(Object.keys(init.headers as Record<string, string>)).not.toContain('Authorization');
-			return response(
-				requestUrl,
-				currentDocument(number, 'fix(auth): Reset password', 'This body is current and English.')
-			);
-		});
-		const result = await captureCli({
-			eventPath,
-			repository: REPOSITORY,
-			apiUrl: API_URL,
-			fetcher
-		});
-		expect(result.status).toBe(0);
-		expect(fetcher).toHaveBeenCalledOnce();
-		expect(result.output).toContain('English policy passed');
-		expect(result.output).not.toContain(foreignFixtures.german);
-		expect(result.output).not.toContain(foreignFixtures.french);
-	});
+			expect(headers.has('authorization')).toBe(false);
+			const request = [input, ...[...headers].flat(), result.output].join('\n');
+			for (const token of Object.values(tokens).filter(Boolean)) {
+				expect(request).not.toContain(token);
+			}
+		}
+	);
 
 	it('fails closed on current fetched metadata without printing it', async () => {
 		const number = 43;
@@ -341,7 +362,7 @@ describe('pull request metadata policy', () => {
 		);
 	});
 
-	it('bounds and identity-checks the trusted current-document file', () => {
+	it('bounds and identity-checks the trusted current-document file', async () => {
 		const number = 49;
 		expect(
 			readCurrentPullRequest(fixture(currentDocument(number, 'Fix API', null)), number, REPOSITORY)
@@ -377,9 +398,24 @@ describe('pull request metadata policy', () => {
 		malformedBytes[titleOffset] = 0xff;
 		writeFileSync(malformedUtf8, malformedBytes);
 		expect(() => readCurrentPullRequest(malformedUtf8, number, REPOSITORY)).toThrow();
-		expect(() =>
-			readCurrentPullRequest(fixture('x'.repeat(2 * 1024 * 1024 + 1)), number, REPOSITORY)
-		).toThrow('exceeds the inspection limit');
+		const sentinel = 'Oversized current metadata sentinel';
+		const oversized = fixture({
+			...currentDocument(number, 'Fix API', sentinel),
+			padding: 'x'.repeat(2 * 1024 * 1024)
+		});
+		expect(() => readCurrentPullRequest(oversized, number, REPOSITORY)).toThrow(
+			'exceeds the inspection limit'
+		);
+		const result = await captureCli({
+			eventPath: fixture(trigger(number)),
+			prJsonPath: oversized,
+			repository: REPOSITORY
+		});
+		expect(result.status).toBe(1);
+		expect(result.output).toBe(
+			'English policy failed: current pull request metadata could not be read or validated.'
+		);
+		expect(result.output).not.toContain(sentinel);
 	});
 
 	it('fails closed on malformed event JSON', () => {
