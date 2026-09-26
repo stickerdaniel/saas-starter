@@ -251,43 +251,6 @@ describe('customer support diagnostics', () => {
 		expect(consoleOutput()).not.toContain(secret);
 	});
 
-	it('clears the anonymous identity only after the last migration page', async () => {
-		state.auth.isAuthenticated = true;
-		state.session = { user: { id: 'user-1' } };
-		state.supportUserId.current = 'anon_visitor';
-		vi.mocked(client.mutation)
-			.mockResolvedValueOnce({ migratedCount: 100, done: false })
-			.mockResolvedValueOnce({ migratedCount: 5, done: true });
-		component = mount(ChatTestProvider<Record<string, never>>, {
-			target: document.body,
-			props: { client, content: SupportTicketMigrationBootstrap, contentProps: {} }
-		});
-
-		await vi.waitFor(() => expect(state.supportUserId.current).toBeNull());
-		expect(client.mutation).toHaveBeenCalledTimes(2);
-		expect(vi.mocked(client.mutation).mock.calls[1]![1]).toEqual({
-			anonymousUserId: 'anon_visitor'
-		});
-	});
-
-	it('keeps the anonymous identity when the migration does not finish', async () => {
-		state.auth.isAuthenticated = true;
-		state.session = { user: { id: 'user-1' } };
-		state.supportUserId.current = 'anon_visitor';
-		vi.mocked(client.mutation).mockResolvedValue({ migratedCount: 100, done: false });
-		component = mount(ChatTestProvider<Record<string, never>>, {
-			target: document.body,
-			props: { client, content: SupportTicketMigrationBootstrap, contentProps: {} }
-		});
-
-		await vi.waitFor(() =>
-			expect(console.error).toHaveBeenCalledExactlyOnceWith(
-				'[SupportMigration.migrateAnonymousTickets] Unfinished'
-			)
-		);
-		expect(state.supportUserId.current).toBe('anon_visitor');
-	});
-
 	describe('screenshot editor', () => {
 		const onCaptureError = vi.fn();
 		let editor: ReturnType<typeof screenshotEditorContext.get>;

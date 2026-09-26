@@ -5,31 +5,27 @@ import { isAnonymousUser } from '../utils/anonymousUser';
 import { supportAgent } from './agent';
 import { buildSupportSearchText } from './denormalization';
 import { SUPPORT_ERROR_CODES, createSupportError } from './errors';
-import { SUPPORT_THREAD_BATCH_SIZE } from './threadMaintenance';
 
 /**
  * Migrate anonymous support tickets to an authenticated user account.
  *
  * Called from the client when a user logs in or signs up while having
- * anonymous support tickets stored in localStorage. The client calls again
- * until `done` is true and only then forgets the anonymous ID.
+ * anonymous support tickets stored in localStorage.
  *
  * This mutation:
  * 1. Verifies the caller is authenticated
  * 2. Validates the anonymous user ID format
- * 3. Finds one page of supportThreads belonging to the anonymous user
+ * 3. Finds all supportThreads belonging to the anonymous user
  * 4. Updates both agent:threads and supportThreads with the authenticated userId
  * 5. Enriches threads with user profile data (name, email)
  *
  * @security Only authenticated users can call this mutation.
  *           The anonymous ID must have valid anon_ prefix.
- *           Each call is atomic (via Convex mutation transactions) for its page of up to
- *           SUPPORT_THREAD_BATCH_SIZE threads: all of them migrate or none do.
- *           migratedCount counts this call's page only.
+ *           Migration is atomic (via Convex mutation transactions) - all threads migrate or none do.
  */
 export const migrateAnonymousTickets = mutation({
 	args: { anonymousUserId: v.string() },
-	returns: v.object({ migratedCount: v.number(), done: v.boolean() }),
+	returns: v.object({ migratedCount: v.number() }),
 	handler: async (ctx, args) => {
 		// 1. Verify caller is authenticated.
 		// getAuthUser throws ConvexError('Unauthenticated') when there is no user
@@ -40,16 +36,18 @@ export const migrateAnonymousTickets = mutation({
 			throw createSupportError(SUPPORT_ERROR_CODES.anonymousUserInvalid);
 		}
 
-		// Every migrated or deleted thread leaves this index range, so the next
-		// call's first page starts where this one stopped.
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: anonymous threads come from one global creation bucket (100/hour for all visitors); the migration stays atomic so every thread goes to one account (see #1029)
 		const supportThreads = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_user_warm', (q) => q.eq('userId', args.anonymousUserId))
-			.take(SUPPORT_THREAD_BATCH_SIZE);
+			.collect();
+
+		if (supportThreads.length === 0) {
+			return { migratedCount: 0 };
+		}
 
 		// Extract auth data for use in loop
 		const { _id: authUserId, name: authUserName, email: authUserEmail } = authUser;
-		let removedCount = 0;
 
 		// 4. Update each thread
 		for (const supportThread of supportThreads) {
@@ -65,7 +63,6 @@ export const migrateAnonymousTickets = mutation({
 				}
 
 				await ctx.db.delete('supportThreads', supportThread._id);
-				removedCount++;
 				continue;
 			}
 
@@ -92,16 +89,10 @@ export const migrateAnonymousTickets = mutation({
 				notificationEmail: supportThread.notificationEmail || authUserEmail,
 				updatedAt: Date.now()
 			});
-			removedCount++;
 		}
 
 		return {
-			migratedCount: supportThreads.filter((supportThread) => !supportThread.isWarm).length,
-			// A warm thread whose deletion failed stays under the anonymous ID. A full
-			// page that removed nothing would be read again unchanged, so it ends the
-			// migration. Warm threads sort after every other thread in by_user_warm,
-			// so only empty warm threads can be left, and deleteEmptyThreads sweeps them.
-			done: supportThreads.length < SUPPORT_THREAD_BATCH_SIZE || removedCount === 0
+			migratedCount: supportThreads.filter((supportThread) => !supportThread.isWarm).length
 		};
 	}
 });

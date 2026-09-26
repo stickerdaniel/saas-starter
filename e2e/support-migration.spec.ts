@@ -12,9 +12,8 @@ import { waitForAuthenticated } from './utils/auth';
  * Tests the flow where:
  * 1. Anonymous user creates 105 support tickets (stored with localStorage ID)
  * 2. User authenticates (signs in)
- * 3. System automatically migrates ALL tickets to authenticated account (the client
- *    calls once per 100-thread page, so 105 tickets take two calls)
- * 4. localStorage supportUserId is cleared, only after the last page
+ * 3. System automatically migrates ALL tickets to authenticated account (tests pagination)
+ * 4. localStorage supportUserId is cleared
  * 5. Database shows threads now belong to authenticated user with enriched data
  */
 

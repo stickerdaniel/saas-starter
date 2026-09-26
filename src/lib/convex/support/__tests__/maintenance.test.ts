@@ -59,7 +59,7 @@ const backfillThreadMetadataHandler = backfillThreadMetadata as unknown as Mutat
 >;
 const migrateAnonymousTicketsHandler = migrateAnonymousTickets as unknown as MutationHandler<
 	{ anonymousUserId: string },
-	{ migratedCount: number; done: boolean }
+	{ migratedCount: number }
 >;
 const syncUserProfileHandler = syncUserProfile as unknown as MutationHandler<
 	{ userId: string; userName?: string; userEmail?: string; cursor?: string },
@@ -81,46 +81,6 @@ function paginateOver<T>(threads: T[]) {
 
 function threadRows(count: number) {
 	return Array.from({ length: count }, (_, i) => ({ _id: `doc_${i}`, threadId: `thread_${i}` }));
-}
-
-type StoredThread = { _id: string; threadId: string; userId: string; isWarm?: boolean };
-
-/**
- * supportThreads for `withIndex('by_user_warm', (q) => q.eq('userId', id)).take(n)`,
- * warm threads last as in that index. A patched userId or a deleted row leaves the
- * range, as it does in Convex.
- */
-function threadStore(rows: StoredThread[]) {
-	const byId = new Map(rows.map((row) => [row._id, { ...row }]));
-	const inRange = (userId: string) =>
-		[...byId.values()]
-			.filter((row) => row.userId === userId)
-			.sort((a, b) => Number(a.isWarm === true) - Number(b.isWarm === true));
-	const db = {
-		query: () => ({
-			withIndex: (_index: string, range: (q: { eq: (f: string, v: string) => void }) => void) => {
-				let userId = '';
-				range({ eq: (_field, value) => void (userId = value) });
-				return { take: async (n: number) => inRange(userId).slice(0, n) };
-			}
-		}),
-		patch: vi.fn(async (_table: string, id: string, fields: Partial<StoredThread>) => {
-			Object.assign(byId.get(id)!, fields);
-		}),
-		delete: vi.fn(async (_table: string, id: string) => {
-			byId.delete(id);
-		})
-	};
-	return { db, inRange };
-}
-
-function anonymousRows(count: number, isWarm?: boolean): StoredThread[] {
-	return Array.from({ length: count }, (_, i) => ({
-		_id: `doc_${i}`,
-		threadId: `thread_${i}`,
-		userId: 'anon_123',
-		isWarm
-	}));
 }
 
 /** Runs every scheduled continuation, including ones scheduled by a continuation. */
@@ -342,7 +302,7 @@ describe('support maintenance helpers', () => {
 			email: 'ada@example.com'
 		});
 
-		const take = vi.fn().mockResolvedValue([
+		const collect = vi.fn().mockResolvedValue([
 			{
 				_id: 'support_doc_1',
 				threadId: 'thread_support_1',
@@ -369,7 +329,7 @@ describe('support maintenance helpers', () => {
 			db: {
 				query: vi.fn(() => ({
 					withIndex: vi.fn(() => ({
-						take
+						collect
 					}))
 				})),
 				patch,
@@ -381,7 +341,7 @@ describe('support maintenance helpers', () => {
 			anonymousUserId: 'anon_123'
 		});
 
-		expect(result).toEqual({ migratedCount: 2, done: true });
+		expect(result).toEqual({ migratedCount: 2 });
 		expect(deleteThreadAsyncMock).toHaveBeenCalledWith(ctx, {
 			threadId: 'thread_support_warm'
 		});
@@ -412,42 +372,5 @@ describe('support maintenance helpers', () => {
 			updatedAt: expect.any(Number)
 		});
 		expect(deleteDoc).toHaveBeenCalledWith('supportThreads', 'support_doc_warm');
-	});
-
-	it('moves one page per call and reports done once no threads remain', async () => {
-		getAuthUserMock.mockResolvedValue({ _id: 'user_1', name: 'Ada', email: 'ada@example.com' });
-		const store = threadStore(anonymousRows(150));
-		const ctx = { db: store.db };
-		const migrate = () =>
-			migrateAnonymousTicketsHandler._handler(ctx, { anonymousUserId: 'anon_123' });
-
-		expect(await migrate()).toEqual({ migratedCount: 100, done: false });
-		expect(store.inRange('user_1')).toHaveLength(100);
-		expect(store.inRange('anon_123')).toHaveLength(50);
-
-		expect(await migrate()).toEqual({ migratedCount: 50, done: true });
-		expect(store.inRange('user_1')).toHaveLength(150);
-		expect(store.inRange('anon_123')).toHaveLength(0);
-	});
-
-	it('reports done when a full page holds only warm threads it cannot delete', async () => {
-		getAuthUserMock.mockResolvedValue({ _id: 'user_1', name: 'Ada', email: 'ada@example.com' });
-		deleteThreadAsyncMock.mockRejectedValue(new Error('agent unavailable'));
-		const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-		try {
-			const store = threadStore(anonymousRows(100, true));
-
-			const result = await migrateAnonymousTicketsHandler._handler(
-				{ db: store.db },
-				{ anonymousUserId: 'anon_123' }
-			);
-
-			// Calling again would read the same page, so the client must stop here
-			expect(result).toEqual({ migratedCount: 0, done: true });
-			expect(store.inRange('anon_123')).toHaveLength(100);
-		} finally {
-			deleteThreadAsyncMock.mockReset();
-			log.mockRestore();
-		}
 	});
 });
