@@ -9,6 +9,9 @@
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 	import { supportUserId } from './support-user-id.svelte.ts';
 
+	// Bounds one login's calls; each call moves up to 100 threads.
+	const MAX_MIGRATION_CALLS = 50;
+
 	const auth = useAuth();
 	const convexClient = useConvexClient();
 	const attemptedSessionKeys = new SvelteSet<string>();
@@ -52,19 +55,27 @@
 
 		attemptedSessionKeys.add(sessionKey);
 
-		convexClient
-			.mutation(api.support.migration.migrateAnonymousTickets, {
-				anonymousUserId: anonymousId
-			})
-			.then(function onMigrationSuccess() {
-				// Update in-memory state via PersistedState (keeps reactive readers consistent),
-				// then drop the storage entry — PersistedState.current = null serializes to the
-				// 'null' literal which would leave litter in localStorage forever.
-				supportUserId.current = null;
-				localStorage.removeItem('supportUserId');
-			})
-			.catch(function onMigrationError() {
-				console.error('[SupportMigration.migrateAnonymousTickets] Failed');
-			});
+		migrateAllPages(anonymousId).catch(function onMigrationError() {
+			console.error('[SupportMigration.migrateAnonymousTickets] Failed');
+		});
 	});
+
+	// Each call moves one page. The anonymous ID is forgotten only once the last
+	// page has moved, so a failed or unfinished run resumes at the next login.
+	async function migrateAllPages(anonymousId: string): Promise<void> {
+		for (let call = 0; call < MAX_MIGRATION_CALLS; call++) {
+			const { done } = await convexClient.mutation(api.support.migration.migrateAnonymousTickets, {
+				anonymousUserId: anonymousId
+			});
+			if (!done) continue;
+
+			// Update in-memory state via PersistedState (keeps reactive readers consistent),
+			// then drop the storage entry — PersistedState.current = null serializes to the
+			// 'null' literal which would leave litter in localStorage forever.
+			supportUserId.current = null;
+			localStorage.removeItem('supportUserId');
+			return;
+		}
+		console.error('[SupportMigration.migrateAnonymousTickets] Unfinished');
+	}
 </script>
