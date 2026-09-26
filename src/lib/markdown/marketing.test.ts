@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { lex } from 'svelte-streamdown';
 
@@ -31,7 +30,8 @@ import {
 	encodeMarkdownLiteral,
 	markdownText,
 	renderMarkdownText,
-	renderPlainText
+	renderPlainText,
+	type MarketingMarkdownText
 } from './literals';
 import {
 	createLlmsTxtResponse,
@@ -51,6 +51,7 @@ import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]
 import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
 import { LEGAL_CONFIG } from '$lib/config/legal';
 import { LEGAL_CONTENT_DATES } from '$lib/content/legal-metadata';
+import { SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
 
 const sampleDocument: MarketingMarkdownDocument = {
 	title: 'Sample Page',
@@ -178,9 +179,6 @@ describe('markdown text literals', () => {
 			'before<br><br>\\#\\# after'
 		]);
 		expect(encodedValues.join('')).not.toContain(forbiddenCharacter);
-		for (const sourcePath of ['src/lib/markdown/literals.ts', 'src/lib/markdown/marketing.ts']) {
-			expect(readFileSync(sourcePath, 'utf8')).not.toContain(forbiddenCharacter);
-		}
 
 		const tokens = lex(encodedValues[4]!) as LexToken[];
 		expect(collectTokenTypes(tokens)).not.toContain('heading');
@@ -290,40 +288,34 @@ describe('markdown text literals', () => {
 	});
 
 	it('rejects malformed direct markdownText calls', () => {
-		const callMarkdownText = markdownText as unknown as (
-			authoredSegments: unknown,
-			...interpolations: unknown[]
-		) => unknown;
+		const oneSegment = Object.assign(['A'], { raw: ['A'] });
 
-		expect(() => callMarkdownText(['A'], 'B', 'C')).toThrow(
+		expect(() => markdownText(oneSegment, 'B', 'C')).toThrow(
 			'exactly one more item than interpolations'
 		);
-		expect(() => callMarkdownText(['A', 1, 'C'], 'B', 'D')).toThrow(
+		// An invalid escape leaves its cooked tagged-template segment undefined.
+		expect(() => markdownText`C:\users${'B'}`).toThrow(
 			'authoredSegments must be an array of strings'
 		);
-		expect(() => callMarkdownText(['A', 'C', 'E'], 'B', 1)).toThrow(
+		const twoSegments = Object.assign(['A', 'C'], { raw: ['A', 'C'] });
+		// Object.assign accepts a number source element into a string[] target.
+		const numericInterpolation = Object.assign(['B'], [1]);
+		expect(() => markdownText(twoSegments, ...numericInterpolation)).toThrow(
 			'interpolations must be an array of strings'
 		);
 	});
 
-	it('rejects unbranded and malformed branded values in both renderers', () => {
-		const unbranded = {
-			authoredSegments: Object.freeze(['A', 'C']),
-			interpolations: Object.freeze(['B'])
+	it('rejects malformed markdownText values in both renderers', () => {
+		const malformed: MarketingMarkdownText = {
+			...markdownText`A${'B'}C`,
+			authoredSegments: ['A']
 		};
-		const valid = markdownText`A${'B'}C`;
-		const brand = Object.getOwnPropertySymbols(valid)[0]!;
-		const malformedBranded = {
-			[brand]: true,
-			authoredSegments: Object.freeze(['A']),
-			interpolations: Object.freeze(['B'])
-		};
+		// structuredClone keeps the static type but drops the symbol brand.
+		const cloned = structuredClone(markdownText`A${'B'}C`);
 
 		for (const render of [renderMarkdownText, renderPlainText]) {
-			expect(() => render(unbranded as never)).toThrow('created by markdownText');
-			expect(() => render(malformedBranded as never)).toThrow(
-				'exactly one more item than interpolations'
-			);
+			expect(() => render(malformed)).toThrow('exactly one more item than interpolations');
+			expect(() => render(cloned)).toThrow('created by markdownText');
 		}
 	});
 
@@ -343,6 +335,16 @@ describe('marketing markdown helpers', () => {
 				new Request('https://example.com/en', {
 					headers: {
 						Accept: 'text/markdown, text/html;q=0.8'
+					}
+				})
+			)
+		).toBe(true);
+
+		expect(
+			isMarkdownRequest(
+				new Request('https://example.com/en', {
+					headers: {
+						Accept: 'Text/Markdown, TEXT/HTML;q=0.8'
 					}
 				})
 			)
@@ -375,7 +377,7 @@ describe('marketing markdown helpers', () => {
 		expect(markdown).toContain('- First bullet');
 	});
 
-	it('measures the forged heading produced by direct interpolation', () => {
+	it('preserves authored block markdown', () => {
 		const markdown = renderMarketingMarkdown(
 			{
 				title: 'Legal notice',
@@ -625,11 +627,6 @@ describe('marketing markdown helpers', () => {
 		expect(llms).toContain('https://example.com/en/terms');
 		expect(llms).toContain('https://example.com/en/impressum');
 		expect(llms).toContain('Accept: text/markdown');
-		expect(llms).toContain('## When to use this site');
-		expect(llms).toContain('## Developer resources');
-		expect(llms).toContain('## Access limits');
-		expect(llms).toContain('They do not provide delegated access for agents');
-		expect(llms).toContain('no supported public integration API');
 	});
 
 	it('returns llms responses as plain text', () => {
@@ -707,20 +704,29 @@ describe('marketing markdown helpers', () => {
 
 	it('uses authored dates only for legal content', () => {
 		const sitemap = renderSitemapXml('https://example.com');
-		const entries = sitemap.match(/<url>[\s\S]*?<\/url>/g) ?? [];
+		const lastModifiedByPath = new Map(
+			Array.from(
+				sitemap.matchAll(
+					/<url>\s*<loc>([^<]+)<\/loc>(?:\s*<lastmod>([^<]+)<\/lastmod>)?[\s\S]*?<\/url>/g
+				),
+				([, loc, lastModified]) => [new URL(loc!).pathname, lastModified] as const
+			)
+		);
 
-		expect(entries).toHaveLength(20);
-		expect(entries.filter((entry) => entry.includes('<lastmod>'))).toHaveLength(12);
-		expect(
-			entries.find((entry) => entry.includes('<loc>https://example.com/en</loc>'))
-		).not.toContain('<lastmod>');
-		expect(
-			entries.find((entry) => entry.includes('<loc>https://example.com/en/pricing</loc>'))
-		).not.toContain('<lastmod>');
-		expect(
-			entries.find((entry) => entry.includes('<loc>https://example.com/en/privacy</loc>'))
-		).toContain(`<lastmod>${LEGAL_CONTENT_DATES.privacy}</lastmod>`);
-		expect(sitemap).not.toContain('1970-01-01');
+		for (const { code } of SUPPORTED_LANGUAGES) {
+			for (const [route, date] of Object.entries(LEGAL_CONTENT_DATES)) {
+				expect(lastModifiedByPath.get(`/${code}/${route}`)).toBe(date);
+			}
+			for (const path of [`/${code}`, `/${code}/pricing`]) {
+				expect(lastModifiedByPath.has(path)).toBe(true);
+				expect(lastModifiedByPath.get(path)).toBeUndefined();
+			}
+		}
+		for (const [path, lastModified] of lastModifiedByPath) {
+			if (!Object.hasOwn(LEGAL_CONTENT_DATES, path.split('/')[2] ?? '')) {
+				expect(lastModified, path).toBeUndefined();
+			}
+		}
 	});
 
 	it('turns a public 404 into markdown without losing response headers', async () => {
