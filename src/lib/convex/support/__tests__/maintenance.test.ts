@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../auth', () => ({
 	authComponent: {
-		getAuthUser: vi.fn()
+		getAuthUser: vi.fn(),
+		getAnyUserById: vi.fn()
 	}
 }));
 
@@ -29,7 +30,11 @@ vi.mock('../../_generated/api', () => ({
 			}
 		}
 	},
-	internal: {}
+	internal: {
+		support: {
+			threads: { syncUserProfile: 'internal.support.threads.syncUserProfile' }
+		}
+	}
 }));
 
 import { authComponent } from '../../auth';
@@ -38,6 +43,7 @@ import { migrateAnonymousTickets } from '../migration';
 import { backfillThreadMetadata, syncUserProfile } from '../threads';
 
 const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
+const getAnyUserByIdMock = authComponent.getAnyUserById as unknown as ReturnType<typeof vi.fn>;
 const updateThreadMetadataMock = supportAgent.updateThreadMetadata as unknown as ReturnType<
 	typeof vi.fn
 >;
@@ -56,9 +62,38 @@ const migrateAnonymousTicketsHandler = migrateAnonymousTickets as unknown as Mut
 	{ migratedCount: number }
 >;
 const syncUserProfileHandler = syncUserProfile as unknown as MutationHandler<
-	{ userId: string; userName?: string; userEmail?: string },
+	{ userId: string; userName?: string; userEmail?: string; cursor?: string },
 	null
 >;
+
+/** Serves `threads` in index order the way `.paginate()` does, one page per call. */
+function paginateOver<T>(threads: T[]) {
+	return vi.fn(async ({ numItems, cursor }: { numItems: number; cursor: string | null }) => {
+		const start = cursor === null ? 0 : Number(cursor);
+		const end = start + numItems;
+		return {
+			page: threads.slice(start, end),
+			isDone: end >= threads.length,
+			continueCursor: String(end)
+		};
+	});
+}
+
+function threadRows(count: number) {
+	return Array.from({ length: count }, (_, i) => ({ _id: `doc_${i}`, threadId: `thread_${i}` }));
+}
+
+/** Runs every scheduled continuation, including ones scheduled by a continuation. */
+async function drainScheduled(
+	runAfter: ReturnType<typeof vi.fn>,
+	ctx: unknown,
+	handlers: Record<string, MutationHandler<never, unknown>>
+) {
+	for (let i = 0; i < runAfter.mock.calls.length; i++) {
+		const [, ref, args] = runAfter.mock.calls[i] as [number, string, never];
+		await handlers[ref]._handler(ctx, args);
+	}
+}
 
 describe('support maintenance helpers', () => {
 	beforeEach(() => {
@@ -154,7 +189,7 @@ describe('support maintenance helpers', () => {
 	});
 
 	it('syncs denormalized profile fields across all threads of a user', async () => {
-		const collect = vi.fn().mockResolvedValue([
+		const paginate = paginateOver([
 			{
 				_id: 'support_doc_1',
 				title: 'Billing',
@@ -171,13 +206,15 @@ describe('support maintenance helpers', () => {
 				userEmail: 'old@example.com'
 			}
 		]);
-		const withIndex = vi.fn(() => ({ collect }));
+		const withIndex = vi.fn(() => ({ paginate }));
 		const patch = vi.fn().mockResolvedValue(undefined);
+		const runAfter = vi.fn().mockResolvedValue(undefined);
 		const ctx = {
 			db: {
 				query: vi.fn(() => ({ withIndex })),
 				patch
-			}
+			},
+			scheduler: { runAfter }
 		};
 
 		const result = await syncUserProfileHandler._handler(ctx, {
@@ -198,6 +235,64 @@ describe('support maintenance helpers', () => {
 			userEmail: 'new@example.com',
 			searchText: 'ada new | new@example.com'
 		});
+		expect(runAfter).not.toHaveBeenCalled();
+	});
+
+	it('syncs the profile past the first page through scheduled continuations', async () => {
+		const threads = threadRows(250);
+		const patch = vi.fn().mockResolvedValue(undefined);
+		const runAfter = vi.fn().mockResolvedValue(undefined);
+		const ctx = {
+			db: {
+				query: vi.fn(() => ({ withIndex: vi.fn(() => ({ paginate: paginateOver(threads) })) })),
+				patch
+			},
+			scheduler: { runAfter }
+		};
+		getAnyUserByIdMock.mockResolvedValue({ name: 'Ada New', email: 'new@example.com' });
+
+		await syncUserProfileHandler._handler(ctx, {
+			userId: 'user_1',
+			userName: 'Ada New',
+			userEmail: 'new@example.com'
+		});
+		// The trigger's own transaction stops after one page
+		expect(patch).toHaveBeenCalledTimes(100);
+
+		await drainScheduled(runAfter, ctx, {
+			'internal.support.threads.syncUserProfile': syncUserProfileHandler
+		});
+
+		expect(new Set(patch.mock.calls.map(([, id]) => id)).size).toBe(250);
+		for (const [, , fields] of patch.mock.calls) {
+			expect(fields).toMatchObject({ userName: 'Ada New', userEmail: 'new@example.com' });
+		}
+		expect(runAfter.mock.calls.map(([, , args]) => args.cursor)).toEqual(['100', '200']);
+	});
+
+	it('stops a profile continuation once a newer profile has been saved', async () => {
+		const patch = vi.fn().mockResolvedValue(undefined);
+		const runAfter = vi.fn().mockResolvedValue(undefined);
+		const ctx = {
+			db: {
+				query: vi.fn(() => ({
+					withIndex: vi.fn(() => ({ paginate: paginateOver(threadRows(250)) }))
+				})),
+				patch
+			},
+			scheduler: { runAfter }
+		};
+		getAnyUserByIdMock.mockResolvedValue({ name: 'Ada Newer', email: 'new@example.com' });
+
+		await syncUserProfileHandler._handler(ctx, {
+			userId: 'user_1',
+			userName: 'Ada New',
+			userEmail: 'new@example.com',
+			cursor: '100'
+		});
+
+		expect(patch).not.toHaveBeenCalled();
+		expect(runAfter).not.toHaveBeenCalled();
 	});
 
 	it('migrates only supportThreads for an anonymous user', async () => {

@@ -36,15 +36,25 @@ export async function updateThreadMetadata(
 	});
 }
 
+/**
+ * Threads one transaction rewrites for a single user. A user's thread count is
+ * rate-limited but not capped, so callers schedule the next page instead of
+ * reading them all.
+ */
+export const SUPPORT_THREAD_BATCH_SIZE = 100;
+
 export async function syncUserProfile(
 	ctx: MutationCtx,
-	args: { userId: string; userName?: string; userEmail?: string }
-): Promise<void> {
-	// eslint-disable-next-line @convex-dev/no-collect-in-query -- Not capped: thread creation is rate-limited per user, not capped over time; every thread must get the new profile (batching: #1029)
-	const supportThreads = await ctx.db
+	args: { userId: string; userName?: string; userEmail?: string; cursor?: string }
+): Promise<{ isDone: boolean; continueCursor: string }> {
+	const {
+		page: supportThreads,
+		isDone,
+		continueCursor
+	} = await ctx.db
 		.query('supportThreads')
 		.withIndex('by_user_warm', (q) => q.eq('userId', args.userId))
-		.collect();
+		.paginate({ numItems: SUPPORT_THREAD_BATCH_SIZE, cursor: args.cursor ?? null });
 
 	for (const supportThread of supportThreads) {
 		await ctx.db.patch('supportThreads', supportThread._id, {
@@ -59,6 +69,8 @@ export async function syncUserProfile(
 			})
 		});
 	}
+
+	return { isDone, continueCursor };
 }
 
 export async function backfillThreadMetadata(
