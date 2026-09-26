@@ -11,6 +11,8 @@ vi.mock('$lib/convex/env', () => ({
 
 import { sanitizeEmailCss } from '../email-css';
 import { STATIC_TRANSLATIONS, SUPPORTED_LOCALES } from '$lib/i18n/static-translations.generated';
+import type { NewUserSignupNotificationEmailData, RenderedEmail } from '../templates/types';
+import { LEGAL_CONFIG } from '$lib/config/legal';
 import {
 	renderVerificationEmail,
 	renderVerificationCodeEmail,
@@ -20,7 +22,228 @@ import {
 	renderNewUserSignupNotificationEmail
 } from '$lib/convex/emails/templates';
 
+const ASSET_URL = 'https://test.example.com';
+
+type EmailStrings = (typeof STATIC_TRANSLATIONS)[(typeof SUPPORTED_LOCALES)[number]]['email'];
+
+interface RendererCase {
+	name: string;
+	render: (locale: string) => RenderedEmail;
+	/** The link the reader is asked to follow, with the localized text it must carry. */
+	action?: { href: string; text: (strings: EmailStrings) => string };
+	/** Localized copy the reader must see in the HTML body and in the plain text. */
+	copy: (strings: EmailStrings) => string[];
+	/** Caller values that must reach both outputs unchanged. */
+	values: string[];
+}
+
+/** Interpolates `{name}` parameters the way the translation files write them. */
+function fill(message: string, params: Record<string, string | number>): string {
+	return message.replace(/\{(\w+)\}/g, (_, key: string) => String(params[key]));
+}
+
+function collapse(value: string): string {
+	return value.replace(/\s+/g, ' ').trim();
+}
+
+/** Text a reader sees, leaving out the hidden inbox preview line. */
+function visibleText(body: HTMLElement): string {
+	const copy = body.cloneNode(true) as HTMLElement;
+	for (const element of copy.querySelectorAll<HTMLElement>('*')) {
+		if (element.style.display === 'none') element.remove();
+	}
+	return collapse(copy.textContent ?? '');
+}
+
+// Caller values carry markup characters so that escaping failures change what a reader sees.
+const markupName = `O'Brien <Ops> & "Co"`;
+const verificationUrl = 'https://app.example.com/verify?token=a1&next=/app';
+const resetUrl = 'https://app.example.com/reset?token=a1&next=/app';
+// Differs from every expiry the other cases pass, so a renderer ignoring the caller's value fails.
+const expiryMinutes = 45;
+const deepLink = 'https://app.example.com/support?thread=7&view=full';
+const adminDashboardLink = 'https://app.example.com/admin/support?ticket=7&tab=open';
+const messagePreview = `It's <b>fixed</b> & "done"`;
+const ticketMessage = { text: `<b>Help</b> & 'thanks'`, timestamp: 'Jan 15, 10:30 AM' };
+const signup: NewUserSignupNotificationEmailData = {
+	userName: markupName,
+	userEmail: 'max+ops@example.com',
+	signupMethod: 'Email',
+	signupTime: 'Jan 15, 2026 at 3:45 PM',
+	adminDashboardLink
+};
+
+// Every public renderer reads one generated module through the generated index, so a
+// template missing from that index cannot render here.
+const RENDERERS: RendererCase[] = [
+	{
+		name: 'renderVerificationEmail',
+		render: (locale) => renderVerificationEmail(verificationUrl, expiryMinutes, locale),
+		action: { href: verificationUrl, text: (s) => s.verification.button },
+		copy: (s) => [
+			s.badge.auth,
+			s.verification.title,
+			s.verification.description,
+			s.verification.intro,
+			fill(s.verification.expiry, { expiryMinutes }),
+			s.verification.disclaimer
+		],
+		values: []
+	},
+	{
+		name: 'renderVerificationCodeEmail',
+		render: (locale) => renderVerificationCodeEmail('48151623', expiryMinutes, locale),
+		copy: (s) => [
+			s.badge.auth,
+			s.verification_code.title,
+			s.verification_code.description,
+			fill(s.verification_code.expiry, { expiryMinutes }),
+			s.verification_code.disclaimer
+		],
+		values: ['48151623']
+	},
+	{
+		name: 'renderPasswordResetEmail',
+		render: (locale) => renderPasswordResetEmail(resetUrl, markupName, locale),
+		action: { href: resetUrl, text: (s) => s.reset_password.button },
+		copy: (s) => [
+			s.badge.auth,
+			s.reset_password.title,
+			fill(s.reset_password.greeting, { userName: markupName }),
+			s.reset_password.body,
+			s.reset_password.expiry,
+			s.reset_password.disclaimer
+		],
+		values: []
+	},
+	{
+		name: 'renderAdminReplyNotificationEmail',
+		render: (locale) =>
+			renderAdminReplyNotificationEmail(markupName, messagePreview, deepLink, locale),
+		action: { href: deepLink, text: (s) => s.admin_reply.button },
+		// Replies go out from AUTH_EMAIL with no replyTo or inbound path, so the
+		// email itself must say that answering it does not reach the thread.
+		copy: (s) => [
+			s.badge.support,
+			s.admin_reply.title,
+			fill(s.admin_reply.description, { adminName: markupName }),
+			s.admin_reply.reply_hint,
+			s.admin_reply.footer
+		],
+		values: [messagePreview]
+	},
+	{
+		name: 'renderNewTicketAdminNotificationEmail',
+		render: (locale) =>
+			renderNewTicketAdminNotificationEmail(
+				{
+					isReopen: false,
+					isBareHandoff: false,
+					userName: markupName,
+					messages: [ticketMessage],
+					adminDashboardLink
+				},
+				locale
+			),
+		action: { href: adminDashboardLink, text: (s) => s.body.view_admin_dashboard },
+		copy: (s) => [
+			s.badge.support,
+			s.body.ticket_new,
+			fill(s.body.ticket_started, { userName: markupName }),
+			s.body.ticket_footer
+		],
+		values: [ticketMessage.timestamp, ticketMessage.text]
+	},
+	{
+		name: 'renderNewUserSignupNotificationEmail',
+		render: (locale) => renderNewUserSignupNotificationEmail(signup, locale),
+		action: { href: adminDashboardLink, text: (s) => s.body.view_admin_dashboard },
+		copy: (s) => [
+			s.badge.stats,
+			s.new_signup.title,
+			s.new_signup.description,
+			s.new_signup.label_name,
+			s.new_signup.label_email,
+			s.new_signup.label_method,
+			s.new_signup.label_time,
+			s.new_signup.footer
+		],
+		values: [signup.userName, signup.userEmail, signup.signupMethod, signup.signupTime]
+	}
+];
+
 describe('Email Template Rendering', () => {
+	describe.each(RENDERERS)('$name', ({ render, action, copy, values }) => {
+		it.each(SUPPORTED_LOCALES)('delivers the complete %s email', (locale) => {
+			const strings = STATIC_TRANSLATIONS[locale].email;
+			const { html, text } = render(locale);
+			const document = new DOMParser().parseFromString(html, 'text/html');
+			const visible = visibleText(document.body);
+			const plain = collapse(text);
+
+			expect(document.documentElement.lang).toBe(locale);
+			expect(html, 'HTML keeps an unresolved placeholder').not.toMatch(/\{\{\w+\}\}/);
+			expect(text, 'Plain text keeps an unresolved placeholder').not.toMatch(/\{\{\w+\}\}/);
+
+			const expected = [...copy(strings), ...values];
+			if (action) expected.push(action.text(strings));
+			for (const value of expected) {
+				expect(value, 'Every locale needs this email copy').toBeTruthy();
+				expect(visible, 'HTML body').toContain(collapse(value));
+				expect(plain, 'Plain text').toContain(collapse(value));
+			}
+
+			if (action) {
+				const links = [...document.querySelectorAll('a')].filter(
+					(link) => link.getAttribute('href') === action.href
+				);
+				expect(links.map((link) => collapse(link.textContent ?? ''))).toEqual([
+					collapse(action.text(strings))
+				]);
+				expect(plain).toContain(action.href);
+			}
+
+			// The footer's company name links to the product's own origin.
+			const companyLinks = [...document.querySelectorAll('p')]
+				.filter((paragraph) => collapse(paragraph.textContent ?? '').startsWith('Copyright ©'))
+				.flatMap((paragraph) => [...paragraph.querySelectorAll('a')])
+				.filter((link) => collapse(link.textContent ?? '') === collapse(LEGAL_CONFIG.companyName));
+			expect(
+				companyLinks.map((link) => link.getAttribute('href')),
+				'Footer company link'
+			).toEqual([`${ASSET_URL}/`]);
+			expect(
+				text
+					.split(/\n\s*\n/)
+					.map(collapse)
+					.find((block) => block.startsWith('Copyright ©')),
+				'Plain-text footer company link'
+			).toContain(`[${ASSET_URL}/]`);
+
+			const images = [...document.querySelectorAll('img')].map((image) =>
+				image.getAttribute('src')
+			);
+			expect(images.length).toBeGreaterThan(0);
+			for (const src of images) {
+				expect(src?.startsWith(`${ASSET_URL}/`), `${src} is not served from the asset origin`).toBe(
+					true
+				);
+			}
+		});
+	});
+
+	it('never leaks the web-only Fontaine fallback family into delivered emails', () => {
+		// Fontaine appends an "Outfit fallback" family to the web app's font
+		// usages for CLS. Emails build from the same shared font tokens, so a
+		// regression that wires that fallback into the --font-* tokens would leak
+		// a font family no email client can resolve. Guard the boundary.
+		for (const { name, render } of RENDERERS) {
+			expect(render('en').html, `${name} leaked the web-only fallback family`).not.toMatch(
+				/Outfit fallback/
+			);
+		}
+	});
+
 	describe('Email CSS', () => {
 		it('removes custom cursor image declarations', () => {
 			expect(
@@ -131,57 +354,6 @@ describe('Email Template Rendering', () => {
 		});
 	});
 
-	describe('Placeholder replacement', () => {
-		it('replaces verificationUrl placeholder', () => {
-			const result = renderVerificationEmail('https://test.com/verify/abc123', 30);
-			expect(result.html).toContain('https://test.com/verify/abc123');
-			expect(result.html).not.toContain('{{verificationUrl}}');
-			expect(result.text).toContain('https://test.com/verify/abc123');
-			expect(result.text).not.toContain('{{verificationUrl}}');
-		});
-
-		it('replaces expiryMinutes as number', () => {
-			const result = renderVerificationEmail('https://test.com', 45);
-			expect(result.html).toContain('45');
-			expect(result.text).toContain('45');
-			expect(result.html).not.toContain('{{expiryMinutes}}');
-		});
-
-		it('replaces verification code placeholder', () => {
-			const result = renderVerificationCodeEmail('12345678', 30);
-			expect(result.html).toContain('12345678');
-			expect(result.text).toContain('12345678');
-			expect(result.html).not.toContain('{{code}}');
-		});
-
-		it('replaces resetUrl placeholder', () => {
-			const result = renderPasswordResetEmail('https://test.com/reset/token123', 'User');
-			expect(result.html).toContain('https://test.com/reset/token123');
-			expect(result.text).toContain('https://test.com/reset/token123');
-			expect(result.html).not.toContain('{{resetUrl}}');
-		});
-
-		it('replaces multiple placeholders in admin notification', () => {
-			const result = renderAdminReplyNotificationEmail(
-				'John Admin',
-				'This is a preview of the message',
-				'https://example.com/view/123'
-			);
-			expect(result.html).toContain('John Admin');
-			expect(result.html).toContain('This is a preview of the message');
-			expect(result.html).toContain('https://example.com/view/123');
-			expect(result.html).not.toContain('{{adminName}}');
-			expect(result.html).not.toContain('{{messagePreview}}');
-			expect(result.html).not.toContain('{{deepLink}}');
-		});
-
-		it('replaces baseUrl from environment', () => {
-			const result = renderVerificationEmail('https://test.com', 30);
-			expect(result.html).toContain('https://test.example.com');
-			expect(result.html).not.toContain('{{baseUrl}}');
-		});
-	});
-
 	describe('Default values', () => {
 		it('uses "there" when userName is undefined', () => {
 			const result = renderPasswordResetEmail('https://example.com');
@@ -235,21 +407,6 @@ describe('Email Template Rendering', () => {
 			);
 			expect(result.html).toContain('Alice a répondu à votre conversation de support');
 			expect(result.text).toContain('Voir la conversation');
-		});
-
-		// Replies go out from AUTH_EMAIL with no replyTo or inbound path, so the
-		// email itself must say that answering it does not reach the thread.
-		it.each(SUPPORTED_LOCALES)('tells %s readers to reply in the conversation', (locale) => {
-			const hint = STATIC_TRANSLATIONS[locale].email.admin_reply.reply_hint;
-			const result = renderAdminReplyNotificationEmail(
-				'Alice',
-				'Hi',
-				'https://example.com',
-				locale
-			);
-			expect(hint).toBeTruthy();
-			expect(result.html).toContain(hint);
-			expect(result.text).toContain(hint);
 		});
 
 		it('renders German new ticket notification button and footer', () => {
@@ -318,17 +475,6 @@ describe('Email Template Rendering', () => {
 			expect(result.html).toContain('Verify your email');
 		});
 
-		it('sets the html lang attribute from the locale', () => {
-			expect(renderVerificationEmail('https://example.com', 30, 'de').html).toContain('lang="de"');
-			expect(renderVerificationCodeEmail('12345678', 30, 'es').html).toContain('lang="es"');
-			expect(renderPasswordResetEmail('https://example.com', 'Max', 'fr').html).toContain(
-				'lang="fr"'
-			);
-			expect(
-				renderAdminReplyNotificationEmail('Admin', 'Hi', 'https://example.com', 'de').html
-			).toContain('lang="de"');
-		});
-
 		it('defaults the html lang attribute to en', () => {
 			expect(renderVerificationEmail('https://example.com', 30).html).toContain('lang="en"');
 		});
@@ -377,43 +523,8 @@ describe('Email Template Rendering', () => {
 
 		it('handles zero expiryMinutes', () => {
 			const result = renderVerificationEmail('https://example.com', 0);
-			expect(result.html).toContain('0');
-			expect(result.text).toContain('0');
-		});
-	});
-
-	describe('Render function output structure', () => {
-		it.each([
-			['renderVerificationEmail', () => renderVerificationEmail('https://example.com', 30)],
-			['renderVerificationCodeEmail', () => renderVerificationCodeEmail('12345678', 30)],
-			['renderPasswordResetEmail', () => renderPasswordResetEmail('https://example.com', 'User')],
-			[
-				'renderAdminReplyNotificationEmail',
-				() => renderAdminReplyNotificationEmail('Admin', 'Preview', 'https://example.com')
-			]
-		])('%s returns html and text properties', (name, fn) => {
-			const result = fn();
-			expect(result).toHaveProperty('html');
-			expect(result).toHaveProperty('text');
-			expect(typeof result.html).toBe('string');
-			expect(typeof result.text).toBe('string');
-			expect(result.html.length).toBeGreaterThan(0);
-			expect(result.text.length).toBeGreaterThan(0);
-		});
-
-		it.each([
-			['renderVerificationEmail', () => renderVerificationEmail('https://example.com', 30)],
-			['renderVerificationCodeEmail', () => renderVerificationCodeEmail('12345678', 30)],
-			['renderPasswordResetEmail', () => renderPasswordResetEmail('https://example.com', 'User')],
-			[
-				'renderAdminReplyNotificationEmail',
-				() => renderAdminReplyNotificationEmail('Admin', 'Preview', 'https://example.com')
-			]
-		])('%s HTML output contains valid structure', (name, fn) => {
-			const result = fn();
-			expect(result.html).toContain('<!DOCTYPE');
-			expect(result.html).toContain('<html');
-			expect(result.html).toContain('</html>');
+			expect(result.html).toContain('This link will expire in 0 minutes.');
+			expect(result.text).toContain('This link will expire in 0 minutes.');
 		});
 	});
 });
