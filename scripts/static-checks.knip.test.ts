@@ -257,7 +257,7 @@ function shellSingleQuote(value: string): string {
 /**
  * Creates the recorders under the names the checker uses to start its child processes.
  *
- * On POSIX these are /bin/sh wrappers. With the Bun 1.3.9 pinned in package.json, a file built
+ * On POSIX these are /bin/sh wrappers. With Bun 1.3.9, the oldest version setup supports, a file built
  * by `bun build --compile` runs as the Bun CLI instead of its own entry point as soon as
  * argv[0] is exactly `bun`, which is precisely how the checker starts its child: recording
  * would fail and the real formatters and linters would run (measured on Linux with 1.3.9;
