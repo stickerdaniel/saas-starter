@@ -27,6 +27,7 @@ import preferShadcnPrimitivesRule from './eslint/rules/prefer-shadcn-primitives.
 import preferShadcnSliderImportsRule from './eslint/rules/prefer-shadcn-slider-imports.js';
 import safeSvelteParser from './eslint/parsers/safe-svelte-parser.js';
 import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js';
+import noDynamicImportRejectionHandlerRule from './eslint/rules/no-dynamic-import-rejection-handler.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
@@ -63,7 +64,8 @@ const localPlugin = {
 		'no-animated-pixel-press': noAnimatedPixelPressRule,
 		'prefer-shadcn-primitives': preferShadcnPrimitivesRule,
 		'prefer-shadcn-slider-imports': preferShadcnSliderImportsRule,
-		'no-literal-control-char': noLiteralControlCharRule
+		'no-literal-control-char': noLiteralControlCharRule,
+		'no-dynamic-import-rejection-handler': noDynamicImportRejectionHandlerRule
 	}
 };
 
@@ -353,6 +355,26 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-animated-pixel-press': 'error'
+		}
+	},
+	{
+		// Vite wraps client dynamic imports in its preload helper, and a rejection
+		// handler on the first .then() inside it swallows vite:preloadError (#1026).
+		// Server-only modules and the Convex backend are bundled without that
+		// wrapper; universal route modules also run in the client.
+		// See eslint/rules/no-dynamic-import-rejection-handler.js.
+		files: ['src/**/*.{ts,js,svelte}'],
+		ignores: [
+			'src/lib/convex/**',
+			'src/lib/server/**',
+			'src/**/*.server.{ts,js}',
+			'src/routes/**/+server.{ts,js}'
+		],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-dynamic-import-rejection-handler': 'error'
 		}
 	},
 	// A control or bidirectional character written as itself can disappear in review,
