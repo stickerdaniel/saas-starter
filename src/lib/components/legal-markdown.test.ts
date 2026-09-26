@@ -2,16 +2,16 @@
 
 import { createRequire } from 'node:module';
 import { render } from 'svelte/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createLegalMarkdown, type LegalMarkdownContent } from '$lib/content/legal-template';
 import LegalMarkdown from './legal-markdown.svelte';
 
-vi.mock('$app/state', () => ({
-	page: {
-		params: { lang: 'en' },
-		url: new URL('https://example.com/en/terms')
-	}
+const page = vi.hoisted(() => ({
+	params: { lang: 'en' },
+	url: new URL('https://example.com/en/terms')
 }));
+
+vi.mock('$app/state', () => ({ page }));
 
 const { JSDOM } = createRequire(import.meta.url)('jsdom') as {
 	JSDOM: new (html?: string) => { window: { document: Document } };
@@ -23,6 +23,59 @@ function renderDocument(content: LegalMarkdownContent): Document {
 }
 
 describe('LegalMarkdown', () => {
+	afterEach(() => {
+		page.params.lang = 'en';
+		page.url = new URL('https://example.com/en/terms');
+	});
+
+	it('renders parsed links against the current localized page', () => {
+		page.params.lang = 'de';
+		page.url = new URL('https://example.com/de/terms');
+		const markdown = [
+			'[Inline](privacy "Read \\"the policy\\"") [Reference][policy] [Root](/privacy) [Home](/)',
+			'[Anchor](#rights) [External](https://example.org/docs) [Script](javascript:alert(1))',
+			String.raw`[Backslash](/\evil.example/privacy) [Protocol](//evil.example/privacy)`,
+			'',
+			'`[Inline code](privacy)`',
+			'',
+			'```md',
+			'[Fenced code](privacy)',
+			'```',
+			'',
+			'[policy]: terms'
+		].join('\n');
+		const document = renderDocument({ markdown, literals: {} });
+		const links = [...document.querySelectorAll('a')].map((link) => ({
+			text: link.textContent,
+			href: link.getAttribute('href'),
+			title: link.getAttribute('title'),
+			target: link.getAttribute('target'),
+			rel: link.getAttribute('rel')
+		}));
+		const internal = { title: null, target: null, rel: null };
+
+		expect(links).toEqual([
+			{ ...internal, text: 'Inline', href: '/de/privacy', title: 'Read "the policy"' },
+			{ ...internal, text: 'Reference', href: '/de/terms' },
+			{ ...internal, text: 'Root', href: '/privacy' },
+			{ ...internal, text: 'Home', href: '/' },
+			{ ...internal, text: 'Anchor', href: '#rights' },
+			{
+				...internal,
+				text: 'External',
+				href: 'https://example.org/docs',
+				target: '_blank',
+				rel: 'noopener noreferrer'
+			},
+			{ ...internal, text: 'Backslash', href: '/privacy' }
+		]);
+		expect(document.body.textContent).toContain('Script');
+		expect(document.body.textContent).toContain('Protocol');
+		expect(document.querySelector('[href^="javascript:" i], [src^="javascript:" i]')).toBeNull();
+		expect(document.body.textContent).toContain('[Inline code](privacy)');
+		expect(document.body.textContent).toContain('[Fenced code](privacy)');
+	});
+
 	it('renders configured values as exact literal text', () => {
 		const operator = [
 			'# Northwind GmbH',
