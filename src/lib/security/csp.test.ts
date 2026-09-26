@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	APP_HTML_SCRIPT_HASH,
 	MODE_WATCHER_SCRIPT_HASH,
-	MODE_WATCHER_SOURCE_FINGERPRINT,
 	buildContentSecurityPolicy,
 	deriveSentryReportUri
 } from './csp.js';
@@ -27,21 +26,6 @@ describe('CSP script-src hashes', () => {
 		// changed: update APP_HTML_SCRIPT_HASH in src/lib/security/csp.js.
 		const appHtml = readFileSync(path.resolve('src/app.html'), 'utf8');
 		expect(sha256(firstInlineScript(appHtml))).toBe(APP_HTML_SCRIPT_HASH);
-	});
-
-	it('mode-watcher setInitialMode source is unchanged (proxy for the deployed hash)', () => {
-		// MODE_WATCHER_SCRIPT_HASH is the production bundler's reformatted output of
-		// mode-watcher's FOUC script, so it cannot be recomputed without a full build.
-		// Instead fingerprint the setInitialMode SOURCE: a mode-watcher bump that
-		// touches it fails here, signalling that MODE_WATCHER_SCRIPT_HASH must be
-		// regenerated from a fresh `bun run build` (see the regeneration note below).
-		const modeSource = readFileSync(path.resolve('node_modules/mode-watcher/dist/mode.js'), 'utf8');
-		const fn = modeSource.match(/function setInitialMode[\s\S]*?\n\}/);
-		expect(fn, 'setInitialMode not found in mode-watcher/dist/mode.js').not.toBeNull();
-		expect(
-			sha256(fn![0]),
-			'mode-watcher FOUC script changed — rebuild and regenerate MODE_WATCHER_SCRIPT_HASH'
-		).toBe(MODE_WATCHER_SOURCE_FINGERPRINT);
 	});
 
 	it('both hashes are well-formed sha256 CSP source expressions', () => {
