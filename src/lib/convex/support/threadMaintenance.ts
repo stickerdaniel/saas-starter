@@ -40,7 +40,7 @@ export async function syncUserProfile(
 	ctx: MutationCtx,
 	args: { userId: string; userName?: string; userEmail?: string }
 ): Promise<void> {
-	// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: per-user index scan; one user's support-thread count is small, and every thread must get the new profile
+	// eslint-disable-next-line @convex-dev/no-collect-in-query -- Not capped: thread creation is rate-limited per user, not capped over time; every thread must get the new profile (batching tracked separately)
 	const supportThreads = await ctx.db
 		.query('supportThreads')
 		.withIndex('by_user_warm', (q) => q.eq('userId', args.userId))

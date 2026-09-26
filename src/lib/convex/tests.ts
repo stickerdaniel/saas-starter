@@ -594,7 +594,7 @@ export const cleanupTestData = mutation({
 
 		let deletedCount = 0;
 
-		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: adminNotificationPreferences is small (admin users + custom emails, typically <100 rows)
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: rows exist only through admin actions (promotions, custom recipients), one per email
 		const allPreferences = await ctx.db.query('adminNotificationPreferences').collect();
 
 		// Sequential deletes in test cleanup (test-only, small dataset)

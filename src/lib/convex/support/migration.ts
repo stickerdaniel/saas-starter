@@ -36,7 +36,7 @@ export const migrateAnonymousTickets = mutation({
 			throw createSupportError(SUPPORT_ERROR_CODES.anonymousUserInvalid);
 		}
 
-		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: per-user index scan, a single anonymous user's support threads are few; the atomic migration must move all of them
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Not capped: thread creation is rate-limited per user, not capped over time; the atomic migration must move every thread (batching tracked separately)
 		const supportThreads = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_user_warm', (q) => q.eq('userId', args.anonymousUserId))
