@@ -1,7 +1,22 @@
-import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mount, tick, unmount } from 'svelte';
+import type * as Svelte from 'svelte';
+import { fromStore, writable } from 'svelte/store';
+import type * as SvelteStore from 'svelte/store';
+import Response from './Response.svelte';
+import { streamingTextAnimation } from './streaming-animation.js';
 import { planStreamingBatch, type StreamingPaceState } from './streaming-pace.svelte.ts';
+
+// Vitest resolves Svelte's server entries by default; use its real client runtime for mounting.
+vi.mock('svelte', () =>
+	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
+);
+vi.mock('svelte/store', () =>
+	vi.importActual<typeof SvelteStore>(
+		'../../../../../node_modules/svelte/src/store/index-client.js'
+	)
+);
+vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 
 function state(overrides: Partial<StreamingPaceState> = {}): StreamingPaceState {
 	return { horizon: 0, initialized: false, ...overrides };
@@ -95,52 +110,96 @@ describe('planStreamingBatch', () => {
 });
 
 /**
- * The scheduler finds the words it paces through the inline style svelte-
- * streamdown writes on every animated span. That is an implementation detail of
- * a locked dependency, and nothing about it is part of a public API, so a bump
- * can drop it while every other test stays green: the spans would simply never
- * be found, the pacing would silently stop, and the stream would go back to
- * revealing whole Convex batches at once.
+ * The pacer finds the words it schedules in whatever svelte-streamdown emits,
+ * which no public API promises, and carries its queue from one Convex snapshot
+ * to the next. A renderer bump or selector edit that stops matching those
+ * words, or a queue lost between snapshots, leaves every scheduling case above
+ * green while words go back to appearing together or out of order.
  *
- * Read the installed package rather than a copy of its output. A hand-written
- * fixture would keep agreeing with itself through exactly the release this
- * exists to catch.
+ * A word's reveal is the clock at its insertion plus its animation delay, so
+ * the clock is fixed per snapshot to make that sum exact.
  */
-describe('svelte-streamdown animation contract', () => {
-	const root = join(import.meta.dirname, '../../../../..');
-	const read = (path: string) =>
-		readFileSync(join(root, `node_modules/svelte-streamdown/dist/${path}`), 'utf8');
+describe('Response streaming presentation', () => {
+	let component: ReturnType<typeof mount> | undefined;
+	let clock = 0;
 
-	it('writes the animation name as an inline style', () => {
-		expect(read('context.svelte.js')).toMatch(/animation-name:\s*sd-\$\{this\.animation\.type\}/);
-	});
-
-	it('puts that style on the per-word span', () => {
-		expect(read('AnimatedText.svelte')).toMatch(
-			/<span\s+style=\{streamdown\.animationTextStyle\}\s*>/
+	beforeEach(() => {
+		vi.spyOn(performance, 'now').mockImplementation(() => clock);
+		vi.stubGlobal(
+			'matchMedia',
+			(query: string): MediaQueryList =>
+				({
+					matches: false,
+					media: query,
+					addEventListener: () => {},
+					removeEventListener: () => {}
+				}) as unknown as MediaQueryList
 		);
 	});
 
-	/**
-	 * Without this, a release that stops rendering AnimatedText while leaving the
-	 * component and its style getter in the package passes both checks above, and
-	 * no paced span ever reaches the scheduler.
-	 */
-	it('renders that span for live text', () => {
-		const block = read('Block.svelte');
-
-		expect(block).toMatch(/streamdown\.animation\.enabled/);
-		expect(block).toMatch(/<AnimatedText\s/);
+	afterEach(async () => {
+		if (component) await unmount(component);
+		component = undefined;
+		document.body.replaceChildren();
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
 	});
 
-	// Both consumers match the same substring, and both stop working together.
-	it('is the substring both consumers select on', () => {
-		const substring = 'animation-name: sd-';
-		const appRoot = (path: string) => readFileSync(join(root, path), 'utf8');
+	function revealDelay(word: string): number {
+		const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+			if (node.textContent?.trim() !== word) continue;
+			return Number.parseFloat(getComputedStyle(node.parentElement!).animationDelay) || 0;
+		}
+		throw new Error(`"${word}" was not rendered`);
+	}
 
-		expect(appRoot('src/lib/components/ai-elements/response/streaming-pace.svelte.ts')).toContain(
-			`span[style*="${substring}"]`
+	async function streamSnapshots(...snapshots: Array<{ at: number; content: string }>) {
+		const content = writable(snapshots[0]!.content);
+		const current = fromStore(content);
+		const reveals = new Map<string, number>();
+
+		for (const [index, snapshot] of snapshots.entries()) {
+			clock = snapshot.at;
+			if (index === 0) {
+				component = mount(Response, {
+					target: document.body,
+					props: {
+						get content() {
+							return current.current;
+						},
+						animation: streamingTextAnimation(true)
+					}
+				});
+			} else {
+				content.set(snapshot.content);
+			}
+			await tick();
+			await Promise.resolve();
+
+			for (const word of snapshot.content.split(' ')) {
+				if (!reveals.has(word)) reveals.set(word, snapshot.at + revealDelay(word));
+			}
+		}
+		return [...reveals.values()];
+	}
+
+	function expectRevealedInOrder(reveals: number[]) {
+		for (const [index, reveal] of reveals.entries()) {
+			if (index > 0) expect(reveal).toBeGreaterThan(reveals[index - 1]!);
+		}
+	}
+
+	it('staggers the words of a live batch instead of revealing them together', async () => {
+		expectRevealedInOrder(await streamSnapshots({ at: 1_000, content: 'one two three' }));
+	});
+
+	it('reveals the next snapshot after the words still queued from the last', async () => {
+		expectRevealedInOrder(
+			await streamSnapshots(
+				{ at: 1_000, content: 'one two three' },
+				{ at: 1_020, content: 'one two three four five' }
+			)
 		);
-		expect(appRoot('src/routes/layout.css')).toContain(`span[style*='${substring}']`);
 	});
 });

@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { inspect } from 'node:util';
 import { mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import en from '../../../i18n/en.json';
@@ -82,6 +83,17 @@ function stallUpload() {
 	return abort;
 }
 
+// Carried by rejected operations; no console argument may reveal it.
+const secret = 'provider-secret-5a';
+
+/** Silences the five console channels and returns their inspected argument ledger. */
+function captureConsole(): () => string {
+	const calls = (['error', 'warn', 'info', 'log', 'debug'] as const).map(
+		(method) => vi.spyOn(console, method).mockImplementation(() => {}).mock.calls
+	);
+	return () => inspect(calls, { depth: null });
+}
+
 beforeEach(() => {
 	localStorage.clear();
 	client = new ConvexClient('https://chat-test.convex.cloud', { disabled: true });
@@ -125,7 +137,8 @@ describe.each([
 	'$name send callback',
 	({ content, contentProps, mutationName, log, safeDiagnostic, translation }) => {
 		it('rethrows the mutation error after reporting it and leaves input rollback to ChatInput', async () => {
-			const error = new Error('Send rejected');
+			const error = new Error(secret);
+			const consoleOutput = captureConsole();
 			const pending = Promise.withResolvers<never>();
 			const mutation = vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
 			component = mount(ChatTestProvider<typeof contentProps>, {
@@ -164,7 +177,7 @@ describe.each([
 
 			if (safeDiagnostic) {
 				expect(console.error).toHaveBeenCalledWith(log);
-				expect(console.error).not.toHaveBeenCalledWith(expect.anything(), error);
+				expect(consoleOutput()).not.toContain(secret);
 			} else {
 				expect(console.error).toHaveBeenCalledWith(log, error);
 			}
@@ -508,5 +521,76 @@ describe('support feedback send callback', () => {
 
 		expect(thread.getDraft('thread-support')).toBe('keep this');
 		ctx.dispose();
+	});
+});
+
+describe('support feedback read receipt', () => {
+	it('warns with a fixed label when marking a visible human reply read fails', async () => {
+		const markRead = vi.fn().mockRejectedValue(new Error(secret));
+		const queryResults = new Map<string, unknown>([
+			[
+				'support/threads:getThread',
+				{ lastAdminReplyMessageId: 'reply-1', hasUnreadAdminReply: true }
+			],
+			[
+				'support/messages:listMessages',
+				{
+					page: [
+						{
+							id: 'reply-1',
+							_creationTime: 1,
+							role: 'assistant',
+							status: 'success',
+							order: 1,
+							text: 'We fixed it.',
+							metadata: { provider: 'human' }
+						}
+					],
+					isDone: true,
+					continueCursor: '',
+					streams: { kind: 'list', messages: [] }
+				}
+			]
+		]);
+		const readClient = {
+			disabled: false,
+			closed: false,
+			client: { localQueryResult: (name: string) => queryResults.get(name) },
+			onUpdate: () => () => {},
+			mutation: markRead,
+			query: vi.fn()
+		} as unknown as ConvexClient;
+		const support = new SupportContext();
+		support.selectThread('thread-support');
+		const ctx = new ChatUIContext(support.conversation, readClient, undefined, 'right', null, {
+			bindThreadOrigin: (binder) => support.conversation.setThreadOriginBinder(binder),
+			forgetSession: () => support.conversation.forgetChatSession()
+		});
+		// The file's afterEach restores the console spies even when an assertion fails.
+		onTestFinished(() => ctx.dispose());
+		const consoleOutput = captureConsole();
+		component = mount(ChatTestProvider<{ chatUIContext: ChatUIContext }>, {
+			target: document.body,
+			props: {
+				client: readClient,
+				content: FeedbackWidget,
+				contentProps: { chatUIContext: ctx },
+				supportThread: support
+			}
+		});
+
+		await vi.waitFor(() =>
+			expect(console.warn).toHaveBeenCalledExactlyOnceWith('[FeedbackWidget.markReplyRead] Failed')
+		);
+		expect(markRead).toHaveBeenCalledOnce();
+		const [reference, args] = markRead.mock.calls[0]!;
+		expect(getFunctionName(reference)).toBe('support/readState:markThreadRead');
+		expect(args).toEqual({
+			threadId: 'thread-support',
+			anonymousUserId: undefined,
+			readThroughMessageId: 'reply-1'
+		});
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(consoleOutput()).not.toContain(secret);
 	});
 });
