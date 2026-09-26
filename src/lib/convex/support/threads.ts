@@ -24,6 +24,7 @@ import {
 } from './threadMaintenance';
 import { normalizeNotificationEmail } from './notificationPreferences';
 import { toAgentThreadStatus } from './denormalization';
+import { authComponent } from '../auth';
 
 export { shouldSendNotification } from './notificationPreferences';
 export { syncSupportLastMessage } from './threadLifecycle';
@@ -512,16 +513,35 @@ export const updateLastMessage = internalMutation({
  * Leaves notificationEmail untouched (explicit opt-in that may intentionally
  * differ from the account email) and does not bump updatedAt (a profile edit
  * is not thread activity and must not reorder the admin inbox).
+ *
+ * The first page runs inside the trigger; later pages are scheduled, so a user
+ * with more threads than one page briefly shows the old profile on the rest.
  */
 export const syncUserProfile = internalMutation({
 	args: {
 		userId: v.string(),
 		userName: v.optional(v.string()),
-		userEmail: v.optional(v.string())
+		userEmail: v.optional(v.string()),
+		cursor: v.optional(v.string())
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		await syncSupportUserProfile(ctx, args);
+		if (args.cursor !== undefined) {
+			// A later profile change restarts from the first page, so a continuation
+			// carrying an older name or email stops instead of overwriting it.
+			const user = await authComponent.getAnyUserById(ctx, args.userId);
+			if (!user || (user.name ?? undefined) !== args.userName || user.email !== args.userEmail) {
+				return null;
+			}
+		}
+
+		const { isDone, continueCursor } = await syncSupportUserProfile(ctx, args);
+		if (!isDone) {
+			await ctx.scheduler.runAfter(0, internal.support.threads.syncUserProfile, {
+				...args,
+				cursor: continueCursor
+			});
+		}
 		return null;
 	}
 });

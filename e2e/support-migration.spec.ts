@@ -12,7 +12,8 @@ import { waitForAuthenticated } from './utils/auth';
  * Tests the flow where:
  * 1. Anonymous user creates 105 support tickets (stored with localStorage ID)
  * 2. User authenticates (signs in)
- * 3. System automatically migrates ALL tickets to authenticated account (tests pagination)
+ * 3. System automatically migrates ALL tickets to authenticated account (tests the
+ *    scheduled continuation past the first 100-thread page)
  * 4. localStorage supportUserId is cleared
  * 5. Database shows threads now belong to authenticated user with enriched data
  */
@@ -117,12 +118,17 @@ test.describe('Support ticket migration', () => {
 			.poll(() => page.evaluate(() => localStorage.getItem('supportUserId')), { timeout: 60000 })
 			.toBeNull();
 
-		// 6. Verify ALL 105 threads now belong to authenticated user
-		const afterMigration = await client.mutation(api.tests.getSupportThreadsByUserId, {
-			secret: testSecret,
-			userId: authUserId!
-		});
-		expect(afterMigration.length).toBe(105);
+		// 6. Verify ALL 105 threads now belong to authenticated user. The mutation the
+		// client awaited moves the first page; the rest move in a scheduled page.
+		const getMigratedThreads = () =>
+			client.mutation(api.tests.getSupportThreadsByUserId, {
+				secret: testSecret,
+				userId: authUserId!
+			});
+		await expect
+			.poll(async () => (await getMigratedThreads()).length, { timeout: 30000 })
+			.toBe(105);
+		const afterMigration = await getMigratedThreads();
 
 		// 7. Verify threads are no longer under anonymous user
 		const remainingAnonymous = await client.mutation(api.tests.getSupportThreadsByUserId, {
