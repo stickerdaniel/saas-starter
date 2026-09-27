@@ -262,23 +262,44 @@ export const MAINTAINER_CLI_SCRIPTS = [
  * Script names may contain `:` and `-`, so an owned name counts only as a complete token between
  * whitespace or shell operators, matched after dropping quote characters and backslash escapes.
  * That covers `bun run name`, quoted or split-quoted names such as `test:"cli"`, escaped names, and
- * the `bun name` shorthand without parsing shell syntax; any other standalone word fails closed.
- * A value after `=` (URL queries, environment assignments) is data, not a script operand. The
- * creator directory counts only when its final path component ends at a separator, whitespace,
- * quote, shell operator, or the end of the command.
+ * any runner spelling without parsing shell syntax; any other standalone word fails closed.
+ * A value after `=` (URL queries, environment assignments) is data, not a script operand. The one
+ * exemption is a command segment that only prints a label with `echo` or `printf`; it still counts
+ * when its output is piped, redirected, or substituted, because that output could become an operand.
+ * The creator directory counts only when its final path component ends at a separator,
+ * whitespace, shell operator, or the end of the command, matched after dropping quote characters
+ * so shell concatenation such as `packages/"create-saas-starter"` resolves while backslash
+ * separators stay intact.
  */
 const MAINTAINER_CLI_REFERENCE = {
 	script:
 		/(?<![^\s;&|()<>])(?:install:cli|check:cli|test:cli|build:cli|test:cli:packed)(?![^\s;&|()<>=])/,
-	path: /(?<![\w.-])packages[\\/]create-saas-starter(?=$|[\\/\s"'`;&|()<>])/
+	segment: /([^;&|()\n]*)(\|\||&&|[;&|()\n]|$)/g,
+	printer: /^\s*(?:\w+=\S*\s+)*(?:(?:builtin|command)\s+)?(?:echo|printf)(?:\s|$)/,
+	substitution: /\$\(|[<>]\(|`/,
+	path: /(?<![\w.-])packages[\\/]create-saas-starter(?=$|[\\/\s;&|()<>])/
 };
+
+function printsLabelOnly(segment: string, separator: string, substituted: boolean): boolean {
+	return (
+		!substituted &&
+		separator !== '|' &&
+		!/[<>]/.test(segment) &&
+		MAINTAINER_CLI_REFERENCE.printer.test(segment)
+	);
+}
 
 /** Shared with static-checks.ts, which classifies completed projects by the same rule. */
 export function referencesMaintainerCli(command: string): boolean {
-	const unquoted = command.replace(/\\([\s\S])/g, '$1').replace(/["'`]/g, '');
-	return (
-		MAINTAINER_CLI_REFERENCE.script.test(unquoted) || MAINTAINER_CLI_REFERENCE.path.test(command)
+	const concatenated = command.replace(/["'`]/g, '');
+	const unescaped = command.replace(/\\([\s\S])/g, '$1').replace(/["'`]/g, '');
+	const substituted = MAINTAINER_CLI_REFERENCE.substitution.test(command);
+	const script = [...unescaped.matchAll(MAINTAINER_CLI_REFERENCE.segment)].some(
+		([, segment, separator]) =>
+			!printsLabelOnly(segment!, separator!, substituted) &&
+			MAINTAINER_CLI_REFERENCE.script.test(segment!)
 	);
+	return script || MAINTAINER_CLI_REFERENCE.path.test(concatenated);
 }
 
 export function removeMaintainerCliScripts(value: unknown): Record<string, unknown> {

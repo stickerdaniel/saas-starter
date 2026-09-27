@@ -754,6 +754,18 @@ describe('template setup manifest preflight', () => {
 			mutate: (scripts: Record<string, string>) => {
 				scripts.test += ' && bun test:cli';
 			}
+		},
+		{
+			label: 'a split-quoted child directory',
+			mutate: (scripts: Record<string, string>) => {
+				scripts['retry-cli'] = 'bun run --cwd packages/"create-saas-starter" build';
+			}
+		},
+		{
+			label: 'a split-quoted child suffix',
+			mutate: (scripts: Record<string, string>) => {
+				scripts['retry-cli'] = 'bun run --cwd packages/create-saas-"starter" build';
+			}
 		}
 	])('rejects $label before canonical writes', ({ mutate }) => {
 		const dir = createFixture();
@@ -786,6 +798,29 @@ describe('template setup manifest preflight', () => {
 			const scripts = JSON.parse(readFileSync(file, 'utf8')).scripts;
 			expect(scripts[name]).toBe('echo app');
 			expect(scripts.custom).toBe(`bun run ${name}`);
+			expect(scripts).not.toHaveProperty('test:cli');
+			expect(existsSync(join(dir, 'packages/create-saas-starter'))).toBe(false);
+
+			const after = snapshot(dir);
+			const rerun = runSetup(dir, []);
+			expect(rerun.code, rerun.stderr).toBe(0);
+			expect(snapshot(dir)).toEqual(after);
+		}
+	);
+
+	it.each(['echo test:cli', 'printf test:cli'])(
+		'keeps the printed label in %s across setup and rerun',
+		(command) => {
+			const dir = createFixture();
+			const file = join(dir, 'package.json');
+			const manifest = JSON.parse(readFileSync(file, 'utf8'));
+			manifest.scripts.custom = command;
+			writeFileSync(file, JSON.stringify(manifest, null, '\t') + '\n');
+
+			const first = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+			expect(first.code, first.stderr).toBe(0);
+			const scripts = JSON.parse(readFileSync(file, 'utf8')).scripts;
+			expect(scripts.custom).toBe(command);
 			expect(scripts).not.toHaveProperty('test:cli');
 			expect(existsSync(join(dir, 'packages/create-saas-starter'))).toBe(false);
 
