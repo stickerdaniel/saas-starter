@@ -123,11 +123,8 @@ test.describe('Upload navigation guard', () => {
 		const urlBeforeClick = page.url();
 		await page.getByTestId('sidebar-nav-community-chat').click();
 
-		// Either the copy or its key: the dev server resolves translations from the
-		// Tolgee API, which does not know a key added in this change until it is
-		// pushed. Production and CI build from the checked-in JSON and show copy.
 		const notice = page.locator('[data-sonner-toast]').filter({
-			hasText: /still in progress|common\.upload_in_progress/i
+			hasText: /upload still in progress/i
 		});
 		await expect(notice).toBeVisible({ timeout: 10000 });
 		expect(page.url()).toBe(urlBeforeClick);

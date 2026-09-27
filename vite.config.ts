@@ -377,6 +377,13 @@ export default defineConfig(async ({ mode }) => {
 
 	return {
 		plugins,
+		// Local E2E renders the checked-in translations only; the root layout reads this
+		// to keep live Tolgee off. A define rather than an env var: varlock re-injects
+		// the parent's resolved env into this process, which empties a schema-declared
+		// flag that dev-test.ts adds for its child.
+		...(isTestMode && {
+			define: { 'import.meta.env.VITE_LOCAL_E2E_RUNTIME': JSON.stringify('1') }
+		}),
 		test: {
 			exclude: [
 				'e2e/**',

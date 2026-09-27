@@ -109,9 +109,16 @@
 	languageContext.set(() => currentLang);
 	setGlobalSearchContext();
 
+	// Live Tolgee (in-context editing) is dev-only. Production and preview builds
+	// fold import.meta.env.DEV to false, so DevTools, apiUrl/apiKey and their
+	// inlined values are dead-code-eliminated: the shipped bundle runs purely from
+	// staticData and never talks to the Tolgee server. Local E2E (`dev:test`) is a
+	// dev server too, but must render the same checked-in copy on every load.
+	const liveTolgee = import.meta.env.DEV && import.meta.env.VITE_LOCAL_E2E_RUNTIME !== '1';
+
 	// Intentionally capture initial language; watch() syncs route changes below.
 	const tolgeeBuilder = Tolgee().use(FormatIcu());
-	if (import.meta.env.DEV) {
+	if (liveTolgee) {
 		tolgeeBuilder.use(DevTools());
 		if (!import.meta.env.VITE_TOLGEE_API_KEY) {
 			devNotice({
@@ -131,12 +138,8 @@
 		defaultLanguage: DEFAULT_LANGUAGE,
 		fallbackLanguage: DEFAULT_LANGUAGE,
 
-		// Live Tolgee (in-context editing) is dev-only. Production and preview
-		// builds fold import.meta.env.DEV to false, so apiUrl/apiKey and their
-		// inlined values are dead-code-eliminated: the shipped bundle runs purely
-		// from staticData and never talks to the Tolgee server.
-		apiUrl: import.meta.env.DEV ? import.meta.env.VITE_TOLGEE_API_URL : undefined,
-		apiKey: import.meta.env.DEV ? import.meta.env.VITE_TOLGEE_API_KEY : undefined
+		apiUrl: liveTolgee ? import.meta.env.VITE_TOLGEE_API_URL : undefined,
+		apiKey: liveTolgee ? import.meta.env.VITE_TOLGEE_API_KEY : undefined
 	});
 
 	if (browser) {
