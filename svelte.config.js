@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import auto from '@sveltejs/adapter-auto';
 import cloudflare from '@sveltejs/adapter-cloudflare';
@@ -62,7 +62,11 @@ const config = {
 		// wired to Sentry only when PUBLIC_SENTRY_DSN is set at build time.
 		// frame-ancestors is not here — it cannot ride a <meta> tag, so it lives
 		// in hooks.server.ts / _headers / vercel.json. See src/lib/security/csp.js.
-		csp: buildContentSecurityPolicy({ sentryDsn: process.env.PUBLIC_SENTRY_DSN }),
+		// script-src hashes are derived from the inline scripts of the app template.
+		csp: buildContentSecurityPolicy({
+			sentryDsn: process.env.PUBLIC_SENTRY_DSN,
+			appTemplate: readFileSync(new URL('./src/app.html', import.meta.url), 'utf8')
+		}),
 		experimental: {
 			remoteFunctions: true
 		},

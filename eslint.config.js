@@ -28,6 +28,7 @@ import preferShadcnSliderImportsRule from './eslint/rules/prefer-shadcn-slider-i
 import safeSvelteParser from './eslint/parsers/safe-svelte-parser.js';
 import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js';
 import noDynamicImportRejectionHandlerRule from './eslint/rules/no-dynamic-import-rejection-handler.js';
+import requireStaticModeInitializerRule from './eslint/rules/require-static-mode-initializer.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
@@ -65,7 +66,8 @@ const localPlugin = {
 		'prefer-shadcn-primitives': preferShadcnPrimitivesRule,
 		'prefer-shadcn-slider-imports': preferShadcnSliderImportsRule,
 		'no-literal-control-char': noLiteralControlCharRule,
-		'no-dynamic-import-rejection-handler': noDynamicImportRejectionHandlerRule
+		'no-dynamic-import-rejection-handler': noDynamicImportRejectionHandlerRule,
+		'require-static-mode-initializer': requireStaticModeInitializerRule
 	}
 };
 
@@ -225,6 +227,18 @@ export default defineConfig(
 		rules: {
 			'local/require-marketing-markdown': 'error',
 			'local/require-marketing-route-registration': 'error'
+		}
+	},
+	{
+		// The root layout mounts ModeWatcher; src/app.html owns the theme initializer
+		// whose CSP hash is derived from the template. See
+		// eslint/rules/require-static-mode-initializer.js.
+		files: ['src/routes/+layout.svelte'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/require-static-mode-initializer': 'error'
 		}
 	},
 	{
