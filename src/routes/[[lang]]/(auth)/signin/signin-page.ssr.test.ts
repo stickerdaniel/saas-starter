@@ -37,7 +37,10 @@ import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte
 import SignInPage from './+page.svelte';
 
 const { JSDOM } = createRequire(import.meta.url)('jsdom') as {
-	JSDOM: new (html?: string) => { window: { document: Document; close(): void } };
+	JSDOM: new (
+		html?: string,
+		options?: { runScripts?: 'dangerously' }
+	) => { window: { document: Document; close(): void } };
 };
 
 const openWindows: Array<{ close(): void }> = [];
@@ -50,7 +53,11 @@ const DESTINATION = '/de/app/settings?tab=billing#invoices';
 
 type PageProps = { data: { oauthProviders: { google: boolean; github: boolean } } };
 
-function serverRender(search: string, { authenticated = false } = {}): Document {
+/**
+ * With `scripting`, the markup is parsed the way a browser that runs scripts
+ * parses it, which keeps the contents of `<noscript>` as unparsed text.
+ */
+function serverRender(search: string, { authenticated = false, scripting = false } = {}): Document {
 	state.page.url = new URL(`https://example.com/de/signin${search}`);
 	state.auth.isAuthenticated = authenticated;
 	const { body } = render(ChatTestProvider<PageProps>, {
@@ -61,7 +68,8 @@ function serverRender(search: string, { authenticated = false } = {}): Document 
 			contentProps: { data: { oauthProviders: { google: true, github: false } } }
 		}
 	});
-	const { window } = new JSDOM(body);
+	// The body holds no script elements, so enabling scripting runs nothing.
+	const { window } = new JSDOM(body, scripting ? { runScripts: 'dangerously' } : undefined);
 	openWindows.push(window);
 	return window.document;
 }
@@ -124,6 +132,16 @@ describe('server-rendered sign-in page', () => {
 
 		expect(reportIn(document)).toBe(en.auth.messages.invalid_token);
 		expect(resumeLinksIn(document)).toEqual([]);
+	});
+
+	it('explains the disabled controls to a browser whose scripts never hydrate the page', () => {
+		const document = serverRender('', { scripting: true });
+
+		// A status region, so the text is announced when it appears after a
+		// failed hydration.
+		expect(document.querySelector('[role="status"]')?.textContent?.trim()).toBe(
+			en.auth.javascript_required
+		);
 	});
 });
 

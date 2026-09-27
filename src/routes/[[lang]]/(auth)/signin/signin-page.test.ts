@@ -437,3 +437,12 @@ describe('sign-in page holding a signed-in visitor', () => {
 		await vi.waitFor(() => expect(navigations).toEqual([DESTINATION]));
 	});
 });
+
+describe('sign-in page once hydrated', () => {
+	it('enables the form and drops the notice that explained why it was disabled', async () => {
+		await renderSignIn('');
+
+		expect(button(en.auth.signin.button_signin).disabled).toBe(false);
+		expect(document.body.textContent).not.toContain(en.auth.javascript_required);
+	});
+});

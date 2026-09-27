@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import * as v from 'valibot';
 	import SEOHead from '$lib/components/SEOHead.svelte';
+	import JavaScriptNotice from '../JavaScriptNotice.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -157,14 +158,7 @@
 	noindex
 />
 
-<noscript>
-	<div
-		lang="en"
-		class="fixed inset-x-0 top-0 z-50 bg-warning p-4 text-center text-warning-foreground"
-	>
-		JavaScript is required for authentication. Please enable JavaScript to continue.
-	</div>
-</noscript>
+<JavaScriptNotice />
 
 <div class="flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">

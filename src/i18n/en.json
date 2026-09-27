@@ -362,6 +362,7 @@
 			"description": "Enter the email address for your account",
 			"title": "Forgot password"
 		},
+		"javascript_required": "JavaScript is required for authentication. Enable JavaScript or reload the page to continue.",
 		"messages": {
 			"account_not_linked": "Social sign-in could not be completed for this email address. Sign in with your email and password instead. If you have no password for this address, reset it first.",
 			"auth_cancelled": "Authentication was cancelled",
