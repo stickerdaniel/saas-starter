@@ -160,7 +160,9 @@ describe('template setup maintainer manifest', () => {
 		{ custom: 'bun run --cwd packages/create-saas-starter-docs build' },
 		{ custom: 'bun run --cwd packages/create-saas-starter+docs build' },
 		{ custom: 'curl https://example.invalid/?label=test:cli' },
-		{ custom: 'FOO=test:cli bun scripts/app-task.ts' }
+		{ custom: 'FOO=test:cli bun scripts/app-task.ts' },
+		{ custom: 'echo test:cli' },
+		{ custom: 'printf test:cli && bun run build' }
 	])('preserves distinct custom names in a clean project: %o', (custom) => {
 		const clean = removeMaintainerCliScripts(manifest);
 		const input = { ...clean, scripts: { ...(clean.scripts as object), ...custom } };
@@ -179,7 +181,8 @@ describe('template setup maintainer manifest', () => {
 				`bun ${name} --flag`,
 				`bun run ${head}:"${rest}"`,
 				`bun run "${head}":${rest}`,
-				`bun run ${head}\\:${rest}`
+				`bun run ${head}\\:${rest}`,
+				`FOO=1 bun run --silent ${name}`
 			]) {
 				expect(referencesMaintainerCli(command), command).toBe(true);
 			}
@@ -195,20 +198,80 @@ describe('template setup maintainer manifest', () => {
 		}
 	});
 
+	/** The script-name rule before printed labels were exempt; every other form must stay detected. */
+	function referencedBeforeLabelExemption(command: string): boolean {
+		const unquoted = command.replace(/\\([\s\S])/g, '$1').replace(/["'`]/g, '');
+		return /(?<![^\s;&|()<>])(?:install:cli|check:cli|test:cli|build:cli|test:cli:packed)(?![^\s;&|()<>=])/.test(
+			unquoted
+		);
+	}
+
+	it.each([
+		'node --run test:cli',
+		'$(which bun) run test:cli',
+		'$(command -v bun) run test:cli',
+		'cmd /c .\\node_modules\\.bin\\run-p.cmd test:cli',
+		'cmd /c "node --run test:cli"',
+		'./node_modules/.bin/run-p test:cli',
+		'npm-run-all --parallel test:cli lint',
+		'npx npm-run-all test:cli',
+		'turbo run test:cli',
+		'bunx test:cli',
+		'deno task test:cli',
+		'nx run test:cli',
+		'concurrently test:cli',
+		'concurrently "node --run test:cli"',
+		'yarn workspace app test:cli',
+		'env FOO=1 bun run test:cli',
+		'echo x && bun run test:cli',
+		'echo x || bun run test:cli',
+		'echo x; bun run test:cli',
+		'echo x\nbun run test:cli',
+		'echo x | bun run test:cli',
+		'(echo x) && bun run test:cli',
+		'echo test:cli | xargs bun run',
+		'echo test:cli > task && xargs bun run < task',
+		'bun run $(echo test:cli)',
+		'bun run `echo test:cli`'
+	])('keeps the earlier detection of %j', (command) => {
+		expect(referencedBeforeLabelExemption(command)).toBe(true);
+		expect(referencesMaintainerCli(command)).toBe(true);
+	});
+
+	it.each([
+		'echo test:cli',
+		'printf test:cli',
+		'printf "%s\\n" "test:cli"',
+		'builtin echo test:cli',
+		'command printf test:cli',
+		'echo test:cli && bun run build',
+		'bun run build && echo test:cli',
+		'bun run build; echo "test":cli',
+		'(echo test:cli)'
+	])('exempts the printed label in %j', (command) => {
+		expect(referencedBeforeLabelExemption(command)).toBe(true);
+		expect(referencesMaintainerCli(command)).toBe(false);
+	});
+
 	it('recognizes the creator directory only as a complete path component', () => {
 		for (const command of [
 			'cd packages/create-saas-starter',
 			'cd ./packages/create-saas-starter',
 			'cd .\\packages\\create-saas-starter',
 			'bun --cwd packages/create-saas-starter/src test',
-			'cd "packages/create-saas-starter"&& bun test'
+			'cd "packages/create-saas-starter"&& bun test',
+			'bun run --cwd packages/"create-saas-starter" build',
+			'bun run --cwd packages/create-saas-"starter" build',
+			'cd ".\\packages"\\create-saas-starter'
 		]) {
 			expect(referencesMaintainerCli(command), command).toBe(true);
 		}
 		for (const command of [
 			'cd packages/create-saas-starter-docs',
 			'cd packages/create-saas-starter+docs',
-			'cd packages/create-saas-starter.docs'
+			'cd packages/create-saas-starter.docs',
+			'cd packages/create-saas-"starter-docs"',
+			'cd x"packages/create-saas-starter"'
 		]) {
 			expect(referencesMaintainerCli(command), command).toBe(false);
 		}

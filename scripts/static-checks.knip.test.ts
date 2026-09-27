@@ -1164,7 +1164,9 @@ describe.sequential('Knip static-check CLI behavior', () => {
 		['a shorthand invocation', 'bun test:cli'],
 		['a split-quoted suffix', 'bun run test:"cli"'],
 		['a split-quoted prefix', 'bun run "test":cli'],
-		['an escaped separator', 'bun run test\\:cli']
+		['an escaped separator', 'bun run test\\:cli'],
+		['a split-quoted child directory', 'bun run --cwd packages/"create-saas-starter" build'],
+		['a split-quoted child suffix', 'bun run --cwd packages/create-saas-"starter" build']
 	])(
 		'rejects a removed creator still referenced by %s before command dispatch',
 		(_label, command) => {
@@ -1206,7 +1208,9 @@ describe.sequential('Knip static-check CLI behavior', () => {
 	it.each([
 		'curl https://example.invalid/?label=test:cli',
 		'FOO=test:cli bun scripts/app-task.ts',
-		'bun run --cwd packages/create-saas-starter+docs build'
+		'bun run --cwd packages/create-saas-starter+docs build',
+		'echo test:cli',
+		'printf test:cli'
 	])(
 		'keeps a removed creator absent beside the unrelated command %s',
 		(command) => {
