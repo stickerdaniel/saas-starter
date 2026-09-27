@@ -285,6 +285,23 @@ function isMissingPathError(error: unknown): boolean {
 }
 
 /**
+ * Whether a path the index removed is still in the worktree under that exact name. A lookup
+ * alone is not enough: on a case-insensitive filesystem the old spelling of a case-only rename
+ * resolves to the new file. The directory listing holds the stored name, which also keeps a
+ * recreated hard link to a surviving file visible where an inode comparison would hide it.
+ */
+function removedPathOnDisk(file: string): boolean {
+	const absolute = path.join(REPO_ROOT, file);
+	try {
+		lstatSync(absolute);
+	} catch (error) {
+		if (isMissingPathError(error)) return false;
+		throw error;
+	}
+	return readdirSync(path.dirname(absolute)).includes(path.basename(absolute));
+}
+
+/**
  * Directory segments Prettier's CLI skips before glob expansion, whether or not an ignore
  * file names them. `getFileInfo()` applies node_modules and ignore files but not this VCS
  * list, so explicit paths need the same closed set here or the ledger counts work the CLI
@@ -1265,25 +1282,8 @@ async function main(): Promise<void> {
 			);
 		}
 		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
-		const fileIdentity = (file: string): string | undefined => {
-			try {
-				const entry = lstatSync(path.join(REPO_ROOT, file), { bigint: true });
-				return `${entry.dev}:${entry.ino}`;
-			} catch (error) {
-				if (isMissingPathError(error)) return undefined;
-				throw error;
-			}
-		};
-		// On a case-insensitive filesystem the old spelling of a case-only rename still resolves
-		// to the new file, so a removed path counts as recreated only when it is a different file
-		// from every path that survives in the index.
-		const survivingIdentities = new Set(stagedIndexPaths.map(fileIdentity));
-		const removedPathStillExists = stagedRemovedPaths.some((file) => {
-			const identity = fileIdentity(file);
-			return identity !== undefined && !survivingIdentities.has(identity);
-		});
 		if (
-			removedPathStillExists ||
+			stagedRemovedPaths.some(removedPathOnDisk) ||
 			!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv)
 		) {
 			fail(
@@ -1701,7 +1701,10 @@ async function main(): Promise<void> {
 	}
 
 	if (stagedIndexFingerprint) {
-		if (!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv)) {
+		if (
+			!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv) ||
+			stagedRemovedPaths.some(removedPathOnDisk)
+		) {
 			fail('Checked worktree bytes changed while staged checks were running.');
 		}
 		if (activeGitIndexFingerprint(REPO_ROOT, stagedEnv) !== stagedIndexFingerprint) {

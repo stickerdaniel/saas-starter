@@ -3,6 +3,7 @@ import {
 	chmodSync,
 	copyFileSync,
 	existsSync,
+	linkSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
@@ -1166,23 +1167,35 @@ describe.sequential('Knip static-check CLI behavior', () => {
 		}
 	}, 45_000);
 
-	it('rejects a staged rename whose source path is still on disk', () => {
-		const checkout = createCheckerClone();
-		const source = 'src/lib/billing/checkout-result.ts';
-		try {
-			const original = readFileSync(path.join(checkout.repository, source));
-			stageRemoval(checkout, source, 'docs/checkout-result.txt');
-			writeFileSync(path.join(checkout.repository, source), original);
-			const result = runChecker(checkout, ['--staged', '--scope', 'types']);
-			const output = `${result.stdout}${result.stderr}`;
+	it.each(['a copy', 'a hard link to the destination'] as const)(
+		'rejects a staged rename whose source path is still on disk as %s',
+		(recreation) => {
+			const checkout = createCheckerClone();
+			const source = 'src/lib/billing/checkout-result.ts';
+			const destination = 'docs/checkout-result.txt';
+			try {
+				const original = readFileSync(path.join(checkout.repository, source));
+				stageRemoval(checkout, source, destination);
+				if (recreation === 'a copy') {
+					writeFileSync(path.join(checkout.repository, source), original);
+				} else {
+					linkSync(
+						path.join(checkout.repository, destination),
+						path.join(checkout.repository, source)
+					);
+				}
+				const result = runChecker(checkout, ['--staged', '--scope', 'types']);
+				const output = `${result.stdout}${result.stderr}`;
 
-			expect(result.status, output).toBe(1);
-			expect(output).toContain('Staged file contents differ from the worktree');
-			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([]);
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}, 45_000);
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('Staged file contents differ from the worktree');
+				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([]);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
 
 	it.skipIf(!CASE_INSENSITIVE_TEMP)(
 		'accepts a case-only rename whose old spelling resolves to the new file',
