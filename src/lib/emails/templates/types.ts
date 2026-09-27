@@ -1,10 +1,12 @@
 import type { ComponentProps } from 'svelte';
+import type { AnonymousRateLimitBucket } from '../../convex/support/rateLimitAlertFields';
 import type VerificationEmail from './VerificationEmail.svelte';
 import type VerificationCodeEmail from './VerificationCodeEmail.svelte';
 import type PasswordResetEmail from './PasswordResetEmail.svelte';
 import type AdminReplyNotificationEmail from './AdminReplyNotificationEmail.svelte';
 import type NewTicketAdminNotificationEmail from './NewTicketAdminNotificationEmail.svelte';
 import type NewUserSignupNotificationEmail from './NewUserSignupNotificationEmail.svelte';
+import type SupportRateLimitAlertEmail from './SupportRateLimitAlertEmail.svelte';
 
 // Extract component prop types
 export type VerificationEmailProps = ComponentProps<typeof VerificationEmail>;
@@ -17,6 +19,7 @@ export type NewTicketAdminNotificationEmailProps = ComponentProps<
 export type NewUserSignupNotificationEmailProps = ComponentProps<
 	typeof NewUserSignupNotificationEmail
 >;
+export type SupportRateLimitAlertEmailProps = ComponentProps<typeof SupportRateLimitAlertEmail>;
 
 // Helper to make all props required (removes optional defaults)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -121,6 +124,29 @@ export type NewUserSignupNotificationEmailData = {
 	userEmail: string;
 	signupMethod: 'Email' | 'Google' | 'GitHub';
 	signupTime: string;
+	adminDashboardLink: string;
+};
+
+/**
+ * Data required to render a support rate limit alert email
+ *
+ * Sent to admins when a global anonymous support rate limit stays nearly used up.
+ *
+ * @property bucket - Which anonymous rate limit is running low
+ * @property available - Whole requests left in the bucket when it was sampled
+ * @property capacity - Burst capacity of the bucket
+ * @property ratePerHour - Sustained refill rate of the bucket
+ * @property lowForMinutes - How long the bucket has been sampled as low
+ * @property cooldownHours - Minimum hours between two alerts for one bucket
+ * @property adminDashboardLink - Link to the admin support dashboard
+ */
+export type SupportRateLimitAlertEmailData = {
+	bucket: AnonymousRateLimitBucket;
+	available: number;
+	capacity: number;
+	ratePerHour: number;
+	lowForMinutes: number;
+	cooldownHours: number;
 	adminDashboardLink: string;
 };
 

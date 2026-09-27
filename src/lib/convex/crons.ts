@@ -1,5 +1,6 @@
 import { cronJobs } from 'convex/server';
 import { internal } from './_generated/api';
+import { RATE_LIMIT_SAMPLE_INTERVAL_MINUTES } from './support/rateLimitAlerts';
 
 const crons = cronJobs();
 
@@ -18,6 +19,15 @@ crons.interval(
 	'deleteStaleWarmThreads',
 	{ hours: 24 },
 	internal.aiChat.threads.deleteStaleWarmThreads,
+	{}
+);
+
+// Email admins when a global anonymous support rate limit stays nearly used up.
+// Reads three rate limit rows per run and writes only when a bucket changes state.
+crons.interval(
+	'sampleAnonymousSupportRateLimits',
+	{ minutes: RATE_LIMIT_SAMPLE_INTERVAL_MINUTES },
+	internal.support.rateLimitAlerts.sampleAnonymousRateLimits,
 	{}
 );
 

@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
 import { action, internalMutation, mutation } from '../_generated/server';
 import { components, internal } from '../_generated/api';
-import { supportRateLimiter } from './rateLimit';
+import { ANONYMOUS_GLOBAL_RATE_LIMIT_KEY, supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 import { getSupportOwnerIdentity } from './ownership';
 import { fetchAttachmentText } from '../files/attachmentText';
@@ -32,7 +32,7 @@ export const generateUploadUrl = mutation({
 		// storage abuse via ID rotation (anonymous IDs are client-generated)
 		const isAnon = !owner || owner.isAnonymous;
 		const limitName = isAnon ? 'supportFileUploadAnon' : 'supportFileUpload';
-		const userKey = isAnon ? 'anonymous-global' : owner.ownerId;
+		const userKey = isAnon ? ANONYMOUS_GLOBAL_RATE_LIMIT_KEY : owner.ownerId;
 
 		const rateLimitStatus = await supportRateLimiter.limit(ctx, limitName, { key: userKey });
 
@@ -189,7 +189,7 @@ export const checkPreviewAccess = internalMutation({
 		const owner = await getSupportOwnerIdentity(ctx, args.anonymousUserId);
 		const isAnon = !owner || owner.isAnonymous;
 		const limitName = isAnon ? 'supportFilePreviewAnon' : 'supportFilePreview';
-		const userKey = isAnon ? 'anonymous-global' : owner.ownerId;
+		const userKey = isAnon ? ANONYMOUS_GLOBAL_RATE_LIMIT_KEY : owner.ownerId;
 
 		const rateLimitStatus = await supportRateLimiter.limit(ctx, limitName, { key: userKey });
 		if (!rateLimitStatus.ok) {

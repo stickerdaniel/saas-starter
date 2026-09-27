@@ -90,6 +90,8 @@ import type * as support_notificationPreferences from "../support/notificationPr
 import type * as support_ownership from "../support/ownership.js";
 import type * as support_promptStore from "../support/promptStore.js";
 import type * as support_rateLimit from "../support/rateLimit.js";
+import type * as support_rateLimitAlertFields from "../support/rateLimitAlertFields.js";
+import type * as support_rateLimitAlerts from "../support/rateLimitAlerts.js";
 import type * as support_readState from "../support/readState.js";
 import type * as support_supportThreadFields from "../support/supportThreadFields.js";
 import type * as support_threadLifecycle from "../support/threadLifecycle.js";
@@ -192,6 +194,8 @@ declare const fullApi: ApiFromModules<{
   "support/ownership": typeof support_ownership;
   "support/promptStore": typeof support_promptStore;
   "support/rateLimit": typeof support_rateLimit;
+  "support/rateLimitAlertFields": typeof support_rateLimitAlertFields;
+  "support/rateLimitAlerts": typeof support_rateLimitAlerts;
   "support/readState": typeof support_readState;
   "support/supportThreadFields": typeof support_supportThreadFields;
   "support/threadLifecycle": typeof support_threadLifecycle;

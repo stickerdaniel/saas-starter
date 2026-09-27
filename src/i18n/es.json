@@ -608,6 +608,7 @@
 			"title": "Nueva respuesta a tu solicitud"
 		},
 		"badge": {
+			"alert": "Alerta",
 			"auth": "Autenticación",
 			"stats": "Estadísticas",
 			"support": "Soporte"
@@ -632,6 +633,22 @@
 			"preview": "Nuevo usuario: {userEmail}",
 			"title": "Nuevo usuario registrado"
 		},
+		"rate_limit_alert": {
+			"action": "Si es tráfico real, aumenta el límite en la configuración del limitador de soporte. Si viene de una sola fuente, puede tratarse de abuso.",
+			"description": "{limitName} de visitantes sin sesión iniciada han usado el {usedPercent} % de su límite compartido durante al menos {minutes} minutos.",
+			"footer": "Recibes este email porque tienes activadas las notificaciones de nuevos tickets de soporte. Cada límite envía como máximo una alerta cada {hours} horas.",
+			"impact": "Cuando se agote, los visitantes sin sesión iniciada verán un error de límite de solicitudes en el widget de soporte.",
+			"label_limit": "Límite:",
+			"label_refill": "Recarga:",
+			"label_remaining": "Restante:",
+			"limit_file_preview": "Vistas previas de adjuntos",
+			"limit_file_upload": "Subidas de archivos",
+			"limit_thread_create": "Nuevas conversaciones",
+			"preview": "{limitName}: quedan {available} de {capacity}",
+			"refill": "{ratePerHour} por hora",
+			"remaining": "{available} de {capacity}",
+			"title": "Límite de solicitudes de soporte casi agotado"
+		},
 		"reset_password": {
 			"body": "Hemos recibido una solicitud para restablecer tu contraseña. Haz clic en el botón de abajo para establecer una nueva contraseña:",
 			"button": "Restablecer contraseña",
@@ -654,6 +671,7 @@
 		},
 		"subject": {
 			"new_signup": "Nuevo registro de usuario: {userEmail}",
+			"rate_limit_alert": "Límite de solicitudes de soporte casi agotado: {limitName}",
 			"reset_password": "Restablecer tu contraseña",
 			"set_password": "Establece una contraseña",
 			"support_reply": "Nueva respuesta a tu solicitud de soporte",

@@ -2,6 +2,13 @@ import { RateLimiter, MINUTE, HOUR } from '@convex-dev/rate-limiter';
 import { components } from '../_generated/api';
 
 /**
+ * Key of the shared bucket every anonymous caller draws from. Anonymous IDs
+ * are client-generated and spoofable, so a per-ID key would be trivially
+ * bypassed. The saturation alert (rateLimitAlerts.ts) samples this key.
+ */
+export const ANONYMOUS_GLOBAL_RATE_LIMIT_KEY = 'anonymous-global';
+
+/**
  * Rate limiter for customer support agent
  *
  * Prevents abuse of the AI support agent by limiting:
@@ -44,7 +51,7 @@ export const supportRateLimiter = new RateLimiter(components.rateLimiter, {
 
 	// Anonymous file upload limit — GLOBAL shared bucket (not per-user)
 	// Anonymous IDs are client-generated and spoofable, so all anonymous
-	// uploads share one bucket keyed 'anonymous-global' in files.ts
+	// uploads share one bucket keyed ANONYMOUS_GLOBAL_RATE_LIMIT_KEY in files.ts
 	// Token bucket: 10-file burst, sustained 20/hour
 	supportFileUploadAnon: {
 		kind: 'token bucket',

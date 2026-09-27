@@ -12,6 +12,7 @@ import type {
 	AdminReplyNotificationEmailData,
 	NewTicketAdminNotificationEmailData,
 	NewUserSignupNotificationEmailData,
+	SupportRateLimitAlertEmailData,
 	RenderedEmail
 } from '../../emails/templates/types';
 import {
@@ -26,7 +27,9 @@ import {
 	NEWTICKETADMINNOTIFICATION_HTML,
 	NEWTICKETADMINNOTIFICATION_TEXT,
 	NEWUSERSIGNUPNOTIFICATION_HTML,
-	NEWUSERSIGNUPNOTIFICATION_TEXT
+	NEWUSERSIGNUPNOTIFICATION_TEXT,
+	SUPPORTRATELIMITALERT_HTML,
+	SUPPORTRATELIMITALERT_TEXT
 } from '../../emails/generated/index.js';
 import { requireEmailConfiguration } from '../env';
 import { t, DEFAULT_LOCALE, getValidLocale } from '../i18n/translations';
@@ -396,5 +399,74 @@ export function renderNewUserSignupNotificationEmail(
 	return {
 		html: renderTemplate(NEWUSERSIGNUPNOTIFICATION_HTML, templateData),
 		text: renderTemplate(NEWUSERSIGNUPNOTIFICATION_TEXT, textData)
+	};
+}
+
+// Spelled out rather than composed from the bucket name, so the orphan-key check
+// can see that every label is used.
+const RATE_LIMIT_ALERT_LIMIT_NAME_KEYS: Record<SupportRateLimitAlertEmailData['bucket'], string> = {
+	supportThreadCreateAnon: 'email.rate_limit_alert.limit_thread_create',
+	supportFileUploadAnon: 'email.rate_limit_alert.limit_file_upload',
+	supportFilePreviewAnon: 'email.rate_limit_alert.limit_file_preview'
+};
+
+/** Localized name of a monitored rate limit, shared by the alert body and subject. */
+export function getRateLimitAlertLimitName(
+	bucket: SupportRateLimitAlertEmailData['bucket'],
+	locale: string = DEFAULT_LOCALE
+): string {
+	return t(locale, RATE_LIMIT_ALERT_LIMIT_NAME_KEYS[bucket]);
+}
+
+/**
+ * Render support rate limit alert email
+ *
+ * Sent to admins when a global anonymous support rate limit stays nearly used up.
+ *
+ * @param data - Bucket, its sampled level and refill rate, and the admin dashboard link
+ * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
+ * @returns Rendered HTML and plain text email
+ */
+export function renderSupportRateLimitAlertEmail(
+	data: SupportRateLimitAlertEmailData,
+	locale: string = DEFAULT_LOCALE
+): RenderedEmail {
+	const baseUrl = getBaseUrl();
+	const limitName = getRateLimitAlertLimitName(data.bucket, locale);
+	const usedPercent = Math.round((1 - data.available / data.capacity) * 100);
+	const level = { available: data.available, capacity: data.capacity };
+
+	const texts = {
+		badgeText: t(locale, 'email.badge.alert'),
+		titleText: t(locale, 'email.rate_limit_alert.title'),
+		descriptionText: t(locale, 'email.rate_limit_alert.description', {
+			limitName,
+			usedPercent,
+			minutes: data.lowForMinutes
+		}),
+		previewText: t(locale, 'email.rate_limit_alert.preview', { limitName, ...level }),
+		limitLabel: t(locale, 'email.rate_limit_alert.label_limit'),
+		limitName,
+		remainingLabel: t(locale, 'email.rate_limit_alert.label_remaining'),
+		remainingText: t(locale, 'email.rate_limit_alert.remaining', level),
+		refillLabel: t(locale, 'email.rate_limit_alert.label_refill'),
+		refillText: t(locale, 'email.rate_limit_alert.refill', { ratePerHour: data.ratePerHour }),
+		impactText: t(locale, 'email.rate_limit_alert.impact'),
+		actionText: t(locale, 'email.rate_limit_alert.action'),
+		buttonText: t(locale, 'email.body.view_admin_dashboard'),
+		footerText: t(locale, 'email.rate_limit_alert.footer', { hours: data.cooldownHours })
+	};
+
+	const templateData = {
+		lang: getValidLocale(locale),
+		adminDashboardLink: escapeHtml(data.adminDashboardLink),
+		baseUrl: escapeHtml(baseUrl),
+		...Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, escapeHtml(v)]))
+	};
+	const textData = { adminDashboardLink: data.adminDashboardLink, baseUrl, ...texts };
+
+	return {
+		html: renderTemplate(SUPPORTRATELIMITALERT_HTML, templateData),
+		text: renderTemplate(SUPPORTRATELIMITALERT_TEXT, textData)
 	};
 }

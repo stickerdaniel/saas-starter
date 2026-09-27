@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 import { vEmailEvent } from '@convex-dev/resend';
 import { supportThreadFields } from './support/supportThreadFields';
+import { vAnonymousRateLimitBucket } from './support/rateLimitAlertFields';
 import { founderIncidentEmailFields } from './emails/founderIncidentTypes';
 import { aiUsageFeatureValidator } from './aiUsage/feature';
 
@@ -129,6 +130,15 @@ export default defineSchema({
 		retryCount: v.optional(v.number()), // Number of retry attempts (stops after 5)
 		createdAt: v.number()
 	}).index('by_thread', ['threadId']),
+
+	// Saturation alert state for the global anonymous support rate limits, at
+	// most one row per bucket. Written by the sampling cron in
+	// support/rateLimitAlerts.ts only when a bucket changes state or alerts.
+	supportRateLimitAlerts: defineTable({
+		bucket: vAnonymousRateLimitBucket,
+		lowSince: v.optional(v.number()), // First sample at or past the threshold in the current run of low samples
+		alertedAt: v.optional(v.number()) // Last alert, for the cooldown
+	}).index('by_bucket', ['bucket']),
 
 	// Admin notification preferences - per-recipient toggles for notification types
 	// Admin users are auto-synced via auth triggers; custom emails can be added manually.

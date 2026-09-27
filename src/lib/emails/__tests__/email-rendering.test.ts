@@ -11,7 +11,11 @@ vi.mock('$lib/convex/env', () => ({
 
 import { sanitizeEmailCss } from '../email-css';
 import { STATIC_TRANSLATIONS, SUPPORTED_LOCALES } from '$lib/i18n/static-translations.generated';
-import type { NewUserSignupNotificationEmailData, RenderedEmail } from '../templates/types';
+import type {
+	NewUserSignupNotificationEmailData,
+	RenderedEmail,
+	SupportRateLimitAlertEmailData
+} from '../templates/types';
 import { LEGAL_CONFIG } from '$lib/config/legal';
 import {
 	renderVerificationEmail,
@@ -19,7 +23,8 @@ import {
 	renderPasswordResetEmail,
 	renderAdminReplyNotificationEmail,
 	renderNewTicketAdminNotificationEmail,
-	renderNewUserSignupNotificationEmail
+	renderNewUserSignupNotificationEmail,
+	renderSupportRateLimitAlertEmail
 } from '$lib/convex/emails/templates';
 
 const ASSET_URL = 'https://test.example.com';
@@ -70,6 +75,15 @@ const signup: NewUserSignupNotificationEmailData = {
 	userEmail: 'max+ops@example.com',
 	signupMethod: 'Email',
 	signupTime: 'Jan 15, 2026 at 3:45 PM',
+	adminDashboardLink
+};
+const rateLimitAlert: SupportRateLimitAlertEmailData = {
+	bucket: 'supportFileUploadAnon',
+	available: 1,
+	capacity: 10,
+	ratePerHour: 20,
+	lowForMinutes: 20,
+	cooldownHours: 6,
 	adminDashboardLink
 };
 
@@ -169,6 +183,29 @@ const RENDERERS: RendererCase[] = [
 			s.new_signup.footer
 		],
 		values: [signup.userName, signup.userEmail, signup.signupMethod, signup.signupTime]
+	},
+	{
+		name: 'renderSupportRateLimitAlertEmail',
+		render: (locale) => renderSupportRateLimitAlertEmail(rateLimitAlert, locale),
+		action: { href: adminDashboardLink, text: (s) => s.body.view_admin_dashboard },
+		copy: (s) => [
+			s.badge.alert,
+			s.rate_limit_alert.title,
+			fill(s.rate_limit_alert.description, {
+				limitName: s.rate_limit_alert.limit_file_upload,
+				usedPercent: 90,
+				minutes: 20
+			}),
+			s.rate_limit_alert.label_limit,
+			s.rate_limit_alert.label_remaining,
+			fill(s.rate_limit_alert.remaining, { available: 1, capacity: 10 }),
+			s.rate_limit_alert.label_refill,
+			fill(s.rate_limit_alert.refill, { ratePerHour: 20 }),
+			s.rate_limit_alert.impact,
+			s.rate_limit_alert.action,
+			fill(s.rate_limit_alert.footer, { hours: 6 })
+		],
+		values: []
 	}
 ];
 

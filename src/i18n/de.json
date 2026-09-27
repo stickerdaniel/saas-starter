@@ -608,6 +608,7 @@
 			"title": "Neue Antwort auf Ihre Anfrage"
 		},
 		"badge": {
+			"alert": "Warnung",
 			"auth": "Authentifizierung",
 			"stats": "Statistiken",
 			"support": "Support"
@@ -632,6 +633,22 @@
 			"preview": "Neuer Benutzer: {userEmail}",
 			"title": "Neuer Benutzer registriert"
 		},
+		"rate_limit_alert": {
+			"action": "Wenn es sich um echten Traffic handelt, erhöhen Sie das Limit in der Konfiguration des Support-Ratenlimits. Kommt er von einer einzelnen Quelle, kann es sich um Missbrauch handeln.",
+			"description": "{limitName} von nicht angemeldeten Besuchern haben seit mindestens {minutes} Minuten {usedPercent} % ihres gemeinsamen Limits verbraucht.",
+			"footer": "Sie erhalten diese E-Mail, weil Sie Benachrichtigungen über neue Support-Tickets aktiviert haben. Jedes Limit sendet höchstens alle {hours} Stunden eine Warnung.",
+			"impact": "Ist es aufgebraucht, sehen nicht angemeldete Besucher im Support-Widget einen Fehler wegen des Ratenlimits.",
+			"label_limit": "Limit:",
+			"label_refill": "Nachschub:",
+			"label_remaining": "Verbleibend:",
+			"limit_file_preview": "Anhangsvorschauen",
+			"limit_file_upload": "Datei-Uploads",
+			"limit_thread_create": "Neue Unterhaltungen",
+			"preview": "{limitName}: {available} von {capacity} übrig",
+			"refill": "{ratePerHour} pro Stunde",
+			"remaining": "{available} von {capacity}",
+			"title": "Support-Ratenlimit fast erreicht"
+		},
 		"reset_password": {
 			"body": "Wir haben eine Anfrage zum Zurücksetzen Ihres Passworts erhalten. Klicken Sie auf den Button unten, um ein neues Passwort festzulegen:",
 			"button": "Passwort zurücksetzen",
@@ -654,6 +671,7 @@
 		},
 		"subject": {
 			"new_signup": "Neue Benutzerregistrierung: {userEmail}",
+			"rate_limit_alert": "Support-Ratenlimit fast erreicht: {limitName}",
 			"reset_password": "Passwort zurücksetzen",
 			"set_password": "Passwort einrichten",
 			"support_reply": "Neue Antwort auf Ihre Support-Anfrage",
