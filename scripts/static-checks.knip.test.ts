@@ -3,6 +3,7 @@ import {
 	chmodSync,
 	copyFileSync,
 	existsSync,
+	linkSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
@@ -27,6 +28,11 @@ const CLI_KNIP: CommandInvocation = {
 	args: ['run', '--cwd', 'packages/create-saas-starter', 'knip', '--no-progress']
 };
 const CLI_TYPES: CommandInvocation = { command: 'bun', args: ['run', 'check:cli'] };
+const APP_TYPES: CommandInvocation = {
+	command: 'bun',
+	args: ['svelte-check', '--tsconfig', './tsconfig.json']
+};
+const CONVEX_TYPES: CommandInvocation = { command: 'bun', args: ['run', 'check:convex'] };
 const PRETTIER_README: CommandInvocation = {
 	command: 'bun',
 	args: ['prettier', '--check', '--ignore-unknown', '--', 'README.md']
@@ -119,6 +125,16 @@ const REQUIRED_SOURCES = [
 // form, so every relative file argument falls outside the repository. `realpathSync.native`
 // resolves through the same operating-system API and returns the same spelling for both sides.
 const TEMP_ROOT = realpathSync.native(tmpdir());
+// Default macOS and Windows volumes resolve a path regardless of letter case; most Linux ones do not.
+const CASE_INSENSITIVE_TEMP = (() => {
+	const probe = mkdtempSync(path.join(TEMP_ROOT, 'static-case-probe-'));
+	try {
+		writeFileSync(path.join(probe, 'case'), '');
+		return existsSync(path.join(probe, 'CASE'));
+	} finally {
+		rmSync(probe, { recursive: true, force: true });
+	}
+})();
 
 interface CommandInvocation {
 	command: string;
@@ -552,6 +568,17 @@ function stageDeletionOnly(checkout: CheckerClone): void {
 	]);
 	rmSync(fixture);
 	runFixtureGit(checkout.repository, ['add', '-u', '--', relative]);
+}
+
+/** Stages `git rm` of a committed path, or `git mv` to `destination`, in the private clone. */
+function stageRemoval(checkout: CheckerClone, source: string, destination?: string): void {
+	runFixtureGit(
+		checkout.repository,
+		destination ? ['mv', '--', source, destination] : ['rm', '--quiet', '--', source]
+	);
+	// The overlay invalidated tracked stat data; refresh it before the checker fingerprints the
+	// index, as stageReadme does.
+	runFixtureGit(checkout.repository, ['status', '--porcelain=v1', '--untracked-files=all']);
 }
 
 function replaceCompatWithRecorder(checkout: CheckerClone): void {
@@ -1089,6 +1116,107 @@ describe.sequential('Knip static-check CLI behavior', () => {
 			rmSync(checkout.directory, { recursive: true, force: true });
 		}
 	}, 30_000);
+
+	// The type checks read the whole project, so a path that left the index must still start
+	// them: removing an imported module breaks its importers without leaving a file to route.
+	it.each([
+		['deleting an imported module', 'src/lib/billing/checkout-result.ts', undefined, APP_TYPES],
+		[
+			'renaming a module to a non-source name',
+			'src/lib/billing/checkout-result.ts',
+			'docs/checkout-result.txt',
+			APP_TYPES
+		],
+		['deleting a Convex module', 'src/lib/convex/constants.ts', undefined, CONVEX_TYPES]
+	] as const)(
+		'fails a staged type run when %s breaks the project typecheck',
+		(_label, source, destination, typecheck) => {
+			const checkout = createCheckerClone();
+			checkout.env.STATIC_CHECKS_COMMAND_RESPONSE = JSON.stringify({ ...typecheck, status: 1 });
+			try {
+				stageRemoval(checkout, source, destination);
+				const result = runChecker(checkout, ['--staged', '--scope', 'types']);
+				const output = `${result.stdout}${result.stderr}`;
+
+				expect(result.status, output).toBe(1);
+				expect(output).toContain(`Command failed: bun ${typecheck.args.join(' ')}`);
+				expect(output).not.toContain('All checks passed!');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
+
+	it('reports an honest no-op for a staged deletion that no type check covers', () => {
+		const checkout = createCheckerClone();
+		try {
+			stageRemoval(checkout, 'static/favicon.ico');
+			const result = runChecker(checkout, ['--staged', '--scope', 'types']);
+			const output = `${result.stdout}${result.stderr}`;
+			const log = readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!);
+
+			expect(result.status, output).toBe(0);
+			expect(output).toContain(
+				'NO WORK: staged changes only delete paths absent from the final index.'
+			);
+			expect(log).not.toContainEqual(APP_TYPES);
+			expect(log).not.toContainEqual(CONVEX_TYPES);
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
+	it.each(['a copy', 'a hard link to the destination'] as const)(
+		'rejects a staged rename whose source path is still on disk as %s',
+		(recreation) => {
+			const checkout = createCheckerClone();
+			const source = 'src/lib/billing/checkout-result.ts';
+			const destination = 'docs/checkout-result.txt';
+			try {
+				const original = readFileSync(path.join(checkout.repository, source));
+				stageRemoval(checkout, source, destination);
+				if (recreation === 'a copy') {
+					writeFileSync(path.join(checkout.repository, source), original);
+				} else {
+					linkSync(
+						path.join(checkout.repository, destination),
+						path.join(checkout.repository, source)
+					);
+				}
+				const result = runChecker(checkout, ['--staged', '--scope', 'types']);
+				const output = `${result.stdout}${result.stderr}`;
+
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('Staged file contents differ from the worktree');
+				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([]);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
+
+	it.skipIf(!CASE_INSENSITIVE_TEMP)(
+		'accepts a case-only rename whose old spelling resolves to the new file',
+		() => {
+			const checkout = createCheckerClone();
+			const source = 'src/lib/billing/checkout-result.ts';
+			try {
+				stageRemoval(checkout, source, 'src/lib/billing/Checkout-result.ts');
+				expect(existsSync(path.join(checkout.repository, source))).toBe(true);
+				const result = runChecker(checkout, ['--staged', '--scope', 'types']);
+				const output = `${result.stdout}${result.stderr}`;
+
+				expect(result.status, output).toBe(0);
+				expect(output).not.toContain('Staged file contents differ from the worktree');
+				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toContainEqual(APP_TYPES);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
 
 	it('returns before command dispatch when the staged index is empty', () => {
 		const checkout = createCheckerClone();
