@@ -638,8 +638,7 @@ export const ROUTES = {
 		(f.startsWith(CLI_PACKAGE_PREFIX) && f.endsWith('.ts')) ||
 		f === 'scripts/windows-job.ts',
 	'skill-types': (f: string) =>
-		f === '.agents/skills/upstream-report/tsconfig.json' ||
-		(f.startsWith('.agents/skills/upstream-report/scripts/') && f.endsWith('.ts')),
+		f === '.agents/skills/tsconfig.json' || /^\.agents\/skills\/[^/]+\/scripts\/.+\.ts$/.test(f),
 	convex: (f: string) => f.startsWith('src/lib/convex/')
 } as const;
 
@@ -1605,10 +1604,10 @@ async function main(): Promise<void> {
 		{
 			const files = ledger.filesFor('skill-types');
 			if (!scopedMode || files.length > 0) {
-				await runCommand('bun', ['run', 'check:upstream-report']);
+				await runCommand('bun', ['run', 'check:skills']);
 				ledger.ran('skill-types', 'project');
 			} else {
-				console.log('No upstream-report TypeScript files to check');
+				console.log('No agent skill TypeScript files to check');
 				ledger.ran('skill-types', 0);
 			}
 		}
