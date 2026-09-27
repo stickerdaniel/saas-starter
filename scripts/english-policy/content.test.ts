@@ -60,6 +60,52 @@ describe('repository prose extraction', () => {
 		expect(proseWindows('src/example.ts', interrupted)).toHaveLength(2);
 	});
 
+	it('reports prose in multiline TypeScript comments on its source line', () => {
+		const docComment = ['const ready = true;', '/**', ` * ${foreignFixtures.german}`, ' */'].join(
+			'\n'
+		);
+		const wrappedBlock = [
+			'/**',
+			' * This updates authentication while',
+			' * das Passwort sofort zurückgesetzt werden muss.',
+			' */'
+		].join('\n');
+		const wrappedLines = [
+			'// This updates authentication while',
+			'// das Passwort sofort zurückgesetzt werden muss.'
+		].join('\n');
+		expect(checkEnglishText('src/example.ts', docComment)).toMatchObject([
+			{ language: 'de', line: 3 }
+		]);
+		expect(
+			checkEnglishText('src/example.ts', wrappedBlock).map((finding) => finding.line)
+		).toContain(3);
+		expect(
+			checkEnglishText('src/example.ts', wrappedLines).map((finding) => finding.line)
+		).toContain(2);
+	});
+
+	it('skips inline code that wraps across grouped line comments', () => {
+		const source = [
+			'// Example: `Das Passwort muss',
+			'// sofort zurückgesetzt werden` stays a fixture.'
+		].join('\n');
+		expect(checkEnglishText('src/example.ts', source)).toEqual([]);
+	});
+
+	it('finds foreign prose after a blank comment line ends an unclosed code span', () => {
+		const source = ['// Example: `unclosed', '//', `// ${foreignFixtures.german}\``].join('\n');
+		expect(checkEnglishText('src/example.ts', source)).toMatchObject([{ language: 'de', line: 3 }]);
+	});
+
+	it('skips inline code that wraps across Markdown prose lines', () => {
+		const markdown = [
+			'Use the fixture `Das Passwort muss',
+			'sofort zurückgesetzt werden` in examples.'
+		].join('\n');
+		expect(checkEnglishText('docs/example.md', markdown)).toEqual([]);
+	});
+
 	it('finds a clear foreign source-comment subject after an acronym', () => {
 		expect(checkEnglishText('src/example.ts', '// API aktualisieren')).toMatchObject([
 			{ language: 'de', line: 1 }
