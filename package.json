@@ -151,6 +151,7 @@
 		"husky": "9.1.7",
 		"jsdom": "29.1.1",
 		"knip": "6.26.0",
+		"marked": "16.4.2",
 		"oxlint": "1.81.0",
 		"oxlint-plugin-convex": "0.1.1",
 		"parse5": "8.0.1",

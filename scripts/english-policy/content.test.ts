@@ -201,6 +201,28 @@ describe('repository prose extraction', () => {
 		expect(checkEnglishText('docs/example.md', markdown)).toEqual([]);
 	});
 
+	it.each([
+		['top-level', ['Console output:', '', `    ${foreignFixtures.german}`]],
+		['after a heading', ['# Console output', `    ${foreignFixtures.german}`]],
+		['inside a list item', ['- Console output:', '', `      ${foreignFixtures.german}`]],
+		['inside a block quote', ['> Console output:', '>', `>     ${foreignFixtures.german}`]]
+	])('skips %s indented code', (_label, lines) => {
+		expect(checkEnglishText('docs/example.md', lines.join('\n'))).toEqual([]);
+	});
+
+	it('checks a list continuation paragraph on its source line', () => {
+		const markdown = [
+			'- Console output:',
+			'',
+			`      ${foreignFixtures.french}`,
+			'',
+			`  ${foreignFixtures.german}`
+		].join('\n');
+		expect(checkEnglishText('docs/example.md', markdown)).toMatchObject([
+			{ language: 'de', line: 5 }
+		]);
+	});
+
 	it('skips fenced code and inline technical syntax', () => {
 		const markdown = [
 			'Use the command below.',

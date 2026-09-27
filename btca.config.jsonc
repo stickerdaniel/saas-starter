@@ -537,6 +537,13 @@
 		},
 		{
 			"type": "git",
+			"name": "marked",
+			"url": "https://github.com/markedjs/marked",
+			"branch": "master",
+			"specialNotes": "Markdown lexer bundled into the English policy. Inspect src/Lexer.ts and src/Tokenizer.ts for block tokens, raw text, and codeBlockStyle 'indented'; the pinned 16.x tag may differ from master."
+		},
+		{
+			"type": "git",
 			"name": "clack",
 			"url": "https://github.com/bombshell-dev/clack",
 			"branch": "main"

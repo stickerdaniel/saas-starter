@@ -1,6 +1,6 @@
 import { readFileSync, statSync } from 'node:fs';
 import { classifyEnglish, splitTextWindows } from './classifier';
-import { withoutFencedCode } from './markdown';
+import { withoutCodeBlocks } from './markdown';
 
 interface PullRequestDocument {
 	pull_request: {
@@ -228,7 +228,7 @@ export async function fetchCurrentPullRequest(
 }
 
 function paragraphTexts(text: string): string[] {
-	return withoutFencedCode(text)
+	return withoutCodeBlocks(text)
 		.split(/\n\s*\n/)
 		.map((paragraph) => paragraph.trim())
 		.filter(Boolean);
