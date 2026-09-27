@@ -23,7 +23,8 @@
  *                (build-emails, svelte-check, CLI typecheck), assert-only "format"
  *                (prettier), or full-project-only "compat" (Convex consumer compatibility).
  *                Lint and types run svelte-kit sync first.
- *                Omit to run lint and types.
+ *                Omit to run lint and types. A file-scoped or staged types run rejects a
+ *                named source file that no type-checked TypeScript project reads.
  *   --files-from Read NUL-separated UTF-8 paths from a file, or from stdin with "-".
  *                This matches `git diff --no-relative --name-only --diff-filter=d -z`
  *                without quoting, deleted paths, or delimiter ambiguity. Records are
@@ -48,6 +49,7 @@ import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSyn
 import { availableParallelism } from 'os';
 import path from 'path';
 import { getFileInfo } from 'prettier';
+import type { Diagnostic } from 'typescript';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
 import knowledgePolicy from '../knowledge-policy.config';
@@ -746,6 +748,98 @@ const LINT_CHECKS: CheckId[] = [
 ];
 const TYPE_CHECKS: CheckId[] = ['svelte-check', 'cli-types', 'skill-types', 'convex'];
 
+/**
+ * The TypeScript project config each type check reads: `svelte-check --tsconfig`, the
+ * creator's `tsc --noEmit`, `check:skills` and `check:convex`. A missing config is skipped
+ * here, because the check that owns it already fails or is skipped on its own.
+ */
+const TYPE_PROJECT_CONFIGS = [
+	'tsconfig.json',
+	`${CLI_PACKAGE_DIRECTORY}/tsconfig.json`,
+	'.agents/skills/tsconfig.json',
+	'src/lib/convex/tsconfig.json'
+];
+
+/** Source extensions a TypeScript program can read, plus Svelte components. */
+const TYPE_SOURCE = /\.(?:[cm]?[jt]sx?|svelte)$/;
+
+/**
+ * The named source files that no type-checked project reads, answered by TypeScript.
+ *
+ * The type routes pick a check by extension or prefix, and the check then reads only what
+ * its tsconfig includes plus whatever those files import. A standalone `scripts/probe.ts`
+ * reached svelte-check by extension, the generated SvelteKit project never included it,
+ * and the ledger reported a whole-project type check over a file it never read (#929).
+ *
+ * Membership is the program, not the include list: svelte-check reports errors in
+ * `scripts/dev-ports.ts` because `vite.config.ts` imports it, so a root-only answer would
+ * reject a file the check does cover. The include lists are consulted first because they
+ * are cheap, and a program is built only while some named file is still unaccounted for.
+ * Svelte components count as project files the way svelte-check parses the config, but
+ * their imports are not followed, so a module reachable only from a component is rejected.
+ *
+ * Both sides are compared as canonical paths. resolveInputs() names a symbolic link by its
+ * target, while TypeScript lists a link under its own name, so an included link would
+ * otherwise reject the very file it points to.
+ */
+export async function filesOutsideTypeProjects(
+	files: string[],
+	configs = TYPE_PROJECT_CONFIGS,
+	cwd = REPO_ROOT
+): Promise<string[]> {
+	if (files.length === 0) return [];
+	const { default: ts } = await import('typescript');
+	const relative = (file: string): string => {
+		let canonical = file;
+		try {
+			canonical = realpathSync(file);
+		} catch (error) {
+			if (!isMissingPathError(error)) throw error;
+		}
+		return toPosix(path.relative(cwd, canonical));
+	};
+	const message = (diagnostic: Diagnostic): string =>
+		ts.flattenDiagnosticMessageText(diagnostic.messageText, ' ');
+	const projects = configs
+		.filter((config) => existsSync(path.join(cwd, config)))
+		.map((config) => {
+			const parsed = ts.getParsedCommandLineOfConfigFile(
+				path.join(cwd, config),
+				undefined,
+				{
+					...ts.sys,
+					onUnRecoverableConfigFileDiagnostic: (diagnostic) =>
+						fail(`Cannot read TypeScript project ${config}: ${message(diagnostic)}`)
+				},
+				undefined,
+				undefined,
+				[{ extension: 'svelte', isMixedContent: true, scriptKind: ts.ScriptKind.Deferred }]
+			);
+			const [error] = parsed?.errors ?? [];
+			if (!parsed || error) {
+				fail(
+					`Cannot read TypeScript project ${config}${error ? `: ${message(error)}` : '.'}`,
+					'  Type coverage of the named files is decided by this project, so the run stops.'
+				);
+			}
+			return parsed;
+		});
+
+	const roots = new Set(projects.flatMap((project) => project.fileNames.map(relative)));
+	let remaining = files.filter((file) => !roots.has(file));
+	for (const project of projects) {
+		if (remaining.length === 0) break;
+		const program = ts.createProgram({
+			rootNames: project.fileNames,
+			options: project.options,
+			projectReferences: project.projectReferences
+		});
+		const read = new Set(program.getSourceFiles().map((source) => relative(source.fileName)));
+		remaining = remaining.filter((file) => !read.has(file));
+	}
+	return remaining;
+}
+
 type Mode = 'files' | 'staged' | 'full';
 
 /** Keep structured command lines below Windows' process argument limit. */
@@ -822,6 +916,15 @@ class Ledger {
 	filesFor(id: CheckId): string[] {
 		if (id === 'prettier') return this.files.filter((file) => this.formattable.has(file));
 		return (TYPE_CHECKS.includes(id) ? this.touched : this.files).filter(ROUTES[id]);
+	}
+
+	/**
+	 * Surviving named source files, whether or not a type route claims them. A route decides
+	 * only whether a project check starts, so asking it first let `src/probe.mts` beside a
+	 * routed file pass without any project reading it; filesOutsideTypeProjects() decides.
+	 */
+	typeSources(): string[] {
+		return this.files.filter((file) => TYPE_SOURCE.test(file));
 	}
 
 	ran(id: string, files: number | 'project' = 'project'): void {
@@ -1579,6 +1682,31 @@ async function main(): Promise<void> {
 	// -- Types group: build-emails, svelte-check and dedicated TypeScript projects --
 
 	if (shouldRunTypes) {
+		// A types-only run over named files asked whether those files type-check, so a file no
+		// project reads fails it before any check starts. Only this run can fail on the answer,
+		// so only this run pays for it: building the programs costs seconds and gigabytes that
+		// a pre-push run including lint, which has already linted the file, would spend on a
+		// note. The pre-commit hook is `--staged --scope lint` and never reaches this.
+		if (scopedMode && scope === 'types') {
+			printHeader(step++, 'Type project coverage');
+			const sources = ledger.typeSources();
+			const untyped = await filesOutsideTypeProjects(sources);
+			if (untyped.length > 0) {
+				fail(
+					`${untyped.length} named source file(s) are read by no type-checked TypeScript project: ` +
+						untyped.map(formatPathForDiagnostic).join(', '),
+					'  Type checks read only what their tsconfig includes and what those files import, so\n' +
+						'  a green types run would not cover these. Include or import each file in one of\n' +
+						`  ${TYPE_PROJECT_CONFIGS.join(', ')},\n` +
+						'  or leave it out of --scope types; a run that includes lint still checks it.\n' +
+						'  A module that only a Svelte component imports is checked by svelte-check but not\n' +
+						'  recognized here; verify it with the whole-project `bun scripts/static-checks.ts --scope types`.'
+				);
+			}
+			console.log(`${sources.length} named source file(s) are read by a type-checked project`);
+			console.log('\n');
+		}
+
 		// Build emails (required before type checking)
 		printHeader(step++, 'Build emails');
 		await runCommand('bun', ['scripts/build-emails.ts']);

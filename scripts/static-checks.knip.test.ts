@@ -446,6 +446,32 @@ function seedCreatorState(
 	expect(existsSync(path.join(child, 'package.json'))).toBe(state === 'present');
 }
 
+/**
+ * Supplies the generated SvelteKit project the root tsconfig extends.
+ *
+ * The clone records `svelte-kit sync` instead of running it, and Git does not carry the
+ * ignored `.svelte-kit` directory, so a named-file types run could not read the root project
+ * the checker asks TypeScript about. The generated config holds only paths relative to its own
+ * directory, so the worktree copy applies unchanged. The postinstall writes it; a job that
+ * installs with --ignore-scripts, such as the Windows lifecycle workflow, gets the same sync
+ * once here.
+ */
+function seedGeneratedKitProject(repository: string): void {
+	const generated = path.join(ROOT, '.svelte-kit', 'tsconfig.json');
+	if (!existsSync(generated)) {
+		const sync = spawnSync(BUN, ['svelte-kit', 'sync'], {
+			cwd: ROOT,
+			env: sanitizedGitEnv(),
+			encoding: 'utf8'
+		});
+		if (sync.status !== 0 || !existsSync(generated)) {
+			throw new Error(`SvelteKit sync did not write ${generated}: ${sync.stdout}${sync.stderr}`);
+		}
+	}
+	mkdirSync(path.join(repository, '.svelte-kit'), { recursive: true });
+	copyFileSync(generated, path.join(repository, '.svelte-kit', 'tsconfig.json'));
+}
+
 function createCheckerClone(
 	state: 'present' | 'absent' | 'inconsistent' = 'present',
 	seed?: CreatorSeed
@@ -468,6 +494,7 @@ function createCheckerClone(
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
 		overlayIndexedSources(repository);
+		seedGeneratedKitProject(repository);
 		seedCreatorState(repository, state, seed);
 
 		return {
@@ -1394,4 +1421,127 @@ describe.sequential('Knip static-check CLI behavior', () => {
 			rmSync(checkout.directory, { recursive: true, force: true });
 		}
 	}, 45_000);
+});
+
+// Every recorded type check below exits 0, which is what the real svelte-check does for a
+// standalone script: its tsconfig never reads the file, so it cannot report the error in it.
+// Only the checker's own question to TypeScript can tell the named file was not checked (#929).
+describe.sequential('type project coverage of named files', () => {
+	const STANDALONE = 'scripts/type-coverage-probe.ts';
+	const COVERED = 'src/lib/billing/checkout-result.ts';
+
+	function writeStandaloneScript(checkout: CheckerClone): void {
+		writeFileSync(
+			path.join(checkout.repository, STANDALONE),
+			"export const count: number = 'wrong';\n"
+		);
+	}
+
+	it.each([
+		['alone', [STANDALONE]],
+		['beside a covered file', [STANDALONE, COVERED]]
+	] as const)(
+		'fails a types run naming a standalone script %s',
+		(_label, files) => {
+			const checkout = createCheckerClone();
+			try {
+				writeStandaloneScript(checkout);
+				const result = runChecker(checkout, ['--ci', '--scope', 'types', ...files]);
+				const output = `${result.stdout}${result.stderr}`;
+
+				expect(result.status, output).toBe(1);
+				expect(output).toContain(
+					`1 named source file(s) are read by no type-checked TypeScript project: "${STANDALONE}"`
+				);
+				expect(output).not.toContain('All checks passed!');
+				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).not.toContainEqual(
+					APP_TYPES
+				);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
+
+	// No type route claims a .mts file, so only the coverage question can see it: beside a
+	// routed file, svelte-check starts and the run would otherwise pass.
+	it('fails a types run naming a module no route claims beside a covered file', () => {
+		const checkout = createCheckerClone();
+		const module = 'src/lib/type-coverage-probe.mts';
+		try {
+			writeFileSync(
+				path.join(checkout.repository, module),
+				"export const count: number = 'wrong';\n"
+			);
+			const result = runChecker(checkout, ['--ci', '--scope', 'types', module, COVERED]);
+			const output = `${result.stdout}${result.stderr}`;
+
+			expect(result.status, output).toBe(1);
+			expect(output).toContain(
+				`1 named source file(s) are read by no type-checked TypeScript project: "${module}"`
+			);
+			expect(output).not.toContain('All checks passed!');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
+	it('passes a types run naming only a file the app project includes', () => {
+		const checkout = createCheckerClone();
+		try {
+			const result = runChecker(checkout, ['--ci', '--scope', 'types', COVERED]);
+			const output = `${result.stdout}${result.stderr}`;
+
+			expect(result.status, output).toBe(0);
+			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toContainEqual(APP_TYPES);
+			expect(output).toContain('All checks passed!');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
+	// svelte-check reports errors in every module its project imports, not only in the files
+	// its tsconfig includes: vite.config.ts pulls scripts/dev-ports.ts into the app program.
+	it('passes a types run naming a script that a project file imports', () => {
+		const checkout = createCheckerClone();
+		try {
+			writeStandaloneScript(checkout);
+			writeFileSync(
+				path.join(checkout.repository, 'src/lib/type-coverage-importer.ts'),
+				"export { count } from '../../scripts/type-coverage-probe';\n"
+			);
+			const result = runChecker(checkout, ['--ci', '--scope', 'types', STANDALONE]);
+			const output = `${result.stdout}${result.stderr}`;
+
+			expect(result.status, output).toBe(0);
+			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toContainEqual(APP_TYPES);
+			expect(output).toContain('All checks passed!');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
+	// The checker names a link by its target, while TypeScript lists the link under its own
+	// name when the project includes it. Creating a file link needs privileges on Windows.
+	it.skipIf(process.platform === 'win32')(
+		'passes a types run naming a link the app project includes',
+		() => {
+			const checkout = createCheckerClone();
+			const link = 'src/lib/type-coverage-link.ts';
+			try {
+				writeStandaloneScript(checkout);
+				symlinkSync('../../scripts/type-coverage-probe.ts', path.join(checkout.repository, link));
+				const result = runChecker(checkout, ['--ci', '--scope', 'types', link]);
+				const output = `${result.stdout}${result.stderr}`;
+
+				expect(result.status, output).toBe(0);
+				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toContainEqual(APP_TYPES);
+				expect(output).toContain('All checks passed!');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
 });
