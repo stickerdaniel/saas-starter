@@ -6,13 +6,15 @@
  * - Closed tickets are reopened (user sends message to closed ticket)
  * - Users send messages to handed-off tickets awaiting admin response
  *
- * Uses a 4-minute debounce to accumulate multiple messages before sending.
+ * Uses a 4-minute debounce to accumulate multiple messages before sending,
+ * capped at 15 minutes after the first trigger.
  *
  * Flow:
  * 1. User triggers notification (handoff, new message to handed-off ticket, or reopen)
  * 2. scheduleAdminNotification creates/updates the pending notification with a 4-minute delay
  * 3. If user sends more messages, timer resets and messages accumulate
- * 4. After 4 minutes of no new messages, sendPendingAdminNotification fires
+ * 4. After 4 minutes of no new messages, or 15 minutes after the first trigger,
+ *    sendPendingAdminNotification fires
  * 5. Email sent to recipients based on adminNotificationPreferences table
  */
 
@@ -27,6 +29,13 @@ import { shouldSkipTestEmail } from '../../emails/helpers';
 
 /** Delay before sending a notification after the latest message. */
 const NOTIFICATION_DELAY_MS = 4 * 60 * 1000;
+
+/**
+ * Latest send time after a pending notification's createdAt. Without it, a
+ * customer who writes more often than NOTIFICATION_DELAY_MS keeps pushing the
+ * send back and no admin is ever alerted.
+ */
+const MAX_DEBOUNCE_AGE_MS = 15 * 60 * 1000;
 
 /** Maximum number of retry attempts before giving up */
 const MAX_RETRY_COUNT = 5;
@@ -44,7 +53,9 @@ const OWNERSHIP_MOVED_LOG =
  * - User reopens a closed ticket → notificationType: 'newTickets'
  *
  * If a pending notification exists, it cancels the old scheduled job,
- * adds the new messages, and reschedules with a fresh 4-minute delay.
+ * adds the new messages, and reschedules with a fresh 4-minute delay, but no
+ * later than 15 minutes after the row was created and no earlier than its
+ * current deadline. A row claimed by a running send starts a fresh window.
  *
  * @param args.threadId - The support thread ID
  * @param args.messageIds - Array of message IDs to include in the notification
@@ -66,7 +77,6 @@ export const scheduleAdminNotification = internalMutation({
 		// notifies admins. Downstream the email renders a no-messages fallback line
 		// instead of message excerpts.
 		const now = Date.now();
-		const scheduledFor = now + NOTIFICATION_DELAY_MS;
 
 		// Check for existing pending notification for this thread
 		const existing = await ctx.db
@@ -75,6 +85,23 @@ export const scheduleAdminNotification = internalMutation({
 			.first();
 
 		if (existing) {
+			// A row without a scheduled function is claimed by a running send, which
+			// already emails its messages. Re-arming it starts a fresh window, so a
+			// row past its cap does not repeat those messages seconds later.
+			const claimedBySend = existing.scheduledFnId === undefined;
+
+			// Otherwise each message restarts the delay, but never past the cap from
+			// the row's creation, and never earlier than the current deadline, so a
+			// message cannot cut short a retry's backoff. The floor at now keeps a
+			// passed cap from a negative delay, which runAfter rejects.
+			const scheduledFor = claimedBySend
+				? now + NOTIFICATION_DELAY_MS
+				: Math.max(
+						now,
+						existing.scheduledFor,
+						Math.min(now + NOTIFICATION_DELAY_MS, existing.createdAt + MAX_DEBOUNCE_AGE_MS)
+					);
+
 			// Cancel the existing scheduled function if it's still pending
 			if (existing.scheduledFnId) {
 				const scheduledFn = await ctx.db.system.get(existing.scheduledFnId);
@@ -90,7 +117,7 @@ export const scheduleAdminNotification = internalMutation({
 
 			// Schedule new notification
 			const newScheduledFnId = await ctx.scheduler.runAfter(
-				NOTIFICATION_DELAY_MS,
+				scheduledFor - now,
 				internal.admin.support.notifications.sendPendingAdminNotification,
 				{
 					notificationId: existing._id
@@ -103,6 +130,8 @@ export const scheduleAdminNotification = internalMutation({
 			await ctx.db.patch('pendingAdminNotifications', existing._id, {
 				messageIds: updatedMessageIds,
 				scheduledFor,
+				// The fresh window after a claimed send gets its own cap
+				...(claimedBySend ? { createdAt: now } : {}),
 				scheduledFnId: newScheduledFnId,
 				claimToken: undefined,
 				isReopen: existing.isReopen || args.isReopen,
@@ -116,7 +145,7 @@ export const scheduleAdminNotification = internalMutation({
 				threadId: args.threadId,
 				isReopen: args.isReopen,
 				notificationType: args.notificationType,
-				scheduledFor,
+				scheduledFor: now + NOTIFICATION_DELAY_MS,
 				messageIds: args.messageIds,
 				createdAt: now
 			});
