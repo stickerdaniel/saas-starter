@@ -80,7 +80,13 @@
 		}
 	);
 
+	// Set while the widget follows a thread change browser history already made.
+	// The URL holds the result, and writing it again would push a new entry over
+	// the one Forward returns to.
+	let followingUrlHistory = false;
+
 	function setThreadInUrl(threadId: string | null) {
+		if (followingUrlHistory) return;
 		urlState.thread = threadId ?? '';
 	}
 
@@ -174,12 +180,19 @@
 		conversation.setUserId(userId);
 	});
 
-	// Sync thread from URL only after validating that it is actually a support thread
+	// Sync thread from URL only after validating that it is actually a support thread.
+	// A matching id is settled only while its conversation is on screen: going
+	// back to the list keeps the id, so a later Forward to it must reopen it here.
 	$effect(() => {
 		const threadFromUrl = urlState.thread;
 		const userId = conversation.userId;
 
-		if (!browser || !threadFromUrl || !userId || threadFromUrl === conversation.threadId) {
+		if (
+			!browser ||
+			!threadFromUrl ||
+			!userId ||
+			(threadFromUrl === conversation.threadId && navigation.currentView !== 'overview')
+		) {
 			return;
 		}
 
@@ -209,6 +222,30 @@
 			cancelled = true;
 		};
 	});
+
+	// An empty thread param names no conversation, so when browser history
+	// drops the one on screen, the open widget follows it back to the list.
+	// The widget's own writes that clear the param never match: each one
+	// leaves that conversation or the chat view in the same update.
+	watch(
+		() => urlState.thread,
+		(thread, previousThread) => {
+			if (
+				!thread &&
+				previousThread &&
+				isFeedbackOpen &&
+				navigation.currentView !== 'overview' &&
+				conversation.threadId === previousThread
+			) {
+				followingUrlHistory = true;
+				try {
+					support.goBack();
+				} finally {
+					followingUrlHistory = false;
+				}
+			}
+		}
+	);
 
 	// Watch for widget open requests from chatbar
 	$effect(() => {
