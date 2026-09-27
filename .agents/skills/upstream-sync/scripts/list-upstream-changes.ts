@@ -79,7 +79,7 @@ export function classify(subject: string, author: string): { priority: string; t
 	const security =
 		/\[security\]/.test(s) || SECURITY_RE.test(s) || /^(fix|chore|sec)\((auth|security)\)/.test(s);
 	const m = subject.match(/^(\w+)(\([^)]*\))?!?:/);
-	const type = m ? m[1].toLowerCase() : 'other';
+	const type = m?.[1]?.toLowerCase() ?? 'other';
 	const isBot = /(renovate|dependabot)\[bot\]/i.test(author);
 	// Bot dependency bumps are routine chores even when typed fix(deps); only a real
 	// security signal lifts them above chore.
@@ -89,7 +89,7 @@ export function classify(subject: string, author: string): { priority: string; t
 
 function main() {
 	const { values } = parseArgs({
-		args: Bun.argv.slice(2),
+		args: process.argv.slice(2),
 		options: {
 			json: { type: 'boolean', default: false },
 			type: { type: 'string' },
@@ -111,7 +111,7 @@ function main() {
 	if (!base) {
 		// First run, no marker yet: derive the fork point from the sibling script.
 		console.error('No marker yet, deriving fork point via find-fork-point.ts ...');
-		const out = execFileSync('bun', [join(import.meta.dir, 'find-fork-point.ts'), '--json'], {
+		const out = execFileSync('bun', [join(import.meta.dirname, 'find-fork-point.ts'), '--json'], {
 			encoding: 'utf-8',
 			env: gitEnv(),
 			maxBuffer: 16 * 1024 * 1024
@@ -134,7 +134,7 @@ function main() {
 	const rows = raw ? raw.split('\n') : [];
 
 	const commits = rows.map((line) => {
-		const [sha, author, subject] = line.split('\t');
+		const [sha = '', author = '', subject = ''] = line.split('\t');
 		const files = git(['show', '--name-only', '--format=', sha], true).split('\n').filter(Boolean);
 		const { priority, type } = classify(subject, author);
 		return {

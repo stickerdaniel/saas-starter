@@ -273,11 +273,14 @@ describe('route predicates', () => {
 		expect(ROUTES['cli-types']('scripts/static-checks.ts')).toBe(false);
 	});
 
-	it('routes upstream-report TypeScript through its dedicated project', () => {
+	it('routes every skill script through the shared skills project', () => {
 		expect(
 			ROUTES['skill-types']('.agents/skills/upstream-report/scripts/upstream-relevance.ts')
 		).toBe(true);
-		expect(ROUTES['skill-types']('.agents/skills/upstream-report/tsconfig.json')).toBe(true);
+		expect(ROUTES['skill-types']('.agents/skills/upstream-sync/scripts/find-fork-point.ts')).toBe(
+			true
+		);
+		expect(ROUTES['skill-types']('.agents/skills/tsconfig.json')).toBe(true);
 		expect(ROUTES['skill-types']('.agents/skills/upstream-report/helper.ts')).toBe(false);
 		expect(ROUTES['skill-types']('.agents/skills/upstream-report/SKILL.md')).toBe(false);
 	});
