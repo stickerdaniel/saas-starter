@@ -776,6 +776,7 @@ class Ledger {
 	readonly named: number;
 	readonly files: string[];
 	readonly ignored: string[];
+	private readonly touched: string[];
 	private readonly formattable: Set<string>;
 	private readonly outcomes = new Map<string, Outcome>();
 	private readonly honestNoWork: string[] = [];
@@ -784,18 +785,26 @@ class Ledger {
 		readonly mode: Mode,
 		inputs: string[],
 		/** The inputs Prettier reported a parser for. See prettierFormattableFiles(). */
-		formattable: string[] = []
+		formattable: string[] = [],
+		/** Paths the change removed from the final index: deletions and rename sources. */
+		removed: string[] = []
 	) {
 		this.named = inputs.length;
 		this.ignored = inputs.filter(isIgnoredPath);
 		this.files = inputs.filter((f) => !this.ignored.includes(f));
+		this.touched = [...new Set([...this.files, ...removed.filter((f) => !isIgnoredPath(f))])];
 		this.formattable = new Set(formattable);
 	}
 
+	/**
+	 * File-scoped checks read what survives. The type checks are project-driven: routed paths
+	 * decide only WHETHER they start, and then they check the whole project. Gating them on
+	 * surviving files meant `git rm` of an imported module, the change most likely to break the
+	 * project typecheck, could never start one, and a rename to a non-source name did the same.
+	 */
 	filesFor(id: CheckId): string[] {
-		return id === 'prettier'
-			? this.files.filter((file) => this.formattable.has(file))
-			: this.files.filter(ROUTES[id]);
+		if (id === 'prettier') return this.files.filter((file) => this.formattable.has(file));
+		return (TYPE_CHECKS.includes(id) ? this.touched : this.files).filter(ROUTES[id]);
 	}
 
 	ran(id: string, files: number | 'project' = 'project'): void {
@@ -1195,6 +1204,7 @@ async function main(): Promise<void> {
 	let inputs: string[] = [];
 	// Staged mode keeps the exact Git paths and the complete starting index state.
 	let stagedIndexPaths: string[] = [];
+	let stagedRemovedPaths: string[] = [];
 	let stagedDeletionOnly = false;
 	let stagedIndexFingerprint: string | undefined;
 	let stagedEnv: NodeJS.ProcessEnv | undefined;
@@ -1239,10 +1249,14 @@ async function main(): Promise<void> {
 		const stagedDeletedPaths = stagedChanges
 			.filter((change) => change.status === 'D')
 			.map((change) => change.path);
+		const stagedRenamedFromPaths = stagedChanges
+			.filter((change) => change.status === 'R')
+			.map((change) => change.previousPath!);
+		stagedRemovedPaths = [...stagedDeletedPaths, ...stagedRenamedFromPaths];
 		// Keep the original index paths. resolveInputs realpaths symlinks, while
 		// later comparisons must address the paths recorded by Git.
 		stagedIndexPaths = getStagedFiles(REPO_ROOT, stagedEnv);
-		assertSafePaths([...stagedIndexPaths, ...stagedDeletedPaths]);
+		assertSafePaths([...stagedIndexPaths, ...stagedRemovedPaths]);
 		const cleanFiltered = stagedFilesWithCleanFilters(stagedIndexPaths, REPO_ROOT, stagedEnv);
 		if (cleanFiltered.length > 0) {
 			fail(
@@ -1251,17 +1265,25 @@ async function main(): Promise<void> {
 			);
 		}
 		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
-		const deletedPathStillExists = stagedDeletedPaths.some((file) => {
+		const fileIdentity = (file: string): string | undefined => {
 			try {
-				lstatSync(path.join(REPO_ROOT, file));
-				return true;
+				const entry = lstatSync(path.join(REPO_ROOT, file), { bigint: true });
+				return `${entry.dev}:${entry.ino}`;
 			} catch (error) {
-				if (isMissingPathError(error)) return false;
+				if (isMissingPathError(error)) return undefined;
 				throw error;
 			}
+		};
+		// On a case-insensitive filesystem the old spelling of a case-only rename still resolves
+		// to the new file, so a removed path counts as recreated only when it is a different file
+		// from every path that survives in the index.
+		const survivingIdentities = new Set(stagedIndexPaths.map(fileIdentity));
+		const removedPathStillExists = stagedRemovedPaths.some((file) => {
+			const identity = fileIdentity(file);
+			return identity !== undefined && !survivingIdentities.has(identity);
 		});
 		if (
-			deletedPathStillExists ||
+			removedPathStillExists ||
 			!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv)
 		) {
 			fail(
@@ -1286,7 +1308,7 @@ async function main(): Promise<void> {
 	const prettierInputs = prettierProjectPaths(ledgerInputs, REPO_ROOT, scopedMode);
 	const formattable = await prettierFormattableFiles(prettierInputs);
 	assertSafePaths(formattable);
-	const ledger = new Ledger(mode, ledgerInputs, formattable);
+	const ledger = new Ledger(mode, ledgerInputs, formattable, stagedRemovedPaths);
 	if (stagedDeletionOnly) {
 		ledger.noWork('staged changes only delete paths absent from the final index');
 	}
