@@ -170,7 +170,8 @@ describe('sendPendingAdminNotification', () => {
 				messageIds: ['message_1'],
 				isReopen: false,
 				notificationType: 'newTickets',
-				retryCount: 0
+				retryCount: 0,
+				claimToken: 'token_1'
 			};
 			const runMutation = vi.fn().mockResolvedValueOnce(notification).mockResolvedValueOnce(true);
 			const runQuery = vi.fn();
@@ -183,7 +184,8 @@ describe('sendPendingAdminNotification', () => {
 			).toBeNull();
 			expect(runMutation).toHaveBeenCalledTimes(2);
 			expect(runMutation.mock.calls[1][1]).toEqual({
-				notificationId: 'notification_1'
+				notificationId: 'notification_1',
+				claimToken: 'token_1'
 			});
 			expect(runQuery).not.toHaveBeenCalled();
 		}
@@ -191,23 +193,26 @@ describe('sendPendingAdminNotification', () => {
 });
 
 /**
- * Ownership of a pending row is signalled by `scheduledFnId === undefined`:
- * `claimNotificationForSending` clears it, and a customer message arriving
- * during the action's multi-second send window re-arms the row with a fresh
- * scheduled function, taking ownership back. The tests below force exactly that
- * interleaving, because an in-flight action that still writes to a re-armed row
- * deletes the follow-up digest and the customer's message is never emailed.
+ * A send owns a pending row while `scheduledFnId` is cleared and the row holds
+ * the claim token `claimNotificationForSending` issued to it. A customer message
+ * arriving during the action's multi-second send window re-arms the row with a
+ * fresh scheduled function, taking ownership back, and that newer send may claim
+ * the row before the first one finishes. The tests below force exactly those
+ * interleavings, because an in-flight action that still writes to a row it no
+ * longer owns deletes the follow-up digest and the customer's message is never
+ * emailed.
  */
+type ClaimArgs = { notificationId: string; issueToken?: boolean };
+type DeleteArgs = { notificationId: string; claimToken?: string };
+type RescheduleArgs = { notificationId: string; claimToken?: string; delayMs?: number };
+
 const claimNotificationForSendingH = claimNotificationForSending as unknown as Fn<
-	{ notificationId: string },
-	unknown
+	ClaimArgs,
+	{ claimToken: string } | null
 >;
-const deletePendingNotificationH = deletePendingNotification as unknown as Fn<
-	{ notificationId: string },
-	boolean
->;
+const deletePendingNotificationH = deletePendingNotification as unknown as Fn<DeleteArgs, boolean>;
 const reschedulePendingNotificationH = reschedulePendingNotification as unknown as Fn<
-	{ notificationId: string; delayMs?: number },
+	RescheduleArgs,
 	boolean
 >;
 
@@ -234,14 +239,11 @@ function createActionCtx(
 		const name = getFunctionName(reference as Parameters<typeof getFunctionName>[0]);
 		switch (name) {
 			case 'admin/support/notifications:claimNotificationForSending':
-				return claimNotificationForSendingH._handler(ctx, args as { notificationId: string });
+				return claimNotificationForSendingH._handler(ctx, args as ClaimArgs);
 			case 'admin/support/notifications:deletePendingNotification':
-				return deletePendingNotificationH._handler(ctx, args as { notificationId: string });
+				return deletePendingNotificationH._handler(ctx, args as DeleteArgs);
 			case 'admin/support/notifications:reschedulePendingNotification':
-				return reschedulePendingNotificationH._handler(
-					ctx,
-					args as { notificationId: string; delayMs?: number }
-				);
+				return reschedulePendingNotificationH._handler(ctx, args as RescheduleArgs);
 			case 'emails/send:sendNewTicketAdminNotification': {
 				const email = args.email as string;
 				sendAttempts.push(email);
@@ -393,6 +395,164 @@ describe('pending notification ownership', () => {
 		expect(rows[0].scheduledFnId).not.toBe(armedFnId);
 		expect(runAfter).toHaveBeenCalledTimes(2);
 		expect(runAfter.mock.calls[1][0]).toBe(60_000);
+	});
+
+	it('keeps a newer claim when an older send finishes during it', async () => {
+		const { ctx, rows, runAfter } = createCtx();
+
+		await scheduleAdminNotificationH._handler(ctx, {
+			threadId: 'thread_overlap',
+			messageIds: ['message_1'],
+			isReopen: false,
+			notificationType: 'newTickets'
+		});
+		const notificationId = rows[0]._id as string;
+
+		// B's only send waits until A has finished, then fails.
+		let releaseB!: () => void;
+		const aFinished = new Promise<void>((resolve) => (releaseB = resolve));
+		let markBSending!: () => void;
+		const bSending = new Promise<void>((resolve) => (markBSending = resolve));
+		const sendB = createActionCtx(ctx, {
+			sendThrows: true,
+			onFirstSend: async () => {
+				markBSending();
+				await aFinished;
+			}
+		});
+
+		let runB: Promise<null> | undefined;
+		const sendA = createActionCtx(ctx, {
+			// While A emails message 1, the customer replies and the re-armed send B
+			// claims the row before A finishes.
+			onFirstSend: async () => {
+				await scheduleAdminNotificationH._handler(ctx, {
+					threadId: 'thread_overlap',
+					messageIds: ['message_2'],
+					isReopen: false,
+					notificationType: 'userReplies'
+				});
+				runB = sendPendingAdminNotificationH._handler(sendB, { notificationId });
+				await bSending;
+			}
+		});
+
+		await sendPendingAdminNotificationH._handler(sendA, { notificationId });
+		expect(sendA.messageIdsSeen).toEqual([['message_1']]);
+		expect(rows).toHaveLength(1);
+
+		releaseB();
+		await runB;
+
+		// B's failure schedules its retry on the row A left alone.
+		expect(sendB.messageIdsSeen).toEqual([['message_1', 'message_2']]);
+		expect(rows).toHaveLength(1);
+		expect(rows[0].retryCount).toBe(1);
+		expect(runAfter).toHaveBeenCalledTimes(3);
+		expect(runAfter.mock.calls[2][0]).toBe(60_000);
+		expect(rows[0].scheduledFnId).toBeDefined();
+
+		// The retry delivers both messages and clears the row.
+		const retry = createActionCtx(ctx);
+		await sendPendingAdminNotificationH._handler(retry, { notificationId });
+
+		expect(retry.sentEmails).toHaveLength(1);
+		expect(retry.messageIdsSeen).toEqual([['message_1', 'message_2']]);
+		expect(rows).toHaveLength(0);
+	});
+
+	it('refuses cleanup with an older or missing claim token', async () => {
+		const { ctx, rows } = createCtx();
+
+		await scheduleAdminNotificationH._handler(ctx, {
+			threadId: 'thread_tokens',
+			messageIds: ['message_1'],
+			isReopen: false,
+			notificationType: 'newTickets'
+		});
+		const notificationId = rows[0]._id as string;
+
+		const older = await claimNotificationForSendingH._handler(ctx, {
+			notificationId,
+			issueToken: true
+		});
+		await scheduleAdminNotificationH._handler(ctx, {
+			threadId: 'thread_tokens',
+			messageIds: ['message_2'],
+			isReopen: false,
+			notificationType: 'userReplies'
+		});
+		const newer = await claimNotificationForSendingH._handler(ctx, {
+			notificationId,
+			issueToken: true
+		});
+		expect(older).not.toBeNull();
+		expect(newer).not.toBeNull();
+
+		for (const claimToken of [older!.claimToken, undefined]) {
+			expect(await deletePendingNotificationH._handler(ctx, { notificationId, claimToken })).toBe(
+				false
+			);
+			expect(
+				await reschedulePendingNotificationH._handler(ctx, { notificationId, claimToken })
+			).toBe(false);
+		}
+		expect(rows).toHaveLength(1);
+		expect(rows[0].scheduledFnId).toBeUndefined();
+		expect(rows[0].retryCount).toBeUndefined();
+
+		expect(
+			await deletePendingNotificationH._handler(ctx, {
+				notificationId,
+				claimToken: newer!.claimToken
+			})
+		).toBe(true);
+		expect(rows).toHaveLength(0);
+	});
+
+	it('hands a row claimed without a token to a new send', async () => {
+		const { ctx, rows, runAfter } = createCtx();
+
+		await scheduleAdminNotificationH._handler(ctx, {
+			threadId: 'thread_legacy',
+			messageIds: ['message_1'],
+			isReopen: false,
+			notificationType: 'newTickets'
+		});
+		const notificationId = rows[0]._id as string;
+		const armedFnId = rows[0].scheduledFnId;
+
+		// An action started before the token protocol claims without asking for one.
+		expect(await claimNotificationForSendingH._handler(ctx, { notificationId })).toBeNull();
+
+		expect(runAfter).toHaveBeenCalledTimes(2);
+		expect(runAfter.mock.calls[1][0]).toBe(0);
+		expect(runAfter.mock.calls[1][2]).toEqual({ notificationId });
+		expect(rows[0].scheduledFnId).toBeDefined();
+		expect(rows[0].scheduledFnId).not.toBe(armedFnId);
+
+		// The new send claims with a token and delivers.
+		const handoff = createActionCtx(ctx);
+		await sendPendingAdminNotificationH._handler(handoff, { notificationId });
+		expect(handoff.sentEmails).toHaveLength(1);
+		expect(rows).toHaveLength(0);
+	});
+
+	it('lets a send that claimed before tokens existed clean up its own row', async () => {
+		const { ctx, rows } = createCtx();
+
+		await scheduleAdminNotificationH._handler(ctx, {
+			threadId: 'thread_legacy_cleanup',
+			messageIds: ['message_1'],
+			isReopen: false,
+			notificationType: 'newTickets'
+		});
+		const notificationId = rows[0]._id as string;
+		// A claim made by the previous deployment cleared scheduledFnId and wrote no token.
+		rows[0].scheduledFnId = undefined;
+
+		expect(await deletePendingNotificationH._handler(ctx, { notificationId })).toBe(true);
+		expect(rows).toHaveLength(0);
 	});
 });
 

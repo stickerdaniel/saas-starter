@@ -17,7 +17,7 @@
  */
 
 import { v } from 'convex/values';
-import type { Id } from '../../_generated/dataModel';
+import type { Doc, Id } from '../../_generated/dataModel';
 import { internalMutation, internalAction, internalQuery } from '../../_generated/server';
 import { internal, components } from '../../_generated/api';
 import { supportThreadFields } from '../../support/supportThreadFields';
@@ -33,7 +33,7 @@ const MAX_RETRY_COUNT = 5;
 
 /** Logged when the running send no longer owns its row and skips cleanup. */
 const OWNERSHIP_MOVED_LOG =
-	'[sendPendingAdminNotification] Pending notification no longer owned by this send; row was re-armed or cancelled, skipping cleanup:';
+	'[sendPendingAdminNotification] Pending notification no longer owned by this send; row was re-armed, claimed by a newer send, or cancelled, skipping cleanup:';
 
 /**
  * Schedule or update an admin notification for a support thread
@@ -97,12 +97,14 @@ export const scheduleAdminNotification = internalMutation({
 				}
 			);
 
-			// Writing scheduledFnId also evicts an in-flight sender: a send owns the row
-			// only while it is unscheduled, so this patch hands ownership to the new job.
+			// Writing scheduledFnId and clearing claimToken also evicts an in-flight
+			// sender: a send owns the row only while it is unscheduled and still carries
+			// that send's claim token, so this patch hands ownership to the new job.
 			await ctx.db.patch('pendingAdminNotifications', existing._id, {
 				messageIds: updatedMessageIds,
 				scheduledFor,
 				scheduledFnId: newScheduledFnId,
+				claimToken: undefined,
 				isReopen: existing.isReopen || args.isReopen,
 				// Preserve 'newTickets' if either call was for new ticket (primary event)
 				notificationType:
@@ -148,12 +150,15 @@ export const scheduleAdminNotification = internalMutation({
  * - If ticket is assigned AND assignee has the notification type enabled → only assignee
  * - Otherwise → all recipients with the notification type enabled (admins + custom emails)
  *
- * Ownership protocol: the claim clears scheduledFnId, and every mutation this
- * action runs afterwards may only touch the row while it is still unscheduled.
- * Email sends take seconds outside any transaction, so a customer message can
- * arrive in that window, re-arm the row with a fresh scheduled function and take
- * ownership back. The delete and reschedule below then do nothing, and the
- * re-armed send delivers the accumulated messages.
+ * Ownership protocol: the claim clears scheduledFnId and writes a fresh claim
+ * token, and every mutation this action runs afterwards passes that token and
+ * may only touch the row while it is still unscheduled and carries the same
+ * token. Email sends take seconds outside any transaction, so a customer message
+ * can arrive in that window, re-arm the row with a fresh scheduled function and
+ * take ownership back. The re-armed send may even claim the row before this one
+ * finishes; its new token keeps this send from deleting or retrying that claim.
+ * The delete and reschedule below then do nothing, and the newer send delivers
+ * the accumulated messages.
  *
  * @param args.notificationId - The pending notification record ID
  */
@@ -165,11 +170,13 @@ export const sendPendingAdminNotification = internalAction({
 	handler: async (ctx, args) => {
 		// Claim ownership atomically before doing any work
 		// This follows the "claim-then-act" pattern - the idiomatic Convex approach
-		// The mutation checks that scheduledFnId is set (not already claimed) and clears it
+		// The mutation checks that scheduledFnId is set (not already claimed), clears
+		// it, and returns the claim token every later cleanup must present
 		const notification = await ctx.runMutation(
 			internal.admin.support.notifications.claimNotificationForSending,
 			{
-				notificationId: args.notificationId
+				notificationId: args.notificationId,
+				issueToken: true
 			}
 		);
 
@@ -185,7 +192,8 @@ export const sendPendingAdminNotification = internalAction({
 			const deleted = await ctx.runMutation(
 				internal.admin.support.notifications.deletePendingNotification,
 				{
-					notificationId: args.notificationId
+					notificationId: args.notificationId,
+					claimToken: notification.claimToken
 				}
 			);
 			if (!deleted) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
@@ -208,7 +216,8 @@ export const sendPendingAdminNotification = internalAction({
 			const deleted = await ctx.runMutation(
 				internal.admin.support.notifications.deletePendingNotification,
 				{
-					notificationId: args.notificationId
+					notificationId: args.notificationId,
+					claimToken: notification.claimToken
 				}
 			);
 			if (!deleted) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
@@ -233,7 +242,8 @@ export const sendPendingAdminNotification = internalAction({
 			const deleted = await ctx.runMutation(
 				internal.admin.support.notifications.deletePendingNotification,
 				{
-					notificationId: args.notificationId
+					notificationId: args.notificationId,
+					claimToken: notification.claimToken
 				}
 			);
 			if (!deleted) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
@@ -279,7 +289,8 @@ export const sendPendingAdminNotification = internalAction({
 			const deleted = await ctx.runMutation(
 				internal.admin.support.notifications.deletePendingNotification,
 				{
-					notificationId: args.notificationId
+					notificationId: args.notificationId,
+					claimToken: notification.claimToken
 				}
 			);
 			if (!deleted) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
@@ -296,7 +307,8 @@ export const sendPendingAdminNotification = internalAction({
 				const deleted = await ctx.runMutation(
 					internal.admin.support.notifications.deletePendingNotification,
 					{
-						notificationId: args.notificationId
+						notificationId: args.notificationId,
+						claimToken: notification.claimToken
 					}
 				);
 				if (!deleted) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
@@ -311,6 +323,7 @@ export const sendPendingAdminNotification = internalAction({
 				internal.admin.support.notifications.reschedulePendingNotification,
 				{
 					notificationId: args.notificationId,
+					claimToken: notification.claimToken,
 					delayMs: 60_000 // 1 minute retry delay
 				}
 			);
@@ -322,7 +335,8 @@ export const sendPendingAdminNotification = internalAction({
 		const deleted = await ctx.runMutation(
 			internal.admin.support.notifications.deletePendingNotification,
 			{
-				notificationId: args.notificationId
+				notificationId: args.notificationId,
+				claimToken: notification.claimToken
 			}
 		);
 		if (!deleted) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
@@ -347,14 +361,28 @@ export const sendPendingAdminNotification = internalAction({
  *
  * This follows the "claim-then-act" pattern which is the idiomatic Convex
  * approach for coordinating work in actions:
- * - pending (scheduledFnId set) → claimed (scheduledFnId cleared) → deleted
+ * - pending (scheduledFnId set) → claimed (scheduledFnId cleared, claimToken
+ *   written) → deleted
+ *
+ * The claim token tells two sends apart when the row is re-armed and claimed
+ * again before an earlier send finishes: both see an unscheduled row, but only
+ * the newest claim holds the token on it.
+ *
+ * Only a caller that asks for a token is granted a claim. An action that started
+ * before this protocol was deployed claims without asking and cleans up without
+ * a token, so a tokened claim would strand its row unscheduled and a tokenless
+ * one could be deleted by another such send. That caller gets no claim: the row
+ * is handed to a fresh send, which claims it with a token.
  *
  * @param args.notificationId - The notification to claim
- * @returns The notification data if claimed, null if already claimed or not found
+ * @param args.issueToken - Set by callers that pass the returned token to every cleanup
+ * @returns The notification data and claim token if claimed, null if already
+ *   claimed, handed off, or not found
  */
 export const claimNotificationForSending = internalMutation({
 	args: {
-		notificationId: v.id('pendingAdminNotifications')
+		notificationId: v.id('pendingAdminNotifications'),
+		issueToken: v.optional(v.boolean())
 	},
 	returns: v.union(
 		v.object({
@@ -362,7 +390,8 @@ export const claimNotificationForSending = internalMutation({
 			messageIds: v.array(v.string()),
 			isReopen: v.boolean(),
 			notificationType: v.union(v.literal('newTickets'), v.literal('userReplies')),
-			retryCount: v.number()
+			retryCount: v.number(),
+			claimToken: v.string()
 		}),
 		v.null()
 	),
@@ -374,10 +403,27 @@ export const claimNotificationForSending = internalMutation({
 			return null;
 		}
 
-		// Clear scheduledFnId to claim ownership atomically
-		// This prevents other actions from claiming this notification
+		// A caller without token support cannot hold a claim safely, so a new send
+		// takes the row over right away
+		if (args.issueToken !== true) {
+			const handoffFnId = await ctx.scheduler.runAfter(
+				0,
+				internal.admin.support.notifications.sendPendingAdminNotification,
+				{ notificationId: args.notificationId }
+			);
+			await ctx.db.patch('pendingAdminNotifications', args.notificationId, {
+				scheduledFnId: handoffFnId
+			});
+			return null;
+		}
+
+		// Clear scheduledFnId and write a fresh token to claim ownership atomically
+		// This prevents other actions from claiming this notification, and an older
+		// send from cleaning up after this claim
+		const claimToken = crypto.randomUUID();
 		await ctx.db.patch('pendingAdminNotifications', args.notificationId, {
-			scheduledFnId: undefined
+			scheduledFnId: undefined,
+			claimToken
 		});
 
 		return {
@@ -385,7 +431,8 @@ export const claimNotificationForSending = internalMutation({
 			messageIds: notification.messageIds,
 			isReopen: notification.isReopen,
 			notificationType: notification.notificationType,
-			retryCount: notification.retryCount ?? 0
+			retryCount: notification.retryCount ?? 0,
+			claimToken
 		};
 	}
 });
@@ -414,19 +461,36 @@ export const getSupportThread = internalQuery({
 });
 
 /**
+ * Whether the send that presents `claimToken` still owns a pending notification
+ *
+ * A send owns its row only while the row is unscheduled and carries the token
+ * claimNotificationForSending issued to that send. A scheduledFnId means the row
+ * was re-armed or rescheduled and a newer job owns it; a different token means a
+ * newer send has claimed it since. Only a claim made before tokens existed
+ * matches a missing token, because every new claim writes one.
+ */
+function isOwnedByClaim(
+	notification: Doc<'pendingAdminNotifications'>,
+	claimToken: string | undefined
+): boolean {
+	return notification.scheduledFnId === undefined && notification.claimToken === claimToken;
+}
+
+/**
  * Delete a pending notification that the running send still owns
  *
- * A send owns its row only while the row is unscheduled, the marker
- * claimNotificationForSending writes. Any scheduledFnId means a newer job owns
- * the row: it was re-armed with additional messages while this send was running,
- * so deleting it would drop those messages.
+ * Any other owner holds messages this send did not deliver: the row was re-armed
+ * with additional messages while this send was running, and possibly claimed
+ * again by the newer send, so deleting it would drop those messages.
  *
  * @param args.notificationId - The notification to delete
- * @returns true if deleted, false if not found or owned by a newer scheduled send
+ * @param args.claimToken - The token returned by this send's claim
+ * @returns true if deleted, false if not found or owned by a newer send
  */
 export const deletePendingNotification = internalMutation({
 	args: {
-		notificationId: v.id('pendingAdminNotifications')
+		notificationId: v.id('pendingAdminNotifications'),
+		claimToken: v.optional(v.string())
 	},
 	returns: v.boolean(),
 	handler: async (ctx, args) => {
@@ -437,8 +501,8 @@ export const deletePendingNotification = internalMutation({
 			return false;
 		}
 
-		// Re-armed while the send was running, so the new job owns the row
-		if (notification.scheduledFnId !== undefined) {
+		// Re-armed or claimed again while the send was running, so a newer send owns the row
+		if (!isOwnedByClaim(notification, args.claimToken)) {
 			return false;
 		}
 
@@ -454,15 +518,19 @@ export const deletePendingNotification = internalMutation({
  * Updates the scheduledFnId to point to the new scheduled function.
  *
  * Only the send that owns the row may retry it. A row re-armed during the failed
- * sends already carries a newer job for the same messages, so it is left alone.
+ * sends already carries a newer job for the same messages, and a row claimed
+ * again belongs to the newer send, so either is left alone. The retry clears the
+ * claim token, which ends this send's ownership.
  *
  * @param args.notificationId - The notification to reschedule
+ * @param args.claimToken - The token returned by this send's claim
  * @param args.delayMs - Delay in milliseconds before retry (default 60 seconds)
- * @returns true if rescheduled, false if not found or owned by a newer scheduled send
+ * @returns true if rescheduled, false if not found or owned by a newer send
  */
 export const reschedulePendingNotification = internalMutation({
 	args: {
 		notificationId: v.id('pendingAdminNotifications'),
+		claimToken: v.optional(v.string()),
 		delayMs: v.optional(v.number())
 	},
 	returns: v.boolean(),
@@ -473,8 +541,8 @@ export const reschedulePendingNotification = internalMutation({
 			return false;
 		}
 
-		// Re-armed while the send was running, so the new job owns the retry
-		if (notification.scheduledFnId !== undefined) {
+		// Re-armed or claimed again while the send was running, so a newer send owns the retry
+		if (!isOwnedByClaim(notification, args.claimToken)) {
 			return false;
 		}
 
@@ -492,6 +560,7 @@ export const reschedulePendingNotification = internalMutation({
 		await ctx.db.patch('pendingAdminNotifications', args.notificationId, {
 			scheduledFor: Date.now() + delayMs,
 			scheduledFnId: newScheduledFnId,
+			claimToken: undefined,
 			retryCount: nextRetryCount
 		});
 
