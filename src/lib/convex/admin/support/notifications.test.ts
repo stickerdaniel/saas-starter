@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 
 vi.mock('../../emails/resend', () => ({
 	getEmailDeliveryConfiguration: vi.fn(() => ({
@@ -613,5 +613,212 @@ describe('test recipients in pending notifications', () => {
 		expect(rows).toHaveLength(0);
 		expect(runAfter).toHaveBeenCalledTimes(1);
 		expect(send.sendAttempts).toEqual([]);
+	});
+});
+
+/**
+ * Every customer message restarts the debounce, so without a cap a customer who
+ * writes more often than the delay holds the alert back forever. These tests run
+ * messages and scheduled sends on one simulated clock. The scheduler mirrors
+ * Convex: a job runs at its due time, a cancelled job never runs, and `runAfter`
+ * rejects a negative delay.
+ */
+describe('debounce cap', () => {
+	const MINUTE = 60_000;
+	const START = Date.UTC(2026, 0, 1);
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		getEmailConfigurationMock.mockReturnValue({
+			state: 'ready',
+			value: {
+				apiKey: 'configured',
+				sender: 'sender@example.com',
+				assetUrl: 'https://assets.example.com'
+			}
+		});
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(START);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	type CustomerWrites = (messageId: string) => Promise<void>;
+
+	function createClockedCtx(
+		options: { duringFirstSend?: (customerWrites: CustomerWrites) => Promise<void> } = {}
+	) {
+		const { ctx: base } = createCtx();
+		const jobs = new Map<string, { dueAt: number; notificationId: string }>();
+		let nextJob = 1;
+		const ctx = {
+			db: {
+				...base.db,
+				system: {
+					get: async (id: string) => (jobs.has(id) ? { state: { kind: 'pending' } } : null)
+				}
+			},
+			scheduler: {
+				runAfter: async (
+					delayMs: number,
+					_reference: unknown,
+					args: { notificationId: string }
+				) => {
+					if (delayMs < 0) throw new Error('`delayMs` must be non-negative');
+					const id = `job_${nextJob++}`;
+					jobs.set(id, { dueAt: Date.now() + delayMs, notificationId: args.notificationId });
+					return id;
+				},
+				cancel: async (id: string) => {
+					jobs.delete(id);
+				}
+			}
+		};
+
+		const customerWrites: CustomerWrites = async (messageId) => {
+			await scheduleAdminNotificationH._handler(ctx, {
+				threadId: 'thread_chatty',
+				messageIds: [messageId],
+				isReopen: false,
+				notificationType: 'userReplies'
+			});
+		};
+
+		// A write that fails inside the send would look like a failed email, so
+		// surface it as the failure it is.
+		let hookError: unknown;
+		const duringFirstSend = options.duringFirstSend;
+		// Read on every send, so a test can make the provider fail for a while.
+		const sendOptions = {
+			sendThrows: false,
+			onFirstSend:
+				duringFirstSend &&
+				(async () => {
+					try {
+						await duringFirstSend(customerWrites);
+					} catch (error) {
+						hookError = error;
+					}
+				})
+		};
+		const send = createActionCtx(ctx, sendOptions);
+		const failSends = (fail: boolean) => {
+			sendOptions.sendThrows = fail;
+		};
+
+		const deliveries: Array<{ at: number; messageIds: string[] }> = [];
+
+		/** Run every job due by `offset` after START, in due order, then move the clock there. */
+		async function advanceTo(offset: number) {
+			for (;;) {
+				const [next] = [...jobs.entries()].sort(([, a], [, b]) => a.dueAt - b.dueAt);
+				if (!next || next[1].dueAt > START + offset) break;
+				const [id, job] = next;
+				jobs.delete(id);
+				vi.setSystemTime(job.dueAt);
+				const sentBefore = send.sentEmails.length;
+				await sendPendingAdminNotificationH._handler(send, {
+					notificationId: job.notificationId
+				});
+				if (hookError) throw hookError;
+				if (send.sentEmails.length > sentBefore) {
+					deliveries.push({
+						at: job.dueAt - START,
+						messageIds: send.messageIdsSeen[send.messageIdsSeen.length - 1]
+					});
+				}
+			}
+			vi.setSystemTime(START + offset);
+		}
+
+		return { customerWrites, advanceTo, failSends, deliveries };
+	}
+
+	it('alerts within 15 minutes when the customer writes every 3 minutes', async () => {
+		const clock = createClockedCtx();
+
+		for (let minute = 0; minute < 30; minute += 3) {
+			await clock.advanceTo(minute * MINUTE);
+			await clock.customerWrites(`message_${minute}`);
+		}
+		await clock.advanceTo(30 * MINUTE);
+
+		// The first row sends at its cap with everything written so far; the message
+		// at minute 15 starts a new row, which sends at its own cap.
+		expect(clock.deliveries).toEqual([
+			{
+				at: 15 * MINUTE,
+				messageIds: ['message_0', 'message_3', 'message_6', 'message_9', 'message_12']
+			},
+			{
+				at: 30 * MINUTE,
+				messageIds: ['message_15', 'message_18', 'message_21', 'message_24', 'message_27']
+			}
+		]);
+	});
+
+	const CAPPED = ['message_0', 'message_3', 'message_6', 'message_9', 'message_12'];
+
+	it('waits a full delay after a capped send before sending a reply written during it', async () => {
+		const clock = createClockedCtx({
+			// The customer writes again while the capped send is still emailing, when
+			// the row is already past its cap.
+			duringFirstSend: async (customerWrites) => {
+				vi.setSystemTime(START + 15 * MINUTE + 5_000);
+				await customerWrites('message_late');
+			}
+		});
+
+		for (let minute = 0; minute < 15; minute += 3) {
+			await clock.advanceTo(minute * MINUTE);
+			await clock.customerWrites(`message_${minute}`);
+		}
+		await clock.advanceTo(25 * MINUTE);
+
+		// The follow-up still carries the ids the running send had already passed on.
+		expect(clock.deliveries).toEqual([
+			{ at: 15 * MINUTE, messageIds: CAPPED },
+			{ at: 19 * MINUTE + 5_000, messageIds: [...CAPPED, 'message_late'] }
+		]);
+	});
+
+	it('keeps the retry backoff when the customer writes during it', async () => {
+		const clock = createClockedCtx();
+
+		for (let minute = 0; minute < 15; minute += 3) {
+			await clock.advanceTo(minute * MINUTE);
+			await clock.customerWrites(`message_${minute}`);
+		}
+		// The capped send fails, so the row waits a minute before its retry.
+		clock.failSends(true);
+		await clock.advanceTo(15 * MINUTE);
+		clock.failSends(false);
+
+		await clock.advanceTo(15 * MINUTE + 30_000);
+		await clock.customerWrites('message_during_retry');
+		await clock.advanceTo(20 * MINUTE);
+
+		expect(clock.deliveries).toEqual([
+			{ at: 16 * MINUTE, messageIds: [...CAPPED, 'message_during_retry'] }
+		]);
+	});
+
+	it('sends right away when a message finds an overdue send still queued', async () => {
+		const clock = createClockedCtx();
+
+		for (let minute = 0; minute < 15; minute += 3) {
+			await clock.advanceTo(minute * MINUTE);
+			await clock.customerWrites(`message_${minute}`);
+		}
+		// The scheduler is behind: the capped send is due but has not run yet.
+		vi.setSystemTime(START + 15 * MINUTE + 30_000);
+		await clock.customerWrites('message_overdue');
+		await clock.advanceTo(20 * MINUTE);
+
+		expect(clock.deliveries).toEqual([
+			{ at: 15 * MINUTE + 30_000, messageIds: [...CAPPED, 'message_overdue'] }
+		]);
 	});
 });

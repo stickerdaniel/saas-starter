@@ -115,8 +115,9 @@ export default defineSchema({
 
 	// Pending admin notifications - for debounced delivery
 	// Triggered when user clicks "Talk to human", sends message to handed-off ticket,
-	// or reopens a closed ticket. Uses 2-minute debounce to accumulate multiple messages.
-	// Timer resets if user sends more messages within the delay window.
+	// or reopens a closed ticket. Uses 4-minute debounce to accumulate multiple messages.
+	// Timer resets if user sends more messages within the delay window, up to 15 minutes
+	// after createdAt.
 	pendingAdminNotifications: defineTable({
 		threadId: v.string(), // Support thread ID
 		isReopen: v.boolean(), // true = reopened ticket, false = new/handoff ticket
