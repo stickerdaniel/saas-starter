@@ -1206,6 +1206,81 @@ describe('mergeAssistantMessageParts', () => {
 			{ state: 'output-available', output: { found: true } }
 		]);
 	});
+
+	// The live stream spells a runtime-registered call `dynamic-tool`, the persisted
+	// row `tool-{name}`. Both views of one call rendered side by side (issue #894).
+	describe('merges the two spellings of one dynamic tool call', () => {
+		const persisted = (state: 'input-available' | 'output-available') =>
+			[
+				{ type: 'step-start' },
+				{
+					type: 'tool-lookup',
+					toolCallId: 'call-1',
+					state,
+					input: { id: 'record-1' },
+					...(state === 'output-available' ? { output: { found: true } } : {})
+				}
+			] as unknown as UIMessage['parts'];
+		const live = (state: 'input-available' | 'output-available') =>
+			[
+				{ type: 'step-start' },
+				{
+					type: 'dynamic-tool',
+					toolName: 'lookup',
+					toolCallId: 'call-1',
+					state,
+					input: { id: 'record-1' },
+					...(state === 'output-available' ? { output: { found: true } } : {})
+				}
+			] as unknown as UIMessage['parts'];
+
+		it.each([
+			[
+				'the persisted row first, settled live',
+				persisted('input-available'),
+				live('output-available')
+			],
+			[
+				'the live stream first, settled live',
+				live('output-available'),
+				persisted('input-available')
+			],
+			[
+				'the persisted row first, settled row',
+				persisted('output-available'),
+				live('input-available')
+			],
+			[
+				'the live stream first, settled row',
+				live('input-available'),
+				persisted('output-available')
+			],
+			[
+				'the persisted row first, both settled',
+				persisted('output-available'),
+				live('output-available')
+			],
+			[
+				'the live stream first, both settled',
+				live('output-available'),
+				persisted('output-available')
+			]
+		])('with %s', (_, existing, incoming) => {
+			const merged = mergePersistedAndLiveParts(existing, incoming);
+
+			expect(merged.filter((part) => 'toolCallId' in part)).toMatchObject([
+				{ type: 'tool-lookup', state: 'output-available', output: { found: true } }
+			]);
+		});
+
+		it('names a live call the way the persisted row will before the row exists', () => {
+			const merged = mergePersistedAndLiveParts([], live('input-available'));
+
+			expect(merged.filter((part) => 'toolCallId' in part)).toMatchObject([
+				{ type: 'tool-lookup', toolCallId: 'call-1' }
+			]);
+		});
+	});
 });
 
 // ─── extractUserMessageText ───────────────────────────────────────────────────
