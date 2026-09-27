@@ -376,6 +376,7 @@
 			"impersonation_not_allowed": "No se puede establecer una contraseña mientras se suplanta a un usuario.",
 			"invalid_credentials": "Correo electrónico o contraseña inválidos",
 			"invalid_token": "Este enlace ya no es válido. Solicita uno nuevo e inténtalo de nuevo.",
+			"invalid_token_signed_in": "Este enlace ya no funciona. Has iniciado sesión, así que si tu dirección ya está verificada, sigue donde lo dejaste.",
 			"missing_reset_token": "Falta el token de restablecimiento o es inválido",
 			"oauth_failed": "El inicio de sesión social falló. Inténtalo de nuevo.",
 			"passkey_add_failed": "No se pudo agregar la passkey",
@@ -423,6 +424,7 @@
 			"title": "Establece una contraseña"
 		},
 		"signin": {
+			"button_resume": "Seguir donde lo dejaste",
 			"button_signin": "Iniciar sesión",
 			"button_signin_loading": "Iniciando sesión...",
 			"button_signup": "Registrarse",

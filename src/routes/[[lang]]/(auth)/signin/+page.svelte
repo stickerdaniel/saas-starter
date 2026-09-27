@@ -30,6 +30,8 @@
 		getVerificationErrorKey
 	} from '$lib/utils/auth-messages';
 	import {
+		FAILED_LINK_PARAM,
+		FAILED_RESET_LINK,
 		authPageURL,
 		oauthErrorCallbackURL,
 		safeAuthDestination,
@@ -74,21 +76,6 @@
 	);
 
 	let isLoading = $state(false);
-	/**
-	 * Seeded from the page URL rather than from `params`, so the first render
-	 * carries the message. `useSearchParams` fills its cache only in the browser
-	 * (`if (!this.#options.updateURL || !BROWSER || building) return;` in
-	 * runed/dist/utilities/use-search-params), and an `$effect` does not run
-	 * during SSR at all, so reading either one here would ship a blank form to a
-	 * user whose link just failed and leave it blank for good if hydration never
-	 * lands. The rewrite that clears the parameter stays in the effect below,
-	 * which is a browser concern and nothing renders from.
-	 */
-	let formError = $state(
-		getVerificationErrorKey(initialVerificationCode) ??
-			getOAuthCallbackErrorKey(page.url.searchParams.get('error')) ??
-			''
-	);
 
 	/**
 	 * Whether this page is holding a visitor who was already signed in when it
@@ -102,6 +89,41 @@
 	 * afterwards and has to be let through.
 	 */
 	const heldForVerificationFailure = initialVerificationCode !== null && auth.isAuthenticated;
+	/**
+	 * The held visitor's failed link was an email-verification link rather than a
+	 * password-reset one, which reports the same code and which the hook marks.
+	 *
+	 * "Request a new one" is the wrong instruction for a signed-in visitor whose
+	 * address may already be verified, so they are told they can continue and get
+	 * a link to do so. The form stays: the URL says nothing about which account
+	 * the link belonged to, so the session proves nothing about it.
+	 */
+	const heldAfterVerificationLink =
+		heldForVerificationFailure &&
+		page.url.searchParams.get(FAILED_LINK_PARAM) !== FAILED_RESET_LINK;
+
+	function linkFailureKey(code: string | null | undefined): string | null {
+		const key = getVerificationErrorKey(code);
+		return key !== null && heldAfterVerificationLink
+			? 'auth.messages.invalid_token_signed_in'
+			: key;
+	}
+
+	/**
+	 * Seeded from the page URL rather than from `params`, so the first render
+	 * carries the message. `useSearchParams` fills its cache only in the browser
+	 * (`if (!this.#options.updateURL || !BROWSER || building) return;` in
+	 * runed/dist/utilities/use-search-params), and an `$effect` does not run
+	 * during SSR at all, so reading either one here would ship a blank form to a
+	 * user whose link just failed and leave it blank for good if hydration never
+	 * lands. The rewrite that clears the parameter stays in the effect below,
+	 * which is a browser concern and nothing renders from.
+	 */
+	let formError = $state(
+		linkFailureKey(initialVerificationCode) ??
+			getOAuthCallbackErrorKey(page.url.searchParams.get('error')) ??
+			''
+	);
 	let lastValidSignInSubmission = $state<string | null>(null);
 	let termsLink = $state<HTMLAnchorElement | null>(null);
 	let authRedirectStarted = false;
@@ -274,7 +296,7 @@
 	 * provider that worked.
 	 */
 	function callbackErrorKey(code: string | null | undefined): string | null {
-		return getVerificationErrorKey(code) ?? getOAuthCallbackErrorKey(code);
+		return linkFailureKey(code) ?? getOAuthCallbackErrorKey(code);
 	}
 
 	// A callback failure comes back as a URL parameter, since the page that
@@ -289,7 +311,7 @@
 		formError = errorKey;
 		clearPendingOAuthProvider();
 		// One write, so the URL is rewritten once rather than twice.
-		params.update({ error: '', error_description: '' });
+		params.update({ error: '', error_description: '', [FAILED_LINK_PARAM]: '' });
 	});
 
 	async function handlePasskeyLogin() {
@@ -350,6 +372,7 @@
 					{enabledProviderCount}
 					oauthProviders={oauthProviders.data}
 					redirectTo={requestedDestination}
+					resumeHref={heldAfterVerificationLink ? finalDestination : ''}
 					{termsLink}
 					{isLastUsedAuthMethod}
 					onSubmit={handleSignIn}

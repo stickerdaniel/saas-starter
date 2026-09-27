@@ -84,12 +84,55 @@ describe('server-rendered sign-in page', () => {
 
 	it('reports a failed verification link in the first paint', () => {
 		const document = serverRender(
+			`?redirectTo=${encodeURIComponent(DESTINATION)}&error=TOKEN_EXPIRED`
+		);
+
+		expect(reportIn(document)).toBe(en.auth.messages.invalid_token);
+		expect(resumeLinksIn(document)).toEqual([]);
+	});
+
+	/**
+	 * The session proves nothing about the link's account, so the form stays,
+	 * but "request a new one" is the wrong instruction for someone who may
+	 * already be verified.
+	 */
+	it('lets a signed-in visitor holding a failed verification link go on', () => {
+		const document = serverRender(
 			`?redirectTo=${encodeURIComponent(DESTINATION)}&error=TOKEN_EXPIRED`,
 			{ authenticated: true }
 		);
 
-		expect(document.querySelector('[role="alert"]')?.textContent).toContain(
-			en.auth.messages.invalid_token
+		expect(reportIn(document)).toBe(en.auth.messages.invalid_token_signed_in);
+		const target = linkIn(document, en.auth.signin.button_resume);
+		expect(target.pathname + target.search + target.hash).toBe(DESTINATION);
+		expect(document.querySelector('[data-testid="signin-button"]')).not.toBeNull();
+	});
+
+	it('sends a signed-in visitor on to the app without a destination', () => {
+		const document = serverRender('?error=INVALID_TOKEN', { authenticated: true });
+
+		expect(linkIn(document, en.auth.signin.button_resume).pathname).toBe('/de/app');
+	});
+
+	// Better Auth reports an expired reset link with the same code, and the hook
+	// marks it. Nothing about a reset link is settled by being signed in.
+	it('keeps the report for a failed reset link even when signed in', () => {
+		const document = serverRender(
+			`?redirectTo=${encodeURIComponent(DESTINATION)}&error=INVALID_TOKEN&link=reset`,
+			{ authenticated: true }
 		);
+
+		expect(reportIn(document)).toBe(en.auth.messages.invalid_token);
+		expect(resumeLinksIn(document)).toEqual([]);
 	});
 });
+
+function reportIn(document: Document): string | undefined {
+	return document.querySelector('[role="alert"]')?.textContent?.trim();
+}
+
+function resumeLinksIn(document: Document): string[] {
+	return [...document.querySelectorAll('a')]
+		.map((anchor) => anchor.textContent?.trim() ?? '')
+		.filter((name) => name === en.auth.signin.button_resume);
+}

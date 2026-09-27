@@ -376,6 +376,7 @@
 			"impersonation_not_allowed": "Während der Identitätsübernahme kann kein Passwort eingerichtet werden.",
 			"invalid_credentials": "Ungültige E-Mail oder Passwort",
 			"invalid_token": "Dieser Link ist nicht mehr gültig. Fordern Sie einen neuen an und versuchen Sie es erneut.",
+			"invalid_token_signed_in": "Dieser Link gilt nicht mehr. Du bist angemeldet. Wenn deine Adresse schon bestätigt ist, mach einfach da weiter, wo du aufgehört hast.",
 			"missing_reset_token": "Fehlender oder ungültiger Reset-Token",
 			"oauth_failed": "Soziale Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
 			"passkey_add_failed": "Passkey konnte nicht hinzugefügt werden",
@@ -423,6 +424,7 @@
 			"title": "Passwort einrichten"
 		},
 		"signin": {
+			"button_resume": "Weitermachen, wo du aufgehört hast",
 			"button_signin": "Anmelden",
 			"button_signin_loading": "Wird angemeldet...",
 			"button_signup": "Registrieren",

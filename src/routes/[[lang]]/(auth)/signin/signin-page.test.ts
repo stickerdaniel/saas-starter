@@ -397,13 +397,26 @@ describe('sign-in page holding a signed-in visitor', () => {
 		await renderSignIn(heldSearch, { authenticated: true });
 
 		expect(document.querySelector('[role="alert"]')?.textContent).toContain(
-			en.auth.messages.invalid_token
+			en.auth.messages.invalid_token_signed_in
 		);
 		// The effect that clears the code has run; the hold must outlive it.
 		await vi.waitFor(() => expect(state.page.url.searchParams.has('error')).toBe(false));
 		await tick();
 		expect(navigations).toEqual([]);
-		expect(document.querySelector('[role="alert"]')?.textContent).toContain(
+		expect(document.querySelector('[role="alert"]')?.textContent?.trim()).toBe(
+			en.auth.messages.invalid_token_signed_in
+		);
+	});
+
+	it('keeps the plain report for a failed reset link after hydration', async () => {
+		await renderSignIn(`${heldSearch.replace('TOKEN_EXPIRED', 'INVALID_TOKEN')}&link=reset`, {
+			authenticated: true
+		});
+
+		await vi.waitFor(() => expect(state.page.url.searchParams.has('link')).toBe(false));
+		await tick();
+		expect(navigations).toEqual([]);
+		expect(document.querySelector('[role="alert"]')?.textContent?.trim()).toBe(
 			en.auth.messages.invalid_token
 		);
 	});
