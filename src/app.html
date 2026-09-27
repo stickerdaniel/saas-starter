@@ -24,6 +24,86 @@
 				window.__deployReloadArmed = true;
 			})();
 		</script>
+		<!--
+			Theme initializer: setInitialMode from mode-watcher 1.1.0 (dist/mode.js,
+			https://github.com/svecosystem/mode-watcher), invoked with ModeWatcher's default
+			config. It replaces the head script ModeWatcher would inject, so the CSP hash can be
+			derived from this template (src/lib/security/csp.js). The config object must match
+			the ModeWatcher props in src/routes/+layout.svelte. themeColors or nonce
+			customizations need more than a config edit: themeColors needs its theme-color meta
+			placed before this script, and ModeWatcher's nonce prop no longer reaches it.
+			When mode-watcher changes setInitialMode, csp.test.ts fails: port the change here.
+
+			MIT License
+
+			Copyright (c) 2024 Hunter Johnston <https://github.com/huntabyte>
+			Copyright (c) 2024 Svecosystem <https://github.com/svecosystem>
+
+			Permission is hereby granted, free of charge, to any person obtaining a copy
+			of this software and associated documentation files (the "Software"), to deal
+			in the Software without restriction, including without limitation the rights
+			to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+			copies of the Software, and to permit persons to whom the Software is
+			furnished to do so, subject to the following conditions:
+
+			The above copyright notice and this permission notice shall be included in all
+			copies or substantial portions of the Software.
+
+			THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+			IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+			FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+			AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+			LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+			OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+			SOFTWARE.
+		-->
+		<script>
+			(function setInitialMode({
+				defaultMode = 'system',
+				themeColors,
+				darkClassNames = ['dark'],
+				lightClassNames = [],
+				defaultTheme = '',
+				modeStorageKey = 'mode-watcher-mode',
+				themeStorageKey = 'mode-watcher-theme'
+			}) {
+				const rootEl = document.documentElement;
+				const mode = localStorage.getItem(modeStorageKey) ?? defaultMode;
+				const theme = localStorage.getItem(themeStorageKey) ?? defaultTheme;
+				const light =
+					mode === 'light' ||
+					(mode === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches);
+				if (light) {
+					if (darkClassNames.length) rootEl.classList.remove(...darkClassNames.filter(Boolean));
+					if (lightClassNames.length) rootEl.classList.add(...lightClassNames.filter(Boolean));
+				} else {
+					if (lightClassNames.length) rootEl.classList.remove(...lightClassNames.filter(Boolean));
+					if (darkClassNames.length) rootEl.classList.add(...darkClassNames.filter(Boolean));
+				}
+				rootEl.style.colorScheme = light ? 'light' : 'dark';
+				if (themeColors) {
+					const themeMetaEl = document.querySelector('meta[name="theme-color"]');
+					if (themeMetaEl) {
+						themeMetaEl.setAttribute(
+							'content',
+							mode === 'light' ? themeColors.light : themeColors.dark
+						);
+					}
+				}
+				if (theme) {
+					rootEl.setAttribute('data-theme', theme);
+					localStorage.setItem(themeStorageKey, theme);
+				}
+				localStorage.setItem(modeStorageKey, mode);
+			})({
+				defaultMode: 'system',
+				darkClassNames: ['dark'],
+				lightClassNames: [],
+				defaultTheme: '',
+				modeStorageKey: 'mode-watcher-mode',
+				themeStorageKey: 'mode-watcher-theme'
+			});
+		</script>
 		<!-- Preload critical fonts -->
 		<link
 			rel="preload"
