@@ -60,6 +60,14 @@ describe('no-dynamic-import-rejection-handler', () => {
 		expect(reports).toHaveLength(1);
 	});
 
+	it('flags the handler through an angle-bracket cast on import()', () => {
+		const reports = lint(`
+			const load = () =>
+				(<Promise<EditorModule>>import('./Editor.svelte')).then((m) => m.default, onRejected);
+		`);
+		expect(reports).toHaveLength(1);
+	});
+
 	it('flags a rejection handler supplied by a spread array literal', () => {
 		const reports = lint(`
 			const a = () => import('./Editor.svelte').then(...[pick, onRejected]);
