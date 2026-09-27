@@ -108,6 +108,15 @@ test.describe('Forgot Password', () => {
 	 * looking at the same words.
 	 */
 	test('says the same thing for a known and an unknown address', async ({ page }) => {
+		// Both answers must come from the checked-in copy. Local E2E runs a dev server,
+		// so a leak of live Tolgee would render whatever the Tolgee project holds; a
+		// stale record served here makes that leak fail the wording check below.
+		const stale = JSON.parse(
+			fs.readFileSync(path.join(process.cwd(), 'src', 'i18n', 'en.json'), 'utf-8')
+		);
+		stale.auth.messages.reset_link_sent = 'Check your email for a reset link.';
+		await page.route('**/v2/projects/**', (route) => route.fulfill({ json: { en: stale } }));
+
 		const known = await submitForgotPassword(page, getSeededUserEmail());
 		const unknown = await submitForgotPassword(
 			page,
