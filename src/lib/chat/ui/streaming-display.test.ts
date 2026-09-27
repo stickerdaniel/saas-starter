@@ -7,9 +7,11 @@ import {
 	buildTransformContext,
 	getActiveStreamIds,
 	hasAssistantResponseStarted,
-	hasStreamingAssistantMessage
+	hasStreamingAssistantMessage,
+	selectThreadStreamingUIMessages
 } from './streaming-display.js';
 import type { StreamCachePort } from '../core/chat-session-port.js';
+import { StreamCacheManager } from '../core/stream-cache.js';
 
 function createStreamCache(): StreamCachePort {
 	return {
@@ -105,6 +107,46 @@ describe('buildTransformContext', () => {
 		expect(context.streamMessageMap.get(2)?.text).toBe('Streaming response');
 		expect(streamCache.updateStatusCache).toHaveBeenCalledWith(2, 'finished');
 		expect(streamCache.updateReasoningCache).toHaveBeenCalledWith(2, 'Thinking');
+	});
+});
+
+describe('selectThreadStreamingUIMessages', () => {
+	const threadAStream = {
+		threadId: 'thread-a',
+		messages: [
+			createStreamingUIMessage({
+				order: 0,
+				text: 'Thread A answer',
+				parts: [
+					{ type: 'reasoning', text: 'Thread A reasoning' },
+					{ type: 'text', text: 'Thread A answer' }
+				]
+			})
+		]
+	};
+
+	function renderThreadBDuringDecode(streamCache: StreamCacheManager): DisplayMessage[] {
+		return buildDisplayMessages({
+			allMessages: [createAssistantMessage({ order: 0, status: 'pending', text: '' })],
+			streamMessages: [createStreamMessage({ order: 0, status: 'streaming' })],
+			streamingUIMessages: selectThreadStreamingUIMessages(threadAStream, 'thread-b'),
+			streamCache
+		});
+	}
+
+	it('keeps messages decoded for another thread out of rendering and the cache', () => {
+		const streamCache = new StreamCacheManager();
+
+		const [message] = renderThreadBDuringDecode(streamCache);
+
+		expect(message?.displayText).toBe('');
+		expect(message?.displayReasoning).toBe('');
+		expect(streamCache.getCachedReasoning(0)).toBeUndefined();
+	});
+
+	it('returns messages decoded for the current thread', () => {
+		expect(selectThreadStreamingUIMessages(threadAStream, 'thread-a')).toBe(threadAStream.messages);
+		expect(selectThreadStreamingUIMessages(null, 'thread-a')).toEqual([]);
 	});
 });
 

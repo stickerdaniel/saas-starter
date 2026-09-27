@@ -52,6 +52,24 @@ export async function decodeStreamingUIMessages(
 	return combineStreamingUIMessages(decodedMessages);
 }
 
+/** Streaming UI messages decoded asynchronously for one thread. */
+export type ThreadStreamingUIMessages = {
+	threadId: string;
+	messages: UIMessage[];
+};
+
+/**
+ * Decoded messages outlive a thread switch until the next decode settles, and
+ * message orders restart in every thread, so only the current thread's
+ * messages may reach rendering and the stream cache.
+ */
+export function selectThreadStreamingUIMessages(
+	decoded: ThreadStreamingUIMessages | null,
+	threadId: string | null
+): UIMessage[] {
+	return decoded !== null && decoded.threadId === threadId ? decoded.messages : [];
+}
+
 export function buildTransformContext(args: {
 	streamMessages: StreamMessage[];
 	streamingUIMessages: UIMessage[];

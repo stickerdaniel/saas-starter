@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { onDestroy, type Snippet } from 'svelte';
-	import type { UIMessage } from '@convex-dev/agent';
 	import type { ChatSessionPort } from '../core/chat-session-port.js';
 	import { CHAT_PAGE_SIZE, type ChatMessagesQuery, type DisplayMessage } from '../core/types.js';
 	import {
@@ -20,7 +19,9 @@
 		getNormalizedMessages,
 		getStreamDeltas,
 		hasAssistantResponseStarted,
-		type MessagesQueryResponse
+		selectThreadStreamingUIMessages,
+		type MessagesQueryResponse,
+		type ThreadStreamingUIMessages
 	} from './streaming-display.js';
 	import { syncReasoningAccordionState } from './reasoning-accordion-sync.js';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
@@ -144,7 +145,10 @@
 		return getStreamDeltas(deltasQuery.data as MessagesQueryResponse | undefined);
 	});
 
-	let streamingUIMessages: UIMessage[] = $state([]);
+	let decodedStreamingUIMessages: ThreadStreamingUIMessages | null = $state(null);
+	const streamingUIMessages = $derived(
+		selectThreadStreamingUIMessages(decodedStreamingUIMessages, threadId)
+	);
 
 	$effect(() => {
 		const currentThreadId = threadId;
@@ -153,7 +157,7 @@
 		let cancelled = false;
 
 		if (!currentThreadId || currentStreamMessages.length === 0) {
-			streamingUIMessages = [];
+			decodedStreamingUIMessages = null;
 			return;
 		}
 
@@ -165,10 +169,10 @@
 					currentDeltas
 				);
 				if (cancelled) return;
-				streamingUIMessages = decodedMessages;
+				decodedStreamingUIMessages = { threadId: currentThreadId, messages: decodedMessages };
 			} catch {
 				if (cancelled) return;
-				streamingUIMessages = [];
+				decodedStreamingUIMessages = null;
 			}
 		})();
 
