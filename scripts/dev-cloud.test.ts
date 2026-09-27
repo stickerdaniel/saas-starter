@@ -38,6 +38,7 @@ function forceStopWindowsTree(pid: number | undefined): void {
 // On windows-latest the first PowerShell runner of a job exits late rather than hanging: passing
 // runs reach 9.8 s, and a loaded runner stretches every later spawn too. Keep a wide margin.
 const CHILD_EXIT_DEADLINE_MS = 60_000;
+const FORCE_STOP_GRACE_MS = 10_000;
 const WINDOWS_CHILD_TEST_TIMEOUT_MS = 90_000;
 
 async function waitForChild(
@@ -49,21 +50,28 @@ async function waitForChild(
 	child.stdout?.on('data', (chunk) => (stdout += chunk));
 	child.stderr?.on('data', (chunk) => (stderr += chunk));
 	return await new Promise((resolve, reject) => {
+		const deadlineError = () => new Error(`Child process did not exit within ${timeoutMs} ms.`);
 		let timedOut = false;
+		let grace: ReturnType<typeof setTimeout> | undefined;
 		const timeout = setTimeout(() => {
 			timedOut = true;
 			forceStopWindowsTree(child.pid);
 			child.kill('SIGKILL');
+			grace = setTimeout(() => reject(deadlineError()), FORCE_STOP_GRACE_MS);
 		}, timeoutMs);
-		child.once('error', (error) => {
+		const settle = () => {
 			clearTimeout(timeout);
+			clearTimeout(grace);
+		};
+		child.once('error', (error) => {
+			settle();
 			reject(error);
 		});
 		// A timed-out child still holds its working directory until it has exited, so the caller's
-		// cleanup must not run before this event.
+		// cleanup waits for this event, bounded by the grace period if the force-stop fails.
 		child.once('exit', (code, signal) => {
-			clearTimeout(timeout);
-			if (timedOut) reject(new Error(`Child process did not exit within ${timeoutMs} ms.`));
+			settle();
+			if (timedOut) reject(deadlineError());
 			else resolve({ code, signal, stdout, stderr });
 		});
 	});
@@ -324,7 +332,7 @@ describe('runUntilOneExits', () => {
 			);
 			expect(code).toBe(7);
 		},
-		WINDOWS_CHILD_TEST_TIMEOUT_MS
+		process.platform === 'win32' ? WINDOWS_CHILD_TEST_TIMEOUT_MS : undefined
 	);
 
 	it.skipIf(process.platform === 'win32')(
