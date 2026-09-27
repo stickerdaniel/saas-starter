@@ -150,14 +150,26 @@ function getReasoningPartId(part: UIMessage['parts'][number]): string | undefine
 }
 
 /**
- * A statically named tool call. A runtime-registered one carries the same
- * `toolCallId` but spells its type `dynamic-tool`, so the two views of one such
- * call are not matched and both are kept (issue #894). Matching them here is not
- * enough on its own: the two views also disagree on the type itself, and the
- * merged part then names a type the renderer drops.
+ * A tool call in the `tool-{name}` spelling. The merge sees only that spelling,
+ * because `toCanonicalToolPart` rewrites the other one on the way in.
  */
 function isToolUIPart(part: UIMessage['parts'][number]): boolean {
 	return part.type.startsWith('tool-') && typeof asRecord(part).toolCallId === 'string';
+}
+
+/**
+ * One spelling for every tool call. The live AI SDK materialization types a
+ * runtime-registered call `dynamic-tool` with a separate `toolName`, while the
+ * persisted reconstruction in `@convex-dev/agent` rebuilds the same call as
+ * `tool-{name}` without one (issue #894). Two spellings of one `toolCallId`
+ * were never matched, so both views rendered side by side, and matching them
+ * as they are would let field-wise merging copy the incoming type over the
+ * other. The persisted spelling is the one that survives the handover.
+ */
+function toCanonicalToolPart(part: UIMessage['parts'][number]): UIMessage['parts'][number] {
+	if (part.type !== 'dynamic-tool') return part;
+	const { toolName, ...rest } = part;
+	return { ...rest, type: `tool-${toolName}` } as UIMessage['parts'][number];
 }
 
 /**
@@ -492,6 +504,18 @@ export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
 }
 
 export function mergeAssistantMessageParts(
+	existingParts: UIMessage['parts'],
+	incomingParts: UIMessage['parts'],
+	existingView: 'live' | 'persisted'
+): UIMessage['parts'] {
+	return mergeCanonicalParts(
+		existingParts.map(toCanonicalToolPart),
+		incomingParts.map(toCanonicalToolPart),
+		existingView
+	);
+}
+
+function mergeCanonicalParts(
 	existingParts: UIMessage['parts'],
 	incomingParts: UIMessage['parts'],
 	existingView: 'live' | 'persisted'
