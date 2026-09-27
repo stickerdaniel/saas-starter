@@ -90,7 +90,7 @@ function cleanComment(comment: string): string {
 		.split('\n')
 		.map((line) => line.replace(/^\s*\*?\s?/, ''))
 		.join('\n')
-		.trim();
+		.trimEnd();
 }
 
 function lineAtOffset(text: string, offset: number): number {
@@ -205,10 +205,11 @@ function sourceCommentWindows(file: string, text: string): TextWindow[] {
 
 	const flushLineGroup = (): void => {
 		if (lineGroup.length === 0) return;
+		// One comment line per source line keeps wrapped clauses on their own line.
 		const comment = lineGroup
 			.map((range) => cleanComment(text.slice(range.start, range.end)))
-			.join(' ');
-		if (comment !== '') {
+			.join('\n');
+		if (comment.trim() !== '') {
 			windows.push(...splitTextWindows(comment, lineAtOffset(text, lineGroup[0]!.start)));
 		}
 		lineGroup = [];
@@ -217,8 +218,9 @@ function sourceCommentWindows(file: string, text: string): TextWindow[] {
 	for (const range of ranges) {
 		if (range.kind === 'block') {
 			flushLineGroup();
+			// Leading blank lines stay so the comment text starts on the opening line.
 			const comment = cleanComment(text.slice(range.start, range.end));
-			if (comment !== '')
+			if (comment.trim() !== '')
 				windows.push(...splitTextWindows(comment, lineAtOffset(text, range.start)));
 			continue;
 		}

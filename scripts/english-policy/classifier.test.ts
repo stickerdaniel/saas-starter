@@ -157,6 +157,75 @@ describe('English classifier', () => {
 		]);
 	});
 
+	it('reports a wrapped foreign clause on the line of its first word', () => {
+		const windows = splitTextWindows(
+			'This updates authentication while\ndas Passwort sofort zurückgesetzt werden muss.'
+		);
+		expect(windows[0]).toMatchObject({ line: 1 });
+		expect(windows).toContainEqual({
+			text: 'das Passwort sofort zurückgesetzt werden muss',
+			line: 2
+		});
+		expect(classifyEnglish('das Passwort sofort zurückgesetzt werden muss').outcome).toBe(
+			'violation'
+		);
+	});
+
+	it.each([
+		[
+			'a dash and opening quote',
+			'This updates authentication while —\n„das Passwort sofort zurückgesetzt werden muss“.',
+			'das Passwort sofort zurückgesetzt werden muss',
+			2
+		],
+		[
+			'a colon and opening parenthesis',
+			'This updates authentication while:\n(das Passwort sofort zurückgesetzt werden muss).',
+			'das Passwort sofort zurückgesetzt werden muss',
+			2
+		],
+		[
+			'a sentence that starts mid-line and wraps',
+			'The first sentence is English. Das Passwort muss\nsofort zurückgesetzt werden.',
+			'Das Passwort muss\nsofort zurückgesetzt werden.',
+			1
+		],
+		[
+			'a sentence led by punctuation on the next line',
+			'The first sentence is English!\n— Das Passwort muss sofort zurückgesetzt werden.',
+			'— Das Passwort muss sofort zurückgesetzt werden.',
+			2
+		]
+	])('keeps window lines across %s', (_label, text, windowText, line) => {
+		expect(splitTextWindows(text)).toContainEqual({ text: windowText, line });
+	});
+
+	it('removes inline code across line breaks but not across a blank line', () => {
+		expect(normalizeTechnicalSyntax('Run `bun\n  scripts/check.ts` now')).toBe('Run now');
+		expect(normalizeTechnicalSyntax('Keep `open\n\nclosed` text')).toBe('Keep open closed text');
+		const windows = splitTextWindows(
+			'See `Das Passwort muss\nsofort zurückgesetzt werden` and\ndas Passwort sofort zurückgesetzt werden muss.'
+		);
+		expect(windows).toContainEqual({
+			text: 'See and das Passwort sofort zurückgesetzt werden muss',
+			line: 1
+		});
+		expect(windows).toContainEqual({ text: 'sofort zurückgesetzt werden muss', line: 3 });
+	});
+
+	it('skips removed URLs when locating a window', () => {
+		expect(
+			splitTextWindows(
+				'https://example.test/account/reset\ndas Passwort muss sofort zurückgesetzt werden.'
+			)
+		).toMatchObject([{ line: 2 }]);
+		expect(
+			splitTextWindows(
+				'This updates authentication https://example.test/account/reset while\ndas Passwort sofort zurückgesetzt werden muss.'
+			)
+		).toContainEqual({ text: 'das Passwort sofort zurückgesetzt werden muss', line: 2 });
+	});
+
 	it('finds a foreign tail after a long English prefix', () => {
 		const mixed =
 			'This paragraph starts with a long English explanation about authentication, account recovery, trusted metadata, and repository policy. ' +
