@@ -919,14 +919,12 @@ class Ledger {
 	}
 
 	/**
-	 * Surviving named source files a type route claims. The route only decides whether a
-	 * project check starts; whether that project reads the file is filesOutsideTypeProjects().
+	 * Surviving named source files, whether or not a type route claims them. A route decides
+	 * only whether a project check starts, so asking it first let `src/probe.mts` beside a
+	 * routed file pass without any project reading it; filesOutsideTypeProjects() decides.
 	 */
 	typeSources(): string[] {
-		return this.files.filter(
-			(file) =>
-				TYPE_SOURCE.test(file) && TYPE_CHECKS.some((id) => ROUTES[id as keyof typeof ROUTES](file))
-		);
+		return this.files.filter((file) => TYPE_SOURCE.test(file));
 	}
 
 	ran(id: string, files: number | 'project' = 'project'): void {

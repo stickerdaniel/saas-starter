@@ -1464,6 +1464,29 @@ describe.sequential('type project coverage of named files', () => {
 		45_000
 	);
 
+	// No type route claims a .mts file, so only the coverage question can see it: beside a
+	// routed file, svelte-check starts and the run would otherwise pass.
+	it('fails a types run naming a module no route claims beside a covered file', () => {
+		const checkout = createCheckerClone();
+		const module = 'src/lib/type-coverage-probe.mts';
+		try {
+			writeFileSync(
+				path.join(checkout.repository, module),
+				"export const count: number = 'wrong';\n"
+			);
+			const result = runChecker(checkout, ['--ci', '--scope', 'types', module, COVERED]);
+			const output = `${result.stdout}${result.stderr}`;
+
+			expect(result.status, output).toBe(1);
+			expect(output).toContain(
+				`1 named source file(s) are read by no type-checked TypeScript project: "${module}"`
+			);
+			expect(output).not.toContain('All checks passed!');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
 	it('passes a types run naming only a file the app project includes', () => {
 		const checkout = createCheckerClone();
 		try {
