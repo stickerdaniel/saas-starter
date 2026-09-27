@@ -43,7 +43,8 @@ export default {
 			while (
 				current?.type === 'TSAsExpression' ||
 				current?.type === 'TSSatisfiesExpression' ||
-				current?.type === 'TSNonNullExpression'
+				current?.type === 'TSNonNullExpression' ||
+				current?.type === 'TSTypeAssertion'
 			) {
 				current = current.expression;
 			}
