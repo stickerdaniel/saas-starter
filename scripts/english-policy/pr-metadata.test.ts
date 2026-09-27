@@ -190,6 +190,31 @@ describe('pull request metadata policy', () => {
 		).toEqual([]);
 	});
 
+	it.each([
+		['top-level', ['Console output:', '', `    ${foreignFixtures.german}`]],
+		['after a heading', ['# Console output', `    ${foreignFixtures.german}`]],
+		['inside a list item', ['- Console output:', '', `      ${foreignFixtures.german}`]],
+		['inside a block quote', ['> Console output:', '>', `>     ${foreignFixtures.german}`]]
+	])('ignores %s indented code', (_label, lines) => {
+		expect(
+			evaluatePullRequestMetadata({ pull_request: { title: 'Fix API', body: lines.join('\n') } })
+				.findings
+		).toEqual([]);
+	});
+
+	it('checks a list continuation paragraph', () => {
+		const body = [
+			'- Console output:',
+			'',
+			`      ${foreignFixtures.french}`,
+			'',
+			`  ${foreignFixtures.german}`
+		].join('\n');
+		expect(
+			evaluatePullRequestMetadata({ pull_request: { title: 'Fix API', body } }).findings
+		).toMatchObject([{ field: 'body', paragraph: 2, language: 'de' }]);
+	});
+
 	it('allows a null body', () => {
 		expect(
 			evaluatePullRequestMetadata({

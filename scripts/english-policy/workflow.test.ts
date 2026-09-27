@@ -11,6 +11,8 @@ const BUNDLE_PATH = path.join(ROOT, 'scripts/english-policy/pr-metadata.bundle.m
 const ENTRY_PATH = path.join(ROOT, 'scripts/english-policy/pr-metadata.ts');
 const CLASSIFIER_PATH = path.join(ROOT, 'scripts/english-policy/classifier.ts');
 const ELD_LICENSE_PATH = path.join(ROOT, 'scripts/english-policy/ELD-LICENSE.txt');
+const MARKDOWN_PATH = path.join(ROOT, 'scripts/english-policy/markdown.ts');
+const MARKED_LICENSE_PATH = path.join(ROOT, 'scripts/english-policy/MARKED-LICENSE.txt');
 const THIRD_PARTY_NOTICES_PATH = path.join(ROOT, 'scripts/english-policy/THIRD-PARTY-NOTICES.md');
 const source = readFileSync(WORKFLOW_PATH, 'utf8');
 
@@ -109,6 +111,25 @@ describe('English pull request workflow', () => {
 		expect(attribution).toContain('ELD-LICENSE.txt');
 		expect(eldPackage.files).not.toContain('NOTICE');
 		expect(existsSync(path.join(packageDirectory, 'NOTICE'))).toBe(false);
+	});
+
+	it('ships the license and attribution for the Markdown lexer embedded in the bundle', () => {
+		const markdown = readFileSync(MARKDOWN_PATH, 'utf8');
+		const markedPackagePath = path.join(ROOT, 'node_modules/marked/package.json');
+		const markedPackage = JSON.parse(readFileSync(markedPackagePath, 'utf8')) as {
+			name: string;
+			version: string;
+			license: string;
+		};
+		const attribution = readFileSync(THIRD_PARTY_NOTICES_PATH, 'utf8');
+
+		expect(markdown).toMatch(/from 'marked'/);
+		expect(markedPackage).toMatchObject({ name: 'marked', license: 'MIT' });
+		expect(readFileSync(MARKED_LICENSE_PATH, 'utf8')).toBe(
+			readFileSync(path.join(path.dirname(markedPackagePath), 'LICENSE.md'), 'utf8')
+		);
+		expect(attribution).toContain(`Marked ${markedPackage.version} by MarkedJS`);
+		expect(attribution).toContain('MARKED-LICENSE.txt');
 	});
 
 	it('keeps the standalone bundle generated from the reviewed source', () => {
