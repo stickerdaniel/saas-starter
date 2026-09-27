@@ -35,26 +35,36 @@ function forceStopWindowsTree(pid: number | undefined): void {
 	spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
 }
 
+// On windows-latest the first PowerShell runner of a job exits late rather than hanging: passing
+// runs reach 9.8 s, and a loaded runner stretches every later spawn too. Keep a wide margin.
+const CHILD_EXIT_DEADLINE_MS = 60_000;
+const WINDOWS_CHILD_TEST_TIMEOUT_MS = 90_000;
+
 async function waitForChild(
 	child: ReturnType<typeof spawn>,
-	timeoutMs = 10_000
+	timeoutMs = CHILD_EXIT_DEADLINE_MS
 ): Promise<{ code: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string }> {
 	let stdout = '';
 	let stderr = '';
 	child.stdout?.on('data', (chunk) => (stdout += chunk));
 	child.stderr?.on('data', (chunk) => (stderr += chunk));
 	return await new Promise((resolve, reject) => {
+		let timedOut = false;
 		const timeout = setTimeout(() => {
-			child.kill();
-			reject(new Error(`Child process did not exit within ${timeoutMs} ms.`));
+			timedOut = true;
+			forceStopWindowsTree(child.pid);
+			child.kill('SIGKILL');
 		}, timeoutMs);
 		child.once('error', (error) => {
 			clearTimeout(timeout);
 			reject(error);
 		});
+		// A timed-out child still holds its working directory until it has exited, so the caller's
+		// cleanup must not run before this event.
 		child.once('exit', (code, signal) => {
 			clearTimeout(timeout);
-			resolve({ code, signal, stdout, stderr });
+			if (timedOut) reject(new Error(`Child process did not exit within ${timeoutMs} ms.`));
+			else resolve({ code, signal, stdout, stderr });
 		});
 	});
 }
@@ -204,7 +214,7 @@ describe('windowsJobCommand', () => {
 				await lifetime.close();
 			}
 		},
-		20_000
+		WINDOWS_CHILD_TEST_TIMEOUT_MS
 	);
 
 	it.runIf(process.platform === 'win32')(
@@ -233,10 +243,10 @@ describe('windowsJobCommand', () => {
 				expect(result.code).not.toBe(0);
 				expect(existsSync(markerFile)).toBe(false);
 			} finally {
-				rmSync(directory, { recursive: true, force: true });
+				rmSync(directory, { recursive: true, force: true, maxRetries: 10 });
 			}
 		},
-		20_000
+		WINDOWS_CHILD_TEST_TIMEOUT_MS
 	);
 
 	it.runIf(process.platform === 'win32')(
@@ -275,10 +285,11 @@ describe('windowsJobCommand', () => {
 				});
 			} finally {
 				await lifetime.close();
-				rmSync(directory, { recursive: true, force: true });
+				// A killed runner's job members release this working directory asynchronously.
+				rmSync(directory, { recursive: true, force: true, maxRetries: 10 });
 			}
 		},
-		20_000
+		WINDOWS_CHILD_TEST_TIMEOUT_MS
 	);
 });
 
@@ -297,20 +308,24 @@ describe('listenForTermination', () => {
 });
 
 describe('runUntilOneExits', () => {
-	it('returns the first exit code and terminates the sibling process', async () => {
-		const code = await runUntilOneExits(
-			[
-				{ command: process.execPath, args: ['-e', 'setTimeout(() => process.exit(7), 25)'] },
-				{ command: process.execPath, args: ['-e', 'setInterval(() => {}, 1000)'] }
-			],
-			{
-				stdio: process.platform === 'win32' ? 'inherit' : 'ignore',
-				graceMs: 100,
-				forceMs: 100
-			}
-		);
-		expect(code).toBe(7);
-	});
+	it(
+		'returns the first exit code and terminates the sibling process',
+		async () => {
+			const code = await runUntilOneExits(
+				[
+					{ command: process.execPath, args: ['-e', 'setTimeout(() => process.exit(7), 25)'] },
+					{ command: process.execPath, args: ['-e', 'setInterval(() => {}, 1000)'] }
+				],
+				{
+					stdio: process.platform === 'win32' ? 'inherit' : 'ignore',
+					graceMs: 100,
+					forceMs: 100
+				}
+			);
+			expect(code).toBe(7);
+		},
+		WINDOWS_CHILD_TEST_TIMEOUT_MS
+	);
 
 	it.skipIf(process.platform === 'win32')(
 		'force-stops a signal-resistant child and its grandchild',
