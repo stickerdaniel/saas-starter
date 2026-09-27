@@ -19,6 +19,37 @@ The same mistakes also kept showing up across repos. In addition to giving agent
 
 The stack is deliberately opinionated, following [Rich Harris's case](https://www.youtube.com/watch?v=SmHgtyym6OA&t=2388s) for smart defaults that fit well together.
 
+<!-- template-only -->
+
+## Choose an update model
+
+How you create your project decides how it receives later starter changes, so choose before you create it:
+
+- **CLI or GitHub template** ([Quick Start](#quick-start)): a content copy with its own history and visibility. A GitHub template starts with a single commit; the CLI creates a directory without a Git repository, so initialize, commit, and publish it yourself first. Neither shares a Git ancestor with this repository, so an ordinary merge or rebase has no common base to work from. Take later changes with `bun run upstream:sync` and `bun run upstream:changes` through the [upstream-sync skill](.agents/skills/upstream-sync/SKILL.md), which supports content copies only.
+- **Shared-history clone**: keeps this repository as `upstream` and pushes to your own `origin`, so later changes arrive through `git fetch upstream` and `git merge upstream/main`. Your repository carries the full starter history and has no GitHub "Sync fork" relationship.
+- **GitHub fork**: keeps the full history in this repository's fork network. A fork of this public repository stays public, cannot change its visibility on its own, and shares pushed commits with the whole network. When upstream changes conflict with yours, GitHub's "Sync fork" offers a pull request and `gh repo sync` stops; its `--force` flag would discard your commits, so resolve conflicts by merging `upstream/main` locally or through that pull request.
+
+For a shared-history clone, create an empty repository for your product, then run:
+
+```bash
+git clone --origin upstream https://github.com/stickerdaniel/saas-starter.git my-saas-product
+cd my-saas-product
+git remote add origin https://github.com/<you>/my-saas-product.git
+git push -u origin main
+```
+
+For a fork, run `gh repo fork stickerdaniel/saas-starter --clone --fork-name my-saas-product`. Continue either path with `bun install`, [`bun run setup`](#rebrand-the-template), and `bun run dev`.
+
+`bun run setup` deletes the maintainer CLI (`packages/create-saas-starter` and `.github/workflows/create-saas-starter.yml`) and rebrands files including this README, so review every upstream merge into a clone or fork deliberately. Keep your values in rebranded files, check that the merged README gained no `template-only` sections, and resolve modify/delete conflicts by keeping setup's deletions:
+
+```bash
+git rm -r --ignore-unmatch packages/create-saas-starter .github/workflows/create-saas-starter.yml
+```
+
+An ordinary merge cannot connect an existing content copy to this history, because it has no common base to work from. To switch models, create a branch from `upstream/main` and replay your product changes onto it.
+
+<!-- /template-only -->
+
 ## Quick Start
 
 Start the app with a local Convex backend and a seeded admin account.
