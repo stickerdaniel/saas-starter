@@ -1,7 +1,7 @@
 import type { ConvexClient } from 'convex/browser';
 import { api } from '$lib/convex/_generated/api';
 import type { Attachment } from '$lib/chat';
-import type { ChatSessionPort } from '$lib/chat/core/chat-session-port.js';
+import type { ChatSessionPort, StreamCachePort } from '$lib/chat/core/chat-session-port.js';
 import { ChatCommandError } from '$lib/chat/core/chat-command-error.js';
 import {
 	ChatDraftManager,
@@ -54,9 +54,23 @@ export class SupportConversation implements ChatSessionPort {
 	hasMore = $state(false);
 	continueCursor = $state<string | null>(null);
 	isAwaitingStream = $state(false);
-	readonly streamCache = new StreamCacheManager();
 	rateLimitedUntil = $state<number | null>(null);
 
+	/**
+	 * Cache entries are keyed by thread-local message order, so the cache holds
+	 * one thread at a time. Access after an established thread changes drops the
+	 * old entries; provisional null-to-thread adoption keeps the first stream's.
+	 */
+	readonly streamCache: StreamCachePort = {
+		getCachedReasoning: (order) => this.currentStreamCache().getCachedReasoning(order),
+		updateReasoningCache: (order, reasoning) =>
+			this.currentStreamCache().updateReasoningCache(order, reasoning),
+		clearReasoningCache: (order) => this.currentStreamCache().clearReasoningCache(order),
+		updateStatusCache: (order, status) => this.currentStreamCache().updateStatusCache(order, status)
+	};
+
+	private readonly threadStreamCache = new StreamCacheManager();
+	private streamCacheThreadId: string | null = null;
 	private readonly draftManager = new ChatDraftManager('support');
 	private client: ConvexClient | null = null;
 	private threadCreation: ThreadCreation | null = null;
@@ -84,6 +98,14 @@ export class SupportConversation implements ChatSessionPort {
 
 	get isRateLimited(): boolean {
 		return this.rateLimitedUntil !== null && Date.now() < this.rateLimitedUntil;
+	}
+
+	private currentStreamCache(): StreamCacheManager {
+		if (this.threadId !== this.streamCacheThreadId) {
+			if (this.streamCacheThreadId !== null) this.threadStreamCache.clear();
+			this.streamCacheThreadId = this.threadId;
+		}
+		return this.threadStreamCache;
 	}
 
 	getAnonymousUserId(): string | undefined {

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatSessionPort } from '$lib/chat/core/chat-session-port.js';
 import type { ChatCommandError } from '$lib/chat/core/chat-command-error.js';
+import { resolveReasoning } from '$lib/chat/core/display-message-processor.js';
 import { SupportConversation } from './support-conversation.svelte.ts';
 import { SupportNavigationState } from './support-navigation-state.svelte.ts';
 
@@ -199,6 +200,55 @@ describe('SupportConversation', () => {
 		conversation.setThread('thread-2');
 		expect(conversation.isSending).toBe(false);
 		expect(conversation.isAwaitingStream).toBe(false);
+	});
+
+	function streamingReasoningAtOrderZero(): string {
+		return resolveReasoning(
+			{ id: 'assistant-0', _creationTime: 0, role: 'assistant', status: 'pending', order: 0 },
+			{ isBeingStreamed: true, streamCache: conversation.streamCache }
+		).displayReasoning;
+	}
+
+	it.each([
+		[
+			'URL selection',
+			async () => {
+				conversation.selectThreadFromUrl('thread-b');
+			}
+		],
+		[
+			'a new conversation',
+			async () => {
+				conversation.beginNewConversation();
+				navigation.startNewThread();
+				await conversation.ensureThread(
+					clientWith(vi.fn().mockResolvedValue({ threadId: 'thread-b' }))
+				);
+			}
+		]
+	])('does not show reasoning cached in another thread after %s', async (_, openThreadB) => {
+		conversation.setThread('thread-a');
+		conversation.streamCache.updateReasoningCache(0, 'Reasoning from thread A');
+		expect(streamingReasoningAtOrderZero()).toBe('Reasoning from thread A');
+
+		await openThreadB();
+
+		expect(conversation.threadId).toBe('thread-b');
+		expect(streamingReasoningAtOrderZero()).toBe('');
+	});
+
+	it('keeps cached reasoning when the streaming thread is selected again', async () => {
+		conversation.beginNewConversation();
+		navigation.startNewThread();
+		await conversation.ensureThread(
+			clientWith(vi.fn().mockResolvedValue({ threadId: 'thread-new' }))
+		);
+		conversation.streamCache.updateReasoningCache(0, 'First stream reasoning');
+
+		conversation.setThread('thread-new', 'Kai');
+		conversation.selectThreadFromUrl('thread-new');
+
+		expect(streamingReasoningAtOrderZero()).toBe('First stream reasoning');
 	});
 
 	it('blocks an additional AI send while a reply is pending', async () => {
