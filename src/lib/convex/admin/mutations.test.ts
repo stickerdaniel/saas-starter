@@ -3,6 +3,7 @@ import type { FunctionReturnType } from 'convex/server';
 import type { MutationCtx } from '../_generated/server';
 import type { internal } from '../_generated/api';
 import { ADMIN_ERROR_CODES } from './errors';
+import { authComponent } from '../auth';
 
 const { syncAdminPreferencesMock } = vi.hoisted(() => ({
 	syncAdminPreferencesMock: vi.fn()
@@ -13,7 +14,7 @@ vi.mock('./notificationPreferences/helpers', () => ({
 	deactivateAdminPreferencesHelper: vi.fn()
 }));
 
-import { seedFirstAdmin } from './mutations';
+import { seedFirstAdmin, setUserRole } from './mutations';
 
 type MutationHandler<TArgs, TResult> = {
 	_handler: (ctx: MutationCtx, args: TArgs) => Promise<TResult>;
@@ -32,10 +33,15 @@ const seedFirstAdminHandler = seedFirstAdmin as unknown as MutationHandler<
 	{ email: string },
 	SeedFirstAdminResult
 >;
+const setUserRoleHandler = setUserRole as unknown as MutationHandler<
+	{ userId: string; role: 'admin' | 'user' },
+	{ success: boolean }
+>;
 
 function makeCtx(options: {
 	admins?: unknown[];
-	user?: { _id: string; email: string } | null;
+	user?: { _id: string; email: string; role?: string } | null;
+	adminCount?: number;
 	queryError?: Error;
 	updateError?: Error;
 }) {
@@ -47,8 +53,22 @@ function makeCtx(options: {
 	const runMutation = options.updateError
 		? vi.fn().mockRejectedValue(options.updateError)
 		: vi.fn().mockResolvedValue(null);
+	const counters = {
+		_id: 'counter',
+		totalUsers: 2,
+		adminCount: options.adminCount ?? 0,
+		bannedCount: 0
+	};
+	const db = {
+		query: () => ({ first: async () => counters }),
+		patch: async (_table: string, _id: unknown, update: Partial<typeof counters>) => {
+			Object.assign(counters, update);
+		},
+		insert: vi.fn()
+	};
 	return {
-		ctx: { runQuery, runMutation } as unknown as MutationCtx,
+		ctx: { runQuery, runMutation, db } as unknown as MutationCtx,
+		counters,
 		runQuery,
 		runMutation
 	};
@@ -99,7 +119,7 @@ describe('seedFirstAdmin', () => {
 
 	it('promotes the target user and syncs notification preferences', async () => {
 		const user = { _id: 'user_1', email: 'admin@example.com' };
-		const { ctx, runQuery, runMutation } = makeCtx({ admins: [], user });
+		const { ctx, runQuery, runMutation, counters } = makeCtx({ admins: [], user });
 
 		await expect(seedFirstAdminHandler._handler(ctx, { email: user.email })).resolves.toEqual({
 			success: true
@@ -120,6 +140,7 @@ describe('seedFirstAdmin', () => {
 			userId: user._id,
 			email: user.email
 		});
+		expect(counters.adminCount).toBe(1);
 	});
 
 	it('propagates provider query failures unchanged', async () => {
@@ -157,4 +178,32 @@ describe('seedFirstAdmin', () => {
 			defect
 		);
 	});
+});
+
+describe('role change counters', () => {
+	it.each([
+		{ previous: 'user', next: 'admin' as const, initial: 1, expected: 2 },
+		{ previous: 'admin', next: 'user' as const, initial: 2, expected: 1 },
+		{ previous: 'admin', next: 'admin' as const, initial: 2, expected: 2 },
+		{ previous: undefined, next: 'user' as const, initial: 1, expected: 1 }
+	])(
+		'$previous to $next leaves $expected admins',
+		async ({ previous, next, initial, expected }) => {
+			const actor = { _id: 'actor', role: 'admin' };
+			const auth = vi.spyOn(authComponent, 'getAuthUser').mockResolvedValue(actor as never);
+			const { ctx, counters } = makeCtx({
+				user: { _id: 'target', email: 'target@example.com', role: previous },
+				admins: [actor, { _id: 'target', role: 'admin' }],
+				adminCount: initial
+			});
+			try {
+				await expect(
+					setUserRoleHandler._handler(ctx, { userId: 'target', role: next })
+				).resolves.toEqual({ success: true });
+				expect(counters.adminCount).toBe(expected);
+			} finally {
+				auth.mockRestore();
+			}
+		}
+	);
 });
