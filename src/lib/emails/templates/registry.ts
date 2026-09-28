@@ -117,6 +117,27 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 			buttonText: '__ETA_buttonText__',
 			footerText: '__ETA_footerText__'
 		}
+	},
+	SupportRateLimitAlertEmail: {
+		outputName: 'supportRateLimitAlert',
+		props: {
+			lang: '__ETA_lang__',
+			adminDashboardLink: '__ETA_adminDashboardLink__',
+			badgeText: '__ETA_badgeText__',
+			titleText: '__ETA_titleText__',
+			descriptionText: '__ETA_descriptionText__',
+			previewText: '__ETA_previewText__',
+			limitLabel: '__ETA_limitLabel__',
+			limitName: '__ETA_limitName__',
+			remainingLabel: '__ETA_remainingLabel__',
+			remainingText: '__ETA_remainingText__',
+			refillLabel: '__ETA_refillLabel__',
+			refillText: '__ETA_refillText__',
+			impactText: '__ETA_impactText__',
+			actionText: '__ETA_actionText__',
+			buttonText: '__ETA_buttonText__',
+			footerText: '__ETA_footerText__'
+		}
 	}
 };
 

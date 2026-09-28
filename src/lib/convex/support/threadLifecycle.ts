@@ -3,7 +3,7 @@ import { components } from '../_generated/api';
 import { buildSupportMessageDenormalization, buildSupportSearchText } from './denormalization';
 import type { SupportLatestThreadMessage } from './denormalization';
 import { supportAgent } from './agent';
-import { supportRateLimiter } from './rateLimit';
+import { ANONYMOUS_GLOBAL_RATE_LIMIT_KEY, supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 
 export async function limitSupportThreadCreate(
@@ -11,7 +11,7 @@ export async function limitSupportThreadCreate(
 	owner: { ownerId: string; isAnonymous: boolean }
 ): Promise<void> {
 	const limitName = owner.isAnonymous ? 'supportThreadCreateAnon' : 'supportThreadCreate';
-	const key = owner.isAnonymous ? 'anonymous-global' : owner.ownerId;
+	const key = owner.isAnonymous ? ANONYMOUS_GLOBAL_RATE_LIMIT_KEY : owner.ownerId;
 	const status = await supportRateLimiter.limit(ctx, limitName, { key });
 	if (!status.ok) {
 		// Anonymous callers share a global bucket, so exhaustion is high demand,

@@ -608,6 +608,7 @@
 			"title": "New reply to your request"
 		},
 		"badge": {
+			"alert": "Alert",
 			"auth": "Auth",
 			"stats": "Stats",
 			"support": "Support"
@@ -632,6 +633,22 @@
 			"preview": "New user: {userEmail}",
 			"title": "New user signed up"
 		},
+		"rate_limit_alert": {
+			"action": "If this is real traffic, raise the limit in the support rate limiter configuration. If it comes from a single source, it may be abuse.",
+			"description": "{limitName} from signed-out visitors have used {usedPercent}% of their shared limit for at least {minutes} minutes.",
+			"footer": "You're receiving this email because you have new support ticket notifications enabled. Each limit sends at most one alert every {hours} hours.",
+			"impact": "When it runs out, signed-out visitors see a rate limit error in the support widget.",
+			"label_limit": "Limit:",
+			"label_refill": "Refill:",
+			"label_remaining": "Remaining:",
+			"limit_file_preview": "Attachment previews",
+			"limit_file_upload": "File uploads",
+			"limit_thread_create": "New conversations",
+			"preview": "{limitName}: {available} of {capacity} left",
+			"refill": "{ratePerHour} per hour",
+			"remaining": "{available} of {capacity}",
+			"title": "Support rate limit running low"
+		},
 		"reset_password": {
 			"body": "We received a request to reset your password. Click the button below to set a new password:",
 			"button": "Reset Password",
@@ -654,6 +671,7 @@
 		},
 		"subject": {
 			"new_signup": "New user signup: {userEmail}",
+			"rate_limit_alert": "Support rate limit running low: {limitName}",
 			"reset_password": "Reset your password",
 			"set_password": "Set a password",
 			"support_reply": "New reply to your support request",

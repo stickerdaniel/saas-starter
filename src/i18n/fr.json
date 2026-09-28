@@ -608,6 +608,7 @@
 			"title": "Nouvelle réponse à votre demande"
 		},
 		"badge": {
+			"alert": "Alerte",
 			"auth": "Authentification",
 			"stats": "Statistiques",
 			"support": "Support"
@@ -632,6 +633,22 @@
 			"preview": "Nouvel utilisateur : {userEmail}",
 			"title": "Nouvel utilisateur inscrit"
 		},
+		"rate_limit_alert": {
+			"action": "S'il s'agit de trafic réel, augmentez la limite dans la configuration du limiteur du support. S'il provient d'une seule source, il peut s'agir d'un abus.",
+			"description": "{limitName} des visiteurs non connectés ont utilisé {usedPercent} % de leur limite partagée depuis au moins {minutes} minutes.",
+			"footer": "Vous recevez cet email car les notifications de nouveaux tickets de support sont activées. Chaque limite envoie au plus une alerte toutes les {hours} heures.",
+			"impact": "Une fois épuisée, les visiteurs non connectés verront une erreur de limite de requêtes dans le widget du support.",
+			"label_limit": "Limite :",
+			"label_refill": "Recharge :",
+			"label_remaining": "Restant :",
+			"limit_file_preview": "Aperçus de pièces jointes",
+			"limit_file_upload": "Envois de fichiers",
+			"limit_thread_create": "Nouvelles conversations",
+			"preview": "{limitName} : {available} sur {capacity} restants",
+			"refill": "{ratePerHour} par heure",
+			"remaining": "{available} sur {capacity}",
+			"title": "Limite de requêtes du support presque atteinte"
+		},
 		"reset_password": {
 			"body": "Nous avons reçu une demande de réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe :",
 			"button": "Réinitialiser le mot de passe",
@@ -654,6 +671,7 @@
 		},
 		"subject": {
 			"new_signup": "Nouvelle inscription : {userEmail}",
+			"rate_limit_alert": "Limite de requêtes du support presque atteinte : {limitName}",
 			"reset_password": "Réinitialisez votre mot de passe",
 			"set_password": "Définir un mot de passe",
 			"support_reply": "Nouvelle réponse à votre demande de support",

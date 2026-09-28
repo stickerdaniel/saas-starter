@@ -12,6 +12,7 @@ vi.mock('../agent', () => ({
 }));
 
 vi.mock('../rateLimit', () => ({
+	ANONYMOUS_GLOBAL_RATE_LIMIT_KEY: 'anonymous-global',
 	supportRateLimiter: {}
 }));
 
