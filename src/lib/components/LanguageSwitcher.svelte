@@ -12,6 +12,7 @@
 	import { useLanguage } from '$lib/utils/i18n';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { updateUserWithLocale } from '$lib/auth-client';
+	import { preloadTranslations } from '$lib/i18n/load-translations';
 
 	interface Props {
 		/** Button variant */
@@ -81,5 +82,6 @@
 	{variant}
 	{align}
 	onChange={switchLanguage}
+	onIntent={preloadTranslations}
 	class={className}
 />

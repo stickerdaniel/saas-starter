@@ -14,6 +14,7 @@
 		align = 'end',
 		variant = 'outline',
 		onChange,
+		onIntent,
 		class: className
 	}: LanguageSwitcherProps = $props();
 
@@ -43,7 +44,11 @@
 			}}
 		>
 			{#each languages as language (language.code)}
-				<DropdownMenu.RadioItem value={language.code}>
+				<DropdownMenu.RadioItem
+					value={language.code}
+					onpointerenter={() => onIntent?.(language.code)}
+					onfocus={() => onIntent?.(language.code)}
+				>
 					{language.label}
 				</DropdownMenu.RadioItem>
 			{/each}

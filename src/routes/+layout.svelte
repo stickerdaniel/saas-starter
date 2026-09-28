@@ -3,7 +3,6 @@
 	import { beforeNavigate, onNavigate } from '$app/navigation';
 	import { page, updated } from '$app/state';
 	import { T, Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
-	import type { TolgeeStaticData } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
 	import { ModeWatcher } from 'mode-watcher';
 	import AppAuthProvider from '$lib/components/app/app-auth-provider.svelte';
@@ -22,8 +21,10 @@
 	import { setGlobalSearchContext } from '$lib/components/global-search/context.svelte.ts';
 	import GlobalSearchShell from '$lib/components/global-search/global-search-shell.svelte';
 	import { languageContext } from '$lib/i18n/context';
-	import { DEFAULT_LANGUAGE, getLanguage } from '$lib/i18n/languages';
-	import { STATIC_TRANSLATIONS, SUPPORTED_LOCALES } from '$lib/i18n/static-translations.generated';
+	import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
+	import { routeLanguage } from '$lib/i18n/load-translations';
+	import { FALLBACK_TRANSLATIONS } from '$lib/i18n/browser-translations.generated';
+	import type { LayoutProps } from './$types';
 	import RouteProgress from '$lib/components/RouteProgress.svelte';
 	import { Toaster } from '$lib/components/ui/sonner';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
@@ -31,9 +32,7 @@
 	import { devNotice } from '$lib/dev/notice';
 	import './layout.css';
 
-	const translations: TolgeeStaticData = STATIC_TRANSLATIONS;
-
-	let { children } = $props();
+	let { data, children }: LayoutProps = $props();
 
 	// A file still transferring dies with the page, and silently: the progress bar
 	// disappears and the user assumes it arrived. Ask first.
@@ -104,7 +103,9 @@
 		}
 	}
 
-	const currentLang = $derived(getLanguage(page.params.lang).code);
+	const currentLang = $derived(
+		data?.translationLanguage ?? routeLanguage(page.params.lang, page.url.pathname)
+	);
 
 	languageContext.set(() => currentLang);
 	setGlobalSearchContext();
@@ -130,11 +131,12 @@
 	}
 	// svelte-ignore state_referenced_locally
 	const tolgee = tolgeeBuilder.init({
-		language: currentLang,
+		language: data?.translations ? currentLang : DEFAULT_LANGUAGE,
 
-		staticData: translations,
+		// Root error pages can render without successful layout data.
+		staticData: data?.translations ?? FALLBACK_TRANSLATIONS,
 
-		availableLanguages: SUPPORTED_LOCALES,
+		availableLanguages: SUPPORTED_LANGUAGES.map((language) => language.code),
 		defaultLanguage: DEFAULT_LANGUAGE,
 		fallbackLanguage: DEFAULT_LANGUAGE,
 
@@ -143,11 +145,15 @@
 	});
 
 	if (browser) {
-		watch(
-			() => currentLang,
-			(newLang) => {
+		watch.pre(
+			() => [currentLang, data?.translations] as const,
+			([newLang, translations]) => {
+				if (!translations) return;
+				tolgee.addStaticData(translations);
 				if (tolgee.getLanguage() !== newLang) {
-					tolgee.changeLanguage(newLang);
+					void tolgee.changeLanguage(newLang).catch((error) => {
+						console.error('Failed to change language', error);
+					});
 				}
 			}
 		);

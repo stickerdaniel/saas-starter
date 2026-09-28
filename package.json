@@ -47,7 +47,7 @@
 		"test:unit": "bun run generate:content && vitest --run --reporter=verbose --passWithNoTests",
 		"test:upstream-report": "vitest --config .agents/skills/upstream-report/scripts/vitest.config.ts --run --reporter=verbose",
 		"model:eval": "bun scripts/model-eval.ts",
-		"i18n:pull": "varlock run -- bun run _tolgee:pull && prettier --write src/i18n/*.json",
+		"i18n:pull": "varlock run -- bun run _tolgee:pull && prettier --write src/i18n/*.json && bun run i18n:sync",
 		"i18n:push": "varlock run -- bun run _tolgee:push",
 		"i18n:cleanup": "varlock run -- bun run _tolgee:cleanup",
 		"i18n:sync": "bun scripts/sync-locales.ts",

@@ -6,6 +6,8 @@ import {
 	assertLocaleFiles,
 	renderLanguageCodes,
 	renderStaticTranslations,
+	renderBrowserTranslations,
+	renderErrorTranslations,
 	renderWranglerConfig
 } from './sync-locales';
 
@@ -33,6 +35,22 @@ describe('locale-derived configuration', () => {
 	it('keeps Cloudflare negotiated routes generated', () => {
 		const wrangler = fs.readFileSync(path.resolve('wrangler.toml'), 'utf8');
 		expect(wrangler).toBe(renderWranglerConfig(wrangler));
+	});
+
+	it('keeps the browser translation assets generated', () => {
+		const generated = fs.readFileSync(
+			path.resolve('src/lib/i18n/browser-translations.generated.ts'),
+			'utf8'
+		);
+		expect(generated).toBe(renderBrowserTranslations());
+	});
+
+	it('keeps emergency error messages in sync without full catalogs', async () => {
+		const generated = fs.readFileSync(
+			path.resolve('src/lib/i18n/error-translations.generated.json'),
+			'utf8'
+		);
+		expect(generated).toBe(await renderErrorTranslations());
 	});
 
 	it('keeps negotiated marketing routes server-rendered across adapters', () => {
