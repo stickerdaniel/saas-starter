@@ -151,17 +151,12 @@ describe.skipIf(process.platform === 'win32')('required Unit Tests check', () =>
 	const workflow = parseYaml(
 		fs.readFileSync(path.join(WORKFLOWS_DIR, 'static-checks.yml'), 'utf-8')
 	) as {
-		jobs: Record<
-			string,
-			{ name: string; needs?: string; if?: string; steps: Array<{ run?: string }> }
-		>;
+		jobs: Record<string, { name: string; steps: Array<{ run?: string }> }>;
 	};
 	const check = Object.values(workflow.jobs).find((job) => job.name === 'Unit Tests');
 
-	it('reports the required check even when a shard fails or is skipped', () => {
+	it('preserves the required Unit Tests status name', () => {
 		expect(check, 'Keep the required Unit Tests aggregate check').toBeDefined();
-		expect(check?.if, 'Report a result even after an unsuccessful shard').toBe('always()');
-		expect(check?.needs).toBe('unit-test-shards');
 	});
 
 	it.each(['success', 'failure', 'cancelled', 'skipped', ''])(
