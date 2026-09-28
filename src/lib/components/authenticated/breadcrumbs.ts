@@ -1,3 +1,4 @@
+import { SEARCH_ROUTES } from '$lib/components/global-search/search-routes';
 import { getLanguage } from '$lib/i18n/languages';
 import { localizedHref } from '$lib/utils/i18n';
 
@@ -5,6 +6,19 @@ export interface BreadcrumbItem {
 	label: string;
 	href: string;
 	isLast: boolean;
+}
+
+// Known pages reuse the translated titles of the global search registry, keyed
+// by their full unprefixed path so /app/settings and /admin/settings stay distinct.
+const ROUTE_TITLE_KEYS = new Map(
+	SEARCH_ROUTES.flatMap((route) => (route.titleKey ? [[route.href, route.titleKey] as const] : []))
+);
+
+function routeLabel(path: string, segment: string, translate: (key: string) => string): string {
+	const key = ROUTE_TITLE_KEYS.get(path);
+	const translated = key ? translate(key) : '';
+	// A missing translation comes back as the key itself; never show it.
+	return translated && translated !== key ? translated : formatSegment(segment);
 }
 
 function formatSegment(segment: string): string {
@@ -18,7 +32,8 @@ export function buildBreadcrumbs(
 	pathname: string,
 	routePrefix: string,
 	rootLabel: string,
-	lang: string | undefined
+	lang: string | undefined,
+	translate: (key: string) => string
 ): BreadcrumbItem[] {
 	const segments = pathname.split('/').filter(Boolean);
 	if (segments.length === 0) return [];
@@ -44,7 +59,7 @@ export function buildBreadcrumbs(
 	for (let i = prefixSegmentIndex + 1; i <= lastIndex; i += 1) {
 		const cumulativePath = `/${segments.slice(prefixSegmentIndex, i + 1).join('/')}`;
 		items.push({
-			label: formatSegment(segments[i]!),
+			label: routeLabel(cumulativePath, segments[i]!, translate),
 			href: localizedHref(cumulativePath, currentLang),
 			isLast: i === lastIndex
 		});

@@ -21,7 +21,7 @@
 	let { routePrefix, rootLabel }: Props = $props();
 
 	const breadcrumbs = $derived(
-		buildBreadcrumbs(page.url.pathname, routePrefix, rootLabel, page.params.lang)
+		buildBreadcrumbs(page.url.pathname, routePrefix, rootLabel, page.params.lang, (key) => $t(key))
 	);
 </script>
 
