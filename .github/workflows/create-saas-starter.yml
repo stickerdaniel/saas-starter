@@ -41,6 +41,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   verify:
     name: ${{ matrix.name }}
@@ -82,6 +86,10 @@ jobs:
         with:
           bun-version: ${{ matrix.bun }}
           no-cache: ${{ matrix.artifact }}
+      - name: Keep Bun cache on the checkout drive
+        if: runner.os == 'Windows' && matrix.artifact == false
+        shell: pwsh
+        run: '"BUN_INSTALL_CACHE_DIR=$env:RUNNER_TEMP/bun-package-cache" >> $env:GITHUB_ENV'
       - run: bun install --cwd packages/create-saas-starter --frozen-lockfile
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun svelte-kit sync

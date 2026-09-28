@@ -35,6 +35,8 @@ function formatCheck(...args: string[]): { status: number; output: string } {
 	const result = spawnSync(testExecutable('bun'), [SCRIPT, '--ci', '--scope', 'format', ...args], {
 		cwd: ROOT,
 		env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+		timeout: 10_000,
+		killSignal: 'SIGKILL',
 		encoding: 'utf8'
 	});
 	return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
@@ -51,6 +53,8 @@ function formatCheckFilesFrom(
 		{
 			cwd,
 			env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+			timeout: 10_000,
+			killSignal: 'SIGKILL',
 			input,
 			encoding: 'utf8'
 		}
@@ -229,6 +233,8 @@ describe('format-only static checks', () => {
 			const direct = spawnSync(testExecutable('bun'), ['prettier', '--check', '--', relative], {
 				cwd: ROOT,
 				env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+				timeout: 10_000,
+				killSignal: 'SIGKILL',
 				encoding: 'utf8'
 			});
 			expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(1);
@@ -242,7 +248,7 @@ describe('format-only static checks', () => {
 			expect(computed.output).toContain(relative);
 			expect(computed.output).toContain(`README.md ${relative}`);
 		});
-	});
+	}, 40_000);
 
 	it('escapes a route without a backslash and still checks the named file', () => {
 		const route = 'src/routes/[[lang]]/(marketing)/+page.svelte';

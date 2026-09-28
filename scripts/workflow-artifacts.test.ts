@@ -147,6 +147,38 @@ describe('docker build records', () => {
 	});
 });
 
+describe.skipIf(process.platform === 'win32')('required Unit Tests check', () => {
+	const workflow = parseYaml(
+		fs.readFileSync(path.join(WORKFLOWS_DIR, 'static-checks.yml'), 'utf-8')
+	) as {
+		jobs: Record<string, { name: string; steps: Array<{ run?: string }> }>;
+	};
+	const check = Object.values(workflow.jobs).find((job) => job.name === 'Unit Tests');
+
+	it('preserves the required Unit Tests status name', () => {
+		expect(check, 'Keep the required Unit Tests aggregate check').toBeDefined();
+	});
+
+	it.each(['success', 'failure', 'cancelled', 'skipped', ''])(
+		'reports the shard result %j without accepting missing tests',
+		(result) => {
+			const script = check?.steps.find((step) => step.run)?.run;
+			expect(script).toBeDefined();
+			const execution = spawnSync('bash', ['-e', '-o', 'pipefail', '-c', script!], {
+				env: { ...sanitizedGitEnv(), SHARD_RESULT: result },
+				encoding: 'utf8',
+				timeout: 5_000
+			});
+			expect(execution.status, `${execution.stdout}${execution.stderr}`).toBe(
+				result === 'success' ? 0 : 1
+			);
+			if (result !== 'success') {
+				expect(execution.stdout).toContain('Every unit test shard must pass');
+			}
+		}
+	);
+});
+
 describe.skipIf(process.platform === 'win32')('lint job source identity', () => {
 	const lintSteps = (() => {
 		const workflow = parseYaml(

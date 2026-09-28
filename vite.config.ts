@@ -12,7 +12,7 @@ import { sentrySvelteKit } from '@sentry/sveltekit';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { FontaineTransform } from 'fontaine';
 import { loadEnv, type PluginOption } from 'vite';
@@ -403,7 +403,24 @@ export default defineConfig(async ({ mode }) => {
 				'.agents/skills/upstream-report/scripts/upstream-relevance.integration.test.ts'
 			],
 			passWithNoTests: true,
-			environment: 'jsdom'
+			projects: [
+				{
+					extends: true as const,
+					test: {
+						name: 'tooling',
+						environment: 'node',
+						exclude: ['src/**']
+					}
+				},
+				{
+					extends: true as const,
+					test: {
+						name: 'app',
+						environment: 'jsdom',
+						include: configDefaults.include.map((pattern) => `src/${pattern}`)
+					}
+				}
+			]
 		},
 		optimizeDeps: {
 			include: ['svelte-konva', 'konva']

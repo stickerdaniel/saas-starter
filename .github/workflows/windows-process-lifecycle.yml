@@ -9,10 +9,15 @@ permissions:
   contents: read
   pull-requests: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   runner:
     name: Select lifecycle runner
     runs-on: ubicloud-standard-2
+    timeout-minutes: 3
     outputs:
       label: ${{ steps.runner.outputs.label }}
       run_tests: ${{ steps.runner.outputs.run_tests }}
@@ -141,6 +146,10 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version-file: package.json
+      - name: Keep Bun cache on the checkout drive
+        if: steps.changes.outputs.run_tests == 'true' && runner.os == 'Windows'
+        shell: pwsh
+        run: '"BUN_INSTALL_CACHE_DIR=$env:RUNNER_TEMP/bun-package-cache" >> $env:GITHUB_ENV'
       - if: steps.changes.outputs.run_tests == 'true'
         run: bun install --frozen-lockfile --ignore-scripts
       - if: steps.changes.outputs.run_tests == 'true' && hashFiles('packages/create-saas-starter/package.json') != ''

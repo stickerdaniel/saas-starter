@@ -37,8 +37,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: template-setup-windows-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   tests:
@@ -50,5 +50,8 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.4.2
+      - name: Keep Bun cache on the checkout drive
+        shell: pwsh
+        run: '"BUN_INSTALL_CACHE_DIR=$env:RUNNER_TEMP/bun-package-cache" >> $env:GITHUB_ENV'
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun vitest --run scripts/template-setup.test.ts scripts/template-setup.integration.test.ts
