@@ -103,7 +103,7 @@ function linkIn(document: Document, name: string): URL {
 function resumeTargets(document: Document): string[] {
 	return anchorsNamed(document, en.auth.signin.button_resume).map((anchor) => {
 		const target = new URL(anchor.getAttribute('href')!, 'https://example.com');
-		return target.pathname + target.search + target.hash;
+		return target.href;
 	});
 }
 
@@ -148,7 +148,9 @@ describe('server-rendered sign-in page', () => {
 
 		expect(reportIn(window.document)).toBe(en.auth.messages.invalid_token_signed_in);
 		expect(resumeTargets(window.document).length).toBeGreaterThan(0);
-		for (const target of resumeTargets(window.document)) expect(target).toBe(DESTINATION);
+		for (const target of resumeTargets(window.document)) {
+			expect(target).toBe(new URL(DESTINATION, state.page.url.origin).href);
+		}
 		expect(shownResumeLinks(window)).toHaveLength(1);
 		expect(window.document.querySelector('[data-testid="signin-button"]')).not.toBeNull();
 	});
@@ -160,7 +162,9 @@ describe('server-rendered sign-in page', () => {
 		);
 
 		expect(resumeTargets(document).length).toBeGreaterThan(0);
-		for (const target of resumeTargets(document)) expect(target).toBe('/de/app');
+		for (const target of resumeTargets(document)) {
+			expect(target).toBe(new URL('/de/app', state.page.url.origin).href);
+		}
 	});
 
 	// Better Auth reports an expired reset link with the same code, and the hook
