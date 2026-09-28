@@ -5,7 +5,7 @@
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import SEOHead from '$lib/components/SEOHead.svelte';
-	import JavaScriptNotice from '../JavaScriptNotice.svelte';
+	import AuthGate from '../AuthGate.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { redirectParamsSchema } from '$lib/schemas/auth.js';
@@ -239,28 +239,29 @@
 />
 
 <div class="flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
-	<JavaScriptNotice />
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
 		<Card.Root class="overflow-hidden p-0 auth-card-transition">
 			<Card.Content class="grid p-0 md:grid-cols-2">
-				{#if verificationStep}
-					<VerificationStep email={verificationStep.email} {formError} backHref={signinHref} />
-				{:else}
-					<SignUpForm
-						{id}
-						{signUpData}
-						{signUpErrors}
-						{formError}
-						{isLoading}
-						{signUpProgress}
-						{hasOAuthAuth}
-						oauthProviders={oauthProviders.data}
-						redirectTo={params.redirectTo}
-						{isLastUsedAuthMethod}
-						onSubmit={handleSignUp}
-						onOAuth={handleOAuth}
-					/>
-				{/if}
+				<AuthGate>
+					{#if verificationStep}
+						<VerificationStep email={verificationStep.email} {formError} backHref={signinHref} />
+					{:else}
+						<SignUpForm
+							{id}
+							{signUpData}
+							{signUpErrors}
+							{formError}
+							{isLoading}
+							{signUpProgress}
+							{hasOAuthAuth}
+							oauthProviders={oauthProviders.data}
+							redirectTo={params.redirectTo}
+							{isLastUsedAuthMethod}
+							onSubmit={handleSignUp}
+							onOAuth={handleOAuth}
+						/>
+					{/if}
+				</AuthGate>
 				<div class="relative hidden bg-muted md:block">
 					<img
 						src="/placeholder.svg"

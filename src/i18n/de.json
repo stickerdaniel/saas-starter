@@ -362,7 +362,13 @@
 			"description": "Gib die E-Mail-Adresse deines Kontos ein",
 			"title": "Passwort vergessen"
 		},
-		"javascript_required": "Für die Authentifizierung brauchst du JavaScript. Aktiviere es oder lade die Seite neu, um fortzufahren.",
+		"gate": {
+			"noscript_description": "Diese Seite braucht JavaScript. Schalte es in deinen Browser-Einstellungen ein und lade die Seite dann neu.",
+			"noscript_title": "JavaScript ist ausgeschaltet",
+			"reload": "Neu laden",
+			"stalled_description": "Die Seite wurde nicht vollständig geladen. Prüfe deine Internetverbindung und lade sie neu.",
+			"stalled_title": "Seite nicht vollständig geladen"
+		},
 		"messages": {
 			"account_not_linked": "Die soziale Anmeldung mit dieser E-Mail-Adresse war nicht möglich. Melde dich stattdessen mit deiner E-Mail-Adresse und deinem Passwort an. Wenn du für diese Adresse kein Passwort hast, setz es zuerst zurück.",
 			"auth_cancelled": "Authentifizierung abgebrochen",

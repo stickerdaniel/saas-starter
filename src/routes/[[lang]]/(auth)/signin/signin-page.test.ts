@@ -439,10 +439,30 @@ describe('sign-in page holding a signed-in visitor', () => {
 });
 
 describe('sign-in page once hydrated', () => {
-	it('enables the form and drops the notice that explained why it was disabled', async () => {
+	it('enables the form and drops the fallback that stood in for it', async () => {
 		await renderSignIn('');
 
+		await vi.waitFor(() =>
+			expect(document.body.textContent).not.toContain(en.auth.gate.stalled_title)
+		);
+		expect(document.body.textContent).not.toContain(en.auth.gate.reload);
 		expect(button(en.auth.signin.button_signin).disabled).toBe(false);
-		expect(document.body.textContent).not.toContain(en.auth.javascript_required);
+	});
+
+	it('leaves one way on for a held visitor, to the checked destination', async () => {
+		await renderSignIn(`${withDestination(DESTINATION)}&error=TOKEN_EXPIRED`, {
+			authenticated: true
+		});
+
+		await vi.waitFor(() => expect(state.page.url.searchParams.has('error')).toBe(false));
+		await vi.waitFor(() =>
+			expect(document.body.textContent).not.toContain(en.auth.gate.stalled_title)
+		);
+		const resumeLinks = [...document.querySelectorAll('a')].filter(
+			(anchor) => anchor.textContent?.trim() === en.auth.signin.button_resume
+		);
+		expect(resumeLinks).toHaveLength(1);
+		const target = link(en.auth.signin.button_resume);
+		expect(target.pathname + target.search + target.hash).toBe(DESTINATION);
 	});
 });
