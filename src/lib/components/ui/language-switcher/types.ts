@@ -21,5 +21,8 @@ export type LanguageSwitcherProps = {
 	/** Called when the language changes */
 	onChange?: (code: string) => void;
 
+	/** Called when a language option is hovered or focused. */
+	onIntent?: (code: string) => void;
+
 	class?: string;
 };

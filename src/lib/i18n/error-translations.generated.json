@@ -1,0 +1,54 @@
+{
+	"en": {
+		"error_page": {
+			"back_home": "Take me home",
+			"bug_report_body": "Hi,\n\nI hit an error while using SaaS Starter.\n\nURL: {url}\nStatus: {status}\n\nWhat I was doing:\n\n\nThanks!",
+			"bug_report_subject": "Bug report: error {status} on SaaS Starter",
+			"generic_description": "An unexpected error occurred while loading this page. If it keeps happening, report it to {email}.",
+			"generic_title": "Something went wrong",
+			"need_help": "Need help?",
+			"not_found_description": "The page you're looking for doesn't exist. Try searching for what you need below.",
+			"not_found_title": "404 - Page Not Found",
+			"search_placeholder": "Try searching for pages..."
+		}
+	},
+	"de": {
+		"error_page": {
+			"back_home": "Zurück zur Startseite",
+			"bug_report_body": "Hallo,\n\nbeim Verwenden von SaaS Starter ist ein Fehler aufgetreten.\n\nURL: {url}\nStatus: {status}\n\nWas ich gerade gemacht habe:\n\n\nDanke!",
+			"bug_report_subject": "Fehlerbericht: Fehler {status} in SaaS Starter",
+			"generic_description": "Beim Laden dieser Seite ist ein unerwarteter Fehler aufgetreten. Wenn das weiter passiert, melde es an {email}.",
+			"generic_title": "Etwas ist schiefgelaufen",
+			"need_help": "Brauchst du Hilfe?",
+			"not_found_description": "Die gesuchte Seite existiert nicht. Such unten nach dem, was du brauchst.",
+			"not_found_title": "404 - Seite nicht gefunden",
+			"search_placeholder": "Nach Seiten suchen..."
+		}
+	},
+	"es": {
+		"error_page": {
+			"back_home": "Volver al inicio",
+			"bug_report_body": "Hola,\n\nEncontré un error mientras usaba SaaS Starter.\n\nURL: {url}\nEstado: {status}\n\nLo que estaba haciendo:\n\n\n¡Gracias!",
+			"bug_report_subject": "Informe de error: error {status} en SaaS Starter",
+			"generic_description": "Ocurrió un error inesperado al cargar esta página. Si esto sigue ocurriendo, repórtalo a {email}.",
+			"generic_title": "Algo salió mal",
+			"need_help": "¿Necesitas ayuda?",
+			"not_found_description": "La página que buscas no existe. Prueba a buscar lo que necesitas abajo.",
+			"not_found_title": "404 - Página no encontrada",
+			"search_placeholder": "Prueba a buscar páginas..."
+		}
+	},
+	"fr": {
+		"error_page": {
+			"back_home": "Retour à l'accueil",
+			"bug_report_body": "Bonjour,\n\nJ'ai rencontré une erreur en utilisant SaaS Starter.\n\nURL : {url}\nStatut : {status}\n\nCe que je faisais :\n\n\nMerci !",
+			"bug_report_subject": "Rapport de bug : erreur {status} sur SaaS Starter",
+			"generic_description": "Une erreur inattendue s'est produite lors du chargement de cette page. Si ça se reproduit, signale-le à {email}.",
+			"generic_title": "Un problème est survenu",
+			"need_help": "Besoin d'aide ?",
+			"not_found_description": "La page que tu cherches n'existe pas. Essaie de rechercher ce dont tu as besoin ci-dessous.",
+			"not_found_title": "404 - Page introuvable",
+			"search_placeholder": "Essaie de rechercher des pages..."
+		}
+	}
+}

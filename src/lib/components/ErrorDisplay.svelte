@@ -9,38 +9,16 @@
 	import { getLanguage } from '$lib/i18n/languages';
 	import { buildBugReportMailto } from '$lib/utils/mailto';
 	import SearchIcon from '@lucide/svelte/icons/search';
-	import de from '../../i18n/de.json';
-	import en from '../../i18n/en.json';
-	import es from '../../i18n/es.json';
-	import fr from '../../i18n/fr.json';
-
-	type ErrorPageTranslations = {
-		error_page: {
-			back_home: string;
-			bug_report_body: string;
-			bug_report_subject: string;
-			generic_description: string;
-			generic_title: string;
-			need_help: string;
-			not_found_description: string;
-			not_found_title: string;
-			search_placeholder: string;
-		};
-	};
-
-	const translationsByLang: Record<string, ErrorPageTranslations> = {
-		de,
-		en,
-		es,
-		fr
-	};
+	import translationsByLang from '$lib/i18n/error-translations.generated.json';
 
 	const currentLang = $derived(
 		getLanguage(page.params.lang ?? page.url.pathname.split('/')[1]).code
 	);
 	const homeHref = $derived(`/${currentLang}`);
 	const isNotFound = $derived(page.status === 404);
-	const translations = $derived(translationsByLang[currentLang] ?? translationsByLang['en']!);
+	const translations = $derived(
+		translationsByLang[currentLang as keyof typeof translationsByLang] ?? translationsByLang.en
+	);
 	const title = $derived(
 		isNotFound
 			? translations.error_page.not_found_title
