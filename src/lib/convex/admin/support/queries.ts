@@ -176,23 +176,18 @@ export const listThreadsForAdmin = adminQuery({
 		const userImageMap = new Map<string, string>();
 
 		if (userIds.length > 0) {
-			// Fetch each user individually by ID to avoid fetching arbitrary first-N users
-			const userResults = await Promise.all(
-				userIds.map(async (userId) => ({
-					userId,
-					user: (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-						model: 'user',
-						where: [{ field: '_id', operator: 'eq', value: userId }],
-						select: ['image']
-					})) as { image?: string | null } | null
-				}))
-			);
+			// `_id in` resolves only this page's owners and returns all matching point reads.
+			const users = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'user',
+				where: [{ field: '_id', operator: 'in', value: userIds }],
+				paginationOpts: { cursor: null, numItems: userIds.length },
+				select: ['_id', 'image']
+			});
 
 			// Build lookup map for user images
-			for (const { userId, user } of userResults) {
-				if (!user) continue;
+			for (const user of users.page as Array<{ _id: string; image?: string | null }>) {
 				if (user.image) {
-					userImageMap.set(userId, user.image);
+					userImageMap.set(user._id, user.image);
 				}
 			}
 		}

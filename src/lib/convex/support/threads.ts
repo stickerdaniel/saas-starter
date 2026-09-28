@@ -182,22 +182,42 @@ export const listThreads = query({
 		}
 
 		const adminMap = new Map<string, { name?: string; image: string | null }>();
-		await Promise.all(
-			[...adminIds].map(async (adminId) => {
-				try {
-					const admin = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-						model: 'user',
-						where: [{ field: '_id', operator: 'eq', value: adminId }],
-						select: ['name', 'image']
-					})) as { name?: string; image?: string | null } | null;
-					if (admin) {
-						adminMap.set(adminId, { name: admin.name, image: admin.image ?? null });
-					}
-				} catch (error) {
-					console.log(`[listThreads] Failed to fetch admin ${adminId}:`, error);
+		if (adminIds.size > 0) {
+			try {
+				// `_id in` returns every matching point read; missing users are omitted.
+				const admins = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+					model: 'user',
+					where: [{ field: '_id', operator: 'in', value: [...adminIds] }],
+					paginationOpts: { cursor: null, numItems: adminIds.size },
+					select: ['_id', 'name', 'image']
+				});
+				for (const admin of admins.page as Array<{
+					_id: string;
+					name?: string;
+					image?: string | null;
+				}>) {
+					adminMap.set(admin._id, { name: admin.name, image: admin.image ?? null });
 				}
-			})
-		);
+			} catch {
+				// Preserve per-assignment failure isolation for malformed legacy IDs.
+				await Promise.all(
+					[...adminIds].map(async (adminId) => {
+						try {
+							const admin = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+								model: 'user',
+								where: [{ field: '_id', operator: 'eq', value: adminId }],
+								select: ['name', 'image']
+							})) as { name?: string; image?: string | null } | null;
+							if (admin) {
+								adminMap.set(adminId, { name: admin.name, image: admin.image ?? null });
+							}
+						} catch (error) {
+							console.log(`[listThreads] Failed to fetch admin ${adminId}:`, error);
+						}
+					})
+				);
+			}
+		}
 
 		const threads = supportThreads.map((supportThread) => {
 			const assignedAdmin = supportThread.assignedTo

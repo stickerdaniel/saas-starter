@@ -159,22 +159,23 @@ function queryAuditLogs(
 /**
  * Resolve a set of Better Auth user ids to { name, email, image }. Deleted
  * users are simply absent from the returned map. Lookups are bounded by page
- * size: a page holds at most `2 * numItems` unique ids (admin + target), each
- * resolved with a single point read, so this never scans the user table.
+ * size: a page holds at most `2 * numItems` unique ids (admin + target).
+ * The adapter resolves `_id in` with point reads and returns all matches.
  */
 async function resolveUsers(
 	ctx: QueryCtx,
 	ids: Set<string>
 ): Promise<Map<string, { name?: string; email?: string; image?: string }>> {
 	const resolved = new Map<string, { name?: string; email?: string; image?: string }>();
-	for (const id of ids) {
-		const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-			model: 'user',
-			where: [{ field: '_id', operator: 'eq', value: id }]
-		})) as BetterAuthUser | null;
-		if (user) {
-			resolved.set(id, { name: user.name, email: user.email, image: user.image ?? undefined });
-		}
+	if (ids.size === 0) return resolved;
+	const users = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+		model: 'user',
+		where: [{ field: '_id', operator: 'in', value: [...ids] }],
+		paginationOpts: { cursor: null, numItems: ids.size },
+		select: ['_id', 'name', 'email', 'image']
+	});
+	for (const user of users.page as BetterAuthUser[]) {
+		resolved.set(user._id, { name: user.name, email: user.email, image: user.image ?? undefined });
 	}
 	return resolved;
 }
