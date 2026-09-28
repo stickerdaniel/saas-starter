@@ -14,7 +14,7 @@
 		descriptionText = 'Enter this code to complete your verification',
 		previewText = 'Your verification code is 12345678',
 		expiryText = 'This code will expire in 20 minutes.',
-		disclaimerText = "If you didn't request this code, please ignore this email."
+		disclaimerText = "If you didn't request this code, you can ignore this email."
 	}: {
 		lang?: string;
 		code?: string;

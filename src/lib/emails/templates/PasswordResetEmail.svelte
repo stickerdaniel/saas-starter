@@ -11,7 +11,7 @@
 		resetUrl = 'https://example.com/reset?token=xxx',
 		badgeText = 'Auth',
 		titleText = 'Reset your password',
-		greetingText = 'Hey there,',
+		greetingText = 'Hi,',
 		previewText = 'Reset your password',
 		bodyText = 'We received a request to reset your password. Click the button below to set a new password:',
 		buttonText = 'Reset Password',

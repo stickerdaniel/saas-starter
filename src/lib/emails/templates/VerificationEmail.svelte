@@ -13,10 +13,10 @@
 		titleText = 'Verify your email',
 		descriptionText = 'Click the button below to verify your email address',
 		previewText = 'Verify your email address',
-		introText = 'Thanks for signing up! Please verify your email address to complete your registration.',
+		introText = 'Thanks for signing up. Verify your email address to complete your registration.',
 		buttonText = 'Verify Email',
 		expiryText = 'This link will expire in 20 minutes.',
-		disclaimerText = "If you didn't create an account, please ignore this email."
+		disclaimerText = "If you didn't create an account, you can ignore this email."
 	}: {
 		lang?: string;
 		verificationUrl?: string;
