@@ -1,6 +1,6 @@
 ---
 name: upstream-sync
-description: "Started by a human and by nothing else. Reviews and integrates upstream saas-starter template changes into a fork: detects the fork point (forks are content-copies that share no git ancestor), lists every upstream commit since the last sync, guides reviewing each one to integrate, skip, or exclude with a reason, adapting to this fork's divergences (branding, theme, env/deploy, i18n, fork-owned features), then ships one consolidated PR. Use when a human asks to sync from upstream or pull template changes, and at no other time. Sending a fix the other way is upstream-report."
+description: "Started by a human and by nothing else. Reviews and integrates upstream saas-starter template changes into a fork: detects the fork point of a content copy, shared-history clone, or GitHub fork, lists every upstream commit since the last sync, guides reviewing each one to integrate, skip, or exclude with a reason, adapting to this fork's divergences (branding, theme, env/deploy, i18n, fork-owned features), then ships one consolidated PR. Use when a human asks to sync from upstream or pull template changes, and at no other time. Sending a fix the other way is upstream-report."
 argument-hint: '[--type fix|feat|...] [--tag security]'
 allowed-tools: Bash, Read, Edit, Grep, Glob
 ---
@@ -12,10 +12,11 @@ enhancement, understand it, and integrate what fits: bug fixes, features, refact
 chores, and security fixes alike. Security fixes are never optional and apply first,
 but this is a comprehensive review, not a security-only pass.
 
-This fork was created by **content-copy** (GitHub "Use this template"), so it shares
-**NO git ancestor** with upstream: `git merge`, `git rebase`, and `gh repo sync` do
-not apply. The link to upstream is tree-SHA identity; every sync is a triaged,
-manually-adapted port.
+Run the same per-commit review in every creation model: a content copy from the CLI or
+GitHub template, a shared-history clone, and a GitHub fork. Only the way the script finds
+the fork point differs. In a clone or fork, `git merge upstream/main` moves bytes without
+knowing what this fork rebuilt, so port each upstream commit by its intent, one at a
+time, including commits a merge has already brought in.
 
 ## When to use
 
@@ -30,14 +31,14 @@ is `upstream-report`, and that one is yours to run.
 ## When to STOP and ask the human
 
 - A candidate commit touches a file this fork has heavily rewritten (auth, schema, deploy config). Show the diff; do not auto-apply.
-- Fork-point detection returns a `closest-tree GUESS` (the bootstrap commit was edited). Confirm before proceeding.
+- Fork-point detection returns a `closest-tree GUESS` or an `UNCONFIRMED` shared-history point. Confirm the commit with the human and record it as `forkPoint` in `.upstream-sync.json` before proceeding.
 - A ported commit needs an env var that does not exist as a preview deployment default.
 - Before opening the PR, and before any merge. Never auto-merge.
 
 ## Discover the upstream range
 
 ```bash
-bun run upstream:sync                                              # fork point via tree-SHA match
+bun run upstream:sync                                              # fork point and the method that found it
 bun .agents/skills/upstream-sync/scripts/list-upstream-changes.ts  # every commit since last sync, oldest-first
 ```
 
@@ -46,9 +47,11 @@ adds or repoints the `upstream` remote and fetches it. Both are shared by every 
 worktree. A concurrent `upstream-report` aborts if this mutation lands before its report finishes.
 Re-run the report after discovery finishes.
 
+The header of `scripts/find-fork-point.ts` defines the fork-point resolution order.
 The list scopes from `.upstream-sync.json`'s `lastSynced` (falls back to the fork
-point on the first sync). Each row shows a priority tag, the divergence categories
-it touches, and the file count. Oldest-first is the integration/dependency order.
+point on the first sync). A merge leaves `lastSynced` in place, so merged commits stay
+on the list until `--mark-synced` records the finished review. Each row shows a
+priority tag, the divergence categories it touches, and the file count. Oldest-first is the integration/dependency order.
 `--json` gives machine output; `--type` / `--tag` narrow the view (review-all stays
 the default). The upstream defaults to the template this skill shipped from; if this
 fork was forked from another fork, pass `--upstream <url>` (or set `upstreamUrl` in the

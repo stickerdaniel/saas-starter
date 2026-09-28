@@ -37,7 +37,7 @@ The report keeps every uncertain file visible as `unmeasured`; bootstrap presenc
 
 <!-- DO NOT rename or remove this section when rebranding a fork. -->
 
-A human starts the `upstream-sync` skill (`.agents/skills/upstream-sync/SKILL.md`) with `bun run upstream:sync`, then reviews `bun run upstream:changes`. Forks are content copies without a shared Git ancestor, so ordinary merge, rebase, and repository-sync workflows do not apply.
+A human starts the `upstream-sync` skill (`.agents/skills/upstream-sync/SKILL.md`) with `bun run upstream:sync`, then reviews `bun run upstream:changes`. When pulling template changes, review every upstream commit by intent with the upstream-sync skill in every creation model; a shared-history merge only moves bytes.
 
 ## Global rules
 

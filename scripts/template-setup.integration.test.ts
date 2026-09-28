@@ -929,6 +929,82 @@ mock.module('fs', () => ({
 	});
 });
 
+describe('template setup records the creation fork point', () => {
+	const GIT_ENV: NodeJS.ProcessEnv = {
+		...CHILD_ENV,
+		GIT_CONFIG_NOSYSTEM: '1',
+		GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null',
+		GIT_AUTHOR_NAME: 'Fixture',
+		GIT_AUTHOR_EMAIL: 'fixture@example.com',
+		GIT_COMMITTER_NAME: 'Fixture',
+		GIT_COMMITTER_EMAIL: 'fixture@example.com'
+	};
+	function git(dir: string, args: string[]): string {
+		const result = spawnSync('git', args, { cwd: dir, encoding: 'utf-8', env: GIT_ENV });
+		if (result.status !== 0) throw new Error(`git ${args.join(' ')}: ${result.stderr}`);
+		return result.stdout.trim();
+	}
+	function committedFixture(files: Record<string, string> = {}): { dir: string; head: string } {
+		const dir = createFixture();
+		// Inside Git, setup reads the scaffold marker through the upstream-sync skill's helper.
+		const helper = '.agents/skills/upstream-sync/scripts/scaffold-marker.ts';
+		mkdirSync(dirname(join(dir, helper)), { recursive: true });
+		cpSync(join(ROOT, helper), join(dir, helper));
+		for (const [rel, content] of Object.entries(files)) writeFileSync(join(dir, rel), content);
+		git(dir, ['init', '-q', '-b', 'main']);
+		git(dir, ['add', '-A']);
+		git(dir, ['commit', '-q', '--no-verify', '-m', 'fixture']);
+		return { dir, head: git(dir, ['rev-parse', 'HEAD']) };
+	}
+	function recorded(dir: string): unknown {
+		const path = join(dir, '.upstream-sync.json');
+		return existsSync(path) ? JSON.parse(readFileSync(path, 'utf-8')) : undefined;
+	}
+
+	it('records the CLI scaffold sha and keeps it on a re-run', () => {
+		const dir = createFixture();
+		const sha = 'a'.repeat(40);
+		const scaffold = join(dir, '.saas-starter-scaffold.json');
+		writeFileSync(scaffold, JSON.stringify({ source: 'stickerdaniel/saas-starter', sha }));
+		const first = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(first.code, first.stderr).toBe(0);
+		expect(recorded(dir)).toEqual({ forkPoint: sha });
+
+		writeFileSync(
+			scaffold,
+			JSON.stringify({ source: 'stickerdaniel/saas-starter', sha: 'b'.repeat(40) })
+		);
+		const rerun = runSetup(dir, []);
+		expect(rerun.code, rerun.stderr).toBe(0);
+		expect(recorded(dir)).toEqual({ forkPoint: sha });
+	});
+
+	it('records HEAD of a clone that still sits on an upstream ref', () => {
+		const { dir, head } = committedFixture();
+		git(dir, ['update-ref', 'refs/remotes/upstream/main', head]);
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		expect(recorded(dir)).toEqual({ forkPoint: head });
+	});
+
+	it('records the committed scaffold sha when the working-tree marker was edited', () => {
+		const original = 'c'.repeat(40);
+		const scaffold = (sha: string) => JSON.stringify({ source: 'stickerdaniel/saas-starter', sha });
+		const { dir } = committedFixture({ '.saas-starter-scaffold.json': scaffold(original) });
+		writeFileSync(join(dir, '.saas-starter-scaffold.json'), scaffold('d'.repeat(40)));
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		expect(recorded(dir)).toEqual({ forkPoint: original });
+	});
+
+	it('records nothing for a template copy whose bootstrap commit is not upstream', () => {
+		const { dir } = committedFixture();
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		expect(recorded(dir)).toBeUndefined();
+	});
+});
+
 describe('template setup legal metadata anchors', () => {
 	it('updates the three exported dates without matching a comment', () => {
 		const dir = createFixture();

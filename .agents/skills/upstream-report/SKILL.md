@@ -1,12 +1,12 @@
 ---
 name: upstream-report
-description: Always load in a content-copy fork before acting on any work that might also matter to the base project, or as soon as that possibility appears. Treat uncertain ownership as possible relevance. Do not load in the base project itself.
+description: Always load in a fork of the template (content copy, shared-history clone, or GitHub fork) before acting on any work that might also matter to the base project, or as soon as that possibility appears. Treat uncertain ownership as possible relevance. Do not load in the base project itself.
 allowed-tools: Bash(bun run upstream:report:*), Bash(gh search issues:*), Bash(gh issue list:*), Read, Grep, Glob
 ---
 
 # Report a fix upstream
 
-This repository was created from the `saas-starter` template by content-copy. Template
+This repository was created from the `saas-starter` template. Template
 code and code written here sit side by side in the same tree, and after a few months
 nothing distinguishes them by eye. That costs in both directions: a template bug fixed
 only here leaves every other fork carrying it, and fork-only work offered upstream wastes
@@ -51,12 +51,17 @@ create the remote and fetch its checked URL. Fetch is the only mode that touches
 The old `--all` flag remains accepted for compatibility and has no effect because every
 classified path is listed.
 
+When the work to check is already on `origin/main`, the default base excludes it and the
+report comes back empty. Pass `--base <ref>` with the last commit before that work instead:
+the bootstrap commit of a content copy, or the fork point from `bun run upstream:sync` in a
+shared-history clone or GitHub fork.
+
 Each changed file comes back in one of three classes:
 
 | Class        | Meaning                                                                                                                                                                                                                                                                                                                                          | What to do                        |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
 | `pristine`   | The path exists upstream and was **identical to it** before this change.                                                                                                                                                                                                                                                                         | Read it.                          |
-| `diverged`   | The path exists upstream but had already been rewritten here.                                                                                                                                                                                                                                                                                    | Read it, highest score first.     |
+| `diverged`   | The path exists upstream but differed from the current upstream copy before this change, whether this fork rewrote it or upstream changed it later.                                                                                                                                                                                              | Read it, highest score first.     |
 | `unmeasured` | A comparison was unavailable or found a possible tie. Covers absent paths, binary content, missing or shallow history, a missing partial-clone blob, unstaged filtered content, a mode-only change, a submodule, a case-only difference, upstream bytes under another mode or path, a unique filename, and text that resembles an upstream file. | Read it, and check the tie first. |
 
 Every classified path is marked `>>` and stays in the report.
