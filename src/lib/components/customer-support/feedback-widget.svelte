@@ -94,20 +94,18 @@
 			: 'skip'
 	);
 
-	// Derive assigned admin - use context value as primary, query as fallback/sync
-	const assignedAdmin = $derived(conversation.assignedAdmin ?? threadQuery.data?.assignedAdmin);
+	// Keep the list preview while loading, then follow the live assignment, including removal.
+	const assignedAdmin = $derived(
+		threadQuery.data === undefined ? conversation.assignedAdmin : threadQuery.data?.assignedAdmin
+	);
 
-	// Sync handoff status, assigned admin, and notification email to context when thread data loads
+	// Sync handoff status and notification email to context when thread data loads
 	// Only sync from query if not already set locally (prevents race conditions)
 	$effect(() => {
 		if (threadQuery.data) {
 			// Sync handoff status if not already handed off locally
 			if (!conversation.isHandedOff && threadQuery.data.isHandedOff) {
 				conversation.setHandedOff(threadQuery.data.isHandedOff);
-			}
-			// Sync assignedAdmin if query has newer data (e.g., admin assigned mid-chat)
-			if (threadQuery.data.assignedAdmin && !conversation.assignedAdmin) {
-				conversation.setAssignedAdmin(threadQuery.data.assignedAdmin);
 			}
 			// Always sync notificationEmail from query (source of truth, includes optimistic updates)
 			conversation.setNotificationEmail(threadQuery.data.notificationEmail ?? null);
