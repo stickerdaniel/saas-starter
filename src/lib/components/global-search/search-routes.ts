@@ -87,6 +87,13 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		group: 'admin',
 		titleKey: 'admin.sidebar.settings',
 		keywords: ['admin settings']
+	},
+	{
+		href: '/admin/audit-log',
+		access: 'admin',
+		group: 'admin',
+		titleKey: 'admin.sidebar.audit_log',
+		keywords: ['audit log', 'history']
 	}
 ];
 

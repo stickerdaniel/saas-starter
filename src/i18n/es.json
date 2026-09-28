@@ -115,10 +115,10 @@
 				"config_reply_to_label": "Email de respuesta",
 				"config_reply_to_placeholder": "ej. hola@tuempresa.com",
 				"config_subject_label": "Asunto del email",
-				"config_title_label": "Su título",
+				"config_title_label": "Tu título",
 				"description": "Envía automáticamente un email personal de bienvenida de un miembro del equipo a nuevos usuarios después del registro. Se envía como texto plano para mayor autenticidad.",
 				"edit_button": "Editar",
-				"error": "Algo salió mal. Por favor, inténtalo de nuevo.",
+				"error": "Algo salió mal. Inténtalo de nuevo.",
 				"save": "Guardar cambios",
 				"saved": "Configuración de email de bienvenida guardada",
 				"setup_button": "Ser persona de contacto",
@@ -157,7 +157,7 @@
 			},
 			"chat": {
 				"placeholder": "Responder al cliente...",
-				"send_error": "Error al enviar la respuesta. Por favor, inténtalo de nuevo."
+				"send_error": "Error al enviar la respuesta. Inténtalo de nuevo."
 			},
 			"details": {
 				"assignee": "Asignado a",
@@ -184,8 +184,8 @@
 				"my_inbox": "bandeja",
 				"unassigned": "Sin asignar"
 			},
-			"filter_showing_completed": "Mostrando hilos completados, haga clic para ver los abiertos",
-			"filter_showing_open": "Mostrando hilos abiertos, haga clic para ver los completados",
+			"filter_showing_completed": "Mostrando hilos completados, haz clic para ver los abiertos",
+			"filter_showing_open": "Mostrando hilos abiertos, haz clic para ver los completados",
 			"no_done_chats": "No hay chats completados",
 			"no_email": "Sin correo electrónico",
 			"no_open_chats": "No hay chats abiertos",
@@ -203,8 +203,8 @@
 			"search": {
 				"placeholder": "Buscar chats..."
 			},
-			"select_chat": "Seleccione un chat para ver la conversación",
-			"select_chat_for_details": "Seleccione un chat para ver detalles",
+			"select_chat": "Selecciona un chat para ver la conversación",
+			"select_chat_for_details": "Selecciona un chat para ver detalles",
 			"status": {
 				"done": "Hecho",
 				"open": "Abierto"
@@ -368,7 +368,7 @@
 			"credential_account_not_found": "Esta cuenta no tiene ninguna contraseña establecida.",
 			"credential_account_unusable": "Esta cuenta no puede establecer una contraseña aquí. Cierra sesión y usa el enlace de restablecimiento en la página de inicio de sesión.",
 			"email_change_failed": "No se pudo cambiar el correo",
-			"email_not_verified": "Por favor verifica tu correo electrónico. Revisa tu bandeja de entrada para encontrar el enlace e inicia sesión de nuevo para solicitar uno nuevo.",
+			"email_not_verified": "Verifica tu correo electrónico. Revisa tu bandeja de entrada para encontrar el enlace e inicia sesión de nuevo para solicitar uno nuevo.",
 			"email_same_as_current": "El nuevo correo debe ser diferente al actual",
 			"email_updated": "Correo actualizado correctamente",
 			"email_verification_sent": "Se envió un correo de verificación a tu dirección actual. Revisa tu bandeja de entrada para aprobar el cambio.",
@@ -458,7 +458,7 @@
 		},
 		"verification": {
 			"button_back": "Volver al inicio de sesión",
-			"check_email": "Por favor revisa tu correo electrónico y haz clic en el enlace de verificación para completar tu registro.",
+			"check_email": "Revisa tu correo electrónico y haz clic en el enlace de verificación para completar tu registro.",
 			"description": "Te hemos enviado un enlace de verificación",
 			"sent_to": "Hemos enviado un correo de verificación a {email}.",
 			"title": "Verificación de correo electrónico",
@@ -472,7 +472,7 @@
 				"response": "He avisado al equipo. Te responderá aquí mismo en este chat. Deja tu email abajo y te avisaremos en cuanto responda. Añade cualquier detalle que ayude mientras tanto."
 			},
 			"rate_limit": {
-				"global": "Estoy experimentando alta demanda. Por favor intenta enviar tu mensaje de nuevo en un momento."
+				"global": "Estoy recibiendo muchas solicitudes ahora mismo. Vuelve a enviar tu mensaje en un momento."
 			}
 		}
 	},
@@ -481,9 +481,9 @@
 		"ai_unavailable": "Las funciones de IA no están disponibles en este momento."
 	},
 	"billing": {
-		"checkout_failed": "Error en el pago. Por favor, inténtalo de nuevo.",
-		"portal_failed": "No se pudo abrir el portal de facturación. Por favor, inténtalo de nuevo.",
-		"attach_failed": "No se pudo completar la compra. Por favor, inténtalo de nuevo.",
+		"checkout_failed": "Error en el pago. Inténtalo de nuevo.",
+		"portal_failed": "No se pudo abrir el portal de facturación. Inténtalo de nuevo.",
+		"attach_failed": "No se pudo completar la compra. Inténtalo de nuevo.",
 		"confirmation": {
 			"title": "Confirma tu compra",
 			"description": "Revisa los cargos de {planName} antes de confirmar.",
@@ -523,9 +523,9 @@
 		},
 		"email": {
 			"placeholder": "Email",
-			"save_failed": "Error al guardar email. Por favor intenta de nuevo.",
+			"save_failed": "Error al guardar email. Inténtalo de nuevo.",
 			"subscribe_button": "Suscribirse",
-			"unsubscribe_failed": "Error al cancelar suscripción. Por favor intenta de nuevo.",
+			"unsubscribe_failed": "Error al cancelar suscripción. Inténtalo de nuevo.",
 			"unsubscribe_tooltip": "Cancelar suscripción"
 		},
 		"error": {
@@ -579,8 +579,8 @@
 		"confirm": "Confirmar",
 		"confirm_input_placeholder": "Escribe \"{text}\" para confirmar.",
 		"delete": "Eliminar",
-		"error": "Algo salió mal. Por favor, inténtalo de nuevo.",
-		"load_error": "No se pudieron cargar los datos. Por favor, inténtalo de nuevo más tarde.",
+		"error": "Algo salió mal. Inténtalo de nuevo.",
+		"load_error": "No se pudieron cargar los datos. Inténtalo de nuevo más tarde.",
 		"upload_in_progress": "La subida sigue en curso. Espera a que termine.",
 		"you": "Tú"
 	},
@@ -684,15 +684,15 @@
 		"verification": {
 			"button": "Verificar email",
 			"description": "Haz clic en el botón de abajo para verificar tu dirección de email",
-			"disclaimer": "Si no creaste una cuenta, ignora este email.",
+			"disclaimer": "Si no creaste una cuenta, puedes ignorar este email.",
 			"expiry": "Este enlace caducará en {expiryMinutes} minutos.",
-			"intro": "¡Gracias por registrarte! Verifica tu dirección de email para completar tu registro.",
+			"intro": "Gracias por registrarte. Verifica tu dirección de email para completar tu registro.",
 			"preview": "Verifica tu dirección de email",
 			"title": "Verifica tu email"
 		},
 		"verification_code": {
 			"description": "Introduce este código para completar tu verificación",
-			"disclaimer": "Si no solicitaste este código, ignora este email.",
+			"disclaimer": "Si no solicitaste este código, puedes ignorar este email.",
 			"expiry": "Este código caducará en {expiryMinutes} minutos.",
 			"preview": "Tu código de verificación es {code}",
 			"title": "Verifica tu email"
@@ -858,7 +858,7 @@
 			"title": "Precios"
 		},
 		"privacy": {
-			"description": "Cómo recopilamos, usamos y protegemos sus datos personales.",
+			"description": "Cómo recopilamos, usamos y protegemos tus datos personales.",
 			"title": "Política de privacidad"
 		},
 		"shadcn_demo": {
@@ -957,7 +957,7 @@
 				"ready": "Imagen lista para guardar",
 				"removed": "Imagen eliminada - haz clic en Guardar para confirmar",
 				"uploading": "Subiendo imagen…",
-				"select_error": "Por favor selecciona un archivo de imagen",
+				"select_error": "Selecciona un archivo de imagen",
 				"size_error": "La imagen debe ser menor de {size}",
 				"upload_failed": "Error al subir la imagen"
 			},
@@ -1125,7 +1125,7 @@
 			"question_text": "¿Por qué SaaS Starter?"
 		},
 		"thread": {
-			"load_error": "No se pudieron cargar las conversaciones. Por favor, inténtalo de nuevo más tarde.",
+			"load_error": "No se pudieron cargar las conversaciones. Inténtalo de nuevo más tarde.",
 			"new_conversation": "Nueva conversación",
 			"unread_reply": "Respuesta de soporte sin leer"
 		},
@@ -1141,9 +1141,9 @@
 		},
 		"widget": {
 			"error": {
-				"handoff_failed": "Error al solicitar soporte humano. Por favor intenta de nuevo.",
-				"rate_limit": "¡Más despacio! Por favor espera {seconds}s antes de enviar otro mensaje.",
-				"send_failed": "Error al enviar mensaje. Por favor intenta de nuevo."
+				"handoff_failed": "Error al solicitar soporte humano. Inténtalo de nuevo.",
+				"rate_limit": "Más despacio. Espera {seconds}s antes de enviar otro mensaje.",
+				"send_failed": "Error al enviar mensaje. Inténtalo de nuevo."
 			},
 			"header": {
 				"bot_response": "Nuestro bot responderá al instante",
@@ -1183,20 +1183,20 @@
 	"validation": {
 		"confirm_password": {
 			"mismatch": "Las contraseñas no coinciden.",
-			"required": "Por favor confirma tu contraseña."
+			"required": "Confirma tu contraseña."
 		},
 		"email": {
-			"invalid": "Por favor ingresa una dirección de correo electrónico válida.",
-			"required": "Por favor ingresa tu dirección de correo electrónico."
+			"invalid": "Ingresa una dirección de correo electrónico válida.",
+			"required": "Ingresa tu dirección de correo electrónico."
 		},
 		"name": {
-			"required": "Por favor ingresa tu nombre."
+			"required": "Ingresa tu nombre."
 		},
 		"password": {
 			"lowercase": "La contraseña debe contener al menos una letra minúscula.",
 			"min_length": "La contraseña debe tener al menos {count, number} caracteres.",
 			"number": "La contraseña debe contener al menos un número.",
-			"required": "Por favor ingresa tu contraseña.",
+			"required": "Ingresa tu contraseña.",
 			"uppercase": "La contraseña debe contener al menos una letra mayúscula."
 		}
 	}

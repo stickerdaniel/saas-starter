@@ -392,16 +392,16 @@ describe('Email Template Rendering', () => {
 	});
 
 	describe('Default values', () => {
-		it('uses "there" when userName is undefined', () => {
+		it('uses the fallback greeting when userName is undefined', () => {
 			const result = renderPasswordResetEmail('https://example.com');
-			expect(result.html).toContain('there');
-			expect(result.text).toContain('there');
+			expect(result.html).toContain('Hi,');
+			expect(result.text).toContain('Hi,');
 		});
 
-		it('uses "there" when userName is empty string', () => {
+		it('uses the fallback greeting when userName is empty string', () => {
 			const result = renderPasswordResetEmail('https://example.com', '');
-			expect(result.html).toContain('there');
-			expect(result.text).toContain('there');
+			expect(result.html).toContain('Hi,');
+			expect(result.text).toContain('Hi,');
 		});
 	});
 
@@ -442,7 +442,7 @@ describe('Email Template Rendering', () => {
 				'https://example.com',
 				'fr'
 			);
-			expect(result.html).toContain('Alice a répondu à votre conversation de support');
+			expect(result.html).toContain('Alice a répondu à ta conversation de support');
 			expect(result.text).toContain('Voir la conversation');
 		});
 
@@ -458,7 +458,7 @@ describe('Email Template Rendering', () => {
 				'de'
 			);
 			expect(result.html).toContain('Im Admin-Dashboard ansehen');
-			expect(result.text).toContain('Sie erhalten diese E-Mail');
+			expect(result.text).toContain('Du erhältst diese E-Mail');
 		});
 
 		it('uses the handoff empty-state line for a bare handoff with no messages', () => {

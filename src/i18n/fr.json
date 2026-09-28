@@ -53,15 +53,15 @@
 			"hosting_deployment": "Hébergement & déploiement"
 		},
 		"dialog": {
-			"ban_description": "Êtes-vous sûr de vouloir bannir {email} ? L'accès à l'app sera bloqué.",
+			"ban_description": "Tu veux vraiment bannir {email} ? L'accès à l'app sera bloqué.",
 			"ban_reason_label": "Motif du bannissement",
 			"ban_reason_placeholder": "Motif du bannissement (optionnel)",
 			"ban_title": "Bannir l'Utilisateur",
-			"revoke_description": "Êtes-vous sûr de vouloir révoquer toutes les sessions de {email} ? La déconnexion sera effectuée partout.",
+			"revoke_description": "Tu veux vraiment révoquer toutes les sessions de {email} ? La déconnexion sera effectuée partout.",
 			"revoke_title": "Révoquer les Sessions",
-			"set_role_description": "Êtes-vous sûr de vouloir changer le rôle de {email} en {role} ?",
+			"set_role_description": "Tu veux vraiment changer le rôle de {email} en {role} ?",
 			"set_role_title": "Changer le Rôle de l'Utilisateur",
-			"unban_description": "Êtes-vous sûr de vouloir débannir {email} ? L'accès à l'app sera rétabli.",
+			"unban_description": "Tu veux vraiment débannir {email} ? L'accès à l'app sera rétabli.",
 			"unban_title": "Débannir l'Utilisateur"
 		},
 		"metrics": {
@@ -111,21 +111,21 @@
 			"founder_welcome": {
 				"cancel": "Annuler",
 				"config_body_label": "Corps de l'email",
-				"config_name_label": "Votre nom",
+				"config_name_label": "Ton nom",
 				"config_reply_to_label": "Email de réponse",
-				"config_reply_to_placeholder": "ex. bonjour@votreentreprise.com",
+				"config_reply_to_placeholder": "ex. bonjour@tonentreprise.com",
 				"config_subject_label": "Objet de l'email",
-				"config_title_label": "Votre titre",
+				"config_title_label": "Ton titre",
 				"description": "Envoie automatiquement un email personnel de bienvenue d'un membre de l'équipe aux nouveaux utilisateurs après l'inscription. Envoyé en texte brut pour plus d'authenticité.",
 				"edit_button": "Modifier",
-				"error": "Une erreur est survenue. Veuillez réessayer.",
+				"error": "Une erreur est survenue. Réessaie.",
 				"save": "Enregistrer les modifications",
 				"saved": "Configuration de l'email de bienvenue enregistrée",
 				"setup_button": "Devenir personne de contact",
 				"setup_title_placeholder": "ex. Fondateur de SaaS Starter",
 				"step_down": "Se retirer",
 				"step_down_confirm": "Se retirer en tant que personne de contact ? Les emails de bienvenue ne seront plus envoyés.",
-				"stepped_down": "Vous n'êtes plus la personne de contact",
+				"stepped_down": "Tu n'es plus la personne de contact",
 				"title": "Email de bienvenue du fondateur",
 				"variables_label": "Variables :"
 			},
@@ -157,7 +157,7 @@
 			},
 			"chat": {
 				"placeholder": "Répondre au client...",
-				"send_error": "Échec de l'envoi de la réponse. Veuillez réessayer."
+				"send_error": "Échec de l'envoi de la réponse. Réessaie."
 			},
 			"details": {
 				"assignee": "Assigné à",
@@ -203,8 +203,8 @@
 			"search": {
 				"placeholder": "Rechercher des chats..."
 			},
-			"select_chat": "Sélectionnez un chat pour voir la conversation",
-			"select_chat_for_details": "Sélectionnez un chat pour voir les détails",
+			"select_chat": "Sélectionne un chat pour voir la conversation",
+			"select_chat_for_details": "Sélectionne un chat pour voir les détails",
 			"status": {
 				"done": "Terminé",
 				"open": "Ouvert"
@@ -282,7 +282,7 @@
 			"verified": "Vérifié",
 			"errors": {
 				"access_required": "L’accès administrateur est requis.",
-				"cannot_change_own_role": "Vous ne pouvez pas modifier votre propre rôle.",
+				"cannot_change_own_role": "Tu ne peux pas modifier ton propre rôle.",
 				"user_not_found": "L’utilisateur n’existe plus.",
 				"last_admin": "Le dernier administrateur ne peut pas être rétrogradé.",
 				"unknown": "L’action administrateur n’a pas pu être effectuée."
@@ -291,7 +291,7 @@
 	},
 	"ai_chat": {
 		"input": {
-			"placeholder": "Tapez un message..."
+			"placeholder": "Écris un message..."
 		},
 		"suggestion": {
 			"explain": "Explique quelque chose",
@@ -311,7 +311,7 @@
 		},
 		"user_menu": {
 			"billing": "Facturation",
-			"impersonating_banner": "Vous usurpez l'identité de cet utilisateur",
+			"impersonating_banner": "Tu usurpes l'identité de cet utilisateur",
 			"impersonation_stop_failed": "Échec de l'arrêt de l'usurpation",
 			"impersonation_stopped": "Usurpation arrêtée",
 			"logout": "Se déconnecter",
@@ -359,26 +359,26 @@
 			"back_to_signin": "Retour à la connexion",
 			"button_loading": "Envoi en cours...",
 			"button_submit": "Envoyer le lien",
-			"description": "Saisissez l'adresse e-mail de votre compte",
+			"description": "Saisis l'adresse e-mail de ton compte",
 			"title": "Mot de passe oublié"
 		},
 		"messages": {
-			"account_not_linked": "La connexion sociale n'a pas pu aboutir avec cette adresse e-mail. Connectez-vous plutôt avec votre adresse e-mail et votre mot de passe. Si vous n'avez pas de mot de passe pour cette adresse, réinitialisez-le d'abord.",
+			"account_not_linked": "La connexion sociale n'a pas pu aboutir avec cette adresse e-mail. Connecte-toi plutôt avec ton adresse e-mail et ton mot de passe. Si tu n'as pas de mot de passe pour cette adresse, réinitialise-le d'abord.",
 			"auth_cancelled": "L'authentification a été annulée",
 			"credential_account_not_found": "Aucun mot de passe n'est défini pour ce compte.",
-			"credential_account_unusable": "Ce compte ne peut pas définir de mot de passe ici. Déconnectez-vous, puis utilisez le lien de réinitialisation sur la page de connexion.",
+			"credential_account_unusable": "Ce compte ne peut pas définir de mot de passe ici. Déconnecte-toi, puis utilise le lien de réinitialisation sur la page de connexion.",
 			"email_change_failed": "Impossible de modifier l'e-mail",
-			"email_not_verified": "Veuillez vérifier votre adresse e-mail. Consultez votre boîte de réception pour trouver le lien et reconnectez-vous pour en demander un nouveau.",
+			"email_not_verified": "Vérifie ton adresse e-mail. Consulte ta boîte de réception pour trouver le lien et reconnecte-toi pour en demander un nouveau.",
 			"email_same_as_current": "Le nouvel e-mail doit être différent de l'actuel",
 			"email_updated": "E-mail mis à jour avec succès",
-			"email_verification_sent": "Un e-mail de vérification a été envoyé à votre adresse actuelle. Vérifiez votre boîte de réception pour approuver le changement.",
-			"generic_error": "Une erreur est survenue. Veuillez réessayer.",
+			"email_verification_sent": "Un e-mail de vérification a été envoyé à ton adresse actuelle. Consulte ta boîte de réception pour approuver le changement.",
+			"generic_error": "Une erreur est survenue. Réessaie.",
 			"impersonation_not_allowed": "Impossible de définir un mot de passe pendant l'usurpation d'identité d'un utilisateur.",
 			"invalid_credentials": "E-mail ou mot de passe invalide",
-			"invalid_token": "Ce lien n'est plus valide. Demandez-en un nouveau et réessayez.",
+			"invalid_token": "Ce lien n'est plus valide. Demandes-en un nouveau et réessaie.",
 			"invalid_token_signed_in": "Ce lien ne fonctionne plus. Tu es connecté, donc si ton adresse est déjà vérifiée, reprends là où tu en étais.",
 			"missing_reset_token": "Jeton de réinitialisation manquant ou invalide",
-			"oauth_failed": "La connexion sociale a échoué. Veuillez réessayer.",
+			"oauth_failed": "La connexion sociale a échoué. Réessaie.",
 			"passkey_add_failed": "Impossible d'ajouter la passkey",
 			"passkey_added": "Passkey ajoutée avec succès",
 			"passkey_cancelled": "La connexion par passkey a été annulée",
@@ -386,25 +386,25 @@
 			"passkey_deleted": "Passkey supprimée",
 			"passkey_failed": "L'authentification par passkey a échoué",
 			"passkey_load_failed": "Impossible de charger les passkeys",
-			"password_already_set": "Ce compte possède déjà un mot de passe. Rechargez la page pour le modifier",
+			"password_already_set": "Ce compte possède déjà un mot de passe. Recharge la page pour le modifier",
 			"password_change_failed": "Impossible de changer le mot de passe",
 			"password_changed": "Mot de passe modifié avec succès",
 			"password_compromised": "Ce mot de passe est compromis",
-			"password_reset_success": "Votre mot de passe a été réinitialisé avec succès.",
+			"password_reset_success": "Ton mot de passe a été réinitialisé avec succès.",
 			"password_set": "Mot de passe défini avec succès",
 			"password_set_failed": "Impossible de définir le mot de passe",
-			"password_set_success": "Votre mot de passe a été défini avec succès.",
+			"password_set_success": "Ton mot de passe a été défini avec succès.",
 			"password_too_long": "Le mot de passe est trop long",
 			"password_too_short": "Le mot de passe est trop court",
 			"password_too_weak": "Le mot de passe doit comporter au moins 10 caractères et inclure une majuscule, une minuscule et un chiffre.",
-			"rate_limited": "Trop de requêtes. Réessayez plus tard.",
+			"rate_limited": "Trop de requêtes. Réessaie plus tard.",
 			"request_reset_failed": "Impossible de demander la réinitialisation du mot de passe",
 			"reset_failed": "Impossible de réinitialiser le mot de passe",
-			"reset_link_sent": "Si un compte est associé à cette adresse, vérifiez votre messagerie pour trouver le lien de réinitialisation.",
-			"session_not_fresh": "Pour votre sécurité, déconnectez-vous puis reconnectez-vous avant d'ajouter une nouvelle méthode de connexion.",
+			"reset_link_sent": "Si un compte est associé à cette adresse, consulte ta messagerie pour trouver le lien de réinitialisation.",
+			"session_not_fresh": "Pour ta sécurité, déconnecte-toi puis reconnecte-toi avant d'ajouter une nouvelle méthode de connexion.",
 			"signup_disabled": "L'inscription est désactivée",
 			"signup_failed": "Impossible de créer le compte",
-			"too_many_attempts": "Trop de tentatives. Réessayez plus tard.",
+			"too_many_attempts": "Trop de tentatives. Réessaie plus tard.",
 			"user_already_exists": "Un compte avec cet e-mail existe déjà"
 		},
 		"reset_password": {
@@ -412,7 +412,7 @@
 			"button_loading": "Réinitialisation...",
 			"button_submit": "Réinitialiser le mot de passe",
 			"confirm_password_label": "Confirmer le nouveau mot de passe",
-			"description": "Entrez votre nouveau mot de passe",
+			"description": "Entre ton nouveau mot de passe",
 			"new_password_label": "Nouveau mot de passe",
 			"sign_in_link": "Se connecter",
 			"title": "Réinitialiser le mot de passe"
@@ -420,7 +420,7 @@
 		"set_password": {
 			"button_loading": "Définition...",
 			"button_submit": "Définir le mot de passe",
-			"description": "Choisissez un mot de passe pour votre compte",
+			"description": "Choisis un mot de passe pour ton compte",
 			"title": "Définir un mot de passe"
 		},
 		"signin": {
@@ -429,7 +429,7 @@
 			"button_signin_loading": "Connexion en cours...",
 			"button_signup": "S'inscrire",
 			"button_signup_loading": "Création du compte...",
-			"description": "Connectez-vous à votre compte ou créez-en un nouveau",
+			"description": "Connecte-toi à ton compte ou crées-en un nouveau",
 			"email_label": "E-mail",
 			"forgot_password": "Mot de passe oublié ?",
 			"link_signup": "S'inscrire",
@@ -445,34 +445,34 @@
 			"title": "Bon retour"
 		},
 		"signup": {
-			"description": "Entrez vos informations pour commencer",
+			"description": "Entre tes informations pour commencer",
 			"has_account": "Déjà un compte ?",
 			"link_signin": "Se connecter",
 			"title": "Créer un compte"
 		},
 		"terms": {
-			"agreement": "En continuant, vous acceptez nos",
+			"agreement": "En continuant, tu acceptes nos",
 			"and": "et notre",
 			"privacy_policy": "Politique de confidentialité",
 			"terms_of_service": "Conditions d'utilisation"
 		},
 		"verification": {
 			"button_back": "Retour à la connexion",
-			"check_email": "Veuillez vérifier votre e-mail et cliquer sur le lien de vérification pour finaliser votre inscription.",
-			"description": "Nous vous avons envoyé un lien de vérification",
+			"check_email": "Consulte tes e-mails et clique sur le lien de vérification pour finaliser ton inscription.",
+			"description": "Nous t'avons envoyé un lien de vérification",
 			"sent_to": "Nous avons envoyé un e-mail de vérification à {email}.",
 			"title": "Vérification de l'e-mail",
-			"verified_description": "Votre e-mail a été vérifié. Connexion en cours...",
+			"verified_description": "Ton e-mail a été vérifié. Connexion en cours...",
 			"verified_title": "E-mail vérifié"
 		}
 	},
 	"backend": {
 		"support": {
 			"handoff": {
-				"response": "J'ai fait appel à l'équipe. Elle vous répondra directement ici dans ce chat. Laissez votre email ci-dessous et nous vous préviendrons dès qu'elle aura répondu. Ajoutez tout détail utile en attendant."
+				"response": "J'ai fait appel à l'équipe. Elle te répondra directement ici dans ce chat. Laisse ton email ci-dessous et nous te préviendrons dès qu'elle aura répondu. Ajoute tout détail utile en attendant."
 			},
 			"rate_limit": {
-				"global": "Je suis actuellement très sollicité. Veuillez réessayer d'envoyer votre message dans un instant."
+				"global": "Je reçois beaucoup de demandes en ce moment. Renvoie ton message dans un instant."
 			}
 		}
 	},
@@ -481,12 +481,12 @@
 		"ai_unavailable": "Les fonctionnalités d’IA sont actuellement indisponibles."
 	},
 	"billing": {
-		"checkout_failed": "Échec du paiement. Veuillez réessayer.",
-		"portal_failed": "Impossible d'ouvrir le portail de facturation. Veuillez réessayer.",
-		"attach_failed": "Impossible de finaliser l'achat. Veuillez réessayer.",
+		"checkout_failed": "Échec du paiement. Réessaie.",
+		"portal_failed": "Impossible d'ouvrir le portail de facturation. Réessaie.",
+		"attach_failed": "Impossible de finaliser l'achat. Réessaie.",
 		"confirmation": {
-			"title": "Confirmez votre achat",
-			"description": "Vérifiez les frais pour {planName} avant de confirmer.",
+			"title": "Confirme ton achat",
+			"description": "Vérifie les frais pour {planName} avant de confirmer.",
 			"product": "Formule",
 			"quantity": "{featureId} inclus",
 			"due_today": "À payer aujourd'hui",
@@ -499,8 +499,8 @@
 			"talk_to_human": "Parler à un humain"
 		},
 		"alerts": {
-			"limit_reached_free": "Passez à Pro pour plus de messages par mois.",
-			"limit_reached_pro": "Vous avez utilisé tous vos messages ce mois-ci. Ils seront réinitialisés le mois prochain.",
+			"limit_reached_free": "Passe à Pro pour plus de messages par mois.",
+			"limit_reached_pro": "Tu as utilisé tous tes messages ce mois-ci. Ils seront réinitialisés le mois prochain.",
 			"low_messages": "{remaining} sur {total} message restant ce mois-ci.",
 			"low_messages_plural": "{remaining} sur {total} messages restants ce mois-ci."
 		},
@@ -523,9 +523,9 @@
 		},
 		"email": {
 			"placeholder": "Email",
-			"save_failed": "Échec de l'enregistrement de l'email. Veuillez réessayer.",
+			"save_failed": "Échec de l'enregistrement de l'email. Réessaie.",
 			"subscribe_button": "S'abonner",
-			"unsubscribe_failed": "Échec du désabonnement. Veuillez réessayer.",
+			"unsubscribe_failed": "Échec du désabonnement. Réessaie.",
 			"unsubscribe_tooltip": "Se désabonner"
 		},
 		"error": {
@@ -537,17 +537,17 @@
 			"pasted_file_too_large": "Fichier collé trop volumineux",
 			"upload_failed": "Échec du téléversement de « {filename} »",
 			"upload_network": "Connexion perdue.",
-			"upload_readd_hint": "Ajoutez de nouveau le fichier.",
-			"upload_retry_hint": "Cliquez pour réessayer.",
+			"upload_readd_hint": "Ajoute de nouveau le fichier.",
+			"upload_retry_hint": "Clique pour réessayer.",
 			"upload_server": "Téléversement refusé."
 		},
 		"input": {
-			"placeholder": "Tapez un message...",
+			"placeholder": "Écris un message...",
 			"placeholder_disabled": "Limite de messages atteinte",
 			"send_tooltip": "Envoyer le message"
 		},
 		"messages": {
-			"rate_limited": "Vous envoyez des messages trop vite. Réessayez dans {seconds}s.",
+			"rate_limited": "Tu envoies des messages trop vite. Réessaie dans {seconds}s.",
 			"send_failed": "Échec de l'envoi du message"
 		},
 		"notices": {
@@ -577,12 +577,12 @@
 		"adding": "Ajout en cours...",
 		"cancel": "Annuler",
 		"confirm": "Confirmer",
-		"confirm_input_placeholder": "Saisissez \"{text}\" pour confirmer.",
+		"confirm_input_placeholder": "Saisis \"{text}\" pour confirmer.",
 		"delete": "Supprimer",
-		"error": "Une erreur est survenue. Veuillez réessayer.",
-		"load_error": "Échec du chargement des données. Veuillez réessayer plus tard.",
-		"upload_in_progress": "Le téléversement est toujours en cours. Attendez la fin.",
-		"you": "Vous"
+		"error": "Une erreur est survenue. Réessaie.",
+		"load_error": "Échec du chargement des données. Réessaie plus tard.",
+		"upload_in_progress": "Le téléversement est toujours en cours. Attends la fin.",
+		"you": "Toi"
 	},
 	"connection": {
 		"clock_skew": {
@@ -603,11 +603,11 @@
 	"email": {
 		"admin_reply": {
 			"button": "Voir la conversation",
-			"description": "{adminName} a répondu à votre conversation de support",
-			"footer": "Vous recevez cet email car vous avez une demande de support en cours.",
-			"preview": "{adminName} a répondu à votre demande de support",
-			"reply_hint": "Pour répondre, ouvrez la conversation de support. Les réponses à cet email ne sont pas ajoutées à votre demande.",
-			"title": "Nouvelle réponse à votre demande"
+			"description": "{adminName} a répondu à ta conversation de support",
+			"footer": "Tu reçois cet email car tu as une demande de support en cours.",
+			"preview": "{adminName} a répondu à ta demande de support",
+			"reply_hint": "Pour répondre, ouvre la conversation de support. Les réponses à cet email ne sont pas ajoutées à ta demande.",
+			"title": "Nouvelle réponse à ta demande"
 		},
 		"badge": {
 			"alert": "Alerte",
@@ -618,7 +618,7 @@
 		"body": {
 			"handoff_no_messages": "L'utilisateur souhaite parler à un humain.",
 			"no_messages": "Aucun message",
-			"ticket_footer": "Vous recevez cet email car vous êtes assigné à ce ticket ou configuré pour recevoir les notifications de support.",
+			"ticket_footer": "Tu reçois cet email parce que ce ticket t'est attribué ou que tu reçois les notifications du support.",
 			"ticket_message": "{userName} a envoyé un nouveau message sur un ticket précédemment fermé",
 			"ticket_new": "Nouveau ticket de support",
 			"ticket_reopened": "Ticket de support rouvert",
@@ -626,8 +626,8 @@
 			"view_admin_dashboard": "Voir dans le tableau de bord admin"
 		},
 		"new_signup": {
-			"description": "Un nouvel utilisateur s'est inscrit sur votre plateforme",
-			"footer": "Vous recevez cet email car les notifications de nouvelles inscriptions sont activées.",
+			"description": "Un nouvel utilisateur s'est inscrit sur ta plateforme",
+			"footer": "Tu reçois cet email car les notifications de nouvelles inscriptions sont activées.",
 			"label_email": "Email :",
 			"label_method": "Méthode :",
 			"label_name": "Nom :",
@@ -636,9 +636,9 @@
 			"title": "Nouvel utilisateur inscrit"
 		},
 		"rate_limit_alert": {
-			"action": "S'il s'agit de trafic réel, augmentez la limite dans la configuration du limiteur du support. S'il provient d'une seule source, il peut s'agir d'un abus.",
+			"action": "S'il s'agit de trafic réel, augmente la limite dans la configuration du limiteur du support. S'il provient d'une seule source, il peut s'agir d'un abus.",
 			"description": "{limitName} des visiteurs non connectés ont utilisé {usedPercent} % de leur limite partagée depuis au moins {minutes} minutes.",
-			"footer": "Vous recevez cet email car les notifications de nouveaux tickets de support sont activées. Chaque limite envoie au plus une alerte toutes les {hours} heures.",
+			"footer": "Tu reçois cet email car les notifications de nouveaux tickets de support sont activées. Chaque limite envoie au plus une alerte toutes les {hours} heures.",
 			"impact": "Une fois épuisée, les visiteurs non connectés verront une erreur de limite de requêtes dans le widget du support.",
 			"label_limit": "Limite :",
 			"label_refill": "Recharge :",
@@ -652,62 +652,62 @@
 			"title": "Limite de requêtes du support presque atteinte"
 		},
 		"reset_password": {
-			"body": "Nous avons reçu une demande de réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe :",
+			"body": "Nous avons reçu une demande de réinitialisation de ton mot de passe. Clique sur le bouton ci-dessous pour définir un nouveau mot de passe :",
 			"button": "Réinitialiser le mot de passe",
-			"disclaimer": "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email. Votre mot de passe restera inchangé.",
+			"disclaimer": "Si tu n'es pas à l'origine de cette demande, tu peux ignorer cet email. Ton mot de passe restera inchangé.",
 			"expiry": "Ce lien expirera dans 1 heure pour des raisons de sécurité.",
 			"greeting": "Bonjour {userName},",
 			"greeting_fallback": "Bonjour,",
-			"preview": "Réinitialisez votre mot de passe",
-			"title": "Réinitialisez votre mot de passe"
+			"preview": "Réinitialise ton mot de passe",
+			"title": "Réinitialise ton mot de passe"
 		},
 		"set_password": {
-			"body": "Nous avons reçu une demande d'ajout d'un mot de passe à votre compte. Il n'en a pas encore, ce lien vous permet donc d'en définir un :",
+			"body": "Nous avons reçu une demande d'ajout d'un mot de passe à ton compte. Il n'en a pas encore, ce lien te permet donc d'en définir un :",
 			"button": "Définir le mot de passe",
-			"disclaimer": "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail. Rien ne change pour votre compte et vous continuez à vous connecter comme aujourd'hui.",
+			"disclaimer": "Si tu n'es pas à l'origine de cette demande, tu peux ignorer cet e-mail. Rien ne change pour ton compte et tu continues à te connecter comme aujourd'hui.",
 			"expiry": "Ce lien expirera dans 1 heure pour des raisons de sécurité.",
 			"greeting": "Bonjour {userName},",
 			"greeting_fallback": "Bonjour,",
-			"preview": "Définir un mot de passe pour votre compte",
+			"preview": "Définir un mot de passe pour ton compte",
 			"title": "Définir un mot de passe"
 		},
 		"subject": {
 			"new_signup": "Nouvelle inscription : {userEmail}",
 			"rate_limit_alert": "Limite de requêtes du support presque atteinte : {limitName}",
-			"reset_password": "Réinitialisez votre mot de passe",
+			"reset_password": "Réinitialise ton mot de passe",
 			"set_password": "Définir un mot de passe",
-			"support_reply": "Nouvelle réponse à votre demande de support",
+			"support_reply": "Nouvelle réponse à ta demande de support",
 			"ticket_new": "Nouveau ticket de support de {userName}",
 			"ticket_reopened": "Ticket de support rouvert par {userName}",
-			"verify": "Vérifiez votre email"
+			"verify": "Vérifie ton email"
 		},
 		"verification": {
 			"button": "Vérifier l'email",
-			"description": "Cliquez sur le bouton ci-dessous pour vérifier votre adresse email",
-			"disclaimer": "Si vous n'avez pas créé de compte, ignorez simplement cet email.",
+			"description": "Clique sur le bouton ci-dessous pour vérifier ton adresse email",
+			"disclaimer": "Si tu n'as pas créé de compte, tu peux ignorer cet email.",
 			"expiry": "Ce lien expirera dans {expiryMinutes} minutes.",
-			"intro": "Merci de votre inscription ! Veuillez vérifier votre adresse email pour finaliser votre inscription.",
-			"preview": "Vérifiez votre adresse email",
-			"title": "Vérifiez votre email"
+			"intro": "Merci pour ton inscription. Vérifie ton adresse email pour finaliser ton inscription.",
+			"preview": "Vérifie ton adresse email",
+			"title": "Vérifie ton email"
 		},
 		"verification_code": {
-			"description": "Saisissez ce code pour finaliser votre vérification",
-			"disclaimer": "Si vous n'avez pas demandé ce code, ignorez simplement cet email.",
+			"description": "Saisis ce code pour finaliser ta vérification",
+			"disclaimer": "Si tu n'as pas demandé ce code, tu peux ignorer cet email.",
 			"expiry": "Ce code expirera dans {expiryMinutes} minutes.",
-			"preview": "Votre code de vérification est {code}",
-			"title": "Vérifiez votre email"
+			"preview": "Ton code de vérification est {code}",
+			"title": "Vérifie ton email"
 		}
 	},
 	"error_page": {
 		"back_home": "Retour à l'accueil",
 		"bug_report_body": "Bonjour,\n\nJ'ai rencontré une erreur en utilisant SaaS Starter.\n\nURL : {url}\nStatut : {status}\n\nCe que je faisais :\n\n\nMerci !",
 		"bug_report_subject": "Rapport de bug : erreur {status} sur SaaS Starter",
-		"generic_description": "Une erreur inattendue s'est produite lors du chargement de cette page. Si cela se reproduit, merci de le signaler à {email}.",
+		"generic_description": "Une erreur inattendue s'est produite lors du chargement de cette page. Si ça se reproduit, signale-le à {email}.",
 		"generic_title": "Un problème est survenu",
 		"need_help": "Besoin d'aide ?",
-		"not_found_description": "La page que vous cherchez n'existe pas. Essayez de rechercher ce dont vous avez besoin ci-dessous.",
+		"not_found_description": "La page que tu cherches n'existe pas. Essaie de rechercher ce dont tu as besoin ci-dessous.",
 		"not_found_title": "404 - Page introuvable",
-		"search_placeholder": "Essayez de rechercher des pages..."
+		"search_placeholder": "Essaie de rechercher des pages..."
 	},
 	"footer": {
 		"copyright": "© {year} {brand}",
@@ -749,12 +749,12 @@
 			},
 			"resend": {
 				"button": "Visiter Resend",
-				"description": "L'API email pour les développeurs. Créez et envoyez des emails transactionnels avec une API moderne et fiable conçue pour l'échelle.",
+				"description": "L'API email pour les développeurs. Crée et envoie des emails transactionnels avec une API moderne et fiable conçue pour l'échelle.",
 				"title": "Resend"
 			},
 			"sentry": {
 				"button": "Visiter Sentry",
-				"description": "Surveillance d'applications et suivi des erreurs. Identifiez les problèmes avant vos utilisateurs avec des alertes en temps réel et des stack traces détaillées.",
+				"description": "Surveillance d'applications et suivi des erreurs. Identifie les problèmes avant tes utilisateurs avec des alertes en temps réel et des stack traces détaillées.",
 				"title": "Sentry"
 			},
 			"shadcn_svblocks": {
@@ -766,7 +766,7 @@
 			},
 			"svelte": {
 				"button": "Visiter Svelte 5",
-				"description": "Le framework frontend le plus aimé. Une façon simple, performante et pérenne de construire votre application web.",
+				"description": "Le framework frontend le plus aimé. Une façon simple, performante et pérenne de construire ton application web.",
 				"title": "Svelte 5"
 			},
 			"tolgee": {
@@ -781,11 +781,11 @@
 	"meta": {
 		"admin": {
 			"audit_log": {
-				"description": "Consultez les actions d'administration sur la plateforme.",
+				"description": "Consulte les actions d'administration sur la plateforme.",
 				"title": "Journal d'audit"
 			},
 			"dashboard": {
-				"description": "Surveillez les métriques de la plateforme et les services externes.",
+				"description": "Surveille les métriques de la plateforme et les services externes.",
 				"title": "Tableau de bord Admin"
 			},
 			"home": {
@@ -793,76 +793,76 @@
 				"title": "Admin"
 			},
 			"settings": {
-				"description": "Configurez les destinataires et préférences de notifications admin.",
+				"description": "Configure les destinataires et préférences de notifications admin.",
 				"title": "Paramètres Admin"
 			},
 			"support": {
-				"description": "Consultez et répondez aux conversations de support client.",
+				"description": "Consulte les conversations de support client et réponds-y.",
 				"title": "Boîte de support"
 			},
 			"users": {
-				"description": "Gérez les utilisateurs, les rôles et l'état des comptes.",
+				"description": "Gère les utilisateurs, les rôles et l'état des comptes.",
 				"title": "Gestion des utilisateurs"
 			}
 		},
 		"app": {
 			"ai_chat": {
-				"description": "Discutez avec notre assistant IA.",
+				"description": "Discute avec notre assistant IA.",
 				"title": "Chat IA"
 			},
 			"community_chat": {
-				"description": "Discutez avec la communauté en temps réel.",
+				"description": "Discute avec la communauté en temps réel.",
 				"title": "Chat communautaire"
 			},
 			"home": {
-				"description": "Redirection vers le tableau de bord de votre espace de travail.",
+				"description": "Redirection vers le tableau de bord de ton espace de travail.",
 				"title": "Accueil App"
 			},
 			"settings": {
-				"description": "Gérez les paramètres et préférences de votre compte.",
+				"description": "Gère les paramètres et préférences de ton compte.",
 				"title": "Paramètres"
 			}
 		},
 		"auth": {
 			"email_verified": {
-				"description": "Votre adresse e-mail a été vérifiée. Vous pouvez continuer vers votre compte.",
+				"description": "Ton adresse e-mail a été vérifiée. Tu peux continuer vers ton compte.",
 				"title": "E-mail vérifié"
 			},
 			"forgot_password": {
-				"description": "Demandez un lien de réinitialisation de mot de passe.",
+				"description": "Demande un lien de réinitialisation de mot de passe.",
 				"title": "Mot de passe oublié"
 			},
 			"reset_password": {
-				"description": "Définissez un nouveau mot de passe pour votre compte.",
+				"description": "Définis un nouveau mot de passe pour ton compte.",
 				"title": "Réinitialiser le mot de passe"
 			},
 			"signin": {
-				"description": "Connectez-vous à votre compte.",
+				"description": "Connecte-toi à ton compte.",
 				"title": "Connexion"
 			},
 			"signup": {
-				"description": "Créez un nouveau compte pour commencer.",
+				"description": "Crée un nouveau compte pour commencer.",
 				"title": "Inscription"
 			}
 		},
 		"home": {
 			"description": "Starter SaaS pour SvelteKit avec auth, paiements, email et analytics.",
-			"title": "Construisez et lancez votre produit plus rapidement"
+			"title": "Construis et lance ton produit plus rapidement"
 		},
 		"impressum": {
 			"description": "Identification du fournisseur et coordonnées de contact.",
 			"title": "Impressum"
 		},
 		"pricing": {
-			"description": "Choisissez une offre et testez le flux de facturation intégré.",
+			"description": "Choisis une offre et teste le flux de facturation intégré.",
 			"title": "Tarifs"
 		},
 		"privacy": {
-			"description": "Comment nous collectons, utilisons et protégeons vos données.",
+			"description": "Comment nous collectons, utilisons et protégeons tes données.",
 			"title": "Politique de confidentialité"
 		},
 		"shadcn_demo": {
-			"description": "Prévisualisez les composants UI utilisés dans ce projet.",
+			"description": "Prévisualise les composants UI utilisés dans ce projet.",
 			"title": "Démo Shadcn"
 		},
 		"terms": {
@@ -883,7 +883,7 @@
 			"loading": "Chargement..."
 		},
 		"current_plan_badge": "(Plan Actuel)",
-		"description": "Ce modèle SaaS starter est complètement gratuit et open source. Testez le flux de paiement en utilisant le numéro de carte de test 4242 4242 4242 4242 avec n'importe quelle date d'expiration future.",
+		"description": "Ce modèle SaaS starter est complètement gratuit et open source. Teste le flux de paiement avec le numéro de carte de test 4242 4242 4242 4242 et n'importe quelle date d'expiration future.",
 		"features": {
 			"enterprise": {
 				"0": "Limites de messages personnalisées",
@@ -927,11 +927,11 @@
 				"price": "10€ / mois"
 			}
 		},
-		"title": "Tarification qui Évolue Avec Vous"
+		"title": "Tarification qui Évolue Avec Toi"
 	},
 	"search": {
 		"command": {
-			"dialog_description": "Recherchez une page vers laquelle naviguer.",
+			"dialog_description": "Recherche une page vers laquelle naviguer.",
 			"dialog_title": "Rechercher des pages",
 			"footer": {
 				"go_to_page": "Aller à la page"
@@ -953,72 +953,72 @@
 		"account": {
 			"avatar": {
 				"alt": "Aperçu du profil",
-				"rate_limited": "Trop de tentatives d'envoi. Réessayez dans {seconds}s.",
+				"rate_limited": "Trop de tentatives d'envoi. Réessaie dans {seconds}s.",
 				"ready": "Image prête à enregistrer",
-				"removed": "Image supprimée - cliquez sur Enregistrer pour confirmer",
+				"removed": "Image supprimée - clique sur Enregistrer pour confirmer",
 				"uploading": "Téléversement de l'image…",
-				"select_error": "Veuillez sélectionner un fichier image",
+				"select_error": "Sélectionne un fichier image",
 				"size_error": "L'image doit être inférieure à {size}",
 				"upload_failed": "Échec du téléchargement de l'image"
 			},
-			"description": "Mettez à jour les informations de votre compte ici.",
+			"description": "Mets à jour les informations de ton compte ici.",
 			"error": "Échec de la mise à jour du profil",
 			"file_helper": "PNG, JPG ou GIF jusqu'à 2 Mo.",
 			"link_from_url": "Lien depuis URL",
 			"name": {
-				"placeholder": "Votre nom"
+				"placeholder": "Ton nom"
 			},
-			"name_helper": "C'est votre nom d'affichage public.",
+			"name_helper": "C'est ton nom d'affichage public.",
 			"name_label": "Nom",
 			"no_image": "Pas d'image",
 			"or": "ou",
 			"profile_picture": "Photo de profil",
-			"profile_picture_helper": "Téléchargez une image ou collez un lien. Nous recommandons une image carrée de moins de 2 Mo.",
+			"profile_picture_helper": "Télécharge une image ou colle un lien. Nous recommandons une image carrée de moins de 2 Mo.",
 			"remove_button": "Supprimer",
 			"save_button": "Enregistrer",
 			"saving": "Enregistrement...",
 			"success": "Profil mis à jour avec succès",
 			"title": "Informations du compte",
 			"upload_file": "Télécharger un fichier",
-			"url_helper": "Collez un lien d'image au lieu de télécharger.",
+			"url_helper": "Colle un lien d'image au lieu de télécharger.",
 			"url_placeholder": "https://example.com/avatar.jpg"
 		},
-		"description": "Gérez les paramètres et préférences de votre compte.",
+		"description": "Gère les paramètres et préférences de ton compte.",
 		"email": {
 			"current_email_label": "E-mail actuel",
-			"description": "Mettez à jour votre adresse e-mail pour les notifications et la connexion.",
+			"description": "Mets à jour ton adresse e-mail pour les notifications et la connexion.",
 			"error_title": "Erreur",
 			"new_email_label": "Nouvelle adresse e-mail",
-			"not_verified_description": "Votre e-mail actuel n'est pas vérifié. Le nouvel e-mail sera mis à jour immédiatement sans vérification.",
+			"not_verified_description": "Ton e-mail actuel n'est pas vérifié. Le nouvel e-mail sera mis à jour immédiatement sans vérification.",
 			"not_verified_title": "E-mail non vérifié",
-			"placeholder": "Entrez la nouvelle adresse email",
+			"placeholder": "Entre la nouvelle adresse email",
 			"title": "Adresse e-mail",
 			"unverified_badge": "Non vérifié",
 			"update_button": "Mettre à jour l'e-mail",
 			"updating": "Mise à jour...",
-			"verification_required_description": "Un e-mail de vérification sera envoyé à votre adresse actuelle. Vous devez approuver le changement avant que votre nouvel e-mail soit actif.",
+			"verification_required_description": "Un e-mail de vérification sera envoyé à ton adresse actuelle. Tu dois approuver le changement avant que ton nouvel e-mail soit actif.",
 			"verification_required_title": "Vérification requise",
 			"verified_badge": "Vérifié"
 		},
 		"password": {
 			"confirm_password_label": "Confirmer le nouveau mot de passe",
 			"current_password_label": "Mot de passe actuel",
-			"description": "Mettez à jour votre mot de passe pour sécuriser votre compte.",
+			"description": "Mets à jour ton mot de passe pour sécuriser ton compte.",
 			"error_title": "Erreur",
 			"new_password_label": "Nouveau mot de passe",
 			"placeholder": {
-				"confirm": "Confirmez le nouveau mot de passe",
-				"current": "Entrez le mot de passe actuel",
-				"new": "Entrez le nouveau mot de passe"
+				"confirm": "Confirme le nouveau mot de passe",
+				"current": "Entre le mot de passe actuel",
+				"new": "Entre le nouveau mot de passe"
 			},
 			"revoke_sessions_label": "Se déconnecter de tous les autres appareils",
-			"security_notice_description": "Si cette option est activée, changer votre mot de passe vous déconnectera de tous les autres appareils.",
+			"security_notice_description": "Si cette option est activée, changer ton mot de passe te déconnectera de tous les autres appareils.",
 			"security_notice_title": "Avis de sécurité",
 			"set_button": "Définir le mot de passe",
-			"set_description": "Vous vous connectez avec un fournisseur associé. Définissez un mot de passe pour vous connecter également avec votre adresse e-mail.",
+			"set_description": "Tu te connectes avec un fournisseur associé. Définis un mot de passe pour te connecter aussi avec ton adresse e-mail.",
 			"set_title": "Définir un mot de passe",
 			"setting": "Définition...",
-			"state_unknown": "Vérification de vos méthodes de connexion. Rechargez la page si cela persiste.",
+			"state_unknown": "Vérification de tes méthodes de connexion. Recharge la page si cela persiste.",
 			"title": "Changer le mot de passe",
 			"unknown_title": "Mot de passe",
 			"update_button": "Mettre à jour le mot de passe",
@@ -1026,25 +1026,25 @@
 		},
 		"security": {
 			"add_button": "Ajouter un Passkey",
-			"add_passkey_helper": "Donnez un nom à votre passkey pour identifier sur quel appareil il est enregistré.",
+			"add_passkey_helper": "Donne un nom à ton passkey pour identifier sur quel appareil il est enregistré.",
 			"add_passkey_title": "Ajouter un Passkey",
 			"adding": "Ajout en cours...",
 			"created_at": "Créé le ",
 			"delete_passkey": "Supprimer la passkey",
-			"description": "Gérez vos passkeys et paramètres de sécurité.",
+			"description": "Gère tes passkeys et paramètres de sécurité.",
 			"error_title": "Erreur",
 			"loading": "Chargement des passkeys...",
-			"no_passkeys": "Vous n'avez pas encore enregistré de passkey.",
+			"no_passkeys": "Tu n'as pas encore enregistré de passkey.",
 			"passkey": {
 				"placeholder": "Nom du passkey",
 				"unnamed": "Passkey sans nom"
 			},
-			"passkey_info_description": "Les passkeys sont un moyen sécurisé de se connecter sans mot de passe. Ils utilisent la biométrie ou le code PIN de l'appareil et sont stockés en toute sécurité sur vos appareils.",
+			"passkey_info_description": "Les passkeys sont un moyen sécurisé de se connecter sans mot de passe. Ils utilisent la biométrie ou le code PIN de l'appareil et sont stockés en toute sécurité sur tes appareils.",
 			"passkey_info_title": "Que sont les Passkeys ?",
 			"passkey_name_label": "Nom du passkey",
 			"passkey_undo": "Annuler",
 			"title": "Sécurité",
-			"your_passkeys_title": "Vos Passkeys"
+			"your_passkeys_title": "Tes Passkeys"
 		},
 		"tabs": {
 			"account": "Compte",
@@ -1063,12 +1063,12 @@
 			"start_new_conversation": "Démarrer une nouvelle conversation"
 		},
 		"chatbar": {
-			"placeholder": "Posez-moi une question…",
-			"disclosure": "L'IA peut faire des erreurs. Vérifiez les informations importantes."
+			"placeholder": "Pose-moi une question…",
+			"disclosure": "L'IA peut faire des erreurs. Vérifie les informations importantes."
 		},
 		"greeting": {
 			"hi": "Salut",
-			"how_can_we_help": "Comment pouvons-nous vous aider aujourd'hui ?"
+			"how_can_we_help": "Comment pouvons-nous t'aider aujourd'hui ?"
 		},
 		"header": {
 			"support_team": "Équipe de Support"
@@ -1076,7 +1076,7 @@
 		"message": {
 			"role_kai": "Kai",
 			"role_support": "Support",
-			"role_you": "Vous"
+			"role_you": "Toi"
 		},
 		"screenshot": {
 			"action": {
@@ -1104,8 +1104,8 @@
 			},
 			"error": {
 				"title": "Impossible de réaliser la capture d'écran",
-				"description": "Une erreur s'est produite lors de la capture. Vous pouvez réessayer ou contacter le support si le problème persiste.",
-				"event_id": "Indiquez cet identifiant lorsque vous contactez le support : {id}",
+				"description": "Une erreur s'est produite lors de la capture. Tu peux réessayer ou contacter le support si le problème persiste.",
+				"event_id": "Indique cet identifiant quand tu contactes le support : {id}",
 				"retry": "Réessayer",
 				"contact": "Contacter le support",
 				"cancel": "Annuler",
@@ -1119,13 +1119,13 @@
 			"bug_report_text": "J'ai trouvé un bug !",
 			"feature_request_label": "Demander une fonctionnalité",
 			"feature_request_text": "J'aimerais voir",
-			"help_label": "Aidez-moi avec...",
-			"help_text": "Aidez-moi à configurer le projet.",
+			"help_label": "Aide-moi avec...",
+			"help_text": "Aide-moi à configurer le projet.",
 			"question_label": "Poser une question",
 			"question_text": "Pourquoi SaaS Starter ?"
 		},
 		"thread": {
-			"load_error": "Échec du chargement des conversations. Veuillez réessayer plus tard.",
+			"load_error": "Échec du chargement des conversations. Réessaie plus tard.",
 			"new_conversation": "Nouvelle conversation",
 			"unread_reply": "Réponse du support non lue"
 		},
@@ -1141,18 +1141,18 @@
 		},
 		"widget": {
 			"error": {
-				"handoff_failed": "Échec de la demande de support humain. Veuillez réessayer.",
-				"rate_limit": "Doucement ! Veuillez attendre {seconds}s avant d'envoyer un autre message.",
-				"send_failed": "Échec de l'envoi du message. Veuillez réessayer."
+				"handoff_failed": "Échec de la demande de support humain. Réessaie.",
+				"rate_limit": "Doucement. Attends {seconds}s avant d'envoyer un autre message.",
+				"send_failed": "Échec de l'envoi du message. Réessaie."
 			},
 			"header": {
 				"bot_response": "Notre bot répondra instantanément",
 				"messages": "Messages",
-				"with_team": "Votre demande est auprès de notre équipe"
+				"with_team": "Ta demande est auprès de notre équipe"
 			},
 			"input": {
-				"placeholder": "Tapez un message ou cliquez sur une suggestion...",
-				"placeholder_no_suggestions": "Tapez un message..."
+				"placeholder": "Écris un message ou clique sur une suggestion...",
+				"placeholder_no_suggestions": "Écris un message..."
 			}
 		}
 	},
@@ -1183,20 +1183,20 @@
 	"validation": {
 		"confirm_password": {
 			"mismatch": "Les mots de passe ne correspondent pas.",
-			"required": "Veuillez confirmer votre mot de passe."
+			"required": "Confirme ton mot de passe."
 		},
 		"email": {
-			"invalid": "Veuillez entrer une adresse e-mail valide.",
-			"required": "Veuillez entrer votre adresse e-mail."
+			"invalid": "Entre une adresse e-mail valide.",
+			"required": "Entre ton adresse e-mail."
 		},
 		"name": {
-			"required": "Veuillez entrer votre nom."
+			"required": "Entre ton nom."
 		},
 		"password": {
 			"lowercase": "Le mot de passe doit contenir au moins une lettre minuscule.",
 			"min_length": "Le mot de passe doit contenir au moins {count, number} caractères.",
 			"number": "Le mot de passe doit contenir au moins un chiffre.",
-			"required": "Veuillez entrer votre mot de passe.",
+			"required": "Entre ton mot de passe.",
 			"uppercase": "Le mot de passe doit contenir au moins une lettre majuscule."
 		}
 	}
