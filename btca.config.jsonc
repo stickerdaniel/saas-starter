@@ -5,6 +5,24 @@
 	"resources": [
 		{
 			"type": "git",
+			"name": "actionsCache",
+			"url": "https://github.com/actions/cache",
+			"branch": "main"
+		},
+		{
+			"type": "git",
+			"name": "eslint",
+			"url": "https://github.com/eslint/eslint",
+			"branch": "main"
+		},
+		{
+			"type": "git",
+			"name": "misspell",
+			"url": "https://github.com/client9/misspell",
+			"branch": "master"
+		},
+		{
+			"type": "git",
 			"name": "svelte",
 			"url": "https://github.com/sveltejs/svelte.dev",
 			"branch": "main",

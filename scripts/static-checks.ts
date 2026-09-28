@@ -1637,7 +1637,7 @@ async function main(): Promise<void> {
 			const fixArgs = assertMode ? [] : ['--fix'];
 			const files = ledger.filesFor('eslint');
 			if (!scopedMode) {
-				await runCommand('bun', ['eslint', '.', ...fixArgs]);
+				await runCommand('bun', ['eslint', '.', '--concurrency', '2', ...fixArgs]);
 				ledger.ran('eslint');
 			} else if (files.length > 0) {
 				await runCommand('bun', ['eslint', ...fixArgs, ...files]);

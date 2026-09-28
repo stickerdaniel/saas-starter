@@ -9,6 +9,7 @@ jobs:
   e2e-skipped:
     name: E2E Skipped Status
     runs-on: ubicloud-standard-2
+    timeout-minutes: 2
     permissions:
       statuses: write
     if: |
@@ -32,6 +33,7 @@ jobs:
   e2e-build-failed:
     name: E2E Build Failed Status
     runs-on: ubicloud-standard-2
+    timeout-minutes: 2
     permissions:
       statuses: write
     # conclusion is always terminal here because the trigger is check_run: [completed]
@@ -63,6 +65,7 @@ jobs:
   e2e-tests:
     name: E2E Tests
     runs-on: ubicloud-standard-2
+    timeout-minutes: 25
     permissions:
       statuses: write
       contents: read
