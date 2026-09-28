@@ -442,12 +442,18 @@ void api.compatUnicodeTarget.viewer;
 	// The fixture above lives in the temporary directory, and session artifacts still land in
 	// `scratch/`. Ask Vitest rather than searching configuration text: the string can survive
 	// in a comment after the effective exclusion is removed.
-	it('keeps session scratch out of Vitest discovery', () => {
-		const directory = path.join(ROOT, 'scratch', `compat-discovery-${process.pid}`);
-		const relative = `scratch/compat-discovery-${process.pid}/sentinel.test.ts`;
-		mkdirSync(directory, { recursive: true });
+	it('keeps session scratch and nested agent worktrees out of Vitest discovery', () => {
+		const directories = ['scratch', '.claude/worktrees'].map((parent) =>
+			path.join(ROOT, parent, `compat-discovery-${process.pid}`)
+		);
 		try {
-			writeFileSync(path.join(ROOT, relative), "throw new Error('collected scratch sentinel');\n");
+			for (const directory of directories) {
+				mkdirSync(directory, { recursive: true });
+				writeFileSync(
+					path.join(directory, 'sentinel.test.ts'),
+					"throw new Error('collected session sentinel');\n"
+				);
+			}
 			const result = spawnSync(BUN, ['vitest', 'list', '--filesOnly'], {
 				cwd: ROOT,
 				env: sanitizedGitEnv(),
@@ -455,8 +461,9 @@ void api.compatUnicodeTarget.viewer;
 			});
 			expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
 			expect(`${result.stdout}${result.stderr}`).not.toContain('sentinel.test.ts');
+			expect(result.stdout).toContain('scripts/static-checks.compat.test.ts');
 		} finally {
-			rmSync(directory, { recursive: true, force: true });
+			for (const directory of directories) rmSync(directory, { recursive: true, force: true });
 		}
 	});
 

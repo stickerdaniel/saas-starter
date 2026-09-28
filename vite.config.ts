@@ -394,9 +394,9 @@ export default defineConfig(async ({ mode }) => {
 				'scratch/**',
 				'.opencode/**',
 				'references/**',
-				// Skills live in .agents/skills/ and are symlinked into .claude/skills/;
-				// exclude the symlinked path so tests are not discovered and run twice.
-				'.claude/skills/**',
+				// Agent worktrees and symlinked skills are copies of owned tests.
+				// Discover the originals, including .agents/skills/, only once.
+				'.claude/**',
 				// The creator package has its own Vitest project and root command.
 				'packages/create-saas-starter/test/**',
 				// Repository-spawning detector tests run in their own CI job.
