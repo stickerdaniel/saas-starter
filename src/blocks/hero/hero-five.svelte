@@ -45,7 +45,7 @@
 							<span class="text-nowrap"><T keyName="hero.cta" /></span>
 							<LearnMoreChevron class="ml-1" />
 						</HeroFiveCta>
-						<HeroFiveCta emphasis="demo" href="#link">
+						<HeroFiveCta emphasis="demo" href="?support=open" data-sveltekit-noscroll>
 							<span class="text-nowrap"><T keyName="hero.cta_demo" /></span>
 						</HeroFiveCta>
 					</div>
