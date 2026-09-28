@@ -78,9 +78,7 @@ const defaultPasswordState: PasswordState = {
 class PasswordRootState {
 	passwordState = $state(defaultPasswordState);
 
-	constructor(readonly opts: PasswordRootStateProps) {
-		loadZxcvbn();
-	}
+	constructor(readonly opts: PasswordRootStateProps) {}
 
 	// Re-runs when password changes OR when dictionariesLoaded flips to true
 	strength = $derived.by(() => {
@@ -169,6 +167,9 @@ class PasswordStrengthState {
 		this.root.passwordState.strengthMounted = true;
 
 		$effect(() => {
+			// Plain password inputs never need the scoring dictionaries, including during SSR.
+			void loadZxcvbn();
+
 			return () => {
 				this.root.passwordState.strengthMounted = false;
 			};
