@@ -17,6 +17,7 @@
  * and dependency-free local modules.
  */
 
+import { spawnSync } from 'child_process';
 import {
 	accessSync,
 	chmodSync,
@@ -355,6 +356,98 @@ function removeMaintainerCliFiles(): void {
 	}
 	if (inspectRemovalTarget(CREATOR_PACKAGE, 'directory')) {
 		rmSync(join(ROOT, CREATOR_PACKAGE), { recursive: true });
+	}
+}
+
+const UPSTREAM_SYNC_MARKER = '.upstream-sync.json';
+const SCAFFOLD_MARKER = '.saas-starter-scaffold.json';
+const FULL_COMMIT_SHA = /^[0-9a-f]{40}$/;
+
+function gitAtRoot(args: string[]): string | undefined {
+	const env = { ...process.env };
+	for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY']) {
+		delete env[key];
+	}
+	const result = spawnSync('git', args, { cwd: ROOT, encoding: 'utf-8', env });
+	return result.status === 0 ? result.stdout.trim() : undefined;
+}
+
+/**
+ * The upstream commit this project was created from, when setup can know it exactly:
+ * the CLI scaffold sha, or HEAD of a clone or fork while HEAD still sits on an
+ * `upstream` ref. A later fast-forward sync hides this point from Git, so it has to
+ * be recorded now. A template copy's bootstrap commit is not an upstream commit;
+ * its exact tree match stays findable, so nothing is recorded there.
+ */
+async function creationForkPoint(): Promise<string | undefined> {
+	const toplevel = gitAtRoot(['rev-parse', '--show-toplevel']);
+	const inGit = !!toplevel && realpathSync(toplevel) === REAL_ROOT;
+	let scaffold: Record<string, unknown> | undefined;
+	if (inGit) {
+		// Once Git has the marker, its first commit wins over a later edit, exactly as
+		// the upstream-sync skill reads it. Loaded lazily: the CLI runs setup before
+		// `git init`, from an archive this path is not a declared setup input of.
+		const { readScaffoldMarker } =
+			await import('../.agents/skills/upstream-sync/scripts/scaffold-marker');
+		scaffold = readScaffoldMarker(ROOT)?.marker;
+	} else {
+		try {
+			scaffold = JSON.parse(readFileSync(join(ROOT, SCAFFOLD_MARKER), 'utf-8'));
+		} catch {
+			// No readable scaffold marker: not a CLI project.
+		}
+	}
+	if (
+		scaffold?.source === TEMPLATE_REPOSITORY &&
+		typeof scaffold.sha === 'string' &&
+		FULL_COMMIT_SHA.test(scaffold.sha)
+	) {
+		return scaffold.sha;
+	}
+	if (!inGit) return undefined;
+	const head = gitAtRoot(['rev-parse', '--verify', '--quiet', 'HEAD^{commit}']);
+	if (!head) return undefined;
+	const upstreamRefs = gitAtRoot([
+		'for-each-ref',
+		'--contains',
+		head,
+		'--format=%(refname)',
+		'refs/remotes/upstream/'
+	]);
+	return upstreamRefs ? head : undefined;
+}
+
+/** Records the creation fork point once; an existing marker always wins. */
+async function recordForkPoint(): Promise<void> {
+	const path = join(ROOT, UPSTREAM_SYNC_MARKER);
+	try {
+		lstatSync(path);
+		return;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+			console.error(`  skipped ${UPSTREAM_SYNC_MARKER}: ${errorMessage(error)}`);
+			return;
+		}
+	}
+	let forkPoint: string | undefined;
+	try {
+		forkPoint = await creationForkPoint();
+	} catch (error) {
+		console.error(`  skipped ${UPSTREAM_SYNC_MARKER}: ${errorMessage(error)}`);
+		return;
+	}
+	if (!forkPoint) return;
+	try {
+		writeFileSync(path, JSON.stringify({ forkPoint }, null, '\t') + '\n', {
+			encoding: 'utf-8',
+			flag: 'wx'
+		});
+		console.log(`  recorded ${UPSTREAM_SYNC_MARKER} (forkPoint ${forkPoint.slice(0, 8)})`);
+	} catch (error) {
+		console.error(
+			`  could not record ${UPSTREAM_SYNC_MARKER}: ${errorMessage(error)}\n` +
+				`  Commit {"forkPoint": "${forkPoint}"} in it yourself before the first upstream sync.`
+		);
 	}
 }
 
@@ -2005,6 +2098,7 @@ async function main() {
 	console.log('  updated app.html');
 
 	removeMaintainerCliFiles();
+	await recordForkPoint();
 
 	console.log('\nSetup complete. Next steps:');
 	console.log('  1. Replace static/logo.svg with your logo, then run: bun run build:emails');

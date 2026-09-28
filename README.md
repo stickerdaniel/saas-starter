@@ -25,9 +25,11 @@ The stack is deliberately opinionated, following [Rich Harris's case](https://ww
 
 How you create your project decides how it receives later starter changes, so choose before you create it:
 
-- **CLI or GitHub template** ([Quick Start](#quick-start)): a content copy with its own history and visibility. A GitHub template starts with a single commit; the CLI creates a directory without a Git repository, so initialize, commit, and publish it yourself first. Neither shares a Git ancestor with this repository, so an ordinary merge or rebase has no common base to work from. Take later changes with `bun run upstream:sync` and `bun run upstream:changes` through the [upstream-sync skill](.agents/skills/upstream-sync/SKILL.md), which supports content copies only.
-- **Shared-history clone**: keeps this repository as `upstream` and pushes to your own `origin`, so later changes arrive through `git fetch upstream` and `git merge upstream/main`. Your repository carries the full starter history and has no GitHub "Sync fork" relationship.
+- **CLI or GitHub template** ([Quick Start](#quick-start)): a content copy with its own history and visibility. A GitHub template starts with a single commit; the CLI creates a directory without a Git repository, so initialize, commit, and publish it yourself first. Neither shares a Git ancestor with this repository, so an ordinary merge or rebase has no common base to work from.
+- **Shared-history clone**: keeps this repository as `upstream` and pushes to your own `origin`, so `git merge upstream/main` can bring later changes in. Your repository carries the full starter history and has no GitHub "Sync fork" relationship.
 - **GitHub fork**: keeps the full history in this repository's fork network. A fork of this public repository stays public, cannot change its visibility on its own, and shares pushed commits with the whole network. When upstream changes conflict with yours, GitHub's "Sync fork" offers a pull request and `gh repo sync` stops; its `--force` flag would discard your commits, so resolve conflicts by merging `upstream/main` locally or through that pull request.
+
+Every model takes later changes through the [upstream-sync skill](.agents/skills/upstream-sync/SKILL.md), started with `bun run upstream:sync` and `bun run upstream:changes`. It reviews each upstream commit by intent and adapts it to what your product changed. A merge into a clone or fork moves the bytes, and the skill still reviews every commit that merge brought in.
 
 For a shared-history clone, create an empty repository for your product, then run:
 
