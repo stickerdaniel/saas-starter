@@ -11,6 +11,7 @@ import {
 } from './notificationPreferences/helpers';
 import { runAdminAuthApi } from './adminAuthErrors';
 import { ADMIN_ERROR_CODES, createAdminError } from './errors';
+import { incrementCounter } from './counters';
 
 /**
  * Helper to find a user by email from the BetterAuth component
@@ -194,9 +195,12 @@ export const setUserRole = adminMutation({
 			}
 		});
 
-		// Sync notification preferences (explicit call to ensure consistency)
-		// This is redundant with Better Auth triggers but guarantees sync
-		// even if triggers fail or when editing via Convex Dashboard
+		// Direct component writes skip auth triggers. Keep counters and preferences
+		// in this transaction so a failed preference update also rolls back the role.
+		if (wasAdmin !== isAdmin) {
+			await incrementCounter(ctx, 'adminCount', isAdmin ? 1 : -1);
+		}
+
 		if (!wasAdmin && isAdmin) {
 			// Promoted to admin → activate/create preferences
 			await syncAdminPreferences(ctx, { userId: args.userId, email: user.email });
@@ -258,7 +262,8 @@ export const seedFirstAdmin = internalMutation({
 			}
 		});
 
-		// Create notification preferences for the new admin
+		// This direct component write also bypasses the auth update trigger.
+		await incrementCounter(ctx, 'adminCount', 1);
 		await syncAdminPreferences(ctx, { userId: user._id, email: user.email });
 
 		console.log(`User ${args.email} has been set as admin`);
