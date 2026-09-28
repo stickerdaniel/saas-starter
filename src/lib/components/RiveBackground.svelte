@@ -18,7 +18,8 @@
 
 <script lang="ts">
 	import type { Rive } from '@rive-app/canvas';
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { useMutationObserver } from 'runed';
 	import { TAILWIND_BREAKPOINTS, useMedia } from '$lib/hooks/use-media.svelte.ts';
 	import { Spotlight } from '$lib/components/ui/spotlight/index.js';
@@ -70,7 +71,15 @@
 	let cachedBuffer: ArrayBuffer | null = null;
 	let cachedSrc: string | null = null;
 
-	onMount(() => {
+	$effect(() => {
+		if (prefersReducedMotion.current || (desktopOnly && !media.lg)) return;
+		const source = src;
+		const machine = stateMachine;
+		const deferred = defer;
+		return untrack(() => initializeRive(source, machine, deferred));
+	});
+
+	function initializeRive(source: string, machine: string, deferred: boolean) {
 		let destroyed = false;
 		const abortController = new AbortController();
 		let timeoutId: number | null = null;
@@ -87,11 +96,11 @@
 				if (!canvasElement) return;
 
 				// Fetch the .riv file manually if not cached or src changed
-				if (!cachedBuffer || cachedSrc !== src) {
-					const response = await fetch(src, { signal: abortController.signal });
-					if (!response.ok) throw new Error(`Failed to fetch ${src}: ${response.status}`);
+				if (!cachedBuffer || cachedSrc !== source) {
+					const response = await fetch(source, { signal: abortController.signal });
+					if (!response.ok) throw new Error(`Failed to fetch ${source}: ${response.status}`);
 					cachedBuffer = await response.arrayBuffer();
-					cachedSrc = src;
+					cachedSrc = source;
 				}
 
 				if (destroyed) return;
@@ -106,7 +115,7 @@
 					buffer: riveBuffer,
 					canvas: canvasElement,
 					autoplay: true,
-					stateMachines: stateMachine,
+					stateMachine: machine,
 					onLoad: () => {
 						if (destroyed) return;
 						riveInstance?.resizeDrawingSurfaceToCanvas();
@@ -142,12 +151,6 @@
 			await initRive();
 		}
 
-		const isDesktop = window.matchMedia(`(min-width: ${TAILWIND_BREAKPOINTS.lg})`).matches;
-		if (desktopOnly && !isDesktop) {
-			isLoaded = true;
-			return;
-		}
-
 		function scheduleStart(): void {
 			if (destroyed) return;
 
@@ -163,7 +166,7 @@
 			}, 10000);
 		}
 
-		if (!defer) {
+		if (!deferred) {
 			void startRive();
 		} else if (document.readyState === 'complete') {
 			scheduleStart();
@@ -187,8 +190,11 @@
 				clearTimeout(timeoutId);
 			}
 			riveInstance?.cleanup();
+			riveInstance = null;
+			shouldRender = false;
+			isLoaded = false;
 		};
-	});
+	}
 </script>
 
 <div class={className}>
