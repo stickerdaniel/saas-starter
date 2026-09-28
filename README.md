@@ -149,7 +149,7 @@ Each PR gets its own preview deployment with an isolated Convex preview backend.
 
 Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) and connect your repo to your hosting platform.
 
-Protect the production branch, require the `Lint & Format` and `English PR Metadata` checks, and enable **Require branches to be up to date before merging**. `English PR Metadata` checks the pull request title and each prose paragraph in the body. `Lint & Format` runs the Convex consumer-compatibility guard, and the up-to-date requirement makes its baseline include every change already merged to production. Hosting builds start from a push, so the push-time copy of the check serves as an alarm after an unsupported direct or administrative push and cannot stop a build that already started.
+Protect the production branch, require the `Lint & Format` and `English PR Metadata` checks, and leave **Require branches to be up to date before merging** disabled so independent PRs can finish their checks in parallel. `English PR Metadata` checks the pull request title and each prose paragraph in the body. `Lint & Format` runs the Convex consumer-compatibility guard against the candidate it checks. Before merging, fetch the target and inspect intervening changes; update for conflicts or actual integration dependencies. Checks on an older candidate do not certify the combined tree after the target advances. Hosting builds start from a push, so the push-time check can report a problem after a build has already started.
 
 The guard forces the compatibility release for a renamed function. Alias retirement still needs operational evidence: browser bundles can remain open indefinitely, and a scheduled target must remain until every pending `runAfter` or `runAt` job carrying its old path has run or been cancelled.
 
@@ -247,7 +247,7 @@ Set the required platform and Convex production variables listed in the [environ
 
 ### Deploy
 
-Merge a reviewed pull request into your production branch (default: `main`) and the connected platform deploys the resulting push. Deployment is push-driven, so whatever the merge puts on that branch becomes the production build. Keeping review in that path is a maintainer procedure; what branch protection enforces is the narrower technical half described under [Preview Deployments](#preview-deployments), that a pull request's required checks passed against an up-to-date branch. Verify or configure those settings separately for each fork, since they live in GitHub rather than in this repository and an organization rule may already supply some of them.
+Merge a reviewed pull request into your production branch (default: `main`) and the connected platform deploys the resulting push. Deployment is push-driven, so whatever the merge puts on that branch becomes the production build. Keeping review in that path is a maintainer procedure; what branch protection enforces is the narrower technical half described under [Preview Deployments](#preview-deployments), that a pull request's required checks passed on its tested candidate. Inspect intervening changes before merging an independent PR whose target has advanced. Verify or configure those settings separately for each fork, since they live in GitHub rather than in this repository and an organization rule may already supply some of them.
 
 Each supported platform also has a manual deploy:
 
