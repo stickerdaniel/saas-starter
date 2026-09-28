@@ -9,10 +9,12 @@
 	 * reaches a browser whose bundle failed to load or hydrate, and removed on
 	 * mount.
 	 *
-	 * Hidden at first paint and revealed after a delay that a normal load beats,
-	 * so visitors whose page hydrates never see it. Without scripting there is
-	 * nothing to wait for, and the `<noscript>` style shows it at once. That
-	 * style rather than `@media (scripting: none)`, which Safari before 17 lacks.
+	 * Place it directly above the card column; it takes that column's width.
+	 * It is collapsed at first paint and revealed after a delay that a normal
+	 * load beats, so visitors whose page hydrates never see it and the card does
+	 * not move when it goes. Without scripting there is nothing to wait for, and
+	 * the `<noscript>` style shows it at once. That style rather than
+	 * `@media (scripting: none)`, which Safari before 17 lacks.
 	 *
 	 * The status region itself stays exposed while its content is hidden, so
 	 * the content revealed after a failed hydration is announced as an addition
@@ -32,6 +34,7 @@
 		<style>
 			[data-javascript-notice] {
 				visibility: visible !important;
+				height: auto !important;
 				animation: none !important;
 			}
 		</style>
@@ -39,9 +42,11 @@
 </svelte:head>
 
 {#if !hydrated}
-	<div role="status" class="pointer-events-none fixed inset-x-0 top-0 z-50">
-		<div data-javascript-notice class="javascript-notice pointer-events-auto bg-background">
-			<p class="border-b border-warning/20 bg-warning/10 p-4 text-center text-foreground">
+	<div role="status" class="w-full max-w-sm md:max-w-3xl">
+		<div data-javascript-notice class="javascript-notice">
+			<p
+				class="mb-6 rounded-xl border border-warning/20 bg-warning/10 px-4 py-3 text-center text-sm text-balance text-foreground"
+			>
 				<TriangleAlertIcon class="me-1.5 inline-block size-4 align-text-bottom text-warning" />
 				<T keyName="auth.javascript_required" />
 			</p>
@@ -50,14 +55,20 @@
 {/if}
 
 <style>
+	/* Collapsed, not only invisible: a hidden box that kept its height would push
+	   the centered card down until hydration removed it. The overflow clip also
+	   keeps the paragraph's bottom margin inside the collapsed box. */
 	.javascript-notice {
 		visibility: hidden;
+		height: 0;
+		overflow: hidden;
 		animation: javascript-notice-reveal 0s 4s forwards;
 	}
 
 	@keyframes javascript-notice-reveal {
 		to {
 			visibility: visible;
+			height: auto;
 		}
 	}
 </style>

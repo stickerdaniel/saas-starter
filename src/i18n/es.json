@@ -362,7 +362,7 @@
 			"description": "Introduce la dirección de correo de tu cuenta",
 			"title": "¿Olvidaste tu contraseña?"
 		},
-		"javascript_required": "Se necesita JavaScript para la autenticación. Activa JavaScript o vuelve a cargar la página para continuar.",
+		"javascript_required": "La autenticación necesita JavaScript. Actívalo o vuelve a cargar la página para continuar.",
 		"messages": {
 			"account_not_linked": "No se pudo completar el inicio de sesión social con este correo electrónico. Inicia sesión con tu correo y tu contraseña. Si no tienes contraseña para esta dirección, restablécela primero.",
 			"auth_cancelled": "La autenticación fue cancelada",

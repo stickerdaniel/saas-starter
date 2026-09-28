@@ -362,7 +362,7 @@
 			"description": "Gib die E-Mail-Adresse deines Kontos ein",
 			"title": "Passwort vergessen"
 		},
-		"javascript_required": "Für die Authentifizierung wird JavaScript benötigt. Aktivieren Sie JavaScript oder laden Sie die Seite neu, um fortzufahren.",
+		"javascript_required": "Für die Authentifizierung brauchst du JavaScript. Aktiviere es oder lade die Seite neu, um fortzufahren.",
 		"messages": {
 			"account_not_linked": "Die soziale Anmeldung mit dieser E-Mail-Adresse war nicht möglich. Melde dich stattdessen mit deiner E-Mail-Adresse und deinem Passwort an. Wenn du für diese Adresse kein Passwort hast, setz es zuerst zurück.",
 			"auth_cancelled": "Authentifizierung abgebrochen",
