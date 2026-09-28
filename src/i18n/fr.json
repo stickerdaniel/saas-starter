@@ -376,6 +376,7 @@
 			"impersonation_not_allowed": "Impossible de définir un mot de passe pendant l'usurpation d'identité d'un utilisateur.",
 			"invalid_credentials": "E-mail ou mot de passe invalide",
 			"invalid_token": "Ce lien n'est plus valide. Demandez-en un nouveau et réessayez.",
+			"invalid_token_signed_in": "Ce lien ne fonctionne plus. Tu es connecté, donc si ton adresse est déjà vérifiée, reprends là où tu en étais.",
 			"missing_reset_token": "Jeton de réinitialisation manquant ou invalide",
 			"oauth_failed": "La connexion sociale a échoué. Veuillez réessayer.",
 			"passkey_add_failed": "Impossible d'ajouter la passkey",
@@ -423,6 +424,7 @@
 			"title": "Définir un mot de passe"
 		},
 		"signin": {
+			"button_resume": "Reprendre là où tu en étais",
 			"button_signin": "Se connecter",
 			"button_signin_loading": "Connexion en cours...",
 			"button_signup": "S'inscrire",

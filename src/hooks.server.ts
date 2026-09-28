@@ -23,7 +23,13 @@ import {
 	shouldUsePublicAuthSnapshot
 } from '$lib/server/auth-route';
 import { loadSentry } from '$lib/monitoring/sentry';
-import { safeAuthDestination, splitDestinationError, verificationErrorIn } from '$lib/utils/url';
+import {
+	FAILED_LINK_PARAM,
+	FAILED_RESET_LINK,
+	safeAuthDestination,
+	splitDestinationError,
+	verificationErrorIn
+} from '$lib/utils/url';
 import { SIDEBAR_COOKIE_NAME } from '$lib/components/ui/sidebar/constants.js';
 
 if (!PUBLIC_SENTRY_DSN) {
@@ -284,7 +290,13 @@ export function verificationFailureRedirect(
 	const { destination, errorCode } = splitDestinationError(pathname + search);
 	if (errorCode === null) return null;
 
-	return `/${lang}/signin?redirectTo=${encodeURIComponent(unwrapInterstitial(destination, lang))}&error=${errorCode}`;
+	// The outermost page is the one Better Auth appended the code to, so it names
+	// the kind of link. Only a reset link is minted with the reset page.
+	const resetLink = /^\/[a-z]{2}\/reset-password$/.test(pathname)
+		? `&${FAILED_LINK_PARAM}=${FAILED_RESET_LINK}`
+		: '';
+
+	return `/${lang}/signin?redirectTo=${encodeURIComponent(unwrapInterstitial(destination, lang))}&error=${errorCode}${resetLink}`;
 }
 
 /**

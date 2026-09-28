@@ -194,13 +194,13 @@ describe('verificationFailureRedirect', () => {
 				'de'
 			)
 		).toBe(
-			'/de/signin?redirectTo=%2Fde%2Fapp%2Fsettings%3Ftab%3Dprofile%23section&error=INVALID_TOKEN'
+			'/de/signin?redirectTo=%2Fde%2Fapp%2Fsettings%3Ftab%3Dprofile%23section&error=INVALID_TOKEN&link=reset'
 		);
 	});
 
 	it('falls back when the rejected reset page carries nothing usable', () => {
 		expect(verificationFailureRedirect('/en/reset-password', '?error=INVALID_TOKEN', 'en')).toBe(
-			'/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN'
+			'/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN&link=reset'
 		);
 		expect(
 			verificationFailureRedirect(
@@ -208,14 +208,14 @@ describe('verificationFailureRedirect', () => {
 				'?redirectTo=%2F%2Fevil.com&error=INVALID_TOKEN',
 				'en'
 			)
-		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN');
+		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN&link=reset');
 		expect(
 			verificationFailureRedirect(
 				'/en/reset-password',
 				'?redirectTo=%2Fpricing&error=INVALID_TOKEN',
 				'en'
 			)
-		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN');
+		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN&link=reset');
 	});
 
 	/**
@@ -229,7 +229,9 @@ describe('verificationFailureRedirect', () => {
 			'de'
 		);
 
-		expect(redirect).toBe('/de/signin?redirectTo=%2Fde%2Fapp%2Fsettings&error=INVALID_TOKEN');
+		expect(redirect).toBe(
+			'/de/signin?redirectTo=%2Fde%2Fapp%2Fsettings&error=INVALID_TOKEN&link=reset'
+		);
 		expect(redirect).not.toContain('a-live-reset-token');
 	});
 
@@ -245,7 +247,7 @@ describe('verificationFailureRedirect', () => {
 				`?redirectTo=${encodeURIComponent(nested(2))}&error=INVALID_TOKEN`,
 				'en'
 			)
-		).toBe('/en/signin?redirectTo=%2Fen%2Fapp%2Fsettings&error=INVALID_TOKEN');
+		).toBe('/en/signin?redirectTo=%2Fen%2Fapp%2Fsettings&error=INVALID_TOKEN&link=reset');
 
 		expect(
 			verificationFailureRedirect(
@@ -253,7 +255,7 @@ describe('verificationFailureRedirect', () => {
 				`?redirectTo=${encodeURIComponent(nested(6))}&error=INVALID_TOKEN`,
 				'en'
 			)
-		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN');
+		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN&link=reset');
 	});
 
 	// A reset page with a token is not a failure. The form renders and consumes it.
@@ -335,7 +337,7 @@ describe('verificationFailureRedirect against a real Better Auth redirect', () =
 		const landed = await landing(rejected);
 
 		expect(verificationFailureRedirect(landed.pathname, landed.search, 'de')).toBe(
-			`/de/signin?redirectTo=${encodeURIComponent(DESTINATION)}&error=INVALID_TOKEN`
+			`/de/signin?redirectTo=${encodeURIComponent(DESTINATION)}&error=INVALID_TOKEN&link=reset`
 		);
 	});
 

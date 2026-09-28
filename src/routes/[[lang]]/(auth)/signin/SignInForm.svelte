@@ -33,6 +33,8 @@
 			| undefined;
 		/** Already narrowed by the page; empty when no usable value arrived. */
 		redirectTo: string;
+		/** Where a visitor who is already signed in can go on to; empty for everyone else. */
+		resumeHref: string;
 		termsLink: HTMLAnchorElement | null;
 		isLastUsedAuthMethod: (method: LastAuthMethod) => boolean;
 		onSubmit: (event: SubmitEvent) => void | Promise<void>;
@@ -51,6 +53,7 @@
 		enabledProviderCount,
 		oauthProviders,
 		redirectTo,
+		resumeHref,
 		termsLink,
 		isLastUsedAuthMethod,
 		onSubmit,
@@ -173,6 +176,14 @@
 				/>
 			</Field.Field>
 			<Field.Error errors={translateFormError(formError, $t)} data-testid="auth-error" />
+			{#if resumeHref}
+				<Field.Field>
+					<!-- A plain link, so it continues before hydration and without JavaScript. -->
+					<Button href={resolve(resumeHref)} variant="outline" class="w-full">
+						<T keyName="auth.signin.button_resume" />
+					</Button>
+				</Field.Field>
+			{/if}
 			<Field.Field>
 				<Button type="submit" class="w-full" disabled={isFormDisabled} data-testid="signin-button">
 					{#if isLoading}

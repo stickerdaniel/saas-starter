@@ -132,6 +132,17 @@ export function oauthErrorCallbackURL(pagePath: string, redirectTo: string): str
 }
 
 /**
+ * Marks a failed password-reset link that the hook sends on to sign-in.
+ *
+ * Better Auth rejects a reset link with the same `INVALID_TOKEN` a verification
+ * link uses, and once the reset page is unwrapped from the destination nothing
+ * else tells the two apart. Sign-in words them differently for a visitor who is
+ * already signed in.
+ */
+export const FAILED_LINK_PARAM = 'link';
+export const FAILED_RESET_LINK = 'reset';
+
+/**
  * The verification code Better Auth appended, out of every `error` value present.
  *
  * Not the first value and not the last: a destination is free to carry an

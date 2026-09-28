@@ -376,6 +376,7 @@
 			"impersonation_not_allowed": "A password cannot be set while impersonating a user.",
 			"invalid_credentials": "Invalid email or password",
 			"invalid_token": "This link is no longer valid. Request a new one and try again.",
+			"invalid_token_signed_in": "This link no longer works. You're signed in, so if your address is already verified, pick up where you left off.",
 			"missing_reset_token": "Missing or invalid reset token",
 			"oauth_failed": "Social sign-in failed. Please try again.",
 			"passkey_add_failed": "Failed to add passkey",
@@ -423,6 +424,7 @@
 			"title": "Set a password"
 		},
 		"signin": {
+			"button_resume": "Pick up where you left off",
 			"button_signin": "Sign In",
 			"button_signin_loading": "Signing in...",
 			"button_signup": "Sign Up",
