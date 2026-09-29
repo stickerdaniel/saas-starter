@@ -66,12 +66,6 @@ Every change requires the narrowest executable verification that covers the chan
 
 For reviews and audits, fetch and inspect `origin/main` rather than the shared main checkout, which may intentionally lag behind. Revalidate every finding against that baseline before reporting or changing code.
 
-Open draft PRs; mark ready after follow-up work. Merge manually after required checks pass and review bots finish on the current head, with no open review threads: `gh pr merge <n> --squash --match-head-commit <sha>`. Set the squash title to `<PR title> (#N)`. No auto-merge, `--admin`, `--delete-branch`, or direct pushes to the production branch.
-
-Run independent PRs in parallel. Fetch and inspect the target; update only for conflicts, actual dependencies, or replayed stack changes. New main commits alone require no rebase. Recheck changed heads and review changed behavior.
-
-Except for truly small UI-only or docs-only changes, monitor the branch through green required CI, merge it, and verify a green production deployment. If a required check fails, read its provider logs and guide it to green; never override an unexplained failure.
-
 ### Commit messages
 
 ```text
