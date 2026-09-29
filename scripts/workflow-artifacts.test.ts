@@ -9,23 +9,21 @@ import { sanitizedGitEnv } from './git-context';
 /**
  * Actions artifacts and caches share one account-wide storage quota. When it
  * fills up, every upload across every repository fails — including uploads a
- * deployment depends on. Two habits caused past incidents: diagnostic uploads
- * without retention-days (repository default: 90 days) and uploads that run on
- * success even though their content is only read after a failure.
+ * deployment depends on. Diagnostic uploads without retention-days use the
+ * repository default of 90 days, accumulating reports beyond their useful life.
  *
  * This guard enforces bounded artifact retention for every workflow:
  * - every upload-artifact step declares retention-days;
  * - no retention exceeds MAX_RETENTION_DAYS;
- * - diagnostic artifacts upload only on failure and expire within
- *   DIAGNOSTIC_RETENTION_DAYS, unless the step name marks them as an explicit
- *   delivery fallback that is already gated by a failed primary delivery.
+ * - diagnostic artifacts expire within DIAGNOSTIC_RETENTION_DAYS, including
+ *   passing Playwright runs whose retry traces and timings remain useful.
  *
  * Forks extend DIAGNOSTIC_ARTIFACTS with their own diagnostic names and list
  * deployment-critical artifacts (e.g. release manifests) in
  * LONG_LIVED_ARTIFACT_PREFIXES so they may keep MAX_RETENTION_DAYS.
  */
 
-// Artifact names that exist purely to debug a failed run.
+// Short-lived reports, including retries hidden by an overall successful run.
 const DIAGNOSTIC_ARTIFACTS = new Set(['playwright-report']);
 
 // Name prefixes of artifacts a machine consumer reads later (deploy manifests,
@@ -109,14 +107,13 @@ describe('workflow artifact retention', () => {
 		}
 	});
 
-	it('uploads diagnostic artifacts only on failure with short retention', () => {
+	it('keeps diagnostic artifacts on short retention', () => {
 		for (const upload of uploads) {
 			const longLived = LONG_LIVED_ARTIFACT_PREFIXES.some((prefix) =>
 				upload.artifactName!.startsWith(prefix)
 			);
 			if (longLived || !DIAGNOSTIC_ARTIFACTS.has(upload.artifactName!)) continue;
 			const label = `${upload.workflow}: ${upload.stepName}`;
-			expect(upload.condition, `${label} must be failure-gated`).toMatch(/failure\(\)/);
 			expect(upload.retentionDays!, label).toBeLessThanOrEqual(DIAGNOSTIC_RETENTION_DAYS);
 		}
 	});
