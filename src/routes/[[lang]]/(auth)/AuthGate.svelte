@@ -84,7 +84,9 @@
 	<div role="status" aria-atomic="true" class="col-start-1 row-start-1 grid min-w-0">
 		{#if pending}
 			<div bind:this={fallback} class="auth-gate-fallback min-w-0" data-auth-gate-fallback>
-				<!-- Laid out like the forms it stands in for. -->
+				<!-- Laid out like the forms it stands in for, down to the room their
+				     edge loading bar takes above the heading. -->
+				<div class="h-1"></div>
 				<div class="min-h-96 p-6 md:p-8">
 					<Field.Group>
 						<div class="flex flex-col items-center gap-2 text-center" data-auth-gate-stalled>
