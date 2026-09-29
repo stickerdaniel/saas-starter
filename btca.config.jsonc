@@ -5,6 +5,13 @@
 	"resources": [
 		{
 			"type": "git",
+			"name": "fontaine",
+			"url": "https://github.com/unjs/fontaine",
+			"branch": "main",
+			"specialNotes": "Monorepo for fontless and fontaine. Read the installed fontless tag in packages/fontless, including its SvelteKit example and runtime preload integration."
+		},
+		{
+			"type": "git",
 			"name": "actionsCache",
 			"url": "https://github.com/actions/cache",
 			"branch": "main"

@@ -269,14 +269,14 @@ describe('Email Template Rendering', () => {
 		});
 	});
 
-	it('never leaks the web-only Fontaine fallback family into delivered emails', () => {
-		// Fontaine appends an "Outfit fallback" family to the web app's font
+	it('never leaks the web-only fontless fallback family into delivered emails', () => {
+		// fontless appends an "Outfit Fallback: Arial" family to the web app's font
 		// usages for CLS. Emails build from the same shared font tokens, so a
 		// regression that wires that fallback into the --font-* tokens would leak
 		// a font family no email client can resolve. Guard the boundary.
 		for (const { name, render } of RENDERERS) {
 			expect(render('en').html, `${name} leaked the web-only fallback family`).not.toMatch(
-				/Outfit fallback/
+				/Outfit fallback/i
 			);
 		}
 	});
