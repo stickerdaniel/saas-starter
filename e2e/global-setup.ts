@@ -175,7 +175,7 @@ async function globalSetup() {
 	console.log('[Setup] Test users ready!');
 }
 
-async function createUser(
+export async function createUser(
 	user: { email: string; password: string; name: string },
 	secret: string,
 	client: ConvexHttpClient,

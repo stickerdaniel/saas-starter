@@ -107,7 +107,10 @@ export default defineConfig(
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
 		languageOptions: {
 			parserOptions: {
-				projectService: true,
+				// Reuse the tsconfig program for this CLI run. The editor project
+				// service repeatedly refreshes it for Svelte's virtual files.
+				project: true,
+				tsconfigRootDir: import.meta.dirname,
 				extraFileExtensions: ['.svelte'],
 				parser: ts.parser,
 				svelteConfig

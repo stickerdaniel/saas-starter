@@ -1,13 +1,34 @@
-import { test, expect, type Route } from '@playwright/test';
+import { test as base, expect, type Page, type Route } from '@playwright/test';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../src/lib/convex/_generated/api';
+import { createUser } from './global-setup';
 import { signInAsTestUser, waitForAuthenticated } from './utils/auth';
+import { resolveConvexUrl } from './utils/convex-url';
 
-// Signing out revokes the session it runs in, so this project starts without
-// setup's stored session and each attempt signs in to its own. A retry therefore
-// does not land on /signin after an earlier attempt's logout. The upload guard
-// has to be exercised on this logout: it exempts sign-out deliberately, and
-// getting that wrong strands the user on a page whose session is already gone.
-test('signout works, and is not stopped by an upload in flight', async ({ page }) => {
-	await signInAsTestUser(page);
+const test = base.extend<{ signoutPage: Page }>({
+	signoutPage: async ({ page }, use) => {
+		const secret = process.env.AUTH_E2E_TEST_SECRET;
+		const convexUrl = resolveConvexUrl();
+		if (!secret || !convexUrl) throw new Error('The isolated E2E backend must be ready');
+		const client = new ConvexHttpClient(convexUrl);
+		const user = {
+			email: `signout-${crypto.randomUUID()}@e2e.example.com`,
+			password: 'TestPassword123!',
+			name: 'E2E Signout User'
+		};
+		try {
+			await createUser(user, secret, client);
+			await signInAsTestUser(page, user);
+			await use(page);
+		} finally {
+			await client.mutation(api.tests.deleteTestUser, { email: user.email, secret });
+		}
+	}
+});
+
+// An independent user keeps logout, uploads and thread creation from spending
+// the other specs' sessions or rate limits, even when this project runs first.
+test('signout works, and is not stopped by an upload in flight', async ({ signoutPage: page }) => {
 	await page.goto('/app/ai-chat');
 	await waitForAuthenticated(page);
 	await page.waitForURL(/\/app\/ai-chat\?thread=/, { timeout: 15000 });
