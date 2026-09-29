@@ -30,7 +30,11 @@
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { watch } from 'runed';
 	import { devNotice } from '$lib/dev/notice';
+	import { preloads } from 'fontless/runtime';
 	import './layout.css';
+
+	// Dev transforms can register the same font for several stylesheets.
+	const fontPreloadHrefs = [...new Set(preloads.map(({ href }) => href))];
 
 	let { data, children }: LayoutProps = $props();
 
@@ -166,6 +170,13 @@
 		);
 	}
 </script>
+
+<svelte:head>
+	{#each fontPreloadHrefs as href (href)}
+		<!-- Explicit attributes avoid Svelte's CSP-incompatible link spread handlers. -->
+		<link rel="preload" as="font" {href} crossorigin="" />
+	{/each}
+</svelte:head>
 
 <!-- synchronousModeChanges keeps the root class write out of a requestAnimationFrame,
 	so the theme toggle's view transition captures the new theme rather than the one it
