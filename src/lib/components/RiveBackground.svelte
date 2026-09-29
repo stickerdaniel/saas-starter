@@ -227,7 +227,7 @@
 				<!-- Cloud Fade Effect for light mode -->
 				{#if !isDark}
 					<div
-						class="pointer-events-none absolute -z-1 transform-(--cloud-scale) rive-cloud-reveal transition-all duration-1500 ease-out"
+						class="pointer-events-none absolute rive-cloud-reveal -z-1 transform-(--cloud-scale) transition-all duration-1500 ease-out"
 						style:--cloud-scale="scale({isLoaded ? 1 : 0.35})"
 					></div>
 				{/if}

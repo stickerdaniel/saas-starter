@@ -5,7 +5,7 @@ import { parse as parseYaml } from 'yaml';
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '../../..');
 
-const SETUP_NODE = 'actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38';
+const SETUP_NODE = 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020';
 const DOWNLOAD_ARTIFACT = 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c';
 const MAIN_ONLY =
 	"github.repository == 'stickerdaniel/saas-starter' && " +
@@ -191,7 +191,7 @@ describe('creator workflows', () => {
 		for (const os of ['ubuntu-latest', 'macos-latest', 'windows-latest']) {
 			expect(workflow).toContain(`os: ${os}`);
 		}
-		for (const version of ['node: 22.16.0', 'bun: 1.3.9', 'node: 24.19.0', 'bun: 1.3.14']) {
+		for (const version of ['node: 22.16.0', 'bun: 1.3.9', 'node: 24.21.0', 'bun: 1.3.14']) {
 			expect(workflow).toContain(version);
 		}
 		for (const command of ['typecheck', 'test', 'knip', 'build', 'test:packed']) {
@@ -217,7 +217,7 @@ describe('creator workflows', () => {
 		);
 
 		expect(required).toEqual([
-			expect.objectContaining({ node: '24.19.0', artifact: true, release_gate_test: 'required' })
+			expect.objectContaining({ node: '24.21.0', artifact: true, release_gate_test: 'required' })
 		]);
 		expect(
 			verify.steps.find((step) => step.run === 'bun run --cwd packages/create-saas-starter test')

@@ -34,7 +34,7 @@ get along, so we shut typescript up by casting `value` to `never`.
 	data-slot="slider"
 	{orientation}
 	class={cn(
-		'data-vertical:min-h-40 relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:w-auto data-vertical:flex-col',
+		'relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col',
 		className
 	)}
 	{...restProps}
@@ -44,12 +44,12 @@ get along, so we shut typescript up by casting `value` to `never`.
 			data-slot="slider-track"
 			data-orientation={orientation}
 			class={cn(
-				'bg-muted rounded-full data-horizontal:h-1.5 data-horizontal:w-full data-vertical:h-full data-vertical:w-1.5 relative grow overflow-hidden data-horizontal:w-full data-vertical:h-full'
+				'relative grow overflow-hidden rounded-full bg-muted data-horizontal:h-1.5 data-horizontal:w-full data-horizontal:w-full data-vertical:h-full data-vertical:h-full data-vertical:w-1.5'
 			)}
 		>
 			<SliderPrimitive.Range
 				data-slot="slider-range"
-				class={cn('bg-primary absolute select-none data-horizontal:h-full data-vertical:w-full')}
+				class={cn('absolute bg-primary select-none data-horizontal:h-full data-vertical:w-full')}
 			/>
 		</span>
 		{#each thumbItems as thumb (thumb.index)}
@@ -59,7 +59,7 @@ get along, so we shut typescript up by casting `value` to `never`.
 				aria-label={ariaLabel}
 				aria-labelledby={ariaLabelledby}
 				aria-describedby={ariaDescribedby}
-				class="border-primary ring-ring/50 size-4 rounded-full border bg-white shadow-sm transition-field-colors hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50"
+				class="block size-4 shrink-0 rounded-full border border-primary bg-white shadow-sm ring-ring/50 transition-field-colors select-none hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
 			/>
 		{/each}
 	{/snippet}

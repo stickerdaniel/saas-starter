@@ -182,10 +182,10 @@
 		     opacity/transform), like the spinner: it keeps playing while snapdom's
 		     synchronous clone blocks the main thread right after the first paint. -->
 		<div
-			class="fixed inset-0 z-120 flex items-center justify-center bg-background/60 backdrop-blur-sm ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200"
+			class="fixed inset-0 z-120 flex items-center justify-center bg-background/60 backdrop-blur-sm ease-out motion-safe:animate-in motion-safe:duration-200 motion-safe:fade-in-0"
 		>
 			<div
-				class="flex items-center gap-2.5 rounded-full bg-background px-4 py-2.5 shadow-lg ring-1 ring-foreground/10 ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-200"
+				class="flex items-center gap-2.5 rounded-full bg-background px-4 py-2.5 shadow-lg ring-1 ring-foreground/10 ease-out motion-safe:animate-in motion-safe:duration-200 motion-safe:fade-in-0 motion-safe:zoom-in-95"
 			>
 				<LoaderCircleIcon class="size-4 text-muted-foreground motion-safe:animate-spin" />
 				<span class="text-sm font-medium"><T keyName="support.screenshot.capturing" /></span>

@@ -126,7 +126,7 @@ describe('English pull request workflow', () => {
 		expect(markdown).toMatch(/from 'marked'/);
 		expect(markedPackage).toMatchObject({ name: 'marked', license: 'MIT' });
 		expect(readFileSync(MARKED_LICENSE_PATH, 'utf8')).toBe(
-			readFileSync(path.join(path.dirname(markedPackagePath), 'LICENSE.md'), 'utf8')
+			readFileSync(path.join(path.dirname(markedPackagePath), 'LICENSE'), 'utf8')
 		);
 		expect(attribution).toContain(`Marked ${markedPackage.version} by MarkedJS`);
 		expect(attribution).toContain('MARKED-LICENSE.txt');
@@ -138,7 +138,7 @@ describe('English pull request workflow', () => {
 		try {
 			const build = spawnSync(
 				'bun',
-				['build', ENTRY_PATH, '--target=bun', '--minify', `--outfile=${generated}`],
+				['--cwd', ROOT, 'build', ENTRY_PATH, '--target=bun', '--minify', `--outfile=${generated}`],
 				{ cwd: ROOT, encoding: 'utf8' }
 			);
 			expect(build.status, build.stderr).toBe(0);

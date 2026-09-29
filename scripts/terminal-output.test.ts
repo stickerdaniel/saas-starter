@@ -383,10 +383,14 @@ describe('static-check boundary', () => {
 		const payload = `${esc}]0;title${bel}`;
 		try {
 			writeFileSync(path.join(ROOT, relative), `// ${payload}\nconst value = ;\n`, 'utf8');
-			const result = spawnSync('bun', ['scripts/static-checks.ts', '--scope', 'lint', relative], {
-				cwd: ROOT,
-				encoding: 'utf8'
-			});
+			const result = spawnSync(
+				'bun',
+				[path.join(ROOT, 'scripts/static-checks.ts'), '--scope', 'lint', relative],
+				{
+					cwd: ROOT,
+					encoding: 'utf8'
+				}
+			);
 			const output = result.stdout + result.stderr;
 
 			expect(result.status).toBe(2);
@@ -404,10 +408,14 @@ describe('static-check boundary', () => {
 		const payload = `${esc}]0;title${ch(0x07)}`;
 		try {
 			writeFileSync(path.join(ROOT, relative), `// execSync( ${payload}\n`, 'utf8');
-			const result = spawnSync('bun', ['scripts/static-checks.ts', '--scope', 'lint', relative], {
-				cwd: ROOT,
-				encoding: 'utf8'
-			});
+			const result = spawnSync(
+				'bun',
+				[path.join(ROOT, 'scripts/static-checks.ts'), '--scope', 'lint', relative],
+				{
+					cwd: ROOT,
+					encoding: 'utf8'
+				}
+			);
 			const output = result.stdout + result.stderr;
 
 			expect(result.status).toBe(1);

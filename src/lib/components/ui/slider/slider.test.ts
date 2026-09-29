@@ -17,17 +17,31 @@ describe('Slider', () => {
 	it('matches the official Vega class contract', () => {
 		const host = renderSlider({ type: 'single', value: 25 });
 
-		expect(host.querySelector('[data-slot="slider"]')?.getAttribute('class')).toBe(
-			'data-vertical:min-h-40 relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:w-auto data-vertical:flex-col'
+		expect(new Set(host.querySelector('[data-slot="slider"]')?.classList)).toEqual(
+			new Set(
+				'data-vertical:min-h-40 relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:w-auto data-vertical:flex-col'.split(
+					' '
+				)
+			)
 		);
-		expect(host.querySelector('[data-slot="slider-track"]')?.getAttribute('class')).toBe(
-			'bg-muted rounded-full data-horizontal:h-1.5 data-vertical:w-1.5 relative grow overflow-hidden data-horizontal:w-full data-vertical:h-full'
+		expect(new Set(host.querySelector('[data-slot="slider-track"]')?.classList)).toEqual(
+			new Set(
+				'bg-muted rounded-full data-horizontal:h-1.5 data-vertical:w-1.5 relative grow overflow-hidden data-horizontal:w-full data-vertical:h-full'.split(
+					' '
+				)
+			)
 		);
-		expect(host.querySelector('[data-slot="slider-range"]')?.getAttribute('class')).toBe(
-			'bg-primary absolute select-none data-horizontal:h-full data-vertical:w-full'
+		expect(new Set(host.querySelector('[data-slot="slider-range"]')?.classList)).toEqual(
+			new Set(
+				'bg-primary absolute select-none data-horizontal:h-full data-vertical:w-full'.split(' ')
+			)
 		);
-		expect(host.querySelector('[data-slot="slider-thumb"]')?.getAttribute('class')).toBe(
-			'border-primary ring-ring/50 size-4 rounded-full border bg-white shadow-sm transition-field-colors hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50'
+		expect(new Set(host.querySelector('[data-slot="slider-thumb"]')?.classList)).toEqual(
+			new Set(
+				'border-primary ring-ring/50 size-4 rounded-full border bg-white shadow-sm transition-field-colors hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50'.split(
+					' '
+				)
+			)
 		);
 	});
 

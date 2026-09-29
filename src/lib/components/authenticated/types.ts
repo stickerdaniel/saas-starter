@@ -1,8 +1,4 @@
-import type { Component } from 'svelte';
-import type { IconProps } from '@lucide/svelte';
-
-// Lucide icon component type
-type LucideIcon = Component<IconProps, object, ''>;
+import type { LucideIcon } from '@lucide/svelte';
 
 export interface NavSubItem {
 	id: string;
