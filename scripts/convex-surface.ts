@@ -77,6 +77,16 @@ const REVIEWED_SOURCE_PROFILES = [
 			consistentPathSort: '9aa2d4e6c97438906e15cf9cf0587437db1e23842cf71d0f0dfa49cf80fc6e48',
 			doApiCodegen: 'f31f035af1ac43bfb380ef0661943436921ee43ac03522ba5780e853c59ca8b5'
 		}
+	},
+	{
+		version: '1.46.0',
+		modulePathSort: 'compareModulePaths',
+		hashes: {
+			walkDir: '4c919037c32317c308d7e80385b8a81e504057c4fc2a49ffebed64fa934b6bd7',
+			entryPoints: '5bf6676879e3cf0078f6a859a0477dff34ea9769da4d7800887b3e0872d4ee5e',
+			consistentPathSort: '9aa2d4e6c97438906e15cf9cf0587437db1e23842cf71d0f0dfa49cf80fc6e48',
+			doApiCodegen: 'f31f035af1ac43bfb380ef0661943436921ee43ac03522ba5780e853c59ca8b5'
+		}
 	}
 ] as const satisfies readonly SourceFingerprintProfile[];
 

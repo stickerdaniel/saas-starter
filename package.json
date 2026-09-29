@@ -140,7 +140,7 @@
 		"@types/node": "26.4.1",
 		"bits-ui": "2.19.0",
 		"clsx": "2.1.1",
-		"convex": "1.42.1",
+		"convex": "1.46.0",
 		"convex-vite-plugin": "0.4.0",
 		"eld": "2.1.0",
 		"eslint": "10.9.1",
