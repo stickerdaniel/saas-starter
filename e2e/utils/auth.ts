@@ -49,9 +49,9 @@ export async function submitSignInForm(page: Page, email: string, password: stri
 	await page.click('[data-testid="signin-button"]');
 }
 
-/** Signs the seeded regular test user in to a fresh session owned by this page. */
-export async function signInAsTestUser(page: Page) {
-	const { email, password } = readTestCredentials().user;
+/** Signs a test user in to a fresh session owned by this page. */
+export async function signInAsTestUser(page: Page, user = readTestCredentials().user) {
+	const { email, password } = user;
 	await page.goto('/signin');
 	await submitSignInForm(page, email, password);
 	await waitForAuthenticated(page);

@@ -27,6 +27,38 @@ import { describe, expect, it } from 'vitest';
 const eslint = new ESLint();
 const offender = String.fromCharCode(0x1b);
 
+describe('Svelte type-aware linting', () => {
+	it('recognizes stores through imported types', async () => {
+		const [result] = await eslint.lintText(
+			`<script lang="ts">
+				import type { Readable } from 'svelte/store';
+				let { value }: { value: Readable<string> } = $props();
+			</script>
+			<p>{value}</p>`,
+			{ filePath: 'src/routes/+layout.svelte' }
+		);
+		expect(result.messages.filter((message) => message.fatal)).toEqual([]);
+		expect(
+			result.messages.filter((message) => message.ruleId === 'svelte/require-store-reactive-access')
+		).toHaveLength(1);
+	}, 60_000);
+
+	it('accepts a resolved link through its imported type', async () => {
+		const [result] = await eslint.lintText(
+			`<script lang="ts">
+				import type { ResolvedPathname } from '$app/types';
+				let { href }: { href: ResolvedPathname } = $props();
+			</script>
+			<a {href}>Link</a>`,
+			{ filePath: 'src/routes/+layout.svelte' }
+		);
+		expect(result.messages.filter((message) => message.fatal)).toEqual([]);
+		expect(
+			result.messages.filter((message) => message.ruleId === 'svelte/no-navigation-without-resolve')
+		).toEqual([]);
+	}, 60_000);
+});
+
 async function controlCharacterMessages(file: string) {
 	// Keep the real path, which selects the config, parser and processor. A minimal
 	// source makes this a coverage test rather than a second lint of six whole files.

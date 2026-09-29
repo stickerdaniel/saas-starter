@@ -301,6 +301,9 @@ test.describe('Admin Users Table', () => {
 
 		await page.getByTestId('admin-users-pagination-next').click();
 		await expect.poll(async () => page.getByTestId('admin-users-loading').count()).toBe(0);
+		// URL synchronization settles after the click. Reopening the previous URL
+		// would test page one even though the table has already advanced.
+		await expectTableQueryParams(page, { page: '2', cursor: /.+/ });
 
 		const pageUrl = page.url();
 		const firstBefore = (
@@ -335,6 +338,7 @@ test.describe('Admin Users Table', () => {
 		await page.getByTestId('admin-users-pagination-next').click();
 		await expect.poll(() => getCurrentPageNumber(page)).toBe(3);
 
+		await expectTableQueryParams(page, { page: '3', cursor: /.+/ });
 		const deepPageUrl = page.url();
 		await page.goto(deepPageUrl);
 		await page.waitForLoadState('domcontentloaded');

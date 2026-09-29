@@ -88,7 +88,7 @@ export default defineConfig({
 				storageState: 'e2e/.auth/user.json'
 			},
 			dependencies: ['setup'],
-			// Don't run unauthenticated-redirect, admin, or signout tests (signout runs last in its own project)
+			// Public, admin and signout tests have their own authentication requirements.
 			testIgnore: [
 				'**/unauthenticated-redirect.spec.ts',
 				'**/admin-*.spec.ts',
@@ -106,7 +106,8 @@ export default defineConfig({
 		{
 			name: 'chromium-signout',
 			use: { ...devices['Desktop Chrome'] },
-			dependencies: ['chromium'], // Runs after all chromium tests
+			// Depending on chromium would replay that entire project for targeted
+			// signout runs and place it outside Playwright's shard selection.
 			testMatch: '**/signout.spec.ts'
 		},
 		// Admin tests - require admin role
