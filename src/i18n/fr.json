@@ -362,6 +362,13 @@
 			"description": "Saisis l'adresse e-mail de ton compte",
 			"title": "Mot de passe oublié"
 		},
+		"gate": {
+			"noscript_description": "Cette page a besoin de JavaScript. Active-le dans les réglages de ton navigateur, puis recharge la page.",
+			"noscript_title": "JavaScript est désactivé",
+			"reload": "Recharger",
+			"stalled_description": "La page n'a pas fini de se charger. Vérifie ta connexion et recharge-la.",
+			"stalled_title": "Chargement incomplet"
+		},
 		"messages": {
 			"account_not_linked": "La connexion sociale n'a pas pu aboutir avec cette adresse e-mail. Connecte-toi plutôt avec ton adresse e-mail et ton mot de passe. Si tu n'as pas de mot de passe pour cette adresse, réinitialise-le d'abord.",
 			"auth_cancelled": "L'authentification a été annulée",

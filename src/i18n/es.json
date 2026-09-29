@@ -362,6 +362,13 @@
 			"description": "Introduce la dirección de correo de tu cuenta",
 			"title": "¿Olvidaste tu contraseña?"
 		},
+		"gate": {
+			"noscript_description": "Esta página necesita JavaScript. Actívalo en los ajustes de tu navegador y vuelve a cargar la página.",
+			"noscript_title": "JavaScript está desactivado",
+			"reload": "Volver a cargar",
+			"stalled_description": "La página no terminó de cargarse. Comprueba tu conexión y vuelve a cargarla.",
+			"stalled_title": "No se terminó de cargar"
+		},
 		"messages": {
 			"account_not_linked": "No se pudo completar el inicio de sesión social con este correo electrónico. Inicia sesión con tu correo y tu contraseña. Si no tienes contraseña para esta dirección, restablécela primero.",
 			"auth_cancelled": "La autenticación fue cancelada",

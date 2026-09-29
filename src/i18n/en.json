@@ -362,6 +362,13 @@
 			"description": "Enter the email address for your account",
 			"title": "Forgot password"
 		},
+		"gate": {
+			"noscript_description": "This page needs JavaScript. Turn it on in your browser settings, then reload.",
+			"noscript_title": "JavaScript is turned off",
+			"reload": "Reload",
+			"stalled_description": "This page hasn't finished loading. Check your connection, then reload.",
+			"stalled_title": "Couldn't finish loading"
+		},
 		"messages": {
 			"account_not_linked": "Social sign-in could not be completed for this email address. Sign in with your email and password instead. If you have no password for this address, reset it first.",
 			"auth_cancelled": "Authentication was cancelled",
