@@ -3,9 +3,8 @@
 	import { T } from '@tolgee/svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { localizedHref } from '$lib/utils/i18n';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import Logo from '$lib/components/icons/logo.svelte';
+	import * as Field from '$lib/components/ui/field/index.js';
 
 	type Props = {
 		children: Snippet;
@@ -85,46 +84,41 @@
 	<div role="status" aria-atomic="true" class="col-start-1 row-start-1 grid min-w-0">
 		{#if pending}
 			<div bind:this={fallback} class="auth-gate-fallback min-w-0" data-auth-gate-fallback>
-				<div
-					class="flex h-full min-h-96 flex-col items-center justify-center gap-6 p-6 text-center md:p-8"
-				>
-					<Logo class="size-8" />
-					<div class="flex flex-col gap-2" data-auth-gate-stalled>
-						<h1 class="text-2xl font-bold"><T keyName="auth.gate.stalled_title" /></h1>
-						<p class="text-balance text-muted-foreground">
-							<T keyName="auth.gate.stalled_description" />
-						</p>
-					</div>
-					<div class="hidden flex-col gap-2" data-auth-gate-noscript>
-						<h1 class="text-2xl font-bold"><T keyName="auth.gate.noscript_title" /></h1>
-						<p class="text-balance text-muted-foreground">
-							<T keyName="auth.gate.noscript_description" />
-						</p>
-					</div>
-					<!-- Plain links with full-document navigation: the client router is
-					     exactly what may not have loaded. -->
-					<div class="flex w-full flex-col gap-3">
+				<!-- Laid out like the forms it stands in for. -->
+				<div class="min-h-96 p-6 md:p-8">
+					<Field.Group>
+						<div class="flex flex-col items-center gap-2 text-center" data-auth-gate-stalled>
+							<h1 class="text-2xl font-bold"><T keyName="auth.gate.stalled_title" /></h1>
+							<p class="text-balance text-muted-foreground">
+								<T keyName="auth.gate.stalled_description" />
+							</p>
+						</div>
+						<div class="hidden flex-col items-center gap-2 text-center" data-auth-gate-noscript>
+							<h1 class="text-2xl font-bold"><T keyName="auth.gate.noscript_title" /></h1>
+							<p class="text-balance text-muted-foreground">
+								<T keyName="auth.gate.noscript_description" />
+							</p>
+						</div>
+						<!-- Plain links with full-document navigation: the client router is
+						     exactly what may not have loaded. -->
 						{#if resumeHref}
-							<Button href={resolve(resumeHref)} data-sveltekit-reload class="w-full">
-								<T keyName="auth.signin.button_resume" />
-							</Button>
+							<Field.Field>
+								<Button href={resolve(resumeHref)} data-sveltekit-reload class="w-full">
+									<T keyName="auth.signin.button_resume" />
+								</Button>
+							</Field.Field>
 						{/if}
-						<Button
-							href={reloadHref}
-							data-sveltekit-reload
-							variant={resumeHref ? 'outline' : 'default'}
-							class="w-full"
-						>
-							<T keyName="auth.gate.reload" />
-						</Button>
-					</div>
-					<a
-						href={resolve(localizedHref('/'))}
-						data-sveltekit-reload
-						class="text-sm underline underline-offset-4"
-					>
-						<T keyName="auth.back_to_home" />
-					</a>
+						<Field.Field>
+							<Button
+								href={reloadHref}
+								data-sveltekit-reload
+								variant={resumeHref ? 'outline' : 'default'}
+								class="w-full"
+							>
+								<T keyName="auth.gate.reload" />
+							</Button>
+						</Field.Field>
+					</Field.Group>
 				</div>
 			</div>
 		{/if}
