@@ -69,7 +69,7 @@
 		onclick={onFilter}
 		aria-label={filterLabel}
 		data-testid={testId}
-		class="group h-auto w-full justify-start whitespace-normal font-normal shadow-none active:translate-y-0 flex min-w-0 cursor-pointer items-center gap-2 rounded-md text-left"
+		class="group flex h-auto w-full min-w-0 cursor-pointer items-center justify-start gap-2 rounded-md text-left font-normal whitespace-normal shadow-none active:translate-y-0"
 	>
 		{@render content()}
 	</Button>

@@ -4,4 +4,4 @@ The generated pull request metadata policy bundle includes Efficient Language De
 
 The ELD package does not include a NOTICE file.
 
-The bundle also includes Marked 16.4.2 by MarkedJS and Christopher Jeffrey from [marked](https://github.com/markedjs/marked). Marked is licensed under the MIT License, and its license file also carries the original Markdown license by John Gruber. The complete license text is included in [`MARKED-LICENSE.txt`](./MARKED-LICENSE.txt).
+The bundle also includes Marked 18.0.14 by MarkedJS and Christopher Jeffrey from [marked](https://github.com/markedjs/marked). Marked is licensed under the MIT License, and its license file also carries the original Markdown license by John Gruber. The complete license text is included in [`MARKED-LICENSE.txt`](./MARKED-LICENSE.txt).

@@ -54,7 +54,7 @@ export function isNonInteractive(
 }
 
 function required(value: string | symbol, prompts: PromptAdapter): string {
-	if (prompts.isCancel(value)) {
+	if (typeof value === 'symbol') {
 		prompts.cancel('Scaffolding cancelled.');
 		throw new PromptCancelledError('Scaffolding cancelled.');
 	}
@@ -64,7 +64,7 @@ function required(value: string | symbol, prompts: PromptAdapter): string {
 }
 
 function optional(value: string | symbol, prompts: PromptAdapter): string | undefined {
-	if (prompts.isCancel(value)) {
+	if (typeof value === 'symbol') {
 		prompts.cancel('Scaffolding cancelled.');
 		throw new PromptCancelledError('Scaffolding cancelled.');
 	}

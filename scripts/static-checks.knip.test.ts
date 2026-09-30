@@ -853,7 +853,7 @@ describe('indexed source overlay', () => {
 	});
 });
 
-describe.sequential('Knip static-check CLI behavior', () => {
+describe('Knip static-check CLI behavior', { concurrent: false }, () => {
 	it('resolves the recorder through the name the checker spawns', () => {
 		const directory = mkdtempSync(path.join(TEMP_ROOT, 'static-recorder-contract-'));
 		const logPath = path.join(directory, 'commands.jsonl');
@@ -1426,7 +1426,7 @@ describe.sequential('Knip static-check CLI behavior', () => {
 // Every recorded type check below exits 0, which is what the real svelte-check does for a
 // standalone script: its tsconfig never reads the file, so it cannot report the error in it.
 // Only the checker's own question to TypeScript can tell the named file was not checked (#929).
-describe.sequential('type project coverage of named files', () => {
+describe('type project coverage of named files', { concurrent: false }, () => {
 	const STANDALONE = 'scripts/type-coverage-probe.ts';
 	const COVERED = 'src/lib/billing/checkout-result.ts';
 

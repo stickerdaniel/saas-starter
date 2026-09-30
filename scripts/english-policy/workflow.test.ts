@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+import { testExecutable } from '../test-executable';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const WORKFLOW_PATH = path.join(ROOT, '.github/workflows/require-english-pr.yml');
@@ -126,7 +127,7 @@ describe('English pull request workflow', () => {
 		expect(markdown).toMatch(/from 'marked'/);
 		expect(markedPackage).toMatchObject({ name: 'marked', license: 'MIT' });
 		expect(readFileSync(MARKED_LICENSE_PATH, 'utf8')).toBe(
-			readFileSync(path.join(path.dirname(markedPackagePath), 'LICENSE.md'), 'utf8')
+			readFileSync(path.join(path.dirname(markedPackagePath), 'LICENSE'), 'utf8')
 		);
 		expect(attribution).toContain(`Marked ${markedPackage.version} by MarkedJS`);
 		expect(attribution).toContain('MARKED-LICENSE.txt');
@@ -137,7 +138,7 @@ describe('English pull request workflow', () => {
 		const generated = path.join(directory, 'pr-metadata.bundle.mjs');
 		try {
 			const build = spawnSync(
-				'bun',
+				testExecutable('bun'),
 				['build', ENTRY_PATH, '--target=bun', '--minify', `--outfile=${generated}`],
 				{ cwd: ROOT, encoding: 'utf8' }
 			);

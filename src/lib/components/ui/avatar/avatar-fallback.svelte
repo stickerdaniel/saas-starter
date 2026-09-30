@@ -19,7 +19,7 @@
 	bind:ref
 	data-slot="avatar-fallback"
 	class={cn(
-		'flex size-full items-center justify-center rounded-full bg-muted text-sm text-muted-foreground group-data-[size=sm]/avatar:text-xs group-data-[shape=square]/avatar:rounded-lg',
+		'flex size-full items-center justify-center rounded-full bg-muted text-sm text-muted-foreground group-data-[shape=square]/avatar:rounded-lg group-data-[size=sm]/avatar:text-xs',
 		variant === 'primary' && 'bg-primary text-primary-foreground',
 		size === 'xs' && 'text-xs',
 		className
