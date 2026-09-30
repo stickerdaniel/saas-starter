@@ -10,6 +10,7 @@ import { passkey } from '@better-auth/passkey';
 import { admin } from 'better-auth/plugins/admin';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { createAuthMiddleware } from 'better-auth/api';
+import * as val from 'valibot';
 import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
 import { requireEmailConfiguration, requireEnv, googleOAuth, githubOAuth } from './env';
@@ -21,6 +22,7 @@ import {
 	deactivateAdminPreferencesHelper
 } from './admin/notificationPreferences/helpers';
 import { devNotice } from '../dev/notice';
+import { SUPPORTED_LANGUAGES } from '../i18n/languages';
 
 // Required for triggers to work - references internal auth functions
 const authFunctions: AuthFunctions = internal.auth;
@@ -31,6 +33,8 @@ const authFunctions: AuthFunctions = internal.auth;
 // Both the token and the sentence in the email read this, so the copy cannot
 // promise a window the token does not have.
 const VERIFICATION_EXPIRY_MINUTES = 60;
+
+const LOCALE_CODES = SUPPORTED_LANGUAGES.map((language) => language.code);
 
 type SignupMethod = 'Email' | 'Google' | 'GitHub';
 
@@ -402,7 +406,10 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 					type: 'string',
 					required: false,
 					defaultValue: 'en',
-					input: true
+					input: true,
+					// Stored readers treat null as the default locale, so only
+					// unsupported codes are rejected.
+					validator: { input: val.nullable(val.picklist(LOCALE_CODES)) }
 				}
 			}
 		},
