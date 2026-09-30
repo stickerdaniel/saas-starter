@@ -74,6 +74,7 @@ export const deleteAiChatHistoryRows = mutation({
 	handler: async (ctx, args) => {
 		requireTestSecret(args.secret);
 		if (args.ids.length > 100) throw new Error('History cleanup exceeds 100 rows');
+		// E2E cleanup deletes at most 100 small fixture rows in one transaction.
 		for (const id of args.ids) await ctx.db.delete('aiChatThreads', id);
 		return null;
 	}
