@@ -46,8 +46,10 @@ it('keeps automatic request identity and source context out of emitted events', 
 				url: 'https://example.com/path?remote-user=private-query&page=2',
 				method: 'GET',
 				headers: {
-					cookie: 'session=private-cookie',
+					// Sentry redacts `session` values on its own; `theme` exercises the cookie policy.
+					cookie: 'session=private-cookie; theme=private-theme',
 					'x-forwarded-for': '203.0.113.42',
+					'remote-user': 'private-user',
 					'content-type': 'application/json'
 				}
 			},
@@ -79,7 +81,13 @@ it('keeps automatic request identity and source context out of emitted events', 
 		request: { method: 'GET', headers: { 'content-type': 'application/json' } }
 	});
 	const serialized = JSON.stringify(events[0]);
-	for (const sensitive of ['private-query', 'private-cookie', '203.0.113.42']) {
+	for (const sensitive of [
+		'private-query',
+		'private-cookie',
+		'private-theme',
+		'private-user',
+		'203.0.113.42'
+	]) {
 		expect(serialized).not.toContain(sensitive);
 	}
 	expect(serialized).toContain('page=2');
