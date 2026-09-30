@@ -16,6 +16,24 @@ import { portlessOwnsPort } from './scripts/dev-ports';
 // See e2e/utils/site-url.ts for why PUBLIC_SITE_URL is deliberately ignored locally.
 const baseURL = resolveSiteUrl();
 const isCI = !!process.env.CI;
+const lane = process.env.E2E_LANE || 'full';
+if (!['full', 'public', 'exclusive'].includes(lane))
+	throw new Error('E2E_LANE must be full, public or exclusive');
+if (
+	lane !== 'public' &&
+	process.argv.some((arg) => arg === '--shard' || arg.startsWith('--shard='))
+) {
+	throw new Error(
+		'Native sharding requires E2E_LANE=public; backend-mutating tests must stay exclusive'
+	);
+}
+if (
+	process.argv.some(
+		(arg) => arg === '--workers' || arg === '-j' || /^(--workers=|-j[0-9])/.test(arg)
+	)
+) {
+	throw new Error('Worker overrides are unsafe for the shared E2E backend');
+}
 const hasOverrideUrl = !!process.env.E2E_OVERRIDE_SITE_URL;
 
 // Preview bypass headers for protected preview deployments (Vercel or Cloudflare Access)
@@ -24,9 +42,9 @@ const bypass = getPreviewBypass();
 export default defineConfig({
 	testDir: 'e2e',
 	/* Ensure test users exist before running tests */
-	globalSetup: './e2e/global-setup.ts',
+	globalSetup: lane === 'public' ? undefined : './e2e/global-setup.ts',
 	/* Clean up test data after all tests complete */
-	globalTeardown: './e2e/global-teardown.ts',
+	globalTeardown: lane === 'public' ? undefined : './e2e/global-teardown.ts',
 	/* Run tests in files in parallel */
 	fullyParallel: true,
 	/* Fail the build on CI if you accidentally left test.only in the source code */
@@ -127,7 +145,11 @@ export default defineConfig({
 			use: { ...devices['Desktop Chrome'] },
 			testMatch: '**/unauthenticated-redirect.spec.ts'
 		}
-	],
+	].filter(
+		(project) =>
+			lane === 'full' ||
+			(lane === 'public' ? project.name === 'chromium-public' : project.name !== 'chromium-public')
+	),
 
 	// Local default: spawn an isolated dev:test stack (separate vite port + Convex backend
 	// + state dir). reuseExistingServer is false so we never inherit a backend whose state

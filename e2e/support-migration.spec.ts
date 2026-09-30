@@ -89,63 +89,65 @@ test.describe('Support ticket migration', () => {
 		});
 		console.log(`[Test] Created ${threadIds.length} threads`);
 
-		// 1. Verify threads belong to anonymous user BEFORE migration
-		const beforeMigration = await client.mutation(api.tests.getSupportThreadsByUserId, {
-			secret: testSecret,
-			userId: anonymousUserId
-		});
-		expect(beforeMigration.length).toBe(105);
+		try {
+			// 1. Verify threads belong to anonymous user BEFORE migration
+			const beforeMigration = await client.mutation(api.tests.getSupportThreadsByUserId, {
+				secret: testSecret,
+				userId: anonymousUserId
+			});
+			expect(beforeMigration.length).toBe(105);
 
-		// 2. Get the authenticated user's ID for verification after migration
-		const { userId: authUserId } = await client.mutation(api.tests.getAuthUserIdByEmail, {
-			secret: testSecret,
-			email: credentials.user.email
-		});
-		expect(authUserId).not.toBeNull();
+			// 2. Get the authenticated user's ID for verification after migration
+			const { userId: authUserId } = await client.mutation(api.tests.getAuthUserIdByEmail, {
+				secret: testSecret,
+				email: credentials.user.email
+			});
+			expect(authUserId).not.toBeNull();
 
-		// 3. Set the seeded anonymous user ID in localStorage before page scripts run
-		await page.addInitScript((id) => {
-			localStorage.setItem('supportUserId', id);
-		}, anonymousUserId);
+			// 3. Set the seeded anonymous user ID in localStorage before page scripts run
+			await page.addInitScript((id) => {
+				localStorage.setItem('supportUserId', id);
+			}, anonymousUserId);
 
-		// 4. Navigate to the app (which triggers the $effect with migration logic)
-		await page.goto('/app');
-		await waitForAuthenticated(page);
+			// 4. Navigate to the app (which triggers the $effect with migration logic)
+			await page.goto('/app');
+			await waitForAuthenticated(page);
 
-		// 5. Wait for localStorage to be cleared (indicates migration complete)
-		await expect
-			.poll(() => page.evaluate(() => localStorage.getItem('supportUserId')), { timeout: 60000 })
-			.toBeNull();
+			// 5. Wait for localStorage to be cleared (indicates migration complete)
+			await expect
+				.poll(() => page.evaluate(() => localStorage.getItem('supportUserId')), { timeout: 60000 })
+				.toBeNull();
 
-		// 6. Verify ALL 105 threads now belong to authenticated user
-		const afterMigration = await client.mutation(api.tests.getSupportThreadsByUserId, {
-			secret: testSecret,
-			userId: authUserId!
-		});
-		expect(afterMigration.length).toBe(105);
+			// 6. Verify ALL 105 threads now belong to authenticated user
+			const afterMigration = await client.mutation(api.tests.getSupportThreadsByUserId, {
+				secret: testSecret,
+				userId: authUserId!
+			});
+			expect(afterMigration.length).toBe(105);
 
-		// 7. Verify threads are no longer under anonymous user
-		const remainingAnonymous = await client.mutation(api.tests.getSupportThreadsByUserId, {
-			secret: testSecret,
-			userId: anonymousUserId
-		});
-		expect(remainingAnonymous.length).toBe(0);
+			// 7. Verify threads are no longer under anonymous user
+			const remainingAnonymous = await client.mutation(api.tests.getSupportThreadsByUserId, {
+				secret: testSecret,
+				userId: anonymousUserId
+			});
+			expect(remainingAnonymous.length).toBe(0);
 
-		// 8. Verify user data was populated on migrated threads
-		const sampleThread = afterMigration[0];
-		expect(sampleThread.userName).toBe(credentials.user.name);
-		expect(sampleThread.userEmail).toBe(credentials.user.email);
+			// 8. Verify user data was populated on migrated threads
+			const sampleThread = afterMigration[0];
+			expect(sampleThread.userName).toBe(credentials.user.name);
+			expect(sampleThread.userEmail).toBe(credentials.user.email);
 
-		// Note: UI verification skipped - test threads have no messages so they're
-		// filtered out by the widget (threads-overview.svelte filters by lastMessage).
-		// Database assertions above prove migration worked correctly.
-
-		// Cleanup: Delete the threads we created for this test
-		console.log(`[Test] Cleaning up ${threadIds.length} threads`);
-		await client.mutation(api.tests.cleanupAnonymousSupportThreads, {
-			secret: testSecret,
-			threadIds
-		});
+			// Note: UI verification skipped - test threads have no messages so they're
+			// filtered out by the widget (threads-overview.svelte filters by lastMessage).
+			// Database assertions above prove migration worked correctly.
+		} finally {
+			// Cleanup: Delete the threads we created for this test
+			console.log(`[Test] Cleaning up ${threadIds.length} threads`);
+			await client.mutation(api.tests.cleanupAnonymousSupportThreads, {
+				secret: testSecret,
+				threadIds
+			});
+		}
 	});
 
 	test('preserves localStorage on migration failure', async ({ page }) => {

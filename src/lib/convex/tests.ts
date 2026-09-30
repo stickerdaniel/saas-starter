@@ -583,23 +583,27 @@ export const deleteTestUser = mutation({
 // Removes notification recipients with test email patterns
 // Note: Does NOT delete test user accounts - only test artifacts
 export const cleanupTestData = mutation({
-	args: { secret: v.string() },
+	args: { secret: v.string(), emails: v.optional(v.array(v.string())) },
 	returns: v.object({
 		success: v.boolean(),
 		deletedCount: v.number(),
 		message: v.string()
 	}),
-	handler: async (ctx, { secret }) => {
+	handler: async (ctx, { secret, emails = [] }) => {
 		requireTestSecret(secret);
 
 		let deletedCount = 0;
 
-		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: rows exist only through admin actions (promotions, custom recipients), one per email
-		const allPreferences = await ctx.db.query('adminNotificationPreferences').collect();
-
-		// Sequential deletes in test cleanup (test-only, small dataset)
-		for (const pref of allPreferences) {
-			if (pref.email.endsWith('@e2e.example.com')) {
+		if (emails.some((email) => !email.endsWith('@e2e.example.com'))) {
+			throw new Error('Cleanup accepts only exact E2E recipient emails');
+		}
+		// Each indexed lookup is unique; an omitted ownership list deletes nothing.
+		for (const email of new Set(emails)) {
+			const pref = await ctx.db
+				.query('adminNotificationPreferences')
+				.withIndex('by_email', (q) => q.eq('email', email))
+				.unique();
+			if (pref) {
 				await ctx.db.delete('adminNotificationPreferences', pref._id);
 				deletedCount++;
 			}
