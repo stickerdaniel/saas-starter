@@ -1,6 +1,14 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { assertMetadata, backendKey, cases, reconcile, shardCount, type Report } from './e2e-ci';
+import {
+	assertMetadata,
+	verifiedCloudflarePreview,
+	backendKey,
+	cases,
+	reconcile,
+	shardCount,
+	type Report
+} from './e2e-ci';
 function report(ids: string[]): Report {
 	return {
 		suites: [
@@ -61,4 +69,38 @@ describe('complete preview result aggregation', () => {
 		expect(backendKey('https://a.convex.cloud')).toBe(backendKey('https://a.convex.cloud/'));
 		expect(backendKey('https://a.convex.cloud')).not.toBe(backendKey('https://b.convex.cloud'));
 	});
+});
+
+it('admits only preview origins emitted by the trusted provider for the tested commit', () => {
+	const sha = 'a'.repeat(40);
+	// Shape and URL lines follow the actual Workers check-run response.
+	const check = {
+		head_sha: sha,
+		conclusion: 'success',
+		app: { slug: 'cloudflare-workers-and-pages' },
+		output: {
+			summary:
+				'\nPreview URL: https://version-starter.example.workers.dev\nPreview Alias URL: https://branch-starter.example.workers.dev\n'
+		}
+	};
+	expect(
+		verifiedCloudflarePreview('https://branch-starter.example.workers.dev/', sha, [check])
+	).toBe('https://branch-starter.example.workers.dev');
+	for (const input of [
+		'https://attacker.example.com',
+		'http://branch-starter.example.workers.dev',
+		'https://branch-starter.example.workers.dev@attacker.example.com',
+		'https://branch-starter.example.workers.dev/?redirect=evil'
+	])
+		expect(() => verifiedCloudflarePreview(input, sha, [check])).toThrow();
+	expect(() =>
+		verifiedCloudflarePreview('https://branch-starter.example.workers.dev', sha, [
+			{ ...check, app: { slug: 'github-actions' } }
+		])
+	).toThrow('successful Cloudflare');
+	expect(() =>
+		verifiedCloudflarePreview('https://branch-starter.example.workers.dev', sha, [
+			{ ...check, head_sha: 'b'.repeat(40) }
+		])
+	).toThrow('successful Cloudflare');
 });

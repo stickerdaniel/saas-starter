@@ -23,6 +23,46 @@ export function backendKey(url: string): string {
 		throw new Error('Expected a backend origin');
 	return createHash('sha256').update(parsed.origin).digest('hex');
 }
+type PreviewCheck = {
+	head_sha: string;
+	conclusion: string | null;
+	app: { slug: string };
+	output: { summary: string | null };
+};
+export function verifiedCloudflarePreview(
+	input: string,
+	sha: string,
+	checks: PreviewCheck[]
+): string {
+	if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Expected an exact source SHA');
+	const url = new URL(input);
+	if (
+		url.protocol !== 'https:' ||
+		url.username ||
+		url.password ||
+		url.pathname !== '/' ||
+		url.search ||
+		url.hash
+	)
+		throw new Error('Expected an HTTPS preview origin');
+	const trusted = checks.filter(
+		(check) =>
+			check.head_sha === sha &&
+			check.app.slug === 'cloudflare-workers-and-pages' &&
+			check.conclusion === 'success'
+	);
+	const origins = trusted.flatMap((check) =>
+		[...(check.output.summary || '').matchAll(/^Preview(?: Alias)? URL: (https:\/\/\S+)$/gm)].map(
+			(match) => new URL(match[1]).origin
+		)
+	);
+	if (!origins.includes(url.origin))
+		throw new Error(
+			'Preview URL must come from a successful Cloudflare build of the exact tested SHA'
+		);
+	return url.origin;
+}
+
 export function assertMetadata(
 	version: unknown,
 	config: unknown,
@@ -102,7 +142,29 @@ export function reconcile(
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
 	const mode = process.argv[2];
-	if (mode === 'prepare') {
+	if (mode === 'resolve-target') {
+		const sha = process.env.E2E_EXPECTED_SHA!;
+		if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Expected an exact source SHA');
+		const response = await fetch(
+			`${process.env.GITHUB_API_URL}/repos/${process.env.GITHUB_REPOSITORY}/commits/${sha}/check-runs?per_page=100`,
+			{
+				headers: {
+					Authorization: `Bearer ${process.env.GH_TOKEN}`,
+					Accept: 'application/vnd.github+json'
+				},
+				signal: AbortSignal.timeout(20_000)
+			}
+		);
+		if (!response.ok)
+			throw new Error(`Cloudflare build identity lookup failed (${response.status})`);
+		const { check_runs } = (await response.json()) as { check_runs: PreviewCheck[] };
+		const requested =
+			process.env.PREVIEW_URL ||
+			/^Preview Alias URL: (https:\/\/\S+)$/m.exec(process.env.SUMMARY || '')?.[1];
+		if (!requested) throw new Error('No provider preview origin supplied');
+		const url = verifiedCloudflarePreview(requested, sha, check_runs);
+		appendFileSync(process.env.GITHUB_ENV!, `PREVIEW_URL=${url}\n`);
+	} else if (mode === 'prepare') {
 		const count = shardCount(process.env.E2E_PUBLIC_SHARDS);
 		const matrix = {
 			shard: count === 1 ? [1] : Array.from({ length: count }, (_, index) => index + 1)
@@ -116,6 +178,7 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
 		async function get(path: string) {
 			const response = await fetch(new URL(path, process.env.PUBLIC_SITE_URL), {
 				headers,
+				redirect: 'error',
 				signal: AbortSignal.timeout(20_000)
 			});
 			if (!response.ok) throw new Error(`Preview metadata HTTP ${response.status}: ${path}`);

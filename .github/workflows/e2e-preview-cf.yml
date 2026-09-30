@@ -109,25 +109,16 @@ jobs:
         with:
           ref: ${{ github.event.check_run.head_sha || inputs.sha }}
 
-      - name: Extract preview URL
-        env:
-          SUMMARY: ${{ github.event.check_run.output.summary }}
-          INPUT_URL: ${{ inputs.preview_url }}
-        run: |
-          PREVIEW_URL=$(echo "$SUMMARY" | grep 'Preview Alias URL:' | sed 's/.*Preview Alias URL: //' | tr -d '[:space:]')
-          PREVIEW_URL="${INPUT_URL:-$PREVIEW_URL}"
-          if [ -z "$PREVIEW_URL" ]; then
-            echo "::error::No Preview Alias URL found in check_run output"
-            exit 1
-          fi
-          echo "PREVIEW_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
-          echo "Preview URL: ${PREVIEW_URL}"
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
-      - name: Install dependencies
-        run: bun install
+      - name: Validate target against the provider build record
+        env:
+          GH_TOKEN: ${{ github.token }}
+          E2E_EXPECTED_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
+          PREVIEW_URL: ${{ inputs.preview_url }}
+          SUMMARY: ${{ github.event.check_run.output.summary }}
+        run: bun scripts/e2e-ci.ts resolve-target
 
       - name: Fetch E2E config from preview
         run: |
@@ -323,7 +314,6 @@ jobs:
           test "$PREPARE" = success && test "$EXCLUSIVE" = success
           if [ "$COUNT" = 1 ]; then test "$PUBLIC" = skipped; else test "$PUBLIC" = success; fi
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-      - run: bun install --frozen-lockfile --ignore-scripts
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: e2e-${{ github.run_id }}-${{ github.run_attempt }}-*
