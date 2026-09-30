@@ -16,13 +16,13 @@ export const start = internalMutation({
 	args: { restart: v.optional(v.boolean()) },
 	returns: progressValidator,
 	handler: async (ctx, args) => {
-		const existing = await ctx.db.query('aiChatHistoryMigration').first();
+		const existing = await ctx.db.query('aiChatHistoryMigration').unique();
 		if (existing && (existing.status === 'running' || !args.restart)) {
 			if (existing.status === 'running') {
 				const job = existing.scheduledFnId ? await ctx.db.system.get(existing.scheduledFnId) : null;
 				if (!job || (job.state.kind !== 'pending' && job.state.kind !== 'inProgress')) {
-					const scheduledFnId = await ctx.scheduler.runAfter(
-						PAGE_DELAY_MS,
+					const scheduledFnId = await ctx.scheduler.runAt(
+						Date.now() + PAGE_DELAY_MS,
 						internal.aiChat.activityMigration.runPage,
 						{ id: existing._id, cursor: existing.cursor }
 					);
@@ -57,7 +57,7 @@ export const status = internalQuery({
 	args: {},
 	returns: v.union(progressValidator, v.null()),
 	handler: async (ctx) => {
-		const state = await ctx.db.query('aiChatHistoryMigration').first();
+		const state = await ctx.db.query('aiChatHistoryMigration').unique();
 		return state
 			? { version: state.version, status: state.status, processed: state.processed }
 			: null;
@@ -82,6 +82,7 @@ export const runPage = internalMutation({
 				await ctx.db.patch('aiChatThreads', row._id, { sidebarActivityAt });
 			}
 		}
+		// No endCursor or reactive journal: continuation resumes the reached position even at a byte split.
 		const cursor = result.continueCursor;
 		const scheduledFnId = result.isDone
 			? undefined

@@ -35,6 +35,7 @@ function fixture(rows: Row[]) {
 			},
 			query: (table: string) => ({
 				first: async () => (table === 'aiChatHistoryMigration' ? state : (rows[0] ?? null)),
+				unique: async () => state,
 				paginate: async ({ cursor, numItems }: { cursor: string | null; numItems: number }) => {
 					const offset = cursor ? Number(cursor) : 0;
 					const page = rows.slice(offset, offset + numItems);
@@ -64,6 +65,11 @@ function fixture(rows: Row[]) {
 		},
 		scheduler: {
 			runAfter: async (_delay: number, _ref: unknown, args: PageArgs) => {
+				jobs.push(args);
+				jobStates.set(`job-${jobs.length}`, 'pending');
+				return `job-${jobs.length}`;
+			},
+			runAt: async (_delay: number, _ref: unknown, args: PageArgs) => {
 				jobs.push(args);
 				jobStates.set(`job-${jobs.length}`, 'pending');
 				return `job-${jobs.length}`;

@@ -67,6 +67,7 @@ import type * as files_attachmentText from "../files/attachmentText.js";
 import type * as files_cleanup from "../files/cleanup.js";
 import type * as files_errors from "../files/errors.js";
 import type * as files_metadata from "../files/metadata.js";
+import type * as files_staging from "../files/staging.js";
 import type * as files_upload from "../files/upload.js";
 import type * as files_vacuum from "../files/vacuum.js";
 import type * as files_validators from "../files/validators.js";
@@ -172,6 +173,7 @@ declare const fullApi: ApiFromModules<{
   "files/cleanup": typeof files_cleanup;
   "files/errors": typeof files_errors;
   "files/metadata": typeof files_metadata;
+  "files/staging": typeof files_staging;
   "files/upload": typeof files_upload;
   "files/vacuum": typeof files_vacuum;
   "files/validators": typeof files_validators;
