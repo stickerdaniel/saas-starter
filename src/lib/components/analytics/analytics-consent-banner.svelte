@@ -59,7 +59,7 @@
 		<Button variant="outline" size="sm" onclick={decline}>
 			<T keyName="analytics.consent.decline" />
 		</Button>
-		<Button variant="outline" size="sm" onclick={allow}>
+		<Button size="sm" onclick={allow}>
 			<T keyName="analytics.consent.allow" />
 		</Button>
 	</div>
