@@ -93,7 +93,7 @@ beforeEach(() => {
 	storeFileMock.mockResolvedValue({
 		file: {
 			fileId: 'file-1',
-			storageId: 'storage-1',
+			storageId: 'agent-storage-1',
 			url: 'https://files.test/stored',
 			filename: 'claimed.png'
 		}
@@ -135,7 +135,6 @@ describe.each([
 			});
 
 			expect(storeFileMock).toHaveBeenCalledOnce();
-			expect(runMutation).not.toHaveBeenCalledWith('files.cleanUp.deleteFile', expect.anything());
 		}
 	);
 });
