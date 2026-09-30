@@ -13,6 +13,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import 'varlock/auto-load';
 import fs from 'fs';
 import path from 'path';
+import { beginOwnedTestData, ownTestEmail } from './utils/owned-test-data';
+import globalTeardown from './global-teardown';
 
 const SITE_URL = resolveSiteUrl();
 const TEST_PASSWORD = 'TestPassword123!';
@@ -122,7 +124,7 @@ async function globalSetup() {
 	// Gate user creation on real backend readiness (not just the vite port being open).
 	await waitForBackendReady(convexUrl, testSecret);
 
-	const timestamp = Date.now();
+	const timestamp = beginOwnedTestData();
 
 	// Generate unique emails for this test run
 	const credentials: TestCredentials = {
@@ -149,28 +151,26 @@ async function globalSetup() {
 	console.log(`[Setup]   User: ${credentials.user.email}`);
 	console.log(`[Setup]   Admin: ${credentials.admin.email}`);
 
-	// Create regular user
-	await createUser(credentials.user, testSecret, client);
-
-	// Create admin user
-	await createUser(credentials.admin, testSecret, client, true);
-
-	// Anonymous support threads are created per-test for retry safety
-	// (Each test attempt creates fresh threads to avoid state pollution)
-	credentials.anonymousSupport = {
-		userId: '',
-		threadIds: []
-	};
-
-	// Save credentials for tests to read
+	// Persist ownership before writes, including a partially successful signup.
 	const authDir = path.join(process.cwd(), 'e2e', '.auth');
-	if (!fs.existsSync(authDir)) {
-		fs.mkdirSync(authDir, { recursive: true });
-	}
-
 	const credentialsPath = path.join(authDir, 'test-credentials.json');
 	fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2));
-	console.log(`[Setup] Credentials saved to ${credentialsPath}`);
+	ownTestEmail(credentials.user.email, 'userEmails');
+	ownTestEmail(credentials.admin.email, 'userEmails');
+	ownTestEmail(credentials.admin.email);
+	try {
+		await createUser(credentials.user, testSecret, client);
+		await createUser(credentials.admin, testSecret, client, true);
+	} catch (error) {
+		try {
+			await globalTeardown();
+		} catch (cleanupError) {
+			throw new AggregateError([error, cleanupError], 'Setup and owned cleanup failed', {
+				cause: cleanupError
+			});
+		}
+		throw error;
+	}
 
 	console.log('[Setup] Test users ready!');
 }

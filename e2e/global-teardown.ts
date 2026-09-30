@@ -1,98 +1,34 @@
-/**
- * Playwright Global Teardown
- *
- * Runs after all tests complete to clean up:
- * 1. Test users created in global-setup.ts (deleted from database)
- * 2. Test artifacts (notification preferences with test email patterns)
- */
-
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import 'varlock/auto-load';
-import fs from 'fs';
-import path from 'path';
-
-import type { TestCredentials } from './utils/types';
+import { existsSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import { resolveConvexUrl } from './utils/convex-url';
+import { readOwnedTestData, finishOwnedTestData } from './utils/owned-test-data';
 
-async function globalTeardown() {
-	const testSecret = process.env.AUTH_E2E_TEST_SECRET;
-	const convexUrl = resolveConvexUrl();
-
-	if (!testSecret || !convexUrl) {
-		console.warn('[Teardown] Missing AUTH_E2E_TEST_SECRET or CONVEX_URL - skipping cleanup');
-		return;
-	}
-
-	console.log('[Teardown] Cleaning up E2E test data...');
-
-	const client = new ConvexHttpClient(convexUrl);
-
-	// Read credentials file to get user emails
-	const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
-
-	if (fs.existsSync(credentialsPath)) {
+export default async function globalTeardown() {
+	const owned = readOwnedTestData();
+	if (!owned) return;
+	const secret = process.env.AUTH_E2E_TEST_SECRET;
+	const url = resolveConvexUrl();
+	if (!secret || !url) throw new Error('Owned cleanup requires test secret and backend URL');
+	const client = new ConvexHttpClient(url);
+	const failures: unknown[] = [];
+	for (const email of owned.userEmails) {
 		try {
-			const credentials: TestCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
-
-			// Clean up anonymous support threads (if any were created in global setup)
-			if (credentials.anonymousSupport?.threadIds?.length > 0) {
-				console.log('[Teardown] Deleting anonymous support threads');
-				try {
-					await client.mutation(api.tests.cleanupAnonymousSupportThreads, {
-						secret: testSecret,
-						threadIds: credentials.anonymousSupport.threadIds
-					});
-				} catch (error) {
-					console.warn(`[Teardown] Failed to delete support threads: ${error}`);
-				}
-			}
-
-			// Delete test users
-			console.log(`[Teardown] Deleting user: ${credentials.user.email}`);
-			try {
-				await client.mutation(api.tests.deleteTestUser, {
-					email: credentials.user.email,
-					secret: testSecret
-				});
-			} catch (error) {
-				console.warn(`[Teardown] Failed to delete user: ${error}`);
-			}
-
-			console.log(`[Teardown] Deleting admin: ${credentials.admin.email}`);
-			try {
-				await client.mutation(api.tests.deleteTestUser, {
-					email: credentials.admin.email,
-					secret: testSecret
-				});
-			} catch (error) {
-				console.warn(`[Teardown] Failed to delete admin: ${error}`);
-			}
-
-			// Remove credentials file
-			fs.unlinkSync(credentialsPath);
-			console.log('[Teardown] Credentials file removed');
+			await client.mutation(api.tests.deleteTestUser, { email, secret });
 		} catch (error) {
-			console.warn('[Teardown] Error reading credentials file:', error);
+			failures.push(error);
 		}
-	} else {
-		console.log('[Teardown] No credentials file found - skipping user deletion');
 	}
-
-	// Clean up test artifacts (notification preferences, etc.)
 	try {
-		const result = await client.mutation(api.tests.cleanupTestData, {
-			secret: testSecret
-		});
-
-		if (result.success) {
-			console.log(`[Teardown] ${result.message}`);
-		}
+		await client.mutation(api.tests.cleanupTestData, { secret, emails: owned.recipientEmails });
 	} catch (error) {
-		console.error('[Teardown] Artifact cleanup error:', error);
+		failures.push(error);
 	}
-
-	console.log('[Teardown] Cleanup complete');
+	if (failures.length)
+		throw new AggregateError(failures, 'Owned E2E cleanup failed; ownership record retained');
+	finishOwnedTestData();
+	const credentials = join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
+	if (existsSync(credentials)) unlinkSync(credentials);
 }
-
-export default globalTeardown;

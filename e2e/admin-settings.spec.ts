@@ -1,3 +1,6 @@
+import { ownTestEmail } from './utils/owned-test-data';
+import { readFileSync } from 'node:fs';
+import type { TestCredentials } from './utils/types';
 import { test, expect } from '@playwright/test';
 
 /**
@@ -33,6 +36,7 @@ test.describe('Admin Settings Page', () => {
 
 		// Generate unique email to avoid conflicts
 		const testEmail = `test-e2e-${Date.now()}@e2e.example.com`;
+		ownTestEmail(testEmail);
 
 		// Open add email dialog
 		await page.getByTestId('add-email-button').click();
@@ -81,6 +85,7 @@ test.describe('Admin Settings Page', () => {
 
 		// First, add a custom email
 		const testEmail = `test-dup-${Date.now()}@e2e.example.com`;
+		ownTestEmail(testEmail);
 
 		await page.getByTestId('add-email-button').click();
 		await page.getByTestId('add-email-input').fill(testEmail);
@@ -134,14 +139,12 @@ test.describe('Admin Settings Page', () => {
 		// Wait for table to load
 		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
-		// Find the first recipient row
-		const firstRow = page.locator('[data-testid^="recipient-row-"]').first();
-		await expect(firstRow).toBeVisible();
-
-		// Get the email from the row's data-testid (row is visible, so the testid must exist)
-		const rowTestId = await firstRow.getAttribute('data-testid');
-		const email = rowTestId?.replace('recipient-row-', '');
-		expect(email).toBeTruthy();
+		const { admin } = JSON.parse(
+			readFileSync('e2e/.auth/test-credentials.json', 'utf8')
+		) as TestCredentials;
+		const email = admin.email;
+		await page.getByTestId('admin-settings-search').fill(email);
+		await expect(page.getByTestId(`recipient-row-${email}`)).toBeVisible();
 
 		// Find a toggle checkbox for this recipient (the toggle column renders unconditionally)
 		const toggle = page.getByTestId(`toggle-notifyNewSupportTickets-${email}`);
@@ -177,6 +180,7 @@ test.describe('Admin Settings Page', () => {
 
 		// First, add a custom email to remove
 		const testEmail = `test-remove-${Date.now()}@e2e.example.com`;
+		ownTestEmail(testEmail);
 
 		await page.getByTestId('add-email-button').click();
 		await page.getByTestId('add-email-input').fill(testEmail);

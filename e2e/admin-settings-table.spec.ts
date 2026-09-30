@@ -1,3 +1,4 @@
+import { ownTestEmail } from './utils/owned-test-data';
 import { expect, test, type Page } from '@playwright/test';
 import {
 	expectTableQueryParamMissing,
@@ -12,6 +13,7 @@ async function waitForSettingsTableReady(page: Page) {
 }
 
 async function addCustomEmailRecipient(page: Page, email: string) {
+	ownTestEmail(email);
 	await page.getByTestId('add-email-button').click();
 	await page.getByTestId('add-email-input').fill(email);
 	await page.getByTestId('add-email-submit').click();

@@ -1,0 +1,82 @@
+name: Run a preview E2E lane
+description: Execute real preview coverage and retain machine-readable results
+inputs:
+  lane:
+    required: true
+    description: full, exclusive or public
+  shard:
+    default: '1'
+    description: Public shard index
+  count:
+    required: true
+    description: Public shard count
+  auth-secret:
+    default: ''
+    description: Test helper secret, exclusive lane only
+  cf-access-client-id:
+    default: ''
+    description: Protected Cloudflare preview client
+  cf-access-client-secret:
+    default: ''
+    description: Protected Cloudflare preview bypass
+  vercel-bypass-secret:
+    default: ''
+    description: Protected Vercel preview bypass
+runs:
+  using: composite
+  steps:
+    - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+    - shell: bash
+      run: bun install --frozen-lockfile
+    - shell: bash
+      run: bunx playwright install chromium --with-deps
+    - name: Verify tested preview identity
+      shell: bash
+      env:
+        CF_ACCESS_CLIENT_ID: ${{ inputs.cf-access-client-id }}
+        CF_ACCESS_CLIENT_SECRET: ${{ inputs.cf-access-client-secret }}
+        PREVIEW_BYPASS_SECRET: ${{ inputs.vercel-bypass-secret }}
+      run: bun scripts/e2e-ci.ts check
+    - name: Collect complete suite inventory
+      if: inputs.lane != 'public'
+      shell: bash
+      env:
+        E2E_LANE: full
+        PLAYWRIGHT_JSON_OUTPUT_NAME: inventory.json
+      run: bun run test:e2e --list --reporter=json
+    - name: Execute selected lane
+      shell: bash
+      env:
+        AUTH_E2E_TEST_SECRET: ${{ inputs.auth-secret }}
+        CF_ACCESS_CLIENT_ID: ${{ inputs.cf-access-client-id }}
+        CF_ACCESS_CLIENT_SECRET: ${{ inputs.cf-access-client-secret }}
+        PREVIEW_BYPASS_SECRET: ${{ inputs.vercel-bypass-secret }}
+        E2E_LANE: ${{ inputs.lane }}
+        E2E_SHARD: ${{ inputs.shard }}
+        E2E_COUNT: ${{ inputs.count }}
+        PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
+      run: |
+        if [ "$E2E_LANE" = public ]; then
+          bun run test:e2e --shard="$E2E_SHARD/$E2E_COUNT" --reporter=line,json,html
+        else
+          bun run test:e2e --reporter=line,json,html
+        fi
+    - name: Verify preview identity after execution
+      if: always()
+      shell: bash
+      env:
+        CF_ACCESS_CLIENT_ID: ${{ inputs.cf-access-client-id }}
+        CF_ACCESS_CLIENT_SECRET: ${{ inputs.cf-access-client-secret }}
+        PREVIEW_BYPASS_SECRET: ${{ inputs.vercel-bypass-secret }}
+      run: bun scripts/e2e-ci.ts check
+    - name: Retain required execution evidence
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      with:
+        name: e2e-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.lane }}-${{ inputs.shard }}
+        path: |
+          results.json
+          inventory.json
+          playwright-report/
+        retention-days: 7
+        if-no-files-found: error

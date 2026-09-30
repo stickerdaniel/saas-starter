@@ -1,3 +1,4 @@
+import { ownTestEmail } from './utils/owned-test-data';
 import { test, expect, type Page } from '@playwright/test';
 import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
@@ -159,10 +160,12 @@ test.describe('Admin Users Table', () => {
 		negativeCheckEmail = seedUsers[10].email;
 
 		for (const user of seedUsers) {
-			await createAuthUser(user);
+			ownTestEmail(user.email, 'userEmails');
 			createdSeedEmails.push(user.email);
+			await createAuthUser(user);
 
 			if (user.role === 'admin') {
+				ownTestEmail(user.email);
 				await client.mutation(api.tests.createTestAdminUser, {
 					email: user.email,
 					secret: testSecret
