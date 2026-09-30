@@ -439,6 +439,12 @@ export function computeBuildEnv(
 		);
 	}
 	if (platform.isPreview) {
+		// Hosting dashboards often share build variables across triggers, so a
+		// preview would otherwise bundle the production PostHog project key.
+		// Blank, not delete: execution overlays this map on the inherited env.
+		buildEnv.PUBLIC_POSTHOG_API_KEY = '';
+		buildEnv.PUBLIC_POSTHOG_HOST = '';
+		buildEnv.PUBLIC_POSTHOG_PROXY_HOST = '';
 		buildEnv.SITE_URL = siteOrigin;
 		buildEnv.PUBLIC_SITE_URL = siteOrigin;
 		console.log(`SITE_URL (for SvelteKit build): ${siteOrigin}`);
