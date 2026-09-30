@@ -8,6 +8,7 @@ import { authedMutation } from '../functions';
 import { fetchAttachmentText } from '../files/attachmentText';
 import { vGenerateUploadUrlResult } from '../files/validators';
 import { validateUploadBlob } from '../files/upload';
+import { releaseUploadStaging, UPLOAD_STAGING_TTL_MS } from '../files/staging';
 import { FILE_ERROR_CODES, createFileError } from '../files/errors';
 
 /**
@@ -89,7 +90,7 @@ export const saveUploadedFile = action({
 			uploadToken: args.uploadToken,
 			storageId: args.storageId,
 			accessKeys: [accessKey],
-			expiresAt: null
+			expiresAt: Date.now() + UPLOAD_STAGING_TTL_MS
 		});
 
 		let file: { fileId: string; storageId: string; url: string; filename?: string };
@@ -131,31 +132,28 @@ export const saveUploadedFile = action({
 				filename: args.filename
 			});
 			file = result.file;
-		} catch (error) {
-			await ctx.runMutation(components.convexFilesControl.cleanUp.deleteFile, {
-				storageId: args.storageId
-			});
-			throw error;
-		}
 
-		// Store image dimensions in fileMetadata table
-		if (args.width && args.height && verifiedMimeType.startsWith('image/')) {
-			await ctx.runMutation(internal.files.metadata.storeFileMetadata, {
+			// Store image dimensions in fileMetadata table
+			if (args.width && args.height && verifiedMimeType.startsWith('image/')) {
+				await ctx.runMutation(internal.files.metadata.storeFileMetadata, {
+					fileId: file.fileId,
+					storageId: file.storageId,
+					url: file.url,
+					width: args.width,
+					height: args.height
+				});
+			}
+
+			return {
 				fileId: file.fileId,
 				storageId: file.storageId,
 				url: file.url,
-				width: args.width,
-				height: args.height
-			});
+				filename: file.filename,
+				isImage: verifiedMimeType.startsWith('image/')
+			};
+		} finally {
+			await releaseUploadStaging(ctx, args.storageId);
 		}
-
-		return {
-			fileId: file.fileId,
-			storageId: file.storageId,
-			url: file.url,
-			filename: file.filename,
-			isImage: verifiedMimeType.startsWith('image/')
-		};
 	}
 });
 
