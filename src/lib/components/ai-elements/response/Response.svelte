@@ -23,8 +23,9 @@
 <div class="contents" {@attach streamingPace}>
 	<Streamdown
 		class={cn('t-stream size-full [&_>_*:first-child]:mt-0 [&_>_*:last-child]:mb-0', className)}
-		shikiTheme={mode.current === 'dark' ? 'github-dark-default' : 'github-light-default'}
+		highlightTheme={mode.current === 'dark' ? 'github-dark' : 'github-light'}
 		baseTheme="shadcn"
+		controls={{ table: { fullscreen: false } }}
 		animation={presentedAnimation}
 		{...restProps}
 	/>
