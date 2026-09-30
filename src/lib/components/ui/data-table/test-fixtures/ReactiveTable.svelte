@@ -5,13 +5,20 @@
 		RowSelectionState,
 		SortingState
 	} from '@tanstack/table-core';
+	import { FlexRender, renderComponent, renderSnippet } from '../index.js';
+	import NameCell from './NameCell.svelte';
 	import { createSvelteTable, type DataTableFeatures } from '../data-table.svelte.ts';
 	type Item = { id: string; name: string };
 	let data = $state.raw<Item[]>([
 		{ id: 'a', name: 'Zulu' },
 		{ id: 'b', name: 'Alpha' }
 	]);
-	let columns = $state.raw<Array<ColumnDef<DataTableFeatures, Item>>>([{ accessorKey: 'name' }]);
+	let columns = $state.raw<Array<ColumnDef<DataTableFeatures, Item>>>([
+		{
+			accessorKey: 'name',
+			cell: ({ row }) => renderComponent(NameCell, { name: row.original.name })
+		}
+	]);
 	let sorting = $state<SortingState>([]);
 	let rowSelection = $state<RowSelectionState>({});
 	let columnVisibility = $state<ColumnVisibilityState>({});
@@ -59,7 +66,13 @@
 		];
 	}
 	export function replaceColumns() {
-		columns = [{ accessorKey: 'id' }, { accessorKey: 'name' }];
+		columns = [
+			{ accessorKey: 'id', cell: ({ row }) => renderSnippet(idCell, { id: row.original.id }) },
+			{
+				accessorKey: 'name',
+				cell: ({ row }) => renderComponent(NameCell, { name: row.original.name })
+			}
+		];
 	}
 	export function sort() {
 		table.getColumn('name')!.toggleSorting(false);
@@ -83,6 +96,7 @@
 		.join(',')}</output
 >
 <output data-testid="pages">{table.getPageCount()}</output>
+{#snippet idCell({ id }: { id: string })}<span>{id}</span>{/snippet}
 <table>
 	<thead
 		><tr
@@ -92,7 +106,7 @@
 	<tbody>
 		{#each table.getRowModel().rows as row (row.id)}
 			<tr
-				>{#each row.getVisibleCells() as cell (cell.id)}<td>{cell.getValue()}</td>{/each}</tr
+				>{#each row.getVisibleCells() as cell (cell.id)}<td><FlexRender {cell} /></td>{/each}</tr
 			>
 		{/each}
 	</tbody>

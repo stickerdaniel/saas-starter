@@ -298,10 +298,7 @@
 										.columnDef.minSize}px;"
 								>
 									{#if !header.isPlaceholder}
-										<FlexRender
-											content={header.column.columnDef.header}
-											context={header.getContext()}
-										/>
+										<FlexRender {header} />
 									{/if}
 								</Table.Head>
 							{/each}
@@ -368,7 +365,7 @@
 							>
 								{#each row.getVisibleCells() as cell (cell.id)}
 									<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-										<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+										<FlexRender {cell} />
 									</Table.Cell>
 								{/each}
 							</Table.Row>

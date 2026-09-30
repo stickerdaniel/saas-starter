@@ -282,10 +282,7 @@
 											.columnDef.minSize}px;"
 									>
 										{#if !header.isPlaceholder}
-											<FlexRender
-												content={header.column.columnDef.header}
-												context={header.getContext()}
-											/>
+											<FlexRender {header} />
 										{/if}
 									</Table.Head>
 								{/each}
@@ -355,10 +352,7 @@
 								<Table.Row data-testid="audit-log-row">
 									{#each row.getVisibleCells() as cell (cell.id)}
 										<Table.Cell>
-											<FlexRender
-												content={cell.column.columnDef.cell}
-												context={cell.getContext()}
-											/>
+											<FlexRender {cell} />
 										</Table.Cell>
 									{/each}
 								</Table.Row>
