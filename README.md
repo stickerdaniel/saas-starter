@@ -429,7 +429,7 @@ Set `PREVIEW_ADMIN_PASSWORD` once as a preview default (`bunx convex env default
 | `PUBLIC_POSTHOG_PROXY_HOST` | CF Worker proxy host for ad-blocker bypass (falls back to `PUBLIC_POSTHOG_HOST` when unset)                                              |         |  ○   |
 | `PRODUCTION_BRANCH`         | Cloudflare only: production branch name (default: `main`)                                                                                |    ○    |  ○   |
 
-Preview builds always get empty PostHog values, even when the hosting platform shares build variables with production, so previews never send analytics into the production project.
+Builds that `scripts/deploy.ts` classifies as previews get empty PostHog key, host, and proxy host values, even when the hosting platform shares build variables with production. Custom build commands are not covered, and existing previews keep their values until rebuilt.
 
 `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` are intentionally not in this table. The build (`scripts/deploy.ts`) derives both from `CONVEX_DEPLOY_KEY` and overwrites any value you set on the hosting platform, so setting them there has no effect. To point production at a different Convex deployment, change the deploy key, not the URL.
 
