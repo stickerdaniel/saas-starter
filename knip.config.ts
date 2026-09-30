@@ -30,7 +30,7 @@ export default {
 		// it as an entry keeps it available while the rest of src/lib/chat stays checked.
 		'src/lib/chat/examples/SimpleChat.svelte'
 	],
-	project: ['src/**/*.{ts,svelte}', 'scripts/**/*.ts', 'e2e/**/*.ts'],
+	project: ['autumn.config.ts', 'src/**/*.{ts,svelte}', 'scripts/**/*.ts', 'e2e/**/*.ts'],
 	ignore: [
 		// Checked by packages/create-saas-starter/knip.config.ts in the same lint gate.
 		'packages/create-saas-starter/**',
@@ -58,8 +58,6 @@ export default {
 		// Tailwind v4 plugins referenced via CSS @plugin, not JS imports.
 		'@tailwindcss/typography',
 		'tw-animate-css',
-		// Autumn CLI invoked by the Autumn config workflow, never imported.
-		'atmn',
 		// Imported only inside src/lib/emails (ignored above) and loaded through
 		// vite.ssrLoadModule in scripts/build-emails.ts.
 		'@better-svelte-email/server',

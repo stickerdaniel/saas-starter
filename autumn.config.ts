@@ -1,14 +1,13 @@
-import { feature, item, plan } from 'atmn';
+import { atmn, feature, plan } from 'atmn';
 
-// Coupons and promotion codes are NOT defined here. Autumn manages them as
-// Stripe-side rewards through the dashboard; `atmn push` neither creates nor
-// reads them, so a live discount never shows up in this config.
+// CLI 2 removes omitted versions, so retain inactive history alongside active plans.
+// Omit dashboard-managed rewards, referrals, settings and webhooks to preserve them.
 
 /**
  * Community chat messages - metered per month.
  */
-export const messages = feature({
-	id: 'messages',
+const messages = feature({
+	featureId: 'messages',
 	name: 'Messages',
 	type: 'metered',
 	consumable: true
@@ -17,52 +16,67 @@ export const messages = feature({
 /**
  * AI chat messages - metered per month.
  */
-export const aiChatMessages = feature({
-	id: 'ai_chat_messages',
+const aiChatMessages = feature({
+	featureId: 'ai_chat_messages',
 	name: 'AI Chat Messages',
 	type: 'metered',
 	consumable: true
 });
 
-/**
- * Free tier with limited message usage.
- * Automatically attached to new customers via autoEnable.
- */
-export const free = plan({
-	id: 'free',
+const freeV1 = plan({
+	planId: 'free',
 	name: 'Free',
+	versionSlug: 'v1',
+	active: false,
+	autoEnable: false,
+	items: [{ featureId: messages.featureId, included: 3, reset: { interval: 'month' } }]
+});
+
+const free = plan({
+	planId: 'free',
+	name: 'Free',
+	versionSlug: 'v2',
+	active: true,
 	autoEnable: true,
 	items: [
-		item({
-			featureId: messages.id,
+		{
+			featureId: messages.featureId,
 			included: 3,
 			reset: { interval: 'month' }
-		}),
-		item({
-			featureId: aiChatMessages.id,
+		},
+		{
+			featureId: aiChatMessages.featureId,
 			included: 3,
 			reset: { interval: 'month' }
-		})
+		}
 	]
 });
 
 /**
- * Pro tier with unlimited community chat and 500 AI chat messages/month.
+ * Pro tier with unlimited community chat and 30 AI chat messages/month.
  */
-export const pro = plan({
-	id: 'pro',
+const pro = plan({
+	planId: 'pro',
 	name: 'Pro',
+	versionSlug: 'v1',
+	active: true,
+	autoEnable: false,
 	price: { amount: 10, interval: 'month' },
 	items: [
-		item({
-			featureId: messages.id,
+		{
+			featureId: messages.featureId,
 			unlimited: true,
 			reset: { interval: 'month' }
-		}),
-		item({
-			featureId: aiChatMessages.id,
-			included: 500,
+		},
+		{
+			featureId: aiChatMessages.featureId,
+			included: 30,
 			reset: { interval: 'month' }
-		})
+		}
 	]
+});
+
+export default atmn({
+	features: [messages, aiChatMessages],
+	plans: [freeV1, free, pro]
 });

@@ -70,11 +70,12 @@ Prefer system-of-record tables over duplicate events. Add an event only when it 
 
 ## Billing configuration
 
-After changing `autumn.config.ts`, push the catalog explicitly:
+After changing `autumn.config.ts`, review the preview, then apply it explicitly with `--yes`; without it, `atmn push` only previews:
 
 ```bash
-bunx atmn push
-bunx atmn push -p
+bunx atmn push        # sandbox preview
+bunx atmn push --yes  # apply to sandbox
+bunx atmn push -p --yes
 ```
 
 CI preview does not update either live catalog.

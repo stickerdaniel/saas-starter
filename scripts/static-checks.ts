@@ -950,7 +950,7 @@ class Ledger {
 
 	/**
 	 * Did a FILE-SCOPED check actually consume the caller's files? The always-on
-	 * project checks (oxlint, build-emails, atmn) are deliberately not counted: they
+	 * project checks (oxlint, build-emails, Autumn config) are deliberately not counted: they
 	 * run no matter what you pass, so they can never earn green on the caller's behalf.
 	 * That is exactly what let a zero-file run scroll plausible output past everyone.
 	 */
@@ -1777,17 +1777,10 @@ async function main(): Promise<void> {
 		}
 		console.log('\n');
 
-		// Autumn billing config validation (no auth needed, runs locally).
-		// `atmn preview` only renders plans from the local autumn.config.ts; it never
-		// diffs against or pushes to the live deployment. After any config edit,
-		// `bunx atmn push` (sandbox) / `bunx atmn push -p` (prod) is a required manual
-		// step that no automated check covers (the CLI's only diff is the hidden
-		// debug-only `test-diff`, which requires auth, always exits 0, and prints
-		// human-readable output, so there is no stable primitive to build a drift
-		// guard from; auto-pushing from CI would be worse).
+		// Validate through the public constructor without credentials or remote operations.
 		printHeader(step, 'Autumn config');
-		await runCommand('bun', ['atmn', 'preview']);
-		ledger.ran('atmn preview');
+		await runCommand('bun', ['scripts/check-autumn-config.ts']);
+		ledger.ran('Autumn config');
 		console.log('\n');
 	}
 
