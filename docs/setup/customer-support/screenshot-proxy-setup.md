@@ -413,10 +413,9 @@ View logs: Cloudflare Dashboard → Workers → Your Worker → Logs
 
 **Solutions:**
 
-1. Preload images with `preCache()` - already implemented
-2. Reduce image sizes at source
-3. Use CDN for external images
-4. Increase cache duration if appropriate
+1. Reduce image sizes at source
+2. Use CDN for external images
+3. Increase cache duration if appropriate
 
 ## Advanced Configuration
 
