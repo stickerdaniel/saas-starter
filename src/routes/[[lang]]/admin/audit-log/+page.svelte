@@ -2,7 +2,7 @@
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
 	import { clamp } from '$lib/utils/math';
-	import { type SortingState, getCoreRowModel } from '@tanstack/table-core';
+	import { type SortingState } from '@tanstack/table-core';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -211,7 +211,6 @@
 			return auditTable.pageCount;
 		},
 		getRowId: (row) => row.id,
-		getCoreRowModel: getCoreRowModel(),
 		onSortingChange: (updater) => {
 			const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
 			if (nextSorting.length === 0) {

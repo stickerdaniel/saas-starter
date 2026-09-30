@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as v from 'valibot';
 	import { clamp } from '$lib/utils/math';
-	import { getCoreRowModel, type RowSelectionState, type SortingState } from '@tanstack/table-core';
+	import { type RowSelectionState, type SortingState } from '@tanstack/table-core';
 	import { SvelteMap } from 'svelte/reactivity';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
@@ -223,7 +223,6 @@
 			return recipientsTable.pageCount;
 		},
 		getRowId: (row) => row.email,
-		getCoreRowModel: getCoreRowModel(),
 		onSortingChange: (updater) => {
 			const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
 			if (nextSorting.length === 0) {

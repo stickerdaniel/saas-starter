@@ -6,8 +6,7 @@
 	import {
 		type RowSelectionState,
 		type SortingState,
-		type VisibilityState,
-		getCoreRowModel
+		type ColumnVisibilityState
 	} from '@tanstack/table-core';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
@@ -201,7 +200,7 @@
 
 	// TanStack Table state (only client-side concerns remain)
 	let rowSelection = $state<RowSelectionState>({});
-	let columnVisibility = $state<VisibilityState>({});
+	let columnVisibility = $state<ColumnVisibilityState>({});
 
 	// Dialog state
 	let selectedUser = $state<AdminUserData | null>(null);
@@ -274,7 +273,6 @@
 			return usersTable.pageCount;
 		},
 		getRowId: (row) => row.id,
-		getCoreRowModel: getCoreRowModel(),
 		onSortingChange: (updater) => {
 			const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
 			if (nextSorting.length === 0) {
