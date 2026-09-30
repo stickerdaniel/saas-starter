@@ -56,6 +56,7 @@ vi.mock('../../_generated/api', () => ({
 	components: { agent: {} },
 	internal: {
 		aiChat: {
+			titles: { generateThreadTitle: 'internal.aiChat.titles.generateThreadTitle' },
 			threads: {
 				updateThreadMetadata: 'internal.aiChat.threads.updateThreadMetadata'
 			},
@@ -77,6 +78,7 @@ import { saveMessage } from '@convex-dev/agent';
 import { aiChatAgent } from '../agent';
 import { requireAiChatThreadRecord } from '../ownership';
 import { createAIResponse, sendMessage } from '../messages';
+import { updateThreadMetadata } from '../threads';
 import {
 	prepareToolErrorRedactionStep,
 	toolErrorRedactionTransform
@@ -279,6 +281,56 @@ describe('sendMessage provider preflight', () => {
 			expect(agentSaveMessageMock).not.toHaveBeenCalled();
 			expect(patch).not.toHaveBeenCalled();
 			expect(runAfter).not.toHaveBeenCalled();
+		}
+	);
+	it.each([true, false])(
+		'stores current sidebar activity when sending in a warm=%s thread',
+		async (isWarm) => {
+			const record = {
+				_id: 'record_1',
+				isWarm,
+				lastMessageAt: undefined as number | undefined,
+				sidebarActivityAt: undefined as number | undefined
+			};
+			requireThreadMock.mockResolvedValue(record);
+			const ctx = {
+				db: {
+					patch: async (_table: string, _id: string, patch: object) => Object.assign(record, patch)
+				},
+				scheduler: { runAfter: vi.fn() }
+			};
+			await sendHandler._handler(ctx, { threadId: 'thread_1', prompt: 'hello' });
+			expect(record.isWarm).toBe(false);
+			expect(record.lastMessageAt).toBeGreaterThan(0);
+			expect(record.sidebarActivityAt).toBe(record.lastMessageAt);
+		}
+	);
+});
+
+describe('activity metadata writes', () => {
+	it.each([
+		[{ isWarm: false }, { lastMessageAt: 0 }, 0],
+		[{ isWarm: false }, { lastMessage: 'Legacy preview' }, 0],
+		[{ isWarm: true }, { lastMessageAt: 25 }, undefined]
+	] as const)(
+		'stores activity without changing visibility for %j',
+		async (initial, patch, expected) => {
+			const row = {
+				_id: 'record_1',
+				...initial,
+				sidebarActivityAt: undefined as number | undefined
+			};
+			const ctx = {
+				db: {
+					query: () => ({ withIndex: () => ({ first: async () => row }) }),
+					patch: async (_table: string, _id: string, values: object) => Object.assign(row, values)
+				}
+			};
+			await (updateThreadMetadata as unknown as RegisteredFunction<object>)._handler(ctx, {
+				threadId: 'thread_1',
+				...patch
+			});
+			expect(row.sidebarActivityAt).toBe(expected);
 		}
 	);
 });

@@ -31,6 +31,7 @@ import type * as admin_support_notifications from "../admin/support/notification
 import type * as admin_support_queries from "../admin/support/queries.js";
 import type * as admin_types from "../admin/types.js";
 import type * as admin_userSearch from "../admin/userSearch.js";
+import type * as aiChat_activityMigration from "../aiChat/activityMigration.js";
 import type * as aiChat_agent from "../aiChat/agent.js";
 import type * as aiChat_errors from "../aiChat/errors.js";
 import type * as aiChat_files from "../aiChat/files.js";
@@ -135,6 +136,7 @@ declare const fullApi: ApiFromModules<{
   "admin/support/queries": typeof admin_support_queries;
   "admin/types": typeof admin_types;
   "admin/userSearch": typeof admin_userSearch;
+  "aiChat/activityMigration": typeof aiChat_activityMigration;
   "aiChat/agent": typeof aiChat_agent;
   "aiChat/errors": typeof aiChat_errors;
   "aiChat/files": typeof aiChat_files;

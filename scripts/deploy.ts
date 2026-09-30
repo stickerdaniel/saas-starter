@@ -21,6 +21,7 @@ import {
 	buildSvelteKit,
 	computeBuildEnv,
 	deployConvex,
+	prepareAiChatHistory,
 	resolveDeploymentSiteOrigin,
 	setProductionCapabilityProfile,
 	setupPreviewEnv,
@@ -47,6 +48,7 @@ export async function main(
 	}
 	const deployment = await deployConvex(platform, execution, options.recovery);
 	if (platform.isPreview) await setupPreviewEnv(deployment, platform, execution);
+	await prepareAiChatHistory(deployment, execution);
 	checkAborted(execution.signal);
 	const buildEnv = computeBuildEnv(platform, deployment, execution.env, siteOrigin);
 	(options.writeConfig ?? writeE2eConfig)(platform, buildEnv);

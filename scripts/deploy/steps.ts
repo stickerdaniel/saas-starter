@@ -26,6 +26,62 @@ export interface ConvexDeployment {
 	name: string | null;
 }
 
+export async function prepareAiChatHistory(
+	deployment: ConvexDeployment,
+	execution = createDeploymentExecution()
+): Promise<void> {
+	if (!deployment.name)
+		throw new DeploymentError(
+			'configuration',
+			'AI history migration requires the deployed Convex target.'
+		);
+	for (let attempt = 0; attempt < 40; attempt++) {
+		checkAborted(execution.signal);
+		const result = await execution.run({
+			command: 'bunx',
+			args: [
+				'convex',
+				'run',
+				'--deployment-name',
+				deployment.name,
+				`aiChat/activityMigration:${attempt === 0 ? 'start' : 'status'}`
+			],
+			output: 'capture'
+		});
+		requireCommand(result, 'AI history migration preflight failed.');
+		let progress: { version?: number; status?: string; processed?: number } | null;
+		try {
+			progress = JSON.parse(stripAnsi(result.stdout));
+		} catch {
+			throw new DeploymentError(
+				'configuration',
+				'AI history migration returned unreadable progress.'
+			);
+		}
+		if (
+			progress?.version !== 1 ||
+			!['running', 'complete'].includes(progress.status ?? '') ||
+			typeof progress.processed !== 'number' ||
+			!Number.isInteger(progress.processed) ||
+			progress.processed < 0
+		) {
+			throw new DeploymentError(
+				'configuration',
+				'AI history migration returned incompatible progress.'
+			);
+		}
+		if (progress.status === 'complete') {
+			console.log(`AI history activity migration complete (${progress.processed} rows)`);
+			return;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+	}
+	throw new DeploymentError(
+		'configuration',
+		'AI history migration has not completed; retry this deployment after it finishes.'
+	);
+}
+
 function convexDeployEnvironment(
 	platform: PlatformContext,
 	env: NodeJS.ProcessEnv

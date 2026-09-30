@@ -4,7 +4,7 @@ import { authedQuery, authedMutation } from '../functions';
 import { aiChatAgent } from './agent';
 import { components } from '../_generated/api';
 import { requireAiChatThreadRecord } from './ownership';
-import { isVisibleAiChatThread } from './visibility';
+import { getAiChatSidebarActivityAt, isVisibleAiChatThread } from './visibility';
 import { aiChatRateLimiter } from './rateLimit';
 import { createRateLimitError } from '../support/types';
 
@@ -235,11 +235,12 @@ export const updateThreadMetadata = internalMutation({
 			.first();
 		if (!record) return null;
 
-		const patch: Record<string, unknown> = {};
+		const patch: { lastMessage?: string; lastMessageAt?: number; sidebarActivityAt?: number } = {};
 		if (args.lastMessage !== undefined) patch.lastMessage = args.lastMessage;
 		if (args.lastMessageAt !== undefined) patch.lastMessageAt = args.lastMessageAt;
 
 		if (Object.keys(patch).length > 0) {
+			patch.sidebarActivityAt = getAiChatSidebarActivityAt({ ...record, ...patch });
 			await ctx.db.patch('aiChatThreads', record._id, patch);
 		}
 		return null;
@@ -305,7 +306,11 @@ export const backfillThreadMetadata = internalMutation({
 						lastMsg.text.length > THREAD_PREVIEW_LENGTH
 							? lastMsg.text.slice(0, THREAD_PREVIEW_LENGTH)
 							: lastMsg.text,
-					lastMessageAt: lastMsg._creationTime
+					lastMessageAt: lastMsg._creationTime,
+					sidebarActivityAt: getAiChatSidebarActivityAt({
+						...record,
+						lastMessageAt: lastMsg._creationTime
+					})
 				});
 				updated++;
 			}

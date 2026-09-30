@@ -15,3 +15,9 @@ export function isVisibleAiChatThread(r: {
 }): boolean {
 	return !r.isWarm && (r.lastMessageAt !== undefined || !!r.lastMessage);
 }
+
+export function getAiChatSidebarActivityAt(
+	thread: Parameters<typeof isVisibleAiChatThread>[0]
+): number | undefined {
+	return isVisibleAiChatThread(thread) ? (thread.lastMessageAt ?? 0) : undefined;
+}
