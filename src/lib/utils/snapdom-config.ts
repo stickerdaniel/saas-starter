@@ -39,7 +39,7 @@ export function getSnapDOMProxyUrl(): string | undefined {
  * Returns optimized configuration for screenshot capture including:
  * - CORS proxy (dev: public, prod: custom or none)
  * - Font embedding enabled
- * - Full caching for performance
+ * - Soft caching for performance
  * - Fast mode for immediate captures
  *
  * @returns snapDOM configuration object for snapdom()
@@ -50,29 +50,7 @@ export function getSnapDOMConfig() {
 	return {
 		useProxy,
 		embedFonts: true,
-		cache: 'full' as const,
+		cache: 'soft' as const,
 		fast: true
-	};
-}
-
-/**
- * Get configuration for preCache() function
- *
- * Returns optimized configuration for resource preloading including:
- * - CORS proxy (dev: public, prod: custom or none)
- * - Font embedding enabled
- * - Full caching for performance
- *
- * Note: preCache uses 'cacheOpt' instead of 'cache' (snapDOM API quirk)
- *
- * @returns snapDOM configuration object for preCache()
- */
-export function getPreCacheConfig() {
-	const useProxy = getSnapDOMProxyUrl();
-
-	return {
-		useProxy,
-		embedFonts: true,
-		cacheOpt: 'full' as const
 	};
 }

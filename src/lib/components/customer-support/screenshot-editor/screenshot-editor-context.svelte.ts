@@ -7,8 +7,6 @@ import { StateHistory } from 'runed';
 import { createContext } from 'svelte';
 import type { Stage } from 'konva/lib/Stage';
 import type { Layer } from 'konva/lib/Layer';
-import { preCache } from '@zumer/snapdom';
-import { getPreCacheConfig } from '$lib/utils/snapdom-config';
 import type {
 	Shape,
 	ShapeUpdate,
@@ -72,7 +70,6 @@ export class ScreenshotEditorState {
 
 	// ===== Loading State =====
 	isSaving = $state(false);
-	hasPreCached = $state(false);
 
 	// ===== Undo/Redo using Runed StateHistory =====
 	history: StateHistory<Shape[]>;
@@ -147,14 +144,6 @@ export class ScreenshotEditorState {
 	startDrawing(x: number, y: number) {
 		this.isDrawing = true;
 		this.drawStartPos = { x, y };
-
-		// Preload resources on first drawing action (fire-and-forget, runs in background)
-		if (!this.hasPreCached) {
-			this.hasPreCached = true;
-			void preCache(document.body, getPreCacheConfig()).catch(() => {
-				console.warn('[ScreenshotEditor.preCache] Failed');
-			});
-		}
 	}
 
 	stopDrawing() {

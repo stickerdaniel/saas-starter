@@ -30,7 +30,7 @@ const state = vi.hoisted(() => ({
 	supportUserId: { current: null as string | null }
 }));
 
-const snapdom = vi.hoisted(() => ({ snapdom: vi.fn(), preCache: vi.fn() }));
+const snapdom = vi.hoisted(() => ({ snapdom: vi.fn() }));
 
 vi.mock('$app/state', () => ({ page: state.page }));
 vi.mock('$lib/auth-client', () => ({
@@ -257,7 +257,6 @@ describe('customer support diagnostics', () => {
 
 		beforeEach(async () => {
 			onCaptureError.mockReset();
-			snapdom.preCache.mockReset().mockResolvedValue(undefined);
 			snapdom.snapdom.mockReset();
 			const setEditor = vi.spyOn(screenshotEditorContext, 'set');
 			component = mount(ChatTestProvider<{ onCaptureError: (error: unknown) => void }>, {
@@ -266,18 +265,6 @@ describe('customer support diagnostics', () => {
 			});
 			await tick();
 			editor = setEditor.mock.results[0]!.value;
-		});
-
-		it('keeps drawing after a failed pre-cache with a fixed warning', async () => {
-			snapdom.preCache.mockRejectedValue(new Error(secret));
-
-			editor.startDrawing(10, 10);
-
-			await vi.waitFor(() =>
-				expect(console.warn).toHaveBeenCalledExactlyOnceWith('[ScreenshotEditor.preCache] Failed')
-			);
-			expect(editor.isDrawing).toBe(true);
-			expect(consoleOutput()).not.toContain(secret);
 		});
 
 		it('hands a failed capture to its owner without logging the error', async () => {
