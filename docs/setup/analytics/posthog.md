@@ -36,14 +36,16 @@ Every event is rewritten before sending:
 - Referrers are reduced to their origin. Search keywords, page titles and ad click ids are dropped.
 - Signed-in users are identified by their user id only, never by email or name. Nothing is sent while an admin impersonates a user.
 
+The cleaning applies to what leaves the browser, not to what the SDK keeps locally. Its storage in the visitor's browser still holds the raw first referrer and landing URL, with only the parameters in `custom_personal_data_properties` masked. That storage exists only after consent and is deleted on withdrawal, and the privacy policy says so.
+
 This is data minimisation by syntax, not proof of anonymity. A campaign value that matches the allowed pattern can still carry text someone put into a link, and the user id links events to an account.
 
 Turning any disabled capability back on widens what you collect. Update the banner copy and the privacy policy first, then ask existing visitors again by changing the `v1` prefix of the cookie value in [`src/lib/analytics/consent.ts`](../../../src/lib/analytics/consent.ts); any other prefix reads as undecided.
 
 ## Limits
 
-- **Withdrawal is not a recall.** From the moment a visitor declines, no new event is accepted. An event accepted just before can still arrive from a request already in flight or a retry. Deleting data already in PostHog is a manual task in the PostHog dashboard (Persons → delete).
-- **No pageleave or session duration.** Pageleave events are off because they are sent while the page unloads, after the last point where consent can be checked reliably. Session length in PostHog is therefore the span between events, not time on page.
+- **Withdrawal is not a recall.** From the moment a visitor declines, no new event is accepted. An event accepted just before can still be sent: it may be encoding or waiting for the transport, in a request already in flight, or in a retry. Deleting data already in PostHog is a manual task in the PostHog dashboard (Persons → delete).
+- **No pageleave or session duration.** Pageleave events are off to keep the measurement small: pageviews come from the app, and the final page of a visit has no end time. Session length in PostHog is therefore the span between events, not time on page. Turning pageleave on would still run through the consent check.
 - **Events during a session change are dropped.** From the start of a sign-out or impersonation until the new session is known, custom events are discarded rather than queued, so none is attributed to the wrong account.
 - **One identity per consent period.** A reload keeps the visitor's id; declining and allowing again starts a new, unlinked id. When two tabs grant at the same moment, one of them keeps a temporary id until it reloads. A tab that notices a grant made in another tab pauses until it reloads.
 - **Blocked storage.** When the browser refuses local or session storage, the id lives only as long as the page, so returning visitors count as new.

@@ -13,7 +13,7 @@
 	// the browser refused to store it or another tab changed it.
 	function onCheckedChange(checked: boolean): void {
 		if (!checked) {
-			preferences.decline();
+			if (!preferences.decline()) toast.error($t('analytics.consent.decline_storage_failed'));
 			return;
 		}
 		if (!preferences.allow()) toast.error($t('analytics.consent.storage_failed'));

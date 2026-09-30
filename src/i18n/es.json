@@ -306,6 +306,7 @@
 		"consent": {
 			"allow": "Permitir",
 			"decline": "Rechazar",
+			"decline_storage_failed": "Tu navegador bloqueó el guardado de esta elección. La analítica está desactivada en esta página, pero puede volver a activarse al recargar.",
 			"description": "¿Podemos medir cómo se usa este sitio? Enviamos visitas a páginas y eventos del producto a PostHog, sin tu nombre ni tu correo electrónico. No se envía nada hasta que lo permitas, y puedes cambiar tu elección en cualquier momento desde el pie de página o la configuración de tu cuenta.",
 			"privacy_link": "Política de privacidad",
 			"storage_failed": "Tu navegador bloqueó el guardado de esta elección, así que la analítica sigue desactivada.",

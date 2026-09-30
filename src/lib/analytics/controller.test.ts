@@ -7,6 +7,7 @@
  */
 import type { PostHog } from 'posthog-js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { duringAuthChange, setAnalyticsController } from './client';
 import { resolveAnalyticsConfig } from './config';
 import { AnalyticsController, NOT_FOUND_ROUTE_ID, type ControllerDeps } from './controller';
 import type { AuthState } from './identity';
@@ -20,6 +21,11 @@ const KEYS = analyticsStorageKeys(TOKEN);
 const ANONYMOUS: AuthState = { kind: 'anonymous' };
 const user = (userId: string): AuthState => ({ kind: 'user', userId });
 
+/** Every controller of the current test; disposed afterwards so none outlives it. */
+const live: AnalyticsController[] = [];
+/** SDK imports still running, so settle() can wait for them instead of a fixed delay. */
+const inflight = new Set<Promise<unknown>>();
+
 interface Harness {
 	controller: AnalyticsController;
 	created: PostHog[];
@@ -32,7 +38,7 @@ function makeController(overrides: Partial<ControllerDeps> = {}): Harness {
 		{ apiKey: TOKEN, apiHost: 'https://eu.i.posthog.com', allowedHosts: 'localhost' },
 		'localhost'
 	);
-	harness.controller = new AnalyticsController({
+	const deps: ControllerDeps = {
 		config,
 		stores: { localStorage, sessionStorage, document, hostname: 'localhost', secure: false },
 		getLocalStorage: () => localStorage,
@@ -59,12 +65,30 @@ function makeController(overrides: Partial<ControllerDeps> = {}): Harness {
 		location: () => window.location,
 		notifyOtherTabs: () => {},
 		...overrides
-	});
+	};
+	const load = deps.loadSdk;
+	deps.loadSdk = () => {
+		const task = load();
+		inflight.add(task);
+		void task.catch(() => {}).finally(() => inflight.delete(task));
+		return task;
+	};
+	harness.controller = new AnalyticsController(deps);
+	live.push(harness.controller);
 	return harness;
 }
 
+/** Runs idle tasks, SDK imports and request decoding until nothing is left. */
 async function settle(): Promise<void> {
-	await net.flush(60);
+	for (let round = 0; round < 10; round += 1) {
+		await net.flush();
+		if (inflight.size === 0) break;
+		await Promise.race([
+			Promise.allSettled([...inflight]),
+			new Promise((resolve) => setTimeout(resolve, 1000))
+		]);
+	}
+	await net.flush();
 }
 
 function navigate(path: string, routeId: string | null, { controller }: Harness): void {
@@ -82,6 +106,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	for (const controller of live.splice(0)) controller.dispose();
 	resetBrowserStores();
 	Object.defineProperty(document, 'referrer', { configurable: true, value: '' });
 });
@@ -272,7 +297,7 @@ describe('after consent', () => {
 		expect(net.events).toEqual([]);
 	});
 
-	it('closes admission from the moment a sign-out starts until the new session is known', async () => {
+	it('stays closed from the start of a sign-out until the session is fetched after it', async () => {
 		const harness = makeController();
 		navigate('/en/app', '/[[lang]]/app', harness);
 		harness.controller.setAuth(user('user_1'));
@@ -280,15 +305,21 @@ describe('after consent', () => {
 		harness.controller.grant();
 		await settle();
 
-		// The session atom still reports user_1 when the sign-out request is sent.
-		harness.controller.beginAuthChange();
+		// The session store still reports user_1 while the request runs, and an
+		// unrelated refresh completes before the request does.
+		const operation = harness.controller.beginAuthChange();
 		harness.controller.capture('during_sign_out');
-		harness.controller.setAuth(user('user_1'));
 		harness.controller.setAuth({ kind: 'pending' });
-		harness.controller.capture('during_refetch');
+		harness.controller.setAuth(user('user_1'));
+		harness.controller.capture('after_unrelated_refresh');
+		harness.controller.endAuthChange(operation, 'changed');
+		harness.controller.capture('before_session_refetch');
+		harness.controller.setAuth({ kind: 'pending' });
 		await settle();
-		expect(eventsNamed('during_sign_out')).toEqual([]);
-		expect(eventsNamed('during_refetch')).toEqual([]);
+		for (const name of ['during_sign_out', 'after_unrelated_refresh', 'before_session_refetch']) {
+			expect(eventsNamed(name)).toEqual([]);
+		}
+		expect(eventsNamed('$pageview')).toHaveLength(1);
 
 		harness.controller.setAuth(ANONYMOUS);
 		await settle();
@@ -301,7 +332,7 @@ describe('after consent', () => {
 		).toEqual([]);
 	});
 
-	it('reopens admission when an auth change fails before any refetch', async () => {
+	it('reopens when the server refused the change, and only after every change ended', async () => {
 		const harness = makeController();
 		navigate('/en/app', '/[[lang]]/app', harness);
 		harness.controller.setAuth(user('user_1'));
@@ -309,12 +340,34 @@ describe('after consent', () => {
 		harness.controller.grant();
 		await settle();
 
-		harness.controller.beginAuthChange();
-		harness.controller.cancelAuthChange();
-		harness.controller.capture('after_cancel');
+		const first = harness.controller.beginAuthChange();
+		const second = harness.controller.beginAuthChange();
+		harness.controller.endAuthChange(second, 'unchanged');
+		harness.controller.capture('while_first_runs');
+		harness.controller.endAuthChange(first, 'unchanged');
+		harness.controller.capture('after_both');
 		await settle();
-		expect(eventsNamed('after_cancel')).toHaveLength(1);
-		expect(eventsNamed('after_cancel')[0]?.properties.distinct_id).toBe('user_1');
+		expect(eventsNamed('while_first_runs')).toEqual([]);
+		expect(eventsNamed('after_both')[0]?.properties.distinct_id).toBe('user_1');
+	});
+
+	it('treats a failed request as a possible change', async () => {
+		const harness = makeController();
+		navigate('/en/app', '/[[lang]]/app', harness);
+		harness.controller.setAuth(user('user_1'));
+		harness.controller.start();
+		harness.controller.grant();
+		await settle();
+
+		const operation = harness.controller.beginAuthChange();
+		harness.controller.endAuthChange(operation, 'unknown');
+		harness.controller.capture('after_failed_request');
+		harness.controller.setAuth({ kind: 'pending' });
+		harness.controller.setAuth(user('user_1'));
+		harness.controller.capture('after_session_confirmed');
+		await settle();
+		expect(eventsNamed('after_failed_request')).toEqual([]);
+		expect(eventsNamed('after_session_confirmed')).toHaveLength(1);
 	});
 
 	it('opens normally when a sign-out finished before the visitor allowed analytics', async () => {
@@ -322,7 +375,8 @@ describe('after consent', () => {
 		navigate('/en/app', '/[[lang]]/app', harness);
 		harness.controller.setAuth(user('user_1'));
 		harness.controller.start();
-		harness.controller.beginAuthChange();
+		const operation = harness.controller.beginAuthChange();
+		harness.controller.endAuthChange(operation, 'changed');
 		harness.controller.setAuth({ kind: 'pending' });
 		harness.controller.setAuth(ANONYMOUS);
 		harness.controller.grant();
@@ -330,6 +384,33 @@ describe('after consent', () => {
 		const [pageview] = eventsNamed('$pageview');
 		expect(pageview?.properties.distinct_id).not.toBe('user_1');
 		expect(eventsNamed('$identify')).toEqual([]);
+	});
+
+	it('checks a session change that arrives before the route settles', async () => {
+		const harness = makeController();
+		navigate('/en/app', '/[[lang]]/app', harness);
+		harness.controller.setAuth(user('user_1'));
+		harness.controller.start();
+		harness.controller.grant();
+		await settle();
+
+		// The address bar moved on; SvelteKit has not settled the new page yet.
+		window.history.pushState(null, '', '/en/app/settings');
+		harness.controller.setAuth({ kind: 'impersonating' });
+		harness.controller.setRoute('/[[lang]]/app/settings', '/en/app/settings');
+		harness.controller.capture('while_impersonating');
+		await settle();
+		expect(eventsNamed('while_impersonating')).toEqual([]);
+		expect(eventsNamed('$pageview')).toHaveLength(1);
+
+		window.history.pushState(null, '', '/en/app');
+		harness.controller.setAuth(user('user_2'));
+		harness.controller.setRoute('/[[lang]]/app', '/en/app');
+		await settle();
+		const identify = eventsNamed('$identify').at(-1);
+		expect(identify?.properties.distinct_id).toBe('user_2');
+		expect(identify?.properties.$anon_distinct_id).not.toBe('user_1');
+		expect(eventsNamed('$pageview').at(-1)?.properties.distinct_id).toBe('user_2');
 	});
 
 	it('does not link an account switch to the previous account on the same page', async () => {
@@ -623,5 +704,143 @@ describe('several documents', () => {
 		expect(localStorage.getItem(KEYS.main)).toBeNull();
 		expect(localStorage.getItem(KEYS.periodStamp)).toBeNull();
 		expect(document.cookie).not.toMatch(/(^|; )ph_/);
+	});
+});
+
+describe('browser failures', () => {
+	function blockableCookies() {
+		const control = {
+			writes: 'allow' as 'allow' | 'throw' | 'ignore',
+			reads: 'allow' as 'allow' | 'throw'
+		};
+		const cookies = {
+			read: () => {
+				if (control.reads === 'throw') throw new DOMException('blocked', 'SecurityError');
+				return document.cookie;
+			},
+			write: (cookie: string) => {
+				if (control.writes === 'throw') throw new DOMException('blocked', 'SecurityError');
+				if (control.writes === 'allow') document.cookie = cookie;
+			}
+		};
+		return { control, cookies };
+	}
+
+	async function grantedHarness(cookies: ControllerDeps['cookies']): Promise<Harness> {
+		const harness = makeController({ cookies });
+		harness.controller.setRoute('/[[lang]]/(marketing)', '/en');
+		harness.controller.setAuth(ANONYMOUS);
+		harness.controller.start();
+		harness.controller.grant();
+		await settle();
+		expect(eventsNamed('$pageview')).toHaveLength(1);
+		return harness;
+	}
+
+	it('closes capture when the browser refuses to store a withdrawal', async () => {
+		for (const mode of ['throw', 'ignore'] as const) {
+			net.reset();
+			resetBrowserStores();
+			const { control, cookies } = blockableCookies();
+			const harness = await grantedHarness(cookies);
+			control.writes = mode;
+
+			expect(harness.controller.deny()).toBe(false);
+			harness.controller.capture(`after_${mode}`);
+			await settle();
+			expect(eventsNamed(`after_${mode}`)).toEqual([]);
+			expect(harness.controller.isAdmitted()).toBe(false);
+			expect(localStorage.getItem(KEYS.main)).toBeNull();
+		}
+	});
+
+	it('stays closed while the consent cookie cannot be read', async () => {
+		const { control, cookies } = blockableCookies();
+		const harness = await grantedHarness(cookies);
+		control.reads = 'throw';
+		harness.controller.capture('unreadable');
+		harness.controller.reconcile();
+		await settle();
+		expect(eventsNamed('unreadable')).toEqual([]);
+		expect(harness.controller.state.status).toBe('pending');
+	});
+
+	it('starts again after a failed SDK import', async () => {
+		let failNext = true;
+		const harness = makeController({
+			loadSdk: async () => {
+				if (failNext) {
+					failNext = false;
+					throw new Error('chunk unavailable');
+				}
+				return loadPosthog();
+			}
+		});
+		harness.controller.setRoute('/[[lang]]/(marketing)', '/en');
+		harness.controller.setAuth(ANONYMOUS);
+		harness.controller.start();
+		harness.controller.grant();
+		await settle();
+		expect(net.events).toEqual([]);
+
+		navigate('/en/pricing', '/[[lang]]/(marketing)/pricing', harness);
+		await settle();
+		expect(eventsNamed('$pageview').map((event) => event.properties.$pathname)).toEqual([
+			'/en/pricing'
+		]);
+	});
+
+	it('does not import the SDK when the visitor left the known route before idle time', async () => {
+		const idle: Array<() => void> = [];
+		const harness = makeController({
+			scheduleIdle: (task) => {
+				idle.push(task);
+				return () => {};
+			}
+		});
+		harness.controller.setRoute('/[[lang]]/(marketing)', '/en');
+		harness.controller.setAuth(ANONYMOUS);
+		harness.controller.start();
+		harness.controller.grant();
+		navigate('/en/jane-doe', NOT_FOUND_ROUTE_ID, harness);
+		for (const task of idle.splice(0)) task();
+		await settle();
+		expect(harness.loads).toBe(0);
+
+		navigate('/en/pricing', '/[[lang]]/(marketing)/pricing', harness);
+		for (const task of idle.splice(0)) task();
+		await settle();
+		expect(harness.loads).toBe(1);
+		expect(eventsNamed('$pageview')).toHaveLength(1);
+	});
+});
+
+describe('duringAuthChange', () => {
+	it('keeps analytics closed for as long as the wrapped request runs', async () => {
+		const harness = makeController();
+		navigate('/en/app', '/[[lang]]/app', harness);
+		harness.controller.setAuth(user('user_1'));
+		harness.controller.start();
+		harness.controller.grant();
+		await settle();
+		setAnalyticsController(harness.controller);
+
+		let finish: (result: { error: unknown }) => void = () => {};
+		const request = duringAuthChange(
+			() => new Promise<{ error: unknown }>((resolve) => (finish = resolve)),
+			(result) => !result.error
+		);
+		// A session refresh unrelated to the request completes while it runs.
+		harness.controller.setAuth({ kind: 'pending' });
+		harness.controller.setAuth(user('user_1'));
+		harness.controller.capture('while_running');
+		finish({ error: { status: 403 } });
+		await request;
+		harness.controller.capture('after_refusal');
+		await settle();
+		setAnalyticsController(undefined);
+
+		expect(eventsNamed('while_running')).toEqual([]);
+		expect(eventsNamed('after_refusal')).toHaveLength(1);
 	});
 });

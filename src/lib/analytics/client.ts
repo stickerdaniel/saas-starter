@@ -26,22 +26,24 @@ export function captureAnalyticsEvent(
 
 /**
  * Wraps a sign-out or an impersonation start or stop. Analytics stays closed from
- * before the request until the session store reports the new session, so nothing
- * is attributed to the account that is leaving. When `changed` says the request
- * failed, or it throws, analytics resumes under the unchanged session.
+ * before the request until the session store has fetched the session again after
+ * it, so nothing is attributed to the account that is leaving. When `changed` says
+ * the request was refused, analytics resumes under the unchanged session. A request
+ * that throws may still have changed the session, so it counts as changed.
  */
 export async function duringAuthChange<T>(
 	run: () => Promise<T>,
 	changed: (result: T) => boolean
 ): Promise<T> {
 	const current = controller;
-	current?.beginAuthChange();
-	let didChange = false;
+	const operation = current?.beginAuthChange();
+	let result: T;
 	try {
-		const result = await run();
-		didChange = changed(result);
-		return result;
-	} finally {
-		if (!didChange) current?.cancelAuthChange();
+		result = await run();
+	} catch (error) {
+		if (operation) current?.endAuthChange(operation, 'unknown');
+		throw error;
 	}
+	if (operation) current?.endAuthChange(operation, changed(result) ? 'changed' : 'unchanged');
+	return result;
 }

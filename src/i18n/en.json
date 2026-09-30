@@ -306,6 +306,7 @@
 		"consent": {
 			"allow": "Allow",
 			"decline": "Decline",
+			"decline_storage_failed": "Your browser blocked saving this choice. Analytics is off on this page but may resume after a reload.",
 			"description": "May we measure how this site is used? We send page visits and product events to PostHog, without your name or email. Nothing is sent until you allow it, and you can change your choice any time in the footer or your account settings.",
 			"privacy_link": "Privacy policy",
 			"storage_failed": "Your browser blocked saving this choice, so analytics stays off.",

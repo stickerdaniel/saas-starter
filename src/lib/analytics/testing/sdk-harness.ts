@@ -42,8 +42,15 @@ function decodeBody(url: string, body: unknown): unknown {
 export function installNetworkRecorder() {
 	const events: SentEvent[] = [];
 	const urls: string[] = [];
+	const decoding = new Set<Promise<void>>();
 
-	async function record(url: string, body: unknown): Promise<void> {
+	function record(url: string, body: unknown): Promise<void> {
+		const task = decode(url, body).finally(() => decoding.delete(task));
+		decoding.add(task);
+		return task;
+	}
+
+	async function decode(url: string, body: unknown): Promise<void> {
 		urls.push(url);
 		const resolved = body instanceof Blob ? new Uint8Array(await body.arrayBuffer()) : body;
 		const decoded = decodeBody(url, resolved);
@@ -63,6 +70,16 @@ export function installNetworkRecorder() {
 			return new Response('{"status":1}', { status: 200 });
 		})
 	);
+	// Fail closed: a request the recorder does not decode must not pass silently. The
+	// SDK constructs XMLHttpRequest for feature detection, so only sending throws.
+	vi.stubGlobal(
+		'XMLHttpRequest',
+		class extends XMLHttpRequest {
+			override send(): void {
+				throw new Error('Unexpected XMLHttpRequest from the SDK; extend the recorder');
+			}
+		}
+	);
 	Object.defineProperty(navigator, 'sendBeacon', {
 		configurable: true,
 		value: (url: string, data?: BodyInit | null) => {
@@ -78,9 +95,13 @@ export function installNetworkRecorder() {
 			events.length = 0;
 			urls.length = 0;
 		},
-		/** Resolves once pending body decoding and SDK timers have had a chance to run. */
+		/**
+		 * Waits for the SDK's send timers, then for every recorded body to be decoded.
+		 * The SDK hands a captured event to its transport on a timer, not synchronously.
+		 */
 		async flush(ms = 30): Promise<void> {
 			await new Promise((resolve) => setTimeout(resolve, ms));
+			await Promise.all(decoding);
 		},
 		serialized(): string {
 			return JSON.stringify(events);

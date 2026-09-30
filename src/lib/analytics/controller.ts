@@ -93,9 +93,17 @@ export class AnalyticsController {
 	#cancelExpiry: (() => void) | undefined;
 
 	#auth: AuthState = { kind: 'pending' };
+	/** The SDK identity matches `#auth`. Cleared by every auth change and identity reset. */
 	#reconciled = false;
-	/** A sign-out or impersonation change is in flight; closed until a fresh session answer. */
-	#authChange: 'none' | 'started' | 'refetching' = 'none';
+	/** Sign-outs and impersonation changes whose request has not settled yet. */
+	#authOperations = new Set<symbol>();
+	/**
+	 * After a finished (or possibly finished) auth change, the session store must
+	 * report a new request and its answer before anything opens again. A refetch that
+	 * was already running can still carry the previous account.
+	 */
+	#sessionAfterAuthChange: 'current' | 'awaiting_request' | 'awaiting_answer' = 'current';
+	#disposed = false;
 	#route: SettledRoute = { routeId: null, pathname: '', ok: false };
 
 	/** Advances on every identity reset: new consent period, account switch, sign-out. */
@@ -128,7 +136,26 @@ export class AnalyticsController {
 	}
 
 	#readConsent(): ConsentRecord {
-		return parseConsentCookie(this.#deps.cookies.read(), this.#deps.nowSeconds());
+		try {
+			return parseConsentCookie(this.#deps.cookies.read(), this.#deps.nowSeconds());
+		} catch {
+			// An unreadable cookie is no decision: stay closed.
+			return { status: 'pending' };
+		}
+	}
+
+	/** Writes the cookie and reads it back. False when the browser refused it. */
+	#writeConsent(cookie: string, stored: (consent: ConsentRecord) => boolean): boolean {
+		try {
+			this.#deps.cookies.write(cookie);
+		} catch {
+			return false;
+		}
+		return stored(this.#readConsent());
+	}
+
+	#authSettled(): boolean {
+		return this.#authOperations.size === 0 && this.#sessionAfterAuthChange === 'current';
 	}
 
 	#consentIsActive(): boolean {
@@ -148,10 +175,11 @@ export class AnalyticsController {
 	}
 
 	/** The admission predicate: checked before every SDK call and again in before_send. */
-
 	isAdmitted(): boolean {
-		if (!this.#config || !this.#sdk || this.#paused || this.#localOff) return false;
-		if (!this.#reconciled || this.#authChange !== 'none' || !this.#routeReady()) return false;
+		if (!this.#config || !this.#sdk || this.#disposed || this.#paused || this.#localOff)
+			return false;
+		if (!this.#reconciled || !this.#authSettled() || !this.#routeReady()) return false;
+		if (this.#auth.kind !== 'user' && this.#auth.kind !== 'anonymous') return false;
 		return this.#consentIsActive();
 	}
 
@@ -162,13 +190,13 @@ export class AnalyticsController {
 
 	/** Call once in the browser after mount. */
 	start(): void {
-		if (!this.#config) return;
+		if (!this.#config || this.#disposed) return;
 		this.#applyConsent(this.#readConsent(), 'boot');
 	}
 
 	/** Re-reads the cookie: visibility, pageshow, a message from another tab, expiry. */
 	reconcile(): void {
-		if (!this.#config) return;
+		if (!this.#config || this.#disposed) return;
 		this.#applyConsent(this.#readConsent(), 'observed');
 	}
 
@@ -205,7 +233,7 @@ export class AnalyticsController {
 
 	/** The visitor allowed analytics in this tab. Returns false if it could not be stored. */
 	grant(): boolean {
-		if (!this.#config) return false;
+		if (!this.#config || this.#disposed) return false;
 		const current = this.#readConsent();
 		const alreadyActive =
 			current.status === 'granted' &&
@@ -213,17 +241,19 @@ export class AnalyticsController {
 			!this.#localOff &&
 			(!this.#sdk || current.grantId === this.#activeGrantId);
 		if (alreadyActive) {
-			// Confirming the current choice keeps the visitor's identity.
+			// Confirming the current choice keeps the visitor's identity. A start that
+			// never completed, such as a failed SDK import, gets another attempt.
 			this.#setState({ status: 'granted', bannerOpen: false });
+			if (!this.#sdk && !this.#cancelStart) this.#scheduleStart(current.grantId);
 			return true;
 		}
 
 		const grantId = createGrantId();
-		this.#deps.cookies.write(
-			grantCookie(grantId, this.#deps.nowSeconds(), this.#deps.stores.secure)
+		const stored = this.#writeConsent(
+			grantCookie(grantId, this.#deps.nowSeconds(), this.#deps.stores.secure),
+			(consent) => consent.status === 'granted' && consent.grantId === grantId
 		);
-		const stored = this.#readConsent();
-		if (stored.status !== 'granted' || stored.grantId !== grantId) {
+		if (!stored) {
 			this.#localOff = true;
 			this.#close();
 			this.#setState({ status: 'pending', bannerOpen: true });
@@ -231,7 +261,7 @@ export class AnalyticsController {
 		}
 		this.#localOff = false;
 		this.#paused = false;
-		this.#armExpiry(stored);
+		this.#armExpiry(this.#readConsent());
 		this.#setState({ status: 'granted', bannerOpen: false });
 		this.#deps.notifyOtherTabs();
 		if (this.#sdk) {
@@ -243,16 +273,36 @@ export class AnalyticsController {
 		return true;
 	}
 
-	/** The visitor declined or withdrew in this tab. */
-	deny(): void {
-		if (!this.#config) return;
-		this.#deps.cookies.write(denyCookie(this.#deps.stores.secure));
-		// Closed whether or not the write stuck: a failed write must not leave a grant live.
-		this.#localOff = this.#readConsent().status !== 'denied';
+	/**
+	 * The visitor declined or withdrew in this tab. Returns false when the browser
+	 * refused to store the refusal: analytics is off in this document, but a reload
+	 * reads the previous cookie again.
+	 */
+	deny(): boolean {
+		if (!this.#config || this.#disposed) return false;
+		// Closed before the write, so a refused or throwing write cannot leave capture on.
+		this.#localOff = true;
 		this.#close();
 		this.#armExpiry({ status: 'denied' });
+		const stored = this.#writeConsent(
+			denyCookie(this.#deps.stores.secure),
+			(consent) => consent.status === 'denied'
+		);
+		this.#localOff = !stored;
 		this.#setState({ status: 'denied', bannerOpen: false });
-		this.#deps.notifyOtherTabs();
+		if (stored) this.#deps.notifyOtherTabs();
+		return stored;
+	}
+
+	/** Stops timers and pending starts. The controller admits nothing afterwards. */
+	dispose(): void {
+		this.#disposed = true;
+		this.#startGeneration += 1;
+		this.#cancelStart?.();
+		this.#cancelStart = undefined;
+		this.#cancelExpiry?.();
+		this.#cancelExpiry = undefined;
+		this.#listeners.clear();
 	}
 
 	openPreferences(): void {
@@ -288,7 +338,8 @@ export class AnalyticsController {
 	}
 
 	#stillCurrent(generation: number, grantId: string): boolean {
-		if (generation !== this.#startGeneration || this.#paused || this.#localOff) return false;
+		if (generation !== this.#startGeneration || this.#disposed) return false;
+		if (this.#paused || this.#localOff) return false;
 		const consent = this.#readConsent();
 		return consent.status === 'granted' && consent.grantId === grantId;
 	}
@@ -307,15 +358,27 @@ export class AnalyticsController {
 		});
 	}
 
+	/** Ends the current start task, so a later route, reconcile or Allow can start again. */
+	#endStart(generation: number): void {
+		if (generation !== this.#startGeneration) return;
+		this.#cancelStart = undefined;
+		this.#pendingGrantId = undefined;
+	}
+
 	async #load(generation: number, grantId: string): Promise<void> {
 		const config = this.#config;
 		if (!config || !this.#stillCurrent(generation, grantId)) return;
-		const posthog = await this.#deps.loadSdk();
-		if (!this.#stillCurrent(generation, grantId) || this.#sdk) return;
-		if (!this.#routeReady()) {
-			this.#cancelStart = undefined;
-			return;
+		// The visitor may have left the known route while the task waited for idle time.
+		if (!this.#routeReady()) return this.#endStart(generation);
+		let posthog: PostHog;
+		try {
+			posthog = await this.#deps.loadSdk();
+		} catch {
+			// A failed chunk load is retried by the next start; nothing is queued meanwhile.
+			return this.#endStart(generation);
 		}
+		if (!this.#stillCurrent(generation, grantId) || this.#sdk) return;
+		if (!this.#routeReady()) return this.#endStart(generation);
 
 		// Both stores must be durable, or the SDK would fall back to a cookie for one of
 		// them. Without them the identity lives only as long as this document.
@@ -333,7 +396,7 @@ export class AnalyticsController {
 		});
 		if (!sdk || !this.#stillCurrent(generation, grantId)) {
 			sdk?.opt_out_capturing();
-			return;
+			return this.#endStart(generation);
 		}
 		this.#sdk = sdk;
 		this.#cancelStart = undefined;
@@ -391,31 +454,43 @@ export class AnalyticsController {
 
 	setAuth(auth: AuthState): void {
 		this.#auth = auth;
-		if (this.#authChange === 'started' && auth.kind === 'pending') this.#authChange = 'refetching';
-		else if (this.#authChange === 'refetching' && auth.kind !== 'pending')
-			this.#authChange = 'none';
+		// Whatever the SDK identity matched belongs to the previous snapshot. It is
+		// checked again below, or when the route next settles.
+		this.#reconciled = false;
+		if (this.#sessionAfterAuthChange === 'awaiting_request' && auth.kind === 'pending') {
+			this.#sessionAfterAuthChange = 'awaiting_answer';
+		} else if (this.#sessionAfterAuthChange === 'awaiting_answer' && auth.kind !== 'pending') {
+			this.#sessionAfterAuthChange = 'current';
+		}
 		this.#reconcileIdentity();
 	}
 
 	/**
-	 * Call right before a sign-out or an impersonation start or stop. The session atom
-	 * keeps the previous user until its refetch runs, so this closes admission first
-	 * and keeps it closed until a fresh session answer has been reconciled.
+	 * Call right before a sign-out or an impersonation start or stop, and pass the
+	 * returned token to `endAuthChange`. Admission stays closed while any change is
+	 * in flight.
 	 */
-	beginAuthChange(): void {
-		this.#authChange = 'started';
+	beginAuthChange(): symbol {
+		const operation = Symbol('auth change');
+		this.#authOperations.add(operation);
 		this.#reconciled = false;
+		return operation;
 	}
 
-	/** The auth change failed before any session refetch; the previous session stands. */
-	cancelAuthChange(): void {
-		if (this.#authChange === 'started') this.#authChange = 'none';
+	/**
+	 * `unchanged`: the server refused, the previous session stands. `changed` or
+	 * `unknown` (the request failed in transit): admission reopens only after the
+	 * session store has fetched and answered again.
+	 */
+	endAuthChange(operation: symbol, outcome: 'changed' | 'unchanged' | 'unknown'): void {
+		if (!this.#authOperations.delete(operation)) return;
+		if (outcome !== 'unchanged') this.#sessionAfterAuthChange = 'awaiting_request';
 		this.#reconcileIdentity();
 	}
 
 	#reconcileIdentity(): void {
 		const sdk = this.#sdk;
-		if (!sdk || this.#paused || this.#localOff || this.#authChange !== 'none') return;
+		if (!sdk || this.#disposed || this.#paused || this.#localOff || !this.#authSettled()) return;
 		if (!this.#routeReady() || !this.#consentIsActive()) return;
 		const plan = planIdentity(this.#auth, {
 			identified: sdk.get_property('$user_state') === 'identified',

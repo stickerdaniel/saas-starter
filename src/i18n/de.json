@@ -306,6 +306,7 @@
 		"consent": {
 			"allow": "Erlauben",
 			"decline": "Ablehnen",
+			"decline_storage_failed": "Dein Browser hat das Speichern dieser Wahl blockiert. Die Analyse ist auf dieser Seite aus, kann aber nach dem Neuladen wieder aktiv sein.",
 			"description": "Dürfen wir messen, wie diese Seite genutzt wird? Wir senden Seitenaufrufe und Produktereignisse an PostHog, ohne deinen Namen oder deine E-Mail-Adresse. Es wird nichts gesendet, bevor du zustimmst, und du kannst deine Wahl jederzeit im Footer oder in deinen Kontoeinstellungen ändern.",
 			"privacy_link": "Datenschutzerklärung",
 			"storage_failed": "Dein Browser hat das Speichern dieser Wahl blockiert, daher bleibt die Analyse aus.",

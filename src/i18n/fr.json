@@ -306,6 +306,7 @@
 		"consent": {
 			"allow": "Autoriser",
 			"decline": "Refuser",
+			"decline_storage_failed": "Ton navigateur a bloqué l'enregistrement de ce choix. La mesure d'audience est désactivée sur cette page, mais peut reprendre après un rechargement.",
 			"description": "Pouvons-nous mesurer l'utilisation de ce site ? Nous envoyons les pages visitées et les événements du produit à PostHog, sans ton nom ni ton adresse e-mail. Rien n'est envoyé avant ton accord, et tu peux modifier ton choix à tout moment depuis le pied de page ou les paramètres de ton compte.",
 			"privacy_link": "Politique de confidentialité",
 			"storage_failed": "Ton navigateur a bloqué l'enregistrement de ce choix, la mesure d'audience reste donc désactivée.",

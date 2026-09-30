@@ -110,6 +110,7 @@
 			unsubscribeSession();
 			channel?.close();
 			detach();
+			current.dispose();
 			setAnalyticsController(undefined);
 			controller = undefined;
 		};

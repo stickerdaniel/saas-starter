@@ -21,10 +21,17 @@
 		if (!preferences.allow()) toast.error($t('analytics.consent.storage_failed'));
 	}
 
+	function decline(): void {
+		if (!preferences.decline()) toast.error($t('analytics.consent.decline_storage_failed'));
+	}
+
+	// Escape dismisses only a reopened banner; a first visit still needs a choice.
 	function onkeydown(event: KeyboardEvent): void {
 		if (event.key === 'Escape') preferences.close();
 	}
 </script>
+
+<svelte:window {onkeydown} />
 
 <!-- Bottom left from sm up, clear of the support launcher at the bottom right. On
 	narrow screens it spans the width above the launcher. -->
@@ -33,7 +40,6 @@
 	role="region"
 	aria-labelledby="analytics-consent-title"
 	tabindex="-1"
-	{onkeydown}
 	data-testid="analytics-consent-banner"
 	class="fixed inset-x-4 bottom-24 z-50 rounded-xl border bg-popover p-4 text-popover-foreground shadow-lg outline-none sm:inset-x-auto sm:bottom-5 sm:left-5 sm:max-w-sm"
 >
@@ -50,7 +56,7 @@
 		</a>
 	</p>
 	<div class="mt-4 grid grid-cols-2 gap-2">
-		<Button variant="outline" size="sm" onclick={() => preferences.decline()}>
+		<Button variant="outline" size="sm" onclick={decline}>
 			<T keyName="analytics.consent.decline" />
 		</Button>
 		<Button variant="outline" size="sm" onclick={allow}>

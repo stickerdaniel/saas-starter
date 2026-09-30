@@ -27,8 +27,9 @@ export class AnalyticsPreferences {
 		return this.#controller?.grant() ?? false;
 	}
 
-	decline(): void {
-		this.#controller?.deny();
+	/** Returns false when the choice could not be stored; analytics is still off here. */
+	decline(): boolean {
+		return this.#controller?.deny() ?? false;
 	}
 
 	open(): void {
