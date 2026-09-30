@@ -1,0 +1,45 @@
+name: Node Container
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'docker/**'
+      - 'scripts/validate-node-runtime*'
+      - 'src/**'
+      - 'static/**'
+      - 'package.json'
+      - 'bun.lock'
+      - 'patches/**'
+      - '*config*'
+      - '.env*.schema'
+      - '.github/workflows/node-container.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    name: Native AMD64 Node Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Build frontend without deployment credentials
+        env:
+          REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          uname -m
+          docker build -f docker/node.Dockerfile -t starter-node \
+            --build-arg APP_BUILD_SHA="$REVISION" \
+            --build-arg PUBLIC_SITE_URL=https://app.example.com \
+            --build-arg PUBLIC_CONVEX_URL=https://example.convex.cloud \
+            --build-arg PUBLIC_CONVEX_SITE_URL=https://example.convex.site .
+      - name: Validate production runtime and every asset
+        env:
+          REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          docker image inspect starter-node --format '{{.Architecture}} {{.Config.User}} {{.Size}}'
+          docker run --rm --read-only --tmpfs /tmp \
+            -v "$PWD/scripts/validate-node-runtime.ts:/probe.ts:ro" \
+            --entrypoint node starter-node /probe.ts "$REVISION" https://app.example.com

@@ -302,6 +302,31 @@ The build command intentionally reuses `scripts/deploy.ts` so production stays a
 
 </details>
 
+### Optional Node container
+
+For an already provisioned Convex backend, build with `docker/node.Dockerfile`. This frontend-only build does not deploy Convex or synchronize translations. The existing Coolify/Nixpacks path above remains available.
+
+```bash
+docker build -f docker/node.Dockerfile -t starter-node \
+  --build-arg APP_BUILD_SHA="$(git rev-parse HEAD)" \
+  --build-arg PUBLIC_SITE_URL=https://app.example.com \
+  --build-arg PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud \
+  --build-arg PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site .
+docker run --rm -p 3000:3000 -e ORIGIN=https://app.example.com starter-node
+```
+
+The image runs `node build` as a non-root user. Public URLs are compiled into the frontend; rebuild to change the origin or backend. Pass private runtime settings such as `CONVEX_INTERNAL_URL` through the container environment. Keep deployment keys and other secrets out of build arguments. Configure a reverse proxy for HTTPS and set `ORIGIN` to its public origin.
+
+Validate the production dependency tree, server modules, asset hashes and HTTP responses under Node:
+
+```bash
+docker run --rm --read-only --tmpfs /tmp \
+  -v "$PWD/scripts/validate-node-runtime.ts:/probe.ts:ro" \
+  --entrypoint node starter-node /probe.ts "$(git rev-parse HEAD)" https://app.example.com
+```
+
+The Node Container workflow checks native AMD64 packaging with placeholder public URLs. Those checks complement the real preview E2E suite. Dependency layers cache separately from source; font downloads still require network access.
+
 ### Custom domain (Cloudflare)
 
 No zone cache tuning is needed. HTML shells ship `Cache-Control: public, no-cache`, so a returning visitor always revalidates and never boots a stale shell that points at chunk hashes a new deploy has replaced (which would render a blank page until a hard refresh). Because `no-cache` also keeps the shell out of the edge cache, the zone's Browser Cache TTL setting (which rewrites the browser-facing `max-age` of edge-cacheable responses up to its floor, 4 hours by default) never applies to it.
