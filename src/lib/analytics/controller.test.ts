@@ -7,11 +7,13 @@
  */
 import type { PostHog } from 'posthog-js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createAuthClient } from 'better-auth/svelte';
 import { duringAuthChange, setAnalyticsController } from './client';
 import { resolveAnalyticsConfig } from './config';
 import { AnalyticsController, NOT_FOUND_ROUTE_ID, type ControllerDeps } from './controller';
 import type { AuthState } from './identity';
 import { loadPosthog } from './posthog';
+import { followSession, type SessionSource } from './session';
 import { analyticsStorageKeys } from './storage';
 import { installNetworkRecorder, resetBrowserStores, type SentEvent } from './testing/sdk-harness';
 
@@ -842,5 +844,120 @@ describe('duringAuthChange', () => {
 
 		expect(eventsNamed('while_running')).toEqual([]);
 		expect(eventsNamed('after_refusal')).toHaveLength(1);
+	});
+});
+
+describe('following the Better Auth session store', () => {
+	/** A Better Auth client whose session requests wait until the test answers them. */
+	function heldAuthClient() {
+		const requests: Array<(body: unknown) => void> = [];
+		const client = createAuthClient({
+			baseURL: 'http://localhost:3000',
+			fetchOptions: {
+				customFetchImpl: () =>
+					new Promise<Response>((resolve) => {
+						requests.push((body) =>
+							resolve(
+								new Response(JSON.stringify(body), {
+									status: 200,
+									headers: { 'content-type': 'application/json' }
+								})
+							)
+						);
+					})
+			}
+		});
+		return { client, requests };
+	}
+	const signedIn = (userId: string) => ({
+		user: { id: userId, email: `${userId}@example.test`, name: userId },
+		session: { id: `session_${userId}`, userId, expiresAt: '2099-01-01T00:00:00.000Z' }
+	});
+
+	it('reopens after a sign-out whose session fetch replaced one already running', async () => {
+		const { client, requests } = heldAuthClient();
+		const harness = makeController();
+		navigate('/en/app', '/[[lang]]/app', harness);
+		const stop = followSession(harness.controller, client as unknown as SessionSource);
+		await settle();
+		requests.shift()?.(signedIn('user_1'));
+		harness.controller.start();
+		harness.controller.grant();
+		await settle();
+		expect(eventsNamed('$identify')[0]?.properties.distinct_id).toBe('user_1');
+
+		const operation = harness.controller.beginAuthChange();
+		// A focus refresh starts while the sign-out request runs and is still open
+		// when the sign-out finishes.
+		void client.$store.atoms.session?.get().refetch();
+		await settle();
+		const staleRequest = requests.shift();
+		harness.controller.endAuthChange(operation, 'changed');
+		harness.controller.capture('before_signal');
+		// Better Auth toggles the signal after the sign-out; its fetch aborts the old one.
+		client.$store.notify('$sessionSignal');
+		await settle();
+		requests.shift()?.(null);
+		staleRequest?.(signedIn('user_1'));
+		await settle();
+		harness.controller.capture('after_sign_out');
+		await settle();
+		stop();
+
+		expect(eventsNamed('before_signal')).toEqual([]);
+		const [afterSignOut] = eventsNamed('after_sign_out');
+		expect(afterSignOut?.properties.distinct_id).toEqual(expect.any(String));
+		expect(afterSignOut?.properties.distinct_id).not.toBe('user_1');
+	});
+});
+
+describe('interrupted starts', () => {
+	it('starts again after the consent cookie was unreadable while a start ran', async () => {
+		for (const phase of ['before_import', 'during_import'] as const) {
+			net.reset();
+			resetBrowserStores();
+			window.history.replaceState(null, '', '/en');
+			let unreadable = false;
+			let imports = 0;
+			const idle: Array<() => void> = [];
+			const harness = makeController({
+				cookies: {
+					read: () => {
+						if (unreadable) throw new DOMException('blocked', 'SecurityError');
+						return document.cookie;
+					},
+					write: (cookie) => {
+						document.cookie = cookie;
+					}
+				},
+				scheduleIdle: (task) => {
+					idle.push(task);
+					return () => {};
+				},
+				loadSdk: async () => {
+					// Only the first import coincides with the unreadable cookie.
+					imports += 1;
+					if (phase === 'during_import' && imports === 1) unreadable = true;
+					return loadPosthog();
+				}
+			});
+			harness.controller.setRoute('/[[lang]]/(marketing)', '/en');
+			harness.controller.setAuth(ANONYMOUS);
+			harness.controller.start();
+			harness.controller.grant();
+			if (phase === 'before_import') unreadable = true;
+			for (const task of idle.splice(0)) task();
+			await settle();
+			unreadable = false;
+			expect(net.events).toEqual([]);
+
+			harness.controller.reconcile();
+			navigate('/en/pricing', '/[[lang]]/(marketing)/pricing', harness);
+			for (const task of idle.splice(0)) task();
+			await settle();
+			expect(eventsNamed('$pageview').map((event) => event.properties.$pathname)).toEqual([
+				'/en/pricing'
+			]);
+		}
 	});
 });

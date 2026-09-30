@@ -11,8 +11,8 @@
 	import { setAnalyticsController } from '$lib/analytics/client';
 	import { resolveAnalyticsConfig } from '$lib/analytics/config';
 	import { AnalyticsController } from '$lib/analytics/controller';
-	import { classifySession } from '$lib/analytics/identity';
 	import { loadPosthog } from '$lib/analytics/posthog';
+	import { followSession } from '$lib/analytics/session';
 	import { analyticsPreferencesContext } from '$lib/analytics/preferences.svelte.ts';
 	import { devNotice } from '$lib/dev/notice';
 	import AnalyticsConsentBanner from './analytics-consent-banner.svelte';
@@ -100,9 +100,7 @@
 		if (channel) channel.onmessage = () => current.reconcile();
 		// Subscribed for as long as analytics is configured, not only after consent: an
 		// auth change that starts before a grant must still see its session resolve.
-		const unsubscribeSession = authClient
-			.useSession()
-			.subscribe((session) => current.setAuth(classifySession(session)));
+		const unsubscribeSession = followSession(current, authClient);
 		applyRoute();
 		current.start();
 

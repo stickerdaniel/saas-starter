@@ -367,7 +367,9 @@ export class AnalyticsController {
 
 	async #load(generation: number, grantId: string): Promise<void> {
 		const config = this.#config;
-		if (!config || !this.#stillCurrent(generation, grantId)) return;
+		// Every exit ends the task (generation-guarded), so a later start can run; the
+		// later start checks consent and route again.
+		if (!config || !this.#stillCurrent(generation, grantId)) return this.#endStart(generation);
 		// The visitor may have left the known route while the task waited for idle time.
 		if (!this.#routeReady()) return this.#endStart(generation);
 		let posthog: PostHog;
@@ -377,7 +379,7 @@ export class AnalyticsController {
 			// A failed chunk load is retried by the next start; nothing is queued meanwhile.
 			return this.#endStart(generation);
 		}
-		if (!this.#stillCurrent(generation, grantId) || this.#sdk) return;
+		if (!this.#stillCurrent(generation, grantId) || this.#sdk) return this.#endStart(generation);
 		if (!this.#routeReady()) return this.#endStart(generation);
 
 		// Both stores must be durable, or the SDK would fall back to a cookie for one of
@@ -475,6 +477,16 @@ export class AnalyticsController {
 		this.#authOperations.add(operation);
 		this.#reconciled = false;
 		return operation;
+	}
+
+	/**
+	 * The session store started a fetch that replaces any earlier one. After a
+	 * finished auth change, its answer is the first one that can be trusted.
+	 */
+	sessionRequested(): void {
+		if (this.#sessionAfterAuthChange === 'awaiting_request') {
+			this.#sessionAfterAuthChange = 'awaiting_answer';
+		}
 	}
 
 	/**
