@@ -10,6 +10,77 @@ const SITE_URL = resolveSiteUrl();
 const TEST_PASSWORD = 'TestPassword123!';
 const bypass = getPreviewBypass();
 
+// Cheaper layers rejected because: the real backend enforces native pagination limits.
+// This regression needs only authenticated API requests, without browser interaction.
+test('resolves and consumes multi-page audit cursors on the real backend', async ({ request }) => {
+	const tokenResponse = await request.get('/api/auth/convex/token');
+	expect(tokenResponse.ok()).toBe(true);
+	const { token } = await tokenResponse.json();
+	const client = new ConvexHttpClient(resolveConvexUrl()!);
+	client.setAuth(token);
+	const secret = process.env.AUTH_E2E_TEST_SECRET!;
+	const email = `audit-pagination-${crypto.randomUUID()}@e2e.example.com`;
+	await createAuthUser(email, 'Audit pagination fixture');
+	const fixture = await client.mutation(api.tests.getAuthUserIdByEmail, { secret, email });
+	const fixtureId = fixture.userId!;
+	await client.mutation(api.tests.deleteTestUser, { secret, email });
+	const clear = async () => {
+		while (await client.mutation(api.tests.deleteAuditLogRows, { secret, fixtureId })) {
+			// Bounded mutations keep fixture cleanup inside backend limits.
+		}
+	};
+	try {
+		for (const count of [0, 1, 20, 21, 40, 45]) {
+			if (count)
+				await client.mutation(api.tests.seedAuditLogRows, { secret, fixtureId, count, offset: 0 });
+			for (const direction of ['asc', 'desc'] as const) {
+				const filters = {
+					adminUserId: fixtureId,
+					sortBy: { field: 'timestamp' as const, direction }
+				};
+				const all = await client.query(api.admin.auditLog.queries.listAuditLogs, {
+					...filters,
+					numItems: 100
+				});
+				const last = await client.query(api.admin.auditLog.queries.resolveAuditLogLastPage, {
+					...filters,
+					numItems: 20
+				});
+				expect(last.page).toBe(Math.max(1, Math.ceil(count / 20)));
+				const result = await client.query(api.admin.auditLog.queries.listAuditLogs, {
+					...filters,
+					numItems: 20,
+					cursor: last.cursor ?? undefined
+				});
+				expect(result.items.map((row) => row.id)).toEqual(
+					all.items.slice((last.page - 1) * 20).map((row) => row.id)
+				);
+				expect(result.items.every((row) => !row.target.exists)).toBe(true);
+				expect(result.isDone).toBe(true);
+				expect(result.continueCursor).toBeNull();
+				if (count > 20) {
+					const cursor = await client.query(api.tests.getLegacyAuditLogCursor, {
+						secret,
+						fixtureId,
+						direction
+					});
+					const legacyPage = await client.query(api.admin.auditLog.queries.listAuditLogs, {
+						...filters,
+						numItems: 20,
+						cursor
+					});
+					expect(legacyPage.items.map((row) => row.id)).toEqual(
+						all.items.slice(20, 40).map((row) => row.id)
+					);
+				}
+			}
+			await clear();
+		}
+	} finally {
+		await clear();
+	}
+});
+
 function getRequestHeaders(): Record<string, string> {
 	return {
 		'Content-Type': 'application/json',

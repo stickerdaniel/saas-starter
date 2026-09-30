@@ -22,7 +22,15 @@ const users = [
 
 function context(rows: unknown[]) {
 	const paginate = async () => ({ page: rows, isDone: false, continueCursor: 'next' });
-	const ordered = { order: () => ({ paginate }) };
+	// Both native pagination and the helper's documented async iteration read these rows.
+	const ordered = {
+		order: () => ({
+			paginate,
+			async *[Symbol.asyncIterator]() {
+				yield* rows;
+			}
+		})
+	};
 	// The pinned adapter resolves `_id in` with point reads, omits missing users,
 	// applies select, and returns all matches with isDone=true (adapter-utils.ts).
 	const runQuery = vi.fn(
@@ -71,12 +79,26 @@ function thread(userId: string, assignedTo?: string) {
 describe('bounded user enrichment', () => {
 	it('resolves an audit page in one component call and preserves deleted-user references', async () => {
 		const ctx = context([
-			{ _id: 'log-1', adminUserId: 'a', targetUserId: 'b', action: 'set_role', timestamp: 1 },
-			{ _id: 'log-2', adminUserId: 'a', targetUserId: 'deleted', action: 'ban_user', timestamp: 2 }
+			{
+				_id: 'log-1',
+				_creationTime: 2,
+				adminUserId: 'a',
+				targetUserId: 'b',
+				action: 'set_role',
+				timestamp: 2
+			},
+			{
+				_id: 'log-2',
+				_creationTime: 1,
+				adminUserId: 'a',
+				targetUserId: 'deleted',
+				action: 'ban_user',
+				timestamp: 1
+			}
 		]);
 		const result = await invoke<{
 			items: Array<{ admin: unknown; target: unknown }>;
-			continueCursor: string;
+			continueCursor: string | null;
 		}>(listAuditLogs, ctx, { numItems: 20 });
 		expect(result.items.map((row) => row.admin)).toEqual([
 			{ id: 'a', name: 'Alice', email: 'alice@example.test', image: '/alice.png', exists: true },
@@ -90,7 +112,6 @@ describe('bounded user enrichment', () => {
 			exists: true
 		});
 		expect(result.items[1]!.target).toEqual({ id: 'deleted', exists: false });
-		expect(result.continueCursor).toBe('next');
 		expect(ctx.runQuery).toHaveBeenCalledTimes(1);
 	});
 
