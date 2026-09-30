@@ -1,6 +1,7 @@
-import { components } from './_generated/api';
+import { components, internal } from './_generated/api';
 import { query, mutation, internalQuery } from './_generated/server';
 import { v } from 'convex/values';
+import type { Id } from './_generated/dataModel';
 import { supportAgent } from './support/agent';
 import { isAnonymousUser } from './utils/anonymousUser';
 import { recalculateCounters } from './admin/counters';
@@ -15,6 +16,139 @@ function requireTestSecret(secret: string): void {
 		throw new Error('Unauthorized: Invalid test secret');
 	}
 }
+
+const supportRecoveryFixturePrefix = '__support-recovery-test:';
+
+export const seedSupportNotificationClaim = mutation({
+	args: { secret: v.string() },
+	returns: v.object({
+		notificationId: v.id('pendingAdminNotifications'),
+		generation: v.string(),
+		claimToken: v.string(),
+		deadline: v.number()
+	}),
+	handler: async (
+		ctx,
+		args
+	): Promise<{
+		notificationId: Id<'pendingAdminNotifications'>;
+		generation: string;
+		claimToken: string;
+		deadline: number;
+	}> => {
+		requireTestSecret(args.secret);
+		const notificationId = await ctx.db.insert('pendingAdminNotifications', {
+			threadId: supportRecoveryFixturePrefix + crypto.randomUUID(),
+			messageIds: [],
+			isReopen: false,
+			notificationType: 'newTickets',
+			createdAt: Date.now(),
+			scheduledFor: Date.now() + 3600000
+		});
+		const scheduledFnId = await ctx.scheduler.runAfter(
+			3600000,
+			internal.admin.support.notifications.sendPendingAdminNotification,
+			{ notificationId }
+		);
+		await ctx.db.patch('pendingAdminNotifications', notificationId, { scheduledFnId });
+		const claim = await ctx.runMutation(
+			internal.admin.support.notifications.claimNotificationForSending,
+			{ notificationId, issueToken: true, receiptProtocol: 1 }
+		);
+		if (!claim) throw new Error('Fixture claim failed');
+		await ctx.scheduler.cancel(scheduledFnId);
+		const row = await ctx.db.get('pendingAdminNotifications', notificationId);
+		return {
+			notificationId,
+			generation: claim.generation,
+			claimToken: claim.claimToken,
+			deadline: row!.claimLeaseExpiresAt!
+		};
+	}
+});
+
+export const recoverSupportNotificationFixture = mutation({
+	args: {
+		secret: v.string(),
+		notificationId: v.id('pendingAdminNotifications'),
+		generation: v.string(),
+		claimToken: v.string()
+	},
+	returns: v.object({
+		recovered: v.boolean(),
+		duplicateRecovered: v.boolean(),
+		staleDeleted: v.boolean(),
+		retryCount: v.number(),
+		sameGeneration: v.boolean(),
+		scheduled: v.boolean(),
+		claimCleared: v.boolean()
+	}),
+	handler: async (
+		ctx,
+		args
+	): Promise<{
+		recovered: boolean;
+		duplicateRecovered: boolean;
+		staleDeleted: boolean;
+		retryCount: number;
+		sameGeneration: boolean;
+		scheduled: boolean;
+		claimCleared: boolean;
+	}> => {
+		requireTestSecret(args.secret);
+		const row = await ctx.db.get('pendingAdminNotifications', args.notificationId);
+		if (!row?.threadId.startsWith(supportRecoveryFixturePrefix))
+			throw new Error('Not a recovery fixture');
+		const deadline = Date.now() - 1;
+		await ctx.db.patch('pendingAdminNotifications', row._id, { claimLeaseExpiresAt: deadline });
+		const recovery = {
+			notificationId: row._id,
+			generation: args.generation,
+			claimToken: args.claimToken,
+			deadline
+		};
+		const recovered = await ctx.runMutation(
+			internal.admin.support.notifications.recoverNotificationClaim,
+			recovery
+		);
+		const duplicateRecovered = await ctx.runMutation(
+			internal.admin.support.notifications.recoverNotificationClaim,
+			recovery
+		);
+		const staleDeleted = await ctx.runMutation(
+			internal.admin.support.notifications.deletePendingNotification,
+			{ notificationId: row._id, claimToken: args.claimToken }
+		);
+		const current = await ctx.db.get('pendingAdminNotifications', row._id);
+		return {
+			recovered,
+			duplicateRecovered,
+			staleDeleted,
+			retryCount: current?.retryCount ?? 0,
+			sameGeneration: current?.generation === args.generation,
+			scheduled: current?.scheduledFnId !== undefined,
+			claimCleared: current?.claimToken === undefined
+		};
+	}
+});
+
+export const deleteSupportNotificationFixture = mutation({
+	args: { secret: v.string(), notificationId: v.id('pendingAdminNotifications') },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		requireTestSecret(args.secret);
+		const row = await ctx.db.get('pendingAdminNotifications', args.notificationId);
+		if (!row) return null;
+		if (!row.threadId.startsWith(supportRecoveryFixturePrefix))
+			throw new Error('Not a recovery fixture');
+		// At most two owned scheduled jobs; no other notification is touched.
+		for (const id of [row.scheduledFnId, row.recoveryFnId])
+			if (id && (await ctx.db.system.get(id))?.state.kind === 'pending')
+				await ctx.scheduler.cancel(id);
+		await ctx.db.delete('pendingAdminNotifications', row._id);
+		return null;
+	}
+});
 
 /**
  * Health probe used by e2e/global-setup.ts to gate the first signup HTTP call

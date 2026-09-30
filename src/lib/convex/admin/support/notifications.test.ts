@@ -11,11 +11,13 @@ vi.mock('../../emails/resend', () => ({
 	}))
 }));
 
+import { enqueueRecipient } from './notificationDelivery';
 import { getEmailDeliveryConfiguration } from '../../emails/resend';
 import { shouldSkipTestEmail } from '../../emails/helpers';
 import { getFunctionName } from 'convex/server';
 import {
 	claimNotificationForSending,
+	recoverNotificationClaim,
 	deletePendingNotification,
 	reschedulePendingNotification,
 	scheduleAdminNotification,
@@ -54,30 +56,42 @@ const getEmailConfigurationMock = getEmailDeliveryConfiguration as unknown as Re
 
 function createCtx() {
 	const rows: Array<Record<string, unknown>> = []; // pendingAdminNotifications
+	const receipts: Array<Record<string, unknown>> = [];
 	let nextId = 1;
 	const runAfter = vi.fn(async (..._args: unknown[]) => `sched_${nextId++}`);
+	const cleanup = vi.fn(async (..._args: unknown[]) => `cleanup_${nextId++}`);
+	const runAt = vi.fn(async (..._args: unknown[]) => `recovery_${nextId++}`);
 
 	const db = {
-		query: (_table: string) => ({
+		query: (table: string) => ({
 			withIndex: (
 				_index: string,
 				cb: (q: { eq: (f: string, v: unknown) => unknown }) => unknown
 			) => {
 				const filters: Record<string, unknown> = {};
-				cb({
-					eq: (f, v) => {
+				const index = {
+					eq: (f: string, v: unknown) => {
 						filters[f] = v;
-						return {};
+						return index;
 					}
-				});
+				};
+				cb(index);
 				const match = (r: Record<string, unknown>) =>
 					Object.entries(filters).every(([k, v]) => r[k] === v);
-				return { first: async () => rows.find(match) ?? null };
+				const source = table === 'supportNotificationReceipts' ? receipts : rows;
+				return {
+					first: async () => source.find(match) ?? null,
+					unique: async () => source.find(match) ?? null
+				};
 			}
 		}),
-		insert: vi.fn(async (_table: string, doc: Record<string, unknown>) => {
+		insert: vi.fn(async (table: string, doc: Record<string, unknown>) => {
 			const _id = `pending_${nextId++}`;
-			rows.push({ _id, _creationTime: Date.now(), ...doc });
+			(table === 'supportNotificationReceipts' ? receipts : rows).push({
+				_id,
+				_creationTime: Date.now(),
+				...doc
+			});
 			return _id;
 		}),
 		patch: vi.fn(async (_table: string, id: string, patch: Record<string, unknown>) => {
@@ -95,7 +109,19 @@ function createCtx() {
 
 	const cancel = vi.fn(async (_id: string) => {});
 
-	return { ctx: { db, scheduler: { runAfter, cancel } }, rows, runAfter, cancel };
+	const schedule = async (...args: unknown[]) =>
+		getFunctionName(args[1] as Parameters<typeof getFunctionName>[0]).includes('cleanupReceipts')
+			? cleanup(...args)
+			: runAfter(...args);
+	return {
+		ctx: { db, scheduler: { runAfter: schedule, runAt, cancel } },
+		rows,
+		receipts,
+		runAfter,
+		runAt,
+		cleanup,
+		cancel
+	};
 }
 
 describe('scheduleAdminNotification', () => {
@@ -202,7 +228,7 @@ describe('sendPendingAdminNotification', () => {
  * longer owns deletes the follow-up digest and the customer's message is never
  * emailed.
  */
-type ClaimArgs = { notificationId: string; issueToken?: boolean };
+type ClaimArgs = { notificationId: string; issueToken?: boolean; receiptProtocol?: 1 };
 type DeleteArgs = { notificationId: string; claimToken?: string };
 type RescheduleArgs = { notificationId: string; claimToken?: string; delayMs?: number };
 
@@ -244,19 +270,36 @@ function createActionCtx(
 				return deletePendingNotificationH._handler(ctx, args as DeleteArgs);
 			case 'admin/support/notifications:reschedulePendingNotification':
 				return reschedulePendingNotificationH._handler(ctx, args as RescheduleArgs);
-			case 'emails/send:sendNewTicketAdminNotification': {
+			case 'admin/support/notificationDelivery:enqueueRecipient': {
 				const email = args.email as string;
 				sendAttempts.push(email);
 				// Mirrors the sender's own guard: nothing is enqueued for a test address.
 				if (shouldSkipTestEmail('sendNewTicketAdminNotification', email)) return false;
-				if (pendingHook) {
+				const afterTransaction = async () => {
+					if (!pendingHook) return;
 					const hook = pendingHook;
 					pendingHook = undefined;
 					await hook();
+				};
+				if (options.sendThrows) {
+					await afterTransaction();
+					throw new Error('provider unreachable');
 				}
-				if (options.sendThrows) throw new Error('provider unreachable');
-				sentEmails.push(args);
-				return true;
+				const result = await (
+					enqueueRecipient as unknown as Fn<Record<string, unknown>, boolean>
+				)._handler(
+					{
+						...(ctx as object),
+						runMutation: async () => {
+							sentEmails.push(args);
+							return true;
+						}
+					},
+					args
+				);
+				// Customer writes interleave between transactions, never inside the enqueue transaction.
+				await afterTransaction();
+				return result;
 			}
 			default:
 				throw new Error(`unexpected mutation ${name}`);
@@ -474,7 +517,8 @@ describe('pending notification ownership', () => {
 
 		const older = await claimNotificationForSendingH._handler(ctx, {
 			notificationId,
-			issueToken: true
+			issueToken: true,
+			receiptProtocol: 1
 		});
 		await scheduleAdminNotificationH._handler(ctx, {
 			threadId: 'thread_tokens',
@@ -484,7 +528,8 @@ describe('pending notification ownership', () => {
 		});
 		const newer = await claimNotificationForSendingH._handler(ctx, {
 			notificationId,
-			issueToken: true
+			issueToken: true,
+			receiptProtocol: 1
 		});
 		expect(older).not.toBeNull();
 		expect(newer).not.toBeNull();
@@ -661,11 +706,18 @@ describe('debounce cap', () => {
 				}
 			},
 			scheduler: {
+				runAt: base.scheduler.runAt,
 				runAfter: async (
 					delayMs: number,
 					_reference: unknown,
 					args: { notificationId: string }
 				) => {
+					if (
+						getFunctionName(_reference as Parameters<typeof getFunctionName>[0]).includes(
+							'cleanupReceipts'
+						)
+					)
+						return 'cleanup';
 					if (delayMs < 0) throw new Error('`delayMs` must be non-negative');
 					const id = `job_${nextJob++}`;
 					jobs.set(id, { dueAt: Date.now() + delayMs, notificationId: args.notificationId });
@@ -820,5 +872,193 @@ describe('debounce cap', () => {
 		expect(clock.deliveries).toEqual([
 			{ at: 15 * MINUTE + 30_000, messageIds: [...CAPPED, 'message_overdue'] }
 		]);
+	});
+});
+
+describe('abandoned notification recovery', () => {
+	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(Date.UTC(2026, 0, 1));
+		getEmailConfigurationMock.mockReturnValue({
+			state: 'ready',
+			value: {
+				apiKey: 'configured',
+				sender: 'sender@example.com',
+				assetUrl: 'https://assets.example.com'
+			}
+		});
+	});
+	afterEach(() => vi.useRealTimers());
+	const claim = async (ctx: unknown, notificationId: string) =>
+		(await claimNotificationForSendingH._handler(ctx, {
+			notificationId,
+			issueToken: true,
+			receiptProtocol: 1
+		})) as { claimToken: string; generation: string; hadEnqueue: boolean };
+	const recover = async (ctx: unknown, args: Record<string, unknown>) =>
+		(recoverNotificationClaim as unknown as Fn<Record<string, unknown>, boolean>)._handler(
+			ctx,
+			args
+		);
+	const enqueue = async (
+		ctx: unknown,
+		notificationId: string,
+		ownership: { claimToken: string; generation: string },
+		email: string
+	) =>
+		(enqueueRecipient as unknown as Fn<Record<string, unknown>, boolean>)._handler(ctx, {
+			notificationId,
+			...ownership,
+			email,
+			threadId: 'thread_1',
+			isReopen: false,
+			isBareHandoff: false,
+			userName: 'Visitor',
+			messages: []
+		});
+	async function setup() {
+		const f = createCtx();
+		await scheduleAdminNotificationH._handler(f.ctx, {
+			threadId: 'thread_1',
+			messageIds: ['message_1'],
+			isReopen: false,
+			notificationType: 'newTickets'
+		});
+		const notificationId = f.rows[0]._id as string;
+		const provider = vi.fn(async (_args: Record<string, unknown>) => true);
+		const ctx = {
+			...f.ctx,
+			runMutation: async (reference: unknown, args: Record<string, unknown>) => {
+				const name = getFunctionName(reference as Parameters<typeof getFunctionName>[0]);
+				if (name === 'admin/support/notifications:reschedulePendingNotification')
+					return reschedulePendingNotificationH._handler(f.ctx, args as RescheduleArgs);
+				return provider(args);
+			}
+		};
+		return { ...f, ctx, provider, notificationId };
+	}
+	it.each([0, 1, 2])(
+		'recovers interruption after %i recipient commits without repeating them',
+		async (committed) => {
+			const f = await setup();
+			const ownership = await claim(f.ctx, f.notificationId);
+			const emails = ['first@example.com', 'second@example.com'];
+			for (const email of emails.slice(0, committed))
+				expect(await enqueue(f.ctx, f.notificationId, ownership, email)).toBe(true);
+			const deadline = f.rows[0].claimLeaseExpiresAt as number;
+			expect(f.runAt.mock.calls[0][0]).toBe(deadline);
+			const args = {
+				notificationId: f.notificationId,
+				generation: ownership.generation,
+				claimToken: ownership.claimToken,
+				deadline
+			};
+			expect(await recover(f.ctx, args)).toBe(false);
+			vi.setSystemTime(deadline);
+			expect(await recover(f.ctx, args)).toBe(true);
+			expect(await recover(f.ctx, args)).toBe(false);
+			expect(await enqueue(f.ctx, f.notificationId, ownership, emails[0])).toBe(false);
+			expect(
+				await deletePendingNotificationH._handler(f.ctx, {
+					notificationId: f.notificationId,
+					claimToken: ownership.claimToken
+				})
+			).toBe(false);
+			const replacement = await claim(f.ctx, f.notificationId);
+			expect(replacement.generation).toBe(ownership.generation);
+			expect(replacement.hadEnqueue).toBe(committed > 0);
+			for (const email of emails)
+				expect(await enqueue(f.ctx, f.notificationId, replacement, email)).toBe(true);
+			expect(f.provider.mock.calls.map(([args]) => args.email)).toEqual(emails);
+			expect(
+				await deletePendingNotificationH._handler(f.ctx, {
+					notificationId: f.notificationId,
+					claimToken: replacement.claimToken
+				})
+			).toBe(true);
+			expect(f.cleanup).toHaveBeenCalledTimes(1);
+			expect(await recover(f.ctx, args)).toBe(false);
+		}
+	);
+	it('enqueues a recipient once when the same sender retries its call', async () => {
+		const f = await setup();
+		const ownership = await claim(f.ctx, f.notificationId);
+		expect(await enqueue(f.ctx, f.notificationId, ownership, 'first@example.com')).toBe(true);
+		expect(await enqueue(f.ctx, f.notificationId, ownership, 'first@example.com')).toBe(true);
+		expect(f.provider).toHaveBeenCalledTimes(1);
+		expect(f.receipts).toHaveLength(1);
+	});
+	it('fences a recovered claim when a new message starts a generation', async () => {
+		const f = await setup();
+		const old = await claim(f.ctx, f.notificationId);
+		const args = {
+			notificationId: f.notificationId,
+			...old,
+			deadline: f.rows[0].claimLeaseExpiresAt
+		};
+		await scheduleAdminNotificationH._handler(f.ctx, {
+			threadId: 'thread_1',
+			messageIds: ['later'],
+			isReopen: false,
+			notificationType: 'userReplies'
+		});
+		const current = await claim(f.ctx, f.notificationId);
+		vi.setSystemTime(args.deadline as number);
+		expect(await recover(f.ctx, args)).toBe(false);
+		expect(await enqueue(f.ctx, f.notificationId, old, 'first@example.com')).toBe(false);
+		expect(f.rows[0].generation).toBe(current.generation);
+	});
+	it('refuses a second competing claim', async () => {
+		const f = await setup();
+		await claim(f.ctx, f.notificationId);
+		expect(
+			await claimNotificationForSendingH._handler(f.ctx, {
+				notificationId: f.notificationId,
+				issueToken: true,
+				receiptProtocol: 1
+			})
+		).toBeNull();
+		expect(f.runAt).toHaveBeenCalledTimes(1);
+	});
+	it('stops after the existing retry ceiling', async () => {
+		const f = await setup();
+		const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			f.rows[0].retryCount = 5;
+			const owner = await claim(f.ctx, f.notificationId);
+			const deadline = f.rows[0].claimLeaseExpiresAt as number;
+			vi.setSystemTime(deadline);
+			expect(await recover(f.ctx, { notificationId: f.notificationId, ...owner, deadline })).toBe(
+				true
+			);
+			expect(f.rows).toHaveLength(0);
+			expect(f.runAfter).toHaveBeenCalledTimes(1);
+			expect(errors).toHaveBeenCalledWith(expect.stringContaining('Retry limit reached'));
+		} finally {
+			errors.mockRestore();
+		}
+	});
+	it('hands token-only old callers to the receipt-aware sender', async () => {
+		const f = await setup();
+		expect(
+			await claimNotificationForSendingH._handler(f.ctx, {
+				notificationId: f.notificationId,
+				issueToken: true
+			})
+		).toBeNull();
+		expect(f.rows[0].scheduledFnId).toBeDefined();
+		expect(f.runAt).not.toHaveBeenCalled();
+	});
+	it('does not record a suppressed or failed enqueue', async () => {
+		const f = await setup();
+		const ownership = await claim(f.ctx, f.notificationId);
+		f.provider.mockResolvedValueOnce(false);
+		expect(await enqueue(f.ctx, f.notificationId, ownership, 'first@example.com')).toBe(false);
+		expect(f.receipts).toHaveLength(0);
+		f.provider.mockRejectedValueOnce(new Error('provider failure'));
+		await expect(enqueue(f.ctx, f.notificationId, ownership, 'first@example.com')).rejects.toThrow(
+			'provider failure'
+		);
+		expect(f.receipts).toHaveLength(0);
 	});
 });

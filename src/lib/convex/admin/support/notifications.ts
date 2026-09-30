@@ -19,8 +19,14 @@
  */
 
 import { v } from 'convex/values';
+import { paginationOptsValidator } from 'convex/server';
 import type { Doc, Id } from '../../_generated/dataModel';
-import { internalMutation, internalAction, internalQuery } from '../../_generated/server';
+import {
+	internalMutation,
+	internalAction,
+	internalQuery,
+	type MutationCtx
+} from '../../_generated/server';
 import { internal, components } from '../../_generated/api';
 import { supportThreadFields } from '../../support/supportThreadFields';
 import { isPreviewAdminEmail } from '../notificationPreferences/helpers';
@@ -39,6 +45,31 @@ const MAX_DEBOUNCE_AGE_MS = 15 * 60 * 1000;
 
 /** Maximum number of retry attempts before giving up */
 const MAX_RETRY_COUNT = 5;
+
+// Convex runtime actions have a 30-minute maximum, plus a minute for recovery margin.
+// https://docs.convex.dev/production/state/limits
+const CLAIM_LEASE_MS = 31 * 60 * 1000;
+
+async function cancelRecovery(ctx: MutationCtx, notification: Doc<'pendingAdminNotifications'>) {
+	if (
+		notification.recoveryFnId &&
+		(await ctx.db.system.get(notification.recoveryFnId))?.state.kind === 'pending'
+	)
+		await ctx.scheduler.cancel(notification.recoveryFnId);
+}
+
+async function finishNotification(
+	ctx: MutationCtx,
+	notification: Doc<'pendingAdminNotifications'>
+) {
+	await cancelRecovery(ctx, notification);
+	await ctx.db.delete('pendingAdminNotifications', notification._id);
+	if (notification.generation)
+		await ctx.scheduler.runAfter(0, internal.admin.support.notificationDelivery.cleanupReceipts, {
+			notificationId: notification._id,
+			cursor: null
+		});
+}
 
 /** Logged when the running send no longer owns its row and skips cleanup. */
 const OWNERSHIP_MOVED_LOG =
@@ -85,6 +116,7 @@ export const scheduleAdminNotification = internalMutation({
 			.first();
 
 		if (existing) {
+			await cancelRecovery(ctx, existing);
 			// A row without a scheduled function is claimed by a running send, which
 			// already emails its messages. Re-arming it starts a fresh window, so a
 			// row past its cap does not repeat those messages seconds later.
@@ -134,6 +166,9 @@ export const scheduleAdminNotification = internalMutation({
 				...(claimedBySend ? { createdAt: now } : {}),
 				scheduledFnId: newScheduledFnId,
 				claimToken: undefined,
+				generation: crypto.randomUUID(),
+				claimLeaseExpiresAt: undefined,
+				recoveryFnId: undefined,
 				isReopen: existing.isReopen || args.isReopen,
 				// Preserve 'newTickets' if either call was for new ticket (primary event)
 				notificationType:
@@ -147,6 +182,7 @@ export const scheduleAdminNotification = internalMutation({
 				notificationType: args.notificationType,
 				scheduledFor: now + NOTIFICATION_DELAY_MS,
 				messageIds: args.messageIds,
+				generation: crypto.randomUUID(),
 				createdAt: now
 			});
 
@@ -205,7 +241,8 @@ export const sendPendingAdminNotification = internalAction({
 			internal.admin.support.notifications.claimNotificationForSending,
 			{
 				notificationId: args.notificationId,
-				issueToken: true
+				issueToken: true,
+				receiptProtocol: 1
 			}
 		);
 
@@ -289,8 +326,11 @@ export const sendPendingAdminNotification = internalAction({
 		for (const email of targetEmails) {
 			try {
 				const enqueued = await ctx.runMutation(
-					internal.emails.send.sendNewTicketAdminNotification,
+					internal.admin.support.notificationDelivery.enqueueRecipient,
 					{
+						notificationId: args.notificationId,
+						generation: notification.generation,
+						claimToken: notification.claimToken,
 						email,
 						isReopen: notification.isReopen,
 						// A handoff with no accumulated messages is a bare "Talk to a human",
@@ -327,7 +367,7 @@ export const sendPendingAdminNotification = internalAction({
 		}
 
 		// If all sends failed, reschedule for retry (up to MAX_RETRY_COUNT attempts)
-		if (sentCount === 0) {
+		if (sentCount === 0 && !notification.hadEnqueue) {
 			const currentRetry = notification.retryCount;
 			if (currentRetry >= MAX_RETRY_COUNT) {
 				console.error(
@@ -411,7 +451,8 @@ export const sendPendingAdminNotification = internalAction({
 export const claimNotificationForSending = internalMutation({
 	args: {
 		notificationId: v.id('pendingAdminNotifications'),
-		issueToken: v.optional(v.boolean())
+		issueToken: v.optional(v.boolean()),
+		receiptProtocol: v.optional(v.literal(1))
 	},
 	returns: v.union(
 		v.object({
@@ -420,7 +461,9 @@ export const claimNotificationForSending = internalMutation({
 			isReopen: v.boolean(),
 			notificationType: v.union(v.literal('newTickets'), v.literal('userReplies')),
 			retryCount: v.number(),
-			claimToken: v.string()
+			claimToken: v.string(),
+			generation: v.string(),
+			hadEnqueue: v.boolean()
 		}),
 		v.null()
 	),
@@ -434,7 +477,7 @@ export const claimNotificationForSending = internalMutation({
 
 		// A caller without token support cannot hold a claim safely, so a new send
 		// takes the row over right away
-		if (args.issueToken !== true) {
+		if (args.issueToken !== true || args.receiptProtocol !== 1) {
 			const handoffFnId = await ctx.scheduler.runAfter(
 				0,
 				internal.admin.support.notifications.sendPendingAdminNotification,
@@ -450,9 +493,26 @@ export const claimNotificationForSending = internalMutation({
 		// This prevents other actions from claiming this notification, and an older
 		// send from cleaning up after this claim
 		const claimToken = crypto.randomUUID();
+		const generation = notification.generation ?? crypto.randomUUID();
+		const claimLeaseExpiresAt = Date.now() + CLAIM_LEASE_MS;
+		const recoveryFnId = await ctx.scheduler.runAt(
+			claimLeaseExpiresAt,
+			internal.admin.support.notifications.recoverNotificationClaim,
+			{ notificationId: args.notificationId, generation, claimToken, deadline: claimLeaseExpiresAt }
+		);
+		const hadEnqueue =
+			(await ctx.db
+				.query('supportNotificationReceipts')
+				.withIndex('by_notificationId_and_generation_and_email', (q) =>
+					q.eq('notificationId', args.notificationId).eq('generation', generation)
+				)
+				.first()) !== null;
 		await ctx.db.patch('pendingAdminNotifications', args.notificationId, {
 			scheduledFnId: undefined,
-			claimToken
+			claimToken,
+			generation,
+			claimLeaseExpiresAt,
+			recoveryFnId
 		});
 
 		return {
@@ -461,7 +521,9 @@ export const claimNotificationForSending = internalMutation({
 			isReopen: notification.isReopen,
 			notificationType: notification.notificationType,
 			retryCount: notification.retryCount ?? 0,
-			claimToken
+			claimToken,
+			generation,
+			hadEnqueue
 		};
 	}
 });
@@ -535,7 +597,7 @@ export const deletePendingNotification = internalMutation({
 			return false;
 		}
 
-		await ctx.db.delete('pendingAdminNotifications', args.notificationId);
+		await finishNotification(ctx, notification);
 		return true;
 	}
 });
@@ -577,6 +639,8 @@ export const reschedulePendingNotification = internalMutation({
 
 		const delayMs = args.delayMs ?? 60_000; // Default 1 minute
 		const nextRetryCount = (notification.retryCount ?? 0) + 1;
+		if (nextRetryCount > MAX_RETRY_COUNT) return false;
+		await cancelRecovery(ctx, notification);
 
 		// Schedule new send attempt
 		const newScheduledFnId = await ctx.scheduler.runAfter(
@@ -590,6 +654,8 @@ export const reschedulePendingNotification = internalMutation({
 			scheduledFor: Date.now() + delayMs,
 			scheduledFnId: newScheduledFnId,
 			claimToken: undefined,
+			claimLeaseExpiresAt: undefined,
+			recoveryFnId: undefined,
 			retryCount: nextRetryCount
 		});
 
@@ -598,6 +664,62 @@ export const reschedulePendingNotification = internalMutation({
 		);
 
 		return true;
+	}
+});
+
+export const recoverNotificationClaim = internalMutation({
+	args: {
+		notificationId: v.id('pendingAdminNotifications'),
+		generation: v.string(),
+		claimToken: v.string(),
+		deadline: v.number()
+	},
+	returns: v.boolean(),
+	handler: async (ctx, args): Promise<boolean> => {
+		const notification = await ctx.db.get('pendingAdminNotifications', args.notificationId);
+		if (
+			!notification ||
+			notification.generation !== args.generation ||
+			!isOwnedByClaim(notification, args.claimToken) ||
+			notification.claimLeaseExpiresAt !== args.deadline ||
+			Date.now() < args.deadline
+		)
+			return false;
+		if ((notification.retryCount ?? 0) >= MAX_RETRY_COUNT) {
+			console.error(
+				'[recoverNotificationClaim] Retry limit reached; abandoned notification stopped'
+			);
+			await finishNotification(ctx, notification);
+			return true;
+		}
+		return await ctx.runMutation(
+			internal.admin.support.notifications.reschedulePendingNotification,
+			{ notificationId: args.notificationId, claimToken: args.claimToken, delayMs: 60_000 }
+		);
+	}
+});
+
+export const listLegacyNotificationClaims = internalQuery({
+	args: { paginationOpts: paginationOptsValidator },
+	returns: v.object({
+		page: v.array(v.id('pendingAdminNotifications')),
+		continueCursor: v.string(),
+		isDone: v.boolean()
+	}),
+	handler: async (ctx, args) => {
+		const result = await ctx.db.query('pendingAdminNotifications').paginate({
+			...args.paginationOpts,
+			numItems: Math.min(100, args.paginationOpts.numItems),
+			maximumBytesRead: 512 * 1024
+		});
+		// Missing receipts cannot establish whether an older sender already delivered.
+		return {
+			continueCursor: result.continueCursor,
+			isDone: result.isDone,
+			page: result.page
+				.filter((row) => row.scheduledFnId === undefined && row.generation === undefined)
+				.map((row) => row._id)
+		};
 	}
 });
 
@@ -773,7 +895,7 @@ export const cancelPendingNotification = internalMutation({
 		}
 
 		// Delete the pending notification
-		await ctx.db.delete('pendingAdminNotifications', pending._id);
+		await finishNotification(ctx, pending);
 		return true;
 	}
 });
