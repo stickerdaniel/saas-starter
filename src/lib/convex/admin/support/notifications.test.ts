@@ -988,6 +988,18 @@ describe('abandoned notification recovery', () => {
 		expect(f.provider).toHaveBeenCalledTimes(1);
 		expect(f.receipts).toHaveLength(1);
 	});
+	it('finishes without scheduling receipt work when no recipient committed', async () => {
+		const f = await setup();
+		const ownership = await claim(f.ctx, f.notificationId);
+		expect(
+			await deletePendingNotificationH._handler(f.ctx, {
+				notificationId: f.notificationId,
+				claimToken: ownership.claimToken
+			})
+		).toBe(true);
+		expect(f.rows).toHaveLength(0);
+		expect(f.cleanup.mock.calls.length).toBe(0);
+	});
 	it('fences a recovered claim when a new message starts a generation', async () => {
 		const f = await setup();
 		const old = await claim(f.ctx, f.notificationId);

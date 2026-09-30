@@ -64,7 +64,14 @@ async function finishNotification(
 ) {
 	await cancelRecovery(ctx, notification);
 	await ctx.db.delete('pendingAdminNotifications', notification._id);
-	if (notification.generation)
+	if (
+		await ctx.db
+			.query('supportNotificationReceipts')
+			.withIndex('by_notificationId_and_generation_and_email', (q) =>
+				q.eq('notificationId', notification._id)
+			)
+			.first()
+	)
 		await ctx.scheduler.runAfter(0, internal.admin.support.notificationDelivery.cleanupReceipts, {
 			notificationId: notification._id,
 			cursor: null
