@@ -585,6 +585,12 @@
 			"url": "https://github.com/inikulin/parse5",
 			"branch": "master",
 			"specialNotes": "parse5 8.x HTML parser. src/lib/security/csp.js parses src/app.html with scriptingEnabled and sourceCodeLocationInfo to hash inline script bodies; see packages/parse5/lib/parser and ParserOptions."
+		},
+		{
+			"type": "git",
+			"name": "postcss",
+			"url": "https://github.com/postcss/postcss",
+			"branch": "main"
 		}
 	]
 }

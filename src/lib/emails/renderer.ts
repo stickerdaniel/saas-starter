@@ -1,7 +1,7 @@
 import { Renderer } from '@better-svelte-email/server';
 import layoutStyles from '../../routes/layout.css?raw';
 import preflightCss from 'tailwindcss/preflight.css?raw';
-import { sanitizeEmailCss } from './email-css';
+import { nestEmailDarkRules, sanitizeEmailCss } from './email-css';
 
 const emailLayoutStyles = sanitizeEmailCss(layoutStyles);
 
@@ -14,7 +14,7 @@ const EMAIL_DARK_VARIANT_OVERRIDE = `@custom-variant dark {
 	}
 }`;
 
-export const renderer = new Renderer({
+const baseRenderer = new Renderer({
 	customCSS: `${preflightCss}\n${emailLayoutStyles}\n${EMAIL_DARK_VARIANT_OVERRIDE}`,
 	tailwindConfig: {
 		// Media is the only dark-mode strategy an email can use: a mail client never
@@ -32,3 +32,14 @@ export const renderer = new Renderer({
 		}
 	}
 });
+
+export const renderer = {
+	async render(...args: Parameters<Renderer['render']>): Promise<string> {
+		const html = await baseRenderer.render(...args);
+		return html.replace(
+			/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi,
+			(_match, start: string, css: string, end: string) =>
+				`${start}${nestEmailDarkRules(css)}${end}`
+		);
+	}
+};
