@@ -85,9 +85,7 @@
 		return '';
 	});
 
-	const shikiTheme = $derived(
-		mode.current === 'dark' ? 'github-dark-default' : 'github-light-default'
-	);
+	const highlightTheme = $derived(mode.current === 'dark' ? 'github-dark' : 'github-light');
 
 	function isSafeHttpUrl(href: string | undefined | null): boolean {
 		return !!href && /^https?:\/\//i.test(href.trim());
@@ -125,8 +123,9 @@
 		{:else}
 			<Streamdown
 				content={renderedMarkdown}
-				{shikiTheme}
+				{highlightTheme}
 				baseTheme="shadcn"
+				controls={{ table: { fullscreen: false } }}
 				renderHtml={false}
 				parseIncompleteMarkdown={false}
 				allowedImagePrefixes={[]}

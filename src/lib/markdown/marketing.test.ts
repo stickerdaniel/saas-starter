@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { lex } from 'svelte-streamdown';
+import { Lexer } from 'marked';
 
 const { maliciousAddress, maliciousBrandName, maliciousEmail, maliciousOperatorName } = vi.hoisted(
 	() => ({
@@ -96,7 +97,7 @@ function collectTokenTypes(tokens: LexToken[]): string[] {
 }
 
 function renderInlineText(token: LexToken): string {
-	if (token.type === 'br') {
+	if (token.type === 'br' || (token.type === 'html' && token.raw === '<br>')) {
 		return '\n';
 	}
 	if (token.tokens) {
@@ -609,7 +610,8 @@ describe('marketing markdown helpers', () => {
 
 	it('renders llms discovery content with canonical marketing links', () => {
 		const llms = renderLlmsTxt('https://example.com');
-		const tokens = lex(llms) as LexToken[];
+		// Discovery Markdown follows CommonMark; Streamdown's TeX delimiters reinterpret escaped brackets.
+		const tokens = Lexer.lex(llms) as LexToken[];
 		const documentHeadings = tokens.filter(
 			(token) => token.type === 'heading' && token.depth === 1
 		);
@@ -618,7 +620,7 @@ describe('marketing markdown helpers', () => {
 		expect(llms).toContain(`# ${encodeMarkdownLiteral(LEGAL_CONFIG.brandName)}`);
 		expect(documentHeadings).toHaveLength(1);
 		expect(renderInlineText(heading)).toBe(LEGAL_CONFIG.brandName);
-		expect(collectTokens(heading.tokens ?? []).filter((token) => token.type === 'br')).toEqual([
+		expect(collectTokens(heading.tokens ?? []).filter((token) => token.raw === '<br>')).toEqual([
 			expect.objectContaining({ raw: '<br>' })
 		]);
 		expect(collectTokenTypes([heading])).not.toContain('em');
