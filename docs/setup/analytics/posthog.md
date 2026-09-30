@@ -63,7 +63,3 @@ Forks that used the earlier always-on PostHog setup change behaviour as follows:
 ## Turning it off
 
 Unset `PUBLIC_POSTHOG_API_KEY` and redeploy. New page loads show no banner and load nothing; tabs already open keep running until they reload. Reverting the code instead would bring back collection without consent.
-
-## Translations
-
-The banner, footer action and settings card add keys to `src/i18n/*.json`. Default disabled previews do not validate analytics copy. Translation synchronization still runs. Push the new keys before any credentialed preview used for enabled analytics verification and before merge/production.
