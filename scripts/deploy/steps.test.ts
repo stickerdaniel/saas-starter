@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { detectPlatform, type PlatformContext } from './platform';
 import {
 	computeBuildEnv,
 	deployConvex,
+	prepareAiChatHistory,
 	resolveDeploymentSiteOrigin,
 	setProductionCapabilityProfile,
 	setupPreviewEnv,
@@ -15,6 +16,67 @@ const deployment: ConvexDeployment = {
 	urlSlug: 'curious-lark-703.eu-west-1',
 	name: 'curious-lark-703'
 };
+
+describe('AI history migration preflight', () => {
+	afterEach(() => vi.useRealTimers());
+	it('uses the returned deployment target instead of the shell target', async () => {
+		const h = harness({ CONVEX_DEPLOYMENT: 'dev:wrong-target' });
+		await prepareAiChatHistory(deployment, h.execution);
+		expect(h.events).toEqual([
+			'bunx convex run --deployment-name curious-lark-703 aiChat/activityMigration:start'
+		]);
+	});
+	it('rejects a missing target before executing any command', async () => {
+		const h = harness();
+		await expect(prepareAiChatHistory({ name: null, urlSlug: null }, h.execution)).rejects.toThrow(
+			'requires the deployed'
+		);
+		expect(h.events).toEqual([]);
+	});
+	it.each([
+		'not json',
+		'null',
+		'{"version":2,"status":"complete"}',
+		'{"version":1,"status":"complete"}',
+		'{"version":1,"status":"unknown"}'
+	])('blocks a build on invalid progress %s', async (stdout) => {
+		const h = harness({}, () => ({ stdout }));
+		await expect(prepareAiChatHistory(deployment, h.execution)).rejects.toThrow(/progress/);
+	});
+	it('blocks a build on a command failure', async () => {
+		const h = harness({}, () => ({ exitCode: 1 }));
+		await expect(prepareAiChatHistory(deployment, h.execution)).rejects.toThrow('preflight failed');
+	});
+	it('waits for running progress, then accepts completion', async () => {
+		vi.useFakeTimers();
+		let calls = 0;
+		const h = harness({}, () => ({
+			stdout: JSON.stringify({
+				version: 1,
+				status: ++calls === 1 ? 'running' : 'complete',
+				processed: 205
+			})
+		}));
+		const pending = prepareAiChatHistory(deployment, h.execution);
+		await vi.runAllTimersAsync();
+		await pending;
+		expect(h.events[1]).toBe(
+			'bunx convex run --deployment-name curious-lark-703 aiChat/activityMigration:status'
+		);
+	});
+	it('blocks a build when bounded polling cannot confirm completion', async () => {
+		vi.useFakeTimers();
+		const h = harness({}, () => ({
+			stdout: JSON.stringify({ version: 1, status: 'running', processed: 100 })
+		}));
+		const result = expect(prepareAiChatHistory(deployment, h.execution)).rejects.toThrow(
+			'has not completed'
+		);
+		await vi.runAllTimersAsync();
+		await result;
+		expect(h.events).toHaveLength(40);
+	});
+});
 
 function makePlatform(overrides: Partial<PlatformContext> = {}): PlatformContext {
 	return {

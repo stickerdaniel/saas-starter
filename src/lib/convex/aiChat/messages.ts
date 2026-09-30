@@ -1,3 +1,4 @@
+import { getAiChatSidebarActivityAt } from './visibility';
 import type { MessagesQueryResponse } from '../../chat/core/types';
 import { internalAction } from '../_generated/server';
 import { v } from 'convex/values';
@@ -71,7 +72,10 @@ export const sendMessage = authedMutation({
 
 		// Consume warm thread on first message (backend-driven, no client coordination needed)
 		if (record.isWarm) {
-			await ctx.db.patch('aiChatThreads', record._id, { isWarm: false });
+			await ctx.db.patch('aiChatThreads', record._id, {
+				isWarm: false,
+				sidebarActivityAt: getAiChatSidebarActivityAt({ ...record, isWarm: false })
+			});
 		}
 
 		// Rate limit check
@@ -115,9 +119,11 @@ export const sendMessage = authedMutation({
 		// signal (drives visibility + first-send); lastMessage is a display-only
 		// preview, so skip it for a file-only send rather than persisting ''.
 		const preview = args.prompt.trim().slice(0, THREAD_PREVIEW_LENGTH);
+		const lastMessageAt = Date.now();
 		await ctx.db.patch('aiChatThreads', record._id, {
 			...(preview ? { lastMessage: preview } : {}),
-			lastMessageAt: Date.now()
+			lastMessageAt,
+			sidebarActivityAt: getAiChatSidebarActivityAt({ ...record, isWarm: false, lastMessageAt })
 		});
 
 		// Schedule AI response

@@ -31,6 +31,7 @@ import type * as admin_support_notifications from "../admin/support/notification
 import type * as admin_support_queries from "../admin/support/queries.js";
 import type * as admin_types from "../admin/types.js";
 import type * as admin_userSearch from "../admin/userSearch.js";
+import type * as aiChat_activityMigration from "../aiChat/activityMigration.js";
 import type * as aiChat_agent from "../aiChat/agent.js";
 import type * as aiChat_errors from "../aiChat/errors.js";
 import type * as aiChat_files from "../aiChat/files.js";
@@ -66,6 +67,7 @@ import type * as files_attachmentText from "../files/attachmentText.js";
 import type * as files_cleanup from "../files/cleanup.js";
 import type * as files_errors from "../files/errors.js";
 import type * as files_metadata from "../files/metadata.js";
+import type * as files_staging from "../files/staging.js";
 import type * as files_upload from "../files/upload.js";
 import type * as files_vacuum from "../files/vacuum.js";
 import type * as files_validators from "../files/validators.js";
@@ -135,6 +137,7 @@ declare const fullApi: ApiFromModules<{
   "admin/support/queries": typeof admin_support_queries;
   "admin/types": typeof admin_types;
   "admin/userSearch": typeof admin_userSearch;
+  "aiChat/activityMigration": typeof aiChat_activityMigration;
   "aiChat/agent": typeof aiChat_agent;
   "aiChat/errors": typeof aiChat_errors;
   "aiChat/files": typeof aiChat_files;
@@ -170,6 +173,7 @@ declare const fullApi: ApiFromModules<{
   "files/cleanup": typeof files_cleanup;
   "files/errors": typeof files_errors;
   "files/metadata": typeof files_metadata;
+  "files/staging": typeof files_staging;
   "files/upload": typeof files_upload;
   "files/vacuum": typeof files_vacuum;
   "files/validators": typeof files_validators;

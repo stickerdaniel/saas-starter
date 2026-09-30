@@ -223,12 +223,22 @@ export default defineSchema({
 		isWarm: v.optional(v.boolean()), // true = pre-warmed empty thread, awaiting first message
 		title: v.optional(v.string()),
 		lastMessage: v.optional(v.string()),
-		lastMessageAt: v.optional(v.number())
+		lastMessageAt: v.optional(v.number()),
+		sidebarActivityAt: v.optional(v.number())
 	})
 		// eslint-disable-next-line @convex-dev/no-duplicate-indexes -- listThreads takes one user's newest threads by creation time; by_user_warm would group them by isWarm first
 		.index('by_user', ['userId'])
 		.index('by_thread', ['threadId'])
-		.index('by_user_warm', ['userId', 'isWarm']),
+		.index('by_user_warm', ['userId', 'isWarm'])
+		.index('by_userId_and_sidebarActivityAt', ['userId', 'sidebarActivityAt']),
+
+	aiChatHistoryMigration: defineTable({
+		version: v.literal(1),
+		status: v.union(v.literal('running'), v.literal('complete')),
+		cursor: v.union(v.string(), v.null()),
+		processed: v.number(),
+		scheduledFnId: v.optional(v.id('_scheduled_functions'))
+	}),
 
 	// Per-LLM-operation usage + cost. One row per call (single-shot) or per
 	// assistant turn (agent). costUsd is authoritative and stamped at write time

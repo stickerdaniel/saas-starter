@@ -39,6 +39,7 @@ describe('deployment pipeline', () => {
 			'bunx convex env set CAPABILITY_PROFILE production --prod',
 			'bunx convex env list --prod',
 			'bunx convex deploy',
+			'bunx convex run --deployment-name preview-backend aiChat/activityMigration:start',
 			'config',
 			'bun run build'
 		]);
@@ -68,6 +69,7 @@ describe('deployment pipeline', () => {
 			'bunx convex env list --deployment-name preview-backend',
 			'bunx convex env list --deployment-name preview-backend',
 			'bunx convex run --deployment-name preview-backend previewDev:ensurePreviewAdmin',
+			'bunx convex run --deployment-name preview-backend aiChat/activityMigration:start',
 			'config',
 			'bun run build'
 		]);
@@ -117,6 +119,7 @@ describe('deployment pipeline', () => {
 		expect(development.events).toEqual([
 			'tolgee pull',
 			'bunx convex deploy',
+			'bunx convex run --deployment-name preview-backend aiChat/activityMigration:start',
 			'config',
 			'bun run build'
 		]);
@@ -126,6 +129,7 @@ describe('deployment pipeline', () => {
 			'bunx convex env set CAPABILITY_PROFILE production --prod',
 			'bunx convex env list --prod',
 			'bunx convex deploy',
+			'bunx convex run --deployment-name preview-backend aiChat/activityMigration:start',
 			'config',
 			'bun run build'
 		]);
@@ -158,6 +162,16 @@ describe('deployment pipeline', () => {
 		await expect(main(h.execution, h.options)).rejects.toBeInstanceOf(DeploymentError);
 		expect(h.spawn).toHaveBeenCalledTimes(1);
 		expect(console.error).not.toHaveBeenCalled();
+	});
+	it('does not build when the activity migration preflight fails', async () => {
+		const h = harness(productionEnv, (request) =>
+			request.args.some((arg) => arg.startsWith('aiChat/activityMigration:'))
+				? { exitCode: 1 }
+				: defaultReply(request)
+		);
+		await expect(main(h.execution, h.options)).rejects.toThrow('preflight failed');
+		expect(h.events).not.toContain('bun run build');
+		expect(h.writeConfig).not.toHaveBeenCalled();
 	});
 	it('reports once and sets the failure exit code at the entry boundary', async () => {
 		const saved = process.exitCode ?? 0;

@@ -42,6 +42,9 @@ export function commandLabel(request: SpawnRequest): string {
 }
 
 export function defaultReply(request: SpawnRequest): Reply {
+	if (request.args.some((arg) => arg.startsWith('aiChat/activityMigration:'))) {
+		return { stdout: JSON.stringify({ version: 1, status: 'complete', processed: 0 }) };
+	}
 	if (request.args[0] === 'convex' && request.args[1] === 'deploy') {
 		return { stdout: 'Deployed https://preview-backend.eu-west-1.convex.cloud' };
 	}
