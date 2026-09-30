@@ -78,7 +78,8 @@ export function clearAnalyticsIdentity(token: string, stores: BrowserStores): vo
 
 /** A write that reads back and removes cleanly; otherwise the store is not durable. */
 export function isStorageUsable(getStorage: () => Storage | undefined): boolean {
-	const probe = '__analytics_storage_probe__';
+	// A random key, so the probe never overwrites a value another script stored.
+	const probe = `__analytics_probe_${Math.random().toString(36).slice(2)}__`;
 	try {
 		const storage = getStorage();
 		if (!storage) return false;

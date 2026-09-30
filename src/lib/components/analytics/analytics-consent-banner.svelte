@@ -41,7 +41,7 @@
 	aria-labelledby="analytics-consent-title"
 	tabindex="-1"
 	data-testid="analytics-consent-banner"
-	class="fixed inset-x-4 bottom-24 z-50 rounded-xl border bg-popover p-4 text-popover-foreground shadow-lg outline-none sm:inset-x-auto sm:bottom-5 sm:left-5 sm:max-w-sm"
+	class="fixed inset-x-4 bottom-24 z-50 rounded-xl bg-popover p-4 text-popover-foreground shadow-lg ring-1 ring-foreground/10 outline-none sm:inset-x-auto sm:bottom-5 sm:left-5 sm:max-w-sm"
 >
 	<h2 id="analytics-consent-title" class="text-sm font-medium">
 		<T keyName="analytics.consent.title" />
