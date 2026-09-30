@@ -2,7 +2,7 @@
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
 	import { clamp } from '$lib/utils/math';
-	import { type SortingState, getCoreRowModel } from '@tanstack/table-core';
+	import { type SortingState } from '@tanstack/table-core';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -211,7 +211,6 @@
 			return auditTable.pageCount;
 		},
 		getRowId: (row) => row.id,
-		getCoreRowModel: getCoreRowModel(),
 		onSortingChange: (updater) => {
 			const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
 			if (nextSorting.length === 0) {
@@ -283,10 +282,7 @@
 											.columnDef.minSize}px;"
 									>
 										{#if !header.isPlaceholder}
-											<FlexRender
-												content={header.column.columnDef.header}
-												context={header.getContext()}
-											/>
+											<FlexRender {header} />
 										{/if}
 									</Table.Head>
 								{/each}
@@ -356,10 +352,7 @@
 								<Table.Row data-testid="audit-log-row">
 									{#each row.getVisibleCells() as cell (cell.id)}
 										<Table.Cell>
-											<FlexRender
-												content={cell.column.columnDef.cell}
-												context={cell.getContext()}
-											/>
+											<FlexRender {cell} />
 										</Table.Cell>
 									{/each}
 								</Table.Row>

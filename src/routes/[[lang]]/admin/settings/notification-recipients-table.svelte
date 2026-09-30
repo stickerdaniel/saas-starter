@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as v from 'valibot';
 	import { clamp } from '$lib/utils/math';
-	import { getCoreRowModel, type RowSelectionState, type SortingState } from '@tanstack/table-core';
+	import { type RowSelectionState, type SortingState } from '@tanstack/table-core';
 	import { SvelteMap } from 'svelte/reactivity';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
@@ -223,7 +223,6 @@
 			return recipientsTable.pageCount;
 		},
 		getRowId: (row) => row.email,
-		getCoreRowModel: getCoreRowModel(),
 		onSortingChange: (updater) => {
 			const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
 			if (nextSorting.length === 0) {
@@ -299,10 +298,7 @@
 										.columnDef.minSize}px;"
 								>
 									{#if !header.isPlaceholder}
-										<FlexRender
-											content={header.column.columnDef.header}
-											context={header.getContext()}
-										/>
+										<FlexRender {header} />
 									{/if}
 								</Table.Head>
 							{/each}
@@ -369,7 +365,7 @@
 							>
 								{#each row.getVisibleCells() as cell (cell.id)}
 									<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-										<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+										<FlexRender {cell} />
 									</Table.Cell>
 								{/each}
 							</Table.Row>

@@ -1,4 +1,5 @@
 import type { ColumnDef } from '@tanstack/table-core';
+import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
 import { createRawSnippet } from 'svelte';
 import { renderComponent, renderSnippet } from '$lib/components/ui/data-table/index.js';
 import DataTableColumnHeader from '$lib/components/admin/data-table-column-header.svelte';
@@ -16,7 +17,7 @@ type CellFilterHandlers = {
 export function createColumns(
 	lang: string,
 	handlers: CellFilterHandlers
-): Array<ColumnDef<AuditLogItem>> {
+): Array<ColumnDef<DataTableFeatures, AuditLogItem>> {
 	return [
 		{
 			accessorKey: 'timestamp',

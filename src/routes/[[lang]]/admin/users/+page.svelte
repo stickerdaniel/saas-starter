@@ -6,8 +6,7 @@
 	import {
 		type RowSelectionState,
 		type SortingState,
-		type VisibilityState,
-		getCoreRowModel
+		type ColumnVisibilityState
 	} from '@tanstack/table-core';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
@@ -201,7 +200,7 @@
 
 	// TanStack Table state (only client-side concerns remain)
 	let rowSelection = $state<RowSelectionState>({});
-	let columnVisibility = $state<VisibilityState>({});
+	let columnVisibility = $state<ColumnVisibilityState>({});
 
 	// Dialog state
 	let selectedUser = $state<AdminUserData | null>(null);
@@ -274,7 +273,6 @@
 			return usersTable.pageCount;
 		},
 		getRowId: (row) => row.id,
-		getCoreRowModel: getCoreRowModel(),
 		onSortingChange: (updater) => {
 			const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
 			if (nextSorting.length === 0) {
@@ -549,10 +547,7 @@
 											.columnDef.minSize}px;"
 									>
 										{#if !header.isPlaceholder}
-											<FlexRender
-												content={header.column.columnDef.header}
-												context={header.getContext()}
-											/>
+											<FlexRender {header} />
 										{/if}
 									</Table.Head>
 								{/each}
@@ -631,10 +626,7 @@
 								<Table.Row data-state={row.getIsSelected() && 'selected'}>
 									{#each row.getVisibleCells() as cell (cell.id)}
 										<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-											<FlexRender
-												content={cell.column.columnDef.cell}
-												context={cell.getContext()}
-											/>
+											<FlexRender {cell} />
 										</Table.Cell>
 									{/each}
 								</Table.Row>

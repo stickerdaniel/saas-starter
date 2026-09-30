@@ -1,4 +1,5 @@
 import type { ColumnDef } from '@tanstack/table-core';
+import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
 import { createRawSnippet } from 'svelte';
 import { renderComponent, renderSnippet } from '$lib/components/ui/data-table/index.js';
 import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
@@ -8,7 +9,7 @@ import RecipientsActions from './recipients-actions.svelte';
 import RecipientsToggle from './recipients-toggle.svelte';
 import TypeBadge from './type-badge.svelte';
 
-export const columns: Array<ColumnDef<NotificationRecipient>> = [
+export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>> = [
 	// Drives the bulk toggle: recipients-toggle.svelte reads the row selection
 	// from context and flips every selected row. Not scaffolding.
 	{

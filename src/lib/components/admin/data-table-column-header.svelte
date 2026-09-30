@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Column } from '@tanstack/table-core';
+	import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ArrowsVerticalIcon from '@lucide/svelte/icons/arrow-up-down';
@@ -8,7 +9,10 @@
 	import { cn } from '$lib/utils.js';
 
 	type Props = {
-		column?: Column<any, unknown>;
+		column?: Pick<
+			Column<DataTableFeatures, any, unknown>,
+			'getCanSort' | 'getIsSorted' | 'getToggleSortingHandler'
+		>;
 		titleKey: string;
 		class?: string;
 		testId?: string;

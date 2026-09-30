@@ -1,4 +1,5 @@
 import type { ColumnDef } from '@tanstack/table-core';
+import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
 import { createRawSnippet } from 'svelte';
 import { renderComponent, renderSnippet } from '$lib/components/ui/data-table/index.js';
 import DataTableCheckbox from '$lib/components/data-table-checkbox.svelte';
@@ -21,7 +22,7 @@ function getStatusSortValue(user: AdminUserData): number {
 	return 0;
 }
 
-export function createColumns(lang: string): Array<ColumnDef<AdminUserData>> {
+export function createColumns(lang: string): Array<ColumnDef<DataTableFeatures, AdminUserData>> {
 	return [
 		{
 			id: 'select',
