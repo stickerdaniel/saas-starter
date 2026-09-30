@@ -8,7 +8,7 @@ import { DEV_FEATURES, type DevFeature } from './src/lib/dev/features';
 import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
 import { getManagedProviderUpdates, logSafeOrigin } from './scripts/local-convex-env';
 import { stripSensitiveManifestValues } from './scripts/strip-varlock-secrets';
-import { sentrySvelteKit } from '@sentry/sveltekit';
+import { sentrySvelteKit } from '@sentry/sveltekit/vite';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
