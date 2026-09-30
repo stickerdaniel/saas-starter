@@ -467,8 +467,8 @@ export const DEV_FEATURES = [
 	{
 		name: 'Product analytics (PostHog)',
 		scope: 'vite-public',
-		missing: ['PUBLIC_POSTHOG_API_KEY', 'PUBLIC_POSTHOG_HOST'],
-		docs: '.env.schema'
+		missing: ['PUBLIC_POSTHOG_API_KEY', 'PUBLIC_POSTHOG_HOST', 'PUBLIC_POSTHOG_ALLOWED_HOSTS'],
+		docs: 'docs/setup/analytics/posthog.md'
 	},
 	{
 		name: 'Error monitoring (Sentry)',

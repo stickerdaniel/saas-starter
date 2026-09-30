@@ -1,106 +1,80 @@
-import {
-	PUBLIC_POSTHOG_API_KEY,
-	PUBLIC_POSTHOG_HOST,
-	PUBLIC_POSTHOG_PROXY_HOST
-} from '$env/static/public';
-import type PostHog from 'posthog-js';
-import { devNotice } from '$lib/dev/notice';
+import type { BeforeSendFn, PostHog } from 'posthog-js';
 
-const READY_EVENT = 'posthog:ready';
-const ADBLOCK_DETECT_TIMEOUT_MS = 3000;
+/**
+ * The PostHog SDK options, in one place. Everything automatic is off: the app owns
+ * pageviews and custom events (see controller.ts), so nothing reaches the SDK's
+ * capture path without passing the consent and identity checks first.
+ *
+ * Turning a capability back on (autocapture, session replay, web vitals, feature
+ * flags, email on identify) widens what is collected. Update the consent copy and
+ * the privacy policy and bump the consent version when you do; see
+ * docs/setup/analytics/posthog.md.
+ */
 
-let initPromise: Promise<PostHogClient | null> | null = null;
-let client: PostHogClient | null = null;
-
-type PostHogClient = typeof PostHog;
-
-function isBrowser(): boolean {
-	return typeof window !== 'undefined';
+export interface PosthogInstanceOptions {
+	apiKey: string;
+	apiHost: string;
+	uiHost: string | undefined;
+	/** `memory` when localStorage or sessionStorage is not durable in this browser. */
+	persistence: 'localStorage' | 'memory';
+	beforeSend: BeforeSendFn;
+	name: string;
 }
 
-async function detectAdBlock(host: string): Promise<boolean> {
-	try {
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), ADBLOCK_DETECT_TIMEOUT_MS);
+/** Query parameters the SDK masks in the URLs it stores; before_send drops the rest. */
+const SECRET_QUERY_PARAMS = [
+	'token',
+	'code',
+	'state',
+	'callbackURL',
+	'redirectTo',
+	'error',
+	'error_description',
+	'email',
+	'search',
+	'q'
+];
 
-		await fetch(`${host}/static/array.js`, {
-			method: 'GET',
-			mode: 'no-cors',
-			cache: 'no-store',
-			signal: controller.signal
-		});
-
-		clearTimeout(timeoutId);
-		return false;
-	} catch {
-		return true;
-	}
+export async function loadPosthog(): Promise<PostHog> {
+	return (await import('posthog-js')).default;
 }
 
-export async function initPosthog(): Promise<PostHogClient | null> {
-	if (!isBrowser()) return null;
-	if (client) return client;
-	if (initPromise) return initPromise;
-
-	initPromise = (async () => {
-		if (!PUBLIC_POSTHOG_API_KEY || !PUBLIC_POSTHOG_HOST) {
-			const missing: string[] = [];
-			if (!PUBLIC_POSTHOG_API_KEY) missing.push('PUBLIC_POSTHOG_API_KEY');
-			if (!PUBLIC_POSTHOG_HOST) missing.push('PUBLIC_POSTHOG_HOST');
-			devNotice({
-				feature: 'Product analytics (PostHog)',
-				missing,
-				scope: 'vite-public'
-			});
-			return null;
-		}
-
-		try {
-			const posthog = (await import('posthog-js')).default;
-			const isBlocked = await detectAdBlock(PUBLIC_POSTHOG_HOST);
-			const apiHost = isBlocked
-				? PUBLIC_POSTHOG_PROXY_HOST || PUBLIC_POSTHOG_HOST
-				: PUBLIC_POSTHOG_HOST;
-
-			posthog.init(PUBLIC_POSTHOG_API_KEY, {
-				api_host: apiHost,
-				ui_host: 'https://eu.posthog.com',
-				disable_surveys: true,
-				disable_conversations: true,
-				disable_product_tours: true,
-				person_profiles: 'identified_only',
-				// Cookieless: store nothing in cookies/localStorage so the privacy
-				// policy's "essential cookies only, no consent banner" claim holds
-				// (GDPR/§25 TDDDG). Autocapture, pageview, and identify keep working;
-				// only cross-reload anonymous attribution degrades.
-				persistence: 'memory'
-			});
-
-			client = posthog;
-			window.dispatchEvent(new CustomEvent(READY_EVENT));
-			return posthog;
-		} catch (error: unknown) {
-			if (import.meta.env.DEV) {
-				console.warn('PostHog initialization failed:', error);
-			}
-			initPromise = null;
-			return null;
-		}
-	})();
-
-	return initPromise;
-}
-
-export function getPosthog(): PostHogClient | null {
-	return client;
-}
-
-export function onPosthogReady(callback: () => void): () => void {
-	if (!isBrowser()) return () => {};
-
-	function handler(): void {
-		callback();
-	}
-	window.addEventListener(READY_EVENT, handler);
-	return () => window.removeEventListener(READY_EVENT, handler);
+/** A named instance, so a stale default instance can never pick up this config. */
+export function createPosthogInstance(
+	posthog: PostHog,
+	options: PosthogInstanceOptions
+): PostHog | undefined {
+	return posthog.init(
+		options.apiKey,
+		{
+			api_host: options.apiHost,
+			...(options.uiHost ? { ui_host: options.uiHost } : {}),
+			persistence: options.persistence,
+			person_profiles: 'identified_only',
+			// The SDK captures nothing and stores nothing until the app opts it in right
+			// after a live consent check, so a reset or a lost SDK marker fails closed.
+			opt_out_capturing_by_default: true,
+			opt_out_persistence_by_default: true,
+			capture_pageview: false,
+			capture_pageleave: false,
+			autocapture: false,
+			rageclick: false,
+			capture_dead_clicks: false,
+			capture_heatmaps: false,
+			capture_performance: false,
+			capture_exceptions: false,
+			disable_session_recording: true,
+			disable_surveys: true,
+			disable_conversations: true,
+			disable_product_tours: true,
+			advanced_disable_flags: true,
+			disable_external_dependency_loading: true,
+			request_batching: false,
+			disable_capture_url_hashes: true,
+			mask_personal_data_properties: true,
+			custom_personal_data_properties: SECRET_QUERY_PARAMS,
+			before_send: options.beforeSend
+		},
+		options.name
+	);
 }

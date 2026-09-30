@@ -12,6 +12,7 @@
 	import PasswordSettings from './password-settings.svelte';
 	import EmailSettings from './email-settings.svelte';
 	import SecuritySettings from './security-settings.svelte';
+	import PrivacySettings from './privacy-settings.svelte';
 
 	interface Props {
 		data: PageData;
@@ -99,6 +100,7 @@
 				{#if user}
 					<AccountSettings {user} />
 				{/if}
+				<PrivacySettings />
 			</Tabs.Content>
 
 			<Tabs.Content value="password" class="space-y-6">

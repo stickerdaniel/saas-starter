@@ -302,6 +302,16 @@
 			"no_messages": "Neue Unterhaltung"
 		}
 	},
+	"analytics": {
+		"consent": {
+			"allow": "Erlauben",
+			"decline": "Ablehnen",
+			"description": "Dürfen wir messen, wie diese Seite genutzt wird? Wir senden Seitenaufrufe und Produktereignisse an PostHog, ohne deinen Namen oder deine E-Mail-Adresse. Es wird nichts gesendet, bevor du zustimmst, und du kannst deine Wahl jederzeit im Footer oder in deinen Kontoeinstellungen ändern.",
+			"privacy_link": "Datenschutzerklärung",
+			"storage_failed": "Dein Browser hat das Speichern dieser Wahl blockiert, daher bleibt die Analyse aus.",
+			"title": "Analyse"
+		}
+	},
 	"app": {
 		"sidebar": {
 			"admin_panel": "Admin-Bereich",
@@ -720,6 +730,7 @@
 		"copyright": "© {year} {brand}",
 		"impressum": "Impressum",
 		"privacy": "Datenschutz",
+		"privacy_settings": "Datenschutzeinstellungen",
 		"terms": "Nutzungsbedingungen"
 	},
 	"hero": {
@@ -1030,6 +1041,12 @@
 			"unknown_title": "Passwort",
 			"update_button": "Passwort aktualisieren",
 			"updating": "Aktualisieren..."
+		},
+		"privacy": {
+			"analytics_hint": "Seitenaufrufe und Produktereignisse, an PostHog gesendet ohne deinen Namen oder deine E-Mail-Adresse. Gilt nur für diesen Browser.",
+			"analytics_label": "Nutzungsanalyse",
+			"description": "Lege fest, ob dieser Browser Nutzungsanalysen teilt.",
+			"title": "Datenschutz"
 		},
 		"security": {
 			"add_button": "Passkey hinzufügen",

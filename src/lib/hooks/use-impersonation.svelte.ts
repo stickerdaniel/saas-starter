@@ -3,6 +3,7 @@ import { localizedHref } from '$lib/utils/i18n';
 import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 import { clearPersistedChatState } from '$lib/chat/core/chat-persisted-state.ts';
 import { toast } from 'svelte-sonner';
+import { duringAuthChange } from '$lib/analytics/client';
 
 /**
  * Live impersonation state plus the exit action, shared by every shell that
@@ -97,7 +98,10 @@ export class ImpersonationState {
 	): Promise<void> {
 		haptic.trigger('warning');
 		try {
-			const result = await authClient.admin.stopImpersonating();
+			const result = await duringAuthChange(
+				() => authClient.admin.stopImpersonating(),
+				(result) => !result.error
+			);
 			if (result.error) {
 				toast.error(t('app.user_menu.impersonation_stop_failed'));
 				return;

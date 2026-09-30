@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { duringAuthChange } from '$lib/analytics/client';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
 	import { clamp } from '$lib/utils/math';
@@ -354,7 +355,10 @@
 		try {
 			// Impersonation stays on the Better Auth client (it mints session
 			// cookies); its audit entries are written by session triggers.
-			const result = await authClient.admin.impersonateUser({ userId });
+			const result = await duringAuthChange(
+				() => authClient.admin.impersonateUser({ userId }),
+				(result) => !result.error
+			);
 			if (result.error) {
 				const message = $t(getAuthErrorKey(result.error));
 				toast.error($t('admin.users.toast.impersonate_failed', { message }));

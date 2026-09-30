@@ -1,5 +1,5 @@
 export const LEGAL_CONTENT_DATES = {
-	privacy: '2026-03-18',
+	privacy: '2026-09-30',
 	terms: '2026-03-18',
 	impressum: '2026-03-21'
 } as const;

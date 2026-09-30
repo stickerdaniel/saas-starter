@@ -25,6 +25,7 @@
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 	import { useBillingCheckout } from '$lib/components/billing';
 	import { clearPersistedChatState } from '$lib/chat/core/chat-persisted-state.ts';
+	import { duringAuthChange } from '$lib/analytics/client';
 
 	const { t } = getTranslate();
 
@@ -87,7 +88,10 @@
 
 	async function signOut() {
 		haptic.trigger('light');
-		const result = await authClient.signOut();
+		const result = await duringAuthChange(
+			() => authClient.signOut(),
+			(result) => !result.error
+		);
 		if (result.error) {
 			console.error('Sign out error:', result.error);
 			toast.error($t('common.error'));
