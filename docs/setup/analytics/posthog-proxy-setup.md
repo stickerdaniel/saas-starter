@@ -116,7 +116,7 @@ Replace `metrics.yourdomain.com` with your actual custom domain from Part 1, Ste
 4. Add a new environment variable:
    - **Name:** `PUBLIC_POSTHOG_PROXY_HOST`
    - **Value:** `https://metrics.yourdomain.com` (your custom domain)
-   - **Environment:** Check all: Production, Preview, Development
+   - **Environment:** Production and Development
 5. Click **Save**
 
 **Important:** You'll need to redeploy your application for the environment variable to take effect.

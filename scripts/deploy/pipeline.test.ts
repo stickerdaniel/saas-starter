@@ -87,6 +87,25 @@ describe('deployment pipeline', () => {
 		expect(process.env.CONVEX_DEPLOY_KEY).toBe(hostKey);
 		expect(JSON.stringify(vi.mocked(console.log).mock.calls)).not.toContain('runtime-secret');
 	});
+	it('builds previews without the production PostHog configuration', async () => {
+		const posthog = {
+			PUBLIC_POSTHOG_API_KEY: 'phc_production',
+			PUBLIC_POSTHOG_HOST: 'https://ingest.production.example.test',
+			PUBLIC_POSTHOG_PROXY_HOST: 'https://proxy.production.example.test'
+		};
+		const buildEnvOf = async (env: NodeJS.ProcessEnv) => {
+			const h = harness(env);
+			await main(h.execution, h.options);
+			return h.spawn.mock.calls.at(-1)?.[0].env;
+		};
+
+		expect(await buildEnvOf({ ...previewEnv, ...posthog })).toMatchObject({
+			PUBLIC_POSTHOG_API_KEY: '',
+			PUBLIC_POSTHOG_HOST: '',
+			PUBLIC_POSTHOG_PROXY_HOST: ''
+		});
+		expect(await buildEnvOf({ ...productionEnv, ...posthog })).toMatchObject(posthog);
+	});
 	it('preserves development/unknown-platform branching and optional translation sync', async () => {
 		const development = harness({
 			VERCEL: '1',
