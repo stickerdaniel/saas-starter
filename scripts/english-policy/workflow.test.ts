@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+import { testExecutable } from '../test-executable';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const WORKFLOW_PATH = path.join(ROOT, '.github/workflows/require-english-pr.yml');
@@ -137,8 +138,8 @@ describe('English pull request workflow', () => {
 		const generated = path.join(directory, 'pr-metadata.bundle.mjs');
 		try {
 			const build = spawnSync(
-				'bun',
-				['--cwd', ROOT, 'build', ENTRY_PATH, '--target=bun', '--minify', `--outfile=${generated}`],
+				testExecutable('bun'),
+				['build', ENTRY_PATH, '--target=bun', '--minify', `--outfile=${generated}`],
 				{ cwd: ROOT, encoding: 'utf8' }
 			);
 			expect(build.status, build.stderr).toBe(0);
