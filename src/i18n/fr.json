@@ -1044,7 +1044,7 @@
 			"updating": "Mise à jour..."
 		},
 		"privacy": {
-			"analytics_hint": "Pages visitées et événements du produit, envoyés à PostHog sans ton nom ni ton adresse e-mail. S'applique uniquement à ce navigateur.",
+			"analytics_hint": "Pages visitées et événements du produit, envoyés sans ton nom ni ton adresse e-mail. S'applique uniquement à ce navigateur.",
 			"analytics_label": "Mesure d'utilisation",
 			"description": "Choisissez si ce navigateur partage des données d'utilisation.",
 			"title": "Confidentialité"

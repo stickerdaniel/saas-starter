@@ -1044,7 +1044,7 @@
 			"updating": "Aktualisieren..."
 		},
 		"privacy": {
-			"analytics_hint": "Seitenaufrufe und Produktereignisse, an PostHog gesendet ohne deinen Namen oder deine E-Mail-Adresse. Gilt nur für diesen Browser.",
+			"analytics_hint": "Seitenaufrufe und Produktereignisse, gesendet ohne deinen Namen oder deine E-Mail-Adresse. Gilt nur für diesen Browser.",
 			"analytics_label": "Nutzungsanalyse",
 			"description": "Lege fest, ob dieser Browser Nutzungsanalysen teilt.",
 			"title": "Datenschutz"

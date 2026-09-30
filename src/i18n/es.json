@@ -1044,7 +1044,7 @@
 			"updating": "Actualizando..."
 		},
 		"privacy": {
-			"analytics_hint": "Visitas a páginas y eventos del producto, enviados a PostHog sin tu nombre ni tu correo electrónico. Solo se aplica a este navegador.",
+			"analytics_hint": "Visitas a páginas y eventos del producto, enviados sin tu nombre ni tu correo electrónico. Solo se aplica a este navegador.",
 			"analytics_label": "Analítica de uso",
 			"description": "Elige si este navegador comparte analítica de uso.",
 			"title": "Privacidad"
