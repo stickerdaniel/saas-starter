@@ -27,6 +27,7 @@ import type * as admin_queries from "../admin/queries.js";
 import type * as admin_support_constants from "../admin/support/constants.js";
 import type * as admin_support_errors from "../admin/support/errors.js";
 import type * as admin_support_mutations from "../admin/support/mutations.js";
+import type * as admin_support_notificationDelivery from "../admin/support/notificationDelivery.js";
 import type * as admin_support_notifications from "../admin/support/notifications.js";
 import type * as admin_support_queries from "../admin/support/queries.js";
 import type * as admin_types from "../admin/types.js";
@@ -133,6 +134,7 @@ declare const fullApi: ApiFromModules<{
   "admin/support/constants": typeof admin_support_constants;
   "admin/support/errors": typeof admin_support_errors;
   "admin/support/mutations": typeof admin_support_mutations;
+  "admin/support/notificationDelivery": typeof admin_support_notificationDelivery;
   "admin/support/notifications": typeof admin_support_notifications;
   "admin/support/queries": typeof admin_support_queries;
   "admin/types": typeof admin_types;

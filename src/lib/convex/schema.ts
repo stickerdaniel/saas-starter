@@ -127,9 +127,18 @@ export default defineSchema({
 		messageIds: v.array(v.string()), // Accumulated message IDs to include
 		scheduledFnId: v.optional(v.id('_scheduled_functions')), // For cancellation
 		claimToken: v.optional(v.string()), // Identifies the send that claimed the row; cleared on re-arm and retry
+		generation: v.optional(v.string()),
+		claimLeaseExpiresAt: v.optional(v.number()),
+		recoveryFnId: v.optional(v.id('_scheduled_functions')),
 		retryCount: v.optional(v.number()), // Number of retry attempts (stops after 5)
 		createdAt: v.number()
 	}).index('by_thread', ['threadId']),
+
+	supportNotificationReceipts: defineTable({
+		notificationId: v.id('pendingAdminNotifications'),
+		generation: v.string(),
+		email: v.string()
+	}).index('by_notificationId_and_generation_and_email', ['notificationId', 'generation', 'email']),
 
 	// Saturation alert state for the global anonymous support rate limits, at
 	// most one row per bucket. Written by the sampling cron in
