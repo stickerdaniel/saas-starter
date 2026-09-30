@@ -9,7 +9,7 @@ vi.mock('$lib/convex/env', () => ({
 	})
 }));
 
-import { sanitizeEmailCss } from '../email-css';
+import { nestEmailDarkRules, nestEmailDarkStyles, sanitizeEmailCss } from '../email-css';
 import { STATIC_TRANSLATIONS, SUPPORTED_LOCALES } from '$lib/i18n/static-translations.generated';
 import type {
 	NewUserSignupNotificationEmailData,
@@ -317,6 +317,26 @@ describe('Email Template Rendering', () => {
 			].join('\n');
 
 			expect(sanitizeEmailCss(css)).toBe(css);
+		});
+
+		it('nests dark rules without reordering them around dark at-rules', () => {
+			const css =
+				'@media (prefers-color-scheme: dark){.x{color:blue}@supports (display:grid){.x{color:red}}.x{color:green}}';
+
+			expect(nestEmailDarkRules(css)).toBe(
+				'.x{@media (prefers-color-scheme: dark){color:blue}}' +
+					'@media (prefers-color-scheme: dark){@supports (display:grid){.x{color:red}}}' +
+					'.x{@media (prefers-color-scheme: dark){color:green}}'
+			);
+		});
+
+		it('transforms style blocks whose attributes contain a greater-than sign', () => {
+			const html =
+				'<style media="screen and (width > 600px)">@media (prefers-color-scheme: dark){.x{color:red}}</style>';
+
+			expect(nestEmailDarkStyles(html).replace(/\s+/g, '')).toBe(
+				'<stylemedia="screenand(width>600px)">.x{@media(prefers-color-scheme:dark){color:red}}</style>'
+			);
 		});
 	});
 

@@ -1,7 +1,7 @@
 import { Renderer } from '@better-svelte-email/server';
 import layoutStyles from '../../routes/layout.css?raw';
 import preflightCss from 'tailwindcss/preflight.css?raw';
-import { nestEmailDarkRules, sanitizeEmailCss } from './email-css';
+import { nestEmailDarkStyles, sanitizeEmailCss } from './email-css';
 
 const emailLayoutStyles = sanitizeEmailCss(layoutStyles);
 
@@ -35,11 +35,6 @@ const baseRenderer = new Renderer({
 
 export const renderer = {
 	async render(...args: Parameters<Renderer['render']>): Promise<string> {
-		const html = await baseRenderer.render(...args);
-		return html.replace(
-			/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi,
-			(_match, start: string, css: string, end: string) =>
-				`${start}${nestEmailDarkRules(css)}${end}`
-		);
+		return nestEmailDarkStyles(await baseRenderer.render(...args));
 	}
 };
