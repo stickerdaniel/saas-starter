@@ -124,6 +124,4 @@
 	}}
 />
 
-{#if preferences.state.enabled && preferences.state.bannerOpen}
-	<AnalyticsConsentBanner />
-{/if}
+<AnalyticsConsentBanner />
