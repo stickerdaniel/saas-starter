@@ -55,7 +55,9 @@ export async function loadSentry(): Promise<SentryModule | null> {
 					genAI: { inputs: false, outputs: false },
 					databaseQueryData: false,
 					queues: false,
-					graphQL: { document: false, variables: false }
+					graphQL: { document: false, variables: false },
+					stackFrameVariables: false,
+					frameContextLines: 0
 				}
 			});
 			client = sentry;

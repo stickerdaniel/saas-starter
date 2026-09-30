@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { afterEach, expect, it, vi } from 'vitest';
+import { fileURLToPath } from 'node:url';
 import type * as Sentry from '@sentry/sveltekit';
 type SentryClient = NonNullable<ReturnType<typeof Sentry.getClient>>;
 type SentryTransport = NonNullable<ReturnType<SentryClient['getTransport']>>;
@@ -18,7 +19,7 @@ vi.mock('@sentry/sveltekit', async (importOriginal) => {
 			sdk.init({
 				...options,
 				// Exercise the real request-data processor without instrumenting the test runner.
-				defaultIntegrations: [sdk.requestDataIntegration()],
+				defaultIntegrations: [sdk.requestDataIntegration(), sdk.contextLinesIntegration()],
 				transport: () => ({
 					send: async (envelope: Envelope) => {
 						envelopes.push(envelope);
@@ -36,7 +37,7 @@ afterEach(async () => {
 	await (await loadSentry())?.close();
 });
 
-it('keeps automatic request identity out of emitted events', async () => {
+it('keeps automatic request identity and source context out of emitted events', async () => {
 	const sdk = await loadSentry();
 	expect(sdk).not.toBeNull();
 	sdk!.withScope((scope) => {
@@ -53,13 +54,26 @@ it('keeps automatic request identity out of emitted events', async () => {
 			ipAddress: '203.0.113.42'
 		});
 		sdk!.captureMessage('A safe diagnostic');
+		sdk!.captureEvent({
+			exception: {
+				values: [
+					{
+						type: 'Error',
+						value: 'A safe exception',
+						stacktrace: {
+							frames: [{ filename: fileURLToPath(import.meta.url), lineno: 1, colno: 1 }]
+						}
+					}
+				]
+			}
+		});
 	});
 	await sdk!.flush();
 
 	const events = envelopes.flatMap(([, items]) =>
 		items.filter(([header]) => header.type === 'event').map(([, payload]) => payload)
 	);
-	expect(events).toHaveLength(1);
+	expect(events).toHaveLength(2);
 	expect(events[0]).toMatchObject({
 		message: 'A safe diagnostic',
 		request: { method: 'GET', headers: { 'content-type': 'application/json' } }
@@ -70,4 +84,11 @@ it('keeps automatic request identity out of emitted events', async () => {
 	}
 	expect(serialized).toContain('page=2');
 	expect(events[0]).not.toHaveProperty('exception');
+	expect(events[1]).toMatchObject({ exception: { values: [{ value: 'A safe exception' }] } });
+	const exception = events[1] as Sentry.Event;
+	const frame = exception.exception?.values?.[0]?.stacktrace?.frames?.[0];
+	expect(frame).toBeDefined();
+	for (const field of ['pre_context', 'context_line', 'post_context']) {
+		expect(frame).not.toHaveProperty(field);
+	}
 });
