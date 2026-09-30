@@ -666,6 +666,30 @@ afterAll(() => {
 });
 
 describe('Windows lifecycle workflow coverage', () => {
+	it.skipIf(process.platform === 'win32')(
+		'fails the required check instead of skipping it when runner selection fails',
+		() => {
+			const workflow = readFileSync(WINDOWS_LIFECYCLE_WORKFLOW, 'utf8');
+			const lifecycle = workflow.slice(workflow.indexOf('\n  lifecycle:\n'));
+			expect(lifecycle).toMatch(/^ {4}if: \$\{\{ !cancelled\(\) \}\}$/m);
+			const gate = lifecycle.split(/^ {6}- /m)[1]!;
+			expect(gate).toContain('name: Require a runner selection');
+			const script = gate
+				.split('run: |\n')[1]!
+				.split('\n')
+				.map((line) => line.slice(10))
+				.join('\n');
+			for (const result of ['success', 'failure', 'cancelled', 'skipped', '']) {
+				const outcome = spawnSync('bash', ['-e', '-c', script], {
+					env: { PATH: process.env.PATH ?? '', RUNNER_RESULT: result },
+					encoding: 'utf8'
+				});
+				expect(outcome.status, `runner result ${JSON.stringify(result)}`).toBe(
+					result === 'success' ? 0 : 1
+				);
+			}
+		}
+	);
 	it('runs only child steps when selected and the child manifest exists', () => {
 		const steps = readFileSync(WINDOWS_LIFECYCLE_WORKFLOW, 'utf8')
 			.split(/^ {6}- /m)

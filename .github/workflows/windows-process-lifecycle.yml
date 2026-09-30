@@ -127,9 +127,21 @@ jobs:
   lifecycle:
     name: Windows Process Lifecycle
     needs: runner
-    runs-on: ${{ needs.runner.outputs.label }}
+    # GitHub counts a skipped required check as passing, so a failed runner
+    # selection must fail this job instead of skipping it.
+    if: ${{ !cancelled() }}
+    runs-on: ${{ needs.runner.outputs.label || 'windows-latest' }}
     timeout-minutes: 10
     steps:
+      - name: Require a runner selection
+        shell: bash
+        env:
+          RUNNER_RESULT: ${{ needs.runner.result }}
+        run: |
+          if [[ "$RUNNER_RESULT" != success ]]; then
+            echo "::error::Runner selection ended with '$RUNNER_RESULT'."
+            exit 1
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Detect relevant changes
         id: changes
