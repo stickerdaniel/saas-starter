@@ -35,6 +35,68 @@ export const health = query({
 	}
 });
 
+export const seedAuditLogRows = mutation({
+	args: {
+		secret: v.string(),
+		fixtureId: v.string(),
+		count: v.number(),
+		offset: v.number(),
+		reasonBytes: v.optional(v.number())
+	},
+	returns: v.array(v.id('adminAuditLogs')),
+	handler: async (ctx, args) => {
+		requireTestSecret(args.secret);
+		if (!Number.isInteger(args.count) || args.count < 1 || args.count > 100) {
+			throw new Error('Invalid audit fixture');
+		}
+		const ids = [];
+		for (let i = 0; i < args.count; i++) {
+			ids.push(
+				await ctx.db.insert('adminAuditLogs', {
+					adminUserId: args.fixtureId,
+					targetUserId: args.fixtureId,
+					action: i % 2 === 0 ? 'ban_user' : 'unban_user',
+					timestamp: args.offset + i,
+					metadata: { reason: 'x'.repeat(Math.min(2048, Math.max(0, args.reasonBytes ?? 20))) }
+				})
+			);
+		}
+		return ids;
+	}
+});
+
+export const deleteAuditLogRows = mutation({
+	args: { secret: v.string(), fixtureId: v.string() },
+	returns: v.number(),
+	handler: async (ctx, args) => {
+		requireTestSecret(args.secret);
+		const rows = await ctx.db
+			.query('adminAuditLogs')
+			.withIndex('by_admin', (q) => q.eq('adminUserId', args.fixtureId))
+			.take(100);
+		for (const row of rows) await ctx.db.delete('adminAuditLogs', row._id);
+		return rows.length;
+	}
+});
+
+export const getLegacyAuditLogCursor = query({
+	args: {
+		secret: v.string(),
+		fixtureId: v.string(),
+		direction: v.union(v.literal('asc'), v.literal('desc'))
+	},
+	returns: v.string(),
+	handler: async (ctx, args) => {
+		requireTestSecret(args.secret);
+		const result = await ctx.db
+			.query('adminAuditLogs')
+			.withIndex('by_admin', (q) => q.eq('adminUserId', args.fixtureId))
+			.order(args.direction)
+			.paginate({ numItems: 20, cursor: null });
+		return result.continueCursor;
+	}
+});
+
 function buildSearchText(fields: {
 	title?: string;
 	summary?: string;

@@ -1,4 +1,6 @@
 import { v, type Infer } from 'convex/values';
+import { paginator } from 'convex-helpers/server/pagination';
+import schema from '../../schema';
 import { components } from '../../_generated/api';
 import type { Doc } from '../../_generated/dataModel';
 import type { QueryCtx } from '../../_generated/server';
@@ -93,6 +95,8 @@ export const auditLogSortByValidator = v.object({
 
 type AuditLogDirection = 'asc' | 'desc';
 
+const INDEX_CURSOR_PREFIX = 'audit:v1:';
+
 /**
  * Pick the most selective index for the given filter and return the query
  * ordered by `direction` (defaults to newest-first).
@@ -114,12 +118,14 @@ type AuditLogDirection = 'asc' | 'desc';
 function queryAuditLogs(
 	ctx: QueryCtx,
 	filters: AuditLogFilters,
-	direction: AuditLogDirection = 'desc'
+	direction: AuditLogDirection = 'desc',
+	indexed = false
 ) {
+	const db = indexed ? paginator(ctx.db, schema) : ctx.db;
 	if (filters.adminUserId !== undefined && filters.actionFilter !== undefined) {
 		const adminUserId = filters.adminUserId;
 		const action = filters.actionFilter;
-		return ctx.db
+		return db
 			.query('adminAuditLogs')
 			.withIndex('by_admin_action', (q) => q.eq('adminUserId', adminUserId).eq('action', action))
 			.order(direction);
@@ -127,33 +133,33 @@ function queryAuditLogs(
 	if (filters.targetUserId !== undefined && filters.actionFilter !== undefined) {
 		const targetUserId = filters.targetUserId;
 		const action = filters.actionFilter;
-		return ctx.db
+		return db
 			.query('adminAuditLogs')
 			.withIndex('by_target_action', (q) => q.eq('targetUserId', targetUserId).eq('action', action))
 			.order(direction);
 	}
 	if (filters.actionFilter !== undefined) {
 		const action = filters.actionFilter;
-		return ctx.db
+		return db
 			.query('adminAuditLogs')
 			.withIndex('by_action', (q) => q.eq('action', action))
 			.order(direction);
 	}
 	if (filters.adminUserId !== undefined) {
 		const adminUserId = filters.adminUserId;
-		return ctx.db
+		return db
 			.query('adminAuditLogs')
 			.withIndex('by_admin', (q) => q.eq('adminUserId', adminUserId))
 			.order(direction);
 	}
 	if (filters.targetUserId !== undefined) {
 		const targetUserId = filters.targetUserId;
-		return ctx.db
+		return db
 			.query('adminAuditLogs')
 			.withIndex('by_target', (q) => q.eq('targetUserId', targetUserId))
 			.order(direction);
 	}
-	return ctx.db.query('adminAuditLogs').withIndex('by_timestamp').order(direction);
+	return db.query('adminAuditLogs').withIndex('by_timestamp').order(direction);
 }
 
 /**
@@ -287,15 +293,31 @@ export const listAuditLogs = adminQuery({
 			};
 		}
 
-		const result = await queryAuditLogs(ctx, args, direction).paginate({
+		// Continue native cursors held by clients from before the indexed-cursor rollout.
+		const indexed = !args.cursor || args.cursor.startsWith(INDEX_CURSOR_PREFIX);
+		const result = await queryAuditLogs(ctx, args, direction, indexed).paginate({
 			numItems: args.numItems,
-			cursor: args.cursor ?? null
+			cursor: indexed ? (args.cursor?.slice(INDEX_CURSOR_PREFIX.length) ?? null) : args.cursor!
 		});
+		// Helper pages stop at their requested size, including an exactly full final page.
+		const isDone =
+			indexed && !result.isDone
+				? (
+						await queryAuditLogs(ctx, args, direction, true).paginate({
+							cursor: result.continueCursor,
+							numItems: 1
+						})
+					).page.length === 0
+				: result.isDone;
 
 		return {
 			items: await enrichAuditRows(ctx, result.page),
-			continueCursor: result.isDone ? null : result.continueCursor,
-			isDone: result.isDone
+			continueCursor: isDone
+				? null
+				: indexed
+					? INDEX_CURSOR_PREFIX + result.continueCursor
+					: result.continueCursor,
+			isDone
 		};
 	}
 });
@@ -356,8 +378,8 @@ export const getAuditLogCount = adminQuery({
  *
  * The walk is bounded to ceil(5001 / numItems) pages, mirroring the 5001-row
  * cap in getAuditLogCount: on a table larger than that it lands on the capped
- * last page instead of scanning unbounded. Native Convex cursors are
- * position-based, so re-fetching a page with the recorded cursor is stable.
+ * last page instead of scanning unbounded. Indexed cursors identify the
+ * last row of the preceding page and can be walked repeatedly in one query.
  *
  * A `search` string resolves the last page from the scanned-and-filtered row
  * count directly (offset math, like resolveUsersLastPage), since the search
@@ -399,12 +421,15 @@ export const resolveAuditLogLastPage = adminQuery({
 		let lastNonEmptyIndex = 0;
 		let lastNonEmptyCursor: string | null = null;
 		let found = false;
+		let scanned = 0;
 
 		for (let step = 0; step < maxPages; step++) {
-			const result = await queryAuditLogs(ctx, args, direction).paginate({
-				numItems: pageSize,
+			const result = await queryAuditLogs(ctx, args, direction, true).paginate({
+				numItems: Math.min(pageSize, 5001 - scanned),
 				cursor
 			});
+
+			scanned += result.page.length;
 
 			if (result.page.length > 0) {
 				lastNonEmptyIndex = index;
@@ -412,7 +437,7 @@ export const resolveAuditLogLastPage = adminQuery({
 				found = true;
 			}
 
-			if (result.isDone || !result.continueCursor) break;
+			if (result.isDone || !result.continueCursor || scanned >= 5001) break;
 
 			cursor = result.continueCursor;
 			index++;
@@ -422,6 +447,9 @@ export const resolveAuditLogLastPage = adminQuery({
 			return { page: 1, cursor: null };
 		}
 
-		return { page: lastNonEmptyIndex + 1, cursor: lastNonEmptyCursor };
+		return {
+			page: lastNonEmptyIndex + 1,
+			cursor: lastNonEmptyCursor === null ? null : INDEX_CURSOR_PREFIX + lastNonEmptyCursor
+		};
 	}
 });
