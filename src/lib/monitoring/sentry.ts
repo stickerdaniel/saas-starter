@@ -1,3 +1,4 @@
+import { browser } from '$app/environment';
 import { PUBLIC_SENTRY_DSN } from '$env/static/public';
 import type * as Sentry from '@sentry/sveltekit';
 import { devNotice } from '$lib/dev/notice';
@@ -37,7 +38,25 @@ export async function loadSentry(): Promise<SentryModule | null> {
 			const sentry = await import('@sentry/sveltekit');
 			sentry.init({
 				dsn: PUBLIC_SENTRY_DSN,
-				tracesSampleRate: 0.1
+				tracesSampleRate: 0.1,
+				traceLifecycle: 'static',
+				attachStacktrace: false,
+				integrations: browser ? [sentry.browserSessionIntegration({ lifecycle: 'route' })] : [],
+				// Keep the restrictive v10 defaults when upgrading the SDK.
+				dataCollection: {
+					userInfo: false,
+					cookies: false,
+					httpHeaders: {
+						request: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+						response: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] }
+					},
+					httpBodies: [],
+					urlQueryParams: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+					genAI: { inputs: false, outputs: false },
+					databaseQueryData: false,
+					queues: false,
+					graphQL: { document: false, variables: false }
+				}
 			});
 			client = sentry;
 			return sentry;
