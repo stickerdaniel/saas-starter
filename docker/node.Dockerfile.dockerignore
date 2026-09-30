@@ -1,0 +1,17 @@
+.git
+**/node_modules
+**/.env*
+!.env.schema
+!.env-convex.schema
+.svelte-kit
+build
+dist
+.convex
+e2e/.auth
+playwright-report
+test-results
+scratch
+.claude
+.worktree-ready
+Library
+.eslintcache

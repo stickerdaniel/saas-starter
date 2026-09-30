@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -101,5 +102,40 @@ describe('resolveBuildSiteOrigin', () => {
 			'staging',
 			'--sourcemap'
 		]);
+	});
+});
+
+describe('container app revision', () => {
+	it.each([
+		{
+			APP_BUILD_SHA: 'container-revision',
+			WORKERS_CI_COMMIT_SHA: '',
+			VERCEL_GIT_COMMIT_SHA: '',
+			expected: 'container-revision'
+		},
+		{
+			APP_BUILD_SHA: 'container-revision',
+			WORKERS_CI_COMMIT_SHA: 'workers-revision',
+			VERCEL_GIT_COMMIT_SHA: '',
+			expected: 'workers-revision'
+		},
+		{
+			APP_BUILD_SHA: 'container-revision',
+			WORKERS_CI_COMMIT_SHA: '',
+			VERCEL_GIT_COMMIT_SHA: 'vercel-revision',
+			expected: 'vercel-revision'
+		}
+	])('emits the revision $expected from the real Svelte config', ({ expected, ...env }) => {
+		const result = spawnSync(
+			'node',
+			[
+				'--input-type=module',
+				'-e',
+				"const { default: config } = await import('./svelte.config.js'); process.stdout.write(config.kit.version.name);"
+			],
+			{ encoding: 'utf8', env: { ...process.env, ...env }, timeout: 30_000 }
+		);
+		expect(result.status, result.stderr).toBe(0);
+		expect(result.stdout).toBe(expected);
 	});
 });

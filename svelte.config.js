@@ -33,7 +33,10 @@ function hasGitMetadata() {
 // build host (Workers Builds, then Vercel), fall back to a local git rev, and
 // finally to 'dev' so non-git build hosts still get a stable name.
 function appVersion() {
-	const sha = process.env.WORKERS_CI_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA;
+	const sha =
+		process.env.WORKERS_CI_COMMIT_SHA ||
+		process.env.VERCEL_GIT_COMMIT_SHA ||
+		process.env.APP_BUILD_SHA;
 	if (sha) return sha;
 	try {
 		return execFileSync('git', ['rev-parse', 'HEAD'], {
