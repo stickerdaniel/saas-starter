@@ -5,6 +5,7 @@ import type { Id } from './_generated/dataModel';
 import { supportAgent } from './support/agent';
 import { isAnonymousUser } from './utils/anonymousUser';
 import { recalculateCounters } from './admin/counters';
+import { getAiChatSidebarActivityAt } from './aiChat/visibility';
 
 /**
  * Verify the e2e test secret. Throws if missing or mismatched.
@@ -166,6 +167,50 @@ export const health = query({
 	handler: async (_ctx, { secret }) => {
 		requireTestSecret(secret);
 		return { ok: true };
+	}
+});
+
+export const seedAiChatHistoryRows = mutation({
+	args: {
+		secret: v.string(),
+		userId: v.string(),
+		rows: v.array(
+			v.object({
+				threadId: v.string(),
+				createdAt: v.number(),
+				isWarm: v.optional(v.boolean()),
+				lastMessage: v.optional(v.string()),
+				lastMessageAt: v.optional(v.number())
+			})
+		)
+	},
+	returns: v.array(v.id('aiChatThreads')),
+	handler: async (ctx, args) => {
+		requireTestSecret(args.secret);
+		if (args.rows.length > 100) throw new Error('History fixture exceeds 100 rows');
+		const ids = [];
+		// A bounded fixture owns only the registry rows returned for cleanup.
+		for (const row of args.rows)
+			ids.push(
+				await ctx.db.insert('aiChatThreads', {
+					...row,
+					userId: args.userId,
+					sidebarActivityAt: getAiChatSidebarActivityAt(row)
+				})
+			);
+		return ids;
+	}
+});
+
+export const deleteAiChatHistoryRows = mutation({
+	args: { secret: v.string(), ids: v.array(v.id('aiChatThreads')) },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		requireTestSecret(args.secret);
+		if (args.ids.length > 100) throw new Error('History cleanup exceeds 100 rows');
+		// E2E cleanup deletes at most 100 small fixture rows in one transaction.
+		for (const id of args.ids) await ctx.db.delete('aiChatThreads', id);
+		return null;
 	}
 });
 

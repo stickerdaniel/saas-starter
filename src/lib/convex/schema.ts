@@ -235,7 +235,7 @@ export default defineSchema({
 		lastMessageAt: v.optional(v.number()),
 		sidebarActivityAt: v.optional(v.number())
 	})
-		// eslint-disable-next-line @convex-dev/no-duplicate-indexes -- listThreads takes one user's newest threads by creation time; by_user_warm would group them by isWarm first
+		// eslint-disable-next-line @convex-dev/no-duplicate-indexes -- Keep creation ordering available for reader rollback; by_user_warm groups by isWarm first
 		.index('by_user', ['userId'])
 		.index('by_thread', ['threadId'])
 		.index('by_user_warm', ['userId', 'isWarm'])

@@ -4,7 +4,7 @@ import { authedQuery, authedMutation } from '../functions';
 import { aiChatAgent } from './agent';
 import { components } from '../_generated/api';
 import { requireAiChatThreadRecord } from './ownership';
-import { getAiChatSidebarActivityAt, isVisibleAiChatThread } from './visibility';
+import { getAiChatSidebarActivityAt } from './visibility';
 import { aiChatRateLimiter } from './rateLimit';
 import { createRateLimitError } from '../support/types';
 
@@ -41,26 +41,22 @@ export const listThreads = authedQuery({
 		const userId = ctx.user._id;
 		const limit = args.limit ?? 20;
 
-		// Fetch extra to account for warm/empty threads filtered out below
-		const fetchLimit = limit + 20;
 		const records = await ctx.db
 			.query('aiChatThreads')
-			.withIndex('by_user', (q) => q.eq('userId', userId))
+			.withIndex('by_userId_and_sidebarActivityAt', (q) =>
+				q.eq('userId', userId).gt('sidebarActivityAt', undefined)
+			)
 			.order('desc')
-			.take(fetchLimit);
-
-		const validThreads = records
-			.filter(isVisibleAiChatThread)
-			.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
+			.take(limit + 1);
 
 		return {
-			threads: validThreads.slice(0, limit).map((r) => ({
+			threads: records.slice(0, limit).map((r) => ({
 				_id: r.threadId,
 				title: r.title,
 				lastMessage: r.lastMessage ?? undefined,
 				lastMessageAt: r.lastMessageAt ?? r.createdAt
 			})),
-			hasMore: validThreads.length > limit
+			hasMore: records.length > limit
 		};
 	}
 });
