@@ -96,9 +96,9 @@ const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 // A tracked TypeScript file that the local pre-push run passes to the mutating linters;
 // with only Markdown input, the checker skips ESLint entirely.
 const LINTED_SOURCE = 'scripts/test-executable.ts';
-// Clone overlay pathspecs include `scripts` and the checker dependencies outside it. Without
-// them, the clone would run the committed version while the worktree
-// already uses a modified policy.
+// The checker template takes `scripts` and the checker dependencies outside it from the worktree
+// index. Without them, a clone would run the committed version, or miss a module the checker
+// imports, while the worktree already uses a modified policy.
 const OVERLAY_PATHSPECS = [
 	'scripts',
 	'eslint/control-character-policy.js',
@@ -119,6 +119,29 @@ const REQUIRED_SOURCES = [
 	'knowledge-policy.config.ts',
 	'src/lib/i18n/language-codes.generated.js'
 ];
+// Tracked files the checker reads beyond its own sources, or that the cases stage and name: the
+// line-ending and ignore rules, the manifest, the other type project configs, and the modules
+// and asset the type, rename, and deletion cases remove.
+const CHECKER_TEMPLATE_FILES = [
+	'.gitattributes',
+	'.gitignore',
+	'.prettierignore',
+	'package.json',
+	'.agents/skills/tsconfig.json',
+	'src/lib/convex/tsconfig.json',
+	'src/lib/billing/checkout-result.ts',
+	'src/lib/convex/constants.ts',
+	'static/favicon.ico'
+];
+// Stand-ins for the application and documentation corpus. Full-project runs scan every
+// Markdown file, and the real README links documents the template leaves out. TypeScript
+// rejects the skill project when its include list matches nothing, and a rename case moves a
+// module into `docs/`, which Git requires to exist.
+const CHECKER_TEMPLATE_STUBS: Record<string, string> = {
+	'README.md': 'A static checker fixture.\n',
+	'.agents/skills/fixture/scripts/source.ts': 'export const fixture = true;\n',
+	'docs/.gitkeep': ''
+};
 // Bun canonicalizes the checker's module path through the operating-system API, while
 // `realpathSync` does not canonicalize the invocation cwd. On Windows GitHub runners,
 // os.tmpdir() returns the 8.3 short name (C:\Users\RUNNER~1\...) while REPO_ROOT uses the long
@@ -223,6 +246,8 @@ function runWindowsLifecycleSelectorFixture(
 }
 
 let recorderDirectory: string;
+let checkerTemplateDirectory: string | undefined;
+let checkerTemplateRepository: string;
 let bunVersion: string;
 let canary: CanaryOutcome;
 
@@ -317,7 +342,7 @@ function recorderEnv(logPath: string): NodeJS.ProcessEnv {
 }
 
 /**
- * Overlays the clone with the worktree copies of Git-tracked sources.
+ * Overlays a repository with the worktree copies of Git-tracked sources.
  *
  * Recursively copying ROOT/scripts traverses a directory where static-checks.format.test.ts
  * concurrently creates and removes its `.format-*` fixtures. If one disappears between
@@ -472,6 +497,54 @@ function seedGeneratedKitProject(repository: string): void {
 	copyFileSync(generated, path.join(repository, '.svelte-kit', 'tsconfig.json'));
 }
 
+/**
+ * Builds the private repository every checker clone starts from, once per test file.
+ *
+ * Each case used to clone the whole repository, copy the checker sources over it, and delete
+ * it again, while the full-project runs scanned the entire application corpus. On Windows
+ * runners that pushed single cases past their timeout. The template carries the checker as the
+ * worktree index has it, through the same validated overlay, and replaces the corpus with the
+ * declared files and stand-ins. A declared file that left the index fails the suite here,
+ * and a checker import outside the overlay fails the canary, instead of either passing
+ * against a repository the cases no longer describe.
+ */
+function prepareCheckerTemplate(repository: string): void {
+	mkdirSync(repository);
+	overlayIndexedSources(repository);
+	const listed = spawnSync('git', ['ls-files', '-z', '--', ...CHECKER_TEMPLATE_FILES], {
+		cwd: ROOT,
+		env: sanitizedGitEnv(),
+		encoding: 'utf8'
+	});
+	if (listed.status !== 0) {
+		throw new Error(`Failed to list checker template files: ${listed.stderr}`);
+	}
+	const tracked = listed.stdout.split('\0');
+	for (const file of CHECKER_TEMPLATE_FILES) {
+		const source = path.join(ROOT, file);
+		if (!tracked.includes(file)) throw new Error(`Git index does not contain ${file}.`);
+		if (!existsSync(source)) throw new Error(`Checker template file is missing: ${file}`);
+		mkdirSync(path.dirname(path.join(repository, file)), { recursive: true });
+		copyFileSync(source, path.join(repository, file));
+	}
+	for (const [file, content] of Object.entries(CHECKER_TEMPLATE_STUBS)) {
+		mkdirSync(path.dirname(path.join(repository, file)), { recursive: true });
+		writeFileSync(path.join(repository, file), content);
+	}
+	runFixtureGit(repository, ['init', '--quiet']);
+	configureFixtureGitIdentity(repository);
+	// Forced, so a global excludes file cannot drop a path the full repository tracks.
+	runFixtureGit(repository, ['add', '--all', '--force']);
+	runFixtureGit(repository, [
+		'commit',
+		'--quiet',
+		'--no-gpg-sign',
+		'--no-verify',
+		'-m',
+		'Add checker template'
+	]);
+}
+
 function createCheckerClone(
 	state: 'present' | 'absent' | 'inconsistent' = 'present',
 	seed?: CreatorSeed
@@ -479,9 +552,11 @@ function createCheckerClone(
 	const directory = mkdtempSync(path.join(TEMP_ROOT, 'static-knip-'));
 	const repository = path.join(directory, 'repository');
 	try {
+		// Every case clones its own copy: the cases rewrite manifests, sources, the index,
+		// and history.
 		const clone = spawnSync(
 			'git',
-			['clone', '--quiet', '--local', '--no-hardlinks', ROOT, repository],
+			['clone', '--quiet', '--local', '--no-hardlinks', checkerTemplateRepository, repository],
 			{
 				env: sanitizedGitEnv(),
 				encoding: 'utf8'
@@ -493,7 +568,6 @@ function createCheckerClone(
 			path.join(repository, 'node_modules'),
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
-		overlayIndexedSources(repository);
 		seedGeneratedKitProject(repository);
 		seedCreatorState(repository, state, seed);
 
@@ -560,8 +634,9 @@ function stageReadme(checkout: CheckerClone): void {
 		encoding: 'utf8'
 	});
 	if (staged.status !== 0) throw new Error(`Fixture staging failed: ${staged.stderr}`);
-	// Copying the current scripts invalidates tracked index stat data. Refresh it before the
-	// checker fingerprints the index, so Git cannot rewrite those fields midway through the run.
+	// Seeding the creator state rewrites tracked files and invalidates their index stat data.
+	// Refresh it before the checker fingerprints the index, so Git cannot rewrite those fields
+	// midway through the run.
 	const refreshed = spawnSync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
 		cwd: checkout.repository,
 		env: sanitizedGitEnv(),
@@ -603,8 +678,8 @@ function stageRemoval(checkout: CheckerClone, source: string, destination?: stri
 		checkout.repository,
 		destination ? ['mv', '--', source, destination] : ['rm', '--quiet', '--', source]
 	);
-	// The overlay invalidated tracked stat data; refresh it before the checker fingerprints the
-	// index, as stageReadme does.
+	// The creator seed invalidated tracked stat data; refresh it before the checker fingerprints
+	// the index, as stageReadme does.
 	runFixtureGit(checkout.repository, ['status', '--porcelain=v1', '--untracked-files=all']);
 }
 
@@ -658,11 +733,16 @@ beforeAll(() => {
 	// Record the binary actually used: running Vitest with Bun X does not prove that
 	// testExecutable('bun') resolves to the same Bun.
 	bunVersion = (spawnSync(BUN, ['--version'], { encoding: 'utf8' }).stdout ?? '').trim();
+	checkerTemplateDirectory = mkdtempSync(path.join(TEMP_ROOT, 'static-checker-template-'));
+	checkerTemplateRepository = path.join(checkerTemplateDirectory, 'repository');
+	prepareCheckerTemplate(checkerTemplateRepository);
 	canary = runCanary();
 }, 120_000);
 
 afterAll(() => {
 	rmSync(recorderDirectory, { recursive: true, force: true });
+	// Unset when setup failed before the template was created.
+	if (checkerTemplateDirectory) rmSync(checkerTemplateDirectory, { recursive: true, force: true });
 });
 
 describe('Windows lifecycle workflow coverage', () => {
