@@ -50,6 +50,7 @@ export const seedAuditLogRows = mutation({
 			throw new Error('Invalid audit fixture');
 		}
 		const ids = [];
+		// At most 100 rows with capped metadata fit in one fixture transaction.
 		for (let i = 0; i < args.count; i++) {
 			ids.push(
 				await ctx.db.insert('adminAuditLogs', {
@@ -74,6 +75,7 @@ export const deleteAuditLogRows = mutation({
 			.query('adminAuditLogs')
 			.withIndex('by_admin', (q) => q.eq('adminUserId', args.fixtureId))
 			.take(100);
+		// Each call deletes at most 100 fixture rows to bound reads and writes.
 		for (const row of rows) await ctx.db.delete('adminAuditLogs', row._id);
 		return rows.length;
 	}
