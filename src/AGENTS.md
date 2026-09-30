@@ -32,10 +32,8 @@ General animation craft lives in the `emil-design-eng` skill. Prefer CSS for sim
 
 ## Internationalization
 
-- Pull Tolgee before editing `src/i18n/*.json`: `bun run i18n:pull`.
+- Tolgee is offline (see the root `AGENTS.md`); edit the committed `src/i18n/*.json` files directly.
 - Add every new key to all supported locale files with idiomatic translations.
-- Push after locale edits: `bun run i18n:push -- --tag-new-keys draft` (or the appropriate tag).
-- Run `bun run i18n:cleanup` when intentionally removing production keys.
 - Key names use nested objects, never literal dots in leaf names.
 - The locale registry in `src/lib/i18n/languages.ts` is canonical; run `bun run i18n:sync` after adding or removing a locale.
 
