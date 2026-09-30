@@ -854,6 +854,28 @@ describe('indexed source overlay', () => {
 });
 
 describe('Knip static-check CLI behavior', { concurrent: false }, () => {
+	it('propagates local Autumn validation failures without dispatching a remote preview', () => {
+		const checkout = createCheckerClone();
+		const validation = { command: 'bun', args: ['scripts/check-autumn-config.ts'] };
+		checkout.env.STATIC_CHECKS_COMMAND_RESPONSE = JSON.stringify({
+			...validation,
+			status: 1,
+			stderr: 'Invalid Autumn config\n'
+		});
+		try {
+			const result = runChecker(checkout, ['--ci', '--scope', 'types']);
+			const output = `${result.stdout}${result.stderr}`;
+			const commands = readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!);
+			expect(result.status, output).not.toBe(0);
+			expect(commands).toContainEqual(validation);
+			expect(commands.some((entry) => entry.args.includes('atmn'))).toBe(false);
+			expect(output).toContain('Invalid Autumn config');
+			expect(output).not.toContain('All checks passed!');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
 	it('resolves the recorder through the name the checker spawns', () => {
 		const directory = mkdtempSync(path.join(TEMP_ROOT, 'static-recorder-contract-'));
 		const logPath = path.join(directory, 'commands.jsonl');
