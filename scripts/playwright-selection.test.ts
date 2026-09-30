@@ -75,16 +75,19 @@ it.each([['--shard=1/2'], ['--shard', '1/2']])(
 	}
 );
 
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 it('executes public coverage without account setup or teardown credentials', () => {
 	const directory = mkdtempSync(join(tmpdir(), 'public-lifecycle-'));
 	const fixture = join(process.cwd(), 'e2e', 'public-lifecycle-probe.spec.ts');
+	const ownership = join(process.cwd(), 'e2e', '.auth', 'owned-test-data.json');
+	if (existsSync(ownership))
+		throw new Error('Finish the active E2E run before running lifecycle selection tests');
 	try {
 		writeFileSync(
 			fixture,
-			"import { test, expect } from '@playwright/test'; test('secretless public lane', () => { expect(process.env.AUTH_E2E_TEST_SECRET || '').toBe(''); });"
+			"import { test, expect } from '@playwright/test'; import { mkdirSync, writeFileSync } from 'node:fs'; test('secretless public lane', () => { expect(process.env.AUTH_E2E_TEST_SECRET || '').toBe(''); mkdirSync('e2e/.auth', {recursive: true}); writeFileSync('e2e/.auth/owned-test-data.json', JSON.stringify({runId: 'lifecycle-probe', userEmails: [], recipientEmails: []})); });"
 		);
 		const result = spawnSync(
 			'bun',
@@ -104,7 +107,9 @@ it('executes public coverage without account setup or teardown credentials', () 
 			}
 		);
 		expect(result.status, result.stderr).toBe(0);
+		expect(existsSync(ownership)).toBe(true);
 	} finally {
+		rmSync(ownership, { force: true });
 		rmSync(fixture, { force: true });
 		rmSync(directory, { recursive: true, force: true });
 	}

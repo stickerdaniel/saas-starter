@@ -28,3 +28,6 @@ jobs:
           reporter: github-annotations
           filter_mode: nofilter
           fail_level: error
+          # GitHub validates concurrency.queue; actionlint 1.7.12 predates that
+          # supported field. Keep every other syntax diagnostic enabled.
+          actionlint_flags: '-ignore=^unexpected.key."queue".for."concurrency".section[.].expected.one.of."cancel-in-progress",."group"$'

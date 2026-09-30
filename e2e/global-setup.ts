@@ -124,6 +124,8 @@ async function globalSetup() {
 	// Gate user creation on real backend readiness (not just the vite port being open).
 	await waitForBackendReady(convexUrl, testSecret);
 
+	// Resolve preview access before recording any intended backend writes.
+	await fetchVercelBypassCookie(SITE_URL);
 	const timestamp = beginOwnedTestData();
 
 	// Generate unique emails for this test run
@@ -143,9 +145,6 @@ async function globalSetup() {
 			threadIds: []
 		}
 	};
-
-	// For protected preview deployments, fetch bypass cookie if applicable
-	await fetchVercelBypassCookie(SITE_URL);
 
 	console.log('[Setup] Creating fresh test users...');
 	console.log(`[Setup]   User: ${credentials.user.email}`);

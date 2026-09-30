@@ -278,11 +278,18 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           STATE: ${{ job.status == 'success' && 'success' || 'failure' }}
         run: |
-          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" \
-            -f state="$STATE" -f context="E2E Tests" \
-            -f description="Complete preview E2E (cf)" \
-            -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" \
-            -f state="$STATE" -f context="Workers Builds: saas-starter" \
-            -f description="Fork preview ($STATE)" \
-            -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          for CONTEXT in "E2E Tests" "Workers Builds: saas-starter"; do
+            REPORTED=false
+            for attempt in 1 2 3; do
+              if gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" \
+                -f state="$STATE" -f context="$CONTEXT" \
+                -f description="Fork preview ($STATE)" \
+                -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"; then
+                REPORTED=true
+                break
+              fi
+              echo "Status reporting attempt $attempt failed for $CONTEXT"
+              sleep 5
+            done
+            test "$REPORTED" = true || exit 1
+          done
