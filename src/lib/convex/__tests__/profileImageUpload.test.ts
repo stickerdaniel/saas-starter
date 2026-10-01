@@ -34,7 +34,7 @@ const SITE_URL = 'https://site.test';
 
 let runMutation: ReturnType<typeof vi.fn>;
 
-function uploadWithMetadata(metadata: { contentType?: string; size: number } | null) {
+function uploadWithMetadata(metadata: { contentType: string | null; size: number } | null) {
 	runMutation = vi.fn(async (reference: string) => {
 		switch (reference) {
 			case 'files.upload.finalizeUpload':
@@ -66,7 +66,8 @@ describe('updateProfileImage', () => {
 	it.each([
 		['an SVG', { contentType: 'image/svg+xml', size: 100 }],
 		['an empty type', { contentType: '', size: 100 }],
-		['a missing type', { size: 100 }]
+		// The component reports an absent storage content type as null.
+		['a missing type', { contentType: null, size: 100 }]
 	])('refuses %s without issuing a public grant', async (_label, metadata) => {
 		await expect(uploadWithMetadata(metadata)).rejects.toMatchObject({
 			data: { code: 'FILE_TYPE_NOT_ALLOWED' }
