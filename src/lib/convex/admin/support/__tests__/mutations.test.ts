@@ -27,7 +27,10 @@ vi.mock('../../../i18n/translations', () => ({
 }));
 
 vi.mock('../../../_generated/api', () => ({
-	components: { agent: {} },
+	components: {
+		agent: {},
+		betterAuth: { adapter: { findOne: 'components.betterAuth.adapter.findOne' } }
+	},
 	internal: {
 		admin: {
 			support: {
@@ -46,7 +49,7 @@ vi.mock('../../../_generated/api', () => ({
 import { saveMessage, getFile } from '@convex-dev/agent';
 import { authComponent } from '../../../auth';
 import { shouldSendNotification } from '../../../support/threads';
-import { sendAdminReply } from '../mutations';
+import { sendAdminReply, updateThreadAssignment } from '../mutations';
 
 const saveMessageMock = saveMessage as unknown as ReturnType<typeof vi.fn>;
 const getFileMock = getFile as unknown as ReturnType<typeof vi.fn>;
@@ -59,6 +62,11 @@ type RegisteredFunction<TArgs, TResult> = {
 
 const replyHandler = sendAdminReply as unknown as RegisteredFunction<
 	{ threadId: string; prompt: string; fileIds?: string[] },
+	null
+>;
+
+const assignHandler = updateThreadAssignment as unknown as RegisteredFunction<
+	{ threadId: string; adminUserId?: string },
 	null
 >;
 
@@ -225,5 +233,78 @@ describe('sendAdminReply', () => {
 		expect(emailSchedules).toHaveLength(2);
 		expect(ctx.db.patch.mock.calls[0][2]).not.toHaveProperty('notificationSentAt');
 		expect(ctx.db.patch.mock.calls[1][2]).not.toHaveProperty('notificationSentAt');
+	});
+});
+
+// The assignee picker only lists admins, but the mutation is public to any
+// admin client, so it must refuse to store an id that does not name an admin.
+describe('updateThreadAssignment', () => {
+	const users: Record<string, { _id: string; role: string }> = {
+		admin_2: { _id: 'admin_2', role: 'admin' },
+		user_1: { _id: 'user_1', role: 'user' }
+	};
+
+	function makeAssignCtx() {
+		return {
+			...makeCtx(),
+			runQuery: vi.fn(async (_ref: unknown, args: { where: [{ value: string }] }) => {
+				return users[args.where[0].value] ?? null;
+			})
+		};
+	}
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		getAuthUserMock.mockResolvedValue({ _id: 'admin_1', role: 'admin' });
+	});
+
+	it.each([
+		['a missing user', 'missing_user'],
+		['a non-admin user', 'user_1'],
+		['an empty id', '']
+	])('rejects %s without assigning or cancelling notifications', async (_label, adminUserId) => {
+		const ctx = makeAssignCtx();
+
+		await expect(
+			assignHandler._handler(ctx, { threadId: 't1', adminUserId })
+		).rejects.toMatchObject({ data: { code: 'ADMIN_SUPPORT_ASSIGNEE_NOT_ADMIN' } });
+
+		expect(ctx.runQuery).toHaveBeenCalledWith('components.betterAuth.adapter.findOne', {
+			model: 'user',
+			where: [{ field: '_id', operator: 'eq', value: adminUserId }]
+		});
+		expect(ctx.db.patch).not.toHaveBeenCalled();
+		expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
+	});
+
+	it('assigns an admin and cancels the pending notification', async () => {
+		const ctx = makeAssignCtx();
+
+		await assignHandler._handler(ctx, { threadId: 't1', adminUserId: 'admin_2' });
+
+		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'supportThreads',
+			'st_1',
+			expect.objectContaining({ assignedTo: 'admin_2' })
+		);
+		expect(ctx.scheduler.runAfter).toHaveBeenCalledWith(
+			0,
+			'internal.admin.support.notifications.cancelPendingNotification',
+			{ threadId: 't1' }
+		);
+	});
+
+	it('unassigns without looking up a target', async () => {
+		const ctx = makeAssignCtx();
+
+		await assignHandler._handler(ctx, { threadId: 't1' });
+
+		expect(ctx.runQuery).not.toHaveBeenCalled();
+		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'supportThreads',
+			'st_1',
+			expect.objectContaining({ assignedTo: undefined })
+		);
+		expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
 	});
 });

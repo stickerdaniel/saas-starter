@@ -4,7 +4,8 @@ export const ADMIN_SUPPORT_ERROR_CODES = {
 	threadNotFound: 'ADMIN_SUPPORT_THREAD_NOT_FOUND',
 	emptyMessage: 'ADMIN_SUPPORT_MESSAGE_EMPTY',
 	messageTooLong: 'ADMIN_SUPPORT_MESSAGE_TOO_LONG',
-	emptyNote: 'ADMIN_SUPPORT_NOTE_EMPTY'
+	emptyNote: 'ADMIN_SUPPORT_NOTE_EMPTY',
+	assigneeNotAdmin: 'ADMIN_SUPPORT_ASSIGNEE_NOT_ADMIN'
 } as const;
 
 export type AdminSupportErrorCode =

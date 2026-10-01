@@ -28,6 +28,7 @@ function emailReplyPreview(message: string): string {
  * @param args.adminUserId - The admin user ID to assign to, or undefined to unassign
  * @returns void
  * @throws {Error} When support thread is not found
+ * @throws {Error} When the assignee is not an admin
  */
 export const updateThreadAssignment = adminMutation({
 	args: {
@@ -44,6 +45,18 @@ export const updateThreadAssignment = adminMutation({
 
 		if (!supportThread) {
 			throw createAdminSupportError(ADMIN_SUPPORT_ERROR_CODES.threadNotFound);
+		}
+
+		// The picker only offers admins, but the mutation is callable without it.
+		// Any supplied id, including an empty string, must name an admin.
+		if (args.adminUserId !== undefined) {
+			const assignee = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+				model: 'user',
+				where: [{ field: '_id', operator: 'eq', value: args.adminUserId }]
+			})) as { role?: string | null } | null;
+			if (assignee?.role !== 'admin') {
+				throw createAdminSupportError(ADMIN_SUPPORT_ERROR_CODES.assigneeNotAdmin);
+			}
 		}
 
 		// Update assignedTo
