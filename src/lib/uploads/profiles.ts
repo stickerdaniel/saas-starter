@@ -103,10 +103,13 @@ export function acceptsMimeType(profile: UploadProfile, mimeType: string): boole
  * than what may be stored. Falls back to the storage answer where no input
  * family is declared, so a surface without a transcoder behaves as before.
  *
- * A surface that uses this must re-check the transcoder's OUTPUT with
- * acceptsMimeType: the avatar transcoder is not total (it passes GIFs through,
- * keeps the original when the re-encode is larger, and falls back on a decode
- * failure), so picking is not a promise that the result is storable.
+ * Picking is not a promise that the result is storable: the avatar transcoder
+ * is not total (it passes GIFs through, keeps the original when the re-encode
+ * is larger, and falls back on a decode failure). The server's finalize step
+ * enforces the storage list on the uploaded type, `updateProfileImage` for the
+ * avatar, so a surface that uses this must have one. Re-checking the
+ * transcoder's output with acceptsMimeType on the client only rejects early,
+ * before the upload.
  */
 export function acceptsSource(profile: UploadProfile, mimeType: string): boolean {
 	const essence = mimeType.split(';')[0]!.trim().toLowerCase();
