@@ -1,6 +1,4 @@
-# CLAUDE/AGENTS.md
-
-> `CLAUDE.md` is a symlink to this file. Edit `AGENTS.md`, not the symlink.
+# AGENTS.md
 
 This repository is a SaaS template built with SvelteKit, Svelte 5, Convex, Better Auth, Autumn, Tolgee, and Bun.
 

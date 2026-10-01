@@ -190,9 +190,7 @@ describe('route predicates', () => {
 	it('applies the ignore rules the formatter CLI applies', async () => {
 		// The CLI's default --ignore-path is exactly [.gitignore, .prettierignore]. Files
 		// its project traversal skips must stay out of the ledger too.
-		expect(
-			await prettierFormattableFiles(['src/env.d.ts', 'scratch/probe.ts', 'CLAUDE.md'])
-		).toEqual([]);
+		expect(await prettierFormattableFiles(['src/env.d.ts', 'scratch/probe.ts'])).toEqual([]);
 		expect(
 			await prettierFormattableFiles([
 				'src/routes/+layout.svelte',

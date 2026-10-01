@@ -417,17 +417,6 @@ describe('format-only static checks', () => {
 		expect(resolveInputs(['scripts', 'scripts'], 'arguments', ROOT)).toEqual(once);
 	});
 
-	it('ignores only the repository root CLAUDE.md pointer', () => {
-		const ignore = readFileSync(path.join(ROOT, '.prettierignore'), 'utf8');
-		expect(ignore).toContain('/CLAUDE.md');
-
-		withRepositoryFile('scripts/CLAUDE.md', '# Nested\n', () => {
-			const result = formatCheck('scripts/CLAUDE.md');
-			expect(result.status, result.output).toBe(0);
-			expect(result.output).toContain('prettier         1 file(s)');
-		});
-	});
-
 	it('documents a Git producer that excludes deleted paths and stays root-relative', () => {
 		const source = readFileSync(SCRIPT, 'utf8');
 		// --no-relative decides which records the producer emits at all: measured with git
@@ -486,14 +475,27 @@ describe('format-only static checks', () => {
 		}
 	});
 
-	it('treats an explicitly named repository symlink like the project traversal', () => {
-		const { status, output } = formatCheck(path.join(ROOT, 'CLAUDE.md'));
-		expect(status).toBe(0);
-		expect(output).toContain('No formatter work');
-		expect(output).toContain('symbolic link');
-		expect(output).toContain('prettier         0 file(s)');
-		expect(output).not.toContain('[warn] AGENTS.md');
-	});
+	it.skipIf(process.platform === 'win32')(
+		'treats an explicitly named repository symlink like the project traversal',
+		() => {
+			const target = `.format-link-target-${process.pid}.ts`;
+			const relative = `.format-file-link-${process.pid}.ts`;
+			const file = path.join(ROOT, relative);
+			writeFileSync(path.join(ROOT, target), 'export const value=1\n');
+			symlinkSync(target, file);
+			try {
+				const { status, output } = formatCheck(file);
+				expect(status).toBe(0);
+				expect(output).toContain('No formatter work');
+				expect(output).toContain('symbolic link');
+				expect(output).toContain('prettier         0 file(s)');
+				expect(output).not.toContain(target);
+			} finally {
+				rmSync(file, { force: true });
+				rmSync(path.join(ROOT, target), { force: true });
+			}
+		}
+	);
 
 	it.skipIf(process.platform === 'win32')(
 		'treats an explicitly named directory symlink like the project traversal',
