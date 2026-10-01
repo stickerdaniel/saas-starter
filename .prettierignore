@@ -11,9 +11,6 @@ docs/references/
 # Local session artifacts
 /scratch/
 
-# Cross-platform symlink pointer
-/CLAUDE.md
-
 # Generated files
 **/_generated/
 src/env.d.ts
