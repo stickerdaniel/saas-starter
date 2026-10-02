@@ -283,33 +283,45 @@ export function getStagedFiles(cwd = process.cwd(), env = stagedGitEnv(cwd)): st
 		.map((change) => change.path);
 }
 
-/** Staged paths whose worktree bytes pass through a custom Git clean filter. */
-export function stagedFilesWithCleanFilters(
+/** Staged paths with content transformations other than ordinary line-ending normalization. */
+export function stagedFilesWithContentAttributes(
 	files: string[],
 	cwd = process.cwd(),
 	env = stagedGitEnv(cwd)
 ): string[] {
 	if (files.length === 0) return [];
-	const result = spawnSync('git', ['check-attr', '-z', '--stdin', 'filter'], {
+	// check-attr prints "unset" and "unspecified" for both typed states and literal
+	// driver names. Attribute pathspecs distinguish those states without interpreting text.
+	const safeSelectors = ['filter', 'ident', 'working-tree-encoding']
+		.reduce<string[]>(
+			(selectors, attribute) =>
+				selectors.flatMap((selector) => [`${selector} -${attribute}`, `${selector} !${attribute}`]),
+			['']
+		)
+		.map((attributes) => `:(top,attr:${attributes.trimStart()})`);
+	const attributeEnv = { ...env };
+	const pathspecModes = new Set([
+		'GIT_LITERAL_PATHSPECS',
+		'GIT_GLOB_PATHSPECS',
+		'GIT_NOGLOB_PATHSPECS',
+		'GIT_ICASE_PATHSPECS'
+	]);
+	for (const key of Object.keys(attributeEnv)) {
+		if (pathspecModes.has(key.toUpperCase())) delete attributeEnv[key];
+	}
+	// Eight selectors cover every safe combination, regardless of the staged path count.
+	const result = spawnSync('git', ['ls-files', '--cached', '-z', '--', ...safeSelectors], {
 		cwd,
-		env,
+		env: attributeEnv,
 		encoding: 'utf8',
-		input: `${files.join('\0')}\0`,
 		maxBuffer: 16 * 1024 * 1024
 	});
-	if (result.status !== 0) throw new Error('Failed to inspect Git clean filters.');
-	const fields = result.stdout.split('\0');
-	if (fields.at(-1) === '') fields.pop();
-	if (fields.length !== files.length * 3) throw new Error('Malformed Git attribute response.');
-	const filtered: string[] = [];
-	for (let index = 0; index < fields.length; index += 3) {
-		const [file, attribute, value] = fields.slice(index, index + 3);
-		if (file !== files[index / 3] || attribute !== 'filter' || !value) {
-			throw new Error('Malformed Git attribute response.');
-		}
-		if (value !== 'unspecified' && value !== 'unset') filtered.push(file);
+	if (result.status !== 0) throw new Error('Failed to inspect Git content attributes.');
+	if (result.stdout && !result.stdout.endsWith('\0')) {
+		throw new Error('Malformed Git attribute selection.');
 	}
-	return filtered;
+	const safePaths = new Set(result.stdout.split('\0').filter(Boolean));
+	return files.filter((file) => !safePaths.has(file));
 }
 
 export interface GitIndexEntry {

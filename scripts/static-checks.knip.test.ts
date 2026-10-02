@@ -84,6 +84,7 @@ const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 	'scripts/dev-cloud.ts',
 	'scripts/dev-cloud.test.ts',
 	'scripts/git-context.ts',
+	'scripts/git-context.test.ts',
 	'scripts/static-checks.ts',
 	'scripts/static-checks.test.ts',
 	'scripts/static-checks.knip.test.ts',
@@ -1232,6 +1233,78 @@ describe('Knip static-check CLI behavior', { concurrent: false }, () => {
 			expect(knipInvocations(checkout)).toHaveLength(0);
 			expect(cliKnipInvocations(checkout)).toHaveLength(0);
 			expect(output).toContain('All checks passed!');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
+	it.each(['unset', 'unspecified'])(
+		'rejects a literal %s clean driver before staged checker dispatch',
+		(driver) => {
+			const checkout = createCheckerClone();
+			try {
+				const filter = path.join(checkout.directory, 'clean-filter.ts');
+				writeFileSync(
+					filter,
+					'process.stdout.write((await Bun.stdin.text()).replace("= 1", "= )"));\n'
+				);
+				runFixtureGit(checkout.repository, [
+					'config',
+					`filter.${driver}.clean`,
+					`${shellSingleQuote(BUN.replaceAll('\\', '/'))} ${shellSingleQuote(filter.replaceAll('\\', '/'))}`
+				]);
+				runFixtureGit(checkout.repository, ['config', `filter.${driver}.required`, 'true']);
+				writeFileSync(path.join(checkout.repository, LINTED_SOURCE), 'export const fixture = 1;\n');
+				const attributes = path.join(checkout.repository, '.gitattributes');
+				writeFileSync(
+					attributes,
+					`${readFileSync(attributes, 'utf8')}\n${LINTED_SOURCE} filter=${driver}\n`
+				);
+				runFixtureGit(checkout.repository, ['add', '--', '.gitattributes', LINTED_SOURCE]);
+				const staged = spawnSync('git', ['show', `:${LINTED_SOURCE}`], {
+					cwd: checkout.repository,
+					env: sanitizedGitEnv(),
+					encoding: 'utf8'
+				});
+				expect(staged.status, staged.stderr).toBe(0);
+				expect(staged.stdout).toContain('= )');
+				const indexPath = path.join(checkout.repository, '.git', 'index');
+				const indexBefore = readFileSync(indexPath);
+
+				const result = runChecker(checkout, ['--staged', '--scope', 'lint']);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).not.toBe(0);
+				expect(output).toContain('Git content transformations are unsupported');
+				expect(output).toContain('Disable filter, ident and working-tree-encoding');
+				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([]);
+				expect(readFileSync(indexPath)).toEqual(indexBefore);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
+
+	it('checks staged content protected by a disabled filter override', () => {
+		const checkout = createCheckerClone();
+		try {
+			const attributes = path.join(checkout.repository, '.gitattributes');
+			writeFileSync(
+				attributes,
+				`${readFileSync(attributes, 'utf8')}\n*.ts filter=unset\n${LINTED_SOURCE} -filter\n`
+			);
+			writeFileSync(path.join(checkout.repository, LINTED_SOURCE), 'export const fixture = 1;\n');
+			runFixtureGit(checkout.repository, ['add', '--', '.gitattributes', LINTED_SOURCE]);
+
+			const result = runChecker(checkout, ['--staged', '--scope', 'lint']);
+			const output = `${result.stdout}${result.stderr}`;
+			expect(result.status, output).toBe(0);
+			expect(output).toContain('All checks passed!');
+			expect(
+				readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!).some((command) =>
+					command.args.includes(LINTED_SOURCE)
+				)
+			).toBe(true);
 		} finally {
 			rmSync(checkout.directory, { recursive: true, force: true });
 		}

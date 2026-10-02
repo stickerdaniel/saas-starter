@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import {
-	chmodSync,
+	copyFileSync,
 	mkdirSync,
 	mkdtempSync,
 	realpathSync,
@@ -18,7 +18,7 @@ import {
 	isolatedGitEnv,
 	sanitizedGitEnv,
 	stagedFilesMatchWorktree,
-	stagedFilesWithCleanFilters,
+	stagedFilesWithContentAttributes,
 	stagedGitEnv
 } from './git-context';
 
@@ -385,32 +385,141 @@ describe('staged Git context', () => {
 
 	it('compares staged and worktree blobs through Git clean filters', () => {
 		expect(stagedFilesMatchWorktree(['a.ts'], repository)).toBe(true);
-		expect(stagedFilesWithCleanFilters(['a.ts'], repository)).toEqual([]);
+		expect(stagedFilesWithContentAttributes(['a.ts'], repository)).toEqual([]);
 		writeFileSync(path.join(repository, 'a.ts'), 'export const a = 2;\n');
 		expect(stagedFilesMatchWorktree(['a.ts'], repository)).toBe(false);
 	});
 
-	it.skipIf(process.platform === 'win32')('accepts a clean-filtered staged blob', () => {
-		// The setup staged a.ts before this filter existed. Age the file and refresh the still
-		// unfiltered index so its stat data is trusted rather than racily clean, which is the
-		// state a real commit reaches: from there `git add` skips the path and stages nothing.
-		const stale = new Date(Date.now() - 60_000);
-		utimesSync(path.join(repository, 'a.ts'), stale, stale);
-		git(repository, ['update-index', '--refresh']);
-		const filter = path.join(directory, 'filter');
-		writeFileSync(
-			filter,
-			'#!/usr/bin/env bun\nconst input = await Bun.stdin.text();\nprocess.stdout.write(input.replace("= 1", "= x"));\n'
-		);
-		chmodSync(filter, 0o755);
-		git(repository, ['config', 'filter.corrupt.clean', filter]);
-		git(repository, ['config', 'filter.corrupt.required', 'true']);
-		writeFileSync(path.join(repository, '.gitattributes'), 'a.ts filter=corrupt\n');
-		git(repository, ['add', '.gitattributes']);
-		git(repository, ['add', '--renormalize', 'a.ts']);
+	describe('staged content attributes', () => {
+		it.each(['corrupt', 'unset', 'unspecified'])(
+			'identifies a %s filter even when filtered hashes match',
+			(driver) => {
+				const stale = new Date(Date.now() - 60_000);
+				utimesSync(path.join(repository, 'a.ts'), stale, stale);
+				git(repository, ['update-index', '--refresh']);
+				const filter = path.join(directory, 'filter.ts');
+				writeFileSync(
+					filter,
+					'const input = await Bun.stdin.text();\nprocess.stdout.write(input.replace("= 1", "= )"));\n'
+				);
+				git(repository, [
+					'config',
+					`filter.${driver}.clean`,
+					`bun ${JSON.stringify(filter.replaceAll('\\', '/'))}`
+				]);
+				git(repository, ['config', `filter.${driver}.required`, 'true']);
+				writeFileSync(path.join(repository, '.gitattributes'), `a.ts filter=${driver}\n`);
+				git(repository, ['add', '.gitattributes']);
+				git(repository, ['add', '--renormalize', 'a.ts']);
 
-		expect(stagedFilesMatchWorktree(['a.ts'], repository)).toBe(true);
-		expect(stagedFilesWithCleanFilters(['a.ts'], repository)).toEqual(['a.ts']);
+				expect(git(repository, ['show', ':a.ts'])).toContain('= )');
+				expect(stagedFilesMatchWorktree(['a.ts'], repository)).toBe(true);
+				expect(stagedFilesWithContentAttributes(['a.ts'], repository)).toEqual(['a.ts']);
+			}
+		);
+
+		it.each(['filter', 'ident', 'working-tree-encoding'])(
+			'distinguishes disabled %s states from literal values',
+			(attribute) => {
+				for (const declaration of [
+					attribute,
+					`${attribute}=unset`,
+					`${attribute}=unspecified`,
+					`${attribute}=`,
+					`${attribute}=false`
+				]) {
+					writeFileSync(path.join(repository, '.gitattributes'), `a.ts ${declaration}\n`);
+					expect(stagedFilesWithContentAttributes(['a.ts'], repository), declaration).toEqual([
+						'a.ts'
+					]);
+				}
+				for (const declaration of [`-${attribute}`, `!${attribute}`]) {
+					writeFileSync(path.join(repository, '.gitattributes'), `a.ts ${declaration}\n`);
+					expect(stagedFilesWithContentAttributes(['a.ts'], repository), declaration).toEqual([]);
+				}
+			}
+		);
+
+		it('accepts a disabled macro override under broader content attributes', () => {
+			const file = 'nested space/[sample].ts';
+			mkdirSync(path.join(repository, 'nested space'));
+			writeFileSync(path.join(repository, file), 'export const sample = 1;\n');
+			git(repository, ['add', '--', file]);
+			writeFileSync(
+				path.join(repository, '.gitattributes'),
+				'* filter=unset ident working-tree-encoding=UTF-16LE\n' +
+					'[attr]checked -filter !ident -working-tree-encoding\n' +
+					'"nested space/*.ts" checked\n'
+			);
+
+			expect(stagedFilesWithContentAttributes(['a.ts', file], repository)).toEqual(['a.ts']);
+		});
+
+		it('honors global attributes and higher-priority info overrides', () => {
+			const globalAttributes = path.join(directory, 'global attributes');
+			writeFileSync(globalAttributes, 'a.ts filter=unspecified\n');
+			git(repository, ['config', 'core.attributesFile', globalAttributes]);
+			expect(stagedFilesWithContentAttributes(['a.ts'], repository)).toEqual(['a.ts']);
+
+			const infoAttributes = path.join(gitDirectory, 'info', 'attributes');
+			writeFileSync(infoAttributes, 'a.ts -filter\n');
+			expect(stagedFilesWithContentAttributes(['a.ts'], repository)).toEqual([]);
+			writeFileSync(infoAttributes, 'a.ts filter=unset\n');
+			expect(stagedFilesWithContentAttributes(['a.ts'], repository)).toEqual(['a.ts']);
+		});
+
+		it.each(['index.lock', 'next-index-123.lock', 'external'])(
+			'reads missing worktree rules from the active %s without modifying either index',
+			(name) => {
+				const originalIndex = path.join(gitDirectory, 'index');
+				const originalFingerprint = activeGitIndexFingerprint(repository);
+				const temporaryIndex = path.join(name === 'external' ? directory : gitDirectory, name);
+				copyFileSync(originalIndex, temporaryIndex);
+				process.env.GIT_INDEX_FILE = temporaryIndex;
+				if (name === 'external') {
+					process.env.STATIC_CHECKS_ALLOW_EXTERNAL_GIT_INDEX = '1';
+					const objects = path.join(directory, 'active objects');
+					mkdirSync(objects);
+					process.env.GIT_OBJECT_DIRECTORY = objects;
+					process.env.GIT_ALTERNATE_OBJECT_DIRECTORIES = path.join(gitDirectory, 'objects');
+				}
+				writeFileSync(path.join(repository, '.gitattributes'), 'a.ts filter=unset\n');
+				git(repository, ['add', '--', '.gitattributes'], stagedGitEnv(repository));
+				rmSync(path.join(repository, '.gitattributes'));
+				const activeFingerprint = activeGitIndexFingerprint(repository);
+
+				expect(stagedFilesWithContentAttributes(['a.ts'], repository)).toEqual(['a.ts']);
+				expect(stagedFilesWithContentAttributes(['a.ts'], repository, sanitizedGitEnv())).toEqual(
+					[]
+				);
+				expect(activeGitIndexFingerprint(repository)).toBe(activeFingerprint);
+				expect(activeGitIndexFingerprint(repository, sanitizedGitEnv())).toBe(originalFingerprint);
+			}
+		);
+
+		it('keeps typed selection independent of inherited pathspec modes', () => {
+			writeFileSync(path.join(repository, 'b.ts'), 'export const b = 1;\n');
+			git(repository, ['add', 'b.ts']);
+			writeFileSync(path.join(repository, '.gitattributes'), 'a.ts filter=unset\n');
+			const env = {
+				...stagedGitEnv(repository),
+				GIT_LITERAL_PATHSPECS: '1',
+				GIT_GLOB_PATHSPECS: '1',
+				GIT_NOGLOB_PATHSPECS: '1',
+				GIT_ICASE_PATHSPECS: '1'
+			};
+
+			expect(stagedFilesWithContentAttributes(['b.ts', 'a.ts'], repository, env)).toEqual(['a.ts']);
+			expect(env.GIT_LITERAL_PATHSPECS).toBe('1');
+		});
+
+		it('continues to accept ordinary line-ending normalization', () => {
+			writeFileSync(path.join(repository, '.gitattributes'), 'a.ts text eol=crlf\n');
+			writeFileSync(path.join(repository, 'a.ts'), 'export const a = 1;\r\n');
+
+			expect(stagedFilesWithContentAttributes(['a.ts'], repository)).toEqual([]);
+			expect(stagedFilesMatchWorktree(['a.ts'], repository)).toBe(true);
+		});
 	});
 
 	it.skipIf(process.platform === 'win32')('rejects a staged path replaced by a FIFO', () => {

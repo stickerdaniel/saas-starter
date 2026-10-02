@@ -67,7 +67,7 @@ import {
 	getStagedFiles,
 	sanitizedGitEnv,
 	stagedFilesMatchWorktree,
-	stagedFilesWithCleanFilters,
+	stagedFilesWithContentAttributes,
 	stagedGitEnv
 } from './git-context';
 import { formatPolicyFinding, matchesKnowledgeCandidate } from './knowledge-policy/policy';
@@ -1377,11 +1377,12 @@ async function main(): Promise<void> {
 		// later comparisons must address the paths recorded by Git.
 		stagedIndexPaths = getStagedFiles(REPO_ROOT, stagedEnv);
 		assertSafePaths([...stagedIndexPaths, ...stagedRemovedPaths]);
-		const cleanFiltered = stagedFilesWithCleanFilters(stagedIndexPaths, REPO_ROOT, stagedEnv);
-		if (cleanFiltered.length > 0) {
+		const transformed = stagedFilesWithContentAttributes(stagedIndexPaths, REPO_ROOT, stagedEnv);
+		if (transformed.length > 0) {
 			fail(
-				'Custom Git clean filters are unsupported in staged checks.',
-				'  Remove the filter from checked paths, then stage the intended bytes and retry.'
+				'Git content transformations are unsupported in staged checks.',
+				'  Disable filter, ident and working-tree-encoding for checked paths,\n' +
+					'  then stage the intended bytes and retry so checks see the committed content.'
 			);
 		}
 		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
