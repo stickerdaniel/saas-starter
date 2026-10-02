@@ -18,13 +18,27 @@
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
 	import type { Passkey } from '@better-auth/passkey';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
+	import { getPasskeyDevice } from '$lib/utils/passkey-device';
+	import { IsMounted } from 'runed';
+
+	let { user }: { user: { name?: string | null } | null } = $props();
 
 	const { t } = getTranslate();
+	const mounted = new IsMounted();
+	const device = $derived(getPasskeyDevice(mounted.current ? navigator : undefined));
+	const firstName = $derived(user?.name?.trim().split(/\s+/)[0] ?? '');
+	const suggestedName = $derived(
+		$t(`settings.security.passkey.${firstName ? 'suggested_name' : 'suggested_name_anonymous'}`, {
+			name: firstName,
+			device: $t(`settings.security.passkey.devices.${device}`)
+		})
+	);
 
 	let passkeys = $state<Passkey[]>([]);
 	let isLoading = $state(false);
 	let isAdding = $state(false);
-	let newPasskeyName = $state('');
+	let editedName = $state<string | undefined>();
+	const newPasskeyName = $derived(editedName ?? suggestedName);
 	let error = $state('');
 
 	// Load passkeys on mount
@@ -54,7 +68,7 @@
 
 		try {
 			const result = await authClient.passkey.addPasskey({
-				name: newPasskeyName || undefined
+				name: newPasskeyName.trim() || suggestedName
 			});
 
 			if (result?.error) {
@@ -63,7 +77,7 @@
 			} else {
 				haptic.trigger('medium');
 				toast.success($t('auth.messages.passkey_added'));
-				newPasskeyName = '';
+				editedName = undefined;
 				await loadPasskeys();
 			}
 		} catch {
@@ -158,7 +172,8 @@
 							<Input
 								id="passkey-name"
 								type="text"
-								bind:value={newPasskeyName}
+								value={newPasskeyName}
+								oninput={(event) => (editedName = event.currentTarget.value)}
 								placeholder={$t('settings.security.passkey.placeholder')}
 							/>
 						</div>

@@ -112,7 +112,7 @@
 			</Tabs.Content>
 
 			<Tabs.Content value="security" class="space-y-6">
-				<SecuritySettings />
+				<SecuritySettings {user} />
 			</Tabs.Content>
 		</Tabs.Root>
 	</div>

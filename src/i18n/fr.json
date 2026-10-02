@@ -1033,7 +1033,7 @@
 		},
 		"security": {
 			"add_button": "Ajouter un Passkey",
-			"add_passkey_helper": "Donne un nom à ton passkey pour identifier sur quel appareil il est enregistré.",
+			"add_passkey_helper": "Garde le nom proposé ou choisis-en un que tu reconnaîtras plus tard.",
 			"add_passkey_title": "Ajouter un Passkey",
 			"adding": "Ajout en cours...",
 			"created_at": "Créé le ",
@@ -1044,7 +1044,20 @@
 			"no_passkeys": "Tu n'as pas encore enregistré de passkey.",
 			"passkey": {
 				"placeholder": "Nom du passkey",
-				"unnamed": "Passkey sans nom"
+				"unnamed": "Passkey sans nom",
+				"suggested_name": "{device} de {name}",
+				"suggested_name_anonymous": "Mon {device}",
+				"devices": {
+					"mac": "Mac",
+					"iphone": "iPhone",
+					"ipad": "iPad",
+					"ipod": "iPod",
+					"android": "appareil Android",
+					"windows": "PC Windows",
+					"chromebook": "Chromebook",
+					"linux": "appareil Linux",
+					"other": "appareil"
+				}
 			},
 			"passkey_info_description": "Les passkeys sont un moyen sécurisé de se connecter sans mot de passe. Ils utilisent la biométrie ou le code PIN de l'appareil et sont stockés en toute sécurité sur tes appareils.",
 			"passkey_info_title": "Que sont les Passkeys ?",

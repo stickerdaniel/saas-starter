@@ -1033,7 +1033,7 @@
 		},
 		"security": {
 			"add_button": "Passkey hinzufügen",
-			"add_passkey_helper": "Gib deinem Passkey einen Namen, damit du erkennst, auf welchem Gerät er registriert ist.",
+			"add_passkey_helper": "Behalte den vorgeschlagenen Namen oder wähle einen, den du später wiedererkennst.",
 			"add_passkey_title": "Passkey hinzufügen",
 			"adding": "Wird hinzugefügt...",
 			"created_at": "Erstellt am ",
@@ -1044,7 +1044,20 @@
 			"no_passkeys": "Du hast noch keine Passkeys registriert.",
 			"passkey": {
 				"placeholder": "Passkey-Name",
-				"unnamed": "Unbenannter Passkey"
+				"unnamed": "Unbenannter Passkey",
+				"suggested_name": "{device} von {name}",
+				"suggested_name_anonymous": "Mein {device}",
+				"devices": {
+					"mac": "Mac",
+					"iphone": "iPhone",
+					"ipad": "iPad",
+					"ipod": "iPod",
+					"android": "Android-Gerät",
+					"windows": "Windows-PC",
+					"chromebook": "Chromebook",
+					"linux": "Linux-Gerät",
+					"other": "Gerät"
+				}
 			},
 			"passkey_info_description": "Passkeys sind eine sichere, passwortlose Anmeldemethode. Die Anmeldung läuft über Biometrie oder Geräte-PIN, und Passkeys werden sicher auf deinen Geräten gespeichert.",
 			"passkey_info_title": "Was sind Passkeys?",
