@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { beforeNavigate, onNavigate } from '$app/navigation';
 	import { page, updated } from '$app/state';
@@ -51,6 +52,11 @@
 	const activeUploads = new ActiveUploads();
 	activeUploadsContext.set(activeUploads);
 
+	// app.html owns every deploy-driven departure, including the one below.
+	// Attached here, before any child can claim, rather than in an effect.
+	const deployRecovery = browser ? window.__deployRecovery : undefined;
+	if (deployRecovery) onDestroy(activeUploads.holdRecovery(deployRecovery));
+
 	// After a new deploy is detected (version.json poll flips updated.current),
 	// turn the next client navigation into a full document load so fresh chunk
 	// hashes are fetched instead of importing a now-deleted hash and blanking
@@ -67,7 +73,7 @@
 		}
 		const reloadTarget = deployReloadTarget(nav, updated.current, activeUploads.any);
 		if (reloadTarget) {
-			location.href = reloadTarget.href;
+			deployRecovery?.navigate(reloadTarget.href);
 		}
 	});
 

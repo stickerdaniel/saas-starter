@@ -38,6 +38,9 @@ const localStorageMock: Storage = {
 const { ChatUIContext } = await import('./chat-context.svelte.ts');
 const { ChatAttachmentStore } = await import('../core/chat-attachment-store.svelte.ts');
 const { clearPersistedChatState } = await import('../core/chat-persisted-state.ts');
+const { ActiveUploads } = await import('$lib/hooks/active-uploads.svelte.ts');
+const { installDeployRecoveryShell } =
+	await import('$lib/hooks/__tests__/deploy-recovery-shell.ts');
 
 let surface: string;
 
@@ -65,14 +68,17 @@ function pendingTransfer() {
  * the screenshot flow produces: it uploads through the context with the panel
  * closed, so `setDisplayMessages` may never run.
  */
-function chatAt(threadId: string | null, { rendered = true } = {}) {
+function chatAt(
+	threadId: string | null,
+	{ rendered = true, uploads = null as InstanceType<typeof ActiveUploads> | null } = {}
+) {
 	const core = { threadId } as unknown as ChatCore;
 	const uploadConfig = {
 		generateUploadUrl: 'storage:generateUploadUrl',
 		saveUploadedFile: 'storage:saveUploadedFile',
 		attachmentStore: new ChatAttachmentStore(surface)
 	} as unknown as ConstructorParameters<typeof ChatUIContext>[2];
-	const ctx = new ChatUIContext(core, {} as ConvexClient, uploadConfig, 'right', null);
+	const ctx = new ChatUIContext(core, {} as ConvexClient, uploadConfig, 'right', uploads);
 	// The first call is what gives the context a thread to compare against.
 	if (rendered) ctx.setDisplayMessages([]);
 	return {
@@ -137,6 +143,33 @@ describe('ChatUIContext persisted attachments', () => {
 		const reloaded = chatAt('thread-a');
 		expect(names(reloaded.ctx)).toEqual(['shot.png']);
 		expect(reloaded.ctx.uploadedFileIds).toEqual(['file-kept']);
+	});
+
+	it('has stored the finished file by the time a held deploy reload goes', async () => {
+		// The reload waits for the upload, then fires from inside its release. A
+		// save that came after the release would reach a page already going away.
+		let atReload: ReturnType<typeof names> | undefined;
+		const shell = installDeployRecoveryShell({
+			onReload: () => {
+				atReload = names(chatAt('thread-a').ctx);
+			}
+		});
+		const uploads = new ActiveUploads();
+		uploads.holdRecovery(shell.recovery);
+		const chat = chatAt('thread-a', { uploads });
+
+		const transfer = pendingTransfer();
+		const upload = chat.ctx.uploadScreenshot(shot(), 'shot.png');
+		await vi.waitFor(() => expect(uploadFileWithProgress).toHaveBeenCalled());
+		shell.preloadError();
+		expect(shell.reloads).toBe(0);
+
+		transfer.succeed('file-kept');
+		await upload;
+
+		expect(shell.reloads).toBe(1);
+		expect(atReload).toEqual(['shot.png']);
+		expect(chatAt('thread-a').ctx.uploadedFileIds).toEqual(['file-kept']);
 	});
 
 	it('leaves a transfer that never finished behind', async () => {

@@ -12,6 +12,7 @@ import {
 	deployReloadTarget,
 	shouldBlockNavigation
 } from './active-uploads.svelte.ts';
+import { installDeployRecoveryShell } from './__tests__/deploy-recovery-shell.ts';
 
 function nav(from: string | null, to: string | null) {
 	return {
@@ -129,5 +130,151 @@ describe('deployReloadTarget', () => {
 
 	it('leaves a departure alone, since the document is going anyway', () => {
 		expect(deployReloadTarget({ ...nav('/app', null), willUnload: true }, true, false)).toBeNull();
+	});
+});
+
+/**
+ * The app.html recovery script with the root registry attached, as on a page.
+ *
+ * Reloading under a running upload loses the file, and a reload the user
+ * declines used to spend the tab's only attempt. These pin the wait, the single
+ * retry, and that ordinary deploy navigation stays out of that budget.
+ */
+describe('deploy recovery held by uploads', () => {
+	function attachedPage() {
+		const shell = installDeployRecoveryShell();
+		const uploads = new ActiveUploads();
+		// A legacy shell must fail on its unwanted reload, not a missing bridge during setup.
+		const detach = shell.window.__deployRecovery
+			? uploads.holdRecovery(shell.window.__deployRecovery)
+			: () => {};
+		return { shell, uploads, detach };
+	}
+
+	it('reloads once for a failed preload before the app has attached', () => {
+		// A stale entry chunk fails before hydration, so nothing can attach first.
+		const shell = installDeployRecoveryShell();
+
+		shell.preloadError();
+		expect(shell.reloads).toBe(1);
+		expect(shell.attempt).toBe('1');
+
+		// A shell that is itself stale must not loop.
+		shell.preloadError();
+		expect(shell.reloads).toBe(1);
+	});
+
+	it('waits for the last of two uploads, then retries exactly once', () => {
+		const { shell, uploads } = attachedPage();
+		const pageChat = {};
+		const avatar = {};
+		uploads.claim(pageChat);
+		uploads.claim(avatar);
+
+		shell.preloadError();
+		shell.preloadError();
+		shell.preloadError();
+		expect(shell.reloads).toBe(0);
+		expect(shell.attempt).toBeNull();
+		expect(uploads.recoveryPending).toBe(true);
+
+		uploads.release(pageChat);
+		expect(shell.reloads).toBe(0);
+		expect(uploads.recoveryPending).toBe(true);
+
+		uploads.release(avatar);
+		expect(shell.reloads).toBe(1);
+		expect(shell.attempt).toBe('1');
+		expect(uploads.recoveryPending).toBe(false);
+
+		uploads.claim(pageChat);
+		uploads.release(pageChat);
+		expect(shell.reloads).toBe(1);
+	});
+
+	it('keeps waiting for a transfer claimed while the reload was held', () => {
+		const { shell, uploads } = attachedPage();
+		const first = {};
+		const second = {};
+		uploads.claim(first);
+		shell.preloadError();
+
+		uploads.claim(second);
+		uploads.release(first);
+		expect(shell.reloads).toBe(0);
+
+		uploads.release(second);
+		expect(shell.reloads).toBe(1);
+	});
+
+	it('leaves the preload event to Vite, held or not', () => {
+		// Vite rethrows the failed import to its caller only for an unprevented event.
+		const { shell, uploads } = attachedPage();
+		uploads.claim({});
+		expect(shell.preloadError().defaultPrevented).toBe(false);
+
+		const idle = installDeployRecoveryShell();
+		expect(idle.preloadError().defaultPrevented).toBe(false);
+	});
+
+	it('does nothing when uploads settle without a failed preload', () => {
+		const { shell, uploads } = attachedPage();
+		const owner = {};
+		uploads.claim(owner);
+		uploads.release(owner);
+
+		expect(shell.reloads).toBe(0);
+		expect(shell.departures).toEqual([]);
+	});
+
+	it('keeps the preload attempt through ordinary deploy navigations', () => {
+		const { shell } = attachedPage();
+
+		expect(shell.recovery.navigate('https://example.test/app/settings')).toBe(true);
+		expect(shell.recovery.navigate('https://example.test/app/ai-chat')).toBe(true);
+		expect(shell.departures).toEqual([
+			'https://example.test/app/settings',
+			'https://example.test/app/ai-chat'
+		]);
+		expect(shell.attempt).toBeNull();
+
+		shell.preloadError();
+		expect(shell.reloads).toBe(1);
+	});
+
+	it('still navigates after a deploy once the preload attempt is spent', () => {
+		const { shell, uploads } = attachedPage();
+		shell.spendAttempt();
+
+		shell.preloadError();
+		expect(shell.reloads).toBe(0);
+		expect(uploads.recoveryPending).toBe(false);
+
+		expect(shell.recovery.navigate('https://example.test/app/settings')).toBe(true);
+		expect(shell.departures).toEqual(['https://example.test/app/settings']);
+	});
+
+	it('does not queue a deploy navigation refused for an upload', () => {
+		const { shell, uploads } = attachedPage();
+		const owner = {};
+		uploads.claim(owner);
+
+		expect(shell.recovery.navigate('https://example.test/app/settings')).toBe(false);
+		uploads.release(owner);
+
+		expect(shell.departures).toEqual([]);
+		expect(shell.reloads).toBe(0);
+	});
+
+	it('stops holding once the registry detaches', () => {
+		const { shell, uploads, detach } = attachedPage();
+		uploads.claim({});
+		shell.preloadError();
+		expect(uploads.recoveryPending).toBe(true);
+
+		detach();
+		expect(uploads.recoveryPending).toBe(false);
+		shell.preloadError();
+		expect(shell.reloads).toBe(1);
 	});
 });

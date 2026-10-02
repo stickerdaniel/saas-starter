@@ -599,6 +599,7 @@
 		"delete": "Löschen",
 		"error": "Etwas ist schiefgelaufen. Versuch es noch mal.",
 		"load_error": "Daten konnten nicht geladen werden. Versuch es später noch mal.",
+		"reload_after_upload": "Ein Update ist bereit. Die Seite lädt neu, sobald dein Upload fertig ist.",
 		"upload_in_progress": "Upload läuft noch. Warte, bis er fertig ist.",
 		"you": "Du"
 	},

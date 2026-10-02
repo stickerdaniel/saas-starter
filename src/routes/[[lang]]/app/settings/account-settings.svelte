@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as v from 'valibot';
 	import { onDestroy } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { authClient } from '$lib/auth-client.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -50,8 +51,21 @@
 	};
 	const profileImageMaxSizeLabel = UPLOAD_PROFILES.profileImage.maxBytesLabel;
 	let profileImageUploadController: AbortController | undefined;
+	const pendingProfileUploads = new SvelteSet<AbortController>();
 
-	onDestroy(() => profileImageUploadController?.abort());
+	// Let the root layout warn before a page unload discards the transfer. Each
+	// attempt claims under its own controller from start to settlement, so a
+	// reload asked for before the next render already sees it, and an earlier
+	// attempt settling late cannot release a newer one.
+	const activeUploads = activeUploadsContext.getOr(null);
+
+	onDestroy(() => {
+		for (const controller of pendingProfileUploads) {
+			controller.abort();
+			activeUploads?.release(controller);
+		}
+		pendingProfileUploads.clear();
+	});
 
 	// Writable deriveds: editable via bind:value/assignments, re-synced when user changes
 	let name = $derived(user?.name ?? '');
@@ -63,15 +77,6 @@
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
 	const hasNameError = $derived((errors.name?.length ?? 0) > 0);
-
-	// Let the root layout warn before a page unload discards the transfer.
-	const activeUploads = activeUploadsContext.getOr(null);
-	const uploadOwner = {};
-	$effect(() => {
-		if (!activeUploads || !isUploading) return;
-		activeUploads.claim(uploadOwner);
-		return () => activeUploads.release(uploadOwner);
-	});
 
 	async function handleFileSelect(e: Event) {
 		const target = e.target as HTMLInputElement;
@@ -99,6 +104,8 @@
 		uploadProgress = 0;
 		const controller = new AbortController();
 		profileImageUploadController = controller;
+		pendingProfileUploads.add(controller);
+		activeUploads?.claim(controller);
 
 		try {
 			// Preserve the existing provider sequence: reserve the upload before
@@ -161,6 +168,8 @@
 				profileImageUploadController = undefined;
 				isUploading = false;
 			}
+			pendingProfileUploads.delete(controller);
+			activeUploads?.release(controller);
 		}
 	}
 
