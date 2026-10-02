@@ -307,7 +307,7 @@
 			"allow": "Erlauben",
 			"decline": "Ablehnen",
 			"decline_storage_failed": "Dein Browser hat das Speichern dieser Wahl blockiert. Die Analyse ist auf dieser Seite aus, kann aber nach dem Neuladen wieder aktiv sein.",
-			"description": "Dürfen wir messen, wie diese Seite genutzt wird? Wir senden nie deinen Namen oder deine E-Mail-Adresse, und nichts wird gesendet, bevor du zustimmst. Du kannst deine Wahl jederzeit im Footer oder in deinen Kontoeinstellungen ändern.",
+			"description": "Dürfen wir messen, wie diese Seite genutzt wird? Name und E-Mail erfassen wir nie. Jederzeit änderbar in den Datenschutzeinstellungen.",
 			"privacy_link": "Datenschutzerklärung",
 			"storage_failed": "Dein Browser hat das Speichern dieser Wahl blockiert, daher bleibt die Analyse aus.",
 			"title": "Analyse"

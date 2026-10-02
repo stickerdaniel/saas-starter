@@ -307,7 +307,7 @@
 			"allow": "Permitir",
 			"decline": "Rechazar",
 			"decline_storage_failed": "Tu navegador bloqueó el guardado de esta elección. La analítica está desactivada en esta página, pero puede volver a activarse al recargar.",
-			"description": "¿Podemos medir cómo se usa este sitio? Nunca enviamos tu nombre ni tu correo electrónico, y no se envía nada hasta que lo permitas. Puedes cambiar tu elección en cualquier momento desde el pie de página o la configuración de tu cuenta.",
+			"description": "¿Podemos medir cómo se usa este sitio? Nunca recopilamos tu nombre ni tu correo. Puedes cambiarlo en Configuración de privacidad.",
 			"privacy_link": "Política de privacidad",
 			"storage_failed": "Tu navegador bloqueó el guardado de esta elección, así que la analítica sigue desactivada.",
 			"title": "Analítica"

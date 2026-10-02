@@ -307,7 +307,7 @@
 			"allow": "Allow",
 			"decline": "Decline",
 			"decline_storage_failed": "Your browser blocked saving this choice. Analytics is off on this page but may resume after a reload.",
-			"description": "May we measure how this site is used? We never send your name or email, and nothing is sent until you allow it. You can change your choice any time in the footer or your account settings.",
+			"description": "Can we measure how this site is used? We never collect your name or email. Change this anytime in Privacy Settings.",
 			"privacy_link": "Privacy policy",
 			"storage_failed": "Your browser blocked saving this choice, so analytics stays off.",
 			"title": "Analytics"

@@ -307,7 +307,7 @@
 			"allow": "Autoriser",
 			"decline": "Refuser",
 			"decline_storage_failed": "Ton navigateur a bloqué l'enregistrement de ce choix. La mesure d'audience est désactivée sur cette page, mais peut reprendre après un rechargement.",
-			"description": "Pouvons-nous mesurer l'utilisation de ce site ? Nous n'envoyons jamais ton nom ni ton adresse e-mail, et rien n'est envoyé avant ton accord. Tu peux modifier ton choix à tout moment depuis le pied de page ou les paramètres de ton compte.",
+			"description": "Pouvons-nous mesurer l'utilisation de ce site ? Nous ne collectons jamais ton nom ni ton e-mail. Modifiable à tout moment dans les Paramètres de confidentialité.",
 			"privacy_link": "Politique de confidentialité",
 			"storage_failed": "Ton navigateur a bloqué l'enregistrement de ce choix, la mesure d'audience reste donc désactivée.",
 			"title": "Mesure d'audience"
