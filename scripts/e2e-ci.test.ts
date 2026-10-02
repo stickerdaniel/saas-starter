@@ -97,6 +97,16 @@ const backends = {
 	convexUrl: 'https://current-lark.convex.cloud',
 	convexSiteUrl: 'https://current-lark.convex.site'
 };
+/** Spellings that `new URL` normalizes into a valid origin but that are unsafe to export raw. */
+const unsafeOrigins = (origin: string) => [
+	`${origin}\nREVIEW_EXTRA=1`,
+	`${origin}\r\nREVIEW_EXTRA=1`,
+	`${origin}\r`,
+	`${origin.slice(0, 12)}\n${origin.slice(12)}`,
+	`\t${origin}`,
+	` ${origin}`,
+	`${origin}\u0000`
+];
 
 // Summary lines follow the actual Workers Builds check-run output.
 function check(overrides: Partial<PreviewCheck> & { build?: string; version?: string } = {}) {
@@ -187,6 +197,44 @@ describe('Cloudflare build record selection', () => {
 		expect(() => latestCloudflarePreview([older, newestMalformed], sha, alias)).toThrow(
 			'build UUID'
 		);
+	});
+
+	it('rejects malformed check IDs and completion times instead of ordering them', () => {
+		const withId = (id: unknown, overrides: Partial<PreviewCheck> = {}) =>
+			({ ...check(overrides), id }) as unknown as PreviewCheck;
+		for (const id of [undefined, '2', 'bad-A', 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+			expect(() => verifiedCloudflarePreview(withId(id), sha)).toThrow('check ID');
+			expect(() => latestCloudflarePreview([withId(id)], sha, alias)).toThrow('check ID');
+		}
+		const ties = [withId('bad-A'), withId('bad-B')];
+		for (const order of [ties, [...ties].reverse()])
+			expect(() => latestCloudflarePreview(order, sha, alias)).toThrow('check ID');
+		for (const completed_at of [
+			null,
+			'not-a-time',
+			'2026-10-02',
+			'2026-02-30T00:00:00Z',
+			'2026-10-02T24:00:00Z'
+		]) {
+			expect(() => latestCloudflarePreview([check({ completed_at })], sha, alias)).toThrow(
+				'completion time'
+			);
+			// A malformed newest candidate is not skipped in favour of an older valid one.
+			const older = check({ id: 1, build: old, completed_at: '2026-10-02T14:00:00Z' });
+			for (const order of [
+				[older, check({ id: 9, completed_at })],
+				[check({ id: 9, completed_at }), older]
+			])
+				expect(() => latestCloudflarePreview(order, sha, alias)).toThrow('completion time');
+		}
+		expect(latestCloudflarePreview([check({ id: 9 })], sha, alias).checkId).toBe(9);
+		expect(
+			latestCloudflarePreview(
+				[check({ id: 1, completed_at: '2026-10-02T15:56:23+01:00' }), check({ id: 2 })],
+				sha,
+				alias
+			).checkId
+		).toBe(2);
 	});
 });
 
@@ -309,6 +357,28 @@ describe('automatic and manual build lookup', () => {
 		await expect(
 			resolveBuild({ sha, previewUrl: alias, github: github(short.origin) })
 		).rejects.toThrow('lookup incomplete');
+	});
+
+	it('rejects malformed or inconsistent collection evidence', async () => {
+		const lookup = async (body: unknown) => {
+			const api = await serve((_, response) => json(response, body));
+			return resolveBuild({ sha, previewUrl: alias, github: github(api.origin) });
+		};
+		for (const total_count of [-1, 0, 0.5, '1'])
+			await expect(lookup({ total_count, check_runs: [check()] })).rejects.toThrow(
+				/unexpected check-run page|inconsistent/
+			);
+		for (const id of ['2', undefined, 0])
+			await expect(lookup({ total_count: 1, check_runs: [{ ...check(), id }] })).rejects.toThrow(
+				'check ID'
+			);
+		await expect(
+			lookup({ total_count: 1, check_runs: [check({ completed_at: null })] })
+		).rejects.toThrow('completion time');
+		await expect(lookup({ total_count: 1, check_runs: [check()] })).resolves.toMatchObject({
+			checkId: 2,
+			buildUuid: current
+		});
 	});
 
 	it('takes the exact check ID from the explicit input or the legacy event payload', () => {
@@ -437,6 +507,37 @@ describe('preview build discovery', () => {
 		expect(target.server.paths).toHaveLength(1);
 	});
 
+	it('rejects control and whitespace bytes the URL parser would silently drop', async () => {
+		for (const field of ['convexUrl', 'convexSiteUrl'] as const)
+			for (const value of unsafeOrigins(backends[field])) {
+				const target = await servedAlias([
+					serving({ sourceSha: sha, buildUuid: current, [field]: value })
+				]);
+				await expect(discoverPreview(build, { fetch: target.fetch, budget })).rejects.toThrow(
+					'backend origin'
+				);
+			}
+		for (const origins of [
+			{ convexUrl: `${backends.convexUrl}/`, convexSiteUrl: `${backends.convexSiteUrl}/` },
+			{ convexUrl: 'https://münchen.example', convexSiteUrl: 'https://münchen.example:8443/' }
+		]) {
+			const target = await servedAlias([
+				serving({ sourceSha: sha, buildUuid: current, ...origins })
+			]);
+			// Preserve valid origin spellings, including IDNs and trailing slashes.
+			await expect(discoverPreview(build, { fetch: target.fetch, budget })).resolves.toMatchObject(
+				origins
+			);
+			expect(() =>
+				assertBuildMetadata(
+					{ version: sha },
+					{ ...origins, sourceSha: sha, buildUuid: current },
+					{ sha, buildUuid: current, ...origins }
+				)
+			).not.toThrow();
+		}
+	});
+
 	it('bypasses caches and forwards the preview access headers', async () => {
 		const headers: Array<IncomingMessage['headers']> = [];
 		const target = await servedAlias([
@@ -503,10 +604,10 @@ describe('preview metadata policies', () => {
 });
 
 const root = resolve(import.meta.dirname, '..');
-function runCli(args: string[], env: Record<string, string>) {
+function runCli(args: string[], env: Record<string, string>, bunArgs: string[] = []) {
 	const inherited = ['PATH', 'Path', 'HOME', 'USERPROFILE', 'SystemRoot', 'TEMP', 'TMP', 'TMPDIR'];
 	return new Promise<{ code: number | null; output: string }>((done) => {
-		const child = spawn('bun', ['--no-env-file', 'scripts/e2e-ci.ts', ...args], {
+		const child = spawn('bun', ['--no-env-file', ...bunArgs, 'scripts/e2e-ci.ts', ...args], {
 			cwd: root,
 			env: {
 				...Object.fromEntries(
@@ -576,6 +677,56 @@ describe('workflow compatibility', () => {
 			rmSync(directory, { recursive: true, force: true });
 		}
 	}, 30_000);
+
+	it('exports exactly the validated backend origins and nothing for unsafe ones', async () => {
+		let served: Record<string, unknown> = {};
+		const site = await serve((_, response) => json(response, served));
+		const api = await serve((_, response) => json(response, check()));
+		const directory = mkdtempSync(join(tmpdir(), 'e2e-ci-export-'));
+		try {
+			// Routes only the HTTPS alias to the local site; the CLI itself is unmodified.
+			const preload = join(directory, 'alias.mjs');
+			writeFileSync(
+				preload,
+				`const original = globalThis.fetch;\nglobalThis.fetch = (input, init) => original(String(input).replace(${JSON.stringify(alias)}, ${JSON.stringify(site.origin)}), init);\n`
+			);
+			const githubEnv = join(directory, 'env');
+			const discover = () => {
+				writeFileSync(githubEnv, '');
+				return runCli(
+					['discover'],
+					{
+						GH_TOKEN: 'token',
+						E2E_EXPECTED_SHA: sha,
+						E2E_CHECK_RUN_ID: '2',
+						PREVIEW_URL: '',
+						GITHUB_API_URL: api.origin,
+						GITHUB_REPOSITORY: 'owner/repo',
+						GITHUB_ENV: githubEnv
+					},
+					[`--preload=${preload.replaceAll('\\', '/')}`]
+				);
+			};
+			const unsafeConfigs = (['convexUrl', 'convexSiteUrl'] as const).flatMap((field) =>
+				unsafeOrigins(backends[field]).map((value) => ({ ...backends, [field]: value }))
+			);
+			for (const origins of unsafeConfigs) {
+				served = { ...origins, sourceSha: sha, buildUuid: current };
+				const result = await discover();
+				expect(result.code, JSON.stringify(origins)).not.toBe(0);
+				expect(result.output).toContain('backend origin');
+				expect(readFileSync(githubEnv, 'utf8')).toBe('');
+			}
+			served = { ...backends, sourceSha: sha, buildUuid: current };
+			const result = await discover();
+			expect(result.code, result.output).toBe(0);
+			expect(readFileSync(githubEnv, 'utf8')).toBe(
+				`PUBLIC_SITE_URL=${alias}\nPUBLIC_CONVEX_URL=${backends.convexUrl}\nPUBLIC_CONVEX_SITE_URL=${backends.convexSiteUrl}\nE2E_BUILD_UUID=${current}\n`
+			);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	}, 60_000);
 
 	/** Evaluates only the expressions this test supplies; any other expression fails the test. */
 	function evaluate(value: unknown, context: Record<string, string>): string {

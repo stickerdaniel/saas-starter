@@ -11,6 +11,8 @@ export function shardCount(value: string | undefined): number {
 	return Number(value);
 }
 export function backendKey(url: string): string {
+	// `new URL` silently drops tabs, newlines and edge whitespace; callers export the raw spelling.
+	if (!url || /[\s\p{Cc}]/u.test(url)) throw new Error('Expected a backend origin');
 	const parsed = new URL(url);
 	if (
 		!['http:', 'https:'].includes(parsed.protocol) ||
@@ -60,6 +62,29 @@ function publishedOrigins(check: PreviewCheck, alias: boolean): string[] {
 		(match) => new URL(match[1]).origin
 	);
 }
+/** API JSON is not typed at runtime; selection and identity rely on these fields. */
+function checkId(check: PreviewCheck): number {
+	const id: unknown = check?.id;
+	if (typeof id !== 'number' || !Number.isSafeInteger(id) || id <= 0)
+		throw new Error(
+			`Expected a positive integer check ID, got ${JSON.stringify(id ?? null).slice(0, 40)}`
+		);
+	return id;
+}
+function completedAt(check: PreviewCheck): number {
+	const value: unknown = check.completed_at;
+	const time =
+		typeof value === 'string' &&
+		/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
+			value
+		)
+			? Date.parse(value)
+			: NaN;
+	const date = typeof value === 'string' ? value.slice(0, 10) : '';
+	if (Number.isNaN(time) || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date)
+		throw new Error(`Check ${check.id} has no valid completion time`);
+	return time;
+}
 function isSuccessfulBuild(check: PreviewCheck, sha: string): boolean {
 	return (
 		check.head_sha === sha &&
@@ -80,6 +105,7 @@ export function verifiedCloudflarePreview(
 ): VerifiedBuild {
 	if (!SHA.test(sha)) throw new Error('Expected an exact source SHA');
 	const origin = requested ? previewOrigin(requested) : undefined;
+	const id = checkId(check);
 	if (!isSuccessfulBuild(check, sha))
 		throw new Error(
 			`Check ${check.id} is not a successful Cloudflare build of the exact tested SHA`
@@ -94,7 +120,7 @@ export function verifiedCloudflarePreview(
 	].map((match) => match[1]);
 	if (ids.length !== 1 || !BUILD_UUID.test(ids[0]))
 		throw new Error(`Check ${check.id} does not name exactly one Cloudflare build UUID`);
-	return { checkId: check.id, sha, origin: origin ?? published[0], buildUuid: ids[0] };
+	return { checkId: id, sha, origin: origin ?? published[0], buildUuid: ids[0] };
 }
 
 /** Manual runs test the newest completed build that published the requested origin. */
@@ -104,16 +130,14 @@ export function latestCloudflarePreview(
 	requested: string
 ): VerifiedBuild {
 	const origin = previewOrigin(requested);
-	const completed = (check: PreviewCheck) => {
-		const time = Date.parse(check.completed_at ?? '');
-		if (Number.isNaN(time)) throw new Error(`Check ${check.id} has no valid completion time`);
-		return time;
-	};
+	// Validate every candidate first, so a malformed newest record cannot be skipped.
 	const [latest] = checks
 		.filter(
 			(check) => isSuccessfulBuild(check, sha) && publishedOrigins(check, false).includes(origin)
 		)
-		.sort((a, b) => completed(b) - completed(a) || b.id - a.id);
+		.map((check) => ({ check, id: checkId(check), time: completedAt(check) }))
+		.sort((a, b) => b.time - a.time || b.id - a.id)
+		.map(({ check }) => check);
 	if (!latest)
 		throw new Error(
 			'Preview URL must come from a successful Cloudflare build of the exact tested SHA'
@@ -217,11 +241,20 @@ export async function resolveBuild(
 			`commits/${sha}/check-runs?filter=all&per_page=${PAGE_SIZE}&page=${page}`,
 			deadline
 		)) as { total_count?: unknown; check_runs?: unknown };
-		if (typeof body?.total_count !== 'number' || !Array.isArray(body.check_runs))
+		if (
+			typeof body?.total_count !== 'number' ||
+			!Number.isSafeInteger(body.total_count) ||
+			body.total_count < 0 ||
+			!Array.isArray(body.check_runs)
+		)
 			throw new Error('Cloudflare build lookup returned an unexpected check-run page');
 		total = body.total_count;
-		for (const check of body.check_runs as PreviewCheck[]) checks.set(check.id, check);
-		if (checks.size >= total)
+		for (const check of body.check_runs as PreviewCheck[]) checks.set(checkId(check), check);
+		if (checks.size > total)
+			throw new Error(
+				`Cloudflare build lookup inconsistent: read ${checks.size} check runs, reported total ${total}`
+			);
+		if (checks.size === total)
 			return latestCloudflarePreview([...checks.values()], sha, options.previewUrl);
 		if (body.check_runs.length < PAGE_SIZE) break;
 	}
