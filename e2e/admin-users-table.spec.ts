@@ -58,8 +58,16 @@ async function waitForUsersTableReady(page: Page) {
 	await expect(page.getByTestId('admin-users-email-cell').first()).toBeVisible({ timeout: 10000 });
 }
 
+const SEED_USER_COUNT = 12;
+
 async function applySeedSearch(page: Page, seedPrefix: string) {
 	await page.getByTestId('admin-users-search').fill(seedPrefix);
+	// The search is debounced, and the unfiltered first page already lists the
+	// newest seed users. Only the filtered total shows the search has applied;
+	// paging before then lands on page 1 again once it does.
+	await expect(page.getByTestId('admin-users-selection-text')).toHaveText(
+		new RegExp(` of ${SEED_USER_COUNT} users selected$`)
+	);
 	await expect.poll(async () => page.getByTestId('admin-users-loading').count()).toBe(0);
 	await expect
 		.poll(
@@ -143,7 +151,7 @@ test.describe('Admin Users Table', () => {
 		client = new ConvexHttpClient(convexUrl);
 		seedPrefix = `table-${Date.now()}`;
 
-		const seedUsers: SeedUser[] = Array.from({ length: 12 }, (_, index) => {
+		const seedUsers: SeedUser[] = Array.from({ length: SEED_USER_COUNT }, (_, index) => {
 			const localPart =
 				index === 7
 					? `${seedPrefix}-search-target`
