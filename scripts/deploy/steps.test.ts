@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { detectPlatform, type PlatformContext } from './platform';
 import {
@@ -8,6 +9,7 @@ import {
 	setProductionCapabilityProfile,
 	setupPreviewEnv,
 	validateConvexEnv,
+	writeE2eConfig,
 	type ConvexDeployment
 } from './steps';
 import { harness } from './__fixtures__/execution';
@@ -157,6 +159,58 @@ describe('computeBuildEnv', () => {
 				deployment
 			)
 		).toThrow(/Preview builds require/);
+	});
+});
+
+describe('preview E2E metadata', () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	function written(env: NodeJS.ProcessEnv): Record<string, unknown> | undefined {
+		vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+		const write = vi.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+		const platform = detectPlatform(env);
+		if (platform.isPreview) writeE2eConfig(platform, computeBuildEnv(platform, deployment, env));
+		else writeE2eConfig(platform, { ...env, PUBLIC_CONVEX_URL: 'https://prod.convex.cloud' });
+		const call = write.mock.calls.find(([path]) => String(path).endsWith('e2e-config.json'));
+		return call && JSON.parse(String(call[1]));
+	}
+
+	it('records the Workers build that produced the preview', () => {
+		expect(
+			written({
+				WORKERS_CI: '1',
+				WORKERS_CI_BRANCH: 'feature',
+				WORKERS_CI_COMMIT_SHA: 'a'.repeat(40),
+				WORKERS_CI_BUILD_UUID: '7328cbfd-a523-4f33-ba5b-4382f4393713',
+				WORKERS_NAME: 'myapp',
+				WORKERS_SUBDOMAIN: 'example'
+			})
+		).toMatchObject({
+			convexUrl: 'https://curious-lark-703.eu-west-1.convex.cloud',
+			convexSiteUrl: 'https://curious-lark-703.eu-west-1.convex.site',
+			sourceSha: 'a'.repeat(40),
+			buildUuid: '7328cbfd-a523-4f33-ba5b-4382f4393713'
+		});
+	});
+
+	it('keeps other preview providers valid without a Workers build UUID', () => {
+		const config = written({
+			VERCEL: '1',
+			VERCEL_ENV: 'preview',
+			VERCEL_URL: 'myapp-git-feature.vercel.app',
+			VERCEL_GIT_COMMIT_SHA: 'b'.repeat(40),
+			WORKERS_CI_BUILD_UUID: ''
+		});
+		expect(config).toMatchObject({
+			convexUrl: 'https://curious-lark-703.eu-west-1.convex.cloud',
+			sourceSha: 'b'.repeat(40)
+		});
+		expect(config).not.toHaveProperty('buildUuid');
+	});
+
+	it('writes no metadata for production builds', () => {
+		expect(written({ WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' })).toBeUndefined();
 	});
 });
 

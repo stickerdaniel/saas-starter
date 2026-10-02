@@ -409,7 +409,10 @@ export async function setupPreviewEnv(
 	}
 }
 
-/** Write E2E config for preview deployments. */
+/**
+ * Write E2E config for preview deployments. The source SHA and Workers build
+ * UUID let CI reject a stale alias, including a rebuild of the same commit.
+ */
 export function writeE2eConfig(
 	platform: PlatformContext,
 	buildEnv: Record<string, string | undefined>
@@ -418,6 +421,12 @@ export function writeE2eConfig(
 	const e2eConfig = {
 		convexUrl: buildEnv.PUBLIC_CONVEX_URL,
 		convexSiteUrl: buildEnv.PUBLIC_CONVEX_SITE_URL,
+		sourceSha:
+			buildEnv.WORKERS_CI_COMMIT_SHA ||
+			buildEnv.VERCEL_GIT_COMMIT_SHA ||
+			buildEnv.APP_BUILD_SHA ||
+			undefined,
+		buildUuid: buildEnv.WORKERS_CI_BUILD_UUID || undefined,
 		generatedAt: new Date().toISOString()
 	};
 	const configDir = 'static/.well-known';
