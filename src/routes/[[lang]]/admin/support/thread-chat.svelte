@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { duringAuthChange } from '$lib/analytics/client';
 	import { onDestroy } from 'svelte';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { toast } from 'svelte-sonner';
@@ -158,7 +159,10 @@
 		haptic.trigger('light');
 		impersonating = true;
 		try {
-			const result = await authClient.admin.impersonateUser({ userId: targetUserId });
+			const result = await duringAuthChange(
+				() => authClient.admin.impersonateUser({ userId: targetUserId }),
+				(result) => !result.error
+			);
 			if (result.error) {
 				const message = result.error.message || 'Unknown error';
 				toast.error($t('admin.users.toast.impersonate_failed', { message }));

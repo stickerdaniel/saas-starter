@@ -302,6 +302,17 @@
 			"no_messages": "Nouvelle conversation"
 		}
 	},
+	"analytics": {
+		"consent": {
+			"allow": "Autoriser",
+			"decline": "Refuser",
+			"decline_storage_failed": "Ton navigateur a bloqué l'enregistrement de ce choix. La mesure d'audience est désactivée sur cette page, mais peut reprendre après un rechargement.",
+			"description": "Pouvons-nous mesurer l'utilisation de ce site ? Nous ne collectons jamais ton nom ni ton e-mail. Modifiable à tout moment dans les Paramètres de confidentialité.",
+			"privacy_link": "Politique de confidentialité",
+			"storage_failed": "Ton navigateur a bloqué l'enregistrement de ce choix, la mesure d'audience reste donc désactivée.",
+			"title": "Mesure d'audience"
+		}
+	},
 	"app": {
 		"sidebar": {
 			"admin_panel": "Panneau Admin",
@@ -720,6 +731,7 @@
 		"copyright": "© {year} {brand}",
 		"impressum": "Mentions légales",
 		"privacy": "Confidentialité",
+		"privacy_settings": "Paramètres de confidentialité",
 		"terms": "Conditions d'utilisation"
 	},
 	"hero": {
@@ -1030,6 +1042,12 @@
 			"unknown_title": "Mot de passe",
 			"update_button": "Mettre à jour le mot de passe",
 			"updating": "Mise à jour..."
+		},
+		"privacy": {
+			"analytics_hint": "Pages visitées et événements du produit, envoyés sans ton nom ni ton adresse e-mail. S'applique uniquement à ce navigateur.",
+			"analytics_label": "Mesure d'utilisation",
+			"description": "Choisissez si ce navigateur partage des données d'utilisation.",
+			"title": "Confidentialité"
 		},
 		"security": {
 			"add_button": "Ajouter un Passkey",

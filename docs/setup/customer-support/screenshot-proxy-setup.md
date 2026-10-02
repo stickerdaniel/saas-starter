@@ -484,7 +484,6 @@ Before deploying to production:
 - **Cloudflare Workers Docs:** https://developers.cloudflare.com/workers/
 - **SnapDOM Documentation:** https://github.com/zumerlab/snapdom
 - **CORS Explained:** https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-- **Project PostHog Proxy:** `docs/setup/analytics/posthog-proxy-setup.md` (similar pattern)
 
 ## Support
 

@@ -93,7 +93,7 @@ describe('deployment pipeline', () => {
 		const posthog = {
 			PUBLIC_POSTHOG_API_KEY: 'phc_production',
 			PUBLIC_POSTHOG_HOST: 'https://ingest.production.example.test',
-			PUBLIC_POSTHOG_PROXY_HOST: 'https://proxy.production.example.test'
+			PUBLIC_POSTHOG_ALLOWED_HOSTS: 'example.test'
 		};
 		const buildEnvOf = async (env: NodeJS.ProcessEnv) => {
 			const h = harness(env);
@@ -104,7 +104,7 @@ describe('deployment pipeline', () => {
 		expect(await buildEnvOf({ ...previewEnv, ...posthog })).toMatchObject({
 			PUBLIC_POSTHOG_API_KEY: '',
 			PUBLIC_POSTHOG_HOST: '',
-			PUBLIC_POSTHOG_PROXY_HOST: ''
+			PUBLIC_POSTHOG_ALLOWED_HOSTS: ''
 		});
 		expect(await buildEnvOf({ ...productionEnv, ...posthog })).toMatchObject(posthog);
 	});

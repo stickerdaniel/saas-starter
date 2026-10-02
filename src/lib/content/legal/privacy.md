@@ -8,34 +8,40 @@ Last Updated: {{LAST_UPDATED}}
 
 ## I. Information We Collect.
 
-When you create an account, we collect your name, email address, and authentication provider (such as Google or GitHub). When you use the Service, we collect usage data including pages visited, features used, and interactions with the Service through analytics. When you use the support chat, we collect the messages and any attachments you send.
+When you create an account, we collect your name, email address, and authentication provider (such as Google or GitHub). If you allow analytics, we also collect usage data: the pages you visit and the product features you use. When you use the support chat, we collect the messages and any attachments you send.
 
 ## II. How We Use Your Information.
 
-We use your information to provide and maintain your account, send transactional emails (such as verification, password reset, and support replies), send occasional service-related communications, and improve the Service through anonymized analytics. We do not sell, share, or rent your personal data to third parties for marketing purposes.
+We use your information to provide and maintain your account, send transactional emails (such as verification, password reset, and support replies), send occasional service-related communications, and, if you allow it, understand how the Service is used so we can improve it. We do not sell, share, or rent your personal data to third parties for marketing purposes.
 
 ## III. Legal Basis for Processing.
 
-We process your data on the following legal bases under the GDPR: contract performance (Art. 6(1)(b)) to provide your account and the Service, legitimate interest (Art. 6(1)(f)) to improve the Service and ensure security, and consent (Art. 6(1)(a)) where explicitly given, for example for optional communications.
+We process your data on the following legal bases under the GDPR: contract performance (Art. 6(1)(b)) to provide your account and the Service, legitimate interest (Art. 6(1)(f)) to ensure security, and consent (Art. 6(1)(a)) for product analytics and optional communications. You can withdraw consent at any time; this does not affect processing before the withdrawal.
 
 ## IV. Third-Party Processors.
 
-We use the following GDPR-compliant third-party services to operate the Service: Convex (EU, Ireland) for database and backend infrastructure, Vercel (Edge, Frankfurt, Germany) for hosting and deployment, Resend for transactional email delivery, and PostHog for product analytics. Each of these processors maintains appropriate technical and organizational measures to protect your personal data.
+We use the following third-party services to operate the Service: Convex (EU, Ireland) for database and backend infrastructure, Vercel (Edge, Frankfurt, Germany) for hosting and deployment, Resend for transactional email delivery, and, only if you allow analytics, PostHog for product analytics. We have data processing agreements with these processors.
 
-## V. Cookies.
+## V. Product Analytics.
 
-We use only essential cookies required for authentication and session management. We do not use advertising or tracking cookies. No consent banner is required as these cookies are strictly necessary for the operation of the Service.
+Analytics runs only after you choose Allow in the analytics banner. Before that, no analytics code is loaded and nothing is stored or sent. If you allow it, PostHog receives the pages you visit, the product features you use, your browser and device type, the website that referred you (its domain only), and campaign tags in the link you followed. Page titles, search terms and query parameters other than campaign tags are removed before sending, and addresses that do not match a page of the Service are recorded as "404". If you are signed in, events are linked to your account's internal ID, not your name or email address. PostHog receives your IP address with each request; whether it is stored depends on our analytics project settings.
 
-## VI. Data Retention.
+To recognise you across visits, the analytics library keeps a random identifier in your browser's local storage. Next to it, it stores the first address you opened and the website that referred you, which can include parts of those addresses that are never sent. Both are removed when you decline. You can change your choice at any time from Privacy Settings in the footer or in your account settings. When you decline, analytics stops, the identifier is removed from your browser, and a later consent starts with a new identifier. Data already sent is not deleted automatically; ask us to delete it using the contact details below. Your choice is valid for 180 days, after which we ask again.
 
-We retain your personal data for as long as your account is active. When you delete your account, your personal data is removed. Some data may be retained in anonymized form for analytics or as required by applicable law.
+## VI. Cookies and Browser Storage.
 
-## VII. Your Rights.
+We use essential cookies for authentication and session management, and one essential cookie (`analytics_consent`) that stores your analytics choice. We do not use advertising cookies. Product analytics uses browser storage only with your consent, as described above.
+
+## VII. Data Retention.
+
+We retain your account data for as long as your account is active. When you delete your account, your account data is removed from our database. Analytics data is kept for the retention period configured with our analytics provider and is not deleted automatically with your account; ask us to delete it. Some data may be retained where applicable law requires it.
+
+## VIII. Your Rights.
 
 Under the GDPR, you have the right to access your personal data (Art. 15), rectify inaccurate data (Art. 16), request deletion of your data (Art. 17), restrict processing (Art. 18), data portability (Art. 20), and object to processing (Art. 21). To exercise any of these rights, please contact us using the details below. You also have the right to lodge a complaint with a supervisory authority.
 
-## VIII. Changes to This Policy.
+## IX. Changes to This Policy.
 
-We may update this Privacy Policy from time to time. If we do this, we will post the changes on this page and will indicate the date these terms were last revised. Your continued use of the Service after the date any such changes become effective constitutes your acceptance of the updated Privacy Policy.
+We may update this Privacy Policy from time to time. If we do this, we will post the changes on this page and will indicate the date it was last revised. If a change extends what analytics collects, we will ask for your consent again.
 
 ## Questions?

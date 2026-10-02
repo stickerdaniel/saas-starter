@@ -302,6 +302,17 @@
 			"no_messages": "Neue Unterhaltung"
 		}
 	},
+	"analytics": {
+		"consent": {
+			"allow": "Erlauben",
+			"decline": "Ablehnen",
+			"decline_storage_failed": "Dein Browser hat das Speichern dieser Wahl blockiert. Die Analyse ist auf dieser Seite aus, kann aber nach dem Neuladen wieder aktiv sein.",
+			"description": "Dürfen wir messen, wie diese Seite genutzt wird? Name und E-Mail erfassen wir nie. Jederzeit änderbar in den Datenschutzeinstellungen.",
+			"privacy_link": "Datenschutzerklärung",
+			"storage_failed": "Dein Browser hat das Speichern dieser Wahl blockiert, daher bleibt die Analyse aus.",
+			"title": "Analyse"
+		}
+	},
 	"app": {
 		"sidebar": {
 			"admin_panel": "Admin-Bereich",
@@ -720,6 +731,7 @@
 		"copyright": "© {year} {brand}",
 		"impressum": "Impressum",
 		"privacy": "Datenschutz",
+		"privacy_settings": "Datenschutzeinstellungen",
 		"terms": "Nutzungsbedingungen"
 	},
 	"hero": {
@@ -1030,6 +1042,12 @@
 			"unknown_title": "Passwort",
 			"update_button": "Passwort aktualisieren",
 			"updating": "Aktualisieren..."
+		},
+		"privacy": {
+			"analytics_hint": "Seitenaufrufe und Produktereignisse, gesendet ohne deinen Namen oder deine E-Mail-Adresse. Gilt nur für diesen Browser.",
+			"analytics_label": "Nutzungsanalyse",
+			"description": "Lege fest, ob dieser Browser Nutzungsanalysen teilt.",
+			"title": "Datenschutz"
 		},
 		"security": {
 			"add_button": "Passkey hinzufügen",

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import PostHogIdentify from '$lib/components/analytics/PostHogIdentify.svelte';
 	import SupportTicketMigrationBootstrap from '$lib/components/customer-support/support-ticket-migration-bootstrap.svelte';
 	import { AuthenticatedLayout, getAppSidebarConfig } from '$lib/components/authenticated';
 	import type { NavSubItem } from '$lib/components/authenticated/types';
@@ -131,7 +130,6 @@
 
 <svelte:document onkeydown={handleKeydown} />
 
-<PostHogIdentify />
 <SupportTicketMigrationBootstrap />
 
 <AuthenticatedLayout

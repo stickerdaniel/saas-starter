@@ -4,6 +4,9 @@
 	import { resolve } from '$app/paths';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
+	import { analyticsPreferencesContext } from '$lib/analytics/preferences.svelte.ts';
+
+	const analyticsPreferences = analyticsPreferencesContext.get();
 </script>
 
 <footer class="mt-auto pt-24">
@@ -35,6 +38,12 @@
 					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/privacy'))}>
 						<T keyName="footer.privacy" />
 					</Button>
+					{#if analyticsPreferences.state.enabled}
+						<span class="hidden sm:inline" aria-hidden="true">&middot;</span>
+						<Button variant="ghost-muted" size="footer" onclick={() => analyticsPreferences.open()}>
+							<T keyName="footer.privacy_settings" />
+						</Button>
+					{/if}
 				</nav>
 			</div>
 		</div>

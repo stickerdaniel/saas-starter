@@ -23,6 +23,7 @@
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 	import { clearPersistedChatState } from '$lib/chat/core/chat-persisted-state.ts';
 	import { shouldShowMarketingAuthControls } from './marketing-auth-controls';
+	import { duringAuthChange } from '$lib/analytics/client';
 
 	const { t } = getTranslate();
 
@@ -65,7 +66,10 @@
 
 	async function signOut() {
 		signingOut = true;
-		const result = await authClient.signOut();
+		const result = await duringAuthChange(
+			() => authClient.signOut(),
+			(result) => !result.error
+		);
 		if (!result.error) {
 			// The session is already gone; see nav-user.svelte.
 			activeUploads?.suspendOnce();

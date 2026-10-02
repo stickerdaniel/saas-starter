@@ -302,6 +302,17 @@
 			"no_messages": "New conversation"
 		}
 	},
+	"analytics": {
+		"consent": {
+			"allow": "Allow",
+			"decline": "Decline",
+			"decline_storage_failed": "Your browser blocked saving this choice. Analytics is off on this page but may resume after a reload.",
+			"description": "Can we measure how this site is used? We never collect your name or email. Change this anytime in Privacy Settings.",
+			"privacy_link": "Privacy policy",
+			"storage_failed": "Your browser blocked saving this choice, so analytics stays off.",
+			"title": "Analytics"
+		}
+	},
 	"app": {
 		"sidebar": {
 			"admin_panel": "Admin Panel",
@@ -720,6 +731,7 @@
 		"copyright": "© {year} {brand}",
 		"impressum": "Legal Notice",
 		"privacy": "Privacy Policy",
+		"privacy_settings": "Privacy Settings",
 		"terms": "Terms of Service"
 	},
 	"hero": {
@@ -1030,6 +1042,12 @@
 			"unknown_title": "Password",
 			"update_button": "Update Password",
 			"updating": "Updating..."
+		},
+		"privacy": {
+			"analytics_hint": "Page visits and product events, sent without your name or email. Applies to this browser only.",
+			"analytics_label": "Usage analytics",
+			"description": "Choose whether this browser shares usage analytics.",
+			"title": "Privacy"
 		},
 		"security": {
 			"add_button": "Add Passkey",

@@ -7,7 +7,11 @@
 	import { ModeWatcher } from 'mode-watcher';
 	import AppAuthProvider from '$lib/components/app/app-auth-provider.svelte';
 	import AppAutumnProvider from '$lib/components/app/app-autumn-provider.svelte';
-	import AppPostHogBootstrap from '$lib/components/app/app-posthog-bootstrap.svelte';
+	import AnalyticsRoot from '$lib/components/analytics/analytics-root.svelte';
+	import {
+		AnalyticsPreferences,
+		analyticsPreferencesContext
+	} from '$lib/analytics/preferences.svelte.ts';
 	import ClockSkewBanner from '$lib/components/clock-skew-banner.svelte';
 	import { ClockSkewState, clockSkewContext } from '$lib/hooks/clock-skew.svelte.ts';
 	import {
@@ -113,6 +117,7 @@
 
 	languageContext.set(() => currentLang);
 	setGlobalSearchContext();
+	analyticsPreferencesContext.set(new AnalyticsPreferences());
 
 	// Live Tolgee (in-context editing) is dev-only. Production and preview builds
 	// fold import.meta.env.DEV to false, so DevTools, apiUrl/apiKey and their
@@ -184,7 +189,6 @@
 	disableHeadScriptInjection: src/app.html runs the initial-mode script, so its CSP hash
 	is derived from the template. Keep that script's config aligned with these props. -->
 <ModeWatcher disableHeadScriptInjection synchronousModeChanges />
-<AppPostHogBootstrap />
 
 <AppAuthProvider>
 	<AppAutumnProvider>
@@ -201,6 +205,7 @@
 				</a>
 				<ClockSkewBanner />
 				<UploadGuardNotice />
+				<AnalyticsRoot />
 				<GlobalSearchShell />
 				<CheckoutProvider>
 					{@render children()}

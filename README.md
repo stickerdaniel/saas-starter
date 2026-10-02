@@ -434,27 +434,27 @@ Set `PREVIEW_ADMIN_PASSWORD` once as a preview default (`bunx convex env default
 
 **Hosting platform** (CF Workers build settings or Vercel project settings):
 
-| Variable                    |                                                                                                                                          | Preview | Prod |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | :-----: | :--: |
-| `CONVEX_DEPLOY_KEY`         | Convex production deploy key                                                                                                             |    ✓    |  ✓   |
-| `CONVEX_PREVIEW_DEPLOY_KEY` | Convex preview deploy key                                                                                                                |    ✓    |      |
-| `CONVEX_MANAGEMENT_TOKEN`   | Convex team token for quota self-heal (mint at Team Settings > Access Tokens, Team ID shown on the same page)                            |    ○    |      |
-| `CONVEX_PROJECT_ID`         | Numeric project id for quota self-heal (`curl -H "Authorization: Bearer $TOKEN" https://api.convex.dev/v1/teams/{teamId}/list_projects`) |    ○    |      |
-| `PUBLIC_SITE_URL`           | Canonical frontend origin. Takes precedence over the platform URL in production; previews always use their own deployment URL            |    ·    |  ○   |
-| `SITE_URL`                  | Cloudflare-compatible production frontend origin, mapped to `PUBLIC_SITE_URL`; separate from Convex `SITE_URL`                           |    ·    |  ○   |
-| `WORKERS_NAME`              | CF Workers only: worker name (matches `wrangler.toml`)                                                                                   |    ✓    |  ○   |
-| `WORKERS_SUBDOMAIN`         | CF Workers only: account's `workers.dev` subdomain                                                                                       |    ✓    |  ○   |
-| `CF_ZONE_ID`                | CF Workers only: zone id of the custom domain, for post-deploy edge cache purge (skipped when unset)                                     |         |  ○   |
-| `CF_PURGE_TOKEN`            | CF Workers only: API token with `Cache Purge`, for post-deploy edge cache purge (skipped when unset)                                     |         |  ○   |
-| `NODE_ADAPTER`              | Set to `1` to build with adapter-node for self-hosted production                                                                         |         |  ○   |
-| `CONVEX_INTERNAL_URL`       | Internal Convex URL for Docker-network routing (self-hosted)                                                                             |         |  ○   |
-| `TOLGEE_API_KEY`            | Tolgee CLI key for deploy-time sync (optional, skips when unset)                                                                         |    ○    |  ○   |
-| `PUBLIC_POSTHOG_API_KEY`    | PostHog analytics API key                                                                                                                |         |  ○   |
-| `PUBLIC_POSTHOG_HOST`       | PostHog analytics host                                                                                                                   |         |  ○   |
-| `PUBLIC_POSTHOG_PROXY_HOST` | CF Worker proxy host for ad-blocker bypass (falls back to `PUBLIC_POSTHOG_HOST` when unset)                                              |         |  ○   |
-| `PRODUCTION_BRANCH`         | Cloudflare only: production branch name (default: `main`)                                                                                |    ○    |  ○   |
+| Variable                       |                                                                                                                                          | Preview | Prod |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | :-----: | :--: |
+| `CONVEX_DEPLOY_KEY`            | Convex production deploy key                                                                                                             |    ✓    |  ✓   |
+| `CONVEX_PREVIEW_DEPLOY_KEY`    | Convex preview deploy key                                                                                                                |    ✓    |      |
+| `CONVEX_MANAGEMENT_TOKEN`      | Convex team token for quota self-heal (mint at Team Settings > Access Tokens, Team ID shown on the same page)                            |    ○    |      |
+| `CONVEX_PROJECT_ID`            | Numeric project id for quota self-heal (`curl -H "Authorization: Bearer $TOKEN" https://api.convex.dev/v1/teams/{teamId}/list_projects`) |    ○    |      |
+| `PUBLIC_SITE_URL`              | Canonical frontend origin. Takes precedence over the platform URL in production; previews always use their own deployment URL            |    ·    |  ○   |
+| `SITE_URL`                     | Cloudflare-compatible production frontend origin, mapped to `PUBLIC_SITE_URL`; separate from Convex `SITE_URL`                           |    ·    |  ○   |
+| `WORKERS_NAME`                 | CF Workers only: worker name (matches `wrangler.toml`)                                                                                   |    ✓    |  ○   |
+| `WORKERS_SUBDOMAIN`            | CF Workers only: account's `workers.dev` subdomain                                                                                       |    ✓    |  ○   |
+| `CF_ZONE_ID`                   | CF Workers only: zone id of the custom domain, for post-deploy edge cache purge (skipped when unset)                                     |         |  ○   |
+| `CF_PURGE_TOKEN`               | CF Workers only: API token with `Cache Purge`, for post-deploy edge cache purge (skipped when unset)                                     |         |  ○   |
+| `NODE_ADAPTER`                 | Set to `1` to build with adapter-node for self-hosted production                                                                         |         |  ○   |
+| `CONVEX_INTERNAL_URL`          | Internal Convex URL for Docker-network routing (self-hosted)                                                                             |         |  ○   |
+| `TOLGEE_API_KEY`               | Tolgee CLI key for deploy-time sync (optional, skips when unset)                                                                         |    ○    |  ○   |
+| `PUBLIC_POSTHOG_API_KEY`       | PostHog analytics API key                                                                                                                |         |  ○   |
+| `PUBLIC_POSTHOG_HOST`          | PostHog ingestion host or managed reverse proxy                                                                                          |         |  ○   |
+| `PUBLIC_POSTHOG_ALLOWED_HOSTS` | Comma-separated hostnames that may send analytics; every other host stays off                                                            |         |  ○   |
+| `PRODUCTION_BRANCH`            | Cloudflare only: production branch name (default: `main`)                                                                                |    ○    |  ○   |
 
-Builds that `scripts/deploy.ts` classifies as previews get empty PostHog key, host, and proxy host values, even when the hosting platform shares build variables with production. Custom build commands are not covered, and existing previews keep their values until rebuilt.
+Builds that `scripts/deploy.ts` classifies as previews get empty PostHog key, host, and allowed-hosts values, even when the hosting platform shares build variables with production. Custom build commands are not covered, and existing previews keep their values until rebuilt.
 
 `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` are intentionally not in this table. The build (`scripts/deploy.ts`) derives both from `CONVEX_DEPLOY_KEY` and overwrites any value you set on the hosting platform, so setting them there has no effect. To point production at a different Convex deployment, change the deploy key, not the URL.
 
@@ -523,7 +523,7 @@ The internal founder incident sender contacts one verified user at a time and re
 
 ### Analytics
 
-[PostHog](https://posthog.com/) loads lazily and detects ad blockers. When blocked, tracking falls back to a [Cloudflare Worker proxy](https://posthog.com/docs/advanced/proxy/cloudflare). Only identified users are tracked (`person_profiles: 'identified_only'`).
+[PostHog](https://posthog.com/) loads only after a visitor allows it in the consent banner, and only on the hostnames you list. Pageviews are cleaned of query secrets, search terms and unknown paths before they leave the browser, and signed-in users are identified by id only. Setup, the managed reverse proxy and the limits are in [the analytics guide](docs/setup/analytics/posthog.md).
 
 ### AI Readiness
 

@@ -302,6 +302,17 @@
 			"no_messages": "Nueva conversación"
 		}
 	},
+	"analytics": {
+		"consent": {
+			"allow": "Permitir",
+			"decline": "Rechazar",
+			"decline_storage_failed": "Tu navegador bloqueó el guardado de esta elección. La analítica está desactivada en esta página, pero puede volver a activarse al recargar.",
+			"description": "¿Podemos medir cómo se usa este sitio? Nunca recopilamos tu nombre ni tu correo. Puedes cambiarlo en Configuración de privacidad.",
+			"privacy_link": "Política de privacidad",
+			"storage_failed": "Tu navegador bloqueó el guardado de esta elección, así que la analítica sigue desactivada.",
+			"title": "Analítica"
+		}
+	},
 	"app": {
 		"sidebar": {
 			"admin_panel": "Panel de Admin",
@@ -720,6 +731,7 @@
 		"copyright": "© {year} {brand}",
 		"impressum": "Aviso legal",
 		"privacy": "Privacidad",
+		"privacy_settings": "Configuración de privacidad",
 		"terms": "Condiciones de uso"
 	},
 	"hero": {
@@ -1030,6 +1042,12 @@
 			"unknown_title": "Contraseña",
 			"update_button": "Actualizar contraseña",
 			"updating": "Actualizando..."
+		},
+		"privacy": {
+			"analytics_hint": "Visitas a páginas y eventos del producto, enviados sin tu nombre ni tu correo electrónico. Solo se aplica a este navegador.",
+			"analytics_label": "Analítica de uso",
+			"description": "Elige si este navegador comparte analítica de uso.",
+			"title": "Privacidad"
 		},
 		"security": {
 			"add_button": "Añadir Passkey",
