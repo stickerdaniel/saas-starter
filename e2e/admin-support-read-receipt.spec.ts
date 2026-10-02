@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { test, expect, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
@@ -25,18 +25,22 @@ test('shows an unread support reply and reports when the customer opens it', asy
 			newerThreadCount: 20
 		}
 	);
-	const userContext = await browser.newContext({
-		baseURL: siteUrl,
-		extraHTTPHeaders: { ...bypass.headers, 'cache-control': 'no-cache' }
-	});
-	const userPage = await userContext.newPage();
-
 	// The badge stays mounted at zero so its closing transition can play, so
 	// "no unread reply" is now a question about what is shown, not what exists.
 	const shownIndicators = (scope: Page | Locator) =>
 		scope.getByTestId('support-unread-indicator').filter({ visible: true });
 
+	let userContext: BrowserContext | undefined;
 	try {
+		// The project signs every context in as the admin unless it names a session,
+		// and a signed-in customer would migrate the seeded anonymous ticket.
+		userContext = await browser.newContext({
+			baseURL: siteUrl,
+			storageState: { cookies: [], origins: [] },
+			extraHTTPHeaders: { ...bypass.headers, 'cache-control': 'no-cache' }
+		});
+		const userPage = await userContext.newPage();
+
 		await adminPage.goto(`/admin/support?thread=${threadId}`);
 		await expect(adminPage.getByTestId('support-user-read-status')).toHaveText('Not read yet');
 
@@ -75,10 +79,15 @@ test('shows an unread support reply and reports when the customer opens it', asy
 
 		await expect(adminPage.getByTestId('support-user-read-status')).toContainText('Read ');
 	} finally {
-		await userContext.close();
-		await client.mutation(api.tests.cleanupAnonymousSupportThreads, {
-			secret: testSecret,
-			threadIds
-		});
+		// A timed-out attempt can make close() throw; the threads must still go, or
+		// the next attempt counts this one's unread reply too.
+		try {
+			await userContext?.close();
+		} finally {
+			await client.mutation(api.tests.cleanupAnonymousSupportThreads, {
+				secret: testSecret,
+				threadIds
+			});
+		}
 	}
 });

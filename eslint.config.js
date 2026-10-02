@@ -16,6 +16,7 @@ import noDebounceInRuneRule from './eslint/rules/no-debounce-in-rune.js';
 import noHardcodedModifierKeysRule from './eslint/rules/no-hardcoded-modifier-keys.js';
 import requireReturnsValidatorRule from './eslint/rules/require-returns-validator.js';
 import noBareTestSkipRule from './eslint/rules/no-bare-test-skip.js';
+import requireExplicitStorageStateRule from './eslint/rules/require-explicit-storage-state.js';
 import noModuleStateSingletonRule from './eslint/rules/no-module-state-singleton.js';
 import requireMotionGuardTransitionRule from './eslint/rules/require-motion-guard-transition.js';
 import requireFieldErrorAssociationRule from './eslint/rules/require-field-error-association.js';
@@ -56,6 +57,7 @@ const localPlugin = {
 		'no-hardcoded-modifier-keys': noHardcodedModifierKeysRule,
 		'require-returns-validator': requireReturnsValidatorRule,
 		'no-bare-test-skip': noBareTestSkipRule,
+		'require-explicit-storage-state': requireExplicitStorageStateRule,
 		'no-module-state-singleton': noModuleStateSingletonRule,
 		'require-motion-guard-transition': requireMotionGuardTransitionRule,
 		'require-field-error-association': requireFieldErrorAssociationRule,
@@ -321,13 +323,16 @@ export default defineConfig(
 	},
 	{
 		// Bare runtime test.skip() dodges timing races instead of fixing them
-		// (#508). See eslint/rules/no-bare-test-skip.js.
+		// (#508). See eslint/rules/no-bare-test-skip.js. A self-built browser
+		// context inherits the project's signed-in session unless it names one.
+		// See eslint/rules/require-explicit-storage-state.js.
 		files: ['e2e/**/*.spec.ts'],
 		plugins: {
 			local: localPlugin
 		},
 		rules: {
-			'local/no-bare-test-skip': 'error'
+			'local/no-bare-test-skip': 'error',
+			'local/require-explicit-storage-state': 'error'
 		}
 	},
 	{
