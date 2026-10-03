@@ -141,10 +141,30 @@ describe.each\`a | b\`('suite', () => {});`;
 		expect(reports(code)).toEqual([]);
 	});
 
-	it('skips files that import node:test, which has no .each', () => {
-		const code = `import { it } from 'node:test';
-for (const value of values) it('case', () => {});`;
+	it.each([
+		['a static import', "import { it } from 'node:test';"],
+		['a dynamic import', "const { it } = await import('node:test');"],
+		['require', "const { it } = require('node:test');"]
+	])('skips files that load node:test through %s, which has no .each', (_kind, load) => {
+		expect(reports(`${load}\nfor (const value of values) it('case', () => {});`)).toEqual([]);
+	});
+
+	it.each([
+		['a local arrow function', 'const test = (value) => value > 0;'],
+		['a local function declaration', 'function test(value) {}'],
+		['a parameter', null]
+	])('allows calling %s named like a runner inside a loop', (_kind, helper) => {
+		const loop = 'for (const value of values) test(value);';
+		const code = helper
+			? `it('case', () => {\n\t${helper}\n\t${loop}\n});`
+			: `function check(test) {\n\t${loop}\n}`;
 		expect(reports(code)).toEqual([]);
+	});
+
+	it('still reports a local fixture built with test.extend', () => {
+		const code = `const test = base.extend({ value: 1 });
+for (const value of values) test('case', () => {});`;
+		expect(reports(code)).toEqual([at(2, testMessage('test'))]);
 	});
 
 	it('still reports files that import Playwright', () => {
