@@ -35,17 +35,18 @@ export function readTestCredentials(): TestCredentials {
  * After this returns, event handlers are attached and elements are interactive.
  */
 export async function waitForAuthenticated(page: Page, timeout = 60000) {
-	await page.waitForURL(/\/[a-z]{2}\/(app|passkey-setup)(?:[/?#]|$)/, { timeout });
-	if (new URL(page.url()).pathname.endsWith('/passkey-setup')) {
-		const skip = page.getByRole('button', {
-			name: /^(Not now|Nicht jetzt|Ahora no|Pas maintenant)$/
-		});
-		await expect(skip.or(page.locator('#user-menu-trigger'))).toBeVisible({ timeout });
-		if (await skip.isVisible()) await skip.click();
+	const skip = page.getByRole('button', {
+		name: /^(Not now|Nicht jetzt|Ahora no|Pas maintenant)$/
+	});
+	// Auth invalidation can briefly reach /app before the passkey handoff. Handle
+	// the offer while waiting for the interactive shell, not from one URL snapshot.
+	await page.addLocatorHandler(skip, () => skip.click(), { times: 1 });
+	try {
+		await expect(page.locator('html[data-hydrated] #user-menu-trigger')).toBeVisible({ timeout });
+		await page.waitForURL((url) => /^\/[a-z]{2}\/app(?:\/|$)/.test(url.pathname), { timeout });
+	} finally {
+		await page.removeLocatorHandler(skip);
 	}
-	await page.waitForURL(/\/[a-z]{2}\/app/, { timeout });
-	await page.locator('html[data-hydrated]').waitFor({ timeout });
-	await expect(page.locator('#user-menu-trigger')).toBeVisible({ timeout: 15000 });
 }
 
 /** Submits the sign-in form once its controls are enabled. */
