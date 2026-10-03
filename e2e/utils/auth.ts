@@ -35,6 +35,14 @@ export function readTestCredentials(): TestCredentials {
  * After this returns, event handlers are attached and elements are interactive.
  */
 export async function waitForAuthenticated(page: Page, timeout = 60000) {
+	await page.waitForURL(/\/[a-z]{2}\/(app|passkey-setup)(?:[/?#]|$)/, { timeout });
+	if (new URL(page.url()).pathname.endsWith('/passkey-setup')) {
+		const skip = page.getByRole('button', {
+			name: /^(Not now|Nicht jetzt|Ahora no|Pas maintenant)$/
+		});
+		await expect(skip.or(page.locator('#user-menu-trigger'))).toBeVisible({ timeout });
+		if (await skip.isVisible()) await skip.click();
+	}
 	await page.waitForURL(/\/[a-z]{2}\/app/, { timeout });
 	await page.locator('html[data-hydrated]').waitFor({ timeout });
 	await expect(page.locator('#user-menu-trigger')).toBeVisible({ timeout: 15000 });

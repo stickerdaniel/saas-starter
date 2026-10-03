@@ -4,7 +4,7 @@
 	import { useSearchParams } from 'runed/kit';
 	import { redirectParamsSchema } from '$lib/schemas/auth.js';
 	import { localizedHref } from '$lib/utils/i18n';
-	import { safeAuthDestination } from '$lib/utils/url';
+	import { authPageURL, safeAuthDestination } from '$lib/utils/url';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -32,7 +32,7 @@
 		const timeoutId = setTimeout(() => {
 			hasRedirected = true;
 			const destination = safeAuthDestination(params.redirectTo, localizedHref('/app'));
-			window.location.href = destination;
+			window.location.href = authPageURL(localizedHref('/passkey-setup'), destination);
 		}, remaining);
 
 		return () => clearTimeout(timeoutId);

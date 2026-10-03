@@ -8,6 +8,33 @@ import { credentialAccounts, hasUsablePassword } from './credentialAccounts';
 import * as val from 'valibot';
 import { passwordValidation } from '../schemas/password';
 
+export const getPasskeyNudgeDismissal = authedQuery({
+	args: {},
+	returns: v.number(),
+	handler: async (ctx) => {
+		const dismissal = await ctx.db
+			.query('passkeyNudgeDismissals')
+			.withIndex('by_userId', (q) => q.eq('userId', ctx.user._id))
+			.unique();
+		return dismissal?.deferredUntil ?? 0;
+	}
+});
+
+export const dismissPasskeyNudge = authedMutation({
+	args: {},
+	returns: v.null(),
+	handler: async (ctx) => {
+		const dismissal = await ctx.db
+			.query('passkeyNudgeDismissals')
+			.withIndex('by_userId', (q) => q.eq('userId', ctx.user._id))
+			.unique();
+		const deferredUntil = Date.now() + 30 * 24 * 60 * 60 * 1000;
+		if (dismissal) await ctx.db.patch('passkeyNudgeDismissals', dismissal._id, { deferredUntil });
+		else await ctx.db.insert('passkeyNudgeDismissals', { userId: ctx.user._id, deferredUntil });
+		return null;
+	}
+});
+
 /**
  * Get the currently authenticated user
  *

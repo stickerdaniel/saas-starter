@@ -493,6 +493,23 @@
 			"title": "Email Verification",
 			"verified_description": "Your email has been verified. Signing you in...",
 			"verified_title": "Email Verified"
+		},
+		"passkey_nudge": {
+			"title": "Make your next sign-in easier",
+			"inline_title": "Sign in directly next time",
+			"description": "Create a passkey to sign in with your fingerprint, face, or screen lock.",
+			"password_backup": "Your password will still work.",
+			"provider_backup": "You can still sign in with {provider}.",
+			"create": "Create a passkey",
+			"not_now": "Not now",
+			"working": "Please wait…",
+			"continue": "Continue",
+			"about": "About passkeys",
+			"about_description": "Choose a device or password manager you trust. Your biometric information stays on your device. You can manage passkeys in Settings.",
+			"failed": "We couldn’t finish setting up your passkey. Try again or choose “Not now.”",
+			"success_title": "Your passkey is ready",
+			"success_description": "Next time, choose “Sign in with Passkey.” You can rename or remove it in Settings.",
+			"loading": "Getting things ready…"
 		}
 	},
 	"backend": {

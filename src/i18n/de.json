@@ -493,6 +493,23 @@
 			"title": "E-Mail-Verifizierung",
 			"verified_description": "Deine E-Mail wurde verifiziert. Du wirst angemeldet...",
 			"verified_title": "E-Mail verifiziert"
+		},
+		"passkey_nudge": {
+			"title": "Melde dich nächstes Mal einfacher an",
+			"inline_title": "Nächstes Mal direkt anmelden",
+			"description": "Erstelle einen Passkey und melde dich mit Fingerabdruck, Gesichtserkennung oder deiner Bildschirmsperre an.",
+			"password_backup": "Dein Passwort funktioniert weiterhin.",
+			"provider_backup": "Du kannst dich weiterhin mit {provider} anmelden.",
+			"create": "Passkey erstellen",
+			"not_now": "Nicht jetzt",
+			"working": "Bitte warten…",
+			"continue": "Weiter",
+			"about": "Über Passkeys",
+			"about_description": "Wähle ein Gerät oder einen Passwortmanager, dem du vertraust. Deine biometrischen Daten bleiben auf deinem Gerät. Du kannst deine Passkeys in den Einstellungen verwalten.",
+			"failed": "Die Einrichtung konnte nicht abgeschlossen werden. Versuche es erneut oder wähle „Nicht jetzt“.",
+			"success_title": "Dein Passkey ist bereit",
+			"success_description": "Wähle beim nächsten Mal „Mit Passkey anmelden“. Du kannst den Passkey in den Einstellungen umbenennen oder entfernen.",
+			"loading": "Alles wird vorbereitet…"
 		}
 	},
 	"backend": {

@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import AuthenticatedSidebar from './authenticated-sidebar.svelte';
+	import InlinePasskeyNudge from '$lib/components/auth/inline-passkey-nudge.svelte';
 	import AuthenticatedHeader from './authenticated-header.svelte';
 	import AuthConnectionFallback from './auth-connection-fallback.svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
@@ -85,6 +86,8 @@
 				class={fullControl ? 'flex flex-col overflow-hidden' : ''}
 			>
 				<AuthenticatedHeader {routePrefix} {rootLabel} />
+
+				{#if routePrefix === 'app'}<InlinePasskeyNudge />{/if}
 
 				{#if fullControl}
 					<!-- Full control: page manages scroll, no padding -->
