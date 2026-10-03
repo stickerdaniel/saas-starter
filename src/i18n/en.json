@@ -504,7 +504,6 @@
 			"not_now": "Not now",
 			"working": "Please wait…",
 			"continue": "Continue",
-			"about": "About passkeys",
 			"about_description": "Choose a device or password manager you trust. Your biometric information stays on your device. You can manage passkeys in Settings.",
 			"failed": "We couldn’t finish setting up your passkey. Try again or choose “Not now.”",
 			"success_title": "Your passkey is ready",

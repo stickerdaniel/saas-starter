@@ -5,7 +5,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import SidebarHeaderButton from '$lib/components/ui/owned/sidebar-header-button.svelte';
 	import { resolve } from '$app/paths';
-	import type { ComponentProps } from 'svelte';
+	import type { ComponentProps, Snippet } from 'svelte';
 	import { T } from '@tolgee/svelte';
 	import type { NavItem, NavSubItem, SidebarConfig, User } from './types';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
@@ -23,6 +23,8 @@
 		threadsHasMore?: boolean;
 		/** Requests a bigger thread page from the owning query */
 		onLoadMoreThreads?: () => void;
+		/** Rendered at the top of the footer, above the footer links */
+		footerStart?: Snippet;
 	}
 
 	let {
@@ -31,6 +33,7 @@
 		threadSubItems,
 		threadsHasMore = false,
 		onLoadMoreThreads,
+		footerStart,
 		...restProps
 	}: Props = $props();
 
@@ -216,6 +219,7 @@
 	</Sidebar.Content>
 
 	<Sidebar.Footer>
+		{@render footerStart?.()}
 		{#if config.footerLinks && config.footerLinks.length > 0}
 			<Sidebar.Menu>
 				{#each config.footerLinks as link (link.translationKey)}

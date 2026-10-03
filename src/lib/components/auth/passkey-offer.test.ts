@@ -16,13 +16,26 @@ vi.hoisted(() => {
 			removeEventListener() {}
 		})
 	});
+	// jsdom has no Web Animations; finish each step at once so Field.Error can come and go.
+	Object.defineProperty(Element.prototype, 'animate', {
+		configurable: true,
+		value: () => ({
+			cancel() {},
+			currentTime: 0,
+			playState: 'finished',
+			set onfinish(done: () => void) {
+				queueMicrotask(done);
+			}
+		})
+	});
 });
 
 const calls = vi.hoisted(() => ({
 	create: vi.fn(),
 	session: vi.fn(),
 	defer: vi.fn(),
-	continue: vi.fn()
+	continue: vi.fn(),
+	toast: vi.fn()
 }));
 vi.mock('$lib/auth-client', () => ({
 	authClient: {
@@ -37,6 +50,7 @@ vi.mock('$lib/auth-client', () => ({
 	}
 }));
 vi.mock('convex-svelte', () => ({ useConvexClient: () => ({ mutation: calls.defer }) }));
+vi.mock('svelte-sonner', () => ({ toast: { success: calls.toast } }));
 
 import PasskeyOfferHarness from './test-fixtures/PasskeyOfferHarness.svelte';
 
@@ -46,10 +60,16 @@ function button(name: string) {
 		(el) => el.textContent?.trim() === name
 	)!;
 }
-async function render() {
+function nameInput() {
+	return document.querySelector<HTMLInputElement>('input')!;
+}
+function failure() {
+	return document.querySelector('[role=alert]')?.textContent;
+}
+async function render(sidebar = false) {
 	component = mount(PasskeyOfferHarness, {
 		target: document.body,
-		props: { oncontinue: calls.continue }
+		props: { oncontinue: calls.continue, sidebar }
 	});
 	await tick();
 	await vi.waitFor(() => expect(button('Create a passkey')).toBeDefined());
@@ -77,11 +97,7 @@ it('waits for consent, allows cancellation and retry, and confirms only verified
 	await render();
 	expect(calls.create).not.toHaveBeenCalled();
 	button('Create a passkey').click();
-	await vi.waitFor(() =>
-		expect(document.querySelector('[role=status]')?.textContent).toContain(
-			'We couldn’t finish setting up your passkey'
-		)
-	);
+	await vi.waitFor(() => expect(failure()).toContain('We couldn’t finish setting up your passkey'));
 	expect(calls.continue).not.toHaveBeenCalled();
 	button('Create a passkey').click();
 	await vi.waitFor(() =>
@@ -98,11 +114,7 @@ it('does not claim success for an empty server response', async () => {
 	calls.create.mockResolvedValue({ data: null, error: null });
 	await render();
 	button('Create a passkey').click();
-	await vi.waitFor(() =>
-		expect(document.querySelector('[role=status]')?.textContent).toContain(
-			'We couldn’t finish setting up your passkey'
-		)
-	);
+	await vi.waitFor(() => expect(failure()).toContain('We couldn’t finish setting up your passkey'));
 	expect(document.body.textContent).not.toContain('Your passkey is ready');
 });
 
@@ -110,11 +122,7 @@ it('does not enroll a different account after the session changes', async () => 
 	calls.session.mockResolvedValue({ data: { session: { id: 'another-session' } }, error: null });
 	await render();
 	button('Create a passkey').click();
-	await vi.waitFor(() =>
-		expect(document.querySelector('[role=status]')?.textContent).toContain(
-			'We couldn’t finish setting up your passkey'
-		)
-	);
+	await vi.waitFor(() => expect(failure()).toContain('We couldn’t finish setting up your passkey'));
 	expect(calls.create).not.toHaveBeenCalled();
 });
 
@@ -127,4 +135,50 @@ it('continues after a deferral even if saving it fails', async () => {
 		Date.now()
 	);
 	expect(calls.create).not.toHaveBeenCalled();
+});
+
+it('prefills the suggested name and registers the name the visitor typed', async () => {
+	await render();
+	expect(nameInput().labels?.[0]?.textContent?.trim()).toBe('Passkey name');
+	expect(nameInput().value).toMatch(/^Daniel’s \S/);
+	nameInput().value = 'Work laptop';
+	nameInput().dispatchEvent(new Event('input', { bubbles: true }));
+	button('Create a passkey').click();
+	await vi.waitFor(() =>
+		expect(document.querySelector('h1')?.textContent).toBe('Your passkey is ready')
+	);
+	expect(calls.create).toHaveBeenCalledWith({ name: 'Work laptop' });
+});
+
+it('falls back to the suggested name when the field is left blank', async () => {
+	await render();
+	const suggested = nameInput().value;
+	nameInput().value = '   ';
+	nameInput().dispatchEvent(new Event('input', { bubbles: true }));
+	button('Create a passkey').click();
+	await vi.waitFor(() => expect(calls.create).toHaveBeenCalledOnce());
+	expect(calls.create).toHaveBeenCalledWith({ name: suggested });
+});
+
+it('confirms a sidebar registration with a toast and closes the offer', async () => {
+	await render(true);
+	expect(nameInput().value).toMatch(/^Daniel’s \S/);
+	nameInput().value = 'Work laptop';
+	nameInput().dispatchEvent(new Event('input', { bubbles: true }));
+	button('Create a passkey').click();
+	await vi.waitFor(() => expect(calls.continue).toHaveBeenCalledOnce());
+	expect(calls.create).toHaveBeenCalledWith({ name: 'Work laptop' });
+	expect(calls.toast).toHaveBeenCalledWith('Passkey added successfully');
+	expect(document.querySelector('form')).toBeNull();
+	expect(document.body.textContent).not.toContain('Your passkey is ready');
+});
+
+it('keeps the sidebar offer open with an announced error when registration fails', async () => {
+	calls.create.mockResolvedValue({ data: null, error: { code: 'ERROR_CEREMONY_ABORTED' } });
+	await render(true);
+	button('Create a passkey').click();
+	await vi.waitFor(() => expect(failure()).toContain('We couldn’t finish setting up your passkey'));
+	expect(calls.continue).not.toHaveBeenCalled();
+	expect(calls.toast).not.toHaveBeenCalled();
+	expect(button('Create a passkey')).toBeDefined();
 });

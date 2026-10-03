@@ -504,7 +504,6 @@
 			"not_now": "Pas maintenant",
 			"working": "Un instant…",
 			"continue": "Continuer",
-			"about": "À propos des clés d’accès",
 			"about_description": "Choisis un appareil ou un gestionnaire de mots de passe de confiance. Tes données biométriques restent sur ton appareil. Tu peux gérer tes clés d’accès dans les paramètres.",
 			"failed": "Nous n’avons pas pu terminer la configuration de ta clé d’accès. Réessaie ou choisis « Pas maintenant ».",
 			"success_title": "Ta clé d’accès est prête",
