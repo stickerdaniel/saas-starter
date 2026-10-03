@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { T } from '@tolgee/svelte';
+	import { getTranslate } from '@tolgee/svelte';
+	import TruncatedText from '$lib/components/truncated-text.svelte';
 	import type { AuditLogItem } from '$lib/convex/admin/auditLog/queries';
 	import { formatDuration } from '$lib/utils/format-duration';
 
@@ -11,32 +12,30 @@
 
 	let { metadata, lang, testId }: Props = $props();
 
-	const reason = $derived(metadata && 'reason' in metadata ? metadata.reason : undefined);
-	const roleChange = $derived(
-		metadata && 'newRole' in metadata
-			? { previousRole: metadata.previousRole, newRole: metadata.newRole }
-			: undefined
-	);
-	const duration = $derived(
-		metadata && 'durationMs' in metadata ? formatDuration(metadata.durationMs, lang) : undefined
-	);
+	const { t } = getTranslate();
+
+	// Reads `$t` inside the derivation so a language switch updates the translated prefix
+	// together with the locale-formatted duration.
+	const details = $derived.by(() => {
+		if (metadata && 'reason' in metadata && metadata.reason) return metadata.reason;
+		if (metadata && 'newRole' in metadata) {
+			return $t('admin.audit_log.details.role_change', {
+				previousRole: metadata.previousRole,
+				newRole: metadata.newRole
+			});
+		}
+		if (metadata && 'durationMs' in metadata) {
+			return $t('admin.audit_log.details.impersonation_duration', {
+				duration: formatDuration(metadata.durationMs, lang)
+			});
+		}
+		return undefined;
+	});
 </script>
 
 <div class="min-w-0 text-sm" data-testid={testId}>
-	{#if reason}
-		<span class="text-muted-foreground">{reason}</span>
-	{:else if roleChange}
-		<span class="text-muted-foreground">
-			<T
-				keyName="admin.audit_log.details.role_change"
-				params={{ previousRole: roleChange.previousRole, newRole: roleChange.newRole }}
-			/>
-		</span>
-	{:else if duration}
-		<span class="text-muted-foreground">
-			<T keyName="admin.audit_log.details.impersonation_duration" params={{ duration }} />
-		</span>
-	{:else}
-		<span class="text-muted-foreground/50">-</span>
-	{/if}
+	<TruncatedText
+		text={details ?? '-'}
+		class={details ? 'text-muted-foreground' : 'text-muted-foreground/50'}
+	/>
 </div>
