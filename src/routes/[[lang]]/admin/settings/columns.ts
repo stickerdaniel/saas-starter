@@ -1,7 +1,6 @@
 import type { ColumnDef } from '@tanstack/table-core';
 import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
-import { createRawSnippet } from 'svelte';
-import { renderComponent, renderSnippet } from '$lib/components/ui/data-table/index.js';
+import { renderComponent, renderTextCell } from '$lib/components/ui/data-table/index.js';
 import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
 import DataTableCheckbox from '$lib/components/data-table-checkbox.svelte';
 import DataTableColumnHeader from '$lib/components/admin/data-table-column-header.svelte';
@@ -43,15 +42,7 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 				titleKey: 'admin.settings.column_email',
 				testId: 'admin-settings-sort-email'
 			}),
-		cell: ({ row }) => {
-			const emailSnippet = createRawSnippet<[{ email: string }]>((getData) => {
-				const { email } = getData();
-				return {
-					render: () => `<div class="font-medium">${email}</div>`
-				};
-			});
-			return renderSnippet(emailSnippet, { email: row.original.email });
-		}
+		cell: ({ row }) => renderTextCell(row.original.email, { class: 'font-medium' })
 	},
 	{
 		accessorKey: 'name',
@@ -65,14 +56,10 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 				testId: 'admin-settings-sort-name'
 			}),
 		cell: ({ row }) => {
-			const nameSnippet = createRawSnippet<[{ name?: string }]>((getData) => {
-				const { name } = getData();
-				return {
-					render: () =>
-						`<div class="text-muted-foreground">${name || '<span class="text-muted-foreground/50">-</span>'}</div>`
-				};
+			const { name } = row.original;
+			return renderTextCell(name || '-', {
+				class: name ? 'text-muted-foreground' : 'text-muted-foreground/50'
 			});
-			return renderSnippet(nameSnippet, { name: row.original.name });
 		}
 	},
 	{

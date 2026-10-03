@@ -1,7 +1,6 @@
 import type { ColumnDef } from '@tanstack/table-core';
 import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
-import { createRawSnippet } from 'svelte';
-import { renderComponent, renderSnippet } from '$lib/components/ui/data-table/index.js';
+import { renderComponent, renderTextCell } from '$lib/components/ui/data-table/index.js';
 import DataTableColumnHeader from '$lib/components/admin/data-table-column-header.svelte';
 import type { AuditLogItem } from '$lib/convex/admin/auditLog/queries';
 import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
@@ -30,16 +29,10 @@ export function createColumns(
 					titleKey: 'admin.audit_log.column.time',
 					testId: 'admin-audit-log-sort-time'
 				}),
-			cell: ({ row }) => {
-				const timeSnippet = createRawSnippet<[{ timestamp: number }]>((getData) => {
-					const { timestamp } = getData();
-					const formatted = new Date(timestamp).toLocaleString(lang || DEFAULT_LANGUAGE);
-					return {
-						render: () => `<div class="whitespace-nowrap text-sm">${formatted}</div>`
-					};
-				});
-				return renderSnippet(timeSnippet, { timestamp: row.original.timestamp });
-			}
+			cell: ({ row }) =>
+				renderTextCell(new Date(row.original.timestamp).toLocaleString(lang || DEFAULT_LANGUAGE), {
+					class: 'text-sm'
+				})
 		},
 		{
 			accessorKey: 'action',

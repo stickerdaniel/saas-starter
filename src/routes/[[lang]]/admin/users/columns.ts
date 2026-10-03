@@ -1,7 +1,6 @@
 import type { ColumnDef } from '@tanstack/table-core';
 import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
-import { createRawSnippet } from 'svelte';
-import { renderComponent, renderSnippet } from '$lib/components/ui/data-table/index.js';
+import { renderComponent, renderTextCell } from '$lib/components/ui/data-table/index.js';
 import DataTableCheckbox from '$lib/components/data-table-checkbox.svelte';
 import DataTableColumnHeader from '$lib/components/admin/data-table-column-header.svelte';
 import DataTableActions from './data-table-actions.svelte';
@@ -72,15 +71,7 @@ export function createColumns(lang: string): Array<ColumnDef<DataTableFeatures, 
 					titleKey: 'admin.users.email',
 					testId: 'admin-users-sort-email'
 				}),
-			cell: ({ row }) => {
-				const emailSnippet = createRawSnippet<[{ email: string }]>((getData) => {
-					const { email } = getData();
-					return {
-						render: () => `<div data-testid="admin-users-email-cell">${email}</div>`
-					};
-				});
-				return renderSnippet(emailSnippet, { email: row.original.email });
-			},
+			cell: ({ row }) => renderTextCell(row.original.email, { testId: 'admin-users-email-cell' }),
 			filterFn: (row, _columnId, filterValue) => {
 				const email = row.original.email.toLowerCase();
 				const name = (row.original.name ?? '').toLowerCase();
@@ -164,16 +155,10 @@ export function createColumns(lang: string): Array<ColumnDef<DataTableFeatures, 
 					testId: 'admin-users-sort-created'
 				}),
 			cell: ({ row }) => {
-				const dateSnippet = createRawSnippet<[{ createdAt?: number }]>((getData) => {
-					const { createdAt } = getData();
-					const formatted = createdAt
-						? new Date(createdAt).toLocaleDateString(lang || DEFAULT_LANGUAGE)
-						: '-';
-					return {
-						render: () => `<div>${formatted}</div>`
-					};
-				});
-				return renderSnippet(dateSnippet, { createdAt: row.original.createdAt });
+				const { createdAt } = row.original;
+				return renderTextCell(
+					createdAt ? new Date(createdAt).toLocaleDateString(lang || DEFAULT_LANGUAGE) : '-'
+				);
 			}
 		},
 		{

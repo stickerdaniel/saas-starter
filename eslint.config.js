@@ -213,6 +213,13 @@ export default defineConfig(
 							name: '$env/dynamic/public',
 							message:
 								'Use $env/static/public instead. All PUBLIC_* vars are known at build time in this project.'
+						},
+						{
+							name: 'svelte',
+							importNames: ['createRawSnippet'],
+							allowTypeImports: true,
+							message:
+								'createRawSnippet renders an unescaped HTML string. Render table text with renderTextCell from $lib/components/ui/data-table/index.js, or render a component.'
 						}
 					]
 				}
