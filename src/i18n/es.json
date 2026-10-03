@@ -482,6 +482,23 @@
 			"title": "Verificación de correo electrónico",
 			"verified_description": "Tu correo ha sido verificado. Iniciando sesión...",
 			"verified_title": "Correo verificado"
+		},
+		"passkey_nudge": {
+			"title": "Inicia sesión más fácilmente la próxima vez",
+			"inline_title": "Inicia sesión directamente la próxima vez",
+			"description": "Crea una clave de acceso para iniciar sesión con tu huella, tu rostro o el bloqueo de pantalla.",
+			"password_backup": "Tu contraseña seguirá funcionando.",
+			"provider_backup": "Puedes seguir iniciando sesión con {provider}.",
+			"create": "Crear una clave de acceso",
+			"not_now": "Ahora no",
+			"working": "Espera un momento…",
+			"continue": "Continuar",
+			"about_description": "Tus datos biométricos permanecen en tu dispositivo.",
+			"manage_before": "Puedes gestionar tus claves de acceso en",
+			"manage_link": "Configuración",
+			"manage_after": ".",
+			"failed": "No hemos podido completar la configuración de tu clave de acceso. Inténtalo de nuevo o elige «Ahora no».",
+			"loading": "Preparándolo todo…"
 		}
 	},
 	"backend": {
