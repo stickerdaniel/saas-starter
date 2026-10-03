@@ -3,6 +3,7 @@ import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table
 import { createRawSnippet } from 'svelte';
 import { renderComponent, renderSnippet } from '$lib/components/ui/data-table/index.js';
 import DataTableCheckbox from '$lib/components/data-table-checkbox.svelte';
+import TruncatedText from '$lib/components/truncated-text.svelte';
 import DataTableColumnHeader from '$lib/components/admin/data-table-column-header.svelte';
 import DataTableActions from './data-table-actions.svelte';
 import type { AdminUserData } from '$lib/convex/admin/types';
@@ -72,15 +73,11 @@ export function createColumns(lang: string): Array<ColumnDef<DataTableFeatures, 
 					titleKey: 'admin.users.email',
 					testId: 'admin-users-sort-email'
 				}),
-			cell: ({ row }) => {
-				const emailSnippet = createRawSnippet<[{ email: string }]>((getData) => {
-					const { email } = getData();
-					return {
-						render: () => `<div data-testid="admin-users-email-cell">${email}</div>`
-					};
-				});
-				return renderSnippet(emailSnippet, { email: row.original.email });
-			},
+			cell: ({ row }) =>
+				renderComponent(TruncatedText, {
+					text: row.original.email,
+					testId: 'admin-users-email-cell'
+				}),
 			filterFn: (row, _columnId, filterValue) => {
 				const email = row.original.email.toLowerCase();
 				const name = (row.original.name ?? '').toLowerCase();
