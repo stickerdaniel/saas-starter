@@ -6,6 +6,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as Card from '$lib/components/ui/card';
+	import * as Field from '$lib/components/ui/field';
 	import { Button } from '$lib/components/ui/button';
 	import PasskeyOffer from '$lib/components/auth/passkey-offer.svelte';
 	import { claimPasskeyNudge, type PasskeyNudgeUser } from '$lib/utils/passkey-nudge';
@@ -42,19 +43,24 @@
 />
 
 <div class="flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
-	<div class="w-full max-w-sm md:max-w-3xl">
+	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
 		<Card.Root class="overflow-hidden p-0">
 			<Card.Content class="grid p-0 md:grid-cols-2">
 				{#if user}
 					<PasskeyOffer {user} oncontinue={continueToApp} />
 				{:else}
-					<div class="flex min-h-96 flex-col items-center justify-center gap-5 p-6 md:p-8">
-						<p role="status" class="text-muted-foreground">
-							<T keyName="auth.passkey_nudge.loading" />
-						</p>
-						<Button href={resolve(data.destination)} variant="outline"
-							><T keyName="auth.passkey_nudge.continue" /></Button
-						>
+					<div class="min-h-96 p-6 md:p-8">
+						<Field.Group>
+							<p role="status" class="text-center text-balance text-muted-foreground">
+								<T keyName="auth.passkey_nudge.loading" />
+							</p>
+							<Field.Field>
+								<!-- A plain link, so it continues before hydration and without JavaScript. -->
+								<Button href={resolve(data.destination)} variant="outline" class="w-full">
+									<T keyName="auth.passkey_nudge.continue" />
+								</Button>
+							</Field.Field>
+						</Field.Group>
 					</div>
 				{/if}
 				<div class="relative hidden bg-muted md:block">
@@ -67,5 +73,8 @@
 				</div>
 			</Card.Content>
 		</Card.Root>
+		<Field.Description class="px-6 text-center text-balance">
+			<T keyName="auth.passkey_nudge.about_description" />
+		</Field.Description>
 	</div>
 </div>

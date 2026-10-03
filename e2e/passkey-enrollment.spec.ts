@@ -54,17 +54,14 @@ test('offers, registers and uses a passkey while preserving the destination', as
 		await page.screenshot({ path: testInfo.outputPath('passkey-desktop.png') });
 		await page.setViewportSize({ width: 390, height: 844 });
 		await page.screenshot({ path: testInfo.outputPath('passkey-mobile.png') });
-		await page.getByRole('button', { name: 'About passkeys' }).click();
-		await expect(
-			page.getByText('Your biometric information stays on your device.', { exact: false })
-		).toBeVisible();
+		await page.getByLabel('Passkey name', { exact: true }).fill('E2E passkey');
 		await page.getByRole('button', { name: 'Create a passkey', exact: true }).click();
 		await expect(page.getByRole('heading', { name: 'Your passkey is ready' })).toBeVisible();
 		const registered = await (
 			await page.request.get('/api/auth/passkey/list-user-passkeys')
 		).json();
 		expect(registered).toHaveLength(1);
-		expect(registered[0].name).toContain('Daniel');
+		expect(registered[0].name).toBe('E2E passkey');
 		expect(
 			await page.evaluate(() => JSON.parse(localStorage.getItem('auth:last-auth-method') ?? 'null'))
 		).toBeNull();

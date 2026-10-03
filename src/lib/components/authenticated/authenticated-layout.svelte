@@ -2,7 +2,7 @@
 	import { browser } from '$app/environment';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import AuthenticatedSidebar from './authenticated-sidebar.svelte';
-	import InlinePasskeyNudge from '$lib/components/auth/inline-passkey-nudge.svelte';
+	import SidebarPasskeyNudge from '$lib/components/auth/sidebar-passkey-nudge.svelte';
 	import AuthenticatedHeader from './authenticated-header.svelte';
 	import AuthConnectionFallback from './auth-connection-fallback.svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
@@ -71,7 +71,11 @@
 			{threadSubItems}
 			{threadsHasMore}
 			{onLoadMoreThreads}
-		/>
+		>
+			{#snippet footerStart()}
+				{#if routePrefix === 'app'}<SidebarPasskeyNudge />{/if}
+			{/snippet}
+		</AuthenticatedSidebar>
 		<!-- Chat pages drop the inset's white so the sidebar tone carries the whole
 		     surface, header included. The composer pill is bg-popover (white), which
 		     on bg-background had no edge at all in light mode; against the sidebar
@@ -83,8 +87,6 @@
 			class={fullControl ? 'flex flex-col overflow-hidden' : ''}
 		>
 			<AuthenticatedHeader {routePrefix} {rootLabel} />
-
-			{#if routePrefix === 'app'}<InlinePasskeyNudge />{/if}
 
 			{#if fullControl}
 				<!-- Full control: page manages scroll, no padding -->

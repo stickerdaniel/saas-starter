@@ -493,7 +493,6 @@
 			"not_now": "Nicht jetzt",
 			"working": "Bitte warten…",
 			"continue": "Weiter",
-			"about": "Über Passkeys",
 			"about_description": "Wähle ein Gerät oder einen Passwortmanager, dem du vertraust. Deine biometrischen Daten bleiben auf deinem Gerät. Du kannst deine Passkeys in den Einstellungen verwalten.",
 			"failed": "Die Einrichtung konnte nicht abgeschlossen werden. Versuche es erneut oder wähle „Nicht jetzt“.",
 			"success_title": "Dein Passkey ist bereit",

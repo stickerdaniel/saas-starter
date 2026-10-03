@@ -493,7 +493,6 @@
 			"not_now": "Ahora no",
 			"working": "Espera un momento…",
 			"continue": "Continuar",
-			"about": "Acerca de las claves de acceso",
 			"about_description": "Elige un dispositivo o un gestor de contraseñas de confianza. Tus datos biométricos permanecen en tu dispositivo. Puedes gestionar tus claves de acceso en Configuración.",
 			"failed": "No hemos podido completar la configuración de tu clave de acceso. Inténtalo de nuevo o elige «Ahora no».",
 			"success_title": "Tu clave de acceso está lista",
