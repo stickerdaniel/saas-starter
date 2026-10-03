@@ -482,6 +482,23 @@
 			"title": "Vérification de l'e-mail",
 			"verified_description": "Ton e-mail a été vérifié. Connexion en cours...",
 			"verified_title": "E-mail vérifié"
+		},
+		"passkey_nudge": {
+			"title": "Connectez-vous plus facilement la prochaine fois",
+			"inline_title": "Connectez-vous directement la prochaine fois",
+			"description": "Créez une clé d’accès pour vous connecter avec votre empreinte, votre visage ou le verrouillage de votre écran.",
+			"password_backup": "Votre mot de passe fonctionnera toujours.",
+			"provider_backup": "Vous pouvez toujours vous connecter avec {provider}.",
+			"create": "Créer une clé d’accès",
+			"not_now": "Pas maintenant",
+			"working": "Veuillez patienter…",
+			"continue": "Continuer",
+			"about": "À propos des clés d’accès",
+			"about_description": "Choisissez un appareil ou un gestionnaire de mots de passe de confiance. Vos données biométriques restent sur votre appareil. Vous pouvez gérer vos clés d’accès dans les paramètres.",
+			"failed": "Nous n’avons pas pu terminer la configuration de votre clé d’accès. Réessayez ou choisissez « Pas maintenant ».",
+			"success_title": "Votre clé d’accès est prête",
+			"success_description": "La prochaine fois, choisissez « Se connecter avec une clé d’accès ». Vous pouvez la renommer ou la supprimer dans les paramètres.",
+			"loading": "Préparation en cours…"
 		}
 	},
 	"backend": {

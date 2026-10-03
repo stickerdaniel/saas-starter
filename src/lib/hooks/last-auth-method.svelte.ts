@@ -32,6 +32,7 @@ export function commitOAuthSuccessIfPending() {
 		lastSuccessfulAuthMethod.current = provider;
 	}
 	pendingOAuthProvider.current = null;
+	return provider === 'google' || provider === 'github' ? provider : undefined;
 }
 
 export function setLastSuccessfulAuthMethod(method: LastAuthMethod) {

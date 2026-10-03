@@ -8,6 +8,10 @@ import { aiUsageFeatureValidator } from './aiUsage/feature';
 
 export default defineSchema({
 	// Note: Better Auth component manages its own tables (users, sessions, accounts, verifications)
+	passkeyNudgeDismissals: defineTable({
+		userId: v.string(),
+		deferredUntil: v.number()
+	}).index('by_userId', ['userId']),
 
 	// Demo messages table (used in dashboard for billing demo)
 	// Note: Better Auth uses 'user' table (singular), managed by the component

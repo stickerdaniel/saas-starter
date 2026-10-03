@@ -276,7 +276,11 @@ describe('sign-in page destination', () => {
 
 		const { callbackURL } = emailRequest();
 		expect(carried(callbackURL)).toEqual({ page: '/de/signin', destination: DESTINATION });
-		await vi.waitFor(() => expect(navigations).toEqual([DESTINATION]));
+		await vi.waitFor(() =>
+			expect(navigations.map(carried)).toEqual([
+				{ page: '/de/passkey-setup', destination: DESTINATION }
+			])
+		);
 	});
 
 	it('keeps the visitor on the form when the password is rejected', async () => {
@@ -334,7 +338,11 @@ describe('sign-in page destination', () => {
 		const { callbackURL } = emailRequest();
 		expect(carried(callbackURL).destination).toBe(DESTINATION);
 		expect(link(en.auth.signin.link_signup).searchParams.get('redirectTo')).toBe(DESTINATION);
-		await vi.waitFor(() => expect(navigations).toEqual([DESTINATION]));
+		await vi.waitFor(() =>
+			expect(navigations.map(carried)).toEqual([
+				{ page: '/de/passkey-setup', destination: DESTINATION }
+			])
+		);
 	});
 
 	it('follows the address bar when its destination changes after mounting', async () => {
@@ -348,7 +356,11 @@ describe('sign-in page destination', () => {
 		}
 		await submitPassword();
 		expect(carried(emailRequest().callbackURL).destination).toBe(DESTINATION);
-		await vi.waitFor(() => expect(navigations).toEqual([DESTINATION]));
+		await vi.waitFor(() =>
+			expect(navigations.map(carried)).toEqual([
+				{ page: '/de/passkey-setup', destination: DESTINATION }
+			])
+		);
 	});
 
 	it('sends an off-site destination nowhere, not even into the OAuth failure URL', async () => {
@@ -367,7 +379,11 @@ describe('sign-in page destination', () => {
 			page: '/de/signin',
 			destination: '/de/app'
 		});
-		await vi.waitFor(() => expect(navigations).toEqual(['/de/app']));
+		await vi.waitFor(() =>
+			expect(navigations.map(carried)).toEqual([
+				{ page: '/de/passkey-setup', destination: '/de/app' }
+			])
+		);
 	});
 
 	/**
@@ -386,7 +402,11 @@ describe('sign-in page destination', () => {
 		expect(carried(errorCallbackURL)).toEqual({ page: '/de/signin', destination: '/favicon.ico' });
 
 		await submitPassword();
-		await vi.waitFor(() => expect(navigations).toEqual(['/de/app']));
+		await vi.waitFor(() =>
+			expect(navigations.map(carried)).toEqual([
+				{ page: '/de/passkey-setup', destination: '/de/app' }
+			])
+		);
 	});
 });
 

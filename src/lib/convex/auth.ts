@@ -211,6 +211,11 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			 * - Decrements materialized dashboard counters
 			 */
 			onDelete: async (ctx, user) => {
+				const passkeyDismissal = await ctx.db
+					.query('passkeyNudgeDismissals')
+					.withIndex('by_userId', (q) => q.eq('userId', user._id))
+					.unique();
+				if (passkeyDismissal) await ctx.db.delete('passkeyNudgeDismissals', passkeyDismissal._id);
 				await incrementCounter(ctx, 'totalUsers', -1);
 				if (user.role === 'admin') {
 					await incrementCounter(ctx, 'adminCount', -1);
