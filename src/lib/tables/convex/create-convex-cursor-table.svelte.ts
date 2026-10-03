@@ -4,6 +4,7 @@ import { useConvexClient, useQuery } from 'convex-svelte';
 import { untrack } from 'svelte';
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server';
 import type { GenericSchema } from 'valibot';
+import { convexToJson, jsonToConvex } from 'convex/values';
 import type { CursorListResult, TableSortBy, TableUrlState } from './contract';
 import {
 	parseCursorParam,
@@ -383,7 +384,15 @@ export function createConvexCursorTable<
 	const listQuery = useQuery(options.listQuery, () =>
 		options.buildListArgs(getListContext(currentCursor, pageIndex))
 	);
-	const countQuery = useQuery(options.countQuery, () => options.buildCountArgs(getCountContext()));
+	// URL navigation can invalidate the context without changing the count arguments.
+	// Keep that subscription alive: re-subscribing can lose an unchanged numeric result.
+	const countArgsKey = $derived(
+		JSON.stringify(convexToJson(options.buildCountArgs(getCountContext())))
+	);
+	const countQuery = useQuery(
+		options.countQuery,
+		() => jsonToConvex(JSON.parse(countArgsKey)) as FunctionArgs<TCountQuery>
+	);
 
 	const currentPageData = $derived.by(() => {
 		const cached = pageCache[pageIndex];
