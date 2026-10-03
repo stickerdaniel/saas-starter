@@ -56,7 +56,8 @@ test('offers, registers and uses a passkey while preserving the destination', as
 		await page.screenshot({ path: testInfo.outputPath('passkey-mobile.png') });
 		await page.getByLabel('Passkey name', { exact: true }).fill('E2E passkey');
 		await page.getByRole('button', { name: 'Create a passkey', exact: true }).click();
-		await expect(page.getByRole('heading', { name: 'Your passkey is ready' })).toBeVisible();
+		await expect(page).toHaveURL(destination);
+		await expect(page.getByText('Passkey added successfully', { exact: true })).toBeVisible();
 		const registered = await (
 			await page.request.get('/api/auth/passkey/list-user-passkeys')
 		).json();
@@ -66,9 +67,7 @@ test('offers, registers and uses a passkey while preserving the destination', as
 			await page.evaluate(() => JSON.parse(localStorage.getItem('auth:last-auth-method') ?? 'null'))
 		).toBeNull();
 		await page.screenshot({ path: testInfo.outputPath('passkey-success.png') });
-		await page.getByRole('button', { name: 'Continue', exact: true }).click();
 		await page.setViewportSize({ width: 1440, height: 900 });
-		await expect(page).toHaveURL(destination);
 
 		await page.request.post('/api/auth/sign-out', { headers: { Origin: resolveSiteUrl() } });
 		await page.context().clearCookies();

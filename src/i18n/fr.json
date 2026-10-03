@@ -498,8 +498,6 @@
 			"manage_link": "paramètres",
 			"manage_after": ".",
 			"failed": "Nous n’avons pas pu terminer la configuration de ta clé d’accès. Réessaie ou choisis « Pas maintenant ».",
-			"success_title": "Ta clé d’accès est prête",
-			"success_description": "La prochaine fois, choisis « Se connecter avec une clé d’accès ». Tu peux la renommer ou la supprimer dans les paramètres.",
 			"loading": "Préparation en cours…"
 		}
 	},

@@ -498,8 +498,6 @@
 			"manage_link": "Einstellungen",
 			"manage_after": ".",
 			"failed": "Die Einrichtung konnte nicht abgeschlossen werden. Versuche es erneut oder wähle „Nicht jetzt“.",
-			"success_title": "Dein Passkey ist bereit",
-			"success_description": "Wähle beim nächsten Mal „Mit Passkey anmelden“. Du kannst den Passkey in den Einstellungen umbenennen oder entfernen.",
 			"loading": "Alles wird vorbereitet…"
 		}
 	},

@@ -2,6 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { useConvexClient } from 'convex-svelte';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
@@ -24,6 +25,10 @@
 	});
 	function continueToApp() {
 		window.location.replace(data.destination);
+	}
+	// A client-side move keeps the root toaster mounted, so the confirmation stays visible.
+	function finishEnrollment() {
+		void goto(resolve(data.destination), { replaceState: true });
 	}
 
 	$effect(() => {
@@ -48,7 +53,7 @@
 		<Card.Root class="overflow-hidden p-0">
 			<Card.Content class="grid p-0 md:grid-cols-2">
 				{#if user}
-					<PasskeyOffer {user} oncontinue={continueToApp} />
+					<PasskeyOffer {user} oncontinue={continueToApp} oncreated={finishEnrollment} />
 				{:else}
 					<div class="flex min-h-96 flex-col justify-center p-6 md:p-8">
 						<Field.Group>

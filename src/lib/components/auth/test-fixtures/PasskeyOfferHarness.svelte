@@ -4,7 +4,11 @@
 	import en from '../../../../i18n/en.json';
 	import PasskeyOffer from '../passkey-offer.svelte';
 	import SidebarOfferShell from './SidebarOfferShell.svelte';
-	let { oncontinue, sidebar = false }: { oncontinue: () => void; sidebar?: boolean } = $props();
+	let {
+		oncontinue,
+		oncreated = () => {},
+		sidebar = false
+	}: { oncontinue: () => void; oncreated?: () => void; sidebar?: boolean } = $props();
 	const tolgee = Tolgee().use(FormatIcu()).init({ language: 'en', staticData: { en } });
 	let open = $state(true);
 	function close() {
@@ -25,6 +29,7 @@
 				email: 'daniel@example.com'
 			}}
 			oncontinue={close}
+			{oncreated}
 		/>
 	{/if}
 </TolgeeProvider>

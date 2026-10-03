@@ -498,8 +498,6 @@
 			"manage_link": "Settings",
 			"manage_after": ".",
 			"failed": "We couldn’t finish setting up your passkey. Try again or choose “Not now.”",
-			"success_title": "Your passkey is ready",
-			"success_description": "Next time, choose “Sign in with Passkey.” You can rename or remove it in Settings.",
 			"loading": "Getting things ready…"
 		}
 	},

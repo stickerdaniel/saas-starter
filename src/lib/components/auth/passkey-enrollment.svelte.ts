@@ -63,12 +63,16 @@ export class PasskeyEnrollment {
 		this.#editedName = value;
 	}
 
-	/** Resolves true only once the server has stored the new passkey. */
+	/**
+	 * Resolves true only once the server has stored the new passkey, and confirms it with a
+	 * toast. The form stays busy after success while its owner moves on.
+	 */
 	async create(): Promise<boolean> {
 		const user = this.#user();
 		if (this.busy || !user) return false;
 		this.busy = true;
 		this.error = '';
+		let created = false;
 		try {
 			const session = await authClient.getSession({
 				fetchOptions: { signal: AbortSignal.timeout(5000) }
@@ -84,12 +88,15 @@ export class PasskeyEnrollment {
 				this.error = 'auth.passkey_nudge.failed';
 				return false;
 			}
+			created = true;
+			haptic.trigger('medium');
+			toast.success(this.#t.current('auth.messages.passkey_added'));
 			return true;
 		} catch {
 			this.error = 'auth.passkey_nudge.failed';
 			return false;
 		} finally {
-			this.busy = false;
+			if (!created) this.busy = false;
 		}
 	}
 
@@ -111,7 +118,6 @@ export class PasskeyEnrollment {
  */
 export class PasskeyNudgeClaim {
 	#auth = useAuth();
-	#t = fromStore(getTranslate().t);
 	#offer = $state<{ user: PasskeyNudgeUser; provider: PendingOAuthProvider } | null>(null);
 	readonly enrollment = new PasskeyEnrollment(
 		() => this.offer?.user ?? null,
@@ -140,10 +146,7 @@ export class PasskeyNudgeClaim {
 	}
 
 	async create() {
-		if (!(await this.enrollment.create())) return;
-		haptic.trigger('medium');
-		toast.success(this.#t.current('auth.messages.passkey_added'));
-		this.dismiss();
+		if (await this.enrollment.create()) this.dismiss();
 	}
 
 	dismiss() {
