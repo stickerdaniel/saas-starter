@@ -593,3 +593,100 @@ describe('sendMessage routing between the agent and the team', () => {
 		);
 	});
 });
+
+describe('sendMessage per-message route', () => {
+	const requireAccessMock = requireSupportThreadAccess as unknown as ReturnType<typeof vi.fn>;
+	const saveMessageMock = supportAgent.saveMessage as unknown as ReturnType<typeof vi.fn>;
+
+	const sendHandler = sendMessage as unknown as Fn<
+		{ threadId: string; prompt: string; fileIds?: string[]; pageUrl?: string },
+		{ messageId: string }
+	>;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		requireAccessMock.mockResolvedValue({
+			owner: { ownerId: 'user_1', isAnonymous: false },
+			supportThread: {
+				_id: 'st_1',
+				status: 'open',
+				isWarm: false,
+				isHandedOff: true,
+				pageUrl: '/en/app'
+			}
+		});
+		let saves = 0;
+		saveMessageMock.mockImplementation(async () => ({ messageId: `message_${++saves}` }));
+		(getFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+			filePart: { type: 'file', data: new URL('https://files/f1'), mediaType: 'image/png' }
+		});
+	});
+
+	function makeCtx() {
+		return {
+			db: { patch: vi.fn(), insert: vi.fn() },
+			runQuery: vi.fn().mockResolvedValue([]),
+			runMutation: vi.fn().mockResolvedValue(null),
+			scheduler: { runAfter: vi.fn() }
+		};
+	}
+
+	// The thread holds one pageUrl and warm-thread reuse overwrites it, so
+	// without a row per message nothing says which page a later report was
+	// written from.
+	it('records the normalized pathname of each message against its id', async () => {
+		const ctx = makeCtx();
+
+		await sendHandler._handler(ctx, {
+			threadId: 't1',
+			prompt: 'The chart is empty',
+			pageUrl: 'https://example.com/de/app?panel=details#message'
+		});
+		await sendHandler._handler(ctx, {
+			threadId: 't1',
+			prompt: 'Here too',
+			fileIds: ['file_1'],
+			pageUrl: '/fr/app/settings?tab=billing'
+		});
+
+		expect(ctx.db.insert.mock.calls).toEqual([
+			[
+				'supportMessageContexts',
+				expect.objectContaining({ threadId: 't1', messageId: 'message_1', pageUrl: '/de/app' })
+			],
+			[
+				'supportMessageContexts',
+				expect.objectContaining({
+					threadId: 't1',
+					messageId: 'message_2',
+					pageUrl: '/fr/app/settings'
+				})
+			]
+		]);
+	});
+
+	it.each([
+		['non-HTTP scheme', 'javascript:alert(1)'],
+		['protocol-relative destination', '//evil.example/phish'],
+		['oversized UTF-8 value', `/de/${'ü'.repeat(2048)}`]
+	])('keeps the message when the %s route is invalid', async (_label, pageUrl) => {
+		const ctx = makeCtx();
+
+		await expect(
+			sendHandler._handler(ctx, { threadId: 't1', prompt: 'The chart is empty', pageUrl })
+		).resolves.toEqual({ messageId: 'message_1' });
+
+		expect(saveMessageMock).toHaveBeenCalledTimes(1);
+		expect(ctx.db.insert).not.toHaveBeenCalled();
+	});
+
+	// The argument stays optional so a client from before this existed remains
+	// valid, and one that sends nothing must not leave a row claiming a route.
+	it('writes no row when the client sends no route', async () => {
+		const ctx = makeCtx();
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'The chart is empty' });
+
+		expect(ctx.db.insert).not.toHaveBeenCalled();
+	});
+});

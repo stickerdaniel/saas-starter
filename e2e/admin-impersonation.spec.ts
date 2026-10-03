@@ -114,11 +114,15 @@ test.describe('Admin Impersonation', () => {
 		await expect(page.getByTestId('admin-users-search')).toBeVisible({ timeout: 30000 });
 
 		await page.getByTestId('admin-users-search').fill(targetEmail);
+		await expect.poll(() => new URL(page.url()).searchParams.get('search')).toBe(targetEmail);
 		await expect(
 			page.getByTestId('admin-users-email-cell').filter({ hasText: targetEmail })
 		).toHaveCount(1, { timeout: 10000 });
 		await expect(page.getByTestId('admin-users-row-actions')).toHaveCount(1);
 
+		// The page the investigation began on, search included, is where stopping
+		// returns to.
+		const origin = page.url();
 		await page.getByTestId('admin-users-row-actions').click();
 		await page.getByTestId('admin-users-action-impersonate').click();
 
@@ -127,9 +131,12 @@ test.describe('Admin Impersonation', () => {
 		await page.waitForURL(/\/en\/app/, { timeout: 30000 });
 		await waitForAuthenticated(page);
 
-		// The impersonation banner is visible and the user menu now shows the
-		// impersonated user, proving the app runs under the swapped session.
-		await expect(page.getByTestId('impersonation-banner')).toBeVisible({ timeout: 15000 });
+		// The investigation bar names the user and the user menu shows them,
+		// proving the app runs under the swapped session.
+		const bar = page.getByTestId('investigation-bar');
+		await expect(bar).toBeVisible({ timeout: 15000 });
+		await expect(bar.getByTestId('investigation-bar-viewing')).toContainText(targetEmail);
+		await expect(bar.getByTestId('investigation-bar-back')).toContainText('Back to Users');
 		await expect(page.locator('#user-menu-trigger')).toContainText(targetEmail);
 
 		// Log out is hidden while impersonating: signing out would end the
@@ -163,21 +170,24 @@ test.describe('Admin Impersonation', () => {
 			timeout: 15000
 		});
 		await expect(page.getByTestId('marketing-nav-logout')).toHaveCount(0);
+		await expect(page.getByTestId('investigation-bar')).toBeVisible();
 		await page.unroute('**/api/auth/get-session**');
 
 		// Stop impersonating from the user menu. This restores the admin session and
-		// navigates back to the users table.
+		// navigates back to the users table as it was, search included.
 		await page.goto('/en/app/community-chat');
 		await page.waitForLoadState('domcontentloaded');
 		await waitForAuthenticated(page);
-		await expect(page.getByTestId('impersonation-banner')).toBeVisible({ timeout: 15000 });
+		await expect(page.getByTestId('investigation-bar')).toBeVisible({ timeout: 15000 });
 		await page.locator('#user-menu-trigger').click();
 		await page.getByTestId('app-user-menu-stop-impersonating').click();
 
-		await page.waitForURL(/\/en\/admin\/users/, { timeout: 30000 });
+		await page.waitForURL(origin, { timeout: 30000 });
 		await page.waitForLoadState('domcontentloaded');
 		await expect(page.getByTestId('admin-users-page')).toBeVisible();
-		await expect.poll(async () => page.getByTestId('impersonation-banner').count()).toBe(0);
+		await expect(page.getByTestId('admin-users-search')).toHaveValue(targetEmail);
+		await expect.poll(async () => page.getByTestId('investigation-bar').count()).toBe(0);
+		expect(page.url()).toBe(origin);
 
 		// The audit log records the stop with the elapsed duration. Search narrows the
 		// log to our target, the action filter isolates the stop_impersonation entry.

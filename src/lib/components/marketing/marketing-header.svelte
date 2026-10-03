@@ -15,7 +15,7 @@
 	import UserXIcon from '@lucide/svelte/icons/user-x';
 	import Logo from '$lib/components/icons/logo.svelte';
 	import { authClient } from '$lib/auth-client';
-	import { ImpersonationState } from '$lib/hooks/use-impersonation.svelte.ts';
+	import { impersonationContext } from '$lib/hooks/use-impersonation.svelte.ts';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
@@ -37,7 +37,7 @@
 	// The app shell links here from the sidebar logo, so an impersonating admin can
 	// reach this header. Signing out from here would end the impersonated session
 	// and strand the admin, so the control becomes Stop Impersonating instead.
-	const impersonation = new ImpersonationState();
+	const impersonation = impersonationContext.get();
 
 	// Capture once at mount. The server can see the HttpOnly Better Auth session
 	// cookie even when the short-lived Convex JWT needs client-side recovery.
@@ -117,7 +117,7 @@
 <svelte:window bind:scrollY />
 
 <header>
-	<nav class="fixed z-40 w-full pt-4">
+	<nav class="fixed top-(--top-notices-height,0px) z-40 w-full pt-4">
 		<div class="mx-auto max-w-6xl px-6 lg:px-12">
 			<div
 				class="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between rounded-2xl border marketing-shell-panel px-6 py-4 transition-[height,transform,background-color,border-color] duration-300 lg:-mx-8 lg:w-[calc(100%+4rem)] lg:px-8"
@@ -183,7 +183,7 @@
 										<Button
 											variant="outline-warning"
 											size="icon-sm"
-											onclick={() => impersonation.stop($t, activeUploads)}
+											onclick={() => impersonation.stop($t)}
 											aria-label={$t('app.user_menu.stop_impersonating')}
 											data-testid="marketing-nav-stop-impersonating"
 										>
@@ -260,7 +260,7 @@
 	{#if menuState}
 		<div
 			id="marketing-mobile-menu"
-			class="fixed top-24 right-4 left-4 z-30 rounded-2xl border border-white/[0.06] bg-background/95 p-6 backdrop-blur-xl lg:hidden"
+			class="fixed top-(--top-notices-height,0px) right-4 left-4 z-30 mt-24 rounded-2xl border border-white/[0.06] bg-background/95 p-6 backdrop-blur-xl lg:hidden"
 		>
 			<ul class="space-y-1 text-base">
 				{#each menuItems as item (item.translationKey)}

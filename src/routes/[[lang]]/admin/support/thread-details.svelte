@@ -11,6 +11,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+	import UserRoundCheckIcon from '@lucide/svelte/icons/user-round-check';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -19,6 +22,8 @@
 	import { page } from '$app/state';
 	import { getDateFnsLocale } from '$lib/utils/i18n';
 	import { normalizeSupportPageRoute } from '$lib/shared/support-page-route';
+	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { canImpersonateUser, impersonateUser } from '../impersonate-user';
 
 	const { t } = getTranslate();
 
@@ -29,12 +34,19 @@
 	}
 
 	let {
-		threadId
+		threadId,
+		canImpersonate = false,
+		viewerId
 	}: {
 		threadId: string;
+		/** Whether the signed-in admin's role may impersonate users. */
+		canImpersonate?: boolean;
+		/** The signed-in admin, who has no one to impersonate in their own ticket. */
+		viewerId?: string;
 	} = $props();
 
 	const client = useConvexClient();
+	const activeUploads = activeUploadsContext.getOr(null);
 
 	// Query thread details
 	const threadQuery = useQuery(api.admin.support.queries.getThreadForAdmin, () => ({
@@ -47,6 +59,25 @@
 	// Rows stored before routes were normalized can still hold any client-supplied
 	// string, so the link only ever carries a same-origin pathname.
 	const pageRoute = $derived(normalizeSupportPageRoute(thread?.supportMetadata?.pageUrl));
+
+	// The id comes from the account lookup, not the ticket's owner field, so a
+	// ticket whose owner no longer resolves to an account keeps the plain link.
+	const targetUserId = $derived(thread?.user?.id);
+	const canImpersonateTarget = $derived(
+		canImpersonate && canImpersonateUser(targetUserId, viewerId)
+	);
+	let impersonating = $state(false);
+
+	async function openPageAsCustomer(route: string) {
+		if (!targetUserId || impersonating) return;
+		haptic.trigger('light');
+		impersonating = true;
+		const outcome = await impersonateUser(targetUserId, activeUploads, route);
+		if (!outcome.started) {
+			toast.error($t('admin.users.toast.impersonate_failed', { message: $t(outcome.messageKey) }));
+			impersonating = false;
+		}
+	}
 
 	// Query admin users for assignment
 	const adminsQuery = useQuery(api.admin.support.queries.listAdmins);
@@ -254,17 +285,42 @@
 					{#if pageRoute}
 						<Field.Field>
 							<Field.Label><T keyName="admin.support.details.page_url" /></Field.Label>
-							<!-- eslint-disable svelte/no-navigation-without-resolve -->
-							<a
-								href={pageRoute}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="flex items-center gap-2 text-sm text-primary hover:underline active:translate-y-px"
-							>
-								<span class="truncate">{pageRoute}</span>
-								<ExternalLinkIcon class="size-3 shrink-0" />
-							</a>
-							<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							{#if canImpersonateTarget}
+								<Tooltip.Root>
+									<Tooltip.Trigger>
+										{#snippet child({ props })}
+											<button
+												{...props}
+												type="button"
+												onclick={() => openPageAsCustomer(pageRoute)}
+												disabled={impersonating}
+												class="flex min-w-0 items-center gap-2 text-left text-sm text-primary hover:underline active:translate-y-px disabled:pointer-events-none disabled:opacity-50"
+											>
+												<span class="truncate">{pageRoute}</span>
+												<span class="sr-only">{$t('admin.support.chat.open_as_customer')}</span>
+												{#if impersonating}
+													<LoaderCircleIcon class="size-3 shrink-0 motion-safe:animate-spin" />
+												{:else}
+													<UserRoundCheckIcon class="size-3 shrink-0" />
+												{/if}
+											</button>
+										{/snippet}
+									</Tooltip.Trigger>
+									<Tooltip.Content>{$t('admin.support.chat.open_as_customer')}</Tooltip.Content>
+								</Tooltip.Root>
+							{:else}
+								<!-- eslint-disable svelte/no-navigation-without-resolve -->
+								<a
+									href={pageRoute}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="flex items-center gap-2 text-sm text-primary hover:underline active:translate-y-px"
+								>
+									<span class="truncate">{pageRoute}</span>
+									<ExternalLinkIcon class="size-3 shrink-0" />
+								</a>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							{/if}
 						</Field.Field>
 					{/if}
 

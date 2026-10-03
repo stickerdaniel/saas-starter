@@ -307,7 +307,7 @@
 
 <!-- Feedback widget container -->
 <div
-	class="fixed right-0 bottom-0 z-1 flex h-svh w-full origin-bottom flex-col overflow-hidden bg-secondary shadow-xl ease-out motion-safe:animate-in motion-safe:duration-200 motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-bottom-4 md:relative md:h-175 md:max-h-[calc(100svh-3rem-0.75rem-1.25rem-1.25rem)] md:w-102.5 md:origin-bottom-right md:rounded-3xl"
+	class="fixed right-0 bottom-0 z-1 flex h-svh-below-notices w-full origin-bottom flex-col overflow-hidden bg-secondary shadow-xl ease-out motion-safe:animate-in motion-safe:duration-200 motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-bottom-4 md:relative md:h-175 md:max-h-[calc(100svh-3rem-0.75rem-1.25rem-1.25rem)] md:w-102.5 md:origin-bottom-right md:rounded-3xl"
 >
 	<!-- Animated header with sliding icon and title -->
 	<SlidingHeader

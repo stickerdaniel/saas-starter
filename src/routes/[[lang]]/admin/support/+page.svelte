@@ -188,7 +188,13 @@
 			<Pane defaultSize={50} minSize={30}>
 				{#if threadId}
 					{#key threadId}
-						<ThreadChat {threadId} initialThread={selectedThread} {canImpersonate} {draftManager} />
+						<ThreadChat
+							{threadId}
+							initialThread={selectedThread}
+							{canImpersonate}
+							viewerId={adminUserId}
+							{draftManager}
+						/>
 					{/key}
 				{:else}
 					<div
@@ -205,7 +211,7 @@
 
 			<Pane defaultSize={25} minSize={15} maxSize={40}>
 				{#if threadId}
-					<ThreadDetails {threadId} />
+					<ThreadDetails {threadId} {canImpersonate} viewerId={adminUserId} />
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -245,7 +251,13 @@
 			<Pane defaultSize={70} minSize={50}>
 				{#if threadId}
 					{#key threadId}
-						<ThreadChat {threadId} initialThread={selectedThread} {canImpersonate} {draftManager} />
+						<ThreadChat
+							{threadId}
+							initialThread={selectedThread}
+							{canImpersonate}
+							viewerId={adminUserId}
+							{draftManager}
+						/>
 					{/key}
 				{:else}
 					<div
@@ -286,6 +298,7 @@
 							{threadId}
 							initialThread={selectedThread}
 							{canImpersonate}
+							viewerId={adminUserId}
 							onBackClick={clearThread}
 							{draftManager}
 						/>
@@ -299,7 +312,7 @@
 	{#if threadId && media.sm && !media.xl}
 		<Sheet.Root bind:open={adminSupportUI.detailsOpen}>
 			<Sheet.Content side="right" class="w-80 p-0">
-				<ThreadDetails {threadId} />
+				<ThreadDetails {threadId} {canImpersonate} viewerId={adminUserId} />
 			</Sheet.Content>
 		</Sheet.Root>
 	{/if}
@@ -308,7 +321,7 @@
 	{#if threadId && !media.sm}
 		<Drawer.Root bind:open={adminSupportUI.detailsOpen} direction="bottom">
 			<Drawer.Content class="h-[85svh] p-0">
-				<ThreadDetails {threadId} />
+				<ThreadDetails {threadId} {canImpersonate} viewerId={adminUserId} />
 			</Drawer.Content>
 		</Drawer.Root>
 	{/if}

@@ -479,14 +479,16 @@ export const createUnreadAnonymousSupportReply = mutation({
 	args: {
 		secret: v.string(),
 		anonymousUserId: v.string(),
-		newerThreadCount: v.optional(v.number())
+		newerThreadCount: v.optional(v.number()),
+		/** The route the customer's message was sent from, past the thread's own `/`. */
+		messageRoute: v.optional(v.string())
 	},
 	returns: v.object({
 		threadId: v.string(),
 		threadIds: v.array(v.string()),
 		reply: v.string()
 	}),
-	handler: async (ctx, { secret, anonymousUserId, newerThreadCount = 0 }) => {
+	handler: async (ctx, { secret, anonymousUserId, newerThreadCount = 0, messageRoute }) => {
 		requireTestSecret(secret);
 		if (!isAnonymousUser(anonymousUserId)) throw new Error('Invalid anonymous user ID');
 		if (!Number.isInteger(newerThreadCount) || newerThreadCount < 0 || newerThreadCount > 20) {
@@ -503,11 +505,19 @@ export const createUnreadAnonymousSupportReply = mutation({
 			summary: userMessage
 		});
 
-		await supportAgent.saveMessage(ctx, {
+		const request = await supportAgent.saveMessage(ctx, {
 			threadId,
 			prompt: userMessage,
 			skipEmbeddings: true
 		});
+		if (messageRoute) {
+			await ctx.db.insert('supportMessageContexts', {
+				threadId,
+				messageId: request.messageId,
+				pageUrl: messageRoute,
+				createdAt: replyTimestamp
+			});
+		}
 		const adminReply = await supportAgent.saveMessage(ctx, {
 			threadId,
 			message: { role: 'assistant', content: reply },
@@ -671,6 +681,8 @@ export const getPasswordResetToken = mutation({
 	}
 });
 
+const SUPPORT_MESSAGE_CONTEXT_DELETE_BATCH = 100;
+
 // Clean up anonymous support threads created in E2E tests
 // Note: This mutation requires AUTH_E2E_TEST_SECRET for security
 export const cleanupAnonymousSupportThreads = mutation({
@@ -690,6 +702,18 @@ export const cleanupAnonymousSupportThreads = mutation({
 		let deletedAgentThreads = 0;
 
 		for (const threadId of threadIds) {
+			// Bounded per batch; the loop ends on the first short batch.
+			while (true) {
+				const contexts = await ctx.db
+					.query('supportMessageContexts')
+					.withIndex('by_thread', (q) => q.eq('threadId', threadId))
+					.take(SUPPORT_MESSAGE_CONTEXT_DELETE_BATCH);
+				for (const context of contexts) {
+					await ctx.db.delete('supportMessageContexts', context._id);
+				}
+				if (contexts.length < SUPPORT_MESSAGE_CONTEXT_DELETE_BATCH) break;
+			}
+
 			try {
 				await supportAgent.deleteThreadAsync(ctx, { threadId, pageSize: 100 });
 				deletedAgentThreads++;

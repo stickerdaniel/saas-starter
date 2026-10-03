@@ -14,6 +14,8 @@
 	} from '$lib/analytics/preferences.svelte.ts';
 	import ClockSkewBanner from '$lib/components/clock-skew-banner.svelte';
 	import { ClockSkewState, clockSkewContext } from '$lib/hooks/clock-skew.svelte.ts';
+	import InvestigationBar from '$lib/components/authenticated/investigation-bar.svelte';
+	import { ImpersonationState, impersonationContext } from '$lib/hooks/use-impersonation.svelte.ts';
 	import {
 		ActiveUploads,
 		activeUploadsContext,
@@ -50,6 +52,35 @@
 	// still let the reload below tear the upload down.
 	const activeUploads = new ActiveUploads();
 	activeUploadsContext.set(activeUploads);
+
+	// One owner for every impersonation control, so the bar, the user menu and
+	// the marketing header cannot start two exits at once.
+	const impersonation = new ImpersonationState(activeUploads);
+	impersonationContext.set(impersonation);
+
+	/**
+	 * Publish the notices' height so full-height shells shrink by it instead of
+	 * pushing their bottom edge below the viewport.
+	 */
+	function measureTopNotices(node: HTMLElement) {
+		const root = document.documentElement;
+		let frame = 0;
+		const observer = new ResizeObserver(() => {
+			// Written on the next frame: resizing the shells from inside this callback
+			// would resize elements other observers watch in the same delivery, which
+			// the browser reports as a "ResizeObserver loop" error.
+			cancelAnimationFrame(frame);
+			frame = requestAnimationFrame(() => {
+				root.style.setProperty('--top-notices-height', `${node.getBoundingClientRect().height}px`);
+			});
+		});
+		observer.observe(node);
+		return () => {
+			cancelAnimationFrame(frame);
+			observer.disconnect();
+			root.style.removeProperty('--top-notices-height');
+		};
+	}
 
 	// After a new deploy is detected (version.json poll flips updated.current),
 	// turn the next client navigation into a full document load so fresh chunk
@@ -199,11 +230,16 @@
 			<TolgeeProvider {tolgee}>
 				<a
 					href="#main-content"
-					class="sr-only z-50 focus-visible:not-sr-only focus-visible:fixed focus-visible:top-4 focus-visible:left-4 focus-visible:rounded-md focus-visible:bg-background focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground focus-visible:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+					class="sr-only z-70 focus-visible:not-sr-only focus-visible:fixed focus-visible:top-4 focus-visible:left-4 focus-visible:rounded-md focus-visible:bg-background focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground focus-visible:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				>
 					<T keyName="a11y.skip_to_content" />
 				</a>
-				<ClockSkewBanner />
+				<!-- Above the marketing header, which is fixed at z-40; the focused skip link
+				     above sits higher still. -->
+				<div class="sticky top-0 z-60" {@attach measureTopNotices}>
+					<ClockSkewBanner />
+					<InvestigationBar />
+				</div>
 				<UploadGuardNotice />
 				<AnalyticsRoot />
 				<GlobalSearchShell />

@@ -1,9 +1,7 @@
 <script lang="ts">
-	import { duringAuthChange } from '$lib/analytics/client';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
 	import { clamp } from '$lib/utils/math';
-	import { localizedHref } from '$lib/utils/i18n';
 	import {
 		type RowSelectionState,
 		type SortingState,
@@ -22,7 +20,8 @@
 	const { t } = getTranslate();
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
-	import { authClient } from '$lib/auth-client.js';
+	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { impersonateUser } from '../impersonate-user';
 	import { toast } from 'svelte-sonner';
 	import { setUserActionHandler } from './user-actions-context';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
@@ -38,6 +37,9 @@
 	import { browser } from '$app/environment';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { getConvexErrorCode, getConvexErrorData } from '$lib/utils/convex-errors';
+
+	// Consulted right before an impersonation start leaves the document.
+	const activeUploads = activeUploadsContext.getOr(null);
 
 	let { data }: { data: PageData } = $props();
 
@@ -312,7 +314,7 @@
 	function handleUserAction(event: ActionEvent) {
 		switch (event.type) {
 			case 'impersonate':
-				impersonateUser(event.userId);
+				void startImpersonation(event.userId);
 				break;
 			case 'openRoleDialog':
 				openRoleDialog(event.user, event.role);
@@ -351,35 +353,10 @@
 		return $t(getAuthErrorKey(getConvexErrorData(error)));
 	}
 
-	async function impersonateUser(userId: string) {
-		try {
-			// Impersonation stays on the Better Auth client (it mints session
-			// cookies); its audit entries are written by session triggers.
-			const result = await duringAuthChange(
-				() => authClient.admin.impersonateUser({ userId }),
-				(result) => !result.error
-			);
-			if (result.error) {
-				const message = $t(getAuthErrorKey(result.error));
-				toast.error($t('admin.users.toast.impersonate_failed', { message }));
-				console.error('Impersonation error:', result.error);
-				return;
-			}
-
-			// Impersonation swapped the session cookie, but Better Auth's convex
-			// plugin only re-mints the SSR JWT cookie on sign-in/get-session, not on
-			// impersonate. Force a session read so the server issues a fresh convex_jwt
-			// for the impersonated identity before we navigate, otherwise SSR resolves
-			// the still-alive admin token and the app boots as the admin.
-			await authClient.getSession({ query: { disableCookieCache: true } });
-
-			// Full document navigation, not a client-side goto: the app must boot with
-			// the fresh JWT and new Convex subscriptions bound to the impersonated
-			// identity.
-			window.location.assign(localizedHref('/app'));
-		} catch (error) {
-			toast.error($t('admin.users.toast.impersonate_failed', { message: $t('common.error') }));
-			console.error('Impersonation error:', error);
+	async function startImpersonation(userId: string) {
+		const outcome = await impersonateUser(userId, activeUploads);
+		if (!outcome.started) {
+			toast.error($t('admin.users.toast.impersonate_failed', { message: $t(outcome.messageKey) }));
 		}
 	}
 

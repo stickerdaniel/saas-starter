@@ -92,6 +92,15 @@ export default defineSchema({
 			filterFields: ['status', 'assignedTo', 'isHandedOff', 'awaitingAdminResponse']
 		}),
 
+	// Where each support message was sent from. The thread's own pageUrl
+	// describes where the conversation began and cannot account for later routes.
+	supportMessageContexts: defineTable({
+		threadId: v.string(), // Reference to agent:threads, same id as supportThreads.threadId
+		messageId: v.string(), // Reference to the agent component's message document
+		pageUrl: v.string(), // Same-origin pathname, normalized before every write
+		createdAt: v.number()
+	}).index('by_thread', ['threadId']),
+
 	// Stored overrides for the support agent's system prompt. support/promptStore
 	// serves the active row at runtime (support/messages.ts) in place of the seed
 	// prompt in agent.ts (SUPPORT_AGENT_INSTRUCTIONS), which stays the fallback

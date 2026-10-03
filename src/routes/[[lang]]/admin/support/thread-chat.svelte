@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { duringAuthChange } from '$lib/analytics/client';
 	import { onDestroy } from 'svelte';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { toast } from 'svelte-sonner';
@@ -16,21 +15,22 @@
 	import { CHAT_PAGE_SIZE } from '$lib/chat/core/types';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import AvatarHeading from '$lib/components/customer-support/avatar-heading.svelte';
 	import PanelRightIcon from '@lucide/svelte/icons/panel-right';
 	import PanelBottomOpen from '@lucide/svelte/icons/panel-bottom-open';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import UserRoundCheck from '@lucide/svelte/icons/user-round-check';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
+	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { useMedia } from '$lib/hooks/use-media.svelte.ts';
 	import { SlidingHeader } from '$lib/components/ui/sliding-header';
 	import { adminSupportUIContext } from '$lib/hooks/admin-support-ui.svelte.ts';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
-	import { authClient } from '$lib/auth-client';
-	import { localizedHref } from '$lib/utils/i18n';
-	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import { canImpersonateUser, impersonateUser } from '../impersonate-user';
+	import { messageRouteToShow } from './message-routes';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import {
 		getChatSessionEpoch,
@@ -43,6 +43,7 @@
 		threadId,
 		initialThread,
 		canImpersonate = false,
+		viewerId,
 		onBackClick,
 		draftManager
 	}: {
@@ -55,6 +56,8 @@
 			lastMessageAt?: number;
 		};
 		canImpersonate?: boolean;
+		/** The signed-in admin, who has no one to impersonate in their own ticket. */
+		viewerId?: string;
 		onBackClick?: () => void;
 		draftManager?: ChatDraftManager;
 	} = $props();
@@ -144,7 +147,7 @@
 	const userImage = $derived(initialThread?.userImage || thread?.user?.image);
 	const targetUserId = $derived(initialThread?.userId || thread?.user?.id);
 	const canImpersonateTarget = $derived(
-		canImpersonate && !!targetUserId && !isAnonymousUser(targetUserId)
+		canImpersonate && canImpersonateUser(targetUserId, viewerId)
 	);
 	let impersonating = $state(false);
 
@@ -153,29 +156,23 @@
 		userEmail || thread?.supportMetadata?.notificationEmail || $t('admin.support.no_email')
 	);
 
-	async function impersonateThreadStarter() {
+	// Routes recorded per message, keyed by the persisted agent message id.
+	const messageRoutesQuery = useQuery(api.admin.support.queries.listMessageRoutesForAdmin, () => ({
+		threadId
+	}));
+	const messageRoutes = $derived(
+		new Map((messageRoutesQuery.data ?? []).map((route) => [route.messageId, route.pageUrl]))
+	);
+
+	/** Sign in as the customer, at `route` when the admin picked a page they reported from. */
+	async function impersonateThreadStarter(route?: string) {
 		if (!targetUserId || impersonating) return;
 
 		haptic.trigger('light');
 		impersonating = true;
-		try {
-			const result = await duringAuthChange(
-				() => authClient.admin.impersonateUser({ userId: targetUserId }),
-				(result) => !result.error
-			);
-			if (result.error) {
-				const message = result.error.message || 'Unknown error';
-				toast.error($t('admin.users.toast.impersonate_failed', { message }));
-				return;
-			}
-
-			await authClient.getSession({ query: { disableCookieCache: true } });
-			activeUploads?.suspendOnce();
-			window.location.assign(localizedHref('/app'));
-		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Unknown error';
-			toast.error($t('admin.users.toast.impersonate_failed', { message }));
-		} finally {
+		const outcome = await impersonateUser(targetUserId, activeUploads, route);
+		if (!outcome.started) {
+			toast.error($t('admin.users.toast.impersonate_failed', { message: $t(outcome.messageKey) }));
 			impersonating = false;
 		}
 	}
@@ -254,7 +251,7 @@
 						<Button
 							variant="ghost"
 							size="icon"
-							onclick={impersonateThreadStarter}
+							onclick={() => impersonateThreadStarter()}
 							disabled={impersonating}
 							data-testid="admin-support-impersonate"
 						>
@@ -314,7 +311,7 @@
 					<Button
 						variant="outline"
 						size="sm"
-						onclick={impersonateThreadStarter}
+						onclick={() => impersonateThreadStarter()}
 						disabled={impersonating}
 						data-testid="admin-support-impersonate"
 					>
@@ -351,7 +348,56 @@
 		api={{ listMessages: api.admin.support.queries.listMessagesForAdmin }}
 	>
 		<div class="flex-1 overflow-hidden">
-			<ChatMessages />
+			<ChatMessages>
+				{#snippet messageFooter(message)}
+					{@const route = messageRouteToShow(
+						message.id,
+						messageRoutes,
+						thread?.supportMetadata?.pageUrl
+					)}
+					{#if route && canImpersonateTarget}
+						<!-- The page belongs to the customer's account, so it only shows what
+						     they saw when opened as them. -->
+						<Tooltip.Root>
+							<Tooltip.Trigger>
+								{#snippet child({ props })}
+									<button
+										{...props}
+										type="button"
+										onclick={() => impersonateThreadStarter(route)}
+										disabled={impersonating}
+										data-testid="admin-support-message-route"
+										class="flex max-w-17/20 min-w-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-primary hover:underline disabled:pointer-events-none disabled:opacity-50 md:max-w-3/4"
+									>
+										<span class="shrink-0">{$t('admin.support.chat.sent_from')}</span>
+										<span class="truncate">{route}</span>
+										<span class="sr-only">{$t('admin.support.chat.open_as_customer')}</span>
+										{#if impersonating}
+											<LoaderCircle class="size-3 shrink-0 motion-safe:animate-spin" />
+										{:else}
+											<UserRoundCheck class="size-3 shrink-0" />
+										{/if}
+									</button>
+								{/snippet}
+							</Tooltip.Trigger>
+							<Tooltip.Content>{$t('admin.support.chat.open_as_customer')}</Tooltip.Content>
+						</Tooltip.Root>
+					{:else if route}
+						<!-- eslint-disable svelte/no-navigation-without-resolve -->
+						<a
+							href={route}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="flex max-w-17/20 min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-primary hover:underline md:max-w-3/4"
+						>
+							<span class="shrink-0">{$t('admin.support.chat.sent_from')}</span>
+							<span class="truncate">{route}</span>
+							<ExternalLinkIcon class="size-3 shrink-0" />
+						</a>
+						<!-- eslint-enable svelte/no-navigation-without-resolve -->
+					{/if}
+				{/snippet}
+			</ChatMessages>
 		</div>
 
 		<ChatInput

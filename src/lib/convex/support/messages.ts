@@ -14,6 +14,7 @@ import { createRateLimitError } from './types';
 import { SUPPORT_ERROR_CODES, createSupportError } from './errors';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
 import { MAX_MESSAGE_LENGTH } from '../constants';
+import { normalizeSupportPageRoute } from '../../shared/support-page-route';
 import { requireSupportThreadAccess } from './ownership';
 import { listMessagesForThread } from './messageListing';
 import { syncSupportLastMessage } from './threads';
@@ -43,7 +44,9 @@ export const sendMessage = mutation({
 		threadId: v.string(),
 		prompt: v.string(),
 		anonymousUserId: v.optional(v.string()),
-		fileIds: v.optional(v.array(v.string()))
+		fileIds: v.optional(v.array(v.string())),
+		// Optional so clients that predate per-message routes stay valid.
+		pageUrl: v.optional(v.string())
 	},
 	returns: v.object({ messageId: v.string() }),
 	handler: async (ctx, args) => {
@@ -126,6 +129,22 @@ export const sendMessage = mutation({
 			});
 
 			messageId = result.messageId;
+		}
+
+		const pageUrl = normalizeSupportPageRoute(args.pageUrl);
+
+		// Where this message was written from. The thread keeps the pageUrl
+		// captured before its first message, so it cannot describe a later report
+		// sent after the visitor navigates elsewhere. The route is deliberately
+		// optional: invalid metadata cannot discard the message that was already
+		// saved.
+		if (pageUrl) {
+			await ctx.db.insert('supportMessageContexts', {
+				threadId: args.threadId,
+				messageId,
+				pageUrl,
+				createdAt: Date.now()
+			});
 		}
 
 		// Sync denormalized search fields with user's message

@@ -44,7 +44,9 @@
 			data-slot="sidebar"
 			data-mobile="true"
 			class={cn(
-				'w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden',
+				// Starts below the top notices; the side variants match the sheet's own,
+				// which pin it to the full viewport height.
+				'w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground data-[side=left]:top-(--top-notices-height,0px) data-[side=left]:h-auto data-[side=right]:top-(--top-notices-height,0px) data-[side=right]:h-auto [&>button]:hidden',
 				className
 			)}
 			style="--sidebar-width: {SIDEBAR_WIDTH_MOBILE};"
@@ -84,7 +86,7 @@
 		<div
 			data-slot="sidebar-container"
 			class={cn(
-				'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-sidebar md:flex',
+				'fixed top-(--top-notices-height,0px) z-10 hidden h-svh-below-notices w-(--sidebar-width) transition-[left,right,width] duration-200 ease-sidebar md:flex',
 				side === 'left'
 					? 'start-0 group-data-[collapsible=offcanvas]:-start-(--sidebar-width)'
 					: 'end-0 group-data-[collapsible=offcanvas]:-end-(--sidebar-width)',

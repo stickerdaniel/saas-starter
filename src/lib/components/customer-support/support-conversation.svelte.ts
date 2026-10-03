@@ -13,6 +13,7 @@ import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/op
 import { CHAT_PAGE_SIZE } from '$lib/chat/core/types.js';
 import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 import { isSupportAiEnabled } from '$lib/config/support';
+import { normalizeSupportPageRoute } from '$lib/shared/support-page-route';
 import type { SupportNavigationState } from './support-navigation-state.svelte.ts';
 
 export type SupportAssignedAdmin = { name?: string; image: string | null };
@@ -492,7 +493,12 @@ export class SupportConversation implements ChatSessionPort {
 					threadId,
 					prompt: trimmedPrompt,
 					anonymousUserId,
-					fileIds: options?.fileIds?.length ? options.fileIds : undefined
+					fileIds: options?.fileIds?.length ? options.fileIds : undefined,
+					// Read per message because the thread keeps only the route
+					// captured before its first message.
+					pageUrl: normalizeSupportPageRoute(
+						typeof window !== 'undefined' ? window.location.href : undefined
+					)
 				},
 				{
 					optimisticUpdate: createOptimisticUpdate(
