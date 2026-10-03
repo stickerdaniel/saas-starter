@@ -18,4 +18,19 @@
 			toast.info($t('common.upload_in_progress'));
 		}
 	);
+
+	// The page is about to reload on its own once the upload lands, so say so for
+	// as long as that is true and not a moment longer.
+	const recoveryNoticeId = 'upload-guard-recovery-pending';
+	watch(
+		() => activeUploads.recoveryPending,
+		(pending) => {
+			if (!pending) return;
+			toast.info($t('common.reload_after_upload'), {
+				id: recoveryNoticeId,
+				duration: Number.POSITIVE_INFINITY
+			});
+			return () => toast.dismiss(recoveryNoticeId);
+		}
+	);
 </script>

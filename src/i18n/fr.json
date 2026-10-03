@@ -599,6 +599,7 @@
 		"delete": "Supprimer",
 		"error": "Une erreur est survenue. Réessaie.",
 		"load_error": "Échec du chargement des données. Réessaie plus tard.",
+		"reload_after_upload": "Une mise à jour est prête. La page se rechargera une fois ton téléversement terminé.",
 		"upload_in_progress": "Le téléversement est toujours en cours. Attends la fin.",
 		"you": "Toi"
 	},

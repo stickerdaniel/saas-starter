@@ -599,6 +599,7 @@
 		"delete": "Delete",
 		"error": "Something went wrong. Try again.",
 		"load_error": "Failed to load data. Try again later.",
+		"reload_after_upload": "An update is ready. The page reloads once your upload finishes.",
 		"upload_in_progress": "Upload still in progress. Wait for it to finish.",
 		"you": "You"
 	},

@@ -70,6 +70,7 @@ export class ActiveUploads {
 	// releasing twice is harmless here.
 	readonly #owners = new SvelteSet<object>();
 	#suspended = false;
+	#recovery: DeployRecovery | undefined;
 
 	get any(): boolean {
 		return this.#owners.size > 0;
@@ -80,7 +81,33 @@ export class ActiveUploads {
 	}
 
 	release(owner: object): void {
-		this.#owners.delete(owner);
+		if (!this.#owners.delete(owner) || this.#owners.size > 0) return;
+		this.#recovery?.settle();
+	}
+
+	/** A failed-preload reload is waiting for the files in flight to finish. */
+	recoveryPending = $state(false);
+
+	/**
+	 * Hold the app shell's deploy recovery while files are in flight.
+	 *
+	 * Both directions are plain calls, not effects: the shell asks at the moment
+	 * it would leave, and the last release hands a waiting reload back in the
+	 * same call, after the owner has stored whatever must outlive the page.
+	 */
+	holdRecovery(recovery: DeployRecovery): () => void {
+		this.#recovery = recovery;
+		const detach = recovery.attach({
+			busy: () => this.any,
+			pendingChanged: (pending) => {
+				this.recoveryPending = pending;
+			}
+		});
+		return () => {
+			detach();
+			if (this.#recovery === recovery) this.#recovery = undefined;
+			this.recoveryPending = false;
+		};
 	}
 
 	/**

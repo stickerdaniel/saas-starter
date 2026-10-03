@@ -3,7 +3,9 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { build } from 'vite';
+import { describe, expect, it, vi } from 'vitest';
+import { installDeployRecoveryShell } from '../src/lib/hooks/__tests__/deploy-recovery-shell.ts';
 
 function evaluateConfig(cwd: string, hostEnvironment: Record<string, string> = {}) {
 	const env = { ...process.env };
@@ -104,18 +106,60 @@ describe('kit.version config', () => {
 		// updated must come from $app/state, not the deprecated $app/stores.
 		expect(layout).toMatch(/import \{[^}]*\bupdated\b[^}]*\} from '\$app\/state'/);
 		expect(layout).toContain('updated.current');
-		// The layout still hands the deploy signal to the decision and acts on the
-		// answer. Which navigations that answer covers is settled by
-		// deployReloadTarget's own tests, not by matching source text here.
+		// The layout still hands the deploy signal to the decision. Which
+		// navigations that answer covers, and how app.html departs on it, is
+		// settled by behavioral tests, not by matching source text here.
 		expect(layout).toMatch(/deployReloadTarget\([^)]*updated\.current/);
-		expect(layout).toContain('location.href =');
 	});
+});
 
-	it('registers a vite:preloadError backstop that reloads once', () => {
-		const appHtml = fs.readFileSync(path.resolve('src/app.html'), 'utf-8');
-		expect(appHtml).toContain("addEventListener('vite:preloadError'");
-		expect(appHtml).toContain('location.reload()');
-		// A sessionStorage guard must gate the reload so a stale shell cannot loop.
-		expect(appHtml).toMatch(/sessionStorage\.getItem\(['"]sk:preload-reloaded['"]\)/);
+// The other half of deploy recovery: a lazy import of a chunk the deploy deleted.
+// Built with the pinned Vite, so the preload wrapper is the one the app ships.
+describe('vite:preloadError backstop', () => {
+	it('reloads for a deleted chunk and still rejects the import to its caller', async () => {
+		const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'preload-recovery-'));
+		const output = path.join(directory, 'dist');
+		try {
+			fs.writeFileSync(
+				path.join(directory, 'entry.js'),
+				"export const load = () => import('./lazy.js');\n"
+			);
+			fs.writeFileSync(path.join(directory, 'lazy.js'), 'export default 1;\n');
+			await build({
+				root: directory,
+				configFile: false,
+				logLevel: 'silent',
+				build: {
+					outDir: output,
+					minify: false,
+					rolldownOptions: {
+						input: path.join(directory, 'entry.js'),
+						preserveEntrySignatures: 'exports-only',
+						output: { entryFileNames: 'entry.js', chunkFileNames: 'lazy.js' }
+					}
+				}
+			});
+			fs.rmSync(path.join(output, 'lazy.js'));
+
+			const shell = installDeployRecoveryShell();
+			const dispatched: Array<Event & { payload?: unknown }> = [];
+			shell.window.addEventListener('vite:preloadError', (event) => dispatched.push(event));
+			vi.stubGlobal('window', shell.window);
+			const { load } = (await import(pathToFileURL(path.join(output, 'entry.js')).href)) as {
+				load: () => Promise<unknown>;
+			};
+			const rejection = await load().then(
+				() => undefined,
+				(error: unknown) => error
+			);
+
+			expect(dispatched).toHaveLength(1);
+			expect(rejection).toBeInstanceOf(Error);
+			expect(rejection).toBe(dispatched[0]?.payload);
+			expect(shell.reloads).toBe(1);
+		} finally {
+			vi.unstubAllGlobals();
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
 	});
 });
