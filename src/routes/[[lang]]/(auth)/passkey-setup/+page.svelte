@@ -23,12 +23,19 @@
 	onDestroy(() => {
 		destroyed = true;
 	});
+	// resolve() reads its whole argument as a route and rewrites slashes inside the query and
+	// hash, so only the path goes through it; the validated query and hash pass unchanged.
+	const destination = $derived(new URL(data.destination, 'http://destination.invalid'));
+	const destinationHref = $derived(
+		resolve(destination.pathname) + destination.search + destination.hash
+	);
 	function continueToApp() {
-		window.location.replace(data.destination);
+		window.location.replace(destinationHref);
 	}
 	// A client-side move keeps the root toaster mounted, so the confirmation stays visible.
 	function finishEnrollment() {
-		void goto(resolve(data.destination), { replaceState: true });
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- The path is resolved above; only the untouched query and hash follow it
+		void goto(destinationHref, { replaceState: true });
 	}
 
 	$effect(() => {
@@ -62,7 +69,7 @@
 							</p>
 							<Field.Field>
 								<!-- A plain link, so it continues before hydration and without JavaScript. -->
-								<Button href={resolve(data.destination)} variant="outline" class="w-full">
+								<Button href={destinationHref} variant="outline" class="w-full">
 									<T keyName="auth.passkey_nudge.continue" />
 								</Button>
 							</Field.Field>

@@ -13,7 +13,8 @@ import { ownTestEmail } from './utils/owned-test-data';
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const password = 'PasskeyTestPassword123!';
-const destination = '/en/app/community-chat?source=passkey-test#latest';
+// The query holds a double slash and the hash a nested path, which route resolution would rewrite.
+const destination = '/en/app/community-chat?source=https://example.com/invite#latest//replies';
 const client = () => new ConvexHttpClient(resolveConvexUrl()!);
 const secret = () => process.env.AUTH_E2E_TEST_SECRET!;
 
