@@ -81,6 +81,7 @@ jobs:
       url: ${{ steps.metadata.outputs.url }}
       convex-url: ${{ steps.metadata.outputs.convex-url }}
       convex-site-url: ${{ steps.metadata.outputs.convex-site-url }}
+      build-uuid: ${{ steps.metadata.outputs.build-uuid }}
       matrix: ${{ steps.partition.outputs.matrix }}
       count: ${{ steps.partition.outputs.count }}
       backend-key: ${{ steps.partition.outputs.backend-key }}
@@ -90,7 +91,7 @@ jobs:
     permissions:
       statuses: write
       contents: read
-      checks: write
+      checks: read
     # Only run on successful CF Workers preview builds (production builds lack Preview Alias URL)
     if: |
       github.event_name == 'workflow_dispatch' ||
@@ -112,40 +113,18 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
-      - name: Validate target against the provider build record
+      # Selects the triggering (or latest dispatched) Cloudflare build record and
+      # waits until the alias serves that build's source SHA and build UUID.
+      # Nothing is exported or probed before that identity is accepted.
+      - name: Discover the tested preview build
         env:
           GH_TOKEN: ${{ github.token }}
           E2E_EXPECTED_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
+          E2E_CHECK_RUN_ID: ${{ github.event.check_run.id }}
           PREVIEW_URL: ${{ inputs.preview_url }}
-          SUMMARY: ${{ github.event.check_run.output.summary }}
-        run: bun scripts/e2e-ci.ts resolve-target
-
-      - name: Fetch E2E config from preview
-        run: |
-          echo "Fetching config from: ${PREVIEW_URL}/.well-known/e2e-config.json"
-
-          HEADERS=""
-          if [ -n "$CF_ACCESS_CLIENT_ID" ]; then
-            HEADERS="-H CF-Access-Client-Id:$CF_ACCESS_CLIENT_ID -H CF-Access-Client-Secret:$CF_ACCESS_CLIENT_SECRET"
-          fi
-
-          # Intentional word splitting for optional -H args
-          # shellcheck disable=SC2086
-          CONFIG=$(curl -sf $HEADERS "${PREVIEW_URL}/.well-known/e2e-config.json")
-
-          echo "Config fetched successfully"
-          echo "$CONFIG" | jq .
-
-          {
-            echo "PUBLIC_CONVEX_URL=$(echo "$CONFIG" | jq -r '.convexUrl')"
-            echo "PUBLIC_CONVEX_SITE_URL=$(echo "$CONFIG" | jq -r '.convexSiteUrl')"
-            echo "PUBLIC_SITE_URL=${PREVIEW_URL}"
-          } >> "$GITHUB_ENV"
+        run: bun scripts/e2e-ci.ts discover
 
       - name: Wait for Convex backend readiness
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CHECK_RUN_ID: ${{ github.event.check_run.id }}
         run: |
           echo "Waiting for Convex backend at: ${PUBLIC_CONVEX_URL}"
 
@@ -181,23 +160,10 @@ jobs:
           if [ "$rc" = "0" ]; then
             exit 0
           elif [ "$rc" = "40" ]; then
-            # Evicted backend: recreate it once ourselves by rerequesting the
-            # CF Workers check run (its build re-provisions the Convex
-            # preview), then wait again instead of asking a human to click.
-            echo "Convex preview backend is gone (HTTP 404). Rerequesting the Cloudflare Workers check to recreate it..."
-            if ! gh api -X POST "repos/${{ github.repository }}/check-runs/${CHECK_RUN_ID}/rerequest"; then
-              echo "::error::Convex preview backend is gone and the automatic rerequest failed."
-              echo "::error::Recreate it by rerunning the Cloudflare Workers check for this commit or pushing an empty commit."
-              exit 1
-            fi
-            # The rebuild takes a few minutes before the backend exists again;
-            # give it headroom before re-entering the readiness wait.
-            sleep 120
-            if wait_for_ready; then
-              exit 0
-            fi
-            echo "::error::Convex preview backend did not come back after an automatic recreate: ${PUBLIC_CONVEX_URL}"
-            echo "::error::Check the rerequested Cloudflare Workers build for this commit."
+            # The accepted build's backend was evicted. A rebuild produces a new
+            # build identity, which this run must not adopt.
+            echo "::error::Convex preview backend of build ${E2E_BUILD_UUID} is gone (HTTP 404): ${PUBLIC_CONVEX_URL}"
+            echo "::error::Rerun the Cloudflare Workers build for this commit (or push a new commit); its completion starts a fresh E2E run."
             exit 1
           fi
           echo "::error::Convex backend not ready within the wait window: ${PUBLIC_CONVEX_URL}"
@@ -206,7 +172,8 @@ jobs:
       - name: Log test configuration
         run: |
           echo "Testing against CF preview deployment:"
-          echo "  PREVIEW_URL: $PREVIEW_URL"
+          echo "  PUBLIC_SITE_URL: $PUBLIC_SITE_URL"
+          echo "  E2E_BUILD_UUID: $E2E_BUILD_UUID"
           echo "  PUBLIC_CONVEX_URL: $PUBLIC_CONVEX_URL"
           echo "  PUBLIC_CONVEX_SITE_URL: $PUBLIC_CONVEX_SITE_URL"
 
@@ -217,6 +184,7 @@ jobs:
             echo "url=$PUBLIC_SITE_URL"
             echo "convex-url=$PUBLIC_CONVEX_URL"
             echo "convex-site-url=$PUBLIC_CONVEX_SITE_URL"
+            echo "build-uuid=$E2E_BUILD_UUID"
           } >> "$GITHUB_OUTPUT"
 
       - name: Prepare safe browser partition
@@ -243,6 +211,7 @@ jobs:
       PUBLIC_CONVEX_URL: ${{ needs.prepare.outputs.convex-url }}
       PUBLIC_CONVEX_SITE_URL: ${{ needs.prepare.outputs.convex-site-url }}
       E2E_EXPECTED_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
+      E2E_BUILD_UUID: ${{ needs.prepare.outputs.build-uuid }}
       E2E_TARGET: cf
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -252,6 +221,7 @@ jobs:
       - uses: ./.github/actions/e2e-run
         with:
           lane: ${{ needs.prepare.outputs.count == '1' && 'full' || 'exclusive' }}
+          metadata-policy: cf-build
           count: ${{ needs.prepare.outputs.count }}
           auth-secret: ${{ secrets.AUTH_E2E_TEST_SECRET }}
           cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
@@ -276,6 +246,7 @@ jobs:
       PUBLIC_CONVEX_URL: ${{ needs.prepare.outputs.convex-url }}
       PUBLIC_CONVEX_SITE_URL: ${{ needs.prepare.outputs.convex-site-url }}
       E2E_EXPECTED_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
+      E2E_BUILD_UUID: ${{ needs.prepare.outputs.build-uuid }}
       E2E_TARGET: cf
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -285,6 +256,7 @@ jobs:
       - uses: ./.github/actions/e2e-run
         with:
           lane: public
+          metadata-policy: cf-build
           shard: ${{ matrix.shard }}
           count: ${{ needs.prepare.outputs.count }}
           cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}

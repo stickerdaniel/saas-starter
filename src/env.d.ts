@@ -277,6 +277,13 @@ export type CoercedEnvSchema = {
   WORKERS_CI_COMMIT_SHA?: string;
   
   /**
+   * **WORKERS_CI_BUILD_UUID**  
+   * Build UUID (injected by CF Workers Builds, written to preview E2E metadata)  
+   * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M29%2022h-5a2.003%202.003%200%200%201-2-2v-6a2%202%200%200%201%202-2h5v2h-5v6h5ZM18%2012h-4V8h-2v14h6a2.003%202.003%200%200%200%202-2v-6a2%202%200%200%200-2-2m-4%208v-6h4v6Zm-6-8H3v2h5v2H4a2%202%200%200%200-2%202v2a2%202%200%200%200%202%202h6v-8a2%202%200%200%200-2-2m0%208H4v-2h4Z%22%2F%3E%3C%2Fsvg%3E)   
+   */
+  WORKERS_CI_BUILD_UUID?: string;
+  
+  /**
    * **WORKERS_NAME**  
    * Worker name (must match wrangler.toml name, used for preview URL construction)  
    * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M29%2022h-5a2.003%202.003%200%200%201-2-2v-6a2%202%200%200%201%202-2h5v2h-5v6h5ZM18%2012h-4V8h-2v14h6a2.003%202.003%200%200%200%202-2v-6a2%202%200%200%200-2-2m-4%208v-6h4v6Zm-6-8H3v2h5v2H4a2%202%200%200%200-2%202v2a2%202%200%200%200%202%202h6v-8a2%202%200%200%200-2-2m0%208H4v-2h4Z%22%2F%3E%3C%2Fsvg%3E)   
@@ -358,11 +365,11 @@ export type CoercedEnvSchema = {
   
 };
 
-type _CoercedEnvSchema_5a123e54 = CoercedEnvSchema;
+type _CoercedEnvSchema_47a8154b = CoercedEnvSchema;
 
 declare module 'varlock/env' {
-  export interface TypedEnvSchema extends Readonly<_CoercedEnvSchema_5a123e54> {}
-  export interface PublicTypedEnvSchema extends Readonly<Pick<_CoercedEnvSchema_5a123e54, 'VARLOCK_ENV' | 'CONVEX_DEPLOYMENT' | 'PUBLIC_CONVEX_URL' | 'PUBLIC_CONVEX_SITE_URL' | 'VITE_TOLGEE_API_URL' | 'VITE_TOLGEE_API_KEY' | 'PUBLIC_POSTHOG_API_KEY' | 'PUBLIC_POSTHOG_HOST' | 'PUBLIC_POSTHOG_ALLOWED_HOSTS' | 'PUBLIC_SENTRY_DSN' | 'SENTRY_ORG' | 'SENTRY_PROJECT' | 'PUBLIC_SNAPDOM_PROXY_URL' | 'PUBLIC_SITE_URL' | 'SITE_URL' | 'APP_BUILD_SHA' | 'CONVEX_PROJECT_ID' | 'NODE_ADAPTER' | 'VERCEL_ENV' | 'VERCEL_URL' | 'VERCEL_GIT_COMMIT_REF' | 'WORKERS_CI' | 'WORKERS_CI_BRANCH' | 'WORKERS_CI_COMMIT_SHA' | 'WORKERS_NAME' | 'WORKERS_SUBDOMAIN' | 'CF_PAGES' | 'CF_PAGES_URL' | 'CF_PAGES_BRANCH' | 'PRODUCTION_BRANCH' | 'CF_ZONE_ID' | 'CI'>> {}
+  export interface TypedEnvSchema extends Readonly<_CoercedEnvSchema_47a8154b> {}
+  export interface PublicTypedEnvSchema extends Readonly<Pick<_CoercedEnvSchema_47a8154b, 'VARLOCK_ENV' | 'CONVEX_DEPLOYMENT' | 'PUBLIC_CONVEX_URL' | 'PUBLIC_CONVEX_SITE_URL' | 'VITE_TOLGEE_API_URL' | 'VITE_TOLGEE_API_KEY' | 'PUBLIC_POSTHOG_API_KEY' | 'PUBLIC_POSTHOG_HOST' | 'PUBLIC_POSTHOG_ALLOWED_HOSTS' | 'PUBLIC_SENTRY_DSN' | 'SENTRY_ORG' | 'SENTRY_PROJECT' | 'PUBLIC_SNAPDOM_PROXY_URL' | 'PUBLIC_SITE_URL' | 'SITE_URL' | 'APP_BUILD_SHA' | 'CONVEX_PROJECT_ID' | 'NODE_ADAPTER' | 'VERCEL_ENV' | 'VERCEL_URL' | 'VERCEL_GIT_COMMIT_REF' | 'WORKERS_CI' | 'WORKERS_CI_BRANCH' | 'WORKERS_CI_COMMIT_SHA' | 'WORKERS_CI_BUILD_UUID' | 'WORKERS_NAME' | 'WORKERS_SUBDOMAIN' | 'CF_PAGES' | 'CF_PAGES_URL' | 'CF_PAGES_BRANCH' | 'PRODUCTION_BRANCH' | 'CF_ZONE_ID' | 'CI'>> {}
 }
 
 
@@ -372,24 +379,24 @@ export type EnvSchemaAsStrings = {
       : (NonNullable<CoercedEnvSchema[Property]> extends boolean ? ('true' | 'false') : string)
 };
 
-type _EnvSchemaAsStrings_5a123e54 = EnvSchemaAsStrings;
+type _EnvSchemaAsStrings_47a8154b = EnvSchemaAsStrings;
 
 export type ProcessEnvSchemaAsStrings = {
   [Property in keyof EnvSchemaAsStrings]-?:
     EnvSchemaAsStrings[Property] | ({} extends Pick<CoercedEnvSchema, Property> ? '' : never)
 };
 
-type _ProcessEnvSchemaAsStrings_5a123e54 = ProcessEnvSchemaAsStrings;
+type _ProcessEnvSchemaAsStrings_47a8154b = ProcessEnvSchemaAsStrings;
 declare global {
 
   // add types for global import.meta.env
-  interface ImportMetaEnv extends _EnvSchemaAsStrings_5a123e54 {}
+  interface ImportMetaEnv extends _EnvSchemaAsStrings_47a8154b {}
   interface ImportMeta {
     readonly env: ImportMetaEnv;
   }
 
   // add types for global process.env
   namespace NodeJS {
-    interface ProcessEnv extends _ProcessEnvSchemaAsStrings_5a123e54 {}
+    interface ProcessEnv extends _ProcessEnvSchemaAsStrings_47a8154b {}
   }
 }

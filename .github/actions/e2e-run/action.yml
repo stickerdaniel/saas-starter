@@ -10,6 +10,9 @@ inputs:
   count:
     required: true
     description: Public shard count
+  metadata-policy:
+    default: generic
+    description: generic checks frontend revision and backends; cf-build also requires the accepted Workers build
   auth-secret:
     default: ''
     description: Test helper secret, exclusive lane only
@@ -36,7 +39,8 @@ runs:
         CF_ACCESS_CLIENT_ID: ${{ inputs.cf-access-client-id }}
         CF_ACCESS_CLIENT_SECRET: ${{ inputs.cf-access-client-secret }}
         PREVIEW_BYPASS_SECRET: ${{ inputs.vercel-bypass-secret }}
-      run: bun scripts/e2e-ci.ts check
+        E2E_METADATA_POLICY: ${{ inputs.metadata-policy }}
+      run: bun scripts/e2e-ci.ts check-policy
     - name: Collect complete suite inventory
       if: inputs.lane != 'public'
       shell: bash
@@ -68,7 +72,8 @@ runs:
         CF_ACCESS_CLIENT_ID: ${{ inputs.cf-access-client-id }}
         CF_ACCESS_CLIENT_SECRET: ${{ inputs.cf-access-client-secret }}
         PREVIEW_BYPASS_SECRET: ${{ inputs.vercel-bypass-secret }}
-      run: bun scripts/e2e-ci.ts check
+        E2E_METADATA_POLICY: ${{ inputs.metadata-policy }}
+      run: bun scripts/e2e-ci.ts check-policy
     - name: Retain required execution evidence
       if: always()
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
