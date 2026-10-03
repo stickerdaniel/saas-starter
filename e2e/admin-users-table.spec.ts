@@ -60,6 +60,10 @@ async function waitForUsersTableReady(page: Page) {
 
 const SEED_USER_COUNT = 12;
 
+// A test that opens its own URL first skips the beforeEach visit, which would
+// only add a page load that can fail before the behaviour under test starts.
+const OPENS_OWN_URL = { annotation: { type: 'opens-own-url' } };
+
 async function applySeedSearch(page: Page, seedPrefix: string) {
 	await page.getByTestId('admin-users-search').fill(seedPrefix);
 	// The search is debounced, and the unfiltered first page already lists the
@@ -131,6 +135,7 @@ test.describe('Admin Users Table', () => {
 
 	let client: ConvexHttpClient;
 	let seedPrefix = '';
+	let seedUsers: SeedUser[] = [];
 	let searchTargetEmail = '';
 	let negativeCheckEmail = '';
 	const createdSeedEmails: string[] = [];
@@ -151,7 +156,7 @@ test.describe('Admin Users Table', () => {
 		client = new ConvexHttpClient(convexUrl);
 		seedPrefix = `table-${Date.now()}`;
 
-		const seedUsers: SeedUser[] = Array.from({ length: SEED_USER_COUNT }, (_, index) => {
+		seedUsers = Array.from({ length: SEED_USER_COUNT }, (_, index) => {
 			const localPart =
 				index === 7
 					? `${seedPrefix}-search-target`
@@ -205,12 +210,13 @@ test.describe('Admin Users Table', () => {
 		}
 	});
 
-	test.beforeEach(async ({ page }) => {
+	test.beforeEach(async ({ page }, testInfo) => {
 		uncaughtPageErrors = [];
 		page.on('pageerror', (error) => {
 			uncaughtPageErrors.push(error.message);
 		});
 
+		if (testInfo.annotations.some(({ type }) => type === OPENS_OWN_URL.annotation.type)) return;
 		await page.goto('/en/admin/users');
 		await page.waitForLoadState('domcontentloaded');
 		await waitForUsersTableReady(page);
@@ -361,29 +367,22 @@ test.describe('Admin Users Table', () => {
 		await expect.poll(() => getCurrentPageNumber(page)).toBe(2);
 	});
 
-	test('jump to last page walks cursors and lands on final page', async ({ page }) => {
+	test('jump to last page lands on the final filtered page', async ({ page }) => {
 		await page.goto(`/en/admin/users?search=${encodeURIComponent(seedPrefix)}&page_size=1`);
 		await page.waitForLoadState('domcontentloaded');
 		await waitForUsersTableReady(page);
 
-		await expect
-			.poll(async () => page.getByTestId('admin-users-pagination-next').isEnabled())
-			.toBe(true);
+		// One user per page, so the indicator shows the filtered total once the
+		// count for this search has answered. Only then is the final page known.
+		const indicator = page.getByTestId('admin-users-page-indicator');
+		await expect(indicator).toHaveText(`Page 1 of ${SEED_USER_COUNT}`);
 
 		await page.getByTestId('admin-users-pagination-last').click();
-		await expect
-			.poll(
-				async () => {
-					const indicator = await getPageIndicator(page);
-					return indicator.current === indicator.total ? indicator.total : -1;
-				},
-				{ timeout: 30000 }
-			)
-			.toBeGreaterThan(1);
-
-		const indicator = await getPageIndicator(page);
+		await expect(indicator).toHaveText(`Page ${SEED_USER_COUNT} of ${SEED_USER_COUNT}`);
+		// Newest first by default, so the final page holds the first seed user.
+		await expect(page.getByTestId('admin-users-email-cell')).toHaveText([seedUsers[0].email]);
 		await expectTableQueryParams(page, {
-			page: `${indicator.total}`,
+			page: `${SEED_USER_COUNT}`,
 			cursor: /.+/
 		});
 		await expect(page.getByTestId('admin-users-pagination-next')).toBeDisabled();
@@ -439,7 +438,7 @@ test.describe('Admin Users Table', () => {
 		await expectTableQueryParams(page, { page: '2', cursor: /.+/ });
 	});
 
-	test('hydrates table state from URL params', async ({ page }) => {
+	test('hydrates table state from URL params', OPENS_OWN_URL, async ({ page }) => {
 		const params = new URLSearchParams({
 			search: seedPrefix,
 			role: 'user',
@@ -450,7 +449,14 @@ test.describe('Admin Users Table', () => {
 		});
 		await page.goto(`/en/admin/users?${params.toString()}`);
 		await page.waitForLoadState('domcontentloaded');
-		await waitForUsersTableReady(page);
+		await expect(page.getByTestId('admin-users-table')).toBeVisible();
+		// Exactly the seed users this query selects, in its order: no other query
+		// on this page can render this list.
+		const expectedEmails = seedUsers
+			.filter((user) => user.role === 'user' && user.verification === 'unverified')
+			.map((user) => user.email)
+			.sort((a, b) => a.localeCompare(b));
+		await expect(page.getByTestId('admin-users-email-cell')).toHaveText(expectedEmails);
 
 		await expect(page.getByTestId('admin-users-search')).toHaveValue(seedPrefix);
 		await expect(page.getByTestId('admin-users-role-filter-trigger')).toContainText(/user/i);

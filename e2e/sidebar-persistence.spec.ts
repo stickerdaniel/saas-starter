@@ -26,14 +26,17 @@ test.describe('Authenticated sidebar collapse persistence', () => {
 
 		// Reload: the server reads the cookie and renders the collapsed shell, so
 		// the first paint is already collapsed (no client-side correction flash).
+		// The check runs once the reloaded shell is back, so it proves the persisted
+		// state, not the first paint.
 		await page.reload();
+		await waitForAuthenticated(page);
 		await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
 
 		// Round-trips the other way too: re-expand, reload, still expanded.
-		await waitForAuthenticated(page);
 		await trigger.click();
 		await expect(sidebar).toHaveAttribute('data-state', 'expanded');
 		await page.reload();
+		await waitForAuthenticated(page);
 		await expect(sidebar).toHaveAttribute('data-state', 'expanded');
 	});
 });

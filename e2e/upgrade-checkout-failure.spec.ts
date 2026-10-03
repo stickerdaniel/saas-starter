@@ -21,6 +21,8 @@ import { test, expect } from '@playwright/test';
 test('pricing checkout failure surfaces an error toast instead of failing silently', async ({
 	page
 }) => {
+	const checkoutRequests: unknown[] = [];
+
 	// Match Convex's WS path (`<origin>/api/<version>/sync`) on any origin.
 	// Pinning to `convex.cloud` would miss local embedded-backend runs where
 	// PUBLIC_CONVEX_URL resolves to http://localhost:PORT via
@@ -33,7 +35,8 @@ test('pricing checkout failure surfaces an error toast instead of failing silent
 				server.send(raw);
 				return;
 			}
-			let parsed: { type?: string; udfPath?: string; requestId?: number } | null = null;
+			let parsed: { type?: string; udfPath?: string; requestId?: number; args?: unknown[] } | null =
+				null;
 			try {
 				parsed = JSON.parse(raw);
 			} catch {
@@ -46,6 +49,7 @@ test('pricing checkout failure surfaces an error toast instead of failing silent
 				parsed.udfPath.includes('checkout') &&
 				typeof parsed.requestId === 'number'
 			) {
+				checkoutRequests.push(parsed.args ?? []);
 				ws.send(
 					JSON.stringify({
 						type: 'ActionResponse',
@@ -77,17 +81,18 @@ test('pricing checkout failure surfaces an error toast instead of failing silent
 	// a fresh origin fetch.
 	await page.goto(`/en/pricing?cb=${Date.now()}`);
 
-	// Wait for the network to settle so client-side hydration has run and
-	// useAuth()/useCustomer() have resolved. Without this, handleCheckout
-	// sees isAuthenticated=false and redirects to /signin instead of firing
-	// the checkout action.
-	await page.waitForLoadState('networkidle');
-
+	// The checkout button is server-rendered, so being enabled shows only that
+	// billing is usable. The header's sign-out control appears once the page has
+	// hydrated and the client has confirmed the session; a click before that is
+	// lost, or sent to /signin when the server saw no valid token.
+	await expect(page.getByTestId('marketing-nav-logout')).toBeVisible();
 	const checkoutButton = page.getByTestId('pricing-checkout-pro');
-	await expect(checkoutButton).toBeVisible();
 	await expect(checkoutButton).toBeEnabled();
 
 	await checkoutButton.click();
+	await expect
+		.poll(() => checkoutRequests)
+		.toEqual([[expect.objectContaining({ productId: 'pro' })]]);
 
 	// Sonner renders toasts with data-sonner-toast. Match on a stable
 	// substring of the billing.checkout_failed copy so minor Tolgee tweaks
