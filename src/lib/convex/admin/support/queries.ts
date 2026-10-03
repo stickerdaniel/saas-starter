@@ -4,13 +4,18 @@ import * as val from 'valibot';
 import { components } from '../../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
 import { adminQuery } from '../../functions';
-import { SUPPORT_THREADS_PAGE_SIZE, ADMIN_USERS_BATCH_SIZE } from './constants';
+import {
+	SUPPORT_THREADS_PAGE_SIZE,
+	ADMIN_USERS_BATCH_SIZE,
+	SUPPORT_MESSAGE_ROUTES_LIMIT
+} from './constants';
 import { parseBetterAuthUsers, betterAuthUserSchema } from '../types';
 import { isAnonymousUser } from '../../utils/anonymousUser';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { listMessagesForThread } from '../../support/messageListing';
 import { supportThreadFields } from '../../support/supportThreadFields';
 import { toAgentThreadStatus } from '../../support/denormalization';
+import { normalizeSupportPageRoute } from '../../../shared/support-page-route';
 
 /** Return validator for supportThreads documents (schema fields + system fields). */
 const vSupportMetadata = v.object({
@@ -303,6 +308,30 @@ export const getThreadForAdmin = adminQuery({
 			assignedAdmin,
 			user
 		};
+	}
+});
+
+/**
+ * Get the route each message in a thread was sent from
+ *
+ * The thread's own pageUrl is captured before its first message, so the details
+ * panel cannot account for messages sent after the visitor navigates elsewhere.
+ * This carries the route recorded with each individual message.
+ */
+export const listMessageRoutesForAdmin = adminQuery({
+	args: { threadId: v.string() },
+	returns: v.array(v.object({ messageId: v.string(), pageUrl: v.string() })),
+	handler: async (ctx, args) => {
+		const contexts = await ctx.db
+			.query('supportMessageContexts')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.order('desc')
+			.take(SUPPORT_MESSAGE_ROUTES_LIMIT);
+
+		return contexts.flatMap((context) => {
+			const pageUrl = normalizeSupportPageRoute(context.pageUrl);
+			return pageUrl ? [{ messageId: context.messageId, pageUrl }] : [];
+		});
 	}
 });
 

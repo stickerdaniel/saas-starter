@@ -58,50 +58,54 @@
 </script>
 
 {#if user}
-	<Sidebar.Provider
-		open={sidebarOpen}
-		style="--sidebar-width: calc(var(--spacing) * 72); --header-height: calc(var(--spacing) * 12);"
-		class="h-svh overflow-hidden"
-	>
-		<AuthenticatedSidebar
-			variant="inset"
-			config={sidebarConfig}
-			{user}
-			{threadSubItems}
-			{threadsHasMore}
-			{onLoadMoreThreads}
-		/>
-		<!-- Chat pages drop the inset's white so the sidebar tone carries the whole
-		     surface, header included. The composer pill is bg-popover (white), which
-		     on bg-background had no edge at all in light mode; against the sidebar
-		     tone it reads as its own surface. Dark mode keeps the inset, where
-		     sidebar and popover are the same value and only background differs. -->
-		<Sidebar.Inset
-			id="main-content"
-			surface={fullControl ? 'sidebar' : 'default'}
-			class={fullControl ? 'flex flex-col overflow-hidden' : ''}
+	<!-- Sized here, not on the provider: the viewport height minus the top notices
+	     is a shared utility the provider's class contract cannot name. -->
+	<div class="h-svh-below-notices">
+		<Sidebar.Provider
+			open={sidebarOpen}
+			style="--sidebar-width: calc(var(--spacing) * 72); --header-height: calc(var(--spacing) * 12);"
+			class="h-full overflow-hidden"
 		>
-			<AuthenticatedHeader {routePrefix} {rootLabel} />
+			<AuthenticatedSidebar
+				variant="inset"
+				config={sidebarConfig}
+				{user}
+				{threadSubItems}
+				{threadsHasMore}
+				{onLoadMoreThreads}
+			/>
+			<!-- Chat pages drop the inset's white so the sidebar tone carries the whole
+			     surface, header included. The composer pill is bg-popover (white), which
+			     on bg-background had no edge at all in light mode; against the sidebar
+			     tone it reads as its own surface. Dark mode keeps the inset, where
+			     sidebar and popover are the same value and only background differs. -->
+			<Sidebar.Inset
+				id="main-content"
+				surface={fullControl ? 'sidebar' : 'default'}
+				class={fullControl ? 'flex flex-col overflow-hidden' : ''}
+			>
+				<AuthenticatedHeader {routePrefix} {rootLabel} />
 
-			{#if fullControl}
-				<!-- Full control: page manages scroll, no padding -->
-				<div class="@container/main min-h-0 flex-1">
-					{@render children?.()}
-				</div>
-			{:else}
-				<!-- Default: layout manages scroll with padding -->
-				<ScrollArea class="overflow-hidden">
-					<div class="flex flex-1 flex-col">
-						<div class="@container/main flex flex-1 flex-col gap-2">
-							<div class="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-								{@render children?.()}
+				{#if fullControl}
+					<!-- Full control: page manages scroll, no padding -->
+					<div class="@container/main min-h-0 flex-1">
+						{@render children?.()}
+					</div>
+				{:else}
+					<!-- Default: layout manages scroll with padding -->
+					<ScrollArea class="overflow-hidden">
+						<div class="flex flex-1 flex-col">
+							<div class="@container/main flex flex-1 flex-col gap-2">
+								<div class="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+									{@render children?.()}
+								</div>
 							</div>
 						</div>
-					</div>
-				</ScrollArea>
-			{/if}
-		</Sidebar.Inset>
-	</Sidebar.Provider>
+					</ScrollArea>
+				{/if}
+			</Sidebar.Inset>
+		</Sidebar.Provider>
+	</div>
 {:else}
 	<!-- No server-resolved user: render a recover/retry state instead of a blank
 	     page. Happens when SSR could not authenticate (e.g. a wrong device clock

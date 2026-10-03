@@ -156,8 +156,10 @@
 				"unassigned": "Non assigné"
 			},
 			"chat": {
+				"open_as_customer": "Ouvrir cette page en tant que client",
 				"placeholder": "Répondre au client...",
-				"send_error": "Échec de l'envoi de la réponse. Réessaie."
+				"send_error": "Échec de l'envoi de la réponse. Réessaie.",
+				"sent_from": "Envoyé depuis"
 			},
 			"details": {
 				"assignee": "Assigné à",
@@ -314,6 +316,16 @@
 		}
 	},
 	"app": {
+		"investigation_bar": {
+			"admin_fallback": "Admin",
+			"back_to": "Retour à {section}",
+			"label": "Usurpation d'identité",
+			"recovery": "Ta session administrateur n'a pas pu être restaurée",
+			"return_pending": "L'usurpation est terminée, mais ta session administrateur n'est pas encore chargée.",
+			"return_to": "Revenir à {section}",
+			"sign_in_again": "Se reconnecter",
+			"viewing_as": "Vue en tant que {name} ({email})"
+		},
 		"sidebar": {
 			"admin_panel": "Panneau Admin",
 			"ai_chat": "Chat IA",
@@ -322,7 +334,6 @@
 		},
 		"user_menu": {
 			"billing": "Facturation",
-			"impersonating_banner": "Tu usurpes l'identité de cet utilisateur",
 			"impersonation_stop_failed": "Échec de l'arrêt de l'usurpation",
 			"impersonation_stopped": "Usurpation arrêtée",
 			"logout": "Se déconnecter",

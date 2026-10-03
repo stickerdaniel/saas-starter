@@ -156,8 +156,10 @@
 				"unassigned": "Sin asignar"
 			},
 			"chat": {
+				"open_as_customer": "Abrir esta página como el cliente",
 				"placeholder": "Responder al cliente...",
-				"send_error": "Error al enviar la respuesta. Inténtalo de nuevo."
+				"send_error": "Error al enviar la respuesta. Inténtalo de nuevo.",
+				"sent_from": "Enviado desde"
 			},
 			"details": {
 				"assignee": "Asignado a",
@@ -314,6 +316,16 @@
 		}
 	},
 	"app": {
+		"investigation_bar": {
+			"admin_fallback": "Admin",
+			"back_to": "Volver a {section}",
+			"label": "Suplantación",
+			"recovery": "No se pudo restaurar tu sesión de administrador",
+			"return_pending": "La suplantación terminó, pero tu sesión de administrador aún no se ha cargado.",
+			"return_to": "Regresar a {section}",
+			"sign_in_again": "Iniciar sesión de nuevo",
+			"viewing_as": "Viendo como {name} ({email})"
+		},
 		"sidebar": {
 			"admin_panel": "Panel de Admin",
 			"ai_chat": "Chat IA",
@@ -322,7 +334,6 @@
 		},
 		"user_menu": {
 			"billing": "Facturación",
-			"impersonating_banner": "Estás suplantando a este usuario",
 			"impersonation_stop_failed": "Error al dejar de suplantar",
 			"impersonation_stopped": "Suplantación detenida",
 			"logout": "Cerrar sesión",

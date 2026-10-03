@@ -19,7 +19,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-	import { ImpersonationState } from '$lib/hooks/use-impersonation.svelte.ts';
+	import { impersonationContext } from '$lib/hooks/use-impersonation.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
@@ -42,8 +42,9 @@
 
 	// Impersonation state comes from the live session, not a parent prop: while an
 	// admin impersonates a user the session carries impersonatedBy, so the app
-	// shell reads it directly to show the banner and the Stop control.
-	const impersonation = new ImpersonationState();
+	// shell reads it directly to show the Stop control. The root layout owns it,
+	// so this control and the investigation bar share one exit.
+	const impersonation = impersonationContext.get();
 
 	// Autumn subscription state
 	const autumn = useCustomer();
@@ -107,14 +108,6 @@
 	}
 </script>
 
-{#if impersonation.isImpersonating}
-	<div
-		class="mb-2 rounded-md border border-warning/20 bg-warning/10 px-3 py-2 text-xs font-medium text-warning"
-		data-testid="impersonation-banner"
-	>
-		<T keyName="app.user_menu.impersonating_banner" />
-	</div>
-{/if}
 <Sidebar.Menu>
 	<Sidebar.MenuItem>
 		<DropdownMenu.Root>
@@ -205,7 +198,7 @@
 				     unresolved session. -->
 				{#if impersonation.isImpersonating}
 					<DropdownMenu.Item
-						onclick={() => impersonation.stop($t, activeUploads)}
+						onclick={() => impersonation.stop($t)}
 						class="text-warning"
 						data-testid="app-user-menu-stop-impersonating"
 					>

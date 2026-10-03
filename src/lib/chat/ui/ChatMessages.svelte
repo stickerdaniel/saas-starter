@@ -34,6 +34,7 @@
 		isEmailPending = false,
 		defaultEmail = '',
 		onSubmitEmail,
+		messageFooter,
 		class: className = ''
 	}: {
 		/** Custom empty state content */
@@ -52,6 +53,8 @@
 		defaultEmail?: string;
 		/** Callback when email is submitted */
 		onSubmitEmail?: (email: string) => Promise<void>;
+		/** Rendered below each bubble, inside the column that carries its alignment */
+		messageFooter?: Snippet<[DisplayMessage]>;
 		/** Additional CSS classes */
 		class?: string;
 	} = $props();
@@ -215,6 +218,7 @@
 								{isEmailPending}
 								{defaultEmail}
 								{onSubmitEmail}
+								{messageFooter}
 							/>
 						</div>
 					{/each}

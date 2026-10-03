@@ -347,3 +347,53 @@ describe('SupportConversation', () => {
 		expect(errorSpy.mock.calls.flat().join(' ')).not.toContain(defect.message);
 	});
 });
+
+describe('SupportConversation message route', () => {
+	afterEach(() => {
+		window.history.replaceState({}, '', '/');
+	});
+
+	// The thread keeps the route it was created on; a report written after the
+	// visitor moved on has to name the page it was actually written from.
+	it('sends the current pathname with each message', async () => {
+		const mutation = vi
+			.fn()
+			.mockResolvedValueOnce({ threadId: 'thread-1' })
+			.mockResolvedValueOnce({ messageId: 'message-1' });
+		const navigation = new SupportNavigationState();
+		const conversation = new SupportConversation(navigation);
+		conversation.beginNewConversation();
+		navigation.startNewThread();
+		const client = clientWith(mutation);
+
+		window.history.replaceState({}, '', '/en/app');
+		await conversation.ensureThread(client);
+		window.history.pushState({}, '', '/fr/app/settings?tab=billing#plan');
+		await conversation.sendMessage(client, 'The chart is empty');
+
+		expect(mutation.mock.calls[1]?.[1]).toMatchObject({
+			threadId: 'thread-1',
+			pageUrl: '/fr/app/settings'
+		});
+	});
+
+	// The route bound covers the route, not whatever query the page carries.
+	it('keeps a short pathname under a long query', async () => {
+		const mutation = vi
+			.fn()
+			.mockResolvedValueOnce({ threadId: 'thread-1' })
+			.mockResolvedValueOnce({ messageId: 'message-1' });
+		const navigation = new SupportNavigationState();
+		const conversation = new SupportConversation(navigation);
+		conversation.beginNewConversation();
+		navigation.startNewThread();
+		const client = clientWith(mutation);
+
+		window.history.replaceState({}, '', '/en/app');
+		await conversation.ensureThread(client);
+		window.history.pushState({}, '', `/de?state=${'x'.repeat(2100)}#${'y'.repeat(2100)}`);
+		await conversation.sendMessage(client, 'The chart is empty');
+
+		expect(mutation.mock.calls[1]?.[1]).toMatchObject({ pageUrl: '/de' });
+	});
+});

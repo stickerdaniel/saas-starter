@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { Message } from '$lib/components/prompt-kit/message';
 	import { Response, streamingTextAnimation } from '$lib/components/ai-elements/response';
 	import { ToolComposed } from '$lib/components/prompt-kit/tool';
@@ -23,7 +24,8 @@
 		currentEmail = '',
 		isEmailPending = false,
 		defaultEmail = '',
-		onSubmitEmail
+		onSubmitEmail,
+		messageFooter
 	}: {
 		/** The message to display */
 		message: DisplayMessage;
@@ -43,6 +45,8 @@
 		defaultEmail?: string;
 		/** Callback when email is submitted */
 		onSubmitEmail?: (email: string) => Promise<void>;
+		/** Rendered below the bubble, inside the column that carries its alignment */
+		messageFooter?: Snippet<[DisplayMessage]>;
 	} = $props();
 
 	const ctx = getChatUIContext();
@@ -169,4 +173,7 @@
 			</MessageBubble>
 		{/if}
 	</Message>
+	{#if messageFooter}
+		{@render messageFooter(message)}
+	{/if}
 </div>

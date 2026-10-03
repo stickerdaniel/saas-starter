@@ -90,3 +90,34 @@ describe('SupportHandoffCommands', () => {
 		expect(conversation.isHandedOff).toBe(true);
 	});
 });
+
+describe('SupportHandoffCommands route', () => {
+	afterEach(() => {
+		window.history.replaceState({}, '', '/');
+	});
+
+	it('sends the page the request is made from', async () => {
+		const mutation = vi.fn().mockResolvedValue(undefined);
+		const conversation = new SupportConversation(new SupportNavigationState());
+		conversation.setThread('thread-1');
+		window.history.pushState({}, '', '/de/app/settings?tab=billing#plan');
+
+		await new SupportHandoffCommands(conversation).request(clientWith(mutation));
+
+		expect(mutation.mock.calls[0]?.[1]).toMatchObject({
+			threadId: 'thread-1',
+			pageUrl: '/de/app/settings'
+		});
+	});
+
+	it('keeps a short pathname under a long query', async () => {
+		const mutation = vi.fn().mockResolvedValue(undefined);
+		const conversation = new SupportConversation(new SupportNavigationState());
+		conversation.setThread('thread-1');
+		window.history.pushState({}, '', `/fr?state=${'x'.repeat(2100)}`);
+
+		await new SupportHandoffCommands(conversation).request(clientWith(mutation));
+
+		expect(mutation.mock.calls[0]?.[1]).toMatchObject({ pageUrl: '/fr' });
+	});
+});

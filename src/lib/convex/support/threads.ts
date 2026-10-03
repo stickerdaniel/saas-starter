@@ -336,7 +336,9 @@ export const getThread = query({
 export const updateThreadHandoff = mutation({
 	args: {
 		threadId: v.string(),
-		anonymousUserId: v.optional(v.string()) // For anonymous users
+		anonymousUserId: v.optional(v.string()), // For anonymous users
+		// Optional so clients that predate per-message routes stay valid.
+		pageUrl: v.optional(v.string())
 	},
 	returns: v.boolean(),
 	handler: async (ctx, args) => {
@@ -351,7 +353,7 @@ export const updateThreadHandoff = mutation({
 		}
 
 		// Save user message: "Talk to support"
-		await supportAgent.saveMessage(ctx, {
+		const { messageId } = await supportAgent.saveMessage(ctx, {
 			threadId: args.threadId,
 			message: {
 				role: 'user',
@@ -359,6 +361,17 @@ export const updateThreadHandoff = mutation({
 			},
 			skipEmbeddings: true
 		});
+
+		// The request names the page it was made from, like any other message.
+		const pageUrl = normalizeSupportPageRoute(args.pageUrl);
+		if (pageUrl) {
+			await ctx.db.insert('supportMessageContexts', {
+				threadId: args.threadId,
+				messageId,
+				pageUrl,
+				createdAt: Date.now()
+			});
+		}
 
 		// Save assistant response with email prompt
 		// Extract locale from the page URL where the user started the chat

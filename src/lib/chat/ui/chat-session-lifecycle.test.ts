@@ -640,7 +640,8 @@ describe('chat session lifecycle', () => {
 			threadId: 'same-navigation-thread',
 			prompt: 'ordered prompt',
 			anonymousUserId: undefined,
-			fileIds: ['old-file-id', 'old-file-id', 'generation-two-file-id']
+			fileIds: ['old-file-id', 'old-file-id', 'generation-two-file-id'],
+			pageUrl: window.location.pathname
 		});
 
 		const current = { page: [], isDone: true, continueCursor: '' };

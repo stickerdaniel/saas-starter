@@ -3,6 +3,7 @@ import { api } from '$lib/convex/_generated/api';
 import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
 import { CHAT_PAGE_SIZE } from '$lib/chat/core/types.js';
 import type { SupportOperationIdentity } from './support-conversation.svelte.ts';
+import { normalizeSupportPageRoute } from '$lib/shared/support-page-route';
 import type { SupportHandoffOutcome } from './support-types.js';
 
 export interface SupportHandoffConversationPort {
@@ -39,7 +40,14 @@ export class SupportHandoffCommands {
 
 			await client.mutation(
 				api.support.threads.updateThreadHandoff,
-				{ threadId, anonymousUserId },
+				{
+					threadId,
+					anonymousUserId,
+					// The page the request is made from, not the one the thread began on.
+					pageUrl: normalizeSupportPageRoute(
+						typeof window !== 'undefined' ? window.location.pathname : undefined
+					)
+				},
 				{
 					optimisticUpdate: createOptimisticUpdate(
 						api.support.messages.listMessages,

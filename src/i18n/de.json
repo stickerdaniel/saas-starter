@@ -156,8 +156,10 @@
 				"unassigned": "Nicht zugewiesen"
 			},
 			"chat": {
+				"open_as_customer": "Diese Seite als Kunde öffnen",
 				"placeholder": "Antwort an Kunde...",
-				"send_error": "Antwort konnte nicht gesendet werden. Versuch es noch mal."
+				"send_error": "Antwort konnte nicht gesendet werden. Versuch es noch mal.",
+				"sent_from": "Gesendet von"
 			},
 			"details": {
 				"assignee": "Zugewiesen an",
@@ -314,6 +316,16 @@
 		}
 	},
 	"app": {
+		"investigation_bar": {
+			"admin_fallback": "Admin",
+			"back_to": "Zurück zu {section}",
+			"label": "Identitätswechsel",
+			"recovery": "Deine Admin-Sitzung konnte nicht wiederhergestellt werden",
+			"return_pending": "Der Identitätswechsel ist beendet, aber deine Admin-Sitzung wurde noch nicht geladen.",
+			"return_to": "Zu {section} zurückkehren",
+			"sign_in_again": "Erneut anmelden",
+			"viewing_as": "Ansicht als {name} ({email})"
+		},
 		"sidebar": {
 			"admin_panel": "Admin-Bereich",
 			"ai_chat": "KI-Chat",
@@ -322,7 +334,6 @@
 		},
 		"user_menu": {
 			"billing": "Abrechnung",
-			"impersonating_banner": "Du agierst als dieser Benutzer",
 			"impersonation_stop_failed": "Identitätswechsel konnte nicht beendet werden",
 			"impersonation_stopped": "Identitätswechsel beendet",
 			"logout": "Abmelden",

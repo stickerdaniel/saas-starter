@@ -156,8 +156,10 @@
 				"unassigned": "Unassigned"
 			},
 			"chat": {
+				"open_as_customer": "Open this page as the customer",
 				"placeholder": "Reply to customer...",
-				"send_error": "Failed to send reply. Try again."
+				"send_error": "Failed to send reply. Try again.",
+				"sent_from": "Sent from"
 			},
 			"details": {
 				"assignee": "Assignee",
@@ -314,6 +316,16 @@
 		}
 	},
 	"app": {
+		"investigation_bar": {
+			"admin_fallback": "Admin",
+			"back_to": "Back to {section}",
+			"label": "Impersonation",
+			"recovery": "Your admin session could not be restored",
+			"return_pending": "Impersonation ended, but your admin session has not loaded yet.",
+			"return_to": "Return to {section}",
+			"sign_in_again": "Sign in again",
+			"viewing_as": "Viewing as {name} ({email})"
+		},
 		"sidebar": {
 			"admin_panel": "Admin Panel",
 			"ai_chat": "AI Chat",
@@ -322,7 +334,6 @@
 		},
 		"user_menu": {
 			"billing": "Billing",
-			"impersonating_banner": "You are impersonating this user",
 			"impersonation_stop_failed": "Failed to stop impersonation",
 			"impersonation_stopped": "Stopped impersonating",
 			"logout": "Log out",
