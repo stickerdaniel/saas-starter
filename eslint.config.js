@@ -145,8 +145,9 @@ export default defineConfig(
 			// Off globally: ~26 legitimate usages in UI-kit/vendor code (shadcn, Konva, Rive, TanStack)
 			'@typescript-eslint/no-explicit-any': 'off',
 
-			// Mirrors oxlint typescript/consistent-type-imports — needed here because oxlint
-			// does not yet parse <script lang="ts"> blocks inside .svelte files
+			// Mirrors oxlint typescript/consistent-type-imports for .svelte files. oxlint lints
+			// their <script lang="ts"> blocks but skips this rule there, because it cannot see
+			// template usages (#1117).
 			'@typescript-eslint/consistent-type-imports': ['error', { disallowTypeAnnotations: true }]
 		}
 	},
@@ -287,8 +288,9 @@ export default defineConfig(
 	},
 	{
 		// Runes (`$effect`/`$derived`) and `useDebounce` appear in both components and
-		// `.svelte.ts` rune modules. oxlint JS plugins do not support Svelte yet, so this
-		// guard lives in ESLint (see eslint/rules/no-debounce-in-rune.js).
+		// `.svelte.ts` rune modules. oxlint JS plugins reach .svelte script blocks, but
+		// upstream has no tests for that path yet, so this guard lives in ESLint
+		// (see eslint/rules/no-debounce-in-rune.js and #1117).
 		files: ['src/**/*.svelte', 'src/**/*.svelte.ts'],
 		plugins: {
 			local: localPlugin
