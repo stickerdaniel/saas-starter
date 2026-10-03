@@ -8,8 +8,12 @@ import {
 
 async function waitForSettingsTableReady(page: Page) {
 	await expect(page.getByTestId('admin-settings-page')).toBeVisible();
+	// The toolbar renders only in the browser, so seeing it means its handlers are live.
+	await expect(page.getByTestId('admin-settings-search')).toBeVisible();
 	await expect(page.getByTestId('recipients-table')).toBeVisible();
 	await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
+	// Every query these tests open lists at least the signed-in admin.
+	await expect(page.locator('[data-testid^="recipient-row-"]').first()).toBeVisible();
 }
 
 async function addCustomEmailRecipient(page: Page, email: string) {
@@ -28,8 +32,7 @@ test.describe('Admin Settings Table', () => {
 		page.on('pageerror', (error) => {
 			uncaughtPageErrors.push(error.message);
 		});
-		await page.goto('/en/admin/settings');
-		await page.waitForLoadState('domcontentloaded');
+		await page.goto('/en/admin/settings', { waitUntil: 'domcontentloaded' });
 		await waitForSettingsTableReady(page);
 	});
 

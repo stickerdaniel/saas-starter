@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { waitForAuthenticated } from './utils/auth';
 
 // Regression guard for the silent-upgrade defect: Autumn answers a checkout
 // either with a hosted Stripe session or with a purchase preview that has to be
@@ -51,6 +52,8 @@ const CHECKOUT_PREVIEW = {
 type ActionFrame = { type?: string; udfPath?: string; requestId?: number; args?: unknown[] };
 
 type Intercept = {
+	/** Arguments of every checkout action the page sent. */
+	checkoutRequests: unknown[][];
 	/** Resolves once the attach action has been requested. */
 	attachRequested: Promise<{ args: unknown[] }>;
 	/** Answers the held attach request. */
@@ -81,6 +84,7 @@ async function interceptBilling(page: Page): Promise<Intercept> {
 	});
 
 	let respond: ((payload: { data?: unknown; error?: unknown }) => void) | null = null;
+	const checkoutRequests: unknown[][] = [];
 
 	await page.routeWebSocket(/\/api\/[^/]+\/sync/, (ws) => {
 		const server = ws.connectToServer();
@@ -104,6 +108,7 @@ async function interceptBilling(page: Page): Promise<Intercept> {
 				typeof parsed.requestId === 'number'
 			) {
 				if (parsed.udfPath.includes('checkout')) {
+					checkoutRequests.push(parsed.args ?? []);
 					ws.send(actionResponse(parsed.requestId, CHECKOUT_PREVIEW));
 					return;
 				}
@@ -123,6 +128,7 @@ async function interceptBilling(page: Page): Promise<Intercept> {
 	});
 
 	return {
+		checkoutRequests,
 		attachRequested,
 		resolveAttach: (payload) => respond?.(payload)
 	};
@@ -132,11 +138,18 @@ test('a checkout without a hosted session is confirmed in a dialog', async ({ pa
 	const billing = await interceptBilling(page);
 
 	await page.goto(`/en/pricing?cb=${Date.now()}`);
-	await page.waitForLoadState('networkidle');
 
+	// The checkout button is server-rendered, so being enabled shows only that
+	// billing is usable. The header's sign-out control appears once the page has
+	// hydrated and the client has confirmed the session; a click before that is
+	// lost, or sent to /signin when the server saw no valid token.
+	await expect(page.getByTestId('marketing-nav-logout')).toBeVisible();
 	const checkoutButton = page.getByTestId('pricing-checkout-pro');
 	await expect(checkoutButton).toBeEnabled();
 	await checkoutButton.click();
+	await expect
+		.poll(() => billing.checkoutRequests)
+		.toEqual([[expect.objectContaining({ productId: 'pro' })]]);
 
 	// No URL to follow, so the purchase has to surface as a confirmation.
 	const dialog = page.getByRole('alertdialog');
@@ -183,13 +196,19 @@ test('a failed confirmation reports the error and keeps the dialog open', async 
 	const billing = await interceptBilling(page);
 
 	await page.goto('/en/app/community-chat');
-	await page.waitForLoadState('networkidle');
+	await waitForAuthenticated(page);
 
 	// Started from the user menu on purpose: the dialog is mounted in the root
 	// layout, so it has to survive the dropdown closing underneath it. The quota
 	// banner CTA is not usable here because a fresh test user still has messages.
 	await page.getByRole('button', { name: /E2E Test User/i }).click();
-	await page.getByRole('menuitem', { name: /Upgrade to Pro/i }).click();
+	const upgrade = page.getByRole('menuitem', { name: /Upgrade to Pro/i });
+	// Disabled while billing is unusable.
+	await expect(upgrade).toBeEnabled();
+	await upgrade.click();
+	await expect
+		.poll(() => billing.checkoutRequests)
+		.toEqual([[expect.objectContaining({ productId: 'pro' })]]);
 
 	const dialog = page.getByRole('alertdialog');
 	await expect(dialog).toBeVisible({ timeout: 10000 });

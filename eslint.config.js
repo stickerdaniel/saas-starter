@@ -17,6 +17,7 @@ import noHardcodedModifierKeysRule from './eslint/rules/no-hardcoded-modifier-ke
 import requireReturnsValidatorRule from './eslint/rules/require-returns-validator.js';
 import noBareTestSkipRule from './eslint/rules/no-bare-test-skip.js';
 import requireExplicitStorageStateRule from './eslint/rules/require-explicit-storage-state.js';
+import noNetworkidleWaitRule from './eslint/rules/no-networkidle-wait.js';
 import noModuleStateSingletonRule from './eslint/rules/no-module-state-singleton.js';
 import requireMotionGuardTransitionRule from './eslint/rules/require-motion-guard-transition.js';
 import requireFieldErrorAssociationRule from './eslint/rules/require-field-error-association.js';
@@ -59,6 +60,7 @@ const localPlugin = {
 		'require-returns-validator': requireReturnsValidatorRule,
 		'no-bare-test-skip': noBareTestSkipRule,
 		'require-explicit-storage-state': requireExplicitStorageStateRule,
+		'no-networkidle-wait': noNetworkidleWaitRule,
 		'no-module-state-singleton': noModuleStateSingletonRule,
 		'require-motion-guard-transition': requireMotionGuardTransitionRule,
 		'require-field-error-association': requireFieldErrorAssociationRule,
@@ -344,6 +346,18 @@ export default defineConfig(
 		rules: {
 			'local/no-bare-test-skip': 'error',
 			'local/require-explicit-storage-state': 'error'
+		}
+	},
+	{
+		// Network idle ignores WebSocket traffic, so it passes before Convex-driven
+		// controls are usable; helpers under e2e/utils hide the same wait.
+		// See eslint/rules/no-networkidle-wait.js.
+		files: ['e2e/**/*.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-networkidle-wait': 'error'
 		}
 	},
 	{

@@ -12,9 +12,11 @@ import { test, expect } from '@playwright/test';
  */
 test.describe('Admin Settings Page', () => {
 	test.beforeEach(async ({ page }) => {
-		// Navigate to admin settings page
-		await page.goto('/admin/settings');
-		await page.waitForLoadState('domcontentloaded');
+		// The localized route skips the language redirect. The recipients toolbar
+		// renders only in the browser, so seeing it means its handlers are live.
+		await page.goto('/en/admin/settings', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByTestId('admin-settings-search')).toBeVisible();
+		await expect(page.getByTestId('add-email-button')).toBeVisible();
 	});
 
 	test('displays recipients table', async ({ page }) => {
@@ -55,9 +57,6 @@ test.describe('Admin Settings Page', () => {
 	});
 
 	test('shows error for invalid email', async ({ page }) => {
-		// Wait for table to load
-		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
-
 		// Open add email dialog
 		await page.getByTestId('add-email-button').click();
 
