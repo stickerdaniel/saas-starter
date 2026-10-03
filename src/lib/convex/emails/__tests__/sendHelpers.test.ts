@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { normalizeSupportPageRoute } from '../../../shared/support-page-route';
 import {
 	buildSupportDeepLink,
 	isTestEmail,
@@ -84,6 +85,17 @@ describe('buildSupportDeepLink', () => {
 	it('falls back to the configured site for a malformed source URL', () => {
 		expect(buildSupportDeepLink('not a URL', 'https://app.example.com', 'thread-123')).toBe(
 			'https://app.example.com/?support=open&thread=thread-123'
+		);
+	});
+
+	it('resolves a stored support route on the configured site origin', () => {
+		const pageRoute = normalizeSupportPageRoute(
+			'https://preview.example.com/de/app/project?private=removed#details'
+		);
+
+		expect(pageRoute).toBe('/de/app/project');
+		expect(buildSupportDeepLink(pageRoute, 'https://app.example.com', 'thread-123')).toBe(
+			'https://app.example.com/de/app/project?support=open&thread=thread-123'
 		);
 	});
 });

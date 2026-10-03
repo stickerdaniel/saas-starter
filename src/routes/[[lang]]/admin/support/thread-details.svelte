@@ -18,6 +18,7 @@
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { page } from '$app/state';
 	import { getDateFnsLocale } from '$lib/utils/i18n';
+	import { normalizeSupportPageRoute } from '$lib/shared/support-page-route';
 
 	const { t } = getTranslate();
 
@@ -43,6 +44,9 @@
 	// Derive thread and user data
 	const thread = $derived(threadQuery.data);
 	const userId = $derived(thread?.userId);
+	// Rows stored before routes were normalized can still hold any client-supplied
+	// string, so the link only ever carries a same-origin pathname.
+	const pageRoute = $derived(normalizeSupportPageRoute(thread?.supportMetadata?.pageUrl));
 
 	// Query admin users for assignment
 	const adminsQuery = useQuery(api.admin.support.queries.listAdmins);
@@ -247,17 +251,17 @@
 					{/if}
 
 					<!-- Page URL -->
-					{#if thread.supportMetadata?.pageUrl}
+					{#if pageRoute}
 						<Field.Field>
 							<Field.Label><T keyName="admin.support.details.page_url" /></Field.Label>
 							<!-- eslint-disable svelte/no-navigation-without-resolve -->
 							<a
-								href={thread.supportMetadata.pageUrl}
+								href={pageRoute}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="flex items-center gap-2 text-sm text-primary hover:underline active:translate-y-px"
 							>
-								<span class="truncate">{thread.supportMetadata.pageUrl}</span>
+								<span class="truncate">{pageRoute}</span>
 								<ExternalLinkIcon class="size-3 shrink-0" />
 							</a>
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->

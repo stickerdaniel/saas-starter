@@ -58,7 +58,11 @@ export function buildSupportDeepLink(
 ): string {
 	const target = new URL(siteUrl);
 	try {
-		const source = new URL(pageUrl || siteUrl);
+		// Stored support routes are pathnames, which resolve against the site.
+		const isRootRelativePath =
+			pageUrl?.startsWith('/') && !pageUrl.startsWith('//') && !pageUrl.includes('\\');
+		const source =
+			pageUrl && isRootRelativePath ? new URL(pageUrl, siteUrl) : new URL(pageUrl || siteUrl);
 		target.pathname = source.pathname;
 		target.search = source.search;
 		target.hash = source.hash;

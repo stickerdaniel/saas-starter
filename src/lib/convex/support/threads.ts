@@ -25,6 +25,7 @@ import {
 import { normalizeNotificationEmail } from './notificationPreferences';
 import { toAgentThreadStatus } from './denormalization';
 import { authComponent } from '../auth';
+import { normalizeSupportPageRoute } from '../../shared/support-page-route';
 
 export { shouldSendNotification } from './notificationPreferences';
 export { syncSupportLastMessage } from './threadLifecycle';
@@ -81,6 +82,7 @@ export const getOrCreateWarmThread = mutation({
 		notificationEmail: v.optional(v.string())
 	}),
 	handler: async (ctx, args) => {
+		const pageUrl = normalizeSupportPageRoute(args.pageUrl);
 		const owner = await requireSupportOwnerIdentity(ctx, args.anonymousUserId);
 
 		const existingWarm = await ctx.db
@@ -89,9 +91,9 @@ export const getOrCreateWarmThread = mutation({
 			.first();
 
 		if (existingWarm) {
-			if (args.pageUrl && existingWarm.pageUrl !== args.pageUrl) {
+			if (pageUrl && existingWarm.pageUrl !== pageUrl) {
 				await ctx.db.patch('supportThreads', existingWarm._id, {
-					pageUrl: args.pageUrl,
+					pageUrl,
 					updatedAt: Date.now()
 				});
 			}
@@ -110,7 +112,7 @@ export const getOrCreateWarmThread = mutation({
 			isAnonymous: owner.isAnonymous,
 			title: 'Customer Support',
 			summary: 'New support conversation',
-			pageUrl: args.pageUrl,
+			pageUrl,
 			isWarm: true,
 			awaitingAdminResponse: false
 		});

@@ -5,6 +5,7 @@ import type { SupportLatestThreadMessage } from './denormalization';
 import { supportAgent } from './agent';
 import { ANONYMOUS_GLOBAL_RATE_LIMIT_KEY, supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
+import { normalizeSupportPageRoute } from '../../shared/support-page-route';
 
 export async function limitSupportThreadCreate(
 	ctx: MutationCtx,
@@ -97,7 +98,7 @@ export async function createSupportThreadRecord(
 		awaitingAdminResponse: args.awaitingAdminResponse,
 		assignedTo: undefined,
 		priority: undefined,
-		pageUrl: args.pageUrl || undefined,
+		pageUrl: normalizeSupportPageRoute(args.pageUrl),
 		createdAt: now,
 		updatedAt: now,
 		notificationEmail: userEmail,
