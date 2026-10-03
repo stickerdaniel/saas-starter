@@ -2,7 +2,8 @@
 	import { browser } from '$app/environment';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import AuthenticatedSidebar from './authenticated-sidebar.svelte';
-	import SidebarPasskeyNudge from '$lib/components/auth/sidebar-passkey-nudge.svelte';
+	import SidebarPasskeyOffer from '$lib/components/auth/sidebar-passkey-offer.svelte';
+	import { PasskeyNudgeClaim } from '$lib/hooks/passkey-nudge.svelte.ts';
 	import AuthenticatedHeader from './authenticated-header.svelte';
 	import AuthConnectionFallback from './auth-connection-fallback.svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
@@ -40,6 +41,8 @@
 		sidebarOpen
 	}: Props = $props();
 
+	const passkeyNudge = new PasskeyNudgeClaim(() => routePrefix === 'app');
+
 	$effect(() => {
 		if (!browser || !user) return;
 
@@ -76,7 +79,13 @@
 				{onLoadMoreThreads}
 			>
 				{#snippet footerStart()}
-					{#if routePrefix === 'app'}<SidebarPasskeyNudge />{/if}
+					{#if passkeyNudge.offer}
+						<SidebarPasskeyOffer
+							user={passkeyNudge.offer.user}
+							provider={passkeyNudge.offer.provider}
+							oncontinue={() => passkeyNudge.dismiss()}
+						/>
+					{/if}
 				{/snippet}
 			</AuthenticatedSidebar>
 			<!-- Chat pages drop the inset's white so the sidebar tone carries the whole

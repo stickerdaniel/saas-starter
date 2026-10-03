@@ -34,14 +34,14 @@
 	}
 </script>
 
-<form onsubmit={handleSubmit} novalidate class="min-h-96">
+<form onsubmit={handleSubmit} novalidate class="flex min-h-96 flex-col">
 	<LoadingBar
 		value={complete ? 100 : 0}
 		mode={offer.busy ? 'loading' : 'progress'}
 		showBackground={false}
 		variant="edge"
 	/>
-	<div class="p-6 md:p-8">
+	<div class="flex flex-1 flex-col justify-center p-6 md:p-8">
 		<Field.Group>
 			<div class="flex flex-col items-center gap-2 text-center">
 				<h1 tabindex="-1" class="text-2xl font-bold outline-none" {@attach focusHeading}>

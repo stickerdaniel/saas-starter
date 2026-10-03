@@ -49,7 +49,7 @@
 				{#if user}
 					<PasskeyOffer {user} oncontinue={continueToApp} />
 				{:else}
-					<div class="min-h-96 p-6 md:p-8">
+					<div class="flex min-h-96 flex-col justify-center p-6 md:p-8">
 						<Field.Group>
 							<p role="status" class="text-center text-balance text-muted-foreground">
 								<T keyName="auth.passkey_nudge.loading" />

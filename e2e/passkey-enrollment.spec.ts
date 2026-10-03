@@ -128,3 +128,40 @@ test('remembers Not now on another browser for the same account', async ({ page,
 		await client().mutation(api.tests.deleteTestUser, { email, secret: secret() });
 	}
 });
+
+// Cheaper layers rejected because: the sidebar remounts its content when the viewport crosses
+// the mobile breakpoint, and only a real browser layout reproduces that switch.
+test('keeps the OAuth offer in the sidebar across the mobile breakpoint', async ({ page }) => {
+	const email = `passkey-sidebar-${Date.now()}@e2e.example.com`;
+	ownTestEmail(email, 'userEmails');
+	try {
+		const signup = await page.request.post('/api/auth/sign-up/email', {
+			headers: { Origin: resolveSiteUrl() },
+			data: { email, password, name: 'Passkey Sidebar' }
+		});
+		expect(signup.ok()).toBe(true);
+		await client().mutation(api.tests.verifyTestUserEmail, { email, secret: secret() });
+		await page.context().clearCookies();
+		const signin = await page.request.post('/api/auth/sign-in/email', {
+			headers: { Origin: resolveSiteUrl() },
+			data: { email, password }
+		});
+		expect(signin.ok()).toBe(true);
+		await page.setViewportSize({ width: 1440, height: 900 });
+		await page.goto('/en/terms');
+		// The marker the Google callback leaves behind; a real provider round trip is out of reach.
+		await page.evaluate(() =>
+			sessionStorage.setItem('auth:pending-oauth-provider', JSON.stringify('google'))
+		);
+		await page.goto('/en/app/community-chat');
+		const name = page.getByRole('textbox', { name: 'Passkey name', exact: true });
+		await expect(name).toBeVisible();
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click();
+		await expect(name).toBeVisible();
+		await page.getByRole('button', { name: 'Not now', exact: true }).click();
+		await expect(name).toHaveCount(0);
+	} finally {
+		await client().mutation(api.tests.deleteTestUser, { email, secret: secret() });
+	}
+});
