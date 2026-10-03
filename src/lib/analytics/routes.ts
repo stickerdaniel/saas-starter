@@ -13,6 +13,7 @@ export const ANALYTICS_ROUTES = [
 	'/',
 	'/email-verified',
 	'/forgot-password',
+	'/passkey-setup',
 	'/reset-password',
 	'/signin',
 	'/signup',
