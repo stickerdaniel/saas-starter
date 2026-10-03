@@ -12,18 +12,21 @@ import fr from '../../i18n/fr.json';
 const locales: Record<string, unknown> = { en, de, es, fr };
 const suffix = ` | ${LEGAL_CONFIG.brandName}`;
 
-describe('SEO meta titles never include the brand suffix', () => {
-	for (const [lang, data] of Object.entries(locales)) {
-		const meta = (data as { meta?: Record<string, { title?: unknown }> }).meta ?? {};
-		for (const [page, entry] of Object.entries(meta)) {
-			const title = entry?.title;
-			if (typeof title !== 'string') continue;
-			it(`${lang} meta.${page}.title`, () => {
-				expect(
-					title.includes(suffix),
-					`"${title}" must be page-name only; SEOHead appends "${suffix}"`
-				).toBe(false);
-			});
-		}
+const cases: Array<[label: string, title: string]> = [];
+for (const [lang, data] of Object.entries(locales)) {
+	const meta = (data as { meta?: Record<string, { title?: unknown }> }).meta ?? {};
+	for (const [page, entry] of Object.entries(meta)) {
+		const title = entry?.title;
+		if (typeof title !== 'string') continue;
+		cases.push([`${lang} meta.${page}.title`, title]);
 	}
+}
+
+describe('SEO meta titles never include the brand suffix', () => {
+	it.each(cases)('%s', (_label, title) => {
+		expect(
+			title.includes(suffix),
+			`"${title}" must be page-name only; SEOHead appends "${suffix}"`
+		).toBe(false);
+	});
 });

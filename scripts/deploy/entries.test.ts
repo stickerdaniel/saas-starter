@@ -48,8 +48,12 @@ describe('Cloudflare deployment entries', () => {
 		await expect(upload(invalid.execution)).rejects.toMatchObject({ code: 'configuration' });
 		expect(invalid.spawn).not.toHaveBeenCalled();
 	});
-	for (const entry of [runCloudflareDeployCli, runCloudflareProductionCli]) {
-		it(`${entry.name} preserves child failure status and reports exactly once`, async () => {
+	const entryCases = [runCloudflareDeployCli, runCloudflareProductionCli].map(
+		(entry) => [entry.name, entry] as const
+	);
+	it.each(entryCases)(
+		'%s preserves child failure status and reports exactly once',
+		async (_name, entry) => {
 			const saved = process.exitCode ?? 0;
 			try {
 				process.exitCode = 0;
@@ -62,24 +66,24 @@ describe('Cloudflare deployment entries', () => {
 			} finally {
 				process.exitCode = saved;
 			}
-		});
-		it(`${entry.name} keeps success at zero and abort nonzero`, async () => {
-			const saved = process.exitCode ?? 0;
-			try {
-				process.exitCode = 0;
-				await entry(harness({}).execution);
-				expect(process.exitCode).toBe(0);
-				const controller = new AbortController();
-				controller.abort();
-				const h = harness({}, defaultReply, { signal: controller.signal });
-				await entry(h.execution);
-				expect(process.exitCode).toBe(1);
-				expect(h.spawn).not.toHaveBeenCalled();
-			} finally {
-				process.exitCode = saved;
-			}
-		});
-	}
+		}
+	);
+	it.each(entryCases)('%s keeps success at zero and abort nonzero', async (_name, entry) => {
+		const saved = process.exitCode ?? 0;
+		try {
+			process.exitCode = 0;
+			await entry(harness({}).execution);
+			expect(process.exitCode).toBe(0);
+			const controller = new AbortController();
+			controller.abort();
+			const h = harness({}, defaultReply, { signal: controller.signal });
+			await entry(h.execution);
+			expect(process.exitCode).toBe(1);
+			expect(h.spawn).not.toHaveBeenCalled();
+		} finally {
+			process.exitCode = saved;
+		}
+	});
 	it('does not purge without credentials, but purges after successful publication when configured', async () => {
 		const skipped = harness({});
 		await publish(skipped.execution);
@@ -116,7 +120,7 @@ describe('reusable Convex validation and close-preview entry', () => {
 		]);
 		expect(() => getRequiredVarNames('NO_SEPARATOR=')).toThrow('header separator');
 	});
-	for (const [args, selection] of [
+	const validationCases = [
 		[[], []],
 		[['--prod'], ['--prod']],
 		[
@@ -127,8 +131,10 @@ describe('reusable Convex validation and close-preview entry', () => {
 			['--prod', '--deployment-name', 'name'],
 			['--deployment-name', 'name']
 		]
-	]) {
-		it(`routes validation flags ${args?.join(' ')} through the shared runner`, async () => {
+	].map(([args, selection]) => [args?.join(' '), args, selection] as const);
+	it.each(validationCases)(
+		'routes validation flags %s through the shared runner',
+		async (_flags, args, selection) => {
 			const h = harness({});
 			await validate(args, h.execution);
 			expect(h.spawn).toHaveBeenCalledExactlyOnceWith(
@@ -137,8 +143,8 @@ describe('reusable Convex validation and close-preview entry', () => {
 					output: 'capture'
 				})
 			);
-		});
-	}
+		}
+	);
 	it.each([
 		['stdout', 'ViewEnvironmentVariables'],
 		['stderr', '\x1b[31mViewEnvironmentVariables\x1b[0m'],
