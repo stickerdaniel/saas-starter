@@ -474,14 +474,17 @@ describe('preview build discovery', () => {
 	it('fails with the last observation once the budget is exhausted', async () => {
 		const stale = await servedAlias([serving({ sourceSha: sha, buildUuid: old })]);
 		const started = Date.now();
-		// A retry delay beyond the budget makes the stale response the final observation.
+		// A retry delay beyond the budget makes the stale response the final
+		// observation. The budget leaves the first request time to finish on a
+		// loaded runner; a 300 ms budget let it time out there instead.
 		await expect(
 			discoverPreview(build, {
 				fetch: stale.fetch,
-				budget: { overallMs: 300, attemptMs: 300, retryDelayMs: 1_000 }
+				budget: { overallMs: 2_000, attemptMs: 2_000, retryDelayMs: 10_000 }
 			})
 		).rejects.toThrow(`served source "${sha}", build "${old}"`);
-		expect(Date.now() - started).toBeLessThan(1_500);
+		// Discovery stops at the budget instead of sleeping out the retry delay.
+		expect(Date.now() - started).toBeLessThan(5_000);
 		const legacy = await servedAlias([serving({})]);
 		await expect(
 			discoverPreview(build, { fetch: legacy.fetch, budget: { ...budget, overallMs: 200 } })
