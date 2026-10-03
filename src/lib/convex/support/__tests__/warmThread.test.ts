@@ -106,7 +106,7 @@ describe('support warm thread acquisition', () => {
 		// warm-thread polling would drain the thread-creation bucket
 		expect(limitMock).not.toHaveBeenCalled();
 		expect(patch).toHaveBeenCalledWith('supportThreads', 'support_doc_1', {
-			pageUrl: 'https://example.com/new',
+			pageUrl: '/new',
 			updatedAt: expect.any(Number)
 		});
 	});
@@ -152,7 +152,7 @@ describe('support warm thread acquisition', () => {
 				userId: 'anon_456',
 				isWarm: true,
 				awaitingAdminResponse: false,
-				pageUrl: 'https://example.com/support'
+				pageUrl: '/support'
 			})
 		);
 	});
