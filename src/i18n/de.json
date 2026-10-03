@@ -493,7 +493,7 @@
 			"not_now": "Nicht jetzt",
 			"working": "Bitte warten…",
 			"continue": "Weiter",
-			"about_description": "Wähle ein Gerät oder einen Passwortmanager, dem du vertraust. Deine biometrischen Daten bleiben auf deinem Gerät.",
+			"about_description": "Deine biometrischen Daten bleiben auf deinem Gerät.",
 			"manage_before": "Deine Passkeys verwaltest du in den",
 			"manage_link": "Einstellungen",
 			"manage_after": ".",
