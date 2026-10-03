@@ -10,6 +10,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import PasskeyOffer from '$lib/components/auth/passkey-offer.svelte';
 	import { claimPasskeyNudge, type PasskeyNudgeUser } from '$lib/utils/passkey-nudge';
+	import { localizedHref } from '$lib/utils/i18n';
 
 	let { data } = $props();
 	const auth = useAuth();
@@ -75,6 +76,11 @@
 		</Card.Root>
 		<Field.Description class="px-6 text-center text-balance">
 			<T keyName="auth.passkey_nudge.about_description" />
+			<T keyName="auth.passkey_nudge.manage_before" />
+			<a
+				href={resolve(localizedHref('/app/settings?tab=security'))}
+				class="underline underline-offset-4"><T keyName="auth.passkey_nudge.manage_link" /></a
+			><T keyName="auth.passkey_nudge.manage_after" />
 		</Field.Description>
 	</div>
 </div>
