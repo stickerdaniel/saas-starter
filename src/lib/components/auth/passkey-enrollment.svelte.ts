@@ -1,16 +1,25 @@
 import { fromStore } from 'svelte/store';
 import { getTranslate } from '@tolgee/svelte';
 import { useConvexClient } from 'convex-svelte';
+import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+import { toast } from 'svelte-sonner';
 import { authClient } from '$lib/auth-client';
+import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+import { pendingPasskeyNudge } from '$lib/hooks/passkey-nudge.svelte.ts';
+import type { PendingOAuthProvider } from '$lib/hooks/last-auth-method.svelte.ts';
 import { getPasskeyDevice } from '$lib/utils/passkey-device';
-import { deferPasskeyNudge, type PasskeyNudgeUser } from '$lib/utils/passkey-nudge';
+import {
+	claimPasskeyNudge,
+	deferPasskeyNudge,
+	type PasskeyNudgeUser
+} from '$lib/utils/passkey-nudge';
 
 /**
  * The state behind a passkey offer, shared by the setup page and the sidebar card.
  * Create it during component initialisation: it reads context and owns an effect.
  */
 export class PasskeyEnrollment {
-	#user: () => PasskeyNudgeUser;
+	#user: () => PasskeyNudgeUser | null;
 	#oncontinue: () => void;
 	#client = useConvexClient();
 	#t = fromStore(getTranslate().t);
@@ -22,7 +31,9 @@ export class PasskeyEnrollment {
 
 	readonly suggestedName = $derived.by(() => {
 		const t = this.#t.current;
-		const firstName = this.#user().name.trim().split(/\s+/)[0] ?? '';
+		const user = this.#user();
+		if (!user) return '';
+		const firstName = user.name.trim().split(/\s+/)[0] ?? '';
 		return t(
 			`settings.security.passkey.${firstName ? 'suggested_name' : 'suggested_name_anonymous'}`,
 			{
@@ -32,14 +43,15 @@ export class PasskeyEnrollment {
 		);
 	});
 
-	constructor(user: () => PasskeyNudgeUser, oncontinue: () => void) {
+	constructor(user: () => PasskeyNudgeUser | null, oncontinue: () => void) {
 		this.#user = user;
 		this.#oncontinue = oncontinue;
 		const session = fromStore(authClient.useSession());
 		// Another account signed in elsewhere in this browser: the offer is not theirs.
 		$effect(() => {
 			const data = session.current.data;
-			if (data && data.session.id !== this.#user().sessionId) this.#oncontinue();
+			const user = this.#user();
+			if (data && user && data.session.id !== user.sessionId) this.#oncontinue();
 		});
 	}
 
@@ -53,14 +65,15 @@ export class PasskeyEnrollment {
 
 	/** Resolves true only once the server has stored the new passkey. */
 	async create(): Promise<boolean> {
-		if (this.busy) return false;
+		const user = this.#user();
+		if (this.busy || !user) return false;
 		this.busy = true;
 		this.error = '';
 		try {
 			const session = await authClient.getSession({
 				fetchOptions: { signal: AbortSignal.timeout(5000) }
 			});
-			if (session.error || session.data?.session.id !== this.#user().sessionId) {
+			if (session.error || session.data?.session.id !== user.sessionId) {
 				this.error = 'auth.passkey_nudge.failed';
 				return false;
 			}
@@ -81,9 +94,59 @@ export class PasskeyEnrollment {
 	}
 
 	async skip() {
-		if (this.busy) return;
+		const user = this.#user();
+		if (this.busy || !user) return;
 		this.busy = true;
-		await deferPasskeyNudge(this.#client, this.#user().userId);
+		await deferPasskeyNudge(this.#client, user.userId);
 		this.#oncontinue();
+	}
+}
+
+/**
+ * The OAuth passkey offer of the app shell, with its form state. Both live at the shell's
+ * lifetime because the sidebar remounts its content when it switches between the desktop rail
+ * and the mobile sheet: a claimed offer is already marked as seen, and a typed name or a
+ * pending registration must survive the switch.
+ * Create it during component initialisation: it reads context and owns effects.
+ */
+export class PasskeyNudgeClaim {
+	#auth = useAuth();
+	#t = fromStore(getTranslate().t);
+	#offer = $state<{ user: PasskeyNudgeUser; provider: PendingOAuthProvider } | null>(null);
+	readonly enrollment = new PasskeyEnrollment(
+		() => this.offer?.user ?? null,
+		() => this.dismiss()
+	);
+
+	constructor(enabled: () => boolean) {
+		const client = useConvexClient();
+		$effect(() => {
+			const pending = pendingPasskeyNudge.current;
+			if (!enabled() || this.#auth.isLoading || !this.#auth.isAuthenticated || !pending) return;
+			let cancelled = false;
+			void claimPasskeyNudge(client, pending.sessionId).then((user) => {
+				if (cancelled) return;
+				pendingPasskeyNudge.current = null;
+				if (user && this.#auth.isAuthenticated) this.#offer = { user, provider: pending.provider };
+			});
+			return () => {
+				cancelled = true;
+			};
+		});
+	}
+
+	get offer() {
+		return this.#auth.isAuthenticated ? this.#offer : null;
+	}
+
+	async create() {
+		if (!(await this.enrollment.create())) return;
+		haptic.trigger('medium');
+		toast.success(this.#t.current('auth.messages.passkey_added'));
+		this.dismiss();
+	}
+
+	dismiss() {
+		this.#offer = null;
 	}
 }

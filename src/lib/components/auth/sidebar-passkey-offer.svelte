@@ -1,35 +1,21 @@
 <script lang="ts">
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { toast } from 'svelte-sonner';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import * as Field from '$lib/components/ui/field';
 	import * as Sidebar from '$lib/components/ui/sidebar';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { translateFormError } from '$lib/utils/validation-i18n.js';
-	import type { PasskeyNudgeUser } from '$lib/utils/passkey-nudge';
-	import type { PendingOAuthProvider } from '$lib/hooks/last-auth-method.svelte.ts';
-	import { PasskeyEnrollment } from './passkey-enrollment.svelte.ts';
+	import type { PasskeyNudgeClaim } from './passkey-enrollment.svelte.ts';
 
-	let {
-		user,
-		provider,
-		oncontinue
-	}: { user: PasskeyNudgeUser; provider: PendingOAuthProvider; oncontinue: () => void } = $props();
+	let { nudge }: { nudge: PasskeyNudgeClaim } = $props();
 
 	const { t } = getTranslate();
-	const offer = new PasskeyEnrollment(
-		() => user,
-		() => oncontinue()
-	);
+	const offer = $derived(nudge.enrollment);
 	const id = $props.id();
 
-	async function handleSubmit(event: SubmitEvent) {
+	function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (!(await offer.create())) return;
-		haptic.trigger('medium');
-		toast.success($t('auth.messages.passkey_added'));
-		oncontinue();
+		void nudge.create();
 	}
 </script>
 
@@ -42,7 +28,7 @@
 			<T keyName="auth.passkey_nudge.description" />
 			<T
 				keyName="auth.passkey_nudge.provider_backup"
-				params={{ provider: provider === 'google' ? 'Google' : 'GitHub' }}
+				params={{ provider: nudge.offer?.provider === 'github' ? 'GitHub' : 'Google' }}
 			/>
 		</Card.Description>
 	</Card.Header>
