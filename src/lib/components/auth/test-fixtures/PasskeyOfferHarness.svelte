@@ -3,15 +3,9 @@
 	import { FormatIcu } from '@tolgee/format-icu';
 	import en from '../../../../i18n/en.json';
 	import PasskeyOffer from '../passkey-offer.svelte';
-	import SidebarPasskeyOffer from '../sidebar-passkey-offer.svelte';
+	import SidebarOfferShell from './SidebarOfferShell.svelte';
 	let { oncontinue, sidebar = false }: { oncontinue: () => void; sidebar?: boolean } = $props();
 	const tolgee = Tolgee().use(FormatIcu()).init({ language: 'en', staticData: { en } });
-	const user = {
-		userId: 'user-a',
-		sessionId: 'session-a',
-		name: 'Daniel Example',
-		email: 'daniel@example.com'
-	};
 	let open = $state(true);
 	function close() {
 		open = false;
@@ -20,9 +14,17 @@
 </script>
 
 <TolgeeProvider {tolgee}>
-	{#if open && sidebar}
-		<SidebarPasskeyOffer {user} provider="google" oncontinue={close} />
+	{#if sidebar}
+		<SidebarOfferShell />
 	{:else if open}
-		<PasskeyOffer {user} oncontinue={close} />
+		<PasskeyOffer
+			user={{
+				userId: 'user-a',
+				sessionId: 'session-a',
+				name: 'Daniel Example',
+				email: 'daniel@example.com'
+			}}
+			oncontinue={close}
+		/>
 	{/if}
 </TolgeeProvider>

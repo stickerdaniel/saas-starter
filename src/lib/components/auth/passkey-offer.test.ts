@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
+import type * as PasskeyNudge from '$lib/utils/passkey-nudge';
 
 vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
@@ -51,7 +52,20 @@ vi.mock('$lib/auth-client', () => ({
 }));
 vi.mock('convex-svelte', () => ({ useConvexClient: () => ({ mutation: calls.defer }) }));
 vi.mock('svelte-sonner', () => ({ toast: { success: calls.toast } }));
+vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
+	useAuth: () => ({ isLoading: false, isAuthenticated: true })
+}));
+vi.mock('$lib/utils/passkey-nudge', async (importOriginal) => ({
+	...(await importOriginal<typeof PasskeyNudge>()),
+	claimPasskeyNudge: async () => ({
+		userId: 'user-a',
+		sessionId: 'session-a',
+		name: 'Daniel Example',
+		email: 'daniel@example.com'
+	})
+}));
 
+import { pendingPasskeyNudge } from '$lib/hooks/passkey-nudge.svelte.ts';
 import PasskeyOfferHarness from './test-fixtures/PasskeyOfferHarness.svelte';
 
 let component: ReturnType<typeof mount> | undefined;
@@ -67,6 +81,7 @@ function failure() {
 	return document.querySelector('[role=alert]')?.textContent;
 }
 async function render(sidebar = false) {
+	if (sidebar) pendingPasskeyNudge.current = { sessionId: 'session-a', provider: 'google' };
 	component = mount(PasskeyOfferHarness, {
 		target: document.body,
 		props: { oncontinue: calls.continue, sidebar }
@@ -166,10 +181,9 @@ it('confirms a sidebar registration with a toast and closes the offer', async ()
 	nameInput().value = 'Work laptop';
 	nameInput().dispatchEvent(new Event('input', { bubbles: true }));
 	button('Create a passkey').click();
-	await vi.waitFor(() => expect(calls.continue).toHaveBeenCalledOnce());
+	await vi.waitFor(() => expect(document.querySelector('form')).toBeNull());
 	expect(calls.create).toHaveBeenCalledWith({ name: 'Work laptop' });
 	expect(calls.toast).toHaveBeenCalledWith('Passkey added successfully');
-	expect(document.querySelector('form')).toBeNull();
 	expect(document.body.textContent).not.toContain('Your passkey is ready');
 });
 
@@ -178,7 +192,29 @@ it('keeps the sidebar offer open with an announced error when registration fails
 	await render(true);
 	button('Create a passkey').click();
 	await vi.waitFor(() => expect(failure()).toContain('We couldn’t finish setting up your passkey'));
-	expect(calls.continue).not.toHaveBeenCalled();
 	expect(calls.toast).not.toHaveBeenCalled();
-	expect(button('Create a passkey')).toBeDefined();
+	expect(document.querySelector('form')).not.toBeNull();
+});
+
+it('keeps the typed name and a pending registration when the sidebar card remounts', async () => {
+	let finish!: (value: unknown) => void;
+	calls.create.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+	await render(true);
+	nameInput().value = 'Work laptop';
+	nameInput().dispatchEvent(new Event('input', { bubbles: true }));
+	button('Remount card').click();
+	await tick();
+	button('Remount card').click();
+	await tick();
+	expect(nameInput().value).toBe('Work laptop');
+	button('Create a passkey').click();
+	await vi.waitFor(() => expect(calls.create).toHaveBeenCalledOnce());
+	button('Remount card').click();
+	await tick();
+	button('Remount card').click();
+	await tick();
+	expect(button('Please wait…').disabled).toBe(true);
+	finish({ data: { id: 'registered-passkey' }, error: null });
+	await vi.waitFor(() => expect(document.querySelector('form')).toBeNull());
+	expect(calls.create).toHaveBeenCalledWith({ name: 'Work laptop' });
 });
