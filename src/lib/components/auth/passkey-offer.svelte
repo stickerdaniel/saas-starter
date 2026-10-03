@@ -44,7 +44,11 @@
 	<div class="flex flex-1 flex-col justify-center p-6 md:p-8">
 		<Field.Group>
 			<div class="flex flex-col items-center gap-2 text-center">
-				<h1 tabindex="-1" class="text-2xl font-bold outline-none" {@attach focusHeading}>
+				<h1
+					tabindex="-1"
+					class="text-2xl font-bold text-balance outline-none"
+					{@attach focusHeading}
+				>
 					<T keyName={complete ? 'auth.passkey_nudge.success_title' : 'auth.passkey_nudge.title'} />
 				</h1>
 				<p class="text-balance text-muted-foreground">
