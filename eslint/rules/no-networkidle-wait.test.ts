@@ -55,7 +55,8 @@ describe('no-networkidle-wait', () => {
 		`await page.reload({ waitUntil: 'networkidle' });`,
 		`await page.goBack({ waitUntil: 'networkidle' });`,
 		`await page.goForward({ 'waitUntil': 'networkidle' });`,
-		`await page.waitForNavigation({ waitUntil: 'networkidle' });`
+		`await page.waitForNavigation({ waitUntil: 'networkidle' });`,
+		`await page.setContent('<main>Ready</main>', { waitUntil: 'networkidle' });`
 	])('flags a navigation that waits until network idle: %s', (code) => {
 		expect(lint(code)).toHaveLength(1);
 	});
@@ -97,6 +98,7 @@ describe('no-networkidle-wait through the flat config', () => {
 			// page.waitForLoadState('networkidle') in a comment is fine.
 			await page.goto('/en/pricing', { waitUntil: 'networkidle' });
 			await page.waitForLoadState('networkidle');
+			await page.setContent('<main>Ready</main>', { waitUntil: 'networkidle' });
 		});
 	`;
 
@@ -113,7 +115,8 @@ describe('no-networkidle-wait through the flat config', () => {
 		async (filePath) => {
 			expect(await ruleLines(source, filePath)).toEqual([
 				[5, 2],
-				[6, 2]
+				[6, 2],
+				[7, 2]
 			]);
 		},
 		60_000

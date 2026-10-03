@@ -3,8 +3,8 @@
  *
  * Flags Playwright waits on the `networkidle` load state in e2e code:
  * `waitForLoadState('networkidle')`, and `waitUntil: 'networkidle'` in the
- * options of `goto`, `waitForURL`, `reload`, `goBack`, `goForward` and
- * `waitForNavigation`.
+ * options of `goto`, `waitForURL`, `reload`, `goBack`, `goForward`,
+ * `waitForNavigation` and `setContent`.
  *
  * Why: network idle means no HTTP request for 500 ms. It ignores WebSocket
  * frames, so it resolves while Convex-driven state is still missing, and it
@@ -32,7 +32,8 @@ const NAVIGATION_METHODS = new Set([
 	'reload',
 	'goBack',
 	'goForward',
-	'waitForNavigation'
+	'waitForNavigation',
+	'setContent'
 ]);
 
 function isNetworkIdle(node) {
