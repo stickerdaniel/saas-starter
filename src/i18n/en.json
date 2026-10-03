@@ -504,7 +504,7 @@
 			"not_now": "Not now",
 			"working": "Please wait…",
 			"continue": "Continue",
-			"about_description": "Choose a device or password manager you trust. Your biometric information stays on your device.",
+			"about_description": "Your biometric information stays on your device.",
 			"manage_before": "You can manage passkeys in",
 			"manage_link": "Settings",
 			"manage_after": ".",

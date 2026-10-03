@@ -504,7 +504,7 @@
 			"not_now": "Ahora no",
 			"working": "Espera un momento…",
 			"continue": "Continuar",
-			"about_description": "Elige un dispositivo o un gestor de contraseñas de confianza. Tus datos biométricos permanecen en tu dispositivo.",
+			"about_description": "Tus datos biométricos permanecen en tu dispositivo.",
 			"manage_before": "Puedes gestionar tus claves de acceso en",
 			"manage_link": "Configuración",
 			"manage_after": ".",

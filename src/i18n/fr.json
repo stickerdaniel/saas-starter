@@ -504,7 +504,7 @@
 			"not_now": "Pas maintenant",
 			"working": "Un instant…",
 			"continue": "Continuer",
-			"about_description": "Choisis un appareil ou un gestionnaire de mots de passe de confiance. Tes données biométriques restent sur ton appareil.",
+			"about_description": "Tes données biométriques restent sur ton appareil.",
 			"manage_before": "Tu peux gérer tes clés d’accès dans les",
 			"manage_link": "paramètres",
 			"manage_after": ".",
