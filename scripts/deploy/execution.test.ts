@@ -20,50 +20,52 @@ describe('deployment management HTTP cancellation', () => {
 		expect(fetcher).not.toHaveBeenCalled();
 		expect(vi.getTimerCount()).toBe(0);
 	});
-	for (const phase of ['fetch', 'body'] as const) {
-		for (const stop of ['aborted', 'timed_out'] as const) {
-			it(`${stop} while awaiting ${phase} settles without leaking the cause`, async () => {
-				const controller = new AbortController();
-				const remove = vi.spyOn(controller.signal, 'removeEventListener');
-				let started!: () => void;
-				const ready = new Promise<void>((resolve) => {
-					started = resolve;
-				});
-				let childSignal: AbortSignal | undefined;
-				vi.stubGlobal(
-					'fetch',
-					vi.fn(async (_url: string, init: RequestInit) => {
-						childSignal = init.signal ?? undefined;
-						const pending = () =>
-							new Promise<never>((_resolve, reject) => {
-								childSignal?.addEventListener(
-									'abort',
-									() => reject(new Error('secret network cause')),
-									{ once: true }
-								);
-								started();
-							});
-						if (phase === 'fetch') return pending();
-						return { ok: true, json: pending };
-					})
-				);
-				const work = requestJson(
-					'https://example.test',
-					{},
-					{ signal: controller.signal, timeoutMs: 20 }
-				);
-				const assertion = expect(work).rejects.toMatchObject({ code: stop });
-				await ready;
-				if (stop === 'aborted') controller.abort();
-				else await vi.advanceTimersByTimeAsync(20);
-				await assertion;
-				expect(childSignal?.aborted).toBe(true);
-				expect(remove).toHaveBeenCalledWith('abort', expect.any(Function));
-				expect(vi.getTimerCount()).toBe(0);
-				await expect(work).rejects.not.toThrow('secret');
+	const cancellationCases = (['fetch', 'body'] as const).flatMap((phase) =>
+		(['aborted', 'timed_out'] as const).map((stop) => [stop, phase] as const)
+	);
+	it.each(cancellationCases)(
+		'%s while awaiting %s settles without leaking the cause',
+		async (stop, phase) => {
+			const controller = new AbortController();
+			const remove = vi.spyOn(controller.signal, 'removeEventListener');
+			let started!: () => void;
+			const ready = new Promise<void>((resolve) => {
+				started = resolve;
 			});
+			let childSignal: AbortSignal | undefined;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async (_url: string, init: RequestInit) => {
+					childSignal = init.signal ?? undefined;
+					const pending = () =>
+						new Promise<never>((_resolve, reject) => {
+							childSignal?.addEventListener(
+								'abort',
+								() => reject(new Error('secret network cause')),
+								{ once: true }
+							);
+							started();
+						});
+					if (phase === 'fetch') return pending();
+					return { ok: true, json: pending };
+				})
+			);
+			const work = requestJson(
+				'https://example.test',
+				{},
+				{ signal: controller.signal, timeoutMs: 20 }
+			);
+			const assertion = expect(work).rejects.toMatchObject({ code: stop });
+			await ready;
+			if (stop === 'aborted') controller.abort();
+			else await vi.advanceTimersByTimeAsync(20);
+			await assertion;
+			expect(childSignal?.aborted).toBe(true);
+			expect(remove).toHaveBeenCalledWith('abort', expect.any(Function));
+			expect(vi.getTimerCount()).toBe(0);
+			await expect(work).rejects.not.toThrow('secret');
 		}
-	}
+	);
 	it('cleans HTTP error bodies, listeners and timers without leaking network causes', async () => {
 		const controller = new AbortController();
 		const remove = vi.spyOn(controller.signal, 'removeEventListener');

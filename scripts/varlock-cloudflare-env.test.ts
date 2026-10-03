@@ -58,8 +58,9 @@ describe('varlock Cloudflare env delivery', () => {
 		expect(content, 'the manifest strip was removed').toContain('stripSensitiveManifestValues');
 	});
 
-	for (const script of ['scripts/cf-deploy.ts', 'scripts/cf-prod-deploy.ts']) {
-		it(`${script} deploys through varlock-wrangler`, () => {
+	it.each(['scripts/cf-deploy.ts', 'scripts/cf-prod-deploy.ts'])(
+		'%s deploys through varlock-wrangler',
+		(script) => {
 			const content = fs.readFileSync(path.resolve(script), 'utf-8');
 			const code = content.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
@@ -68,6 +69,6 @@ describe('varlock Cloudflare env delivery', () => {
 			expect(spawned, `${script} must spawn varlock-wrangler, not bare wrangler`).not.toContain(
 				'wrangler'
 			);
-		});
-	}
+		}
+	);
 });

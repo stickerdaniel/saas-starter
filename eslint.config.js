@@ -30,6 +30,7 @@ import safeSvelteParser from './eslint/parsers/safe-svelte-parser.js';
 import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js';
 import noDynamicImportRejectionHandlerRule from './eslint/rules/no-dynamic-import-rejection-handler.js';
 import requireStaticModeInitializerRule from './eslint/rules/require-static-mode-initializer.js';
+import noTestInLoopRule from './eslint/rules/no-test-in-loop.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
@@ -69,7 +70,8 @@ const localPlugin = {
 		'prefer-shadcn-slider-imports': preferShadcnSliderImportsRule,
 		'no-literal-control-char': noLiteralControlCharRule,
 		'no-dynamic-import-rejection-handler': noDynamicImportRejectionHandlerRule,
-		'require-static-mode-initializer': requireStaticModeInitializerRule
+		'require-static-mode-initializer': requireStaticModeInitializerRule,
+		'no-test-in-loop': noTestInLoopRule
 	}
 };
 
@@ -412,6 +414,20 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-literal-control-char': 'error'
+		}
+	},
+	// A test declared inside a loop is a hand-built parameterization; Vitest's
+	// `.each` states the cases as data. Playwright has no `.each` and its docs
+	// parameterize with loops, so e2e specs are exempt.
+	// See eslint/rules/no-test-in-loop.js.
+	{
+		files: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+		ignores: ['e2e/**'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-test-in-loop': 'error'
 		}
 	},
 	// shadcn/lint: class names must produce CSS and stay readable to the linter.

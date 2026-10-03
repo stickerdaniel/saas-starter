@@ -26,8 +26,9 @@ const SHARED_LOAD_REEXPORT =
 	"export { authedSubtreeLayoutLoad as load } from '$lib/server/auth-layout-data';";
 
 describe('authenticated subtree layout loads', () => {
-	for (const subtree of AUTHED_SUBTREES) {
-		it(`/${subtree} re-resolves auth data via the shared subtree layout load`, () => {
+	it.each(AUTHED_SUBTREES)(
+		'/%s re-resolves auth data via the shared subtree layout load',
+		(subtree) => {
 			const file = path.resolve('src/routes/[[lang]]', subtree, '+layout.server.ts');
 			expect(fs.existsSync(file), `${subtree}/+layout.server.ts is missing`).toBe(true);
 
@@ -36,8 +37,8 @@ describe('authenticated subtree layout loads', () => {
 				content.includes(SHARED_LOAD_REEXPORT),
 				`${subtree}/+layout.server.ts must re-export authedSubtreeLayoutLoad verbatim so the subtree guards cannot diverge`
 			).toBe(true);
-		});
-	}
+		}
+	);
 
 	it('the root load consumes hook classification without tracking the request route', () => {
 		const root = fs.readFileSync(path.resolve('src/routes/+layout.server.ts'), 'utf-8');

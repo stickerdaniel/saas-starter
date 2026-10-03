@@ -229,11 +229,9 @@ describe('getAuthErrorKey', () => {
 			'UNABLE_TO_LINK_ACCOUNT'
 		];
 
-		for (const code of phantomCodes) {
-			it(`does not map former phantom code ${code}`, () => {
-				expect(getAuthErrorKey({ code })).toBe(DEFAULT_AUTH_ERROR_KEY);
-			});
-		}
+		it.each(phantomCodes)('does not map former phantom code %s', (code) => {
+			expect(getAuthErrorKey({ code })).toBe(DEFAULT_AUTH_ERROR_KEY);
+		});
 	});
 });
 
