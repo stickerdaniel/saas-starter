@@ -497,7 +497,7 @@ export class SupportConversation implements ChatSessionPort {
 					// Read per message because the thread keeps only the route
 					// captured before its first message.
 					pageUrl: normalizeSupportPageRoute(
-						typeof window !== 'undefined' ? window.location.href : undefined
+						typeof window !== 'undefined' ? window.location.pathname : undefined
 					)
 				},
 				{

@@ -8,7 +8,7 @@
  * the landing page) lives in e2e/admin-support-investigation.spec.ts.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as Svelte from 'svelte';
 
 vi.mock('svelte', () =>
@@ -116,6 +116,13 @@ async function startOwner(): Promise<ImpersonationState> {
 	await vi.waitFor(() => expect(owner.isImpersonating).toBe(true));
 	return owner;
 }
+
+// The first import of the hook transforms it and its Better Auth client graph,
+// which takes seconds on a cold cache. Paid here, outside any case's deadline,
+// so a case cannot time out while its own exit is still running.
+beforeAll(async () => {
+	await import(/* @vite-ignore */ `./use-impersonation.svelte.ts?load=${documentLoads}`);
+}, 60_000);
 
 beforeEach(() => {
 	network.requests = [];

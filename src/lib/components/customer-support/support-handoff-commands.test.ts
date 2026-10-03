@@ -109,4 +109,15 @@ describe('SupportHandoffCommands route', () => {
 			pageUrl: '/de/app/settings'
 		});
 	});
+
+	it('keeps a short pathname under a long query', async () => {
+		const mutation = vi.fn().mockResolvedValue(undefined);
+		const conversation = new SupportConversation(new SupportNavigationState());
+		conversation.setThread('thread-1');
+		window.history.pushState({}, '', `/fr?state=${'x'.repeat(2100)}`);
+
+		await new SupportHandoffCommands(conversation).request(clientWith(mutation));
+
+		expect(mutation.mock.calls[0]?.[1]).toMatchObject({ pageUrl: '/fr' });
+	});
 });

@@ -45,7 +45,7 @@ export class SupportHandoffCommands {
 					anonymousUserId,
 					// The page the request is made from, not the one the thread began on.
 					pageUrl: normalizeSupportPageRoute(
-						typeof window !== 'undefined' ? window.location.href : undefined
+						typeof window !== 'undefined' ? window.location.pathname : undefined
 					)
 				},
 				{

@@ -149,6 +149,12 @@
 	const canImpersonateTarget = $derived(
 		canImpersonate && canImpersonateUser(targetUserId, viewerId)
 	);
+	// A message route opens the customer's own page, so it needs the account the
+	// details lookup resolved. The list keeps the ticket's owner id even after
+	// that account is gone, and then the route stays a plain link.
+	const routeTargetUserId = $derived(
+		canImpersonate && canImpersonateUser(thread?.user?.id, viewerId) ? thread?.user?.id : undefined
+	);
 	let impersonating = $state(false);
 
 	// Display email: user email, or notification email for anonymous users, or "No email"
@@ -166,11 +172,12 @@
 
 	/** Sign in as the customer, at `route` when the admin picked a page they reported from. */
 	async function impersonateThreadStarter(route?: string) {
-		if (!targetUserId || impersonating) return;
+		const userId = route ? routeTargetUserId : targetUserId;
+		if (!userId || impersonating) return;
 
 		haptic.trigger('light');
 		impersonating = true;
-		const outcome = await impersonateUser(targetUserId, activeUploads, route);
+		const outcome = await impersonateUser(userId, activeUploads, route);
 		if (!outcome.started) {
 			toast.error($t('admin.users.toast.impersonate_failed', { message: $t(outcome.messageKey) }));
 			impersonating = false;
@@ -355,7 +362,7 @@
 						messageRoutes,
 						thread?.supportMetadata?.pageUrl
 					)}
-					{#if route && canImpersonateTarget}
+					{#if route && routeTargetUserId}
 						<!-- The page belongs to the customer's account, so it only shows what
 						     they saw when opened as them. -->
 						<Tooltip.Root>

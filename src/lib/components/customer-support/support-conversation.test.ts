@@ -376,4 +376,24 @@ describe('SupportConversation message route', () => {
 			pageUrl: '/fr/app/settings'
 		});
 	});
+
+	// The route bound covers the route, not whatever query the page carries.
+	it('keeps a short pathname under a long query', async () => {
+		const mutation = vi
+			.fn()
+			.mockResolvedValueOnce({ threadId: 'thread-1' })
+			.mockResolvedValueOnce({ messageId: 'message-1' });
+		const navigation = new SupportNavigationState();
+		const conversation = new SupportConversation(navigation);
+		conversation.beginNewConversation();
+		navigation.startNewThread();
+		const client = clientWith(mutation);
+
+		window.history.replaceState({}, '', '/en/app');
+		await conversation.ensureThread(client);
+		window.history.pushState({}, '', `/de?state=${'x'.repeat(2100)}#${'y'.repeat(2100)}`);
+		await conversation.sendMessage(client, 'The chart is empty');
+
+		expect(mutation.mock.calls[1]?.[1]).toMatchObject({ pageUrl: '/de' });
+	});
 });
