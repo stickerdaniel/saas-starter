@@ -36,6 +36,7 @@ const calls = vi.hoisted(() => ({
 	session: vi.fn(),
 	defer: vi.fn(),
 	continue: vi.fn(),
+	created: vi.fn(),
 	toast: vi.fn()
 }));
 vi.mock('$lib/auth-client', () => ({
@@ -84,7 +85,7 @@ async function render(sidebar = false) {
 	if (sidebar) pendingPasskeyNudge.current = { sessionId: 'session-a', provider: 'google' };
 	component = mount(PasskeyOfferHarness, {
 		target: document.body,
-		props: { oncontinue: calls.continue, sidebar }
+		props: { oncontinue: calls.continue, oncreated: calls.created, sidebar }
 	});
 	await tick();
 	await vi.waitFor(() => expect(button('Create a passkey')).toBeDefined());
@@ -114,15 +115,13 @@ it('waits for consent, allows cancellation and retry, and confirms only verified
 	button('Create a passkey').click();
 	await vi.waitFor(() => expect(failure()).toContain('We couldn’t finish setting up your passkey'));
 	expect(calls.continue).not.toHaveBeenCalled();
+	expect(calls.toast).not.toHaveBeenCalled();
 	button('Create a passkey').click();
-	await vi.waitFor(() =>
-		expect(document.querySelector('h1')?.textContent).toBe('Your passkey is ready')
-	);
+	await vi.waitFor(() => expect(calls.created).toHaveBeenCalledOnce());
 	expect(calls.create).toHaveBeenCalledTimes(2);
+	expect(calls.toast).toHaveBeenCalledWith('Passkey added successfully');
 	expect(calls.continue).not.toHaveBeenCalled();
 	expect(JSON.parse(localStorage.getItem('auth:last-auth-method')!)).toBe('google');
-	button('Continue').click();
-	expect(calls.continue).toHaveBeenCalledOnce();
 });
 
 it('does not claim success for an empty server response', async () => {
@@ -130,7 +129,8 @@ it('does not claim success for an empty server response', async () => {
 	await render();
 	button('Create a passkey').click();
 	await vi.waitFor(() => expect(failure()).toContain('We couldn’t finish setting up your passkey'));
-	expect(document.body.textContent).not.toContain('Your passkey is ready');
+	expect(calls.created).not.toHaveBeenCalled();
+	expect(calls.toast).not.toHaveBeenCalled();
 });
 
 it('does not enroll a different account after the session changes', async () => {
@@ -159,9 +159,7 @@ it('prefills the suggested name and registers the name the visitor typed', async
 	nameInput().value = 'Work laptop';
 	nameInput().dispatchEvent(new Event('input', { bubbles: true }));
 	button('Create a passkey').click();
-	await vi.waitFor(() =>
-		expect(document.querySelector('h1')?.textContent).toBe('Your passkey is ready')
-	);
+	await vi.waitFor(() => expect(calls.created).toHaveBeenCalledOnce());
 	expect(calls.create).toHaveBeenCalledWith({ name: 'Work laptop' });
 });
 
@@ -184,7 +182,6 @@ it('confirms a sidebar registration with a toast and closes the offer', async ()
 	await vi.waitFor(() => expect(document.querySelector('form')).toBeNull());
 	expect(calls.create).toHaveBeenCalledWith({ name: 'Work laptop' });
 	expect(calls.toast).toHaveBeenCalledWith('Passkey added successfully');
-	expect(document.body.textContent).not.toContain('Your passkey is ready');
 });
 
 it('keeps the sidebar offer open with an announced error when registration fails', async () => {

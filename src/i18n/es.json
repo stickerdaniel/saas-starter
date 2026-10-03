@@ -509,8 +509,6 @@
 			"manage_link": "Configuración",
 			"manage_after": ".",
 			"failed": "No hemos podido completar la configuración de tu clave de acceso. Inténtalo de nuevo o elige «Ahora no».",
-			"success_title": "Tu clave de acceso está lista",
-			"success_description": "La próxima vez, elige «Iniciar sesión con clave de acceso». Puedes cambiarle el nombre o eliminarla en Configuración.",
 			"loading": "Preparándolo todo…"
 		}
 	},
