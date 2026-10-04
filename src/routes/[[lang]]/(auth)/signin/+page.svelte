@@ -6,14 +6,12 @@
 	import { api } from '$lib/convex/_generated/api';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import AuthGate from '../AuthGate.svelte';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
+	import AuthPanel from '$lib/components/auth/auth-panel.svelte';
 	import { redirectParamsSchema } from '$lib/schemas/auth.js';
 	import { signInSchema } from './schema.js';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
-	import { T, getTranslate } from '@tolgee/svelte';
+	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { authFlowContext } from '$lib/hooks/auth-flow.svelte.ts';
 	import {
@@ -351,55 +349,25 @@
 	noindex
 />
 
-<div class="flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
-	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
-		<Card.Root class="overflow-hidden p-0 auth-card-transition">
-			<Card.Content class="grid p-0 md:grid-cols-2">
-				<AuthGate resumeHref={heldAfterVerificationLink ? finalDestination : ''}>
-					<SignInForm
-						{id}
-						bind:signInData
-						{signInErrors}
-						{formError}
-						{isLoading}
-						{signInProgress}
-						{hasAlternativeAuth}
-						{enabledProviderCount}
-						oauthProviders={oauthProviders.data}
-						redirectTo={requestedDestination}
-						resumeHref={heldAfterVerificationLink ? finalDestination : ''}
-						{termsLink}
-						{isLastUsedAuthMethod}
-						onSubmit={handleSignIn}
-						onOAuth={handleOAuth}
-						onPasskey={handlePasskeyLogin}
-					/>
-				</AuthGate>
-				<div class="relative hidden bg-muted md:block">
-					<img
-						src="/placeholder.svg"
-						alt=""
-						draggable="false"
-						class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-20 dark:grayscale"
-					/>
-				</div>
-			</Card.Content>
-		</Card.Root>
-		<Field.Description class="px-6 text-center text-balance">
-			<T keyName="auth.terms.agreement" defaultValue="By clicking continue, you agree to our" />
-			<a
-				bind:this={termsLink}
-				href={resolve(localizedHref('/terms'))}
-				class="underline underline-offset-4"
-				><T keyName="auth.terms.terms_of_service" defaultValue="Terms of Service" /></a
-			>
-			<T keyName="auth.terms.and" defaultValue="and" />
-			<a href={resolve(localizedHref('/privacy'))} class="underline underline-offset-4"
-				><T keyName="auth.terms.privacy_policy" defaultValue="Privacy Policy" /></a
-			>.
-			<a href={resolve(localizedHref('/'))} class="underline underline-offset-4"
-				><T keyName="auth.back_to_home" defaultValue="Back to home" /></a
-			>
-		</Field.Description>
-	</div>
-</div>
+<AuthPanel transition legal bind:termsLink>
+	<AuthGate resumeHref={heldAfterVerificationLink ? finalDestination : ''}>
+		<SignInForm
+			{id}
+			bind:signInData
+			{signInErrors}
+			{formError}
+			{isLoading}
+			{signInProgress}
+			{hasAlternativeAuth}
+			{enabledProviderCount}
+			oauthProviders={oauthProviders.data}
+			redirectTo={requestedDestination}
+			resumeHref={heldAfterVerificationLink ? finalDestination : ''}
+			{termsLink}
+			{isLastUsedAuthMethod}
+			onSubmit={handleSignIn}
+			onOAuth={handleOAuth}
+			onPasskey={handlePasskeyLogin}
+		/>
+	</AuthGate>
+</AuthPanel>

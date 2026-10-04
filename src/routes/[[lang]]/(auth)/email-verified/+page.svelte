@@ -5,7 +5,7 @@
 	import { redirectParamsSchema } from '$lib/schemas/auth.js';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { authPageURL, safeAuthDestination } from '$lib/utils/url';
-	import * as Card from '$lib/components/ui/card/index.js';
+	import AuthPanel from '$lib/components/auth/auth-panel.svelte';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
 
@@ -60,32 +60,18 @@
 	noindex
 />
 
-<div class="flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
-	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
-		<Card.Root class="overflow-hidden p-0">
-			<Card.Content class="grid p-0 md:grid-cols-2">
-				<div class="min-h-96">
-					<LoadingBar mode="loading" showBackground={false} variant="edge" />
-					<div class="flex h-full flex-col justify-center p-6 md:p-8">
-						<div class="flex flex-col items-center gap-2 text-center">
-							<h1 class="text-2xl font-bold">
-								<T keyName="auth.verification.verified_title" />
-							</h1>
-							<p class="text-balance whitespace-pre-line text-muted-foreground">
-								{verifiedDescription}
-							</p>
-						</div>
-					</div>
-				</div>
-				<div class="relative hidden bg-muted md:block">
-					<img
-						src="/placeholder.svg"
-						alt=""
-						draggable="false"
-						class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-20 dark:grayscale"
-					/>
-				</div>
-			</Card.Content>
-		</Card.Root>
+<AuthPanel>
+	<div class="min-h-96">
+		<LoadingBar mode="loading" showBackground={false} variant="edge" />
+		<div class="flex h-full flex-col justify-center p-6 md:p-8">
+			<div class="flex flex-col items-center gap-2 text-center">
+				<h1 class="text-2xl font-bold">
+					<T keyName="auth.verification.verified_title" />
+				</h1>
+				<p class="text-balance whitespace-pre-line text-muted-foreground">
+					{verifiedDescription}
+				</p>
+			</div>
+		</div>
 	</div>
-</div>
+</AuthPanel>

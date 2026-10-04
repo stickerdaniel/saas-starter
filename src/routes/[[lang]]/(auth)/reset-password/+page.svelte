@@ -3,7 +3,7 @@
 	import * as v from 'valibot';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import AuthGate from '../AuthGate.svelte';
-	import * as Card from '$lib/components/ui/card/index.js';
+	import AuthPanel from '$lib/components/auth/auth-panel.svelte';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Password from '$lib/components/ui/password';
@@ -197,161 +197,128 @@
 	noindex
 />
 
-<div class="flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
-	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
-		<Card.Root class="overflow-hidden p-0">
-			<Card.Content class="grid p-0 md:grid-cols-2">
-				<AuthGate>
-					<form onsubmit={handleSubmit} novalidate class="min-h-96">
-						<LoadingBar
-							value={progress}
-							mode={isLoading ? 'loading' : 'progress'}
-							showBackground={false}
-							variant="edge"
-						/>
-						<div class="p-6 md:p-8">
-							<Field.Group>
-								<div class="flex flex-col items-center gap-2 text-center">
-									<h1 class="text-2xl font-bold">
-										<T keyName={copy.title} />
-									</h1>
-									<p class="text-balance text-muted-foreground">
-										<T keyName={copy.description} />
-									</p>
-								</div>
-								{#if formError}
-									<div
-										data-testid="reset-password-form-error"
-										transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
-										class="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
-									>
-										<T keyName={formError} />
-									</div>
-								{/if}
-								{#if message}
-									<div
-										data-testid="reset-password-success-message"
-										transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
-										class="rounded-md bg-success/10 p-3 text-sm text-success"
-									>
-										<T keyName={message} />
-										<a
-											href={resolve(signInHref)}
-											data-testid="reset-password-signin-link"
-											class="underline"
-										>
-											<T keyName="auth.reset_password.sign_in_link" defaultValue="Sign in" />
-										</a>
-									</div>
-								{/if}
-								<Field.Field>
-									<Field.Label for="password-{id}">
-										<T
-											keyName="auth.reset_password.new_password_label"
-											defaultValue="New password"
-										/>
-									</Field.Label>
-									<Password.Root>
-										<Password.Input
-											id="password-{id}"
-											name="password"
-											data-testid="reset-password-password-input"
-											autocomplete="new-password"
-											placeholder="••••••••"
-											disabled={isFormDisabled}
-											invalid={hasPasswordError}
-											aria-describedby={hasPasswordError ? `password-${id}-error` : undefined}
-											bind:value={formData.password}
-										>
-											<Password.ToggleVisibility />
-										</Password.Input>
-										<Password.Strength />
-									</Password.Root>
-									<Field.Error
-										id="password-{id}-error"
-										data-testid="reset-password-password-error"
-										errors={translateValidationErrors(errors.password, $t, passwordParams)}
-									/>
-								</Field.Field>
-								<Field.Field>
-									<Field.Label for="confirm-password-{id}">
-										<T
-											keyName="auth.reset_password.confirm_password_label"
-											defaultValue="Confirm new password"
-										/>
-									</Field.Label>
-									<Input
-										id="confirm-password-{id}"
-										name="confirmPassword"
-										data-testid="reset-password-confirm-input"
-										type="password"
-										aria-invalid={hasConfirmPasswordError ? 'true' : undefined}
-										aria-describedby={hasConfirmPasswordError
-											? `confirm-password-${id}-error`
-											: undefined}
-										autocomplete="new-password"
-										placeholder="••••••••"
-										disabled={isFormDisabled}
-										bind:value={formData.confirmPassword}
-									/>
-									<Field.Error
-										id="confirm-password-{id}-error"
-										data-testid="reset-password-confirm-error"
-										errors={translateValidationErrors(errors.confirmPassword, $t)}
-									/>
-								</Field.Field>
-								<Field.Field>
-									<Button
-										type="submit"
-										data-testid="reset-password-submit-button"
-										class="w-full"
-										disabled={isFormDisabled}
-									>
-										{#if isLoading}
-											<T keyName={copy.loading} />
-										{:else}
-											<T keyName={copy.submit} />
-										{/if}
-									</Button>
-								</Field.Field>
-								<Field.Description class="text-center">
-									<a
-										href={resolve(signInHref)}
-										data-testid="reset-password-back-link"
-										class="underline underline-offset-4"
-									>
-										<T
-											keyName="auth.reset_password.back_to_signin"
-											defaultValue="Back to sign in"
-										/>
-									</a>
-								</Field.Description>
-							</Field.Group>
+<AuthPanel legal>
+	<AuthGate>
+		<form onsubmit={handleSubmit} novalidate class="min-h-96">
+			<LoadingBar
+				value={progress}
+				mode={isLoading ? 'loading' : 'progress'}
+				showBackground={false}
+				variant="edge"
+			/>
+			<div class="p-6 md:p-8">
+				<Field.Group>
+					<div class="flex flex-col items-center gap-2 text-center">
+						<h1 class="text-2xl font-bold">
+							<T keyName={copy.title} />
+						</h1>
+						<p class="text-balance text-muted-foreground">
+							<T keyName={copy.description} />
+						</p>
+					</div>
+					{#if formError}
+						<div
+							data-testid="reset-password-form-error"
+							transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
+							class="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+						>
+							<T keyName={formError} />
 						</div>
-					</form>
-				</AuthGate>
-				<div class="relative hidden bg-muted md:block">
-					<img
-						src="/placeholder.svg"
-						alt=""
-						draggable="false"
-						class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-20 dark:grayscale"
-					/>
-				</div>
-			</Card.Content>
-		</Card.Root>
-		<Field.Description class="px-6 text-center text-balance">
-			<T keyName="auth.terms.agreement" defaultValue="By clicking continue, you agree to our" />
-			<a href={resolve(localizedHref('/terms'))} class="underline underline-offset-4"
-				><T keyName="auth.terms.terms_of_service" defaultValue="Terms of Service" /></a
-			>
-			<T keyName="auth.terms.and" defaultValue="and" />
-			<a href={resolve(localizedHref('/privacy'))} class="underline underline-offset-4"
-				><T keyName="auth.terms.privacy_policy" defaultValue="Privacy Policy" /></a
-			>.
-			<a href={resolve(localizedHref('/'))} class="underline underline-offset-4"
-				><T keyName="auth.back_to_home" defaultValue="Back to home" /></a
-			>
-		</Field.Description>
-	</div>
-</div>
+					{/if}
+					{#if message}
+						<div
+							data-testid="reset-password-success-message"
+							transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
+							class="rounded-md bg-success/10 p-3 text-sm text-success"
+						>
+							<T keyName={message} />
+							<a
+								href={resolve(signInHref)}
+								data-testid="reset-password-signin-link"
+								class="underline"
+							>
+								<T keyName="auth.reset_password.sign_in_link" defaultValue="Sign in" />
+							</a>
+						</div>
+					{/if}
+					<Field.Field>
+						<Field.Label for="password-{id}">
+							<T keyName="auth.reset_password.new_password_label" defaultValue="New password" />
+						</Field.Label>
+						<Password.Root>
+							<Password.Input
+								id="password-{id}"
+								name="password"
+								data-testid="reset-password-password-input"
+								autocomplete="new-password"
+								placeholder="••••••••"
+								disabled={isFormDisabled}
+								invalid={hasPasswordError}
+								aria-describedby={hasPasswordError ? `password-${id}-error` : undefined}
+								bind:value={formData.password}
+							>
+								<Password.ToggleVisibility />
+							</Password.Input>
+							<Password.Strength />
+						</Password.Root>
+						<Field.Error
+							id="password-{id}-error"
+							data-testid="reset-password-password-error"
+							errors={translateValidationErrors(errors.password, $t, passwordParams)}
+						/>
+					</Field.Field>
+					<Field.Field>
+						<Field.Label for="confirm-password-{id}">
+							<T
+								keyName="auth.reset_password.confirm_password_label"
+								defaultValue="Confirm new password"
+							/>
+						</Field.Label>
+						<Input
+							id="confirm-password-{id}"
+							name="confirmPassword"
+							data-testid="reset-password-confirm-input"
+							type="password"
+							aria-invalid={hasConfirmPasswordError ? 'true' : undefined}
+							aria-describedby={hasConfirmPasswordError
+								? `confirm-password-${id}-error`
+								: undefined}
+							autocomplete="new-password"
+							placeholder="••••••••"
+							disabled={isFormDisabled}
+							bind:value={formData.confirmPassword}
+						/>
+						<Field.Error
+							id="confirm-password-{id}-error"
+							data-testid="reset-password-confirm-error"
+							errors={translateValidationErrors(errors.confirmPassword, $t)}
+						/>
+					</Field.Field>
+					<Field.Field>
+						<Button
+							type="submit"
+							data-testid="reset-password-submit-button"
+							class="w-full"
+							disabled={isFormDisabled}
+						>
+							{#if isLoading}
+								<T keyName={copy.loading} />
+							{:else}
+								<T keyName={copy.submit} />
+							{/if}
+						</Button>
+					</Field.Field>
+					<Field.Description class="text-center">
+						<a
+							href={resolve(signInHref)}
+							data-testid="reset-password-back-link"
+							class="underline underline-offset-4"
+						>
+							<T keyName="auth.reset_password.back_to_signin" defaultValue="Back to sign in" />
+						</a>
+					</Field.Description>
+				</Field.Group>
+			</div>
+		</form>
+	</AuthGate>
+</AuthPanel>
