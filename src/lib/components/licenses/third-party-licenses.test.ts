@@ -158,6 +158,31 @@ describe('third-party licenses list', () => {
 		expect(link?.closest('li')?.querySelector('details')?.hasAttribute('open')).toBe(false);
 	});
 
+	it('labels notice texts only when a row has several', async () => {
+		await render({
+			entries: [
+				entry('single', 'MIT'),
+				{
+					...entry('several', 'Apache-2.0'),
+					notices: [
+						{ label: 'LICENSE', text: 'license text' },
+						{ label: 'NOTICE', text: 'notice text' }
+					]
+				}
+			]
+		});
+		const labels = (name: string) =>
+			Array.from(
+				document
+					.querySelector(`a[aria-label="Source of ${name}"]`)!
+					.closest('li')!
+					.querySelectorAll('details p[lang="en"]'),
+				(label) => label.textContent?.trim()
+			);
+		expect(labels('single')).toEqual([]);
+		expect(labels('several')).toEqual(['LICENSE', 'NOTICE']);
+	});
+
 	it('explains that development builds have no catalogue', async () => {
 		await render({ entries: null });
 		expect(document.body.textContent).toContain('not available in development');

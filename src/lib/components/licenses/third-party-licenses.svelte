@@ -142,9 +142,12 @@
 								<!-- Notice texts are legal texts and stay in their original English. -->
 								{#each entry.notices as notice, index (index)}
 									<div class="space-y-1">
-										<p lang="en" class="text-xs font-medium text-muted-foreground">
-											{notice.label}
-										</p>
+										<!-- A label only tells several notice texts apart. -->
+										{#if entry.notices.length > 1}
+											<p lang="en" class="text-xs font-medium text-muted-foreground">
+												{notice.label}
+											</p>
+										{/if}
 										<pre
 											lang="en"
 											class="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs break-words whitespace-pre-wrap">{notice.text}</pre>
