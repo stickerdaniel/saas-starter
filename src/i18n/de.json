@@ -1282,13 +1282,14 @@
 			"fonts": "Schriftarten",
 			"styles": "Styles"
 		},
+		"download_results": "{count, plural, =0 {Keine passenden Einträge zum Herunterladen} one {Hinweise für # passenden Eintrag als Textdatei herunterladen} other {Hinweise für # passende Einträge als Textdatei herunterladen}}",
 		"intro": "Diese Anwendung enthält Open-Source-Software und Inhalte von Drittanbietern. Deren Lizenzen und Hinweise sind unten aufgeführt. Die Lizenztexte werden im englischen Original angezeigt.",
 		"results": "{count, plural, =0 {Keine passenden Einträge} one {# Eintrag} other {# Einträge}}",
 		"search": {
 			"label": "Lizenzen durchsuchen",
 			"placeholder": "Paket, Lizenz oder Hinweistext"
 		},
-		"source": "Quelle",
+		"source": "Quelle von {name}",
 		"text_link": "Alle Hinweise als Textdatei herunterladen",
 		"title": "Drittanbieter-Lizenzen",
 		"unavailable": "Lizenzhinweise werden bei Produktions-Builds erzeugt und stehen in der Entwicklungsumgebung nicht zur Verfügung."

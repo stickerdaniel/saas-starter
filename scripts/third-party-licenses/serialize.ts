@@ -1,6 +1,7 @@
 import * as v from 'valibot';
 import {
 	catalogueSchema,
+	noticesText,
 	type Catalogue,
 	type CatalogueEntry
 } from '../../src/lib/licenses/catalogue';
@@ -40,26 +41,6 @@ export function serializeCatalogueJson(catalogue: Catalogue): string {
 	return `${JSON.stringify(catalogue, null, '\t')}\n`;
 }
 
-const RULE = '='.repeat(80);
-const SEPARATOR = '-'.repeat(80);
-
 export function serializeCatalogueText(catalogue: Catalogue): string {
-	const sections = catalogue.entries.map((entry) => {
-		const header = [
-			entry.version ? `${entry.name} ${entry.version}` : entry.name,
-			`License: ${entry.license}`,
-			`Components: ${entry.components.join(', ')}`
-		];
-		if (entry.sourceUrl) header.push(`Source: ${entry.sourceUrl}`);
-		const notices = entry.notices.map((notice) => `--- ${notice.label} ---\n\n${notice.text}`);
-		return [SEPARATOR, header.join('\n'), ...notices].join('\n\n');
-	});
-	const intro = [
-		'Third-party notices',
-		RULE,
-		'',
-		'This file lists the third-party software and assets shipped to the browser by this',
-		'application, with their license declarations and notice texts.'
-	].join('\n');
-	return `${[intro, ...sections].join('\n\n')}\n`;
+	return noticesText(catalogue.entries);
 }

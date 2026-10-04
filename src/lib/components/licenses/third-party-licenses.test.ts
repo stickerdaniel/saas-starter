@@ -88,6 +88,52 @@ describe('third-party licenses list', () => {
 		expect(status()).toBe('No matching entries');
 	});
 
+	it('downloads the notices of the search results only', async () => {
+		const files: Blob[] = [];
+		vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+			files.push(blob as Blob);
+			return 'blob:licenses';
+		});
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+		vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+			this: HTMLAnchorElement
+		) {
+			this.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+		});
+		await render({ entries });
+		const download = document.querySelector<HTMLAnchorElement>('a[download]')!;
+		expect(download.getAttribute('href')).toBe('/third-party-licenses.txt');
+		expect(download.getAttribute('aria-label')).toBe('Download all notices as plain text');
+
+		// Without a search, the link serves the published file.
+		const unfiltered = new MouseEvent('click', { bubbles: true, cancelable: true });
+		download.dispatchEvent(unfiltered);
+		expect(unfiltered.defaultPrevented).toBe(false);
+		expect(files).toHaveLength(0);
+
+		search('apache');
+		expect(download.getAttribute('aria-label')).toBe(
+			'Download notices for 1 matching entry as plain text'
+		);
+		// The search results replace the published file, so the link must not download too.
+		const filtered = new MouseEvent('click', { bubbles: true, cancelable: true });
+		download.dispatchEvent(filtered);
+		expect(filtered.defaultPrevented).toBe(true);
+		expect(files).toHaveLength(1);
+		const text = await files[0]!.text();
+		expect(text).toContain('beta 1.0.0\nLicense: Apache-2.0');
+		expect(text).toContain('Filtered by the search "apache".');
+		expect(text).not.toContain('alpha');
+		expect(text).not.toContain('gamma');
+
+		search('no such package');
+		const empty = new MouseEvent('click', { bubbles: true, cancelable: true });
+		download.dispatchEvent(empty);
+		expect(empty.defaultPrevented).toBe(true);
+		expect(files).toHaveLength(1);
+		expect(download.getAttribute('aria-disabled')).toBe('true');
+	});
+
 	it('renders closed notices as English text, including hostile markup', async () => {
 		await render({ entries });
 
@@ -101,6 +147,40 @@ describe('third-party licenses list', () => {
 		]);
 		expect(document.querySelector('details pre')?.closest('[lang="en"]')).not.toBeNull();
 		expect(document.querySelector('img')).toBeNull();
+	});
+
+	it('links each source from the closed row', async () => {
+		await render({ entries });
+		const link = document.querySelector<HTMLAnchorElement>('a[aria-label="Source of alpha"]');
+		expect(link?.href).toBe('https://github.com/example/alpha');
+		// Reachable while the row is closed, and not nested in the toggle.
+		expect(link?.closest('details')).toBeNull();
+		expect(link?.closest('li')?.querySelector('details')?.hasAttribute('open')).toBe(false);
+	});
+
+	it('labels notice texts only when a row has several', async () => {
+		await render({
+			entries: [
+				entry('single', 'MIT'),
+				{
+					...entry('several', 'Apache-2.0'),
+					notices: [
+						{ label: 'LICENSE', text: 'license text' },
+						{ label: 'NOTICE', text: 'notice text' }
+					]
+				}
+			]
+		});
+		const labels = (name: string) =>
+			Array.from(
+				document
+					.querySelector(`a[aria-label="Source of ${name}"]`)!
+					.closest('li')!
+					.querySelectorAll('details p[lang="en"]'),
+				(label) => label.textContent?.trim()
+			);
+		expect(labels('single')).toEqual([]);
+		expect(labels('several')).toEqual(['LICENSE', 'NOTICE']);
 	});
 
 	it('explains that development builds have no catalogue', async () => {

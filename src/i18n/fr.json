@@ -1282,13 +1282,14 @@
 			"fonts": "Polices",
 			"styles": "Styles"
 		},
+		"download_results": "{count, plural, =0 {Aucune entrée correspondante à télécharger} one {Télécharger les mentions de # entrée correspondante en texte brut} other {Télécharger les mentions de # entrées correspondantes en texte brut}}",
 		"intro": "Cette application inclut des logiciels open source et des ressources de tiers. Leurs licences et mentions sont listées ci-dessous. Les textes des mentions sont affichés dans leur version originale en anglais.",
 		"results": "{count, plural, =0 {Aucune entrée correspondante} one {# entrée} other {# entrées}}",
 		"search": {
 			"label": "Rechercher des licences",
 			"placeholder": "Paquet, licence ou texte de la mention"
 		},
-		"source": "Source",
+		"source": "Source de {name}",
 		"text_link": "Télécharger toutes les mentions en texte brut",
 		"title": "Licences tierces",
 		"unavailable": "Les mentions de licence sont générées par les builds de production et ne sont pas disponibles en développement."
