@@ -67,7 +67,9 @@ it('marks a deleted user with a question mark and no image', () => {
 	render({ id: 'deleted-user-id', exists: false });
 
 	expect(initials()).toBe('?');
-	expect(image()).toBeNull();
+	// The image element stays mounted without a source, hidden.
+	expect(image()?.getAttribute('src') ?? null).toBeNull();
+	expect(image()?.style.display ?? 'none').toBe('none');
 	expect(document.body.textContent).toContain(en.admin.audit_log.deleted_user);
 });
 

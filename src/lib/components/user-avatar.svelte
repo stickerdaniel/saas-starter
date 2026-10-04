@@ -37,9 +37,9 @@
 </script>
 
 <Avatar.Root {size} {shape} {surface}>
-	{#if image}
-		<!-- Provider avatars (Google, GitHub) may refuse requests that carry a referrer. -->
-		<Avatar.Image src={image} {alt} referrerpolicy="no-referrer" />
-	{/if}
+	<!-- Provider avatars (Google, GitHub) may refuse requests that carry a referrer.
+	     The image stays mounted without a source, so removing a loaded photo
+	     returns the avatar to its initials instead of leaving it blank. -->
+	<Avatar.Image src={image || undefined} {alt} referrerpolicy="no-referrer" />
 	<Avatar.Fallback size={fallbackSize} variant={fallbackVariant}>{initials}</Avatar.Fallback>
 </Avatar.Root>
