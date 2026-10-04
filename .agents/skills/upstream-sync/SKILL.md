@@ -128,6 +128,9 @@ After merge, persist the marker:
 (updates `lastSynced` + `syncedAt`), then add any `excluded` entries you recorded and
 commit `.upstream-sync.json`.
 
+Before/after media covers only visible changes adapted to a divergence, as production
+users see them.
+
 ## Large syncs (many commits): fan out per-commit, not per-category
 
 Run the two discovery scripts once, then parallelize the _triage_ one agent per commit
