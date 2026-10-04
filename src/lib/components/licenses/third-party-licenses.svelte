@@ -79,7 +79,7 @@
 										href={entry.sourceUrl}
 										target="_blank"
 										rel="external noopener noreferrer"
-										class="text-sm underline underline-offset-4"
+										class="inline-block text-sm underline underline-offset-4"
 									>
 										{$t('licenses.source')}
 									</a>

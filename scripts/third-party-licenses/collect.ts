@@ -191,9 +191,6 @@ export function thirdPartyLicenses(options: ThirdPartyLicensesOptions = {}): {
 	let config: ResolvedConfig;
 	let licenseConfig: ThirdPartyLicensesConfig | undefined;
 	let active = false;
-	// Set once this SSR build has finished writing, which includes Kit's nested
-	// client build. A failed build never sets it, so its error stays the one shown.
-	let writtenServerDir: string | null = null;
 
 	const isServerBuild = (environment: { name: string }) =>
 		config.command === 'build' && environment.name === 'ssr' && !config.isWorker;
@@ -219,7 +216,6 @@ export function thirdPartyLicenses(options: ThirdPartyLicensesOptions = {}): {
 		},
 		buildStart() {
 			active = false;
-			writtenServerDir = null;
 			if (config.command !== 'build') return;
 			// Only the browser build publishes a catalogue. Vite names worker builds
 			// `client` too, so the worker flag is checked as well.
@@ -281,24 +277,18 @@ export function thirdPartyLicenses(options: ThirdPartyLicensesOptions = {}): {
 			}
 		},
 		writeBundle: {
-			// After Kit's own writeBundle, which awaits the nested client build.
+			// After Kit's own writeBundle, which awaits the nested client build, and
+			// before Kit's closeBundle runs the adapter, which copies the server output.
+			// A failed build never gets here, so its own error stays the one reported;
+			// closeBundle would also run after a failed write.
 			order: 'post',
 			sequential: true,
 			handler() {
 				if (!isServerBuild(this.environment)) return;
-				writtenServerDir = path.resolve(config.root, this.environment.config.build.outDir);
-			}
-		},
-		closeBundle: {
-			// `pre` runs this before Kit's closeBundle, which calls the adapter; the
-			// adapter copies the server output, so the package must exist by then.
-			order: 'pre',
-			sequential: true,
-			handler(error) {
-				const serverDir = writtenServerDir;
-				writtenServerDir = null;
-				if (!serverDir || error) return;
-				writeServerCatalogue(kitClientOutput(config), serverDir);
+				writeServerCatalogue(
+					kitClientOutput(config),
+					path.resolve(config.root, this.environment.config.build.outDir)
+				);
 			}
 		}
 	};

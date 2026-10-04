@@ -351,6 +351,22 @@ describe('third-party notices in a SvelteKit build', () => {
 		TEST_TIMEOUT_MS
 	);
 
+	it(
+		'reports the original error when a later output hook fails',
+		async () => {
+			// The plugin removes the client catalogue and then fails, after the handoff ran.
+			const root = createFixture({
+				extraPlugins:
+					"{ name: 'planted-late-failure', writeBundle: { order: 'post', async handler() { if (this.environment.name !== 'ssr') return; (await import('node:fs')).rmSync('.svelte-kit/output/client/third-party-licenses.json'); throw new Error('Planted late failure'); } } }"
+			});
+			const { code, output } = await build(root);
+			expect(code).not.toBe(0);
+			expect(output).toContain('Planted late failure');
+			expect(output).not.toContain('[third-party-licenses]');
+		},
+		TEST_TIMEOUT_MS
+	);
+
 	it.each([
 		[
 			'browser code',
