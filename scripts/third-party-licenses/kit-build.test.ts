@@ -11,6 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse, type DefaultTreeAdapterMap } from 'parse5';
 import * as v from 'valibot';
 import { afterEach, describe, expect, it } from 'vitest';
 import { catalogueSchema } from '../../src/lib/licenses/catalogue';
@@ -260,10 +261,22 @@ console.log('RENDER ' + JSON.stringify({ status: response.status, html: await re
 	return JSON.parse(line.slice('RENDER '.length));
 }
 
-/** Text of each `<pre>` notice element in the HTML, ignoring scripts and hydration data. */
+/** Text of each `<pre>` notice element in the HTML; hydration data in scripts does not count. */
 function renderedNotices(html: string): string[] {
-	const markup = html.replace(/<script[\s\S]*?<\/script>/gi, '');
-	return Array.from(markup.matchAll(/<pre[^>]*>([^<]*)<\/pre>/g), (match) => match[1]!);
+	type Node = DefaultTreeAdapterMap['node'];
+	const text = (node: Node): string =>
+		node.nodeName === '#text'
+			? (node as DefaultTreeAdapterMap['textNode']).value
+			: 'childNodes' in node
+				? node.childNodes.map(text).join('')
+				: '';
+	const notices: string[] = [];
+	const visit = (node: Node) => {
+		if (node.nodeName === 'pre') notices.push(text(node));
+		else if ('childNodes' in node) node.childNodes.forEach(visit);
+	};
+	visit(parse(html));
+	return notices;
 }
 
 describe('third-party notices in a SvelteKit build', () => {
