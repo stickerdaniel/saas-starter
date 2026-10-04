@@ -27,8 +27,8 @@
 			role: v.optional(v.string(), 'all')
 		}),
 		defaultFilters: { role: 'all' },
-		pageSizeOptions: ['1', '10'],
-		defaultPageSize: '1',
+		pageSizes: [1, 10],
+		defaultPageSize: 1,
 		sortFields: ['name'],
 		buildListArgs: ({ cursor, filters }) => ({ cursor: cursor ?? undefined, role: filters.role }),
 		buildCountArgs: ({ filters }) => ({ role: filters.role }),

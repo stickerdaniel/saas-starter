@@ -7,7 +7,8 @@ import type { QueryCtx } from '../../_generated/server';
 import { adminQuery } from '../../functions';
 import type { BetterAuthUser } from '../types';
 import { collectMatchingUserIds } from '../userSearch';
-import { filterAuditRowsByMatch, parseOffsetCursor, sliceAuditPage } from './search';
+import { resolveOffsetLastPage, sliceOffsetPage } from '../pagination';
+import { filterAuditRowsByMatch } from './search';
 
 /**
  * The six admin actions recorded in the adminAuditLogs table.
@@ -281,13 +282,13 @@ export const listAuditLogs = adminQuery({
 
 		if (args.search?.trim()) {
 			const matchingRows = await scanMatchingAuditRows(ctx, args, direction);
-			const { pageRows, continueCursor, isDone } = sliceAuditPage(
+			const { items, continueCursor, isDone } = sliceOffsetPage(
 				matchingRows,
-				parseOffsetCursor(args.cursor),
+				args.cursor,
 				args.numItems
 			);
 			return {
-				items: await enrichAuditRows(ctx, pageRows),
+				items: await enrichAuditRows(ctx, items),
 				continueCursor,
 				isDone
 			};
@@ -402,15 +403,7 @@ export const resolveAuditLogLastPage = adminQuery({
 
 		if (args.search?.trim()) {
 			const total = (await scanMatchingAuditRows(ctx, args, direction)).length;
-			if (total <= 0) {
-				return { page: 1, cursor: null };
-			}
-			const lastPage = Math.max(1, Math.ceil(total / pageSize));
-			const targetOffset = (lastPage - 1) * pageSize;
-			if (targetOffset <= 0) {
-				return { page: 1, cursor: null };
-			}
-			return { page: lastPage, cursor: String(targetOffset) };
+			return resolveOffsetLastPage(total, args.numItems);
 		}
 
 		const maxPages = Math.ceil(5001 / pageSize);

@@ -23,6 +23,7 @@ import type * as admin_notificationPreferences_helpers from "../admin/notificati
 import type * as admin_notificationPreferences_index from "../admin/notificationPreferences/index.js";
 import type * as admin_notificationPreferences_mutations from "../admin/notificationPreferences/mutations.js";
 import type * as admin_notificationPreferences_queries from "../admin/notificationPreferences/queries.js";
+import type * as admin_pagination from "../admin/pagination.js";
 import type * as admin_queries from "../admin/queries.js";
 import type * as admin_support_constants from "../admin/support/constants.js";
 import type * as admin_support_errors from "../admin/support/errors.js";
@@ -130,6 +131,7 @@ declare const fullApi: ApiFromModules<{
   "admin/notificationPreferences/index": typeof admin_notificationPreferences_index;
   "admin/notificationPreferences/mutations": typeof admin_notificationPreferences_mutations;
   "admin/notificationPreferences/queries": typeof admin_notificationPreferences_queries;
+  "admin/pagination": typeof admin_pagination;
   "admin/queries": typeof admin_queries;
   "admin/support/constants": typeof admin_support_constants;
   "admin/support/errors": typeof admin_support_errors;

@@ -1,4 +1,10 @@
-import type { TableSortBy, TableSortDirection, TableUrlState } from './contract';
+import * as v from 'valibot';
+import type {
+	CanonicalTableUrlState,
+	TableSortBy,
+	TableSortDirection,
+	TableUrlState
+} from './contract';
 
 const SORT_DIRECTIONS: TableSortDirection[] = ['asc', 'desc'];
 const SORT_PATTERN = /^([a-zA-Z0-9_]+)\.(asc|desc)$/u;
@@ -97,4 +103,47 @@ export function omitDefaultTableUrlState<TFilterKeys extends string>(
 	}
 
 	return next as Partial<TableUrlState<TFilterKeys>>;
+}
+
+/** A filter URL param: a picklist that falls back to its first option, or free text that falls back to ''. */
+export type TableUrlFilter = readonly [string, ...string[]] | 'text';
+
+type TableUrlFilterState<TFilters extends Record<string, TableUrlFilter>> = {
+	[TKey in keyof TFilters]: TFilters[TKey] extends readonly string[]
+		? TFilters[TKey][number]
+		: string;
+};
+
+function urlText(fallback: string) {
+	return v.optional(v.fallback(v.string(), fallback), fallback);
+}
+
+function urlPicklist(options: readonly string[], fallback: string) {
+	return v.optional(v.fallback(v.picklist(options), fallback), fallback);
+}
+
+/**
+ * Build the URL schema of a cursor table: the canonical search, sort, page,
+ * page size and cursor params plus the table's filters. Missing or invalid
+ * values fall back to their defaults, and a page size outside `pageSizes`
+ * falls back to `defaultPageSize`.
+ */
+export function createTableUrlSchema<
+	const TFilters extends Record<string, TableUrlFilter>
+>(options: { filters: TFilters; pageSizes: readonly number[]; defaultPageSize: number }) {
+	const filterEntries = Object.fromEntries(
+		Object.entries(options.filters).map(([key, filter]) => [
+			key,
+			filter === 'text' ? urlText('') : urlPicklist(filter, filter[0])
+		])
+	);
+	const schema = v.object({
+		search: urlText(''),
+		...filterEntries,
+		sort: urlText(''),
+		page: urlText('1'),
+		page_size: urlPicklist(options.pageSizes.map(String), String(options.defaultPageSize)),
+		cursor: urlText('')
+	});
+	return schema as v.GenericSchema<unknown, CanonicalTableUrlState & TableUrlFilterState<TFilters>>;
 }

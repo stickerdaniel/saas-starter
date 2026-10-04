@@ -1,7 +1,6 @@
 <script lang="ts">
 	import SEOHead from '$lib/components/SEOHead.svelte';
-	import * as v from 'valibot';
-	import { type SortingState } from '@tanstack/table-core';
+	import type * as v from 'valibot';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
@@ -11,7 +10,9 @@
 	import DataTableView from '$lib/components/tables/data-table-view.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
 	import { createCountPrediction } from '$lib/tables/convex/count-prediction.svelte.ts';
-	import type { CursorListResult } from '$lib/tables/convex/contract';
+	import { createCursorSorting } from '$lib/tables/convex/sorting.svelte.ts';
+	import { createTableUrlSchema } from '$lib/tables/convex/url';
+	import { toCursorListResult } from '$lib/tables/convex/contract';
 	import type { AuditLogItem } from '$lib/convex/admin/auditLog/queries';
 	import { browser } from '$app/environment';
 	import { createColumns } from './columns.js';
@@ -26,33 +27,34 @@
 
 	const client = useConvexClient();
 
-	const PAGE_SIZE_OPTIONS = ['1', '10', '20', '30', '40', '50'] as const;
-	const PAGE_SIZE_NUM_OPTIONS = [1, 10, 20, 30, 40, 50] as const;
+	const PAGE_SIZES = [1, 10, 20, 30, 40, 50];
+	const DEFAULT_PAGE_SIZE = 20;
 
-	const auditLogTableParamsSchema = v.object({
-		search: v.optional(v.fallback(v.string(), ''), ''),
-		action: v.optional(
-			v.fallback(
-				v.picklist([
-					'all',
-					'impersonate',
-					'stop_impersonation',
-					'ban_user',
-					'unban_user',
-					'revoke_sessions',
-					'set_role'
-				]),
-				'all'
-			),
-			'all'
-		),
-		admin: v.optional(v.fallback(v.string(), ''), ''),
-		target: v.optional(v.fallback(v.string(), ''), ''),
-		sort: v.optional(v.fallback(v.string(), ''), ''),
-		page: v.optional(v.fallback(v.string(), '1'), '1'),
-		page_size: v.optional(v.fallback(v.picklist(PAGE_SIZE_OPTIONS), '20'), '20'),
-		cursor: v.optional(v.fallback(v.string(), ''), '')
+	const auditLogTableParamsSchema = createTableUrlSchema({
+		filters: {
+			action: [
+				'all',
+				'impersonate',
+				'stop_impersonation',
+				'ban_user',
+				'unban_user',
+				'revoke_sessions',
+				'set_role'
+			],
+			admin: 'text',
+			target: 'text'
+		},
+		pageSizes: PAGE_SIZES,
+		defaultPageSize: DEFAULT_PAGE_SIZE
 	});
+
+	function filterArgs(filters: Record<'action' | 'admin' | 'target', string>) {
+		return {
+			actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction),
+			adminUserId: filters.admin || undefined,
+			targetUserId: filters.target || undefined
+		};
+	}
 
 	const auditTable = createConvexCursorTable<
 		AuditLogItem,
@@ -66,37 +68,28 @@
 		countQuery: api.admin.auditLog.queries.getAuditLogCount,
 		urlSchema: auditLogTableParamsSchema,
 		defaultFilters: { action: 'all', admin: '', target: '' },
-		pageSizeOptions: PAGE_SIZE_OPTIONS,
-		defaultPageSize: '20',
+		pageSizes: PAGE_SIZES,
+		defaultPageSize: DEFAULT_PAGE_SIZE,
 		sortFields: ['timestamp'],
 		buildListArgs: ({ cursor, pageSize, search, filters, sortBy }) => ({
 			cursor: cursor ?? undefined,
 			numItems: pageSize,
 			search,
-			actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction),
-			adminUserId: filters.admin || undefined,
-			targetUserId: filters.target || undefined,
+			...filterArgs(filters),
 			sortBy: sortBy ? { field: 'timestamp', direction: sortBy.direction } : undefined
 		}),
 		// Count is order-independent, so the sort direction is intentionally omitted.
-		buildCountArgs: ({ search, filters }) => ({
-			search,
-			actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction),
-			adminUserId: filters.admin || undefined,
-			targetUserId: filters.target || undefined
-		}),
+		buildCountArgs: ({ search, filters }) => ({ search, ...filterArgs(filters) }),
 		resolveLastPage: async ({ pageSize, search, filters, sortBy }) => {
 			const result = await client.query(api.admin.auditLog.queries.resolveAuditLogLastPage, {
 				numItems: pageSize,
 				search,
-				actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction),
-				adminUserId: filters.admin || undefined,
-				targetUserId: filters.target || undefined,
+				...filterArgs(filters),
 				sortBy: sortBy ? { field: 'timestamp', direction: sortBy.direction } : undefined
 			});
 			return { page: result.page, cursor: result.cursor };
 		},
-		toListResult: (result) => result as CursorListResult<AuditLogItem>,
+		toListResult: toCursorListResult,
 		toCount: (result) => result
 	});
 
@@ -110,10 +103,9 @@
 	);
 	const adminFilterId = $derived(auditTable.filters.admin || undefined);
 	const targetFilterId = $derived(auditTable.filters.target || undefined);
-	const sorting = $derived.by<SortingState>(() => {
-		const sortBy = auditTable.sortBy;
-		if (!sortBy) return [];
-		return [{ id: 'timestamp', desc: sortBy.direction === 'desc' }];
+	const cursorSorting = createCursorSorting({
+		table: auditTable,
+		columnToField: { timestamp: 'timestamp' }
 	});
 
 	const countPrediction = createCountPrediction({
@@ -183,7 +175,7 @@
 				return { pageIndex, pageSize };
 			},
 			get sorting() {
-				return sorting;
+				return cursorSorting.sorting;
 			}
 		},
 		manualPagination: true,
@@ -193,22 +185,7 @@
 			return auditTable.pageCount;
 		},
 		getRowId: (row) => row.id,
-		onSortingChange: (updater) => {
-			const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
-			if (nextSorting.length === 0) {
-				auditTable.setSort(undefined);
-				return;
-			}
-			const primarySort = nextSorting[0]!;
-			if (primarySort.id !== 'timestamp') {
-				auditTable.setSort(undefined);
-				return;
-			}
-			auditTable.setSort({
-				field: 'timestamp',
-				direction: primarySort.desc ? 'desc' : 'asc'
-			});
-		}
+		onSortingChange: cursorSorting.onSortingChange
 	});
 </script>
 
@@ -232,7 +209,7 @@
 			pageIndex={auditTable.pageIndex}
 			pageCount={auditTable.pageCount}
 			pageSize={auditTable.pageSize}
-			pageSizeOptions={PAGE_SIZE_NUM_OPTIONS}
+			pageSizeOptions={auditTable.pageSizes}
 			canPreviousPage={auditTable.canPreviousPage}
 			canNextPage={auditTable.canNextPage}
 			onFirstPage={auditTable.goFirst}

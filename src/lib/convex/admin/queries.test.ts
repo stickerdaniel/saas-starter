@@ -1,6 +1,67 @@
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../auth', () => ({
+	authComponent: { getAuthUser: vi.fn(async () => ({ _id: 'admin_1', role: 'admin' })) }
+}));
+
 import type { QueryCtx } from '../_generated/server';
-import { countUsersWithFilters, getRecentDashboardMetrics } from './queries';
+import type { AdminUserData } from './types';
+import {
+	countUsersWithFilters,
+	getRecentDashboardMetrics,
+	listUsers,
+	resolveUsersLastPage
+} from './queries';
+
+type Fn<A, R> = { _handler: (ctx: unknown, args: A) => Promise<R> };
+type ListUsersArgs = {
+	cursor?: string;
+	numItems: number;
+	search?: string;
+	providerFilter?: 'credential' | 'google' | 'github' | 'passkey';
+	sortBy?: { field: 'createdAt' | 'provider'; direction: 'asc' | 'desc' };
+};
+const listUsersHandler = (
+	listUsers as unknown as Fn<
+		ListUsersArgs,
+		{ items: AdminUserData[]; continueCursor: string | null; isDone: boolean }
+	>
+)._handler;
+const resolveUsersLastPageHandler = (
+	resolveUsersLastPage as unknown as Fn<ListUsersArgs, { page: number; cursor: string | null }>
+)._handler;
+
+/**
+ * An adapter double for the offset paths: every `user` read returns the whole
+ * table in one done page, and `account` reads filter by provider or user ids.
+ */
+function offsetCtx() {
+	const users = ['u1', 'u2', 'u3', 'u4', 'u5'].map((id) => ({ _id: id, email: `${id}@x.test` }));
+	const accounts = [
+		{ userId: 'u1', providerId: 'github' },
+		{ userId: 'u2', providerId: 'credential' },
+		{ userId: 'u3', providerId: 'github' },
+		{ userId: 'u4', providerId: 'google' },
+		{ userId: 'u5', providerId: 'github' }
+	];
+	const runQuery = vi.fn(
+		async (
+			_reference: unknown,
+			args: { model: string; where?: Array<{ field: string; value: unknown }> }
+		) => {
+			if (args.model === 'user') return { page: users, continueCursor: null, isDone: true };
+			const where = args.where?.[0];
+			const userIds = Array.isArray(where?.value) ? (where.value as string[]) : [];
+			const page = accounts.filter((account) =>
+				where?.field === 'providerId'
+					? account.providerId === where.value
+					: userIds.includes(account.userId)
+			);
+			return { page, continueCursor: null, isDone: true };
+		}
+	);
+	return { runQuery };
+}
 
 describe('admin query helpers', () => {
 	it('counts every indexed user page without loading full documents', async () => {
@@ -67,5 +128,79 @@ describe('admin query helpers', () => {
 			sortBy: { field: 'createdAt', direction: 'desc' },
 			select: ['id', 'createdAt']
 		});
+	});
+});
+
+describe('listUsers offset paths', () => {
+	it('pages a provider filter by offset cursor', async () => {
+		const ctx = offsetCtx();
+		const first = await listUsersHandler(ctx, { numItems: 2, providerFilter: 'github' });
+		expect(first.items.map((user) => user.id)).toEqual(['u1', 'u3']);
+		expect(first).toMatchObject({ continueCursor: '2', isDone: false });
+
+		const last = await listUsersHandler(ctx, {
+			numItems: 2,
+			providerFilter: 'github',
+			cursor: first.continueCursor!
+		});
+		expect(last.items.map((user) => user.id)).toEqual(['u5']);
+		expect(last).toMatchObject({ continueCursor: null, isDone: true });
+
+		await expect(
+			resolveUsersLastPageHandler(ctx, { numItems: 2, providerFilter: 'github' })
+		).resolves.toEqual({ page: 2, cursor: '2' });
+	});
+
+	it('pages a provider sort by offset cursor', async () => {
+		const ctx = offsetCtx();
+		const sortBy = { field: 'provider', direction: 'asc' } as const;
+		const first = await listUsersHandler(ctx, { numItems: 2, sortBy });
+		expect(first.items.map((user) => user.providers)).toEqual([['credential'], ['github']]);
+		expect(first).toMatchObject({ continueCursor: '2', isDone: false });
+
+		const second = await listUsersHandler(ctx, { numItems: 2, sortBy, cursor: '2' });
+		expect(second.items.map((user) => user.providers)).toEqual([['github'], ['github']]);
+		expect(second).toMatchObject({ continueCursor: '4', isDone: false });
+
+		const last = await listUsersHandler(ctx, { numItems: 2, sortBy, cursor: '4' });
+		expect(last.items.map((user) => user.providers)).toEqual([['google']]);
+		expect(last).toMatchObject({ continueCursor: null, isDone: true });
+	});
+
+	it('restarts a garbage offset cursor at the first page', async () => {
+		const result = await listUsersHandler(offsetCtx(), {
+			numItems: 2,
+			providerFilter: 'github',
+			cursor: 'garbage'
+		});
+		expect(result.items.map((user) => user.id)).toEqual(['u1', 'u3']);
+	});
+});
+
+describe('listUsers adapter path', () => {
+	function adapterCtx(page: { continueCursor: string | null; isDone: boolean }) {
+		const runQuery = vi.fn(async (_reference: unknown, args: { model: string }) =>
+			args.model === 'user'
+				? { page: [{ _id: 'u1', email: 'u1@x.test' }], ...page }
+				: { page: [], continueCursor: null, isDone: true }
+		);
+		return { runQuery };
+	}
+
+	it('drops the adapter cursor from its last page', async () => {
+		const result = await listUsersHandler(
+			adapterCtx({ continueCursor: 'adapter-end', isDone: true }),
+			{ numItems: 10 }
+		);
+		expect(result).toMatchObject({ continueCursor: null, isDone: true });
+		expect(result.items).toHaveLength(1);
+	});
+
+	it('keeps the adapter cursor on a pending page', async () => {
+		const result = await listUsersHandler(
+			adapterCtx({ continueCursor: 'adapter-next', isDone: false }),
+			{ numItems: 10, cursor: 'adapter-prev' }
+		);
+		expect(result).toMatchObject({ continueCursor: 'adapter-next', isDone: false });
 	});
 });

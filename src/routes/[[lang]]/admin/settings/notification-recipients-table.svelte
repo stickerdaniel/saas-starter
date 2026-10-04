@@ -1,6 +1,5 @@
 <script lang="ts">
-	import * as v from 'valibot';
-	import { type SortingState } from '@tanstack/table-core';
+	import type * as v from 'valibot';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
@@ -17,7 +16,9 @@
 	import DataTableView from '$lib/components/tables/data-table-view.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
 	import { createCountPrediction } from '$lib/tables/convex/count-prediction.svelte.ts';
-	import type { CursorListResult } from '$lib/tables/convex/contract';
+	import { createCursorSorting } from '$lib/tables/convex/sorting.svelte.ts';
+	import { createTableUrlSchema } from '$lib/tables/convex/url';
+	import { toCursorListResult } from '$lib/tables/convex/contract';
 	import { columns } from './columns.js';
 	import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
@@ -37,23 +38,22 @@
 		name: 'name',
 		type: 'type'
 	} as const;
-	const SORT_FIELD_TO_COLUMN = {
-		email: 'email',
-		name: 'name',
-		type: 'type'
-	} as const;
 
-	const PAGE_SIZE_OPTIONS = ['1', '10', '20', '30', '50'] as const;
-	const PAGE_SIZE_NUM_OPTIONS = [1, 10, 20, 30, 50] as const;
+	const PAGE_SIZES = [1, 10, 20, 30, 50];
+	const DEFAULT_PAGE_SIZE = 10;
 
-	const recipientsTableParamsSchema = v.object({
-		search: v.optional(v.fallback(v.string(), ''), ''),
-		type: v.optional(v.fallback(v.picklist(['all', 'admin', 'custom']), 'all'), 'all'),
-		sort: v.optional(v.fallback(v.string(), ''), ''),
-		page: v.optional(v.fallback(v.string(), '1'), '1'),
-		page_size: v.optional(v.fallback(v.picklist(PAGE_SIZE_OPTIONS), '10'), '10'),
-		cursor: v.optional(v.fallback(v.string(), ''), '')
+	const recipientsTableParamsSchema = createTableUrlSchema({
+		filters: { type: ['all', 'admin', 'custom'] },
+		pageSizes: PAGE_SIZES,
+		defaultPageSize: DEFAULT_PAGE_SIZE
 	});
+
+	function filterArgs(filters: Record<'type', string>) {
+		return {
+			typeFilter:
+				filters.type === 'all' ? undefined : (filters.type as Exclude<RecipientTypeFilter, 'all'>)
+		};
+	}
 
 	const recipientsTable = createConvexCursorTable<
 		NotificationRecipient,
@@ -67,15 +67,14 @@
 		countQuery: api.admin.notificationPreferences.queries.getNotificationRecipientCount,
 		urlSchema: recipientsTableParamsSchema,
 		defaultFilters: { type: 'all' },
-		pageSizeOptions: PAGE_SIZE_OPTIONS,
-		defaultPageSize: '10',
+		pageSizes: PAGE_SIZES,
+		defaultPageSize: DEFAULT_PAGE_SIZE,
 		sortFields: ['email', 'name', 'type'],
 		buildListArgs: ({ cursor, pageSize, search, filters, sortBy }) => ({
 			cursor: cursor ?? undefined,
 			numItems: pageSize,
 			search,
-			typeFilter:
-				filters.type === 'all' ? undefined : (filters.type as Exclude<RecipientTypeFilter, 'all'>),
+			...filterArgs(filters),
 			sortBy: sortBy
 				? {
 						field: sortBy.field,
@@ -83,21 +82,14 @@
 					}
 				: undefined
 		}),
-		buildCountArgs: ({ search, filters }) => ({
-			search,
-			typeFilter:
-				filters.type === 'all' ? undefined : (filters.type as Exclude<RecipientTypeFilter, 'all'>)
-		}),
+		buildCountArgs: ({ search, filters }) => ({ search, ...filterArgs(filters) }),
 		resolveLastPage: async ({ pageSize, search, filters }) => {
 			const result = await client.query(
 				api.admin.notificationPreferences.queries.resolveNotificationRecipientsLastPage,
 				{
 					numItems: pageSize,
 					search,
-					typeFilter:
-						filters.type === 'all'
-							? undefined
-							: (filters.type as Exclude<RecipientTypeFilter, 'all'>)
+					...filterArgs(filters)
 				}
 			);
 
@@ -106,7 +98,7 @@
 				cursor: result.cursor
 			};
 		},
-		toListResult: (result) => result as CursorListResult<NotificationRecipient>,
+		toListResult: toCursorListResult,
 		toCount: (result) => result
 	});
 
@@ -116,12 +108,9 @@
 	const isLoading = $derived(recipientsTable.isLoading);
 	const loadError = $derived(recipientsTable.error);
 	const typeFilter = $derived(recipientsTable.filters.type as RecipientTypeFilter);
-	const sorting = $derived.by<SortingState>(() => {
-		const sortBy = recipientsTable.sortBy;
-		if (!sortBy) return [];
-		const columnId = SORT_FIELD_TO_COLUMN[sortBy.field];
-		if (!columnId) return [];
-		return [{ id: columnId, desc: sortBy.direction === 'desc' }];
+	const cursorSorting = createCursorSorting({
+		table: recipientsTable,
+		columnToField: SORT_COLUMN_TO_FIELD
 	});
 
 	// Track pending updates for optimistic UI
@@ -201,7 +190,7 @@
 				return { pageIndex, pageSize };
 			},
 			get sorting() {
-				return sorting;
+				return cursorSorting.sorting;
 			},
 			get rowSelection() {
 				return rowSelection.state;
@@ -214,23 +203,7 @@
 			return recipientsTable.pageCount;
 		},
 		getRowId: (row) => row.email,
-		onSortingChange: (updater) => {
-			const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
-			if (nextSorting.length === 0) {
-				recipientsTable.setSort(undefined);
-				return;
-			}
-			const primarySort = nextSorting[0]!;
-			const field = SORT_COLUMN_TO_FIELD[primarySort.id as keyof typeof SORT_COLUMN_TO_FIELD];
-			if (!field) {
-				recipientsTable.setSort(undefined);
-				return;
-			}
-			recipientsTable.setSort({
-				field,
-				direction: primarySort.desc ? 'desc' : 'asc'
-			});
-		},
+		onSortingChange: cursorSorting.onSortingChange,
 		onRowSelectionChange: rowSelection.onChange
 	});
 </script>
@@ -244,7 +217,7 @@
 		pageIndex={recipientsTable.pageIndex}
 		pageCount={recipientsTable.pageCount}
 		pageSize={recipientsTable.pageSize}
-		pageSizeOptions={PAGE_SIZE_NUM_OPTIONS}
+		pageSizeOptions={recipientsTable.pageSizes}
 		canPreviousPage={recipientsTable.canPreviousPage}
 		canNextPage={recipientsTable.canNextPage}
 		onFirstPage={recipientsTable.goFirst}

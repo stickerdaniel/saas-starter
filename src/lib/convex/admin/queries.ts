@@ -5,6 +5,7 @@ import type { AdminUserData, BetterAuthUser } from './types';
 import { adminUserDataValidator, parseBetterAuthUsers } from './types';
 import { adminQuery } from '../functions';
 import { getCounters } from './counters';
+import { resolveOffsetLastPage, sliceOffsetPage } from './pagination';
 import {
 	applyUserSearch,
 	fetchAllUsersWithFilters,
@@ -324,11 +325,11 @@ export const listUsers = adminQuery({
 				});
 			}
 
-			const offsetRaw = args.cursor ? Number.parseInt(args.cursor, 10) : 0;
-			const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
-			const pageEnd = offset + args.numItems;
-			const usersPage = filteredUsers.slice(offset, pageEnd);
-			const isDone = pageEnd >= filteredUsers.length;
+			const {
+				items: usersPage,
+				continueCursor,
+				isDone
+			} = sliceOffsetPage(filteredUsers, args.cursor, args.numItems);
 
 			const providerMap = await fetchProvidersForUsers(
 				ctx,
@@ -337,7 +338,7 @@ export const listUsers = adminQuery({
 
 			return {
 				items: usersPage.map((u) => mapAdminUser(u, providerMap.get(u._id) ?? [])),
-				continueCursor: isDone ? null : String(pageEnd),
+				continueCursor,
 				isDone
 			};
 		}
@@ -361,7 +362,8 @@ export const listUsers = adminQuery({
 
 		return {
 			items: users.map((u) => mapAdminUser(u, providerMap.get(u._id) ?? [])),
-			continueCursor: result.continueCursor,
+			// The adapter can hand back a cursor on its last page; done pages carry none.
+			continueCursor: result.isDone ? null : result.continueCursor,
 			isDone: result.isDone
 		};
 	}
@@ -481,22 +483,15 @@ export const resolveUsersLastPage = adminQuery({
 			}
 			total = filtered.length;
 		}
-		if (total <= 0) {
-			return { page: 1, cursor: null };
+		const offsetLastPage = resolveOffsetLastPage(total, pageSize);
+		const isOffsetMode = !!args.search?.trim() || !!args.providerFilter || isProviderSort;
+		if (isOffsetMode || offsetLastPage.cursor === null) {
+			return offsetLastPage;
 		}
 
-		const lastPage = Math.max(1, Math.ceil(total / pageSize));
+		// Adapter cursor mode: walk native cursors up to the last page's offset.
+		const lastPage = offsetLastPage.page;
 		const targetOffset = (lastPage - 1) * pageSize;
-		if (targetOffset <= 0) {
-			return { page: 1, cursor: null };
-		}
-
-		if (args.search?.trim() || args.providerFilter || isProviderSort) {
-			return {
-				page: lastPage,
-				cursor: String(targetOffset)
-			};
-		}
 
 		let offset = 0;
 		let cursor: string | null = null;
