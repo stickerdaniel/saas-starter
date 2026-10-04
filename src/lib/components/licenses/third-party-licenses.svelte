@@ -3,6 +3,7 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import DownloadIcon from '@lucide/svelte/icons/download';
+	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -109,12 +110,12 @@
 			<ul class="divide-y rounded-lg ring-1 ring-foreground/10">
 				<!-- Native disclosure: rows open without JavaScript and before hydration. -->
 				{#each results as entry (entry.id)}
-					<li>
+					<li class="relative">
 						<details class="group">
 							<summary
-								class="flex w-full cursor-pointer list-none items-center gap-3 px-4 py-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden"
+								class="flex w-full cursor-pointer list-none items-start gap-3 px-4 py-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden"
 							>
-								<span class="min-w-0 flex-1">
+								<span class={['min-w-0 flex-1', entry.sourceUrl && 'pr-10']}>
 									<span class="font-medium break-words">{entry.name}</span>
 									{#if entry.version}
 										<span class="ml-1.5 text-xs text-muted-foreground">{entry.version}</span>
@@ -127,7 +128,7 @@
 									</span>
 								</span>
 								<ChevronDownIcon
-									class="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
+									class="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
 									aria-hidden="true"
 								/>
 							</summary>
@@ -135,21 +136,9 @@
 								<!-- Notice texts are legal texts and stay in their original English. -->
 								{#each entry.notices as notice, index (index)}
 									<div class="space-y-1">
-										<div class="flex items-baseline justify-between gap-4">
-											<p lang="en" class="text-xs font-medium text-muted-foreground">
-												{notice.label}
-											</p>
-											{#if index === 0 && entry.sourceUrl}
-												<a
-													href={entry.sourceUrl}
-													target="_blank"
-													rel="external noopener noreferrer"
-													class="text-xs underline underline-offset-4"
-												>
-													{$t('licenses.source')}
-												</a>
-											{/if}
-										</div>
+										<p lang="en" class="text-xs font-medium text-muted-foreground">
+											{notice.label}
+										</p>
 										<pre
 											lang="en"
 											class="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs break-words whitespace-pre-wrap">{notice.text}</pre>
@@ -157,6 +146,22 @@
 								{/each}
 							</div>
 						</details>
+						<!-- Outside the summary, so the link is not nested in the disclosure toggle. -->
+						{#if entry.sourceUrl}
+							<a
+								href={entry.sourceUrl}
+								target="_blank"
+								rel="external noopener noreferrer"
+								aria-label={$t('licenses.source', { name: entry.name })}
+								class={buttonVariants({
+									variant: 'ghost',
+									size: 'icon-sm',
+									class: 'absolute top-2 right-11 text-muted-foreground'
+								})}
+							>
+								<ExternalLinkIcon aria-hidden="true" />
+							</a>
+						{/if}
 					</li>
 				{/each}
 			</ul>

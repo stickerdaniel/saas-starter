@@ -1288,7 +1288,7 @@
 			"label": "Buscar licencias",
 			"placeholder": "Paquete, licencia o texto del aviso"
 		},
-		"source": "Fuente",
+		"source": "Fuente de {name}",
 		"text_link": "Descargar todos los avisos como texto sin formato",
 		"title": "Licencias de terceros",
 		"unavailable": "Los avisos de licencia se generan en las compilaciones de producción y no están disponibles en desarrollo."

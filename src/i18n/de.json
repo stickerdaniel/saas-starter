@@ -1288,7 +1288,7 @@
 			"label": "Lizenzen durchsuchen",
 			"placeholder": "Paket, Lizenz oder Hinweistext"
 		},
-		"source": "Quelle",
+		"source": "Quelle von {name}",
 		"text_link": "Alle Hinweise als Textdatei herunterladen",
 		"title": "Drittanbieter-Lizenzen",
 		"unavailable": "Lizenzhinweise werden bei Produktions-Builds erzeugt und stehen in der Entwicklungsumgebung nicht zur Verfügung."

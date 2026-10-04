@@ -149,6 +149,15 @@ describe('third-party licenses list', () => {
 		expect(document.querySelector('img')).toBeNull();
 	});
 
+	it('links each source from the closed row', async () => {
+		await render({ entries });
+		const link = document.querySelector<HTMLAnchorElement>('a[aria-label="Source of alpha"]');
+		expect(link?.href).toBe('https://github.com/example/alpha');
+		// Reachable while the row is closed, and not nested in the toggle.
+		expect(link?.closest('details')).toBeNull();
+		expect(link?.closest('li')?.querySelector('details')?.hasAttribute('open')).toBe(false);
+	});
+
 	it('explains that development builds have no catalogue', async () => {
 		await render({ entries: null });
 		expect(document.body.textContent).toContain('not available in development');
