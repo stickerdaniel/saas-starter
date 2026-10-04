@@ -1285,7 +1285,7 @@
 		"results": "{count, plural, =0 {Ninguna entrada coincide} one {# entrada} other {# entradas}}",
 		"search": {
 			"label": "Buscar licencias",
-			"placeholder": "Paquete, versión o licencia"
+			"placeholder": "Paquete, licencia o texto del aviso"
 		},
 		"source": "Fuente",
 		"text_link": "Descargar todos los avisos como texto sin formato",

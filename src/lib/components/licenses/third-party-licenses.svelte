@@ -24,7 +24,7 @@
 	};
 
 	let query = $state('');
-	const results = $derived(filterCatalogueEntries(entries ?? [], query));
+	const results = $derived(filterCatalogueEntries(entries ?? [], query, componentLabel));
 
 	function componentLabel(component: string): string {
 		const key = COMPONENT_KEYS[component];

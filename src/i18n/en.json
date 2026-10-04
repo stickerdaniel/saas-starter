@@ -1285,7 +1285,7 @@
 		"results": "{count, plural, =0 {No matching entries} one {# entry} other {# entries}}",
 		"search": {
 			"label": "Search licenses",
-			"placeholder": "Package, version, or license"
+			"placeholder": "Package, license, or notice text"
 		},
 		"source": "Source",
 		"text_link": "Download all notices as plain text",

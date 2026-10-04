@@ -80,6 +80,9 @@ describe('third-party licenses list', () => {
 		search('alpha holder');
 		expect(rows()).toEqual(['alpha']);
 
+		search('browser worker');
+		expect(rows()).toEqual(['gamma']);
+
 		search('no such package');
 		expect(rows()).toEqual([]);
 		expect(status()).toBe('No matching entries');

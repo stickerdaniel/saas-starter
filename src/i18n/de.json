@@ -1285,7 +1285,7 @@
 		"results": "{count, plural, =0 {Keine passenden Einträge} one {# Eintrag} other {# Einträge}}",
 		"search": {
 			"label": "Lizenzen durchsuchen",
-			"placeholder": "Paket, Version oder Lizenz"
+			"placeholder": "Paket, Lizenz oder Hinweistext"
 		},
 		"source": "Quelle",
 		"text_link": "Alle Hinweise als Textdatei herunterladen",
