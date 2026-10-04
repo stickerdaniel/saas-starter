@@ -1,7 +1,6 @@
 <script lang="ts">
 	import * as v from 'valibot';
-	import { clamp } from '$lib/utils/math';
-	import { type RowSelectionState, type SortingState } from '@tanstack/table-core';
+	import { type SortingState } from '@tanstack/table-core';
 	import { SvelteMap } from 'svelte/reactivity';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
@@ -17,8 +16,10 @@
 		setRecipientsContext
 	} from './recipients-context';
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
+	import { createRowSelection } from '$lib/components/ui/data-table/row-selection.svelte.ts';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
+	import { createCountPrediction } from '$lib/tables/convex/count-prediction.svelte.ts';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
 	import { columns } from './columns.js';
 	import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
@@ -130,7 +131,9 @@
 	let pendingUpdates = new SvelteMap<string, Record<string, boolean>>();
 
 	// Row selection state
-	let rowSelection = $state<RowSelectionState>({});
+	const rowSelection = createRowSelection(() =>
+		recipientsTable.rows.map((recipient) => recipient.email)
+	);
 
 	// Add email dialog state
 	let addEmailDialogOpen = $state(false);
@@ -143,18 +146,9 @@
 		})
 	);
 
-	// Smart skeleton count
-	const skeletonCount = $derived.by(() => {
-		if (adminCache.recipientCount.current !== null) {
-			const remaining = adminCache.recipientCount.current - pageIndex * pageSize;
-			return clamp(remaining, 0, pageSize);
-		}
-		return pageSize;
-	});
-
-	const totalCount = $derived.by(() => {
-		if (recipientsTable.hasLoadedCount) return recipientsTable.totalCount;
-		return adminCache.recipientCount.current ?? 0;
+	const countPrediction = createCountPrediction({
+		table: recipientsTable,
+		cache: adminCache.recipientCount
 	});
 
 	async function togglePreference(
@@ -197,7 +191,7 @@
 	// Provide context for cell components
 	setTogglePreferenceContext(togglePreference);
 	setRemoveEmailContext(removeEmail);
-	setRowSelectionContext(() => rowSelection);
+	setRowSelectionContext(() => rowSelection.state);
 	setRecipientsContext(() => recipientsWithUpdates);
 
 	const table = createSvelteTable({
@@ -213,7 +207,7 @@
 				return sorting;
 			},
 			get rowSelection() {
-				return rowSelection;
+				return rowSelection.state;
 			}
 		},
 		manualPagination: true,
@@ -240,19 +234,7 @@
 				direction: primarySort.desc ? 'desc' : 'asc'
 			});
 		},
-		onRowSelectionChange: (updater) => {
-			if (typeof updater === 'function') {
-				rowSelection = updater(rowSelection);
-			} else {
-				rowSelection = updater;
-			}
-		}
-	});
-
-	$effect(() => {
-		if (recipientsTable.hasLoadedCount) {
-			adminCache.recipientCount.current = recipientsTable.totalCount;
-		}
+		onRowSelectionChange: rowSelection.onChange
 	});
 </script>
 
@@ -274,8 +256,8 @@
 		onLastPage={recipientsTable.goLast}
 		onPageSizeChange={recipientsTable.setPageSize}
 		selectionText={$t('admin.settings.selected', {
-			selected: Object.keys(rowSelection).length,
-			total: totalCount
+			selected: rowSelection.count,
+			total: countPrediction.total
 		})}
 	>
 		{#snippet toolbarFilters()}
@@ -306,8 +288,8 @@
 					{/each}
 				</Table.Header>
 				<Table.Body>
-					{#if isLoading && skeletonCount > 0}
-						{#each Array(skeletonCount) as _, i (i)}
+					{#if isLoading && countPrediction.skeletonRows > 0}
+						{#each Array(countPrediction.skeletonRows) as _, i (i)}
 							<Table.Row data-testid="recipients-loading">
 								<Table.Cell class="[&:has([role=checkbox])]:ps-3">
 									<div class="flex items-center justify-center">
@@ -349,7 +331,7 @@
 								<span class="text-destructive"><T keyName="common.load_error" /></span>
 							</Table.Cell>
 						</Table.Row>
-					{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
+					{:else if table.getRowModel().rows.length === 0 || (isLoading && countPrediction.skeletonRows === 0)}
 						<Table.Row data-testid="recipients-empty">
 							<Table.Cell colspan={columns.length} class="h-24 text-center">
 								<span class="text-muted-foreground"

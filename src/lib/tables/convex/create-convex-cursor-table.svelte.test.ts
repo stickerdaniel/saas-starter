@@ -85,6 +85,7 @@ it('keeps the total through page navigation and updates it for changed filters',
 	});
 	deliver();
 	expect(document.body.textContent).toContain('Page 1 of 12');
+	expect(component.table.isUnfiltered).toBe(true);
 
 	await component.table.goLast();
 	flushSync();
@@ -99,5 +100,6 @@ it('keeps the total through page navigation and updates it for changed filters',
 	deliver();
 	expect(component.table.totalCount).toBe(0);
 	expect(component.table.hasLoadedCount).toBe(true);
+	expect(component.table.isUnfiltered).toBe(false);
 	expect(document.body.textContent).toContain('Page 1 of 1');
 });

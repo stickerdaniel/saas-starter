@@ -1,7 +1,6 @@
 <script lang="ts">
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
-	import { clamp } from '$lib/utils/math';
 	import { type SortingState } from '@tanstack/table-core';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
@@ -12,6 +11,7 @@
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
+	import { createCountPrediction } from '$lib/tables/convex/count-prediction.svelte.ts';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
 	import type { AuditLogItem } from '$lib/convex/admin/auditLog/queries';
 	import { browser } from '$app/environment';
@@ -117,31 +117,14 @@
 		return [{ id: 'timestamp', desc: sortBy.direction === 'desc' }];
 	});
 
-	// Total entry count for the footer: prefer the freshly loaded count, falling
-	// back to the persisted cache so it shows immediately on first paint. Renders
-	// "5000+" at the getAuditLogCount 5001-row cap.
-	const totalEntries = $derived(
-		auditTable.hasLoadedCount ? auditTable.totalCount : (adminCache.auditLogCount.current ?? 0)
+	const countPrediction = createCountPrediction({
+		table: auditTable,
+		cache: adminCache.auditLogCount
+	});
+	// Renders "5000+" at the getAuditLogCount 5001-row cap.
+	const totalEntriesLabel = $derived(
+		countPrediction.total >= 5001 ? '5000+' : `${countPrediction.total}`
 	);
-	const totalEntriesLabel = $derived(totalEntries >= 5001 ? '5000+' : `${totalEntries}`);
-
-	// Skeleton prediction: use the cached count so first paint renders only as
-	// many skeleton rows as the current page will actually hold (falls back to a
-	// full page when nothing is cached yet).
-	const skeletonCount = $derived.by(() => {
-		if (adminCache.auditLogCount.current !== null) {
-			const remaining = adminCache.auditLogCount.current - pageIndex * pageSize;
-			return clamp(remaining, 0, pageSize);
-		}
-		return pageSize;
-	});
-
-	// Persist the audit log count once it loads so later visits predict skeletons.
-	$effect(() => {
-		if (auditTable.hasLoadedCount) {
-			adminCache.auditLogCount.current = auditTable.totalCount;
-		}
-	});
 
 	// The action filter combines with one user filter, served by the compound
 	// indexes by_admin_action / by_target_action. Setting an action leaves the
@@ -290,13 +273,13 @@
 						{/each}
 					</Table.Header>
 					<Table.Body>
-						{#if isLoading && skeletonCount > 0}
+						{#if isLoading && countPrediction.skeletonRows > 0}
 							<Table.Row data-testid="admin-audit-log-loading" class="hidden">
 								<Table.Cell colspan={columns.length}>
 									<T keyName="admin.audit_log.loading" />
 								</Table.Cell>
 							</Table.Row>
-							{#each Array(skeletonCount) as _, i (i)}
+							{#each Array(countPrediction.skeletonRows) as _, i (i)}
 								<Table.Row>
 									<Table.Cell>
 										<div class="flex h-5 items-center"><Skeleton class="h-4 w-32" /></div>
@@ -337,7 +320,7 @@
 									<span class="text-destructive"><T keyName="common.load_error" /></span>
 								</Table.Cell>
 							</Table.Row>
-						{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
+						{:else if table.getRowModel().rows.length === 0 || (isLoading && countPrediction.skeletonRows === 0)}
 							<Table.Row variant="inert">
 								<Table.Cell
 									colspan={columns.length}
