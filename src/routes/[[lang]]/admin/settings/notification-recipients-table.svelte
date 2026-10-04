@@ -25,7 +25,6 @@
 	import AddEmailDialog from './add-email-dialog.svelte';
 	import { browser } from '$app/environment';
 	import DataTableFilters from './data-table-filters.svelte';
-	import { ConfirmDeleteDialog } from '$lib/components/ui/confirm-delete-dialog';
 
 	const { t } = getTranslate();
 	const client = useConvexClient();
@@ -251,5 +250,3 @@
 			/>
 		{/snippet}
 	</ConvexCursorTableShell>{/if}
-
-<ConfirmDeleteDialog />

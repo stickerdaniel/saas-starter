@@ -3,6 +3,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import NotificationRecipientsTable from './notification-recipients-table.svelte';
 	import FounderWelcomeCard from './founder-welcome-card.svelte';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog/index.js';
 
 	const { t } = getTranslate();
 </script>
@@ -24,3 +25,5 @@
 	<!-- Notification Recipients Table -->
 	<NotificationRecipientsTable />
 </div>
+
+<ConfirmDialog />

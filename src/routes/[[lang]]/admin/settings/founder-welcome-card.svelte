@@ -107,6 +107,7 @@
 	}
 
 	async function handleStepDown() {
+		if (isStepping) return;
 		isStepping = true;
 		try {
 			await client.mutation(api.admin.founderWelcome.mutations.stepDown, {});
@@ -119,6 +120,10 @@
 		} finally {
 			isStepping = false;
 		}
+	}
+
+	function blockWhileStepping(event: Event) {
+		if (isStepping) event.preventDefault();
 	}
 
 	function handleDialogOpenChange(open: boolean) {
@@ -265,7 +270,10 @@
 								</Button>
 							{/snippet}
 						</AlertDialog.Trigger>
-						<AlertDialog.Content>
+						<AlertDialog.Content
+							onEscapeKeydown={blockWhileStepping}
+							onInteractOutside={blockWhileStepping}
+						>
 							<AlertDialog.Header>
 								<AlertDialog.Title>
 									<T keyName="admin.settings.founder_welcome.step_down" />
@@ -275,7 +283,7 @@
 								</AlertDialog.Description>
 							</AlertDialog.Header>
 							<AlertDialog.Footer>
-								<AlertDialog.Cancel>
+								<AlertDialog.Cancel disabled={isStepping}>
 									<T keyName="admin.settings.founder_welcome.cancel" />
 								</AlertDialog.Cancel>
 								<FounderResetConfirmAction onclick={handleStepDown} disabled={isStepping}>

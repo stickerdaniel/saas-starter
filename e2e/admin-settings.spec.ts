@@ -106,7 +106,7 @@ test.describe('Admin Settings Page', () => {
 
 		// Cleanup: remove the test email
 		await page.getByTestId(`delete-email-${testEmail}`).click();
-		await page.getByTestId('confirm-delete-button').click();
+		await page.getByTestId('confirm-dialog-confirm').click();
 		await expect(page.getByTestId(`recipient-row-${testEmail}`)).not.toBeVisible({ timeout: 5000 });
 	});
 
@@ -192,7 +192,7 @@ test.describe('Admin Settings Page', () => {
 		await page.getByTestId(`delete-email-${testEmail}`).click();
 
 		// Confirm deletion in dialog - use specific testid
-		await page.getByTestId('confirm-delete-button').click();
+		await page.getByTestId('confirm-dialog-confirm').click();
 
 		// Wait for removal
 		await expect(page.getByTestId(`recipient-row-${testEmail}`)).not.toBeVisible({
