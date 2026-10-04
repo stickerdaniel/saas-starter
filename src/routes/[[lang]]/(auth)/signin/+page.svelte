@@ -173,10 +173,12 @@
 		}
 	});
 
-	function redirectAfterAuthentication() {
+	function redirectAfterAuthentication(offerPasskey = false) {
 		if (authRedirectStarted) return;
 		authRedirectStarted = true;
-		window.location.href = finalDestination;
+		window.location.href = offerPasskey
+			? authPageURL(localizedHref('/passkey-setup'), finalDestination)
+			: finalDestination;
 	}
 
 	// Redirect when authenticated, unless the server kept this visitor here to
@@ -185,7 +187,7 @@
 	// away from before it can be read, and the server-side hold buys nothing for
 	// any browser that runs JavaScript.
 	$effect(() => {
-		if (auth.isAuthenticated && !heldForVerificationFailure) {
+		if (auth.isAuthenticated && !heldForVerificationFailure && !isLoading) {
 			redirectAfterAuthentication();
 		}
 	});
@@ -250,7 +252,7 @@
 				haptic.trigger('success');
 				clearLastSuccessfulAuthMethod();
 				clearPendingOAuthProvider();
-				redirectAfterAuthentication();
+				redirectAfterAuthentication(true);
 				return;
 			}
 		} catch (error) {

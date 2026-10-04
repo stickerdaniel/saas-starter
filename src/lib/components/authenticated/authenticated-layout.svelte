@@ -2,6 +2,8 @@
 	import { browser } from '$app/environment';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import AuthenticatedSidebar from './authenticated-sidebar.svelte';
+	import SidebarPasskeyOffer from '$lib/components/auth/sidebar-passkey-offer.svelte';
+	import { PasskeyNudgeClaim } from '$lib/components/auth/passkey-enrollment.svelte.ts';
 	import AuthenticatedHeader from './authenticated-header.svelte';
 	import AuthConnectionFallback from './auth-connection-fallback.svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
@@ -39,6 +41,8 @@
 		sidebarOpen
 	}: Props = $props();
 
+	const passkeyNudge = new PasskeyNudgeClaim(() => routePrefix === 'app');
+
 	$effect(() => {
 		if (!browser || !user) return;
 
@@ -73,7 +77,13 @@
 				{threadSubItems}
 				{threadsHasMore}
 				{onLoadMoreThreads}
-			/>
+			>
+				{#snippet footerStart()}
+					{#if passkeyNudge.offer}
+						<SidebarPasskeyOffer nudge={passkeyNudge} />
+					{/if}
+				{/snippet}
+			</AuthenticatedSidebar>
 			<!-- Chat pages drop the inset's white so the sidebar tone carries the whole
 			     surface, header included. The composer pill is bg-popover (white), which
 			     on bg-background had no edge at all in light mode; against the sidebar

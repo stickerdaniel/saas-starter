@@ -1,3 +1,4 @@
+import { waitForAuthenticated } from './utils/auth';
 import { test, expect, type Page, type Route } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
@@ -418,6 +419,7 @@ test.describe('Reset Password', () => {
 			expect(signInBody.email).toBe(email);
 			expect(signInBody.callbackURL).toBe(`/de/signin?redirectTo=${encodedDestination}`);
 
+			await waitForAuthenticated(page);
 			await expect(page).toHaveURL(destination, { timeout: 30000 });
 			const landed = new URL(page.url());
 			expect(`${landed.pathname}${landed.search}${landed.hash}`).toBe(destination);

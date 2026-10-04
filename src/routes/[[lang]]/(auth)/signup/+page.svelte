@@ -25,7 +25,7 @@
 		type LastAuthMethod
 	} from '$lib/hooks/last-auth-method.svelte.ts';
 	import { getAuthErrorKey, getOAuthCallbackErrorKey } from '$lib/utils/auth-messages';
-	import { callbackURLFor, oauthErrorCallbackURL, safeAuthDestination } from '$lib/utils/url';
+	import { authPageURL, oauthErrorCallbackURL, safeAuthDestination } from '$lib/utils/url';
 	import SignUpForm from '../signin/SignUpForm.svelte';
 	import VerificationStep from '../signin/VerificationStep.svelte';
 	import { useSearchParams } from 'runed/kit';
@@ -155,10 +155,7 @@
 			// Narrowed for the same reason the sign-in callback is, and it matters
 			// more here: a rejected callback URL fails the sign-up call outright,
 			// so an unlucky destination would stop an account being created at all.
-			const callbackURL = callbackURLFor(
-				localizedHref('/email-verified') + `?redirectTo=${encodeURIComponent(finalDestination)}`,
-				localizedHref('/email-verified')
-			);
+			const callbackURL = authPageURL(localizedHref('/email-verified'), finalDestination);
 			await authClient.signUp.email(
 				{
 					email: signUpData.email,
@@ -203,9 +200,9 @@
 		try {
 			await authClient.signIn.social({
 				provider,
-				callbackURL: callbackURLFor(
-					safeAuthDestination(params.redirectTo, localizedHref('/app')),
-					localizedHref('/app')
+				callbackURL: authPageURL(
+					localizedHref('/signin'),
+					safeAuthDestination(params.redirectTo, localizedHref('/app'))
 				),
 				// Without this the callback reports a failure to Better Auth's default
 				// error URL, which is the marketing homepage in production.

@@ -828,6 +828,18 @@ export const deleteTestUser = mutation({
 				})
 			));
 
+		await deleteAll((cursor) =>
+			ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+				input: { model: 'passkey', where: [{ field: 'userId', value: user._id }] },
+				paginationOpts: { numItems: 100, cursor }
+			})
+		);
+		const dismissal = await ctx.db
+			.query('passkeyNudgeDismissals')
+			.withIndex('by_userId', (q) => q.eq('userId', user._id))
+			.unique();
+		if (dismissal) await ctx.db.delete('passkeyNudgeDismissals', dismissal._id);
+
 		// Delete the user
 		await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
 			input: {
