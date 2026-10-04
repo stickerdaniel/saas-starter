@@ -23,6 +23,7 @@ import requireMotionGuardTransitionRule from './eslint/rules/require-motion-guar
 import requireFieldErrorAssociationRule from './eslint/rules/require-field-error-association.js';
 import requireGuardedServerConvexClientRule from './eslint/rules/require-guarded-server-convex-client.js';
 import noFrozenAuthPageDataRule from './eslint/rules/no-frozen-auth-page-data.js';
+import noDestructuredLiveGettersRule from './eslint/rules/no-destructured-live-getters.js';
 import requireSvelteModuleExtensionRule from './eslint/rules/require-svelte-module-extension.js';
 import noAnimatedPixelPressRule from './eslint/rules/no-animated-pixel-press.js';
 import preferShadcnPrimitivesRule from './eslint/rules/prefer-shadcn-primitives.js';
@@ -56,6 +57,7 @@ const localPlugin = {
 		'no-hardcoded-aria-label': noHardcodedAriaLabelRule,
 		'no-hardcoded-sr-only': noHardcodedSrOnlyRule,
 		'no-debounce-in-rune': noDebounceInRuneRule,
+		'no-destructured-live-getters': noDestructuredLiveGettersRule,
 		'no-hardcoded-modifier-keys': noHardcodedModifierKeysRule,
 		'require-returns-validator': requireReturnsValidatorRule,
 		'no-bare-test-skip': noBareTestSkipRule,
@@ -308,6 +310,17 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-debounce-in-rune': 'error'
+		}
+	},
+	{
+		// useAuth() and useCustomer() expose their state through getters, so
+		// destructuring freezes it. See eslint/rules/no-destructured-live-getters.js.
+		files: ['src/**/*.svelte', 'src/**/*.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-destructured-live-getters': 'error'
 		}
 	},
 	{

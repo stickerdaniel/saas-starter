@@ -4,6 +4,7 @@ import { getFunctionName } from 'convex/server';
 import type { ConvexClient } from 'convex/browser';
 import { mount, tick, unmount, type Component } from 'svelte';
 import type * as Svelte from 'svelte';
+import type * as SvelteReactivity from 'svelte/reactivity';
 import { toast } from 'svelte-sonner';
 import { goto } from '$app/navigation';
 import en from '../../../i18n/en.json';
@@ -35,11 +36,25 @@ const autumn = vi.hoisted(() => ({
 
 const threadChat = vi.hoisted(() => vi.fn());
 
+// Reactive like the real wrappers, whose customer and isAuthenticated are getters
+// over Svelte state: a component that destructured them would not see a change.
+const live = await vi.hoisted(async () => {
+	const { SvelteMap } = await vi.importActual<typeof SvelteReactivity>(
+		'../../../../node_modules/svelte/src/reactivity/index-client.js'
+	);
+	return new SvelteMap<'customer' | 'authenticated', unknown>();
+});
+
 vi.mock('$app/state', () => ({ page: state.page }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), afterNavigate: vi.fn() }));
 vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
 vi.mock('@stickerdaniel/convex-autumn-svelte/sveltekit', () => ({
-	useCustomer: () => autumn,
+	useCustomer: () => ({
+		...autumn,
+		get customer() {
+			return live.get('customer') ?? autumn.customer;
+		}
+	}),
 	// Mirrors the wrapper: a failed action resolves to null and exposes its error.
 	useAutumnOperation: (action: (...args: unknown[]) => unknown) => ({
 		execute: action,
@@ -50,7 +65,12 @@ vi.mock('@stickerdaniel/convex-autumn-svelte/sveltekit', () => ({
 	})
 }));
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
-	useAuth: () => ({ isAuthenticated: true, isLoading: false })
+	useAuth: () => ({
+		get isAuthenticated() {
+			return live.get('authenticated') ?? true;
+		},
+		isLoading: false
+	})
 }));
 vi.mock('$lib/auth-client', () => ({
 	authClient: {
@@ -105,6 +125,7 @@ function statusText(): string {
 }
 
 beforeEach(() => {
+	live.clear();
 	state.page.url = new URL('https://example.com/en/pricing');
 	state.page.data = {};
 	autumn.errors.clear();
@@ -248,6 +269,33 @@ describe('billing checkout provider', () => {
 		expect(confirm.disabled).toBe(false);
 		confirm.click();
 		await vi.waitFor(() => expect(autumn.attach).toHaveBeenCalledTimes(2));
+	});
+
+	it('checks out with a session the client recovered after mount', async () => {
+		state.page.data = { capabilities: { billing: usable, ai: unavailable } };
+		autumn.checkout.mockReturnValue(new Promise(() => {}));
+		live.set('authenticated', false);
+		await mountUnderProvider(PricingThree, {});
+
+		live.set('authenticated', true);
+		await tick();
+		checkoutButton().click();
+		await tick();
+		expect(goto).not.toHaveBeenCalled();
+		expect(autumn.checkout).toHaveBeenCalledExactlyOnceWith(
+			expect.objectContaining({ productId: 'pro' })
+		);
+	});
+
+	it('offers billing management once the customer becomes Pro after mount', async () => {
+		state.page.data = { capabilities: { billing: usable, ai: unavailable } };
+		await mountUnderProvider(PricingThree, {});
+		expect(checkoutButton()).not.toBeNull();
+
+		live.set('customer', { ...autumn.customer, products: [{ id: 'pro' }] });
+		await tick();
+		expect(document.querySelector('[data-testid="pricing-manage-pro"]')).not.toBeNull();
+		expect(checkoutButton()).toBeNull();
 	});
 });
 
