@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { T } from '@tolgee/svelte';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 
 	interface Props {
 		banned: boolean;
@@ -11,24 +12,15 @@
 </script>
 
 {#if banned}
-	<span
-		class="inline-flex items-center rounded-md bg-destructive px-2 py-1 text-xs font-medium text-white ring-1 ring-destructive/20 ring-inset"
-		data-testid={testId}
-	>
+	<Badge variant="destructive" data-testid={testId}>
 		<T keyName="admin.users.banned" />
-	</span>
+	</Badge>
 {:else if emailVerified}
-	<span
-		class="inline-flex items-center rounded-md border border-success px-2 py-1 text-xs font-medium text-success ring-1 ring-success/20 ring-inset"
-		data-testid={testId}
-	>
+	<Badge variant="bordered-success" data-testid={testId}>
 		<T keyName="admin.users.verified" />
-	</span>
+	</Badge>
 {:else}
-	<span
-		class="inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium text-muted-foreground ring-1 ring-border ring-inset"
-		data-testid={testId}
-	>
+	<Badge variant="outline" data-testid={testId}>
 		<T keyName="admin.users.unverified" />
-	</span>
+	</Badge>
 {/if}

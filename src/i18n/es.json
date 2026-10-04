@@ -281,6 +281,7 @@
 				"unban_failed": "Error al desbloquear usuario: {message}",
 				"unbanned": "Usuario desbloqueado"
 			},
+			"unnamed": "Sin nombre",
 			"unverified": "No verificado",
 			"verified": "Verificado",
 			"errors": {

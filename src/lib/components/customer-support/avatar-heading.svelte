@@ -2,6 +2,7 @@
 	import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar';
 	import type { Component } from 'svelte';
 	import { cn } from '$lib/utils';
+	import { userInitials } from '$lib/utils/user-initials';
 
 	let {
 		icon: Icon,
@@ -17,9 +18,12 @@
 		title: string;
 		subtitle: string;
 		bold?: boolean;
+		/** Identity for the initials; the title may be message text, so it never stands in. */
 		fallbackText?: string;
 		class?: string;
 	} = $props();
+
+	const initials = $derived(userInitials(fallbackText, undefined));
 </script>
 
 <div class={cn('flex min-w-0 flex-1 items-center gap-2', className)}>
@@ -31,7 +35,7 @@
 			{#if Icon}
 				<Icon class="size-5" />
 			{:else}
-				<span class="text-xs font-medium">{(fallbackText ?? title).charAt(0).toUpperCase()}</span>
+				<span class="text-xs font-medium">{initials}</span>
 			{/if}
 		</AvatarFallback>
 	</Avatar>

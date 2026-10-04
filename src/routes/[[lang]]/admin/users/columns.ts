@@ -59,6 +59,7 @@ export function createColumns(lang: string): Array<ColumnDef<DataTableFeatures, 
 			cell: ({ row }) =>
 				renderComponent(UserAvatar, {
 					name: row.original.name,
+					email: row.original.email,
 					image: row.original.image
 				}),
 			meta: { skeleton: { kind: 'avatar' } }

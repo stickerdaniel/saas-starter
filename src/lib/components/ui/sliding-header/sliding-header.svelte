@@ -121,6 +121,7 @@
 					image={titleImage}
 					title={backTitle}
 					subtitle={backSubtitle || ''}
+					fallbackText={backTitle}
 				/>
 			</div>
 		{/if}

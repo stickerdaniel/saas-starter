@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { T, getTranslate } from '@tolgee/svelte';
-	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+	import UserAvatar from '$lib/components/user-avatar.svelte';
 	import type { AuditLogItem } from '$lib/convex/admin/auditLog/queries';
 
 	interface Props {
@@ -16,11 +16,6 @@
 	let { user, kind, onFilter, testId }: Props = $props();
 
 	const { t } = getTranslate();
-
-	// Same initials derivation as the users table avatar; '?' for deleted users.
-	const initials = $derived(
-		user?.exists ? (user.name ?? user.email ?? 'U').slice(0, 2).toUpperCase() : '?'
-	);
 
 	const displayName = $derived(user ? (user.name ?? user.email ?? user.id) : '');
 	const filterLabel = $derived(
@@ -36,13 +31,13 @@
 </script>
 
 {#snippet content(user: AuditLogItem['admin'])}
-	<Avatar.Root class="shrink-0">
-		{#if user.exists && user.image}
-			<!-- Decorative: the name/email text next to it carries the accessible name -->
-			<Avatar.Image src={user.image} alt="" referrerpolicy="no-referrer" />
-		{/if}
-		<Avatar.Fallback size="xs">{initials}</Avatar.Fallback>
-	</Avatar.Root>
+	<!-- Decorative: the name/email text next to it carries the accessible name. A deleted
+	     user has no name or email left, so the initials fall back to '?'. -->
+	{#if user.exists}
+		<UserAvatar name={user.name} email={user.email} image={user.image} fallbackSize="xs" />
+	{:else}
+		<UserAvatar fallbackSize="xs" />
+	{/if}
 	<div class="min-w-0">
 		{#if user.exists}
 			<div class="truncate font-medium group-hover:underline group-focus-visible:underline">

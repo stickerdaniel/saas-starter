@@ -281,6 +281,7 @@
 				"unban_failed": "Failed to unban user: {message}",
 				"unbanned": "User has been unbanned"
 			},
+			"unnamed": "Unnamed",
 			"unverified": "Unverified",
 			"verified": "Verified",
 			"errors": {

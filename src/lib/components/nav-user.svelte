@@ -1,8 +1,8 @@
 <script lang="ts">
-	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import NavUserTrigger from '$lib/components/ui/owned/nav-user-trigger.svelte';
+	import UserAvatar from '$lib/components/user-avatar.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import { authClient } from '$lib/auth-client';
@@ -52,17 +52,6 @@
 	const billingUsable = $derived(billingCheckout.isUsable);
 	const portalOperation = useAutumnOperation(autumn.openBillingPortal);
 	const isPro = $derived(autumn.customer?.products?.some((p) => p.id === 'pro') ?? false);
-
-	const initials = $derived(
-		(user.name ?? '')
-			.trim()
-			.split(/\s+/)
-			.filter(Boolean)
-			.map((n) => n[0])
-			.join('')
-			.toUpperCase()
-			.slice(0, 2) || '?'
-	);
 
 	async function handleUpgrade() {
 		haptic.trigger('light');
@@ -114,10 +103,13 @@
 			<DropdownMenu.Trigger id="user-menu-trigger">
 				{#snippet child({ props })}
 					<NavUserTrigger impersonating={impersonation.isImpersonating} {...props}>
-						<Avatar.Root shape="square">
-							<Avatar.Image src={user.avatar} alt={user.name} />
-							<Avatar.Fallback>{initials}</Avatar.Fallback>
-						</Avatar.Root>
+						<UserAvatar
+							name={user.name}
+							email={user.email}
+							image={user.avatar}
+							alt={user.name}
+							shape="square"
+						/>
 						<div class="grid flex-1 text-left text-sm leading-tight">
 							<span class="truncate font-medium">{user.name}</span>
 							<span class="truncate text-xs">{user.email}</span>
@@ -136,10 +128,13 @@
 				     weight for the user row, without the label's padding. -->
 				<div class="text-xs font-normal text-muted-foreground">
 					<div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-						<Avatar.Root shape="square">
-							<Avatar.Image src={user.avatar} alt={user.name} />
-							<Avatar.Fallback>{initials}</Avatar.Fallback>
-						</Avatar.Root>
+						<UserAvatar
+							name={user.name}
+							email={user.email}
+							image={user.avatar}
+							alt={user.name}
+							shape="square"
+						/>
 						<div class="grid flex-1 text-left text-sm leading-tight">
 							<span class="flex items-center gap-1.5 truncate font-medium">
 								{user.name}
