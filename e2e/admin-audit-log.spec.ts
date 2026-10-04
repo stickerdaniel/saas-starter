@@ -133,9 +133,9 @@ async function banAndUnbanTarget(page: Page, email: string) {
 	// Ban with a reason
 	await page.getByTestId('admin-users-row-actions').click();
 	await page.getByTestId('admin-users-action-ban').click();
-	await page.getByTestId('admin-users-ban-reason-input').fill('Audit log e2e ban');
-	await page.getByTestId('admin-users-dialog-confirm').click();
-	await expect(page.getByTestId('admin-users-dialog-confirm')).toHaveCount(0, { timeout: 10000 });
+	await page.getByTestId('confirm-dialog-field').fill('Audit log e2e ban');
+	await page.getByTestId('confirm-dialog-confirm').click();
+	await expect(page.getByTestId('confirm-dialog-confirm')).toHaveCount(0, { timeout: 10000 });
 	await expect
 		.poll(
 			async () =>
@@ -147,8 +147,8 @@ async function banAndUnbanTarget(page: Page, email: string) {
 	// Unban restores the verified status
 	await page.getByTestId('admin-users-row-actions').click();
 	await page.getByTestId('admin-users-action-unban').click();
-	await page.getByTestId('admin-users-dialog-confirm').click();
-	await expect(page.getByTestId('admin-users-dialog-confirm')).toHaveCount(0, { timeout: 10000 });
+	await page.getByTestId('confirm-dialog-confirm').click();
+	await expect(page.getByTestId('confirm-dialog-confirm')).toHaveCount(0, { timeout: 10000 });
 	await expect
 		.poll(
 			async () =>

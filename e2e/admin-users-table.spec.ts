@@ -517,9 +517,9 @@ test.describe('Admin Users Table', () => {
 		await page.getByTestId('admin-users-row-actions').click();
 		await page.getByTestId('admin-users-action-set-role').click();
 		await page.getByTestId('admin-users-action-role-admin').click();
-		await page.getByTestId('admin-users-role-dialog-confirm').click();
+		await page.getByTestId('confirm-dialog-confirm').click();
 		// Dialog only closes after the mutation succeeds
-		await expect(page.getByTestId('admin-users-role-dialog-confirm')).toHaveCount(0, {
+		await expect(page.getByTestId('confirm-dialog-confirm')).toHaveCount(0, {
 			timeout: 10000
 		});
 		await expect
@@ -533,9 +533,9 @@ test.describe('Admin Users Table', () => {
 		// Ban with a reason
 		await page.getByTestId('admin-users-row-actions').click();
 		await page.getByTestId('admin-users-action-ban').click();
-		await page.getByTestId('admin-users-ban-reason-input').fill('E2E write-path ban');
-		await page.getByTestId('admin-users-dialog-confirm').click();
-		await expect(page.getByTestId('admin-users-dialog-confirm')).toHaveCount(0, {
+		await page.getByTestId('confirm-dialog-field').fill('E2E write-path ban');
+		await page.getByTestId('confirm-dialog-confirm').click();
+		await expect(page.getByTestId('confirm-dialog-confirm')).toHaveCount(0, {
 			timeout: 10000
 		});
 		await expect
@@ -549,8 +549,8 @@ test.describe('Admin Users Table', () => {
 		// Unban restores the verified status
 		await page.getByTestId('admin-users-row-actions').click();
 		await page.getByTestId('admin-users-action-unban').click();
-		await page.getByTestId('admin-users-dialog-confirm').click();
-		await expect(page.getByTestId('admin-users-dialog-confirm')).toHaveCount(0, {
+		await page.getByTestId('confirm-dialog-confirm').click();
+		await expect(page.getByTestId('confirm-dialog-confirm')).toHaveCount(0, {
 			timeout: 10000
 		});
 		await expect
@@ -564,12 +564,12 @@ test.describe('Admin Users Table', () => {
 		// Revoke sessions: dialog closes and the success toast appears
 		await page.getByTestId('admin-users-row-actions').click();
 		await page.getByTestId('admin-users-action-revoke-sessions').click();
-		await page.getByTestId('admin-users-dialog-confirm').click();
+		await page.getByTestId('confirm-dialog-confirm').click();
 		const revokeToast = page.locator('[data-sonner-toast]').filter({
 			hasText: /sessions have been revoked/i
 		});
 		await expect(revokeToast).toBeVisible({ timeout: 10000 });
-		await expect(page.getByTestId('admin-users-dialog-confirm')).toHaveCount(0, {
+		await expect(page.getByTestId('confirm-dialog-confirm')).toHaveCount(0, {
 			timeout: 10000
 		});
 	});

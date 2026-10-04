@@ -3,7 +3,7 @@
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { getRemoveEmailContext } from './recipients-context';
-	import { confirmDelete } from '$lib/components/ui/confirm-delete-dialog';
+	import { confirm } from '$lib/components/ui/confirm-dialog/index.js';
 	import { toast } from 'svelte-sonner';
 
 	interface Props {
@@ -19,22 +19,18 @@
 	const onRemove = getRemoveEmailContext();
 
 	function handleRemove() {
-		confirmDelete({
+		confirm({
 			title: $t('admin.settings.delete_email_title'),
 			description: $t('admin.settings.delete_email_description', { email }),
-			confirm: {
-				text: $t('admin.settings.delete_email')
-			},
-			cancel: {
-				text: $t('common.cancel')
-			},
+			confirmText: $t('admin.settings.delete_email'),
+			tone: 'destructive',
 			onConfirm: async () => {
 				try {
 					await onRemove(email);
 				} catch (error) {
 					console.error('[recipients-actions] Failed to remove email:', error);
 					toast.error($t('admin.settings.preference_update_failed'));
-					throw error; // Re-throw so confirmDelete knows it failed
+					throw error; // Re-throw so the dialog stays open
 				}
 			}
 		});

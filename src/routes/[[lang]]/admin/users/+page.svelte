@@ -1,10 +1,7 @@
 <script lang="ts">
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import type * as v from 'valibot';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
+	import { ConfirmDialog, confirm } from '$lib/components/ui/confirm-dialog/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -162,15 +159,6 @@
 	// TanStack Table state (only client-side concerns remain)
 	const rowSelection = createRowSelection(() => usersTable.rows.map((row) => row.id));
 
-	// Dialog state
-	let selectedUser = $state<AdminUserData | null>(null);
-	let actionType = $state<'ban' | 'unban' | 'revoke' | null>(null);
-	let banReason = $state('');
-	let dialogOpen = $state(false);
-	let roleDialogOpen = $state(false);
-	let selectedRole = $state<UserRole>('user');
-	let isActionLoading = $state(false);
-
 	// Provide context for action component (currentUserId is set by admin layout)
 	setUserActionHandler(handleUserAction);
 
@@ -225,16 +213,16 @@
 				void startImpersonation(event.userId);
 				break;
 			case 'openRoleDialog':
-				openRoleDialog(event.user, event.role);
+				confirmRole(event.user, event.role);
 				break;
 			case 'openBanDialog':
-				openDialog(event.user, 'ban');
+				confirmBan(event.user);
 				break;
 			case 'openUnbanDialog':
-				openDialog(event.user, 'unban');
+				confirmUnban(event.user);
 				break;
 			case 'openRevokeDialog':
-				openDialog(event.user, 'revoke');
+				confirmRevoke(event.user);
 				break;
 		}
 	}
@@ -268,113 +256,94 @@
 		}
 	}
 
-	async function banUser() {
-		if (!selectedUser) return;
-
-		isActionLoading = true;
-		const defaultBanReason = $t('admin.users.ban_reason.default');
-		try {
-			await client.mutation(api.admin.mutations.banUser, {
-				userId: selectedUser.id,
-				reason: banReason || defaultBanReason
-			});
-
-			toast.success($t('admin.users.toast.banned'));
-			closeDialog();
-		} catch (error) {
-			const message = adminAuthErrorMessage(error);
-			toast.error($t('admin.users.toast.ban_failed', { message }));
-			console.error('Ban error:', error);
-		} finally {
-			isActionLoading = false;
-		}
+	// Each confirmation captures its own user, role and reason. A failed mutation
+	// rethrows after its toast so the confirmation stays open for a retry.
+	function confirmBan(user: AdminUserData) {
+		confirm({
+			title: $t('admin.dialog.ban_title'),
+			description: $t('admin.dialog.ban_description', { email: user.email }),
+			confirmText: $t('common.confirm'),
+			tone: 'destructive',
+			field: {
+				label: $t('admin.dialog.ban_reason_label'),
+				placeholder: $t('admin.dialog.ban_reason_placeholder')
+			},
+			onConfirm: async (reason) => {
+				const defaultBanReason = $t('admin.users.ban_reason.default');
+				try {
+					await client.mutation(api.admin.mutations.banUser, {
+						userId: user.id,
+						reason: reason || defaultBanReason
+					});
+					toast.success($t('admin.users.toast.banned'));
+				} catch (error) {
+					const message = adminAuthErrorMessage(error);
+					toast.error($t('admin.users.toast.ban_failed', { message }));
+					console.error('Ban error:', error);
+					throw error;
+				}
+			}
+		});
 	}
 
-	async function unbanUser() {
-		if (!selectedUser) return;
-
-		isActionLoading = true;
-		try {
-			await client.mutation(api.admin.mutations.unbanUser, {
-				userId: selectedUser.id
-			});
-
-			toast.success($t('admin.users.toast.unbanned'));
-			closeDialog();
-		} catch (error) {
-			const message = adminAuthErrorMessage(error);
-			toast.error($t('admin.users.toast.unban_failed', { message }));
-			console.error('Unban error:', error);
-		} finally {
-			isActionLoading = false;
-		}
+	function confirmUnban(user: AdminUserData) {
+		confirm({
+			title: $t('admin.dialog.unban_title'),
+			description: $t('admin.dialog.unban_description', { email: user.email }),
+			confirmText: $t('common.confirm'),
+			tone: 'default',
+			onConfirm: async () => {
+				try {
+					await client.mutation(api.admin.mutations.unbanUser, { userId: user.id });
+					toast.success($t('admin.users.toast.unbanned'));
+				} catch (error) {
+					const message = adminAuthErrorMessage(error);
+					toast.error($t('admin.users.toast.unban_failed', { message }));
+					console.error('Unban error:', error);
+					throw error;
+				}
+			}
+		});
 	}
 
-	async function revokeSessions() {
-		if (!selectedUser) return;
-
-		isActionLoading = true;
-		try {
-			await client.mutation(api.admin.mutations.revokeUserSessions, {
-				userId: selectedUser.id
-			});
-
-			toast.success($t('admin.users.toast.revoked'));
-			closeDialog();
-		} catch (error) {
-			const message = adminAuthErrorMessage(error);
-			toast.error($t('admin.users.toast.revoke_failed', { message }));
-			console.error('Revoke sessions error:', error);
-		} finally {
-			isActionLoading = false;
-		}
+	function confirmRevoke(user: AdminUserData) {
+		confirm({
+			title: $t('admin.dialog.revoke_title'),
+			description: $t('admin.dialog.revoke_description', { email: user.email }),
+			confirmText: $t('common.confirm'),
+			tone: 'default',
+			onConfirm: async () => {
+				try {
+					await client.mutation(api.admin.mutations.revokeUserSessions, { userId: user.id });
+					toast.success($t('admin.users.toast.revoked'));
+				} catch (error) {
+					const message = adminAuthErrorMessage(error);
+					toast.error($t('admin.users.toast.revoke_failed', { message }));
+					console.error('Revoke sessions error:', error);
+					throw error;
+				}
+			}
+		});
 	}
 
-	async function setUserRole() {
-		if (!selectedUser) return;
-
-		isActionLoading = true;
-		try {
-			await client.mutation(api.admin.mutations.setUserRole, {
-				userId: selectedUser.id,
-				role: selectedRole
-			});
-
-			toast.success($t('admin.users.toast.role_updated', { role: selectedRole }));
-			closeRoleDialog();
-		} catch (error) {
-			const message = actionErrorMessage(error);
-			toast.error($t('admin.users.toast.role_failed', { message }));
-			console.error('Set role error:', error);
-		} finally {
-			isActionLoading = false;
-		}
-	}
-
-	function openDialog(user: AdminUserData, type: 'ban' | 'unban' | 'revoke') {
-		selectedUser = user;
-		actionType = type;
-		banReason = '';
-		dialogOpen = true;
-	}
-
-	function closeDialog() {
-		dialogOpen = false;
-		selectedUser = null;
-		actionType = null;
-		banReason = '';
-	}
-
-	function openRoleDialog(user: AdminUserData, role: UserRole) {
-		selectedUser = user;
-		selectedRole = role;
-		roleDialogOpen = true;
-	}
-
-	function closeRoleDialog() {
-		roleDialogOpen = false;
-		selectedUser = null;
-		selectedRole = 'user';
+	function confirmRole(user: AdminUserData, role: UserRole) {
+		confirm({
+			title: $t('admin.dialog.set_role_title'),
+			description: $t('admin.dialog.set_role_description', { email: user.email, role }),
+			confirmText: $t('common.confirm'),
+			tone: 'default',
+			onConfirm: async () => {
+				try {
+					await client.mutation(api.admin.mutations.setUserRole, { userId: user.id, role });
+					toast.success($t('admin.users.toast.role_updated', { role }));
+				} catch (error) {
+					const message = actionErrorMessage(error);
+					toast.error($t('admin.users.toast.role_failed', { message }));
+					console.error('Set role error:', error);
+					throw error;
+				}
+			}
+		});
 	}
 </script>
 
@@ -436,92 +405,4 @@
 		</ConvexCursorTableShell>{/if}
 </div>
 
-<!-- Action Confirmation Dialog -->
-<Dialog.Root bind:open={dialogOpen}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>
-				{#if actionType === 'ban'}
-					<T keyName="admin.dialog.ban_title" />
-				{:else if actionType === 'unban'}
-					<T keyName="admin.dialog.unban_title" />
-				{:else if actionType === 'revoke'}
-					<T keyName="admin.dialog.revoke_title" />
-				{/if}
-			</Dialog.Title>
-			<Dialog.Description>
-				{#if actionType === 'ban'}
-					<T keyName="admin.dialog.ban_description" params={{ email: selectedUser?.email }} />
-					<div class="mt-4">
-						<Field.Group>
-							<Field.Field>
-								<Field.Label class="sr-only" for="admin-users-ban-reason">
-									<T keyName="admin.dialog.ban_reason_label" />
-								</Field.Label>
-								<Input
-									id="admin-users-ban-reason"
-									placeholder={$t('admin.dialog.ban_reason_placeholder')}
-									data-testid="admin-users-ban-reason-input"
-									bind:value={banReason}
-								/>
-							</Field.Field>
-						</Field.Group>
-					</div>
-				{:else if actionType === 'unban'}
-					<T keyName="admin.dialog.unban_description" params={{ email: selectedUser?.email }} />
-				{:else if actionType === 'revoke'}
-					<T keyName="admin.dialog.revoke_description" params={{ email: selectedUser?.email }} />
-				{/if}
-			</Dialog.Description>
-		</Dialog.Header>
-		<Dialog.Footer>
-			<Button
-				variant="outline"
-				onclick={closeDialog}
-				disabled={isActionLoading}
-				data-testid="admin-users-dialog-cancel"><T keyName="common.cancel" /></Button
-			>
-			<Button
-				onclick={() => {
-					if (actionType === 'ban') banUser();
-					else if (actionType === 'unban') unbanUser();
-					else if (actionType === 'revoke') revokeSessions();
-				}}
-				variant={actionType === 'ban' ? 'destructive' : 'default'}
-				disabled={isActionLoading}
-				data-testid="admin-users-dialog-confirm"
-			>
-				<T keyName="common.confirm" />
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
-
-<!-- Role Change Confirmation Dialog -->
-<Dialog.Root bind:open={roleDialogOpen}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>
-				<T keyName="admin.dialog.set_role_title" />
-			</Dialog.Title>
-			<Dialog.Description>
-				<T
-					keyName="admin.dialog.set_role_description"
-					params={{ email: selectedUser?.email, role: selectedRole }}
-				/>
-			</Dialog.Description>
-		</Dialog.Header>
-		<Dialog.Footer>
-			<Button variant="outline" onclick={closeRoleDialog} disabled={isActionLoading}
-				><T keyName="common.cancel" /></Button
-			>
-			<Button
-				onclick={setUserRole}
-				disabled={isActionLoading}
-				data-testid="admin-users-role-dialog-confirm"
-			>
-				<T keyName="common.confirm" />
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+<ConfirmDialog />
