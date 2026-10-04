@@ -758,6 +758,7 @@
 	"footer": {
 		"copyright": "© {year} {brand}",
 		"impressum": "Aviso legal",
+		"licenses": "Licencias",
 		"privacy": "Privacidad",
 		"privacy_settings": "Configuración de privacidad",
 		"terms": "Condiciones de uso"
@@ -768,6 +769,7 @@
 		"cta_demo": "Solicitar una demo",
 		"description": "Dale vida a tu SaaS en minutos, no en meses. Plantilla open-source cargada con la tecnología que te hace lanzar rápido.",
 		"logo_alt": "Logo de {name}",
+		"rive_attribution": "«Spring Demo» de JcToon · CC BY 4.0",
 		"tagline": "Foco en tu producto.\nLanzamiento más rápido."
 	},
 	"integrations": {
@@ -899,6 +901,10 @@
 		"impressum": {
 			"description": "Identificación del proveedor y datos de contacto.",
 			"title": "Impressum"
+		},
+		"licenses": {
+			"description": "Licencias y avisos del software y los recursos de terceros que esta aplicación entrega a los navegadores.",
+			"title": "Licencias de terceros"
 		},
 		"pricing": {
 			"description": "Elige un plan y prueba el flujo de facturación integrado.",
@@ -1047,6 +1053,7 @@
 			"verification_required_title": "Verificación requerida",
 			"verified_badge": "Verificado"
 		},
+		"licenses_link": "Licencias de terceros",
 		"password": {
 			"confirm_password_label": "Confirmar nueva contraseña",
 			"current_password_label": "Contraseña actual",
@@ -1265,5 +1272,27 @@
 			"required": "Ingresa tu contraseña.",
 			"uppercase": "La contraseña debe contener al menos una letra mayúscula."
 		}
+	},
+	"licenses": {
+		"components": {
+			"assets": "Recursos",
+			"client": "Aplicación del navegador",
+			"client_worker": "Worker del navegador",
+			"fonts": "Fuentes tipográficas",
+			"styles": "Estilos"
+		},
+		"error": "No se pudieron cargar los avisos de licencia.",
+		"intro": "Esta aplicación incluye software de código abierto y recursos de terceros. Sus licencias y avisos se indican a continuación. Los textos de los avisos se muestran en su versión original en inglés.",
+		"loading": "Cargando avisos de licencia…",
+		"results": "{count, plural, =0 {Ninguna entrada coincide} one {# entrada} other {# entradas}}",
+		"retry": "Reintentar",
+		"search": {
+			"label": "Buscar licencias",
+			"placeholder": "Paquete, versión o licencia"
+		},
+		"source": "Fuente",
+		"text_link": "Descargar todos los avisos como texto sin formato",
+		"title": "Licencias de terceros",
+		"unavailable": "Los avisos de licencia se generan en las compilaciones de producción y no están disponibles en desarrollo."
 	}
 }

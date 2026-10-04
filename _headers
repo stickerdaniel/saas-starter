@@ -27,3 +27,13 @@
 
 /animations/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The third-party notice catalogue keeps a stable name across deploys, so every
+# reuse must revalidate. vercel.json carries the same rule for Vercel deploys.
+/third-party-licenses.json
+  Cache-Control: public, max-age=0, must-revalidate
+
+# The notices contain non-ASCII text; without a charset browsers decode it as Latin-1.
+/third-party-licenses.txt
+  Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: text/plain; charset=utf-8

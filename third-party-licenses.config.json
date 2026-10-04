@@ -1,0 +1,95 @@
+{
+	"extraPackages": [
+		{
+			"name": "tailwindcss",
+			"components": ["styles"]
+		},
+		{
+			"name": "tw-animate-css",
+			"components": ["styles"]
+		},
+		{
+			"name": "@tailwindcss/typography",
+			"components": ["styles"]
+		}
+	],
+	"packageOverrides": [
+		{
+			"name": "@ai-sdk/provider-utils",
+			"version": "5.0.51",
+			"sourceUrl": "https://github.com/vercel/ai/blob/69cc80b25c506971769dd8438bbce7e0eb5ef631/LICENSE",
+			"noticeFiles": ["third-party-notices/ai-sdk-provider-utils-5.0.51.txt"]
+		},
+		{
+			"name": "@rive-app/canvas",
+			"version": "2.43.1",
+			"sourceUrl": "https://github.com/rive-app/rive-wasm/blob/2.43.1/LICENSE",
+			"noticeFiles": ["third-party-notices/rive-app-canvas-2.43.1.txt"]
+		},
+		{
+			"name": "motion-sv",
+			"version": "0.1.13",
+			"sourceUrl": "https://github.com/hanielu/motion-svelte/tree/motion-sv@0.1.13",
+			"noticeFiles": ["third-party-notices/motion-sv-0.1.13.txt"],
+			"supplementalNoticeFiles": ["third-party-notices/motion-sv-0.1.13-NOTICE.txt"]
+		},
+		{
+			"name": "runed",
+			"version": "0.23.4",
+			"sourceUrl": "https://github.com/svecosystem/runed/blob/runed@0.23.4/packages/runed/LICENSE",
+			"license": "MIT"
+		},
+		{
+			"name": "runed",
+			"version": "0.25.0",
+			"sourceUrl": "https://github.com/svecosystem/runed/blob/runed@0.25.0/packages/runed/LICENSE",
+			"license": "MIT"
+		},
+		{
+			"name": "svelte-toolbelt",
+			"version": "0.7.1",
+			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/tree/v0.7.1",
+			"license": "MIT",
+			"supplementalNoticeFiles": ["third-party-notices/svelte-toolbelt-0.7.1-NOTICE.txt"]
+		},
+		{
+			"name": "svelte-toolbelt",
+			"version": "0.9.3",
+			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/tree/v0.9.3",
+			"license": "MIT",
+			"supplementalNoticeFiles": ["third-party-notices/svelte-toolbelt-0.9.3-NOTICE.txt"]
+		},
+		{
+			"name": "svelte-toolbelt",
+			"version": "0.10.6",
+			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/tree/v0.10.6",
+			"license": "MIT",
+			"supplementalNoticeFiles": ["third-party-notices/svelte-toolbelt-0.10.6-NOTICE.txt"]
+		}
+	],
+	"customNotices": [
+		{
+			"id": "rive-spring-demo",
+			"name": "Spring Demo by JcToon",
+			"components": ["assets"],
+			"license": "CC-BY-4.0",
+			"sourceUrl": "https://rive.app/marketplace/3293-6929-spring-demo/",
+			"generatedNotices": [
+				{
+					"licenseId": "CC-BY-4.0",
+					"preamble": [
+						"\"Spring Demo\" by JcToon, https://rive.app/marketplace/3293-6929-spring-demo/, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). No modifications."
+					]
+				}
+			]
+		},
+		{
+			"id": "outfit-font",
+			"name": "Outfit",
+			"components": ["fonts"],
+			"license": "OFL-1.1",
+			"sourceUrl": "https://github.com/Outfitio/Outfit-Fonts",
+			"noticeFiles": ["static/fonts/OFL.txt"]
+		}
+	]
+}

@@ -591,6 +591,13 @@
 			"name": "postcss",
 			"url": "https://github.com/postcss/postcss",
 			"branch": "main"
+		},
+		{
+			"type": "git",
+			"name": "spdxLicenseList",
+			"url": "https://github.com/sindresorhus/spdx-license-list",
+			"branch": "main",
+			"specialNotes": "SPDX license texts used by scripts/third-party-licenses for generated notices. Read the installed release tag; full.js maps identifiers to name, url, osiApproved, and licenseText."
 		}
 	]
 }
