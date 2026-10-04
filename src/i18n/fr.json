@@ -281,6 +281,7 @@
 				"unban_failed": "Échec du débannissement : {message}",
 				"unbanned": "Utilisateur débanni"
 			},
+			"unnamed": "Sans nom",
 			"unverified": "Non vérifié",
 			"verified": "Vérifié",
 			"errors": {

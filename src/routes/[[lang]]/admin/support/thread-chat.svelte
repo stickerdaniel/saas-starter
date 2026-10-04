@@ -310,7 +310,12 @@
 						</p>
 					{:else}
 						<!-- Resolved state -->
-						<AvatarHeading image={userImage} title={displayName} subtitle={displayEmail} />
+						<AvatarHeading
+							image={userImage}
+							title={displayName}
+							subtitle={displayEmail}
+							fallbackText={displayName}
+						/>
 					{/if}
 				</div>
 

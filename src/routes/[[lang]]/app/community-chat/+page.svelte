@@ -16,7 +16,7 @@
 		ChatContainerContext
 	} from '$lib/components/prompt-kit/chat-container';
 	import { ScrollButton } from '$lib/components/prompt-kit/scroll-button';
-	import * as Avatar from '$lib/components/ui/avatar/index.js';
+	import UserAvatar from '$lib/components/user-avatar.svelte';
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
 	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
@@ -135,10 +135,6 @@
 		return messages.data[index]!.userId !== messages.data[index - 1]!.userId;
 	}
 
-	function getInitials(name: string) {
-		return (name.trim()[0] ?? '').toUpperCase();
-	}
-
 	function getDisplayName(name: string) {
 		return name.trim().split(/\s+/)[0] ?? name;
 	}
@@ -241,12 +237,13 @@
 									{#if !own}
 										<div class="mt-auto w-7 shrink-0">
 											{#if firstInGroup}
-												<Avatar.Root size="sm">
-													<Avatar.Image src={message.authorImage} alt={message.author} />
-													<Avatar.Fallback>
-														{getInitials(message.author)}
-													</Avatar.Fallback>
-												</Avatar.Root>
+												<UserAvatar
+													name={message.author}
+													image={message.authorImage}
+													alt={message.author}
+													max={1}
+													size="sm"
+												/>
 											{/if}
 										</div>
 									{/if}
