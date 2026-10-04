@@ -48,16 +48,42 @@ export const catalogueSchema = v.pipe(
 export type Catalogue = v.InferOutput<typeof catalogueSchema>;
 export type CatalogueEntry = Catalogue['entries'][number];
 
-/** Case-insensitive substring search over the visible row fields. */
+// A line that starts a copyright statement, such as "Copyright 2023 Vercel, Inc."
+// or "(c) Rich Harris". License boilerplate mentions copyright only mid-sentence.
+const COPYRIGHT_LINE = /^\s*(?:copyright\b|\(c\)|©)/i;
+
+const searchTexts = new WeakMap<CatalogueEntry, string[]>();
+
+function searchFields(entry: CatalogueEntry): string[] {
+	let fields = searchTexts.get(entry);
+	if (!fields) {
+		// Copyright lines name the holders, so "vercel" finds the AI SDK packages. The
+		// rest of the notice text stays out: "mit" would match "permitted" everywhere.
+		const holders = entry.notices.flatMap((notice) =>
+			notice.text.split('\n').filter((line) => COPYRIGHT_LINE.test(line))
+		);
+		fields = [
+			entry.name,
+			entry.version ?? '',
+			entry.license,
+			entry.sourceUrl ?? '',
+			...entry.components,
+			...holders
+		].map((field) => field.toLowerCase());
+		searchTexts.set(entry, fields);
+	}
+	return fields;
+}
+
+/**
+ * Case-insensitive substring search over the visible row fields, the source URL,
+ * and the copyright lines of the notice texts.
+ */
 export function filterCatalogueEntries(
 	entries: readonly CatalogueEntry[],
 	query: string
 ): CatalogueEntry[] {
 	const needle = query.trim().toLowerCase();
 	if (!needle) return [...entries];
-	return entries.filter((entry) =>
-		[entry.name, entry.version ?? '', entry.license, ...entry.components].some((field) =>
-			field.toLowerCase().includes(needle)
-		)
-	);
+	return entries.filter((entry) => searchFields(entry).some((field) => field.includes(needle)));
 }
