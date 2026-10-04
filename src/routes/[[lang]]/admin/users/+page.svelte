@@ -1,7 +1,6 @@
 <script lang="ts">
 	import SEOHead from '$lib/components/SEOHead.svelte';
-	import * as v from 'valibot';
-	import { type SortingState } from '@tanstack/table-core';
+	import type * as v from 'valibot';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -24,7 +23,9 @@
 	import DataTableView from '$lib/components/tables/data-table-view.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
 	import { createCountPrediction } from '$lib/tables/convex/count-prediction.svelte.ts';
-	import type { CursorListResult } from '$lib/tables/convex/contract';
+	import { createCursorSorting } from '$lib/tables/convex/sorting.svelte.ts';
+	import { createTableUrlSchema } from '$lib/tables/convex/url';
+	import { toCursorListResult, type TableSortBy } from '$lib/tables/convex/contract';
 	import { createColumns } from './columns.js';
 	import DataTableFilters from './data-table-filters.svelte';
 	import type { ActionEvent } from './data-table-actions.svelte';
@@ -46,6 +47,7 @@
 
 	type UserStatusFilter = 'verified' | 'unverified' | 'banned';
 	type SortQueryField = 'created_at' | 'email' | 'name' | 'role' | 'provider';
+	type ProviderFilter = 'credential' | 'google' | 'github' | 'passkey';
 
 	const SORT_COLUMN_TO_QUERY_FIELD = {
 		createdAt: 'created_at',
@@ -53,14 +55,6 @@
 		name: 'name',
 		role: 'role',
 		providers: 'provider'
-	} as const;
-
-	const SORT_QUERY_FIELD_TO_COLUMN = {
-		created_at: 'createdAt',
-		email: 'email',
-		name: 'name',
-		role: 'role',
-		provider: 'providers'
 	} as const;
 	const SORT_QUERY_FIELD_TO_BACKEND_FIELD = {
 		created_at: 'createdAt',
@@ -70,27 +64,32 @@
 		provider: 'provider'
 	} as const;
 
-	const PAGE_SIZE_OPTIONS = ['1', '10', '20', '30', '40', '50'] as const;
-	const PAGE_SIZE_NUM_OPTIONS = [1, 10, 20, 30, 40, 50] as const;
+	const PAGE_SIZES = [1, 10, 20, 30, 40, 50];
+	const DEFAULT_PAGE_SIZE = 10;
 
-	type ProviderFilter = 'credential' | 'google' | 'github' | 'passkey';
-
-	const usersTableParamsSchema = v.object({
-		search: v.optional(v.fallback(v.string(), ''), ''),
-		role: v.optional(v.fallback(v.picklist(['all', 'admin', 'user']), 'all'), 'all'),
-		status: v.optional(
-			v.fallback(v.picklist(['all', 'verified', 'unverified', 'banned']), 'all'),
-			'all'
-		),
-		provider: v.optional(
-			v.fallback(v.picklist(['all', 'credential', 'google', 'github', 'passkey']), 'all'),
-			'all'
-		),
-		sort: v.optional(v.fallback(v.string(), ''), ''),
-		page: v.optional(v.fallback(v.string(), '1'), '1'),
-		page_size: v.optional(v.fallback(v.picklist(PAGE_SIZE_OPTIONS), '10'), '10'),
-		cursor: v.optional(v.fallback(v.string(), ''), '')
+	const usersTableParamsSchema = createTableUrlSchema({
+		filters: {
+			role: ['all', 'admin', 'user'],
+			status: ['all', 'verified', 'unverified', 'banned'],
+			provider: ['all', 'credential', 'google', 'github', 'passkey']
+		},
+		pageSizes: PAGE_SIZES,
+		defaultPageSize: DEFAULT_PAGE_SIZE
 	});
+
+	function filterArgs(filters: Record<'role' | 'status' | 'provider', string>) {
+		return {
+			roleFilter: filters.role === 'all' ? undefined : (filters.role as 'admin' | 'user'),
+			statusFilter: filters.status === 'all' ? undefined : (filters.status as UserStatusFilter),
+			providerFilter: filters.provider === 'all' ? undefined : (filters.provider as ProviderFilter)
+		};
+	}
+
+	function backendSortBy(sortBy: TableSortBy<SortQueryField> | undefined) {
+		return sortBy
+			? { field: SORT_QUERY_FIELD_TO_BACKEND_FIELD[sortBy.field], direction: sortBy.direction }
+			: undefined;
+	}
 
 	const usersTable = createConvexCursorTable<
 		AdminUserData,
@@ -108,76 +107,39 @@
 			status: 'all',
 			provider: 'all'
 		},
-		pageSizeOptions: PAGE_SIZE_OPTIONS,
-		defaultPageSize: '10',
+		pageSizes: PAGE_SIZES,
+		defaultPageSize: DEFAULT_PAGE_SIZE,
 		sortFields: ['created_at', 'email', 'name', 'role', 'provider'],
 		buildListArgs: ({ cursor, pageSize, search, filters, sortBy }) => ({
 			cursor: cursor ?? undefined,
 			numItems: pageSize,
 			search,
-			roleFilter: filters.role === 'all' ? undefined : (filters.role as 'admin' | 'user'),
-			statusFilter:
-				filters.status === 'all'
-					? undefined
-					: (filters.status as 'verified' | 'unverified' | 'banned'),
-			providerFilter: filters.provider === 'all' ? undefined : (filters.provider as ProviderFilter),
-			sortBy: sortBy
-				? {
-						field: SORT_QUERY_FIELD_TO_BACKEND_FIELD[sortBy.field],
-						direction: sortBy.direction
-					}
-				: undefined
+			...filterArgs(filters),
+			sortBy: backendSortBy(sortBy)
 		}),
-		buildCountArgs: ({ search, filters }) => ({
-			search,
-			roleFilter: filters.role === 'all' ? undefined : (filters.role as 'admin' | 'user'),
-			statusFilter:
-				filters.status === 'all'
-					? undefined
-					: (filters.status as 'verified' | 'unverified' | 'banned'),
-			providerFilter: filters.provider === 'all' ? undefined : (filters.provider as ProviderFilter)
-		}),
+		buildCountArgs: ({ search, filters }) => ({ search, ...filterArgs(filters) }),
 		resolveLastPage: async ({ pageSize, search, filters, sortBy }) => {
 			const result = await client.query(api.admin.queries.resolveUsersLastPage, {
 				numItems: pageSize,
 				search,
-				roleFilter: filters.role === 'all' ? undefined : (filters.role as 'admin' | 'user'),
-				statusFilter:
-					filters.status === 'all'
-						? undefined
-						: (filters.status as 'verified' | 'unverified' | 'banned'),
-				providerFilter:
-					filters.provider === 'all' ? undefined : (filters.provider as ProviderFilter),
-				sortBy: sortBy
-					? {
-							field: SORT_QUERY_FIELD_TO_BACKEND_FIELD[sortBy.field],
-							direction: sortBy.direction
-						}
-					: undefined
+				...filterArgs(filters),
+				sortBy: backendSortBy(sortBy)
 			});
 			return {
 				page: result.page,
 				cursor: result.cursor
 			};
 		},
-		toListResult: (result) =>
-			({
-				items: result.items,
-				continueCursor: result.continueCursor,
-				isDone: result.isDone
-			}) as CursorListResult<AdminUserData>,
+		toListResult: toCursorListResult,
 		toCount: (result) => result
 	});
 
 	const tableParams = $derived(usersTable.currentUrlState);
 	const pageIndex = $derived(usersTable.pageIndex);
 	const pageSize = $derived(usersTable.pageSize);
-	const sorting = $derived.by<SortingState>(() => {
-		const sortBy = usersTable.sortBy;
-		if (!sortBy) return [];
-		const columnId = SORT_QUERY_FIELD_TO_COLUMN[sortBy.field];
-		if (!columnId) return [];
-		return [{ id: columnId, desc: sortBy.direction === 'desc' }];
+	const cursorSorting = createCursorSorting({
+		table: usersTable,
+		columnToField: SORT_COLUMN_TO_QUERY_FIELD
 	});
 	const roleFilter = $derived.by(() =>
 		usersTable.filters.role === 'all' ? undefined : usersTable.filters.role
@@ -239,7 +201,7 @@
 				return { pageIndex, pageSize };
 			},
 			get sorting() {
-				return sorting;
+				return cursorSorting.sorting;
 			},
 			get rowSelection() {
 				return rowSelection.state;
@@ -252,24 +214,7 @@
 			return usersTable.pageCount;
 		},
 		getRowId: (row) => row.id,
-		onSortingChange: (updater) => {
-			const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
-			if (nextSorting.length === 0) {
-				usersTable.setSort(undefined);
-				return;
-			}
-			const primarySort = nextSorting[0]!;
-			const field =
-				SORT_COLUMN_TO_QUERY_FIELD[primarySort.id as keyof typeof SORT_COLUMN_TO_QUERY_FIELD];
-			if (!field) {
-				usersTable.setSort(undefined);
-				return;
-			}
-			usersTable.setSort({
-				field,
-				direction: primarySort.desc ? 'desc' : 'asc'
-			});
-		},
+		onSortingChange: cursorSorting.onSortingChange,
 		onRowSelectionChange: rowSelection.onChange
 	});
 
@@ -454,7 +399,7 @@
 			pageIndex={usersTable.pageIndex}
 			pageCount={usersTable.pageCount}
 			pageSize={usersTable.pageSize}
-			pageSizeOptions={PAGE_SIZE_NUM_OPTIONS}
+			pageSizeOptions={usersTable.pageSizes}
 			canPreviousPage={usersTable.canPreviousPage}
 			canNextPage={usersTable.canNextPage}
 			onFirstPage={usersTable.goFirst}

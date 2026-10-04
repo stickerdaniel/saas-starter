@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterAuditRowsByMatch, parseOffsetCursor, sliceAuditPage } from './search';
+import { filterAuditRowsByMatch } from './search';
 
 type Row = { adminUserId: string; targetUserId: string; label: string };
 
@@ -38,54 +38,5 @@ describe('filterAuditRowsByMatch', () => {
 		// search, but guards the membership check), the row is dropped.
 		expect(filterAuditRowsByMatch(withGhost, new Set(['ghost']))).toHaveLength(1);
 		expect(filterAuditRowsByMatch(withGhost, new Set(['someone-else']))).toEqual([]);
-	});
-});
-
-describe('parseOffsetCursor', () => {
-	it('defaults to 0 for missing or malformed cursors', () => {
-		expect(parseOffsetCursor(undefined)).toBe(0);
-		expect(parseOffsetCursor('')).toBe(0);
-		expect(parseOffsetCursor('not-a-number')).toBe(0);
-		expect(parseOffsetCursor('-5')).toBe(0);
-	});
-
-	it('parses a numeric offset', () => {
-		expect(parseOffsetCursor('20')).toBe(20);
-	});
-});
-
-describe('sliceAuditPage', () => {
-	const list = [0, 1, 2, 3, 4];
-
-	it('slices the first page and reports the next offset', () => {
-		expect(sliceAuditPage(list, 0, 2)).toEqual({
-			pageRows: [0, 1],
-			continueCursor: '2',
-			isDone: false
-		});
-	});
-
-	it('marks the last page as done with a null cursor', () => {
-		expect(sliceAuditPage(list, 4, 2)).toEqual({
-			pageRows: [4],
-			continueCursor: null,
-			isDone: true
-		});
-	});
-
-	it('returns an empty done page when the offset is at or past the end', () => {
-		expect(sliceAuditPage(list, 5, 2)).toEqual({
-			pageRows: [],
-			continueCursor: null,
-			isDone: true
-		});
-	});
-
-	it('clamps a malformed offset to 0', () => {
-		expect(sliceAuditPage(list, Number.NaN, 2)).toEqual({
-			pageRows: [0, 1],
-			continueCursor: '2',
-			isDone: false
-		});
 	});
 });

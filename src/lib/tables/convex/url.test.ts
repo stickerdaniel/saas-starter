@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import * as v from 'valibot';
 import {
+	createTableUrlSchema,
 	omitDefaultTableUrlState,
 	parseCursorParam,
 	parsePageIndex,
@@ -67,5 +69,58 @@ describe('table URL helpers', () => {
 
 	it('rejects malformed encoded cursors', () => {
 		expect(parseCursorParam('b64.%%%')).toBe(null);
+	});
+});
+
+describe('createTableUrlSchema', () => {
+	const schema = createTableUrlSchema({
+		filters: { role: ['all', 'admin', 'user'], admin: 'text' },
+		pageSizes: [1, 10, 20],
+		defaultPageSize: 10
+	});
+	const defaults = {
+		search: '',
+		role: 'all',
+		admin: '',
+		sort: '',
+		page: '1',
+		page_size: '10',
+		cursor: ''
+	};
+
+	it('fills every missing param with its default', () => {
+		expect(v.parse(schema, {})).toEqual(defaults);
+	});
+
+	it('keeps valid params', () => {
+		const state = {
+			search: 'alice',
+			role: 'admin',
+			admin: 'user_1',
+			sort: 'email.asc',
+			page: '3',
+			page_size: '20',
+			cursor: 'b64.abc'
+		};
+		expect(v.parse(schema, state)).toEqual(state);
+	});
+
+	it('falls back for values outside a picklist or the page sizes', () => {
+		expect(v.parse(schema, { role: 'owner', page_size: '40' })).toEqual(defaults);
+		expect(v.parse(schema, { role: 'All', page_size: '0' })).toEqual(defaults);
+	});
+
+	it('falls back for non-string values', () => {
+		expect(
+			v.parse(schema, {
+				search: 1,
+				role: ['admin'],
+				admin: null,
+				sort: {},
+				page: 2,
+				page_size: 20,
+				cursor: false
+			})
+		).toEqual(defaults);
 	});
 });

@@ -30,6 +30,7 @@ export type ConvexCursorTableState<TItem, TSortField extends string, TFilterKeys
 	readonly pageCount: number;
 	readonly pageIndex: number;
 	readonly pageSize: number;
+	readonly pageSizes: readonly number[];
 	readonly sortBy: TableSortBy<TSortField> | undefined;
 	readonly filters: Record<TFilterKeys, string>;
 	readonly currentUrlState: TableUrlState<TFilterKeys>;
@@ -205,8 +206,8 @@ export type CreateConvexCursorTableOptions<
 	countQuery: TCountQuery;
 	urlSchema: GenericSchema<unknown, TUrlState>;
 	defaultFilters: Record<TFilterKeys, string>;
-	pageSizeOptions: readonly string[];
-	defaultPageSize: string;
+	pageSizes: readonly number[];
+	defaultPageSize: number;
 	sortFields: readonly TSortField[];
 	debounceMs?: number;
 	maxCachedPages?: number;
@@ -235,8 +236,8 @@ export type CreateConvexCursorTableOptions<
  * @param options.countQuery - Convex query reference for total count
  * @param options.urlSchema - Valibot schema defining the URL state shape
  * @param options.defaultFilters - Default values for filter URL params (omitted from URL when active)
- * @param options.pageSizeOptions - Allowed page size values (as strings)
- * @param options.defaultPageSize - Initial page size (as string)
+ * @param options.pageSizes - Allowed page sizes
+ * @param options.defaultPageSize - Page size used when the URL has none
  * @param options.sortFields - Valid sort field names for validation
  * @param options.buildListArgs - Map current context to list query args
  * @param options.buildCountArgs - Map current context to count query args
@@ -271,11 +272,10 @@ export function createConvexCursorTable<
 
 	const debounceMs = options.debounceMs ?? 300;
 	const maxCachedPages = options.maxCachedPages ?? 8;
-	const fallbackPageSize = Number.parseInt(options.defaultPageSize, 10);
 
 	const debouncedSearch = new Debounced(() => urlState.search.trim(), debounceMs);
 	const pageIndex = $derived(parsePageIndex(urlState.page));
-	const pageSize = $derived(parsePageSize(urlState.page_size, fallbackPageSize));
+	const pageSize = $derived(parsePageSize(urlState.page_size, options.defaultPageSize));
 	const sortBy = $derived(
 		parseSortParam(urlState.sort, options.sortFields) as TableSortBy<TSortField> | undefined
 	);
@@ -592,8 +592,8 @@ export function createConvexCursorTable<
 	}
 
 	function setPageSize(nextPageSize: number) {
+		if (!options.pageSizes.includes(nextPageSize)) return;
 		const next = `${nextPageSize}`;
-		if (!options.pageSizeOptions.includes(next)) return;
 		if (urlState.page_size === next) return;
 		urlState.page_size = next;
 		resetPagination();
@@ -715,6 +715,9 @@ export function createConvexCursorTable<
 		},
 		get pageSize() {
 			return pageSize;
+		},
+		get pageSizes() {
+			return options.pageSizes;
 		},
 		get sortBy() {
 			return sortBy;

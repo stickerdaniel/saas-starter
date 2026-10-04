@@ -11,6 +11,7 @@ import { internalQuery } from '../../_generated/server';
 import type { QueryCtx } from '../../_generated/server';
 import { components } from '../../_generated/api';
 import { parseBetterAuthUsers } from '../types';
+import { resolveOffsetLastPage, sliceOffsetPage } from '../pagination';
 import { isPreviewAdminEmail } from './helpers';
 
 /**
@@ -239,17 +240,7 @@ export const listNotificationRecipients = adminQuery({
 			typeFilter: args.typeFilter,
 			sortBy: args.sortBy
 		});
-		const offsetRaw = args.cursor ? Number.parseInt(args.cursor, 10) : 0;
-		const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
-		const pageEnd = offset + args.numItems;
-		const items = recipients.slice(offset, pageEnd);
-		const isDone = pageEnd >= recipients.length;
-
-		return {
-			items,
-			continueCursor: isDone ? null : String(pageEnd),
-			isDone
-		};
+		return sliceOffsetPage(recipients, args.cursor, args.numItems);
 	}
 });
 
@@ -294,20 +285,7 @@ export const resolveNotificationRecipientsLastPage = adminQuery({
 			search: args.search,
 			typeFilter: args.typeFilter
 		});
-		const total = recipients.length;
-
-		if (total <= 0) {
-			return { page: 1, cursor: null };
-		}
-
-		const pageSize = Number.isFinite(args.numItems) && args.numItems > 0 ? args.numItems : 10;
-		const lastPage = Math.max(1, Math.ceil(total / pageSize));
-		const offset = (lastPage - 1) * pageSize;
-
-		return {
-			page: lastPage,
-			cursor: offset > 0 ? String(offset) : null
-		};
+		return resolveOffsetLastPage(recipients.length, args.numItems);
 	}
 });
 
