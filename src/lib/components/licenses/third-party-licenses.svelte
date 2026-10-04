@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { asset } from '$app/paths';
 	import { getTranslate } from '@tolgee/svelte';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -113,26 +113,32 @@
 					<li class="relative">
 						<details class="group">
 							<summary
-								class="flex w-full cursor-pointer list-none items-start gap-3 px-4 py-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden"
+								class={[
+									'flex w-full cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1.5 py-3 pl-4 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden',
+									entry.sourceUrl ? 'pr-14' : 'pr-4'
+								]}
 							>
-								<span class={['min-w-0 flex-1', entry.sourceUrl && 'pr-10']}>
+								<ChevronRightIcon
+									class="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none"
+									aria-hidden="true"
+								/>
+								<span class="min-w-0 flex-1">
 									<span class="font-medium break-words">{entry.name}</span>
 									{#if entry.version}
 										<span class="ml-1.5 text-xs text-muted-foreground">{entry.version}</span>
 									{/if}
-									<span class="mt-1.5 flex flex-wrap gap-1.5">
-										<Badge variant="secondary">{entry.license}</Badge>
-										{#each entry.components as component (component)}
-											<Badge variant="outline">{componentLabel(component)}</Badge>
-										{/each}
-									</span>
 								</span>
-								<ChevronDownIcon
-									class="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
-									aria-hidden="true"
-								/>
+								<!-- Below the name on narrow screens, right-aligned beside it from sm. -->
+								<span
+									class="flex basis-full flex-wrap gap-1.5 pl-7 sm:basis-auto sm:justify-end sm:pl-0"
+								>
+									<Badge variant="secondary">{entry.license}</Badge>
+									{#each entry.components as component (component)}
+										<Badge variant="outline">{componentLabel(component)}</Badge>
+									{/each}
+								</span>
 							</summary>
-							<div class="space-y-4 px-4 pb-4">
+							<div class="space-y-4 pr-4 pb-4 pl-11">
 								<!-- Notice texts are legal texts and stay in their original English. -->
 								{#each entry.notices as notice, index (index)}
 									<div class="space-y-1">
@@ -156,7 +162,7 @@
 								class={buttonVariants({
 									variant: 'ghost',
 									size: 'icon-sm',
-									class: 'absolute top-2 right-11 text-muted-foreground'
+									class: 'absolute top-2 right-3 text-muted-foreground'
 								})}
 							>
 								<ExternalLinkIcon aria-hidden="true" />
