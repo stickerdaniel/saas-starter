@@ -21,11 +21,13 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { useBillingCheckout } from '$lib/components/billing';
 
-	const { customer, openBillingPortal } = useCustomer();
+	// Keep both objects: their customer and isAuthenticated are live getters, and
+	// destructuring them would freeze the values read during setup.
+	const autumn = useCustomer();
 	const billingCheckout = useBillingCheckout();
 	const billingUsable = $derived(billingCheckout.isUsable);
-	const portalOperation = useAutumnOperation(openBillingPortal);
-	const { isAuthenticated } = useAuth();
+	const portalOperation = useAutumnOperation(autumn.openBillingPortal);
+	const auth = useAuth();
 
 	// Get URL params for checkout flow
 	const params = useSearchParams(pricingParamsSchema, {
@@ -34,7 +36,7 @@
 
 	// Check current subscription status
 	const isPro = $derived(
-		billingUsable && (customer?.products?.some((p) => p.id === 'pro') ?? false)
+		billingUsable && (autumn.customer?.products?.some((p) => p.id === 'pro') ?? false)
 	);
 	const isFree = $derived(billingUsable && !isPro);
 
@@ -69,7 +71,7 @@
 			return;
 		}
 		// Check authentication first
-		if (!isAuthenticated) {
+		if (!auth.isAuthenticated) {
 			const redirectUrl = localizedHref('/signin');
 			const currentUrl = page.url.pathname;
 			// Include checkout param in redirectTo so it's preserved after signin
@@ -102,7 +104,7 @@
 
 	// Auto-trigger checkout after signin if checkout param is present
 	$effect(() => {
-		if (params.checkout && isAuthenticated && billingUsable) {
+		if (params.checkout && auth.isAuthenticated && billingUsable) {
 			handleCheckout(params.checkout);
 			// Clean up URL param after triggering checkout
 			params.checkout = '';
