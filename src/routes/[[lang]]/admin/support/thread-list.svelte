@@ -354,6 +354,12 @@
 			pendingComplete = false;
 			loaderState.complete();
 		}
+		// Convex restarts the pagination of unchanged arguments after an invalid
+		// cursor, so a list that had ended can load again without a new query.
+		if (canRequest && loaderState.status === 'COMPLETE') {
+			loaderState.reset();
+			pendingRearm = true;
+		}
 		if (pendingRearm && canRequest && loaderState.status === 'READY') {
 			pendingRearm = false;
 			rearmUnanswered = true;

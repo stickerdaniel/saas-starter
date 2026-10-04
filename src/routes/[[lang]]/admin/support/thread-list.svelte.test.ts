@@ -480,6 +480,30 @@ describe('ThreadList query changes', () => {
 		expect(source.loadMore).toHaveBeenCalledTimes(2);
 	});
 
+	it('loads on after the query restarts its pagination with the same arguments', async () => {
+		const source = createQuery({});
+		renderList(source);
+		await settle();
+		await scrollToEnd();
+		source.deliverPage(5, { last: true });
+		await settle();
+		expect(source.loadMore).toHaveBeenCalledTimes(1);
+
+		// convex-svelte answers an invalid cursor by reloading the first page of the
+		// unchanged arguments.
+		source.query.threads = [];
+		source.query.status = 'LoadingFirstPage';
+		source.query.isLoading = true;
+		await settle();
+		source.query.threads = rows(25);
+		source.query.status = 'CanLoadMore';
+		source.query.isLoading = false;
+		await settle();
+
+		expect(renderedRows()).toBe(25);
+		expect(source.loadMore).toHaveBeenCalledTimes(2);
+	});
+
 	it('does not take the previous query’s last page as the end of my inbox once the viewer resolves', async () => {
 		// My inbox lists every thread until the viewer is known, then only theirs.
 		const source = createQuery({ queryIdentity: '{"filter":"all","status":"open"}' });
