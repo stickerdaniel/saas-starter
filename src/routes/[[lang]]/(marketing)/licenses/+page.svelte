@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { dev } from '$app/environment';
 	import { asset } from '$app/paths';
 	import { getTranslate } from '@tolgee/svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import ThirdPartyLicenses from '$lib/components/licenses/third-party-licenses.svelte';
-	import { CATALOGUE_JSON_FILE, CATALOGUE_TEXT_FILE } from '$lib/licenses/catalogue';
+	import { CATALOGUE_TEXT_FILE } from '$lib/licenses/catalogue';
+
+	let { data } = $props();
 
 	const { t } = getTranslate();
 </script>
@@ -15,8 +16,8 @@
 	<div class="prose prose-sm dark:prose-invert">
 		<h1>{$t('licenses.title')}</h1>
 		<p>{$t('licenses.intro')}</p>
-		<!-- A plain link, so the complete notices stay reachable without JavaScript. -->
+		<!-- The same notices as one file, for saving or reading elsewhere. -->
 		<p><a href={asset(`/${CATALOGUE_TEXT_FILE}`)}>{$t('licenses.text_link')}</a></p>
 	</div>
-	<ThirdPartyLicenses catalogueUrl={asset(`/${CATALOGUE_JSON_FILE}`)} available={!dev} />
+	<ThirdPartyLicenses entries={data.entries} />
 </div>

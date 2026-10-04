@@ -1,6 +1,13 @@
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import * as v from 'valibot';
 import type { Plugin, ResolvedConfig, Rolldown } from 'vite';
-import { CATALOGUE_JSON_FILE, CATALOGUE_TEXT_FILE } from '../../src/lib/licenses/catalogue';
+import {
+	CATALOGUE_JSON_FILE,
+	CATALOGUE_TEXT_FILE,
+	catalogueSchema,
+	type Catalogue
+} from '../../src/lib/licenses/catalogue';
 import { loadThirdPartyLicensesConfig, type ThirdPartyLicensesConfig } from './config';
 import { findCssPackageInputs, findServiceWorkerEntry, uncoveredCssInputProblems } from './inputs';
 import { resolveThirdPartyNotices, type ShippedInput } from './resolve';
@@ -92,23 +99,87 @@ function shippedInputs(
 	return inputs;
 }
 
-function kitServiceWorkerSetting(config: ResolvedConfig): string {
+function kitSetting(config: ResolvedConfig, name: string, read: (kit: KitOptions) => unknown) {
 	const setup = config.plugins.find((plugin) => plugin.name === 'vite-plugin-sveltekit-setup');
-	const options = (setup?.api as { options?: { kit?: { files?: { serviceWorker?: unknown } } } })
-		?.options;
-	const entry = options?.kit?.files?.serviceWorker;
-	if (typeof entry !== 'string') {
+	const kit = (setup?.api as { options?: { kit?: KitOptions } })?.options?.kit;
+	const value = kit && read(kit);
+	if (typeof value !== 'string') {
 		throw new Error(
-			'[third-party-licenses] Cannot read kit.files.serviceWorker from the SvelteKit Vite plugin. Use this plugin together with sveltekit().'
+			`[third-party-licenses] Cannot read ${name} from the SvelteKit Vite plugin. Use this plugin together with sveltekit().`
 		);
 	}
-	return path.resolve(config.root, entry);
+	return path.resolve(config.root, value);
+}
+
+interface KitOptions {
+	outDir?: unknown;
+	files?: { serviceWorker?: unknown };
+}
+
+const kitServiceWorkerSetting = (config: ResolvedConfig) =>
+	kitSetting(config, 'kit.files.serviceWorker', (kit) => kit.files?.serviceWorker);
+
+/** Where Kit's client build writes, and so where the published catalogue lands. */
+const kitClientOutput = (config: ResolvedConfig) =>
+	path.join(
+		kitSetting(config, 'kit.outDir', (kit) => kit.outDir),
+		'output',
+		'client'
+	);
+
+// Server code imports the catalogue from this module; see src/third-party-licenses.d.ts.
+const SERVER_CATALOGUE_MODULE = 'virtual:third-party-licenses/server';
+const SERVER_CATALOGUE_STUB = `\0${SERVER_CATALOGUE_MODULE}`;
+// The SSR build leaves this import external, and the handoff writes the package
+// into the server output, where adapters and Wrangler resolve it like any other.
+const SERVER_CATALOGUE_PACKAGE = '@saas-starter-internal/third-party-licenses';
+const SERVER_CATALOGUE_FILTER = { id: /^virtual:third-party-licenses\/server$/ };
+
+function serverOnlyError(): never {
+	throw new Error(
+		`[third-party-licenses] ${SERVER_CATALOGUE_MODULE} is server-only. Import it from a server load function; browser code and workers receive the catalogue through load data.`
+	);
+}
+
+/** Write the validated catalogue as a private ESM package into the server output. */
+function writeServerCatalogue(clientDir: string, serverDir: string) {
+	const file = path.join(clientDir, CATALOGUE_JSON_FILE);
+	let catalogue: Catalogue;
+	try {
+		catalogue = v.parse(catalogueSchema, JSON.parse(readFileSync(file, 'utf8')));
+	} catch (error) {
+		throw new Error(
+			`[third-party-licenses] Cannot hand ${file} to the server build: ${error instanceof Error ? error.message : String(error)}`,
+			{ cause: error }
+		);
+	}
+	const directory = path.join(serverDir, 'node_modules', ...SERVER_CATALOGUE_PACKAGE.split('/'));
+	mkdirSync(directory, { recursive: true });
+	writeFileSync(
+		path.join(directory, 'package.json'),
+		`${JSON.stringify(
+			{
+				name: SERVER_CATALOGUE_PACKAGE,
+				version: '0.0.0',
+				private: true,
+				type: 'module',
+				main: './index.js',
+				exports: './index.js'
+			},
+			null,
+			'\t'
+		)}\n`
+	);
+	writeFileSync(path.join(directory, 'index.js'), `export default ${JSON.stringify(catalogue)};\n`);
 }
 
 /**
- * Collect third-party notices for the client build. Returns the parent plugin
- * and a factory for `worker.plugins`; call this once per Vite config factory
- * invocation so the two share one accumulator.
+ * Collect third-party notices for the client build and hand them to the server
+ * build. Returns the parent plugin and a factory for `worker.plugins`; call this
+ * once per Vite config factory invocation so the two share one accumulator.
+ *
+ * The parent plugin also runs in dev and Vitest, where it only resolves
+ * `virtual:third-party-licenses/server` to `null`: no build has collected notices.
  */
 export function thirdPartyLicenses(options: ThirdPartyLicensesOptions = {}): {
 	plugin: Plugin;
@@ -121,13 +192,31 @@ export function thirdPartyLicenses(options: ThirdPartyLicensesOptions = {}): {
 	let licenseConfig: ThirdPartyLicensesConfig | undefined;
 	let active = false;
 
+	const isServerBuild = (environment: { name: string }) =>
+		config.command === 'build' && environment.name === 'ssr' && !config.isWorker;
+
 	const plugin: Plugin = {
 		name: 'third-party-licenses',
-		apply: 'build',
 		configResolved(resolved) {
 			config = resolved;
 		},
+		resolveId: {
+			filter: SERVER_CATALOGUE_FILTER,
+			handler() {
+				if (config.command === 'serve') return SERVER_CATALOGUE_STUB;
+				if (!isServerBuild(this.environment)) serverOnlyError();
+				return { id: SERVER_CATALOGUE_PACKAGE, external: true };
+			}
+		},
+		load: {
+			filter: { id: /^\0virtual:third-party-licenses\/server$/ },
+			handler() {
+				return 'export default null;\n';
+			}
+		},
 		buildStart() {
+			active = false;
+			if (config.command !== 'build') return;
 			// Only the browser build publishes a catalogue. Vite names worker builds
 			// `client` too, so the worker flag is checked as well.
 			active = this.environment.name === 'client' && !config.isWorker;
@@ -186,6 +275,21 @@ export function thirdPartyLicenses(options: ThirdPartyLicensesOptions = {}): {
 					source: serializeCatalogueText(catalogue)
 				});
 			}
+		},
+		writeBundle: {
+			// After Kit's own writeBundle, which awaits the nested client build, and
+			// before Kit's closeBundle runs the adapter, which copies the server output.
+			// A failed build never gets here, so its own error stays the one reported;
+			// closeBundle would also run after a failed write.
+			order: 'post',
+			sequential: true,
+			handler() {
+				if (!isServerBuild(this.environment)) return;
+				writeServerCatalogue(
+					kitClientOutput(config),
+					path.resolve(config.root, this.environment.config.build.outDir)
+				);
+			}
 		}
 	};
 
@@ -196,6 +300,12 @@ export function thirdPartyLicenses(options: ThirdPartyLicensesOptions = {}): {
 			apply: 'build',
 			configResolved(resolved) {
 				root = resolved.root;
+			},
+			resolveId: {
+				filter: SERVER_CATALOGUE_FILTER,
+				handler() {
+					serverOnlyError();
+				}
 			},
 			generateBundle: {
 				order: 'post',

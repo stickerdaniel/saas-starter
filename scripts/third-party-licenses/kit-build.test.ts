@@ -11,13 +11,15 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse, type DefaultTreeAdapterMap } from 'parse5';
 import * as v from 'valibot';
 import { afterEach, describe, expect, it } from 'vitest';
 import { catalogueSchema } from '../../src/lib/licenses/catalogue';
 
 // Builds a small SvelteKit app with the installed Vite, Kit, and Svelte and the
-// real notice plugins, then reads what Kit's builder.writeClient published.
-// Packages are synthetic markers, so inclusion and exclusion are observable.
+// real notice plugins, then reads what Kit's builder.writeClient published and
+// renders a request through the server builder.writeServer copied. Packages are
+// synthetic markers, so inclusion and exclusion are observable.
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const PLUGIN_ENTRY = path
@@ -26,6 +28,7 @@ const PLUGIN_ENTRY = path
 const VITE_BIN = path.join(REPO_ROOT, 'node_modules/vite/bin/vite.js');
 const LINKED_PACKAGES = ['vite', 'svelte', '@sveltejs/kit', 'valibot', 'spdx-license-list'];
 const BUILD_DEADLINE_MS = 90_000;
+const RENDER_DEADLINE_MS = 20_000;
 const TEST_TIMEOUT_MS = 120_000;
 
 interface MarkerPackage {
@@ -87,6 +90,16 @@ const PAGE = (extraImports: string) => `<script>
 </script>
 
 <h1>{marker} {data.marker}</h1>
+{#each data.entries ?? [] as entry (entry.id)}
+	<details>
+		<summary>{entry.name}</summary>
+		{#each entry.notices as notice, index (index)}
+			<pre>{notice.text}</pre>
+		{/each}
+	</details>
+{:else}
+	<p>No catalogue</p>
+{/each}
 `;
 
 const roots: string[] = [];
@@ -104,7 +117,12 @@ function writeTree(root: string, files: Record<string, string>) {
 }
 
 function createFixture(
-	options: { extraImports?: string; kitFiles?: string; files?: Record<string, string> } = {}
+	options: {
+		extraImports?: string;
+		extraPlugins?: string;
+		kitFiles?: string;
+		files?: Record<string, string>;
+	} = {}
 ) {
 	const root = mkdtempSync(path.join(tmpdir(), 'third-party-kit-'));
 	roots.push(root);
@@ -140,7 +158,13 @@ function createFixture(
 		'svelte.config.js': `export default {
 	kit: {
 		${options.kitFiles ?? ''}
-		adapter: { name: 'fixture-write-client', async adapt(builder) { builder.writeClient('deployed'); } }
+		adapter: {
+			name: 'fixture-copy-output',
+			async adapt(builder) {
+				builder.writeClient('deployed/client');
+				builder.writeServer('deployed/server');
+			}
+		}
 	}
 };
 `,
@@ -153,7 +177,7 @@ export default defineConfig(() => {
 	return {
 		envDir: false,
 		logLevel: 'warn',
-		plugins: [sveltekit(), licenses.plugin],
+		plugins: [sveltekit(), licenses.plugin${options.extraPlugins ? `, ${options.extraPlugins}` : ''}],
 		worker: { plugins: () => [licenses.workerPlugin()] },
 		ssr: { noExternal: ['server-only-marker'] }
 	};
@@ -163,7 +187,7 @@ export default defineConfig(() => {
 			'<!doctype html><html lang="en"><head>%sveltekit.head%</head><body><div>%sveltekit.body%</div></body></html>',
 		'src/routes/+page.svelte': PAGE(options.extraImports ?? ''),
 		'src/routes/+page.server.js':
-			"import { marker } from 'server-only-marker';\nexport function load() {\n\treturn { marker };\n}\n",
+			"import { marker } from 'server-only-marker';\nexport async function load() {\n\tconst { default: catalogue } = await import('virtual:third-party-licenses/server');\n\treturn { marker, entries: catalogue?.entries ?? null };\n}\n",
 		'src/style.css': "@import 'css-marker';\n",
 		'src/live.worker.js':
 			"import { marker } from 'live-marker';\nimport Nested from './nested.worker.js?worker&inline';\nnew Nested();\nself.postMessage(marker);\n",
@@ -178,13 +202,17 @@ export default defineConfig(() => {
 	return root;
 }
 
-function build(root: string): Promise<{ code: number | null; output: string }> {
+function runNode(
+	root: string,
+	args: string[],
+	deadlineMs: number
+): Promise<{ code: number | null; output: string }> {
 	const env: NodeJS.ProcessEnv = { CI: '1', NO_COLOR: '1' };
 	for (const key of ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'SYSTEMROOT', 'USERPROFILE']) {
 		if (process.env[key]) env[key] = process.env[key];
 	}
 	return new Promise((resolve, reject) => {
-		const child = spawn(process.execPath, [VITE_BIN, 'build'], {
+		const child = spawn(process.execPath, args, {
 			cwd: root,
 			env,
 			stdio: ['ignore', 'pipe', 'pipe']
@@ -194,8 +222,8 @@ function build(root: string): Promise<{ code: number | null; output: string }> {
 		child.stderr.on('data', (chunk) => (output += chunk));
 		const timer = setTimeout(() => {
 			child.kill('SIGKILL');
-			reject(new Error(`Fixture build exceeded ${BUILD_DEADLINE_MS} ms:\n${output.slice(-4000)}`));
-		}, BUILD_DEADLINE_MS);
+			reject(new Error(`Fixture process exceeded ${deadlineMs} ms:\n${output.slice(-4000)}`));
+		}, deadlineMs);
 		child.on('error', (error) => {
 			clearTimeout(timer);
 			reject(error);
@@ -207,16 +235,66 @@ function build(root: string): Promise<{ code: number | null; output: string }> {
 	});
 }
 
+function build(root: string) {
+	return runNode(root, [VITE_BIN, 'build'], BUILD_DEADLINE_MS);
+}
+
+/**
+ * Renders `/` through the server the adapter copied, in a fresh process so no
+ * module the build imported can stand in for a file the copy lacks.
+ */
+async function renderDeployed(root: string): Promise<{ status: number; html: string }> {
+	writeTree(root, {
+		'render.mjs': `import { Server } from './deployed/server/index.js';
+import { manifest } from './deployed/server/manifest.js';
+const server = new Server(manifest);
+await server.init({ env: {} });
+const response = await server.respond(new Request('http://localhost/'), {
+	getClientAddress: () => '127.0.0.1'
+});
+console.log('RENDER ' + JSON.stringify({ status: response.status, html: await response.text() }));
+`
+	});
+	const { code, output } = await runNode(root, ['render.mjs'], RENDER_DEADLINE_MS);
+	const line = output.split('\n').find((candidate) => candidate.startsWith('RENDER '));
+	if (code !== 0 || !line) throw new Error(`Render failed:\n${output.slice(-4000)}`);
+	return JSON.parse(line.slice('RENDER '.length));
+}
+
+/** Text of each `<pre>` notice element in the HTML; hydration data in scripts does not count. */
+function renderedNotices(html: string): string[] {
+	type Node = DefaultTreeAdapterMap['node'];
+	const text = (node: Node): string =>
+		node.nodeName === '#text'
+			? (node as DefaultTreeAdapterMap['textNode']).value
+			: 'childNodes' in node
+				? node.childNodes.map(text).join('')
+				: '';
+	const notices: string[] = [];
+	const visit = (node: Node) => {
+		if (node.nodeName === 'pre') notices.push(text(node));
+		else if ('childNodes' in node) node.childNodes.forEach(visit);
+	};
+	visit(parse(html));
+	return notices;
+}
+
 describe('third-party notices in a SvelteKit build', () => {
 	it(
-		'publishes exactly the shipped client and worker packages',
+		'publishes exactly the shipped client and worker packages and server-renders them',
 		async () => {
 			const root = createFixture();
 			const { code, output } = await build(root);
 			expect(code, output).toBe(0);
 
-			const json = readFileSync(path.join(root, 'deployed/third-party-licenses.json'), 'utf8');
-			const text = readFileSync(path.join(root, 'deployed/third-party-licenses.txt'), 'utf8');
+			const json = readFileSync(
+				path.join(root, 'deployed/client/third-party-licenses.json'),
+				'utf8'
+			);
+			const text = readFileSync(
+				path.join(root, 'deployed/client/third-party-licenses.txt'),
+				'utf8'
+			);
 			const catalogue = v.parse(catalogueSchema, JSON.parse(json));
 			const rows = Object.fromEntries(catalogue.entries.map((entry) => [entry.name, entry]));
 
@@ -257,6 +335,76 @@ describe('third-party notices in a SvelteKit build', () => {
 			expect(
 				existsSync(path.join(root, '.svelte-kit/output/server/third-party-licenses.json'))
 			).toBe(false);
+
+			// The deployed server renders the same notices into the HTML itself.
+			const page = await renderDeployed(root);
+			expect(page.status, page.html).toBe(200);
+			const notices = renderedNotices(page.html);
+			expect(notices).toContain('Client marker attribution');
+			expect(notices).toContain('Synthetic license for live-marker');
+			expect(notices).toHaveLength(
+				catalogue.entries.reduce((count, entry) => count + entry.notices.length, 0)
+			);
+		},
+		TEST_TIMEOUT_MS
+	);
+
+	it(
+		'reports the original error when the build fails before the client build',
+		async () => {
+			const root = createFixture({
+				extraPlugins:
+					"{ name: 'planted-failure', buildStart() { throw new Error('Planted early failure'); } }"
+			});
+			const { code, output } = await build(root);
+			expect(code).not.toBe(0);
+			expect(output).toContain('Planted early failure');
+			expect(output).not.toContain('[third-party-licenses]');
+		},
+		TEST_TIMEOUT_MS
+	);
+
+	it(
+		'reports the original error when a later output hook fails',
+		async () => {
+			// The plugin removes the client catalogue and then fails, after the handoff ran.
+			const root = createFixture({
+				extraPlugins:
+					"{ name: 'planted-late-failure', writeBundle: { order: 'post', async handler() { if (this.environment.name !== 'ssr') return; (await import('node:fs')).rmSync('.svelte-kit/output/client/third-party-licenses.json'); throw new Error('Planted late failure'); } } }"
+			});
+			const { code, output } = await build(root);
+			expect(code).not.toBe(0);
+			expect(output).toContain('Planted late failure');
+			expect(output).not.toContain('[third-party-licenses]');
+		},
+		TEST_TIMEOUT_MS
+	);
+
+	it.each([
+		[
+			'browser code',
+			{
+				extraImports:
+					"onMount(async () => console.log(await import('virtual:third-party-licenses/server')));"
+			}
+		],
+		[
+			'a worker',
+			{
+				extraImports: "import Leak from '../leak.worker.js?worker';\n\tconsole.log(Leak);",
+				files: {
+					'src/leak.worker.js':
+						"import catalogue from 'virtual:third-party-licenses/server';\nself.postMessage(catalogue);\n"
+				}
+			}
+		]
+	])(
+		'rejects the server catalogue module in %s',
+		async (_where, options) => {
+			const root = createFixture(options);
+			const { code, output } = await build(root);
+			expect(code).not.toBe(0);
+			expect(output).toContain('virtual:third-party-licenses/server is server-only');
 		},
 		TEST_TIMEOUT_MS
 	);
@@ -273,7 +421,7 @@ describe('third-party notices in a SvelteKit build', () => {
 			expect(output).toContain('Third-party notices incomplete for 2 packages.');
 			expect(output).toContain('bare-marker@1.0.0 [client]\n  Missing: license text');
 			expect(output).toContain('primaryless-marker@1.0.0 [client]\n  Missing: license text');
-			expect(existsSync(path.join(root, 'deployed/third-party-licenses.json'))).toBe(false);
+			expect(existsSync(path.join(root, 'deployed/client/third-party-licenses.json'))).toBe(false);
 		},
 		TEST_TIMEOUT_MS
 	);

@@ -1281,14 +1281,11 @@
 			"fonts": "Schriftarten",
 			"styles": "Styles"
 		},
-		"error": "Die Lizenzhinweise konnten nicht geladen werden.",
 		"intro": "Diese Anwendung enthält Open-Source-Software und Inhalte von Drittanbietern. Deren Lizenzen und Hinweise sind unten aufgeführt. Die Lizenztexte werden im englischen Original angezeigt.",
-		"loading": "Lizenzhinweise werden geladen…",
 		"results": "{count, plural, =0 {Keine passenden Einträge} one {# Eintrag} other {# Einträge}}",
-		"retry": "Erneut versuchen",
 		"search": {
 			"label": "Lizenzen durchsuchen",
-			"placeholder": "Paket, Version oder Lizenz"
+			"placeholder": "Paket, Lizenz oder Hinweistext"
 		},
 		"source": "Quelle",
 		"text_link": "Alle Hinweise als Textdatei herunterladen",

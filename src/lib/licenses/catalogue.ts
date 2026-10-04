@@ -1,9 +1,9 @@
 import * as v from 'valibot';
 
 // Public contract of the third-party notice catalogue. The build tool validates
-// its output against this schema and the licenses page parses the fetched file
-// with it, so both sides share one definition. Keep this module browser-safe:
-// it must not import the build tooling or the SPDX license data.
+// its output against this schema, and again before it hands the catalogue to the
+// server build that renders the licenses page. Keep this module browser-safe: the
+// page searches with it, so it must not import the build tooling or SPDX data.
 
 export const CATALOGUE_JSON_FILE = 'third-party-licenses.json';
 export const CATALOGUE_TEXT_FILE = 'third-party-licenses.txt';
@@ -48,43 +48,78 @@ export const catalogueSchema = v.pipe(
 export type Catalogue = v.InferOutput<typeof catalogueSchema>;
 export type CatalogueEntry = Catalogue['entries'][number];
 
-// A line that starts a copyright statement, such as "Copyright 2023 Vercel, Inc."
-// or "(c) Rich Harris". The lookaheads skip wrapped license boilerplate that starts
-// the same way: "COPYRIGHT HOLDERS BE LIABLE" and Apache's "(c) You must retain".
-const COPYRIGHT_LINE = /^\s*(?:copyright\b(?!\s+(?:holders?|notice|owner)\b)|\(c\)(?!\s+you\b)|©)/i;
+/** Case- and whitespace-insensitive form that queries and indexed texts share. */
+function normalize(text: string): string {
+	return text.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+}
 
-const searchTexts = new WeakMap<CatalogueEntry, string[]>();
+interface SearchIndex {
+	/** Row fields that match anywhere: "2.0" finds "Apache-2.0". */
+	fields: string[];
+	/** All notice texts, which match only at word starts. */
+	notices: string;
+}
 
-function searchFields(entry: CatalogueEntry): string[] {
-	let fields = searchTexts.get(entry);
-	if (!fields) {
-		// Copyright lines name the holders, so "vercel" finds the AI SDK packages. The
-		// rest of the notice text stays out: "mit" would match "permitted" everywhere.
-		const holders = entry.notices.flatMap((notice) =>
-			notice.text.split('\n').filter((line) => COPYRIGHT_LINE.test(line))
-		);
-		fields = [
-			entry.name,
-			entry.version ?? '',
-			entry.license,
-			entry.sourceUrl ?? '',
-			...entry.components,
-			...holders
-		].map((field) => field.toLowerCase());
-		searchTexts.set(entry, fields);
+const searchIndexes = new WeakMap<CatalogueEntry, SearchIndex>();
+
+function searchIndex(entry: CatalogueEntry): SearchIndex {
+	let index = searchIndexes.get(entry);
+	if (!index) {
+		index = {
+			fields: [
+				entry.name,
+				entry.version ?? '',
+				entry.license,
+				entry.sourceUrl ?? '',
+				...entry.components
+			].map(normalize),
+			notices: entry.notices.map((notice) => normalize(notice.text)).join('\n')
+		};
+		searchIndexes.set(entry, index);
 	}
-	return fields;
+	return index;
+}
+
+const WORD_CHARACTER = /^[\p{L}\p{M}\p{N}]$/u;
+
+/** The code point that ends right before `index`. */
+function previousCharacter(text: string, index: number): string {
+	return Array.from(text.slice(Math.max(0, index - 2), index)).at(-1) ?? '';
 }
 
 /**
- * Case-insensitive substring search over the visible row fields, the source URL,
- * and the copyright lines of the notice texts.
+ * Whether `needle` occurs in `text` where a word starts, so "mit" finds "MIT" and
+ * not "permitted". A needle that starts with punctuation, like "(c)", matches anywhere.
+ */
+function includesAtWordStart(text: string, needle: string): boolean {
+	if (!WORD_CHARACTER.test(Array.from(needle)[0] ?? '')) return text.includes(needle);
+	for (let index = text.indexOf(needle); index !== -1; index = text.indexOf(needle, index + 1)) {
+		if (!WORD_CHARACTER.test(previousCharacter(text, index))) return true;
+	}
+	return false;
+}
+
+/**
+ * Case-insensitive literal search. The name, version, license, source URL, and
+ * component labels match anywhere; notice texts match at word starts, which finds
+ * copyright holders such as "vercel" without "mit" matching "permitted".
+ *
+ * @param componentLabel Displayed label of a component key, so searches in the
+ *   active locale find it; the raw key matches too.
  */
 export function filterCatalogueEntries(
 	entries: readonly CatalogueEntry[],
-	query: string
+	query: string,
+	componentLabel: (component: string) => string = (component) => component
 ): CatalogueEntry[] {
-	const needle = query.trim().toLowerCase();
+	const needle = normalize(query);
 	if (!needle) return [...entries];
-	return entries.filter((entry) => searchFields(entry).some((field) => field.includes(needle)));
+	return entries.filter((entry) => {
+		const index = searchIndex(entry);
+		return (
+			index.fields.some((field) => field.includes(needle)) ||
+			entry.components.some((component) => normalize(componentLabel(component)).includes(needle)) ||
+			includesAtWordStart(index.notices, needle)
+		);
+	});
 }
