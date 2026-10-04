@@ -175,7 +175,9 @@
 				"user_notes": "Benutzernotizen"
 			},
 			"email": {
-				"label": "Benachrichtigungs-E-Mail"
+				"label": "Benachrichtigungs-E-Mail",
+				"reply_body": "Hallo,\n\nvielen Dank für deine Nachricht!\n\n",
+				"reply_subject": "Re: Deine Supportanfrage"
 			},
 			"fallback": {
 				"admin": "Admin",
@@ -217,8 +219,7 @@
 				},
 				"load_failed": "Laden fehlgeschlagen",
 				"loading": "Lädt mehr...",
-				"no_messages": "Keine Nachrichten",
-				"retry": "Erneut versuchen"
+				"no_messages": "Keine Nachrichten"
 			},
 			"threads_title": "Support-Threads"
 		},

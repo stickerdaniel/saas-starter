@@ -14,7 +14,9 @@
 	import IconSwap from '$lib/components/motion/icon-swap.svelte';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { formatDistanceToNow } from 'date-fns';
+	import { untrack } from 'svelte';
 	import { watch } from 'runed';
+	import type { PaginationStatus } from 'convex/browser';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
@@ -64,15 +66,27 @@
 		high: 'bordered-destructive'
 	};
 
+	const PRIORITY_LABEL_KEYS = {
+		low: 'admin.support.priority.low',
+		medium: 'admin.support.priority.medium',
+		high: 'admin.support.priority.high'
+	} as const satisfies Record<NonNullable<Thread['supportMetadata']['priority']>, string>;
+
+	const STATUS_LABEL_KEYS = {
+		open: 'admin.support.status.open',
+		done: 'admin.support.status.done'
+	} as const satisfies Record<Thread['supportMetadata']['status'], string>;
+
 	let {
 		filterMode,
 		statusFilter,
 		searchQuery,
 		threads = [],
 		selectedThreadId,
-		isLoading = false,
+		status,
+		isLoading,
 		error,
-		isDone = false,
+		queryIdentity,
 		cachedCount,
 		onFilterChange,
 		onStatusChange,
@@ -85,9 +99,13 @@
 		searchQuery: string;
 		threads?: Thread[];
 		selectedThreadId: string | null | undefined;
-		isLoading?: boolean;
+		/** The paginated query's own status, which it keeps while a changed query loads. */
+		status: PaginationStatus;
+		/** True from the moment the query's arguments change until their first answer. */
+		isLoading: boolean;
 		error?: Error | undefined;
-		isDone?: boolean;
+		/** Changes exactly when the arguments of the paginated query change. */
+		queryIdentity: string;
 		cachedCount?: number;
 		onFilterChange: (mode: FilterMode) => void;
 		onStatusChange: (status: 'open' | 'done') => void;
@@ -189,9 +207,6 @@
 	// Skeleton count: use cached count or default to 6
 	const skeletonCount = $derived(cachedCount ?? 6);
 
-	// Create loader state instance for svelte-infinite
-	const loaderState = new LoaderState();
-
 	// Derived state for toggle (true = showing open, false = showing done)
 	let showingOpen = $derived(statusFilter === 'open');
 
@@ -199,26 +214,173 @@
 		onStatusChange(showingOpen ? 'done' : 'open');
 	}
 
-	// Trigger load function for InfiniteLoader
-	async function triggerLoad() {
-		const canLoadMore = onLoadMore(25);
-		if (!canLoadMore) {
-			loaderState.complete();
-		} else {
-			loaderState.loaded();
-		}
+	// A page is on its way, or a changed query has not answered yet. While its
+	// arguments change the query keeps its previous status, including Exhausted,
+	// so only the loading flag tells that status apart from the current query's.
+	const isBusy = $derived(isLoading || status === 'LoadingFirstPage' || status === 'LoadingMore');
+	const isExhausted = $derived(!isLoading && status === 'Exhausted');
+	const canRequest = $derived(!error && !isLoading && status === 'CanLoadMore');
+
+	// What the list shows, read from the query alone so that a failure appears
+	// whether or not a load attempt is waiting for it. Rows stay on screen while
+	// more load and while a changed query resolves; skeletons only fill an empty
+	// list.
+	const view = $derived.by(() => {
+		if (error && threads.length === 0) return 'initial-error';
+		if (threads.length > 0) return 'list';
+		if (isBusy) return 'waiting';
+		if (isExhausted) return 'empty';
+		return 'list';
+	});
+
+	// The bridge between svelte-infinite and the paginated query.
+	//
+	// InfiniteLoader marks the loader LOADING, awaits triggerLoad, then returns a
+	// still-LOADING loader to READY in its own continuation. Each attempt
+	// therefore resolves only once the query has answered it, and every write to
+	// the loader waits until that continuation has run, so an attempt from an
+	// earlier query can never return a newer attempt to READY.
+	//
+	// The loader only observes its sentinel when it mounts or its observer
+	// options change, and reset() or READY alone do not make a still-visible
+	// sentinel load. Whenever loading becomes possible again, a new options
+	// object makes it observe once more without remounting the rows.
+	const LOAD_MORE_COUNT = 25;
+	const ROOT_MARGIN = '0px 0px 200px 0px';
+	// The library's own defaults, stated because the cooling wake-up below
+	// depends on them.
+	const LOOP_MAX_CALLS = 5;
+	const LOOP_DETECTION_TIMEOUT = 2000;
+	const LOOP_TIMEOUT = 3000;
+
+	const loaderState = new LoaderState();
+	let intersectionOptions = $state<IntersectionObserverInit>({ rootMargin: ROOT_MARGIN });
+
+	// Loader writes held until no attempt is in flight.
+	let pendingReset = $state(false);
+	let pendingComplete = $state(false);
+	let pendingRearm = $state(false);
+
+	interface Attempt {
+		identity: string;
+		/** The rows and status before this attempt asked for a page; null when it only waits. */
+		before: { threads: Thread[]; status: PaginationStatus } | null;
+		resolve: () => void;
 	}
 
-	// Reset loader when isDone transitions from true → false (new query started)
+	let attempt: Attempt | null = null;
+	// The last re-observation has not produced a trigger yet, which is what
+	// happens when it arrives while the loader is cooling down.
+	let rearmUnanswered = false;
+	let destroyed = false;
+
+	function releaseAttempt() {
+		const current = attempt;
+		attempt = null;
+		current?.resolve();
+	}
+
+	function settleAttempt() {
+		if (!attempt) return;
+		if (attempt.identity !== queryIdentity) {
+			releaseAttempt();
+			return;
+		}
+		if (error) {
+			pendingRearm = true;
+			releaseAttempt();
+			return;
+		}
+		if (isBusy) return;
+		const { before } = attempt;
+		if (before && threads === before.threads && status === before.status) return;
+		if (isExhausted) pendingComplete = true;
+		else pendingRearm = true;
+		releaseAttempt();
+	}
+
+	function triggerLoad(): Promise<void> {
+		rearmUnanswered = false;
+		if (error) {
+			pendingRearm = true;
+			return Promise.resolve();
+		}
+		if (isExhausted) {
+			pendingComplete = true;
+			return Promise.resolve();
+		}
+		let before: Attempt['before'] = null;
+		if (canRequest) {
+			before = { threads, status };
+			// false means a page is already on its way, which this attempt waits for.
+			onLoadMore(LOAD_MORE_COUNT);
+		}
+		return new Promise((resolve) => {
+			attempt = { identity: queryIdentity, before, resolve };
+			// A page that was already available has arrived by now.
+			settleAttempt();
+		});
+	}
+
+	// Every change of the query can be the outcome an attempt waits for.
+	$effect(() => {
+		void [threads, status, isLoading, error, queryIdentity];
+		untrack(settleAttempt);
+	});
+
+	// A changed query starts a new generation: the old attempt is released and
+	// the loader is reset and re-armed once that attempt has fully finished.
 	watch(
-		() => isDone,
-		(curr, prev) => {
-			if (prev && !curr) {
-				loaderState.reset();
-			}
+		() => queryIdentity,
+		() => {
+			releaseAttempt();
+			rearmUnanswered = false;
+			pendingComplete = false;
+			pendingReset = true;
+			pendingRearm = true;
 		},
 		{ lazy: true }
 	);
+
+	// Applies the held writes once InfiniteLoader's continuation has run. A
+	// re-observation also waits until the current query can take a request.
+	$effect(() => {
+		if (loaderState.status === 'LOADING') return;
+		if (pendingReset) {
+			pendingReset = false;
+			loaderState.reset();
+		}
+		if (pendingComplete) {
+			pendingComplete = false;
+			loaderState.complete();
+		}
+		// Convex restarts the pagination of unchanged arguments after an invalid
+		// cursor, so a list that had ended can load again without a new query.
+		if (canRequest && loaderState.status === 'COMPLETE') {
+			loaderState.reset();
+			pendingRearm = true;
+		}
+		if (pendingRearm && canRequest && loaderState.status === 'READY') {
+			pendingRearm = false;
+			rearmUnanswered = true;
+			intersectionOptions = { rootMargin: ROOT_MARGIN };
+		}
+	});
+
+	// InfiniteLoader drops observations while it cools down after too many loads
+	// in a row, and does not observe again when the cooldown ends. Its cooling
+	// snippet is the only signal of that end: when it goes away and the last
+	// re-observation was dropped, observe once more.
+	function wakeAfterCooling() {
+		return () => {
+			if (!destroyed && rearmUnanswered) pendingRearm = true;
+		};
+	}
+
+	$effect(() => () => {
+		destroyed = true;
+		releaseAttempt();
+	});
 </script>
 
 <div class="flex h-full flex-col">
@@ -340,15 +502,15 @@
 
 	<!-- Thread List -->
 	<div class="relative flex-1">
-		{#if error && threads.length === 0}
-			<!-- Query error with nothing loaded (load-more errors are handled by InfiniteLoader's error snippet) -->
+		{#if view === 'initial-error'}
+			<!-- Query error with nothing loaded; a failure with rows on screen is reported below them -->
 			<div
 				class="absolute inset-0 flex items-center justify-center p-8 text-center text-destructive"
 				data-testid="admin-support-threads-error"
 			>
 				<T keyName="common.load_error" />
 			</div>
-		{:else if isLoading}
+		{:else if view === 'waiting'}
 			<!-- Loading skeletons -->
 			<div class="absolute inset-0 scrollbar-thin overflow-y-auto">
 				{#each Array(skeletonCount) as _, i (i)}
@@ -376,7 +538,7 @@
 					</div>
 				{/each}
 			</div>
-		{:else if threads && threads.length > 0}
+		{:else if view === 'list'}
 			<!-- data-tolgee-restricted: thread previews may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
 			<div
 				data-tolgee-restricted
@@ -385,7 +547,10 @@
 				<InfiniteLoader
 					{loaderState}
 					{triggerLoad}
-					intersectionOptions={{ rootMargin: '0px 0px 200px 0px' }}
+					{intersectionOptions}
+					loopMaxCalls={LOOP_MAX_CALLS}
+					loopDetectionTimeout={LOOP_DETECTION_TIMEOUT}
+					loopTimeout={LOOP_TIMEOUT}
 				>
 					{#each threads as thread (thread._id)}
 						<AdminThreadRow
@@ -398,11 +563,12 @@
 								}
 							}}
 						>
-							<div class="flex flex-col gap-2">
+							<!-- Bounded to the row, so a long message ends in an ellipsis instead of under the pane edge -->
+							<div class="flex w-full min-w-0 flex-col gap-2">
 								<AvatarHeading
 									image={thread.userImage}
 									title={thread.lastMessage || $t('admin.support.thread.no_messages')}
-									subtitle={`${thread.userName || thread.userEmail || 'Anonymous'}\u00A0\u00A0·\u00A0\u00A0${formatDistanceToNow(new Date(thread.lastMessageAt || thread._creationTime), { locale: dateFnsLocale, addSuffix: true })}`}
+									subtitle={`${thread.userName || thread.userEmail || $t('admin.support.anonymous')}\u00A0\u00A0·\u00A0\u00A0${formatDistanceToNow(new Date(thread.lastMessageAt || thread._creationTime), { locale: dateFnsLocale, addSuffix: true })}`}
 									fallbackText={thread.userName}
 									bold={false}
 								/>
@@ -414,18 +580,32 @@
 									{/if}
 									{#if thread.supportMetadata.priority}
 										<Badge variant={PRIORITY_VARIANTS[thread.supportMetadata.priority]}>
-											<span class="capitalize">{thread.supportMetadata.priority}</span>
+											{$t(PRIORITY_LABEL_KEYS[thread.supportMetadata.priority])}
 										</Badge>
 									{/if}
 									{#if thread.supportMetadata.status}
-										<Badge variant="secondary"
-											><span class="capitalize">{thread.supportMetadata.status}</span></Badge
-										>
+										<Badge variant="secondary">
+											{$t(STATUS_LABEL_KEYS[thread.supportMetadata.status])}
+										</Badge>
 									{/if}
 								</div>
 							</div>
 						</AdminThreadRow>
 					{/each}
+
+					<!-- The region outlives every message it carries: a status container
+					     that appears already holding its text is not reliably read out, and
+					     the failure can arrive in any pagination status, including after the
+					     last page. It stays empty, and so invisible, while nothing failed.
+					     It offers no retry, because the query has none; the list loads on
+					     by itself once the subscription recovers. -->
+					<div role="status">
+						{#if error}
+							<p class="p-4 text-center text-sm text-balance text-destructive">
+								{$t('admin.support.thread.load_failed')}
+							</p>
+						{/if}
+					</div>
 
 					{#snippet loading()}
 						<div class="flex items-center justify-center border-b p-4">
@@ -436,19 +616,13 @@
 						</div>
 					{/snippet}
 
-					{#snippet error(attemptLoad)}
-						<div class="flex flex-col items-center justify-center gap-2 p-4">
-							<span class="text-sm text-muted-foreground"
-								><T keyName="admin.support.thread.load_failed" /></span
-							>
-							<Button variant="outline" size="sm" onclick={attemptLoad}
-								><T keyName="admin.support.thread.retry" /></Button
-							>
-						</div>
-					{/snippet}
-
-					{#snippet noData()}
-						<!-- Empty - end of list reached -->
+					<!-- Every other loader state has a snippet: the library's fallbacks render
+					     English copy and a retry button that would bypass the bridge. -->
+					{#snippet error()}{/snippet}
+					{#snippet noResults()}{/snippet}
+					{#snippet noData()}{/snippet}
+					{#snippet coolingOff()}
+						<span hidden {@attach wakeAfterCooling}></span>
 					{/snippet}
 				</InfiniteLoader>
 			</div>

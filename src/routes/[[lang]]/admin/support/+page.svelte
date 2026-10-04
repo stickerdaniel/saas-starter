@@ -75,21 +75,28 @@
 		return 'all';
 	});
 
+	// The list query's arguments. The selected thread stays out: opening a thread
+	// does not change which threads are listed.
+	const threadsArgs = $derived({
+		filter,
+		status: filters.status,
+		search: debouncedSearch.current || undefined
+	});
+
+	// Changes exactly when the subscription does, including when "my inbox"
+	// switches from all threads to the viewer's once the viewer has loaded.
+	const threadsQueryIdentity = $derived(JSON.stringify(threadsArgs));
+
 	// Reactive paginated query for threads - automatically updates when filters change
 	const threadsQuery = usePaginatedQuery(
 		api.admin.support.queries.listThreadsForAdmin,
-		() => ({
-			filter,
-			status: filters.status,
-			search: debouncedSearch.current || undefined
-		}),
+		() => threadsArgs,
 		{ initialNumItems: 25, keepPreviousData: true }
 	);
 
 	// Derived state for template compatibility
 	const allThreads = $derived(threadsQuery.results);
 	const isLoading = $derived(threadsQuery.isLoading);
-	const isDone = $derived(threadsQuery.status === 'Exhausted');
 	const loadError = $derived(threadsQuery.error);
 
 	// Selected thread from already-loaded list (for instant header display)
@@ -169,9 +176,10 @@
 					searchQuery={filters.search}
 					threads={allThreads}
 					selectedThreadId={threadId}
+					status={threadsQuery.status}
 					{isLoading}
 					error={loadError}
-					{isDone}
+					queryIdentity={threadsQueryIdentity}
 					cachedCount={cachedThreadCount}
 					onFilterChange={(mode) => (filters.mode = mode)}
 					onStatusChange={(status) => (filters.status = status)}
@@ -232,9 +240,10 @@
 					searchQuery={filters.search}
 					threads={allThreads}
 					selectedThreadId={threadId}
+					status={threadsQuery.status}
 					{isLoading}
 					error={loadError}
-					{isDone}
+					queryIdentity={threadsQueryIdentity}
 					cachedCount={cachedThreadCount}
 					onFilterChange={(mode) => (filters.mode = mode)}
 					onStatusChange={(status) => (filters.status = status)}
@@ -279,9 +288,10 @@
 				searchQuery={filters.search}
 				threads={allThreads}
 				selectedThreadId={threadId}
+				status={threadsQuery.status}
 				{isLoading}
 				error={loadError}
-				{isDone}
+				queryIdentity={threadsQueryIdentity}
 				cachedCount={cachedThreadCount}
 				onFilterChange={(mode) => (filters.mode = mode)}
 				onStatusChange={(status) => (filters.status = status)}

@@ -175,7 +175,9 @@
 				"user_notes": "Notas del Usuario"
 			},
 			"email": {
-				"label": "Email de notificación"
+				"label": "Email de notificación",
+				"reply_body": "Hola:\n\n¡Gracias por escribirnos!\n\n",
+				"reply_subject": "Re: Tu solicitud de soporte"
 			},
 			"fallback": {
 				"admin": "Admin",
@@ -217,8 +219,7 @@
 				},
 				"load_failed": "Error al cargar más",
 				"loading": "Cargando más...",
-				"no_messages": "Sin mensajes",
-				"retry": "Reintentar"
+				"no_messages": "Sin mensajes"
 			},
 			"threads_title": "Hilos de Soporte"
 		},

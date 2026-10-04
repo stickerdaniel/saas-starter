@@ -21,11 +21,23 @@
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { page } from '$app/state';
 	import { getDateFnsLocale } from '$lib/utils/i18n';
+	import { buildMailto } from '$lib/utils/mailto';
 	import { normalizeSupportPageRoute } from '$lib/shared/support-page-route';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 	import { canImpersonateUser, impersonateUser } from '../impersonate-user';
 
 	const { t } = getTranslate();
+
+	const STATUS_LABEL_KEYS = {
+		open: 'admin.support.status.open',
+		done: 'admin.support.status.done'
+	} as const;
+
+	const PRIORITY_LABEL_KEYS = {
+		low: 'admin.support.priority.low',
+		medium: 'admin.support.priority.medium',
+		high: 'admin.support.priority.high'
+	} as const;
 
 	const dateFnsLocale = $derived(getDateFnsLocale(page.data.lang));
 
@@ -210,7 +222,7 @@
 							onValueChange={(v) => updateStatus(v as 'open' | 'done')}
 						>
 							<Select.Trigger>
-								<span class="capitalize">{thread.supportMetadata?.status || 'open'}</span>
+								{$t(STATUS_LABEL_KEYS[thread.supportMetadata?.status || 'open'])}
 							</Select.Trigger>
 							<Select.Content>
 								<Select.Item value="open"><T keyName="admin.support.status.open" /></Select.Item>
@@ -249,9 +261,11 @@
 							onValueChange={(v) => updatePriority(v as 'low' | 'medium' | 'high' | '' | undefined)}
 						>
 							<Select.Trigger>
-								<span class="capitalize"
-									>{thread.supportMetadata?.priority || $t('admin.support.priority.none')}</span
-								>
+								{$t(
+									thread.supportMetadata?.priority
+										? PRIORITY_LABEL_KEYS[thread.supportMetadata.priority]
+										: 'admin.support.priority.none'
+								)}
 							</Select.Trigger>
 							<Select.Content>
 								<Select.Item value=""><T keyName="admin.support.priority.none" /></Select.Item>
@@ -268,9 +282,14 @@
 					{#if thread.supportMetadata?.notificationEmail}
 						<Field.Field>
 							<Field.Label><T keyName="admin.support.email.label" /></Field.Label>
+							<!-- A mailto: address is not an app route, so there is nothing to resolve -->
+							<!-- eslint-disable svelte/no-navigation-without-resolve -->
 							<a
-								href="mailto:{thread.supportMetadata
-									.notificationEmail}?subject=Re: Your support request&body=Hi,%0A%0AThank you for reaching out!%0A%0A"
+								href={buildMailto({
+									email: thread.supportMetadata.notificationEmail,
+									subject: $t('admin.support.email.reply_subject'),
+									body: $t('admin.support.email.reply_body')
+								})}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="flex items-center gap-2 text-sm text-primary hover:underline active:translate-y-px"
@@ -278,6 +297,7 @@
 								<span class="truncate">{thread.supportMetadata.notificationEmail}</span>
 								<ExternalLinkIcon class="size-3 shrink-0" />
 							</a>
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
 						</Field.Field>
 					{/if}
 
