@@ -8,6 +8,7 @@ import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 import { pendingPasskeyNudge } from '$lib/hooks/passkey-nudge.svelte.ts';
 import type { PendingOAuthProvider } from '$lib/hooks/last-auth-method.svelte.ts';
 import { getPasskeyDevice } from '$lib/utils/passkey-device';
+import { addPasskey, suggestPasskeyName } from './passkey-registration';
 import {
 	claimPasskeyNudge,
 	deferPasskeyNudge,
@@ -30,17 +31,9 @@ export class PasskeyEnrollment {
 	error = $state('');
 
 	readonly suggestedName = $derived.by(() => {
-		const t = this.#t.current;
 		const user = this.#user();
 		if (!user) return '';
-		const firstName = user.name.trim().split(/\s+/)[0] ?? '';
-		return t(
-			`settings.security.passkey.${firstName ? 'suggested_name' : 'suggested_name_anonymous'}`,
-			{
-				name: firstName,
-				device: t(`settings.security.passkey.devices.${getPasskeyDevice(navigator)}`)
-			}
-		);
+		return suggestPasskeyName(this.#t.current, user.name, getPasskeyDevice(navigator));
 	});
 
 	constructor(user: () => PasskeyNudgeUser | null, oncontinue: () => void) {
@@ -81,10 +74,9 @@ export class PasskeyEnrollment {
 				this.error = 'auth.passkey_nudge.failed';
 				return false;
 			}
-			const result = await authClient.passkey.addPasskey({
-				name: this.name.trim() || this.suggestedName
-			});
-			if (result.error || !result.data) {
+			// One generic message for every failure, whatever the server's code says.
+			const result = await addPasskey(this.name.trim() || this.suggestedName);
+			if (!result.ok) {
 				this.error = 'auth.passkey_nudge.failed';
 				return false;
 			}

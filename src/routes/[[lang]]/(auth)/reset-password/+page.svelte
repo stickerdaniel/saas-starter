@@ -5,7 +5,6 @@
 	import AuthGate from '../AuthGate.svelte';
 	import AuthPanel from '$lib/components/auth/auth-panel.svelte';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Password from '$lib/components/ui/password';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
@@ -274,20 +273,23 @@
 								defaultValue="Confirm new password"
 							/>
 						</Field.Label>
-						<Input
-							id="confirm-password-{id}"
-							name="confirmPassword"
-							data-testid="reset-password-confirm-input"
-							type="password"
-							aria-invalid={hasConfirmPasswordError ? 'true' : undefined}
-							aria-describedby={hasConfirmPasswordError
-								? `confirm-password-${id}-error`
-								: undefined}
-							autocomplete="new-password"
-							placeholder="••••••••"
-							disabled={isFormDisabled}
-							bind:value={formData.confirmPassword}
-						/>
+						<Password.Root>
+							<Password.Input
+								id="confirm-password-{id}"
+								name="confirmPassword"
+								data-testid="reset-password-confirm-input"
+								autocomplete="new-password"
+								placeholder="••••••••"
+								disabled={isFormDisabled}
+								invalid={hasConfirmPasswordError}
+								aria-describedby={hasConfirmPasswordError
+									? `confirm-password-${id}-error`
+									: undefined}
+								bind:value={formData.confirmPassword}
+							>
+								<Password.ToggleVisibility />
+							</Password.Input>
+						</Password.Root>
 						<Field.Error
 							id="confirm-password-{id}-error"
 							data-testid="reset-password-confirm-error"

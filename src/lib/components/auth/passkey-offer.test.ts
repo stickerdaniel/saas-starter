@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import type * as PasskeyNudge from '$lib/utils/passkey-nudge';
+import en from '../../../i18n/en.json';
 
 vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
@@ -124,11 +125,19 @@ it('waits for consent, allows cancellation and retry, and confirms only verified
 	expect(JSON.parse(localStorage.getItem('auth:last-auth-method')!)).toBe('google');
 });
 
-it('does not claim success for an empty server response', async () => {
-	calls.create.mockResolvedValue({ data: null, error: null });
+it.each([
+	['a server code with its own message', { data: null, error: { code: 'SESSION_NOT_FRESH' } }],
+	['an unknown server code', { data: null, error: { code: 'SOMETHING_NEW', status: 500 } }],
+	['a thrown error', new Error('offline')],
+	['an empty server response', { data: null, error: null }]
+])('reports only its generic failure for %s', async (_, outcome) => {
+	if (outcome instanceof Error) calls.create.mockRejectedValue(outcome);
+	else calls.create.mockResolvedValue(outcome);
 	await render();
 	button('Create a passkey').click();
 	await vi.waitFor(() => expect(failure()).toContain('We couldn’t finish setting up your passkey'));
+	expect(document.body.textContent).not.toContain(en.auth.messages.session_not_fresh);
+	expect(document.body.textContent).not.toContain(en.auth.messages.passkey_add_failed);
 	expect(calls.created).not.toHaveBeenCalled();
 	expect(calls.toast).not.toHaveBeenCalled();
 });
