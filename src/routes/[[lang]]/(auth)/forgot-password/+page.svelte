@@ -3,7 +3,7 @@
 	import * as v from 'valibot';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import AuthGate from '../AuthGate.svelte';
-	import * as Card from '$lib/components/ui/card/index.js';
+	import AuthPanel from '$lib/components/auth/auth-panel.svelte';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -158,138 +158,105 @@
 	noindex
 />
 
-<div class="flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
-	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
-		<Card.Root class="overflow-hidden p-0">
-			<Card.Content class="grid p-0 md:grid-cols-2">
-				<AuthGate>
-					<form onsubmit={handleSubmit} novalidate class="min-h-96">
-						<LoadingBar
-							value={progress}
-							mode={isLoading ? 'loading' : 'progress'}
-							showBackground={false}
-							variant="edge"
-						/>
-						<div class="p-6 md:p-8">
-							<Field.Group>
-								<div class="flex flex-col items-center gap-2 text-center">
-									<h1 class="text-2xl font-bold">
-										<T keyName="auth.forgot_password.title" defaultValue="Forgot password" />
-									</h1>
-									<!-- An instruction rather than a promise: this screen cannot know
-									     whether a mail will be sent, and the answer below says so. Once
-									     an answer exists, whether success or error, the instruction has
-									     been carried out and gives way to it. Field validation sets
-									     `errors.email` rather than `formError`, so an unsent form keeps
-									     its subtitle. -->
-									{#if !message && !formError}
-										<p
-											data-testid="forgot-password-description"
-											class="text-balance text-muted-foreground"
-										>
-											<T
-												keyName="auth.forgot_password.description"
-												defaultValue="Enter the email address for your account"
-											/>
-										</p>
-									{/if}
-								</div>
-								{#if formError}
-									<div
-										data-testid="forgot-password-form-error"
-										transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
-										class="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
-									>
-										<T keyName={formError} />
-									</div>
-								{/if}
-								{#if message}
-									<div
-										data-testid="forgot-password-success-message"
-										transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
-										class="rounded-md bg-success/10 p-3 text-sm text-success"
-									>
-										<T keyName={message} />
-									</div>
-								{/if}
-								<Field.Field>
-									<Field.Label for="email-{id}">
-										<T keyName="auth.signin.email_label" defaultValue="Email" />
-									</Field.Label>
-									<Input
-										id="email-{id}"
-										name="email"
-										data-testid="forgot-password-email-input"
-										type="email"
-										autocomplete="username"
-										placeholder="m@example.com"
-										disabled={isFormDisabled}
-										aria-invalid={hasEmailError ? 'true' : undefined}
-										aria-describedby={hasEmailError ? `email-${id}-error` : undefined}
-										bind:value={formData.email}
-										oninput={clearAnswer}
-									/>
-									<Field.Error
-										id="email-{id}-error"
-										data-testid="forgot-password-email-error"
-										errors={translateValidationErrors(errors.email, $t)}
-									/>
-								</Field.Field>
-								<Field.Field>
-									<Button
-										type="submit"
-										data-testid="forgot-password-submit-button"
-										class="w-full"
-										disabled={isFormDisabled}
-									>
-										{#if isLoading}
-											<T keyName="auth.forgot_password.button_loading" defaultValue="Sending..." />
-										{:else}
-											<T
-												keyName="auth.forgot_password.button_submit"
-												defaultValue="Send reset link"
-											/>
-										{/if}
-									</Button>
-								</Field.Field>
-								<Field.Description class="text-center">
-									<a
-										href={resolve(signInHref)}
-										data-testid="forgot-password-back-link"
-										class="underline underline-offset-4"
-									>
-										<T
-											keyName="auth.forgot_password.back_to_signin"
-											defaultValue="Back to sign in"
-										/>
-									</a>
-								</Field.Description>
-							</Field.Group>
+<AuthPanel legal>
+	<AuthGate>
+		<form onsubmit={handleSubmit} novalidate class="min-h-96">
+			<LoadingBar
+				value={progress}
+				mode={isLoading ? 'loading' : 'progress'}
+				showBackground={false}
+				variant="edge"
+			/>
+			<div class="p-6 md:p-8">
+				<Field.Group>
+					<div class="flex flex-col items-center gap-2 text-center">
+						<h1 class="text-2xl font-bold">
+							<T keyName="auth.forgot_password.title" defaultValue="Forgot password" />
+						</h1>
+						<!-- An instruction rather than a promise: this screen cannot know
+						     whether a mail will be sent, and the answer below says so. Once
+						     an answer exists, whether success or error, the instruction has
+						     been carried out and gives way to it. Field validation sets
+						     `errors.email` rather than `formError`, so an unsent form keeps
+						     its subtitle. -->
+						{#if !message && !formError}
+							<p
+								data-testid="forgot-password-description"
+								class="text-balance text-muted-foreground"
+							>
+								<T
+									keyName="auth.forgot_password.description"
+									defaultValue="Enter the email address for your account"
+								/>
+							</p>
+						{/if}
+					</div>
+					{#if formError}
+						<div
+							data-testid="forgot-password-form-error"
+							transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
+							class="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+						>
+							<T keyName={formError} />
 						</div>
-					</form>
-				</AuthGate>
-				<div class="relative hidden bg-muted md:block">
-					<img
-						src="/placeholder.svg"
-						alt=""
-						draggable="false"
-						class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-20 dark:grayscale"
-					/>
-				</div>
-			</Card.Content>
-		</Card.Root>
-		<Field.Description class="px-6 text-center text-balance">
-			<T keyName="auth.terms.agreement" defaultValue="By clicking continue, you agree to our" />
-			<a href={resolve(localizedHref('/terms'))} class="underline underline-offset-4"
-				><T keyName="auth.terms.terms_of_service" defaultValue="Terms of Service" /></a
-			>
-			<T keyName="auth.terms.and" defaultValue="and" />
-			<a href={resolve(localizedHref('/privacy'))} class="underline underline-offset-4"
-				><T keyName="auth.terms.privacy_policy" defaultValue="Privacy Policy" /></a
-			>.
-			<a href={resolve(localizedHref('/'))} class="underline underline-offset-4"
-				><T keyName="auth.back_to_home" defaultValue="Back to home" /></a
-			>
-		</Field.Description>
-	</div>
-</div>
+					{/if}
+					{#if message}
+						<div
+							data-testid="forgot-password-success-message"
+							transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
+							class="rounded-md bg-success/10 p-3 text-sm text-success"
+						>
+							<T keyName={message} />
+						</div>
+					{/if}
+					<Field.Field>
+						<Field.Label for="email-{id}">
+							<T keyName="auth.signin.email_label" defaultValue="Email" />
+						</Field.Label>
+						<Input
+							id="email-{id}"
+							name="email"
+							data-testid="forgot-password-email-input"
+							type="email"
+							autocomplete="username"
+							placeholder="m@example.com"
+							disabled={isFormDisabled}
+							aria-invalid={hasEmailError ? 'true' : undefined}
+							aria-describedby={hasEmailError ? `email-${id}-error` : undefined}
+							bind:value={formData.email}
+							oninput={clearAnswer}
+						/>
+						<Field.Error
+							id="email-{id}-error"
+							data-testid="forgot-password-email-error"
+							errors={translateValidationErrors(errors.email, $t)}
+						/>
+					</Field.Field>
+					<Field.Field>
+						<Button
+							type="submit"
+							data-testid="forgot-password-submit-button"
+							class="w-full"
+							disabled={isFormDisabled}
+						>
+							{#if isLoading}
+								<T keyName="auth.forgot_password.button_loading" defaultValue="Sending..." />
+							{:else}
+								<T keyName="auth.forgot_password.button_submit" defaultValue="Send reset link" />
+							{/if}
+						</Button>
+					</Field.Field>
+					<Field.Description class="text-center">
+						<a
+							href={resolve(signInHref)}
+							data-testid="forgot-password-back-link"
+							class="underline underline-offset-4"
+						>
+							<T keyName="auth.forgot_password.back_to_signin" defaultValue="Back to sign in" />
+						</a>
+					</Field.Description>
+				</Field.Group>
+			</div>
+		</form>
+	</AuthGate>
+</AuthPanel>

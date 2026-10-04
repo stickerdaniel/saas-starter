@@ -746,10 +746,7 @@
 		},
 		{
 			"id": "O48",
-			"files": [
-				"src/routes/[[lang]]/(auth)/signin/+page.svelte",
-				"src/routes/[[lang]]/(auth)/signup/+page.svelte"
-			],
+			"files": ["src/lib/components/auth/auth-panel.svelte"],
 			"components": {
 				"Card": ["overflow-hidden", "p-0", "auth-card-transition"]
 			}
