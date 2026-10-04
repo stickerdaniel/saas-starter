@@ -25,25 +25,21 @@
 					/>
 				</p>
 				<nav
-					class="flex flex-col items-end gap-0 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-1"
+					class="flex flex-col items-end gap-0 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-2"
 				>
 					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/impressum'))}>
 						<T keyName="footer.impressum" />
 					</Button>
-					<span class="hidden sm:inline" aria-hidden="true">&middot;</span>
 					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/terms'))}>
 						<T keyName="footer.terms" />
 					</Button>
-					<span class="hidden sm:inline" aria-hidden="true">&middot;</span>
 					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/privacy'))}>
 						<T keyName="footer.privacy" />
 					</Button>
-					<span class="hidden sm:inline" aria-hidden="true">&middot;</span>
 					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/licenses'))}>
 						<T keyName="footer.licenses" />
 					</Button>
 					{#if analyticsPreferences.state.enabled}
-						<span class="hidden sm:inline" aria-hidden="true">&middot;</span>
 						<Button variant="ghost-muted" size="footer" onclick={() => analyticsPreferences.open()}>
 							<T keyName="footer.privacy_settings" />
 						</Button>
