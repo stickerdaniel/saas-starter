@@ -115,7 +115,10 @@ describe('third-party licenses list', () => {
 		expect(download.getAttribute('aria-label')).toBe(
 			'Download notices for 1 matching entry as plain text'
 		);
-		download.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+		// The search results replace the published file, so the link must not download too.
+		const filtered = new MouseEvent('click', { bubbles: true, cancelable: true });
+		download.dispatchEvent(filtered);
+		expect(filtered.defaultPrevented).toBe(true);
 		expect(files).toHaveLength(1);
 		const text = await files[0]!.text();
 		expect(text).toContain('beta 1.0.0\nLicense: Apache-2.0');
@@ -124,7 +127,9 @@ describe('third-party licenses list', () => {
 		expect(text).not.toContain('gamma');
 
 		search('no such package');
-		download.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+		const empty = new MouseEvent('click', { bubbles: true, cancelable: true });
+		download.dispatchEvent(empty);
+		expect(empty.defaultPrevented).toBe(true);
 		expect(files).toHaveLength(1);
 		expect(download.getAttribute('aria-disabled')).toBe('true');
 	});
