@@ -1,8 +1,17 @@
 {
 	"extraPackages": [
-		{ "name": "tailwindcss", "components": ["styles"] },
-		{ "name": "tw-animate-css", "components": ["styles"] },
-		{ "name": "@tailwindcss/typography", "components": ["styles"] }
+		{
+			"name": "tailwindcss",
+			"components": ["styles"]
+		},
+		{
+			"name": "tw-animate-css",
+			"components": ["styles"]
+		},
+		{
+			"name": "@tailwindcss/typography",
+			"components": ["styles"]
+		}
 	],
 	"packageOverrides": [
 		{
@@ -20,8 +29,11 @@
 		{
 			"name": "motion-sv",
 			"version": "0.1.13",
-			"sourceUrl": "https://github.com/hanielu/motion-svelte/blob/motion-sv@0.1.13/LICENSE",
-			"noticeFiles": ["third-party-notices/motion-sv-0.1.13.txt"]
+			"sourceUrl": "https://github.com/hanielu/motion-svelte/tree/motion-sv@0.1.13",
+			"noticeFiles": [
+				"third-party-notices/motion-sv-0.1.13.txt",
+				"third-party-notices/motion-sv-0.1.13-NOTICE.txt"
+			]
 		},
 		{
 			"name": "runed",
@@ -38,20 +50,23 @@
 		{
 			"name": "svelte-toolbelt",
 			"version": "0.7.1",
-			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/blob/v0.7.1/LICENSE",
-			"license": "MIT"
+			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/tree/v0.7.1",
+			"license": "MIT",
+			"noticeFiles": ["third-party-notices/svelte-toolbelt-0.7.1-NOTICE.txt"]
 		},
 		{
 			"name": "svelte-toolbelt",
 			"version": "0.9.3",
-			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/blob/v0.9.3/LICENSE",
-			"license": "MIT"
+			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/tree/v0.9.3",
+			"license": "MIT",
+			"noticeFiles": ["third-party-notices/svelte-toolbelt-0.9.3-NOTICE.txt"]
 		},
 		{
 			"name": "svelte-toolbelt",
 			"version": "0.10.6",
-			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/blob/v0.10.6/LICENSE",
-			"license": "MIT"
+			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/tree/v0.10.6",
+			"license": "MIT",
+			"noticeFiles": ["third-party-notices/svelte-toolbelt-0.10.6-NOTICE.txt"]
 		}
 	],
 	"customNotices": [
