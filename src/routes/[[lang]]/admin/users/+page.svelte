@@ -1,12 +1,7 @@
 <script lang="ts">
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
-	import { clamp } from '$lib/utils/math';
-	import {
-		type RowSelectionState,
-		type SortingState,
-		type ColumnVisibilityState
-	} from '@tanstack/table-core';
+	import { type SortingState, type ColumnVisibilityState } from '@tanstack/table-core';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
@@ -28,8 +23,10 @@
 	import type { PageData } from './$types';
 	import { type UserRole, type AdminUserData } from '$lib/convex/admin/types';
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
+	import { createRowSelection } from '$lib/components/ui/data-table/row-selection.svelte.ts';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
+	import { createCountPrediction } from '$lib/tables/convex/count-prediction.svelte.ts';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
 	import { createColumns } from './columns.js';
 	import DataTableFilters from './data-table-filters.svelte';
@@ -201,8 +198,10 @@
 	const isLoading = $derived(usersTable.isLoading);
 	const loadError = $derived(usersTable.error);
 
+	const countPrediction = createCountPrediction({ table: usersTable, cache: adminCache.userCount });
+
 	// TanStack Table state (only client-side concerns remain)
-	let rowSelection = $state<RowSelectionState>({});
+	const rowSelection = createRowSelection(() => usersTable.rows.map((row) => row.id));
 	let columnVisibility = $state<ColumnVisibilityState>({});
 
 	// Dialog state
@@ -216,22 +215,6 @@
 
 	// Provide context for action component (currentUserId is set by admin layout)
 	setUserActionHandler(handleUserAction);
-
-	// Calculate skeleton rows: min(knownCount - offset, pageSize) or pageSize if unknown
-	const skeletonCount = $derived.by(() => {
-		if (adminCache.userCount.current !== null) {
-			const remaining = adminCache.userCount.current - pageIndex * pageSize;
-			return clamp(remaining, 0, pageSize);
-		}
-		return pageSize;
-	});
-
-	// Update user count cache when count data loads
-	$effect(() => {
-		if (usersTable.hasLoadedCount) {
-			adminCache.userCount.current = usersTable.totalCount;
-		}
-	});
 
 	// Filter change handler (called from DataTableFilters)
 	function handleFilterChange(filters: {
@@ -266,7 +249,7 @@
 				return columnVisibility;
 			},
 			get rowSelection() {
-				return rowSelection;
+				return rowSelection.state;
 			}
 		},
 		manualPagination: true,
@@ -301,13 +284,7 @@
 				columnVisibility = updater;
 			}
 		},
-		onRowSelectionChange: (updater) => {
-			if (typeof updater === 'function') {
-				rowSelection = updater(rowSelection);
-			} else {
-				rowSelection = updater;
-			}
-		}
+		onRowSelectionChange: rowSelection.onChange
 	});
 
 	// Action handlers
@@ -500,10 +477,8 @@
 			onLastPage={usersTable.goLast}
 			onPageSizeChange={usersTable.setPageSize}
 			selectionText={$t('admin.users.selected', {
-				selected: Object.keys(rowSelection).length,
-				total: usersTable.hasLoadedCount
-					? usersTable.totalCount
-					: (adminCache.userCount.current ?? 0)
+				selected: rowSelection.count,
+				total: countPrediction.total
 			})}
 		>
 			{#snippet toolbarFilters()}
@@ -536,13 +511,13 @@
 						{/each}
 					</Table.Header>
 					<Table.Body>
-						{#if isLoading && skeletonCount > 0}
+						{#if isLoading && countPrediction.skeletonRows > 0}
 							<Table.Row data-testid="admin-users-loading" class="hidden">
 								<Table.Cell colspan={columns.length}>
 									<T keyName="admin.users.loading" />
 								</Table.Cell>
 							</Table.Row>
-							{#each Array(skeletonCount) as _, i (i)}
+							{#each Array(countPrediction.skeletonRows) as _, i (i)}
 								<Table.Row>
 									<Table.Cell class="[&:has([role=checkbox])]:ps-3">
 										<div class="flex items-center justify-center">
@@ -592,7 +567,7 @@
 									<span class="text-destructive"><T keyName="common.load_error" /></span>
 								</Table.Cell>
 							</Table.Row>
-						{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
+						{:else if table.getRowModel().rows.length === 0 || (isLoading && countPrediction.skeletonRows === 0)}
 							<Table.Row variant="inert">
 								<Table.Cell
 									colspan={columns.length}

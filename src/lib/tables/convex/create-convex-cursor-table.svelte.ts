@@ -25,6 +25,8 @@ export type ConvexCursorTableState<TItem, TSortField extends string, TFilterKeys
 	readonly error: Error | undefined;
 	readonly totalCount: number;
 	readonly hasLoadedCount: boolean;
+	/** Debounced search is empty and every filter has its default; sort and page size never change a count. */
+	readonly isUnfiltered: boolean;
 	readonly pageCount: number;
 	readonly pageIndex: number;
 	readonly pageSize: number;
@@ -284,6 +286,12 @@ export function createConvexCursorTable<
 		}
 		return next;
 	});
+	const isUnfiltered = $derived(
+		!debouncedSearch.current &&
+			(Object.keys(options.defaultFilters) as TFilterKeys[]).every(
+				(key) => filters[key] === options.defaultFilters[key]
+			)
+	);
 
 	let pageCursors = $state<Array<string | null>>([null]);
 	let pageCache = $state<Record<number, CursorListResult<TItem>>>({});
@@ -695,6 +703,9 @@ export function createConvexCursorTable<
 		},
 		get hasLoadedCount() {
 			return hasLoadedCount;
+		},
+		get isUnfiltered() {
+			return isUnfiltered;
 		},
 		get pageCount() {
 			return pageCount;
