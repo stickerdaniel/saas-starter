@@ -40,32 +40,23 @@
 	}: Props = $props();
 </script>
 
-{#snippet content()}
-	<Card.Content class="grid p-0 md:grid-cols-2">
-		{@render children()}
-		<div class="relative hidden bg-muted md:block">
-			<img
-				src="/placeholder.svg"
-				alt=""
-				draggable="false"
-				class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-20 dark:grayscale"
-			/>
-		</div>
-	</Card.Content>
-{/snippet}
-
 <div class="flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
-		<!-- Two static branches, because the class list of a design-system component must be literal. -->
-		{#if transition}
-			<Card.Root class="overflow-hidden p-0 auth-card-transition">
-				{@render content()}
-			</Card.Root>
-		{:else}
-			<Card.Root class="overflow-hidden p-0">
-				{@render content()}
-			</Card.Root>
-		{/if}
+		<Card.Root
+			class={transition ? 'overflow-hidden p-0 auth-card-transition' : 'overflow-hidden p-0'}
+		>
+			<Card.Content class="grid p-0 md:grid-cols-2">
+				{@render children()}
+				<div class="relative hidden bg-muted md:block">
+					<img
+						src="/placeholder.svg"
+						alt=""
+						draggable="false"
+						class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-20 dark:grayscale"
+					/>
+				</div>
+			</Card.Content>
+		</Card.Root>
 		{#if legal}
 			<Field.Description class="px-6 text-center text-balance">
 				<T keyName="auth.terms.agreement" defaultValue="By clicking continue, you agree to our" />
