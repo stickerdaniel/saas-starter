@@ -30,10 +30,8 @@
 			"name": "motion-sv",
 			"version": "0.1.13",
 			"sourceUrl": "https://github.com/hanielu/motion-svelte/tree/motion-sv@0.1.13",
-			"noticeFiles": [
-				"third-party-notices/motion-sv-0.1.13.txt",
-				"third-party-notices/motion-sv-0.1.13-NOTICE.txt"
-			]
+			"noticeFiles": ["third-party-notices/motion-sv-0.1.13.txt"],
+			"supplementalNoticeFiles": ["third-party-notices/motion-sv-0.1.13-NOTICE.txt"]
 		},
 		{
 			"name": "runed",
@@ -52,21 +50,21 @@
 			"version": "0.7.1",
 			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/tree/v0.7.1",
 			"license": "MIT",
-			"noticeFiles": ["third-party-notices/svelte-toolbelt-0.7.1-NOTICE.txt"]
+			"supplementalNoticeFiles": ["third-party-notices/svelte-toolbelt-0.7.1-NOTICE.txt"]
 		},
 		{
 			"name": "svelte-toolbelt",
 			"version": "0.9.3",
 			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/tree/v0.9.3",
 			"license": "MIT",
-			"noticeFiles": ["third-party-notices/svelte-toolbelt-0.9.3-NOTICE.txt"]
+			"supplementalNoticeFiles": ["third-party-notices/svelte-toolbelt-0.9.3-NOTICE.txt"]
 		},
 		{
 			"name": "svelte-toolbelt",
 			"version": "0.10.6",
 			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/tree/v0.10.6",
 			"license": "MIT",
-			"noticeFiles": ["third-party-notices/svelte-toolbelt-0.10.6-NOTICE.txt"]
+			"supplementalNoticeFiles": ["third-party-notices/svelte-toolbelt-0.10.6-NOTICE.txt"]
 		}
 	],
 	"customNotices": [

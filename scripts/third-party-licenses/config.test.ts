@@ -50,7 +50,9 @@ describe('third-party license configuration', () => {
 	it('rejects an override without a correction or notice source', () => {
 		expect(
 			parse({ packageOverrides: [{ name: 'a', version: '1.0.0', sourceUrl: source }] })
-		).toThrow('needs a license correction, noticeFiles, or generatedNotices');
+		).toThrow(
+			'needs a license correction, noticeFiles, generatedNotices, or supplementalNoticeFiles'
+		);
 	});
 
 	it('requires copyright lines for licenses whose template has a placeholder', () => {

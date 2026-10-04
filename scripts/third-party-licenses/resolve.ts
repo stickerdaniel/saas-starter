@@ -232,26 +232,52 @@ function compare(a: string, b: string): number {
 	return a < b ? -1 : a > b ? 1 : 0;
 }
 
+/**
+ * Read a configured notice file. The lexical check in the config parser cannot
+ * see links, so the real target must also stay inside the real project root:
+ * otherwise a linked file could publish unrelated local text.
+ */
+function readConfiguredNotice(root: string, file: string): string | { error: string } {
+	const absolute = path.resolve(root, file);
+	if (!isFile(absolute)) return { error: 'is missing or empty' };
+	const relative = path.relative(realpathSync(root), realpathSync(absolute));
+	if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+		return { error: 'resolves outside the repository through a link' };
+	}
+	return readNotice(absolute) ?? { error: 'is missing or empty' };
+}
+
 function overrideNotices(
 	override: {
 		sourceUrl: string;
 		noticeFiles?: string[];
 		generatedNotices?: PackageOverride['generatedNotices'];
+		supplementalNoticeFiles?: string[];
 	},
 	root: string,
 	owner: string,
 	errors: string[]
 ): Notice[] {
 	const notices: Notice[] = [];
-	const files = override.noticeFiles ?? [];
-	for (const file of files) {
-		const absolute = path.resolve(root, file);
-		const text = isFile(absolute) ? readNotice(absolute) : null;
-		if (!text) {
-			errors.push(`${owner}\n  noticeFiles entry "${file}" is missing or empty.`);
+	const files = [
+		...(override.noticeFiles ?? []).map((file) => ({
+			field: 'noticeFiles',
+			file,
+			rank: RANK_OVERRIDE_FILE
+		})),
+		...(override.supplementalNoticeFiles ?? []).map((file) => ({
+			field: 'supplementalNoticeFiles',
+			file,
+			rank: RANK_SUPPLEMENTAL
+		}))
+	];
+	for (const { field, file, rank } of files) {
+		const text = readConfiguredNotice(root, file);
+		if (typeof text !== 'string') {
+			errors.push(`${owner}\n  ${field} entry "${file}" ${text.error}.`);
 			continue;
 		}
-		notices.push({ label: path.basename(file), text, rank: RANK_OVERRIDE_FILE });
+		notices.push({ label: path.basename(file), text, rank });
 	}
 	for (const generated of override.generatedNotices ?? []) {
 		notices.push({

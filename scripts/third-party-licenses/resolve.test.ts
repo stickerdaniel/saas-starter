@@ -145,6 +145,80 @@ describe('notice resolution', () => {
 		expect(errors.join('\n')).toContain('partial@2.0.0 [client]\n  Missing: license text');
 	});
 
+	it('does not accept supplemental override files as the primary text', () => {
+		const pkg = installPackage('node_modules/borrowed', {
+			name: 'borrowed',
+			version: '0.10.6',
+			license: 'MIT'
+		});
+		write(
+			'third-party-notices/borrowed-0.10.6-NOTICE.txt',
+			'Contains code from Example (Apache-2.0)'
+		);
+		const { errors, entries } = resolve([client(path.join(pkg, 'index.js'))], {
+			packageOverrides: [
+				{
+					name: 'borrowed',
+					version: '0.10.6',
+					sourceUrl: 'https://example.com/borrowed/tree/v0.10.6',
+					supplementalNoticeFiles: ['third-party-notices/borrowed-0.10.6-NOTICE.txt']
+				}
+			]
+		});
+		expect(errors.join('\n')).toContain('borrowed@0.10.6 [client]\n  Missing: license text');
+		expect(entries).toEqual([]);
+	});
+
+	it('refuses notice files whose real location is outside the repository', () => {
+		const outside = mkdtempSync(path.join(tmpdir(), 'third-party-outside-'));
+		try {
+			writeFileSync(path.join(outside, 'linked.txt'), 'outside sentinel');
+			// A directory junction also works on Windows without symlink privileges.
+			symlinkSync(outside, path.join(root, 'linked-notices'), 'junction');
+			write('third-party-notices/inside.txt', 'inside license text');
+			symlinkSync(
+				path.join(root, 'third-party-notices'),
+				path.join(root, 'inside-link'),
+				'junction'
+			);
+			const pkg = installPackage('node_modules/linked', {
+				name: 'linked',
+				version: '1.0.0',
+				license: 'MIT'
+			});
+			const override = (file: string) => ({
+				packageOverrides: [
+					{
+						name: 'linked',
+						version: '1.0.0',
+						sourceUrl: 'https://example.com/linked/v1.0.0/LICENSE',
+						noticeFiles: [file]
+					}
+				]
+			});
+
+			const outsideResult = resolve(
+				[client(path.join(pkg, 'index.js'))],
+				override('linked-notices/linked.txt')
+			);
+			expect(outsideResult.errors.join('\n')).toContain(
+				'noticeFiles entry "linked-notices/linked.txt" resolves outside the repository through a link'
+			);
+			expect(JSON.stringify(outsideResult.entries)).not.toContain('outside sentinel');
+
+			const insideResult = resolve(
+				[client(path.join(pkg, 'index.js'))],
+				override('inside-link/inside.txt')
+			);
+			expect(insideResult.errors).toEqual([]);
+			expect(insideResult.entries[0]?.notices).toEqual([
+				{ label: 'inside.txt', text: 'inside license text' }
+			]);
+		} finally {
+			rmSync(outside, { recursive: true, force: true });
+		}
+	});
+
 	it('keeps vendor notices next to reviewed override text', () => {
 		const pkg = installPackage(
 			'node_modules/noticed',

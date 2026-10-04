@@ -26,15 +26,24 @@ const packageOverrideSchema = v.pipe(
 		sourceUrl: httpUrl,
 		license: v.optional(text),
 		noticeFiles: v.optional(noticeFiles),
-		generatedNotices: v.optional(generatedNotices)
+		generatedNotices: v.optional(generatedNotices),
+		// Attribution files such as an upstream NOTICE. Kept in the row, but never
+		// accepted as the package's license text.
+		supplementalNoticeFiles: v.optional(noticeFiles)
 	}),
 	v.check(
 		(override) => !(override.noticeFiles && override.generatedNotices),
 		'Use either noticeFiles or generatedNotices in one override, not both.'
 	),
 	v.check(
-		(override) => !!(override.license || override.noticeFiles || override.generatedNotices),
-		'An override needs a license correction, noticeFiles, or generatedNotices.'
+		(override) =>
+			!!(
+				override.license ||
+				override.noticeFiles ||
+				override.generatedNotices ||
+				override.supplementalNoticeFiles
+			),
+		'An override needs a license correction, noticeFiles, generatedNotices, or supplementalNoticeFiles.'
 	)
 );
 
@@ -117,11 +126,15 @@ export function parseThirdPartyLicensesConfig(
 		}))
 	];
 	for (const { label, entry } of evidence) {
-		for (const file of entry.noticeFiles ?? []) {
+		const files = [
+			...(entry.noticeFiles ?? []).map((file) => ({ field: 'noticeFiles', file })),
+			...('supplementalNoticeFiles' in entry ? (entry.supplementalNoticeFiles ?? []) : []).map(
+				(file) => ({ field: 'supplementalNoticeFiles', file })
+			)
+		];
+		for (const { field, file } of files) {
 			if (path.isAbsolute(file) || !isInside(root, file)) {
-				problems.push(
-					`${label}: noticeFiles entry "${file}" must be a path inside the repository.`
-				);
+				problems.push(`${label}: ${field} entry "${file}" must be a path inside the repository.`);
 			}
 		}
 		for (const notice of entry.generatedNotices ?? []) {
