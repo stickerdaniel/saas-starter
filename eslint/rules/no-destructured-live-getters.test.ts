@@ -53,5 +53,7 @@ describe('no-destructured-live-getters', () => {
 	it('leaves other hooks and member calls alone', () => {
 		expect(lint(`const { isAuthenticated } = useSession();`)).toHaveLength(0);
 		expect(lint(`const { isAuthenticated } = auth.useAuth();`)).toHaveLength(0);
+		expect(lint(`const { customer } = constructor();`)).toHaveLength(0);
+		expect(lint(`const { isLoading } = toString();`)).toHaveLength(0);
 	});
 });

@@ -50,7 +50,7 @@ export default {
 					node.id.type !== 'ObjectPattern' ||
 					init?.type !== 'CallExpression' ||
 					init.callee.type !== 'Identifier' ||
-					!(init.callee.name in LIVE_GETTERS)
+					!Object.hasOwn(LIVE_GETTERS, init.callee.name)
 				) {
 					return;
 				}
