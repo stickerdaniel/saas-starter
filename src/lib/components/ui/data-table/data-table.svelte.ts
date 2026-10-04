@@ -12,15 +12,23 @@ import {
 } from '@tanstack/table-core';
 import { createTable, renderComponent } from '@tanstack/svelte-table';
 import TruncatedText from '$lib/components/truncated-text.svelte';
+import type { DataTableSkeleton } from '$lib/components/tables/skeleton.ts';
+
+export type DataTableColumnMeta = {
+	/** Placeholder `DataTableView` renders for this column while the table loads. */
+	skeleton?: DataTableSkeleton;
+};
 
 // Row processing remains in Convex; these features expose the existing table controls.
+// `columnMeta` is a type-only slot that types `columnDef.meta` for these tables.
 export const dataTableFeatures = tableFeatures({
 	columnFilteringFeature,
 	columnSizingFeature,
 	columnVisibilityFeature,
 	rowPaginationFeature,
 	rowSelectionFeature,
-	rowSortingFeature
+	rowSortingFeature,
+	columnMeta: {} as DataTableColumnMeta
 });
 
 export type DataTableFeatures = typeof dataTableFeatures;

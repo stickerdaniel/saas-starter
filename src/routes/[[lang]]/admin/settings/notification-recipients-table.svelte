@@ -2,11 +2,7 @@
 	import * as v from 'valibot';
 	import { type SortingState } from '@tanstack/table-core';
 	import { SvelteMap } from 'svelte/reactivity';
-	import * as Table from '$lib/components/ui/table/index.js';
-	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
-	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-
-	import { getTranslate, T } from '@tolgee/svelte';
+	import { getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import {
@@ -15,9 +11,10 @@
 		setRowSelectionContext,
 		setRecipientsContext
 	} from './recipients-context';
-	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
+	import { createSvelteTable } from '$lib/components/ui/data-table/index.js';
 	import { createRowSelection } from '$lib/components/ui/data-table/row-selection.svelte.ts';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
+	import DataTableView from '$lib/components/tables/data-table-view.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
 	import { createCountPrediction } from '$lib/tables/convex/count-prediction.svelte.ts';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
@@ -269,92 +266,16 @@
 		{/snippet}
 
 		{#snippet tableContent()}
-			<Table.Root class="table-fixed">
-				<Table.Header sticky>
-					{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-						<Table.Row variant="header">
-							{#each headerGroup.headers as header (header.id)}
-								<Table.Head
-									class="w-(--column-width) min-w-(--column-min-width) [&:has([role=checkbox])]:ps-3"
-									style="--column-width: {header.getSize()}px; --column-min-width: {header.column
-										.columnDef.minSize}px;"
-								>
-									{#if !header.isPlaceholder}
-										<FlexRender {header} />
-									{/if}
-								</Table.Head>
-							{/each}
-						</Table.Row>
-					{/each}
-				</Table.Header>
-				<Table.Body>
-					{#if isLoading && countPrediction.skeletonRows > 0}
-						{#each Array(countPrediction.skeletonRows) as _, i (i)}
-							<Table.Row data-testid="recipients-loading">
-								<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-									<div class="flex items-center justify-center">
-										<Checkbox disabled aria-label={$t('aria.loading')} />
-									</div>
-								</Table.Cell>
-								<Table.Cell>
-									<Skeleton class="h-4 w-40" />
-								</Table.Cell>
-								<Table.Cell>
-									<span class="text-muted-foreground/50">-</span>
-								</Table.Cell>
-								<Table.Cell>
-									<Skeleton class="h-5 w-14 rounded-4xl" />
-								</Table.Cell>
-								<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-									<div class="flex items-center justify-center">
-										<Checkbox disabled aria-label={$t('aria.loading')} />
-									</div>
-								</Table.Cell>
-								<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-									<div class="flex items-center justify-center">
-										<Checkbox disabled aria-label={$t('aria.loading')} />
-									</div>
-								</Table.Cell>
-								<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-									<div class="flex items-center justify-center">
-										<Checkbox disabled aria-label={$t('aria.loading')} />
-									</div>
-								</Table.Cell>
-								<Table.Cell>
-									<div class="h-8 w-8" aria-hidden="true"></div>
-								</Table.Cell>
-							</Table.Row>
-						{/each}
-					{:else if loadError}
-						<Table.Row data-testid="recipients-error">
-							<Table.Cell colspan={columns.length} class="h-24 text-center">
-								<span class="text-destructive"><T keyName="common.load_error" /></span>
-							</Table.Cell>
-						</Table.Row>
-					{:else if table.getRowModel().rows.length === 0 || (isLoading && countPrediction.skeletonRows === 0)}
-						<Table.Row data-testid="recipients-empty">
-							<Table.Cell colspan={columns.length} class="h-24 text-center">
-								<span class="text-muted-foreground"
-									><T keyName="admin.settings.no_recipients" /></span
-								>
-							</Table.Cell>
-						</Table.Row>
-					{:else}
-						{#each table.getRowModel().rows as row (row.id)}
-							<Table.Row
-								data-state={row.getIsSelected() && 'selected'}
-								data-testid="recipient-row-{row.id}"
-							>
-								{#each row.getVisibleCells() as cell (cell.id)}
-									<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-										<FlexRender {cell} />
-									</Table.Cell>
-								{/each}
-							</Table.Row>
-						{/each}
-					{/if}
-				</Table.Body>
-			</Table.Root>
+			<DataTableView
+				{table}
+				loading={isLoading}
+				error={loadError}
+				skeletonRows={countPrediction.skeletonRows}
+				emptyText={$t('admin.settings.no_recipients')}
+				loadingText={$t('aria.loading')}
+				testIdPrefix="recipients"
+				rowTestId={(row) => `recipient-row-${row.id}`}
+			/>
 		{/snippet}
 	</ConvexCursorTableShell>{/if}
 

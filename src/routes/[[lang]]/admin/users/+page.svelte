@@ -1,15 +1,11 @@
 <script lang="ts">
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
-	import { type SortingState, type ColumnVisibilityState } from '@tanstack/table-core';
-	import * as Table from '$lib/components/ui/table/index.js';
+	import { type SortingState } from '@tanstack/table-core';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
-	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import DotsVerticalIcon from '@lucide/svelte/icons/ellipsis-vertical';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -22,9 +18,10 @@
 	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
 	import type { PageData } from './$types';
 	import { type UserRole, type AdminUserData } from '$lib/convex/admin/types';
-	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
+	import { createSvelteTable } from '$lib/components/ui/data-table/index.js';
 	import { createRowSelection } from '$lib/components/ui/data-table/row-selection.svelte.ts';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
+	import DataTableView from '$lib/components/tables/data-table-view.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
 	import { createCountPrediction } from '$lib/tables/convex/count-prediction.svelte.ts';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
@@ -202,7 +199,6 @@
 
 	// TanStack Table state (only client-side concerns remain)
 	const rowSelection = createRowSelection(() => usersTable.rows.map((row) => row.id));
-	let columnVisibility = $state<ColumnVisibilityState>({});
 
 	// Dialog state
 	let selectedUser = $state<AdminUserData | null>(null);
@@ -245,9 +241,6 @@
 			get sorting() {
 				return sorting;
 			},
-			get columnVisibility() {
-				return columnVisibility;
-			},
 			get rowSelection() {
 				return rowSelection.state;
 			}
@@ -276,13 +269,6 @@
 				field,
 				direction: primarySort.desc ? 'desc' : 'asc'
 			});
-		},
-		onColumnVisibilityChange: (updater) => {
-			if (typeof updater === 'function') {
-				columnVisibility = updater(columnVisibility);
-			} else {
-				columnVisibility = updater;
-			}
 		},
 		onRowSelectionChange: rowSelection.onChange
 	});
@@ -492,104 +478,15 @@
 			{/snippet}
 
 			{#snippet tableContent()}
-				<Table.Root class="table-fixed">
-					<Table.Header sticky>
-						{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-							<Table.Row variant="header">
-								{#each headerGroup.headers as header (header.id)}
-									<Table.Head
-										class="w-(--column-width) min-w-(--column-min-width) [&:has([role=checkbox])]:ps-3"
-										style="--column-width: {header.getSize()}px; --column-min-width: {header.column
-											.columnDef.minSize}px;"
-									>
-										{#if !header.isPlaceholder}
-											<FlexRender {header} />
-										{/if}
-									</Table.Head>
-								{/each}
-							</Table.Row>
-						{/each}
-					</Table.Header>
-					<Table.Body>
-						{#if isLoading && countPrediction.skeletonRows > 0}
-							<Table.Row data-testid="admin-users-loading" class="hidden">
-								<Table.Cell colspan={columns.length}>
-									<T keyName="admin.users.loading" />
-								</Table.Cell>
-							</Table.Row>
-							{#each Array(countPrediction.skeletonRows) as _, i (i)}
-								<Table.Row>
-									<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-										<div class="flex items-center justify-center">
-											<Checkbox disabled aria-label={$t('admin.users.select_row')} />
-										</div>
-									</Table.Cell>
-									<Table.Cell>
-										<div class="flex items-center gap-2">
-											<Skeleton class="size-8 rounded-full" />
-											<span class="font-medium">
-												<Skeleton class="h-4 w-20" />
-											</span>
-										</div>
-									</Table.Cell>
-									<Table.Cell>
-										<Skeleton class="h-4 w-48" />
-									</Table.Cell>
-									<Table.Cell>
-										<Skeleton class="h-5 w-12 rounded-4xl" />
-									</Table.Cell>
-									<Table.Cell>
-										<Skeleton class="h-5 w-16.25 rounded-4xl" />
-									</Table.Cell>
-									<Table.Cell>
-										<div class="flex items-center gap-1">
-											<Skeleton class="size-5" />
-										</div>
-									</Table.Cell>
-									<Table.Cell>
-										<Skeleton class="h-4 w-20" />
-									</Table.Cell>
-									<Table.Cell>
-										<Button variant="ghost" size="icon" disabled>
-											<DotsVerticalIcon class="size-4" />
-											<span class="sr-only"><T keyName="admin.users.menu_open" /></span>
-										</Button>
-									</Table.Cell>
-								</Table.Row>
-							{/each}
-						{:else if loadError}
-							<Table.Row variant="inert">
-								<Table.Cell
-									colspan={columns.length}
-									class="h-24 text-center"
-									data-testid="admin-users-error"
-								>
-									<span class="text-destructive"><T keyName="common.load_error" /></span>
-								</Table.Cell>
-							</Table.Row>
-						{:else if table.getRowModel().rows.length === 0 || (isLoading && countPrediction.skeletonRows === 0)}
-							<Table.Row variant="inert">
-								<Table.Cell
-									colspan={columns.length}
-									class="h-24 text-center"
-									data-testid="admin-users-empty"
-								>
-									<span class="text-muted-foreground"><T keyName="admin.users.no_results" /></span>
-								</Table.Cell>
-							</Table.Row>
-						{:else}
-							{#each table.getRowModel().rows as row (row.id)}
-								<Table.Row data-state={row.getIsSelected() && 'selected'}>
-									{#each row.getVisibleCells() as cell (cell.id)}
-										<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-											<FlexRender {cell} />
-										</Table.Cell>
-									{/each}
-								</Table.Row>
-							{/each}
-						{/if}
-					</Table.Body>
-				</Table.Root>
+				<DataTableView
+					{table}
+					loading={isLoading}
+					error={loadError}
+					skeletonRows={countPrediction.skeletonRows}
+					emptyText={$t('admin.users.no_results')}
+					loadingText={$t('admin.users.loading')}
+					testIdPrefix="admin-users"
+				/>
 			{/snippet}
 		</ConvexCursorTableShell>{/if}
 </div>
