@@ -108,6 +108,19 @@ it('drops the marker and skeletons once rows arrive', () => {
 	expect(byTestId('item-a')[0]!.textContent).toContain('Ada');
 });
 
+it('announces the wait in a status region that outlives it', () => {
+	render({ loading: true, skeletonRows: 2 });
+	const status = document.querySelector('[role="status"]');
+	expect(status?.textContent).toBe('Loading rows');
+
+	props.loading = false;
+	props.data = items;
+	flushSync();
+
+	expect(document.querySelector('[role="status"]')).toBe(status);
+	expect(status?.textContent).toBe('');
+});
+
 it('marks selected rows', () => {
 	render({ data: items });
 	harness!.select('b');

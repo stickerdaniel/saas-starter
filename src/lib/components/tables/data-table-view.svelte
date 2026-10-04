@@ -38,6 +38,11 @@
 	const skeletonRowIndexes = $derived(Array.from({ length: skeletonRows }, (_, index) => index));
 </script>
 
+<!-- The skeleton rows are hidden from assistive technology, so the waiting state is
+     announced here. The region stays mounted: a status that appears already holding
+     its text is not reliably read out. -->
+<div role="status" class="sr-only">{loading && skeletonRows > 0 ? loadingText : ''}</div>
+
 <Table.Root class="table-fixed">
 	<Table.Header sticky>
 		{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
