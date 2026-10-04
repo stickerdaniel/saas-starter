@@ -25,6 +25,14 @@
 		{
 			"source": "/logo-email.png",
 			"headers": [{ "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" }]
+		},
+		{
+			"source": "/third-party-licenses.json",
+			"headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+		},
+		{
+			"source": "/third-party-licenses.txt",
+			"headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
 		}
 	]
 }

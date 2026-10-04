@@ -1,19 +1,15 @@
 <!--
-  Rive Animation Attribution (CC BY 4.0)
+  Rive animation attribution (CC BY 4.0)
 
-  Animation: [ANIMATION_NAME]
-  Creator: [CREATOR_NAME]
+  Animation: "Spring Demo"
+  Creator: JcToon
   License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
-  Source: [RIVE_COMMUNITY_URL]
-  Modifications: [NONE/DESCRIBE_MODIFICATIONS]
+  Source: https://rive.app/marketplace/3293-6929-spring-demo/
+  Modifications: none
 
-  You are free to:
-  - Share and use commercially
-  - Adapt and modify
-
-  Under the terms:
-  - Attribution required (provide creator credit, license link, and indicate changes)
-  - No additional restrictions
+  The tooltip names the work, author, and license; the public licenses page
+  (third-party-licenses.config.json, entry "rive-spring-demo") carries the
+  complete attribution with the license text.
 -->
 
 <script lang="ts">
@@ -24,6 +20,7 @@
 	import { TAILWIND_BREAKPOINTS, useMedia } from '$lib/hooks/use-media.svelte.ts';
 	import { Spotlight } from '$lib/components/ui/spotlight/index.js';
 	import type { Component } from 'svelte';
+	import { T } from '@tolgee/svelte';
 
 	interface RiveBackgroundProps {
 		src: string;
@@ -201,7 +198,7 @@
 	{#if shouldRender && FollowingPointerComponent}
 		<FollowingPointerComponent class="h-full w-full">
 			{#snippet title()}
-				<p class="text-xs">Rive animation by JcToon</p>
+				<p class="text-xs"><T keyName="hero.rive_attribution" /></p>
 			{/snippet}
 
 			<div class="h-full w-full opacity-(--rive-opacity)" style:--rive-opacity={opacity}>

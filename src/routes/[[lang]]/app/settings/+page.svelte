@@ -7,6 +7,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { localizedHref } from '$lib/utils/i18n';
 	import * as v from 'valibot';
 	import AccountSettings from './account-settings.svelte';
 	import PasswordSettings from './password-settings.svelte';
@@ -117,5 +118,14 @@
 				<SecuritySettings {user} />
 			</Tabs.Content>
 		</Tabs.Root>
+
+		<p class="text-sm text-muted-foreground">
+			<a
+				href={resolve(localizedHref('/licenses'))}
+				class="underline underline-offset-4 hover:text-foreground"
+			>
+				<T keyName="settings.licenses_link" />
+			</a>
+		</p>
 	</div>
 </div>

@@ -758,6 +758,7 @@
 	"footer": {
 		"copyright": "© {year} {brand}",
 		"impressum": "Impressum",
+		"licenses": "Lizenzen",
 		"privacy": "Datenschutz",
 		"privacy_settings": "Datenschutzeinstellungen",
 		"terms": "Nutzungsbedingungen"
@@ -768,6 +769,7 @@
 		"cta_demo": "Demo anfordern",
 		"description": "Erwecke dein SaaS zum Leben in Minuten, nicht in Monaten. Open-Source Template mit einem Tech-Stack, der dich schnell shippen lässt.",
 		"logo_alt": "{name}-Logo",
+		"rive_attribution": "„Spring Demo“ von JcToon · CC BY 4.0",
 		"tagline": "Mit Produktfokus\nschneller zum Ziel"
 	},
 	"integrations": {
@@ -899,6 +901,10 @@
 		"impressum": {
 			"description": "Anbieterkennzeichnung und Kontaktdaten.",
 			"title": "Impressum"
+		},
+		"licenses": {
+			"description": "Lizenzen und Hinweise zu der Software und den Inhalten von Drittanbietern, die diese Anwendung an Browser ausliefert.",
+			"title": "Drittanbieter-Lizenzen"
 		},
 		"pricing": {
 			"description": "Wähl einen Plan und teste den integrierten Abrechnungsablauf.",
@@ -1047,6 +1053,7 @@
 			"verification_required_title": "Verifizierung erforderlich",
 			"verified_badge": "Verifiziert"
 		},
+		"licenses_link": "Drittanbieter-Lizenzen",
 		"password": {
 			"confirm_password_label": "Neues Passwort bestätigen",
 			"current_password_label": "Aktuelles Passwort",
@@ -1265,5 +1272,27 @@
 			"required": "Gib dein Passwort ein.",
 			"uppercase": "Passwort muss mindestens einen Großbuchstaben enthalten."
 		}
+	},
+	"licenses": {
+		"components": {
+			"assets": "Assets",
+			"client": "Browser-App",
+			"client_worker": "Browser-Worker",
+			"fonts": "Schriftarten",
+			"styles": "Styles"
+		},
+		"error": "Die Lizenzhinweise konnten nicht geladen werden.",
+		"intro": "Diese Anwendung enthält Open-Source-Software und Inhalte von Drittanbietern. Deren Lizenzen und Hinweise sind unten aufgeführt. Die Lizenztexte werden im englischen Original angezeigt.",
+		"loading": "Lizenzhinweise werden geladen…",
+		"results": "{count, plural, =0 {Keine passenden Einträge} one {# Eintrag} other {# Einträge}}",
+		"retry": "Erneut versuchen",
+		"search": {
+			"label": "Lizenzen durchsuchen",
+			"placeholder": "Paket, Version oder Lizenz"
+		},
+		"source": "Quelle",
+		"text_link": "Alle Hinweise als Textdatei herunterladen",
+		"title": "Drittanbieter-Lizenzen",
+		"unavailable": "Lizenzhinweise werden bei Produktions-Builds erzeugt und stehen in der Entwicklungsumgebung nicht zur Verfügung."
 	}
 }

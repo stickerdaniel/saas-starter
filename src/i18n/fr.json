@@ -758,6 +758,7 @@
 	"footer": {
 		"copyright": "© {year} {brand}",
 		"impressum": "Mentions légales",
+		"licenses": "Licences",
 		"privacy": "Confidentialité",
 		"privacy_settings": "Paramètres de confidentialité",
 		"terms": "Conditions d'utilisation"
@@ -768,6 +769,7 @@
 		"cta_demo": "Demander une démo",
 		"description": "Donne vie à ton SaaS en quelques minutes, pas en mois. Template open-source bourré de tech qui te fait shipper direct.",
 		"logo_alt": "Logo {name}",
+		"rive_attribution": "« Spring Demo » par JcToon · CC BY 4.0",
 		"tagline": "Focus sur ton produit.\nLancement plus rapide."
 	},
 	"integrations": {
@@ -899,6 +901,10 @@
 		"impressum": {
 			"description": "Identification du fournisseur et coordonnées de contact.",
 			"title": "Impressum"
+		},
+		"licenses": {
+			"description": "Licences et mentions des logiciels et ressources tiers que cette application fournit aux navigateurs.",
+			"title": "Licences tierces"
 		},
 		"pricing": {
 			"description": "Choisis une offre et teste le flux de facturation intégré.",
@@ -1047,6 +1053,7 @@
 			"verification_required_title": "Vérification requise",
 			"verified_badge": "Vérifié"
 		},
+		"licenses_link": "Licences tierces",
 		"password": {
 			"confirm_password_label": "Confirmer le nouveau mot de passe",
 			"current_password_label": "Mot de passe actuel",
@@ -1265,5 +1272,27 @@
 			"required": "Entre ton mot de passe.",
 			"uppercase": "Le mot de passe doit contenir au moins une lettre majuscule."
 		}
+	},
+	"licenses": {
+		"components": {
+			"assets": "Ressources",
+			"client": "Application du navigateur",
+			"client_worker": "Worker du navigateur",
+			"fonts": "Polices",
+			"styles": "Styles"
+		},
+		"error": "Les mentions de licence n’ont pas pu être chargées.",
+		"intro": "Cette application inclut des logiciels open source et des ressources de tiers. Leurs licences et mentions sont listées ci-dessous. Les textes des mentions sont affichés dans leur version originale en anglais.",
+		"loading": "Chargement des mentions de licence…",
+		"results": "{count, plural, =0 {Aucune entrée correspondante} one {# entrée} other {# entrées}}",
+		"retry": "Réessayer",
+		"search": {
+			"label": "Rechercher des licences",
+			"placeholder": "Paquet, version ou licence"
+		},
+		"source": "Source",
+		"text_link": "Télécharger toutes les mentions en texte brut",
+		"title": "Licences tierces",
+		"unavailable": "Les mentions de licence sont générées par les builds de production et ne sont pas disponibles en développement."
 	}
 }

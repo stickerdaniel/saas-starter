@@ -38,6 +38,10 @@
 					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/privacy'))}>
 						<T keyName="footer.privacy" />
 					</Button>
+					<span class="hidden sm:inline" aria-hidden="true">&middot;</span>
+					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/licenses'))}>
+						<T keyName="footer.licenses" />
+					</Button>
 					{#if analyticsPreferences.state.enabled}
 						<span class="hidden sm:inline" aria-hidden="true">&middot;</span>
 						<Button variant="ghost-muted" size="footer" onclick={() => analyticsPreferences.open()}>

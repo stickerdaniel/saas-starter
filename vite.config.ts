@@ -8,6 +8,7 @@ import { DEV_FEATURES, type DevFeature } from './src/lib/dev/features';
 import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
 import { getManagedProviderUpdates, logSafeOrigin } from './scripts/local-convex-env';
 import { stripSensitiveManifestValues } from './scripts/strip-varlock-secrets';
+import { thirdPartyLicenses } from './scripts/third-party-licenses/index';
 import { sentrySvelteKit } from '@sentry/sveltekit/vite';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
@@ -324,6 +325,9 @@ export default defineConfig(async ({ mode }) => {
 	// build here knows whether the CF path applies. (Auto-detection itself keys off the
 	// resolved adapter, so the two always agree.)
 	const isCloudflareBuild = !!process.env.WORKERS_CI;
+	// Third-party notices for the browser build. One instance per config factory
+	// call, so the client plugin and its worker plugins share one accumulator.
+	const licenses = thirdPartyLicenses();
 
 	plugins.push(
 		// The other adapters (Vercel, adapter-node) have no equivalent upload step, so there
@@ -351,6 +355,7 @@ export default defineConfig(async ({ mode }) => {
 		),
 		tailwindcss(),
 		sveltekit(),
+		licenses.plugin,
 		devtoolsJson(),
 		// Download and self-host the web fonts. Existing static/fonts URLs remain
 		// available for emails, which need stable URLs across deployments.
@@ -391,6 +396,9 @@ export default defineConfig(async ({ mode }) => {
 
 	return {
 		plugins,
+		worker: {
+			plugins: () => [licenses.workerPlugin()]
+		},
 		// Local E2E renders the checked-in translations only; the root layout reads this
 		// to keep live Tolgee off. A define rather than an env var: varlock re-injects
 		// the parent's resolved env into this process, which empties a schema-declared

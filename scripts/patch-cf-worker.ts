@@ -58,7 +58,7 @@ export const ASSET_SERVE_PATTERN = /res = await (\w+)\.ASSETS\.fetch\(req\);?/;
 // bypass and the ASSETS.fetch replacement so the two can never drift. The
 // Homepage matches via the absent optional group; every configured marketing
 // route bypasses lookup so a legacy cache entry cannot preempt server headers.
-const MARKETING_ROUTE_PREDICATE = `const __isPublicMarketingHtml = /^\\/[a-z]{2}(\\/(pricing|privacy|terms|impressum))?\\/?$/.test(new URL(req.url).pathname);`;
+const MARKETING_ROUTE_PREDICATE = `const __isPublicMarketingHtml = /^\\/[a-z]{2}(\\/(pricing|privacy|terms|impressum|licenses))?\\/?$/.test(new URL(req.url).pathname);`;
 
 // A failed verification link reports itself by appending `?error=<CODE>` to
 // whatever callback URL it carried, and the gate that turns that into a message

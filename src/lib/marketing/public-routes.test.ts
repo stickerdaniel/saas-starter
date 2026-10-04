@@ -9,6 +9,7 @@ import {
 } from './public-routes';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
 import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
+import { marketingMarkdown as licensesMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/licenses/page.md';
 import { marketingMarkdown as pricingMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/pricing/page.md';
 import { marketingMarkdown as privacyMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/privacy/page.md';
 import { marketingMarkdown as termsMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/terms/page.md';
@@ -20,7 +21,8 @@ describe('public marketing route registry', () => {
 			{ key: 'pricing', pathSuffix: '/pricing' },
 			{ key: 'privacy', pathSuffix: '/privacy' },
 			{ key: 'terms', pathSuffix: '/terms' },
-			{ key: 'impressum', pathSuffix: '/impressum' }
+			{ key: 'impressum', pathSuffix: '/impressum' },
+			{ key: 'licenses', pathSuffix: '/licenses' }
 		]);
 		expect(
 			Object.fromEntries(
@@ -32,7 +34,8 @@ describe('public marketing route registry', () => {
 			// Setup moves the authored dates to the setup day, so read them from their source.
 			privacy: LEGAL_CONTENT_DATES.privacy,
 			terms: LEGAL_CONTENT_DATES.terms,
-			impressum: LEGAL_CONTENT_DATES.impressum
+			impressum: LEGAL_CONTENT_DATES.impressum,
+			licenses: undefined
 		});
 		expect(
 			PUBLIC_MARKETING_ROUTES.every((route) => route.agentLabel && route.agentDescription)
@@ -56,6 +59,7 @@ describe('public marketing route registry', () => {
 			lang: 'fr',
 			routeKey: 'impressum'
 		});
+		expect(matchPublicMarketingRoute('/es/licenses')).toEqual({ lang: 'es', routeKey: 'licenses' });
 	});
 
 	it('rejects non-marketing or non-localized paths', () => {
@@ -73,6 +77,7 @@ describe('public marketing route registry', () => {
 		expect(getMarketingMarkdownDocument('privacy')).toBe(privacyMarketingMarkdown);
 		expect(getMarketingMarkdownDocument('terms')).toBe(termsMarketingMarkdown);
 		expect(getMarketingMarkdownDocument('impressum')).toBe(impressumMarketingMarkdown);
+		expect(getMarketingMarkdownDocument('licenses')).toBe(licensesMarketingMarkdown);
 	});
 
 	it('generates a direct default-language URL', () => {
@@ -88,21 +93,25 @@ describe('public marketing route registry', () => {
 			'https://example.com/en/privacy',
 			'https://example.com/en/terms',
 			'https://example.com/en/impressum',
+			'https://example.com/en/licenses',
 			'https://example.com/de',
 			'https://example.com/de/pricing',
 			'https://example.com/de/privacy',
 			'https://example.com/de/terms',
 			'https://example.com/de/impressum',
+			'https://example.com/de/licenses',
 			'https://example.com/es',
 			'https://example.com/es/pricing',
 			'https://example.com/es/privacy',
 			'https://example.com/es/terms',
 			'https://example.com/es/impressum',
+			'https://example.com/es/licenses',
 			'https://example.com/fr',
 			'https://example.com/fr/pricing',
 			'https://example.com/fr/privacy',
 			'https://example.com/fr/terms',
-			'https://example.com/fr/impressum'
+			'https://example.com/fr/impressum',
+			'https://example.com/fr/licenses'
 		]);
 	});
 });
