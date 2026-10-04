@@ -64,7 +64,7 @@
 
 		if (formData.newEmail === currentEmail) {
 			formError = 'auth.messages.email_same_as_current';
-			toast.error($t(formError));
+			haptic.trigger('error');
 			return;
 		}
 
@@ -80,7 +80,6 @@
 			if (authError) {
 				formError = getAuthErrorKey(authError, 'auth.messages.email_change_failed');
 				haptic.trigger('error');
-				toast.error($t(formError));
 				return;
 			}
 
@@ -96,7 +95,7 @@
 		} catch (err) {
 			console.error('[EmailSettings] Change email error:', err);
 			formError = 'auth.messages.email_change_failed';
-			toast.error($t(formError));
+			haptic.trigger('error');
 		} finally {
 			isLoading = false;
 		}

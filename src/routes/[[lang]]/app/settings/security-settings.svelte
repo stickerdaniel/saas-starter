@@ -19,6 +19,7 @@
 	import type { Passkey } from '@better-auth/passkey';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { getPasskeyDevice } from '$lib/utils/passkey-device';
+	import { addPasskey, suggestPasskeyName } from '$lib/components/auth/passkey-registration';
 	import { IsMounted } from 'runed';
 
 	let { user }: { user: { name?: string | null } | null } = $props();
@@ -26,13 +27,7 @@
 	const { t } = getTranslate();
 	const mounted = new IsMounted();
 	const device = $derived(getPasskeyDevice(mounted.current ? navigator : undefined));
-	const firstName = $derived(user?.name?.trim().split(/\s+/)[0] ?? '');
-	const suggestedName = $derived(
-		$t(`settings.security.passkey.${firstName ? 'suggested_name' : 'suggested_name_anonymous'}`, {
-			name: firstName,
-			device: $t(`settings.security.passkey.devices.${device}`)
-		})
-	);
+	const suggestedName = $derived(suggestPasskeyName($t, user?.name, device));
 
 	let passkeys = $state<Passkey[]>([]);
 	let isLoading = $state(false);
@@ -67,23 +62,18 @@
 		error = '';
 
 		try {
-			const result = await authClient.passkey.addPasskey({
-				name: newPasskeyName.trim() || suggestedName
-			});
+			const result = await addPasskey(newPasskeyName.trim() || suggestedName);
 
-			if (result?.error) {
-				error = getAuthErrorKey(result.error, 'auth.messages.passkey_add_failed');
-				toast.error($t(error));
-			} else {
+			if (result.ok) {
 				haptic.trigger('medium');
 				toast.success($t('auth.messages.passkey_added'));
 				editedName = undefined;
 				await loadPasskeys();
+			} else {
+				error = getAuthErrorKey(result.error, 'auth.messages.passkey_add_failed');
+				haptic.trigger('error');
+				toast.error($t(error));
 			}
-		} catch {
-			error = 'auth.messages.passkey_add_failed';
-			haptic.trigger('error');
-			toast.error($t(error));
 		} finally {
 			isAdding = false;
 		}

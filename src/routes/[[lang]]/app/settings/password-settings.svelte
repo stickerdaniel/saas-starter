@@ -1,7 +1,6 @@
 <script lang="ts">
 	import * as v from 'valibot';
 	import { authClient } from '$lib/auth-client.js';
-	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Password from '$lib/components/ui/password';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
@@ -239,16 +238,19 @@
 							<Field.Label for="currentPassword">
 								<T keyName="settings.password.current_password_label" />
 							</Field.Label>
-							<Input
-								type="password"
-								id="currentPassword"
-								name="currentPassword"
-								placeholder={$t('settings.password.placeholder.current')}
-								autocomplete="current-password"
-								aria-invalid={hasCurrentPasswordError ? 'true' : undefined}
-								aria-describedby={hasCurrentPasswordError ? 'currentPassword-error' : undefined}
-								bind:value={formData.currentPassword}
-							/>
+							<Password.Root>
+								<Password.Input
+									id="currentPassword"
+									name="currentPassword"
+									placeholder={$t('settings.password.placeholder.current')}
+									autocomplete="current-password"
+									invalid={hasCurrentPasswordError}
+									aria-describedby={hasCurrentPasswordError ? 'currentPassword-error' : undefined}
+									bind:value={formData.currentPassword}
+								>
+									<Password.ToggleVisibility />
+								</Password.Input>
+							</Password.Root>
 							<Field.Error
 								id="currentPassword-error"
 								errors={translateValidationErrors(errors.currentPassword, $t)}
@@ -284,16 +286,19 @@
 						<Field.Label for="confirmPassword">
 							<T keyName="settings.password.confirm_password_label" />
 						</Field.Label>
-						<Input
-							type="password"
-							id="confirmPassword"
-							name="confirmPassword"
-							placeholder={$t('settings.password.placeholder.confirm')}
-							autocomplete="new-password"
-							aria-invalid={hasConfirmPasswordError ? 'true' : undefined}
-							aria-describedby={hasConfirmPasswordError ? 'confirmPassword-error' : undefined}
-							bind:value={formData.confirmPassword}
-						/>
+						<Password.Root>
+							<Password.Input
+								id="confirmPassword"
+								name="confirmPassword"
+								placeholder={$t('settings.password.placeholder.confirm')}
+								autocomplete="new-password"
+								invalid={hasConfirmPasswordError}
+								aria-describedby={hasConfirmPasswordError ? 'confirmPassword-error' : undefined}
+								bind:value={formData.confirmPassword}
+							>
+								<Password.ToggleVisibility />
+							</Password.Input>
+						</Password.Root>
 						<Field.Error
 							id="confirmPassword-error"
 							errors={translateValidationErrors(errors.confirmPassword, $t)}

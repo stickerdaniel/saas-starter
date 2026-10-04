@@ -24,10 +24,14 @@ const passkey = vi.hoisted(() => ({
 	addPasskey: vi.fn(),
 	deletePasskey: vi.fn()
 }));
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('$lib/auth-client.js', () => ({ authClient: { passkey } }));
 vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 vi.mock('$app/state', () => ({ page: { data: { lang: 'en' } } }));
+vi.mock('svelte-sonner', () => ({ toast }));
 
+import en from '../../../../i18n/en.json';
+import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 import SecuritySettingsHarness from './test-fixtures/SecuritySettingsHarness.svelte';
 
 let component: ReturnType<typeof mount> | undefined;
@@ -128,5 +132,48 @@ describe('suggested passkey names', () => {
 		await view.setLanguage('de');
 		await tick();
 		expect(nameInput().value).toBe('Travel key');
+	});
+});
+
+describe('adding a passkey', () => {
+	it('confirms a stored passkey and refreshes the list', async () => {
+		passkey.listUserPasskeys
+			.mockResolvedValueOnce({ data: [], error: null })
+			.mockResolvedValueOnce({
+				data: [{ id: 'new-passkey', name: 'Daniel’s Mac', createdAt: new Date('2026-01-02') }],
+				error: null
+			});
+		await render();
+		await addPasskey();
+		await vi.waitFor(() => expect(document.body.textContent).toContain('Daniel’s Mac'));
+		expect(passkey.listUserPasskeys).toHaveBeenCalledTimes(2);
+		expect(toast.success).toHaveBeenCalledWith(en.auth.messages.passkey_added);
+		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		[
+			'a server code with its own message',
+			{ data: null, error: { code: 'SESSION_NOT_FRESH' } },
+			en.auth.messages.session_not_fresh
+		],
+		[
+			'an unknown server code',
+			{ data: null, error: { code: 'SOMETHING_NEW', status: 500 } },
+			en.auth.messages.passkey_add_failed
+		],
+		['a thrown error', new Error('offline'), en.auth.messages.passkey_add_failed],
+		['an empty server response', { data: null, error: null }, en.auth.messages.passkey_add_failed]
+	])('reports %s without claiming success', async (_, outcome, message) => {
+		if (outcome instanceof Error) passkey.addPasskey.mockRejectedValueOnce(outcome);
+		else passkey.addPasskey.mockResolvedValueOnce(outcome);
+		await render();
+		await addPasskey();
+		await vi.waitFor(() => expect(document.body.textContent).toContain(message));
+		expect(toast.error).toHaveBeenCalledExactlyOnceWith(message);
+		expect(toast.success).not.toHaveBeenCalled();
+		expect(haptic.trigger).toHaveBeenCalledWith('error');
+		expect(passkey.listUserPasskeys).toHaveBeenCalledOnce();
+		expect(document.body.textContent).toContain(en.settings.security.no_passkeys);
 	});
 });
