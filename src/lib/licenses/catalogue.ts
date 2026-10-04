@@ -123,3 +123,34 @@ export function filterCatalogueEntries(
 		);
 	});
 }
+
+const RULE = '='.repeat(80);
+const SEPARATOR = '-'.repeat(80);
+
+/**
+ * Plain-text notices for `entries`. The build publishes this for the whole
+ * catalogue; the licenses page downloads it for search results, naming the query.
+ */
+export function noticesText(entries: readonly CatalogueEntry[], query?: string): string {
+	const sections = entries.map((entry) => {
+		const header = [
+			entry.version ? `${entry.name} ${entry.version}` : entry.name,
+			`License: ${entry.license}`,
+			`Components: ${entry.components.join(', ')}`
+		];
+		if (entry.sourceUrl) header.push(`Source: ${entry.sourceUrl}`);
+		const notices = entry.notices.map((notice) => `--- ${notice.label} ---\n\n${notice.text}`);
+		return [SEPARATOR, header.join('\n'), ...notices].join('\n\n');
+	});
+	const intro = [
+		'Third-party notices',
+		RULE,
+		'',
+		'This file lists the third-party software and assets shipped to the browser by this',
+		'application, with their license declarations and notice texts.'
+	];
+	if (query !== undefined) {
+		intro.push('', `Filtered by the search "${query}".`);
+	}
+	return `${[intro.join('\n'), ...sections].join('\n\n')}\n`;
+}

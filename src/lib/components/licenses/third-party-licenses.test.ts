@@ -88,6 +88,47 @@ describe('third-party licenses list', () => {
 		expect(status()).toBe('No matching entries');
 	});
 
+	it('downloads the notices of the search results only', async () => {
+		const files: Blob[] = [];
+		vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+			files.push(blob as Blob);
+			return 'blob:licenses';
+		});
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+		vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+			this: HTMLAnchorElement
+		) {
+			this.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+		});
+		await render({ entries });
+		const download = document.querySelector<HTMLAnchorElement>('a[download]')!;
+		expect(download.getAttribute('href')).toBe('/third-party-licenses.txt');
+		expect(download.getAttribute('aria-label')).toBe('Download all notices as plain text');
+
+		// Without a search, the link serves the published file.
+		const unfiltered = new MouseEvent('click', { bubbles: true, cancelable: true });
+		download.dispatchEvent(unfiltered);
+		expect(unfiltered.defaultPrevented).toBe(false);
+		expect(files).toHaveLength(0);
+
+		search('apache');
+		expect(download.getAttribute('aria-label')).toBe(
+			'Download notices for 1 matching entry as plain text'
+		);
+		download.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+		expect(files).toHaveLength(1);
+		const text = await files[0]!.text();
+		expect(text).toContain('beta 1.0.0\nLicense: Apache-2.0');
+		expect(text).toContain('Filtered by the search "apache".');
+		expect(text).not.toContain('alpha');
+		expect(text).not.toContain('gamma');
+
+		search('no such package');
+		download.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+		expect(files).toHaveLength(1);
+		expect(download.getAttribute('aria-disabled')).toBe('true');
+	});
+
 	it('renders closed notices as English text, including hostile markup', async () => {
 		await render({ entries });
 

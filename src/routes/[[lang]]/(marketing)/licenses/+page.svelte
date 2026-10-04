@@ -1,9 +1,7 @@
 <script lang="ts">
-	import { asset } from '$app/paths';
 	import { getTranslate } from '@tolgee/svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import ThirdPartyLicenses from '$lib/components/licenses/third-party-licenses.svelte';
-	import { CATALOGUE_TEXT_FILE } from '$lib/licenses/catalogue';
 
 	let { data } = $props();
 
@@ -16,8 +14,6 @@
 	<div class="prose prose-sm dark:prose-invert">
 		<h1>{$t('licenses.title')}</h1>
 		<p>{$t('licenses.intro')}</p>
-		<!-- The same notices as one file, for saving or reading elsewhere. -->
-		<p><a href={asset(`/${CATALOGUE_TEXT_FILE}`)}>{$t('licenses.text_link')}</a></p>
 	</div>
 	<ThirdPartyLicenses entries={data.entries} />
 </div>
