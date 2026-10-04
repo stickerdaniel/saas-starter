@@ -33,5 +33,7 @@
 /third-party-licenses.json
   Cache-Control: public, max-age=0, must-revalidate
 
+# The notices contain non-ASCII text; without a charset browsers decode it as Latin-1.
 /third-party-licenses.txt
   Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: text/plain; charset=utf-8
