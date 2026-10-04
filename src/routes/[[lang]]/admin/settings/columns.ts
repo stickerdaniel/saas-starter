@@ -30,7 +30,8 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 				'aria-label-key': 'admin.users.select_row'
 			}),
 		enableSorting: false,
-		enableHiding: false
+		enableHiding: false,
+		meta: { skeleton: { kind: 'checkbox' } }
 	},
 	{
 		accessorKey: 'email',
@@ -77,7 +78,8 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 			renderComponent(TypeBadge, {
 				isAdmin: row.original.isAdminUser
 			}),
-		enableSorting: true
+		enableSorting: true,
+		meta: { skeleton: { kind: 'badge' } }
 	},
 	{
 		id: 'notifyNewSupportTickets',
@@ -93,7 +95,8 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 				email: row.original.email,
 				field: 'notifyNewSupportTickets',
 				checked: row.original.notifyNewSupportTickets
-			})
+			}),
+		meta: { skeleton: { kind: 'checkbox' } }
 	},
 	{
 		id: 'notifyUserReplies',
@@ -109,7 +112,8 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 				email: row.original.email,
 				field: 'notifyUserReplies',
 				checked: row.original.notifyUserReplies
-			})
+			}),
+		meta: { skeleton: { kind: 'checkbox' } }
 	},
 	{
 		id: 'notifyNewSignups',
@@ -125,7 +129,8 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 				email: row.original.email,
 				field: 'notifyNewSignups',
 				checked: row.original.notifyNewSignups
-			})
+			}),
+		meta: { skeleton: { kind: 'checkbox' } }
 	},
 	{
 		id: 'actions',
@@ -142,6 +147,7 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 			renderComponent(RecipientsActions, {
 				email: row.original.email,
 				isAdminUser: row.original.isAdminUser
-			})
+			}),
+		meta: { skeleton: { kind: 'action', size: 'icon-sm' } }
 	}
 ];

@@ -2,14 +2,13 @@
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
 	import { type SortingState } from '@tanstack/table-core';
-	import * as Table from '$lib/components/ui/table/index.js';
-	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
 	import { api } from '$lib/convex/_generated/api.js';
-	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
+	import { createSvelteTable } from '$lib/components/ui/data-table/index.js';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
+	import DataTableView from '$lib/components/tables/data-table-view.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
 	import { createCountPrediction } from '$lib/tables/convex/count-prediction.svelte.ts';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
@@ -254,95 +253,16 @@
 			{/snippet}
 
 			{#snippet tableContent()}
-				<Table.Root class="table-fixed">
-					<Table.Header sticky>
-						{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-							<Table.Row variant="header">
-								{#each headerGroup.headers as header (header.id)}
-									<Table.Head
-										class="w-(--column-width) min-w-(--column-min-width)"
-										style="--column-width: {header.getSize()}px; --column-min-width: {header.column
-											.columnDef.minSize}px;"
-									>
-										{#if !header.isPlaceholder}
-											<FlexRender {header} />
-										{/if}
-									</Table.Head>
-								{/each}
-							</Table.Row>
-						{/each}
-					</Table.Header>
-					<Table.Body>
-						{#if isLoading && countPrediction.skeletonRows > 0}
-							<Table.Row data-testid="admin-audit-log-loading" class="hidden">
-								<Table.Cell colspan={columns.length}>
-									<T keyName="admin.audit_log.loading" />
-								</Table.Cell>
-							</Table.Row>
-							{#each Array(countPrediction.skeletonRows) as _, i (i)}
-								<Table.Row>
-									<Table.Cell>
-										<div class="flex h-5 items-center"><Skeleton class="h-4 w-32" /></div>
-									</Table.Cell>
-									<Table.Cell>
-										<Skeleton class="h-5 w-20 rounded-4xl" />
-									</Table.Cell>
-									<Table.Cell>
-										<div class="flex items-center gap-2">
-											<Skeleton class="size-8 shrink-0 rounded-full" />
-											<div class="min-w-0">
-												<div class="flex h-5 items-center"><Skeleton class="h-4 w-24" /></div>
-												<div class="flex h-4 items-center"><Skeleton class="h-3 w-32" /></div>
-											</div>
-										</div>
-									</Table.Cell>
-									<Table.Cell>
-										<div class="flex items-center gap-2">
-											<Skeleton class="size-8 shrink-0 rounded-full" />
-											<div class="min-w-0">
-												<div class="flex h-5 items-center"><Skeleton class="h-4 w-24" /></div>
-												<div class="flex h-4 items-center"><Skeleton class="h-3 w-32" /></div>
-											</div>
-										</div>
-									</Table.Cell>
-									<Table.Cell>
-										<div class="flex h-5 items-center"><Skeleton class="h-4 w-40" /></div>
-									</Table.Cell>
-								</Table.Row>
-							{/each}
-						{:else if loadError}
-							<Table.Row variant="inert">
-								<Table.Cell
-									colspan={columns.length}
-									class="h-24 text-center"
-									data-testid="admin-audit-log-error"
-								>
-									<span class="text-destructive"><T keyName="common.load_error" /></span>
-								</Table.Cell>
-							</Table.Row>
-						{:else if table.getRowModel().rows.length === 0 || (isLoading && countPrediction.skeletonRows === 0)}
-							<Table.Row variant="inert">
-								<Table.Cell
-									colspan={columns.length}
-									class="h-24 text-center"
-									data-testid="admin-audit-log-empty"
-								>
-									<span class="text-muted-foreground"><T keyName="admin.audit_log.empty" /></span>
-								</Table.Cell>
-							</Table.Row>
-						{:else}
-							{#each table.getRowModel().rows as row (row.id)}
-								<Table.Row data-testid="audit-log-row">
-									{#each row.getVisibleCells() as cell (cell.id)}
-										<Table.Cell>
-											<FlexRender {cell} />
-										</Table.Cell>
-									{/each}
-								</Table.Row>
-							{/each}
-						{/if}
-					</Table.Body>
-				</Table.Root>
+				<DataTableView
+					{table}
+					loading={isLoading}
+					error={loadError}
+					skeletonRows={countPrediction.skeletonRows}
+					emptyText={$t('admin.audit_log.empty')}
+					loadingText={$t('admin.audit_log.loading')}
+					testIdPrefix="admin-audit-log"
+					rowTestId={() => 'audit-log-row'}
+				/>
 			{/snippet}
 		</ConvexCursorTableShell>{/if}
 </div>

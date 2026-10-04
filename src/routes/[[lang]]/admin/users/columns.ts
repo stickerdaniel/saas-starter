@@ -42,7 +42,8 @@ export function createColumns(lang: string): Array<ColumnDef<DataTableFeatures, 
 					'aria-label-key': 'admin.users.select_row'
 				}),
 			enableSorting: false,
-			enableHiding: false
+			enableHiding: false,
+			meta: { skeleton: { kind: 'checkbox' } }
 		},
 		{
 			accessorKey: 'name',
@@ -59,7 +60,8 @@ export function createColumns(lang: string): Array<ColumnDef<DataTableFeatures, 
 				renderComponent(UserAvatar, {
 					name: row.original.name,
 					image: row.original.image
-				})
+				}),
+			meta: { skeleton: { kind: 'avatar' } }
 		},
 		{
 			accessorKey: 'email',
@@ -98,7 +100,8 @@ export function createColumns(lang: string): Array<ColumnDef<DataTableFeatures, 
 				if (!filterValue || filterValue === 'all') return true;
 				return row.original.role === filterValue;
 			},
-			enableSorting: true
+			enableSorting: true,
+			meta: { skeleton: { kind: 'badge' } }
 		},
 		{
 			id: 'status',
@@ -124,7 +127,8 @@ export function createColumns(lang: string): Array<ColumnDef<DataTableFeatures, 
 				if (filterValue === 'unverified') return !user.banned && !user.emailVerified;
 				return true;
 			},
-			enableSorting: false
+			enableSorting: false,
+			meta: { skeleton: { kind: 'badge' } }
 		},
 		{
 			accessorKey: 'providers',
@@ -142,7 +146,8 @@ export function createColumns(lang: string): Array<ColumnDef<DataTableFeatures, 
 					providers: row.original.providers,
 					testId: 'admin-users-provider-badge'
 				}),
-			enableSorting: true
+			enableSorting: true,
+			meta: { skeleton: { kind: 'icon' } }
 		},
 		{
 			accessorKey: 'createdAt',
@@ -173,7 +178,8 @@ export function createColumns(lang: string): Array<ColumnDef<DataTableFeatures, 
 					titleKey: 'aria.actions',
 					class: 'sr-only'
 				}),
-			cell: ({ row }) => renderComponent(DataTableActions, { user: row.original })
+			cell: ({ row }) => renderComponent(DataTableActions, { user: row.original }),
+			meta: { skeleton: { kind: 'action', size: 'icon' } }
 		}
 	];
 }
