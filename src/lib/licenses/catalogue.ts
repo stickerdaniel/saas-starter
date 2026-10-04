@@ -49,8 +49,9 @@ export type Catalogue = v.InferOutput<typeof catalogueSchema>;
 export type CatalogueEntry = Catalogue['entries'][number];
 
 // A line that starts a copyright statement, such as "Copyright 2023 Vercel, Inc."
-// or "(c) Rich Harris". License boilerplate mentions copyright only mid-sentence.
-const COPYRIGHT_LINE = /^\s*(?:copyright\b|\(c\)|©)/i;
+// or "(c) Rich Harris". The lookaheads skip wrapped license boilerplate that starts
+// the same way: "COPYRIGHT HOLDERS BE LIABLE" and Apache's "(c) You must retain".
+const COPYRIGHT_LINE = /^\s*(?:copyright\b(?!\s+(?:holders?|notice|owner)\b)|\(c\)(?!\s+you\b)|©)/i;
 
 const searchTexts = new WeakMap<CatalogueEntry, string[]>();
 

@@ -24,7 +24,11 @@ function entry(name: string, license: string, text: string): CatalogueEntry {
 
 const entries = [
 	entry('ai', 'Apache-2.0', MIT_TEXT.replace('MIT License', 'Apache License')),
-	entry('bits-ui', 'MIT', 'Copyright (c) 2023 Hunter Johnston\n\nPermission is hereby granted.')
+	entry(
+		'bits-ui',
+		'MIT',
+		'Copyright (c) 2023 Hunter Johnston\n\nIN NO EVENT SHALL THE AUTHORS OR\nCOPYRIGHT HOLDERS BE LIABLE FOR ANY DAMAGES.'
+	)
 ];
 
 const names = (query: string) => filterCatalogueEntries(entries, query).map((e) => e.name);
@@ -37,6 +41,10 @@ describe('filterCatalogueEntries', () => {
 
 	it('keeps license searches to the declared license', () => {
 		expect(names('mit')).toEqual(['bits-ui']);
+	});
+
+	it('ignores license boilerplate that starts like a copyright line', () => {
+		expect(names('liable')).toEqual([]);
 	});
 
 	it('returns every entry for an empty query', () => {
