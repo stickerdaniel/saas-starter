@@ -1,9 +1,9 @@
 import * as v from 'valibot';
 
 // Public contract of the third-party notice catalogue. The build tool validates
-// its output against this schema and the licenses page parses the fetched file
-// with it, so both sides share one definition. Keep this module browser-safe:
-// it must not import the build tooling or the SPDX license data.
+// its output against this schema, and again before it hands the catalogue to the
+// server build that renders the licenses page. Keep this module browser-safe: the
+// page searches with it, so it must not import the build tooling or SPDX data.
 
 export const CATALOGUE_JSON_FILE = 'third-party-licenses.json';
 export const CATALOGUE_TEXT_FILE = 'third-party-licenses.txt';

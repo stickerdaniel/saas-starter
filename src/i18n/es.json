@@ -1281,11 +1281,8 @@
 			"fonts": "Fuentes tipográficas",
 			"styles": "Estilos"
 		},
-		"error": "No se pudieron cargar los avisos de licencia.",
 		"intro": "Esta aplicación incluye software de código abierto y recursos de terceros. Sus licencias y avisos se indican a continuación. Los textos de los avisos se muestran en su versión original en inglés.",
-		"loading": "Cargando avisos de licencia…",
 		"results": "{count, plural, =0 {Ninguna entrada coincide} one {# entrada} other {# entradas}}",
-		"retry": "Reintentar",
 		"search": {
 			"label": "Buscar licencias",
 			"placeholder": "Paquete, versión o licencia"

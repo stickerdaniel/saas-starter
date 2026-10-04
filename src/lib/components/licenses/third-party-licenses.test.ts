@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { flushSync, mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
-import type { Catalogue } from '$lib/licenses/catalogue';
+import type { CatalogueEntry } from '$lib/licenses/catalogue';
 
 vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
@@ -10,33 +10,31 @@ vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 
 import Harness from './test-fixtures/ThirdPartyLicensesHarness.svelte';
 
-const entry = (name: string, license: string, text = `${name} license text`) => ({
+const entry = (
+	name: string,
+	license: string,
+	text = `${name} license text`,
+	components = ['client']
+): CatalogueEntry => ({
 	id: `npm:${name}@1.0.0`,
-	kind: 'package' as const,
+	kind: 'package',
 	name,
 	version: '1.0.0',
 	license,
-	components: ['client'],
+	components,
 	sourceUrl: `https://github.com/example/${name}`,
 	notices: [{ label: 'LICENSE', text }]
 });
 
-const catalogue: Catalogue = {
-	schemaVersion: 1,
-	entries: [
-		entry('alpha', 'MIT'),
-		entry('beta', 'Apache-2.0', '<img src=x onerror="window.__pwned = true">'),
-		entry('gamma', 'MIT')
-	]
-};
+const entries = [
+	entry('alpha', 'MIT', 'Copyright (c) Alpha Holder'),
+	entry('beta', 'Apache-2.0', '<img src=x onerror="window.__pwned = true">'),
+	entry('gamma', 'MIT', 'gamma license text', ['client-worker'])
+];
 
 let component: ReturnType<typeof mount> | undefined;
 
-function respond(body: unknown, status = 200) {
-	return Promise.resolve(new Response(JSON.stringify(body), { status }));
-}
-
-async function render(props: { available?: boolean } = {}) {
+async function render(props: { entries: CatalogueEntry[] | null }) {
 	component = mount(Harness, { target: document.body, props });
 	await tick();
 }
@@ -46,9 +44,16 @@ function status() {
 }
 
 function rows() {
-	return Array.from(document.querySelectorAll('li button'), (button) =>
-		button.querySelector('span span')?.textContent?.trim()
+	return Array.from(document.querySelectorAll('li details summary'), (summary) =>
+		summary.querySelector('span span')?.textContent?.trim()
 	);
+}
+
+function search(query: string) {
+	const input = document.querySelector<HTMLInputElement>('input[type="search"]')!;
+	input.value = query;
+	input.dispatchEvent(new Event('input', { bubbles: true }));
+	flushSync();
 }
 
 afterEach(async () => {
@@ -59,88 +64,45 @@ afterEach(async () => {
 });
 
 describe('third-party licenses list', () => {
-	it('searches entries and announces the result count', async () => {
-		const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(() => respond(catalogue));
-		await render();
-		await vi.waitFor(() => expect(rows()).toEqual(['alpha', 'beta', 'gamma']));
-		expect(fetch).toHaveBeenCalledWith(
-			'/third-party-licenses.json',
-			expect.objectContaining({ cache: 'no-cache' })
-		);
+	it('lists the entries at once and searches them', async () => {
+		const fetch = vi.spyOn(globalThis, 'fetch');
+		await render({ entries });
+		expect(rows()).toEqual(['alpha', 'beta', 'gamma']);
 		expect(status()).toBe('3 entries');
+		expect(fetch).not.toHaveBeenCalled();
 
-		const search = document.querySelector<HTMLInputElement>('input[type="search"]')!;
-		expect(document.querySelector(`label[for="${search.id}"]`)?.textContent).toBe(
-			'Search licenses'
-		);
-		search.value = 'apache';
-		search.dispatchEvent(new Event('input', { bubbles: true }));
-		flushSync();
+		const input = document.querySelector<HTMLInputElement>('input[type="search"]')!;
+		expect(document.querySelector(`label[for="${input.id}"]`)?.textContent).toBe('Search licenses');
+		search('apache');
 		expect(rows()).toEqual(['beta']);
 		expect(status()).toBe('1 entry');
 
-		search.value = 'no such package';
-		search.dispatchEvent(new Event('input', { bubbles: true }));
-		flushSync();
+		search('alpha holder');
+		expect(rows()).toEqual(['alpha']);
+
+		search('no such package');
 		expect(rows()).toEqual([]);
 		expect(status()).toBe('No matching entries');
 	});
 
-	it('opens a notice by keyboard and renders hostile text as text', async () => {
-		vi.spyOn(globalThis, 'fetch').mockImplementation(() => respond(catalogue));
-		await render();
-		await vi.waitFor(() => expect(rows()).toHaveLength(3));
+	it('renders closed notices as English text, including hostile markup', async () => {
+		await render({ entries });
 
-		const trigger = Array.from(document.querySelectorAll<HTMLButtonElement>('li button')).find(
-			(button) => button.textContent?.includes('beta')
-		)!;
-		expect(trigger.getAttribute('aria-expanded')).toBe('false');
-		expect(document.querySelector('pre')).toBeNull();
-		trigger.focus();
-		trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-		await tick();
-		expect(trigger.getAttribute('aria-expanded')).toBe('true');
-
-		const notices = document.querySelectorAll('pre');
-		expect(notices).toHaveLength(1);
-		const notice = notices[0];
-		expect(notice?.textContent).toBe('<img src=x onerror="window.__pwned = true">');
-		expect(notice?.closest('[lang="en"]')).not.toBeNull();
+		const details = Array.from(document.querySelectorAll('li details'));
+		expect(details.map((row) => row.hasAttribute('open'))).toEqual([false, false, false]);
+		const notices = Array.from(document.querySelectorAll('details pre'), (pre) => pre.textContent);
+		expect(notices).toEqual([
+			'Copyright (c) Alpha Holder',
+			'<img src=x onerror="window.__pwned = true">',
+			'gamma license text'
+		]);
+		expect(document.querySelector('details pre')?.closest('[lang="en"]')).not.toBeNull();
 		expect(document.querySelector('img')).toBeNull();
 	});
 
-	it('shows an error with a working retry', async () => {
-		const fetch = vi
-			.spyOn(globalThis, 'fetch')
-			.mockImplementationOnce(() => respond({}, 404))
-			.mockImplementation(() => respond(catalogue));
-		await render();
-		await vi.waitFor(() =>
-			expect(document.querySelector('[role="alert"]')?.textContent).toContain(
-				'The license notices could not be loaded.'
-			)
-		);
-
-		Array.from(document.querySelectorAll('button'))
-			.find((button) => button.textContent?.includes('Try again'))!
-			.click();
-		await vi.waitFor(() => expect(rows()).toHaveLength(3));
-		expect(fetch).toHaveBeenCalledTimes(2);
-	});
-
-	it('rejects a catalogue that does not match the schema', async () => {
-		vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
-			respond({ schemaVersion: 1, entries: [{ ...entry('alpha', 'MIT'), notices: [] }] })
-		);
-		await render();
-		await vi.waitFor(() => expect(document.querySelector('[role="alert"]')).not.toBeNull());
-		expect(rows()).toEqual([]);
-	});
-
-	it('explains that development builds have no catalogue without fetching', async () => {
-		const fetch = vi.spyOn(globalThis, 'fetch');
-		await render({ available: false });
+	it('explains that development builds have no catalogue', async () => {
+		await render({ entries: null });
 		expect(document.body.textContent).toContain('not available in development');
-		expect(fetch).not.toHaveBeenCalled();
+		expect(document.querySelector('input[type="search"]')).toBeNull();
 	});
 });
