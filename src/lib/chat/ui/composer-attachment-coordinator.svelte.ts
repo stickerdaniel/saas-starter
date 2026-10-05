@@ -15,8 +15,9 @@ import {
 	type ChatUploadGrantArgs
 } from '../core/file-uploader.js';
 import { DEFAULT_ATTACHMENT_PROFILE, type Attachment } from '../core/types.js';
-import type { UploadProfile } from '../../uploads/profiles.js';
+import { checkUploadPayload, type UploadProfile } from '../../uploads/profiles.js';
 import {
+	AttachmentRefusal,
 	AttachmentTransfer,
 	attachmentFileIdentity,
 	attachmentProgressRank,
@@ -25,6 +26,8 @@ import {
 	isStoredAttachment,
 	revokeAttachmentPreview,
 	type AttachmentPreprocess,
+	type AttachmentTransferPayload,
+	type AttachmentTransferResult,
 	type AttachmentTransferSnapshot,
 	type AttachmentTransferUpload
 } from './attachment-transfer.js';
@@ -35,8 +38,6 @@ type UploadConfigBase = {
 	translate?: (key: string, params?: Record<string, string | number | bigint | Date>) => string;
 	/** Optional access key provider for file control. */
 	getAccessKey?: () => string | undefined;
-	/** Existing persistence adapter for successful attachment references. */
-	attachmentStore?: ChatAttachmentStore;
 	/** Optional action used by the attachment text preview. */
 	getAttachmentText?: AttachmentTextAction;
 	/** Locale sent with server calls whose errors are translated. */
@@ -52,7 +53,12 @@ type UploadConfigBase = {
 
 /** Uploads straight to Convex storage through the chat upload endpoints. */
 export type DirectUploadConfig = UploadConfigBase &
-	ChatUploadApi & { upload?: never; release?: never };
+	ChatUploadApi & {
+		/** Existing persistence adapter for successful attachment references. */
+		attachmentStore?: ChatAttachmentStore;
+		upload?: never;
+		release?: never;
+	};
 
 /** Uploads through the surface's own transport instead of the storage endpoints. */
 export type CustomUploadConfig = UploadConfigBase & {
@@ -64,6 +70,11 @@ export type CustomUploadConfig = UploadConfigBase & {
 	 * reported, never thrown.
 	 */
 	release?: (result: AttachmentUploadResult) => Promise<void> | void;
+	/**
+	 * Not supported: a reference restored from storage after its composer
+	 * released it would point at a resource the surface already gave back.
+	 */
+	attachmentStore?: never;
 	generateUploadUrl?: never;
 	saveUploadedFile?: never;
 };
@@ -357,17 +368,7 @@ export class ComposerAttachmentCoordinator {
 			file.type,
 			this.uploadConfig.getAccessKey?.()
 		);
-		const result = await transfer.start(options?.preprocess);
-
-		if (result.status !== 'preprocess-failed') return;
-		const stillPresent = this.findAttachment(key) !== undefined;
-		this.discardAttachment(key);
-		if (isAttachmentTransferAbort(result.error) || !stillPresent) return;
-		const translate = this.uploadConfig.translate;
-		toast.error(
-			translate?.('chat.error.upload_failed', { filename: initialName }) ??
-				`Failed to upload "${initialName}"`
-		);
+		this.settleRefusedStart(key, initialName, await transfer.start(options?.preprocess));
 	}
 
 	/** Upload a screenshot whose blob already is the exact retry payload. */
@@ -404,7 +405,7 @@ export class ComposerAttachmentCoordinator {
 			dimensions,
 			false
 		);
-		await transfer.start();
+		this.settleRefusedStart(key, filename, await transfer.start());
 	}
 
 	/** Retry with the transfer's exact retained post-preprocessing payload. */
@@ -682,6 +683,7 @@ export class ComposerAttachmentCoordinator {
 			accessKey,
 			measureImageDimensions,
 			upload: config.upload ? config.upload : this.directUpload(config),
+			checkPayload: (payload) => this.checkPayload(payload, filename),
 			release: (result) => this.releaseResult(result),
 			onSnapshot: (snapshot) => {
 				if (this.transfers.get(key) !== transfer) return;
@@ -697,6 +699,47 @@ export class ComposerAttachmentCoordinator {
 		});
 		this.transfers.set(key, transfer);
 		return transfer;
+	}
+
+	/** Refuse, in the user's words, a final payload the surface profile does not allow. */
+	private checkPayload(payload: AttachmentTransferPayload, sourceName: string): void {
+		const refusal = checkUploadPayload(this.profile, {
+			filename: payload.filename,
+			mimeType: payload.mimeType,
+			size: payload.blob.size
+		});
+		if (!refusal) return;
+		const translate = this.uploadConfig?.translate;
+		if (refusal.reason === 'type') {
+			throw new AttachmentRefusal(
+				translate?.('chat.error.file_type_not_allowed', { filename: sourceName }) ??
+					`File type not allowed: "${sourceName}"`
+			);
+		}
+		throw new AttachmentRefusal(
+			translate?.('chat.error.file_too_large', { filename: sourceName }) ??
+				`File too large: "${sourceName}"`,
+			translate?.('chat.error.file_max_size', { maxSize: refusal.limit.label }) ??
+				`Maximum size is ${refusal.limit.label}`
+		);
+	}
+
+	/** Drop an attachment whose preparation failed and tell the user why. */
+	private settleRefusedStart(key: string, name: string, result: AttachmentTransferResult): void {
+		if (result.status !== 'preprocess-failed') return;
+		const stillPresent = this.findAttachment(key) !== undefined;
+		this.discardAttachment(key);
+		if (isAttachmentTransferAbort(result.error) || !stillPresent) return;
+		if (result.error instanceof AttachmentRefusal) {
+			const { message, description } = result.error;
+			if (description) toast.error(message, { description });
+			else toast.error(message);
+			return;
+		}
+		toast.error(
+			this.uploadConfig?.translate?.('chat.error.upload_failed', { filename: name }) ??
+				`Failed to upload "${name}"`
+		);
 	}
 
 	private directUpload(config: DirectUploadConfig): AttachmentTransferUpload {

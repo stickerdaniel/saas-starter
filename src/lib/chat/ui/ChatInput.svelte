@@ -31,7 +31,13 @@
 		MAX_INPUT_IMAGE_SIZE_LABEL,
 		MAX_MESSAGE_LENGTH
 	} from '../core/types.js';
-	import { acceptAttribute, acceptsMimeType, imageUploadLimit } from '../../uploads/profiles.js';
+	import {
+		acceptAttribute,
+		acceptsMimeType,
+		imageUploadLimit,
+		profileMimeType
+	} from '../../uploads/profiles.js';
+	import { AttachmentRefusal } from './attachment-transfer.js';
 
 	const { t } = getTranslate();
 
@@ -340,25 +346,10 @@
 		if (files?.length) void handleFilesAdded(Array.from(files));
 	}
 
-	/**
-	 * Browser-supplied MIMEs that don't tell us anything specific. For these
-	 * we fall back to the file extension. Any *non*-generic MIME is trusted
-	 * as-is — a file with type `image/heic` named `photo.jpg` must be
-	 * rejected, not silently accepted via the .jpg fallback.
-	 */
-	const GENERIC_MIMES = new Set(['', 'application/octet-stream']);
-
-	function getExt(name: string): string | null {
-		const dot = name.lastIndexOf('.');
-		return dot >= 0 ? name.slice(dot).toLowerCase() : null;
-	}
-
+	/** A generic browser type counts as the type its extension maps to. */
 	function isAllowedKind(file: File): boolean {
-		if (GENERIC_MIMES.has(file.type)) {
-			const ext = getExt(file.name);
-			return ext != null && ext in profile.extensions;
-		}
-		return acceptsMimeType(profile, file.type);
+		const mime = profileMimeType(profile, file.name, file.type);
+		return mime !== undefined && acceptsMimeType(profile, mime);
 	}
 
 	/**
@@ -367,14 +358,12 @@
 	 * the difference between an HEIC drag landing as `image/heic` (rejected)
 	 * vs. a legitimate Finder-dragged `.png` landing as `''` (skipped from
 	 * processImage and uploaded as `application/octet-stream`, then rejected
-	 * server-side). Same generic-only rule as `isAllowedKind` so the two
-	 * helpers stay consistent.
+	 * server-side). Same inference as `isAllowedKind` and the composer's final
+	 * check, so the three stay consistent.
 	 */
 	function normalizeMime(file: File): File {
-		if (!GENERIC_MIMES.has(file.type)) return file;
-		const ext = getExt(file.name);
-		const mime = ext ? profile.extensions[ext] : undefined;
-		if (!mime) return file;
+		const mime = profileMimeType(profile, file.name, file.type);
+		if (!mime || mime === file.type) return file;
 		return new File([file], file.name, { type: mime, lastModified: file.lastModified });
 	}
 
@@ -390,19 +379,23 @@
 			ctx.uploadFile(file, filename, {
 				preprocess: async (input) => {
 					const processed = await processImage(input);
-					// Post-process size guard. WebP at q=85 is almost always smaller
+					// Post-process guard. WebP at q=85 is almost always smaller
 					// than the source for screenshots and large photos, but pathological
 					// inputs (already heavily compressed JPEGs, small high-detail tiles)
-					// can re-encode larger, and GIFs or a failed encode come back
-					// unchanged. The limit holds for the bytes actually uploaded:
-					//   - if both the encoded output AND the original exceed it,
-					//     throw: the input cap allows up to MAX_INPUT_IMAGE_SIZE, so
+					// can re-encode larger, GIFs or a failed encode come back
+					// unchanged, and the encoded type need not be one this surface
+					// accepts. The limit and the type hold for what is actually
+					// uploaded:
+					//   - if neither the encoded output NOR the original passes,
+					//     refuse: the input cap allows up to MAX_INPUT_IMAGE_SIZE, so
 					//     the original may be too big as well.
-					//   - otherwise fall back to the original that fits.
+					//   - otherwise fall back to the original that passes.
 					const limit = imageUploadLimit(profile);
-					if (processed.blob.size > limit.bytes) {
-						if (input.size > limit.bytes) {
-							throw new Error(
+					const passes = (blob: Blob, mimeType: string) =>
+						acceptsMimeType(profile, mimeType) && blob.size <= limit.bytes;
+					if (!passes(processed.blob, processed.mimeType)) {
+						if (!passes(input, input.type)) {
+							throw new AttachmentRefusal(
 								$t('chat.error.image_compression_exceeded', { maxSize: limit.label })
 							);
 						}

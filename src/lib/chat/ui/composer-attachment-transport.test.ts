@@ -6,6 +6,7 @@
  */
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
 import { api } from '$lib/convex/_generated/api';
 import { uploadBlobWithProgress, UploadError } from '../../uploads/transfer.js';
@@ -447,5 +448,148 @@ describe('a custom attachment transport', () => {
 		expect(
 			coordinator.attachments.map((attachment) => 'name' in attachment && attachment.name)
 		).toEqual(['one.txt', 'two.txt']);
+	});
+});
+
+describe('the final payload check', () => {
+	/** Storage takes 100 bytes, but whatever reads images takes only 40. */
+	const profile: UploadProfile = {
+		extensions: { '.txt': 'text/plain', '.png': 'image/png' },
+		maxBytes: 100,
+		maxBytesLabel: '100 B',
+		maxFiles: 6,
+		maxImageBytes: 40,
+		maxImageBytesLabel: '40 B'
+	};
+	const sized = (size: number, name: string, type: string) =>
+		new File(['x'.repeat(size)], name, { type });
+	const screenshot = (size: number, type = 'image/png') => new Blob(['x'.repeat(size)], { type });
+	const tooLarge = (filename: string, maxSize: string) => [
+		`File too large: "${filename}"`,
+		{ description: `Maximum size is ${maxSize}` }
+	];
+	const notAllowed = (filename: string) => [`File type not allowed: "${filename}"`];
+
+	beforeEach(() => {
+		vi.mocked(toast.error).mockClear();
+		// jsdom never loads images, so measuring a picked image would never finish.
+		vi.stubGlobal(
+			'Image',
+			class {
+				naturalWidth = 4;
+				naturalHeight = 4;
+				onload: (() => void) | null = null;
+				set src(_url: string) {
+					queueMicrotask(() => this.onload?.());
+				}
+			}
+		);
+	});
+
+	it.each([
+		{ name: 'a file at maxBytes', file: sized(100, 'notes.txt', 'text/plain') },
+		{ name: 'an image at the image limit', file: sized(40, 'photo.png', 'image/png') },
+		{ name: 'a generic type its extension maps', file: sized(5, 'notes.txt', '') }
+	])('uploads $name', async ({ file }) => {
+		const transport = surfaceTransport();
+		const coordinator = composer({ upload: transport.upload, profile });
+
+		const pending = coordinator.uploadFile(file);
+		await vi.waitFor(() => expect(transport.upload).toHaveBeenCalledOnce());
+		transport.attempts[0]!.succeed(result('allowed'));
+		await pending;
+
+		expect(transport.attempts[0]!.payload.blob).toBe(file);
+		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		{
+			name: 'a file one byte over maxBytes',
+			file: sized(101, 'notes.txt', 'text/plain'),
+			shown: tooLarge('notes.txt', '100 B')
+		},
+		{
+			name: 'an image one byte over the image limit',
+			file: sized(41, 'photo.png', 'image/png'),
+			shown: tooLarge('photo.png', '40 B')
+		},
+		{
+			name: 'a type the profile does not accept',
+			file: sized(5, 'report.pdf', 'application/pdf'),
+			shown: notAllowed('report.pdf')
+		},
+		{
+			name: 'a generic type whose extension maps to nothing',
+			file: sized(5, 'notes.bin', ''),
+			shown: notAllowed('notes.bin')
+		}
+	])('never uploads $name and says why', async ({ file, shown }) => {
+		const transport = surfaceTransport();
+		const coordinator = composer({ upload: transport.upload, profile });
+
+		await coordinator.uploadFile(file);
+
+		expect(transport.upload).not.toHaveBeenCalled();
+		expect(coordinator.attachments).toEqual([]);
+		expect(toast.error).toHaveBeenCalledExactlyOnceWith(...shown);
+	});
+
+	it.each([
+		{ size: 40, uploads: true },
+		{ size: 41, uploads: false }
+	])('holds a $size byte screenshot to the image limit', async ({ size, uploads }) => {
+		const transport = surfaceTransport();
+		const coordinator = composer({ upload: transport.upload, profile });
+		const blob = screenshot(size);
+
+		const pending = coordinator.uploadScreenshot(blob, 'screenshot.png', { width: 4, height: 4 });
+		if (uploads) {
+			expect(transport.attempts[0]?.payload.blob).toBe(blob);
+			transport.attempts[0]!.succeed(result('screenshot'));
+		}
+		await pending;
+
+		if (uploads) {
+			expect(coordinator.uploadedFileIds).toEqual(['upload-screenshot']);
+			expect(toast.error).not.toHaveBeenCalled();
+		} else {
+			expect(transport.upload).not.toHaveBeenCalled();
+			expect(coordinator.attachments).toEqual([]);
+			expect(toast.error).toHaveBeenCalledExactlyOnceWith(...tooLarge('screenshot.png', '40 B'));
+		}
+	});
+
+	it('never uploads a screenshot of a type the profile does not accept', async () => {
+		const transport = surfaceTransport();
+		const coordinator = composer({ upload: transport.upload, profile });
+
+		await coordinator.uploadScreenshot(screenshot(5, 'image/webp'), 'screenshot.webp');
+
+		expect(transport.upload).not.toHaveBeenCalled();
+		expect(coordinator.attachments).toEqual([]);
+		expect(toast.error).toHaveBeenCalledExactlyOnceWith(...notAllowed('screenshot.webp'));
+	});
+
+	it('never asks direct storage for a grant for a refused payload', async () => {
+		const client = { mutation: vi.fn(), action: vi.fn() };
+		const coordinator = composer(
+			{
+				generateUploadUrl: api.support.files.generateUploadUrl,
+				saveUploadedFile: api.support.files.saveUploadedFile,
+				profile
+			},
+			undefined,
+			undefined,
+			client as unknown as ConvexClient
+		);
+
+		await coordinator.uploadFile(sized(101, 'notes.txt', 'text/plain'));
+		await coordinator.uploadScreenshot(screenshot(41), 'screenshot.png', { width: 4, height: 4 });
+
+		expect(client.mutation).not.toHaveBeenCalled();
+		expect(client.action).not.toHaveBeenCalled();
+		expect(coordinator.attachments).toEqual([]);
+		expect(toast.error).toHaveBeenCalledTimes(2);
 	});
 });

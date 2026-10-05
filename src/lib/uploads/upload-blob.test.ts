@@ -182,6 +182,20 @@ describe('uploadBlobWithProgress', () => {
 		expect(await http).toMatchObject({ name: 'UploadError', code: 'http', status: 401 });
 	});
 
+	it.each([201, 202])('decodes a %i answer from a custom endpoint', async (status) => {
+		const server = fakeServer();
+
+		const pending = uploadBlobWithProgress({
+			url: 'https://gateway.test/raw',
+			blob,
+			decode: decodeGateway,
+			onProgress: () => {}
+		});
+		server.respond(status, JSON.stringify({ ok: true, byteSize: 7 }));
+
+		await expect(pending).resolves.toEqual({ byteSize: 7 });
+	});
+
 	it('does not send once the signal is already aborted', async () => {
 		const server = fakeServer();
 		const controller = new AbortController();
@@ -232,5 +246,18 @@ describe('uploadToStorage on the shared transport', () => {
 
 		await expect(pending).resolves.toBe('storage-9');
 		expect(server.headers).toEqual([['Content-Type', 'image/webp']]);
+	});
+
+	it.each([
+		{ status: 201, body: JSON.stringify({ storageId: 'storage-9' }) },
+		{ status: 202, body: JSON.stringify({ storageId: 'storage-9' }) },
+		{ status: 204, body: '' }
+	])('refuses a $status answer as http, whatever its body', async ({ status, body }) => {
+		const server = fakeServer();
+
+		const pending = uploadToStorage('https://storage.test', blob, () => {}).catch((error) => error);
+		server.respond(status, body);
+
+		expect(await pending).toMatchObject({ name: 'UploadError', code: 'http', status });
 	});
 });

@@ -34,12 +34,29 @@ export type AttachmentTransferSnapshot = {
 	readonly error?: UploadErrorCode;
 };
 
+/** `preprocess-failed` also covers a final payload that `checkPayload` refused. */
 export type AttachmentTransferResult =
 	| { status: 'success' }
 	| { status: 'error' }
 	| { status: 'invalidated' }
 	| { status: 'unavailable' }
 	| { status: 'preprocess-failed'; error: unknown };
+
+/**
+ * A refusal whose localized text the user is shown, such as an image that
+ * stays over the surface's limit. Any other failure gets the generic upload
+ * message, so arbitrary error text never reaches the screen.
+ */
+export class AttachmentRefusal extends Error {
+	/** Secondary line, such as the limit that was exceeded. */
+	readonly description?: string;
+
+	constructor(message: string, description?: string) {
+		super(message);
+		this.name = 'AttachmentRefusal';
+		this.description = description;
+	}
+}
 
 /**
  * A surface's transport for one attempt.
@@ -67,6 +84,11 @@ export type AttachmentTransferOptions = {
 	onSnapshot: (snapshot: AttachmentTransferSnapshot) => void;
 	onActivityChange?: (active: boolean) => void;
 	onAttemptError?: (error: unknown) => void;
+	/**
+	 * Throws to refuse the final payload before the first attempt, so a refused
+	 * payload never reaches `upload`. Retries reuse the payload it accepted.
+	 */
+	checkPayload?: (payload: AttachmentTransferPayload) => void;
 	/** Receives a successful result whose attempt was invalidated before it could publish. */
 	release?: (result: AttachmentUploadResult) => void;
 };
@@ -153,6 +175,7 @@ export class AttachmentTransfer {
 	private readonly onSnapshot: (snapshot: AttachmentTransferSnapshot) => void;
 	private readonly onActivityChange?: (active: boolean) => void;
 	private readonly onAttemptError?: (error: unknown) => void;
+	private readonly checkPayload?: (payload: AttachmentTransferPayload) => void;
 	private readonly release?: (result: AttachmentUploadResult) => void;
 
 	private generation = 0;
@@ -181,6 +204,7 @@ export class AttachmentTransfer {
 		this.onSnapshot = options.onSnapshot;
 		this.onActivityChange = options.onActivityChange;
 		this.onAttemptError = options.onAttemptError;
+		this.checkPayload = options.checkPayload;
 		this.release = options.release;
 	}
 
@@ -238,6 +262,7 @@ export class AttachmentTransfer {
 				dimensions,
 				accessKey: this.accessKey
 			};
+			this.checkPayload?.(payload);
 			this.retryPayload = payload;
 			this.sourceBlob = undefined;
 			this.phase = 'uploading';

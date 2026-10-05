@@ -88,12 +88,18 @@ function drop(files: File[]) {
 	window.dispatchEvent(event);
 }
 
-/** processImage for one call: an encoded result, or the input unchanged. */
-function encodeTo(size: number | 'passthrough') {
+/**
+ * processImage for one call: an encoded result, the input passed through like
+ * a GIF, or the input handed back after every encoder failed.
+ */
+function encodeTo(size: number | 'passthrough' | 'failed') {
 	vi.mocked(processImage).mockImplementationOnce(async (input) => {
 		const source = input as Blob;
 		if (size === 'passthrough') {
 			return { blob: source, mimeType: source.type, width: 4, height: 4, passthrough: true };
+		}
+		if (size === 'failed') {
+			return { blob: source, mimeType: source.type, width: 0, height: 0, passthrough: true };
 		}
 		return {
 			blob: new Blob(['w'.repeat(size)], { type: 'image/webp' }),
@@ -105,15 +111,26 @@ function encodeTo(size: number | 'passthrough') {
 	});
 }
 
-beforeEach(() => {
-	client = new ConvexClient('https://chat-test.convex.cloud', { disabled: true });
-	upload = vi.fn(async () => ({ fileId: 'upload-1', url: '/attachments/upload-1' }));
+function createContext(surfaceProfile: UploadProfile): ChatUIContext {
 	const core = new ChatCore({
 		threadId: 'thread-policy',
 		api: { sendMessage: api.aiChat.messages.sendMessage }
 	});
-	ctx = new ChatUIContext(core, client, { upload, profile });
-	ctx.setDisplayMessages([]);
+	const context = new ChatUIContext(core, client, { upload, profile: surfaceProfile });
+	context.setDisplayMessages([]);
+	return context;
+}
+
+/** Give the composer about to mount another surface profile. */
+function useProfile(surfaceProfile: UploadProfile) {
+	ctx.dispose();
+	ctx = createContext(surfaceProfile);
+}
+
+beforeEach(() => {
+	client = new ConvexClient('https://chat-test.convex.cloud', { disabled: true });
+	upload = vi.fn(async () => ({ fileId: 'upload-1', url: '/attachments/upload-1' }));
+	ctx = createContext(profile);
 	vi.spyOn(console, 'error').mockImplementation(() => {});
 	Object.defineProperty(URL, 'createObjectURL', {
 		value: () => 'blob:https://chat.test/preview',
@@ -235,24 +252,53 @@ describe('ChatInput upload policy', () => {
 		}).toEqual(uploaded);
 	});
 
-	it('refuses an image whose encoded and original bytes both exceed the image limit', async () => {
+	it.each([
+		{ outcome: 'leaves over the limit', encoded: 41 as const },
+		{ outcome: 'fails on', encoded: 'failed' as const }
+	])('refuses an image the encoder $outcome and names the image limit', async ({ encoded }) => {
 		await mountComposer();
-		const attach = vi.spyOn(ctx, 'uploadFile');
-		encodeTo(41);
-		// Fits storage, so only the stricter image limit can refuse it.
-		const photo = sized(41, 'photo.png', 'image/png');
+		encodeTo(encoded);
 
-		pick([photo]);
+		// Fits storage, so only the stricter image limit can refuse it.
+		pick([sized(41, 'photo.png', 'image/png')]);
 
 		await vi.waitFor(() => expect(toast.error).toHaveBeenCalled());
 		expect(upload).not.toHaveBeenCalled();
 		expect(ctx.attachments).toEqual([]);
-		encodeTo(41);
-		const preprocess = attach.mock.calls[0]?.[2]?.preprocess;
-		await expect(preprocess!(photo)).rejects.toThrow(
+		expect(toast.error).toHaveBeenCalledExactlyOnceWith(
 			en.chat.error.image_compression_exceeded.replace('{maxSize}', '40 B')
 		);
 	});
+
+	it.each([
+		{ source: 40, uploaded: { size: 40, filename: 'photo.png', mimeType: 'image/png' } },
+		{ source: 90, uploaded: undefined }
+	])(
+		'never uploads an encoded type the profile refuses, for a $source byte PNG',
+		async ({ source, uploaded }) => {
+			useProfile({ ...profile, extensions: { '.png': 'image/png' } });
+			await mountComposer();
+			encodeTo(30);
+
+			pick([sized(source, 'photo.png', 'image/png')]);
+
+			if (uploaded) {
+				await vi.waitFor(() => expect(upload).toHaveBeenCalledOnce());
+				const [payload] = uploadedPayloads();
+				expect({
+					size: payload!.blob.size,
+					filename: payload!.filename,
+					mimeType: payload!.mimeType
+				}).toEqual(uploaded);
+			} else {
+				await vi.waitFor(() => expect(toast.error).toHaveBeenCalled());
+				expect(upload).not.toHaveBeenCalled();
+				expect(toast.error).toHaveBeenCalledExactlyOnceWith(
+					en.chat.error.image_compression_exceeded.replace('{maxSize}', '40 B')
+				);
+			}
+		}
+	);
 
 	it.each([
 		{ size: 40, uploads: true },
@@ -274,6 +320,9 @@ describe('ChatInput upload policy', () => {
 			} else {
 				await vi.waitFor(() => expect(toast.error).toHaveBeenCalled());
 				expect(upload).not.toHaveBeenCalled();
+				expect(toast.error).toHaveBeenCalledExactlyOnceWith(
+					en.chat.error.image_compression_exceeded.replace('{maxSize}', '40 B')
+				);
 			}
 		}
 	);

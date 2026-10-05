@@ -204,6 +204,13 @@ export type UploadBlobOptions<T> = {
  * JSON can use it, whatever its authorization header and response shape.
  */
 export function uploadBlobWithProgress<T>(options: UploadBlobOptions<T>): Promise<T> {
+	return sendBlob(options, (status) => status >= 200 && status < 300);
+}
+
+function sendBlob<T>(
+	options: UploadBlobOptions<T>,
+	isSuccess: (status: number) => boolean
+): Promise<T> {
 	const { url, blob, headers, decode, onProgress, signal } = options;
 	return new Promise<T>((resolve, reject) => {
 		const xhr = new XMLHttpRequest();
@@ -221,7 +228,7 @@ export function uploadBlobWithProgress<T>(options: UploadBlobOptions<T>): Promis
 		});
 
 		xhr.addEventListener('load', () => {
-			if (xhr.status < 200 || xhr.status >= 300) {
+			if (!isSuccess(xhr.status)) {
 				reject(new UploadError('http', xhr.status));
 				return;
 			}
@@ -272,11 +279,10 @@ export async function uploadToStorage(
 	onProgress: UploadProgressCallback,
 	signal?: AbortSignal
 ): Promise<string> {
-	return await uploadBlobWithProgress({
-		url: uploadUrl,
-		blob,
-		decode: decodeStorageId,
-		onProgress,
-		signal
-	});
+	// Storage keeps its own contract: only a 200 is decoded and committed. Any
+	// other status, another 2xx included, is refused before commit can run.
+	return await sendBlob(
+		{ url: uploadUrl, blob, decode: decodeStorageId, onProgress, signal },
+		(status) => status === 200
+	);
 }

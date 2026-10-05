@@ -125,6 +125,47 @@ export function acceptsMimeType(profile: UploadProfile, mimeType: string): boole
 }
 
 /**
+ * Browser-supplied types that say nothing about a file, so its extension
+ * decides instead. Any other type is trusted as-is: an `image/heic` file named
+ * `photo.jpg` must be refused, not accepted through the `.jpg` mapping.
+ */
+const GENERIC_MIME_TYPES = new Set(['', 'application/octet-stream']);
+
+/**
+ * The type a file counts as on this profile: its own type, or for a generic
+ * one the type its extension maps to. Undefined when a generic type has no
+ * mapped extension.
+ */
+export function profileMimeType(
+	profile: UploadProfile,
+	filename: string,
+	mimeType: string
+): string | undefined {
+	if (!GENERIC_MIME_TYPES.has(mimeType)) return mimeType;
+	const dot = filename.lastIndexOf('.');
+	return dot >= 0 ? profile.extensions[filename.slice(dot).toLowerCase()] : undefined;
+}
+
+/** Why a payload breaks its profile: its type, or its bytes and the limit they broke. */
+export type UploadPayloadRefusal = { reason: 'type' } | { reason: 'size'; limit: UploadByteLimit };
+
+/**
+ * Check the exact name, type and bytes about to be uploaded. Images are held
+ * to `imageUploadLimit`, everything else to `maxBytes`.
+ */
+export function checkUploadPayload(
+	profile: UploadProfile,
+	payload: { filename: string; mimeType: string; size: number }
+): UploadPayloadRefusal | undefined {
+	const mimeType = profileMimeType(profile, payload.filename, payload.mimeType);
+	if (mimeType === undefined || !acceptsMimeType(profile, mimeType)) return { reason: 'type' };
+	const limit = mimeType.toLowerCase().startsWith('image/')
+		? imageUploadLimit(profile)
+		: { bytes: profile.maxBytes, label: profile.maxBytesLabel };
+	return payload.size > limit.bytes ? { reason: 'size', limit } : undefined;
+}
+
+/**
  * Whether a user may pick this file, which on a transcoding surface is wider
  * than what may be stored. Falls back to the storage answer where no input
  * family is declared, so a surface without a transcoder behaves as before.
