@@ -422,7 +422,8 @@ export class ComposerAttachmentCoordinator {
 	async uploadScreenshot(
 		blob: Blob,
 		filename: string,
-		dimensions?: { width: number; height: number }
+		dimensions?: { width: number; height: number },
+		options?: Pick<ComposerUploadFileOptions, 'onPreprocessFailed'>
 	): Promise<void> {
 		if (!this.uploadConfig) {
 			throw new Error('Upload config not provided to ChatUIContext');
@@ -452,7 +453,7 @@ export class ComposerAttachmentCoordinator {
 			dimensions,
 			false
 		);
-		this.settleRefusedStart(key, filename, await transfer.start());
+		this.settleRefusedStart(key, filename, await transfer.start(), options?.onPreprocessFailed);
 	}
 
 	/** Retry with the transfer's exact retained post-preprocessing payload. */
