@@ -8,7 +8,12 @@
 import type { StreamArgs, SyncStreamsReturnValue } from '@convex-dev/agent';
 import type { FunctionReference, PaginationResult } from 'convex/server';
 import type { ProviderMetadata } from 'ai';
-import { acceptAttribute, allowedMimeTypes, UPLOAD_PROFILES } from '../../uploads/profiles';
+import {
+	acceptAttribute,
+	allowedMimeTypes,
+	UPLOAD_PROFILES,
+	type UploadProfile
+} from '../../uploads/profiles';
 import type { UploadErrorCode } from '../../uploads/transfer.js';
 
 /**
@@ -253,14 +258,20 @@ export const DEFAULT_CHAT_CONFIG: Required<ChatConfig> = {
 };
 
 /**
- * File upload constraints, derived from the chat attachment profile.
+ * The upload policy of a chat surface whose upload config names no profile.
+ *
+ * The composer reads accepted types, MIME inference, size caps and the
+ * attachment count from the surface's profile, so a surface with another
+ * profile changes all of them together.
+ */
+export const DEFAULT_ATTACHMENT_PROFILE: UploadProfile = UPLOAD_PROFILES.chatAttachment;
+
+/**
+ * File upload constraints of the default chat attachment profile.
  *
  * The profile in `$lib/uploads/profiles` is the source of truth, shared with
  * the server validator so the picker and `validateUploadBlob` cannot drift
- * apart. These names are kept because they are public API (`$lib/chat`) and
- * because `ALLOWED_FILE_TYPES` (paste/MIME gate) and `ALLOWED_FILE_EXTENSIONS`
- * (picker `accept` and the empty-`File.type` fallback in ChatInput) are used
- * as-is throughout the chat UI.
+ * apart. These names are kept because they are public API (`$lib/chat`).
  */
 export const ALLOWED_FILE_EXT_MIME: Readonly<Record<string, string>> =
 	UPLOAD_PROFILES.chatAttachment.extensions;

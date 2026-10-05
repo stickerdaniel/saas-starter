@@ -7,8 +7,13 @@
 
 	let {
 		context,
-		onSend
-	}: { context: ChatUIContext } & Pick<ComponentProps<typeof ChatInput>, 'onSend'> = $props();
+		onSend,
+		showFileButton = false,
+		compact = false
+	}: { context: ChatUIContext } & Pick<
+		ComponentProps<typeof ChatInput>,
+		'onSend' | 'showFileButton' | 'compact'
+	> = $props();
 </script>
 
 <ChatRoot
@@ -17,5 +22,5 @@
 	externalUIContext={context}
 	api={{ listMessages: api.aiChat.messages.listMessages }}
 >
-	<ChatInput {onSend} showFileButton={false} />
+	<ChatInput {onSend} {showFileButton} {compact} />
 </ChatRoot>

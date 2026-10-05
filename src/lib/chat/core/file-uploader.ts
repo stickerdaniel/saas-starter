@@ -17,10 +17,20 @@ import {
 	type UploadProgressCallback
 } from '../../uploads/transfer.js';
 
-/** Result from a successful chat attachment upload. */
-export interface UploadResult {
+/**
+ * What every attachment upload hands to the composer once it succeeded.
+ *
+ * `fileId` is an opaque reference owned by the surface whose upload function
+ * produced it. The composer stores it with the attachment and never reads it
+ * as a storage id.
+ */
+export interface AttachmentUploadResult {
 	fileId: string;
 	url: string;
+}
+
+/** Result from a successful direct-to-storage chat attachment upload. */
+export interface UploadResult extends AttachmentUploadResult {
 	storageId: string;
 }
 

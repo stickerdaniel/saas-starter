@@ -28,7 +28,33 @@ export type UploadProfile = {
 	maxBytes: number;
 	maxBytesLabel: string;
 	maxFiles: number;
-};
+} & (
+	| { maxImageBytes?: undefined; maxImageBytesLabel?: undefined }
+	| {
+			/**
+			 * Ceiling for the image bytes actually uploaded, where whatever reads
+			 * images is stricter than storage. See `imageUploadLimit`.
+			 */
+			maxImageBytes: number;
+			maxImageBytesLabel: string;
+	  }
+);
+
+/** A byte ceiling together with the label its error message shows. */
+export type UploadByteLimit = { bytes: number; label: string };
+
+/**
+ * The ceiling for a preprocessed image, applied to the exact bytes uploaded.
+ *
+ * The smaller of `maxBytes` and `maxImageBytes`, so an image limit can only
+ * tighten storage, never widen it.
+ */
+export function imageUploadLimit(profile: UploadProfile): UploadByteLimit {
+	if (profile.maxImageBytes !== undefined && profile.maxImageBytes < profile.maxBytes) {
+		return { bytes: profile.maxImageBytes, label: profile.maxImageBytesLabel };
+	}
+	return { bytes: profile.maxBytes, label: profile.maxBytesLabel };
+}
 
 export const UPLOAD_PROFILES = {
 	/** Attachments on the AI chat and support surfaces. */

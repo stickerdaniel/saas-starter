@@ -27,15 +27,11 @@
 	import { processImage } from '$lib/media/process-image';
 	import { isChatSessionCurrent } from '../core/chat-persisted-state.ts';
 	import {
-		ALLOWED_FILE_EXT_MIME,
-		ALLOWED_FILE_EXTENSIONS,
-		ALLOWED_FILE_TYPES,
-		MAX_FILE_SIZE,
-		MAX_FILE_SIZE_LABEL,
 		MAX_INPUT_IMAGE_SIZE,
 		MAX_INPUT_IMAGE_SIZE_LABEL,
 		MAX_MESSAGE_LENGTH
 	} from '../core/types.js';
+	import { acceptAttribute, acceptsMimeType, imageUploadLimit } from '../../uploads/profiles.js';
 
 	const { t } = getTranslate();
 
@@ -100,6 +96,9 @@
 	} = $props();
 
 	const ctx = getChatUIContext();
+	// Fixed for the context's lifetime, like the upload config it comes from.
+	const profile = ctx.uploadProfile;
+	const acceptedFiles = acceptAttribute(profile);
 
 	let containerEl = $state<HTMLDivElement>();
 	let fileInputEl = $state<HTMLInputElement>();
@@ -357,9 +356,9 @@
 	function isAllowedKind(file: File): boolean {
 		if (GENERIC_MIMES.has(file.type)) {
 			const ext = getExt(file.name);
-			return ext != null && ext in ALLOWED_FILE_EXT_MIME;
+			return ext != null && ext in profile.extensions;
 		}
-		return ALLOWED_FILE_TYPES.includes(file.type);
+		return acceptsMimeType(profile, file.type);
 	}
 
 	/**
@@ -374,7 +373,7 @@
 	function normalizeMime(file: File): File {
 		if (!GENERIC_MIMES.has(file.type)) return file;
 		const ext = getExt(file.name);
-		const mime = ext ? ALLOWED_FILE_EXT_MIME[ext] : undefined;
+		const mime = ext ? profile.extensions[ext] : undefined;
 		if (!mime) return file;
 		return new File([file], file.name, { type: mime, lastModified: file.lastModified });
 	}
@@ -394,20 +393,17 @@
 					// Post-process size guard. WebP at q=85 is almost always smaller
 					// than the source for screenshots and large photos, but pathological
 					// inputs (already heavily compressed JPEGs, small high-detail tiles)
-					// can re-encode larger. The server enforces MAX_FILE_SIZE on the
-					// stored blob, so:
-					//   - if both the encoded output AND the original exceed
-					//     MAX_FILE_SIZE, throw — server would reject either, and
-					//     the input cap allows up to MAX_INPUT_IMAGE_SIZE so the
-					//     original may be too big.
-					//   - otherwise fall back to the smaller-than-cap original,
-					//     since the server will accept it as-is.
-					if (processed.blob.size > MAX_FILE_SIZE) {
-						if (input.size > MAX_FILE_SIZE) {
+					// can re-encode larger, and GIFs or a failed encode come back
+					// unchanged. The limit holds for the bytes actually uploaded:
+					//   - if both the encoded output AND the original exceed it,
+					//     throw: the input cap allows up to MAX_INPUT_IMAGE_SIZE, so
+					//     the original may be too big as well.
+					//   - otherwise fall back to the original that fits.
+					const limit = imageUploadLimit(profile);
+					if (processed.blob.size > limit.bytes) {
+						if (input.size > limit.bytes) {
 							throw new Error(
-								$t('chat.error.image_compression_exceeded', {
-									maxSize: MAX_FILE_SIZE_LABEL
-								})
+								$t('chat.error.image_compression_exceeded', { maxSize: limit.label })
 							);
 						}
 						return {
@@ -463,8 +459,8 @@
 			const file = normalizeMime(raw);
 
 			const isImage = file.type.startsWith('image/');
-			const cap = isImage ? MAX_INPUT_IMAGE_SIZE : MAX_FILE_SIZE;
-			const label = isImage ? MAX_INPUT_IMAGE_SIZE_LABEL : MAX_FILE_SIZE_LABEL;
+			const cap = isImage ? MAX_INPUT_IMAGE_SIZE : profile.maxBytes;
+			const label = isImage ? MAX_INPUT_IMAGE_SIZE_LABEL : profile.maxBytesLabel;
 
 			if (file.size > cap) {
 				haptic.trigger('error');
@@ -531,10 +527,10 @@
 			// Type-aware size cap — images go through processImage which
 			// shrinks them before upload, so we only enforce the absurdity
 			// ceiling on the input. Non-image files upload as-is, so the
-			// 5 MB server cap applies to the input directly.
+			// profile's storage cap applies to the input directly.
 			const isImage = file.type.startsWith('image/');
-			const cap = isImage ? MAX_INPUT_IMAGE_SIZE : MAX_FILE_SIZE;
-			const label = isImage ? MAX_INPUT_IMAGE_SIZE_LABEL : MAX_FILE_SIZE_LABEL;
+			const cap = isImage ? MAX_INPUT_IMAGE_SIZE : profile.maxBytes;
+			const label = isImage ? MAX_INPUT_IMAGE_SIZE_LABEL : profile.maxBytesLabel;
 
 			if (file.size > cap) {
 				toast.error($t('chat.error.pasted_file_too_large'), {
@@ -604,7 +600,7 @@
 					bind:this={fileInputEl}
 					type="file"
 					multiple
-					accept={ALLOWED_FILE_EXTENSIONS}
+					accept={acceptedFiles}
 					hidden
 					aria-hidden="true"
 					tabindex="-1"
@@ -630,11 +626,7 @@
 				</PromptInputAction>
 			{/if}
 			{#if showFileButton}
-				<FileUpload
-					onFilesAdded={handleFilesAdded}
-					multiple={true}
-					accept={ALLOWED_FILE_EXTENSIONS}
-				>
+				<FileUpload onFilesAdded={handleFilesAdded} multiple={true} accept={acceptedFiles}>
 					<PromptInputAction>
 						{#snippet tooltip()}
 							<p>{$t('chat.tooltip.attach_files')}</p>

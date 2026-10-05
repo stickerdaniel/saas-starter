@@ -28,8 +28,8 @@ import type {
 	AttachmentTransferSnapshot,
 	AttachmentTransferUpload
 } from '$lib/chat/ui/attachment-transfer';
-import type { UploadConfig } from '$lib/chat/ui/composer-attachment-coordinator.svelte.ts';
-import type { ChatUploadCommitResult, UploadResult } from '$lib/chat/core/file-uploader';
+import type { DirectUploadConfig as UploadConfig } from '$lib/chat/ui/composer-attachment-coordinator.svelte.ts';
+import type { AttachmentUploadResult, ChatUploadCommitResult } from '$lib/chat/core/file-uploader';
 import type { UploadGrant } from '$lib/uploads/transfer';
 import type {
 	BillingCheckoutDeps,
@@ -111,7 +111,9 @@ describe('first-party boundary compile-time contracts', () => {
 		expectTypeOf<Parameters<AttachmentTransferUpload>>().toEqualTypeOf<
 			[AttachmentTransferPayload, (progress: number) => void, AbortSignal]
 		>();
-		expectTypeOf<ReturnType<AttachmentTransferUpload>>().toEqualTypeOf<Promise<UploadResult>>();
+		expectTypeOf<ReturnType<AttachmentTransferUpload>>().toEqualTypeOf<
+			Promise<AttachmentUploadResult>
+		>();
 		expectTypeOf<
 			FunctionReturnType<UploadConfig['generateUploadUrl']>
 		>().toEqualTypeOf<UploadGrant>();

@@ -9,10 +9,13 @@ import type {
 import { registerPersistedChatHolder } from '../core/chat-persisted-state.ts';
 import {
 	uploadFileWithProgress,
+	type AttachmentTextAction,
+	type AttachmentUploadResult,
 	type ChatUploadApi,
-	type AttachmentTextAction
+	type ChatUploadGrantArgs
 } from '../core/file-uploader.js';
-import { MAX_ATTACHMENTS, type Attachment } from '../core/types.js';
+import { DEFAULT_ATTACHMENT_PROFILE, type Attachment } from '../core/types.js';
+import type { UploadProfile } from '../../uploads/profiles.js';
 import {
 	AttachmentTransfer,
 	attachmentFileIdentity,
@@ -22,11 +25,12 @@ import {
 	isStoredAttachment,
 	revokeAttachmentPreview,
 	type AttachmentPreprocess,
-	type AttachmentTransferSnapshot
+	type AttachmentTransferSnapshot,
+	type AttachmentTransferUpload
 } from './attachment-transfer.js';
 
-/** Configuration for composer attachment uploads. */
-export interface UploadConfig extends ChatUploadApi {
+/** Settings every composer upload surface shares, whatever moves its bytes. */
+type UploadConfigBase = {
 	/** Translate upload errors in the current locale. */
 	translate?: (key: string, params?: Record<string, string | number | bigint | Date>) => string;
 	/** Optional access key provider for file control. */
@@ -35,7 +39,37 @@ export interface UploadConfig extends ChatUploadApi {
 	attachmentStore?: ChatAttachmentStore;
 	/** Optional action used by the attachment text preview. */
 	getAttachmentText?: AttachmentTextAction;
-}
+	/** Locale sent with server calls whose errors are translated. */
+	locale?: string;
+	/** Caller identity sent with the direct upload grant and the text preview action. */
+	getGenerateUploadUrlArgs?: () => ChatUploadGrantArgs;
+	/**
+	 * What this surface accepts: types, size caps and the attachment count.
+	 * Every entry point and the composer read this one policy.
+	 */
+	profile?: UploadProfile;
+};
+
+/** Uploads straight to Convex storage through the chat upload endpoints. */
+export type DirectUploadConfig = UploadConfigBase &
+	ChatUploadApi & { upload?: never; release?: never };
+
+/** Uploads through the surface's own transport instead of the storage endpoints. */
+export type CustomUploadConfig = UploadConfigBase & {
+	upload: AttachmentTransferUpload;
+	/**
+	 * Gives back a result the composer abandoned before sending it: removed,
+	 * replaced or dropped with the composer, or returned by an attempt that had
+	 * already been canceled. Called at most once per result; a rejection is
+	 * reported, never thrown.
+	 */
+	release?: (result: AttachmentUploadResult) => Promise<void> | void;
+	generateUploadUrl?: never;
+	saveUploadedFile?: never;
+};
+
+/** Configuration for composer attachment uploads. */
+export type UploadConfig = DirectUploadConfig | CustomUploadConfig;
 
 /** A transfer cannot change a composer's discriminant, identity, or local source. */
 type AttachmentSnapshotPatch = Partial<
@@ -71,8 +105,11 @@ export class ComposerAttachmentCoordinator {
 	/** Rendered attachments for the live composer. */
 	attachments = $state<Attachment[]>([]);
 
+	/** The upload policy every entry point and this collection read. */
+	readonly profile: UploadProfile;
+
 	/** Public admission limit shared by every composer input surface. */
-	readonly maxAttachments = MAX_ATTACHMENTS;
+	readonly maxAttachments: number;
 
 	/** Attachments held for threads that are not currently live. */
 	private readonly parked = new SvelteMap<string, Attachment[]>();
@@ -85,6 +122,10 @@ export class ComposerAttachmentCoordinator {
 
 	/** Takes this coordinator back out of the register of mounted composers. */
 	private readonly unregister: () => void;
+
+	/** Results already handed back, so no path releases one twice. Never rendered. */
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	private readonly releasedFileIds = new Set<string>();
 
 	private readonly getThreadId: () => string | null;
 	private readonly client: ConvexClient;
@@ -104,6 +145,8 @@ export class ComposerAttachmentCoordinator {
 		this.uploadConfig = options.uploadConfig;
 		this.activeUploads = options.activeUploads ?? null;
 		this.onForgetPersistedState = options.onForgetPersistedState;
+		this.profile = options.uploadConfig?.profile ?? DEFAULT_ATTACHMENT_PROFILE;
+		this.maxAttachments = this.profile.maxFiles;
 
 		// Restored composers start parked beneath their thread identity. The thread
 		// already on screen claims its own immediately, including screenshot uploads
@@ -143,16 +186,19 @@ export class ComposerAttachmentCoordinator {
 		}
 		this.attachments = this.attachments.filter((_, attachmentIndex) => attachmentIndex !== index);
 		this.persist();
+		if (removed) this.releaseAbandoned([removed]);
 	}
 
 	/** Remove every live attachment and permanently release its owned resources. */
 	clearAttachments(): void {
-		for (const attachment of this.attachments) {
+		const cleared = this.attachments;
+		for (const attachment of cleared) {
 			this.releaseUpload(attachment);
 			this.revokePreview(attachment);
 		}
 		this.attachments = [];
 		this.persist();
+		this.releaseAbandoned(cleared);
 	}
 
 	captureSendAttachments(): ComposerAttachmentSendSnapshot {
@@ -266,14 +312,9 @@ export class ComposerAttachmentCoordinator {
 	 */
 	forgetPersistedState(): void {
 		const abandoned = [...this.parked.keys()];
-		for (const attachments of this.parked.values()) {
-			for (const attachment of attachments) {
-				this.releaseUpload(attachment);
-				this.revokePreview(attachment);
-			}
-		}
-		this.parked.clear();
+		const parked = this.dropParked();
 		this.clearAttachments();
+		this.releaseAbandoned(parked);
 		this.onForgetPersistedState?.();
 		this.persist(...abandoned);
 	}
@@ -405,16 +446,58 @@ export class ComposerAttachmentCoordinator {
 		if (this.disposed) return;
 		this.unregister();
 		this.disposed = true;
-		for (const attachments of this.parked.values()) {
-			for (const attachment of attachments) {
-				this.releaseUpload(attachment);
-				this.revokePreview(attachment);
-			}
-		}
-		this.parked.clear();
+		const parked = this.dropParked();
 		this.clearAttachments();
+		this.releaseAbandoned(parked);
 		this.pendingUploads.clear();
 		this.activeUploads?.release(this);
+	}
+
+	/** Empty every parked list, releasing its client resources, and return what it held. */
+	private dropParked(): Attachment[] {
+		const dropped = [...this.parked.values()].flat();
+		for (const attachment of dropped) {
+			this.releaseUpload(attachment);
+			this.revokePreview(attachment);
+		}
+		this.parked.clear();
+		return dropped;
+	}
+
+	/**
+	 * Hand stored results back to a custom transport once nothing here holds them.
+	 * Sending clears attachments without this: a sent result is not abandoned.
+	 */
+	private releaseAbandoned(attachments: Attachment[]): void {
+		for (const attachment of attachments) {
+			if (attachment.type !== 'file' && attachment.type !== 'screenshot') continue;
+			const state = attachment.uploadState;
+			if (state?.status !== 'success' || !state.fileId || this.holdsResult(state.fileId)) continue;
+			this.releaseResult({ fileId: state.fileId, url: attachment.url ?? '' });
+		}
+	}
+
+	private holdsResult(fileId: string): boolean {
+		const holds = (attachment: Attachment) =>
+			(attachment.type === 'file' || attachment.type === 'screenshot') &&
+			attachment.uploadState?.fileId === fileId;
+		if (this.attachments.some(holds)) return true;
+		for (const attachments of this.parked.values()) {
+			if (attachments.some(holds)) return true;
+		}
+		return false;
+	}
+
+	private releaseResult(result: AttachmentUploadResult): void {
+		const release = this.uploadConfig?.release;
+		if (!release || this.releasedFileIds.has(result.fileId)) return;
+		this.releasedFileIds.add(result.fileId);
+		const reportFailure = () => console.error('[ComposerAttachmentCoordinator] Release failed');
+		try {
+			void Promise.resolve(release(result)).catch(reportFailure);
+		} catch {
+			reportFailure();
+		}
 	}
 
 	/** What the shared no-thread key contains that this composer did not put there. */
@@ -501,6 +584,7 @@ export class ComposerAttachmentCoordinator {
 
 		const supersededLive = this.attachments.map(() => false);
 		const adopted: Attachment[] = [];
+		const replaced: Attachment[] = [];
 		for (const candidate of parked) {
 			const rivalIndex = this.attachments.findIndex(
 				(live, index) => !supersededLive[index] && isSameAttachmentFile(candidate, live)
@@ -514,10 +598,12 @@ export class ComposerAttachmentCoordinator {
 				supersededLive[rivalIndex] = true;
 				this.releaseUpload(rival);
 				this.revokePreview(rival);
+				replaced.push(rival);
 				adopted.push(candidate);
 			} else {
 				this.releaseUpload(candidate);
 				this.revokePreview(candidate);
+				replaced.push(candidate);
 			}
 		}
 
@@ -526,6 +612,7 @@ export class ComposerAttachmentCoordinator {
 			...this.attachments.filter((_, index) => !supersededLive[index])
 		];
 		this.persist(threadId);
+		this.releaseAbandoned(replaced);
 	}
 
 	private static mergeSnapshotAttachments(
@@ -594,17 +681,8 @@ export class ComposerAttachmentCoordinator {
 			dimensions,
 			accessKey,
 			measureImageDimensions,
-			upload: (payload, onProgress, signal) =>
-				uploadFileWithProgress(
-					this.client,
-					payload.blob,
-					payload.filename,
-					onProgress,
-					config,
-					payload.dimensions,
-					payload.accessKey,
-					signal
-				),
+			upload: config.upload ? config.upload : this.directUpload(config),
+			release: (result) => this.releaseResult(result),
 			onSnapshot: (snapshot) => {
 				if (this.transfers.get(key) !== transfer) return;
 				if (snapshot.phase === 'preprocessing') return;
@@ -619,6 +697,20 @@ export class ComposerAttachmentCoordinator {
 		});
 		this.transfers.set(key, transfer);
 		return transfer;
+	}
+
+	private directUpload(config: DirectUploadConfig): AttachmentTransferUpload {
+		return (payload, onProgress, signal) =>
+			uploadFileWithProgress(
+				this.client,
+				payload.blob,
+				payload.filename,
+				onProgress,
+				config,
+				payload.dimensions,
+				payload.accessKey,
+				signal
+			);
 	}
 
 	private applyTransferSnapshot(snapshot: AttachmentTransferSnapshot): void {
