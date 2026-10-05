@@ -15,6 +15,7 @@ import {
 import { devNotice } from '$lib/dev/notice';
 import { resolveSiteOrigin } from '$lib/config/site-origin';
 import { applyCacheControl } from '$lib/server/cache-control';
+import { handleFontPreload } from '$lib/server/font-preload';
 import { decodeJwtPayload } from '$lib/server/jwt';
 import { resolveConvexToken } from '$lib/server/convex-jwt';
 import {
@@ -494,6 +495,7 @@ export const handle = sequence(
 	handleLanguage,
 	handlePublicMarkdownNotFound,
 	handleHtmlLang,
+	handleFontPreload,
 	authFirstPattern,
 	handleCacheControl
 );
