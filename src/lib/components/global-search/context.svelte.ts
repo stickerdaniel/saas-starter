@@ -2,13 +2,19 @@ import { createContext } from 'svelte';
 
 class GlobalSearchState {
 	open = $state(false);
+	shouldLoadMenu = $state(false);
+
+	preloadMenu = (): void => {
+		this.shouldLoadMenu = true;
+	};
 
 	setOpen = (open: boolean): void => {
+		if (open) this.preloadMenu();
 		this.open = open;
 	};
 
 	openMenu = (): void => {
-		this.open = true;
+		this.setOpen(true);
 	};
 
 	closeMenu = (): void => {
@@ -16,7 +22,7 @@ class GlobalSearchState {
 	};
 
 	toggleMenu = (): void => {
-		this.open = !this.open;
+		this.setOpen(!this.open);
 	};
 }
 
