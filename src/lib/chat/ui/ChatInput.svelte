@@ -16,6 +16,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import ComposerAttachmentButton from '$lib/components/ui/owned/composer-attachment-button.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import CameraIcon from '@lucide/svelte/icons/camera';
@@ -152,6 +153,14 @@
 	// When handed off to human support, don't block - use fire-and-forget pattern
 	const isBusy = $derived(ctx.isProcessing && !isHumanOnly);
 	const acceptsAttachments = $derived(!disabled && !attachmentsDisabledReason);
+	// At the cap the file controls stay hoverable and focusable, so their tooltip
+	// can say why nothing happens; a real `disabled` would swallow both.
+	const atAttachmentCap = $derived(acceptsAttachments && !ctx.canAddAttachment);
+	const attachmentLimitHint = $derived(
+		$t('chat.tooltip.attachment_limit', { max: ctx.maxAttachments })
+	);
+	let attachMenuOpen = $state(false);
+	let attachmentLimitHintOpen = $state(false);
 	const hasText = $derived(!!ctx.inputValue.trim());
 	const hasAttachments = $derived(ctx.attachments.length > 0);
 	// Every gate a submission passes, whatever it carries. Uploading and failed
@@ -293,6 +302,16 @@
 
 	function handleCameraClick() {
 		onScreenshot?.();
+	}
+
+	/**
+	 * Keeps a file control at the cap from acting. It runs in the capture phase,
+	 * so the picker trigger wrapped around the paperclip never sees the click.
+	 */
+	function holdAtCap(event: MouseEvent) {
+		if (!atAttachmentCap) return;
+		event.preventDefault();
+		event.stopPropagation();
 	}
 
 	function openFilePicker() {
@@ -680,20 +699,43 @@
 
 {#snippet defaultLeftActions()}
 	{#if compact && (showFileButton || showCameraButton)}
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger disabled={!acceptsAttachments}>
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant="ghost"
-						size="icon"
-						shape="pill"
-						aria-label={$t('chat.tooltip.more_actions')}
-					>
-						<PlusIcon class="size-4.5" aria-hidden="true" />
-					</Button>
-				{/snippet}
-			</DropdownMenu.Trigger>
+		<!-- The menu holds only file actions: at the cap it stays shut and the
+		     trigger's tooltip names the limit instead. -->
+		<DropdownMenu.Root
+			bind:open={() => attachMenuOpen, (open) => (attachMenuOpen = open && !atAttachmentCap)}
+		>
+			<Tooltip.Root
+				bind:open={
+					() => attachmentLimitHintOpen && atAttachmentCap,
+					(open) => (attachmentLimitHintOpen = open)
+				}
+			>
+				<Tooltip.Trigger>
+					{#snippet child({ props: tooltipProps })}
+						<DropdownMenu.Trigger {...tooltipProps} disabled={!acceptsAttachments}>
+							{#snippet child({ props })}
+								<Button
+									{...props}
+									variant="ghost"
+									size="icon"
+									shape="pill"
+									aria-disabled={atAttachmentCap || undefined}
+									aria-label={$t('chat.tooltip.more_actions')}
+								>
+									<!-- A ghost button is only its icon at rest, so dimming the icon reads as disabled. -->
+									<PlusIcon
+										class={['size-4.5', atAttachmentCap && 'opacity-50']}
+										aria-hidden="true"
+									/>
+								</Button>
+							{/snippet}
+						</DropdownMenu.Trigger>
+					{/snippet}
+				</Tooltip.Trigger>
+				<Tooltip.Content side="top" class="z-250">
+					<p>{attachmentLimitHint}</p>
+				</Tooltip.Content>
+			</Tooltip.Root>
 			<DropdownMenu.Content align="start" side="top" class="w-48">
 				{#if showFileButton}
 					<DropdownMenu.Item onclick={openFilePicker}>
@@ -728,13 +770,15 @@
 		{#if showCameraButton}
 			<PromptInputAction>
 				{#snippet tooltip()}
-					<p>{$t('chat.tooltip.mark_bug')}</p>
+					<p>{atAttachmentCap ? attachmentLimitHint : $t('chat.tooltip.mark_bug')}</p>
 				{/snippet}
 				{#snippet children(props)}
 					<ComposerAttachmentButton
 						{...props}
 						{compact}
 						disabled={!acceptsAttachments}
+						aria-disabled={atAttachmentCap || undefined}
+						onclickcapture={holdAtCap}
 						onclick={handleCameraClick}
 						aria-label={$t('chat.tooltip.mark_bug')}
 					>
@@ -753,7 +797,7 @@
 			>
 				<PromptInputAction>
 					{#snippet tooltip()}
-						<p>{$t('chat.tooltip.attach_files')}</p>
+						<p>{atAttachmentCap ? attachmentLimitHint : $t('chat.tooltip.attach_files')}</p>
 					{/snippet}
 					{#snippet children(props)}
 						<FileUploadTrigger asChild={true}>
@@ -761,6 +805,8 @@
 								{...props}
 								{compact}
 								disabled={!acceptsAttachments}
+								aria-disabled={atAttachmentCap || undefined}
+								onclickcapture={holdAtCap}
 								aria-label={$t('chat.tooltip.attach_files')}
 							>
 								<PaperclipIcon class="h-4.5 w-4.5" />
@@ -893,7 +939,7 @@
 	>
 		{#if compact}
 			<div class={cn('relative flex min-w-0 flex-col', contentClass)} bind:this={compactWrapper}>
-				{#if dragActive && dropEnabled}
+				{#if dragActive && dropEnabled && !atAttachmentCap}
 					<div
 						class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center gap-2 rounded-[25px] bg-popover/90 text-sm font-medium text-muted-foreground backdrop-blur-sm"
 						aria-hidden="true"

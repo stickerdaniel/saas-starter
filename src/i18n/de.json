@@ -619,6 +619,7 @@
 		},
 		"tooltip": {
 			"attach_files": "Dateien anhängen",
+			"attachment_limit": "Du kannst bis zu {max} Dateien pro Nachricht anhängen.",
 			"mark_bug": "Fehler markieren",
 			"more_actions": "Weitere Aktionen"
 		}
