@@ -9,7 +9,7 @@
 	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
 	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/chat-context.svelte.ts';
 	import { ChatCore } from '$lib/chat/core/chat-core.svelte.ts';
-	import type { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
+	import { ComposerSendCoordinator } from '$lib/chat/ui/composer-send-coordinator.ts';
 	import { ChatAttachmentStore } from '$lib/chat/core/chat-attachment-store.svelte.ts';
 	import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic';
 	import { CHAT_PAGE_SIZE } from '$lib/chat/core/types';
@@ -45,7 +45,7 @@
 		canImpersonate = false,
 		viewerId,
 		onBackClick,
-		draftManager
+		sendOwner
 	}: {
 		threadId: string;
 		initialThread?: {
@@ -59,7 +59,8 @@
 		/** The signed-in admin, who has no one to impersonate in their own ticket. */
 		viewerId?: string;
 		onBackClick?: () => void;
-		draftManager?: ChatDraftManager;
+		/** Settles sends past this keyed view; the page owns it with the draft store. */
+		sendOwner?: ComposerSendCoordinator;
 	} = $props();
 
 	const media = useMedia();
@@ -93,33 +94,33 @@
 	// Report transfers to the app so a navigation that would kill one asks first.
 	// Absent outside the app shell (isolated tests, the standalone example), where
 	// there is no layout to ask.
+	// The owner is fixed for this keyed instance.
+	// svelte-ignore state_referenced_locally
+	const owner = sendOwner ?? new ComposerSendCoordinator();
 	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'left', activeUploads, {
 		bindThreadOrigin: (binder) => chatCore.setThreadOriginBinder(binder),
-		forgetSession: () => chatCore.forgetChatSession()
+		forgetSession: () => chatCore.forgetChatSession(),
+		sendOwner: owner
 	});
 
 	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
 	onDestroy(() => chatUIContext.dispose());
 
 	// Draft persistence — load saved draft on mount, save continuously
-	let sending = $state(false);
-	let sendRevision = 0;
-
 	// Load saved draft on mount (threadId is constant per {#key} instance)
 	// svelte-ignore state_referenced_locally
-	if (draftManager) {
-		const draft = draftManager.getDraft(threadId);
-		if (draft) chatUIContext.setInputValue(draft);
-	}
+	chatUIContext.loadDraft(threadId);
 
 	// Continuous save — watch untracks the callback, avoiding a reactive loop
-	// with PersistedState's Proxy set trap
+	// with PersistedState's Proxy set trap. A composer emptied by a send keeps
+	// the stored copy, which that send still owns.
 	watch(
-		() => [chatUIContext.inputValue, threadId, sending, draftManager] as const,
-		([value, id, isSending, dm]) => {
-			if (!dm) return;
-			if (isSending && !value.trim()) return;
-			dm.setDraft(id, value);
+		() => [chatUIContext.inputValue, threadId] as const,
+		([value, id]) => {
+			const drafts = owner.drafts;
+			if (!drafts) return;
+			if (!value.trim() && owner.holdsDraft(id)) return;
+			drafts.setDraft(id, value);
 		}
 	);
 
@@ -420,9 +421,7 @@
 				if (!prompt?.trim()) return;
 
 				const originThreadId = threadId;
-				const draftCheckpoint = draftManager?.captureCheckpoint(originThreadId);
 				const sessionEpoch = getChatSessionEpoch();
-				const operationRevision = ++sendRevision;
 				// Get uploaded file IDs and attachments from context
 				const fileIds = chatUIContext.uploadedFileIds;
 				const attachments = [...chatUIContext.attachments];
@@ -435,7 +434,6 @@
 				};
 
 				// Fire-and-forget: no blocking, optimistic update provides instant feedback
-				sending = true;
 				try {
 					await client.mutation(
 						api.admin.support.mutations.sendAdminReply,
@@ -457,19 +455,12 @@
 							)
 						}
 					);
-
-					if (!isChatSessionCurrent(sessionEpoch)) return;
-					if (draftCheckpoint) draftManager?.clearDraftIfUnchanged(draftCheckpoint);
 				} catch (error) {
 					if (isChatSessionCurrent(sessionEpoch)) {
 						console.error('[AdminSupport.sendReply] Failed');
 						toast.error($t('admin.support.chat.send_error'));
 					}
 					throw error;
-				} finally {
-					if (isChatSessionCurrent(sessionEpoch) && sendRevision === operationRevision) {
-						sending = false;
-					}
 				}
 			}}
 		/>

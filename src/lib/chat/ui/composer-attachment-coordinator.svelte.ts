@@ -15,6 +15,7 @@ import {
 	type ChatUploadGrantArgs
 } from '../core/file-uploader.js';
 import { DEFAULT_ATTACHMENT_PROFILE, type Attachment } from '../core/types.js';
+import type { ComposerSendResources } from './composer-send-coordinator.js';
 import { checkUploadPayload, type UploadProfile } from '../../uploads/profiles.js';
 import {
 	AttachmentRefusal,
@@ -248,26 +249,26 @@ export class ComposerAttachmentCoordinator {
 		this.persist();
 	}
 
-	restoreSendAttachments(
-		snapshot: ComposerAttachmentSendSnapshot,
-		originThreadId: string | null,
-		restoreLive: boolean
-	): void {
-		if (this.disposed || !restoreLive) {
-			if (originThreadId !== null) {
-				this.uploadConfig?.attachmentStore?.restoreThreadAttachments(
-					originThreadId,
-					snapshot.attachments
-				);
-			}
-			return;
-		}
-
+	/** Put refused attachments back ahead of what the live composer holds now. */
+	restoreSendAttachments(snapshot: ComposerAttachmentSendSnapshot): void {
+		if (this.disposed) return;
 		this.attachments = ComposerAttachmentCoordinator.mergeSnapshotAttachments(
 			snapshot.attachments,
 			this.attachments
 		);
 		this.persist();
+	}
+
+	/**
+	 * Where sent attachments go once their send is refused and no composer on
+	 * screen takes them back: the store when this surface keeps one, otherwise
+	 * back to the transport, since nothing would ever offer them again.
+	 */
+	sendResources(): ComposerSendResources {
+		return {
+			store: this.uploadConfig?.attachmentStore,
+			release: (attachments) => this.releaseAbandoned(attachments)
+		};
 	}
 
 	reconcilePersistedAttachments(
@@ -467,7 +468,8 @@ export class ComposerAttachmentCoordinator {
 
 	/**
 	 * Hand stored results back to a custom transport once nothing here holds them.
-	 * Sending clears attachments without this: a sent result is not abandoned.
+	 * Sending clears attachments without this: a sent result belongs to its send
+	 * until the send's outcome decides.
 	 */
 	private releaseAbandoned(attachments: Attachment[]): void {
 		for (const attachment of attachments) {

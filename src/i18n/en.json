@@ -598,7 +598,9 @@
 			"send_failed": "Failed to send message"
 		},
 		"notices": {
-			"limit_reached": "You've reached your message limit, so this reply couldn't be generated."
+			"limit_reached": "You've reached your message limit, so this reply couldn't be generated.",
+			"message_too_long": "This message is longer than {max} characters. Shorten it to send it.",
+			"too_many_attachments": "This message has more than {max} attachments. Remove some to send it."
 		},
 		"reasoning": {
 			"connecting": "Connecting...",

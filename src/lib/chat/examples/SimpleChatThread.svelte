@@ -25,12 +25,15 @@
 	// svelte-ignore state_referenced_locally
 	const session = registry.acquire(threadId);
 	const contextHolder: { current?: ChatUIContext } = {};
+	// The registry is fixed for this keyed mount, like the session above.
+	// svelte-ignore state_referenced_locally
 	const uiContext = new ChatUIContext(session.core, client, undefined, 'right', null, {
 		bindThreadOrigin: (binder) => session.core.setThreadOriginBinder(binder),
 		forgetSession: () => session.core.forgetChatSession(),
 		projectInput: (projection) => {
 			if (contextHolder.current) session.projectInput(contextHolder.current, projection);
-		}
+		},
+		sendOwner: registry.sendOwner
 	});
 	contextHolder.current = uiContext;
 	session.attach(uiContext);

@@ -187,7 +187,7 @@
 			if (previousThreadId && chatUIContext.inputValue.trim()) {
 				conversation.setDraft(previousThreadId, chatUIContext.inputValue);
 			}
-			chatUIContext.setInputValue(conversation.getDraft(currentThreadId));
+			chatUIContext.loadDraft(currentThreadId);
 
 			const generationChanged = currentGeneration !== previousGeneration;
 			if (generationChanged || (previousThreadId === null && !conversation.isNewConversation)) {
@@ -370,28 +370,16 @@
 						// In handed-off mode, allow fire-and-forget like admin view
 						if (!isHumanOnly && chatUIContext.isProcessing) return;
 
-						const originThreadId = conversation.threadId;
 						const sessionEpoch = getChatSessionEpoch();
 						const threadGeneration = conversation.threadGeneration;
 						const operationRevision = conversation.currentOperationRevision;
-						const draftCheckpoint = conversation.captureDraftCheckpoint(originThreadId);
 						const fileIds = chatUIContext.uploadedFileIds;
 						const attachments = [...chatUIContext.attachments];
 						try {
-							const result = await conversation.sendMessage(client, prompt, {
+							await conversation.sendMessage(client, prompt, {
 								fileIds,
 								attachments
 							});
-							if (
-								!conversation.isSendOperationCurrent(
-									sessionEpoch,
-									threadGeneration,
-									operationRevision
-								)
-							) {
-								return;
-							}
-							conversation.clearDraftIfUnchanged(draftCheckpoint, result.threadId);
 						} catch (error) {
 							if (
 								!conversation.isSendOperationCurrent(

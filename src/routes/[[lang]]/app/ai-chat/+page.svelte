@@ -11,6 +11,8 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import ThreadChat from './thread-chat.svelte';
+	import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
+	import { ComposerSendCoordinator } from '$lib/chat/ui/composer-send-coordinator.ts';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { useBillingCheckout } from '$lib/components/billing';
 
@@ -41,6 +43,10 @@
 				? aiChatFeature.included_usage
 				: 0
 	);
+
+	// Outlives ThreadChat, which unmounts while a thread is being resolved.
+	const sendOwner = new ComposerSendCoordinator({ drafts: new ChatDraftManager('ai-chat') });
+	onDestroy(sendOwner.mount());
 
 	// Thread from URL param
 	const threadId = $derived(page.url.searchParams.get('thread') ?? '');
@@ -126,6 +132,7 @@
 				onUpgrade={handleUpgrade}
 				isUpgrading={billingCheckout.isLoading}
 				onMessageSent={() => autumn.refetch()}
+				{sendOwner}
 			/>
 		{:else}
 			<!-- Direct navigation without ?thread=: resolving a warm thread above.

@@ -373,7 +373,7 @@ describe('a custom attachment transport', () => {
 		expect(coordinator.attachments).toEqual([]);
 		expect(transport.release).not.toHaveBeenCalled();
 
-		coordinator.restoreSendAttachments(snapshot, 'thread-a', true);
+		coordinator.restoreSendAttachments(snapshot);
 		expect(coordinator.uploadedFileIds).toEqual(['upload-notes.txt']);
 		coordinator.removeAttachment(0);
 		expect(transport.release).toHaveBeenCalledExactlyOnceWith(result('notes.txt'));
@@ -384,7 +384,7 @@ describe('a custom attachment transport', () => {
 		const snapshot = coordinator.captureSendAttachments();
 
 		coordinator.removeAttachment(0);
-		coordinator.restoreSendAttachments(snapshot, 'thread-a', true);
+		coordinator.restoreSendAttachments(snapshot);
 		coordinator.removeAttachment(0);
 
 		expect(transport.release).toHaveBeenCalledExactlyOnceWith(result('notes.txt'));

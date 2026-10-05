@@ -201,8 +201,9 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		await tick();
 
 		expect(console.error).toHaveBeenCalledWith('[ChatInput] Send failed');
-		await vi.waitFor(() =>
-			expect(input.value).toBe(editText ? 'A newer draft' : 'Retry this message')
+		await tick();
+		expect(input.value).toBe(
+			editText ? 'Retry this message\n\nA newer draft' : 'Retry this message'
 		);
 		expect(ctx.attachments).toEqual(
 			addAttachment

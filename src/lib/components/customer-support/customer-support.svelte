@@ -50,6 +50,7 @@
 	const support = new SupportContext(() => aiUsable);
 	supportContext.set(support);
 	const { navigation, conversation } = support;
+	onDestroy(support.sendOwner.mount());
 
 	// Pre-set skipAnimation if URL already has a thread (before FeedbackWidget mounts)
 	if (urlState.thread) {
@@ -142,7 +143,8 @@
 		activeUploadsContext.getOr(null),
 		{
 			bindThreadOrigin: (binder) => conversation.setThreadOriginBinder(binder),
-			forgetSession: () => conversation.forgetChatSession()
+			forgetSession: () => conversation.forgetChatSession(),
+			sendOwner: support.sendOwner
 		}
 	);
 
