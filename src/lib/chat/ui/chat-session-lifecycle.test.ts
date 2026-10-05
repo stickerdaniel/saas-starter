@@ -155,7 +155,8 @@ function createSupportContext(
 ): ChatUIContext {
 	return new ChatUIContext(thread.conversation, client, uploadConfig, 'right', null, {
 		bindThreadOrigin: (binder) => thread.setThreadOriginBinder(binder),
-		forgetSession: () => thread.forgetChatSession()
+		forgetSession: () => thread.forgetChatSession(),
+		sendOwner: thread.sendOwner
 	});
 }
 const originalElementAnimate = Element.prototype.animate;
@@ -448,11 +449,15 @@ describe('chat session lifecycle', () => {
 			if (outcome === 'success') message.resolve({});
 			else message.reject(new Error('Send rejected'));
 			await vi.waitFor(() => expect(client.mutation).toHaveBeenCalledTimes(2));
+			await new Promise<void>((resolve) => setTimeout(resolve, 0));
 			await tick();
 
-			expect(input.value).toBe('later support draft');
-			expect(context.inputValue).toBe('later support draft');
-			expect(thread.getDraft(`support-created-${outcome}`)).toBe('later support draft');
+			// A refusal puts the sent text back ahead of the later typing.
+			const expected =
+				outcome === 'success' ? 'later support draft' : 'send this\n\nlater support draft';
+			expect(input.value).toBe(expected);
+			expect(context.inputValue).toBe(expected);
+			expect(thread.getDraft(`support-created-${outcome}`)).toBe(expected);
 		}
 	);
 

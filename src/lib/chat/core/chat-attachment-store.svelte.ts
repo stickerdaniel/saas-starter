@@ -132,7 +132,7 @@ export class ChatAttachmentStore {
 	 * Kept here rather than read back out of the record every time, because the
 	 * record can go and come back while the attachment does not: sending clears
 	 * the composer, and a send that fails puts the very same attachments back
-	 * (`ChatInput.handleSend`). Re-stamping them there would hand a file that is
+	 * (`ComposerSendCoordinator`). Re-stamping them there would hand a file that is
 	 * hours old another twelve, past the point the vacuum collects it, and the
 	 * user would come back to a tile for nothing.
 	 *

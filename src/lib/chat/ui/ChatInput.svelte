@@ -25,7 +25,6 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { getChatUIContext } from './chat-context.svelte.ts';
 	import { processImage } from '$lib/media/process-image';
-	import { isChatSessionCurrent } from '../core/chat-persisted-state.ts';
 	import {
 		MAX_INPUT_IMAGE_SIZE,
 		MAX_INPUT_IMAGE_SIZE_LABEL,
@@ -211,16 +210,19 @@
 		const snapshot = ctx.captureSendSnapshot();
 		const prompt = snapshot.inputValue.trim();
 		ctx.clearInputForSend(snapshot);
+		// The surface's owner outlives this component, so the outcome is settled
+		// even when the composer unmounts before the transport answers.
+		const settle = ctx.beginSend(snapshot);
 		try {
 			// Invoke onSend before clearing attachments so existing consumers can
 			// capture their exact transport payload synchronously.
 			const sendPromise = onSend?.(prompt);
 			ctx.clearAttachmentsForSend(snapshot);
 			await sendPromise;
+			settle('accepted');
 		} catch {
-			if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
 			if (ctx.isSendSnapshotCurrent(snapshot)) console.error('[ChatInput] Send failed');
-			ctx.restoreSendSnapshot(snapshot);
+			settle('refused');
 		}
 	}
 
@@ -707,6 +709,21 @@
 					{/each}
 				</div>
 			{/key}
+		</div>
+	{/if}
+	{#if ctx.exceedsMessageLength || ctx.exceedsAttachmentLimit}
+		<!-- Persistent, not a toast: sending stays blocked until the user acts. -->
+		<div
+			role="status"
+			class="flex flex-col gap-0.5 px-3 pb-2 text-xs text-destructive"
+			data-testid="chat-input-limit-notice"
+		>
+			{#if ctx.exceedsMessageLength}
+				<p>{$t('chat.notices.message_too_long', { max: MAX_MESSAGE_LENGTH })}</p>
+			{/if}
+			{#if ctx.exceedsAttachmentLimit}
+				<p>{$t('chat.notices.too_many_attachments', { max: ctx.maxAttachments })}</p>
+			{/if}
 		</div>
 	{/if}
 	<!-- Fixed 25px radius: the one-line pill is 48px tall (36px field + 12px

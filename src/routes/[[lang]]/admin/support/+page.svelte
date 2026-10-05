@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
 	import { useSearchParams } from 'runed/kit';
@@ -23,6 +24,7 @@
 	} from '$lib/hooks/admin-support-ui.svelte.ts';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
 	import { ChatDraftManager } from '$lib/chat';
+	import { ComposerSendCoordinator } from '$lib/chat/ui/composer-send-coordinator.ts';
 	import { browser } from '$app/environment';
 	import { authClient } from '$lib/auth-client';
 
@@ -31,8 +33,10 @@
 	// Per-request overlay state shared with thread-chat via context
 	const adminSupportUI = adminSupportUIContext.set(new AdminSupportUIManager());
 
-	// Draft persistence — lives outside {#key threadId} so drafts survive thread switches
-	const draftManager = new ChatDraftManager('admin-support');
+	// Draft persistence and send settlement live outside {#key threadId}, so drafts
+	// and a reply refused after its thread was left survive thread switches
+	const sendOwner = new ComposerSendCoordinator({ drafts: new ChatDraftManager('admin-support') });
+	onDestroy(sendOwner.mount());
 
 	// Filter state schema (thread managed separately to avoid reload on selection)
 	const filterSchema = v.object({
@@ -201,7 +205,7 @@
 							initialThread={selectedThread}
 							{canImpersonate}
 							viewerId={adminUserId}
-							{draftManager}
+							{sendOwner}
 						/>
 					{/key}
 				{:else}
@@ -265,7 +269,7 @@
 							initialThread={selectedThread}
 							{canImpersonate}
 							viewerId={adminUserId}
-							{draftManager}
+							{sendOwner}
 						/>
 					{/key}
 				{:else}
@@ -310,7 +314,7 @@
 							{canImpersonate}
 							viewerId={adminUserId}
 							onBackClick={clearThread}
-							{draftManager}
+							{sendOwner}
 						/>
 					{/key}
 				{/if}

@@ -1,5 +1,6 @@
 import { createContext } from 'svelte';
 import { getChatSessionEpoch } from '$lib/chat/core/chat-persisted-state.ts';
+import { ComposerSendCoordinator } from '$lib/chat/ui/composer-send-coordinator.ts';
 import { SupportConversation, type SupportAssignedAdmin } from './support-conversation.svelte.ts';
 import { SupportHandoffCommands } from './support-handoff-commands.svelte.ts';
 import { SupportNavigationState } from './support-navigation-state.svelte.ts';
@@ -17,12 +18,15 @@ export class SupportContext {
 	readonly conversation: SupportConversation;
 	readonly handoff: SupportHandoffCommands;
 	readonly notifications: SupportNotificationCommands;
+	/** Settles composer sends for the widget, whose composer comes and goes with the panel. */
+	readonly sendOwner: ComposerSendCoordinator;
 
 	constructor(isAiUsable: () => boolean = () => true) {
 		this.navigation = new SupportNavigationState();
 		this.conversation = new SupportConversation(this.navigation, isAiUsable);
 		this.handoff = new SupportHandoffCommands(this.conversation);
 		this.notifications = new SupportNotificationCommands(this.conversation);
+		this.sendOwner = new ComposerSendCoordinator({ drafts: this.conversation.drafts });
 	}
 
 	requestWidgetOpen(): void {

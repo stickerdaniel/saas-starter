@@ -3,10 +3,7 @@ import { api } from '$lib/convex/_generated/api';
 import type { Attachment } from '$lib/chat';
 import type { ChatSessionPort, StreamCachePort } from '$lib/chat/core/chat-session-port.js';
 import { ChatCommandError } from '$lib/chat/core/chat-command-error.js';
-import {
-	ChatDraftManager,
-	type ChatDraftCheckpoint
-} from '$lib/chat/core/chat-draft-manager.svelte.ts';
+import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
 import { getChatSessionEpoch, isChatSessionCurrent } from '$lib/chat/core/chat-persisted-state.ts';
 import { StreamCacheManager } from '$lib/chat/core/stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
@@ -72,7 +69,7 @@ export class SupportConversation implements ChatSessionPort {
 
 	private readonly threadStreamCache = new StreamCacheManager();
 	private streamCacheThreadId: string | null = null;
-	private readonly draftManager = new ChatDraftManager('support');
+	readonly drafts = new ChatDraftManager('support');
 	private client: ConvexClient | null = null;
 	private threadCreation: ThreadCreation | null = null;
 	private sendRevision = 0;
@@ -114,26 +111,15 @@ export class SupportConversation implements ChatSessionPort {
 	}
 
 	getDraft(threadId: string | null): string {
-		return this.draftManager.getDraft(threadId);
+		return this.drafts.getDraft(threadId);
 	}
 
 	setDraft(threadId: string | null, text: string): void {
-		this.draftManager.setDraft(threadId, text);
+		this.drafts.setDraft(threadId, text);
 	}
 
 	clearDraft(threadId: string | null): void {
-		this.draftManager.clearDraft(threadId);
-	}
-
-	captureDraftCheckpoint(threadId: string | null): ChatDraftCheckpoint {
-		return this.draftManager.captureCheckpoint(threadId);
-	}
-
-	clearDraftIfUnchanged(
-		checkpoint: ChatDraftCheckpoint,
-		threadId: string | null = checkpoint.threadId
-	): boolean {
-		return this.draftManager.clearDraftIfUnchanged(checkpoint, threadId);
+		this.drafts.clearDraft(threadId);
 	}
 
 	setRateLimited(retryAfterMs: number): void {

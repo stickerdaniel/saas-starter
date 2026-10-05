@@ -1,0 +1,331 @@
+import type { ChatDraftCheckpoint } from '../core/chat-draft-manager.svelte.ts';
+import type { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
+import {
+	isChatSessionCurrent,
+	registerPersistedChatHolder,
+	type PersistedChatHolder
+} from '../core/chat-persisted-state.js';
+import type { Attachment } from '../core/types.js';
+import type { ChatConversationOrigin, ChatSendSnapshot } from './chat-context.svelte.ts';
+
+/** Called by a session port once a conversation that had no thread id receives one. */
+export type ThreadOriginBinder = (threadId: string, epoch: number, generation: number) => void;
+
+/** The checkpoint operations of the surface's draft store. */
+export interface ComposerDraftStore {
+	getDraft(threadId: string | null): string;
+	setDraft(threadId: string | null, text: string): void;
+	captureCheckpoint(threadId: string | null): ChatDraftCheckpoint;
+	clearDraftIfUnchanged(checkpoint: ChatDraftCheckpoint, threadId?: string | null): boolean;
+}
+
+/** Where a send's captured attachments go when no composer on screen takes them back. */
+export type ComposerSendResources = {
+	/** Keeps refused attachments for a conversation that is not on screen. */
+	store?: Pick<ChatAttachmentStore, 'restoreThreadAttachments'>;
+	/** Hands refused attachments back to their transport when nothing keeps them. */
+	release(attachments: Attachment[]): void;
+};
+
+/** A mounted composer the coordinator can put refused work back into. */
+export interface ComposerSendTarget {
+	/** The session port whose conversation this composer shows. */
+	readonly core: object;
+	/** The conversation on screen now. */
+	readonly sendOrigin: ChatConversationOrigin;
+	/** What the composer holds now. Everything in it is newer than the sends it cleared. */
+	readonly inputValue: string;
+	bindThreadOrigin(threadId: string, generation: number): void;
+	restoreFailedSend(text: string, attachments: Attachment[]): void;
+	sendResources(): ComposerSendResources;
+}
+
+export type ComposerSendOutcome = 'accepted' | 'refused';
+
+type PendingSend = {
+	readonly id: number;
+	readonly sessionEpoch: number;
+	readonly core: object;
+	readonly snapshot: ChatSendSnapshot;
+	readonly source: ComposerSendTarget;
+	readonly resources: ComposerSendResources;
+	readonly draftCheckpoint?: ChatDraftCheckpoint;
+	outcome?: ComposerSendOutcome;
+};
+
+/** Refused work of a conversation that is off screen and has no thread id to be stored under yet. */
+type HeldRestoration = {
+	readonly sessionEpoch: number;
+	readonly core: object;
+	readonly origin: ChatConversationOrigin;
+	readonly texts: string[];
+	readonly attachments: Attachment[];
+	readonly store?: ComposerSendResources['store'];
+};
+
+type Conversation = { core: object; origin: ChatConversationOrigin };
+
+const SEPARATOR = '\n\n';
+
+function sameConversation(a: Conversation, b: Conversation): boolean {
+	if (a.origin === b.origin) return true;
+	if (a.origin.threadId !== null) return a.origin.threadId === b.origin.threadId;
+	return (
+		b.origin.threadId === null && a.core === b.core && a.origin.generation === b.origin.generation
+	);
+}
+
+function joinWork(texts: string[], newer: string): string {
+	return [...texts, newer].filter((text) => text.trim() !== '').join(SEPARATOR);
+}
+
+function sentAttachments(sends: PendingSend[]): Attachment[] {
+	const combined: Attachment[] = [];
+	const included = new Set<string>();
+	for (const send of sends) {
+		for (const attachment of send.snapshot.attachments.attachments) {
+			const key = 'key' in attachment ? attachment.key : undefined;
+			if (key && included.has(key)) continue;
+			if (key) included.add(key);
+			combined.push(attachment);
+		}
+	}
+	return combined;
+}
+
+/**
+ * Settles the sends of one chat surface and session, independently of the
+ * composers that come and go on it.
+ *
+ * A refused send is put back only once every send of its conversation that
+ * overlapped it has an outcome, all refused ones in send order and ahead of
+ * whatever the user wrote since. Restoring each refusal as it arrived would
+ * interleave text with a send that could still fail.
+ *
+ * Browser-side settlement only: it does not make the backend mutation
+ * exactly-once.
+ */
+export class ComposerSendCoordinator implements PersistedChatHolder {
+	readonly drafts?: ComposerDraftStore;
+	private nextSendId = 0;
+	private readonly pending = new Map<number, PendingSend>();
+	private readonly targets = new Set<ComposerSendTarget>();
+	private held: HeldRestoration[] = [];
+	private unregister: (() => void) | null = null;
+
+	constructor(options: { drafts?: ComposerDraftStore } = {}) {
+		this.drafts = options.drafts;
+	}
+
+	/**
+	 * Hear about session ends while the surface is mounted. Unmounting detaches
+	 * every composer but keeps pending sends, so a late refusal still reaches
+	 * the stores.
+	 */
+	mount(): () => void {
+		this.unregister ??= registerPersistedChatHolder(this);
+		return () => {
+			this.unregister?.();
+			this.unregister = null;
+			this.targets.clear();
+		};
+	}
+
+	attachTarget(target: ComposerSendTarget): () => void {
+		// Re-adding moves it to the end: the latest mount wins a tie.
+		this.targets.delete(target);
+		this.targets.add(target);
+		this.projectHeld(target);
+		return () => {
+			this.targets.delete(target);
+		};
+	}
+
+	/**
+	 * The binder a session port calls when a conversation receives its thread
+	 * id. It reaches pending sends of that port even after the composer that
+	 * captured them is gone.
+	 */
+	originBinder(core: object): ThreadOriginBinder {
+		return (threadId, epoch, generation) => this.bindOrigin(core, threadId, epoch, generation);
+	}
+
+	/** Take over a send the composer has just cleared. */
+	begin(source: ComposerSendTarget, snapshot: ChatSendSnapshot): number {
+		const id = this.nextSendId++;
+		this.pending.set(id, {
+			id,
+			sessionEpoch: snapshot.sessionEpoch,
+			core: source.core,
+			snapshot,
+			source,
+			resources: source.sendResources(),
+			draftCheckpoint: this.drafts?.captureCheckpoint(snapshot.origin.threadId)
+		});
+		return id;
+	}
+
+	/** Record a transport outcome. Only the first outcome of a send counts. */
+	settle(sendId: number, outcome: ComposerSendOutcome): void {
+		const send = this.pending.get(sendId);
+		if (!send || send.outcome) return;
+		send.outcome = outcome;
+		if (!isChatSessionCurrent(send.sessionEpoch)) {
+			this.pending.delete(sendId);
+			return;
+		}
+		if (outcome === 'accepted' && send.draftCheckpoint) {
+			this.drafts?.clearDraftIfUnchanged(send.draftCheckpoint, send.snapshot.origin.threadId);
+		}
+
+		const group = [...this.pending.values()].filter(
+			(candidate) =>
+				candidate.sessionEpoch === send.sessionEpoch &&
+				sameConversation(this.conversationOf(candidate), this.conversationOf(send))
+		);
+		if (group.some((candidate) => !candidate.outcome)) return;
+		for (const candidate of group) this.pending.delete(candidate.id);
+		const refused = group.filter((candidate) => candidate.outcome === 'refused');
+		if (refused.length > 0) this.publish(group, refused);
+	}
+
+	/**
+	 * What a composer opening `threadId` should show. A stored draft that a
+	 * pending send already carries is not shown again.
+	 */
+	draftFor(threadId: string | null): string {
+		const value = this.drafts?.getDraft(threadId) ?? '';
+		return value && this.holdsDraft(threadId) ? '' : value;
+	}
+
+	/** Whether the stored draft of `threadId` is the one a pending send captured. */
+	holdsDraft(threadId: string | null): boolean {
+		if (!this.drafts || threadId === null) return false;
+		const sends = [...this.pending.values()].filter(
+			(send) =>
+				isChatSessionCurrent(send.sessionEpoch) && send.snapshot.origin.threadId === threadId
+		);
+		return this.storedDraftCaptured(threadId, sends);
+	}
+
+	forgetPersistedState(): void {
+		this.pending.clear();
+		this.held = [];
+	}
+
+	private conversationOf(send: PendingSend): Conversation {
+		return { core: send.core, origin: send.snapshot.origin };
+	}
+
+	private storedDraftCaptured(threadId: string, sends: PendingSend[]): boolean {
+		const drafts = this.drafts;
+		if (!drafts) return false;
+		const now = drafts.captureCheckpoint(threadId);
+		return sends.some(({ draftCheckpoint: captured }) => {
+			if (!captured || captured.sessionEpoch !== now.sessionEpoch) return false;
+			// A conversation created by the send was empty under its new id.
+			const revision = captured.threadId === threadId ? captured.revision : 0;
+			return revision === now.revision && captured.value === now.value;
+		});
+	}
+
+	private matchingTarget(
+		conversation: Conversation,
+		preferred?: ComposerSendTarget
+	): ComposerSendTarget | undefined {
+		const matches = (target: ComposerSendTarget) =>
+			sameConversation(conversation, { core: target.core, origin: target.sendOrigin });
+		if (preferred && this.targets.has(preferred) && matches(preferred)) return preferred;
+		return [...this.targets].reverse().find(matches);
+	}
+
+	private publish(group: PendingSend[], refused: PendingSend[]): void {
+		const last = refused.at(-1)!;
+		const conversation = this.conversationOf(last);
+		const threadId = conversation.origin.threadId;
+		const texts = refused.map((send) => send.snapshot.inputValue);
+		const target = this.matchingTarget(conversation, last.source);
+
+		if (target) {
+			const text = joinWork(texts, target.inputValue);
+			target.restoreFailedSend(text, sentAttachments(refused));
+			if (threadId !== null) this.drafts?.setDraft(threadId, text);
+			return;
+		}
+
+		for (const send of refused) {
+			if (!send.resources.store) send.resources.release(send.snapshot.attachments.attachments);
+		}
+		const kept = refused.filter((send) => send.resources.store);
+		if (threadId === null) {
+			if (!this.drafts && kept.length === 0) return;
+			this.held.push({
+				sessionEpoch: last.sessionEpoch,
+				core: last.core,
+				origin: conversation.origin,
+				texts: this.drafts ? texts : [],
+				attachments: sentAttachments(kept),
+				store: kept[0]?.resources.store
+			});
+			return;
+		}
+
+		if (this.drafts) {
+			const stored = this.storedDraftCaptured(threadId, group)
+				? ''
+				: this.drafts.getDraft(threadId);
+			this.drafts.setDraft(threadId, joinWork(texts, stored));
+		}
+		if (kept.length > 0) {
+			kept[0]!.resources.store!.restoreThreadAttachments(threadId, sentAttachments(kept));
+		}
+	}
+
+	private bindOrigin(core: object, threadId: string, epoch: number, generation: number): void {
+		if (!isChatSessionCurrent(epoch)) return;
+		for (const target of this.targets) {
+			if (target.core === core) target.bindThreadOrigin(threadId, generation);
+		}
+		const binds = (candidate: { core: object; origin: ChatConversationOrigin }) =>
+			candidate.core === core &&
+			candidate.origin.threadId === null &&
+			candidate.origin.generation === generation;
+		for (const send of this.pending.values()) {
+			if (send.sessionEpoch === epoch && binds(this.conversationOf(send))) {
+				send.snapshot.origin.threadId = threadId;
+			}
+		}
+
+		const bound = this.held.filter((held) => held.sessionEpoch === epoch && binds(held));
+		if (bound.length === 0) return;
+		this.held = this.held.filter((held) => !bound.includes(held));
+		for (const held of bound) {
+			held.origin.threadId = threadId;
+			const target = this.matchingTarget(held);
+			if (target) {
+				const text = joinWork(held.texts, target.inputValue);
+				target.restoreFailedSend(text, held.attachments);
+				this.drafts?.setDraft(threadId, text);
+				continue;
+			}
+			if (this.drafts && held.texts.length > 0) {
+				this.drafts.setDraft(threadId, joinWork(held.texts, this.drafts.getDraft(threadId)));
+			}
+			if (held.attachments.length > 0) {
+				held.store?.restoreThreadAttachments(threadId, held.attachments);
+			}
+		}
+	}
+
+	private projectHeld(target: ComposerSendTarget): void {
+		const conversation = { core: target.core, origin: target.sendOrigin };
+		const matching = this.held.filter(
+			(held) => isChatSessionCurrent(held.sessionEpoch) && sameConversation(held, conversation)
+		);
+		if (matching.length === 0) return;
+		this.held = this.held.filter((held) => !matching.includes(held));
+		for (const held of matching) {
+			target.restoreFailedSend(joinWork(held.texts, target.inputValue), held.attachments);
+		}
+	}
+}

@@ -15,9 +15,6 @@ import { ChatUIContext } from './chat-context.svelte.ts';
 import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
-import ThreadChatConsumerHarness, {
-	threadChatConsumerHarness
-} from './test-fixtures/ThreadChatConsumerHarness.svelte';
 import { capturedInput } from './test-fixtures/CapturedChatInput.svelte';
 
 // Vitest resolves Svelte's server entry by default; use its real client runtime for mounting.
@@ -102,7 +99,6 @@ beforeEach(() => {
 	vi.mocked(haptic.trigger).mockClear();
 	delete capturedInput.props;
 	delete capturedInput.context;
-	delete threadChatConsumerHarness.setThreadId;
 });
 
 afterEach(async () => {
@@ -234,168 +230,6 @@ describe.each([
 	}
 );
 
-function storedDrafts(surface: 'ai-chat' | 'admin-support'): Record<string, string> {
-	return JSON.parse(localStorage.getItem(`drafts:${surface}`) ?? '{}');
-}
-
-describe.each([
-	{ kind: 'ai' as const, surface: 'ai-chat' as const },
-	{ kind: 'admin' as const, surface: 'admin-support' as const }
-])('$kind draft checkpoint', ({ kind, surface }) => {
-	async function mountHarness() {
-		const contentProps = { kind, initialThreadId: 'thread-a' };
-		component = mount(ChatTestProvider<typeof contentProps>, {
-			target: document.body,
-			props: { client, content: ThreadChatConsumerHarness, contentProps }
-		});
-		await tick();
-		return capturedInput.context!;
-	}
-
-	it('clears only the unchanged origin draft after switching threads', async () => {
-		const pending = Promise.withResolvers<Record<string, never>>();
-		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
-		const ctx = await mountHarness();
-		ctx.setInputValue('send from A');
-		await tick();
-		const result = capturedInput.props!.onSend!('send from A');
-		ctx.clearInput();
-		threadChatConsumerHarness.setThreadId?.('thread-b');
-		await tick();
-		capturedInput.context!.setInputValue('keep in B');
-		await tick();
-
-		pending.resolve({});
-		await expect(result).resolves.toBeUndefined();
-
-		expect(storedDrafts(surface)).toEqual({ 'thread-b': 'keep in B' });
-	});
-
-	it.each(['a newer draft', 'send this'])(
-		'preserves later same-thread text %s after success',
-		async (later) => {
-			const pending = Promise.withResolvers<Record<string, never>>();
-			vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
-			const ctx = await mountHarness();
-			ctx.setInputValue('send this');
-			await tick();
-			const result = capturedInput.props!.onSend!('send this');
-			ctx.clearInput();
-			ctx.setInputValue(later);
-			await tick();
-
-			pending.resolve({});
-			await expect(result).resolves.toBeUndefined();
-
-			expect(storedDrafts(surface)).toEqual({ 'thread-a': later });
-		}
-	);
-});
-
-describe('AI thread switch failure', () => {
-	it('keeps the origin draft and leaves the visible thread unchanged', async () => {
-		const error = new Error('Send rejected');
-		const pending = Promise.withResolvers<Record<string, never>>();
-		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
-		const contentProps = { kind: 'ai' as const, initialThreadId: 'thread-a' };
-		component = mount(ChatTestProvider<typeof contentProps>, {
-			target: document.body,
-			props: { client, content: ThreadChatConsumerHarness, contentProps }
-		});
-		await tick();
-		const ctx = capturedInput.context!;
-		ctx.setInputValue('retry in A');
-		await tick();
-		const result = capturedInput.props!.onSend!('retry in A');
-		ctx.clearInput();
-		threadChatConsumerHarness.setThreadId?.('thread-b');
-		await tick();
-
-		pending.reject(error);
-		await expect(result).rejects.toBe(error);
-
-		expect(capturedInput.context!.inputValue).toBe('');
-		expect(storedDrafts('ai-chat')).toEqual({ 'thread-a': 'retry in A' });
-	});
-});
-
-describe('AI thread send ownership', () => {
-	async function mountHarness() {
-		const contentProps = { kind: 'ai' as const, initialThreadId: 'thread-a' };
-		component = mount(ChatTestProvider<typeof contentProps>, {
-			target: document.body,
-			props: { client, content: ThreadChatConsumerHarness, contentProps }
-		});
-		await tick();
-		return capturedInput.context!;
-	}
-
-	it.each(['success', 'rejection'] as const)(
-		'keeps a cleared B draft deleted after stale A $0',
-		async (outcome) => {
-			const pending = Promise.withResolvers<Record<string, never>>();
-			vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
-			const ctx = await mountHarness();
-			ctx.setInputValue('send from A');
-			await tick();
-			const result = capturedInput.props!.onSend!('send from A');
-			ctx.clearInput();
-			threadChatConsumerHarness.setThreadId?.('thread-b');
-			await tick();
-			ctx.setInputValue('draft in B');
-			await tick();
-			expect(storedDrafts('ai-chat')['thread-b']).toBe('draft in B');
-			ctx.clearInput();
-			await tick();
-			expect(storedDrafts('ai-chat')).not.toHaveProperty('thread-b');
-
-			if (outcome === 'success') {
-				pending.resolve({});
-				await expect(result).resolves.toBeUndefined();
-			} else {
-				const error = new Error('thread A provider detail');
-				pending.reject(error);
-				await expect(result).rejects.toBe(error);
-			}
-
-			expect(storedDrafts('ai-chat')).not.toHaveProperty('thread-b');
-		}
-	);
-
-	it('does not let stale A completion release a newer B send', async () => {
-		const pendingA = Promise.withResolvers<Record<string, never>>();
-		const pendingB = Promise.withResolvers<Record<string, never>>();
-		vi.spyOn(client, 'mutation')
-			.mockReturnValueOnce(pendingA.promise)
-			.mockReturnValueOnce(pendingB.promise);
-		const ctx = await mountHarness();
-		ctx.setInputValue('send from A');
-		await tick();
-		const resultA = capturedInput.props!.onSend!('send from A');
-		ctx.clearInput();
-		threadChatConsumerHarness.setThreadId?.('thread-b');
-		await tick();
-		ctx.setInputValue('send from B');
-		await tick();
-		const resultB = capturedInput.props!.onSend!('send from B');
-		ctx.clearInput();
-		await tick();
-
-		pendingA.resolve({});
-		await expect(resultA).resolves.toBeUndefined();
-		ctx.setInputValue('newer B draft');
-		await tick();
-		ctx.clearInput();
-		await tick();
-		expect(storedDrafts('ai-chat')['thread-b']).toBe('newer B draft');
-
-		pendingB.resolve({});
-		await expect(resultB).resolves.toBeUndefined();
-		await tick();
-		expect(storedDrafts('ai-chat')).not.toHaveProperty('thread-b');
-	});
-});
-
 describe('AI session boundary', () => {
 	it.each(['success', 'rejection'] as const)(
 		'suppresses stale $0 side effects after session clear',
@@ -491,35 +325,6 @@ describe('support feedback send callback', () => {
 		expect(support.conversation.error).toBeNull();
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(console.error).not.toHaveBeenCalled();
-		ctx.dispose();
-	});
-
-	it('preserves a later support draft after success', async () => {
-		const { support, context: ctx } = createSupportFixture();
-		const thread = support.conversation;
-		thread.setDraft('thread-support', 'send this');
-		const contentProps = { chatUIContext: ctx };
-		const pending = Promise.withResolvers<Record<string, never>>();
-		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
-		component = mount(ChatTestProvider<typeof contentProps>, {
-			target: document.body,
-			props: {
-				client,
-				content: FeedbackWidget,
-				contentProps,
-				supportThread: support
-			}
-		});
-		await tick();
-		const result = capturedInput.props!.onSend!('send this');
-		ctx.clearInput();
-		ctx.setInputValue('keep this');
-		thread.setDraft('thread-support', 'keep this');
-
-		pending.resolve({});
-		await expect(result).resolves.toBeUndefined();
-
-		expect(thread.getDraft('thread-support')).toBe('keep this');
 		ctx.dispose();
 	});
 });

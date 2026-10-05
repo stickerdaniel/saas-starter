@@ -598,7 +598,9 @@
 			"send_failed": "Nachricht konnte nicht gesendet werden"
 		},
 		"notices": {
-			"limit_reached": "Du hast dein Nachrichtenlimit erreicht, deshalb konnte diese Antwort nicht erstellt werden."
+			"limit_reached": "Du hast dein Nachrichtenlimit erreicht, deshalb konnte diese Antwort nicht erstellt werden.",
+			"message_too_long": "Diese Nachricht ist länger als {max} Zeichen. Kürze sie, um sie zu senden.",
+			"too_many_attachments": "Diese Nachricht hat mehr als {max} Anhänge. Entferne einige, um sie zu senden."
 		},
 		"reasoning": {
 			"connecting": "Verbinde...",
