@@ -315,8 +315,9 @@ export async function discoverPreview(
 			);
 			last = `served source ${source}, build ${uuid}`;
 		}
-		const wait = Math.min(budget.retryDelayMs, deadline - Date.now());
-		if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+		// A retry must wait its full delay and still start before the deadline.
+		if (deadline - Date.now() <= budget.retryDelayMs) break;
+		await new Promise((resolve) => setTimeout(resolve, budget.retryDelayMs));
 	}
 	throw new Error(
 		`${build.origin} did not serve build ${build.buildUuid} of ${build.sha} within ${budget.overallMs / 1000}s ` +
