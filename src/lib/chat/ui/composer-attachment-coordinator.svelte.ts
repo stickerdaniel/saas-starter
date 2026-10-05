@@ -103,6 +103,8 @@ export type ComposerAttachmentCoordinatorOptions = {
 	uploadConfig?: UploadConfig;
 	activeUploads?: ActiveUploadsRegistry | null;
 	onForgetPersistedState?: () => void;
+	/** Files this composer's unsettled sends hold; a refusal puts them back, so they keep their slots. */
+	pendingSendAttachments?: () => number;
 };
 
 export type ComposerUploadFileOptions = {
@@ -154,6 +156,7 @@ export class ComposerAttachmentCoordinator {
 	private readonly uploadConfig?: UploadConfig;
 	private readonly activeUploads: ActiveUploadsRegistry | null;
 	private readonly onForgetPersistedState?: () => void;
+	private readonly pendingSendAttachments: () => number;
 
 	/** Last thread observed by the chat rendering this coordinator. */
 	private lastThreadId: string | null | undefined = undefined;
@@ -167,6 +170,7 @@ export class ComposerAttachmentCoordinator {
 		this.uploadConfig = options.uploadConfig;
 		this.activeUploads = options.activeUploads ?? null;
 		this.onForgetPersistedState = options.onForgetPersistedState;
+		this.pendingSendAttachments = options.pendingSendAttachments ?? (() => 0);
 		this.profile = options.uploadConfig?.profile ?? DEFAULT_ATTACHMENT_PROFILE;
 		this.maxAttachments = this.profile.maxFiles;
 
@@ -180,9 +184,9 @@ export class ComposerAttachmentCoordinator {
 		this.unregister = registerPersistedChatHolder(this);
 	}
 
-	/** Whether another pick can enter the live composer at the normal pick-time cap. */
+	/** Whether another pick fits the cap beside the files pending sends may bring back. */
 	get canAddAttachment(): boolean {
-		return this.attachments.length < this.maxAttachments;
+		return this.attachments.length + this.pendingSendAttachments() < this.maxAttachments;
 	}
 
 	/** Whether a file's source or transformed identity is already live. */

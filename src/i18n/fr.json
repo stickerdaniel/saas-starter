@@ -619,6 +619,7 @@
 		},
 		"tooltip": {
 			"attach_files": "Joindre des fichiers",
+			"attachment_limit": "Tu peux joindre jusqu’à {max} fichiers par message.",
 			"mark_bug": "Marquer le bug",
 			"more_actions": "Plus d’actions"
 		}

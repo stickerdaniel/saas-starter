@@ -1,7 +1,8 @@
 /**
  * The composer options a surface sets to gate writing and attachments, own the
  * feedback for refused files, keep drops on the composer, and add actions
- * around the defaults.
+ * around the defaults, and how every file entry point holds at the attachment
+ * cap, counting the files of pending sends.
  *
  * Each case renders ChatInput with the props its surface passes: AI chat
  * (`app/ai-chat/thread-chat.svelte`), the visitor support widget and the same
@@ -11,7 +12,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mount, tick, unmount, type ComponentProps } from 'svelte';
+import { flushSync, mount, tick, unmount, type ComponentProps } from 'svelte';
 import type * as Svelte from 'svelte';
 import { toast } from 'svelte-sonner';
 import { ConvexClient } from 'convex/browser';
@@ -162,6 +163,8 @@ function drag(
 	target.dispatchEvent(event);
 	return event;
 }
+
+const tooltip = () => document.querySelector<HTMLElement>('[data-slot="tooltip-content"]');
 
 const dropOverlay = () =>
 	[...document.querySelectorAll('[aria-hidden="true"]')].find(
@@ -730,6 +733,229 @@ describe.each(cases)('ChatInput options on $surface, $layout layout', ({ props, 
 				await vi.waitFor(() => expect(upload).toHaveBeenCalledOnce());
 			}
 		);
+	});
+
+	describe('at the attachment cap', () => {
+		const maxFiles = 6;
+		const limitHint = en.chat.tooltip.attachment_limit.replace('{max}', String(maxFiles));
+		const capReason = en.chat.error.max_attachments.replace('{max}', String(maxFiles));
+		const files = (count: number, prefix = 'sent') =>
+			Array.from({ length: count }, (_, index) => attachment('success', `${prefix}-${index}`));
+		const names = (items: Attachment[] = ctx.attachments) =>
+			items.map((item) => ('name' in item ? item.name : undefined));
+
+		beforeEach(() => {
+			ctx.dispose();
+			ctx = new ChatUIContext(core, client, { upload, profile: { ...profile, maxFiles } });
+			ctx.setDisplayMessages([]);
+		});
+
+		/** Mount a composer and send `count` files whose transport answers only when told. */
+		async function sendPending(count: number, props: ComposerProps = {}) {
+			const transport = Promise.withResolvers<void>();
+			const onSend = vi.fn(() => transport.promise);
+			await mountComposer({ ...base, onSend, ...props });
+			ctx.addAttachments(files(count));
+			await type(`${count} files`);
+			await pressEnter();
+			expect(onSend).toHaveBeenCalledOnce();
+			expect(ctx.attachments).toEqual([]);
+			return { onSend, transport };
+		}
+
+		async function settle() {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			flushSync();
+			await tick();
+		}
+
+		/** Hover or focus `button` and expect its tooltip to read `hint`, or no tooltip at all. */
+		async function expectHint(
+			button: HTMLButtonElement,
+			via: 'hover' | 'focus',
+			hint: string | undefined
+		) {
+			if (via === 'hover') {
+				// A real hover moves too, which opens the tooltip even right after another one closed.
+				button.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+				button.dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse' }));
+			} else {
+				button.focus();
+			}
+			await settle();
+			if (hint === undefined) expect(tooltip()).toBeNull();
+			else await vi.waitFor(() => expect(tooltip()?.textContent?.trim()).toBe(hint));
+			if (via === 'hover') {
+				button.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+			} else {
+				button.blur();
+			}
+			await vi.waitFor(() => expect(tooltip()).toBeNull());
+		}
+
+		/** Every file entry point looks disabled, names the limit, and does nothing. */
+		async function expectEntryPointsHeld(onScreenshot?: ReturnType<typeof vi.fn>) {
+			const buttons = fileEntryButtons();
+			expect(buttons.length).toBeGreaterThan(0);
+			const openPicker = vi.spyOn(HTMLInputElement.prototype, 'click');
+			for (const button of buttons) {
+				expect(button.disabled).toBe(false);
+				expect(button.getAttribute('aria-disabled')).toBe('true');
+				await expectHint(button, 'hover', limitHint);
+				await expectHint(button, 'focus', limitHint);
+				button.click();
+				await settle();
+			}
+			expect(openPicker).not.toHaveBeenCalled();
+			expect(onScreenshot ?? vi.fn()).not.toHaveBeenCalled();
+			expect(document.querySelector('[role="menu"]')).toBeNull();
+			openPicker.mockRestore();
+		}
+
+		async function expectEntryPointsOpen() {
+			const buttons = fileEntryButtons();
+			expect(buttons.length).toBeGreaterThan(0);
+			for (const button of buttons) {
+				expect(button.disabled).toBe(false);
+				expect(button.hasAttribute('aria-disabled')).toBe(false);
+				const label = button.getAttribute('aria-label')!;
+				// The compact Plus menu had no tooltip before the cap, and has none again.
+				await expectHint(
+					button,
+					'hover',
+					label === en.chat.tooltip.more_actions ? undefined : label
+				);
+			}
+		}
+
+		it('holds every entry point while a full send is pending, until it is accepted', async () => {
+			const onScreenshot = vi.fn();
+			const { transport } = await sendPending(maxFiles, { onScreenshot });
+
+			await expectEntryPointsHeld(onScreenshot);
+
+			transport.resolve();
+			await settle();
+			await expectEntryPointsOpen();
+			const openPicker = vi.spyOn(HTMLInputElement.prototype, 'click');
+			fileEntryButtons()[0]!.click();
+			await settle();
+			if (compact) {
+				expect(document.querySelector('[role="menu"]')).not.toBeNull();
+			} else {
+				expect(openPicker).toHaveBeenCalledOnce();
+			}
+		});
+
+		it('refuses a paste and a drop with the limit, and keeps the drop from the browser', async () => {
+			await sendPending(maxFiles);
+
+			paste([sized(1, 'pasted.txt')]);
+			drag('dragenter', textarea(), { files: [sized(1, 'dropped.txt')] });
+			await tick();
+			expect(dropOverlay()).toBeUndefined();
+			const over = drag('dragover', textarea(), { files: [sized(1, 'dropped.txt')] });
+			const drop = drag('drop', textarea(), { files: [sized(1, 'dropped.txt')] });
+			await settle();
+
+			expect([over.defaultPrevented, drop.defaultPrevented]).toEqual([true, true]);
+			expect(vi.mocked(toast.error).mock.calls).toEqual([[capReason], [capReason]]);
+			expect(upload).not.toHaveBeenCalled();
+			expect(ctx.attachments).toEqual([]);
+		});
+
+		it('hands paste and drop refusals to onAttachmentRejected when set', async () => {
+			const onAttachmentRejected = vi.fn();
+			await sendPending(maxFiles, { onAttachmentRejected, dropScope: 'composer' });
+
+			paste([sized(1, 'pasted.txt')]);
+			const drop = drag('drop', textarea(), { files: [sized(1, 'dropped.txt')] });
+			await settle();
+
+			expect(drop.defaultPrevented).toBe(true);
+			expect(onAttachmentRejected.mock.calls).toEqual([
+				[{ filename: 'pasted.txt', reason: capReason }],
+				[{ filename: 'dropped.txt', reason: capReason }]
+			]);
+			expect(toast.error).not.toHaveBeenCalled();
+		});
+
+		it('gives a refused full send back whole, without a notice, and sends it again', async () => {
+			const { onSend, transport } = await sendPending(maxFiles);
+
+			transport.reject(new Error('refused'));
+			await settle();
+
+			expect(names()).toEqual(names(files(maxFiles)));
+			expect(notice()).toBeNull();
+			await expectEntryPointsHeld();
+			expect(sendButton()!.disabled).toBe(false);
+			await pressEnter();
+			expect(onSend).toHaveBeenCalledTimes(2);
+		});
+
+		it('leaves room only for what a pending send does not hold, and restores never past it', async () => {
+			const { transport } = await sendPending(4);
+			await expectEntryPointsOpen();
+
+			pick([sized(1, 'new-0.txt'), sized(1, 'new-1.txt'), sized(1, 'new-2.txt')]);
+			await vi.waitFor(() => expect(upload).toHaveBeenCalledTimes(2));
+			expect(vi.mocked(toast.error).mock.calls).toEqual([[capReason]]);
+			await expectEntryPointsHeld();
+
+			transport.reject(new Error('refused'));
+			await settle();
+
+			expect(names()).toEqual([...names(files(4)), 'new-0.txt', 'new-1.txt']);
+			expect(notice()).toBeNull();
+		});
+
+		it('frees the slots of an accepted send while an overlapping send is still open', async () => {
+			const transports = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
+			const onSend = vi.fn(() => transports[onSend.mock.calls.length - 1]!.promise);
+			await mountComposer({ ...base, onSend });
+			for (const prefix of ['first', 'second']) {
+				ctx.addAttachments(files(maxFiles / 2, prefix));
+				await type(prefix);
+				await pressEnter();
+			}
+			expect(onSend).toHaveBeenCalledTimes(2);
+			await expectEntryPointsHeld();
+
+			transports[0]!.resolve();
+			await settle();
+
+			await expectEntryPointsOpen();
+			pick([sized(1, 'new-0.txt'), sized(1, 'new-1.txt'), sized(1, 'new-2.txt')]);
+			await vi.waitFor(() => expect(upload).toHaveBeenCalledTimes(3));
+			await expectEntryPointsHeld();
+		});
+
+		it('holds the entry points for a composer that is full on its own', async () => {
+			const onScreenshot = vi.fn();
+			await mountComposer({ ...base, onScreenshot });
+			ctx.addAttachments(files(maxFiles, 'local'));
+			await tick();
+
+			await expectEntryPointsHeld(onScreenshot);
+
+			ctx.removeAttachment(0);
+			await tick();
+			await expectEntryPointsOpen();
+		});
+
+		it.each([
+			{ gate: 'disabled', props: { disabled: true } },
+			{ gate: 'attachments unavailable', props: { attachmentsDisabledReason: 'No files here.' } }
+		])('lets $gate take precedence over the cap', async ({ props: gate }) => {
+			await sendPending(maxFiles);
+			await setProps(gate);
+
+			for (const button of fileEntryButtons()) {
+				expect(button.disabled).toBe(true);
+				expect(button.hasAttribute('aria-disabled')).toBe(false);
+			}
+		});
 	});
 });
 

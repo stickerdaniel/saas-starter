@@ -121,6 +121,8 @@ export class ChatUIContext implements ComposerSendTarget {
 	private readonly options: ChatUIContextOptions;
 	private readonly sendOwner: ComposerSendCoordinator;
 	private readonly detachFromSendOwner: () => void;
+	/** Moves whenever the send owner's pending sends do. */
+	private pendingSendsVersion = $state(0);
 
 	/** Attachment collection and lifecycle owner behind this UI facade. */
 	private readonly attachmentCoordinator: ComposerAttachmentCoordinator;
@@ -165,7 +167,8 @@ export class ChatUIContext implements ComposerSendTarget {
 				};
 				this.inputValue = '';
 				this.inputRevision++;
-			}
+			},
+			pendingSendAttachments: () => this.pendingSendAttachments
 		});
 		this.detachFromSendOwner = this.sendOwner.attachTarget(this);
 	}
@@ -461,6 +464,20 @@ export class ChatUIContext implements ComposerSendTarget {
 		return this.attachmentCoordinator.sendResources();
 	}
 
+	pendingSendsChanged(): void {
+		this.pendingSendsVersion = untrack(() => this.pendingSendsVersion) + 1;
+	}
+
+	/** Files this conversation's unsettled sends hold, which a refusal would put back here. */
+	private get pendingSendAttachments(): number {
+		// The owner is a plain class and reads the origin untracked, so these reads
+		// are what re-run a dependent when a send settles or the thread changes.
+		void this.pendingSendsVersion;
+		void this.core.threadGeneration;
+		void this.core.threadId;
+		return this.sendOwner.pendingAttachmentCount(this);
+	}
+
 	/** Rendered attachments for the current composer. */
 	get attachments(): Attachment[] {
 		return this.attachmentCoordinator.attachments;
@@ -476,7 +493,7 @@ export class ChatUIContext implements ComposerSendTarget {
 		return this.attachmentCoordinator.maxAttachments;
 	}
 
-	/** Whether another picked attachment fits the cap. */
+	/** Whether another file fits the cap, counting the files of pending sends. */
 	get canAddAttachment(): boolean {
 		return this.attachmentCoordinator.canAddAttachment;
 	}

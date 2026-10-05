@@ -619,6 +619,7 @@
 		},
 		"tooltip": {
 			"attach_files": "Adjuntar archivos",
+			"attachment_limit": "Puedes adjuntar hasta {max} archivos por mensaje.",
 			"mark_bug": "Marcar el error",
 			"more_actions": "Más acciones"
 		}

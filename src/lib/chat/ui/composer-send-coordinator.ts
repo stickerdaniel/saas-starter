@@ -39,6 +39,8 @@ export interface ComposerSendTarget {
 	bindThreadOrigin(threadId: string, generation: number): void;
 	restoreFailedSend(text: string, attachments: Attachment[]): void;
 	sendResources(): ComposerSendResources;
+	/** Called whenever a send begins, settles or moves, so the composer can re-read its count. */
+	pendingSendsChanged(): void;
 }
 
 export type ComposerSendOutcome = 'accepted' | 'refused';
@@ -169,6 +171,7 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 			resources: source.sendResources(),
 			draftCheckpoint: this.drafts?.captureCheckpoint(snapshot.origin.threadId)
 		});
+		this.pendingChanged();
 		return id;
 	}
 
@@ -183,6 +186,7 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 		const send = this.pending.get(sendId);
 		if (!send || send.outcome) return;
 		send.outcome = outcome;
+		this.pendingChanged();
 		if (!isChatSessionCurrent(send.sessionEpoch)) {
 			this.abandon((candidate) => !isChatSessionCurrent(candidate.sessionEpoch));
 			return;
@@ -227,9 +231,29 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 		return this.storedDraftCaptured(threadId, sends);
 	}
 
+	/**
+	 * How many files the unsettled sends of the conversation `target` shows
+	 * would bring back if refused. An accepted send holds none.
+	 */
+	pendingAttachmentCount(target: ComposerSendTarget): number {
+		const shown = { core: target.core, origin: target.sendOrigin };
+		const holding = [...this.pending.values()].filter(
+			(send) =>
+				send.outcome !== 'accepted' &&
+				isChatSessionCurrent(send.sessionEpoch) &&
+				sameConversation(this.conversationOf(send), shown)
+		);
+		return sentAttachments(holding).length;
+	}
+
 	forgetPersistedState(): void {
 		this.abandon(() => true);
 		this.held = [];
+		this.pendingChanged();
+	}
+
+	private pendingChanged(): void {
+		for (const target of this.targets) target.pendingSendsChanged();
 	}
 
 	/**
@@ -338,6 +362,7 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 				send.snapshot.origin.threadId = threadId;
 			}
 		}
+		this.pendingChanged();
 
 		const bound = this.held.filter((held) => held.sessionEpoch === epoch && binds(held));
 		if (bound.length === 0) return;
