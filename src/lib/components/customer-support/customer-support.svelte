@@ -8,7 +8,8 @@
 	import AIChatbar from '$lib/components/customer-support/ai-chatbar.svelte';
 	import FeedbackButton from '$lib/components/customer-support/feedback-button.svelte';
 	import { SupportContext, supportContext } from './support-context.svelte.ts';
-	import { ChatAttachmentStore, ChatUIContext, type UploadConfig } from '$lib/chat';
+	import { ChatAttachmentStore } from '$lib/chat/core/chat-attachment-store.svelte.ts';
+	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/chat-context.svelte.ts';
 	import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
 	import {
 		ComposerSendCoordinator,
