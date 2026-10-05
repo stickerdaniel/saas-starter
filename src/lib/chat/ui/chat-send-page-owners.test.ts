@@ -10,6 +10,9 @@ import { ConvexClient } from 'convex/browser';
 import { getFunctionName, type FunctionReference } from 'convex/server';
 import { api } from '$lib/convex/_generated/api';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
+import type { Attachment } from '../core/types.js';
+import { ChatUIContext } from './chat-context.svelte.ts';
+import { SupportContext } from '../../components/customer-support/support-context.svelte.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import AIChatPage from '../../../routes/[[lang]]/app/ai-chat/+page.svelte';
 import AdminSupportPage from '../../../routes/[[lang]]/admin/support/+page.svelte';
@@ -247,4 +250,129 @@ describe.each([
 		expect(textarea().value).toBe('A\n\nB\n\nnewer');
 		expect(storedDrafts()).toEqual({ 'thread-a': 'A\n\nB\n\nnewer' });
 	});
+
+	describe('after the session ended while the page stayed open', () => {
+		async function sendInNewSessionAndReturn(): Promise<void> {
+			await enterPage();
+			clearPersistedChatState();
+			await settleWork();
+			await send('A');
+			await leavePage();
+			await enterPage();
+		}
+
+		it('restores a refusal from before leaving into the page entered again', async () => {
+			await sendInNewSessionAndReturn();
+			expect(textarea().value).toBe('');
+			await type('newer');
+			replies[0]!.reject(new Error('refused'));
+			await settleWork();
+
+			expect(textarea().value).toBe('A\n\nnewer');
+			expect(storedDrafts()).toEqual({ 'thread-a': 'A\n\nnewer' });
+		});
+
+		it('settles a send from before leaving together with one sent after', async () => {
+			await sendInNewSessionAndReturn();
+			await send('B');
+			await type('newer');
+			replies[1]!.reject(new Error('refused'));
+			await settleWork();
+			expect(textarea().value).toBe('newer');
+
+			replies[0]!.reject(new Error('refused'));
+			await settleWork();
+			expect(textarea().value).toBe('A\n\nB\n\nnewer');
+			expect(storedDrafts()).toEqual({ 'thread-a': 'A\n\nB\n\nnewer' });
+		});
+	});
+
+	if (surface === 'support') {
+		describe('with a file attached to the refused send', () => {
+			const reviewFile: Attachment = {
+				type: 'file',
+				key: 'review-file',
+				name: 'review.txt',
+				size: 3,
+				mimeType: 'text/plain',
+				url: 'https://chat.test/review.txt',
+				uploadState: { status: 'success', progress: 100, fileId: 'review-file' }
+			};
+			const keys = (context: ChatUIContext) =>
+				context.attachments.map((attachment) => ('key' in attachment ? attachment.key : ''));
+
+			/** The composer's context, as the chat on screen last displayed it. */
+			let contexts: () => ChatUIContext;
+
+			beforeEach(() => {
+				const displayed = vi.spyOn(ChatUIContext.prototype, 'setDisplayMessages');
+				contexts = () => displayed.mock.contexts.at(-1) as ChatUIContext;
+			});
+
+			function lastReplyFileIds(): unknown {
+				const replyName = getFunctionName(reply);
+				const [, args] = vi
+					.mocked(client.mutation)
+					.mock.calls.filter(([reference]) => getFunctionName(reference) === replyName)
+					.at(-1)!;
+				return (args as { fileIds?: string[] }).fileIds;
+			}
+
+			async function sendWithFileAndLeave(): Promise<void> {
+				await enterPage();
+				contexts().addAttachments([reviewFile]);
+				await send('A');
+				expect(contexts().attachments).toEqual([]);
+				await leavePage();
+			}
+
+			it.each(['before the page is entered again', 'while its thread is looked up', 'after'])(
+				'brings the file of a send refused %s back into the composer',
+				async (timing) => {
+					await sendWithFileAndLeave();
+					const lookup = Promise.withResolvers<Record<string, never>>();
+					if (timing === 'before the page is entered again') {
+						replies[0]!.reject(new Error('refused'));
+						await settleWork();
+					}
+					if (timing === 'while its thread is looked up') {
+						vi.mocked(client.query).mockReturnValueOnce(lookup.promise);
+					}
+					await enterPage();
+					if (timing !== 'before the page is entered again') {
+						replies[0]!.reject(new Error('refused'));
+						await settleWork();
+					}
+					lookup.resolve({});
+					await settleWork();
+
+					expect(keys(contexts())).toEqual(['review-file']);
+					await send('B');
+					expect(lastReplyFileIds()).toEqual(['review-file']);
+				}
+			);
+
+			it('carries the file into neither another thread nor a new conversation', async () => {
+				const selected = vi.spyOn(SupportContext.prototype, 'selectThreadFromUrl');
+				await sendWithFileAndLeave();
+				await enterPage();
+				replies[0]!.reject(new Error('refused'));
+				await settleWork();
+				const support = selected.mock.contexts.at(-1) as SupportContext;
+				const context = contexts();
+				expect(keys(context)).toEqual(['review-file']);
+
+				support.selectThread('thread-b');
+				await settleWork();
+				expect(keys(context)).toEqual([]);
+				await send('B');
+				expect(lastReplyFileIds() ?? []).toEqual([]);
+
+				context.addAttachments([reviewFile]);
+				support.startNewThread();
+				await settleWork();
+				expect(keys(context)).toEqual([]);
+			});
+		});
+	}
 });

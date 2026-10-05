@@ -169,8 +169,10 @@
 		() => void markVisibleReplyRead()
 	);
 
-	// Sync drafts when the selected conversation changes.
-	watch(
+	// Sync drafts and attachments when the selected conversation changes. Runs
+	// before the chat shows the new thread, which would otherwise take the
+	// attachments it finds and mix them with the ones this clears.
+	watch.pre(
 		() => [conversation.threadId, conversation.threadGeneration] as const,
 		([currentThreadId, currentGeneration], previous) => {
 			const [previousThreadId, previousGeneration] = previous ?? [undefined, -1];
@@ -189,6 +191,12 @@
 			}
 			chatUIContext.loadDraft(currentThreadId);
 
+			// An existing thread brings back its own files, such as those of a send
+			// refused while it was not on screen; the conversation left keeps none.
+			if (previousThreadId !== undefined && currentThreadId !== null) {
+				chatUIContext.enterSelectedThread();
+				return;
+			}
 			const generationChanged = currentGeneration !== previousGeneration;
 			if (generationChanged || (previousThreadId === null && !conversation.isNewConversation)) {
 				chatUIContext.clearAttachments();

@@ -1,6 +1,7 @@
 import type { ChatDraftCheckpoint } from '../core/chat-draft-manager.svelte.ts';
 import type { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
 import {
+	getChatSessionEpoch,
 	isChatSessionCurrent,
 	registerPersistedChatHolder,
 	type PersistedChatHolder
@@ -381,6 +382,7 @@ export type ComposerSendLease = {
 type SurfaceOwner = {
 	readonly surface: string;
 	readonly owner: ComposerSendCoordinator;
+	readonly sessionEpoch: number;
 	leases: number;
 	unregister: () => void;
 };
@@ -396,34 +398,63 @@ const surfaceOwnerOf = new WeakMap<ComposerSendCoordinator, SurfaceOwner>();
  * and puts a refusal into the composer now on screen, in order with sends
  * started since. The owner is dropped once no lease holds it and no send is
  * pending, and when the session ends; `create` builds the next one.
+ *
+ * A surface that stays mounted when its session ends passes `renewed`. It
+ * receives a lease on the next session's owner, this lease is released, and
+ * the surface rebuilds everything that captured the old owner, which restores
+ * nothing any more.
  */
 export function acquireComposerSendCoordinator(
 	surface: string,
-	create: () => ComposerSendCoordinator
+	create: () => ComposerSendCoordinator,
+	renewed?: (next: ComposerSendLease) => void
 ): ComposerSendLease {
 	// The server shares this module between requests and never sends.
 	if (typeof window === 'undefined') return { owner: create(), release: () => {} };
-	const held = surfaceOwners.get(surface) ?? registerSurfaceOwner(surface, create());
+	const sessionEpoch = getChatSessionEpoch();
+	const current = surfaceOwners.get(surface);
+	const held =
+		current?.sessionEpoch === sessionEpoch ? current : registerSurfaceOwner(surface, create());
 	held.leases++;
 	let released = false;
-	return {
-		owner: held.owner,
-		release: () => {
-			if (released) return;
-			released = true;
-			held.leases--;
-			dropSurfaceOwnerIfUnused(held);
-		}
+	let stopRenewing = () => {};
+	const release = () => {
+		if (released) return;
+		released = true;
+		stopRenewing();
+		held.leases--;
+		dropSurfaceOwnerIfUnused(held);
 	};
+	if (renewed) {
+		stopRenewing = registerPersistedChatHolder({
+			forgetPersistedState: () => {
+				// Taken during this same session end, so already the next session's.
+				if (isChatSessionCurrent(sessionEpoch)) return;
+				const next = acquireComposerSendCoordinator(surface, create, renewed);
+				release();
+				renewed(next);
+			}
+		});
+	}
+	return { owner: held.owner, release };
 }
 
 function registerSurfaceOwner(surface: string, owner: ComposerSendCoordinator): SurfaceOwner {
-	const entry: SurfaceOwner = { surface, owner, leases: 0, unregister: () => {} };
-	// The session's end reaches every registered holder, so this is where an
-	// owner stops being handed out, whether or not a page still holds it.
+	const entry: SurfaceOwner = {
+		surface,
+		owner,
+		sessionEpoch: getChatSessionEpoch(),
+		leases: 0,
+		unregister: () => {}
+	};
+	// The session's end stops the owner being handed out, but it stays
+	// registered while a lease or a send still holds it: a surface that kept it
+	// may have sent through it since, and the next session end must reach those.
 	entry.unregister = registerPersistedChatHolder({
 		forgetPersistedState: () => {
-			dropSurfaceOwner(entry);
+			// Created by a surface renewing its lease during this same session end.
+			if (isChatSessionCurrent(entry.sessionEpoch)) return;
+			if (surfaceOwners.get(surface) === entry) surfaceOwners.delete(surface);
 			owner.forgetPersistedState();
 		}
 	});

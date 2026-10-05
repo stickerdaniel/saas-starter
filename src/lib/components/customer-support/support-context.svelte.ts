@@ -18,8 +18,11 @@ export class SupportContext {
 	readonly conversation: SupportConversation;
 	readonly handoff: SupportHandoffCommands;
 	readonly notifications: SupportNotificationCommands;
-	/** Settles composer sends for the widget, whose composer comes and goes with the panel. */
-	readonly sendOwner: ComposerSendCoordinator;
+	/**
+	 * Settles composer sends for the widget, whose composer comes and goes with the panel.
+	 * Replaced by the next session's owner when a session ends under a mounted root.
+	 */
+	sendOwner: ComposerSendCoordinator;
 
 	/** @param sendOwner the surface's owner when it outlives this root; one is made otherwise. */
 	constructor(isAiUsable: () => boolean = () => true, sendOwner?: ComposerSendCoordinator) {
