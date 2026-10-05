@@ -130,6 +130,9 @@ export class ChatUIContext implements ComposerSendTarget {
 	/** The one composer mounted inside this ChatRoot. */
 	private composerFocus?: () => void;
 
+	/** Where that composer wants a refused screenshot reported. */
+	private composerRefusal?: ComposerUploadFileOptions['onPreprocessFailed'];
+
 	/** Tracks if we've ever displayed messages in this session */
 	private _hasEverDisplayedMessages = false;
 
@@ -326,6 +329,19 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	focusComposer(): void {
 		this.composerFocus?.();
+	}
+
+	/** Report screenshots refused before upload through the mounted composer. */
+	registerAttachmentRefusal(
+		handler: NonNullable<ComposerUploadFileOptions['onPreprocessFailed']>
+	): void {
+		this.composerRefusal = handler;
+	}
+
+	unregisterAttachmentRefusal(
+		handler: NonNullable<ComposerUploadFileOptions['onPreprocessFailed']>
+	): void {
+		if (this.composerRefusal === handler) this.composerRefusal = undefined;
 	}
 
 	/**
@@ -546,7 +562,9 @@ export class ChatUIContext implements ComposerSendTarget {
 		filename: string,
 		dimensions?: { width: number; height: number }
 	): Promise<void> {
-		return this.attachmentCoordinator.uploadScreenshot(blob, filename, dimensions);
+		return this.attachmentCoordinator.uploadScreenshot(blob, filename, dimensions, {
+			onPreprocessFailed: this.composerRefusal
+		});
 	}
 
 	/**

@@ -148,6 +148,8 @@
 	let placeholderTimer: ReturnType<typeof setInterval> | undefined;
 	const focusComposer = () => containerEl?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
 	ctx.registerComposerFocus(focusComposer);
+	// A screenshot reaches the context from the caller, not through this composer.
+	ctx.registerAttachmentRefusal(rejectPreparedAttachment);
 
 	// Use centralized isProcessing from context (single source of truth)
 	// When handed off to human support, don't block - use fire-and-forget pattern
@@ -156,10 +158,16 @@
 	// At the cap the file controls stay hoverable and focusable, so their tooltip
 	// can say why nothing happens; a real `disabled` would swallow both.
 	const atAttachmentCap = $derived(acceptsAttachments && !ctx.canAddAttachment);
+	const canAddFiles = $derived(acceptsAttachments && ctx.canAddAttachment);
 	const attachmentLimitHint = $derived(
 		$t('chat.tooltip.attachment_limit', { max: ctx.maxAttachments })
 	);
-	let attachMenuOpen = $state(false);
+	// Shut again whenever a gate changes, so a menu opened before a gate closed
+	// neither outlives it nor reopens by itself when the gate lifts.
+	let attachMenuOpen = $derived.by(() => {
+		void canAddFiles;
+		return false;
+	});
 	let attachmentLimitHintOpen = $state(false);
 	const hasText = $derived(!!ctx.inputValue.trim());
 	const hasAttachments = $derived(ctx.attachments.length > 0);
@@ -245,6 +253,7 @@
 	onDestroy(() => {
 		stopPlaceholderRotation();
 		ctx.unregisterComposerFocus(focusComposer);
+		ctx.unregisterAttachmentRefusal(rejectPreparedAttachment);
 	});
 
 	// Check if last assistant message is complete (for handoff button visibility)
@@ -300,8 +309,10 @@
 		ctx.setInputValue(value);
 	}
 
+	// This and openFilePicker check the gates again: a menu item rendered before
+	// a gate closed can still be chosen until the menu leaves the screen.
 	function handleCameraClick() {
-		onScreenshot?.();
+		if (canAddFiles) onScreenshot?.();
 	}
 
 	/**
@@ -315,7 +326,7 @@
 	}
 
 	function openFilePicker() {
-		fileInputEl?.click();
+		if (canAddFiles) fileInputEl?.click();
 	}
 
 	function handleFileInput(event: Event) {
@@ -394,9 +405,15 @@
 	// alone. The non-compact path gets this from <FileUpload>; the compact path
 	// handles it here so a dropped file attaches (and, critically, so the browser
 	// doesn't navigate away to open it).
-	let dragActive = $state(false);
-	let dragDepth = 0;
 	const dropEnabled = $derived(compact && showFileButton && !isRateLimited && acceptsAttachments);
+	// Starts over whenever eligibility or scope changes: a drag refused midway
+	// skips its own leave and drop, and must not revive the overlay once files
+	// are accepted again.
+	let drag = $derived.by(() => {
+		void dropEnabled;
+		void dropScope;
+		return { depth: 0, active: false };
+	});
 
 	/**
 	 * Whether this drag belongs to the compact handlers in `scope`. On the
@@ -424,8 +441,10 @@
 	function handleDragEnter(event: DragEvent, scope: 'window' | 'composer') {
 		if (!handlesDrag(event, scope)) return;
 		event.preventDefault();
-		dragDepth += 1;
-		if (event.dataTransfer?.types.includes('Files')) dragActive = true;
+		drag = {
+			depth: drag.depth + 1,
+			active: drag.active || !!event.dataTransfer?.types.includes('Files')
+		};
 	}
 
 	function handleDragOver(event: DragEvent, scope: 'window' | 'composer') {
@@ -436,18 +455,14 @@
 	function handleDragLeave(event: DragEvent, scope: 'window' | 'composer') {
 		if (!handlesDrag(event, scope)) return;
 		event.preventDefault();
-		dragDepth -= 1;
-		if (dragDepth <= 0) {
-			dragDepth = 0;
-			dragActive = false;
-		}
+		const depth = drag.depth - 1;
+		drag = depth > 0 ? { depth, active: drag.active } : { depth: 0, active: false };
 	}
 
 	function handleDrop(event: DragEvent, scope: 'window' | 'composer') {
 		if (!handlesDrag(event, scope)) return refuseFileDrop(event, scope);
 		event.preventDefault();
-		dragDepth = 0;
-		dragActive = false;
+		drag = { depth: 0, active: false };
 		const files = event.dataTransfer?.files;
 		if (files?.length) void handleFilesAdded(Array.from(files));
 	}
@@ -495,14 +510,7 @@
 	function attachFile(file: File | Blob, filename: string) {
 		if (file.type?.startsWith('image/')) {
 			ctx.uploadFile(file, filename, {
-				onPreprocessFailed: onAttachmentRejected
-					? (name, refusal) =>
-							rejectAttachment(
-								name,
-								refusal?.message ?? $t('chat.error.upload_failed', { filename: name }),
-								refusal?.description
-							)
-					: undefined,
+				onPreprocessFailed: rejectPreparedAttachment,
 				preprocess: async (input) => {
 					const processed = await processImage(input);
 					// Post-process guard. WebP at q=85 is almost always smaller
@@ -551,7 +559,19 @@
 			});
 			return;
 		}
-		ctx.uploadFile(file, filename);
+		ctx.uploadFile(file, filename, { onPreprocessFailed: rejectPreparedAttachment });
+	}
+
+	/**
+	 * Feedback for a file the coordinator refused after it was added. That
+	 * settles later, so this reads the rejection handler current by then.
+	 */
+	function rejectPreparedAttachment(filename: string, refusal?: AttachmentRefusal) {
+		rejectAttachment(
+			filename,
+			refusal?.message ?? $t('chat.error.upload_failed', { filename }),
+			refusal?.description
+		);
 	}
 
 	/** One owner for refused files: the caller's handler when set, a toast otherwise. */
@@ -575,7 +595,9 @@
 			if (!ctx.canAddAttachment) {
 				haptic.trigger('error');
 				rejectAttachment(raw.name, $t('chat.error.max_attachments', { max: ctx.maxAttachments }));
-				break;
+				// One toast covers the batch; a handler hears about every file.
+				if (!onAttachmentRejected) break;
+				continue;
 			}
 
 			// MIME allowlist gate (drag/drop bypasses the file picker's
@@ -622,10 +644,19 @@
 	}
 
 	function handleSuggestionClick(text: string) {
+		if (disabled) return;
 		ctx.setInputValue(text);
 		tick().then(() => {
 			containerEl?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
 		});
+	}
+
+	/** The pasted file's own name, or one made up from its type. */
+	function pastedFilename(file: File): string {
+		return (
+			file.name ||
+			`pasted-${file.type.startsWith('image/') ? 'image' : 'file'}-${Date.now()}.${file.type.split('/')[1] || 'bin'}`
+		);
 	}
 
 	function handlePaste(event: ClipboardEvent) {
@@ -646,23 +677,28 @@
 			// Extension-aware allowlist gate: a pasted file's clipboard type is
 			// often empty/generic (notably .md/.txt), so check the extension
 			// fallback like handleFilesAdded rather than the bare item.type.
-			if (!isAllowedKind(raw)) continue;
+			// Without a rejection handler this stays silent, as it always was.
+			if (!isAllowedKind(raw)) {
+				if (onAttachmentRejected) {
+					const filename = pastedFilename(raw);
+					rejectAttachment(filename, $t('chat.error.file_type_not_allowed', { filename }));
+				}
+				continue;
+			}
 
 			// Coerce empty/generic MIME from the extension before branching, so
 			// attachFile routes images through processImage and the upload sends
 			// the correct Content-Type for text files.
 			const file = normalizeMime(raw);
-
-			// Use original filename if available, otherwise generate one
-			const filename =
-				file.name ||
-				`pasted-${file.type.startsWith('image/') ? 'image' : 'file'}-${Date.now()}.${file.type.split('/')[1] || 'bin'}`;
+			const filename = pastedFilename(file);
 
 			// Check attachment limit
 			if (!ctx.canAddAttachment) {
 				haptic.trigger('error');
 				rejectAttachment(filename, $t('chat.error.max_attachments', { max: ctx.maxAttachments }));
-				break;
+				// One toast covers the batch; a handler hears about every file.
+				if (!onAttachmentRejected) break;
+				continue;
 			}
 
 			// Type-aware size cap — images go through processImage which
@@ -702,7 +738,7 @@
 		<!-- The menu holds only file actions: at the cap it stays shut and the
 		     trigger's tooltip names the limit instead. -->
 		<DropdownMenu.Root
-			bind:open={() => attachMenuOpen, (open) => (attachMenuOpen = open && !atAttachmentCap)}
+			bind:open={() => attachMenuOpen, (open) => (attachMenuOpen = open && canAddFiles)}
 		>
 			<Tooltip.Root
 				bind:open={
@@ -890,6 +926,7 @@
 								class="w-full"
 								truncate
 								title={suggestion.text}
+								{disabled}
 								onclick={() => handleSuggestionClick(suggestion.text)}
 							>
 								{suggestion.label}
@@ -939,7 +976,7 @@
 	>
 		{#if compact}
 			<div class={cn('relative flex min-w-0 flex-col', contentClass)} bind:this={compactWrapper}>
-				{#if dragActive && dropEnabled && !atAttachmentCap}
+				{#if drag.active && dropEnabled && !atAttachmentCap}
 					<div
 						class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center gap-2 rounded-[25px] bg-popover/90 text-sm font-medium text-muted-foreground backdrop-blur-sm"
 						aria-hidden="true"
