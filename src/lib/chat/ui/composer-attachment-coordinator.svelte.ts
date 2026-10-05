@@ -319,6 +319,33 @@ export class ComposerAttachmentCoordinator {
 	}
 
 	/**
+	 * Move to the existing thread now selected, discarding what the composer
+	 * held for the conversation it leaves instead of parking or carrying it.
+	 *
+	 * The entering thread's references are read from the store at this moment:
+	 * a send refused while this composer showed another conversation, or before
+	 * it was built, stored them there. Returns what `syncThread` returns, which
+	 * then has nothing left to do for this thread.
+	 */
+	enterSelectedThread(): boolean {
+		const entering = untrack(this.getThreadId);
+		const leaving = this.lastThreadId;
+		if (leaving === entering) return false;
+		const discarded = this.attachments;
+		if (leaving === null) this.parked.set('', this.strangersUnderEmptyKey());
+		for (const attachment of discarded) {
+			this.releaseUpload(attachment);
+			this.revokePreview(attachment);
+		}
+		this.attachments = [];
+		this.lastThreadId = entering;
+		this.takeThread(entering);
+		this.persist(...(leaving === undefined ? [] : [leaving]));
+		this.releaseAbandoned(discarded);
+		return leaving !== undefined && leaving !== null;
+	}
+
+	/**
 	 * Drop everything held for the session that ended, including state which has
 	 * not reached persistence yet.
 	 */
@@ -557,6 +584,12 @@ export class ComposerAttachmentCoordinator {
 	/** Park the outgoing live list and restore the entering thread's current authority. */
 	private parkAttachments(leaving: string, entering: string | null): void {
 		if (this.attachments.length > 0) this.parked.set(leaving, this.attachments);
+		this.takeThread(entering);
+		this.persist(leaving);
+	}
+
+	/** Replace the live list with what is held and stored for the entering thread. */
+	private takeThread(entering: string | null): void {
 		const key = entering ?? '';
 		const store = this.uploadConfig?.attachmentStore;
 		const held = this.parked.get(key) ?? [];
@@ -575,7 +608,6 @@ export class ComposerAttachmentCoordinator {
 			this.parked.set(key, stored);
 			this.adoptParked(entering);
 		}
-		this.persist(leaving);
 	}
 
 	/** Adopt parked/live copies for one thread, retaining whichever progressed further. */

@@ -38,13 +38,17 @@
 
 	// Draft persistence and send settlement live outside {#key threadId}, so drafts
 	// and a reply refused after its thread was left survive thread switches, and
-	// outside this page while one of its replies is open
-	const sendLease = acquireComposerSendCoordinator(
-		'admin-support',
-		() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('admin-support') })
+	// outside this page while one of its replies is open. A session that ends
+	// while the page stays open hands over the next session's owner, and the
+	// thread view is rebuilt around it below.
+	let sendLease = $state.raw(
+		acquireComposerSendCoordinator(
+			'admin-support',
+			() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('admin-support') }),
+			(next) => (sendLease = next)
+		)
 	);
-	const sendOwner = sendLease.owner;
-	onDestroy(sendLease.release);
+	onDestroy(() => sendLease.release());
 
 	// Filter state schema (thread managed separately to avoid reload on selection)
 	const filterSchema = v.object({
@@ -207,14 +211,16 @@
 
 			<Pane defaultSize={50} minSize={30}>
 				{#if threadId}
-					{#key threadId}
-						<ThreadChat
-							{threadId}
-							initialThread={selectedThread}
-							{canImpersonate}
-							viewerId={adminUserId}
-							{sendOwner}
-						/>
+					{#key sendLease.owner}
+						{#key threadId}
+							<ThreadChat
+								{threadId}
+								initialThread={selectedThread}
+								{canImpersonate}
+								viewerId={adminUserId}
+								sendOwner={sendLease.owner}
+							/>
+						{/key}
 					{/key}
 				{:else}
 					<div
@@ -271,14 +277,16 @@
 
 			<Pane defaultSize={70} minSize={50}>
 				{#if threadId}
-					{#key threadId}
-						<ThreadChat
-							{threadId}
-							initialThread={selectedThread}
-							{canImpersonate}
-							viewerId={adminUserId}
-							{sendOwner}
-						/>
+					{#key sendLease.owner}
+						{#key threadId}
+							<ThreadChat
+								{threadId}
+								initialThread={selectedThread}
+								{canImpersonate}
+								viewerId={adminUserId}
+								sendOwner={sendLease.owner}
+							/>
+						{/key}
 					{/key}
 				{:else}
 					<div
@@ -315,15 +323,17 @@
 			<!-- Chat (slides over thread list from right) -->
 			<SlidingPanel open={!!threadId} surface="background">
 				{#if threadId}
-					{#key threadId}
-						<ThreadChat
-							{threadId}
-							initialThread={selectedThread}
-							{canImpersonate}
-							viewerId={adminUserId}
-							onBackClick={clearThread}
-							{sendOwner}
-						/>
+					{#key sendLease.owner}
+						{#key threadId}
+							<ThreadChat
+								{threadId}
+								initialThread={selectedThread}
+								{canImpersonate}
+								viewerId={adminUserId}
+								onBackClick={clearThread}
+								sendOwner={sendLease.owner}
+							/>
+						{/key}
 					{/key}
 				{/if}
 			</SlidingPanel>

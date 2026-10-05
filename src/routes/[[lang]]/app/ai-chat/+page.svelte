@@ -48,13 +48,17 @@
 	);
 
 	// Outlives ThreadChat, which unmounts while a thread is being resolved, and
-	// this page while one of its sends is open.
-	const sendLease = acquireComposerSendCoordinator(
-		'ai-chat',
-		() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('ai-chat') })
+	// this page while one of its sends is open. A session that ends while the
+	// page stays open (signed out in another tab) hands over the next session's
+	// owner, and ThreadChat is rebuilt around it below.
+	let sendLease = $state.raw(
+		acquireComposerSendCoordinator(
+			'ai-chat',
+			() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('ai-chat') }),
+			(next) => (sendLease = next)
+		)
 	);
-	const sendOwner = sendLease.owner;
-	onDestroy(sendLease.release);
+	onDestroy(() => sendLease.release());
 
 	// Thread from URL param
 	const threadId = $derived(page.url.searchParams.get('thread') ?? '');
@@ -131,17 +135,19 @@
 				</p>
 			</div>
 		{:else if threadId}
-			<ThreadChat
-				{threadId}
-				{isPro}
-				{hasMessagesAvailable}
-				{remainingMessages}
-				{totalMessages}
-				onUpgrade={handleUpgrade}
-				isUpgrading={billingCheckout.isLoading}
-				onMessageSent={() => autumn.refetch()}
-				{sendOwner}
-			/>
+			{#key sendLease.owner}
+				<ThreadChat
+					{threadId}
+					{isPro}
+					{hasMessagesAvailable}
+					{remainingMessages}
+					{totalMessages}
+					onUpgrade={handleUpgrade}
+					isUpgrading={billingCheckout.isLoading}
+					onMessageSent={() => autumn.refetch()}
+					sendOwner={sendLease.owner}
+				/>
+			{/key}
 		{:else}
 			<!-- Direct navigation without ?thread=: resolving a warm thread above.
 			     ChatInput has no createThread configured, so it must not mount (and

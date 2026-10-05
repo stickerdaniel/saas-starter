@@ -507,6 +507,30 @@ describe('surface lifetime', () => {
 		expect([...before.chat.restorations, ...after.chat.restorations]).toEqual([]);
 	});
 
+	it('hands a surface that stays mounted the next owner, which outlives the session end and old leases', () => {
+		const name = `settlement-${crypto.randomUUID()}`;
+		const create = () => new ComposerSendCoordinator();
+		const renewals: ComposerSendLease[] = [];
+		const mounted = acquireComposerSendCoordinator(name, create, (next) => renewals.push(next));
+		const kept = acquireComposerSendCoordinator(name, create);
+
+		clearPersistedChatState();
+		expect(renewals).toHaveLength(1);
+		expect(renewals[0]!.owner).not.toBe(mounted.owner);
+		kept.release();
+		const entered = acquireComposerSendCoordinator(name, create);
+		expect(entered.owner).toBe(renewals[0]!.owner);
+
+		clearPersistedChatState();
+		expect(renewals).toHaveLength(2);
+		expect(renewals[1]!.owner).not.toBe(entered.owner);
+		entered.release();
+		const later = acquireComposerSendCoordinator(name, create);
+		expect(later.owner).toBe(renewals[1]!.owner);
+		later.release();
+		renewals[1]!.release();
+	});
+
 	it('keeps customer and admin settlement apart for the same thread id', async () => {
 		const customer = chatSurface({ name: 'support' });
 		const admin = chatSurface({ name: 'admin-support' });
@@ -616,6 +640,45 @@ describe.each([
 		expect(chat.restorations).toEqual([]);
 	});
 });
+
+describe.each(['accepted', 'refused'] as const)(
+	'an owner kept past its session end, the open send then %s',
+	(outcome) => {
+		it('releases a known refusal at the next session end and the open send once at most', async () => {
+			const { chat, lease } = leasedSurface(`settlement-${crypto.randomUUID()}`, {
+				persistent: false
+			});
+			const composer = await chat.open('thread-a');
+			clearPersistedChatState();
+			await tick();
+
+			await composer.send('A', 'a');
+			await composer.type('B');
+			composer.context.addAttachments([file('b')]);
+			const snapshot = composer.context.captureSendSnapshot();
+			composer.context.clearInputForSend(snapshot);
+			const settleB = composer.context.beginSend(snapshot);
+			composer.context.clearAttachmentsForSend(snapshot);
+			chat.sends[0]!.reject(new Error('refused'));
+			await settleWork();
+			expect(chat.release).not.toHaveBeenCalled();
+
+			clearPersistedChatState();
+			await tick();
+			expect(chat.release).toHaveBeenCalledExactlyOnceWith(fileA);
+
+			settleB(outcome);
+			settleB('refused');
+			settleB('accepted');
+			await settleWork();
+
+			const released = outcome === 'refused' ? [[fileA], [fileB]] : [[fileA]];
+			expect(chat.release.mock.calls).toEqual(released);
+			expect(chat.restorations).toEqual([]);
+			lease.release();
+		});
+	}
+);
 
 describe('sent attachments', () => {
 	it('takes the files of a send refused on the spot out of the composer until its group settles', async () => {

@@ -12,7 +12,8 @@
 	import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
 	import {
 		ComposerSendCoordinator,
-		acquireComposerSendCoordinator
+		acquireComposerSendCoordinator,
+		type ComposerSendLease
 	} from '$lib/chat/ui/composer-send-coordinator.ts';
 	import { browser } from '$app/environment';
 	import { generateAnonymousUserId, isAnonymousUser } from '$lib/convex/utils/anonymousUser';
@@ -53,12 +54,15 @@
 
 	// Initialize the customer-support composition root. Its send owner outlives
 	// this component while one of its sends is open: the page it sits on can be
-	// left and entered again before a reply settles.
-	const sendLease = acquireComposerSendCoordinator(
+	// left and entered again before a reply settles. A session that ends while
+	// the widget stays mounted hands over the next session's owner; the composer
+	// is rebuilt around it, and the selected thread and open widget stay.
+	let sendLease = acquireComposerSendCoordinator(
 		'support',
-		() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('support') })
+		() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('support') }),
+		(next) => renewSendOwner(next)
 	);
-	onDestroy(sendLease.release);
+	onDestroy(() => sendLease.release());
 	const support = new SupportContext(() => aiUsable, sendLease.owner);
 	supportContext.set(support);
 	const { navigation, conversation } = support;
@@ -146,18 +150,23 @@
 	// Report transfers to the app so a navigation that would kill one asks first.
 	// Absent outside the app shell (isolated tests, the standalone example), where
 	// there is no layout to ask.
-	const chatUIContext = new ChatUIContext(
-		conversation,
-		client,
-		uploadConfig,
-		'right',
-		activeUploadsContext.getOr(null),
-		{
+	const activeUploads = activeUploadsContext.getOr(null);
+	function createChatUIContext(sendOwner: ComposerSendCoordinator): ChatUIContext {
+		return new ChatUIContext(conversation, client, uploadConfig, 'right', activeUploads, {
 			bindThreadOrigin: (binder) => conversation.setThreadOriginBinder(binder),
 			forgetSession: () => conversation.forgetChatSession(),
-			sendOwner: support.sendOwner
-		}
-	);
+			sendOwner
+		});
+	}
+	let chatUIContext = $state.raw(createChatUIContext(support.sendOwner));
+
+	function renewSendOwner(next: ComposerSendLease): void {
+		sendLease = next;
+		support.sendOwner = next.owner;
+		const previous = chatUIContext;
+		chatUIContext = createChatUIContext(next.owner);
+		previous.dispose();
+	}
 
 	// Revoke blob preview URLs of unsent attachments when the widget unmounts
 	onDestroy(() => chatUIContext.dispose());
@@ -337,13 +346,15 @@
 {#if isSupportAiEnabled() && aiUsable}
 	<AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
 {/if}
-<FeedbackButton
-	{isFeedbackOpen}
-	disabled={!capabilitiesResolved}
-	onToggle={setWidgetOpen}
-	bind:isScreenshotMode
-	{chatUIContext}
-/>
+{#key chatUIContext}
+	<FeedbackButton
+		{isFeedbackOpen}
+		disabled={!capabilitiesResolved}
+		onToggle={setWidgetOpen}
+		bind:isScreenshotMode
+		{chatUIContext}
+	/>
+{/key}
 
 <!--
 	The editor is loaded on demand. A deploy can delete its chunk under a page

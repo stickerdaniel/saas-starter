@@ -293,6 +293,20 @@ export class ChatUIContext implements ComposerSendTarget {
 	}
 
 	/**
+	 * Show the existing thread the conversation moved to with that thread's own
+	 * stored attachments, dropping the ones held for the conversation it left.
+	 * For surfaces that never carry files from one conversation into another;
+	 * call it before the messages of the new thread are displayed.
+	 */
+	enterSelectedThread(): void {
+		this.syncConversationOrigin();
+		if (this.attachmentCoordinator.enterSelectedThread()) {
+			this.messagesFade.reset();
+			this._hasEverDisplayedMessages = false;
+		}
+	}
+
+	/**
 	 * Set messages ready state (true when query has resolved)
 	 */
 	setMessagesReady(ready: boolean): void {
