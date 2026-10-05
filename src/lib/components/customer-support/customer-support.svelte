@@ -9,6 +9,11 @@
 	import FeedbackButton from '$lib/components/customer-support/feedback-button.svelte';
 	import { SupportContext, supportContext } from './support-context.svelte.ts';
 	import { ChatAttachmentStore, ChatUIContext, type UploadConfig } from '$lib/chat';
+	import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
+	import {
+		ComposerSendCoordinator,
+		acquireComposerSendCoordinator
+	} from '$lib/chat/ui/composer-send-coordinator.ts';
 	import { browser } from '$app/environment';
 	import { generateAnonymousUserId, isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 	import { supportUserId } from './support-user-id.svelte.ts';
@@ -46,11 +51,17 @@
 	// Hide AI chatbar when screenshot mode is active or feedback is open
 	let shouldShowAIChatbar = $derived(!isScreenshotMode && !isFeedbackOpen);
 
-	// Initialize the customer-support composition root
-	const support = new SupportContext(() => aiUsable);
+	// Initialize the customer-support composition root. Its send owner outlives
+	// this component while one of its sends is open: the page it sits on can be
+	// left and entered again before a reply settles.
+	const sendLease = acquireComposerSendCoordinator(
+		'support',
+		() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('support') })
+	);
+	onDestroy(sendLease.release);
+	const support = new SupportContext(() => aiUsable, sendLease.owner);
 	supportContext.set(support);
 	const { navigation, conversation } = support;
-	onDestroy(support.sendOwner.mount());
 
 	// Pre-set skipAnimation if URL already has a thread (before FeedbackWidget mounts)
 	if (urlState.thread) {

@@ -1,0 +1,250 @@
+/**
+ * Send settlement across leaving a whole chat page and entering it again,
+ * through the real AI chat and admin support pages and their composer.
+ */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mount, tick, unmount, type Component } from 'svelte';
+import type * as Svelte from 'svelte';
+import { ConvexClient } from 'convex/browser';
+import { getFunctionName, type FunctionReference } from 'convex/server';
+import { api } from '$lib/convex/_generated/api';
+import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
+import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
+import AIChatPage from '../../../routes/[[lang]]/app/ai-chat/+page.svelte';
+import AdminSupportPage from '../../../routes/[[lang]]/admin/support/+page.svelte';
+import CustomerSupport from '../../components/customer-support/customer-support.svelte';
+import en from '../../../i18n/en.json';
+
+vi.mock('svelte', () =>
+	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
+);
+vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
+
+const page = vi.hoisted(() => ({
+	url: new URL('https://example.com/en'),
+	params: { lang: 'en' },
+	data: { lang: 'en' } as Record<string, unknown>
+}));
+
+vi.mock('$app/state', () => ({ page }));
+vi.mock('$app/environment', () => ({ browser: true, dev: true, building: false }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), afterNavigate: vi.fn() }));
+vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
+vi.mock('runed/kit', () => ({
+	useSearchParams: () => ({ mode: 'all', status: 'open', search: '' })
+}));
+vi.mock('@stickerdaniel/convex-autumn-svelte/sveltekit', () => ({
+	useCustomer: () => ({
+		customer: {
+			products: [],
+			features: { ai_chat_messages: { balance: 5, included_usage: 10 } }
+		},
+		refetch: vi.fn()
+	})
+}));
+vi.mock('$lib/components/billing', () => ({
+	useBillingCheckout: () => ({ start: vi.fn(), isLoading: false })
+}));
+vi.mock('$lib/auth-client', () => ({
+	authClient: {
+		useSession: () => ({
+			subscribe: (callback: (value: { data: null; isPending: false }) => void) => {
+				callback({ data: null, isPending: false });
+				return () => {};
+			}
+		}),
+		admin: { checkRolePermission: () => false }
+	}
+}));
+vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
+	useAuth: () => ({ isAuthenticated: false, isLoading: false })
+}));
+vi.mock('$lib/components/customer-support/use-support-url-state.svelte.ts', () => ({
+	useSupportUrlState: () => ({ support: 'open', thread: 'thread-a' })
+}));
+vi.mock('$lib/components/customer-support/threads-overview.svelte', () => ({ default: () => {} }));
+vi.mock('$lib/hooks/use-media.svelte.ts', () => ({
+	useMedia: () => ({ sm: true, lg: false, xl: false })
+}));
+vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn() } }));
+vi.mock('$lib/components/SEOHead.svelte', () => ({ default: () => {} }));
+vi.mock('$lib/chat/ui/ChatMessages.svelte', () => ({ default: () => {} }));
+vi.mock('$lib/chat/ui/ChatAttachments.svelte', () => ({ default: () => {} }));
+vi.mock('$lib/components/message-quota-banner.svelte', () => ({ default: () => {} }));
+vi.mock('../../../routes/[[lang]]/admin/support/thread-list.svelte', () => ({
+	default: () => {}
+}));
+vi.mock('../../../routes/[[lang]]/admin/support/thread-details.svelte', () => ({
+	default: () => {}
+}));
+vi.mock('$lib/components/ui/sheet', () => ({ Root: () => {}, Content: () => {} }));
+
+let component: ReturnType<typeof mount> | undefined;
+let client: ConvexClient;
+const originalElementAnimate = Element.prototype.animate;
+
+// The support page also renders its separate AI chatbar, faded out while the widget is open.
+const composer = <E extends Element>(selector: string): E =>
+	[...document.querySelectorAll<E>(selector)].find((element) => !element.closest('.ai-chatbar'))!;
+const textarea = () => composer<HTMLTextAreaElement>('textarea');
+const sendButton = () => composer<HTMLButtonElement>(`button[aria-label="${en.chat.aria.send}"]`);
+
+async function type(value: string): Promise<void> {
+	textarea().value = value;
+	textarea().dispatchEvent(new Event('input', { bubbles: true }));
+	await tick();
+}
+
+async function send(value: string): Promise<void> {
+	await type(value);
+	expect(sendButton().disabled).toBe(false);
+	sendButton().click();
+	await tick();
+}
+
+async function settleWork(): Promise<void> {
+	await new Promise<void>((resolve) => setTimeout(resolve, 0));
+	await tick();
+}
+
+beforeEach(() => {
+	localStorage.clear();
+	Object.defineProperty(Element.prototype, 'animate', {
+		configurable: true,
+		value: vi.fn(() => ({ cancel: vi.fn(), finished: Promise.resolve() }))
+	});
+	client = new ConvexClient('https://page-owner-test.convex.cloud', { disabled: true });
+	vi.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+afterEach(async () => {
+	try {
+		if (component) await unmount(component);
+		component = undefined;
+		// A page left with an open send keeps its owner, which must not reach the next test.
+		clearPersistedChatState();
+		await client.close();
+		localStorage.clear();
+		vi.restoreAllMocks();
+	} finally {
+		Object.defineProperty(Element.prototype, 'animate', {
+			configurable: true,
+			value: originalElementAnimate
+		});
+	}
+});
+
+describe.each([
+	{
+		name: 'AI chat',
+		surface: 'ai-chat',
+		path: '/en/app/ai-chat',
+		Page: AIChatPage,
+		reply: api.aiChat.messages.sendMessage,
+		savesWhileTyping: true
+	},
+	{
+		name: 'admin support',
+		surface: 'admin-support',
+		path: '/en/admin/support',
+		Page: AdminSupportPage,
+		reply: api.admin.support.mutations.sendAdminReply,
+		savesWhileTyping: true
+	},
+	{
+		// The widget stores a draft when its thread is left, not on every keystroke.
+		name: 'customer support',
+		surface: 'support',
+		path: '/en',
+		Page: CustomerSupport,
+		reply: api.support.messages.sendMessage,
+		savesWhileTyping: false
+	}
+])('$name page left and entered again', ({ surface, path, Page, reply, savesWhileTyping }) => {
+	let replies: Array<PromiseWithResolvers<never>>;
+
+	function storedDrafts(): Record<string, string> {
+		return JSON.parse(localStorage.getItem(`drafts:${surface}`) ?? '{}');
+	}
+
+	async function enterPage(): Promise<void> {
+		page.url = new URL(`https://example.com${path}?thread=thread-a`);
+		page.data = {
+			lang: 'en',
+			viewer: { _id: 'user-1', name: 'Visitor' },
+			capabilitiesResolved: true,
+			capabilities: { billing: { usable: true }, ai: { usable: true } }
+		};
+		const contentProps = { data: page.data };
+		component = mount(ChatTestProvider<typeof contentProps>, {
+			target: document.body,
+			props: {
+				client,
+				content: Page as unknown as Component<typeof contentProps>,
+				contentProps
+			}
+		});
+		await settleWork();
+		expect(textarea()).not.toBeNull();
+	}
+
+	async function leavePage(): Promise<void> {
+		if (component) await unmount(component);
+		component = undefined;
+		document.body.replaceChildren();
+	}
+
+	beforeEach(() => {
+		replies = [];
+		// The support widget opens the thread named in the URL once it exists.
+		vi.spyOn(client, 'query').mockResolvedValue({});
+		vi.spyOn(client, 'mutation').mockImplementation(((reference: FunctionReference<'mutation'>) => {
+			if (getFunctionName(reference) !== getFunctionName(reply)) return new Promise(() => {});
+			const answer = Promise.withResolvers<never>();
+			replies.push(answer);
+			return answer.promise;
+		}) as typeof client.mutation);
+	});
+
+	it('restores a refusal from before leaving into the page entered again', async () => {
+		await enterPage();
+		await send('A');
+		if (savesWhileTyping) expect(storedDrafts()).toEqual({ 'thread-a': 'A' });
+		await leavePage();
+
+		await enterPage();
+		expect(textarea().value).toBe('');
+		await type('newer');
+		replies[0]!.reject(new Error('refused'));
+		await settleWork();
+
+		expect(textarea().value).toBe('A\n\nnewer');
+		expect(storedDrafts()).toEqual({ 'thread-a': 'A\n\nnewer' });
+
+		const final = savesWhileTyping ? 'A\n\nnewer, edited' : 'A\n\nnewer';
+		await type(final);
+		await leavePage();
+		await enterPage();
+		expect(textarea().value).toBe(final);
+	});
+
+	it('settles a send from before leaving together with one sent after', async () => {
+		await enterPage();
+		await send('A');
+		await leavePage();
+
+		await enterPage();
+		await send('B');
+		await type('newer');
+		replies[1]!.reject(new Error('refused'));
+		await settleWork();
+		expect(textarea().value).toBe('newer');
+
+		replies[0]!.reject(new Error('refused'));
+		await settleWork();
+		expect(textarea().value).toBe('A\n\nB\n\nnewer');
+		expect(storedDrafts()).toEqual({ 'thread-a': 'A\n\nB\n\nnewer' });
+	});
+});

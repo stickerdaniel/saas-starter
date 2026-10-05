@@ -109,6 +109,12 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 	readonly drafts?: ComposerDraftStore;
 	private nextSendId = 0;
 	private readonly pending = new Map<number, PendingSend>();
+	/**
+	 * Sends of an ended session that are still open. Nothing of them is restored
+	 * any more, but a refusal still hands their unkept files back to the
+	 * transport, which an acceptance must not.
+	 */
+	private readonly abandoned = new Map<number, () => void>();
 	private readonly targets = new Set<ComposerSendTarget>();
 	private held: HeldRestoration[] = [];
 	private unregister: (() => void) | null = null;
@@ -167,11 +173,17 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 
 	/** Record a transport outcome. Only the first outcome of a send counts. */
 	settle(sendId: number, outcome: ComposerSendOutcome): void {
+		const releaseAbandoned = this.abandoned.get(sendId);
+		if (releaseAbandoned) {
+			this.abandoned.delete(sendId);
+			if (outcome === 'refused') releaseAbandoned();
+			return;
+		}
 		const send = this.pending.get(sendId);
 		if (!send || send.outcome) return;
 		send.outcome = outcome;
 		if (!isChatSessionCurrent(send.sessionEpoch)) {
-			this.pending.delete(sendId);
+			this.abandon((candidate) => !isChatSessionCurrent(candidate.sessionEpoch));
 			return;
 		}
 		if (outcome === 'accepted' && send.draftCheckpoint) {
@@ -187,6 +199,12 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 		for (const candidate of group) this.pending.delete(candidate.id);
 		const refused = group.filter((candidate) => candidate.outcome === 'refused');
 		if (refused.length > 0) this.publish(group, refused);
+		this.dropSurfaceIfIdle();
+	}
+
+	/** Whether a send this owner took over still waits for its outcome or for its group. */
+	get hasPendingSends(): boolean {
+		return this.pending.size > 0;
 	}
 
 	/**
@@ -209,8 +227,32 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 	}
 
 	forgetPersistedState(): void {
-		this.pending.clear();
+		this.abandon(() => true);
 		this.held = [];
+	}
+
+	/**
+	 * Stop restoring these sends but keep what their files are owed. Stored
+	 * files stay where they are. Otherwise a known refusal releases them now,
+	 * and an open send keeps only that release for a refusal still to come,
+	 * since it may yet be accepted.
+	 */
+	private abandon(ended: (send: PendingSend) => boolean): void {
+		for (const send of this.pending.values()) {
+			if (!ended(send)) continue;
+			this.pending.delete(send.id);
+			const { resources } = send;
+			const attachments = send.snapshot.attachments.attachments;
+			if (resources.store || attachments.length === 0) continue;
+			if (send.outcome === 'refused') resources.release(attachments);
+			else if (!send.outcome) this.abandoned.set(send.id, () => resources.release(attachments));
+		}
+		this.dropSurfaceIfIdle();
+	}
+
+	private dropSurfaceIfIdle(): void {
+		const surface = surfaceOwnerOf.get(this);
+		if (surface && this.pending.size === 0) dropSurfaceOwnerIfUnused(surface);
 	}
 
 	private conversationOf(send: PendingSend): Conversation {
@@ -328,4 +370,74 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 			target.restoreFailedSend(joinWork(held.texts, target.inputValue), held.attachments);
 		}
 	}
+}
+
+/** A mounted surface's hold on its settlement owner. Release it when the surface unmounts. */
+export type ComposerSendLease = {
+	readonly owner: ComposerSendCoordinator;
+	release(): void;
+};
+
+type SurfaceOwner = {
+	readonly surface: string;
+	readonly owner: ComposerSendCoordinator;
+	leases: number;
+	unregister: () => void;
+};
+
+const surfaceOwners = new Map<string, SurfaceOwner>();
+const surfaceOwnerOf = new WeakMap<ComposerSendCoordinator, SurfaceOwner>();
+
+/**
+ * The settlement owner of `surface` in this browser session.
+ *
+ * A page that is left and entered again while one of its sends is open gets
+ * the same owner back, which still knows the stored draft that send carries
+ * and puts a refusal into the composer now on screen, in order with sends
+ * started since. The owner is dropped once no lease holds it and no send is
+ * pending, and when the session ends; `create` builds the next one.
+ */
+export function acquireComposerSendCoordinator(
+	surface: string,
+	create: () => ComposerSendCoordinator
+): ComposerSendLease {
+	// The server shares this module between requests and never sends.
+	if (typeof window === 'undefined') return { owner: create(), release: () => {} };
+	const held = surfaceOwners.get(surface) ?? registerSurfaceOwner(surface, create());
+	held.leases++;
+	let released = false;
+	return {
+		owner: held.owner,
+		release: () => {
+			if (released) return;
+			released = true;
+			held.leases--;
+			dropSurfaceOwnerIfUnused(held);
+		}
+	};
+}
+
+function registerSurfaceOwner(surface: string, owner: ComposerSendCoordinator): SurfaceOwner {
+	const entry: SurfaceOwner = { surface, owner, leases: 0, unregister: () => {} };
+	// The session's end reaches every registered holder, so this is where an
+	// owner stops being handed out, whether or not a page still holds it.
+	entry.unregister = registerPersistedChatHolder({
+		forgetPersistedState: () => {
+			dropSurfaceOwner(entry);
+			owner.forgetPersistedState();
+		}
+	});
+	surfaceOwners.set(surface, entry);
+	surfaceOwnerOf.set(owner, entry);
+	return entry;
+}
+
+function dropSurfaceOwnerIfUnused(entry: SurfaceOwner): void {
+	if (entry.leases === 0 && !entry.owner.hasPendingSends) dropSurfaceOwner(entry);
+}
+
+function dropSurfaceOwner(entry: SurfaceOwner): void {
+	entry.unregister();
+	surfaceOwnerOf.delete(entry.owner);
+	if (surfaceOwners.get(entry.surface) === entry) surfaceOwners.delete(entry.surface);
 }

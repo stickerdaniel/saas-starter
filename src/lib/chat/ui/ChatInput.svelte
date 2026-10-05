@@ -215,9 +215,14 @@
 		const settle = ctx.beginSend(snapshot);
 		try {
 			// Invoke onSend before clearing attachments so existing consumers can
-			// capture their exact transport payload synchronously.
-			const sendPromise = onSend?.(prompt);
-			ctx.clearAttachmentsForSend(snapshot);
+			// capture their exact transport payload synchronously. The pending send
+			// owns them from here even when onSend throws before returning.
+			let sendPromise: Promise<void> | void;
+			try {
+				sendPromise = onSend?.(prompt);
+			} finally {
+				ctx.clearAttachmentsForSend(snapshot);
+			}
 			await sendPromise;
 			settle('accepted');
 		} catch {
