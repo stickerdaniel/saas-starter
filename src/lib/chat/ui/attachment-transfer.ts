@@ -1,7 +1,7 @@
 import type { UploadPreprocessor } from '../../uploads/transfer.js';
 import { UploadError, type UploadErrorCode } from '../../uploads/transfer.js';
 import type { Attachment } from '../core/types.js';
-import type { UploadResult } from '../core/file-uploader.js';
+import type { AttachmentUploadResult } from '../core/file-uploader.js';
 
 const SETTLED_PROGRESS_RANK = 101;
 const FAILED_PROGRESS_RANK = -1;
@@ -34,6 +34,7 @@ export type AttachmentTransferSnapshot = {
 	readonly error?: UploadErrorCode;
 };
 
+/** `preprocess-failed` also covers a final payload that `checkPayload` refused. */
 export type AttachmentTransferResult =
 	| { status: 'success' }
 	| { status: 'error' }
@@ -41,11 +42,34 @@ export type AttachmentTransferResult =
 	| { status: 'unavailable' }
 	| { status: 'preprocess-failed'; error: unknown };
 
+/**
+ * A refusal whose localized text the user is shown, such as an image that
+ * stays over the surface's limit. Any other failure gets the generic upload
+ * message, so arbitrary error text never reaches the screen.
+ */
+export class AttachmentRefusal extends Error {
+	/** Secondary line, such as the limit that was exceeded. */
+	readonly description?: string;
+
+	constructor(message: string, description?: string) {
+		super(message);
+		this.name = 'AttachmentRefusal';
+		this.description = description;
+	}
+}
+
+/**
+ * A surface's transport for one attempt.
+ *
+ * It owns whatever it creates until it resolves: on failure or abort it cleans
+ * up itself. Once it resolves, the result belongs to the composer, which
+ * either adopts it or hands it back through `release`.
+ */
 export type AttachmentTransferUpload = (
 	payload: AttachmentTransferPayload,
 	onProgress: (progress: number) => void,
 	signal: AbortSignal
-) => Promise<UploadResult>;
+) => Promise<AttachmentUploadResult>;
 
 export type AttachmentTransferOptions = {
 	key: string;
@@ -60,6 +84,13 @@ export type AttachmentTransferOptions = {
 	onSnapshot: (snapshot: AttachmentTransferSnapshot) => void;
 	onActivityChange?: (active: boolean) => void;
 	onAttemptError?: (error: unknown) => void;
+	/**
+	 * Throws to refuse the final payload before the first attempt, so a refused
+	 * payload never reaches `upload`. Retries reuse the payload it accepted.
+	 */
+	checkPayload?: (payload: AttachmentTransferPayload) => void;
+	/** Receives a successful result whose attempt was invalidated before it could publish. */
+	release?: (result: AttachmentUploadResult) => void;
 };
 
 /** A canceled transport, which should stay silent in attachment UI. */
@@ -144,6 +175,8 @@ export class AttachmentTransfer {
 	private readonly onSnapshot: (snapshot: AttachmentTransferSnapshot) => void;
 	private readonly onActivityChange?: (active: boolean) => void;
 	private readonly onAttemptError?: (error: unknown) => void;
+	private readonly checkPayload?: (payload: AttachmentTransferPayload) => void;
+	private readonly release?: (result: AttachmentUploadResult) => void;
 
 	private generation = 0;
 	private controller: AbortController | undefined;
@@ -171,6 +204,8 @@ export class AttachmentTransfer {
 		this.onSnapshot = options.onSnapshot;
 		this.onActivityChange = options.onActivityChange;
 		this.onAttemptError = options.onAttemptError;
+		this.checkPayload = options.checkPayload;
+		this.release = options.release;
 	}
 
 	/** Start preprocessing and the first transport attempt exactly once. */
@@ -227,6 +262,7 @@ export class AttachmentTransfer {
 				dimensions,
 				accessKey: this.accessKey
 			};
+			this.checkPayload?.(payload);
 			this.retryPayload = payload;
 			this.sourceBlob = undefined;
 			this.phase = 'uploading';
@@ -298,6 +334,7 @@ export class AttachmentTransfer {
 			);
 
 			if (!this.isCurrent(generation) || this.controller !== controller) {
+				this.release?.(result);
 				return { status: 'invalidated' };
 			}
 			this.retryPayload = undefined;

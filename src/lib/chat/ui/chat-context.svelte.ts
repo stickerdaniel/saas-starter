@@ -12,6 +12,7 @@ import type { ChatSessionPort } from '../core/chat-session-port.js';
 import type { Attachment, DisplayMessage, MessageRole } from '../core/types.js';
 import { getChatSessionEpoch, isChatSessionCurrent } from '../core/chat-persisted-state.js';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
+import type { UploadProfile } from '../../uploads/profiles.js';
 import type { AttachmentPreprocess } from './attachment-transfer.js';
 import { ComposerAttachmentCoordinator } from './composer-attachment-coordinator.svelte.ts';
 import type {
@@ -22,6 +23,8 @@ import type {
 
 export type {
 	ActiveUploadsRegistry,
+	CustomUploadConfig,
+	DirectUploadConfig,
 	UploadConfig
 } from './composer-attachment-coordinator.svelte.ts';
 
@@ -421,6 +424,11 @@ export class ChatUIContext {
 	/** Rendered attachments for the current composer. */
 	get attachments(): Attachment[] {
 		return this.attachmentCoordinator.attachments;
+	}
+
+	/** The upload policy every attachment entry point of this composer reads. */
+	get uploadProfile(): UploadProfile {
+		return this.attachmentCoordinator.profile;
 	}
 
 	/** Existing picker cap, now owned by the attachment coordinator. */

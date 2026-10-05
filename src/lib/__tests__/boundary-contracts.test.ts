@@ -28,8 +28,12 @@ import type {
 	AttachmentTransferSnapshot,
 	AttachmentTransferUpload
 } from '$lib/chat/ui/attachment-transfer';
-import type { UploadConfig } from '$lib/chat/ui/composer-attachment-coordinator.svelte.ts';
-import type { ChatUploadCommitResult, UploadResult } from '$lib/chat/core/file-uploader';
+import type {
+	DirectUploadConfig as UploadConfig,
+	UploadConfig as ComposerUploadConfig
+} from '$lib/chat/ui/composer-attachment-coordinator.svelte.ts';
+import type { ChatAttachmentStore } from '$lib/chat/core/chat-attachment-store.svelte.ts';
+import type { AttachmentUploadResult, ChatUploadCommitResult } from '$lib/chat/core/file-uploader';
 import type { UploadGrant } from '$lib/uploads/transfer';
 import type {
 	BillingCheckoutDeps,
@@ -111,7 +115,9 @@ describe('first-party boundary compile-time contracts', () => {
 		expectTypeOf<Parameters<AttachmentTransferUpload>>().toEqualTypeOf<
 			[AttachmentTransferPayload, (progress: number) => void, AbortSignal]
 		>();
-		expectTypeOf<ReturnType<AttachmentTransferUpload>>().toEqualTypeOf<Promise<UploadResult>>();
+		expectTypeOf<ReturnType<AttachmentTransferUpload>>().toEqualTypeOf<
+			Promise<AttachmentUploadResult>
+		>();
 		expectTypeOf<
 			FunctionReturnType<UploadConfig['generateUploadUrl']>
 		>().toEqualTypeOf<UploadGrant>();
@@ -133,6 +139,18 @@ describe('first-party boundary compile-time contracts', () => {
 		expectTypeOf<typeof api.aiChat.files.saveUploadedFile>().toExtend<
 			UploadConfig['saveUploadedFile']
 		>();
+	});
+	it('persists attachment references only for direct storage uploads', () => {
+		expectTypeOf<
+			Pick<UploadConfig, 'generateUploadUrl' | 'saveUploadedFile'> & {
+				attachmentStore: ChatAttachmentStore;
+			}
+		>().toExtend<ComposerUploadConfig>();
+		expectTypeOf<{ upload: AttachmentTransferUpload }>().toExtend<ComposerUploadConfig>();
+		expectTypeOf<{
+			upload: AttachmentTransferUpload;
+			attachmentStore: ChatAttachmentStore;
+		}>().not.toExtend<ComposerUploadConfig>();
 	});
 	it('infers the auth locale input from the actual server configuration', () => {
 		expectTypeOf<

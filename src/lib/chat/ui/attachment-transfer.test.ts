@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { UploadError } from '../../uploads/transfer.js';
-import type { UploadResult } from '../core/file-uploader.js';
+import type { AttachmentUploadResult, UploadResult } from '../core/file-uploader.js';
 import type { Attachment } from '../core/types.js';
 import {
 	AttachmentTransfer,
@@ -194,6 +194,69 @@ describe('AttachmentTransfer', () => {
 		expect(snapshots).toHaveLength(settledSnapshots);
 		expect(snapshots.at(-1)?.phase).toBe('success');
 		expect(activity).toEqual([true, false]);
+	});
+});
+
+describe('AttachmentTransfer result handoff', () => {
+	const surfaceResult: AttachmentUploadResult = { fileId: 'upload-7', url: '/attachments/7' };
+
+	it('stops before transport when invalidated while measuring the processed image', async () => {
+		const measuring = deferred<{ width: number; height: number }>();
+		const measure = vi.fn(() => measuring.promise);
+		const upload = vi.fn();
+		const release = vi.fn();
+		const transfer = new AttachmentTransfer({
+			key: 'attachment-measure',
+			blob: new Blob(['source'], { type: 'image/png' }),
+			filename: 'photo.png',
+			mimeType: 'image/png',
+			upload,
+			release,
+			readImageDimensions: measure,
+			onSnapshot: () => {}
+		});
+
+		const pending = transfer.start(async () => ({
+			blob: new Blob(['passthrough'], { type: 'image/gif' }),
+			mimeType: 'image/gif'
+		}));
+		await vi.waitFor(() => expect(measure).toHaveBeenCalledOnce());
+		transfer.dispose();
+		measuring.resolve({ width: 4, height: 4 });
+
+		await expect(pending).resolves.toEqual({ status: 'invalidated' });
+		expect(upload).not.toHaveBeenCalled();
+		expect(release).not.toHaveBeenCalled();
+	});
+
+	it('hands a success from a superseded attempt to release instead of publishing it', async () => {
+		const first = deferred<AttachmentUploadResult>();
+		const second = deferred<AttachmentUploadResult>();
+		const release = vi.fn();
+		const snapshots: AttachmentTransferSnapshot[] = [];
+		let attempt = 0;
+		const transfer = new AttachmentTransfer({
+			key: 'attachment-superseded',
+			blob: new Blob(['payload'], { type: 'text/plain' }),
+			filename: 'notes.txt',
+			mimeType: 'text/plain',
+			upload: () => (++attempt === 1 ? first.promise : second.promise),
+			release,
+			onSnapshot: (snapshot) => snapshots.push(snapshot)
+		});
+
+		const firstAttempt = transfer.start();
+		const secondAttempt = transfer.retry();
+		first.resolve(surfaceResult);
+		await expect(firstAttempt).resolves.toEqual({ status: 'invalidated' });
+
+		expect(release).toHaveBeenCalledExactlyOnceWith(surfaceResult);
+		expect(snapshots.some((snapshot) => snapshot.fileId === 'upload-7')).toBe(false);
+
+		second.resolve({ fileId: 'upload-8', url: '/attachments/8' });
+		await expect(secondAttempt).resolves.toEqual({ status: 'success' });
+		expect(release).toHaveBeenCalledOnce();
+		expect(snapshots.at(-1)).toMatchObject({ phase: 'success', fileId: 'upload-8' });
 	});
 });
 

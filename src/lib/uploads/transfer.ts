@@ -183,14 +183,36 @@ export async function uploadWithAdapter<TResult>(options: {
 	return await uploadGrantedWithAdapter({ ...options, grant });
 }
 
-/** Upload a blob to a provider URL with progress and AbortSignal support. */
-export async function uploadToStorage(
-	uploadUrl: string,
-	blob: Blob,
-	onProgress: UploadProgressCallback,
-	signal?: AbortSignal
-): Promise<string> {
-	return new Promise<string>((resolve, reject) => {
+export type UploadBlobOptions<T> = {
+	url: string;
+	blob: Blob;
+	/** Extra request headers. A Content-Type here replaces the blob's own type. */
+	headers?: Readonly<Record<string, string>>;
+	/**
+	 * Turn the parsed JSON body of a 2xx response into the caller's result.
+	 * Throwing rejects the upload as `parse`; a thrown UploadError is kept.
+	 */
+	decode: (body: unknown) => T;
+	onProgress: UploadProgressCallback;
+	signal?: AbortSignal;
+};
+
+/**
+ * POST a blob with progress and AbortSignal support, then decode the response.
+ *
+ * Storage-neutral: any endpoint which takes the raw bytes and answers with
+ * JSON can use it, whatever its authorization header and response shape.
+ */
+export function uploadBlobWithProgress<T>(options: UploadBlobOptions<T>): Promise<T> {
+	return sendBlob(options, (status) => status >= 200 && status < 300);
+}
+
+function sendBlob<T>(
+	options: UploadBlobOptions<T>,
+	isSuccess: (status: number) => boolean
+): Promise<T> {
+	const { url, blob, headers, decode, onProgress, signal } = options;
+	return new Promise<T>((resolve, reject) => {
 		const xhr = new XMLHttpRequest();
 
 		if (signal) {
@@ -206,28 +228,61 @@ export async function uploadToStorage(
 		});
 
 		xhr.addEventListener('load', () => {
-			if (xhr.status !== 200) {
+			if (!isSuccess(xhr.status)) {
 				reject(new UploadError('http', xhr.status));
 				return;
 			}
 
+			let body: unknown;
 			try {
-				const response = JSON.parse(xhr.responseText);
-				if (typeof response?.storageId !== 'string' || response.storageId === '') {
-					reject(new UploadError('parse'));
-					return;
-				}
-				resolve(response.storageId);
-			} catch {
-				reject(new UploadError('parse'));
+				body = JSON.parse(xhr.responseText);
+			} catch (error) {
+				reject(new UploadError('parse', undefined, { cause: error }));
+				return;
+			}
+			try {
+				resolve(decode(body));
+			} catch (error) {
+				reject(
+					error instanceof UploadError
+						? error
+						: new UploadError('parse', undefined, { cause: error })
+				);
 			}
 		});
 
 		xhr.addEventListener('error', () => reject(new UploadError('network')));
 		xhr.addEventListener('abort', () => reject(new DOMException('Upload canceled', 'AbortError')));
 
-		xhr.open('POST', uploadUrl);
-		xhr.setRequestHeader('Content-Type', blob.type || 'application/octet-stream');
+		xhr.open('POST', url);
+		const extra = Object.entries(headers ?? {});
+		// XHR joins repeated headers into one list, so a caller's own type replaces the default.
+		if (!extra.some(([name]) => name.toLowerCase() === 'content-type')) {
+			xhr.setRequestHeader('Content-Type', blob.type || 'application/octet-stream');
+		}
+		for (const [name, value] of extra) xhr.setRequestHeader(name, value);
 		xhr.send(blob);
 	});
+}
+
+function decodeStorageId(body: unknown): string {
+	const storageId =
+		body !== null && typeof body === 'object' && 'storageId' in body ? body.storageId : undefined;
+	if (typeof storageId !== 'string' || storageId === '') throw new UploadError('parse');
+	return storageId;
+}
+
+/** Upload a blob to a provider URL with progress and AbortSignal support. */
+export async function uploadToStorage(
+	uploadUrl: string,
+	blob: Blob,
+	onProgress: UploadProgressCallback,
+	signal?: AbortSignal
+): Promise<string> {
+	// Storage keeps its own contract: only a 200 is decoded and committed. Any
+	// other status, another 2xx included, is refused before commit can run.
+	return await sendBlob(
+		{ url: uploadUrl, blob, decode: decodeStorageId, onProgress, signal },
+		(status) => status === 200
+	);
 }

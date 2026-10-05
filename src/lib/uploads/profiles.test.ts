@@ -4,6 +4,7 @@ import {
 	acceptsMimeType,
 	acceptsSource,
 	allowedMimeTypes,
+	imageUploadLimit,
 	UPLOAD_PROFILES,
 	type UploadProfile,
 	type UploadProfileName
@@ -50,6 +51,28 @@ describe('profile derivations', () => {
 		for (const [, mime] of entries) {
 			expect(mimes).toContain(mime);
 		}
+	});
+
+	it('lets an image limit only tighten the storage limit', () => {
+		const base = {
+			extensions: { '.png': 'image/png' },
+			maxBytes: 100,
+			maxBytesLabel: '100 B',
+			maxFiles: 1
+		};
+
+		expect(imageUploadLimit(UPLOAD_PROFILES.chatAttachment)).toEqual({
+			bytes: UPLOAD_PROFILES.chatAttachment.maxBytes,
+			label: UPLOAD_PROFILES.chatAttachment.maxBytesLabel
+		});
+		expect(imageUploadLimit({ ...base, maxImageBytes: 40, maxImageBytesLabel: '40 B' })).toEqual({
+			bytes: 40,
+			label: '40 B'
+		});
+		expect(imageUploadLimit({ ...base, maxImageBytes: 400, maxImageBytesLabel: '400 B' })).toEqual({
+			bytes: 100,
+			label: '100 B'
+		});
 	});
 
 	it('matches mime types regardless of charset suffix', () => {

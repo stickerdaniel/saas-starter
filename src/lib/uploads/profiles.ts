@@ -28,7 +28,33 @@ export type UploadProfile = {
 	maxBytes: number;
 	maxBytesLabel: string;
 	maxFiles: number;
-};
+} & (
+	| { maxImageBytes?: undefined; maxImageBytesLabel?: undefined }
+	| {
+			/**
+			 * Ceiling for the image bytes actually uploaded, where whatever reads
+			 * images is stricter than storage. See `imageUploadLimit`.
+			 */
+			maxImageBytes: number;
+			maxImageBytesLabel: string;
+	  }
+);
+
+/** A byte ceiling together with the label its error message shows. */
+export type UploadByteLimit = { bytes: number; label: string };
+
+/**
+ * The ceiling for a preprocessed image, applied to the exact bytes uploaded.
+ *
+ * The smaller of `maxBytes` and `maxImageBytes`, so an image limit can only
+ * tighten storage, never widen it.
+ */
+export function imageUploadLimit(profile: UploadProfile): UploadByteLimit {
+	if (profile.maxImageBytes !== undefined && profile.maxImageBytes < profile.maxBytes) {
+		return { bytes: profile.maxImageBytes, label: profile.maxImageBytesLabel };
+	}
+	return { bytes: profile.maxBytes, label: profile.maxBytesLabel };
+}
 
 export const UPLOAD_PROFILES = {
 	/** Attachments on the AI chat and support surfaces. */
@@ -96,6 +122,47 @@ export function acceptAttribute(profile: UploadProfile): string {
 export function acceptsMimeType(profile: UploadProfile, mimeType: string): boolean {
 	const essence = mimeType.split(';')[0]!.trim().toLowerCase();
 	return allowedMimeTypes(profile).includes(essence);
+}
+
+/**
+ * Browser-supplied types that say nothing about a file, so its extension
+ * decides instead. Any other type is trusted as-is: an `image/heic` file named
+ * `photo.jpg` must be refused, not accepted through the `.jpg` mapping.
+ */
+const GENERIC_MIME_TYPES = new Set(['', 'application/octet-stream']);
+
+/**
+ * The type a file counts as on this profile: its own type, or for a generic
+ * one the type its extension maps to. Undefined when a generic type has no
+ * mapped extension.
+ */
+export function profileMimeType(
+	profile: UploadProfile,
+	filename: string,
+	mimeType: string
+): string | undefined {
+	if (!GENERIC_MIME_TYPES.has(mimeType)) return mimeType;
+	const dot = filename.lastIndexOf('.');
+	return dot >= 0 ? profile.extensions[filename.slice(dot).toLowerCase()] : undefined;
+}
+
+/** Why a payload breaks its profile: its type, or its bytes and the limit they broke. */
+export type UploadPayloadRefusal = { reason: 'type' } | { reason: 'size'; limit: UploadByteLimit };
+
+/**
+ * Check the exact name, type and bytes about to be uploaded. Images are held
+ * to `imageUploadLimit`, everything else to `maxBytes`.
+ */
+export function checkUploadPayload(
+	profile: UploadProfile,
+	payload: { filename: string; mimeType: string; size: number }
+): UploadPayloadRefusal | undefined {
+	const mimeType = profileMimeType(profile, payload.filename, payload.mimeType);
+	if (mimeType === undefined || !acceptsMimeType(profile, mimeType)) return { reason: 'type' };
+	const limit = mimeType.toLowerCase().startsWith('image/')
+		? imageUploadLimit(profile)
+		: { bytes: profile.maxBytes, label: profile.maxBytesLabel };
+	return payload.size > limit.bytes ? { reason: 'size', limit } : undefined;
 }
 
 /**
