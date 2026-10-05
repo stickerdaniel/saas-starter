@@ -239,5 +239,155 @@ describe('ChatAttachments', () => {
 			await pointer(line(shortChip, failureText), 'pointerenter');
 			expect(tooltip()?.textContent?.trim()).toBe(failureText);
 		});
+
+		describe('on keyboard focus', () => {
+			const longName = 'quarterly-strategy-very-long-notes.md';
+			const failureText = `${en.chat.error.upload_network} ${en.chat.error.upload_retry_hint}`;
+			const draftName = 'another-very-long-local-draft-name.txt';
+			let onRetry: ReturnType<typeof vi.fn<(index: number) => void>>;
+
+			async function settle() {
+				flushSync();
+				await tick();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+				flushSync();
+			}
+
+			// A failed upload whose filename and failure line are both clipped, a
+			// sent file that opens and fits, and a draft that can do neither.
+			async function renderTiles() {
+				onRetry = vi.fn();
+				const chips = await renderAttachments({
+					attachments: [
+						{
+							type: 'file',
+							key: 'failed',
+							name: longName,
+							size: 1,
+							mimeType: 'text/markdown',
+							uploadState: { status: 'error', progress: 0, error: 'network' }
+						},
+						sent('b.pdf'),
+						{ type: 'file', key: 'draft', name: draftName, size: 1, mimeType: 'text/plain' }
+					],
+					onRetry
+				});
+				await settle();
+				return {
+					failed: chipFor(chips, longName),
+					openable: chipFor(chips, 'b.pdf'),
+					draft: chipFor(chips, draftName)
+				};
+			}
+
+			const tooltips = () => [
+				...document.querySelectorAll<HTMLElement>('[data-slot="tooltip-content"]')
+			];
+			const tooltipFor = (text: string) =>
+				tooltips().find((tip) => tip.textContent?.trim() === text);
+			const dialog = () => document.querySelector('[role="dialog"]');
+
+			// jsdom decides :focus-visible from the key or mouse event before the focus, as browsers do.
+			async function tabTo(element: HTMLElement) {
+				(document.activeElement ?? document.body).dispatchEvent(
+					new KeyboardEvent('keydown', { key: 'Tab', bubbles: true })
+				);
+				element.focus();
+				await settle();
+			}
+
+			async function press(element: HTMLElement, key: string) {
+				element.dispatchEvent(
+					new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+				);
+				await settle();
+			}
+
+			it('shows every clipped line, the failure below and the filename above', async () => {
+				const { failed } = await renderTiles();
+
+				await tabTo(failed);
+
+				expect(document.activeElement).toBe(failed);
+				expect(tooltips()).toHaveLength(2);
+				expect(tooltipFor(longName)?.dataset.side).toBe('top');
+				expect(tooltipFor(failureText)?.dataset.side).toBe('bottom');
+				expect(onRetry).not.toHaveBeenCalled();
+			});
+
+			it('hides them on Escape until the tile is focused again', async () => {
+				const { failed } = await renderTiles();
+				await tabTo(failed);
+
+				await press(failed, 'Escape');
+
+				expect(tooltips()).toHaveLength(0);
+				expect(onRetry).not.toHaveBeenCalled();
+				expect(dialog()).toBeNull();
+				await settle();
+				expect(tooltips()).toHaveLength(0);
+
+				failed.blur();
+				await settle();
+				await tabTo(failed);
+				expect(tooltips()).toHaveLength(2);
+
+				failed.blur();
+				await settle();
+				expect(tooltips()).toHaveLength(0);
+			});
+
+			it('shows nothing when a click focuses the tile', async () => {
+				const { failed } = await renderTiles();
+
+				failed.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+				failed.focus();
+				failed.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+				failed.click();
+				await settle();
+
+				expect(document.activeElement).toBe(failed);
+				expect(onRetry).toHaveBeenCalledOnce();
+				expect(tooltips()).toHaveLength(0);
+			});
+
+			it('shows nothing for a tile whose lines fit', async () => {
+				const { openable } = await renderTiles();
+
+				await tabTo(openable);
+
+				expect(document.activeElement).toBe(openable);
+				expect(tooltips()).toHaveLength(0);
+			});
+
+			it('keeps Enter and Space acting on the tile', async () => {
+				const { failed, openable } = await renderTiles();
+
+				await tabTo(failed);
+				await press(failed, 'Enter');
+				expect(onRetry).toHaveBeenCalledExactlyOnceWith(0);
+
+				await tabTo(openable);
+				await press(openable, ' ');
+				expect(dialog()).not.toBeNull();
+			});
+
+			it('adds no tab stops', async () => {
+				const { failed, draft } = await renderTiles();
+				await tabTo(failed);
+				expect(tooltips()).toHaveLength(2);
+
+				const tabStops = [
+					...document.querySelectorAll<HTMLElement>('[tabindex], button, a[href], input')
+				].filter((element) => element.tabIndex >= 0 && !element.hasAttribute('disabled'));
+				const tilesAndRemoveButtons = [
+					...document.querySelectorAll<HTMLElement>(
+						'[data-testid="attachment-chip"][role="button"], [data-testid="attachment-chip"] button'
+					)
+				];
+				expect(tabStops).toEqual(tilesAndRemoveButtons);
+				expect(tilesAndRemoveButtons).not.toContain(draft);
+			});
+		});
 	});
 });

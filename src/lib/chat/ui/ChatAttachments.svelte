@@ -98,6 +98,10 @@
 
 	/** Ids of tile lines whose text is visually cut off. */
 	const clippedLines = new SvelteSet<string>();
+	/** Ids of tile lines whose tooltip a pointer opened. */
+	const hoveredLines = new SvelteSet<string>();
+	/** Key of the tile whose clipped lines show because keyboard focus is on it. */
+	let revealedTile = $state<string | null>(null);
 
 	function measureLine(id: string, _text: string) {
 		return (element: HTMLElement) => {
@@ -287,9 +291,24 @@
 	}
 </script>
 
-{#snippet tileLine(id: string, text: string, className: string)}
+{#snippet tileLine(
+	id: string,
+	text: string,
+	className: string,
+	revealed: boolean,
+	side: 'top' | 'bottom'
+)}
 	{@const clipped = clippedLines.has(id)}
-	<Tooltip.Root disabled={!clipped}>
+	<Tooltip.Root
+		disabled={!clipped}
+		bind:open={
+			() => clipped && (revealed || hoveredLines.has(id)),
+			(open) => {
+				if (open) hoveredLines.add(id);
+				else hoveredLines.delete(id);
+			}
+		}
+	>
 		<Tooltip.Trigger disabled={!clipped}>
 			{#snippet child({
 				props: { type: _type, tabindex: _tabindex, 'aria-describedby': _describedBy, ...props }
@@ -299,7 +318,7 @@
 				<span {...props} class="truncate {className}" {@attach measureLine(id, text)}>{text}</span>
 			{/snippet}
 		</Tooltip.Trigger>
-		<Tooltip.Content class="wrap-anywhere" aria-hidden="true">{text}</Tooltip.Content>
+		<Tooltip.Content class="wrap-anywhere" {side} aria-hidden="true">{text}</Tooltip.Content>
 	</Tooltip.Root>
 {/snippet}
 
@@ -396,6 +415,7 @@
 			{@const canRetry = hasFailed && !readonly && !!onRetry}
 			{@const isClickable = !isUploading && !hasFailed && canOpen(attachment)}
 			{@const isInteractive = isClickable || canRetry}
+			{@const revealLines = isInteractive && revealedTile === key}
 			{@const activate = () => {
 				if (canRetry) {
 					haptic.trigger('light');
@@ -420,10 +440,19 @@
 				role={isInteractive ? 'button' : undefined}
 				tabindex={isInteractive ? 0 : undefined}
 				onclick={activate}
+				onfocus={(e) => {
+					// A click focuses the tile too, and pointer users reveal a line by hovering it.
+					if (e.currentTarget.matches(':focus-visible')) revealedTile = key;
+				}}
+				onblur={() => {
+					if (revealedTile === key) revealedTile = null;
+				}}
 				onkeydown={(e) => {
 					if (isInteractive && (e.key === 'Enter' || e.key === ' ')) {
 						e.preventDefault();
 						activate();
+					} else if (e.key === 'Escape' && revealedTile === key) {
+						revealedTile = null;
 					}
 				}}
 			>
@@ -450,13 +479,16 @@
 						{/if}
 					</div>
 					<div class="flex flex-1 flex-col gap-0 overflow-hidden leading-tight">
-						{@render tileLine(`${key}:filename`, filename, 'text-sm')}
+						{@render tileLine(`${key}:filename`, filename, 'text-sm', revealLines, 'top')}
 						{#if hasFailed}
 							{@const code = uploadState?.error}
+							<!-- Opens below: keyboard focus shows both lines, and the filename's opens above. -->
 							{@render tileLine(
 								`${key}:failure`,
 								failureText(code, canRetry),
-								'text-xs text-destructive'
+								'text-xs text-destructive',
+								revealLines,
+								'bottom'
 							)}
 						{:else if metaText}
 							<span class="truncate text-xs text-muted-foreground">{metaText}</span>

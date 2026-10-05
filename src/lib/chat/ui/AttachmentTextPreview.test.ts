@@ -142,9 +142,24 @@ describe('AttachmentTextPreview', () => {
 		const filler = 'a'.repeat(byteLimit - 1 - encoder.encode(head).length);
 		const blob = new Blob([`${head}${filler}€ and the rest`], { type: 'text/plain' });
 		expect(encoder.encode(`${head}${filler}`).length).toBe(byteLimit - 1);
-		blob.text = () => {
-			throw new Error('read the whole file');
-		};
+		const readers = ['text', 'arrayBuffer', 'bytes'] as const;
+		const wholeFileReads = readers.map((reader) =>
+			vi.spyOn(blob, reader).mockRejectedValue(new Error('read the whole file'))
+		);
+		// Bytes in every part of the file the preview reads, by whatever reader it uses.
+		const bytesRead: number[] = [];
+		const slice = blob.slice.bind(blob);
+		vi.spyOn(blob, 'slice').mockImplementation((...args) => {
+			const part = slice(...args);
+			for (const reader of readers) {
+				const read = part[reader].bind(part);
+				vi.spyOn(part, reader).mockImplementation((() => {
+					bytesRead.push(part.size);
+					return read();
+				}) as never);
+			}
+			return part;
+		});
 
 		await renderPreview({
 			url: 'https://cdn.test/huge.txt',
@@ -153,6 +168,9 @@ describe('AttachmentTextPreview', () => {
 			blob
 		});
 
+		for (const read of wholeFileReads) expect(read).not.toHaveBeenCalled();
+		expect(bytesRead.length).toBeGreaterThan(0);
+		expect(Math.max(...bytesRead)).toBeLessThanOrEqual(byteLimit);
 		const content = previewContent();
 		expect(content?.querySelector('pre')?.textContent?.startsWith(head)).toBe(true);
 		expect(content?.querySelector('pre')?.textContent).toHaveLength(MAX_PREVIEW_TEXT_CHARS);
