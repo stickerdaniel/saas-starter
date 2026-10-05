@@ -1,9 +1,10 @@
 import type { ConvexClient } from 'convex/browser';
 import { api } from '$lib/convex/_generated/api';
 import { ChatCore, type ChatCoreOptions } from '../core/chat-core.svelte.ts';
-import { ChatDraftManager, type ChatDraftCheckpoint } from '../core/chat-draft-manager.svelte.ts';
+import { ChatDraftManager } from '../core/chat-draft-manager.svelte.ts';
 import { getChatSessionEpoch, isChatSessionCurrent } from '../core/chat-persisted-state.ts';
 import type { ChatInputProjection, ChatUIContext } from '../ui/chat-context.svelte.ts';
+import { ComposerSendCoordinator } from '../ui/composer-send-coordinator.ts';
 
 const SIMPLE_CHAT_API = {
 	sendMessage: api.aiChat.messages.sendMessage,
@@ -19,23 +20,17 @@ export type SimpleChatRegistryLease = {
 	owner: SimpleChatOwner;
 };
 
-type ActiveSend = {
-	checkpoint: ChatDraftCheckpoint;
-	inputRevision: number;
-	succeeded: boolean;
-};
-
 class SimpleChatCore extends ChatCore {
 	constructor(
 		options: ChatCoreOptions,
-		private readonly awaitingChanged: (awaiting: boolean) => void
+		private readonly awaitingChanged: () => void
 	) {
 		super(options);
 	}
 
 	override setAwaitingStream(awaiting: boolean): void {
 		super.setAwaitingStream(awaiting);
-		this.awaitingChanged(awaiting);
+		this.awaitingChanged();
 	}
 }
 
@@ -47,18 +42,15 @@ export class SimpleChatSession {
 	// Component-local contexts. Their count is mirrored through activeMounts for registry rendering.
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	private readonly contexts = new Set<ChatUIContext>();
-	private inputRevision = 0;
-	private activeSend: ActiveSend | null = null;
 
 	constructor(
 		readonly threadId: string,
 		readonly sessionEpoch: number,
 		private readonly draftManager: ChatDraftManager,
+		private readonly sendOwner: ComposerSendCoordinator,
 		private readonly releaseIfIdle: (session: SimpleChatSession) => void
 	) {
-		this.core = new SimpleChatCore({ threadId, api: this.api }, (awaiting) =>
-			this.handleAwaitingChange(awaiting)
-		);
+		this.core = new SimpleChatCore({ threadId, api: this.api }, () => this.releaseIfIdle(this));
 	}
 
 	get isLocked(): boolean {
@@ -73,8 +65,7 @@ export class SimpleChatSession {
 			this.setContextInput(context, '');
 			return;
 		}
-		const hideSentDraft = this.isLocked && this.activeSend?.inputRevision === this.inputRevision;
-		this.setContextInput(context, hideSentDraft ? '' : this.draftManager.getDraft(this.threadId));
+		this.setContextInput(context, this.sendOwner.draftFor(this.threadId));
 	}
 
 	projectInput(context: ChatUIContext, projection: ChatInputProjection): void {
@@ -82,27 +73,21 @@ export class SimpleChatSession {
 			projection.sessionEpoch !== this.sessionEpoch ||
 			projection.origin.threadId !== this.threadId ||
 			!isChatSessionCurrent(this.sessionEpoch) ||
-			(projection.reason !== 'send-restore' && !this.contexts.has(context))
+			!this.contexts.has(context)
 		) {
 			return;
 		}
 
-		if (projection.reason === 'user-edit') {
-			this.inputRevision += 1;
-			this.draftManager.setDraft(this.threadId, projection.value);
-			this.setOtherContextInputs(context, projection.value);
-			return;
-		}
-
+		// The cleared text stays stored: the pending send owns it until it settles.
 		if (projection.reason === 'send-clear') {
 			this.setOtherContextInputs(context, '');
 			return;
 		}
 
-		if (this.activeSend?.inputRevision !== this.inputRevision) return;
+		// An edit, or work the send owner put back after a refusal: either way the
+		// composer's text now, mirrored to every peer showing this thread.
+		this.draftManager.setDraft(this.threadId, projection.value);
 		this.setOtherContextInputs(context, projection.value);
-		this.activeSend = null;
-		this.releaseIfIdle(this);
 	}
 
 	/** Compatibility helper for direct session tests and non-component consumers. */
@@ -120,10 +105,8 @@ export class SimpleChatSession {
 		if (!this.contexts.delete(context)) return;
 		if (isChatSessionCurrent(this.sessionEpoch)) {
 			const value = context.inputValue;
-			const hideSentDraft =
-				this.isLocked && this.activeSend?.inputRevision === this.inputRevision && value === '';
-			if (!hideSentDraft && this.draftManager.getDraft(this.threadId) !== value) {
-				this.inputRevision += 1;
+			const keepsSentDraft = value === '' && this.sendOwner.holdsDraft(this.threadId);
+			if (!keepsSentDraft && this.draftManager.getDraft(this.threadId) !== value) {
 				this.draftManager.setDraft(this.threadId, value);
 				this.setAllContextInputs(value);
 			}
@@ -137,29 +120,11 @@ export class SimpleChatSession {
 		if (!this.contexts.has(context)) throw new Error('Chat composer is no longer mounted');
 		if (this.core.isSending) throw new Error('A message is already being sent');
 
-		const activeSend: ActiveSend = {
-			checkpoint: this.draftManager.captureCheckpoint(this.threadId),
-			inputRevision: this.inputRevision,
-			succeeded: false
-		};
-		this.activeSend = activeSend;
-
 		try {
 			await this.core.sendMessage(client, prompt);
-			if (!isChatSessionCurrent(this.sessionEpoch)) return;
-			activeSend.succeeded = true;
-			this.draftManager.clearDraftIfUnchanged(activeSend.checkpoint);
-			if (!this.core.isAwaitingStream && this.activeSend === activeSend) {
-				this.activeSend = null;
-			}
 		} finally {
 			this.releaseIfIdle(this);
 		}
-	}
-
-	private handleAwaitingChange(awaiting: boolean): void {
-		if (!awaiting && this.activeSend?.succeeded) this.activeSend = null;
-		this.releaseIfIdle(this);
 	}
 
 	private setOtherContextInputs(source: ChatUIContext, value: string): void {
@@ -184,6 +149,8 @@ export class SimpleChatSessionRegistry {
 
 	private invalidated = false;
 	private readonly draftManager = new ChatDraftManager('simple-chat');
+	/** Shared by every SimpleChat on this client, so a refusal finds whichever composer shows its thread. */
+	readonly sendOwner = new ComposerSendCoordinator({ drafts: this.draftManager });
 
 	constructor(
 		private readonly removeIfUnused: () => void,
@@ -219,8 +186,12 @@ export class SimpleChatSessionRegistry {
 		}
 		let session = this.sessions.find((candidate) => candidate.threadId === threadId);
 		if (!session) {
-			session = new SimpleChatSession(threadId, this.sessionEpoch, this.draftManager, (candidate) =>
-				this.releaseIfIdle(candidate)
+			session = new SimpleChatSession(
+				threadId,
+				this.sessionEpoch,
+				this.draftManager,
+				this.sendOwner,
+				(candidate) => this.releaseIfIdle(candidate)
 			);
 			this.sessions = [...this.sessions, session];
 		}

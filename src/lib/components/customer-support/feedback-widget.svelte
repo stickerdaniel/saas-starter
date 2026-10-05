@@ -169,8 +169,10 @@
 		() => void markVisibleReplyRead()
 	);
 
-	// Sync drafts when the selected conversation changes.
-	watch(
+	// Sync drafts and attachments when the selected conversation changes. Runs
+	// before the chat shows the new thread, which would otherwise take the
+	// attachments it finds and mix them with the ones this clears.
+	watch.pre(
 		() => [conversation.threadId, conversation.threadGeneration] as const,
 		([currentThreadId, currentGeneration], previous) => {
 			const [previousThreadId, previousGeneration] = previous ?? [undefined, -1];
@@ -187,8 +189,14 @@
 			if (previousThreadId && chatUIContext.inputValue.trim()) {
 				conversation.setDraft(previousThreadId, chatUIContext.inputValue);
 			}
-			chatUIContext.setInputValue(conversation.getDraft(currentThreadId));
+			chatUIContext.loadDraft(currentThreadId);
 
+			// An existing thread brings back its own files, such as those of a send
+			// refused while it was not on screen; the conversation left keeps none.
+			if (previousThreadId !== undefined && currentThreadId !== null) {
+				chatUIContext.enterSelectedThread();
+				return;
+			}
 			const generationChanged = currentGeneration !== previousGeneration;
 			if (generationChanged || (previousThreadId === null && !conversation.isNewConversation)) {
 				chatUIContext.clearAttachments();
@@ -370,28 +378,16 @@
 						// In handed-off mode, allow fire-and-forget like admin view
 						if (!isHumanOnly && chatUIContext.isProcessing) return;
 
-						const originThreadId = conversation.threadId;
 						const sessionEpoch = getChatSessionEpoch();
 						const threadGeneration = conversation.threadGeneration;
 						const operationRevision = conversation.currentOperationRevision;
-						const draftCheckpoint = conversation.captureDraftCheckpoint(originThreadId);
 						const fileIds = chatUIContext.uploadedFileIds;
 						const attachments = [...chatUIContext.attachments];
 						try {
-							const result = await conversation.sendMessage(client, prompt, {
+							await conversation.sendMessage(client, prompt, {
 								fileIds,
 								attachments
 							});
-							if (
-								!conversation.isSendOperationCurrent(
-									sessionEpoch,
-									threadGeneration,
-									operationRevision
-								)
-							) {
-								return;
-							}
-							conversation.clearDraftIfUnchanged(draftCheckpoint, result.threadId);
 						} catch (error) {
 							if (
 								!conversation.isSendOperationCurrent(

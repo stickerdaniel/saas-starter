@@ -10,6 +10,7 @@
 	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/chat-context.svelte.ts';
 	import { ChatCore } from '$lib/chat/core/chat-core.svelte.ts';
 	import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
+	import { ComposerSendCoordinator } from '$lib/chat/ui/composer-send-coordinator.ts';
 	import { ChatAttachmentStore } from '$lib/chat/core/chat-attachment-store.svelte.ts';
 	import MessageQuotaBanner from '$lib/components/message-quota-banner.svelte';
 	import { getTranslate } from '@tolgee/svelte';
@@ -31,7 +32,8 @@
 		totalMessages = 0,
 		onUpgrade,
 		isUpgrading = false,
-		onMessageSent
+		onMessageSent,
+		sendOwner
 	}: {
 		threadId: string;
 		isPro?: boolean;
@@ -41,6 +43,8 @@
 		onUpgrade?: () => void;
 		isUpgrading?: boolean;
 		onMessageSent?: () => void;
+		/** Settles sends past this component; the page owns it so a remount keeps it. */
+		sendOwner?: ComposerSendCoordinator;
 	} = $props();
 
 	const client = useConvexClient();
@@ -78,6 +82,15 @@
 		}
 	});
 
+	// Draft persistence across thread switches and page refreshes
+	const draftManager = new ChatDraftManager('ai-chat');
+	// The owner is fixed for this component's lifetime; one made here is mounted here.
+	// svelte-ignore state_referenced_locally
+	const ownsSendOwner = !sendOwner;
+	// svelte-ignore state_referenced_locally
+	const owner = sendOwner ?? new ComposerSendCoordinator({ drafts: draftManager });
+	if (ownsSendOwner) onDestroy(owner.mount());
+
 	// Report transfers to the app so a navigation that would kill one asks first.
 	// Absent outside the app shell (isolated tests, the standalone example), where
 	// there is no layout to ask.
@@ -89,18 +102,13 @@
 		activeUploadsContext.getOr(null),
 		{
 			bindThreadOrigin: (binder) => chatCore.setThreadOriginBinder(binder),
-			forgetSession: () => chatCore.forgetChatSession()
+			forgetSession: () => chatCore.forgetChatSession(),
+			sendOwner: owner
 		}
 	);
 
 	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
 	onDestroy(() => chatUIContext.dispose());
-
-	// Draft persistence across thread switches and page refreshes
-	const draftManager = new ChatDraftManager('ai-chat');
-	let sendingThreadId = $state<string | null>(null);
-	let sendRevision = 0;
-	const sending = $derived(sendingThreadId === threadId);
 
 	// Save draft on leave, restore on enter
 	watch(
@@ -109,16 +117,17 @@
 			if (previous && chatUIContext.inputValue.trim()) {
 				draftManager.setDraft(previous, chatUIContext.inputValue);
 			}
-			chatUIContext.setInputValue(draftManager.getDraft(current));
+			chatUIContext.loadDraft(current);
 		}
 	);
 
 	// Continuous save for refresh persistence — watch untracks the callback,
-	// avoiding a reactive loop with PersistedState's Proxy set trap
+	// avoiding a reactive loop with PersistedState's Proxy set trap. A composer
+	// emptied by a send keeps the stored copy, which that send still owns.
 	watch(
-		() => [chatUIContext.inputValue, threadId, sending] as const,
-		([value, id, isSending]) => {
-			if (isSending && !value.trim()) return;
+		() => [chatUIContext.inputValue, threadId] as const,
+		([value, id]) => {
+			if (!value.trim() && owner.holdsDraft(id)) return;
 			draftManager.setDraft(id, value);
 		}
 	);
@@ -200,17 +209,12 @@
 				onSend={async (prompt) => {
 					if (!hasMessagesAvailable || !prompt?.trim()) return;
 					const originThreadId = threadId;
-					const draftCheckpoint = draftManager.captureCheckpoint(originThreadId);
 					const sessionEpoch = getChatSessionEpoch();
-					const operationRevision = ++sendRevision;
 					const fileIds = chatUIContext.uploadedFileIds;
 					const attachments = [...chatUIContext.attachments];
-					sendingThreadId = originThreadId;
 					try {
 						await chatCore.sendMessage(client, prompt, { fileIds, attachments });
-						if (!isChatSessionCurrent(sessionEpoch)) return;
-						draftManager.clearDraftIfUnchanged(draftCheckpoint);
-						if (threadId !== originThreadId) return;
+						if (!isChatSessionCurrent(sessionEpoch) || threadId !== originThreadId) return;
 						onMessageSent?.();
 					} catch (error) {
 						if (isChatSessionCurrent(sessionEpoch) && threadId === originThreadId) {
@@ -218,10 +222,6 @@
 							toast.error($t('chat.messages.send_failed'));
 						}
 						throw error;
-					} finally {
-						if (sendingThreadId === originThreadId && sendRevision === operationRevision) {
-							sendingThreadId = null;
-						}
 					}
 				}}
 			/>

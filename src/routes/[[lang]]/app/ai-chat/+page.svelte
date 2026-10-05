@@ -11,6 +11,11 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import ThreadChat from './thread-chat.svelte';
+	import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
+	import {
+		ComposerSendCoordinator,
+		acquireComposerSendCoordinator
+	} from '$lib/chat/ui/composer-send-coordinator.ts';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { useBillingCheckout } from '$lib/components/billing';
 
@@ -41,6 +46,19 @@
 				? aiChatFeature.included_usage
 				: 0
 	);
+
+	// Outlives ThreadChat, which unmounts while a thread is being resolved, and
+	// this page while one of its sends is open. A session that ends while the
+	// page stays open (signed out in another tab) hands over the next session's
+	// owner, and ThreadChat is rebuilt around it below.
+	let sendLease = $state.raw(
+		acquireComposerSendCoordinator(
+			'ai-chat',
+			() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('ai-chat') }),
+			(next) => (sendLease = next)
+		)
+	);
+	onDestroy(() => sendLease.release());
 
 	// Thread from URL param
 	const threadId = $derived(page.url.searchParams.get('thread') ?? '');
@@ -117,16 +135,19 @@
 				</p>
 			</div>
 		{:else if threadId}
-			<ThreadChat
-				{threadId}
-				{isPro}
-				{hasMessagesAvailable}
-				{remainingMessages}
-				{totalMessages}
-				onUpgrade={handleUpgrade}
-				isUpgrading={billingCheckout.isLoading}
-				onMessageSent={() => autumn.refetch()}
-			/>
+			{#key sendLease.owner}
+				<ThreadChat
+					{threadId}
+					{isPro}
+					{hasMessagesAvailable}
+					{remainingMessages}
+					{totalMessages}
+					onUpgrade={handleUpgrade}
+					isUpgrading={billingCheckout.isLoading}
+					onMessageSent={() => autumn.refetch()}
+					sendOwner={sendLease.owner}
+				/>
+			{/key}
 		{:else}
 			<!-- Direct navigation without ?thread=: resolving a warm thread above.
 			     ChatInput has no createThread configured, so it must not mount (and

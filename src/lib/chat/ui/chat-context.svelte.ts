@@ -9,6 +9,7 @@ import { getContext, setContext, untrack } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatSessionPort } from '../core/chat-session-port.js';
+import { MAX_MESSAGE_LENGTH } from '../core/types.js';
 import type { Attachment, DisplayMessage, MessageRole } from '../core/types.js';
 import { getChatSessionEpoch, isChatSessionCurrent } from '../core/chat-persisted-state.js';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
@@ -20,6 +21,13 @@ import type {
 	ComposerAttachmentSendSnapshot,
 	UploadConfig
 } from './composer-attachment-coordinator.svelte.ts';
+import {
+	ComposerSendCoordinator,
+	type ComposerSendOutcome,
+	type ComposerSendResources,
+	type ComposerSendTarget,
+	type ThreadOriginBinder
+} from './composer-send-coordinator.js';
 
 export type {
 	ActiveUploadsRegistry,
@@ -27,8 +35,6 @@ export type {
 	DirectUploadConfig,
 	UploadConfig
 } from './composer-attachment-coordinator.svelte.ts';
-
-type ThreadOriginBinder = (threadId: string, epoch: number, generation: number) => void;
 
 export type ChatInputProjectionReason = 'user-edit' | 'send-clear' | 'send-restore';
 
@@ -44,6 +50,12 @@ export type ChatUIContextOptions = {
 	bindThreadOrigin?: (binder: ThreadOriginBinder | undefined) => void;
 	forgetSession?: () => void;
 	projectInput?: (projection: ChatInputProjection) => void;
+	/**
+	 * Settles this surface's sends and outlives this context, so a refusal that
+	 * arrives after the composer unmounted still finds its way back. Without one,
+	 * the context settles its own sends and nothing outlives it.
+	 */
+	sendOwner?: ComposerSendCoordinator;
 };
 
 /**
@@ -70,7 +82,7 @@ export type ChatSendSnapshot = {
  *
  * Holds both the core state and UI-specific state like reasoning accordion states.
  */
-export class ChatUIContext {
+export class ChatUIContext implements ComposerSendTarget {
 	/** The core chat state manager */
 	readonly core: ChatSessionPort;
 
@@ -107,6 +119,8 @@ export class ChatUIContext {
 	private conversationOrigin: ChatConversationOrigin;
 	private disposed = false;
 	private readonly options: ChatUIContextOptions;
+	private readonly sendOwner: ComposerSendCoordinator;
+	private readonly detachFromSendOwner: () => void;
 
 	/** Attachment collection and lifecycle owner behind this UI facade. */
 	private readonly attachmentCoordinator: ComposerAttachmentCoordinator;
@@ -134,11 +148,10 @@ export class ChatUIContext {
 			generation: untrack(() => core.threadGeneration),
 			threadId: untrack(() => core.threadId)
 		};
-		options.bindThreadOrigin?.((threadId, epoch, generation) => {
-			if (!isChatSessionCurrent(epoch)) return;
-			const origin = this.syncConversationOrigin();
-			if (origin.generation === generation && origin.threadId === null) origin.threadId = threadId;
-		});
+		this.sendOwner = options.sendOwner ?? new ComposerSendCoordinator();
+		// Registered with the owner rather than this context, so a conversation that
+		// receives its id after this composer unmounted still binds its pending sends.
+		options.bindThreadOrigin?.(this.sendOwner.originBinder(core));
 		this.attachmentCoordinator = new ComposerAttachmentCoordinator({
 			getThreadId: () => core.threadId,
 			client,
@@ -154,6 +167,7 @@ export class ChatUIContext {
 				this.inputRevision++;
 			}
 		});
+		this.detachFromSendOwner = this.sendOwner.attachTarget(this);
 	}
 
 	/**
@@ -279,6 +293,20 @@ export class ChatUIContext {
 	}
 
 	/**
+	 * Show the existing thread the conversation moved to with that thread's own
+	 * stored attachments, dropping the ones held for the conversation it left.
+	 * For surfaces that never carry files from one conversation into another;
+	 * call it before the messages of the new thread are displayed.
+	 */
+	enterSelectedThread(): void {
+		this.syncConversationOrigin();
+		if (this.attachmentCoordinator.enterSelectedThread()) {
+			this.messagesFade.reset();
+			this._hasEverDisplayedMessages = false;
+		}
+	}
+
+	/**
 	 * Set messages ready state (true when query has resolved)
 	 */
 	setMessagesReady(ready: boolean): void {
@@ -396,29 +424,41 @@ export class ChatUIContext {
 		);
 	}
 
-	restoreSendSnapshot(snapshot: ChatSendSnapshot): void {
-		if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
-		const sameConversation = this.syncConversationOrigin() === snapshot.origin;
-		if (
-			sameConversation &&
-			snapshot.inputClearedRevision !== undefined &&
-			this.inputRevision === snapshot.inputClearedRevision &&
-			this.inputValue === ''
-		) {
-			this.applyInputValue(snapshot.inputValue);
+	/** Hand a cleared send to the surface's settlement owner; call the result with its outcome. */
+	beginSend(snapshot: ChatSendSnapshot): (outcome: ComposerSendOutcome) => void {
+		const sendId = this.sendOwner.begin(this, snapshot);
+		return (outcome) => this.sendOwner.settle(sendId, outcome);
+	}
+
+	/** Show the stored draft of a thread, unless a pending send already carries it. */
+	loadDraft(threadId: string | null): void {
+		this.setInputValue(this.sendOwner.draftFor(threadId));
+	}
+
+	/** The conversation on screen now. */
+	get sendOrigin(): ChatConversationOrigin {
+		return this.syncConversationOrigin();
+	}
+
+	bindThreadOrigin(threadId: string, generation: number): void {
+		const origin = this.syncConversationOrigin();
+		if (origin.generation === generation && origin.threadId === null) origin.threadId = threadId;
+	}
+
+	restoreFailedSend(text: string, attachments: Attachment[]): void {
+		if (this.disposed) return;
+		if (this.applyInputValue(text)) {
 			this.emitInputProjection(
 				'send-restore',
-				snapshot.sessionEpoch,
-				snapshot.origin,
-				snapshot.inputRevision,
-				snapshot.inputValue
+				getChatSessionEpoch(),
+				this.syncConversationOrigin()
 			);
 		}
-		this.attachmentCoordinator.restoreSendAttachments(
-			snapshot.attachments,
-			snapshot.origin.threadId,
-			sameConversation
-		);
+		this.attachmentCoordinator.restoreSendAttachments({ attachments });
+	}
+
+	sendResources(): ComposerSendResources {
+		return this.attachmentCoordinator.sendResources();
 	}
 
 	/** Rendered attachments for the current composer. */
@@ -460,7 +500,7 @@ export class ChatUIContext {
 	dispose(): void {
 		if (this.disposed) return;
 		this.disposed = true;
-		this.options.bindThreadOrigin?.(undefined);
+		this.detachFromSendOwner();
 		this.attachmentCoordinator.dispose();
 	}
 
@@ -542,11 +582,27 @@ export class ChatUIContext {
 		return this.attachmentCoordinator.hasFailedUploads;
 	}
 
+	/** Whether the text is longer than one message may be, as after a refused send merged back. */
+	get exceedsMessageLength(): boolean {
+		return this.inputValue.length > MAX_MESSAGE_LENGTH;
+	}
+
+	/** Whether the composer holds more files than one message may carry. */
+	get exceedsAttachmentLimit(): boolean {
+		return this.attachments.length > this.maxAttachments;
+	}
+
 	/**
 	 * Check if message can be sent
 	 */
 	get canSend(): boolean {
-		return !this.hasUploadingFiles && !this.hasFailedUploads && !!this.inputValue.trim();
+		return (
+			!this.hasUploadingFiles &&
+			!this.hasFailedUploads &&
+			!!this.inputValue.trim() &&
+			!this.exceedsMessageLength &&
+			!this.exceedsAttachmentLimit
+		);
 	}
 
 	/**

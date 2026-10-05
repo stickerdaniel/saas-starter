@@ -598,7 +598,9 @@
 			"send_failed": "Error al enviar mensaje"
 		},
 		"notices": {
-			"limit_reached": "Has alcanzado tu límite de mensajes, así que no se pudo generar esta respuesta."
+			"limit_reached": "Has alcanzado tu límite de mensajes, así que no se pudo generar esta respuesta.",
+			"message_too_long": "Este mensaje supera los {max} caracteres. Acórtalo para enviarlo.",
+			"too_many_attachments": "Este mensaje tiene más de {max} adjuntos. Quita algunos para enviarlo."
 		},
 		"reasoning": {
 			"connecting": "Conectando...",

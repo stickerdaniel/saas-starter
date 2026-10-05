@@ -359,7 +359,7 @@ describe('SimpleChat', () => {
 		).toBe(false);
 	});
 
-	it('preserves a genuine edit through repeated locked remounts and rejection', async () => {
+	it('puts a rejected send ahead of a genuine edit made through locked remounts', async () => {
 		const pending = Promise.withResolvers<never>();
 		const mutation = vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
 		const provider = mountChat('thread-a');
@@ -388,8 +388,8 @@ describe('SimpleChat', () => {
 
 		pending.reject(new Error('Send rejected'));
 		await vi.waitFor(() => expect(capturedChatMessages.context?.core.isSending).toBe(false));
-		expect(input.value).toBe(newerDraft);
-		expect(storedDrafts()).toEqual({ 'thread-a': newerDraft });
+		await vi.waitFor(() => expect(input.value).toBe(`Rejected A draft\n\n${newerDraft}`));
+		expect(storedDrafts()).toEqual({ 'thread-a': `Rejected A draft\n\n${newerDraft}` });
 		expect(
 			document.querySelector<HTMLButtonElement>('[data-testid="chat-input-send"]')!.disabled
 		).toBe(false);
