@@ -67,7 +67,7 @@
 	"packageManager": "bun@1.4.2",
 	"dependencies": {
 		"@ai-sdk/provider": "4.0.19",
-		"@better-auth/passkey": "1.6.33",
+		"@better-auth/passkey": "1.7.7",
 		"@better-svelte-email/components": "2.3.0",
 		"@better-svelte-email/server": "2.3.0",
 		"@convex-dev/agent": "0.7.3",
@@ -95,7 +95,7 @@
 		"ai": "7.0.122",
 		"atmn": "2.0.48",
 		"autumn-js": "0.1.85",
-		"better-auth": "1.6.33",
+		"better-auth": "1.7.7",
 		"convex-helpers": "0.1.124",
 		"convex-svelte": "0.14.0",
 		"date-fns": "4.4.0",
