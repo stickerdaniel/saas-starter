@@ -21,12 +21,13 @@ export class SupportContext {
 	/** Settles composer sends for the widget, whose composer comes and goes with the panel. */
 	readonly sendOwner: ComposerSendCoordinator;
 
-	constructor(isAiUsable: () => boolean = () => true) {
+	/** @param sendOwner the surface's owner when it outlives this root; one is made otherwise. */
+	constructor(isAiUsable: () => boolean = () => true, sendOwner?: ComposerSendCoordinator) {
 		this.navigation = new SupportNavigationState();
 		this.conversation = new SupportConversation(this.navigation, isAiUsable);
 		this.handoff = new SupportHandoffCommands(this.conversation);
 		this.notifications = new SupportNotificationCommands(this.conversation);
-		this.sendOwner = new ComposerSendCoordinator({ drafts: this.conversation.drafts });
+		this.sendOwner = sendOwner ?? new ComposerSendCoordinator({ drafts: this.conversation.drafts });
 	}
 
 	requestWidgetOpen(): void {

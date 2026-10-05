@@ -12,7 +12,10 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import ThreadChat from './thread-chat.svelte';
 	import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
-	import { ComposerSendCoordinator } from '$lib/chat/ui/composer-send-coordinator.ts';
+	import {
+		ComposerSendCoordinator,
+		acquireComposerSendCoordinator
+	} from '$lib/chat/ui/composer-send-coordinator.ts';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { useBillingCheckout } from '$lib/components/billing';
 
@@ -44,9 +47,14 @@
 				: 0
 	);
 
-	// Outlives ThreadChat, which unmounts while a thread is being resolved.
-	const sendOwner = new ComposerSendCoordinator({ drafts: new ChatDraftManager('ai-chat') });
-	onDestroy(sendOwner.mount());
+	// Outlives ThreadChat, which unmounts while a thread is being resolved, and
+	// this page while one of its sends is open.
+	const sendLease = acquireComposerSendCoordinator(
+		'ai-chat',
+		() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('ai-chat') })
+	);
+	const sendOwner = sendLease.owner;
+	onDestroy(sendLease.release);
 
 	// Thread from URL param
 	const threadId = $derived(page.url.searchParams.get('thread') ?? '');

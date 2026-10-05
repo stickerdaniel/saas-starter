@@ -19,7 +19,11 @@ import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { DEFAULT_ATTACHMENT_PROFILE, MAX_MESSAGE_LENGTH, type Attachment } from '../core/types.js';
 import type { UploadProfile } from '../../uploads/profiles.js';
 import { ChatUIContext, type UploadConfig } from './chat-context.svelte.ts';
-import { ComposerSendCoordinator } from './composer-send-coordinator.ts';
+import {
+	ComposerSendCoordinator,
+	acquireComposerSendCoordinator,
+	type ComposerSendLease
+} from './composer-send-coordinator.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import ChatInputHarness from './test-fixtures/ChatInputHarness.svelte';
 import en from '../../../i18n/en.json';
@@ -67,8 +71,14 @@ async function settleWork(): Promise<void> {
 function chatSurface({
 	persistent = true,
 	profile,
-	name = `settlement-${crypto.randomUUID()}`
-}: { persistent?: boolean; profile?: UploadProfile; name?: string } = {}) {
+	name = `settlement-${crypto.randomUUID()}`,
+	owner: givenOwner
+}: {
+	persistent?: boolean;
+	profile?: UploadProfile;
+	name?: string;
+	owner?: (drafts: ChatDraftManager | undefined) => ComposerSendCoordinator;
+} = {}) {
 	const drafts = persistent ? new ChatDraftManager(name) : undefined;
 	const store = persistent ? new ChatAttachmentStore(name) : undefined;
 	const release = vi.fn();
@@ -80,7 +90,7 @@ function chatSurface({
 				profile
 			}
 		: { upload: vi.fn(), release, profile };
-	const owner = new ComposerSendCoordinator({ drafts });
+	const owner = givenOwner?.(drafts) ?? new ComposerSendCoordinator({ drafts });
 	const sends: Send[] = [];
 	const restorations: string[] = [];
 	const onSend = vi.fn((prompt: string): Promise<void> => {
@@ -148,6 +158,24 @@ function chatSurface({
 	return { owner, drafts, store, release, sends, restorations, onSend, open: openComposer };
 }
 
+/** A surface whose owner comes from the session's registry, the way a page gets it. */
+function leasedSurface(name: string, options: { persistent?: boolean } = {}) {
+	let lease!: ComposerSendLease;
+	const chat = chatSurface({
+		...options,
+		name,
+		owner: (drafts) => {
+			lease = acquireComposerSendCoordinator(name, () => new ComposerSendCoordinator({ drafts }));
+			return lease.owner;
+		}
+	});
+	return { chat, lease };
+}
+
+/** What the transport hands back for `file(key)`. */
+const fileA = { fileId: 'file-a', url: 'https://chat.test/a.txt' };
+const fileB = { fileId: 'file-b', url: 'https://chat.test/b.txt' };
+
 beforeEach(() => {
 	localStorage.clear();
 	client = new ConvexClient('https://settlement-test.convex.cloud', { disabled: true });
@@ -159,6 +187,8 @@ afterEach(async () => {
 		await unmount(component);
 		context.dispose();
 	}
+	// A surface owner left with an open send would otherwise reach the next test.
+	clearPersistedChatState();
 	document.body.replaceChildren();
 	await client.close();
 	localStorage.clear();
@@ -405,29 +435,76 @@ describe('surface lifetime', () => {
 		expect(reopened.attachments()).toEqual(['a']);
 	});
 
-	it('restores nothing once the session ended, even after the surface unregistered', async () => {
-		const chat = chatSurface({ persistent: false });
+	it('stores nothing once the session ended, even after the surface unregistered', async () => {
 		const persisted = chatSurface();
-		const unmountSurfaces = [chat.owner.mount(), persisted.owner.mount()];
-		const composer = await chat.open('thread-a');
-		const persistedComposer = await persisted.open('thread-a');
-		await composer.send('old session', 'a');
-		await persistedComposer.send('old session', 'b');
+		const unmountSurface = persisted.owner.mount();
+		const composer = await persisted.open('thread-a');
+		await composer.send('old session', 'b');
 		await composer.close();
-		await persistedComposer.close();
-		for (const unmountSurface of unmountSurfaces) unmountSurface();
+		unmountSurface();
 
 		clearPersistedChatState();
-		chat.sends[0]!.reject(new Error('refused'));
 		persisted.sends[0]!.reject(new Error('refused'));
 		await settleWork();
 
-		expect(chat.release).not.toHaveBeenCalled();
 		expect(persisted.drafts!.getDraft('thread-a')).toBe('');
 		expect(persisted.store!.readThread('thread-a')).toEqual([]);
 		const reopened = await persisted.open('thread-a');
 		expect(reopened.text()).toBe('');
 		expect(reopened.attachments()).toEqual([]);
+	});
+
+	it('gives a surface entered again its owner back until no send and no mount holds it', async () => {
+		const name = `settlement-${crypto.randomUUID()}`;
+		const left = leasedSurface(name);
+		const composer = await left.chat.open('thread-a');
+		await composer.send('open');
+		await composer.close();
+		left.lease.release();
+
+		const entered = leasedSurface(name);
+		expect(entered.chat.owner).toBe(left.chat.owner);
+		entered.lease.release();
+		left.chat.sends[0]!.resolve();
+		await settleWork();
+
+		expect(leasedSurface(name).chat.owner).not.toBe(left.chat.owner);
+	});
+
+	it('keeps an idle surface owner while any mount holds it', () => {
+		const name = `settlement-${crypto.randomUUID()}`;
+		const first = leasedSurface(name);
+		const second = leasedSurface(name);
+		first.lease.release();
+		first.lease.release();
+		const third = leasedSurface(name);
+		expect(second.chat.owner).toBe(first.chat.owner);
+		expect(third.chat.owner).toBe(first.chat.owner);
+
+		second.lease.release();
+		third.lease.release();
+		expect(leasedSurface(name).chat.owner).not.toBe(first.chat.owner);
+	});
+
+	it('gives a surface a new owner once the session ended, while the old send keeps its cleanup', async () => {
+		const name = `settlement-${crypto.randomUUID()}`;
+		const before = leasedSurface(name, { persistent: false });
+		const composer = await before.chat.open('thread-a');
+		await composer.send('old session', 'a');
+
+		clearPersistedChatState();
+		const after = leasedSurface(name, { persistent: false });
+		expect(after.chat.owner).not.toBe(before.chat.owner);
+		await composer.close();
+		before.lease.release();
+		const reopened = await after.chat.open('thread-a');
+		before.chat.sends[0]!.reject(new Error('refused'));
+		await settleWork();
+
+		expect(before.chat.release).toHaveBeenCalledExactlyOnceWith(fileA);
+		expect(reopened.text()).toBe('');
+		expect(reopened.attachments()).toEqual([]);
+		expect([...before.chat.restorations, ...after.chat.restorations]).toEqual([]);
 	});
 
 	it('keeps customer and admin settlement apart for the same thread id', async () => {
@@ -453,7 +530,121 @@ describe('surface lifetime', () => {
 	});
 });
 
+describe.each([
+	{ owner: 'registered', registered: true },
+	{ owner: 'unregistered', registered: false }
+])('sends of an ended session, $owner owner', ({ registered }) => {
+	/** A surface without a store whose session ends with or without its composer on screen. */
+	async function surfaceAcrossSessionEnd() {
+		const chat = chatSurface({ persistent: false });
+		const unmountSurface = chat.owner.mount();
+		const composer = await chat.open('thread-a');
+		return {
+			chat,
+			composer,
+			async endSession() {
+				if (!registered) {
+					await composer.close();
+					unmountSurface();
+				}
+				clearPersistedChatState();
+				await tick();
+			}
+		};
+	}
+
+	it('releases the files of a late refusal once and restores nothing', async () => {
+		const { chat, composer, endSession } = await surfaceAcrossSessionEnd();
+		await composer.send('old session', 'a');
+		await endSession();
+
+		chat.sends[0]!.reject(new Error('refused'));
+		await settleWork();
+
+		expect(chat.release).toHaveBeenCalledExactlyOnceWith(fileA);
+		expect(chat.restorations).toEqual([]);
+		expect(composer.context.inputValue).toBe('');
+		expect(composer.context.attachments).toEqual([]);
+	});
+
+	it('releases nothing and restores nothing for a late acceptance', async () => {
+		const { chat, composer, endSession } = await surfaceAcrossSessionEnd();
+		await composer.send('old session', 'a');
+		await endSession();
+
+		chat.sends[0]!.resolve();
+		await settleWork();
+
+		expect(chat.release).not.toHaveBeenCalled();
+		expect(chat.restorations).toEqual([]);
+		expect(composer.context.inputValue).toBe('');
+	});
+
+	it('releases a refusal that was waiting for its group once, and the accepted send nothing', async () => {
+		const { chat, composer, endSession } = await surfaceAcrossSessionEnd();
+		await composer.send('A', 'a');
+		await composer.send('B', 'b');
+		chat.sends[0]!.reject(new Error('refused'));
+		await settleWork();
+		expect(chat.release).not.toHaveBeenCalled();
+
+		await endSession();
+		chat.sends[1]!.resolve();
+		await settleWork();
+
+		expect(chat.release).toHaveBeenCalledExactlyOnceWith(fileA);
+		expect(chat.restorations).toEqual([]);
+		expect(composer.context.attachments).toEqual([]);
+	});
+
+	it('ignores a repeated outcome after the cleanup', async () => {
+		const { chat, composer, endSession } = await surfaceAcrossSessionEnd();
+		await composer.type('once');
+		composer.context.addAttachments([file('a')]);
+		const snapshot = composer.context.captureSendSnapshot();
+		composer.context.clearInputForSend(snapshot);
+		const settle = composer.context.beginSend(snapshot);
+		composer.context.clearAttachmentsForSend(snapshot);
+		await endSession();
+
+		settle('refused');
+		settle('refused');
+		settle('accepted');
+		await settleWork();
+
+		expect(chat.release).toHaveBeenCalledExactlyOnceWith(fileA);
+		expect(chat.restorations).toEqual([]);
+	});
+});
+
 describe('sent attachments', () => {
+	it('takes the files of a send refused on the spot out of the composer until its group settles', async () => {
+		const chat = chatSurface({ persistent: false });
+		const composer = await chat.open('thread-a');
+		await composer.send('A', 'a');
+		chat.onSend.mockImplementationOnce(() => {
+			throw new Error('refused before sending');
+		});
+		await composer.send('B', 'b');
+		await settleWork();
+
+		expect(composer.text()).toBe('');
+		expect(composer.attachments()).toEqual([]);
+		expect(chat.release).not.toHaveBeenCalled();
+
+		chat.sends[0]!.reject(new Error('refused'));
+		await settleWork();
+		expect(composer.text()).toBe('A\n\nB');
+		expect(composer.attachments()).toEqual(['a', 'b']);
+		expect(chat.restorations).toEqual(['A\n\nB']);
+		expect(chat.release).not.toHaveBeenCalled();
+
+		composer.context.removeAttachment(1);
+		await tick();
+		expect(chat.release).toHaveBeenCalledExactlyOnceWith(fileB);
+		expect(composer.attachments()).toEqual(['a']);
+	});
+
 	it('gives nothing back to the transport when the send is accepted', async () => {
 		const chat = chatSurface({ persistent: false });
 		const composer = await chat.open('thread-a');

@@ -24,7 +24,10 @@
 	} from '$lib/hooks/admin-support-ui.svelte.ts';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
 	import { ChatDraftManager } from '$lib/chat';
-	import { ComposerSendCoordinator } from '$lib/chat/ui/composer-send-coordinator.ts';
+	import {
+		ComposerSendCoordinator,
+		acquireComposerSendCoordinator
+	} from '$lib/chat/ui/composer-send-coordinator.ts';
 	import { browser } from '$app/environment';
 	import { authClient } from '$lib/auth-client';
 
@@ -34,9 +37,14 @@
 	const adminSupportUI = adminSupportUIContext.set(new AdminSupportUIManager());
 
 	// Draft persistence and send settlement live outside {#key threadId}, so drafts
-	// and a reply refused after its thread was left survive thread switches
-	const sendOwner = new ComposerSendCoordinator({ drafts: new ChatDraftManager('admin-support') });
-	onDestroy(sendOwner.mount());
+	// and a reply refused after its thread was left survive thread switches, and
+	// outside this page while one of its replies is open
+	const sendLease = acquireComposerSendCoordinator(
+		'admin-support',
+		() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('admin-support') })
+	);
+	const sendOwner = sendLease.owner;
+	onDestroy(sendLease.release);
 
 	// Filter state schema (thread managed separately to avoid reload on selection)
 	const filterSchema = v.object({
