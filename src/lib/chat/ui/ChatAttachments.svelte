@@ -5,6 +5,7 @@
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import { getTranslate } from '@tolgee/svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import AttachmentRemoveButton from '$lib/components/ui/owned/attachment-remove-button.svelte';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
@@ -25,6 +26,8 @@
 		columns: _columns = 2,
 		readonly = false,
 		align = 'right',
+		meta,
+		loadText,
 		class: className = ''
 	}: {
 		attachments?: Attachment[];
@@ -35,6 +38,14 @@
 		readonly?: boolean;
 		/** Alignment - controls flex direction for readonly attachments */
 		align?: ChatAlignment;
+		/**
+		 * Secondary line under the filename. `originalIndex` indexes `attachments`,
+		 * also when readonly right-aligned tiles render in reverse. A failed upload
+		 * shows its failure line instead.
+		 */
+		meta?: (attachment: Attachment, originalIndex: number) => string | undefined;
+		/** Text source for previews of attachments without a local blob. */
+		loadText?: (attachment: Attachment) => Promise<{ text: string; truncated: boolean }>;
 		class?: string;
 	} = $props();
 
@@ -71,13 +82,44 @@
 	const reversed = $derived(readonly && align === 'right');
 
 	let isDialogOpen = $state(false);
-	let selectedAttachment = $state<Attachment | null>(null);
+	// Raw, so loadText receives the caller's attachment rather than a proxy of it.
+	let selectedAttachment = $state.raw<Attachment | null>(null);
 	let displayDimensions = $state<{ width: number; height: number } | null>(null);
 	let dialogContent = $state<HTMLElement | null>(null);
 	let titleTruncated = $state(false);
 	const dialogTitle = $derived(
 		selectedAttachment ? getFilename(selectedAttachment) : $t('chat.attachment.dialog_title')
 	);
+
+	const loadSelectedText = $derived.by(() => {
+		const attachment = selectedAttachment;
+		return loadText && attachment ? () => loadText(attachment) : undefined;
+	});
+
+	/** Ids of tile lines whose text is visually cut off. */
+	const clippedLines = new SvelteSet<string>();
+	/** Ids of tile lines whose tooltip a pointer opened. */
+	const hoveredLines = new SvelteSet<string>();
+	/** Key of the tile whose clipped lines show because keyboard focus is on it. */
+	let revealedTile = $state<string | null>(null);
+
+	function measureLine(id: string, _text: string) {
+		return (element: HTMLElement) => {
+			function update() {
+				if (element.scrollWidth > element.clientWidth) clippedLines.add(id);
+				else clippedLines.delete(id);
+			}
+
+			update();
+			const observer = new ResizeObserver(update);
+			observer.observe(element);
+
+			return () => {
+				observer.disconnect();
+				clippedLines.delete(id);
+			};
+		};
+	}
 
 	function measureTitle(_filename: string) {
 		return (element: HTMLElement) => {
@@ -249,6 +291,37 @@
 	}
 </script>
 
+{#snippet tileLine(
+	id: string,
+	text: string,
+	className: string,
+	revealed: boolean,
+	side: 'top' | 'bottom'
+)}
+	{@const clipped = clippedLines.has(id)}
+	<Tooltip.Root
+		disabled={!clipped}
+		bind:open={
+			() => clipped && (revealed || hoveredLines.has(id)),
+			(open) => {
+				if (open) hoveredLines.add(id);
+				else hoveredLines.delete(id);
+			}
+		}
+	>
+		<Tooltip.Trigger disabled={!clipped}>
+			{#snippet child({
+				props: { type: _type, tabindex: _tabindex, 'aria-describedby': _describedBy, ...props }
+			})}
+				<!-- A line inside a tile adds no tab stop of its own, and its full text
+					 is already the accessible content. -->
+				<span {...props} class="truncate {className}" {@attach measureLine(id, text)}>{text}</span>
+			{/snippet}
+		</Tooltip.Trigger>
+		<Tooltip.Content class="wrap-anywhere" {side} aria-hidden="true">{text}</Tooltip.Content>
+	</Tooltip.Root>
+{/snippet}
+
 <Dialog.Root bind:open={isDialogOpen}>
 	<Dialog.Content
 		bind:ref={dialogContent}
@@ -286,6 +359,7 @@
 						{mimeType}
 						filename={getFilename(selectedAttachment)}
 						blob={getLocalBlob(selectedAttachment)}
+						loadText={loadSelectedText}
 					/>
 				{:else}
 					<iframe
@@ -333,12 +407,15 @@
 			{@const hasFailed = uploadState?.status === 'error'}
 			{@const originalIndex =
 				readonly && align === 'right' ? attachments.length - 1 - index : index}
+			{@const key = attachmentKey(attachment)}
+			{@const metaText = hasFailed ? undefined : meta?.(attachment, originalIndex)}
 			<!-- A failed image keeps its local preview, so canOpen() would still
 			     say yes; opening it would suggest the file exists somewhere.
 			     A failed tile activates the retry instead. -->
 			{@const canRetry = hasFailed && !readonly && !!onRetry}
 			{@const isClickable = !isUploading && !hasFailed && canOpen(attachment)}
 			{@const isInteractive = isClickable || canRetry}
+			{@const revealLines = isInteractive && revealedTile === key}
 			{@const activate = () => {
 				if (canRetry) {
 					haptic.trigger('light');
@@ -363,10 +440,19 @@
 				role={isInteractive ? 'button' : undefined}
 				tabindex={isInteractive ? 0 : undefined}
 				onclick={activate}
+				onfocus={(e) => {
+					// A click focuses the tile too, and pointer users reveal a line by hovering it.
+					if (e.currentTarget.matches(':focus-visible')) revealedTile = key;
+				}}
+				onblur={() => {
+					if (revealedTile === key) revealedTile = null;
+				}}
 				onkeydown={(e) => {
 					if (isInteractive && (e.key === 'Enter' || e.key === ' ')) {
 						e.preventDefault();
 						activate();
+					} else if (e.key === 'Escape' && revealedTile === key) {
+						revealedTile = null;
 					}
 				}}
 			>
@@ -393,12 +479,19 @@
 						{/if}
 					</div>
 					<div class="flex flex-1 flex-col gap-0 overflow-hidden leading-tight">
-						<span class="truncate text-sm">{filename}</span>
+						{@render tileLine(`${key}:filename`, filename, 'text-sm', revealLines, 'top')}
 						{#if hasFailed}
 							{@const code = uploadState?.error}
-							<span class="truncate text-xs text-destructive">
-								{failureText(code, canRetry)}
-							</span>
+							<!-- Opens below: keyboard focus shows both lines, and the filename's opens above. -->
+							{@render tileLine(
+								`${key}:failure`,
+								failureText(code, canRetry),
+								'text-xs text-destructive',
+								revealLines,
+								'bottom'
+							)}
+						{:else if metaText}
+							<span class="truncate text-xs text-muted-foreground">{metaText}</span>
 						{/if}
 					</div>
 				</div>
