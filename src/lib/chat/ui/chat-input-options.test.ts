@@ -680,19 +680,28 @@ describe.each(cases)('ChatInput options on $surface, $layout layout', ({ props, 
 			expect(upload).not.toHaveBeenCalled();
 		});
 
-		it.each(['window', 'composer'] as const)(
-			'ignores a drag while disabled, in %s scope',
-			async (dropScope) => {
-				await mountComposer({ ...base, dropScope, disabled: true });
+		it.each([
+			['window', { disabled: true }],
+			['composer', { disabled: true }],
+			['window', { attachmentsDisabledReason: 'No files here.' }],
+			['composer', { attachmentsDisabledReason: 'No files here.' }]
+		] as const)(
+			'refuses a dropped file in %s scope with %o, without letting the browser open it',
+			async (dropScope, gate) => {
+				await mountComposer({ ...base, dropScope, ...gate });
 				const files = [sized(1, 'refused.txt')];
 
 				drag('dragenter', textarea(), { files });
 				await tick();
 				expect(dropOverlay()).toBeUndefined();
-				const event = drag('drop', textarea(), { files });
+				const over = drag('dragover', textarea(), { files });
+				const drop = drag('drop', textarea(), { files });
+				const text = drag('drop', textarea(), { types: ['text/plain'] });
 				await tick();
 
-				expect(event.defaultPrevented).toBe(false);
+				// The browser opens a file dropped where nothing cancels it, leaving the page.
+				expect([over.defaultPrevented, drop.defaultPrevented]).toEqual([true, true]);
+				expect(text.defaultPrevented).toBe(false);
 				expect(upload).not.toHaveBeenCalled();
 				expect(ctx.attachments).toEqual([]);
 			}

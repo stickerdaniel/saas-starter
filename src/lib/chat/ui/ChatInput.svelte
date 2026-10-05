@@ -389,6 +389,19 @@
 		return scope === 'window' || !!event.dataTransfer?.types.includes('Files');
 	}
 
+	/**
+	 * A compact composer that cannot take a file right now still keeps one
+	 * dropped in its scope from the browser, which would otherwise open the file
+	 * in place of the page and its draft. The window is only claimed by a
+	 * composer that shows file controls at all.
+	 */
+	function refuseFileDrop(event: DragEvent, scope: 'window' | 'composer') {
+		if (!compact || dropScope !== scope || !event.dataTransfer?.types.includes('Files')) return;
+		if (scope === 'window' && !showFileButton) return;
+		event.preventDefault();
+		event.dataTransfer.dropEffect = 'none';
+	}
+
 	function handleDragEnter(event: DragEvent, scope: 'window' | 'composer') {
 		if (!handlesDrag(event, scope)) return;
 		event.preventDefault();
@@ -397,7 +410,7 @@
 	}
 
 	function handleDragOver(event: DragEvent, scope: 'window' | 'composer') {
-		if (!handlesDrag(event, scope)) return;
+		if (!handlesDrag(event, scope)) return refuseFileDrop(event, scope);
 		event.preventDefault();
 	}
 
@@ -412,7 +425,7 @@
 	}
 
 	function handleDrop(event: DragEvent, scope: 'window' | 'composer') {
-		if (!handlesDrag(event, scope)) return;
+		if (!handlesDrag(event, scope)) return refuseFileDrop(event, scope);
 		event.preventDefault();
 		dragDepth = 0;
 		dragActive = false;

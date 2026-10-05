@@ -48,14 +48,26 @@
 
 	let dragCounter = 0;
 
+	const carriesFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
+
 	/**
-	 * Whether this drag is ours to handle. A disabled upload leaves every drag to
-	 * the page. Inside an element, a drag without files (selected text, a link)
-	 * stays with the browser so it can still be dropped into the field.
+	 * Whether this drag is ours to handle. Inside an element, a drag without
+	 * files (selected text, a link) stays with the browser so it can still be
+	 * dropped into the field.
 	 */
 	function handles(e: DragEvent): boolean {
 		if (disabled) return false;
-		return dropScope === 'window' || !!e.dataTransfer?.types.includes('Files');
+		return dropScope === 'window' || carriesFiles(e);
+	}
+
+	/**
+	 * A disabled upload still keeps a file dropped in its scope from the browser,
+	 * which would otherwise open the file in place of the page and its draft.
+	 */
+	function refuseFileDrop(e: DragEvent) {
+		if (!disabled || !carriesFiles(e)) return;
+		e.preventDefault();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
 	}
 
 	function handleFiles(files: FileList) {
@@ -92,12 +104,12 @@
 	}
 
 	function handleDragOver(e: DragEvent) {
-		if (!handles(e)) return;
+		if (!handles(e)) return refuseFileDrop(e);
 		handleDrag(e);
 	}
 
 	function handleDrop(e: DragEvent) {
-		if (!handles(e)) return;
+		if (!handles(e)) return refuseFileDrop(e);
 		handleDrag(e);
 		ctx.isDragging = false;
 		dragCounter = 0;
