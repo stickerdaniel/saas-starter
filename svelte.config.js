@@ -56,6 +56,8 @@ const config = {
 
 	kit: {
 		adapter,
+		// Avoid a blocking request for tiny stylesheets; keep the main CSS cacheable.
+		inlineStyleThreshold: 4096,
 		alias: {
 			$blocks: 'src/blocks',
 			$static: 'static'
