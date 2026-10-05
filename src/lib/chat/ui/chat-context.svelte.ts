@@ -14,11 +14,11 @@ import type { Attachment, DisplayMessage, MessageRole } from '../core/types.js';
 import { getChatSessionEpoch, isChatSessionCurrent } from '../core/chat-persisted-state.js';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
 import type { UploadProfile } from '../../uploads/profiles.js';
-import type { AttachmentPreprocess } from './attachment-transfer.js';
 import { ComposerAttachmentCoordinator } from './composer-attachment-coordinator.svelte.ts';
 import type {
 	ActiveUploadsRegistry,
 	ComposerAttachmentSendSnapshot,
+	ComposerUploadFileOptions,
 	UploadConfig
 } from './composer-attachment-coordinator.svelte.ts';
 import {
@@ -513,7 +513,7 @@ export class ChatUIContext implements ComposerSendTarget {
 	uploadFile(
 		file: File | Blob,
 		filename?: string,
-		options?: { preprocess?: AttachmentPreprocess }
+		options?: ComposerUploadFileOptions
 	): Promise<void> {
 		return this.attachmentCoordinator.uploadFile(file, filename, options);
 	}
@@ -593,16 +593,23 @@ export class ChatUIContext implements ComposerSendTarget {
 	}
 
 	/**
-	 * Check if message can be sent
+	 * Whether what the composer holds passes the upload and size gates, whether
+	 * or not it carries any text.
 	 */
-	get canSend(): boolean {
+	get sendGatesOpen(): boolean {
 		return (
 			!this.hasUploadingFiles &&
 			!this.hasFailedUploads &&
-			!!this.inputValue.trim() &&
 			!this.exceedsMessageLength &&
 			!this.exceedsAttachmentLimit
 		);
+	}
+
+	/**
+	 * Check if message can be sent
+	 */
+	get canSend(): boolean {
+		return this.sendGatesOpen && !!this.inputValue.trim();
 	}
 
 	/**

@@ -105,6 +105,16 @@ export type ComposerAttachmentCoordinatorOptions = {
 	onForgetPersistedState?: () => void;
 };
 
+export type ComposerUploadFileOptions = {
+	preprocess?: AttachmentPreprocess;
+	/**
+	 * Reports a file whose preprocessing or final check failed while it was
+	 * still in the composer, in place of the default toast. `refusal` carries
+	 * the text to show when the failure is a known refusal.
+	 */
+	onPreprocessFailed?: (filename: string, refusal?: AttachmentRefusal) => void;
+};
+
 export type ComposerAttachmentSendSnapshot = {
 	attachments: Attachment[];
 };
@@ -364,7 +374,7 @@ export class ComposerAttachmentCoordinator {
 	async uploadFile(
 		file: File | Blob,
 		filename?: string,
-		options?: { preprocess?: AttachmentPreprocess }
+		options?: ComposerUploadFileOptions
 	): Promise<void> {
 		if (!this.uploadConfig) {
 			throw new Error('Upload config not provided to ChatUIContext');
@@ -396,7 +406,12 @@ export class ComposerAttachmentCoordinator {
 			file.type,
 			this.uploadConfig.getAccessKey?.()
 		);
-		this.settleRefusedStart(key, initialName, await transfer.start(options?.preprocess));
+		this.settleRefusedStart(
+			key,
+			initialName,
+			await transfer.start(options?.preprocess),
+			options?.onPreprocessFailed
+		);
 	}
 
 	/** Upload a screenshot whose blob already is the exact retry payload. */
@@ -759,11 +774,20 @@ export class ComposerAttachmentCoordinator {
 	}
 
 	/** Drop an attachment whose preparation failed and tell the user why. */
-	private settleRefusedStart(key: string, name: string, result: AttachmentTransferResult): void {
+	private settleRefusedStart(
+		key: string,
+		name: string,
+		result: AttachmentTransferResult,
+		onRefused?: ComposerUploadFileOptions['onPreprocessFailed']
+	): void {
 		if (result.status !== 'preprocess-failed') return;
 		const stillPresent = this.findAttachment(key) !== undefined;
 		this.discardAttachment(key);
 		if (isAttachmentTransferAbort(result.error) || !stillPresent) return;
+		if (onRefused) {
+			onRefused(name, result.error instanceof AttachmentRefusal ? result.error : undefined);
+			return;
+		}
 		if (result.error instanceof AttachmentRefusal) {
 			const { message, description } = result.error;
 			if (description) toast.error(message, { description });
