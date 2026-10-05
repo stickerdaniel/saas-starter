@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { on } from 'svelte/events';
 	import { FileUploadContext, fileUploadContext } from './file-upload-context.svelte.ts';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 
@@ -9,9 +10,21 @@
 		multiple?: boolean;
 		accept?: string;
 		disabled?: boolean;
+		/**
+		 * Where dragged files are captured: the whole window, or only inside one
+		 * element. `null` captures nothing, for an element that is not mounted yet.
+		 */
+		dropScope?: 'window' | HTMLElement | null;
 	};
 
-	let { onFilesAdded, children, multiple = true, accept, disabled = false }: Props = $props();
+	let {
+		onFilesAdded,
+		children,
+		multiple = true,
+		accept,
+		disabled = false,
+		dropScope = 'window'
+	}: Props = $props();
 
 	const ctx = fileUploadContext.set(new FileUploadContext());
 	$effect(() => {
@@ -19,7 +32,43 @@
 		ctx.disabled = disabled;
 	});
 
+	$effect(() => {
+		const target: EventTarget | null = dropScope === 'window' ? window : dropScope;
+		if (!target) return;
+		const listeners = [
+			on(target, 'dragenter', (e) => handleDragIn(e as DragEvent)),
+			on(target, 'dragleave', (e) => handleDragOut(e as DragEvent)),
+			on(target, 'dragover', (e) => handleDragOver(e as DragEvent)),
+			on(target, 'drop', (e) => handleDrop(e as DragEvent))
+		];
+		return () => {
+			for (const remove of listeners) remove();
+		};
+	});
+
 	let dragCounter = 0;
+
+	const carriesFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
+
+	/**
+	 * Whether this drag is ours to handle. Inside an element, a drag without
+	 * files (selected text, a link) stays with the browser so it can still be
+	 * dropped into the field.
+	 */
+	function handles(e: DragEvent): boolean {
+		if (disabled) return false;
+		return dropScope === 'window' || carriesFiles(e);
+	}
+
+	/**
+	 * A disabled upload still keeps a file dropped in its scope from the browser,
+	 * which would otherwise open the file in place of the page and its draft.
+	 */
+	function refuseFileDrop(e: DragEvent) {
+		if (!disabled || !carriesFiles(e)) return;
+		e.preventDefault();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+	}
 
 	function handleFiles(files: FileList) {
 		haptic.trigger('medium');
@@ -37,6 +86,7 @@
 	}
 
 	function handleDragIn(e: DragEvent) {
+		if (!handles(e)) return;
 		handleDrag(e);
 		dragCounter++;
 		if (e.dataTransfer?.items.length) {
@@ -45,6 +95,7 @@
 	}
 
 	function handleDragOut(e: DragEvent) {
+		if (!handles(e)) return;
 		handleDrag(e);
 		dragCounter--;
 		if (dragCounter === 0) {
@@ -52,7 +103,13 @@
 		}
 	}
 
+	function handleDragOver(e: DragEvent) {
+		if (!handles(e)) return refuseFileDrop(e);
+		handleDrag(e);
+	}
+
 	function handleDrop(e: DragEvent) {
+		if (!handles(e)) return refuseFileDrop(e);
 		handleDrag(e);
 		ctx.isDragging = false;
 		dragCounter = 0;
@@ -69,13 +126,6 @@
 		}
 	}
 </script>
-
-<svelte:window
-	ondragenter={handleDragIn}
-	ondragleave={handleDragOut}
-	ondragover={handleDrag}
-	ondrop={handleDrop}
-/>
 
 <input
 	type="file"

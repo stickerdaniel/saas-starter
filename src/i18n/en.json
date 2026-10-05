@@ -582,6 +582,7 @@
 			"image_compression_exceeded": "Image could not be compressed below {maxSize}",
 			"max_attachments": "Maximum {max} attachments allowed",
 			"pasted_file_too_large": "Pasted file too large",
+			"reason_with_detail": "{reason}. {detail}",
 			"upload_failed": "Failed to upload \"{filename}\"",
 			"upload_network": "Connection lost.",
 			"upload_readd_hint": "Add the file again.",
@@ -618,6 +619,7 @@
 		},
 		"tooltip": {
 			"attach_files": "Attach files",
+			"attachment_limit": "You can attach up to {max} files per message.",
 			"mark_bug": "Mark the bug",
 			"more_actions": "More actions"
 		}

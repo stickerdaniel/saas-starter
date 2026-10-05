@@ -15,6 +15,10 @@
 	variant="outline"
 	size="icon"
 	shape="pill"
-	class={cn(compact && 'border-0 bg-transparent shadow-none', className)}
+	class={cn(
+		'aria-disabled:opacity-50',
+		compact && 'border-0 bg-transparent shadow-none',
+		className
+	)}
 	{...restProps}
 />

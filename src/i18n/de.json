@@ -582,6 +582,7 @@
 			"image_compression_exceeded": "Bild konnte nicht unter {maxSize} komprimiert werden",
 			"max_attachments": "Maximal {max} Anhänge erlaubt",
 			"pasted_file_too_large": "Eingefügte Datei zu groß",
+			"reason_with_detail": "{reason}. {detail}",
 			"upload_failed": "Hochladen von \"{filename}\" fehlgeschlagen",
 			"upload_network": "Verbindung unterbrochen.",
 			"upload_readd_hint": "Datei erneut hinzufügen.",
@@ -618,6 +619,7 @@
 		},
 		"tooltip": {
 			"attach_files": "Dateien anhängen",
+			"attachment_limit": "Du kannst bis zu {max} Dateien pro Nachricht anhängen.",
 			"mark_bug": "Fehler markieren",
 			"more_actions": "Weitere Aktionen"
 		}

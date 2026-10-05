@@ -14,11 +14,11 @@ import type { Attachment, DisplayMessage, MessageRole } from '../core/types.js';
 import { getChatSessionEpoch, isChatSessionCurrent } from '../core/chat-persisted-state.js';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
 import type { UploadProfile } from '../../uploads/profiles.js';
-import type { AttachmentPreprocess } from './attachment-transfer.js';
 import { ComposerAttachmentCoordinator } from './composer-attachment-coordinator.svelte.ts';
 import type {
 	ActiveUploadsRegistry,
 	ComposerAttachmentSendSnapshot,
+	ComposerUploadFileOptions,
 	UploadConfig
 } from './composer-attachment-coordinator.svelte.ts';
 import {
@@ -121,12 +121,17 @@ export class ChatUIContext implements ComposerSendTarget {
 	private readonly options: ChatUIContextOptions;
 	private readonly sendOwner: ComposerSendCoordinator;
 	private readonly detachFromSendOwner: () => void;
+	/** Moves whenever the send owner's pending sends do. */
+	private pendingSendsVersion = $state(0);
 
 	/** Attachment collection and lifecycle owner behind this UI facade. */
 	private readonly attachmentCoordinator: ComposerAttachmentCoordinator;
 
 	/** The one composer mounted inside this ChatRoot. */
 	private composerFocus?: () => void;
+
+	/** Where that composer wants a refused screenshot reported. */
+	private composerRefusal?: ComposerUploadFileOptions['onPreprocessFailed'];
 
 	/** Tracks if we've ever displayed messages in this session */
 	private _hasEverDisplayedMessages = false;
@@ -165,7 +170,8 @@ export class ChatUIContext implements ComposerSendTarget {
 				};
 				this.inputValue = '';
 				this.inputRevision++;
-			}
+			},
+			pendingSendAttachments: () => this.pendingSendAttachments
 		});
 		this.detachFromSendOwner = this.sendOwner.attachTarget(this);
 	}
@@ -325,6 +331,19 @@ export class ChatUIContext implements ComposerSendTarget {
 		this.composerFocus?.();
 	}
 
+	/** Report screenshots refused before upload through the mounted composer. */
+	registerAttachmentRefusal(
+		handler: NonNullable<ComposerUploadFileOptions['onPreprocessFailed']>
+	): void {
+		this.composerRefusal = handler;
+	}
+
+	unregisterAttachmentRefusal(
+		handler: NonNullable<ComposerUploadFileOptions['onPreprocessFailed']>
+	): void {
+		if (this.composerRefusal === handler) this.composerRefusal = undefined;
+	}
+
 	/**
 	 * Set input value
 	 */
@@ -461,6 +480,20 @@ export class ChatUIContext implements ComposerSendTarget {
 		return this.attachmentCoordinator.sendResources();
 	}
 
+	pendingSendsChanged(): void {
+		this.pendingSendsVersion = untrack(() => this.pendingSendsVersion) + 1;
+	}
+
+	/** Files this conversation's unsettled sends hold, which a refusal would put back here. */
+	private get pendingSendAttachments(): number {
+		// The owner is a plain class and reads the origin untracked, so these reads
+		// are what re-run a dependent when a send settles or the thread changes.
+		void this.pendingSendsVersion;
+		void this.core.threadGeneration;
+		void this.core.threadId;
+		return this.sendOwner.pendingAttachmentCount(this);
+	}
+
 	/** Rendered attachments for the current composer. */
 	get attachments(): Attachment[] {
 		return this.attachmentCoordinator.attachments;
@@ -476,7 +509,7 @@ export class ChatUIContext implements ComposerSendTarget {
 		return this.attachmentCoordinator.maxAttachments;
 	}
 
-	/** Whether another picked attachment fits the cap. */
+	/** Whether another file fits the cap, counting the files of pending sends. */
 	get canAddAttachment(): boolean {
 		return this.attachmentCoordinator.canAddAttachment;
 	}
@@ -513,7 +546,7 @@ export class ChatUIContext implements ComposerSendTarget {
 	uploadFile(
 		file: File | Blob,
 		filename?: string,
-		options?: { preprocess?: AttachmentPreprocess }
+		options?: ComposerUploadFileOptions
 	): Promise<void> {
 		return this.attachmentCoordinator.uploadFile(file, filename, options);
 	}
@@ -529,7 +562,9 @@ export class ChatUIContext implements ComposerSendTarget {
 		filename: string,
 		dimensions?: { width: number; height: number }
 	): Promise<void> {
-		return this.attachmentCoordinator.uploadScreenshot(blob, filename, dimensions);
+		return this.attachmentCoordinator.uploadScreenshot(blob, filename, dimensions, {
+			onPreprocessFailed: this.composerRefusal
+		});
 	}
 
 	/**
@@ -593,16 +628,23 @@ export class ChatUIContext implements ComposerSendTarget {
 	}
 
 	/**
-	 * Check if message can be sent
+	 * Whether what the composer holds passes the upload and size gates, whether
+	 * or not it carries any text.
 	 */
-	get canSend(): boolean {
+	get sendGatesOpen(): boolean {
 		return (
 			!this.hasUploadingFiles &&
 			!this.hasFailedUploads &&
-			!!this.inputValue.trim() &&
 			!this.exceedsMessageLength &&
 			!this.exceedsAttachmentLimit
 		);
+	}
+
+	/**
+	 * Check if message can be sent
+	 */
+	get canSend(): boolean {
+		return this.sendGatesOpen && !!this.inputValue.trim();
 	}
 
 	/**

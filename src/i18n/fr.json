@@ -582,6 +582,7 @@
 			"image_compression_exceeded": "L'image n'a pas pu être compressée en dessous de {maxSize}",
 			"max_attachments": "Maximum {max} pièces jointes autorisées",
 			"pasted_file_too_large": "Fichier collé trop volumineux",
+			"reason_with_detail": "{reason}. {detail}",
 			"upload_failed": "Échec du téléversement de « {filename} »",
 			"upload_network": "Connexion perdue.",
 			"upload_readd_hint": "Ajoute de nouveau le fichier.",
@@ -618,6 +619,7 @@
 		},
 		"tooltip": {
 			"attach_files": "Joindre des fichiers",
+			"attachment_limit": "Tu peux joindre jusqu’à {max} fichiers par message.",
 			"mark_bug": "Marquer le bug",
 			"more_actions": "Plus d’actions"
 		}

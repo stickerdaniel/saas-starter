@@ -103,6 +103,18 @@ export type ComposerAttachmentCoordinatorOptions = {
 	uploadConfig?: UploadConfig;
 	activeUploads?: ActiveUploadsRegistry | null;
 	onForgetPersistedState?: () => void;
+	/** Files this composer's unsettled sends hold; a refusal puts them back, so they keep their slots. */
+	pendingSendAttachments?: () => number;
+};
+
+export type ComposerUploadFileOptions = {
+	preprocess?: AttachmentPreprocess;
+	/**
+	 * Reports a file whose preprocessing or final check failed while it was
+	 * still in the composer, in place of the default toast. `refusal` carries
+	 * the text to show when the failure is a known refusal.
+	 */
+	onPreprocessFailed?: (filename: string, refusal?: AttachmentRefusal) => void;
 };
 
 export type ComposerAttachmentSendSnapshot = {
@@ -144,6 +156,7 @@ export class ComposerAttachmentCoordinator {
 	private readonly uploadConfig?: UploadConfig;
 	private readonly activeUploads: ActiveUploadsRegistry | null;
 	private readonly onForgetPersistedState?: () => void;
+	private readonly pendingSendAttachments: () => number;
 
 	/** Last thread observed by the chat rendering this coordinator. */
 	private lastThreadId: string | null | undefined = undefined;
@@ -157,6 +170,7 @@ export class ComposerAttachmentCoordinator {
 		this.uploadConfig = options.uploadConfig;
 		this.activeUploads = options.activeUploads ?? null;
 		this.onForgetPersistedState = options.onForgetPersistedState;
+		this.pendingSendAttachments = options.pendingSendAttachments ?? (() => 0);
 		this.profile = options.uploadConfig?.profile ?? DEFAULT_ATTACHMENT_PROFILE;
 		this.maxAttachments = this.profile.maxFiles;
 
@@ -170,9 +184,9 @@ export class ComposerAttachmentCoordinator {
 		this.unregister = registerPersistedChatHolder(this);
 	}
 
-	/** Whether another pick can enter the live composer at the normal pick-time cap. */
+	/** Whether another pick fits the cap beside the files pending sends may bring back. */
 	get canAddAttachment(): boolean {
-		return this.attachments.length < this.maxAttachments;
+		return this.attachments.length + this.pendingSendAttachments() < this.maxAttachments;
 	}
 
 	/** Whether a file's source or transformed identity is already live. */
@@ -364,7 +378,7 @@ export class ComposerAttachmentCoordinator {
 	async uploadFile(
 		file: File | Blob,
 		filename?: string,
-		options?: { preprocess?: AttachmentPreprocess }
+		options?: ComposerUploadFileOptions
 	): Promise<void> {
 		if (!this.uploadConfig) {
 			throw new Error('Upload config not provided to ChatUIContext');
@@ -396,14 +410,20 @@ export class ComposerAttachmentCoordinator {
 			file.type,
 			this.uploadConfig.getAccessKey?.()
 		);
-		this.settleRefusedStart(key, initialName, await transfer.start(options?.preprocess));
+		this.settleRefusedStart(
+			key,
+			initialName,
+			await transfer.start(options?.preprocess),
+			options?.onPreprocessFailed
+		);
 	}
 
 	/** Upload a screenshot whose blob already is the exact retry payload. */
 	async uploadScreenshot(
 		blob: Blob,
 		filename: string,
-		dimensions?: { width: number; height: number }
+		dimensions?: { width: number; height: number },
+		options?: Pick<ComposerUploadFileOptions, 'onPreprocessFailed'>
 	): Promise<void> {
 		if (!this.uploadConfig) {
 			throw new Error('Upload config not provided to ChatUIContext');
@@ -433,7 +453,7 @@ export class ComposerAttachmentCoordinator {
 			dimensions,
 			false
 		);
-		this.settleRefusedStart(key, filename, await transfer.start());
+		this.settleRefusedStart(key, filename, await transfer.start(), options?.onPreprocessFailed);
 	}
 
 	/** Retry with the transfer's exact retained post-preprocessing payload. */
@@ -759,11 +779,20 @@ export class ComposerAttachmentCoordinator {
 	}
 
 	/** Drop an attachment whose preparation failed and tell the user why. */
-	private settleRefusedStart(key: string, name: string, result: AttachmentTransferResult): void {
+	private settleRefusedStart(
+		key: string,
+		name: string,
+		result: AttachmentTransferResult,
+		onRefused?: ComposerUploadFileOptions['onPreprocessFailed']
+	): void {
 		if (result.status !== 'preprocess-failed') return;
 		const stillPresent = this.findAttachment(key) !== undefined;
 		this.discardAttachment(key);
 		if (isAttachmentTransferAbort(result.error) || !stillPresent) return;
+		if (onRefused) {
+			onRefused(name, result.error instanceof AttachmentRefusal ? result.error : undefined);
+			return;
+		}
 		if (result.error instanceof AttachmentRefusal) {
 			const { message, description } = result.error;
 			if (description) toast.error(message, { description });

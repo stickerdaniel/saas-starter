@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, tick, type Snippet } from 'svelte';
+	import { on } from 'svelte/events';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { fly } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
@@ -15,6 +16,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import ComposerAttachmentButton from '$lib/components/ui/owned/composer-attachment-button.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import CameraIcon from '@lucide/svelte/icons/camera';
@@ -22,6 +24,7 @@
 	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import ChatAttachments from './ChatAttachments.svelte';
+	import { cn } from '$lib/utils';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { getChatUIContext } from './chat-context.svelte.ts';
 	import { processImage } from '$lib/media/process-image';
@@ -52,12 +55,20 @@
 		compact = false,
 		isHumanOnly = false,
 		isRateLimited = false,
+		disabled = false,
+		attachmentsDisabledReason,
+		allowAttachmentOnlySend = false,
+		dropScope = 'window',
 		onScreenshot,
 		onSend,
+		onEmptySubmit,
 		onRequestHandoff,
+		onAttachmentRejected,
 		actionsLeft,
 		actionsRight,
-		class: className = ''
+		notice,
+		class: className = '',
+		contentClass
 	}: {
 		/** Suggestion chips to show when empty */
 		suggestions?: Array<{ text: string; label: string }>;
@@ -86,18 +97,44 @@
 		isHumanOnly?: boolean;
 		/** Whether user is rate limited from sending messages */
 		isRateLimited?: boolean;
+		/**
+		 * Whether the user may not write here at all, as opposed to waiting on a
+		 * reply. Disables the field, sending, and every way to add a file.
+		 */
+		disabled?: boolean;
+		/**
+		 * Why files cannot be attached right now, shown while set. New files are
+		 * refused and files already selected cannot be sent until this clears or
+		 * they are removed; text alone still sends.
+		 */
+		attachmentsDisabledReason?: string;
+		/** Whether selected files may be sent without any text */
+		allowAttachmentOnlySend?: boolean;
+		/** Where dropped files are captured: the whole window, or only on the composer */
+		dropScope?: 'window' | 'composer';
 		/** Callback when screenshot button clicked */
 		onScreenshot?: () => void;
 		/** Callback when message is sent - receives the prompt text */
 		onSend?: (prompt: string) => Promise<void> | void;
+		/** Called when the user submits a composer with no text and no files */
+		onEmptySubmit?: () => void;
 		/** Callback when user requests handoff to human support */
 		onRequestHandoff?: () => void;
-		/** Custom left actions slot */
-		actionsLeft?: Snippet;
-		/** Custom right actions slot */
-		actionsRight?: Snippet;
+		/**
+		 * Receives every refused or failed file in place of the default toasts, so
+		 * the caller can show it persistently, for example through `notice`.
+		 */
+		onAttachmentRejected?: (rejection: { filename: string; reason: string }) => void;
+		/** Custom left actions slot; receives the default actions to render alongside */
+		actionsLeft?: Snippet<[defaults: Snippet]>;
+		/** Custom right actions slot; receives the default actions to render alongside */
+		actionsRight?: Snippet<[defaults: Snippet]>;
+		/** Persistent feedback shown above the composer while set */
+		notice?: Snippet;
 		/** Additional CSS classes */
 		class?: string;
+		/** Classes for the compact layout's wrapper around the field and its actions */
+		contentClass?: string;
 	} = $props();
 
 	const ctx = getChatUIContext();
@@ -111,10 +148,40 @@
 	let placeholderTimer: ReturnType<typeof setInterval> | undefined;
 	const focusComposer = () => containerEl?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
 	ctx.registerComposerFocus(focusComposer);
+	// A screenshot reaches the context from the caller, not through this composer.
+	ctx.registerAttachmentRefusal(rejectPreparedAttachment);
 
 	// Use centralized isProcessing from context (single source of truth)
 	// When handed off to human support, don't block - use fire-and-forget pattern
-	const canSend = $derived(ctx.canSend && (!ctx.isProcessing || isHumanOnly) && !isRateLimited);
+	const isBusy = $derived(ctx.isProcessing && !isHumanOnly);
+	const acceptsAttachments = $derived(!disabled && !attachmentsDisabledReason);
+	// At the cap the file controls stay hoverable and focusable, so their tooltip
+	// can say why nothing happens; a real `disabled` would swallow both.
+	const atAttachmentCap = $derived(acceptsAttachments && !ctx.canAddAttachment);
+	const canAddFiles = $derived(acceptsAttachments && ctx.canAddAttachment);
+	const attachmentLimitHint = $derived(
+		$t('chat.tooltip.attachment_limit', { max: ctx.maxAttachments })
+	);
+	// Shut again whenever a gate changes, so a menu opened before a gate closed
+	// neither outlives it nor reopens by itself when the gate lifts.
+	let attachMenuOpen = $derived.by(() => {
+		void canAddFiles;
+		return false;
+	});
+	let attachmentLimitHintOpen = $state(false);
+	const hasText = $derived(!!ctx.inputValue.trim());
+	const hasAttachments = $derived(ctx.attachments.length > 0);
+	// Every gate a submission passes, whatever it carries. Uploading and failed
+	// files count as content, so an empty composer never waits on them.
+	const submitOpen = $derived(
+		!disabled &&
+			!isBusy &&
+			!isRateLimited &&
+			ctx.sendGatesOpen &&
+			(!attachmentsDisabledReason || !hasAttachments)
+	);
+	const canSend = $derived(submitOpen && (hasText || (allowAttachmentOnlySend && hasAttachments)));
+	const canSubmitEmpty = $derived(submitOpen && !!onEmptySubmit && !hasText && !hasAttachments);
 
 	const showSuggestions = $derived(
 		(ctx.core.isNewConversation || ctx.messagesReady) &&
@@ -186,6 +253,7 @@
 	onDestroy(() => {
 		stopPlaceholderRotation();
 		ctx.unregisterComposerFocus(focusComposer);
+		ctx.unregisterAttachmentRefusal(rejectPreparedAttachment);
 	});
 
 	// Check if last assistant message is complete (for handoff button visibility)
@@ -205,7 +273,13 @@
 	});
 
 	async function handleSend() {
-		if (!canSend) return;
+		if (!canSend) {
+			if (canSubmitEmpty) {
+				haptic.trigger('medium');
+				onEmptySubmit?.();
+			}
+			return;
+		}
 		haptic.trigger('medium');
 		const snapshot = ctx.captureSendSnapshot();
 		const prompt = snapshot.inputValue.trim();
@@ -235,12 +309,24 @@
 		ctx.setInputValue(value);
 	}
 
+	// This and openFilePicker check the gates again: a menu item rendered before
+	// a gate closed can still be chosen until the menu leaves the screen.
 	function handleCameraClick() {
-		onScreenshot?.();
+		if (canAddFiles) onScreenshot?.();
+	}
+
+	/**
+	 * Keeps a file control at the cap from acting. It runs in the capture phase,
+	 * so the picker trigger wrapped around the paperclip never sees the click.
+	 */
+	function holdAtCap(event: MouseEvent) {
+		if (!atAttachmentCap) return;
+		event.preventDefault();
+		event.stopPropagation();
 	}
 
 	function openFilePicker() {
-		fileInputEl?.click();
+		if (canAddFiles) fileInputEl?.click();
 	}
 
 	function handleFileInput(event: Event) {
@@ -315,42 +401,82 @@
 		});
 	});
 
-	// Window-level drag/drop for the compact composer. The non-compact path gets
-	// this from <FileUpload>; the compact path handles it here so a dropped file
-	// attaches (and, critically, so the browser doesn't navigate away to open it).
-	let dragActive = $state(false);
-	let dragDepth = 0;
-	const dropEnabled = $derived(compact && showFileButton && !isRateLimited);
+	// Drag/drop for the compact composer, on the window or on the composer
+	// alone. The non-compact path gets this from <FileUpload>; the compact path
+	// handles it here so a dropped file attaches (and, critically, so the browser
+	// doesn't navigate away to open it).
+	const dropEnabled = $derived(compact && showFileButton && !isRateLimited && acceptsAttachments);
+	// Starts over whenever eligibility or scope changes: a drag refused midway
+	// skips its own leave and drop, and must not revive the overlay once files
+	// are accepted again.
+	let drag = $derived.by(() => {
+		void dropEnabled;
+		void dropScope;
+		return { depth: 0, active: false };
+	});
 
-	function handleWindowDragEnter(event: DragEvent) {
-		if (!dropEnabled) return;
-		event.preventDefault();
-		dragDepth += 1;
-		if (event.dataTransfer?.types.includes('Files')) dragActive = true;
+	/**
+	 * Whether this drag belongs to the compact handlers in `scope`. On the
+	 * composer alone, a drag without files (selected text, a link) stays with
+	 * the browser so it can still be dropped into the field.
+	 */
+	function handlesDrag(event: DragEvent, scope: 'window' | 'composer'): boolean {
+		if (!dropEnabled || dropScope !== scope) return false;
+		return scope === 'window' || !!event.dataTransfer?.types.includes('Files');
 	}
 
-	function handleWindowDragOver(event: DragEvent) {
-		if (!dropEnabled) return;
+	/**
+	 * A compact composer that cannot take a file right now still keeps one
+	 * dropped in its scope from the browser, which would otherwise open the file
+	 * in place of the page and its draft. The window is only claimed by a
+	 * composer that shows file controls at all.
+	 */
+	function refuseFileDrop(event: DragEvent, scope: 'window' | 'composer') {
+		if (!compact || dropScope !== scope || !event.dataTransfer?.types.includes('Files')) return;
+		if (scope === 'window' && !showFileButton) return;
+		event.preventDefault();
+		event.dataTransfer.dropEffect = 'none';
+	}
+
+	function handleDragEnter(event: DragEvent, scope: 'window' | 'composer') {
+		if (!handlesDrag(event, scope)) return;
+		event.preventDefault();
+		drag = {
+			depth: drag.depth + 1,
+			active: drag.active || !!event.dataTransfer?.types.includes('Files')
+		};
+	}
+
+	function handleDragOver(event: DragEvent, scope: 'window' | 'composer') {
+		if (!handlesDrag(event, scope)) return refuseFileDrop(event, scope);
 		event.preventDefault();
 	}
 
-	function handleWindowDragLeave(event: DragEvent) {
-		if (!dropEnabled) return;
+	function handleDragLeave(event: DragEvent, scope: 'window' | 'composer') {
+		if (!handlesDrag(event, scope)) return;
 		event.preventDefault();
-		dragDepth -= 1;
-		if (dragDepth <= 0) {
-			dragDepth = 0;
-			dragActive = false;
-		}
+		const depth = drag.depth - 1;
+		drag = depth > 0 ? { depth, active: drag.active } : { depth: 0, active: false };
 	}
 
-	function handleWindowDrop(event: DragEvent) {
-		if (!dropEnabled) return;
+	function handleDrop(event: DragEvent, scope: 'window' | 'composer') {
+		if (!handlesDrag(event, scope)) return refuseFileDrop(event, scope);
 		event.preventDefault();
-		dragDepth = 0;
-		dragActive = false;
+		drag = { depth: 0, active: false };
 		const files = event.dataTransfer?.files;
 		if (files?.length) void handleFilesAdded(Array.from(files));
+	}
+
+	function composerDragTarget(node: HTMLElement) {
+		const listeners = [
+			on(node, 'dragenter', (event) => handleDragEnter(event, 'composer')),
+			on(node, 'dragover', (event) => handleDragOver(event, 'composer')),
+			on(node, 'dragleave', (event) => handleDragLeave(event, 'composer')),
+			on(node, 'drop', (event) => handleDrop(event, 'composer'))
+		];
+		return () => {
+			for (const remove of listeners) remove();
+		};
 	}
 
 	/** A generic browser type counts as the type its extension maps to. */
@@ -384,6 +510,7 @@
 	function attachFile(file: File | Blob, filename: string) {
 		if (file.type?.startsWith('image/')) {
 			ctx.uploadFile(file, filename, {
+				onPreprocessFailed: rejectPreparedAttachment,
 				preprocess: async (input) => {
 					const processed = await processImage(input);
 					// Post-process guard. WebP at q=85 is almost always smaller
@@ -432,17 +559,45 @@
 			});
 			return;
 		}
-		ctx.uploadFile(file, filename);
+		ctx.uploadFile(file, filename, { onPreprocessFailed: rejectPreparedAttachment });
+	}
+
+	/**
+	 * Feedback for a file the coordinator refused after it was added. That
+	 * settles later, so this reads the rejection handler current by then.
+	 */
+	function rejectPreparedAttachment(filename: string, refusal?: AttachmentRefusal) {
+		rejectAttachment(
+			filename,
+			refusal?.message ?? $t('chat.error.upload_failed', { filename }),
+			refusal?.description
+		);
+	}
+
+	/** One owner for refused files: the caller's handler when set, a toast otherwise. */
+	function rejectAttachment(filename: string, title: string, description?: string) {
+		if (!onAttachmentRejected) {
+			if (description) toast.error(title, { description });
+			else toast.error(title);
+			return;
+		}
+		const reason = description
+			? $t('chat.error.reason_with_detail', { reason: title, detail: description })
+			: title;
+		onAttachmentRejected({ filename, reason });
 	}
 
 	async function handleFilesAdded(files: File[]) {
+		if (!acceptsAttachments) return;
 		// Upload files through context (with duplicate detection and size validation)
 		for (const raw of files) {
 			// Check attachment limit
 			if (!ctx.canAddAttachment) {
 				haptic.trigger('error');
-				toast.error($t('chat.error.max_attachments', { max: ctx.maxAttachments }));
-				break;
+				rejectAttachment(raw.name, $t('chat.error.max_attachments', { max: ctx.maxAttachments }));
+				// One toast covers the batch; a handler hears about every file.
+				if (!onAttachmentRejected) break;
+				continue;
 			}
 
 			// MIME allowlist gate (drag/drop bypasses the file picker's
@@ -450,7 +605,7 @@
 			// to processImage and waste an upload before the server rejects).
 			if (!isAllowedKind(raw)) {
 				haptic.trigger('error');
-				toast.error($t('chat.error.file_type_not_allowed', { filename: raw.name }));
+				rejectAttachment(raw.name, $t('chat.error.file_type_not_allowed', { filename: raw.name }));
 				continue;
 			}
 
@@ -464,9 +619,11 @@
 
 			if (file.size > cap) {
 				haptic.trigger('error');
-				toast.error($t('chat.error.file_too_large', { filename: file.name }), {
-					description: $t('chat.error.file_max_size', { maxSize: label })
-				});
+				rejectAttachment(
+					file.name,
+					$t('chat.error.file_too_large', { filename: file.name }),
+					$t('chat.error.file_max_size', { maxSize: label })
+				);
 				continue;
 			}
 
@@ -487,14 +644,24 @@
 	}
 
 	function handleSuggestionClick(text: string) {
+		if (disabled) return;
 		ctx.setInputValue(text);
 		tick().then(() => {
 			containerEl?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
 		});
 	}
 
+	/** The pasted file's own name, or one made up from its type. */
+	function pastedFilename(file: File): string {
+		return (
+			file.name ||
+			`pasted-${file.type.startsWith('image/') ? 'image' : 'file'}-${Date.now()}.${file.type.split('/')[1] || 'bin'}`
+		);
+	}
+
 	function handlePaste(event: ClipboardEvent) {
-		if (!showFileButton) return;
+		// Text still pastes into the field; only file items are refused.
+		if (!showFileButton || !acceptsAttachments) return;
 		const items = event.clipboardData?.items;
 		if (!items) return;
 
@@ -510,19 +677,29 @@
 			// Extension-aware allowlist gate: a pasted file's clipboard type is
 			// often empty/generic (notably .md/.txt), so check the extension
 			// fallback like handleFilesAdded rather than the bare item.type.
-			if (!isAllowedKind(raw)) continue;
-
-			// Check attachment limit
-			if (!ctx.canAddAttachment) {
-				haptic.trigger('error');
-				toast.error($t('chat.error.max_attachments', { max: ctx.maxAttachments }));
-				break;
+			// Without a rejection handler this stays silent, as it always was.
+			if (!isAllowedKind(raw)) {
+				if (onAttachmentRejected) {
+					const filename = pastedFilename(raw);
+					rejectAttachment(filename, $t('chat.error.file_type_not_allowed', { filename }));
+				}
+				continue;
 			}
 
 			// Coerce empty/generic MIME from the extension before branching, so
 			// attachFile routes images through processImage and the upload sends
 			// the correct Content-Type for text files.
 			const file = normalizeMime(raw);
+			const filename = pastedFilename(file);
+
+			// Check attachment limit
+			if (!ctx.canAddAttachment) {
+				haptic.trigger('error');
+				rejectAttachment(filename, $t('chat.error.max_attachments', { max: ctx.maxAttachments }));
+				// One toast covers the batch; a handler hears about every file.
+				if (!onAttachmentRejected) break;
+				continue;
+			}
 
 			// Type-aware size cap — images go through processImage which
 			// shrinks them before upload, so we only enforce the absurdity
@@ -533,16 +710,13 @@
 			const label = isImage ? MAX_INPUT_IMAGE_SIZE_LABEL : profile.maxBytesLabel;
 
 			if (file.size > cap) {
-				toast.error($t('chat.error.pasted_file_too_large'), {
-					description: $t('chat.error.file_max_size', { maxSize: label })
-				});
+				rejectAttachment(
+					filename,
+					$t('chat.error.pasted_file_too_large'),
+					$t('chat.error.file_max_size', { maxSize: label })
+				);
 				continue;
 			}
-
-			// Use original filename if available, otherwise generate one
-			const filename =
-				file.name ||
-				`pasted-${file.type.startsWith('image/') ? 'image' : 'file'}-${Date.now()}.${file.type.split('/')[1] || 'bin'}`;
 
 			// Check for duplicates (unlikely for pasted files, but consistent with file upload)
 			if (!ctx.hasFile(filename, file.size)) {
@@ -553,143 +727,189 @@
 </script>
 
 <svelte:window
-	ondragenter={handleWindowDragEnter}
-	ondragover={handleWindowDragOver}
-	ondragleave={handleWindowDragLeave}
-	ondrop={handleWindowDrop}
+	ondragenter={(event) => handleDragEnter(event, 'window')}
+	ondragover={(event) => handleDragOver(event, 'window')}
+	ondragleave={(event) => handleDragLeave(event, 'window')}
+	ondrop={(event) => handleDrop(event, 'window')}
 />
+
+{#snippet defaultLeftActions()}
+	{#if compact && (showFileButton || showCameraButton)}
+		<!-- The menu holds only file actions: at the cap it stays shut and the
+		     trigger's tooltip names the limit instead. -->
+		<DropdownMenu.Root
+			bind:open={() => attachMenuOpen, (open) => (attachMenuOpen = open && canAddFiles)}
+		>
+			<Tooltip.Root
+				bind:open={
+					() => attachmentLimitHintOpen && atAttachmentCap,
+					(open) => (attachmentLimitHintOpen = open)
+				}
+			>
+				<Tooltip.Trigger>
+					{#snippet child({ props: tooltipProps })}
+						<DropdownMenu.Trigger {...tooltipProps} disabled={!acceptsAttachments}>
+							{#snippet child({ props })}
+								<Button
+									{...props}
+									variant="ghost"
+									size="icon"
+									shape="pill"
+									aria-disabled={atAttachmentCap || undefined}
+									aria-label={$t('chat.tooltip.more_actions')}
+								>
+									<!-- A ghost button is only its icon at rest, so dimming the icon reads as disabled. -->
+									<PlusIcon
+										class={['size-4.5', atAttachmentCap && 'opacity-50']}
+										aria-hidden="true"
+									/>
+								</Button>
+							{/snippet}
+						</DropdownMenu.Trigger>
+					{/snippet}
+				</Tooltip.Trigger>
+				<Tooltip.Content side="top" class="z-250">
+					<p>{attachmentLimitHint}</p>
+				</Tooltip.Content>
+			</Tooltip.Root>
+			<DropdownMenu.Content align="start" side="top" class="w-48">
+				{#if showFileButton}
+					<DropdownMenu.Item onclick={openFilePicker}>
+						<PaperclipIcon class="size-4" aria-hidden="true" />
+						{$t('chat.tooltip.attach_files')}
+					</DropdownMenu.Item>
+				{/if}
+				{#if showCameraButton}
+					<DropdownMenu.Item onclick={handleCameraClick}>
+						<ImageIcon class="size-4" aria-hidden="true" />
+						{$t('chat.tooltip.mark_bug')}
+					</DropdownMenu.Item>
+				{/if}
+			</DropdownMenu.Content>
+		</DropdownMenu.Root>
+		{#if showFileButton}
+			<!-- Triggered only via the menu / drop; `hidden` keeps it out of the tab
+			     order and the a11y tree. -->
+			<input
+				bind:this={fileInputEl}
+				type="file"
+				multiple
+				accept={acceptedFiles}
+				hidden
+				aria-hidden="true"
+				tabindex="-1"
+				disabled={!acceptsAttachments}
+				onchange={handleFileInput}
+			/>
+		{/if}
+	{:else}
+		{#if showCameraButton}
+			<PromptInputAction>
+				{#snippet tooltip()}
+					<p>{atAttachmentCap ? attachmentLimitHint : $t('chat.tooltip.mark_bug')}</p>
+				{/snippet}
+				{#snippet children(props)}
+					<ComposerAttachmentButton
+						{...props}
+						{compact}
+						disabled={!acceptsAttachments}
+						aria-disabled={atAttachmentCap || undefined}
+						onclickcapture={holdAtCap}
+						onclick={handleCameraClick}
+						aria-label={$t('chat.tooltip.mark_bug')}
+					>
+						<CameraIcon class="h-4.5 w-4.5" />
+					</ComposerAttachmentButton>
+				{/snippet}
+			</PromptInputAction>
+		{/if}
+		{#if showFileButton}
+			<FileUpload
+				onFilesAdded={handleFilesAdded}
+				multiple={true}
+				accept={acceptedFiles}
+				disabled={!acceptsAttachments}
+				dropScope={dropScope === 'window' ? 'window' : (containerEl ?? null)}
+			>
+				<PromptInputAction>
+					{#snippet tooltip()}
+						<p>{atAttachmentCap ? attachmentLimitHint : $t('chat.tooltip.attach_files')}</p>
+					{/snippet}
+					{#snippet children(props)}
+						<FileUploadTrigger asChild={true}>
+							<ComposerAttachmentButton
+								{...props}
+								{compact}
+								disabled={!acceptsAttachments}
+								aria-disabled={atAttachmentCap || undefined}
+								onclickcapture={holdAtCap}
+								aria-label={$t('chat.tooltip.attach_files')}
+							>
+								<PaperclipIcon class="h-4.5 w-4.5" />
+							</ComposerAttachmentButton>
+						</FileUploadTrigger>
+					{/snippet}
+				</PromptInputAction>
+			</FileUpload>
+		{/if}
+	{/if}
+{/snippet}
 
 {#snippet leftActions()}
 	<div class="flex items-center gap-2">
 		{#if actionsLeft}
-			{@render actionsLeft()}
-		{:else if compact && (showFileButton || showCameraButton)}
-			<DropdownMenu.Root>
-				<DropdownMenu.Trigger>
-					{#snippet child({ props })}
-						<Button
-							{...props}
-							variant="ghost"
-							size="icon"
-							shape="pill"
-							aria-label={$t('chat.tooltip.more_actions')}
-						>
-							<PlusIcon class="size-4.5" aria-hidden="true" />
-						</Button>
-					{/snippet}
-				</DropdownMenu.Trigger>
-				<DropdownMenu.Content align="start" side="top" class="w-48">
-					{#if showFileButton}
-						<DropdownMenu.Item onclick={openFilePicker}>
-							<PaperclipIcon class="size-4" aria-hidden="true" />
-							{$t('chat.tooltip.attach_files')}
-						</DropdownMenu.Item>
-					{/if}
-					{#if showCameraButton}
-						<DropdownMenu.Item onclick={handleCameraClick}>
-							<ImageIcon class="size-4" aria-hidden="true" />
-							{$t('chat.tooltip.mark_bug')}
-						</DropdownMenu.Item>
-					{/if}
-				</DropdownMenu.Content>
-			</DropdownMenu.Root>
-			{#if showFileButton}
-				<!-- Triggered only via the menu / drop; `hidden` keeps it out of the tab
-				     order and the a11y tree. -->
-				<input
-					bind:this={fileInputEl}
-					type="file"
-					multiple
-					accept={acceptedFiles}
-					hidden
-					aria-hidden="true"
-					tabindex="-1"
-					onchange={handleFileInput}
-				/>
-			{/if}
+			{@render actionsLeft(defaultLeftActions)}
 		{:else}
-			{#if showCameraButton}
-				<PromptInputAction>
-					{#snippet tooltip()}
-						<p>{$t('chat.tooltip.mark_bug')}</p>
-					{/snippet}
-					{#snippet children(props)}
-						<ComposerAttachmentButton
-							{...props}
-							{compact}
-							onclick={handleCameraClick}
-							aria-label={$t('chat.tooltip.mark_bug')}
-						>
-							<CameraIcon class="h-4.5 w-4.5" />
-						</ComposerAttachmentButton>
-					{/snippet}
-				</PromptInputAction>
-			{/if}
-			{#if showFileButton}
-				<FileUpload onFilesAdded={handleFilesAdded} multiple={true} accept={acceptedFiles}>
-					<PromptInputAction>
-						{#snippet tooltip()}
-							<p>{$t('chat.tooltip.attach_files')}</p>
-						{/snippet}
-						{#snippet children(props)}
-							<FileUploadTrigger asChild={true}>
-								<ComposerAttachmentButton
-									{...props}
-									{compact}
-									aria-label={$t('chat.tooltip.attach_files')}
-								>
-									<PaperclipIcon class="h-4.5 w-4.5" />
-								</ComposerAttachmentButton>
-							</FileUploadTrigger>
-						{/snippet}
-					</PromptInputAction>
-				</FileUpload>
-			{/if}
+			{@render defaultLeftActions()}
 		{/if}
+	</div>
+{/snippet}
+
+{#snippet defaultRightActions()}
+	<div class="flex min-w-0 items-center gap-2">
+		{#if showHandoffButton}
+			{@const isVisible =
+				ctx.core.threadId !== null &&
+				ctx.displayMessages.length > 1 &&
+				!isHumanOnly &&
+				hasShownHandoffButton}
+			<div
+				class="min-w-0 transition-opacity duration-200 {isVisible
+					? 'opacity-100'
+					: 'pointer-events-none opacity-0'}"
+				inert={!isVisible ? true : undefined}
+			>
+				<PromptSuggestion class="max-w-full" onclick={() => onRequestHandoff?.()}>
+					<span class="block truncate">{$t('chat.action.talk_to_human')}</span>
+				</PromptSuggestion>
+			</div>
+		{/if}
+		<Button
+			size="icon"
+			shape="pill"
+			disabled={!canSend && !canSubmitEmpty}
+			onclick={handleSend}
+			aria-label={$t('chat.aria.send')}
+			data-testid="chat-input-send"
+		>
+			{#if ctx.isProcessing && !isHumanOnly}
+				<LoaderCircleIcon class="h-4.5 w-4.5 motion-safe:animate-spin" />
+			{:else}
+				<ArrowUpIcon class="h-4.5 w-4.5" />
+			{/if}
+		</Button>
 	</div>
 {/snippet}
 
 {#snippet rightActions()}
 	{#if actionsRight}
-		{@render actionsRight()}
+		{@render actionsRight(defaultRightActions)}
 	{:else}
-		<div class="flex min-w-0 items-center gap-2">
-			{#if showHandoffButton}
-				{@const isVisible =
-					ctx.core.threadId !== null &&
-					ctx.displayMessages.length > 1 &&
-					!isHumanOnly &&
-					hasShownHandoffButton}
-				<div
-					class="min-w-0 transition-opacity duration-200 {isVisible
-						? 'opacity-100'
-						: 'pointer-events-none opacity-0'}"
-					inert={!isVisible ? true : undefined}
-				>
-					<PromptSuggestion class="max-w-full" onclick={() => onRequestHandoff?.()}>
-						<span class="block truncate">{$t('chat.action.talk_to_human')}</span>
-					</PromptSuggestion>
-				</div>
-			{/if}
-			<Button
-				size="icon"
-				shape="pill"
-				disabled={!canSend}
-				onclick={handleSend}
-				aria-label={$t('chat.aria.send')}
-				data-testid="chat-input-send"
-			>
-				{#if ctx.isProcessing && !isHumanOnly}
-					<LoaderCircleIcon class="h-4.5 w-4.5 motion-safe:animate-spin" />
-				{:else}
-					<ArrowUpIcon class="h-4.5 w-4.5" />
-				{/if}
-			</Button>
-		</div>
+		{@render defaultRightActions()}
 	{/if}
 {/snippet}
 
-<div bind:this={containerEl} class={className}>
+<div bind:this={containerEl} class={className} {@attach composerDragTarget}>
 	<!-- Suggestion chips - shown when starting new conversation or after messages loaded and empty -->
 	<!-- isNewConversation: show immediately for draft threads (eager creation) -->
 	<!-- messagesReady: wait for query to resolve for existing threads (prevents flash) -->
@@ -706,6 +926,7 @@
 								class="w-full"
 								truncate
 								title={suggestion.text}
+								{disabled}
 								onclick={() => handleSuggestionClick(suggestion.text)}
 							>
 								{suggestion.label}
@@ -716,19 +937,29 @@
 			{/key}
 		</div>
 	{/if}
-	{#if ctx.exceedsMessageLength || ctx.exceedsAttachmentLimit}
-		<!-- Persistent, not a toast: sending stays blocked until the user acts. -->
+	{#if ctx.exceedsMessageLength || ctx.exceedsAttachmentLimit || attachmentsDisabledReason || notice}
+		<!-- Persistent, not a toast: each of these needs the user to notice it. -->
 		<div
 			role="status"
-			class="flex flex-col gap-0.5 px-3 pb-2 text-xs text-destructive"
-			data-testid="chat-input-limit-notice"
+			class="flex flex-col gap-0.5 px-3 pb-2 text-xs"
+			data-testid="chat-input-notice"
 		>
-			{#if ctx.exceedsMessageLength}
-				<p>{$t('chat.notices.message_too_long', { max: MAX_MESSAGE_LENGTH })}</p>
+			{#if ctx.exceedsMessageLength || ctx.exceedsAttachmentLimit}
+				<div class="flex flex-col gap-0.5 text-destructive" data-testid="chat-input-limit-notice">
+					{#if ctx.exceedsMessageLength}
+						<p>{$t('chat.notices.message_too_long', { max: MAX_MESSAGE_LENGTH })}</p>
+					{/if}
+					{#if ctx.exceedsAttachmentLimit}
+						<p>{$t('chat.notices.too_many_attachments', { max: ctx.maxAttachments })}</p>
+					{/if}
+				</div>
 			{/if}
-			{#if ctx.exceedsAttachmentLimit}
-				<p>{$t('chat.notices.too_many_attachments', { max: ctx.maxAttachments })}</p>
+			{#if attachmentsDisabledReason}
+				<p class="text-muted-foreground" data-testid="chat-input-attachments-unavailable">
+					{attachmentsDisabledReason}
+				</p>
 			{/if}
+			{@render notice?.()}
 		</div>
 	{/if}
 	<!-- Fixed 25px radius: the one-line pill is 48px tall (36px field + 12px
@@ -744,8 +975,8 @@
 		onSubmit={handleSend}
 	>
 		{#if compact}
-			<div class="relative flex min-w-0 flex-col" bind:this={compactWrapper}>
-				{#if dragActive}
+			<div class={cn('relative flex min-w-0 flex-col', contentClass)} bind:this={compactWrapper}>
+				{#if drag.active && dropEnabled && !atAttachmentCap}
 					<div
 						class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center gap-2 rounded-[25px] bg-popover/90 text-sm font-medium text-muted-foreground backdrop-blur-sm"
 						aria-hidden="true"
@@ -783,6 +1014,7 @@
 							layout="compact"
 							multiline={compactMultiline}
 							scrollMask={compactScrollable}
+							{disabled}
 							onpaste={handlePaste}
 							maxlength={MAX_MESSAGE_LENGTH}
 							data-testid="chat-input-textarea"
@@ -837,6 +1069,7 @@
 				<PromptInputTextarea
 					placeholder={activePlaceholder}
 					layout="full"
+					{disabled}
 					onpaste={handlePaste}
 					maxlength={MAX_MESSAGE_LENGTH}
 					data-testid="chat-input-textarea"
