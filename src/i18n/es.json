@@ -582,6 +582,7 @@
 			"image_compression_exceeded": "No se pudo comprimir la imagen por debajo de {maxSize}",
 			"max_attachments": "Máximo {max} adjuntos permitidos",
 			"pasted_file_too_large": "Archivo pegado muy grande",
+			"reason_with_detail": "{reason}. {detail}",
 			"upload_failed": "No se pudo subir \"{filename}\"",
 			"upload_network": "Conexión perdida.",
 			"upload_readd_hint": "Añade el archivo de nuevo.",
