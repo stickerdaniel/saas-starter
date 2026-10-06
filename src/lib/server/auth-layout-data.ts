@@ -77,24 +77,6 @@ export function resolvePublicAuthLayoutData(event: ServerLoadEvent) {
 	};
 }
 
-/** Load only the public capability projection for an interactive public page. */
-export async function resolvePublicCapabilityData(event: ServerLoadEvent) {
-	event.depends('app:capabilities');
-	try {
-		const client = createServerConvexHttpClient({});
-		return {
-			capabilities: await client.query(api.capabilities.getUsability, {}),
-			capabilitiesResolved: true
-		};
-	} catch (e) {
-		console.error('[auth-layout-data] Public capability lookup failed:', e);
-		return {
-			capabilities: UNAVAILABLE_CAPABILITY_USABILITY,
-			capabilitiesResolved: false
-		};
-	}
-}
-
 /**
  * Per-request memo for the resolved auth block, keyed on `event.locals` (one
  * object per HTTP request, shared by every server load in it).
