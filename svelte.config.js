@@ -56,8 +56,8 @@ const config = {
 
 	kit: {
 		adapter,
-		// Avoid a blocking request for tiny stylesheets; keep the main CSS cacheable.
-		inlineStyleThreshold: 4096,
+		// Prioritize first paint over stylesheet caching on full document loads.
+		inlineStyleThreshold: 256 * 1024,
 		alias: {
 			$blocks: 'src/blocks',
 			$static: 'static'
