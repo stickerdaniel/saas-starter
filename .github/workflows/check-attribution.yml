@@ -1,6 +1,8 @@
 name: Check Attribution
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
   pull_request_target:
     types: [opened, synchronize, reopened, edited]
 
