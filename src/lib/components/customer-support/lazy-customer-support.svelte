@@ -112,7 +112,7 @@
 {:else}
 	<div class="fixed right-5 bottom-5 z-40 flex items-end justify-end">
 		<Button
-			variant="default"
+			variant="default-muted"
 			size="launcher"
 			disabled={isLoading}
 			onclick={openSupport}
