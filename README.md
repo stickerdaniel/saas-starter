@@ -11,7 +11,11 @@ Non-obvious recurring bug classes become the earliest guard that can catch them,
 
 > [Live demo!](https://saas.daniel.sticker.name) The public demo covers the user-facing features. Run the quick start below to access admin panel, support dashboard, and user management.
 
-![Desktop Lighthouse scores: 100 Performance, Accessibility, Best Practices, and SEO](docs/assets/lighthouse.gif)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lighthouse-dark.gif">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/lighthouse-light.gif">
+  <img alt="Desktop Lighthouse scores: 100 Performance, Accessibility, Best Practices, and SEO" src="docs/assets/lighthouse-light.gif">
+</picture>
 
 ## Why This Exists
 
