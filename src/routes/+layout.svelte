@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser, dev } from '$app/environment';
 	import { beforeNavigate, onNavigate } from '$app/navigation';
 	import { page, updated } from '$app/state';
 	import { T, Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
@@ -40,7 +40,11 @@
 	import './layout.css';
 
 	// Dev transforms can register the same font for several stylesheets.
-	const fontPreloadHrefs = [...new Set(preloads.map(({ href }) => href))];
+	const fontPreloadHrefs = $derived(
+		!dev && page.route.id === '/[[lang]]/(marketing)'
+			? []
+			: [...new Set(preloads.map(({ href }) => href))]
+	);
 
 	let { data, children }: LayoutProps = $props();
 

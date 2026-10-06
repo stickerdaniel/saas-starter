@@ -5,6 +5,18 @@
 	"resources": [
 		{
 			"type": "git",
+			"name": "subsetFont",
+			"url": "https://github.com/papandreou/subset-font",
+			"branch": "master"
+		},
+		{
+			"type": "git",
+			"name": "definitelyTyped",
+			"url": "https://github.com/DefinitelyTyped/DefinitelyTyped",
+			"branch": "master"
+		},
+		{
+			"type": "git",
 			"name": "fontaine",
 			"url": "https://github.com/unjs/fontaine",
 			"branch": "main",

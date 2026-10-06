@@ -9,6 +9,7 @@ import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
 import { getManagedProviderUpdates, logSafeOrigin } from './scripts/local-convex-env';
 import { stripSensitiveManifestValues } from './scripts/strip-varlock-secrets';
 import { thirdPartyLicenses } from './scripts/third-party-licenses/index';
+import { marketingFonts } from './scripts/marketing-fonts';
 import { sentrySvelteKit } from '@sentry/sveltekit/vite';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
@@ -356,6 +357,7 @@ export default defineConfig(async ({ mode }) => {
 		tailwindcss(),
 		sveltekit(),
 		licenses.plugin,
+		marketingFonts(),
 		devtoolsJson(),
 		// Download and self-host the web fonts. Existing static/fonts URLs remain
 		// available for emails, which need stable URLs across deployments.

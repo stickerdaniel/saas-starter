@@ -116,7 +116,7 @@
 
 <svelte:window bind:scrollY />
 
-<header>
+<header class="font-marketing-critical">
 	<nav class="fixed top-(--top-notices-height,0px) z-40 w-full pt-4">
 		<div class="mx-auto max-w-6xl px-6 lg:px-12">
 			<div

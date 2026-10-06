@@ -122,6 +122,10 @@
 	--info-foreground: oklch(1 0 0);
 }
 
+@utility font-marketing-critical {
+	font-family: var(--font-marketing-critical, inherit);
+}
+
 @theme inline {
 	--font-sans:
 		'Outfit', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
