@@ -29,7 +29,7 @@
 			class="absolute -bottom-1/5 h-137.5 w-137.5 lg:-bottom-1/6 lg:left-9/20 lg:h-175 lg:w-175 xl:left-13/25"
 		/>
 
-		<div class="pointer-events-none w-full pt-20 pb-56 lg:pt-40 lg:pb-36">
+		<div class="pointer-events-none w-full pt-20 pb-56 font-marketing-critical lg:pt-40 lg:pb-36">
 			<div class="relative mx-auto flex max-w-6xl flex-col px-6 lg:block lg:px-12">
 				<div class="mx-auto max-w-lg text-center lg:ml-0 lg:max-w-full lg:text-left">
 					<h1 class="mt-8 max-w-4xl text-5xl md:text-6xl lg:mt-16 xl:text-7xl">
