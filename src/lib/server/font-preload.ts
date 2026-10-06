@@ -24,11 +24,18 @@ export const handleFontPreload: Handle = async ({ event, resolve }) => {
 		transformPageChunk: ({ html }) => {
 			if (!inlineCriticalFont) return html;
 			if (scope === 'public') {
-				// Keep the larger subset once in HTML, after the full font's CSS.
+				// Decode before layout: even invisible text uses fallback `ch` widths.
+				// Keep the face after Fontless's declarations so the inline source wins.
 				const scripts = [...scriptPreloads]
 					.map((href) => `<link rel="modulepreload" href="${encodeURI(href)}" fetchpriority="low">`)
 					.join('');
-				return html.replace('</head>', `<style>${inlineCriticalFont.css}</style>${scripts}</head>`);
+				return html
+					.replace(
+						/<meta charset="utf-8"\s*\/?>/i,
+						(charset) =>
+							`${charset}<link rel="preload" as="font" type="font/woff2" href="${inlineCriticalFont.href}" crossorigin>`
+					)
+					.replace('</head>', `<style>${inlineCriticalFont.css}</style>${scripts}</head>`);
 			}
 			return html.replace(
 				/<meta charset="utf-8"\s*\/?>/i,

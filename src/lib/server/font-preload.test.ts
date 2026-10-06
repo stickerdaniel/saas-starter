@@ -60,7 +60,7 @@ describe('HTML font preloads', () => {
 	});
 
 	it.each(['/[[lang]]/(marketing)/pricing', '/[[lang]]/(auth)/signin'])(
-		'prioritizes the document and preserves form script hints on %s',
+		'decodes the font before layout and preserves form script hints on %s',
 		async (route) => {
 			const fullFace = '<style>@font-face{font-family:Outfit;src:url(/full.woff2)}</style>';
 			const result = await handleFontPreload({
@@ -84,8 +84,11 @@ describe('HTML font preloads', () => {
 				}
 			});
 			const html = await result.text();
-			expect(html.match(/data:font\/woff2;base64,/g)).toHaveLength(1);
-			expect(html.indexOf('data:font')).toBeGreaterThan(html.indexOf(fullFace));
+			expect(html).toContain(
+				'<link rel="preload" as="font" type="font/woff2" href="data:font/woff2;base64,d09GMg'
+			);
+			expect(html.indexOf('data:font')).toBeLessThan(html.indexOf(fullFace));
+			expect(html.lastIndexOf('data:font')).toBeGreaterThan(html.indexOf(fullFace));
 			expect(html.slice(0, 1024)).toContain('<meta charset="utf-8" />');
 			expect(html).toContain('<body>Public copy</body>');
 			expect(result.headers.get('link')).toBe('</app.css>; rel=preload; as=style');
