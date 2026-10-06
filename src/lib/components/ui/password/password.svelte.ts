@@ -7,9 +7,9 @@ type ZxcvbnRunner = ZxcvbnFactory;
 /** Tracks whether zxcvbn is ready. Reactive via $state. */
 let dictionariesLoaded = $state(false);
 let zxcvbnRunner: ZxcvbnRunner | null = null;
-let loadPromise: Promise<ZxcvbnRunner> | null = null;
+let loadPromise: Promise<void> | null = null;
 
-function loadZxcvbn(): Promise<ZxcvbnRunner> {
+function loadZxcvbn(): Promise<void> {
 	if (loadPromise) return loadPromise;
 	loadPromise = Promise.all([
 		import('@zxcvbn-ts/core'),
@@ -26,11 +26,10 @@ function loadZxcvbn(): Promise<ZxcvbnRunner> {
 				}
 			});
 			dictionariesLoaded = true;
-			return zxcvbnRunner;
 		})
-		.catch((error: unknown) => {
-			loadPromise = null; // allow retry on failure
-			throw error;
+		.catch(() => {
+			// Validation stays blocked; another focus or edit can retry a failed download.
+			loadPromise = null;
 		});
 	return loadPromise;
 }
@@ -131,7 +130,10 @@ class PasswordInputState {
 			this.root.passwordState.tainted &&
 			this.root.passwordState.strengthMounted;
 		return {
-			'aria-invalid': strengthInvalid || this.opts.invalid.current ? ('true' as const) : undefined
+			'aria-invalid': strengthInvalid || this.opts.invalid.current ? ('true' as const) : undefined,
+			onfocus: () => {
+				if (this.root.passwordState.strengthMounted) void loadZxcvbn();
+			}
 		};
 	});
 }
@@ -166,10 +168,15 @@ class PasswordStrengthState {
 	constructor(readonly root: PasswordRootState) {
 		this.root.passwordState.strengthMounted = true;
 
-		$effect(() => {
-			// Plain password inputs never need the scoring dictionaries, including during SSR.
-			void loadZxcvbn();
+		// Autofill and bound values can arrive without focusing the input.
+		watch(
+			() => this.root.passwordState.value,
+			(value) => {
+				if (value) void loadZxcvbn();
+			}
+		);
 
+		$effect(() => {
 			return () => {
 				this.root.passwordState.strengthMounted = false;
 			};

@@ -57,8 +57,9 @@ function score() {
 }
 
 describe('password strength loading', () => {
-	it('loads only for a meter and preserves validation through delayed loading and remounting', async () => {
+	it('waits for password intent and preserves validation through delayed loading and remounting', async () => {
 		let input = await render();
+		input.focus();
 		await type(input, 'password');
 		await vi.dynamicImportSettled();
 
@@ -67,8 +68,15 @@ describe('password strength loading', () => {
 		expect(input.validationMessage).toBe('');
 		expect(input.getAttribute('aria-invalid')).toBeNull();
 
-		loading.gate = new Promise<void>((resolve) => (releaseDictionaries = resolve));
 		input = await render({ withStrength: true });
+		await vi.dynamicImportSettled();
+		expect(
+			loading.requested,
+			'An empty password field must not download scoring dictionaries'
+		).toEqual([]);
+
+		loading.gate = new Promise<void>((resolve) => (releaseDictionaries = resolve));
+		input.focus();
 		await vi.waitFor(() => expect(loading.requested.toSorted()).toEqual(['common', 'core', 'en']));
 
 		await type(input, 'password');
