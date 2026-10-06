@@ -2,9 +2,15 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import en from '../src/i18n/en.json';
-import { criticalFont, marketingFontCharacters } from './marketing-fonts';
+import { criticalFont, marketingFontCharacters, publicFontCharacters } from './marketing-fonts';
 
 describe('critical marketing fonts', () => {
+	it('covers nested public translations, legal copy and typed ASCII', () => {
+		const glyphs = publicFontCharacters([{ nested: { message: 'Piñata €' } }, '§ Legal™']);
+		for (const character of 'ñ€§™!09AZaz~') expect(glyphs).toContain(character);
+		expect(new Set(glyphs).size).toBe(glyphs.length);
+	});
+
 	it('includes authored copy changes, translated controls and the brand automatically', () => {
 		const changed = {
 			...en,

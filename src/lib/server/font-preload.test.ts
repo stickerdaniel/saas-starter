@@ -5,7 +5,8 @@ vi.mock('fontless/runtime', () => ({
 }));
 vi.mock('virtual:marketing-fonts/server', () => {
 	const href = `data:font/woff2;base64,d09GMg${'A'.repeat(2048)}==`;
-	return { default: { css: `@font-face{font-family:Critical;src:url(${href})}`, href } };
+	const font = { css: `@font-face{font-family:Critical;src:url(${href})}`, href };
+	return { default: { home: font, public: font } };
 });
 
 import { handleFontPreload } from './font-preload';
@@ -19,7 +20,7 @@ describe('HTML font preloads', () => {
 			}
 		});
 		const result = await handleFontPreload({
-			event: { route: { id: '/[[lang]]/(marketing)/pricing' } } as never,
+			event: { route: { id: '/[[lang]]/(app)/dashboard' } } as never,
 			resolve: async () => response
 		});
 		expect(result.headers.get('link')).toBe(
@@ -57,4 +58,42 @@ describe('HTML font preloads', () => {
 		expect(html).toContain('<body>Headline</body>');
 		expect(result.headers.get('link')).toBe('</app.js>; rel=modulepreload');
 	});
+
+	it.each(['/[[lang]]/(marketing)/pricing', '/[[lang]]/(auth)/signin'])(
+		'prioritizes the document and preserves form script hints on %s',
+		async (route) => {
+			const fullFace = '<style>@font-face{font-family:Outfit;src:url(/full.woff2)}</style>';
+			const result = await handleFontPreload({
+				event: { route: { id: route } } as never,
+				resolve: async (_event, options) => {
+					const html = `<html><head><meta charset="utf-8" />${fullFace}</head><body>Public copy</body></html>`;
+					const links = [
+						{ type: 'css', path: '/app.css', link: '</app.css>; rel=preload; as=style' },
+						{ type: 'js', path: '/app.js', link: '</app.js>; rel=modulepreload' }
+					] as const;
+					const hints = links
+						.filter((link) => options?.preload?.(link) ?? true)
+						.map((link) => link.link)
+						.join(', ');
+					return new Response(await options?.transformPageChunk?.({ html, done: true }), {
+						headers: {
+							'content-type': 'text/html',
+							link: hints
+						}
+					});
+				}
+			});
+			const html = await result.text();
+			expect(html.match(/data:font\/woff2;base64,/g)).toHaveLength(1);
+			expect(html.indexOf('data:font')).toBeGreaterThan(html.indexOf(fullFace));
+			expect(html.slice(0, 1024)).toContain('<meta charset="utf-8" />');
+			expect(html).toContain('<body>Public copy</body>');
+			expect(result.headers.get('link')).toBe('</app.css>; rel=preload; as=style');
+			if (route.includes('(auth)')) {
+				expect(html).toContain('<link rel="modulepreload" href="/app.js" fetchpriority="low">');
+			} else {
+				expect(html).not.toContain('modulepreload');
+			}
+		}
+	);
 });

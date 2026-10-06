@@ -37,13 +37,12 @@
 	import { watch } from 'runed';
 	import { devNotice } from '$lib/dev/notice';
 	import { preloads } from 'fontless/runtime';
+	import { criticalFontScope } from '$lib/font-loading';
 	import './layout.css';
 
 	// Dev transforms can register the same font for several stylesheets.
 	const fontPreloadHrefs = $derived(
-		!dev && page.route.id === '/[[lang]]/(marketing)'
-			? []
-			: [...new Set(preloads.map(({ href }) => href))]
+		!dev && criticalFontScope(page.route.id) ? [] : [...new Set(preloads.map(({ href }) => href))]
 	);
 
 	let { data, children }: LayoutProps = $props();
