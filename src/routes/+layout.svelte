@@ -9,6 +9,12 @@
 	import AppAutumnProvider from '$lib/components/app/app-autumn-provider.svelte';
 	import AnalyticsRoot from '$lib/components/analytics/analytics-root.svelte';
 	import {
+		PUBLIC_POSTHOG_ALLOWED_HOSTS,
+		PUBLIC_POSTHOG_API_KEY,
+		PUBLIC_POSTHOG_HOST
+	} from '$env/static/public';
+	import { resolveAnalyticsConfig } from '$lib/analytics/config';
+	import {
 		AnalyticsPreferences,
 		analyticsPreferencesContext
 	} from '$lib/analytics/preferences.svelte.ts';
@@ -152,7 +158,18 @@
 
 	languageContext.set(() => currentLang);
 	setGlobalSearchContext();
-	analyticsPreferencesContext.set(new AnalyticsPreferences());
+	analyticsPreferencesContext.set(
+		new AnalyticsPreferences(
+			resolveAnalyticsConfig(
+				{
+					apiKey: PUBLIC_POSTHOG_API_KEY,
+					apiHost: PUBLIC_POSTHOG_HOST,
+					allowedHosts: PUBLIC_POSTHOG_ALLOWED_HOSTS
+				},
+				page.url.hostname
+			)
+		)
+	);
 
 	// Live Tolgee (in-context editing) is dev-only. Production and preview builds
 	// fold import.meta.env.DEV to false, so DevTools, apiUrl/apiKey and their
