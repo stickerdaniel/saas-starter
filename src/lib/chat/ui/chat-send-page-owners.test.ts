@@ -190,7 +190,7 @@ describe.each([
 			}
 		});
 		await settleWork();
-		expect(textarea()).not.toBeNull();
+		await vi.waitFor(() => expect(textarea()).toBeDefined());
 	}
 
 	async function leavePage(): Promise<void> {

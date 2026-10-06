@@ -3,7 +3,6 @@
 	import LauncherIcon from './launcher-icon.svelte';
 	import IconSwap from '$lib/components/motion/icon-swap.svelte';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import FeedbackWidget from './feedback-widget.svelte';
 	import type { ChatUIContext } from '$lib/chat';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { getTranslate } from '@tolgee/svelte';
@@ -45,6 +44,10 @@
 	function handleKeydown(event: KeyboardEvent) {
 		if (isFeedbackOpen && event.key === 'Escape') closeWidget();
 	}
+
+	function preloadWidget() {
+		return import('./feedback-widget.svelte');
+	}
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -52,13 +55,17 @@
 {#if !isScreenshotMode}
 	<div class="fixed right-5 bottom-5 z-40 flex flex-col items-end justify-end gap-3">
 		{#if isFeedbackOpen && !disabled}
-			<FeedbackWidget onClose={closeWidget} bind:isScreenshotMode {chatUIContext} />
+			{#await preloadWidget() then { default: FeedbackWidget }}
+				<FeedbackWidget onClose={closeWidget} bind:isScreenshotMode {chatUIContext} />
+			{/await}
 		{/if}
 		<Button
 			variant="default"
 			size="launcher"
 			{disabled}
 			onclick={toggleOpen}
+			onpointerenter={preloadWidget}
+			onfocus={preloadWidget}
 			aria-label={isFeedbackOpen ? $t('aria.feedback_close') : unreadLabel}
 			class="relative transition-transform duration-150 ease-out active:scale-97 active:not-aria-[haspopup]:translate-y-0"
 		>

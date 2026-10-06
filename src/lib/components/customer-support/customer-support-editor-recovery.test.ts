@@ -92,7 +92,12 @@ afterEach(async () => {
 });
 
 async function expectCaptureErrorRecovery(): Promise<void> {
-	button('Screenshot')!.click();
+	const screenshot = await vi.waitFor(() => {
+		const action = button('Screenshot');
+		expect(action).toBeDefined();
+		return action!;
+	});
+	screenshot.click();
 
 	const dialog = await vi.waitFor(() => {
 		const element = document.querySelector('[role="alertdialog"]');

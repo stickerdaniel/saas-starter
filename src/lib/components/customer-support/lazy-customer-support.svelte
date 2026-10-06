@@ -21,7 +21,8 @@
 	let CustomerSupport: Component | null = $state(null);
 
 	async function preload(): Promise<void> {
-		if (CustomerSupport) return;
+		// Keep the import out of Vite's server graph so its CSS loads with the widget.
+		if (import.meta.env.SSR || CustomerSupport) return;
 		const mod = await import('./customer-support.svelte');
 		CustomerSupport = mod.default;
 	}
@@ -69,6 +70,7 @@
 		}
 
 		function cleanup(): void {
+			window.removeEventListener('load', schedulePreload);
 			for (const eventName of interactionEvents) {
 				window.removeEventListener(eventName, preloadOnce);
 			}
@@ -86,10 +88,19 @@
 			window.addEventListener(eventName, preloadOnce, { passive: true, once: true });
 		}
 
-		if (requestIdleCallback) {
-			idleId = requestIdleCallback(preloadOnce, { timeout: 3000 });
+		function schedulePreload(): void {
+			if (requestIdleCallback) {
+				idleId = requestIdleCallback(preloadOnce, { timeout: 3000 });
+			} else {
+				timeoutId = window.setTimeout(preloadOnce, 2000);
+			}
+		}
+
+		// CPU idleness can happen while first-paint assets are still downloading.
+		if (document.readyState === 'complete') {
+			schedulePreload();
 		} else {
-			timeoutId = window.setTimeout(preloadOnce, 2000);
+			window.addEventListener('load', schedulePreload, { once: true });
 		}
 
 		return cleanup;

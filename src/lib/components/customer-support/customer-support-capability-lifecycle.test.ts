@@ -168,7 +168,9 @@ describe('customer support capability lifecycle', () => {
 		await tick();
 
 		expect(feedbackLauncher().disabled).toBe(false);
-		expect(document.querySelector('[data-testid="support-message-send"]')).not.toBeNull();
+		await vi.waitFor(() =>
+			expect(document.querySelector('[data-testid="support-message-send"]')).not.toBeNull()
+		);
 		expect(document.body.textContent).not.toContain(en.support.chatbar.disclosure);
 	});
 
