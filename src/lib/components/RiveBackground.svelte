@@ -121,14 +121,14 @@
 					onLoadError: (error) => {
 						if (destroyed) return;
 						console.error('Error loading Rive file:', error);
-						isLoaded = true; // Fade out even on error to show content
+						isLoaded = true; // Finish the reveal even on error
 					}
 				});
 			} catch (error) {
 				if (destroyed) return;
 				if (error instanceof Error && error.name === 'AbortError') return;
 				console.error('Error initializing Rive:', error);
-				isLoaded = true; // Fade out even on error to show content
+				isLoaded = true; // Finish the reveal even on error
 			}
 		}
 
@@ -207,22 +207,27 @@
 					<Spotlight class="-top-50 -right-57/20 -z-5 lg:-top-72" fill="white" />
 				{/if}
 
-				<!-- Rive Canvas -->
+				<!-- Fade the canvas in dark mode so the spotlight stays unobstructed. -->
 				<canvas
 					bind:this={canvas}
-					class="pointer-events-none absolute -z-3 h-full w-full mix-blend-multiply"
+					class={[
+						'pointer-events-none absolute -z-3 h-full w-full mix-blend-multiply',
+						{
+							'transition-opacity duration-1000 ease-out': isDark,
+							'opacity-0': isDark && !isLoaded
+						}
+					]}
 					tabindex="-1"
 				></canvas>
 
-				<!-- Canvas Cover (Fade in Effect) -->
-				<div
-					class="pointer-events-none absolute inset-0 -z-2 bg-background transition-opacity duration-1000 ease-out {isLoaded
-						? 'opacity-0'
-						: 'opacity-100'}"
-				></div>
-
-				<!-- Cloud Fade Effect for light mode -->
 				{#if !isDark}
+					<!-- Canvas cover and cloud reveal for light mode -->
+					<div
+						class="pointer-events-none absolute inset-0 -z-2 bg-background transition-opacity duration-1000 ease-out {isLoaded
+							? 'opacity-0'
+							: 'opacity-100'}"
+					></div>
+
 					<div
 						class="pointer-events-none absolute rive-cloud-reveal -z-1 transform-(--cloud-scale) transition-all duration-1500 ease-out"
 						style:--cloud-scale="scale({isLoaded ? 1 : 0.35})"
