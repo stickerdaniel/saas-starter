@@ -35,10 +35,18 @@ function getSeededUserEmail(): string {
 	return credentials.user.email;
 }
 
+/**
+ * Opens a password form once its field is enabled. Both forms enable their fields only
+ * after hydration, so that is the readiness these tests need. Waiting for `load` would
+ * also wait for unrelated resources such as the auth panel image.
+ */
+async function openForm(page: Page, path: string, field: string) {
+	await page.goto(path, { waitUntil: 'commit' });
+	await expect(page.getByTestId(field)).toBeEnabled({ timeout: 30000 });
+}
+
 async function submitForgotPassword(page: Page, email: string) {
-	await page.goto('/en/forgot-password');
-	await page.waitForLoadState('domcontentloaded');
-	await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
+	await openForm(page, '/en/forgot-password', 'forgot-password-email-input');
 	// Asserted before the submit as well, so that the after-check below cannot pass
 	// by the element having never rendered.
 	await expect(page.getByTestId('forgot-password-description')).toBeVisible();
@@ -63,9 +71,7 @@ const getConvexClient = () => {
 
 test.describe('Forgot Password', () => {
 	test('shows validation error for invalid email', async ({ page }) => {
-		await page.goto('/en/forgot-password');
-		await page.waitForLoadState('domcontentloaded');
-		await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
+		await openForm(page, '/en/forgot-password', 'forgot-password-email-input');
 		await expect(page.getByTestId('forgot-password-submit-button')).toBeEnabled({
 			timeout: 30000
 		});
@@ -82,9 +88,7 @@ test.describe('Forgot Password', () => {
 	});
 
 	test('shows success message after valid email submission', async ({ page }) => {
-		await page.goto('/en/forgot-password');
-		await page.waitForLoadState('domcontentloaded');
-		await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
+		await openForm(page, '/en/forgot-password', 'forgot-password-email-input');
 		await expect(page.getByTestId('forgot-password-submit-button')).toBeEnabled({
 			timeout: 30000
 		});
@@ -156,9 +160,7 @@ test.describe('Forgot Password', () => {
 				body: JSON.stringify({ message: 'Internal Server Error' })
 			})
 		);
-		await page.goto('/en/forgot-password');
-		await page.waitForLoadState('domcontentloaded');
-		await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
+		await openForm(page, '/en/forgot-password', 'forgot-password-email-input');
 		await expect(page.getByTestId('forgot-password-description')).toBeVisible();
 
 		await page.getByTestId('forgot-password-email-input').fill('someone@e2e.example.com');
@@ -183,11 +185,7 @@ test.describe('Forgot Password', () => {
 
 test.describe('Reset Password', () => {
 	test('shows error when token is missing', async ({ page }) => {
-		await page.goto('/en/reset-password');
-		await page.waitForLoadState('domcontentloaded');
-		await expect(page.getByTestId('reset-password-password-input')).toBeEnabled({
-			timeout: 30000
-		});
+		await openForm(page, '/en/reset-password', 'reset-password-password-input');
 		await expect(page.getByTestId('reset-password-submit-button')).toBeEnabled({
 			timeout: 30000
 		});
@@ -206,11 +204,7 @@ test.describe('Reset Password', () => {
 
 	test('shows validation error for password mismatch', async ({ page }) => {
 		// Navigate with a dummy token (will fail on submit, but we can test client validation)
-		await page.goto('/en/reset-password?token=dummy-token');
-		await page.waitForLoadState('domcontentloaded');
-		await expect(page.getByTestId('reset-password-password-input')).toBeEnabled({
-			timeout: 30000
-		});
+		await openForm(page, '/en/reset-password?token=dummy-token', 'reset-password-password-input');
 		await expect(page.getByTestId('reset-password-submit-button')).toBeEnabled({
 			timeout: 30000
 		});
@@ -229,11 +223,7 @@ test.describe('Reset Password', () => {
 	});
 
 	test('shows validation error for weak password', async ({ page }) => {
-		await page.goto('/en/reset-password?token=dummy-token');
-		await page.waitForLoadState('domcontentloaded');
-		await expect(page.getByTestId('reset-password-password-input')).toBeEnabled({
-			timeout: 30000
-		});
+		await openForm(page, '/en/reset-password?token=dummy-token', 'reset-password-password-input');
 		await expect(page.getByTestId('reset-password-submit-button')).toBeEnabled({
 			timeout: 30000
 		});
