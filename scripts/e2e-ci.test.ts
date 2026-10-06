@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import {
 	assertBuildMetadata,
@@ -241,6 +241,7 @@ describe('Cloudflare build record selection', () => {
 type Handler = (request: IncomingMessage, response: ServerResponse) => void;
 const servers: Array<{ close(): void; closeAllConnections(): void }> = [];
 afterEach(() => {
+	vi.useRealTimers();
 	for (const server of servers.splice(0)) {
 		server.closeAllConnections();
 		server.close();
@@ -471,20 +472,33 @@ describe('preview build discovery', () => {
 		});
 	});
 
-	it('fails with the last observation once the budget is exhausted', async () => {
-		const stale = await servedAlias([serving({ sourceSha: sha, buildUuid: old })]);
-		const started = Date.now();
-		// A retry delay beyond the budget makes the stale response the final
-		// observation. The budget leaves the first request time to finish on a
-		// loaded runner; a 300 ms budget let it time out there instead.
-		await expect(
-			discoverPreview(build, {
-				fetch: stale.fetch,
-				budget: { overallMs: 2_000, attemptMs: 2_000, retryDelayMs: 10_000 }
-			})
-		).rejects.toThrow(`served source "${sha}", build "${old}"`);
-		// Discovery stops at the budget instead of sleeping out the retry delay.
-		expect(Date.now() - started).toBeLessThan(5_000);
+	it.each([1_500, 10_000])(
+		'stops with the last observation when a %i ms retry cannot fit',
+		async (retryDelayMs) => {
+			vi.useFakeTimers();
+			const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => {
+				await new Promise((resolve) => setTimeout(resolve, 500));
+				return Response.json({ ...backends, generatedAt: 'now', sourceSha: sha, buildUuid: old });
+			});
+			const failure = vi.fn();
+			const discovery = discoverPreview(build, {
+				fetch: fetcher,
+				budget: { overallMs: 2_000, attemptMs: 2_000, retryDelayMs }
+			}).catch(failure);
+			await vi.advanceTimersByTimeAsync(500);
+			expect(failure, 'Stop immediately when no full retry delay fits').toHaveBeenCalledWith(
+				expect.objectContaining({
+					message: expect.stringContaining(
+						`1 attempts; last: served source "${sha}", build "${old}"`
+					)
+				})
+			);
+			await discovery;
+			expect(fetcher).toHaveBeenCalledTimes(1);
+		}
+	);
+
+	it('reports superseded and stalled previews when discovery cannot succeed', async () => {
 		const legacy = await servedAlias([serving({})]);
 		await expect(
 			discoverPreview(build, { fetch: legacy.fetch, budget: { ...budget, overallMs: 200 } })
