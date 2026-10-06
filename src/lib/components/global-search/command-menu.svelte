@@ -97,17 +97,6 @@
 		return hasAccess(route.access);
 	}
 
-	function isTypingTarget(target: EventTarget | null): boolean {
-		if (!(target instanceof HTMLElement)) return false;
-
-		return (
-			target.isContentEditable ||
-			target instanceof HTMLInputElement ||
-			target instanceof HTMLTextAreaElement ||
-			target instanceof HTMLSelectElement
-		);
-	}
-
 	function getTranslatedIfExists(key: string): string | null {
 		const translated = $t(key);
 		if (!translated || translated === key) return null;
@@ -164,29 +153,7 @@
 		globalSearch.closeMenu();
 		command();
 	}
-
-	function openCommandMenu(): void {
-		haptic.trigger('light');
-		globalSearch.openMenu();
-	}
-
-	function handleKeydown(e: KeyboardEvent): void {
-		if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || e.key === '/') {
-			if (isTypingTarget(e.target)) {
-				return;
-			}
-
-			e.preventDefault();
-			if (globalSearch.open) {
-				globalSearch.closeMenu();
-			} else {
-				openCommandMenu();
-			}
-		}
-	}
 </script>
-
-<svelte:document onkeydown={handleKeydown} />
 
 <Dialog.Root open={globalSearch.open} onOpenChange={globalSearch.setOpen}>
 	<Dialog.Content
