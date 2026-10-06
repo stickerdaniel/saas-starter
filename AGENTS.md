@@ -39,6 +39,7 @@ A human starts the `upstream-sync` skill (`.agents/skills/upstream-sync/SKILL.md
 
 ## Global rules
 
+- End every PR body with `Generated with <model> for <job> in <tool> via <host>.` CI requires that line, including the period. For example, `Generated with Claude Opus 5.5 for implementation in Claude Code via T3 Code.` For several models, write `Generated with <model 1> for <job 1> and <model 2> for <job 2> in <tool> via <host>.` Every model needs a job. Commas or `/` list several jobs for one model.
 - English is the default for code, comments, docs, commits, PRs, and chat. User-facing copy is localized; English is the source locale.
 - The English policy guard covers authored Markdown/text prose, JS/TS/Svelte comments, JSON/JSONC `description` values, and every string leaf in `src/i18n/en.json`. Exact registered target-locale files and non-comment localized source assertions are outside this V1 scope. Check an ignored report before publication with `bun scripts/check-english.ts --artifact <path>` or pipe prose to `bun scripts/check-english.ts --stdin-label <label>`.
 - Use Bun, never npm, for project commands.
