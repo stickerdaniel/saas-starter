@@ -11,6 +11,12 @@ Non-obvious recurring bug classes become the earliest guard that can catch them,
 
 > [Live demo!](https://saas.daniel.sticker.name) The public demo covers the user-facing features. Run the quick start below to access admin panel, support dashboard, and user management.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lighthouse-dark.gif">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/lighthouse-light.gif">
+  <img alt="Desktop Lighthouse scores: 100 Performance, Accessibility, Best Practices, and SEO" src="docs/assets/lighthouse-light.gif">
+</picture>
+
 ## Why This Exists
 
 I kept rebuilding the same stack and pointing my agent at old repos to copy patterns I had already built, so I collected the best versions here: streaming AI chat with tool calling and file uploads, support chat with human handoff, auth, billing, admin features, emails, and i18n.
