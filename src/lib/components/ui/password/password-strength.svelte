@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getTranslate } from '@tolgee/svelte';
 	import { tv } from 'tailwind-variants';
 	import { usePasswordStrength } from './password.svelte.ts';
 	import type { PasswordStrengthProps } from './types.js';
@@ -7,6 +8,7 @@
 
 	let { strength = $bindable(), class: className }: PasswordStrengthProps = $props();
 
+	const { t } = getTranslate();
 	const state = usePasswordStrength();
 
 	const score = $derived(state.strength.score);
@@ -31,6 +33,7 @@
 </script>
 
 <Meter.Root
+	aria-label={$t('aria.password_strength')}
 	value={state.strength.score}
 	class={cn('relative h-1.5 w-full gap-1 overflow-hidden rounded-full bg-accent', className)}
 	min={0}

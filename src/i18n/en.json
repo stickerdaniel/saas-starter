@@ -368,6 +368,7 @@
 		"mobile_sidebar_description": "Displays the mobile sidebar.",
 		"more": "More",
 		"notification_toggle_for_email": "{field} for {email}",
+		"password_strength": "Password strength",
 		"remove_attachment": "Remove attachment",
 		"scroll_to_bottom": "Scroll to bottom",
 		"show_password": "Show password",

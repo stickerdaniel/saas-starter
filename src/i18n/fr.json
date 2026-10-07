@@ -368,6 +368,7 @@
 		"mobile_sidebar_description": "Affiche la barre latérale mobile.",
 		"more": "Plus",
 		"notification_toggle_for_email": "{field} pour {email}",
+		"password_strength": "Robustesse du mot de passe",
 		"remove_attachment": "Supprimer la pièce jointe",
 		"scroll_to_bottom": "Faire défiler vers le bas",
 		"show_password": "Afficher le mot de passe",

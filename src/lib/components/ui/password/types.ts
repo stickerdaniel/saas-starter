@@ -11,7 +11,7 @@ import type { ZxcvbnResult } from '@zxcvbn-ts/core';
 export type PasswordRootPropsWithoutHTML = WithChildren<{
 	ref?: HTMLDivElement | null;
 	hidden?: boolean;
-	/** The minimum acceptable score for a password. (0-4)
+	/** The minimum acceptable score once password scoring is ready. (0-4)
 	 *
 	 * @default 3
 	 */
