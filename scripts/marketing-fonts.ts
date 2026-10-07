@@ -28,6 +28,19 @@ export function marketingFontCharacters(
 	return [...new Set(strings.join(''))].sort().join('');
 }
 
+/** Include public copy, legal templates and ordinary typed text in the initial font. */
+export function publicFontCharacters(content: unknown): string {
+	const strings = [
+		Array.from({ length: 95 }, (_, index) => String.fromCharCode(index + 32)).join('')
+	];
+	function collect(value: unknown) {
+		if (typeof value === 'string') strings.push(value);
+		else if (value && typeof value === 'object') Object.values(value).forEach(collect);
+	}
+	collect(content);
+	return [...new Set(strings.join(''))].sort().join('');
+}
+
 /** Keep the same outlines and OpenType layout features as the full font. */
 export async function criticalFont(font: Buffer, characters: string) {
 	const subset = await subsetFont(font, characters, { targetFormat: 'woff2' });
@@ -111,6 +124,20 @@ export function marketingFonts(): Plugin {
 					LEGAL_CONFIG.brandName
 				);
 				const critical = await criticalFont(font, characters);
+				const legalDirectory = path.join(config.root, 'src/lib/content/legal');
+				const legalFiles = (await readdir(legalDirectory)).filter((file) => file.endsWith('.md'));
+				const legal = await Promise.all(
+					legalFiles.map((file) => readFile(path.join(legalDirectory, file), 'utf8'))
+				);
+				const publicCritical = await criticalFont(
+					font,
+					publicFontCharacters([STATIC_TRANSLATIONS, LEGAL_CONFIG, legal])
+				);
+				// Declared after Fontless's full face: covered glyphs use the inline font,
+				// while the full face remains available for other text and languages.
+				publicCritical.css = publicCritical.css
+					.replace('font-family:"Outfit Critical"', 'font-family:Outfit')
+					.replace('"Outfit Critical",Outfit,', 'Outfit,');
 				const directory = path.join(serverDir, 'node_modules', ...PACKAGE.split('/'));
 				await mkdir(directory, { recursive: true });
 				await writeFile(
@@ -119,7 +146,7 @@ export function marketingFonts(): Plugin {
 				);
 				await writeFile(
 					path.join(directory, 'index.js'),
-					`export default ${JSON.stringify(critical)};\n`
+					`export default ${JSON.stringify({ home: critical, public: publicCritical })};\n`
 				);
 			}
 		}

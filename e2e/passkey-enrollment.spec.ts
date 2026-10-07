@@ -148,12 +148,13 @@ test('keeps the OAuth offer in the sidebar across the mobile breakpoint', async 
 		});
 		expect(signin.ok()).toBe(true);
 		await page.setViewportSize({ width: 1440, height: 900 });
-		await page.goto('/en/terms');
-		// The marker the Google callback leaves behind; a real provider round trip is out of reach.
-		await page.evaluate(() =>
+		// The Google callback lands with this marker already stored; a real provider round trip is
+		// out of reach. Seeding only this document keeps any other hydrating page from consuming it.
+		const callbackMarker = await page.addInitScript(() =>
 			sessionStorage.setItem('auth:pending-oauth-provider', JSON.stringify('google'))
 		);
 		await page.goto('/en/app/community-chat');
+		await callbackMarker.dispose();
 		const name = page.getByRole('textbox', { name: 'Passkey name', exact: true });
 		await expect(name).toBeVisible();
 		await page.setViewportSize({ width: 390, height: 844 });
