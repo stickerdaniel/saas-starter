@@ -12,11 +12,13 @@
 </script>
 
 <TolgeeProvider {tolgee}>
-	<Root validationMessage="Choose a stronger password">
-		<label for="password">Password</label>
-		<Input id="password" required {invalid} />
-		{#if withStrength}
-			<Strength />
-		{/if}
-	</Root>
+	<form onsubmit={(event) => event.preventDefault()}>
+		<Root validationMessage="Choose a stronger password">
+			<label for="password">Password</label>
+			<Input id="password" required {invalid} />
+			{#if withStrength}
+				<Strength />
+			{/if}
+		</Root>
+	</form>
 </TolgeeProvider>

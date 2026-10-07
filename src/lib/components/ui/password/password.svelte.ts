@@ -28,7 +28,7 @@ function loadZxcvbn(): Promise<void> {
 			dictionariesLoaded = true;
 		})
 		.catch(() => {
-			// Validation stays blocked; another focus or edit can retry a failed download.
+			// Submission stays available; another focus or edit can retry a failed download.
 			loadPromise = null;
 		});
 	return loadPromise;
@@ -114,6 +114,7 @@ class PasswordInputState {
 
 			// if the password is empty, we let the `required` attribute handle the validation
 			if (
+				dictionariesLoaded &&
 				this.root.passwordState.value !== '' &&
 				this.root.strength.score < this.root.opts.minScore.current
 			) {
@@ -143,6 +144,7 @@ class PasswordInputState {
 
 	props = $derived.by(() => {
 		const strengthInvalid =
+			dictionariesLoaded &&
 			this.root.strength.score < this.root.opts.minScore.current &&
 			this.root.passwordState.tainted &&
 			this.root.passwordState.strengthMounted;

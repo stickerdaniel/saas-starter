@@ -77,7 +77,7 @@ function score() {
 }
 
 describe('password strength loading', () => {
-	it('warms scoring after page load without input and preserves validation while loading', async () => {
+	it('warms scoring after page load and allows submission until a score is available', async () => {
 		const readyState = vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading');
 		let input = await render();
 		input.focus();
@@ -118,22 +118,42 @@ describe('password strength loading', () => {
 		);
 		expect(input.value).toBe('');
 		expect(document.activeElement).not.toBe(input);
+		const form = input.form!;
+		const onSubmit = vi.fn();
+		form.addEventListener('submit', onSubmit);
+		form.requestSubmit();
+		expect(
+			onSubmit,
+			'Required fields still block submission while scoring loads'
+		).not.toHaveBeenCalled();
 
 		input.focus();
-		await type(input, 'password');
-		await type(input, 'meadow-L7!orbit-9Cobalt');
+		await type(input, 'Password123!');
 		expect(score()).toBe(0);
-		expect(input.validity.customError).toBe(true);
+		expect(input.validity.customError).toBe(false);
+		expect(input.getAttribute('aria-invalid')).toBeNull();
+		form.requestSubmit();
+		expect(onSubmit, 'An unavailable score must not block submission').toHaveBeenCalledOnce();
 
 		releaseDictionaries!();
 		await vi.dynamicImportSettled();
 		await vi.waitFor(async () => {
 			await tick();
-			expect(score()).toBe(4);
+			expect(score()).toBe(1);
 		});
+		expect(input.validationMessage).toBe('Choose a stronger password');
+		expect(input.getAttribute('aria-invalid')).toBe('true');
+		form.requestSubmit();
+		expect(
+			onSubmit,
+			'A loaded weak score must block native form submission'
+		).toHaveBeenCalledOnce();
 
+		await type(input, 'meadow-L7!orbit-9Cobalt');
 		expect(input.checkValidity()).toBe(true);
 		expect(input.getAttribute('aria-invalid')).toBeNull();
+		form.requestSubmit();
+		expect(onSubmit).toHaveBeenCalledTimes(2);
 
 		input = await render({ withStrength: true });
 		for (const [value, expectedScore] of [
