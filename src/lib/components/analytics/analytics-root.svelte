@@ -2,14 +2,8 @@
 	import { onMount } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import {
-		PUBLIC_POSTHOG_ALLOWED_HOSTS,
-		PUBLIC_POSTHOG_API_KEY,
-		PUBLIC_POSTHOG_HOST
-	} from '$env/static/public';
 	import { authClient } from '$lib/auth-client';
 	import { setAnalyticsController } from '$lib/analytics/client';
-	import { resolveAnalyticsConfig } from '$lib/analytics/config';
 	import { AnalyticsController } from '$lib/analytics/controller';
 	import { loadPosthog } from '$lib/analytics/posthog';
 	import { followSession } from '$lib/analytics/session';
@@ -34,14 +28,7 @@
 	}
 
 	onMount(() => {
-		const config = resolveAnalyticsConfig(
-			{
-				apiKey: PUBLIC_POSTHOG_API_KEY,
-				apiHost: PUBLIC_POSTHOG_HOST,
-				allowedHosts: PUBLIC_POSTHOG_ALLOWED_HOSTS
-			},
-			location.hostname
-		);
+		const config = preferences.config;
 		if (!config.enabled) {
 			devNotice({
 				feature: 'Product analytics (PostHog)',
