@@ -1,6 +1,6 @@
 import { mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import PasswordHarness from './test-fixtures/PasswordHarness.svelte';
 
 // Mount with the real client runtime; Vitest otherwise resolves Svelte's server entry.
@@ -13,6 +13,22 @@ const loading = vi.hoisted(() => ({
 	requested: [] as string[],
 	gate: undefined as Promise<void> | undefined
 }));
+
+const idleTasks = new Map<number, IdleRequestCallback>();
+let nextIdleId = 0;
+vi.stubGlobal('requestIdleCallback', (callback: IdleRequestCallback) => {
+	const id = ++nextIdleId;
+	idleTasks.set(id, callback);
+	return id;
+});
+vi.stubGlobal('cancelIdleCallback', (id: number) => idleTasks.delete(id));
+
+function runIdleTasks() {
+	for (const [id, callback] of idleTasks) {
+		idleTasks.delete(id);
+		callback({ didTimeout: false, timeRemaining: () => 50 });
+	}
+}
 
 // Observe module loading and delay one dictionary, while retaining the real scorer and data.
 vi.mock('@zxcvbn-ts/core', async (importOriginal) => {
@@ -37,7 +53,11 @@ afterEach(async () => {
 	if (harness) await unmount(harness);
 	harness = undefined;
 	document.body.replaceChildren();
+	idleTasks.clear();
+	vi.restoreAllMocks();
 });
+
+afterAll(() => vi.unstubAllGlobals());
 
 async function render(props: { withStrength?: boolean; invalid?: boolean } = {}) {
 	if (harness) await unmount(harness);
@@ -57,10 +77,12 @@ function score() {
 }
 
 describe('password strength loading', () => {
-	it('waits for password intent and preserves validation through delayed loading and remounting', async () => {
+	it('warms scoring after page load without input and preserves validation while loading', async () => {
+		const readyState = vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading');
 		let input = await render();
 		input.focus();
 		await type(input, 'password');
+		runIdleTasks();
 		await vi.dynamicImportSettled();
 
 		expect(loading.requested, 'Only a mounted strength meter should load zxcvbn').toEqual([]);
@@ -68,17 +90,36 @@ describe('password strength loading', () => {
 		expect(input.validationMessage).toBe('');
 		expect(input.getAttribute('aria-invalid')).toBeNull();
 
+		await render({ withStrength: true });
+		await vi.dynamicImportSettled();
+		expect(loading.requested, 'Scoring must leave the initial page load free to render').toEqual(
+			[]
+		);
+
+		await unmount(harness!);
+		harness = undefined;
+		readyState.mockReturnValue('complete');
+		window.dispatchEvent(new Event('load'));
+		await new Promise((resolve) => setTimeout(resolve, 1100));
+		runIdleTasks();
+		await vi.dynamicImportSettled();
+		expect(loading.requested, 'Leaving the page must cancel its background download').toEqual([]);
+
 		input = await render({ withStrength: true });
 		await vi.dynamicImportSettled();
-		expect(
-			loading.requested,
-			'An empty password field must not download scoring dictionaries'
-		).toEqual([]);
-
+		expect(loading.requested, 'Background scoring must yield before starting').toEqual([]);
 		loading.gate = new Promise<void>((resolve) => (releaseDictionaries = resolve));
-		input.focus();
-		await vi.waitFor(() => expect(loading.requested.toSorted()).toEqual(['common', 'core', 'en']));
+		await vi.waitFor(
+			() => {
+				runIdleTasks();
+				expect(loading.requested.toSorted()).toEqual(['common', 'core', 'en']);
+			},
+			{ timeout: 3000 }
+		);
+		expect(input.value).toBe('');
+		expect(document.activeElement).not.toBe(input);
 
+		input.focus();
 		await type(input, 'password');
 		await type(input, 'meadow-L7!orbit-9Cobalt');
 		expect(score()).toBe(0);

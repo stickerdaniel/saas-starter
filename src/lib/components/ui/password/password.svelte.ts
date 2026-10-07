@@ -122,6 +122,23 @@ class PasswordInputState {
 				this.opts.ref.current?.setCustomValidity('');
 			}
 		});
+
+		$effect(() => {
+			if (!this.root.passwordState.strengthMounted) return;
+			const form = this.opts.ref.current?.form;
+			if (!form) return;
+
+			// Start while the user fills earlier fields, before they reach the password.
+			const preload = () => void loadZxcvbn();
+			form.addEventListener('focusin', preload);
+			form.addEventListener('pointerdown', preload, { passive: true });
+			if (form.contains(document.activeElement)) preload();
+
+			return () => {
+				form.removeEventListener('focusin', preload);
+				form.removeEventListener('pointerdown', preload);
+			};
+		});
 	}
 
 	props = $derived.by(() => {
@@ -177,7 +194,28 @@ class PasswordStrengthState {
 		);
 
 		$effect(() => {
+			let idleId: number | undefined;
+			let timeoutId: number | undefined;
+			const preload = () => void loadZxcvbn();
+			const schedulePreload = () => {
+				// Let hydration's requests settle before downloading the large dictionaries.
+				timeoutId = window.setTimeout(() => {
+					if (window.requestIdleCallback) {
+						idleId = window.requestIdleCallback(preload, { timeout: 1000 });
+					} else {
+						preload();
+					}
+				}, 1000);
+			};
+
+			// CPU idleness alone can precede first-paint assets finishing their downloads.
+			if (document.readyState === 'complete') schedulePreload();
+			else window.addEventListener('load', schedulePreload, { once: true });
+
 			return () => {
+				window.removeEventListener('load', schedulePreload);
+				if (idleId !== undefined) window.cancelIdleCallback(idleId);
+				if (timeoutId !== undefined) window.clearTimeout(timeoutId);
 				this.root.passwordState.strengthMounted = false;
 			};
 		});
