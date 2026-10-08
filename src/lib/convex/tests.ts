@@ -5,6 +5,7 @@ import type { Id } from './_generated/dataModel';
 import { supportAgent } from './support/agent';
 import { isAnonymousUser } from './utils/anonymousUser';
 import { recalculateCounters } from './admin/counters';
+import { aiChatRateLimiter } from './aiChat/rateLimit';
 import { getAiChatSidebarActivityAt } from './aiChat/visibility';
 
 /**
@@ -635,6 +636,28 @@ export const getAuthUserIdByEmail = mutation({
 		}
 
 		return { userId: user._id };
+	}
+});
+
+/**
+ * Drop one user's AI chat upload budget.
+ *
+ * The full browser suite shares one user, and the upload grant allows ten per
+ * hour. A later test that needs a transfer still in flight otherwise has its
+ * grant refused, the transfer ends, and leaving the page is correctly allowed.
+ */
+export const resetAiChatFileUploadLimit = mutation({
+	args: { secret: v.string(), email: v.string() },
+	returns: v.null(),
+	handler: async (ctx, { secret, email }) => {
+		requireTestSecret(secret);
+		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: 'email', value: email }]
+		});
+		if (!user) throw new Error(`No test user for ${email}`);
+		await aiChatRateLimiter.reset(ctx, 'aiChatFileUpload', { key: user._id });
+		return null;
 	}
 });
 

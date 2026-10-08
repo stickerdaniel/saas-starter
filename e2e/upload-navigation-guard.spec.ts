@@ -1,5 +1,8 @@
+import { ConvexHttpClient } from 'convex/browser';
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { waitForAuthenticated } from './utils/auth';
+import { api } from '../src/lib/convex/_generated/api';
+import { readTestCredentials, waitForAuthenticated } from './utils/auth';
+import { resolveConvexUrl } from './utils/convex-url';
 
 /**
  * A file that is still transferring dies with the page, and dies quietly: the
@@ -115,9 +118,23 @@ test.describe('Upload navigation guard', () => {
 	});
 
 	test('moving to another page is stopped and explained', async ({ page }) => {
+		// The progress bar is painted when the attempt starts, before the storage
+		// POST. The suite shares one user's ten-per-hour upload grant, so this
+		// attempt can be refused: the bar flashes, the guard releases, and the
+		// click leaves. The stall only holds the POST, so click once that request
+		// is out and the budget has been given back.
+		const storagePost = page.waitForRequest(STORAGE_UPLOAD);
 		await stallUpload(page);
+		const secret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!secret) throw new Error('AUTH_E2E_TEST_SECRET is required in .env.test');
+		const convex = new ConvexHttpClient(resolveConvexUrl()!);
+		await convex.mutation(api.tests.resetAiChatFileUploadLimit, {
+			secret,
+			email: readTestCredentials().user.email
+		});
 
 		await attachNotes(page, 'in-flight.txt');
+		await storagePost;
 		await expect(uploadInFlight(page)).toBeVisible({ timeout: 15000 });
 
 		const urlBeforeClick = page.url();
