@@ -967,8 +967,8 @@
 	     put when the field grows — no radius jump between layouts. -->
 	<PromptInput
 		class={compact
-			? `relative z-20 rounded-[25px] border-0 bg-popover composer-elevation ${compactMultiline ? 'p-0' : 'p-1.5'}`
-			: 'relative z-20 bg-popover p-0'}
+			? `relative z-20 rounded-[25px] border-0 bg-popover composer-elevation focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring ${compactMultiline ? 'p-0' : 'p-1.5'}`
+			: 'relative z-20 bg-popover p-0 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring'}
 		value={ctx.inputValue}
 		isLoading={ctx.core.isSending}
 		onValueChange={handleValueChange}

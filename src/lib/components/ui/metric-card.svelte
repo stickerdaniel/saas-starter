@@ -87,8 +87,8 @@
 	{#if description || subtitle}
 		<Card.Footer class="flex-col items-start gap-1.5 text-sm">
 			{#if description}
-				<div class="line-clamp-1 flex gap-2 font-medium">
-					{description}
+				<div class="flex gap-2 font-medium">
+					<span class="line-clamp-1 min-w-0">{description}</span>
 					{#if trend?.direction === 'up'}
 						<TrendingUpIcon class="size-4" />
 					{:else if trend?.direction === 'down'}
