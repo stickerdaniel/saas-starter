@@ -62,7 +62,6 @@
 		<Button
 			variant="default"
 			size="launcher"
-			{disabled}
 			onclick={toggleOpen}
 			onpointerenter={preloadWidget}
 			onfocus={preloadWidget}

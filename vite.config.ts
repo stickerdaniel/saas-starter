@@ -509,6 +509,11 @@ export default defineConfig(async ({ mode }) => {
 			include: ['svelte-konva', 'konva']
 		},
 		ssr: {
+			// The SSR prebundle copies Svelte's context into a second module.
+			// setContext then runs outside the renderer's context and 500s the page.
+			optimizeDeps: {
+				exclude: ['svelte']
+			},
 			noExternal: [
 				'svelte-konva',
 				'@tolgee/web',
