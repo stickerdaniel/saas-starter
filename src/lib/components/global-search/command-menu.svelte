@@ -166,7 +166,7 @@
 		</Dialog.Header>
 		<Command.Root class="h-auto min-h-0 flex-1 rounded-none bg-transparent">
 			<Command.Input placeholder={$t('search.command.input_placeholder')} />
-			<Command.List tabindex={-1} class="min-h-0 flex-1 scroll-pt-2 scroll-pb-1.5">
+			<Command.List tabindex={-1} class="h-80 max-h-none min-h-0 scroll-pt-2 scroll-pb-1.5">
 				<Command.Empty class="py-12 text-center text-sm text-muted-foreground">
 					{$t('search.command.no_results')}
 				</Command.Empty>
