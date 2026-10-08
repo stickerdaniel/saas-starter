@@ -237,8 +237,11 @@ test.describe('Admin Users Table', () => {
 	});
 
 	test('search filters users', async ({ page }) => {
-		await page.getByTestId('admin-users-search').fill(searchTargetEmail);
+		const search = page.getByTestId('admin-users-search');
+		await search.fill(searchTargetEmail);
 		await expect.poll(async () => page.getByTestId('admin-users-loading').count()).toBe(0);
+		// The search field stays mounted across the URL update, so focus does too.
+		await expect(search).toBeFocused();
 
 		await expect(
 			page.getByTestId('admin-users-email-cell').filter({ hasText: searchTargetEmail })
@@ -386,6 +389,43 @@ test.describe('Admin Users Table', () => {
 			cursor: /.+/
 		});
 		await expect(page.getByTestId('admin-users-pagination-next')).toBeDisabled();
+	});
+
+	test('table paging keeps the scroll position and records browser history', async ({ page }) => {
+		// Cheaper layers rejected because: only a real browser can report the scroll
+		// position and walk the session history the table's URL state writes.
+		await page.setViewportSize({ width: 1280, height: 480 });
+		await page.goto(`/en/admin/users?search=${encodeURIComponent(seedPrefix)}&page_size=1`);
+		await page.waitForLoadState('domcontentloaded');
+		await waitForUsersTableReady(page);
+		const indicator = page.getByTestId('admin-users-page-indicator');
+		await expect(indicator).toHaveText(`Page 1 of ${SEED_USER_COUNT}`);
+
+		// This page moves the layout scroll viewport. This does not claim window scroll.
+		const scroller = page.locator('#main-content [data-slot="scroll-area-viewport"]');
+		const scrolled = await scroller.evaluate((node) => {
+			// The users page is often shorter than the shell, so this viewport has
+			// nothing to scroll until it is height-constrained. Same element either way.
+			node.style.setProperty('max-height', '180px');
+			node.style.setProperty('overflow', 'auto');
+			node.scrollTop = node.scrollHeight;
+			return node.scrollTop;
+		});
+		expect(scrolled).toBeGreaterThan(0);
+		await page.getByTestId('admin-users-pagination-next').click();
+		await expect(indicator).toHaveText(`Page 2 of ${SEED_USER_COUNT}`);
+		await expect(page).toHaveURL(/[?&]page=2(?:&|$)/);
+		expect(await scroller.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+
+		await page.getByTestId('admin-users-pagination-next').click();
+		await expect(indicator).toHaveText(`Page 3 of ${SEED_USER_COUNT}`);
+		// The indicator follows the local cache. Back walks the URL, so wait for it.
+		await expect(page).toHaveURL(/[?&]page=3(?:&|$)/);
+
+		await page.goBack();
+		await expect(indicator).toHaveText(`Page 2 of ${SEED_USER_COUNT}`);
+		await page.goForward();
+		await expect(indicator).toHaveText(`Page 3 of ${SEED_USER_COUNT}`);
 	});
 
 	test('role sorting toggles asc and desc', async ({ page }) => {

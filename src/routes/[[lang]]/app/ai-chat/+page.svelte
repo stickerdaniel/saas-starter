@@ -1,23 +1,23 @@
 <script lang="ts">
-	import SEOHead from '$lib/components/SEOHead.svelte';
+	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { useQuery, useConvexClient } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api';
+	import { api } from '#lib/convex/_generated/api.js';
 	import { ConvexError } from 'convex/values';
 	import { useCustomer } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import ThreadChat from './thread-chat.svelte';
-	import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
+	import { ChatDraftManager } from '#lib/chat/core/chat-draft-manager.svelte.ts';
 	import {
 		ComposerSendCoordinator,
 		acquireComposerSendCoordinator
-	} from '$lib/chat/ui/composer-send-coordinator.ts';
+	} from '#lib/chat/ui/composer-send-coordinator.ts';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import { useBillingCheckout } from '$lib/components/billing';
+	import { useBillingCheckout } from '#lib/components/billing/index.js';
 
 	const { t } = getTranslate();
 
@@ -84,9 +84,9 @@
 				.mutation(api.aiChat.threads.getOrCreateWarmThread, {})
 				.then((result) => {
 					if (generation !== resolveGeneration || threadId) return;
-					const url = new URL(page.url);
+					const url = new URL(page.url.href);
 					url.searchParams.set('thread', result.threadId);
-					goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: true });
+					goto(resolve(url.pathname + url.search), { reset: false, replace: true });
 				})
 				.catch((err) => {
 					if (generation !== resolveGeneration) return;

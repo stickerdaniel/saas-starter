@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.js';
 	import {
 		buttonVariants,
 		type ButtonVariant,
 		type ButtonSize
-	} from '$lib/components/ui/button/index.js';
+	} from '#lib/components/ui/button/index.js';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import type { WithChildren, WithoutChildren } from 'bits-ui';
 	import {
@@ -12,7 +12,7 @@
 		TooltipContent,
 		TooltipProvider,
 		TooltipTrigger
-	} from '$lib/components/ui/tooltip/index.js';
+	} from '#lib/components/ui/tooltip/index.js';
 
 	type ActionButtonAttrs = WithoutChildren<Omit<HTMLButtonAttributes, 'type'>>;
 

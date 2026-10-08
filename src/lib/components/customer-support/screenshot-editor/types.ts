@@ -3,7 +3,7 @@
  * Type definitions for the screenshot annotation editor
  */
 
-import type { ColorSelectorColor } from '$lib/components/ui/color-selector';
+import type { ColorSelectorColor } from '#lib/components/ui/color-selector/index.js';
 
 export type DrawingTool = 'pen' | 'rect' | 'circle' | 'arrow';
 

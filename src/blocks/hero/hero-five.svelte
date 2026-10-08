@@ -1,14 +1,14 @@
 <script>
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { localizedHref } from '#lib/utils/i18n.js';
 
 	const { t } = getTranslate();
 
-	import { Marquee } from '$lib/components/spell/marquee';
+	import { Marquee } from '#lib/components/spell/marquee/index.js';
 	import ProgressiveBlur from '../magic/ProgressiveBlur.svelte';
-	import HeroFiveCta from '$lib/components/ui/owned/hero-five-cta.svelte';
-	import LearnMoreChevron from '$lib/components/motion/learn-more-chevron.svelte';
-	import RiveBackground from '$lib/components/RiveBackground.svelte';
+	import HeroFiveCta from '#lib/components/ui/owned/hero-five-cta.svelte';
+	import LearnMoreChevron from '#lib/components/motion/learn-more-chevron.svelte';
+	import RiveBackground from '#lib/components/RiveBackground.svelte';
 	import nvidiaLogo from './logos/nvidia.svg';
 	import columnLogo from './logos/column.svg';
 	import githubLogo from './logos/github.svg';
@@ -45,7 +45,7 @@
 							<span class="text-nowrap"><T keyName="hero.cta" /></span>
 							<LearnMoreChevron class="ml-1" />
 						</HeroFiveCta>
-						<HeroFiveCta emphasis="demo" href="?support=open" data-sveltekit-noscroll>
+						<HeroFiveCta emphasis="demo" href="?support=open" data-sveltekit-reset="false">
 							<span class="text-nowrap"><T keyName="hero.cta_demo" /></span>
 						</HeroFiveCta>
 					</div>

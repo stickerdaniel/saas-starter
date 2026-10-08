@@ -87,7 +87,15 @@ async function readEmittedOutfit(clientDir: string): Promise<Buffer> {
 	return readFile(font);
 }
 
-/** Build the critical font after Fontless, before Kit's adapter copies server output. */
+/**
+ * Publish the critical font after Kit's client build and before its adapter.
+ *
+ * Kit 3 bundles SSR first, so an SSR `writeBundle` runs while the client
+ * output directory does not exist yet. This plugin is registered after
+ * `sveltekit()`, and the adapter hook is ordered `post`, so `buildApp` sees
+ * the font Fontless already wrote and lands the server package before the
+ * adapter copies that output.
+ */
 export function marketingFonts(): Plugin {
 	let config: ResolvedConfig;
 	return {
@@ -111,13 +119,18 @@ export function marketingFonts(): Plugin {
 				return 'export default null;';
 			}
 		},
-		writeBundle: {
-			order: 'post',
-			sequential: true,
-			async handler() {
-				if (this.environment.name !== 'ssr' || config.isWorker) return;
-				const serverDir = path.resolve(config.root, this.environment.config.build.outDir);
-				const clientDir = path.resolve(serverDir, '../client');
+		buildApp: {
+			async handler(builder) {
+				if (config.command !== 'build') return;
+				const server = builder.environments.ssr;
+				const client = builder.environments.client;
+				if (!server || !client) {
+					throw new Error(
+						'marketing-fonts: Kit client and SSR environments are required to publish the critical font.'
+					);
+				}
+				const serverDir = path.resolve(config.root, server.config.build.outDir);
+				const clientDir = path.resolve(config.root, client.config.build.outDir);
 				const font = await readEmittedOutfit(clientDir);
 				const characters = marketingFontCharacters(
 					Object.values(STATIC_TRANSLATIONS),

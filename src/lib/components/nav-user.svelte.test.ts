@@ -23,14 +23,14 @@ vi.mock('@stickerdaniel/convex-autumn-svelte/sveltekit', () => ({
 	useCustomer: () => ({ customer: { products: [] }, openBillingPortal: vi.fn() }),
 	useAutumnOperation: () => ({ execute: vi.fn(), isLoading: false, error: null })
 }));
-vi.mock('$lib/components/billing', () => ({
+vi.mock('#lib/components/billing/index.js', () => ({
 	useBillingCheckout: () => ({ isUsable: true, isLoading: false, start: vi.fn() })
 }));
-vi.mock('$lib/auth-client', () => ({
+vi.mock('#lib/auth-client.js', () => ({
 	authClient: { useSession: () => ({ subscribe: () => () => {} }) }
 }));
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn() } }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 
 import { useDictionary } from '../../routes/[[lang]]/admin/support/test-fixtures/translation';
 import NavUserIdentityHarness from './test-fixtures/NavUserIdentityHarness.svelte';

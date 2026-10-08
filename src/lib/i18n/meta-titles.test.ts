@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LEGAL_CONFIG } from '$lib/config/legal';
+import { LEGAL_CONFIG } from '#lib/config/legal.js';
 import en from '../../i18n/en.json';
 import de from '../../i18n/de.json';
 import es from '../../i18n/es.json';

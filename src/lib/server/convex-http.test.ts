@@ -5,7 +5,11 @@ import { makeFunctionReference } from 'convex/server';
 import { afterAll, beforeAll, describe, it, vi } from 'vitest';
 
 const env = vi.hoisted(() => ({ CONVEX_INTERNAL_URL: '' }));
-vi.mock('$env/dynamic/private', () => ({ env }));
+vi.mock('$app/env/private', () => ({
+	get CONVEX_INTERNAL_URL() {
+		return env.CONVEX_INTERNAL_URL;
+	}
+}));
 
 import { load as signinLoad } from '../../routes/[[lang]]/(auth)/signin/+page.server';
 import { createServerConvexHttpClient } from './convex-http';

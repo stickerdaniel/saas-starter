@@ -36,16 +36,16 @@ const calls = vi.hoisted(() => ({
 	changeEmail: vi.fn(),
 	toast: { success: vi.fn(), error: vi.fn() }
 }));
-vi.mock('$lib/auth-client.js', () => ({ authClient: { changeEmail: calls.changeEmail } }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/auth-client.js', () => ({ authClient: { changeEmail: calls.changeEmail } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 vi.mock('$app/state', () => ({
 	page: { url: new URL('https://example.com/en/app/settings'), params: {}, data: { lang: 'en' } }
 }));
 vi.mock('svelte-sonner', () => ({ toast: calls.toast }));
 
 import en from '../../../../i18n/en.json';
-import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
+import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
+import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import EmailSettings from './email-settings.svelte';
 
 type Props = { user: { email: string; emailVerified: boolean } };

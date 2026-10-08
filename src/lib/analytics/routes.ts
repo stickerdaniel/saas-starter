@@ -1,4 +1,4 @@
-import { SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
+import { SUPPORTED_LANGUAGES } from '#lib/i18n/languages.js';
 
 /**
  * Every page route, as a path without its locale prefix. Paths that match none of

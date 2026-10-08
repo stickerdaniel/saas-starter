@@ -12,7 +12,7 @@ const subdirectoryEslint = new ESLint({ cwd: path.join(repoRoot, 'src') });
 const ruleId = 'local/prefer-shadcn-slider-imports';
 const boundaryMessage =
 	'Use named Bits UI imports and the shadcn Slider wrapper so Slider enforcement remains statically decidable.';
-const sliderMessage = 'Import Slider from $lib/components/ui/slider/index.js instead of bits-ui.';
+const sliderMessage = 'Import Slider from #lib/components/ui/slider/index.js instead of bits-ui.';
 
 async function sliderMessages(source: string, filePath = 'src/lib/analytics/posthog.ts') {
 	const [result] = await eslint.lintText(source, { filePath });
@@ -106,7 +106,7 @@ const permitted = [
 		'nonliteral dynamic import',
 		"const source = 'bits-ui'; const { Slider } = await import(source); void Slider;"
 	],
-	['wrapper import', "import { Slider } from '$lib/components/ui/slider/index.js'; void Slider;"],
+	['wrapper import', "import { Slider } from '#lib/components/ui/slider/index.js'; void Slider;"],
 	[
 		'nonliteral dynamic import with a non-null source',
 		"const source = 'bits-ui'; const { Slider } = await import(source!); void Slider;"

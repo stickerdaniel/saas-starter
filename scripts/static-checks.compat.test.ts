@@ -366,7 +366,7 @@ export const viewer = query({ args: {}, handler: async () => null });
 				);
 				writeFileSync(
 					path.join(route, '+page.server.ts'),
-					`import { api } from '$lib/convex/_generated/api';
+					`import { api } from '#lib/convex/_generated/api.js';
 
 void api.compatUnicodeTarget.viewer;
 `

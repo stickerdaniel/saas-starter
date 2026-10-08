@@ -473,29 +473,25 @@ function seedCreatorState(
 }
 
 /**
- * Supplies the generated SvelteKit project the root tsconfig extends.
+ * Ensures Kit 3's generated base tsconfig exists for checker clones.
  *
- * The clone records `svelte-kit sync` instead of running it, and Git does not carry the
- * ignored `.svelte-kit` directory, so a named-file types run could not read the root project
- * the checker asks TypeScript about. The generated config holds only paths relative to its own
- * directory, so the worktree copy applies unchanged. The postinstall writes it; a job that
- * installs with --ignore-scripts, such as the Windows lifecycle workflow, gets the same sync
- * once here.
+ * Sync writes `node_modules/$app/tsconfig.json`, which is what the root config
+ * extends. Clones symlink this checkout's `node_modules`, so one write serves
+ * every case. A job that installs with `--ignore-scripts` has not synced yet;
+ * the first fixture does, and the rest find the file. `.svelte-kit/tsconfig.json`
+ * is not a Kit 3 output, and syncing once per case to look for it is not.
  */
-function seedGeneratedKitProject(repository: string): void {
-	const generated = path.join(ROOT, '.svelte-kit', 'tsconfig.json');
-	if (!existsSync(generated)) {
-		const sync = spawnSync(BUN, ['svelte-kit', 'sync'], {
-			cwd: ROOT,
-			env: sanitizedGitEnv(),
-			encoding: 'utf8'
-		});
-		if (sync.status !== 0 || !existsSync(generated)) {
-			throw new Error(`SvelteKit sync did not write ${generated}: ${sync.stdout}${sync.stderr}`);
-		}
+function seedGeneratedKitProject(): void {
+	const generated = path.join(ROOT, 'node_modules', '$app', 'tsconfig.json');
+	if (existsSync(generated)) return;
+	const sync = spawnSync(BUN, ['svelte-kit', 'sync'], {
+		cwd: ROOT,
+		env: sanitizedGitEnv(),
+		encoding: 'utf8'
+	});
+	if (sync.status !== 0 || !existsSync(generated)) {
+		throw new Error(`SvelteKit sync did not write ${generated}: ${sync.stdout}${sync.stderr}`);
 	}
-	mkdirSync(path.join(repository, '.svelte-kit'), { recursive: true });
-	copyFileSync(generated, path.join(repository, '.svelte-kit', 'tsconfig.json'));
 }
 
 /**
@@ -569,7 +565,7 @@ function createCheckerClone(
 			path.join(repository, 'node_modules'),
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
-		seedGeneratedKitProject(repository);
+		seedGeneratedKitProject();
 		seedCreatorState(repository, state, seed);
 
 		return {

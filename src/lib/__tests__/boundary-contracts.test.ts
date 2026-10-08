@@ -1,45 +1,48 @@
 import type { ComponentProps } from 'svelte';
-import type ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
+import type ChatRoot from '#lib/chat/ui/ChatRoot.svelte';
 import { describe, expectTypeOf, it } from 'vitest';
 import type { FunctionArgs, FunctionReturnType } from 'convex/server';
-import type { api } from '$lib/convex/_generated/api';
-import type { ChatCore, ChatCoreAPI } from '$lib/chat/core/chat-core.svelte.ts';
-import type { ChatCoreErrorCode } from '$lib/chat';
-import type { ChatSessionPort, StreamCachePort } from '$lib/chat/core/chat-session-port';
-import type { ChatUIContext } from '$lib/chat/ui/chat-context.svelte.ts';
+import type { api } from '#lib/convex/_generated/api.js';
+import type { ChatCore, ChatCoreAPI } from '#lib/chat/core/chat-core.svelte.ts';
+import type { ChatCoreErrorCode } from '#lib/chat/index.js';
+import type { ChatSessionPort, StreamCachePort } from '#lib/chat/core/chat-session-port.js';
+import type { ChatUIContext } from '#lib/chat/ui/chat-context.svelte.ts';
 import type {
 	ChatMessagesQuery,
 	MessagesQueryResponse,
 	SendMessageResult
-} from '$lib/chat/core/types';
-import type { SupportConversation } from '$lib/components/customer-support/support-conversation.svelte.ts';
-import type { SupportContext } from '$lib/components/customer-support/support-context.svelte.ts';
+} from '#lib/chat/core/types.js';
+import type { SupportConversation } from '#lib/components/customer-support/support-conversation.svelte.ts';
+import type { SupportContext } from '#lib/components/customer-support/support-context.svelte.ts';
 import type {
 	SupportHandoffCommands,
 	SupportHandoffConversationPort
-} from '$lib/components/customer-support/support-handoff-commands.svelte.ts';
+} from '#lib/components/customer-support/support-handoff-commands.svelte.ts';
 import type {
 	SupportNotificationCommands,
 	SupportNotificationConversationPort
-} from '$lib/components/customer-support/support-notification-commands.svelte.ts';
+} from '#lib/components/customer-support/support-notification-commands.svelte.ts';
 import type {
 	AttachmentTransferOptions,
 	AttachmentTransferPayload,
 	AttachmentTransferSnapshot,
 	AttachmentTransferUpload
-} from '$lib/chat/ui/attachment-transfer';
+} from '#lib/chat/ui/attachment-transfer.js';
 import type {
 	DirectUploadConfig as UploadConfig,
 	UploadConfig as ComposerUploadConfig
-} from '$lib/chat/ui/composer-attachment-coordinator.svelte.ts';
-import type { ChatAttachmentStore } from '$lib/chat/core/chat-attachment-store.svelte.ts';
-import type { AttachmentUploadResult, ChatUploadCommitResult } from '$lib/chat/core/file-uploader';
-import type { UploadGrant } from '$lib/uploads/transfer';
+} from '#lib/chat/ui/composer-attachment-coordinator.svelte.ts';
+import type { ChatAttachmentStore } from '#lib/chat/core/chat-attachment-store.svelte.ts';
+import type {
+	AttachmentUploadResult,
+	ChatUploadCommitResult
+} from '#lib/chat/core/file-uploader.js';
+import type { UploadGrant } from '#lib/uploads/transfer.js';
 import type {
 	BillingCheckoutDeps,
 	CheckoutStartParams
-} from '$lib/components/billing/checkout-context.svelte.ts';
-import type { CheckoutAttachOption } from '$lib/billing/checkout-result';
+} from '#lib/components/billing/checkout-context.svelte.ts';
+import type { CheckoutAttachOption } from '#lib/billing/checkout-result.js';
 import type { AttachResult, CheckoutResult } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 import type {
 	CommandRunnerDependencies,
@@ -47,8 +50,8 @@ import type {
 	SpawnedCommand
 } from '../../../scripts/process/command-runner';
 import type { createDeploymentExecution } from '../../../scripts/deploy/execution';
-import type { authClient, updateUserWithLocale } from '$lib/auth-client';
-import type { ShapeUpdate } from '$lib/components/customer-support/screenshot-editor/types';
+import type { authClient, updateUserWithLocale } from '#lib/auth-client.js';
+import type { ShapeUpdate } from '#lib/components/customer-support/screenshot-editor/types.js';
 
 describe('first-party boundary compile-time contracts', () => {
 	it('shares a structural chat session, never a concrete manager', () => {

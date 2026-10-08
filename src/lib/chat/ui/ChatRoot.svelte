@@ -24,7 +24,7 @@
 		type ThreadStreamingUIMessages
 	} from './streaming-display.js';
 	import { syncReasoningAccordionState } from './reasoning-accordion-sync.js';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 
 	let {
 		threadId,

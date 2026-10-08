@@ -4,7 +4,7 @@
 	import { usePasswordStrength } from './password.svelte.ts';
 	import type { PasswordStrengthProps } from './types.js';
 	import { Meter } from 'bits-ui';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	let { strength = $bindable(), class: className }: PasswordStrengthProps = $props();
 

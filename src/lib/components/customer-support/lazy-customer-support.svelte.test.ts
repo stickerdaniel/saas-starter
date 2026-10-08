@@ -65,10 +65,7 @@ describe('lazy support loading', () => {
 		renderLauncher();
 		document.querySelector('button')?.click();
 		await vi.waitFor(() => expect(document.body.textContent).toContain('Support ready'));
-		expect(goto).toHaveBeenCalledWith('/en?support=open', {
-			keepFocus: true,
-			noScroll: true
-		});
+		expect(goto).toHaveBeenCalledWith('/en?support=open', { reset: false });
 	});
 
 	it('loads a direct support link without waiting for page assets or idle time', async () => {

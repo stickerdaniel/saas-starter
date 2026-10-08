@@ -37,7 +37,7 @@ test('shows an unread support reply and reports when the customer opens it', asy
 		userContext = await browser.newContext({
 			baseURL: siteUrl,
 			storageState: { cookies: [], origins: [] },
-			extraHTTPHeaders: { ...bypass.headers, 'cache-control': 'no-cache' }
+			extraHTTPHeaders: bypass.headers
 		});
 		const userPage = await userContext.newPage();
 

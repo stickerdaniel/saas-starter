@@ -1,15 +1,15 @@
 <script lang="ts">
-	import * as Select from '$lib/components/ui/select/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import FilterChipRemoveButton from '$lib/components/ui/owned/filter-chip-remove-button.svelte';
-	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+	import * as Select from '#lib/components/ui/select/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import FilterChipRemoveButton from '#lib/components/ui/owned/filter-chip-remove-button.svelte';
+	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useQuery } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api.js';
-	import type { AuditLogItem } from '$lib/convex/admin/auditLog/queries';
+	import { api } from '#lib/convex/_generated/api.js';
+	import type { AuditLogItem } from '#lib/convex/admin/auditLog/queries.js';
 
 	const { t } = getTranslate();
 

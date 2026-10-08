@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { buttonVariants } from '$lib/components/ui/button';
-	import { UseClipboard } from '$lib/hooks/use-clipboard.svelte.ts';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-	import { cn } from '$lib/utils.js';
+	import { buttonVariants } from '#lib/components/ui/button/index.js';
+	import { UseClipboard } from '#lib/hooks/use-clipboard.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
+	import { cn } from '#lib/utils.js';
 	import { getTranslate } from '@tolgee/svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import CopyIcon from '@lucide/svelte/icons/copy';

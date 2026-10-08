@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { onMount } from 'svelte';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.js';
 	import { useConvexClient } from 'convex-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { api } from '$lib/convex/_generated/api';
-	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import { api } from '#lib/convex/_generated/api.js';
+	import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
 	import { supportUserId } from './support-user-id.svelte.ts';
 
 	const auth = useAuth();

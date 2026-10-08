@@ -9,10 +9,10 @@ import { enforcedShadcnPolicy } from './shadcn-policy.js';
 const eslint = new ESLint();
 const route = 'src/routes/+layout.svelte';
 const helper = 'src/lib/utils.ts';
-const button = `<script lang="ts">import { Button } from '$lib/components/ui/button';</script>\n`;
+const button = `<script lang="ts">import { Button } from '#lib/components/ui/button/index.js';</script>\n`;
 const fields = `<script lang="ts">
-import * as Field from '$lib/components/ui/field';
-import * as Card from '$lib/components/ui/card';
+import * as Field from '#lib/components/ui/field/index.js';
+import * as Card from '#lib/components/ui/card/index.js';
 </script>\n`;
 
 async function messages(source: string, filePath = route) {
@@ -89,7 +89,7 @@ export const style = tv({ base: 'bg-red-500' });
 
 	it('requires readable classes on an imported Button', async () => {
 		const source = `<script lang="ts">
-import { Button } from '$lib/components/ui/button';
+import { Button } from '#lib/components/ui/button/index.js';
 function getClasses(): string { return 'mt-4'; }
 </script>
 <Button class={getClasses()}>Save</Button>`;
@@ -176,7 +176,7 @@ describe('shadcn rules enforced by the application ESLint config', () => {
 
 	it('rejects a dynamic class on an imported Button', async () => {
 		const found = await productionMessages(`<script lang="ts">
-import { Button } from '$lib/components/ui/button';
+import { Button } from '#lib/components/ui/button/index.js';
 function getClasses(): string { return 'mt-4'; }
 </script>
 <Button class={getClasses()}>Save</Button>`);

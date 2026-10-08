@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ComponentProps } from 'svelte';
-	import { api } from '$lib/convex/_generated/api';
+	import { api } from '#lib/convex/_generated/api.js';
 	import ChatRoot from '../ChatRoot.svelte';
 	import ChatInput from '../ChatInput.svelte';
 	import type { ChatUIContext } from '../chat-context.svelte.ts';

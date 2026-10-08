@@ -1,6 +1,6 @@
-import { SEARCH_ROUTES } from '$lib/components/global-search/search-routes';
-import { getLanguage } from '$lib/i18n/languages';
-import { localizedHref } from '$lib/utils/i18n';
+import { SEARCH_ROUTES } from '#lib/components/global-search/search-routes.js';
+import { getLanguage } from '#lib/i18n/languages.js';
+import { localizedHref } from '#lib/utils/i18n.js';
 
 export interface BreadcrumbItem {
 	label: string;

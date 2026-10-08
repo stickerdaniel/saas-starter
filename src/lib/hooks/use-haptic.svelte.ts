@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { useDebounce } from 'runed';
 import { MediaQuery } from 'svelte/reactivity';
 import type { defaultPatterns, HapticInput as WebHapticsInput, WebHaptics } from 'web-haptics';

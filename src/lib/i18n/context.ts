@@ -16,7 +16,7 @@ export const languageContext = { get, set };
  * @example
  * ```svelte
  * <script>
- *   import { useLanguage } from '$lib/utils/i18n';
+ *   import { useLanguage } from '#lib/utils/i18n.js';
  *
  *   const lang = useLanguage();
  *   console.log(lang); // 'es'

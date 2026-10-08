@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.js';
 	import type { Snippet } from 'svelte';
-	import * as Accordion from '$lib/components/ui/accordion/index.js';
+	import * as Accordion from '#lib/components/ui/accordion/index.js';
 
 	interface Props {
 		class?: string;

@@ -16,7 +16,7 @@
 		"postinstall": "bun run install:cli && bun run generate:content && bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails",
 		"prebuild": "bun run generate:content && bun run build:emails",
 		"build": "bun scripts/build.ts",
-		"postbuild": "bun scripts/patch-cf-worker.ts",
+		"postbuild": "bun scripts/check-build-output.ts",
 		"start": "node build",
 		"generate:logos": "bun scripts/generate-logos.ts",
 		"generate:og-image-url": "bun scripts/generate-og-image-url.ts",

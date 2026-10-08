@@ -9,8 +9,8 @@ import { mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import { toast } from 'svelte-sonner';
 import { ConvexClient } from 'convex/browser';
-import { api } from '$lib/convex/_generated/api';
-import { processImage } from '$lib/media/process-image';
+import { api } from '#lib/convex/_generated/api.js';
+import { processImage } from '#lib/media/process-image.js';
 import type { UploadProfile } from '../../uploads/profiles.js';
 import { ChatCore } from '../core/chat-core.svelte.ts';
 import type { AttachmentUploadResult } from '../core/file-uploader.js';
@@ -25,10 +25,10 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 vi.mock('./ChatAttachments.svelte', () => ({ default: () => {} }));
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock('$lib/media/process-image', () => ({ processImage: vi.fn() }));
+vi.mock('#lib/media/process-image.js', () => ({ processImage: vi.fn() }));
 
 /** Storage takes 100 bytes, but whatever reads images takes only 40. */
 const profile: UploadProfile = {

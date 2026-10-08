@@ -4,12 +4,12 @@
 	import ChevronsRightIcon from '@lucide/svelte/icons/chevrons-right';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { Snippet } from 'svelte';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Select from '$lib/components/ui/select/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Select from '#lib/components/ui/select/index.js';
 
 	const { t } = getTranslate();
 

@@ -9,7 +9,7 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$app/environment', () => ({ browser: true, building: false }));
+vi.mock('$app/env', () => ({ browser: true, building: false }));
 const routing = vi.hoisted(() => ({
 	getUrl: () => new URL('https://example.com/users'),
 	goto: vi.fn(async (_href: string) => {})

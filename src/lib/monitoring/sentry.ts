@@ -1,7 +1,7 @@
-import { browser } from '$app/environment';
-import { PUBLIC_SENTRY_DSN } from '$env/static/public';
+import { browser } from '$app/env';
+import { PUBLIC_SENTRY_DSN } from '$app/env/public';
 import type * as Sentry from '@sentry/sveltekit';
-import { devNotice } from '$lib/dev/notice';
+import { devNotice } from '#lib/dev/notice.js';
 
 type SentryModule = typeof Sentry;
 
@@ -11,7 +11,7 @@ let client: SentryModule | null = null;
 /**
  * Lazily load and initialize the Sentry SDK.
  *
- * Mirrors the PostHog loader in `$lib/analytics/posthog.ts`: the SDK is only
+ * Mirrors the PostHog loader in `#lib/analytics/posthog.ts`: the SDK is only
  * referenced via `import type` plus a dynamic import behind the
  * `PUBLIC_SENTRY_DSN` gate, so when the DSN is unset the static build-time
  * replacement of the env var lets the whole SDK be dead-code-eliminated from

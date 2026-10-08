@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { Link } from '@better-svelte-email/components';
-	import { Separator } from '$lib/emails/components/ui/index.js';
-	import { LEGAL_CONFIG } from '$lib/config/legal';
+	import { Separator } from '#lib/emails/components/ui/index.js';
+	import { LEGAL_CONFIG } from '#lib/config/legal.js';
 
 	const currentYear = new Date().getFullYear();
 

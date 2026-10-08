@@ -119,7 +119,7 @@ describe('no-restyle options in the application config', () => {
 	});
 
 	it('keeps borders, rings and color off a Skeleton', async () => {
-		const source = `<script lang="ts">import { Skeleton } from '$lib/components/ui/skeleton';</script>
+		const source = `<script lang="ts">import { Skeleton } from '#lib/components/ui/skeleton/index.js';</script>
 <Skeleton class="rounded-full ring-2 border-4 bg-primary" />`;
 		const found = await restyles(production, source, route);
 		expect(found.map((entry) => entry.token).sort()).toEqual(['bg-primary', 'border-4', 'ring-2']);
@@ -127,14 +127,14 @@ describe('no-restyle options in the application config', () => {
 
 	it('rejects a class outside the O02 additions inside its owner file', async () => {
 		const owner = specOwners.find((entry) => entry.id === 'O02')!;
-		const source = `<script lang="ts">import { Button } from '$lib/components/ui/button';</script>
+		const source = `<script lang="ts">import { Button } from '#lib/components/ui/button/index.js';</script>
 <Button class="${owner.components.Button!.join(' ')} bg-primary" />`;
 		const found = await restyles(production, source, owner.files[0]!);
 		expect(found.map((entry) => entry.token)).toEqual(['bg-primary']);
 	}, 60_000);
 
 	it('admits an owner recipe only in the owner file', async () => {
-		const source = `<script lang="ts">import { Textarea } from '$lib/components/ui/textarea';</script>
+		const source = `<script lang="ts">import { Textarea } from '#lib/components/ui/textarea/index.js';</script>
 <Textarea class="mt-2 composer-scroll-mask !py-0 bg-primary" />`;
 		const inOwner = await restyles(production, source, composer);
 		expect(inOwner.map((found) => found.token)).toEqual(['bg-primary']);
@@ -157,7 +157,7 @@ describe('no-restyle flat-config precedence', () => {
 	const withAuthCard = new ESLint({
 		overrideConfig: [enforcedShadcnPolicy, ...restyleEntries([authCard])]
 	});
-	const cardSource = `<script lang="ts">import * as Card from '$lib/components/ui/card';</script>
+	const cardSource = `<script lang="ts">import * as Card from '#lib/components/ui/card/index.js';</script>
 <Card.Root class="auth-card-transition p-4 bg-primary" />`;
 
 	it('selects a [[lang]] route file literally rather than as a character class', async () => {
@@ -182,7 +182,7 @@ describe('no-restyle flat-config precedence', () => {
 	}, 60_000);
 
 	it('replaces earlier contracts with the last match, so owners must repeat placement', async () => {
-		const source = `<script lang="ts">import { Button } from '$lib/components/ui/button';</script>
+		const source = `<script lang="ts">import { Button } from '#lib/components/ui/button/index.js';</script>
 <Button class="mt-4 bg-muted" />`;
 		const replaced = new ESLint({
 			overrideConfig: [
@@ -251,7 +251,7 @@ describe('no-restyle private owners', () => {
 	it('rejects appearance and admits placement at every caller', async () => {
 		expect(owners).toHaveLength(16);
 		const imports = owners
-			.map((owner) => `import ${pascal(owner)} from '$lib/components/ui/owned/${owner}.svelte';`)
+			.map((owner) => `import ${pascal(owner)} from '#lib/components/ui/owned/${owner}.svelte';`)
 			.join('\n');
 		const header = `<script lang="ts">\n${imports}\n</script>\n`;
 		const firstLine = header.split('\n').length;

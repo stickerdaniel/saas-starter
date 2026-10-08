@@ -1,7 +1,7 @@
 <script lang="ts">
-	import SEOHead from '$lib/components/SEOHead.svelte';
-	import * as Item from '$lib/components/ui/item/index.js';
-	import MetricCard from '$lib/components/ui/metric-card.svelte';
+	import SEOHead from '#lib/components/SEOHead.svelte';
+	import * as Item from '#lib/components/ui/item/index.js';
+	import MetricCard from '#lib/components/ui/metric-card.svelte';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
@@ -9,7 +9,7 @@
 	import UserPlusIcon from '@lucide/svelte/icons/user-plus';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useQuery } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api.js';
+	import { api } from '#lib/convex/_generated/api.js';
 	import { getContext } from 'svelte';
 
 	const { t } = getTranslate();

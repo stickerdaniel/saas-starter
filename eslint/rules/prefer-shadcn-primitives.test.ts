@@ -57,85 +57,85 @@ const PRIMITIVE_CASES = [
 		key: 'button',
 		source: '<button type="button">Save</button>',
 		messageId: 'nativeButton',
-		importPath: '$lib/components/ui/button'
+		importPath: '#lib/components/ui/button/index.js'
 	},
 	{
 		key: 'dialog',
 		source: '<dialog>Help</dialog>',
 		messageId: 'nativeDialog',
-		importPath: '$lib/components/ui/dialog'
+		importPath: '#lib/components/ui/dialog/index.js'
 	},
 	{
 		key: 'title',
 		source: '<span title="More information">Help</span>',
 		messageId: 'nativeTitle',
-		importPath: '$lib/components/ui/tooltip'
+		importPath: '#lib/components/ui/tooltip/index.js'
 	},
 	{
 		key: 'checkbox',
 		source: '<input type="checkbox" />',
 		messageId: 'nativeCheckbox',
-		importPath: '$lib/components/ui/checkbox'
+		importPath: '#lib/components/ui/checkbox/index.js'
 	},
 	{
 		key: 'select',
 		source: '<select></select>',
 		messageId: 'nativeSelect',
-		importPath: '$lib/components/ui/select'
+		importPath: '#lib/components/ui/select/index.js'
 	},
 	{
 		key: 'textarea',
 		source: '<textarea></textarea>',
 		messageId: 'nativeTextarea',
-		importPath: '$lib/components/ui/textarea'
+		importPath: '#lib/components/ui/textarea/index.js'
 	},
 	{
 		key: 'input-text',
 		source: '<input type="text" />',
 		messageId: 'nativeInput',
-		importPath: '$lib/components/ui/input'
+		importPath: '#lib/components/ui/input/index.js'
 	},
 	{
 		key: 'input-email',
 		source: '<input type="email" />',
 		messageId: 'nativeInput',
-		importPath: '$lib/components/ui/input'
+		importPath: '#lib/components/ui/input/index.js'
 	},
 	{
 		key: 'input-password',
 		source: '<input type="password" />',
 		messageId: 'nativeInput',
-		importPath: '$lib/components/ui/input'
+		importPath: '#lib/components/ui/input/index.js'
 	},
 	{
 		key: 'input-search',
 		source: '<input type="search" />',
 		messageId: 'nativeInput',
-		importPath: '$lib/components/ui/input'
+		importPath: '#lib/components/ui/input/index.js'
 	},
 	{
 		key: 'input-tel',
 		source: '<input type="tel" />',
 		messageId: 'nativeInput',
-		importPath: '$lib/components/ui/input'
+		importPath: '#lib/components/ui/input/index.js'
 	},
 	{
 		key: 'input-url',
 		source: '<input type="url" />',
 		messageId: 'nativeInput',
-		importPath: '$lib/components/ui/input'
+		importPath: '#lib/components/ui/input/index.js'
 	},
 	{
 		key: 'input-number',
 		source: '<input type="number" />',
 		messageId: 'nativeInput',
-		importPath: '$lib/components/ui/input'
+		importPath: '#lib/components/ui/input/index.js'
 	},
 	{
 		key: 'input-default',
 		source: '<input />',
 		messageId: 'nativeInput',
-		importPath: '$lib/components/ui/input'
+		importPath: '#lib/components/ui/input/index.js'
 	}
 ] as const;
 
@@ -185,17 +185,19 @@ async function assertConfiguredAtError(filename: string) {
 
 const EXPECTED_MESSAGES = {
 	nativeButton:
-		'Use shadcn Button from $lib/components/ui/button instead of a native <button>. Spread {...props} onto <button> only as a bits-ui child host.',
-	nativeDialog: 'Use shadcn Dialog from $lib/components/ui/dialog instead of a native <dialog>.',
+		'Use shadcn Button from #lib/components/ui/button/index.js instead of a native <button>. Spread {...props} onto <button> only as a bits-ui child host.',
+	nativeDialog:
+		'Use shadcn Dialog from #lib/components/ui/dialog/index.js instead of a native <dialog>.',
 	nativeTitle:
-		'Use shadcn Tooltip from $lib/components/ui/tooltip instead of the HTML title tooltip.',
+		'Use shadcn Tooltip from #lib/components/ui/tooltip/index.js instead of the HTML title tooltip.',
 	nativeCheckbox:
-		'Use shadcn Checkbox from $lib/components/ui/checkbox instead of a native <input type="checkbox">.',
-	nativeSelect: 'Use shadcn Select from $lib/components/ui/select instead of a native <select>.',
+		'Use shadcn Checkbox from #lib/components/ui/checkbox/index.js instead of a native <input type="checkbox">.',
+	nativeSelect:
+		'Use shadcn Select from #lib/components/ui/select/index.js instead of a native <select>.',
 	nativeTextarea:
-		'Use shadcn Textarea from $lib/components/ui/textarea instead of a native <textarea>.',
+		'Use shadcn Textarea from #lib/components/ui/textarea/index.js instead of a native <textarea>.',
 	nativeInput:
-		'Use shadcn Input from $lib/components/ui/input instead of a native text-like <input>.'
+		'Use shadcn Input from #lib/components/ui/input/index.js instead of a native text-like <input>.'
 } as const;
 
 const TEXT_LIKE_TYPES = ['text', 'email', 'password', 'search', 'tel', 'url', 'number'] as const;
@@ -467,7 +469,9 @@ describe('message contracts', () => {
 
 	it('checkbox names Checkbox and does not start as Input', () => {
 		const text = rule.meta.messages.nativeCheckbox;
-		expect(text.startsWith('Use shadcn Checkbox from $lib/components/ui/checkbox')).toBe(true);
+		expect(text.startsWith('Use shadcn Checkbox from #lib/components/ui/checkbox/index.js')).toBe(
+			true
+		);
 		expect(text.startsWith('Use shadcn Input ')).toBe(false);
 		expect(text).toBe(EXPECTED_MESSAGES.nativeCheckbox);
 	});
@@ -807,12 +811,12 @@ describe('real ESLint configuration', () => {
 		],
 		[
 			'Button explicit title',
-			'<script>import { Button } from "$lib/components/ui/button";</script>\n<Button title="Help">Save</Button>',
+			'<script>import { Button } from "#lib/components/ui/button/index.js";</script>\n<Button title="Help">Save</Button>',
 			['nativeTitle']
 		],
 		[
 			'Button shorthand title',
-			'<script>import { Button } from "$lib/components/ui/button"; const title = "Help";</script>\n<Button {title}>Save</Button>',
+			'<script>import { Button } from "#lib/components/ui/button/index.js"; const title = "Help";</script>\n<Button {title}>Save</Button>',
 			['nativeTitle']
 		],
 		['default input', '<input />', ['nativeInput']],
@@ -903,22 +907,22 @@ describe('real ESLint configuration', () => {
 			},
 			{
 				source:
-					'<script>import SEOHead from "$lib/components/SEOHead.svelte"; const title = "Help";</script>\n<SEOHead {title} />',
+					'<script>import SEOHead from "#lib/components/SEOHead.svelte"; const title = "Help";</script>\n<SEOHead {title} />',
 				file: REAL_APP_FILE
 			},
 			{
 				source:
-					'<script>import AvatarHeading from "$lib/components/customer-support/avatar-heading.svelte"; const title = "Help";</script>\n<AvatarHeading {title} />',
+					'<script>import AvatarHeading from "#lib/components/customer-support/avatar-heading.svelte"; const title = "Help";</script>\n<AvatarHeading {title} />',
 				file: 'src/lib/components/customer-support/threads-overview.svelte'
 			},
 			{
 				source:
-					'<script>import { PromptSuggestion } from "$lib/components/prompt-kit/prompt-suggestion"; const title = "Help";</script>\n<PromptSuggestion {title} />',
+					'<script>import { PromptSuggestion } from "#lib/components/prompt-kit/prompt-suggestion/index.js"; const title = "Help";</script>\n<PromptSuggestion {title} />',
 				file: 'src/lib/chat/ui/ChatInput.svelte'
 			},
 			{
 				source:
-					'<script>import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js"; const title = "Help";</script>\n<DropdownMenu.Item {title} />',
+					'<script>import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.js"; const title = "Help";</script>\n<DropdownMenu.Item {title} />',
 				file: 'src/lib/components/nav-user.svelte'
 			}
 		];

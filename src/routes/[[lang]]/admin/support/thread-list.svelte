@@ -1,27 +1,27 @@
 <script lang="ts">
 	import { mergeProps } from 'bits-ui';
-	import { Input } from '$lib/components/ui/input';
-	import * as Tabs from '$lib/components/ui/tabs';
-	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { Button } from '$lib/components/ui/button';
-	import AdminThreadRow from '$lib/components/ui/owned/admin-thread-row.svelte';
-	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
-	import { Skeleton } from '$lib/components/ui/skeleton';
-	import AvatarHeading from '$lib/components/customer-support/avatar-heading.svelte';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import * as Tabs from '#lib/components/ui/tabs/index.js';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import AdminThreadRow from '#lib/components/ui/owned/admin-thread-row.svelte';
+	import { Badge, type BadgeVariant } from '#lib/components/ui/badge/index.js';
+	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
+	import AvatarHeading from '#lib/components/customer-support/avatar-heading.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
-	import IconSwap from '$lib/components/motion/icon-swap.svelte';
+	import IconSwap from '#lib/components/motion/icon-swap.svelte';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { formatDistanceToNow } from 'date-fns';
 	import { untrack } from 'svelte';
 	import { watch } from 'runed';
 	import type { PaginationStatus } from 'convex/browser';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
 	import { page } from '$app/state';
-	import { getDateFnsLocale } from '$lib/utils/i18n';
+	import { getDateFnsLocale } from '#lib/utils/i18n.js';
 
 	const dateFnsLocale = $derived(getDateFnsLocale(page.data.lang));
 

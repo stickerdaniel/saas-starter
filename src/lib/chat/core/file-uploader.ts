@@ -3,7 +3,7 @@
  *
  * Chat-specific grant/commit arguments live here. Browser transport,
  * cancelation, progress, and provider-error normalization are shared by every
- * upload surface through `$lib/uploads/transfer`.
+ * upload surface through `#lib/uploads/transfer.js`.
  */
 
 import type { ConvexClient } from 'convex/browser';

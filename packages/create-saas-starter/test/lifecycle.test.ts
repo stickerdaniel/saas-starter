@@ -4,7 +4,7 @@ import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:f
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { runCli, type CliIo, type CliRuntime } from '../src/index.js';
+import { assertSupportedNodeVersion, runCli, type CliIo, type CliRuntime } from '../src/index.js';
 import { SCAFFOLD_MARKER } from '../src/archive.js';
 import { publishStagedTarget, updateMarker } from '../src/target.js';
 import { runProcess, runSetupAndInstall } from '../src/process.js';
@@ -80,6 +80,18 @@ async function markerAt(target: string): Promise<{ state: string; phase: string 
 		phase: string;
 	};
 }
+
+describe('Node.js version gate', () => {
+	it.each(['21.9.0', '22.16.1'])('refuses Node.js %s', (version) => {
+		expect(() => assertSupportedNodeVersion(version)).toThrow(
+			'Node.js 22.17.0 or newer is required.'
+		);
+	});
+
+	it.each(['22.17.0', '24.21.0'])('accepts Node.js %s', (version) => {
+		expect(() => assertSupportedNodeVersion(version)).not.toThrow();
+	});
+});
 
 describe('CLI lifecycle', () => {
 	it.each(['workflow', 'child'] as const)(

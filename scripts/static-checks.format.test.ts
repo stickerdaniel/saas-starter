@@ -13,6 +13,7 @@ import {
 import { tmpdir } from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { stripVTControlCharacters } from 'util';
 import { describe, expect, it } from 'vitest';
 import knowledgePolicy from '../knowledge-policy.config';
 import { sanitizedGitEnv } from './git-context';
@@ -129,21 +130,39 @@ describe('format-only static checks', () => {
 	// Prettier reads a leading-dash path as an option, warns that the option is unknown,
 	// finds no file left to check and exits 0. Both hand-offs therefore pass the paths
 	// after "--": the checker's own CLI, and the Prettier invocation behind it.
-	it('checks a repository file whose name begins with dashes', () => {
-		const relative = `--format-dash-${process.pid}.ts`;
-		withRepositoryFile(relative, 'export const value    =    1;\n', (file) => {
-			// "[warn] <file>" is Prettier's own verdict. Without it the run can still exit
-			// non-zero for having checked nothing at all, which is the failure this pins.
-			const absolute = formatCheck(file);
-			expect(absolute.status).not.toBe(0);
-			expect(absolute.output).toContain(`[warn] ${relative}`);
+	it.each(['0', '1'])('checks a file whose name begins with dashes (FORCE_COLOR=%s)', (color) => {
+		const directory = mkdtempSync(path.join(tmpdir(), 'static-checks-dash-'));
+		const env = { ...sanitizedGitEnv(), FORCE_COLOR: color, NO_COLOR: undefined };
+		const name = `--format-dash-${process.pid}.ts`;
+		const prettierBin = path.join(ROOT, 'node_modules/prettier/bin/prettier.cjs');
+		try {
+			writeFileSync(path.join(directory, name), 'export const value    =    1;\n');
+			const args = prettierArguments('--check', [name]);
+			expect(args.indexOf('--')).toBe(args.length - 2);
+			expect(args.at(-1)).toBe(name);
 
-			// The same file relayed as a repo-relative path behind an explicit separator.
-			const relayed = formatCheck('--', relative);
-			expect(relayed.status).not.toBe(0);
-			expect(relayed.output).toContain(`[warn] ${relative}`);
-			expect(relayed.output).not.toContain('Bad arguments');
-		});
+			const checked = spawnSync(process.execPath, [prettierBin, ...args.slice(1)], {
+				cwd: directory,
+				env,
+				encoding: 'utf8',
+				timeout: 10_000
+			});
+			const output = stripVTControlCharacters(`${checked.stdout}${checked.stderr}`);
+			expect(checked.status).toBe(1);
+			expect(output).toContain(`[warn] ${name}`);
+
+			// Without the separator Prettier reads the name as an option and checks nothing.
+			const ignored = spawnSync(
+				process.execPath,
+				[prettierBin, '--check', '--ignore-unknown', name],
+				{ cwd: directory, env, encoding: 'utf8', timeout: 10_000 }
+			);
+			const ignoredOutput = stripVTControlCharacters(`${ignored.stdout}${ignored.stderr}`);
+			expect(ignored.status).toBe(0);
+			expect(ignoredOutput).not.toContain(`[warn] ${name}`);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
 	it('keeps a filename whose name begins with a space distinct from its neighbour', () => {
@@ -779,9 +798,9 @@ describe('format-only static checks', () => {
 	});
 
 	it('reports an honest no-op for a file the formatter ignores', () => {
-		// src/env.d.ts is generated and excluded by .prettierignore, so the CLI would skip
+		// src/varlock-env.d.ts is generated and excluded by .prettierignore, so the CLI would skip
 		// it. Counting it as formatter work would report a check that never happened.
-		const { status, output } = formatCheck(path.join(ROOT, 'src/env.d.ts'));
+		const { status, output } = formatCheck(path.join(ROOT, 'src/varlock-env.d.ts'));
 		expect(status).toBe(0);
 		expect(output).toContain('No formatter work');
 		expect(output).toContain('prettier         0 file(s)');

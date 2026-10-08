@@ -2,14 +2,23 @@ import * as childProcess from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import auto from '@sveltejs/adapter-auto';
+import cloudflare from '@sveltejs/adapter-cloudflare';
+import node from '@sveltejs/adapter-node';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import { CLOUDFLARE_SSR_ENTRY_CODE } from '@varlock/cloudflare-integration/ssr-entry-code';
 import { varlockLoadedEnv, varlockVitePlugin } from '@varlock/vite-integration';
 import { convexLocal } from 'convex-vite-plugin';
 import { DEV_FEATURES, type DevFeature } from './src/lib/dev/features';
+import { buildContentSecurityPolicy } from './src/lib/security/csp.js';
+import { appVersion } from './scripts/app-version';
+import { buildAdapter, isCloudflareBuild } from './scripts/build-target';
 import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
 import { getManagedProviderUpdates, logSafeOrigin } from './scripts/local-convex-env';
-import { stripSensitiveManifestValues } from './scripts/strip-varlock-secrets';
+import { prepareEmbeddedEnvManifest } from './scripts/strip-varlock-secrets';
 import { thirdPartyLicenses } from './scripts/third-party-licenses/index';
 import { marketingFonts } from './scripts/marketing-fonts';
+import { kitGeneratedHmr } from './scripts/kit-generated-hmr';
 import { sentrySvelteKit } from '@sentry/sveltekit/vite';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
@@ -137,11 +146,11 @@ export default defineConfig(async ({ mode }) => {
 	// production and preview triggers, so PUBLIC_SENTRY_DSN would otherwise bake into
 	// preview/PR deploys: it loads the SDK on every public page (which destabilizes the
 	// public E2E run) and reports PR errors into the prod Sentry project. Blank the
-	// Sentry vars for any non-production build. Blank, not delete: PUBLIC_SENTRY_DSN is
-	// imported from $env/static/public, which only exports vars present at build time,
-	// so deleting it breaks that import (MISSING_EXPORT). An empty string keeps the
-	// export but reads as falsy, so the SDK is still dead-code-eliminated. Mirrors the
-	// prod/preview check in scripts/cf-deploy.ts (WORKERS_CI_BRANCH).
+	// Sentry vars for any non-production build. Blank, not delete: PUBLIC_SENTRY_DSN is a
+	// static public variable in src/env.ts, and SvelteKit rejects a missing value at build
+	// time. An empty string keeps the export but reads as falsy, so the SDK is still
+	// dead-code-eliminated. Mirrors the prod/preview check in scripts/cf-deploy.ts
+	// (WORKERS_CI_BRANCH).
 	const ciBranch = process.env.WORKERS_CI_BRANCH;
 	const isProductionDeploy = !ciBranch || ciBranch === (process.env.PRODUCTION_BRANCH || 'main');
 	if (!isProductionDeploy) {
@@ -314,50 +323,89 @@ export default defineConfig(async ({ mode }) => {
 		);
 	}
 
-	// On Cloudflare, varlock delivers env natively: `varlockVitePlugin()` detects
-	// @sveltejs/adapter-cloudflare (via `api.options.kit.adapter` on SvelteKit's setup plugin,
-	// exposed since kit 2.62) and injects the runtime loader that reads the __VARLOCK_ENV
-	// binding at worker boot. `varlock-wrangler` (both deploy scripts wrap it) uploads that
-	// binding at deploy time as worker vars + secrets. Nothing is embedded in the bundle, so
-	// no @sensitive value can reach the worker script, which Cloudflare serves over its API
-	// and archives per version.
-	//
-	// WORKERS_CI is the same signal svelte.config.js uses to pick adapter-cloudflare, so the
-	// build here knows whether the CF path applies. (Auto-detection itself keys off the
-	// resolved adapter, so the two always agree.)
-	const isCloudflareBuild = !!process.env.WORKERS_CI;
+	// On Cloudflare, varlock delivers env natively: the Workers loader reads the __VARLOCK_ENV
+	// binding at worker boot, and `varlock-wrangler` (both deploy scripts wrap it) uploads that
+	// binding at deploy time as worker vars + secrets. Nothing is embedded in the bundle, so no
+	// @sensitive value can reach the worker script, which Cloudflare serves over its API and
+	// archives per version. The loader options are passed explicitly: varlock's adapter
+	// auto-detection reads the SvelteKit 2 option shape and finds nothing under SvelteKit 3.
+	// The adapter choice and this check read the same environment (scripts/build-target.ts),
+	// so Workers Builds and Pages get the loader and an explicit Node build never does.
+	const cloudflareBuild = isCloudflareBuild();
 	// Third-party notices for the browser build. One instance per config factory
 	// call, so the client plugin and its worker plugins share one accumulator.
 	const licenses = thirdPartyLicenses();
 
 	plugins.push(
 		// The other adapters (Vercel, adapter-node) have no equivalent upload step, so there
-		// the resolved manifest IS still serialized into the SSR bundle (ssrInjectMode below)
-		// and the plaintext values of @sensitive vars have to be stripped out of it by hand.
-		// Write-only platform secrets (Convex deploy/preview keys, management token) would
-		// otherwise be readable in the deployed artifact even though nothing at runtime reads
-		// them. buildStart runs after varlock's config reload and before the manifest is
-		// serialized, and mutates the same live binding varlockVitePlugin serializes. See
-		// scripts/strip-varlock-secrets.ts.
+		// the resolved manifest IS still serialized into the SSR bundle (ssrInjectMode below).
+		// It has to drop the plaintext of @sensitive vars, which write-only platform secrets
+		// (Convex deploy/preview keys, management token) would otherwise leave readable in the
+		// deployed artifact, and it must not overwrite the host's runtime values with the empty
+		// strings that stand in for them. buildStart runs after varlock's config reload and
+		// before the manifest is serialized, and mutates the same live binding
+		// varlockVitePlugin serializes. See scripts/strip-varlock-secrets.ts.
 		{
 			name: 'strip-varlock-sensitive-manifest-values',
 			apply: 'build',
 			buildStart() {
-				if (mode === 'production' && !isCloudflareBuild) {
-					stripSensitiveManifestValues(varlockLoadedEnv);
+				if (mode === 'production' && !cloudflareBuild) {
+					prepareEmbeddedEnvManifest(varlockLoadedEnv);
 				}
 			}
 		},
-		// Cloudflare: no options, so auto-detection injects the loader and no blob is embedded.
-		// Vercel/adapter-node production: embed the resolved-env blob (their only delivery
-		// channel), stripped above. Dev: init-only.
+		// Cloudflare: inject the Workers loader and embed no blob. Vercel/adapter-node
+		// production: embed the resolved-env blob (their only delivery channel), prepared
+		// above. Dev: init-only.
 		varlockVitePlugin(
-			isCloudflareBuild ? {} : mode === 'production' ? { ssrInjectMode: 'resolved-env' } : {}
+			cloudflareBuild
+				? {
+						ssrEntryCode: [CLOUDFLARE_SSR_ENTRY_CODE],
+						ssrEdgeRuntime: true,
+						isCloudflareTarget: true
+					}
+				: mode === 'production'
+					? { ssrInjectMode: 'resolved-env' }
+					: {}
 		),
 		tailwindcss(),
-		sveltekit(),
+		sveltekit({
+			adapter: { cloudflare, node, auto }[buildAdapter()](),
+			// Consult https://svelte.dev/docs/kit/integrations
+			// for more information about preprocessors
+			preprocess: vitePreprocess(),
+			compilerOptions: {
+				// Remote functions require the async compiler mode.
+				experimental: { async: true }
+			},
+			// Prioritize first paint over stylesheet caching on full document loads.
+			inlineStyleThreshold: 256 * 1024,
+			// object-src/base-uri stay enforced (embedded as <meta> on prerendered
+			// pages, as a header on SSR pages). script-src runs report-only and is
+			// wired to Sentry only when PUBLIC_SENTRY_DSN is set at build time.
+			// frame-ancestors is not here — it cannot ride a <meta> tag, so it lives
+			// in hooks.server.ts / _headers / vercel.json. See src/lib/security/csp.js.
+			// script-src hashes are derived from the inline scripts of the app template.
+			// Evaluated after the preview-build Sentry blanking above.
+			csp: buildContentSecurityPolicy({
+				sentryDsn: process.env.PUBLIC_SENTRY_DSN,
+				appTemplate: fs.readFileSync(path.join(cwd, 'src/app.html'), 'utf8')
+			}),
+			experimental: {
+				remoteFunctions: true
+			},
+			version: {
+				name: appVersion(),
+				// Poll /_app/version.json in the background so updated.current flips to
+				// true after a new deploy, letting the beforeNavigate guard in the root
+				// layout force a full document load before importing a dead chunk hash.
+				pollInterval: 300000
+			}
+		}),
 		licenses.plugin,
 		marketingFonts(),
+		// Startup rewrites of .svelte-kit/generated must not reload the SSR runner mid-request.
+		kitGeneratedHmr(),
 		devtoolsJson(),
 		// Download and self-host the web fonts. Existing static/fonts URLs remain
 		// available for emails, which need stable URLs across deployments.
@@ -427,6 +475,19 @@ export default defineConfig(async ({ mode }) => {
 				'.agents/skills/upstream-report/scripts/upstream-relevance.integration.test.ts'
 			],
 			passWithNoTests: true,
+			// Svelte's async tick() resolves on the next animation frame. Faking that
+			// frame leaves the callback queued forever in jsdom, so timer tests keep
+			// the real frame (installed for this runner in the app setup) and only
+			// fake the timers they advance.
+			fakeTimers: {
+				toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] as [
+					'setTimeout',
+					'clearTimeout',
+					'setInterval',
+					'clearInterval',
+					'Date'
+				]
+			},
 			projects: [
 				{
 					extends: true as const,
@@ -441,6 +502,7 @@ export default defineConfig(async ({ mode }) => {
 					test: {
 						name: 'app',
 						environment: 'jsdom',
+						setupFiles: ['./src/test/jsdom-animation-frame.ts'],
 						include: configDefaults.include.map((pattern) => `src/${pattern}`)
 					}
 				}
@@ -450,6 +512,11 @@ export default defineConfig(async ({ mode }) => {
 			include: ['svelte-konva', 'konva']
 		},
 		ssr: {
+			// The SSR prebundle copies Svelte's context into a second module.
+			// setContext then runs outside the renderer's context and 500s the page.
+			optimizeDeps: {
+				exclude: ['svelte']
+			},
 			noExternal: [
 				'svelte-konva',
 				'@tolgee/web',

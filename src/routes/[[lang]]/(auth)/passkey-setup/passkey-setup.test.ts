@@ -8,7 +8,7 @@ vi.mock('svelte', () =>
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 const calls = vi.hoisted(() => ({ claim: vi.fn(), replace: vi.fn() }));
-vi.mock('$lib/utils/passkey-nudge', () => ({
+vi.mock('#lib/utils/passkey-nudge.js', () => ({
 	claimPasskeyNudge: calls.claim,
 	deferPasskeyNudge: vi.fn()
 }));
@@ -19,7 +19,7 @@ vi.mock('$app/state', () => ({
 	page: { params: { lang: 'en' }, url: new URL('https://example.com/en/passkey-setup') }
 }));
 
-import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
+import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import PasskeySetup from './+page.svelte';
 
 let component: ReturnType<typeof mount> | undefined;

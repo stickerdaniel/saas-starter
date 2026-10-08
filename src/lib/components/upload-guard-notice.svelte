@@ -2,7 +2,7 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import { watch } from 'runed';
 	import { toast } from 'svelte-sonner';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 
 	// Renders nothing. It exists because the navigation guard lives in the root
 	// layout's script, which runs outside TolgeeProvider and so has no $t.

@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { AdminUserData, UserRole } from '$lib/convex/admin/types';
+	import type { AdminUserData, UserRole } from '#lib/convex/admin/types.js';
 
 	export type ActionEvent =
 		| { type: 'impersonate'; userId: string }
@@ -10,18 +10,18 @@
 </script>
 
 <script lang="ts">
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import UserBanMenuItem from '$lib/components/ui/owned/user-ban-menu-item.svelte';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import UserBanMenuItem from '#lib/components/ui/owned/user-ban-menu-item.svelte';
 	import DotsVerticalIcon from '@lucide/svelte/icons/ellipsis-vertical';
 	import UserCheckIcon from '@lucide/svelte/icons/user-check';
 	import UserOffIcon from '@lucide/svelte/icons/user-x';
 	import LogoutIcon from '@lucide/svelte/icons/log-out';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { T } from '@tolgee/svelte';
-	import { USER_ROLES } from '$lib/convex/admin/types';
+	import { USER_ROLES } from '#lib/convex/admin/types.js';
 	import { getAdminViewerId } from '../viewer-context';
 	import { getUserActionHandler } from './user-actions-context';
 

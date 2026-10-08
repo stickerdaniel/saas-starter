@@ -92,7 +92,7 @@ describe('count prediction', () => {
 			localStorage.setItem(`admin-cache:${key}`, '0');
 		}
 		vi.resetModules();
-		const { adminCache } = await import('$lib/hooks/admin-cache.svelte.ts');
+		const { adminCache } = await import('#lib/hooks/admin-cache.svelte.ts');
 
 		for (const cache of [
 			adminCache.userCount,

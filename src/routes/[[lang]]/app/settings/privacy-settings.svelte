@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { toast } from 'svelte-sonner';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { Switch } from '$lib/components/ui/switch/index.js';
-	import { analyticsPreferencesContext } from '$lib/analytics/preferences.svelte.ts';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import { Switch } from '#lib/components/ui/switch/index.js';
+	import { analyticsPreferencesContext } from '#lib/analytics/preferences.svelte.ts';
 
 	const preferences = analyticsPreferencesContext.get();
 	const { t } = getTranslate();

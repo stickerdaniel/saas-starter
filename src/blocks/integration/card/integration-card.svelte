@@ -1,7 +1,7 @@
 <script lang="ts">
-	import IntegrationLearnMoreButton from '$lib/components/ui/owned/integration-learn-more-button.svelte';
-	import Card from '$lib/components/ui/card/card.svelte';
-	import LearnMoreChevron from '$lib/components/motion/learn-more-chevron.svelte';
+	import IntegrationLearnMoreButton from '#lib/components/ui/owned/integration-learn-more-button.svelte';
+	import Card from '#lib/components/ui/card/card.svelte';
+	import LearnMoreChevron from '#lib/components/motion/learn-more-chevron.svelte';
 	import type { Snippet } from 'svelte';
 
 	type IntegrationCardProps = {

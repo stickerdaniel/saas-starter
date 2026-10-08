@@ -1,6 +1,6 @@
-import { getLanguage } from '$lib/i18n/languages';
+import { getLanguage } from '#lib/i18n/languages.js';
 import { page } from '$app/state';
-import { useLanguage as useLanguageContext } from '$lib/i18n/context';
+import { useLanguage as useLanguageContext } from '#lib/i18n/context.js';
 import { type Locale, de, es, fr } from 'date-fns/locale';
 
 const dateFnsLocaleMap: Record<string, Locale> = { de, es, fr };

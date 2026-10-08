@@ -9,7 +9,7 @@
  * `TolgeeProvider`. The signed-in user must already own the supplied AI chat thread.
  * ```svelte
  * <script lang="ts">
- *   import SimpleChat from '$lib/chat/examples/SimpleChat.svelte';
+ *   import SimpleChat from '#lib/chat/examples/SimpleChat.svelte';
  *   let { ownedThreadId }: { ownedThreadId: string } = $props();
  * </script>
  * <SimpleChat threadId={ownedThreadId} />
@@ -17,7 +17,7 @@
  *
  * @example Using core without UI
  * ```typescript
- * import { ChatCore } from '$lib/chat/core';
+ * import { ChatCore } from '#lib/chat/core/index.js';
  *
  * const core = new ChatCore({
  *   threadId: 'thread_123',

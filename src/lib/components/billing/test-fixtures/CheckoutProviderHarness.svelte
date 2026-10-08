@@ -1,6 +1,6 @@
 <script lang="ts" generics="Props extends Record<string, unknown>">
 	import type { Component } from 'svelte';
-	import { languageContext } from '$lib/i18n/context';
+	import { languageContext } from '#lib/i18n/context.js';
 	import CheckoutProvider from '../checkout-provider.svelte';
 
 	// mount() cannot pass a component as the provider's children snippet.

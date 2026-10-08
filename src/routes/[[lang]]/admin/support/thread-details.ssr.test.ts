@@ -35,7 +35,7 @@ vi.mock('convex-svelte', async (importOriginal) => ({
 	})
 }));
 
-import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
+import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import ThreadDetails from './thread-details.svelte';
 
 type Window = { document: Document; close(): void };

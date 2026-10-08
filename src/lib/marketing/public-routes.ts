@@ -1,5 +1,5 @@
-import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, isSupportedLanguage } from '$lib/i18n/languages';
-import { LEGAL_CONTENT_DATES } from '$lib/content/legal-metadata';
+import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, isSupportedLanguage } from '#lib/i18n/languages.js';
+import { LEGAL_CONTENT_DATES } from '#lib/content/legal-metadata.js';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
 import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
 import { marketingMarkdown as licensesMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/licenses/page.md';

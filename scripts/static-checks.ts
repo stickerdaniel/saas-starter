@@ -102,7 +102,7 @@ const CONFIG = {
 		/**
 		 * Static value imports/re-exports of the Sentry SDK under src/. They defeat
 		 * dead-code elimination when PUBLIC_SENTRY_DSN is unset and ship the SDK to
-		 * first paint. Lazy-load via $lib/monitoring/sentry instead; `import type`
+		 * first paint. Lazy-load via #lib/monitoring/sentry instead; `import type`
 		 * stays allowed (erased at build time).
 		 */
 		staticSentryImport: /(?:import|export)\s+(?!type[\s{])[^'"]*from\s*['"]@sentry\/sveltekit['"]/,
@@ -1539,7 +1539,7 @@ async function main(): Promise<void> {
 					}
 					if (CONFIG.bannedPatterns.staticSentryImport.test(line)) {
 						violations.push(
-							`${file}:${i + 1}: static @sentry/sveltekit import (lazy-load via $lib/monitoring/sentry; import type is allowed): ${line.trim()}`
+							`${file}:${i + 1}: static @sentry/sveltekit import (lazy-load via #lib/monitoring/sentry; import type is allowed): ${line.trim()}`
 						);
 					}
 					if (CONFIG.bannedPatterns.execSync.test(line)) {

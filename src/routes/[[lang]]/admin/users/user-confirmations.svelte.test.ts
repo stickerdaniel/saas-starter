@@ -3,7 +3,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import { getFunctionName, type FunctionReference } from 'convex/server';
 import en from '../../../../i18n/en.json';
-import type { AdminUserData } from '$lib/convex/admin/types';
+import type { AdminUserData } from '#lib/convex/admin/types.js';
 import type { ActionEvent } from './data-table-actions.svelte';
 import type { PageData } from './$types';
 
@@ -17,11 +17,11 @@ vi.mock('@tolgee/svelte', async () => {
 	return { getTranslate: () => ({ t: translation }), T };
 });
 // The table renders only in the browser; these tests drive the row actions directly.
-vi.mock('$app/environment', () => ({ browser: false, dev: true, building: false }));
+vi.mock('$app/env', () => ({ browser: false, dev: true, building: false }));
 vi.mock('$app/state', () => ({
 	page: { data: {}, params: {}, url: new URL('http://localhost/en/admin/users') }
 }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: () => {} } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: () => {} } }));
 vi.mock('../impersonate-user', () => ({ impersonateUser: vi.fn() }));
 
 const mocks = vi.hoisted(() => ({
@@ -41,7 +41,7 @@ vi.mock('./user-actions-context', () => ({
 	},
 	getUserActionHandler: () => mocks.onAction
 }));
-vi.mock('$lib/tables/convex/create-convex-cursor-table.svelte.ts', () => ({
+vi.mock('#lib/tables/convex/create-convex-cursor-table.svelte.ts', () => ({
 	createConvexCursorTable: () => ({
 		rows: [],
 		currentUrlState: { search: '' },

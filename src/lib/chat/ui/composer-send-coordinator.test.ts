@@ -11,7 +11,7 @@ import { mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import { ConvexClient } from 'convex/browser';
 import { getFunctionName } from 'convex/server';
-import { api } from '$lib/convex/_generated/api';
+import { api } from '#lib/convex/_generated/api.js';
 import { ChatCore } from '../core/chat-core.svelte.ts';
 import { ChatDraftManager } from '../core/chat-draft-manager.svelte.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
@@ -32,7 +32,7 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 vi.mock('./ChatAttachments.svelte', () => ({ default: () => {} }));
 
 type Send = PromiseWithResolvers<void> & { prompt: string };

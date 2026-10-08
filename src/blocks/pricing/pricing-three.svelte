@@ -1,25 +1,25 @@
 <script lang="ts">
-	import Button from '$lib/components/ui/button/button.svelte';
+	import Button from '#lib/components/ui/button/button.svelte';
 	import {
 		Card,
 		CardContent,
 		CardDescription,
 		CardHeader,
 		CardTitle
-	} from '$lib/components/ui/card';
+	} from '#lib/components/ui/card/index.js';
 	import Check from '@lucide/svelte/icons/check';
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { localizedHref } from '#lib/utils/i18n.js';
 	import { useSearchParams } from 'runed/kit';
-	import { pricingParamsSchema } from '$lib/schemas/pricing-params';
+	import { pricingParamsSchema } from '#lib/schemas/pricing-params.js';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-	import { useBillingCheckout } from '$lib/components/billing';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
+	import { useBillingCheckout } from '#lib/components/billing/index.js';
 
 	// Keep both objects: their customer and isAuthenticated are live getters, and
 	// destructuring them would freeze the values read during setup.

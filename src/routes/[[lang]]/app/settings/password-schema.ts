@@ -5,7 +5,7 @@ import {
 	passwordRequired,
 	confirmPasswordRequired,
 	PASSWORD_MISMATCH_KEY
-} from '$lib/schemas/password.js';
+} from '#lib/schemas/password.js';
 
 // Re-export for backward compatibility
 export { PASSWORD_MIN_LENGTH };

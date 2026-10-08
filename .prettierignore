@@ -13,5 +13,5 @@ docs/references/
 
 # Generated files
 **/_generated/
-src/env.d.ts
+src/varlock-env.d.ts
 scripts/english-policy/pr-metadata.bundle.mjs

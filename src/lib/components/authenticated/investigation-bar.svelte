@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { impersonationContext } from '$lib/hooks/use-impersonation.svelte.ts';
-	import { readInvestigationReturn } from '$lib/admin/investigation-return';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { impersonationContext } from '#lib/hooks/use-impersonation.svelte.ts';
+	import { readInvestigationReturn } from '#lib/admin/investigation-return.js';
 	import { getAdminSidebarConfig } from './configs/admin-sidebar-config';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';

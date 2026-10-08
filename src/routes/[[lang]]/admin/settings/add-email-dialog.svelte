@@ -1,15 +1,15 @@
 <script lang="ts">
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { addEmailForm } from './data.remote';
 	import { addEmailSchema } from './email-schema';
-	import { translateRemoteFormIssues } from '$lib/utils/validation-i18n';
+	import { translateRemoteFormIssues } from '#lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
 

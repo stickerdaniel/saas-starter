@@ -6,10 +6,10 @@
 	import type { TransitionConfig } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import { resolve } from '$app/paths';
-	import { Button } from '$lib/components/ui/button';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import { analyticsPreferencesContext } from '$lib/analytics/preferences.svelte.ts';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import { analyticsPreferencesContext } from '#lib/analytics/preferences.svelte.ts';
+	import { localizedHref } from '#lib/utils/i18n.js';
 
 	const preferences = analyticsPreferencesContext.get();
 	const { t } = getTranslate();

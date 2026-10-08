@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { useConvexClient } from 'convex-svelte';
-	import { ChatRoot, ChatMessages, ChatInput, ChatUIContext } from '$lib/chat';
+	import { ChatRoot, ChatMessages, ChatInput, ChatUIContext } from '#lib/chat/index.js';
 	import type { SimpleChatSessionRegistry } from './simple-chat-session.svelte.ts';
-	import { Avatar, AvatarImage } from '$lib/components/ui/avatar';
-	import memberFour from '$blocks/team/avatars/member-four.webp';
-	import memberTwo from '$blocks/team/avatars/member-two.webp';
-	import memberFive from '$blocks/team/avatars/member-five.webp';
+	import { Avatar, AvatarImage } from '#lib/components/ui/avatar/index.js';
+	import memberFour from '#blocks/team/avatars/member-four.webp';
+	import memberTwo from '#blocks/team/avatars/member-two.webp';
+	import memberFive from '#blocks/team/avatars/member-five.webp';
 
 	let {
 		threadId,

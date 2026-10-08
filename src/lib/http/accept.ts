@@ -8,9 +8,6 @@ interface OfferedRepresentation {
  * Choose Markdown only when the request ranks the UTF-8 Markdown representation
  * above the UTF-8 HTML representation. HTML wins ties because it is the default
  * representation for these URLs.
- *
- * Kept self-contained so `toString()` can inject this exact function into the
- * generated Cloudflare Worker. The shared fixture table checks both copies.
  */
 export function prefersMarkdownHeader(value: string | null): boolean {
 	if (!value) return false;
@@ -141,7 +138,3 @@ export function prefersMarkdownHeader(value: string | null): boolean {
 	const htmlQuality = qualityFor({ type: 'text', subtype: 'html', parameters });
 	return markdownQuality > 0 && markdownQuality > htmlQuality;
 }
-
-// Injected into adapter-cloudflare's generated JavaScript. `prefersMarkdownHeader`
-// is deliberately self-contained, so this is the exact server implementation.
-export const PREFERS_MARKDOWN_FUNCTION_SOURCE = prefersMarkdownHeader.toString();

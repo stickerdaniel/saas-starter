@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
-	import { Separator } from '$lib/components/ui/separator/index.js';
-	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
-	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
-	import CommandTrigger from '$lib/components/global-search/command-trigger.svelte';
+	import * as Breadcrumb from '#lib/components/ui/breadcrumb/index.js';
+	import { Separator } from '#lib/components/ui/separator/index.js';
+	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import LanguageSwitcher from '#lib/components/LanguageSwitcher.svelte';
+	import LightSwitch from '#lib/components/ui/light-switch/light-switch.svelte';
+	import CommandTrigger from '#lib/components/global-search/command-trigger.svelte';
 	import { buildBreadcrumbs } from './breadcrumbs';
 	import { getTranslate } from '@tolgee/svelte';
-	import { getRepositoryUrl } from '$lib/config/site';
+	import { getRepositoryUrl } from '#lib/config/site.js';
 
 	const { t } = getTranslate();
 

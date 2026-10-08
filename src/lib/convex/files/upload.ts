@@ -4,7 +4,7 @@ import { acceptsMimeType, UPLOAD_PROFILES, type UploadProfile } from '../../uplo
 /**
  * Upload validation against a declared profile.
  *
- * The constraints themselves live in `$lib/uploads/profiles`, shared with the
+ * The constraints themselves live in `#lib/uploads/profiles.js`, shared with the
  * client so the picker and this validator cannot disagree about a format. They
  * used to be a second hand-maintained copy of the client list (#782).
  */

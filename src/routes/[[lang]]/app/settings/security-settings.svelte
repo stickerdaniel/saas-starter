@@ -1,25 +1,25 @@
 <script lang="ts">
-	import { authClient } from '$lib/auth-client.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import PasskeyDeleteButton from '$lib/components/ui/owned/passkey-delete-button.svelte';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as Alert from '$lib/components/ui/alert/index.js';
-	import * as Item from '$lib/components/ui/item/index.js';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { authClient } from '#lib/auth-client.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import PasskeyDeleteButton from '#lib/components/ui/owned/passkey-delete-button.svelte';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import * as Item from '#lib/components/ui/item/index.js';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
-	import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
+	import { DEFAULT_LANGUAGE } from '#lib/i18n/languages.js';
 	import KeyIcon from '@lucide/svelte/icons/key-round';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
 	import type { Passkey } from '@better-auth/passkey';
-	import { getAuthErrorKey } from '$lib/utils/auth-messages';
-	import { getPasskeyDevice } from '$lib/utils/passkey-device';
-	import { addPasskey, suggestPasskeyName } from '$lib/components/auth/passkey-registration';
+	import { getAuthErrorKey } from '#lib/utils/auth-messages.js';
+	import { getPasskeyDevice } from '#lib/utils/passkey-device.js';
+	import { addPasskey, suggestPasskeyName } from '#lib/components/auth/passkey-registration.js';
 	import { IsMounted } from 'runed';
 
 	let { user }: { user: { name?: string | null } | null } = $props();

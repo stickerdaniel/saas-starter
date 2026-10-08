@@ -6,13 +6,13 @@
 		SUPPORTED_LANGUAGES,
 		LANGUAGE_COOKIE_NAME,
 		LANGUAGE_COOKIE_MAX_AGE
-	} from '$lib/i18n/languages';
-	import { LanguageSwitcher as LanguageSwitcherUI } from '$lib/components/ui/language-switcher';
+	} from '#lib/i18n/languages.js';
+	import { LanguageSwitcher as LanguageSwitcherUI } from '#lib/components/ui/language-switcher/index.js';
 	import type { LanguageSwitcherProps } from './ui/language-switcher/types';
-	import { useLanguage } from '$lib/utils/i18n';
+	import { useLanguage } from '#lib/utils/i18n.js';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { updateUserWithLocale } from '$lib/auth-client';
-	import { preloadTranslations } from '$lib/i18n/load-translations';
+	import { updateUserWithLocale } from '#lib/auth-client.js';
+	import { preloadTranslations } from '#lib/i18n/load-translations.js';
 
 	interface Props {
 		/** Button variant */

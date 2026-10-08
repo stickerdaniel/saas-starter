@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getTranslate } from '@tolgee/svelte';
-	import UserAvatar from '$lib/components/user-avatar.svelte';
-	import TruncatedText from '$lib/components/truncated-text.svelte';
+	import UserAvatar from '#lib/components/user-avatar.svelte';
+	import TruncatedText from '#lib/components/truncated-text.svelte';
 
 	let { name, email, image }: { name?: string; email?: string; image?: string | null } = $props();
 

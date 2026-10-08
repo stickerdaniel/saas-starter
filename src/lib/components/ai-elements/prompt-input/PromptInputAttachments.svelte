@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.js';
 	import type { Snippet } from 'svelte';
 	import { ElementSize } from 'runed';
 	import { attachmentsContext, type FileWithId } from './attachments-context.svelte.ts';

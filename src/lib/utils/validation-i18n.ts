@@ -25,7 +25,7 @@ type TolgeeParams = Record<string, string | number | bigint | boolean | Date | n
  * ```svelte
  * <script>
  *   import { getTranslate } from '@tolgee/svelte';
- *   import { translateValidationErrors } from '$lib/utils/validation-i18n';
+ *   import { translateValidationErrors } from '#lib/utils/validation-i18n.js';
  *   const { t } = getTranslate();
  * </script>
  *

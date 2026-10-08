@@ -1,4 +1,4 @@
-import type { ToolPart } from '$lib/components/prompt-kit/tool/types.js';
+import type { ToolPart } from '#lib/components/prompt-kit/tool/types.js';
 import type { MessagePart } from '../core/types.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {

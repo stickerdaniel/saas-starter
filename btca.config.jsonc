@@ -5,6 +5,12 @@
 	"resources": [
 		{
 			"type": "git",
+			"name": "cloudflareWorkers",
+			"url": "https://github.com/cloudflare/workers-sdk",
+			"branch": "main"
+		},
+		{
+			"type": "git",
 			"name": "subsetFont",
 			"url": "https://github.com/papandreou/subset-font",
 			"branch": "master"

@@ -1,4 +1,4 @@
-import { api } from '$lib/convex/_generated/api';
+import { api } from '#lib/convex/_generated/api.js';
 /**
  * The context, not the component, reports a transfer in progress.
  *
@@ -21,7 +21,7 @@ vi.mock('../core/file-uploader.js', () => ({
 }));
 
 const { ChatUIContext } = await import('./chat-context.svelte.ts');
-const { ActiveUploads } = await import('$lib/hooks/active-uploads.svelte.ts');
+const { ActiveUploads } = await import('#lib/hooks/active-uploads.svelte.ts');
 
 const uploadConfig = {
 	generateUploadUrl: api.support.files.generateUploadUrl,

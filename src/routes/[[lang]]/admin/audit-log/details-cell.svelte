@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { getTranslate } from '@tolgee/svelte';
-	import TruncatedText from '$lib/components/truncated-text.svelte';
-	import type { AuditLogItem } from '$lib/convex/admin/auditLog/queries';
-	import { formatDuration } from '$lib/utils/format-duration';
+	import TruncatedText from '#lib/components/truncated-text.svelte';
+	import type { AuditLogItem } from '#lib/convex/admin/auditLog/queries.js';
+	import { formatDuration } from '#lib/utils/format-duration.js';
 
 	interface Props {
 		metadata: AuditLogItem['metadata'];

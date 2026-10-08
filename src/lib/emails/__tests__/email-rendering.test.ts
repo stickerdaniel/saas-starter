@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock the validated email capability before importing templates.
-vi.mock('$lib/convex/env', () => ({
+vi.mock('#lib/convex/env.js', () => ({
 	requireEmailConfiguration: () => ({
 		apiKey: 'configured',
 		sender: 'test@example.com',
@@ -10,13 +10,13 @@ vi.mock('$lib/convex/env', () => ({
 }));
 
 import { nestEmailDarkRules, nestEmailDarkStyles, sanitizeEmailCss } from '../email-css';
-import { STATIC_TRANSLATIONS, SUPPORTED_LOCALES } from '$lib/i18n/static-translations.generated';
+import { STATIC_TRANSLATIONS, SUPPORTED_LOCALES } from '#lib/i18n/static-translations.generated.js';
 import type {
 	NewUserSignupNotificationEmailData,
 	RenderedEmail,
 	SupportRateLimitAlertEmailData
 } from '../templates/types';
-import { LEGAL_CONFIG } from '$lib/config/legal';
+import { LEGAL_CONFIG } from '#lib/config/legal.js';
 import {
 	renderVerificationEmail,
 	renderVerificationCodeEmail,
@@ -25,7 +25,7 @@ import {
 	renderNewTicketAdminNotificationEmail,
 	renderNewUserSignupNotificationEmail,
 	renderSupportRateLimitAlertEmail
-} from '$lib/convex/emails/templates';
+} from '#lib/convex/emails/templates.js';
 
 const ASSET_URL = 'https://test.example.com';
 

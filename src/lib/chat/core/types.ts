@@ -269,9 +269,9 @@ export const DEFAULT_ATTACHMENT_PROFILE: UploadProfile = UPLOAD_PROFILES.chatAtt
 /**
  * File upload constraints of the default chat attachment profile.
  *
- * The profile in `$lib/uploads/profiles` is the source of truth, shared with
+ * The profile in `#lib/uploads/profiles.js` is the source of truth, shared with
  * the server validator so the picker and `validateUploadBlob` cannot drift
- * apart. These names are kept because they are public API (`$lib/chat`).
+ * apart. These names are kept because they are public API (`#lib/chat/index.js`).
  */
 export const ALLOWED_FILE_EXT_MIME: Readonly<Record<string, string>> =
 	UPLOAD_PROFILES.chatAttachment.extensions;

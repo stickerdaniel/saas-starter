@@ -7,7 +7,7 @@ import { DEFAULT_LANGUAGE } from './languages';
 import { FALLBACK_TRANSLATIONS } from './browser-translations.generated';
 import type * as TranslationLoader from './load-translations';
 
-vi.mock('$app/environment', () => ({ browser: true }));
+vi.mock('$app/env', () => ({ browser: true }));
 
 let loadTranslations: typeof TranslationLoader.loadTranslations;
 let preloadTranslations: typeof TranslationLoader.preloadTranslations;

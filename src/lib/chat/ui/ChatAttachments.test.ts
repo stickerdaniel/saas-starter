@@ -20,7 +20,7 @@ vi.mock('svelte/reactivity', () =>
 );
 // A duplicate list key throws in every mode; development mode adds the key and index detail.
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 // Only an opened preview dialog renders the text preview; its stylesheet imports are out of scope.
 vi.mock('./AttachmentTextPreview.svelte', () => ({ default: () => {} }));
 

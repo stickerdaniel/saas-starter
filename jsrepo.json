@@ -10,9 +10,9 @@
 	},
 	"paths": {
 		"*": "./src/blocks",
-		"ui": "$lib/components/ui",
-		"actions": "$lib/actions",
-		"hooks": "$lib/hooks",
-		"utils": "$lib/utils"
+		"ui": "./src/lib/components/ui",
+		"actions": "./src/lib/actions",
+		"hooks": "./src/lib/hooks",
+		"utils": "./src/lib/utils"
 	}
 }

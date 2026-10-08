@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 // A fork that prerenders public pages makes that snapshot permanent.
 //
 // The subtrees share one load (authedSubtreeLayoutLoad in
-// $lib/server/auth-layout-data) so the isDataRequest guard and returned keys
+// #lib/server/auth-layout-data) so the isDataRequest guard and returned keys
 // cannot silently diverge between /app and /admin; the exact re-export line is
 // pinned here.
 //
@@ -23,7 +23,7 @@ import { describe, expect, it } from 'vitest';
 const AUTHED_SUBTREES = ['app', 'admin'];
 
 const SHARED_LOAD_REEXPORT =
-	"export { authedSubtreeLayoutLoad as load } from '$lib/server/auth-layout-data';";
+	"export { authedSubtreeLayoutLoad as load } from '#lib/server/auth-layout-data.js';";
 
 describe('authenticated subtree layout loads', () => {
 	it.each(AUTHED_SUBTREES)(
@@ -50,7 +50,7 @@ describe('authenticated subtree layout loads', () => {
 	it('pricing refreshes billing state when the root public snapshot is retained', () => {
 		const file = path.resolve('src/routes/[[lang]]/(marketing)/pricing/+page.server.ts');
 		expect(fs.readFileSync(file, 'utf-8')).toContain(
-			"export { billingPageAuthLoad as load } from '$lib/server/auth-layout-data';"
+			"export { billingPageAuthLoad as load } from '#lib/server/auth-layout-data.js';"
 		);
 
 		const shared = fs.readFileSync(path.resolve('src/lib/server/auth-layout-data.ts'), 'utf-8');

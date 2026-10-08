@@ -1,20 +1,23 @@
 <script lang="ts">
 	import { asset } from '$app/paths';
+	// The notices file is emitted into the client output by the license plugin, so it is
+	// absent from the static-file union that `AssetPath` lists.
+	import type { AssetPath } from '$app/types';
 	import { getTranslate } from '@tolgee/svelte';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { buttonVariants } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
-	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { buttonVariants } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
 	import {
 		CATALOGUE_TEXT_FILE,
 		filterCatalogueEntries,
 		noticesText,
 		type CatalogueEntry
-	} from '$lib/licenses/catalogue';
+	} from '#lib/licenses/catalogue.js';
 
 	interface Props {
 		/** Catalogue rows from the build; null in development, where no build collected them. */
@@ -84,7 +87,7 @@
 						{#snippet child({ props })}
 							<a
 								{...props}
-								href={asset(`/${CATALOGUE_TEXT_FILE}`)}
+								href={asset(CATALOGUE_TEXT_FILE as AssetPath)}
 								download={CATALOGUE_TEXT_FILE}
 								aria-label={downloadLabel}
 								aria-disabled={searching && results.length === 0 ? 'true' : undefined}

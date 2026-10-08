@@ -11,7 +11,7 @@ const { maliciousAddress, maliciousBrandName, maliciousEmail, maliciousOperatorN
 	})
 );
 
-vi.mock('$lib/config/legal', () => ({
+vi.mock('#lib/config/legal.js', () => ({
 	LEGAL_CONFIG: {
 		address: maliciousAddress,
 		brandName: maliciousBrandName,
@@ -50,9 +50,9 @@ import {
 import type { MarketingMarkdownDocument } from './types';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
 import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
-import { LEGAL_CONFIG } from '$lib/config/legal';
-import { LEGAL_CONTENT_DATES } from '$lib/content/legal-metadata';
-import { SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
+import { LEGAL_CONFIG } from '#lib/config/legal.js';
+import { LEGAL_CONTENT_DATES } from '#lib/content/legal-metadata.js';
+import { SUPPORTED_LANGUAGES } from '#lib/i18n/languages.js';
 
 const sampleDocument: MarketingMarkdownDocument = {
 	title: 'Sample Page',

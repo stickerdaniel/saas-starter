@@ -214,7 +214,7 @@ Set `PUBLIC_SNAPDOM_PROXY_URL` in your hosting platform. Pick the section for yo
    - **Value:** `https://img-proxy.yourdomain.com/?url=`
 4. Click **Deploy** to save
 
-Because this project builds per-environment, the value is read at build time via `$env/static/public`. Set it as a **build variable** in **Workers Builds** so production and preview builds pick it up, and redeploy.
+Because this project builds per-environment, the value is read at build time through `$app/env/public`, where `src/env.ts` declares it static. Set it as a **build variable** in **Workers Builds** so production and preview builds pick it up, and redeploy.
 
 ##### Vercel
 

@@ -19,11 +19,11 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$lib/chat/ui/ChatMessages.svelte', async () => ({
+vi.mock('#lib/chat/ui/ChatMessages.svelte', async () => ({
 	default: (await import('../ui/test-fixtures/CapturedChatMessages.svelte')).default
 }));
-vi.mock('$lib/chat/ui/ChatAttachments.svelte', () => ({ default: () => {} }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/chat/ui/ChatAttachments.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 
 type ContentProps = ComponentProps<typeof SimpleChat>;
 type RejectsApiOverride = 'api' extends keyof ContentProps ? false : true;

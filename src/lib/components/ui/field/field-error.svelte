@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { slide, fade } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import { cn, type WithElementRef } from '$lib/utils.js';
+	import { cn, type WithElementRef } from '#lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import type { Snippet } from 'svelte';
 

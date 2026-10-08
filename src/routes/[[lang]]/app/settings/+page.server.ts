@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
-import { api } from '$lib/convex/_generated/api.js';
-import { createServerConvexHttpClient } from '$lib/server/convex-http';
+import { api } from '#lib/convex/_generated/api.js';
+import { createServerConvexHttpClient } from '#lib/server/convex-http.js';
 
 export const load = (async (event) => {
 	// Primes the password card so it renders the right form on first paint. The

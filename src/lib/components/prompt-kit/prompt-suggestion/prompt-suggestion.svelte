@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import type { ButtonVariant, ButtonSize } from '$lib/components/ui/button/index.js';
-	import { cn } from '$lib/utils';
+	import type { ButtonVariant, ButtonSize } from '#lib/components/ui/button/index.js';
+	import { cn } from '#lib/utils.js';
 	import type { Snippet } from 'svelte';
 	import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
 
@@ -23,7 +23,7 @@
 </script>
 
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 
 	let {
 		children,

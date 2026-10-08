@@ -1,5 +1,5 @@
 import type { AutumnConvexApi } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
-import type { api } from '$lib/convex/_generated/api';
+import type { api } from '#lib/convex/_generated/api.js';
 
 export type AppAutumnApi = typeof api.autumn;
 

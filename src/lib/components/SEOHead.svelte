@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, getLanguage } from '$lib/i18n/languages';
-	import { LEGAL_CONFIG } from '$lib/config/legal';
-	import { resolveSiteOrigin } from '$lib/config/site-origin';
-	import { SITE_CONFIG, getRepositoryUrl } from '$lib/config/site';
-	import { buildSiteStructuredData, serializeStructuredData } from '$lib/seo/structured-data';
+	import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, getLanguage } from '#lib/i18n/languages.js';
+	import { LEGAL_CONFIG } from '#lib/config/legal.js';
+	import { resolveSiteOrigin } from '#lib/config/site-origin.js';
+	import { SITE_CONFIG, getRepositoryUrl } from '#lib/config/site.js';
+	import { buildSiteStructuredData, serializeStructuredData } from '#lib/seo/structured-data.js';
 	import { OG_IMAGE_URL } from './og-image-url.generated';
 
 	interface Props {

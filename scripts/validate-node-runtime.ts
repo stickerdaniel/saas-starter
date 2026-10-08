@@ -45,7 +45,33 @@ async function validate(revision: string, origin: string) {
 	const serverModules = Object.keys(expected).filter(
 		(file) => file.startsWith('server/') && file.endsWith('.js')
 	);
-	for (const file of serverModules) await import(pathToFileURL(resolve('build', file)).href);
+	// adapter-node 6 emits its listening entry under server/. Imported here, it would serve
+	// on this process's HOST/PORT, take the port from the server spawned below, and keep
+	// this probe alive after validation. Load every module in a process that then exits.
+	const loading = spawnSync(
+		process.execPath,
+		[
+			'--input-type=module',
+			'-e',
+			`
+			import { pathToFileURL } from 'node:url';
+			import { resolve } from 'node:path';
+			import { readFileSync } from 'node:fs';
+			for (const file of JSON.parse(readFileSync(0, 'utf8'))) {
+				await import(pathToFileURL(resolve('build', file)).href);
+			}
+			process.exit(0);
+		`
+		],
+		{
+			encoding: 'utf8',
+			env: { ...process.env, HOST: '127.0.0.1', PORT: '0' },
+			input: JSON.stringify(serverModules),
+			timeout: 60_000
+		}
+	);
+	if (loading.status !== 0)
+		throw new Error(`Server modules failed to load: ${loading.error?.message || loading.stderr}`);
 	const imports = JSON.parse(readFileSync('runtime-imports.json', 'utf8')) as {
 		literal: Array<{ issuer: string; specifier: string }>;
 		computed: string[];
@@ -65,11 +91,12 @@ async function validate(revision: string, origin: string) {
 			const target = import.meta.resolve(specifier, pathToFileURL(resolve('build', issuer)).href);
 			await import(target);
 		}
+		process.exit(0);
 	`
 		],
 		{
 			encoding: 'utf8',
-			env: process.env,
+			env: { ...process.env, HOST: '127.0.0.1', PORT: '0' },
 			input: JSON.stringify(imports.literal),
 			timeout: 60_000
 		}
@@ -136,6 +163,18 @@ async function validate(revision: string, origin: string) {
 			if (response.status !== 200 || hash !== expected[file])
 				throw new Error(`Served asset differs: ${file} (${response.status})`);
 		}
+		// The answers above must come from the spawned server, not something else on the port.
+		if (server.exitCode !== null) throw new Error(`Node server exited early: ${output}`);
+		// adapter-node exits on SIGTERM only once nothing else holds the event loop. A
+		// connection opened during server rendering would keep a deployment from stopping.
+		server.kill('SIGTERM');
+		await Promise.race([stopped, delay(5000)]);
+		if (server.exitCode === null && server.signalCode === null)
+			throw new Error(`Node server did not exit after SIGTERM: ${output}`);
+		if (server.exitCode !== 0 || server.signalCode !== null)
+			throw new Error(
+				`Node server shutdown failed (exit ${server.exitCode}, signal ${server.signalCode}): ${output}`
+			);
 		console.log(
 			JSON.stringify({
 				node: process.version,
@@ -150,9 +189,7 @@ async function validate(revision: string, origin: string) {
 			})
 		);
 	} finally {
-		server.kill('SIGTERM');
-		await Promise.race([stopped, delay(5000)]);
-		if (server.exitCode === null) {
+		if (server.exitCode === null && server.signalCode === null) {
 			server.kill('SIGKILL');
 			await stopped;
 		}

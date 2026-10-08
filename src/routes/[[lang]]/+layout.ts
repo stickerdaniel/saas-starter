@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
-import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
+import { isSupportedLanguage, DEFAULT_LANGUAGE } from '#lib/i18n/languages.js';
 
 export const load: LayoutLoad = async ({ params, parent }) => {
 	const parentData = await parent();

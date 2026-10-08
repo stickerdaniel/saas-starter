@@ -5,13 +5,13 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import SEOHead from '$lib/components/SEOHead.svelte';
-	import AuthPanel from '$lib/components/auth/auth-panel.svelte';
-	import * as Field from '$lib/components/ui/field';
-	import { Button } from '$lib/components/ui/button';
-	import PasskeyOffer from '$lib/components/auth/passkey-offer.svelte';
-	import { claimPasskeyNudge, type PasskeyNudgeUser } from '$lib/utils/passkey-nudge';
-	import { localizedHref } from '$lib/utils/i18n';
+	import SEOHead from '#lib/components/SEOHead.svelte';
+	import AuthPanel from '#lib/components/auth/auth-panel.svelte';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import PasskeyOffer from '#lib/components/auth/passkey-offer.svelte';
+	import { claimPasskeyNudge, type PasskeyNudgeUser } from '#lib/utils/passkey-nudge.js';
+	import { localizedHref } from '#lib/utils/i18n.js';
 
 	let { data } = $props();
 	const auth = useAuth();
@@ -34,8 +34,7 @@
 	}
 	// A client-side move keeps the root toaster mounted, so the confirmation stays visible.
 	function finishEnrollment() {
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- The path is resolved above; only the untouched query and hash follow it
-		void goto(destinationHref, { replaceState: true });
+		void goto(destinationHref, { replace: true });
 	}
 
 	$effect(() => {

@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { Html, Head, Body, Preview, Container } from '@better-svelte-email/components';
 	// Real shadcn-svelte components (not email-safe)
-	import * as Alert from '$lib/components/ui/alert/index.js';
-	import * as Avatar from '$lib/components/ui/avatar/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as Item from '$lib/components/ui/item/index.js';
-	import { Progress } from '$lib/components/ui/progress/index.js';
-	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import * as Avatar from '#lib/components/ui/avatar/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Item from '#lib/components/ui/item/index.js';
+	import { Progress } from '#lib/components/ui/progress/index.js';
+	import { Separator } from '#lib/components/ui/separator/index.js';
 
 	// Demo data
 	const completionPercentage = 75;

@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { betterAuth } from 'better-auth';
 import { memoryAdapter } from 'better-auth/adapters/memory';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { authPageURL } from '$lib/utils/url';
+import { authPageURL } from '#lib/utils/url.js';
 import {
 	authPageRedirect,
 	resolveBarePathLanguage,

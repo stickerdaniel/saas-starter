@@ -33,7 +33,7 @@ vi.hoisted(() => {
 });
 
 const calls = vi.hoisted(() => ({ changePassword: vi.fn(), mutation: vi.fn() }));
-vi.mock('$lib/auth-client.js', () => ({
+vi.mock('#lib/auth-client.js', () => ({
 	authClient: { changePassword: calls.changePassword }
 }));
 vi.mock('convex-svelte', () => ({
@@ -41,11 +41,11 @@ vi.mock('convex-svelte', () => ({
 	useConvexClient: () => ({ mutation: calls.mutation }),
 	useQuery: () => ({ data: true })
 }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 vi.mock('svelte-sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import en from '../../../../i18n/en.json';
-import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
+import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import PasswordSettings from './password-settings.svelte';
 
 type Props = { initialHasPassword: boolean };

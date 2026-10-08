@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
-import type * as PasskeyNudge from '$lib/utils/passkey-nudge';
+import type * as PasskeyNudge from '#lib/utils/passkey-nudge.js';
 import en from '../../../i18n/en.json';
 
 vi.mock('svelte', () =>
@@ -40,7 +40,7 @@ const calls = vi.hoisted(() => ({
 	created: vi.fn(),
 	toast: vi.fn()
 }));
-vi.mock('$lib/auth-client', () => ({
+vi.mock('#lib/auth-client.js', () => ({
 	authClient: {
 		getSession: calls.session,
 		useSession: () => ({
@@ -57,7 +57,7 @@ vi.mock('svelte-sonner', () => ({ toast: { success: calls.toast } }));
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 	useAuth: () => ({ isLoading: false, isAuthenticated: true })
 }));
-vi.mock('$lib/utils/passkey-nudge', async (importOriginal) => ({
+vi.mock('#lib/utils/passkey-nudge.js', async (importOriginal) => ({
 	...(await importOriginal<typeof PasskeyNudge>()),
 	claimPasskeyNudge: async () => ({
 		userId: 'user-a',
@@ -67,7 +67,7 @@ vi.mock('$lib/utils/passkey-nudge', async (importOriginal) => ({
 	})
 }));
 
-import { pendingPasskeyNudge } from '$lib/hooks/passkey-nudge.svelte.ts';
+import { pendingPasskeyNudge } from '#lib/hooks/passkey-nudge.svelte.ts';
 import PasskeyOfferHarness from './test-fixtures/PasskeyOfferHarness.svelte';
 
 let component: ReturnType<typeof mount> | undefined;

@@ -1,4 +1,4 @@
-import { api } from '$lib/convex/_generated/api';
+import { api } from '#lib/convex/_generated/api.js';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
 import { MAX_ATTACHMENTS, type Attachment } from '../core/types.js';

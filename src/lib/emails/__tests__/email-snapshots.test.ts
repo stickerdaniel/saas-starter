@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import type { ViteDevServer } from 'vite';
 import * as generated from '../generated/index';
 import { EMAIL_TEMPLATES } from '../templates/registry';
-import { LEGAL_CONFIG } from '$lib/config/legal';
+import { LEGAL_CONFIG } from '#lib/config/legal.js';
 import { createViteServer } from '../../../../scripts/build-emails';
 
 // The parsed-output cases still need a DOM, so they build one with the jsdom package the

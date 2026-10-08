@@ -1,5 +1,5 @@
-import type { StructuredDataPublisherConfig } from '$lib/config/site';
-import { normalizeSiteOrigin } from '$lib/config/origin';
+import type { StructuredDataPublisherConfig } from '#lib/config/site.js';
+import { normalizeSiteOrigin } from '#lib/config/origin.js';
 
 interface SiteStructuredDataInput {
 	origin: string;

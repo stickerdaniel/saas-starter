@@ -3,7 +3,7 @@
 import { createRequire } from 'node:module';
 import { render } from 'svelte/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createLegalMarkdown, type LegalMarkdownContent } from '$lib/content/legal-template';
+import { createLegalMarkdown, type LegalMarkdownContent } from '#lib/content/legal-template.js';
 import LegalMarkdown from './legal-markdown.svelte';
 
 const page = vi.hoisted(() => ({

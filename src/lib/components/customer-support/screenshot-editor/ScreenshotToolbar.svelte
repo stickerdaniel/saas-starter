@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import ScreenshotSubmitButton from '$lib/components/ui/owned/screenshot-submit-button.svelte';
-	import { ColorSelector } from '$lib/components/ui/color-selector';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import ScreenshotSubmitButton from '#lib/components/ui/owned/screenshot-submit-button.svelte';
+	import { ColorSelector } from '#lib/components/ui/color-selector/index.js';
 	import SquareIcon from '@lucide/svelte/icons/square';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Undo2Icon from '@lucide/svelte/icons/undo-2';

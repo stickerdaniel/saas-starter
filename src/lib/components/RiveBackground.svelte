@@ -17,8 +17,8 @@
 	import { onMount, tick, untrack } from 'svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { useMutationObserver } from 'runed';
-	import { TAILWIND_BREAKPOINTS, useMedia } from '$lib/hooks/use-media.svelte.ts';
-	import { Spotlight } from '$lib/components/ui/spotlight/index.js';
+	import { TAILWIND_BREAKPOINTS, useMedia } from '#lib/hooks/use-media.svelte.ts';
+	import { Spotlight } from '#lib/components/ui/spotlight/index.js';
 	import type { Component } from 'svelte';
 	import { T } from '@tolgee/svelte';
 
@@ -136,7 +136,7 @@
 			if (destroyed || riveInstance || shouldRender) return;
 
 			if (!FollowingPointerComponent) {
-				const mod = await import('$lib/components/ui/FollowingPointer/FollowingPointer.svelte');
+				const mod = await import('#lib/components/ui/FollowingPointer/FollowingPointer.svelte');
 				if (destroyed) return;
 				FollowingPointerComponent = mod.default;
 			}

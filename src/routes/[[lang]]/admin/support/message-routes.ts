@@ -1,4 +1,4 @@
-import { normalizeSupportPageRoute } from '$lib/shared/support-page-route';
+import { normalizeSupportPageRoute } from '#lib/shared/support-page-route.js';
 
 /**
  * The route a support message was sent from, when the thread's own route does

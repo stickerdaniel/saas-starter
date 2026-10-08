@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
-	import { buttonVariants } from '$lib/components/ui/button';
-	import type { ButtonVariant, ButtonSize } from '$lib/components/ui/button/index.js';
+	import { cn } from '#lib/utils.js';
+	import { buttonVariants } from '#lib/components/ui/button/index.js';
+	import type { ButtonVariant, ButtonSize } from '#lib/components/ui/button/index.js';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import type { WithChildren, WithoutChildren } from 'bits-ui';
 

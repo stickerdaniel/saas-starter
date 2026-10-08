@@ -84,12 +84,12 @@ const state = await vi.hoisted(async () => {
 });
 
 vi.mock('$app/state', () => ({ page: state.page }));
-vi.mock('$lib/auth-client', () => ({ authClient: { signIn: state.signIn } }));
+vi.mock('#lib/auth-client.js', () => ({ authClient: { signIn: state.signIn } }));
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({ useAuth: () => state.auth }));
-vi.mock('$lib/hooks/auth-flow.svelte.ts', () => ({
+vi.mock('#lib/hooks/auth-flow.svelte.ts', () => ({
 	authFlowContext: { get: () => ({ email: '' }), set: () => {} }
 }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 vi.mock('runed/kit', () => ({
 	useSearchParams: () => ({
 		get redirectTo() {
@@ -110,11 +110,11 @@ vi.mock('runed/kit', () => ({
 	})
 }));
 
-import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
+import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import {
 	clearLastSuccessfulAuthMethod,
 	clearPendingOAuthProvider
-} from '$lib/hooks/last-auth-method.svelte.ts';
+} from '#lib/hooks/last-auth-method.svelte.ts';
 import SignInPage from './+page.svelte';
 
 const DESTINATION = '/de/app/settings?tab=billing#invoices';

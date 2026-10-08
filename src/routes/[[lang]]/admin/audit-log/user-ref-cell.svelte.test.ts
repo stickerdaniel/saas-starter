@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
-import type { AuditLogItem } from '$lib/convex/admin/auditLog/queries';
+import type { AuditLogItem } from '#lib/convex/admin/auditLog/queries.js';
 import en from '../../../../i18n/en.json';
 
 vi.mock('svelte', () =>

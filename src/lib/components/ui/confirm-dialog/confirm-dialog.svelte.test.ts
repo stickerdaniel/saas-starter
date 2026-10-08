@@ -7,7 +7,7 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: () => {} } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: () => {} } }));
 vi.mock('@tolgee/svelte', () => ({
 	getTranslate: () => ({
 		t: {

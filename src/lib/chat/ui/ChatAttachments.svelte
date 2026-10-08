@@ -6,11 +6,11 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import { getTranslate } from '@tolgee/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-	import AttachmentRemoveButton from '$lib/components/ui/owned/attachment-remove-button.svelte';
-	import Progress from '$lib/components/ui/progress/progress.svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Tooltip from '$lib/components/ui/tooltip';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
+	import AttachmentRemoveButton from '#lib/components/ui/owned/attachment-remove-button.svelte';
+	import Progress from '#lib/components/ui/progress/progress.svelte';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
 	import AttachmentTextPreview from './AttachmentTextPreview.svelte';
 	import { isTextPreviewable } from '../core/attachmentPreview.js';
 	import type { Attachment, UploadState } from '../core/types.js';

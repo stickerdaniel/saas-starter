@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { getLegalEmailAddress, LEGAL_CONFIG } from '$lib/config/legal';
-import { PUBLIC_MARKETING_ROUTES } from '$lib/marketing/public-routes';
+import { getLegalEmailAddress, LEGAL_CONFIG } from '#lib/config/legal.js';
+import { PUBLIC_MARKETING_ROUTES } from '#lib/marketing/public-routes.js';
 import { impressumMarkdown } from './impressum';
 import { LEGAL_CONTENT_DATES, formatLegalContentDate } from './legal-metadata';
 import { privacyMarkdown } from './privacy';

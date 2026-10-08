@@ -12,8 +12,8 @@ import { describe, expect, it } from 'vitest';
  * If one is updated without the others, some responses will be missing headers.
  *
  * Content-Security-Policy is the one header not fully expressed here: script-src/
- * object-src/base-uri live in kit.csp (svelte.config.js), so all three sources
- * below carry only the header-only frame-ancestors directive. On SSR the hook
+ * object-src/base-uri live in the SvelteKit csp option (vite.config.ts), so all three
+ * sources below carry only the header-only frame-ancestors directive. On SSR the hook
  * appends it to the CSP header SvelteKit already set (a merge, not an overwrite),
  * so it is matched via its fallback literal rather than a plain set().
  */
@@ -62,7 +62,7 @@ function parseHooksHeaders(filePath: string): Map<string, string> {
 	}
 
 	// CSP is set via a merge (frame-ancestors is appended to the header SvelteKit
-	// already set from kit.csp) rather than a plain literal, so the generic pattern
+	// already set from the csp option) rather than a plain literal, so the generic pattern
 	// above does not catch it. Match its fallback value — the same frame-ancestors
 	// directive it appends and guarantees on every response.
 	// The fallback is written as a double-quoted JS string because its value

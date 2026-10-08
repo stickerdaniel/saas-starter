@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { useGlobalSearchContext } from '$lib/components/global-search/context.svelte.ts';
-	import * as Empty from '$lib/components/ui/empty/index.js';
-	import * as InputGroup from '$lib/components/ui/input-group/index.js';
-	import * as Kbd from '$lib/components/ui/kbd/index.js';
-	import { getLegalEmailAddress } from '$lib/config/legal';
-	import { getLanguage } from '$lib/i18n/languages';
-	import { buildBugReportMailto } from '$lib/utils/mailto';
+	import { useGlobalSearchContext } from '#lib/components/global-search/context.svelte.ts';
+	import * as Empty from '#lib/components/ui/empty/index.js';
+	import * as InputGroup from '#lib/components/ui/input-group/index.js';
+	import * as Kbd from '#lib/components/ui/kbd/index.js';
+	import { getLegalEmailAddress } from '#lib/config/legal.js';
+	import { getLanguage } from '#lib/i18n/languages.js';
+	import { buildBugReportMailto } from '#lib/utils/mailto.js';
 	import SearchIcon from '@lucide/svelte/icons/search';
-	import translationsByLang from '$lib/i18n/error-translations.generated.json';
+	import translationsByLang from '#lib/i18n/error-translations.generated.json';
 
 	const currentLang = $derived(
 		getLanguage(page.params.lang ?? page.url.pathname.split('/')[1]).code

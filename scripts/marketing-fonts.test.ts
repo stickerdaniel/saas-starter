@@ -1,8 +1,16 @@
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createBuilder, type Plugin } from 'vite';
 import { describe, expect, it } from 'vitest';
 import en from '../src/i18n/en.json';
-import { criticalFont, marketingFontCharacters, publicFontCharacters } from './marketing-fonts';
+import {
+	criticalFont,
+	marketingFontCharacters,
+	marketingFonts,
+	publicFontCharacters
+} from './marketing-fonts';
 
 describe('critical marketing fonts', () => {
 	it('covers nested public translations, legal copy and typed ASCII', () => {
@@ -42,4 +50,74 @@ describe('critical marketing fonts', () => {
 		expect(subset.subarray(0, 4).toString()).toBe('wOF2');
 		expect(subset.length).toBeLessThan(original.length);
 	});
+});
+
+describe('critical font publication', () => {
+	it('publishes the subset after the client font exists and before the adapter copies it', async () => {
+		const root = path.join(tmpdir(), `marketing-fonts-${process.pid}-${Date.now()}`);
+		const clientDir = path.join(root, 'client');
+		const fontFile = path.join(clientDir, 'outfit.woff2');
+		const serverPackage = path.join(
+			root,
+			'server',
+			'node_modules',
+			'@saas-starter-internal',
+			'marketing-fonts',
+			'index.js'
+		);
+		const outfit = await readFile(
+			fileURLToPath(new URL('../static/fonts/outfit-v15-latin-regular.woff2', import.meta.url))
+		);
+		let published = '';
+		// Kit 3 builds SSR before any client output exists, then the adapter copies
+		// the server directory. Publication has to survive that order.
+		const kitBuild: Plugin = {
+			name: 'kit-client-after-ssr',
+			async buildApp(builder) {
+				await rm(clientDir, { recursive: true, force: true });
+				await builder.build(builder.environments.ssr!);
+				await mkdir(path.dirname(fontFile), { recursive: true });
+				await writeFile(fontFile, outfit);
+				await mkdir(path.join(clientDir, 'assets'), { recursive: true });
+				await writeFile(
+					path.join(clientDir, 'assets', 'app.css'),
+					'@font-face{font-family:"Outfit";src:url("../outfit.woff2") format("woff2");font-weight:400 600;}'
+				);
+			}
+		};
+		const adapter: Plugin = {
+			name: 'adapter-copy',
+			buildApp: {
+				order: 'post',
+				async handler() {
+					published = await readFile(serverPackage, 'utf8');
+				}
+			}
+		};
+		try {
+			await mkdir(path.join(root, 'src/lib/content/legal'), { recursive: true });
+			await writeFile(path.join(root, 'entry.js'), 'export {};\n');
+			await writeFile(path.join(root, 'src/lib/content/legal/terms.md'), 'Terms');
+			const builder = await createBuilder(
+				{
+					root,
+					configFile: false,
+					logLevel: 'silent',
+					plugins: [kitBuild, marketingFonts(), adapter],
+					build: { minify: false, sourcemap: false, emptyOutDir: false },
+					environments: {
+						ssr: { build: { outDir: 'server', rollupOptions: { input: 'entry.js' } } },
+						client: { build: { outDir: 'client', emptyOutDir: false } }
+					}
+				},
+				false
+			);
+			await builder.buildApp();
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+		expect(published).toContain('"home"');
+		expect(published).toContain('"public"');
+		expect(published).toContain('data:font/woff2;base64,');
+	}, 30_000);
 });

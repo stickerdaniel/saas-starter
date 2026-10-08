@@ -1,22 +1,22 @@
 <script lang="ts">
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useQuery, useConvexClient } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api.js';
-	import * as Item from '$lib/components/ui/item/index.js';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import FounderBodyPreviewButton from '$lib/components/ui/owned/founder-body-preview-button.svelte';
-	import FounderResetConfirmAction from '$lib/components/ui/owned/founder-reset-confirm-action.svelte';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { TemplateTextarea } from '$lib/components/ui/template-textarea/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
+	import { api } from '#lib/convex/_generated/api.js';
+	import * as Item from '#lib/components/ui/item/index.js';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import FounderBodyPreviewButton from '#lib/components/ui/owned/founder-body-preview-button.svelte';
+	import FounderResetConfirmAction from '#lib/components/ui/owned/founder-reset-confirm-action.svelte';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { TemplateTextarea } from '#lib/components/ui/template-textarea/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
 	import { toast } from 'svelte-sonner';
 	import { tick } from 'svelte';
 	import { safeParse } from 'valibot';
-	import { emailSchema } from '$lib/schemas/auth';
-	import { translateFormError } from '$lib/utils/validation-i18n';
-	import { FOUNDER_WELCOME_DEFAULTS } from '$lib/convex/emails/helpers.js';
+	import { emailSchema } from '#lib/schemas/auth.js';
+	import { translateFormError } from '#lib/utils/validation-i18n.js';
+	import { FOUNDER_WELCOME_DEFAULTS } from '#lib/convex/emails/helpers.js';
 
 	const { t } = getTranslate();
 	const client = useConvexClient();

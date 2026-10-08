@@ -1,5 +1,5 @@
 import { watch, Context } from 'runed';
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 export class ScrollContext {
 	#element: HTMLElement | null = $state(null);

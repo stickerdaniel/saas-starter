@@ -3,7 +3,7 @@
  *
  * Flags hardcoded macOS modifier symbols (⌘, ⌃, ⌥) in Svelte templates and
  * string literals. Platform-specific modifier labels must come from
- * $lib/hooks/is-mac.svelte (cmdOrCtrl, ctrlSymbol, optionOrAlt) so
+ * #lib/hooks/is-mac.svelte.ts (cmdOrCtrl, ctrlSymbol, optionOrAlt) so
  * Windows/Linux users see the right modifier.
  *
  * ✅ <DropdownMenu.Shortcut>{cmdOrCtrl}K</DropdownMenu.Shortcut>
@@ -20,12 +20,12 @@ export default {
 		type: 'problem',
 		docs: {
 			description:
-				'Disallow hardcoded macOS modifier symbols (use cmdOrCtrl/ctrlSymbol/optionOrAlt from $lib/hooks/is-mac.svelte)'
+				'Disallow hardcoded macOS modifier symbols (use cmdOrCtrl/ctrlSymbol/optionOrAlt from #lib/hooks/is-mac.svelte.ts)'
 		},
 		schema: [],
 		messages: {
 			hardcodedModifier:
-				'Hardcoded macOS modifier symbol. Use cmdOrCtrl / ctrlSymbol / optionOrAlt from $lib/hooks/is-mac.svelte so non-mac users see the right modifier.'
+				'Hardcoded macOS modifier symbol. Use cmdOrCtrl / ctrlSymbol / optionOrAlt from #lib/hooks/is-mac.svelte.ts so non-mac users see the right modifier.'
 		}
 	},
 	create(context) {

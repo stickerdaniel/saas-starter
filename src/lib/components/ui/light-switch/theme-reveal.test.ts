@@ -29,7 +29,7 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 
 const MARKER = 'data-theme-transition';
 const PROMISE_NAMES = ['ready', 'finished', 'updateCallbackDone'] as const;

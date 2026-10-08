@@ -1,12 +1,12 @@
 <script lang="ts">
-	import SEOHead from '$lib/components/SEOHead.svelte';
+	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { useSearchParams } from 'runed/kit';
-	import { redirectParamsSchema } from '$lib/schemas/auth.js';
-	import { localizedHref } from '$lib/utils/i18n';
-	import { authPageURL, safeAuthDestination } from '$lib/utils/url';
-	import AuthPanel from '$lib/components/auth/auth-panel.svelte';
-	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
+	import { redirectParamsSchema } from '#lib/schemas/auth.js';
+	import { localizedHref } from '#lib/utils/i18n.js';
+	import { authPageURL, safeAuthDestination } from '#lib/utils/url.js';
+	import AuthPanel from '#lib/components/auth/auth-panel.svelte';
+	import { LoadingBar } from '#lib/components/ui/loading-bar/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const auth = useAuth();

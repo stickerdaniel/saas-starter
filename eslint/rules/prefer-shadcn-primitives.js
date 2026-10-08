@@ -106,19 +106,19 @@ export default {
 		schema: [],
 		messages: {
 			nativeButton:
-				'Use shadcn Button from $lib/components/ui/button instead of a native <button>. Spread {...props} onto <button> only as a bits-ui child host.',
+				'Use shadcn Button from #lib/components/ui/button/index.js instead of a native <button>. Spread {...props} onto <button> only as a bits-ui child host.',
 			nativeDialog:
-				'Use shadcn Dialog from $lib/components/ui/dialog instead of a native <dialog>.',
+				'Use shadcn Dialog from #lib/components/ui/dialog/index.js instead of a native <dialog>.',
 			nativeTitle:
-				'Use shadcn Tooltip from $lib/components/ui/tooltip instead of the HTML title tooltip.',
+				'Use shadcn Tooltip from #lib/components/ui/tooltip/index.js instead of the HTML title tooltip.',
 			nativeCheckbox:
-				'Use shadcn Checkbox from $lib/components/ui/checkbox instead of a native <input type="checkbox">.',
+				'Use shadcn Checkbox from #lib/components/ui/checkbox/index.js instead of a native <input type="checkbox">.',
 			nativeSelect:
-				'Use shadcn Select from $lib/components/ui/select instead of a native <select>.',
+				'Use shadcn Select from #lib/components/ui/select/index.js instead of a native <select>.',
 			nativeTextarea:
-				'Use shadcn Textarea from $lib/components/ui/textarea instead of a native <textarea>.',
+				'Use shadcn Textarea from #lib/components/ui/textarea/index.js instead of a native <textarea>.',
 			nativeInput:
-				'Use shadcn Input from $lib/components/ui/input instead of a native text-like <input>.'
+				'Use shadcn Input from #lib/components/ui/input/index.js instead of a native text-like <input>.'
 		}
 	},
 	create(context) {

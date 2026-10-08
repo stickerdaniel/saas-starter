@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Progress as ProgressPrimitive } from 'bits-ui';
-	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
-	import { clamp } from '$lib/utils/math';
+	import { cn, type WithoutChildrenOrChild } from '#lib/utils.js';
+	import { clamp } from '#lib/utils/math.js';
 
 	let {
 		ref = $bindable(null),

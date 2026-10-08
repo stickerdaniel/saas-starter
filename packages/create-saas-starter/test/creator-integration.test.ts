@@ -191,7 +191,7 @@ describe('creator workflows', () => {
 		for (const os of ['ubuntu-latest', 'macos-latest', 'windows-latest']) {
 			expect(workflow).toContain(`os: ${os}`);
 		}
-		for (const version of ['node: 22.16.0', 'bun: 1.3.9', 'node: 24.21.0', 'bun: 1.3.14']) {
+		for (const version of ['node: 22.17.0', 'bun: 1.3.9', 'node: 24.21.0', 'bun: 1.3.14']) {
 			expect(workflow).toContain(version);
 		}
 		for (const command of ['typecheck', 'test', 'knip', 'build', 'test:packed']) {
@@ -300,7 +300,7 @@ describe('creator workflows', () => {
 			'PUBLIC_CONVEX_URL',
 			'PUBLIC_CONVEX_SITE_URL'
 		]);
-		expect(read('tsconfig.json')).toContain('"extends": "./.svelte-kit/tsconfig.json"');
+		expect(read('tsconfig.json')).toContain('"extends": "$app/tsconfig"');
 		expect(read('packages/create-saas-starter/tsconfig.json')).toContain(
 			'"../../scripts/windows-job.ts"'
 		);

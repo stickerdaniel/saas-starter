@@ -1,31 +1,31 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from 'convex-svelte';
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.js';
 	import { watch } from 'runed';
-	import { api } from '$lib/convex/_generated/api';
+	import { api } from '#lib/convex/_generated/api.js';
 	import { supportContext } from './support-context.svelte.ts';
 	import { lockscroll } from '@svelte-put/lockscroll';
-	import { IsMobile } from '$lib/hooks/is-mobile.svelte.ts';
+	import { IsMobile } from '#lib/hooks/is-mobile.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { ConvexError } from 'convex/values';
 	import { getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
+	import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import { getChatSessionEpoch } from '$lib/chat/core/chat-persisted-state.ts';
+	import { getChatSessionEpoch } from '#lib/chat/core/chat-persisted-state.ts';
 
 	// Import new chat components
-	import { ChatRoot, ChatMessages, ChatInput, type ChatUIContext } from '$lib/chat';
+	import { ChatRoot, ChatMessages, ChatInput, type ChatUIContext } from '#lib/chat/index.js';
 
 	// Import thread navigation components
 	import ThreadsOverview from './threads-overview.svelte';
 	import BotIcon from '@lucide/svelte/icons/bot';
 	import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';
 	import UsersRoundIcon from '@lucide/svelte/icons/users-round';
-	import { SlidingPanel } from '$lib/components/ui/sliding-panel';
-	import { SlidingHeader } from '$lib/components/ui/sliding-header';
+	import { SlidingPanel } from '#lib/components/ui/sliding-panel/index.js';
+	import { SlidingHeader } from '#lib/components/ui/sliding-header/index.js';
 
 	const { t } = getTranslate();
 

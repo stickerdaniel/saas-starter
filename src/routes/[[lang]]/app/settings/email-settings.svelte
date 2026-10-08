@@ -1,22 +1,22 @@
 <script lang="ts">
 	import * as v from 'valibot';
-	import { authClient } from '$lib/auth-client.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as Alert from '$lib/components/ui/alert/index.js';
-	import * as InputGroup from '$lib/components/ui/input-group/index.js';
-	import * as Item from '$lib/components/ui/item/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { authClient } from '#lib/auth-client.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import * as InputGroup from '#lib/components/ui/input-group/index.js';
+	import * as Item from '#lib/components/ui/item/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { localizedHref } from '#lib/utils/i18n.js';
 	import { changeEmailSchema } from './email-schema.js';
-	import { getAuthErrorKey } from '$lib/utils/auth-messages';
-	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
+	import { getAuthErrorKey } from '#lib/utils/auth-messages.js';
+	import { translateValidationErrors } from '#lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
 

@@ -9,8 +9,8 @@ type Envelope = Parameters<SentryTransport['send']>[0];
 
 const { envelopes } = vi.hoisted(() => ({ envelopes: [] as Envelope[] }));
 
-vi.mock('$app/environment', () => ({ browser: false }));
-vi.mock('$env/static/public', () => ({ PUBLIC_SENTRY_DSN: 'https://public@example.com/1' }));
+vi.mock('$app/env', () => ({ browser: false }));
+vi.mock('$app/env/public', () => ({ PUBLIC_SENTRY_DSN: 'https://public@example.com/1' }));
 vi.mock('@sentry/sveltekit', async (importOriginal) => {
 	const sdk = await importOriginal<typeof Sentry>();
 	return {

@@ -265,13 +265,21 @@ export function createConvexCursorTable<
 	>
 ) {
 	const client = useConvexClient();
-	const urlState = useSearchParams(options.urlSchema, {
+	const searchParams = useSearchParams(options.urlSchema, {
 		pushHistory: true,
 		noScroll: true
-	}) as TUrlState;
+	});
+	const urlState = searchParams as TUrlState;
 
 	const debounceMs = options.debounceMs ?? 300;
 	const maxCachedPages = options.maxCachedPages ?? 8;
+
+	// One URL write for both fields, so paging records a single history entry.
+	// `page` and `cursor` are plain strings in every table schema; TypeScript cannot
+	// prove that for the generic `TUrlState`, so the values are widened here.
+	function writePageCursor(page: string, cursor: string) {
+		searchParams.update({ page, cursor } as Partial<TUrlState>);
+	}
 
 	const debouncedSearch = new Debounced(() => urlState.search.trim(), debounceMs);
 	const pageIndex = $derived(parsePageIndex(urlState.page));
@@ -458,11 +466,8 @@ export function createConvexCursorTable<
 	}
 
 	function resetPagination() {
-		if (urlState.page !== '1') {
-			urlState.page = '1';
-		}
-		if (urlState.cursor !== '') {
-			urlState.cursor = '';
+		if (urlState.page !== '1' || urlState.cursor !== '') {
+			writePageCursor('1', '');
 		}
 		pageCursors = [null];
 		pageCache = {};
@@ -601,8 +606,7 @@ export function createConvexCursorTable<
 
 	function goFirst() {
 		cacheCurrentPage();
-		urlState.page = '1';
-		urlState.cursor = '';
+		writePageCursor('1', '');
 	}
 
 	async function goPrevious() {
@@ -632,8 +636,7 @@ export function createConvexCursorTable<
 
 		if (previousIndex > 0 && previousCursor === undefined) return;
 
-		urlState.page = `${previousIndex + 1}`;
-		urlState.cursor = serializeCursorParam(previousCursor);
+		writePageCursor(`${previousIndex + 1}`, serializeCursorParam(previousCursor));
 	}
 
 	function goNext() {
@@ -643,8 +646,7 @@ export function createConvexCursorTable<
 		cacheCurrentPage();
 		const nextIndex = pageIndex + 1;
 		pageCursors = buildNextPageCursors(pageCursors, nextIndex, nextCursor);
-		urlState.page = `${nextIndex + 1}`;
-		urlState.cursor = serializeCursorParam(nextCursor);
+		writePageCursor(`${nextIndex + 1}`, serializeCursorParam(nextCursor));
 	}
 
 	async function goLast() {
@@ -666,8 +668,7 @@ export function createConvexCursorTable<
 			const resolvedCursor = resolved.cursor ?? null;
 
 			if (resolvedPage <= 1) {
-				urlState.page = '1';
-				urlState.cursor = '';
+				writePageCursor('1', '');
 				pageCursors = [null];
 				return;
 			}
@@ -676,8 +677,7 @@ export function createConvexCursorTable<
 			const nextCursors = pageCursors.slice(0, resolvedIndex + 1);
 			nextCursors[resolvedIndex] = resolvedCursor;
 			pageCursors = nextCursors;
-			urlState.page = `${resolvedPage}`;
-			urlState.cursor = serializeCursorParam(resolvedCursor);
+			writePageCursor(`${resolvedPage}`, serializeCursorParam(resolvedCursor));
 		} catch (error) {
 			console.error('Failed to jump to last page', error);
 		} finally {

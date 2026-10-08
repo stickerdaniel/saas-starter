@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { Button } from '$lib/components/ui/button';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import { LoadingBar } from '$lib/components/ui/loading-bar';
-	import { translateFormError } from '$lib/utils/validation-i18n.js';
-	import type { PasskeyNudgeUser } from '$lib/utils/passkey-nudge';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { LoadingBar } from '#lib/components/ui/loading-bar/index.js';
+	import { translateFormError } from '#lib/utils/validation-i18n.js';
+	import type { PasskeyNudgeUser } from '#lib/utils/passkey-nudge.js';
 	import { PasskeyEnrollment } from './passkey-enrollment.svelte.ts';
 
 	let {

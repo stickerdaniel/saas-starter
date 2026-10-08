@@ -6,14 +6,14 @@
 	import { snapdom } from '@zumer/snapdom';
 	import { getTranslate, T } from '@tolgee/svelte';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import { getSnapDOMConfig } from '$lib/utils/snapdom-config';
-	import { processImage } from '$lib/media/process-image';
+	import { getSnapDOMConfig } from '#lib/utils/snapdom-config.js';
+	import { processImage } from '#lib/media/process-image.js';
 	import {
 		ScreenshotEditorState,
 		screenshotEditorContext
 	} from './screenshot-editor-context.svelte.ts';
 	import ScreenshotToolbar from './ScreenshotToolbar.svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import ScreenshotCanvas from './ScreenshotCanvas.svelte';
 
 	const { t } = getTranslate();

@@ -1,20 +1,20 @@
 <script lang="ts">
 	import * as v from 'valibot';
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.js';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { useQuery } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api';
-	import SEOHead from '$lib/components/SEOHead.svelte';
+	import { api } from '#lib/convex/_generated/api.js';
+	import SEOHead from '#lib/components/SEOHead.svelte';
 	import AuthGate from '../AuthGate.svelte';
-	import AuthPanel from '$lib/components/auth/auth-panel.svelte';
-	import { redirectParamsSchema } from '$lib/schemas/auth.js';
+	import AuthPanel from '#lib/components/auth/auth-panel.svelte';
+	import { redirectParamsSchema } from '#lib/schemas/auth.js';
 	import { signUpSchema } from '../signin/schema.js';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { localizedHref } from '#lib/utils/i18n.js';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-	import { authFlowContext } from '$lib/hooks/auth-flow.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
+	import { authFlowContext } from '#lib/hooks/auth-flow.svelte.ts';
 	import {
 		type PendingOAuthProvider,
 		lastSuccessfulAuthMethod,
@@ -22,9 +22,9 @@
 		clearPendingOAuthProvider,
 		clearLastSuccessfulAuthMethod,
 		type LastAuthMethod
-	} from '$lib/hooks/last-auth-method.svelte.ts';
-	import { getAuthErrorKey, getOAuthCallbackErrorKey } from '$lib/utils/auth-messages';
-	import { authPageURL, oauthErrorCallbackURL, safeAuthDestination } from '$lib/utils/url';
+	} from '#lib/hooks/last-auth-method.svelte.ts';
+	import { getAuthErrorKey, getOAuthCallbackErrorKey } from '#lib/utils/auth-messages.js';
+	import { authPageURL, oauthErrorCallbackURL, safeAuthDestination } from '#lib/utils/url.js';
 	import SignUpForm from '../signin/SignUpForm.svelte';
 	import VerificationStep from '../signin/VerificationStep.svelte';
 	import { useSearchParams } from 'runed/kit';

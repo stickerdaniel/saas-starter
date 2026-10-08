@@ -31,7 +31,7 @@ import path from 'node:path';
 // Snapshot auth/billing fields on the root layout's server data, and
 // the client-recovering primitive that replaces each one.
 const STALE_FIELDS = {
-	viewer: 'authClient.useSession() (from $lib/auth-client) for profile data',
+	viewer: 'authClient.useSession() (from #lib/auth-client.js) for profile data',
 	authState: 'useAuth() (from @mmailaender/convex-better-auth-svelte/svelte) for auth state',
 	autumnState:
 		'useCustomer() (from @stickerdaniel/convex-autumn-svelte/sveltekit) for billing state'

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
-	import ThinkingStates from '$lib/components/motion/thinking-states.svelte';
+	import { cn } from '#lib/utils.js';
+	import ThinkingStates from '#lib/components/motion/thinking-states.svelte';
 
 	interface Props {
 		text: string;

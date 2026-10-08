@@ -45,7 +45,7 @@ export default {
 		schema: [],
 		messages: {
 			directSliderImport:
-				'Import Slider from $lib/components/ui/slider/index.js instead of bits-ui.',
+				'Import Slider from #lib/components/ui/slider/index.js instead of bits-ui.',
 			staticBitsBoundary:
 				'Use named Bits UI imports and the shadcn Slider wrapper so Slider enforcement remains statically decidable.'
 		}

@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { browser } from '$app/env';
+	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
 	import AuthenticatedSidebar from './authenticated-sidebar.svelte';
-	import SidebarPasskeyOffer from '$lib/components/auth/sidebar-passkey-offer.svelte';
-	import { PasskeyNudgeClaim } from '$lib/components/auth/passkey-enrollment.svelte.ts';
+	import SidebarPasskeyOffer from '#lib/components/auth/sidebar-passkey-offer.svelte';
+	import { PasskeyNudgeClaim } from '#lib/components/auth/passkey-enrollment.svelte.ts';
 	import AuthenticatedHeader from './authenticated-header.svelte';
 	import AuthConnectionFallback from './auth-connection-fallback.svelte';
-	import { ScrollArea } from '$lib/components/ui/scroll-area';
+	import { ScrollArea } from '#lib/components/ui/scroll-area/index.js';
 	import type { Snippet } from 'svelte';
 	import type { NavSubItem, SidebarConfig, User } from './types';
 	import { onMount } from 'svelte';

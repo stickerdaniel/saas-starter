@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { ComponentProps } from 'svelte';
-	import * as Sidebar from '$lib/components/ui/sidebar';
-	import NavUser from '$lib/components/nav-user.svelte';
-	import { ImpersonationState, impersonationContext } from '$lib/hooks/use-impersonation.svelte.ts';
+	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
+	import NavUser from '#lib/components/nav-user.svelte';
+	import { ImpersonationState, impersonationContext } from '#lib/hooks/use-impersonation.svelte.ts';
 
 	let { user }: ComponentProps<typeof NavUser> = $props();
 

@@ -1,5 +1,5 @@
-import { CATALOGUE_JSON_FILE, CATALOGUE_TEXT_FILE } from '$lib/licenses/catalogue';
-import type { MarketingMarkdownDocument } from '$lib/markdown/types';
+import { CATALOGUE_JSON_FILE, CATALOGUE_TEXT_FILE } from '#lib/licenses/catalogue.js';
+import type { MarketingMarkdownDocument } from '#lib/markdown/types.js';
 
 export const marketingMarkdown: MarketingMarkdownDocument = {
 	title: 'Third-Party Licenses',

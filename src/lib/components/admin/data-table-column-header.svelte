@@ -1,12 +1,12 @@
 <script lang="ts">
 	import type { Column } from '@tanstack/table-core';
-	import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
+	import type { DataTableFeatures } from '#lib/components/ui/data-table/data-table.svelte.ts';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ArrowsVerticalIcon from '@lucide/svelte/icons/arrow-up-down';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import { T } from '@tolgee/svelte';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	type Props = {
 		column?: Pick<

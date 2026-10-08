@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { T } from '@tolgee/svelte';
-	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
 
 	interface Props {
 		isAdmin: boolean;

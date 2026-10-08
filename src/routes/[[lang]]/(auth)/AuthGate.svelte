@@ -3,8 +3,8 @@
 	import { T } from '@tolgee/svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
 
 	type Props = {
 		children: Snippet;

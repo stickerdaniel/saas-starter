@@ -90,7 +90,7 @@ const OAUTH_CALLBACK_ERROR_MAP: Record<string, string> = {
  * The codes Better Auth appends when a verification link itself fails, rather
  * than the account behind it (`redirectOnError` in
  * better-auth/dist/api/routes/email-verification.mjs). Exported because the
- * destination splitter in $lib/utils/url needs the same list to tell a code
+ * destination splitter in #lib/utils/url needs the same list to tell a code
  * Better Auth wrote from an `error` parameter the app put in a continuation URL
  * itself.
  */

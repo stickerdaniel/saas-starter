@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.js';
 	import type { Snippet } from 'svelte';
 	import { getTranslate } from '@tolgee/svelte';
-	import * as Accordion from '$lib/components/ui/accordion/index.js';
+	import * as Accordion from '#lib/components/ui/accordion/index.js';
 	import BotIcon from '@lucide/svelte/icons/bot';
-	import ReasoningStatus from '$lib/components/prompt-kit/loader/reasoning-status.svelte';
+	import ReasoningStatus from '#lib/components/prompt-kit/loader/reasoning-status.svelte';
 
 	const { t } = getTranslate();
 

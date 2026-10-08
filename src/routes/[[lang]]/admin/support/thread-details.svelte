@@ -1,29 +1,29 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 	import { useQuery, useConvexClient } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api';
+	import { api } from '#lib/convex/_generated/api.js';
 	import {
 		INTERNAL_NOTES_PAGE_SIZE,
 		INTERNAL_NOTE_TEXTAREA_ROWS
-	} from '$lib/convex/admin/support/constants';
-	import * as Select from '$lib/components/ui/select';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { Button } from '$lib/components/ui/button';
-	import { Textarea } from '$lib/components/ui/textarea';
+	} from '#lib/convex/admin/support/constants.js';
+	import * as Select from '#lib/components/ui/select/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import UserRoundCheckIcon from '@lucide/svelte/icons/user-round-check';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { page } from '$app/state';
-	import { getDateFnsLocale } from '$lib/utils/i18n';
-	import { buildMailto } from '$lib/utils/mailto';
-	import { normalizeSupportPageRoute } from '$lib/shared/support-page-route';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { getDateFnsLocale } from '#lib/utils/i18n.js';
+	import { buildMailto } from '#lib/utils/mailto.js';
+	import { normalizeSupportPageRoute } from '#lib/shared/support-page-route.js';
+	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 	import { canImpersonateUser, impersonateUser } from '../impersonate-user';
 
 	const { t } = getTranslate();

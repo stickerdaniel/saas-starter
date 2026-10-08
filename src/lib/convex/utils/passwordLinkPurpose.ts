@@ -15,7 +15,7 @@ export type PasswordLinkPurpose = 'reset' | 'set';
 export const PASSWORD_LINK_PURPOSE_PARAM = 'purpose';
 
 /** Read the purpose from the page URL. Anything but `set` keeps the reset wording. */
-export function passwordLinkPurpose(params: URLSearchParams): PasswordLinkPurpose {
+export function passwordLinkPurpose(params: Pick<URLSearchParams, 'get'>): PasswordLinkPurpose {
 	return params.get(PASSWORD_LINK_PURPOSE_PARAM) === 'set' ? 'set' : 'reset';
 }
 

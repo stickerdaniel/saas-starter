@@ -11,8 +11,8 @@ import {
 	type TableOptions
 } from '@tanstack/table-core';
 import { createTable, renderComponent } from '@tanstack/svelte-table';
-import TruncatedText from '$lib/components/truncated-text.svelte';
-import type { DataTableSkeleton } from '$lib/components/tables/skeleton.ts';
+import TruncatedText from '#lib/components/truncated-text.svelte';
+import type { DataTableSkeleton } from '#lib/components/tables/skeleton.ts';
 
 export type DataTableColumnMeta = {
 	/** Placeholder `DataTableView` renders for this column while the table loads. */

@@ -2,34 +2,34 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { render } from 'svelte/server';
 import ContextScope, { type ContextNode } from './ContextScope.svelte';
-import { AuthFlowManager, authFlowContext } from '$lib/hooks/auth-flow.svelte.ts';
-import { ClockSkewState, clockSkewContext } from '$lib/hooks/clock-skew.svelte.ts';
+import { AuthFlowManager, authFlowContext } from '#lib/hooks/auth-flow.svelte.ts';
+import { ClockSkewState, clockSkewContext } from '#lib/hooks/clock-skew.svelte.ts';
 import {
 	AdminSupportUIManager,
 	adminSupportUIContext
-} from '$lib/hooks/admin-support-ui.svelte.ts';
-import { ActiveUploads, activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+} from '#lib/hooks/admin-support-ui.svelte.ts';
+import { ActiveUploads, activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 import {
 	SupportContext,
 	supportContext
-} from '$lib/components/customer-support/support-context.svelte.ts';
+} from '#lib/components/customer-support/support-context.svelte.ts';
 import {
 	ScreenshotEditorState,
 	screenshotEditorContext
-} from '$lib/components/customer-support/screenshot-editor/screenshot-editor-context.svelte.ts';
+} from '#lib/components/customer-support/screenshot-editor/screenshot-editor-context.svelte.ts';
 import {
 	setGlobalSearchContext,
 	useGlobalSearchContext,
 	type GlobalSearchContextState
-} from '$lib/components/global-search/context.svelte.ts';
+} from '#lib/components/global-search/context.svelte.ts';
 import {
 	type BillingCheckoutManager,
 	setBillingCheckoutContext,
 	useBillingCheckout,
 	type BillingCheckoutDeps
-} from '$lib/components/billing/checkout-context.svelte.ts';
-import { languageContext, useLanguage } from '$lib/i18n/context';
-import { getChatUIContext, tryGetChatUIContext } from '$lib/chat/ui/chat-context.svelte.ts';
+} from '#lib/components/billing/checkout-context.svelte.ts';
+import { languageContext, useLanguage } from '#lib/i18n/context.js';
+import { getChatUIContext, tryGetChatUIContext } from '#lib/chat/ui/chat-context.svelte.ts';
 import { getAdminViewerId, setAdminViewerId } from '../../routes/[[lang]]/admin/viewer-context';
 import {
 	getUserActionHandler,
@@ -48,7 +48,7 @@ import {
 	type ToggleField
 } from '../../routes/[[lang]]/admin/settings/recipients-context';
 import type { RowSelectionState } from '@tanstack/table-core';
-import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
+import type { NotificationRecipient } from '#lib/convex/admin/notificationPreferences/queries.js';
 
 function renderScope(node: ContextNode): string {
 	return render(ContextScope, { props: { node } }).body;

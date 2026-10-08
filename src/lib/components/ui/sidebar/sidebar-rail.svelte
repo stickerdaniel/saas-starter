@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-	import { cn, type WithElementRef } from '$lib/utils.js';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
+	import { cn, type WithElementRef } from '#lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { useSidebar } from './context.svelte.ts';
 

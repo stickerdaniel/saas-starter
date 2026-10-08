@@ -1,35 +1,35 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { useConvexClient, useQuery } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api';
+	import { api } from '#lib/convex/_generated/api.js';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.js';
 	import { page } from '$app/state';
-	import AIChatbar from '$lib/components/customer-support/ai-chatbar.svelte';
-	import FeedbackButton from '$lib/components/customer-support/feedback-button.svelte';
+	import AIChatbar from '#lib/components/customer-support/ai-chatbar.svelte';
+	import FeedbackButton from '#lib/components/customer-support/feedback-button.svelte';
 	import { SupportContext, supportContext } from './support-context.svelte.ts';
-	import { ChatAttachmentStore } from '$lib/chat/core/chat-attachment-store.svelte.ts';
-	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/chat-context.svelte.ts';
-	import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
+	import { ChatAttachmentStore } from '#lib/chat/core/chat-attachment-store.svelte.ts';
+	import { ChatUIContext, type UploadConfig } from '#lib/chat/ui/chat-context.svelte.ts';
+	import { ChatDraftManager } from '#lib/chat/core/chat-draft-manager.svelte.ts';
 	import {
 		ComposerSendCoordinator,
 		acquireComposerSendCoordinator,
 		type ComposerSendLease
-	} from '$lib/chat/ui/composer-send-coordinator.ts';
-	import { browser } from '$app/environment';
-	import { generateAnonymousUserId, isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	} from '#lib/chat/ui/composer-send-coordinator.ts';
+	import { browser } from '$app/env';
+	import { generateAnonymousUserId, isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
 	import { supportUserId } from './support-user-id.svelte.ts';
 	import { useSupportUrlState } from './use-support-url-state.svelte.ts';
 	import { getTranslate } from '@tolgee/svelte';
-	import { loadSentry } from '$lib/monitoring/sentry';
-	import { PUBLIC_SENTRY_DSN } from '$env/static/public';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
-	import { Button } from '$lib/components/ui/button';
-	import { getLegalEmailAddress } from '$lib/config/legal';
-	import { buildMailto } from '$lib/utils/mailto';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { loadSentry } from '#lib/monitoring/sentry.js';
+	import { PUBLIC_SENTRY_DSN } from '$app/env/public';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { getLegalEmailAddress } from '#lib/config/legal.js';
+	import { buildMailto } from '#lib/utils/mailto.js';
+	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 	import { watch } from 'runed';
-	import { isSupportAiEnabled } from '$lib/config/support';
+	import { isSupportAiEnabled } from '#lib/config/support.js';
 
 	const { t } = getTranslate();
 	const capabilityQuery = useQuery(
@@ -299,7 +299,7 @@
 	function handleScreenshotCaptureError(error: unknown) {
 		isScreenshotMode = false;
 		// Open the dialog immediately; the Sentry event id streams in once the
-		// lazily loaded SDK (see $lib/monitoring/sentry) resolves.
+		// lazily loaded SDK (see #lib/monitoring/sentry) resolves.
 		captureEventId = undefined;
 		captureErrorOpen = true;
 		if (browser && PUBLIC_SENTRY_DSN) {

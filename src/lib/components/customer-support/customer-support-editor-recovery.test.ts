@@ -8,7 +8,7 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$app/environment', () => ({ browser: true }));
+vi.mock('$app/env', () => ({ browser: true }));
 
 const state = vi.hoisted(() => ({
 	page: {
@@ -26,7 +26,7 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/state', () => ({ page: state.page }));
-vi.mock('$lib/auth-client', () => ({
+vi.mock('#lib/auth-client.js', () => ({
 	authClient: {
 		useSession: () => ({
 			subscribe: (callback: (value: { data: null; isPending: false }) => void) => {
@@ -39,22 +39,22 @@ vi.mock('$lib/auth-client', () => ({
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 	useAuth: () => ({ isAuthenticated: false, isLoading: false })
 }));
-vi.mock('$lib/components/customer-support/use-support-url-state.svelte.ts', () => ({
+vi.mock('#lib/components/customer-support/use-support-url-state.svelte.ts', () => ({
 	useSupportUrlState: () => state.urlState
 }));
-vi.mock('$lib/chat', () => ({
+vi.mock('#lib/chat/index.js', () => ({
 	ChatAttachmentStore: class ChatAttachmentStore {},
 	ChatUIContext: class ChatUIContext {
 		dispose() {}
 	}
 }));
-vi.mock('$lib/components/customer-support/feedback-widget.svelte', async () => ({
+vi.mock('#lib/components/customer-support/feedback-widget.svelte', async () => ({
 	default: (
-		await import('$lib/components/customer-support/test-fixtures/CapabilityFeedbackWidget.svelte')
+		await import('#lib/components/customer-support/test-fixtures/CapabilityFeedbackWidget.svelte')
 	).default
 }));
 
-import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
+import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import CustomerSupport from './customer-support.svelte';
 
 let component: ReturnType<typeof mount> | undefined;

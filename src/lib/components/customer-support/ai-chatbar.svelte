@@ -4,20 +4,23 @@
 	import { ConvexError } from 'convex/values';
 	import { toast } from 'svelte-sonner';
 	import { IsMounted } from 'runed';
-	import { api } from '$lib/convex/_generated/api';
-	import { PromptInput, PromptInputTextarea } from '$lib/components/prompt-kit/prompt-input';
-	import ChatbarSendButton from '$lib/components/ui/owned/chatbar-send-button.svelte';
+	import { api } from '#lib/convex/_generated/api.js';
+	import {
+		PromptInput,
+		PromptInputTextarea
+	} from '#lib/components/prompt-kit/prompt-input/index.js';
+	import ChatbarSendButton from '#lib/components/ui/owned/chatbar-send-button.svelte';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { supportContext } from './support-context.svelte.ts';
-	import { CHAT_PAGE_SIZE, MAX_MESSAGE_LENGTH } from '$lib/chat/core/types';
+	import { CHAT_PAGE_SIZE, MAX_MESSAGE_LENGTH } from '#lib/chat/core/types.js';
 	import { getTranslate } from '@tolgee/svelte';
-	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
 	import {
 		getChatSessionEpoch,
 		isChatSessionCurrent,
 		registerPersistedChatHolder
-	} from '$lib/chat/core/chat-persisted-state.ts';
+	} from '#lib/chat/core/chat-persisted-state.ts';
 
 	const { t } = getTranslate();
 

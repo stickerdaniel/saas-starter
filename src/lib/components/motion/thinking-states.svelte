@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import { motionValue } from './motion-tokens.js';
 
 	/**
