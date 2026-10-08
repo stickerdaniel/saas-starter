@@ -640,7 +640,7 @@ export const getAuthUserIdByEmail = mutation({
 });
 
 /**
- * Drop one user's AI chat upload budget.
+ * Reset one test user's AI chat upload limit.
  *
  * The full browser suite shares one user, and the upload grant allows ten per
  * hour. A later test that needs a transfer still in flight otherwise has its

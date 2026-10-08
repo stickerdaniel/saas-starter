@@ -26,12 +26,20 @@ async function stallUpload(page: Page): Promise<void> {
 	});
 }
 
-/** The composer's progress bar, which only renders while a transfer is running. */
+/** The attempt's progress bar; the storage POST confirms the transfer is active. */
 function uploadInFlight(page: Page) {
 	return page.getByTestId('attachment-chip').first().getByRole('progressbar');
 }
 
 async function attachNotes(page: Page, name: string): Promise<void> {
+	// Each upload case owns its budget instead of depending on earlier suite activity.
+	const secret = process.env.AUTH_E2E_TEST_SECRET;
+	if (!secret) throw new Error('AUTH_E2E_TEST_SECRET is required in .env.test');
+	const convex = new ConvexHttpClient(resolveConvexUrl()!);
+	await convex.mutation(api.tests.resetAiChatFileUploadLimit, {
+		secret,
+		email: readTestCredentials().user.email
+	});
 	await page
 		.locator('input[type="file"]')
 		.first()
@@ -125,14 +133,6 @@ test.describe('Upload navigation guard', () => {
 		// is out and the budget has been given back.
 		const storagePost = page.waitForRequest(STORAGE_UPLOAD);
 		await stallUpload(page);
-		const secret = process.env.AUTH_E2E_TEST_SECRET;
-		if (!secret) throw new Error('AUTH_E2E_TEST_SECRET is required in .env.test');
-		const convex = new ConvexHttpClient(resolveConvexUrl()!);
-		await convex.mutation(api.tests.resetAiChatFileUploadLimit, {
-			secret,
-			email: readTestCredentials().user.email
-		});
-
 		await attachNotes(page, 'in-flight.txt');
 		await storagePost;
 		await expect(uploadInFlight(page)).toBeVisible({ timeout: 15000 });
