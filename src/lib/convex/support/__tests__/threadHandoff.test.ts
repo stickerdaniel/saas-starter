@@ -8,6 +8,9 @@ vi.mock('../ownership', () => ({
 	requireSupportThreadRecord: vi.fn()
 }));
 
+// Journey capture is covered by its own tests; these stay on their concern.
+vi.mock('../../admin/journey/capture', () => ({ ensureCaptureStart: vi.fn() }));
+
 vi.mock('../agent', () => ({
 	supportAgent: { saveMessage: vi.fn() }
 }));

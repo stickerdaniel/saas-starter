@@ -5,6 +5,7 @@ import { supportThreadFields } from './support/supportThreadFields';
 import { vAnonymousRateLimitBucket } from './support/rateLimitAlertFields';
 import { founderIncidentEmailFields } from './emails/founderIncidentTypes';
 import { aiUsageFeatureValidator } from './aiUsage/feature';
+import { journeyCaptureStarts } from './admin/journey/capture';
 
 export default defineSchema({
 	// Note: Better Auth component manages its own tables (users, sessions, accounts, verifications)
@@ -17,7 +18,11 @@ export default defineSchema({
 	// Note: Better Auth uses 'user' table (singular), managed by the component
 	messages: defineTable({
 		userId: v.string(), // Better Auth user ID (string, not document ID)
-		body: v.string()
+		body: v.string(),
+		// Set once the quota backstop keeps the message (counted or billing
+		// unavailable); a denied message is deleted instead. Customer journeys
+		// count only settled messages.
+		quotaSettledAt: v.optional(v.number())
 	}).index('by_user', ['userId']),
 
 	// Email event tracking - stores webhook events from Resend
@@ -80,6 +85,7 @@ export default defineSchema({
 		.index('by_thread', ['threadId'])
 		.index('by_user_warm', ['userId', 'isWarm'])
 		.index('by_user_and_last_message', ['userId', 'lastMessageAt'])
+		.index('by_user_and_first_user_message', ['userId', 'firstUserMessageAt'])
 		.index('by_user_and_unread_admin_reply', ['userId', 'hasUnreadAdminReply'])
 		.index('by_handed_off_updated', ['isHandedOff', 'updatedAt'])
 		.index('by_handed_off_assigned_updated', ['isHandedOff', 'assignedTo', 'updatedAt'])
@@ -254,6 +260,12 @@ export default defineSchema({
 		.index('by_user_warm', ['userId', 'isWarm'])
 		.index('by_userId_and_sidebarActivityAt', ['userId', 'sidebarActivityAt']),
 
+	// One row per AI chat message a user sent, written in the sending mutation.
+	// Customer journeys count these instead of reading the agent component.
+	aiChatMessageReceipts: defineTable({
+		userId: v.string() // Better Auth user ID
+	}).index('by_user', ['userId']),
+
 	aiChatHistoryMigration: defineTable({
 		version: v.literal(1),
 		status: v.union(v.literal('running'), v.literal('complete')),
@@ -299,7 +311,9 @@ export default defineSchema({
 		at: v.number()
 	})
 		.index('by_user_at', ['userId', 'at'])
-		.index('by_feature_at', ['feature', 'at'])
+		.index('by_feature_at', ['feature', 'at']),
+
+	journeyCaptureStarts
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support

@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // createAIResponse pulls in the whole support module graph at import. Stub the
 // heavy or env-dependent siblings so this stays a handler-level unit test that
 // only exercises the prompt-override wiring into streamText.
+// Journey capture is covered by its own tests; these stay on their concern.
+vi.mock('../../admin/journey/capture', () => ({ ensureCaptureStart: vi.fn() }));
+
 vi.mock('../agent', () => ({
 	supportAgent: {
 		streamText: vi.fn(),

@@ -13,6 +13,7 @@ import {
 import {
 	createSupportThreadRecord,
 	limitSupportThreadCreate,
+	recordFirstSupportContact,
 	syncSupportLastMessage
 } from './threadLifecycle';
 import {
@@ -385,12 +386,18 @@ export const updateThreadHandoff = mutation({
 			skipEmbeddings: true
 		});
 
-		// Mark as handed off - user is waiting for admin response
+		// Mark as handed off - user is waiting for admin response. The request is
+		// the owner's own message, so a pre-warmed thread stops being an empty
+		// placeholder here, exactly as on an ordinary first message; otherwise
+		// anonymous-ticket migration would delete it as unused.
+		const now = Date.now();
 		await ctx.db.patch('supportThreads', supportThread._id, {
+			isWarm: false,
 			isHandedOff: true,
 			awaitingAdminResponse: true,
-			updatedAt: Date.now()
+			updatedAt: now
 		});
+		await recordFirstSupportContact(ctx, supportThread, now);
 
 		// Sync last message for search
 		await syncSupportLastMessage(ctx, args.threadId);

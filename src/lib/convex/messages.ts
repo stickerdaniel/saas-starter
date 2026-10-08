@@ -7,6 +7,7 @@ import { appRateLimiter } from './rateLimit';
 import { createRateLimitError } from './support/types';
 import { MAX_MESSAGE_LENGTH } from './constants';
 import { requireBillingConfiguration } from './env';
+import { ensureCaptureStart } from './admin/journey/capture';
 
 export const list = authedQuery({
 	args: {},
@@ -46,10 +47,15 @@ export const list = authedQuery({
 			}
 		}
 
+		// Project the public fields explicitly: the return validator is exact, so
+		// an internal field such as quotaSettledAt must never reach it.
 		return chronological.map((message) => {
 			const authorInfo = userMap.get(message.userId);
 			return {
-				...message,
+				_id: message._id,
+				_creationTime: message._creationTime,
+				userId: message.userId,
+				body: message.body,
 				author: authorInfo?.name ?? 'Anonymous',
 				authorImage: authorInfo?.image
 			};
@@ -119,6 +125,33 @@ export const removeMessage = internalMutation({
 });
 
 /**
+ * Mark a community chat message as kept by the quota backstop. Internal only.
+ *
+ * A no-op when the message is gone, already settled, or its owner no longer
+ * exists, so a backstop that finishes after the account was deleted writes no
+ * journey fact for it.
+ */
+export const markMessageSettled = internalMutation({
+	args: { messageId: v.id('messages') },
+	returns: v.null(),
+	handler: async (ctx, { messageId }) => {
+		const message = await ctx.db.get('messages', messageId);
+		if (!message || message.quotaSettledAt !== undefined) return null;
+
+		const owner = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: '_id', operator: 'eq', value: message.userId }],
+			select: ['_id']
+		});
+		if (!owner) return null;
+
+		await ctx.db.patch('messages', messageId, { quotaSettledAt: Date.now() });
+		await ensureCaptureStart(ctx, 'community');
+		return null;
+	}
+});
+
+/**
  * Enforce the community chat message quota and count the usage.
  *
  * Scheduled from the send mutation. The entitlement check needs an
@@ -129,6 +162,7 @@ export const removeMessage = internalMutation({
  * - 'denied': nothing was deducted, remove the over-limit message.
  * - 'unavailable': nothing was deducted, keep the message uncounted.
  *   Never delete a legitimate message on a transient billing fault.
+ * A kept message ('counted' or 'unavailable') is marked settled.
  */
 export const enforceAndTrackMessageUsage = internalAction({
 	args: { userId: v.string(), messageId: v.id('messages') },
@@ -137,6 +171,8 @@ export const enforceAndTrackMessageUsage = internalAction({
 		const outcome = await checkAndCountUsage({ customerId: userId, featureId: 'messages' });
 		if (outcome === 'denied') {
 			await ctx.runMutation(internal.messages.removeMessage, { messageId });
+		} else {
+			await ctx.runMutation(internal.messages.markMessageSettled, { messageId });
 		}
 		return null;
 	}
