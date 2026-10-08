@@ -213,11 +213,8 @@ async function mountSupport(thread: SupportThreadContext, context: ChatUIContext
 	await tick();
 }
 
-async function mountChatbar(
-	thread: SupportThreadContext,
-	isFeedbackOpen = false
-): Promise<HTMLTextAreaElement> {
-	const contentProps = { isFeedbackOpen };
+async function mountChatbar(thread: SupportThreadContext): Promise<HTMLTextAreaElement> {
+	const contentProps = { isFeedbackOpen: false };
 	component = mount(ChatTestProvider<typeof contentProps>, {
 		target: document.body,
 		props: { client, content: AIChatbar, contentProps, supportThread: thread }
@@ -1240,19 +1237,31 @@ describe('AI chatbar session lifecycle', () => {
 		expect(toast.error).not.toHaveBeenCalled();
 	});
 
-	it('leaves the mounted chatbar interactive', async () => {
-		await mountChatbar(new SupportThreadContext());
-		const root = document.querySelector<HTMLElement>('.ai-chatbar');
+	it('blocks the chatbar input only while the feedback widget is open', async () => {
+		const contentProps = { isFeedbackOpen: false };
+		const provider = mount(ChatTestProvider<typeof contentProps>, {
+			target: document.body,
+			props: { client, content: AIChatbar, contentProps, supportThread: new SupportThreadContext() }
+		});
+		component = provider;
+		// jsdom does not reflect `inert` to an attribute, so `closest('[inert]')` misses it.
+		const inputIsInert = () => {
+			const input = document.querySelector('textarea');
+			for (let node: HTMLElement | null = input; node; node = node.parentElement) {
+				if (node.inert) return true;
+			}
+			return false;
+		};
+		await tick();
+		expect(document.querySelector('textarea')).not.toBeNull();
+		expect(inputIsInert()).toBe(false);
 
-		expect(root?.inert).toBe(false);
-		expect(root?.querySelector('textarea')).not.toBeNull();
-	});
+		provider.setContentProps({ isFeedbackOpen: true });
+		await tick();
+		expect(inputIsInert()).toBe(true);
 
-	it('makes the chatbar inert while the feedback widget is open', async () => {
-		await mountChatbar(new SupportThreadContext(), true);
-		const root = document.querySelector<HTMLElement>('.ai-chatbar');
-
-		expect(root?.classList.contains('fade-out')).toBe(true);
-		expect(root?.inert).toBe(true);
+		provider.setContentProps({ isFeedbackOpen: false });
+		await tick();
+		expect(inputIsInert()).toBe(false);
 	});
 });
