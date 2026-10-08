@@ -1722,9 +1722,16 @@ async function main(): Promise<void> {
 				console.log('No TypeScript/Svelte files to check');
 				ledger.ran('svelte-check', 0);
 			} else {
-				await runCommand('bun', ['svelte-check', '--tsconfig', './tsconfig.json'], {
-					env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' }
-				});
+				// TypeScript 7 (`@typescript/native`) checks the svelte2tsx output about twice as
+				// fast. `typescript` stays 6 for tools that need its JS API (#726). Plain `--tsgo`
+				// reports a missing shadow file for `files` entries in tsconfig.json, so it stays off.
+				await runCommand(
+					'bun',
+					['svelte-check', '--tsconfig', './tsconfig.json', '--tsgo-experimental-api'],
+					{
+						env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' }
+					}
+				);
 				// svelte-check is tsconfig-driven: the routed files decide WHETHER it runs,
 				// then it type-checks the whole project regardless.
 				ledger.ran('svelte-check', 'project');

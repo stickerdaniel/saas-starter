@@ -1,0 +1,12 @@
+diff --git a/dist/src/index.js b/dist/src/index.js
+index 8eec91714c82eaba243e87e3a7b90863c8b7710d..b1e72000bf0b14847a21111ce1d6b117d64016f4 100644
+--- a/dist/src/index.js
++++ b/dist/src/index.js
+@@ -130471,5 +130471,7 @@ parseOptions(async (opts) => {
+     catch (_err) {
+         console.error(_err);
+         console.error('svelte-check failed');
++        // Backport of sveltejs/language-tools#3133: a failed run must not look clean to CI.
++        exitAfterFlush(1);
+     }
+ });

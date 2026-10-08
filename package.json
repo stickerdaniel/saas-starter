@@ -24,7 +24,7 @@
 		"preview": "vite preview",
 		"prepare": "husky",
 		"package": "bun run generate:content && bun svelte-kit sync && svelte-package",
-		"check": "bun svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check": "bun svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --tsgo-experimental-api",
 		"check:watch": "bun svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"check:cli": "bun run --cwd packages/create-saas-starter typecheck",
 		"test:cli": "bun run --cwd packages/create-saas-starter test",
@@ -140,6 +140,7 @@
 		"@tolgee/cli": "2.20.0",
 		"@types/node": "26.6.3",
 		"@types/subset-font": "2.3.0",
+		"@typescript/native": "npm:typescript@7.0.2",
 		"bits-ui": "2.19.3",
 		"clsx": "2.1.1",
 		"convex": "1.46.0",
@@ -183,7 +184,8 @@
 	},
 	"patchedDependencies": {
 		"oxlint-plugin-convex@0.1.1": "patches/oxlint-plugin-convex@0.1.1.patch",
-		"convex-vite-plugin@0.4.0": "patches/convex-vite-plugin@0.4.0.patch"
+		"convex-vite-plugin@0.4.0": "patches/convex-vite-plugin@0.4.0.patch",
+		"svelte-check@4.7.6": "patches/svelte-check@4.7.6.patch"
 	},
 	"overrides": {
 		"zod": "$zod",
