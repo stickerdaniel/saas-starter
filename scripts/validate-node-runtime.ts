@@ -171,6 +171,10 @@ async function validate(revision: string, origin: string) {
 		await Promise.race([stopped, delay(5000)]);
 		if (server.exitCode === null && server.signalCode === null)
 			throw new Error(`Node server did not exit after SIGTERM: ${output}`);
+		if (server.exitCode !== 0 || server.signalCode !== null)
+			throw new Error(
+				`Node server shutdown failed (exit ${server.exitCode}, signal ${server.signalCode}): ${output}`
+			);
 		console.log(
 			JSON.stringify({
 				node: process.version,
