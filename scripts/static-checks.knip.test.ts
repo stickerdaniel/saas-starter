@@ -473,14 +473,12 @@ function seedCreatorState(
 }
 
 /**
- * Supplies the generated SvelteKit project the root tsconfig extends.
+ * Copies a generated SvelteKit tsconfig into a checker clone when sync still writes one.
  *
  * The clone records `svelte-kit sync` instead of running it, and Git does not carry the
- * ignored `.svelte-kit` directory, so a named-file types run could not read the root project
- * the checker asks TypeScript about. The generated config holds only paths relative to its own
- * directory, so the worktree copy applies unchanged. The postinstall writes it; a job that
- * installs with --ignore-scripts, such as the Windows lifecycle workflow, gets the same sync
- * once here.
+ * ignored `.svelte-kit` directory. Kit 3 resolves the root `extends` from `$app/tsconfig`
+ * and does not write `.svelte-kit/tsconfig.json`, so there is nothing to copy. A sync that
+ * still produces the file is copied unchanged.
  */
 function seedGeneratedKitProject(repository: string): void {
 	const generated = path.join(ROOT, '.svelte-kit', 'tsconfig.json');
@@ -490,10 +488,12 @@ function seedGeneratedKitProject(repository: string): void {
 			env: sanitizedGitEnv(),
 			encoding: 'utf8'
 		});
-		if (sync.status !== 0 || !existsSync(generated)) {
+		if (sync.status !== 0) {
 			throw new Error(`SvelteKit sync did not write ${generated}: ${sync.stdout}${sync.stderr}`);
 		}
 	}
+	// Kit 3 publishes the base config as `$app/tsconfig` and does not write this file.
+	if (!existsSync(generated)) return;
 	mkdirSync(path.join(repository, '.svelte-kit'), { recursive: true });
 	copyFileSync(generated, path.join(repository, '.svelte-kit', 'tsconfig.json'));
 }

@@ -237,8 +237,11 @@ test.describe('Admin Users Table', () => {
 	});
 
 	test('search filters users', async ({ page }) => {
-		await page.getByTestId('admin-users-search').fill(searchTargetEmail);
+		const search = page.getByTestId('admin-users-search');
+		await search.fill(searchTargetEmail);
 		await expect.poll(async () => page.getByTestId('admin-users-loading').count()).toBe(0);
+		// The search field stays mounted across the URL update, so focus does too.
+		await expect(search).toBeFocused();
 
 		await expect(
 			page.getByTestId('admin-users-email-cell').filter({ hasText: searchTargetEmail })
@@ -398,8 +401,7 @@ test.describe('Admin Users Table', () => {
 		const indicator = page.getByTestId('admin-users-page-indicator');
 		await expect(indicator).toHaveText(`Page 1 of ${SEED_USER_COUNT}`);
 
-		// The admin shell is overflow-hidden. This page scrolls inside the layout
-		// ScrollArea, so the window's scrollY stays 0 no matter how far the user is.
+		// This page moves the layout scroll viewport. This does not claim window scroll.
 		const scroller = page.locator('#main-content [data-slot="scroll-area-viewport"]');
 		const scrolled = await scroller.evaluate((node) => {
 			// The users page is often shorter than the shell, so this viewport has
@@ -417,8 +419,7 @@ test.describe('Admin Users Table', () => {
 
 		await page.getByTestId('admin-users-pagination-next').click();
 		await expect(indicator).toHaveText(`Page 3 of ${SEED_USER_COUNT}`);
-		// The indicator follows the local cache. Back walks the URL, which is
-		// written after the current navigation finishes.
+		// The indicator follows the local cache. Back walks the URL, so wait for it.
 		await expect(page).toHaveURL(/[?&]page=3(?:&|$)/);
 
 		await page.goBack();

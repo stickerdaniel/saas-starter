@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import LauncherIcon from './launcher-icon.svelte';
 	import { getTranslate } from '@tolgee/svelte';
@@ -38,11 +38,6 @@
 		const url = new URL(window.location.href);
 		url.searchParams.set('support', 'open');
 		await goto(resolve(`${window.location.pathname}${url.search}`), { reset: false });
-		await tick();
-		// The placeholder button unmounts once the widget chunk loads, so the
-		// navigation has no element left to keep focused.
-		const opened = document.querySelector(`button[aria-label="${$t('aria.feedback_close')}"]`);
-		if (opened instanceof HTMLButtonElement) opened.focus();
 	}
 
 	onMount(() => {

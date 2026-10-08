@@ -265,20 +265,20 @@ export function createConvexCursorTable<
 	>
 ) {
 	const client = useConvexClient();
-	const urlState = useSearchParams(options.urlSchema, {
+	const searchParams = useSearchParams(options.urlSchema, {
 		pushHistory: true,
 		noScroll: true
-	}) as TUrlState;
+	});
+	const urlState = searchParams as TUrlState;
 
 	const debounceMs = options.debounceMs ?? 300;
 	const maxCachedPages = options.maxCachedPages ?? 8;
 
-	function writePageCursor(pageValue: string, cursorValue: string) {
-		(
-			urlState as TUrlState & {
-				update: (values: { page: string; cursor: string }) => void;
-			}
-		).update({ page: pageValue, cursor: cursorValue });
+	// One URL write for both fields, so paging records a single history entry.
+	// `page` and `cursor` are plain strings in every table schema; TypeScript cannot
+	// prove that for the generic `TUrlState`, so the values are widened here.
+	function writePageCursor(page: string, cursor: string) {
+		searchParams.update({ page, cursor } as Partial<TUrlState>);
 	}
 
 	const debouncedSearch = new Debounced(() => urlState.search.trim(), debounceMs);

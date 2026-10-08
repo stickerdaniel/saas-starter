@@ -323,13 +323,31 @@ describe('repository path safety', () => {
 		expect(existingRepositoryPaths(['README.md', 'docs/does-not-exist.md'])).toEqual(['README.md']);
 	});
 
-	it('preflights a positive formatter match count for the whole project', async () => {
-		const traversed = await prettierTraversalPaths();
-		const formattable = await prettierFormattableFiles(prettierProjectPaths(traversed));
+	it('counts formattable files and drops an ignored declaration', async () => {
+		const directory = mkdtempSync(path.join(tmpdir(), 'static-checks-format-count-'));
+		try {
+			mkdirSync(path.join(directory, 'src'), { recursive: true });
+			mkdirSync(path.join(directory, 'node_modules'), { recursive: true });
+			writeFileSync(path.join(directory, '.prettierignore'), 'src/varlock-env.d.ts\n');
+			writeFileSync(path.join(directory, 'src/kept.ts'), 'export const value = 1;\n');
+			writeFileSync(path.join(directory, 'src/varlock-env.d.ts'), 'export {};\n');
+			writeFileSync(path.join(directory, 'node_modules/ignored.ts'), 'export const hidden = 1;\n');
 
-		expect(formattable.length).toBeGreaterThan(0);
-		expect(formattable.length).toBeLessThanOrEqual(traversed.length);
-		expect(formattable).not.toContain('src/varlock-env.d.ts');
+			const traversed = prettierTraversalPaths(directory, false, directory);
+			const formattable = await prettierFormattableFiles(
+				prettierProjectPaths(traversed, directory),
+				directory
+			);
+
+			expect(formattable).toContain('src/kept.ts');
+			expect(formattable).not.toContain('src/varlock-env.d.ts');
+			expect(traversed).toContain('src/varlock-env.d.ts');
+			expect(traversed.join('\n')).not.toContain('node_modules/');
+			expect(formattable.length).toBeGreaterThan(0);
+			expect(formattable.length).toBeLessThan(traversed.length);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
 	it('includes untracked nonignored files in the full-mode preflight', () => {

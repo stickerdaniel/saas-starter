@@ -24,7 +24,31 @@ function flushFrames() {
 	const now = performance.now();
 	for (const [id, callback] of frames) {
 		if (cancelled.delete(id)) continue;
-		callback(now);
+		try {
+			callback(now);
+		} catch (error) {
+			// A native frame reports the error and continues the rest of the batch.
+			// Stopping here would drop a later Svelte tick scheduled in the same turn.
+			const reported = error instanceof Error ? error : new Error(String(error));
+			const ErrorEventCtor = globalThis.ErrorEvent;
+			let prevented = false;
+			if (typeof ErrorEventCtor === 'function' && typeof globalThis.dispatchEvent === 'function') {
+				const event = new ErrorEventCtor('error', {
+					message: `Uncaught ${reported.name}: ${reported.message}`,
+					error: reported,
+					cancelable: true
+				});
+				globalThis.dispatchEvent(event);
+				prevented = event.defaultPrevented;
+			}
+			// `preventDefault` means a listener took the error. Otherwise it stays uncaught,
+			// without aborting the callbacks already queued in this batch.
+			if (!prevented) {
+				realSetTimeout(() => {
+					throw reported;
+				}, 0);
+			}
+		}
 	}
 }
 
