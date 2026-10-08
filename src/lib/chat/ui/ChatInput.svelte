@@ -965,10 +965,12 @@
 	<!-- Fixed 25px radius: the one-line pill is 48px tall (36px field + 12px
 	     padding) plus its border, so 25px is fully round there and simply stays
 	     put when the field grows — no radius jump between layouts. -->
+	<!-- Input focus intentionally uses the text caret without an extra ring around
+	     the composer. Action buttons keep their own focus indicators. -->
 	<PromptInput
 		class={compact
-			? `relative z-20 rounded-[25px] border-0 bg-popover composer-elevation has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:outline-offset-2 has-[textarea:focus-visible]:outline-ring ${compactMultiline ? 'p-0' : 'p-1.5'}`
-			: 'relative z-20 bg-popover p-0 has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:outline-offset-2 has-[textarea:focus-visible]:outline-ring'}
+			? `relative z-20 rounded-[25px] border-0 bg-popover composer-elevation ${compactMultiline ? 'p-0' : 'p-1.5'}`
+			: 'relative z-20 bg-popover p-0'}
 		value={ctx.inputValue}
 		isLoading={ctx.core.isSending}
 		onValueChange={handleValueChange}
