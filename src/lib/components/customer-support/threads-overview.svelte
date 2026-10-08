@@ -240,6 +240,7 @@
 						{#if showBotIcon}
 							<!-- Avatar 1: Bot icon (only shown when <3 admins) -->
 							<motion.div
+								class="motion-reduce:transform-none!"
 								initial={{ opacity: 0, y: prefersReducedMotion.current ? 0 : 20 }}
 								animate={allImagesLoaded
 									? { opacity: 1, y: 0 }
@@ -261,6 +262,7 @@
 						{#each displayAvatars as avatar, i (i)}
 							{@const delay = showBotIcon ? 0.15 + i * 0.05 : 0.1 + i * 0.05}
 							<motion.div
+								class="motion-reduce:transform-none!"
 								initial={{ opacity: 0, y: prefersReducedMotion.current ? 0 : 20 }}
 								animate={allImagesLoaded
 									? { opacity: 1, y: 0 }
@@ -303,7 +305,7 @@
 							? { opacity: 1, y: 0, filter: 'blur(0px)' }
 							: { opacity: 0, y: prefersReducedMotion.current ? 0 : 6, filter: 'blur(6px)' }}
 						transition={{ duration: 0.4, delay: 0.25, ease: 'easeOut' }}
-						class="mb-4 text-5xl font-semibold text-muted-foreground"
+						class="mb-4 text-5xl font-semibold text-muted-foreground motion-reduce:transform-none!"
 					>
 						{$t('support.greeting.hi')} 👋
 					</motion.h2>
@@ -315,7 +317,7 @@
 							? { opacity: 1, y: 0, filter: 'blur(0px)' }
 							: { opacity: 0, y: prefersReducedMotion.current ? 0 : 6, filter: 'blur(6px)' }}
 						transition={{ duration: 0.4, delay: 0.5, ease: 'easeOut' }}
-						class="text-3xl font-bold"
+						class="text-3xl font-bold motion-reduce:transform-none!"
 					>
 						{$t('support.greeting.how_can_we_help')}
 					</motion.h3>
