@@ -75,7 +75,7 @@
 		<div
 			data-slot="sidebar-gap"
 			class={cn(
-				'relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-sidebar',
+				'relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-sidebar motion-reduce:transition-none',
 				'group-data-[collapsible=offcanvas]:w-0',
 				'group-data-[side=right]:rotate-180',
 				variant === 'floating' || variant === 'inset'
@@ -86,7 +86,7 @@
 		<div
 			data-slot="sidebar-container"
 			class={cn(
-				'fixed top-(--top-notices-height,0px) z-10 hidden h-svh-below-notices w-(--sidebar-width) transition-[left,right,width] duration-200 ease-sidebar md:flex',
+				'fixed top-(--top-notices-height,0px) z-10 hidden h-svh-below-notices w-(--sidebar-width) transition-[left,right,width] duration-200 ease-sidebar motion-reduce:transition-none md:flex',
 				side === 'left'
 					? 'start-0 group-data-[collapsible=offcanvas]:-start-(--sidebar-width)'
 					: 'end-0 group-data-[collapsible=offcanvas]:-end-(--sidebar-width)',

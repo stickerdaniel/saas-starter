@@ -213,8 +213,11 @@ async function mountSupport(thread: SupportThreadContext, context: ChatUIContext
 	await tick();
 }
 
-async function mountChatbar(thread: SupportThreadContext): Promise<HTMLTextAreaElement> {
-	const contentProps = { isFeedbackOpen: false };
+async function mountChatbar(
+	thread: SupportThreadContext,
+	isFeedbackOpen = false
+): Promise<HTMLTextAreaElement> {
+	const contentProps = { isFeedbackOpen };
 	component = mount(ChatTestProvider<typeof contentProps>, {
 		target: document.body,
 		props: { client, content: AIChatbar, contentProps, supportThread: thread }
@@ -1235,5 +1238,21 @@ describe('AI chatbar session lifecycle', () => {
 		expect(mutation).toHaveBeenCalledTimes(1);
 		expect(unsubscribe).toHaveBeenCalledTimes(1);
 		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	it('leaves the mounted chatbar interactive', async () => {
+		await mountChatbar(new SupportThreadContext());
+		const root = document.querySelector<HTMLElement>('.ai-chatbar');
+
+		expect(root?.inert).toBe(false);
+		expect(root?.querySelector('textarea')).not.toBeNull();
+	});
+
+	it('makes the chatbar inert while the feedback widget is open', async () => {
+		await mountChatbar(new SupportThreadContext(), true);
+		const root = document.querySelector<HTMLElement>('.ai-chatbar');
+
+		expect(root?.classList.contains('fade-out')).toBe(true);
+		expect(root?.inert).toBe(true);
 	});
 });

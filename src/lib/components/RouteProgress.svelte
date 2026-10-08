@@ -171,7 +171,15 @@
 		height: 100%;
 		transform: translate3d(var(--route-progress-x), 0, 0);
 		opacity: var(--route-progress-opacity);
-		transition: all var(--route-progress-speed) linear;
+		transition:
+			opacity var(--route-progress-speed) linear,
+			transform var(--route-progress-speed) linear;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.route-progress__bar {
+			transition: opacity var(--route-progress-speed) linear;
+		}
 	}
 
 	.route-progress__peg {
