@@ -126,6 +126,7 @@
   "patchedDependencies": {
     "convex-vite-plugin@0.4.0": "patches/convex-vite-plugin@0.4.0.patch",
     "oxlint-plugin-convex@0.1.1": "patches/oxlint-plugin-convex@0.1.1.patch",
+    "svelte-check@4.7.6": "patches/svelte-check@4.7.6.patch",
   },
   "overrides": {
     "@peculiar/asn1-schema": "2.10.0",
