@@ -30,7 +30,7 @@ const CLI_KNIP: CommandInvocation = {
 const CLI_TYPES: CommandInvocation = { command: 'bun', args: ['run', 'check:cli'] };
 const APP_TYPES: CommandInvocation = {
 	command: 'bun',
-	args: ['svelte-check', '--tsconfig', './tsconfig.json']
+	args: ['svelte-check', '--tsconfig', './tsconfig.json', '--tsgo-experimental-api']
 };
 const CONVEX_TYPES: CommandInvocation = { command: 'bun', args: ['run', 'check:convex'] };
 const PRETTIER_README: CommandInvocation = {

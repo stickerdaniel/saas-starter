@@ -610,6 +610,13 @@
 			"url": "https://github.com/sindresorhus/spdx-license-list",
 			"branch": "main",
 			"specialNotes": "SPDX license texts used by scripts/third-party-licenses for generated notices. Read the installed release tag; full.js maps identifiers to name, url, osiApproved, and licenseText."
+		},
+		{
+			"type": "git",
+			"name": "typescript",
+			"url": "https://github.com/microsoft/TypeScript",
+			"branch": "main",
+			"specialNotes": "Native TypeScript 7 compiler, installed as @typescript/native beside the typescript 6 package that svelte2tsx, typescript-eslint, and Convex tooling load through the JS API. Read the installed v7 tag for tsc behavior and the typescript/unstable API that svelte-check --tsgo-experimental-api uses."
 		}
 	]
 }
