@@ -13,6 +13,7 @@ import {
 import { tmpdir } from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { stripVTControlCharacters } from 'util';
 import { describe, expect, it } from 'vitest';
 import knowledgePolicy from '../knowledge-policy.config';
 import { sanitizedGitEnv } from './git-context';
@@ -129,8 +130,9 @@ describe('format-only static checks', () => {
 	// Prettier reads a leading-dash path as an option, warns that the option is unknown,
 	// finds no file left to check and exits 0. Both hand-offs therefore pass the paths
 	// after "--": the checker's own CLI, and the Prettier invocation behind it.
-	it('checks a file whose name begins with dashes', () => {
+	it.each(['0', '1'])('checks a file whose name begins with dashes (FORCE_COLOR=%s)', (color) => {
 		const directory = mkdtempSync(path.join(tmpdir(), 'static-checks-dash-'));
+		const env = { ...sanitizedGitEnv(), FORCE_COLOR: color, NO_COLOR: undefined };
 		const name = `--format-dash-${process.pid}.ts`;
 		const prettierBin = path.join(ROOT, 'node_modules/prettier/bin/prettier.cjs');
 		try {
@@ -141,21 +143,22 @@ describe('format-only static checks', () => {
 
 			const checked = spawnSync(process.execPath, [prettierBin, ...args.slice(1)], {
 				cwd: directory,
+				env,
 				encoding: 'utf8',
 				timeout: 10_000
 			});
-			const output = `${checked.stdout}${checked.stderr}`;
-			expect(checked.status).not.toBe(0);
+			const output = stripVTControlCharacters(`${checked.stdout}${checked.stderr}`);
+			expect(checked.status).toBe(1);
 			expect(output).toContain(`[warn] ${name}`);
 
 			// Without the separator Prettier reads the name as an option and checks nothing.
 			const ignored = spawnSync(
 				process.execPath,
 				[prettierBin, '--check', '--ignore-unknown', name],
-				{ cwd: directory, encoding: 'utf8', timeout: 10_000 }
+				{ cwd: directory, env, encoding: 'utf8', timeout: 10_000 }
 			);
-			const ignoredOutput = `${ignored.stdout}${ignored.stderr}`;
-			expect(ignored.status ?? 0).toBe(0);
+			const ignoredOutput = stripVTControlCharacters(`${ignored.stdout}${ignored.stderr}`);
+			expect(ignored.status).toBe(0);
 			expect(ignoredOutput).not.toContain(`[warn] ${name}`);
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
