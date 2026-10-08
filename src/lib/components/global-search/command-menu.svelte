@@ -158,15 +158,15 @@
 <Dialog.Root open={globalSearch.open} onOpenChange={globalSearch.setOpen}>
 	<Dialog.Content
 		showCloseButton={false}
-		class="rounded-xl border-none bg-popover bg-clip-padding p-2 pb-11 shadow-2xl ring-4 ring-foreground/5 dark:ring-foreground/10"
+		class="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-xl border-none bg-popover bg-clip-padding p-2 pb-11 shadow-2xl ring-4 ring-foreground/5 dark:ring-foreground/10"
 	>
 		<Dialog.Header class="sr-only">
 			<Dialog.Title>{$t('search.command.dialog_title')}</Dialog.Title>
 			<Dialog.Description>{$t('search.command.dialog_description')}</Dialog.Description>
 		</Dialog.Header>
-		<Command.Root class="rounded-none bg-transparent">
+		<Command.Root class="h-auto min-h-0 flex-1 rounded-none bg-transparent">
 			<Command.Input placeholder={$t('search.command.input_placeholder')} />
-			<Command.List tabindex={-1} class="min-h-80 scroll-pt-2 scroll-pb-1.5">
+			<Command.List tabindex={-1} class="h-80 max-h-none min-h-0 scroll-pt-2 scroll-pb-1.5">
 				<Command.Empty class="py-12 text-center text-sm text-muted-foreground">
 					{$t('search.command.no_results')}
 				</Command.Empty>

@@ -136,10 +136,10 @@
 							shape="square"
 						/>
 						<div class="grid flex-1 text-left text-sm leading-tight">
-							<span class="flex items-center gap-1.5 truncate font-medium">
-								{user.name}
+							<span class="flex min-w-0 items-center gap-1.5 font-medium">
+								<span class="truncate">{user.name}</span>
 								{#if isPro}
-									<Badge variant="premium">
+									<Badge variant="premium" class="shrink-0">
 										<T keyName="app.user_menu.pro_badge" />
 									</Badge>
 								{/if}

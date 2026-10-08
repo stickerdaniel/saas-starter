@@ -33,7 +33,7 @@
 			<h3 class="text-base font-medium">{title}</h3>
 			<p class="line-clamp-3 text-sm text-muted-foreground">{description}</p>
 		</div>
-		<div class="flex gap-3 border-t border-dashed pt-6">
+		<div class="flex flex-wrap gap-3 border-t border-dashed pt-6">
 			<IntegrationLearnMoreButton href={link} target="_blank">
 				{buttonText}
 				<LearnMoreChevron class="ml-0 !size-3.5 opacity-50" />

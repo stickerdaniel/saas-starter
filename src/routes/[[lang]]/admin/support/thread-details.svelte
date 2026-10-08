@@ -184,7 +184,7 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
+<div class="flex h-full min-h-0 flex-col">
 	<!-- Details Form -->
 	<div class="flex-1 overflow-y-auto p-4">
 		{#if thread}
