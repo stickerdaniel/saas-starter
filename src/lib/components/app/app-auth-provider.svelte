@@ -9,6 +9,10 @@
 
 	createSvelteAuthClient({
 		authClient,
+		// The library sets `disabled: false`, overriding convex-svelte's server default.
+		// An enabled client opens a WebSocket per server render that nothing closes, so
+		// the Node server keeps reconnecting and never exits on SIGTERM.
+		options: { disabled: !browser },
 		getServerState() {
 			return page.data.authState;
 		}
