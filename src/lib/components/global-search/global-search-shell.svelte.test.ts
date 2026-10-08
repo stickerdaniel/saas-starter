@@ -18,6 +18,10 @@ vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() }
 
 import { useQuery } from 'convex-svelte';
 import SearchHost from './test-fixtures/SearchHost.svelte';
+// Compiling the menu's module graph takes seconds on a cold run. Loading it with the
+// test file keeps that cost out of whichever test first asks the shell to load the menu;
+// the shell still mounts the menu only on intent, which is what these tests observe.
+import './command-menu.svelte';
 
 let component: ReturnType<typeof mount> | undefined;
 
