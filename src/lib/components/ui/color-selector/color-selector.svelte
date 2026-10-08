@@ -25,7 +25,7 @@
 	} as const;
 
 	export const colorSelectorDotVariants = tv({
-		base: 'motion-safe:transition-transform motion-safe:duration-200 motion-safe:active:scale-90 cursor-pointer rounded-full border border-transparent focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
+		base: 'motion-safe:transition-transform motion-safe:duration-200 motion-safe:active:scale-90 cursor-pointer rounded-full border border-transparent focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
 		variants: {
 			size: {
 				sm: 'size-4',

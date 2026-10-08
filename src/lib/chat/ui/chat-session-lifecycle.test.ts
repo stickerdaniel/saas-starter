@@ -1236,4 +1236,32 @@ describe('AI chatbar session lifecycle', () => {
 		expect(unsubscribe).toHaveBeenCalledTimes(1);
 		expect(toast.error).not.toHaveBeenCalled();
 	});
+
+	it('blocks the chatbar input only while the feedback widget is open', async () => {
+		const contentProps = { isFeedbackOpen: false };
+		const provider = mount(ChatTestProvider<typeof contentProps>, {
+			target: document.body,
+			props: { client, content: AIChatbar, contentProps, supportThread: new SupportThreadContext() }
+		});
+		component = provider;
+		// jsdom does not reflect `inert` to an attribute, so `closest('[inert]')` misses it.
+		const inputIsInert = () => {
+			const input = document.querySelector('textarea');
+			for (let node: HTMLElement | null = input; node; node = node.parentElement) {
+				if (node.inert) return true;
+			}
+			return false;
+		};
+		await tick();
+		expect(document.querySelector('textarea')).not.toBeNull();
+		expect(inputIsInert()).toBe(false);
+
+		provider.setContentProps({ isFeedbackOpen: true });
+		await tick();
+		expect(inputIsInert()).toBe(true);
+
+		provider.setContentProps({ isFeedbackOpen: false });
+		await tick();
+		expect(inputIsInert()).toBe(false);
+	});
 });

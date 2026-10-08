@@ -114,7 +114,7 @@
 						<details class="group">
 							<summary
 								class={[
-									'flex w-full cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1.5 py-3 pl-4 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden',
+									'flex w-full cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1.5 py-3 pl-4 text-left outline-hidden focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden',
 									entry.sourceUrl ? 'pr-14' : 'pr-4'
 								]}
 							>

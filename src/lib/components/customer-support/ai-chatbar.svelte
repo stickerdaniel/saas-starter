@@ -250,6 +250,7 @@
 	delayedFeedbackOpen
 		? 'fade-out'
 		: ''}"
+	inert={!mounted.current || delayedFeedbackOpen}
 >
 	<!-- Idle keeps the original bottom-5 offset; focus lifts the bar so the
 		 disclosure fades into the freed space below it. -->

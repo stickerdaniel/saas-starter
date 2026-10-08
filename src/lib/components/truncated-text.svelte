@@ -69,7 +69,7 @@
 				aria-describedby={undefined}
 				tabindex={clipped ? 0 : undefined}
 				class={cn(
-					'block min-w-0 truncate rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+					'block min-w-0 truncate rounded-sm outline-hidden focus-visible:ring-3 focus-visible:ring-ring/50',
 					className
 				)}
 				data-testid={testId}
