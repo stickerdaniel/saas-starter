@@ -97,6 +97,29 @@ describe('journey erasure', () => {
 		]);
 	});
 
+	it('does not schedule another receipt page when the last page was exactly full', async () => {
+		const store = setup();
+		for (let i = 0; i < 500; i++) store.insert('aiChatMessageReceipts', { userId: USER });
+
+		await startErasure(store);
+
+		expect(store.docs('aiChatMessageReceipts')).toEqual([]);
+		expect(store.jobs()).toEqual([]);
+	});
+
+	it('does not scan or schedule a long history that was never settled', async () => {
+		const store = setup();
+		for (let i = 0; i < 201; i++) store.insert('messages', { userId: USER, body: `old ${i}` });
+		seedContacts(store, USER, 1);
+
+		await startErasure(store);
+
+		expect(store.jobs().map((job) => job.args.step)).toEqual(['support']);
+		expect(store.childCalls().map((call) => call.name)).toEqual([
+			'admin/journey/erasure:erasePage'
+		]);
+	});
+
 	it('deletes the receipts of the deleted user only', async () => {
 		const store = setup();
 		for (let i = 0; i < 1_100; i++) store.insert('aiChatMessageReceipts', { userId: USER });
@@ -200,12 +223,22 @@ describe('journey erasure', () => {
 });
 
 describe('account deletion trigger', () => {
-	it('commits the deletion and retries later when the first erasure page fails', async () => {
+	it('commits the deletion and rolls back a failed erasure page', async () => {
 		const { onDelete } = await import('../../auth');
-		const store = setup();
-		const receipt = store.insert('aiChatMessageReceipts', { userId: USER });
+		const store = createJourneyStore({
+			users: [USER, OTHER],
+			functions: {
+				'admin/journey/erasure:erasePage': erasePage as unknown as Registered,
+				'admin/journey/erasure:continueErasure': continueErasure as unknown as Registered
+			}
+		});
+		store.insert('passkeyNudgeDismissals', { userId: USER });
+		const kept = store.insert('aiChatMessageReceipts', { userId: USER });
+		const failing = store.insert('aiChatMessageReceipts', { userId: USER });
 		store.insert('dashboardCounters', { totalUsers: 2, adminCount: 0, bannedCount: 0 });
-		store.failWrites(receipt);
+		store.failWrites(failing);
+		// The auth component removes the user, then runs this trigger.
+		store.deleteUser(USER);
 
 		await store.mutate(onDelete as unknown as Registered, {
 			model: 'user',
@@ -213,7 +246,19 @@ describe('account deletion trigger', () => {
 		});
 
 		expect(store.docs('dashboardCounters')[0]?.totalUsers).toBe(1);
-		expect(store.docs('aiChatMessageReceipts')).toHaveLength(1);
+		expect(store.docs('passkeyNudgeDismissals')).toEqual([]);
+		expect(
+			store
+				.docs('aiChatMessageReceipts')
+				.map((receipt) => receipt._id)
+				.sort()
+		).toEqual([kept, failing].sort());
+		expect(store.childCalls()).toEqual([
+			{
+				name: 'admin/journey/erasure:erasePage',
+				limits: { documentsRead: 2000, bytesRead: 4 * 1024 * 1024, documentsWritten: 600 }
+			}
+		]);
 		expect(store.jobs()).toEqual([
 			{
 				delayMs: 60_000,

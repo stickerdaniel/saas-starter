@@ -23,7 +23,14 @@ export default defineSchema({
 		// unavailable); a denied message is deleted instead. Customer journeys
 		// count only settled messages.
 		quotaSettledAt: v.optional(v.number())
-	}).index('by_user', ['userId']),
+	})
+		// Sorts by creation time. The settled index sorts by the marker instead,
+		// so the message list cannot use it.
+		// eslint-disable-next-line @convex-dev/no-duplicate-indexes -- different sort order
+		.index('by_user', ['userId'])
+		// Settled messages only. Clearing the marker drops the row out of a
+		// `gte(quotaSettledAt, 0)` range, so erasure never walks unmarked history.
+		.index('by_user_and_settled', ['userId', 'quotaSettledAt']),
 
 	// Email event tracking - stores webhook events from Resend
 	// Intentionally write-only for now: inspect events via the Convex dashboard.

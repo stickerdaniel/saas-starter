@@ -50,6 +50,12 @@ type StepDefinition = {
 	probe(ctx: MutationCtx, userId: string): Promise<boolean>;
 };
 
+function settledMessages(ctx: MutationCtx, userId: string) {
+	return ctx.db
+		.query('messages')
+		.withIndex('by_user_and_settled', (q) => q.eq('userId', userId).gte('quotaSettledAt', 0));
+}
+
 function supportContacts(ctx: MutationCtx, userId: string) {
 	return ctx.db
 		.query('supportThreads')
@@ -71,7 +77,14 @@ const STEPS = {
 			for (const receipt of receipts) {
 				await ctx.db.delete('aiChatMessageReceipts', receipt._id);
 			}
-			return receipts.length === RECEIPTS_PER_PAGE ? { kind: 'progress' } : { kind: 'finished' };
+			if (receipts.length < RECEIPTS_PER_PAGE) return { kind: 'finished' };
+			// A full page may have been the last one. Continue only when another
+			// receipt is still there.
+			const more = await ctx.db
+				.query('aiChatMessageReceipts')
+				.withIndex('by_user', (q) => q.eq('userId', userId))
+				.first();
+			return more ? { kind: 'progress' } : { kind: 'finished' };
 		},
 		async probe(ctx, userId) {
 			const receipt = await ctx.db
@@ -81,30 +94,27 @@ const STEPS = {
 			return receipt !== null;
 		}
 	},
-	// Messages stay; only their settlement marker is cleared. Unmarked messages
-	// stay in the range, so progress is the carried cursor.
+	// Messages stay; only their settlement marker is cleared, which moves them
+	// out of the settled range. Every page starts again from the front, so an
+	// unmarked history is never scanned and never scheduled.
 	community: {
 		paginates: true,
-		async run(ctx, userId, cursor) {
-			const page = await ctx.db
-				.query('messages')
-				.withIndex('by_user', (q) => q.eq('userId', userId))
-				.paginate({ cursor: cursor ?? null, ...COMMUNITY_PAGE });
-			let cleared = 0;
-			for (const message of page.page) {
-				if (message.quotaSettledAt === undefined) continue;
-				await ctx.db.patch('messages', message._id, { quotaSettledAt: undefined });
-				cleared++;
+		async run(ctx, userId) {
+			const page = await settledMessages(ctx, userId).paginate({
+				cursor: null,
+				...COMMUNITY_PAGE
+			});
+			if (page.page.length === 0) {
+				if (page.isDone) return { kind: 'empty' };
+				throw new Error('journey_erasure_no_progress');
 			}
-			if (!page.isDone) return { kind: 'progress', cursor: page.continueCursor };
-			return cleared > 0 ? { kind: 'finished' } : { kind: 'empty' };
+			for (const message of page.page) {
+				await ctx.db.patch('messages', message._id, { quotaSettledAt: undefined });
+			}
+			return page.isDone ? { kind: 'finished' } : { kind: 'progress' };
 		},
 		async probe(ctx, userId) {
-			const message = await ctx.db
-				.query('messages')
-				.withIndex('by_user', (q) => q.eq('userId', userId))
-				.first();
-			return message !== null;
+			return (await settledMessages(ctx, userId).first()) !== null;
 		}
 	},
 	// Threads stay; their first-contact time is cleared, which moves them out of

@@ -118,17 +118,21 @@ describe('first recorded support contact', () => {
 		expect(thread(warm.threadId)?.firstUserMessageAt).toBeUndefined();
 		expect(store.docs('journeyCaptureStarts')).toEqual([]);
 
-		at(1_000);
-		await call(sendMessage, { threadId: created.threadId, prompt: 'It broke' });
-		expect(state.saved.filter((m) => m.threadId === created.threadId).map((m) => m.role)).toEqual([
-			'user',
-			'assistant'
-		]);
-
-		at(2_000);
 		state.user = { _id: 'admin', role: 'admin', name: 'Ada', email: 'ada@example.com' };
 		await call(sendAdminReply, { threadId: created.threadId, prompt: 'Looking into it' });
 		await call(createAssistantMessage, { threadId: created.threadId, text: 'Ticket received' });
+		expect(thread(created.threadId)?.firstUserMessageAt).toBeUndefined();
+		expect(store.docs('journeyCaptureStarts')).toEqual([]);
+
+		at(1_000);
+		state.user = { _id: 'member', name: 'Member', email: 'member@example.com' };
+		await call(sendMessage, { threadId: created.threadId, prompt: 'It broke' });
+		expect(state.saved.filter((m) => m.threadId === created.threadId).map((m) => m.role)).toEqual([
+			'assistant',
+			'assistant',
+			'user',
+			'assistant'
+		]);
 
 		at(3_000);
 		state.user = { _id: 'member', name: 'Member', email: 'member@example.com' };
@@ -152,15 +156,25 @@ describe('first recorded support contact', () => {
 	});
 
 	it('survives an anonymous handoff from a warm thread and the move to an account', async () => {
-		const { call, thread } = setup();
+		const { store, call, thread } = setup();
 		const warm = (await call(getOrCreateWarmThread, { anonymousUserId: ANON })) as {
 			threadId: string;
 		};
 
 		at(1_000);
 		await call(updateThreadHandoff, { threadId: warm.threadId, anonymousUserId: ANON });
+		const afterFirst = {
+			messages: state.saved.map((message) => ({ ...message })),
+			jobs: store.jobs(),
+			thread: { ...thread(warm.threadId) }
+		};
 		at(2_000);
 		await call(updateThreadHandoff, { threadId: warm.threadId, anonymousUserId: ANON });
+		expect(state.saved).toEqual(afterFirst.messages);
+		expect(store.jobs().map(({ name, args }) => ({ name, args }))).toEqual(
+			afterFirst.jobs.map(({ name, args }) => ({ name, args }))
+		);
+		expect(thread(warm.threadId)).toEqual(afterFirst.thread);
 
 		state.user = { _id: 'member', name: 'Member', email: 'member@example.com' };
 		await call(migrateAnonymousTickets, { anonymousUserId: ANON });

@@ -71,6 +71,7 @@ export function createJourneyStore(
 	);
 	/** Throws inside a write to the matching document, `times` times. */
 	const faults: Array<{ id: string; remaining: number }> = [];
+	const childCalls: Array<{ name: string; limits: unknown }> = [];
 
 	const rows = (table: string): Map<string, Doc> => {
 		let found = tables.get(table);
@@ -250,10 +251,16 @@ export function createJourneyStore(
 				}
 				return await call(name, args);
 			},
-			async runMutation(ref: unknown, args: Record<string, unknown>) {
+			async runMutation(
+				ref: unknown,
+				args: Record<string, unknown>,
+				options?: { transactionLimits?: unknown }
+			) {
+				const name = getFunctionName(ref as never);
+				childCalls.push({ name, limits: options?.transactionLimits });
 				const saved = snapshot();
 				try {
-					return await call(getFunctionName(ref as never), args);
+					return await call(name, args);
 				} catch (error) {
 					restore(saved);
 					throw error;
@@ -352,6 +359,8 @@ export function createJourneyStore(
 		},
 		/** Pending jobs, with their delay from the current (fake) time. */
 		jobs: () => jobs.map(({ runAt, name, args }) => ({ delayMs: runAt - Date.now(), name, args })),
+		/** Child mutations this store ran, with the limits the caller requested. */
+		childCalls: () => childCalls.map((call) => ({ ...call })),
 		docs: (table: Table) => [...rows(table).values()],
 		insert(table: Table, value: Record<string, Value | undefined>) {
 			const id = `${table}:${nextId++}`;
