@@ -1,3 +1,4 @@
+import { setTimeout as delay } from 'node:timers/promises';
 import { expect, it } from 'vitest';
 
 it('runs a timer between self-scheduled frames instead of spinning the frame', async () => {
@@ -47,4 +48,19 @@ it('does not run a frame cancelled before its turn', async () => {
 	cancelAnimationFrame(id);
 	await new Promise((resolve) => setTimeout(resolve, 20));
 	expect(ran).toBe(false);
+});
+
+it('stops a self-scheduled frame when the page closes', async () => {
+	let frames = 0;
+	const loop = () => {
+		frames += 1;
+		requestAnimationFrame(loop);
+	};
+	requestAnimationFrame(loop);
+	await delay(30);
+	expect(frames).toBeGreaterThan(0);
+	const stopped = frames;
+	window.close();
+	await delay(40);
+	expect(frames).toBe(stopped);
 });

@@ -473,29 +473,25 @@ function seedCreatorState(
 }
 
 /**
- * Copies a generated SvelteKit tsconfig into a checker clone when sync still writes one.
+ * Ensures Kit 3's generated base tsconfig exists for checker clones.
  *
- * The clone records `svelte-kit sync` instead of running it, and Git does not carry the
- * ignored `.svelte-kit` directory. Kit 3 resolves the root `extends` from `$app/tsconfig`
- * and does not write `.svelte-kit/tsconfig.json`, so there is nothing to copy. A sync that
- * still produces the file is copied unchanged.
+ * Sync writes `node_modules/$app/tsconfig.json`, which is what the root config
+ * extends. Clones symlink this checkout's `node_modules`, so one write serves
+ * every case. A job that installs with `--ignore-scripts` has not synced yet;
+ * the first fixture does, and the rest find the file. `.svelte-kit/tsconfig.json`
+ * is not a Kit 3 output, and syncing once per case to look for it is not.
  */
-function seedGeneratedKitProject(repository: string): void {
-	const generated = path.join(ROOT, '.svelte-kit', 'tsconfig.json');
-	if (!existsSync(generated)) {
-		const sync = spawnSync(BUN, ['svelte-kit', 'sync'], {
-			cwd: ROOT,
-			env: sanitizedGitEnv(),
-			encoding: 'utf8'
-		});
-		if (sync.status !== 0) {
-			throw new Error(`SvelteKit sync did not write ${generated}: ${sync.stdout}${sync.stderr}`);
-		}
+function seedGeneratedKitProject(): void {
+	const generated = path.join(ROOT, 'node_modules', '$app', 'tsconfig.json');
+	if (existsSync(generated)) return;
+	const sync = spawnSync(BUN, ['svelte-kit', 'sync'], {
+		cwd: ROOT,
+		env: sanitizedGitEnv(),
+		encoding: 'utf8'
+	});
+	if (sync.status !== 0 || !existsSync(generated)) {
+		throw new Error(`SvelteKit sync did not write ${generated}: ${sync.stdout}${sync.stderr}`);
 	}
-	// Kit 3 publishes the base config as `$app/tsconfig` and does not write this file.
-	if (!existsSync(generated)) return;
-	mkdirSync(path.join(repository, '.svelte-kit'), { recursive: true });
-	copyFileSync(generated, path.join(repository, '.svelte-kit', 'tsconfig.json'));
 }
 
 /**
@@ -569,7 +565,7 @@ function createCheckerClone(
 			path.join(repository, 'node_modules'),
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
-		seedGeneratedKitProject(repository);
+		seedGeneratedKitProject();
 		seedCreatorState(repository, state, seed);
 
 		return {

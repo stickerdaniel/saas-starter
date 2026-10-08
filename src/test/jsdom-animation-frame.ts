@@ -1,3 +1,5 @@
+import { afterEach } from 'vitest';
+
 /**
  * This runner's jsdom never invokes `requestAnimationFrame`. Svelte's async
  * `tick()` and tooltip dismissal both wait for that callback, so a test that
@@ -9,16 +11,36 @@
  * run that batch from the real timer captured here, which fake timers do not
  * replace. The next self-scheduled frame waits for another turn, so a timer
  * can run between frames. Cancelling a frame drops it before that turn.
+ *
+ * That timer is not one of jsdom's, so `window.close()` does not clear it.
+ * A callback that then schedules the next frame throws `requestAnimationFrame
+ * is not defined` after the environment is gone. Drop the batch when the page
+ * closes, and at the end of each test.
  */
 const realSetTimeout = globalThis.setTimeout.bind(globalThis);
+const realClearTimeout = globalThis.clearTimeout.bind(globalThis);
 
 const cancelled = new Set<number>();
 const pending = new Map<number, FrameRequestCallback>();
 let nextFrame = 1;
 let batchTimer: ReturnType<typeof setTimeout> | undefined;
+let pageOpen = true;
+
+function cancelPendingFrames() {
+	if (batchTimer !== undefined) {
+		realClearTimeout(batchTimer);
+		batchTimer = undefined;
+	}
+	pending.clear();
+	cancelled.clear();
+}
 
 function flushFrames() {
 	batchTimer = undefined;
+	if (!pageOpen) {
+		pending.clear();
+		return;
+	}
 	const frames = [...pending];
 	pending.clear();
 	const now = performance.now();
@@ -53,6 +75,7 @@ function flushFrames() {
 }
 
 globalThis.requestAnimationFrame = (callback: FrameRequestCallback) => {
+	if (!pageOpen) return 0;
 	const id = nextFrame++;
 	pending.set(id, callback);
 	if (batchTimer === undefined) {
@@ -65,3 +88,15 @@ globalThis.cancelAnimationFrame = (id: number) => {
 	if (pending.delete(id)) return;
 	cancelled.add(id);
 };
+
+// Node-environment files under src still load this setup. They have no page to close.
+if (typeof window !== 'undefined' && typeof window.close === 'function') {
+	const closePage = window.close.bind(window);
+	window.close = () => {
+		pageOpen = false;
+		cancelPendingFrames();
+		closePage();
+	};
+}
+
+afterEach(cancelPendingFrames);
