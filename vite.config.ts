@@ -18,6 +18,7 @@ import { getManagedProviderUpdates, logSafeOrigin } from './scripts/local-convex
 import { prepareEmbeddedEnvManifest } from './scripts/strip-varlock-secrets';
 import { thirdPartyLicenses } from './scripts/third-party-licenses/index';
 import { marketingFonts } from './scripts/marketing-fonts';
+import { kitGeneratedHmr } from './scripts/kit-generated-hmr';
 import { sentrySvelteKit } from '@sentry/sveltekit/vite';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
@@ -403,6 +404,8 @@ export default defineConfig(async ({ mode }) => {
 		}),
 		licenses.plugin,
 		marketingFonts(),
+		// Startup rewrites of .svelte-kit/generated must not reload the SSR runner mid-request.
+		kitGeneratedHmr(),
 		devtoolsJson(),
 		// Download and self-host the web fonts. Existing static/fonts URLs remain
 		// available for emails, which need stable URLs across deployments.
