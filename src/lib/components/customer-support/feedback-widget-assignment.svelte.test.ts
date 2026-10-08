@@ -3,14 +3,14 @@ import { flushSync, mount, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import type * as ConvexSvelte from 'convex-svelte';
 import type { ConvexClient } from 'convex/browser';
-import type { ChatUIContext } from '$lib/chat';
+import type { ChatUIContext } from '#lib/chat/index.js';
 
 vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$app/environment', () => ({ browser: true }));
-vi.mock('$lib/auth-client', () => ({
+vi.mock('$app/env', () => ({ browser: true }));
+vi.mock('#lib/auth-client.js', () => ({
 	authClient: {
 		useSession: () => ({
 			subscribe: (callback: (value: { data: null }) => void) => {
@@ -20,7 +20,11 @@ vi.mock('$lib/auth-client', () => ({
 		})
 	}
 }));
-vi.mock('$lib/chat', () => ({ ChatRoot: () => {}, ChatMessages: () => {}, ChatInput: () => {} }));
+vi.mock('#lib/chat/index.js', () => ({
+	ChatRoot: () => {},
+	ChatMessages: () => {},
+	ChatInput: () => {}
+}));
 vi.mock('./threads-overview.svelte', () => ({ default: () => {} }));
 vi.mock('convex-svelte', async (importOriginal) => ({
 	...(await importOriginal<typeof ConvexSvelte>()),
@@ -31,7 +35,7 @@ vi.mock('convex-svelte', async (importOriginal) => ({
 	})
 }));
 
-import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
+import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import FeedbackWidget from './feedback-widget.svelte';
 import { SupportContext } from './support-context.svelte.ts';
 import en from '../../../i18n/en.json';

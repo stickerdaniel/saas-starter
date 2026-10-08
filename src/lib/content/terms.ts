@@ -1,4 +1,4 @@
-import { LEGAL_CONFIG } from '$lib/config/legal';
+import { LEGAL_CONFIG } from '#lib/config/legal.js';
 import termsTemplate from './legal/terms.md?raw';
 import { LEGAL_CONTENT_DATES, formatLegalContentDate } from './legal-metadata';
 import { createLegalMarkdown } from './legal-template';

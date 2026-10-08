@@ -1,12 +1,12 @@
 <script lang="ts">
 	import type { LucideProps } from '@lucide/svelte';
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.js';
 	// Inlined at build time from the single logo source (static/logo.svg), the same
 	// file that feeds favicon/PWA/email generation. Shipping the mark in the HTML
 	// payload avoids the runtime fetch of a CSS mask-image, which left the mark
 	// blank on first paint until /logo.svg loaded over the network. Trusted local
 	// build-time constant, so {@html} carries no injection risk.
-	import logoSvg from '$static/logo.svg?raw';
+	import logoSvg from '#static/logo.svg?raw';
 
 	// The logo accepts the same class value as a Lucide icon.
 	let { class: className }: Pick<LucideProps, 'class'> = $props();

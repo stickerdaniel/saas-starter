@@ -1,14 +1,14 @@
 <script lang="ts">
-	import SupportTicketMigrationBootstrap from '$lib/components/customer-support/support-ticket-migration-bootstrap.svelte';
-	import { AuthenticatedLayout, getAppSidebarConfig } from '$lib/components/authenticated';
-	import type { NavSubItem } from '$lib/components/authenticated/types';
+	import SupportTicketMigrationBootstrap from '#lib/components/customer-support/support-ticket-migration-bootstrap.svelte';
+	import { AuthenticatedLayout, getAppSidebarConfig } from '#lib/components/authenticated/index.js';
+	import type { NavSubItem } from '#lib/components/authenticated/types.js';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { tick, onDestroy } from 'svelte';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { localizedHref } from '#lib/utils/i18n.js';
 	import { useQuery, useConvexClient } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api';
+	import { api } from '#lib/convex/_generated/api.js';
 	import { ConvexError } from 'convex/values';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { LayoutData } from './$types';

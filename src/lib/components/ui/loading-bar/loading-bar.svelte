@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { Progress as ProgressPrimitive } from 'bits-ui';
 	import { untrack } from 'svelte';
-	import { clamp } from '$lib/utils/math';
+	import { clamp } from '#lib/utils/math.js';
 	import { AnimationFrames, watch } from 'runed';
 	import { useMotionValue, animate, useReducedMotion } from 'motion-sv';
 	import { getTranslate } from '@tolgee/svelte';
-	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
+	import { cn, type WithoutChildrenOrChild } from '#lib/utils.js';
 
 	const { t } = getTranslate();
 	const reducedMotion = useReducedMotion();

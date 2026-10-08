@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { flushSync, mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
-import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
+import type { NotificationRecipient } from '#lib/convex/admin/notificationPreferences/queries.js';
 import en from '../../../../i18n/en.json';
 
 vi.mock('svelte', () =>

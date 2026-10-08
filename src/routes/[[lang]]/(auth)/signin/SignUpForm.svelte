@@ -2,16 +2,16 @@
 	import { onMount } from 'svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { resolve } from '$app/paths';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { localizedHref } from '#lib/utils/i18n.js';
 	import { PASSWORD_MIN_LENGTH } from './schema.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
-	import * as Password from '$lib/components/ui/password';
-	import { translateFormError, translateValidationErrors } from '$lib/utils/validation-i18n.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { LoadingBar } from '#lib/components/ui/loading-bar/index.js';
+	import * as Password from '#lib/components/ui/password/index.js';
+	import { translateFormError, translateValidationErrors } from '#lib/utils/validation-i18n.js';
 	import OAuthButtons from './OAuthButtons.svelte';
-	import type { LastAuthMethod, PendingOAuthProvider } from '$lib/hooks/last-auth-method.svelte.ts';
+	import type { LastAuthMethod, PendingOAuthProvider } from '#lib/hooks/last-auth-method.svelte.ts';
 
 	type Props = {
 		id: string;

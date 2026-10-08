@@ -10,8 +10,8 @@
  * See docs/setup/customer-support/screenshot-proxy-setup.md for Cloudflare Worker setup.
  */
 
-import { dev } from '$app/environment';
-import { PUBLIC_SNAPDOM_PROXY_URL } from '$env/static/public';
+import { dev } from '$app/env';
+import { PUBLIC_SNAPDOM_PROXY_URL } from '$app/env/public';
 
 /**
  * Get the CORS proxy URL for snapDOM

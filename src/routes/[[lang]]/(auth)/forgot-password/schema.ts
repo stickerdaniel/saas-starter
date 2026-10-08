@@ -1,5 +1,5 @@
 import * as v from 'valibot';
-import { emailSchema } from '$lib/schemas/auth';
+import { emailSchema } from '#lib/schemas/auth.js';
 
 // Forgot Password Schema
 export const forgotPasswordSchema = v.object({

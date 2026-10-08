@@ -1,18 +1,18 @@
 <script lang="ts">
 	import NavUser from '../nav-user.svelte';
-	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import SidebarHeaderButton from '$lib/components/ui/owned/sidebar-header-button.svelte';
+	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
+	import * as Collapsible from '#lib/components/ui/collapsible/index.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import SidebarHeaderButton from '#lib/components/ui/owned/sidebar-header-button.svelte';
 	import { resolve } from '$app/paths';
 	import type { ComponentProps, Snippet } from 'svelte';
 	import { T } from '@tolgee/svelte';
 	import type { NavItem, NavSubItem, SidebarConfig, User } from './types';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { PersistedState } from 'runed';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import SidebarThreadList from './sidebar-thread-list.svelte';
-	import * as Kbd from '$lib/components/ui/kbd/index.js';
+	import * as Kbd from '#lib/components/ui/kbd/index.js';
 
 	interface Props extends ComponentProps<typeof Sidebar.Root> {
 		config: SidebarConfig;

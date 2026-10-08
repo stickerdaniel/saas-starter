@@ -1,6 +1,6 @@
 import { createContext } from 'svelte';
 import type { RowSelectionState } from '@tanstack/table-core';
-import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
+import type { NotificationRecipient } from '#lib/convex/admin/notificationPreferences/queries.js';
 
 export type ToggleField = 'notifyNewSupportTickets' | 'notifyUserReplies' | 'notifyNewSignups';
 

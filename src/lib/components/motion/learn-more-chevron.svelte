@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	/**
 	 * The trailing chevron of a "Learn more" style control. On hover it slides

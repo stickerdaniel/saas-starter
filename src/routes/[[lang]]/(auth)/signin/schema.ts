@@ -1,10 +1,10 @@
 import * as v from 'valibot';
-import { emailSchema } from '$lib/schemas/auth';
+import { emailSchema } from '#lib/schemas/auth.js';
 import {
 	PASSWORD_MIN_LENGTH,
 	passwordValidation,
 	passwordRequired
-} from '$lib/schemas/password.js';
+} from '#lib/schemas/password.js';
 
 // Re-export for backward compatibility
 export { PASSWORD_MIN_LENGTH };

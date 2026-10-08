@@ -125,13 +125,12 @@ describe('container app revision', () => {
 			VERCEL_GIT_COMMIT_SHA: 'vercel-revision',
 			expected: 'vercel-revision'
 		}
-	])('emits the revision $expected from the real Svelte config', ({ expected, ...env }) => {
+	])('emits the revision $expected as the app version', ({ expected, ...env }) => {
 		const result = spawnSync(
-			'node',
+			'bun',
 			[
-				'--input-type=module',
 				'-e',
-				"const { default: config } = await import('./svelte.config.js'); process.stdout.write(config.kit.version.name);"
+				"const { appVersion } = await import('./scripts/app-version.ts'); process.stdout.write(appVersion());"
 			],
 			{ encoding: 'utf8', env: { ...process.env, ...env }, timeout: 30_000 }
 		);

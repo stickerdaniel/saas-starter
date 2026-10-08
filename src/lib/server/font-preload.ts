@@ -1,6 +1,6 @@
-import type { Handle } from '@sveltejs/kit';
+import type { Handle } from '@sveltejs/kit/hooks';
 import { preloads } from 'fontless/runtime';
-import { criticalFontScope } from '$lib/font-loading';
+import { criticalFontScope } from '#lib/font-loading.js';
 
 /** Inline public-page fonts; preload the full font for application pages. */
 export const handleFontPreload: Handle = async ({ event, resolve }) => {

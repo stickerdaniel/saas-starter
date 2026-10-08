@@ -23,24 +23,24 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$lib/chat', async () => ({
+vi.mock('#lib/chat/index.js', async () => ({
 	ChatRoot: (await import('./ChatRoot.svelte')).default,
 	ChatMessages: () => {},
 	ChatInput: (await import('./ChatInput.svelte')).default
 }));
-vi.mock('$lib/chat/ui/ChatMessages.svelte', () => ({ default: () => {} }));
-vi.mock('$lib/chat/ui/ChatAttachments.svelte', () => ({ default: () => {} }));
-vi.mock('$lib/components/message-quota-banner.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/chat/ui/ChatMessages.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/chat/ui/ChatAttachments.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/components/message-quota-banner.svelte', () => ({ default: () => {} }));
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn() } }));
 vi.mock('$app/state', () => ({ page: { data: { lang: 'en' } } }));
-vi.mock('$lib/auth-client', () => ({
+vi.mock('#lib/auth-client.js', () => ({
 	authClient: { useSession: () => ({ subscribe: () => () => {} }) }
 }));
-vi.mock('$lib/hooks/use-media.svelte.ts', () => ({
+vi.mock('#lib/hooks/use-media.svelte.ts', () => ({
 	useMedia: () => ({ sm: false, lg: false, xl: false })
 }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
-vi.mock('$lib/components/customer-support/threads-overview.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/components/customer-support/threads-overview.svelte', () => ({ default: () => {} }));
 
 let component: ReturnType<typeof mount> | undefined;
 let client: ConvexClient;

@@ -15,7 +15,7 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$app/environment', () => ({ browser: true, dev: true, building: false, version: 'test' }));
+vi.mock('$app/env', () => ({ browser: true, dev: true, building: false, version: 'test' }));
 vi.mock('$app/state', () => ({
 	page: { params: { lang: 'en' }, url: new URL('http://localhost') }
 }));
@@ -47,7 +47,7 @@ import {
 	INVESTIGATION_RETURN_COOKIE,
 	clearInvestigationReturn,
 	writeInvestigationReturn
-} from '$lib/admin/investigation-return';
+} from '#lib/admin/investigation-return.js';
 
 const STOP = '/api/auth/admin/stop-impersonating';
 const SESSION = '/api/auth/get-session';

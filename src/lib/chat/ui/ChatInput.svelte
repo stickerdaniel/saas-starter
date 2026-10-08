@@ -10,13 +10,13 @@
 		PromptInputAction,
 		PromptInputActions,
 		PromptInputTextarea
-	} from '$lib/components/prompt-kit/prompt-input';
-	import { PromptSuggestion } from '$lib/components/prompt-kit/prompt-suggestion';
-	import { FileUpload, FileUploadTrigger } from '$lib/components/prompt-kit/file-upload';
-	import { Button } from '$lib/components/ui/button';
-	import ComposerAttachmentButton from '$lib/components/ui/owned/composer-attachment-button.svelte';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import * as Tooltip from '$lib/components/ui/tooltip';
+	} from '#lib/components/prompt-kit/prompt-input/index.js';
+	import { PromptSuggestion } from '#lib/components/prompt-kit/prompt-suggestion/index.js';
+	import { FileUpload, FileUploadTrigger } from '#lib/components/prompt-kit/file-upload/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import ComposerAttachmentButton from '#lib/components/ui/owned/composer-attachment-button.svelte';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import CameraIcon from '@lucide/svelte/icons/camera';
@@ -24,10 +24,10 @@
 	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import ChatAttachments from './ChatAttachments.svelte';
-	import { cn } from '$lib/utils';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { cn } from '#lib/utils.js';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { getChatUIContext } from './chat-context.svelte.ts';
-	import { processImage } from '$lib/media/process-image';
+	import { processImage } from '#lib/media/process-image.js';
 	import {
 		MAX_INPUT_IMAGE_SIZE,
 		MAX_INPUT_IMAGE_SIZE_LABEL,

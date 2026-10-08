@@ -1,12 +1,15 @@
 import { Context } from 'runed';
-import { authClient } from '$lib/auth-client';
-import { localizedHref } from '$lib/utils/i18n';
-import { authPageURL } from '$lib/utils/url';
-import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-import { clearPersistedChatState } from '$lib/chat/core/chat-persisted-state.ts';
-import { clearInvestigationReturn, readInvestigationReturn } from '$lib/admin/investigation-return';
+import { authClient } from '#lib/auth-client.js';
+import { localizedHref } from '#lib/utils/i18n.js';
+import { authPageURL } from '#lib/utils/url.js';
+import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
+import { clearPersistedChatState } from '#lib/chat/core/chat-persisted-state.ts';
+import {
+	clearInvestigationReturn,
+	readInvestigationReturn
+} from '#lib/admin/investigation-return.js';
 import { toast } from 'svelte-sonner';
-import { duringAuthChange } from '$lib/analytics/client';
+import { duringAuthChange } from '#lib/analytics/client.js';
 
 /**
  * Live impersonation state plus the exit actions, shared by every shell that

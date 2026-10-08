@@ -1,5 +1,5 @@
 import type { PersistedState } from 'runed';
-import { clamp } from '$lib/utils/math';
+import { clamp } from '#lib/utils/math.js';
 import type { ConvexCursorTableState } from './create-convex-cursor-table.svelte.ts';
 
 type CountedTable = Pick<

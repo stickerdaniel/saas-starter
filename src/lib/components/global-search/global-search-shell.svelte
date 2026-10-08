@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { useGlobalSearchContext } from './context.svelte.ts';
 
 	const globalSearch = useGlobalSearchContext();

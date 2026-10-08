@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import LauncherIcon from './launcher-icon.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { Component } from 'svelte';
@@ -37,10 +37,7 @@
 		if (!CustomerSupport) return;
 		const url = new URL(window.location.href);
 		url.searchParams.set('support', 'open');
-		await goto(resolve(`${window.location.pathname}${url.search}`), {
-			keepFocus: true,
-			noScroll: true
-		});
+		await goto(resolve(`${window.location.pathname}${url.search}`), { reset: false });
 	}
 
 	onMount(() => {

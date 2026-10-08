@@ -40,13 +40,13 @@ vi.mock('$app/state', () => ({
 		data: { lang: 'en' }
 	}
 }));
-vi.mock('$lib/auth-client.js', () => ({ authClient: { resetPassword: calls.resetPassword } }));
+vi.mock('#lib/auth-client.js', () => ({ authClient: { resetPassword: calls.resetPassword } }));
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 	useAuth: () => ({ isAuthenticated: false, isLoading: false })
 }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 
-import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
+import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import ResetPasswordPage from './+page.svelte';
 
 const STRONG = 'meadow-L7!orbit-9Cobalt';

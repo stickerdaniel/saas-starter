@@ -1,30 +1,30 @@
 <script lang="ts">
 	import * as v from 'valibot';
 	import { onDestroy } from 'svelte';
-	import { authClient } from '$lib/auth-client.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import { Progress } from '$lib/components/ui/progress/index.js';
+	import { authClient } from '#lib/auth-client.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import { Progress } from '#lib/components/ui/progress/index.js';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
+	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api.js';
-	import { getAuthErrorKey } from '$lib/utils/auth-messages.js';
-	import { acceptAttribute, UPLOAD_PROFILES } from '$lib/uploads/profiles.js';
-	import { getProfileImageInputError, prepareProfileImage } from '$lib/uploads/profile-image.js';
+	import { api } from '#lib/convex/_generated/api.js';
+	import { getAuthErrorKey } from '#lib/utils/auth-messages.js';
+	import { acceptAttribute, UPLOAD_PROFILES } from '#lib/uploads/profiles.js';
+	import { getProfileImageInputError, prepareProfileImage } from '#lib/uploads/profile-image.js';
 	import {
 		isUploadAbort,
 		requestUploadGrant,
 		uploadGrantedWithAdapter,
 		UploadError,
 		type UploadAdapter
-	} from '$lib/uploads/transfer.js';
-	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
+	} from '#lib/uploads/transfer.js';
+	import { translateValidationErrors } from '#lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
 

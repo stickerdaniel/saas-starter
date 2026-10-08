@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { T } from '@tolgee/svelte';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { localizedHref } from '#lib/utils/i18n.js';
 	import { resolve } from '$app/paths';
-	import Button from '$lib/components/ui/button/button.svelte';
-	import { LEGAL_CONFIG } from '$lib/config/legal';
-	import { analyticsPreferencesContext } from '$lib/analytics/preferences.svelte.ts';
+	import Button from '#lib/components/ui/button/button.svelte';
+	import { LEGAL_CONFIG } from '#lib/config/legal.js';
+	import { analyticsPreferencesContext } from '#lib/analytics/preferences.svelte.ts';
 
 	const analyticsPreferences = analyticsPreferencesContext.get();
 </script>

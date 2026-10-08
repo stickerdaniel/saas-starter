@@ -2,9 +2,9 @@
 	import type { Snippet } from 'svelte';
 	import { T } from '@tolgee/svelte';
 	import { resolve } from '$app/paths';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { localizedHref } from '$lib/utils/i18n';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import { localizedHref } from '#lib/utils/i18n.js';
 
 	/**
 	 * The two-column card every auth page sits in: the page's content beside the

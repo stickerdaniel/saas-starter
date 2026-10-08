@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 
 	export type ConfirmOptions = {
 		title: string;
@@ -63,9 +63,9 @@
 
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
 	import { getTranslate } from '@tolgee/svelte';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 

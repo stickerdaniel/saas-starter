@@ -1,11 +1,11 @@
-import { authClient } from '$lib/auth-client.js';
-import { duringAuthChange } from '$lib/analytics/client';
-import { clearPersistedChatState } from '$lib/chat/core/chat-persisted-state';
-import { getAuthErrorKey } from '$lib/utils/auth-messages';
-import { localizedHref } from '$lib/utils/i18n';
-import { normalizeSupportPageRoute } from '$lib/shared/support-page-route';
-import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
-import { adminReturnTarget, writeInvestigationReturn } from '$lib/admin/investigation-return';
+import { authClient } from '#lib/auth-client.js';
+import { duringAuthChange } from '#lib/analytics/client.js';
+import { clearPersistedChatState } from '#lib/chat/core/chat-persisted-state.js';
+import { getAuthErrorKey } from '#lib/utils/auth-messages.js';
+import { localizedHref } from '#lib/utils/i18n.js';
+import { normalizeSupportPageRoute } from '#lib/shared/support-page-route.js';
+import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
+import { adminReturnTarget, writeInvestigationReturn } from '#lib/admin/investigation-return.js';
 
 /**
  * Only a registered customer has an account to sign in as, and the signed-in

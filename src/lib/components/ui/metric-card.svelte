@@ -1,9 +1,9 @@
 <script lang="ts">
 	import TrendingDownIcon from '@lucide/svelte/icons/trending-down';
 	import TrendingUpIcon from '@lucide/svelte/icons/trending-up';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import { cn } from '$lib/utils.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import { cn } from '#lib/utils.js';
 	import type { Component } from 'svelte';
 
 	interface Props {

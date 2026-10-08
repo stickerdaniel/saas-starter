@@ -1,6 +1,6 @@
 <script lang="ts">
 	import MessageSquareIcon from '@lucide/svelte/icons/message-square';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	let { class: className }: { class?: string } = $props();
 </script>

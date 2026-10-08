@@ -1,9 +1,9 @@
 <script lang="ts">
 	import GlobeIcon from '@lucide/svelte/icons/globe';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import type { LanguageSwitcherProps } from './types';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();

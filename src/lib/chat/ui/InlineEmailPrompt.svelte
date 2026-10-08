@@ -1,15 +1,15 @@
 <script lang="ts">
 	import * as v from 'valibot';
-	import * as InputGroup from '$lib/components/ui/input-group';
-	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import { Button } from '$lib/components/ui/button';
+	import * as InputGroup from '#lib/components/ui/input-group/index.js';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import BellOffIcon from '@lucide/svelte/icons/bell-off';
 	import { watch } from 'runed';
 	import { toast } from 'svelte-sonner';
-	import { emailSchema } from '$lib/schemas/auth';
+	import { emailSchema } from '#lib/schemas/auth.js';
 	import { getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 
 	const { t } = getTranslate();
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LEGAL_CONTENT_DATES } from '$lib/content/legal-metadata';
+import { LEGAL_CONTENT_DATES } from '#lib/content/legal-metadata.js';
 import {
 	PUBLIC_MARKETING_ROUTES,
 	getDefaultLanguageMarketingUrl,

@@ -2,13 +2,13 @@
 	import { onMount } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { authClient } from '$lib/auth-client';
-	import { setAnalyticsController } from '$lib/analytics/client';
-	import { AnalyticsController } from '$lib/analytics/controller';
-	import { loadPosthog } from '$lib/analytics/posthog';
-	import { followSession } from '$lib/analytics/session';
-	import { analyticsPreferencesContext } from '$lib/analytics/preferences.svelte.ts';
-	import { devNotice } from '$lib/dev/notice';
+	import { authClient } from '#lib/auth-client.js';
+	import { setAnalyticsController } from '#lib/analytics/client.js';
+	import { AnalyticsController } from '#lib/analytics/controller.js';
+	import { loadPosthog } from '#lib/analytics/posthog.js';
+	import { followSession } from '#lib/analytics/session.js';
+	import { analyticsPreferencesContext } from '#lib/analytics/preferences.svelte.ts';
+	import { devNotice } from '#lib/dev/notice.js';
 	import AnalyticsConsentBanner from './analytics-consent-banner.svelte';
 
 	const preferences = analyticsPreferencesContext.get();

@@ -1,9 +1,9 @@
 <script lang="ts" generics="TData extends RowData">
 	import type { Row, RowData, Table as TanStackTable } from '@tanstack/table-core';
 	import { getTranslate } from '@tolgee/svelte';
-	import * as Table from '$lib/components/ui/table/index.js';
-	import { FlexRender } from '$lib/components/ui/data-table/index.js';
-	import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
+	import * as Table from '#lib/components/ui/table/index.js';
+	import { FlexRender } from '#lib/components/ui/data-table/index.js';
+	import type { DataTableFeatures } from '#lib/components/ui/data-table/data-table.svelte.ts';
 	import DataTableSkeletonCell from './data-table-skeleton-cell.svelte';
 
 	type Props = {

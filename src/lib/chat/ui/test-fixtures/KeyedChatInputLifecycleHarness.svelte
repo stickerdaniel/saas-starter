@@ -10,7 +10,7 @@
 <script lang="ts">
 	import type { ComponentProps } from 'svelte';
 	import { useConvexClient } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api';
+	import { api } from '#lib/convex/_generated/api.js';
 	import { ChatCore } from '../../core/chat-core.svelte.ts';
 	import { ChatAttachmentStore } from '../../core/chat-attachment-store.svelte.ts';
 	import { ChatUIContext } from '../chat-context.svelte.ts';

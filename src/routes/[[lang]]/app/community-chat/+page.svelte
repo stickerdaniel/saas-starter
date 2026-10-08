@@ -1,28 +1,28 @@
 <script lang="ts">
-	import { api } from '$lib/convex/_generated/api';
-	import SEOHead from '$lib/components/SEOHead.svelte';
+	import { api } from '#lib/convex/_generated/api.js';
+	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { useCustomer } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import {
 		PromptInput,
 		PromptInputActions,
 		PromptInputTextarea
-	} from '$lib/components/prompt-kit/prompt-input';
+	} from '#lib/components/prompt-kit/prompt-input/index.js';
 	import {
 		ChatContainerRoot,
 		ChatContainerContent,
 		ChatContainerScrollAnchor,
 		ChatContainerContext
-	} from '$lib/components/prompt-kit/chat-container';
-	import { ScrollButton } from '$lib/components/prompt-kit/scroll-button';
-	import UserAvatar from '$lib/components/user-avatar.svelte';
-	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
-	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
+	} from '#lib/components/prompt-kit/chat-container/index.js';
+	import { ScrollButton } from '#lib/components/prompt-kit/scroll-button/index.js';
+	import UserAvatar from '#lib/components/user-avatar.svelte';
+	import ProgressiveBlur from '#blocks/magic/ProgressiveBlur.svelte';
+	import { FadeOnLoad } from '#lib/utils/fade-on-load.svelte.ts';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
-	import MessageQuotaBanner from '$lib/components/message-quota-banner.svelte';
-	import { MAX_MESSAGE_LENGTH } from '$lib/chat/core/types';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import MessageQuotaBanner from '#lib/components/message-quota-banner.svelte';
+	import { MAX_MESSAGE_LENGTH } from '#lib/chat/core/types.js';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { mode } from 'mode-watcher';
 	import { tick, onMount } from 'svelte';
@@ -33,8 +33,8 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import type { OptimisticLocalStore } from 'convex/browser';
 	import { ConvexError } from 'convex/values';
-	import type { Id } from '$lib/convex/_generated/dataModel';
-	import { useBillingCheckout } from '$lib/components/billing';
+	import type { Id } from '#lib/convex/_generated/dataModel.js';
+	import { useBillingCheckout } from '#lib/components/billing/index.js';
 
 	const { t } = getTranslate();
 

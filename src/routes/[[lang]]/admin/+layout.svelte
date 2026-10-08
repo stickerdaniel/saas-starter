@@ -1,15 +1,18 @@
 <script lang="ts">
-	import SupportTicketMigrationBootstrap from '$lib/components/customer-support/support-ticket-migration-bootstrap.svelte';
-	import { AuthenticatedLayout, getAdminSidebarConfig } from '$lib/components/authenticated';
+	import SupportTicketMigrationBootstrap from '#lib/components/customer-support/support-ticket-migration-bootstrap.svelte';
+	import {
+		AuthenticatedLayout,
+		getAdminSidebarConfig
+	} from '#lib/components/authenticated/index.js';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { localizedHref } from '#lib/utils/i18n.js';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 	import { setAdminViewerId } from './viewer-context';
 	import { useQuery } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api';
+	import { api } from '#lib/convex/_generated/api.js';
 
 	interface Props {
 		children?: Snippet;

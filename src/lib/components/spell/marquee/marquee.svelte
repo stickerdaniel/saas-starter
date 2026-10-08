@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { cn } from '$lib/utils.js';
-	import { clamp } from '$lib/utils/math';
+	import { cn } from '#lib/utils.js';
+	import { clamp } from '#lib/utils/math.js';
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
 

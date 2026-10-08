@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.js';
 	import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import Settings from '@lucide/svelte/icons/settings';
 	import XCircle from '@lucide/svelte/icons/x-circle';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { CollapsibleTrigger } from '$lib/components/ui/collapsible/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { CollapsibleTrigger } from '#lib/components/ui/collapsible/index.js';
 	import type { ToolPart } from './types.js';
 	import type { Component } from 'svelte';
 

@@ -18,13 +18,18 @@ import path from 'node:path';
  * ✅ import { state } from './state.svelte.js';   // when state.svelte.js is the real file
  */
 
+// The `#lib/*` package import (package.json "imports") maps to src/lib.
+const LIB_IMPORT = '#lib/';
+
 function isSupportedSpecifier(specifier) {
-	return specifier.startsWith('./') || specifier.startsWith('../') || specifier.startsWith('$lib/');
+	return (
+		specifier.startsWith('./') || specifier.startsWith('../') || specifier.startsWith(LIB_IMPORT)
+	);
 }
 
 function resolveSpecifier(specifier, filename, cwd) {
-	if (specifier.startsWith('$lib/')) {
-		return path.resolve(cwd, 'src/lib', specifier.slice('$lib/'.length));
+	if (specifier.startsWith(LIB_IMPORT)) {
+		return path.resolve(cwd, 'src/lib', specifier.slice(LIB_IMPORT.length));
 	}
 
 	return path.resolve(path.dirname(filename), specifier);

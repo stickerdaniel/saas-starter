@@ -7,7 +7,7 @@
  * clipboard paste, chat file picker. Falls back to passthrough on decode
  * or encode failure so the user can still upload the original blob.
  */
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { MAX_IMAGE_WIDTH, WEBP_QUALITY } from './config.js';
 import { shouldPassthrough } from './detect-passthrough.js';
 import { getMediaDimensions } from './media-dimensions.js';

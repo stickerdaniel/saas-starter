@@ -1,5 +1,5 @@
-import { authClient } from '$lib/auth-client';
-import { api } from '$lib/convex/_generated/api';
+import { authClient } from '#lib/auth-client.js';
+import { api } from '#lib/convex/_generated/api.js';
 import type { ConvexClient } from 'convex/browser';
 import { PASSKEY_NUDGE_DELAY, isFreshPasskeySession } from './passkey-nudge-policy';
 

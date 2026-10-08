@@ -3,14 +3,14 @@ import { flushSync, mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import { ConvexClient } from 'convex/browser';
 import { getFunctionName } from 'convex/server';
-import { api } from '$lib/convex/_generated/api';
+import { api } from '#lib/convex/_generated/api.js';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
 import { CHAT_PAGE_SIZE, type Attachment } from '../core/types.js';
 import { ChatUIContext, type UploadConfig } from './chat-context.svelte.ts';
-import { SupportContext } from '$lib/components/customer-support/support-context.svelte.ts';
-import FeedbackWidget from '$lib/components/customer-support/feedback-widget.svelte';
-import AIChatbar from '$lib/components/customer-support/ai-chatbar.svelte';
+import { SupportContext } from '#lib/components/customer-support/support-context.svelte.ts';
+import FeedbackWidget from '#lib/components/customer-support/feedback-widget.svelte';
+import AIChatbar from '#lib/components/customer-support/ai-chatbar.svelte';
 import { toast } from 'svelte-sonner';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import KeyedAdminThreadLifecycleHarness, {
@@ -25,21 +25,21 @@ vi.mock('svelte', () =>
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn() } }));
 vi.mock('$app/state', () => ({ page: { data: { lang: 'en' } } }));
-vi.mock('$lib/auth-client', () => ({
+vi.mock('#lib/auth-client.js', () => ({
 	authClient: { useSession: () => ({ subscribe: () => () => {} }) }
 }));
-vi.mock('$lib/hooks/use-media.svelte.ts', () => ({
+vi.mock('#lib/hooks/use-media.svelte.ts', () => ({
 	useMedia: () => ({ sm: false, lg: false, xl: false })
 }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
-vi.mock('$lib/components/customer-support/threads-overview.svelte', () => ({ default: () => {} }));
-vi.mock('$lib/chat', async () => ({
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/components/customer-support/threads-overview.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/chat/index.js', async () => ({
 	ChatRoot: (await import('./ChatRoot.svelte')).default,
 	ChatMessages: () => {},
 	ChatInput: (await import('./ChatInput.svelte')).default
 }));
-vi.mock('$lib/chat/ui/ChatMessages.svelte', () => ({ default: () => {} }));
-vi.mock('$lib/chat/ui/ChatAttachments.svelte', async () => ({
+vi.mock('#lib/chat/ui/ChatMessages.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/chat/ui/ChatAttachments.svelte', async () => ({
 	default: (await import('./test-fixtures/CapturedChatAttachments.svelte')).default
 }));
 

@@ -155,19 +155,6 @@ function createFixture(
 		'third-party-licenses.config.json': JSON.stringify({
 			extraPackages: [{ name: 'css-marker', components: ['styles'] }]
 		}),
-		'svelte.config.js': `export default {
-	kit: {
-		${options.kitFiles ?? ''}
-		adapter: {
-			name: 'fixture-copy-output',
-			async adapt(builder) {
-				builder.writeClient('deployed/client');
-				builder.writeServer('deployed/server');
-			}
-		}
-	}
-};
-`,
 		'vite.config.js': `import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import { thirdPartyLicenses } from ${JSON.stringify(PLUGIN_ENTRY)};
@@ -177,7 +164,19 @@ export default defineConfig(() => {
 	return {
 		envDir: false,
 		logLevel: 'warn',
-		plugins: [sveltekit(), licenses.plugin${options.extraPlugins ? `, ${options.extraPlugins}` : ''}],
+		plugins: [
+			sveltekit({
+				${options.kitFiles ?? ''}
+				adapter: {
+					name: 'fixture-copy-output',
+					async adapt(builder) {
+						builder.writeClient('deployed/client');
+						builder.writeServer('deployed/server');
+					}
+				}
+			}),
+			licenses.plugin${options.extraPlugins ? `, ${options.extraPlugins}` : ''}
+		],
 		worker: { plugins: () => [licenses.workerPlugin()] },
 		ssr: { noExternal: ['server-only-marker'] }
 	};
@@ -370,7 +369,7 @@ describe('third-party notices in a SvelteKit build', () => {
 			// The plugin removes the client catalogue and then fails, after the handoff ran.
 			const root = createFixture({
 				extraPlugins:
-					"{ name: 'planted-late-failure', writeBundle: { order: 'post', async handler() { if (this.environment.name !== 'ssr') return; (await import('node:fs')).rmSync('.svelte-kit/output/client/third-party-licenses.json'); throw new Error('Planted late failure'); } } }"
+					"{ name: 'planted-late-failure', buildApp: { order: 'post', async handler() { (await import('node:fs')).rmSync('.svelte-kit/output/client/third-party-licenses.json'); throw new Error('Planted late failure'); } } }"
 			});
 			const { code, output } = await build(root);
 			expect(code).not.toBe(0);

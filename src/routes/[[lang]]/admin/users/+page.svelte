@@ -1,34 +1,34 @@
 <script lang="ts">
-	import SEOHead from '$lib/components/SEOHead.svelte';
+	import SEOHead from '#lib/components/SEOHead.svelte';
 	import type * as v from 'valibot';
-	import { ConfirmDialog, confirm } from '$lib/components/ui/confirm-dialog/index.js';
+	import { ConfirmDialog, confirm } from '#lib/components/ui/confirm-dialog/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
 	import { useConvexClient, useQuery } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api.js';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { api } from '#lib/convex/_generated/api.js';
+	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 	import { impersonateUser } from '../impersonate-user';
 	import { toast } from 'svelte-sonner';
 	import { setUserActionHandler } from './user-actions-context';
-	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
+	import { adminCache } from '#lib/hooks/admin-cache.svelte.ts';
 	import type { PageData } from './$types';
-	import { type UserRole, type AdminUserData } from '$lib/convex/admin/types';
-	import { createSvelteTable } from '$lib/components/ui/data-table/index.js';
-	import { createRowSelection } from '$lib/components/ui/data-table/row-selection.svelte.ts';
-	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
-	import DataTableView from '$lib/components/tables/data-table-view.svelte';
-	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
-	import { createCountPrediction } from '$lib/tables/convex/count-prediction.svelte.ts';
-	import { createCursorSorting } from '$lib/tables/convex/sorting.svelte.ts';
-	import { createTableUrlSchema } from '$lib/tables/convex/url';
-	import { toCursorListResult, type TableSortBy } from '$lib/tables/convex/contract';
+	import { type UserRole, type AdminUserData } from '#lib/convex/admin/types.js';
+	import { createSvelteTable } from '#lib/components/ui/data-table/index.js';
+	import { createRowSelection } from '#lib/components/ui/data-table/row-selection.svelte.ts';
+	import ConvexCursorTableShell from '#lib/components/tables/convex-cursor-table-shell.svelte';
+	import DataTableView from '#lib/components/tables/data-table-view.svelte';
+	import { createConvexCursorTable } from '#lib/tables/convex/create-convex-cursor-table.svelte.ts';
+	import { createCountPrediction } from '#lib/tables/convex/count-prediction.svelte.ts';
+	import { createCursorSorting } from '#lib/tables/convex/sorting.svelte.ts';
+	import { createTableUrlSchema } from '#lib/tables/convex/url.js';
+	import { toCursorListResult, type TableSortBy } from '#lib/tables/convex/contract.js';
 	import { createColumns } from './columns.js';
 	import DataTableFilters from './data-table-filters.svelte';
 	import type { ActionEvent } from './data-table-actions.svelte';
-	import { browser } from '$app/environment';
-	import { getAuthErrorKey } from '$lib/utils/auth-messages';
-	import { getConvexErrorCode, getConvexErrorData } from '$lib/utils/convex-errors';
+	import { browser } from '$app/env';
+	import { getAuthErrorKey } from '#lib/utils/auth-messages.js';
+	import { getConvexErrorCode, getConvexErrorData } from '#lib/utils/convex-errors.js';
 
 	// Consulted right before an impersonation start leaves the document.
 	const activeUploads = activeUploadsContext.getOr(null);

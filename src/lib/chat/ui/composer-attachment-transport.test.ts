@@ -8,7 +8,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
-import { api } from '$lib/convex/_generated/api';
+import { api } from '#lib/convex/_generated/api.js';
 import { uploadBlobWithProgress, UploadError } from '../../uploads/transfer.js';
 import type { UploadProfile } from '../../uploads/profiles.js';
 import type { AttachmentUploadResult } from '../core/file-uploader.js';

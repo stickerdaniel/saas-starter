@@ -1,6 +1,6 @@
-import { LEGAL_CONFIG, getObfuscatedLegalEmailAddress } from '$lib/config/legal';
-import { markdownText } from '$lib/markdown/literals';
-import type { MarketingMarkdownDocument } from '$lib/markdown/types';
+import { LEGAL_CONFIG, getObfuscatedLegalEmailAddress } from '#lib/config/legal.js';
+import { markdownText } from '#lib/markdown/literals.js';
+import type { MarketingMarkdownDocument } from '#lib/markdown/types.js';
 
 export const marketingMarkdown: MarketingMarkdownDocument = {
 	title: 'Privacy Policy',

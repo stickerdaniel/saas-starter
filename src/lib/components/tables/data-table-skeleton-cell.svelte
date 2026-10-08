@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
+	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	import type { DataTableSkeleton } from './skeleton.ts';
 
 	let { skeleton = { kind: 'text' } }: { skeleton?: DataTableSkeleton } = $props();

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import SEOHead from '$lib/components/SEOHead.svelte';
-	import { Separator } from '$lib/components/ui/separator/index.js';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import SEOHead from '#lib/components/SEOHead.svelte';
+	import { Separator } from '#lib/components/ui/separator/index.js';
+	import * as Tabs from '#lib/components/ui/tabs/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { localizedHref } from '#lib/utils/i18n.js';
 	import * as v from 'valibot';
 	import AccountSettings from './account-settings.svelte';
 	import PasswordSettings from './password-settings.svelte';
@@ -37,10 +37,10 @@
 
 	function updateTab(value: string) {
 		if (value === activeTab) return;
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		if (value === DEFAULT_SETTINGS_TAB) url.searchParams.delete('tab');
 		else url.searchParams.set('tab', value);
-		goto(resolve(url.pathname + url.search), { keepFocus: true, noScroll: true });
+		goto(resolve(url.pathname + url.search), { reset: false });
 	}
 
 	// The tab bar can overflow its column on narrow viewports, so keep the active

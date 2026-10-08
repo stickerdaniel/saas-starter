@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
-import type { ChatSessionPort } from '$lib/chat/core/chat-session-port.js';
-import type { ChatCommandError } from '$lib/chat/core/chat-command-error.js';
-import { resolveReasoning } from '$lib/chat/core/display-message-processor.js';
+import type { ChatSessionPort } from '#lib/chat/core/chat-session-port.js';
+import type { ChatCommandError } from '#lib/chat/core/chat-command-error.js';
+import { resolveReasoning } from '#lib/chat/core/display-message-processor.js';
 import { SupportConversation } from './support-conversation.svelte.ts';
 import { SupportNavigationState } from './support-navigation-state.svelte.ts';
 

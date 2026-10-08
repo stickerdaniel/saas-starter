@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
-	import ShimmerText from '$lib/components/motion/shimmer-text.svelte';
+	import { cn } from '#lib/utils.js';
+	import ShimmerText from '#lib/components/motion/shimmer-text.svelte';
 
 	interface Props {
 		text?: string;

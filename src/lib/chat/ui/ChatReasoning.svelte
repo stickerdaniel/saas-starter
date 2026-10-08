@@ -3,7 +3,7 @@
 		Reasoning,
 		ReasoningTrigger,
 		ReasoningContent
-	} from '$lib/components/ai-elements/reasoning';
+	} from '#lib/components/ai-elements/reasoning/index.js';
 
 	let {
 		open = false,

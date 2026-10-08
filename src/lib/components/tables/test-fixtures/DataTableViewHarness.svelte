@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ColumnDef, ColumnVisibilityState, RowSelectionState } from '@tanstack/table-core';
-	import { createSvelteTable, renderComponent } from '$lib/components/ui/data-table/index.js';
-	import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
+	import { createSvelteTable, renderComponent } from '#lib/components/ui/data-table/index.js';
+	import type { DataTableFeatures } from '#lib/components/ui/data-table/data-table.svelte.ts';
 	import DataTableView from '../data-table-view.svelte';
 	import SkeletonProbe from './SkeletonProbe.svelte';
 

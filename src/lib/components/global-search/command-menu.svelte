@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { api } from '$lib/convex/_generated/api';
-	import * as Command from '$lib/components/ui/command/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import * as Kbd from '$lib/components/ui/kbd/index.js';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { api } from '#lib/convex/_generated/api.js';
+	import * as Command from '#lib/components/ui/command/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import * as Kbd from '#lib/components/ui/kbd/index.js';
+	import { localizedHref } from '#lib/utils/i18n.js';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { watch } from 'runed';
 	import { getTranslate } from '@tolgee/svelte';
@@ -19,7 +19,7 @@
 		type SearchRouteEntry,
 		type SearchRouteGroup
 	} from './search-routes';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { useGlobalSearchContext } from './context.svelte.ts';
 
 	type MenuRouteItem = SearchRouteEntry & {

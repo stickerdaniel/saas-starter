@@ -779,9 +779,9 @@ describe('format-only static checks', () => {
 	});
 
 	it('reports an honest no-op for a file the formatter ignores', () => {
-		// src/env.d.ts is generated and excluded by .prettierignore, so the CLI would skip
+		// src/varlock-env.d.ts is generated and excluded by .prettierignore, so the CLI would skip
 		// it. Counting it as formatter work would report a check that never happened.
-		const { status, output } = formatCheck(path.join(ROOT, 'src/env.d.ts'));
+		const { status, output } = formatCheck(path.join(ROOT, 'src/varlock-env.d.ts'));
 		expect(status).toBe(0);
 		expect(output).toContain('No formatter work');
 		expect(output).toContain('prettier         0 file(s)');

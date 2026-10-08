@@ -10,7 +10,7 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$app/environment', () => ({ browser: true, dev: false }));
+vi.mock('$app/env', () => ({ browser: true, dev: false }));
 
 const state = vi.hoisted(() => ({
 	page: {
@@ -33,7 +33,7 @@ const state = vi.hoisted(() => ({
 const snapdom = vi.hoisted(() => ({ snapdom: vi.fn() }));
 
 vi.mock('$app/state', () => ({ page: state.page }));
-vi.mock('$lib/auth-client', () => ({
+vi.mock('#lib/auth-client.js', () => ({
 	authClient: {
 		useSession: () => ({
 			subscribe: (
@@ -48,39 +48,39 @@ vi.mock('$lib/auth-client', () => ({
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 	useAuth: () => state.auth
 }));
-vi.mock('$lib/components/customer-support/use-support-url-state.svelte.ts', () => ({
+vi.mock('#lib/components/customer-support/use-support-url-state.svelte.ts', () => ({
 	useSupportUrlState: () => state.urlState
 }));
-vi.mock('$lib/components/customer-support/support-user-id.svelte.ts', () => ({
+vi.mock('#lib/components/customer-support/support-user-id.svelte.ts', () => ({
 	supportUserId: state.supportUserId
 }));
-vi.mock('$lib/components/customer-support/support-unread-state.svelte.ts', () => ({
+vi.mock('#lib/components/customer-support/support-unread-state.svelte.ts', () => ({
 	useSupportUnreadState: () => ({ hasUnread: false, count: 0 })
 }));
-vi.mock('$lib/hooks/use-media.svelte.ts', () => ({
+vi.mock('#lib/hooks/use-media.svelte.ts', () => ({
 	useMedia: () => ({ sm: false, lg: false, xl: false })
 }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn() } }));
-vi.mock('$lib/monitoring/sentry', () => ({ loadSentry: vi.fn() }));
-vi.mock('$lib/chat', () => ({
+vi.mock('#lib/monitoring/sentry.js', () => ({ loadSentry: vi.fn() }));
+vi.mock('#lib/chat/index.js', () => ({
 	ChatAttachmentStore: class ChatAttachmentStore {},
 	ChatUIContext: class ChatUIContext {
 		dispose() {}
 	}
 }));
-vi.mock('$lib/components/customer-support/feedback-widget.svelte', async () => ({
+vi.mock('#lib/components/customer-support/feedback-widget.svelte', async () => ({
 	default: (
-		await import('$lib/components/customer-support/test-fixtures/CapabilityFeedbackWidget.svelte')
+		await import('#lib/components/customer-support/test-fixtures/CapabilityFeedbackWidget.svelte')
 	).default
 }));
 // Konva needs a real canvas; the capture failure happens before any annotation is exported.
-vi.mock('$lib/components/customer-support/screenshot-editor/ScreenshotCanvas.svelte', () => ({
+vi.mock('#lib/components/customer-support/screenshot-editor/ScreenshotCanvas.svelte', () => ({
 	default: () => {}
 }));
 vi.mock('@zumer/snapdom', () => snapdom);
 
-import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
+import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import CustomerSupport from './customer-support.svelte';
 import SupportTicketMigrationBootstrap from './support-ticket-migration-bootstrap.svelte';
 import ScreenshotEditor from './screenshot-editor/ScreenshotEditor.svelte';

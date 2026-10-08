@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { commitOAuthSuccessIfPending } from '$lib/hooks/last-auth-method.svelte.ts';
-	import { offerPasskeyAfterOAuth } from '$lib/hooks/passkey-nudge.svelte.ts';
+	import { commitOAuthSuccessIfPending } from '#lib/hooks/last-auth-method.svelte.ts';
+	import { offerPasskeyAfterOAuth } from '#lib/hooks/passkey-nudge.svelte.ts';
 
 	const auth = useAuth();
 

@@ -7,7 +7,7 @@ const { createAutumnHandlers, getCustomer, query } = vi.hoisted(() => ({
 	query: vi.fn()
 }));
 
-vi.mock('$lib/convex/_generated/api', () => ({
+vi.mock('#lib/convex/_generated/api.js', () => ({
 	api: {
 		autumn: { check: 'autumn:check' },
 		capabilities: { getUsability: 'capabilities:getUsability' },
@@ -15,7 +15,7 @@ vi.mock('$lib/convex/_generated/api', () => ({
 	}
 }));
 
-vi.mock('$lib/server/convex-http', () => ({
+vi.mock('#lib/server/convex-http.js', () => ({
 	createServerConvexHttpClient: vi.fn(() => ({ query }))
 }));
 

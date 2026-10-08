@@ -2,25 +2,25 @@
 	import { useConvexClient } from 'convex-svelte';
 	import { toast } from 'svelte-sonner';
 	import { watch } from 'runed';
-	import { api } from '$lib/convex/_generated/api';
-	import ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
-	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
-	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
-	import { PromptSuggestion } from '$lib/components/prompt-kit/prompt-suggestion';
-	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/chat-context.svelte.ts';
-	import { ChatCore } from '$lib/chat/core/chat-core.svelte.ts';
-	import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
-	import { ComposerSendCoordinator } from '$lib/chat/ui/composer-send-coordinator.ts';
-	import { ChatAttachmentStore } from '$lib/chat/core/chat-attachment-store.svelte.ts';
-	import MessageQuotaBanner from '$lib/components/message-quota-banner.svelte';
+	import { api } from '#lib/convex/_generated/api.js';
+	import ChatRoot from '#lib/chat/ui/ChatRoot.svelte';
+	import ChatMessages from '#lib/chat/ui/ChatMessages.svelte';
+	import ChatInput from '#lib/chat/ui/ChatInput.svelte';
+	import { PromptSuggestion } from '#lib/components/prompt-kit/prompt-suggestion/index.js';
+	import { ChatUIContext, type UploadConfig } from '#lib/chat/ui/chat-context.svelte.ts';
+	import { ChatCore } from '#lib/chat/core/chat-core.svelte.ts';
+	import { ChatDraftManager } from '#lib/chat/core/chat-draft-manager.svelte.ts';
+	import { ComposerSendCoordinator } from '#lib/chat/ui/composer-send-coordinator.ts';
+	import { ChatAttachmentStore } from '#lib/chat/core/chat-attachment-store.svelte.ts';
+	import MessageQuotaBanner from '#lib/components/message-quota-banner.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
 	import { onDestroy, tick } from 'svelte';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 	import {
 		getChatSessionEpoch,
 		isChatSessionCurrent
-	} from '$lib/chat/core/chat-persisted-state.ts';
+	} from '#lib/chat/core/chat-persisted-state.ts';
 
 	const { t } = getTranslate();
 

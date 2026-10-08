@@ -1,6 +1,6 @@
 import { PersistedState } from 'runed';
-import { authClient } from '$lib/auth-client';
-import { isFreshPasskeySession } from '$lib/utils/passkey-nudge-policy';
+import { authClient } from '#lib/auth-client.js';
+import { isFreshPasskeySession } from '#lib/utils/passkey-nudge-policy.js';
 import type { PendingOAuthProvider } from './last-auth-method.svelte.ts';
 
 // eslint-disable-next-line local/no-module-state-singleton -- Browser-only sessionStorage state, never written during SSR

@@ -1,6 +1,6 @@
 import { createSvelteKitHandler } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 import type { RequestHandler } from '@sveltejs/kit';
-import { proxyAuthRequest } from '$lib/server/auth-proxy';
+import { proxyAuthRequest } from '#lib/server/auth-proxy.js';
 
 const { GET: rawGet, POST: rawPost } = createSvelteKitHandler();
 

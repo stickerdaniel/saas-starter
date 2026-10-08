@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { getRemoveEmailContext } from './recipients-context';
-	import { confirm } from '$lib/components/ui/confirm-dialog/index.js';
+	import { confirm } from '#lib/components/ui/confirm-dialog/index.js';
 	import { toast } from 'svelte-sonner';
 
 	interface Props {

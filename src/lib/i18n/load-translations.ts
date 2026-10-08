@@ -1,5 +1,5 @@
 import type { TolgeeStaticData } from '@tolgee/svelte';
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { DEFAULT_LANGUAGE, isSupportedLanguage } from './languages';
 import { FALLBACK_TRANSLATIONS, TRANSLATION_URLS } from './browser-translations.generated';
 

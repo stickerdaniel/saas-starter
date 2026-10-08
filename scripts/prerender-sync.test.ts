@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -58,22 +57,9 @@ describe('locale-derived configuration', () => {
 			path.resolve('src/routes/[[lang]]/(marketing)/+layout.ts'),
 			'utf8'
 		);
-		const config = fs.readFileSync(path.resolve('svelte.config.js'), 'utf8');
+		const config = fs.readFileSync(path.resolve('vite.config.ts'), 'utf8');
 		expect(layout).toContain('export const prerender = false;');
 		expect(config).not.toContain('PRERENDER_MARKETING_PAGES');
 		expect(config).not.toContain('prerenderEntries');
-	});
-
-	it('loads the Svelte config in Node without a TypeScript loader', () => {
-		expect(() =>
-			execFileSync(
-				'node',
-				['--input-type=module', '--eval', "await import('./svelte.config.js'); process.exit(0)"],
-				{
-					cwd: path.resolve('.'),
-					stdio: 'pipe'
-				}
-			)
-		).not.toThrow();
 	});
 });

@@ -3,9 +3,9 @@
 	import { fly } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { cubicOut, backOut } from 'svelte/easing';
-	import { Button } from '$lib/components/ui/button';
-	import NavigationButton from '$lib/components/customer-support/navigation-button.svelte';
-	import AvatarHeading from '$lib/components/customer-support/avatar-heading.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import NavigationButton from '#lib/components/customer-support/navigation-button.svelte';
+	import AvatarHeading from '#lib/components/customer-support/avatar-heading.svelte';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';
 	import { getTranslate } from '@tolgee/svelte';

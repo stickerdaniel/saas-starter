@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Button, type ButtonProps } from '$lib/components/ui/button/index.js';
-	import { cn } from '$lib/utils.js';
+	import { Button, type ButtonProps } from '#lib/components/ui/button/index.js';
+	import { cn } from '#lib/utils.js';
 
 	type Props = Omit<ButtonProps, 'variant' | 'size' | 'shape' | 'justify' | 'affordance'> & {
 		/** `primary` is the sign-up call with a learn-more chevron, `demo` the ghost link beside it. */

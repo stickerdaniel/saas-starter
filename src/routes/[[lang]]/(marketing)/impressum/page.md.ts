@@ -1,7 +1,7 @@
-import { LEGAL_CONFIG, getObfuscatedLegalEmailAddress } from '$lib/config/legal';
-import { LEGAL_CONTENT_DATES, formatLegalContentDate } from '$lib/content/legal-metadata';
-import { markdownText } from '$lib/markdown/literals';
-import type { MarketingMarkdownDocument } from '$lib/markdown/types';
+import { LEGAL_CONFIG, getObfuscatedLegalEmailAddress } from '#lib/config/legal.js';
+import { LEGAL_CONTENT_DATES, formatLegalContentDate } from '#lib/content/legal-metadata.js';
+import { markdownText } from '#lib/markdown/literals.js';
+import type { MarketingMarkdownDocument } from '#lib/markdown/types.js';
 
 export const marketingMarkdown: MarketingMarkdownDocument = {
 	title: 'Impressum',

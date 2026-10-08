@@ -1,4 +1,4 @@
-import { safeAuthDestination } from '$lib/utils/url';
+import { safeAuthDestination } from '#lib/utils/url.js';
 
 /**
  * The admin page an impersonation started from, kept so stopping returns there.

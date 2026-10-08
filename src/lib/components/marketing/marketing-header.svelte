@@ -1,11 +1,11 @@
 <script lang="ts">
-	import CommandTrigger from '$lib/components/global-search/command-trigger.svelte';
-	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
-	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
-	import Button from '$lib/components/ui/button/button.svelte';
-	import MarketingWordmark from '$lib/components/ui/owned/marketing-wordmark.svelte';
-	import { cn } from '$lib/utils';
-	import { localizedHref } from '$lib/utils/i18n';
+	import CommandTrigger from '#lib/components/global-search/command-trigger.svelte';
+	import LightSwitch from '#lib/components/ui/light-switch/light-switch.svelte';
+	import LanguageSwitcher from '#lib/components/LanguageSwitcher.svelte';
+	import Button from '#lib/components/ui/button/button.svelte';
+	import MarketingWordmark from '#lib/components/ui/owned/marketing-wordmark.svelte';
+	import { cn } from '#lib/utils.js';
+	import { localizedHref } from '#lib/utils/i18n.js';
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -13,17 +13,17 @@
 	import X from '@lucide/svelte/icons/x';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import UserXIcon from '@lucide/svelte/icons/user-x';
-	import Logo from '$lib/components/icons/logo.svelte';
-	import { authClient } from '$lib/auth-client';
-	import { impersonationContext } from '$lib/hooks/use-impersonation.svelte.ts';
+	import Logo from '#lib/components/icons/logo.svelte';
+	import { authClient } from '#lib/auth-client.js';
+	import { impersonationContext } from '#lib/hooks/use-impersonation.svelte.ts';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { LEGAL_CONFIG } from '$lib/config/legal';
-	import { getRepositoryUrl } from '$lib/config/site';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
-	import { clearPersistedChatState } from '$lib/chat/core/chat-persisted-state.ts';
+	import { LEGAL_CONFIG } from '#lib/config/legal.js';
+	import { getRepositoryUrl } from '#lib/config/site.js';
+	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
+	import { clearPersistedChatState } from '#lib/chat/core/chat-persisted-state.ts';
 	import { shouldShowMarketingAuthControls } from './marketing-auth-controls';
-	import { duringAuthChange } from '$lib/analytics/client';
+	import { duringAuthChange } from '#lib/analytics/client.js';
 
 	const { t } = getTranslate();
 

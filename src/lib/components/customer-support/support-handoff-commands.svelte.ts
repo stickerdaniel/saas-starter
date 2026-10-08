@@ -1,9 +1,9 @@
 import type { ConvexClient } from 'convex/browser';
-import { api } from '$lib/convex/_generated/api';
-import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
-import { CHAT_PAGE_SIZE } from '$lib/chat/core/types.js';
+import { api } from '#lib/convex/_generated/api.js';
+import { createOptimisticUpdate, type ListMessagesArgs } from '#lib/chat/core/optimistic.js';
+import { CHAT_PAGE_SIZE } from '#lib/chat/core/types.js';
 import type { SupportOperationIdentity } from './support-conversation.svelte.ts';
-import { normalizeSupportPageRoute } from '$lib/shared/support-page-route';
+import { normalizeSupportPageRoute } from '#lib/shared/support-page-route.js';
 import type { SupportHandoffOutcome } from './support-types.js';
 
 export interface SupportHandoffConversationPort {

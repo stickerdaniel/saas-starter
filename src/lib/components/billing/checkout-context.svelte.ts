@@ -4,7 +4,7 @@ import {
 	getAttachCheckoutUrl,
 	getCheckoutOutcome,
 	type CheckoutAttachOption
-} from '$lib/billing/checkout-result';
+} from '#lib/billing/checkout-result.js';
 
 /** Everything a call site knows about the purchase it wants to start. */
 export type CheckoutStartParams = {

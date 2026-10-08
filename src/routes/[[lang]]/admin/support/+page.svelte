@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import SEOHead from '$lib/components/SEOHead.svelte';
+	import SEOHead from '#lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
 	import { useSearchParams } from 'runed/kit';
 	import { Debounced, watch } from 'runed';
@@ -8,12 +8,12 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { useQuery, usePaginatedQuery } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api';
-	import { useMedia } from '$lib/hooks/use-media.svelte.ts';
+	import { api } from '#lib/convex/_generated/api.js';
+	import { useMedia } from '#lib/hooks/use-media.svelte.ts';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import * as Sheet from '$lib/components/ui/sheet';
-	import * as Drawer from '$lib/components/ui/drawer';
-	import { SlidingPanel } from '$lib/components/ui/sliding-panel';
+	import * as Sheet from '#lib/components/ui/sheet/index.js';
+	import * as Drawer from '#lib/components/ui/drawer/index.js';
+	import { SlidingPanel } from '#lib/components/ui/sliding-panel/index.js';
 	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 	import ThreadList from './thread-list.svelte';
 	import ThreadChat from './thread-chat.svelte';
@@ -21,15 +21,15 @@
 	import {
 		AdminSupportUIManager,
 		adminSupportUIContext
-	} from '$lib/hooks/admin-support-ui.svelte.ts';
-	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
-	import { ChatDraftManager } from '$lib/chat';
+	} from '#lib/hooks/admin-support-ui.svelte.ts';
+	import { adminCache } from '#lib/hooks/admin-cache.svelte.ts';
+	import { ChatDraftManager } from '#lib/chat/index.js';
 	import {
 		ComposerSendCoordinator,
 		acquireComposerSendCoordinator
-	} from '$lib/chat/ui/composer-send-coordinator.ts';
-	import { browser } from '$app/environment';
-	import { authClient } from '$lib/auth-client';
+	} from '#lib/chat/ui/composer-send-coordinator.ts';
+	import { browser } from '$app/env';
+	import { authClient } from '#lib/auth-client.js';
 
 	const { t } = getTranslate();
 
@@ -154,15 +154,15 @@
 
 	// Select thread handler (uses goto to avoid triggering filter reactivity)
 	function selectThread(id: string) {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.set('thread', id);
-		goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: false });
+		goto(resolve(url.pathname + url.search), { reset: false });
 	}
 
 	function clearThread() {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.delete('thread');
-		goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: false });
+		goto(resolve(url.pathname + url.search), { reset: false });
 	}
 
 	// Reset overlay state when thread changes

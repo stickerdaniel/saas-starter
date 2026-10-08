@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	/**
 	 * A label that sweeps a highlight band across itself while some work runs.

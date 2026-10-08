@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
-	import { AccordionContent } from '$lib/components/ui/accordion';
-	import { Response, streamingTextAnimation } from '$lib/components/ai-elements/response';
+	import { cn } from '#lib/utils.js';
+	import { AccordionContent } from '#lib/components/ui/accordion/index.js';
+	import { Response, streamingTextAnimation } from '#lib/components/ai-elements/response/index.js';
 
 	interface Props {
 		class?: string;

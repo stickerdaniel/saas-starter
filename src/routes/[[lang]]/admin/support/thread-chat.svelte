@@ -3,39 +3,39 @@
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { toast } from 'svelte-sonner';
 	import { watch } from 'runed';
-	import { api } from '$lib/convex/_generated/api';
-	import ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
-	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
-	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
-	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/chat-context.svelte.ts';
-	import { ChatCore } from '$lib/chat/core/chat-core.svelte.ts';
-	import { ComposerSendCoordinator } from '$lib/chat/ui/composer-send-coordinator.ts';
-	import { ChatAttachmentStore } from '$lib/chat/core/chat-attachment-store.svelte.ts';
-	import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic';
-	import { CHAT_PAGE_SIZE } from '$lib/chat/core/types';
-	import { Button } from '$lib/components/ui/button';
-	import { Skeleton } from '$lib/components/ui/skeleton';
-	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import AvatarHeading from '$lib/components/customer-support/avatar-heading.svelte';
+	import { api } from '#lib/convex/_generated/api.js';
+	import ChatRoot from '#lib/chat/ui/ChatRoot.svelte';
+	import ChatMessages from '#lib/chat/ui/ChatMessages.svelte';
+	import ChatInput from '#lib/chat/ui/ChatInput.svelte';
+	import { ChatUIContext, type UploadConfig } from '#lib/chat/ui/chat-context.svelte.ts';
+	import { ChatCore } from '#lib/chat/core/chat-core.svelte.ts';
+	import { ComposerSendCoordinator } from '#lib/chat/ui/composer-send-coordinator.ts';
+	import { ChatAttachmentStore } from '#lib/chat/core/chat-attachment-store.svelte.ts';
+	import { createOptimisticUpdate, type ListMessagesArgs } from '#lib/chat/core/optimistic.js';
+	import { CHAT_PAGE_SIZE } from '#lib/chat/core/types.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
+	import AvatarHeading from '#lib/components/customer-support/avatar-heading.svelte';
 	import PanelRightIcon from '@lucide/svelte/icons/panel-right';
 	import PanelBottomOpen from '@lucide/svelte/icons/panel-bottom-open';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import UserRoundCheck from '@lucide/svelte/icons/user-round-check';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
-	import { useMedia } from '$lib/hooks/use-media.svelte.ts';
-	import { SlidingHeader } from '$lib/components/ui/sliding-header';
-	import { adminSupportUIContext } from '$lib/hooks/admin-support-ui.svelte.ts';
+	import { useMedia } from '#lib/hooks/use-media.svelte.ts';
+	import { SlidingHeader } from '#lib/components/ui/sliding-header/index.js';
+	import { adminSupportUIContext } from '#lib/hooks/admin-support-ui.svelte.ts';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 	import { canImpersonateUser, impersonateUser } from '../impersonate-user';
 	import { messageRouteToShow } from './message-routes';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import {
 		getChatSessionEpoch,
 		isChatSessionCurrent
-	} from '$lib/chat/core/chat-persisted-state.ts';
+	} from '#lib/chat/core/chat-persisted-state.ts';
 
 	const { t } = getTranslate();
 

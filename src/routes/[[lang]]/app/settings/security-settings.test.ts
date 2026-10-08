@@ -25,13 +25,13 @@ const passkey = vi.hoisted(() => ({
 	deletePasskey: vi.fn()
 }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
-vi.mock('$lib/auth-client.js', () => ({ authClient: { passkey } }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/auth-client.js', () => ({ authClient: { passkey } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 vi.mock('$app/state', () => ({ page: { data: { lang: 'en' } } }));
 vi.mock('svelte-sonner', () => ({ toast }));
 
 import en from '../../../../i18n/en.json';
-import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 import SecuritySettingsHarness from './test-fixtures/SecuritySettingsHarness.svelte';
 
 let component: ReturnType<typeof mount> | undefined;

@@ -1,37 +1,41 @@
-import { sequence } from '@sveltejs/kit/hooks';
-import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
-import { dev } from '$app/environment';
-import { PUBLIC_SENTRY_DSN } from '$env/static/public';
-import { isSupportedLanguage, DEFAULT_LANGUAGE, LANGUAGE_COOKIE_NAME } from '$lib/i18n/languages';
+import { sequence, type Handle, type HandleServerError } from '@sveltejs/kit/hooks';
+import { redirect } from '@sveltejs/kit';
+import { dev } from '$app/env';
+import { PUBLIC_SENTRY_DSN } from '$app/env/public';
+import {
+	isSupportedLanguage,
+	DEFAULT_LANGUAGE,
+	LANGUAGE_COOKIE_NAME
+} from '#lib/i18n/languages.js';
 import {
 	getMarketingMarkdownDocument,
 	matchPublicMarketingRoute
-} from '$lib/marketing/public-routes';
+} from '#lib/marketing/public-routes.js';
 import {
 	createMarketingMarkdownResponse,
 	createPublicMarkdownNotFoundResponse,
 	isMarkdownRequest
-} from '$lib/markdown/marketing';
-import { devNotice } from '$lib/dev/notice';
-import { resolveSiteOrigin } from '$lib/config/site-origin';
-import { applyCacheControl } from '$lib/server/cache-control';
-import { handleFontPreload } from '$lib/server/font-preload';
-import { decodeJwtPayload } from '$lib/server/jwt';
-import { resolveConvexToken } from '$lib/server/convex-jwt';
+} from '#lib/markdown/marketing.js';
+import { devNotice } from '#lib/dev/notice.js';
+import { resolveSiteOrigin } from '#lib/config/site-origin.js';
+import { applyCacheControl } from '#lib/server/cache-control.js';
+import { handleFontPreload } from '#lib/server/font-preload.js';
+import { decodeJwtPayload } from '#lib/server/jwt.js';
+import { resolveConvexToken } from '#lib/server/convex-jwt.js';
 import {
 	isAdminRoute,
 	isProtectedRoute,
 	shouldUsePublicAuthSnapshot
-} from '$lib/server/auth-route';
-import { loadSentry } from '$lib/monitoring/sentry';
+} from '#lib/server/auth-route.js';
+import { loadSentry } from '#lib/monitoring/sentry.js';
 import {
 	FAILED_LINK_PARAM,
 	FAILED_RESET_LINK,
 	safeAuthDestination,
 	splitDestinationError,
 	verificationErrorIn
-} from '$lib/utils/url';
-import { SIDEBAR_COOKIE_NAME } from '$lib/components/ui/sidebar/constants.js';
+} from '#lib/utils/url.js';
+import { SIDEBAR_COOKIE_NAME } from '#lib/components/ui/sidebar/constants.js';
 
 if (!PUBLIC_SENTRY_DSN) {
 	devNotice({
@@ -105,7 +109,7 @@ const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, 
 /**
  * Resolve the Convex JWT for SSR: from the short-lived JWT cookie when it is
  * still alive, otherwise re-minted from the Better Auth session cookie (see
- * $lib/server/convex-jwt). Without the re-mint, a tab idle past the JWT TTL
+ * #lib/server/convex-jwt). Without the re-mint, a tab idle past the JWT TTL
  * gets bounced to /signin on the next full load even though the session is
  * still valid.
  */
@@ -267,13 +271,12 @@ const handleHtmlLang: Handle = async function handleHtmlLang({ event, resolve })
  * Returns null for sign-in itself, which is where this sends people and which
  * reads the code from the query on its own.
  *
- * A prerendered destination reaches this only because the build arranges it.
- * The generated Worker answers such a path from the asset store before any hook
- * runs, so `/en/privacy?error=TOKEN_EXPIRED` would render the privacy page and
- * say nothing. `scripts/patch-cf-worker.ts` sends a request carrying one of
- * these codes to `server.respond` instead, generating its predicate from the
- * same set read here; it is the mechanism the markdown negotiation already
- * depends on, not a new one.
+ * A prerendered destination never reaches this: every supported adapter answers
+ * it from its static files before any hook runs, so
+ * `/en/privacy?error=TOKEN_EXPIRED` would render the privacy page and say
+ * nothing. The marketing routes stay server-rendered for this and for the
+ * markdown negotiation, and `scripts/check-build-output.ts` fails a build that
+ * prerenders them.
  *
  * One widening rather than a hole: Better Auth appends the same
  * `INVALID_TOKEN` to a failed password-reset callback, so an expired reset link
@@ -430,7 +433,7 @@ const handleCacheControl: Handle = async function handleCacheControl({ event, re
 
 /**
  * Forward requests through Sentry's request handler, loading the SDK lazily
- * (see $lib/monitoring/sentry) so it stays out of the server bundle and cold
+ * (see #lib/monitoring/sentry) so it stays out of the server bundle and cold
  * start when PUBLIC_SENTRY_DSN is unset. The DSN is statically replaced at
  * build time, so the unset case reduces this hook to a plain pass-through.
  * The sentryHandle() instance is memoized per server process.
@@ -446,7 +449,10 @@ const handleSentry: Handle = async function handleSentry({ event, resolve }) {
 		if (!sentry) {
 			return resolve(event);
 		}
-		sentryRequestHandle = sentry.sentryHandle();
+		// Sentry's declarations name the root `Handle` export SvelteKit 3 moved, so the
+		// instance gets the hook type here instead of an inferred `any`.
+		const created: Handle = sentry.sentryHandle();
+		sentryRequestHandle = created;
 	}
 	return sentryRequestHandle({ event, resolve });
 };
@@ -466,8 +472,8 @@ const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ eve
 	);
 	response.headers.set('X-DNS-Prefetch-Control', 'off');
 	response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
-	// script-src/object-src/base-uri now live in kit.csp (svelte.config.js): on SSR
-	// pages SvelteKit sets the Content-Security-Policy header, on prerendered pages a
+	// script-src/object-src/base-uri now live in the SvelteKit csp option (vite.config.ts):
+	// on SSR pages SvelteKit sets the Content-Security-Policy header, on prerendered pages a
 	// <meta>. frame-ancestors cannot ride a <meta> and SvelteKit can't set headers on
 	// prerendered static pages, so it stays a header here (SSR) and in _headers /
 	// vercel.json (prerendered). Append rather than overwrite: a plain headers.set

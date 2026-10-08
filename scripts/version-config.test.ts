@@ -9,33 +9,33 @@ function evaluateConfig(cwd: string, hostEnvironment: Record<string, string> = {
 	const env = { ...process.env };
 	delete env.WORKERS_CI_COMMIT_SHA;
 	delete env.VERCEL_GIT_COMMIT_SHA;
+	delete env.APP_BUILD_SHA;
 	Object.assign(env, hostEnvironment);
-	const configUrl = pathToFileURL(path.resolve('svelte.config.js')).href;
+	const moduleUrl = pathToFileURL(path.resolve('scripts/app-version.ts')).href;
 
 	return spawnSync(
-		process.execPath,
+		'bun',
 		[
 			'--eval',
-			`const config = (await import(${JSON.stringify(configUrl)})).default; console.log(config.kit.version.name);`
+			`const { appVersion } = await import(${JSON.stringify(moduleUrl)}); console.log(appVersion());`
 		],
 		{ cwd, env, encoding: 'utf8' }
 	);
 }
 
-// Guards the deploy-recovery contract in svelte.config.js: the app version name
+// Guards the deploy-recovery contract in the SvelteKit config: the app version name
 // must be deterministic per commit (not the default build timestamp) and polling
 // must be enabled, otherwise updated.current never flips and the beforeNavigate
 // guard in the root layout cannot recover from a stale chunk hash after a deploy.
 describe('kit.version config', () => {
-	const config = fs.readFileSync(path.resolve('svelte.config.js'), 'utf-8');
+	const config = fs.readFileSync(path.resolve('vite.config.ts'), 'utf-8');
 
-	it('derives version.name from a commit SHA, not a timestamp', () => {
-		expect(config).toContain('WORKERS_CI_COMMIT_SHA');
-		expect(config).toContain('VERCEL_GIT_COMMIT_SHA');
-		expect(config).toContain("execFileSync('git', ['rev-parse', 'HEAD']");
-		// A timestamp or random source would defeat version detection.
-		expect(config).not.toMatch(/version[\s\S]{0,80}Date\.now/);
-		expect(config).not.toMatch(/version[\s\S]{0,80}Math\.random/);
+	it('names the version after the checked-out commit', () => {
+		const head = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+		const result = evaluateConfig(path.resolve('.'));
+
+		expect(result.status).toBe(0);
+		expect(result.stdout.trim()).toBe(head);
 	});
 
 	it('quietly falls back to dev outside a Git checkout', () => {
@@ -93,7 +93,7 @@ describe('kit.version config', () => {
 
 	it('sets a non-zero pollInterval so updated.current can flip', () => {
 		const match = config.match(/pollInterval:\s*(\d+)/);
-		expect(match, 'pollInterval not found in svelte.config.js').not.toBeNull();
+		expect(match, 'pollInterval not found in vite.config.ts').not.toBeNull();
 		expect(Number(match![1])).toBeGreaterThan(0);
 	});
 

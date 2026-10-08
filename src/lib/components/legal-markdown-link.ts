@@ -1,4 +1,4 @@
-import { isSupportedLanguage } from '$lib/i18n/languages';
+import { isSupportedLanguage } from '#lib/i18n/languages.js';
 
 export const LEGAL_LINK_PREFIXES = ['*'];
 
@@ -24,7 +24,7 @@ function withoutLanguagePrefix(pathname: string): string {
 export function resolveLegalMarkdownLink(
 	href: string,
 	transformedHref: string | null,
-	currentUrl: URL,
+	currentUrl: Pick<URL, 'href'>,
 	localize: (path: string) => string
 ): ResolvedLegalMarkdownLink | null {
 	if (!href || href.startsWith('//')) return null;
@@ -37,7 +37,7 @@ export function resolveLegalMarkdownLink(
 		return transformedHref === null ? null : { href: transformedHref, external: true };
 	}
 
-	const resolved = new URL(href, currentUrl);
+	const resolved = new URL(href, currentUrl.href);
 	const path = `${withoutLanguagePrefix(resolved.pathname)}${resolved.search}${resolved.hash}`;
 	return { href: localize(path), external: false };
 }

@@ -8,7 +8,7 @@ import { mount, tick, unmount, type Component } from 'svelte';
 import type * as Svelte from 'svelte';
 import { ConvexClient } from 'convex/browser';
 import { getFunctionName, type FunctionReference } from 'convex/server';
-import { api } from '$lib/convex/_generated/api';
+import { api } from '#lib/convex/_generated/api.js';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import type { Attachment } from '../core/types.js';
 import { ChatUIContext } from './chat-context.svelte.ts';
@@ -31,7 +31,7 @@ const page = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/state', () => ({ page }));
-vi.mock('$app/environment', () => ({ browser: true, dev: true, building: false }));
+vi.mock('$app/env', () => ({ browser: true, dev: true, building: false }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), afterNavigate: vi.fn() }));
 vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
 vi.mock('runed/kit', () => ({
@@ -46,10 +46,10 @@ vi.mock('@stickerdaniel/convex-autumn-svelte/sveltekit', () => ({
 		refetch: vi.fn()
 	})
 }));
-vi.mock('$lib/components/billing', () => ({
+vi.mock('#lib/components/billing/index.js', () => ({
 	useBillingCheckout: () => ({ start: vi.fn(), isLoading: false })
 }));
-vi.mock('$lib/auth-client', () => ({
+vi.mock('#lib/auth-client.js', () => ({
 	authClient: {
 		useSession: () => ({
 			subscribe: (callback: (value: { data: null; isPending: false }) => void) => {
@@ -63,26 +63,26 @@ vi.mock('$lib/auth-client', () => ({
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 	useAuth: () => ({ isAuthenticated: false, isLoading: false })
 }));
-vi.mock('$lib/components/customer-support/use-support-url-state.svelte.ts', () => ({
+vi.mock('#lib/components/customer-support/use-support-url-state.svelte.ts', () => ({
 	useSupportUrlState: () => ({ support: 'open', thread: 'thread-a' })
 }));
-vi.mock('$lib/components/customer-support/threads-overview.svelte', () => ({ default: () => {} }));
-vi.mock('$lib/hooks/use-media.svelte.ts', () => ({
+vi.mock('#lib/components/customer-support/threads-overview.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/hooks/use-media.svelte.ts', () => ({
 	useMedia: () => ({ sm: true, lg: false, xl: false })
 }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn() } }));
-vi.mock('$lib/components/SEOHead.svelte', () => ({ default: () => {} }));
-vi.mock('$lib/chat/ui/ChatMessages.svelte', () => ({ default: () => {} }));
-vi.mock('$lib/chat/ui/ChatAttachments.svelte', () => ({ default: () => {} }));
-vi.mock('$lib/components/message-quota-banner.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/components/SEOHead.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/chat/ui/ChatMessages.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/chat/ui/ChatAttachments.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/components/message-quota-banner.svelte', () => ({ default: () => {} }));
 vi.mock('../../../routes/[[lang]]/admin/support/thread-list.svelte', () => ({
 	default: () => {}
 }));
 vi.mock('../../../routes/[[lang]]/admin/support/thread-details.svelte', () => ({
 	default: () => {}
 }));
-vi.mock('$lib/components/ui/sheet', () => ({ Root: () => {}, Content: () => {} }));
+vi.mock('#lib/components/ui/sheet/index.js', () => ({ Root: () => {}, Content: () => {} }));
 
 let component: ReturnType<typeof mount> | undefined;
 let client: ConvexClient;

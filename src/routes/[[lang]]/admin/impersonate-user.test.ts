@@ -6,7 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$app/environment', () => ({ browser: true, dev: true, building: false, version: 'test' }));
+vi.mock('$app/env', () => ({ browser: true, dev: true, building: false, version: 'test' }));
 vi.mock('$app/state', () => ({
 	page: { params: { lang: 'en' }, url: new URL('http://localhost') }
 }));
@@ -30,7 +30,7 @@ import {
 	clearInvestigationReturn,
 	readInvestigationReturn,
 	writeInvestigationReturn
-} from '$lib/admin/investigation-return';
+} from '#lib/admin/investigation-return.js';
 
 const IMPERSONATE = '/api/auth/admin/impersonate-user';
 const SESSION = '/api/auth/get-session';

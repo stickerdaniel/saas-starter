@@ -7,11 +7,11 @@
 	import {
 		AdminSupportUIManager,
 		adminSupportUIContext
-	} from '$lib/hooks/admin-support-ui.svelte.ts';
+	} from '#lib/hooks/admin-support-ui.svelte.ts';
 	import {
 		supportContext,
 		type SupportContext
-	} from '$lib/components/customer-support/support-context.svelte.ts';
+	} from '#lib/components/customer-support/support-context.svelte.ts';
 
 	let {
 		client,

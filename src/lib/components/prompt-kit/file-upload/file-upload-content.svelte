@@ -2,7 +2,7 @@
 	import { fileUploadContext } from './file-upload-context.svelte.ts';
 	import type { Snippet } from 'svelte';
 	import { IsMounted } from 'runed';
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.js';
 
 	type Props = {
 		class?: string;

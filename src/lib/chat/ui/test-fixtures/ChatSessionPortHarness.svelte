@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { api } from '$lib/convex/_generated/api';
+	import { api } from '#lib/convex/_generated/api.js';
 	import type { ChatSessionPort } from '../../core/chat-session-port.js';
 	import ChatRoot from '../ChatRoot.svelte';
 

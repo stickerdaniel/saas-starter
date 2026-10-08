@@ -1,10 +1,10 @@
-import { localizedHref } from '$lib/utils/i18n';
-import { cmdOrCtrl, ctrlSymbol } from '$lib/hooks/is-mac.svelte.ts';
+import { localizedHref } from '#lib/utils/i18n.js';
+import { cmdOrCtrl, ctrlSymbol } from '#lib/hooks/is-mac.svelte.ts';
 import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';
 import BotMessageSquareIcon from '@lucide/svelte/icons/bot-message-square';
 import ServerCogIcon from '@lucide/svelte/icons/server-cog';
-import Logo from '$lib/components/icons/logo.svelte';
-import { LEGAL_CONFIG } from '$lib/config/legal';
+import Logo from '#lib/components/icons/logo.svelte';
+import { LEGAL_CONFIG } from '#lib/config/legal.js';
 import { aiChatThreadLabel } from './ai-chat-thread-label';
 import type { SidebarConfig, NavSubItem } from '../types';
 

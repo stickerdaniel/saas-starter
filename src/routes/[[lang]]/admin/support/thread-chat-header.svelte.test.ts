@@ -8,18 +8,18 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$lib/chat/ui/ChatInput.svelte', () => ({ default: () => {} }));
-vi.mock('$lib/chat/ui/ChatMessages.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/chat/ui/ChatInput.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/chat/ui/ChatMessages.svelte', () => ({ default: () => {} }));
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn() } }));
 vi.mock('$app/state', () => ({ page: { data: { lang: 'en' } } }));
-vi.mock('$lib/auth-client', () => ({
+vi.mock('#lib/auth-client.js', () => ({
 	authClient: { useSession: () => ({ subscribe: () => () => {} }) }
 }));
 const media = vi.hoisted(() => ({ sm: false, lg: false, xl: false }));
-vi.mock('$lib/hooks/use-media.svelte.ts', () => ({ useMedia: () => media }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/hooks/use-media.svelte.ts', () => ({ useMedia: () => media }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 
-import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
+import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import ThreadChat from './thread-chat.svelte';
 
 let component: ReturnType<typeof mount> | undefined;

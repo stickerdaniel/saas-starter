@@ -72,7 +72,7 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 		isLoading: false
 	})
 }));
-vi.mock('$lib/auth-client', () => ({
+vi.mock('#lib/auth-client.js', () => ({
 	authClient: {
 		useSession: () => ({
 			subscribe: (callback: (value: unknown) => void) => {
@@ -84,16 +84,16 @@ vi.mock('$lib/auth-client', () => ({
 }));
 vi.mock('runed/kit', () => ({ useSearchParams: () => ({ checkout: '' }) }));
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn() } }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
-vi.mock('$lib/components/SEOHead.svelte', () => ({ default: () => {} }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/components/SEOHead.svelte', () => ({ default: () => {} }));
 vi.mock('../../../routes/[[lang]]/app/ai-chat/thread-chat.svelte', () => ({
 	default: threadChat
 }));
 
-import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
+import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import CheckoutProviderHarness from './test-fixtures/CheckoutProviderHarness.svelte';
 import NavUserHarness from './test-fixtures/NavUserHarness.svelte';
-import PricingThree from '$blocks/pricing/pricing-three.svelte';
+import PricingThree from '#blocks/pricing/pricing-three.svelte';
 import AIChatPage from '../../../routes/[[lang]]/app/ai-chat/+page.svelte';
 
 // Carried by every rejected operation below; no console argument may reveal it.

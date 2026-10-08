@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
-	import { cn } from '$lib/utils.js';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
+	import { cn } from '#lib/utils.js';
 	import type { ComponentProps } from 'svelte';
 
 	type Props = Omit<ComponentProps<typeof AlertDialog.Action>, 'variant' | 'size'>;

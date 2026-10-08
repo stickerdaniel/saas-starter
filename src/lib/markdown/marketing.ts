@@ -9,14 +9,14 @@ import {
 	renderPlainText,
 	type MarketingMarkdownContent
 } from './literals';
-import { getLocalizedMarketingUrl, PUBLIC_MARKETING_ROUTES } from '$lib/marketing/public-routes';
-import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
-import { LEGAL_CONFIG } from '$lib/config/legal';
-import llmsTemplate from '$lib/content/llms.txt?raw';
-import { renderAuthoredTemplate } from '$lib/content/authored-template';
-import { isIsoCalendarDate } from '$lib/content/legal-metadata';
-import { getRepositoryDocumentUrl, getRepositoryUrl } from '$lib/config/site';
-import { prefersMarkdownHeader } from '$lib/http/accept';
+import { getLocalizedMarketingUrl, PUBLIC_MARKETING_ROUTES } from '#lib/marketing/public-routes.js';
+import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from '#lib/i18n/languages.js';
+import { LEGAL_CONFIG } from '#lib/config/legal.js';
+import llmsTemplate from '#lib/content/llms.txt?raw';
+import { renderAuthoredTemplate } from '#lib/content/authored-template.js';
+import { isIsoCalendarDate } from '#lib/content/legal-metadata.js';
+import { getRepositoryDocumentUrl, getRepositoryUrl } from '#lib/config/site.js';
+import { prefersMarkdownHeader } from '#lib/http/accept.js';
 
 const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';

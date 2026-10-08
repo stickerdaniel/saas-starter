@@ -1,7 +1,7 @@
 <script lang="ts">
-	import SupportTicketMigrationBootstrap from '$lib/components/customer-support/support-ticket-migration-bootstrap.svelte';
-	import MarketingFooter from '$lib/components/marketing/marketing-footer.svelte';
-	import MarketingHeader from '$lib/components/marketing/marketing-header.svelte';
+	import SupportTicketMigrationBootstrap from '#lib/components/customer-support/support-ticket-migration-bootstrap.svelte';
+	import MarketingFooter from '#lib/components/marketing/marketing-footer.svelte';
+	import MarketingHeader from '#lib/components/marketing/marketing-header.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

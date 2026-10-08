@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Kbd from '$lib/components/ui/kbd/index.js';
-	import { cn } from '$lib/utils.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Kbd from '#lib/components/ui/kbd/index.js';
+	import { cn } from '#lib/utils.js';
 	import { getTranslate } from '@tolgee/svelte';
-	import { cmdOrCtrl } from '$lib/hooks/is-mac.svelte.ts';
+	import { cmdOrCtrl } from '#lib/hooks/is-mac.svelte.ts';
 	import { useGlobalSearchContext } from './context.svelte.ts';
 
 	interface Props {

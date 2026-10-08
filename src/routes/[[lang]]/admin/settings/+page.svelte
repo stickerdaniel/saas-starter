@@ -1,9 +1,9 @@
 <script lang="ts">
-	import SEOHead from '$lib/components/SEOHead.svelte';
+	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import NotificationRecipientsTable from './notification-recipients-table.svelte';
 	import FounderWelcomeCard from './founder-welcome-card.svelte';
-	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog/index.js';
+	import { ConfirmDialog } from '#lib/components/ui/confirm-dialog/index.js';
 
 	const { t } = getTranslate();
 </script>

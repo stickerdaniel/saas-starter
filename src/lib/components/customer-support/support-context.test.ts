@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
-import type { ChatSessionPort } from '$lib/chat/core/chat-session-port.js';
+import type { ChatSessionPort } from '#lib/chat/core/chat-session-port.js';
 import { SupportContext } from './support-context.svelte.ts';
 
 function deferred<T>() {

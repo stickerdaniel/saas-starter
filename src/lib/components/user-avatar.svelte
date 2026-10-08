@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ComponentProps } from 'svelte';
-	import * as Avatar from '$lib/components/ui/avatar/index.js';
-	import { userInitials } from '$lib/utils/user-initials';
+	import * as Avatar from '#lib/components/ui/avatar/index.js';
+	import { userInitials } from '#lib/utils/user-initials.js';
 
 	type RootProps = ComponentProps<typeof Avatar.Root>;
 	type FallbackProps = ComponentProps<typeof Avatar.Fallback>;

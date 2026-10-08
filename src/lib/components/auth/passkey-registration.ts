@@ -1,6 +1,6 @@
 import type { DefaultParamType, TFnType, TranslationKey } from '@tolgee/svelte';
-import { authClient } from '$lib/auth-client';
-import type { getPasskeyDevice } from '$lib/utils/passkey-device';
+import { authClient } from '#lib/auth-client.js';
+import type { getPasskeyDevice } from '#lib/utils/passkey-device.js';
 
 type Translate = TFnType<DefaultParamType, string, TranslationKey>;
 

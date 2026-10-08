@@ -8,7 +8,7 @@
  * any context, including the Vite config loader.
  *
  * **Constraints (important):**
- * No imports from `$env/*`, no Convex `_generated/*`, no Svelte runtime
+ * No imports from `$app/env/*`, no Convex `_generated/*`, no Svelte runtime
  * imports. Plain TypeScript and string constants only.
  */
 

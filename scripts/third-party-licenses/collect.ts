@@ -101,7 +101,7 @@ function shippedInputs(
 
 function kitSetting(config: ResolvedConfig, name: string, read: (kit: KitOptions) => unknown) {
 	const setup = config.plugins.find((plugin) => plugin.name === 'vite-plugin-sveltekit-setup');
-	const kit = (setup?.api as { options?: { kit?: KitOptions } })?.options?.kit;
+	const kit = (setup?.api as { options?: KitOptions })?.options;
 	const value = kit && read(kit);
 	if (typeof value !== 'string') {
 		throw new Error(
@@ -117,12 +117,18 @@ interface KitOptions {
 }
 
 const kitServiceWorkerSetting = (config: ResolvedConfig) =>
-	kitSetting(config, 'kit.files.serviceWorker', (kit) => kit.files?.serviceWorker);
+	(() => {
+		const value = (
+			config.plugins.find((plugin) => plugin.name === 'vite-plugin-sveltekit-setup')?.api as
+				{ options?: KitOptions } | undefined
+		)?.options?.files?.serviceWorker;
+		return typeof value === 'string' ? path.resolve(config.root, value) : null;
+	})();
 
 /** Where Kit's client build writes, and so where the published catalogue lands. */
 const kitClientOutput = (config: ResolvedConfig) =>
 	path.join(
-		kitSetting(config, 'kit.outDir', (kit) => kit.outDir),
+		kitSetting(config, 'outDir', (kit) => kit.outDir),
 		'output',
 		'client'
 	);
@@ -226,8 +232,8 @@ export function thirdPartyLicenses(options: ThirdPartyLicensesOptions = {}): {
 					'[third-party-licenses] Watch builds are not supported: Vite reuses cached worker bundles across rebuilds, so notices would be incomplete. Run a one-shot build.'
 				);
 			}
-			workers.length = 0;
-			const serviceWorker = findServiceWorkerEntry(kitServiceWorkerSetting(config));
+			const serviceWorkerPath = kitServiceWorkerSetting(config);
+			const serviceWorker = serviceWorkerPath ? findServiceWorkerEntry(serviceWorkerPath) : null;
 			if (serviceWorker) {
 				this.error(
 					`[third-party-licenses] ${path.relative(config.root, serviceWorker)} is a service worker entry. SvelteKit builds it without user plugins, so its third-party notices are not collected yet. Extend scripts/third-party-licenses before shipping a service worker.`
@@ -276,18 +282,20 @@ export function thirdPartyLicenses(options: ThirdPartyLicensesOptions = {}): {
 				});
 			}
 		},
-		writeBundle: {
-			// After Kit's own writeBundle, which awaits the nested client build, and
-			// before Kit's closeBundle runs the adapter, which copies the server output.
-			// A failed build never gets here, so its own error stays the one reported;
-			// closeBundle would also run after a failed write.
-			order: 'post',
-			sequential: true,
-			handler() {
-				if (!isServerBuild(this.environment)) return;
+		buildApp: {
+			// Kit 3 writes the client output from sveltekit()'s buildApp, which is
+			// registered before this plugin. The adapter hook is ordered `post`,
+			// so this write lands in the server output before that copy. A failed
+			// client build throws from Kit's buildApp and never reaches here.
+			async handler() {
+				if (config.command !== 'build') return;
 				writeServerCatalogue(
 					kitClientOutput(config),
-					path.resolve(config.root, this.environment.config.build.outDir)
+					path.join(
+						kitSetting(config, 'outDir', (kit) => kit.outDir),
+						'output',
+						'server'
+					)
 				);
 			}
 		}

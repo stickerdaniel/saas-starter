@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cn } from '$lib/utils.js';
+import { cn } from '#lib/utils.js';
 import { buttonVariants } from './button.svelte';
 
 describe('buttonVariants', () => {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Section, Row, Column, Img, Text } from '@better-svelte-email/components';
-	import { cn } from '$lib/utils.js';
-	import { LEGAL_CONFIG } from '$lib/config/legal';
+	import { cn } from '#lib/utils.js';
+	import { LEGAL_CONFIG } from '#lib/config/legal.js';
 
 	let {
 		appName = LEGAL_CONFIG.brandName,

@@ -3,17 +3,17 @@ import { getTranslate } from '@tolgee/svelte';
 import { useConvexClient } from 'convex-svelte';
 import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 import { toast } from 'svelte-sonner';
-import { authClient } from '$lib/auth-client';
-import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-import { pendingPasskeyNudge } from '$lib/hooks/passkey-nudge.svelte.ts';
-import type { PendingOAuthProvider } from '$lib/hooks/last-auth-method.svelte.ts';
-import { getPasskeyDevice } from '$lib/utils/passkey-device';
+import { authClient } from '#lib/auth-client.js';
+import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
+import { pendingPasskeyNudge } from '#lib/hooks/passkey-nudge.svelte.ts';
+import type { PendingOAuthProvider } from '#lib/hooks/last-auth-method.svelte.ts';
+import { getPasskeyDevice } from '#lib/utils/passkey-device.js';
 import { addPasskey, suggestPasskeyName } from './passkey-registration';
 import {
 	claimPasskeyNudge,
 	deferPasskeyNudge,
 	type PasskeyNudgeUser
-} from '$lib/utils/passkey-nudge';
+} from '#lib/utils/passkey-nudge.js';
 
 /**
  * The state behind a passkey offer, shared by the setup page and the sidebar card.

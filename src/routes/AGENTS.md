@@ -8,7 +8,7 @@
 - Pass SSR-known auth/session data through layout data where it materially improves first paint.
 - Use SvelteKit remote functions for one-shot server operations; use Convex clients for realtime, optimistic, high-frequency, or streaming interactions.
 
-When a route serves different representations based on `Accept`, keep the worker patch and negotiated-content tests aligned. Marketing cache behavior is enforced in hooks/build scripts; update the relevant regression guard rather than documenting a new current-state file list.
+When a route serves different representations based on `Accept`, keep its negotiated-content tests aligned. Marketing cache behavior is enforced in hooks and the post-build output check; update the relevant regression guard rather than documenting a new current-state file list.
 
 ## Forms
 

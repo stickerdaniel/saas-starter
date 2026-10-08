@@ -3,7 +3,7 @@ import { convexClient } from '@convex-dev/better-auth/client/plugins';
 import { adminClient, inferAdditionalFields } from 'better-auth/client/plugins';
 import type { createAuth } from './convex/auth';
 import { passkeyClient } from '@better-auth/passkey/client';
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 export const authClient = createAuthClient({
 	baseURL: browser ? window.location.origin : undefined,

@@ -1,5 +1,5 @@
 import type { ConvexClient } from 'convex/browser';
-import { api } from '$lib/convex/_generated/api';
+import { api } from '#lib/convex/_generated/api.js';
 import type { SupportOperationIdentity } from './support-conversation.svelte.ts';
 import type { NotificationEmailOutcome } from './support-types.js';
 

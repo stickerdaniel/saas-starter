@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SEOHead from '$lib/components/SEOHead.svelte';
+	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();

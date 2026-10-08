@@ -3,11 +3,11 @@ import { defaultTreeAdapter as tree, parse } from 'parse5';
 
 /**
  * Content-Security-Policy building blocks shared between the SvelteKit config
- * (svelte.config.js) and the hash regression guards (csp.test.ts and
+ * (vite.config.ts) and the hash regression guards (csp.test.ts and
  * e2e/public-security-headers.spec.ts).
  *
- * Enforced everywhere today: object-src 'none' and base-uri 'self' (via kit.csp
- * below) plus frame-ancestors 'none' (header-only, set in hooks.server.ts and
+ * Enforced everywhere today: object-src 'none' and base-uri 'self' (via the csp
+ * option below) plus frame-ancestors 'none' (header-only, set in hooks.server.ts and
  * mirrored in _headers / vercel.json because it cannot ride a <meta> tag).
  *
  * script-src runs in REPORT-ONLY: it does not block anything yet, it only
@@ -81,7 +81,7 @@ function scriptTagOffsets(text) {
  * source span differs from the parsed script text.
  *
  * @param {string} appTemplate content of src/app.html
- * @returns {string[]} deduplicated `sha256-<base64>` sources in template order
+ * @returns {Array<`sha256-${string}`>} deduplicated `sha256-<base64>` sources in template order
  */
 export function appTemplateScriptHashes(appTemplate) {
 	if (typeof appTemplate !== 'string' || appTemplate === '') {
@@ -89,7 +89,7 @@ export function appTemplateScriptHashes(appTemplate) {
 	}
 
 	const document = parse(appTemplate, { scriptingEnabled: true, sourceCodeLocationInfo: true });
-	/** @type {string[]} */
+	/** @type {Array<`sha256-${string}`>} */
 	const hashes = [];
 	/** @type {Set<number>} */
 	const hashedTagOffsets = new Set();
@@ -123,7 +123,7 @@ export function appTemplateScriptHashes(appTemplate) {
 			unsupportedTemplate('a <script> body whose source differs from its parsed text');
 		}
 
-		hashes.push('sha256-' + createHash('sha256').update(body, 'utf8').digest('base64'));
+		hashes.push(`sha256-${createHash('sha256').update(body, 'utf8').digest('base64')}`);
 		hashedTagOffsets.add(location.startTag.startOffset);
 	}
 
@@ -190,17 +190,12 @@ export function deriveSentryReportUri(dsn) {
 }
 
 /**
- * Shape of the object handed to `kit.csp`. Declared locally rather than reusing
- * SvelteKit's `CspDirectives` type, which is not publicly exported and breaks
- * declaration emit for this module. Structurally compatible with `kit.csp`.
- * @typedef {object} KitCspConfig
- * @property {'auto'} mode
- * @property {{ 'object-src': string[], 'base-uri': string[] }} directives
- * @property {Record<string, string[]>} [reportOnly]
+ * Shape of the `csp` option of the `sveltekit()` Vite plugin.
+ * @typedef {NonNullable<import('@sveltejs/kit/vite').Config['csp']>} KitCspConfig
  */
 
 /**
- * Build the kit.csp config object.
+ * Build the SvelteKit `csp` config object.
  *
  * Enforced `directives` hold object-src/base-uri (unchanged strictness).
  * `reportOnly` carries the script-src policy and is only added when a Sentry DSN

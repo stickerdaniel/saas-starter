@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { flushSync, mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
-import type { CatalogueEntry } from '$lib/licenses/catalogue';
+import type { CatalogueEntry } from '#lib/licenses/catalogue.js';
 
 vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')

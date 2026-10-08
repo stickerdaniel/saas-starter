@@ -1,5 +1,5 @@
 import { VERIFICATION_FAILURE_CODES } from './auth-messages';
-import { isSupportedLanguage } from '$lib/i18n/languages';
+import { isSupportedLanguage } from '#lib/i18n/languages.js';
 
 /**
  * Whitelist-validates a redirect URL: only same-origin root-relative paths
@@ -149,7 +149,7 @@ export const FAILED_RESET_LINK = 'reset';
  * `error` of its own, and Better Auth appends after it, so position identifies
  * nothing. The code is the value that belongs to this namespace.
  */
-export function verificationErrorIn(params: URLSearchParams): string | null {
+export function verificationErrorIn(params: Pick<URLSearchParams, 'getAll'>): string | null {
 	return params.getAll('error').find((code) => VERIFICATION_FAILURE_CODES.has(code)) ?? null;
 }
 

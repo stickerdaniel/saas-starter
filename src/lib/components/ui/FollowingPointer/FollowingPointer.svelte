@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { motion, AnimatePresence } from 'motion-sv';
 	import { getTranslate } from '@tolgee/svelte';
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.js';
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
 

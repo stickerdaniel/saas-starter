@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar';
+	import { Avatar, AvatarFallback, AvatarImage } from '#lib/components/ui/avatar/index.js';
 	import type { Component } from 'svelte';
-	import { cn } from '$lib/utils';
-	import { userInitials } from '$lib/utils/user-initials';
+	import { cn } from '#lib/utils.js';
+	import { userInitials } from '#lib/utils/user-initials.js';
 
 	let {
 		icon: Icon,

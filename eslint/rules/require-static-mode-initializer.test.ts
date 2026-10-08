@@ -91,7 +91,7 @@ describe('require-static-mode-initializer', () => {
 
 	it('ignores a same-named component from another module', async () => {
 		const source =
-			'<script lang="ts">import ModeWatcher from "$lib/components/mode-watcher.svelte";</script>\n<ModeWatcher />';
+			'<script lang="ts">import ModeWatcher from "#lib/components/mode-watcher.svelte";</script>\n<ModeWatcher />';
 		expect(await ruleMessages(source)).toEqual([]);
 	}, 60_000);
 

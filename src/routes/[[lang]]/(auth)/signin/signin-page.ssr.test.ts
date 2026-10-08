@@ -27,13 +27,13 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/state', () => ({ page: state.page }));
-vi.mock('$lib/auth-client', () => ({ authClient: { signIn: {} } }));
+vi.mock('#lib/auth-client.js', () => ({ authClient: { signIn: {} } }));
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({ useAuth: () => state.auth }));
-vi.mock('$lib/hooks/auth-flow.svelte.ts', () => ({
+vi.mock('#lib/hooks/auth-flow.svelte.ts', () => ({
 	authFlowContext: { get: () => ({ email: '' }), set: () => {} }
 }));
 
-import ChatTestProvider from '$lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
+import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import SignInPage from './+page.svelte';
 
 type Window = {

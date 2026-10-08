@@ -8,9 +8,9 @@
 		ChatContainerContent,
 		ChatContainerScrollAnchor,
 		ChatContainerContext
-	} from '$lib/components/prompt-kit/chat-container';
-	import { ScrollButton } from '$lib/components/prompt-kit/scroll-button';
-	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
+	} from '#lib/components/prompt-kit/chat-container/index.js';
+	import { ScrollButton } from '#lib/components/prompt-kit/scroll-button/index.js';
+	import ProgressiveBlur from '#blocks/magic/ProgressiveBlur.svelte';
 	import { getChatUIContext } from './chat-context.svelte.ts';
 	import { isHandoffAnchor } from './handoff-anchor.js';
 	import ChatMessage from './ChatMessage.svelte';

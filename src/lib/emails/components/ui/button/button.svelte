@@ -1,5 +1,4 @@
 <script lang="ts" module>
-	/* eslint-disable svelte/no-navigation-without-resolve -- Email component, not SvelteKit */
 	import { type VariantProps, tv } from 'tailwind-variants';
 
 	export const buttonVariants = tv({
@@ -49,7 +48,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { HTMLAnchorAttributes } from 'svelte/elements';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	let {
 		ref = $bindable(null),

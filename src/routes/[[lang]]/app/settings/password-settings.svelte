@@ -1,27 +1,27 @@
 <script lang="ts">
 	import * as v from 'valibot';
-	import { authClient } from '$lib/auth-client.js';
-	import * as Password from '$lib/components/ui/password';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as Alert from '$lib/components/ui/alert/index.js';
-	import * as Item from '$lib/components/ui/item/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
-	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { authClient } from '#lib/auth-client.js';
+	import * as Password from '#lib/components/ui/password/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import * as Item from '#lib/components/ui/item/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { ConvexError } from 'convex/values';
-	import { api } from '$lib/convex/_generated/api.js';
+	import { api } from '#lib/convex/_generated/api.js';
 	import {
 		changePasswordSchema,
 		setPasswordSchema,
 		PASSWORD_MIN_LENGTH
 	} from './password-schema.js';
-	import { getAuthErrorKey } from '$lib/utils/auth-messages';
-	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
+	import { getAuthErrorKey } from '#lib/utils/auth-messages.js';
+	import { translateValidationErrors } from '#lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
 	const convexClient = useConvexClient();

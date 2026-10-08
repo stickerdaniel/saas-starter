@@ -182,7 +182,7 @@ Add the language switcher to your navigation:
 
 ```svelte
 <script lang="ts">
-	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
+	import LanguageSwitcher from '#lib/components/LanguageSwitcher.svelte';
 </script>
 
 <nav>
@@ -319,7 +319,7 @@ The `SEOHead` component automatically adds:
 
 ```svelte
 <script lang="ts">
-	import SEOHead from '$lib/components/SEOHead.svelte';
+	import SEOHead from '#lib/components/SEOHead.svelte';
 </script>
 
 <SEOHead title="Pricing" description="Choose the plan that fits your needs" />

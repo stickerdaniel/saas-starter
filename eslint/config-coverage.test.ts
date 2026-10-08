@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
  * directives, and the final rule verdict in one assertion.
  *
  * Convex codegen and varlock's Convex generator write a file-wide disable into their
- * output, so those paths stay globally ignored. `src/env.d.ts` gets different
+ * output, so those paths stay globally ignored. `src/varlock-env.d.ts` gets different
  * treatment: its processor blanks that directive without shifting source locations,
  * because environment values come from outside the repository and are exactly where
  * a character nobody typed can enter generated source.
@@ -65,7 +65,7 @@ async function controlCharacterMessages(file: string) {
 	// The generated env case deliberately keeps its real header, because its file-wide
 	// disable is the condition the processor exists to remove.
 	const source =
-		file === 'src/env.d.ts'
+		file === 'src/varlock-env.d.ts'
 			? readFileSync(file, 'utf-8')
 			: file.endsWith('.svelte')
 				? '<script>const value = true;</script>'
@@ -84,7 +84,7 @@ describe('no-literal-control-char coverage', () => {
 		['a build script outside src/', 'scripts/static-checks.ts'],
 		['the ESLint config itself', 'eslint.config.js'],
 		['the rule implementation', 'eslint/rules/no-literal-control-char.js'],
-		['the generated env types despite their file-wide disable', 'src/env.d.ts']
+		['the generated env types despite their file-wide disable', 'src/varlock-env.d.ts']
 	])(
 		'reaches %s',
 		async (_label, file) => {

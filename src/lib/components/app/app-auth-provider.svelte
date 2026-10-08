@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { invalidate } from '$app/navigation';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { createSvelteAuthClient, useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.js';
 
 	let { children } = $props();
 

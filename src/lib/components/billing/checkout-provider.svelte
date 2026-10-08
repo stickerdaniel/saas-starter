@@ -3,8 +3,8 @@
 	import { page } from '$app/state';
 	import { getTranslate } from '@tolgee/svelte';
 	import { toast } from 'svelte-sonner';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import CheckoutDialog from './checkout-dialog.svelte';
 	import { setBillingCheckoutContext } from './checkout-context.svelte.ts';
 

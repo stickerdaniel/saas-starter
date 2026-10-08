@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import { cn } from '$lib/utils.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import { cn } from '#lib/utils.js';
 	import type { ComponentProps } from 'svelte';
 
 	type Props = Omit<ComponentProps<typeof DropdownMenu.Item>, 'variant'>;

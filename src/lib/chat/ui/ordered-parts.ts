@@ -1,4 +1,4 @@
-import type { ToolPart } from '$lib/components/prompt-kit/tool/types.js';
+import type { ToolPart } from '#lib/components/prompt-kit/tool/types.js';
 import type { MessagePart, MessageStatus } from '../core/types.js';
 import { toToolRenderPart } from './tool-part-adapter.js';
 import {

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { Button } from '$lib/components/ui/button';
-	import * as Card from '$lib/components/ui/card';
-	import * as Field from '$lib/components/ui/field';
-	import * as Sidebar from '$lib/components/ui/sidebar';
-	import { translateFormError } from '$lib/utils/validation-i18n.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Field from '#lib/components/ui/field/index.js';
+	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
+	import { translateFormError } from '#lib/utils/validation-i18n.js';
 	import type { PasskeyNudgeClaim } from './passkey-enrollment.svelte.ts';
 
 	let { nudge }: { nudge: PasskeyNudgeClaim } = $props();

@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { twMergeConfig } from '$lib/utils.js';
+	import { twMergeConfig } from '#lib/utils.js';
 	import { type VariantProps, tv } from 'tailwind-variants';
 
 	export const toggleVariants = tv(
@@ -32,7 +32,7 @@
 
 <script lang="ts">
 	import { Toggle as TogglePrimitive } from 'bits-ui';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	let {
 		ref = $bindable(null),

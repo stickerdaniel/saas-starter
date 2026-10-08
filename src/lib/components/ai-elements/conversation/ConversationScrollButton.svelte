@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import { cn } from '$lib/utils';
-	import type { ButtonVariant, ButtonSize } from '$lib/components/ui/button/index.js';
+	import { cn } from '#lib/utils.js';
+	import type { ButtonVariant, ButtonSize } from '#lib/components/ui/button/index.js';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import type { WithoutChildren } from 'bits-ui';
 
@@ -14,7 +14,7 @@
 </script>
 
 <script lang="ts">
-	import { buttonVariants } from '$lib/components/ui/button';
+	import { buttonVariants } from '#lib/components/ui/button/index.js';
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import { stickToBottomContext } from './stick-to-bottom-context.svelte.ts';
 	import { fly } from 'svelte/transition';

@@ -1,10 +1,10 @@
 import type { ColumnDef } from '@tanstack/table-core';
-import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
-import type { DataTableSkeleton } from '$lib/components/tables/skeleton.ts';
-import { renderComponent, renderTextCell } from '$lib/components/ui/data-table/index.js';
-import DataTableColumnHeader from '$lib/components/admin/data-table-column-header.svelte';
-import type { AuditLogItem } from '$lib/convex/admin/auditLog/queries';
-import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
+import type { DataTableFeatures } from '#lib/components/ui/data-table/data-table.svelte.ts';
+import type { DataTableSkeleton } from '#lib/components/tables/skeleton.ts';
+import { renderComponent, renderTextCell } from '#lib/components/ui/data-table/index.js';
+import DataTableColumnHeader from '#lib/components/admin/data-table-column-header.svelte';
+import type { AuditLogItem } from '#lib/convex/admin/auditLog/queries.js';
+import { DEFAULT_LANGUAGE } from '#lib/i18n/languages.js';
 import ActionBadge from './action-badge.svelte';
 import UserRefCell from './user-ref-cell.svelte';
 import DetailsCell from './details-cell.svelte';

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { T } from '@tolgee/svelte';
 	import { PersistedState } from 'runed';
-	import { clockSkewContext } from '$lib/hooks/clock-skew.svelte.ts';
-	import { Button } from '$lib/components/ui/button';
+	import { clockSkewContext } from '#lib/hooks/clock-skew.svelte.ts';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 
 	const skew = clockSkewContext.get();

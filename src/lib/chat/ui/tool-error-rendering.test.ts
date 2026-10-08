@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
-import ToolDetails from '$lib/components/prompt-kit/tool/ToolDetails.svelte';
+import ToolDetails from '#lib/components/prompt-kit/tool/ToolDetails.svelte';
 import { deriveOrderedParts } from './ordered-parts';
 
 vi.mock('@tolgee/svelte', async () => {

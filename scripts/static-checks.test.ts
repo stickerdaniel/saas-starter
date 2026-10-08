@@ -190,12 +190,14 @@ describe('route predicates', () => {
 	it('applies the ignore rules the formatter CLI applies', async () => {
 		// The CLI's default --ignore-path is exactly [.gitignore, .prettierignore]. Files
 		// its project traversal skips must stay out of the ledger too.
-		expect(await prettierFormattableFiles(['src/env.d.ts', 'scratch/probe.ts'])).toEqual([]);
+		expect(await prettierFormattableFiles(['src/varlock-env.d.ts', 'scratch/probe.ts'])).toEqual(
+			[]
+		);
 		expect(
 			await prettierFormattableFiles([
 				'src/routes/+layout.svelte',
 				'src/lib/scratch/probe.ts',
-				'src/env.d.ts'
+				'src/varlock-env.d.ts'
 			])
 		).toEqual(['src/routes/+layout.svelte', 'src/lib/scratch/probe.ts']);
 	});
@@ -327,7 +329,7 @@ describe('repository path safety', () => {
 
 		expect(formattable.length).toBeGreaterThan(0);
 		expect(formattable.length).toBeLessThanOrEqual(traversed.length);
-		expect(formattable).not.toContain('src/env.d.ts');
+		expect(formattable).not.toContain('src/varlock-env.d.ts');
 	});
 
 	it('includes untracked nonignored files in the full-mode preflight', () => {

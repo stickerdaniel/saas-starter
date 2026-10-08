@@ -1,40 +1,24 @@
 {
-	"extends": "./.svelte-kit/tsconfig.json",
+	// SvelteKit writes this base config (paths, generated types, required compiler options)
+	// during sync. It allows explicit .ts specifiers rather than rewriting them, which this
+	// noEmit, Vite-built app relies on.
+	"extends": "$app/tsconfig",
 	"files": ["scripts/windows-job.ts"],
 	"compilerOptions": {
-		// This app type-checks with noEmit and builds through Vite, so explicit .ts specifiers
-		// must be allowed rather than rewritten; rewriting rejects aliases with TS2877.
-		"allowImportingTsExtensions": true,
-		"allowJs": true,
-		"checkJs": true,
-		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
 		"declaration": true,
-		"declarationMap": true,
-		"moduleResolution": "bundler"
+		"declarationMap": true
 	},
-	// Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
-	// except $lib which is handled by https://svelte.dev/docs/kit/configuration#files
-	//
-	// If you want to overwrite includes/excludes, make sure to copy over the relevant includes/excludes
-	// from the referenced tsconfig.json - TypeScript does not merge them in
+	// The base config sets no include/exclude, so these replace the lists SvelteKit 2
+	// generated: the app sources and the Vite config that imports the build scripts.
+	"include": ["src/**/*.js", "src/**/*.ts", "src/**/*.svelte", "vite.config.ts"],
 	"exclude": [
 		"node_modules/**",
 		"references/**",
-		"src/service-worker.js",
-		"src/service-worker/**/*.js",
-		"src/service-worker.ts",
-		"src/service-worker/**/*.ts",
-		"src/service-worker.d.ts",
-		"src/service-worker/**/*.d.ts",
+		"src/service-worker",
 		"packages/create-saas-starter/**",
-		"src/lib/convex/**",
-		"src/lib/convex/**/*.ts",
-		"src/lib/convex/**/*.js"
+		"src/lib/convex/**"
 	]
 }

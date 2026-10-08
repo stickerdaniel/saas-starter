@@ -13,7 +13,7 @@ vi.mock('svelte/motion', () => ({
 		}
 	}
 }));
-vi.mock('$lib/hooks/use-media.svelte.ts', () => ({
+vi.mock('#lib/hooks/use-media.svelte.ts', () => ({
 	TAILWIND_BREAKPOINTS: { lg: '64rem' },
 	useMedia: () => ({
 		get lg() {
@@ -21,7 +21,7 @@ vi.mock('$lib/hooks/use-media.svelte.ts', () => ({
 		}
 	})
 }));
-vi.mock('$lib/components/ui/FollowingPointer/FollowingPointer.svelte', async () => ({
+vi.mock('#lib/components/ui/FollowingPointer/FollowingPointer.svelte', async () => ({
 	default: (await import('./test-fixtures/RiveContent.svelte')).default
 }));
 

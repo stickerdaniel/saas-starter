@@ -16,6 +16,8 @@ beforeAll(() => {
 	fs.writeFileSync(path.join(fixtures, 'Foo.svelte'), '<p>Fixture</p>');
 	fs.writeFileSync(path.join(fixtures, 'collision.svelte'), '<p>Component fixture</p>');
 	fs.writeFileSync(path.join(fixtures, 'collision.svelte.ts'), 'export const state = {};');
+	fs.mkdirSync(path.join(fixtures, 'src/lib'), { recursive: true });
+	fs.writeFileSync(path.join(fixtures, 'src/lib/lib-rune.svelte.ts'), 'export const state = {};');
 });
 
 afterAll(() => {
@@ -23,7 +25,8 @@ afterAll(() => {
 });
 
 function lint(code: string) {
-	const linter = new Linter();
+	// The fixture directory stands in for the project root that `#lib/` resolves from.
+	const linter = new Linter({ cwd: fixtures });
 	return linter.verifyAndFix(
 		code,
 		[
@@ -75,6 +78,12 @@ describe('require-svelte-module-extension', () => {
 
 	it('allows a shortened import when a same-stem component exists', () => {
 		expect(lint(`import Collision from './collision.svelte';`).messages).toHaveLength(0);
+	});
+
+	it('fixes the emitted form of a #lib rune module import', () => {
+		const result = lint(`import { state } from '#lib/lib-rune.svelte.js';`);
+		expect(result.fixed).toBe(true);
+		expect(result.output).toBe(`import { state } from '#lib/lib-rune.svelte.ts';`);
 	});
 
 	it('fixes a dynamic rune module import', () => {

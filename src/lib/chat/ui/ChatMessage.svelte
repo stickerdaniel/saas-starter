@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { Message } from '$lib/components/prompt-kit/message';
-	import { Response, streamingTextAnimation } from '$lib/components/ai-elements/response';
-	import { ToolComposed } from '$lib/components/prompt-kit/tool';
+	import { Message } from '#lib/components/prompt-kit/message/index.js';
+	import { Response, streamingTextAnimation } from '#lib/components/ai-elements/response/index.js';
+	import { ToolComposed } from '#lib/components/prompt-kit/tool/index.js';
 	import ChatAttachments from './ChatAttachments.svelte';
 	import ChatReasoning from './ChatReasoning.svelte';
 	import MessageBubble from './MessageBubble.svelte';
@@ -10,7 +10,7 @@
 	import { getChatUIContext } from './chat-context.svelte.ts';
 	import { deriveOrderedParts, LEADING_REASONING_KEY, type OrderedPart } from './ordered-parts.js';
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
-	import { AI_CHAT_LIMIT_NOTICE } from '$lib/convex/constants';
+	import { AI_CHAT_LIMIT_NOTICE } from '#lib/convex/constants.js';
 	import { getMessageProviderFlags } from '../core/provider-metadata.js';
 	import { T } from '@tolgee/svelte';
 	import LockIcon from '@lucide/svelte/icons/lock';

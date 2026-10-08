@@ -1,9 +1,9 @@
 <script lang="ts">
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { getTranslate } from '@tolgee/svelte';
-	import { languageContext } from '$lib/i18n/context';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { languageContext } from '#lib/i18n/context.js';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { useBillingCheckout } from './checkout-context.svelte.ts';
 
 	const checkout = useBillingCheckout();

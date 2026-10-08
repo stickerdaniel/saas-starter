@@ -7,7 +7,6 @@ import svelte from 'eslint-plugin-svelte';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
-import svelteConfig from './svelte.config.js';
 import requireMarketingMarkdownRule from './eslint/rules/require-marketing-markdown.js';
 import requireMarketingRouteRegistrationRule from './eslint/rules/require-marketing-route-registration.js';
 import noHardcodedAriaLabelRule from './eslint/rules/no-hardcoded-aria-label.js';
@@ -86,7 +85,7 @@ export default defineConfig(
 	// Convex outputs stay ignored because reaching them would require overriding the
 	// generator's own directive and then exempting all of its generated style.
 	//
-	// `src/env.d.ts` carries the same directive, but it is written from environment
+	// `src/varlock-env.d.ts` carries the same directive, but it is written from environment
 	// values, which come from outside this repository. It is the generated file most
 	// exposed to a character nobody typed, so the later file block disables its inline
 	// directive and exempts only the generated style rules it then trips.
@@ -121,7 +120,9 @@ export default defineConfig(
 				tsconfigRootDir: import.meta.dirname,
 				extraFileExtensions: ['.svelte'],
 				parser: ts.parser,
-				svelteConfig
+				// Mirrors the compilerOptions passed to sveltekit() in vite.config.ts, without
+				// importing that config and its build-time side effects.
+				svelteConfig: { compilerOptions: { experimental: { async: true } } }
 			}
 		},
 		rules: {
@@ -203,27 +204,32 @@ export default defineConfig(
 						},
 						{
 							name: '$app/stores',
-							message: '$app/stores is deprecated since SvelteKit 2.12. Use $app/state instead.'
+							message: '$app/stores was removed in SvelteKit 3. Use $app/state instead.'
 						},
 						{
-							name: '$lib/utils/utils',
-							message: 'Import from $lib/utils instead (canonical location).'
+							name: '$app/environment',
+							message: '$app/environment was renamed to $app/env in SvelteKit 3.'
 						},
 						{
-							name: '$lib/utils/utils.js',
-							message: 'Import from $lib/utils.js instead (canonical location).'
+							name: '#lib/utils/utils.js',
+							message: 'Import from #lib/utils.js instead (canonical location).'
 						},
-						{
-							name: '$env/dynamic/public',
+						...[
+							'$env/static/public',
+							'$env/static/private',
+							'$env/dynamic/public',
+							'$env/dynamic/private'
+						].map((name) => ({
+							name,
 							message:
-								'Use $env/static/public instead. All PUBLIC_* vars are known at build time in this project.'
-						},
+								'Use $app/env/public or $app/env/private and declare the variable in src/env.ts. Public variables are static there, so they are known at build time.'
+						})),
 						{
 							name: 'svelte',
 							importNames: ['createRawSnippet'],
 							allowTypeImports: true,
 							message:
-								'createRawSnippet renders an unescaped HTML string. Render table text with renderTextCell from $lib/components/ui/data-table/index.js, or render a component.'
+								'createRawSnippet renders an unescaped HTML string. Render table text with renderTextCell from #lib/components/ui/data-table/index.js, or render a component.'
 						}
 					]
 				}
@@ -324,7 +330,7 @@ export default defineConfig(
 		}
 	},
 	{
-		// Platform modifier labels (⌘ ⌃ ⌥) must come from $lib/hooks/is-mac.svelte
+		// Platform modifier labels (⌘ ⌃ ⌥) must come from #lib/hooks/is-mac.svelte.ts
 		// (cmdOrCtrl/ctrlSymbol/optionOrAlt) so non-mac users see the right modifier.
 		// The hook itself is the only place allowed to define them.
 		files: ['src/**/*.svelte', 'src/**/*.ts'],
@@ -481,7 +487,7 @@ export default defineConfig(
 	// locations; the rules below exempt the generated TypeScript style and nothing
 	// else. The control-character rule therefore still runs on the real file text.
 	{
-		files: ['src/env.d.ts'],
+		files: ['src/varlock-env.d.ts'],
 		plugins: {
 			local: localPlugin
 		},

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import type { Snippet } from 'svelte';
 	import PromptInputButton from './PromptInputButton.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';

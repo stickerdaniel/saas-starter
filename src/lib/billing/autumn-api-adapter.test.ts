@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { getFunctionName } from 'convex/server';
-import { api } from '$lib/convex/_generated/api';
+import { api } from '#lib/convex/_generated/api.js';
 import { toAutumnClientApi, type AppAutumnApi } from './autumn-api-adapter';
 
 const publishedKeys = [

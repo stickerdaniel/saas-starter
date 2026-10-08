@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import { cn } from '$lib/utils';
-	import { type ButtonSize, type ButtonVariant } from '$lib/components/ui/button/index.js';
+	import { cn } from '#lib/utils.js';
+	import { type ButtonSize, type ButtonVariant } from '#lib/components/ui/button/index.js';
 
 	export type ScrollButtonProps = {
 		class?: string;
@@ -16,11 +16,11 @@
 </script>
 
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import { getTranslate } from '@tolgee/svelte';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import { chatContainerContext } from '../chat-container/chat-container-context.svelte.ts';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 
 	const { t } = getTranslate();
 

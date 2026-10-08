@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
-import { authPageURL } from '$lib/utils/url';
-import { passkeyDestination } from '$lib/utils/passkey-nudge-policy';
+import { authPageURL } from '#lib/utils/url.js';
+import { passkeyDestination } from '#lib/utils/passkey-nudge-policy.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ locals, params, url }) => {

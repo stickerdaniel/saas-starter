@@ -1,5 +1,5 @@
 import type { ConvexClient } from 'convex/browser';
-import { api } from '$lib/convex/_generated/api';
+import { api } from '#lib/convex/_generated/api.js';
 import { ChatCore, type ChatCoreOptions } from '../core/chat-core.svelte.ts';
 import { ChatDraftManager } from '../core/chat-draft-manager.svelte.ts';
 import { getChatSessionEpoch, isChatSessionCurrent } from '../core/chat-persisted-state.ts';

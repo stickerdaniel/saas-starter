@@ -14,7 +14,7 @@ export const redirectParamsSchema = v.object({
 	// app never shows it, but an unmodelled parameter would stay in the address
 	// bar after the code is cleared and reach analytics through the page URL.
 	error_description: v.optional(v.fallback(v.string(), ''), ''),
-	// `FAILED_LINK_PARAM` in $lib/utils/url, cleared with the code it qualifies.
+	// `FAILED_LINK_PARAM` in #lib/utils/url, cleared with the code it qualifies.
 	link: v.optional(v.fallback(v.string(), ''), '')
 });
 

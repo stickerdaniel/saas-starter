@@ -1,16 +1,16 @@
 import type { ConvexClient } from 'convex/browser';
-import { api } from '$lib/convex/_generated/api';
-import type { Attachment } from '$lib/chat';
-import type { ChatSessionPort, StreamCachePort } from '$lib/chat/core/chat-session-port.js';
-import { ChatCommandError } from '$lib/chat/core/chat-command-error.js';
-import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
-import { getChatSessionEpoch, isChatSessionCurrent } from '$lib/chat/core/chat-persisted-state.ts';
-import { StreamCacheManager } from '$lib/chat/core/stream-cache.js';
-import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
-import { CHAT_PAGE_SIZE } from '$lib/chat/core/types.js';
-import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
-import { isSupportAiEnabled } from '$lib/config/support';
-import { normalizeSupportPageRoute } from '$lib/shared/support-page-route';
+import { api } from '#lib/convex/_generated/api.js';
+import type { Attachment } from '#lib/chat/index.js';
+import type { ChatSessionPort, StreamCachePort } from '#lib/chat/core/chat-session-port.js';
+import { ChatCommandError } from '#lib/chat/core/chat-command-error.js';
+import { ChatDraftManager } from '#lib/chat/core/chat-draft-manager.svelte.ts';
+import { getChatSessionEpoch, isChatSessionCurrent } from '#lib/chat/core/chat-persisted-state.ts';
+import { StreamCacheManager } from '#lib/chat/core/stream-cache.js';
+import { createOptimisticUpdate, type ListMessagesArgs } from '#lib/chat/core/optimistic.js';
+import { CHAT_PAGE_SIZE } from '#lib/chat/core/types.js';
+import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
+import { isSupportAiEnabled } from '#lib/config/support.js';
+import { normalizeSupportPageRoute } from '#lib/shared/support-page-route.js';
 import type { SupportNavigationState } from './support-navigation-state.svelte.ts';
 
 export type SupportAssignedAdmin = { name?: string; image: string | null };

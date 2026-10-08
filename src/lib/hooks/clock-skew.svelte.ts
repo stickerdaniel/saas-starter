@@ -1,6 +1,6 @@
 import { createContext } from 'svelte';
-import { browser } from '$app/environment';
-import { computeSkewMs, isClockSkewed, formatSkewMagnitude } from '$lib/utils/clock-skew';
+import { browser } from '$app/env';
+import { computeSkewMs, isClockSkewed, formatSkewMagnitude } from '#lib/utils/clock-skew.js';
 
 /**
  * Per-request clock-skew state, shared via context.

@@ -1,14 +1,14 @@
 <script lang="ts">
 	import type { ColumnDef } from '@tanstack/table-core';
 	import { getTranslate } from '@tolgee/svelte';
-	import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
-	import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
+	import type { NotificationRecipient } from '#lib/convex/admin/notificationPreferences/queries.js';
+	import type { DataTableFeatures } from '#lib/components/ui/data-table/data-table.svelte.ts';
 	import {
 		createSvelteTable,
 		FlexRender,
 		renderComponent
-	} from '$lib/components/ui/data-table/index.js';
-	import { createRowSelection } from '$lib/components/ui/data-table/row-selection.svelte.ts';
+	} from '#lib/components/ui/data-table/index.js';
+	import { createRowSelection } from '#lib/components/ui/data-table/row-selection.svelte.ts';
 	import RecipientsToggle from '../recipients-toggle.svelte';
 	import {
 		setRecipientsContext,

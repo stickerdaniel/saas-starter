@@ -3,27 +3,27 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import { getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
-	import { api } from '$lib/convex/_generated/api.js';
+	import { api } from '#lib/convex/_generated/api.js';
 	import {
 		setTogglePreferenceContext,
 		setRemoveEmailContext,
 		setRowSelectionContext,
 		setRecipientsContext
 	} from './recipients-context';
-	import { createSvelteTable } from '$lib/components/ui/data-table/index.js';
-	import { createRowSelection } from '$lib/components/ui/data-table/row-selection.svelte.ts';
-	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
-	import DataTableView from '$lib/components/tables/data-table-view.svelte';
-	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
-	import { createCountPrediction } from '$lib/tables/convex/count-prediction.svelte.ts';
-	import { createCursorSorting } from '$lib/tables/convex/sorting.svelte.ts';
-	import { createTableUrlSchema } from '$lib/tables/convex/url';
-	import { toCursorListResult } from '$lib/tables/convex/contract';
+	import { createSvelteTable } from '#lib/components/ui/data-table/index.js';
+	import { createRowSelection } from '#lib/components/ui/data-table/row-selection.svelte.ts';
+	import ConvexCursorTableShell from '#lib/components/tables/convex-cursor-table-shell.svelte';
+	import DataTableView from '#lib/components/tables/data-table-view.svelte';
+	import { createConvexCursorTable } from '#lib/tables/convex/create-convex-cursor-table.svelte.ts';
+	import { createCountPrediction } from '#lib/tables/convex/count-prediction.svelte.ts';
+	import { createCursorSorting } from '#lib/tables/convex/sorting.svelte.ts';
+	import { createTableUrlSchema } from '#lib/tables/convex/url.js';
+	import { toCursorListResult } from '#lib/tables/convex/contract.js';
 	import { columns } from './columns.js';
-	import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
-	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
+	import type { NotificationRecipient } from '#lib/convex/admin/notificationPreferences/queries.js';
+	import { adminCache } from '#lib/hooks/admin-cache.svelte.ts';
 	import AddEmailDialog from './add-email-dialog.svelte';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import DataTableFilters from './data-table-filters.svelte';
 
 	const { t } = getTranslate();

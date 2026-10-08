@@ -18,7 +18,7 @@
 		children: Snippet;
 		token: LinkToken;
 		transformedHref: string | null;
-		currentUrl: URL;
+		currentUrl: Pick<URL, 'href'>;
 		localize: (path: string) => string;
 	} = $props();
 

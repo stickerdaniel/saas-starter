@@ -39,7 +39,7 @@ General animation craft lives in the `emil-design-eng` skill. Prefer CSS for sim
 
 ## Environment access
 
-Use `$env/static/public` for `PUBLIC_*` variables. Use `$env/dynamic/private` only for genuinely runtime-provided server secrets. Never access private environment values from client code.
+SvelteKit exposes only the variables listed in `src/env.ts`; Varlock still validates every value. Declare `PUBLIC_*` variables there with `public: true, static: true` and import them from `$app/env/public`, so they stay build-time values. Use `$app/env/private` only for genuinely runtime-provided server secrets. Never access private environment values from client code.
 
 ## SEO and public markdown
 

@@ -6,7 +6,7 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$app/environment', () => ({ browser: true, dev: false }));
+vi.mock('$app/env', () => ({ browser: true, dev: false }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
 vi.mock('$app/state', () => ({ page: { params: { lang: 'en' } } }));
@@ -14,7 +14,7 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 	useAuth: () => ({ isAuthenticated: false, isLoading: false })
 }));
 vi.mock('convex-svelte', () => ({ useQuery: vi.fn(() => ({ data: null })) }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 
 import { useQuery } from 'convex-svelte';
 import SearchHost from './test-fixtures/SearchHost.svelte';
@@ -75,15 +75,22 @@ describe('search loading on intent', () => {
 		expect(document.querySelector('[role="dialog"]')).toBeNull();
 	});
 
-	it.each(['pointerenter', 'focus'])('preloads on %s without opening the menu', async (event) => {
-		trigger().dispatchEvent(new Event(event));
-		flushSync();
-		await settleImports();
-		expect(useQuery).toHaveBeenCalledOnce();
-		expect(document.querySelector('[role="dialog"]')).toBeNull();
-		trigger().click();
-		await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
-	});
+	it.each(['pointerenter', 'focus'])(
+		'preloads on %s without opening the menu',
+		async (event) => {
+			trigger().dispatchEvent(new Event(event));
+			flushSync();
+			await settleImports();
+			expect(useQuery).toHaveBeenCalledOnce();
+			expect(document.querySelector('[role="dialog"]')).toBeNull();
+			trigger().click();
+			await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+		},
+		// The menu is a dynamic import. While the suite's Vite server is busy its
+		// transform takes longer than the default five seconds, then the next case
+		// observes the menu the timed-out case finally mounted.
+		15_000
+	);
 
 	it.each([
 		['k', { metaKey: true }],

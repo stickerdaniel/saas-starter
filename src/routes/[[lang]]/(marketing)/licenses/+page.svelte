@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getTranslate } from '@tolgee/svelte';
-	import SEOHead from '$lib/components/SEOHead.svelte';
-	import ThirdPartyLicenses from '$lib/components/licenses/third-party-licenses.svelte';
+	import SEOHead from '#lib/components/SEOHead.svelte';
+	import ThirdPartyLicenses from '#lib/components/licenses/third-party-licenses.svelte';
 
 	let { data } = $props();
 

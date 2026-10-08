@@ -1,49 +1,49 @@
 <script lang="ts">
-	import { browser, dev } from '$app/environment';
+	import { browser, dev } from '$app/env';
 	import { beforeNavigate, onNavigate } from '$app/navigation';
 	import { page, updated } from '$app/state';
 	import { T, Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
 	import { ModeWatcher } from 'mode-watcher';
-	import AppAuthProvider from '$lib/components/app/app-auth-provider.svelte';
-	import AppAutumnProvider from '$lib/components/app/app-autumn-provider.svelte';
-	import AnalyticsRoot from '$lib/components/analytics/analytics-root.svelte';
+	import AppAuthProvider from '#lib/components/app/app-auth-provider.svelte';
+	import AppAutumnProvider from '#lib/components/app/app-autumn-provider.svelte';
+	import AnalyticsRoot from '#lib/components/analytics/analytics-root.svelte';
 	import {
 		PUBLIC_POSTHOG_ALLOWED_HOSTS,
 		PUBLIC_POSTHOG_API_KEY,
 		PUBLIC_POSTHOG_HOST
-	} from '$env/static/public';
-	import { resolveAnalyticsConfig } from '$lib/analytics/config';
+	} from '$app/env/public';
+	import { resolveAnalyticsConfig } from '#lib/analytics/config.js';
 	import {
 		AnalyticsPreferences,
 		analyticsPreferencesContext
-	} from '$lib/analytics/preferences.svelte.ts';
-	import ClockSkewBanner from '$lib/components/clock-skew-banner.svelte';
-	import { ClockSkewState, clockSkewContext } from '$lib/hooks/clock-skew.svelte.ts';
-	import InvestigationBar from '$lib/components/authenticated/investigation-bar.svelte';
-	import { ImpersonationState, impersonationContext } from '$lib/hooks/use-impersonation.svelte.ts';
+	} from '#lib/analytics/preferences.svelte.ts';
+	import ClockSkewBanner from '#lib/components/clock-skew-banner.svelte';
+	import { ClockSkewState, clockSkewContext } from '#lib/hooks/clock-skew.svelte.ts';
+	import InvestigationBar from '#lib/components/authenticated/investigation-bar.svelte';
+	import { ImpersonationState, impersonationContext } from '#lib/hooks/use-impersonation.svelte.ts';
 	import {
 		ActiveUploads,
 		activeUploadsContext,
 		shouldBlockNavigation,
 		deployReloadTarget
-	} from '$lib/hooks/active-uploads.svelte.ts';
-	import UploadGuardNotice from '$lib/components/upload-guard-notice.svelte';
-	import CheckoutProvider from '$lib/components/billing/checkout-provider.svelte';
-	import { setGlobalSearchContext } from '$lib/components/global-search/context.svelte.ts';
-	import GlobalSearchShell from '$lib/components/global-search/global-search-shell.svelte';
-	import { languageContext } from '$lib/i18n/context';
-	import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
-	import { routeLanguage } from '$lib/i18n/load-translations';
-	import { FALLBACK_TRANSLATIONS } from '$lib/i18n/browser-translations.generated';
+	} from '#lib/hooks/active-uploads.svelte.ts';
+	import UploadGuardNotice from '#lib/components/upload-guard-notice.svelte';
+	import CheckoutProvider from '#lib/components/billing/checkout-provider.svelte';
+	import { setGlobalSearchContext } from '#lib/components/global-search/context.svelte.ts';
+	import GlobalSearchShell from '#lib/components/global-search/global-search-shell.svelte';
+	import { languageContext } from '#lib/i18n/context.js';
+	import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from '#lib/i18n/languages.js';
+	import { routeLanguage } from '#lib/i18n/load-translations.js';
+	import { FALLBACK_TRANSLATIONS } from '#lib/i18n/browser-translations.generated.js';
 	import type { LayoutProps } from './$types';
-	import RouteProgress from '$lib/components/RouteProgress.svelte';
-	import { Toaster } from '$lib/components/ui/sonner';
-	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import RouteProgress from '#lib/components/RouteProgress.svelte';
+	import { Toaster } from '#lib/components/ui/sonner/index.js';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
 	import { watch } from 'runed';
-	import { devNotice } from '$lib/dev/notice';
+	import { devNotice } from '#lib/dev/notice.js';
 	import { preloads } from 'fontless/runtime';
-	import { criticalFontScope } from '$lib/font-loading';
+	import { criticalFontScope } from '#lib/font-loading.js';
 	import './layout.css';
 
 	// Dev transforms can register the same font for several stylesheets.

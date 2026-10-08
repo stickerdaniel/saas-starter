@@ -1,11 +1,11 @@
 <script lang="ts">
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import NavUserTrigger from '$lib/components/ui/owned/nav-user-trigger.svelte';
-	import UserAvatar from '$lib/components/user-avatar.svelte';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
-	import { authClient } from '$lib/auth-client';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
+	import NavUserTrigger from '#lib/components/ui/owned/nav-user-trigger.svelte';
+	import UserAvatar from '#lib/components/user-avatar.svelte';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { useSidebar } from '#lib/components/ui/sidebar/index.js';
+	import { authClient } from '#lib/auth-client.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -17,15 +17,15 @@
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import UserXIcon from '@lucide/svelte/icons/user-x';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { localizedHref } from '$lib/utils/i18n';
-	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-	import { impersonationContext } from '$lib/hooks/use-impersonation.svelte.ts';
+	import { localizedHref } from '#lib/utils/i18n.js';
+	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
+	import { impersonationContext } from '#lib/hooks/use-impersonation.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
-	import { useBillingCheckout } from '$lib/components/billing';
-	import { clearPersistedChatState } from '$lib/chat/core/chat-persisted-state.ts';
-	import { duringAuthChange } from '$lib/analytics/client';
+	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
+	import { useBillingCheckout } from '#lib/components/billing/index.js';
+	import { clearPersistedChatState } from '#lib/chat/core/chat-persisted-state.ts';
+	import { duringAuthChange } from '#lib/analytics/client.js';
 
 	const { t } = getTranslate();
 

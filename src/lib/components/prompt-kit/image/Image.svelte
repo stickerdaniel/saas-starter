@@ -1,6 +1,6 @@
 <script lang="ts">
 	// @todo unused component — delete if still unused by next audit
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.js';
 	import type { HTMLImgAttributes } from 'svelte/elements';
 
 	export type GeneratedImageLike = {

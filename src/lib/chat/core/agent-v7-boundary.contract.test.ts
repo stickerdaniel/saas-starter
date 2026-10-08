@@ -5,7 +5,7 @@ import { stepCountIs, tool, type UIMessageChunk } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
 import * as z from 'zod';
 import { getFunctionAddress, type FunctionArgs } from 'convex/server';
-import { components } from '$lib/convex/_generated/api';
+import { components } from '#lib/convex/_generated/api.js';
 import { deriveUIMessagesFromDeltas } from './stream-materialization';
 import {
 	prepareToolErrorRedactionStep,

@@ -6,6 +6,9 @@ export default {
 		'src/routes/**/+{page,layout,server,error}.{svelte,ts}',
 		'src/routes/**/+{page,layout}.server.ts',
 
+		// Kit loads this registry by convention. Nothing imports it.
+		'src/env.ts',
+
 		// Convex backend: every export is an entry point consumed by the Convex runtime
 		'src/lib/convex/**/*.ts',
 		'!src/lib/convex/_generated/**',

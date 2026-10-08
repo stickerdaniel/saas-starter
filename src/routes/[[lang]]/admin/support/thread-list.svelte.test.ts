@@ -17,7 +17,7 @@ vi.mock('@tolgee/svelte', async () => {
 vi.mock('$app/state', () => ({
 	page: { data: { lang: 'en' }, params: {}, url: new URL('http://localhost/en/admin/support') }
 }));
-vi.mock('$lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: () => {} } }));
+vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: () => {} } }));
 
 import { useDictionary } from './test-fixtures/translation';
 import ThreadList from './thread-list.svelte';

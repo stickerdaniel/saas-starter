@@ -1,21 +1,21 @@
 <script lang="ts">
-	import SEOHead from '$lib/components/SEOHead.svelte';
+	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	// Regular UI components (what email SHOULD look like)
-	import * as Card from '$lib/components/ui/card';
-	import { Badge } from '$lib/components/ui/badge';
-	import * as Alert from '$lib/components/ui/alert';
-	import * as Item from '$lib/components/ui/item';
-	import { Button } from '$lib/components/ui/button';
-	import { Separator } from '$lib/components/ui/separator';
-	import * as Avatar from '$lib/components/ui/avatar';
-	import { Progress } from '$lib/components/ui/progress';
-	import { LoadingBar } from '$lib/components/ui/loading-bar';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Toggle } from '$lib/components/ui/toggle';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import { Label } from '$lib/components/ui/label';
-	import { Response, streamingTextAnimation } from '$lib/components/ai-elements/response';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import * as Item from '#lib/components/ui/item/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Separator } from '#lib/components/ui/separator/index.js';
+	import * as Avatar from '#lib/components/ui/avatar/index.js';
+	import { Progress } from '#lib/components/ui/progress/index.js';
+	import { LoadingBar } from '#lib/components/ui/loading-bar/index.js';
+	import { Switch } from '#lib/components/ui/switch/index.js';
+	import { Toggle } from '#lib/components/ui/toggle/index.js';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import { Response, streamingTextAnimation } from '#lib/components/ai-elements/response/index.js';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import BoldIcon from '@lucide/svelte/icons/bold';
 

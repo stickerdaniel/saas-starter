@@ -1,5 +1,8 @@
 import type { LayoutServerLoad } from './$types';
-import { resolveAuthLayoutData, resolvePublicAuthLayoutData } from '$lib/server/auth-layout-data';
+import {
+	resolveAuthLayoutData,
+	resolvePublicAuthLayoutData
+} from '#lib/server/auth-layout-data.js';
 
 export const load: LayoutServerLoad = async (event) => {
 	// The hook classifies public routes without making this load depend on

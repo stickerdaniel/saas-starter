@@ -1,6 +1,6 @@
 import { createContext } from 'svelte';
-import { getChatSessionEpoch } from '$lib/chat/core/chat-persisted-state.ts';
-import { ComposerSendCoordinator } from '$lib/chat/ui/composer-send-coordinator.ts';
+import { getChatSessionEpoch } from '#lib/chat/core/chat-persisted-state.ts';
+import { ComposerSendCoordinator } from '#lib/chat/ui/composer-send-coordinator.ts';
 import { SupportConversation, type SupportAssignedAdmin } from './support-conversation.svelte.ts';
 import { SupportHandoffCommands } from './support-handoff-commands.svelte.ts';
 import { SupportNavigationState } from './support-navigation-state.svelte.ts';

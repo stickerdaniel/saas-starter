@@ -1,15 +1,15 @@
 import type { ServerLoadEvent } from '@sveltejs/kit';
 import type { FunctionReturnType } from 'convex/server';
-import { api } from '$lib/convex/_generated/api';
-import { toAutumnClientApi } from '$lib/billing/autumn-api-adapter';
+import { api } from '#lib/convex/_generated/api.js';
+import { toAutumnClientApi } from '#lib/billing/autumn-api-adapter.js';
 import { createAutumnHandlers } from '@stickerdaniel/convex-autumn-svelte/sveltekit/server';
-import { createServerConvexHttpClient } from '$lib/server/convex-http';
-import { decodeJwtPayload } from '$lib/server/jwt';
-import { hasBetterAuthSessionCookie } from '$lib/server/convex-jwt';
+import { createServerConvexHttpClient } from '#lib/server/convex-http.js';
+import { decodeJwtPayload } from '#lib/server/jwt.js';
+import { hasBetterAuthSessionCookie } from '#lib/server/convex-jwt.js';
 import {
 	UNAVAILABLE_CAPABILITY_USABILITY,
 	type PublicCapabilityUsability
-} from '$lib/dev/features';
+} from '#lib/dev/features.js';
 
 type JwtViewer = {
 	_id: string;

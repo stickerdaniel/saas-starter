@@ -1,11 +1,11 @@
 import type { ColumnDef } from '@tanstack/table-core';
-import type { DataTableFeatures } from '$lib/components/ui/data-table/data-table.svelte.ts';
-import { renderComponent, renderTextCell } from '$lib/components/ui/data-table/index.js';
-import DataTableCheckbox from '$lib/components/data-table-checkbox.svelte';
-import DataTableColumnHeader from '$lib/components/admin/data-table-column-header.svelte';
+import type { DataTableFeatures } from '#lib/components/ui/data-table/data-table.svelte.ts';
+import { renderComponent, renderTextCell } from '#lib/components/ui/data-table/index.js';
+import DataTableCheckbox from '#lib/components/data-table-checkbox.svelte';
+import DataTableColumnHeader from '#lib/components/admin/data-table-column-header.svelte';
 import DataTableActions from './data-table-actions.svelte';
-import type { AdminUserData } from '$lib/convex/admin/types';
-import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
+import type { AdminUserData } from '#lib/convex/admin/types.js';
+import { DEFAULT_LANGUAGE } from '#lib/i18n/languages.js';
 import StatusBadge from './status-badge.svelte';
 import RoleBadge from './role-badge.svelte';
 import ProviderBadge from './provider-badge.svelte';

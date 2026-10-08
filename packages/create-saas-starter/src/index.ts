@@ -80,10 +80,11 @@ export function listenForInterrupt(
 	return () => emitter.off('SIGINT', listener);
 }
 
-function assertSupportedNodeVersion(): void {
-	const [major, minor] = process.versions.node.split('.').map(Number);
-	if (major! < 22 || (major === 22 && minor! < 16)) {
-		throw new Error('Node.js 22.16.0 or newer is required.');
+/** The generated SvelteKit 3 project needs Node.js 22.17 or newer. */
+export function assertSupportedNodeVersion(version = process.versions.node): void {
+	const [major, minor] = version.split('.').map(Number);
+	if (major! < 22 || (major === 22 && minor! < 17)) {
+		throw new Error('Node.js 22.17.0 or newer is required.');
 	}
 }
 

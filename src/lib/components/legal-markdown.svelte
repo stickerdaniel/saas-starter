@@ -4,12 +4,12 @@
 	import type { Snippet } from 'svelte';
 	import LegalMarkdownLink from './legal-markdown-link.svelte';
 	import { LEGAL_LINK_PREFIXES } from './legal-markdown-link';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { localizedHref } from '#lib/utils/i18n.js';
 	import {
 		legalLiteralExtensions,
 		resolveLegalLiteral,
 		type LegalMarkdownContent
-	} from '$lib/content/legal-template';
+	} from '#lib/content/legal-template.js';
 
 	interface LinkToken {
 		href: string;

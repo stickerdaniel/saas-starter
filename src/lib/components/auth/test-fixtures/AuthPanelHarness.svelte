@@ -3,7 +3,7 @@
 	import { FormatIcu } from '@tolgee/format-icu';
 	import en from '../../../../i18n/en.json';
 	import { resolve } from '$app/paths';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { localizedHref } from '#lib/utils/i18n.js';
 	import AuthPanel from '../auth-panel.svelte';
 	let {
 		variant,

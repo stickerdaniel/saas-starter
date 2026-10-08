@@ -4,13 +4,12 @@ const isCloudflarePreview =
 	(process.env.PLAYWRIGHT_BASE_URL ?? process.env.BASE_URL ?? '').includes('workers.dev') ||
 	process.env.E2E_TARGET === 'cf';
 
-// Cache-buster: CF Cache API ignores Vary: Accept, so HTML and markdown variants
-// of the same URL share one cache key. A unique cb per request keeps each variant
-// on a distinct key (markdown can't poison HTML) and forces a fresh origin fetch
-// on the post-deploy run.
+// The HTML and markdown variants of a marketing page share one URL and differ only by
+// Accept, so requests here deliberately reuse the same URL: a cache that kept either
+// variant for the other would show up as the wrong representation.
 test.describe('public agent surface', () => {
 	test('page navigation to the localized marketing home returns HTML', async ({ page }) => {
-		const response = await page.goto(`/en?cb=${Date.now()}`);
+		const response = await page.goto('/en');
 
 		expect(response).not.toBeNull();
 		expect(response?.status()).toBe(200);
@@ -19,7 +18,7 @@ test.describe('public agent surface', () => {
 	});
 
 	test('generic GET requests to marketing pages do not return 406', async ({ request }) => {
-		const response = await request.get(`/en?cb=${Date.now()}`);
+		const response = await request.get('/en');
 
 		expect(response.status()).toBe(200);
 		expect(response.headers()['content-type']).toContain('text/html');
@@ -27,18 +26,33 @@ test.describe('public agent surface', () => {
 		expect(await response.text()).not.toContain('Not Acceptable');
 	});
 
-	test('marketing pages still return markdown when explicitly requested', async ({ request }) => {
+	test('marketing pages negotiate HTML and markdown at the same URL in either order', async ({
+		request
+	}) => {
+		const orders = [
+			['text/html', 'text/markdown', 'text/html'],
+			['text/markdown', 'text/html', 'text/markdown']
+		];
 		for (const path of ['/en', '/en/pricing']) {
-			const response = await request.get(`${path}?cb=${Date.now()}`, {
-				headers: {
-					Accept: 'text/markdown'
-				}
-			});
+			for (const order of orders) {
+				for (const accept of order) {
+					const label = `${path} ${order.join(' -> ')}: ${accept}`;
+					const response = await request.get(path, { headers: { Accept: accept } });
+					const body = await response.text();
 
-			expect(response.status(), path).toBe(200);
-			expect(response.headers()['content-type'], path).toContain('text/markdown; charset=utf-8');
-			expect(response.headers()['vary'], path).toContain('Accept');
-			expect(await response.text(), path).toContain('content_type: "marketing-page"');
+					expect(response.status(), label).toBe(200);
+					expect(response.headers()['vary'], label).toContain('Accept');
+					if (accept === 'text/markdown') {
+						expect(response.headers()['content-type'], label).toContain(
+							'text/markdown; charset=utf-8'
+						);
+						expect(body, label).toContain('content_type: "marketing-page"');
+					} else {
+						expect(response.headers()['content-type'], label).toContain('text/html');
+						expect(body, label).not.toContain('content_type: "marketing-page"');
+					}
+				}
+			}
 		}
 	});
 
@@ -50,7 +64,7 @@ test.describe('public agent surface', () => {
 		];
 
 		for (const { path, contentType } of expectations) {
-			const response = await request.get(`${path}?cb=${Date.now()}`);
+			const response = await request.get(path);
 
 			expect(response.status(), path).toBe(200);
 			expect(new URL(response.url()).pathname, path).toBe(path);
@@ -59,8 +73,8 @@ test.describe('public agent surface', () => {
 	});
 
 	test('marketing HTML revalidates, markdown variant stays private', async ({ request }) => {
-		test.skip(!isCloudflarePreview, 'worker patch is CF-only; not present in local test stack');
-		const html = await request.get(`/en/privacy?cb=${Date.now()}`, {
+		test.skip(!isCloudflarePreview, 'the cache policy is asserted against the deployed Worker');
+		const html = await request.get('/en/privacy', {
 			headers: { Accept: 'text/html' }
 		});
 		expect(html.status()).toBe(200);
@@ -72,7 +86,7 @@ test.describe('public agent surface', () => {
 		expect(html.headers()['cache-control']).toContain('no-cache');
 		expect(html.headers()['cache-control']).not.toContain('s-maxage');
 
-		const md = await request.get(`/en/privacy?cb=${Date.now()}`, {
+		const md = await request.get('/en/privacy', {
 			headers: { Accept: 'text/markdown' }
 		});
 		expect(md.status()).toBe(200);

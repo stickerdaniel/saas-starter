@@ -12,7 +12,7 @@ import type { ChatSessionPort } from '../core/chat-session-port.js';
 import { MAX_MESSAGE_LENGTH } from '../core/types.js';
 import type { Attachment, DisplayMessage, MessageRole } from '../core/types.js';
 import { getChatSessionEpoch, isChatSessionCurrent } from '../core/chat-persisted-state.js';
-import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
+import { FadeOnLoad } from '#lib/utils/fade-on-load.svelte.ts';
 import type { UploadProfile } from '../../uploads/profiles.js';
 import { ComposerAttachmentCoordinator } from './composer-attachment-coordinator.svelte.ts';
 import type {

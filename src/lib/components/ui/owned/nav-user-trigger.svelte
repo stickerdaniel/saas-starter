@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Button, type ButtonProps } from '$lib/components/ui/button/index.js';
-	import { cn } from '$lib/utils.js';
+	import { Button, type ButtonProps } from '#lib/components/ui/button/index.js';
+	import { cn } from '#lib/utils.js';
 
 	type Props = Omit<ButtonProps, 'variant' | 'size' | 'shape' | 'justify' | 'affordance'> & {
 		/** Rings the trigger in the warning color while an admin acts as this user. */

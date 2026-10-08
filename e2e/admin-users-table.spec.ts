@@ -388,6 +388,29 @@ test.describe('Admin Users Table', () => {
 		await expect(page.getByTestId('admin-users-pagination-next')).toBeDisabled();
 	});
 
+	test('table paging keeps the scroll position and records browser history', async ({ page }) => {
+		// Cheaper layers rejected because: only a real browser can report the scroll
+		// position and walk the session history the table's URL state writes.
+		await page.goto(`/en/admin/users?search=${encodeURIComponent(seedPrefix)}&page_size=1`);
+		await page.waitForLoadState('domcontentloaded');
+		await waitForUsersTableReady(page);
+		const indicator = page.getByTestId('admin-users-page-indicator');
+		await expect(indicator).toHaveText(`Page 1 of ${SEED_USER_COUNT}`);
+
+		await page.evaluate(() => window.scrollTo(0, 400));
+		await page.getByTestId('admin-users-pagination-next').click();
+		await expect(indicator).toHaveText(`Page 2 of ${SEED_USER_COUNT}`);
+		expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
+
+		await page.getByTestId('admin-users-pagination-next').click();
+		await expect(indicator).toHaveText(`Page 3 of ${SEED_USER_COUNT}`);
+
+		await page.goBack();
+		await expect(indicator).toHaveText(`Page 2 of ${SEED_USER_COUNT}`);
+		await page.goForward();
+		await expect(indicator).toHaveText(`Page 3 of ${SEED_USER_COUNT}`);
+	});
+
 	test('role sorting toggles asc and desc', async ({ page }) => {
 		await applySeedSearch(page, seedPrefix);
 
