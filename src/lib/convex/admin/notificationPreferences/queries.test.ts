@@ -25,8 +25,12 @@ const lastPageHandler = (
 	>
 )._handler;
 
-/** Five custom recipients (no user id), created a..e, so the default sort is e..a. */
-function recipientsCtx() {
+/**
+ * Five custom recipients (no user id), created a..e, so the default sort is
+ * e..a. None stores `notifyNewCustomers`, as rows from before that toggle;
+ * `overrides` sets fields per letter.
+ */
+function recipientsCtx(overrides: Record<string, Record<string, unknown>> = {}) {
 	const rows = ['a', 'b', 'c', 'd', 'e'].map((letter, index) => ({
 		email: `${letter}@x.test`,
 		isAdminUser: false,
@@ -34,7 +38,8 @@ function recipientsCtx() {
 		notifyUserReplies: true,
 		notifyNewSignups: true,
 		createdAt: index,
-		updatedAt: index
+		updatedAt: index,
+		...overrides[letter]
 	}));
 	return {
 		db: { query: () => ({ collect: async () => rows }) },
@@ -56,6 +61,20 @@ describe('listNotificationRecipients', () => {
 		const last = await listHandler(ctx, { numItems: 2, cursor: second.continueCursor! });
 		expect(last.items.map((row) => row.email)).toEqual(['a@x.test']);
 		expect(last).toMatchObject({ continueCursor: null, isDone: true });
+	});
+
+	it('shows a toggle stored before it existed as on and an explicit false as off', async () => {
+		const ctx = recipientsCtx({ a: { notifyNewCustomers: false } });
+
+		const { items } = await listHandler(ctx, { numItems: 5 });
+
+		expect(Object.fromEntries(items.map((row) => [row.email, row.notifyNewCustomers]))).toEqual({
+			'a@x.test': false,
+			'b@x.test': true,
+			'c@x.test': true,
+			'd@x.test': true,
+			'e@x.test': true
+		});
 	});
 
 	it('resolves the last page to the offset that fetches it', async () => {

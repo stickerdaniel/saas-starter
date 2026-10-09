@@ -90,6 +90,7 @@
 			"column_email": "Email",
 			"column_name": "Nom",
 			"column_new_signups": "Nouvelles Inscriptions",
+			"column_new_customers": "Nouveaux Clients",
 			"column_new_tickets": "Nouveaux Tickets",
 			"column_type": "Type",
 			"column_user_replies": "Réponses Utilisateur",
@@ -100,6 +101,7 @@
 			"email_added": "Email ajouté",
 			"email_exists": "Cet email existe déjà",
 			"field_new_signups": "Notifications de nouvelles inscriptions",
+			"field_new_customers": "Notifications de nouveaux clients",
 			"field_new_tickets": "Notifications de nouveaux tickets",
 			"field_user_replies": "Notifications de réponses utilisateur",
 			"filter": {
@@ -704,6 +706,15 @@
 					"unavailable": "indisponible"
 				}
 			},
+			"milestone": {
+				"signed_up": "Inscrit",
+				"paid": "A payé {amount}",
+				"plan": {
+					"month": "{plan}, mensuel",
+					"year": "{plan}, annuel"
+				},
+				"signup_to_paid": "de l'inscription au paiement"
+			},
 			"source": {
 				"aiChat": {
 					"label": "Messages au chat IA",
@@ -758,6 +769,13 @@
 			"preview": "Nouvel utilisateur : {userEmail}",
 			"title": "Nouvel utilisateur inscrit"
 		},
+		"new_customer": {
+			"badge": "Nouveau client",
+			"title": "{customer} a payé {amount}",
+			"preview": "A payé {duration} après son inscription",
+			"journey_unavailable": "Le parcours client n'a pas pu être inclus dans cet email.",
+			"footer": "Heures en {timeZone}. Tu reçois cet email car les notifications de nouveaux clients sont activées."
+		},
 		"rate_limit_alert": {
 			"action": "S'il s'agit de trafic réel, augmente la limite dans la configuration du limiteur du support. S'il provient d'une seule source, il peut s'agir d'un abus.",
 			"description": "{limitName} des visiteurs non connectés ont utilisé {usedPercent} % de leur limite partagée depuis au moins {minutes} minutes.",
@@ -796,6 +814,7 @@
 		},
 		"subject": {
 			"new_signup": "Nouvelle inscription : {userEmail}",
+			"new_customer": "Nouveau client : {customer} a payé {amount}",
 			"rate_limit_alert": "Limite de requêtes du support presque atteinte : {limitName}",
 			"reset_password": "Réinitialise ton mot de passe",
 			"set_password": "Définir un mot de passe",

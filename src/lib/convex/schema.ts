@@ -6,6 +6,7 @@ import { vAnonymousRateLimitBucket } from './support/rateLimitAlertFields';
 import { founderIncidentEmailFields } from './emails/founderIncidentTypes';
 import { aiUsageFeatureValidator } from './aiUsage/feature';
 import { journeyCaptureStarts } from './admin/journey/capture';
+import { customerNotifications } from './admin/customerNotifications/ledger';
 
 export default defineSchema({
 	// Note: Better Auth component manages its own tables (users, sessions, accounts, verifications)
@@ -187,6 +188,8 @@ export default defineSchema({
 		notifyNewSupportTickets: v.boolean(), // New support tickets (handoff from AI)
 		notifyUserReplies: v.boolean(), // User replied, admin didn't respond within 2 min
 		notifyNewSignups: v.boolean(), // New user registrations
+		// Added after rows already existed, so optional: a missing value means on.
+		notifyNewCustomers: v.optional(v.boolean()), // First payments
 
 		createdAt: v.number(),
 		updatedAt: v.number()
@@ -320,7 +323,9 @@ export default defineSchema({
 		.index('by_user_at', ['userId', 'at'])
 		.index('by_feature_at', ['feature', 'at']),
 
-	journeyCaptureStarts
+	journeyCaptureStarts,
+
+	customerNotifications
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support

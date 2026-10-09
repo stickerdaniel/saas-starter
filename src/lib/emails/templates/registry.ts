@@ -118,6 +118,20 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 			footerText: '__ETA_footerText__'
 		}
 	},
+	NewCustomerAdminNotificationEmail: {
+		outputName: 'newCustomerAdminNotification',
+		props: {
+			lang: '__ETA_lang__',
+			badgeText: '__ETA_badgeText__',
+			titleText: '__ETA_titleText__',
+			descriptionText: '__ETA_descriptionText__',
+			previewText: '__ETA_previewText__',
+			timelineHtml: '__ETA_timelineHtml__',
+			adminDashboardLink: '__ETA_adminDashboardLink__',
+			buttonText: '__ETA_buttonText__',
+			footerText: '__ETA_footerText__'
+		}
+	},
 	SupportRateLimitAlertEmail: {
 		outputName: 'supportRateLimitAlert',
 		props: {

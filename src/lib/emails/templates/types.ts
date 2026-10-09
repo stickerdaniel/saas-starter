@@ -7,6 +7,8 @@ import type AdminReplyNotificationEmail from './AdminReplyNotificationEmail.svel
 import type NewTicketAdminNotificationEmail from './NewTicketAdminNotificationEmail.svelte';
 import type NewUserSignupNotificationEmail from './NewUserSignupNotificationEmail.svelte';
 import type SupportRateLimitAlertEmail from './SupportRateLimitAlertEmail.svelte';
+import type NewCustomerAdminNotificationEmail from './NewCustomerAdminNotificationEmail.svelte';
+import type { ComposedJourney } from '../../convex/admin/customerNotifications/compose';
 
 // Extract component prop types
 export type VerificationEmailProps = ComponentProps<typeof VerificationEmail>;
@@ -20,6 +22,9 @@ export type NewUserSignupNotificationEmailProps = ComponentProps<
 	typeof NewUserSignupNotificationEmail
 >;
 export type SupportRateLimitAlertEmailProps = ComponentProps<typeof SupportRateLimitAlertEmail>;
+export type NewCustomerAdminNotificationEmailProps = ComponentProps<
+	typeof NewCustomerAdminNotificationEmail
+>;
 
 // Helper to make all props required (removes optional defaults)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -147,6 +152,29 @@ export type SupportRateLimitAlertEmailData = {
 	ratePerHour: number;
 	lowForMinutes: number;
 	cooldownHours: number;
+	adminDashboardLink: string;
+};
+
+/**
+ * Data required to render a new customer admin notification email
+ *
+ * Sent to admins when a customer's first eligible payment is observed.
+ *
+ * @property customer - The customer's name, or their email when they have none
+ * @property customerEmail - The customer's email address
+ * @property amount - The first payment, formatted in its currency
+ * @property previewText - Inbox preview line
+ * @property journey - Tiles and timeline; null renders the email without them
+ * @property timeZone - IANA zone every time is shown in, named in the footer
+ * @property adminDashboardLink - Link to the admin users page filtered by this customer
+ */
+export type NewCustomerAdminNotificationEmailData = {
+	customer: string;
+	customerEmail: string;
+	amount: string;
+	previewText: string;
+	journey: ComposedJourney | null;
+	timeZone: string;
 	adminDashboardLink: string;
 };
 

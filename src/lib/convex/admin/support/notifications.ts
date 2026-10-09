@@ -29,7 +29,7 @@ import {
 } from '../../_generated/server';
 import { internal, components } from '../../_generated/api';
 import { supportThreadFields } from '../../support/supportThreadFields';
-import { isPreviewAdminEmail } from '../notificationPreferences/helpers';
+import { receivesNotification } from '../notificationPreferences/queries';
 import { getEmailDeliveryConfiguration } from '../../emails/resend';
 import { shouldSkipTestEmail } from '../../emails/helpers';
 
@@ -750,15 +750,8 @@ export const getNotificationTargetEmails = internalQuery({
 		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: rows exist only through admin actions (promotions, custom recipients), one per email
 		const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
 
-		// Map notification type to field name
-		const toggleField =
-			args.notificationType === 'newTickets' ? 'notifyNewSupportTickets' : 'notifyUserReplies';
-
 		// Filter to active recipients (admins or custom emails) with this notification enabled
-		const activePrefs = allPrefs.filter(
-			(p) =>
-				!isPreviewAdminEmail(p.email) && (p.isAdminUser || p.userId === undefined) && p[toggleField]
-		);
+		const activePrefs = allPrefs.filter((p) => receivesNotification(p, args.notificationType));
 
 		// If assigned admin has this notification enabled, prioritize them
 		if (args.assignedTo) {

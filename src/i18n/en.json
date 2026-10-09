@@ -90,6 +90,7 @@
 			"column_email": "Email",
 			"column_name": "Name",
 			"column_new_signups": "New Signups",
+			"column_new_customers": "New Customers",
 			"column_new_tickets": "New Tickets",
 			"column_type": "Type",
 			"column_user_replies": "User Replies",
@@ -100,6 +101,7 @@
 			"email_added": "Email added",
 			"email_exists": "This email already exists",
 			"field_new_signups": "New signup notifications",
+			"field_new_customers": "New customer notifications",
 			"field_new_tickets": "New ticket notifications",
 			"field_user_replies": "User reply notifications",
 			"filter": {
@@ -704,6 +706,15 @@
 					"unavailable": "unavailable"
 				}
 			},
+			"milestone": {
+				"signed_up": "Signed up",
+				"paid": "Paid {amount}",
+				"plan": {
+					"month": "{plan}, monthly",
+					"year": "{plan}, yearly"
+				},
+				"signup_to_paid": "signup to paid"
+			},
 			"source": {
 				"aiChat": {
 					"label": "AI chat messages",
@@ -758,6 +769,13 @@
 			"preview": "New user: {userEmail}",
 			"title": "New user signed up"
 		},
+		"new_customer": {
+			"badge": "New customer",
+			"title": "{customer} paid {amount}",
+			"preview": "Paid {duration} after signing up",
+			"journey_unavailable": "The customer journey could not be included in this email.",
+			"footer": "Times in {timeZone}. You're receiving this email because you have new customer notifications enabled."
+		},
 		"rate_limit_alert": {
 			"action": "If this is real traffic, raise the limit in the support rate limiter configuration. If it comes from a single source, it may be abuse.",
 			"description": "{limitName} from signed-out visitors have used {usedPercent}% of their shared limit for at least {minutes} minutes.",
@@ -796,6 +814,7 @@
 		},
 		"subject": {
 			"new_signup": "New user signup: {userEmail}",
+			"new_customer": "New customer: {customer} paid {amount}",
 			"rate_limit_alert": "Support rate limit running low: {limitName}",
 			"reset_password": "Reset your password",
 			"set_password": "Set a password",

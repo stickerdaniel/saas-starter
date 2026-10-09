@@ -15,15 +15,17 @@ import schema from '../../schema';
  *   (measured with `getDocumentSize`) returns `isDone: false` without looking
  *   ahead, even when it took the last row (`index_range.rs`);
  * - `runQuery` and `runMutation` children run with their own paginate
- *   allowance and record the `transactionLimits` the caller passed;
- * - a `ctx.runMutation` child with `transactionLimits.bytesRead` fails once
- *   the documents it read exceed it, counting returned documents and again
- *   the document each patch or delete rewrites;
+ *   allowance and record the arguments and `transactionLimits` the caller
+ *   passed;
+ * - a child's `transactionLimits` meter what it and its own children read
+ *   (documents returned, plus the document a patch or delete rewrites) and
+ *   write (inserted or patched documents, by `getDocumentSize`), and the
+ *   operation that crosses a limit throws;
  * - a mutation that throws, including a caught `ctx.runMutation` child, leaves
  *   no writes and no scheduled functions behind;
  * - mutations run one at a time, the serial outcome OCC guarantees.
- * Platform retries, other limits and timing are out of scope (local backend
- * only).
+ * Platform retries, the global limits and timing are out of scope (local
+ * backend only).
  */
 
 type Doc = Record<string, Value | undefined> & { _id: string; _creationTime: number };
@@ -31,6 +33,16 @@ type Table = keyof typeof schema.tables;
 type Handler = (ctx: never, args: never) => Promise<unknown>;
 type Registered = { _handler: Handler };
 type Job = { id: number; runAt: number; name: string; args: Record<string, unknown> };
+/** A Better Auth user as the adapter returns it. */
+type UserProfile = { _id: string; name?: string; email?: string; locale?: string };
+type Limits = {
+	documentsRead?: number;
+	bytesRead?: number;
+	documentsWritten?: number;
+	bytesWritten?: number;
+};
+/** Usage of one execution and its children against the limits its caller set. */
+type Meter = { limits: Limits; parent?: Meter; used: Required<Limits> };
 type Condition = {
 	field: string;
 	op: 'eq' | 'gt' | 'gte' | 'lt' | 'lte';
@@ -60,10 +72,33 @@ function matches(doc: Doc, condition: Condition): boolean {
 	}
 }
 
+const LIMIT_ERRORS: Record<keyof Limits, string> = {
+	documentsRead: 'Transaction read too many documents',
+	bytesRead: 'Transaction read too many bytes',
+	documentsWritten: 'Transaction wrote too many documents',
+	bytesWritten: 'Transaction wrote too many bytes'
+};
+
+/** Charge one document to a meter and every meter above it; throws on the crossing operation. */
+function charge(meter: Meter | undefined, kind: 'read' | 'write', bytes: number) {
+	const [documents, size] =
+		kind === 'read'
+			? (['documentsRead', 'bytesRead'] as const)
+			: (['documentsWritten', 'bytesWritten'] as const);
+	for (let current = meter; current; current = current.parent) {
+		current.used[documents] += 1;
+		current.used[size] += bytes;
+		for (const key of [documents, size]) {
+			const limit = current.limits[key];
+			if (limit !== undefined && current.used[key] > limit) throw new Error(LIMIT_ERRORS[key]);
+		}
+	}
+}
+
 export function createJourneyStore(
 	options: {
-		/** Better Auth user ids that exist. */
-		users?: string[];
+		/** Better Auth users that exist: an id, or a profile with the fields lookups return. */
+		users?: Array<string | UserProfile>;
 		/** Registered functions reachable through `runMutation`, `runQuery` and the scheduler. */
 		functions?: Record<string, Registered>;
 	} = {}
@@ -72,14 +107,19 @@ export function createJourneyStore(
 	let jobs: Job[] = [];
 	let nextId = 1;
 	let nextJob = 1;
-	const users = new Set(options.users ?? []);
+	const users = new Map<string, UserProfile>(
+		(options.users ?? []).map((user) =>
+			typeof user === 'string' ? [user, { _id: user, name: `Name of ${user}` }] : [user._id, user]
+		)
+	);
 	const functions = new Map(
 		Object.entries(options.functions ?? {}).map(([name, fn]) => [name, fn._handler])
 	);
 	/** Throws inside a write to the matching document, `times` times. */
 	const faults: Array<{ id: string; remaining: number }> = [];
-	const childCalls: Array<{ name: string; limits: unknown }> = [];
-	const queryCalls: Array<{ name: string; limits: unknown }> = [];
+	type Call = { name: string; args: Record<string, unknown>; limits: Limits | undefined };
+	const childCalls: Call[] = [];
+	const queryCalls: Call[] = [];
 
 	const rows = (table: string): Map<string, Doc> => {
 		let found = tables.get(table);
@@ -108,19 +148,16 @@ export function createJourneyStore(
 	};
 
 	/**
-	 * One function execution: its own paginate allowance and, for a child run
-	 * with `transactionLimits.bytesRead`, its own read meter.
+	 * One function execution: its own paginate allowance, charging its reads
+	 * and writes to the meter of the nearest caller that set limits.
 	 */
-	function makeCtx(extra: Record<string, unknown> = {}, bytesReadLimit?: number) {
+	function makeCtx(extra: Record<string, unknown> = {}, meter?: Meter) {
 		let paginated = false;
-		let bytesRead = 0;
-		// Charges what the backend counts against the limit: every document a read
-		// returns, and again the document a patch or delete rewrites.
-		const charge = (doc: Doc | undefined) => {
-			if (doc === undefined || bytesReadLimit === undefined) return;
-			bytesRead += getDocumentSize(doc as Record<string, Value>);
-			if (bytesRead > bytesReadLimit) throw new Error('Transaction read too many bytes');
+		const read = (doc: Doc | undefined) => {
+			if (doc !== undefined) charge(meter, 'read', getDocumentSize(doc as Record<string, Value>));
 		};
+		const write = (doc: Doc | null) =>
+			charge(meter, 'write', doc ? getDocumentSize(doc as Record<string, Value>) : 0);
 
 		const rangeOf = (table: string, index: string, conditions: Condition[]) => {
 			const fields = index === 'by_creation_time' ? [] : indexFields.get(`${table}.${index}`);
@@ -174,7 +211,7 @@ export function createJourneyStore(
 					async take(n: number) {
 						const { docs } = rangeOf(table, index, conditions);
 						const found = (descending ? docs.reverse() : docs).slice(0, n);
-						found.forEach(charge);
+						found.forEach(read);
 						return found;
 					},
 					async collect() {
@@ -220,7 +257,7 @@ export function createJourneyStore(
 								isDone = true;
 								break;
 							}
-							charge(doc);
+							read(doc);
 							result.push(doc);
 							bytes += getDocumentSize(doc as Record<string, Value>);
 						}
@@ -241,29 +278,33 @@ export function createJourneyStore(
 			query,
 			async get(table: string, id: string) {
 				const doc = rows(table).get(id);
-				charge(doc);
+				read(doc);
 				return doc ?? null;
 			},
 			async insert(table: string, value: Record<string, Value | undefined>) {
 				const id = `${table}:${nextId++}`;
-				rows(table).set(id, { ...value, _id: id, _creationTime: Date.now() + nextId / 1000 });
+				const doc: Doc = { ...value, _id: id, _creationTime: Date.now() + nextId / 1000 };
+				write(doc);
+				rows(table).set(id, doc);
 				return id;
 			},
 			async patch(table: string, id: string, value: Record<string, Value | undefined>) {
 				const doc = rows(table).get(id);
 				if (!doc) throw new Error(`patch: ${id} does not exist`);
-				charge(doc);
+				read(doc);
 				checkFault(id);
 				const next: Doc = { ...doc };
 				for (const [field, fieldValue] of Object.entries(value)) {
 					if (fieldValue === undefined) delete next[field];
 					else next[field] = fieldValue;
 				}
+				write(next);
 				rows(table).set(id, next);
 			},
 			async delete(table: string, id: string) {
-				charge(rows(table).get(id));
+				read(rows(table).get(id));
 				checkFault(id);
+				write(null);
 				rows(table).delete(id);
 			}
 		};
@@ -280,7 +321,7 @@ export function createJourneyStore(
 			async runQuery(
 				ref: unknown,
 				args: Record<string, unknown>,
-				options?: { transactionLimits?: unknown }
+				options?: { transactionLimits?: Limits }
 			) {
 				let name: string;
 				try {
@@ -288,19 +329,19 @@ export function createJourneyStore(
 				} catch {
 					return userLookup(args);
 				}
-				queryCalls.push({ name, limits: options?.transactionLimits });
-				return await call(name, args);
+				queryCalls.push({ name, args, limits: options?.transactionLimits });
+				return await call(name, args, options?.transactionLimits, meter);
 			},
 			async runMutation(
 				ref: unknown,
 				args: Record<string, unknown>,
-				options?: { transactionLimits?: { bytesRead?: number } }
+				options?: { transactionLimits?: Limits }
 			) {
 				const name = getFunctionName(ref as never);
-				childCalls.push({ name, limits: options?.transactionLimits });
+				childCalls.push({ name, args, limits: options?.transactionLimits });
 				const saved = snapshot();
 				try {
-					return await call(name, args, options?.transactionLimits?.bytesRead);
+					return await call(name, args, options?.transactionLimits, meter);
 				} catch (error) {
 					restore(saved);
 					throw error;
@@ -313,31 +354,42 @@ export function createJourneyStore(
 
 	/**
 	 * The only component queries these paths make: Better Auth users by `_id`,
-	 * one (`findOne`, `eq`) or several (`findMany`, `in`).
+	 * one (`findOne`, `eq`) or several (`findMany`, `in`), and one user by
+	 * `email` (`findOne`, `eq`).
 	 */
 	function userLookup(args: Record<string, unknown>) {
 		const where = (args.where as Array<{ field: string; operator: string; value: unknown }>)[0];
-		if (args.model !== 'user' || where?.field !== '_id') {
+		if (args.model !== 'user' || (where?.field !== '_id' && where?.field !== 'email')) {
 			throw new Error('Unmodelled component query');
 		}
-		const profile = (id: string) => ({ _id: id, name: `Name of ${id}` });
-		if (where.operator === 'in') {
-			const ids = (where.value as string[]).filter((id) => users.has(id));
-			return { page: ids.map(profile), isDone: true, continueCursor: '' };
+		if (where.field === 'email') {
+			if (where.operator !== 'eq') throw new Error('Unmodelled component query');
+			return [...users.values()].find((user) => user.email === where.value) ?? null;
 		}
-		const id = where.value as string;
-		return users.has(id) ? profile(id) : null;
+		if (where.operator === 'in') {
+			const page = (where.value as string[]).flatMap((id) => users.get(id) ?? []);
+			return { page, isDone: true, continueCursor: '' };
+		}
+		return users.get(where.value as string) ?? null;
 	}
 
 	async function call(
 		name: string,
 		args: Record<string, unknown>,
-		bytesReadLimit?: number
+		limits?: Limits,
+		parent?: Meter
 	): Promise<unknown> {
 		const handler = functions.get(name);
 		if (!handler) throw new Error(`Unregistered function ${name}`);
+		const meter: Meter | undefined = limits
+			? {
+					limits,
+					parent,
+					used: { documentsRead: 0, bytesRead: 0, documentsWritten: 0, bytesWritten: 0 }
+				}
+			: parent;
 		return await (handler as (ctx: unknown, args: unknown) => Promise<unknown>)(
-			makeCtx({}, bytesReadLimit),
+			makeCtx({}, meter),
 			args
 		);
 	}
@@ -407,10 +459,14 @@ export function createJourneyStore(
 		/** Pending jobs, with their delay from the current (fake) time. */
 		jobs: () => jobs.map(({ runAt, name, args }) => ({ delayMs: runAt - Date.now(), name, args })),
 		/** Child mutations this store ran, with the limits the caller requested. */
-		childCalls: () => childCalls.map((call) => ({ ...call })),
+		childCalls: () => childCalls.map(({ name, limits }) => ({ name, limits })),
+		/** The arguments each child mutation named `name` received, in call order. */
+		childArgs: (name: string) =>
+			childCalls.filter((call) => call.name === name).map((call) => call.args),
 		/** Registered queries this store ran through `runQuery`, with the limits requested. */
-		queryCalls: () => queryCalls.map((call) => ({ ...call })),
-		docs: (table: Table) => [...rows(table).values()],
+		queryCalls: () => queryCalls.map(({ name, limits }) => ({ name, limits })),
+		// A component table is named `<component>:<table>`, as test doubles of component writes store them.
+		docs: (table: Table | `${string}:${string}`) => [...rows(table).values()],
 		/** Seed a document; `createdAt` pins its `_creationTime` exactly. */
 		insert(table: Table, value: Record<string, Value | undefined>, createdAt?: number) {
 			const id = `${table}:${nextId++}`;

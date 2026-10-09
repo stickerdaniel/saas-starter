@@ -90,6 +90,7 @@
 			"column_email": "E-Mail",
 			"column_name": "Name",
 			"column_new_signups": "Neue Anmeldungen",
+			"column_new_customers": "Neue Kunden",
 			"column_new_tickets": "Neue Tickets",
 			"column_type": "Typ",
 			"column_user_replies": "Benutzerantworten",
@@ -100,6 +101,7 @@
 			"email_added": "E-Mail hinzugefügt",
 			"email_exists": "Diese E-Mail existiert bereits",
 			"field_new_signups": "Benachrichtigungen für neue Anmeldungen",
+			"field_new_customers": "Benachrichtigungen für neue Kunden",
 			"field_new_tickets": "Benachrichtigungen für neue Tickets",
 			"field_user_replies": "Benachrichtigungen für Benutzerantworten",
 			"filter": {
@@ -704,6 +706,15 @@
 					"unavailable": "nicht verfügbar"
 				}
 			},
+			"milestone": {
+				"signed_up": "Registriert",
+				"paid": "{amount} bezahlt",
+				"plan": {
+					"month": "{plan}, monatlich",
+					"year": "{plan}, jährlich"
+				},
+				"signup_to_paid": "Registrierung bis Zahlung"
+			},
 			"source": {
 				"aiChat": {
 					"label": "KI-Chat-Nachrichten",
@@ -758,6 +769,13 @@
 			"preview": "Neuer Benutzer: {userEmail}",
 			"title": "Neuer Benutzer registriert"
 		},
+		"new_customer": {
+			"badge": "Neuer Kunde",
+			"title": "{customer} hat {amount} bezahlt",
+			"preview": "{duration} nach der Registrierung bezahlt",
+			"journey_unavailable": "Der Kundenverlauf konnte dieser E-Mail nicht beigefügt werden.",
+			"footer": "Zeiten in {timeZone}. Du erhältst diese E-Mail, weil du Benachrichtigungen über neue Kunden aktiviert hast."
+		},
 		"rate_limit_alert": {
 			"action": "Wenn es sich um echten Traffic handelt, erhöh das Limit in der Konfiguration des Support-Ratenlimits. Kommt er von einer einzelnen Quelle, kann es sich um Missbrauch handeln.",
 			"description": "{limitName} von nicht angemeldeten Besuchern haben seit mindestens {minutes} Minuten {usedPercent} % ihres gemeinsamen Limits verbraucht.",
@@ -796,6 +814,7 @@
 		},
 		"subject": {
 			"new_signup": "Neue Benutzerregistrierung: {userEmail}",
+			"new_customer": "Neuer Kunde: {customer} hat {amount} bezahlt",
 			"rate_limit_alert": "Support-Ratenlimit fast erreicht: {limitName}",
 			"reset_password": "Passwort zurücksetzen",
 			"set_password": "Passwort einrichten",

@@ -90,6 +90,7 @@
 			"column_email": "Email",
 			"column_name": "Nombre",
 			"column_new_signups": "Nuevos Registros",
+			"column_new_customers": "Nuevos Clientes",
 			"column_new_tickets": "Nuevos Tickets",
 			"column_type": "Tipo",
 			"column_user_replies": "Respuestas de Usuario",
@@ -100,6 +101,7 @@
 			"email_added": "Email agregado",
 			"email_exists": "Este email ya existe",
 			"field_new_signups": "Notificaciones de nuevos registros",
+			"field_new_customers": "Notificaciones de nuevos clientes",
 			"field_new_tickets": "Notificaciones de nuevos tickets",
 			"field_user_replies": "Notificaciones de respuestas de usuario",
 			"filter": {
@@ -704,6 +706,15 @@
 					"unavailable": "no disponible"
 				}
 			},
+			"milestone": {
+				"signed_up": "Se registró",
+				"paid": "Pagó {amount}",
+				"plan": {
+					"month": "{plan}, mensual",
+					"year": "{plan}, anual"
+				},
+				"signup_to_paid": "del registro al pago"
+			},
 			"source": {
 				"aiChat": {
 					"label": "Mensajes del chat de IA",
@@ -758,6 +769,13 @@
 			"preview": "Nuevo usuario: {userEmail}",
 			"title": "Nuevo usuario registrado"
 		},
+		"new_customer": {
+			"badge": "Nuevo cliente",
+			"title": "{customer} pagó {amount}",
+			"preview": "Pagó {duration} después de registrarse",
+			"journey_unavailable": "No se pudo incluir el recorrido del cliente en este email.",
+			"footer": "Horas en {timeZone}. Recibes este email porque tienes activadas las notificaciones de nuevos clientes."
+		},
 		"rate_limit_alert": {
 			"action": "Si es tráfico real, aumenta el límite en la configuración del limitador de soporte. Si viene de una sola fuente, puede tratarse de abuso.",
 			"description": "{limitName} de visitantes sin sesión iniciada han usado el {usedPercent} % de su límite compartido durante al menos {minutes} minutos.",
@@ -796,6 +814,7 @@
 		},
 		"subject": {
 			"new_signup": "Nuevo registro de usuario: {userEmail}",
+			"new_customer": "Nuevo cliente: {customer} pagó {amount}",
 			"rate_limit_alert": "Límite de solicitudes de soporte casi agotado: {limitName}",
 			"reset_password": "Restablecer tu contraseña",
 			"set_password": "Establece una contraseña",

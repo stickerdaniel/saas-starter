@@ -31,7 +31,8 @@
 	const fieldTranslationKeys: Record<ToggleField, string> = {
 		notifyNewSupportTickets: 'admin.settings.field_new_tickets',
 		notifyUserReplies: 'admin.settings.field_user_replies',
-		notifyNewSignups: 'admin.settings.field_new_signups'
+		notifyNewSignups: 'admin.settings.field_new_signups',
+		notifyNewCustomers: 'admin.settings.field_new_customers'
 	};
 
 	function handleToggle() {

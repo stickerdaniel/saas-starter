@@ -1,8 +1,11 @@
 import { createContext } from 'svelte';
 import type { RowSelectionState } from '@tanstack/table-core';
-import type { NotificationRecipient } from '#lib/convex/admin/notificationPreferences/queries.js';
+import type {
+	NotificationRecipient,
+	NotificationToggleField
+} from '#lib/convex/admin/notificationPreferences/queries.js';
 
-export type ToggleField = 'notifyNewSupportTickets' | 'notifyUserReplies' | 'notifyNewSignups';
+export type ToggleField = NotificationToggleField;
 
 export const [getTogglePreferenceContext, setTogglePreferenceContext] =
 	createContext<(email: string, field: ToggleField, currentValue: boolean) => Promise<void>>();
