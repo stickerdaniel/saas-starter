@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { EmailId } from '@convex-dev/resend';
+import type { EmailId, SendEmailOptions } from '@convex-dev/resend';
 import { resend } from '../../emails/resend';
 import { createJourneyStore } from '../journey/journeyStore.fixtures';
 import * as aiChat from '../journey/sources/aiChat';
@@ -189,7 +189,9 @@ type ComponentDb = { insert(table: string, value: Record<string, unknown>): Prom
  * written, the way a write limit crossed by the email row does.
  */
 export function installResend(fail?: { to: string; error: string }) {
-	return vi.spyOn(resend, 'sendEmail').mockImplementation(async (ctx, options) => {
+	// `sendEmail` is overloaded; the mock takes the options form and rejects the
+	// positional one.
+	const sendEmail = async (ctx: unknown, options: SendEmailOptions | string) => {
 		if (typeof options === 'string') throw new Error('positional sendEmail is not modelled');
 		const db = (ctx as unknown as { db: ComponentDb }).db;
 		const content = async (body: string | undefined, mimeType: string) =>
@@ -213,5 +215,6 @@ export function installResend(fail?: { to: string; error: string }) {
 			status: 'waiting',
 			replyTo: options.replyTo ?? []
 		})) as EmailId;
-	});
+	};
+	return vi.spyOn(resend, 'sendEmail').mockImplementation(sendEmail as typeof resend.sendEmail);
 }
