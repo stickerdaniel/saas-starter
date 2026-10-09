@@ -11,9 +11,11 @@ import schema from '../../schema';
  *   (`compareValues`), so `gte(field, 0)` excludes documents without it;
  * - a function calls `.paginate` at most once
  *   (convex-backend `async_syscall.rs`, `MultiplePaginatedDatabaseQueries`);
- * - a page that reaches `numItems` or `maximumBytesRead` (measured with
- *   `getDocumentSize`) returns `isDone: false` without looking ahead, even
- *   when it took the last row (`index_range.rs`);
+ * - a page that reaches `numItems`, `maximumRowsRead` or `maximumBytesRead`
+ *   (measured with `getDocumentSize`) returns `isDone: false` without looking
+ *   ahead, even when it took the last row (`index_range.rs`);
+ * - `runQuery` and `runMutation` children run with their own paginate
+ *   allowance and record the `transactionLimits` the caller passed;
  * - a `ctx.runMutation` child with `transactionLimits.bytesRead` fails once
  *   the documents it read exceed it, counting returned documents and again
  *   the document each patch or delete rewrites;
@@ -77,6 +79,7 @@ export function createJourneyStore(
 	/** Throws inside a write to the matching document, `times` times. */
 	const faults: Array<{ id: string; remaining: number }> = [];
 	const childCalls: Array<{ name: string; limits: unknown }> = [];
+	const queryCalls: Array<{ name: string; limits: unknown }> = [];
 
 	const rows = (table: string): Map<string, Doc> => {
 		let found = tables.get(table);
@@ -188,6 +191,7 @@ export function createJourneyStore(
 					async paginate(page: {
 						cursor: string | null;
 						numItems: number;
+						maximumRowsRead?: number;
 						maximumBytesRead?: number;
 					}) {
 						if (paginated) {
@@ -204,11 +208,12 @@ export function createJourneyStore(
 							: docs;
 						const result: Doc[] = [];
 						let bytes = 0;
-						// Like the backend, a page stops at `numItems` or its byte allowance
-						// without looking ahead, so such a page is never done, even when it
-						// took the last row.
+						// Like the backend, a page stops at `numItems`, `maximumRowsRead` or
+						// its byte allowance without looking ahead, so such a page is never
+						// done, even when it took the last row.
 						let isDone = false;
 						while (result.length < page.numItems) {
+							if (result.length === page.maximumRowsRead) break;
 							if (page.maximumBytesRead !== undefined && bytes >= page.maximumBytesRead) break;
 							const doc = remaining[result.length];
 							if (doc === undefined) {
@@ -272,13 +277,18 @@ export function createJourneyStore(
 					return `job:${nextJob}`;
 				}
 			},
-			async runQuery(ref: unknown, args: Record<string, unknown>) {
+			async runQuery(
+				ref: unknown,
+				args: Record<string, unknown>,
+				options?: { transactionLimits?: unknown }
+			) {
 				let name: string;
 				try {
 					name = getFunctionName(ref as never);
 				} catch {
 					return userLookup(args);
 				}
+				queryCalls.push({ name, limits: options?.transactionLimits });
 				return await call(name, args);
 			},
 			async runMutation(
@@ -398,10 +408,14 @@ export function createJourneyStore(
 		jobs: () => jobs.map(({ runAt, name, args }) => ({ delayMs: runAt - Date.now(), name, args })),
 		/** Child mutations this store ran, with the limits the caller requested. */
 		childCalls: () => childCalls.map((call) => ({ ...call })),
+		/** Registered queries this store ran through `runQuery`, with the limits requested. */
+		queryCalls: () => queryCalls.map((call) => ({ ...call })),
 		docs: (table: Table) => [...rows(table).values()],
-		insert(table: Table, value: Record<string, Value | undefined>) {
+		/** Seed a document; `createdAt` pins its `_creationTime` exactly. */
+		insert(table: Table, value: Record<string, Value | undefined>, createdAt?: number) {
 			const id = `${table}:${nextId++}`;
-			rows(table).set(id, { ...value, _id: id, _creationTime: Date.now() + nextId / 1000 });
+			const _creationTime = createdAt ?? Date.now() + nextId / 1000;
+			rows(table).set(id, { ...value, _id: id, _creationTime });
 			return id;
 		},
 		deleteUser(userId: string) {

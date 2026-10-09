@@ -675,6 +675,79 @@
 			"ticket_started": "{userName} a démarré une nouvelle conversation de support",
 			"view_admin_dashboard": "Voir dans le tableau de bord admin"
 		},
+		"customer_journey": {
+			"core": {
+				"count": {
+					"at_least": "au moins {count}",
+					"at_least_leading": "Au moins {count}",
+					"none_checked": "rien trouvé dans les enregistrements vérifiés"
+				},
+				"duration": {
+					"days": "{days} j",
+					"days_hours": "{days} j {hours} h",
+					"hours": "{hours} h",
+					"hours_minutes": "{hours} h {minutes} min",
+					"minutes": "{minutes} min",
+					"one_day": "1 j",
+					"one_day_hours": "1 j {hours} h",
+					"under_minute": "moins d’1 min"
+				},
+				"later": "{duration} plus tard",
+				"notes": {
+					"not_recorded": "{source} : pas encore enregistré.",
+					"partial": "{source} : vérifié en partie seulement, les nombres sont donc des minimums.",
+					"recorded_since": "{source} : enregistré depuis le {date}.",
+					"unavailable": "{source} : chargement impossible pour cet email."
+				},
+				"value": {
+					"not_recorded": "pas encore enregistré",
+					"unavailable": "indisponible"
+				}
+			},
+			"source": {
+				"aiChat": {
+					"label": "Messages au chat IA",
+					"metric": {
+						"before_paying": "messages au chat IA avant paiement",
+						"window": "messages au chat IA"
+					},
+					"range": {
+						"complete": "Premier {first}, dernier {last}",
+						"observed": "Premier {first}, dernier observé {last}"
+					},
+					"step": {
+						"many": "A envoyé {count} messages au chat IA",
+						"one": "A envoyé 1 message au chat IA"
+					}
+				},
+				"community": {
+					"label": "Messages communautaires",
+					"metric": {
+						"before_paying": "messages communautaires avant paiement",
+						"window": "messages communautaires"
+					},
+					"range": {
+						"complete": "Premier {first}, dernier {last}",
+						"observed": "Premier {first}, dernier observé {last}"
+					},
+					"step": {
+						"many": "A envoyé {count} messages communautaires",
+						"one": "A envoyé 1 message communautaire"
+					}
+				},
+				"support": {
+					"label": "Contacts avec le support",
+					"range": {
+						"complete": "Premier {first}, dernier {last}",
+						"observed": "Premier {first}, dernier observé {last}"
+					},
+					"step": {
+						"many": "Premiers contacts enregistrés avec le support dans {count} conversations",
+						"one": "Premier contact enregistré avec le support"
+					}
+				}
+			}
+		},
 		"new_signup": {
 			"description": "Un nouvel utilisateur s'est inscrit sur ta plateforme",
 			"footer": "Tu reçois cet email car les notifications de nouvelles inscriptions sont activées.",

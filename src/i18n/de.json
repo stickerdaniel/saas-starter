@@ -675,6 +675,79 @@
 			"ticket_started": "{userName} hat ein neues Support-Gespräch gestartet",
 			"view_admin_dashboard": "Im Admin-Dashboard ansehen"
 		},
+		"customer_journey": {
+			"core": {
+				"count": {
+					"at_least": "mindestens {count}",
+					"at_least_leading": "Mindestens {count}",
+					"none_checked": "in den geprüften Einträgen nichts gefunden"
+				},
+				"duration": {
+					"days": "{days} Tage",
+					"days_hours": "{days} Tage {hours} Std.",
+					"hours": "{hours} Std.",
+					"hours_minutes": "{hours} Std. {minutes} Min.",
+					"minutes": "{minutes} Min.",
+					"one_day": "1 Tag",
+					"one_day_hours": "1 Tag {hours} Std.",
+					"under_minute": "unter 1 Min."
+				},
+				"later": "{duration} später",
+				"notes": {
+					"not_recorded": "{source}: noch nicht erfasst.",
+					"partial": "{source}: nur teilweise geprüft, Zahlen sind daher Mindestwerte.",
+					"recorded_since": "{source}: erfasst seit {date}.",
+					"unavailable": "{source}: konnte für diese E-Mail nicht geladen werden."
+				},
+				"value": {
+					"not_recorded": "noch nicht erfasst",
+					"unavailable": "nicht verfügbar"
+				}
+			},
+			"source": {
+				"aiChat": {
+					"label": "KI-Chat-Nachrichten",
+					"metric": {
+						"before_paying": "KI-Chat-Nachrichten vor der Zahlung",
+						"window": "KI-Chat-Nachrichten"
+					},
+					"range": {
+						"complete": "Erste {first}, letzte {last}",
+						"observed": "Erste {first}, letzte gesehene {last}"
+					},
+					"step": {
+						"many": "{count} KI-Chat-Nachrichten gesendet",
+						"one": "1 KI-Chat-Nachricht gesendet"
+					}
+				},
+				"community": {
+					"label": "Community-Nachrichten",
+					"metric": {
+						"before_paying": "Community-Nachrichten vor der Zahlung",
+						"window": "Community-Nachrichten"
+					},
+					"range": {
+						"complete": "Erste {first}, letzte {last}",
+						"observed": "Erste {first}, letzte gesehene {last}"
+					},
+					"step": {
+						"many": "{count} Community-Nachrichten gesendet",
+						"one": "1 Community-Nachricht gesendet"
+					}
+				},
+				"support": {
+					"label": "Support-Kontakte",
+					"range": {
+						"complete": "Erster {first}, letzter {last}",
+						"observed": "Erster {first}, letzter gesehener {last}"
+					},
+					"step": {
+						"many": "Erste erfasste Support-Kontakte in {count} Anfragen",
+						"one": "Erster erfasster Support-Kontakt"
+					}
+				}
+			}
+		},
 		"new_signup": {
 			"description": "Ein neuer Benutzer hat sich auf deiner Plattform registriert",
 			"footer": "Du erhältst diese E-Mail, weil du Benachrichtigungen über neue Registrierungen aktiviert hast.",

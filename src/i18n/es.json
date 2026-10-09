@@ -675,6 +675,79 @@
 			"ticket_started": "{userName} ha iniciado una nueva conversación de soporte",
 			"view_admin_dashboard": "Ver en el panel de administración"
 		},
+		"customer_journey": {
+			"core": {
+				"count": {
+					"at_least": "al menos {count}",
+					"at_least_leading": "Al menos {count}",
+					"none_checked": "nada encontrado en los registros revisados"
+				},
+				"duration": {
+					"days": "{days} d",
+					"days_hours": "{days} d {hours} h",
+					"hours": "{hours} h",
+					"hours_minutes": "{hours} h {minutes} min",
+					"minutes": "{minutes} min",
+					"one_day": "1 d",
+					"one_day_hours": "1 d {hours} h",
+					"under_minute": "menos de 1 min"
+				},
+				"later": "{duration} después",
+				"notes": {
+					"not_recorded": "{source}: aún no se registra.",
+					"partial": "{source}: revisado solo en parte, así que los recuentos son mínimos.",
+					"recorded_since": "{source}: registrado desde {date}.",
+					"unavailable": "{source}: no se pudo cargar para este correo."
+				},
+				"value": {
+					"not_recorded": "aún no registrado",
+					"unavailable": "no disponible"
+				}
+			},
+			"source": {
+				"aiChat": {
+					"label": "Mensajes del chat de IA",
+					"metric": {
+						"before_paying": "mensajes al chat de IA antes de pagar",
+						"window": "mensajes al chat de IA"
+					},
+					"range": {
+						"complete": "Primero {first}, último {last}",
+						"observed": "Primero {first}, último observado {last}"
+					},
+					"step": {
+						"many": "Envió {count} mensajes al chat de IA",
+						"one": "Envió 1 mensaje al chat de IA"
+					}
+				},
+				"community": {
+					"label": "Mensajes en la comunidad",
+					"metric": {
+						"before_paying": "mensajes a la comunidad antes de pagar",
+						"window": "mensajes a la comunidad"
+					},
+					"range": {
+						"complete": "Primero {first}, último {last}",
+						"observed": "Primero {first}, último observado {last}"
+					},
+					"step": {
+						"many": "Envió {count} mensajes a la comunidad",
+						"one": "Envió 1 mensaje a la comunidad"
+					}
+				},
+				"support": {
+					"label": "Contactos con soporte",
+					"range": {
+						"complete": "Primero {first}, último {last}",
+						"observed": "Primero {first}, último observado {last}"
+					},
+					"step": {
+						"many": "Primeros contactos registrados con soporte en {count} conversaciones",
+						"one": "Primer contacto registrado con soporte"
+					}
+				}
+			}
+		},
 		"new_signup": {
 			"description": "Un nuevo usuario se ha registrado en tu plataforma",
 			"footer": "Recibes este email porque tienes activadas las notificaciones de nuevos registros.",

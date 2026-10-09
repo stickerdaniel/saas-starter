@@ -33,6 +33,7 @@ import {
 } from '../../emails/generated/index.js';
 import { requireEmailConfiguration } from '../env';
 import { t, DEFAULT_LOCALE, getValidLocale } from '../i18n/translations';
+import { escapeHtml } from './html';
 
 /**
  * Simple template renderer that replaces {{varName}} patterns with values.
@@ -43,23 +44,6 @@ function renderTemplate(template: string, data: Record<string, string | number>)
 		const value = data[key];
 		return value !== undefined ? String(value) : '';
 	});
-}
-
-/**
- * Escape HTML special characters for safe rendering in HTML context
- */
-function escapeHtml(str: string): string {
-	return str.replace(
-		/[&<>"']/g,
-		(c) =>
-			({
-				'&': '&amp;',
-				'<': '&lt;',
-				'>': '&gt;',
-				'"': '&quot;',
-				"'": '&#39;'
-			})[c]!
-	);
 }
 
 /** Get the validated base URL for email assets and footer links. */

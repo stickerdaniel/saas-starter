@@ -675,6 +675,79 @@
 			"ticket_started": "{userName} has started a new support conversation",
 			"view_admin_dashboard": "View in Admin Dashboard"
 		},
+		"customer_journey": {
+			"core": {
+				"count": {
+					"at_least": "at least {count}",
+					"at_least_leading": "At least {count}",
+					"none_checked": "none found in the checked records"
+				},
+				"duration": {
+					"days": "{days} d",
+					"days_hours": "{days} d {hours} h",
+					"hours": "{hours} h",
+					"hours_minutes": "{hours} h {minutes} min",
+					"minutes": "{minutes} min",
+					"one_day": "1 d",
+					"one_day_hours": "1 d {hours} h",
+					"under_minute": "under 1 min"
+				},
+				"later": "{duration} later",
+				"notes": {
+					"not_recorded": "{source}: not recorded yet.",
+					"partial": "{source}: only partly checked, so counts are minimums.",
+					"recorded_since": "{source}: recorded since {date}.",
+					"unavailable": "{source}: could not be loaded for this email."
+				},
+				"value": {
+					"not_recorded": "not recorded yet",
+					"unavailable": "unavailable"
+				}
+			},
+			"source": {
+				"aiChat": {
+					"label": "AI chat messages",
+					"metric": {
+						"before_paying": "AI chat messages before paying",
+						"window": "AI chat messages"
+					},
+					"range": {
+						"complete": "First {first}, last {last}",
+						"observed": "First {first}, last observed {last}"
+					},
+					"step": {
+						"many": "Sent {count} AI chat messages",
+						"one": "Sent 1 AI chat message"
+					}
+				},
+				"community": {
+					"label": "Community messages",
+					"metric": {
+						"before_paying": "community messages before paying",
+						"window": "community messages"
+					},
+					"range": {
+						"complete": "First {first}, last {last}",
+						"observed": "First {first}, last observed {last}"
+					},
+					"step": {
+						"many": "Sent {count} community messages",
+						"one": "Sent 1 community message"
+					}
+				},
+				"support": {
+					"label": "Support contacts",
+					"range": {
+						"complete": "First {first}, last {last}",
+						"observed": "First {first}, last observed {last}"
+					},
+					"step": {
+						"many": "First recorded support contacts in {count} threads",
+						"one": "First recorded support contact"
+					}
+				}
+			}
+		},
 		"new_signup": {
 			"description": "A new user has registered on your platform",
 			"footer": "You're receiving this email because you have new signup notifications enabled.",
