@@ -11,12 +11,17 @@ import schema from '../../schema';
  *   (`compareValues`), so `gte(field, 0)` excludes documents without it;
  * - a function calls `.paginate` at most once
  *   (convex-backend `async_syscall.rs`, `MultiplePaginatedDatabaseQueries`);
- * - `maximumBytesRead` ends a page early with `isDone: false`, measured with
- *   `getDocumentSize`;
+ * - a page that reaches `numItems` or `maximumBytesRead` (measured with
+ *   `getDocumentSize`) returns `isDone: false` without looking ahead, even
+ *   when it took the last row (`index_range.rs`);
+ * - a `ctx.runMutation` child with `transactionLimits.bytesRead` fails once
+ *   the documents it read exceed it, counting returned documents and again
+ *   the document each patch or delete rewrites;
  * - a mutation that throws, including a caught `ctx.runMutation` child, leaves
  *   no writes and no scheduled functions behind;
  * - mutations run one at a time, the serial outcome OCC guarantees.
- * Platform retries, limits and timing are out of scope (local backend only).
+ * Platform retries, other limits and timing are out of scope (local backend
+ * only).
  */
 
 type Doc = Record<string, Value | undefined> & { _id: string; _creationTime: number };
