@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { authClient } from '#lib/auth-client.js';
+	import TruncatedText from '#lib/components/truncated-text.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import PasskeyDeleteButton from '#lib/components/ui/owned/passkey-delete-button.svelte';
 	import { Input } from '#lib/components/ui/input/index.js';
@@ -205,7 +206,9 @@
 								<KeyIcon />
 							</Item.Media>
 							<Item.Content>
-								<Item.Title>{passkey.name || $t('settings.security.passkey.unnamed')}</Item.Title>
+								<Item.Title>
+									<TruncatedText text={passkey.name || $t('settings.security.passkey.unnamed')} />
+								</Item.Title>
 								<Item.Description>
 									<T keyName="settings.security.created_at" />
 									{formatDate(passkey.createdAt)}
