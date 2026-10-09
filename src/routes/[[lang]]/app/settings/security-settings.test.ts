@@ -63,6 +63,14 @@ async function addPasskey() {
 }
 
 beforeEach(() => {
+	vi.stubGlobal(
+		'ResizeObserver',
+		class {
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		}
+	);
 	vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel');
 	vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
 		'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
@@ -75,6 +83,7 @@ afterEach(async () => {
 	component = undefined;
 	document.body.replaceChildren();
 	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
 	vi.clearAllMocks();
 });
 
