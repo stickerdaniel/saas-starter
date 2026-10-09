@@ -56,7 +56,7 @@
 	}
 </script>
 
-<Tooltip.Root bind:open={() => open, setOpen}>
+<Tooltip.Root bind:open={() => open, setOpen} disableCloseOnTriggerClick>
 	<Tooltip.Trigger>
 		{#snippet child({ props: { type: _buttonType, ...props } })}
 			<!-- Only clipped text becomes a tab stop, so keyboard users can reach the full

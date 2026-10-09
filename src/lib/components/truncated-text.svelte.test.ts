@@ -136,6 +136,38 @@ describe('TruncatedText', () => {
 		expect(tooltip()).toBeNull();
 	});
 
+	it.each(['Escape', 'blur'])('keeps tapped text open until %s dismisses it', async (dismiss) => {
+		render(LONG);
+
+		// Touch focuses after pointerup, then emits a click. That click must not
+		// immediately dismiss the full value that focus just opened.
+		trigger().dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'touch' }));
+		trigger().dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch' }));
+		trigger().dispatchEvent(new PointerEvent('pointerup', { pointerType: 'touch' }));
+		trigger().focus();
+		await settle();
+		trigger().click();
+		await settle();
+
+		expect(tooltip()?.textContent?.trim()).toBe(LONG);
+		expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
+
+		// A second tap while reading must preserve the disclosure too.
+		trigger().dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch' }));
+		trigger().dispatchEvent(new PointerEvent('pointerup', { pointerType: 'touch' }));
+		trigger().click();
+		await settle();
+		expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
+
+		if (dismiss === 'Escape') {
+			trigger().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		} else {
+			trigger().blur();
+		}
+		await settle();
+		expect(tooltip()).toBeNull();
+	});
+
 	it('follows text changes', async () => {
 		const props = render(LONG);
 		await hover();
