@@ -1,7 +1,11 @@
+import { inspect } from 'node:util';
+import type { EmailId } from '@convex-dev/resend';
+import { makeFunctionReference } from 'convex/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { onDelete } from '../../auth';
+import { resend } from '../../emails/resend';
 import { continueErasure, erasePage, startJourneyErasure } from './erasure';
-import { createJourneyStore } from './journeyStore.fixtures';
+import { createJourneyStore, type JobState } from './journeyStore.fixtures';
 
 type Registered = { _handler: (ctx: never, args: never) => Promise<unknown> };
 
@@ -185,7 +189,7 @@ describe('journey erasure', () => {
 			{
 				delayMs: 60_000,
 				name: 'admin/journey/erasure:continueErasure',
-				args: { userId: USER, step: 'receipts', attempt: 2 }
+				args: { userId: USER, step: 'ledger', attempt: 2 }
 			}
 		]);
 
@@ -219,7 +223,7 @@ describe('journey erasure', () => {
 		expect(error).toHaveBeenCalledTimes(1);
 		expect(error).toHaveBeenCalledWith({
 			code: 'journey_erasure_blocked',
-			step: 'receipts',
+			step: 'ledger',
 			userId: USER
 		});
 		expect(store.docs('aiChatMessageReceipts')).toHaveLength(2);
@@ -306,8 +310,196 @@ describe('account deletion trigger', () => {
 			{
 				delayMs: 60_000,
 				name: 'admin/journey/erasure:continueErasure',
-				args: { userId: USER, step: 'receipts', attempt: 2 }
+				args: { userId: USER, step: 'ledger', attempt: 2 }
 			}
 		]);
+	});
+});
+
+describe('customer notification ledger', () => {
+	type EmailStatus =
+		| 'waiting'
+		| 'queued'
+		| 'cancelled'
+		| 'sent'
+		| 'delivered'
+		| 'delivery_delayed'
+		| 'bounced'
+		| 'failed';
+	type ComponentDb = {
+		get(table: string, id: string): Promise<Record<string, unknown> | null>;
+		patch(table: string, id: string, value: Record<string, unknown>): Promise<void>;
+	};
+	const EMAILS = 'resend:emails';
+	const SEND = makeFunctionReference<'mutation'>(
+		'admin/customerNotifications/send:sendNewCustomer'
+	);
+
+	/**
+	 * The Resend component's status and cancel as `@convex-dev/resend` 0.2.8
+	 * `component/lib.ts` implements them: `getStatus` returns null for a
+	 * missing email, and `cancelEmail` throws for a missing email or any status
+	 * other than `waiting` or `queued`, and otherwise marks it `cancelled`.
+	 */
+	function installResend(options: { cancelError?: string } = {}) {
+		const db = (ctx: unknown) => (ctx as { db: ComponentDb }).db;
+		const status = vi.spyOn(resend, 'status').mockImplementation(async (ctx, emailId) => {
+			const email = await db(ctx).get(EMAILS, emailId);
+			if (!email) return null;
+			return {
+				status: email.status as EmailStatus,
+				errorMessage: null,
+				bounced: false,
+				complained: false,
+				failed: false,
+				deliveryDelayed: false,
+				opened: false,
+				clicked: false
+			};
+		});
+		const cancelEmail = vi.spyOn(resend, 'cancelEmail').mockImplementation(async (ctx, emailId) => {
+			if (options.cancelError) throw new Error(options.cancelError);
+			const email = await db(ctx).get(EMAILS, emailId);
+			if (!email) throw new Error('Email not found');
+			if (email.status !== 'waiting' && email.status !== 'queued') {
+				throw new Error('Email has already been sent');
+			}
+			await db(ctx).patch(EMAILS, emailId, { status: 'cancelled', finalizedAt: Date.now() });
+		});
+		return { status, cancelEmail };
+	}
+
+	async function email(store: Store, status: EmailStatus): Promise<EmailId> {
+		return (await store.mutate((ctx) => ctx.db.insert(EMAILS, { status }))) as EmailId;
+	}
+
+	/** A scheduled send, moved to `state`; `null` drops its system row. */
+	async function scheduledSend(store: Store, state: JobState | null): Promise<string> {
+		const id = await store.mutate((ctx) =>
+			ctx.scheduler.runAt(Date.now() + 3_600_000, SEND, { notificationId: 'row' })
+		);
+		if (state !== 'pending') store.setJobState(id, state);
+		return id;
+	}
+
+	let episodes = 0;
+	function notification(
+		store: Store,
+		userId: string,
+		fields: { scheduledFnId?: string; emailIds?: string[] } = {}
+	) {
+		return store.insert('customerNotifications', {
+			userId,
+			kind: 'new_customer',
+			episodeKey: `${userId}:${episodes++}`,
+			status: fields.emailIds ? 'enqueued' : 'scheduled',
+			...fields
+		});
+	}
+
+	const jobStates = (store: Store) =>
+		Object.fromEntries(store.scheduled().map((job) => [job.id, job.state]));
+	const emailStatus = (store: Store, id: string) =>
+		store.docs(EMAILS).find((doc) => doc._id === id)?.status;
+
+	it('cancels a pending send and leaves every other job state alone', async () => {
+		const store = setup();
+		installResend();
+		const jobs: Partial<Record<JobState, string>> = {};
+		for (const state of ['pending', 'inProgress', 'success', 'failed', 'canceled'] as const) {
+			jobs[state] = await scheduledSend(store, state);
+			notification(store, USER, { scheduledFnId: jobs[state] });
+		}
+		notification(store, USER, { scheduledFnId: await scheduledSend(store, null) });
+		const othersSend = await scheduledSend(store, 'pending');
+		notification(store, OTHER, { scheduledFnId: othersSend });
+
+		await startErasure(store);
+		await store.runDueJobs();
+
+		expect(jobStates(store)).toEqual({
+			[jobs.pending!]: 'canceled',
+			// The scheduler would mark a running send cancelled too; erasure leaves it alone.
+			[jobs.inProgress!]: 'inProgress',
+			[jobs.success!]: 'success',
+			[jobs.failed!]: 'failed',
+			[jobs.canceled!]: 'canceled',
+			[othersSend]: 'pending'
+		});
+		expect(store.docs('customerNotifications').map((row) => row.userId)).toEqual([OTHER]);
+	});
+
+	it('cancels emails the component still holds and treats every other status as final', async () => {
+		const store = setup();
+		const { cancelEmail } = installResend();
+		const statuses: EmailStatus[] = [
+			'waiting',
+			'queued',
+			'cancelled',
+			'sent',
+			'delivered',
+			'delivery_delayed',
+			'bounced',
+			'failed'
+		];
+		const ids: EmailId[] = [];
+		for (const status of statuses) ids.push(await email(store, status));
+		notification(store, USER, { emailIds: [...ids, 'resend:emails:missing'] });
+
+		await startErasure(store);
+
+		expect(ids.map((id) => emailStatus(store, id))).toEqual([
+			'cancelled',
+			'cancelled',
+			'cancelled',
+			'sent',
+			'delivered',
+			'delivery_delayed',
+			'bounced',
+			'failed'
+		]);
+		expect(cancelEmail.mock.calls.map(([, id]) => id)).toEqual(ids.slice(0, 2));
+		expect(store.docs('customerNotifications')).toEqual([]);
+		expect(store.jobs()).toEqual([]);
+	});
+
+	it('erases a long ledger in pages of at most 100 email ids', async () => {
+		const store = setup();
+		const { status } = installResend();
+		for (let row = 0; row < 30; row++) {
+			const ids: EmailId[] = [];
+			for (let i = 0; i < 20; i++) ids.push(await email(store, 'sent'));
+			notification(store, USER, { emailIds: ids });
+		}
+
+		await startErasure(store);
+		expect(status).toHaveBeenCalledTimes(100);
+		await store.runDueJobs();
+
+		expect(store.docs('customerNotifications')).toEqual([]);
+		expect(status).toHaveBeenCalledTimes(600);
+		expect(store.childCalls()).toHaveLength(6);
+		expect(store.jobs()).toEqual([]);
+	});
+
+	it('keeps component error text out of the erasure log and keeps the row', async () => {
+		const SENTINEL = 'PRIVATE-component-error-9e1b';
+		const lines: string[] = [];
+		vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+			lines.push(args.map((arg) => inspect(arg, { depth: 8 })).join(' '));
+		});
+		const store = setup();
+		installResend({ cancelError: SENTINEL });
+		notification(store, USER, { emailIds: [await email(store, 'waiting')] });
+
+		await startErasure(store);
+		for (const delay of [60_000, 10 * 60_000, 60 * 60_000]) {
+			advance(delay);
+			await store.runDueJobs();
+		}
+
+		expect(lines).toEqual([expect.stringContaining("'journey_erasure_blocked'")]);
+		expect(lines.join('\n')).not.toContain(SENTINEL);
+		expect(store.docs('customerNotifications')).toHaveLength(1);
 	});
 });

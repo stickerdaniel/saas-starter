@@ -623,6 +623,13 @@
 			"url": "https://github.com/microsoft/TypeScript",
 			"branch": "main",
 			"specialNotes": "Native TypeScript 7 compiler, installed as @typescript/native beside the typescript 6 package that svelte2tsx, typescript-eslint, and Convex tooling load through the JS API. Read the installed v7 tag for tsc behavior and the typescript/unstable API that svelte-check --tsgo-experimental-api uses."
+		},
+		{
+			"type": "git",
+			"name": "svix",
+			"url": "https://github.com/svix/svix-webhooks",
+			"branch": "main",
+			"specialNotes": "Svix SDKs. javascript/src/webhook.ts is the Webhook class that verifies Autumn webhooks; since 2.x it delegates to standardwebhooks and verify() returns nothing, so the caller parses the raw body. Read the installed release tag."
 		}
 	]
 }

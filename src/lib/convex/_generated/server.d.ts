@@ -33,6 +33,7 @@ type Env = {
   readonly AUTH_GOOGLE_ID: string | undefined;
   readonly AUTH_GOOGLE_SECRET: string | undefined;
   readonly AUTUMN_SECRET_KEY: string | undefined;
+  readonly AUTUMN_WEBHOOK_SECRET: string | undefined;
   readonly BETTER_AUTH_SECRET: string;
   readonly BETTER_AUTH_SECRETS: string | undefined;
   readonly CAPABILITY_PROFILE:

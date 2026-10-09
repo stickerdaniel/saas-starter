@@ -433,6 +433,8 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 | `AUTH_GITHUB_ID`         | GitHub OAuth client ID                    |   ○   |    ○    |  ○   |
 | `AUTH_GITHUB_SECRET`     | GitHub OAuth client secret                |   ○   |    ○    |  ○   |
 | `RESEND_WEBHOOK_SECRET`  | Resend webhook signing secret             |   ○   |    ○    |  ○   |
+| `AUTUMN_WEBHOOK_SECRET`  | Autumn webhook signing secret             |   ○   |    ○    |  ○   |
+| `ADMIN_TIME_ZONE`        | Time zone of admin customer emails        |   ○   |    ○    |  ○   |
 | `SUPPORT_EMAIL`          | Support contact email                     |   ○   |    ○    |  ○   |
 | `PREVIEW_ADMIN_PASSWORD` | Password for auto-seeded preview admin    |       |    ✓    |      |
 
@@ -488,7 +490,7 @@ Sign in with email/password, Google, GitHub, or passkeys. Powered by [Better Aut
 
 ### Admin Panel
 
-A full admin area at `/admin` with live metrics (total users, active sessions, recent signups), a searchable users table with filtering, sorting, and cursor-based pagination, per-user actions (ban, unban, impersonate, change role, revoke sessions), and a complete audit log.
+A full admin area at `/admin` with live metrics (total users, active sessions, recent signups), a searchable users table with filtering, sorting, and cursor-based pagination, per-user actions (ban, unban, impersonate, change role, revoke sessions), and a complete audit log. Admins can also get an email when a customer pays for the first time, with a timeline of what they did before; it needs the Autumn webhook from [the setup guide](docs/setup/admin-notifications/customer-emails.md).
 
 ### AI Support Chat
 

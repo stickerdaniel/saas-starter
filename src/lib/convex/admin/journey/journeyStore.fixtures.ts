@@ -23,6 +23,12 @@ import schema from '../../schema';
  *   operation that crosses a limit throws;
  * - a mutation that throws, including a caught `ctx.runMutation` child, leaves
  *   no writes and no scheduled functions behind;
+ * - a scheduled function's `_scheduled_functions` row (`ctx.db.system.get`)
+ *   moves from `pending` through `inProgress` to `success` or `failed`, and
+ *   `ctx.scheduler.cancel` marks a `pending` or `inProgress` job `canceled`
+ *   and leaves every other state, or a missing row, unchanged
+ *   (convex-backend `crates/model/src/scheduled_jobs/mod.rs` `cancel`,
+ *   read at a4ad3530c);
  * - mutations run one at a time, the serial outcome OCC guarantees.
  * Platform retries, the global limits and timing are out of scope (local
  * backend only).
@@ -32,9 +38,22 @@ type Doc = Record<string, Value | undefined> & { _id: string; _creationTime: num
 type Table = keyof typeof schema.tables;
 type Handler = (ctx: never, args: never) => Promise<unknown>;
 type Registered = { _handler: Handler };
-type Job = { id: number; runAt: number; name: string; args: Record<string, unknown> };
+export type JobState = 'pending' | 'inProgress' | 'success' | 'failed' | 'canceled';
+type Job = {
+	id: string;
+	runAt: number;
+	name: string;
+	args: Record<string, unknown>;
+	state: JobState;
+};
 /** A Better Auth user as the adapter returns it. */
-type UserProfile = { _id: string; name?: string; email?: string; locale?: string };
+type UserProfile = {
+	_id: string;
+	name?: string;
+	email?: string;
+	locale?: string;
+	createdAt?: number;
+};
 type Limits = {
 	documentsRead?: number;
 	bytesRead?: number;
@@ -104,6 +123,7 @@ export function createJourneyStore(
 	} = {}
 ) {
 	let tables = new Map<string, Map<string, Doc>>();
+	/** Every scheduled function, in any state; entries are replaced, never mutated. */
 	let jobs: Job[] = [];
 	let nextId = 1;
 	let nextJob = 1;
@@ -137,6 +157,14 @@ export function createJourneyStore(
 	const restore = (saved: ReturnType<typeof snapshot>) => {
 		tables = saved.tables;
 		jobs = saved.jobs;
+	};
+	const setState = (id: string, state: JobState) => {
+		jobs = jobs.map((job) => (job.id === id ? { ...job, state } : job));
+	};
+	const schedule = (runAt: number, ref: unknown, args: Record<string, unknown>) => {
+		const id = `job:${nextJob++}`;
+		jobs.push({ id, runAt, name: getFunctionName(ref as never), args, state: 'pending' });
+		return id;
 	};
 
 	const checkFault = (id: string) => {
@@ -306,6 +334,23 @@ export function createJourneyStore(
 				checkFault(id);
 				write(null);
 				rows(table).delete(id);
+			},
+			system: {
+				async get(table: string, id: string) {
+					if (table !== '_scheduled_functions') throw new Error(`Unmodelled system table ${table}`);
+					const job = jobs.find((candidate) => candidate.id === id);
+					if (!job) return null;
+					const doc = {
+						_id: job.id,
+						_creationTime: job.runAt,
+						name: job.name,
+						args: [job.args],
+						scheduledTime: job.runAt,
+						state: { kind: job.state }
+					};
+					read(doc as unknown as Doc);
+					return doc;
+				}
 			}
 		};
 
@@ -313,9 +358,14 @@ export function createJourneyStore(
 			db,
 			scheduler: {
 				async runAfter(delayMs: number, ref: unknown, args: Record<string, unknown>) {
-					const name = getFunctionName(ref as never);
-					jobs.push({ id: nextJob++, runAt: Date.now() + delayMs, name, args });
-					return `job:${nextJob}`;
+					return schedule(Date.now() + delayMs, ref, args);
+				},
+				async runAt(timestamp: number, ref: unknown, args: Record<string, unknown>) {
+					return schedule(timestamp, ref, args);
+				},
+				async cancel(id: string) {
+					const state = jobs.find((job) => job.id === id)?.state;
+					if (state === 'pending' || state === 'inProgress') setState(id, 'canceled');
 				}
 			},
 			async runQuery(
@@ -446,18 +496,34 @@ export function createJourneyStore(
 			for (;;) {
 				if (ran.length >= limit) throw new Error(`Still scheduling work after ${limit} jobs`);
 				const due = jobs
-					.filter((job) => job.runAt <= Date.now())
+					.filter((job) => job.state === 'pending' && job.runAt <= Date.now())
 					.sort((a, b) => a.runAt - b.runAt)[0];
 				if (!due) return ran;
-				jobs = jobs.filter((job) => job.id !== due.id);
 				ran.push(due.name);
 				const handler = functions.get(due.name);
 				if (!handler) throw new Error(`Unregistered scheduled function ${due.name}`);
-				await this.mutate({ _handler: handler }, due.args);
+				setState(due.id, 'inProgress');
+				try {
+					await this.mutate({ _handler: handler }, due.args);
+				} catch (error) {
+					setState(due.id, 'failed');
+					throw error;
+				}
+				setState(due.id, 'success');
 			}
 		},
 		/** Pending jobs, with their delay from the current (fake) time. */
-		jobs: () => jobs.map(({ runAt, name, args }) => ({ delayMs: runAt - Date.now(), name, args })),
+		jobs: () =>
+			jobs
+				.filter((job) => job.state === 'pending')
+				.map(({ runAt, name, args }) => ({ delayMs: runAt - Date.now(), name, args })),
+		/** A scheduled function's id and state, in scheduling order. */
+		scheduled: () => jobs.map(({ id, name, state }) => ({ id, name, state })),
+		/** Move a scheduled function to `state`, or drop its system row (`null`). */
+		setJobState(id: string, state: JobState | null) {
+			if (state === null) jobs = jobs.filter((job) => job.id !== id);
+			else setState(id, state);
+		},
 		/** Child mutations this store ran, with the limits the caller requested. */
 		childCalls: () => childCalls.map(({ name, limits }) => ({ name, limits })),
 		/** The arguments each child mutation named `name` received, in call order. */

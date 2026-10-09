@@ -2,6 +2,7 @@ import { httpRouter } from 'convex/server';
 import { registerRoutes as registerFilesControlRoutes } from '@gilhrpenner/convex-files-control';
 import { httpAction } from './_generated/server';
 import { components } from './_generated/api';
+import { handleAutumnWebhook } from './admin/customerNotifications/observe';
 import { authComponent, createAuth } from './auth';
 import { resend } from './emails/resend';
 
@@ -66,6 +67,10 @@ http.route({
 		});
 	})
 });
+
+// Autumn webhook endpoint (Svix-signed), which admits new customers for the
+// admin customer emails. Setup: docs/setup/admin-notifications/customer-emails.md
+http.route({ path: '/autumn-webhook', method: 'POST', handler: handleAutumnWebhook });
 
 // Resend webhook endpoint
 // Configure this URL in your Resend dashboard: https://your-deployment.convex.site/resend-webhook

@@ -1,5 +1,7 @@
+import type { EmailId } from '@convex-dev/resend';
 import { v, type Infer } from 'convex/values';
 import { internal } from '../../_generated/api';
+import type { Doc } from '../../_generated/dataModel';
 import { internalMutation, type MutationCtx } from '../../_generated/server';
 
 /**
@@ -10,10 +12,16 @@ import { internalMutation, type MutationCtx } from '../../_generated/server';
  * one step and hands over through steps that have nothing to do, so no page is
  * ever scheduled for an empty step. The records themselves (community
  * messages, support threads) outlive the user; only the facts this feature
- * added are removed or cleared.
+ * added are removed or cleared, and the admin customer emails about the user
+ * that have not left yet are cancelled.
  */
 
-const erasureStep = v.union(v.literal('receipts'), v.literal('community'), v.literal('support'));
+const erasureStep = v.union(
+	v.literal('ledger'),
+	v.literal('receipts'),
+	v.literal('community'),
+	v.literal('support')
+);
 type ErasureStep = Infer<typeof erasureStep>;
 
 /** Steps run in this order. */
@@ -30,6 +38,9 @@ const ERASURE_PAGE_LIMITS = { documentsRead: 2000, bytesRead: 4 * MiB, documents
 /** Delay before attempts 2, 3 and 4 of a failed page; attempt 4 is the last. */
 const RETRY_DELAYS_MS = [60_000, 10 * 60_000, 60 * 60_000];
 
+// A row holds at most MAX_RECIPIENTS email ids, and each id costs a status
+// read and possibly a cancellation, so a page also stops before 100 ids.
+const LEDGER_PAGE = { rows: 25, emailIds: 100 };
 const RECEIPTS_PER_PAGE = 500;
 const COMMUNITY_PAGE = { numItems: 200, maximumBytesRead: 2 * MiB };
 // A support page reads up to its byte allowance plus the thread that crosses
@@ -58,6 +69,34 @@ type StepDefinition = {
 	probe(ctx: MutationCtx, userId: string): Promise<boolean>;
 };
 
+function notificationRows(ctx: MutationCtx, userId: string) {
+	return ctx.db.query('customerNotifications').withIndex('by_user', (q) => q.eq('userId', userId));
+}
+
+/**
+ * Stop whatever a ledger row still has queued. The send is cancelled only
+ * while it is `pending`: the scheduler would also mark a running send
+ * cancelled, and every other state is final. An email is cancelled only while
+ * the Resend component still holds it (`waiting` or `queued`); the component
+ * refuses any other status, and a missing email needs nothing.
+ */
+async function cancelQueued(ctx: MutationCtx, row: Doc<'customerNotifications'>): Promise<void> {
+	if (row.scheduledFnId) {
+		const job = await ctx.db.system.get('_scheduled_functions', row.scheduledFnId);
+		if (job?.state.kind === 'pending') await ctx.scheduler.cancel(row.scheduledFnId);
+	}
+	if (!row.emailIds?.length) return;
+	// Loaded on demand: the account deletion trigger imports this module, and
+	// only a user with sent emails needs the Resend client.
+	const { resend } = await import('../../emails/resend');
+	for (const emailId of row.emailIds) {
+		const status = await resend.status(ctx, emailId as EmailId);
+		if (status?.status === 'waiting' || status?.status === 'queued') {
+			await resend.cancelEmail(ctx, emailId as EmailId);
+		}
+	}
+}
+
 function settledMessages(ctx: MutationCtx, userId: string) {
 	return ctx.db
 		.query('messages')
@@ -73,6 +112,25 @@ function supportContacts(ctx: MutationCtx, userId: string) {
 }
 
 const STEPS = {
+	// Progress by deletion, after cancelling what each row still has queued.
+	ledger: {
+		paginates: false,
+		async run(ctx, userId) {
+			const rows = await notificationRows(ctx, userId).take(LEDGER_PAGE.rows);
+			if (rows.length === 0) return { kind: 'empty' };
+			let emailIds = 0;
+			for (const [index, row] of rows.entries()) {
+				emailIds += row.emailIds?.length ?? 0;
+				if (index > 0 && emailIds > LEDGER_PAGE.emailIds) return { kind: 'progress' };
+				await cancelQueued(ctx, row);
+				await ctx.db.delete('customerNotifications', row._id);
+			}
+			return rows.length < LEDGER_PAGE.rows ? { kind: 'finished' } : { kind: 'progress' };
+		},
+		async probe(ctx, userId) {
+			return (await notificationRows(ctx, userId).first()) !== null;
+		}
+	},
 	// Progress by deletion.
 	receipts: {
 		paginates: false,
