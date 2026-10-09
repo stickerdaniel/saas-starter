@@ -21,6 +21,7 @@ import {
 	syncAdminPreferences,
 	deactivateAdminPreferencesHelper
 } from './admin/notificationPreferences/helpers';
+import { startJourneyErasure } from './admin/journey/erasure';
 import { devNotice } from '../dev/notice';
 import { SUPPORTED_LANGUAGES } from '../i18n/languages';
 
@@ -209,6 +210,8 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			/**
 			 * Called when a user is deleted
 			 * - Decrements materialized dashboard counters
+			 * - Starts erasing the user's customer-journey facts; a failing first
+			 *   page is retried later and never blocks the deletion
 			 */
 			onDelete: async (ctx, user) => {
 				const passkeyDismissal = await ctx.db
@@ -223,6 +226,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 				if (user.banned === true) {
 					await incrementCounter(ctx, 'bannedCount', -1);
 				}
+				await startJourneyErasure(ctx, user._id);
 			},
 
 			/**

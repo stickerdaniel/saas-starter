@@ -21,6 +21,9 @@ vi.mock('../../env', () => {
 	};
 });
 
+// Journey capture is covered by its own tests; these stay on their concern.
+vi.mock('../../admin/journey/capture', () => ({ ensureCaptureStart: vi.fn() }));
+
 vi.mock('../agent', () => ({
 	aiChatAgent: {
 		saveMessage: vi.fn(),
@@ -295,6 +298,7 @@ describe('sendMessage provider preflight', () => {
 			requireThreadMock.mockResolvedValue(record);
 			const ctx = {
 				db: {
+					insert: vi.fn(),
 					patch: async (_table: string, _id: string, patch: object) => Object.assign(record, patch)
 				},
 				scheduler: { runAfter: vi.fn() }

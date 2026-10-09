@@ -17,6 +17,8 @@ import type * as admin_errors from "../admin/errors.js";
 import type * as admin_founderWelcome_errors from "../admin/founderWelcome/errors.js";
 import type * as admin_founderWelcome_mutations from "../admin/founderWelcome/mutations.js";
 import type * as admin_founderWelcome_queries from "../admin/founderWelcome/queries.js";
+import type * as admin_journey_capture from "../admin/journey/capture.js";
+import type * as admin_journey_erasure from "../admin/journey/erasure.js";
 import type * as admin_mutations from "../admin/mutations.js";
 import type * as admin_notificationPreferences_errors from "../admin/notificationPreferences/errors.js";
 import type * as admin_notificationPreferences_helpers from "../admin/notificationPreferences/helpers.js";
@@ -125,6 +127,8 @@ declare const fullApi: ApiFromModules<{
   "admin/founderWelcome/errors": typeof admin_founderWelcome_errors;
   "admin/founderWelcome/mutations": typeof admin_founderWelcome_mutations;
   "admin/founderWelcome/queries": typeof admin_founderWelcome_queries;
+  "admin/journey/capture": typeof admin_journey_capture;
+  "admin/journey/erasure": typeof admin_journey_erasure;
   "admin/mutations": typeof admin_mutations;
   "admin/notificationPreferences/errors": typeof admin_notificationPreferences_errors;
   "admin/notificationPreferences/helpers": typeof admin_notificationPreferences_helpers;

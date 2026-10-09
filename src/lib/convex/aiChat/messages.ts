@@ -19,6 +19,7 @@ import { createRateLimitError } from '../support/types';
 import { AI_CHAT_ERROR_CODES, createAiChatError } from './errors';
 import { AI_CHAT_LIMIT_NOTICE, MAX_MESSAGE_LENGTH } from '../constants';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
+import { ensureCaptureStart } from '../admin/journey/capture';
 import { recordAiUsage } from '../aiUsage/record';
 import {
 	CapabilityConfigurationError,
@@ -114,6 +115,11 @@ export const sendMessage = authedMutation({
 			});
 			messageId = result.messageId;
 		}
+
+		// One receipt per saved user message, in this transaction, so a rejected
+		// or rolled-back send leaves none and a failed AI reply keeps it.
+		await ctx.db.insert('aiChatMessageReceipts', { userId });
+		await ensureCaptureStart(ctx, 'aiChat');
 
 		// Denormalize for the sidebar. lastMessageAt is the "thread has been used"
 		// signal (drives visibility + first-send); lastMessage is a display-only

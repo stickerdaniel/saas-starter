@@ -26,6 +26,7 @@ vi.mock('../_generated/api', () => ({
 	internal: {
 		messages: {
 			removeMessage: 'internal.messages.removeMessage',
+			markMessageSettled: 'internal.messages.markMessageSettled',
 			enforceAndTrackMessageUsage: 'internal.messages.enforceAndTrackMessageUsage'
 		}
 	}
@@ -68,7 +69,7 @@ describe('enforceAndTrackMessageUsage', () => {
 		ctx = { runMutation };
 	});
 
-	it('keeps a counted message without any follow-up call', async () => {
+	it('keeps a counted message and marks it settled', async () => {
 		checkAndCountUsageMock.mockResolvedValue('counted');
 
 		await enforceHandler._handler(ctx, { userId: 'user_1', messageId: 'msg_1' });
@@ -77,7 +78,10 @@ describe('enforceAndTrackMessageUsage', () => {
 			customerId: 'user_1',
 			featureId: 'messages'
 		});
-		expect(runMutation).not.toHaveBeenCalled();
+		expect(runMutation).toHaveBeenCalledTimes(1);
+		expect(runMutation).toHaveBeenCalledWith('internal.messages.markMessageSettled', {
+			messageId: 'msg_1'
+		});
 	});
 
 	it('removes the message only on a definitive denial', async () => {
@@ -85,6 +89,7 @@ describe('enforceAndTrackMessageUsage', () => {
 
 		await enforceHandler._handler(ctx, { userId: 'user_1', messageId: 'msg_1' });
 
+		expect(runMutation).toHaveBeenCalledTimes(1);
 		expect(runMutation).toHaveBeenCalledWith('internal.messages.removeMessage', {
 			messageId: 'msg_1'
 		});
@@ -97,7 +102,10 @@ describe('enforceAndTrackMessageUsage', () => {
 			enforceHandler._handler(ctx, { userId: 'user_1', messageId: 'msg_1' })
 		).resolves.toBeNull();
 
-		expect(runMutation).not.toHaveBeenCalled();
+		expect(runMutation).toHaveBeenCalledTimes(1);
+		expect(runMutation).toHaveBeenCalledWith('internal.messages.markMessageSettled', {
+			messageId: 'msg_1'
+		});
 	});
 });
 

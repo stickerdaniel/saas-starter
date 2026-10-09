@@ -30,6 +30,9 @@ export const supportThreadFields = {
 		v.union(v.literal('user'), v.literal('assistant'), v.literal('tool'), v.literal('system'))
 	),
 	lastAgentName: v.optional(v.string()),
+	// When the owner first wrote in this thread: an ordinary message or the
+	// handoff request. Set once, never by creation, prewarm or replies.
+	firstUserMessageAt: v.optional(v.number()),
 	userName: v.optional(v.string()), // From user table
 	userEmail: v.optional(v.string()), // From user table
 

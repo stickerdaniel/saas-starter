@@ -18,6 +18,7 @@ import { normalizeSupportPageRoute } from '../../shared/support-page-route';
 import { requireSupportThreadAccess } from './ownership';
 import { listMessagesForThread } from './messageListing';
 import { syncSupportLastMessage } from './threads';
+import { recordFirstSupportContact } from './threadLifecycle';
 import { getFileMetadataByUrls } from '../files/metadata';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { recordAiUsage } from '../aiUsage/record';
@@ -205,6 +206,7 @@ export const sendMessage = mutation({
 		// Reopen thread and mark as awaiting response when user sends message
 		// Check if this is a reopened ticket (was closed, now being reopened)
 		const wasClosedBeforeThisMessage = supportThread.status === 'done';
+		const now = Date.now();
 
 		await ctx.db.patch('supportThreads', supportThread._id, {
 			isWarm: wasWarmThread ? false : supportThread.isWarm,
@@ -213,8 +215,9 @@ export const sendMessage = mutation({
 			// affordances and the admin list shows the thread as human-only.
 			isHandedOff: isHumanOnly ? true : supportThread.isHandedOff,
 			awaitingAdminResponse: true,
-			updatedAt: Date.now()
+			updatedAt: now
 		});
+		await recordFirstSupportContact(ctx, supportThread, now);
 
 		// Schedule admin notification for human-only tickets
 		// We only notify for those since AI-handled tickets don't need admin attention

@@ -1,3 +1,4 @@
+import type { Doc } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { components } from '../_generated/api';
 import { buildSupportMessageDenormalization, buildSupportSearchText } from './denormalization';
@@ -6,6 +7,7 @@ import { supportAgent } from './agent';
 import { ANONYMOUS_GLOBAL_RATE_LIMIT_KEY, supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 import { normalizeSupportPageRoute } from '../../shared/support-page-route';
+import { ensureCaptureStart } from '../admin/journey/capture';
 
 export async function limitSupportThreadCreate(
 	ctx: MutationCtx,
@@ -142,4 +144,19 @@ export async function syncSupportLastMessage(ctx: MutationCtx, threadId: string)
 	});
 
 	await ctx.db.patch('supportThreads', supportThread._id, { ...patch, updatedAt: Date.now() });
+}
+
+/**
+ * Record the owner's first contact in a thread: their first ordinary message
+ * or their handoff request. Callers have verified the owner, anonymous
+ * included. Set once and never overwritten, so later replies leave it alone.
+ */
+export async function recordFirstSupportContact(
+	ctx: MutationCtx,
+	supportThread: Doc<'supportThreads'>,
+	at: number
+): Promise<void> {
+	if (supportThread.firstUserMessageAt !== undefined) return;
+	await ctx.db.patch('supportThreads', supportThread._id, { firstUserMessageAt: at });
+	await ensureCaptureStart(ctx, 'support');
 }
