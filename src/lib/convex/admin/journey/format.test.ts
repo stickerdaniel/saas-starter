@@ -24,23 +24,39 @@ describe('journey formatting', () => {
 		}
 	);
 
+	// Expectations come from the core keys: apps share these tests but word the
+	// keys their own way.
+	const count = (key: string, params?: Record<string, string>) =>
+		t('en', `email.customer_journey.core.count.${key}`, params);
+	const duration = (key: string, params?: Record<string, number>, locale = 'en') =>
+		t(locale, `email.customer_journey.core.duration.${key}`, params);
+
 	it('words cut-short counts as minimums and never as zero', () => {
 		expect(formatCount(2000, false, 'en')).toBe('2,000');
-		expect(formatCount(2000, true, 'en')).toBe('at least 2,000');
-		expect(formatCount(2000, true, 'en', true)).toBe('At least 2,000');
-		expect(formatCount(0, true, 'en')).toBe('none found in the checked records');
+		expect(formatCount(2000, true, 'en')).toBe(count('at_least', { count: '2,000' }));
+		expect(formatCount(2000, true, 'en', true)).toBe(count('at_least_leading', { count: '2,000' }));
+		expect(formatCount(0, true, 'en')).toBe(count('none_checked'));
 		expect(formatCount(0, false, 'en')).toBe('0');
 	});
 
 	it('names whole units of a duration', () => {
 		const minute = 60_000;
 		const hour = 60 * minute;
-		expect(formatDuration(30_000, 'en')).toBe('under 1 min');
-		expect(formatDuration(6 * minute, 'en')).toBe('6 min');
-		expect(formatDuration(4 * hour + 25 * minute, 'en')).toBe('4 h 25 min');
-		expect(formatDuration(24 * hour + 30 * minute, 'en')).toBe('1 d');
-		expect(formatDuration(53 * hour + 59 * minute, 'en')).toBe('2 d 5 h');
-		expect(formatDuration(53 * hour, 'de')).toBe('2 Tage 5 Std.');
+		expect(formatDuration(30_000, 'en')).toBe(duration('under_minute'));
+		expect(formatDuration(6 * minute, 'en')).toBe(duration('minutes', { minutes: 6 }));
+		expect(formatDuration(3 * hour, 'en')).toBe(duration('hours', { hours: 3 }));
+		expect(formatDuration(4 * hour + 25 * minute, 'en')).toBe(
+			duration('hours_minutes', { hours: 4, minutes: 25 })
+		);
+		expect(formatDuration(24 * hour + 30 * minute, 'en')).toBe(duration('one_day'));
+		expect(formatDuration(25 * hour, 'en')).toBe(duration('one_day_hours', { hours: 1 }));
+		expect(formatDuration(72 * hour, 'en')).toBe(duration('days', { days: 3 }));
+		expect(formatDuration(53 * hour + 59 * minute, 'en')).toBe(
+			duration('days_hours', { days: 2, hours: 5 })
+		);
+		expect(formatDuration(53 * hour, 'de')).toBe(
+			duration('days_hours', { days: 2, hours: 5 }, 'de')
+		);
 	});
 
 	it('shows the date only when the local day changes in the given zone', () => {

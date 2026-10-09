@@ -70,53 +70,71 @@ export type PresentedJourney<Id extends string = string> = {
 	sources: Array<PresentedSource<Id>>;
 };
 
-/** Whether a presentation stays inside the source's bounds and owns its keys. */
-function withinBounds(
+const ownedBy = (id: string, key: string) => key.startsWith(`${id}:`);
+
+/** Whether tiles stay inside the source's bounds and own their keys. */
+function metricsWithinBounds(
 	id: string,
-	{ steps, metrics }: JourneyPresentation,
+	metrics: readonly JourneyMetric[],
 	bounds: PresentationBounds
 ): boolean {
-	const owned = (key: string) => key.startsWith(`${id}:`);
 	return (
-		steps.length <= bounds.steps &&
 		metrics.length <= bounds.metrics &&
-		steps.every(
-			(step) =>
-				owned(step.key) &&
-				Number.isFinite(step.at) &&
-				step.title.length <= bounds.title &&
-				step.lines.length <= bounds.linesPerStep &&
-				step.lines.every((line) => line.length <= bounds.line)
-		) &&
 		metrics.every(
 			(metric) =>
-				owned(metric.key) &&
+				ownedBy(id, metric.key) &&
 				metric.label.length <= bounds.metricLabel &&
 				metric.value.length <= bounds.metricValue
 		)
 	);
 }
 
-/** The source's own tile slots, each showing "unavailable" and carrying no count. */
+/** Whether a presentation stays inside the source's bounds and owns its keys. */
+function withinBounds(
+	id: string,
+	{ steps, metrics }: JourneyPresentation,
+	bounds: PresentationBounds
+): boolean {
+	return (
+		steps.length <= bounds.steps &&
+		steps.every(
+			(step) =>
+				ownedBy(id, step.key) &&
+				Number.isFinite(step.at) &&
+				step.title.length <= bounds.title &&
+				step.lines.length <= bounds.linesPerStep &&
+				step.lines.every((line) => line.length <= bounds.line)
+		) &&
+		metricsWithinBounds(id, metrics, bounds)
+	);
+}
+
+/**
+ * The source's own tile slots, each showing "unavailable" and carrying no
+ * count, under the same bounds as its presented tiles. Null when the slots
+ * throw or break those bounds.
+ */
 function unavailableTiles(
 	source: JourneySource,
 	request: JourneyRequest,
 	format: JourneyFormat
-): JourneyMetric[] {
+): JourneyMetric[] | null {
 	const value = t(format.locale, 'email.customer_journey.core.value.unavailable');
 	try {
-		return source
+		const tiles = source
 			.unavailableMetrics(request, format)
 			.map(({ key, label }) => ({ key, label, value }));
+		return metricsWithinBounds(source.id, tiles, source.bounds) ? tiles : null;
 	} catch {
-		return [];
+		return null;
 	}
 }
 
 /**
  * Present every collected source for one recipient. A presenter that throws
- * or returns anything outside its bounds makes its source unavailable and is
- * logged with a fixed code.
+ * or returns anything outside its bounds makes its source unavailable; that,
+ * or tile slots outside the bounds, is logged once with a fixed code, and the
+ * rejected slots are left out rather than cut.
  */
 export function presentJourney<Id extends string>(
 	collected: CollectedJourney<Id>,
@@ -125,6 +143,7 @@ export function presentJourney<Id extends string>(
 	const { request } = collected;
 	const sources = collected.sources.map((entry): PresentedSource<Id> => {
 		const { id, label, source } = entry;
+		let rejected = false;
 		if (entry.status === 'loaded') {
 			try {
 				const presentation = entry.facts.present(format);
@@ -140,15 +159,13 @@ export function presentJourney<Id extends string>(
 			} catch {
 				// Same outcome as a rejected presentation below.
 			}
+			rejected = true;
+		}
+		const tiles = unavailableTiles(source, request, format);
+		if (rejected || tiles === null) {
 			console.warn({ code: 'journey_presentation_rejected', source: id });
 		}
-		return {
-			id,
-			label,
-			status: 'unavailable',
-			steps: [],
-			metrics: unavailableTiles(source, request, format)
-		};
+		return { id, label, status: 'unavailable', steps: [], metrics: tiles ?? [] };
 	});
 	return { request, sources };
 }

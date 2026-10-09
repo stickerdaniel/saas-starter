@@ -1,33 +1,27 @@
-import { makeFunctionReference, type FunctionReference } from 'convex/server';
+import { getFunctionName, makeFunctionReference, type FunctionReference } from 'convex/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SUPPORTED_LOCALES, type SupportedLocale } from '../../i18n/translations';
-import { buildJourneyTimeline } from '../../emails/journeyTimeline';
+import { SUPPORTED_LOCALES, t, type SupportedLocale } from '../../i18n/translations';
+import { buildJourneyTimeline, type RailTheme } from '../../emails/journeyTimeline';
 import { collectJourney, coverageNotes, orderSteps, pickTiles, presentJourney } from './collect';
 import { createClock, formatCount } from './format';
-import { createJourneyStore } from './journeyStore.fixtures';
-import { JOURNEY_SOURCES } from './registry';
 import {
 	defineJourneySource,
 	type Coverage,
 	type JourneyMetric,
+	type JourneyReadCtx,
+	type JourneyReadLimits,
 	type JourneyRequest,
 	type JourneySource,
 	type JourneyStep,
 	type PresentationBounds
 } from './source';
-import * as aiChat from './sources/aiChat';
-import * as community from './sources/community';
-import * as support from './sources/support';
-import { JOURNEY_RAIL_THEME } from './theme';
 
 /**
- * Conformance of the shared core with sources it has never seen: each source
- * here is test-only, declared the way a fork declares one, and run through the
- * same collect, present, tile and render path as the template's own.
+ * Conformance of the shared core with sources it has never seen. Every source
+ * here is test-only, declared the way a fork declares one, and read through a
+ * stand-in for `ctx.runQuery`, so these tests depend on no app schema,
+ * registry or theme and run unchanged in every app that shares the core.
  */
-
-type Registered = { _handler: (ctx: never, args: never) => Promise<unknown> };
-const asRegistered = (fn: unknown) => fn as Registered;
 
 const USER = 'user_journey';
 const HOUR = 3_600_000;
@@ -41,13 +35,26 @@ const REQUEST: JourneyRequest = {
 	window: { start: SIGNUP, end: PAID }
 };
 const COMPLETE: Coverage = { truncated: false };
+const LIMITS: JourneyReadLimits = { documentsRead: 10, bytesRead: 1024 };
+// Core copy as each app words it, so apps with their own values share these tests.
+const UNAVAILABLE = t('en', 'email.customer_journey.core.value.unavailable');
+const notLoaded = (source: string) =>
+	t('en', 'email.customer_journey.core.notes.unavailable', { source });
 
-/** A reference to a test-only internal query, registered with the store by name. */
-function testRead<Facts>(name: string) {
-	return makeFunctionReference<'query', JourneyRequest, Facts>(
-		name
-	) as unknown as FunctionReference<'query', 'internal', JourneyRequest, Facts>;
-}
+const ROLE = { color: '#000000' };
+const THEME: RailTheme = {
+	tones: {
+		neutral: { dot: ROLE, title: null },
+		paid: { dot: ROLE, title: ROLE },
+		problem: { dot: ROLE, title: null },
+		canceled: { dot: ROLE, title: ROLE }
+	},
+	line: ROLE,
+	muted: ROLE,
+	gap: ROLE
+};
+
+type TestSource = { source: JourneySource; read: () => Promise<unknown> };
 
 /** A test-only source whose read returns `facts` and whose presenter is `present`. */
 function testSource<const Id extends string, Facts extends { coverage: Coverage }>(
@@ -57,24 +64,54 @@ function testSource<const Id extends string, Facts extends { coverage: Coverage 
 		facts: Facts,
 		locale: SupportedLocale
 	) => { steps: JourneyStep[]; metrics: JourneyMetric[] },
-	options: { bounds?: Partial<PresentationBounds>; slots?: string[]; readFails?: boolean } = {}
-) {
+	options: {
+		bounds?: Partial<PresentationBounds>;
+		limits?: JourneyReadLimits;
+		slots?: Array<{ key: string; label: string }>;
+		readFails?: boolean;
+	} = {}
+): TestSource {
+	const read = makeFunctionReference<'query', JourneyRequest, Facts>(
+		`test/${id}:read`
+	) as unknown as FunctionReference<'query', 'internal', JourneyRequest, Facts>;
 	const source = defineJourneySource({
 		id,
 		label: `Source ${id}`,
-		read: testRead<Facts>(`test/${id}:read`),
-		limits: { documentsRead: 10, bytesRead: 1024 },
+		read,
+		limits: options.limits ?? LIMITS,
 		bounds: options.bounds,
 		present: (loaded, _request, format) => present(loaded, format.locale),
-		unavailableMetrics: () =>
-			(options.slots ?? []).map((name) => ({ key: `${id}:${name}`, label: `${id} ${name}` }))
+		unavailableMetrics: () => options.slots ?? []
 	});
-	const handler = options.readFails
-		? async () => {
-				throw new Error('read failed with private text');
-			}
-		: async () => facts;
-	return { source, functions: { [`test/${id}:read`]: { _handler: handler } } };
+	return {
+		source,
+		read: options.readFails
+			? async () => {
+					throw new Error('read failed with private text');
+				}
+			: async () => facts
+	};
+}
+
+/**
+ * A stand-in for `ctx.runQuery` that answers each test source's read by name
+ * and records what every read received.
+ */
+function readContext(sources: readonly TestSource[]) {
+	const reads = new Map(sources.map(({ source, read }) => [`test/${source.id}:read`, read]));
+	const calls: Array<{ name: string; args: unknown; limits: unknown }> = [];
+	const runQuery = async (
+		ref: FunctionReference<'query'>,
+		args: unknown,
+		options?: { transactionLimits?: unknown }
+	) => {
+		const name = getFunctionName(ref);
+		calls.push({ name, args, limits: options?.transactionLimits });
+		const read = reads.get(name);
+		if (!read) throw new Error(`No test read ${name}`);
+		return await read();
+	};
+	return { ctx: { runQuery } as unknown as JourneyReadCtx, calls };
 }
 
 const step = (key: string, at: number, title: string, lines: string[] = []): JourneyStep => ({
@@ -92,27 +129,13 @@ const metric = (key: string, n: number): JourneyMetric => ({
 	count: { n, lowerBound: false }
 });
 
-function storeWith(...entries: Array<{ functions: Record<string, Registered> }>) {
-	return createJourneyStore({
-		functions: Object.assign(
-			{
-				'admin/journey/sources/aiChat:read': asRegistered(aiChat.read),
-				'admin/journey/sources/aiChat:countPartition': asRegistered(aiChat.countPartition),
-				'admin/journey/sources/community:read': asRegistered(community.read),
-				'admin/journey/sources/community:countPartition': asRegistered(community.countPartition),
-				'admin/journey/sources/support:read': asRegistered(support.read)
-			},
-			...entries.map((entry) => entry.functions)
-		)
-	});
-}
-
-async function run(
-	sources: readonly JourneySource[],
-	store: ReturnType<typeof storeWith>,
-	locale: SupportedLocale = 'en'
-) {
-	const collected = await store.mutate((ctx) => collectJourney(ctx as never, sources, REQUEST));
+async function run(sources: readonly TestSource[], locale: SupportedLocale = 'en') {
+	const { ctx, calls } = readContext(sources);
+	const collected = await collectJourney(
+		ctx,
+		sources.map((entry) => entry.source),
+		REQUEST
+	);
 	const format = { locale, timeZone: 'UTC' };
 	const presented = presentJourney(collected, format);
 	const byId = (id: string) => {
@@ -120,7 +143,7 @@ async function run(
 		if (!found) throw new Error(`No source ${id}`);
 		return found;
 	};
-	return { presented, format, byId };
+	return { presented, format, byId, calls };
 }
 
 afterEach(() => {
@@ -128,7 +151,30 @@ afterEach(() => {
 });
 
 describe('journey core conformance', () => {
+	it('reads each source once, with the request and its declared envelope', async () => {
+		const small = testSource('small', { coverage: COMPLETE }, () => ({ steps: [], metrics: [] }));
+		const large = testSource('large', { coverage: COMPLETE }, () => ({ steps: [], metrics: [] }), {
+			limits: { documentsRead: 4050, bytesRead: 4 * 1024 * 1024 }
+		});
+
+		const { calls } = await run([small, large]);
+
+		expect(calls).toEqual([
+			{ name: 'test/small:read', args: REQUEST, limits: LIMITS },
+			{
+				name: 'test/large:read',
+				args: REQUEST,
+				limits: { documentsRead: 4050, bytesRead: 4 * 1024 * 1024 }
+			}
+		]);
+	});
+
 	it('takes a fourth source with its own facts and four tiles; its steps survive tile overflow', async () => {
+		const counted = (id: string, at: number) =>
+			testSource(id, { coverage: COMPLETE, count: 2 }, (facts) => ({
+				steps: [step(`${id}:events`, at, `${facts.count} ${id} events`)],
+				metrics: [metric(`${id}:count`, facts.count)]
+			}));
 		const fourth = testSource(
 			'sessions',
 			{
@@ -145,27 +191,28 @@ describe('journey core conformance', () => {
 				metrics: [1, 2, 3, 4].map((n) => metric(`sessions:m${n}`, n))
 			})
 		);
-		const store = storeWith(fourth);
-		for (const source of ['aiChat', 'community', 'support']) {
-			store.insert('journeyCaptureStarts', { source, startedAt: 0 });
-		}
-		store.insert('aiChatMessageReceipts', { userId: USER }, SIGNUP + 2 * HOUR);
 
-		const { presented, format } = await run([...JOURNEY_SOURCES, fourth.source], store);
+		const { presented, format } = await run([
+			counted('first', SIGNUP + 2 * HOUR),
+			counted('second', SIGNUP + 3 * HOUR),
+			counted('third', SIGNUP + 4 * HOUR),
+			fourth
+		]);
 		const steps = orderSteps(presented.sources.flatMap((source) => source.steps));
-		const { text } = buildJourneyTimeline(
-			steps,
-			coverageNotes(presented, format),
-			format,
-			JOURNEY_RAIL_THEME
-		);
+		const { text } = buildJourneyTimeline(steps, coverageNotes(presented, format), format, THEME);
 
 		expect(pickTiles([metric('lead:signup_to_paid', 1)], presented).map((t) => t.key)).toEqual([
 			'lead:signup_to_paid',
-			'aiChat:before_paying',
-			'community:before_paying'
+			'first:count',
+			'second:count'
 		]);
-		expect(steps.map((entry) => entry.key)).toEqual(['sessions:0', 'aiChat:before', 'sessions:1']);
+		expect(steps.map((entry) => entry.key)).toEqual([
+			'sessions:0',
+			'first:events',
+			'second:events',
+			'third:events',
+			'sessions:1'
+		]);
 		expect(text).toContain('Session of 12 min');
 		expect(text).toContain('Session of 3 min');
 	});
@@ -177,7 +224,7 @@ describe('journey core conformance', () => {
 		}));
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-		const { byId } = await run([five.source], storeWith(five));
+		const { byId } = await run([five]);
 
 		expect(byId('tiles')).toMatchObject({ status: 'unavailable', steps: [], metrics: [] });
 		expect(warn).toHaveBeenCalledWith({ code: 'journey_presentation_rejected', source: 'tiles' });
@@ -194,20 +241,22 @@ describe('journey core conformance', () => {
 			() => {
 				throw new Error('presenter bug');
 			},
-			{ slots: ['a', 'b'] }
+			{
+				slots: [
+					{ key: 'throwing:a', label: 'throwing a' },
+					{ key: 'throwing:b', label: 'throwing b' }
+				]
+			}
 		);
 		const failing = testSource(
 			'failing',
 			{ coverage: COMPLETE },
 			() => ({ steps: [], metrics: [] }),
-			{ slots: ['c'], readFails: true }
+			{ slots: [{ key: 'failing:c', label: 'failing c' }], readFails: true }
 		);
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-		const { presented, format, byId } = await run(
-			[throwing.source, failing.source, healthy.source],
-			storeWith(healthy, throwing, failing)
-		);
+		const { presented, format, byId } = await run([throwing, failing, healthy]);
 
 		expect(byId('healthy')).toMatchObject({
 			status: 'presented',
@@ -217,20 +266,41 @@ describe('journey core conformance', () => {
 			expect(byId(id)).toMatchObject({ status: 'unavailable', steps: [] });
 		}
 		expect(pickTiles([], presented, 4)).toEqual([
-			{ key: 'throwing:a', label: 'throwing a', value: 'unavailable' },
-			{ key: 'throwing:b', label: 'throwing b', value: 'unavailable' },
-			{ key: 'failing:c', label: 'failing c', value: 'unavailable' },
+			{ key: 'throwing:a', label: 'throwing a', value: UNAVAILABLE },
+			{ key: 'throwing:b', label: 'throwing b', value: UNAVAILABLE },
+			{ key: 'failing:c', label: 'failing c', value: UNAVAILABLE },
 			metric('healthy:count', 7)
 		]);
 		expect(coverageNotes(presented, format)).toEqual([
-			'Source throwing: could not be loaded for this email.',
-			'Source failing: could not be loaded for this email.'
+			notLoaded('Source throwing'),
+			notLoaded('Source failing')
 		]);
 		expect(warn.mock.calls).toEqual([
 			[{ code: 'journey_source_unavailable', source: 'failing' }],
 			[{ code: 'journey_presentation_rejected', source: 'throwing' }]
 		]);
 		expect(JSON.stringify(warn.mock.calls)).not.toContain('private text');
+	});
+
+	it.each([
+		['five slots', Array.from({ length: 5 }, (_, i) => ({ key: `down:${i}`, label: `slot ${i}` }))],
+		['an oversized label', [{ key: 'down:a', label: 'x'.repeat(10_000) }]],
+		["another source's key", [{ key: 'other:a', label: 'borrowed' }]]
+	])('rejects tile slots with %s instead of showing or cutting them', async (_case, slots) => {
+		const down = testSource('down', { coverage: COMPLETE }, () => ({ steps: [], metrics: [] }), {
+			slots,
+			readFails: true
+		});
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		const { presented, byId } = await run([down]);
+
+		expect(byId('down')).toMatchObject({ status: 'unavailable', steps: [], metrics: [] });
+		expect(pickTiles([], presented)).toEqual([]);
+		expect(warn.mock.calls).toEqual([
+			[{ code: 'journey_source_unavailable', source: 'down' }],
+			[{ code: 'journey_presentation_rejected', source: 'down' }]
+		]);
 	});
 
 	it('rejects an oversized presentation instead of cutting it', async () => {
@@ -243,7 +313,7 @@ describe('journey core conformance', () => {
 		}));
 		vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-		const { presented, byId } = await run([oversize.source], storeWith(oversize));
+		const { presented, byId } = await run([oversize]);
 
 		expect(byId('oversize')).toMatchObject({ status: 'unavailable', steps: [] });
 		expect(JSON.stringify(presented)).not.toContain('x'.repeat(100));
@@ -343,11 +413,7 @@ describe('journey core conformance', () => {
 		];
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-		const { presented } = await run(
-			shapes.map((shape) => shape.source),
-			storeWith(...shapes),
-			locale
-		);
+		const { presented } = await run(shapes, locale);
 
 		expect(presented.sources.map((source) => [source.id, source.status])).toEqual(
 			shapes.map((shape) => [shape.source.id, 'presented'])
@@ -370,7 +436,7 @@ describe('journey core conformance', () => {
 			orderSteps(composed),
 			[],
 			{ locale: 'en', timeZone: 'UTC' },
-			JOURNEY_RAIL_THEME
+			THEME
 		);
 
 		expect(text.split('\n').filter((line) => line.includes('('))).toEqual([

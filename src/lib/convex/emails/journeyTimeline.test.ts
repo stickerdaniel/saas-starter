@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { JourneyStep } from '../admin/journey/source';
+import { formatDuration } from '../admin/journey/format';
+import { t } from '../i18n/translations';
 import { buildJourneyTimeline, type RailTheme } from './journeyTimeline';
 
 // One distinct colour per role, so each assertion names the role it reads.
@@ -60,6 +62,12 @@ const STEPS: JourneyStep[] = [
 ];
 
 const FORMAT = { locale: 'en', timeZone: 'UTC' } as const;
+
+/** A gap label as the core words it, so apps with their own copy share this test. */
+const later = (ms: number) =>
+	t('en', 'email.customer_journey.core.later', { duration: formatDuration(ms, 'en') });
+const SIX_MIN = later(6 * MINUTE);
+const TWO_DAYS = later(2 * 24 * HOUR + 47 * MINUTE);
 
 function render(steps: readonly JourneyStep[], notes: string[] = []) {
 	const { html, text } = buildJourneyTimeline(steps, notes, FORMAT, THEME);
@@ -126,19 +134,23 @@ describe('buildJourneyTimeline', () => {
 	it('places each gap label after the previous step and directly before the next', () => {
 		const { root } = render(STEPS);
 		const order = (text: string) => root.textContent!.indexOf(text);
-		const gap = element(root, '6 min later');
+		const gap = element(root, SIX_MIN);
 		expect(gap.style.color).toBe(rgb('#000040'));
 		expect(gap.classList).toContain('gap');
 
-		expect(order('Signed up')).toBeLessThan(order('6 min later'));
-		expect(order('6 min later')).toBeLessThan(order('Sent 14 AI chat messages'));
+		expect(order('Signed up')).toBeLessThan(order(SIX_MIN));
+		expect(order(SIX_MIN)).toBeLessThan(order('Sent 14 AI chat messages'));
 		// Below the previous step's details, not above them.
-		expect(order('First 09:18, last Thu, Oct 8, 13:55')).toBeLessThan(order('2 d later'));
-		expect(order('2 d later')).toBeLessThan(order('First recorded support contact'));
+		expect(order('First 09:18, last Thu, Oct 8, 13:55')).toBeLessThan(order(TWO_DAYS));
+		expect(order(TWO_DAYS)).toBeLessThan(order('First recorded support contact'));
 		expect(order('Access until Sat, Nov 8')).toBe(
 			root.textContent!.length - 'Access until Sat, Nov 8'.length
 		);
-		expect(root.textContent!.match(/later/g)).toHaveLength(STEPS.length - 1);
+		const gaps = STEPS.slice(1).map((entry, index) => later(entry.at - STEPS[index]!.at));
+		for (const label of gaps) expect(element(root, label)).toBeTruthy();
+		expect(
+			[...root.querySelectorAll('p')].filter((p) => gaps.includes(p.textContent!))
+		).toHaveLength(STEPS.length - 1);
 	});
 
 	it('escapes every string in the HTML and keeps the text version raw', () => {
@@ -161,7 +173,7 @@ describe('buildJourneyTimeline', () => {
 			[
 				'Signed up (Tue, Oct 6, 09:12)',
 				'',
-				'6 min later',
+				SIX_MIN,
 				'Sent 14 AI chat messages (09:18)',
 				'  First 09:18, last Thu, Oct 8, 13:55',
 				'',

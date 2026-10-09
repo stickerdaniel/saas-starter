@@ -1,9 +1,15 @@
+import { makeFunctionReference, type FunctionReference } from 'convex/server';
 import { describe, expect, it } from 'vitest';
 import { ensureCaptureStart } from '../capture';
-import { collectJourney, coverageNotes, presentJourney } from '../collect';
+import { collectJourney, coverageNotes, orderSteps, pickTiles, presentJourney } from '../collect';
 import { createJourneyStore } from '../journeyStore.fixtures';
 import { JOURNEY_SOURCES } from '../registry';
-import type { JourneyRequest } from '../source';
+import {
+	defineJourneySource,
+	type Coverage,
+	type JourneyRequest,
+	type JourneySource
+} from '../source';
 import * as aiChat from './aiChat';
 import * as community from './community';
 import * as support from './support';
@@ -62,17 +68,18 @@ function setup(overrides: Record<string, Registered> = {}) {
 			);
 		}
 	};
-	async function journey(request: JourneyRequest) {
-		const collected = await store.mutate((ctx) =>
-			collectJourney(ctx as never, JOURNEY_SOURCES, request)
-		);
+	async function journey(
+		request: JourneyRequest,
+		sources: readonly JourneySource[] = JOURNEY_SOURCES
+	) {
+		const collected = await store.mutate((ctx) => collectJourney(ctx as never, sources, request));
 		const presented = presentJourney(collected, FORMAT);
 		const source = (id: string) => {
 			const found = presented.sources.find((entry) => entry.id === id);
 			if (!found) throw new Error(`No source ${id}`);
 			return found;
 		};
-		return { source, notes: coverageNotes(presented, FORMAT) };
+		return { presented, source, notes: coverageNotes(presented, FORMAT) };
 	}
 	return { store, seed, journey };
 }
@@ -320,5 +327,58 @@ describe('template journey sources', () => {
 				lines: ['First 09:12, last observed 09:31']
 			}
 		]);
+	});
+
+	it("takes a fork's fourth source beside the demo sources, keeping its steps when its tiles overflow", async () => {
+		type SessionFacts = { coverage: Coverage; sessions: number[] };
+		const sessions = defineJourneySource({
+			id: 'sessions',
+			label: 'Sessions',
+			read: makeFunctionReference<'query', JourneyRequest, SessionFacts>(
+				'test/sessions:read'
+			) as unknown as FunctionReference<'query', 'internal', JourneyRequest, SessionFacts>,
+			limits: { documentsRead: 10, bytesRead: 1024 },
+			present: (facts) => ({
+				steps: facts.sessions.map((at, index) => ({
+					key: `sessions:${index}`,
+					at,
+					title: `Session ${index}`,
+					lines: [],
+					tone: 'neutral' as const
+				})),
+				metrics: [1, 2, 3, 4].map((n) => ({ key: `sessions:m${n}`, label: `m${n}`, value: `${n}` }))
+			})
+		});
+		const facts: SessionFacts = { coverage: { truncated: false }, sessions: [SIGNUP + HOUR] };
+		const { seed, journey } = setup({ 'test/sessions:read': { _handler: async () => facts } });
+		captureAll(seed);
+		seed.receipt(SIGNUP + 2 * HOUR);
+
+		const { presented } = await journey(newCustomer(SIGNUP + DAY), [...JOURNEY_SOURCES, sessions]);
+
+		expect(pickTiles([], presented).map((tile) => tile.key)).toEqual([
+			'aiChat:before_paying',
+			'community:before_paying',
+			'sessions:m1'
+		]);
+		expect(
+			orderSteps(presented.sources.flatMap((source) => source.steps)).map((s) => s.key)
+		).toEqual(['sessions:0', 'aiChat:before']);
+	});
+});
+
+// The sender's read budget (plan 4.5) gives the sources 8,200 documents and
+// 8 MiB together, beside recipient discovery and its own reserve.
+describe('demo source envelopes', () => {
+	it("sum to at most the sources' share of the sender's read budget", () => {
+		const total = JOURNEY_SOURCES.reduce(
+			(sum, { limits }) => ({
+				documentsRead: sum.documentsRead + limits.documentsRead,
+				bytesRead: sum.bytesRead + limits.bytesRead
+			}),
+			{ documentsRead: 0, bytesRead: 0 }
+		);
+		expect(total.documentsRead).toBeLessThanOrEqual(8_200);
+		expect(total.bytesRead).toBeLessThanOrEqual(8 * 1024 * 1024);
 	});
 });
