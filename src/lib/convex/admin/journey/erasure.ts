@@ -32,7 +32,11 @@ const RETRY_DELAYS_MS = [60_000, 10 * 60_000, 60 * 60_000];
 
 const RECEIPTS_PER_PAGE = 500;
 const COMMUNITY_PAGE = { numItems: 200, maximumBytesRead: 2 * MiB };
-const SUPPORT_PAGE = { numItems: 50, maximumBytesRead: 1 * MiB };
+// A support page reads up to its byte allowance plus the thread that crosses
+// it, patching rereads those threads, and the probe reads one more. With
+// threads near the 1 MiB document limit, 2 × (256 KiB + 1 MiB) + 1 MiB stays
+// inside the page's 4 MiB.
+const SUPPORT_PAGE = { numItems: 50, maximumBytesRead: MiB / 4 };
 
 type StepOutcome =
 	/** Nothing to do here; the page moves on to the next step. */

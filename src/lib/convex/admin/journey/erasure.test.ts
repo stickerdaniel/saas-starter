@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { onDelete } from '../../auth';
 import { continueErasure, erasePage, startJourneyErasure } from './erasure';
 import { createJourneyStore } from './journeyStore.fixtures';
 
@@ -116,8 +117,13 @@ describe('journey erasure', () => {
 				}
 			}
 		},
-		{ step: 'support', pages: 2, seed: (store: Store) => seedContacts(store, USER, 50) }
-	])('schedules nothing after an exactly full last $step page', async ({ pages, seed }) => {
+		{ step: 'support', pages: 2, seed: (store: Store) => seedContacts(store, USER, 50) },
+		{
+			step: 'byte-limited support',
+			pages: 2,
+			seed: (store: Store) => seedContacts(store, USER, 3, 'x'.repeat(100_000))
+		}
+	])('schedules nothing after a full last $step page', async ({ pages, seed }) => {
 		const store = setup();
 		seed(store);
 
@@ -130,6 +136,19 @@ describe('journey erasure', () => {
 			[]
 		);
 		expect(store.childCalls()).toHaveLength(pages);
+	});
+
+	it('erases support threads near the document size limit within the page budget', async () => {
+		const store = setup();
+		seedContacts(store, USER, 3, 'x'.repeat(900_000));
+
+		await startErasure(store);
+		await store.runDueJobs();
+
+		expect(store.docs('supportThreads').filter((t) => t.firstUserMessageAt !== undefined)).toEqual(
+			[]
+		);
+		expect(store.jobs()).toEqual([]);
 	});
 
 	it('does not scan or schedule a long history that was never settled', async () => {
@@ -249,7 +268,6 @@ describe('journey erasure', () => {
 
 describe('account deletion trigger', () => {
 	it('commits the deletion and rolls back a failed erasure page', async () => {
-		const { onDelete } = await import('../../auth');
 		const store = createJourneyStore({
 			users: [USER, OTHER],
 			functions: {

@@ -99,9 +99,20 @@ export function createJourneyStore(
 		}
 	};
 
-	/** One function execution: its own paginate allowance. */
-	function makeCtx(extra: Record<string, unknown> = {}) {
+	/**
+	 * One function execution: its own paginate allowance and, for a child run
+	 * with `transactionLimits.bytesRead`, its own read meter.
+	 */
+	function makeCtx(extra: Record<string, unknown> = {}, bytesReadLimit?: number) {
 		let paginated = false;
+		let bytesRead = 0;
+		// Charges what the backend counts against the limit: every document a read
+		// returns, and again the document a patch or delete rewrites.
+		const charge = (doc: Doc | undefined) => {
+			if (doc === undefined || bytesReadLimit === undefined) return;
+			bytesRead += getDocumentSize(doc as Record<string, Value>);
+			if (bytesRead > bytesReadLimit) throw new Error('Transaction read too many bytes');
+		};
 
 		const rangeOf = (table: string, index: string, conditions: Condition[]) => {
 			const fields = index === 'by_creation_time' ? [] : indexFields.get(`${table}.${index}`);
@@ -154,7 +165,9 @@ export function createJourneyStore(
 					},
 					async take(n: number) {
 						const { docs } = rangeOf(table, index, conditions);
-						return (descending ? docs.reverse() : docs).slice(0, n);
+						const found = (descending ? docs.reverse() : docs).slice(0, n);
+						found.forEach(charge);
+						return found;
 					},
 					async collect() {
 						return await ordered.take(Number.POSITIVE_INFINITY);
@@ -186,16 +199,18 @@ export function createJourneyStore(
 							: docs;
 						const result: Doc[] = [];
 						let bytes = 0;
-						// Like the backend, a page stops at `numItems` without looking
-						// ahead, so a full page is never done, even when it took the last row.
+						// Like the backend, a page stops at `numItems` or its byte allowance
+						// without looking ahead, so such a page is never done, even when it
+						// took the last row.
 						let isDone = false;
 						while (result.length < page.numItems) {
+							if (page.maximumBytesRead !== undefined && bytes >= page.maximumBytesRead) break;
 							const doc = remaining[result.length];
 							if (doc === undefined) {
 								isDone = true;
 								break;
 							}
-							if (page.maximumBytesRead !== undefined && bytes >= page.maximumBytesRead) break;
+							charge(doc);
 							result.push(doc);
 							bytes += getDocumentSize(doc as Record<string, Value>);
 						}
@@ -215,7 +230,9 @@ export function createJourneyStore(
 		const db = {
 			query,
 			async get(table: string, id: string) {
-				return rows(table).get(id) ?? null;
+				const doc = rows(table).get(id);
+				charge(doc);
+				return doc ?? null;
 			},
 			async insert(table: string, value: Record<string, Value | undefined>) {
 				const id = `${table}:${nextId++}`;
@@ -225,6 +242,7 @@ export function createJourneyStore(
 			async patch(table: string, id: string, value: Record<string, Value | undefined>) {
 				const doc = rows(table).get(id);
 				if (!doc) throw new Error(`patch: ${id} does not exist`);
+				charge(doc);
 				checkFault(id);
 				const next: Doc = { ...doc };
 				for (const [field, fieldValue] of Object.entries(value)) {
@@ -234,6 +252,7 @@ export function createJourneyStore(
 				rows(table).set(id, next);
 			},
 			async delete(table: string, id: string) {
+				charge(rows(table).get(id));
 				checkFault(id);
 				rows(table).delete(id);
 			}
@@ -260,13 +279,13 @@ export function createJourneyStore(
 			async runMutation(
 				ref: unknown,
 				args: Record<string, unknown>,
-				options?: { transactionLimits?: unknown }
+				options?: { transactionLimits?: { bytesRead?: number } }
 			) {
 				const name = getFunctionName(ref as never);
 				childCalls.push({ name, limits: options?.transactionLimits });
 				const saved = snapshot();
 				try {
-					return await call(name, args);
+					return await call(name, args, options?.transactionLimits?.bytesRead);
 				} catch (error) {
 					restore(saved);
 					throw error;
@@ -295,10 +314,17 @@ export function createJourneyStore(
 		return users.has(id) ? profile(id) : null;
 	}
 
-	async function call(name: string, args: Record<string, unknown>): Promise<unknown> {
+	async function call(
+		name: string,
+		args: Record<string, unknown>,
+		bytesReadLimit?: number
+	): Promise<unknown> {
 		const handler = functions.get(name);
 		if (!handler) throw new Error(`Unregistered function ${name}`);
-		return await (handler as (ctx: unknown, args: unknown) => Promise<unknown>)(makeCtx(), args);
+		return await (handler as (ctx: unknown, args: unknown) => Promise<unknown>)(
+			makeCtx({}, bytesReadLimit),
+			args
+		);
 	}
 
 	let queue: Promise<unknown> = Promise.resolve();
