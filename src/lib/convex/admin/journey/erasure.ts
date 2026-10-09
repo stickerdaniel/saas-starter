@@ -37,7 +37,11 @@ const SUPPORT_PAGE = { numItems: 50, maximumBytesRead: 1 * MiB };
 type StepOutcome =
 	/** Nothing to do here; the page moves on to the next step. */
 	| { kind: 'empty' }
-	/** Work done and more may remain in this step; the next page resumes here. */
+	/**
+	 * Work done and more may remain in this step. The page probes the step
+	 * before scheduling the next page here, because a full page cannot tell
+	 * whether it took the last row.
+	 */
 	| { kind: 'progress'; cursor?: string }
 	/** Work done and this step is complete. */
 	| { kind: 'finished' };
@@ -77,14 +81,7 @@ const STEPS = {
 			for (const receipt of receipts) {
 				await ctx.db.delete('aiChatMessageReceipts', receipt._id);
 			}
-			if (receipts.length < RECEIPTS_PER_PAGE) return { kind: 'finished' };
-			// A full page may have been the last one. Continue only when another
-			// receipt is still there.
-			const more = await ctx.db
-				.query('aiChatMessageReceipts')
-				.withIndex('by_user', (q) => q.eq('userId', userId))
-				.first();
-			return more ? { kind: 'progress' } : { kind: 'finished' };
+			return receipts.length < RECEIPTS_PER_PAGE ? { kind: 'finished' } : { kind: 'progress' };
 		},
 		async probe(ctx, userId) {
 			const receipt = await ctx.db
@@ -173,7 +170,9 @@ export const erasePage = internalMutation({
 			const outcome = await definition.run(ctx, userId, offset === 0 ? cursor : undefined);
 			paginated ||= definition.paginates;
 			if (outcome.kind === 'empty') continue;
-			if (outcome.kind === 'progress') return { step: current, cursor: outcome.cursor };
+			if (outcome.kind === 'progress' && (await definition.probe(ctx, userId))) {
+				return { step: current, cursor: outcome.cursor };
+			}
 			return await nextStepWithWork(ctx, userId, index + 1);
 		}
 		return null;

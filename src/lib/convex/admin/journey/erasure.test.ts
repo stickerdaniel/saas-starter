@@ -97,14 +97,39 @@ describe('journey erasure', () => {
 		]);
 	});
 
-	it('does not schedule another receipt page when the last page was exactly full', async () => {
+	// A full page cannot tell whether it took the last row. Support runs on its
+	// own page because the community step already paginated in the first one.
+	it.each([
+		{
+			step: 'receipts',
+			pages: 1,
+			seed: (store: Store) => {
+				for (let i = 0; i < 500; i++) store.insert('aiChatMessageReceipts', { userId: USER });
+			}
+		},
+		{
+			step: 'community',
+			pages: 1,
+			seed: (store: Store) => {
+				for (let i = 0; i < 200; i++) {
+					store.insert('messages', { userId: USER, body: `kept ${i}`, quotaSettledAt: 5 });
+				}
+			}
+		},
+		{ step: 'support', pages: 2, seed: (store: Store) => seedContacts(store, USER, 50) }
+	])('schedules nothing after an exactly full last $step page', async ({ pages, seed }) => {
 		const store = setup();
-		for (let i = 0; i < 500; i++) store.insert('aiChatMessageReceipts', { userId: USER });
+		seed(store);
 
 		await startErasure(store);
+		await store.runDueJobs();
 
 		expect(store.docs('aiChatMessageReceipts')).toEqual([]);
-		expect(store.jobs()).toEqual([]);
+		expect(store.docs('messages').filter((m) => m.quotaSettledAt !== undefined)).toEqual([]);
+		expect(store.docs('supportThreads').filter((t) => t.firstUserMessageAt !== undefined)).toEqual(
+			[]
+		);
+		expect(store.childCalls()).toHaveLength(pages);
 	});
 
 	it('does not scan or schedule a long history that was never settled', async () => {

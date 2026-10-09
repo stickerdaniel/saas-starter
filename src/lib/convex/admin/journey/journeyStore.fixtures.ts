@@ -186,13 +186,19 @@ export function createJourneyStore(
 							: docs;
 						const result: Doc[] = [];
 						let bytes = 0;
-						for (const doc of remaining) {
-							if (result.length === page.numItems) break;
+						// Like the backend, a page stops at `numItems` without looking
+						// ahead, so a full page is never done, even when it took the last row.
+						let isDone = false;
+						while (result.length < page.numItems) {
+							const doc = remaining[result.length];
+							if (doc === undefined) {
+								isDone = true;
+								break;
+							}
 							if (page.maximumBytesRead !== undefined && bytes >= page.maximumBytesRead) break;
 							result.push(doc);
 							bytes += getDocumentSize(doc as Record<string, Value>);
 						}
-						const isDone = result.length === remaining.length;
 						const last = result[result.length - 1];
 						return {
 							page: result,
