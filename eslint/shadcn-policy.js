@@ -959,6 +959,13 @@ export const restyleOwners = [
 		components: {
 			Button: ['text-destructive', 'hover:text-destructive']
 		}
+	},
+	{
+		id: 'O58',
+		files: ['src/routes/[[lang]]/admin/support/thread-details.svelte'],
+		components: {
+			Textarea: ['max-h-48']
+		}
 	}
 ];
 

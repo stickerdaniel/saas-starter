@@ -97,7 +97,7 @@ describe('no-restyle options in the application config', () => {
 
 	it('composes the specified options at every owner file and nowhere else', async () => {
 		const files = [...new Set(specOwners.flatMap((owner) => owner.files))];
-		expect(files).toHaveLength(54);
+		expect(files).toHaveLength(55);
 		expect([...new Set(restyleOwners.flatMap((owner) => owner.files))].sort()).toEqual(
 			[...files].sort()
 		);
