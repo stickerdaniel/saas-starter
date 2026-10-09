@@ -355,6 +355,7 @@
 								bind:value={newNoteContent}
 								rows={INTERNAL_NOTE_TEXTAREA_ROWS}
 								resize="none"
+								class="max-h-48"
 							/>
 							<div class="flex justify-end">
 								<Button
