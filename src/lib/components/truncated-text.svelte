@@ -30,6 +30,10 @@
 		open = next && measure();
 	}
 
+	function trackPointer(event: PointerEvent) {
+		touch = event.pointerType === 'touch';
+	}
+
 	function trackClip(_text: string) {
 		return (node: HTMLElement) => {
 			let disposed = false;
@@ -64,7 +68,11 @@
 	disableCloseOnTriggerClick
 	disableHoverableContent={touch}
 >
-	<Tooltip.Trigger onpointerenter={(event) => (touch = event.pointerType === 'touch')}>
+	<Tooltip.Trigger
+		onpointerenter={trackPointer}
+		onpointermove={trackPointer}
+		onpointerdown={trackPointer}
+	>
 		{#snippet child({ props: { type: _buttonType, ...props } })}
 			<!-- Only clipped text becomes a tab stop, so keyboard users can reach the full
 				 text. The trigger props describe the element by the tooltip content and
