@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { ESLint } from 'eslint';
 import stripAnsi from 'strip-ansi';
 import { describe, expect, it } from 'vitest';
+import { sharedTestSettings } from '../scripts/vitest-settings';
 
 /**
  * What `no-literal-control-char` can actually see.
@@ -158,13 +159,12 @@ describe('generated English policy bundle linting', () => {
 describe('create-saas-starter tool coverage', () => {
 	it('separates app and creator TypeScript and Vitest projects without hiding source', async () => {
 		const rootTsconfig = readFileSync('tsconfig.json', 'utf8');
-		const rootVite = readFileSync('vite.config.ts', 'utf8');
 		const oxlintConfig = JSON.parse(readFileSync('.oxlintrc.json', 'utf8')) as {
 			ignorePatterns: string[];
 		};
 
 		expect(rootTsconfig).toContain('"packages/create-saas-starter/**"');
-		expect(rootVite).toContain("'packages/create-saas-starter/test/**'");
+		expect(sharedTestSettings.exclude).toContain('packages/create-saas-starter/test/**');
 		expect(await eslint.isPathIgnored('packages/create-saas-starter/src/index.ts')).toBe(false);
 		expect(
 			oxlintConfig.ignorePatterns.some((pattern) => pattern.includes('create-saas-starter'))
