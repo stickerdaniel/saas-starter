@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { sharedTestSettings } from '../../../../scripts/vitest-settings';
 import { changedRegionLines, classifyVerdict, regionOverlap } from './upstream-relevance';
 
 describe('changedRegionLines', () => {
@@ -253,13 +254,12 @@ describe('integration test routing', () => {
 		const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
 			scripts: Record<string, string>;
 		};
-		const viteConfig = readFileSync(resolve(root, 'vite.config.ts'), 'utf8');
 		const detectorConfig = readFileSync(resolve(import.meta.dirname, 'vitest.config.ts'), 'utf8');
 		const workflow = readFileSync(resolve(root, '.github/workflows/static-checks.yml'), 'utf8');
 		const integrationPath =
 			'.agents/skills/upstream-report/scripts/upstream-relevance.integration.test.ts';
 
-		expect(viteConfig).toContain(`'${integrationPath}'`);
+		expect(sharedTestSettings.exclude).toContain(integrationPath);
 		expect(detectorConfig).toContain('upstream-relevance.test.ts');
 		expect(packageJson.scripts['test:upstream-report']).toContain(
 			'.agents/skills/upstream-report/scripts/vitest.config.ts'
