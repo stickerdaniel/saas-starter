@@ -38,8 +38,8 @@ jobs:
         run: |
           # Workflow-only changes run their tests on Ubicloud. Every source or test dependency
           # whose behavior differs on Windows runs natively on Windows.
-          runner_pattern='^(package\.json|bun\.lock|tsconfig\.json|README\.md|wrangler\.toml|packages/create-saas-starter/.*|src/lib/config/(legal|site)\.ts|src/lib/content/legal-metadata\.ts|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|template-setup(\.integration\.test|\.test)?\.ts|__fixtures__/template-setup/.*|git-context(\.test)?\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1)))$'
-          test_pattern='^(package\.json|bun\.lock|tsconfig\.json|README\.md|wrangler\.toml|packages/create-saas-starter/.*|src/lib/config/(legal|site)\.ts|src/lib/content/legal-metadata\.ts|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|template-setup(\.integration\.test|\.test)?\.ts|__fixtures__/template-setup/.*|git-context(\.test)?\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1))|\.github/workflows/windows-process-lifecycle\.yml)$'
+          runner_pattern='^(package\.json|bun\.lock|tsconfig(\.tooling)?\.json|vitest\.tooling\.config\.ts|scripts/vitest-settings\.ts|README\.md|wrangler\.toml|packages/create-saas-starter/.*|src/lib/config/(legal|site)\.ts|src/lib/content/legal-metadata\.ts|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|template-setup(\.integration\.test|\.test)?\.ts|__fixtures__/template-setup/.*|git-context(\.test)?\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1)))$'
+          test_pattern='^(package\.json|bun\.lock|tsconfig(\.tooling)?\.json|vitest\.tooling\.config\.ts|scripts/vitest-settings\.ts|README\.md|wrangler\.toml|packages/create-saas-starter/.*|src/lib/config/(legal|site)\.ts|src/lib/content/legal-metadata\.ts|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|template-setup(\.integration\.test|\.test)?\.ts|__fixtures__/template-setup/.*|git-context(\.test)?\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1))|\.github/workflows/windows-process-lifecycle\.yml)$'
 
           fail_closed() {
             echo 'label=windows-latest' >> "$GITHUB_OUTPUT"
@@ -167,10 +167,10 @@ jobs:
       - if: steps.changes.outputs.run_tests == 'true' && hashFiles('packages/create-saas-starter/package.json') != ''
         run: bun install --cwd packages/create-saas-starter --frozen-lockfile --ignore-scripts
       - if: steps.changes.outputs.run_tests == 'true'
-        run: bun vitest --run scripts/dev-cloud.test.ts
+        run: bun vitest --config vitest.tooling.config.ts --run scripts/dev-cloud.test.ts
       - if: steps.changes.outputs.run_tests == 'true'
-        run: bun vitest --run scripts/static-checks.knip.test.ts
+        run: bun vitest --config vitest.tooling.config.ts --run scripts/static-checks.knip.test.ts
       - if: steps.changes.outputs.run_tests == 'true'
-        run: bun vitest --run scripts/git-context.test.ts -t 'staged content attributes'
+        run: bun vitest --config vitest.tooling.config.ts --run scripts/git-context.test.ts -t 'staged content attributes'
       - if: steps.changes.outputs.run_tests == 'true' && hashFiles('packages/create-saas-starter/package.json') != ''
         run: bun run --cwd packages/create-saas-starter vitest --run test/process.test.ts test/lifecycle.test.ts

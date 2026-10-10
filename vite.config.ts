@@ -19,6 +19,7 @@ import { prepareEmbeddedEnvManifest } from './scripts/strip-varlock-secrets';
 import { thirdPartyLicenses } from './scripts/third-party-licenses/index';
 import { marketingFonts } from './scripts/marketing-fonts';
 import { kitGeneratedHmr } from './scripts/kit-generated-hmr';
+import { sharedTestSettings, toolingTestSettings } from './scripts/vitest-settings.ts';
 import { sentrySvelteKit } from '@sentry/sveltekit/vite';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
@@ -457,45 +458,11 @@ export default defineConfig(async ({ mode }) => {
 			define: { 'import.meta.env.VITE_LOCAL_E2E_RUNTIME': JSON.stringify('1') }
 		}),
 		test: {
-			exclude: [
-				'e2e/**',
-				'**/node_modules/**',
-				'dist/**',
-				'.{idea,git,cache,output,temp}/**',
-				'docs/**',
-				'scratch/**',
-				'.opencode/**',
-				'references/**',
-				// Agent worktrees and symlinked skills are copies of owned tests.
-				// Discover the originals, including .agents/skills/, only once.
-				'.claude/**',
-				// The creator package has its own Vitest project and root command.
-				'packages/create-saas-starter/test/**',
-				// Repository-spawning detector tests run in their own CI job.
-				'.agents/skills/upstream-report/scripts/upstream-relevance.integration.test.ts'
-			],
-			passWithNoTests: true,
-			// Svelte's async tick() resolves on the next animation frame. Faking that
-			// frame leaves the callback queued forever in jsdom, so timer tests keep
-			// the real frame (installed for this runner in the app setup) and only
-			// fake the timers they advance.
-			fakeTimers: {
-				toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] as [
-					'setTimeout',
-					'clearTimeout',
-					'setInterval',
-					'clearInterval',
-					'Date'
-				]
-			},
+			...sharedTestSettings,
 			projects: [
 				{
 					extends: true as const,
-					test: {
-						name: 'tooling',
-						environment: 'node',
-						exclude: ['src/**']
-					}
+					test: toolingTestSettings
 				},
 				{
 					extends: true as const,
