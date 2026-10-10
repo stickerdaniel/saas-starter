@@ -17,6 +17,8 @@ import {
 import { DEFAULT_ATTACHMENT_PROFILE, type Attachment } from '../core/types.js';
 import type { ComposerSendResources } from './composer-send-coordinator.js';
 import { checkUploadPayload, type UploadProfile } from '../../uploads/profiles.js';
+import { UploadError, type UploadErrorCode } from '../../uploads/transfer.js';
+import { logSafeDiagnostic } from '../../monitoring/safe-diagnostic.js';
 import {
 	AttachmentRefusal,
 	AttachmentTransfer,
@@ -32,6 +34,16 @@ import {
 	type AttachmentTransferSnapshot,
 	type AttachmentTransferUpload
 } from './attachment-transfer.js';
+
+// The upload codes this repository defines. `UploadError` takes any string at
+// runtime, and a custom upload function could pass one that names the file, so
+// the failure log writes only these and calls everything else unclassified.
+const LOGGED_UPLOAD_CODES: Record<UploadErrorCode, true> = {
+	network: true,
+	http: true,
+	parse: true,
+	server: true
+};
 
 /** Settings every composer upload surface shares, whatever moves its bytes. */
 type UploadConfigBase = {
@@ -749,7 +761,17 @@ export class ComposerAttachmentCoordinator {
 				if (active) this.markPending(key);
 				else this.settlePending(key);
 			},
-			onAttemptError: () => console.error('[ComposerAttachmentCoordinator] Upload failed')
+			// The tile shows a translated cause; the log adds the code and HTTP status
+			// that tell failures apart. The message and `cause` stay out: they carry
+			// the storage or Convex response, which can quote the file or the user.
+			onAttemptError: (error) =>
+				logSafeDiagnostic('error', '[ComposerAttachmentCoordinator] Upload failed', {
+					code:
+						error instanceof UploadError && Object.hasOwn(LOGGED_UPLOAD_CODES, error.code)
+							? error.code
+							: 'unclassified',
+					status: error instanceof UploadError ? error.status : undefined
+				})
 		});
 		this.transfers.set(key, transfer);
 		return transfer;
