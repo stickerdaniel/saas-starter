@@ -17,6 +17,8 @@ export default {
 		'eslint/shadcn-policy.js',
 		'scripts/*.ts',
 		'e2e/**/*.ts',
+		// Loaded by the local table check through Vite's browser entry, not a static import.
+		'src/lib/components/tables/test-fixtures/TableScrollHarness.svelte',
 
 		// Policy DSL consumed by knowledge-policy.config.ts. Helpers a fork has not used
 		// yet are its public surface, so unused exports here are not dead code.

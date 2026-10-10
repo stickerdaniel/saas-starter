@@ -78,8 +78,8 @@
 	}: Props = $props();
 </script>
 
-<div class="flex flex-col gap-6">
-	<div class="flex flex-wrap items-center justify-between gap-4">
+<div class="flex min-h-0 min-w-0 flex-col gap-6">
+	<div class="flex shrink-0 flex-wrap items-center justify-between gap-4">
 		<div class="flex flex-wrap items-center gap-4">
 			{#if showSearch}
 				<div class="relative w-full max-w-sm sm:w-64">
@@ -103,11 +103,14 @@
 		{@render toolbarActions?.()}
 	</div>
 
-	<div class="overflow-hidden rounded-md border" data-testid={tableTestId}>
+	<div
+		class="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border"
+		data-testid={tableTestId}
+	>
 		{@render tableContent()}
 	</div>
 
-	<div class="flex items-center justify-between px-2">
+	<div class="flex shrink-0 items-center justify-between px-2">
 		<div
 			class="hidden flex-1 text-sm text-muted-foreground lg:flex"
 			data-testid={selectionTextTestId}
