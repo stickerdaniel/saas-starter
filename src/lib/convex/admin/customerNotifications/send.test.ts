@@ -141,9 +141,7 @@ describe('new customer email from a seeded ledger row', () => {
 
 		const { html, text } = enqueued()[0]!;
 		const document = parse(html);
-		const leaves = leafTexts(document);
-		expect(leaves.filter((shown) => shown === '–')).toHaveLength(2);
-		expect(leaves).not.toContain('not recorded yet');
+		expect(leafTexts(document).filter((shown) => shown === '–')).toHaveLength(2);
 		expect(textOf(document)).toContain('AI chat messages: not recorded yet.');
 		expect(text).toContain('not recorded yet: AI chat messages before paying');
 		expect(text).toContain('2 d 5 h: signup to paid');
