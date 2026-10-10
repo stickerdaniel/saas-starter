@@ -15,6 +15,8 @@ Root `AGENTS.md` decides whether a fix earns a regression guard and which mechan
 - environment requirement → Varlock schema
 - security header → server hook/config plus a response test
 
+A test that `windows-process-lifecycle.yml` runs from `vitest.tooling.config.ts` must not load `vite.config.ts`, directly or through `svelte-kit sync`: the application config bootstraps Varlock, and a swallowed failure there ends in `env_invalid`. Sync with a minimal `--config` instead.
+
 Route content, configuration, and generated assets belong in Vitest or an artifact test. Playwright covers deployed response behavior and load-bearing user flows.
 
 Tests and checks should name the invariant, not mirror a current file list unless that file relationship is itself the contract.

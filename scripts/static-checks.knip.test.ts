@@ -483,17 +483,35 @@ function seedCreatorState(
  * every case. A job that installs with `--ignore-scripts` has not synced yet;
  * the first fixture does, and the rest find the file. `.svelte-kit/tsconfig.json`
  * is not a Kit 3 output, and syncing once per case to look for it is not.
+ *
+ * The sync reads a config with only the stock plugin, not `vite.config.ts`. The application
+ * config bootstraps Varlock, and a swallowed failure there ends in `env_invalid`, which would
+ * put this tooling suite back on the path `vitest.tooling.config.ts` exists to avoid. The
+ * generated base config does not depend on the application's Vite options.
  */
 function seedGeneratedKitProject(): void {
 	const generated = path.join(ROOT, 'node_modules', '$app', 'tsconfig.json');
 	if (existsSync(generated)) return;
-	const sync = spawnSync(BUN, ['svelte-kit', 'sync'], {
-		cwd: ROOT,
-		env: sanitizedGitEnv(),
-		encoding: 'utf8'
-	});
-	if (sync.status !== 0 || !existsSync(generated)) {
-		throw new Error(`SvelteKit sync did not write ${generated}: ${sync.stdout}${sync.stderr}`);
+	// Inside `node_modules`, so the bare import resolves from this checkout.
+	const cache = path.join(ROOT, 'node_modules', '.cache');
+	mkdirSync(cache, { recursive: true });
+	const directory = mkdtempSync(path.join(cache, 'kit-sync-'));
+	try {
+		const config = path.join(directory, 'vite.config.mjs');
+		writeFileSync(
+			config,
+			"import { sveltekit } from '@sveltejs/kit/vite';\nexport default { plugins: [sveltekit()] };\n"
+		);
+		const sync = spawnSync(BUN, ['svelte-kit', 'sync', '--config', config], {
+			cwd: ROOT,
+			env: sanitizedGitEnv(),
+			encoding: 'utf8'
+		});
+		if (sync.status !== 0 || !existsSync(generated)) {
+			throw new Error(`SvelteKit sync did not write ${generated}: ${sync.stdout}${sync.stderr}`);
+		}
+	} finally {
+		rmSync(directory, { recursive: true, force: true });
 	}
 }
 
@@ -805,6 +823,14 @@ describe('Windows lifecycle workflow coverage', () => {
 			expect(step).toContain("if: steps.changes.outputs.run_tests == 'true'");
 			expect(step).not.toContain('hashFiles(');
 		}
+	});
+	it('runs every root Vitest command from the standalone tooling config', () => {
+		// The application config bootstraps Varlock; these tests need no SvelteKit environment.
+		const commands = readFileSync(WINDOWS_LIFECYCLE_WORKFLOW, 'utf8').match(
+			/^ +run: bun (?:run )?vitest\b.*$/gm
+		);
+		expect(commands?.length).toBeGreaterThan(0);
+		for (const command of commands!) expect(command).toContain('--config vitest.tooling.config.ts');
 	});
 	it('keeps push, pull-request, and native-runner dependencies aligned', () => {
 		const workflow = readFileSync(WINDOWS_LIFECYCLE_WORKFLOW, 'utf8');
