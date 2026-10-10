@@ -9,12 +9,13 @@ afterEach(() => {
 	for (const fixture of fixtures.splice(0)) rmSync(fixture, { recursive: true });
 });
 
-function fixture() {
+function fixture(componentDirectory = '') {
 	const root = mkdtempSync(join(tmpdir(), 'css-source-'));
 	fixtures.push(root);
 	mkdirSync(join(root, 'src/routes'), { recursive: true });
-	mkdirSync(join(root, 'node_modules/renderer'), { recursive: true });
-	writeFileSync(join(root, 'node_modules/renderer/component.svelte'), '<p>Renderer</p>');
+	const dependency = join(root, 'node_modules/renderer', componentDirectory);
+	mkdirSync(dependency, { recursive: true });
+	writeFileSync(join(dependency, 'component.svelte'), '<p>Renderer</p>');
 	return join(root, 'src/routes/layout.css');
 }
 
@@ -27,6 +28,11 @@ describe('Tailwind dependency source paths', () => {
 		expect(emptyCssSources(file, '@source "../../node_modules/renderer/**/*";')).toEqual([]);
 	});
 
+	it('accepts a dependency glob whose only component is in a hidden directory', () => {
+		const file = fixture('.generated');
+		expect(emptyCssSources(file, '@source "../../node_modules/renderer/**/*.svelte";')).toEqual([]);
+	});
+
 	it('accepts directories and file paths without treating exclusions, inline sources or comments as globs', () => {
 		const file = fixture();
 		expect(emptyCssSources(file, '@source "../../node_modules/renderer";')).toEqual([]);
@@ -36,7 +42,7 @@ describe('Tailwind dependency source paths', () => {
 		expect(
 			emptyCssSources(
 				file,
-				'@source not "missing/**"; @source inline("underline"); /* @source "missing/**"; */'
+				'@source not "missing/**"; @source inline("underline"); @source var(--source); /* @source "missing/**"; */'
 			)
 		).toEqual([]);
 	});
