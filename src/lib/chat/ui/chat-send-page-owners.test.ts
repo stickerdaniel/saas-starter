@@ -251,6 +251,18 @@ describe.each([
 		expect(storedDrafts()).toEqual({ 'thread-a': 'A\n\nB\n\nnewer' });
 	});
 
+	it('sends nothing the ended session typed from the composer still on screen', async () => {
+		await enterPage();
+		await type('typed before the session ended');
+
+		clearPersistedChatState();
+		// Before the rebuild flushes, the old composer is the one a click reaches.
+		sendButton().click();
+		await settleWork();
+
+		expect(replies).toHaveLength(0);
+	});
+
 	describe('after the session ended while the page stayed open', () => {
 		async function sendInNewSessionAndReturn(): Promise<void> {
 			await enterPage();

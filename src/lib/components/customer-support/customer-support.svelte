@@ -166,6 +166,10 @@
 		support.sendOwner = next.owner;
 		const previous = chatUIContext;
 		chatUIContext = createChatUIContext(next.owner);
+		// Renewal runs inside the session-end sweep, and disposing unregisters the
+		// old context before the sweep reaches it. Its composer stays on screen until
+		// the keyed rebuild flushes, so it must hold nothing the old session typed.
+		previous.forgetPersistedState();
 		previous.dispose();
 	}
 
