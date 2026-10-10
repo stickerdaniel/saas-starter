@@ -827,7 +827,7 @@ describe('Windows lifecycle workflow coverage', () => {
 	it('runs every root Vitest command from the standalone tooling config', () => {
 		// The application config bootstraps Varlock; these tests need no SvelteKit environment.
 		const commands = readFileSync(WINDOWS_LIFECYCLE_WORKFLOW, 'utf8').match(
-			/^ +run: bun (?:run )?vitest\b.*$/gm
+			/^ +run: (?:bunx|bun(?: run)?) vitest\b.*$/gm
 		);
 		expect(commands?.length).toBeGreaterThan(0);
 		for (const command of commands!) expect(command).toContain('--config vitest.tooling.config.ts');
