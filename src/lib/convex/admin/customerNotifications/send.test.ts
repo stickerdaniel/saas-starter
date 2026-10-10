@@ -1,6 +1,7 @@
 // @vitest-environment node
 // The component double stores ArrayBuffer bodies, which Convex values only accept from this realm.
 import { inspect } from 'node:util';
+import { parse, type DefaultTreeAdapterMap } from 'parse5';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import de from '../../../../i18n/de.json';
 import en from '../../../../i18n/en.json';
@@ -44,6 +45,22 @@ const fill = (message: string, params: Record<string, string>) =>
 
 const admins = (...emails: string[]): Admin[] =>
 	emails.map((email, index) => ({ id: `admin_${index}`, email }));
+
+type HtmlNode = DefaultTreeAdapterMap['document'] | DefaultTreeAdapterMap['childNode'];
+
+/** The text a reader sees under a parsed node, with entities decoded. */
+const textOf = (node: HtmlNode): string =>
+	'value' in node ? node.value : 'childNodes' in node ? node.childNodes.map(textOf).join('') : '';
+
+/** The trimmed text of every element that holds no further elements. */
+function leafTexts(node: HtmlNode): string[] {
+	const elements = ('childNodes' in node ? node.childNodes : []).filter(
+		(child) => 'tagName' in child
+	);
+	return 'tagName' in node && elements.length === 0
+		? [textOf(node).trim()]
+		: elements.flatMap(leafTexts);
+}
 
 beforeEach(() => {
 	configureEmail();
@@ -123,13 +140,11 @@ describe('new customer email from a seeded ledger row', () => {
 		await send(ledgerRow());
 
 		const { html, text } = enqueued()[0]!;
-		const shown = html
-			.split(/<[^>]*>/)
-			.map((part) => part.trim())
-			.filter(Boolean);
-		expect(shown.filter((part) => part === '–')).toHaveLength(2);
-		expect(shown).not.toContain('not recorded yet');
-		expect(shown).toContain('AI chat messages: not recorded yet.');
+		const document = parse(html);
+		const leaves = leafTexts(document);
+		expect(leaves.filter((shown) => shown === '–')).toHaveLength(2);
+		expect(leaves).not.toContain('not recorded yet');
+		expect(textOf(document)).toContain('AI chat messages: not recorded yet.');
 		expect(text).toContain('not recorded yet: AI chat messages before paying');
 		expect(text).toContain('2 d 5 h: signup to paid');
 	});
