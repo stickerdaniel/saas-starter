@@ -31,6 +31,7 @@ const THREADS_PAGE = { numItems: THREADS_CHECKED + 1, maximumBytesRead: MiB / 2 
 
 const COPY = {
 	step: {
+		atLeastOne: 'email.customer_journey.source.support.step.at_least_one',
 		one: 'email.customer_journey.source.support.step.one',
 		many: 'email.customer_journey.source.support.step.many'
 	},
@@ -100,15 +101,20 @@ export const supportSource: JourneySource<'support'> = defineJourneySource({
 			const last = times[times.length - 1];
 			if (first === undefined || last === undefined) return [];
 			const single = times.length === 1 && !lowerBound;
+			// A cut-short page can stop after one large thread, and "at least 1
+			// threads" would read wrong.
+			const title = single
+				? t(locale, COPY.step.one)
+				: times.length === 1
+					? t(locale, COPY.step.atLeastOne)
+					: t(locale, COPY.step.many, {
+							count: formatCount(times.length, lowerBound, locale)
+						});
 			return [
 				{
 					key: `support:${name}`,
 					at: first,
-					title: single
-						? t(locale, COPY.step.one)
-						: t(locale, COPY.step.many, {
-								count: formatCount(times.length, lowerBound, locale)
-							}),
+					title,
 					lines: single
 						? []
 						: [

@@ -754,6 +754,7 @@
 					},
 					"step": {
 						"many": "First recorded support contacts in {count} threads",
+						"at_least_one": "First recorded support contacts in at least 1 thread",
 						"one": "First recorded support contact"
 					}
 				}

@@ -339,7 +339,9 @@ describe('template journey sources', () => {
 		const { source, notes } = await journey(newCustomer(SIGNUP + DAY));
 
 		expect(source('support')).toMatchObject({ status: 'presented', coverage: { truncated: true } });
-		expect(source('support').steps.map((step) => step.at)).toEqual([SIGNUP]);
+		expect(source('support').steps.map(({ at, title }) => ({ at, title }))).toEqual([
+			{ at: SIGNUP, title: 'First recorded support contacts in at least 1 thread' }
+		]);
 		expect(notes).toEqual(['Support contacts: only partly checked, so counts are minimums.']);
 	});
 

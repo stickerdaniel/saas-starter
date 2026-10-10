@@ -754,6 +754,7 @@
 					},
 					"step": {
 						"many": "Erste erfasste Support-Kontakte in {count} Anfragen",
+						"at_least_one": "Erste erfasste Support-Kontakte in mindestens 1 Anfrage",
 						"one": "Erster erfasster Support-Kontakt"
 					}
 				}

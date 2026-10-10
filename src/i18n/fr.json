@@ -754,6 +754,7 @@
 					},
 					"step": {
 						"many": "Premiers contacts enregistrés avec le support dans {count} conversations",
+						"at_least_one": "Premiers contacts enregistrés avec le support dans au moins 1 conversation",
 						"one": "Premier contact enregistré avec le support"
 					}
 				}
