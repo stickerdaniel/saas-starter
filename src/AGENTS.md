@@ -22,7 +22,7 @@ Load the `svelte-core-bestpractices` skill before writing or reviewing Svelte mo
   - Outside those paths, `{...props}` permits only a bits-ui native button host; iframe/link `title` permits only that element's title; native file/hidden input types remain allowed but do not waive title or other controls. A non-dialog overlay's `role="dialog"` is not a native dialog. Other component `title` props, dynamic input types, and Switch/radio judgments are outside this bounded signature; do not expand the rule by guessing.
 - Use project theme tokens when importing external blocks.
 - Prefer global Tailwind utilities for shared patterns over repeated component-local styles.
-- An open dialog, popover or preview must derive its size from live viewport units (`min()` with `dvh` and `dvw`) and a budget for its own chrome, never from dimensions captured when it opened.
+- An open dialog, popover or preview refits to the live viewport and budgets for its own chrome instead of freezing dimensions captured when it opened; `min()` with `dvh` and `dvw` does this without resize handlers.
 - Shadowed surfaces use a translucent `ring-1 ring-foreground/10`; avoid muddy solid borders beside shadows.
 - Use `cmdOrCtrl` / `optionOrAlt` for platform-specific shortcut labels.
 - Localize all user-facing and accessibility strings. Never hardcode English `aria-label` or `.sr-only` copy.
