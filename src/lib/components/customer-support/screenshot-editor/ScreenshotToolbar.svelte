@@ -78,15 +78,19 @@
 		<div class="my-1 h-px w-6 bg-border sm:mx-1 sm:my-0 sm:h-6 sm:w-px"></div>
 
 		<!-- Color Selector -->
-		<ColorSelector
-			colors={colorSwatches}
-			size="lg"
-			bind:value={editor.strokeColor}
-			getColorLabel={(color) => colorLabels[color] ?? color}
-			aria-label={$t('support.screenshot.tool.color')}
-			class="flex-col items-center px-1 sm:flex-row sm:px-0"
-			data-testid="screenshot-color-selector"
-		/>
+		<div
+			class="-my-1 no-scrollbar max-h-screenshot-palette scroll-py-1 overflow-y-auto overscroll-contain py-1 sm:contents"
+		>
+			<ColorSelector
+				colors={colorSwatches}
+				size="lg"
+				bind:value={editor.strokeColor}
+				getColorLabel={(color) => colorLabels[color] ?? color}
+				aria-label={$t('support.screenshot.tool.color')}
+				class="flex-col items-center px-1 sm:flex-row sm:px-0"
+				data-testid="screenshot-color-selector"
+			/>
+		</div>
 
 		<!-- Divider -->
 		<div class="my-1 h-px w-6 bg-border sm:mx-1 sm:my-0 sm:h-6 sm:w-px"></div>

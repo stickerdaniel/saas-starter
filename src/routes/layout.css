@@ -483,6 +483,14 @@
 	min-height: calc(100dvh - var(--top-notices-height, 0px));
 }
 
+/* Reserve the vertical screenshot toolbar's other controls (351px at the default root
+   size, without its 14px of border and padding), so the palette scrolls only once
+   those controls no longer fit and a toolbar that shows all controls stays unchanged.
+   Keep room for one swatch; shorter viewports can still clip the toolbar. */
+@utility max-h-screenshot-palette {
+	max-height: max(2rem, calc(100dvh - 21.9375rem));
+}
+
 /* A pill that turns square when the theme sets --radius: 0; sign() is 0 at a zero
    radius and 1 otherwise. twMergeConfig in utils.ts registers it as a radius so a
    caller's rounded-* replaces it and it replaces Button's rounded-md. */
