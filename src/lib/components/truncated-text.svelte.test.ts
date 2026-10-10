@@ -90,8 +90,8 @@ async function settle() {
 	flushSync();
 }
 
-async function hover() {
-	trigger().dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+async function hover(pointerType = 'mouse') {
+	trigger().dispatchEvent(new PointerEvent('pointerenter', { pointerType }));
 	await settle();
 }
 
@@ -250,6 +250,113 @@ describe('TruncatedText', () => {
 			await settle();
 
 			expect(trigger().getAttribute('data-state')).toBe('instant-open');
+			expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
+			expect(tooltip()?.textContent?.trim()).toBe(LONG);
+
+			content.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+			await settle();
+			expect(tooltip()).toBeNull();
+		}
+	);
+
+	it.each(['mouse', 'pen'])(
+		'keeps held touch open when an already-present %s moves',
+		async (pointerType) => {
+			render(LONG);
+			await hover(pointerType);
+			await tap();
+			trigger().dispatchEvent(
+				new PointerEvent('pointerdown', {
+					pointerType: 'touch',
+					pointerId: 2,
+					buttons: 1,
+					bubbles: true
+				})
+			);
+			await settle();
+			trigger().dispatchEvent(new PointerEvent('pointermove', { pointerType, bubbles: true }));
+			await settle();
+
+			for (const type of ['pointerup', 'pointerleave']) {
+				trigger().dispatchEvent(
+					new PointerEvent(type, {
+						pointerType: 'touch',
+						pointerId: 2,
+						bubbles: type === 'pointerup'
+					})
+				);
+			}
+			trigger().click();
+			await settle();
+
+			expect(trigger().getAttribute('data-state')).toBe('instant-open');
+			expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
+			expect(tooltip()?.textContent?.trim()).toBe(LONG);
+		}
+	);
+
+	it.each(['mouse-first', 'touch-first'])(
+		'preserves a direct mouse exit into the content after %s touch',
+		async (history) => {
+			render(LONG);
+			if (history === 'mouse-first') await hover();
+			await tap();
+			const content = tooltip()!;
+			// No in-trigger mouse enter, move or down precedes this exit.
+			trigger().dispatchEvent(
+				new PointerEvent('pointerleave', { pointerType: 'mouse', relatedTarget: content })
+			);
+			content.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+			await settle();
+
+			expect(trigger().getAttribute('data-state')).toBe('instant-open');
+			expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
+			expect(tooltip()?.textContent?.trim()).toBe(LONG);
+
+			content.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+			await settle();
+			expect(tooltip()).toBeNull();
+		}
+	);
+
+	it('closes on a direct mouse exit outside after touch', async () => {
+		render(LONG);
+		await hover();
+		await tap();
+		trigger().dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+		await settle();
+		expect(trigger().getAttribute('data-state')).toBe('closed');
+		expect(tooltip()).toBeNull();
+	});
+
+	it.each(['pointerup', 'pointercancel', 'lostpointercapture', 'pointerleave'])(
+		'restores mouse hover after touch ends through %s',
+		async (ending) => {
+			render(LONG);
+			await tap();
+			trigger().dispatchEvent(
+				new PointerEvent('pointerdown', {
+					pointerType: 'touch',
+					pointerId: 7,
+					buttons: 1,
+					bubbles: true
+				})
+			);
+			await settle();
+			trigger().dispatchEvent(
+				new PointerEvent(ending, {
+					pointerType: 'touch',
+					pointerId: 7,
+					buttons: 0,
+					bubbles: ending !== 'pointerleave'
+				})
+			);
+			await settle();
+			const content = tooltip()!;
+			trigger().dispatchEvent(
+				new PointerEvent('pointerleave', { pointerType: 'mouse', relatedTarget: content })
+			);
+			await settle();
 			expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
 			expect(tooltip()?.textContent?.trim()).toBe(LONG);
 
