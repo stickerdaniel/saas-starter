@@ -19,7 +19,11 @@
 </script>
 
 <Button onclick={handleToggle} {variant} size="icon">
-	<SunIcon class="scale-100 rotate-0 !transition-all dark:scale-0 dark:-rotate-90" />
-	<MoonIcon class="absolute scale-0 rotate-90 !transition-all dark:scale-100 dark:rotate-0" />
+	<SunIcon
+		class="scale-100 rotate-0 !transition-all motion-reduce:transition-non-spatial! dark:scale-0 dark:-rotate-90"
+	/>
+	<MoonIcon
+		class="absolute scale-0 rotate-90 !transition-all motion-reduce:transition-non-spatial! dark:scale-100 dark:rotate-0"
+	/>
 	<span class="sr-only">{$t('aria.toggle_theme')}</span>
 </Button>
