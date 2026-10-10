@@ -50,7 +50,7 @@ export async function criticalFont(font: Buffer, characters: string) {
 		.join(',');
 	// These bytes are inline; wait for decoding rather than painting a fallback frame.
 	const css =
-		'@font-face{font-family:"Outfit Critical";font-style:normal;font-weight:400 600;' +
+		'@font-face{font-family:"Outfit Critical";font-style:normal;font-weight:400 700;' +
 		'font-display:block;src:url("' +
 		href +
 		'") format("woff2");unicode-range:' +
@@ -81,7 +81,7 @@ async function readEmittedOutfit(clientDir: string): Promise<Buffer> {
 	const [font] = fonts;
 	if (fonts.size !== 1 || !font) {
 		throw new Error(
-			`Expected one shared Outfit font for weights 400–600; found ${fonts.size}. Check the critical font configuration before changing the font family or faces.`
+			`Expected one shared Outfit font for weights 400–700; found ${fonts.size}. Check the critical font configuration before changing the font family or faces.`
 		);
 	}
 	return readFile(font);
