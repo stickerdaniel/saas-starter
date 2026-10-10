@@ -57,13 +57,16 @@ export type JourneyStep = {
 
 /**
  * A summary tile. `count` carries the number behind `value` for summary copy;
- * an absent `count` means unknown, never zero.
+ * an absent `count` means unknown, never zero. `unknown` marks a `value` that
+ * says why nothing is known, such as "not recorded yet"; a coverage note says
+ * the same, so a renderer may show the tile without it.
  */
 export type JourneyMetric = {
 	key: string;
 	label: string;
 	value: string;
 	count?: { n: number; lowerBound: boolean };
+	unknown?: true;
 };
 
 export type JourneyPresentation = { steps: JourneyStep[]; metrics: JourneyMetric[] };

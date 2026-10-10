@@ -397,35 +397,44 @@ function paintRole(role: RailRole, property: string, style: string): string {
 	return `${className} style="${escapeHtml(`${style};${property}:${role.color}`)}"`;
 }
 
+const TILE_VALUE_STYLE = 'margin:0;font-size:18px;line-height:1.25;font-weight:600';
+
 /**
- * The summary tiles as one table row of equal columns, styled like the
- * template's bordered boxes, with a plain-text line per tile.
+ * The summary tiles as one bordered strip of equal columns split by rules, so
+ * every column takes the row's height. An unknown tile shows a muted dash,
+ * since the coverage notes under the rail give the reason; the plain text
+ * keeps the reason.
  */
 function renderTiles({ tiles, theme }: ComposedJourney): { html: string; text: string } {
 	if (tiles.length === 0) return { html: '', text: '' };
 	const width = `${(100 / tiles.length).toFixed(4)}%`;
 	const cells = tiles.map((tile, index) => {
-		const padding = [
-			index > 0 ? 'padding-left:4px' : '',
-			index < tiles.length - 1 ? 'padding-right:4px' : ''
-		]
-			.filter(Boolean)
-			.join(';');
-		const box = paintRole(
-			theme.tiles.border,
-			'border-color',
-			'border-width:1px;border-style:solid;border-radius:6px;padding:12px'
-		);
+		const base = `width:${width};vertical-align:top;padding:12px`;
+		const cell =
+			index === 0
+				? ` style="${escapeHtml(base)}"`
+				: paintRole(
+						theme.tiles.border,
+						'border-left-color',
+						`${base};border-left-width:1px;border-left-style:solid`
+					);
+		const value = tile.unknown
+			? `<p${paintRole(theme.tiles.label, 'color', TILE_VALUE_STYLE)}>–</p>`
+			: `<p style="${TILE_VALUE_STYLE}">${escapeHtml(tile.value)}</p>`;
 		return [
-			`<td valign="top" style="${escapeHtml(`width:${width};vertical-align:top${padding ? `;${padding}` : ''}`)}">`,
-			`<div${box}>`,
-			`<p style="margin:0;font-size:18px;line-height:1.25;font-weight:600">${escapeHtml(tile.value)}</p>`,
+			`<td valign="top"${cell}>`,
+			value,
 			`<p${paintRole(theme.tiles.label, 'color', 'margin:4px 0 0;font-size:12px;line-height:16px')}>${escapeHtml(tile.label)}</p>`,
-			'</div></td>'
+			'</td>'
 		].join('');
 	});
+	const strip = paintRole(
+		theme.tiles.border,
+		'border-color',
+		'margin-bottom:24px;border-width:1px;border-style:solid;border-radius:6px;border-collapse:separate;border-spacing:0'
+	);
 	return {
-		html: `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin-bottom:24px;border-collapse:collapse"><tbody><tr>${cells.join('')}</tr></tbody></table>`,
+		html: `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"${strip}><tbody><tr>${cells.join('')}</tr></tbody></table>`,
 		text: tiles.map((tile) => `${tile.value}: ${tile.label}`).join('\n')
 	};
 }

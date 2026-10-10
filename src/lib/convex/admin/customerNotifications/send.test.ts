@@ -115,6 +115,20 @@ describe('new customer email from a seeded ledger row', () => {
 		// The tile still counts what happened before paying.
 		expect(text).toContain('3: AI chat messages before paying');
 	});
+
+	it('shows a dash in a tile with nothing recorded and keeps the reason in the notes and text', async () => {
+		const { ledgerRow, send, enqueued } = setupSend();
+		installResend();
+
+		await send(ledgerRow());
+
+		const { html, text } = enqueued()[0]!;
+		expect(html.match(/>–<\/p>/g)).toHaveLength(2);
+		expect(html).not.toContain('>not recorded yet<');
+		expect(html).toContain('AI chat messages: not recorded yet.');
+		expect(text).toContain('not recorded yet: AI chat messages before paying');
+		expect(text).toContain('2 d 5 h: signup to paid');
+	});
 });
 
 describe('private data stays out of the email path', () => {

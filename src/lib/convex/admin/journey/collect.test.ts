@@ -266,9 +266,9 @@ describe('journey core conformance', () => {
 			expect(byId(id)).toMatchObject({ status: 'unavailable', steps: [] });
 		}
 		expect(pickTiles([], presented, 4)).toEqual([
-			{ key: 'throwing:a', label: 'throwing a', value: UNAVAILABLE },
-			{ key: 'throwing:b', label: 'throwing b', value: UNAVAILABLE },
-			{ key: 'failing:c', label: 'failing c', value: UNAVAILABLE },
+			{ key: 'throwing:a', label: 'throwing a', value: UNAVAILABLE, unknown: true },
+			{ key: 'throwing:b', label: 'throwing b', value: UNAVAILABLE, unknown: true },
+			{ key: 'failing:c', label: 'failing c', value: UNAVAILABLE, unknown: true },
 			metric('healthy:count', 7)
 		]);
 		expect(coverageNotes(presented, format)).toEqual([

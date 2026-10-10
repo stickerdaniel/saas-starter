@@ -198,7 +198,13 @@ export function presentPartitioned(
 	if (facts.coverage.capture?.kind === 'not_started') {
 		return {
 			steps: [],
-			metrics: [{ ...slot, value: t(locale, 'email.customer_journey.core.value.not_recorded') }]
+			metrics: [
+				{
+					...slot,
+					value: t(locale, 'email.customer_journey.core.value.not_recorded'),
+					unknown: true
+				}
+			]
 		};
 	}
 	const counted =
