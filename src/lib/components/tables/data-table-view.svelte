@@ -32,6 +32,18 @@
 	}: Props = $props();
 
 	const { t } = getTranslate();
+	let header = $state<HTMLTableSectionElement | null>(null);
+	let headerHeight = $state(0);
+
+	$effect(() => {
+		if (!header) return;
+		const element = header;
+		const measure = () => (headerHeight = element.getBoundingClientRect().height);
+		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(element);
+		return () => observer.disconnect();
+	});
 
 	const columns = $derived(table.getVisibleLeafColumns());
 	const rows = $derived(table.getRowModel().rows);
@@ -43,8 +55,14 @@
      its text is not reliably read out. -->
 <div role="status" class="sr-only">{loading && skeletonRows > 0 ? loadingText : ''}</div>
 
-<Table.Root class="table-fixed">
-	<Table.Header sticky>
+<Table.Root
+	class="table-fixed"
+	container={{
+		class: 'min-h-0 max-h-[min(32rem,60dvh)] flex-auto overflow-auto scroll-p-1',
+		scrollPaddingTop: `calc(${headerHeight}px + 0.25rem)`
+	}}
+>
+	<Table.Header sticky bind:ref={header}>
 		{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
 			<Table.Row variant="header">
 				{#each headerGroup.headers as header (header.id)}

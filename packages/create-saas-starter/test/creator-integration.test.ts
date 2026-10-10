@@ -347,7 +347,7 @@ describe('creator workflows', () => {
 		const staticChecks = read('.github/workflows/static-checks.yml');
 		const windowsLifecycle = read('.github/workflows/windows-process-lifecycle.yml');
 
-		expect(staticChecks.match(/run: bun install --frozen-lockfile/g)).toHaveLength(4);
+		expect(staticChecks.match(/run: bun install --frozen-lockfile/g)).toHaveLength(5);
 		expect(staticChecks).not.toMatch(/run: bun install\s*$/m);
 		expect(windowsLifecycle).toContain('packages/create-saas-starter/.*');
 		expect(windowsLifecycle).toContain(
