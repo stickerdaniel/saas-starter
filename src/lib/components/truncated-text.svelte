@@ -56,8 +56,14 @@
 	}
 </script>
 
-<Tooltip.Root bind:open={() => open, setOpen}>
-	<Tooltip.Trigger>
+<Tooltip.Root bind:open={() => open, setOpen} disableCloseOnTriggerClick>
+	<Tooltip.Trigger
+		onpointerleavecapture={(event) => {
+			// Touch end emits pointerleave, which Bits UI reads as a hover exit. Stop it
+			// in capture before SafePolygon closes the disclosure; mouse and pen keep hover safety.
+			if (event.pointerType === 'touch') event.stopImmediatePropagation();
+		}}
+	>
 		{#snippet child({ props: { type: _buttonType, ...props } })}
 			<!-- Only clipped text becomes a tab stop, so keyboard users can reach the full
 				 text. The trigger props describe the element by the tooltip content and
