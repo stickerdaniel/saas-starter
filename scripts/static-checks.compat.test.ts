@@ -5,6 +5,7 @@ import {
 	mkdtempSync,
 	existsSync,
 	mkdirSync,
+	readdirSync,
 	readFileSync,
 	rmSync,
 	symlinkSync,
@@ -59,6 +60,39 @@ function createCheckerClone(): { directory: string; repository: string } {
 		// and `terminal-output.ts` among others, and copying only the entrypoints left those at
 		// the committed revision: measured, a working-tree change that made the surface reader
 		// throw was invisible to this fixture while the direct checker exited 1 on it.
+		cpSync(path.join(ROOT, 'scripts'), path.join(repository, 'scripts'), {
+			recursive: true,
+			dereference: true
+		});
+		return { directory, repository };
+	} catch (error) {
+		rmSync(directory, { recursive: true, force: true });
+		throw error;
+	}
+}
+
+/**
+ * A history-free repository that runs this checkout's checker, for cases that must fail
+ * before anything reads a commit. `scripts/` is copied as in the clone above, and every other
+ * top-level entry is linked, so imports resolve against this working tree while
+ * `git ls-files` reports each link as one path. The clone copies the whole object store and
+ * checks out the tree: observed 2026-10-10 on a loaded 24-core host, it alone took 0.6 to
+ * 5.9 s while the checker run it prepared took under one, and the case timed out.
+ */
+function createCheckerTree(): { directory: string; repository: string } {
+	const directory = mkdtempSync(path.join(tmpdir(), 'static-tree-'));
+	const repository = path.join(directory, 'repository');
+	try {
+		mkdirSync(repository);
+		const result = spawnSync('git', ['init', '--quiet', '--initial-branch=main', repository], {
+			env: sanitizedGitEnv(),
+			encoding: 'utf8'
+		});
+		if (result.status !== 0) throw new Error(`Checker repository init failed: ${result.stderr}`);
+		for (const entry of readdirSync(ROOT)) {
+			if (entry === '.git' || entry === 'scripts') continue;
+			symlinkSync(path.join(ROOT, entry), path.join(repository, entry));
+		}
 		cpSync(path.join(ROOT, 'scripts'), path.join(repository, 'scripts'), {
 			recursive: true,
 			dereference: true
@@ -402,7 +436,7 @@ void api.compatUnicodeTarget.viewer;
 	it.skipIf(process.platform === 'win32')(
 		'rejects an unsafe repository path before the compatibility child runs',
 		() => {
-			const checkout = createCheckerClone();
+			const checkout = createCheckerTree();
 			try {
 				const payload = `${String.fromCharCode(0x1b)}]0;OWNED${String.fromCharCode(0x07)}`;
 				const unsafeDirectory = path.join(checkout.repository, 'scripts', 'unsafe');
