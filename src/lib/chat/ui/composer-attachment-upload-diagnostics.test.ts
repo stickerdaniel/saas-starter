@@ -8,7 +8,7 @@ import { api } from '#lib/convex/_generated/api.js';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
 import type * as FileUploader from '../core/file-uploader.js';
-import { UploadError } from '../../uploads/transfer.js';
+import { UploadError, type UploadErrorCode } from '../../uploads/transfer.js';
 
 const uploadFileWithProgress = vi.fn();
 
@@ -104,6 +104,17 @@ describe('ComposerAttachmentCoordinator upload failure diagnostics', () => {
 		expect(coordinator.attachments[0]).toMatchObject({
 			uploadState: { status: 'error', error: 'server' }
 		});
+	});
+
+	it('logs a code no upload transport defines as unclassified', async () => {
+		// A custom upload function can build an UploadError from a provider field.
+		const code = 'quarterly-plan-private.pdf' as UploadErrorCode;
+		await failedUpload(new UploadError(code, 413));
+
+		const lines = consoleLines();
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toMatch(/ status=413 code=unclassified$/);
+		expect(lines.join('\n')).not.toContain('quarterly-plan');
 	});
 
 	it('stays silent when the upload is canceled', async () => {
