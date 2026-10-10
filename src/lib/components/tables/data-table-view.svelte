@@ -68,9 +68,13 @@
 			</Table.Row>
 			{#each skeletonRowIndexes as index (index)}
 				<Table.Row aria-hidden="true">
-					{#each columns as column (column.id)}
+					{#each columns as column, columnIndex (column.id)}
 						<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-							<DataTableSkeletonCell skeleton={column.columnDef.meta?.skeleton} />
+							<DataTableSkeletonCell
+								skeleton={column.columnDef.meta?.skeleton}
+								rowIndex={index}
+								{columnIndex}
+							/>
 						</Table.Cell>
 					{/each}
 				</Table.Row>

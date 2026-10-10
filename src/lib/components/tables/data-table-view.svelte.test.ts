@@ -91,9 +91,11 @@ it('gives a column without metadata the text skeleton', () => {
 
 	const [, row] = bodyRows();
 	const [, explicitText, defaultText, badge] = [...row!.cells];
-	expect(defaultText!.innerHTML).toBe(explicitText!.innerHTML);
+	// Text bar widths vary by column, so compare the markup without them.
+	const shape = (cell: HTMLTableCellElement) => cell.innerHTML.replace(/ style="[^"]*"/g, '');
+	expect(shape(defaultText!)).toBe(shape(explicitText!));
 	expect(defaultText!.querySelector('[data-slot="skeleton"]')).not.toBeNull();
-	expect(defaultText!.innerHTML).not.toBe(badge!.innerHTML);
+	expect(shape(defaultText!)).not.toBe(shape(badge!));
 });
 
 it('drops the marker and skeletons once rows arrive', () => {

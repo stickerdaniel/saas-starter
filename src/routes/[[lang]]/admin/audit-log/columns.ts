@@ -39,7 +39,9 @@ export function createColumns(
 			cell: ({ row }) =>
 				renderTextCell(new Date(row.original.timestamp).toLocaleString(lang || DEFAULT_LANGUAGE), {
 					class: 'text-sm'
-				})
+				}),
+			// Timestamps share one format, so every row gets the same bar.
+			meta: { skeleton: { kind: 'text', width: '75%' } }
 		},
 		{
 			accessorKey: 'action',
