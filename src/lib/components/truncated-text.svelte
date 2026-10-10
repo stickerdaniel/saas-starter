@@ -14,6 +14,7 @@
 
 	let open = $state(false);
 	let clipped = $state(false);
+	let touch = $state(false);
 	let element: HTMLElement | null = null;
 
 	// A tooltip that repeats fully visible text is noise, so only clipped text may open
@@ -56,8 +57,14 @@
 	}
 </script>
 
-<Tooltip.Root bind:open={() => open, setOpen} disableCloseOnTriggerClick>
-	<Tooltip.Trigger>
+<!-- Touch ends with pointerleave, not a hover exit. Disable hover tracking for
+	 touch and cancel only that leave; focus and intentional dismissal still apply. -->
+<Tooltip.Root
+	bind:open={() => open, setOpen}
+	disableCloseOnTriggerClick
+	disableHoverableContent={touch}
+>
+	<Tooltip.Trigger onpointerenter={(event) => (touch = event.pointerType === 'touch')}>
 		{#snippet child({ props: { type: _buttonType, ...props } })}
 			<!-- Only clipped text becomes a tab stop, so keyboard users can reach the full
 				 text. The trigger props describe the element by the tooltip content and
@@ -66,6 +73,11 @@
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<span
 				{...props}
+				onpointerleave={(event) => {
+					if (event.pointerType !== 'touch' && typeof props.onpointerleave === 'function') {
+						props.onpointerleave(event);
+					}
+				}}
 				aria-describedby={undefined}
 				tabindex={clipped ? 0 : undefined}
 				class={cn(

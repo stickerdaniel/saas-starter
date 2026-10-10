@@ -64,6 +64,7 @@ afterEach(() => {
 	component = undefined;
 	document.body.replaceChildren();
 	resizeCallbacks.clear();
+	vi.useRealTimers();
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 });
@@ -81,12 +82,31 @@ const tooltip = () => document.querySelector<HTMLElement>('[data-slot="tooltip-c
 async function settle() {
 	flushSync();
 	await tick();
-	await new Promise((resolve) => setTimeout(resolve, 0));
+	// Pointer-leave safety closes on the next frame. Let that callback and the
+	// resulting render finish before asserting open state, not an exiting tooltip.
+	await new Promise(requestAnimationFrame);
+	await tick();
+	await Promise.all(document.getAnimations?.().map((animation) => animation.finished) ?? []);
 	flushSync();
 }
 
 async function hover() {
 	trigger().dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+	await settle();
+}
+
+async function tap() {
+	for (const type of ['pointerenter', 'pointerdown', 'pointerup', 'pointerleave']) {
+		trigger().dispatchEvent(
+			new PointerEvent(type, {
+				pointerType: 'touch',
+				bubbles: type === 'pointerdown' || type === 'pointerup',
+				cancelable: type === 'pointerdown' || type === 'pointerup'
+			})
+		);
+	}
+	trigger().focus();
+	trigger().click();
 	await settle();
 }
 
@@ -136,34 +156,73 @@ describe('TruncatedText', () => {
 		expect(tooltip()).toBeNull();
 	});
 
-	it.each(['Escape', 'blur'])('keeps tapped text open until %s dismisses it', async (dismiss) => {
+	describe.each(['cold', 'keyboard-first'])('%s touch', (history) => {
+		it.each(['Escape', 'blur', 'outside', 'resize'])(
+			'keeps complete repeated taps open until %s dismisses the text',
+			async (dismiss) => {
+				render(LONG);
+				if (history === 'keyboard-first') {
+					trigger().focus();
+					await settle();
+					expect(tooltip()?.textContent?.trim()).toBe(LONG);
+				}
+
+				for (let tapCount = 0; tapCount < 2; tapCount++) {
+					await tap();
+					expect(trigger().getAttribute('data-state')).toBe('instant-open');
+					expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
+					expect(tooltip()?.textContent?.trim()).toBe(LONG);
+					expect(document.activeElement).toBe(trigger());
+				}
+
+				if (dismiss === 'Escape') {
+					trigger().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+				} else if (dismiss === 'blur') {
+					trigger().blur();
+				} else if (dismiss === 'outside') {
+					vi.useFakeTimers();
+					for (const type of ['pointerdown', 'pointerup', 'click']) {
+						document.body.dispatchEvent(
+							new PointerEvent(type, {
+								pointerType: 'touch',
+								bubbles: true,
+								clientX: 100,
+								clientY: 100
+							})
+						);
+						// Outside touch dismissal arms its click listener after pointerdown.
+						await vi.runOnlyPendingTimersAsync();
+					}
+					vi.useRealTimers();
+				} else {
+					await relayout({ box: 1000 });
+					expect(trigger().hasAttribute('tabindex')).toBe(false);
+				}
+				await settle();
+				expect(trigger().getAttribute('data-state')).toBe('closed');
+				expect(tooltip()).toBeNull();
+			}
+		);
+	});
+
+	it('preserves mouse hover into the content and mouse leave after touch', async () => {
 		render(LONG);
-
-		// Touch focuses after pointerup, then emits a click. That click must not
-		// immediately dismiss the full value that focus just opened.
-		trigger().dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'touch' }));
-		trigger().dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch' }));
-		trigger().dispatchEvent(new PointerEvent('pointerup', { pointerType: 'touch' }));
-		trigger().focus();
+		await tap();
+		await hover();
+		trigger().dispatchEvent(
+			new PointerEvent('pointerleave', { pointerType: 'mouse', relatedTarget: tooltip() })
+		);
 		await settle();
-		trigger().click();
-		await settle();
-
 		expect(tooltip()?.textContent?.trim()).toBe(LONG);
 		expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
 
-		// A second tap while reading must preserve the disclosure too.
-		trigger().dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch' }));
-		trigger().dispatchEvent(new PointerEvent('pointerup', { pointerType: 'touch' }));
-		trigger().click();
+		tooltip()!.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
 		await settle();
-		expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
+		expect(tooltip()).toBeNull();
 
-		if (dismiss === 'Escape') {
-			trigger().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-		} else {
-			trigger().blur();
-		}
+		await hover();
+		expect(tooltip()?.textContent?.trim()).toBe(LONG);
+		trigger().dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
 		await settle();
 		expect(tooltip()).toBeNull();
 	});
