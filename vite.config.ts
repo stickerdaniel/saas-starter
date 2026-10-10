@@ -17,7 +17,7 @@ import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
 import { getManagedProviderUpdates, logSafeOrigin } from './scripts/local-convex-env';
 import { prepareEmbeddedEnvManifest } from './scripts/strip-varlock-secrets';
 import { thirdPartyLicenses } from './scripts/third-party-licenses/index';
-import { marketingFonts } from './scripts/marketing-fonts';
+import { OUTFIT_WEIGHTS, marketingFonts } from './scripts/marketing-fonts';
 import { kitGeneratedHmr } from './scripts/kit-generated-hmr';
 import { INLINE_STYLE_THRESHOLD } from './scripts/inline-styles';
 import { sentrySvelteKit } from '@sentry/sveltekit/vite';
@@ -448,7 +448,7 @@ export default defineConfig(async ({ mode }) => {
 			families: [
 				{
 					name: 'Outfit',
-					weights: [400, 500, 600, 700],
+					weights: [...OUTFIT_WEIGHTS],
 					styles: ['normal'],
 					subsets: ['latin'],
 					fallbacks: ['Arial'],

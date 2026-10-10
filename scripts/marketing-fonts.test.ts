@@ -55,7 +55,7 @@ describe('critical marketing fonts', () => {
 		});
 		expect(
 			registeredWeights,
-			'Critical font faces must register regular through bold so public headings use real outlines.'
+			'Outfit registers regular through bold from OUTFIT_WEIGHTS, which both Fontless and the critical face read, so public headings use real outlines.'
 		).toEqual(new Set([400, 500, 600, 700]));
 		const encoded = /data:font\/woff2;base64,([A-Za-z0-9+/=]+)/.exec(css)?.[1];
 		expect(encoded).toBeDefined();
