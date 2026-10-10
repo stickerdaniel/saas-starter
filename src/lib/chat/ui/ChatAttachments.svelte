@@ -84,7 +84,11 @@
 	let isDialogOpen = $state(false);
 	// Raw, so loadText receives the caller's attachment rather than a proxy of it.
 	let selectedAttachment = $state.raw<Attachment | null>(null);
-	let displayDimensions = $state<{ width: number; height: number } | null>(null);
+	const imageDimensions = $derived.by(() => {
+		if (!selectedAttachment || !isImageAttachment(selectedAttachment)) return null;
+		const { width, height } = getDimensions(selectedAttachment);
+		return width && height ? { width, height } : null;
+	});
 	let dialogContent = $state<HTMLElement | null>(null);
 	let titleTruncated = $state(false);
 	const dialogTitle = $derived(
@@ -251,24 +255,6 @@
 
 		selectedAttachment = attachment;
 
-		// Pre-compute display dimensions to prevent dialog resize (images only)
-		if (isImageAttachment(attachment)) {
-			const dims = getDimensions(attachment);
-			if (dims.width && dims.height) {
-				const maxHeight = window.innerHeight * 0.7; // 70vh
-				const maxWidth = Math.min(window.innerWidth * 0.9, 512); // dialog max-width ~512px
-				const scale = Math.min(maxWidth / dims.width, maxHeight / dims.height, 1);
-				displayDimensions = {
-					width: Math.round(dims.width * scale),
-					height: Math.round(dims.height * scale)
-				};
-			} else {
-				displayDimensions = null;
-			}
-		} else {
-			displayDimensions = null;
-		}
-
 		isDialogOpen = true;
 	}
 
@@ -325,9 +311,9 @@
 <Dialog.Root bind:open={isDialogOpen}>
 	<Dialog.Content
 		bind:ref={dialogContent}
-		class={displayDimensions ? 'w-(--preview-dialog-width) !max-w-none' : 'sm:max-w-4xl'}
-		style={displayDimensions
-			? `--preview-dialog-width: calc(${displayDimensions.width}px + var(--dialog-inset) * 2);`
+		class={imageDimensions ? 'w-(--preview-dialog-width) !max-w-none' : 'sm:max-w-4xl'}
+		style={imageDimensions
+			? `--preview-ratio: ${imageDimensions.width / imageDimensions.height}; --preview-max-height: min(70dvh, calc(100dvh - 2rem - var(--dialog-inset) * 2 - var(--dialog-gap) - 1em)); --preview-width: min(${imageDimensions.width}px, 512px, 90dvw, calc(100dvw - 2rem - var(--dialog-inset) * 2), calc(var(--preview-max-height) * var(--preview-ratio))); --preview-dialog-width: calc(var(--preview-width) + var(--dialog-inset) * 2);`
 			: ''}
 		onOpenAutoFocus={focusDialogClose}
 	>
@@ -369,11 +355,9 @@
 					></iframe>
 				{/if}
 			{:else if openUrl && isImage}
-				{#if displayDimensions}
+				{#if imageDimensions}
 					<div
-						class="mx-auto h-(--preview-height) w-(--preview-width) overflow-hidden rounded-md"
-						style:--preview-width="{displayDimensions.width}px"
-						style:--preview-height="{displayDimensions.height}px"
+						class="mx-auto aspect-(--preview-ratio) w-(--preview-width) overflow-hidden rounded-md"
 					>
 						<img
 							src={openUrl}
