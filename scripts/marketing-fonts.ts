@@ -10,6 +10,14 @@ import { STATIC_TRANSLATIONS } from '../src/lib/i18n/static-translations.generat
 const MODULE = 'virtual:marketing-fonts/server';
 const PACKAGE = '@saas-starter-internal/marketing-fonts';
 
+/**
+ * Outfit weights the UI authors. Fontless registers each one and the critical face spans
+ * them, so a weight the variable font already contains renders its real outlines instead
+ * of the nearest registered weight.
+ */
+export const OUTFIT_WEIGHTS = [400, 500, 600, 700] as const;
+const OUTFIT_WEIGHT_SPAN = `${Math.min(...OUTFIT_WEIGHTS)} ${Math.max(...OUTFIT_WEIGHTS)}`;
+
 /** Derive glyphs from authored copy, including every locale and header state. */
 export function marketingFontCharacters(
 	catalogs: ReadonlyArray<Pick<typeof en, 'hero' | 'nav' | 'search'>>,
@@ -50,7 +58,7 @@ export async function criticalFont(font: Buffer, characters: string) {
 		.join(',');
 	// These bytes are inline; wait for decoding rather than painting a fallback frame.
 	const css =
-		'@font-face{font-family:"Outfit Critical";font-style:normal;font-weight:400 600;' +
+		`@font-face{font-family:"Outfit Critical";font-style:normal;font-weight:${OUTFIT_WEIGHT_SPAN};` +
 		'font-display:block;src:url("' +
 		href +
 		'") format("woff2");unicode-range:' +
@@ -81,7 +89,7 @@ async function readEmittedOutfit(clientDir: string): Promise<Buffer> {
 	const [font] = fonts;
 	if (fonts.size !== 1 || !font) {
 		throw new Error(
-			`Expected one shared Outfit font for weights 400–600; found ${fonts.size}. Check the critical font configuration before changing the font family or faces.`
+			`Expected one shared Outfit font for weights ${OUTFIT_WEIGHT_SPAN.replace(' ', '–')}; found ${fonts.size}. Check the critical font configuration before changing the font family or faces.`
 		);
 	}
 	return readFile(font);
