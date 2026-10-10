@@ -9,9 +9,11 @@
 	}: WithoutChildren<WithElementRef<HTMLAttributes<HTMLDivElement>>> = $props();
 </script>
 
+<!-- Static on purpose: a pulse makes the browser draw a new frame at the display's
+     refresh rate for as long as the page waits. -->
 <div
 	bind:this={ref}
 	data-slot="skeleton"
-	class={cn('animate-pulse rounded-md bg-muted', className)}
+	class={cn('rounded-md bg-muted', className)}
 	{...restProps}
 ></div>
