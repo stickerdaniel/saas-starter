@@ -26,13 +26,38 @@
 	function handleToolClick(tool: typeof editor.currentTool) {
 		editor.setTool(tool);
 	}
+
+	function keepSelectedColorVisible(palette: HTMLDivElement) {
+		function revealSelectedColor() {
+			const selected = palette.querySelector<HTMLElement>('[aria-checked="true"]');
+			if (!selected || !palette.clientHeight) return;
+
+			const bounds = palette.getBoundingClientRect();
+			const swatch = selected.getBoundingClientRect();
+			const style = getComputedStyle(palette);
+			const top = bounds.top + parseFloat(style.scrollPaddingTop);
+			const bottom = bounds.bottom - parseFloat(style.scrollPaddingBottom);
+
+			// Scroll only the palette, leaving document position and focus untouched.
+			if (swatch.top < top) palette.scrollTop += swatch.top - top;
+			else if (swatch.bottom > bottom) palette.scrollTop += swatch.bottom - bottom;
+		}
+
+		$effect(() => {
+			if (editor.strokeColor) revealSelectedColor();
+		});
+
+		const observer = new ResizeObserver(revealSelectedColor);
+		observer.observe(palette);
+		return () => observer.disconnect();
+	}
 </script>
 
 <div
 	class="fixed top-1/2 right-4 z-110 -translate-y-1/2 sm:top-6.5 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 sm:translate-y-0"
 >
 	<div
-		class="flex flex-col items-center gap-1 rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur-sm sm:flex-row"
+		class="box-content flex max-h-dvh flex-col items-center gap-1 rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur-sm sm:max-h-none sm:flex-row"
 	>
 		<!-- Rectangle Tool -->
 		<Button
@@ -75,11 +100,12 @@
 		</Button>
 
 		<!-- Divider -->
-		<div class="my-1 h-px w-6 bg-border sm:mx-1 sm:my-0 sm:h-6 sm:w-px"></div>
+		<div class="my-1 h-px w-6 shrink-0 bg-border sm:mx-1 sm:my-0 sm:h-6 sm:w-px"></div>
 
 		<!-- Color Selector -->
 		<div
-			class="-my-1 no-scrollbar max-h-screenshot-palette scroll-py-1 overflow-y-auto overscroll-contain py-1 sm:contents"
+			class="-my-1 no-scrollbar min-h-0 shrink scroll-py-1 overflow-y-auto overscroll-contain py-1 sm:contents"
+			{@attach keepSelectedColorVisible}
 		>
 			<ColorSelector
 				colors={colorSwatches}
@@ -93,7 +119,7 @@
 		</div>
 
 		<!-- Divider -->
-		<div class="my-1 h-px w-6 bg-border sm:mx-1 sm:my-0 sm:h-6 sm:w-px"></div>
+		<div class="my-1 h-px w-6 shrink-0 bg-border sm:mx-1 sm:my-0 sm:h-6 sm:w-px"></div>
 
 		<!-- Undo Button -->
 		<Button
@@ -121,7 +147,7 @@
 
 		<!-- Divider -->
 		<div
-			class="-order-1 my-1 h-px w-6 bg-border sm:order-none sm:mx-1 sm:my-0 sm:h-6 sm:w-px"
+			class="-order-1 my-1 h-px w-6 shrink-0 bg-border sm:order-none sm:mx-1 sm:my-0 sm:h-6 sm:w-px"
 		></div>
 
 		<!-- Next Button - Mobile: Icon -->
