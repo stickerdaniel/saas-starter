@@ -3,6 +3,7 @@ import type { EmailId } from '@convex-dev/resend';
 import { makeFunctionReference } from 'convex/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { onDelete } from '../../auth';
+import { cancelUnsentEmails } from '../customerNotifications/cancel';
 import { resend } from '../../emails/resend';
 import { continueErasure, erasePage, startJourneyErasure } from './erasure';
 import { createJourneyStore, type JobState } from './journeyStore.fixtures';
@@ -11,15 +12,17 @@ type Registered = { _handler: (ctx: never, args: never) => Promise<unknown> };
 
 const USER = 'user_deleted';
 const OTHER = 'user_kept';
+const ERASE_PAGE = 'admin/journey/erasure:erasePage';
+const CANCEL_EMAILS = 'admin/customerNotifications/cancel:cancelUnsentEmails';
+
+const FUNCTIONS = {
+	[ERASE_PAGE]: erasePage as unknown as Registered,
+	'admin/journey/erasure:continueErasure': continueErasure as unknown as Registered,
+	[CANCEL_EMAILS]: cancelUnsentEmails as unknown as Registered
+};
 
 function setup() {
-	return createJourneyStore({
-		users: [OTHER],
-		functions: {
-			'admin/journey/erasure:erasePage': erasePage as unknown as Registered,
-			'admin/journey/erasure:continueErasure': continueErasure as unknown as Registered
-		}
-	});
+	return createJourneyStore({ users: [OTHER], functions: FUNCTIONS });
 }
 
 type Store = ReturnType<typeof setup>;
@@ -163,9 +166,7 @@ describe('journey erasure', () => {
 		await startErasure(store);
 
 		expect(store.jobs().map((job) => job.args.step)).toEqual(['support']);
-		expect(store.childCalls().map((call) => call.name)).toEqual([
-			'admin/journey/erasure:erasePage'
-		]);
+		expect(store.childCalls().map((call) => call.name)).toEqual([ERASE_PAGE]);
 	});
 
 	it('deletes the receipts of the deleted user only', async () => {
@@ -272,13 +273,7 @@ describe('journey erasure', () => {
 
 describe('account deletion trigger', () => {
 	it('commits the deletion and rolls back a failed erasure page', async () => {
-		const store = createJourneyStore({
-			users: [USER, OTHER],
-			functions: {
-				'admin/journey/erasure:erasePage': erasePage as unknown as Registered,
-				'admin/journey/erasure:continueErasure': continueErasure as unknown as Registered
-			}
-		});
+		const store = createJourneyStore({ users: [USER, OTHER], functions: FUNCTIONS });
 		store.insert('passkeyNudgeDismissals', { userId: USER });
 		const kept = store.insert('aiChatMessageReceipts', { userId: USER });
 		const failing = store.insert('aiChatMessageReceipts', { userId: USER });
@@ -429,6 +424,8 @@ describe('customer notification ledger', () => {
 		expect(store.docs('customerNotifications').map((row) => row.userId)).toEqual([OTHER]);
 	});
 
+	// Convex refuses a dynamic import inside a mutation, so the Resend client is
+	// reached through its own mutation, never loaded by the erasure page.
 	it('cancels emails the component still holds and treats every other status as final', async () => {
 		const store = setup();
 		const { cancelEmail } = installResend();
@@ -459,6 +456,9 @@ describe('customer notification ledger', () => {
 			'failed'
 		]);
 		expect(cancelEmail.mock.calls.map(([, id]) => id)).toEqual(ids.slice(0, 2));
+		expect(store.childArgs(CANCEL_EMAILS)).toEqual([
+			{ emailIds: [...ids, 'resend:emails:missing'] }
+		]);
 		expect(store.docs('customerNotifications')).toEqual([]);
 		expect(store.jobs()).toEqual([]);
 	});
@@ -478,7 +478,10 @@ describe('customer notification ledger', () => {
 
 		expect(store.docs('customerNotifications')).toEqual([]);
 		expect(status).toHaveBeenCalledTimes(600);
-		expect(store.childCalls()).toHaveLength(6);
+		expect(store.childArgs(ERASE_PAGE)).toHaveLength(6);
+		expect(
+			store.childArgs(CANCEL_EMAILS).map(({ emailIds }) => (emailIds as string[]).length)
+		).toEqual([100, 100, 100, 100, 100, 100]);
 		expect(store.jobs()).toEqual([]);
 	});
 

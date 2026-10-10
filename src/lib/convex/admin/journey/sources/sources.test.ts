@@ -52,7 +52,7 @@ function setup(overrides: Record<string, Registered> = {}) {
 				at
 			);
 		},
-		contact(firstUserMessageAt: number, createdAt = firstUserMessageAt) {
+		contact(firstUserMessageAt: number, createdAt = firstUserMessageAt, searchText = '') {
 			store.insert(
 				'supportThreads',
 				{
@@ -62,7 +62,7 @@ function setup(overrides: Record<string, Registered> = {}) {
 					createdAt,
 					updatedAt: firstUserMessageAt,
 					firstUserMessageAt,
-					searchText: ''
+					searchText
 				},
 				createdAt
 			);
@@ -328,6 +328,36 @@ describe('template journey sources', () => {
 			}
 		]);
 	});
+
+	// The store meters the read against the source's 2 MiB envelope, so a read
+	// over it would leave support unavailable.
+	it('reads support threads near the document size limit inside its envelope, as a cut-short read', async () => {
+		const { seed, journey } = setup();
+		captureAll(seed);
+		for (let i = 0; i < 4; i++) seed.contact(SIGNUP + i * MINUTE, SIGNUP, 'x'.repeat(900_000));
+
+		const { source, notes } = await journey(newCustomer(SIGNUP + DAY));
+
+		expect(source('support')).toMatchObject({ status: 'presented', coverage: { truncated: true } });
+		expect(source('support').steps.map((step) => step.at)).toEqual([SIGNUP]);
+		expect(notes).toEqual(['Support contacts: only partly checked, so counts are minimums.']);
+	});
+
+	it.each([
+		{ threads: 50, truncated: false },
+		{ threads: 51, truncated: true }
+	])(
+		'reports $threads support threads as truncated: $truncated',
+		async ({ threads, truncated }) => {
+			const { seed, journey } = setup();
+			captureAll(seed);
+			for (let i = 0; i < threads; i++) seed.contact(SIGNUP + i * MINUTE);
+
+			const { source } = await journey(newCustomer(SIGNUP + DAY));
+
+			expect(source('support')).toMatchObject({ status: 'presented', coverage: { truncated } });
+		}
+	);
 
 	it("takes a fork's fourth source beside the demo sources, keeping its steps when its tiles overflow", async () => {
 		type SessionFacts = { coverage: Coverage; sessions: number[] };

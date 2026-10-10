@@ -21,8 +21,13 @@ import { readCapture } from './partitions';
 
 const MiB = 1024 * 1024;
 
-/** Threads read per email; one more is the truncation sentinel. */
+/** Threads presented per email. The page asks for one more, so exactly 50 read as complete. */
 const THREADS_CHECKED = 50;
+
+// The page stops once it has read this many bytes, after the thread that
+// crosses it. With threads near the 1 MiB document limit, 512 KiB + 1 MiB
+// plus the capture marker stays inside the source's 2 MiB envelope.
+const THREADS_PAGE = { numItems: THREADS_CHECKED + 1, maximumBytesRead: MiB / 2 };
 
 const COPY = {
 	step: {
@@ -50,7 +55,7 @@ export const read = internalQuery({
 		if (capture.kind === 'not_started') {
 			return { coverage: { truncated: false, capture }, contacts: [] };
 		}
-		const threads = await ctx.db
+		const { page, isDone } = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_user_and_first_user_message', (q) =>
 				q
@@ -58,10 +63,12 @@ export const read = internalQuery({
 					.gte('firstUserMessageAt', window.start)
 					.lte('firstUserMessageAt', window.end)
 			)
-			.take(THREADS_CHECKED + 1);
+			.paginate({ cursor: null, ...THREADS_PAGE });
+		// A full or byte-limited page is never done, even when it took the last
+		// thread, so only a done page is complete.
 		return {
-			coverage: { truncated: threads.length > THREADS_CHECKED, capture },
-			contacts: threads
+			coverage: { truncated: !isDone, capture },
+			contacts: page
 				.slice(0, THREADS_CHECKED)
 				.flatMap(({ firstUserMessageAt: at }) => (at === undefined ? [] : [at]))
 		};

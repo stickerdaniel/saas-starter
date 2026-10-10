@@ -1,4 +1,3 @@
-import type { EmailId } from '@convex-dev/resend';
 import { v, type Infer } from 'convex/values';
 import { internal } from '../../_generated/api';
 import type { Doc } from '../../_generated/dataModel';
@@ -74,27 +73,16 @@ function notificationRows(ctx: MutationCtx, userId: string) {
 }
 
 /**
- * Stop whatever a ledger row still has queued. The send is cancelled only
- * while it is `pending`: the scheduler would also mark a running send
- * cancelled, and every other state is final. An email is cancelled only while
- * the Resend component still holds it (`waiting` or `queued`); the component
- * refuses any other status, and a missing email needs nothing.
+ * Cancel a ledger row's scheduled send while it is `pending`: the scheduler
+ * would also mark a running send cancelled, and every other state is final.
  */
-async function cancelQueued(ctx: MutationCtx, row: Doc<'customerNotifications'>): Promise<void> {
-	if (row.scheduledFnId) {
-		const job = await ctx.db.system.get('_scheduled_functions', row.scheduledFnId);
-		if (job?.state.kind === 'pending') await ctx.scheduler.cancel(row.scheduledFnId);
-	}
-	if (!row.emailIds?.length) return;
-	// Loaded on demand: the account deletion trigger imports this module, and
-	// only a user with sent emails needs the Resend client.
-	const { resend } = await import('../../emails/resend');
-	for (const emailId of row.emailIds) {
-		const status = await resend.status(ctx, emailId as EmailId);
-		if (status?.status === 'waiting' || status?.status === 'queued') {
-			await resend.cancelEmail(ctx, emailId as EmailId);
-		}
-	}
+async function cancelPendingSend(
+	ctx: MutationCtx,
+	row: Doc<'customerNotifications'>
+): Promise<void> {
+	if (!row.scheduledFnId) return;
+	const job = await ctx.db.system.get('_scheduled_functions', row.scheduledFnId);
+	if (job?.state.kind === 'pending') await ctx.scheduler.cancel(row.scheduledFnId);
 }
 
 function settledMessages(ctx: MutationCtx, userId: string) {
@@ -113,19 +101,33 @@ function supportContacts(ctx: MutationCtx, userId: string) {
 
 const STEPS = {
 	// Progress by deletion, after cancelling what each row still has queued.
+	// The rows' unsent emails are cancelled in one child mutation, whose
+	// failure fails the page.
 	ledger: {
 		paginates: false,
 		async run(ctx, userId) {
 			const rows = await notificationRows(ctx, userId).take(LEDGER_PAGE.rows);
 			if (rows.length === 0) return { kind: 'empty' };
-			let emailIds = 0;
+			const erased: typeof rows = [];
+			const emailIds: string[] = [];
 			for (const [index, row] of rows.entries()) {
-				emailIds += row.emailIds?.length ?? 0;
-				if (index > 0 && emailIds > LEDGER_PAGE.emailIds) return { kind: 'progress' };
-				await cancelQueued(ctx, row);
+				const ids = row.emailIds ?? [];
+				if (index > 0 && emailIds.length + ids.length > LEDGER_PAGE.emailIds) break;
+				erased.push(row);
+				emailIds.push(...ids);
+			}
+			if (emailIds.length > 0) {
+				await ctx.runMutation(internal.admin.customerNotifications.cancel.cancelUnsentEmails, {
+					emailIds
+				});
+			}
+			for (const row of erased) {
+				await cancelPendingSend(ctx, row);
 				await ctx.db.delete('customerNotifications', row._id);
 			}
-			return rows.length < LEDGER_PAGE.rows ? { kind: 'finished' } : { kind: 'progress' };
+			return erased.length < rows.length || rows.length === LEDGER_PAGE.rows
+				? { kind: 'progress' }
+				: { kind: 'finished' };
 		},
 		async probe(ctx, userId) {
 			return (await notificationRows(ctx, userId).first()) !== null;

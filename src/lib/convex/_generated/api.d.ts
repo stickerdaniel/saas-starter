@@ -16,6 +16,7 @@ import type * as admin_counters from "../admin/counters.js";
 import type * as admin_customerNotifications_admission from "../admin/customerNotifications/admission.js";
 import type * as admin_customerNotifications_autumnRead from "../admin/customerNotifications/autumnRead.js";
 import type * as admin_customerNotifications_billing from "../admin/customerNotifications/billing.js";
+import type * as admin_customerNotifications_cancel from "../admin/customerNotifications/cancel.js";
 import type * as admin_customerNotifications_compose from "../admin/customerNotifications/compose.js";
 import type * as admin_customerNotifications_ledger from "../admin/customerNotifications/ledger.js";
 import type * as admin_customerNotifications_observe from "../admin/customerNotifications/observe.js";
@@ -145,6 +146,7 @@ declare const fullApi: ApiFromModules<{
   "admin/customerNotifications/admission": typeof admin_customerNotifications_admission;
   "admin/customerNotifications/autumnRead": typeof admin_customerNotifications_autumnRead;
   "admin/customerNotifications/billing": typeof admin_customerNotifications_billing;
+  "admin/customerNotifications/cancel": typeof admin_customerNotifications_cancel;
   "admin/customerNotifications/compose": typeof admin_customerNotifications_compose;
   "admin/customerNotifications/ledger": typeof admin_customerNotifications_ledger;
   "admin/customerNotifications/observe": typeof admin_customerNotifications_observe;
