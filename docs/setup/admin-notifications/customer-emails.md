@@ -7,7 +7,7 @@ This guide covers what the code cannot: the Autumn dashboard, enabling and pausi
 ## Setup
 
 1. Configure billing first (`AUTUMN_SECRET_KEY`); the webhook reads each customer with it.
-2. In the Autumn dashboard, add a webhook endpoint for `https://<your-deployment>.convex.site/autumn-webhook` and subscribe it to `billing.updated`. The handler also accepts the older `customer.products.updated`; every other event type is acknowledged and ignored.
+2. In the Autumn dashboard, add a webhook endpoint for `https://<your-deployment>.convex.site/autumn-webhook` and subscribe it to both `billing.updated` and `customer.products.updated`. The template's checkout uses Autumn's older attach API, and a first purchase through it sent only `customer.products.updated` in the Autumn sandbox (observed 2026-10-10), even though the dashboard marks that event deprecated. Every other event type is acknowledged and ignored.
 3. Copy the endpoint's signing secret (it starts with `whsec_`) and set it on Convex: `bunx convex env set AUTUMN_WEBHOOK_SECRET <secret> --prod`. Until it is set, every delivery gets a 503 and nothing is admitted.
 4. Optionally set `ADMIN_TIME_ZONE` to an IANA name such as `Europe/Berlin`. Times in the emails use UTC when it is unset or unknown.
 5. Each admin chooses in `/admin/settings` whether they get the email. The setting is on by default.
