@@ -220,7 +220,12 @@ describe('template journey sources', () => {
 
 		expect(source('aiChat')).toMatchObject({ status: 'unavailable', steps: [] });
 		expect(source('aiChat').metrics).toEqual([
-			{ key: 'aiChat:before_paying', label: 'AI chat messages before paying', value: 'unavailable' }
+			{
+				key: 'aiChat:before_paying',
+				label: 'AI chat messages before paying',
+				value: 'unavailable',
+				unknown: true
+			}
 		]);
 		expect(titles(source('community'))).toEqual(['Sent 1 community message']);
 		expect(notes).toEqual(['AI chat messages: could not be loaded for this email.']);
@@ -240,7 +245,8 @@ describe('template journey sources', () => {
 			{
 				key: 'community:before_paying',
 				label: 'community messages before paying',
-				value: 'not recorded yet'
+				value: 'not recorded yet',
+				unknown: true
 			}
 		]);
 		expect(notes).toEqual(['Community messages: not recorded yet.']);

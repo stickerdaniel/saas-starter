@@ -1,6 +1,7 @@
 // @vitest-environment node
 // The component double stores ArrayBuffer bodies, which Convex values only accept from this realm.
 import { inspect } from 'node:util';
+import { parse, type DefaultTreeAdapterMap } from 'parse5';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import de from '../../../../i18n/de.json';
 import en from '../../../../i18n/en.json';
@@ -44,6 +45,22 @@ const fill = (message: string, params: Record<string, string>) =>
 
 const admins = (...emails: string[]): Admin[] =>
 	emails.map((email, index) => ({ id: `admin_${index}`, email }));
+
+type HtmlNode = DefaultTreeAdapterMap['document'] | DefaultTreeAdapterMap['childNode'];
+
+/** The text a reader sees under a parsed node, with entities decoded. */
+const textOf = (node: HtmlNode): string =>
+	'value' in node ? node.value : 'childNodes' in node ? node.childNodes.map(textOf).join('') : '';
+
+/** The trimmed text of every element that holds no further elements. */
+function leafTexts(node: HtmlNode): string[] {
+	const elements = ('childNodes' in node ? node.childNodes : []).filter(
+		(child) => 'tagName' in child
+	);
+	return 'tagName' in node && elements.length === 0
+		? [textOf(node).trim()]
+		: elements.flatMap(leafTexts);
+}
 
 beforeEach(() => {
 	configureEmail();
@@ -114,6 +131,20 @@ describe('new customer email from a seeded ledger row', () => {
 		expect(text).toContain('Sent 2 AI chat messages (14:30)\n  First 14:30, last 15:30');
 		// The tile still counts what happened before paying.
 		expect(text).toContain('3: AI chat messages before paying');
+	});
+
+	it('shows a dash in a tile with nothing recorded and keeps the reason in the notes and text', async () => {
+		const { ledgerRow, send, enqueued } = setupSend();
+		installResend();
+
+		await send(ledgerRow());
+
+		const { html, text } = enqueued()[0]!;
+		const document = parse(html);
+		expect(leafTexts(document).filter((shown) => shown === '–')).toHaveLength(2);
+		expect(textOf(document)).toContain('AI chat messages: not recorded yet.');
+		expect(text).toContain('not recorded yet: AI chat messages before paying');
+		expect(text).toContain('2 d 5 h: signup to paid');
 	});
 });
 

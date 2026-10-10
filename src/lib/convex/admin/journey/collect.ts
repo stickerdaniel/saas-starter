@@ -110,9 +110,9 @@ function withinBounds(
 }
 
 /**
- * The source's own tile slots, each showing "unavailable" and carrying no
- * count, under the same bounds as its presented tiles. Null when the slots
- * throw or break those bounds.
+ * The source's own tile slots, each an unknown "unavailable" with no count,
+ * under the same bounds as its presented tiles. Null when the slots throw or
+ * break those bounds.
  */
 function unavailableTiles(
 	source: JourneySource,
@@ -123,7 +123,7 @@ function unavailableTiles(
 	try {
 		const tiles = source
 			.unavailableMetrics(request, format)
-			.map(({ key, label }) => ({ key, label, value }));
+			.map(({ key, label }): JourneyMetric => ({ key, label, value, unknown: true }));
 		return metricsWithinBounds(source.id, tiles, source.bounds) ? tiles : null;
 	} catch {
 		return null;
