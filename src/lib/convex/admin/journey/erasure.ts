@@ -1,5 +1,6 @@
 import { v, type Infer } from 'convex/values';
 import { internal } from '../../_generated/api';
+import type { Doc } from '../../_generated/dataModel';
 import { internalMutation, type MutationCtx } from '../../_generated/server';
 
 /**
@@ -10,10 +11,16 @@ import { internalMutation, type MutationCtx } from '../../_generated/server';
  * one step and hands over through steps that have nothing to do, so no page is
  * ever scheduled for an empty step. The records themselves (community
  * messages, support threads) outlive the user; only the facts this feature
- * added are removed or cleared.
+ * added are removed or cleared, and the admin customer emails about the user
+ * that have not left yet are cancelled.
  */
 
-const erasureStep = v.union(v.literal('receipts'), v.literal('community'), v.literal('support'));
+const erasureStep = v.union(
+	v.literal('ledger'),
+	v.literal('receipts'),
+	v.literal('community'),
+	v.literal('support')
+);
 type ErasureStep = Infer<typeof erasureStep>;
 
 /** Steps run in this order. */
@@ -30,6 +37,9 @@ const ERASURE_PAGE_LIMITS = { documentsRead: 2000, bytesRead: 4 * MiB, documents
 /** Delay before attempts 2, 3 and 4 of a failed page; attempt 4 is the last. */
 const RETRY_DELAYS_MS = [60_000, 10 * 60_000, 60 * 60_000];
 
+// A row holds at most MAX_RECIPIENTS email ids, and each id costs a status
+// read and possibly a cancellation, so a page also stops before 100 ids.
+const LEDGER_PAGE = { rows: 25, emailIds: 100 };
 const RECEIPTS_PER_PAGE = 500;
 const COMMUNITY_PAGE = { numItems: 200, maximumBytesRead: 2 * MiB };
 // A support page reads up to its byte allowance plus the thread that crosses
@@ -58,6 +68,23 @@ type StepDefinition = {
 	probe(ctx: MutationCtx, userId: string): Promise<boolean>;
 };
 
+function notificationRows(ctx: MutationCtx, userId: string) {
+	return ctx.db.query('customerNotifications').withIndex('by_user', (q) => q.eq('userId', userId));
+}
+
+/**
+ * Cancel a ledger row's scheduled send while it is `pending`: the scheduler
+ * would also mark a running send cancelled, and every other state is final.
+ */
+async function cancelPendingSend(
+	ctx: MutationCtx,
+	row: Doc<'customerNotifications'>
+): Promise<void> {
+	if (!row.scheduledFnId) return;
+	const job = await ctx.db.system.get('_scheduled_functions', row.scheduledFnId);
+	if (job?.state.kind === 'pending') await ctx.scheduler.cancel(row.scheduledFnId);
+}
+
 function settledMessages(ctx: MutationCtx, userId: string) {
 	return ctx.db
 		.query('messages')
@@ -73,6 +100,39 @@ function supportContacts(ctx: MutationCtx, userId: string) {
 }
 
 const STEPS = {
+	// Progress by deletion, after cancelling what each row still has queued.
+	// The rows' unsent emails are cancelled in one child mutation, whose
+	// failure fails the page.
+	ledger: {
+		paginates: false,
+		async run(ctx, userId) {
+			const rows = await notificationRows(ctx, userId).take(LEDGER_PAGE.rows);
+			if (rows.length === 0) return { kind: 'empty' };
+			const erased: typeof rows = [];
+			const emailIds: string[] = [];
+			for (const [index, row] of rows.entries()) {
+				const ids = row.emailIds ?? [];
+				if (index > 0 && emailIds.length + ids.length > LEDGER_PAGE.emailIds) break;
+				erased.push(row);
+				emailIds.push(...ids);
+			}
+			if (emailIds.length > 0) {
+				await ctx.runMutation(internal.admin.customerNotifications.cancel.cancelUnsentEmails, {
+					emailIds
+				});
+			}
+			for (const row of erased) {
+				await cancelPendingSend(ctx, row);
+				await ctx.db.delete('customerNotifications', row._id);
+			}
+			return erased.length < rows.length || rows.length === LEDGER_PAGE.rows
+				? { kind: 'progress' }
+				: { kind: 'finished' };
+		},
+		async probe(ctx, userId) {
+			return (await notificationRows(ctx, userId).first()) !== null;
+		}
+	},
 	// Progress by deletion.
 	receipts: {
 		paginates: false,

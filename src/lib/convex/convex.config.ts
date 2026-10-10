@@ -48,6 +48,8 @@ const app = defineApp({
 		AUTH_GITHUB_SECRET: v.optional(v.string()),
 		AUTH_E2E_TEST_SECRET: v.optional(v.string()),
 		PREVIEW_ADMIN_PASSWORD: v.optional(v.string()),
+		ADMIN_TIME_ZONE: v.optional(v.string()), // IANA name, checked at use (resolveTimeZone)
+		AUTUMN_WEBHOOK_SECRET: v.optional(v.string()), // unset pauses admin customer emails
 		// @type=boolean cannot be expressed here either, and nothing coerces it:
 		// runtime code compares the raw 'true' string.
 		LOCAL_CONVEX_DEV: v.optional(v.string()),

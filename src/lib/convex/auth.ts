@@ -210,8 +210,9 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			/**
 			 * Called when a user is deleted
 			 * - Decrements materialized dashboard counters
-			 * - Starts erasing the user's customer-journey facts; a failing first
-			 *   page is retried later and never blocks the deletion
+			 * - Starts erasing the user's customer-journey facts and admin customer
+			 *   email rows; a failing first page is retried later and never
+			 *   blocks the deletion
 			 */
 			onDelete: async (ctx, user) => {
 				const passkeyDismissal = await ctx.db

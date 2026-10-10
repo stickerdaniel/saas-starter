@@ -1,0 +1,62 @@
+{
+	"provenance": "autumn-js 0.1.85 customers.get, API 1.2, prod, 2026-10-07; projected to parser fields. Ported from Cadenza as a template-shaped model, not a template observation: plan ids mapped premium to pro and premium_annual to pro_annual, no other value changed",
+	"statusCode": 200,
+	"data": {
+		"products": [
+			{
+				"id": "pro_annual",
+				"status": "active",
+				"started_at": 1788104095853,
+				"canceled_at": null,
+				"current_period_end": 1820850293000,
+				"is_add_on": false
+			}
+		],
+		"invoices": [
+			{
+				"status": "paid",
+				"total": 0,
+				"currency": "eur",
+				"created_at": 1789314315000,
+				"product_ids": ["pro_annual"]
+			},
+			{
+				"status": "paid",
+				"total": 0,
+				"currency": "eur",
+				"created_at": 1788104092000,
+				"product_ids": ["pro_annual"]
+			},
+			{
+				"status": "paid",
+				"total": 0,
+				"currency": "eur",
+				"created_at": 1786721549000,
+				"product_ids": ["pro"]
+			}
+		],
+		"rewards": {
+			"discounts": [
+				{
+					"name": "100% Off",
+					"type": "percentage_discount",
+					"discount_value": 100,
+					"duration_type": "forever",
+					"duration_value": 0
+				}
+			]
+		},
+		"payment_method": {
+			"type": "card",
+			"card": {
+				"brand": "mastercard",
+				"country": "DE"
+			},
+			"billing_details": {
+				"address": {
+					"country": "DE"
+				}
+			}
+		}
+	}
+}

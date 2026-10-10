@@ -8,7 +8,8 @@
 		setTogglePreferenceContext,
 		setRemoveEmailContext,
 		setRowSelectionContext,
-		setRecipientsContext
+		setRecipientsContext,
+		type ToggleField
 	} from './recipients-context';
 	import { createSvelteTable } from '#lib/components/ui/data-table/index.js';
 	import { createRowSelection } from '#lib/components/ui/data-table/row-selection.svelte.ts';
@@ -136,11 +137,7 @@
 		cache: adminCache.recipientCount
 	});
 
-	async function togglePreference(
-		email: string,
-		field: 'notifyNewSupportTickets' | 'notifyUserReplies' | 'notifyNewSignups',
-		currentValue: boolean
-	) {
+	async function togglePreference(email: string, field: ToggleField, currentValue: boolean) {
 		const newValue = !currentValue;
 		const existing = pendingUpdates.get(email) ?? {};
 		pendingUpdates.set(email, { ...existing, [field]: newValue });

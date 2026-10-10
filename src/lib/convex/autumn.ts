@@ -59,6 +59,7 @@ export const getEntity: AutumnApi['getEntity'] = autumnApi.getEntity;
  */
 export async function getAutumnSdk(configuration?: CapabilityConfiguration<BillingConfiguration>) {
 	const { secretKey } = requireBillingConfiguration(configuration);
+	// eslint-disable-next-line no-restricted-syntax -- only actions call this, and they allow import()
 	const { Autumn: AutumnSDK } = await import('autumn-js');
 	return new AutumnSDK({ secretKey });
 }

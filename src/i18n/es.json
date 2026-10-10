@@ -90,6 +90,7 @@
 			"column_email": "Email",
 			"column_name": "Nombre",
 			"column_new_signups": "Nuevos Registros",
+			"column_new_customers": "Nuevos Clientes",
 			"column_new_tickets": "Nuevos Tickets",
 			"column_type": "Tipo",
 			"column_user_replies": "Respuestas de Usuario",
@@ -100,6 +101,7 @@
 			"email_added": "Email agregado",
 			"email_exists": "Este email ya existe",
 			"field_new_signups": "Notificaciones de nuevos registros",
+			"field_new_customers": "Notificaciones de nuevos clientes",
 			"field_new_tickets": "Notificaciones de nuevos tickets",
 			"field_user_replies": "Notificaciones de respuestas de usuario",
 			"filter": {
@@ -675,6 +677,89 @@
 			"ticket_started": "{userName} ha iniciado una nueva conversación de soporte",
 			"view_admin_dashboard": "Ver en el panel de administración"
 		},
+		"customer_journey": {
+			"core": {
+				"count": {
+					"at_least": "al menos {count}",
+					"at_least_leading": "Al menos {count}",
+					"none_checked": "nada encontrado en los registros revisados"
+				},
+				"duration": {
+					"days": "{days} d",
+					"days_hours": "{days} d {hours} h",
+					"hours": "{hours} h",
+					"hours_minutes": "{hours} h {minutes} min",
+					"minutes": "{minutes} min",
+					"one_day": "1 d",
+					"one_day_hours": "1 d {hours} h",
+					"under_minute": "menos de 1 min"
+				},
+				"later": "{duration} después",
+				"notes": {
+					"not_recorded": "{source}: aún no se registra.",
+					"partial": "{source}: revisado solo en parte, así que los recuentos son mínimos.",
+					"recorded_since": "{source}: registrado desde {date}.",
+					"unavailable": "{source}: no se pudo cargar para este correo."
+				},
+				"value": {
+					"not_recorded": "aún no registrado",
+					"unavailable": "no disponible"
+				}
+			},
+			"milestone": {
+				"signed_up": "Se registró",
+				"paid": "Pagó {amount}",
+				"plan": {
+					"month": "{plan}, mensual",
+					"year": "{plan}, anual"
+				},
+				"signup_to_paid": "del registro al pago"
+			},
+			"source": {
+				"aiChat": {
+					"label": "Mensajes del chat de IA",
+					"metric": {
+						"before_paying": "mensajes al chat de IA antes de pagar",
+						"window": "mensajes al chat de IA"
+					},
+					"range": {
+						"complete": "Primero {first}, último {last}",
+						"observed": "Primero {first}, último observado {last}"
+					},
+					"step": {
+						"many": "Envió {count} mensajes al chat de IA",
+						"one": "Envió 1 mensaje al chat de IA"
+					}
+				},
+				"community": {
+					"label": "Mensajes en la comunidad",
+					"metric": {
+						"before_paying": "mensajes a la comunidad antes de pagar",
+						"window": "mensajes a la comunidad"
+					},
+					"range": {
+						"complete": "Primero {first}, último {last}",
+						"observed": "Primero {first}, último observado {last}"
+					},
+					"step": {
+						"many": "Envió {count} mensajes a la comunidad",
+						"one": "Envió 1 mensaje a la comunidad"
+					}
+				},
+				"support": {
+					"label": "Contactos con soporte",
+					"range": {
+						"complete": "Primero {first}, último {last}",
+						"observed": "Primero {first}, último observado {last}"
+					},
+					"step": {
+						"many": "Primeros contactos registrados con soporte en {count} conversaciones",
+						"at_least_one": "Primeros contactos registrados con soporte en al menos 1 conversación",
+						"one": "Primer contacto registrado con soporte"
+					}
+				}
+			}
+		},
 		"new_signup": {
 			"description": "Un nuevo usuario se ha registrado en tu plataforma",
 			"footer": "Recibes este email porque tienes activadas las notificaciones de nuevos registros.",
@@ -684,6 +769,13 @@
 			"label_time": "Fecha:",
 			"preview": "Nuevo usuario: {userEmail}",
 			"title": "Nuevo usuario registrado"
+		},
+		"new_customer": {
+			"badge": "Nuevo cliente",
+			"title": "{customer} pagó {amount}",
+			"preview": "Pagó {duration} después de registrarse",
+			"journey_unavailable": "No se pudo incluir el recorrido del cliente en este email.",
+			"footer": "Horas en {timeZone}. Recibes este email porque tienes activadas las notificaciones de nuevos clientes."
 		},
 		"rate_limit_alert": {
 			"action": "Si es tráfico real, aumenta el límite en la configuración del limitador de soporte. Si viene de una sola fuente, puede tratarse de abuso.",
@@ -723,6 +815,7 @@
 		},
 		"subject": {
 			"new_signup": "Nuevo registro de usuario: {userEmail}",
+			"new_customer": "Nuevo cliente: {customer} pagó {amount}",
 			"rate_limit_alert": "Límite de solicitudes de soporte casi agotado: {limitName}",
 			"reset_password": "Restablecer tu contraseña",
 			"set_password": "Establece una contraseña",

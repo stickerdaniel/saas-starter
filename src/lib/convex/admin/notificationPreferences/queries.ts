@@ -5,11 +5,14 @@
  * Used by the admin settings UI and notification send logic.
  */
 
-import { v } from 'convex/values';
+import { v, type Infer } from 'convex/values';
 import { adminQuery } from '../../functions';
 import { internalQuery } from '../../_generated/server';
 import type { QueryCtx } from '../../_generated/server';
+import type { Doc } from '../../_generated/dataModel';
 import { components } from '../../_generated/api';
+import { isTestEmail } from '../../emails/helpers';
+import { MAX_RECIPIENTS, PREFERENCE_SCAN } from '../customerNotifications/policy';
 import { parseBetterAuthUsers } from '../types';
 import { resolveOffsetLastPage, sliceOffsetPage } from '../pagination';
 import { isPreviewAdminEmail } from './helpers';
@@ -20,10 +23,64 @@ import { isPreviewAdminEmail } from './helpers';
 export const notificationTypeValidator = v.union(
 	v.literal('newTickets'),
 	v.literal('userReplies'),
-	v.literal('newSignups')
+	v.literal('newSignups'),
+	v.literal('newCustomers')
 );
 
-export type NotificationType = 'newTickets' | 'userReplies' | 'newSignups';
+export type NotificationType = Infer<typeof notificationTypeValidator>;
+
+/** The preference fields an admin toggles, one per notification type. */
+export const notificationToggleFieldValidator = v.union(
+	v.literal('notifyNewSupportTickets'),
+	v.literal('notifyUserReplies'),
+	v.literal('notifyNewSignups'),
+	v.literal('notifyNewCustomers')
+);
+
+export type NotificationToggleField = Infer<typeof notificationToggleFieldValidator>;
+
+type NotificationPreference = Doc<'adminNotificationPreferences'>;
+
+/** The toggle that gates each notification type; exhaustive by construction. */
+const NOTIFICATION_TYPE_TOGGLES = {
+	newTickets: 'notifyNewSupportTickets',
+	userReplies: 'notifyUserReplies',
+	newSignups: 'notifyNewSignups',
+	newCustomers: 'notifyNewCustomers'
+} as const satisfies Record<NotificationType, NotificationToggleField>;
+
+/**
+ * Whether a preference row wants notifications of `type`. The only place a
+ * toggle is read: a toggle added after rows already existed is optional, and
+ * a missing value means on.
+ */
+function wantsNotification(
+	preference: Pick<NotificationPreference, NotificationToggleField>,
+	type: NotificationType
+): boolean {
+	return preference[NOTIFICATION_TYPE_TOGGLES[type]] ?? true;
+}
+
+/** A current admin or a custom address; a demoted admin's row stays dormant. */
+function isActiveRecipient(preference: Pick<NotificationPreference, 'isAdminUser' | 'userId'>) {
+	return preference.isAdminUser || preference.userId === undefined;
+}
+
+/**
+ * Whether a preference row receives email of `type`: an active recipient
+ * with the toggle on. The preview admin never receives email, whatever its
+ * stored toggles say.
+ */
+export function receivesNotification(
+	preference: NotificationPreference,
+	type: NotificationType
+): boolean {
+	return (
+		!isPreviewAdminEmail(preference.email) &&
+		isActiveRecipient(preference) &&
+		wantsNotification(preference, type)
+	);
+}
 
 /**
  * Notification recipient data for UI display
@@ -36,6 +93,7 @@ export interface NotificationRecipient {
 	notifyNewSupportTickets: boolean;
 	notifyUserReplies: boolean;
 	notifyNewSignups: boolean;
+	notifyNewCustomers: boolean;
 	createdAt: number;
 	updatedAt: number;
 }
@@ -154,18 +212,17 @@ async function getFilteredSortedRecipients(
 ) {
 	// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: rows exist only through admin actions (promotions, custom recipients), one per email; search, sort and count need every row
 	const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
-	const activePrefs = allPrefs.filter(
-		(preference) => preference.isAdminUser || preference.userId === undefined
-	);
+	const activePrefs = allPrefs.filter(isActiveRecipient);
 	const userMap = await getAdminUserNameMap(ctx);
 	const recipients: NotificationRecipient[] = activePrefs.map((preference) => ({
 		email: preference.email,
 		name: preference.userId ? userMap.get(preference.userId) : undefined,
 		userId: preference.userId,
 		isAdminUser: preference.isAdminUser,
-		notifyNewSupportTickets: preference.notifyNewSupportTickets,
-		notifyUserReplies: preference.notifyUserReplies,
-		notifyNewSignups: preference.notifyNewSignups,
+		notifyNewSupportTickets: wantsNotification(preference, 'newTickets'),
+		notifyUserReplies: wantsNotification(preference, 'userReplies'),
+		notifyNewSignups: wantsNotification(preference, 'newSignups'),
+		notifyNewCustomers: wantsNotification(preference, 'newCustomers'),
 		createdAt: preference.createdAt,
 		updatedAt: preference.updatedAt
 	}));
@@ -220,6 +277,7 @@ export const listNotificationRecipients = adminQuery({
 				notifyNewSupportTickets: v.boolean(),
 				notifyUserReplies: v.boolean(),
 				notifyNewSignups: v.boolean(),
+				notifyNewCustomers: v.boolean(),
 				createdAt: v.number(),
 				updatedAt: v.number()
 			})
@@ -307,21 +365,35 @@ export const getRecipientsForNotificationType = internalQuery({
 	handler: async (ctx, args): Promise<string[]> => {
 		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: rows exist only through admin actions (promotions, custom recipients), one per email
 		const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
+		return allPrefs.filter((p) => receivesNotification(p, args.type)).map((p) => p.email);
+	}
+});
 
-		// Map notification type to field name
-		const toggleField =
-			args.type === 'newTickets'
-				? 'notifyNewSupportTickets'
-				: args.type === 'userReplies'
-					? 'notifyUserReplies'
-					: 'notifyNewSignups';
-
-		// Filter to active recipients with this notification enabled
-		const activePrefs = allPrefs.filter(
-			(p) =>
-				!isPreviewAdminEmail(p.email) && (p.isAdminUser || p.userId === undefined) && p[toggleField]
-		);
-
-		return activePrefs.map((p) => p.email);
+/**
+ * The recipients of one customer email, from a bounded scan: at most
+ * `PREFERENCE_SCAN` preference rows in creation order, and at most
+ * `MAX_RECIPIENTS` of the addresses that receive `type`, test addresses left
+ * out. `truncated` says that rows were left unread or matches left out, so
+ * the result is not the whole audience; nobody counts what was left out.
+ *
+ * Callers run it under read limits, so a scan of unusually large rows fails
+ * instead of taking the caller's budget.
+ *
+ * @internal Used by the admin customer email senders
+ */
+export const getJourneyRecipients = internalQuery({
+	args: { type: notificationTypeValidator },
+	returns: v.object({ emails: v.array(v.string()), truncated: v.boolean() }),
+	handler: async (ctx, { type }) => {
+		const scanned = await ctx.db.query('adminNotificationPreferences').take(PREFERENCE_SCAN + 1);
+		const matched = scanned
+			.slice(0, PREFERENCE_SCAN)
+			.filter((preference) => receivesNotification(preference, type))
+			.map((preference) => preference.email)
+			.filter((email) => !isTestEmail(email));
+		return {
+			emails: matched.slice(0, MAX_RECIPIENTS),
+			truncated: scanned.length > PREFERENCE_SCAN || matched.length > MAX_RECIPIENTS
+		};
 	}
 });

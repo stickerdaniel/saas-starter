@@ -46,7 +46,8 @@ export async function syncAdminPreferences(
 		: {
 				notifyNewSupportTickets: false,
 				notifyUserReplies: false,
-				notifyNewSignups: false
+				notifyNewSignups: false,
+				notifyNewCustomers: false
 			};
 
 	// Check if preference already exists for this user
@@ -94,6 +95,7 @@ export async function syncAdminPreferences(
 				notifyNewSupportTickets: receivesAdminNotifications,
 				notifyUserReplies: receivesAdminNotifications,
 				notifyNewSignups: receivesAdminNotifications,
+				notifyNewCustomers: receivesAdminNotifications,
 				createdAt: now,
 				updatedAt: now
 			});

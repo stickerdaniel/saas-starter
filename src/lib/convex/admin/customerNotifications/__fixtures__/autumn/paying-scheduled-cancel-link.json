@@ -1,0 +1,36 @@
+{
+	"provenance": "autumn-js 0.1.85 customers.get, API 1.2, prod, 2026-10-07; projected to parser fields. Ported from Cadenza as a template-shaped model, not a template observation: plan ids mapped premium to pro and premium_annual to pro_annual, no other value changed",
+	"statusCode": 200,
+	"data": {
+		"products": [
+			{
+				"id": "pro",
+				"status": "active",
+				"started_at": 1791240837770,
+				"canceled_at": 1791312087000,
+				"current_period_end": 1793919229000,
+				"is_add_on": false
+			}
+		],
+		"invoices": [
+			{
+				"status": "paid",
+				"total": 29,
+				"currency": "eur",
+				"created_at": 1791240829000,
+				"product_ids": ["pro"]
+			}
+		],
+		"rewards": {
+			"discounts": []
+		},
+		"payment_method": {
+			"type": "link",
+			"billing_details": {
+				"address": {
+					"country": "US"
+				}
+			}
+		}
+	}
+}

@@ -27,7 +27,8 @@ import { shouldSendNotification } from '../support/notificationPreferences';
 /** Type for user result from Better Auth adapter with optional locale field */
 type UserWithLocale = { locale?: string | null } | null;
 
-function getReadyEmailConfiguration() {
+/** The validated email configuration, or null while email is not ready. */
+export function getReadyEmailConfiguration() {
 	const configuration = getEmailDeliveryConfiguration();
 	return configuration.state === 'ready' ? assertResendApiKey(configuration) : null;
 }
@@ -36,7 +37,7 @@ function getReadyEmailConfiguration() {
  * Look up a user's locale preference by email address.
  * Falls back to default locale if user not found or locale not set.
  */
-async function getLocaleForEmail(
+export async function getLocaleForEmail(
 	ctx: GenericMutationCtx<DataModel>,
 	email: string
 ): Promise<SupportedLocale> {

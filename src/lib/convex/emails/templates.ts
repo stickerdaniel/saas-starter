@@ -12,9 +12,12 @@ import type {
 	AdminReplyNotificationEmailData,
 	NewTicketAdminNotificationEmailData,
 	NewUserSignupNotificationEmailData,
+	NewCustomerAdminNotificationEmailData,
 	SupportRateLimitAlertEmailData,
 	RenderedEmail
 } from '../../emails/templates/types';
+import type { ComposedJourney } from '../admin/customerNotifications/compose';
+import { buildJourneyTimeline, type RailRole } from './journeyTimeline';
 import {
 	VERIFICATION_HTML,
 	VERIFICATION_TEXT,
@@ -28,11 +31,14 @@ import {
 	NEWTICKETADMINNOTIFICATION_TEXT,
 	NEWUSERSIGNUPNOTIFICATION_HTML,
 	NEWUSERSIGNUPNOTIFICATION_TEXT,
+	NEWCUSTOMERADMINNOTIFICATION_HTML,
+	NEWCUSTOMERADMINNOTIFICATION_TEXT,
 	SUPPORTRATELIMITALERT_HTML,
 	SUPPORTRATELIMITALERT_TEXT
 } from '../../emails/generated/index.js';
 import { requireEmailConfiguration } from '../env';
 import { t, DEFAULT_LOCALE, getValidLocale } from '../i18n/translations';
+import { escapeHtml } from './html';
 
 /**
  * Simple template renderer that replaces {{varName}} patterns with values.
@@ -43,23 +49,6 @@ function renderTemplate(template: string, data: Record<string, string | number>)
 		const value = data[key];
 		return value !== undefined ? String(value) : '';
 	});
-}
-
-/**
- * Escape HTML special characters for safe rendering in HTML context
- */
-function escapeHtml(str: string): string {
-	return str.replace(
-		/[&<>"']/g,
-		(c) =>
-			({
-				'&': '&amp;',
-				'<': '&lt;',
-				'>': '&gt;',
-				'"': '&quot;',
-				"'": '&#39;'
-			})[c]!
-	);
 }
 
 /** Get the validated base URL for email assets and footer links. */
@@ -399,6 +388,116 @@ export function renderNewUserSignupNotificationEmail(
 	return {
 		html: renderTemplate(NEWUSERSIGNUPNOTIFICATION_HTML, templateData),
 		text: renderTemplate(NEWUSERSIGNUPNOTIFICATION_TEXT, textData)
+	};
+}
+
+/** ` class="…" style="…"` for a theme role painted as `property`. */
+function paintRole(role: RailRole, property: string, style: string): string {
+	const className = role.darkClass ? ` class="${escapeHtml(role.darkClass)}"` : '';
+	return `${className} style="${escapeHtml(`${style};${property}:${role.color}`)}"`;
+}
+
+/**
+ * The summary tiles as one table row of equal columns, styled like the
+ * template's bordered boxes, with a plain-text line per tile.
+ */
+function renderTiles({ tiles, theme }: ComposedJourney): { html: string; text: string } {
+	if (tiles.length === 0) return { html: '', text: '' };
+	const width = `${(100 / tiles.length).toFixed(4)}%`;
+	const cells = tiles.map((tile, index) => {
+		const padding = [
+			index > 0 ? 'padding-left:4px' : '',
+			index < tiles.length - 1 ? 'padding-right:4px' : ''
+		]
+			.filter(Boolean)
+			.join(';');
+		const box = paintRole(
+			theme.tiles.border,
+			'border-color',
+			'border-width:1px;border-style:solid;border-radius:6px;padding:12px'
+		);
+		return [
+			`<td valign="top" style="${escapeHtml(`width:${width};vertical-align:top${padding ? `;${padding}` : ''}`)}">`,
+			`<div${box}>`,
+			`<p style="margin:0;font-size:18px;line-height:1.25;font-weight:600">${escapeHtml(tile.value)}</p>`,
+			`<p${paintRole(theme.tiles.label, 'color', 'margin:4px 0 0;font-size:12px;line-height:16px')}>${escapeHtml(tile.label)}</p>`,
+			'</div></td>'
+		].join('');
+	});
+	return {
+		html: `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin-bottom:24px;border-collapse:collapse"><tbody><tr>${cells.join('')}</tr></tbody></table>`,
+		text: tiles.map((tile) => `${tile.value}: ${tile.label}`).join('\n')
+	};
+}
+
+/**
+ * Render the new customer admin notification email
+ *
+ * Sent to admins when a customer's first eligible payment is observed. The
+ * journey (tiles, the rail and its coverage notes) fills one placeholder;
+ * without a journey that placeholder holds a short "unavailable" note.
+ *
+ * @param data - The customer, their first payment and the composed journey
+ * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
+ * @returns Subject, rendered HTML and plain text email
+ */
+export function renderNewCustomerAdminNotificationEmail(
+	data: NewCustomerAdminNotificationEmailData,
+	locale: string = DEFAULT_LOCALE
+): RenderedEmail & { subject: string } {
+	const baseUrl = getBaseUrl();
+	const lang = getValidLocale(locale);
+	const { customer, amount, journey } = data;
+
+	const texts = {
+		badgeText: t(locale, 'email.new_customer.badge'),
+		titleText: t(locale, 'email.new_customer.title', { customer, amount }),
+		descriptionText: data.customerEmail,
+		previewText: data.previewText,
+		buttonText: t(locale, 'email.body.view_admin_dashboard'),
+		footerText: t(locale, 'email.new_customer.footer', { timeZone: data.timeZone })
+	};
+
+	let timeline: { html: string; text: string };
+	if (journey) {
+		const tiles = renderTiles(journey);
+		const rail = buildJourneyTimeline(
+			journey.steps,
+			journey.notes,
+			{ locale: lang, timeZone: data.timeZone },
+			journey.theme.rail
+		);
+		timeline = {
+			html: `${tiles.html}${rail.html}`,
+			text: [tiles.text, rail.text].filter(Boolean).join('\n\n')
+		};
+	} else {
+		const note = t(locale, 'email.new_customer.journey_unavailable');
+		timeline = {
+			html: `<p class="dark_text-zinc-400" style="margin:0 0 24px;font-size:13px;line-height:20px;color:#71717b">${escapeHtml(note)}</p>`,
+			text: note
+		};
+	}
+
+	const templateData = {
+		lang,
+		timelineHtml: timeline.html,
+		adminDashboardLink: escapeHtml(data.adminDashboardLink),
+		baseUrl: escapeHtml(baseUrl),
+		...Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, escapeHtml(v)]))
+	};
+	const textData = {
+		// The button follows the placeholder on the same line of the text template.
+		timelineHtml: `${timeline.text}\n\n`,
+		adminDashboardLink: data.adminDashboardLink,
+		baseUrl,
+		...texts
+	};
+
+	return {
+		subject: t(locale, 'email.subject.new_customer', { customer, amount }),
+		html: renderTemplate(NEWCUSTOMERADMINNOTIFICATION_HTML, templateData),
+		text: renderTemplate(NEWCUSTOMERADMINNOTIFICATION_TEXT, textData)
 	};
 }
 

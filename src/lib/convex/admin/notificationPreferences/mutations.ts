@@ -11,6 +11,7 @@ import { adminMutation } from '../../functions';
 import { internalMutation } from '../../_generated/server';
 import { components } from '../../_generated/api';
 import { syncAdminPreferences } from './helpers';
+import { notificationToggleFieldValidator } from './queries';
 import {
 	NOTIFICATION_EMAIL_ALREADY_EXISTS,
 	NOTIFICATION_PREFERENCE_ERROR_CODES,
@@ -25,11 +26,7 @@ import {
 export const updatePreference = adminMutation({
 	args: {
 		email: v.string(),
-		field: v.union(
-			v.literal('notifyNewSupportTickets'),
-			v.literal('notifyUserReplies'),
-			v.literal('notifyNewSignups')
-		),
+		field: notificationToggleFieldValidator,
 		value: v.boolean()
 	},
 	returns: v.null(),
@@ -98,6 +95,7 @@ export const addCustomEmail = adminMutation({
 			notifyNewSupportTickets: true,
 			notifyUserReplies: true,
 			notifyNewSignups: true,
+			notifyNewCustomers: true,
 			createdAt: now,
 			updatedAt: now
 		});

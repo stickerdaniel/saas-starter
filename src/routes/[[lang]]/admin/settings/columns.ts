@@ -133,6 +133,23 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 		meta: { skeleton: { kind: 'checkbox' } }
 	},
 	{
+		id: 'notifyNewCustomers',
+		size: 100,
+		minSize: 100,
+		header: () =>
+			renderComponent(DataTableColumnHeader, {
+				titleKey: 'admin.settings.column_new_customers',
+				class: 'text-center'
+			}),
+		cell: ({ row }) =>
+			renderComponent(RecipientsToggle, {
+				email: row.original.email,
+				field: 'notifyNewCustomers',
+				checked: row.original.notifyNewCustomers
+			}),
+		meta: { skeleton: { kind: 'checkbox' } }
+	},
+	{
 		id: 'actions',
 		size: 50,
 		minSize: 50,
