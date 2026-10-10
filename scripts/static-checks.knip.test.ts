@@ -66,6 +66,9 @@ const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 	'packages/create-saas-starter/src/process.ts',
 	'packages/create-saas-starter/test/lifecycle.test.ts',
 	'tsconfig.json',
+	'tsconfig.tooling.json',
+	'vitest.tooling.config.ts',
+	'scripts/vitest-settings.ts',
 	'scripts/template-setup.ts',
 	'scripts/template-setup.integration.test.ts',
 	'scripts/__fixtures__/template-setup/package.json',
@@ -796,7 +799,7 @@ describe('Windows lifecycle workflow coverage', () => {
 		}
 		for (const command of [
 			'bun install --frozen-lockfile --ignore-scripts',
-			'bun vitest --run scripts/static-checks.knip.test.ts'
+			'bun vitest --config vitest.tooling.config.ts --run scripts/static-checks.knip.test.ts'
 		]) {
 			const step = steps.find((entry) => entry.includes(`run: ${command}\n`));
 			expect(step).toContain("if: steps.changes.outputs.run_tests == 'true'");

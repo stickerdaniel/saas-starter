@@ -180,7 +180,8 @@ describe('root creator commands', () => {
 		const rootTestCommands = manifest.scripts.test.split('&&').map((command) => command.trim());
 
 		expect(rootTestCommands.filter((command) => command === 'bun run test:cli')).toHaveLength(1);
-		expect(read('vite.config.ts')).toContain("'packages/create-saas-starter/test/**'");
+		expect(read('vite.config.ts')).toContain('...sharedTestSettings');
+		expect(read('scripts/vitest-settings.ts')).toContain("'packages/create-saas-starter/test/**'");
 	});
 });
 
