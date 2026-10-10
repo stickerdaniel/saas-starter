@@ -2,6 +2,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import postcss from 'postcss';
 import { createBuilder, type Plugin } from 'vite';
 import { describe, expect, it } from 'vitest';
 import en from '../src/i18n/en.json';
@@ -38,11 +39,24 @@ describe('critical marketing fonts', () => {
 		expect(marketingFontCharacters([changed, changed], 'Crème™')).toBe(glyphs);
 	});
 
-	it('embeds a usable WOFF2 subset instead of a network font reference', async () => {
+	it('embeds a WOFF2 subset registered for regular through bold', async () => {
 		const original = await readFile(
 			fileURLToPath(new URL('../static/fonts/outfit-v15-latin-regular.woff2', import.meta.url))
 		);
 		const { css, href } = await criticalFont(original, 'Ship faster.');
+		const registeredWeights = new Set<number>();
+		postcss.parse(css).walkAtRules('font-face', (rule) => {
+			rule.walkDecls('font-weight', ({ value }) => {
+				const [minimum, maximum = minimum] = value.split(/\s+/).map(Number);
+				for (const weight of [400, 500, 600, 700]) {
+					if (weight >= minimum! && weight <= maximum!) registeredWeights.add(weight);
+				}
+			});
+		});
+		expect(
+			registeredWeights,
+			'Critical font faces must register regular through bold so public headings use real outlines.'
+		).toEqual(new Set([400, 500, 600, 700]));
 		const encoded = /data:font\/woff2;base64,([A-Za-z0-9+/=]+)/.exec(css)?.[1];
 		expect(encoded).toBeDefined();
 		expect(href).toBe(`data:font/woff2;base64,${encoded}`);
@@ -81,7 +95,7 @@ describe('critical font publication', () => {
 				await mkdir(path.join(clientDir, 'assets'), { recursive: true });
 				await writeFile(
 					path.join(clientDir, 'assets', 'app.css'),
-					'@font-face{font-family:"Outfit";src:url("../outfit.woff2") format("woff2");font-weight:400 600;}'
+					'@font-face{font-family:"Outfit";src:url("../outfit.woff2") format("woff2");font-weight:400 700;}'
 				);
 			}
 		};

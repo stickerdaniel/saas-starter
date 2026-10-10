@@ -418,12 +418,12 @@ export default defineConfig(async ({ mode }) => {
 			families: [
 				{
 					name: 'Outfit',
-					weights: [400, 500, 600],
+					weights: [400, 500, 600, 700],
 					styles: ['normal'],
 					subsets: ['latin'],
 					fallbacks: ['Arial'],
 					display: 'swap',
-					// `true` selects only one face; keep all three weights preloaded.
+					// `true` selects only one face; keep all configured weights preloaded.
 					preload: { subsets: ['latin'], styles: ['normal'] }
 				}
 			],
