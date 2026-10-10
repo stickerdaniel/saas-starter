@@ -227,6 +227,38 @@ describe('TruncatedText', () => {
 		expect(tooltip()).toBeNull();
 	});
 
+	it.each(['mouse-first', 'touch-first'])(
+		'keeps full text open when the mouse resumes inside the trigger after %s touch',
+		async (history) => {
+			render(LONG);
+			if (history === 'mouse-first') await hover();
+			await tap();
+			// WebKit sends this compatibility click without a new mouse pointerenter.
+			trigger().dispatchEvent(new PointerEvent('click', { pointerType: 'mouse', bubbles: true }));
+			trigger().dispatchEvent(
+				new PointerEvent('pointermove', { pointerType: 'mouse', bubbles: true })
+			);
+			await settle();
+
+			const content = tooltip()!;
+			trigger().dispatchEvent(
+				new PointerEvent('pointerleave', { pointerType: 'mouse', relatedTarget: content })
+			);
+			content.dispatchEvent(
+				new PointerEvent('pointerenter', { pointerType: 'mouse', relatedTarget: trigger() })
+			);
+			await settle();
+
+			expect(trigger().getAttribute('data-state')).toBe('instant-open');
+			expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
+			expect(tooltip()?.textContent?.trim()).toBe(LONG);
+
+			content.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+			await settle();
+			expect(tooltip()).toBeNull();
+		}
+	);
+
 	it('follows text changes', async () => {
 		const props = render(LONG);
 		await hover();
