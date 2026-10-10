@@ -123,9 +123,13 @@ describe('new customer email from a seeded ledger row', () => {
 		await send(ledgerRow());
 
 		const { html, text } = enqueued()[0]!;
-		expect(html.match(/>–<\/p>/g)).toHaveLength(2);
-		expect(html).not.toContain('>not recorded yet<');
-		expect(html).toContain('AI chat messages: not recorded yet.');
+		const shown = html
+			.split(/<[^>]*>/)
+			.map((part) => part.trim())
+			.filter(Boolean);
+		expect(shown.filter((part) => part === '–')).toHaveLength(2);
+		expect(shown).not.toContain('not recorded yet');
+		expect(shown).toContain('AI chat messages: not recorded yet.');
 		expect(text).toContain('not recorded yet: AI chat messages before paying');
 		expect(text).toContain('2 d 5 h: signup to paid');
 	});

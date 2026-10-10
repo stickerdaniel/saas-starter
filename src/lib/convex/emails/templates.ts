@@ -401,15 +401,16 @@ const TILE_VALUE_STYLE = 'margin:0;font-size:18px;line-height:1.25;font-weight:6
 
 /**
  * The summary tiles as one bordered strip of equal columns split by rules, so
- * every column takes the row's height. An unknown tile shows a muted dash,
- * since the coverage notes under the rail give the reason; the plain text
- * keeps the reason.
+ * every column takes the row's height. The fixed table layout keeps the
+ * columns equal and wraps a long word instead of widening its column. An
+ * unknown tile shows a muted dash, since the coverage notes under the rail
+ * give the reason; the plain text keeps the reason.
  */
 function renderTiles({ tiles, theme }: ComposedJourney): { html: string; text: string } {
 	if (tiles.length === 0) return { html: '', text: '' };
 	const width = `${(100 / tiles.length).toFixed(4)}%`;
 	const cells = tiles.map((tile, index) => {
-		const base = `width:${width};vertical-align:top;padding:12px`;
+		const base = `width:${width};vertical-align:top;padding:12px;overflow-wrap:break-word;word-break:break-word`;
 		const cell =
 			index === 0
 				? ` style="${escapeHtml(base)}"`
@@ -431,7 +432,7 @@ function renderTiles({ tiles, theme }: ComposedJourney): { html: string; text: s
 	const strip = paintRole(
 		theme.tiles.border,
 		'border-color',
-		'margin-bottom:24px;border-width:1px;border-style:solid;border-radius:6px;border-collapse:separate;border-spacing:0'
+		'margin-bottom:24px;table-layout:fixed;border-width:1px;border-style:solid;border-radius:6px;border-collapse:separate;border-spacing:0'
 	);
 	return {
 		html: `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"${strip}><tbody><tr>${cells.join('')}</tr></tbody></table>`,
