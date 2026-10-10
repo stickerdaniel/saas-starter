@@ -96,6 +96,42 @@ describe('require-motion-guard-transition', () => {
 		expect(reports).toHaveLength(0);
 	});
 
+	it.each([
+		'<div class="data-open:animate-accordion-down data-closed:animate-accordion-up"></div>',
+		'<div class={cn("overflow-hidden", "data-[state=open]:animate-collapsible-down")}></div>',
+		// A partial or lower-priority override is not a guard for the whole keyframe.
+		'<div class="data-open:animate-accordion-down motion-reduce:data-closed:animate-none"></div>',
+		'<div class="animate-accordion-down hover:motion-reduce:animate-none"></div>',
+		'<div class="animate-accordion-down! motion-reduce:animate-none"></div>',
+		'<div class="animate-collapsible-up motion-reduce:animate-none"></div>'
+	])('flags spatial keyframes without a motion guard: %s', (template) => {
+		expect(lint(template)).toEqual([
+			expect.objectContaining({ messageId: 'unguardedSpatialKeyframes' })
+		]);
+	});
+
+	it.each([
+		'<div class="motion-safe:data-open:animate-accordion-down"></div>',
+		// The guard may live in the condition, so conditional class values are not judged.
+		"<div class={prefersReducedMotion.current ? '' : 'animate-accordion-down'}></div>",
+		"<div class={cn('overflow-hidden', !prefersReducedMotion.current && 'animate-collapsible-down')}></div>",
+		'<div class="animate-in fade-in-0 motion-safe:slide-in-from-bottom-10"></div>',
+		'<div class="motion-safe:animate-in slide-in-from-bottom-10 zoom-in-90"></div>',
+		'<div class="animate-in fade-in-0"></div>',
+		'<div class="data-closed:animate-out data-closed:fade-out-0"></div>',
+		'<div class="-translate-x-1/2 scale-95 transition-all"></div>',
+		'<div class="slide-in-from-bottom-10"></div>',
+		'<div class="animate-in slide-in-from-bottom-10 motion-reduce:animate-none!"></div>'
+	])('allows guarded keyframes, fades and settled geometry: %s', (template) => {
+		expect(lint(template)).toHaveLength(0);
+	});
+
+	it('does not mistake a duration override for a spatial keyframe guard', () => {
+		expect(
+			lint('<div class="animate-accordion-down motion-reduce:duration-0"></div>')
+		).toHaveLength(1);
+	});
+
 	it('checks in:, out: and transition: directives alike', () => {
 		const reports = lint(
 			'<div in:fly={{ y: 10 }} out:fly={{ y: 10 }} transition:slide={{ duration: 100 }}></div>'

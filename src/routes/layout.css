@@ -648,6 +648,11 @@
 	transition-duration: var(--tw-duration, var(--default-transition-duration));
 }
 
+/* Keep visual feedback without interpolating position or size. Duration stays with the owner. */
+@utility transition-non-spatial {
+	transition-property: opacity, color, background-color, border-color, box-shadow;
+}
+
 /* Form fields ease their text color and focus ring. */
 @utility transition-field-colors {
 	transition-property: color, box-shadow;

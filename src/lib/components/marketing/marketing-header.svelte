@@ -242,11 +242,14 @@
 						class="relative z-20"
 					>
 						<Menu
-							class={cn('m-auto size-6 duration-200', menuState && 'scale-0 rotate-180 opacity-0')}
+							class={cn(
+								'm-auto size-6 duration-200 motion-reduce:transition-non-spatial',
+								menuState && 'scale-0 rotate-180 opacity-0'
+							)}
 						/>
 						<X
 							class={cn(
-								'absolute inset-0 m-auto size-6 scale-0 -rotate-180 opacity-0 duration-200',
+								'absolute inset-0 m-auto size-6 scale-0 -rotate-180 opacity-0 duration-200 motion-reduce:transition-non-spatial',
 								menuState && 'scale-100 rotate-0 opacity-100'
 							)}
 						/>

@@ -168,7 +168,7 @@
 													class="group/threads-toggle transition-colors active:translate-y-px"
 												>
 													<ChevronRightIcon
-														class="transition-transform duration-200 group-data-[state=open]/threads-toggle:rotate-90"
+														class="transition-transform duration-200 group-data-[state=open]/threads-toggle:rotate-90 motion-reduce:transition-non-spatial"
 													/>
 													<span class="sr-only"><T keyName="aria.toggle_threads" /></span>
 												</Sidebar.MenuAction>

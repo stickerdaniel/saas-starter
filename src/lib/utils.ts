@@ -31,7 +31,7 @@ export const twMergeConfig: ConfigExtension<DefaultClassGroupIds, DefaultThemeGr
 		},
 		classGroups: {
 			rounded: [{ rounded: ['theme-pill'] }],
-			transition: [{ transition: ['control-colors', 'field-colors'] }]
+			transition: [{ transition: ['control-colors', 'field-colors', 'non-spatial'] }]
 		}
 	}
 };
