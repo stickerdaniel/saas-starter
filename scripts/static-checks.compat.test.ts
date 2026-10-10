@@ -475,7 +475,11 @@ void api.compatUnicodeTarget.viewer;
 
 	// The fixture above lives in the temporary directory, and session artifacts still land in
 	// `scratch/`. Ask Vitest rather than searching configuration text: the string can survive
-	// in a comment after the effective exclusion is removed.
+	// in a comment after the effective exclusion is removed. Asking means loading the real
+	// config, which is the cost of this case: observed 2026-10-10, discovery alone took 0.2 s
+	// while loading the config took 1.5 s, and the case took 2 s idle and 9 to 18 s with 12
+	// to 24 copies beside 48 CPU burners on 24 cores. The blocking child gets its own
+	// deadline because Vitest cannot interrupt it.
 	it('keeps session scratch and nested agent worktrees out of Vitest discovery', () => {
 		const directories = ['scratch', '.claude/worktrees'].map((parent) =>
 			path.join(ROOT, parent, `compat-discovery-${process.pid}`)
@@ -491,7 +495,8 @@ void api.compatUnicodeTarget.viewer;
 			const result = spawnSync(BUN, ['vitest', 'list', '--filesOnly'], {
 				cwd: ROOT,
 				env: sanitizedGitEnv(),
-				encoding: 'utf8'
+				encoding: 'utf8',
+				timeout: 50_000
 			});
 			expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
 			expect(`${result.stdout}${result.stderr}`).not.toContain('sentinel.test.ts');
@@ -499,7 +504,7 @@ void api.compatUnicodeTarget.viewer;
 		} finally {
 			for (const directory of directories) rmSync(directory, { recursive: true, force: true });
 		}
-	});
+	}, 60_000);
 
 	it('owns the package alias', () => {
 		const packageJson = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as {
