@@ -249,7 +249,7 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.desk-computer :global(.pc-cursor) {
+		.desk-computer :global(.pc-cursor[data-blink]) {
 			animation: none;
 		}
 	}

@@ -58,17 +58,20 @@ export function animateDeskComputer(svg: SVGSVGElement): () => void {
 	const led = part(svg, '[data-part="led"]');
 	const rockerOn = part(svg, '[data-rocker="on"]');
 	const rockerOff = part(svg, '[data-rocker="off"]');
-	const still = matchMedia('(prefers-reduced-motion: reduce)');
+	// Read once, then follow change events: Chromium refreshes a query's cached value on
+	// every `matches` read, so polling it per frame would swallow the change event.
+	const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+	let still = motionQuery.matches;
 
 	const keyState = KEYS.map(() => ({ at: 0, held: 0 }));
 	const active = new Set<number>();
-	let line = still.matches ? PHRASES[0]! : '';
+	let line = still ? PHRASES[0]! : '';
 	let power = true;
 	let powerClock = 9;
 	let frame = 0;
 	let previous = 0;
 	let visible = false;
-	let touring = !still.matches;
+	let touring = !still;
 	let loops = 0;
 	let tour = freshTour();
 	let clickedRecently = false;
@@ -76,7 +79,7 @@ export function animateDeskComputer(svg: SVGSVGElement): () => void {
 	let blinkTimer: ReturnType<typeof setTimeout> | undefined;
 
 	function syncBlink() {
-		cursor.toggleAttribute('data-blink', !still.matches && (touring || clickedRecently));
+		cursor.toggleAttribute('data-blink', !still && (touring || clickedRecently));
 	}
 
 	function press(code: string, hold = 0.09) {
@@ -116,7 +119,7 @@ export function animateDeskComputer(svg: SVGSVGElement): () => void {
 	function setPower(next: boolean) {
 		if (next === power) return;
 		power = next;
-		powerClock = still.matches ? 9 : 0;
+		powerClock = still ? 9 : 0;
 		rockerOn.style.display = power ? '' : 'none';
 		rockerOff.style.display = power ? 'none' : '';
 		led.style.opacity = power ? '' : '0.15';
@@ -214,7 +217,7 @@ export function animateDeskComputer(svg: SVGSVGElement): () => void {
 	function tick(now: number) {
 		const dt = previous ? Math.min((now - previous) / 1000, 1 / 30) : 1 / 60;
 		previous = now;
-		const calm = still.matches;
+		const calm = still;
 		if (touring) tourStep(dt);
 		powerClock += dt;
 		const settledCrt = crtFrame();
@@ -262,7 +265,7 @@ export function animateDeskComputer(svg: SVGSVGElement): () => void {
 		}, BLINK_AFTER_CLICK_MS);
 		clearTimeout(resumeTimer);
 		resumeTimer = setTimeout(() => {
-			if (still.matches) return;
+			if (still) return;
 			touring = true;
 			tour = freshTour();
 			line = '';
@@ -292,6 +295,23 @@ export function animateDeskComputer(svg: SVGSVGElement): () => void {
 		}
 	}
 
+	// Turning reduced motion on mid-tour settles the figure on the first command at once.
+	function onMotionPreference(event: MediaQueryListEvent) {
+		still = event.matches;
+		if (!still) return;
+		touring = false;
+		clickedRecently = false;
+		clearTimeout(resumeTimer);
+		clearTimeout(blinkTimer);
+		tour = freshTour();
+		line = PHRASES[0]!;
+		setPower(true);
+		powerClock = 9;
+		write();
+		syncBlink();
+		run();
+	}
+
 	const observer = new IntersectionObserver(
 		(entries) => {
 			visible = entries.at(-1)?.isIntersecting ?? false;
@@ -301,6 +321,7 @@ export function animateDeskComputer(svg: SVGSVGElement): () => void {
 	);
 	observer.observe(svg);
 	svg.addEventListener('click', onClick);
+	motionQuery.addEventListener('change', onMotionPreference);
 	write();
 	crtFrame();
 	syncBlink();
@@ -308,6 +329,7 @@ export function animateDeskComputer(svg: SVGSVGElement): () => void {
 	return () => {
 		observer.disconnect();
 		svg.removeEventListener('click', onClick);
+		motionQuery.removeEventListener('change', onMotionPreference);
 		cancelAnimationFrame(frame);
 		frame = 0;
 		clearTimeout(resumeTimer);

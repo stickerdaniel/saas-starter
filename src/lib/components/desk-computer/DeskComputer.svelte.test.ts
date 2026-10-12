@@ -11,8 +11,21 @@ import DeskComputer from './DeskComputer.svelte';
 
 let component: ReturnType<typeof mount> | undefined;
 
+// A reduced-motion media query whose preference the test can flip at runtime.
+const motion = new (class extends EventTarget {
+	reduced = false;
+	get matches() {
+		return this.reduced;
+	}
+	set(reduced: boolean) {
+		this.reduced = reduced;
+		this.dispatchEvent(Object.assign(new Event('change'), { matches: reduced }));
+	}
+})();
+
 beforeEach(() => {
-	vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('reduce') }));
+	motion.reduced = false;
+	vi.stubGlobal('matchMedia', () => motion);
 	vi.stubGlobal('requestIdleCallback', (callback: () => void) => setTimeout(callback));
 	vi.stubGlobal('cancelIdleCallback', (id: number) => clearTimeout(id));
 	vi.stubGlobal(
@@ -48,6 +61,7 @@ const click = (key: number) =>
 		?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
 it('rests on the first CLI command under reduced motion, and a clicked key types', async () => {
+	motion.reduced = true;
 	component = mount(DeskComputer, { target: document.body });
 	flushSync();
 	await vi.waitFor(() => expect(screen()).toBe('> bun create saas-starter'), { timeout: 5000 });
@@ -55,4 +69,14 @@ it('rests on the first CLI command under reduced motion, and a clicked key types
 	click(BACKSPACE);
 	click(Q);
 	expect(screen()).toBe('> bun create saas-starteq');
+});
+
+it('settles on the first CLI command when reduced motion turns on mid-tour', async () => {
+	component = mount(DeskComputer, { target: document.body });
+	flushSync();
+	await vi.waitFor(() => expect(screen()).toBe('> '), { timeout: 5000 });
+
+	motion.set(true);
+	expect(screen()).toBe('> bun create saas-starter');
+	expect(document.querySelector('[data-part="cursor"]')?.hasAttribute('data-blink')).toBe(false);
 });
