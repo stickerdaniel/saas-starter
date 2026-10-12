@@ -200,10 +200,13 @@
 			stroke-width: 0.5px;
 			opacity: 0.7;
 		}
-		.pc-logo {
+		/* The mark scales with the figure, unlike the hairlines, so it keeps static/logo.svg's
+		   proportions (stroke 2 on a 24 unit glyph) at any size. */
+		.iso-svg .pc-logo {
+			vector-effect: none;
 			fill: none;
 			stroke: var(--anatomy-lit);
-			stroke-width: 2.2;
+			stroke-width: 2;
 			stroke-linecap: round;
 			stroke-linejoin: round;
 		}
