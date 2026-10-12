@@ -362,7 +362,6 @@
 		"github_repository": "GitHub-Repository",
 		"go_back": "Zurück",
 		"hide_password": "Passwort ausblenden",
-		"interactive_pointer_tracking_area": "Interaktiver Bereich zur Zeigerverfolgung",
 		"loading": "Wird geladen",
 		"logout": "Abmelden",
 		"menu_close": "Menü schließen",
@@ -866,7 +865,6 @@
 		"cta_demo": "Demo anfordern",
 		"description": "Erwecke dein SaaS zum Leben in Minuten, nicht in Monaten. Open-Source Template mit einem Tech-Stack, der dich schnell shippen lässt.",
 		"logo_alt": "{name}-Logo",
-		"rive_attribution": "„Spring Demo“ von JcToon · CC BY 4.0",
 		"tagline": "Mit Produktfokus\nschneller zum Ziel"
 	},
 	"integrations": {

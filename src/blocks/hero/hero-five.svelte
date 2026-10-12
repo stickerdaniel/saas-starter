@@ -3,12 +3,14 @@
 	import { localizedHref } from '#lib/utils/i18n.js';
 
 	const { t } = getTranslate();
+	const media = useMedia();
 
 	import { Marquee } from '#lib/components/spell/marquee/index.js';
 	import ProgressiveBlur from '../magic/ProgressiveBlur.svelte';
 	import HeroFiveCta from '#lib/components/ui/owned/hero-five-cta.svelte';
 	import LearnMoreChevron from '#lib/components/motion/learn-more-chevron.svelte';
-	import RiveBackground from '#lib/components/RiveBackground.svelte';
+	import DeskComputer from '#lib/components/desk-computer/DeskComputer.svelte';
+	import { useMedia } from '#lib/hooks/use-media.svelte.ts';
 	import nvidiaLogo from './logos/nvidia.svg';
 	import columnLogo from './logos/column.svg';
 	import githubLogo from './logos/github.svg';
@@ -21,13 +23,10 @@
 
 <div class="overflow-hidden">
 	<section class="relative flex items-center justify-center">
-		<RiveBackground
-			src="/animations/spring-demo.riv"
-			stateMachine="Motion"
-			defer
-			desktopOnly
-			class="absolute -bottom-1/5 h-137.5 w-137.5 lg:-bottom-1/6 lg:left-9/20 lg:h-175 lg:w-175 xl:left-13/25"
-		/>
+		<!-- Beside the headline only: below lg it would sit on the call to action. -->
+		{#if media.lg}
+			<DeskComputer class="absolute top-1/2 left-9/20 mt-8 w-175 -translate-y-1/2 xl:left-13/25" />
+		{/if}
 
 		<div class="pointer-events-none w-full pt-20 pb-56 font-marketing-critical lg:pt-40 lg:pb-36">
 			<div class="relative mx-auto flex max-w-6xl flex-col px-6 lg:block lg:px-12">

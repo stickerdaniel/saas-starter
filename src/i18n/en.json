@@ -362,7 +362,6 @@
 		"github_repository": "GitHub repository",
 		"go_back": "Go back",
 		"hide_password": "Hide password",
-		"interactive_pointer_tracking_area": "Interactive pointer tracking area",
 		"loading": "Loading",
 		"logout": "Log out",
 		"menu_close": "Close Menu",
@@ -866,7 +865,6 @@
 		"cta_demo": "Request a demo",
 		"description": "SaaS starter with SvelteKit, auth, billing, and analytics.",
 		"logo_alt": "{name} Logo",
-		"rive_attribution": "“Spring Demo” by JcToon · CC BY 4.0",
 		"tagline": "Focus on your product.\nShip faster."
 	},
 	"integrations": {

@@ -47,7 +47,6 @@ export default {
 		'src/lib/components/ai-elements/**',
 		'src/lib/components/prompt-kit/**',
 		// shadcn UI components installed via CLI and kept available for use.
-		'src/lib/components/ui/FollowingPointer/**',
 		'src/lib/components/ui/light-switch/**',
 		'src/lib/components/ui/popover/**',
 		'src/lib/components/ui/slider/**',

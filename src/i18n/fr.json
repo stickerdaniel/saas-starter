@@ -362,7 +362,6 @@
 		"github_repository": "Dépôt GitHub",
 		"go_back": "Retour",
 		"hide_password": "Masquer le mot de passe",
-		"interactive_pointer_tracking_area": "Zone interactive de suivi du pointeur",
 		"loading": "Chargement",
 		"logout": "Se déconnecter",
 		"menu_close": "Fermer le menu",
@@ -866,7 +865,6 @@
 		"cta_demo": "Demander une démo",
 		"description": "Donne vie à ton SaaS en quelques minutes, pas en mois. Template open-source bourré de tech qui te fait shipper direct.",
 		"logo_alt": "Logo {name}",
-		"rive_attribution": "« Spring Demo » par JcToon · CC BY 4.0",
 		"tagline": "Focus sur ton produit.\nLancement plus rapide."
 	},
 	"integrations": {

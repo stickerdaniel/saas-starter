@@ -405,12 +405,6 @@
 		},
 		{
 			"type": "git",
-			"name": "svelteRiveExample",
-			"url": "https://github.com/nilskj/svelte-rive-example",
-			"branch": "master"
-		},
-		{
-			"type": "git",
 			"name": "motionCore",
 			"url": "https://github.com/motion-core/motion-core",
 			"branch": "master"
@@ -517,10 +511,10 @@
 		},
 		{
 			"type": "git",
-			"name": "riveWasm",
-			"url": "https://github.com/rive-app/rive-wasm",
-			"branch": "master",
-			"specialNotes": "@rive-app/canvas package (monorepo). Rive runtime for canvas. Used by RiveBackground.svelte for animated backgrounds."
+			"name": "anatomy",
+			"url": "https://github.com/wheresryan22/anatomy",
+			"branch": "main",
+			"specialNotes": "Isometric SVG figure kit. The hero desk computer figure comes from examples/desk-computer (build.mjs and kit/iso-kit.mjs)."
 		},
 		{
 			"type": "git",

@@ -149,7 +149,7 @@ export default defineConfig(
 			// Allow escaping the compiler
 			'@typescript-eslint/ban-ts-comment': 'error',
 
-			// Off globally: ~26 legitimate usages in UI-kit/vendor code (shadcn, Konva, Rive, TanStack)
+			// Off globally: ~26 legitimate usages in UI-kit/vendor code (shadcn, Konva, TanStack)
 			'@typescript-eslint/no-explicit-any': 'off',
 
 			// Mirrors oxlint typescript/consistent-type-imports for .svelte files. oxlint lints

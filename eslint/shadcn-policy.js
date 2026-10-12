@@ -57,9 +57,9 @@ const arbitraryValueExceptions = [
 	'max-h-[calc(100svh-18rem)]',
 	'max-h-[calc(100svh-3rem-0.75rem-1.25rem-1.25rem)]',
 	'max-h-[calc(100dvh-2rem)]',
-	// Sidebar, Tabs, SlidingPanel, FollowingPointer, prompt attachments, the support
-	// launcher and chat bar, and the marketing header: exact transition lanes, and the
-	// panel's curve, which Tailwind's transition and ease scales do not name.
+	// Sidebar, Tabs, SlidingPanel, prompt attachments, the support launcher and chat
+	// bar, and the marketing header: exact transition lanes, and the panel's curve,
+	// which Tailwind's transition and ease scales do not name.
 	'transition-[height]',
 	'transition-[width]',
 	'transition-[width,height]',
