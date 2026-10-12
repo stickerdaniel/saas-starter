@@ -289,7 +289,7 @@ function getClasses(): string { return 'mt-4'; }
 	it('knows the inline-style replacement utilities from layout.css', async () => {
 		expect(
 			await productionMessages(
-				'<div class="animation-delay-var scrollbar-stable rive-cloud-reveal sliding-header-mask"></div>'
+				'<div class="animation-delay-var scrollbar-stable sliding-header-mask"></div>'
 			)
 		).toEqual([]);
 	}, 60_000);

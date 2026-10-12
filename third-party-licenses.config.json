@@ -21,12 +21,6 @@
 			"noticeFiles": ["third-party-notices/ai-sdk-provider-utils-5.0.51.txt"]
 		},
 		{
-			"name": "@rive-app/canvas",
-			"version": "2.43.1",
-			"sourceUrl": "https://github.com/rive-app/rive-wasm/blob/2.43.1/LICENSE",
-			"noticeFiles": ["third-party-notices/rive-app-canvas-2.43.1.txt"]
-		},
-		{
 			"name": "motion-sv",
 			"version": "0.1.13",
 			"sourceUrl": "https://github.com/hanielu/motion-svelte/tree/motion-sv@0.1.13",
@@ -69,19 +63,13 @@
 	],
 	"customNotices": [
 		{
-			"id": "rive-spring-demo",
-			"name": "Spring Demo by JcToon",
+			"id": "anatomy-desk-computer",
+			"name": "Desk computer figure from anatomy by Ryan",
 			"components": ["assets"],
-			"license": "CC-BY-4.0",
-			"sourceUrl": "https://rive.app/marketplace/3293-6929-spring-demo/",
-			"generatedNotices": [
-				{
-					"licenseId": "CC-BY-4.0",
-					"preamble": [
-						"\"Spring Demo\" by JcToon, https://rive.app/marketplace/3293-6929-spring-demo/, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). No modifications."
-					]
-				}
-			]
+			"license": "MIT",
+			"sourceUrl": "https://github.com/wheresryan22/anatomy/blob/689dcf966e63d92be10a5d593c6e19e10acd4422/examples/desk-computer/build.mjs",
+			"revision": "689dcf966e63d92be10a5d593c6e19e10acd4422",
+			"noticeFiles": ["third-party-notices/anatomy-desk-computer.txt"]
 		},
 		{
 			"id": "outfit-font",

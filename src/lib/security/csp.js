@@ -227,8 +227,8 @@ export function buildContentSecurityPolicy({ sentryDsn, appTemplate }) {
 		csp.reportOnly = {
 			// strict-dynamic trusts scripts loaded by an already-trusted script
 			// (kit's nonce/hash-tagged bootstrap); the template hashes cover the
-			// inline blocks kit does not tag; wasm-unsafe-eval is for the Rive canvas.
-			'script-src': ['self', 'strict-dynamic', 'wasm-unsafe-eval', ...templateScriptHashes],
+			// inline blocks kit does not tag.
+			'script-src': ['self', 'strict-dynamic', ...templateScriptHashes],
 			'object-src': ['none'],
 			'base-uri': ['self'],
 			'report-uri': [reportUri]

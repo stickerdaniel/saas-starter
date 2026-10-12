@@ -362,7 +362,6 @@
 		"github_repository": "Repositorio de GitHub",
 		"go_back": "Volver",
 		"hide_password": "Ocultar contraseña",
-		"interactive_pointer_tracking_area": "Área interactiva de seguimiento del puntero",
 		"loading": "Cargando",
 		"logout": "Cerrar sesión",
 		"menu_close": "Cerrar menú",
@@ -866,7 +865,6 @@
 		"cta_demo": "Solicitar una demo",
 		"description": "Dale vida a tu SaaS en minutos, no en meses. Plantilla open-source cargada con la tecnología que te hace lanzar rápido.",
 		"logo_alt": "Logo de {name}",
-		"rive_attribution": "«Spring Demo» de JcToon · CC BY 4.0",
 		"tagline": "Foco en tu producto.\nLanzamiento más rápido."
 	},
 	"integrations": {

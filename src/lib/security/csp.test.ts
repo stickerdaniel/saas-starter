@@ -257,7 +257,6 @@ describe('buildContentSecurityPolicy', () => {
 		const scriptSrc = csp.reportOnly?.['script-src'] ?? [];
 		expect(scriptSrc).toEqual(expect.arrayContaining(appTemplateScriptHashes(appTemplate)));
 		expect(scriptSrc).toContain('strict-dynamic');
-		expect(scriptSrc).toContain('wasm-unsafe-eval');
 		expect(csp.reportOnly?.['report-uri']).toEqual([
 			'https://o123456.ingest.sentry.io/api/7890/security/?sentry_key=abc123'
 		]);
