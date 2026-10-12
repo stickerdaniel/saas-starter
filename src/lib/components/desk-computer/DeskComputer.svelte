@@ -64,44 +64,45 @@
 </div>
 
 <style>
-	/* Theme tokens of the anatomy kit: its light values here, its dark values under the
-	   app's .dark class. Solids fill with the page background so the figure blends in. */
+	/* The anatomy kit's tokens, derived from the app theme so the figure follows its palette:
+	   sides shade from the top face toward the edge colour, lines step from foreground to
+	   border. Solids fill with the page background so the figure blends in. */
 	.desk-computer {
 		--anatomy-paper: var(--background);
-		--anatomy-top: #ffffff;
-		--anatomy-shade-0: #dcdcd9;
-		--anatomy-shade-1: #e5e5e2;
-		--anatomy-shade-2: #ededea;
-		--anatomy-shade-3: #f4f4f1;
-		--anatomy-lit-shade: #eeeeeb;
-		--anatomy-hi: #26262a;
-		--anatomy-mid: #8a8a8f;
-		--anatomy-lo: #b4b4b8;
-		--anatomy-faint: #d4d4d6;
-		--anatomy-lit: #000000;
-		--anatomy-halo: #8a8a80;
+		--anatomy-top: var(--background);
+		--anatomy-shade-3: var(--muted);
+		--anatomy-shade-2: color-mix(in oklch, var(--muted), var(--border));
+		--anatomy-shade-1: var(--border);
+		--anatomy-shade-0: color-mix(in oklch, var(--border) 88%, var(--muted-foreground));
+		--anatomy-lit-shade: color-mix(in oklch, var(--muted), var(--border));
+		--anatomy-hi: var(--foreground);
+		--anatomy-mid: var(--muted-foreground);
+		--anatomy-lo: color-mix(in oklch, var(--muted-foreground) 55%, var(--border));
+		--anatomy-faint: color-mix(in oklch, var(--muted-foreground) 20%, var(--border));
+		--anatomy-lit: var(--foreground);
+		--anatomy-halo: var(--muted-foreground);
 		--anatomy-halo-opacity: 0.32;
-		--anatomy-dot: #3a3a3e;
+		--anatomy-dot: var(--foreground);
 		--anatomy-weight: 0.6px;
 		--anatomy-ease: cubic-bezier(0.32, 0.72, 0, 1);
-		--anatomy-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+		--anatomy-mono: var(--font-mono, ui-monospace, monospace);
 	}
 
+	/* Dark tops sit on the card colour and the sides fall back to the page background; the
+	   translucent dark border cannot carry a solid shade. */
 	:global(.dark) .desk-computer {
-		--anatomy-top: #1c1c1c;
-		--anatomy-shade-0: #0f0f0f;
-		--anatomy-shade-1: #121212;
-		--anatomy-shade-2: #151515;
-		--anatomy-shade-3: #181818;
-		--anatomy-lit-shade: #1d1d1d;
-		--anatomy-hi: #d4d4d4;
-		--anatomy-mid: #6a6a6a;
-		--anatomy-lo: #3e3e3e;
-		--anatomy-faint: #2a2a2a;
-		--anatomy-lit: #ffffff;
-		--anatomy-halo: #050505;
+		--anatomy-top: var(--card);
+		--anatomy-shade-3: color-mix(in oklch, var(--card) 75%, var(--background));
+		--anatomy-shade-2: color-mix(in oklch, var(--card) 50%, var(--background));
+		--anatomy-shade-1: color-mix(in oklch, var(--card) 25%, var(--background));
+		--anatomy-shade-0: var(--background);
+		--anatomy-lit-shade: var(--card);
+		--anatomy-hi: color-mix(in oklch, var(--foreground) 85%, var(--background));
+		--anatomy-mid: color-mix(in oklch, var(--muted-foreground) 60%, var(--background));
+		--anatomy-lo: color-mix(in oklch, var(--muted-foreground) 35%, var(--background));
+		--anatomy-faint: var(--muted);
+		--anatomy-halo: var(--background);
 		--anatomy-halo-opacity: 0.9;
-		--anatomy-dot: #e6e6e6;
 	}
 
 	/* The injected SVG is not part of this component's markup, so its rules are global
