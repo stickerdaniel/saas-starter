@@ -33,6 +33,8 @@ is `upstream-report`, and that one is yours to run.
 - A candidate commit touches a file this fork has heavily rewritten (auth, schema, deploy config). Show the diff; do not auto-apply.
 - Fork-point detection returns a `closest-tree GUESS` or an `UNCONFIRMED` shared-history point. Confirm the commit with the human and record it as `forkPoint` in `.upstream-sync.json` before proceeding.
 - A ported commit needs an env var that does not exist as a preview deployment default.
+- A commit adds a capability this fork does not have and the case against it is that the
+  fork does not want it. No diff answers that, and excluding is permanent. Ask.
 - Before opening the PR, and before any merge. Never auto-merge.
 
 ## Create an isolated worktree
@@ -95,10 +97,13 @@ features/refactors/chores. For each commit, from its diff, decide:
 - **Already present.** The fork already has equivalent code. Grep or `git log` the fork, then skip.
 - **Exclude.** Conflicts with a deliberate fork divergence, or re-introduces something
   the fork removed. Record `{sha, reason}` in `.upstream-sync.json` so it is not
-  re-triaged next sync.
-- **Defer.** Applies, but belongs in its own PR (a framework migration). Ask the human,
-  open an issue naming the SHA, and record `{sha, reason: "deferred to #N"}` in
-  `excluded`. `--mark-synced` moves past it, so the issue is its only tracker.
+  re-triaged next sync. This is the one verdict the marker makes permanent, so it carries
+  the burden of proof and an unresolved one is **integrate**. Cost is not a reason: a port
+  that is large or lands in rewritten files is **Defer**.
+- **Defer.** Applies, but belongs in its own PR (a framework migration, a port into
+  files this fork rewrote). Ask the human, open an issue naming the SHA, and record
+  `{sha, reason: "deferred to #N: <size or rewritten files>"}` in `excluded`.
+  `--mark-synced` moves past it, so the issue is its only tracker.
 
 Map **cross-commit dependencies**: a later commit often assumes an earlier one (a
 shared helper, a schema column that became required, a new lint/CI guard, a token
