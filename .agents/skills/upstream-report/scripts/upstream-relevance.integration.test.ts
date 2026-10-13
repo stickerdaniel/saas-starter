@@ -6831,54 +6831,50 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(config).toContain('http://proxy.example');
 	});
 
-	itWithGitWrapper(
-		'accepts the standard GitHub HTTPS and SSH spellings as one repository',
-		() => {
-			const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
-				string,
-				unknown
-			>;
-			write(
-				fork,
-				'.upstream-sync.json',
-				JSON.stringify({
-					...marker,
-					upstreamUrl: 'https://github.com/stickerdaniel/saas-starter.git'
-				})
-			);
-			git(fork, ['commit', '-qam', 'record GitHub parent']);
-			markBase(fork);
-			write(fork, 'shared/pristine.ts', 'export const a = 1;\nexport const b = 99;\n');
-			git(fork, ['commit', '-qam', 'edit shared path']);
-			const wrapper = installGitWrapper(tmp);
-			const upstreamSha = git(fork, ['rev-parse', 'refs/remotes/upstream/main']);
+	// One detector run per spelling, so each gets the same per-run budget as every
+	// other case instead of five runs sharing one.
+	itWithGitWrapper.each([
+		'git@github.com:stickerdaniel/saas-starter.git',
+		'git@github.com:stickerdaniel/saas-starter',
+		'ssh://git@github.com/stickerdaniel/saas-starter',
+		'https://github.com/StickerDaniel/SaaS-Starter',
+		'https://github.com/stickerdaniel/saas-starter/'
+	])('accepts the standard GitHub HTTPS and SSH spellings as one repository: %s', (remote) => {
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(
+			fork,
+			'.upstream-sync.json',
+			JSON.stringify({
+				...marker,
+				upstreamUrl: 'https://github.com/stickerdaniel/saas-starter.git'
+			})
+		);
+		git(fork, ['commit', '-qam', 'record GitHub parent']);
+		markBase(fork);
+		write(fork, 'shared/pristine.ts', 'export const a = 1;\nexport const b = 99;\n');
+		git(fork, ['commit', '-qam', 'edit shared path']);
+		const upstreamSha = git(fork, ['rev-parse', 'refs/remotes/upstream/main']);
+		git(fork, ['remote', 'set-url', 'upstream', remote]);
 
-			for (const remote of [
-				'git@github.com:stickerdaniel/saas-starter.git',
-				'git@github.com:stickerdaniel/saas-starter',
-				'ssh://git@github.com/stickerdaniel/saas-starter',
-				'https://github.com/StickerDaniel/SaaS-Starter',
-				'https://github.com/stickerdaniel/saas-starter/'
-			]) {
-				git(fork, ['remote', 'set-url', 'upstream', remote]);
-				const r = run(fork, ['--base', 'origin/main', '--json', 'shared/pristine.ts'], {
-					PATH: `${wrapper}:${process.env.PATH ?? ''}`,
-					REAL_GIT: realGitPath(),
-					FAKE_REMOTE_MAIN_SHA: upstreamSha
-				});
-				expect(r.status, `${remote}: ${r.stderr}`).toBe(0);
-				const parsed = JSON.parse(r.stdout) as {
-					verdicts: Array<{ path: string; relevance: string }>;
-				};
-				expect(parsed.verdicts[0]).toEqual({
-					path: 'shared/pristine.ts',
-					relevance: 'pristine',
-					report: true
-				});
-			}
-		},
-		15_000
-	);
+		const r = run(fork, ['--base', 'origin/main', '--json', 'shared/pristine.ts'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			FAKE_REMOTE_MAIN_SHA: upstreamSha
+		});
+
+		expect(r.status, r.stderr).toBe(0);
+		const parsed = JSON.parse(r.stdout) as {
+			verdicts: Array<{ path: string; relevance: string }>;
+		};
+		expect(parsed.verdicts[0]).toEqual({
+			path: 'shared/pristine.ts',
+			relevance: 'pristine',
+			report: true
+		});
+	});
 
 	it.each([
 		['ssh://git@h/owner/template.git', 'git@h:owner/template.git'],
