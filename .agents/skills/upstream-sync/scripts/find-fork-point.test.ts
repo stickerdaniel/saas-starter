@@ -221,6 +221,27 @@ describe('find-fork-point', () => {
 		expect(json.method).toMatch(/UNCONFIRMED.*CONFIRM it, then record it as forkPoint/);
 	});
 
+	it('stops in a checkout that lacks the last sync marker from origin', () => {
+		const forkOrigin = cloneAt('fork-origin', shas.u2);
+		writeFiles(forkOrigin, { '.upstream-sync.json': JSON.stringify({ lastSynced: shas.u2 }) });
+		commitAll(forkOrigin, 'chore: record sync');
+		const shared = join(root, 'shared');
+		git(root, ['clone', '-q', forkOrigin, shared]);
+		git(shared, ['config', `url.${upstream}.insteadOf`, UPSTREAM_URL]);
+		writeFiles(forkOrigin, { '.upstream-sync.json': JSON.stringify({ lastSynced: shas.u3 }) });
+		commitAll(forkOrigin, 'chore: advance sync');
+
+		for (const script of [FORK_POINT, LIST_CHANGES]) {
+			const r = bunRun(shared, script);
+			expect(r.status).toBe(1);
+			expect(r.stderr).toContain('chore: advance sync');
+			expect(r.stderr).toContain('bun run worktree chore/upstream-sync');
+		}
+		git(shared, ['merge', '-q', '--ff-only', 'origin/main']);
+		expect(bunJson(shared, FORK_POINT).json.candidateCount).toBe(1);
+		expect(listedSubjects(shared)).toEqual(['feat: upstream 4']);
+	});
+
 	it.each(['forkPoint', 'lastSynced'])('stops on a recorded %s outside upstream', (field) => {
 		const fork = cloneAt(`bad-${field}`, shas.u2);
 		writeFiles(fork, { 'README.md': '# My product\n' });
