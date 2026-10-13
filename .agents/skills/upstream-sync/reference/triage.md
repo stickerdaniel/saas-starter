@@ -34,8 +34,8 @@ blind-applied.
   migration) or lands in files this fork has rewritten. Ask the human first. Open an
   issue in this fork naming the SHA and record
   `{ "sha": "<sha>", "reason": "deferred to #<issue>: <size or rewritten files>" }` in
-  `.upstream-sync.json.excluded`. `--mark-synced` moves `lastSynced` past the commit, so the issue is the only thing that
-  brings it back.
+  `.upstream-sync.json.excluded`. `--mark-synced` moves `lastSynced` past the commit, so
+  the issue is the only thing that brings it back.
 
 ## Cross-commit dependencies (the main trap)
 
