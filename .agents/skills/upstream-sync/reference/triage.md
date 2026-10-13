@@ -27,6 +27,11 @@ blind-applied.
   the fork intentionally removed/changed (rebrand, font, dropped feature). Record
   `{ "sha": "<sha>", "reason": "<one line>" }` in `.upstream-sync.json.excluded` so the
   next sync does not re-triage it.
+- **defer.** Applies, but is too large for this sync (a framework or major-dependency
+  migration). Ask the human first. Open an issue in this fork naming the SHA and record
+  `{ "sha": "<sha>", "reason": "deferred to #<issue>" }` in `.upstream-sync.json.excluded`.
+  `--mark-synced` moves `lastSynced` past the commit, so the issue is the only thing that
+  brings it back.
 
 ## Cross-commit dependencies (the main trap)
 
@@ -43,7 +48,7 @@ and port prerequisites first or together. Never batch-apply the whole range blin
 
 ## Adversarial recheck of dismissals
 
-For every "already-present" and "exclude" verdict, re-verify against the real file at the
+For every "already-present", "exclude", and "defer" verdict, re-verify against the real file at the
 cited path before trusting it. Dismissals are where real fixes get silently dropped.
 
 ## Oversized commits
