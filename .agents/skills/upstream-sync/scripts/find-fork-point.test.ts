@@ -237,9 +237,26 @@ describe('find-fork-point', () => {
 			expect(r.stderr).toContain('chore: advance sync');
 			expect(r.stderr).toContain('bun run worktree chore/upstream-sync');
 		}
-		git(shared, ['merge', '-q', '--ff-only', 'origin/main']);
+		git(shared, ['pull', '-q', '--ff-only']);
 		expect(bunJson(shared, FORK_POINT).json.candidateCount).toBe(1);
 		expect(listedSubjects(shared)).toEqual(['feat: upstream 4']);
+	});
+
+	it('finds the newer marker on a non-main trunk the local refs do not track', () => {
+		const forkOrigin = cloneAt('master-origin', shas.u2);
+		git(forkOrigin, ['branch', '-q', '-m', 'master']);
+		writeFiles(forkOrigin, { '.upstream-sync.json': JSON.stringify({ lastSynced: shas.u2 }) });
+		commitAll(forkOrigin, 'chore: record sync');
+		const shared = join(root, 'untracked');
+		git(root, ['clone', '-q', forkOrigin, shared]);
+		git(shared, ['remote', 'set-head', 'origin', '-d']);
+		git(shared, ['remote', 'set-branches', 'origin', 'feature']);
+		writeFiles(forkOrigin, { '.upstream-sync.json': JSON.stringify({ lastSynced: shas.u3 }) });
+		commitAll(forkOrigin, 'chore: advance sync');
+
+		const r = bunRun(shared, LIST_CHANGES);
+		expect(r.status).toBe(1);
+		expect(r.stderr).toContain('chore: advance sync');
 	});
 
 	it.each(['forkPoint', 'lastSynced'])('stops on a recorded %s outside upstream', (field) => {
