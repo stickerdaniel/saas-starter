@@ -20,6 +20,7 @@
 <script lang="ts">
 	import { Tabs as TabsPrimitive } from 'bits-ui';
 	import { cn } from '#lib/utils.js';
+	import { thumbGeometry } from './tabs-thumb.js';
 
 	let {
 		ref = $bindable(null),
@@ -59,19 +60,29 @@
 
 			// offsetLeft/offsetWidth round to whole pixels while triggers have
 			// fractional widths; measure via rects so the thumb hugs the trigger
-			// exactly instead of drifting up to 1px horizontally.
-			const listRect = list.getBoundingClientRect();
-			const rect = active.getBoundingClientRect();
-			const left = rect.left - listRect.left;
-			const top = rect.top - listRect.top;
+			// exactly instead of drifting up to 1px horizontally. Rects include
+			// ancestor transforms (a dialog's open zoom), so thumbGeometry divides
+			// them back to layout pixels against the list's computed size, then
+			// rebases onto the list's padding box, which the thumb is placed against.
+			const listStyle = getComputedStyle(list);
+			const { left, top, width, height } = thumbGeometry(
+				list.getBoundingClientRect(),
+				{
+					width: parseFloat(listStyle.width),
+					height: parseFloat(listStyle.height),
+					borderLeft: list.clientLeft,
+					borderTop: list.clientTop
+				},
+				active.getBoundingClientRect()
+			);
 			const write = () => {
 				if (isLine) {
 					thumb.style.transform = `translateX(${left}px)`;
-					thumb.style.width = `${rect.width}px`;
+					thumb.style.width = `${width}px`;
 				} else {
 					thumb.style.transform = `translate(${left}px, ${top}px)`;
-					thumb.style.width = `${rect.width}px`;
-					thumb.style.height = `${rect.height}px`;
+					thumb.style.width = `${width}px`;
+					thumb.style.height = `${height}px`;
 				}
 				thumb.style.opacity = '1';
 			};
