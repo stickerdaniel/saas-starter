@@ -96,6 +96,9 @@ features/refactors/chores. For each commit, from its diff, decide:
 - **Exclude.** Conflicts with a deliberate fork divergence, or re-introduces something
   the fork removed. Record `{sha, reason}` in `.upstream-sync.json` so it is not
   re-triaged next sync.
+- **Defer.** Applies, but belongs in its own PR (a framework migration). Ask the human,
+  open an issue naming the SHA, and record `{sha, reason: "deferred to #N"}` in
+  `excluded`. `--mark-synced` moves past it, so the issue is its only tracker.
 
 Map **cross-commit dependencies**: a later commit often assumes an earlier one (a
 shared helper, a schema column that became required, a new lint/CI guard, a token
