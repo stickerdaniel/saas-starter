@@ -102,8 +102,8 @@ features/refactors/chores. For each commit, from its diff, decide:
   that is large or lands in rewritten files is **Defer**.
 - **Defer.** Applies, but belongs in its own PR (a framework migration, a port into
   files this fork rewrote). Ask the human, open an issue naming the SHA, and record
-  `{sha, reason: "deferred to #N"}` in `excluded`. `--mark-synced` moves past it, so the
-  issue is its only tracker.
+  `{sha, reason: "deferred to #N: <size or rewritten files>"}` in `excluded`.
+  `--mark-synced` moves past it, so the issue is its only tracker.
 
 Map **cross-commit dependencies**: a later commit often assumes an earlier one (a
 shared helper, a schema column that became required, a new lint/CI guard, a token
