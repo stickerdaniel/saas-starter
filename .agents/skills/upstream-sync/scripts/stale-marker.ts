@@ -8,6 +8,7 @@
  * from the fetched trunk and passes.
  */
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 
 const MARKER = '.upstream-sync.json';
 
@@ -27,8 +28,9 @@ export function staleMarkerMessage(env: NodeJS.ProcessEnv): string | null {
 			return null;
 		}
 	};
-	// A private ref, not FETCH_HEAD, which a concurrent fetch could repoint mid-check.
-	const ref = 'refs/upstream-sync/origin-head';
+	// A ref owned by this run: FETCH_HEAD or a fixed ref could be repointed or deleted
+	// mid-check by a concurrent fetch or discovery run.
+	const ref = `refs/upstream-sync/origin-head-${randomUUID()}`;
 	const fetched = git(['fetch', '--quiet', '--no-write-fetch-head', 'origin', `+HEAD:${ref}`]);
 	const trunk =
 		fetched === null ? null : git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
