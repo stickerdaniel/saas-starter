@@ -35,6 +35,17 @@ is `upstream-report`, and that one is yours to run.
 - A ported commit needs an env var that does not exist as a preview deployment default.
 - Before opening the PR, and before any merge. Never auto-merge.
 
+## Create an isolated worktree
+
+Start every sync in a fresh worktree and run every later command from its path.
+Discovery reads `.upstream-sync.json` from the checkout it runs in, and the shared
+checkout can lag `origin`: its older marker lists commits the last sync already
+reviewed. A parallel process can also sweep up staged files there.
+
+```bash
+bun run worktree chore/upstream-sync   # branches from freshly fetched origin/<trunk>
+```
+
 ## Discover the upstream range
 
 ```bash
@@ -55,15 +66,8 @@ priority tag, the divergence categories it touches, and the file count. Oldest-f
 `--json` gives machine output; `--type` / `--tag` narrow the view (review-all stays
 the default). The upstream defaults to the template this skill shipped from; if this
 fork was forked from another fork, pass `--upstream <url>` (or set `upstreamUrl` in the
-marker) to point at the right template.
-
-## Create an isolated worktree
-
-Never work in the shared checkout (a parallel process can sweep up staged files).
-
-```bash
-bun run worktree chore/upstream-sync --base main
-```
+marker) to point at the right template. Both scripts stop when `origin` has a newer
+marker than this checkout; start over from a fresh worktree.
 
 ## Detect this fork's divergences
 
@@ -118,15 +122,15 @@ missing required var; a green local build does not cover the deploy step). See
 
 ## Ship one consolidated PR
 
-One branch off current `main` with all integrated commits, grouped thematically for
+The worktree branch carries all integrated commits, grouped thematically for
 readable history but applied in dependency order. Do NOT stack PRs (deleting a stack
-base closes its child; rebasing a stack onto a moving main re-conflicts on i18n). List
-excluded SHAs + reasons in the PR body. Confirm with the human before opening it; merge
-only once the **required** checks are green (a non-required check may stay UNSTABLE).
-After merge, persist the marker:
-`bun .agents/skills/upstream-sync/scripts/find-fork-point.ts --mark-synced <upstreamHEAD>`
+base closes its child; rebasing a stack onto a moving main re-conflicts on i18n).
+Persist the marker as the branch's final commit, so it merges with the ported code:
+`bun .agents/skills/upstream-sync/scripts/find-fork-point.ts --mark-synced <reviewed upstream HEAD>`
 (updates `lastSynced` + `syncedAt`), then add any `excluded` entries you recorded and
-commit `.upstream-sync.json`.
+commit `.upstream-sync.json`. List excluded SHAs + reasons in the PR body. Confirm with
+the human before opening it; merge only once the **required** checks are green (a
+non-required check may stay UNSTABLE).
 
 Before/after media covers only visible changes adapted to a divergence, as production
 users see them.

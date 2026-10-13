@@ -23,6 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
+import { staleMarkerMessage } from './stale-marker';
 
 const MARKER = '.upstream-sync.json';
 const SCRUBBED = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY'];
@@ -97,6 +98,12 @@ function main() {
 		},
 		strict: false
 	});
+
+	const stale = staleMarkerMessage(gitEnv());
+	if (stale) {
+		console.error(stale);
+		process.exit(1);
+	}
 
 	const root = git(['rev-parse', '--show-toplevel']);
 	let marker: Record<string, unknown> | null = null;

@@ -221,6 +221,55 @@ describe('find-fork-point', () => {
 		expect(json.method).toMatch(/UNCONFIRMED.*CONFIRM it, then record it as forkPoint/);
 	});
 
+	it('stops in a checkout that lacks the last sync marker from origin', () => {
+		const forkOrigin = cloneAt('fork-origin', shas.u2);
+		writeFiles(forkOrigin, { '.upstream-sync.json': JSON.stringify({ lastSynced: shas.u2 }) });
+		commitAll(forkOrigin, 'chore: record sync');
+		const shared = join(root, 'shared');
+		git(root, ['clone', '-q', forkOrigin, shared]);
+		git(shared, ['config', `url.${upstream}.insteadOf`, UPSTREAM_URL]);
+		writeFiles(forkOrigin, { '.upstream-sync.json': JSON.stringify({ lastSynced: shas.u3 }) });
+		commitAll(forkOrigin, 'chore: advance sync');
+
+		for (const script of [FORK_POINT, LIST_CHANGES]) {
+			const r = bunRun(shared, script);
+			expect(r.status).toBe(1);
+			expect(r.stderr).toContain('chore: advance sync');
+			expect(r.stderr).toContain('bun run worktree chore/upstream-sync');
+		}
+		git(shared, ['pull', '-q', '--ff-only']);
+		expect(bunJson(shared, FORK_POINT).json.candidateCount).toBe(1);
+		expect(listedSubjects(shared)).toEqual(['feat: upstream 4']);
+	});
+
+	it('finds the newer marker on a non-main trunk the local refs do not track', () => {
+		const forkOrigin = cloneAt('master-origin', shas.u2);
+		git(forkOrigin, ['branch', '-q', '-m', 'master']);
+		writeFiles(forkOrigin, { '.upstream-sync.json': JSON.stringify({ lastSynced: shas.u2 }) });
+		commitAll(forkOrigin, 'chore: record sync');
+		const shared = join(root, 'untracked');
+		git(root, ['clone', '-q', forkOrigin, shared]);
+		git(shared, ['remote', 'set-head', 'origin', '-d']);
+		git(shared, ['remote', 'set-branches', 'origin', 'feature']);
+		writeFiles(forkOrigin, { '.upstream-sync.json': JSON.stringify({ lastSynced: shas.u3 }) });
+		commitAll(forkOrigin, 'chore: advance sync');
+
+		const r = bunRun(shared, LIST_CHANGES);
+		expect(r.status).toBe(1);
+		expect(r.stderr).toContain('chore: advance sync');
+	});
+
+	it('stops when origin cannot be fetched to check the marker', () => {
+		const fork = cloneAt('unreachable-origin', shas.u2);
+		git(fork, ['remote', 'add', 'origin', join(root, 'missing-origin')]);
+
+		for (const script of [FORK_POINT, LIST_CHANGES]) {
+			const r = bunRun(fork, script);
+			expect(r.status).toBe(1);
+			expect(r.stderr).toContain('Could not fetch origin');
+		}
+	});
+
 	it.each(['forkPoint', 'lastSynced'])('stops on a recorded %s outside upstream', (field) => {
 		const fork = cloneAt(`bad-${field}`, shas.u2);
 		writeFiles(fork, { 'README.md': '# My product\n' });

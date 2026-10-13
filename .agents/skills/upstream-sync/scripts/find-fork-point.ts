@@ -33,7 +33,8 @@
  * upstream commit at a time. A merge that already moved the bytes does not advance
  * lastSynced; only `--mark-synced` after the per-commit review does.
  *
- * It adds + fetches the `upstream` remote and prints results, and touches nothing
+ * It stops when origin's trunk has a newer marker than this checkout (see
+ * stale-marker.ts), adds + fetches the `upstream` remote and prints results, and touches nothing
  * else in the working tree. Persist the fork point yourself in
  * `.upstream-sync.json` (this script prints a ready-to-commit block).
  *
@@ -50,6 +51,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { readScaffoldMarker, SCAFFOLD_MARKER } from './scaffold-marker';
+import { staleMarkerMessage } from './stale-marker';
 
 // Default upstream = the template this skill ships from (the template's own
 // identity, inherited by every fork, not a fork specific). Override via the
@@ -179,6 +181,12 @@ function main() {
 				'Run this skill from a fork created from the template instead.'
 		);
 		process.exit(2);
+	}
+	// --mark-synced writes the marker on the sync branch, so only discovery needs a fresh one.
+	const stale = values['mark-synced'] === undefined ? staleMarkerMessage(gitEnv()) : null;
+	if (stale) {
+		console.error(stale);
+		process.exit(1);
 	}
 
 	// Ensure the `upstream` remote exists and points at the template, then fetch.
