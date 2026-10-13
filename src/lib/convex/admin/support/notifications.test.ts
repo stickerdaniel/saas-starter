@@ -246,17 +246,20 @@ const reschedulePendingNotificationH = reschedulePendingNotification as unknown 
  * Drive the action against the real claim/delete/reschedule handlers over one
  * shared store, so ownership transitions are exercised rather than stubbed.
  * `onFirstSend` runs inside the first email send, which is the window the
- * production action spends off-transaction.
+ * production action spends off-transaction. `onClaim` runs once right after the
+ * first claim commits, before the send enqueues any recipient.
  */
 function createActionCtx(
 	ctx: unknown,
 	options: {
 		onFirstSend?: () => Promise<void>;
+		onClaim?: () => Promise<void>;
 		sendThrows?: boolean;
 		targetEmails?: string[];
 	} = {}
 ) {
 	let pendingHook = options.onFirstSend;
+	let pendingClaimHook = options.onClaim;
 	const sentEmails: Array<Record<string, unknown>> = [];
 	const sendAttempts: string[] = [];
 	const messageIdsSeen: string[][] = [];
@@ -264,8 +267,13 @@ function createActionCtx(
 	const runMutation = vi.fn(async (reference: unknown, args: Record<string, unknown>) => {
 		const name = getFunctionName(reference as Parameters<typeof getFunctionName>[0]);
 		switch (name) {
-			case 'admin/support/notifications:claimNotificationForSending':
-				return claimNotificationForSendingH._handler(ctx, args as ClaimArgs);
+			case 'admin/support/notifications:claimNotificationForSending': {
+				const claim = await claimNotificationForSendingH._handler(ctx, args as ClaimArgs);
+				const hook = pendingClaimHook;
+				pendingClaimHook = undefined;
+				await hook?.();
+				return claim;
+			}
 			case 'admin/support/notifications:deletePendingNotification':
 				return deletePendingNotificationH._handler(ctx, args as DeleteArgs);
 			case 'admin/support/notifications:reschedulePendingNotification':
@@ -693,7 +701,10 @@ describe('debounce cap', () => {
 	type CustomerWrites = (messageId: string) => Promise<void>;
 
 	function createClockedCtx(
-		options: { duringFirstSend?: (customerWrites: CustomerWrites) => Promise<void> } = {}
+		options: {
+			duringFirstSend?: (customerWrites: CustomerWrites) => Promise<void>;
+			afterClaim?: (customerWrites: CustomerWrites) => Promise<void>;
+		} = {}
 	) {
 		const { ctx: base } = createCtx();
 		const jobs = new Map<string, { dueAt: number; notificationId: string }>();
@@ -741,19 +752,20 @@ describe('debounce cap', () => {
 		// A write that fails inside the send would look like a failed email, so
 		// surface it as the failure it is.
 		let hookError: unknown;
-		const duringFirstSend = options.duringFirstSend;
+		const capture = (hook: ((customerWrites: CustomerWrites) => Promise<void>) | undefined) =>
+			hook &&
+			(async () => {
+				try {
+					await hook(customerWrites);
+				} catch (error) {
+					hookError = error;
+				}
+			});
 		// Read on every send, so a test can make the provider fail for a while.
 		const sendOptions = {
 			sendThrows: false,
-			onFirstSend:
-				duringFirstSend &&
-				(async () => {
-					try {
-						await duringFirstSend(customerWrites);
-					} catch (error) {
-						hookError = error;
-					}
-				})
+			onFirstSend: capture(options.duringFirstSend),
+			onClaim: capture(options.afterClaim)
 		};
 		const send = createActionCtx(ctx, sendOptions);
 		const failSends = (fail: boolean) => {
@@ -833,6 +845,28 @@ describe('debounce cap', () => {
 		expect(clock.deliveries).toEqual([
 			{ at: 15 * MINUTE, messageIds: CAPPED },
 			{ at: 19 * MINUTE + 5_000, messageIds: [...CAPPED, 'message_late'] }
+		]);
+	});
+
+	it('keeps the cap when a reply evicts a capped send before it emails', async () => {
+		const clock = createClockedCtx({
+			// The customer writes after the capped send claims the row but before it
+			// emails anyone, so the reply takes the row over from that send.
+			afterClaim: async (customerWrites) => {
+				vi.setSystemTime(START + 15 * MINUTE + 5_000);
+				await customerWrites('message_late');
+			}
+		});
+
+		for (let minute = 0; minute < 15; minute += 3) {
+			await clock.advanceTo(minute * MINUTE);
+			await clock.customerWrites(`message_${minute}`);
+		}
+		await clock.advanceTo(25 * MINUTE);
+
+		// Nothing was emailed yet, so the row is still past its cap and sends at once.
+		expect(clock.deliveries).toEqual([
+			{ at: 15 * MINUTE + 5_000, messageIds: [...CAPPED, 'message_late'] }
 		]);
 	});
 
