@@ -259,6 +259,17 @@ describe('find-fork-point', () => {
 		expect(r.stderr).toContain('chore: advance sync');
 	});
 
+	it('stops when origin cannot be fetched to check the marker', () => {
+		const fork = cloneAt('unreachable-origin', shas.u2);
+		git(fork, ['remote', 'add', 'origin', join(root, 'missing-origin')]);
+
+		for (const script of [FORK_POINT, LIST_CHANGES]) {
+			const r = bunRun(fork, script);
+			expect(r.status).toBe(1);
+			expect(r.stderr).toContain('Could not fetch origin');
+		}
+	});
+
 	it.each(['forkPoint', 'lastSynced'])('stops on a recorded %s outside upstream', (field) => {
 		const fork = cloneAt(`bad-${field}`, shas.u2);
 		writeFiles(fork, { 'README.md': '# My product\n' });

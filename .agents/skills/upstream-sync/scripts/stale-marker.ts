@@ -15,7 +15,8 @@ const MARKER = '.upstream-sync.json';
 // Stop message when origin's default branch has marker commits HEAD lacks, otherwise
 // null. It fetches origin's HEAD and compares against the fetched commit itself, so a
 // missing origin/HEAD symref or a narrowed fetch refspec cannot hide a newer marker.
-// A missing or unreachable origin passes.
+// A repository without origin passes; an origin that cannot be fetched stops, since
+// passing would let a stale checkout through.
 export function staleMarkerMessage(env: NodeJS.ProcessEnv): string | null {
 	const git = (args: string[]) => {
 		try {
@@ -28,6 +29,7 @@ export function staleMarkerMessage(env: NodeJS.ProcessEnv): string | null {
 			return null;
 		}
 	};
+	if (git(['remote', 'get-url', 'origin']) === null) return null;
 	// A ref owned by this run: FETCH_HEAD or a fixed ref could be repointed or deleted
 	// mid-check by a concurrent fetch or discovery run.
 	const ref = `refs/upstream-sync/origin-head-${randomUUID()}`;
@@ -35,7 +37,12 @@ export function staleMarkerMessage(env: NodeJS.ProcessEnv): string | null {
 	const trunk =
 		fetched === null ? null : git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
 	git(['update-ref', '-d', ref]);
-	if (!trunk) return null;
+	if (!trunk) {
+		return (
+			`Could not fetch origin's default branch to check that ${MARKER} is current.\n` +
+			'Fix access to origin, then run this again.'
+		);
+	}
 	const missing = git(['log', '-1', '--format=%h %s', `HEAD..${trunk}`, '--', `:(top)${MARKER}`]);
 	if (!missing) return null;
 	return (
