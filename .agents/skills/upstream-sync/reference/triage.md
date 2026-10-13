@@ -26,9 +26,13 @@ blind-applied.
 - **exclude.** Conflicts with a deliberate fork divergence, or re-introduces something
   the fork intentionally removed/changed (rebrand, font, dropped feature). Record
   `{ "sha": "<sha>", "reason": "<one line>" }` in `.upstream-sync.json.excluded` so the
-  next sync does not re-triage it.
+  next sync does not re-triage it. The marker makes this one permanent, so an unresolved
+  verdict is `integrate`: integrating what the fork did not need surfaces in review,
+  excluding what it needed surfaces nowhere. Effort is not a conflict, so a large port, or
+  one landing in files this fork has rewritten, is `defer`.
 - **defer.** Applies, but is too large for this sync (a framework or major-dependency
-  migration). Ask the human first. Open an issue in this fork naming the SHA and record
+  migration) or lands in files this fork has rewritten. Ask the human first. Open an
+  issue in this fork naming the SHA and record
   `{ "sha": "<sha>", "reason": "deferred to #<issue>" }` in `.upstream-sync.json.excluded`.
   `--mark-synced` moves `lastSynced` past the commit, so the issue is the only thing that
   brings it back.
@@ -48,11 +52,25 @@ and port prerequisites first or together. Never batch-apply the whole range blin
 
 ## Adversarial recheck of dismissals
 
-For every "already-present", "exclude", and "defer" verdict, re-verify against the real file at the
-cited path before trusting it. Dismissals are where real fixes get silently dropped.
+For every "already-present", "exclude", and "defer" verdict, re-verify against the real
+file at the cited path before trusting it. Dismissals are where real fixes get silently dropped.
+
+An exclusion cites the fork's version of a line **the commit actually changes**, and
+quotes what it says there. Only that file can say whether the changed hunk conflicts.
+
+A consumer of the changed code does not count, however plainly it looks like it would
+break. Measured: a commit was excluded because it hardcoded a field the fork's caller
+deliberately sets, and the fork turned out to take that field as a parameter, making the
+hardcoded value one line to adapt. The reason cited the caller, which was read, and never
+named the file the change lands in, which was not. The recheck passed on a real path.
 
 ## Oversized commits
 
 A commit touching dozens of files (audit/omnibus PRs) is still one unit, but triage it
 file-by-file: some hunks integrate, some are already-present, some conflict with fork
 divergence. Resolve each part on its own verdict.
+
+Its message is a sequence, not a statement of intent. Upstream squashes a PR into one
+commit carrying a bullet per sub-commit, and the later bullets correct the earlier ones,
+so a verdict read off the prose lands on a version that was never merged. Three or more
+bullets means the file-by-file pass decides.
