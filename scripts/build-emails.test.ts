@@ -23,11 +23,12 @@ describe('email generator Vite server', () => {
 	});
 
 	// A dev server in the same checkout serves the env Kit writes under
-	// .svelte-kit/generated. The generator renders with its own env, which must not
-	// reach that server. It runs in a fresh process because varlock settles the env
+	// .svelte-kit/generated, and editors resolve its route types through the shared
+	// node_modules/$app/tsconfig.json. The generator renders with its own env, which
+	// must reach neither. It runs in a fresh process because varlock settles the env
 	// once per process, so a second server here would ignore the override, and
 	// without __VARLOCK_ENV, which would hand the child this process's env instead.
-	it('keeps its env away from a running dev server', { timeout: 60_000 }, () => {
+	it('leaves a running dev server its env and route types', { timeout: 60_000 }, () => {
 		const sentinel = 'https://email-generator.invalid';
 		const { __VARLOCK_ENV: _parentEnv, ...env } = process.env;
 		const output = execFileSync(
@@ -45,5 +46,7 @@ describe('email generator Vite server', () => {
 		expect(output.trim().split('\n').at(-1)).toBe(sentinel);
 		const devEnv = '.svelte-kit/generated/dev/env/public/server.js';
 		expect(existsSync(devEnv) ? readFileSync(devEnv, 'utf8') : '').not.toContain(sentinel);
+		const tsconfig = JSON.parse(readFileSync('node_modules/$app/tsconfig.json', 'utf8'));
+		expect(tsconfig.compilerOptions.rootDirs).toEqual(['../..', '../../.svelte-kit/types']);
 	});
 });

@@ -323,6 +323,13 @@ export default defineConfig(async ({ mode }) => {
 		);
 	}
 
+	// Kit writes the resolved env into <outDir>/generated/dev/env. Vitest and the email renderer
+	// (scripts/build-emails.ts, also run by static checks) start their own Vite servers, and a
+	// shared outDir hands a running dev server their env, such as the cloud Convex URLs in
+	// .env.local. Nested here, each stays inside every .svelte-kit ignore and outside the dev
+	// server's watched generated/ directory.
+	const isolatedOutDir = mode === 'test' || mode === 'emails' ? `.svelte-kit/${mode}` : undefined;
+
 	// On Cloudflare, varlock delivers env natively: the Workers loader reads the __VARLOCK_ENV
 	// binding at worker boot, and `varlock-wrangler` (both deploy scripts wrap it) uploads that
 	// binding at deploy time as worker vars + secrets. Nothing is embedded in the bundle, so no
@@ -371,12 +378,20 @@ export default defineConfig(async ({ mode }) => {
 		tailwindcss(),
 		sveltekit({
 			adapter: { cloudflare, node, auto }[buildAdapter()](),
-			// Kit writes the resolved env into <outDir>/generated/dev/env. Vitest and the email
-			// renderer (scripts/build-emails.ts, also run by static checks) start their own Vite
-			// servers, and a shared outDir hands a running dev server their env, such as the
-			// cloud Convex URLs in .env.local. Nested here, each stays inside every .svelte-kit
-			// ignore and outside the dev server's watched generated/ directory.
-			...((mode === 'test' || mode === 'emails') && { outDir: `.svelte-kit/${mode}` }),
+			...(isolatedOutDir && {
+				outDir: isolatedOutDir,
+				// node_modules/$app/tsconfig.json stays shared. Its rootDirs keep naming the dev
+				// server's route types, which editors and svelte-check resolve `./$types` through.
+				typescript: {
+					config: (config) => {
+						const rootDirs: unknown = config.compilerOptions?.rootDirs;
+						if (!Array.isArray(rootDirs)) return;
+						config.compilerOptions.rootDirs = rootDirs.map((dir) =>
+							String(dir).replace(`${isolatedOutDir}/types`, '.svelte-kit/types')
+						);
+					}
+				}
+			}),
 			// Consult https://svelte.dev/docs/kit/integrations
 			// for more information about preprocessors
 			preprocess: vitePreprocess(),
