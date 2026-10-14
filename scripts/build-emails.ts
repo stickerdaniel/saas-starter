@@ -73,10 +73,12 @@ const disableFileWatching: Plugin = {
 };
 
 /**
- * Create Vite server in middleware mode (no HTTP server)
+ * Create Vite server in middleware mode (no HTTP server). The `emails` mode gives it
+ * its own SvelteKit outDir in vite.config.ts, so it can run beside a dev server.
  */
 export async function createViteServer(): Promise<ViteDevServer> {
 	return createServer({
+		mode: 'emails',
 		server: { middlewareMode: true },
 		appType: 'custom',
 		logLevel: 'warn',

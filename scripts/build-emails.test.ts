@@ -1,5 +1,7 @@
 // @vitest-environment node
 
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createViteServer } from './build-emails';
 
@@ -18,5 +20,30 @@ describe('email generator Vite server', () => {
 		} finally {
 			await vite.close();
 		}
+	});
+
+	// A dev server in the same checkout serves the env Kit writes under
+	// .svelte-kit/generated. The generator renders with its own env, which must not
+	// reach that server. It runs in a fresh process because varlock settles the env
+	// once per process, so a second server here would ignore the override, and
+	// without __VARLOCK_ENV, which would hand the child this process's env instead.
+	it('keeps its env away from a running dev server', { timeout: 60_000 }, () => {
+		const sentinel = 'https://email-generator.invalid';
+		const { __VARLOCK_ENV: _parentEnv, ...env } = process.env;
+		const output = execFileSync(
+			'bun',
+			[
+				'-e',
+				`import { createViteServer } from './scripts/build-emails.ts';
+				const vite = await createViteServer();
+				const env = await vite.ssrLoadModule('$app/env/public');
+				await vite.close();
+				console.log(env.PUBLIC_CONVEX_URL);`
+			],
+			{ env: { ...env, PUBLIC_CONVEX_URL: sentinel }, encoding: 'utf8', timeout: 50_000 }
+		);
+		expect(output.trim().split('\n').at(-1)).toBe(sentinel);
+		const devEnv = '.svelte-kit/generated/dev/env/public/server.js';
+		expect(existsSync(devEnv) ? readFileSync(devEnv, 'utf8') : '').not.toContain(sentinel);
 	});
 });

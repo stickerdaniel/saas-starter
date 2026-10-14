@@ -371,6 +371,12 @@ export default defineConfig(async ({ mode }) => {
 		tailwindcss(),
 		sveltekit({
 			adapter: { cloudflare, node, auto }[buildAdapter()](),
+			// Kit writes the resolved env into <outDir>/generated/dev/env. Vitest and the email
+			// renderer (scripts/build-emails.ts, also run by static checks) start their own Vite
+			// servers, and a shared outDir hands a running dev server their env, such as the
+			// cloud Convex URLs in .env.local. Nested here, each stays inside every .svelte-kit
+			// ignore and outside the dev server's watched generated/ directory.
+			...((mode === 'test' || mode === 'emails') && { outDir: `.svelte-kit/${mode}` }),
 			// Consult https://svelte.dev/docs/kit/integrations
 			// for more information about preprocessors
 			preprocess: vitePreprocess(),
