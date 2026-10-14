@@ -85,7 +85,9 @@ jobs:
       matrix: ${{ steps.partition.outputs.matrix }}
       count: ${{ steps.partition.outputs.count }}
       backend-key: ${{ steps.partition.outputs.backend-key }}
-    name: E2E Tests
+    # Only terminal verdicts may carry the required "E2E Tests" name, or this
+    # job's success would satisfy the check before the browser tests finish.
+    name: Prepare preview E2E
     runs-on: ubicloud-standard-2
     timeout-minutes: 25
     permissions:
