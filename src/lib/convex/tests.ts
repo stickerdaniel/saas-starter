@@ -246,18 +246,19 @@ export const seedAuditLogRows = mutation({
 	}
 });
 
+/**
+ * Delete exactly the audit rows `seedAuditLogRows` returned. Never select by
+ * user id: a fixture id can name a real admin whose history must survive.
+ */
 export const deleteAuditLogRows = mutation({
-	args: { secret: v.string(), fixtureId: v.string() },
-	returns: v.number(),
+	args: { secret: v.string(), ids: v.array(v.id('adminAuditLogs')) },
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		requireTestSecret(args.secret);
-		const rows = await ctx.db
-			.query('adminAuditLogs')
-			.withIndex('by_admin', (q) => q.eq('adminUserId', args.fixtureId))
-			.take(100);
-		// Each call deletes at most 100 fixture rows to bound reads and writes.
-		for (const row of rows) await ctx.db.delete('adminAuditLogs', row._id);
-		return rows.length;
+		if (args.ids.length > 100) throw new Error('Audit cleanup exceeds 100 rows');
+		// E2E cleanup deletes at most 100 small fixture rows in one transaction.
+		for (const id of args.ids) await ctx.db.delete('adminAuditLogs', id);
+		return null;
 	}
 });
 

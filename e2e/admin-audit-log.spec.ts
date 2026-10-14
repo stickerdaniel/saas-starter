@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
+import type { Id } from '../src/lib/convex/_generated/dataModel';
 import { resolveConvexUrl } from './utils/convex-url';
 import { resolveSiteUrl } from './utils/site-url';
 import { getPreviewBypass } from './utils/preview-bypass';
@@ -24,15 +25,21 @@ test('resolves and consumes multi-page audit cursors on the real backend', async
 	const fixture = await client.mutation(api.tests.getAuthUserIdByEmail, { secret, email });
 	const fixtureId = fixture.userId!;
 	await client.mutation(api.tests.deleteTestUser, { secret, email });
+	// Cleanup deletes exactly the seeded rows, never other rows of the fixture id.
+	let seeded: Array<Id<'adminAuditLogs'>> = [];
 	const clear = async () => {
-		while (await client.mutation(api.tests.deleteAuditLogRows, { secret, fixtureId })) {
-			// Bounded mutations keep fixture cleanup inside backend limits.
-		}
+		if (seeded.length) await client.mutation(api.tests.deleteAuditLogRows, { secret, ids: seeded });
+		seeded = [];
 	};
 	try {
 		for (const count of [0, 1, 20, 21, 40, 45]) {
 			if (count)
-				await client.mutation(api.tests.seedAuditLogRows, { secret, fixtureId, count, offset: 0 });
+				seeded = await client.mutation(api.tests.seedAuditLogRows, {
+					secret,
+					fixtureId,
+					count,
+					offset: 0
+				});
 			for (const direction of ['asc', 'desc'] as const) {
 				const filters = {
 					adminUserId: fixtureId,
