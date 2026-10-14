@@ -102,8 +102,8 @@ jobs:
         run: bun scripts/e2e-ci.ts prepare
 
   # Resolve the required E2E status when the Vercel preview deployment fails.
-  # Without this, the pending status set by static-checks.yml would stay
-  # pending forever and block merging on this SHA.
+  # Without this, the required status would never arrive and would block
+  # merging on this SHA.
   e2e-deploy-failed:
     name: E2E Deploy Failed Status
     runs-on: ubicloud-standard-2
