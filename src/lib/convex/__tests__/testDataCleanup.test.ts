@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../support/agent', () => ({ supportAgent: {} }));
 vi.mock('../admin/counters', () => ({ recalculateCounters: vi.fn() }));
-import { cleanupTestData } from '../tests';
+import { cleanupTestData, deleteAuditLogRows } from '../tests';
 
 type Row = { _id: string; email: string };
 function store() {
@@ -66,5 +66,39 @@ describe('owned test recipient cleanup', () => {
 		await expect(
 			invoke(context, { secret: 'wrong', emails: ['owner-a@e2e.example.com'] })
 		).rejects.toThrow('Unauthorized');
+	});
+});
+
+describe('audit fixture cleanup', () => {
+	it('deletes the supplied rows and keeps other rows of the same admin', async () => {
+		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'test-secret');
+		const rows = new Map(
+			['seeded-1', 'seeded-2', 'real'].map((id) => [id, { _id: id, adminUserId: 'admin_1' }])
+		);
+		const context = {
+			db: {
+				get: async (_table: string, id: string) => rows.get(id) ?? null,
+				query: () => ({
+					withIndex: (
+						_index: string,
+						select: (q: { eq: (field: string, value: string) => string }) => string
+					) => ({
+						take: async () => {
+							const adminUserId = select({ eq: (_field, value) => value });
+							return [...rows.values()].filter((row) => row.adminUserId === adminUserId);
+						}
+					})
+				}),
+				delete: async (_table: string, id: string) => {
+					rows.delete(id);
+				}
+			}
+		};
+		await (
+			deleteAuditLogRows as unknown as {
+				_handler: (ctx: unknown, args: { secret: string; ids: string[] }) => Promise<null>;
+			}
+		)._handler(context, { secret: 'test-secret', ids: ['seeded-1', 'seeded-2'] });
+		expect([...rows.keys()]).toEqual(['real']);
 	});
 });
