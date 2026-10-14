@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import en from '../../../../i18n/en.json';
@@ -79,6 +79,18 @@ function pressEscape() {
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+// jsdom has no Web Animations API, so bits-ui unmounts closing content at once. A browser
+// keeps it, buttons included, on screen until the exit animation finishes.
+function playEndlessExitAnimation() {
+	Object.defineProperty(HTMLElement.prototype, 'getAnimations', {
+		configurable: true,
+		value: () => [{ finished: new Promise(() => {}) }]
+	});
+	onTestFinished(() => {
+		Reflect.deleteProperty(HTMLElement.prototype, 'getAnimations');
+	});
+}
+
 describe('ConfirmDialog', () => {
 	it('calls onConfirm once when confirm is activated twice', async () => {
 		mountHost();
@@ -98,6 +110,38 @@ describe('ConfirmDialog', () => {
 		await settle();
 		flushSync();
 		expect(isOpen()).toBe(false);
+	});
+
+	it('ignores confirm activated during the exit animation after cancel', async () => {
+		mountHost();
+		const onConfirm = vi.fn(async () => {});
+		open({ onConfirm });
+		playEndlessExitAnimation();
+
+		cancelButton()!.click();
+		await settle();
+		flushSync();
+		expect(isOpen()).toBe(false);
+		confirmButton()!.click();
+		await settle();
+
+		expect(onConfirm).not.toHaveBeenCalled();
+	});
+
+	it('ignores confirm activated during the exit animation after a confirmation', async () => {
+		mountHost();
+		const onConfirm = vi.fn(async () => {});
+		open({ onConfirm });
+		playEndlessExitAnimation();
+
+		confirmButton()!.click();
+		await settle();
+		flushSync();
+		expect(isOpen()).toBe(false);
+		confirmButton()!.click();
+		await settle();
+
+		expect(onConfirm).toHaveBeenCalledTimes(1);
 	});
 
 	it('cannot be dismissed while the confirmation is pending', async () => {
