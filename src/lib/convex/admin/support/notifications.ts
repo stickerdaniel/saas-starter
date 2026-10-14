@@ -93,7 +93,8 @@ const OWNERSHIP_MOVED_LOG =
  * If a pending notification exists, it cancels the old scheduled job,
  * adds the new messages, and reschedules with a fresh 4-minute delay, but no
  * later than 15 minutes after the row was created and no earlier than its
- * current deadline. A row claimed by a running send starts a fresh window.
+ * current deadline. A row whose running send already enqueued a recipient
+ * starts a fresh window.
  *
  * @param args.threadId - The support thread ID
  * @param args.messageIds - Array of message IDs to include in the notification
@@ -124,16 +125,29 @@ export const scheduleAdminNotification = internalMutation({
 
 		if (existing) {
 			await cancelRecovery(ctx, existing);
-			// A row without a scheduled function is claimed by a running send, which
-			// already emails its messages. Re-arming it starts a fresh window, so a
-			// row past its cap does not repeat those messages seconds later.
+			// A row without a scheduled function is claimed by a running send. Once
+			// that send has enqueued a recipient, re-arming starts a fresh window, so a
+			// row past its cap does not repeat those messages seconds later. Before
+			// that, re-arming evicts the send before it emails anyone, so the row keeps
+			// its cap. A claim without a generation predates receipts, so a missing
+			// receipt proves nothing there and it keeps the fresh window.
 			const claimedBySend = existing.scheduledFnId === undefined;
+			const generation = existing.generation;
+			const emailedBySend =
+				claimedBySend &&
+				(generation === undefined ||
+					(await ctx.db
+						.query('supportNotificationReceipts')
+						.withIndex('by_notificationId_and_generation_and_email', (q) =>
+							q.eq('notificationId', existing._id).eq('generation', generation)
+						)
+						.first()) !== null);
 
 			// Otherwise each message restarts the delay, but never past the cap from
 			// the row's creation, and never earlier than the current deadline, so a
 			// message cannot cut short a retry's backoff. The floor at now keeps a
 			// passed cap from a negative delay, which runAfter rejects.
-			const scheduledFor = claimedBySend
+			const scheduledFor = emailedBySend
 				? now + NOTIFICATION_DELAY_MS
 				: Math.max(
 						now,
@@ -169,8 +183,8 @@ export const scheduleAdminNotification = internalMutation({
 			await ctx.db.patch('pendingAdminNotifications', existing._id, {
 				messageIds: updatedMessageIds,
 				scheduledFor,
-				// The fresh window after a claimed send gets its own cap
-				...(claimedBySend ? { createdAt: now } : {}),
+				// The fresh window after a send that emailed gets its own cap
+				...(emailedBySend ? { createdAt: now } : {}),
 				scheduledFnId: newScheduledFnId,
 				claimToken: undefined,
 				generation: crypto.randomUUID(),
