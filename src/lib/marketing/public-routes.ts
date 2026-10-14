@@ -2,15 +2,12 @@ import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, isSupportedLanguage } from '#lib
 import { LEGAL_CONTENT_DATES } from '#lib/content/legal-metadata.js';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
 import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
-import { marketingMarkdown as licensesMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/licenses/page.md';
 import { marketingMarkdown as pricingMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/pricing/page.md';
 import { marketingMarkdown as privacyMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/privacy/page.md';
 import { marketingMarkdown as termsMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/terms/page.md';
 
-export type PublicMarketingRouteKey =
-	'home' | 'pricing' | 'privacy' | 'terms' | 'impressum' | 'licenses';
-export type PublicMarketingPathSuffix =
-	'' | '/pricing' | '/privacy' | '/terms' | '/impressum' | '/licenses';
+export type PublicMarketingRouteKey = 'home' | 'pricing' | 'privacy' | 'terms' | 'impressum';
+export type PublicMarketingPathSuffix = '' | '/pricing' | '/privacy' | '/terms' | '/impressum';
 
 export interface PublicMarketingRouteDefinition {
 	key: PublicMarketingRouteKey;
@@ -58,13 +55,6 @@ export const PUBLIC_MARKETING_ROUTES: PublicMarketingRouteDefinition[] = [
 		agentLabel: 'Impressum',
 		agentDescription: 'provider identification and contact details',
 		lastModified: LEGAL_CONTENT_DATES.impressum
-	},
-	{
-		key: 'licenses',
-		pathSuffix: '/licenses',
-		agentLabel: 'Third-Party Licenses',
-		agentDescription:
-			'licenses and notices of the third-party software and assets shipped to browsers'
 	}
 ];
 
@@ -73,15 +63,12 @@ const MARKETING_DOCUMENTS = {
 	pricing: pricingMarketingMarkdown,
 	privacy: privacyMarketingMarkdown,
 	terms: termsMarketingMarkdown,
-	impressum: impressumMarketingMarkdown,
-	licenses: licensesMarketingMarkdown
+	impressum: impressumMarketingMarkdown
 } as const;
 
 export function matchPublicMarketingRoute(pathname: string): MatchedPublicMarketingRoute | null {
 	const normalizedPath = pathname !== '/' ? pathname.replace(/\/+$/, '') : pathname;
-	const match = normalizedPath.match(
-		/^\/([a-z]{2})(?:\/(pricing|privacy|terms|impressum|licenses))?$/
-	);
+	const match = normalizedPath.match(/^\/([a-z]{2})(?:\/(pricing|privacy|terms|impressum))?$/);
 
 	if (!match) return null;
 

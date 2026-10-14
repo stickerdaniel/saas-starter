@@ -103,7 +103,7 @@ describe('third-party licenses list', () => {
 		await render({ entries });
 		const download = document.querySelector<HTMLAnchorElement>('a[download]')!;
 		expect(download.getAttribute('href')).toBe('/third-party-licenses.txt');
-		expect(download.getAttribute('aria-label')).toBe('Download all notices as plain text');
+		expect(download.textContent?.trim()).toBe('Download all notices');
 
 		// Without a search, the link serves the published file.
 		const unfiltered = new MouseEvent('click', { bubbles: true, cancelable: true });
@@ -112,9 +112,7 @@ describe('third-party licenses list', () => {
 		expect(files).toHaveLength(0);
 
 		search('apache');
-		expect(download.getAttribute('aria-label')).toBe(
-			'Download notices for 1 matching entry as plain text'
-		);
+		expect(download.textContent?.trim()).toBe('Download 1 notice');
 		// The search results replace the published file, so the link must not download too.
 		const filtered = new MouseEvent('click', { bubbles: true, cancelable: true });
 		download.dispatchEvent(filtered);
@@ -187,5 +185,6 @@ describe('third-party licenses list', () => {
 		await render({ entries: null });
 		expect(document.body.textContent).toContain('not available in development');
 		expect(document.querySelector('input[type="search"]')).toBeNull();
+		expect(document.querySelector('a[download]')).toBeNull();
 	});
 });

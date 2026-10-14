@@ -147,6 +147,7 @@
 			"audit_log": "Audit-Log",
 			"back_to_app": "Zurück zur App",
 			"dashboard": "Dashboard",
+			"licenses": "Lizenzen",
 			"settings": "Einstellungen",
 			"support": "Support",
 			"users": "Benutzer"
@@ -854,7 +855,6 @@
 	"footer": {
 		"copyright": "© {year} {brand}",
 		"impressum": "Impressum",
-		"licenses": "Lizenzen",
 		"privacy": "Datenschutz",
 		"privacy_settings": "Datenschutzeinstellungen",
 		"terms": "Nutzungsbedingungen"
@@ -1148,7 +1148,6 @@
 			"verification_required_title": "Verifizierung erforderlich",
 			"verified_badge": "Verifiziert"
 		},
-		"licenses_link": "Drittanbieter-Lizenzen",
 		"password": {
 			"confirm_password_label": "Neues Passwort bestätigen",
 			"current_password_label": "Aktuelles Passwort",
@@ -1376,7 +1375,7 @@
 			"fonts": "Schriftarten",
 			"styles": "Styles"
 		},
-		"download_results": "{count, plural, =0 {Keine passenden Einträge zum Herunterladen} one {Hinweise für # passenden Eintrag als Textdatei herunterladen} other {Hinweise für # passende Einträge als Textdatei herunterladen}}",
+		"download_results": "{count, plural, =0 {Keine Hinweise zum Herunterladen} one {# Hinweis herunterladen} other {# Hinweise herunterladen}}",
 		"intro": "Diese Anwendung enthält Open-Source-Software und Inhalte von Drittanbietern. Deren Lizenzen und Hinweise sind unten aufgeführt. Die Lizenztexte werden im englischen Original angezeigt.",
 		"results": "{count, plural, =0 {Keine passenden Einträge} one {# Eintrag} other {# Einträge}}",
 		"search": {
@@ -1384,7 +1383,7 @@
 			"placeholder": "Paket, Lizenz oder Hinweistext"
 		},
 		"source": "Quelle von {name}",
-		"text_link": "Alle Hinweise als Textdatei herunterladen",
+		"text_link": "Alle Hinweise herunterladen",
 		"title": "Drittanbieter-Lizenzen",
 		"unavailable": "Lizenzhinweise werden bei Produktions-Builds erzeugt und stehen in der Entwicklungsumgebung nicht zur Verfügung."
 	}

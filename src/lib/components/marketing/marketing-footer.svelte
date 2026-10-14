@@ -36,9 +36,6 @@
 					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/privacy'))}>
 						<T keyName="footer.privacy" />
 					</Button>
-					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/licenses'))}>
-						<T keyName="footer.licenses" />
-					</Button>
 					{#if analyticsPreferences.state.enabled}
 						<Button variant="ghost-muted" size="footer" onclick={() => analyticsPreferences.open()}>
 							<T keyName="footer.privacy_settings" />

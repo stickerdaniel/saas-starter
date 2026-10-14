@@ -11,7 +11,6 @@
 	import { buttonVariants } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
-	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
 	import {
 		CATALOGUE_TEXT_FILE,
 		filterCatalogueEntries,
@@ -69,42 +68,40 @@
 </script>
 
 <section class="space-y-4">
+	<!-- The download button stacks under the heading in narrow containers. -->
+	<div class="flex flex-col items-start gap-4 @xl:flex-row @xl:justify-between">
+		<div class="flex min-w-0 flex-1 flex-col gap-1">
+			<h1 class="text-2xl font-bold">{$t('licenses.title')}</h1>
+			<p class="text-sm text-muted-foreground">{$t('licenses.intro')}</p>
+		</div>
+		{#if entries}
+			<a
+				href={asset(CATALOGUE_TEXT_FILE as AssetPath)}
+				download={CATALOGUE_TEXT_FILE}
+				aria-disabled={searching && results.length === 0 ? 'true' : undefined}
+				class={buttonVariants({
+					variant: 'outline',
+					class: 'shrink-0 aria-disabled:opacity-50'
+				})}
+				onclick={downloadResults}
+			>
+				<DownloadIcon aria-hidden="true" />
+				{downloadLabel}
+			</a>
+		{/if}
+	</div>
 	{#if !entries}
 		<p class="text-sm text-muted-foreground">{$t('licenses.unavailable')}</p>
 	{:else}
 		<div class="space-y-2">
 			<Label for="third-party-license-search">{$t('licenses.search.label')}</Label>
-			<div class="flex gap-2">
-				<Input
-					id="third-party-license-search"
-					type="search"
-					autocomplete="off"
-					placeholder={$t('licenses.search.placeholder')}
-					bind:value={query}
-				/>
-				<Tooltip.Root>
-					<Tooltip.Trigger>
-						{#snippet child({ props })}
-							<a
-								{...props}
-								href={asset(CATALOGUE_TEXT_FILE as AssetPath)}
-								download={CATALOGUE_TEXT_FILE}
-								aria-label={downloadLabel}
-								aria-disabled={searching && results.length === 0 ? 'true' : undefined}
-								class={buttonVariants({
-									variant: 'outline',
-									size: 'icon',
-									class: 'aria-disabled:opacity-50'
-								})}
-								onclick={downloadResults}
-							>
-								<DownloadIcon aria-hidden="true" />
-							</a>
-						{/snippet}
-					</Tooltip.Trigger>
-					<Tooltip.Content>{downloadLabel}</Tooltip.Content>
-				</Tooltip.Root>
-			</div>
+			<Input
+				id="third-party-license-search"
+				type="search"
+				autocomplete="off"
+				placeholder={$t('licenses.search.placeholder')}
+				bind:value={query}
+			/>
 		</div>
 		<p role="status" class="text-sm text-muted-foreground">
 			{$t('licenses.results', { count: results.length })}
