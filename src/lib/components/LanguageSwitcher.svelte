@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import {
 		SUPPORTED_LANGUAGES,
 		LANGUAGE_COOKIE_NAME,
@@ -60,9 +59,9 @@
 			document.cookie = `${LANGUAGE_COOKIE_NAME}=${newLang}; path=/; max-age=${LANGUAGE_COOKIE_MAX_AGE}; SameSite=Lax`;
 		}
 
-		// Preserve search params
-		const searchParams = page.url.search;
-		goto(resolve(newPath + searchParams));
+		// Keep the query. The URL comes from the current page, so it goes to goto()
+		// verbatim: resolve() would read brackets or slashes in it as route syntax.
+		goto(newPath + page.url.search);
 
 		// Persist locale to user profile if authenticated
 		if (auth.isAuthenticated) {

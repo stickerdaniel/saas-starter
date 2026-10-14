@@ -2,7 +2,6 @@
 	import { onMount, tick, type Snippet } from 'svelte';
 	import { T } from '@tolgee/svelte';
 	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
 
@@ -102,10 +101,11 @@
 							</p>
 						</div>
 						<!-- Plain links with full-document navigation: the client router is
-						     exactly what may not have loaded. -->
+						     exactly what may not have loaded. The resume destination is
+						     validated and used verbatim, like the form's resume link. -->
 						{#if resumeHref}
 							<Field.Field>
-								<Button href={resolve(resumeHref)} data-sveltekit-reload class="w-full">
+								<Button href={resumeHref} data-sveltekit-reload class="w-full">
 									<T keyName="auth.signin.button_resume" />
 								</Button>
 							</Field.Field>

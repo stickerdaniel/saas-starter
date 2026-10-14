@@ -155,6 +155,22 @@ describe('server-rendered sign-in page', () => {
 		expect(window.document.querySelector('[data-testid="signin-button"]')).not.toBeNull();
 	});
 
+	// A query or fragment holds free text, which can look like route syntax.
+	it.each(['/de/app/settings?q=[draft]', '/de/app/settings?q=https://x.io#top'])(
+		'keeps the destination %s intact in every resume link',
+		(destination) => {
+			const { document } = serverRender(
+				`?redirectTo=${encodeURIComponent(destination)}&error=TOKEN_EXPIRED`,
+				{ authenticated: true }
+			);
+
+			expect(resumeTargets(document)).toHaveLength(2);
+			for (const target of resumeTargets(document)) {
+				expect(target).toBe(new URL(destination, state.page.url.origin).href);
+			}
+		}
+	);
+
 	it('sends a signed-in visitor on to the app without a usable destination', () => {
 		const { document } = serverRender(
 			`?redirectTo=${encodeURIComponent('//evil.example/steal')}&error=INVALID_TOKEN`,

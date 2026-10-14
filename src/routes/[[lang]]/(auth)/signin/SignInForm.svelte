@@ -178,8 +178,10 @@
 			<Field.Error errors={translateFormError(formError, $t)} data-testid="auth-error" />
 			{#if resumeHref}
 				<Field.Field>
-					<!-- A plain link, so it continues before hydration and without JavaScript. -->
-					<Button href={resolve(resumeHref)} variant="outline" class="w-full">
+					<!-- A plain link, so it continues before hydration and without JavaScript.
+					     The destination is validated and used verbatim: resolve() would read
+					     brackets or slashes in its query as route syntax. -->
+					<Button href={resumeHref} variant="outline" class="w-full">
 						<T keyName="auth.signin.button_resume" />
 					</Button>
 				</Field.Field>
