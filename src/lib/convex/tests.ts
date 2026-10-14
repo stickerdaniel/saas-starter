@@ -1,10 +1,11 @@
 import { components, internal } from './_generated/api';
 import { query, mutation, internalQuery } from './_generated/server';
 import { v } from 'convex/values';
+import { createFunctionHandle } from 'convex/server';
 import type { Id } from './_generated/dataModel';
 import { supportAgent } from './support/agent';
 import { isAnonymousUser } from './utils/anonymousUser';
-import { recalculateCounters } from './admin/counters';
+import { incrementCounter, recalculateCounters } from './admin/counters';
 import { aiChatRateLimiter } from './aiChat/rateLimit';
 import { getAiChatSidebarActivityAt } from './aiChat/visibility';
 
@@ -388,6 +389,9 @@ export const createTestAdminUser = mutation({
 				update: { role: 'admin', emailVerified: true }
 			}
 		});
+		// This raw update skips the auth triggers, so count the promotion here; the
+		// delete trigger decrements it again when the fixture is removed.
+		if (user.role !== 'admin') await incrementCounter(ctx, 'adminCount', 1);
 
 		// Create notification preferences entry for the admin (needed for admin-settings E2E tests)
 		const existingPref = await ctx.db
@@ -792,6 +796,10 @@ export const deleteTestUser = mutation({
 		if (!user) {
 			return { success: false, error: 'User not found' };
 		}
+		// The component runs the app's auth delete triggers only when handed this
+		// handle, as Better Auth's own adapter does. Without it a removed fixture
+		// keeps its dashboard counts, journey records and impersonation audit.
+		const onDeleteHandle = await createFunctionHandle(internal.auth.onDelete);
 
 		// Page through deletions with the component's own cursor. `deleteMany` reports
 		// `count` and `isDone`, and an unindexed `where` makes them diverge: the scan
@@ -826,7 +834,8 @@ export const deleteTestUser = mutation({
 		const sessionsDeleted = await deleteAll((cursor) =>
 			ctx.runMutation(components.betterAuth.adapter.deleteMany, {
 				input: { model: 'session', where: [{ field: 'userId', value: user._id }] },
-				paginationOpts: { numItems: 100, cursor }
+				paginationOpts: { numItems: 100, cursor },
+				onDeleteHandle
 			})
 		);
 
@@ -859,18 +868,14 @@ export const deleteTestUser = mutation({
 				paginationOpts: { numItems: 100, cursor }
 			})
 		);
-		const dismissal = await ctx.db
-			.query('passkeyNudgeDismissals')
-			.withIndex('by_userId', (q) => q.eq('userId', user._id))
-			.unique();
-		if (dismissal) await ctx.db.delete('passkeyNudgeDismissals', dismissal._id);
 
-		// Delete the user
+		// Delete the user; its trigger also removes the passkey nudge dismissal.
 		await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
 			input: {
 				model: 'user',
 				where: [{ field: 'email', value: email }]
-			}
+			},
+			onDeleteHandle
 		});
 
 		return {
