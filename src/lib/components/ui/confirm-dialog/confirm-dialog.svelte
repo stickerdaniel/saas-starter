@@ -29,7 +29,8 @@
 
 		async submit() {
 			const options = this.options;
-			if (!options || this.pending) return;
+			// A closing dialog keeps Confirm clickable through its exit animation.
+			if (!this.open || !options || this.pending) return;
 			const session = this.#session;
 			this.pending = true;
 			haptic.trigger('warning');
