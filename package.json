@@ -69,7 +69,7 @@
 		"upstream:fork-point": "bun .agents/skills/upstream-sync/scripts/find-fork-point.ts",
 		"upstream:changes": "bun .agents/skills/upstream-sync/scripts/list-upstream-changes.ts"
 	},
-	"packageManager": "bun@1.4.2",
+	"packageManager": "bun@1.4.3",
 	"dependencies": {
 		"@ai-sdk/provider": "4.0.19",
 		"@better-auth/passkey": "1.6.33",
