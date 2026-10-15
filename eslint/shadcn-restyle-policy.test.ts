@@ -4,6 +4,7 @@ import path from 'node:path';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import spec from './__fixtures__/shadcn-restyle-spec.json';
+import { withoutTypeInformation } from './without-type-information';
 import {
 	enforcedShadcnPolicy,
 	restyleEntries,
@@ -18,7 +19,7 @@ const signup = 'src/routes/[[lang]]/(auth)/signup/+page.svelte';
 const composer = 'src/lib/components/prompt-kit/prompt-input/PromptInputTextarea.svelte';
 
 // The application config, which enforces no-restyle with every owner profile.
-const production = new ESLint();
+const production = new ESLint({ overrideConfig: withoutTypeInformation });
 
 // The expected policy is the committed decision, not the implementation under test, so
 // a category or class added to shadcn-policy.js alone fails here.
@@ -155,7 +156,7 @@ describe('no-restyle flat-config precedence', () => {
 		components: { Card: ['auth-card-transition'] }
 	};
 	const withAuthCard = new ESLint({
-		overrideConfig: [enforcedShadcnPolicy, ...restyleEntries([authCard])]
+		overrideConfig: [withoutTypeInformation, enforcedShadcnPolicy, ...restyleEntries([authCard])]
 	});
 	const cardSource = `<script lang="ts">import * as Card from '#lib/components/ui/card/index.js';</script>
 <Card.Root class="auth-card-transition p-4 bg-primary" />`;
@@ -186,6 +187,7 @@ describe('no-restyle flat-config precedence', () => {
 <Button class="mt-4 bg-muted" />`;
 		const replaced = new ESLint({
 			overrideConfig: [
+				withoutTypeInformation,
 				enforcedShadcnPolicy,
 				{
 					files: ['src/**/*.svelte'],
@@ -208,6 +210,7 @@ describe('no-restyle flat-config precedence', () => {
 
 		const owner = new ESLint({
 			overrideConfig: [
+				withoutTypeInformation,
 				enforcedShadcnPolicy,
 				...restyleEntries([{ id: 'fixture', files: [route], components: { Button: ['bg-muted'] } }])
 			]
@@ -221,6 +224,7 @@ describe('no-restyle flat-config precedence', () => {
 	it('merges two profiles that own the same file instead of letting one overwrite the other', async () => {
 		const merged = new ESLint({
 			overrideConfig: [
+				withoutTypeInformation,
 				enforcedShadcnPolicy,
 				...restyleEntries([
 					{ id: 'a', files: [route], components: { Button: ['bg-muted'], Badge: ['text-2xs'] } },

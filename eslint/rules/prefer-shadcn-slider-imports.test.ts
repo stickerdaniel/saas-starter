@@ -5,10 +5,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
+import { withoutTypeInformation } from '../without-type-information';
 
 const repoRoot = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
-const eslint = new ESLint({ cwd: repoRoot });
-const subdirectoryEslint = new ESLint({ cwd: path.join(repoRoot, 'src') });
+const eslint = new ESLint({ cwd: repoRoot, overrideConfig: withoutTypeInformation });
+const subdirectoryEslint = new ESLint({
+	cwd: path.join(repoRoot, 'src'),
+	overrideConfig: withoutTypeInformation
+});
 const ruleId = 'local/prefer-shadcn-slider-imports';
 const boundaryMessage =
 	'Use named Bits UI imports and the shadcn Slider wrapper so Slider enforcement remains statically decidable.';

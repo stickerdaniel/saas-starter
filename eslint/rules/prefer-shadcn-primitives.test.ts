@@ -6,6 +6,7 @@ import { ESLint } from 'eslint';
 import parser from 'svelte-eslint-parser';
 import { describe, expect, it } from 'vitest';
 import rule from './prefer-shadcn-primitives.js';
+import { withoutTypeInformation } from '../without-type-information';
 
 const repoRoot = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 
@@ -174,7 +175,7 @@ function filenameVariants(relativePath: string): string[] {
 	];
 }
 
-const eslint = new ESLint({ cwd: repoRoot });
+const eslint = new ESLint({ cwd: repoRoot, overrideConfig: withoutTypeInformation });
 
 async function assertConfiguredAtError(filename: string) {
 	expect(await eslint.isPathIgnored(filename)).toBe(false);
