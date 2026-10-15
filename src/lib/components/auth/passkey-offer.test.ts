@@ -76,6 +76,13 @@ function button(name: string) {
 		(el) => el.textContent?.trim() === name
 	)!;
 }
+/** The form's primary action; the page and the sidebar card word it differently. */
+function createButton() {
+	return document.querySelector<HTMLButtonElement>('form button[type=submit]')!;
+}
+function closeButton() {
+	return document.querySelector<HTMLButtonElement>('button[aria-label="Not now"]')!;
+}
 function nameInput() {
 	return document.querySelector<HTMLInputElement>('input')!;
 }
@@ -89,7 +96,7 @@ async function render(sidebar = false) {
 		props: { oncontinue: calls.continue, oncreated: calls.created, sidebar }
 	});
 	await tick();
-	await vi.waitFor(() => expect(button('Create a passkey')).toBeDefined());
+	await vi.waitFor(() => expect(createButton()).not.toBeNull());
 }
 
 beforeEach(() => {
@@ -113,11 +120,11 @@ it('waits for consent, allows cancellation and retry, and confirms only verified
 	});
 	await render();
 	expect(calls.create).not.toHaveBeenCalled();
-	button('Create a passkey').click();
+	createButton().click();
 	await vi.waitFor(() => expect(failure()).toContain('We couldn’t finish setting up your passkey'));
 	expect(calls.continue).not.toHaveBeenCalled();
 	expect(calls.toast).not.toHaveBeenCalled();
-	button('Create a passkey').click();
+	createButton().click();
 	await vi.waitFor(() => expect(calls.created).toHaveBeenCalledOnce());
 	expect(calls.create).toHaveBeenCalledTimes(2);
 	expect(calls.toast).toHaveBeenCalledWith('Passkey added successfully');
@@ -134,7 +141,7 @@ it.each([
 	if (outcome instanceof Error) calls.create.mockRejectedValue(outcome);
 	else calls.create.mockResolvedValue(outcome);
 	await render();
-	button('Create a passkey').click();
+	createButton().click();
 	await vi.waitFor(() => expect(failure()).toContain('We couldn’t finish setting up your passkey'));
 	expect(document.body.textContent).not.toContain(en.auth.messages.session_not_fresh);
 	expect(document.body.textContent).not.toContain(en.auth.messages.passkey_add_failed);
@@ -145,7 +152,7 @@ it.each([
 it('does not enroll a different account after the session changes', async () => {
 	calls.session.mockResolvedValue({ data: { session: { id: 'another-session' } }, error: null });
 	await render();
-	button('Create a passkey').click();
+	createButton().click();
 	await vi.waitFor(() => expect(failure()).toContain('We couldn’t finish setting up your passkey'));
 	expect(calls.create).not.toHaveBeenCalled();
 });
@@ -167,7 +174,7 @@ it('prefills the suggested name and registers the name the visitor typed', async
 	expect(nameInput().value).toMatch(/^Daniel’s \S/);
 	nameInput().value = 'Work laptop';
 	nameInput().dispatchEvent(new Event('input', { bubbles: true }));
-	button('Create a passkey').click();
+	createButton().click();
 	await vi.waitFor(() => expect(calls.created).toHaveBeenCalledOnce());
 	expect(calls.create).toHaveBeenCalledWith({ name: 'Work laptop' });
 });
@@ -177,7 +184,7 @@ it('falls back to the suggested name when the field is left blank', async () => 
 	const suggested = nameInput().value;
 	nameInput().value = '   ';
 	nameInput().dispatchEvent(new Event('input', { bubbles: true }));
-	button('Create a passkey').click();
+	createButton().click();
 	await vi.waitFor(() => expect(calls.create).toHaveBeenCalledOnce());
 	expect(calls.create).toHaveBeenCalledWith({ name: suggested });
 });
@@ -187,7 +194,7 @@ it('confirms a sidebar registration with a toast and closes the offer', async ()
 	expect(nameInput().value).toMatch(/^Daniel’s \S/);
 	nameInput().value = 'Work laptop';
 	nameInput().dispatchEvent(new Event('input', { bubbles: true }));
-	button('Create a passkey').click();
+	createButton().click();
 	await vi.waitFor(() => expect(document.querySelector('form')).toBeNull());
 	expect(calls.create).toHaveBeenCalledWith({ name: 'Work laptop' });
 	expect(calls.toast).toHaveBeenCalledWith('Passkey added successfully');
@@ -196,7 +203,7 @@ it('confirms a sidebar registration with a toast and closes the offer', async ()
 it('keeps the sidebar offer open with an announced error when registration fails', async () => {
 	calls.create.mockResolvedValue({ data: null, error: { code: 'ERROR_CEREMONY_ABORTED' } });
 	await render(true);
-	button('Create a passkey').click();
+	createButton().click();
 	await vi.waitFor(() => expect(failure()).toContain('We couldn’t finish setting up your passkey'));
 	expect(calls.toast).not.toHaveBeenCalled();
 	expect(document.querySelector('form')).not.toBeNull();
@@ -213,14 +220,52 @@ it('keeps the typed name and a pending registration when the sidebar card remoun
 	button('Remount card').click();
 	await tick();
 	expect(nameInput().value).toBe('Work laptop');
-	button('Create a passkey').click();
+	createButton().click();
 	await vi.waitFor(() => expect(calls.create).toHaveBeenCalledOnce());
 	button('Remount card').click();
 	await tick();
 	button('Remount card').click();
 	await tick();
-	expect(button('Please wait…').disabled).toBe(true);
+	expect(createButton().textContent?.trim()).toBe('Please wait…');
+	expect(createButton().disabled).toBe(true);
 	finish({ data: { id: 'registered-passkey' }, error: null });
 	await vi.waitFor(() => expect(document.querySelector('form')).toBeNull());
 	expect(calls.create).toHaveBeenCalledWith({ name: 'Work laptop' });
+});
+
+it('names the page actions and keeps the passkey name labelled above its field', async () => {
+	await render();
+	expect(createButton().textContent?.trim()).toBe('Create passkey');
+	expect(button('Not now').type).toBe('button');
+	expect(nameInput().labels?.[0]?.textContent?.trim()).toBe('Passkey name');
+	expect(nameInput().placeholder).toBe('');
+});
+
+it('defers the sidebar offer for the account when its close button is used', async () => {
+	await render(true);
+	expect(createButton().textContent?.trim()).toBe('Create a passkey');
+	expect(button('Not now'), 'the card offers only the close button to defer').toBeUndefined();
+	closeButton().click();
+	await vi.waitFor(() => expect(document.querySelector('form')).toBeNull());
+	expect(calls.defer).toHaveBeenCalledOnce();
+	expect(Number(localStorage.getItem('auth:passkey-nudge:deferred:user-a'))).toBeGreaterThan(
+		Date.now()
+	);
+	expect(calls.create).not.toHaveBeenCalled();
+});
+
+it('ignores the sidebar close button while a registration is pending', async () => {
+	let finish!: (value: unknown) => void;
+	calls.create.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+	await render(true);
+	createButton().click();
+	await vi.waitFor(() => expect(calls.create).toHaveBeenCalledOnce());
+	await tick();
+	expect(closeButton().disabled).toBe(true);
+	closeButton().click();
+	await tick();
+	expect(calls.defer).not.toHaveBeenCalled();
+	finish({ data: { id: 'registered-passkey' }, error: null });
+	await vi.waitFor(() => expect(document.querySelector('form')).toBeNull());
+	expect(calls.defer).not.toHaveBeenCalled();
 });

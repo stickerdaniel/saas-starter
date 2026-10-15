@@ -500,11 +500,16 @@
 		},
 		"passkey_nudge": {
 			"title": "Melde dich nächstes Mal einfacher an",
+			"lead": "Füge diesem Gerät einen Passkey hinzu.",
 			"inline_title": "Nächstes Mal direkt anmelden",
 			"description": "Erstelle einen Passkey und melde dich mit Fingerabdruck, Gesichtserkennung oder deiner Bildschirmsperre an.",
-			"password_backup": "Dein Passwort funktioniert weiterhin.",
-			"provider_backup": "Du kannst dich weiterhin mit {provider} anmelden.",
+			"facts": {
+				"unlock": "Fingerabdruck, Gesichtserkennung oder Bildschirmsperre",
+				"on_device": "Biometrische Daten bleiben auf deinem Gerät",
+				"password": "Dein Passwort funktioniert weiterhin"
+			},
 			"create": "Passkey erstellen",
+			"create_short": "Passkey erstellen",
 			"not_now": "Nicht jetzt",
 			"working": "Bitte warten…",
 			"continue": "Weiter",
