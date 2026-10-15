@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { T, getTranslate } from '@tolgee/svelte';
+	import Logo from '#lib/components/icons/logo.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { LoadingBar } from '#lib/components/ui/loading-bar/index.js';
@@ -19,8 +20,9 @@
 <div class="min-h-96" data-testid="signup-verification-step">
 	<LoadingBar value={100} mode="progress" showBackground={false} variant="edge" />
 	<div class="flex h-full flex-col justify-center p-6 md:p-8">
+		<Logo class="mb-6 block size-6" />
 		<Field.Group>
-			<div class="flex flex-col items-center gap-2 text-center">
+			<div class="flex flex-col gap-2">
 				<h1 class="text-2xl font-bold">
 					<T keyName="auth.verification.title" />
 				</h1>

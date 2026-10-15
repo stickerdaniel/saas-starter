@@ -2,6 +2,7 @@
 	import { onMount, tick, type Snippet } from 'svelte';
 	import { T } from '@tolgee/svelte';
 	import { page } from '$app/state';
+	import Logo from '#lib/components/icons/logo.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
 
@@ -87,14 +88,16 @@
 				     edge loading bar takes above the heading. -->
 				<div class="h-1"></div>
 				<div class="min-h-96 p-6 md:p-8">
+					<!-- Decorative, as above every auth form: the terms footer leads home. -->
+					<Logo class="mb-6 block size-6" />
 					<Field.Group>
-						<div class="flex flex-col items-center gap-2 text-center" data-auth-gate-stalled>
+						<div class="flex flex-col gap-2" data-auth-gate-stalled>
 							<h1 class="text-2xl font-bold"><T keyName="auth.gate.stalled_title" /></h1>
 							<p class="text-balance text-muted-foreground">
 								<T keyName="auth.gate.stalled_description" />
 							</p>
 						</div>
-						<div class="hidden flex-col items-center gap-2 text-center" data-auth-gate-noscript>
+						<div class="hidden flex-col gap-2" data-auth-gate-noscript>
 							<h1 class="text-2xl font-bold"><T keyName="auth.gate.noscript_title" /></h1>
 							<p class="text-balance text-muted-foreground">
 								<T keyName="auth.gate.noscript_description" />
