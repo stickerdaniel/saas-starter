@@ -4,7 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { localizedHref } from '#lib/utils/i18n.js';
 	import { PASSWORD_MIN_LENGTH } from './schema.js';
-	import AuthLogo from '#lib/components/auth/auth-logo.svelte';
+	import Logo from '#lib/components/icons/logo.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
@@ -83,7 +83,7 @@
 		variant="edge"
 	/>
 	<div class="p-6 md:p-8">
-		<AuthLogo />
+		<Logo class="mb-6 block size-6" />
 		<Field.Group>
 			<div class="flex flex-col gap-2">
 				<h1 class="text-2xl font-bold">

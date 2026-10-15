@@ -45,12 +45,11 @@
 		pending = false;
 		if (!focusWasInFallback) return;
 		await tick();
-		// A form control first: the logo link above the heading comes first in the DOM.
-		(
-			formPane?.querySelector<HTMLElement>(
-				'input:not([disabled]):not([type="hidden"]), button:not([disabled])'
-			) ?? formPane?.querySelector<HTMLElement>('a[href]')
-		)?.focus();
+		formPane
+			?.querySelector<HTMLElement>(
+				'input:not([disabled]):not([type="hidden"]), button:not([disabled]), a[href]'
+			)
+			?.focus();
 	});
 
 	// The current address, token and redirect included, so reloading resumes
@@ -89,8 +88,7 @@
 				     edge loading bar takes above the heading. -->
 				<div class="h-1"></div>
 				<div class="min-h-96 p-6 md:p-8">
-					<!-- The form's logo link, without the link: this region is announced
-					     as a whole, and the terms footer below already leads home. -->
+					<!-- Decorative, as above every auth form: the terms footer leads home. -->
 					<Logo class="mb-6 block size-6" />
 					<Field.Group>
 						<div class="flex flex-col gap-2" data-auth-gate-stalled>

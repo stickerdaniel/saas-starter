@@ -6,7 +6,7 @@
 	import { localizedHref } from '#lib/utils/i18n.js';
 	import { authPageURL, safeAuthDestination } from '#lib/utils/url.js';
 	import AuthPanel from '#lib/components/auth/auth-panel.svelte';
-	import AuthLogo from '#lib/components/auth/auth-logo.svelte';
+	import Logo from '#lib/components/icons/logo.svelte';
 	import { LoadingBar } from '#lib/components/ui/loading-bar/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
 
@@ -65,7 +65,7 @@
 	<div class="min-h-96">
 		<LoadingBar mode="loading" showBackground={false} variant="edge" />
 		<div class="flex h-full flex-col justify-center p-6 md:p-8">
-			<AuthLogo />
+			<Logo class="mb-6 block size-6" />
 			<div class="flex flex-col gap-2">
 				<h1 class="text-2xl font-bold">
 					<T keyName="auth.verification.verified_title" />

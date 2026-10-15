@@ -7,7 +7,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import AuthPanel from '#lib/components/auth/auth-panel.svelte';
-	import AuthLogo from '#lib/components/auth/auth-logo.svelte';
+	import Logo from '#lib/components/icons/logo.svelte';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import PasskeyOffer from '#lib/components/auth/passkey-offer.svelte';
@@ -64,7 +64,7 @@
 			     with the offer that replaces it. -->
 			<div class="h-1"></div>
 			<div class="p-6 md:p-8">
-				<AuthLogo />
+				<Logo class="mb-6 block size-6" />
 				<Field.Group>
 					<p role="status" class="text-balance text-muted-foreground">
 						<T keyName="auth.passkey_nudge.loading" />
