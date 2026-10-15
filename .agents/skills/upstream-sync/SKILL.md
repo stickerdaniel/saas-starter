@@ -31,7 +31,7 @@ is `upstream-report`, and that one is yours to run.
 ## When to STOP and ask the human
 
 Before asking which design or behavior an area should take, list the upstream's open PRs
-for that area (`gh pr list --repo <upstream> --search <area>`). A newer upstream design
+for that area (`gh pr list --repo "$(git remote get-url upstream)" --search <area>`). A newer upstream design
 there is the default answer: port it from the PR head and name the PR in the sync PR body.
 
 - A candidate commit touches a file this fork has heavily rewritten (auth, schema, deploy config). Show the diff; do not auto-apply.
