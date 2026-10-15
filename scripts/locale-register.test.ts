@@ -9,9 +9,10 @@ const FORMAL = {
 	// Capitalized Sie/Ihr/Ihnen. A sentence that means "they" is reworded too,
 	// so the formal form never has to be told apart from it.
 	de: /(?<!\p{L})(Sie|Ihr|Ihre|Ihrem|Ihren|Ihrer|Ihres|Ihnen)(?!\p{L})/u,
-	// vous/votre/vos/veuillez, but not the noun "rendez-vous", and verbs in the
-	// vous form such as "Cliquez", but not chez/assez/nez.
-	fr: /(?<!\p{L})(?<!rendez-)(?!rendez-vous|(?:ch|ass|n)ez(?!\p{L}))(vous|votre|vos|veuillez|\p{L}+ez)(?!\p{L})/iu
+	// vous/votre/vos/veuillez, but not the noun "rendez-vous". Also a sentence
+	// that opens with an -ez word other than Chez/Assez/Nez, the vous imperative
+	// ("Cliquez ici"); inside a sentence, -ez words are as often names (Pérez).
+	fr: /(?<!\p{L})(?<![Rr]endez-)([Vv]ous|[Vv]otre|[Vv]os|[Vv]euillez)(?!\p{L})|(?:^|[.!?]\s+)(?!Rendez-vous|Rez-|(?:Ch|Ass|N)ez(?!\p{L}))\p{Lu}\p{L}*ez(?!\p{L})/u
 };
 
 function leaves(value: unknown, prefix = ''): Array<[string, string]> {
