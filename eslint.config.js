@@ -380,6 +380,22 @@ export default defineConfig(
 		}
 	},
 	{
+		// The auth setup projects open the first page of a run, so a cold local
+		// route compile lands inside their test budget.
+		files: ['playwright.config.ts'],
+		rules: {
+			'no-restricted-syntax': [
+				'error',
+				{
+					selector:
+						"ObjectExpression:has(> Property[key.name='name'][value.value=/^(admin-)?setup$/]):not(:has(> Property[key.name='timeout']))",
+					message:
+						'Give the auth setup projects their own `timeout`: the first page of a run pays the cold route compile, and `navigationTimeout` cannot extend the test deadline.'
+				}
+			]
+		}
+	},
+	{
 		// Module-scope class instances in .svelte.ts are shared across SSR
 		// requests (#500). See eslint/rules/no-module-state-singleton.js.
 		files: ['**/*.svelte.ts'],

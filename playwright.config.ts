@@ -75,15 +75,21 @@ export default defineConfig({
 
 	/* Configure projects */
 	projects: [
+		// The setup projects own their budget: they are the first to open a page,
+		// so locally they pay the cold route compile. Observed 2026-10-15: the
+		// sign-in HTML arrived after 25.7 s and the 30 s default expired before
+		// hydration. A longer navigationTimeout cannot extend the test's deadline.
 		// Setup project - authenticates regular user and saves state
 		{
 			name: 'setup',
-			testMatch: '**/signin.setup.ts'
+			testMatch: '**/signin.setup.ts',
+			timeout: 90_000
 		},
 		// Admin setup - authenticates admin user and saves admin auth state
 		{
 			name: 'admin-setup',
-			testMatch: '**/admin.setup.ts'
+			testMatch: '**/admin.setup.ts',
+			timeout: 90_000
 		},
 		// Tests that need regular user authentication
 		{
