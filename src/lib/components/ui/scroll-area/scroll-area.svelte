@@ -26,10 +26,15 @@
 	class={cn('relative', className)}
 	{...restProps}
 >
+	<!-- Bits UI sets an inline `overflow: hidden` until its scrollbar mounts on the
+	     client, so the server HTML cannot scroll before hydration or without
+	     JavaScript. The important overflow keyed on orientation outranks that
+	     inline style; Bits hides the native scrollbar with a global rule. -->
 	<ScrollAreaPrimitive.Viewport
 		bind:ref={viewportRef}
 		data-slot="scroll-area-viewport"
-		class="size-full rounded-[inherit] outline-hidden transition-field-colors focus-visible:ring-3 focus-visible:ring-ring/50"
+		data-orientation={orientation}
+		class="size-full rounded-[inherit] outline-hidden transition-field-colors focus-visible:ring-3 focus-visible:ring-ring/50 data-[orientation=both]:overflow-auto! data-horizontal:overflow-x-auto! data-vertical:overflow-y-auto!"
 	>
 		{@render children?.()}
 	</ScrollAreaPrimitive.Viewport>
