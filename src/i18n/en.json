@@ -329,7 +329,7 @@
 			"return_pending": "Impersonation ended, but your admin session has not loaded yet.",
 			"return_to": "Return to {section}",
 			"sign_in_again": "Sign in again",
-			"viewing_as": "Viewing as {name} ({email})"
+			"viewing_as": "Viewing as"
 		},
 		"sidebar": {
 			"admin_panel": "Admin Panel",

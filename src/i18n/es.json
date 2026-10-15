@@ -329,7 +329,7 @@
 			"return_pending": "La suplantación terminó, pero tu sesión de administrador aún no se ha cargado.",
 			"return_to": "Regresar a {section}",
 			"sign_in_again": "Iniciar sesión de nuevo",
-			"viewing_as": "Viendo como {name} ({email})"
+			"viewing_as": "Viendo como"
 		},
 		"sidebar": {
 			"admin_panel": "Panel de Admin",

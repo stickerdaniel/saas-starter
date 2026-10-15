@@ -96,31 +96,30 @@
 					data-testid="investigation-bar-viewing"
 				>
 					{#if impersonation.viewedUser}
-						<T
-							keyName="app.investigation_bar.viewing_as"
-							params={{
-								name: impersonation.viewedUser.name,
-								email: impersonation.viewedUser.email
-							}}
-						/>
+						<T keyName="app.investigation_bar.viewing_as" />
+						<span class="font-medium">{impersonation.viewedUser.name}</span>
+						({impersonation.viewedUser.email})
 					{/if}
 				</span>
-				<Button
-					variant="outline"
-					size="sm"
-					class="shrink-0"
-					aria-disabled={impersonation.pending}
-					aria-busy={stopping}
-					onclick={() => impersonation.stop($t)}
-					data-testid="investigation-bar-back"
-				>
-					{#if stopping}
-						<LoaderCircleIcon data-icon="inline-start" class="motion-safe:animate-spin" />
-					{:else}
-						<ArrowLeftIcon data-icon="inline-start" />
-					{/if}
-					<T keyName="app.investigation_bar.back_to" params={{ section }} />
-				</Button>
+				<!-- On phones the button takes its own line, indented to the text start
+				     (icon plus gap), so the identity keeps the full width. -->
+				<span class="shrink-0 max-sm:basis-full max-sm:ps-7">
+					<Button
+						variant="outline"
+						size="sm"
+						aria-disabled={impersonation.pending}
+						aria-busy={stopping}
+						onclick={() => impersonation.stop($t)}
+						data-testid="investigation-bar-back"
+					>
+						{#if stopping}
+							<LoaderCircleIcon data-icon="inline-start" class="motion-safe:animate-spin" />
+						{:else}
+							<ArrowLeftIcon data-icon="inline-start" />
+						{/if}
+						<T keyName="app.investigation_bar.back_to" params={{ section }} />
+					</Button>
+				</span>
 			{/if}
 		</div>
 	</div>

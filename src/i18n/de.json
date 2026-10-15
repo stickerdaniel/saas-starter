@@ -329,7 +329,7 @@
 			"return_pending": "Der Identitätswechsel ist beendet, aber deine Admin-Sitzung wurde noch nicht geladen.",
 			"return_to": "Zu {section} zurückkehren",
 			"sign_in_again": "Erneut anmelden",
-			"viewing_as": "Ansicht als {name} ({email})"
+			"viewing_as": "Ansicht als"
 		},
 		"sidebar": {
 			"admin_panel": "Admin-Bereich",

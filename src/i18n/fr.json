@@ -329,7 +329,7 @@
 			"return_pending": "L'usurpation est terminée, mais ta session administrateur n'est pas encore chargée.",
 			"return_to": "Revenir à {section}",
 			"sign_in_again": "Se reconnecter",
-			"viewing_as": "Vue en tant que {name} ({email})"
+			"viewing_as": "Vue en tant que"
 		},
 		"sidebar": {
 			"admin_panel": "Panneau Admin",
