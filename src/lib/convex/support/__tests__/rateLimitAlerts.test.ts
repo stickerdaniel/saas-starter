@@ -233,10 +233,10 @@ describe('support rate limit alerts', () => {
 		]);
 		const text = sent()[0]!.text.replace(/\s+/g, ' ');
 		expect(text).toContain(
-			'New conversations from signed-out visitors have used 87% of their shared limit for at least 10 minutes.'
+			'Signed-out visitors share this limit. It has been low for at least 10 minutes.'
 		);
-		expect(text).toContain('Remaining: 4 of 30');
-		expect(text).toContain('Refill: 100 per hour');
+		expect(text).toContain('New conversations 4 of 30 left');
+		expect(text).toContain('87% used Refills 100 per hour');
 		expect(text).toContain('at most one alert every 6 hours');
 		expect(text).toContain('[https://app.example.com/admin/support]');
 	});

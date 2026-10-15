@@ -478,7 +478,7 @@ describe('new customer email rendering', () => {
 				match[1]!.split(/\s+/).filter((name) => name.startsWith('dark_'))
 			)
 		);
-		expect(used).toContain('dark_border-zinc-800');
+		expect(used).toContain('dark_border-zinc-900');
 		expect(used).toContain('dark_bg-zinc-700');
 		for (const name of used) expect(html).toContain(`.${name} {`);
 	});

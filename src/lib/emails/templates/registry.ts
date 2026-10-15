@@ -141,14 +141,14 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 			titleText: '__ETA_titleText__',
 			descriptionText: '__ETA_descriptionText__',
 			previewText: '__ETA_previewText__',
-			limitLabel: '__ETA_limitLabel__',
 			limitName: '__ETA_limitName__',
-			remainingLabel: '__ETA_remainingLabel__',
+			availableText: '__ETA_availableText__',
 			remainingText: '__ETA_remainingText__',
-			refillLabel: '__ETA_refillLabel__',
+			usedPercent: '__ETA_usedPercent__',
+			unusedPercent: '__ETA_unusedPercent__',
+			usedText: '__ETA_usedText__',
 			refillText: '__ETA_refillText__',
 			impactText: '__ETA_impactText__',
-			actionText: '__ETA_actionText__',
 			buttonText: '__ETA_buttonText__',
 			footerText: '__ETA_footerText__'
 		}
