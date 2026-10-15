@@ -102,7 +102,7 @@
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger id="user-menu-trigger">
 				{#snippet child({ props })}
-					<NavUserTrigger impersonating={impersonation.isImpersonating} {...props}>
+					<NavUserTrigger {...props}>
 						<UserAvatar
 							name={user.name}
 							email={user.email}
