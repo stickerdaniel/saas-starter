@@ -30,6 +30,10 @@ is `upstream-report`, and that one is yours to run.
 
 ## When to STOP and ask the human
 
+Before asking which design or behavior an area should take, list the upstream's open PRs
+for that area (`gh pr list --repo <upstream> --search <area>`). A newer upstream design
+there is the default answer: port it from the PR head and name the PR in the sync PR body.
+
 - A candidate commit touches a file this fork has heavily rewritten (auth, schema, deploy config). Show the diff; do not auto-apply.
 - Fork-point detection returns a `closest-tree GUESS` or an `UNCONFIRMED` shared-history point. Confirm the commit with the human and record it as `forkPoint` in `.upstream-sync.json` before proceeding.
 - A ported commit needs an env var that does not exist as a preview deployment default.
