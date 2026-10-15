@@ -14,7 +14,7 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { stripVTControlCharacters } from 'util';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import knowledgePolicy from '../knowledge-policy.config';
 import { sanitizedGitEnv } from './git-context';
 import { runKnowledgePolicy } from './knowledge-policy/repository';
@@ -30,6 +30,12 @@ import { testExecutable } from './test-executable';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
+
+// Most tests here block on real Bun and Prettier processes, so Vitest checks the budget only
+// after spawnSync returns; the helpers' 10 s child timeout is the hang guard. The slowest test
+// without its own budget took 5.2 s on a GitHub-hosted runner and 4.4 s on Ubicloud
+// (observed 2026-10-15), so the 5 s default failed a run whose assertions all passed.
+vi.setConfig({ testTimeout: 30_000 });
 
 /** Assert-only format run, with the parent's colour and Git context stripped. */
 function formatCheck(...args: string[]): { status: number; output: string } {
@@ -559,10 +565,6 @@ describe('format-only static checks', () => {
 				expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(1);
 
 				expect(resolveInputs([named], 'arguments', ROOT, undefined, false)).toEqual([named]);
-				const result = formatCheck(named);
-				expect(result.status, result.output).toBe(1);
-				expect(result.output).toContain(named);
-				expect(result.output).not.toContain('No formatter work');
 
 				// Directory traversal reads the resolved target, then maps every child back below
 				// the alias before ignore classification and launch.
@@ -575,10 +577,13 @@ describe('format-only static checks', () => {
 						false
 					)
 				).toEqual([`${namedDirectory}/nested.ts`]);
-				const directory = formatCheck(namedDirectory);
-				expect(directory.status, directory.output).toBe(1);
-				expect(directory.output).toContain(`${namedDirectory}/nested.ts`);
-				expect(directory.output).not.toContain('No formatter work');
+
+				// One run covers both spellings: a dropped input is missing from Prettier's report.
+				const result = formatCheck(named, namedDirectory);
+				expect(result.status, result.output).toBe(1);
+				expect(result.output).toContain(named);
+				expect(result.output).toContain(`${namedDirectory}/nested.ts`);
+				expect(result.output).not.toContain('No formatter work');
 			} finally {
 				rmSync(alias, { force: true });
 				rmSync(target, { recursive: true, force: true });
