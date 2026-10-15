@@ -578,11 +578,12 @@ describe('format-only static checks', () => {
 					)
 				).toEqual([`${namedDirectory}/nested.ts`]);
 
-				// One run covers both spellings: a dropped input is missing from Prettier's report.
+				// One run covers both spellings: a dropped input is missing from Prettier's warnings,
+				// while the failed-command line would still echo every argument.
 				const result = formatCheck(named, namedDirectory);
 				expect(result.status, result.output).toBe(1);
-				expect(result.output).toContain(named);
-				expect(result.output).toContain(`${namedDirectory}/nested.ts`);
+				expect(result.output).toContain(`[warn] ${named}`);
+				expect(result.output).toContain(`[warn] ${namedDirectory}/nested.ts`);
 				expect(result.output).not.toContain('No formatter work');
 			} finally {
 				rmSync(alias, { force: true });
