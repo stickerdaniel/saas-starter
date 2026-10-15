@@ -76,10 +76,12 @@
 
 		<Tabs.Root value={activeTab} onValueChange={updateTab} class="space-y-6">
 			<!-- Bleed to the screen edge on mobile so the w-fit pill can scroll; align
-			     flush with the max-w-3xl column on lg (page wrapper has px-4 lg:px-6). -->
+			     flush with the max-w-3xl column on lg (page wrapper has px-4 lg:px-6).
+			     overflow-y-hidden: overflow-x alone also makes the y axis scrollable,
+			     and its 1px overflow would take the first wheel gesture from the page. -->
 			<div
 				bind:this={tabsScroller}
-				class="-mx-4 no-scrollbar scroll-px-4 overflow-x-auto px-4 lg:mx-0 lg:px-0"
+				class="-mx-4 no-scrollbar scroll-px-4 overflow-x-auto overflow-y-hidden px-4 lg:mx-0 lg:px-0"
 			>
 				<Tabs.List>
 					<Tabs.Trigger value="account">

@@ -23,6 +23,7 @@ Load the `svelte-core-bestpractices` skill before writing or reviewing Svelte mo
 - Use project theme tokens when importing external blocks.
 - Prefer global Tailwind utilities for shared patterns over repeated component-local styles.
 - Shadowed surfaces use a translucent `ring-1 ring-foreground/10`; avoid muddy solid borders beside shadows.
+- A horizontal-only scroller pairs `overflow-x-auto` with `overflow-y-hidden`: `overflow-x` alone makes the y axis scrollable too, and a 1px vertical overflow there takes the page's first wheel gesture.
 - Use `cmdOrCtrl` / `optionOrAlt` for platform-specific shortcut labels.
 - Localize all user-facing and accessibility strings. Never hardcode English `aria-label` or `.sr-only` copy.
 - Decorative non-functional controls must be removed from the accessibility tree.
