@@ -7,6 +7,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import AuthPanel from '#lib/components/auth/auth-panel.svelte';
+	import AuthLogo from '#lib/components/auth/auth-logo.svelte';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import PasskeyOffer from '#lib/components/auth/passkey-offer.svelte';
@@ -58,18 +59,24 @@
 	{#if user}
 		<PasskeyOffer {user} oncontinue={continueToApp} oncreated={finishEnrollment} />
 	{:else}
-		<div class="flex min-h-96 flex-col justify-center p-6 md:p-8">
-			<Field.Group>
-				<p role="status" class="text-center text-balance text-muted-foreground">
-					<T keyName="auth.passkey_nudge.loading" />
-				</p>
-				<Field.Field>
-					<!-- A plain link, so it continues before hydration and without JavaScript. -->
-					<Button href={destinationHref} variant="outline" class="w-full">
-						<T keyName="auth.passkey_nudge.continue" />
-					</Button>
-				</Field.Field>
-			</Field.Group>
+		<div class="min-h-96">
+			<!-- The room the offer's edge loading bar takes, so the content lines up
+			     with the offer that replaces it. -->
+			<div class="h-1"></div>
+			<div class="p-6 md:p-8">
+				<AuthLogo />
+				<Field.Group>
+					<p role="status" class="text-balance text-muted-foreground">
+						<T keyName="auth.passkey_nudge.loading" />
+					</p>
+					<Field.Field>
+						<!-- A plain link, so it continues before hydration and without JavaScript. -->
+						<Button href={destinationHref} variant="outline" class="w-full">
+							<T keyName="auth.passkey_nudge.continue" />
+						</Button>
+					</Field.Field>
+				</Field.Group>
+			</div>
 		</div>
 	{/if}
 	{#snippet footer()}
