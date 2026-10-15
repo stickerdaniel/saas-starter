@@ -4,9 +4,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
+import { withoutTypeInformation } from '../without-type-information';
 
 const repoRoot = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
-const eslint = new ESLint({ cwd: repoRoot });
+const eslint = new ESLint({ cwd: repoRoot, overrideConfig: withoutTypeInformation });
 const ruleId = 'local/require-static-mode-initializer';
 const layoutPath = 'src/routes/+layout.svelte';
 const rootLayout = readFileSync(path.join(repoRoot, layoutPath), 'utf8');

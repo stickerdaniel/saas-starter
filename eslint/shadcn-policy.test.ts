@@ -5,8 +5,9 @@ import { describe, expect, it } from 'vitest';
 import spec from './__fixtures__/shadcn-restyle-spec.json';
 import safeSvelteParser from './parsers/safe-svelte-parser.js';
 import { enforcedShadcnPolicy } from './shadcn-policy.js';
+import { withoutTypeInformation } from './without-type-information';
 
-const eslint = new ESLint();
+const eslint = new ESLint({ overrideConfig: withoutTypeInformation });
 const route = 'src/routes/+layout.svelte';
 const helper = 'src/lib/utils.ts';
 const button = `<script lang="ts">import { Button } from '#lib/components/ui/button/index.js';</script>\n`;
@@ -40,7 +41,10 @@ describe('shadcn policy through the application ESLint config', () => {
 		const source = `${button}<Button class="rounded-full">Save</Button>`;
 		expect(ids(await messages(source))).toContain('shadcn/no-restyle');
 		const withoutRule = new ESLint({
-			overrideConfig: [{ files: [route], rules: { 'shadcn/no-restyle': 'off' } }]
+			overrideConfig: [
+				withoutTypeInformation,
+				{ files: [route], rules: { 'shadcn/no-restyle': 'off' } }
+			]
 		});
 		const [disabled] = await withoutRule.lintText(source, { filePath: route });
 		expect(disabled.fatalErrorCount).toBe(0);
@@ -100,7 +104,10 @@ function getClasses(): string { return 'mt-4'; }
 		expect(unreadable).toHaveLength(1);
 		expect(unreadable[0].severity).toBe(2);
 		const withoutRule = new ESLint({
-			overrideConfig: [{ files: [route], rules: { 'shadcn/require-static-classes': 'off' } }]
+			overrideConfig: [
+				withoutTypeInformation,
+				{ files: [route], rules: { 'shadcn/require-static-classes': 'off' } }
+			]
 		});
 		const [disabled] = await withoutRule.lintText(source, { filePath: route });
 		expect(disabled.fatalErrorCount).toBe(0);
