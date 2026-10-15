@@ -1,7 +1,7 @@
 import { parse as parseSvelte } from 'svelte/compiler';
 import svelteParser from 'svelte-eslint-parser';
 import * as ts from 'typescript';
-import tseslint from 'typescript-eslint';
+import * as typescriptParser from '@typescript-eslint/parser';
 import { SUPPORTED_LANGUAGE_CODES } from '../../src/lib/i18n/language-codes.generated.js';
 import { classifyEnglish, splitTextWindows, type TextWindow } from './classifier';
 import { withoutCodeBlocks } from './markdown';
@@ -180,7 +180,7 @@ function svelteComments(file: string, text: string): SourceComment[] {
 		comment: true,
 		filePath: file,
 		loc: true,
-		parser: tseslint.parser,
+		parser: typescriptParser,
 		range: true,
 		tokens: true
 	});
