@@ -147,6 +147,7 @@
 			"audit_log": "Auditoría",
 			"back_to_app": "Volver a la App",
 			"dashboard": "Panel",
+			"licenses": "Licencias",
 			"settings": "Configuración",
 			"support": "Soporte",
 			"users": "Usuarios"
@@ -854,7 +855,6 @@
 	"footer": {
 		"copyright": "© {year} {brand}",
 		"impressum": "Aviso legal",
-		"licenses": "Licencias",
 		"privacy": "Privacidad",
 		"privacy_settings": "Configuración de privacidad",
 		"terms": "Condiciones de uso"
@@ -1148,7 +1148,6 @@
 			"verification_required_title": "Verificación requerida",
 			"verified_badge": "Verificado"
 		},
-		"licenses_link": "Licencias de terceros",
 		"password": {
 			"confirm_password_label": "Confirmar nueva contraseña",
 			"current_password_label": "Contraseña actual",
@@ -1376,7 +1375,7 @@
 			"fonts": "Fuentes tipográficas",
 			"styles": "Estilos"
 		},
-		"download_results": "{count, plural, =0 {No hay entradas coincidentes para descargar} one {Descargar los avisos de # entrada coincidente como texto sin formato} other {Descargar los avisos de # entradas coincidentes como texto sin formato}}",
+		"download_results": "{count, plural, =0 {No hay avisos para descargar} one {Descargar # aviso} other {Descargar # avisos}}",
 		"intro": "Esta aplicación incluye software de código abierto y recursos de terceros. Sus licencias y avisos se indican a continuación. Los textos de los avisos se muestran en su versión original en inglés.",
 		"results": "{count, plural, =0 {Ninguna entrada coincide} one {# entrada} other {# entradas}}",
 		"search": {
@@ -1384,7 +1383,7 @@
 			"placeholder": "Paquete, licencia o texto del aviso"
 		},
 		"source": "Fuente de {name}",
-		"text_link": "Descargar todos los avisos como texto sin formato",
+		"text_link": "Descargar todos los avisos",
 		"title": "Licencias de terceros",
 		"unavailable": "Los avisos de licencia se generan en las compilaciones de producción y no están disponibles en desarrollo."
 	}

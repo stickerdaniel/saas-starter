@@ -94,6 +94,13 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		group: 'admin',
 		titleKey: 'admin.sidebar.audit_log',
 		keywords: ['audit log', 'history']
+	},
+	{
+		href: '/admin/licenses',
+		access: 'admin',
+		group: 'admin',
+		titleKey: 'admin.sidebar.licenses',
+		keywords: ['licenses', 'third-party', 'notices', 'open source']
 	}
 ];
 

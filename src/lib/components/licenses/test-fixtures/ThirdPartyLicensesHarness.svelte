@@ -3,7 +3,6 @@
 	import { FormatIcu } from '@tolgee/format-icu';
 	import en from '../../../../i18n/en.json';
 	import type { CatalogueEntry } from '#lib/licenses/catalogue.js';
-	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
 	import ThirdPartyLicenses from '../third-party-licenses.svelte';
 
 	let { entries }: { entries: CatalogueEntry[] | null } = $props();
@@ -11,7 +10,5 @@
 </script>
 
 <TolgeeProvider {tolgee}>
-	<Tooltip.Provider>
-		<ThirdPartyLicenses {entries} />
-	</Tooltip.Provider>
+	<ThirdPartyLicenses {entries} />
 </TolgeeProvider>
