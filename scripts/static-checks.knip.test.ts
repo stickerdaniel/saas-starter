@@ -869,7 +869,7 @@ describe('Windows lifecycle workflow coverage', () => {
 			expect(outcome.status, outcome.output).toBe(0);
 			expect(outcome.output).toBe('');
 			expect(outcome.values).toEqual({
-				label: 'ubicloud-standard-2',
+				label: 'ubuntu-latest',
 				run_tests: 'false'
 			});
 		}

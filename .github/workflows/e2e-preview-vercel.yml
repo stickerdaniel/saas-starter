@@ -20,7 +20,7 @@ jobs:
     # Only terminal verdicts may carry the required "E2E Tests" name, or this
     # job's success would satisfy the check before the browser tests finish.
     name: Prepare preview E2E
-    runs-on: ubicloud-standard-2
+    runs-on: ubuntu-latest
     permissions:
       statuses: write
       contents: read
@@ -108,7 +108,7 @@ jobs:
   # merging on this SHA.
   e2e-deploy-failed:
     name: E2E Deploy Failed Status
-    runs-on: ubicloud-standard-2
+    runs-on: ubuntu-latest
     permissions:
       statuses: write
     # deployment_status also fires for pending/in_progress/queued, so gate on
