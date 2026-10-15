@@ -98,7 +98,7 @@
 					{#if impersonation.viewedUser}
 						<T keyName="app.investigation_bar.viewing_as" />
 						<span class="font-medium">{impersonation.viewedUser.name}</span>
-						<span class="text-muted-foreground">({impersonation.viewedUser.email})</span>
+						({impersonation.viewedUser.email})
 					{/if}
 				</span>
 				<!-- On phones the button takes its own line, indented to the text start
