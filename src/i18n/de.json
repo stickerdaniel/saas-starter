@@ -517,7 +517,7 @@
 			"manage_before": "Deine Passkeys verwaltest du in den",
 			"manage_link": "Einstellungen",
 			"manage_after": ".",
-			"failed": "Die Einrichtung konnte nicht abgeschlossen werden. Versuche es erneut oder wähle „Nicht jetzt“.",
+			"failed": "Die Einrichtung konnte nicht abgeschlossen werden. Versuche es erneut oder richte ihn später in den Einstellungen ein.",
 			"loading": "Alles wird vorbereitet…"
 		}
 	},

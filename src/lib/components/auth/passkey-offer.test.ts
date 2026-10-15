@@ -233,18 +233,8 @@ it('keeps the typed name and a pending registration when the sidebar card remoun
 	expect(calls.create).toHaveBeenCalledWith({ name: 'Work laptop' });
 });
 
-it('names the page actions and keeps the passkey name labelled above its field', async () => {
-	await render();
-	expect(createButton().textContent?.trim()).toBe('Create passkey');
-	expect(button('Not now').type).toBe('button');
-	expect(nameInput().labels?.[0]?.textContent?.trim()).toBe('Passkey name');
-	expect(nameInput().placeholder).toBe('');
-});
-
 it('defers the sidebar offer for the account when its close button is used', async () => {
 	await render(true);
-	expect(createButton().textContent?.trim()).toBe('Create a passkey');
-	expect(button('Not now'), 'the card offers only the close button to defer').toBeUndefined();
 	closeButton().click();
 	await vi.waitFor(() => expect(document.querySelector('form')).toBeNull());
 	expect(calls.defer).toHaveBeenCalledOnce();

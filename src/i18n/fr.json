@@ -517,7 +517,7 @@
 			"manage_before": "Tu peux gérer tes clés d’accès dans les",
 			"manage_link": "paramètres",
 			"manage_after": ".",
-			"failed": "Nous n’avons pas pu terminer la configuration de ta clé d’accès. Réessaie ou choisis « Pas maintenant ».",
+			"failed": "Nous n’avons pas pu terminer la configuration de ta clé d’accès. Réessaie, ou configure-la plus tard dans les paramètres.",
 			"loading": "Préparation en cours…"
 		}
 	},

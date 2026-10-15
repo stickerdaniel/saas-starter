@@ -517,7 +517,7 @@
 			"manage_before": "Puedes gestionar tus claves de acceso en",
 			"manage_link": "Configuración",
 			"manage_after": ".",
-			"failed": "No hemos podido completar la configuración de tu clave de acceso. Inténtalo de nuevo o elige «Ahora no».",
+			"failed": "No hemos podido completar la configuración de tu clave de acceso. Inténtalo de nuevo o configúrala más tarde en Configuración.",
 			"loading": "Preparándolo todo…"
 		}
 	},

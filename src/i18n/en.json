@@ -517,7 +517,7 @@
 			"manage_before": "You can manage passkeys in",
 			"manage_link": "Settings",
 			"manage_after": ".",
-			"failed": "We couldn’t finish setting up your passkey. Try again or choose “Not now.”",
+			"failed": "We couldn’t finish setting up your passkey. Try again, or set one up later in Settings.",
 			"loading": "Getting things ready…"
 		}
 	},
