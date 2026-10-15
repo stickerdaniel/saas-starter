@@ -27,7 +27,8 @@ export function createColumns(
 	return [
 		{
 			accessorKey: 'timestamp',
-			size: 170,
+			// Fits the widest time, 10/30/2044, 10:44:44 AM, in Outfit, system-ui and Inter.
+			size: 188,
 			minSize: 150,
 			enableSorting: true,
 			header: ({ column }) =>
