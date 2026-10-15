@@ -16,7 +16,7 @@ concurrency:
 jobs:
   runner:
     name: Select lifecycle runner
-    runs-on: ubicloud-standard-2
+    runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
       label: ${{ steps.runner.outputs.label }}
@@ -36,7 +36,7 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           CURRENT_SHA: ${{ github.sha }}
         run: |
-          # Workflow-only changes run their tests on Ubicloud. Every source or test dependency
+          # Workflow-only changes run their tests on Linux. Every source or test dependency
           # whose behavior differs on Windows runs natively on Windows.
           runner_pattern='^(package\.json|bun\.lock|tsconfig\.json|README\.md|wrangler\.toml|packages/create-saas-starter/.*|src/lib/config/(legal|site)\.ts|src/lib/content/legal-metadata\.ts|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|template-setup(\.integration\.test|\.test)?\.ts|__fixtures__/template-setup/.*|git-context(\.test)?\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1)))$'
           test_pattern='^(package\.json|bun\.lock|tsconfig\.json|README\.md|wrangler\.toml|packages/create-saas-starter/.*|src/lib/config/(legal|site)\.ts|src/lib/content/legal-metadata\.ts|knowledge-policy\.config\.ts|eslint/control-character-policy\.js|src/lib/i18n/language-codes\.generated\.js|scripts/(dev-cloud(\.test)?\.ts|template-setup(\.integration\.test|\.test)?\.ts|__fixtures__/template-setup/.*|git-context(\.test)?\.ts|knowledge-policy/.*|english-policy/.*|static-checks(\.test|\.knip\.test)?\.ts|terminal-output\.ts|test-executable\.ts|__fixtures__/static-checks/.*|windows-job(\.ts|-runner\.ps1))|\.github/workflows/windows-process-lifecycle\.yml)$'
@@ -83,7 +83,7 @@ jobs:
                   elif any(.[]; valid_entry | not) then error("invalid file entry")
                   else .
                   end
-                | "label=\(if any(.[]; path_matches($runner_pattern)) then "windows-latest" else "ubicloud-standard-2" end)\nrun_tests=\(any(.[]; path_matches($test_pattern)))"
+                | "label=\(if any(.[]; path_matches($runner_pattern)) then "windows-latest" else "ubuntu-latest" end)\nrun_tests=\(any(.[]; path_matches($test_pattern)))"
               ' <<< "$files_json")
             selection_status=$?
             set -e
@@ -116,7 +116,7 @@ jobs:
           if [[ $runner_status -eq 0 ]]; then
             echo 'label=windows-latest' >> "$GITHUB_OUTPUT"
           else
-            echo 'label=ubicloud-standard-2' >> "$GITHUB_OUTPUT"
+            echo 'label=ubuntu-latest' >> "$GITHUB_OUTPUT"
           fi
           if [[ $test_status -eq 0 ]]; then
             echo 'run_tests=true' >> "$GITHUB_OUTPUT"

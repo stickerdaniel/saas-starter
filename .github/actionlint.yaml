@@ -1,4 +1,0 @@
-self-hosted-runner:
-  # Ubicloud managed runners used by all workflows in this repo
-  labels:
-    - ubicloud-standard-2

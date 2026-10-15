@@ -22,7 +22,7 @@ jobs:
   # Report the required E2E status for production builds (no preview alias) on PRs
   e2e-skipped:
     name: E2E Skipped Status
-    runs-on: ubicloud-standard-2
+    runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions:
       statuses: write
@@ -46,7 +46,7 @@ jobs:
   # merging on this SHA.
   e2e-build-failed:
     name: E2E Build Failed Status
-    runs-on: ubicloud-standard-2
+    runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions:
       statuses: write
@@ -88,7 +88,7 @@ jobs:
     # Only terminal verdicts may carry the required "E2E Tests" name, or this
     # job's success would satisfy the check before the browser tests finish.
     name: Prepare preview E2E
-    runs-on: ubicloud-standard-2
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
       statuses: write

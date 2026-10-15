@@ -18,7 +18,7 @@ concurrency:
 jobs:
   check:
     name: PR Title
-    runs-on: ubicloud-standard-2
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout the trusted workflow revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

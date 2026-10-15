@@ -36,7 +36,7 @@ jobs:
     name: Fork Preview E2E
     # Forks only. Same-repo PRs keep CF Workers Builds + e2e-preview-cf.yml.
     if: github.event.pull_request.head.repo.full_name != github.repository
-    runs-on: ubicloud-standard-2
+    runs-on: ubuntu-latest
     environment: fork-preview
     permissions:
       contents: read
