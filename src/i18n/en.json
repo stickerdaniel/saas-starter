@@ -500,11 +500,16 @@
 		},
 		"passkey_nudge": {
 			"title": "Make your next sign-in easier",
+			"lead": "Add a passkey to this device.",
 			"inline_title": "Sign in directly next time",
 			"description": "Create a passkey to sign in with your fingerprint, face, or screen lock.",
-			"password_backup": "Your password will still work.",
-			"provider_backup": "You can still sign in with {provider}.",
+			"facts": {
+				"unlock": "Fingerprint, face, or screen lock",
+				"on_device": "Biometric data stays on your device",
+				"password": "Your password still works"
+			},
 			"create": "Create a passkey",
+			"create_short": "Create passkey",
 			"not_now": "Not now",
 			"working": "Please wait…",
 			"continue": "Continue",
@@ -512,7 +517,7 @@
 			"manage_before": "You can manage passkeys in",
 			"manage_link": "Settings",
 			"manage_after": ".",
-			"failed": "We couldn’t finish setting up your passkey. Try again or choose “Not now.”",
+			"failed": "We couldn’t finish setting up your passkey. Try again, or set one up later in Settings.",
 			"loading": "Getting things ready…"
 		}
 	},

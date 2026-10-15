@@ -500,11 +500,16 @@
 		},
 		"passkey_nudge": {
 			"title": "Connecte-toi plus facilement la prochaine fois",
+			"lead": "Ajoute une clé d’accès à cet appareil.",
 			"inline_title": "Connecte-toi directement la prochaine fois",
 			"description": "Crée une clé d’accès pour te connecter avec ton empreinte, ton visage ou le verrouillage de ton écran.",
-			"password_backup": "Ton mot de passe fonctionnera toujours.",
-			"provider_backup": "Tu peux toujours te connecter avec {provider}.",
+			"facts": {
+				"unlock": "Empreinte, visage ou verrouillage de l’écran",
+				"on_device": "Tes données biométriques restent sur ton appareil",
+				"password": "Ton mot de passe fonctionne toujours"
+			},
 			"create": "Créer une clé d’accès",
+			"create_short": "Créer une clé d’accès",
 			"not_now": "Pas maintenant",
 			"working": "Un instant…",
 			"continue": "Continuer",
@@ -512,7 +517,7 @@
 			"manage_before": "Tu peux gérer tes clés d’accès dans les",
 			"manage_link": "paramètres",
 			"manage_after": ".",
-			"failed": "Nous n’avons pas pu terminer la configuration de ta clé d’accès. Réessaie ou choisis « Pas maintenant ».",
+			"failed": "Nous n’avons pas pu terminer la configuration de ta clé d’accès. Réessaie, ou configure-la plus tard dans les paramètres.",
 			"loading": "Préparation en cours…"
 		}
 	},
