@@ -9,9 +9,9 @@ const FORMAL = {
 	// Capitalized Sie/Ihr/Ihnen. A sentence that means "they" is reworded too,
 	// so the formal form never has to be told apart from it.
 	de: /(?<!\p{L})(Sie|Ihr|Ihre|Ihrem|Ihren|Ihrer|Ihres|Ihnen)(?!\p{L})/u,
-	// vous/votre/vos/veuillez, but not the noun "rendez-vous".
-	// Imperative forms such as "Cliquez" are not pattern-checked.
-	fr: /(?<!\p{L})(?<!rendez-)(vous|votre|vos|veuillez)(?!\p{L})/iu
+	// vous/votre/vos/veuillez, but not the noun "rendez-vous", and verbs in the
+	// vous form such as "Cliquez", but not chez/assez/nez.
+	fr: /(?<!\p{L})(?<!rendez-)(?!rendez-vous|(?:ch|ass|n)ez(?!\p{L}))(vous|votre|vos|veuillez|\p{L}+ez)(?!\p{L})/iu
 };
 
 function leaves(value: unknown, prefix = ''): Array<[string, string]> {
