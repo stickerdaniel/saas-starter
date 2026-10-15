@@ -12,9 +12,8 @@ const DEFAULT_PAGE_SIZE = 10;
  * or malformed value.
  */
 function parseOffsetCursor(cursor: string | undefined): number {
-	if (!cursor) return 0;
-	const parsed = Number.parseInt(cursor, 10);
-	return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+	// The whole cursor must be digits: parseInt alone reads "2junk" as 2.
+	return cursor && /^\d+$/.test(cursor) ? Number(cursor) : 0;
 }
 
 /**

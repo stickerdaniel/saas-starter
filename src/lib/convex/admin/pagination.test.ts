@@ -54,6 +54,8 @@ describe('sliceOffsetPage', () => {
 		expect(sliceOffsetPage(list, '', 2)).toEqual(firstPage);
 		expect(sliceOffsetPage(list, '-5', 2)).toEqual(firstPage);
 		expect(sliceOffsetPage(list, 'not-a-number', 2)).toEqual(firstPage);
+		expect(sliceOffsetPage(list, '2junk', 2)).toEqual(firstPage);
+		expect(sliceOffsetPage(list, '1.5', 2)).toEqual(firstPage);
 	});
 
 	it('returns an empty done page for empty rows', () => {
