@@ -26,11 +26,15 @@ export const JOURNEY_RAIL_THEME = {
 } as const satisfies RailTheme;
 
 /** The colours of the summary tiles above the rail. */
-export type TileTheme = Record<'border' | 'label', RailRole>;
+export type TileTheme = Record<'fill' | 'rule' | 'label', RailRole>;
 
-/** A zinc border and the rail's muted labels. */
+/**
+ * A muted fill split by rules in the card's own colour, so the tiles read as
+ * one strip cut into columns, and the rail's muted labels.
+ */
 export const JOURNEY_TILE_THEME = {
-	border: { color: '#e4e4e7', darkClass: 'dark_border-zinc-800' }, // border
+	fill: { color: '#f4f4f5', darkClass: 'dark_bg-zinc-800' }, // muted surface, zinc-100
+	rule: { color: '#ffffff', darkClass: 'dark_border-zinc-900' }, // card
 	label: JOURNEY_RAIL_THEME.muted
 } as const satisfies TileTheme;
 

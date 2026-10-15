@@ -778,20 +778,17 @@
 			"footer": "Times in {timeZone}. You're receiving this email because you have new customer notifications enabled."
 		},
 		"rate_limit_alert": {
-			"action": "If this is real traffic, raise the limit in the support rate limiter configuration. If it comes from a single source, it may be abuse.",
-			"description": "{limitName} from signed-out visitors have used {usedPercent}% of their shared limit for at least {minutes} minutes.",
+			"description": "Signed-out visitors share this limit. It has been low for at least {minutes} minutes.",
 			"footer": "You're receiving this email because you have new support ticket notifications enabled. Each limit sends at most one alert every {hours} hours.",
-			"impact": "When it runs out, signed-out visitors see a rate limit error in the support widget.",
-			"label_limit": "Limit:",
-			"label_refill": "Refill:",
-			"label_remaining": "Remaining:",
+			"impact": "At zero the support widget shows signed-out visitors a rate limit error. Raise the limit for real traffic; a single source may be abuse.",
 			"limit_file_preview": "Attachment previews",
 			"limit_file_upload": "File uploads",
 			"limit_thread_create": "New conversations",
 			"preview": "{limitName}: {available} of {capacity} left",
-			"refill": "{ratePerHour} per hour",
-			"remaining": "{available} of {capacity}",
-			"title": "Support rate limit running low"
+			"refill": "Refills {ratePerHour} per hour",
+			"remaining": "of {capacity} left",
+			"title": "Support rate limit running low",
+			"used": "{usedPercent}% used"
 		},
 		"reset_password": {
 			"body": "We received a request to reset your password. Click the button below to set a new password:",

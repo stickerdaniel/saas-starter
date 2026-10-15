@@ -191,18 +191,12 @@ const RENDERERS: RendererCase[] = [
 		copy: (s) => [
 			s.badge.alert,
 			s.rate_limit_alert.title,
-			fill(s.rate_limit_alert.description, {
-				limitName: s.rate_limit_alert.limit_file_upload,
-				usedPercent: 90,
-				minutes: 20
-			}),
-			s.rate_limit_alert.label_limit,
-			s.rate_limit_alert.label_remaining,
-			fill(s.rate_limit_alert.remaining, { available: 1, capacity: 10 }),
-			s.rate_limit_alert.label_refill,
+			fill(s.rate_limit_alert.description, { minutes: 20 }),
+			s.rate_limit_alert.limit_file_upload,
+			fill(s.rate_limit_alert.remaining, { capacity: 10 }),
+			fill(s.rate_limit_alert.used, { usedPercent: 90 }),
 			fill(s.rate_limit_alert.refill, { ratePerHour: 20 }),
 			s.rate_limit_alert.impact,
-			s.rate_limit_alert.action,
 			fill(s.rate_limit_alert.footer, { hours: 6 })
 		],
 		values: []
@@ -280,6 +274,24 @@ describe('Email Template Rendering', () => {
 			);
 		}
 	});
+
+	it.each([
+		{ available: 4, capacity: 30, widths: ['87%', '13%'] },
+		{ available: 0, capacity: 30, widths: ['100%', '0%'] },
+		// A level above capacity, which the sampler never reports, still fits the track.
+		{ available: 40, capacity: 30, widths: ['0%', '100%'] }
+	])(
+		'sizes the support limit meter for $available of $capacity left',
+		({ available, capacity, widths }) => {
+			const { html } = renderSupportRateLimitAlertEmail({ ...rateLimitAlert, available, capacity });
+			const meter = new DOMParser()
+				.parseFromString(html, 'text/html')
+				.querySelector('[data-meter]');
+			const cells = [...(meter?.querySelectorAll('td') ?? [])];
+			expect(cells.map((cell) => cell.getAttribute('width'))).toEqual(widths);
+			expect(cells.map((cell) => cell.style.width)).toEqual(widths);
+		}
+	);
 
 	describe('Email CSS', () => {
 		it('removes custom cursor image declarations', () => {

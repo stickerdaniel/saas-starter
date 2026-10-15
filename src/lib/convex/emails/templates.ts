@@ -400,9 +400,9 @@ function paintRole(role: RailRole, property: string, style: string): string {
 const TILE_VALUE_STYLE = 'margin:0;font-size:18px;line-height:1.25;font-weight:600';
 
 /**
- * The summary tiles as one bordered strip of equal columns split by rules, so
- * every column takes the row's height. The fixed table layout keeps the
- * columns equal and wraps a long word instead of widening its column. An
+ * The summary tiles as one filled strip of equal columns split by card-coloured
+ * rules, so every column takes the row's height. The fixed table layout keeps
+ * the columns equal and wraps a long word instead of widening its column. An
  * unknown tile shows a muted dash, since the coverage notes under the rail
  * give the reason; the plain text keeps the reason.
  */
@@ -410,14 +410,14 @@ function renderTiles({ tiles, theme }: ComposedJourney): { html: string; text: s
 	if (tiles.length === 0) return { html: '', text: '' };
 	const width = `${(100 / tiles.length).toFixed(4)}%`;
 	const cells = tiles.map((tile, index) => {
-		const base = `width:${width};vertical-align:top;padding:12px;overflow-wrap:break-word;word-break:break-word`;
+		const base = `width:${width};vertical-align:top;padding:14px 12px;overflow-wrap:break-word;word-break:break-word`;
 		const cell =
 			index === 0
 				? ` style="${escapeHtml(base)}"`
 				: paintRole(
-						theme.tiles.border,
+						theme.tiles.rule,
 						'border-left-color',
-						`${base};border-left-width:1px;border-left-style:solid`
+						`${base};border-left-width:2px;border-left-style:solid`
 					);
 		const value = tile.unknown
 			? `<p${paintRole(theme.tiles.label, 'color', TILE_VALUE_STYLE)}>–</p>`
@@ -430,9 +430,9 @@ function renderTiles({ tiles, theme }: ComposedJourney): { html: string; text: s
 		].join('');
 	});
 	const strip = paintRole(
-		theme.tiles.border,
-		'border-color',
-		'margin-bottom:24px;table-layout:fixed;border-width:1px;border-style:solid;border-radius:6px;border-collapse:separate;border-spacing:0'
+		theme.tiles.fill,
+		'background-color',
+		'margin-bottom:24px;table-layout:fixed;border-radius:6px;border-collapse:separate;border-spacing:0'
 	);
 	return {
 		html: `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"${strip}><tbody><tr>${cells.join('')}</tr></tbody></table>`,
@@ -542,32 +542,34 @@ export function renderSupportRateLimitAlertEmail(
 ): RenderedEmail {
 	const baseUrl = getBaseUrl();
 	const limitName = getRateLimitAlertLimitName(data.bucket, locale);
-	const usedPercent = Math.round((1 - data.available / data.capacity) * 100);
+	// Clamped so a level outside 0..capacity still draws a meter that fits its track.
+	const usedPercent = Math.min(
+		100,
+		Math.max(0, Math.round((1 - data.available / data.capacity) * 100))
+	);
 	const level = { available: data.available, capacity: data.capacity };
 
 	const texts = {
 		badgeText: t(locale, 'email.badge.alert'),
 		titleText: t(locale, 'email.rate_limit_alert.title'),
 		descriptionText: t(locale, 'email.rate_limit_alert.description', {
-			limitName,
-			usedPercent,
 			minutes: data.lowForMinutes
 		}),
 		previewText: t(locale, 'email.rate_limit_alert.preview', { limitName, ...level }),
-		limitLabel: t(locale, 'email.rate_limit_alert.label_limit'),
 		limitName,
-		remainingLabel: t(locale, 'email.rate_limit_alert.label_remaining'),
+		availableText: String(data.available),
 		remainingText: t(locale, 'email.rate_limit_alert.remaining', level),
-		refillLabel: t(locale, 'email.rate_limit_alert.label_refill'),
+		usedText: t(locale, 'email.rate_limit_alert.used', { usedPercent }),
 		refillText: t(locale, 'email.rate_limit_alert.refill', { ratePerHour: data.ratePerHour }),
 		impactText: t(locale, 'email.rate_limit_alert.impact'),
-		actionText: t(locale, 'email.rate_limit_alert.action'),
 		buttonText: t(locale, 'email.body.view_admin_dashboard'),
 		footerText: t(locale, 'email.rate_limit_alert.footer', { hours: data.cooldownHours })
 	};
 
 	const templateData = {
 		lang: getValidLocale(locale),
+		usedPercent,
+		unusedPercent: 100 - usedPercent,
 		adminDashboardLink: escapeHtml(data.adminDashboardLink),
 		baseUrl: escapeHtml(baseUrl),
 		...Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, escapeHtml(v)]))
