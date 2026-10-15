@@ -61,7 +61,9 @@ export async function submitSignInForm(page: Page, email: string, password: stri
 /** Signs a test user in to a fresh session owned by this page. */
 export async function signInAsTestUser(page: Page, user = readTestCredentials().user) {
 	const { email, password } = user;
-	await page.goto('/signin');
+	// The form's enabled controls are the readiness signal; waiting for `load`
+	// would also wait on the auth panel's image, which sign-in never needs.
+	await page.goto('/signin', { waitUntil: 'commit' });
 	await submitSignInForm(page, email, password);
 	await waitForAuthenticated(page);
 }
