@@ -9,10 +9,10 @@ import type { Linter } from 'eslint';
  * Pass this as `overrideConfig` to keep the application's files, parsers, processors
  * and rules without that program. Tests of type-aware linting itself leave it out.
  *
- * `svelte/require-store-reactive-access` still asks TypeScript for types and can crash
- * on the partial program, so it is off here; `config-coverage.test.ts` covers it typed.
+ * It is `null`, not `false`: typescript-eslint treats `false` as a set project, so with
+ * `CI=true` it infers a single run and hands type-aware Svelte rules a partial program
+ * they crash on.
  */
 export const withoutTypeInformation: Linter.Config = {
-	languageOptions: { parserOptions: { project: false } },
-	rules: { 'svelte/require-store-reactive-access': 'off' }
+	languageOptions: { parserOptions: { project: null } }
 };
