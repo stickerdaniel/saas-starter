@@ -88,6 +88,15 @@ export function classify(subject: string, author: string): { priority: string; t
 	return { priority, type };
 }
 
+/**
+ * Whether a commit is listed in the marker's `excluded` entries. Entries hold
+ * abbreviated SHAs, and git lengthens `%h` as the repository grows, so an entry
+ * matches every commit whose full SHA starts with it.
+ */
+export function isExcluded(fullSha: string, excludedShas: readonly string[]): boolean {
+	return excludedShas.some((sha) => sha.length >= 7 && fullSha.startsWith(sha.toLowerCase()));
+}
+
 function main() {
 	const { values } = parseArgs({
 		args: process.argv.slice(2),
@@ -127,21 +136,24 @@ function main() {
 	}
 	git(['fetch', '--quiet', 'upstream'], true);
 
-	const excluded = new Set(((marker?.excluded as Array<{ sha?: string }>) || []).map((e) => e.sha));
+	const excluded = ((marker?.excluded as Array<{ sha?: string }>) || []).flatMap((e) =>
+		e.sha ? [e.sha] : []
+	);
 
-	// Oldest-first first-parent squash commits since base; %x09 = tab field sep.
+	// Oldest-first first-parent squash commits since base; %x09 = tab field sep. The full
+	// SHA only matches excluded entries; output keeps the short one.
 	const raw = git([
 		'log',
 		'--no-merges',
 		'--first-parent',
 		'--reverse',
-		'--format=%h%x09%an%x09%s',
+		'--format=%h%x09%H%x09%an%x09%s',
 		`${base}..upstream/main`
 	]);
 	const rows = raw ? raw.split('\n') : [];
 
 	const commits = rows.map((line) => {
-		const [sha = '', author = '', subject = ''] = line.split('\t');
+		const [sha = '', fullSha = '', author = '', subject = ''] = line.split('\t');
 		const files = git(['show', '--name-only', '--format=', sha], true).split('\n').filter(Boolean);
 		const { priority, type } = classify(subject, author);
 		return {
@@ -152,7 +164,7 @@ function main() {
 			priority,
 			files: files.length,
 			categories: categoriesFor(files),
-			alreadyExcluded: excluded.has(sha)
+			alreadyExcluded: isExcluded(fullSha, excluded)
 		};
 	});
 
