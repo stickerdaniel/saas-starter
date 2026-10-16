@@ -27,7 +27,7 @@ import {
 	isProtectedRoute,
 	shouldUsePublicAuthSnapshot
 } from '#lib/server/auth-route.js';
-import { loadSentry } from '#lib/monitoring/sentry.js';
+import { loadSentry, loadSentryHandle } from '#lib/monitoring/sentry.js';
 import {
 	FAILED_LINK_PARAM,
 	FAILED_RESET_LINK,
@@ -436,25 +436,14 @@ const handleCacheControl: Handle = async function handleCacheControl({ event, re
  * (see #lib/monitoring/sentry) so it stays out of the server bundle and cold
  * start when PUBLIC_SENTRY_DSN is unset. The DSN is statically replaced at
  * build time, so the unset case reduces this hook to a plain pass-through.
- * The sentryHandle() instance is memoized per server process.
+ * The loaded hook also initializes the server SDK.
  */
-let sentryRequestHandle: Handle | null = null;
-
 const handleSentry: Handle = async function handleSentry({ event, resolve }) {
 	if (!PUBLIC_SENTRY_DSN) {
 		return resolve(event);
 	}
-	if (!sentryRequestHandle) {
-		const sentry = await loadSentry();
-		if (!sentry) {
-			return resolve(event);
-		}
-		// Sentry's declarations name the root `Handle` export SvelteKit 3 moved, so the
-		// instance gets the hook type here instead of an inferred `any`.
-		const created: Handle = sentry.sentryHandle();
-		sentryRequestHandle = created;
-	}
-	return sentryRequestHandle({ event, resolve });
+	const sentryRequestHandle = await loadSentryHandle();
+	return sentryRequestHandle ? sentryRequestHandle({ event, resolve }) : resolve(event);
 };
 
 /**
