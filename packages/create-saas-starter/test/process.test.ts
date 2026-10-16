@@ -1,6 +1,6 @@
 import type { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { chmod, copyFile, mkdir, mkdtemp, readFile, realpath, rm, symlink } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, mkdtemp, readFile, realpath, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -15,12 +15,12 @@ import {
 	waitForChild
 } from '../src/process.js';
 import type { ResolvedOptions } from '../src/prompts.js';
+import { childWork, removeDirectories, settleChildWork } from './child-work.js';
 
 const temporaryDirectories: string[] = [];
 afterEach(async () => {
-	await Promise.all(
-		temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true }))
-	);
+	await settleChildWork();
+	await removeDirectories(temporaryDirectories);
 });
 
 function options(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions {
@@ -132,7 +132,7 @@ describe('process contract', () => {
 		).rejects.toThrow('Bun');
 	});
 
-	it('resolves relative PATH entries against the original CLI cwd', async () => {
+	it('resolves relative PATH entries against the original CLI cwd', async ({ signal }) => {
 		const originalCwd = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-relative-path-'));
 		temporaryDirectories.push(originalCwd);
 		const tools = path.join(originalCwd, 'tools');
@@ -157,14 +157,15 @@ describe('process contract', () => {
 		expect(resolved).toBe(fixtureBun);
 		expect(filteredEnvironment({ PATH: 'tools' }, originalCwd).PATH).toBe(tools);
 		const environment = filteredEnvironment(process.env, originalCwd);
-		const result = await runProcess(
-			{ command: resolved, args: ['-e', 'process.stdout.write(process.cwd())'], env: environment },
-			{
-				cwd: childCwd,
-				env: environment,
-				signal: new AbortController().signal,
-				capture: true
-			}
+		const result = await childWork(signal, () =>
+			runProcess(
+				{
+					command: resolved,
+					args: ['-e', 'process.stdout.write(process.cwd())'],
+					env: environment
+				},
+				{ cwd: childCwd, env: environment, signal, capture: true }
+			)
 		);
 		expect(result).toMatchObject({ code: 0, stdout: await realpath(childCwd) });
 	});
@@ -324,7 +325,7 @@ describe('process contract', () => {
 		expect(run).toHaveBeenCalledOnce();
 	});
 
-	it('uses ignored stdin and the provided filtered environment', async () => {
+	it('uses ignored stdin and the provided filtered environment', async ({ signal }) => {
 		const environment = {
 			...filteredEnvironment({
 				...process.env,
@@ -333,18 +334,20 @@ describe('process contract', () => {
 			}),
 			ONLY_THIS: 'yes'
 		};
-		const result = await runProcess(
-			{
-				command: process.execPath,
-				args: ['-e', 'process.stdout.write(JSON.stringify(process.env))'],
-				env: environment
-			},
-			{
-				env: environment,
-				hostEnvironment: { ...process.env, APP_SECRET: 'wrapper-canary' },
-				signal: new AbortController().signal,
-				capture: true
-			}
+		const result = await childWork(signal, () =>
+			runProcess(
+				{
+					command: process.execPath,
+					args: ['-e', 'process.stdout.write(JSON.stringify(process.env))'],
+					env: environment
+				},
+				{
+					env: environment,
+					hostEnvironment: { ...process.env, APP_SECRET: 'wrapper-canary' },
+					signal,
+					capture: true
+				}
+			)
 		);
 		expect(result.code).toBe(0);
 		expect(result.stderr).toBe('');
@@ -356,7 +359,7 @@ describe('process contract', () => {
 
 	it.runIf(process.platform !== 'win32')(
 		'aborts the complete POSIX process group and returns 130',
-		async () => {
+		async ({ signal }) => {
 			const directory = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-process-'));
 			temporaryDirectories.push(directory);
 			const pidFile = path.join(directory, 'descendant.pid');
@@ -369,9 +372,15 @@ describe('process contract', () => {
 				'setInterval(()=>{},1000)'
 			].join(';');
 			const controller = new AbortController();
-			const running = runProcess(
-				{ command: process.execPath, args: ['-e', script], env: { PATH: process.env.PATH } },
-				{ env: { PATH: process.env.PATH }, signal: controller.signal, capture: true }
+			const running = childWork(signal, () =>
+				runProcess(
+					{ command: process.execPath, args: ['-e', script], env: { PATH: process.env.PATH } },
+					{
+						env: { PATH: process.env.PATH },
+						signal: AbortSignal.any([signal, controller.signal]),
+						capture: true
+					}
+				)
 			);
 			await waitUntil(async () => {
 				try {

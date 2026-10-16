@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
-import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -9,13 +9,13 @@ import { SCAFFOLD_MARKER } from '../src/archive.js';
 import { publishStagedTarget, updateMarker } from '../src/target.js';
 import { runProcess, runSetupAndInstall } from '../src/process.js';
 import { tarGz, validTemplateEntries } from './archive-fixture.js';
+import { cliChildWork, removeDirectories, settleChildWork } from './child-work.js';
 
 const temporaryDirectories: string[] = [];
 afterEach(async () => {
+	await settleChildWork();
 	vi.restoreAllMocks();
-	await Promise.all(
-		temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true }))
-	);
+	await removeDirectories(temporaryDirectories);
 });
 
 function responseFromBuffer(buffer: Buffer): Response {
@@ -49,28 +49,30 @@ function argumentsForProject(extra: string[] = []): string[] {
 	];
 }
 
-async function fixtureIo(): Promise<{
+/** Every run here starts real Bun children, so `cli` binds the run to the test's signal. */
+async function fixtureIo(signal: AbortSignal): Promise<{
 	parent: string;
 	messages: string[];
 	interrupts: EventEmitter;
-	io: CliIo;
+	cli: (args: string[], runtime: Partial<CliRuntime>) => Promise<number>;
 }> {
 	const parent = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-late-abort-'));
 	temporaryDirectories.push(parent);
 	const messages: string[] = [];
 	const interrupts = new EventEmitter();
+	const io: CliIo = {
+		stdout: (message) => messages.push(message),
+		stderr: (message) => messages.push(message),
+		stdin: process.stdin,
+		environment: process.env,
+		cwd: parent,
+		interrupts
+	};
 	return {
 		parent,
 		messages,
 		interrupts,
-		io: {
-			stdout: (message) => messages.push(message),
-			stderr: (message) => messages.push(message),
-			stdin: process.stdin,
-			environment: process.env,
-			cwd: parent,
-			interrupts
-		}
+		cli: (args, runtime) => cliChildWork(signal, interrupts, () => runCli(args, io, runtime))
 	};
 }
 
@@ -94,10 +96,10 @@ describe('Node.js version gate', () => {
 });
 
 describe('CLI lifecycle', () => {
-	it.each(['workflow', 'child'] as const)(
+	it.for(['workflow', 'child'] as const)(
 		'preserves incomplete setup when real %s removal fails',
-		async (target) => {
-			const { parent, messages, io } = await fixtureIo();
+		async (target, { signal }) => {
+			const { parent, messages, cli } = await fixtureIo(signal);
 			const root = path.resolve(import.meta.dirname, '../../..');
 			const fixture = path.join(root, 'scripts/__fixtures__/template-setup');
 			const canonical = [
@@ -187,7 +189,7 @@ describe('CLI lifecycle', () => {
 					return await publishStagedTarget(...input);
 				}
 			};
-			await expect(runCli(argumentsForProject(), io, runtime)).resolves.toBe(1);
+			await expect(cli(argumentsForProject(), runtime)).resolves.toBe(1);
 			expect(faultHit).toBe(true);
 			expect(installs).toBe(0);
 			expect(publications).toBe(0);
@@ -205,8 +207,8 @@ describe('CLI lifecycle', () => {
 		}
 	);
 
-	it('rejects an overlong materialized path before claiming the target', async () => {
-		const { parent, messages, io } = await fixtureIo();
+	it('rejects an overlong materialized path before claiming the target', async ({ signal }) => {
+		const { parent, messages, cli } = await fixtureIo(signal);
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
 			responseFromBuffer(
 				tarGz([
@@ -217,14 +219,16 @@ describe('CLI lifecycle', () => {
 		);
 		const createStagingTarget = vi.fn(async () => 'unused');
 
-		await expect(runCli(argumentsForProject(), io, { createStagingTarget })).resolves.toBe(1);
+		await expect(cli(argumentsForProject(), { createStagingTarget })).resolves.toBe(1);
 		expect(createStagingTarget).not.toHaveBeenCalled();
 		await expect(lstat(path.join(parent, 'project'))).rejects.toMatchObject({ code: 'ENOENT' });
 		expect(messages.join('\n')).toMatch(/Target path is not portable.*archive file/);
 	});
 
-	it('turns an abort after setup completion into preserved incomplete state', async () => {
-		const { messages, interrupts, io } = await fixtureIo();
+	it('turns an abort after setup completion into preserved incomplete state', async ({
+		signal
+	}) => {
+		const { messages, interrupts, cli } = await fixtureIo(signal);
 		let recoveryPath: string | undefined;
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
 			responseFromBuffer(tarGz(validTemplateEntries()))
@@ -240,7 +244,7 @@ describe('CLI lifecycle', () => {
 			}
 		};
 
-		await expect(runCli(argumentsForProject(['--skip-install']), io, runtime)).resolves.toBe(130);
+		await expect(cli(argumentsForProject(['--skip-install']), runtime)).resolves.toBe(130);
 		expect(recoveryPath).toBeDefined();
 		await expect(markerAt(recoveryPath!)).resolves.toMatchObject({
 			state: 'incomplete',
@@ -250,8 +254,10 @@ describe('CLI lifecycle', () => {
 		expect(messages.join('\n')).toContain(`Recovery files were preserved at ${recoveryPath}.`);
 	});
 
-	it('replaces a final ready marker with incomplete state when marker I/O is followed by abort', async () => {
-		const { messages, interrupts, io } = await fixtureIo();
+	it('replaces a final ready marker with incomplete state when marker I/O is followed by abort', async ({
+		signal
+	}) => {
+		const { messages, interrupts, cli } = await fixtureIo(signal);
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
 			responseFromBuffer(tarGz(validTemplateEntries()))
 		);
@@ -273,7 +279,7 @@ describe('CLI lifecycle', () => {
 			}
 		};
 
-		await expect(runCli(argumentsForProject(), io, runtime)).resolves.toBe(130);
+		await expect(cli(argumentsForProject(), runtime)).resolves.toBe(130);
 		expect(recoveryPath).toBeDefined();
 		await expect(markerAt(recoveryPath!)).resolves.toMatchObject({
 			state: 'incomplete',
@@ -283,8 +289,8 @@ describe('CLI lifecycle', () => {
 		expect(messages.join('\n')).toContain(`Recovery files were preserved at ${recoveryPath}.`);
 	});
 
-	it('publishes completed staging work and reports the final target', async () => {
-		const { parent, messages, io } = await fixtureIo();
+	it('publishes completed staging work and reports the final target', async ({ signal }) => {
+		const { parent, messages, cli } = await fixtureIo(signal);
 		const finalTarget = path.join(await realpath(parent), 'project');
 		let staging: string | undefined;
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
@@ -298,7 +304,7 @@ describe('CLI lifecycle', () => {
 			}
 		};
 
-		await expect(runCli(argumentsForProject(['--skip-install']), io, runtime)).resolves.toBe(0);
+		await expect(cli(argumentsForProject(['--skip-install']), runtime)).resolves.toBe(0);
 		await expect(markerAt(finalTarget)).resolves.toMatchObject({
 			state: 'needs-install',
 			phase: 'complete'
@@ -308,8 +314,8 @@ describe('CLI lifecycle', () => {
 		expect(messages).toContain(`Created Project at ${finalTarget}`);
 	});
 
-	it('warns with the retained staging path when post-commit cleanup fails', async () => {
-		const { parent, messages, io } = await fixtureIo();
+	it('warns with the retained staging path when post-commit cleanup fails', async ({ signal }) => {
+		const { parent, messages, cli } = await fixtureIo(signal);
 		const finalTarget = path.join(await realpath(parent), 'project');
 		let staging: string | undefined;
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
@@ -321,8 +327,8 @@ describe('CLI lifecycle', () => {
 				await input.onSetupComplete();
 				return 'ready';
 			},
-			publishStagedTarget: async (plan, stagingPath, signal) =>
-				await publishStagedTarget(plan, stagingPath, signal, {
+			publishStagedTarget: async (plan, stagingPath, publishSignal) =>
+				await publishStagedTarget(plan, stagingPath, publishSignal, {
 					platform: 'win32',
 					cleanup: async () => {
 						throw new Error('cleanup failed');
@@ -330,7 +336,7 @@ describe('CLI lifecycle', () => {
 				})
 		};
 
-		await expect(runCli(argumentsForProject(), io, runtime)).resolves.toBe(0);
+		await expect(cli(argumentsForProject(), runtime)).resolves.toBe(0);
 		await expect(markerAt(finalTarget)).resolves.toMatchObject({
 			state: 'ready',
 			phase: 'complete'
@@ -343,8 +349,8 @@ describe('CLI lifecycle', () => {
 		expect(messages.join('\n')).not.toContain('Recovery files');
 	});
 
-	it('treats an interrupt observed after publication as committed success', async () => {
-		const { parent, messages, interrupts, io } = await fixtureIo();
+	it('treats an interrupt observed after publication as committed success', async ({ signal }) => {
+		const { parent, messages, interrupts, cli } = await fixtureIo(signal);
 		const finalTarget = path.join(await realpath(parent), 'project');
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
 			responseFromBuffer(tarGz(validTemplateEntries()))
@@ -361,7 +367,7 @@ describe('CLI lifecycle', () => {
 			}
 		};
 
-		await expect(runCli(argumentsForProject(), io, runtime)).resolves.toBe(0);
+		await expect(cli(argumentsForProject(), runtime)).resolves.toBe(0);
 		await expect(markerAt(finalTarget)).resolves.toMatchObject({
 			state: 'ready',
 			phase: 'complete'
@@ -370,8 +376,10 @@ describe('CLI lifecycle', () => {
 		expect(messages.join('\n')).not.toContain('Recovery files');
 	});
 
-	it('never executes a project that replaces the final target before publication', async () => {
-		const { parent, messages, io } = await fixtureIo();
+	it('never executes a project that replaces the final target before publication', async ({
+		signal
+	}) => {
+		const { parent, messages, cli } = await fixtureIo(signal);
 		const finalTarget = path.join(await realpath(parent), 'project');
 		const attackMarker = path.join(parent, 'attack-ran');
 		let recoveryPath: string | undefined;
@@ -396,7 +404,7 @@ describe('CLI lifecycle', () => {
 			}
 		};
 
-		await expect(runCli(argumentsForProject(['--skip-install']), io, runtime)).resolves.toBe(1);
+		await expect(cli(argumentsForProject(['--skip-install']), runtime)).resolves.toBe(1);
 		expect(recoveryPath).toBeDefined();
 		await expect(markerAt(recoveryPath!)).resolves.toMatchObject({
 			state: 'incomplete',
