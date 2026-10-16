@@ -145,6 +145,7 @@
 		"@tolgee/cli": "2.20.0",
 		"@types/node": "26.6.4",
 		"@types/subset-font": "2.3.0",
+		"@typescript-eslint/parser": "8.71.1",
 		"@typescript/native": "npm:typescript@7.0.2",
 		"bits-ui": "2.19.3",
 		"clsx": "2.1.1",
