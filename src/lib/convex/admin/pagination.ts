@@ -12,8 +12,11 @@ const DEFAULT_PAGE_SIZE = 10;
  * or malformed value.
  */
 function parseOffsetCursor(cursor: string | undefined): number {
-	// The whole cursor must be digits: parseInt alone reads "2junk" as 2.
-	return cursor && /^\d+$/.test(cursor) ? Number(cursor) : 0;
+	// The whole cursor must be digits: parseInt alone reads "2junk" as 2. A digit
+	// string past the safe integer range loses precision or parses to Infinity,
+	// which would end the list.
+	const offset = cursor && /^\d+$/.test(cursor) ? Number(cursor) : 0;
+	return Number.isSafeInteger(offset) ? offset : 0;
 }
 
 /**
