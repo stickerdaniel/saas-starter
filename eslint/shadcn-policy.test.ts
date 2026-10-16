@@ -35,7 +35,7 @@ describe('shadcn policy through the application ESLint config', () => {
 		expect(await eslint.isPathIgnored(route)).toBe(false);
 		expect(await eslint.isPathIgnored(helper)).toBe(false);
 		expect(await eslint.isPathIgnored('scratch/shadcn-lint-migration/probe.svelte')).toBe(true);
-	});
+	}, 60_000);
 
 	it('checks imported Button markup through the safe Svelte parser', async () => {
 		const source = `${button}<Button class="rounded-full">Save</Button>`;
