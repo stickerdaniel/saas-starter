@@ -47,10 +47,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
 
 /**
- * For a describe block whose tests start the checker in a child Bun. Loading its
- * imports takes about a second idle, and CPU contention multiplies that: a case
- * measured at 1.8s idle took 5.6s beside a whole-project check, past Vitest's 5s
- * default. This matches the file-wide bound in `static-checks.format.test.ts`.
+ * Test budget for a describe block whose tests start the checker in a child Bun.
+ * Loading its imports takes about a second idle, and CPU contention multiplies
+ * that: in a fork, a case measured at 1.8s idle took 5.6s beside a whole-project
+ * check, past Vitest's 5s default. This matches the file-wide budget in
+ * `static-checks.format.test.ts`.
  */
 const CHECKER_SPAWN_TIMEOUT = 30_000;
 
