@@ -62,6 +62,7 @@
 	}: ButtonProps & HTMLAnchorAttributes & { children?: Snippet } = $props();
 </script>
 
+<!-- eslint-disable svelte/no-navigation-without-resolve -- emails link to absolute URLs -->
 <a
 	bind:this={ref}
 	data-slot="button"

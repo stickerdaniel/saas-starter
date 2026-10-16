@@ -61,6 +61,7 @@
 
 		// Keep the query. The URL comes from the current page, so it goes to goto()
 		// verbatim: resolve() would read brackets or slashes in it as route syntax.
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- see above
 		goto(newPath + page.url.search);
 
 		// Persist locale to user profile if authenticated

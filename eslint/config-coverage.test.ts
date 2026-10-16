@@ -57,6 +57,26 @@ describe('Svelte type-aware linting', () => {
 			result.messages.filter((message) => message.ruleId === 'svelte/no-navigation-without-resolve')
 		).toEqual([]);
 	}, 60_000);
+
+	// The plugin gates this rule on the installed SvelteKit major and skips it
+	// silently outside the versions it lists, so only an unresolved link proves
+	// it still runs.
+	it('reports an unresolved link and navigation call', async () => {
+		const [result] = await eslint.lintText(
+			`<script lang="ts">
+				import { goto } from '$app/navigation';
+				void goto('/en/app');
+			</script>
+			<a href="/en/app">Link</a>`,
+			{ filePath: 'src/routes/+layout.svelte' }
+		);
+		expect(result.messages.filter((message) => message.fatal)).toEqual([]);
+		expect(
+			result.messages
+				.filter((message) => message.ruleId === 'svelte/no-navigation-without-resolve')
+				.map((message) => message.line)
+		).toEqual([3, 5]);
+	}, 60_000);
 });
 
 async function controlCharacterMessages(file: string) {
