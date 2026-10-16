@@ -12,8 +12,14 @@
 		"declarationMap": true
 	},
 	// The base config sets no include/exclude, so these replace the lists SvelteKit 2
-	// generated: the app sources and the Vite config that imports the build scripts.
-	"include": ["src/**/*.js", "src/**/*.ts", "src/**/*.svelte", "vite.config.ts"],
+	// generated: the app sources and the Vite/Vitest configs that import tooling.
+	"include": [
+		"src/**/*.js",
+		"src/**/*.ts",
+		"src/**/*.svelte",
+		"vite.config.ts",
+		"vitest.tooling.config.ts"
+	],
 	"exclude": [
 		"node_modules/**",
 		"references/**",
