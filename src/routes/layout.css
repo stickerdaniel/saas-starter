@@ -643,6 +643,23 @@
 	view-transition-name: auth-card;
 }
 
+/* For a card whose right half is full-bleed artwork, paired with ring-0: the
+   hairline ring frames only the left half, because around the artwork it reads
+   as a seam. A box-shadow cannot stop partway, so the ring colour moves into a
+   1px padding, painted by a layer that ends at the column split and still
+   follows the rounded corners. The content is pulled back over the padding, so
+   the artwork meets the card's edge and shadow. */
+@utility frame-left-half {
+	padding: 1px;
+	background:
+		linear-gradient(var(--card) 0 0) content-box,
+		linear-gradient(to right, var(--tw-ring-color) 50%, transparent 50%);
+
+	& > * {
+		margin: -1px;
+	}
+}
+
 /* Fades a scrolling compact composer's text 20px at the top and bottom edges. */
 @utility composer-scroll-mask {
 	mask-image: linear-gradient(
