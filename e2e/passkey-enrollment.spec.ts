@@ -160,7 +160,6 @@ test('keeps the OAuth offer in the sidebar across the mobile breakpoint', async 
 		await page.setViewportSize({ width: 390, height: 844 });
 		await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click();
 		await expect(name).toBeVisible();
-		// The card's close button carries the "Not now" name, so closing it defers the offer.
 		await page.getByRole('button', { name: 'Not now', exact: true }).click();
 		await expect(name).toHaveCount(0);
 	} finally {
