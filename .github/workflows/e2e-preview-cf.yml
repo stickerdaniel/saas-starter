@@ -18,6 +18,14 @@ on:
   check_run:
     types: [completed]
 
+# Each Workers build recreates its branch's Convex preview (`--preview-create`),
+# deleting the backend an older run of that branch is still testing. A newer
+# build of the branch therefore cancels that run. Every other event, including
+# check runs from other apps, gets a group of its own and cancels nothing.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.check_run.app.slug == 'cloudflare-workers-and-pages' && github.event.check_run.check_suite.head_branch || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   # Report the required E2E status for production builds (no preview alias) on PRs
   e2e-skipped:
@@ -267,7 +275,8 @@ jobs:
   aggregate:
     name: Complete preview verdict
     needs: [prepare, exclusive, public]
-    if: always() && needs.prepare.result != 'skipped'
+    # A cancelled run tested a superseded build and must not publish a verdict.
+    if: ${{ !cancelled() && needs.prepare.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
