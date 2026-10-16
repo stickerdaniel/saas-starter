@@ -80,9 +80,6 @@ function button(name: string) {
 function createButton() {
 	return document.querySelector<HTMLButtonElement>('form button[type=submit]')!;
 }
-function closeButton() {
-	return document.querySelector<HTMLButtonElement>('button[aria-label="Not now"]')!;
-}
 function nameInput() {
 	return document.querySelector<HTMLInputElement>('input')!;
 }
@@ -233,9 +230,9 @@ it('keeps the typed name and a pending registration when the sidebar card remoun
 	expect(calls.create).toHaveBeenCalledWith({ name: 'Work laptop' });
 });
 
-it('defers the sidebar offer for the account when its close button is used', async () => {
+it('defers the sidebar offer for the account when Not now is chosen', async () => {
 	await render(true);
-	closeButton().click();
+	button('Not now').click();
 	await vi.waitFor(() => expect(document.querySelector('form')).toBeNull());
 	expect(calls.defer).toHaveBeenCalledOnce();
 	expect(Number(localStorage.getItem('auth:passkey-nudge:deferred:user-a'))).toBeGreaterThan(
@@ -244,15 +241,15 @@ it('defers the sidebar offer for the account when its close button is used', asy
 	expect(calls.create).not.toHaveBeenCalled();
 });
 
-it('ignores the sidebar close button while a registration is pending', async () => {
+it('ignores Not now in the sidebar while a registration is pending', async () => {
 	let finish!: (value: unknown) => void;
 	calls.create.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
 	await render(true);
 	createButton().click();
 	await vi.waitFor(() => expect(calls.create).toHaveBeenCalledOnce());
 	await tick();
-	expect(closeButton().disabled).toBe(true);
-	closeButton().click();
+	expect(button('Not now').disabled).toBe(true);
+	button('Not now').click();
 	await tick();
 	expect(calls.defer).not.toHaveBeenCalled();
 	finish({ data: { id: 'registered-passkey' }, error: null });

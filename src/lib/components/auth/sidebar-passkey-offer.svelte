@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { T, getTranslate } from '@tolgee/svelte';
 	import FingerprintIcon from '@lucide/svelte/icons/fingerprint-pattern';
-	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
@@ -26,19 +25,6 @@
 		<Card.Title id="passkey-offer-{id}-title"
 			><T keyName="auth.passkey_nudge.inline_title" /></Card.Title
 		>
-		<Card.Action>
-			<!-- Closing defers the offer like "Not now" on the setup page, for this account. -->
-			<Button
-				type="button"
-				variant="ghost-muted"
-				size="icon-xs"
-				aria-label={$t('auth.passkey_nudge.not_now')}
-				disabled={offer.busy}
-				onclick={() => offer.skip()}
-			>
-				<XIcon class="size-4" />
-			</Button>
-		</Card.Action>
 		<Card.Description>
 			<T keyName="auth.passkey_nudge.description" />
 		</Card.Description>
@@ -64,6 +50,18 @@
 			<Button type="submit" size="sm" class="w-full" disabled={offer.busy}>
 				<FingerprintIcon data-icon="inline-start" />
 				<T keyName={offer.busy ? 'auth.passkey_nudge.working' : 'auth.passkey_nudge.create'} />
+			</Button>
+			<!-- Declining stays a labelled choice: a close X would let the offer read as an ad to
+			     dismiss. It defers the offer for this account like "Not now" on the setup page. -->
+			<Button
+				type="button"
+				size="sm"
+				variant="ghost"
+				class="w-full"
+				disabled={offer.busy}
+				onclick={() => offer.skip()}
+			>
+				<T keyName="auth.passkey_nudge.not_now" />
 			</Button>
 		</form>
 	</Card.Content>
