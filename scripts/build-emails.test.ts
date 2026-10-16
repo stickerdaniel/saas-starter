@@ -3,7 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { loadConfigFromFile } from 'vite';
+import { loadConfigFromFile, normalizePath } from 'vite';
 import { describe, expect, it } from 'vitest';
 import { createViteServer } from './build-emails';
 
@@ -34,8 +34,9 @@ describe('email generator Vite server', () => {
 			loadConfigFromFile({ command: 'serve', mode: 'development' })
 		]);
 		try {
-			// Vite defaults an unset cacheDir to node_modules/.vite.
-			const appCacheDir = resolve(app?.config.cacheDir ?? 'node_modules/.vite');
+			// Vite defaults an unset cacheDir to node_modules/.vite and resolves it with
+			// forward slashes, also on Windows.
+			const appCacheDir = normalizePath(resolve(app?.config.cacheDir ?? 'node_modules/.vite'));
 			expect(vite.config.cacheDir).not.toBe(appCacheDir);
 		} finally {
 			await vite.close();
