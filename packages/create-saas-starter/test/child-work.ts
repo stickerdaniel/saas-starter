@@ -26,9 +26,12 @@ export function cliChildWork(
 	start: () => Promise<number>
 ): Promise<number> {
 	return childWork(signal, () => {
-		// runCli installs its SIGINT listener before its first await, so it hears this abort.
+		// runCli installs its SIGINT listener before its first await, so it hears this abort,
+		// including one that landed while `start` ran.
 		const running = start();
-		signal.addEventListener('abort', () => interrupts.emit('SIGINT'), { once: true });
+		const interrupt = () => interrupts.emit('SIGINT');
+		if (signal.aborted) interrupt();
+		else signal.addEventListener('abort', interrupt, { once: true });
 		return running;
 	});
 }
