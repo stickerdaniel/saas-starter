@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Readable, Writable } from 'node:stream';
@@ -15,6 +15,7 @@ import {
 } from '../src/prompts.js';
 import { inspectTarget } from '../src/target.js';
 import { tarGz, validTemplateEntries } from './archive-fixture.js';
+import { childWork, interruptOnAbort, removeDirectories, settleChildWork } from './child-work.js';
 
 class PromptInput extends Readable {
 	isTTY = true;
@@ -66,10 +67,9 @@ function realPromptAdapter(
 
 const temporaryDirectories: string[] = [];
 afterEach(async () => {
+	await settleChildWork();
 	vi.restoreAllMocks();
-	await Promise.all(
-		temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true }))
-	);
+	await removeDirectories(temporaryDirectories);
 });
 
 describe('parseCliOptions', () => {
@@ -335,7 +335,7 @@ describe('interrupt handling', () => {
 		expect(await readdir(parent)).toEqual([]);
 	});
 
-	it('cancels a waiting real trust prompt without claiming the target', async () => {
+	it('cancels a waiting real trust prompt without claiming the target', async ({ signal }) => {
 		const parent = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-confirm-sigint-'));
 		temporaryDirectories.push(parent);
 		const input = new PromptInput();
@@ -345,34 +345,37 @@ describe('interrupt handling', () => {
 		const archive = tarGz(validTemplateEntries());
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(responseFromBuffer(archive));
 		const interrupts = new EventEmitter();
+		interruptOnAbort(signal, interrupts);
 		const baselineListeners = process.listenerCount('SIGINT');
-		const running = runCli(
-			[
-				'project',
-				'--slug',
-				'project',
-				'--repo',
-				'owner/project',
-				'--brand',
-				'Project',
-				'--company',
-				'Company',
-				'--operator',
-				'Operator',
-				'--address',
-				'Address',
-				'--email',
-				'contact@example.test'
-			],
-			{
-				stdout: () => {},
-				stderr: () => {},
-				stdin: input as unknown as NodeJS.ReadStream,
-				environment: { ...process.env, CI: 'false' },
-				cwd: parent,
-				prompts: realPromptAdapter(input, output, { confirm: announceStarted }),
-				interrupts
-			}
+		const running = childWork(
+			runCli(
+				[
+					'project',
+					'--slug',
+					'project',
+					'--repo',
+					'owner/project',
+					'--brand',
+					'Project',
+					'--company',
+					'Company',
+					'--operator',
+					'Operator',
+					'--address',
+					'Address',
+					'--email',
+					'contact@example.test'
+				],
+				{
+					stdout: () => {},
+					stderr: () => {},
+					stdin: input as unknown as NodeJS.ReadStream,
+					environment: { ...process.env, CI: 'false' },
+					cwd: parent,
+					prompts: realPromptAdapter(input, output, { confirm: announceStarted }),
+					interrupts
+				}
+			)
 		);
 		await started;
 		expect(input.listenerCount('keypress')).toBeGreaterThan(0);
@@ -387,7 +390,9 @@ describe('interrupt handling', () => {
 		expect(await readdir(parent)).toEqual([]);
 	});
 
-	it('returns 130 and leaves no target when repeated SIGINT arrives before claim', async () => {
+	it('returns 130 and leaves no target when repeated SIGINT arrives before claim', async ({
+		signal
+	}) => {
 		const parent = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-pre-claim-sigint-'));
 		temporaryDirectories.push(parent);
 		const messages: string[] = [];
@@ -399,14 +404,17 @@ describe('interrupt handling', () => {
 			return responseFromBuffer(archive);
 		});
 
-		const code = await runCli(['project', '--repo', 'owner/project', '--yes', '--trust-template'], {
-			stdout: (message) => messages.push(message),
-			stderr: (message) => messages.push(message),
-			stdin: process.stdin,
-			environment: process.env,
-			cwd: parent,
-			interrupts
-		});
+		interruptOnAbort(signal, interrupts);
+		const code = await childWork(
+			runCli(['project', '--repo', 'owner/project', '--yes', '--trust-template'], {
+				stdout: (message) => messages.push(message),
+				stderr: (message) => messages.push(message),
+				stdin: process.stdin,
+				environment: process.env,
+				cwd: parent,
+				interrupts
+			})
+		);
 
 		expect(code).toBe(130);
 		expect(fetchSpy).toHaveBeenCalledOnce();
