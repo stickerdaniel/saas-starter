@@ -8,12 +8,16 @@
  *
  * Prerendering without `paths.origin` renders absolute URLs against SvelteKit's
  * placeholder origin, which would ship to visitors and crawlers as broken links.
+ *
+ * A client stylesheet that reaches the inline threshold is linked instead of
+ * inlined, silently. That only costs first paint, so it warns without failing.
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { SUPPORTED_LANGUAGE_CODES } from '../src/lib/i18n/language-codes.generated.js';
 import { PUBLIC_MARKETING_ROUTES } from '../src/lib/marketing/public-routes';
+import { INLINE_STYLE_THRESHOLD } from './inline-styles';
 
 export function findPrerenderOriginPlaceholders(outDir: string): string[] {
 	if (!fs.existsSync(outDir)) return [];
@@ -48,6 +52,25 @@ export function findPrerenderedNegotiatedMarketingPages(outDir: string): string[
 	return matches;
 }
 
+/** Client stylesheets SvelteKit links instead of inlining, with their length. */
+export function findLinkedStylesheets(
+	clientDir: string,
+	threshold: number
+): Array<{ file: string; length: number }> {
+	if (!fs.existsSync(clientDir)) return [];
+	return (
+		fs
+			.readdirSync(clientDir, { recursive: true, encoding: 'utf-8' })
+			.filter((file) => file.endsWith('.css'))
+			// SvelteKit compares the string length, not the byte size.
+			.map((file) => ({
+				file,
+				length: fs.readFileSync(path.join(clientDir, file), 'utf-8').length
+			}))
+			.filter(({ length }) => length >= threshold)
+	);
+}
+
 if (import.meta.main) {
 	const negotiatedPrerenderFiles = findPrerenderedNegotiatedMarketingPages(
 		path.resolve('.svelte-kit/output/prerendered/pages')
@@ -66,6 +89,14 @@ if (import.meta.main) {
 			`[check-build-output] Prerendered output contains the SvelteKit placeholder origin:\n${placeholderFiles.join('\n')}`
 		);
 		process.exit(1);
+	}
+	for (const { file, length } of findLinkedStylesheets(
+		path.resolve('.svelte-kit/output/client'),
+		INLINE_STYLE_THRESHOLD
+	)) {
+		console.warn(
+			`[check-build-output] ${file} has ${length} characters, at or above the inline threshold of ${INLINE_STYLE_THRESHOLD} in scripts/inline-styles.ts, so pages link it instead of inlining it. Shrink the stylesheet or raise the threshold.`
+		);
 	}
 	console.log('[check-build-output] Prerendered output passed.');
 }

@@ -19,6 +19,7 @@ import { prepareEmbeddedEnvManifest } from './scripts/strip-varlock-secrets';
 import { thirdPartyLicenses } from './scripts/third-party-licenses/index';
 import { marketingFonts } from './scripts/marketing-fonts';
 import { kitGeneratedHmr } from './scripts/kit-generated-hmr';
+import { INLINE_STYLE_THRESHOLD } from './scripts/inline-styles';
 import { sentrySvelteKit } from '@sentry/sveltekit/vite';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
@@ -403,8 +404,7 @@ export default defineConfig(async ({ mode }) => {
 				// Remote functions require the async compiler mode.
 				experimental: { async: true }
 			},
-			// Prioritize first paint over stylesheet caching on full document loads.
-			inlineStyleThreshold: 256 * 1024,
+			inlineStyleThreshold: INLINE_STYLE_THRESHOLD,
 			// object-src/base-uri stay enforced (embedded as <meta> on prerendered
 			// pages, as a header on SSR pages). script-src runs report-only and is
 			// wired to Sentry only when PUBLIC_SENTRY_DSN is set at build time.

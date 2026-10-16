@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
+	findLinkedStylesheets,
 	findPrerenderedNegotiatedMarketingPages,
 	findPrerenderOriginPlaceholders
 } from './check-build-output';
@@ -46,6 +47,25 @@ describe('findPrerenderedNegotiatedMarketingPages', () => {
 			]);
 		} finally {
 			fs.rmSync(outDir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe('findLinkedStylesheets', () => {
+	it('reports stylesheets that reach the inline threshold', () => {
+		const clientDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linked-styles-'));
+		try {
+			const assets = path.join(clientDir, '_app/immutable/assets');
+			fs.mkdirSync(assets, { recursive: true });
+			fs.writeFileSync(path.join(assets, 'shared.css'), 'a'.repeat(10));
+			fs.writeFileSync(path.join(assets, 'route.css'), 'a'.repeat(9));
+			fs.writeFileSync(path.join(assets, 'chunk.js'), 'a'.repeat(20));
+
+			expect(findLinkedStylesheets(clientDir, 10)).toEqual([
+				{ file: path.join('_app/immutable/assets', 'shared.css'), length: 10 }
+			]);
+		} finally {
+			fs.rmSync(clientDir, { recursive: true, force: true });
 		}
 	});
 });
