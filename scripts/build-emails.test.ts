@@ -2,6 +2,8 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { loadConfigFromFile, normalizePath } from 'vite';
 import { describe, expect, it } from 'vitest';
 import { createViteServer } from './build-emails';
 
@@ -17,6 +19,25 @@ describe('email generator Vite server', () => {
 			// readiness say nothing once a real watcher has already been closed.
 			expect(vite.config.server.watch).toBeNull();
 			expect(vite.watcher).not.toHaveProperty('closed');
+		} finally {
+			await vite.close();
+		}
+	});
+
+	// Its config hashes differently from the app's, so a shared cache would have its
+	// optimizer delete the deps a running dev server is still serving. The app config is
+	// only loaded, not resolved: resolving runs Kit's configResolved hook, which empties
+	// a running dev server's app manifest.
+	it('keeps its dependency cache apart from the dev server', { timeout: 60_000 }, async () => {
+		const [vite, app] = await Promise.all([
+			createViteServer(),
+			loadConfigFromFile({ command: 'serve', mode: 'development' })
+		]);
+		try {
+			// Vite defaults an unset cacheDir to node_modules/.vite and resolves it with
+			// forward slashes, also on Windows.
+			const appCacheDir = normalizePath(resolve(app?.config.cacheDir ?? 'node_modules/.vite'));
+			expect(vite.config.cacheDir).not.toBe(appCacheDir);
 		} finally {
 			await vite.close();
 		}
