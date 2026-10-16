@@ -135,6 +135,67 @@ async function check(page: Page) {
 	);
 }
 
+// The admin pages render the table in unbounded page flow, where no parent height bounds
+// it: only the scroller's own maximum height keeps the rows scrolling under the header.
+async function checkPageFlow(page: Page) {
+	await page.getByRole('button', { name: 'Review 24', exact: true }).waitFor();
+	await page.evaluate(() => document.fonts.ready.then(() => undefined));
+	const measure = () =>
+		page.evaluate(() => {
+			const table = document.querySelector('table');
+			const header = table?.tHead;
+			const firstRow = table?.tBodies[0]?.rows[0];
+			let scroller = table?.parentElement;
+			while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY))
+				scroller = scroller.parentElement;
+			if (!header || !firstRow || !scroller) throw new Error('Table has no vertical scroller');
+			const { top, bottom } = header.getBoundingClientRect();
+			const box = scroller.getBoundingClientRect();
+			return {
+				header: { top, bottom },
+				firstRowTop: firstRow.getBoundingClientRect().top,
+				scroller: { left: box.left, top: box.top, bottom: box.bottom, height: box.height },
+				rowsHeight: scroller.scrollHeight,
+				viewportHeight: window.innerHeight
+			};
+		});
+	const initial = await measure();
+	await page.mouse.move(initial.scroller.left + 100, initial.scroller.top + 100);
+	await page.mouse.wheel(0, 240);
+	await expect
+		.poll(async () => initial.firstRowTop - (await measure()).firstRowTop, {
+			message: 'Scrolling over the table in page flow must bring different rows into view',
+			timeout: operationTimeout
+		})
+		.toBeGreaterThan(150);
+	const scrolled = await measure();
+	console.log('Page flow scroll:', JSON.stringify({ initial, scrolled }));
+	assert(
+		scrolled.header.top >= -tolerance &&
+			scrolled.header.bottom <= scrolled.viewportHeight + tolerance &&
+			Math.abs(scrolled.header.top - initial.header.top) <= tolerance,
+		`In page flow the header must stay in place inside the viewport while rows scroll; give the table scroller its own maximum height: ${JSON.stringify({ initial: initial.header, scrolled: scrolled.header })}`
+	);
+	assert(
+		scrolled.scroller.height < scrolled.viewportHeight &&
+			scrolled.rowsHeight > scrolled.scroller.height + tolerance,
+		`In page flow the table scroller must stay shorter than the viewport and its rows instead of growing with them: ${JSON.stringify({ scroller: scrolled.scroller.height, rows: scrolled.rowsHeight, viewport: scrolled.viewportHeight })}`
+	);
+	const next = page.getByRole('button', { name: 'Go to next page' });
+	const pagination = await next.boundingBox();
+	assert(
+		pagination &&
+			pagination.y >= scrolled.scroller.bottom - tolerance &&
+			pagination.y + pagination.height <= scrolled.viewportHeight + tolerance,
+		'In page flow pagination must sit below the table scroller and inside the viewport'
+	);
+	await next.click();
+	await expect(next).toBeDisabled();
+	console.log(
+		'PASS: page flow keeps the header in view, the scroller bounded and pagination reachable'
+	);
+}
+
 async function deadline<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	try {
@@ -206,10 +267,10 @@ try {
 						},
 						configureServer(vite) {
 							vite.middlewares.use((request, response, next) => {
-								if (request.url !== '/') return next();
+								if (new URL(request.url ?? '/', 'http://fixture').pathname !== '/') return next();
 								response.setHeader('Content-Type', 'text/html');
 								response.end(
-									`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Table scroll check</title></head><body><div id="app"></div><script type="module">import {mount} from '/node_modules/svelte/src/index-client.js';import App from '/src/lib/components/tables/test-fixtures/TableScrollHarness.svelte';import '/src/routes/layout.css';mount(App,{target:document.getElementById('app')});</script></body></html>`
+									`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Table scroll check</title></head><body><div id="app"></div><script type="module">import {mount} from '/node_modules/svelte/src/index-client.js';import App from '/src/lib/components/tables/test-fixtures/TableScrollHarness.svelte';import '/src/routes/layout.css';mount(App,{target:document.getElementById('app'),props:{layout:new URLSearchParams(location.search).get('layout')??'panel'}});</script></body></html>`
 								);
 							});
 						}
@@ -244,6 +305,8 @@ try {
 			page.on('pageerror', (error) => errors.push(error.message));
 			await page.goto(`http://127.0.0.1:${address.port}`);
 			await check(page);
+			await page.goto(`http://127.0.0.1:${address.port}/?layout=page`);
+			await checkPageFlow(page);
 			assert.deepEqual(errors, [], 'The real table fixture must not raise browser errors');
 		})().finally(() => {
 			workFinished = true;

@@ -10,6 +10,10 @@
 	import ConvexCursorTableShell from '../convex-cursor-table-shell.svelte';
 	import DataTableView from '../data-table-view.svelte';
 
+	// `panel` bounds the shell in a short fixed-height section; `page` uses the wrapper the
+	// admin table pages render, where nothing above the table limits its height.
+	let { layout = 'panel' }: { layout?: 'panel' | 'page' } = $props();
+
 	type Item = { id: string; member: string; email: string; action: string };
 	const tolgee = Tolgee().use(FormatIcu()).init({ language: 'en', staticData: { en } });
 	const data: Item[] = Array.from({ length: 24 }, (_, index) => ({
@@ -41,46 +45,59 @@
 	<Button variant="outline" size="sm">Review {item.id}</Button>
 {/snippet}
 
+{#snippet tableShell()}
+	<ConvexCursorTableShell
+		testIdPrefix="scroll-check"
+		searchValue=""
+		searchPlaceholder="Search members"
+		onSearchChange={() => {}}
+		{pageIndex}
+		pageCount={2}
+		pageSize={24}
+		pageSizeOptions={[24]}
+		showRowsPerPage={false}
+		canPreviousPage={pageIndex > 0}
+		canNextPage={pageIndex === 0}
+		onFirstPage={() => (pageIndex = 0)}
+		onPreviousPage={() => (pageIndex = 0)}
+		onNextPage={() => (pageIndex = 1)}
+		onLastPage={() => {
+			pageIndex = 1;
+		}}
+		onPageSizeChange={() => {}}
+	>
+		{#snippet tableContent()}
+			<DataTableView
+				{table}
+				loading={false}
+				error={undefined}
+				skeletonRows={0}
+				emptyText="No members"
+				loadingText="Loading members"
+				testIdPrefix="scroll-check"
+			/>
+		{/snippet}
+	</ConvexCursorTableShell>
+{/snippet}
+
 <Tooltip.Provider>
 	<TolgeeProvider {tolgee}>
-		<main class="mx-auto max-w-3xl p-6">
-			<h1 id="table-panel-title" class="mb-6 text-xl font-semibold">Table scroll contract</h1>
-			<div class="h-135 overflow-auto" data-testid="page-viewport">
-				<section aria-labelledby="table-panel-title" class="flex h-90 min-w-0 flex-col">
-					<ConvexCursorTableShell
-						testIdPrefix="scroll-check"
-						searchValue=""
-						searchPlaceholder="Search members"
-						onSearchChange={() => {}}
-						{pageIndex}
-						pageCount={2}
-						pageSize={24}
-						pageSizeOptions={[24]}
-						showRowsPerPage={false}
-						canPreviousPage={pageIndex > 0}
-						canNextPage={pageIndex === 0}
-						onFirstPage={() => (pageIndex = 0)}
-						onPreviousPage={() => (pageIndex = 0)}
-						onNextPage={() => (pageIndex = 1)}
-						onLastPage={() => {
-							pageIndex = 1;
-						}}
-						onPageSizeChange={() => {}}
-					>
-						{#snippet tableContent()}
-							<DataTableView
-								{table}
-								loading={false}
-								error={undefined}
-								skeletonRows={0}
-								emptyText="No members"
-								loadingText="Loading members"
-								testIdPrefix="scroll-check"
-							/>
-						{/snippet}
-					</ConvexCursorTableShell>
-				</section>
+		{#if layout === 'page'}
+			<div class="flex flex-col gap-6 px-4 lg:px-6 xl:px-8 2xl:px-16">
+				<div class="flex items-center justify-between">
+					<h1 class="text-2xl font-bold">Table scroll contract</h1>
+				</div>
+				{@render tableShell()}
 			</div>
-		</main>
+		{:else}
+			<main class="mx-auto max-w-3xl p-6">
+				<h1 id="table-panel-title" class="mb-6 text-xl font-semibold">Table scroll contract</h1>
+				<div class="h-135 overflow-auto" data-testid="page-viewport">
+					<section aria-labelledby="table-panel-title" class="flex h-90 min-w-0 flex-col">
+						{@render tableShell()}
+					</section>
+				</div>
+			</main>
+		{/if}
 	</TolgeeProvider>
 </Tooltip.Provider>
