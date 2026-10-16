@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { categoriesFor, classify } from './list-upstream-changes';
+import { categoriesFor, classify, isExcluded } from './list-upstream-changes';
 
 describe('classify', () => {
 	it('tags explicit security signals', () => {
@@ -64,5 +64,21 @@ describe('categoriesFor', () => {
 		expect(cats).toContain('backend');
 		expect(cats).toHaveLength(2);
 		expect(categoriesFor(['src/lib/components/Button.svelte'])).toEqual([]);
+	});
+});
+
+describe('isExcluded', () => {
+	const full = '93b54c246f0e1d2c3b4a5968778695a4b3c2d1e0';
+
+	it('matches entries recorded while git printed shorter or longer SHAs', () => {
+		expect(isExcluded(full, ['93b54c24'])).toBe(true);
+		expect(isExcluded(full, ['93b54c246'])).toBe(true);
+		expect(isExcluded(full, [full.toUpperCase()])).toBe(true);
+	});
+
+	it('ignores other commits and prefixes too short to identify one', () => {
+		expect(isExcluded(full, ['93b54c25'])).toBe(false);
+		expect(isExcluded(full, ['93b54c'])).toBe(false);
+		expect(isExcluded(full, [])).toBe(false);
 	});
 });
