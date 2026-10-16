@@ -1,7 +1,8 @@
 // @vitest-environment node
 
-import { afterEach, expect, it, vi } from 'vitest';
-import { fileURLToPath } from 'node:url';
+import { afterAll, expect, it, vi } from 'vitest';
+import type { RequestEvent } from '@sveltejs/kit';
+import type { HandleServerError } from '@sveltejs/kit/hooks';
 import type * as Sentry from '@sentry/sveltekit';
 type SentryClient = NonNullable<ReturnType<typeof Sentry.getClient>>;
 type SentryTransport = NonNullable<ReturnType<SentryClient['getTransport']>>;
@@ -11,12 +12,16 @@ const { envelopes } = vi.hoisted(() => ({ envelopes: [] as Envelope[] }));
 
 vi.mock('$app/env', () => ({ browser: false }));
 vi.mock('$app/env/public', () => ({ PUBLIC_SENTRY_DSN: 'https://public@example.com/1' }));
+// The server SDK as Cloudflare Workers resolve it: the `workerd` build
+// (@sentry/sveltekit/build/esm/index.workerd.js) exports no `init`.
 vi.mock('@sentry/sveltekit', async (importOriginal) => {
-	const sdk = await importOriginal<typeof Sentry>();
+	const { init: _absentOnWorkers, ...sdk } = await importOriginal<typeof Sentry>();
 	return {
 		...sdk,
-		init: (options: Parameters<typeof sdk.init>[0]) =>
-			sdk.init({
+		initCloudflareSentryHandle: (
+			options: Parameters<typeof sdk.initCloudflareSentryHandle>[0]
+		): ReturnType<typeof sdk.initCloudflareSentryHandle> =>
+			sdk.initCloudflareSentryHandle({
 				...options,
 				// Exercise the real request-data processor without instrumenting the test runner.
 				defaultIntegrations: [sdk.requestDataIntegration(), sdk.contextLinesIntegration()],
@@ -31,56 +36,58 @@ vi.mock('@sentry/sveltekit', async (importOriginal) => {
 	};
 });
 
-import { loadSentry } from './sentry';
+import { loadSentry, loadSentryHandle } from './sentry';
 
-afterEach(async () => {
+afterAll(async () => {
 	await (await loadSentry())?.close();
 });
 
-it('keeps automatic request identity and source context out of emitted events', async () => {
+it('reports a server error without request identity or source context', async () => {
+	const handle = await loadSentryHandle();
 	const sdk = await loadSentry();
+	expect(handle).not.toBeNull();
 	expect(sdk).not.toBeNull();
-	sdk!.withScope((scope) => {
-		scope.setSDKProcessingMetadata({
-			normalizedRequest: {
-				url: 'https://example.com/path?remote-user=private-query&page=2',
-				method: 'GET',
-				headers: {
-					// Sentry redacts `session` values on its own; `theme` exercises the cookie policy.
-					cookie: 'session=private-cookie; theme=private-theme',
-					'x-forwarded-for': '203.0.113.42',
-					'remote-user': 'private-user',
-					'content-type': 'application/json'
-				}
-			},
-			ipAddress: '203.0.113.42'
-		});
-		sdk!.captureMessage('A safe diagnostic');
-		sdk!.captureEvent({
-			exception: {
-				values: [
-					{
-						type: 'Error',
-						value: 'A safe exception',
-						stacktrace: {
-							frames: [{ filename: fileURLToPath(import.meta.url), lineno: 1, colno: 1 }]
-						}
-					}
-				]
+	const handleError = sdk!.handleErrorWithSentry<HandleServerError>();
+
+	const url = 'https://example.com/path?remote-user=private-query&page=2';
+	const event = {
+		request: new Request(url, {
+			headers: {
+				// Sentry redacts `session` values on its own; `theme` exercises the cookie policy.
+				cookie: 'session=private-cookie; theme=private-theme',
+				'x-forwarded-for': '203.0.113.42',
+				'remote-user': 'private-user',
+				'content-type': 'application/json'
 			}
-		});
+		}),
+		url: new URL(url),
+		route: { id: '/path' },
+		locals: {},
+		isSubRequest: false
+	} as unknown as RequestEvent;
+
+	await handle!({
+		event,
+		resolve: async () => {
+			sdk!.getIsolationScope().setSDKProcessingMetadata({ ipAddress: '203.0.113.42' });
+			await handleError({ kind: 'unknown', error: new Error('A safe exception'), event });
+			return new Response('Internal Error', { status: 500 });
+		}
 	});
 	await sdk!.flush();
 
 	const events = envelopes.flatMap(([, items]) =>
-		items.filter(([header]) => header.type === 'event').map(([, payload]) => payload)
+		items
+			.filter(([header]) => header.type === 'event')
+			.map(([, payload]) => payload as Sentry.Event)
 	);
-	expect(events).toHaveLength(2);
-	expect(events[0]).toMatchObject({
-		message: 'A safe diagnostic',
+	expect(events).toHaveLength(1);
+	const [reported] = events;
+	expect(reported).toMatchObject({
+		exception: { values: [{ value: 'A safe exception' }] },
 		request: { method: 'GET', headers: { 'content-type': 'application/json' } }
 	});
-	const serialized = JSON.stringify(events[0]);
+	const serialized = JSON.stringify(reported);
 	for (const sensitive of [
 		'private-query',
 		'private-cookie',
@@ -91,12 +98,11 @@ it('keeps automatic request identity and source context out of emitted events', 
 		expect(serialized).not.toContain(sensitive);
 	}
 	expect(serialized).toContain('page=2');
-	expect(events[0]).not.toHaveProperty('exception');
-	expect(events[1]).toMatchObject({ exception: { values: [{ value: 'A safe exception' }] } });
-	const exception = events[1] as Sentry.Event;
-	const frame = exception.exception?.values?.[0]?.stacktrace?.frames?.[0];
-	expect(frame).toBeDefined();
-	for (const field of ['pre_context', 'context_line', 'post_context']) {
-		expect(frame).not.toHaveProperty(field);
+	const frames = reported!.exception?.values?.[0]?.stacktrace?.frames ?? [];
+	expect(frames.some((frame) => frame.filename?.endsWith('sentry.test.ts'))).toBe(true);
+	for (const frame of frames) {
+		for (const field of ['pre_context', 'context_line', 'post_context']) {
+			expect(frame).not.toHaveProperty(field);
+		}
 	}
 });
