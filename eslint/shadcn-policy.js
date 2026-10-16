@@ -852,7 +852,7 @@ export const restyleOwners = [
 		id: 'O48',
 		files: ['src/lib/components/auth/auth-panel.svelte'],
 		components: {
-			Card: ['overflow-hidden', 'p-0', 'auth-card-transition']
+			Card: ['overflow-hidden', 'p-0', 'md:frame-left-half', 'md:ring-0', 'auth-card-transition']
 		}
 	},
 	{
