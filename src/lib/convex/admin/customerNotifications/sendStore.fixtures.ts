@@ -127,25 +127,24 @@ export function setupSend(
 
 	/**
 	 * The row admission writes for a cancellation at `canceledAt`, measured
-	 * from the first payment. `accessUntil: null` leaves the access end out.
+	 * from the first payment. `accessUntil: null` leaves the access end out;
+	 * `lookbackMs` admits it under another lookback than the current policy.
 	 */
 	function cancellationRow(options: {
 		canceledAt: number;
 		accessUntil?: number | null;
 		signupAt?: number;
 		payment?: Partial<Payment>;
+		lookbackMs?: number;
 	}) {
-		const { canceledAt, signupAt = SIGNUP } = options;
+		const { canceledAt, signupAt = SIGNUP, lookbackMs } = options;
 		const anchor = { ...PAYMENT, ...options.payment };
 		const accessUntil =
 			options.accessUntil === undefined ? canceledAt + 19 * DAY : options.accessUntil;
-		const { episodeKey, request, sendAt } = cancellationEpisode({
-			userId: CUSTOMER,
-			signupAt,
-			anchor,
-			canceledAt,
-			now: canceledAt
-		});
+		const { episodeKey, request, sendAt } = cancellationEpisode(
+			{ userId: CUSTOMER, signupAt, anchor, canceledAt, now: canceledAt },
+			lookbackMs === undefined ? undefined : { lookbackMs }
+		);
 		return store.insert('customerNotifications', {
 			userId: CUSTOMER,
 			kind: 'cancellation',

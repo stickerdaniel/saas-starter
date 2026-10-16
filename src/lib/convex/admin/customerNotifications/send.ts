@@ -20,7 +20,6 @@ import { resolveTimeZone, type JourneyFormat } from '../journey/format';
 import { JOURNEY_SOURCES } from '../journey/registry';
 import type { NotificationType } from '../notificationPreferences/queries';
 import { composeCancellation, composeNewCustomer, type ComposedJourney } from './compose';
-import { CANCELLATION } from './policy';
 
 /**
  * The admin customer emails: one scheduled run per ledger row, which
@@ -113,6 +112,7 @@ const CANCELLATION_EMAIL: EpisodeEmail<CancellationAdminNotificationEmailData> =
 	template: 'cancellation',
 	data({ row, presented, format, customer, adminDashboardLink }) {
 		const composed = composeCancellation({ billing: row.billing, presented, format });
+		const { start, end } = row.request.window;
 		return {
 			customer: customer.name || customer.email,
 			customerEmail: customer.email,
@@ -120,7 +120,8 @@ const CANCELLATION_EMAIL: EpisodeEmail<CancellationAdminNotificationEmailData> =
 			previewText: composed.previewText,
 			journey: composed.journey,
 			timeZone: format.timeZone,
-			lookbackDays: Math.round(CANCELLATION.lookbackMs / DAY),
+			// The frozen window, not today's policy, so the footer names what the journey covers.
+			lookbackDays: Math.max(1, Math.ceil((end - start) / DAY)),
 			adminDashboardLink
 		};
 	},

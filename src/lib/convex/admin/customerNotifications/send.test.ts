@@ -607,6 +607,33 @@ describe('cancellation email from a seeded ledger row', () => {
 		}
 	});
 
+	it('names the window the row was admitted with, not the current lookback', async () => {
+		const { seed, cancellationRow, sendCancel, enqueued } = setupSend();
+		const canceledAt = PAID + 60 * DAY;
+		seed.captureAll();
+		seed.receipt(canceledAt - 10 * DAY);
+		seed.receipt(canceledAt - 5 * DAY);
+		seed.receipt(canceledAt - 4 * DAY);
+		installResend();
+
+		// Admitted under a one-week lookback; the policy says 30 days when it sends.
+		await sendCancel(cancellationRow({ canceledAt, lookbackMs: 7 * DAY }));
+
+		const { text } = enqueued()[0]!;
+		expect(text).toContain('2: AI chat messages');
+		expect(text).toContain('Activity from the 7 days before the cancellation.');
+	});
+
+	it('names the days since signup when the window opens there', async () => {
+		const { cancellationRow, sendCancel, enqueued } = setupSend();
+		installResend();
+
+		// Signup was 14 d 9 h 33 min before the cancellation.
+		await sendCancel(cancellationRow({ canceledAt: CANCELED }));
+
+		expect(enqueued()[0]!.text).toContain('Activity from the 15 days before the cancellation.');
+	});
+
 	it('leaves the access line out when the read had no access end', async () => {
 		const { cancellationRow, sendCancel, enqueued } = setupSend();
 		installResend();
@@ -691,7 +718,8 @@ describe('cancellation email rendering', () => {
 				duration: formatDuration(CANCELED - PAID, locale),
 				date: createClock({ locale, timeZone: 'UTC' }).date(ACCESS_UNTIL),
 				timeZone: 'UTC',
-				days: '30'
+				// The window opens at signup, 14 d 9 h before the cancellation.
+				days: '15'
 			};
 			expect(email.subject).toBe(fill(copy.subject.cancellation, params));
 			for (const text of [
