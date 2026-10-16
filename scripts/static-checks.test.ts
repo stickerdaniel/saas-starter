@@ -46,6 +46,15 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
 
+/**
+ * Test budget for a describe block whose tests start the checker in a child Bun.
+ * Loading its imports takes about a second idle, and CPU contention multiplies
+ * that: in a fork, a case measured at 1.8s idle took 5.6s beside a whole-project
+ * check, past Vitest's 5s default. This matches the file-wide budget in
+ * `static-checks.format.test.ts`.
+ */
+const CHECKER_SPAWN_TIMEOUT = 30_000;
+
 /** Exit code only. Every case here fails at intake, so no check subprocess runs. */
 function run(...args: string[]): number {
 	return spawnSync('bun', [SCRIPT, ...args], { cwd: ROOT, encoding: 'utf8' }).status ?? -1;
@@ -318,7 +327,7 @@ describe('literal control-character scan', () => {
 	});
 });
 
-describe('repository path safety', () => {
+describe('repository path safety', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 	it('keeps missing tracked files out of full-mode content readers', () => {
 		expect(existingRepositoryPaths(['README.md', 'docs/does-not-exist.md'])).toEqual(['README.md']);
 	});
@@ -489,8 +498,7 @@ describe('repository path safety', () => {
 			} finally {
 				rmSync(directory, { recursive: true, force: true });
 			}
-		},
-		10_000
+		}
 	);
 
 	it('identifies structural, invisible, line-separator, and bidirectional controls in paths', () => {
@@ -564,7 +572,7 @@ describe('resolveInputs', () => {
 	);
 });
 
-describe('bad input dies at the boundary', () => {
+describe('bad input dies at the boundary', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 	it('omits parent-owned ANSI when NO_COLOR is set', () => {
 		const result = spawnSync('bun', [SCRIPT, '--unknown'], {
 			cwd: ROOT,
