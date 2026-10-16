@@ -408,6 +408,7 @@ export const createTestAdminUser = mutation({
 				notifyUserReplies: true,
 				notifyNewSignups: true,
 				notifyNewCustomers: true,
+				notifyCancellations: true,
 				createdAt: Date.now(),
 				updatedAt: Date.now()
 			});

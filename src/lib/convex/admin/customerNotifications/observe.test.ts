@@ -352,7 +352,8 @@ describe('idempotent admission', () => {
 
 	it('joins the row when Svix redelivers after a lost acknowledgement', async () => {
 		const { store, deliver, rows } = setup();
-		// The redelivery reads different billing: an earlier invoice and a scheduled cancellation.
+		// The redelivery reads different billing: an earlier invoice and a scheduled cancellation,
+		// which predates the stored payment and so admits no cancellation either.
 		stubAutumn(json(payingActiveCouponCard.data), json(payingScheduledCancelLink.data));
 		const body = billingUpdated(CUSTOMER);
 
@@ -414,6 +415,205 @@ describe('idempotent admission', () => {
 		expect(logs.text()).toContain('autumn_timeout');
 		expect(rows()).toEqual([]);
 		expect(store.childCalls()).toEqual([]);
+	});
+});
+
+describe('cancellation admission', () => {
+	const SEND_CANCELLATION = 'admin/customerNotifications/send:sendCancellation';
+	const HOUR = 60 * 60_000;
+	const DAY = 24 * HOUR;
+	const CANCEL = payingScheduledCancelLink.data;
+	const CANCEL_PRODUCT = CANCEL.products[0]!;
+	const CANCEL_INVOICE = CANCEL.invoices[0]!;
+	/** The first payment the cancel-link read shows. */
+	const CANCEL_PAYMENT = {
+		invoiceAt: CANCEL_INVOICE.created_at,
+		total: CANCEL_INVOICE.total,
+		currency: 'eur',
+		planId: 'pro',
+		interval: 'month'
+	};
+	/** The first payment the coupon-card read shows. */
+	const COUPON_PAYMENT = { ...CANCEL_PAYMENT, invoiceAt: PAID.created_at, total: PAID.total };
+
+	/** The cancel-link read with its cancellation stamp, period end or invoices replaced. */
+	function cancelRead(
+		options: {
+			canceledAt?: number | null;
+			periodEnd?: number;
+			invoices?: Array<{ created_at: number; total?: number }>;
+		} = {}
+	) {
+		const { canceledAt = CANCEL_PRODUCT.canceled_at, periodEnd } = options;
+		return {
+			...CANCEL,
+			products: [
+				{
+					...CANCEL_PRODUCT,
+					canceled_at: canceledAt,
+					current_period_end: periodEnd ?? CANCEL_PRODUCT.current_period_end
+				}
+			],
+			invoices: (options.invoices ?? [CANCEL_INVOICE]).map((invoice) => ({
+				...CANCEL_INVOICE,
+				...invoice
+			}))
+		};
+	}
+
+	const cancellations = (rows: Array<Record<string, unknown>>) =>
+		rows.filter((row) => row.kind === 'cancellation');
+
+	it('admits a scheduled cancellation from the payment the same read admits, and sends it now', async () => {
+		const { store, deliver, rows } = setup();
+		stubAutumn(json(CANCEL));
+
+		const response = await deliver(delivery(billingUpdated(CUSTOMER)));
+
+		const canceledAt = CANCEL_PRODUCT.canceled_at;
+		expect(response.status).toBe(200);
+		expect(rows().map((row) => row.kind)).toEqual(['new_customer', 'cancellation']);
+		expect(cancellations(rows())).toEqual([
+			expect.objectContaining({
+				userId: CUSTOMER,
+				episodeKey: `${CUSTOMER}:${canceledAt}`,
+				status: 'scheduled',
+				billing: {
+					firstPayment: CANCEL_PAYMENT,
+					current: {
+						planId: 'pro',
+						interval: 'month',
+						scheduledCancellation: { canceledAt, accessUntil: CANCEL_PRODUCT.current_period_end }
+					}
+				},
+				// Signed up less than 30 days before canceling: the window opens at signup.
+				request: {
+					episode: 'cancellation',
+					userId: CUSTOMER,
+					signupAt: SIGNUP,
+					paymentAt: CANCEL_PAYMENT.invoiceAt,
+					window: { start: SIGNUP, end: canceledAt }
+				},
+				observedAt: NOW,
+				sendAt: NOW
+			})
+		]);
+		const [newCustomer, cancellation] = rows();
+		expect(store.jobs()).toEqual([
+			{ delayMs: 0, name: SEND, args: { notificationId: newCustomer!._id } },
+			{ delayMs: 0, name: SEND_CANCELLATION, args: { notificationId: cancellation!._id } }
+		]);
+		expect(cancellation!.scheduledFnId).toBe(store.scheduled()[1]?.id);
+	});
+
+	it('joins a redelivered cancellation without scheduling it again', async () => {
+		const { store, deliver, rows } = setup();
+		stubAutumn(json(CANCEL));
+
+		await deliver(delivery(billingUpdated(CUSTOMER)));
+		const committed = rows();
+		vi.setSystemTime(NOW + 5 * 60_000);
+		await deliver(delivery(productsUpdated(CUSTOMER)));
+
+		expect(rows()).toEqual(committed);
+		expect(store.scheduled()).toHaveLength(2);
+	});
+
+	it('sends again for a cancellation made again after it was withdrawn', async () => {
+		const { store, deliver, rows } = setup();
+		const recanceledAt = NOW - HOUR;
+		stubAutumn(
+			json(CANCEL),
+			json(cancelRead({ canceledAt: null })),
+			json(cancelRead({ canceledAt: recanceledAt }))
+		);
+
+		await deliver(delivery(billingUpdated(CUSTOMER)));
+		await deliver(delivery(billingUpdated(CUSTOMER)));
+		expect(cancellations(rows())).toHaveLength(1);
+		await deliver(delivery(billingUpdated(CUSTOMER)));
+
+		expect(cancellations(rows()).map((row) => row.episodeKey)).toEqual([
+			`${CUSTOMER}:${CANCEL_PRODUCT.canceled_at}`,
+			`${CUSTOMER}:${recanceledAt}`
+		]);
+		expect(
+			store.scheduled().filter((job) => job.name === SEND_CANCELLATION && job.state === 'pending')
+		).toHaveLength(2);
+	});
+
+	it('measures from the stored first payment after newer invoices replaced it, over the last 30 days', async () => {
+		const { deliver, rows } = setup();
+		const later = Date.UTC(2027, 8, 1);
+		const canceledAt = Date.UTC(2027, 7, 20);
+		stubAutumn(
+			json(payingActiveCouponCard.data),
+			json(
+				cancelRead({
+					canceledAt,
+					periodEnd: Date.UTC(2027, 8, 6),
+					// Ten monthly renewals, the earliest of them after the first payment.
+					invoices: Array.from({ length: 10 }, (_, month) => ({
+						created_at: Date.UTC(2026, 10 + month, 6)
+					}))
+				})
+			)
+		);
+
+		await deliver(delivery(billingUpdated(CUSTOMER)));
+		vi.setSystemTime(later);
+		await deliver(delivery(billingUpdated(CUSTOMER)));
+
+		expect(cancellations(rows())).toEqual([
+			expect.objectContaining({
+				billing: expect.objectContaining({ firstPayment: COUPON_PAYMENT }),
+				request: {
+					episode: 'cancellation',
+					userId: CUSTOMER,
+					signupAt: SIGNUP,
+					paymentAt: COUPON_PAYMENT.invoiceAt,
+					window: { start: canceledAt - 30 * DAY, end: canceledAt }
+				},
+				sendAt: later
+			})
+		]);
+	});
+
+	it('admits a cancellation without a paid invoice in the read only from a stored payment', async () => {
+		const zeroOnly = cancelRead({
+			canceledAt: NOW - HOUR,
+			invoices: [{ created_at: CANCEL_INVOICE.created_at, total: 0 }]
+		});
+		const unanchored = setup();
+		stubAutumn(json(zeroOnly));
+
+		const response = await unanchored.deliver(delivery(billingUpdated(CUSTOMER)));
+
+		expect(response.status).toBe(200);
+		expect(unanchored.rows()).toEqual([]);
+		expect(unanchored.store.scheduled()).toEqual([]);
+
+		const anchored = setup();
+		stubAutumn(json(payingActiveCouponCard.data), json(zeroOnly));
+		await anchored.deliver(delivery(billingUpdated(CUSTOMER)));
+		await anchored.deliver(delivery(billingUpdated(CUSTOMER)));
+
+		expect(cancellations(anchored.rows())).toEqual([
+			expect.objectContaining({
+				episodeKey: `${CUSTOMER}:${NOW - HOUR}`,
+				billing: expect.objectContaining({ firstPayment: COUPON_PAYMENT })
+			})
+		]);
+	});
+
+	it('admits no cancellation that predates its payment', async () => {
+		const { store, deliver, rows } = setup();
+		stubAutumn(json(cancelRead({ canceledAt: CANCEL_INVOICE.created_at - HOUR })));
+
+		await deliver(delivery(billingUpdated(CUSTOMER)));
+
+		expect(rows().map((row) => row.kind)).toEqual(['new_customer']);
+		expect(store.scheduled().map((job) => job.name)).toEqual([SEND]);
 	});
 });
 

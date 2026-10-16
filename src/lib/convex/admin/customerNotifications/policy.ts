@@ -20,6 +20,14 @@ export type EligiblePlans = Readonly<Record<string, BillingInterval>>;
  */
 export const NEW_CUSTOMER = { postPaymentMs: 0 };
 
+const DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * The cancellation email. Its journey covers the `lookbackMs` before the
+ * cancellation, starting no earlier than signup.
+ */
+export const CANCELLATION = { lookbackMs: 30 * DAY };
+
 /** At most this many recipients get one email. */
 export const MAX_RECIPIENTS = 20;
 

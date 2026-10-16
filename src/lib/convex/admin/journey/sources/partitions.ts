@@ -129,12 +129,16 @@ export type PartitionedCopy = {
 };
 
 /**
- * The tile a partitioned source fills: "before paying" when the window opens
- * at signup, so its first partition covers everything before the payment;
- * otherwise a count over the whole window.
+ * The tile a partitioned source fills: "before paying" for a new customer
+ * whose window opens at signup, so its first partition covers everything
+ * before the payment; otherwise a count over the whole window. A
+ * cancellation always counts its window, which is what its email describes,
+ * even when that window happens to open at signup.
  */
 function metricName(request: JourneyRequest): PartitionMetric {
-	return request.window.start <= request.signupAt ? 'before_paying' : 'window';
+	return request.episode === 'new_customer' && request.window.start <= request.signupAt
+		? 'before_paying'
+		: 'window';
 }
 
 function metricSlot(

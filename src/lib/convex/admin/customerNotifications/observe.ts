@@ -111,7 +111,8 @@ export const handleAutumnWebhook = httpAction(async (ctx, request) => {
 		console.warn({ code: `billing_malformed_${observed.code}`, userId });
 		return respond(200);
 	}
-	if (!observed.firstPayment) return respond(200);
+	// Admission needs a first payment or a scheduled cancellation; without either it has nothing to do.
+	if (!observed.firstPayment && !observed.current?.scheduledCancellation) return respond(200);
 
 	try {
 		await ctx.runMutation(internal.admin.customerNotifications.admission.admitObservation, {

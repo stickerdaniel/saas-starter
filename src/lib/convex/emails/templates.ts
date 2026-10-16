@@ -13,6 +13,7 @@ import type {
 	NewTicketAdminNotificationEmailData,
 	NewUserSignupNotificationEmailData,
 	NewCustomerAdminNotificationEmailData,
+	CancellationAdminNotificationEmailData,
 	SupportRateLimitAlertEmailData,
 	RenderedEmail
 } from '../../emails/templates/types';
@@ -33,6 +34,8 @@ import {
 	NEWUSERSIGNUPNOTIFICATION_TEXT,
 	NEWCUSTOMERADMINNOTIFICATION_HTML,
 	NEWCUSTOMERADMINNOTIFICATION_TEXT,
+	CANCELLATIONADMINNOTIFICATION_HTML,
+	CANCELLATIONADMINNOTIFICATION_TEXT,
 	SUPPORTRATELIMITALERT_HTML,
 	SUPPORTRATELIMITALERT_TEXT
 } from '../../emails/generated/index.js';
@@ -440,32 +443,44 @@ function renderTiles({ tiles, theme }: ComposedJourney): { html: string; text: s
 	};
 }
 
+/** The copy around the journey in an admin customer email; the rest is shared. */
+type CustomerEmailCopy = {
+	subject: string;
+	badgeText: string;
+	titleText: string;
+	footerText: string;
+	/** Shown in place of the journey when there is none. */
+	journeyUnavailable: string;
+};
+
 /**
- * Render the new customer admin notification email
- *
- * Sent to admins when a customer's first eligible payment is observed. The
- * journey (tiles, the rail and its coverage notes) fills one placeholder;
- * without a journey that placeholder holds a short "unavailable" note.
- *
- * @param data - The customer, their first payment and the composed journey
- * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
- * @returns Subject, rendered HTML and plain text email
+ * Render an admin customer email. The journey (tiles, the rail and its
+ * coverage notes) fills the template's one placeholder; without a journey
+ * that placeholder holds the short "unavailable" note.
  */
-export function renderNewCustomerAdminNotificationEmail(
-	data: NewCustomerAdminNotificationEmailData,
-	locale: string = DEFAULT_LOCALE
+function renderCustomerEmail(
+	template: { html: string; text: string },
+	copy: CustomerEmailCopy,
+	data: {
+		customerEmail: string;
+		previewText: string;
+		journey: ComposedJourney | null;
+		timeZone: string;
+		adminDashboardLink: string;
+	},
+	locale: string
 ): RenderedEmail & { subject: string } {
 	const baseUrl = getBaseUrl();
 	const lang = getValidLocale(locale);
-	const { customer, amount, journey } = data;
+	const { journey } = data;
 
 	const texts = {
-		badgeText: t(locale, 'email.new_customer.badge'),
-		titleText: t(locale, 'email.new_customer.title', { customer, amount }),
+		badgeText: copy.badgeText,
+		titleText: copy.titleText,
 		descriptionText: data.customerEmail,
 		previewText: data.previewText,
 		buttonText: t(locale, 'email.body.view_admin_dashboard'),
-		footerText: t(locale, 'email.new_customer.footer', { timeZone: data.timeZone })
+		footerText: copy.footerText
 	};
 
 	let timeline: { html: string; text: string };
@@ -482,7 +497,7 @@ export function renderNewCustomerAdminNotificationEmail(
 			text: [tiles.text, rail.text].filter(Boolean).join('\n\n')
 		};
 	} else {
-		const note = t(locale, 'email.new_customer.journey_unavailable');
+		const note = copy.journeyUnavailable;
 		timeline = {
 			html: `<p class="dark_text-zinc-400" style="margin:0 0 24px;font-size:13px;line-height:20px;color:#71717b">${escapeHtml(note)}</p>`,
 			text: note
@@ -505,10 +520,76 @@ export function renderNewCustomerAdminNotificationEmail(
 	};
 
 	return {
-		subject: t(locale, 'email.subject.new_customer', { customer, amount }),
-		html: renderTemplate(NEWCUSTOMERADMINNOTIFICATION_HTML, templateData),
-		text: renderTemplate(NEWCUSTOMERADMINNOTIFICATION_TEXT, textData)
+		subject: copy.subject,
+		html: renderTemplate(template.html, templateData),
+		text: renderTemplate(template.text, textData)
 	};
+}
+
+/**
+ * Render the new customer admin notification email
+ *
+ * Sent to admins when a customer's first eligible payment is observed.
+ *
+ * @param data - The customer, their first payment and the composed journey
+ * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
+ * @returns Subject, rendered HTML and plain text email
+ */
+export function renderNewCustomerAdminNotificationEmail(
+	data: NewCustomerAdminNotificationEmailData,
+	locale: string = DEFAULT_LOCALE
+): RenderedEmail & { subject: string } {
+	const { customer, amount } = data;
+	return renderCustomerEmail(
+		{ html: NEWCUSTOMERADMINNOTIFICATION_HTML, text: NEWCUSTOMERADMINNOTIFICATION_TEXT },
+		{
+			subject: t(locale, 'email.subject.new_customer', { customer, amount }),
+			badgeText: t(locale, 'email.new_customer.badge'),
+			titleText: t(locale, 'email.new_customer.title', { customer, amount }),
+			footerText: t(locale, 'email.new_customer.footer', { timeZone: data.timeZone }),
+			journeyUnavailable: t(locale, 'email.new_customer.journey_unavailable')
+		},
+		data,
+		locale
+	);
+}
+
+/**
+ * Render the cancellation admin notification email
+ *
+ * Sent to admins when a paying customer's scheduled cancellation is observed.
+ * The footer states the period the journey covers.
+ *
+ * @param data - The customer, how long they paid and the composed journey
+ * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
+ * @returns Subject, rendered HTML and plain text email
+ */
+export function renderCancellationAdminNotificationEmail(
+	data: CancellationAdminNotificationEmailData,
+	locale: string = DEFAULT_LOCALE
+): RenderedEmail & { subject: string } {
+	const { customer, duration } = data;
+	return renderCustomerEmail(
+		{
+			html: CANCELLATIONADMINNOTIFICATION_HTML,
+			text: CANCELLATIONADMINNOTIFICATION_TEXT
+		},
+		{
+			subject: t(locale, 'email.subject.cancellation', { customer, duration }),
+			badgeText: t(locale, 'email.cancellation.badge'),
+			titleText: t(locale, 'email.cancellation.title', { customer, duration }),
+			footerText:
+				data.lookbackDays === null
+					? t(locale, 'email.cancellation.footer_since_signup', { timeZone: data.timeZone })
+					: t(locale, 'email.cancellation.footer', {
+							timeZone: data.timeZone,
+							days: data.lookbackDays
+						}),
+			journeyUnavailable: t(locale, 'email.cancellation.journey_unavailable')
+		},
+		data,
+		locale
+	);
 }
 
 // Spelled out rather than composed from the bucket name, so the orphan-key check

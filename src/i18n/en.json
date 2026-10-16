@@ -91,6 +91,7 @@
 			"column_name": "Name",
 			"column_new_signups": "New Signups",
 			"column_new_customers": "New Customers",
+			"column_cancellations": "Cancellations",
 			"column_new_tickets": "New Tickets",
 			"column_type": "Type",
 			"column_user_replies": "User Replies",
@@ -102,6 +103,7 @@
 			"email_exists": "This email already exists",
 			"field_new_signups": "New signup notifications",
 			"field_new_customers": "New customer notifications",
+			"field_cancellations": "Cancellation notifications",
 			"field_new_tickets": "New ticket notifications",
 			"field_user_replies": "User reply notifications",
 			"filter": {
@@ -718,7 +720,10 @@
 					"month": "{plan}, monthly",
 					"year": "{plan}, yearly"
 				},
-				"signup_to_paid": "signup to paid"
+				"signup_to_paid": "signup to paid",
+				"canceled": "Canceled",
+				"access_until": "Access until {date}",
+				"paid_to_canceled": "paid to canceled"
 			},
 			"source": {
 				"aiChat": {
@@ -782,6 +787,14 @@
 			"journey_unavailable": "The customer journey could not be included in this email.",
 			"footer": "Times in {timeZone}. You're receiving this email because you have new customer notifications enabled."
 		},
+		"cancellation": {
+			"badge": "Cancellation",
+			"title": "{customer} canceled after {duration}",
+			"preview": "Canceled {duration} after paying",
+			"journey_unavailable": "The customer journey could not be included in this email.",
+			"footer": "Times in {timeZone}. Activity from the {days} days before the cancellation. You're receiving this email because you have cancellation notifications enabled.",
+			"footer_since_signup": "Times in {timeZone}. Activity since signup. You're receiving this email because you have cancellation notifications enabled."
+		},
 		"rate_limit_alert": {
 			"description": "Signed-out visitors share this limit. It has been low for at least {minutes} minutes.",
 			"footer": "You're receiving this email because you have new support ticket notifications enabled. Each limit sends at most one alert every {hours} hours.",
@@ -818,6 +831,7 @@
 		"subject": {
 			"new_signup": "New user signup: {userEmail}",
 			"new_customer": "New customer: {customer} paid {amount}",
+			"cancellation": "Cancellation: {customer} canceled after {duration}",
 			"rate_limit_alert": "Support rate limit running low: {limitName}",
 			"reset_password": "Reset your password",
 			"set_password": "Set a password",

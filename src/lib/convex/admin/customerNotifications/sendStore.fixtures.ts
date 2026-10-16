@@ -7,12 +7,12 @@ import * as community from '../journey/sources/community';
 import * as support from '../journey/sources/support';
 import { getJourneyRecipients } from '../notificationPreferences/queries';
 import type { Payment } from './billing';
-import { newCustomerEpisode } from './ledger';
-import { enqueueRecipient, sendNewCustomer } from './send';
+import { cancellationEpisode, newCustomerEpisode } from './ledger';
+import { enqueueRecipient, sendCancellation, sendNewCustomer } from './send';
 
 /**
- * A seeded deployment for the new-customer sender: the in-memory store with
- * every function the send path reaches, a ledger row as admission writes it,
+ * A seeded deployment for the customer email senders: the in-memory store with
+ * every function the send path reaches, ledger rows as admission writes them,
  * and a Resend component double.
  *
  * The double writes what `@convex-dev/resend` 0.2.8 `lib.sendEmail` writes,
@@ -41,6 +41,7 @@ export const PAYMENT: Payment = {
 };
 
 export const SEND = 'admin/customerNotifications/send:sendNewCustomer';
+export const SEND_CANCELLATION = 'admin/customerNotifications/send:sendCancellation';
 export const ENQUEUE = 'admin/customerNotifications/send:enqueueRecipient';
 const DISCOVERY = 'admin/notificationPreferences/queries:getJourneyRecipients';
 
@@ -69,6 +70,7 @@ export function setupSend(
 			[DISCOVERY]: asRegistered(getJourneyRecipients),
 			[ENQUEUE]: asRegistered(enqueueRecipient),
 			[SEND]: asRegistered(sendNewCustomer),
+			[SEND_CANCELLATION]: asRegistered(sendCancellation),
 			...options.functions
 		}
 	});
@@ -92,6 +94,7 @@ export function setupSend(
 				notifyUserReplies: true,
 				notifyNewSignups: true,
 				notifyNewCustomers: true,
+				notifyCancellations: true,
 				createdAt: now,
 				updatedAt: now,
 				...overrides
@@ -122,6 +125,45 @@ export function setupSend(
 		});
 	}
 
+	/**
+	 * The row admission writes for a cancellation at `canceledAt`, measured
+	 * from the first payment. `accessUntil: null` leaves the access end out;
+	 * `lookbackMs` admits it under another lookback than the current policy.
+	 */
+	function cancellationRow(options: {
+		canceledAt: number;
+		accessUntil?: number | null;
+		signupAt?: number;
+		payment?: Partial<Payment>;
+		lookbackMs?: number;
+	}) {
+		const { canceledAt, signupAt = SIGNUP, lookbackMs } = options;
+		const anchor = { ...PAYMENT, ...options.payment };
+		const accessUntil =
+			options.accessUntil === undefined ? canceledAt + 19 * DAY : options.accessUntil;
+		const { episodeKey, request, sendAt } = cancellationEpisode(
+			{ userId: CUSTOMER, signupAt, anchor, canceledAt, now: canceledAt },
+			lookbackMs === undefined ? undefined : { lookbackMs }
+		);
+		return store.insert('customerNotifications', {
+			userId: CUSTOMER,
+			kind: 'cancellation',
+			episodeKey,
+			status: 'scheduled',
+			billing: {
+				firstPayment: anchor,
+				current: {
+					planId: anchor.planId,
+					interval: 'month',
+					...(accessUntil === null ? {} : { scheduledCancellation: { canceledAt, accessUntil } })
+				}
+			},
+			request,
+			observedAt: canceledAt,
+			sendAt
+		});
+	}
+
 	let threads = 0;
 	const seed = {
 		captureAll(at = SIGNUP - DAY) {
@@ -135,7 +177,7 @@ export function setupSend(
 		message(at: number, body = 'hello') {
 			store.insert('messages', { userId: CUSTOMER, body, quotaSettledAt: at }, at);
 		},
-		contact(at: number, text = 'help') {
+		contact(at: number, text = 'help', updatedAt = at) {
 			store.insert(
 				'supportThreads',
 				{
@@ -143,7 +185,7 @@ export function setupSend(
 					userId: CUSTOMER,
 					status: 'open',
 					createdAt: at,
-					updatedAt: at,
+					updatedAt,
 					firstUserMessageAt: at,
 					title: text,
 					lastMessage: text,
@@ -157,6 +199,8 @@ export function setupSend(
 	/** Run the scheduled send for a ledger row as its own transaction. */
 	const send = (notificationId: string) =>
 		store.mutate(asRegistered(sendNewCustomer), { notificationId });
+	const sendCancel = (notificationId: string) =>
+		store.mutate(asRegistered(sendCancellation), { notificationId });
 
 	const row = (id: string) => store.docs('customerNotifications').find((doc) => doc._id === id);
 
@@ -170,7 +214,7 @@ export function setupSend(
 			template: string;
 		}>;
 
-	return { store, seed, preference, ledgerRow, send, row, enqueued };
+	return { store, seed, preference, ledgerRow, cancellationRow, send, sendCancel, row, enqueued };
 }
 
 /** Stub the email capability as configured, the way the deployment sets it. */

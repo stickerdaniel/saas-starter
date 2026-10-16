@@ -91,6 +91,7 @@
 			"column_name": "Nom",
 			"column_new_signups": "Nouvelles Inscriptions",
 			"column_new_customers": "Nouveaux Clients",
+			"column_cancellations": "Résiliations",
 			"column_new_tickets": "Nouveaux Tickets",
 			"column_type": "Type",
 			"column_user_replies": "Réponses Utilisateur",
@@ -102,6 +103,7 @@
 			"email_exists": "Cet email existe déjà",
 			"field_new_signups": "Notifications de nouvelles inscriptions",
 			"field_new_customers": "Notifications de nouveaux clients",
+			"field_cancellations": "Notifications de résiliations",
 			"field_new_tickets": "Notifications de nouveaux tickets",
 			"field_user_replies": "Notifications de réponses utilisateur",
 			"filter": {
@@ -718,7 +720,10 @@
 					"month": "{plan}, mensuel",
 					"year": "{plan}, annuel"
 				},
-				"signup_to_paid": "de l'inscription au paiement"
+				"signup_to_paid": "de l'inscription au paiement",
+				"canceled": "A résilié",
+				"access_until": "Accès jusqu'au {date}",
+				"paid_to_canceled": "du paiement à la résiliation"
 			},
 			"source": {
 				"aiChat": {
@@ -782,6 +787,14 @@
 			"journey_unavailable": "Le parcours client n'a pas pu être inclus dans cet email.",
 			"footer": "Heures en {timeZone}. Tu reçois cet email car les notifications de nouveaux clients sont activées."
 		},
+		"cancellation": {
+			"badge": "Résiliation",
+			"title": "{customer} a résilié après {duration}",
+			"preview": "A résilié {duration} après avoir payé",
+			"journey_unavailable": "Le parcours client n'a pas pu être inclus dans cet email.",
+			"footer": "Heures en {timeZone}. Activité des {days} jours précédant la résiliation. Tu reçois cet email car les notifications de résiliations sont activées.",
+			"footer_since_signup": "Heures en {timeZone}. Activité depuis l'inscription. Tu reçois cet email car les notifications de résiliations sont activées."
+		},
 		"rate_limit_alert": {
 			"description": "Les visiteurs non connectés partagent cette limite. Elle est basse depuis au moins {minutes} minutes.",
 			"footer": "Tu reçois cet email car les notifications de nouveaux tickets de support sont activées. Chaque limite envoie au plus une alerte toutes les {hours} heures.",
@@ -818,6 +831,7 @@
 		"subject": {
 			"new_signup": "Nouvelle inscription : {userEmail}",
 			"new_customer": "Nouveau client : {customer} a payé {amount}",
+			"cancellation": "Résiliation : {customer} a résilié après {duration}",
 			"rate_limit_alert": "Limite de requêtes du support presque atteinte : {limitName}",
 			"reset_password": "Réinitialise ton mot de passe",
 			"set_password": "Définir un mot de passe",

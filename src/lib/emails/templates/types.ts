@@ -8,6 +8,7 @@ import type NewTicketAdminNotificationEmail from './NewTicketAdminNotificationEm
 import type NewUserSignupNotificationEmail from './NewUserSignupNotificationEmail.svelte';
 import type SupportRateLimitAlertEmail from './SupportRateLimitAlertEmail.svelte';
 import type NewCustomerAdminNotificationEmail from './NewCustomerAdminNotificationEmail.svelte';
+import type CancellationAdminNotificationEmail from './CancellationAdminNotificationEmail.svelte';
 import type { ComposedJourney } from '../../convex/admin/customerNotifications/compose';
 
 // Extract component prop types
@@ -24,6 +25,9 @@ export type NewUserSignupNotificationEmailProps = ComponentProps<
 export type SupportRateLimitAlertEmailProps = ComponentProps<typeof SupportRateLimitAlertEmail>;
 export type NewCustomerAdminNotificationEmailProps = ComponentProps<
 	typeof NewCustomerAdminNotificationEmail
+>;
+export type CancellationAdminNotificationEmailProps = ComponentProps<
+	typeof CancellationAdminNotificationEmail
 >;
 
 // Helper to make all props required (removes optional defaults)
@@ -175,6 +179,31 @@ export type NewCustomerAdminNotificationEmailData = {
 	previewText: string;
 	journey: ComposedJourney | null;
 	timeZone: string;
+	adminDashboardLink: string;
+};
+
+/**
+ * Data required to render a cancellation admin notification email
+ *
+ * Sent to admins when a paying customer's scheduled cancellation is observed.
+ *
+ * @property customer - The customer's name, or their email when they have none
+ * @property customerEmail - The customer's email address
+ * @property duration - From the first payment to the cancellation, formatted
+ * @property previewText - Inbox preview line
+ * @property journey - Tiles and timeline; null renders the email without them
+ * @property timeZone - IANA zone every time is shown in, named in the footer
+ * @property lookbackDays - How many days before the cancellation the journey covers, or null when it opens at signup
+ * @property adminDashboardLink - Link to the admin users page filtered by this customer
+ */
+export type CancellationAdminNotificationEmailData = {
+	customer: string;
+	customerEmail: string;
+	duration: string;
+	previewText: string;
+	journey: ComposedJourney | null;
+	timeZone: string;
+	lookbackDays: number | null;
 	adminDashboardLink: string;
 };
 

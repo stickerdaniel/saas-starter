@@ -190,6 +190,7 @@ export default defineSchema({
 		notifyNewSignups: v.boolean(), // New user registrations
 		// Added after rows already existed, so optional: a missing value means on.
 		notifyNewCustomers: v.optional(v.boolean()), // First payments
+		notifyCancellations: v.optional(v.boolean()), // Scheduled cancellations
 
 		createdAt: v.number(),
 		updatedAt: v.number()

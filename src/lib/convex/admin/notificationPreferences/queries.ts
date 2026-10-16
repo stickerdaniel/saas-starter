@@ -24,7 +24,8 @@ export const notificationTypeValidator = v.union(
 	v.literal('newTickets'),
 	v.literal('userReplies'),
 	v.literal('newSignups'),
-	v.literal('newCustomers')
+	v.literal('newCustomers'),
+	v.literal('cancellations')
 );
 
 export type NotificationType = Infer<typeof notificationTypeValidator>;
@@ -34,7 +35,8 @@ export const notificationToggleFieldValidator = v.union(
 	v.literal('notifyNewSupportTickets'),
 	v.literal('notifyUserReplies'),
 	v.literal('notifyNewSignups'),
-	v.literal('notifyNewCustomers')
+	v.literal('notifyNewCustomers'),
+	v.literal('notifyCancellations')
 );
 
 export type NotificationToggleField = Infer<typeof notificationToggleFieldValidator>;
@@ -46,7 +48,8 @@ const NOTIFICATION_TYPE_TOGGLES = {
 	newTickets: 'notifyNewSupportTickets',
 	userReplies: 'notifyUserReplies',
 	newSignups: 'notifyNewSignups',
-	newCustomers: 'notifyNewCustomers'
+	newCustomers: 'notifyNewCustomers',
+	cancellations: 'notifyCancellations'
 } as const satisfies Record<NotificationType, NotificationToggleField>;
 
 /**
@@ -94,6 +97,7 @@ export interface NotificationRecipient {
 	notifyUserReplies: boolean;
 	notifyNewSignups: boolean;
 	notifyNewCustomers: boolean;
+	notifyCancellations: boolean;
 	createdAt: number;
 	updatedAt: number;
 }
@@ -223,6 +227,7 @@ async function getFilteredSortedRecipients(
 		notifyUserReplies: wantsNotification(preference, 'userReplies'),
 		notifyNewSignups: wantsNotification(preference, 'newSignups'),
 		notifyNewCustomers: wantsNotification(preference, 'newCustomers'),
+		notifyCancellations: wantsNotification(preference, 'cancellations'),
 		createdAt: preference.createdAt,
 		updatedAt: preference.updatedAt
 	}));
@@ -278,6 +283,7 @@ export const listNotificationRecipients = adminQuery({
 				notifyUserReplies: v.boolean(),
 				notifyNewSignups: v.boolean(),
 				notifyNewCustomers: v.boolean(),
+				notifyCancellations: v.boolean(),
 				createdAt: v.number(),
 				updatedAt: v.number()
 			})
