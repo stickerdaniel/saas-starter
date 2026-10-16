@@ -326,9 +326,13 @@ export default defineConfig(async ({ mode }) => {
 	// Kit writes the resolved env into <outDir>/generated/dev/env. Vitest and the email renderer
 	// (scripts/build-emails.ts, also run by static checks) start their own Vite servers, and a
 	// shared outDir hands a running dev server their env, such as the cloud Convex URLs in
-	// .env.local. Nested here, each stays inside every .svelte-kit ignore and outside the dev
-	// server's watched generated/ directory.
+	// .env.local. The email renderer also gets its own Vite cache: its config hashes differently,
+	// so on start its dependency optimizer deletes and rewrites the dev server's prebundled
+	// node_modules/.vite/deps, and pages fail to hydrate until the rewrite lands. Vitest keeps the
+	// shared cache because it prebundles nothing there. Nested here, each stays inside every
+	// .svelte-kit ignore and outside the dev server's watched generated/ directory.
 	const isolatedOutDir = mode === 'test' || mode === 'emails' ? `.svelte-kit/${mode}` : undefined;
+	const isolatedCacheDir = mode === 'emails' ? '.svelte-kit/emails/vite' : undefined;
 
 	// On Cloudflare, varlock delivers env natively: the Workers loader reads the __VARLOCK_ENV
 	// binding at worker boot, and `varlock-wrangler` (both deploy scripts wrap it) uploads that
@@ -466,6 +470,7 @@ export default defineConfig(async ({ mode }) => {
 	);
 
 	return {
+		cacheDir: isolatedCacheDir,
 		plugins,
 		worker: {
 			plugins: () => [licenses.workerPlugin()]
