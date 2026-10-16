@@ -75,11 +75,13 @@ const disableFileWatching: Plugin = {
 /**
  * Create Vite server in middleware mode (no HTTP server). The `emails` mode gives it
  * its own SvelteKit outDir in vite.config.ts, so it can run beside a dev server.
+ * `ws: false` skips the HMR WebSocket, which middleware mode would otherwise open on
+ * port 24678 and which fails whenever another renderer already holds that port.
  */
 export async function createViteServer(): Promise<ViteDevServer> {
 	return createServer({
 		mode: 'emails',
-		server: { middlewareMode: true },
+		server: { middlewareMode: true, ws: false },
 		appType: 'custom',
 		logLevel: 'warn',
 		plugins: [disableFileWatching],
