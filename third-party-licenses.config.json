@@ -11,6 +11,18 @@
 		{
 			"name": "@tailwindcss/typography",
 			"components": ["styles"]
+		},
+		{
+			"name": "preact",
+			"components": ["client"]
+		},
+		{
+			"name": "fflate",
+			"components": ["client"]
+		},
+		{
+			"name": "jwt-decode",
+			"components": ["client", "server-worker"]
 		}
 	],
 	"packageOverrides": [
@@ -78,6 +90,204 @@
 			"license": "OFL-1.1",
 			"sourceUrl": "https://github.com/Outfitio/Outfit-Fonts",
 			"noticeFiles": ["static/fonts/OFL.txt"]
+		},
+		{
+			"id": "intl-messageformat-10-7-3",
+			"name": "intl-messageformat",
+			"components": ["client", "server-worker"],
+			"license": "BSD-3-Clause",
+			"sourceUrl": "https://raw.githubusercontent.com/formatjs/formatjs/abb923038460918317ab907566c1408977500dfc/packages/intl-messageformat/LICENSE.md",
+			"revision": "10.7.3",
+			"noticeFiles": ["third-party-notices/intl-messageformat-10.7.3.txt"]
+		},
+		{
+			"id": "formatjs-fast-memoize-2-2-2",
+			"name": "@formatjs/fast-memoize",
+			"components": ["client", "server-worker"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/formatjs/formatjs/@formatjs/fast-memoize@2.2.2/packages/fast-memoize/LICENSE.md",
+			"revision": "2.2.2",
+			"noticeFiles": ["third-party-notices/formatjs-fast-memoize-2.2.2.txt"]
+		},
+		{
+			"id": "formatjs-icu-messageformat-parser-2-9-1",
+			"name": "@formatjs/icu-messageformat-parser",
+			"components": ["client", "server-worker"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/formatjs/formatjs/@formatjs/icu-messageformat-parser@2.9.1/packages/icu-messageformat-parser/LICENSE.md",
+			"revision": "2.9.1",
+			"noticeFiles": ["third-party-notices/formatjs-icu-messageformat-parser-2.9.1.txt"]
+		},
+		{
+			"id": "formatjs-icu-skeleton-parser-1-8-5",
+			"name": "@formatjs/icu-skeleton-parser",
+			"components": ["client", "server-worker"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/formatjs/formatjs/@formatjs/icu-skeleton-parser@1.8.5/packages/icu-skeleton-parser/LICENSE.md",
+			"revision": "1.8.5",
+			"noticeFiles": ["third-party-notices/formatjs-icu-skeleton-parser-1.8.5.txt"]
+		},
+		{
+			"id": "tslib-2-4-0",
+			"name": "tslib",
+			"components": ["client", "server-worker"],
+			"license": "0BSD",
+			"sourceUrl": "https://raw.githubusercontent.com/microsoft/tslib/5b7da89bf0bdeb1ba102345fa4a759745f3494f5/LICENSE.txt",
+			"revision": "2.4.0",
+			"noticeFiles": ["third-party-notices/tslib-2.4.0.txt"]
+		},
+		{
+			"id": "fast-text-encoding-1-0-6",
+			"name": "fast-text-encoding",
+			"components": ["client", "server-worker"],
+			"license": "Apache-2.0",
+			"sourceUrl": "https://raw.githubusercontent.com/samthor/fast-text-encoding/60d0a6cc787da13c2799c11cae48eba037f74548/LICENSE",
+			"revision": "1.0.6",
+			"noticeFiles": ["third-party-notices/fast-text-encoding-1.0.6.txt"]
+		},
+		{
+			"id": "base64-arraybuffer-1-0-2",
+			"name": "base64-arraybuffer",
+			"components": ["client", "client-worker"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/niklasvh/base64-arraybuffer/5339d8f0abed59c893e87116a785bf52acdc17aa/LICENSE",
+			"revision": "1.0.2",
+			"noticeFiles": ["third-party-notices/base64-arraybuffer-1.0.2.txt"]
+		},
+		{
+			"id": "xstate-fsm-1-6-5",
+			"name": "@xstate/fsm",
+			"components": ["client"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/statelyai/xstate/@xstate/fsm@1.6.5/LICENSE",
+			"revision": "1.6.5",
+			"noticeFiles": ["third-party-notices/xstate-fsm-1.6.5.txt"]
+		},
+		{
+			"id": "base64-js-1-5-1",
+			"name": "base64-js",
+			"components": ["client", "server-worker"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/beatgammit/base64-js/88957c9943c7e2a0f03cdf73e71d579e433627d3/LICENSE",
+			"revision": "1.5.1",
+			"noticeFiles": ["third-party-notices/base64-js-1.5.1.txt"]
+		},
+		{
+			"id": "long-modified-unsigned-subset-8c51066fa6f95e8d553a1ab4d1030a0c4abd289d",
+			"name": "long (modified unsigned subset)",
+			"components": ["client", "server-worker"],
+			"license": "Apache-2.0",
+			"sourceUrl": "https://raw.githubusercontent.com/get-convex/convex-js/8c51066fa6f95e8d553a1ab4d1030a0c4abd289d/src/vendor/long.ts",
+			"revision": "8c51066fa6f95e8d553a1ab4d1030a0c4abd289d",
+			"noticeFiles": ["third-party-notices/long-convex-1.46.0.txt"]
+		},
+		{
+			"id": "secure-json-parse-4-0-0",
+			"name": "secure-json-parse",
+			"components": ["client"],
+			"license": "BSD-3-Clause",
+			"sourceUrl": "https://raw.githubusercontent.com/vercel/ai/69cc80b25c506971769dd8438bbce7e0eb5ef631/packages/provider-utils/src/secure-json-parse.ts",
+			"revision": "4.0.0",
+			"noticeFiles": ["third-party-notices/secure-json-parse-4.0.0.txt"]
+		},
+		{
+			"id": "cookie-0-5-0",
+			"name": "cookie",
+			"components": ["client", "server-worker"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/jshttp/cookie/a0c84147aab6266bdb3996cf4062e93907c0b0fc/LICENSE",
+			"revision": "0.5.0",
+			"noticeFiles": ["third-party-notices/cookie-0.5.0.txt"]
+		},
+		{
+			"id": "rollup-plugin-node-builtins-node-path-2-1-1",
+			"name": "rollup-plugin-node-builtins / Node path",
+			"components": ["client", "server-worker"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/calvinmetcalf/rollup-plugin-node-builtins/63ab8aacd013767445ca299e468d9a60a95328d7/src/es6/path.js",
+			"revision": "2.1.1",
+			"noticeFiles": ["third-party-notices/node-path-rollup-2.1.1.txt"]
+		},
+		{
+			"id": "idb-keyval-6-2-0",
+			"name": "idb-keyval",
+			"components": ["client"],
+			"license": "Apache-2.0",
+			"sourceUrl": "https://raw.githubusercontent.com/jakearchibald/idb-keyval/0420a704fd6cbb4225429c536b1f61112d012fca/LICENCE",
+			"revision": "6.2.0",
+			"noticeFiles": ["third-party-notices/idb-keyval-6.2.0.txt"]
+		},
+		{
+			"id": "fflate-0-8-3",
+			"name": "fflate",
+			"components": ["client-worker"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/101arrowz/fflate/v0.8.3/LICENSE",
+			"revision": "0.8.3",
+			"noticeFiles": ["third-party-notices/fflate-0.8.3.txt"]
+		},
+		{
+			"id": "sentry-rrweb-2-44-1",
+			"name": "@sentry/rrweb",
+			"components": ["client"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/getsentry/rrweb/368d42a48e697daee76d4c9cb792104d01d9e5ad/LICENSE",
+			"revision": "2.44.1",
+			"noticeFiles": ["third-party-notices/sentry-rrweb-2.44.1.txt"]
+		},
+		{
+			"id": "sentry-rrweb-snapshot-2-44-1",
+			"name": "@sentry/rrweb-snapshot",
+			"components": ["client"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/getsentry/rrweb/368d42a48e697daee76d4c9cb792104d01d9e5ad/LICENSE",
+			"revision": "2.44.1",
+			"noticeFiles": ["third-party-notices/sentry-rrweb-2.44.1.txt"]
+		},
+		{
+			"id": "sentry-rrweb-types-2-44-1",
+			"name": "@sentry/rrweb-types",
+			"components": ["client"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/getsentry/rrweb/368d42a48e697daee76d4c9cb792104d01d9e5ad/LICENSE",
+			"revision": "2.44.1",
+			"noticeFiles": ["third-party-notices/sentry-rrweb-2.44.1.txt"]
+		},
+		{
+			"id": "sentry-rrdom-2-44-1",
+			"name": "@sentry/rrdom",
+			"components": ["client"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/getsentry/rrweb/368d42a48e697daee76d4c9cb792104d01d9e5ad/LICENSE",
+			"revision": "2.44.1",
+			"noticeFiles": ["third-party-notices/sentry-rrweb-2.44.1.txt"]
+		},
+		{
+			"id": "sentry-rrweb-worker-2-44-1",
+			"name": "@sentry/rrweb-worker",
+			"components": ["client-worker"],
+			"license": "MIT",
+			"sourceUrl": "https://raw.githubusercontent.com/getsentry/rrweb/368d42a48e697daee76d4c9cb792104d01d9e5ad/LICENSE",
+			"revision": "2.44.1",
+			"noticeFiles": ["third-party-notices/sentry-rrweb-2.44.1.txt"]
+		},
+		{
+			"id": "libwebp-d2e245ea9e959a5a79e1db0ed2085206947e98f2",
+			"name": "libwebp",
+			"components": ["client-worker"],
+			"license": "BSD-3-Clause",
+			"sourceUrl": "https://raw.githubusercontent.com/webmproject/libwebp/d2e245ea9e959a5a79e1db0ed2085206947e98f2/COPYING",
+			"revision": "d2e245ea9e959a5a79e1db0ed2085206947e98f2",
+			"noticeFiles": ["third-party-notices/libwebp-d2e245ea9e959a5a79e1db0ed2085206947e98f2.txt"]
+		},
+		{
+			"id": "katex-svg-glyphs-0-16-47",
+			"name": "KaTeX SVG glyph paths",
+			"components": ["client"],
+			"license": "OFL-1.1",
+			"sourceUrl": "https://raw.githubusercontent.com/KaTeX/KaTeX/v0.16.47/src/stretchy.ts",
+			"revision": "0.16.47",
+			"noticeFiles": ["third-party-notices/katex-svg-glyphs-0.16.47.txt"]
 		}
 	]
 }
