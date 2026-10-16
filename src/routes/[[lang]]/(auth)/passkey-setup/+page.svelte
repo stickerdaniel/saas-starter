@@ -35,6 +35,7 @@
 	}
 	// A client-side move keeps the root toaster mounted, so the confirmation stays visible.
 	function finishEnrollment() {
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- destinationHref resolves its path
 		void goto(destinationHref, { replace: true });
 	}
 
