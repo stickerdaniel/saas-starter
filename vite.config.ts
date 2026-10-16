@@ -27,6 +27,11 @@ import { configDefaults, defineConfig } from 'vitest/config';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { fontless } from 'fontless';
 import { loadEnv, type PluginOption } from 'vite';
+import { emptyCssSources } from './scripts/css-sources.ts';
+
+const stylesheet = path.join(import.meta.dirname, 'src/routes/layout.css');
+const missingCssSources = emptyCssSources(stylesheet, fs.readFileSync(stylesheet, 'utf8'));
+if (missingCssSources.length > 0) throw new Error(missingCssSources.join('\n'));
 
 function computeLocalConvexStateId(projectDir: string, suffix?: string): string {
 	let gitBranch = 'unknown';
