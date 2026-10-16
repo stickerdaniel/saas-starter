@@ -157,7 +157,7 @@ describe('process contract', () => {
 		expect(resolved).toBe(fixtureBun);
 		expect(filteredEnvironment({ PATH: 'tools' }, originalCwd).PATH).toBe(tools);
 		const environment = filteredEnvironment(process.env, originalCwd);
-		const result = await childWork(
+		const result = await childWork(signal, () =>
 			runProcess(
 				{
 					command: resolved,
@@ -334,7 +334,7 @@ describe('process contract', () => {
 			}),
 			ONLY_THIS: 'yes'
 		};
-		const result = await childWork(
+		const result = await childWork(signal, () =>
 			runProcess(
 				{
 					command: process.execPath,
@@ -359,7 +359,7 @@ describe('process contract', () => {
 
 	it.runIf(process.platform !== 'win32')(
 		'aborts the complete POSIX process group and returns 130',
-		async () => {
+		async ({ signal }) => {
 			const directory = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-process-'));
 			temporaryDirectories.push(directory);
 			const pidFile = path.join(directory, 'descendant.pid');
@@ -372,9 +372,15 @@ describe('process contract', () => {
 				'setInterval(()=>{},1000)'
 			].join(';');
 			const controller = new AbortController();
-			const running = runProcess(
-				{ command: process.execPath, args: ['-e', script], env: { PATH: process.env.PATH } },
-				{ env: { PATH: process.env.PATH }, signal: controller.signal, capture: true }
+			const running = childWork(signal, () =>
+				runProcess(
+					{ command: process.execPath, args: ['-e', script], env: { PATH: process.env.PATH } },
+					{
+						env: { PATH: process.env.PATH },
+						signal: AbortSignal.any([signal, controller.signal]),
+						capture: true
+					}
+				)
 			);
 			await waitUntil(async () => {
 				try {

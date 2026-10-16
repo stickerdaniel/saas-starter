@@ -9,7 +9,7 @@ import { SCAFFOLD_MARKER } from '../src/archive.js';
 import { publishStagedTarget, updateMarker } from '../src/target.js';
 import { runProcess, runSetupAndInstall } from '../src/process.js';
 import { tarGz, validTemplateEntries } from './archive-fixture.js';
-import { childWork, interruptOnAbort, removeDirectories, settleChildWork } from './child-work.js';
+import { cliChildWork, removeDirectories, settleChildWork } from './child-work.js';
 
 const temporaryDirectories: string[] = [];
 afterEach(async () => {
@@ -60,7 +60,6 @@ async function fixtureIo(signal: AbortSignal): Promise<{
 	temporaryDirectories.push(parent);
 	const messages: string[] = [];
 	const interrupts = new EventEmitter();
-	interruptOnAbort(signal, interrupts);
 	const io: CliIo = {
 		stdout: (message) => messages.push(message),
 		stderr: (message) => messages.push(message),
@@ -73,7 +72,7 @@ async function fixtureIo(signal: AbortSignal): Promise<{
 		parent,
 		messages,
 		interrupts,
-		cli: (args, runtime) => childWork(runCli(args, io, runtime))
+		cli: (args, runtime) => cliChildWork(signal, interrupts, () => runCli(args, io, runtime))
 	};
 }
 

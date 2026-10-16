@@ -15,7 +15,7 @@ import {
 } from '../src/prompts.js';
 import { inspectTarget } from '../src/target.js';
 import { tarGz, validTemplateEntries } from './archive-fixture.js';
-import { childWork, interruptOnAbort, removeDirectories, settleChildWork } from './child-work.js';
+import { cliChildWork, removeDirectories, settleChildWork } from './child-work.js';
 
 class PromptInput extends Readable {
 	isTTY = true;
@@ -345,9 +345,8 @@ describe('interrupt handling', () => {
 		const archive = tarGz(validTemplateEntries());
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(responseFromBuffer(archive));
 		const interrupts = new EventEmitter();
-		interruptOnAbort(signal, interrupts);
 		const baselineListeners = process.listenerCount('SIGINT');
-		const running = childWork(
+		const running = cliChildWork(signal, interrupts, () =>
 			runCli(
 				[
 					'project',
@@ -404,8 +403,7 @@ describe('interrupt handling', () => {
 			return responseFromBuffer(archive);
 		});
 
-		interruptOnAbort(signal, interrupts);
-		const code = await childWork(
+		const code = await cliChildWork(signal, interrupts, () =>
 			runCli(['project', '--repo', 'owner/project', '--yes', '--trust-template'], {
 				stdout: (message) => messages.push(message),
 				stderr: (message) => messages.push(message),
