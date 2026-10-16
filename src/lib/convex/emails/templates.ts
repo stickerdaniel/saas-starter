@@ -578,10 +578,13 @@ export function renderCancellationAdminNotificationEmail(
 			subject: t(locale, 'email.subject.cancellation', { customer, duration }),
 			badgeText: t(locale, 'email.cancellation.badge'),
 			titleText: t(locale, 'email.cancellation.title', { customer, duration }),
-			footerText: t(locale, 'email.cancellation.footer', {
-				timeZone: data.timeZone,
-				days: data.lookbackDays
-			}),
+			footerText:
+				data.lookbackDays === null
+					? t(locale, 'email.cancellation.footer_since_signup', { timeZone: data.timeZone })
+					: t(locale, 'email.cancellation.footer', {
+							timeZone: data.timeZone,
+							days: data.lookbackDays
+						}),
 			journeyUnavailable: t(locale, 'email.cancellation.journey_unavailable')
 		},
 		data,

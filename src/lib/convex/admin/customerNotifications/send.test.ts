@@ -624,14 +624,20 @@ describe('cancellation email from a seeded ledger row', () => {
 		expect(text).toContain('Activity from the 7 days before the cancellation.');
 	});
 
-	it('names the days since signup when the window opens there', async () => {
+	it('says the activity runs from signup when the window opens there', async () => {
 		const { cancellationRow, sendCancel, enqueued } = setupSend();
 		installResend();
 
-		// Signup was 14 d 9 h 33 min before the cancellation.
-		await sendCancel(cancellationRow({ canceledAt: CANCELED }));
+		// Signed up, paid an hour later and canceled the same day.
+		await sendCancel(
+			cancellationRow({ canceledAt: SIGNUP + 6 * HOUR, payment: { invoiceAt: SIGNUP + HOUR } })
+		);
 
-		expect(enqueued()[0]!.text).toContain('Activity from the 15 days before the cancellation.');
+		const { text, html } = enqueued()[0]!;
+		for (const body of [text, textOf(parse(html))]) {
+			expect(body).toContain('Activity since signup.');
+			expect(body).not.toContain('days before');
+		}
 	});
 
 	it('leaves the access line out when the read had no access end', async () => {
@@ -717,15 +723,14 @@ describe('cancellation email rendering', () => {
 				customer: customer.name,
 				duration: formatDuration(CANCELED - PAID, locale),
 				date: createClock({ locale, timeZone: 'UTC' }).date(ACCESS_UNTIL),
-				timeZone: 'UTC',
-				// The window opens at signup, 14 d 9 h before the cancellation.
-				days: '15'
+				timeZone: 'UTC'
 			};
 			expect(email.subject).toBe(fill(copy.subject.cancellation, params));
 			for (const text of [
 				copy.cancellation.badge,
 				fill(copy.cancellation.title, params),
-				fill(copy.cancellation.footer, params),
+				// The window opens at signup, 14 d 9 h before the cancellation.
+				fill(copy.cancellation.footer_since_signup, params),
 				`${params.duration}: ${milestone.paid_to_canceled}`
 			]) {
 				expect(email.text).toContain(text);

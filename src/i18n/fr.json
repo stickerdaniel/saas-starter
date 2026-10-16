@@ -792,7 +792,8 @@
 			"title": "{customer} a résilié après {duration}",
 			"preview": "A résilié {duration} après avoir payé",
 			"journey_unavailable": "Le parcours client n'a pas pu être inclus dans cet email.",
-			"footer": "Heures en {timeZone}. Activité des {days} jours précédant la résiliation. Tu reçois cet email car les notifications de résiliations sont activées."
+			"footer": "Heures en {timeZone}. Activité des {days} jours précédant la résiliation. Tu reçois cet email car les notifications de résiliations sont activées.",
+			"footer_since_signup": "Heures en {timeZone}. Activité depuis l'inscription. Tu reçois cet email car les notifications de résiliations sont activées."
 		},
 		"rate_limit_alert": {
 			"description": "Les visiteurs non connectés partagent cette limite. Elle est basse depuis au moins {minutes} minutes.",

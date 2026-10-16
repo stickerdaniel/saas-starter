@@ -792,7 +792,8 @@
 			"title": "{customer} hat {duration} nach der Zahlung gekündigt",
 			"preview": "{duration} nach der Zahlung gekündigt",
 			"journey_unavailable": "Der Kundenverlauf konnte dieser E-Mail nicht beigefügt werden.",
-			"footer": "Zeiten in {timeZone}. Aktivität aus den {days} Tagen vor der Kündigung. Du erhältst diese E-Mail, weil du Benachrichtigungen über Kündigungen aktiviert hast."
+			"footer": "Zeiten in {timeZone}. Aktivität aus den {days} Tagen vor der Kündigung. Du erhältst diese E-Mail, weil du Benachrichtigungen über Kündigungen aktiviert hast.",
+			"footer_since_signup": "Zeiten in {timeZone}. Aktivität seit der Registrierung. Du erhältst diese E-Mail, weil du Benachrichtigungen über Kündigungen aktiviert hast."
 		},
 		"rate_limit_alert": {
 			"description": "Nicht angemeldete Besucher teilen sich dieses Limit. Es ist seit mindestens {minutes} Minuten knapp.",

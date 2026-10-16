@@ -112,7 +112,7 @@ const CANCELLATION_EMAIL: EpisodeEmail<CancellationAdminNotificationEmailData> =
 	template: 'cancellation',
 	data({ row, presented, format, customer, adminDashboardLink }) {
 		const composed = composeCancellation({ billing: row.billing, presented, format });
-		const { start, end } = row.request.window;
+		const { signupAt, window } = row.request;
 		return {
 			customer: customer.name || customer.email,
 			customerEmail: customer.email,
@@ -121,7 +121,7 @@ const CANCELLATION_EMAIL: EpisodeEmail<CancellationAdminNotificationEmailData> =
 			journey: composed.journey,
 			timeZone: format.timeZone,
 			// The frozen window, not today's policy, so the footer names what the journey covers.
-			lookbackDays: Math.max(1, Math.ceil((end - start) / DAY)),
+			lookbackDays: window.start <= signupAt ? null : Math.round((window.end - window.start) / DAY),
 			adminDashboardLink
 		};
 	},

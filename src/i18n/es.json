@@ -792,7 +792,8 @@
 			"title": "{customer} canceló tras {duration}",
 			"preview": "Canceló {duration} después de pagar",
 			"journey_unavailable": "No se pudo incluir el recorrido del cliente en este email.",
-			"footer": "Horas en {timeZone}. Actividad de los {days} días anteriores a la cancelación. Recibes este email porque tienes activadas las notificaciones de cancelaciones."
+			"footer": "Horas en {timeZone}. Actividad de los {days} días anteriores a la cancelación. Recibes este email porque tienes activadas las notificaciones de cancelaciones.",
+			"footer_since_signup": "Horas en {timeZone}. Actividad desde el registro. Recibes este email porque tienes activadas las notificaciones de cancelaciones."
 		},
 		"rate_limit_alert": {
 			"description": "Los visitantes sin sesión iniciada comparten este límite. Lleva al menos {minutes} minutos en un nivel bajo.",

@@ -193,7 +193,7 @@ export type NewCustomerAdminNotificationEmailData = {
  * @property previewText - Inbox preview line
  * @property journey - Tiles and timeline; null renders the email without them
  * @property timeZone - IANA zone every time is shown in, named in the footer
- * @property lookbackDays - How many days before the cancellation the journey covers
+ * @property lookbackDays - How many days before the cancellation the journey covers, or null when it opens at signup
  * @property adminDashboardLink - Link to the admin users page filtered by this customer
  */
 export type CancellationAdminNotificationEmailData = {
@@ -203,7 +203,7 @@ export type CancellationAdminNotificationEmailData = {
 	previewText: string;
 	journey: ComposedJourney | null;
 	timeZone: string;
-	lookbackDays: number;
+	lookbackDays: number | null;
 	adminDashboardLink: string;
 };
 

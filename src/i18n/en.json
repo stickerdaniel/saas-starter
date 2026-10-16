@@ -792,7 +792,8 @@
 			"title": "{customer} canceled after {duration}",
 			"preview": "Canceled {duration} after paying",
 			"journey_unavailable": "The customer journey could not be included in this email.",
-			"footer": "Times in {timeZone}. Activity from the {days} days before the cancellation. You're receiving this email because you have cancellation notifications enabled."
+			"footer": "Times in {timeZone}. Activity from the {days} days before the cancellation. You're receiving this email because you have cancellation notifications enabled.",
+			"footer_since_signup": "Times in {timeZone}. Activity since signup. You're receiving this email because you have cancellation notifications enabled."
 		},
 		"rate_limit_alert": {
 			"description": "Signed-out visitors share this limit. It has been low for at least {minutes} minutes.",
