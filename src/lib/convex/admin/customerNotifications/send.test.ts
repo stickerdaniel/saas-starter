@@ -7,6 +7,7 @@ import de from '../../../../i18n/de.json';
 import en from '../../../../i18n/en.json';
 import es from '../../../../i18n/es.json';
 import fr from '../../../../i18n/fr.json';
+import { createClock, formatDuration } from '../journey/format';
 import { getRecipientsForNotificationType } from '../notificationPreferences/queries';
 import {
 	deactivateAdminPreferencesHelper,
@@ -233,14 +234,20 @@ describe('recipients and outcomes', () => {
 		const { store, preference } = setupSend({ admins: [] });
 		const sync = (userId: string, email: string) =>
 			store.mutate((ctx) => syncAdminPreferences(ctx as never, { userId, email }));
-		const toggle = (email: string) =>
-			store.docs('adminNotificationPreferences').find((doc) => doc.email === email)
-				?.notifyNewCustomers;
+		const preferenceOf = (email: string) =>
+			store.docs('adminNotificationPreferences').find((doc) => doc.email === email);
+		const toggle = (email: string) => preferenceOf(email)?.notifyNewCustomers;
 
 		await sync('fresh', 'fresh@example.com');
 		await sync('preview', 'admin@preview.dev');
-		expect(toggle('fresh@example.com')).toBe(true);
-		expect(toggle('admin@preview.dev')).toBe(false);
+		expect(preferenceOf('fresh@example.com')).toMatchObject({
+			notifyNewCustomers: true,
+			notifyCancellations: true
+		});
+		expect(preferenceOf('admin@preview.dev')).toMatchObject({
+			notifyNewCustomers: false,
+			notifyCancellations: false
+		});
 
 		preference('chose@example.com', { userId: 'chose', notifyNewCustomers: false });
 		await sync('chose', 'renamed@example.com');
@@ -517,5 +524,196 @@ describe('new customer email rendering', () => {
 		expect(text).toContain('Paid $10.00 (Mon, Oct 26, 09:00)');
 		expect(text).toContain('1 d 10 h: signup to paid');
 		expect(text).toContain('Times in Europe/Berlin.');
+	});
+});
+
+/** The rail's step lines of a plain text email: "Title (time)". */
+const timedSteps = (text: string) =>
+	text.split('\n').filter((line) => /\(.*\d\d:\d\d\)$/.test(line));
+
+/** Tue, Oct 20, 18:45 UTC: 12 d 4 h 15 min after the payment. */
+const CANCELED = PAID + 12 * DAY + 4 * HOUR + 15 * MINUTE;
+
+describe('cancellation email from a seeded ledger row', () => {
+	it('counts the whole window around the payment and closes the rail with the cancellation', async () => {
+		const { store, seed, cancellationRow, sendCancel, row, enqueued } = setupSend();
+		seed.captureAll();
+		for (const at of [SIGNUP + 6 * MINUTE, SIGNUP + HOUR, PAID - HOUR]) seed.receipt(at);
+		for (const at of [PAID + DAY, PAID + 2 * DAY, CANCELED]) seed.receipt(at);
+		seed.message(SIGNUP + DAY);
+		seed.message(SIGNUP + DAY + 2 * HOUR);
+		seed.contact(PAID - 4 * HOUR - 25 * MINUTE);
+		// A contact at the very moment of the cancellation still comes before it.
+		seed.contact(CANCELED);
+		installResend();
+		const id = cancellationRow({ canceledAt: CANCELED });
+
+		await sendCancel(id);
+
+		const [email] = enqueued();
+		expect(email?.subject).toBe('Cancellation: Ada Lovelace canceled after 12 d 4 h');
+		expect(email?.template).toBe('cancellation');
+		expect(timedSteps(email!.text)).toEqual([
+			'Signed up (Tue, Oct 6, 09:12)',
+			'Sent 3 AI chat messages (09:18)',
+			'Sent 2 community messages (Wed, Oct 7, 09:12)',
+			'First recorded support contact (Thu, Oct 8, 10:05)',
+			'Paid $10.00 (14:30)',
+			'Sent 3 AI chat messages (Fri, Oct 9, 14:30)',
+			'First recorded support contact (Tue, Oct 20, 18:45)',
+			'Canceled (18:45)'
+		]);
+		expect(email!.text).toContain('Canceled (18:45)\n  Access until Sun, Nov 8');
+		expect(email!.text).toContain('12 d 4 h: paid to canceled');
+		// A cancellation counts its whole window, even one that opens at signup.
+		expect(email!.text).toContain('6: AI chat messages');
+		expect(email!.text).toContain('2: community messages');
+		expect(email!.text).not.toContain('before paying');
+		expect(email!.html).not.toContain('before paying');
+		expect(row(id)).toMatchObject({
+			status: 'enqueued',
+			emailIds: store.docs('resend:emails').map((doc) => doc._id),
+			enqueuedCount: 1
+		});
+	});
+
+	it('keeps the milestones before a 30-day window and counts only what happened inside it', async () => {
+		const { seed, cancellationRow, sendCancel, enqueued } = setupSend();
+		const canceledAt = PAID + 60 * DAY;
+		seed.captureAll();
+		seed.receipt(SIGNUP + HOUR);
+		seed.receipt(PAID + 10 * DAY);
+		seed.receipt(canceledAt - 10 * DAY);
+		seed.receipt(canceledAt - 5 * DAY);
+		// The first contact is older than the window; only its reply is recent.
+		seed.contact(PAID + DAY, 'help', canceledAt - DAY);
+		installResend();
+
+		await sendCancel(cancellationRow({ canceledAt }));
+
+		const { text, html } = enqueued()[0]!;
+		expect(timedSteps(text)).toEqual([
+			'Signed up (Tue, Oct 6, 09:12)',
+			'Paid $10.00 (Thu, Oct 8, 14:30)',
+			'Sent 2 AI chat messages (Fri, Nov 27, 14:30)',
+			'Canceled (Mon, Dec 7, 14:30)'
+		]);
+		expect(text).toContain('60 d: paid to canceled');
+		expect(text).toContain('2: AI chat messages');
+		expect(text).toContain('Activity from the 30 days before the cancellation.');
+		for (const body of [text, textOf(parse(html))]) {
+			expect(body).not.toContain('before paying');
+			expect(body).not.toMatch(/support/i);
+		}
+	});
+
+	it('leaves the access line out when the read had no access end', async () => {
+		const { cancellationRow, sendCancel, enqueued } = setupSend();
+		installResend();
+
+		await sendCancel(cancellationRow({ canceledAt: CANCELED, accessUntil: null }));
+
+		const { text } = enqueued()[0]!;
+		expect(text).toContain('Canceled (Tue, Oct 20, 18:45)');
+		expect(text).not.toContain('Access until');
+	});
+
+	it('leaves a row of the other episode alone', async () => {
+		const { ledgerRow, cancellationRow, send, sendCancel, row } = setupSend();
+		const sendEmail = installResend();
+		const newCustomer = ledgerRow();
+		const cancellation = cancellationRow({ canceledAt: CANCELED });
+
+		await sendCancel(newCustomer);
+		await send(cancellation);
+
+		expect(row(newCustomer)?.status).toBe('scheduled');
+		expect(row(cancellation)?.status).toBe('scheduled');
+		expect(sendEmail).not.toHaveBeenCalled();
+	});
+
+	it('sends new customers and cancellations to their own recipients', async () => {
+		const { store, preference, ledgerRow, cancellationRow, send, sendCancel, enqueued } = setupSend(
+			{ admins: [] }
+		);
+		preference('no-customers@example.com', { notifyNewCustomers: false });
+		preference('no-cancellations@example.com', { notifyCancellations: false });
+		preference('unset@example.com', {
+			notifyNewCustomers: undefined,
+			notifyCancellations: undefined
+		});
+		installResend();
+
+		await send(ledgerRow());
+		await sendCancel(cancellationRow({ canceledAt: CANCELED }));
+
+		const sentTo = (template: string) =>
+			enqueued()
+				.filter((email) => email.template === template)
+				.map((email) => email.to);
+		expect(sentTo('new-customer')).toEqual(['no-cancellations@example.com', 'unset@example.com']);
+		expect(sentTo('cancellation')).toEqual(['no-customers@example.com', 'unset@example.com']);
+		const recipients = await store.mutate((ctx) =>
+			asRegistered(getRecipientsForNotificationType)._handler(
+				ctx as never,
+				{ type: 'cancellations' } as never
+			)
+		);
+		expect(recipients).toEqual(['no-customers@example.com', 'unset@example.com']);
+	});
+});
+
+describe('cancellation email rendering', () => {
+	const COPY = { en, de, es, fr };
+	const ACCESS_UNTIL = CANCELED + 19 * DAY;
+
+	it('renders every locale in HTML and text', async () => {
+		const customer = { name: `O'Brien <Ops>`, email: 'ops@example.com' };
+		const { cancellationRow, sendCancel, enqueued } = setupSend({
+			customer,
+			admins: (['en', 'de', 'es', 'fr'] as const).map((locale) => ({
+				id: `admin_${locale}`,
+				email: `${locale}@example.com`,
+				locale
+			}))
+		});
+		installResend();
+
+		await sendCancel(cancellationRow({ canceledAt: CANCELED, accessUntil: ACCESS_UNTIL }));
+
+		expect(enqueued()).toHaveLength(4);
+		for (const email of enqueued()) {
+			const locale = email.to.split('@')[0] as keyof typeof COPY;
+			const copy = COPY[locale].email;
+			const milestone = copy.customer_journey.milestone;
+			const params = {
+				customer: customer.name,
+				duration: formatDuration(CANCELED - PAID, locale),
+				date: createClock({ locale, timeZone: 'UTC' }).date(ACCESS_UNTIL),
+				timeZone: 'UTC',
+				days: '30'
+			};
+			expect(email.subject).toBe(fill(copy.subject.cancellation, params));
+			for (const text of [
+				copy.cancellation.badge,
+				fill(copy.cancellation.title, params),
+				fill(copy.cancellation.footer, params),
+				`${params.duration}: ${milestone.paid_to_canceled}`
+			]) {
+				expect(email.text).toContain(text);
+			}
+			// The cancellation and its access line are the rail's last step.
+			const steps = timedSteps(email.text);
+			expect(steps[steps.length - 1]).toMatch(new RegExp(`^${milestone.canceled} \\(`));
+			expect(email.text).toContain(
+				`${steps[steps.length - 1]}\n  ${fill(milestone.access_until, params)}`
+			);
+			// Nothing was recorded, so the preview names the duration instead of a count.
+			expect(email.html).toContain(fill(copy.cancellation.preview, params));
+			expect(email.html).toContain(
+				fill(copy.cancellation.title, { ...params, customer: 'O&#39;Brien &lt;Ops&gt;' })
+			);
+			expect(email.html).not.toContain('<Ops>');
+		}
 	});
 });

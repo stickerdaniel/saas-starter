@@ -6,16 +6,18 @@ import {
 	type JourneyRequest
 } from '../journey/source';
 import { frozenBillingValidator, type Payment } from './billing';
-import { NEW_CUSTOMER } from './policy';
+import { CANCELLATION, NEW_CUSTOMER } from './policy';
 
 /**
  * The admin customer email ledger: one row per episode, written by admission
  * and finished by the episode's sender.
  *
  * A `new_customer` episode is the customer's first eligible payment, keyed by
- * the user. `billing` and `request` are frozen at admission and never
- * rewritten, so a redelivered billing event joins the row instead of moving
- * its window. `enqueued` means at least one recipient's component enqueue
+ * the user. A `cancellation` episode is one observed scheduled cancellation,
+ * keyed by the user and the cancellation time, so a cancellation withdrawn and
+ * later made again is a new episode. `billing` and `request` are frozen at
+ * admission and never rewritten, so a redelivered billing event joins the row
+ * instead of moving its window. `enqueued` means at least one recipient's component enqueue
  * committed, not that anything was delivered; delivery state lives in the
  * Resend component under `emailIds`.
  */
@@ -57,6 +59,11 @@ export const customerNotifications = defineTable({
 	.index('by_kind_and_episode', ['kind', 'episodeKey'])
 	.index('by_user', ['userId']);
 
+type Episode = { episodeKey: string; request: JourneyRequest; sendAt: number };
+
+/** A customer has one new-customer episode, so its key is the user. */
+export const newCustomerEpisodeKey = (userId: string) => userId;
+
 /**
  * The frozen facts of a new-customer episode. The window runs from signup to
  * `postPaymentMs` after the payment, and the send waits for the window to
@@ -65,12 +72,12 @@ export const customerNotifications = defineTable({
 export function newCustomerEpisode(
 	args: { userId: string; signupAt: number; firstPayment: Payment; now: number },
 	policy: { postPaymentMs: number } = NEW_CUSTOMER
-): { episodeKey: string; request: JourneyRequest; sendAt: number } {
+): Episode {
 	const { userId, signupAt, firstPayment, now } = args;
 	const paymentAt = firstPayment.invoiceAt;
 	const end = paymentAt + policy.postPaymentMs;
 	return {
-		episodeKey: userId,
+		episodeKey: newCustomerEpisodeKey(userId),
 		request: {
 			episode: 'new_customer',
 			userId,
@@ -79,5 +86,28 @@ export function newCustomerEpisode(
 			window: { start: signupAt, end }
 		},
 		sendAt: Math.max(now, end)
+	};
+}
+
+/**
+ * The frozen facts of a cancellation episode. `anchor` is the payment the
+ * email measures from. The window covers the `lookbackMs` before the
+ * cancellation, starting no earlier than signup, and the email goes out now.
+ */
+export function cancellationEpisode(
+	args: { userId: string; signupAt: number; anchor: Payment; canceledAt: number; now: number },
+	policy: { lookbackMs: number } = CANCELLATION
+): Episode {
+	const { userId, signupAt, anchor, canceledAt, now } = args;
+	return {
+		episodeKey: `${userId}:${canceledAt}`,
+		request: {
+			episode: 'cancellation',
+			userId,
+			signupAt,
+			paymentAt: anchor.invoiceAt,
+			window: { start: Math.max(signupAt, canceledAt - policy.lookbackMs), end: canceledAt }
+		},
+		sendAt: now
 	};
 }

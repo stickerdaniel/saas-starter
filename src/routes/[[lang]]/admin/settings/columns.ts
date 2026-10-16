@@ -150,6 +150,23 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 		meta: { skeleton: { kind: 'checkbox' } }
 	},
 	{
+		id: 'notifyCancellations',
+		size: 100,
+		minSize: 100,
+		header: () =>
+			renderComponent(DataTableColumnHeader, {
+				titleKey: 'admin.settings.column_cancellations',
+				class: 'text-center'
+			}),
+		cell: ({ row }) =>
+			renderComponent(RecipientsToggle, {
+				email: row.original.email,
+				field: 'notifyCancellations',
+				checked: row.original.notifyCancellations
+			}),
+		meta: { skeleton: { kind: 'checkbox' } }
+	},
+	{
 		id: 'actions',
 		size: 50,
 		minSize: 50,

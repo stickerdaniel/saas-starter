@@ -1,4 +1,4 @@
-import { v } from 'convex/values';
+import { v, type Infer } from 'convex/values';
 import * as val from 'valibot';
 import { components, internal } from '../../_generated/api';
 import type { Doc, Id } from '../../_generated/dataModel';
@@ -7,16 +7,25 @@ import { requireEnv } from '../../env';
 import { isTestEmail } from '../../emails/helpers';
 import { resend } from '../../emails/resend';
 import { getLocaleForEmail, getReadyEmailConfiguration } from '../../emails/send';
-import { renderNewCustomerAdminNotificationEmail } from '../../emails/templates';
-import type { NewCustomerAdminNotificationEmailData } from '../../../emails/templates/types';
-import { collectJourney, presentJourney } from '../journey/collect';
-import { resolveTimeZone } from '../journey/format';
+import {
+	renderCancellationAdminNotificationEmail,
+	renderNewCustomerAdminNotificationEmail
+} from '../../emails/templates';
+import type {
+	CancellationAdminNotificationEmailData,
+	NewCustomerAdminNotificationEmailData
+} from '../../../emails/templates/types';
+import { collectJourney, presentJourney, type PresentedJourney } from '../journey/collect';
+import { resolveTimeZone, type JourneyFormat } from '../journey/format';
 import { JOURNEY_SOURCES } from '../journey/registry';
-import { composeNewCustomer } from './compose';
+import type { NotificationType } from '../notificationPreferences/queries';
+import { composeCancellation, composeNewCustomer, type ComposedJourney } from './compose';
+import { CANCELLATION } from './policy';
 
 /**
- * The new-customer admin email: one scheduled run per ledger row, which
- * finishes the row exactly once.
+ * The admin customer emails: one scheduled run per ledger row, which
+ * finishes the row exactly once. Both episodes share this flow and differ
+ * only in their audience, template and composition.
  *
  * The journey is read once per row; everything after it runs per recipient,
  * because the email is presented in the recipient's locale. Each recipient's
@@ -29,6 +38,7 @@ import { composeNewCustomer } from './compose';
 
 const KiB = 1024;
 const MiB = 1024 * KiB;
+const DAY = 24 * 60 * 60 * 1000;
 
 /** Recipient discovery: up to 501 preference rows. */
 const DISCOVERY_LIMITS = { documentsRead: 510, bytesRead: MiB };
@@ -39,7 +49,8 @@ const ENQUEUE_LIMITS = { documentsWritten: 10, bytesWritten: 256 * KiB };
 /** The largest rendered email a recipient gets, in UTF-8 bytes. */
 const MAX_PAYLOAD = { html: 128 * KiB, text: 32 * KiB };
 
-const TEMPLATE = 'new-customer';
+/** The `X-Email-Template` header of each email. */
+const templateValidator = v.union(v.literal('new-customer'), v.literal('cancellation'));
 
 type Notification = Doc<'customerNotifications'>;
 type Outcome = Pick<
@@ -53,6 +64,68 @@ type Outcome = Pick<
 	| 'audienceTruncated'
 >;
 type RenderedEmail = { subject: string; html: string; text: string };
+
+/** What a sender knows when it builds one recipient's email. */
+type RecipientInput = {
+	row: Notification;
+	presented: PresentedJourney;
+	format: JourneyFormat;
+	customer: { name: string; email: string };
+	adminDashboardLink: string;
+};
+
+/**
+ * One episode's email: the ledger rows it sends, the preference toggle that
+ * picks its recipients, and how one recipient's email is built and rendered.
+ * Rendering the data with `journey: null` gives the version without the
+ * journey.
+ */
+type EpisodeEmail<Data extends { journey: ComposedJourney | null }> = {
+	kind: Notification['kind'];
+	audience: NotificationType;
+	template: Infer<typeof templateValidator>;
+	data(input: RecipientInput): Data;
+	render(data: Data, locale: string): RenderedEmail;
+};
+
+const NEW_CUSTOMER_EMAIL: EpisodeEmail<NewCustomerAdminNotificationEmailData> = {
+	kind: 'new_customer',
+	audience: 'newCustomers',
+	template: 'new-customer',
+	data({ row, presented, format, customer, adminDashboardLink }) {
+		const composed = composeNewCustomer({ billing: row.billing, presented, format });
+		return {
+			customer: customer.name || customer.email,
+			customerEmail: customer.email,
+			amount: composed.amount,
+			previewText: composed.previewText,
+			journey: composed.journey,
+			timeZone: format.timeZone,
+			adminDashboardLink
+		};
+	},
+	render: renderNewCustomerAdminNotificationEmail
+};
+
+const CANCELLATION_EMAIL: EpisodeEmail<CancellationAdminNotificationEmailData> = {
+	kind: 'cancellation',
+	audience: 'cancellations',
+	template: 'cancellation',
+	data({ row, presented, format, customer, adminDashboardLink }) {
+		const composed = composeCancellation({ billing: row.billing, presented, format });
+		return {
+			customer: customer.name || customer.email,
+			customerEmail: customer.email,
+			duration: composed.duration,
+			previewText: composed.previewText,
+			journey: composed.journey,
+			timeZone: format.timeZone,
+			lookbackDays: Math.round(CANCELLATION.lookbackMs / DAY),
+			adminDashboardLink
+		};
+	},
+	render: renderCancellationAdminNotificationEmail
+};
 
 const customerSchema = val.object({
 	email: val.string(),
@@ -79,26 +152,29 @@ function withinPayload({ html, text }: RenderedEmail): boolean {
  * The email for one recipient, or null when even the version without the
  * journey is too large to hand to the component.
  */
-function renderWithinPayload(
-	data: NewCustomerAdminNotificationEmailData,
+function renderWithinPayload<Data extends { journey: ComposedJourney | null }>(
+	episode: EpisodeEmail<Data>,
+	data: Data,
 	locale: string,
 	notificationId: Id<'customerNotifications'>
 ): RenderedEmail | null {
-	const full = renderNewCustomerAdminNotificationEmail(data, locale);
+	const full = episode.render(data, locale);
 	if (withinPayload(full)) return full;
 	console.warn({ code: 'journey_payload_oversize', notificationId });
-	const fallback = renderNewCustomerAdminNotificationEmail({ ...data, journey: null }, locale);
+	const fallback = episode.render({ ...data, journey: null }, locale);
 	if (withinPayload(fallback)) return fallback;
 	console.error({ code: 'email_payload_oversize', notificationId });
 	return null;
 }
 
-async function sendNewCustomerNotification(
+/** Send `episode`'s email for one ledger row; a row of another kind or already finished is left alone. */
+async function sendEpisode<Data extends { journey: ComposedJourney | null }>(
 	ctx: MutationCtx,
-	notificationId: Id<'customerNotifications'>
+	notificationId: Id<'customerNotifications'>,
+	episode: EpisodeEmail<Data>
 ): Promise<void> {
 	const row = await ctx.db.get('customerNotifications', notificationId);
-	if (row?.status !== 'scheduled') return;
+	if (row?.status !== 'scheduled' || row.kind !== episode.kind) return;
 	const finish = (outcome: Outcome) =>
 		ctx.db.patch('customerNotifications', row._id, { ...outcome, completedAt: Date.now() });
 
@@ -115,7 +191,7 @@ async function sendNewCustomerNotification(
 	try {
 		audience = await ctx.runQuery(
 			internal.admin.notificationPreferences.queries.getJourneyRecipients,
-			{ type: 'newCustomers' },
+			{ type: episode.audience },
 			{ transactionLimits: DISCOVERY_LIMITS }
 		);
 	} catch {
@@ -145,24 +221,14 @@ async function sendNewCustomerNotification(
 		try {
 			const locale = await getLocaleForEmail(ctx, to);
 			const format = { locale, timeZone };
-			const composed = composeNewCustomer({
-				billing: row.billing,
+			const data = episode.data({
+				row,
 				presented: presentJourney(collected, format),
-				format
+				format,
+				customer,
+				adminDashboardLink
 			});
-			const email = renderWithinPayload(
-				{
-					customer: customer.name || customer.email,
-					customerEmail: customer.email,
-					amount: composed.amount,
-					previewText: composed.previewText,
-					journey: composed.journey,
-					timeZone,
-					adminDashboardLink
-				},
-				locale,
-				notificationId
-			);
+			const email = renderWithinPayload(episode, data, locale, notificationId);
 			if (!email) {
 				failedCount++;
 				continue;
@@ -170,7 +236,7 @@ async function sendNewCustomerNotification(
 			emailIds.push(
 				await ctx.runMutation(
 					internal.admin.customerNotifications.send.enqueueRecipient,
-					{ to, ...email, template: TEMPLATE },
+					{ to, ...email, template: episode.template },
 					{ transactionLimits: ENQUEUE_LIMITS }
 				)
 			);
@@ -194,14 +260,24 @@ export const sendNewCustomer = internalMutation({
 	args: { notificationId: v.id('customerNotifications') },
 	returns: v.null(),
 	handler: async (ctx, { notificationId }) => {
-		await sendNewCustomerNotification(ctx, notificationId);
+		await sendEpisode(ctx, notificationId, NEW_CUSTOMER_EMAIL);
+		return null;
+	}
+});
+
+/** Send the cancellation email for one ledger row. Scheduled by admission. */
+export const sendCancellation = internalMutation({
+	args: { notificationId: v.id('customerNotifications') },
+	returns: v.null(),
+	handler: async (ctx, { notificationId }) => {
+		await sendEpisode(ctx, notificationId, CANCELLATION_EMAIL);
 		return null;
 	}
 });
 
 /**
  * Enqueue one rendered email with the Resend component and return its id.
- * Called only by the sender above, under write limits, whose catch keeps a
+ * Called only by the senders above, under write limits, whose catch keeps a
  * throw here from undoing any other recipient.
  */
 export const enqueueRecipient = internalMutation({
@@ -210,7 +286,7 @@ export const enqueueRecipient = internalMutation({
 		subject: v.string(),
 		html: v.string(),
 		text: v.string(),
-		template: v.literal(TEMPLATE)
+		template: templateValidator
 	},
 	returns: v.string(),
 	handler: async (ctx, { to, subject, html, text, template }): Promise<string> => {

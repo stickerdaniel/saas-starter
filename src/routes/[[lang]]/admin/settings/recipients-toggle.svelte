@@ -32,7 +32,8 @@
 		notifyNewSupportTickets: 'admin.settings.field_new_tickets',
 		notifyUserReplies: 'admin.settings.field_user_replies',
 		notifyNewSignups: 'admin.settings.field_new_signups',
-		notifyNewCustomers: 'admin.settings.field_new_customers'
+		notifyNewCustomers: 'admin.settings.field_new_customers',
+		notifyCancellations: 'admin.settings.field_cancellations'
 	};
 
 	function handleToggle() {

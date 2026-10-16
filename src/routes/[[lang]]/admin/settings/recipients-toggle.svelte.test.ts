@@ -46,6 +46,7 @@ function recipient(email: string): NotificationRecipient {
 		notifyUserReplies: false,
 		notifyNewSignups: false,
 		notifyNewCustomers: false,
+		notifyCancellations: false,
 		createdAt: 0,
 		updatedAt: 0
 	};

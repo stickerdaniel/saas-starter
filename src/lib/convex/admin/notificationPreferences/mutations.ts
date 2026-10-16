@@ -96,6 +96,7 @@ export const addCustomEmail = adminMutation({
 			notifyUserReplies: true,
 			notifyNewSignups: true,
 			notifyNewCustomers: true,
+			notifyCancellations: true,
 			createdAt: now,
 			updatedAt: now
 		});

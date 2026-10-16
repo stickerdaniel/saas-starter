@@ -3,6 +3,7 @@ import type { EmailId } from '@convex-dev/resend';
 import { makeFunctionReference } from 'convex/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { onDelete } from '../../auth';
+import { admitObservation } from '../customerNotifications/admission';
 import { cancelUnsentEmails } from '../customerNotifications/cancel';
 import { resend } from '../../emails/resend';
 import { continueErasure, erasePage, startJourneyErasure } from './erasure';
@@ -56,6 +57,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	vi.useRealTimers();
+	vi.unstubAllEnvs();
 	vi.restoreAllMocks();
 });
 
@@ -426,6 +428,42 @@ describe('customer notification ledger', () => {
 
 	// Convex refuses a dynamic import inside a mutation, so the Resend client is
 	// reached through its own mutation, never loaded by the erasure page.
+	it('cancels the pending sends admission scheduled for the user, the cancellation included', async () => {
+		vi.stubEnv('AUTUMN_WEBHOOK_SECRET', 'whsec_erasure_test');
+		const day = 24 * 3_600_000;
+		const now = Date.now();
+		const store = createJourneyStore({
+			users: [OTHER, { _id: USER, createdAt: now - 10 * day }],
+			functions: FUNCTIONS
+		});
+		installResend();
+		await store.mutate(admitObservation as unknown as Registered, {
+			userId: USER,
+			firstPayment: {
+				invoiceAt: now - 5 * day,
+				total: 10,
+				currency: 'usd',
+				planId: 'pro',
+				interval: 'month'
+			},
+			current: {
+				planId: 'pro',
+				interval: 'month',
+				scheduledCancellation: { canceledAt: now - 3_600_000, accessUntil: now + 20 * day }
+			},
+			observedAt: now
+		});
+		expect(store.scheduled().map(({ name, state }) => [name, state])).toEqual([
+			['admin/customerNotifications/send:sendNewCustomer', 'pending'],
+			['admin/customerNotifications/send:sendCancellation', 'pending']
+		]);
+
+		await startErasure(store);
+
+		expect(store.scheduled().map(({ state }) => state)).toEqual(['canceled', 'canceled']);
+		expect(store.docs('customerNotifications')).toEqual([]);
+	});
+
 	it('cancels emails the component still holds and treats every other status as final', async () => {
 		const store = setup();
 		const { cancelEmail } = installResend();
