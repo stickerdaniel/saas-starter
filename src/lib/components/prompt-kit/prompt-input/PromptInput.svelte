@@ -60,27 +60,14 @@
 	function handleClick() {
 		contextInstance.textareaRef?.focus();
 	}
-
-	function handleKeyDown(e: KeyboardEvent) {
-		// Don't intercept Enter from buttons or other interactive elements
-		const target = e.target as HTMLElement;
-		if (target.closest('button, a, [role="button"]')) {
-			return;
-		}
-
-		// Only handle Enter key to focus textarea from wrapper
-		if (e.key === 'Enter') {
-			e.preventDefault();
-			handleClick();
-		}
-	}
 </script>
 
+<!-- No keydown handler: the wrapper is not focusable, so its keys bubble from the
+textarea and the actions, and cancelling Enter here swallows Shift+Enter newlines. -->
 <TooltipPrimitive.Provider>
 	<div
 		class={cn('cursor-text rounded-3xl border border-input bg-background p-2 shadow-xs', className)}
 		onclick={handleClick}
-		onkeydown={handleKeyDown}
 		role="presentation"
 	>
 		{@render children()}

@@ -66,7 +66,10 @@
 	);
 
 	function handleKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
-		if (e.key === 'Enter' && !e.shiftKey) {
+		// Enter that confirms an IME candidate must not send. Safari fires that keydown
+		// after compositionend, so only keyCode 229 marks it there.
+		const composing = e.isComposing || e.keyCode === 229;
+		if (e.key === 'Enter' && !e.shiftKey && !composing) {
 			e.preventDefault();
 			context.onSubmit?.();
 		}
