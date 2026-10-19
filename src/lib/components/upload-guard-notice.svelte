@@ -18,4 +18,19 @@
 			toast.info($t('common.upload_in_progress'));
 		}
 	);
+
+	// A deploy replaced the app while a file was in flight, so app.html kept the
+	// page. Offered until the user takes or dismisses it; reloading mid-upload
+	// still gets the browser's leave prompt.
+	watch(
+		() => activeUploads.heldReloadCount,
+		(count) => {
+			if (count === 0) return;
+			toast.info($t('common.update_after_upload'), {
+				id: 'deploy-reload-held',
+				duration: Number.POSITIVE_INFINITY,
+				action: { label: $t('common.reload'), onClick: () => location.reload() }
+			});
+		}
+	);
 </script>

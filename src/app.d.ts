@@ -12,6 +12,19 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+
+	/** The deploy recovery the inline script in src/app.html installs. */
+	interface DeployRecovery {
+		/**
+		 * Asks `keepPage` before a failed chunk import reloads the page; returning
+		 * true keeps it. Returns the matching detach.
+		 */
+		hold(keepPage: () => boolean): () => void;
+	}
+
+	interface Window {
+		__deployRecovery: DeployRecovery;
+	}
 }
 
 export {};

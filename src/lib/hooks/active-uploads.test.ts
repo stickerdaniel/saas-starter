@@ -1,12 +1,15 @@
 /**
- * Unit tests for the in-flight upload registry and the navigation predicate.
+ * Unit tests for the in-flight upload registry, the navigation predicate and
+ * the app shell's deploy recovery that consults the registry.
  *
  * Two failure modes matter more than the happy path: a stale claim makes the
  * app prompt forever for an upload that finished, and a predicate that answers
  * "block" for ordinary navigation makes the app feel broken.
  */
 
-import { describe, it, expect } from 'vitest';
+import { runInNewContext } from 'node:vm';
+import { describe, it, expect, vi } from 'vitest';
+import appTemplate from '../../app.html?raw';
 import {
 	ActiveUploads,
 	deployReloadTarget,
@@ -129,5 +132,78 @@ describe('deployReloadTarget', () => {
 
 	it('leaves a departure alone, since the document is going anyway', () => {
 		expect(deployReloadTarget({ ...nav('/app', null), willUnload: true }, true, false)).toBeNull();
+	});
+});
+
+/**
+ * The deploy-recovery script exactly as src/app.html ships it, run before any
+ * app code like the browser does. jsdom cannot reload, so the stand-in
+ * location records the request instead.
+ */
+function appShell() {
+	const scripts = new DOMParser().parseFromString(appTemplate, 'text/html').scripts;
+	const script = [...scripts]
+		.map((element) => element.textContent)
+		.find((body) => body.includes('vite:preloadError'));
+	if (!script) throw new Error('src/app.html lost its deploy-recovery script');
+
+	const window = new EventTarget() as EventTarget & Partial<Pick<Window, '__deployRecovery'>>;
+	const session = new Map<string, string>();
+	const reload = vi.fn();
+	runInNewContext(script, {
+		window,
+		sessionStorage: {
+			getItem: (key: string) => session.get(key) ?? null,
+			setItem: (key: string, value: string) => session.set(key, value)
+		},
+		location: { reload }
+	});
+
+	return {
+		recovery: window.__deployRecovery!,
+		reload,
+		attempt: () => session.get('sk:preload-reloaded') ?? null,
+		/** What Vite dispatches when a chunk import fails. */
+		failImport() {
+			const event = new Event('vite:preloadError', { cancelable: true });
+			window.dispatchEvent(event);
+			return event;
+		}
+	};
+}
+
+describe('deploy recovery after a failed chunk import', () => {
+	it('keeps the page and its one reload while a file is in flight', () => {
+		const shell = appShell();
+		const uploads = new ActiveUploads();
+		shell.recovery.hold(() => uploads.holdDeployReload());
+		const upload = {};
+		uploads.claim(upload);
+
+		const failure = shell.failImport();
+		// Vite hands the failed import to its caller only while nothing prevents this.
+		expect(failure.defaultPrevented).toBe(false);
+		expect(shell.reload).not.toHaveBeenCalled();
+		expect(shell.attempt()).toBeNull();
+		expect(uploads.heldReloadCount).toBe(1);
+
+		uploads.release(upload);
+		shell.failImport();
+		expect(shell.reload).toHaveBeenCalledOnce();
+		expect(shell.attempt()).toBe('1');
+
+		// The stale shell itself must not loop.
+		shell.failImport();
+		expect(shell.reload).toHaveBeenCalledOnce();
+	});
+
+	it('reloads right away while nothing is in flight', () => {
+		const shell = appShell();
+		const uploads = new ActiveUploads();
+		shell.recovery.hold(() => uploads.holdDeployReload());
+
+		shell.failImport();
+		expect(shell.reload).toHaveBeenCalledOnce();
+		expect(uploads.heldReloadCount).toBe(0);
 	});
 });
