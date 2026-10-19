@@ -112,6 +112,20 @@ export class ActiveUploads {
 	noteBlocked(): void {
 		this.blockedCount++;
 	}
+
+	/**
+	 * Bumped whenever a deploy reload was held back for a file in flight, so the
+	 * UI can offer it instead. Offered rather than retried on its own: a finished
+	 * upload can leave work that is not saved yet, like a new avatar before Save.
+	 */
+	heldReloadCount = $state(0);
+
+	/** Whether app.html has to keep the page after a failed chunk import. */
+	holdDeployReload(): boolean {
+		if (!this.any) return false;
+		this.heldReloadCount++;
+		return true;
+	}
 }
 
 export const activeUploadsContext = new Context<ActiveUploads>('active-uploads');

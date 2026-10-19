@@ -640,6 +640,8 @@
 		"confirm": "Confirmer",
 		"error": "Une erreur est survenue. Réessaie.",
 		"load_error": "Échec du chargement des données. Réessaie plus tard.",
+		"reload": "Recharger",
+		"update_available": "Une nouvelle version est disponible. Recharge quand tu as terminé.",
 		"upload_in_progress": "Le téléversement est toujours en cours. Attends la fin.",
 		"you": "Toi"
 	},

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { browser, dev } from '$app/env';
 	import { beforeNavigate, onNavigate } from '$app/navigation';
 	import { page, updated } from '$app/state';
@@ -61,6 +62,11 @@
 	// still let the reload below tear the upload down.
 	const activeUploads = new ActiveUploads();
 	activeUploadsContext.set(activeUploads);
+
+	// app.html reloads after a failed chunk import, which would discard a file in
+	// flight just the same. Attached here rather than in an effect, so it is in
+	// place before any child can claim.
+	if (browser) onDestroy(window.__deployRecovery.hold(() => activeUploads.holdDeployReload()));
 
 	// One owner for every impersonation control, so the bar, the user menu and
 	// the marketing header cannot start two exits at once.
