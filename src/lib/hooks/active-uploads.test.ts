@@ -187,7 +187,11 @@ describe('deploy recovery after a failed chunk import', () => {
 		expect(shell.attempt()).toBeNull();
 		expect(uploads.heldReloadCount).toBe(1);
 
+		// Finishing the upload alone leaves the page: a finished upload can still
+		// hold unsaved work.
 		uploads.release(upload);
+		expect(shell.reload).not.toHaveBeenCalled();
+
 		shell.failImport();
 		expect(shell.reload).toHaveBeenCalledOnce();
 		expect(shell.attempt()).toBe('1');

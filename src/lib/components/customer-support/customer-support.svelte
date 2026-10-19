@@ -364,12 +364,12 @@
 <!--
 	The editor is loaded on demand. A deploy can delete its chunk under a page
 	that is still open. The stale-deploy reload in app.html is the first rescue,
-	but the browser's unload confirmation can hold it while a file is uploading,
-	and it fires only once per session, so the import can still reject here. An
+	but it waits while a file is uploading and fires only once per session, so
+	the import can still reject here. An
 	await block with no catch rethrows that rejection from a promise callback,
 	where no <svelte:boundary> sees it, and the page would stay in screenshot mode
 	with neither editor nor launcher. loadScreenshotEditor handles the rejection
-	outside Vite's preload wrapper, so the reload still fires first; the boundary
+	outside Vite's preload wrapper, so app.html still sees the failure; the boundary
 	handles errors thrown by the loaded editor, whether its effects throw or it
 	fails while being created. It sits inside the fulfilled branch because that
 	branch is also created in a promise callback, so a boundary around the await

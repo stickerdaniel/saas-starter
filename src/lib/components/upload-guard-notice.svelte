@@ -30,7 +30,15 @@
 				id: 'deploy-reload-held',
 				duration: Number.POSITIVE_INFINITY,
 				closeButton: true,
-				action: { label: $t('common.reload'), onClick: () => location.reload() }
+				action: {
+					label: $t('common.reload'),
+					// Prevented so the notice stays when the user keeps the page at the
+					// browser's leave prompt; a reload that goes through replaces it anyway.
+					onClick: (event) => {
+						event.preventDefault();
+						location.reload();
+					}
+				}
 			});
 		}
 	);
