@@ -26,9 +26,10 @@
 		() => activeUploads.heldReloadCount,
 		(count) => {
 			if (count === 0) return;
-			toast.info($t('common.update_after_upload'), {
+			toast.info($t('common.update_available'), {
 				id: 'deploy-reload-held',
 				duration: Number.POSITIVE_INFINITY,
+				closeButton: true,
 				action: { label: $t('common.reload'), onClick: () => location.reload() }
 			});
 		}

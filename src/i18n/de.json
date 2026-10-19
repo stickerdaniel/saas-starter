@@ -641,7 +641,7 @@
 		"error": "Etwas ist schiefgelaufen. Versuch es noch mal.",
 		"load_error": "Daten konnten nicht geladen werden. Versuch es später noch mal.",
 		"reload": "Neu laden",
-		"update_after_upload": "Eine neue Version ist verfügbar. Lade neu, sobald dein Upload fertig ist.",
+		"update_available": "Eine neue Version ist verfügbar. Lade neu, wenn du fertig bist.",
 		"upload_in_progress": "Upload läuft noch. Warte, bis er fertig ist.",
 		"you": "Du"
 	},
