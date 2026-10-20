@@ -60,7 +60,7 @@ Production email uses `@convex-dev/resend`. Keep send helpers, templates, genera
 
 Applications own incident audiences, stable keys, renderers, and contact resolution. Register incident senders as internal single-recipient mutations. The ledger permits at most one committed component enqueue per incident/user; verify delivery through the component and provider state.
 
-Keep the template's `founderIncidentRegistry.ts` empty and its application binding exported unconditionally. Forks add reviewed entries to the registry. Incident keys and copy are append-only after use; `__*` keys belong only to binding tests.
+Keep the template's `founderIncidentRegistry.ts` empty and preserve its unconditional application binding for existing callers. New incidents use saved drafts through the `incident-follow-up` skill; a changed preview needs renewed human approval, not merely a fresh digest. Preserve used incident keys and copy; `__*` keys belong only to binding tests.
 
 ## Analytics
 

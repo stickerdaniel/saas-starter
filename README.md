@@ -498,30 +498,13 @@ An AI agent built on [Convex Agent](https://www.convex.dev/components/agent) and
 
 ### Email System
 
-Transactional email delivered through [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery tracking. HTML templates are written as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time; operational plain-text email remains in Convex source. Your logo is converted to an email-safe PNG automatically. `bun run build:emails` renders every HTML template, and a snapshot test (`src/lib/emails/__tests__/email-snapshots.test.ts`) flags any unintended markup change.
+Transactional email delivered through [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery tracking. HTML templates are written as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time. Your logo is converted to an email-safe PNG automatically. `bun run build:emails` renders every HTML template, and a snapshot test (`src/lib/emails/__tests__/email-snapshots.test.ts`) flags any unintended markup change.
 
 #### Founder incident email
 
-The internal founder incident sender contacts one verified user at a time and records each incident/user pair once. Before using it:
+Founder incident emails use saved, localized plain-text drafts, so new incidents need no code change or deployment. Set the contact person under Founder Welcome in `/admin/settings`, then follow the [incident-follow-up workflow](.agents/skills/incident-follow-up/SKILL.md) for evidence-qualified recipients, exact-message approval and delivery verification.
 
-1. Set the contact person in `/admin/settings` under Founder Welcome.
-2. Add the reviewed stable key and localized plain-text copy to `src/lib/convex/emails/founderIncidentRegistry.ts`, then deploy it. Keep every used key and its copy unchanged.
-3. Determine the exact production audience from durable evidence outside the repository. Record the selection criteria and recipient count, then obtain operator approval.
-4. Immediately before sending, rerun the audience query and confirm that its count still matches the approved count. Invoke the internal mutation separately for each approved user:
-
-   ```bash
-   bunx convex run emails/founderIncidentSend:queueFounderIncidentEmail \
-     '{"userId":"<better-auth-user-id>","incident":"<stable-incident-key>"}' --prod
-   ```
-
-   `enqueued` means the Resend component accepted the email. `already_processed` means the pair already has a ledger row. `skipped` records a terminal exclusion and also consumes the pair, so correct the cause before invoking a new incident key rather than retrying the same one.
-
-5. Confirm the provider's final state. If the webhook state is missing or stale, reconcile the retained component state:
-
-   ```bash
-   bunx convex run emails/founderIncidentDelivery:reconcileFounderIncidentEmailDelivery \
-     '{"userId":"<better-auth-user-id>","incident":"<stable-incident-key>"}' --prod
-   ```
+The registry sender remains available for existing integrations. New incidents use the saved-draft workflow.
 
 ### Internationalization
 

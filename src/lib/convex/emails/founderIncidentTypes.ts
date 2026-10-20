@@ -43,6 +43,45 @@ export const founderIncidentEmailFields = {
 	createdAt: v.number()
 };
 
+export const founderIncidentTemplateValidator = v.object({
+	locale: v.string(),
+	subject: v.string(),
+	text: v.string()
+});
+
+export const founderIncidentDraftFields = {
+	incident: v.string(),
+	revision: v.number(),
+	templates: v.array(founderIncidentTemplateValidator),
+	createdAt: v.number(),
+	updatedAt: v.number()
+};
+
+export const founderIncidentEnvelopeValidator = v.object({
+	from: v.string(),
+	to: v.string(),
+	replyTo: v.optional(v.array(v.string())),
+	headers: v.array(v.object({ name: v.string(), value: v.string() })),
+	subject: v.string(),
+	text: v.string()
+});
+
+export const founderIncidentPreviewValidator = v.union(
+	v.object({
+		status: v.literal('ready'),
+		incident: v.string(),
+		userId: v.string(),
+		revision: v.number(),
+		locale: v.string(),
+		envelope: founderIncidentEnvelopeValidator,
+		approvalDigest: v.string()
+	}),
+	v.object({ status: v.literal('skipped'), reason: founderIncidentSkipReasonValidator })
+);
+
+export type FounderIncidentTemplate = Infer<typeof founderIncidentTemplateValidator>;
+export type FounderIncidentEnvelope = Infer<typeof founderIncidentEnvelopeValidator>;
+export type FounderIncidentSkipped = Extract<FounderIncidentQueueResult, { status: 'skipped' }>;
 export type FounderIncidentSkipReason = Infer<typeof founderIncidentSkipReasonValidator>;
 export type FounderIncidentDeliveryStatus = Infer<typeof founderIncidentDeliveryStatusValidator>;
 export type FounderIncidentQueueResult = Infer<typeof founderIncidentQueueResultValidator>;
