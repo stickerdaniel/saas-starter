@@ -25,9 +25,11 @@ Write one plain-text draft per recipient account locale. Greet by first name, de
 
 ## Send
 
-Send once the fix is live in production and the user has approved the exact drafts, the count, and the criteria.
+Prepare new incidents as saved drafts. Queue only after the fix is live and the user has approved the exact messages, delivery envelopes, audience, and criteria.
 
-1. Add the incident key and templates to `src/lib/convex/emails/founderIncidentRegistry.ts`.
-2. Rerun the audience query and abort if the count changed.
-3. Call `emails/founderIncidentSend:queueFounderIncidentEmail` once per recipient.
-4. Run `emails/founderIncidentDelivery:reconcileFounderIncidentEmailDelivery` per recipient until each reports a final delivery state, and before any retry.
+1. Save localized templates with `emails/founderIncidentDrafts:saveDraft`. Use `expectedRevision: null` to create, or the saved revision to edit. Use `{{userFirstName}}` and `{{founderName}}` instead of storing personal names or addresses.
+2. Call `emails/founderIncidentDrafts:previewDraft` per recipient. Show the rendered messages, recipient and sender addresses, reply-to, locale, and audience privately. Wait for approval.
+3. Rerun the impact query. Abort if the eligible user-ID set differs from the approved audience, even when its count is unchanged.
+4. Preview again and compare the complete approved snapshots. Any change requires renewed approval; a fresh `approvalDigest` does not grant it.
+5. Call `emails/founderIncidentDrafts:queueDraft` once per recipient with the checked `approvalDigest`.
+6. Run `emails/founderIncidentDelivery:reconcileFounderIncidentEmailDelivery` immediately, then at least 30 seconds apart for at most 15 minutes. Report terminal outcomes; otherwise report pending or uncertain. Never enqueue again, change the incident key, or delete the ledger to retry.

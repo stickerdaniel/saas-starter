@@ -3,7 +3,10 @@ import { v } from 'convex/values';
 import { vEmailEvent } from '@convex-dev/resend';
 import { supportThreadFields } from './support/supportThreadFields';
 import { vAnonymousRateLimitBucket } from './support/rateLimitAlertFields';
-import { founderIncidentEmailFields } from './emails/founderIncidentTypes';
+import {
+	founderIncidentDraftFields,
+	founderIncidentEmailFields
+} from './emails/founderIncidentTypes';
 import { aiUsageFeatureValidator } from './aiUsage/feature';
 import { journeyCaptureStarts } from './admin/journey/capture';
 import { customerNotifications } from './admin/customerNotifications/ledger';
@@ -245,6 +248,8 @@ export default defineSchema({
 		skippedReason: v.optional(v.string()),
 		createdAt: v.number()
 	}).index('by_user', ['userId']),
+
+	founderIncidentDrafts: defineTable(founderIncidentDraftFields).index('by_incident', ['incident']),
 
 	// One durable outcome per app-owned incident key and Better Auth user.
 	// The exact index read and component enqueue share the caller's mutation.
