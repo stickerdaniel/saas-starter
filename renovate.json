@@ -23,6 +23,12 @@
 			"rangeStrategy": "pin"
 		},
 		{
+			"description": "An override pins a transitive dependency under the name its dependents request. A replacement preset from config:best-practices, such as framer-motion to motion, would rename the override key, leave the requested name unpinned and make the new entry inert, while the unchanged lockfile keeps CI green. Direct dependencies still get replacements.",
+			"matchDepTypes": ["overrides"],
+			"matchUpdateTypes": ["replacement"],
+			"enabled": false
+		},
+		{
 			"description": "Group all safe non-major updates together",
 			"matchUpdateTypes": ["minor", "patch", "pin", "digest"],
 			"groupName": "all non-major dependencies",
