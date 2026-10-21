@@ -145,6 +145,7 @@ afterEach(async () => {
 	component = undefined;
 	document.body.replaceChildren();
 	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
 });
 
 describe('customer support capability lifecycle', () => {
@@ -258,6 +259,15 @@ describe('customer support diagnostics', () => {
 		let editor: ReturnType<typeof screenshotEditorContext.get>;
 
 		beforeEach(async () => {
+			// jsdom has no ResizeObserver; palette geometry is outside this capture-failure test.
+			vi.stubGlobal(
+				'ResizeObserver',
+				class {
+					observe() {}
+					unobserve() {}
+					disconnect() {}
+				}
+			);
 			onCaptureError.mockReset();
 			snapdom.snapdom.mockReset();
 			const setEditor = vi.spyOn(screenshotEditorContext, 'set');
