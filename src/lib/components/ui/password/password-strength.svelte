@@ -39,7 +39,12 @@
 	min={0}
 	max={4}
 >
-	<div class={cn('h-full transition-all duration-500', indicator({ score }))}></div>
+	<div
+		class={cn(
+			'h-full transition-all duration-500 motion-reduce:transition-non-spatial',
+			indicator({ score })
+		)}
+	></div>
 	<div class="absolute top-0 left-0 z-10 flex h-1.5 w-full place-items-center gap-1">
 		{#each Array.from({ length: 4 }) as _, i (i)}
 			<div class="h-1.5 w-1/4 rounded-full ring-3 ring-card"></div>
