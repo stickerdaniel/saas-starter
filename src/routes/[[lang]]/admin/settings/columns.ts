@@ -8,6 +8,12 @@ import RecipientsActions from './recipients-actions.svelte';
 import RecipientsToggle from './recipients-toggle.svelte';
 import TypeBadge from './type-badge.svelte';
 
+// Long translations wrap inside the fixed toggle columns instead of running into the
+// next header. `hyphens-auto` breaks long words where the browser has a dictionary for
+// the page language; `wrap-break-word` breaks the rest.
+const toggleHeaderClass =
+	'py-1 text-center leading-tight whitespace-normal hyphens-auto wrap-break-word';
+
 export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>> = [
 	// Drives the bulk toggle: recipients-toggle.svelte reads the row selection
 	// from context and flips every selected row. Not scaffolding.
@@ -88,7 +94,7 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 		header: () =>
 			renderComponent(DataTableColumnHeader, {
 				titleKey: 'admin.settings.column_new_tickets',
-				class: 'text-center'
+				class: toggleHeaderClass
 			}),
 		cell: ({ row }) =>
 			renderComponent(RecipientsToggle, {
@@ -105,7 +111,7 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 		header: () =>
 			renderComponent(DataTableColumnHeader, {
 				titleKey: 'admin.settings.column_user_replies',
-				class: 'text-center'
+				class: toggleHeaderClass
 			}),
 		cell: ({ row }) =>
 			renderComponent(RecipientsToggle, {
@@ -122,7 +128,7 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 		header: () =>
 			renderComponent(DataTableColumnHeader, {
 				titleKey: 'admin.settings.column_new_signups',
-				class: 'text-center'
+				class: toggleHeaderClass
 			}),
 		cell: ({ row }) =>
 			renderComponent(RecipientsToggle, {
@@ -139,7 +145,7 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 		header: () =>
 			renderComponent(DataTableColumnHeader, {
 				titleKey: 'admin.settings.column_new_customers',
-				class: 'text-center'
+				class: toggleHeaderClass
 			}),
 		cell: ({ row }) =>
 			renderComponent(RecipientsToggle, {
@@ -156,7 +162,7 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 		header: () =>
 			renderComponent(DataTableColumnHeader, {
 				titleKey: 'admin.settings.column_cancellations',
-				class: 'text-center'
+				class: toggleHeaderClass
 			}),
 		cell: ({ row }) =>
 			renderComponent(RecipientsToggle, {
