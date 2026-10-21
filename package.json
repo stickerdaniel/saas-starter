@@ -155,7 +155,7 @@
 		"convex-test": "0.0.53",
 		"convex-vite-plugin": "0.4.0",
 		"eld": "2.1.0",
-		"eslint": "10.11.0",
+		"eslint": "10.12.0",
 		"eslint-config-prettier": "10.1.8",
 		"eslint-plugin-svelte": "3.23.1",
 		"fontless": "1.2.1",
