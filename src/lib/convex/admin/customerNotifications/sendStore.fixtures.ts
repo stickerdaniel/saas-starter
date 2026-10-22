@@ -63,9 +63,7 @@ export function setupSend(
 		],
 		functions: {
 			'admin/journey/sources/aiChat:read': asRegistered(aiChat.read),
-			'admin/journey/sources/aiChat:countPartition': asRegistered(aiChat.countPartition),
 			'admin/journey/sources/community:read': asRegistered(community.read),
-			'admin/journey/sources/community:countPartition': asRegistered(community.countPartition),
 			'admin/journey/sources/support:read': asRegistered(support.read),
 			[DISCOVERY]: asRegistered(getJourneyRecipients),
 			[ENQUEUE]: asRegistered(enqueueRecipient),

@@ -1,5 +1,4 @@
-import type { FunctionReference } from 'convex/server';
-import { v, type Infer, type ObjectType } from 'convex/values';
+import { v, type Infer } from 'convex/values';
 import { t } from '../../../i18n/translations';
 import type { QueryCtx } from '../../../_generated/server';
 import { createClock, formatCount, type JourneyFormat } from '../format';
@@ -18,8 +17,8 @@ import {
  * of the window with one side of the payment:
  * - before: `[window.start, min(paymentAt, window.end))`
  * - after: `[max(paymentAt, window.start), window.end]`
- * so an event exactly at the payment counts once, after it. An empty
- * intersection is never queried.
+ * so an event exactly at the payment counts once, after it. Both come from
+ * one page over the window, and an empty intersection counts nothing.
  */
 
 export type PartitionRange = { start: number; end: number; includeEnd: boolean };
@@ -39,17 +38,8 @@ export function partitionRanges(request: JourneyRequest): {
 	};
 }
 
-/** Arguments of a nested partition read. */
-export const partitionReadFields = {
-	userId: v.string(),
-	start: v.number(),
-	end: v.number(),
-	includeEnd: v.boolean()
-};
-export type PartitionReadArgs = ObjectType<typeof partitionReadFields>;
-
 /** One partition's counted events, with the first and last it saw. */
-export const partitionCountValidator = v.object({
+const partitionCountValidator = v.object({
 	count: v.number(),
 	firstAt: v.union(v.number(), v.null()),
 	lastAt: v.union(v.number(), v.null()),
@@ -77,26 +67,46 @@ export async function readCapture(
 	return marker ? { kind: 'started', at: marker.startedAt } : { kind: 'not_started' };
 }
 
+/** One page of a source's rows inside the window, oldest first. */
+export type WindowPage<Row> = { page: readonly Row[]; isDone: boolean };
+
 /**
- * Read a captured source: its marker, then each non-empty partition through
- * `count`, a nested query, because Convex allows one `.paginate` per function.
- * A source never captured reads nothing more.
+ * Read a captured source: its marker, then one page over the whole window
+ * through `scan`, split at the payment. A query and every query it calls
+ * share one `.paginate`, so the partitions cannot each page in a query of
+ * their own. A source never captured reads nothing more.
  */
-export async function readPartitioned(
+export async function readPartitioned<Row extends { _creationTime: number }>(
 	ctx: QueryCtx,
 	source: string,
 	request: JourneyRequest,
-	count: FunctionReference<'query', 'internal', PartitionReadArgs, PartitionCount>
+	scan: (window: JourneyRequest['window']) => Promise<WindowPage<Row>>,
+	counts: (row: Row) => boolean = () => true
 ): Promise<PartitionedFacts> {
 	const capture = await readCapture(ctx, source);
 	if (capture.kind === 'not_started') {
 		return { coverage: { truncated: false, capture }, before: null, after: null };
 	}
 	const ranges = partitionRanges(request);
-	const read = async (range: PartitionRange | null) =>
-		range ? await ctx.runQuery(count, { userId: request.userId, ...range }) : null;
-	const before = await read(ranges.before);
-	const after = await read(ranges.after);
+	if (!ranges.before && !ranges.after) {
+		return { coverage: { truncated: false, capture }, before: null, after: null };
+	}
+	const { page, isDone } = await scan(request.window);
+	// Oldest first, so a cut-short page has read all of a partition that ends
+	// before its last row.
+	const lastRead = page[page.length - 1]?._creationTime ?? Number.NEGATIVE_INFINITY;
+	const partition = (range: PartitionRange | null): PartitionCount | null => {
+		if (!range) return null;
+		const inRange = (at: number) =>
+			at >= range.start && (range.includeEnd ? at <= range.end : at < range.end);
+		const complete = isDone || (range.includeEnd ? lastRead > range.end : lastRead >= range.end);
+		return countPage(
+			page.filter((row) => inRange(row._creationTime) && counts(row)),
+			complete
+		);
+	};
+	const before = partition(ranges.before);
+	const after = partition(ranges.after);
 	return {
 		coverage: { truncated: Boolean(before?.truncated || after?.truncated), capture },
 		before,
@@ -104,18 +114,16 @@ export async function readPartitioned(
 	};
 }
 
-/** Count events from one page of rows, keeping the first and last counted time. */
-export function countPage<Row extends { _creationTime: number }>(
-	page: readonly Row[],
-	isDone: boolean,
-	counts: (row: Row) => boolean = () => true
+/** Count the events of one partition, keeping the first and last time. */
+function countPage(
+	counted: ReadonlyArray<{ _creationTime: number }>,
+	complete: boolean
 ): PartitionCount {
-	const counted = page.filter(counts);
 	return {
 		count: counted.length,
 		firstAt: counted[0]?._creationTime ?? null,
 		lastAt: counted[counted.length - 1]?._creationTime ?? null,
-		truncated: !isDone
+		truncated: !complete
 	};
 }
 

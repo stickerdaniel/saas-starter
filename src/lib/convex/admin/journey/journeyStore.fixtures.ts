@@ -9,14 +9,17 @@ import schema from '../../schema';
  * - index ranges use the real schema's index fields, ordered by those fields
  *   and then `_creationTime`, with a missing field sorting first
  *   (`compareValues`), so `gte(field, 0)` excludes documents without it;
- * - a function calls `.paginate` at most once
- *   (convex-backend `async_syscall.rs`, `MultiplePaginatedDatabaseQueries`);
+ * - a function calls `.paginate` at most once, and a query shares that one
+ *   with every query it calls through `runQuery`, while a mutation gives each
+ *   query it calls a fresh one (convex-backend `async_syscall.rs`,
+ *   `MultiplePaginatedDatabaseQueries`, shared since 8449d41da on
+ *   2026-10-16; mutations may now page more than once, which local backends
+ *   built before that commit still reject);
  * - a page that reaches `numItems`, `maximumRowsRead` or `maximumBytesRead`
  *   (measured with `getDocumentSize`) returns `isDone: false` without looking
  *   ahead, even when it took the last row (`index_range.rs`);
- * - `runQuery` and `runMutation` children run with their own paginate
- *   allowance and record the arguments and `transactionLimits` the caller
- *   passed;
+ * - `runQuery` and `runMutation` children record the arguments and
+ *   `transactionLimits` the caller passed;
  * - a child's `transactionLimits` meter what it and its own children read
  *   (documents returned, plus the document a patch or delete rewrites) and
  *   write (inserted or patched documents, by `getDocumentSize`), and the
@@ -38,6 +41,11 @@ type Doc = Record<string, Value | undefined> & { _id: string; _creationTime: num
 type Table = keyof typeof schema.tables;
 type Handler = (ctx: never, args: never) => Promise<unknown>;
 type Registered = { _handler: Handler };
+/** Whether one function, or a query and the queries it calls, has paginated. */
+type Allowance = { paginated: boolean };
+type Kind = 'query' | 'mutation';
+const MULTIPLE_PAGINATIONS =
+	'This query function ran multiple paginated queries. Convex only supports a single paginated query in each query function.';
 export type JobState = 'pending' | 'inProgress' | 'success' | 'failed' | 'canceled';
 type Job = {
 	id: string;
@@ -176,11 +184,16 @@ export function createJourneyStore(
 	};
 
 	/**
-	 * One function execution: its own paginate allowance, charging its reads
-	 * and writes to the meter of the nearest caller that set limits.
+	 * One function execution, charging its reads and writes to the meter of
+	 * the nearest caller that set limits. A query called from a query passes
+	 * its pagination up to its caller.
 	 */
-	function makeCtx(extra: Record<string, unknown> = {}, meter?: Meter) {
-		let paginated = false;
+	function makeCtx(
+		extra: Record<string, unknown> = {},
+		meter?: Meter,
+		kind: Kind = 'mutation',
+		allowance: Allowance = { paginated: false }
+	) {
 		const read = (doc: Doc | undefined) => {
 			if (doc !== undefined) charge(meter, 'read', getDocumentSize(doc as Record<string, Value>));
 		};
@@ -259,12 +272,10 @@ export function createJourneyStore(
 						maximumRowsRead?: number;
 						maximumBytesRead?: number;
 					}) {
-						if (paginated) {
-							throw new Error(
-								'This query or mutation function ran multiple paginated queries. Convex only supports a single paginated query in each function.'
-							);
+						if (allowance.paginated) {
+							throw new Error(MULTIPLE_PAGINATIONS);
 						}
-						paginated = true;
+						allowance.paginated = true;
 						if (descending) throw new Error('descending paginate is not modelled');
 						const { docs, keyOf } = rangeOf(table, index, conditions);
 						const after = page.cursor === null ? null : (JSON.parse(page.cursor) as Value[]);
@@ -380,7 +391,15 @@ export function createJourneyStore(
 					return userLookup(args);
 				}
 				queryCalls.push({ name, args, limits: options?.transactionLimits });
-				return await call(name, args, options?.transactionLimits, meter);
+				// The child pages on its own record. A query caller takes it over only
+				// when the child succeeds, so a child that throws leaves it alone.
+				const child: Allowance = { paginated: false };
+				const result = await call(name, args, options?.transactionLimits, meter, 'query', child);
+				if (kind === 'query' && child.paginated) {
+					if (allowance.paginated) throw new Error(MULTIPLE_PAGINATIONS);
+					allowance.paginated = true;
+				}
+				return result;
 			},
 			async runMutation(
 				ref: unknown,
@@ -391,7 +410,7 @@ export function createJourneyStore(
 				childCalls.push({ name, args, limits: options?.transactionLimits });
 				const saved = snapshot();
 				try {
-					return await call(name, args, options?.transactionLimits, meter);
+					return await call(name, args, options?.transactionLimits, meter, 'mutation');
 				} catch (error) {
 					restore(saved);
 					throw error;
@@ -427,7 +446,9 @@ export function createJourneyStore(
 		name: string,
 		args: Record<string, unknown>,
 		limits?: Limits,
-		parent?: Meter
+		parent?: Meter,
+		kind: Kind = 'mutation',
+		allowance?: Allowance
 	): Promise<unknown> {
 		const handler = functions.get(name);
 		if (!handler) throw new Error(`Unregistered function ${name}`);
@@ -439,7 +460,7 @@ export function createJourneyStore(
 				}
 			: parent;
 		return await (handler as (ctx: unknown, args: unknown) => Promise<unknown>)(
-			makeCtx({}, meter),
+			makeCtx({}, meter, kind, allowance),
 			args
 		);
 	}
