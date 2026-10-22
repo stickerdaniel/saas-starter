@@ -9,16 +9,15 @@ vi.mock('svelte', () =>
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 
-import ShimmerText from './shimmer-text.svelte';
 import ThinkingStates from './thinking-states.svelte';
 
 /**
- * Both components paint their label more than once: the status line keeps the
- * outgoing and incoming copies in the DOM together for the length of a swap, and
- * the shimmer repeats the string through a `::before` that clips the moving
- * highlight. Chromium exposes generated content, so before the announced text
- * was split from the painted text, one shimmering "Thinking" read as
- * "Thinking Thinking" and a swap read as "Connecting Thinking".
+ * The status line paints its label more than once: it keeps the outgoing and
+ * incoming copies in the DOM together for the length of a swap, and its shimmer
+ * repeats the string through a `::before` that clips the moving highlight.
+ * Chromium exposes generated content, so before the announced text was split
+ * from the painted text, one shimmering "Thinking" read as "Thinking Thinking"
+ * and a swap read as "Connecting Thinking".
  *
  * The mounted cases observe that split in the DOM: the painted copies sit under
  * `aria-hidden`, and the current label reaches assistive technology from exactly
@@ -57,15 +56,6 @@ afterEach(() => {
 	if (component) unmount(component);
 	component = undefined;
 	document.body.replaceChildren();
-});
-
-describe('shimmer text', () => {
-	it('exposes its label once and hides the painted copy', () => {
-		component = mount(ShimmerText, { target: document.body, props: { text: 'Thinking' } });
-		flushSync();
-
-		expect(exposedText(document.body)).toEqual(['Thinking']);
-	});
 });
 
 describe('thinking states', () => {

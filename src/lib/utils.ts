@@ -15,19 +15,7 @@ export const twMergeConfig: ConfigExtension<DefaultClassGroupIds, DefaultThemeGr
 	extend: {
 		theme: {
 			leading: ['composer'],
-			animate: [
-				'wave-bars',
-				'spinner-fade',
-				'bounce-dots',
-				'pulse-dot',
-				'thin-pulse',
-				'blink',
-				'text-blink',
-				'loading-dots',
-				'typing',
-				'wave',
-				'chip-in'
-			]
+			animate: ['chip-in']
 		},
 		classGroups: {
 			rounded: [{ rounded: ['theme-pill'] }],

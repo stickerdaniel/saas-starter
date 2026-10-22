@@ -201,59 +201,6 @@
 			}
 		},
 		{
-			"id": "O09",
-			"files": ["src/lib/components/ai-elements/message/MessageAvatar.svelte"],
-			"components": {
-				"Avatar": ["ring-border", "ring-1"]
-			}
-		},
-		{
-			"id": "O10",
-			"files": ["src/lib/components/ai-elements/prompt-input/PromptInputAttachment.svelte"],
-			"components": {
-				"Button": ["absolute", "-top-1.5", "-right-1.5", "opacity-0", "group-hover:opacity-100"]
-			}
-		},
-		{
-			"id": "O11",
-			"files": ["src/lib/components/ai-elements/prompt-input/PromptInputModelSelectTrigger.svelte"],
-			"components": {
-				"SelectTrigger": [
-					"border-none",
-					"bg-transparent",
-					"font-medium",
-					"text-muted-foreground",
-					"shadow-none",
-					"transition-colors",
-					"hover:bg-accent",
-					"hover:text-foreground",
-					"[&[aria-expanded=\"true\"]]:bg-accent",
-					"[&[aria-expanded=\"true\"]]:text-foreground"
-				]
-			}
-		},
-		{
-			"id": "O12",
-			"files": ["src/lib/components/ai-elements/prompt-input/PromptInputTextarea.svelte"],
-			"components": {
-				"Textarea": [
-					"w-full",
-					"rounded-none",
-					"border-none",
-					"p-3",
-					"shadow-none",
-					"ring-0",
-					"outline-none",
-					"field-sizing-content",
-					"bg-transparent",
-					"dark:bg-transparent",
-					"focus-visible:ring-0",
-					"max-h-48",
-					"min-h-16"
-				]
-			}
-		},
-		{
 			"id": "O13",
 			"files": ["src/lib/components/ai-elements/reasoning/Reasoning.svelte"],
 			"components": {

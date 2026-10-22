@@ -178,136 +178,6 @@
 	--color-premium-accent-foreground: var(--premium-accent-foreground);
 	--color-premium-ring: var(--premium-ring);
 
-	/* keyframes for loaders */
-	@keyframes typing {
-		0%,
-		100% {
-			transform: translateY(0);
-			opacity: 0.5;
-		}
-
-		50% {
-			transform: translateY(-2px);
-			opacity: 1;
-		}
-	}
-
-	@keyframes loading-dots {
-		0%,
-		100% {
-			opacity: 0;
-		}
-
-		50% {
-			opacity: 1;
-		}
-	}
-
-	@keyframes wave {
-		0%,
-		100% {
-			transform: scaleY(1);
-		}
-
-		50% {
-			transform: scaleY(0.6);
-		}
-	}
-
-	@keyframes blink {
-		0%,
-		100% {
-			opacity: 1;
-		}
-
-		50% {
-			opacity: 0;
-		}
-	}
-
-	@keyframes text-blink {
-		0%,
-		100% {
-			color: var(--primary);
-		}
-
-		50% {
-			color: var(--muted-foreground);
-		}
-	}
-
-	@keyframes bounce-dots {
-		0%,
-		100% {
-			transform: scale(0.8);
-			opacity: 0.5;
-		}
-
-		50% {
-			transform: scale(1.2);
-			opacity: 1;
-		}
-	}
-
-	@keyframes thin-pulse {
-		0%,
-		100% {
-			transform: scale(0.95);
-			opacity: 0.8;
-		}
-
-		50% {
-			transform: scale(1.05);
-			opacity: 0.4;
-		}
-	}
-
-	@keyframes pulse-dot {
-		0%,
-		100% {
-			transform: scale(1);
-			opacity: 0.8;
-		}
-
-		50% {
-			transform: scale(1.5);
-			opacity: 1;
-		}
-	}
-
-	@keyframes shimmer-text {
-		0% {
-			background-position: 150% center;
-		}
-
-		100% {
-			background-position: -150% center;
-		}
-	}
-
-	@keyframes wave-bars {
-		0%,
-		100% {
-			transform: scaleY(1);
-			opacity: 0.5;
-		}
-
-		50% {
-			transform: scaleY(0.6);
-			opacity: 1;
-		}
-	}
-
-	@keyframes shimmer {
-		0% {
-			background-position: 200% 50%;
-		}
-
-		100% {
-			background-position: -200% 50%;
-		}
-	}
-
 	/* Stock auto-animate add: hold at scale(.98)/opacity:0 for first half, then ease in */
 	@keyframes chip-in {
 		0% {
@@ -326,28 +196,8 @@
 		}
 	}
 
-	@keyframes spinner-fade {
-		0% {
-			opacity: 0;
-		}
-
-		100% {
-			opacity: 1;
-		}
-	}
-
-	/* Loader and chip recipes over the keyframes above. Phase offsets stay with each
-	   consumer through animation-delay-var. */
-	--animate-wave-bars: wave-bars 1.2s ease-in-out infinite;
-	--animate-spinner-fade: spinner-fade 1.2s linear infinite;
-	--animate-bounce-dots: bounce-dots 1.4s ease-in-out infinite;
-	--animate-pulse-dot: pulse-dot 1.2s ease-in-out infinite;
-	--animate-thin-pulse: thin-pulse 1.5s ease-in-out infinite;
-	--animate-blink: blink 1s step-end infinite;
-	--animate-text-blink: text-blink 2s ease-in-out infinite;
-	--animate-loading-dots: loading-dots 1.4s infinite;
-	--animate-typing: typing 1s infinite;
-	--animate-wave: wave 1s ease-in-out infinite;
+	/* Chip recipe over the keyframes above. Phase offsets stay with each consumer
+	   through animation-delay-var. */
 	--animate-chip-in: chip-in 375ms ease-out both;
 
 	/* Micro labels: avatar initials, unread counts, and small badges. No line-height
@@ -845,12 +695,6 @@
 	--avatar-falloff: 0.45;
 	--avatar-ease-in: cubic-bezier(0.22, 1, 0.36, 1);
 	--avatar-ease-out: cubic-bezier(0.34, 3.85, 0.64, 1);
-	/* Shimmer text */
-	--shimmer-dur: 2000ms;
-	--shimmer-base: var(--muted-foreground);
-	--shimmer-highlight: var(--foreground);
-	--shimmer-band: 400%;
-	--shimmer-ease: linear;
 	/* Thinking states */
 	--think-swap: 150ms;
 	--think-gap: 50ms;
@@ -985,43 +829,6 @@
 	/* translateY before scale so scale does not amplify the lift offset. */
 	transform: translateY(var(--shift, 0px)) scale(var(--scale-active, 1));
 	transition: transform var(--avatar-dur) var(--avatar-ease-in);
-}
-
-/* Shimmer text: the ::before layer duplicates the string through
-   `content: attr(data-text)` and clips a moving gradient to the glyphs. */
-.t-shimmer {
-	position: relative;
-	display: inline-block;
-	color: var(--shimmer-base);
-}
-.t-shimmer::before {
-	content: attr(data-text);
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-	background-image: linear-gradient(
-		90deg,
-		transparent 0%,
-		transparent 40%,
-		var(--shimmer-highlight) 50%,
-		transparent 60%,
-		transparent 100%
-	);
-	background-size: var(--shimmer-band) 100%;
-	background-repeat: no-repeat;
-	-webkit-background-clip: text;
-	background-clip: text;
-	color: transparent;
-	-webkit-text-fill-color: transparent;
-	animation: t-shimmer var(--shimmer-dur) var(--shimmer-ease) infinite;
-}
-@keyframes t-shimmer {
-	0% {
-		background-position: 100% 0;
-	}
-	100% {
-		background-position: 0% 0;
-	}
 }
 
 /* Thinking states: shimmer a status line while it holds, then swap it for
@@ -1216,9 +1023,6 @@
 	.t-avatar {
 		transition: none !important;
 		transform: none !important;
-	}
-	.t-shimmer::before {
-		animation: none !important;
 	}
 	.t-think-text {
 		transition: none !important;

@@ -12,7 +12,7 @@
  * Why: fly/slide move content, which prefers-reduced-motion users opted out
  * of (#475). The repo's two sanctioned styles both gate through `svelte/motion`:
  * `duration: skipTransition ? 0 : 200` (sliding-header.svelte) and
- * `y: prefersReducedMotion.current ? 0 : 10` (ConversationScrollButton.svelte).
+ * `y: prefersReducedMotion.current ? 0 : 8` (ChatInput.svelte).
  *
  * ❌ <div in:fly></div>
  * ❌ <div in:fly={{ y: 10, duration: 200 }}></div>
