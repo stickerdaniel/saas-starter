@@ -1,6 +1,8 @@
 import { internalMutation, type MutationCtx } from '../_generated/server';
 import type { Doc } from '../_generated/dataModel';
 import { v, type Infer, type ObjectType } from 'convex/values';
+import type { PaginationResult } from 'convex/server';
+import type { MessageDoc } from '@convex-dev/agent/validators';
 import { components, internal } from '../_generated/api';
 import { syncSupportLastMessage } from './threads';
 import { supportAgent } from './agent';
@@ -111,10 +113,16 @@ export async function settleUnanswered(ctx: MutationCtx, turn: UnansweredTurn): 
 }
 
 /**
- * Rows read back when checking for a reply since the prompt: a turn's own rows
- * (two attempts of at most five steps, agent.ts) and whatever answered it.
+ * Rows read per page when checking for a reply since the prompt: a turn's own
+ * rows (two attempts of at most five steps, agent.ts) and whatever answered it.
  */
 const REPLY_LOOKBACK_ROWS = 30;
+/**
+ * Pages read before giving up on reaching the prompt. The visitor can keep
+ * writing to a handed-off thread until the turn settles, so the prompt may sit
+ * beyond the first page; past this bound the visitor is acknowledged anyway.
+ */
+const REPLY_LOOKBACK_PAGES = 10;
 
 /**
  * Acknowledge the visitor on a handed-off thread unless something already
@@ -123,8 +131,8 @@ const REPLY_LOOKBACK_ROWS = 30;
  * the widget's handoff button, which writes it before it flips the thread, and
  * an earlier or concurrent recovery of the same turn (mutations reading these
  * rows serialize). Agent text on another order answers a different message,
- * from a second tab, and does not count. A turn whose prompt lies past the
- * lookback is left alone. Returns whether it wrote the acknowledgement.
+ * from a second tab, and does not count. Reads back page by page until it
+ * passes the prompt's order. Returns whether it wrote the acknowledgement.
  */
 async function acknowledgeUnrepliedTurn(
 	ctx: MutationCtx,
@@ -137,25 +145,28 @@ async function acknowledgeUnrepliedTurn(
 	if (!prompt) return false;
 
 	const acknowledgement = handoffAcknowledgement(supportThread);
-	const latest = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-		threadId: supportThread.threadId,
-		order: 'desc',
-		paginationOpts: { numItems: REPLY_LOOKBACK_ROWS, cursor: null }
-	});
-	// A visitor can keep writing to a handed-off thread until the turn is
-	// settled. When the page ends before the prompt, an earlier acknowledgement
-	// may sit just past it, so the visitor is not acknowledged a second time.
-	const reachedPrompt =
-		latest.isDone || latest.page.some((row) => row._creationTime <= prompt._creationTime);
-	if (!reachedPrompt) return false;
-
-	const replied = latest.page.some((row) => {
+	const answers = (row: MessageDoc) => {
 		const text = row.text?.trim();
 		if (!text || row.message?.role !== 'assistant') return false;
 		if (row._creationTime <= prompt._creationTime) return false;
 		return row.order === prompt.order || row.provider === 'human' || text === acknowledgement;
-	});
-	if (replied) return false;
+	};
+
+	let cursor: string | null = null;
+	for (let page = 0; page < REPLY_LOOKBACK_PAGES; page++) {
+		const latest: PaginationResult<MessageDoc> = await ctx.runQuery(
+			components.agent.messages.listMessagesByThreadId,
+			{
+				threadId: supportThread.threadId,
+				order: 'desc',
+				paginationOpts: { numItems: REPLY_LOOKBACK_ROWS, cursor }
+			}
+		);
+		if (latest.page.some(answers)) return false;
+		// Newest first by order, so a row before the prompt's order ends the search.
+		if (latest.isDone || latest.page.some((row) => row.order < prompt.order)) break;
+		cursor = latest.continueCursor;
+	}
 
 	await saveHandoffAcknowledgement(ctx, supportThread);
 	return true;

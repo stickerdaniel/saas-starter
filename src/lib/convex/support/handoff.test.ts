@@ -222,8 +222,18 @@ describe('settleUnansweredTurn', () => {
 					);
 				}
 				if ('order' in args) {
-					const page = [...rows].sort((a, b) => b.order - a.order).slice(0, 30);
-					return { page, isDone: rows.length <= 30, continueCursor: '' };
+					// Like the component: a full page is never done, even when it is the last.
+					const { numItems, cursor } = args.paginationOpts as {
+						numItems: number;
+						cursor: string | null;
+					};
+					const start = Number(cursor ?? 0);
+					const page = [...rows].sort((a, b) => b.order - a.order).slice(start, start + numItems);
+					return {
+						page,
+						isDone: page.length < numItems,
+						continueCursor: String(start + page.length)
+					};
 				}
 				// getRecentUserMessages
 				return [];
@@ -369,22 +379,36 @@ describe('settleUnansweredTurn', () => {
 	});
 
 	// The visitor kept writing to the handed-off thread before the turn settled,
-	// pushing the handoff button's acknowledgement out of the lookback.
-	it('adds nothing when the prompt lies past the lookback', async () => {
+	// so the prompt sits beyond the first page of the lookback.
+	const laterVisitorRows = Array.from({ length: 30 }, (_, index) =>
+		message(`later_${index}`, 30 + index, 'user', 'still there?')
+	);
+
+	it('adds nothing when the acknowledgement lies past the first page', async () => {
 		const ctx = settleCtx({
 			handedOff: true,
 			rows: [
 				message('m1', 10, 'user', 'help'),
 				message('ack_button', 20, 'assistant', 'translated'),
-				...Array.from({ length: 30 }, (_, index) =>
-					message(`later_${index}`, 30 + index, 'user', 'still there?')
-				)
+				...laterVisitorRows
 			]
 		});
 
 		await settle._handler(ctx, { ...TURN, reason: 'job_failed' });
 
 		expect(saveMessageMock).not.toHaveBeenCalled();
+	});
+
+	// The agent's request_handoff flips the thread without telling the visitor.
+	it('acknowledges a silent handoff whose prompt lies past the first page', async () => {
+		const ctx = settleCtx({
+			handedOff: true,
+			rows: [message('m1', 10, 'user', 'help'), ...laterVisitorRows]
+		});
+
+		await settle._handler(ctx, { ...TURN, reason: 'job_failed' });
+
+		expect(saveMessageMock).toHaveBeenCalledOnce();
 	});
 
 	it('logs a status that is not an integer without it', async () => {
