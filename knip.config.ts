@@ -52,9 +52,6 @@ export default {
 		'src/lib/components/ui/light-switch/**',
 		'src/lib/components/ui/popover/**',
 		'src/lib/components/ui/slider/**',
-		// Wrapped only by prompt-kit's TextShimmerLoader (ignored above), so knip cannot see
-		// its importer. Guarded live by motion-a11y.test.ts.
-		'src/lib/components/motion/shimmer-text.svelte',
 		// Template block kept as a starting point; not mounted by any route.
 		'src/blocks/team/team-two.svelte'
 	],

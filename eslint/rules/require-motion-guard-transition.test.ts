@@ -74,7 +74,7 @@ describe('require-motion-guard-transition', () => {
 		expect(reports).toHaveLength(0);
 	});
 
-	it('allows a gated offset next to a literal duration (ConversationScrollButton style)', () => {
+	it('allows a gated offset next to a literal duration', () => {
 		const reports = lint(
 			'<div in:fly={{ duration: 300, y: prefersReducedMotion.current ? 0 : 10, easing: backOut }}></div>'
 		);
