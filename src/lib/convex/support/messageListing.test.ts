@@ -159,6 +159,74 @@ describe('listMessagesForThread', () => {
 		expect(JSON.stringify(result.page[1])).toContain('domain value');
 	});
 
+	describe('failed agent steps without text', () => {
+		// A step that failed after reasoning, before any text, on the same order
+		// as the retry that then answered.
+		const turn = [
+			rawMessage({
+				_id: 'prompt',
+				order: 1,
+				message: { role: 'user', content: 'help' },
+				text: 'help'
+			}),
+			rawMessage({
+				_id: 'failed-reasoning',
+				order: 1,
+				stepOrder: 1,
+				status: 'failed',
+				error: 'Tool execution failed.',
+				message: { role: 'assistant', content: [{ type: 'reasoning', text: 'PRIVATE_REASONING' }] }
+			}),
+			rawMessage({
+				_id: 'failed-text',
+				order: 1,
+				stepOrder: 2,
+				status: 'failed',
+				message: { role: 'assistant', content: 'Partial answer' },
+				text: 'Partial answer'
+			}),
+			rawMessage({
+				_id: 'answer',
+				order: 1,
+				stepOrder: 3,
+				message: { role: 'assistant', content: 'Here is how' },
+				text: 'Here is how'
+			})
+		];
+
+		beforeEach(() => {
+			vi.mocked(listMessages).mockResolvedValue({
+				page: turn,
+				isDone: false,
+				continueCursor: 'next'
+			});
+		});
+
+		it('hides them from the visitor and keeps failed text and the cursor', async () => {
+			const result = await listMessagesForThread({ runQuery: vi.fn() } as never, {
+				threadId: 'thread-1',
+				paginationOpts: { numItems: 50, cursor: null },
+				hideFailedTextlessAssistant: true
+			});
+
+			expect(JSON.stringify(result.page)).not.toContain('PRIVATE_REASONING');
+			expect(JSON.stringify(result.page)).toContain('Partial answer');
+			expect(JSON.stringify(result.page)).toContain('Here is how');
+			expect(result.continueCursor).toBe('next');
+			expect(result.isDone).toBe(false);
+		});
+
+		// The admin transcript keeps the evidence of what failed.
+		it('keeps them without the visitor option', async () => {
+			const result = await listMessagesForThread({ runQuery: vi.fn() } as never, {
+				threadId: 'thread-1',
+				paginationOpts: { numItems: 50, cursor: null }
+			});
+
+			expect(JSON.stringify(result.page)).toContain('PRIVATE_REASONING');
+		});
+	});
+
 	it('does not query message rows for a zero-page stream request', async () => {
 		vi.mocked(listMessages).mockResolvedValue({ page: [], isDone: true, continueCursor: '' });
 		vi.mocked(syncStreams).mockResolvedValue({ kind: 'list', messages: [] });

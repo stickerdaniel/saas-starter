@@ -5,7 +5,7 @@ import {
 	type SyncStreamsReturnValue,
 	type UIMessage
 } from '@convex-dev/agent';
-import type { StreamMessage } from '@convex-dev/agent/validators';
+import type { MessageDoc, StreamMessage } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
 import type { QueryCtx } from '../_generated/server';
 import {
@@ -37,19 +37,38 @@ type MessageStreamArgs =
 			}>;
 	  };
 
+/**
+ * One page of a thread for the support widget, the admin transcript, and the
+ * AI chat.
+ *
+ * `hideFailedTextlessAssistant` is the support visitor's option. An agent step
+ * that failed before it wrote any text leaves an assistant row holding only its
+ * reasoning; the widget would render that reasoning, and the row would merge
+ * into the retry's reply on the same order. The admin transcript keeps the row
+ * as the evidence of what failed.
+ *
+ * The rows are dropped from the page the cursor was built over, so a page can
+ * hold fewer items than requested and the widget's first page shows that many
+ * fewer older messages. Accepted because a turn leaves such a row only when a
+ * model step fails mid-stream.
+ */
 export async function listMessagesForThread(
 	ctx: QueryCtx,
 	args: {
 		threadId: string;
 		paginationOpts: MessagePaginationArgs;
 		streamArgs?: MessageStreamArgs;
+		hideFailedTextlessAssistant?: boolean;
 	}
 ): Promise<MessagesQueryResponse> {
 	const rawPaginated = await listMessages(ctx, components.agent, {
 		threadId: args.threadId,
 		paginationOpts: args.paginationOpts
 	});
-	const redactedMessages = rawPaginated.page.map(redactMessageDocToolErrors);
+	const rawPage = args.hideFailedTextlessAssistant
+		? rawPaginated.page.filter((doc) => !isFailedTextlessAssistant(doc))
+		: rawPaginated.page;
+	const redactedMessages = rawPage.map(redactMessageDocToolErrors);
 	const paginated = { ...rawPaginated, page: toUIMessages(redactedMessages) };
 
 	const metadataMap = new Map<string, Record<string, unknown>>();
@@ -115,6 +134,10 @@ export async function listMessagesForThread(
 	};
 
 	return { ...paginated, page: materializedPage, streams: liveStreams };
+}
+
+function isFailedTextlessAssistant(doc: MessageDoc): boolean {
+	return doc.status === 'failed' && doc.message?.role === 'assistant' && !doc.text?.trim();
 }
 
 async function mergeRecentStreamsIntoPage(

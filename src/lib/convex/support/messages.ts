@@ -1,13 +1,21 @@
 import type { MessagesQueryResponse } from '../../chat/core/types';
-import { internalAction, internalMutation, mutation, query } from '../_generated/server';
-import { v } from 'convex/values';
+import {
+	internalAction,
+	internalMutation,
+	internalQuery,
+	mutation,
+	query,
+	type ActionCtx,
+	type QueryCtx
+} from '../_generated/server';
+import { v, type Infer } from 'convex/values';
 import { internal } from '../_generated/api';
 import { supportAgent } from './agent';
 import { paginationOptsValidator } from 'convex/server';
 import { getFile } from '@convex-dev/agent';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
-import type { UserContent } from 'ai';
+import { APICallError, RetryError, type UserContent } from 'ai';
 import { supportRateLimiter } from './rateLimit';
 import { isSupportAiEnabled } from '../../config/support';
 import { createRateLimitError } from './types';
@@ -22,6 +30,13 @@ import { recordFirstSupportContact } from './threadLifecycle';
 import { getFileMetadataByUrls } from '../files/metadata';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { recordAiUsage } from '../aiUsage/record';
+import { mergeByModel, type CapturedModelUsage } from '../aiUsage/capture';
+import {
+	settleUnanswered,
+	turnLogFields,
+	type TurnErrorName,
+	type UnansweredTurn
+} from './handoff';
 import {
 	CapabilityConfigurationError,
 	getCapabilityConfigurations,
@@ -31,6 +46,230 @@ import {
 	prepareToolErrorRedactionStep,
 	toolErrorRedactionTransform
 } from '../../chat/core/tool-error-redaction';
+
+type SupportTurn = { threadId: string; promptMessageId: string; userId?: string };
+
+const turnOutcomeValidator = v.object({
+	handedOff: v.boolean(),
+	/** The agent saved a successful assistant row with text for this prompt. */
+	answered: v.boolean(),
+	/** Some assistant row for this prompt, of any status, has text the visitor may have seen. */
+	visibleText: v.boolean()
+});
+
+type TurnOutcome = Infer<typeof turnOutcomeValidator>;
+
+/**
+ * Rows read back for one turn. Each attempt runs at most five model steps
+ * (agent.ts), each an assistant row plus a tool row, so two attempts and their
+ * prompt fit with room to spare.
+ */
+const TURN_OUTCOME_PAGE_SIZE = 30;
+
+/**
+ * What a support agent turn left in the thread, read from the persisted rows
+ * rather than from the stream: the AI SDK hands a provider error mid-stream to
+ * its error callback and `consumeStream()` returns normally, so a turn that
+ * saved nothing but a failed reasoning row looks exactly like one that answered.
+ *
+ * Reads only the prompt's own order. `upToAndIncludingMessageId` keeps later
+ * messages from another tab out of the bounded page, where they could push the
+ * turn's own rows out of it.
+ */
+async function readTurnOutcome(
+	ctx: QueryCtx,
+	turn: { threadId: string; promptMessageId: string }
+): Promise<TurnOutcome> {
+	const supportThread = await ctx.db
+		.query('supportThreads')
+		.withIndex('by_thread', (q) => q.eq('threadId', turn.threadId))
+		.first();
+	const handedOff = supportThread?.isHandedOff === true;
+
+	const [prompt] = await ctx.runQuery(components.agent.messages.getMessagesByIds, {
+		messageIds: [turn.promptMessageId]
+	});
+	if (!prompt) return { handedOff, answered: false, visibleText: false };
+
+	const latest = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
+		threadId: turn.threadId,
+		order: 'desc',
+		upToAndIncludingMessageId: turn.promptMessageId,
+		paginationOpts: { numItems: TURN_OUTCOME_PAGE_SIZE, cursor: null }
+	});
+	const replies = latest.page.filter(
+		(row) => row.order === prompt.order && row.message?.role === 'assistant' && row.text?.trim()
+	);
+	return {
+		handedOff,
+		answered: replies.some((row) => row.status === 'success'),
+		visibleText: replies.length > 0
+	};
+}
+
+/** The turn needs nothing more: the agent answered, or handed off and said so. */
+function hasReplied(outcome: TurnOutcome): boolean {
+	return outcome.answered || (outcome.handedOff && outcome.visibleText);
+}
+
+type CodedTurnError = { errorName: TurnErrorName; status?: number };
+
+const PRESERVED_TURN_ERROR_NAMES: readonly TurnErrorName[] = ['AbortError', 'TimeoutError'];
+
+/**
+ * Reduce whatever a turn attempt threw to an allowlisted name and an integer
+ * HTTP status, the only parts of it a log line may carry. The AI SDK wraps
+ * exhausted provider retries in a RetryError, so its last error is the one read.
+ */
+function codedTurnError(thrown: unknown): CodedTurnError {
+	const error = RetryError.isInstance(thrown) ? thrown.lastError : thrown;
+	if (APICallError.isInstance(error)) {
+		return Number.isInteger(error.statusCode)
+			? { errorName: 'APICallError', status: error.statusCode }
+			: { errorName: 'APICallError' };
+	}
+	const preserved =
+		error instanceof Error
+			? PRESERVED_TURN_ERROR_NAMES.find((name) => name === error.name)
+			: undefined;
+	return { errorName: preserved ?? 'other' };
+}
+
+type TurnAttempt = { models: CapturedModelUsage[]; error?: CodedTurnError };
+
+/**
+ * Run the support agent once on the turn's prompt. Every attempt reuses the
+ * same promptMessageId: the agent then saves no second copy of the visitor's
+ * message, marks the earlier attempt's pending steps failed, and leaves failed
+ * rows out of the model's context. A throw is caught and returned, because the
+ * persisted outcome, not the way the attempt ended, decides what happens next.
+ *
+ * The usage sink is local to the attempt so a retry does not count the first
+ * attempt's tokens again.
+ */
+async function runTurnAttempt(
+	ctx: ActionCtx,
+	turn: SupportTurn,
+	instructions: string | undefined
+): Promise<TurnAttempt> {
+	const sink = makeAgentUsageSink();
+	try {
+		// Stream the AI response with tool execution support
+		// maxSteps is configured at the agent level (agent.ts) for multi-step tool execution
+		const result = await supportAgent.streamText(
+			ctx,
+			{ threadId: turn.threadId, userId: turn.userId },
+			{
+				promptMessageId: turn.promptMessageId,
+				// AgentPrompt.instructions overrides the agent's instructions for this turn;
+				// undefined leaves SUPPORT_AGENT_INSTRUCTIONS in place.
+				instructions,
+				prepareStep: prepareToolErrorRedactionStep,
+				experimental_transform: toolErrorRedactionTransform
+			},
+			{
+				usageHandler: sink.usageHandler,
+				// Save streaming deltas to database for real-time updates
+				saveStreamDeltas: {
+					chunking: 'line',
+					throttleMs: 100
+				}
+			}
+		);
+
+		// Consume the stream to process all tool calls and responses
+		await result.consumeStream();
+		return { models: sink.collect() };
+	} catch (error) {
+		return { models: sink.collect(), error: codedTurnError(error) };
+	}
+}
+
+async function readOutcome(ctx: ActionCtx, turn: SupportTurn): Promise<TurnOutcome> {
+	return await ctx.runQuery(internal.support.messages.getTurnOutcome, {
+		threadId: turn.threadId,
+		promptMessageId: turn.promptMessageId
+	});
+}
+
+/** A turn gets one retry, and only when its attempt left nothing at all. */
+const MAX_TURN_ATTEMPTS = 2;
+
+type TurnRun = { attempts: TurnAttempt[]; outcome: TurnOutcome; retryRefused: boolean };
+
+/**
+ * Run the support agent on the turn until it leaves something, at most twice,
+ * and return what the thread shows afterwards.
+ *
+ * The thread is read again right before every model dispatch: the team can take
+ * it over at any point, and once they hold it the agent starts no further run
+ * on it. A run skipped this way is not in `attempts`.
+ */
+async function runTurn(
+	ctx: ActionCtx,
+	turn: SupportTurn,
+	instructions: string | undefined
+): Promise<TurnRun> {
+	const attempts: TurnAttempt[] = [];
+	for (;;) {
+		const beforeDispatch = await readOutcome(ctx, turn);
+		if (beforeDispatch.handedOff) {
+			return { attempts, outcome: beforeDispatch, retryRefused: false };
+		}
+
+		attempts.push(await runTurnAttempt(ctx, turn, instructions));
+		const outcome = await readOutcome(ctx, turn);
+
+		// Anything the visitor can see ends the turn: a retry would repeat it, and a
+		// thread the agent handed off belongs to the team. So does the last attempt.
+		if (outcome.handedOff || outcome.visibleText || attempts.length === MAX_TURN_ATTEMPTS) {
+			return { attempts, outcome, retryRefused: false };
+		}
+
+		// The attempt left nothing the visitor can see, so the agent gets one more.
+		// The restart is safe because the only support tool with a side effect,
+		// request_handoff, is idempotent: a repeated call finds the thread already
+		// handed off. Adding a tool that is not idempotent means revisiting this
+		// retry. It is a second full model run, so it pays the global budget again.
+		const retryStatus = await supportRateLimiter.limit(ctx, 'globalLLM');
+		if (!retryStatus.ok) return { attempts, outcome, retryRefused: true };
+	}
+}
+
+/**
+ * Record the turn's usage as one `support_chat` row, however many attempts it
+ * took; recordAiUsage writes none when no attempt captured usage. The status
+ * follows what the turn left: `ok` only when it answered, `partial` when it
+ * left text short of an answer, `error` otherwise.
+ */
+async function recordTurnUsage(ctx: ActionCtx, turn: SupportTurn, run: TurnRun): Promise<void> {
+	// turn.userId may be an anon_* id for anonymous support; store as-is
+	await recordAiUsage(ctx, {
+		feature: 'support_chat',
+		userId: turn.userId,
+		threadId: turn.threadId,
+		status: run.outcome.answered ? 'ok' : run.outcome.visibleText ? 'partial' : 'error',
+		models: mergeByModel(run.attempts.flatMap((attempt) => attempt.models))
+	});
+}
+
+/** Hand an unanswered turn to the team, with the reason it ended that way. */
+async function settleUnansweredTurn(
+	ctx: ActionCtx,
+	turn: SupportTurn,
+	details: Omit<UnansweredTurn, 'threadId' | 'promptMessageId'>
+): Promise<void> {
+	await ctx.runMutation(internal.support.handoff.settleUnansweredTurn, {
+		threadId: turn.threadId,
+		promptMessageId: turn.promptMessageId,
+		...details
+	});
+}
+
+/** Wait between two looks the watchdog takes at a support agent turn. */
+const SUPPORT_TURN_CHECK_DELAY_MS = 3 * 60 * 1000;
+/** Looks the watchdog takes after its first before it stops waiting and logs. */
+const SUPPORT_TURN_EXTRA_CHECKS = 5;
 
 /**
  * Send a user message and get AI response with streaming
@@ -196,11 +435,23 @@ export const sendMessage = mutation({
 		// Only humans respond once a thread is human-only
 		if (!isHumanOnly) {
 			// AI mode: Schedule async action to generate AI response with streaming
-			await ctx.scheduler.runAfter(0, internal.support.messages.createAIResponse, {
+			const jobId = await ctx.scheduler.runAfter(0, internal.support.messages.createAIResponse, {
 				threadId: args.threadId,
 				promptMessageId: messageId,
 				userId: effectiveUserId
 			});
+			// Scheduled actions run at most once and can die without settling the
+			// turn themselves; the watchdog hands such a turn to the team.
+			await ctx.scheduler.runAfter(
+				SUPPORT_TURN_CHECK_DELAY_MS,
+				internal.support.messages.ensureSupportTurnSettled,
+				{
+					threadId: args.threadId,
+					promptMessageId: messageId,
+					jobId,
+					checksLeft: SUPPORT_TURN_EXTRA_CHECKS
+				}
+			);
 		}
 
 		// Reopen thread and mark as awaiting response when user sends message
@@ -249,6 +500,12 @@ export const sendMessage = mutation({
  *
  * This runs asynchronously and streams the AI response back to the database,
  * which automatically syncs to all connected clients via Convex's reactivity.
+ *
+ * Every turn ends answered or with the team: after each attempt the persisted
+ * outcome is read back, an attempt that left nothing visible is retried once,
+ * and a turn still without a reply is handed off through settleUnansweredTurn,
+ * which acknowledges the visitor and logs it. ensureSupportTurnSettled covers a
+ * job that dies before it gets that far.
  */
 export const createAIResponse = internalAction({
 	args: {
@@ -281,6 +538,11 @@ export const createAIResponse = internalAction({
 			return null;
 		}
 
+		// The team can take the thread over while this job is queued. It is theirs
+		// then: no model call, and no rate-limit copy from the agent either.
+		// runTurn reads it again right before each model dispatch.
+		if ((await readOutcome(ctx, args)).handedOff) return null;
+
 		// Global rate limit check for cost protection
 		// This MUST fail the request to protect against runaway costs
 		const globalStatus = await supportRateLimiter.limit(ctx, 'globalLLM');
@@ -304,77 +566,129 @@ export const createAIResponse = internalAction({
 			return null;
 		}
 
-		// Capture per-model token usage from every LLM step in this turn
-		const sink = makeAgentUsageSink();
+		// Load the active support prompt override, if any. null falls back to the
+		// agent's built-in SUPPORT_AGENT_INSTRUCTIONS (agent.ts). The seam already
+		// accepts a locale; we pass none here and serve the global default.
+		const systemOverride = await ctx.runQuery(internal.support.promptStore.getActive, {});
 
 		try {
-			// Load the active support prompt override, if any. null falls back to the
-			// agent's built-in SUPPORT_AGENT_INSTRUCTIONS (agent.ts). The seam already
-			// accepts a locale; we pass none here and serve the global default.
-			const systemOverride = await ctx.runQuery(internal.support.promptStore.getActive, {});
-
-			try {
-				requireAiConfiguration();
-			} catch (error) {
-				if (!(error instanceof CapabilityConfigurationError)) throw error;
-				await ctx.runMutation(internal.support.handoff.internalSetHandoff, {
-					threadId: args.threadId,
-					acknowledge: true
-				});
-				return null;
-			}
-
-			// Stream the AI response with tool execution support
-			// maxSteps is configured at the agent level (agent.ts) for multi-step tool execution
-			const result = await supportAgent.streamText(
-				ctx,
-				{ threadId: args.threadId, userId: args.userId },
-				{
-					promptMessageId: args.promptMessageId,
-					// AgentPrompt.instructions overrides the agent's instructions for this turn;
-					// undefined leaves SUPPORT_AGENT_INSTRUCTIONS in place.
-					instructions: systemOverride ?? undefined,
-					prepareStep: prepareToolErrorRedactionStep,
-					experimental_transform: toolErrorRedactionTransform
-				},
-				{
-					usageHandler: sink.usageHandler,
-					// Save streaming deltas to database for real-time updates
-					saveStreamDeltas: {
-						chunking: 'line',
-						throttleMs: 100
-					}
-				}
-			);
-
-			// Consume the stream to process all tool calls and responses
-			await result.consumeStream();
-
-			// args.userId may be an anon_* id for anonymous support; store as-is
-			await recordAiUsage(ctx, {
-				feature: 'support_chat',
-				userId: args.userId,
-				threadId: args.threadId,
-				status: 'ok',
-				models: sink.collect()
-			});
+			requireAiConfiguration();
 		} catch (error) {
-			const models = sink.collect();
-			if (models.length > 0) {
-				await recordAiUsage(ctx, {
-					feature: 'support_chat',
-					userId: args.userId,
-					threadId: args.threadId,
-					status: 'error',
-					models
-				});
-			}
-			throw error;
+			if (!(error instanceof CapabilityConfigurationError)) throw error;
+			await ctx.runMutation(internal.support.handoff.internalSetHandoff, {
+				threadId: args.threadId,
+				acknowledge: true
+			});
+			return null;
 		}
 
-		// Sync denormalized search fields with AI response
-		await ctx.runMutation(internal.support.threads.updateLastMessage, {
-			threadId: args.threadId
+		const run = await runTurn(ctx, args, systemOverride ?? undefined);
+		const [firstAttempt] = run.attempts;
+		// The team took the thread before the agent dispatched anything: it is theirs.
+		if (!firstAttempt) return null;
+
+		await recordTurnUsage(ctx, args, run);
+
+		if (hasReplied(run.outcome)) {
+			// Sync denormalized search fields with AI response
+			await ctx.runMutation(internal.support.threads.updateLastMessage, {
+				threadId: args.threadId
+			});
+			if (run.attempts.length > 1) {
+				console.warn({
+					code: 'support_turn_retried',
+					...turnLogFields({ ...args, attempts: run.attempts.length, ...firstAttempt.error })
+				});
+			}
+			return null;
+		}
+
+		// A thread already handed off with nothing said to the visitor (the agent's
+		// request_handoff, or the team taking it before the retry) is settled with
+		// the acknowledgement alone; the team already knows.
+		const { outcome } = run;
+		const lastError = run.attempts.reduce<CodedTurnError | undefined>(
+			(latest, attempt) => attempt.error ?? latest,
+			undefined
+		);
+		await settleUnansweredTurn(ctx, args, {
+			reason: outcome.handedOff
+				? 'handoff_without_reply'
+				: run.retryRefused
+					? 'retry_rate_limited'
+					: outcome.visibleText
+						? 'partial_reply'
+						: 'no_reply',
+			attempts: run.attempts.length,
+			visibleText: outcome.visibleText,
+			...lastError
+		});
+		return null;
+	}
+});
+
+/** The persisted outcome of one support agent turn, for createAIResponse between its steps. */
+export const getTurnOutcome = internalQuery({
+	args: {
+		threadId: v.string(),
+		promptMessageId: v.string()
+	},
+	returns: turnOutcomeValidator,
+	handler: async (ctx, args) => await readTurnOutcome(ctx, args)
+});
+
+/**
+ * Watchdog for a support agent turn whose job may never settle it.
+ *
+ * createAIResponse settles every turn it gets to the end of. This covers the
+ * job that does not: it failed, or its scheduler row is gone. Then a turn the
+ * thread shows unsettled goes through the same settlement the action uses. A job
+ * still pending or running may yet write a reply, so the watchdog waits for it
+ * instead, and after its last look logs an error about a turn still unsettled
+ * rather than handing it off underneath the job. A canceled job is logged the
+ * same way: nothing here cancels one, and canceling does not stop an action that
+ * already started.
+ */
+export const ensureSupportTurnSettled = internalMutation({
+	args: {
+		threadId: v.string(),
+		promptMessageId: v.string(),
+		jobId: v.id('_scheduled_functions'),
+		checksLeft: v.number()
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const job = await ctx.db.system.get('_scheduled_functions', args.jobId);
+		const state = job?.state.kind;
+
+		if (state === 'success') return null;
+
+		if ((state === 'pending' || state === 'inProgress') && args.checksLeft > 0) {
+			await ctx.scheduler.runAfter(
+				SUPPORT_TURN_CHECK_DELAY_MS,
+				internal.support.messages.ensureSupportTurnSettled,
+				{ ...args, checksLeft: args.checksLeft - 1 }
+			);
+			return null;
+		}
+
+		const outcome = await readTurnOutcome(ctx, args);
+		if (hasReplied(outcome)) return null;
+
+		if (state === 'pending' || state === 'inProgress' || state === 'canceled') {
+			console.error({
+				code: 'support_turn_unsettled',
+				...turnLogFields({ threadId: args.threadId, promptMessageId: args.promptMessageId }),
+				state
+			});
+			return null;
+		}
+
+		await settleUnanswered(ctx, {
+			threadId: args.threadId,
+			promptMessageId: args.promptMessageId,
+			reason: job ? 'job_failed' : 'job_missing',
+			visibleText: outcome.visibleText
 		});
 		return null;
 	}
@@ -407,16 +721,19 @@ export const listMessages = query({
 		return await listMessagesForThread(ctx, {
 			threadId: args.threadId,
 			paginationOpts: args.paginationOpts,
-			streamArgs: args.streamArgs
+			streamArgs: args.streamArgs,
+			hideFailedTextlessAssistant: true
 		});
 	}
 });
 
 /**
- * Internal mutation to save an assistant message
+ * Save an assistant message in the support agent's name, such as the global
+ * rate-limit notice.
  *
- * Used to send follow-up messages after async operations complete,
- * such as after a support ticket is successfully submitted.
+ * Writes nothing once the thread is handed off: the team owns it from then on,
+ * and the check sits in this transaction because the action that asks for the
+ * message may have read the thread before the visitor handed it over.
  */
 export const createAssistantMessage = internalMutation({
 	args: {
@@ -426,6 +743,12 @@ export const createAssistantMessage = internalMutation({
 	// v.any(): saveMessage result shape (messageId + message doc) is owned by @convex-dev/agent
 	returns: v.any(),
 	handler: async (ctx, args) => {
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+		if (supportThread?.isHandedOff) return null;
+
 		return await supportAgent.saveMessage(ctx, {
 			threadId: args.threadId,
 			message: {
