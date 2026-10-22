@@ -2101,7 +2101,7 @@ async function main() {
 	await recordForkPoint();
 
 	console.log('\nSetup complete. Next steps:');
-	console.log('  1. Replace static/logo.svg with your logo, then run: bun run build:emails');
+	console.log('  1. Replace static/logo.svg with your logo, then run: bun run generate:logos');
 	console.log('  2. Refresh email snapshots: bun run test:unit -- email-snapshots.test.ts -u');
 	console.log(
 		'  3. Update editorial brand mentions in src/i18n/*.json (FAQ, hero, marketing prose, pricing tier names)'
