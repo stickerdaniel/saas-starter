@@ -1,3 +1,5 @@
+// Must stay first: the Svelte parser reads this flag when it is imported.
+import './eslint/svelte-ts-sys-hook.js';
 import prettier from 'eslint-config-prettier';
 import path from 'node:path';
 import { includeIgnoreFile } from '@eslint/compat';

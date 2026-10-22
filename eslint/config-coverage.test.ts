@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { existsSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { ESLint } from 'eslint';
 import stripAnsi from 'strip-ansi';
+import type * as TypeScript from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { sharedTestSettings } from '../scripts/vitest-settings';
 
@@ -77,6 +79,15 @@ describe('Svelte type-aware linting', () => {
 				.filter((message) => message.ruleId === 'svelte/no-navigation-without-resolve')
 				.map((message) => message.line)
 		).toEqual([3, 5]);
+	}, 60_000);
+
+	// When TypeScript reads raw markup for a Svelte file, typescript-eslint rebuilds its
+	// program for every Svelte file it lints, which multiplies a full run's lint time.
+	it('lets the type checker read Svelte files as TypeScript', async () => {
+		const file = 'src/routes/+layout.svelte';
+		await eslint.lintText(readFileSync(file, 'utf-8'), { filePath: file });
+		const ts: typeof TypeScript = createRequire(import.meta.url)('typescript');
+		expect(ts.sys.readFile(file)).not.toBe(readFileSync(file, 'utf-8'));
 	}, 60_000);
 });
 
