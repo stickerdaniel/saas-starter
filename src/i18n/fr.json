@@ -622,9 +622,12 @@
 		"tool": {
 			"call_id": "ID d'appel : {toolCallId}",
 			"error": "Erreur",
+			"failed": "Échec de l'exécution de {tool}",
 			"input": "Entrée",
 			"output": "Sortie",
-			"processing": "Traitement de l'appel d'outil..."
+			"processing": "Traitement de l'appel d'outil...",
+			"ran": "{tool} exécuté",
+			"running": "Exécution de {tool}"
 		},
 		"tooltip": {
 			"attach_files": "Joindre des fichiers",

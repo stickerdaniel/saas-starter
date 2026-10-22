@@ -1,7 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { toToolRenderPart } from './tool-part-adapter';
+import { toToolPhase, toToolRenderPart } from './tool-part-adapter';
 
 describe('tool UI boundary adapter', () => {
+	it('names a static tool by its type and a dynamic tool by its SDK name', () => {
+		expect(toToolRenderPart({ type: 'tool-getWeather', state: 'input-streaming' })?.name).toBe(
+			'getWeather'
+		);
+		expect(
+			toToolRenderPart({ type: 'dynamic-tool', toolName: 'runtime-tool', state: 'input-available' })
+				?.name
+		).toBe('runtime-tool');
+	});
+	// The AI Elements Tool table: input without output runs only while the message does.
+	it.each([
+		['input-streaming', true, 'running'],
+		['input-available', true, 'running'],
+		['input-streaming', false, 'failed'],
+		['input-available', false, 'failed'],
+		['output-available', true, 'ran'],
+		['output-available', false, 'ran'],
+		['output-error', true, 'failed'],
+		['output-error', false, 'failed']
+	] as const)(
+		'reads %s while the message is in progress (%s) as %s',
+		(state, inProgress, phase) => {
+			expect(toToolPhase(state, inProgress)).toBe(phase);
+		}
+	);
 	it.each(['input-streaming', 'input-available', 'output-available', 'output-error'] as const)(
 		'accepts the supported %s state',
 		(state) => {

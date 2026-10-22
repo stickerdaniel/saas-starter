@@ -622,9 +622,12 @@
 		"tool": {
 			"call_id": "Call ID: {toolCallId}",
 			"error": "Error",
+			"failed": "Failed to run {tool}",
 			"input": "Input",
 			"output": "Output",
-			"processing": "Processing tool call..."
+			"processing": "Processing tool call...",
+			"ran": "Ran {tool}",
+			"running": "Running {tool}"
 		},
 		"tooltip": {
 			"attach_files": "Attach files",

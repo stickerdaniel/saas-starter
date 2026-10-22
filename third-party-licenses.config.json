@@ -13,6 +13,10 @@
 			"components": ["styles"]
 		},
 		{
+			"name": "shadcn-svelte",
+			"components": ["styles"]
+		},
+		{
 			"name": "preact",
 			"components": ["client"]
 		},

@@ -72,7 +72,18 @@ const arbitraryValueExceptions = [
 	'transition-[max-width,translate]',
 	'transition-[color,background-color,border-color,transform]',
 	'transition-[height,transform,background-color,border-color]',
-	'ease-[cubic-bezier(0.23,1,0.32,1)]'
+	'ease-[cubic-bezier(0.23,1,0.32,1)]',
+	// CodeBlock and Trace, as the shadcn-svelte registry ships them: a CSS counter numbers
+	// code lines, generated content draws the diff markers, Trace points the accordion
+	// keyframes at the collapsible height bits-ui measures, and its content rule sits under
+	// the centre of the 16px icon, which no spacing step reaches past the 1px border.
+	'in-data-numbered:[counter-increment:line]',
+	'in-data-numbered:before:content-[counter(line)]',
+	"in-data-numbered:supports-[content:counter(line)_/_'']:before:content-[counter(line)_/_'']",
+	"after:content-['+']",
+	"after:content-['−']",
+	'[--bits-accordion-content-height:var(--bits-collapsible-content-height)]',
+	'ml-[calc(--spacing(2)_-_1px)]'
 ];
 
 // no-restyle: a caller places a design-system component; its look comes from the
@@ -312,39 +323,6 @@ export const restyleOwners = [
 		}
 	},
 	{
-		id: 'O13',
-		files: ['src/lib/components/ai-elements/reasoning/Reasoning.svelte'],
-		components: {
-			Accordion: ['not-prose', 'mb-4', 'rounded-none', 'border-0'],
-			AccordionItem: ['border-0', 'data-open:bg-transparent']
-		}
-	},
-	{
-		id: 'O14',
-		files: ['src/lib/components/ai-elements/reasoning/ReasoningContent.svelte'],
-		components: {
-			AccordionContent: ['opacity-50']
-		}
-	},
-	{
-		id: 'O15',
-		files: ['src/lib/components/ai-elements/reasoning/ReasoningTrigger.svelte'],
-		components: {
-			AccordionTrigger: [
-				'flex',
-				'items-start',
-				'justify-start',
-				'gap-2',
-				'py-0',
-				'text-sm',
-				'text-muted-foreground',
-				'transition-colors',
-				'hover:no-underline',
-				'active:translate-y-px'
-			]
-		}
-	},
-	{
 		id: 'O16',
 		files: ['src/lib/components/ui/owned/sidebar-header-button.svelte'],
 		components: {
@@ -556,43 +534,6 @@ export const restyleOwners = [
 				'translate-y-4',
 				'scale-95',
 				'opacity-0'
-			]
-		}
-	},
-	{
-		id: 'O31',
-		files: ['src/lib/components/prompt-kit/tool/Tool.svelte'],
-		components: {
-			Collapsible: ['not-prose', 'mb-4', 'overflow-hidden', 'rounded-lg', 'border', 'border-border']
-		}
-	},
-	{
-		id: 'O32',
-		files: ['src/lib/components/prompt-kit/tool/ToolContent.svelte'],
-		components: {
-			CollapsibleContent: [
-				'border-t',
-				'border-border',
-				'overflow-hidden',
-				'data-[state=closed]:animate-collapsible-up',
-				'data-[state=open]:animate-collapsible-down'
-			]
-		}
-	},
-	{
-		id: 'O33',
-		files: ['src/lib/components/prompt-kit/tool/ToolHeader.svelte'],
-		components: {
-			Button: [
-				'h-auto',
-				'w-full',
-				'justify-between',
-				'rounded-t-lg',
-				'rounded-b-none',
-				'bg-background',
-				'px-3',
-				'py-2',
-				'font-normal'
 			]
 		}
 	},
@@ -912,6 +853,42 @@ export const restyleOwners = [
 		files: ['src/routes/[[lang]]/admin/support/thread-details.svelte'],
 		components: {
 			Textarea: ['max-h-48']
+		}
+	},
+	{
+		id: 'O59',
+		files: ['src/lib/components/ui/trace/trace-collapsible-trigger.svelte'],
+		components: {
+			CollapsibleTrigger: [
+				'gap-1',
+				'rounded-md',
+				'text-muted-foreground',
+				'transition-colors',
+				'outline-none',
+				'hover:text-foreground',
+				'focus-visible:ring-3',
+				'focus-visible:ring-ring/50',
+				'has-[[data-status=error]]:text-destructive'
+			],
+			TraceIcon: ['transition-transform']
+		}
+	},
+	{
+		id: 'O60',
+		files: ['src/lib/components/ui/trace/trace-collapsible-content.svelte'],
+		components: {
+			CollapsibleContent: [
+				'duration-200',
+				'motion-safe:data-open:animate-accordion-down',
+				'motion-safe:data-closed:animate-accordion-up'
+			]
+		}
+	},
+	{
+		id: 'O61',
+		files: ['src/lib/chat/ui/ChatMessage.svelte'],
+		components: {
+			Trace: ['not-prose', 'text-sm']
 		}
 	}
 ];

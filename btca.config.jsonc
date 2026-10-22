@@ -503,6 +503,13 @@
 		},
 		{
 			"type": "git",
+			"name": "shiki",
+			"url": "https://github.com/shikijs/shiki",
+			"branch": "main",
+			"specialNotes": "Syntax highlighter behind the shadcn-svelte code-block item. src/lib/highlighter.ts uses shiki/core with the JavaScript regex engine and lazy language imports; chat tool output highlights JSON through it. Read the installed release tag."
+		},
+		{
+			"type": "git",
 			"name": "openrouterAiSdkProvider",
 			"url": "https://github.com/OpenRouterTeam/ai-sdk-provider",
 			"branch": "main",

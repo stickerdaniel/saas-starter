@@ -49,6 +49,7 @@ export default {
 		'src/lib/components/ai-elements/**',
 		'src/lib/components/prompt-kit/**',
 		// shadcn UI components installed via CLI and kept available for use.
+		'src/lib/components/ui/accordion/**',
 		'src/lib/components/ui/light-switch/**',
 		'src/lib/components/ui/popover/**',
 		'src/lib/components/ui/slider/**',
@@ -59,6 +60,8 @@ export default {
 		// Tailwind v4 plugins referenced via CSS @plugin, not JS imports.
 		'@tailwindcss/typography',
 		'tw-animate-css',
+		// Imported by src/routes/layout.css for the shimmer and scroll-fade utilities.
+		'shadcn-svelte',
 		// Imported only inside src/lib/emails (ignored above) and loaded through
 		// vite.ssrLoadModule in scripts/build-emails.ts.
 		'@better-svelte-email/server',
