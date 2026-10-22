@@ -1,4 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
+import { getFunctionName } from 'convex/server';
+import type { MessageDoc } from '@convex-dev/agent/validators';
 
 // internalSetHandoff calls syncSupportLastMessage from ./threads for the
 // denormalization sync. Stub it so the test stays a handler-level unit test and
@@ -14,7 +16,7 @@ vi.mock('../i18n/translations', () => ({
 	extractLocaleFromUrl: vi.fn(() => 'en')
 }));
 
-import { internalSetHandoff } from './handoff';
+import { internalSetHandoff, settleUnansweredTurn } from './handoff';
 import { syncSupportLastMessage } from './threads';
 import { supportAgent } from './agent';
 
@@ -154,5 +156,233 @@ describe('internalSetHandoff', () => {
 		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
 			expect.objectContaining({ notificationType: 'newTickets' })
 		);
+	});
+});
+
+/**
+ * Settling a support agent turn that ended without a reply. The thread's
+ * messages live in the agent component, read here through a fake of its two
+ * queries that keeps every saved acknowledgement, so a second settlement sees
+ * the first one's.
+ */
+describe('settleUnansweredTurn', () => {
+	const settle = settleUnansweredTurn as unknown as Fn<Record<string, unknown>, null>;
+	const TURN = { threadId: 'thread_1', promptMessageId: 'm1' };
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	function message(
+		id: string,
+		creationTime: number,
+		role: 'user' | 'assistant',
+		text?: string
+	): MessageDoc {
+		return {
+			_id: id,
+			_creationTime: creationTime,
+			threadId: 'thread_1',
+			order: creationTime,
+			stepOrder: 0,
+			status: 'success',
+			tool: false,
+			message: { role, content: text ?? [] },
+			...(text !== undefined ? { text } : {})
+		};
+	}
+
+	function settleCtx(options: { handedOff: boolean | null; rows?: MessageDoc[] }) {
+		const rows = options.rows ?? [message('m1', 10, 'user', 'help')];
+		saveMessageMock.mockImplementation(async () => {
+			rows.push(message(`ack_${rows.length}`, 100 + rows.length, 'assistant', 'translated'));
+			return { messageId: `ack_${rows.length}` };
+		});
+		const thread =
+			options.handedOff === null
+				? null
+				: { _id: 'st_1', threadId: 'thread_1', pageUrl: '', isHandedOff: options.handedOff };
+		return {
+			db: {
+				query: () => ({ withIndex: () => ({ first: async () => thread }) }),
+				patch: vi.fn(async () => {
+					if (thread) thread.isHandedOff = true;
+				})
+			},
+			runQuery: vi.fn(async (_reference: unknown, args: Record<string, unknown>) => {
+				if ('messageIds' in args) {
+					return (args.messageIds as string[]).map(
+						(id) => rows.find((row) => row._id === id) ?? null
+					);
+				}
+				if ('order' in args) {
+					const page = [...rows].sort((a, b) => b.order - a.order).slice(0, 30);
+					return { page, isDone: true, continueCursor: '' };
+				}
+				// getRecentUserMessages
+				return [];
+			}),
+			scheduler: { runAfter: vi.fn((..._args: unknown[]) => {}) }
+		};
+	}
+
+	function scheduled(ctx: ReturnType<typeof settleCtx>) {
+		return ctx.scheduler.runAfter.mock.calls.map(([, reference]) =>
+			getFunctionName(reference as never)
+		);
+	}
+
+	it('hands a thread still with the agent to the team and logs it once', async () => {
+		const ctx = settleCtx({ handedOff: false });
+
+		await settle._handler(ctx, {
+			...TURN,
+			reason: 'no_reply',
+			attempts: 2,
+			visibleText: false,
+			errorName: 'APICallError',
+			status: 502
+		});
+
+		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'supportThreads',
+			'st_1',
+			expect.objectContaining({ isHandedOff: true, awaitingAdminResponse: true })
+		);
+		expect(saveMessageMock).toHaveBeenCalledOnce();
+		expect(scheduled(ctx)).toEqual(['admin/support/notifications:scheduleAdminNotification']);
+		expect(vi.mocked(console.error).mock.calls).toEqual([
+			[
+				{
+					code: 'support_turn_unanswered',
+					threadId: 'thread_1',
+					promptMessageId: 'm1',
+					reason: 'no_reply',
+					attempts: 2,
+					visibleText: false,
+					errorName: 'APICallError',
+					status: 502
+				}
+			]
+		]);
+	});
+
+	// The agent's request_handoff told the team, then the model never spoke.
+	it('only acknowledges a handed-off thread whose visitor heard nothing', async () => {
+		const ctx = settleCtx({ handedOff: true });
+
+		await settle._handler(ctx, { ...TURN, reason: 'handoff_without_reply', attempts: 1 });
+
+		expect(ctx.db.patch).not.toHaveBeenCalled();
+		expect(saveMessageMock).toHaveBeenCalledOnce();
+		expect(saveMessageMock.mock.calls[0][1].message).toEqual({
+			role: 'assistant',
+			content: 'translated'
+		});
+		// No second new-ticket announcement: the handoff already made it.
+		expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
+		expect(vi.mocked(console.warn).mock.calls).toEqual([
+			[
+				{
+					code: 'support_turn_handoff_without_reply',
+					threadId: 'thread_1',
+					promptMessageId: 'm1',
+					reason: 'handoff_without_reply',
+					attempts: 1
+				}
+			]
+		]);
+	});
+
+	// The action and the watchdog can both settle one turn, in either order.
+	it('acknowledges a turn once however often it is settled', async () => {
+		const ctx = settleCtx({ handedOff: true });
+
+		await settle._handler(ctx, { ...TURN, reason: 'handoff_without_reply' });
+		await settle._handler(ctx, { ...TURN, reason: 'job_failed' });
+
+		expect(saveMessageMock).toHaveBeenCalledOnce();
+		expect(console.warn).toHaveBeenCalledOnce();
+	});
+
+	// The widget's handoff button writes the acknowledgement before it flips the
+	// thread, and a team reply answers the visitor as well.
+	it.each([
+		{ label: 'the handoff button', reply: message('ack_button', 20, 'assistant', 'translated') },
+		{
+			label: 'the team',
+			reply: { ...message('team_reply', 20, 'assistant', 'On it'), provider: 'human' }
+		},
+		{
+			label: 'the agent on the same turn',
+			reply: { ...message('agent_reply', 20, 'assistant', 'Here you go'), order: 10 }
+		}
+	])('adds nothing once $label answered the visitor', async ({ reply }) => {
+		const ctx = settleCtx({
+			handedOff: true,
+			rows: [message('m1', 10, 'user', 'help'), reply]
+		});
+
+		await settle._handler(ctx, { ...TURN, reason: 'handoff_without_reply' });
+
+		expect(saveMessageMock).not.toHaveBeenCalled();
+		expect(console.warn).not.toHaveBeenCalled();
+	});
+
+	// A second tab's message gets its own agent answer on a later order. It
+	// answers that message, not this one, whose handoff the visitor was never
+	// told about.
+	it('still acknowledges when only the agent answered a later message', async () => {
+		const ctx = settleCtx({
+			handedOff: true,
+			rows: [
+				message('m1', 10, 'user', 'help'),
+				message('m2', 15, 'user', 'and pricing?'),
+				{ ...message('agent_m2', 20, 'assistant', 'It costs 29 euros'), order: 15 }
+			]
+		});
+
+		await settle._handler(ctx, { ...TURN, reason: 'handoff_without_reply' });
+
+		expect(saveMessageMock).toHaveBeenCalledOnce();
+	});
+
+	// A team reply from before the prompt answered an earlier message, not this one.
+	it('still acknowledges when the only reply predates the prompt', async () => {
+		const ctx = settleCtx({
+			handedOff: true,
+			rows: [
+				{ ...message('earlier', 5, 'assistant', 'Hi there'), provider: 'human' },
+				message('m1', 10, 'user', 'help')
+			]
+		});
+
+		await settle._handler(ctx, { ...TURN, reason: 'handoff_without_reply' });
+
+		expect(saveMessageMock).toHaveBeenCalledOnce();
+	});
+
+	it('logs a status that is not an integer without it', async () => {
+		const ctx = settleCtx({ handedOff: false });
+
+		await settle._handler(ctx, { ...TURN, reason: 'no_reply', status: 502.5 });
+
+		expect(vi.mocked(console.error).mock.calls[0]?.[0]).not.toHaveProperty('status');
+	});
+
+	it('does nothing for a thread that no longer exists', async () => {
+		const ctx = settleCtx({ handedOff: null });
+
+		await settle._handler(ctx, { ...TURN, reason: 'job_missing' });
+
+		expect(saveMessageMock).not.toHaveBeenCalled();
+		expect(ctx.scheduler.runAfter).not.toHaveBeenCalled();
+		expect(console.error).not.toHaveBeenCalled();
 	});
 });
