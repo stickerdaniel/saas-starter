@@ -44,6 +44,8 @@ type Registered = { _handler: Handler };
 /** Whether one function, or a query and the queries it calls, has paginated. */
 type Allowance = { paginated: boolean };
 type Kind = 'query' | 'mutation';
+const MULTIPLE_PAGINATIONS =
+	'This query function ran multiple paginated queries. Convex only supports a single paginated query in each query function.';
 export type JobState = 'pending' | 'inProgress' | 'success' | 'failed' | 'canceled';
 type Job = {
 	id: string;
@@ -183,8 +185,8 @@ export function createJourneyStore(
 
 	/**
 	 * One function execution, charging its reads and writes to the meter of
-	 * the nearest caller that set limits. A query called from a query pages
-	 * against its caller's allowance.
+	 * the nearest caller that set limits. A query called from a query passes
+	 * its pagination up to its caller.
 	 */
 	function makeCtx(
 		extra: Record<string, unknown> = {},
@@ -271,9 +273,7 @@ export function createJourneyStore(
 						maximumBytesRead?: number;
 					}) {
 						if (allowance.paginated) {
-							throw new Error(
-								'This query function ran multiple paginated queries. Convex only supports a single paginated query in each query function.'
-							);
+							throw new Error(MULTIPLE_PAGINATIONS);
 						}
 						allowance.paginated = true;
 						if (descending) throw new Error('descending paginate is not modelled');
@@ -391,17 +391,15 @@ export function createJourneyStore(
 					return userLookup(args);
 				}
 				queryCalls.push({ name, args, limits: options?.transactionLimits });
-				if (kind !== 'query') {
-					return await call(name, args, options?.transactionLimits, meter, 'query');
+				// The child pages on its own record. A query caller takes it over only
+				// when the child succeeds, so a child that throws leaves it alone.
+				const child: Allowance = { paginated: false };
+				const result = await call(name, args, options?.transactionLimits, meter, 'query', child);
+				if (kind === 'query' && child.paginated) {
+					if (allowance.paginated) throw new Error(MULTIPLE_PAGINATIONS);
+					allowance.paginated = true;
 				}
-				// A child that throws leaves its caller's allowance as it found it.
-				const before = allowance.paginated;
-				try {
-					return await call(name, args, options?.transactionLimits, meter, 'query', allowance);
-				} catch (error) {
-					allowance.paginated = before;
-					throw error;
-				}
+				return result;
 			},
 			async runMutation(
 				ref: unknown,
