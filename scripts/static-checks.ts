@@ -1637,7 +1637,13 @@ async function main(): Promise<void> {
 		{
 			const fixArgs = assertMode ? [] : ['--fix'];
 			const files = ledger.filesFor('eslint');
-			if (!scopedMode) {
+			// CI points this at a Bun build whose `bun lint` runs this ESLint config with the
+			// Svelte rules in native code: https://github.com/stickerdaniel/bun/releases
+			const bunLint = process.env.BUN_LINT_BINARY;
+			if (!scopedMode && bunLint) {
+				await runCommand(bunLint, ['lint', '--no-script', '--flavor=eslint', ...fixArgs, '.']);
+				ledger.ran('eslint');
+			} else if (!scopedMode) {
 				await runCommand('bun', ['eslint', '.', '--concurrency', '2', ...fixArgs]);
 				ledger.ran('eslint');
 			} else if (files.length > 0) {

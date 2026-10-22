@@ -83,6 +83,16 @@ jobs:
             echo "Commit the regenerated file, or ignore it when it is build output." >&2
             exit 1
           fi
+      # ESLint takes most of this job; this build's `bun lint` runs the same config natively.
+      - name: Install Bun with native Svelte linting
+        env:
+          URL: https://github.com/stickerdaniel/bun/releases/download/svelte-lint-b899fb95/bun-linux-x64.zip
+          SHA256: 1fad3a8e8e9b6d9839c273efebace956532603019a02cd294908b11c013de680
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/bun-lint.zip" "$URL"
+          echo "$SHA256  $RUNNER_TEMP/bun-lint.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/bun-lint.zip" -d "$RUNNER_TEMP/bun-lint"
+          echo "BUN_LINT_BINARY=$RUNNER_TEMP/bun-lint/bun-linux-x64/bun" >> "$GITHUB_ENV"
       - run: bun scripts/static-checks.ts --ci --scope lint
       # Refuses to remove a Convex function that deployed app code still calls
       # (see https://github.com/stickerdaniel/saas-starter/issues/789). The PR run
