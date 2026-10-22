@@ -91,6 +91,8 @@ export function formatToolOutput(output: unknown): ToolOutputCode {
 	// The character cut comes first, so the line split never walks an unbounded string.
 	let code = full.slice(0, TOOL_OUTPUT_MAX_CHARS);
 	const lines = code.split('\n');
-	if (lines.length > TOOL_OUTPUT_MAX_LINES) code = lines.slice(0, TOOL_OUTPUT_MAX_LINES).join('\n');
+	// A final newline ends the last line rather than starting another one.
+	const lineCount = code.endsWith('\n') ? lines.length - 1 : lines.length;
+	if (lineCount > TOOL_OUTPUT_MAX_LINES) code = lines.slice(0, TOOL_OUTPUT_MAX_LINES).join('\n');
 	return { code, language: isText ? 'text' : 'json', truncated: code.length < full.length };
 }

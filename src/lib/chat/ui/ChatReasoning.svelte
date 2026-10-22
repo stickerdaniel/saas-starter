@@ -32,6 +32,7 @@
 	} = $props();
 
 	const { t } = getTranslate();
+	const labelId = $props.id();
 
 	const running = $derived(!hasContent || isStreaming);
 	// Connecting (nothing back yet), Thinking (receiving), then how long it took.
@@ -56,20 +57,19 @@
 				<CircleCheckIcon />
 			{/if}
 		</Trace.Icon>
-		<!-- The painted label is hidden and a live node carries it once, so the trigger's name
-		     holds the label once and each status change is announced. No `role="status"`: a
-		     status child does not contribute to name-from-content, which leaves the trigger
-		     unnamed (measured in Chromium). -->
-		<Trace.Title>
-			<span aria-hidden="true">{label}</span>
-			<span class="sr-only" aria-live="polite">{label}</span>
-		</Trace.Title>
+		<Trace.Title><span aria-hidden="true">{label}</span></Trace.Title>
 	</Trace.Line>
 {/snippet}
 
+<!-- The painted label is hidden and this one live node carries it, outside the line so it
+     survives the switch from plain line to trigger and announces Connecting, Thinking and
+     the result alike. The trigger takes its name from it. No `role="status"`: a status
+     node does not contribute its text to a name. -->
+<span id={labelId} class="sr-only" aria-live="polite">{label}</span>
+
 {#if hasContent}
 	<Trace.Collapsible {open} {onOpenChange}>
-		<Trace.CollapsibleTrigger>{@render line()}</Trace.CollapsibleTrigger>
+		<Trace.CollapsibleTrigger aria-labelledby={labelId}>{@render line()}</Trace.CollapsibleTrigger>
 		<Trace.CollapsibleContent>
 			<!-- The markdown theme colours every block as foreground, so the muted Trace colour
 			     cannot reach it; dimming the block keeps the reasoning quieter than the answer. -->

@@ -90,6 +90,15 @@ describe('tool UI boundary adapter', () => {
 		expect(code.length).toBeLessThanOrEqual(20_000);
 		expect(code.split('\n').length).toBeLessThanOrEqual(400);
 	});
+	it('keeps an output of exactly 400 newline-terminated lines whole', () => {
+		const output = 'a\n'.repeat(400);
+		expect(formatToolOutput(output)).toEqual({ code: output, language: 'text', truncated: false });
+	});
+	it('cuts the 401st line', () => {
+		const { code, truncated } = formatToolOutput('a\n'.repeat(401));
+		expect(truncated).toBe(true);
+		expect(code).toBe(Array.from({ length: 400 }, () => 'a').join('\n'));
+	});
 	it('drops raw error text and failed output without mutating the source message', () => {
 		const rawError = 'Provider failure: private diagnostic';
 		const part = {

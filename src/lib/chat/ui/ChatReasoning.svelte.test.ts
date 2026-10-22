@@ -48,34 +48,40 @@ function liveNode(): Element {
 	return live[0]!;
 }
 
+/** The trigger's accessible name, resolved through its `aria-labelledby` reference. */
+function triggerName(trigger: Element | null): string | undefined {
+	const id = trigger?.getAttribute('aria-labelledby');
+	return id ? document.getElementById(id)?.textContent?.trim() : undefined;
+}
+
 describe('reasoning line', () => {
-	// The line's text is the trigger's accessible name, so it must carry exactly the
-	// current label once: the painted copy is hidden and the exposed one is the live node
-	// that announces each change. A `role="status"` would drop it from the trigger's name.
-	it('exposes and announces exactly the current label from connecting through thinking to done', () => {
+	// A live region announces changes to a node already in the page, so every label from
+	// connecting to done has to land in one node that outlives the switch from plain line
+	// to trigger. The painted copy stays hidden, so the label is exposed once and names
+	// the trigger. A `role="status"` node would not contribute its text to that name.
+	it('announces connecting, thinking and done from one live node that names the trigger', () => {
 		const props = $state({ hasContent: false, isStreaming: true, content: '' });
 		component = mount(ChatReasoning, { target: document.body, props });
 		flushSync();
+		const announcer = liveNode();
+		expect(announcer.textContent).toBe('chat.reasoning.connecting');
 		expect(exposedText(document.body)).toEqual(['chat.reasoning.connecting']);
-		expect(liveNode().textContent).toBe('chat.reasoning.connecting');
 		expect(document.querySelector('[role="status"]')).toBeNull();
 
 		props.hasContent = true;
 		props.content = 'Looking up';
 		flushSync();
 		const trigger = document.querySelector('button[aria-expanded]');
-		expect(trigger && exposedText(trigger)).toEqual(['chat.reasoning.thinking']);
-		// A live region announces changes to a node already in the page, so the next label
-		// has to land in this same node.
-		const announcer = liveNode();
-		expect(trigger?.contains(announcer)).toBe(true);
+		expect(liveNode()).toBe(announcer);
 		expect(announcer.textContent).toBe('chat.reasoning.thinking');
+		expect(triggerName(trigger)).toBe('chat.reasoning.thinking');
+		expect(trigger && exposedText(trigger)).toEqual([]);
 
 		props.isStreaming = false;
 		flushSync();
-		expect(trigger && exposedText(trigger)).toEqual(['chat.reasoning.thought_for_few_seconds']);
 		expect(liveNode()).toBe(announcer);
 		expect(announcer.textContent).toBe('chat.reasoning.thought_for_few_seconds');
+		expect(triggerName(trigger)).toBe('chat.reasoning.thought_for_few_seconds');
 	});
 
 	it('opens with the caller-owned state once text arrives after connecting', () => {
