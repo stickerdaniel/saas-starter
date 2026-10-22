@@ -152,6 +152,10 @@ async function mergeRecentStreamsIntoPage(
 		return args.page;
 	}
 
+	// The component caps a cursor's page at 100 deltas per stream, so this
+	// materializes only the start of a long stream. The client overlay advances
+	// its cursors and supersedes it; reading every delta here would rerun an
+	// ever-growing read on each delta insert.
 	const deltas = redactStreamDeltas(
 		await ctx.runQuery(components.agent.streams.listDeltas, {
 			threadId: args.threadId,
