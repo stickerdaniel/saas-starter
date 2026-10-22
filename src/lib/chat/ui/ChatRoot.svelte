@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { useQuery, useConvexClient } from 'convex-svelte';
-	import { onDestroy, type Snippet } from 'svelte';
+	import { onDestroy, untrack, type Snippet } from 'svelte';
 	import type { ChatSessionPort } from '../core/chat-session-port.js';
+	import {
+		appendDeltaPage,
+		deltaCursors,
+		noStreamDeltas,
+		scopeStreamDeltas
+	} from '../core/delta-stream-cursors.js';
 	import { CHAT_PAGE_SIZE, type ChatMessagesQuery, type DisplayMessage } from '../core/types.js';
 	import {
 		ChatUIContext,
@@ -111,7 +117,23 @@
 		);
 	});
 
-	// Second query: Get text deltas for active streams
+	// Deltas received so far. The scoped view drops other threads and ended
+	// streams as soon as the thread or stream list changes, even when no page
+	// arrives because the deltas query is skipped.
+	// svelte-ignore state_referenced_locally
+	let receivedDeltas = $state.raw(noStreamDeltas(threadId));
+	const currentDeltas = $derived(scopeStreamDeltas(receivedDeltas, threadId, activeStreamIds));
+
+	// Commit the scoped view so dropped deltas are released and a thread that
+	// comes back starts from cursor 0. Scoping is idempotent, so this settles
+	// after one write.
+	$effect(() => {
+		if (currentDeltas !== untrack(() => receivedDeltas)) receivedDeltas = currentDeltas;
+	});
+
+	// Second query: text deltas for active streams. The component returns at
+	// most 100 deltas per stream from a cursor, so each received page moves the
+	// cursors forward and resubscribes for the rest.
 	// svelte-ignore state_referenced_locally
 	const deltasQuery = useQuery(api.listMessages, () =>
 		threadId && activeStreamIds.length > 0
@@ -121,14 +143,22 @@
 					paginationOpts: { numItems: 0, cursor: null },
 					streamArgs: {
 						kind: 'deltas' as const,
-						cursors: activeStreamIds.map((streamId: string) => ({
-							streamId,
-							cursor: 0
-						}))
+						cursors: deltaCursors(activeStreamIds, currentDeltas)
 					}
 				}
 			: 'skip'
 	);
+
+	// convex-svelte reads the local result for the current args, so a page
+	// always answers the current cursors; it is undefined between subscriptions.
+	$effect(() => {
+		const data = deltasQuery.data as MessagesQueryResponse | undefined;
+		if (!data) return;
+		const next = untrack(() =>
+			appendDeltaPage(currentDeltas, activeStreamIds, getStreamDeltas(data))
+		);
+		if (next !== untrack(() => receivedDeltas)) receivedDeltas = next;
+	});
 
 	// Get messages from query - optimistic updates are handled by Convex's store.setQuery
 	// When a mutation calls createOptimisticUpdate(), the query cache is updated immediately
@@ -141,9 +171,7 @@
 		return getListStreamMessages(messagesQuery.data as MessagesQueryResponse | undefined);
 	});
 
-	const allDeltas = $derived.by(() => {
-		return getStreamDeltas(deltasQuery.data as MessagesQueryResponse | undefined);
-	});
+	const allDeltas = $derived([...currentDeltas.streams.values()].flat());
 
 	let decodedStreamingUIMessages: ThreadStreamingUIMessages | null = $state(null);
 	const streamingUIMessages = $derived(
