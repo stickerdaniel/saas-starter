@@ -625,6 +625,7 @@
 			"failed": "No se pudo ejecutar {tool}",
 			"input": "Entrada",
 			"output": "Salida",
+			"output_truncated": "Salida truncada. Solo se copia la parte mostrada.",
 			"processing": "Procesando llamada a la herramienta...",
 			"ran": "Se ejecutó {tool}",
 			"running": "Ejecutando {tool}"

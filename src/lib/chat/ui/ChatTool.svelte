@@ -1,8 +1,9 @@
 <script lang="ts">
 	import WrenchIcon from '@lucide/svelte/icons/wrench';
 	import { getTranslate } from '@tolgee/svelte';
+	import * as CodeBlock from '#lib/components/ui/code-block/index.js';
 	import * as Trace from '#lib/components/ui/trace/index.js';
-	import type { ToolPart, ToolPhase } from './tool-part-adapter.js';
+	import { formatToolOutput, type ToolPart, type ToolPhase } from './tool-part-adapter.js';
 
 	/**
 	 * One tool call as a Trace line, after the AI Elements Tool pattern. Unlike upstream,
@@ -21,6 +22,12 @@
 		phase === 'running' ? 'running' : phase === 'failed' ? 'error' : undefined
 	);
 	const inputEntries = $derived(Object.entries(toolPart.input ?? {}));
+	// Read only inside the collapsible content, so a closed line never formats its output.
+	const output = $derived(
+		toolPart.state === 'output-available' && toolPart.output !== undefined
+			? formatToolOutput(toolPart.output)
+			: undefined
+	);
 
 	function formatValue(value: unknown): string {
 		if (value === null) return 'null';
@@ -54,13 +61,26 @@
 				</div>
 			{/if}
 
-			{#if toolPart.state === 'output-available' && toolPart.output !== undefined}
+			{#if output}
 				<div>
 					<div class="mb-1.5 text-xs font-medium">{$t('chat.tool.output')}</div>
-					<!-- Loaded when a reader opens the output, so Shiki stays out of the chat route. -->
-					{#await import('./ChatToolOutput.svelte') then { default: ChatToolOutput }}
-						<ChatToolOutput output={toolPart.output} />
-					{/await}
+					<CodeBlock.Root size="sm">
+						<CodeBlock.Actions>
+							<CodeBlock.CopyButton value={output.code} />
+						</CodeBlock.Actions>
+						<!-- Shiki loads when a reader opens the output, so it stays out of the chat route.
+						     Until it does, or if its chunk fails to load, the same code shows plain. -->
+						{#await import('./ChatToolOutput.svelte')}
+							<CodeBlock.Content code={output.code} wrap class="max-h-64" />
+						{:then { default: ChatToolOutput }}
+							<ChatToolOutput code={output.code} language={output.language} />
+						{:catch}
+							<CodeBlock.Content code={output.code} wrap class="max-h-64" />
+						{/await}
+					</CodeBlock.Root>
+					{#if output.truncated}
+						<p class="mt-1.5 text-xs">{$t('chat.tool.output_truncated')}</p>
+					{/if}
 				</div>
 			{/if}
 

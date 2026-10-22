@@ -41,14 +41,23 @@ function exposedText(root: Element): string[] {
 	return texts;
 }
 
+/** The one polite live node; none or several fail the test. */
+function liveNode(): Element {
+	const live = document.querySelectorAll('[aria-live="polite"]');
+	expect(live).toHaveLength(1);
+	return live[0]!;
+}
+
 describe('reasoning line', () => {
 	// The line's text is the trigger's accessible name, so it must carry exactly the
-	// current label: a second copy (a live region, a painted duplicate) reads it twice.
-	it('exposes exactly the current label from connecting through thinking to done', () => {
+	// current label once: the painted copy is hidden and the exposed one is the live node
+	// that announces each change. A `role="status"` would drop it from the trigger's name.
+	it('exposes and announces exactly the current label from connecting through thinking to done', () => {
 		const props = $state({ hasContent: false, isStreaming: true, content: '' });
 		component = mount(ChatReasoning, { target: document.body, props });
 		flushSync();
 		expect(exposedText(document.body)).toEqual(['chat.reasoning.connecting']);
+		expect(liveNode().textContent).toBe('chat.reasoning.connecting');
 		expect(document.querySelector('[role="status"]')).toBeNull();
 
 		props.hasContent = true;
@@ -56,10 +65,17 @@ describe('reasoning line', () => {
 		flushSync();
 		const trigger = document.querySelector('button[aria-expanded]');
 		expect(trigger && exposedText(trigger)).toEqual(['chat.reasoning.thinking']);
+		// A live region announces changes to a node already in the page, so the next label
+		// has to land in this same node.
+		const announcer = liveNode();
+		expect(trigger?.contains(announcer)).toBe(true);
+		expect(announcer.textContent).toBe('chat.reasoning.thinking');
 
 		props.isStreaming = false;
 		flushSync();
 		expect(trigger && exposedText(trigger)).toEqual(['chat.reasoning.thought_for_few_seconds']);
+		expect(liveNode()).toBe(announcer);
+		expect(announcer.textContent).toBe('chat.reasoning.thought_for_few_seconds');
 	});
 
 	it('opens with the caller-owned state once text arrives after connecting', () => {

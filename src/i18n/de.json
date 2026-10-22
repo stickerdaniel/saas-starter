@@ -625,6 +625,7 @@
 			"failed": "{tool} fehlgeschlagen",
 			"input": "Eingabe",
 			"output": "Ausgabe",
+			"output_truncated": "Ausgabe gekürzt. Nur der angezeigte Teil wird kopiert.",
 			"processing": "Tool-Aufruf wird verarbeitet...",
 			"ran": "{tool} ausgeführt",
 			"running": "{tool} wird ausgeführt"

@@ -625,6 +625,7 @@
 			"failed": "Failed to run {tool}",
 			"input": "Input",
 			"output": "Output",
+			"output_truncated": "Output truncated. Only the part shown is copied.",
 			"processing": "Processing tool call...",
 			"ran": "Ran {tool}",
 			"running": "Running {tool}"

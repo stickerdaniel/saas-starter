@@ -1,4 +1,4 @@
-import type { MessagePart, ToolPartState } from '../core/types.js';
+import type { MessagePart, MessageStatus, ToolPartState } from '../core/types.js';
 
 /**
  * The render model of one tool call. Built only by {@link toToolRenderPart}, which keeps
@@ -17,7 +17,7 @@ export type ToolPart = {
 /**
  * How a tool call reads in the transcript, after the AI Elements Tool pattern: it runs
  * while its input streams or waits for output, and an input that never got output before
- * the message settled failed like an `output-error` did.
+ * the message failed or was aborted failed like an `output-error` did.
  */
 export type ToolPhase = 'running' | 'ran' | 'failed';
 
@@ -57,8 +57,40 @@ export function toToolRenderPart(part: MessagePart): ToolPart | undefined {
 	};
 }
 
-export function toToolPhase(state: ToolPartState, isMessageInProgress: boolean): ToolPhase {
+/**
+ * The Convex agent stores a tool call in its own `success` row before the row that holds
+ * its result, so a settled message alone does not end a call; only a failed one (which an
+ * aborted stream also maps to) does.
+ */
+export function toToolPhase(state: ToolPartState, messageStatus: MessageStatus): ToolPhase {
 	if (state === 'output-available') return 'ran';
 	if (state === 'output-error') return 'failed';
-	return isMessageInProgress ? 'running' : 'failed';
+	return messageStatus === 'failed' ? 'failed' : 'running';
+}
+
+/**
+ * Output budgets, applied before the CodeBlock: highlighting, the rendered lines and the
+ * copied text all stay bounded however large a result is. Shiki takes about 5 ms for 400
+ * indented JSON lines and about 30 ms for a single 20 000-character line (measured), and
+ * either is far more than the height-capped block shows.
+ */
+const TOOL_OUTPUT_MAX_CHARS = 20_000;
+const TOOL_OUTPUT_MAX_LINES = 400;
+
+export type ToolOutputCode = {
+	code: string;
+	language: 'text' | 'json';
+	/** Whether a budget cut the output; the copy button copies the same capped `code`. */
+	truncated: boolean;
+};
+
+/** Text output stays as is, any other value prints as indented JSON, both capped. */
+export function formatToolOutput(output: unknown): ToolOutputCode {
+	const isText = typeof output === 'string';
+	const full = isText ? output : JSON.stringify(output, null, 2);
+	// The character cut comes first, so the line split never walks an unbounded string.
+	let code = full.slice(0, TOOL_OUTPUT_MAX_CHARS);
+	const lines = code.split('\n');
+	if (lines.length > TOOL_OUTPUT_MAX_LINES) code = lines.slice(0, TOOL_OUTPUT_MAX_LINES).join('\n');
+	return { code, language: isText ? 'text' : 'json', truncated: code.length < full.length };
 }

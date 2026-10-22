@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toToolPhase, toToolRenderPart } from './tool-part-adapter';
+import { formatToolOutput, toToolPhase, toToolRenderPart } from './tool-part-adapter';
 
 describe('tool UI boundary adapter', () => {
 	it('names a static tool by its type and a dynamic tool by its SDK name', () => {
@@ -11,22 +11,20 @@ describe('tool UI boundary adapter', () => {
 				?.name
 		).toBe('runtime-tool');
 	});
-	// The AI Elements Tool table: input without output runs only while the message does.
+	// Input without output waits for its result row until the message itself fails.
 	it.each([
-		['input-streaming', true, 'running'],
-		['input-available', true, 'running'],
-		['input-streaming', false, 'failed'],
-		['input-available', false, 'failed'],
-		['output-available', true, 'ran'],
-		['output-available', false, 'ran'],
-		['output-error', true, 'failed'],
-		['output-error', false, 'failed']
-	] as const)(
-		'reads %s while the message is in progress (%s) as %s',
-		(state, inProgress, phase) => {
-			expect(toToolPhase(state, inProgress)).toBe(phase);
-		}
-	);
+		['input-streaming', 'streaming', 'running'],
+		['input-available', 'pending', 'running'],
+		['input-available', 'success', 'running'],
+		['input-streaming', 'failed', 'failed'],
+		['input-available', 'failed', 'failed'],
+		['output-available', 'success', 'ran'],
+		['output-available', 'failed', 'ran'],
+		['output-error', 'streaming', 'failed'],
+		['output-error', 'success', 'failed']
+	] as const)('reads %s in a %s message as %s', (state, status, phase) => {
+		expect(toToolPhase(state, status)).toBe(phase);
+	});
 	it.each(['input-streaming', 'input-available', 'output-available', 'output-error'] as const)(
 		'accepts the supported %s state',
 		(state) => {
@@ -67,6 +65,30 @@ describe('tool UI boundary adapter', () => {
 				toolCallId: {}
 			})
 		).toMatchObject({ toolCallId: undefined });
+	});
+	it('keeps text output as text and prints other values as indented JSON', () => {
+		expect(formatToolOutput('Sunny\n21 °C')).toEqual({
+			code: 'Sunny\n21 °C',
+			language: 'text',
+			truncated: false
+		});
+		expect(formatToolOutput({ forecast: 'Sunny' })).toEqual({
+			code: '{\n  "forecast": "Sunny"\n}',
+			language: 'json',
+			truncated: false
+		});
+		expect(formatToolOutput(0)).toMatchObject({ code: '0', truncated: false });
+	});
+	it.each([
+		['many short lines', Array.from({ length: 5_000 }, (_, day) => ({ day }))],
+		['one long line', 'x'.repeat(100_000)]
+	])('caps an oversized output with %s to a prefix of it', (_, output) => {
+		const full = typeof output === 'string' ? output : JSON.stringify(output, null, 2);
+		const { code, truncated } = formatToolOutput(output);
+		expect(truncated).toBe(true);
+		expect(full.startsWith(code)).toBe(true);
+		expect(code.length).toBeLessThanOrEqual(20_000);
+		expect(code.split('\n').length).toBeLessThanOrEqual(400);
 	});
 	it('drops raw error text and failed output without mutating the source message', () => {
 		const rawError = 'Provider failure: private diagnostic';

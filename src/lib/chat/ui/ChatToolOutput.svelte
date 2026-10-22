@@ -1,26 +1,23 @@
 <script lang="ts">
 	import * as CodeBlock from '#lib/components/ui/code-block/index.js';
 	import { useHighlightedCode } from '#lib/hooks/use-highlighted-code.svelte.ts';
+	import type { ToolOutputCode } from './tool-part-adapter.js';
 
-	/** A successful tool result as a height-capped code block, JSON highlighted by Shiki. */
-	let { output }: { output: unknown } = $props();
+	/**
+	 * Formatted tool output highlighted by Shiki, the content of ChatTool's code block.
+	 * ChatTool loads it lazily and shows the same code unhighlighted until it does.
+	 */
+	let { code, language }: Pick<ToolOutputCode, 'code' | 'language'> = $props();
 
-	const isText = $derived(typeof output === 'string');
-	const code = $derived(typeof output === 'string' ? output : JSON.stringify(output, null, 2));
 	// Plain text is not a highlighter language, so it renders as is.
 	const lines = useHighlightedCode(
 		() => code,
-		() => (isText ? 'text' : 'json')
+		() => language
 	);
 </script>
 
-<CodeBlock.Root size="sm">
-	<CodeBlock.Actions>
-		<CodeBlock.CopyButton value={code} />
-	</CodeBlock.Actions>
-	<CodeBlock.Content wrap class="max-h-64">
-		{#each lines.current as line, index (index)}
-			<CodeBlock.Line code={line} />
-		{/each}
-	</CodeBlock.Content>
-</CodeBlock.Root>
+<CodeBlock.Content wrap class="max-h-64">
+	{#each lines.current as line, index (index)}
+		<CodeBlock.Line code={line} />
+	{/each}
+</CodeBlock.Content>

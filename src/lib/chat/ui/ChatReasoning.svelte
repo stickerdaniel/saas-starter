@@ -56,7 +56,14 @@
 				<CircleCheckIcon />
 			{/if}
 		</Trace.Icon>
-		<Trace.Title>{label}</Trace.Title>
+		<!-- The painted label is hidden and a live node carries it once, so the trigger's name
+		     holds the label once and each status change is announced. No `role="status"`: a
+		     status child does not contribute to name-from-content, which leaves the trigger
+		     unnamed (measured in Chromium). -->
+		<Trace.Title>
+			<span aria-hidden="true">{label}</span>
+			<span class="sr-only" aria-live="polite">{label}</span>
+		</Trace.Title>
 	</Trace.Line>
 {/snippet}
 

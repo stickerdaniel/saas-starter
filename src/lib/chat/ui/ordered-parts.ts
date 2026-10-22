@@ -98,7 +98,7 @@ export function deriveOrderedParts(
 				return {
 					kind: 'tool',
 					toolPart,
-					phase: toToolPhase(toolPart.state, isMessageInProgress),
+					phase: toToolPhase(toolPart.state, status),
 					// Every kind prefixes its own key, because all of them are siblings in one
 					// keyed block. A raw tool call id shares that namespace with the reasoning
 					// and text keys, and the provider decides what it contains.
