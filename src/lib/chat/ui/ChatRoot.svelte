@@ -124,6 +124,13 @@
 	let receivedDeltas = $state.raw(noStreamDeltas(threadId));
 	const currentDeltas = $derived(scopeStreamDeltas(receivedDeltas, threadId, activeStreamIds));
 
+	// Commit the scoped view so dropped deltas are released and a thread that
+	// comes back starts from cursor 0. Scoping is idempotent, so this settles
+	// after one write.
+	$effect(() => {
+		if (currentDeltas !== untrack(() => receivedDeltas)) receivedDeltas = currentDeltas;
+	});
+
 	// Second query: text deltas for active streams. The component returns at
 	// most 100 deltas per stream from a cursor, so each received page moves the
 	// cursors forward and resubscribes for the rest.

@@ -356,4 +356,28 @@ describe('ChatRoot stream deltas', () => {
 		}
 		expect(requestedCursors(convex.deltaRequests, 'stream-b')[0]).toBe(0);
 	});
+
+	it('rereads a stream from cursor 0 after visiting a thread without streams', async () => {
+		const streamA = textStream('stream-a', 'a', 150);
+		const server = new Map([
+			['thread-a', streamingThread('thread-a', streamA)],
+			['thread-b', { page: [capturedUserRow], streams: [] }]
+		]);
+		const convex = createFakeConvex(server);
+		const chat = mountChat(convex.client, 'thread-a');
+		convex.settle();
+		await expectAssistantTexts([streamA.fullText]);
+
+		chat.setContentProps({ threadId: 'thread-b', session });
+		convex.settle();
+		await expectAssistantTexts([]);
+
+		const requestsBeforeReturn = convex.deltaRequests.length;
+		chat.setContentProps({ threadId: 'thread-a', session });
+		convex.settle();
+		await expectAssistantTexts([streamA.fullText]);
+		expect(requestedCursors(convex.deltaRequests.slice(requestsBeforeReturn), 'stream-a')[0]).toBe(
+			0
+		);
+	});
 });
