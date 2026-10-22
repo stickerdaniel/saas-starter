@@ -49,9 +49,9 @@ export const read = internalQuery({
 					)
 					.paginate({
 						cursor: null,
-						numItems: 2000,
-						maximumRowsRead: 2000,
-						maximumBytesRead: 512 * KiB
+						numItems: 4000,
+						maximumRowsRead: 4000,
+						maximumBytesRead: MiB
 					})
 		)
 });
@@ -60,8 +60,9 @@ export const aiChatSource: JourneySource<'aiChat'> = defineJourneySource({
 	id: 'aiChat',
 	label: 'email.customer_journey.source.aiChat.label',
 	read: internal.admin.journey.sources.aiChat.read,
-	// The marker plus one page of at most 2,000 rows and 512 KiB.
-	limits: { documentsRead: 2050, bytesRead: MiB },
+	// The marker plus one page of at most 4,000 rows and 1 MiB, what the two
+	// partitions once read apart.
+	limits: { documentsRead: 4050, bytesRead: 1.5 * MiB },
 	present: (facts, request, format) => presentPartitioned('aiChat', COPY, facts, request, format),
 	unavailableMetrics: partitionedSlots('aiChat', COPY)
 });

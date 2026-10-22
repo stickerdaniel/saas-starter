@@ -391,8 +391,17 @@ export function createJourneyStore(
 					return userLookup(args);
 				}
 				queryCalls.push({ name, args, limits: options?.transactionLimits });
-				const shared = kind === 'query' ? allowance : undefined;
-				return await call(name, args, options?.transactionLimits, meter, 'query', shared);
+				if (kind !== 'query') {
+					return await call(name, args, options?.transactionLimits, meter, 'query');
+				}
+				// A child that throws leaves its caller's allowance as it found it.
+				const before = allowance.paginated;
+				try {
+					return await call(name, args, options?.transactionLimits, meter, 'query', allowance);
+				} catch (error) {
+					allowance.paginated = before;
+					throw error;
+				}
 			},
 			async runMutation(
 				ref: unknown,

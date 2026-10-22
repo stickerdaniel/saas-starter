@@ -171,17 +171,17 @@ describe('template journey sources', () => {
 	it('says "at least" for a cut-short read and calls its last time observed', async () => {
 		const { seed, journey } = setup();
 		captureAll(seed);
-		const paymentAt = SIGNUP + 2 * DAY;
-		for (let i = 0; i < 2001; i++) seed.receipt(SIGNUP + i * MINUTE);
+		const paymentAt = SIGNUP + 3 * DAY;
+		for (let i = 0; i < 4001; i++) seed.receipt(SIGNUP + i * MINUTE);
 
 		const { source, notes } = await journey(newCustomer(paymentAt));
 
 		const chat = source('aiChat');
-		expect(titles(chat)).toEqual(['Sent at least 2,000 AI chat messages']);
-		expect(chat.steps[0]?.lines).toEqual(['First 09:12, last observed Wed, Oct 7, 18:31']);
+		expect(titles(chat)).toEqual(['Sent at least 4,000 AI chat messages']);
+		expect(chat.steps[0]?.lines).toEqual(['First 09:12, last observed Fri, Oct 9, 03:51']);
 		expect(chat.metrics[0]).toMatchObject({
-			value: 'at least 2,000',
-			count: { n: 2000, lowerBound: true }
+			value: 'at least 4,000',
+			count: { n: 4000, lowerBound: true }
 		});
 		expect(notes).toEqual(['AI chat messages: only partly checked, so counts are minimums.']);
 	});
@@ -191,13 +191,13 @@ describe('template journey sources', () => {
 		captureAll(seed);
 		const paymentAt = SIGNUP + DAY;
 		for (let i = 0; i < 10; i++) seed.receipt(SIGNUP + i * MINUTE);
-		for (let i = 0; i < 2000; i++) seed.receipt(paymentAt + i * MINUTE);
+		for (let i = 0; i < 4000; i++) seed.receipt(paymentAt + i * MINUTE);
 
-		const { source } = await journey(newCustomer(paymentAt, paymentAt + 2 * DAY));
+		const { source } = await journey(newCustomer(paymentAt, paymentAt + 3 * DAY));
 
 		expect(titles(source('aiChat'))).toEqual([
 			'Sent 10 AI chat messages',
-			'Sent at least 1,990 AI chat messages'
+			'Sent at least 3,990 AI chat messages'
 		]);
 		expect(source('aiChat').metrics[0]?.count).toEqual({ n: 10, lowerBound: false });
 	});
@@ -206,9 +206,9 @@ describe('template journey sources', () => {
 		const { seed, journey } = setup();
 		captureAll(seed);
 		// Pending messages are read but not counted.
-		for (let i = 0; i < 2001; i++) seed.message(SIGNUP + i * MINUTE, false);
+		for (let i = 0; i < 4001; i++) seed.message(SIGNUP + i * MINUTE, false);
 
-		const { source, notes } = await journey(newCustomer(SIGNUP + 2 * DAY));
+		const { source, notes } = await journey(newCustomer(SIGNUP + 3 * DAY));
 
 		expect(source('community').steps).toEqual([]);
 		expect(source('community').metrics[0]).toMatchObject({

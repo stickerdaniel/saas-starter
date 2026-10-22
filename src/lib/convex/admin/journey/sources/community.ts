@@ -51,9 +51,9 @@ export const read = internalQuery({
 					)
 					.paginate({
 						cursor: null,
-						numItems: 2000,
-						maximumRowsRead: 2000,
-						maximumBytesRead: 2 * MiB
+						numItems: 4000,
+						maximumRowsRead: 4000,
+						maximumBytesRead: 4 * MiB
 					}),
 			(message) => message.quotaSettledAt !== undefined
 		)
@@ -63,8 +63,9 @@ export const communitySource: JourneySource<'community'> = defineJourneySource({
 	id: 'community',
 	label: 'email.customer_journey.source.community.label',
 	read: internal.admin.journey.sources.community.read,
-	// The marker plus one page of at most 2,000 rows and 2 MiB.
-	limits: { documentsRead: 2050, bytesRead: 2.5 * MiB },
+	// The marker plus one page of at most 4,000 rows and 4 MiB, what the two
+	// partitions once read apart.
+	limits: { documentsRead: 4050, bytesRead: 4.5 * MiB },
 	present: (facts, request, format) =>
 		presentPartitioned('community', COPY, facts, request, format),
 	unavailableMetrics: partitionedSlots('community', COPY)
