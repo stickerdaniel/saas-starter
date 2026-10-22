@@ -30,9 +30,7 @@ function setup(overrides: Record<string, Registered> = {}) {
 	const store = createJourneyStore({
 		functions: {
 			'admin/journey/sources/aiChat:read': asRegistered(aiChat.read),
-			'admin/journey/sources/aiChat:countPartition': asRegistered(aiChat.countPartition),
 			'admin/journey/sources/community:read': asRegistered(community.read),
-			'admin/journey/sources/community:countPartition': asRegistered(community.countPartition),
 			'admin/journey/sources/support:read': asRegistered(support.read),
 			...overrides
 		}
@@ -188,6 +186,22 @@ describe('template journey sources', () => {
 		expect(notes).toEqual(['AI chat messages: only partly checked, so counts are minimums.']);
 	});
 
+	it('keeps the activity before paying exact when the page runs out after the payment', async () => {
+		const { seed, journey } = setup();
+		captureAll(seed);
+		const paymentAt = SIGNUP + DAY;
+		for (let i = 0; i < 10; i++) seed.receipt(SIGNUP + i * MINUTE);
+		for (let i = 0; i < 2000; i++) seed.receipt(paymentAt + i * MINUTE);
+
+		const { source } = await journey(newCustomer(paymentAt, paymentAt + 2 * DAY));
+
+		expect(titles(source('aiChat'))).toEqual([
+			'Sent 10 AI chat messages',
+			'Sent at least 1,990 AI chat messages'
+		]);
+		expect(source('aiChat').metrics[0]?.count).toEqual({ n: 10, lowerBound: false });
+	});
+
 	it('reports a cut-short read that counted nothing as none found, never zero', async () => {
 		const { seed, journey } = setup();
 		captureAll(seed);
@@ -206,7 +220,7 @@ describe('template journey sources', () => {
 
 	it('shows a failed source as unavailable, with no count, and keeps the others', async () => {
 		const { seed, journey } = setup({
-			'admin/journey/sources/aiChat:countPartition': {
+			'admin/journey/sources/aiChat:read': {
 				_handler: async () => {
 					throw new Error('read limit');
 				}

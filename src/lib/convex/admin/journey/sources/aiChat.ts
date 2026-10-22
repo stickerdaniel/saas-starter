@@ -2,14 +2,10 @@ import { internal } from '../../../_generated/api';
 import { internalQuery } from '../../../_generated/server';
 import { defineJourneySource, journeyRequestFields, type JourneySource } from '../source';
 import {
-	countPage,
-	partitionCountValidator,
 	partitionedFactsValidator,
 	partitionedSlots,
-	partitionReadFields,
 	presentPartitioned,
 	readPartitioned,
-	type PartitionCount,
 	type PartitionedCopy,
 	type PartitionedFacts
 } from './partitions';
@@ -37,27 +33,6 @@ const COPY = {
 	}
 } as const satisfies PartitionedCopy;
 
-/** One partition of receipts. Its own function, because each may paginate once. */
-export const countPartition = internalQuery({
-	args: partitionReadFields,
-	returns: partitionCountValidator,
-	handler: async (ctx, { userId, start, end, includeEnd }): Promise<PartitionCount> => {
-		const { page, isDone } = await ctx.db
-			.query('aiChatMessageReceipts')
-			.withIndex('by_user', (q) => {
-				const from = q.eq('userId', userId).gte('_creationTime', start);
-				return includeEnd ? from.lte('_creationTime', end) : from.lt('_creationTime', end);
-			})
-			.paginate({
-				cursor: null,
-				numItems: 2000,
-				maximumRowsRead: 2000,
-				maximumBytesRead: 512 * KiB
-			});
-		return countPage(page, isDone);
-	}
-});
-
 export const read = internalQuery({
 	args: journeyRequestFields,
 	returns: partitionedFactsValidator,
@@ -66,7 +41,18 @@ export const read = internalQuery({
 			ctx,
 			'aiChat',
 			request,
-			internal.admin.journey.sources.aiChat.countPartition
+			async ({ start, end }) =>
+				await ctx.db
+					.query('aiChatMessageReceipts')
+					.withIndex('by_user', (q) =>
+						q.eq('userId', request.userId).gte('_creationTime', start).lte('_creationTime', end)
+					)
+					.paginate({
+						cursor: null,
+						numItems: 2000,
+						maximumRowsRead: 2000,
+						maximumBytesRead: 512 * KiB
+					})
 		)
 });
 
@@ -74,8 +60,8 @@ export const aiChatSource: JourneySource<'aiChat'> = defineJourneySource({
 	id: 'aiChat',
 	label: 'email.customer_journey.source.aiChat.label',
 	read: internal.admin.journey.sources.aiChat.read,
-	// The marker plus two partitions of at most 2,000 rows and 512 KiB each.
-	limits: { documentsRead: 4050, bytesRead: 1.5 * MiB },
+	// The marker plus one page of at most 2,000 rows and 512 KiB.
+	limits: { documentsRead: 2050, bytesRead: MiB },
 	present: (facts, request, format) => presentPartitioned('aiChat', COPY, facts, request, format),
 	unavailableMetrics: partitionedSlots('aiChat', COPY)
 });
