@@ -94,6 +94,9 @@ jobs:
           unzip -q "$RUNNER_TEMP/bun-lint.zip" -d "$RUNNER_TEMP/bun-lint"
           echo "BUN_LINT_BINARY=$RUNNER_TEMP/bun-lint/bun-linux-x64/bun" >> "$GITHUB_ENV"
       - run: bun scripts/static-checks.ts --ci --scope lint
+      # Unit Tests runs this too, but the README tells forks to require only this job.
+      - name: Check that the committed icons match static/logo.svg
+        run: bun vitest --config vitest.tooling.config.ts --run scripts/generate-logos.test.ts
       # Refuses to remove a Convex function that deployed app code still calls
       # (see https://github.com/stickerdaniel/saas-starter/issues/789). The PR run
       # checks its candidate; later target changes require integration inspection.
