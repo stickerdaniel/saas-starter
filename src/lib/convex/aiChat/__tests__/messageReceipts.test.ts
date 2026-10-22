@@ -36,10 +36,14 @@ vi.mock('../ownership', () => ({
 	requireAiChatThreadRecord: vi.fn()
 }));
 
-vi.mock('@convex-dev/agent', () => ({
-	getFile: vi.fn().mockResolvedValue({ filePart: { type: 'file', data: 'f', mediaType: 'x' } }),
-	saveMessage: vi.fn().mockResolvedValue({ messageId: 'notice' })
-}));
+vi.mock('@convex-dev/agent', async (importOriginal) => {
+	const actual = await importOriginal<Record<string, unknown>>();
+	return {
+		...actual,
+		getFile: vi.fn().mockResolvedValue({ filePart: { type: 'file', data: 'f', mediaType: 'x' } }),
+		saveMessage: vi.fn().mockResolvedValue({ messageId: 'notice' })
+	};
+});
 
 import { aiChatAgent } from '../agent';
 import { aiChatRateLimiter } from '../rateLimit';

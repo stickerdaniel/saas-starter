@@ -42,13 +42,17 @@ vi.mock('../agent', () => ({
 	}
 }));
 
-vi.mock('@convex-dev/agent', () => ({
-	getFile: vi.fn(),
-	saveMessage: vi.fn(async (_ctx: unknown, _component: unknown, args: { threadId: string }) => {
-		state.saved.push({ threadId: args.threadId, role: 'assistant' });
-		return { messageId: `message_${state.saved.length}` };
-	})
-}));
+vi.mock('@convex-dev/agent', async (importOriginal) => {
+	const actual = await importOriginal<Record<string, unknown>>();
+	return {
+		...actual,
+		getFile: vi.fn(),
+		saveMessage: vi.fn(async (_ctx: unknown, _component: unknown, args: { threadId: string }) => {
+			state.saved.push({ threadId: args.threadId, role: 'assistant' });
+			return { messageId: `message_${state.saved.length}` };
+		})
+	};
+});
 
 vi.mock('../rateLimit', () => ({
 	ANONYMOUS_GLOBAL_RATE_LIMIT_KEY: 'anonymous-global',
