@@ -37,6 +37,6 @@ Cloudflare environment values are uploaded through `varlock-wrangler`. Never emb
 
 ## Generated assets
 
-`bun run generate:logos` derives raster/email icons from `static/logo.svg`. After changing the logo, run `bun run build:emails`; do not edit generated logo files independently.
+`bun run generate:logos` derives raster/email icons from `static/logo.svg`. After changing the logo, run it and commit the result; `scripts/generate-logos.test.ts` fails while they differ. Do not edit generated logo files independently.
 
 Locale-derived configuration is updated with `bun run i18n:sync` and guarded by `scripts/prerender-sync.test.ts`.

@@ -141,7 +141,7 @@ bun run setup
 
 The setup script replaces the project name and central GitHub repository slug, then prompts for brand, company, operator, address, and contact email. Repository links used by the headers, `/llms.txt`, and JSON-LD come from `src/lib/config/site.ts`; legal identity remains in `src/lib/config/legal.ts`. After running it:
 
-1. Replace `static/logo.svg` with your logo, then run `bun run build:emails`
+1. Replace `static/logo.svg` with your logo, then run `bun run generate:logos`
 2. Refresh email snapshots: `bun run test:unit -- email-snapshots.test.ts -u`
 3. Update editorial brand mentions in `src/i18n/{en,de,es,fr}.json` (FAQ, hero copy, pricing tier names)
 4. Review the legal copy in `src/lib/content/legal/*.md`
@@ -498,7 +498,7 @@ An AI agent built on [Convex Agent](https://www.convex.dev/components/agent) and
 
 ### Email System
 
-Transactional email delivered through [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery tracking. HTML templates are written as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time. Your logo is converted to an email-safe PNG automatically. `bun run build:emails` renders every HTML template, and a snapshot test (`src/lib/emails/__tests__/email-snapshots.test.ts`) flags any unintended markup change.
+Transactional email delivered through [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery tracking. HTML templates are written as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time. `bun run generate:logos` converts your logo to an email-safe PNG. `bun run build:emails` renders every HTML template, and a snapshot test (`src/lib/emails/__tests__/email-snapshots.test.ts`) flags any unintended markup change.
 
 #### Founder incident email
 

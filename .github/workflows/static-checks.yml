@@ -94,6 +94,9 @@ jobs:
           unzip -q "$RUNNER_TEMP/bun-lint.zip" -d "$RUNNER_TEMP/bun-lint"
           echo "BUN_LINT_BINARY=$RUNNER_TEMP/bun-lint/bun-linux-x64/bun" >> "$GITHUB_ENV"
       - run: bun scripts/static-checks.ts --ci --scope lint
+      # Unit Tests runs this too, but the README tells forks to require only this job.
+      - name: Check that the committed icons match static/logo.svg
+        run: bun vitest --config vitest.tooling.config.ts --run scripts/generate-logos.test.ts
       # Refuses to remove a Convex function that deployed app code still calls
       # (see https://github.com/stickerdaniel/saas-starter/issues/789). The PR run
       # checks its candidate; later target changes require integration inspection.
@@ -143,7 +146,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-      - run: bun install --frozen-lockfile
+      # The check serves a fixture component from its own Vite server and reads no generated file.
+      - run: bun install --frozen-lockfile --ignore-scripts
       # The runner image ships Chrome's system libraries. --with-deps adds an apt
       # download from the Ubuntu mirror, which has stalled this job past its timeout.
       - run: bunx playwright install chromium --only-shell
@@ -189,5 +193,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-      - run: bun install --frozen-lockfile
+      # The tests read no generated file beyond SvelteKit's tsconfig.
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun svelte-kit sync
       - run: bun run test:upstream-report

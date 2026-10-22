@@ -344,10 +344,11 @@ describe('creator workflows', () => {
 		}
 	});
 
-	it('installs the child lock before static and Windows checks', () => {
+	it('installs the frozen locks before static and Windows checks', () => {
 		const { jobs } = parseYaml(read('.github/workflows/static-checks.yml')) as ReleaseWorkflow;
 		const windowsLifecycle = read('.github/workflows/windows-process-lifecycle.yml');
 		// Each job's first Bun command must install the frozen lock, so no check runs on a stale or rewritten one.
+		// Jobs that read nothing postinstall generates may skip the install scripts.
 		const firstBunRuns = Object.entries(jobs).flatMap(([id, job]) => {
 			const run = job.steps
 				.map((step) => normalizedRun(step.run))
@@ -357,7 +358,7 @@ describe('creator workflows', () => {
 
 		expect(firstBunRuns.length).toBeGreaterThan(0);
 		for (const [id, run] of firstBunRuns) {
-			expect(run, id).toBe('bun install --frozen-lockfile');
+			expect(run, id).toMatch(/^bun install --frozen-lockfile(?: --ignore-scripts)?$/);
 		}
 		expect(windowsLifecycle).toContain('packages/create-saas-starter/.*');
 		expect(windowsLifecycle).toContain(
