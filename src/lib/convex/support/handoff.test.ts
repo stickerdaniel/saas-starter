@@ -223,7 +223,7 @@ describe('settleUnansweredTurn', () => {
 				}
 				if ('order' in args) {
 					const page = [...rows].sort((a, b) => b.order - a.order).slice(0, 30);
-					return { page, isDone: true, continueCursor: '' };
+					return { page, isDone: rows.length <= 30, continueCursor: '' };
 				}
 				// getRecentUserMessages
 				return [];
@@ -366,6 +366,25 @@ describe('settleUnansweredTurn', () => {
 		await settle._handler(ctx, { ...TURN, reason: 'handoff_without_reply' });
 
 		expect(saveMessageMock).toHaveBeenCalledOnce();
+	});
+
+	// The visitor kept writing to the handed-off thread before the turn settled,
+	// pushing the handoff button's acknowledgement out of the lookback.
+	it('adds nothing when the prompt lies past the lookback', async () => {
+		const ctx = settleCtx({
+			handedOff: true,
+			rows: [
+				message('m1', 10, 'user', 'help'),
+				message('ack_button', 20, 'assistant', 'translated'),
+				...Array.from({ length: 30 }, (_, index) =>
+					message(`later_${index}`, 30 + index, 'user', 'still there?')
+				)
+			]
+		});
+
+		await settle._handler(ctx, { ...TURN, reason: 'job_failed' });
+
+		expect(saveMessageMock).not.toHaveBeenCalled();
 	});
 
 	it('logs a status that is not an integer without it', async () => {

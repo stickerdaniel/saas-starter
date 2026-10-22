@@ -1030,7 +1030,7 @@ describe('createAIResponse turn recovery', () => {
 			status: 'error'
 		},
 		{ label: 'text short of an answer', outcomes: [...READY, PARTIAL], status: 'partial' }
-	])('records a turn that left $label as $status', async ({ outcomes, status }) => {
+	])('passes the recorder $status for a turn that left $label', async ({ outcomes, status }) => {
 		const ctx = makeCtx(null, outcomes);
 
 		await handler._handler(ctx, TURN);

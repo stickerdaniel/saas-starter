@@ -123,8 +123,8 @@ const REPLY_LOOKBACK_ROWS = 30;
  * the widget's handoff button, which writes it before it flips the thread, and
  * an earlier or concurrent recovery of the same turn (mutations reading these
  * rows serialize). Agent text on another order answers a different message,
- * from a second tab, and does not count. Returns whether it wrote the
- * acknowledgement.
+ * from a second tab, and does not count. A turn whose prompt lies past the
+ * lookback is left alone. Returns whether it wrote the acknowledgement.
  */
 async function acknowledgeUnrepliedTurn(
 	ctx: MutationCtx,
@@ -142,6 +142,13 @@ async function acknowledgeUnrepliedTurn(
 		order: 'desc',
 		paginationOpts: { numItems: REPLY_LOOKBACK_ROWS, cursor: null }
 	});
+	// A visitor can keep writing to a handed-off thread until the turn is
+	// settled. When the page ends before the prompt, an earlier acknowledgement
+	// may sit just past it, so the visitor is not acknowledged a second time.
+	const reachedPrompt =
+		latest.isDone || latest.page.some((row) => row._creationTime <= prompt._creationTime);
+	if (!reachedPrompt) return false;
+
 	const replied = latest.page.some((row) => {
 		const text = row.text?.trim();
 		if (!text || row.message?.role !== 'assistant') return false;

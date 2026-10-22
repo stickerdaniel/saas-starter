@@ -238,8 +238,9 @@ async function runTurn(
 
 /**
  * Record the turn's usage as one `support_chat` row, however many attempts it
- * took. The status follows what the turn left: `ok` only when it answered,
- * `partial` when it left text short of an answer, `error` otherwise.
+ * took; recordAiUsage writes none when no attempt captured usage. The status
+ * follows what the turn left: `ok` only when it answered, `partial` when it
+ * left text short of an answer, `error` otherwise.
  */
 async function recordTurnUsage(ctx: ActionCtx, turn: SupportTurn, run: TurnRun): Promise<void> {
 	// turn.userId may be an anon_* id for anonymous support; store as-is
