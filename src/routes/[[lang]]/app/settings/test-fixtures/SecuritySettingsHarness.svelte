@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Tolgee, TolgeeProvider } from '@tolgee/svelte';
+	import { TolgeeCore, TolgeeProvider } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
 	import en from '../../../../../i18n/en.json';
 	import de from '../../../../../i18n/de.json';
@@ -10,7 +10,7 @@
 	let { name = 'Daniel Example', language = 'en' } = $props();
 	// Each test initializes the provider once, then uses the exported setters.
 	// svelte-ignore state_referenced_locally
-	const tolgee = Tolgee().use(FormatIcu()).init({ language, staticData: { en, de, es, fr } });
+	const tolgee = TolgeeCore().use(FormatIcu()).init({ language, staticData: { en, de, es, fr } });
 	// svelte-ignore state_referenced_locally
 	let user = $state({ name });
 

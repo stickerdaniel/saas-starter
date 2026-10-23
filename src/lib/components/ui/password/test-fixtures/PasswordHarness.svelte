@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Tolgee, TolgeeProvider } from '@tolgee/svelte';
+	import { TolgeeCore, TolgeeProvider } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
 	import en from '../../../../../i18n/en.json';
 	import Root from '../password.svelte';
@@ -8,7 +8,7 @@
 
 	let { withStrength = false, invalid = false }: { withStrength?: boolean; invalid?: boolean } =
 		$props();
-	const tolgee = Tolgee().use(FormatIcu()).init({ language: 'en', staticData: { en } });
+	const tolgee = TolgeeCore().use(FormatIcu()).init({ language: 'en', staticData: { en } });
 </script>
 
 <TolgeeProvider {tolgee}>

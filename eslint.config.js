@@ -488,6 +488,21 @@ export default defineConfig(
 			'local/no-test-in-loop': 'error'
 		}
 	},
+	// Tolgee() is TolgeeCore() plus the browser-extension plugin, whose handshake
+	// retries outlive unmount and stop() and then read `window` after Vitest has
+	// removed the jsdom globals.
+	{
+		files: ['src/**/*.test.ts', 'src/**/test-fixtures/**'],
+		rules: {
+			'no-restricted-syntax': [
+				'error',
+				{
+					selector: 'CallExpression[callee.name="Tolgee"]',
+					message: 'Use TolgeeCore() in tests; Tolgee() adds the browser-extension handshake.'
+				}
+			]
+		}
+	},
 	// shadcn/lint: class names must produce CSS and stay readable to the linter.
 	// Options live in eslint/shadcn-policy.js, which the policy tests also read.
 	...enforcedShadcnConfig,

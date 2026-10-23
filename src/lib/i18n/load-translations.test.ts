@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { Tolgee } from '@tolgee/svelte';
+import { TolgeeCore } from '@tolgee/svelte';
 import { FormatIcu } from '@tolgee/format-icu';
 import { DEFAULT_LANGUAGE } from './languages';
 import { FALLBACK_TRANSLATIONS } from './browser-translations.generated';
@@ -50,7 +50,11 @@ describe('route translation catalogs', () => {
 		fetchCatalog.mockResolvedValueOnce(new Response('Unavailable', { status: 503 }));
 		await expect(preloadTranslations('fr')).resolves.toBeUndefined();
 		const catalogs = await loadTranslations('fr');
-		const tolgee = Tolgee().init({ language: 'fr', fallbackLanguage: 'en', staticData: catalogs });
+		const tolgee = TolgeeCore().init({
+			language: 'fr',
+			fallbackLanguage: 'en',
+			staticData: catalogs
+		});
 		expect(tolgee.t('aria.change_language')).toBe('Changer la langue');
 		expect(fetchCatalog).toHaveBeenCalledTimes(2);
 	});
@@ -61,7 +65,7 @@ describe('route translation catalogs', () => {
 		['fr', 'Changer la langue']
 	])('can server-render %s immediately with only its fallback', async (language, label) => {
 		const staticData = await loadTranslations(language);
-		const tolgee = Tolgee().use(FormatIcu()).init({
+		const tolgee = TolgeeCore().use(FormatIcu()).init({
 			language,
 			fallbackLanguage: DEFAULT_LANGUAGE,
 			staticData
@@ -73,13 +77,13 @@ describe('route translation catalogs', () => {
 
 	it('keeps English available for an untranslated key and root error pages', async () => {
 		const catalogs = await loadTranslations('de');
-		const tolgee = Tolgee().init({
+		const tolgee = TolgeeCore().init({
 			language: 'de',
 			fallbackLanguage: DEFAULT_LANGUAGE,
 			staticData: { ...catalogs, de: {} }
 		});
 		expect(tolgee.t('aria.change_language')).toBe('Change language');
-		const errorPage = Tolgee().init({
+		const errorPage = TolgeeCore().init({
 			language: DEFAULT_LANGUAGE,
 			staticData: FALLBACK_TRANSLATIONS
 		});
@@ -89,8 +93,16 @@ describe('route translation catalogs', () => {
 
 	it('seeds navigation catalogs before changing language without sharing language state', async () => {
 		const english = await loadTranslations('en');
-		const first = Tolgee().init({ language: 'en', fallbackLanguage: 'en', staticData: english });
-		const second = Tolgee().init({ language: 'en', fallbackLanguage: 'en', staticData: english });
+		const first = TolgeeCore().init({
+			language: 'en',
+			fallbackLanguage: 'en',
+			staticData: english
+		});
+		const second = TolgeeCore().init({
+			language: 'en',
+			fallbackLanguage: 'en',
+			staticData: english
+		});
 		await first.run();
 		try {
 			first.addStaticData(await loadTranslations('de'));

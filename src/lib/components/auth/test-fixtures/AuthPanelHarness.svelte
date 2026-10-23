@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Tolgee, TolgeeProvider } from '@tolgee/svelte';
+	import { TolgeeCore, TolgeeProvider } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
 	import en from '../../../../i18n/en.json';
 	import { resolve } from '$app/paths';
@@ -9,7 +9,7 @@
 		variant,
 		transition = false
 	}: { variant: 'legal' | 'footer' | 'bare'; transition?: boolean } = $props();
-	const tolgee = Tolgee().use(FormatIcu()).init({ language: 'en', staticData: { en } });
+	const tolgee = TolgeeCore().use(FormatIcu()).init({ language: 'en', staticData: { en } });
 	let termsLink = $state<HTMLAnchorElement | null>(null);
 	// Read back by the test, the way the sign-in form reads the bound element.
 	export function boundTermsLink() {

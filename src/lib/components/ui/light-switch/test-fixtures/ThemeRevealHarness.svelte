@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { FormatSimple, Tolgee, TolgeeProvider } from '@tolgee/svelte';
+	import { FormatSimple, TolgeeCore, TolgeeProvider } from '@tolgee/svelte';
 	import { ModeWatcher } from 'mode-watcher';
 	import en from '../../../../../i18n/en.json';
 	import LightSwitch from '../light-switch.svelte';
 
-	const tolgee = Tolgee().use(FormatSimple()).init({ language: 'en', staticData: { en } });
+	const tolgee = TolgeeCore().use(FormatSimple()).init({ language: 'en', staticData: { en } });
 </script>
 
 <!-- No synchronousModeChanges here: mode-watcher writes synchronously under Vitest

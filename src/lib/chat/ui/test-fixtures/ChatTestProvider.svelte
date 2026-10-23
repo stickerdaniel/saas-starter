@@ -2,7 +2,7 @@
 	import type { Component } from 'svelte';
 	import type { ConvexClient } from 'convex/browser';
 	import { setConvexClientContext } from 'convex-svelte';
-	import { FormatSimple, Tolgee, TolgeeProvider } from '@tolgee/svelte';
+	import { FormatSimple, TolgeeCore, TolgeeProvider } from '@tolgee/svelte';
 	import en from '../../../../i18n/en.json';
 	import {
 		AdminSupportUIManager,
@@ -34,7 +34,7 @@
 	// The optional support context is fixed for the mounted test instance.
 	// svelte-ignore state_referenced_locally
 	if (supportThread) supportContext.set(supportThread);
-	const tolgee = Tolgee().use(FormatSimple()).init({ language: 'en', staticData: { en } });
+	const tolgee = TolgeeCore().use(FormatSimple()).init({ language: 'en', staticData: { en } });
 	// Tests may replace the child props without remounting its providers.
 	// svelte-ignore state_referenced_locally
 	let renderedContentProps = $state.raw(contentProps);
