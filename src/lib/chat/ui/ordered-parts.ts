@@ -1,6 +1,10 @@
-import type { ToolPart } from '#lib/components/prompt-kit/tool/types.js';
 import type { MessagePart, MessageStatus } from '../core/types.js';
-import { toToolRenderPart } from './tool-part-adapter.js';
+import {
+	toToolPhase,
+	toToolRenderPart,
+	type ToolPart,
+	type ToolPhase
+} from './tool-part-adapter.js';
 import {
 	getActiveStreamingPartIndex,
 	getActiveStreamingReasoningIndex,
@@ -21,7 +25,7 @@ export { LEADING_REASONING_KEY };
  */
 export type OrderedPart =
 	| { kind: 'reasoning'; text: string; isStreaming: boolean; hasContent: boolean; key: string }
-	| { kind: 'tool'; toolPart: ToolPart; key: string }
+	| { kind: 'tool'; toolPart: ToolPart; phase: ToolPhase; key: string }
 	| { kind: 'text'; text: string; isStreaming: boolean; key: string };
 
 /**
@@ -94,6 +98,7 @@ export function deriveOrderedParts(
 				return {
 					kind: 'tool',
 					toolPart,
+					phase: toToolPhase(toolPart.state, status),
 					// Every kind prefixes its own key, because all of them are siblings in one
 					// keyed block. A raw tool call id shares that namespace with the reasoning
 					// and text keys, and the provider decides what it contains.
@@ -107,4 +112,36 @@ export function deriveOrderedParts(
 			return null;
 		})
 		.filter((p): p is OrderedPart => p !== null);
+}
+
+/** A run of consecutive reasoning and tool parts that renders as one Trace. */
+export type TraceBlock = {
+	kind: 'trace';
+	key: string;
+	items: Array<Exclude<OrderedPart, { kind: 'text' }>>;
+};
+
+/**
+ * Group ordered parts the way the AI Elements patterns stack their lines: consecutive
+ * reasoning and tool parts share one Trace and text ends it. A Trace is keyed by its first
+ * part, so parts appended while a reply streams keep it mounted, and a Trace that opens
+ * with the leading reasoning keeps its key across the connecting → thinking transition.
+ */
+export function groupTraces(
+	items: OrderedPart[]
+): Array<TraceBlock | Extract<OrderedPart, { kind: 'text' }>> {
+	const groups: Array<TraceBlock | Extract<OrderedPart, { kind: 'text' }>> = [];
+	let open: TraceBlock | undefined;
+	for (const item of items) {
+		if (item.kind === 'text') {
+			groups.push(item);
+			open = undefined;
+		} else if (open) {
+			open.items.push(item);
+		} else {
+			open = { kind: 'trace', key: `trace-${item.key}`, items: [item] };
+			groups.push(open);
+		}
+	}
+	return groups;
 }

@@ -615,16 +615,12 @@
 		"reasoning": {
 			"connecting": "Verbinde...",
 			"thinking": "Denke nach...",
-			"thought_for_few_seconds": "Nachgedacht für einige Sekunden",
-			"thought_for_seconds": "Nachgedacht für {duration} Sekunde",
-			"thought_for_seconds_plural": "Nachgedacht für {duration} Sekunden"
+			"thought_for_few_seconds": "Nachgedacht für einige Sekunden"
 		},
 		"tool": {
-			"call_id": "Aufruf-ID: {toolCallId}",
-			"error": "Fehler",
-			"input": "Eingabe",
-			"output": "Ausgabe",
-			"processing": "Tool-Aufruf wird verarbeitet..."
+			"failed": "{tool} fehlgeschlagen",
+			"ran": "{tool} ausgeführt",
+			"running": "{tool} wird ausgeführt"
 		},
 		"tooltip": {
 			"attach_files": "Dateien anhängen",

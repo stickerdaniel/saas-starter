@@ -615,16 +615,12 @@
 		"reasoning": {
 			"connecting": "Connecting...",
 			"thinking": "Thinking...",
-			"thought_for_few_seconds": "Thought for a few seconds",
-			"thought_for_seconds": "Thought for {duration} second",
-			"thought_for_seconds_plural": "Thought for {duration} seconds"
+			"thought_for_few_seconds": "Thought for a few seconds"
 		},
 		"tool": {
-			"call_id": "Call ID: {toolCallId}",
-			"error": "Error",
-			"input": "Input",
-			"output": "Output",
-			"processing": "Processing tool call..."
+			"failed": "Failed to run {tool}",
+			"ran": "Ran {tool}",
+			"running": "Running {tool}"
 		},
 		"tooltip": {
 			"attach_files": "Attach files",

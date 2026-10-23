@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MessagePart } from '../core/types.js';
-import { deriveOrderedParts, LEADING_REASONING_KEY } from './ordered-parts.js';
+import { deriveOrderedParts, groupTraces, LEADING_REASONING_KEY } from './ordered-parts.js';
 
 describe('deriveOrderedParts', () => {
 	// Regression guard: a step-start-only parts array must yield no renderable parts, so the
@@ -207,5 +207,38 @@ describe('deriveOrderedParts', () => {
 	it('handles undefined and empty parts', () => {
 		expect(deriveOrderedParts(undefined, 'success')).toEqual([]);
 		expect(deriveOrderedParts([], 'pending')).toEqual([]);
+	});
+});
+
+describe('groupTraces', () => {
+	const shape = (parts: MessagePart[]) =>
+		groupTraces(deriveOrderedParts(parts, 'streaming')).map((group) =>
+			group.kind === 'trace' ? [group.key, group.items.map((item) => item.key)] : group.key
+		);
+
+	// The Trace that holds the leading reasoning is what the connecting placeholder renders
+	// into, so it has to keep its key while the reply grows behind it or the line remounts.
+	it('keeps the leading Trace key while tools and later reasoning append to it', () => {
+		const reasoning = { type: 'reasoning', text: 'think', streamPartId: 'r1' };
+		const tool = { type: 'tool-getWeather', toolCallId: 't1', state: 'input-streaming' };
+		const lead = 'trace-' + LEADING_REASONING_KEY;
+		expect(shape([reasoning])).toEqual([[lead, [LEADING_REASONING_KEY]]]);
+		expect(shape([reasoning, tool, { ...reasoning, text: 'more' }])).toEqual([
+			[lead, [LEADING_REASONING_KEY, 'tool-call-t1', 'reasoning-1']]
+		]);
+	});
+
+	it('ends a Trace at text and opens the next one after it', () => {
+		expect(
+			shape([
+				{ type: 'reasoning', text: 'think' },
+				{ type: 'text', text: 'answer' },
+				{ type: 'tool-getWeather', toolCallId: 't1', state: 'output-available' }
+			])
+		).toEqual([
+			['trace-' + LEADING_REASONING_KEY, [LEADING_REASONING_KEY]],
+			'text-0',
+			['trace-tool-call-t1', ['tool-call-t1']]
+		]);
 	});
 });

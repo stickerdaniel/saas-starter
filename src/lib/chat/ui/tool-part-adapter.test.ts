@@ -1,7 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { toToolRenderPart } from './tool-part-adapter';
+import { toToolPhase, toToolRenderPart } from './tool-part-adapter';
 
 describe('tool UI boundary adapter', () => {
+	it('names a static tool by its type and a dynamic tool by its SDK name', () => {
+		expect(toToolRenderPart({ type: 'tool-getWeather', state: 'input-streaming' })?.name).toBe(
+			'getWeather'
+		);
+		expect(
+			toToolRenderPart({ type: 'dynamic-tool', toolName: 'runtime-tool', state: 'input-available' })
+				?.name
+		).toBe('runtime-tool');
+	});
+	// Input without output waits for its result row until the message itself fails.
+	it.each([
+		['input-streaming', 'streaming', 'running'],
+		['input-available', 'pending', 'running'],
+		['input-available', 'success', 'running'],
+		['input-streaming', 'failed', 'failed'],
+		['input-available', 'failed', 'failed'],
+		['output-available', 'success', 'ran'],
+		['output-available', 'failed', 'ran'],
+		['output-error', 'streaming', 'failed'],
+		['output-error', 'success', 'failed']
+	] as const)('reads %s in a %s message as %s', (state, status, phase) => {
+		expect(toToolPhase(state, status)).toBe(phase);
+	});
 	it.each(['input-streaming', 'input-available', 'output-available', 'output-error'] as const)(
 		'accepts the supported %s state',
 		(state) => {

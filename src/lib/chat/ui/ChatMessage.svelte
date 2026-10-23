@@ -2,13 +2,19 @@
 	import type { Snippet } from 'svelte';
 	import { Message } from '#lib/components/prompt-kit/message/index.js';
 	import { Response, streamingTextAnimation } from '#lib/components/ai-elements/response/index.js';
-	import { ToolComposed } from '#lib/components/prompt-kit/tool/index.js';
+	import * as Trace from '#lib/components/ui/trace/index.js';
 	import ChatAttachments from './ChatAttachments.svelte';
 	import ChatReasoning from './ChatReasoning.svelte';
+	import ChatTool from './ChatTool.svelte';
 	import MessageBubble from './MessageBubble.svelte';
 	import InlineEmailPrompt from './InlineEmailPrompt.svelte';
 	import { getChatUIContext } from './chat-context.svelte.ts';
-	import { deriveOrderedParts, LEADING_REASONING_KEY, type OrderedPart } from './ordered-parts.js';
+	import {
+		deriveOrderedParts,
+		groupTraces,
+		LEADING_REASONING_KEY,
+		type OrderedPart
+	} from './ordered-parts.js';
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
 	import { AI_CHAT_LIMIT_NOTICE } from '#lib/convex/constants.js';
 	import { getMessageProviderFlags } from '../core/provider-metadata.js';
@@ -73,46 +79,21 @@
 	// Renderable parts in chronological order (step-start etc. are dropped)
 	const orderedParts = $derived(deriveOrderedParts(message.parts, message.status));
 
-	// Reasoning items carry a resolved accordion open-state key. The leading reasoning and
-	// its connecting placeholder share a stable Svelte key (LEADING_REASONING_KEY), so the
-	// component instance survives the connecting -> thinking transition without remounting.
-	type RenderItem =
-		| {
-				kind: 'reasoning';
-				text: string;
-				isStreaming: boolean;
-				hasContent: boolean;
-				key: string;
-				stateKey: string;
-		  }
-		| Exclude<OrderedPart, { kind: 'reasoning' }>;
-
-	const renderItems: RenderItem[] = $derived.by(() => {
-		if (orderedParts.length > 0) {
-			return orderedParts.map((part): RenderItem =>
-				part.kind === 'reasoning'
-					? {
-							kind: 'reasoning',
-							text: part.text,
-							isStreaming: part.isStreaming,
-							hasContent: part.hasContent,
-							key: part.key,
-							stateKey: `${message.id}:${part.key}`
-						}
-					: part
-			);
-		}
+	// The leading reasoning and its connecting placeholder share a stable Svelte key
+	// (LEADING_REASONING_KEY), so the component instance survives the connecting -> thinking
+	// transition without remounting; `${message.id}:${key}` is its open-state key.
+	const renderItems: OrderedPart[] = $derived.by(() => {
+		if (orderedParts.length > 0) return orderedParts;
 
 		// No renderable parts yet: keep a single connecting indicator mounted, plus legacy text.
-		const items: RenderItem[] = [];
+		const items: OrderedPart[] = [];
 		if (showReasoningFallback) {
 			items.push({
 				kind: 'reasoning',
 				text: message.displayReasoning,
 				isStreaming: shimmerFallback,
 				hasContent: !!message.displayReasoning,
-				key: LEADING_REASONING_KEY,
-				stateKey: `${message.id}:${LEADING_REASONING_KEY}`
+				key: LEADING_REASONING_KEY
 			});
 		}
 		if (message.displayText) {
@@ -125,6 +106,8 @@
 		}
 		return items;
 	});
+
+	const blocks = $derived(groupTraces(renderItems));
 </script>
 
 <div
@@ -152,19 +135,26 @@
 		{:else}
 			<!-- AI messages: ghost/prose style with interleaved reasoning/tools/text -->
 			<MessageBubble {align} variant="ghost">
-				{#each renderItems as item (item.key)}
-					{#if item.kind === 'reasoning'}
-						<ChatReasoning
-							open={ctx.isReasoningOpen(item.stateKey)}
-							onOpenChange={(open) => handleReasoningOpenChange(item.stateKey, open)}
-							isStreaming={item.isStreaming}
-							hasContent={item.hasContent}
-							content={item.text}
-						/>
-					{:else if item.kind === 'tool'}
-						<ToolComposed toolPart={item.toolPart} />
-					{:else if item.kind === 'text'}
-						<Response content={item.text} animation={streamingTextAnimation(item.isStreaming)} />
+				{#each blocks as block (block.key)}
+					{#if block.kind === 'trace'}
+						<Trace.Root class="not-prose mb-4 text-sm">
+							{#each block.items as item (item.key)}
+								{#if item.kind === 'reasoning'}
+									<ChatReasoning
+										open={ctx.isReasoningOpen(`${message.id}:${item.key}`)}
+										onOpenChange={(open) =>
+											handleReasoningOpenChange(`${message.id}:${item.key}`, open)}
+										isStreaming={item.isStreaming}
+										hasContent={item.hasContent}
+										content={item.text}
+									/>
+								{:else}
+									<ChatTool toolPart={item.toolPart} phase={item.phase} />
+								{/if}
+							{/each}
+						</Trace.Root>
+					{:else}
+						<Response content={block.text} animation={streamingTextAnimation(block.isStreaming)} />
 					{/if}
 				{/each}
 				{#if isHandoffMessage && showEmailPrompt && onSubmitEmail}
