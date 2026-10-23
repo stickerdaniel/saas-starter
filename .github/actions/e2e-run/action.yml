@@ -31,8 +31,10 @@ runs:
     - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
     - shell: bash
       run: bun install --frozen-lockfile
+    # Headless runs only launch the shell, and the runner image ships its system
+    # libraries. --with-deps adds an apt download that has stalled for minutes.
     - shell: bash
-      run: bunx playwright install chromium --with-deps
+      run: bunx playwright install chromium --only-shell
     - name: Verify tested preview identity
       shell: bash
       env:
