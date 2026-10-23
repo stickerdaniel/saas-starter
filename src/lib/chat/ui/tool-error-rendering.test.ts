@@ -71,7 +71,7 @@ describe('tool failure rendering', () => {
 			},
 			'failed'
 		);
-		expect(text).not.toContain('PRIVATE_');
+		expect(text.trim()).toBe('chat.tool.failed');
 		expect(opens).toBe(false);
 	});
 
