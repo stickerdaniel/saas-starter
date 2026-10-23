@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Tolgee, TolgeeProvider } from '@tolgee/svelte';
+	import { TolgeeCore, TolgeeProvider } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
 	import type { ColumnDef } from '@tanstack/table-core';
 	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
@@ -15,7 +15,7 @@
 	let { layout = 'panel' }: { layout?: 'panel' | 'page' } = $props();
 
 	type Item = { id: string; member: string; email: string; action: string };
-	const tolgee = Tolgee().use(FormatIcu()).init({ language: 'en', staticData: { en } });
+	const tolgee = TolgeeCore().use(FormatIcu()).init({ language: 'en', staticData: { en } });
 	const data: Item[] = Array.from({ length: 24 }, (_, index) => ({
 		id: String(index + 1),
 		member: `Member ${index + 1}`,
