@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
-	import CircleDashedIcon from '@lucide/svelte/icons/circle-dashed';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { getTranslate } from '@tolgee/svelte';
 	import * as Trace from '#lib/components/ui/trace/index.js';
 	import { Response, streamingTextAnimation } from '#lib/components/ai-elements/response/index.js';
@@ -14,8 +14,7 @@
 		onOpenChange,
 		isStreaming = false,
 		hasContent = false,
-		content = '',
-		duration
+		content = ''
 	}: {
 		/** Whether the reasoning is expanded */
 		open?: boolean;
@@ -27,32 +26,25 @@
 		hasContent?: boolean;
 		/** The reasoning content to display */
 		content?: string;
-		/** Whole seconds the model spent thinking, when the server measured it */
-		duration?: number;
 	} = $props();
 
 	const { t } = getTranslate();
 	const labelId = $props.id();
 
 	const running = $derived(!hasContent || isStreaming);
-	// Connecting (nothing back yet), Thinking (receiving), then how long it took.
-	const label = $derived.by(() => {
-		if (running)
-			return hasContent ? $t('chat.reasoning.thinking') : $t('chat.reasoning.connecting');
-		if (duration && duration > 0) {
-			return duration === 1
-				? $t('chat.reasoning.thought_for_seconds', { duration })
-				: $t('chat.reasoning.thought_for_seconds_plural', { duration });
-		}
-		return $t('chat.reasoning.thought_for_few_seconds');
-	});
+	// Connecting (nothing back yet), Thinking (receiving), then done.
+	const label = $derived(
+		running
+			? $t(hasContent ? 'chat.reasoning.thinking' : 'chat.reasoning.connecting')
+			: $t('chat.reasoning.thought_for_few_seconds')
+	);
 </script>
 
 {#snippet line()}
 	<Trace.Line status={running ? 'running' : undefined}>
 		<Trace.Icon>
 			{#if running}
-				<CircleDashedIcon />
+				<LoaderCircleIcon class="motion-safe:animate-spin" />
 			{:else}
 				<CircleCheckIcon />
 			{/if}

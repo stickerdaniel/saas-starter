@@ -14,7 +14,7 @@ vi.mock('@tolgee/svelte', async () => {
 	const { readable } = await import('svelte/store');
 	return {
 		getTranslate: () => ({
-			t: readable((key: string) => (key === 'common.error' ? 'Safe localized failure' : key))
+			t: readable((key: string) => key)
 		})
 	};
 });
@@ -27,28 +27,20 @@ afterEach(() => {
 	document.body.replaceChildren();
 });
 
-/** Mount one tool line, open it the way a reader does, and return what it shows. */
-async function openTool(toolPart: ToolPart, phase: ToolPhase) {
+/** Mount one tool line, open it the way a reader does if it opens, and return its text. */
+function renderTool(toolPart: ToolPart, phase: ToolPhase) {
 	component = mount(ChatTool, { target: document.body, props: { toolPart, phase } });
 	flushSync();
 	const trigger = document.querySelector<HTMLButtonElement>('button[aria-expanded]');
-	if (!trigger) throw new Error('Expected a trace trigger');
-	trigger.click();
+	trigger?.click();
 	flushSync();
-	expect(trigger.getAttribute('aria-expanded')).toBe('true');
-	// The output block is loaded on open.
-	await vi.dynamicImportSettled();
-	flushSync();
-	return {
-		text: document.body.textContent ?? '',
-		copyButton: document.querySelector('button[aria-label="aria.copy"]')
-	};
+	return { text: document.body.textContent ?? '', opens: trigger !== null };
 }
 
 describe('tool failure rendering', () => {
 	it.each(['success', 'streaming'] as const)(
-		'renders fixed localized copy through the %s message path',
-		async (status) => {
+		'shows only the localized title through the %s message path',
+		(status) => {
 			const rawError = 'PRIVATE_PROVIDER_DIAGNOSTIC';
 			const item = deriveOrderedParts(
 				[
@@ -63,16 +55,14 @@ describe('tool failure rendering', () => {
 				status
 			)[0];
 			if (item?.kind !== 'tool') throw new Error('Expected a renderable tool part');
-			const { text, copyButton } = await openTool(item.toolPart, item.phase);
-			expect(text).toContain('chat.tool.failed');
-			expect(text).toContain('Safe localized failure');
-			expect(text).not.toContain(rawError);
-			expect(copyButton).toBeNull();
+			const { text, opens } = renderTool(item.toolPart, item.phase);
+			expect(text.trim()).toBe('chat.tool.failed');
+			expect(opens).toBe(false);
 		}
 	);
 
-	it('shows no output a direct caller hands it for a failed call', async () => {
-		const { text, copyButton } = await openTool(
+	it('shows no output a direct caller hands it for a failed call', () => {
+		const { text, opens } = renderTool(
 			{
 				type: 'tool-weather',
 				name: 'weather',
@@ -81,13 +71,12 @@ describe('tool failure rendering', () => {
 			},
 			'failed'
 		);
-		expect(text).toContain('Safe localized failure');
 		expect(text).not.toContain('PRIVATE_');
-		expect(copyButton).toBeNull();
+		expect(opens).toBe(false);
 	});
 
-	it('keeps successful error-shaped tool output visible without a failure description', async () => {
-		const { text, copyButton } = await openTool(
+	it('opens successful error-shaped tool output as JSON', () => {
+		const { text, opens } = renderTool(
 			{
 				type: 'tool-weather',
 				name: 'weather',
@@ -96,8 +85,15 @@ describe('tool failure rendering', () => {
 			},
 			'ran'
 		);
-		expect(text).toContain('Sunny');
-		expect(text).not.toContain('Safe localized failure');
-		expect(copyButton).not.toBeNull();
+		expect(opens).toBe(true);
+		expect(text).toContain('"forecast": "Sunny"');
+	});
+
+	it('opens text output as written', () => {
+		const { text } = renderTool(
+			{ type: 'tool-weather', name: 'weather', state: 'output-available', output: 'Sunny\n21 °C' },
+			'ran'
+		);
+		expect(text).toContain('Sunny\n21 °C');
 	});
 });

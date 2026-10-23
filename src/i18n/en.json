@@ -615,18 +615,10 @@
 		"reasoning": {
 			"connecting": "Connecting...",
 			"thinking": "Thinking...",
-			"thought_for_few_seconds": "Thought for a few seconds",
-			"thought_for_seconds": "Thought for {duration} second",
-			"thought_for_seconds_plural": "Thought for {duration} seconds"
+			"thought_for_few_seconds": "Thought for a few seconds"
 		},
 		"tool": {
-			"call_id": "Call ID: {toolCallId}",
-			"error": "Error",
 			"failed": "Failed to run {tool}",
-			"input": "Input",
-			"output": "Output",
-			"output_truncated": "Output truncated. Only the part shown is copied.",
-			"processing": "Processing tool call...",
 			"ran": "Ran {tool}",
 			"running": "Running {tool}"
 		},

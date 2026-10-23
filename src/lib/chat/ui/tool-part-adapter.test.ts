@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatToolOutput, toToolPhase, toToolRenderPart } from './tool-part-adapter';
+import { toToolPhase, toToolRenderPart } from './tool-part-adapter';
 
 describe('tool UI boundary adapter', () => {
 	it('names a static tool by its type and a dynamic tool by its SDK name', () => {
@@ -65,39 +65,6 @@ describe('tool UI boundary adapter', () => {
 				toolCallId: {}
 			})
 		).toMatchObject({ toolCallId: undefined });
-	});
-	it('keeps text output as text and prints other values as indented JSON', () => {
-		expect(formatToolOutput('Sunny\n21 °C')).toEqual({
-			code: 'Sunny\n21 °C',
-			language: 'text',
-			truncated: false
-		});
-		expect(formatToolOutput({ forecast: 'Sunny' })).toEqual({
-			code: '{\n  "forecast": "Sunny"\n}',
-			language: 'json',
-			truncated: false
-		});
-		expect(formatToolOutput(0)).toMatchObject({ code: '0', truncated: false });
-	});
-	it.each([
-		['many short lines', Array.from({ length: 5_000 }, (_, day) => ({ day }))],
-		['one long line', 'x'.repeat(100_000)]
-	])('caps an oversized output with %s to a prefix of it', (_, output) => {
-		const full = typeof output === 'string' ? output : JSON.stringify(output, null, 2);
-		const { code, truncated } = formatToolOutput(output);
-		expect(truncated).toBe(true);
-		expect(full.startsWith(code)).toBe(true);
-		expect(code.length).toBeLessThanOrEqual(20_000);
-		expect(code.split('\n').length).toBeLessThanOrEqual(400);
-	});
-	it('keeps an output of exactly 400 newline-terminated lines whole', () => {
-		const output = 'a\n'.repeat(400);
-		expect(formatToolOutput(output)).toEqual({ code: output, language: 'text', truncated: false });
-	});
-	it('cuts the 401st line', () => {
-		const { code, truncated } = formatToolOutput('a\n'.repeat(401));
-		expect(truncated).toBe(true);
-		expect(code).toBe(Array.from({ length: 400 }, () => 'a').join('\n'));
 	});
 	it('drops raw error text and failed output without mutating the source message', () => {
 		const rawError = 'Provider failure: private diagnostic';

@@ -615,18 +615,10 @@
 		"reasoning": {
 			"connecting": "Connexion...",
 			"thinking": "Réflexion...",
-			"thought_for_few_seconds": "A réfléchi pendant quelques secondes",
-			"thought_for_seconds": "A réfléchi pendant {duration} seconde",
-			"thought_for_seconds_plural": "A réfléchi pendant {duration} secondes"
+			"thought_for_few_seconds": "A réfléchi pendant quelques secondes"
 		},
 		"tool": {
-			"call_id": "ID d'appel : {toolCallId}",
-			"error": "Erreur",
 			"failed": "Échec de l'exécution de {tool}",
-			"input": "Entrée",
-			"output": "Sortie",
-			"output_truncated": "Sortie tronquée. Seule la partie affichée est copiée.",
-			"processing": "Traitement de l'appel d'outil...",
 			"ran": "{tool} exécuté",
 			"running": "Exécution de {tool}"
 		},
