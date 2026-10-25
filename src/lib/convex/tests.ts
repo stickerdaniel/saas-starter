@@ -422,6 +422,12 @@ export const createTestAdminUser = mutation({
 	}
 });
 
+// Most support threads one fixture call may create or delete. Each thread costs an agent
+// component call plus its own reads and writes; 105 in one transaction ran past Convex's
+// limit on time spent in system operations on preview backends, so callers split larger
+// sets across calls.
+const SUPPORT_THREAD_FIXTURE_BATCH = 25;
+
 // Create anonymous support thread(s) for E2E tests
 // Note: This mutation requires AUTH_E2E_TEST_SECRET for security
 // Use count param to create multiple threads (for pagination testing)
@@ -439,6 +445,9 @@ export const createAnonymousSupportThread = mutation({
 
 		if (!isAnonymousUser(anonymousUserId)) {
 			throw new Error('Invalid anonymous user ID');
+		}
+		if (!Number.isInteger(count) || count < 1 || count > SUPPORT_THREAD_FIXTURE_BATCH) {
+			throw new Error(`count must be an integer between 1 and ${SUPPORT_THREAD_FIXTURE_BATCH}`);
 		}
 
 		const threadIds: string[] = [];
@@ -727,6 +736,9 @@ export const cleanupAnonymousSupportThreads = mutation({
 	}),
 	handler: async (ctx, { secret, threadIds }) => {
 		requireTestSecret(secret);
+		if (threadIds.length > SUPPORT_THREAD_FIXTURE_BATCH) {
+			throw new Error(`Pass at most ${SUPPORT_THREAD_FIXTURE_BATCH} threadIds per call`);
+		}
 
 		let deletedSupportThreads = 0;
 		let deletedAgentThreads = 0;

@@ -12,7 +12,7 @@ import { waitForAuthenticated } from './utils/auth';
  * Tests the flow where:
  * 1. Anonymous user creates 105 support tickets (stored with localStorage ID)
  * 2. User authenticates (signs in)
- * 3. System automatically migrates ALL tickets to authenticated account (tests pagination)
+ * 3. System automatically migrates ALL tickets to authenticated account
  * 4. localStorage supportUserId is cleared
  * 5. Database shows threads now belong to authenticated user with enriched data
  */
@@ -23,6 +23,8 @@ import { resolveConvexUrl } from './utils/convex-url';
 const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
 const testSecret = process.env.AUTH_E2E_TEST_SECRET!;
 const convexUrl = resolveConvexUrl();
+// Most threads the support fixture helpers in tests.ts create or delete per call.
+const threadsPerCall = 25;
 
 const readCredentials = (): TestCredentials => {
 	if (!fs.existsSync(credentialsPath)) {
@@ -75,21 +77,26 @@ test.describe('Support ticket migration', () => {
 		const credentials = readCredentials();
 		const client = getConvexClient();
 
-		// Create fresh threads for THIS test attempt (retry-safe)
-		// Each retry gets a new anonymousUserId so previous migration doesn't affect it
+		// Retries share the signed-in user, and an attempt whose cleanup failed leaves its
+		// migrated threads on that account. Each attempt therefore uses a new anonymous ID
+		// and checks only the threads it created.
 		const anonymousUserId = `anon_${crypto.randomUUID()}`;
+		const threadIds: string[] = [];
 		console.log(`[Test] Creating 105 fresh anonymous threads for userId: ${anonymousUserId}`);
 
-		const { threadIds } = await client.mutation(api.tests.createAnonymousSupportThread, {
-			secret: testSecret,
-			anonymousUserId,
-			title: 'E2E Support Thread',
-			pageUrl: '/en/app',
-			count: 105
-		});
-		console.log(`[Test] Created ${threadIds.length} threads`);
-
 		try {
+			for (let start = 0; start < 105; start += threadsPerCall) {
+				const created = await client.mutation(api.tests.createAnonymousSupportThread, {
+					secret: testSecret,
+					anonymousUserId,
+					title: 'E2E Support Thread',
+					pageUrl: '/en/app',
+					count: Math.min(threadsPerCall, 105 - start)
+				});
+				threadIds.push(...created.threadIds);
+			}
+			console.log(`[Test] Created ${threadIds.length} threads`);
+
 			// 1. Verify threads belong to anonymous user BEFORE migration
 			const beforeMigration = await client.mutation(api.tests.getSupportThreadsByUserId, {
 				secret: testSecret,
@@ -118,12 +125,15 @@ test.describe('Support ticket migration', () => {
 				.poll(() => page.evaluate(() => localStorage.getItem('supportUserId')), { timeout: 60000 })
 				.toBeNull();
 
-			// 6. Verify ALL 105 threads now belong to authenticated user
-			const afterMigration = await client.mutation(api.tests.getSupportThreadsByUserId, {
-				secret: testSecret,
-				userId: authUserId!
-			});
-			expect(afterMigration.length).toBe(105);
+			// 6. Verify ALL 105 threads of this attempt now belong to authenticated user
+			const ownThreadIds = new Set(threadIds);
+			const migrated = (
+				await client.mutation(api.tests.getSupportThreadsByUserId, {
+					secret: testSecret,
+					userId: authUserId!
+				})
+			).filter((thread) => ownThreadIds.has(thread.threadId));
+			expect(migrated.length).toBe(105);
 
 			// 7. Verify threads are no longer under anonymous user
 			const remainingAnonymous = await client.mutation(api.tests.getSupportThreadsByUserId, {
@@ -132,10 +142,12 @@ test.describe('Support ticket migration', () => {
 			});
 			expect(remainingAnonymous.length).toBe(0);
 
-			// 8. Verify user data was populated on migrated threads
-			const sampleThread = afterMigration[0];
-			expect(sampleThread.userName).toBe(credentials.user.name);
-			expect(sampleThread.userEmail).toBe(credentials.user.email);
+			// 8. Verify user data was populated on every migrated thread
+			const notEnriched = migrated.filter(
+				(thread) =>
+					thread.userName !== credentials.user.name || thread.userEmail !== credentials.user.email
+			);
+			expect(notEnriched).toEqual([]);
 
 			// Note: UI verification skipped - test threads have no messages so they're
 			// filtered out by the widget (threads-overview.svelte filters by lastMessage).
@@ -143,10 +155,12 @@ test.describe('Support ticket migration', () => {
 		} finally {
 			// Cleanup: Delete the threads we created for this test
 			console.log(`[Test] Cleaning up ${threadIds.length} threads`);
-			await client.mutation(api.tests.cleanupAnonymousSupportThreads, {
-				secret: testSecret,
-				threadIds
-			});
+			for (let start = 0; start < threadIds.length; start += threadsPerCall) {
+				await client.mutation(api.tests.cleanupAnonymousSupportThreads, {
+					secret: testSecret,
+					threadIds: threadIds.slice(start, start + threadsPerCall)
+				});
+			}
 		}
 	});
 
