@@ -243,6 +243,19 @@ describe('ThreadList loading', () => {
 		expect(renderedRows()).toBe(25);
 	});
 
+	// svelte-infinite 0.6.0 renders its own English "No results" once a first
+	// load attempt ends the list, so a one-page inbox showed it under its rows.
+	it('ends a list that fits on one page without text beneath it', async () => {
+		const source = createQuery({ threads: rows(1), status: 'Exhausted' });
+		viewport.sentinelVisible = true;
+		renderList(source);
+		await settle();
+		await scrollToEnd();
+
+		expect(renderedRows()).toBe(1);
+		expect(document.body.textContent).not.toMatch(/No results|No more data/);
+	});
+
 	it('keeps the rows on screen while the next page loads', async () => {
 		const source = createQuery({});
 		renderList(source);
