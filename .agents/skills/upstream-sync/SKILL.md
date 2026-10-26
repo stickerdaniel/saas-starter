@@ -39,7 +39,7 @@ there is the default answer: port it from the PR head and name the PR in the syn
 - A ported commit needs an env var that does not exist as a preview deployment default.
 - A commit adds a capability this fork does not have and the case against it is that the
   fork does not want it. No diff answers that, and excluding is permanent. Ask.
-- Before opening the PR, and before any merge. Never auto-merge.
+- Once, right before the merge. Never auto-merge.
 
 ## Create an isolated worktree
 
@@ -140,9 +140,10 @@ base closes its child; rebasing a stack onto a moving main re-conflicts on i18n)
 Persist the marker as the branch's final commit, so it merges with the ported code:
 `bun .agents/skills/upstream-sync/scripts/find-fork-point.ts --mark-synced <reviewed upstream HEAD>`
 (updates `lastSynced` + `syncedAt`), then add any `excluded` entries you recorded and
-commit `.upstream-sync.json`. List excluded SHAs + reasons in the PR body. Confirm with
-the human before opening it; merge only once the **required** checks are green (a
-non-required check may stay UNSTABLE).
+commit `.upstream-sync.json`. List excluded SHAs + reasons in the PR body. Open the PR
+right away, then review it and follow it through CI. Ask the human once, right before
+the merge, and merge only once the **required** checks are green (a non-required check
+may stay UNSTABLE).
 
 Before/after media covers only visible changes adapted to a divergence, as production
 users see them.
