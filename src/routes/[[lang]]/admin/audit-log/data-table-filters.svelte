@@ -81,7 +81,11 @@
 <div class="flex items-center gap-2">
 	<Select.Root type="single" value={actionValue} onValueChange={handleActionChange}>
 		<div class="w-45">
-			<Select.Trigger class="w-full" data-testid="admin-audit-log-action-filter">
+			<Select.Trigger
+				class="w-full"
+				data-testid="admin-audit-log-action-filter"
+				aria-label={$t('admin.audit_log.column.action')}
+			>
 				{options.find((opt) => opt.value === actionValue)?.label ??
 					$t('admin.audit_log.filter.all_actions')}
 			</Select.Trigger>

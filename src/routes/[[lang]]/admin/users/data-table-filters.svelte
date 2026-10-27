@@ -105,7 +105,11 @@
 	<!-- Role Filter -->
 	<Select.Root type="single" value={roleValue} onValueChange={handleRoleChange}>
 		<div class="w-32.5">
-			<Select.Trigger class="w-full" data-testid="admin-users-role-filter-trigger">
+			<Select.Trigger
+				class="w-full"
+				data-testid="admin-users-role-filter-trigger"
+				aria-label={$t('admin.users.role')}
+			>
 				{roleOptions.find((opt) => opt.value === roleValue)?.label ??
 					$t('admin.users.filter.all_roles')}
 			</Select.Trigger>
@@ -122,7 +126,11 @@
 	<!-- Status Filter -->
 	<Select.Root type="single" value={statusValue} onValueChange={handleStatusChange}>
 		<div class="w-32.5">
-			<Select.Trigger class="w-full" data-testid="admin-users-status-filter-trigger">
+			<Select.Trigger
+				class="w-full"
+				data-testid="admin-users-status-filter-trigger"
+				aria-label={$t('admin.users.status')}
+			>
 				{statusOptions.find((opt) => opt.value === statusValue)?.label ??
 					$t('admin.users.filter.all_status')}
 			</Select.Trigger>
@@ -139,7 +147,11 @@
 	<!-- Provider Filter -->
 	<Select.Root type="single" value={providerValue} onValueChange={handleProviderChange}>
 		<div class="w-32.5">
-			<Select.Trigger class="w-full" data-testid="admin-users-provider-filter-trigger">
+			<Select.Trigger
+				class="w-full"
+				data-testid="admin-users-provider-filter-trigger"
+				aria-label={$t('admin.users.provider')}
+			>
 				{providerOptions.find((opt) => opt.value === providerValue)?.label ??
 					$t('admin.users.filter.all_providers')}
 			</Select.Trigger>

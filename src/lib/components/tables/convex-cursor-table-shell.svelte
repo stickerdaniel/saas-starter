@@ -132,7 +132,11 @@
 					>
 						<!-- The wrapper owns the fixed width; the trigger fills it. -->
 						<div class="w-20">
-							<Select.Trigger size="sm" class="w-full">
+							<Select.Trigger
+								size="sm"
+								class="w-full"
+								aria-label={rowsPerPageLabel ?? $t('table.rows_per_page')}
+							>
 								{pageSize}
 							</Select.Trigger>
 						</div>
