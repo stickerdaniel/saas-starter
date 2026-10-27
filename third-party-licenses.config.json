@@ -32,9 +32,9 @@
 	"packageOverrides": [
 		{
 			"name": "@ai-sdk/provider-utils",
-			"version": "5.0.51",
-			"sourceUrl": "https://github.com/vercel/ai/blob/69cc80b25c506971769dd8438bbce7e0eb5ef631/LICENSE",
-			"noticeFiles": ["third-party-notices/ai-sdk-provider-utils-5.0.51.txt"]
+			"version": "5.0.59",
+			"sourceUrl": "https://github.com/vercel/ai/blob/543d42cdda96e2ecb59c0a28f197067b96b5ac8d/LICENSE",
+			"noticeFiles": ["third-party-notices/ai-sdk-provider-utils-5.0.59.txt"]
 		},
 		{
 			"name": "motion-sv",
