@@ -145,6 +145,11 @@
 			"enabled": false
 		},
 		{
+			"description": "Hold @shadcn/lint at 0.2.0: 0.2.1+ classifies a declared utility with an unrecognized property, such as auth-card-transition (view-transition-name), as layout, so the auth panel's owner-only allowance in eslint/shadcn-policy.js no longer stays exclusive. Remove once a release keeps eslint/shadcn-restyle-policy.test.ts passing (#1274).",
+			"matchPackageNames": ["@shadcn/lint"],
+			"allowedVersions": "<0.2.1"
+		},
+		{
 			"description": "Suppress abandonment warnings for packages we keep intentionally. clsx and husky are stable/feature-complete, date-fns still ships fixes, vaul-svelte is stuck on 1.0.0-next.7 but has no viable Svelte 5 alternative, mode-watcher is dormant (last release 2025-06) but shallowly integrated with no active replacement; on the next Svelte major bump watch for the render_fn error (svecosystem/mode-watcher#161) and fall back to a ~50-line self-roll if it bites.",
 			"matchPackageNames": ["clsx", "date-fns", "husky", "mode-watcher", "vaul-svelte"],
 			"abandonmentThreshold": "10 years"

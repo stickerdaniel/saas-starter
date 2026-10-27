@@ -38,10 +38,10 @@
 		},
 		{
 			"name": "motion-sv",
-			"version": "0.1.13",
-			"sourceUrl": "https://github.com/hanielu/motion-svelte/tree/motion-sv@0.1.13",
-			"noticeFiles": ["third-party-notices/motion-sv-0.1.13.txt"],
-			"supplementalNoticeFiles": ["third-party-notices/motion-sv-0.1.13-NOTICE.txt"]
+			"version": "0.2.2",
+			"sourceUrl": "https://github.com/hanielu/motion-svelte/tree/motion-sv@0.2.2",
+			"noticeFiles": ["third-party-notices/motion-sv-0.2.2.txt"],
+			"supplementalNoticeFiles": ["third-party-notices/motion-sv-0.2.2-NOTICE.txt"]
 		},
 		{
 			"name": "runed",
