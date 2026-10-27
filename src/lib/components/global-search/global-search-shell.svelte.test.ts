@@ -26,7 +26,9 @@ import './command-menu.svelte';
 let component: ReturnType<typeof mount> | undefined;
 
 function trigger() {
-	return document.querySelector<HTMLButtonElement>('button[aria-label="Open search"]')!;
+	return [...document.querySelectorAll('button')].find((button) =>
+		button.textContent?.includes('Search pages...')
+	)!;
 }
 
 function shortcut(key: string, modifiers: KeyboardEventInit = {}, target: EventTarget = document) {

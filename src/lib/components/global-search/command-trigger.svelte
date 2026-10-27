@@ -26,7 +26,6 @@
 	onclick={() => globalSearch.openMenu()}
 	onpointerenter={globalSearch.preloadMenu}
 	onfocus={globalSearch.preloadMenu}
-	aria-label={$t('search.command.trigger_aria_label')}
 >
 	<span class="hidden lg:inline-flex">{$t('search.command.trigger_desktop')}</span>
 	<span class="inline-flex lg:hidden">{$t('search.command.trigger_mobile')}</span>

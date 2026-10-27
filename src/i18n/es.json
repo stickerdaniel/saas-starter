@@ -1105,7 +1105,6 @@
 			},
 			"input_placeholder": "Buscar páginas...",
 			"no_results": "No se encontraron resultados.",
-			"trigger_aria_label": "Abrir búsqueda",
 			"trigger_desktop": "Buscar páginas...",
 			"trigger_mobile": "Buscar..."
 		}

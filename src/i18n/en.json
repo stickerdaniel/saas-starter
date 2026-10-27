@@ -1105,7 +1105,6 @@
 			},
 			"input_placeholder": "Search pages...",
 			"no_results": "No results found.",
-			"trigger_aria_label": "Open search",
 			"trigger_desktop": "Search pages...",
 			"trigger_mobile": "Search..."
 		}
