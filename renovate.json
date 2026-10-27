@@ -109,7 +109,7 @@
 			]
 		},
 		{
-			"description": "Disable AI ecosystem major updates while Convex Agent pins the AI SDK major. It peers on ai ^6 today, so the next major has nowhere to land until the agent follows",
+			"description": "Disable AI ecosystem major updates while Convex Agent pins the AI SDK major. It peers on ai ^7 today, so the next major has nowhere to land until the agent follows",
 			"matchUpdateTypes": ["major"],
 			"enabled": false,
 			"matchPackageNames": [
@@ -118,6 +118,11 @@
 				"/^@convex-dev/agent$/",
 				"/^@openrouter/ai-sdk-provider$/"
 			]
+		},
+		{
+			"description": "Hold ai at 7.0.140: from 7.0.141 the gateway model id union makes every new Agent(...) fail type checking with TS2590 in @convex-dev/agent 0.7.8 (get-convex/agent#417). Remove once a published @convex-dev/agent carries the fix and Agent construction, streaming and the agent-v7 boundary test type-check with the newer ai (#1275).",
+			"matchPackageNames": ["ai"],
+			"allowedVersions": "<=7.0.140"
 		},
 		{
 			"description": "Disable autumn-js major updates until @useautumn/convex ships an autumn-js 1.x compatible release (#666)",
