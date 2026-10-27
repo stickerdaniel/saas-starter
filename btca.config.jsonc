@@ -5,6 +5,12 @@
 	"resources": [
 		{
 			"type": "git",
+			"name": "domAccessibilityApi",
+			"url": "https://github.com/eps1lon/dom-accessibility-api",
+			"branch": "main"
+		},
+		{
+			"type": "git",
 			"name": "cloudflareWorkers",
 			"url": "https://github.com/cloudflare/workers-sdk",
 			"branch": "main"

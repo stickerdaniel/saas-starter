@@ -38,7 +38,11 @@
 	<!-- Type Filter -->
 	<Select.Root type="single" value={typeFilter} onValueChange={handleTypeChange}>
 		<div class="w-32.5">
-			<Select.Trigger class="w-full" data-testid="admin-settings-type-filter-trigger">
+			<Select.Trigger
+				class="w-full"
+				data-testid="admin-settings-type-filter-trigger"
+				aria-label={$t('admin.settings.column_type')}
+			>
 				{typeOptions.find((opt) => opt.value === typeFilter)?.label ??
 					$t('admin.settings.filter.all_types')}
 			</Select.Trigger>

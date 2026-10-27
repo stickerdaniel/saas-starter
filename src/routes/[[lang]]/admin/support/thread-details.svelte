@@ -198,7 +198,7 @@
 							value={thread.supportMetadata?.assignedTo ?? ''}
 							onValueChange={updateAssignment}
 						>
-							<Select.Trigger>
+							<Select.Trigger aria-label={$t('admin.support.details.assignee')}>
 								{thread.assignedAdmin?.name || $t('admin.support.assignee.not_assigned')}
 							</Select.Trigger>
 							<Select.Content>
@@ -221,7 +221,7 @@
 							value={thread.supportMetadata?.status || 'open'}
 							onValueChange={(v) => updateStatus(v as 'open' | 'done')}
 						>
-							<Select.Trigger>
+							<Select.Trigger aria-label={$t('admin.support.details.status')}>
 								{$t(STATUS_LABEL_KEYS[thread.supportMetadata?.status || 'open'])}
 							</Select.Trigger>
 							<Select.Content>
@@ -260,7 +260,7 @@
 							value={thread.supportMetadata?.priority ?? ''}
 							onValueChange={(v) => updatePriority(v as 'low' | 'medium' | 'high' | '' | undefined)}
 						>
-							<Select.Trigger>
+							<Select.Trigger aria-label={$t('admin.support.details.priority')}>
 								{$t(
 									thread.supportMetadata?.priority
 										? PRIORITY_LABEL_KEYS[thread.supportMetadata.priority]

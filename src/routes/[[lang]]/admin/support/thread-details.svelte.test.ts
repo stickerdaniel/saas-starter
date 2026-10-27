@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
+import { computeAccessibleName } from 'dom-accessibility-api';
 import { getFunctionName, type FunctionReference } from 'convex/server';
 import en from '../../../../i18n/en.json';
 import de from '../../../../i18n/de.json';
@@ -71,6 +72,24 @@ afterEach(() => {
 });
 
 describe('ThreadDetails', () => {
+	it.each([
+		{ locale: 'en', dictionary: en },
+		{ locale: 'de', dictionary: de }
+	])('names the selects separately from their values in $locale', ({ dictionary }) => {
+		useDictionary(dictionary);
+		renderDetails({ status: 'done', priority: 'medium' });
+
+		expect(
+			[...document.querySelectorAll('[role="combobox"]')].map((element) =>
+				computeAccessibleName(element)
+			)
+		).toEqual([
+			dictionary.admin.support.details.assignee,
+			dictionary.admin.support.details.status,
+			dictionary.admin.support.details.priority
+		]);
+	});
+
 	it('shows the selected status and priority in the reader’s language', () => {
 		renderDetails({ status: 'done', priority: 'medium' });
 
