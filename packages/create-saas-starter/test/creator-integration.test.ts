@@ -5,8 +5,8 @@ import { parse as parseYaml } from 'yaml';
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '../../..');
 
-const SETUP_NODE = 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020';
-const DOWNLOAD_ARTIFACT = 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c';
+const SETUP_NODE = 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1';
+const DOWNLOAD_ARTIFACT = 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333';
 const MAIN_ONLY =
 	"github.repository == 'stickerdaniel/saas-starter' && " +
 	"(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && " +
@@ -192,33 +192,52 @@ describe('creator workflows', () => {
 		for (const os of ['ubuntu-latest', 'macos-latest', 'windows-latest']) {
 			expect(workflow).toContain(`os: ${os}`);
 		}
-		for (const version of ['node: 22.17.0', 'bun: 1.3.9', 'node: 24.21.0', 'bun: 1.3.14']) {
+		for (const version of ['node: 22.17.0', 'bun: 1.3.9', 'bun: 1.3.14']) {
 			expect(workflow).toContain(version);
 		}
 		for (const command of ['typecheck', 'test', 'knip', 'build', 'test:packed']) {
 			expect(workflow).toContain(`bun run --cwd packages/create-saas-starter ${command}`);
 		}
 		expect(workflow).toContain('CREATE_SAAS_STARTER_ARTIFACT_DIR:');
-		expect(workflow).toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a');
+		expect(workflow).toContain('actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9');
 	});
 
 	it('requires the release gate test only on the entry with the release npm', () => {
-		const { verify } = (
+		type Step = {
+			uses?: string;
+			run?: string;
+			with?: Record<string, string>;
+			env?: Record<string, string>;
+		};
+		const {
+			verify,
+			'release-gate': releaseGate,
+			publish
+		} = (
 			parseYaml(read('.github/workflows/create-saas-starter.yml')) as {
 				jobs: {
 					verify: {
 						strategy: { matrix: { include: Array<Record<string, unknown>> } };
-						steps: Array<{ run?: string; env?: Record<string, string> }>;
+						steps: Step[];
 					};
+					'release-gate': { steps: Step[] };
+					publish: { steps: Step[] };
 				};
 			}
 		).jobs;
 		const required = verify.strategy.matrix.include.filter(
 			(entry) => entry.release_gate_test !== undefined
 		);
+		// The release gate tests load tar and pacote from the npm bundled with Node,
+		// so the required entry must run the Node the release jobs publish with.
+		const nodeOf = (steps: Step[]) =>
+			steps.find((step) => step.uses?.startsWith('actions/setup-node@'))?.with?.['node-version'];
+		const releaseNode = nodeOf(publish.steps);
 
+		expect(releaseNode).toBeDefined();
+		expect(nodeOf(releaseGate.steps)).toBe(releaseNode);
 		expect(required).toEqual([
-			expect.objectContaining({ node: '24.21.0', artifact: true, release_gate_test: 'required' })
+			expect.objectContaining({ node: releaseNode, artifact: true, release_gate_test: 'required' })
 		]);
 		expect(
 			verify.steps.find((step) => step.run === 'bun run --cwd packages/create-saas-starter test')

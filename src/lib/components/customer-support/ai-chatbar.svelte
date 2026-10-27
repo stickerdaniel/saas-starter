@@ -25,7 +25,7 @@
 	const { t } = getTranslate();
 
 	let input = $state('');
-	const { isFeedbackOpen = false } = $props<{ isFeedbackOpen?: boolean }>();
+	const { isFeedbackOpen = false }: { isFeedbackOpen?: boolean } = $props();
 
 	const support = supportContext.get();
 	const { conversation } = support;
