@@ -137,9 +137,13 @@ function gitInput(cwd: string, args: string[], input: string | Buffer): string {
 	return r.stdout.trim();
 }
 
+// Moves the remote's main the way another clone's push would, leaving `cwd`
+// untouched. Git 2.56+ also moves `origin/main` when `cwd` pushes to the URL
+// of its configured `origin`, so the remote fetches the commit instead.
 function advertiseOriginMain(cwd: string, ref: string): void {
 	const origin = git(cwd, ['remote', 'get-url', 'origin']);
-	git(cwd, ['push', '-q', '--force', origin, `${ref}:refs/heads/main`]);
+	const commit = git(cwd, ['rev-parse', '--verify', `${ref}^{commit}`]);
+	git(origin, ['fetch', '-q', cwd, `+${commit}:refs/heads/main`]);
 }
 
 function markBase(cwd: string): void {
