@@ -92,6 +92,11 @@
 			]
 		},
 		{
+			"description": "Hold Better Auth below 1.7 while @convex-dev/better-auth peers on better-auth <1.7.0; 1.7 removed the oidc-provider plugin export its Convex plugin imports. Remove once a published @convex-dev/better-auth accepts 1.7 (#1272).",
+			"matchPackageNames": ["better-auth", "/^@better-auth//"],
+			"allowedVersions": "<1.7.0"
+		},
+		{
 			"description": "Group AI ecosystem non-major updates for manual review",
 			"matchUpdateTypes": ["minor", "patch", "pin", "digest"],
 			"groupName": "ai ecosystem",

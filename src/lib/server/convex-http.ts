@@ -1,4 +1,5 @@
 import { CONVEX_INTERNAL_URL } from '$app/env/private';
+import { PUBLIC_CONVEX_URL } from '$app/env/public';
 import { createConvexHttpClient } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 
 /**
@@ -36,7 +37,7 @@ const fetchWithQueryDeadline: typeof globalThis.fetch = (input, init) => {
 export function createServerConvexHttpClient(args: { token?: string }) {
 	return createConvexHttpClient({
 		token: args.token,
-		convexUrl: CONVEX_INTERNAL_URL || undefined,
+		convexUrl: CONVEX_INTERNAL_URL || PUBLIC_CONVEX_URL,
 		options: { fetch: fetchWithQueryDeadline }
 	});
 }
