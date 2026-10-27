@@ -37,37 +37,48 @@ const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
 // (observed 2026-10-15), so the 5 s default failed a run whose assertions all passed.
 vi.setConfig({ testTimeout: 30_000 });
 
-/** Assert-only format run, with the parent's colour and Git context stripped. */
-function formatCheck(...args: string[]): { status: number; output: string } {
-	const result = spawnSync(testExecutable('bun'), [SCRIPT, '--ci', '--scope', 'format', ...args], {
-		cwd: ROOT,
-		env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
-		timeout: 10_000,
-		killSignal: 'SIGKILL',
-		encoding: 'utf8'
-	});
-	return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
+/** The checker derives its root from its module path, so isolate both script and cwd. */
+function formatChecks(repository = ROOT) {
+	const script = path.join(repository, 'scripts', 'static-checks.ts');
+	return {
+		formatCheck(...args: string[]): { status: number; output: string } {
+			const result = spawnSync(
+				testExecutable('bun'),
+				[script, '--ci', '--scope', 'format', ...args],
+				{
+					cwd: repository,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					timeout: 10_000,
+					killSignal: 'SIGKILL',
+					encoding: 'utf8'
+				}
+			);
+			return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
+		},
+
+		/** The computed-list channel used by format-only hook consumers. */
+		formatCheckFilesFrom(
+			input: string | Uint8Array,
+			cwd = repository
+		): { status: number; output: string } {
+			const result = spawnSync(
+				testExecutable('bun'),
+				[script, '--ci', '--scope', 'format', '--files-from', '-'],
+				{
+					cwd,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					timeout: 10_000,
+					killSignal: 'SIGKILL',
+					input,
+					encoding: 'utf8'
+				}
+			);
+			return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
+		}
+	};
 }
 
-/** The computed-list channel used by format-only hook consumers. */
-function formatCheckFilesFrom(
-	input: string | Uint8Array,
-	cwd = ROOT
-): { status: number; output: string } {
-	const result = spawnSync(
-		testExecutable('bun'),
-		[SCRIPT, '--ci', '--scope', 'format', '--files-from', '-'],
-		{
-			cwd,
-			env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
-			timeout: 10_000,
-			killSignal: 'SIGKILL',
-			input,
-			encoding: 'utf8'
-		}
-	);
-	return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
-}
+const { formatCheck, formatCheckFilesFrom } = formatChecks();
 
 function createCheckerClone(): { directory: string; repository: string } {
 	const directory = path.join(ROOT, 'scratch', `format-ledger-${process.pid}-${Date.now()}`);
@@ -208,21 +219,22 @@ describe('format-only static checks', () => {
 	});
 
 	it('rejects an ambiguous BOM whether it starts the stream or a later path', () => {
+		const { directory, repository } = createCheckerClone();
+		const checker = formatChecks(repository);
 		const plain = `.format-bom-${process.pid}.ts`;
 		const marked = `${String.fromCharCode(0xfeff)}${plain}`;
-		writeFileSync(path.join(ROOT, plain), 'export const value = 1;\n');
 		try {
-			const first = formatCheckFilesFrom(`${marked}\0${plain}\0`);
+			writeFileSync(path.join(repository, plain), 'export const value = 1;\n');
+			const first = checker.formatCheckFilesFrom(`${marked}\0${plain}\0`);
 			expect(first.status).toBe(1);
 			expect(first.output).toContain('without a byte-order mark');
 
-			writeFileSync(path.join(ROOT, marked), 'export const value = 1;\n');
-			const later = formatCheckFilesFrom(`${plain}\0${marked}\0`);
+			writeFileSync(path.join(repository, marked), 'export const value = 1;\n');
+			const later = checker.formatCheckFilesFrom(`${plain}\0${marked}\0`);
 			expect(later.status).toBe(1);
 			expect(later.output).toContain('Unsafe U+FEFF');
 		} finally {
-			rmSync(path.join(ROOT, marked), { force: true });
-			rmSync(path.join(ROOT, plain), { force: true });
+			rmSync(directory, { recursive: true, force: true });
 		}
 	});
 
@@ -455,48 +467,69 @@ describe('format-only static checks', () => {
 	});
 
 	it('rejects the replacement character produced by lossy argv decoding', () => {
+		const { directory, repository } = createCheckerClone();
 		const relative = `.format-replacement-${String.fromCharCode(0xfffd)}-${process.pid}.ts`;
-		withRepositoryFile(relative, 'export const value = 1;\n', (file) => {
-			const result = formatCheck(file);
+		const file = path.join(repository, relative);
+		try {
+			writeFileSync(file, 'export const value = 1;\n');
+			const result = formatChecks(repository).formatCheck(file);
 			expect(result.status).toBe(1);
 			expect(result.output).toContain('Unsafe U+FFFD');
 			expect(result.output).not.toContain('SvelteKit sync');
-		});
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
 	it.skipIf(process.platform === 'win32')(
 		'rejects unsafe controls even when the computed-list protocol preserves them',
 		() => {
+			const { directory, repository } = createCheckerClone();
+			const checker = formatChecks(repository);
 			const safe = `.format-newline-${process.pid}.ts`;
 			const unsafe = `.format-newline-${process.pid}\n.ts`;
-			writeFileSync(path.join(ROOT, safe), 'export const value = 1;\n');
-			writeFileSync(path.join(ROOT, unsafe), 'export const value = 1;\n');
 			try {
-				const result = formatCheckFilesFrom(`${unsafe}\0`);
+				writeFileSync(path.join(repository, safe), 'export const value = 1;\n');
+				writeFileSync(path.join(repository, unsafe), 'export const value = 1;\n');
+				const result = checker.formatCheckFilesFrom(`${unsafe}\0`);
 				expect(result.status).toBe(1);
 				expect(result.output).toContain('Unsafe U+000A');
 				expect(result.output).not.toContain('SvelteKit sync');
 			} finally {
-				rmSync(path.join(ROOT, unsafe), { force: true });
-				rmSync(path.join(ROOT, safe), { force: true });
+				rmSync(directory, { recursive: true, force: true });
 			}
 		},
 		60_000
 	);
 
-	it('rejects an unsafe child expanded from a safe formatter directory', () => {
+	it('rejects an unsafe child without contaminating another repository check', () => {
+		const clone = createCheckerClone();
 		const relative = `scripts/.format-unsafe-child-${process.pid}`;
-		const directory = path.join(ROOT, relative);
+		const directory = path.join(clone.repository, relative);
 		const child = `bad${String.fromCharCode(0x202e)}.ts`;
-		mkdirSync(directory, { recursive: true });
-		writeFileSync(path.join(directory, child), 'export const value = 1;\n');
 		try {
-			const result = formatCheck(relative);
+			mkdirSync(directory, { recursive: true });
+			writeFileSync(path.join(directory, child), 'export const value = 1;\n');
+			const result = formatChecks(clone.repository).formatCheck(relative);
 			expect(result.status, result.output).toBe(1);
 			expect(result.output).toContain('Unsafe U+202E');
 			expect(result.output).not.toContain('All checks passed');
+
+			// Keep the unsafe fixture alive while a sibling check walks the shared checkout.
+			const sibling = spawnSync(testExecutable('bun'), [SCRIPT, '--ci', '--scope', 'compat'], {
+				cwd: ROOT,
+				env: { ...sanitizedGitEnv(), PATH: '', CI: 'true', CONVEX_COMPAT_BASE: 'missing ref' },
+				timeout: 10_000,
+				killSignal: 'SIGKILL',
+				encoding: 'utf8'
+			});
+			const output = `${sibling.stdout}${sibling.stderr}`;
+			expect(sibling.status, output).toBe(1);
+			expect(output).toContain('Convex consumer compatibility');
+			expect(output).toContain('CONVEX_COMPAT_BASE=missing ref');
+			expect(output).not.toContain('Unsafe U+202E');
 		} finally {
-			rmSync(directory, { recursive: true, force: true });
+			rmSync(clone.directory, { recursive: true, force: true });
 		}
 	});
 
