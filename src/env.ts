@@ -7,8 +7,8 @@ import { defineEnvVars } from '@sveltejs/kit/env';
  *
  * Public variables are static: they are inlined at build time, so an empty value still
  * dead-code-eliminates its feature. `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL`
- * are read by `@mmailaender/convex-better-auth-svelte` through `$env/static/public`,
- * which SvelteKit 3 also serves from this registry.
+ * are passed to `@mmailaender/convex-better-auth-svelte` explicitly, because it cannot
+ * derive the HTTP actions URL of a local, self-hosted, or custom-domain deployment.
  */
 export const variables = defineEnvVars({
 	PUBLIC_CONVEX_URL: { public: true, static: true },

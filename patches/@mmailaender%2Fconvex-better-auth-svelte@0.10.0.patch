@@ -1,0 +1,17 @@
+diff --git a/dist/svelte/client.svelte.js b/dist/svelte/client.svelte.js
+index f69905e481b7a6a4cd1dac0ae2b79a1d33b7b0d0..8b901b66798a438a818f60e6fe6b638cb6021ef7 100644
+--- a/dist/svelte/client.svelte.js
++++ b/dist/svelte/client.svelte.js
+@@ -4,8 +4,10 @@ import { beforeNavigate } from '$app/navigation';
+ import isNetworkError from 'is-network-error';
+ import { resolveConvexUrl } from '../sveltekit/convex-url.js';
+ import { fetchTokenBrowser } from './fetch-token.js';
+-// Context key for sharing auth client and functions
+-const AUTH_CONTEXT_KEY = Symbol('auth-context');
++// Context key for sharing auth client and functions. A registered symbol, so a
++// second instance of this module (a dev-server re-evaluation mid-render) still
++// reads the context the first instance set.
++const AUTH_CONTEXT_KEY = Symbol.for('@mmailaender/convex-better-auth-svelte/auth-context');
+ /* -------------------------------------------------------------------------- */
+ /*                          Public entrypoint                                 */
+ /* -------------------------------------------------------------------------- */

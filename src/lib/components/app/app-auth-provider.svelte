@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { invalidate } from '$app/navigation';
 	import { browser } from '$app/env';
+	import { PUBLIC_CONVEX_URL } from '$app/env/public';
 	import { createSvelteAuthClient, useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '#lib/auth-client.js';
 
@@ -9,10 +10,7 @@
 
 	createSvelteAuthClient({
 		authClient,
-		// The library sets `disabled: false`, overriding convex-svelte's server default.
-		// An enabled client opens a WebSocket per server render that nothing closes, so
-		// the Node server keeps reconnecting and never exits on SIGTERM.
-		options: { disabled: !browser },
+		convexUrl: PUBLIC_CONVEX_URL,
 		getServerState() {
 			return page.data.authState;
 		}
