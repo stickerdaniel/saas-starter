@@ -1,0 +1,56 @@
+diff --git a/dist/Streamdown.svelte b/dist/Streamdown.svelte
+index 94a1a95be167e4484bc81b3c36b92617f0fd0ea0..370b650cd1f6a085dedb3e9f7dee7243eafaf0ec 100644
+--- a/dist/Streamdown.svelte
++++ b/dist/Streamdown.svelte
+@@ -278,8 +278,10 @@
+ 		}
+ 
+ 		/* Lives here, not in Mermaid.svelte: the table overlay needs it on pages
+-		   that never render a diagram. */
+-		[data-expanded='true'] {
++		   that never render a diagram. Global, so it only matches elements Streamdown
++		   marks as expandable: `data-expanded` is a common attribute name on the
++		   host page. `:where` keeps the specificity of a bare attribute selector. */
++		:where([data-streamdown-expandable])[data-expanded='true'] {
+ 			position: fixed;
+ 			top: 16px;
+ 			left: 16px;
+diff --git a/dist/utils/expand.svelte.js b/dist/utils/expand.svelte.js
+index fe57293cd52cd65b4deafd9e4f5e81b9592f4fbd..391cd196633db63c49fc9b1041c2100785360a1b 100644
+--- a/dist/utils/expand.svelte.js
++++ b/dist/utils/expand.svelte.js
+@@ -3,7 +3,8 @@ import { useKeyDown } from './useKeyDown.svelte.js';
+  * The fullscreen half of the mermaid expand behaviour (Mermaid.svelte:264-267)
+  * without panzoom's `expand()`, which is entangled with `zoomToFit` and a FLIP
+  * animation a table has no use for: state, Escape and focus only. The
+- * `position: fixed` comes from the global `[data-expanded='true']` rule in
++ * `position: fixed` comes from the global
++ * `:where([data-streamdown-expandable])[data-expanded='true']` rule in
+  * Streamdown.svelte.
+  *
+  * The flag lives in the caller (so the markup can drive `role`/`aria-*`/the
+@@ -19,8 +20,10 @@ export const useExpand = (opts) => {
+     const set = (next) => {
+         const target = opts.getTarget();
+         opts.expanded = next;
+-        if (target)
++        if (target) {
++            target.dataset.streamdownExpandable = '';
+             target.dataset.expanded = String(next);
++        }
+         if (next)
+             target?.focus();
+         else
+diff --git a/dist/utils/panzoom.svelte.js b/dist/utils/panzoom.svelte.js
+index 5577518efb712eea69707e823bd35f94f9220f89..c47471eb651a5098955902bb1bd49df5341f7d4d 100644
+--- a/dist/utils/panzoom.svelte.js
++++ b/dist/utils/panzoom.svelte.js
+@@ -353,6 +353,8 @@ export const usePanzoom = (opts = {}) => {
+     const expand = (expand) => {
+         if (!eventTarget)
+             return;
++        // Opts eventTarget into the global fullscreen rule in Streamdown.svelte.
++        eventTarget.dataset.streamdownExpandable = '';
+         // Capture first state
+         const first = eventTarget.getBoundingClientRect();
+         if (expand) {
