@@ -3,7 +3,11 @@
 	// during sync. It allows explicit .ts specifiers rather than rewriting them, which this
 	// noEmit, Vite-built app relies on.
 	"extends": "$app/tsconfig",
-	"files": ["scripts/windows-job.ts", "scripts/check-table-scroll.ts"],
+	"files": [
+		"scripts/windows-job.ts",
+		"scripts/check-table-scroll.ts",
+		"scripts/check-streamdown-overlay.ts"
+	],
 	"compilerOptions": {
 		"sourceMap": true,
 		"strict": true,
