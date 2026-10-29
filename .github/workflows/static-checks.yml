@@ -193,10 +193,25 @@ jobs:
     name: Upstream Report Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The selection lists the pull request's changed files.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-      # The tests read no generated file beyond SvelteKit's tsconfig.
-      - run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun svelte-kit sync
-      - run: bun run test:upstream-report
+      # The check is required, so the job always reports and only runs the suite when a
+      # pull request changes one of its inputs. A missing selection runs it.
+      - name: Select the upstream report tests
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+        run: bun scripts/upstream-report-scope.ts
+      # The tests read no generated file.
+      - if: steps.scope.outputs.run != 'false'
+        run: bun install --frozen-lockfile --ignore-scripts
+      - if: steps.scope.outputs.run != 'false'
+        run: bun run test:upstream-report
