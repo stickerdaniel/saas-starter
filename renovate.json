@@ -155,6 +155,21 @@
 			"allowedVersions": "<0.2.1"
 		},
 		{
+			"description": "Hold Prettier at 3.9.10: CI formats with `bun fmt` from the Bun build in .github/workflows/static-checks.yml, which was checked to print the same bytes as these three versions, while editors and local runs without BUN_LINT_BINARY use Prettier. Lift these holds only after both print the same bytes for every file in the project.",
+			"matchPackageNames": ["prettier"],
+			"allowedVersions": "3.9.10"
+		},
+		{
+			"description": "Hold prettier-plugin-svelte at 4.1.1; see the Prettier hold.",
+			"matchPackageNames": ["prettier-plugin-svelte"],
+			"allowedVersions": "4.1.1"
+		},
+		{
+			"description": "Hold prettier-plugin-tailwindcss at 0.8.1; see the Prettier hold.",
+			"matchPackageNames": ["prettier-plugin-tailwindcss"],
+			"allowedVersions": "0.8.1"
+		},
+		{
 			"description": "Suppress abandonment warnings for packages we keep intentionally. clsx and husky are stable/feature-complete, date-fns still ships fixes, vaul-svelte is stuck on 1.0.0-next.7 but has no viable Svelte 5 alternative, mode-watcher is dormant (last release 2025-06) but shallowly integrated with no active replacement; on the next Svelte major bump watch for the render_fn error (svecosystem/mode-watcher#161) and fall back to a ~50-line self-roll if it bites.",
 			"matchPackageNames": ["clsx", "date-fns", "husky", "mode-watcher", "vaul-svelte"],
 			"abandonmentThreshold": "10 years"

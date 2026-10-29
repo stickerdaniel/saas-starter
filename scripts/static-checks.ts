@@ -1202,9 +1202,10 @@ export function prettierLiteralPattern(file: string): string {
 }
 
 /**
- * One formatter contract, whether the run names files or the whole project.
+ * One Prettier contract, whether the run names files or the whole project. A full run
+ * with BUN_LINT_BINARY set uses that build's `bun fmt` instead; see runFormatter().
  *
- * Both invocations are built here so they cannot drift: the project run used to take
+ * Both Prettier invocations are built here so they cannot drift: the project run used to take
  * neither --ignore-unknown nor the plugins while the file-scoped run passed plugins on
  * the command line, so the two could disagree about what a given file even is. Neither
  * names a plugin now, because .prettierrc declares them once and the formatter reads it.
@@ -1238,9 +1239,18 @@ function assertRegularFormatterPaths(files: string[]): void {
 	}
 }
 
-async function runPrettier(formatFlag: '--check' | '--write', files?: string[]): Promise<void> {
+async function runFormatter(formatFlag: '--check' | '--write', files?: string[]): Promise<void> {
 	if (files === undefined) {
-		await runCommand('bun', prettierArguments(formatFlag));
+		// CI points this at the Bun build it lints with. Its `bun fmt` printed the same bytes as
+		// the Prettier versions renovate.json holds for every file here, in a fraction of the
+		// time. Naming Prettier's ignore files keeps it from also reading .git/info/exclude.
+		const bun = process.env.BUN_LINT_BINARY;
+		if (bun) {
+			const ignorePaths = PRETTIER_IGNORE_FILES.flatMap((file) => ['--ignore-path', file]);
+			await runCommand(bun, ['fmt', '--no-script', ...ignorePaths, formatFlag, '.']);
+		} else {
+			await runCommand('bun', prettierArguments(formatFlag));
+		}
 		return;
 	}
 	const baseArguments = prettierArguments(formatFlag, []);
@@ -1443,10 +1453,10 @@ async function main(): Promise<void> {
 			if (files.length === 0) {
 				fail('Full-project format scope found no supported, nonignored files.');
 			}
-			await runPrettier('--check');
+			await runFormatter('--check');
 			ledger.ran('prettier', files.length);
 		} else if (files.length > 0) {
-			await runPrettier('--check', files);
+			await runFormatter('--check', files);
 			ledger.ran('prettier', files.length);
 		} else {
 			// Prettier is the only check in this scope, so it can answer for the whole run:
@@ -1620,10 +1630,10 @@ async function main(): Promise<void> {
 			const formatFlag = assertMode ? '--check' : '--write';
 			const files = ledger.filesFor('prettier');
 			if (!scopedMode) {
-				await runPrettier(formatFlag);
+				await runFormatter(formatFlag);
 				ledger.ran('prettier', formattable.length);
 			} else if (files.length > 0) {
-				await runPrettier(formatFlag, files);
+				await runFormatter(formatFlag, files);
 				ledger.ran('prettier', files.length);
 			} else {
 				console.log('No files to format');
