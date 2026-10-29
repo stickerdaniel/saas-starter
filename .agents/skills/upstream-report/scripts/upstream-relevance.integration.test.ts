@@ -74,6 +74,8 @@ const FIXTURE_GIT_VARS = [
 	'GIT_OBJECT_DIRECTORY',
 	'GIT_COMMON_DIR',
 	'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+	// CI sets it for its own checkout; blobless fixture clones need to fetch lazily.
+	'GIT_NO_LAZY_FETCH',
 	'GIT_CEILING_DIRECTORIES',
 	'GIT_CONFIG',
 	'GIT_CONFIG_GLOBAL',

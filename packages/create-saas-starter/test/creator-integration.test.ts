@@ -368,10 +368,16 @@ describe('creator workflows', () => {
 		const windowsLifecycle = read('.github/workflows/windows-process-lifecycle.yml');
 		// Each job's first Bun command must install the frozen lock, so no check runs on a stale or rewritten one.
 		// Jobs that read nothing postinstall generates may skip the install scripts.
+		// A selection that decides whether the checks run imports Node built-ins only
+		// (scripts/upstream-report-scope.test.ts holds that), so it reads no lock.
+		const preInstallSelections = new Set(['bun scripts/upstream-report-scope.ts']);
 		const firstBunRuns = Object.entries(jobs).flatMap(([id, job]) => {
 			const run = job.steps
 				.map((step) => normalizedRun(step.run))
-				.find((command) => command !== undefined && /^bunx? /m.test(command));
+				.find(
+					(command) =>
+						command !== undefined && /^bunx? /m.test(command) && !preInstallSelections.has(command)
+				);
 			return run === undefined ? [] : [[id, run] as const];
 		});
 
