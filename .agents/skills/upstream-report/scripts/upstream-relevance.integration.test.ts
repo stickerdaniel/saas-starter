@@ -1922,13 +1922,15 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(verdict?.note).toMatch(/root history did not complete/);
 	});
 
-	it.each([undefined, 'root-histroy'])(
-		'refuses a shortened test deadline without a named operation (%s)',
+	// An empty operation stands for a missing one, so a selector the parent shell exports
+	// cannot leak in and satisfy the guard.
+	it.each(['', 'root-histroy'])(
+		'refuses a shortened test deadline without a valid operation (%j)',
 		(operation) => {
 			const r = run(fork, ['--json'], {
 				NODE_ENV: 'test',
 				UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
-				...(operation === undefined ? {} : { UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: operation })
+				UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: operation
 			});
 			expect(r.status).not.toBe(0);
 			expect(r.stderr).toMatch(/needs UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION/);
