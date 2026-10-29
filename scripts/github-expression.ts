@@ -7,7 +7,8 @@
  *
  * Anything it does not model (other operators, functions, unknown contexts)
  * throws instead of guessing, so a policy test can never pass on an
- * expression this file misreads.
+ * expression this file misreads. The status functions are calls like any
+ * other and are only answered for a condition given the status they read.
  * https://docs.github.com/en/actions/reference/workflows-and-actions/expressions
  */
 
@@ -21,13 +22,22 @@ export type ExpressionValue =
 
 export type ExpressionContexts = Readonly<Record<string, ExpressionValue>>;
 
+const STATUS_FUNCTIONS = ['always', 'success', 'failure', 'cancelled'] as const;
+
+type StatusFunction = (typeof STATUS_FUNCTIONS)[number];
+
+/** What success(), failure() and cancelled() return where a job or step condition is read. */
+export type ConditionStatus = Readonly<Record<Exclude<StatusFunction, 'always'>, boolean>>;
+
+type CallName = 'contains' | 'format' | StatusFunction;
+
 type Node =
 	| { kind: 'literal'; value: ExpressionValue }
 	| { kind: 'context'; name: string }
 	| { kind: 'property'; object: Node; key: Node }
 	| { kind: 'not'; operand: Node }
 	| { kind: 'binary'; operator: '==' | '!=' | '&&' | '||'; left: Node; right: Node }
-	| { kind: 'call'; name: 'contains' | 'format'; args: Node[] };
+	| { kind: 'call'; name: CallName; args: Node[] };
 
 type Token =
 	| { kind: 'string'; value: string }
@@ -35,7 +45,7 @@ type Token =
 	| { kind: 'name'; value: string }
 	| { kind: 'punct'; value: string };
 
-const FUNCTIONS = new Set(['contains', 'format']);
+const FUNCTIONS = new Set<string>(['contains', 'format', ...STATUS_FUNCTIONS]);
 const PUNCTUATION = ['==', '!=', '&&', '||', '!', '(', ')', '[', ']', '.', ','];
 
 function tokenize(source: string): Token[] {
@@ -173,7 +183,7 @@ function parse(source: string): Node {
 			args.push(or());
 		}
 		position++;
-		return { kind: 'call', name: token.value as 'contains' | 'format', args };
+		return { kind: 'call', name: token.value as CallName, args };
 	}
 
 	const tree = or();
@@ -236,7 +246,27 @@ function format(template: string, args: ExpressionValue[]): string {
 	});
 }
 
-function run(node: Node, contexts: ExpressionContexts): ExpressionValue {
+function isStatusFunction(name: CallName): name is StatusFunction {
+	return (STATUS_FUNCTIONS as readonly string[]).includes(name);
+}
+
+function callsStatus(node: Node): boolean {
+	switch (node.kind) {
+		case 'literal':
+		case 'context':
+			return false;
+		case 'property':
+			return callsStatus(node.object) || callsStatus(node.key);
+		case 'not':
+			return callsStatus(node.operand);
+		case 'binary':
+			return callsStatus(node.left) || callsStatus(node.right);
+		case 'call':
+			return isStatusFunction(node.name) || node.args.some(callsStatus);
+	}
+}
+
+function run(node: Node, contexts: ExpressionContexts, status?: ConditionStatus): ExpressionValue {
 	switch (node.kind) {
 		case 'literal':
 			return node.value;
@@ -244,18 +274,23 @@ function run(node: Node, contexts: ExpressionContexts): ExpressionValue {
 			if (!Object.hasOwn(contexts, node.name)) throw new Error(`Unmodelled context ${node.name}`);
 			return contexts[node.name]!;
 		case 'property':
-			return readProperty(run(node.object, contexts), run(node.key, contexts));
+			return readProperty(run(node.object, contexts, status), run(node.key, contexts, status));
 		case 'not':
-			return !isTruthy(run(node.operand, contexts));
+			return !isTruthy(run(node.operand, contexts, status));
 		case 'binary': {
-			const left = run(node.left, contexts);
-			if (node.operator === '&&') return isTruthy(left) ? run(node.right, contexts) : left;
-			if (node.operator === '||') return isTruthy(left) ? left : run(node.right, contexts);
-			const equal = looselyEqual(left, run(node.right, contexts));
+			const left = run(node.left, contexts, status);
+			if (node.operator === '&&') return isTruthy(left) ? run(node.right, contexts, status) : left;
+			if (node.operator === '||') return isTruthy(left) ? left : run(node.right, contexts, status);
+			const equal = looselyEqual(left, run(node.right, contexts, status));
 			return node.operator === '==' ? equal : !equal;
 		}
 		case 'call': {
-			const args = node.args.map((arg) => run(arg, contexts));
+			if (isStatusFunction(node.name)) {
+				if (!status) throw new Error(`${node.name}() is only modelled in a condition`);
+				if (node.args.length > 0) throw new Error(`${node.name}() takes no arguments`);
+				return node.name === 'always' || status[node.name];
+			}
+			const args = node.args.map((arg) => run(arg, contexts, status));
 			if (node.name === 'format') {
 				if (typeof args[0] !== 'string') throw new Error('format() needs a string template');
 				return format(args[0], args.slice(1));
@@ -270,6 +305,28 @@ function run(node: Node, contexts: ExpressionContexts): ExpressionValue {
 
 export function evaluate(expression: string, contexts: ExpressionContexts): ExpressionValue {
 	return run(parse(expression), contexts);
+}
+
+/**
+ * Decides whether a job or step `if` lets it run, as the runner does: an absent
+ * condition means success(), the `${{ }}` wrapper is optional, and a condition
+ * that calls no status function runs as `success() && (condition)`.
+ * https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#status-check-functions
+ */
+export function runsWhen(
+	condition: unknown,
+	contexts: ExpressionContexts,
+	status: ConditionStatus
+): boolean {
+	if (condition === undefined) return status.success;
+	if (typeof condition === 'boolean') return status.success && condition;
+	if (typeof condition !== 'string') throw new Error(`Unmodelled condition ${String(condition)}`);
+	const wrapped = /^\s*\$\{\{([\s\S]*)\}\}\s*$/.exec(condition)?.[1];
+	const expression = wrapped ?? condition;
+	if (expression.includes('${{')) throw new Error(`Unmodelled condition ${condition}`);
+	const tree = parse(expression);
+	const value = isTruthy(run(tree, contexts, status));
+	return callsStatus(tree) ? value : status.success && value;
 }
 
 /**

@@ -180,7 +180,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      # A cancelled run keeps this always() job alive but skips steps that rely on
+      # the implicit success(), so the shard check must run in every outcome.
       - name: Require every unit test shard to pass
+        if: always()
         env:
           SHARD_RESULT: ${{ needs.unit-test-shards.result }}
         run: |
