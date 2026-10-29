@@ -37,6 +37,7 @@ jobs:
     # Forks only. Same-repo PRs keep CF Workers Builds + e2e-preview-cf.yml.
     if: github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     environment: fork-preview
     permissions:
       contents: read

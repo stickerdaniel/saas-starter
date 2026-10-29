@@ -41,8 +41,9 @@ on:
 permissions:
   contents: read
 
+# A rerun keeps a group of its own, so it cannot cancel the current head's run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.run_attempt == 1 && github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

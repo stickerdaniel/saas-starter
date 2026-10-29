@@ -14,6 +14,7 @@ concurrency:
 jobs:
   check-bot-coauthors:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Check agent attribution and hidden Unicode
         uses: stickerdaniel/post-no-bills@207fb1f8bd0b30d17bc0b43f19c811f8fd87c9a5 # v4.0.0

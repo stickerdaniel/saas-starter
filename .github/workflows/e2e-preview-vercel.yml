@@ -21,6 +21,7 @@ jobs:
     # job's success would satisfy the check before the browser tests finish.
     name: Prepare preview E2E
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       statuses: write
       contents: read
@@ -109,6 +110,7 @@ jobs:
   e2e-deploy-failed:
     name: E2E Deploy Failed Status
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       statuses: write
     # deployment_status also fires for pending/in_progress/queued, so gate on

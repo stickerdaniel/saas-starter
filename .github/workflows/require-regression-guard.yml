@@ -10,10 +10,16 @@ on:
 permissions:
   contents: read
 
+# A newer push or body edit supersedes the older verdict; a rerun keeps a group of its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.run_attempt == 1 && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   check:
     name: Regression Guard Verdict
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
