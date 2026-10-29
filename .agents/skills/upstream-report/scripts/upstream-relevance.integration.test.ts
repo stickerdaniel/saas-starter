@@ -458,54 +458,57 @@ if [ "$PARTIAL_INVALID_HISTORY" = "1" ]; then
     *" log --format= --raw -z "*) printf '\\303'; exit 1 ;;
   esac
 fi
+# A stalled command outlives run()'s 30 s watchdog, so only the detector's own deadline can
+# end it early, and then exits on its own: the watchdog kills only the detector, not this child.
+STALL_SECONDS=40
 if [ "$SLOW_STATUS" = "1" ]; then
   case "$command_line" in
-    *" status --porcelain=v2 "*) exec sleep 3600 ;;
+    *" status --porcelain=v2 "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_CHANGED_DIFF" = "1" ]; then
   case "$command_line" in
-    *" diff --ignore-submodules=none --name-status -M "*) exec sleep 3600 ;;
+    *" diff --ignore-submodules=none --name-status -M "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_CAPTURED_DIFF" = "1" ]; then
   case "$command_line" in
-    *" diff --no-index "*) exec sleep 3600 ;;
+    *" diff --no-index "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_HISTORY_LOG" = "1" ]; then
   case "$command_line" in
-    *" log --format=%H --follow "*) exec sleep 3600 ;;
+    *" log --format=%H --follow "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_UPSTREAM_HISTORY_LOG" = "1" ]; then
   case "$command_line" in
-    *" log --format= --raw "*) exec sleep 3600 ;;
+    *" log --format= --raw "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_UPSTREAM_OBJECT_CHECK" = "1" ]; then
   case "$command_line" in
-    *" cat-file --batch-check=%(objectname) %(objecttype) ") exec sleep 3600 ;;
+    *" cat-file --batch-check=%(objectname) %(objecttype) ") exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_BLOB_SIZE_CHECK" = "1" ]; then
   case "$command_line" in
-    *" cat-file --batch-check=%(objectname) %(objecttype) %(objectsize) "*) exec sleep 3600 ;;
+    *" cat-file --batch-check=%(objectname) %(objecttype) %(objectsize) "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_BLOB_READ" = "1" ]; then
   case "$command_line" in
-    *" cat-file --batch "*) exec sleep 3600 ;;
+    *" cat-file --batch "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_ROOT_HISTORY" = "1" ]; then
   case "$command_line" in
-    *" rev-list --max-parents=0 "*) exec sleep 3600 ;;
+    *" rev-list --max-parents=0 "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_TREE_SCAN" = "1" ]; then
   case "$command_line" in
-    *" ls-tree -r -z "*) exec sleep 3600 ;;
+    *" ls-tree -r -z "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ -n "$ADD_SHALLOW_AFTER_CHECK_SHA" ] && [ ! -e "$SHALLOW_RACE_MARKER" ]; then
@@ -1918,6 +1921,19 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(verdict?.relevance).toBe('unmeasured');
 		expect(verdict?.note).toMatch(/root history did not complete/);
 	});
+
+	it.each([undefined, 'root-histroy'])(
+		'refuses a shortened test deadline without a named operation (%s)',
+		(operation) => {
+			const r = run(fork, ['--json'], {
+				NODE_ENV: 'test',
+				UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+				...(operation === undefined ? {} : { UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: operation })
+			});
+			expect(r.status).not.toBe(0);
+			expect(r.stderr).toMatch(/needs UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION/);
+		}
+	);
 
 	itWithGitWrapper('times out a stalled repository tree scan', () => {
 		const r = run(fork, ['--json'], {
