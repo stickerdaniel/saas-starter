@@ -475,12 +475,12 @@ if [ "$SLOW_CAPTURED_DIFF" = "1" ]; then
 fi
 if [ "$SLOW_HISTORY_LOG" = "1" ]; then
   case "$command_line" in
-    *" log --format=%H --follow "*) sleep 2 ;;
+    *" log --format=%H --follow "*) exec sleep 3600 ;;
   esac
 fi
 if [ "$SLOW_UPSTREAM_HISTORY_LOG" = "1" ]; then
   case "$command_line" in
-    *" log --format= --raw "*) sleep 2 ;;
+    *" log --format= --raw "*) exec sleep 3600 ;;
   esac
 fi
 if [ "$SLOW_UPSTREAM_OBJECT_CHECK" = "1" ]; then
@@ -1777,7 +1777,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			SLOW_HISTORY_LOG: '1',
-			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'local-history'
 		});
 		expect(r.status, r.stderr).toBe(0);
 		const parsed = JSON.parse(r.stdout) as {
@@ -1822,7 +1823,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			SLOW_UPSTREAM_HISTORY_LOG: '1',
-			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'upstream-history'
 		});
 		expect(r.status, r.stderr).toBe(0);
 		const parsed = JSON.parse(r.stdout) as {
@@ -1860,7 +1862,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			SLOW_UPSTREAM_OBJECT_CHECK: '1',
-			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'upstream-object-typing'
 		});
 		expect(r.status, r.stderr).toBe(0);
 		const parsed = JSON.parse(r.stdout) as {
@@ -1872,9 +1875,9 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 	});
 
 	itWithGitWrapper.each([
-		['blob size inspection', 'SLOW_BLOB_SIZE_CHECK'],
-		['blob content inspection', 'SLOW_BLOB_READ']
-	])('times out stalled %s', (_label, slowVariable) => {
+		['blob size inspection', 'SLOW_BLOB_SIZE_CHECK', 'blob-size'],
+		['blob content inspection', 'SLOW_BLOB_READ', 'blob-read']
+	])('times out stalled %s', (_label, slowVariable, operation) => {
 		write(fork, 'shared/rewritten.ts', 'export const changed = true;\n');
 		git(fork, ['commit', '-qam', 'edit diverged path before blob stall']);
 
@@ -1883,7 +1886,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			[slowVariable]: '1',
-			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: operation
 		});
 		expect(r.status, r.stderr).toBe(0);
 		const parsed = JSON.parse(r.stdout) as {
