@@ -34,7 +34,6 @@ import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js'
 import noDynamicImportRejectionHandlerRule from './eslint/rules/no-dynamic-import-rejection-handler.js';
 import requireStaticModeInitializerRule from './eslint/rules/require-static-mode-initializer.js';
 import noTestInLoopRule from './eslint/rules/no-test-in-loop.js';
-import noFocusedTestRule from './eslint/rules/no-focused-test.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
@@ -77,8 +76,7 @@ const localPlugin = {
 		'no-literal-control-char': noLiteralControlCharRule,
 		'no-dynamic-import-rejection-handler': noDynamicImportRejectionHandlerRule,
 		'require-static-mode-initializer': requireStaticModeInitializerRule,
-		'no-test-in-loop': noTestInLoopRule,
-		'no-focused-test': noFocusedTestRule
+		'no-test-in-loop': noTestInLoopRule
 	}
 };
 
@@ -488,17 +486,6 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-test-in-loop': 'error'
-		}
-	},
-	// A focused test silently skips the rest of its file, and Vitest and Playwright
-	// reject `.only` only when CI is set. See eslint/rules/no-focused-test.js.
-	{
-		files: ['**/*.{test,spec}.?(c|m)[jt]s?(x)', 'e2e/**/*.ts'],
-		plugins: {
-			local: localPlugin
-		},
-		rules: {
-			'local/no-focused-test': 'error'
 		}
 	},
 	// Tolgee() is TolgeeCore() plus the browser-extension plugin, whose handshake

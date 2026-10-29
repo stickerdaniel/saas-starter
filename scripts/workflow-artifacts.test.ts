@@ -486,7 +486,7 @@ function expectQueuedPerKey(
 	expect(c!.group, 'another identity runs independently').not.toBe(a!.group);
 }
 
-// Workflows that keep a queue or serialization instead of superseding. Each
+// Workflows that queue, or stay ungrouped, instead of superseding. Each
 // entry asserts the behaviour it keeps, so an exemption cannot hide a gap.
 const SUPERSEDE_EXEMPTIONS: Record<string, (workflow: WorkflowFile) => void> = {
 	// pull_request_target: each run deploys the fork's preview backend and then
@@ -503,7 +503,9 @@ const SUPERSEDE_EXEMPTIONS: Record<string, (workflow: WorkflowFile) => void> = {
 	},
 	// deployment_status names no pull request or current head, so a workflow group
 	// cannot tell a late older deployment from the newest one and would let it
-	// cancel the newer run. The shared preview backend queues per job instead.
+	// cancel the newer run. Only the browser tests queue per preview backend: the
+	// final `E2E Tests` writers (e2e-deploy-failed, aggregate) are not ordered, so a
+	// same-SHA redeploy can overwrite a newer failure with an older success.
 	'e2e-preview-vercel.yml': (workflow) => {
 		expect(workflow.concurrency, 'no workflow group may cancel a newer deployment').toBeUndefined();
 		expectQueuedPerKey(
@@ -512,6 +514,17 @@ const SUPERSEDE_EXEMPTIONS: Record<string, (workflow: WorkflowFile) => void> = {
 			deploymentStatusJob(workflow.name!, 'backend-a', '2'),
 			deploymentStatusJob(workflow.name!, 'backend-b', '3')
 		);
+	},
+	// The verdict reads the PR body of its triggering event, and `edited` and
+	// `synchronize` runs can enter concurrency out of order. Any group would let a
+	// stale run cancel the newer head's run (without a queue, even a pending one),
+	// leaving the head without its required verdict. The job takes seconds, so
+	// superseding saves nothing.
+	'require-regression-guard.yml': (workflow) => {
+		expect(workflow.concurrency, 'no group may cancel the newer head verdict').toBeUndefined();
+		for (const [id, job] of Object.entries(workflow.jobs)) {
+			expect(job.concurrency, `job ${id} may not cancel the newer head verdict`).toBeUndefined();
+		}
 	},
 	// Runs only when a pull request closes and deletes its preview backend; a
 	// later run for the same pull request waits instead of cancelling a deletion.
@@ -537,7 +550,7 @@ describe('pull request run supersession', () => {
 		expect(inScope.map(([file]) => file)).toContain('e2e-preview-cf.yml');
 	});
 
-	it.each(Object.keys(SUPERSEDE_EXEMPTIONS))('keeps the exempt queue of %s', (file) => {
+	it.each(Object.keys(SUPERSEDE_EXEMPTIONS))('keeps the exempt behaviour of %s', (file) => {
 		SUPERSEDE_EXEMPTIONS[file]!(parsedWorkflow(file));
 	});
 
@@ -600,35 +613,68 @@ const status = (workflow: string, job: string): CheckProducer => ({
 	reports: 'status'
 });
 
-// Mirrors the required status checks of main (`gh api
-// repos/stickerdaniel/saas-starter/branches/main/protection/required_status_checks`),
-// each mapped to the jobs that report it. A fork with other required checks
-// updates this map alongside its branch protection.
-const REQUIRED_CHECK_PRODUCERS: Record<string, readonly CheckProducer[]> = {
-	'Lint & Format': [checkRun('static-checks.yml', 'lint')],
-	'Type Check': [checkRun('static-checks.yml', 'typecheck')],
-	'Unit Tests': [checkRun('static-checks.yml', 'unit-tests')],
-	'Upstream Report Tests': [checkRun('static-checks.yml', 'upstream-report-tests')],
-	'Regression Guard Verdict': [checkRun('require-regression-guard.yml', 'check')],
-	'Windows Process Lifecycle': [checkRun('windows-process-lifecycle.yml', 'lifecycle')],
-	'PR Title': [checkRun('check-pr-title.yml', 'check')],
-	'English PR Metadata': [checkRun('require-english-pr.yml', 'english-metadata')],
-	'check-bot-coauthors': [checkRun('check-attribution.yml', 'check-bot-coauthors')],
-	// Cloudflare's app reports it for same-repo PRs; fork PRs get it from the fork preview.
-	'Workers Builds: saas-starter': [status('e2e-fork-preview.yml', 'aggregate')],
-	'E2E Tests': [
+// Branch protection binds each required check to the app that must report it
+// (`app_id` in `gh api
+// repos/stickerdaniel/saas-starter/branches/main/protection/required_status_checks`).
+// Workflows report as GitHub Actions, so a status they post under another app's
+// context never satisfies that check.
+const GITHUB_ACTIONS_APP_ID = 15368;
+const CLOUDFLARE_WORKERS_APP_ID = 85455;
+
+interface RequiredCheck {
+	appId: number;
+	// Jobs that report the check; empty when an external app reports it.
+	producers: readonly CheckProducer[];
+}
+
+const fromActions = (...producers: CheckProducer[]): RequiredCheck => ({
+	appId: GITHUB_ACTIONS_APP_ID,
+	producers
+});
+
+// Mirrors the required status checks of main, each mapped to its source app and
+// the jobs that report it. A fork with other required checks updates this map
+// alongside its branch protection.
+const REQUIRED_CHECKS: Record<string, RequiredCheck> = {
+	'Lint & Format': fromActions(checkRun('static-checks.yml', 'lint')),
+	'Type Check': fromActions(checkRun('static-checks.yml', 'typecheck')),
+	'Unit Tests': fromActions(checkRun('static-checks.yml', 'unit-tests')),
+	'Upstream Report Tests': fromActions(checkRun('static-checks.yml', 'upstream-report-tests')),
+	'Regression Guard Verdict': fromActions(checkRun('require-regression-guard.yml', 'check')),
+	'Windows Process Lifecycle': fromActions(checkRun('windows-process-lifecycle.yml', 'lifecycle')),
+	'PR Title': fromActions(checkRun('check-pr-title.yml', 'check')),
+	'English PR Metadata': fromActions(checkRun('require-english-pr.yml', 'english-metadata')),
+	'check-bot-coauthors': fromActions(checkRun('check-attribution.yml', 'check-bot-coauthors')),
+	'Workers Builds: saas-starter': { appId: CLOUDFLARE_WORKERS_APP_ID, producers: [] },
+	'E2E Tests': fromActions(
 		status('e2e-preview-cf.yml', 'e2e-skipped'),
 		status('e2e-preview-cf.yml', 'e2e-build-failed'),
 		status('e2e-preview-cf.yml', 'aggregate'),
 		status('e2e-preview-vercel.yml', 'e2e-deploy-failed'),
 		status('e2e-preview-vercel.yml', 'aggregate'),
 		status('e2e-fork-preview.yml', 'aggregate')
-	]
+	)
 };
 
 describe('required check producers', () => {
-	const producers = Object.entries(REQUIRED_CHECK_PRODUCERS).flatMap(([context, list]) =>
-		list.map((producer) => [context, `${producer.workflow} ${producer.job}`, producer] as const)
+	const producers = Object.entries(REQUIRED_CHECKS).flatMap(([context, check]) =>
+		check.producers.map(
+			(producer) => [context, `${producer.workflow} ${producer.job}`, producer] as const
+		)
+	);
+
+	it.each(Object.entries(REQUIRED_CHECKS))(
+		'%s has a producer only where workflows can satisfy it',
+		(context, check) => {
+			if (check.appId === GITHUB_ACTIONS_APP_ID) {
+				expect(check.producers, `${context} needs a job that reports it`).not.toHaveLength(0);
+			} else {
+				expect(
+					check.producers,
+					`${context} is bound to app ${check.appId}; a workflow posting it cannot satisfy it`
+				).toHaveLength(0);
+			}
+		}
 	);
 
 	it.each(producers)('%s is reported by %s', (context, _label, producer) => {
