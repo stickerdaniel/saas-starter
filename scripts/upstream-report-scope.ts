@@ -16,8 +16,9 @@ import { appendFileSync } from 'node:fs';
 
 /**
  * Repository paths the suite imports, reads, or is installed and configured from. A
- * trailing slash covers a directory. `upstream-report-scope.test.ts` fails when a detector
- * test or the suite's Vitest config reaches a repository path outside this list.
+ * trailing slash covers a directory. `upstream-report-scope.test.ts` fails when the suite or
+ * this selection reaches a repository path outside this list, or reads or loads a path it
+ * cannot resolve.
  */
 export const UPSTREAM_REPORT_TEST_INPUTS = [
 	// The detector, its tests, and the suite's Vitest config.
@@ -59,21 +60,40 @@ export interface SelectionInput {
 	readPages: () => unknown;
 }
 
+/** The `status` values GitHub documents for a pull request's files. */
+const FILE_STATUSES = new Set([
+	'added',
+	'removed',
+	'modified',
+	'renamed',
+	'copied',
+	'changed',
+	'unchanged'
+]);
+
 /**
- * Every path a pull request touches, both sides of a rename included, or `undefined` when
- * the pages are not the shape GitHub returns. `count` is the number of file entries, which
- * GitHub's `changed_files` must equal for the list to be complete.
+ * Every path a pull request touches, both sides of a rename or copy included, or
+ * `undefined` when the pages are not the shape GitHub returns. `count` is the number of
+ * file entries, which GitHub's `changed_files` must equal for the list to be complete.
+ * That comparison only proves completeness when every entry names a distinct file and
+ * both of its sides, so an undocumented status, a repeated path, or a rename or copy
+ * without its source makes the list malformed.
  */
 function changedPaths(pages: unknown): { count: number; paths: string[] } | undefined {
 	if (!Array.isArray(pages) || !pages.every(Array.isArray)) return undefined;
 	const entries: unknown[] = pages.flat();
 	const paths: string[] = [];
+	const filenames = new Set<string>();
 	for (const entry of entries) {
 		if (typeof entry !== 'object' || entry === null) return undefined;
-		const { filename, previous_filename: previous } = entry as Record<string, unknown>;
-		if (typeof filename !== 'string' || filename.length === 0) return undefined;
+		const { filename, status, previous_filename: previous } = entry as Record<string, unknown>;
+		if (typeof filename !== 'string' || filename.length === 0 || filenames.has(filename)) {
+			return undefined;
+		}
+		if (typeof status !== 'string' || !FILE_STATUSES.has(status)) return undefined;
+		filenames.add(filename);
 		paths.push(filename);
-		if (previous === undefined) continue;
+		if (previous === undefined && status !== 'renamed' && status !== 'copied') continue;
 		if (typeof previous !== 'string' || previous.length === 0) return undefined;
 		paths.push(previous);
 	}

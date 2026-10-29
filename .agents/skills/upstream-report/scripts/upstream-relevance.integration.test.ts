@@ -823,6 +823,7 @@ function leakedIndexCopies(owner: number): string[] {
 		.filter((name) => name.startsWith('upstream-relevance-index-'))
 		.filter((name) => {
 			try {
+				// scope: an entry of the temp directory
 				return Number(readFileSync(join(tmpdir(), name, 'owner'), 'utf8')) === owner;
 			} catch {
 				return false;
@@ -4761,6 +4762,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		const remote = join(tmp, 'symlinked-main-ref.git');
 		mkdirSync(remote);
 		git(remote, ['init', '--bare', '-q']);
+		// scope: a path Git reports inside a temp fixture
 		const branchRef = realpathSync(
 			git(fork, ['rev-parse', '--path-format=absolute', '--git-path', 'refs/heads/main'])
 		);
@@ -4783,6 +4785,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		const remote = join(tmp, 'symlinked-packed-refs.git');
 		mkdirSync(remote);
 		git(remote, ['init', '--bare', '-q']);
+		// scope: a path Git reports inside a temp fixture
 		const commonDir = realpathSync(
 			git(fork, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
 		);
@@ -4877,6 +4880,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		mkdirSync(remote);
 		git(remote, ['init', '--bare', '-q']);
 		const objectDir = join(remote, 'objects');
+		// scope: a path Git reports inside a temp fixture
 		const ownedObjects = realpathSync(
 			git(fork, ['rev-parse', '--path-format=absolute', '--git-path', 'objects'])
 		);
@@ -4901,6 +4905,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 	it('ignores comment lines in local alternates files', () => {
 		const remote = join(tmp, 'commented-alternate-remote.git');
 		git(tmp, ['clone', '-q', '--bare', upstream, remote]);
+		// scope: a path Git reports inside a temp fixture
 		const ownedObjects = realpathSync(
 			git(fork, ['rev-parse', '--path-format=absolute', '--git-path', 'objects'])
 		);
@@ -4927,6 +4932,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		writeFileSync(join(remote, 'objects', 'info', 'alternates'), `${bridge}\n`);
 		writeFileSync(
 			join(bridge, 'info', 'alternates'),
+			// scope: a path Git reports inside a temp fixture
 			`${realpathSync(git(fork, ['rev-parse', '--path-format=absolute', '--git-path', 'objects']))}\n`
 		);
 		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
@@ -4953,6 +4959,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		git(decoy, ['commit', '-qm', 'add replacement commit']);
 		const replacement = join(tmp, 'replacement.git');
 		git(tmp, ['clone', '-q', '--bare', decoy, replacement]);
+		// scope: a path Git reports inside a temp fixture
 		const storage = realpathSync(
 			git(upstream, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
 		);
@@ -4994,6 +5001,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			RETARGET_REMOTE_LINK: upstreamLink,
 			RETARGET_REMOTE_TARGET: decoy,
+			// scope: a path Git reports inside a temp fixture
 			RETARGET_REMOTE_EXPECTED: realpathSync(
 				git(upstream, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
 			),
@@ -6760,16 +6768,19 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		git(fork, ['config', 'core.splitIndex', 'true']);
 		git(fork, ['update-index', '--split-index']);
 		const gitDir = resolve(fork, git(fork, ['rev-parse', '--git-dir']));
+		// scope: the temp fixture's Git directory
 		const shared = readdirSync(gitDir).find((name) => name.startsWith('sharedindex.'));
 		expect(shared).toBeDefined();
 		const backing = join(gitDir, shared!);
 		const old = new Date('2020-01-02T03:04:05Z');
 		utimesSync(backing, old, old);
+		// scope: the temp fixture's Git directory
 		const before = statSync(backing).mtimeMs;
 
 		const r = run(fork, ['--fetch', '--json', 'shared/pristine.ts']);
 		expect(r.status).not.toBe(0);
 		expect(r.stderr).toMatch(/split index/);
+		// scope: the temp fixture's Git directory
 		expect(statSync(backing).mtimeMs).toBe(before);
 	});
 
@@ -6782,11 +6793,13 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		const split = join(tmp, 'split-index');
 		writeFileSync(split, readFileSync(indexPath));
 		const gitDir = resolve(fork, git(fork, ['rev-parse', '--git-dir']));
+		// scope: the temp fixture's Git directory
 		const shared = readdirSync(gitDir).find((name) => name.startsWith('sharedindex.'));
 		expect(shared).toBeDefined();
 		const backing = join(gitDir, shared!);
 		const old = new Date('2020-01-02T03:04:05Z');
 		utimesSync(backing, old, old);
+		// scope: the temp fixture's Git directory
 		const before = statSync(backing).mtimeMs;
 		const marker = join(tmp, 'index-aba');
 
@@ -6802,6 +6815,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(existsSync(`${marker}.swapped`)).toBe(true);
 		expect(r.status).not.toBe(0);
 		expect(r.stderr).toMatch(/split index/);
+		// scope: the temp fixture's Git directory
 		expect(statSync(backing).mtimeMs).toBe(before);
 	});
 

@@ -810,14 +810,17 @@ const LEFTOVER_AFTER_MS = 60 * 60 * 1000;
 
 function scratchOwner(dir: string): number | null {
 	try {
+		// scope: a scratch entry under the temp root
 		const directory = lstatSync(dir);
 		if (!directory.isDirectory()) return null;
 		if (process.platform !== 'win32' && (directory.mode & 0o077) !== 0) return null;
+		// scope: a scratch entry under the temp root
 		const manifest = JSON.parse(readFileSync(join(dir, SCRATCH_MANIFEST), 'utf8')) as {
 			magic?: unknown;
 			version?: unknown;
 			owner?: unknown;
 		};
+		// scope: a scratch entry under the temp root
 		const legacyOwner = Number(readFileSync(join(dir, 'owner'), 'utf8'));
 		if (
 			manifest.magic !== SCRATCH_MAGIC ||
@@ -839,6 +842,7 @@ function sweepLeftovers(tempRoot: string): void {
 	// an hour may belong to a run happening right now.
 	let names: string[];
 	try {
+		// scope: a scratch entry under the temp root
 		names = readdirSync(tempRoot);
 	} catch {
 		return;
@@ -849,10 +853,12 @@ function sweepLeftovers(tempRoot: string): void {
 			const dir = join(tempRoot, name);
 			if (
 				ownedRepositoryPaths &&
+				// scope: a scratch entry under the temp root
 				pathResolvesInsideOwnedRoot(realpathSync(dir), ownedRepositoryPaths)
 			) {
 				continue;
 			}
+			// scope: a scratch entry under the temp root
 			if (Date.now() - statSync(dir).mtimeMs < LEFTOVER_AFTER_MS) continue;
 			const owner = scratchOwner(dir);
 			if (owner === null) continue;
@@ -871,15 +877,18 @@ function sweepLeftovers(tempRoot: string): void {
 
 function ensureScratchIndexExists(): void {
 	if (!scratchIndex) return;
+	// scope: a scratch entry under the temp root
 	if (!existsSync(scratchIndex)) {
 		fail('The private scratch index disappeared during this report. Run it again.');
 	}
+	// scope: a scratch entry under the temp root
 	if (scratchShallow && !existsSync(scratchShallow)) {
 		fail('The private shallow snapshot disappeared during this report. Run it again.');
 	}
 	if (
 		scratchShallow &&
 		scratchShallowAtCopy &&
+		// scope: a scratch entry under the temp root
 		!readFileSync(scratchShallow).equals(scratchShallowAtCopy)
 	) {
 		fail('The private shallow snapshot changed during this report. Run it again.');
@@ -947,10 +956,14 @@ function useScratchIndex(root: string): void {
 	let gitPath: string;
 	let objectPath: string;
 	try {
+		// scope: the repository under analysis, a temp fixture in the suite
 		rootPath = realpathSync(root);
 		tempPath = realpathSync(TEMP_ROOT);
+		// scope: the repository under analysis, a temp fixture in the suite
 		commonPath = realpathSync(git(['rev-parse', '--path-format=absolute', '--git-common-dir']));
+		// scope: the repository under analysis, a temp fixture in the suite
 		gitPath = realpathSync(git(['rev-parse', '--path-format=absolute', '--git-dir']));
+		// scope: the repository under analysis, a temp fixture in the suite
 		objectPath = realpathSync(
 			git(['rev-parse', '--path-format=absolute', '--git-path', 'objects'])
 		);
@@ -976,6 +989,7 @@ function useScratchIndex(root: string): void {
 		const prunable = fields.some((field) => field.startsWith('prunable '));
 		let worktreePath: string;
 		try {
+			// scope: the repository under analysis, a temp fixture in the suite
 			worktreePath = realpathSync(listedPath);
 		} catch {
 			// Prunable can mean only the checkout's .git file is missing. Skip the record
@@ -995,6 +1009,7 @@ function useScratchIndex(root: string): void {
 						'Configure core.worktree before running the report from a linked worktree.'
 				);
 			}
+			// scope: the repository under analysis, a temp fixture in the suite
 			worktreePath = realpathSync(
 				isAbsolute(configured) ? configured : resolve(commonPath, configured)
 			);
@@ -1004,6 +1019,7 @@ function useScratchIndex(root: string): void {
 		if (prunable) continue;
 		try {
 			ownedRoots.add(
+				// scope: the repository under analysis, a temp fixture in the suite
 				realpathSync(git(['-C', worktreePath, 'rev-parse', '--path-format=absolute', '--git-dir']))
 			);
 		} catch {
@@ -1019,12 +1035,14 @@ function useScratchIndex(root: string): void {
 	}
 	sweepLeftovers(tempPath);
 	const realIndex = git(['rev-parse', '--git-path', 'index'], true);
+	// scope: the repository under analysis, a temp fixture in the suite
 	if (!realIndex || !existsSync(realIndex)) {
 		fail(
 			'Upstream relevance requires an existing Git index to snapshot. Restore the index, then run the report again.'
 		);
 	}
 	callerIndexPath = realIndex;
+	// scope: the repository under analysis, a temp fixture in the suite
 	const indexAtCopy = readFileSync(realIndex);
 	callerIndexAtCopy = indexAtCopy;
 	callerShallowPath = git(['rev-parse', '--git-path', 'shallow'], true) || undefined;
@@ -1401,6 +1419,7 @@ function readUpstreamMarker(root: string): MarkerSnapshot {
 	// leave its remote and tracking ref behind when the final snapshot aborted.
 	let fd: number;
 	try {
+		// scope: the repository under analysis, a temp fixture in the suite
 		fd = openSync(
 			p,
 			fsConstants.O_RDONLY |
@@ -1424,6 +1443,7 @@ function readUpstreamMarker(root: string): MarkerSnapshot {
 	let bytes: Buffer;
 	try {
 		const opened = fstatSync(fd);
+		// scope: the repository under analysis, a temp fixture in the suite
 		const atPath = lstatSync(p);
 		if (!opened.isFile() || !atPath.isFile() || !sameFileIdentity(opened, atPath)) {
 			fail(
@@ -1441,6 +1461,7 @@ function readUpstreamMarker(root: string): MarkerSnapshot {
 			total += read;
 		}
 		const afterRead = fstatSync(fd);
+		// scope: the repository under analysis, a temp fixture in the suite
 		const afterPath = lstatSync(p);
 		if (
 			total !== opened.size ||
@@ -1593,6 +1614,7 @@ function localRemotePath(url: string, root: string): string | null {
 		candidate = resolve(root, url);
 	}
 	try {
+		// scope: a local upstream remote, a temp fixture in the suite
 		return realpathSync(candidate);
 	} catch {
 		fail(
@@ -1687,8 +1709,10 @@ function unquoteAlternatePath(line: Buffer): { path: string; consumed: number } 
 
 function alternatePaths(objectDir: string): string[] {
 	const alternatesPath = join(objectDir, 'info', 'alternates');
+	// scope: a local upstream remote, a temp fixture in the suite
 	if (!existsSync(alternatesPath)) return [];
 	const paths: string[] = [];
+	// scope: a local upstream remote, a temp fixture in the suite
 	const file = readFileSync(alternatesPath);
 	let start = 0;
 	for (let end = 0; end <= file.length; end++) {
@@ -1719,6 +1743,7 @@ function addAlternateObjectStores(
 	seen: Set<string>,
 	depth: number
 ): void {
+	// scope: a local upstream remote, a temp fixture in the suite
 	const canonical = realpathSync(objectDir);
 	if (seen.has(canonical)) return;
 	seen.add(canonical);
@@ -1746,6 +1771,7 @@ function addLocalRefBacking(
 	] as const) {
 		let stats: Stats;
 		try {
+			// scope: a local upstream remote, a temp fixture in the suite
 			stats = lstatSync(path);
 		} catch (err) {
 			if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue;
@@ -1757,11 +1783,13 @@ function addLocalRefBacking(
 		if (!stats.isFile()) {
 			fail(`A local upstream ${kind} is not a regular file.`);
 		}
+		// scope: a local upstream remote, a temp fixture in the suite
 		const canonical = realpathSync(path);
 		effectivePaths.add(canonical);
 		backingFiles.add(canonical);
 		if (kind === 'loose main ref') {
 			if (stats.size > 1024) fail('A local upstream loose main ref is unexpectedly large.');
+			// scope: a local upstream remote, a temp fixture in the suite
 			const value = readFileSync(canonical, 'utf8');
 			if (value.startsWith('ref:')) {
 				fail('A local upstream loose main ref is symbolic. Refusing indirect ref storage.');
@@ -1781,6 +1809,7 @@ function inspectLocalRemote(
 	if (!ownedRepositoryPaths) {
 		fail('The repository checkout inventory is unavailable. Run the report again.');
 	}
+	// scope: a local upstream remote, a temp fixture in the suite
 	const endpoint = statSync(remotePath);
 	let transportPath = remotePath;
 	const effectivePaths = new Set([remotePath]);
@@ -1805,8 +1834,11 @@ function inspectLocalRemote(
 		if (!gitDirValue || !commonDirValue || !objectDirValue) {
 			fail('A local upstream path does not identify complete Git storage.');
 		}
+		// scope: a local upstream remote, a temp fixture in the suite
 		const gitDir = realpathSync(gitDirValue);
+		// scope: a local upstream remote, a temp fixture in the suite
 		const commonDir = realpathSync(commonDirValue);
+		// scope: a local upstream remote, a temp fixture in the suite
 		const objectDir = realpathSync(objectDirValue);
 		const refStorage =
 			localGitPath(remotePath, ['config', '--local', '--get', 'extensions.refStorage'], true) ||
@@ -1826,6 +1858,7 @@ function inspectLocalRemote(
 			['rev-parse', '--path-format=absolute', '--show-toplevel'],
 			true
 		);
+		// scope: a local upstream remote, a temp fixture in the suite
 		if (worktreeValue) effectivePaths.add(realpathSync(worktreeValue));
 		const alternateStores = new Set([objectDir]);
 		for (const path of alternatePaths(objectDir)) {
@@ -2423,6 +2456,7 @@ interface LocalSnapshot {
 function optionalFile(path: string | undefined): Buffer | null {
 	if (!path) return null;
 	try {
+		// scope: the repository under analysis, a temp fixture in the suite
 		lstatSync(path);
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
@@ -2431,6 +2465,7 @@ function optionalFile(path: string | undefined): Buffer | null {
 		);
 	}
 	try {
+		// scope: the repository under analysis, a temp fixture in the suite
 		return readFileSync(path);
 	} catch (err) {
 		fail(
@@ -3573,6 +3608,7 @@ function symlinkParent(path: string): string | null {
 	let parent = '';
 	for (const part of parts.slice(0, -1)) {
 		parent = parent ? join(parent, part) : part;
+		// scope: the repository under analysis, a temp fixture in the suite
 		if (lstatSync(parent).isSymbolicLink()) return parent;
 	}
 	return null;
@@ -3583,6 +3619,7 @@ function sameFileIdentity(left: Stats, right: Stats): boolean {
 }
 
 function pathIdentity(path: string): PathIdentity {
+	// scope: a resolved run path or its parent, outside the checkout in the suite
 	const stats = statSync(path);
 	return { path, dev: stats.dev, ino: stats.ino };
 }
@@ -3613,6 +3650,7 @@ function sameIdentityChains(left: PathIdentity[], right: PathIdentity[]): boolea
 }
 
 function fileFingerprints(paths: Iterable<string>): Map<string, string> {
+	// scope: a resolved run path or its parent, outside the checkout in the suite
 	return new Map([...paths].map((path) => [path, statFingerprint(statSync(path))]));
 }
 
@@ -3622,6 +3660,7 @@ function sameStringMaps(left: Map<string, string>, right: Map<string, string>): 
 
 function pathResolvesInsideOwnedRoot(candidate: string, ownedRoots: Iterable<string>): boolean {
 	const roots = [...ownedRoots];
+	// scope: a resolved run path or its parent, outside the checkout in the suite
 	const rootStats = roots.map((root) => statSync(root));
 	let current = candidate;
 	while (true) {
@@ -3633,6 +3672,7 @@ function pathResolvesInsideOwnedRoot(candidate: string, ownedRoots: Iterable<str
 			);
 		});
 		if (fromRoot) return true;
+		// scope: a resolved run path or its parent, outside the checkout in the suite
 		const currentStats = statSync(current);
 		if (rootStats.some((rootStatsEntry) => sameFileIdentity(rootStatsEntry, currentStats))) {
 			return true;
@@ -3656,8 +3696,10 @@ function workingTreeContent(path: string, maxBytes = CAPTURE_LIMIT): ContentSet 
 				incompleteNote: `working-tree parent "${unsafeParent}" is a symlink`
 			};
 		}
+		// scope: the repository under analysis, a temp fixture in the suite
 		const initial = lstatSync(path);
 		if (initial.isSymbolicLink()) {
+			// scope: the repository under analysis, a temp fixture in the suite
 			const target = readlinkSync(path, { encoding: 'buffer' });
 			if (target.length > maxBytes) {
 				return {
@@ -3667,6 +3709,7 @@ function workingTreeContent(path: string, maxBytes = CAPTURE_LIMIT): ContentSet 
 				};
 			}
 			const changedParent = symlinkParent(path);
+			// scope: the repository under analysis, a temp fixture in the suite
 			const after = lstatSync(path);
 			if (changedParent || !after.isSymbolicLink() || !sameFileIdentity(initial, after)) {
 				return { values: [], incompleteNote: 'working-tree path changed during capture' };
@@ -3679,12 +3722,14 @@ function workingTreeContent(path: string, maxBytes = CAPTURE_LIMIT): ContentSet 
 
 		let fd: number | null = null;
 		try {
+			// scope: the repository under analysis, a temp fixture in the suite
 			fd = openSync(
 				path,
 				fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0)
 			);
 			const opened = fstatSync(fd);
 			const changedParent = symlinkParent(path);
+			// scope: the repository under analysis, a temp fixture in the suite
 			const afterOpen = lstatSync(path);
 			if (
 				changedParent ||
