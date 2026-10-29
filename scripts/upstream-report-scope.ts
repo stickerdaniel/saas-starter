@@ -7,6 +7,10 @@
  * whose complete changed-file list cannot be read. The repository variable
  * `CI_FULL_SUITE=true` runs them everywhere, to switch the selection off without a commit.
  *
+ * The job checks out only UPSTREAM_REPORT_TEST_INPUTS, so a suite that starts reading any
+ * other repository path fails in CI instead of being skipped. Such a read can only arrive
+ * through a change to an input, which selects the suite on that same pull request.
+ *
  * The job runs `bun scripts/upstream-report-scope.ts` before installing dependencies, so
  * this file imports Node built-ins only. It reads FULL_SUITE, EVENT_NAME, PR_NUMBER, CHANGED_FILES,
  * GITHUB_REPOSITORY and GH_TOKEN, and appends `run=true|false` to GITHUB_OUTPUT.
@@ -16,9 +20,8 @@ import { appendFileSync } from 'node:fs';
 
 /**
  * Repository paths the suite imports, reads, or is installed and configured from. A
- * trailing slash covers a directory. `upstream-report-scope.test.ts` fails when the suite or
- * this selection reaches a repository path outside this list, or reads or loads a path it
- * cannot resolve.
+ * trailing slash covers a directory. The job's sparse checkout mirrors this list, which
+ * `upstream-report-scope.test.ts` enforces.
  */
 export const UPSTREAM_REPORT_TEST_INPUTS = [
 	// The detector, its tests, and the suite's Vitest config.

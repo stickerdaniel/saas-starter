@@ -198,7 +198,24 @@ jobs:
       contents: read
       pull-requests: read
     steps:
+      # Only the suite's inputs, as listed in scripts/upstream-report-scope.ts, so a test that
+      # reads any other path fails here rather than being skipped when that path changes.
+      # Non-cone mode leaves out root files the list does not name.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /.agents/skills/upstream-report/
+            /package.json
+            /bun.lock
+            /bunfig.toml
+            /.npmrc
+            /patches/
+            /scripts/vitest-settings.ts
+            /tsconfig.tooling.json
+            /.github/workflows/static-checks.yml
+            /scripts/upstream-report-scope.ts
+            /.gitattributes
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       # The check is required, so the job always reports and only runs the suite when a
       # pull request changes one of its inputs. A missing selection runs it.
