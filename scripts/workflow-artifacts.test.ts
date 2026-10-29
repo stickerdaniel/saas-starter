@@ -9,7 +9,9 @@ import {
 	evaluate,
 	interpolate,
 	isTruthy,
+	runsWhen,
 	toText,
+	type ConditionStatus,
 	type ExpressionContexts,
 	type ExpressionValue
 } from './github-expression';
@@ -158,9 +160,19 @@ interface WorkflowConcurrency {
 	queue?: string;
 }
 
+interface WorkflowStep {
+	name?: string;
+	if?: unknown;
+	'continue-on-error'?: unknown;
+}
+
 interface WorkflowJob {
 	name?: string;
 	uses?: string;
+	needs?: string | string[];
+	if?: unknown;
+	'continue-on-error'?: unknown;
+	steps?: WorkflowStep[];
 	'timeout-minutes'?: unknown;
 	concurrency?: WorkflowConcurrency | string;
 }
@@ -238,9 +250,24 @@ describe('GitHub expression evaluation', () => {
 		"startsWith(github.ref, 'refs/')",
 		'github.run_attempt > 1',
 		'github.event.*.number',
-		'vars.E2E_RUNNER'
+		'vars.E2E_RUNNER',
+		'always()'
 	])('refuses the unmodelled expression %s', (expression) => {
 		expect(() => evaluate(expression, contexts)).toThrow();
+	});
+
+	const afterFailure = { success: false, failure: true, cancelled: false };
+
+	it.each([
+		[undefined, false],
+		[true, false],
+		['always()', true],
+		['${{ !cancelled() }}', true],
+		['failure() && github.run_attempt == 1', true],
+		["'always()' && github.run_attempt == 1", false],
+		["contains('always()', 'always')", false]
+	])('runs the condition %j after a failure like the runner: %j', (condition, expected) => {
+		expect(runsWhen(condition, contexts, afterFailure)).toBe(expected);
 	});
 });
 
@@ -600,12 +627,15 @@ interface CheckProducer {
 	job: string;
 	// A check run carries the job's name; a status is posted by a step of the job.
 	reports: 'check-run' | 'status';
+	// A check run job that aggregates its needs names the step that fails it on a bad result.
+	verifier?: string;
 }
 
-const checkRun = (workflow: string, job: string): CheckProducer => ({
+const checkRun = (workflow: string, job: string, verifier?: string): CheckProducer => ({
 	workflow,
 	job,
-	reports: 'check-run'
+	reports: 'check-run',
+	verifier
 });
 const status = (workflow: string, job: string): CheckProducer => ({
 	workflow,
@@ -638,10 +668,14 @@ const fromActions = (...producers: CheckProducer[]): RequiredCheck => ({
 const REQUIRED_CHECKS: Record<string, RequiredCheck> = {
 	'Lint & Format': fromActions(checkRun('static-checks.yml', 'lint')),
 	'Type Check': fromActions(checkRun('static-checks.yml', 'typecheck')),
-	'Unit Tests': fromActions(checkRun('static-checks.yml', 'unit-tests')),
+	'Unit Tests': fromActions(
+		checkRun('static-checks.yml', 'unit-tests', 'Require every unit test shard to pass')
+	),
 	'Upstream Report Tests': fromActions(checkRun('static-checks.yml', 'upstream-report-tests')),
 	'Regression Guard Verdict': fromActions(checkRun('require-regression-guard.yml', 'check')),
-	'Windows Process Lifecycle': fromActions(checkRun('windows-process-lifecycle.yml', 'lifecycle')),
+	'Windows Process Lifecycle': fromActions(
+		checkRun('windows-process-lifecycle.yml', 'lifecycle', 'Require a runner selection')
+	),
 	'PR Title': fromActions(checkRun('check-pr-title.yml', 'check')),
 	'English PR Metadata': fromActions(checkRun('require-english-pr.yml', 'english-metadata')),
 	'check-bot-coauthors': fromActions(checkRun('check-attribution.yml', 'check-bot-coauthors')),
@@ -655,6 +689,68 @@ const REQUIRED_CHECKS: Record<string, RequiredCheck> = {
 		status('e2e-fork-preview.yml', 'aggregate')
 	)
 };
+
+function neededJobs(job: WorkflowJob): string[] {
+	return job.needs === undefined ? [] : typeof job.needs === 'string' ? [job.needs] : job.needs;
+}
+
+type NeedResult = 'success' | 'failure' | 'skipped' | 'cancelled';
+
+interface NeedsScenario {
+	label: string;
+	results: Record<string, NeedResult>;
+	runCancelled: boolean;
+}
+
+// Every need succeeding, each need alone failing, skipping or being cancelled
+// (as a timed-out job is) while the run continues, and the whole run cancelled.
+function needsScenarios(needs: string[]): NeedsScenario[] {
+	const succeeded = Object.fromEntries(
+		needs.map((need): [string, NeedResult] => [need, 'success'])
+	);
+	return [
+		{ label: 'every need succeeded', results: succeeded, runCancelled: false },
+		...needs.flatMap((need) =>
+			(['failure', 'skipped', 'cancelled'] as const).map((result) => ({
+				label: `${need} ended ${result}`,
+				results: { ...succeeded, [need]: result },
+				runCancelled: false
+			}))
+		),
+		{
+			label: 'the run was cancelled',
+			results: { ...succeeded, [needs[0]!]: 'cancelled' },
+			runCancelled: true
+		}
+	];
+}
+
+// A job's status functions read the results of its needs. A skipped need makes
+// success() false, which is why a job without a status function is skipped.
+// GitHub's failure() also sees failed ancestors further up; this models direct
+// needs only, which holds while an aggregate lists every job it verifies.
+function jobStatus(scenario: NeedsScenario): ConditionStatus {
+	const results = Object.values(scenario.results);
+	return {
+		success: !scenario.runCancelled && results.every((result) => result === 'success'),
+		failure: results.includes('failure'),
+		cancelled: scenario.runCancelled
+	};
+}
+
+// A step's status functions read the earlier steps of its job, taken as passed
+// here (one that fails already fails the job), and the run's cancellation.
+function stepStatus(scenario: NeedsScenario): ConditionStatus {
+	return { success: !scenario.runCancelled, failure: false, cancelled: scenario.runCancelled };
+}
+
+// Conditions that read another context throw, so a new reference extends this model.
+function withNeeds(scenario: NeedsScenario): ExpressionContexts {
+	const needs = Object.fromEntries(
+		Object.entries(scenario.results).map(([need, result]) => [need, { result, outputs: {} }])
+	);
+	return { needs, steps: {}, env: {} };
+}
 
 describe('required check producers', () => {
 	const producers = Object.entries(REQUIRED_CHECKS).flatMap(([context, check]) =>
@@ -682,6 +778,84 @@ describe('required check producers', () => {
 		expect(job, `${producer.workflow} has no job ${producer.job}`).toBeDefined();
 		if (producer.reports === 'check-run') expect(job!.name ?? producer.job).toBe(context);
 	});
+
+	// GitHub counts a skipped job's check run as passing branch protection, so a
+	// check run job that aggregates its needs must run and verify whatever they
+	// ended. A status producer that is skipped posts nothing and leaves the check
+	// pending instead, so this rule covers check runs only.
+	const checkRunProducers = producers.filter(([, , producer]) => producer.reports === 'check-run');
+
+	it.each(checkRunProducers)(
+		'%s names its verifier when it has needs (%s)',
+		(_context, label, producer) => {
+			const job = parsedWorkflow(producer.workflow).jobs[producer.job]!;
+			if (neededJobs(job).length > 0) {
+				expect(
+					producer.verifier,
+					`${label} aggregates its needs and must name its verifier`
+				).toBeDefined();
+			}
+		}
+	);
+
+	const aggregators = checkRunProducers.filter(([, , producer]) => producer.verifier);
+
+	it('finds the aggregating producers (parser sanity check)', () => {
+		expect(aggregators.map(([context]) => context)).toContain('Unit Tests');
+	});
+
+	// A cancelled run may cancel the job as well: its check then reads cancelled,
+	// which never passes. Every other outcome must leave the job running.
+	it.each(aggregators)(
+		'%s still runs when a need does not succeed (%s)',
+		(_context, label, producer) => {
+			const job = parsedWorkflow(producer.workflow).jobs[producer.job]!;
+			const needs = neededJobs(job);
+			expect(needs, `${label} aggregates its needs`).not.toHaveLength(0);
+			for (const scenario of needsScenarios(needs).filter((each) => !each.runCancelled)) {
+				expect(
+					runsWhen(job.if, withNeeds(scenario), jobStatus(scenario)),
+					`${label} must run when ${scenario.label}`
+				).toBe(true);
+			}
+			expect(job['continue-on-error'], `${label} may not report success over a failure`).toBe(
+				undefined
+			);
+		}
+	);
+
+	// A cancelled run keeps an always() job alive but skips each step whose
+	// condition relies on the implicit success(), so wherever the job runs the
+	// verifier must run too.
+	it.each(aggregators)(
+		'%s runs its verifier in every outcome (%s)',
+		(_context, label, producer) => {
+			const job = parsedWorkflow(producer.workflow).jobs[producer.job]!;
+			const steps = job.steps ?? [];
+			const verifiers = steps.filter((step) => step.name === producer.verifier);
+			expect(
+				verifiers,
+				`${label} must keep exactly one step named ${producer.verifier}`
+			).toHaveLength(1);
+			const [verifier] = verifiers;
+			// The verifier and every step it relies on must run, or it fails for the wrong reason.
+			const required = steps.slice(0, steps.indexOf(verifier!) + 1);
+			const outcomes = needsScenarios(neededJobs(job)).filter((scenario) =>
+				runsWhen(job.if, withNeeds(scenario), jobStatus(scenario))
+			);
+			for (const scenario of outcomes) {
+				for (const step of required) {
+					expect(
+						runsWhen(step.if, withNeeds(scenario), stepStatus(scenario)),
+						`${label} must run step ${step.name ?? steps.indexOf(step)} when ${scenario.label}`
+					).toBe(true);
+				}
+			}
+			expect(verifier!['continue-on-error'], `${label} must fail when its verifier fails`).toBe(
+				undefined
+			);
+		}
+	);
 
 	// GitHub never starts a workflow whose path filter excludes every changed
 	// file, so its required check stays pending and blocks the merge. A producer
