@@ -1056,6 +1056,41 @@ describe('scope routing', () => {
 	);
 
 	it.skipIf(process.platform === 'win32')(
+		'checks a full run with the configured Bun build and fails with it',
+		() => {
+			const checkout = createCheckerClone();
+			// Prettier accepts this checkout, so only a run that reached the build can fail.
+			const bunLint = path.join(checkout.directory, 'bun-lint');
+			writeFileSync(bunLint, '#!/bin/sh\necho "bun-lint $*"\nexit 1\n');
+			chmodSync(bunLint, 0o755);
+			try {
+				const result = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts', 'static-checks.ts'),
+						'--ci',
+						'--scope',
+						'format'
+					],
+					{
+						cwd: checkout.repository,
+						env: { ...sanitizedGitEnv(), NO_COLOR: '1', BUN_LINT_BINARY: bunLint },
+						encoding: 'utf8',
+						timeout: 100_000,
+						killSignal: 'SIGKILL'
+					}
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toMatch(/bun-lint fmt .*--check \.$/m);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		120_000
+	);
+
+	it.skipIf(process.platform === 'win32')(
 		'rejects a staged file that no active lint check consumes',
 		() => {
 			const checkout = createCheckerClone();

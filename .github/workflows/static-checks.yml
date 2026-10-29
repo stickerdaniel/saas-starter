@@ -83,7 +83,8 @@ jobs:
             echo "Commit the regenerated file, or ignore it when it is build output." >&2
             exit 1
           fi
-      # ESLint takes most of this job; this build's `bun lint` runs the same config natively.
+      # ESLint and Prettier take most of this job; this build's `bun lint` and `bun fmt`
+      # run the same configs natively.
       - name: Install Bun with native Svelte linting
         env:
           URL: https://github.com/stickerdaniel/bun/releases/download/svelte-lint-b899fb95/bun-linux-x64.zip
