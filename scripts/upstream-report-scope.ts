@@ -7,9 +7,13 @@
  * whose complete changed-file list cannot be read. The repository variable
  * `CI_FULL_SUITE=true` runs them everywhere, to switch the selection off without a commit.
  *
- * The job checks out only UPSTREAM_REPORT_TEST_INPUTS, so a suite that starts reading any
- * other repository path fails in CI instead of being skipped. Such a read can only arrive
- * through a change to an input, which selects the suite on that same pull request.
+ * The job checks out only UPSTREAM_REPORT_TEST_INPUTS, as a partial clone without lazy
+ * fetching, so a suite that starts reading any other repository path, from the worktree or
+ * from Git objects, fails in CI instead of being skipped. Such a read can only arrive
+ * through a change to an input, which selects the suite on that same pull request. A read
+ * that tolerates a missing file, such as `existsSync`, an optional read or a glob, passes
+ * without the file, so it must still be declared here: its absence fails nothing.
+ * `CI_FULL_SUITE=true` forces the run but keeps the same sparse checkout.
  *
  * The job runs `bun scripts/upstream-report-scope.ts` before installing dependencies, so
  * this file imports Node built-ins only. It reads FULL_SUITE, EVENT_NAME, PR_NUMBER, CHANGED_FILES,
@@ -20,7 +24,8 @@ import { appendFileSync } from 'node:fs';
 
 /**
  * Repository paths the suite imports, reads, or is installed and configured from. A
- * trailing slash covers a directory. The job's sparse checkout mirrors this list, which
+ * trailing slash covers a directory, and a leading `**` and slash a file name in every
+ * directory. The job's sparse checkout mirrors this list, which
  * `upstream-report-scope.test.ts` enforces.
  */
 export const UPSTREAM_REPORT_TEST_INPUTS = [
@@ -38,14 +43,19 @@ export const UPSTREAM_REPORT_TEST_INPUTS = [
 	// The job itself, which one test also reads, and the selection it runs.
 	'.github/workflows/static-checks.yml',
 	'scripts/upstream-report-scope.ts',
-	// Line endings of every input on checkout.
-	'.gitattributes'
+	// Line endings of every input on checkout, which an attributes file in any ancestor
+	// directory can change without changing the input itself.
+	'**/.gitattributes'
 ] as const;
 
 export function isUpstreamReportTestInput(path: string): boolean {
-	return UPSTREAM_REPORT_TEST_INPUTS.some((input) =>
-		input.endsWith('/') ? path.startsWith(input) : path === input
-	);
+	return UPSTREAM_REPORT_TEST_INPUTS.some((input) => {
+		if (input.startsWith('**/')) {
+			const name = input.slice('**/'.length);
+			return path === name || path.endsWith(`/${name}`);
+		}
+		return input.endsWith('/') ? path.startsWith(input) : path === input;
+	});
 }
 
 export interface Selection {

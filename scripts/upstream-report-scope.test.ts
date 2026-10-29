@@ -36,8 +36,11 @@ describe('upstream report test inputs', () => {
 			.split('\n')
 			.map((pattern) => pattern.trim())
 			.filter(Boolean);
-		// Without a leading slash, `package.json` and `patches/` would match at any depth.
-		const inputs = UPSTREAM_REPORT_TEST_INPUTS.map((input) => `/${input}`);
+		// Without a leading slash, `package.json` and `patches/` would match at any depth;
+		// a `**/` entry is meant to, and is checked out as written.
+		const inputs = UPSTREAM_REPORT_TEST_INPUTS.map((input) =>
+			input.startsWith('**/') ? input : `/${input}`
+		);
 		expect({
 			missing: inputs.filter((input) => !patterns.includes(input)),
 			extra: patterns.filter((pattern) => !inputs.includes(pattern))
@@ -52,7 +55,8 @@ describe('upstream report test inputs', () => {
 	});
 
 	it('lists only inputs that exist', () => {
-		for (const input of UPSTREAM_REPORT_TEST_INPUTS) {
+		// A `**/` entry also covers files that do not exist yet.
+		for (const input of UPSTREAM_REPORT_TEST_INPUTS.filter((input) => !input.startsWith('**/'))) {
 			expect(existsSync(path.join(ROOT, input)), input).toBe(true);
 		}
 	});
@@ -97,6 +101,10 @@ describe('upstream report test selection', () => {
 		'.github/workflows/static-checks.yml'
 	])('runs when a pull request changes %s', (file) => {
 		expect(pullRequest([[entry('README.md')], [entry(file)]]).run).toBe(true);
+	});
+
+	it('runs when a pull request changes only an attributes file below the root', () => {
+		expect(pullRequest([[entry('.agents/.gitattributes')]]).run).toBe(true);
 	});
 
 	it('runs when a rename moves an input out of scope', () => {
