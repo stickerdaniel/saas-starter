@@ -13,8 +13,10 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 
 interface Step {
 	id?: string;
+	if?: string;
 	uses?: string;
 	run?: string;
+	env?: Record<string, unknown>;
 	with?: Record<string, unknown>;
 }
 
@@ -52,6 +54,17 @@ describe('upstream report test inputs', () => {
 		const script = /^bun (\S+)$/.exec(command)?.[1];
 		expect(script, command).toBeDefined();
 		expect(isUpstreamReportTestInput(script ?? ''), script).toBe(true);
+	});
+
+	// A blob outside the checkout is still promised by the blobless clone; with lazy fetching
+	// a test could read it through Git and keep passing when that file changes.
+	it('blocks lazy object fetches wherever the suite installs or runs', () => {
+		const gated = steps.filter((step) => step.if?.includes('steps.scope.outputs.run'));
+		expect(gated.map((step) => step.run?.trim())).toEqual([
+			'bun install --frozen-lockfile --ignore-scripts',
+			'bun run test:upstream-report'
+		]);
+		for (const step of gated) expect(step.env?.GIT_NO_LAZY_FETCH, step.run).toBe('1');
 	});
 
 	it('lists only inputs that exist', () => {
