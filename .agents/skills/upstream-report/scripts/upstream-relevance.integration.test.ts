@@ -500,7 +500,7 @@ if [ "$SLOW_BLOB_READ" = "1" ]; then
 fi
 if [ "$SLOW_ROOT_HISTORY" = "1" ]; then
   case "$command_line" in
-    *" rev-list --max-parents=0 "*) sleep 2 ;;
+    *" rev-list --max-parents=0 "*) exec sleep 3600 ;;
   esac
 fi
 if [ "$SLOW_TREE_SCAN" = "1" ]; then
@@ -1903,7 +1903,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			SLOW_ROOT_HISTORY: '1',
-			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'root-history'
 		});
 		expect(r.status, r.stderr).toBe(0);
 		const parsed = JSON.parse(r.stdout) as {
@@ -1920,7 +1921,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			SLOW_TREE_SCAN: '1',
-			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'tree-scan'
 		});
 
 		expect(r.status).not.toBe(0);

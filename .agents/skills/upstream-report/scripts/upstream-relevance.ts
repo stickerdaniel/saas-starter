@@ -593,11 +593,24 @@ let historyOperationsRemaining =
 		? Number(process.env.UPSTREAM_REPORT_TEST_HISTORY_OPERATION_LIMIT)
 		: DEFAULT_HISTORY_OPERATION_LIMIT;
 const DEFAULT_HISTORY_COMMAND_TIMEOUT_MS = 5_000;
-const HISTORY_COMMAND_TIMEOUT_MS =
+const TEST_HISTORY_COMMAND_TIMEOUT_MS =
 	process.env.NODE_ENV === 'test' &&
 	/^\d+$/.test(process.env.UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS ?? '')
 		? Number(process.env.UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS)
 		: DEFAULT_HISTORY_COMMAND_TIMEOUT_MS;
+const TEST_TIMEOUT_OPERATION =
+	process.env.NODE_ENV === 'test' ? process.env.UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION : undefined;
+// Naming an operation keeps the shortened deadline off every other history call,
+// which can exceed it under load and fail or pass a stall test for the wrong reason.
+const HISTORY_COMMAND_TIMEOUT_MS = TEST_TIMEOUT_OPERATION
+	? DEFAULT_HISTORY_COMMAND_TIMEOUT_MS
+	: TEST_HISTORY_COMMAND_TIMEOUT_MS;
+
+function historyCommandTimeout(operation: 'root-history' | 'tree-scan'): number {
+	return operation === TEST_TIMEOUT_OPERATION
+		? TEST_HISTORY_COMMAND_TIMEOUT_MS
+		: HISTORY_COMMAND_TIMEOUT_MS;
+}
 
 function gitBytes(
 	args: string[],
@@ -2657,7 +2670,11 @@ function parseTreeRecord(record: string): { path: string; entry: TreeEntry } | n
 
 function readTree(ref: string): Map<string, TreeEntry> {
 	const tree = new Map<string, TreeEntry>();
-	for (const record of gitZ(['ls-tree', '-r', '-z', ref], false, HISTORY_COMMAND_TIMEOUT_MS)) {
+	for (const record of gitZ(
+		['ls-tree', '-r', '-z', ref],
+		false,
+		historyCommandTimeout('tree-scan')
+	)) {
 		const parsed = parseTreeRecord(record);
 		if (parsed) tree.set(parsed.path, parsed.entry);
 	}
@@ -4400,7 +4417,7 @@ function main() {
 	const rootRead = gitPartialBytes(
 		['rev-list', '--max-parents=0', head],
 		undefined,
-		HISTORY_COMMAND_TIMEOUT_MS
+		historyCommandTimeout('root-history')
 	);
 	const rootCommits = rootRead.output.toString('utf8').trim().split('\n').filter(Boolean);
 	const rootOwnershipNote = !rootRead.complete
