@@ -592,12 +592,40 @@ let historyOperationsRemaining =
 	/^\d+$/.test(process.env.UPSTREAM_REPORT_TEST_HISTORY_OPERATION_LIMIT ?? '')
 		? Number(process.env.UPSTREAM_REPORT_TEST_HISTORY_OPERATION_LIMIT)
 		: DEFAULT_HISTORY_OPERATION_LIMIT;
-const DEFAULT_HISTORY_COMMAND_TIMEOUT_MS = 5_000;
-const HISTORY_COMMAND_TIMEOUT_MS =
+const HISTORY_COMMAND_TIMEOUT_MS = 5_000;
+const TEST_HISTORY_COMMAND_TIMEOUT_MS =
 	process.env.NODE_ENV === 'test' &&
 	/^\d+$/.test(process.env.UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS ?? '')
 		? Number(process.env.UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS)
-		: DEFAULT_HISTORY_COMMAND_TIMEOUT_MS;
+		: undefined;
+const TIMED_HISTORY_OPERATIONS = [
+	'local-history',
+	'upstream-history',
+	'upstream-object-typing',
+	'blob-size',
+	'blob-read',
+	'root-history',
+	'tree-scan'
+] as const;
+type TimedHistoryOperation = (typeof TIMED_HISTORY_OPERATIONS)[number];
+const TEST_TIMEOUT_OPERATION = TIMED_HISTORY_OPERATIONS.find(
+	(operation) =>
+		process.env.NODE_ENV === 'test' &&
+		operation === process.env.UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION
+);
+// A shortened deadline on every history call lets any unrelated call that runs
+// slow under load fail or pass a stall test, so a test names the one it stalls.
+if (TEST_HISTORY_COMMAND_TIMEOUT_MS !== undefined && TEST_TIMEOUT_OPERATION === undefined) {
+	throw new Error(
+		`UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS needs UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION set to one of: ${TIMED_HISTORY_OPERATIONS.join(', ')}`
+	);
+}
+
+function historyCommandTimeout(operation: TimedHistoryOperation): number {
+	return operation === TEST_TIMEOUT_OPERATION
+		? (TEST_HISTORY_COMMAND_TIMEOUT_MS ?? HISTORY_COMMAND_TIMEOUT_MS)
+		: HISTORY_COMMAND_TIMEOUT_MS;
+}
 
 function gitBytes(
 	args: string[],
@@ -707,7 +735,7 @@ function gitZEach(args: string[], visit: (record: string) => void, timeout?: num
 	visitZRecords(gitBytes(args, false, {}, timeout), visit);
 }
 
-function historyGitBytes(args: string[]): Buffer {
+function historyGitBytes(args: string[], timeout = HISTORY_COMMAND_TIMEOUT_MS): Buffer {
 	if (historyOperationsRemaining <= 0) throw new Error('local history operation limit reached');
 	historyOperationsRemaining--;
 	try {
@@ -715,7 +743,7 @@ function historyGitBytes(args: string[]): Buffer {
 			env: gitRunEnv(),
 			maxBuffer: MAX_GIT_OUTPUT,
 			stdio: ['pipe', 'pipe', 'pipe'],
-			timeout: HISTORY_COMMAND_TIMEOUT_MS
+			timeout
 		});
 		ensureScratchIndexExists();
 		return output;
@@ -725,8 +753,8 @@ function historyGitBytes(args: string[]): Buffer {
 	}
 }
 
-function historyGit(args: string[]): string {
-	return historyGitBytes(args).toString('utf8').trim();
+function historyGit(args: string[], timeout?: number): string {
+	return historyGitBytes(args, timeout).toString('utf8').trim();
 }
 
 function historyGitZ(args: string[]): string[] {
@@ -2657,7 +2685,11 @@ function parseTreeRecord(record: string): { path: string; entry: TreeEntry } | n
 
 function readTree(ref: string): Map<string, TreeEntry> {
 	const tree = new Map<string, TreeEntry>();
-	for (const record of gitZ(['ls-tree', '-r', '-z', ref], false, HISTORY_COMMAND_TIMEOUT_MS)) {
+	for (const record of gitZ(
+		['ls-tree', '-r', '-z', ref],
+		false,
+		historyCommandTimeout('tree-scan')
+	)) {
 		const parsed = parseTreeRecord(record);
 		if (parsed) tree.set(parsed.path, parsed.entry);
 	}
@@ -2719,18 +2751,21 @@ function readHistoricalEntries(head: string, path: string): HistoricalEntries {
 		visited.add(segmentKey);
 		let commits: string[];
 		try {
-			commits = historyGit([
-				'log',
-				'--format=%H',
-				'--follow',
-				'--find-renames=1%',
-				'--find-copies=1%',
-				'--find-copies-harder',
-				'-l0',
-				segment.tip,
-				'--',
-				`:(literal)${segment.path}`
-			])
+			commits = historyGit(
+				[
+					'log',
+					'--format=%H',
+					'--follow',
+					'--find-renames=1%',
+					'--find-copies=1%',
+					'--find-copies-harder',
+					'-l0',
+					segment.tip,
+					'--',
+					`:(literal)${segment.path}`
+				],
+				historyCommandTimeout('local-history')
+			)
 				.split('\n')
 				.filter(Boolean);
 		} catch {
@@ -2984,7 +3019,7 @@ function readUpstream(sha: string): Upstream {
 			sha
 		],
 		undefined,
-		HISTORY_COMMAND_TIMEOUT_MS
+		historyCommandTimeout('upstream-history')
 	);
 	const records: Array<{ sha: string; path: string }> = [];
 	let historyParsed = history.complete;
@@ -3018,7 +3053,7 @@ function readUpstream(sha: string): Upstream {
 	const objectInfo = gitPartialBytes(
 		['cat-file', '--batch-check=%(objectname) %(objecttype)'],
 		objectShas.join('\n') + (objectShas.length > 0 ? '\n' : ''),
-		HISTORY_COMMAND_TIMEOUT_MS
+		historyCommandTimeout('upstream-object-typing')
 	);
 	const objectTypes = new Map<string, string>();
 	for (const line of objectInfo.output.toString('utf8').trim().split('\n')) {
@@ -3102,7 +3137,7 @@ function readBlobs(shas: string[], maxSourceBytes = Number.POSITIVE_INFINITY): M
 	const sizeResult = gitPartialBytes(
 		['cat-file', '--batch-check=%(objectname) %(objecttype) %(objectsize)'],
 		unique.join('\n') + '\n',
-		HISTORY_COMMAND_TIMEOUT_MS
+		historyCommandTimeout('blob-size')
 	);
 	if (!sizeResult.complete) return out;
 	const sizes = new Map<string, number>();
@@ -3121,7 +3156,7 @@ function readBlobs(shas: string[], maxSourceBytes = Number.POSITIVE_INFINITY): M
 				maxBuffer: BLOB_OUTPUT_LIMIT,
 				env: gitRunEnv(),
 				stdio: ['pipe', 'pipe', 'pipe'],
-				timeout: HISTORY_COMMAND_TIMEOUT_MS
+				timeout: historyCommandTimeout('blob-read')
 			});
 		} catch {
 			return;
@@ -4400,7 +4435,7 @@ function main() {
 	const rootRead = gitPartialBytes(
 		['rev-list', '--max-parents=0', head],
 		undefined,
-		HISTORY_COMMAND_TIMEOUT_MS
+		historyCommandTimeout('root-history')
 	);
 	const rootCommits = rootRead.output.toString('utf8').trim().split('\n').filter(Boolean);
 	const rootOwnershipNote = !rootRead.complete

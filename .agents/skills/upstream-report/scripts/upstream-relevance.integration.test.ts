@@ -458,54 +458,57 @@ if [ "$PARTIAL_INVALID_HISTORY" = "1" ]; then
     *" log --format= --raw -z "*) printf '\\303'; exit 1 ;;
   esac
 fi
+# A stalled command outlives run()'s 30 s watchdog, so only the detector's own deadline can
+# end it early, and then exits on its own: the watchdog kills only the detector, not this child.
+STALL_SECONDS=40
 if [ "$SLOW_STATUS" = "1" ]; then
   case "$command_line" in
-    *" status --porcelain=v2 "*) exec sleep 3600 ;;
+    *" status --porcelain=v2 "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_CHANGED_DIFF" = "1" ]; then
   case "$command_line" in
-    *" diff --ignore-submodules=none --name-status -M "*) exec sleep 3600 ;;
+    *" diff --ignore-submodules=none --name-status -M "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_CAPTURED_DIFF" = "1" ]; then
   case "$command_line" in
-    *" diff --no-index "*) exec sleep 3600 ;;
+    *" diff --no-index "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_HISTORY_LOG" = "1" ]; then
   case "$command_line" in
-    *" log --format=%H --follow "*) sleep 2 ;;
+    *" log --format=%H --follow "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_UPSTREAM_HISTORY_LOG" = "1" ]; then
   case "$command_line" in
-    *" log --format= --raw "*) sleep 2 ;;
+    *" log --format= --raw "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_UPSTREAM_OBJECT_CHECK" = "1" ]; then
   case "$command_line" in
-    *" cat-file --batch-check=%(objectname) %(objecttype) ") exec sleep 3600 ;;
+    *" cat-file --batch-check=%(objectname) %(objecttype) ") exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_BLOB_SIZE_CHECK" = "1" ]; then
   case "$command_line" in
-    *" cat-file --batch-check=%(objectname) %(objecttype) %(objectsize) "*) exec sleep 3600 ;;
+    *" cat-file --batch-check=%(objectname) %(objecttype) %(objectsize) "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_BLOB_READ" = "1" ]; then
   case "$command_line" in
-    *" cat-file --batch "*) exec sleep 3600 ;;
+    *" cat-file --batch "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_ROOT_HISTORY" = "1" ]; then
   case "$command_line" in
-    *" rev-list --max-parents=0 "*) sleep 2 ;;
+    *" rev-list --max-parents=0 "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ "$SLOW_TREE_SCAN" = "1" ]; then
   case "$command_line" in
-    *" ls-tree -r -z "*) exec sleep 3600 ;;
+    *" ls-tree -r -z "*) exec sleep "$STALL_SECONDS" ;;
   esac
 fi
 if [ -n "$ADD_SHALLOW_AFTER_CHECK_SHA" ] && [ ! -e "$SHALLOW_RACE_MARKER" ]; then
@@ -1777,7 +1780,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			SLOW_HISTORY_LOG: '1',
-			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'local-history'
 		});
 		expect(r.status, r.stderr).toBe(0);
 		const parsed = JSON.parse(r.stdout) as {
@@ -1822,7 +1826,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			SLOW_UPSTREAM_HISTORY_LOG: '1',
-			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'upstream-history'
 		});
 		expect(r.status, r.stderr).toBe(0);
 		const parsed = JSON.parse(r.stdout) as {
@@ -1860,7 +1865,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			SLOW_UPSTREAM_OBJECT_CHECK: '1',
-			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'upstream-object-typing'
 		});
 		expect(r.status, r.stderr).toBe(0);
 		const parsed = JSON.parse(r.stdout) as {
@@ -1872,9 +1878,9 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 	});
 
 	itWithGitWrapper.each([
-		['blob size inspection', 'SLOW_BLOB_SIZE_CHECK'],
-		['blob content inspection', 'SLOW_BLOB_READ']
-	])('times out stalled %s', (_label, slowVariable) => {
+		['blob size inspection', 'SLOW_BLOB_SIZE_CHECK', 'blob-size'],
+		['blob content inspection', 'SLOW_BLOB_READ', 'blob-read']
+	])('times out stalled %s', (_label, slowVariable, operation) => {
 		write(fork, 'shared/rewritten.ts', 'export const changed = true;\n');
 		git(fork, ['commit', '-qam', 'edit diverged path before blob stall']);
 
@@ -1883,7 +1889,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			[slowVariable]: '1',
-			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: operation
 		});
 		expect(r.status, r.stderr).toBe(0);
 		const parsed = JSON.parse(r.stdout) as {
@@ -1903,7 +1910,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			SLOW_ROOT_HISTORY: '1',
-			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'root-history'
 		});
 		expect(r.status, r.stderr).toBe(0);
 		const parsed = JSON.parse(r.stdout) as {
@@ -1914,13 +1922,29 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(verdict?.note).toMatch(/root history did not complete/);
 	});
 
+	// An empty operation stands for a missing one, so a selector the parent shell exports
+	// cannot leak in and satisfy the guard.
+	it.each(['', 'root-histroy'])(
+		'refuses a shortened test deadline without a valid operation (%j)',
+		(operation) => {
+			const r = run(fork, ['--json'], {
+				NODE_ENV: 'test',
+				UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+				UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: operation
+			});
+			expect(r.status).not.toBe(0);
+			expect(r.stderr).toMatch(/needs UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION/);
+		}
+	);
+
 	itWithGitWrapper('times out a stalled repository tree scan', () => {
 		const r = run(fork, ['--json'], {
 			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			SLOW_TREE_SCAN: '1',
-			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'tree-scan'
 		});
 
 		expect(r.status).not.toBe(0);
