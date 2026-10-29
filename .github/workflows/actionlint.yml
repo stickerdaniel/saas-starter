@@ -14,10 +14,16 @@ on:
 permissions:
   contents: read
 
+# Main pushes and PRs supersede older checks; a rerun keeps a group of its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.run_attempt == 1 && (github.event_name == 'push' && github.ref == 'refs/heads/main' && 'main' || github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+
 jobs:
   actionlint:
     name: Lint Workflows
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: reviewdog/action-actionlint@48e36f54d8da326b83ab061aee2cc5e01b5ca46f # v1.80.6

@@ -15,6 +15,10 @@ on:
       - '.github/workflows/node-container.yml'
 permissions:
   contents: read
+# A newer PR push supersedes the older build; a rerun keeps a group of its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.run_attempt == 1 && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   validate:
     name: Native AMD64 Node Image
