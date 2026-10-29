@@ -206,6 +206,7 @@ jobs:
         id: scope
         env:
           GH_TOKEN: ${{ github.token }}
+          FULL_SUITE: ${{ vars.CI_FULL_SUITE }}
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           CHANGED_FILES: ${{ github.event.pull_request.changed_files }}

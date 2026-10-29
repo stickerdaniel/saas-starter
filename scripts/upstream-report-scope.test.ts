@@ -266,4 +266,17 @@ describe('upstream report test selection', () => {
 			expect(readPages).not.toHaveBeenCalled();
 		}
 	);
+
+	it('runs on a docs-only pull request while CI_FULL_SUITE is set', () => {
+		const readPages = () => [[entry('README.md')]];
+		const select = (fullSuite: string) =>
+			selectUpstreamReportTests({
+				fullSuite,
+				eventName: 'pull_request',
+				changedFiles: '1',
+				readPages
+			}).run;
+		expect(select('')).toBe(false);
+		expect(select('true')).toBe(true);
+	});
 });

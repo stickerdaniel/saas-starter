@@ -4,10 +4,11 @@
  * The suite takes minutes and almost no pull request touches what it reads, but its check
  * is required, so the job always starts and reports; only its test steps depend on this
  * selection. Anything other than a pull request runs them, and so does a pull request
- * whose complete changed-file list cannot be read.
+ * whose complete changed-file list cannot be read. The repository variable
+ * `CI_FULL_SUITE=true` runs them everywhere, to switch the selection off without a commit.
  *
  * The job runs `bun scripts/upstream-report-scope.ts` before installing dependencies, so
- * this file imports Node built-ins only. It reads EVENT_NAME, PR_NUMBER, CHANGED_FILES,
+ * this file imports Node built-ins only. It reads FULL_SUITE, EVENT_NAME, PR_NUMBER, CHANGED_FILES,
  * GITHUB_REPOSITORY and GH_TOKEN, and appends `run=true|false` to GITHUB_OUTPUT.
  */
 import { execFileSync } from 'node:child_process';
@@ -49,6 +50,8 @@ export interface Selection {
 }
 
 export interface SelectionInput {
+	/** The `CI_FULL_SUITE` repository variable. */
+	fullSuite?: string | undefined;
 	eventName: string | undefined;
 	/** `pull_request.changed_files` from the event payload. */
 	changedFiles: string | undefined;
@@ -78,12 +81,14 @@ function changedPaths(pages: unknown): { count: number; paths: string[] } | unde
 }
 
 export function selectUpstreamReportTests({
+	fullSuite,
 	eventName,
 	changedFiles,
 	readPages
 }: SelectionInput): Selection {
 	const run = (reason: string): Selection => ({ run: true, reason });
 
+	if (fullSuite === 'true') return run('CI_FULL_SUITE is set.');
 	if (eventName !== 'pull_request') {
 		return run(`a ${eventName ?? 'missing'} event always runs the suite.`);
 	}
@@ -129,6 +134,7 @@ function readPullRequestFiles(): unknown {
 
 if (import.meta.main) {
 	const selection = selectUpstreamReportTests({
+		fullSuite: process.env.FULL_SUITE,
 		eventName: process.env.EVENT_NAME,
 		changedFiles: process.env.CHANGED_FILES,
 		readPages: readPullRequestFiles
