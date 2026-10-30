@@ -4,13 +4,14 @@ description: Always load in a fork of the template (content copy, shared-history
 allowed-tools: Bash(bun run upstream:report:*), Bash(gh search issues:*), Bash(gh issue list:*), Read, Grep, Glob
 ---
 
-# Report a fix upstream
+# Report a change upstream
 
 This repository was created from the `saas-starter` template. Template
 code and code written here sit side by side in the same tree, and after a few months
 nothing distinguishes them by eye. That costs in both directions: a template bug fixed
-only here leaves every other fork carrying it, and fork-only work offered upstream wastes
-a maintainer's time.
+only here leaves every other fork carrying it, a reusable piece built only here leaves
+every new app to build it again, and fork-only work offered upstream wastes a
+maintainer's time.
 
 So measure it. Ask the detector.
 
@@ -128,15 +129,23 @@ answer to you.
 
 ## Decide, per reported file
 
-Read the actual change. Ask one question: **would this be a fix in a repository that has
-none of this fork's features?** Send it upstream only if the answer is yes.
+Read the actual change, then find its **counterpart** in the template: the file, component
+or helper that does the same job there, under any name. An absent upstream path settles
+nothing; search the template for the behaviour itself, such as the property a helper
+measures, the pattern a component renders, or the API it wraps. Then ask one question:
+**would this change improve a repository that has none of this fork's features?** Send it
+upstream only if the answer is yes.
 
 Send it up:
 
-- a bug in template code: wrong logic, a missing guard, a race, an accessibility defect;
+- a bug in template code, or the same bug in the counterpart of a fork file: wrong logic,
+  a missing guard, a race, an accessibility defect;
 - hardcoded English in a template component that a fork cannot localize without editing it;
 - a security or correctness fix in auth, email, forms, or session handling;
-- a build, lint, or CI defect that every fork inherits.
+- a build, lint, or CI defect that every fork inherits;
+- a reusable feature: a component, helper, rule or workflow any app built on the template
+  would want, written without this fork's concepts. Where the template has a weaker
+  counterpart, offer the feature as its replacement.
 
 Keep it here:
 
@@ -146,8 +155,8 @@ Keep it here:
 - translations of fork-owned strings.
 
 Half and half is common: a template component gets both a genuine fix and a fork-specific
-extension. Report the fix alone and describe it in template terms, without the fork's
-vocabulary.
+extension, or a fork feature has a reusable core. Report the template-shaped part alone and
+describe it in template terms, without the fork's vocabulary.
 
 ## Report it
 
@@ -170,9 +179,11 @@ gh issue list --repo stickerdaniel/saas-starter --state all --limit 5 --json num
 **Ask the human before filing.** Drafting is yours; posting to another repository is
 theirs. Show the draft, then file it once they agree.
 
-Write the report as it would read to someone who has never seen this fork: the template
-file, what goes wrong, how to reproduce it from a clean template, and the fix if you know
-it. A report that only makes sense here will be closed here.
+Write the report as it would read to someone who has never seen this fork: for a fix, the
+template file, what goes wrong, how to reproduce it from a clean template, and the fix if
+you know it; for a feature, the problem every app on the template meets, what the template
+offers today, and the proposed piece. A report that only makes sense here will be closed
+here.
 
 ## One direction only
 
