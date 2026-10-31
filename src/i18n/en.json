@@ -120,7 +120,7 @@
 				"config_reply_to_placeholder": "e.g. hello@yourcompany.com",
 				"config_subject_label": "Email Subject",
 				"config_title_label": "Your Title",
-				"description": "Sends new users a personal welcome email from a team member right after signup, as simple text with optional links and bold.",
+				"description": "Sends new users a personal welcome email from a team member as soon as their email is verified, as simple text with optional links and bold.",
 				"edit_button": "Edit",
 				"error": "Something went wrong. Try again.",
 				"markup_hint": "Formatting: [link text](https://example.com) for a link, **text** for bold.",

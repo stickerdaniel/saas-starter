@@ -120,7 +120,7 @@
 				"config_reply_to_placeholder": "z.B. hallo@deinefirma.de",
 				"config_subject_label": "E-Mail-Betreff",
 				"config_title_label": "Dein Titel",
-				"description": "Sendet neuen Nutzern direkt nach der Registrierung eine persönliche Willkommens-E-Mail von einem Teammitglied, als schlichter Text mit optionalen Links und Fettdruck.",
+				"description": "Sendet neuen Nutzern eine persönliche Willkommens-E-Mail von einem Teammitglied, sobald ihre E-Mail-Adresse bestätigt ist, als schlichter Text mit optionalen Links und Fettdruck.",
 				"edit_button": "Bearbeiten",
 				"error": "Etwas ist schiefgelaufen. Versuch es noch mal.",
 				"markup_hint": "Formatierung: [Linktext](https://example.com) für einen Link, **Text** für Fettdruck.",

@@ -107,10 +107,21 @@ describe('renderFounderEmail', () => {
 		'[x](/app/dashboard)',
 		'[x](https:example.com)',
 		'[x](https:/example.com)',
-		'[x](https://example.com/a\u0007b)'
+		'[x](https://example.com/a\u0007b)',
+		'[x](https://example.com/a\u202Eb)',
+		'![image](https://example.com/x.png)',
+		'[[x](https://example.com)]',
+		'***x***'
 	])('renders %s literally', (template) => {
-		expect(htmlBody(template)).not.toContain('<a');
+		expect(htmlBody(template)).not.toMatch(/<a|<strong/);
 		expect(renderFounderEmail(template, vars).text).toBe(template);
+	});
+
+	it('still renders adjacent links and separate bold spans', () => {
+		expect(htmlBody('[a](https://example.com)[b](https://example.org) **c**, **d**')).toBe(
+			'<p><a href="https://example.com">a</a><a href="https://example.org">b</a> ' +
+				'<strong>c</strong>, <strong>d</strong></p>'
+		);
 	});
 
 	it('renders an unknown placeholder as an empty string', () => {

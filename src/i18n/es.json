@@ -120,7 +120,7 @@
 				"config_reply_to_placeholder": "ej. hola@tuempresa.com",
 				"config_subject_label": "Asunto del email",
 				"config_title_label": "Tu título",
-				"description": "Envía a los nuevos usuarios un email personal de bienvenida de un miembro del equipo justo después del registro, como texto sencillo con enlaces y negrita opcionales.",
+				"description": "Envía a los nuevos usuarios un email personal de bienvenida de un miembro del equipo en cuanto verifican su email, como texto sencillo con enlaces y negrita opcionales.",
 				"edit_button": "Editar",
 				"error": "Algo salió mal. Inténtalo de nuevo.",
 				"markup_hint": "Formato: [texto del enlace](https://example.com) para un enlace, **texto** para negrita.",

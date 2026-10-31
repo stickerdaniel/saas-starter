@@ -120,7 +120,7 @@
 				"config_reply_to_placeholder": "ex. bonjour@tonentreprise.com",
 				"config_subject_label": "Objet de l'email",
 				"config_title_label": "Ton titre",
-				"description": "Envoie aux nouveaux utilisateurs un email personnel de bienvenue d'un membre de l'équipe juste après l'inscription, en texte simple avec liens et gras facultatifs.",
+				"description": "Envoie aux nouveaux utilisateurs un email personnel de bienvenue d'un membre de l'équipe dès que leur email est vérifié, en texte simple avec liens et gras facultatifs.",
 				"edit_button": "Modifier",
 				"error": "Une erreur est survenue. Réessaie.",
 				"markup_hint": "Mise en forme : [texte du lien](https://example.com) pour un lien, **texte** pour du gras.",

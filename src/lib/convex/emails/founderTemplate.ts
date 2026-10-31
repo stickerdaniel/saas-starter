@@ -29,8 +29,10 @@ type Inline =
 	| { kind: 'link'; label: string; href: string }
 	| { kind: 'bold'; text: string };
 
-// Neither construct spans a line, so the renderer tokenizes line by line.
-const MARKUP = /\[([^[\]\n]+)\]\(([^()\s]+)\)|\*\*([^*\n]+)\*\*/g;
+// Neither construct spans a line, so the renderer tokenizes line by line. A
+// construct glued to `!`, `[`, `]` or `*` belongs to unsupported markup such as
+// an image or `***x***` and stays literal.
+const MARKUP = /(?<![![])\[([^[\]\n]+)\]\(([^()\s]+)\)(?!\])|(?<!\*)\*\*([^*\n]+)\*\*(?!\*)/g;
 const LINK_PROTOCOLS = new Set(['https:', 'http:', 'mailto:']);
 const FOUNDER_EMAIL_STYLE =
 	"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#000";
@@ -38,10 +40,11 @@ const FOUNDER_EMAIL_STYLE =
 /**
  * Whether a substituted link target is safe to send as an `href`. Web links must
  * spell out `//host`: `https:example.com` parses as absolute here but resolves
- * relative to the page in a mail client.
+ * relative to the page in a mail client. Invisible format characters, such as a
+ * right-to-left override, could disguise the shown URL.
  */
 function isAllowedHref(url: string): boolean {
-	if (/[\s\p{Cc}]/u.test(url)) return false;
+	if (/[\s\p{Cc}\p{Cf}]/u.test(url)) return false;
 	if (/^https?:/i.test(url) && !/^https?:\/\/[^/]/i.test(url)) return false;
 	let parsed: URL;
 	try {
