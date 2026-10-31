@@ -192,7 +192,8 @@ export function presentPartitioned(
 				title: single
 					? t(locale, copy.step.one)
 					: t(locale, copy.step.many, { count: formatCount(count, truncated, locale) }),
-				lines: single
+				// A range inside one minute would repeat the step's own time.
+				lines: clock.sameMinute(firstAt, lastAt)
 					? []
 					: [
 							t(locale, truncated ? copy.range.observed : copy.range.complete, {

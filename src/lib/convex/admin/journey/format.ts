@@ -18,6 +18,12 @@ const MINUTE_MS = 60 * 1000;
 export type Clock = {
 	time(at: number, relativeTo?: number): string;
 	date(at: number): string;
+	/**
+	 * Whether two times show as one minute, so a range between them would
+	 * repeat it. The label alone is not enough: the hour a fall-back repeats
+	 * shows two minutes an hour apart under one label.
+	 */
+	sameMinute(a: number, b: number): boolean;
 };
 
 export function createClock({ locale, timeZone }: JourneyFormat): Clock {
@@ -50,7 +56,9 @@ export function createClock({ locale, timeZone }: JourneyFormat): Clock {
 				dayKey.format(new Date(relativeTo)) === dayKey.format(new Date(at));
 			return sameDay ? time : `${dateOnly.format(new Date(at))}, ${time}`;
 		},
-		date: (at) => dateOnly.format(new Date(at))
+		date: (at) => dateOnly.format(new Date(at)),
+		sameMinute: (a, b) =>
+			Math.abs(a - b) < MINUTE_MS && timeOnly.format(new Date(a)) === timeOnly.format(new Date(b))
 	};
 }
 

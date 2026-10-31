@@ -71,6 +71,21 @@ describe('journey formatting', () => {
 		expect(utc.time(sameBerlinDay, evening)).toBe('Sun, Oct 25, 22:30');
 	});
 
+	it('tells times within one shown minute apart from the hour a fall-back repeats', () => {
+		const berlin = createClock({ locale: 'en', timeZone: 'Europe/Berlin' });
+		const minute = Date.UTC(2026, 9, 6, 9, 12);
+		expect(berlin.sameMinute(minute, minute)).toBe(true);
+		expect(berlin.sameMinute(minute, minute + 45_000)).toBe(true);
+		// 30 seconds apart, but 09:12 and 09:13.
+		expect(berlin.sameMinute(minute + 45_000, minute + 75_000)).toBe(false);
+		// 02:30 summer time and 02:30 winter time, an hour apart, in either order.
+		const summer = Date.UTC(2026, 9, 25, 0, 30);
+		const winter = Date.UTC(2026, 9, 25, 1, 30);
+		expect(berlin.time(summer)).toBe(berlin.time(winter));
+		expect(berlin.sameMinute(summer, winter)).toBe(false);
+		expect(berlin.sameMinute(winter, summer)).toBe(false);
+	});
+
 	it('falls back to UTC for an absent or unknown zone', () => {
 		expect(resolveTimeZone(undefined)).toBe('UTC');
 		expect(resolveTimeZone('')).toBe('UTC');
