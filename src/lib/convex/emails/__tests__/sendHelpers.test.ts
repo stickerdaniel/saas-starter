@@ -1,11 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeSupportPageRoute } from '../../../shared/support-page-route';
-import {
-	buildSupportDeepLink,
-	isTestEmail,
-	shouldSkipTestEmail,
-	getFounderWelcomeDelay
-} from '../helpers';
+import { buildSupportDeepLink, isTestEmail, shouldSkipTestEmail } from '../helpers';
 
 /**
  * Tests for email send helper functions.
@@ -97,18 +92,5 @@ describe('buildSupportDeepLink', () => {
 		expect(buildSupportDeepLink(pageRoute, 'https://app.example.com', 'thread-123')).toBe(
 			'https://app.example.com/de/app/project?support=open&thread=thread-123'
 		);
-	});
-});
-
-describe('getFounderWelcomeDelay', () => {
-	it('returns value between 16 and 19 minutes (sampled 100x)', () => {
-		const MIN = 16 * 60 * 1000;
-		const MAX = 19 * 60 * 1000;
-
-		for (let i = 0; i < 100; i++) {
-			const delay = getFounderWelcomeDelay();
-			expect(delay).toBeGreaterThanOrEqual(MIN);
-			expect(delay).toBeLessThan(MAX);
-		}
 	});
 });

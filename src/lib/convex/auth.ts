@@ -14,7 +14,7 @@ import * as val from 'valibot';
 import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
 import { requireEmailConfiguration, requireEnv, googleOAuth, githubOAuth } from './env';
-import { getFounderWelcomeDelay, isTestEmail } from './emails/helpers';
+import { isTestEmail } from './emails/helpers';
 import { incrementCounter } from './admin/counters';
 import { DISABLED_ADMIN_PATHS } from './admin/adminHttpPaths';
 import {
@@ -178,18 +178,16 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 						return;
 					}
 
-					const delayMs = getFounderWelcomeDelay();
 					if (user.emailVerified) {
-						// OAuth signup: schedule immediately
+						// OAuth signup: send right away
 						const id = await ctx.db.insert('founderWelcomeEmails', {
 							userId: user._id,
 							signupEmail: user.email,
-							delayMs,
 							status: 'scheduled',
 							createdAt: Date.now()
 						});
 						const scheduledFnId = await ctx.scheduler.runAfter(
-							delayMs,
+							0,
 							internal.emails.send.sendFounderWelcomeEmail,
 							{ founderWelcomeId: id }
 						);
@@ -199,7 +197,6 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 						await ctx.db.insert('founderWelcomeEmails', {
 							userId: user._id,
 							signupEmail: user.email,
-							delayMs,
 							status: 'pending_verification',
 							createdAt: Date.now()
 						});
@@ -271,8 +268,9 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 
 					if (founderRow && founderRow.status === 'pending_verification') {
 						if (newUser.email === founderRow.signupEmail) {
+							// Sent on verification, whatever delay an older row stored
 							const scheduledFnId = await ctx.scheduler.runAfter(
-								founderRow.delayMs,
+								0,
 								internal.emails.send.sendFounderWelcomeEmail,
 								{ founderWelcomeId: founderRow._id }
 							);

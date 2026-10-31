@@ -17,6 +17,10 @@
 	import { emailSchema } from '#lib/schemas/auth.js';
 	import { translateFormError } from '#lib/utils/validation-i18n.js';
 	import { FOUNDER_WELCOME_DEFAULTS } from '#lib/convex/emails/helpers.js';
+	import {
+		FOUNDER_TEMPLATE_VARIABLES,
+		renderFounderEmail
+	} from '#lib/convex/emails/founderTemplate.js';
 
 	const { t } = getTranslate();
 	const client = useConvexClient();
@@ -57,15 +61,15 @@
 			!replyToError
 	);
 
-	// Live preview with sample data
-	const previewText = $derived.by(() => {
-		const template = editBody || '';
-		return template
-			.replace(/\{\{userFirstName\}\}/g, 'Alex')
-			.replace(/\{\{userLastName\}\}/g, 'Johnson')
-			.replace(/\{\{founderName\}\}/g, editName || 'You')
-			.replace(/\{\{founderTitle\}\}/g, editTitle || 'Founder');
-	});
+	// Live preview of the text part with sample data
+	const previewText = $derived(
+		renderFounderEmail(editBody, {
+			userFirstName: 'Alex',
+			userLastName: 'Johnson',
+			founderName: editName || 'You',
+			founderTitle: editTitle || 'Founder'
+		}).text
+	);
 
 	function openDialog() {
 		editingBody = false;
@@ -223,7 +227,7 @@
 						<TemplateTextarea
 							id="config-body"
 							rows={8}
-							variables={['userFirstName', 'userLastName', 'founderName', 'founderTitle']}
+							variables={[...FOUNDER_TEMPLATE_VARIABLES]}
 							bind:value={editBody}
 							onfocus={() => {
 								editingBody = true;
@@ -237,7 +241,9 @@
 						/>
 						<Field.Description>
 							<T keyName="admin.settings.founder_welcome.variables_label" />
-							{' {{userFirstName}}, {{userLastName}}, {{founderName}}, {{founderTitle}}'}
+							{' ' + FOUNDER_TEMPLATE_VARIABLES.map((name) => `{{${name}}}`).join(', ')}
+							<br />
+							<T keyName="admin.settings.founder_welcome.markup_hint" />
 						</Field.Description>
 					{:else}
 						<FounderBodyPreviewButton

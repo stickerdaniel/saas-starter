@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import { getFunctionName, type FunctionReference } from 'convex/server';
+import { renderFounderEmail } from '#lib/convex/emails/founderTemplate.js';
 import en from '../../../../i18n/en.json';
 
 vi.mock('svelte', () =>
@@ -33,7 +34,7 @@ vi.mock('convex-svelte', () => ({
 							name: 'Ada',
 							title: 'Founder',
 							subject: 'Welcome',
-							body: 'Hi {{userFirstName}}'
+							body: 'Hi {{userFirstName}},\n\nOpen [your dashboard](https://app.example.com) **now**.'
 						},
 						viewerProfile: { name: 'Ada', title: 'Founder', replyTo: '' }
 					},
@@ -105,4 +106,16 @@ it('blocks dismissing the step-down while it is pending and stays open on failur
 	expect(alertOpen()).toBe(true);
 	expect(buttonNamed(founder.step_down, alert()!).disabled).toBe(false);
 	expect(buttonNamed(founder.cancel, alert()!).disabled).toBe(false);
+});
+
+it('previews the body as the text part the email sends', () => {
+	buttonNamed(founder.edit_button).click();
+	flushSync();
+
+	const sent = renderFounderEmail(
+		'Hi {{userFirstName}},\n\nOpen [your dashboard](https://app.example.com) **now**.',
+		{ userFirstName: 'Alex', userLastName: 'Johnson', founderName: 'Ada', founderTitle: 'Founder' }
+	).text;
+	expect(document.getElementById('config-body-preview')?.textContent?.trim()).toBe(sent);
+	expect(sent).toContain('your dashboard <https://app.example.com> now.');
 });

@@ -25,16 +25,6 @@ export function shouldSkipTestEmail(action: string, email: string): boolean {
 	return false;
 }
 
-/**
- * Generate a random delay between 16-19 minutes for founder welcome emails.
- * Randomized to feel organic rather than automated.
- */
-export function getFounderWelcomeDelay(): number {
-	const MIN_DELAY = 16 * 60 * 1000; // 16 minutes
-	const MAX_DELAY = 19 * 60 * 1000; // 19 minutes
-	return MIN_DELAY + Math.floor(Math.random() * (MAX_DELAY - MIN_DELAY));
-}
-
 /** Default content for founder welcome email */
 export const FOUNDER_WELCOME_DEFAULTS = {
 	subject: 'A quick hello',
