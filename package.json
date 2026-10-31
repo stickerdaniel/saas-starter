@@ -101,7 +101,7 @@
 		"ai": "7.0.140",
 		"atmn": "2.0.172",
 		"autumn-js": "0.1.85",
-		"better-auth": "1.6.33",
+		"better-auth": "1.7.7",
 		"convex-helpers": "0.1.129",
 		"convex-svelte": "0.15.1",
 		"date-fns": "4.4.0",
