@@ -117,10 +117,20 @@ describe('renderFounderEmail', () => {
 		'***[go](https://example.com)***',
 		'![**alt**](https://example.com/a(b).png)',
 		'[[**x**](https://example.com/a(b))]',
-		'![**alt**]'
+		'![**alt**]',
+		'![x](**bold**)',
+		'[[x](**bold**)]',
+		'![x]([go](https://example.com))',
+		'![x](**bold** without a closing parenthesis'
 	])('renders %s literally', (template) => {
 		expect(htmlBody(template)).toBe(`<p>${template}</p>`);
 		expect(renderFounderEmail(template, vars).text).toBe(template);
+	});
+
+	it('renders a link after an image as a link', () => {
+		expect(htmlBody('![x](https://example.com/x.png) and [docs](https://example.com)')).toBe(
+			'<p>![x](https://example.com/x.png) and <a href="https://example.com">docs</a></p>'
+		);
 	});
 
 	it('keeps a lone star run literal and renders the bold after it', () => {

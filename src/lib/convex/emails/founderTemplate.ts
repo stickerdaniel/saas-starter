@@ -30,11 +30,12 @@ type Inline =
 	| { kind: 'bold'; text: string };
 
 // Neither construct spans a line, so the renderer tokenizes line by line. The
-// first group matches unsupported markup first (the bracket part of an image or a
-// double-bracket link, whatever follows it, and runs of three or more stars), so
-// that span stays literal instead of rendering a link or bold inside it.
+// first group matches unsupported markup first, so it stays literal instead of
+// rendering a link or bold inside it: an image or double-bracket link with its
+// attached target up to the first `)` (or the line end), and runs of three or
+// more stars.
 const MARKUP =
-	/(!\[[^\]\n]*\]|\[\[[^\]\n]*\]|\*{3,}[^*\n]*\*{3,}|\*{3,})|\[([^[\]\n]+)\]\(([^()\s]+)\)|\*\*([^*\n]+)\*\*/g;
+	/((?:!\[|\[\[)[^\]\n]*\](?:\([^)\n]*\)?)?|\*{3,}[^*\n]*\*{3,}|\*{3,})|\[([^[\]\n]+)\]\(([^()\s]+)\)|\*\*([^*\n]+)\*\*/g;
 const LINK_PROTOCOLS = new Set(['https:', 'http:', 'mailto:']);
 const FOUNDER_EMAIL_STYLE =
 	"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#000";
