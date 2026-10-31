@@ -115,7 +115,8 @@ export const supportSource: JourneySource<'support'> = defineJourneySource({
 					key: `support:${name}`,
 					at: first,
 					title,
-					lines: single
+					// A range inside one minute would repeat the step's own time.
+					lines: clock.sameMinute(first, last)
 						? []
 						: [
 								t(locale, lowerBound ? COPY.range.observed : COPY.range.complete, {

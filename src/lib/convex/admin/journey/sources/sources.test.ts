@@ -328,6 +328,23 @@ describe('template journey sources', () => {
 		expect(source('support').steps[0]?.at).toBe(windowStart + 5 * DAY);
 	});
 
+	it('leaves out the range when every event of a step falls in one minute', async () => {
+		const { seed, journey } = setup();
+		captureAll(seed);
+		const paymentAt = SIGNUP + DAY;
+		for (const offset of [0, 20_000, 40_000]) seed.receipt(SIGNUP + HOUR + offset);
+		for (const offset of [0, 30_000]) seed.contact(SIGNUP + 4 * HOUR + offset);
+
+		const { source } = await journey(newCustomer(paymentAt, paymentAt + 6 * HOUR));
+
+		expect(source('aiChat').steps.map(({ title, lines }) => ({ title, lines }))).toEqual([
+			{ title: 'Sent 3 AI chat messages', lines: [] }
+		]);
+		expect(source('support').steps.map(({ title, lines }) => ({ title, lines }))).toEqual([
+			{ title: 'First recorded support contacts in 2 threads', lines: [] }
+		]);
+	});
+
 	it('marks only the side of the payment a cut-short support read may be missing', async () => {
 		const { seed, journey } = setup();
 		captureAll(seed);
@@ -359,8 +376,8 @@ describe('template journey sources', () => {
 		const { source, notes } = await journey(newCustomer(SIGNUP + DAY));
 
 		expect(source('support')).toMatchObject({ status: 'presented', coverage: { truncated: true } });
-		expect(source('support').steps.map(({ at, title }) => ({ at, title }))).toEqual([
-			{ at: SIGNUP, title: 'First recorded support contacts in at least 1 thread' }
+		expect(source('support').steps.map(({ at, title, lines }) => ({ at, title, lines }))).toEqual([
+			{ at: SIGNUP, title: 'First recorded support contacts in at least 1 thread', lines: [] }
 		]);
 		expect(notes).toEqual(['Support contacts: only partly checked, so counts are minimums.']);
 	});
