@@ -114,7 +114,10 @@ describe('renderFounderEmail', () => {
 		'***x***',
 		'![**alt**](https://example.com/x.png)',
 		'[[**x**](https://example.com)]',
-		'***[go](https://example.com)***'
+		'***[go](https://example.com)***',
+		'![**alt**](https://example.com/a(b).png)',
+		'[[**x**](https://example.com/a(b))]',
+		'![**alt**]'
 	])('renders %s literally', (template) => {
 		expect(htmlBody(template)).toBe(`<p>${template}</p>`);
 		expect(renderFounderEmail(template, vars).text).toBe(template);
@@ -129,6 +132,7 @@ describe('renderFounderEmail', () => {
 			'<p><a href="https://example.com">a</a><a href="https://example.org">b</a> ' +
 				'<strong>c</strong>, <strong>d</strong></p>'
 		);
+		expect(htmlBody('**a****b**')).toBe('<p><strong>a</strong><strong>b</strong></p>');
 	});
 
 	it('renders an unknown placeholder as an empty string', () => {
