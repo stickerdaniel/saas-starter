@@ -29,10 +29,12 @@ type Inline =
 	| { kind: 'link'; label: string; href: string }
 	| { kind: 'bold'; text: string };
 
-// Neither construct spans a line, so the renderer tokenizes line by line. A
-// construct glued to `!`, `[`, `]` or `*` belongs to unsupported markup such as
-// an image or `***x***` and stays literal.
-const MARKUP = /(?<![![])\[([^[\]\n]+)\]\(([^()\s]+)\)(?!\])|(?<!\*)\*\*([^*\n]+)\*\*(?!\*)/g;
+// Neither construct spans a line, so the renderer tokenizes line by line. The
+// first group matches unsupported markup that contains a supported construct (an
+// image, a link in double brackets, runs of three or more stars), so the whole
+// span stays literal instead of rendering its inner link or bold.
+const MARKUP =
+	/(!\[[^\]\n]*\]\([^()\s]*\)|\[\[[^\]\n]*\]\([^()\s]*\)\]|\*{3,}[^*\n]*\*{3,}|\*{3,})|\[([^[\]\n]+)\]\(([^()\s]+)\)|\*\*([^*\n]+)\*\*/g;
 const LINK_PROTOCOLS = new Set(['https:', 'http:', 'mailto:']);
 const FOUNDER_EMAIL_STYLE =
 	"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#000";
@@ -64,9 +66,13 @@ function renderLine(line: string, vars: FounderTemplateVariables): Inline[] {
 		if (end > cursor) inlines.push({ kind: 'text', text: fill(line.slice(cursor, end)) });
 	};
 	for (const match of line.matchAll(MARKUP)) {
-		const [raw, label, url, bold] = match;
+		const [raw, literal, label, url, bold] = match;
 		pushTextUntil(match.index);
 		cursor = match.index + raw.length;
+		if (literal !== undefined) {
+			inlines.push({ kind: 'text', text: fill(raw) });
+			continue;
+		}
 		if (bold !== undefined) {
 			inlines.push({ kind: 'bold', text: fill(bold) });
 			continue;
