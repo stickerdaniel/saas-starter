@@ -193,7 +193,7 @@
 							</DropdownMenu.Trigger>
 							<DropdownMenu.Content
 								align="end"
-								class="w-64"
+								class="w-auto"
 								onCloseAutoFocus={(event) => {
 									event.preventDefault();
 									textarea?.focus();
