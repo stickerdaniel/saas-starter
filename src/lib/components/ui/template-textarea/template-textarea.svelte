@@ -4,11 +4,19 @@
 
 	let {
 		value = $bindable(''),
+		ref = $bindable(null),
 		variables,
+		variant = 'default',
 		class: className,
 		rows,
 		...restProps
-	}: HTMLTextareaAttributes & { value?: string; variables: string[] } = $props();
+	}: HTMLTextareaAttributes & {
+		value?: string;
+		ref?: HTMLTextAreaElement | null;
+		variables: string[];
+		/** `embedded` drops the field frame for an editor that draws its own. */
+		variant?: 'default' | 'embedded';
+	} = $props();
 
 	let highlightEl: HTMLDivElement | undefined = $state();
 
@@ -50,10 +58,13 @@
 	<!-- Transparent textarea (on top, receives input) -->
 	<textarea
 		class={cn(
-			'flex field-sizing-content min-h-16 w-full rounded-md border border-input bg-transparent px-3 py-2 text-base break-words whitespace-pre-wrap shadow-xs outline-hidden transition-field-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:aria-invalid:ring-destructive/40',
+			'flex field-sizing-content min-h-16 w-full rounded-md border border-transparent bg-transparent px-3 py-2 text-base break-words whitespace-pre-wrap outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
+			variant === 'default' &&
+				'border-input shadow-xs transition-field-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:ring-destructive/40',
 			className,
 			'text-transparent caret-foreground'
 		)}
+		bind:this={ref}
 		bind:value
 		{rows}
 		oninput={handleScroll}

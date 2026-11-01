@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	canLinkSelection,
-	renderFounderEmail,
-	type FounderTemplateVariables
-} from './founderTemplate';
+import { renderFounderEmail, type FounderTemplateVariables } from './founderTemplate';
 
 const vars: FounderTemplateVariables = {
 	userFirstName: 'Ada',
@@ -206,38 +202,5 @@ describe('renderFounderEmail', () => {
 
 		expect(text).toBe('Hi Ada,\n\nwhat held you back?\n\nSam, Founder');
 		expect(htmlBody(template)).toBe('<p>Hi Ada,</p><p>what held you back?</p><p>Sam, Founder</p>');
-	});
-});
-
-describe('canLinkSelection', () => {
-	/** Select the first `selected` in `template` and link it if allowed. */
-	function linkFirst(template: string, selected: string): string | undefined {
-		const start = template.indexOf(selected);
-		const end = start + selected.length;
-		if (!canLinkSelection(template, start, end)) return undefined;
-		return htmlBody(
-			`${template.slice(0, start)}[${selected}](https://new.example.com)${template.slice(end)}`
-		);
-	}
-
-	it.each([
-		['Say thanks for joining', 'thanks'],
-		['Hey {{userFirstName}}, welcome', '{{userFirstName}}, welcome'],
-		['- Open the app', 'the app'],
-		['**P.S.** Say thanks', 'thanks']
-	])('links %s when %s is selected', (template, selected) => {
-		expect(linkFirst(template, selected)).toContain('<a href="https://new.example.com">');
-	});
-
-	it.each([
-		['Say **thanks** for joining', 'thanks'],
-		['Please [thanks](https://old.example.com)!', 'thanks'],
-		['Hey {{userFirstName}}, welcome', 'userFirstName'],
-		['12. Open the app', '2'],
-		['Say thanks\nfor joining', 'thanks\nfor'],
-		['Say [thanks] now', '[thanks]'],
-		['Say thanks', '']
-	])('leaves %s alone when %s is selected', (template, selected) => {
-		expect(linkFirst(template, selected)).toBeUndefined();
 	});
 });

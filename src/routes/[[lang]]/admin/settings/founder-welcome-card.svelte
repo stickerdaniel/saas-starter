@@ -6,23 +6,16 @@
 	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import FounderBodyPreviewButton from '#lib/components/ui/owned/founder-body-preview-button.svelte';
 	import FounderResetConfirmAction from '#lib/components/ui/owned/founder-reset-confirm-action.svelte';
 	import { Input } from '#lib/components/ui/input/index.js';
-	import { TemplateTextarea } from '#lib/components/ui/template-textarea/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { toast } from 'svelte-sonner';
-	import { tick } from 'svelte';
 	import { safeParse } from 'valibot';
 	import { emailSchema } from '#lib/schemas/auth.js';
 	import { translateFormError } from '#lib/utils/validation-i18n.js';
 	import { FOUNDER_WELCOME_DEFAULTS } from '#lib/convex/emails/helpers.js';
-	import {
-		FOUNDER_TEMPLATE_VARIABLES,
-		canLinkSelection,
-		isAllowedHref,
-		renderFounderEmail
-	} from '#lib/convex/emails/founderTemplate.js';
+	import type { FounderTemplateVariables } from '#lib/convex/emails/founderTemplate.js';
+	import FounderBodyEditor from './founder-body-editor.svelte';
 
 	const { t } = getTranslate();
 	const client = useConvexClient();
@@ -38,7 +31,6 @@
 	let isSaving = $state(false);
 	let isStepping = $state(false);
 	let stepDownDialogOpen = $state(false);
-	let editingBody = $state(false);
 
 	const config = $derived(result.data?.config);
 	const viewerProfile = $derived(result.data?.viewerProfile);
@@ -63,18 +55,15 @@
 			!replyToError
 	);
 
-	// Live preview of the text part with sample data
-	const previewText = $derived(
-		renderFounderEmail(editBody, {
-			userFirstName: 'Alex',
-			userLastName: 'Johnson',
-			founderName: editName || 'You',
-			founderTitle: editTitle || 'Founder'
-		}).text
-	);
+	// Sample recipient values for the body preview
+	const previewVars = $derived<FounderTemplateVariables>({
+		userFirstName: 'Alex',
+		userLastName: 'Johnson',
+		founderName: editName || 'You',
+		founderTitle: editTitle || 'Founder'
+	});
 
 	function openDialog() {
-		editingBody = false;
 		// Pre-fill with viewer's own profile (name/title/replyTo persist per-user)
 		if (viewerProfile) {
 			editName = viewerProfile.name;
@@ -137,22 +126,6 @@
 		if (!open) {
 			stepDownDialogOpen = false;
 		}
-	}
-
-	/** Pasting a link URL over selected text wraps the selection as `[text](url)`. */
-	function pasteLink(event: ClipboardEvent & { currentTarget: HTMLTextAreaElement }) {
-		const { value, selectionStart, selectionEnd } = event.currentTarget;
-		const url = event.clipboardData?.getData('text/plain').trim() ?? '';
-		// The renderer's link token admits no parentheses in the URL.
-		if (/[()]/.test(url) || !isAllowedHref(url)) return;
-		if (!canLinkSelection(value, selectionStart, selectionEnd)) return;
-		event.preventDefault();
-		const textarea = event.currentTarget;
-		const link = `[${value.slice(selectionStart, selectionEnd)}](${url})`;
-		// insertText keeps the edit undoable; setRangeText covers engines without it.
-		if (document.execCommand?.('insertText', false, link)) return;
-		textarea.setRangeText(link, textarea.selectionStart, textarea.selectionEnd, 'end');
-		textarea.dispatchEvent(new Event('input', { bubbles: true }));
 	}
 </script>
 
@@ -241,43 +214,7 @@
 					<Field.Label for="config-body">
 						<T keyName="admin.settings.founder_welcome.config_body_label" />
 					</Field.Label>
-					{#if editingBody || !editBody}
-						<TemplateTextarea
-							id="config-body"
-							rows={8}
-							variables={[...FOUNDER_TEMPLATE_VARIABLES]}
-							bind:value={editBody}
-							onpaste={pasteLink}
-							onfocus={() => {
-								editingBody = true;
-							}}
-							onblur={async () => {
-								if (!editBody) return;
-								editingBody = false;
-								await tick();
-								document.getElementById('config-body-preview')?.focus();
-							}}
-						/>
-						<Field.Description>
-							<T keyName="admin.settings.founder_welcome.variables_label" />
-							{' ' + FOUNDER_TEMPLATE_VARIABLES.map((name) => `{{${name}}}`).join(', ')}
-							<br />
-							<T keyName="admin.settings.founder_welcome.markup_hint" />
-						</Field.Description>
-					{:else}
-						<FounderBodyPreviewButton
-							id="config-body-preview"
-							type="button"
-							onclick={async () => {
-								editingBody = true;
-								await tick();
-								const el = document.getElementById('config-body') as HTMLTextAreaElement | null;
-								el?.focus();
-							}}
-						>
-							<p class="whitespace-pre-wrap">{previewText}</p>
-						</FounderBodyPreviewButton>
-					{/if}
+					<FounderBodyEditor id="config-body" bind:value={editBody} {previewVars} />
 				</Field.Field>
 			</Field.Group>
 		</div>

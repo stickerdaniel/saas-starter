@@ -61,57 +61,37 @@ export function isAllowedHref(url: string): boolean {
 	return LINK_PROTOCOLS.has(parsed.protocol) && !parsed.username && !parsed.password;
 }
 
-/**
- * Whether wrapping a selection of `template` as `[selection](url)` renders a link.
- * The selection must be one nonempty line without brackets that touches no list
- * marker or markup token and contains every placeholder it overlaps, because the
- * renderer does not parse markup nested in another token.
- */
-export function canLinkSelection(template: string, start: number, end: number): boolean {
-	const label = template.slice(start, end);
-	if (!label.trim() || /[[\]\n]/.test(label)) return false;
-	const lineStart = template.lastIndexOf('\n', start - 1) + 1;
-	const lineEnd = template.indexOf('\n', end);
-	const line = template.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
-	const [from, to] = [start - lineStart, end - lineStart];
-	if (from < (LIST_ITEM.exec(line)?.[0].length ?? 0)) return false;
-	const overlaps = (match: RegExpExecArray) =>
-		match.index < to && from < match.index + match[0].length;
-	if ([...line.matchAll(MARKUP)].some(overlaps)) return false;
-	return [...line.matchAll(/\{\{\w+\}\}/g)].every(
-		(match) => !overlaps(match) || (from <= match.index && match.index + match[0].length <= to)
-	);
+/** A markup token on one template line, with its position in that line. */
+export type MarkupSpan = { start: number; end: number } & (
+	| { kind: 'literal' }
+	| { kind: 'link'; label: string; url: string }
+	| { kind: 'bold'; text: string }
+);
+
+/** The list marker a template line starts with, such as `- ` or `3. `. */
+export type ListMarker = { length: number; ordered: boolean; start: number };
+
+/** The list marker of a template line that is a list item. */
+export function listMarker(line: string): ListMarker | undefined {
+	const match = LIST_ITEM.exec(line);
+	if (!match) return undefined;
+	return { length: match[0].length, ordered: match[1] !== undefined, start: Number(match[1] ?? 1) };
 }
 
-/** Tokenize one template line, then substitute placeholders inside each token. */
-function renderLine(line: string, vars: FounderTemplateVariables): Inline[] {
-	const fill = (part: string) => renderFounderTemplate(part, vars);
-	const inlines: Inline[] = [];
-	let cursor = 0;
-	const pushTextUntil = (end: number) => {
-		if (end > cursor) inlines.push({ kind: 'text', text: fill(line.slice(cursor, end)) });
-	};
-	for (const match of line.matchAll(MARKUP)) {
-		const [raw, literal, label, url, bold] = match;
-		pushTextUntil(match.index);
-		cursor = match.index + raw.length;
-		if (literal !== undefined) {
-			inlines.push({ kind: 'text', text: fill(raw) });
-			continue;
-		}
-		if (bold !== undefined) {
-			inlines.push({ kind: 'bold', text: fill(bold) });
-			continue;
-		}
-		const href = fill(url ?? '');
-		inlines.push(
-			isAllowedHref(href)
-				? { kind: 'link', label: fill(label ?? ''), href }
-				: { kind: 'text', text: fill(raw) }
-		);
-	}
-	pushTextUntil(line.length);
-	return inlines;
+/**
+ * The markup tokens of one template line after its list marker, as the renderer
+ * reads them, with placeholders unresolved. The body editor uses the same spans.
+ */
+export function markupSpans(line: string): MarkupSpan[] {
+	const offset = listMarker(line)?.length ?? 0;
+	return [...line.slice(offset).matchAll(MARKUP)].map((match): MarkupSpan => {
+		const [raw, literal, label = '', url = '', bold] = match;
+		const start = offset + match.index;
+		const end = start + raw.length;
+		if (literal !== undefined) return { kind: 'literal', start, end };
+		if (bold !== undefined) return { kind: 'bold', start, end, text: bold };
+		return { kind: 'link', start, end, label, url };
+	});
 }
 
 function inlineText(inline: Inline): string {
@@ -130,16 +110,31 @@ function inlineHtml(inline: Inline): string {
 	}
 }
 
-type Line = { html: string; text: string; list?: { ordered: boolean; start: number } };
+type Line = { html: string; text: string; list?: ListMarker };
 
-/** Render one template line, splitting off a list marker first. */
+/** Tokenize one template line, then substitute placeholders inside each token. */
 function renderBodyLine(line: string, vars: FounderTemplateVariables): Line {
-	const marker = LIST_ITEM.exec(line);
-	const inlines = renderLine(marker ? line.slice(marker[0].length) : line, vars);
+	const fill = (part: string) => renderFounderTemplate(part, vars);
+	const list = listMarker(line);
+	const inlines: Inline[] = [];
+	let cursor = list?.length ?? 0;
+	const pushTextUntil = (end: number) => {
+		if (end > cursor) inlines.push({ kind: 'text', text: fill(line.slice(cursor, end)) });
+	};
+	for (const span of markupSpans(line)) {
+		pushTextUntil(span.start);
+		cursor = span.end;
+		const href = span.kind === 'link' ? fill(span.url) : '';
+		if (span.kind === 'bold') inlines.push({ kind: 'bold', text: fill(span.text) });
+		else if (span.kind === 'link' && isAllowedHref(href))
+			inlines.push({ kind: 'link', label: fill(span.label), href });
+		else inlines.push({ kind: 'text', text: fill(line.slice(span.start, span.end)) });
+	}
+	pushTextUntil(line.length);
 	return {
 		html: inlines.map(inlineHtml).join(''),
-		text: (marker?.[0] ?? '') + inlines.map(inlineText).join(''),
-		list: marker ? { ordered: marker[1] !== undefined, start: Number(marker[1] ?? 1) } : undefined
+		text: line.slice(0, list?.length ?? 0) + inlines.map(inlineText).join(''),
+		list
 	};
 }
 
@@ -154,10 +149,9 @@ function blockHtml({ tag, start, lines }: Block): string {
 /**
  * Render a founder email body as its text and HTML parts. The markup is exactly
  * `[label](url)`, `**bold**`, and list items on lines starting with `- ` or `1. `
- * and text;
- * anything else, malformed or unsupported, stays literal text. The template is
- * tokenized before `{{name}}` placeholders resolve, so a substituted value can
- * never create markup. A link whose substituted URL is not an absolute `https:`,
+ * and text; anything else, malformed or unsupported, stays literal text. The
+ * template is tokenized before `{{name}}` placeholders resolve, so a substituted
+ * value can never create markup. A link whose substituted URL is not an absolute `https:`,
  * `http:` or `mailto:` URL without credentials renders literally. A line that
  * renders empty separates paragraphs and lists, a single newline is a line break,
  * and consecutive list items of one kind form one list; the text part keeps the
