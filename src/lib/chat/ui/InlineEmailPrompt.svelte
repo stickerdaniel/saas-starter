@@ -87,6 +87,13 @@
 		}
 	}
 
+	function handleKeyDown(e: KeyboardEvent) {
+		// Enter that confirms an IME candidate must not subscribe. Safari fires that
+		// keydown after compositionend, so only keyCode 229 marks it there.
+		if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+		if (canSubscribe) void handleSubmit();
+	}
+
 	async function handleUnsubscribe() {
 		if (isSubmitting) return;
 
@@ -116,7 +123,7 @@
 			placeholder={$t('chat.email.placeholder')}
 			bind:value={email}
 			disabled={isSubscribed}
-			onkeydown={(e) => e.key === 'Enter' && canSubscribe && handleSubmit()}
+			onkeydown={handleKeyDown}
 		/>
 		{#if showConfirmed}
 			<InputGroup.Addon align="inline-end">
