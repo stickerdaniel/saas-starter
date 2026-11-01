@@ -204,3 +204,39 @@ it('pastes normally when the clipboard holds no allowed link', async () => {
 	expect(handled).toBe(false);
 	expect(textarea.value.startsWith('Hi {{userFirstName}},')).toBe(true);
 });
+
+const toolbarButton = (label: string) =>
+	document.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement;
+
+it('shows the format at the caret as on and turns it off', async () => {
+	await settle();
+	const textarea = openBodyEditor();
+	const at = textarea.value.indexOf('now') + 1;
+	textarea.setSelectionRange(at, at);
+	textarea.dispatchEvent(new Event('selectionchange'));
+	flushSync();
+
+	expect(toolbarButton(founder.editor_bold).getAttribute('aria-pressed')).toBe('true');
+	expect(toolbarButton(founder.editor_link).disabled).toBe(true);
+
+	toolbarButton(founder.editor_bold).click();
+	flushSync();
+
+	expect(textarea.value.endsWith(') now.')).toBe(true);
+	expect(toolbarButton(founder.editor_bold).getAttribute('aria-pressed')).toBe('false');
+});
+
+it('continues a list on Enter', async () => {
+	await settle();
+	const textarea = openBodyEditor();
+	textarea.value = '- One';
+	textarea.dispatchEvent(new Event('input', { bubbles: true }));
+	textarea.setSelectionRange(5, 5);
+	const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+	textarea.dispatchEvent(enter);
+	flushSync();
+
+	expect(enter.defaultPrevented).toBe(true);
+	expect(textarea.value).toBe('- One\n- ');
+	expect(textarea.selectionStart).toBe(8);
+});

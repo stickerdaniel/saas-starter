@@ -83,7 +83,10 @@ const arbitraryValueExceptions = [
 	"after:content-['+']",
 	"after:content-['−']",
 	'[--bits-accordion-content-height:var(--bits-collapsible-content-height)]',
-	'ml-[calc(--spacing(2)_-_1px)]'
+	'ml-[calc(--spacing(2)_-_1px)]',
+	// ToggleGroup, as the shadcn-svelte registry ships it: its `spacing` prop sets the item
+	// gap through a variable, which no fixed gap step can follow.
+	'gap-[--spacing(var(--gap))]'
 ];
 
 // no-restyle: a caller places a design-system component; its look comes from the
