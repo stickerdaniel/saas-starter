@@ -11,7 +11,6 @@ export const test = base.extend<AxeFixture>({
 			new AxeBuilder({ page })
 				.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
 				// Light-theme contrast exceptions (design-system elements)
-				.exclude('[data-slot="kbd"]') // Keyboard shortcut badges (⌘K)
 				.exclude('.ai-pill-bg') // AI chatbar gradient overlay
 				.exclude('[data-slot="textarea"]'); // AI chatbar placeholder
 		await use(makeAxeBuilder);
