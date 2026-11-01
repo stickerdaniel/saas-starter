@@ -3,6 +3,7 @@ import path from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+import { runsWhen } from './github-expression';
 import {
 	UPSTREAM_REPORT_TEST_INPUTS,
 	isUpstreamReportTestInput,
@@ -27,11 +28,21 @@ const steps =
 		}
 	).jobs['upstream-report-tests']?.steps ?? [];
 
+const checkouts = steps.filter((step) => step.uses?.startsWith('actions/checkout@'));
+
+/** The one checkout step that runs for an event while `CI_FULL_SUITE` has the given value. */
+function checkoutFor(eventName: string, fullSuite: string): Step | undefined {
+	const contexts = { github: { event_name: eventName }, vars: { CI_FULL_SUITE: fullSuite } };
+	const running = checkouts.filter((step) =>
+		runsWhen(step.if, contexts, { success: true, failure: false, cancelled: false })
+	);
+	expect(running, `${eventName} with CI_FULL_SUITE=${fullSuite}`).toHaveLength(1);
+	return running[0];
+}
+
 describe('upstream report test inputs', () => {
-	it('checks out exactly the inputs in the job', () => {
-		const checkouts = steps.filter((step) => step.uses?.startsWith('actions/checkout@'));
-		expect(checkouts).toHaveLength(1);
-		const options = checkouts[0]?.with ?? {};
+	it('checks out exactly the inputs on a pull request', () => {
+		const options = checkoutFor('pull_request', '')?.with ?? {};
 		// Cone mode always checks out every root file, which would hide a read of one.
 		expect(options['sparse-checkout-cone-mode']).toBe(false);
 		const patterns = String(options['sparse-checkout'] ?? '')
@@ -47,6 +58,19 @@ describe('upstream report test inputs', () => {
 			missing: inputs.filter((input) => !patterns.includes(input)),
 			extra: patterns.filter((pattern) => !inputs.includes(pattern))
 		}).toEqual({ missing: [], extra: [] });
+	});
+
+	// A test that tolerates a missing file passes on the sparse checkout without it, so only a
+	// run on the full tree shows an input the list does not declare.
+	it.each([
+		['push', ''],
+		['workflow_dispatch', ''],
+		['merge_group', ''],
+		['schedule', ''],
+		['pull_request', 'true']
+	])('checks out the full tree on %s with CI_FULL_SUITE=%j', (eventName, fullSuite) => {
+		const options = checkoutFor(eventName, fullSuite)?.with ?? {};
+		expect(options['sparse-checkout']).toBeUndefined();
 	});
 
 	it('checks out the selection it runs', () => {

@@ -8,15 +8,16 @@
  * commits. The repository variable `CI_FULL_SUITE=true` runs them everywhere, to switch
  * the selection off without a commit.
  *
- * The job checks out only UPSTREAM_REPORT_TEST_INPUTS, as a partial clone without lazy
- * fetching, so a suite that starts reading any other repository path, from the worktree or
- * from Git objects, fails in CI instead of being skipped. Such a read can only arrive
- * through a change to an input, which selects the suite on that same pull request. A read
- * that tolerates a missing file, such as `existsSync`, an optional read or a glob, passes
- * without the file, so it must still be declared here by hand: its absence fails nothing.
- * Every run, including non-PR events and `CI_FULL_SUITE=true`, keeps the same sparse
- * checkout, so such an undeclared input only takes effect where the suite runs on the
- * full tree, such as `bun run test:upstream-report` locally.
+ * On a pull request the job checks out only UPSTREAM_REPORT_TEST_INPUTS, as a partial clone
+ * without lazy fetching, so a suite that starts reading any other repository path, from the
+ * worktree or from Git objects, fails in CI instead of being skipped. Such a read can only
+ * arrive through a change to an input, which selects the suite on that same pull request. A
+ * read that tolerates a missing file, such as `existsSync`, an optional read or a glob,
+ * passes without the file, so it must still be declared here by hand: its absence fails
+ * nothing on the pull request. Every other run, which is every push to main and every run
+ * with `CI_FULL_SUITE=true`, checks out the full tree, so a change that breaks the suite
+ * through an undeclared input fails the next of those, after merge rather than on the pull
+ * request.
  *
  * The job runs `bun scripts/upstream-report-scope.ts` before installing dependencies, so
  * this file imports Node built-ins only. It reads FULL_SUITE, EVENT_NAME, CHANGED_FILES,

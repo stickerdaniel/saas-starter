@@ -200,11 +200,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      # Only the suite's inputs, as listed in scripts/upstream-report-scope.ts, so a test that
-      # reads any other path fails here rather than being skipped when that path changes.
-      # Non-cone mode leaves out root files the list does not name, and the blobless clone
-      # leaves their objects out of the repository.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # A pull request checks out only the suite's inputs, as listed in
+      # scripts/upstream-report-scope.ts, so a test that reads any other path fails here rather
+      # than being skipped when that path changes. Non-cone mode leaves out root files the list
+      # does not name, and the blobless clone leaves their objects out of the repository.
+      - if: github.event_name == 'pull_request' && vars.CI_FULL_SUITE != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           filter: blob:none
           sparse-checkout-cone-mode: false
@@ -220,6 +221,10 @@ jobs:
             /.github/workflows/static-checks.yml
             /scripts/upstream-report-scope.ts
             **/.gitattributes
+      # Every other run reads the full tree, so a test that tolerates a missing undeclared input
+      # still sees it there.
+      - if: github.event_name != 'pull_request' || vars.CI_FULL_SUITE == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       # The check is required, so the job always reports and only runs the suite when a
       # pull request changes one of its inputs. A missing selection runs it.
@@ -233,8 +238,9 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: bun scripts/upstream-report-scope.ts
-      # The tests read no generated file. Without lazy fetching, reading an object outside the
-      # checkout fails instead of downloading it; the checkout itself still needs to fetch.
+      # The tests read no generated file. Without lazy fetching, reading an object outside a
+      # sparse checkout fails instead of downloading it; the checkout itself still needs to
+      # fetch. A full checkout is no partial clone, so there it changes nothing.
       - if: steps.scope.outputs.run != 'false'
         env:
           GIT_NO_LAZY_FETCH: '1'
