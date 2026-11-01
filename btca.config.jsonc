@@ -347,6 +347,13 @@
 		},
 		{
 			"type": "git",
+			"name": "nanostores",
+			"url": "https://github.com/nanostores/nanostores",
+			"branch": "main",
+			"specialNotes": "Store library behind the Better Auth client atoms. Lifecycle, cleanStores."
+		},
+		{
+			"type": "git",
 			"name": "betterSvelteEmail",
 			"url": "https://github.com/Konixy/better-svelte-email",
 			"branch": "main",
