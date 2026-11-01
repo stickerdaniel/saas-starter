@@ -41,7 +41,7 @@
 	}
 </script>
 
-<div class="relative">
+<div class="relative w-full">
 	<!-- Highlight layer (behind textarea) -->
 	<div
 		bind:this={highlightEl}

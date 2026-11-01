@@ -8,6 +8,7 @@
 	import ListOrderedIcon from '@lucide/svelte/icons/list-ordered';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import * as InputGroup from '#lib/components/ui/input-group/index.js';
 	import * as Kbd from '#lib/components/ui/kbd/index.js';
 	import * as Tabs from '#lib/components/ui/tabs/index.js';
 	import { TemplateTextarea } from '#lib/components/ui/template-textarea/index.js';
@@ -123,6 +124,8 @@
 		const tool = tools.find((candidate) => candidate.shortcut === key);
 		if (!tool) return;
 		event.preventDefault();
+		// The app shell binds Cmd+B to its sidebar; the editor keeps its shortcuts.
+		event.stopPropagation();
 		run(tool);
 	}
 
@@ -139,10 +142,8 @@
 </script>
 
 <Tabs.Root bind:value={tab}>
-	<div
-		class="rounded-md border border-input shadow-xs transition-field-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 dark:bg-input/30"
-	>
-		<div class="flex items-center gap-0.5 border-b p-1">
+	<InputGroup.Root>
+		<InputGroup.Addon align="block-start" class="flex-wrap">
 			<Tabs.List>
 				<Tabs.Trigger value="write">
 					<T keyName="admin.settings.founder_welcome.editor_write" />
@@ -153,7 +154,7 @@
 			</Tabs.List>
 			{#if tab === 'write'}
 				<Tooltip.Provider>
-					<div class="ms-auto flex items-center gap-0.5">
+					<div class="ms-auto flex flex-wrap items-center gap-0.5">
 						{#each tools as tool (tool.labelKey)}
 							<Tooltip.Root>
 								<Tooltip.Trigger>
@@ -214,29 +215,29 @@
 					</div>
 				</Tooltip.Provider>
 			{/if}
-		</div>
-		<Tabs.Content value="write">
+		</InputGroup.Addon>
+		<Tabs.Content value="write" class="w-full">
 			<TemplateTextarea
 				{id}
 				rows={8}
 				variables={[...FOUNDER_TEMPLATE_VARIABLES]}
 				variant="embedded"
+				data-slot="input-group-control"
 				bind:ref={textarea}
 				bind:value
 				onkeydown={handleKeydown}
 				onpaste={handlePaste}
 			/>
 		</Tabs.Content>
-		<Tabs.Content value="preview">
+		<Tabs.Content value="preview" class="w-full">
 			<!-- The email renders on white in both themes, with the block margins, list
 			     markers and link styles mail clients keep and the app's reset removes. -->
 			<div
-				data-testid="founder-body-preview"
 				class="m-1 rounded-sm bg-white p-3 [&_:is(p,ul,ol)]:my-3.5 [&_:is(p,ul,ol):first-child]:mt-0 [&_:is(p,ul,ol):last-child]:mb-0 [&_a]:text-info [&_a]:underline [&_ol]:list-decimal [&_ol]:ps-6 [&_ul]:list-disc [&_ul]:ps-6"
 			>
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -- The renderer escapes every value it emits -->
 				{@html previewHtml}
 			</div>
 		</Tabs.Content>
-	</div>
+	</InputGroup.Root>
 </Tabs.Root>

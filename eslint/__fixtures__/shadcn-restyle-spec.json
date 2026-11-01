@@ -60,7 +60,7 @@
 				"allow": ["layout", "truncate"]
 			},
 			{
-				"pattern": "^(Button|CopyButton|ScrollButton|PromptSuggestion|CommandTrigger|NavigationButton|AlertDialogAction|AlertDialogCancel|InputGroupButton|Badge|Input|SidebarInput|InputGroupInput|Textarea|PromptInputTextarea|InputGroupTextarea|SelectTrigger|TabsTrigger|Toggle|Avatar|AvatarImage|AvatarFallback|Kbd|KbdGroup|AdminThreadRow|AttachmentRemoveButton|ChatbarSendButton|ComposerAttachmentButton|FilterChipRemoveButton|FounderBodyPreviewButton|FounderResetConfirmAction|HeroFiveCta|IntegrationLearnMoreButton|MarketingWordmark|NavUserTrigger|PasskeyDeleteButton|ScreenshotSubmitButton|SidebarHeaderButton|SupportThreadRow|UserBanMenuItem)$",
+				"pattern": "^(Button|CopyButton|ScrollButton|PromptSuggestion|CommandTrigger|NavigationButton|AlertDialogAction|AlertDialogCancel|InputGroupButton|Badge|Input|SidebarInput|InputGroupInput|Textarea|PromptInputTextarea|InputGroupTextarea|SelectTrigger|TabsTrigger|Toggle|Avatar|AvatarImage|AvatarFallback|Kbd|KbdGroup|AdminThreadRow|AttachmentRemoveButton|ChatbarSendButton|ComposerAttachmentButton|FilterChipRemoveButton|FounderResetConfirmAction|HeroFiveCta|IntegrationLearnMoreButton|MarketingWordmark|NavUserTrigger|PasskeyDeleteButton|ScreenshotSubmitButton|SidebarHeaderButton|SupportThreadRow|UserBanMenuItem)$",
 				"allow": [
 					"m",
 					"mx",
@@ -659,30 +659,6 @@
 					"gap-2",
 					"rounded-md",
 					"text-left"
-				]
-			}
-		},
-		{
-			"id": "O52",
-			"files": ["src/lib/components/ui/owned/founder-body-preview-button.svelte"],
-			"components": {
-				"Button": [
-					"max-h-60",
-					"h-auto",
-					"w-full",
-					"justify-start",
-					"whitespace-normal",
-					"font-normal",
-					"shadow-none",
-					"active:translate-y-0",
-					"cursor-text",
-					"overflow-y-auto",
-					"rounded-md",
-					"border",
-					"bg-muted/30",
-					"p-3",
-					"text-left",
-					"text-sm"
 				]
 			}
 		},

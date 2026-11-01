@@ -148,7 +148,9 @@ it('previews the body as the HTML the email sends', async () => {
 	previewTab.click();
 	flushSync();
 
-	const preview = document.querySelector('[data-testid="founder-body-preview"]');
+	const preview = [...document.querySelectorAll('[role="tabpanel"]')].find(
+		(panel) => !panel.hasAttribute('hidden')
+	);
 	const link = preview?.querySelector('a');
 	expect(preview?.textContent).toContain('Hi Alex,');
 	expect(link?.getAttribute('href')).toBe('https://app.example.com');
@@ -167,6 +169,22 @@ it('bolds the selected text from the toolbar', async () => {
 	flushSync();
 
 	expect(textarea.value.startsWith('**Hi** {{userFirstName}},')).toBe(true);
+});
+
+it('keeps its formatting shortcuts from the app shell', async () => {
+	await settle();
+	const textarea = openBodyEditor();
+	const shell = vi.fn();
+	window.addEventListener('keydown', shell);
+	select(textarea, 'Hi');
+	textarea.dispatchEvent(
+		new KeyboardEvent('keydown', { key: 'b', ctrlKey: true, bubbles: true, cancelable: true })
+	);
+	flushSync();
+	window.removeEventListener('keydown', shell);
+
+	expect(textarea.value.startsWith('**Hi** {{userFirstName}},')).toBe(true);
+	expect(shell).not.toHaveBeenCalled();
 });
 
 it('links the selected text when a URL is pasted over it', async () => {

@@ -98,7 +98,7 @@ describe('no-restyle options in the application config', () => {
 
 	it('composes the specified options at every owner file and nowhere else', async () => {
 		const files = [...new Set(specOwners.flatMap((owner) => owner.files))];
-		expect(files).toHaveLength(48);
+		expect(files).toHaveLength(47);
 		expect([...new Set(restyleOwners.flatMap((owner) => owner.files))].sort()).toEqual(
 			[...files].sort()
 		);
@@ -253,7 +253,7 @@ describe('no-restyle private owners', () => {
 	// Every file in components/ui/owned is reported under its own name, so a new owner
 	// that STRICT does not list would fall back to the layout default here.
 	it('rejects appearance and admits placement at every caller', async () => {
-		expect(owners).toHaveLength(16);
+		expect(owners).toHaveLength(15);
 		const imports = owners
 			.map((owner) => `import ${pascal(owner)} from '#lib/components/ui/owned/${owner}.svelte';`)
 			.join('\n');

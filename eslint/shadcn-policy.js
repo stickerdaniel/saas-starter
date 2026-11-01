@@ -176,7 +176,6 @@ const privateOwners = [
 	'ChatbarSendButton',
 	'ComposerAttachmentButton',
 	'FilterChipRemoveButton',
-	'FounderBodyPreviewButton',
 	'FounderResetConfirmAction',
 	'HeroFiveCta',
 	'IntegrationLearnMoreButton',
@@ -770,30 +769,6 @@ export const restyleOwners = [
 				'gap-2',
 				'rounded-md',
 				'text-left'
-			]
-		}
-	},
-	{
-		id: 'O52',
-		files: ['src/lib/components/ui/owned/founder-body-preview-button.svelte'],
-		components: {
-			Button: [
-				'max-h-60',
-				'h-auto',
-				'w-full',
-				'justify-start',
-				'whitespace-normal',
-				'font-normal',
-				'shadow-none',
-				'active:translate-y-0',
-				'cursor-text',
-				'overflow-y-auto',
-				'rounded-md',
-				'border',
-				'bg-muted/30',
-				'p-3',
-				'text-left',
-				'text-sm'
 			]
 		}
 	},
