@@ -197,9 +197,10 @@ async function recordSweepFailure(
 }
 
 /**
- * Releases candidates whose check will not run: a `queued` thread whose job
- * finished, failed or was canceled without settling it. Normally there are none
- * and this is one indexed read.
+ * Settles claims whose check will not run. A `queued` thread whose job threw
+ * counts as a failed attempt (retry with backoff, give up at the maximum); one
+ * whose job is gone, canceled or finished without settling it is a candidate
+ * again. Normally there are none and this is one indexed read.
  */
 async function releaseStaleClaims(ctx: MutationCtx): Promise<number> {
 	const { page } = await ctx.db
@@ -215,12 +216,16 @@ async function releaseStaleClaims(ctx: MutationCtx): Promise<number> {
 		const job =
 			supportThread.sweepJobId &&
 			(await ctx.db.system.get('_scheduled_functions', supportThread.sweepJobId));
-		const live = job && (job.state.kind === 'pending' || job.state.kind === 'inProgress');
-		if (live) continue;
-		await ctx.db.patch('supportThreads', supportThread._id, {
-			sweep: undefined,
-			sweepJobId: undefined
-		});
+		const state = job ? job.state.kind : 'canceled';
+		if (state === 'pending' || state === 'inProgress') continue;
+		if (state === 'failed') {
+			await recordSweepFailure(ctx, supportThread);
+		} else {
+			await ctx.db.patch('supportThreads', supportThread._id, {
+				sweep: undefined,
+				sweepJobId: undefined
+			});
+		}
 		released++;
 	}
 	return released;

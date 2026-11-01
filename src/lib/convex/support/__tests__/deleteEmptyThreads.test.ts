@@ -4,6 +4,7 @@ import { convexTest } from 'convex-test';
 import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { components, internal } from '../../_generated/api';
+import type { Id } from '../../_generated/dataModel';
 import schema from '../../schema';
 import { supportAgent } from '../agent';
 import { EMPTY_THREAD_SWEEP_MAX_ATTEMPTS } from '../threadMaintenance';
@@ -223,6 +224,30 @@ describe('deleteEmptyThreads', () => {
 
 		expect(rerun).toEqual({ scheduled: 1, released: 1 });
 		expect((await snapshot(t)).rows).toEqual([]);
+	});
+
+	it('counts a check that threw as a failed attempt', async () => {
+		const t = createHarness();
+		const [thread] = await seedThreads(t, [{ withMessage: false }]);
+		// A job whose arguments fail validation stands in for any check that throws.
+		await t.run(async (ctx) => {
+			const sweepJobId = await ctx.scheduler.runAfter(
+				0,
+				internal.support.threads.sweepEmptyThread,
+				{ supportThreadId: 'not-an-id' as Id<'supportThreads'> }
+			);
+			await ctx.db.patch('supportThreads', thread.id, { sweep: 'queued', sweepJobId });
+		});
+		await t.finishInProgressScheduledFunctions().catch(() => {});
+		vi.runOnlyPendingTimers();
+		await t.finishInProgressScheduledFunctions().catch(() => {});
+
+		const result = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+
+		const { rows, retries } = await snapshot(t);
+		expect(result.released).toBe(1);
+		expect(rows.map((row) => [row.sweep, row.sweepAttempts])).toEqual([['failed', 1]]);
+		expect(retries).toBe(1);
 	});
 
 	it('ignores a retry that a newer failure has replaced', async () => {
