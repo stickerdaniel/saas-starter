@@ -179,19 +179,33 @@ describe('deleteEmptyThreads', () => {
 		expect((await snapshot(t)).rows).toEqual([]);
 	});
 
-	it('checks a thread once when two cron runs schedule it', async () => {
+	it('schedules a thread once while its check is pending', async () => {
 		const t = createHarness();
-		const [empty] = await seedThreads(t, [{ withMessage: false }]);
+		await seedThreads(t, [{ withMessage: false }]);
 		vi.advanceTimersByTime(DAY + 1);
-		const deletion = vi.spyOn(supportAgent, 'deleteThreadAsync');
 
-		await t.mutation(internal.support.threads.deleteEmptyThreads, {});
-		await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		const first = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		const second = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
 		await t.finishAllScheduledFunctions(vi.runAllTimers);
 
-		expect(deletion).toHaveBeenCalledExactlyOnceWith(expect.anything(), {
-			threadId: empty.threadId
+		expect([first.scheduled, second.scheduled]).toEqual([1, 0]);
+		expect((await snapshot(t)).rows).toEqual([]);
+	});
+
+	it('releases a thread whose check never ran', async () => {
+		const t = createHarness();
+		await seedThreads(t, [{ withMessage: false }]);
+		vi.advanceTimersByTime(DAY + 1);
+		await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		await t.run(async (ctx) => {
+			const [row] = await ctx.db.query('supportThreads').take(1);
+			await ctx.scheduler.cancel(row!.sweepJobId!);
 		});
+
+		const rerun = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+		expect(rerun).toEqual({ scheduled: 1, released: 1 });
 		expect((await snapshot(t)).rows).toEqual([]);
 	});
 
@@ -218,7 +232,7 @@ describe('deleteEmptyThreads', () => {
 
 		const result = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
 
-		expect(result).toEqual({ scheduled: 0 });
+		expect(result).toEqual({ scheduled: 0, released: 0 });
 		expect(await snapshot(t)).toEqual(before);
 	});
 });

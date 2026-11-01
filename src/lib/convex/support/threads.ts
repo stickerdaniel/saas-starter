@@ -626,7 +626,7 @@ export const getThreadLocale = internalQuery({
  */
 export const deleteEmptyThreads = internalMutation({
 	args: {},
-	returns: v.object({ scheduled: v.number() }),
+	returns: v.object({ scheduled: v.number(), released: v.number() }),
 	handler: async (ctx) => await deleteEmptyThreadRecords(ctx)
 });
 

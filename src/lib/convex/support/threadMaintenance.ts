@@ -179,7 +179,8 @@ async function recordSweepFailure(
 	const attempts = (supportThread.sweepAttempts ?? 0) + 1;
 	await ctx.db.patch('supportThreads', supportThread._id, {
 		sweep: 'failed',
-		sweepAttempts: attempts
+		sweepAttempts: attempts,
+		sweepJobId: undefined
 	});
 	if (attempts >= EMPTY_THREAD_SWEEP_MAX_ATTEMPTS) {
 		console.warn('[deleteEmptyThreads] Gave up on a support thread', {
@@ -196,13 +197,46 @@ async function recordSweepFailure(
 }
 
 /**
- * Picks the next candidates: support threads older than 24 h that no sweep has
- * marked yet. Each gets its own `sweepEmptyThread` transaction, so a thread's
- * message lookup never shares a read budget with other threads. A thread
- * scheduled twice (a cron run before its job ran) is checked once: the job
- * returns when the thread is no longer a candidate.
+ * Releases candidates whose check will not run: a `queued` thread whose job
+ * finished, failed or was canceled without settling it. Normally there are none
+ * and this is one indexed read.
  */
-export async function deleteEmptyThreads(ctx: MutationCtx): Promise<{ scheduled: number }> {
+async function releaseStaleClaims(ctx: MutationCtx): Promise<number> {
+	const { page } = await ctx.db
+		.query('supportThreads')
+		.withIndex('by_sweep', (q) => q.eq('sweep', 'queued'))
+		.paginate({
+			numItems: EMPTY_THREAD_SWEEP_BATCH_SIZE,
+			cursor: null,
+			maximumBytesRead: EMPTY_THREAD_SWEEP_MAX_BYTES
+		});
+	let released = 0;
+	for (const supportThread of page) {
+		const job =
+			supportThread.sweepJobId &&
+			(await ctx.db.system.get('_scheduled_functions', supportThread.sweepJobId));
+		const live = job && (job.state.kind === 'pending' || job.state.kind === 'inProgress');
+		if (live) continue;
+		await ctx.db.patch('supportThreads', supportThread._id, {
+			sweep: undefined,
+			sweepJobId: undefined
+		});
+		released++;
+	}
+	return released;
+}
+
+/**
+ * Picks the next candidates: support threads older than 24 h that no sweep has
+ * marked yet. Each is claimed as `queued` together with its own
+ * `sweepEmptyThread` job, so a later cron run never schedules it again while its
+ * check is pending, and a thread's message lookup never shares a read budget
+ * with other threads.
+ */
+export async function deleteEmptyThreads(
+	ctx: MutationCtx
+): Promise<{ scheduled: number; released: number }> {
+	const released = await releaseStaleClaims(ctx);
 	const cutoffTime = Date.now() - 24 * 60 * 60 * 1000;
 	const { page } = await ctx.db
 		.query('supportThreads')
@@ -213,18 +247,20 @@ export async function deleteEmptyThreads(ctx: MutationCtx): Promise<{ scheduled:
 			maximumBytesRead: EMPTY_THREAD_SWEEP_MAX_BYTES
 		});
 	for (const supportThread of page) {
-		await ctx.scheduler.runAfter(0, internal.support.threads.sweepEmptyThread, {
+		const sweepJobId = await ctx.scheduler.runAfter(0, internal.support.threads.sweepEmptyThread, {
 			supportThreadId: supportThread._id
 		});
+		await ctx.db.patch('supportThreads', supportThread._id, { sweep: 'queued', sweepJobId });
 	}
-	return { scheduled: page.length };
+	return { scheduled: page.length, released };
 }
 
 /**
  * Checks one thread: one with messages becomes `retained`, an empty one is
  * deleted, and one whose lookup or deletion throws becomes `failed` with its own
- * retry. Without `attempt` it acts only on a candidate; with `attempt` only on
- * the failure that scheduled this retry. Anything else has moved on.
+ * retry. Without `attempt` it acts only on a thread the cron queued; with
+ * `attempt` only on the failure that scheduled this retry. Anything else has
+ * moved on.
  */
 export async function sweepEmptyThread(
 	ctx: MutationCtx,
@@ -234,7 +270,7 @@ export async function sweepEmptyThread(
 	if (!supportThread) return;
 	const current =
 		args.attempt === undefined
-			? supportThread.sweep === undefined
+			? supportThread.sweep === 'queued'
 			: supportThread.sweep === 'failed' && supportThread.sweepAttempts === args.attempt;
 	if (!current) return;
 
@@ -250,7 +286,10 @@ export async function sweepEmptyThread(
 		return;
 	}
 	if (messages.page.length > 0) {
-		await ctx.db.patch('supportThreads', supportThread._id, { sweep: 'retained' });
+		await ctx.db.patch('supportThreads', supportThread._id, {
+			sweep: 'retained',
+			sweepJobId: undefined
+		});
 		return;
 	}
 
