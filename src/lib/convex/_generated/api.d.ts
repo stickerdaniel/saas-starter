@@ -77,6 +77,7 @@ import type * as crons from "../crons.js";
 import type * as emails_events from "../emails/events.js";
 import type * as emails_founderIncidentCore from "../emails/founderIncidentCore.js";
 import type * as emails_founderIncidentDelivery from "../emails/founderIncidentDelivery.js";
+import type * as emails_founderIncidentDraftContent from "../emails/founderIncidentDraftContent.js";
 import type * as emails_founderIncidentDrafts from "../emails/founderIncidentDrafts.js";
 import type * as emails_founderIncidentRegistry from "../emails/founderIncidentRegistry.js";
 import type * as emails_founderIncidentSend from "../emails/founderIncidentSend.js";
@@ -105,6 +106,7 @@ import type * as previewDev from "../previewDev.js";
 import type * as pricing_prices from "../pricing/prices.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as storage from "../storage.js";
+import type * as streamDeltas from "../streamDeltas.js";
 import type * as support_agent from "../support/agent.js";
 import type * as support_denormalization from "../support/denormalization.js";
 import type * as support_errors from "../support/errors.js";
@@ -131,6 +133,7 @@ import type * as users from "../users.js";
 import type * as utils_anonymousUser from "../utils/anonymousUser.js";
 import type * as utils_chatModel from "../utils/chatModel.js";
 import type * as utils_passwordLinkPurpose from "../utils/passwordLinkPurpose.js";
+import type * as utils_sha256 from "../utils/sha256.js";
 
 import type {
   ApiFromModules,
@@ -208,6 +211,7 @@ declare const fullApi: ApiFromModules<{
   "emails/events": typeof emails_events;
   "emails/founderIncidentCore": typeof emails_founderIncidentCore;
   "emails/founderIncidentDelivery": typeof emails_founderIncidentDelivery;
+  "emails/founderIncidentDraftContent": typeof emails_founderIncidentDraftContent;
   "emails/founderIncidentDrafts": typeof emails_founderIncidentDrafts;
   "emails/founderIncidentRegistry": typeof emails_founderIncidentRegistry;
   "emails/founderIncidentSend": typeof emails_founderIncidentSend;
@@ -236,6 +240,7 @@ declare const fullApi: ApiFromModules<{
   "pricing/prices": typeof pricing_prices;
   rateLimit: typeof rateLimit;
   storage: typeof storage;
+  streamDeltas: typeof streamDeltas;
   "support/agent": typeof support_agent;
   "support/denormalization": typeof support_denormalization;
   "support/errors": typeof support_errors;
@@ -262,6 +267,7 @@ declare const fullApi: ApiFromModules<{
   "utils/anonymousUser": typeof utils_anonymousUser;
   "utils/chatModel": typeof utils_chatModel;
   "utils/passwordLinkPurpose": typeof utils_passwordLinkPurpose;
+  "utils/sha256": typeof utils_sha256;
 }>;
 
 /**
