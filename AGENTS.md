@@ -48,7 +48,8 @@ A human starts the `upstream-sync` skill (`.agents/skills/upstream-sync/SKILL.md
 - Use Bun, never npm, for project commands.
 - Tolgee is offline. The committed `src/i18n/*.json` files are the only translation source: edit them directly and leave `i18n:pull`, `i18n:push`, and `i18n:cleanup` unused until Tolgee is explicitly re-enabled.
 - Scripts must work on macOS, Linux, and Windows. Use TypeScript with Bun for complex scripts and `bun-tasks` for parallel execution; avoid Bash-specific wrappers.
-- For current dependency behavior, use the `btca-local` skill and the resource clones registered in `btca.config.jsonc`.
+- For current dependency behavior, use the `btca-local` skill and the resource clones registered in `btca.config.jsonc`. Read a clone at the tag of the installed version (`git -C <clone> show <tag>:<path>`), leaving its checked-out branch alone, and read the installed package for anything listed in `patchedDependencies`. Before trusting `node_modules`, check that the installed package's version matches its resolution in `bun.lock`; on a mismatch, run `bun install --frozen-lockfile`.
+- A human approves changes to product defaults and new or broadened lint or type suppressions; an automated review cannot approve them.
 - When adding a dependency, add its repository to `btca.config.jsonc` and clone it into the btca sandbox after verifying the default branch.
 
 ## Workflow
