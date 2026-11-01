@@ -35,6 +35,8 @@
 		defaultEmail = '',
 		onSubmitEmail,
 		messageFooter,
+		perspective = 'customer',
+		authorHeadingLevel = 4,
 		class: className = ''
 	}: {
 		/** Custom empty state content */
@@ -55,6 +57,13 @@
 		onSubmitEmail?: (email: string) => Promise<void>;
 		/** Rendered below each bubble, inside the column that carries its alignment */
 		messageFooter?: Snippet<[DisplayMessage]>;
+		/** Who reads the thread; the admin support view passes 'staff' */
+		perspective?: 'customer' | 'staff';
+		/**
+		 * Level of each message's hidden author heading: one below the host's heading
+		 * above the list (h3 thread titles in the support hosts, hence the default).
+		 */
+		authorHeadingLevel?: 2 | 3 | 4;
 		/** Additional CSS classes */
 		class?: string;
 	} = $props();
@@ -210,6 +219,8 @@
 						<div in:fly={{ y: 8, duration: messageEnterDuration(message) }}>
 							<ChatMessage
 								{message}
+								{perspective}
+								{authorHeadingLevel}
 								attachments={getAttachments(message)}
 								isFirstInGroup={isFirstInGroup(index, ctx.displayMessages)}
 								isHandoffMessage={isHandoffAnchor(message, HANDOFF_MESSAGE)}

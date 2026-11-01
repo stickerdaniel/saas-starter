@@ -573,6 +573,12 @@
 			"preview_loading": "Vorschau wird geladen…",
 			"preview_truncated": "Vorschau auf {size} gekürzt"
 		},
+		"author": {
+			"assistant": "Assistent",
+			"customer": "Kunde",
+			"support_team": "Support-Team",
+			"you": "Du"
+		},
 		"buttons": {
 			"processing": "Wird verarbeitet...",
 			"upgrade": "Auf Pro upgraden"

@@ -18,11 +18,15 @@
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
 	import { AI_CHAT_LIMIT_NOTICE } from '#lib/convex/constants.js';
 	import { getMessageProviderFlags } from '../core/provider-metadata.js';
-	import { T } from '@tolgee/svelte';
+	import { getTranslate, T } from '@tolgee/svelte';
 	import LockIcon from '@lucide/svelte/icons/lock';
+
+	const { t } = getTranslate();
 
 	let {
 		message,
+		perspective = 'customer',
+		authorHeadingLevel = 4,
 		attachments = [],
 		isFirstInGroup = true,
 		isHandoffMessage = false,
@@ -35,6 +39,10 @@
 	}: {
 		/** The message to display */
 		message: DisplayMessage;
+		/** Who reads the thread: names the user "You" for customers, "Customer" for staff */
+		perspective?: 'customer' | 'staff';
+		/** Level of the hidden author heading, one below the host's own heading */
+		authorHeadingLevel?: 2 | 3 | 4;
 		/** Extracted attachments for this message */
 		attachments?: Attachment[];
 		/** Whether this is the first message in a group (different sender than previous) */
@@ -63,6 +71,15 @@
 	const usesFilledBubble = $derived(isUser || isAdminMessage);
 	const align = $derived(ctx.getAlignment(message.role));
 	const isLimitNotice = $derived(providerFlags.systemNotice === AI_CHAT_LIMIT_NOTICE);
+	const authorKey = $derived(
+		isUser
+			? perspective === 'staff'
+				? 'chat.author.customer'
+				: 'chat.author.you'
+			: isAdminMessage
+				? 'chat.author.support_team'
+				: 'chat.author.assistant'
+	);
 	function handleReasoningOpenChange(stateKey: string, open: boolean) {
 		ctx.setReasoningOpen(stateKey, open);
 		ctx.markUserToggled(stateKey);
@@ -115,6 +132,12 @@
 		? 'items-end'
 		: 'items-start'} {isFirstInGroup ? 'mt-8' : 'mt-1'}"
 >
+	<!-- One hidden heading per message, even within a sender group, so heading navigation
+	     steps message by message. `select-none` keeps the name out of text copied across
+	     messages. -->
+	<svelte:element this={`h${authorHeadingLevel}`} class="sr-only select-none"
+		>{$t(authorKey)}</svelte:element
+	>
 	{#if attachments.length > 0}
 		<div class="max-w-17/20 md:max-w-3/4">
 			<ChatAttachments {attachments} readonly={true} columns={2} {align} class="px-0" />

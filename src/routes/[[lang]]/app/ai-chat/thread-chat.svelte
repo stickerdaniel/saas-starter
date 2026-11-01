@@ -158,7 +158,8 @@
 		api={{ listMessages: api.aiChat.messages.listMessages }}
 	>
 		<div class="flex-1 overflow-hidden">
-			<ChatMessages />
+			<!-- The page has no heading above the thread, so authors start at h2. -->
+			<ChatMessages authorHeadingLevel={2} />
 		</div>
 
 		<div class="relative z-20 mx-auto w-full max-w-3xl -translate-y-4">
