@@ -19,7 +19,7 @@ import {
 import {
 	backfillThreadMetadata as backfillThreadMetadataRecord,
 	deleteEmptyThreads as deleteEmptyThreadRecords,
-	retryEmptyThreadSweep as retryEmptyThreadSweepRecord,
+	sweepEmptyThread as sweepEmptyThreadRecord,
 	getThreadLocale as getSupportThreadLocale,
 	syncUserProfile as syncSupportUserProfile,
 	updateThreadMetadata as updateSupportThreadMetadata
@@ -619,27 +619,23 @@ export const getThreadLocale = internalQuery({
  * Internal mutation to delete empty threads (no messages after 24h)
  *
  * Called by cron job to clean up threads created during eager thread creation
- * where the user never sent a message. Each run handles one page.
+ * where the user never sent a message. Each run schedules one check per
+ * candidate.
  *
  * @see src/lib/convex/crons.ts
  */
 export const deleteEmptyThreads = internalMutation({
 	args: {},
-	returns: v.object({
-		scanned: v.number(),
-		retained: v.number(),
-		deletionsStarted: v.number(),
-		failed: v.number()
-	}),
+	returns: v.object({ scheduled: v.number() }),
 	handler: async (ctx) => await deleteEmptyThreadRecords(ctx)
 });
 
-/** Retries a thread whose sweep failed, scheduled by the failure itself. */
-export const retryEmptyThreadSweep = internalMutation({
-	args: { supportThreadId: v.id('supportThreads'), attempt: v.number() },
+/** Checks one sweep candidate, or retries one failed check when `attempt` is set. */
+export const sweepEmptyThread = internalMutation({
+	args: { supportThreadId: v.id('supportThreads'), attempt: v.optional(v.number()) },
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		await retryEmptyThreadSweepRecord(ctx, args);
+		await sweepEmptyThreadRecord(ctx, args);
 		return null;
 	}
 });

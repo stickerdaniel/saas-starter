@@ -9,7 +9,7 @@ import { supportAgent } from '../agent';
 import { EMPTY_THREAD_SWEEP_MAX_ATTEMPTS } from '../threadMaintenance';
 
 const DAY = 24 * 60 * 60 * 1000;
-const RETRY = 'support/threads:retryEmptyThreadSweep';
+const SWEEP_THREAD = 'support/threads:sweepEmptyThread';
 
 // Keys relative to the Convex root, which is where convex-test looks for `_generated`.
 const modules = Object.fromEntries(
@@ -65,7 +65,7 @@ async function runCron(t: Harness) {
 /** Runs the cron until a run finds no candidate, as successive cron ticks would. */
 async function runCronUntilIdle(t: Harness) {
 	let runs = 0;
-	while ((await runCron(t)).scanned > 0) runs++;
+	while ((await runCron(t)).scheduled > 0) runs++;
 	return runs;
 }
 
@@ -73,7 +73,8 @@ async function snapshot(t: Harness) {
 	return await t.run(async (ctx) => ({
 		rows: await ctx.db.query('supportThreads').take(500),
 		retries: (await ctx.db.system.query('_scheduled_functions').take(500)).filter(
-			(job) => job.name === RETRY
+			(job) =>
+				job.name === SWEEP_THREAD && (job.args[0] as { attempt?: number }).attempt !== undefined
 		).length
 	}));
 }
@@ -113,7 +114,7 @@ describe('deleteEmptyThreads', () => {
 		const [empty] = await seedThreads(t, [{ withMessage: false }]);
 		vi.advanceTimersByTime(DAY + 1);
 
-		expect(await runCronUntilIdle(t)).toBe(Math.ceil(101 / 8));
+		expect(await runCronUntilIdle(t)).toBe(Math.ceil(101 / 25));
 
 		const { rows } = await snapshot(t);
 		expect(rows.find((row) => row._id === empty.id)).toBeUndefined();
@@ -178,6 +179,22 @@ describe('deleteEmptyThreads', () => {
 		expect((await snapshot(t)).rows).toEqual([]);
 	});
 
+	it('checks a thread once when two cron runs schedule it', async () => {
+		const t = createHarness();
+		const [empty] = await seedThreads(t, [{ withMessage: false }]);
+		vi.advanceTimersByTime(DAY + 1);
+		const deletion = vi.spyOn(supportAgent, 'deleteThreadAsync');
+
+		await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+		expect(deletion).toHaveBeenCalledExactlyOnceWith(expect.anything(), {
+			threadId: empty.threadId
+		});
+		expect((await snapshot(t)).rows).toEqual([]);
+	});
+
 	it('ignores a retry that a newer failure has replaced', async () => {
 		const t = createHarness();
 		const [stuck] = await seedThreads(t, [{ withMessage: false }]);
@@ -185,7 +202,7 @@ describe('deleteEmptyThreads', () => {
 			await ctx.db.patch('supportThreads', stuck.id, { sweep: 'failed', sweepAttempts: 2 });
 		});
 
-		await t.mutation(internal.support.threads.retryEmptyThreadSweep, {
+		await t.mutation(internal.support.threads.sweepEmptyThread, {
 			supportThreadId: stuck.id,
 			attempt: 1
 		});
@@ -201,7 +218,7 @@ describe('deleteEmptyThreads', () => {
 
 		const result = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
 
-		expect(result).toEqual({ scanned: 0, retained: 0, deletionsStarted: 0, failed: 0 });
+		expect(result).toEqual({ scheduled: 0 });
 		expect(await snapshot(t)).toEqual(before);
 	});
 });

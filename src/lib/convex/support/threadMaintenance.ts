@@ -147,13 +147,13 @@ export async function getThreadLocale(ctx: QueryCtx, threadId: string): Promise<
 	return extractLocaleFromUrl(supportThread?.pageUrl);
 }
 
-/** Candidate threads one sweep transaction reads. */
-const EMPTY_THREAD_SWEEP_BATCH_SIZE = 8;
+/** Candidate threads one cron run reads and hands to their own transactions. */
+const EMPTY_THREAD_SWEEP_BATCH_SIZE = 25;
 
-// Against the 16 MiB transaction limit: the candidate page stops at most one
-// document (1 MiB) past this cap, each row's patch or delete reads it again, and
-// each row's message lookup reads at most one agent message (1 MiB). That is at
-// most 2 + 2 + 8 MiB, leaving room for the component's deletion start.
+// The cron run only reads candidates; each thread is checked in its own
+// transaction, which reads one row, at most one message per agent index stream
+// (six, see `listMessagesByThreadId` in @convex-dev/agent) and the start of an
+// empty thread's deletion.
 const EMPTY_THREAD_SWEEP_MAX_BYTES = 1024 * 1024;
 
 /** Attempts per thread before the sweep gives up on it and logs once. */
@@ -161,15 +161,6 @@ export const EMPTY_THREAD_SWEEP_MAX_ATTEMPTS = 5;
 
 /** Wait before the first retry; each further retry doubles it. */
 const EMPTY_THREAD_SWEEP_RETRY_MS = 60 * 60 * 1000;
-
-export type EmptyThreadSweep = {
-	scanned: number;
-	retained: number;
-	deletionsStarted: number;
-	failed: number;
-};
-
-type SweepOutcome = 'retained' | 'deletionStarted' | 'failed';
 
 /**
  * Records a failed lookup or deletion. The thread leaves the candidate set and
@@ -179,7 +170,7 @@ type SweepOutcome = 'retained' | 'deletionStarted' | 'failed';
 async function recordSweepFailure(
 	ctx: MutationCtx,
 	supportThread: Doc<'supportThreads'>
-): Promise<SweepOutcome> {
+): Promise<void> {
 	const attempts = (supportThread.sweepAttempts ?? 0) + 1;
 	await ctx.db.patch('supportThreads', supportThread._id, {
 		sweep: 'failed',
@@ -190,62 +181,24 @@ async function recordSweepFailure(
 			supportThreadId: supportThread._id,
 			attempts
 		});
-	} else {
-		await ctx.scheduler.runAt(
-			Date.now() + EMPTY_THREAD_SWEEP_RETRY_MS * 2 ** (attempts - 1),
-			internal.support.threads.retryEmptyThreadSweep,
-			{ supportThreadId: supportThread._id, attempt: attempts }
-		);
+		return;
 	}
-	return 'failed';
-}
-
-/** Keeps a thread that has messages, starts deleting an empty one. */
-async function sweepThread(
-	ctx: MutationCtx,
-	supportThread: Doc<'supportThreads'>
-): Promise<SweepOutcome> {
-	let messages;
-	try {
-		messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-			threadId: supportThread.threadId,
-			order: 'asc',
-			paginationOpts: { numItems: 1, cursor: null }
-		});
-	} catch {
-		return await recordSweepFailure(ctx, supportThread);
-	}
-	if (messages.page.length > 0) {
-		await ctx.db.patch('supportThreads', supportThread._id, { sweep: 'retained' });
-		return 'retained';
-	}
-
-	try {
-		// Starts the component's deletion; it removes the thread's data in its own
-		// scheduled pages.
-		await supportAgent.deleteThreadAsync(ctx, { threadId: supportThread.threadId });
-	} catch {
-		return await recordSweepFailure(ctx, supportThread);
-	}
-	await ctx.db.delete('supportThreads', supportThread._id);
-	return 'deletionStarted';
+	await ctx.scheduler.runAt(
+		Date.now() + EMPTY_THREAD_SWEEP_RETRY_MS * 2 ** (attempts - 1),
+		internal.support.threads.sweepEmptyThread,
+		{ supportThreadId: supportThread._id, attempt: attempts }
+	);
 }
 
 /**
- * Deletes support threads older than 24 h whose agent thread has no messages,
- * one page of candidates per cron run.
- *
- * Every thread the sweep reads leaves the candidate set: one with messages
- * becomes `retained`, an empty one is deleted, and one whose lookup or deletion
- * throws becomes `failed` with its own scheduled retry. The next run therefore
- * starts at the remaining candidates without a stored cursor, and runs never
- * schedule each other, so only the cron drives the walk.
+ * Picks the next candidates: support threads older than 24 h that no sweep has
+ * marked yet. Each gets its own `sweepEmptyThread` transaction, so a thread's
+ * message lookup never shares a read budget with other threads. A thread
+ * scheduled twice (a cron run before its job ran) is checked once: the job
+ * returns when the thread is no longer a candidate.
  */
-export async function deleteEmptyThreads(ctx: MutationCtx): Promise<EmptyThreadSweep> {
-	const sweep: EmptyThreadSweep = { scanned: 0, retained: 0, deletionsStarted: 0, failed: 0 };
+export async function deleteEmptyThreads(ctx: MutationCtx): Promise<{ scheduled: number }> {
 	const cutoffTime = Date.now() - 24 * 60 * 60 * 1000;
-	// A page cut short by the byte cap is still safe to process: its rows leave
-	// the range, and the rest wait for the next run.
 	const { page } = await ctx.db
 		.query('supportThreads')
 		.withIndex('by_sweep', (q) => q.eq('sweep', undefined).lt('_creationTime', cutoffTime))
@@ -254,29 +207,55 @@ export async function deleteEmptyThreads(ctx: MutationCtx): Promise<EmptyThreadS
 			cursor: null,
 			maximumBytesRead: EMPTY_THREAD_SWEEP_MAX_BYTES
 		});
-
 	for (const supportThread of page) {
-		sweep.scanned++;
-		const outcome = await sweepThread(ctx, supportThread);
-		if (outcome === 'retained') sweep.retained++;
-		else if (outcome === 'deletionStarted') sweep.deletionsStarted++;
-		else sweep.failed++;
+		await ctx.scheduler.runAfter(0, internal.support.threads.sweepEmptyThread, {
+			supportThreadId: supportThread._id
+		});
 	}
-
-	if (sweep.scanned > 0) console.log('[deleteEmptyThreads] Swept support threads', sweep);
-	return sweep;
+	return { scheduled: page.length };
 }
 
 /**
- * Retries one failed thread. Only the retry its latest failure scheduled acts;
- * a thread deleted, retained or failed again since then has moved on.
+ * Checks one thread: one with messages becomes `retained`, an empty one is
+ * deleted, and one whose lookup or deletion throws becomes `failed` with its own
+ * retry. Without `attempt` it acts only on a candidate; with `attempt` only on
+ * the failure that scheduled this retry. Anything else has moved on.
  */
-export async function retryEmptyThreadSweep(
+export async function sweepEmptyThread(
 	ctx: MutationCtx,
-	args: { supportThreadId: Id<'supportThreads'>; attempt: number }
+	args: { supportThreadId: Id<'supportThreads'>; attempt?: number }
 ): Promise<void> {
 	const supportThread = await ctx.db.get('supportThreads', args.supportThreadId);
-	if (!supportThread || supportThread.sweep !== 'failed') return;
-	if (supportThread.sweepAttempts !== args.attempt) return;
-	await sweepThread(ctx, supportThread);
+	if (!supportThread) return;
+	const current =
+		args.attempt === undefined
+			? supportThread.sweep === undefined
+			: supportThread.sweep === 'failed' && supportThread.sweepAttempts === args.attempt;
+	if (!current) return;
+
+	let messages;
+	try {
+		messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
+			threadId: supportThread.threadId,
+			order: 'asc',
+			paginationOpts: { numItems: 1, cursor: null }
+		});
+	} catch {
+		await recordSweepFailure(ctx, supportThread);
+		return;
+	}
+	if (messages.page.length > 0) {
+		await ctx.db.patch('supportThreads', supportThread._id, { sweep: 'retained' });
+		return;
+	}
+
+	try {
+		// Starts the component's deletion; it removes the thread's data in its own
+		// scheduled pages.
+		await supportAgent.deleteThreadAsync(ctx, { threadId: supportThread.threadId });
+	} catch {
+		await recordSweepFailure(ctx, supportThread);
+		return;
+	}
+	await ctx.db.delete('supportThreads', supportThread._id);
 }
