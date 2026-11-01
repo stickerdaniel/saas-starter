@@ -38,7 +38,8 @@ describe('toggleBold', () => {
 		['Say **«thanks»** now', 'Say «thanks» now'],
 		['Say «**thanks**» now', 'Say «thanks» now'],
 		['Say **tha|nks** now', 'Say «thanks» now'],
-		['- «Two»', '- **«Two»**']
+		['- «Two»', '- **«Two»**'],
+		['«Alpha\n»Beta', '**«Alpha»**\nBeta']
 	])('turns %s into %s', (body, expected) => {
 		expect(edit(toggleBold, body)).toBe(expected);
 	});
@@ -48,7 +49,8 @@ describe('toggleBold', () => {
 		'Hey {{user«First»Name}}',
 		'«- Two»',
 		'Say «a\nb»',
-		'Say «a*b»'
+		'Say «a*b»',
+		'*«Thanks» today'
 	])('leaves %s alone', (body) => {
 		expect(edit(toggleBold, body)).toBeUndefined();
 	});
@@ -64,7 +66,7 @@ describe('toggleLink', () => {
 		expect(edit(toggleLink, body)).toBe(expected);
 	});
 
-	it.each(['Say **«thanks»**', 'Say «[thanks]»', 'Hey {{user«First»Name}}'])(
+	it.each(['Say **«thanks»**', 'Say «[thanks]»', 'Hey {{user«First»Name}}', '!«Thanks» today'])(
 		'leaves %s alone',
 		(body) => {
 			expect(edit(toggleLink, body)).toBeUndefined();
@@ -88,6 +90,8 @@ describe('pasteLink', () => {
 		['1«2». Open the app', 'https://new.example.com'],
 		['Say «thanks»', 'javascript:alert(1)'],
 		['Say «thanks»', 'https://example.com/a(b)'],
+		['!«Thanks» today', 'https://new.example.com'],
+		['[«Thanks»] today', 'https://new.example.com'],
 		['Say |thanks', 'https://new.example.com']
 	])('pastes normally into %s', (body, url) => {
 		expect(edit(paste(url), body)).toBeUndefined();
@@ -111,13 +115,25 @@ describe('toggleList', () => {
 		expect(edit(numbers, '«- Two\n- Three»')).toBe('«1. Two\n2. Three»');
 	});
 
+	it('leaves the line after a selection that ends on its newline alone', () => {
+		expect(edit(bullets, '«Alpha\n»Beta\nGamma')).toBe('«- Alpha»\nBeta\nGamma');
+	});
+
 	it('marks the line under the caret and keeps the caret at its end', () => {
 		expect(edit(bullets, 'One\nTw|o')).toBe('One\n- Two|');
 	});
 });
 
-it('inserts a placeholder in place of the selection', () => {
-	expect(edit((selection) => insertVariable(selection, 'userFirstName'), 'Hi «you»,')).toBe(
-		'Hi {{userFirstName}}|,'
-	);
+describe('insertVariable', () => {
+	const title = (selection: BodySelection) => insertVariable(selection, 'founderTitle');
+
+	it.each([
+		['Hi «you»,', 'Hi {{founderTitle}}|,'],
+		['Hi |,', 'Hi {{founderTitle}}|,'],
+		['Hi {{«userFirstName»}}!', 'Hi {{founderTitle}}|!'],
+		['Hi {{user|FirstName}}!', 'Hi {{founderTitle}}|!'],
+		['Hi «{{userFirstName}}»!', 'Hi {{founderTitle}}|!']
+	])('turns %s into %s', (body, expected) => {
+		expect(edit(title, body)).toBe(expected);
+	});
 });

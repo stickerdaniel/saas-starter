@@ -32,11 +32,11 @@ function lineSelection({ value, start, end }: BodySelection): LineSelection | un
 }
 
 /** The selection without surrounding whitespace, so `word ` wraps as `word`. */
-function trimmed(selection: LineSelection): LineSelection {
-	let { from, to } = selection;
-	while (from < to && /\s/.test(selection.line[from] ?? '')) from++;
-	while (to > from && /\s/.test(selection.line[to - 1] ?? '')) to--;
-	return { ...selection, from, to };
+function trimmed({ value, start, end }: BodySelection): BodySelection {
+	let [from, to] = [start, end];
+	while (from < to && /\s/.test(value[from] ?? '')) from++;
+	while (to > from && /\s/.test(value[to - 1] ?? '')) to--;
+	return { value, start: from, end: to };
 }
 
 /**
@@ -53,6 +53,17 @@ function isFree({ line, from, to }: LineSelection): boolean {
 		const end = index + token.length;
 		return !touches(index, end) || (from <= index && end <= to);
 	});
+}
+
+/**
+ * Whether `token` in place of the selection reads as one `kind` span there. New
+ * markers can merge with neighbouring text, as `!` before a link makes an image.
+ */
+function readsAs({ line, from, to }: LineSelection, token: string, kind: 'bold' | 'link') {
+	const next = line.slice(0, from) + token + line.slice(to);
+	return markupSpans(next).some(
+		(span) => span.kind === kind && span.start === from && span.end === from + token.length
+	);
 }
 
 /** The bold or link span around the selection, when it lies inside one. */
@@ -82,7 +93,7 @@ function lineEdit(
 
 /** Bold the selection, or remove the bold span the selection lies in. */
 export function toggleBold(selection: BodySelection): BodyEdit | undefined {
-	const line = lineSelection(selection);
+	const line = lineSelection(trimmed(selection));
 	if (!line) return undefined;
 	const bold = enclosingSpan(line, 'bold');
 	if (bold?.kind === 'bold') {
@@ -91,10 +102,10 @@ export function toggleBold(selection: BodySelection): BodyEdit | undefined {
 			bold.start + bold.text.length
 		]);
 	}
-	const target = trimmed(line);
-	const text = target.line.slice(target.from, target.to);
-	if (text.includes('*') || !isFree(target)) return undefined;
-	return lineEdit(target, target.from, target.to, `**${text}**`, [target.from + 2, target.to + 2]);
+	const text = line.line.slice(line.from, line.to);
+	// A caret checks with a stand-in for the text the user types next.
+	if (!isFree(line) || !readsAs(line, `**${text || 'x'}**`, 'bold')) return undefined;
+	return lineEdit(line, line.from, line.to, `**${text}**`, [line.from + 2, line.to + 2]);
 }
 
 /**
@@ -102,7 +113,7 @@ export function toggleBold(selection: BodySelection): BodyEdit | undefined {
  * remove the link the selection lies in and keep its label.
  */
 export function toggleLink(selection: BodySelection): BodyEdit | undefined {
-	const line = lineSelection(selection);
+	const line = lineSelection(trimmed(selection));
 	if (!line) return undefined;
 	const link = enclosingSpan(line, 'link');
 	if (link?.kind === 'link') {
@@ -111,29 +122,27 @@ export function toggleLink(selection: BodySelection): BodyEdit | undefined {
 			link.start + link.label.length
 		]);
 	}
-	const target = trimmed(line);
-	const label = target.line.slice(target.from, target.to);
-	if (/[[\]]/.test(label) || !isFree(target)) return undefined;
-	const urlStart = target.from + label.length + 3;
+	const label = line.line.slice(line.from, line.to);
+	if (!isFree(line) || !readsAs(line, `[${label || 'x'}](https://)`, 'link')) return undefined;
+	const urlStart = line.from + label.length + 3;
 	return lineEdit(
-		target,
-		target.from,
-		target.to,
+		line,
+		line.from,
+		line.to,
 		`[${label}](https://)`,
-		label ? [urlStart, urlStart + 'https://'.length] : [target.from + 1, target.from + 1]
+		label ? [urlStart, urlStart + 'https://'.length] : [line.from + 1, line.from + 1]
 	);
 }
 
 /** Link the selection to a pasted URL when the result renders as a link. */
 export function pasteLink(selection: BodySelection, pasted: string): BodyEdit | undefined {
 	const url = pasted.trim();
-	const line = lineSelection(selection);
-	// The renderer's link token admits no parentheses in the URL.
-	if (!line || /[()]/.test(url) || !isAllowedHref(url)) return undefined;
-	const label = line.line.slice(line.from, line.to);
-	if (!label.trim() || /[[\]]/.test(label) || !isFree(line)) return undefined;
-	const end = line.from + label.length + url.length + 4;
-	return lineEdit(line, line.from, line.to, `[${label}](${url})`, [end, end]);
+	const line = lineSelection(trimmed(selection));
+	if (!line || line.from === line.to || !isAllowedHref(url) || !isFree(line)) return undefined;
+	const link = `[${line.line.slice(line.from, line.to)}](${url})`;
+	if (!readsAs(line, link, 'link')) return undefined;
+	const end = line.from + link.length;
+	return lineEdit(line, line.from, line.to, link, [end, end]);
 }
 
 /**
@@ -143,7 +152,9 @@ export function pasteLink(selection: BodySelection, pasted: string): BodyEdit | 
 export function toggleList(selection: BodySelection, ordered: boolean): BodyEdit {
 	const { value, start, end } = selection;
 	const from = value.lastIndexOf('\n', start - 1) + 1;
-	const lineEnd = value.indexOf('\n', end);
+	// A selection ending right after a newline ends on the line before it.
+	const last = end > start && value[end - 1] === '\n' ? end - 1 : end;
+	const lineEnd = value.indexOf('\n', last);
 	const to = lineEnd === -1 ? value.length : lineEnd;
 	const lines = value.slice(from, to).split('\n');
 	const items = lines.filter((line) => line.trim());
@@ -163,11 +174,21 @@ export function toggleList(selection: BodySelection, ordered: boolean): BodyEdit
 	return { from, to, text, select };
 }
 
-/** Insert a `{{name}}` placeholder in place of the selection. */
+/**
+ * Insert a `{{name}}` placeholder in place of the selection, widened over any
+ * placeholder it cuts so choosing a variable inside one replaces it.
+ */
 export function insertVariable(
-	{ start, end }: BodySelection,
+	{ value, start, end }: BodySelection,
 	name: keyof FounderTemplateVariables
 ): BodyEdit {
+	let [from, to] = [start, end];
+	for (const { index, 0: token } of value.matchAll(PLACEHOLDER)) {
+		const tokenEnd = index + token.length;
+		const cuts =
+			start === end ? index < start && start < tokenEnd : index < end && start < tokenEnd;
+		if (cuts) [from, to] = [Math.min(from, index), Math.max(to, tokenEnd)];
+	}
 	const text = `{{${name}}}`;
-	return { from: start, to: end, text, select: [start + text.length, start + text.length] };
+	return { from, to, text, select: [from + text.length, from + text.length] };
 }
