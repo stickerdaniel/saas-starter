@@ -4,20 +4,23 @@
  * The suite takes minutes and almost no pull request touches what it reads, but its check
  * is required, so the job always starts and reports; only its test steps depend on this
  * selection. Anything other than a pull request runs them, and so does a pull request
- * whose complete changed-file list cannot be read. The repository variable
- * `CI_FULL_SUITE=true` runs them everywhere, to switch the selection off without a commit.
+ * whose complete changed-file list cannot be read for exactly the event's head and base.
+ * The repository variable `CI_FULL_SUITE=true` runs them everywhere, to switch the
+ * selection off without a commit.
  *
  * The job checks out only UPSTREAM_REPORT_TEST_INPUTS, as a partial clone without lazy
  * fetching, so a suite that starts reading any other repository path, from the worktree or
  * from Git objects, fails in CI instead of being skipped. Such a read can only arrive
  * through a change to an input, which selects the suite on that same pull request. A read
  * that tolerates a missing file, such as `existsSync`, an optional read or a glob, passes
- * without the file, so it must still be declared here: its absence fails nothing.
+ * without the file, so `upstream-report-reads.test.ts` traces every path the suite builds
+ * from the repository root and fails Unit Tests on one this list does not cover.
  * `CI_FULL_SUITE=true` forces the run but keeps the same sparse checkout.
  *
  * The job runs `bun scripts/upstream-report-scope.ts` before installing dependencies, so
- * this file imports Node built-ins only. It reads FULL_SUITE, EVENT_NAME, PR_NUMBER, CHANGED_FILES,
- * GITHUB_REPOSITORY and GH_TOKEN, and appends `run=true|false` to GITHUB_OUTPUT.
+ * this file imports Node built-ins only. It reads FULL_SUITE, EVENT_NAME, PR_NUMBER,
+ * CHANGED_FILES, HEAD_SHA, BASE_SHA, GITHUB_REPOSITORY and GH_TOKEN, and appends
+ * `run=true|false` to GITHUB_OUTPUT.
  */
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
@@ -69,6 +72,11 @@ export interface SelectionInput {
 	eventName: string | undefined;
 	/** `pull_request.changed_files` from the event payload. */
 	changedFiles: string | undefined;
+	/** `pull_request.head.sha` and `pull_request.base.sha` from the event payload. */
+	headSha: string | undefined;
+	baseSha: string | undefined;
+	/** The pull request as `gh api` printed it; read before and after its files. */
+	readPullRequest: () => unknown;
 	/** The pages `gh api --paginate --slurp` printed for the pull request's files. */
 	readPages: () => unknown;
 }
@@ -113,10 +121,39 @@ function changedPaths(pages: unknown): { count: number; paths: string[] } | unde
 	return { count: entries.length, paths };
 }
 
+const COMMIT_SHA = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+
+/**
+ * Why the pull request GitHub returns is not the event's, or `undefined` when its head and
+ * base are exactly the event's. The files endpoint lists whatever the head is now, so a
+ * push before or during the job would otherwise lend this run another head's files.
+ */
+function movedFrom(
+	readPullRequest: () => unknown,
+	headSha: string,
+	baseSha: string
+): string | undefined {
+	let pullRequest: unknown;
+	try {
+		pullRequest = readPullRequest();
+	} catch (error) {
+		return `the pull request could not be read: ${(error as Error).message}`;
+	}
+	const fields = (value: unknown) =>
+		typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : undefined;
+	const sha = (side: 'head' | 'base') => fields(fields(pullRequest)?.[side])?.sha;
+	if (sha('head') !== headSha) return "the pull request head is no longer the event's.";
+	if (sha('base') !== baseSha) return "the pull request base is no longer the event's.";
+	return undefined;
+}
+
 export function selectUpstreamReportTests({
 	fullSuite,
 	eventName,
 	changedFiles,
+	headSha,
+	baseSha,
+	readPullRequest,
 	readPages
 }: SelectionInput): Selection {
 	const run = (reason: string): Selection => ({ run: true, reason });
@@ -128,13 +165,27 @@ export function selectUpstreamReportTests({
 	if (changedFiles === undefined || !/^(?:0|[1-9]\d*)$/.test(changedFiles)) {
 		return run('the event carries no changed-file count.');
 	}
+	if (
+		headSha === undefined ||
+		baseSha === undefined ||
+		!COMMIT_SHA.test(headSha) ||
+		!COMMIT_SHA.test(baseSha)
+	) {
+		return run('the event carries no head or base commit.');
+	}
 
+	// Reads on both sides of the pages bind them to the event: a head or base that differs
+	// while they are listed shows up in one of the two, even one force-pushed back after.
+	const movedBefore = movedFrom(readPullRequest, headSha, baseSha);
+	if (movedBefore) return run(movedBefore);
 	let pages: unknown;
 	try {
 		pages = readPages();
 	} catch (error) {
 		return run(`the changed files could not be read: ${(error as Error).message}`);
 	}
+	const movedAfter = movedFrom(readPullRequest, headSha, baseSha);
+	if (movedAfter) return run(movedAfter);
 	const changed = changedPaths(pages);
 	if (!changed) return run('the changed-file list is malformed.');
 	// GitHub lists at most 3000 files, so a larger pull request lands here as well.
@@ -151,7 +202,8 @@ export function selectUpstreamReportTests({
 			};
 }
 
-function readPullRequestFiles(): unknown {
+/** Parses what `gh api` prints for the event's pull request or an endpoint below it. */
+function readPullRequestApi(below: '' | '/files', options: string[] = []): unknown {
 	const repository = process.env.GITHUB_REPOSITORY;
 	const number = process.env.PR_NUMBER;
 	if (!repository || !/^[1-9]\d*$/.test(number ?? '')) {
@@ -159,7 +211,7 @@ function readPullRequestFiles(): unknown {
 	}
 	const output = execFileSync(
 		'gh',
-		['api', '--paginate', '--slurp', `repos/${repository}/pulls/${number}/files`],
+		['api', ...options, `repos/${repository}/pulls/${number}${below}`],
 		{ encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'inherit'] }
 	);
 	return JSON.parse(output);
@@ -170,7 +222,10 @@ if (import.meta.main) {
 		fullSuite: process.env.FULL_SUITE,
 		eventName: process.env.EVENT_NAME,
 		changedFiles: process.env.CHANGED_FILES,
-		readPages: readPullRequestFiles
+		headSha: process.env.HEAD_SHA,
+		baseSha: process.env.BASE_SHA,
+		readPullRequest: () => readPullRequestApi(''),
+		readPages: () => readPullRequestApi('/files', ['--paginate', '--slurp'])
 	});
 	console.log(
 		`${selection.run ? 'Running' : 'Skipping'} the upstream report tests: ${selection.reason}`

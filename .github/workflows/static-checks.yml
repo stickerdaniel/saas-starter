@@ -232,6 +232,8 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: bun scripts/upstream-report-scope.ts
       # The tests read no generated file. Without lazy fetching, reading an object outside the
       # checkout fails instead of downloading it; the checkout itself still needs to fetch.

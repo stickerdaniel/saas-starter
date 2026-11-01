@@ -94,12 +94,25 @@ describe('upstream report test selection', () => {
 		status: previous ? 'renamed' : 'modified',
 		...(previous ? { previous_filename: previous } : {})
 	});
+	const HEAD = 'a'.repeat(40);
+	const BASE = 'c'.repeat(40);
+	const pullRequestAt = (head: string, base: string) => ({
+		number: 1,
+		head: { sha: head },
+		base: { sha: base }
+	});
+	const event = {
+		eventName: 'pull_request',
+		headSha: HEAD,
+		baseSha: BASE,
+		readPullRequest: () => pullRequestAt(HEAD, BASE)
+	};
 	const pullRequest = (
 		pages: unknown,
 		changedFiles = String((pages as unknown[][]).flat().length)
 	) =>
 		selectUpstreamReportTests({
-			eventName: 'pull_request',
+			...event,
 			changedFiles,
 			readPages: () => pages
 		});
@@ -155,20 +168,71 @@ describe('upstream report test selection', () => {
 		['a malformed list', () => [{ filename: 'README.md' }]],
 		['an entry without a path', () => [[{ status: 'modified' }]]]
 	])('runs on %s', (_label, readPages) => {
-		expect(
-			selectUpstreamReportTests({ eventName: 'pull_request', changedFiles: '1', readPages }).run
-		).toBe(true);
+		expect(selectUpstreamReportTests({ ...event, changedFiles: '1', readPages }).run).toBe(true);
 	});
 
 	it('runs when the event carries no changed-file count', () => {
 		expect(pullRequest([[entry('README.md')]], '').run).toBe(true);
 	});
 
+	// The files endpoint lists the head as it is now, so a push leaves a list of the same
+	// length that is not this event's: moved before the listing and pushed back after it,
+	// or moved while it is listed.
+	it.each([
+		['the head', 'before', pullRequestAt('d'.repeat(40), BASE)],
+		['the head', 'while', pullRequestAt('d'.repeat(40), BASE)],
+		['the base', 'before', pullRequestAt(HEAD, 'e'.repeat(40))],
+		['the base', 'while', pullRequestAt(HEAD, 'e'.repeat(40))]
+	])('runs when %s differs %s the files are listed', (_side, when, moved) => {
+		let listed = false;
+		const selection = selectUpstreamReportTests({
+			...event,
+			changedFiles: '1',
+			readPullRequest: () => ((when === 'before') !== listed ? moved : pullRequestAt(HEAD, BASE)),
+			readPages: () => {
+				listed = true;
+				return [[entry('README.md')]];
+			}
+		});
+		expect(selection.run).toBe(true);
+	});
+
+	it.each([
+		[
+			'an unreadable pull request',
+			() => {
+				throw new Error('HTTP 502');
+			}
+		],
+		['a pull request without a head', () => ({ base: { sha: BASE } })]
+	])('runs on %s', (_label, readPullRequest) => {
+		const selection = selectUpstreamReportTests({
+			...event,
+			changedFiles: '1',
+			readPullRequest,
+			readPages: () => [[entry('README.md')]]
+		});
+		expect(selection.run).toBe(true);
+	});
+
+	it.each([
+		['head', { headSha: undefined }],
+		['base', { baseSha: '' }]
+	])('runs when the event carries no %s commit', (_side, missing) => {
+		const readPages = vi.fn(() => [[entry('README.md')]]);
+		expect(
+			selectUpstreamReportTests({ ...event, ...missing, changedFiles: '1', readPages }).run
+		).toBe(true);
+		expect(readPages).not.toHaveBeenCalled();
+	});
+
 	it.each(['push', 'workflow_dispatch', 'merge_group'])(
 		'runs on %s whatever changed',
 		(eventName) => {
 			const readPages = vi.fn(() => [[entry('README.md')]]);
-			expect(selectUpstreamReportTests({ eventName, changedFiles: '1', readPages }).run).toBe(true);
+			expect(
+				selectUpstreamReportTests({ ...event, eventName, changedFiles: '1', readPages }).run
+			).toBe(true);
 			expect(readPages).not.toHaveBeenCalled();
 		}
 	);
@@ -177,8 +241,8 @@ describe('upstream report test selection', () => {
 		const readPages = () => [[entry('README.md')]];
 		const select = (fullSuite: string) =>
 			selectUpstreamReportTests({
+				...event,
 				fullSuite,
-				eventName: 'pull_request',
 				changedFiles: '1',
 				readPages
 			}).run;
