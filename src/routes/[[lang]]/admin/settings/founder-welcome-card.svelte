@@ -170,7 +170,9 @@
 			</Dialog.Description>
 		</Dialog.Header>
 
-		<div class="-mx-1 min-h-0 overflow-y-auto px-1 pb-1">
+		<!-- The footer cancels the section gap so scrolled content meets its divider;
+		     the padding puts that gap back below the last field. -->
+		<div class="-mx-1 min-h-0 overflow-y-auto px-1 pb-(--dialog-gap)">
 			<Field.Group>
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<Field.Field>
