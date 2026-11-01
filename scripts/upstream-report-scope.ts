@@ -143,7 +143,8 @@ export function selectUpstreamReportTests({
 }: SelectionInput): Selection {
 	const run = (reason: string): Selection => ({ run: true, reason });
 
-	if (fullSuite === 'true') return run('CI_FULL_SUITE is set.');
+	// Matches the checkout's `vars.CI_FULL_SUITE == 'true'`, which GitHub compares case-insensitively.
+	if (fullSuite?.toLowerCase() === 'true') return run('CI_FULL_SUITE is set.');
 	if (eventName !== 'pull_request') {
 		return run(`a ${eventName ?? 'missing'} event always runs the suite.`);
 	}
