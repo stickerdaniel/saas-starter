@@ -260,7 +260,7 @@
 								{@render toggle(tool)}
 							{/each}
 						</ToggleGroup.Root>
-						<Separator orientation="vertical" class="data-[orientation=vertical]:h-4" />
+						<Separator decorative orientation="vertical" class="data-[orientation=vertical]:h-4" />
 						<ToggleGroup.Root
 							type="single"
 							size="sm"
@@ -272,7 +272,7 @@
 								{@render toggle(tool)}
 							{/each}
 						</ToggleGroup.Root>
-						<Separator orientation="vertical" class="data-[orientation=vertical]:h-4" />
+						<Separator decorative orientation="vertical" class="data-[orientation=vertical]:h-4" />
 						<DropdownMenu.Root>
 							<DropdownMenu.Trigger>
 								{#snippet child({ props })}
