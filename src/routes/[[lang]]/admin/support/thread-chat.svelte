@@ -361,7 +361,7 @@
 		api={{ listMessages: api.admin.support.queries.listMessagesForAdmin }}
 	>
 		<div class="flex-1 overflow-hidden">
-			<ChatMessages>
+			<ChatMessages perspective="staff">
 				{#snippet messageFooter(message)}
 					{@const route = messageRouteToShow(
 						message.id,

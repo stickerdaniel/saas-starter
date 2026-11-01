@@ -64,7 +64,7 @@
 	<!-- Chat area -->
 	<ChatRoot {threadId} api={session.api} externalCore={session.core} externalUIContext={uiContext}>
 		<div class="relative flex-1 overflow-hidden">
-			<ChatMessages>
+			<ChatMessages authorHeadingLevel={3}>
 				{#snippet emptyState()}
 					<div class="flex !h-full flex-col justify-start">
 						<div class="m-10 flex flex-col items-start">

@@ -573,6 +573,12 @@
 			"preview_loading": "Loading preview…",
 			"preview_truncated": "Preview truncated to {size}"
 		},
+		"author": {
+			"assistant": "Assistant",
+			"customer": "Customer",
+			"support_team": "Support team",
+			"you": "You"
+		},
 		"buttons": {
 			"processing": "Processing...",
 			"upgrade": "Upgrade to Pro"

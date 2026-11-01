@@ -573,6 +573,12 @@
 			"preview_loading": "Cargando vista previa…",
 			"preview_truncated": "Vista previa truncada a {size}"
 		},
+		"author": {
+			"assistant": "Asistente",
+			"customer": "Cliente",
+			"support_team": "Equipo de soporte",
+			"you": "Tú"
+		},
 		"buttons": {
 			"processing": "Procesando...",
 			"upgrade": "Actualizar a Pro"

@@ -573,6 +573,12 @@
 			"preview_loading": "Chargement de l'aperçu…",
 			"preview_truncated": "Aperçu tronqué à {size}"
 		},
+		"author": {
+			"assistant": "Assistant",
+			"customer": "Client",
+			"support_team": "Équipe de support",
+			"you": "Toi"
+		},
 		"buttons": {
 			"processing": "Traitement...",
 			"upgrade": "Passer à Pro"
