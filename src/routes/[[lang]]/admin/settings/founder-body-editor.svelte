@@ -285,7 +285,7 @@
 							</DropdownMenu.Trigger>
 							<DropdownMenu.Content
 								align="end"
-								class="w-auto"
+								class="max-h-(--bits-dropdown-menu-content-available-height) w-auto max-w-(--bits-dropdown-menu-content-available-width)"
 								onCloseAutoFocus={(event) => {
 									event.preventDefault();
 									textarea?.focus();
