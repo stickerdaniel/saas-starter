@@ -53,12 +53,17 @@ function lineSelection({ value, start, end }: BodySelection): LineSelection | un
 	return { offset, line, from: start - offset, to: end - offset };
 }
 
-/** The selection without surrounding whitespace, so `word ` wraps as `word`. */
-function trimmed({ value, start, end }: BodySelection): BodySelection {
+/**
+ * The line selection bold and links act on, without surrounding whitespace, so
+ * `word ` wraps as `word`. Nothing when it spans lines or holds only whitespace,
+ * which has no text to format.
+ */
+function inlineSelection({ value, start, end }: BodySelection): LineSelection | undefined {
 	let [from, to] = [start, end];
 	while (from < to && /\s/.test(value[from] ?? '')) from++;
 	while (to > from && /\s/.test(value[to - 1] ?? '')) to--;
-	return { value, start: from, end: to };
+	if (start !== end && from === to) return undefined;
+	return lineSelection({ value, start: from, end: to });
 }
 
 /** Whether `start..end` overlaps the selection. A caret on its edge is outside it. */
@@ -145,7 +150,8 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 
 /**
  * Remove bold from the selected part of a bold span and keep the rest bold, as
- * `**a «b» c**` becomes `**a **b** c**`. A caret removes the whole span.
+ * `**a «b» c**` becomes `**a **b** c**`. The part widens over any placeholder it
+ * cuts, so the placeholder stays whole. A caret removes the whole span.
  */
 function unbold(selection: LineSelection, bold: Removal): BodyEdit {
 	const { line, from, to } = selection;
@@ -156,6 +162,11 @@ function unbold(selection: LineSelection, bold: Removal): BodyEdit {
 	const [textStart, textEnd] = [bold.start + 2, bold.end - 2];
 	let [cutStart, cutEnd] = [clamp(from, textStart, textEnd), clamp(to, textStart, textEnd)];
 	if (cutStart === cutEnd) [cutStart, cutEnd] = [textStart, textEnd];
+	for (const { index, 0: token } of line.matchAll(PLACEHOLDER)) {
+		const tokenEnd = index + token.length;
+		if (index < cutStart && cutStart < tokenEnd) cutStart = index;
+		if (index < cutEnd && cutEnd < tokenEnd) cutEnd = tokenEnd;
+	}
 	const wrap = (part: string) => (part ? `**${part}**` : '');
 	const head = wrap(line.slice(textStart, cutStart));
 	const text = head + line.slice(cutStart, cutEnd) + wrap(line.slice(cutEnd, textEnd));
@@ -169,7 +180,7 @@ function unbold(selection: LineSelection, bold: Removal): BodyEdit {
  * so typing goes on unbolded, as in a word processor.
  */
 export function toggleBold(selection: BodySelection): BodyEdit | undefined {
-	const line = lineSelection(trimmed(selection));
+	const line = inlineSelection(selection);
 	if (!line) return undefined;
 	const bold = boldAt(line);
 	if (bold?.text && line.from === line.to && line.from === bold.end - 2) {
@@ -197,7 +208,7 @@ export function toggleBold(selection: BodySelection): BodyEdit | undefined {
  * remove the link the selection lies in and keep its label.
  */
 export function toggleLink(selection: BodySelection): BodyEdit | undefined {
-	const line = lineSelection(trimmed(selection));
+	const line = inlineSelection(selection);
 	if (!line) return undefined;
 	const link = linkAt(line);
 	if (link) {
@@ -232,7 +243,7 @@ export function toggleLink(selection: BodySelection): BodyEdit | undefined {
  */
 export function pasteLink(selection: BodySelection, pasted: string): BodyEdit | undefined {
 	const url = pasted.trim();
-	const line = lineSelection(trimmed(selection));
+	const line = inlineSelection(selection);
 	if (!line || line.from === line.to || !isAllowedHref(url)) return undefined;
 	const target = enclosingSpan(line, 'link');
 	if (
@@ -287,7 +298,7 @@ function nextNumber(value: string, lineStart: number): number {
 
 /** The formats the toolbar shows as on for a selection. */
 export function bodyFormats(selection: BodySelection): BodyFormats {
-	const line = lineSelection(trimmed(selection));
+	const line = inlineSelection(selection);
 	return {
 		bold: line !== undefined && boldAt(line) !== undefined,
 		link: line !== undefined && linkAt(line) !== undefined,

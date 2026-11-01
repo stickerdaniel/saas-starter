@@ -47,6 +47,9 @@ describe('toggleBold', () => {
 		['Say **thanks****|**', 'Say **thanks**|'],
 		['**Say «thanks» now**', '**Say **«thanks»** now**'],
 		['**«Say» thanks**', '«Say»** thanks**'],
+		['**Hi {{user«First»Name}} there**', '**Hi **«{{userFirstName}}»** there**'],
+		['**Hi {{user«FirstName}} the»re**', '**Hi **«{{userFirstName}} the»**re**'],
+		['**Hi «{{userFirstName}}» there**', '**Hi **«{{userFirstName}}»** there**'],
 		['«Say **thanks**» now', '**«Say thanks»** now'],
 		['Say **tha«nks** now»', 'Say **«thanks now»**'],
 		['- «Two»', '- **«Two»**'],
@@ -62,7 +65,9 @@ describe('toggleBold', () => {
 		'Say «a\nb»',
 		'Say «a*b»',
 		'*«Thanks» today',
-		'«Say [hi](https://hi.example.com)»'
+		'«Say [hi](https://hi.example.com)»',
+		'Alpha«\n»Beta',
+		'**hello« »world**'
 	])('leaves %s alone', (body) => {
 		expect(edit(toggleBold, body)).toBeUndefined();
 	});
@@ -80,12 +85,15 @@ describe('toggleLink', () => {
 		expect(edit(toggleLink, body)).toBe(expected);
 	});
 
-	it.each(['Say **«thanks»**', 'Say «[thanks]»', 'Hey {{user«First»Name}}', '!«Thanks» today'])(
-		'leaves %s alone',
-		(body) => {
-			expect(edit(toggleLink, body)).toBeUndefined();
-		}
-	);
+	it.each([
+		'Say **«thanks»**',
+		'Say «[thanks]»',
+		'Hey {{user«First»Name}}',
+		'!«Thanks» today',
+		'Alpha«\n»Beta'
+	])('leaves %s alone', (body) => {
+		expect(edit(toggleLink, body)).toBeUndefined();
+	});
 });
 
 describe('pasteLink', () => {
@@ -201,7 +209,8 @@ describe('bodyFormats', () => {
 		['Read [|](https://)', { bold: false, link: true, list: undefined }],
 		['«1. One\n\n2. Two»', { bold: false, link: false, list: 'numbered' }],
 		['«- One\n2. Two»', { bold: false, link: false, list: undefined }],
-		['- |', { bold: false, link: false, list: 'bulleted' }]
+		['- |', { bold: false, link: false, list: 'bulleted' }],
+		['**hello« »world**', { bold: false, link: false, list: undefined }]
 	])('reports the formats at %s', (body, formats) => {
 		expect(bodyFormats(parse(body))).toEqual(formats);
 	});
