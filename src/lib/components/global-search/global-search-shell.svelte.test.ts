@@ -155,12 +155,14 @@ describe('menu semantics', () => {
 		const selected = () =>
 			document.getElementById(input.getAttribute('aria-activedescendant') ?? '')?.textContent;
 
-		expect(selected()).toContain('Home');
+		// Bits UI selects the first option and moves the selection in effects; wait for each.
+		await vi.waitFor(() => expect(selected()).toContain('Home'));
 		shortcut('ArrowDown', {}, input);
-		expect(selected()).toContain('Pricing');
+		await vi.waitFor(() => expect(selected()).toContain('Pricing'));
 		shortcut('ArrowUp', {}, input);
-		expect(selected()).toContain('Home');
+		await vi.waitFor(() => expect(selected()).toContain('Home'));
 		shortcut('ArrowDown', {}, input);
+		await vi.waitFor(() => expect(selected()).toContain('Pricing'));
 		shortcut('Enter', {}, input);
 
 		expect(vi.mocked(goto)).toHaveBeenCalledExactlyOnceWith('/en/pricing');
