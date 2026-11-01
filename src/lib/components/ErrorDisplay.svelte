@@ -35,7 +35,7 @@
 			email,
 			subjectTemplate: translations.error_page.bug_report_subject,
 			bodyTemplate: translations.error_page.bug_report_body,
-			url: page.url.toString(),
+			url: page.url,
 			status: page.status
 		})
 	);

@@ -26,7 +26,7 @@
 	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { getLegalEmailAddress } from '#lib/config/legal.js';
-	import { buildMailto } from '#lib/utils/mailto.js';
+	import { buildMailto, reportPageUrl } from '#lib/utils/mailto.js';
 	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 	import { watch } from 'runed';
 	import { isSupportAiEnabled } from '#lib/config/support.js';
@@ -333,7 +333,7 @@
 
 	function contactSupportAboutCapture() {
 		const subject = $t('support.screenshot.error.email_subject');
-		let body = $t('support.screenshot.error.email_body', { url: page.url.href });
+		let body = $t('support.screenshot.error.email_body', { url: reportPageUrl(page.url) });
 		if (captureEventId) {
 			body += `\n\n${$t('support.screenshot.error.email_reference', { id: captureEventId })}`;
 		}

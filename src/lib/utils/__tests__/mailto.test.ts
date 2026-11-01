@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildBugReportMailto } from '../mailto';
+import { buildBugReportMailto, reportPageUrl } from '../mailto';
 
 describe('buildBugReportMailto', () => {
 	const base = {
 		email: 'contact@example.com',
 		subjectTemplate: 'Bug report: error {status}',
 		bodyTemplate: 'I hit an error.\nURL: {url}\nStatus: {status}\n',
-		url: 'https://example.com/en/broken?q=1',
+		url: new URL('https://example.com/en/broken'),
 		status: 500
 	};
 
@@ -23,7 +23,7 @@ describe('buildBugReportMailto', () => {
 	it('substitutes {url} and {status} in the body', () => {
 		const href = buildBugReportMailto(base);
 		const body = new URLSearchParams(href.split('?')[1]).get('body');
-		expect(body).toContain('URL: https://example.com/en/broken?q=1');
+		expect(body).toContain('URL: https://example.com/en/broken');
 		expect(body).toContain('Status: 500');
 	});
 
@@ -54,6 +54,29 @@ describe('buildBugReportMailto', () => {
 		const query = href.slice(href.indexOf('?') + 1);
 		const params = new URLSearchParams(query);
 		expect(params.get('subject')).toBe('Bug & error 500');
-		expect(params.get('body')).toContain('https://example.com/en/broken?q=1');
+		expect(params.get('body')).toContain('https://example.com/en/broken');
+	});
+
+	it('keeps the query, fragment and credentials of the page out of the body', () => {
+		const href = buildBugReportMailto({
+			...base,
+			url: new URL('https://user:hunter2@example.com/en/reset-password?token=SECRET#SECRET-HASH')
+		});
+		const body = new URLSearchParams(href.split('?')[1]).get('body')!;
+		expect(body).toContain('URL: https://example.com/en/reset-password\r\n');
+		expect(body).not.toMatch(/SECRET|hunter2|user@/);
+	});
+});
+
+describe('reportPageUrl', () => {
+	it('keeps origin and path', () => {
+		expect(reportPageUrl(new URL('https://example.com/en/app/settings?tab=billing#plan'))).toBe(
+			'https://example.com/en/app/settings'
+		);
+	});
+
+	it('reports a path too long to be a route as the root', () => {
+		const url = new URL(`https://example.com/${'a'.repeat(3000)}`);
+		expect(reportPageUrl(url)).toBe('https://example.com/');
 	});
 });

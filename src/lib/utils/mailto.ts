@@ -1,3 +1,5 @@
+import { normalizeSupportPageRoute } from '#lib/shared/support-page-route.js';
+
 /**
  * Builds an RFC 6068 `mailto:` href, normalizing body line breaks to CRLF
  * before percent-encoding. Apple Mail and other RFC-6068-strict clients
@@ -10,21 +12,33 @@ export function buildMailto(options: { email: string; subject: string; body: str
 }
 
 /**
+ * The page address a support email may quote: origin and path only. Queries and
+ * fragments carry secrets such as a password-reset token, and a URL can carry
+ * credentials, so neither leaves the browser in an email the user sends. A path
+ * too long or malformed to be a route is reported as `/`.
+ */
+export function reportPageUrl(url: Pick<URL, 'origin' | 'pathname'>): string {
+	return `${url.origin}${normalizeSupportPageRoute(url.pathname) ?? '/'}`;
+}
+
+/**
  * Builds a `mailto:` href for a pre-filled bug report.
  *
- * Substitutes `{status}` in the subject and `{url}` / `{status}` in the
- * body, then delegates to {@link buildMailto} for CRLF normalization and
+ * Substitutes `{status}` in the subject and `{url}` (see {@link reportPageUrl})
+ * / `{status}` in the body, then delegates to {@link buildMailto} for CRLF normalization and
  * percent-encoding.
  */
 export function buildBugReportMailto(options: {
 	email: string;
 	subjectTemplate: string;
 	bodyTemplate: string;
-	url: string;
+	url: Pick<URL, 'origin' | 'pathname'>;
 	status: number;
 }): string {
 	const status = String(options.status);
 	const subject = options.subjectTemplate.replace('{status}', status);
-	const body = options.bodyTemplate.replace('{url}', options.url).replace('{status}', status);
+	const body = options.bodyTemplate
+		.replace('{url}', reportPageUrl(options.url))
+		.replace('{status}', status);
 	return buildMailto({ email: options.email, subject, body });
 }
