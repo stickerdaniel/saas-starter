@@ -192,6 +192,22 @@ describe('deleteEmptyThreads', () => {
 		expect((await snapshot(t)).rows).toEqual([]);
 	});
 
+	it('moves a second run past threads whose checks are still pending', async () => {
+		const t = createHarness();
+		await seedThreads(
+			t,
+			Array.from({ length: 101 }, () => ({ withMessage: false }))
+		);
+		vi.advanceTimersByTime(DAY + 1);
+
+		const first = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		const second = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+		expect([first.scheduled, second.scheduled]).toEqual([100, 1]);
+		expect((await snapshot(t)).rows).toEqual([]);
+	});
+
 	it('releases a thread whose check never ran', async () => {
 		const t = createHarness();
 		await seedThreads(t, [{ withMessage: false }]);
