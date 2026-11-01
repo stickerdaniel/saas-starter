@@ -873,7 +873,7 @@
 		"terms": "Terms of Service"
 	},
 	"hero": {
-		"companies_text": "Powering the best teams",
+		"companies_text": "Powering tomorrow's best teams (logos I found online)",
 		"cta": "Start Building",
 		"cta_demo": "Request a demo",
 		"description": "SaaS starter with SvelteKit, auth, billing, and analytics.",
