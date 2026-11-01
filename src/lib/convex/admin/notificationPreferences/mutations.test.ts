@@ -47,7 +47,15 @@ function preferencesCtx(emails: string[], dormant: string[] = []) {
 			) => {
 				let email = '';
 				configure({ eq: (_field, value) => (email = value) });
-				return { first: async () => rows.find((row) => row.email === email) ?? null };
+				// Mirrors Convex: unique() throws when more than one row matches.
+				return {
+					first: async () => rows.find((row) => row.email === email) ?? null,
+					unique: async () => {
+						const matches = rows.filter((row) => row.email === email);
+						if (matches.length > 1) throw new Error('unique() query returned more than one result');
+						return matches[0] ?? null;
+					}
+				};
 			}
 		}),
 		patch
@@ -110,6 +118,15 @@ describe('updatePreferences', () => {
 		);
 
 		expect(patch).not.toHaveBeenCalled();
+	});
+
+	it('changes no recipient when one email has two rows', async () => {
+		const { ctx, patch, signups } = preferencesCtx([...emails, 'b@x.test']);
+
+		await expect(handler(ctx, toggleOn(emails))).rejects.toThrow();
+
+		expect(patch).not.toHaveBeenCalled();
+		expect(Object.values(signups())).not.toContain(true);
 	});
 
 	it('accepts a full page of 50 emails', async () => {

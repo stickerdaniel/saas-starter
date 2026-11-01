@@ -26,10 +26,12 @@ const MAX_PREFERENCE_BATCH_SIZE = 50;
 
 /** Find the preference an admin may toggle: an admin user or a custom email. */
 async function getTogglablePreference(ctx: MutationCtx, email: string) {
+	// unique(): two rows for one email (an admin email sync can create them) fail
+	// the toggle instead of silently changing only one of them.
 	const pref = await ctx.db
 		.query('adminNotificationPreferences')
 		.withIndex('by_email', (q) => q.eq('email', email))
-		.first();
+		.unique();
 
 	if (!pref) {
 		throw createNotificationPreferenceError(NOTIFICATION_PREFERENCE_ERROR_CODES.notFound);
