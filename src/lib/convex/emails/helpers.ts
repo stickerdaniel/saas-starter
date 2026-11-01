@@ -30,14 +30,16 @@ export const FOUNDER_WELCOME_DEFAULTS = {
 	subject: 'A quick hello',
 	body: `Hey {{userFirstName}},
 
-I'm {{founderName}}, {{founderTitle}}. I wanted to say thanks for giving us a try.
+I'm {{founderName}}, {{founderTitle}}. Thanks for signing up.
 
-I know there are a lot of tools out there, so the fact that you chose to spend time with ours means a lot. If anything feels confusing or missing, I genuinely want to know. This is the kind of feedback that shapes what we build next.
+Try the [AI chat](https://saas.daniel.sticker.name/app/ai-chat) in the demo. The admin features, these emails included, show up when you [run it locally](https://github.com/stickerdaniel/saas-starter#quick-start).
 
-Reply anytime. I read every response.
+**P.S. What brought you here?**
 
-{{founderName}}
-{{founderTitle}}`
+Hit reply and tell me. I read and answer every email myself.
+
+Cheers,
+{{founderName}}`
 } as const;
 
 /** Build a support link on the configured site while retaining the source page state. */

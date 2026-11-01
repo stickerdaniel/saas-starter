@@ -36,6 +36,9 @@ type Inline =
 // more stars.
 const MARKUP =
 	/((?:!\[|\[\[)[^\]\n]*\](?:\([^)\n]*\)?)?|\*{3,}[^*\n]*\*{3,}|\*{3,})|\[([^[\]\n]+)\]\(([^()\s]+)\)|\*\*([^*\n]+)\*\*/g;
+// A list item starts its line with `- ` or a number and `. `. The marker is read
+// from the template line, so a substituted value cannot start a list.
+const LIST_ITEM = /^(?:-|(\d{1,9})\.)[ \t]+(?=\S)/;
 const LINK_PROTOCOLS = new Set(['https:', 'http:', 'mailto:']);
 const FOUNDER_EMAIL_STYLE =
 	"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#000";
@@ -46,7 +49,7 @@ const FOUNDER_EMAIL_STYLE =
  * relative to the page in a mail client. Invisible format characters, such as a
  * right-to-left override, could disguise the shown URL.
  */
-function isAllowedHref(url: string): boolean {
+export function isAllowedHref(url: string): boolean {
 	if (/[\s\p{Cc}\p{Cf}]/u.test(url)) return false;
 	if (/^https?:/i.test(url) && !/^https?:\/\/[^/]/i.test(url)) return false;
 	let parsed: URL;
@@ -105,14 +108,37 @@ function inlineHtml(inline: Inline): string {
 	}
 }
 
+type Line = { html: string; text: string; list?: { ordered: boolean; start: number } };
+
+/** Render one template line, splitting off a list marker first. */
+function renderBodyLine(line: string, vars: FounderTemplateVariables): Line {
+	const marker = LIST_ITEM.exec(line);
+	const inlines = renderLine(marker ? line.slice(marker[0].length) : line, vars);
+	return {
+		html: inlines.map(inlineHtml).join(''),
+		text: (marker?.[0] ?? '') + inlines.map(inlineText).join(''),
+		list: marker ? { ordered: marker[1] !== undefined, start: Number(marker[1] ?? 1) } : undefined
+	};
+}
+
+type Block = { tag: 'p' | 'ul' | 'ol'; start: number; lines: string[] };
+
+function blockHtml({ tag, start, lines }: Block): string {
+	if (tag === 'p') return `<p>${lines.join('<br>')}</p>`;
+	const startAttr = tag === 'ol' && start !== 1 ? ` start="${start}"` : '';
+	return `<${tag}${startAttr}>${lines.map((line) => `<li>${line}</li>`).join('')}</${tag}>`;
+}
+
 /**
  * Render a founder email body as its text and HTML parts. The markup is exactly
- * `[label](url)` and `**bold**`; anything else, malformed or unsupported, stays
- * literal text. The template is tokenized before `{{name}}` placeholders resolve,
- * so a substituted value can never create markup. A link whose substituted URL is
- * not an absolute `https:`, `http:` or `mailto:` URL without credentials renders
- * literally. A line that renders empty separates paragraphs and a single newline
- * is a line break; the text part keeps the template's lines exactly.
+ * `[label](url)`, `**bold**`, and list items on lines starting with `- ` or `1. `;
+ * anything else, malformed or unsupported, stays literal text. The template is
+ * tokenized before `{{name}}` placeholders resolve, so a substituted value can
+ * never create markup. A link whose substituted URL is not an absolute `https:`,
+ * `http:` or `mailto:` URL without credentials renders literally. A line that
+ * renders empty separates paragraphs and lists, a single newline is a line break,
+ * and consecutive list items of one kind form one list; the text part keeps the
+ * template's lines exactly.
  */
 export function renderFounderEmail(
 	template: string,
@@ -121,27 +147,25 @@ export function renderFounderEmail(
 	const lines = template
 		.replace(/\r\n?/g, '\n')
 		.split('\n')
-		.map((line) => {
-			const inlines = renderLine(line, vars);
-			return { inlines, text: inlines.map(inlineText).join('') };
-		});
+		.map((line) => renderBodyLine(line, vars));
 
-	const paragraphs: string[][] = [];
-	let current: string[] = [];
+	const blocks: Block[] = [];
+	let open: Block | undefined;
 	for (const line of lines) {
-		if (line.text.trim()) {
-			current.push(line.inlines.map(inlineHtml).join(''));
+		if (!line.text.trim()) {
+			open = undefined;
 			continue;
 		}
-		if (current.length) paragraphs.push(current);
-		current = [];
+		const tag = line.list ? (line.list.ordered ? 'ol' : 'ul') : 'p';
+		if (open?.tag !== tag) {
+			open = { tag, start: line.list?.start ?? 1, lines: [] };
+			blocks.push(open);
+		}
+		open.lines.push(line.html);
 	}
-	if (current.length) paragraphs.push(current);
 
 	return {
 		text: lines.map((line) => line.text).join('\n'),
-		html: `<div style="${FOUNDER_EMAIL_STYLE}">${paragraphs
-			.map((paragraph) => `<p>${paragraph.join('<br>')}</p>`)
-			.join('')}</div>`
+		html: `<div style="${FOUNDER_EMAIL_STYLE}">${blocks.map(blockHtml).join('')}</div>`
 	};
 }

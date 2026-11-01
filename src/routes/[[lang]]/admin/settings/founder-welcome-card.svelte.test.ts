@@ -119,3 +119,35 @@ it('previews the body as the text part the email sends', () => {
 	expect(document.getElementById('config-body-preview')?.textContent?.trim()).toBe(sent);
 	expect(sent).toContain('your dashboard <https://app.example.com> now.');
 });
+
+function pasteOverSelection(text: string, start: number, end: number) {
+	buttonNamed(founder.edit_button).click();
+	flushSync();
+	(document.getElementById('config-body-preview') as HTMLButtonElement).click();
+	flushSync();
+	const textarea = document.getElementById('config-body') as HTMLTextAreaElement;
+	textarea.setSelectionRange(start, end);
+	const paste = new Event('paste', { bubbles: true, cancelable: true });
+	Object.defineProperty(paste, 'clipboardData', { value: { getData: () => text } });
+	textarea.dispatchEvent(paste);
+	flushSync();
+	return { textarea, handled: paste.defaultPrevented };
+}
+
+it('links the selected text when a URL is pasted over it', async () => {
+	await settle();
+	const { textarea, handled } = pasteOverSelection(' https://app.example.com/start ', 0, 2);
+
+	expect(handled).toBe(true);
+	expect(textarea.value.startsWith('[Hi](https://app.example.com/start) {{userFirstName}},')).toBe(
+		true
+	);
+});
+
+it('pastes normally when the clipboard holds no allowed link', async () => {
+	await settle();
+	const { textarea, handled } = pasteOverSelection('javascript:alert(1)', 0, 2);
+
+	expect(handled).toBe(false);
+	expect(textarea.value.startsWith('Hi {{userFirstName}},')).toBe(true);
+});

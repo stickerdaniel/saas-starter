@@ -19,6 +19,7 @@
 	import { FOUNDER_WELCOME_DEFAULTS } from '#lib/convex/emails/helpers.js';
 	import {
 		FOUNDER_TEMPLATE_VARIABLES,
+		isAllowedHref,
 		renderFounderEmail
 	} from '#lib/convex/emails/founderTemplate.js';
 
@@ -136,6 +137,21 @@
 			stepDownDialogOpen = false;
 		}
 	}
+
+	/** Pasting a link URL over selected text wraps the selection as `[text](url)`. */
+	function pasteLink(event: ClipboardEvent & { currentTarget: HTMLTextAreaElement }) {
+		const textarea = event.currentTarget;
+		const label = textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
+		const url = event.clipboardData?.getData('text/plain').trim() ?? '';
+		// The renderer's link token admits no brackets in the label or parentheses in the URL.
+		if (!label.trim() || /[[\]\n]/.test(label) || /[()]/.test(url) || !isAllowedHref(url)) return;
+		event.preventDefault();
+		const link = `[${label}](${url})`;
+		// insertText keeps the edit undoable; setRangeText covers engines without it.
+		if (document.execCommand?.('insertText', false, link)) return;
+		textarea.setRangeText(link, textarea.selectionStart, textarea.selectionEnd, 'end');
+		textarea.dispatchEvent(new Event('input', { bubbles: true }));
+	}
 </script>
 
 <Item.Root variant="outline" data-testid="founder-welcome-card">
@@ -229,6 +245,7 @@
 							rows={8}
 							variables={[...FOUNDER_TEMPLATE_VARIABLES]}
 							bind:value={editBody}
+							onpaste={pasteLink}
 							onfocus={() => {
 								editingBody = true;
 							}}

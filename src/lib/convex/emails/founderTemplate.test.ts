@@ -173,6 +173,27 @@ describe('renderFounderEmail', () => {
 		expect(htmlBody(template)).toBe('<p>Hi Ada,<br>quick question.</p><p>Thanks<br>Sam</p>');
 	});
 
+	it('renders list lines as lists and keeps them unchanged in the text part', () => {
+		const template =
+			'Steps:\n- Open [the app](https://app.example.com)\n- Say **hi**\n\n1. One\n2. Two\n\n3. Three\nDone';
+
+		expect(renderFounderEmail(template, vars).text).toBe(
+			'Steps:\n- Open the app <https://app.example.com>\n- Say hi\n\n1. One\n2. Two\n\n3. Three\nDone'
+		);
+		expect(htmlBody(template)).toBe(
+			'<p>Steps:</p><ul><li>Open <a href="https://app.example.com">the app</a></li><li>Say <strong>hi</strong></li></ul>' +
+				'<ol><li>One</li><li>Two</li></ol><ol start="3"><li>Three</li></ol><p>Done</p>'
+		);
+	});
+
+	it('starts a list only from the template, never from a substituted value', () => {
+		const template = '{{userFirstName}}\n-no space\n2026.';
+
+		expect(htmlBody(template, { ...vars, userFirstName: '- Ada' })).toBe(
+			'<p>- Ada<br>-no space<br>2026.</p>'
+		);
+	});
+
 	it('leaves a template without markup as paragraphs and identical text', () => {
 		const template =
 			'Hi {{userFirstName}},\n\nwhat held you back?\n\n{{founderName}}, {{founderTitle}}';
