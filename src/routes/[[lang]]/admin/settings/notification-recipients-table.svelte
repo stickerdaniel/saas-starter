@@ -6,6 +6,7 @@
 	import { api } from '#lib/convex/_generated/api.js';
 	import {
 		setTogglePreferenceContext,
+		setPreferenceForManyContext,
 		setRemoveEmailContext,
 		setRowSelectionContext,
 		setRecipientsContext,
@@ -137,10 +138,25 @@
 		cache: adminCache.recipientCount
 	});
 
+	function setPending(email: string, field: ToggleField, value: boolean) {
+		const existing = pendingUpdates.get(email) ?? {};
+		pendingUpdates.set(email, { ...existing, [field]: value });
+	}
+
+	// Replaces the entry rather than deleting from it: the map reacts to set and
+	// delete, not to changes inside a stored object, so a rolled-back field on a row
+	// with other pending fields would otherwise keep showing.
+	function clearPending(email: string, field: ToggleField) {
+		const current = pendingUpdates.get(email);
+		if (!current) return;
+		const { [field]: _, ...rest } = current;
+		if (Object.keys(rest).length === 0) pendingUpdates.delete(email);
+		else pendingUpdates.set(email, rest);
+	}
+
 	async function togglePreference(email: string, field: ToggleField, currentValue: boolean) {
 		const newValue = !currentValue;
-		const existing = pendingUpdates.get(email) ?? {};
-		pendingUpdates.set(email, { ...existing, [field]: newValue });
+		setPending(email, field, newValue);
 
 		try {
 			await client.mutation(api.admin.notificationPreferences.mutations.updatePreference, {
@@ -149,13 +165,22 @@
 				value: newValue
 			});
 		} catch (error) {
-			const current = pendingUpdates.get(email);
-			if (current) {
-				delete current[field];
-				if (Object.keys(current).length === 0) {
-					pendingUpdates.delete(email);
-				}
-			}
+			clearPending(email, field);
+			throw error;
+		}
+	}
+
+	async function setPreferenceForMany(emails: string[], field: ToggleField, value: boolean) {
+		for (const email of emails) setPending(email, field, value);
+
+		try {
+			await client.mutation(api.admin.notificationPreferences.mutations.updatePreferences, {
+				emails,
+				field,
+				value
+			});
+		} catch (error) {
+			for (const email of emails) clearPending(email, field);
 			throw error;
 		}
 	}
@@ -172,6 +197,7 @@
 
 	// Provide context for cell components
 	setTogglePreferenceContext(togglePreference);
+	setPreferenceForManyContext(setPreferenceForMany);
 	setRemoveEmailContext(removeEmail);
 	setRowSelectionContext(() => rowSelection.state);
 	setRecipientsContext(() => recipientsWithUpdates);

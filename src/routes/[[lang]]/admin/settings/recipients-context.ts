@@ -10,6 +10,10 @@ export type ToggleField = NotificationToggleField;
 export const [getTogglePreferenceContext, setTogglePreferenceContext] =
 	createContext<(email: string, field: ToggleField, currentValue: boolean) => Promise<void>>();
 
+// Sets one toggle for several recipients in one all-or-nothing update.
+export const [getPreferenceForManyContext, setPreferenceForManyContext] =
+	createContext<(emails: string[], field: ToggleField, value: boolean) => Promise<void>>();
+
 export const [getRemoveEmailContext, setRemoveEmailContext] =
 	createContext<(email: string) => Promise<void>>();
 

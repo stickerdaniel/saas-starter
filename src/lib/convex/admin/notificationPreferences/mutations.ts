@@ -8,7 +8,7 @@
 import { v } from 'convex/values';
 import * as val from 'valibot';
 import { adminMutation } from '../../functions';
-import { internalMutation } from '../../_generated/server';
+import { internalMutation, type MutationCtx } from '../../_generated/server';
 import { components } from '../../_generated/api';
 import { syncAdminPreferences } from './helpers';
 import { notificationToggleFieldValidator } from './queries';
@@ -17,6 +17,31 @@ import {
 	NOTIFICATION_PREFERENCE_ERROR_CODES,
 	createNotificationPreferenceError
 } from './errors';
+
+/**
+ * Bulk toggles come from the selection on one table page, so a batch never
+ * holds more emails than the largest page size of the recipients table.
+ */
+const MAX_PREFERENCE_BATCH_SIZE = 50;
+
+/** Find the preference an admin may toggle: an admin user or a custom email. */
+async function getTogglablePreference(ctx: MutationCtx, email: string) {
+	const pref = await ctx.db
+		.query('adminNotificationPreferences')
+		.withIndex('by_email', (q) => q.eq('email', email))
+		.first();
+
+	if (!pref) {
+		throw createNotificationPreferenceError(NOTIFICATION_PREFERENCE_ERROR_CODES.notFound);
+	}
+
+	// Verify it's an active recipient (admin or custom email)
+	if (!pref.isAdminUser && pref.userId !== undefined) {
+		throw createNotificationPreferenceError(NOTIFICATION_PREFERENCE_ERROR_CODES.dormant);
+	}
+
+	return pref;
+}
 
 /**
  * Update a notification preference toggle
@@ -31,26 +56,52 @@ export const updatePreference = adminMutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		// Find the preference by email
-		const pref = await ctx.db
-			.query('adminNotificationPreferences')
-			.withIndex('by_email', (q) => q.eq('email', args.email))
-			.first();
-
-		if (!pref) {
-			throw createNotificationPreferenceError(NOTIFICATION_PREFERENCE_ERROR_CODES.notFound);
-		}
-
-		// Verify it's an active recipient (admin or custom email)
-		if (!pref.isAdminUser && pref.userId !== undefined) {
-			throw createNotificationPreferenceError(NOTIFICATION_PREFERENCE_ERROR_CODES.dormant);
-		}
+		const pref = await getTogglablePreference(ctx, args.email);
 
 		// Update the specific field
 		await ctx.db.patch('adminNotificationPreferences', pref._id, {
 			[args.field]: args.value,
 			updatedAt: Date.now()
 		});
+
+		return null;
+	}
+});
+
+/**
+ * Set one notification toggle for several recipients at once
+ *
+ * All or nothing: every email is resolved before the first patch, so an
+ * unknown or dormant recipient fails the whole batch without a write.
+ *
+ * @security Requires admin role
+ */
+export const updatePreferences = adminMutation({
+	args: {
+		emails: v.array(v.string()),
+		field: notificationToggleFieldValidator,
+		value: v.boolean()
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		if (
+			args.emails.length === 0 ||
+			args.emails.length > MAX_PREFERENCE_BATCH_SIZE ||
+			new Set(args.emails).size !== args.emails.length
+		) {
+			throw createNotificationPreferenceError(NOTIFICATION_PREFERENCE_ERROR_CODES.invalidBatch);
+		}
+
+		// Resolve every recipient before the first patch, so a bad email writes nothing.
+		const prefs = await Promise.all(args.emails.map((email) => getTogglablePreference(ctx, email)));
+
+		const updatedAt = Date.now();
+		for (const pref of prefs) {
+			await ctx.db.patch('adminNotificationPreferences', pref._id, {
+				[args.field]: args.value,
+				updatedAt
+			});
+		}
 
 		return null;
 	}
