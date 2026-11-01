@@ -4,23 +4,24 @@
  * The suite takes minutes and almost no pull request touches what it reads, but its check
  * is required, so the job always starts and reports; only its test steps depend on this
  * selection. Anything other than a pull request runs them, and so does a pull request
- * whose complete changed-file list cannot be read for exactly the event's head and base.
- * The repository variable `CI_FULL_SUITE=true` runs them everywhere, to switch the
- * selection off without a commit.
+ * whose complete changed-file list cannot be read for exactly the event's base and head
+ * commits. The repository variable `CI_FULL_SUITE=true` runs them everywhere, to switch
+ * the selection off without a commit.
  *
  * The job checks out only UPSTREAM_REPORT_TEST_INPUTS, as a partial clone without lazy
  * fetching, so a suite that starts reading any other repository path, from the worktree or
  * from Git objects, fails in CI instead of being skipped. Such a read can only arrive
  * through a change to an input, which selects the suite on that same pull request. A read
  * that tolerates a missing file, such as `existsSync`, an optional read or a glob, passes
- * without the file, so `upstream-report-reads.test.ts` traces every path the suite builds
- * from the repository root and fails Unit Tests on one this list does not cover.
- * `CI_FULL_SUITE=true` forces the run but keeps the same sparse checkout.
+ * without the file, so it must still be declared here by hand: its absence fails nothing.
+ * Every run, including non-PR events and `CI_FULL_SUITE=true`, keeps the same sparse
+ * checkout, so such an undeclared input only takes effect where the suite runs on the
+ * full tree, such as `bun run test:upstream-report` locally.
  *
  * The job runs `bun scripts/upstream-report-scope.ts` before installing dependencies, so
- * this file imports Node built-ins only. It reads FULL_SUITE, EVENT_NAME, PR_NUMBER,
- * CHANGED_FILES, HEAD_SHA, BASE_SHA, GITHUB_REPOSITORY and GH_TOKEN, and appends
- * `run=true|false` to GITHUB_OUTPUT.
+ * this file imports Node built-ins only. It reads FULL_SUITE, EVENT_NAME, CHANGED_FILES,
+ * HEAD_SHA, BASE_SHA, GITHUB_REPOSITORY and GH_TOKEN, and appends `run=true|false` to
+ * GITHUB_OUTPUT.
  */
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
@@ -75,13 +76,13 @@ export interface SelectionInput {
 	/** `pull_request.head.sha` and `pull_request.base.sha` from the event payload. */
 	headSha: string | undefined;
 	baseSha: string | undefined;
-	/** The pull request as `gh api` printed it; read before and after its files. */
-	readPullRequest: () => unknown;
-	/** The pages `gh api --paginate --slurp` printed for the pull request's files. */
-	readPages: () => unknown;
+	/** `owner/name`, as GITHUB_REPOSITORY gives it. */
+	repository: string | undefined;
+	/** What `gh api` prints for a REST endpoint, parsed. */
+	readApi: (endpoint: string) => unknown;
 }
 
-/** The `status` values GitHub documents for a pull request's files. */
+/** The `status` values GitHub documents for a comparison's files. */
 const FILE_STATUSES = new Set([
 	'added',
 	'removed',
@@ -93,16 +94,17 @@ const FILE_STATUSES = new Set([
 ]);
 
 /**
- * Every path a pull request touches, both sides of a rename or copy included, or
- * `undefined` when the pages are not the shape GitHub returns. `count` is the number of
- * file entries, which GitHub's `changed_files` must equal for the list to be complete.
- * That comparison only proves completeness when every entry names a distinct file and
- * both of its sides, so an undocumented status, a repeated path, or a rename or copy
- * without its source makes the list malformed.
+ * Every path a comparison touches, both sides of a rename or copy included, or
+ * `undefined` when it is not the shape GitHub returns. `count` is the number of file
+ * entries, which GitHub's `changed_files` must equal for the list to be complete. That
+ * comparison only proves completeness when every entry names a distinct file and both of
+ * its sides, so an undocumented status, a repeated path, or a rename or copy without its
+ * source makes the list malformed.
  */
-function changedPaths(pages: unknown): { count: number; paths: string[] } | undefined {
-	if (!Array.isArray(pages) || !pages.every(Array.isArray)) return undefined;
-	const entries: unknown[] = pages.flat();
+function changedPaths(comparison: unknown): { count: number; paths: string[] } | undefined {
+	if (typeof comparison !== 'object' || comparison === null) return undefined;
+	const entries = (comparison as Record<string, unknown>).files;
+	if (!Array.isArray(entries)) return undefined;
 	const paths: string[] = [];
 	const filenames = new Set<string>();
 	for (const entry of entries) {
@@ -124,28 +126,10 @@ function changedPaths(pages: unknown): { count: number; paths: string[] } | unde
 const COMMIT_SHA = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 /**
- * Why the pull request GitHub returns is not the event's, or `undefined` when its head and
- * base are exactly the event's. The files endpoint lists whatever the head is now, so a
- * push before or during the job would otherwise lend this run another head's files.
+ * GitHub's comparison lists at most this many files, and says nothing when it stops
+ * there, so a list this long may be cut short even when its length matches.
  */
-function movedFrom(
-	readPullRequest: () => unknown,
-	headSha: string,
-	baseSha: string
-): string | undefined {
-	let pullRequest: unknown;
-	try {
-		pullRequest = readPullRequest();
-	} catch (error) {
-		return `the pull request could not be read: ${(error as Error).message}`;
-	}
-	const fields = (value: unknown) =>
-		typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : undefined;
-	const sha = (side: 'head' | 'base') => fields(fields(pullRequest)?.[side])?.sha;
-	if (sha('head') !== headSha) return "the pull request head is no longer the event's.";
-	if (sha('base') !== baseSha) return "the pull request base is no longer the event's.";
-	return undefined;
-}
+const COMPARISON_FILE_LIMIT = 300;
 
 export function selectUpstreamReportTests({
 	fullSuite,
@@ -153,8 +137,8 @@ export function selectUpstreamReportTests({
 	changedFiles,
 	headSha,
 	baseSha,
-	readPullRequest,
-	readPages
+	repository,
+	readApi
 }: SelectionInput): Selection {
 	const run = (reason: string): Selection => ({ run: true, reason });
 
@@ -173,24 +157,28 @@ export function selectUpstreamReportTests({
 	) {
 		return run('the event carries no head or base commit.');
 	}
+	if (repository === undefined || !/^[\w.-]+\/[\w.-]+$/.test(repository)) {
+		return run('the repository is missing.');
+	}
 
-	// Reads on both sides of the pages bind them to the event: a head or base that differs
-	// while they are listed shows up in one of the two, even one force-pushed back after.
-	const movedBefore = movedFrom(readPullRequest, headSha, baseSha);
-	if (movedBefore) return run(movedBefore);
-	let pages: unknown;
+	// The pull request's own file list follows its head as it moves, so it could describe
+	// another push than this event's. A comparison of the event's commits cannot change, and
+	// its three dots diff from their merge base as the pull request does. A paginated
+	// comparison carries every file it lists on its first page, so `per_page=1` reads them
+	// all in one request without its commits.
+	let comparison: unknown;
 	try {
-		pages = readPages();
+		comparison = readApi(`repos/${repository}/compare/${baseSha}...${headSha}?per_page=1`);
 	} catch (error) {
 		return run(`the changed files could not be read: ${(error as Error).message}`);
 	}
-	const movedAfter = movedFrom(readPullRequest, headSha, baseSha);
-	if (movedAfter) return run(movedAfter);
-	const changed = changedPaths(pages);
+	const changed = changedPaths(comparison);
 	if (!changed) return run('the changed-file list is malformed.');
-	// GitHub lists at most 3000 files, so a larger pull request lands here as well.
 	if (changed.count !== Number(changedFiles)) {
 		return run(`the changed-file list has ${changed.count} of ${changedFiles} entries.`);
+	}
+	if (changed.count >= COMPARISON_FILE_LIMIT) {
+		return run(`the changed-file list may stop at GitHub's ${COMPARISON_FILE_LIMIT} files.`);
 	}
 
 	const input = changed.paths.find(isUpstreamReportTestInput);
@@ -202,18 +190,13 @@ export function selectUpstreamReportTests({
 			};
 }
 
-/** Parses what `gh api` prints for the event's pull request or an endpoint below it. */
-function readPullRequestApi(below: '' | '/files', options: string[] = []): unknown {
-	const repository = process.env.GITHUB_REPOSITORY;
-	const number = process.env.PR_NUMBER;
-	if (!repository || !/^[1-9]\d*$/.test(number ?? '')) {
-		throw new Error('the pull request identity is missing');
-	}
-	const output = execFileSync(
-		'gh',
-		['api', ...options, `repos/${repository}/pulls/${number}${below}`],
-		{ encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'inherit'] }
-	);
+/** Parses what `gh api` prints for one REST endpoint. */
+function readGitHubApi(endpoint: string): unknown {
+	const output = execFileSync('gh', ['api', endpoint], {
+		encoding: 'utf8',
+		maxBuffer: 256 * 1024 * 1024,
+		stdio: ['ignore', 'pipe', 'inherit']
+	});
 	return JSON.parse(output);
 }
 
@@ -224,8 +207,8 @@ if (import.meta.main) {
 		changedFiles: process.env.CHANGED_FILES,
 		headSha: process.env.HEAD_SHA,
 		baseSha: process.env.BASE_SHA,
-		readPullRequest: () => readPullRequestApi(''),
-		readPages: () => readPullRequestApi('/files', ['--paginate', '--slurp'])
+		repository: process.env.GITHUB_REPOSITORY,
+		readApi: readGitHubApi
 	});
 	console.log(
 		`${selection.run ? 'Running' : 'Skipping'} the upstream report tests: ${selection.reason}`

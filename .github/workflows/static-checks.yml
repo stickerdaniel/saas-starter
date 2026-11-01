@@ -196,10 +196,9 @@ jobs:
     name: Upstream Report Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # The selection lists the pull request's changed files.
+    # The selection compares the event's base and head commits, which needs only contents.
     permissions:
       contents: read
-      pull-requests: read
     steps:
       # Only the suite's inputs, as listed in scripts/upstream-report-scope.ts, so a test that
       # reads any other path fails here rather than being skipped when that path changes.
@@ -230,7 +229,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           FULL_SUITE: ${{ vars.CI_FULL_SUITE }}
           EVENT_NAME: ${{ github.event_name }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
           CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
