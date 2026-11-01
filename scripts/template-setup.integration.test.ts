@@ -451,7 +451,7 @@ describe('template setup writes importable branding values', () => {
 		// The Applying line echoes user input, which may legitimately contain
 		// Unicode; every other line is fixed script output and must stay ASCII.
 		const scriptLines = run.stdout.split('\n').filter((line) => !line.startsWith('Applying:'));
-		// eslint-disable-next-line no-control-regex
+		// eslint-disable-next-line no-control-regex -- the class spans ASCII, starting at NUL
 		expect(scriptLines.join('\n')).not.toMatch(/[^\x00-\x7F]/);
 	});
 

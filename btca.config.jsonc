@@ -48,6 +48,12 @@
 		},
 		{
 			"type": "git",
+			"name": "eslintPluginEslintComments",
+			"url": "https://github.com/eslint-community/eslint-plugin-eslint-comments",
+			"branch": "main"
+		},
+		{
+			"type": "git",
 			"name": "misspell",
 			"url": "https://github.com/client9/misspell",
 			"branch": "master"

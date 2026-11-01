@@ -30,12 +30,6 @@ export type CancellationAdminNotificationEmailProps = ComponentProps<
 	typeof CancellationAdminNotificationEmail
 >;
 
-// Helper to make all props required (removes optional defaults)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type RequiredProps<T> = {
-	[K in keyof T]-?: T[K];
-};
-
 /**
  * Runtime data types for email rendering functions
  * These define what data you pass to the render functions in templates.ts

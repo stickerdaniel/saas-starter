@@ -142,15 +142,13 @@ export class ChatDraftManager {
 		if (!this.storage) return null;
 		let namespaces = storageRevisions.get(this.storage);
 		if (!namespaces) {
-			// Document-local bookkeeping that never participates in rendering.
-			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- document-local bookkeeping, never rendered
 			namespaces = new Map();
 			storageRevisions.set(this.storage, namespaces);
 		}
 		let revisions = namespaces.get(this.namespace);
 		if (!revisions) {
-			// Document-local bookkeeping that never participates in rendering.
-			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- document-local bookkeeping, never rendered
 			revisions = new Map();
 			namespaces.set(this.namespace, revisions);
 		}

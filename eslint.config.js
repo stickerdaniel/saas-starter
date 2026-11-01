@@ -6,6 +6,7 @@ import { includeIgnoreFile } from '@eslint/compat';
 import js from '@eslint/js';
 import convexPlugin from '@convex-dev/eslint-plugin';
 import svelte from 'eslint-plugin-svelte';
+import eslintComments from '@eslint-community/eslint-plugin-eslint-comments';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
@@ -111,6 +112,13 @@ export default defineConfig(
 			// see: https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
 			'no-undef': 'off'
 		}
+	},
+	// A suppression says why after ` -- `, so a reviewer can judge it where it stands.
+	// The plugin reads JS and TS comments, including Svelte `<script>` blocks; it does
+	// not see directives in Svelte markup comments.
+	{
+		plugins: { '@eslint-community/eslint-comments': eslintComments },
+		rules: { '@eslint-community/eslint-comments/require-description': 'error' }
 	},
 	{
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],

@@ -199,8 +199,7 @@ function handleOptions(request) {
 // ====================================
 
 export default {
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	async fetch(request, _env, _ctx) {
+	async fetch(request) {
 		// Handle OPTIONS request (CORS preflight)
 		if (request.method === 'OPTIONS') {
 			return handleOptions(request);
