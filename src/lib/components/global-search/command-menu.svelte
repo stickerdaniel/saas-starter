@@ -164,9 +164,16 @@
 			<Dialog.Title>{$t('search.command.dialog_title')}</Dialog.Title>
 			<Dialog.Description>{$t('search.command.dialog_description')}</Dialog.Description>
 		</Dialog.Header>
-		<Command.Root class="h-auto min-h-0 flex-1 rounded-none bg-transparent">
+		<Command.Root
+			label={$t('search.command.dialog_title')}
+			class="h-auto min-h-0 flex-1 rounded-none bg-transparent"
+		>
 			<Command.Input placeholder={$t('search.command.input_placeholder')} />
-			<Command.List tabindex={-1} class="h-80 max-h-none min-h-0 scroll-pt-2 scroll-pb-1.5">
+			<Command.List
+				tabindex={-1}
+				aria-label={$t('search.command.results_label')}
+				class="h-80 max-h-none min-h-0 scroll-pt-2 scroll-pb-1.5"
+			>
 				<Command.Empty class="py-12 text-center text-sm text-muted-foreground">
 					{$t('search.command.no_results')}
 				</Command.Empty>

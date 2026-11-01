@@ -1105,6 +1105,7 @@
 			},
 			"input_placeholder": "Seiten suchen...",
 			"no_results": "Keine Ergebnisse gefunden.",
+			"results_label": "Seiten",
 			"trigger_desktop": "Seiten suchen...",
 			"trigger_mobile": "Suchen..."
 		}

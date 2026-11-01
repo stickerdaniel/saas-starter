@@ -5,10 +5,13 @@
 	let {
 		ref = $bindable(null),
 		class: className,
+		children,
 		...restProps
 	}: CommandPrimitive.ListProps = $props();
 </script>
 
+<!-- Deviation from shadcn-svelte: the items sit in Bits UI's Viewport, because the
+input's `aria-controls` points at the viewport and stays unset without one. -->
 <CommandPrimitive.List
 	bind:ref
 	data-slot="command-list"
@@ -17,4 +20,8 @@
 		className
 	)}
 	{...restProps}
-/>
+>
+	<CommandPrimitive.Viewport>
+		{@render children?.()}
+	</CommandPrimitive.Viewport>
+</CommandPrimitive.List>
