@@ -11,6 +11,7 @@
 	import { createRowSelection } from '#lib/components/ui/data-table/row-selection.svelte.ts';
 	import RecipientsToggle from '../recipients-toggle.svelte';
 	import {
+		setPreferenceForManyContext,
 		setRecipientsContext,
 		setRowSelectionContext,
 		setTogglePreferenceContext,
@@ -20,22 +21,41 @@
 
 	let {
 		recipients: initialRecipients,
-		onToggle
+		failingEmail,
+		onToggleMany
 	}: {
 		recipients: NotificationRecipient[];
-		onToggle: (email: string, field: ToggleField, currentValue: boolean) => Promise<void>;
+		/** The backend refuses this email, for example because it became dormant. */
+		failingEmail?: string;
+		onToggleMany?: (emails: string[], field: ToggleField, value: boolean) => void;
 	} = $props();
 
 	const { t } = getTranslate();
 
-	// The initial rows are fixed per mount; tests replace them through `setRecipients`.
+	// The initial rows are fixed per mount; toggles and `setRecipients` replace them.
 	// svelte-ignore state_referenced_locally
 	let recipients = $state.raw(initialRecipients);
 
-	// Wired like notification-recipients-table.svelte.
+	function write(email: string, field: ToggleField, value: boolean) {
+		recipients = recipients.map((recipient) =>
+			recipient.email === email ? { ...recipient, [field]: value } : recipient
+		);
+	}
+
+	// Wired like notification-recipients-table.svelte, with the backend's write rules:
+	// one row per call, or a whole batch at once.
 	const rowSelection = createRowSelection(() => recipients.map((recipient) => recipient.email));
-	// svelte-ignore state_referenced_locally
-	setTogglePreferenceContext(onToggle);
+	setTogglePreferenceContext(async (email, field, currentValue) => {
+		if (email === failingEmail) throw new Error(`Refused ${email}`);
+		write(email, field, !currentValue);
+	});
+	setPreferenceForManyContext(async (emails, field, value) => {
+		onToggleMany?.(emails, field, value);
+		if (failingEmail !== undefined && emails.includes(failingEmail)) {
+			throw new Error(`Refused ${failingEmail}`);
+		}
+		for (const email of emails) write(email, field, value);
+	});
 	setRowSelectionContext(() => rowSelection.state);
 	setRecipientsContext(() => recipients);
 
@@ -73,6 +93,9 @@
 	}
 	export function setRecipients(next: NotificationRecipient[]) {
 		recipients = next;
+	}
+	export function getRecipients() {
+		return recipients;
 	}
 </script>
 

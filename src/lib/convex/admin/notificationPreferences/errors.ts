@@ -7,7 +7,8 @@ export const NOTIFICATION_PREFERENCE_ERROR_CODES = {
 	dormant: 'NOTIFICATION_PREFERENCE_DORMANT',
 	invalidEmail: 'NOTIFICATION_EMAIL_INVALID',
 	emailNotFound: 'NOTIFICATION_EMAIL_NOT_FOUND',
-	adminRecipientRequired: 'NOTIFICATION_ADMIN_RECIPIENT_REQUIRED'
+	adminRecipientRequired: 'NOTIFICATION_ADMIN_RECIPIENT_REQUIRED',
+	invalidBatch: 'NOTIFICATION_PREFERENCE_BATCH_INVALID'
 } as const;
 
 export type NotificationPreferenceErrorCode =

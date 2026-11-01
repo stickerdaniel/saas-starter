@@ -55,8 +55,29 @@ function recipient(email: string): NotificationRecipient {
 const text = (testId: string) =>
 	document.querySelector(`[data-testid="${testId}"]`)!.textContent?.trim();
 
+const toggle = (email: string) =>
+	document.querySelector<HTMLElement>(`[data-testid="toggle-notifyNewSignups-${email}"]`)!.click();
+
+const signups = (table: ReturnType<typeof RecipientsSelectionTable>) =>
+	Object.fromEntries(table.getRecipients().map((row) => [row.email, row.notifyNewSignups]));
+
+const emails = ['first@example.com', 'second@example.com', 'third@example.com'];
+
+function mountSelectedPage(failingEmail?: string) {
+	const onToggleMany = vi.fn();
+	const table = mount(RecipientsSelectionTable, {
+		target: document.body,
+		props: { recipients: emails.map(recipient), failingEmail, onToggleMany }
+	});
+	component = table;
+	flushSync();
+	table.selectPage();
+	flushSync();
+	return { table, onToggleMany };
+}
+
 it('bulk toggles only the selected recipients that are still listed', async () => {
-	const onToggle = vi.fn(async () => {});
+	const onToggleMany = vi.fn();
 	const [first, second, third] = [
 		recipient('first@example.com'),
 		recipient('second@example.com'),
@@ -64,7 +85,7 @@ it('bulk toggles only the selected recipients that are still listed', async () =
 	];
 	component = mount(RecipientsSelectionTable, {
 		target: document.body,
-		props: { recipients: [first, second, third], onToggle }
+		props: { recipients: [first, second, third], onToggleMany }
 	});
 	flushSync();
 
@@ -79,13 +100,38 @@ it('bulk toggles only the selected recipients that are still listed', async () =
 	expect(text('context-selection')).toBe('first@example.com,second@example.com');
 	expect(text('footer')).toBe('2 of 2 selected');
 
-	document
-		.querySelector<HTMLElement>('[data-testid="toggle-notifyNewSignups-first@example.com"]')!
-		.click();
+	toggle('first@example.com');
 	await tick();
 
-	expect(onToggle.mock.calls).toEqual([
-		['first@example.com', 'notifyNewSignups', false],
-		['second@example.com', 'notifyNewSignups', false]
+	expect(onToggleMany.mock.calls).toEqual([
+		[['first@example.com', 'second@example.com'], 'notifyNewSignups', true]
 	]);
+});
+
+it('changes no selected recipient when the backend refuses one of them', async () => {
+	const { table, onToggleMany } = mountSelectedPage('third@example.com');
+
+	toggle('first@example.com');
+	await tick();
+
+	expect(signups(table)).toEqual({
+		'first@example.com': false,
+		'second@example.com': false,
+		'third@example.com': false
+	});
+	expect(onToggleMany.mock.calls).toEqual([[emails, 'notifyNewSignups', true]]);
+});
+
+it('changes every selected recipient in one update', async () => {
+	const { table, onToggleMany } = mountSelectedPage();
+
+	toggle('second@example.com');
+	await tick();
+
+	expect(signups(table)).toEqual({
+		'first@example.com': true,
+		'second@example.com': true,
+		'third@example.com': true
+	});
+	expect(onToggleMany.mock.calls).toEqual([[emails, 'notifyNewSignups', true]]);
 });
