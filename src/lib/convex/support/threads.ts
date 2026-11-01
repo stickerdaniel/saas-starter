@@ -618,12 +618,30 @@ export const getThreadLocale = internalQuery({
  * Internal mutation to delete empty threads (no messages after 24h)
  *
  * Called by cron job to clean up threads created during eager thread creation
- * where the user never sent a message.
+ * where the user never sent a message. Each run handles one page and schedules
+ * a continuation while candidates remain; only the cron start retries threads
+ * whose deletion failed.
  *
  * @see src/lib/convex/crons.ts
  */
 export const deleteEmptyThreads = internalMutation({
-	args: {},
-	returns: v.object({ deleted: v.number() }),
-	handler: async (ctx) => await deleteEmptyThreadRecords(ctx)
+	args: { continuation: v.optional(v.boolean()) },
+	returns: v.object({
+		scanned: v.number(),
+		retained: v.number(),
+		deletionsStarted: v.number(),
+		failed: v.number(),
+		requeued: v.number()
+	}),
+	handler: async (ctx, args) => {
+		const { sweep, hasMore } = await deleteEmptyThreadRecords(ctx, {
+			continuation: args.continuation ?? false
+		});
+		if (hasMore) {
+			await ctx.scheduler.runAfter(0, internal.support.threads.deleteEmptyThreads, {
+				continuation: true
+			});
+		}
+		return sweep;
+	}
 });
