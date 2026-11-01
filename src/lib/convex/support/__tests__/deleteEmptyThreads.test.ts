@@ -1,0 +1,305 @@
+// @vitest-environment node
+/// <reference types="vite/client" />
+import { convexTest } from 'convex-test';
+import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { components, internal } from '../../_generated/api';
+import type { Id } from '../../_generated/dataModel';
+import schema from '../../schema';
+import { supportAgent } from '../agent';
+import { EMPTY_THREAD_SWEEP_MAX_ATTEMPTS } from '../threadMaintenance';
+
+const DAY = 24 * 60 * 60 * 1000;
+const SWEEP_THREAD = 'support/threads:sweepEmptyThread';
+
+// Keys relative to the Convex root, which is where convex-test looks for `_generated`.
+const modules = Object.fromEntries(
+	Object.entries(import.meta.glob('../../**/*.ts')).map(([path, loader]) => [
+		`.${new URL(path, 'file:///convex/support/__tests__/').pathname.slice('/convex'.length)}`,
+		loader
+	])
+);
+const agentModules = import.meta.glob(
+	'../../../../../node_modules/@convex-dev/agent/dist/component/**/*.js'
+);
+
+function createHarness() {
+	const t = convexTest(schema, modules);
+	t.registerComponent('agent', agentSchema, agentModules);
+	return t;
+}
+
+type Harness = ReturnType<typeof createHarness>;
+
+/** Inserts support threads backed by real agent threads, `withMessage` ones holding one message. */
+async function seedThreads(t: Harness, threads: Array<{ withMessage: boolean }>) {
+	return await t.run(async (ctx) => {
+		const seeded = [];
+		for (const { withMessage } of threads) {
+			const { _id: threadId } = await ctx.runMutation(components.agent.threads.createThread, {});
+			if (withMessage) {
+				await ctx.runMutation(components.agent.messages.addMessages, {
+					threadId,
+					messages: [{ message: { role: 'user', content: 'Hello' } }]
+				});
+			}
+			const id = await ctx.db.insert('supportThreads', {
+				threadId,
+				userId: 'user_1',
+				status: 'open',
+				createdAt: Date.now(),
+				updatedAt: Date.now()
+			});
+			seeded.push({ id, threadId });
+		}
+		return seeded;
+	});
+}
+
+/** One cron run, then every retry and component job it scheduled, however far ahead. */
+async function runCron(t: Harness) {
+	const sweep = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+	await t.finishAllScheduledFunctions(vi.runAllTimers);
+	return sweep;
+}
+
+/** Runs the cron until a run finds no candidate, as successive cron ticks would. */
+async function runCronUntilIdle(t: Harness) {
+	let runs = 0;
+	while ((await runCron(t)).scheduled > 0) runs++;
+	return runs;
+}
+
+async function snapshot(t: Harness) {
+	return await t.run(async (ctx) => ({
+		rows: await ctx.db.query('supportThreads').take(500),
+		checks: (await ctx.db.system.query('_scheduled_functions').take(500)).filter(
+			(job) => job.name === SWEEP_THREAD
+		)
+	}));
+}
+
+/** Makes deletion throw for the given agent threads, at most `times` times in total. */
+function failDeletion(seeded: Array<{ threadId: string }>, times = Infinity) {
+	const failing = new Set(seeded.map(({ threadId }) => threadId));
+	const original = supportAgent.deleteThreadAsync.bind(supportAgent);
+	let failures = 0;
+	vi.spyOn(supportAgent, 'deleteThreadAsync').mockImplementation(async (ctx, args) => {
+		if (failing.has(args.threadId) && failures < times) {
+			failures++;
+			throw new Error('Deletion unavailable');
+		}
+		return await original(ctx, args);
+	});
+}
+
+describe('deleteEmptyThreads', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		vi.clearAllTimers();
+		vi.useRealTimers();
+		vi.restoreAllMocks();
+	});
+
+	it('deletes an old empty thread behind threads with messages', async () => {
+		const t = createHarness();
+		const used = await seedThreads(
+			t,
+			Array.from({ length: 100 }, () => ({ withMessage: true }))
+		);
+		const [empty] = await seedThreads(t, [{ withMessage: false }]);
+		vi.advanceTimersByTime(DAY + 1);
+
+		expect(await runCronUntilIdle(t)).toBe(Math.ceil(101 / 100));
+
+		const { rows } = await snapshot(t);
+		expect(rows.find((row) => row._id === empty.id)).toBeUndefined();
+		expect(rows.map((row) => row._id)).toEqual(used.map(({ id }) => id));
+		expect(rows.every((row) => row.sweep === 'retained')).toBe(true);
+	});
+
+	it('keeps sweeping past threads whose deletion keeps failing, then gives up on them', async () => {
+		const t = createHarness();
+		const broken = await seedThreads(
+			t,
+			Array.from({ length: 8 }, () => ({ withMessage: false }))
+		);
+		const [later] = await seedThreads(t, [{ withMessage: false }]);
+		vi.advanceTimersByTime(DAY + 1);
+		failDeletion(broken);
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		await runCronUntilIdle(t);
+
+		const { rows, checks } = await snapshot(t);
+		expect(rows.find((row) => row._id === later.id)).toBeUndefined();
+		expect(rows.map((row) => [row._id, row.sweep, row.sweepAttempts])).toEqual(
+			broken.map(({ id }) => [id, 'failed', EMPTY_THREAD_SWEEP_MAX_ATTEMPTS])
+		);
+		// One first check per thread, then a retry after every failure but the last.
+		expect(checks).toHaveLength(9 + broken.length * (EMPTY_THREAD_SWEEP_MAX_ATTEMPTS - 1));
+		expect(warn).toHaveBeenCalledTimes(broken.length);
+	});
+
+	it('moves past a thread whose messages cannot be read', async () => {
+		const t = createHarness();
+		const unreadable = await t.run(
+			async (ctx) =>
+				await ctx.db.insert('supportThreads', {
+					threadId: 'not-an-agent-thread',
+					userId: 'user_1',
+					status: 'open',
+					createdAt: Date.now(),
+					updatedAt: Date.now()
+				})
+		);
+		const [later] = await seedThreads(t, [{ withMessage: false }]);
+		vi.advanceTimersByTime(DAY + 1);
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		await runCronUntilIdle(t);
+
+		const { rows } = await snapshot(t);
+		expect(rows.find((row) => row._id === later.id)).toBeUndefined();
+		expect(rows.map((row) => [row._id, row.sweep])).toEqual([[unreadable, 'failed']]);
+	});
+
+	it('deletes a thread on the retry after a failed deletion', async () => {
+		const t = createHarness();
+		const [flaky] = await seedThreads(t, [{ withMessage: false }]);
+		vi.advanceTimersByTime(DAY + 1);
+		failDeletion([flaky], 1);
+
+		await runCron(t);
+
+		expect((await snapshot(t)).rows).toEqual([]);
+	});
+
+	it('schedules a thread once while its check is pending', async () => {
+		const t = createHarness();
+		await seedThreads(t, [{ withMessage: false }]);
+		vi.advanceTimersByTime(DAY + 1);
+
+		const first = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		const second = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+		expect([first.scheduled, second.scheduled]).toEqual([1, 0]);
+		expect((await snapshot(t)).rows).toEqual([]);
+	});
+
+	it('moves a second run past threads whose checks are still pending', async () => {
+		const t = createHarness();
+		await seedThreads(
+			t,
+			Array.from({ length: 101 }, () => ({ withMessage: false }))
+		);
+		vi.advanceTimersByTime(DAY + 1);
+
+		const first = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		const second = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+		expect([first.scheduled, second.scheduled]).toEqual([100, 1]);
+		expect((await snapshot(t)).rows).toEqual([]);
+	});
+
+	it('releases a thread whose check never ran', async () => {
+		const t = createHarness();
+		await seedThreads(t, [{ withMessage: false }]);
+		vi.advanceTimersByTime(DAY + 1);
+		await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		await t.run(async (ctx) => {
+			const [row] = await ctx.db.query('supportThreads').take(1);
+			await ctx.scheduler.cancel(row!.sweepJobId!);
+		});
+
+		const rerun = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+		await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+		expect(rerun).toEqual({ scheduled: 1, released: 1 });
+		expect((await snapshot(t)).rows).toEqual([]);
+	});
+
+	it('counts a check that threw as a failed attempt', async () => {
+		const t = createHarness();
+		const [thread] = await seedThreads(t, [{ withMessage: false }]);
+		// A job whose arguments fail validation stands in for any check that throws.
+		await t.run(async (ctx) => {
+			const sweepJobId = await ctx.scheduler.runAfter(
+				0,
+				internal.support.threads.sweepEmptyThread,
+				{ supportThreadId: 'not-an-id' as Id<'supportThreads'> }
+			);
+			await ctx.db.patch('supportThreads', thread.id, { sweep: 'queued', sweepJobId });
+		});
+		await t.finishInProgressScheduledFunctions().catch(() => {});
+		vi.runOnlyPendingTimers();
+		await t.finishInProgressScheduledFunctions().catch(() => {});
+
+		const result = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+
+		const { rows, checks } = await snapshot(t);
+		expect(result.released).toBe(1);
+		expect(rows.map((row) => [row.sweep, row.sweepAttempts])).toEqual([['queued', 1]]);
+		const retry = checks.find((job) => job._id === rows[0]?.sweepJobId);
+		expect(retry?.state.kind).toBe('pending');
+	});
+
+	it('gives up when the last retry job throws', async () => {
+		const t = createHarness();
+		const [thread] = await seedThreads(t, [{ withMessage: false }]);
+		await t.run(async (ctx) => {
+			const sweepJobId = await ctx.scheduler.runAfter(
+				0,
+				internal.support.threads.sweepEmptyThread,
+				{ supportThreadId: 'not-an-id' as Id<'supportThreads'> }
+			);
+			await ctx.db.patch('supportThreads', thread.id, {
+				sweep: 'queued',
+				sweepJobId,
+				sweepAttempts: EMPTY_THREAD_SWEEP_MAX_ATTEMPTS - 1
+			});
+		});
+		await t.finishInProgressScheduledFunctions().catch(() => {});
+		vi.runOnlyPendingTimers();
+		await t.finishInProgressScheduledFunctions().catch(() => {});
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+
+		const { rows, checks } = await snapshot(t);
+		expect(rows.map((row) => [row.sweep, row.sweepAttempts])).toEqual([
+			['failed', EMPTY_THREAD_SWEEP_MAX_ATTEMPTS]
+		]);
+		expect(checks.filter((job) => job.state.kind === 'pending')).toEqual([]);
+		expect(warn).toHaveBeenCalledOnce();
+	});
+
+	it('ignores a check for a thread it no longer owns', async () => {
+		const t = createHarness();
+		const [settled] = await seedThreads(t, [{ withMessage: false }]);
+		await t.run(async (ctx) => {
+			await ctx.db.patch('supportThreads', settled.id, { sweep: 'retained' });
+		});
+
+		await t.mutation(internal.support.threads.sweepEmptyThread, { supportThreadId: settled.id });
+
+		expect((await snapshot(t)).rows.map((row) => row.sweep)).toEqual(['retained']);
+	});
+
+	it('writes and schedules nothing without candidates', async () => {
+		const t = createHarness();
+		await seedThreads(t, [{ withMessage: false }]);
+		const before = await snapshot(t);
+
+		const result = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
+
+		expect(result).toEqual({ scheduled: 0, released: 0 });
+		expect(await snapshot(t)).toEqual(before);
+	});
+});

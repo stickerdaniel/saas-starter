@@ -19,6 +19,7 @@ import {
 import {
 	backfillThreadMetadata as backfillThreadMetadataRecord,
 	deleteEmptyThreads as deleteEmptyThreadRecords,
+	sweepEmptyThread as sweepEmptyThreadRecord,
 	getThreadLocale as getSupportThreadLocale,
 	syncUserProfile as syncSupportUserProfile,
 	updateThreadMetadata as updateSupportThreadMetadata
@@ -618,12 +619,23 @@ export const getThreadLocale = internalQuery({
  * Internal mutation to delete empty threads (no messages after 24h)
  *
  * Called by cron job to clean up threads created during eager thread creation
- * where the user never sent a message.
+ * where the user never sent a message. Each run schedules one check per
+ * candidate.
  *
  * @see src/lib/convex/crons.ts
  */
 export const deleteEmptyThreads = internalMutation({
 	args: {},
-	returns: v.object({ deleted: v.number() }),
+	returns: v.object({ scheduled: v.number(), released: v.number() }),
 	handler: async (ctx) => await deleteEmptyThreadRecords(ctx)
+});
+
+/** Checks one thread the empty-thread sweep claimed, first check or retry. */
+export const sweepEmptyThread = internalMutation({
+	args: { supportThreadId: v.id('supportThreads') },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		await sweepEmptyThreadRecord(ctx, args);
+		return null;
+	}
 });

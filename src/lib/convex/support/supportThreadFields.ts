@@ -48,5 +48,13 @@ export const supportThreadFields = {
 
 	// Email notification settings
 	notificationEmail: v.optional(v.string()), // Email to notify on admin response
-	notificationSentAt: v.optional(v.number()) // Last notification timestamp (for 30-min cooldown)
+	notificationSentAt: v.optional(v.number()), // Last notification timestamp (for 30-min cooldown)
+
+	// Empty-thread sweep state: undefined = candidate, queued = a check or retry
+	// job owns it, retained = has messages, failed = gave up after the last attempt
+	sweep: v.optional(v.union(v.literal('queued'), v.literal('retained'), v.literal('failed'))),
+	// The owning job, so a cron run can settle a claim whose job ended
+	sweepJobId: v.optional(v.id('_scheduled_functions')),
+	// Failed sweep attempts so far; the sweep gives up at its maximum
+	sweepAttempts: v.optional(v.number())
 };
