@@ -3,6 +3,7 @@ import path from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+import { runsWhen } from './github-expression';
 import {
 	UPSTREAM_REPORT_TEST_INPUTS,
 	isUpstreamReportTestInput,
@@ -27,11 +28,21 @@ const steps =
 		}
 	).jobs['upstream-report-tests']?.steps ?? [];
 
+const checkouts = steps.filter((step) => step.uses?.startsWith('actions/checkout@'));
+
+/** The one checkout step that runs for an event while `CI_FULL_SUITE` has the given value. */
+function checkoutFor(eventName: string, fullSuite: string): Step | undefined {
+	const contexts = { github: { event_name: eventName }, vars: { CI_FULL_SUITE: fullSuite } };
+	const running = checkouts.filter((step) =>
+		runsWhen(step.if, contexts, { success: true, failure: false, cancelled: false })
+	);
+	expect(running, `${eventName} with CI_FULL_SUITE=${fullSuite}`).toHaveLength(1);
+	return running[0];
+}
+
 describe('upstream report test inputs', () => {
-	it('checks out exactly the inputs in the job', () => {
-		const checkouts = steps.filter((step) => step.uses?.startsWith('actions/checkout@'));
-		expect(checkouts).toHaveLength(1);
-		const options = checkouts[0]?.with ?? {};
+	it('checks out exactly the inputs on a pull request', () => {
+		const options = checkoutFor('pull_request', '')?.with ?? {};
 		// Cone mode always checks out every root file, which would hide a read of one.
 		expect(options['sparse-checkout-cone-mode']).toBe(false);
 		const patterns = String(options['sparse-checkout'] ?? '')
@@ -47,6 +58,19 @@ describe('upstream report test inputs', () => {
 			missing: inputs.filter((input) => !patterns.includes(input)),
 			extra: patterns.filter((pattern) => !inputs.includes(pattern))
 		}).toEqual({ missing: [], extra: [] });
+	});
+
+	// A test that tolerates a missing file passes on the sparse checkout without it, so only a
+	// run on the full tree shows an input the list does not declare.
+	it.each([
+		['push', ''],
+		['workflow_dispatch', ''],
+		['merge_group', ''],
+		['schedule', ''],
+		['pull_request', 'true']
+	])('checks out the full tree on %s with CI_FULL_SUITE=%j', (eventName, fullSuite) => {
+		const options = checkoutFor(eventName, fullSuite)?.with ?? {};
+		expect(options['sparse-checkout']).toBeUndefined();
 	});
 
 	it('checks out the selection it runs', () => {
@@ -94,18 +118,24 @@ describe('upstream report test selection', () => {
 		status: previous ? 'renamed' : 'modified',
 		...(previous ? { previous_filename: previous } : {})
 	});
-	const pullRequest = (
-		pages: unknown,
-		changedFiles = String((pages as unknown[][]).flat().length)
-	) =>
+	const HEAD = 'a'.repeat(40);
+	const BASE = 'c'.repeat(40);
+	const event = {
+		eventName: 'pull_request',
+		headSha: HEAD,
+		baseSha: BASE,
+		repository: 'example/fixture'
+	};
+	const comparison = (files: unknown) => ({ status: 'ahead', files });
+	const pullRequest = (files: unknown[], changedFiles = String(files.length)) =>
 		selectUpstreamReportTests({
-			eventName: 'pull_request',
+			...event,
 			changedFiles,
-			readPages: () => pages
+			readApi: () => comparison(files)
 		});
 
 	it('skips a pull request that changes only documentation', () => {
-		expect(pullRequest([[entry('README.md'), entry('docs/AGENTS.md')]]).run).toBe(false);
+		expect(pullRequest([entry('README.md'), entry('docs/AGENTS.md')]).run).toBe(false);
 	});
 
 	it.each([
@@ -113,11 +143,11 @@ describe('upstream report test selection', () => {
 		'bun.lock',
 		'.github/workflows/static-checks.yml'
 	])('runs when a pull request changes %s', (file) => {
-		expect(pullRequest([[entry('README.md')], [entry(file)]]).run).toBe(true);
+		expect(pullRequest([entry('README.md'), entry(file)]).run).toBe(true);
 	});
 
 	it('runs when a pull request changes only an attributes file below the root', () => {
-		expect(pullRequest([[entry('.agents/.gitattributes')]]).run).toBe(true);
+		expect(pullRequest([entry('.agents/.gitattributes')]).run).toBe(true);
 	});
 
 	it('runs when a rename moves an input out of scope', () => {
@@ -125,11 +155,18 @@ describe('upstream report test selection', () => {
 			'docs/upstream-relevance.ts',
 			'.agents/skills/upstream-report/scripts/upstream-relevance.ts'
 		);
-		expect(pullRequest([[rename]]).run).toBe(true);
+		expect(pullRequest([rename]).run).toBe(true);
 	});
 
 	it('runs when the file list is incomplete', () => {
-		expect(pullRequest([[entry('README.md')]], '2').run).toBe(true);
+		expect(pullRequest([entry('README.md')], '2').run).toBe(true);
+	});
+
+	// GitHub stops a comparison at 300 files without saying so.
+	it('runs when the file list may have stopped at the comparison limit', () => {
+		const files = Array.from({ length: 300 }, (_, index) => entry(`docs/${index}.md`));
+		expect(pullRequest(files).run).toBe(true);
+		expect(pullRequest(files.slice(1)).run).toBe(false);
 	});
 
 	// Each of these matches `changed_files` while hiding a path the pull request changes.
@@ -139,48 +176,76 @@ describe('upstream report test selection', () => {
 		['a repeated entry', [entry('README.md'), entry('README.md')]],
 		['an undocumented status', [{ filename: 'README.md', status: 'moved' }]]
 	])('runs on %s', (_label, files) => {
-		expect(pullRequest([files])).toEqual({
+		expect(pullRequest(files)).toEqual({
 			run: true,
 			reason: 'the changed-file list is malformed.'
 		});
 	});
 
+	// A missing list must not pass for an empty one.
 	it.each([
 		[
-			'an unreadable list',
+			'an unreadable comparison',
 			() => {
 				throw new Error('HTTP 502');
 			}
 		],
-		['a malformed list', () => [{ filename: 'README.md' }]],
-		['an entry without a path', () => [[{ status: 'modified' }]]]
-	])('runs on %s', (_label, readPages) => {
-		expect(
-			selectUpstreamReportTests({ eventName: 'pull_request', changedFiles: '1', readPages }).run
-		).toBe(true);
+		['a comparison without files', () => ({ status: 'identical' })],
+		['a file list that is not a list', () => comparison({})]
+	])('runs on %s', (_label, readApi) => {
+		expect(selectUpstreamReportTests({ ...event, changedFiles: '0', readApi }).run).toBe(true);
+	});
+
+	it('runs on an entry without a path', () => {
+		expect(pullRequest([{ status: 'modified' }]).run).toBe(true);
 	});
 
 	it('runs when the event carries no changed-file count', () => {
-		expect(pullRequest([[entry('README.md')]], '').run).toBe(true);
+		expect(pullRequest([entry('README.md')], '').run).toBe(true);
+	});
+
+	// The pull request's own file list follows its head as it moves; only a comparison of
+	// the event's two commits describes exactly this event.
+	it("compares the event's base and head commits", () => {
+		const readApi = vi.fn(() => comparison([entry('README.md')]));
+		expect(selectUpstreamReportTests({ ...event, changedFiles: '1', readApi }).run).toBe(false);
+		expect(readApi.mock.calls).toEqual([
+			[`repos/example/fixture/compare/${BASE}...${HEAD}?per_page=1`]
+		]);
+	});
+
+	it.each([
+		['no head commit', { headSha: undefined }],
+		['no base commit', { baseSha: '' }],
+		['a head that is no commit', { headSha: 'main' }],
+		['no repository', { repository: undefined }]
+	])('runs when the event carries %s', (_label, missing) => {
+		const readApi = vi.fn(() => comparison([entry('README.md')]));
+		expect(
+			selectUpstreamReportTests({ ...event, ...missing, changedFiles: '1', readApi }).run
+		).toBe(true);
+		expect(readApi).not.toHaveBeenCalled();
 	});
 
 	it.each(['push', 'workflow_dispatch', 'merge_group'])(
 		'runs on %s whatever changed',
 		(eventName) => {
-			const readPages = vi.fn(() => [[entry('README.md')]]);
-			expect(selectUpstreamReportTests({ eventName, changedFiles: '1', readPages }).run).toBe(true);
-			expect(readPages).not.toHaveBeenCalled();
+			const readApi = vi.fn(() => comparison([entry('README.md')]));
+			expect(
+				selectUpstreamReportTests({ ...event, eventName, changedFiles: '1', readApi }).run
+			).toBe(true);
+			expect(readApi).not.toHaveBeenCalled();
 		}
 	);
 
 	it('runs on a docs-only pull request while CI_FULL_SUITE is set', () => {
-		const readPages = () => [[entry('README.md')]];
+		const readApi = () => comparison([entry('README.md')]);
 		const select = (fullSuite: string) =>
 			selectUpstreamReportTests({
+				...event,
 				fullSuite,
-				eventName: 'pull_request',
 				changedFiles: '1',
-				readPages
+				readApi
 			}).run;
 		expect(select('')).toBe(false);
 		expect(select('true')).toBe(true);
