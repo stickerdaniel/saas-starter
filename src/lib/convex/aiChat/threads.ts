@@ -197,8 +197,7 @@ export const deleteStaleWarmThreads = internalMutation({
 		// Bounded: at most 1 warm thread per user, take(100) is safe
 		const staleRecords = await ctx.db
 			.query('aiChatThreads')
-			// Intentional: cleanup query bounded by take(100), not worth a compound index for a once-per-cron sweep
-			// eslint-disable-next-line @convex-dev/no-filter-in-query
+			// eslint-disable-next-line @convex-dev/no-filter-in-query -- bounded by take(100); a compound index is not worth it for a once-per-cron sweep
 			.filter((q) =>
 				q.and(q.eq(q.field('isWarm'), true), q.lt(q.field('_creationTime'), cutoffTime))
 			)

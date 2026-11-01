@@ -143,7 +143,7 @@ export class ChatAttachmentStore {
 	 *
 	 * Bounded by the attachments one page load touches.
 	 */
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- bookkeeping, never rendered
 	private readonly stamps = new Map<string, number>();
 
 	/** How an attachment names the transfer that stored it. */
@@ -162,8 +162,7 @@ export class ChatAttachmentStore {
 
 	/** Everything still on offer, anything too old already dropped. */
 	read(): AttachmentsByThread {
-		// Handed to the caller and read once; nothing renders from it.
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- handed to the caller and read once, never rendered
 		const restored: AttachmentsByThread = new Map();
 		for (const [threadId, items] of Object.entries(this.fresh(this.parse()))) {
 			restored.set(
@@ -233,9 +232,9 @@ export class ChatAttachmentStore {
 		const previous = this.parse();
 		const current = previous[key] ?? [];
 		// Local collections used once to build a deterministic stored snapshot.
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local to this call
 		const currentById = new Map(current.map((item) => [item.id, item]));
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local to this call
 		const included = new Set<string>();
 		const merged: StoredAttachment[] = [];
 		const now = Date.now();

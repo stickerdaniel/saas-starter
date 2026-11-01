@@ -151,8 +151,7 @@ export async function deleteEmptyThreads(ctx: MutationCtx): Promise<{ deleted: n
 	const oldThreads = await ctx.db
 		.query('supportThreads')
 		.withIndex('by_creation_time')
-		// Intentional: indexed cron cleanup; take(100) bounds each batch.
-		// eslint-disable-next-line @convex-dev/no-filter-in-query
+		// eslint-disable-next-line @convex-dev/no-filter-in-query -- indexed cron cleanup; take(100) bounds each batch
 		.filter((q) => q.lt(q.field('_creationTime'), cutoffTime))
 		.take(100);
 

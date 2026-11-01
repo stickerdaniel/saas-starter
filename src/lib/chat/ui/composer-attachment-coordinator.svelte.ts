@@ -160,7 +160,7 @@ export class ComposerAttachmentCoordinator {
 	private readonly unregister: () => void;
 
 	/** Results already handed back, so no path releases one twice. Never rendered. */
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- never rendered
 	private readonly releasedFileIds = new Set<string>();
 
 	private readonly getThreadId: () => string | null;
@@ -252,7 +252,7 @@ export class ComposerAttachmentCoordinator {
 	clearSendAttachments(snapshot: ComposerAttachmentSendSnapshot): void {
 		// Counts preserve exact multiplicity for legacy unkeyed attachments while
 		// keyed uploads use their transfer identity.
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local to this call
 		const remaining = new Map<string, number>();
 		for (const attachment of snapshot.attachments) {
 			const identity = ComposerAttachmentCoordinator.attachmentIdentity(attachment);
@@ -565,8 +565,7 @@ export class ComposerAttachmentCoordinator {
 	/** What the shared no-thread key contains that this composer did not put there. */
 	private strangersUnderEmptyKey(): Attachment[] {
 		const stored = this.uploadConfig?.attachmentStore?.readThread(null) ?? [];
-		// Lives and dies inside this call.
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local to this call
 		const mine = new Set(
 			this.attachments.map((attachment) => ('key' in attachment ? attachment.key : undefined))
 		);
@@ -579,8 +578,7 @@ export class ComposerAttachmentCoordinator {
 		if (!store || this.disposed) return;
 		const liveKey = untrack(this.getThreadId) ?? '';
 
-		// Handed straight to the store, never rendered.
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- handed straight to the store, never rendered
 		const snapshot: AttachmentsByThread = new Map();
 		for (const threadId of alsoChanged) {
 			const key = threadId ?? '';
@@ -686,14 +684,14 @@ export class ComposerAttachmentCoordinator {
 		snapshot: Attachment[],
 		current: Attachment[]
 	): Attachment[] {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local to this call
 		const currentByIdentity = new Map(
 			current.map((attachment) => [
 				ComposerAttachmentCoordinator.attachmentIdentity(attachment),
 				attachment
 			])
 		);
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local to this call
 		const included = new Set<string>();
 		const merged: Attachment[] = [];
 		for (const attachment of snapshot) {

@@ -40,7 +40,7 @@ export class SimpleChatSession {
 	activeMounts = $state(0);
 
 	// Component-local contexts. Their count is mirrored through activeMounts for registry rendering.
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- rendering reads activeMounts instead
 	private readonly contexts = new Set<ChatUIContext>();
 
 	constructor(
