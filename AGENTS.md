@@ -42,7 +42,7 @@ A human starts the `upstream-sync` skill (`.agents/skills/upstream-sync/SKILL.md
 - End PR bodies with `<Job> with <model> (<effort>) in <tool> via <host>.`
   Repeat `<job> with <model> (<effort>)` joined by `and` for each model that did a job.
   Example: `Implemented with Claude Opus 5.5 (xhigh) and reviewed with GPT-6 Pro (max) in Claude Code via T3 Code.`
-  Effort is the run's reasoning setting, or `effort unknown` if nothing states it. Humans are `Human`. Ask for other unknown values.
+  Effort is the run's reasoning setting. Look it up for each model where the run reports it: your context, session tools, launch flags, the environment, a subagent's definition or a handoff's call. A saved default counts only when nothing could override it. Write `effort unknown` only after checking these. Humans are `Human`. Ask for other unknown values.
 - English is the default for code, comments, docs, commits, PRs, and chat. User-facing copy is localized; English is the source locale.
 - The English policy guard covers authored Markdown/text prose, JS/TS/Svelte comments, JSON/JSONC `description` values, and every string leaf in `src/i18n/en.json`. Exact registered target-locale files and non-comment localized source assertions are outside this V1 scope. Check an ignored report before publication with `bun scripts/check-english.ts --artifact <path>` or pipe prose to `bun scripts/check-english.ts --stdin-label <label>`.
 - Use Bun, never npm, for project commands.
