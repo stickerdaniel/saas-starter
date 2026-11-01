@@ -8,7 +8,8 @@
  * the landing page) lives in e2e/admin-support-investigation.spec.ts.
  */
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanStores } from 'nanostores';
 import type * as Svelte from 'svelte';
 
 vi.mock('svelte', () =>
@@ -41,6 +42,7 @@ const network = vi.hoisted(() => {
 });
 
 import { flushSync } from 'svelte';
+import { authClient } from '#lib/auth-client.js';
 import type * as ImpersonationModule from './use-impersonation.svelte.ts';
 import type { ImpersonationState } from './use-impersonation.svelte.ts';
 import {
@@ -153,6 +155,12 @@ afterEach(() => {
 	if (locationDescriptor) Object.defineProperty(window, 'location', locationDescriptor);
 	vi.clearAllMocks();
 });
+
+// The last owner's unsubscribe leaves nanostores a one-second timer before it
+// unmounts the session store. The worker can tear jsdom down first, and Better
+// Auth's unmount then reads a removed `window`. Unmount it while the document
+// still exists; the pending timer then finds the store inactive.
+afterAll(() => cleanStores(authClient.useSession()));
 
 describe('ImpersonationState exit', () => {
 	it('returns to the admin page the investigation began on', async () => {
