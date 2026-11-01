@@ -27,6 +27,31 @@ function getStorage(): Storage | null {
 }
 
 /**
+ * Reads stored drafts without trusting them. Another tab, an older build or a hand
+ * edit can leave anything under the key; runed would log the raw text, which is
+ * the user's unsent message, and return `undefined`, and the next draft read would
+ * throw. Anything that is not a string per thread is dropped, so the composer
+ * starts empty for that thread instead.
+ */
+const draftSerializer = {
+	serialize: JSON.stringify,
+	deserialize(value: string): Record<string, string> {
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(value);
+		} catch {
+			return {};
+		}
+		if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+		return Object.fromEntries(
+			Object.entries(parsed).filter(
+				(entry): entry is [string, string] => typeof entry[1] === 'string'
+			)
+		);
+	}
+};
+
+/**
  * Manages per-thread draft text persistence via localStorage.
  *
  * Each chat surface gets its own manager, so their threads cannot collide.
@@ -44,7 +69,13 @@ export class ChatDraftManager {
 	constructor(surface: string) {
 		this.namespace = `${DRAFT_STORAGE_PREFIX}${surface}`;
 		this.storage = getStorage();
-		this.drafts = new PersistedState<Record<string, string>>(this.namespace, {});
+		this.drafts = new PersistedState<Record<string, string>>(
+			this.namespace,
+			{},
+			{
+				serializer: draftSerializer
+			}
+		);
 	}
 
 	getDraft(threadId: string | null): string {

@@ -17,6 +17,7 @@ const localStorageMock: Storage = {
 };
 
 import { ChatDraftManager } from './chat-draft-manager.svelte.ts';
+import { DRAFT_STORAGE_PREFIX } from './chat-persisted-state.js';
 
 describe('ChatDraftManager', () => {
 	let manager: ChatDraftManager;
@@ -126,5 +127,60 @@ describe('ChatDraftManager', () => {
 
 		expect(managerA.clearDraftIfUnchanged(checkpoint)).toBe(false);
 		expect(managerB.getDraft('same-thread')).toBe('identical text');
+	});
+});
+
+describe('ChatDraftManager with malformed storage', () => {
+	const surface = 'malformed-test';
+	const key = `${DRAFT_STORAGE_PREFIX}${surface}`;
+	const secret = 'my unsent message';
+
+	beforeAll(() => {
+		vi.stubGlobal('localStorage', localStorageMock);
+	});
+
+	afterAll(() => {
+		vi.unstubAllGlobals();
+	});
+
+	beforeEach(() => {
+		storage.clear();
+	});
+
+	function logged(spy: ReturnType<typeof vi.spyOn>): string {
+		return spy.mock.calls.flat().map(String).join(' ');
+	}
+
+	it.each([
+		['invalid JSON', `{"thread-1": "${secret}`],
+		['null', 'null']
+	])('starts empty from %s without logging the stored text', (_, stored) => {
+		const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+		storage.set(key, stored);
+		const manager = new ChatDraftManager(surface);
+		expect(manager.getDraft('thread-1')).toBe('');
+		expect(logged(errors)).not.toContain(secret);
+		errors.mockRestore();
+	});
+
+	it('keeps string drafts of any length and drops other values', () => {
+		const long = 'x'.repeat(10_000);
+		storage.set(key, JSON.stringify({ a: 'ok', b: 5, c: long }));
+		const manager = new ChatDraftManager(surface);
+		expect(manager.getDraft('a')).toBe('ok');
+		expect(manager.getDraft('b')).toBe('');
+		expect(manager.getDraft('c')).toBe(long);
+	});
+
+	it('survives a malformed value written by another tab', () => {
+		const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const manager = new ChatDraftManager(surface);
+		manager.setDraft('thread-1', 'hello');
+		const malformed = `{"x": "${secret}`;
+		storage.set(key, malformed);
+		window.dispatchEvent(new StorageEvent('storage', { key, newValue: malformed }));
+		expect(manager.getDraft('thread-1')).toBe('');
+		expect(logged(errors)).not.toContain(secret);
+		errors.mockRestore();
 	});
 });
