@@ -36,8 +36,8 @@ type Inline =
 // more stars.
 const MARKUP =
 	/((?:!\[|\[\[)[^\]\n]*\](?:\([^)\n]*\)?)?|\*{3,}[^*\n]*\*{3,}|\*{3,})|\[([^[\]\n]+)\]\(([^()\s]+)\)|\*\*([^*\n]+)\*\*/g;
-// A list item starts its line with `- ` or a number and `. `. The marker is read
-// from the template line, so a substituted value cannot start a list.
+// A list item starts its line with `- ` or a number and `. `, followed by text. The
+// marker is read from the template line, so a substituted value cannot start a list.
 const LIST_ITEM = /^(?:-|(\d{1,9})\.)[ \t]+(?=\S)/;
 const LINK_PROTOCOLS = new Set(['https:', 'http:', 'mailto:']);
 const FOUNDER_EMAIL_STYLE =
@@ -59,6 +59,28 @@ export function isAllowedHref(url: string): boolean {
 		return false;
 	}
 	return LINK_PROTOCOLS.has(parsed.protocol) && !parsed.username && !parsed.password;
+}
+
+/**
+ * Whether wrapping a selection of `template` as `[selection](url)` renders a link.
+ * The selection must be one nonempty line without brackets that touches no list
+ * marker or markup token and contains every placeholder it overlaps, because the
+ * renderer does not parse markup nested in another token.
+ */
+export function canLinkSelection(template: string, start: number, end: number): boolean {
+	const label = template.slice(start, end);
+	if (!label.trim() || /[[\]\n]/.test(label)) return false;
+	const lineStart = template.lastIndexOf('\n', start - 1) + 1;
+	const lineEnd = template.indexOf('\n', end);
+	const line = template.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
+	const [from, to] = [start - lineStart, end - lineStart];
+	if (from < (LIST_ITEM.exec(line)?.[0].length ?? 0)) return false;
+	const overlaps = (match: RegExpExecArray) =>
+		match.index < to && from < match.index + match[0].length;
+	if ([...line.matchAll(MARKUP)].some(overlaps)) return false;
+	return [...line.matchAll(/\{\{\w+\}\}/g)].every(
+		(match) => !overlaps(match) || (from <= match.index && match.index + match[0].length <= to)
+	);
 }
 
 /** Tokenize one template line, then substitute placeholders inside each token. */
@@ -131,7 +153,8 @@ function blockHtml({ tag, start, lines }: Block): string {
 
 /**
  * Render a founder email body as its text and HTML parts. The markup is exactly
- * `[label](url)`, `**bold**`, and list items on lines starting with `- ` or `1. `;
+ * `[label](url)`, `**bold**`, and list items on lines starting with `- ` or `1. `
+ * and text;
  * anything else, malformed or unsupported, stays literal text. The template is
  * tokenized before `{{name}}` placeholders resolve, so a substituted value can
  * never create markup. A link whose substituted URL is not an absolute `https:`,
