@@ -1111,6 +1111,7 @@
 			},
 			"input_placeholder": "Buscar páginas...",
 			"no_results": "No se encontraron resultados.",
+			"results_label": "Páginas",
 			"trigger_desktop": "Buscar páginas...",
 			"trigger_mobile": "Buscar..."
 		}

@@ -16,6 +16,8 @@ vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({
 vi.mock('convex-svelte', () => ({ useQuery: vi.fn(() => ({ data: null })) }));
 vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 
+import { computeAccessibleName } from 'dom-accessibility-api';
+import { goto } from '$app/navigation';
 import { useQuery } from 'convex-svelte';
 import SearchHost from './test-fixtures/SearchHost.svelte';
 // Compiling the menu's module graph takes seconds on a cold run. Loading it with the
@@ -55,6 +57,15 @@ beforeEach(() => {
 		configurable: true,
 		value: vi.fn()
 	});
+	// JSDOM has no ResizeObserver; the command viewport measures the list height.
+	vi.stubGlobal(
+		'ResizeObserver',
+		class {
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		}
+	);
 	component = mount(SearchHost, { target: document.body });
 	flushSync();
 });
@@ -63,6 +74,7 @@ afterEach(async () => {
 	if (component) await unmount(component);
 	component = undefined;
 	document.body.replaceChildren();
+	vi.unstubAllGlobals();
 });
 
 describe('search loading on intent', () => {
@@ -118,5 +130,42 @@ describe('search loading on intent', () => {
 		await settleImports();
 		expect(vi.mocked(useQuery).mock.calls.length).toBe(0);
 		expect(document.querySelector('[role="dialog"]')).toBeNull();
+	});
+});
+
+describe('menu semantics', () => {
+	it('names the search field and its results, and points the field at the options', async () => {
+		shortcut('k', { metaKey: true });
+		await vi.waitFor(() => expect(document.querySelector('[role="combobox"]')).not.toBeNull());
+		const input = document.querySelector<HTMLElement>('[role="combobox"]')!;
+		const listbox = document.querySelector<HTMLElement>('[role="listbox"]')!;
+		expect(computeAccessibleName(input)).toBe('Search pages');
+		expect(computeAccessibleName(listbox)).toBe('Pages');
+
+		const controlled = document.getElementById(input.getAttribute('aria-controls') ?? '');
+		expect(controlled).not.toBeNull();
+		expect(controlled!.querySelectorAll('[role="option"]').length).toBeGreaterThan(0);
+		expect(controlled!.textContent).toContain('Pricing');
+	});
+
+	it('moves through the options with the arrow keys and opens the chosen page', async () => {
+		shortcut('k', { metaKey: true });
+		await vi.waitFor(() => expect(document.querySelector('[role="combobox"]')).not.toBeNull());
+		const input = document.querySelector<HTMLElement>('[role="combobox"]')!;
+		const selected = () =>
+			document.getElementById(input.getAttribute('aria-activedescendant') ?? '')?.textContent;
+
+		// Bits UI selects the first option and moves the selection in effects; wait for each.
+		await vi.waitFor(() => expect(selected()).toContain('Home'));
+		shortcut('ArrowDown', {}, input);
+		await vi.waitFor(() => expect(selected()).toContain('Pricing'));
+		shortcut('ArrowUp', {}, input);
+		await vi.waitFor(() => expect(selected()).toContain('Home'));
+		shortcut('ArrowDown', {}, input);
+		await vi.waitFor(() => expect(selected()).toContain('Pricing'));
+		shortcut('Enter', {}, input);
+
+		expect(vi.mocked(goto)).toHaveBeenCalledExactlyOnceWith('/en/pricing');
+		await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
 	});
 });
