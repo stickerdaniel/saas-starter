@@ -11,9 +11,14 @@ crons.interval('deleteUnusedFiles', { hours: 1 }, internal.files.vacuum.deleteUn
 crons.interval('cleanupExpiredFiles', { hours: 1 }, internal.files.cleanup.cleanupExpiredFiles, {});
 
 // Clean up empty support threads (created via eager thread creation but never used),
-// deleting threads older than 24h with no messages. Each run hands up to 25 threads
+// deleting threads older than 24h with no messages. Each run hands up to 100 threads
 // to their own checks (see threadMaintenance.ts); an idle run is one indexed read.
-crons.interval('deleteEmptyThreads', { hours: 1 }, internal.support.threads.deleteEmptyThreads, {});
+crons.interval(
+	'deleteEmptyThreads',
+	{ minutes: 15 },
+	internal.support.threads.deleteEmptyThreads,
+	{}
+);
 
 // Clean up stale pre-warmed AI chat threads (older than 7 days, never used)
 crons.interval(

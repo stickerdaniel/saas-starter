@@ -147,8 +147,13 @@ export async function getThreadLocale(ctx: QueryCtx, threadId: string): Promise<
 	return extractLocaleFromUrl(supportThread?.pageUrl);
 }
 
-/** Candidate threads one cron run reads and hands to their own transactions. */
-const EMPTY_THREAD_SWEEP_BATCH_SIZE = 25;
+/**
+ * Candidate threads one cron run reads and hands to their own transactions. At
+ * 100 per 15-minute run the sweep checks 400 threads an hour, four times the
+ * global limit on anonymous thread creation (`rateLimit.ts`), which is where
+ * most never-used threads come from.
+ */
+const EMPTY_THREAD_SWEEP_BATCH_SIZE = 100;
 
 // The cron run only reads candidates; each thread is checked in its own
 // transaction, which reads one row, at most one message per agent index stream

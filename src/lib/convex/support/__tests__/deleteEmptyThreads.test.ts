@@ -114,7 +114,7 @@ describe('deleteEmptyThreads', () => {
 		const [empty] = await seedThreads(t, [{ withMessage: false }]);
 		vi.advanceTimersByTime(DAY + 1);
 
-		expect(await runCronUntilIdle(t)).toBe(Math.ceil(101 / 25));
+		expect(await runCronUntilIdle(t)).toBe(Math.ceil(101 / 100));
 
 		const { rows } = await snapshot(t);
 		expect(rows.find((row) => row._id === empty.id)).toBeUndefined();
