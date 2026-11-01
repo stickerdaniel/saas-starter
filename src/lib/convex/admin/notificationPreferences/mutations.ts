@@ -96,6 +96,7 @@ export const updatePreferences = adminMutation({
 		const prefs = await Promise.all(args.emails.map((email) => getTogglablePreference(ctx, email)));
 
 		const updatedAt = Date.now();
+		// At most MAX_PREFERENCE_BATCH_SIZE small rows, patched in this one transaction so the batch commits whole.
 		for (const pref of prefs) {
 			await ctx.db.patch('adminNotificationPreferences', pref._id, {
 				[args.field]: args.value,
