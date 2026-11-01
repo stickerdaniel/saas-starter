@@ -151,8 +151,12 @@
 		style:--indicator-width="{indicatorWidth}%"
 	></div>
 
-	<!-- M3 indeterminate bars (CSS-animated, shown when loading) -->
-	<div class={cn('absolute inset-0 transition-opacity', isLoading ? 'opacity-100' : 'opacity-0')}>
+	<!-- M3 indeterminate bars (CSS-animated, shown when loading). Hidden bars keep
+	their infinite animations otherwise, so they pause outside loading mode. -->
+	<div
+		class={cn('absolute inset-0 transition-opacity', isLoading ? 'opacity-100' : 'opacity-0')}
+		data-idle={isLoading ? undefined : ''}
+	>
 		<div class="loading-bar primary-bar">
 			<div class="loading-bar-inner"></div>
 		</div>
@@ -196,6 +200,11 @@
 
 	.secondary-bar > .loading-bar-inner {
 		animation: secondary-scale 2s linear infinite;
+	}
+
+	[data-idle] .loading-bar,
+	[data-idle] .loading-bar-inner {
+		animation-play-state: paused;
 	}
 
 	@keyframes primary-translate {
