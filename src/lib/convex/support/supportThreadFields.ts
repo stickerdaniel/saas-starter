@@ -50,8 +50,9 @@ export const supportThreadFields = {
 	notificationEmail: v.optional(v.string()), // Email to notify on admin response
 	notificationSentAt: v.optional(v.number()), // Last notification timestamp (for 30-min cooldown)
 
-	// Empty-thread sweep state: undefined = candidate, retained = has messages, failed = retry next cron run
+	// Empty-thread sweep state: undefined = candidate, retained = has messages,
+	// failed = lookup or deletion threw; retried on its own schedule
 	sweep: v.optional(v.union(v.literal('retained'), v.literal('failed'))),
-	// When a failed row last failed, so retries take the longest-waiting failures first
-	sweepFailedAt: v.optional(v.number())
+	// Failed sweep attempts so far; the sweep gives up at its maximum
+	sweepAttempts: v.optional(v.number())
 };

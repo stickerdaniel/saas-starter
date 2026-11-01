@@ -108,7 +108,7 @@ export default defineSchema({
 			'updatedAt'
 		])
 		.index('by_needs_response', ['isHandedOff', 'status', 'awaitingAdminResponse'])
-		.index('by_sweep', ['sweep', 'sweepFailedAt'])
+		.index('by_sweep', ['sweep'])
 		.searchIndex('search_all', {
 			searchField: 'searchText',
 			filterFields: ['status', 'assignedTo', 'isHandedOff', 'awaitingAdminResponse']
