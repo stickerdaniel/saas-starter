@@ -73,10 +73,9 @@ async function runCronUntilIdle(t: Harness) {
 async function snapshot(t: Harness) {
 	return await t.run(async (ctx) => ({
 		rows: await ctx.db.query('supportThreads').take(500),
-		retries: (await ctx.db.system.query('_scheduled_functions').take(500)).filter(
-			(job) =>
-				job.name === SWEEP_THREAD && (job.args[0] as { attempt?: number }).attempt !== undefined
-		).length
+		checks: (await ctx.db.system.query('_scheduled_functions').take(500)).filter(
+			(job) => job.name === SWEEP_THREAD
+		)
 	}));
 }
 
@@ -136,13 +135,13 @@ describe('deleteEmptyThreads', () => {
 
 		await runCronUntilIdle(t);
 
-		const { rows, retries } = await snapshot(t);
+		const { rows, checks } = await snapshot(t);
 		expect(rows.find((row) => row._id === later.id)).toBeUndefined();
 		expect(rows.map((row) => [row._id, row.sweep, row.sweepAttempts])).toEqual(
 			broken.map(({ id }) => [id, 'failed', EMPTY_THREAD_SWEEP_MAX_ATTEMPTS])
 		);
-		// Every attempt but the last scheduled one retry; the last one logged instead.
-		expect(retries).toBe(broken.length * (EMPTY_THREAD_SWEEP_MAX_ATTEMPTS - 1));
+		// One first check per thread, then a retry after every failure but the last.
+		expect(checks).toHaveLength(9 + broken.length * (EMPTY_THREAD_SWEEP_MAX_ATTEMPTS - 1));
 		expect(warn).toHaveBeenCalledTimes(broken.length);
 	});
 
@@ -244,26 +243,23 @@ describe('deleteEmptyThreads', () => {
 
 		const result = await t.mutation(internal.support.threads.deleteEmptyThreads, {});
 
-		const { rows, retries } = await snapshot(t);
+		const { rows, checks } = await snapshot(t);
 		expect(result.released).toBe(1);
-		expect(rows.map((row) => [row.sweep, row.sweepAttempts])).toEqual([['failed', 1]]);
-		expect(retries).toBe(1);
+		expect(rows.map((row) => [row.sweep, row.sweepAttempts])).toEqual([['queued', 1]]);
+		const retry = checks.find((job) => job._id === rows[0]?.sweepJobId);
+		expect(retry?.state.kind).toBe('pending');
 	});
 
-	it('ignores a retry that a newer failure has replaced', async () => {
+	it('ignores a check for a thread it no longer owns', async () => {
 		const t = createHarness();
-		const [stuck] = await seedThreads(t, [{ withMessage: false }]);
+		const [settled] = await seedThreads(t, [{ withMessage: false }]);
 		await t.run(async (ctx) => {
-			await ctx.db.patch('supportThreads', stuck.id, { sweep: 'failed', sweepAttempts: 2 });
+			await ctx.db.patch('supportThreads', settled.id, { sweep: 'retained' });
 		});
 
-		await t.mutation(internal.support.threads.sweepEmptyThread, {
-			supportThreadId: stuck.id,
-			attempt: 1
-		});
+		await t.mutation(internal.support.threads.sweepEmptyThread, { supportThreadId: settled.id });
 
-		const [row] = (await snapshot(t)).rows;
-		expect([row?.sweep, row?.sweepAttempts]).toEqual(['failed', 2]);
+		expect((await snapshot(t)).rows.map((row) => row.sweep)).toEqual(['retained']);
 	});
 
 	it('writes and schedules nothing without candidates', async () => {

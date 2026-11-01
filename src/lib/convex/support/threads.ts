@@ -630,9 +630,9 @@ export const deleteEmptyThreads = internalMutation({
 	handler: async (ctx) => await deleteEmptyThreadRecords(ctx)
 });
 
-/** Checks one sweep candidate, or retries one failed check when `attempt` is set. */
+/** Checks one thread the empty-thread sweep claimed, first check or retry. */
 export const sweepEmptyThread = internalMutation({
-	args: { supportThreadId: v.id('supportThreads'), attempt: v.optional(v.number()) },
+	args: { supportThreadId: v.id('supportThreads') },
 	returns: v.null(),
 	handler: async (ctx, args) => {
 		await sweepEmptyThreadRecord(ctx, args);

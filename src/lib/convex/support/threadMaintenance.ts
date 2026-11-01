@@ -168,39 +168,45 @@ export const EMPTY_THREAD_SWEEP_MAX_ATTEMPTS = 5;
 const EMPTY_THREAD_SWEEP_RETRY_MS = 60 * 60 * 1000;
 
 /**
- * Records a failed lookup or deletion. The thread leaves the candidate set and
- * gets its own retry when it is due, so it never blocks later candidates; after
- * the last attempt it stays `failed` and is logged once.
+ * Records a failed check, whether it threw inside the job or the job itself
+ * failed. Below the maximum the thread stays claimed by a retry job due after a
+ * doubling backoff, so it never blocks later candidates; at the maximum it
+ * becomes `failed` and is logged once.
  */
 async function recordSweepFailure(
 	ctx: MutationCtx,
 	supportThread: Doc<'supportThreads'>
 ): Promise<void> {
 	const attempts = (supportThread.sweepAttempts ?? 0) + 1;
-	await ctx.db.patch('supportThreads', supportThread._id, {
-		sweep: 'failed',
-		sweepAttempts: attempts,
-		sweepJobId: undefined
-	});
 	if (attempts >= EMPTY_THREAD_SWEEP_MAX_ATTEMPTS) {
+		await ctx.db.patch('supportThreads', supportThread._id, {
+			sweep: 'failed',
+			sweepAttempts: attempts,
+			sweepJobId: undefined
+		});
 		console.warn('[deleteEmptyThreads] Gave up on a support thread', {
 			supportThreadId: supportThread._id,
 			attempts
 		});
 		return;
 	}
-	await ctx.scheduler.runAt(
+	const sweepJobId = await ctx.scheduler.runAt(
 		Date.now() + EMPTY_THREAD_SWEEP_RETRY_MS * 2 ** (attempts - 1),
 		internal.support.threads.sweepEmptyThread,
-		{ supportThreadId: supportThread._id, attempt: attempts }
+		{ supportThreadId: supportThread._id }
 	);
+	await ctx.db.patch('supportThreads', supportThread._id, {
+		sweep: 'queued',
+		sweepAttempts: attempts,
+		sweepJobId
+	});
 }
 
 /**
- * Settles claims whose check will not run. A `queued` thread whose job threw
- * counts as a failed attempt (retry with backoff, give up at the maximum); one
- * whose job is gone, canceled or finished without settling it is a candidate
- * again. Normally there are none and this is one indexed read.
+ * Settles claims whose check will not run, first checks and retries alike. A
+ * `queued` thread whose job failed counts as a failed attempt; one whose job is
+ * gone, canceled or finished without settling it is a candidate again. Pending
+ * retries wait at most a few hours, so the head of the range keeps moving.
  */
 async function releaseStaleClaims(ctx: MutationCtx): Promise<number> {
 	const { page } = await ctx.db
@@ -261,23 +267,16 @@ export async function deleteEmptyThreads(
 }
 
 /**
- * Checks one thread: one with messages becomes `retained`, an empty one is
- * deleted, and one whose lookup or deletion throws becomes `failed` with its own
- * retry. Without `attempt` it acts only on a thread the cron queued; with
- * `attempt` only on the failure that scheduled this retry. Anything else has
- * moved on.
+ * Checks one claimed thread: one with messages becomes `retained`, an empty one
+ * is deleted, and one whose lookup or deletion throws is retried (see
+ * `recordSweepFailure`). A thread that is no longer `queued` has moved on.
  */
 export async function sweepEmptyThread(
 	ctx: MutationCtx,
-	args: { supportThreadId: Id<'supportThreads'>; attempt?: number }
+	args: { supportThreadId: Id<'supportThreads'> }
 ): Promise<void> {
 	const supportThread = await ctx.db.get('supportThreads', args.supportThreadId);
-	if (!supportThread) return;
-	const current =
-		args.attempt === undefined
-			? supportThread.sweep === 'queued'
-			: supportThread.sweep === 'failed' && supportThread.sweepAttempts === args.attempt;
-	if (!current) return;
+	if (supportThread?.sweep !== 'queued') return;
 
 	let messages;
 	try {
