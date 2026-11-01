@@ -249,5 +249,8 @@ describe('upstream report test selection', () => {
 			}).run;
 		expect(select('')).toBe(false);
 		expect(select('true')).toBe(true);
+		expect(select('TRUE')).toBe(true);
+		expect(select('True')).toBe(true);
+		expect(select('yes')).toBe(false);
 	});
 });
