@@ -7,7 +7,9 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 
-	let { ...restProps }: SonnerProps = $props();
+	// Toasts wait while the tab is hidden, so a result that lands in a background
+	// tab is still there when the user comes back. Callers cannot turn that off.
+	let { ...restProps }: Omit<SonnerProps, 'pauseWhenPageIsHidden'> = $props();
 </script>
 
 <Sonner
@@ -15,6 +17,7 @@
 	class="toaster group"
 	style="--normal-bg: var(--color-popover); --normal-text: var(--color-popover-foreground); --normal-border: var(--color-border);"
 	{...restProps}
+	pauseWhenPageIsHidden
 >
 	{#snippet loadingIcon()}
 		<Loader2Icon class="size-4 motion-safe:animate-spin" />
