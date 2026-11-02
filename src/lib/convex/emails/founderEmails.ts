@@ -371,7 +371,7 @@ export const setPersonalEmailSuppression = internalMutation({
 		const existing = await ctx.db
 			.query('personalEmailSuppressions')
 			.withIndex('by_user', (q) => q.eq('userId', userId))
-			.first();
+			.unique();
 		if (suppressed && !existing) {
 			await ctx.db.insert('personalEmailSuppressions', { userId, createdAt: Date.now() });
 		} else if (!suppressed && existing) {

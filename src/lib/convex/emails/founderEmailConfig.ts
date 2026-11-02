@@ -208,7 +208,7 @@ export async function checkFounderRecipient(
 	const suppression = await ctx.db
 		.query('personalEmailSuppressions')
 		.withIndex('by_user', (q) => q.eq('userId', args.userId))
-		.first();
+		.unique();
 	if (suppression) return { ok: false, reason: 'suppressed' };
 	return { ok: true, user };
 }
