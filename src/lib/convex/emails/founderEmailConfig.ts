@@ -157,19 +157,29 @@ export async function readFounderEmailActiveSince(
 	return await readFounderEmailEnabledAt(db, email);
 }
 
-/** One switchable email's sender and template, as the send reads it. */
+/**
+ * One switchable email's sender and template, as the send reads it, and when its
+ * switch last went on.
+ */
 export type FounderEmailConfig =
-	{ enabled: true; sender: FounderSender; template: FounderEmailTemplate } | { enabled: false };
+	| { enabled: true; enabledAt: number; sender: FounderSender; template: FounderEmailTemplate }
+	| { enabled: false };
 
 /** A switchable email's config: on while its switch is on and the contact exists. */
 export async function readFounderEmailConfig(
 	ctx: QueryCtx,
 	email: SwitchableFounderEmail
 ): Promise<FounderEmailConfig> {
-	if ((await readFounderEmailEnabledAt(ctx.db, email)) === undefined) return { enabled: false };
+	const enabledAt = await readFounderEmailEnabledAt(ctx.db, email);
+	if (enabledAt === undefined) return { enabled: false };
 	const sender = await readFounderSender(ctx);
 	if (!sender) return { enabled: false };
-	return { enabled: true, sender, template: await readFounderEmailTemplate(ctx.db, email) };
+	return {
+		enabled: true,
+		enabledAt,
+		sender,
+		template: await readFounderEmailTemplate(ctx.db, email)
+	};
 }
 
 /**

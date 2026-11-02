@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { onDelete } from '../../auth';
 import { admitObservation } from '../customerNotifications/admission';
 import { cancelUnsentEmails } from '../customerNotifications/cancel';
+import { eraseFounderEmailPage } from '../../emails/founderEmailErasure';
 import { resend } from '../../emails/resend';
 import { continueErasure, erasePage, startJourneyErasure } from './erasure';
 import { createJourneyStore, type JobState } from './journeyStore.fixtures';
@@ -19,7 +20,9 @@ const CANCEL_EMAILS = 'admin/customerNotifications/cancel:cancelUnsentEmails';
 const FUNCTIONS = {
 	[ERASE_PAGE]: erasePage as unknown as Registered,
 	'admin/journey/erasure:continueErasure': continueErasure as unknown as Registered,
-	[CANCEL_EMAILS]: cancelUnsentEmails as unknown as Registered
+	[CANCEL_EMAILS]: cancelUnsentEmails as unknown as Registered,
+	// The deletion trigger also erases the founder email rows.
+	'emails/founderEmailErasure:eraseFounderEmailPage': eraseFounderEmailPage as unknown as Registered
 };
 
 function setup() {
@@ -297,7 +300,11 @@ describe('account deletion trigger', () => {
 				.map((receipt) => receipt._id)
 				.sort()
 		).toEqual([kept, failing].sort());
-		expect(store.childCalls()).toEqual([
+		// The founder email erasure runs its own page beside this one.
+		const journeyCalls = store
+			.childCalls()
+			.filter((call) => call.name.startsWith('admin/journey/'));
+		expect(journeyCalls).toEqual([
 			{
 				name: 'admin/journey/erasure:erasePage',
 				limits: { documentsRead: 2000, bytesRead: 4 * 1024 * 1024, documentsWritten: 600 }

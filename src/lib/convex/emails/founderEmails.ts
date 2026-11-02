@@ -50,6 +50,8 @@ export type FounderEmailSkipReason =
 	| 'billing_unknown'
 	// Cancellation email only: the customer resumed or re-cancelled.
 	| 'cancellation_reverted'
+	// Cancellation email only: its switch went on again after the cancellation.
+	| 'switched_on_after_cancellation'
 	// A billing action could not hand its verdict back.
 	| 'send_failed';
 
@@ -99,6 +101,7 @@ type GuardResult =
 	| { ok: false; reason: FounderEmailSkipReason }
 	| {
 			ok: true;
+			enabledAt: number;
 			sender: FounderSender;
 			recipient: FounderRecipient;
 			template: FounderEmailTemplate;
@@ -134,6 +137,7 @@ async function checkFounderEmailGuards(
 	}
 	return {
 		ok: true,
+		enabledAt: config.enabledAt,
 		sender: config.sender,
 		recipient: { email: user.email, name: user.name },
 		template
@@ -275,7 +279,8 @@ export const sendFounderFeedbackEmail = internalMutation({
  * hour after the cancellation. Only a still-`scheduled` row is sent, to the address
  * it was opened for, and only while Autumn still reports the very cancellation the
  * row was opened for, as the action read it just before: a resumed or re-cancelled
- * subscription skips it. An unknown answer asks Autumn again a few minutes later,
+ * subscription skips it, and so does a switch that went on again after the
+ * cancellation. An unknown answer asks Autumn again a few minutes later,
  * up to {@link FOUNDER_CANCELLATION_BILLING_ATTEMPTS} reads in all.
  */
 export const sendFounderCancellationEmail = internalMutation({
@@ -295,6 +300,11 @@ export const sendFounderCancellationEmail = internalMutation({
 			recipientEmail: row.recipientEmail
 		});
 		if (!guards.ok) return await skipRow(ctx, row._id, guards.reason);
+		// Switched off and on again since admission: the cancellation now predates
+		// the switch, which asks nobody who cancelled before it went on.
+		if (guards.enabledAt > Number(row.dedupeKey)) {
+			return await skipRow(ctx, row._id, 'switched_on_after_cancellation');
+		}
 
 		if (billing.cancellation === 'unknown') {
 			if (attempt < FOUNDER_CANCELLATION_BILLING_ATTEMPTS) {

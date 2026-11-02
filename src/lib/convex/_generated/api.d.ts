@@ -87,6 +87,7 @@ import type * as emails_founderIncidentDrafts from "../emails/founderIncidentDra
 import type * as emails_founderIncidentRegistry from "../emails/founderIncidentRegistry.js";
 import type * as emails_founderIncidentSend from "../emails/founderIncidentSend.js";
 import type * as emails_founderIncidentTypes from "../emails/founderIncidentTypes.js";
+import type * as emails_founderTemplate from "../emails/founderTemplate.js";
 import type * as emails_helpers from "../emails/helpers.js";
 import type * as emails_html from "../emails/html.js";
 import type * as emails_journeyTimeline from "../emails/journeyTimeline.js";
@@ -226,6 +227,7 @@ declare const fullApi: ApiFromModules<{
   "emails/founderIncidentRegistry": typeof emails_founderIncidentRegistry;
   "emails/founderIncidentSend": typeof emails_founderIncidentSend;
   "emails/founderIncidentTypes": typeof emails_founderIncidentTypes;
+  "emails/founderTemplate": typeof emails_founderTemplate;
   "emails/helpers": typeof emails_helpers;
   "emails/html": typeof emails_html;
   "emails/journeyTimeline": typeof emails_journeyTimeline;

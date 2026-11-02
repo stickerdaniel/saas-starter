@@ -24,7 +24,7 @@ import {
 	readAdminSetting,
 	readFounderEmailActiveSince
 } from './emails/founderEmailConfig';
-import { eraseFounderEmailRows } from './emails/founderEmailErasure';
+import { startFounderEmailErasure } from './emails/founderEmailErasure';
 import { incrementCounter } from './admin/counters';
 import { DISABLED_ADMIN_PATHS } from './admin/adminHttpPaths';
 import {
@@ -237,7 +237,8 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			 * - Starts erasing the user's customer-journey facts and admin customer
 			 *   email rows; a failing first page is retried later and never
 			 *   blocks the deletion
-			 * - Removes the user's founder email rows and their pending sends
+			 * - Starts erasing the user's founder email rows, cancelling their pending
+			 *   sends and the component emails not yet handed to Resend
 			 */
 			onDelete: async (ctx, user) => {
 				const passkeyDismissal = await ctx.db
@@ -253,7 +254,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 					await incrementCounter(ctx, 'bannedCount', -1);
 				}
 				await startJourneyErasure(ctx, user._id);
-				await eraseFounderEmailRows(ctx, user._id);
+				await startFounderEmailErasure(ctx, user._id);
 			},
 
 			/**

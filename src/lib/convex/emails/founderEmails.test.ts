@@ -114,6 +114,8 @@ beforeEach(() => {
 		const email = sent[Number(String(emailId).replace('email_', '')) - 1];
 		return (email ? { ...email, resendId: RESEND_ID } : null) as never;
 	});
+	vi.spyOn(resend, 'status').mockResolvedValue({ status: 'sent' } as never);
+	vi.spyOn(resend, 'cancelEmail').mockResolvedValue(undefined);
 	network.mockReset();
 	network.mockImplementation(async (input) => {
 		const url = input instanceof Request ? input.url : String(input);
@@ -897,6 +899,66 @@ describe('founder cancellation email', () => {
 			skippedReason: 'email_changed'
 		});
 	});
+
+	it('cancels a sent cancellation email the component still holds on account deletion', async () => {
+		const t = harness();
+		await enableBeforeCancellation(t);
+		const userId = await payingCustomer(t);
+		await observe(t, userId);
+		await drainScheduled(t);
+		const [row] = await sendRows(t, userId, 'cancellation');
+		expect(row).toMatchObject({ status: 'sent' });
+		vi.mocked(resend.status).mockResolvedValue({ status: 'waiting' } as never);
+
+		await deleteUser(t, userId);
+
+		expect(resend.cancelEmail).toHaveBeenCalledWith(expect.anything(), row!.emailId);
+		expect(await sendRows(t, userId)).toEqual([]);
+	});
+
+	/** Switch the email off and on again, which starts it anew from now. */
+	async function switchOffAndOn(t: Harness, adminId: string) {
+		await setSwitch(t, adminId, 'cancellation', false);
+		await setSwitch(t, adminId, 'cancellation', true);
+	}
+
+	it('skips a cancellation once the switch went off and on before the send', async () => {
+		const t = harness();
+		const adminId = await enableBeforeCancellation(t);
+		const userId = await payingCustomer(t);
+		await observe(t, userId);
+		await switchOffAndOn(t, adminId);
+		await drainScheduled(t);
+
+		expect(founderSends()).toEqual([]);
+		expect((await sendRows(t, userId, 'cancellation'))[0]).toMatchObject({
+			status: 'skipped',
+			skippedReason: 'switched_on_after_cancellation'
+		});
+	});
+
+	it('skips a cancellation whose switch went off and on during a billing retry', async () => {
+		const t = harness();
+		const adminId = await enableBeforeCancellation(t);
+		const userId = await payingCustomer(t);
+		await observe(t, userId);
+		autumnCustomer
+			.mockImplementationOnce(async () => new Response(null, { status: 503 }))
+			.mockImplementation(async () => customer());
+		// The first read is due an hour after the cancellation and leaves a retry.
+		await runFor(t, 50 * 60 * 1000);
+		expect(autumnCustomer).toHaveBeenCalledTimes(1);
+		expect((await sendRows(t, userId, 'cancellation'))[0]).toMatchObject({ status: 'scheduled' });
+
+		await switchOffAndOn(t, adminId);
+		await drainScheduled(t);
+
+		expect(founderSends()).toEqual([]);
+		expect((await sendRows(t, userId, 'cancellation'))[0]).toMatchObject({
+			status: 'skipped',
+			skippedReason: 'switched_on_after_cancellation'
+		});
+	});
 });
 
 describe('founder email settings', () => {
@@ -1018,6 +1080,63 @@ describe('founder emails on account deletion', () => {
 		expect(await sendRows(t, userId)).toEqual([]);
 		expect(await welcomeRows(t, userId)).toEqual([]);
 		expect(await pendingFounderJobs(t)).toEqual([]);
+	});
+
+	it('cancels a sent welcome and feedback email the component still holds', async () => {
+		const t = harness();
+		await contactWith(t, 'feedback');
+		const userId = await signUp(t);
+		await drainScheduled(t);
+		expect(founderSends().map(template)).toEqual(['founder-welcome', 'founder-feedback']);
+		vi.mocked(resend.status).mockResolvedValue({ status: 'queued' } as never);
+
+		await deleteUser(t, userId);
+
+		expect(vi.mocked(resend.cancelEmail).mock.calls.map(([, emailId]) => emailId)).toEqual([
+			'email_1',
+			'email_2'
+		]);
+	});
+
+	it('leaves a component email alone once Resend has it', async () => {
+		const t = harness();
+		await contactWith(t);
+		const userId = await signUp(t);
+		await drainScheduled(t);
+
+		await deleteUser(t, userId);
+
+		expect(resend.status).toHaveBeenCalledWith(expect.anything(), 'email_1');
+		expect(resend.cancelEmail).not.toHaveBeenCalled();
+		expect(await welcomeRows(t, userId)).toEqual([]);
+	});
+
+	it('erases a long cancellation history page by page', async () => {
+		const t = harness();
+		const userId = await createUser(t, { name: 'Ada Lovelace', email: 'ada@example.com' });
+		const episodes = 120;
+		await t.run(async (ctx) => {
+			for (let index = 0; index < episodes; index++) {
+				await ctx.db.insert('founderEmailSends', {
+					userId,
+					email: 'cancellation',
+					dedupeKey: String(index),
+					recipientEmail: 'ada@example.com',
+					status: 'sent',
+					emailId: `email_history_${index}`,
+					subject: 'Sorry to see you go',
+					createdAt: index
+				});
+			}
+		});
+		vi.mocked(resend.status).mockResolvedValue({ status: 'queued' } as never);
+
+		await deleteUser(t, userId);
+		expect((await sendRows(t, userId)).length).toBeGreaterThan(0);
+		await drainScheduled(t);
+
+		expect(await sendRows(t, userId)).toEqual([]);
+		expect(resend.cancelEmail).toHaveBeenCalledTimes(episodes);
 	});
 
 	it('erases the opt-out', async () => {
