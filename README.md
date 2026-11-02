@@ -516,7 +516,7 @@ bunx convex run emails/founderEmails:setPersonalEmailSuppression '{"userId":"<id
 
 #### Founder incident email
 
-Founder incident emails use saved, localized plain-text drafts, so new incidents need no code change or deployment. Set the contact person under Founder Welcome in `/admin/settings`, then follow the [incident-follow-up workflow](.agents/skills/incident-follow-up/SKILL.md) for evidence-qualified recipients, exact-message approval and delivery verification.
+Founder incident emails use saved, localized plain-text drafts, so new incidents need no code change or deployment. Set the contact person on the welcome email card in `/admin/settings`, then follow the [incident-follow-up workflow](.agents/skills/incident-follow-up/SKILL.md) for evidence-qualified recipients, exact-message approval and delivery verification.
 
 The registry sender remains available for existing integrations. New incidents use the saved-draft workflow.
 

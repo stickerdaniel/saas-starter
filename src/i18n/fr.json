@@ -150,7 +150,7 @@
 				"switched_off": "Email désactivé",
 				"switched_on": "Email activé",
 				"template_saved": "Email enregistré",
-				"title": "Email de bienvenue du fondateur",
+				"title": "Email de bienvenue aux nouveaux utilisateurs",
 				"variable_first_name": "Prénom",
 				"variable_founder_name": "Ton nom",
 				"variable_founder_title": "Ton titre",
