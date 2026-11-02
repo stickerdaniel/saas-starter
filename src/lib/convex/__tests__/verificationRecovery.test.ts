@@ -12,7 +12,10 @@ import { describe, expect, it, vi } from 'vitest';
  * when `emailVerification.sendOnSignIn` is set: with
  * `requireEmailVerification` on, the attempt is otherwise rejected with
  * `EMAIL_NOT_VERIFIED` and no new link, and the original one has usually
- * expired by the time an OAuth sign-in is attempted.
+ * expired by the time an OAuth sign-in is attempted. The sign-in page's
+ * `EMAIL_NOT_VERIFIED` message makes the same promise outright: it tells the
+ * user a new link has already been sent, so the mail count below is what keeps
+ * that copy true.
  *
  * The second test covers the other half of that path. Better Auth mints the
  * recovery link from the same `callbackURL` the caller sends for its own
