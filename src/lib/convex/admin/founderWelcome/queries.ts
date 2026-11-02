@@ -1,10 +1,16 @@
 import { v } from 'convex/values';
-import { components } from '../../_generated/api';
 import { internalQuery } from '../../_generated/server';
 import type { QueryCtx } from '../../_generated/server';
 import { adminQuery } from '../../functions';
-import { FOUNDER_WELCOME_DEFAULTS } from '../../emails/helpers';
+import {
+	readAuthUser,
+	readFounderEmailConfig,
+	readFounderEmailSender,
+	readFounderEmailTemplate,
+	type FounderEmail
+} from '../../emails/founderEmailConfig';
 
+/** The welcome's config in the shape its readers have always used. */
 export type FounderWelcomeConfig =
 	| {
 			enabled: true;
@@ -36,107 +42,126 @@ const founderWelcomeConfigValidator = v.union(
 	})
 );
 
-/** Shared config reader used by both admin and internal queries */
+/** The welcome's config, read through its sender like every founder email. */
 async function readFounderWelcomeConfig(ctx: QueryCtx): Promise<FounderWelcomeConfig> {
-	const contactSetting = await ctx.db
-		.query('adminSettings')
-		.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.contactUserId'))
-		.unique();
-
-	if (!contactSetting) {
-		return { enabled: false as const };
-	}
-
-	const contactUserId = contactSetting.value;
-
-	const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-		model: 'user',
-		where: [{ field: '_id', operator: 'eq', value: contactUserId }]
-	});
-
-	if (!user) {
-		return { enabled: false as const };
-	}
-
-	const { name, email } = user as { name?: string; email: string };
-
-	// Read per-user profile for contact person
-	const profile = await ctx.db
-		.query('adminProfiles')
-		.withIndex('by_user', (q) => q.eq('userId', contactUserId))
-		.unique();
-
-	// Read global email config
-	const subjectSetting = await ctx.db
-		.query('adminSettings')
-		.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.subject'))
-		.unique();
-	const bodySetting = await ctx.db
-		.query('adminSettings')
-		.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.body'))
-		.unique();
-
+	const config = await readFounderEmailConfig(ctx, 'welcome');
+	if (!config.enabled) return { enabled: false };
+	const user = await readAuthUser(ctx, config.senderUserId);
+	if (!user) return { enabled: false };
 	return {
-		enabled: true as const,
-		contactUser: {
-			id: contactUserId,
-			name: name || 'Unknown',
-			email
-		},
-		name: profile?.founderWelcomeName ?? name ?? 'Unknown',
-		title: profile?.founderWelcomeTitle ?? '',
-		subject: subjectSetting?.value ?? FOUNDER_WELCOME_DEFAULTS.subject,
-		body: bodySetting?.value ?? FOUNDER_WELCOME_DEFAULTS.body,
-		replyTo: profile?.founderWelcomeReplyTo ?? email
+		enabled: true,
+		contactUser: { id: config.senderUserId, name: user.name || 'Unknown', email: user.email },
+		name: config.name,
+		title: config.title,
+		subject: config.template.subject,
+		body: config.template.body,
+		replyTo: config.replyTo
 	};
 }
 
-/** Admin-facing config query — includes viewer's own profile for form pre-fill */
-const adminConfigValidator = v.object({
-	config: founderWelcomeConfigValidator,
-	viewerProfile: v.object({
-		name: v.string(),
-		title: v.string(),
-		replyTo: v.string()
-	})
+/** The viewer's own name, title and reply-to, which pre-fill an email that is off. */
+async function readViewerDefaults(ctx: QueryCtx, viewerId: string) {
+	const viewer = await readAuthUser(ctx, viewerId);
+	const profile = await ctx.db
+		.query('adminProfiles')
+		.withIndex('by_user', (q) => q.eq('userId', viewerId))
+		.unique();
+	const fullName = viewer?.name ?? '';
+	// Default to first name only for a more personal feel
+	const firstName = fullName.split(' ')[0] || fullName;
+	return {
+		email: viewer?.email ?? '',
+		name: profile?.founderWelcomeName ?? firstName,
+		title: profile?.founderWelcomeTitle ?? '',
+		replyTo: profile?.founderWelcomeReplyTo ?? viewer?.email ?? ''
+	};
+}
+
+/** What the admin card shows and its dialog starts from, for one email. */
+const adminEmailConfigValidator = v.object({
+	/** The admin the email goes out from, or null when it is off. */
+	senderUserId: v.union(v.string(), v.null()),
+	name: v.string(),
+	title: v.string(),
+	replyTo: v.string(),
+	subject: v.string(),
+	body: v.string()
 });
 
-export const getFounderWelcomeConfig = adminQuery({
+/**
+ * Every founder email for the admin settings page. An email that is on shows its
+ * sender's values. One that is off pre-fills the viewer's own last values for it,
+ * or else their profile, name and account email.
+ */
+export const getFounderEmailConfigs = adminQuery({
 	args: {},
-	returns: adminConfigValidator,
+	returns: v.object({
+		welcome: adminEmailConfigValidator,
+		feedback: adminEmailConfigValidator,
+		cancellation: adminEmailConfigValidator
+	}),
 	handler: async (ctx) => {
-		const config = await readFounderWelcomeConfig(ctx);
+		const viewerId = ctx.user._id;
+		const viewer = await readViewerDefaults(ctx, viewerId);
 
-		// Read viewer's own profile for form pre-fill
-		const viewerProfile = await ctx.db
-			.query('adminProfiles')
-			.withIndex('by_user', (q) => q.eq('userId', ctx.user._id))
-			.unique();
-
-		const viewerUser = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-			model: 'user',
-			where: [{ field: '_id', operator: 'eq', value: ctx.user._id }]
-		});
-		const viewer = viewerUser as { name?: string; email?: string } | null;
-		const viewerFullName = viewer?.name ?? '';
-		// Default to first name only for a more personal feel
-		const viewerFirstName = viewerFullName.split(' ')[0] || viewerFullName;
-		const viewerEmail = viewer?.email ?? '';
+		const forEmail = async (email: FounderEmail) => {
+			const config = await readFounderEmailConfig(ctx, email);
+			if (config.enabled) {
+				return {
+					senderUserId: config.senderUserId,
+					name: config.name,
+					title: config.title,
+					replyTo: config.replyTo,
+					...config.template
+				};
+			}
+			const sender = await readFounderEmailSender(ctx.db, email);
+			const ownsSaved = sender.savedBy === viewerId;
+			return {
+				senderUserId: null,
+				name: (ownsSaved && sender.name) || viewer.name,
+				title: (ownsSaved && sender.title) || viewer.title,
+				// A reply-to the viewer cleared on this email stays cleared: sending then
+				// uses their account address, so the profile default must not return.
+				replyTo: ownsSaved ? (sender.replyTo ?? viewer.email) : viewer.replyTo,
+				...(await readFounderEmailTemplate(ctx.db, email))
+			};
+		};
 
 		return {
-			config,
-			viewerProfile: {
-				name: viewerProfile?.founderWelcomeName ?? viewerFirstName,
-				title: viewerProfile?.founderWelcomeTitle ?? '',
-				replyTo: viewerProfile?.founderWelcomeReplyTo ?? viewerEmail
-			}
+			welcome: await forEmail('welcome'),
+			feedback: await forEmail('feedback'),
+			cancellation: await forEmail('cancellation')
 		};
 	}
 });
 
 /**
- * Get founder welcome config (internal, no auth check)
- * Used by send.ts and auth.ts triggers.
+ * The welcome alone, in the shape the welcome card used before each founder email
+ * got its own card. Kept published for browser tabs still running that bundle.
+ */
+export const getFounderWelcomeConfig = adminQuery({
+	args: {},
+	returns: v.object({
+		config: founderWelcomeConfigValidator,
+		viewerProfile: v.object({
+			name: v.string(),
+			title: v.string(),
+			replyTo: v.string()
+		})
+	}),
+	handler: async (ctx) => {
+		const viewer = await readViewerDefaults(ctx, ctx.user._id);
+		return {
+			config: await readFounderWelcomeConfig(ctx),
+			viewerProfile: { name: viewer.name, title: viewer.title, replyTo: viewer.replyTo }
+		};
+	}
+});
+
+/**
+ * The welcome's config (internal, no auth check). Used by the welcome send and the
+ * founder incident sender, which writes as the welcome's sender.
  */
 export const getFounderWelcomeConfigInternal = internalQuery({
 	args: {},

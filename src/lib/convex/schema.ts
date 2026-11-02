@@ -255,6 +255,48 @@ export default defineSchema({
 		createdAt: v.number()
 	}).index('by_user', ['userId']),
 
+	// The sender of each founder email (emails/founderEmailConfig.ts): at most one row
+	// per email. A row without `senderUserId` keeps that email off. Without a row the
+	// welcome falls back to the `founderWelcome.contactUserId` setting and the others
+	// are off. Templates stay in adminSettings.
+	founderEmailSenders: defineTable({
+		email: v.union(v.literal('welcome'), v.literal('feedback'), v.literal('cancellation')),
+		senderUserId: v.optional(v.string()),
+		name: v.string(),
+		title: v.string(),
+		replyTo: v.optional(v.string()),
+		// When the email last went from off to on; kept through edits while it stays on
+		// and cleared when it is stopped. The cancellation email asks only about
+		// cancellations made after this, so switching it on asks nobody retroactively.
+		enabledAt: v.optional(v.number()),
+		updatedAt: v.number(),
+		updatedBy: v.string()
+	}).index('by_email', ['email']),
+
+	// One row per founder feedback or cancellation email episode
+	// (emails/founderEmails.ts). The feedback email is keyed `signup`, once per account;
+	// a cancellation email by its cancellation's `canceledAt`. `recipientEmail` is the
+	// address the row was opened for; the send skips a changed address.
+	founderEmailSends: defineTable({
+		userId: v.string(),
+		email: v.union(v.literal('feedback'), v.literal('cancellation')),
+		dedupeKey: v.string(),
+		recipientEmail: v.string(),
+		status: v.union(
+			v.literal('pending_verification'),
+			v.literal('scheduled'),
+			v.literal('sent'),
+			v.literal('skipped')
+		),
+		skippedReason: v.optional(v.string()),
+		scheduledFnId: v.optional(v.id('_scheduled_functions')),
+		sentAt: v.optional(v.number()),
+		// Resend component email id and subject sent, written with the enqueue
+		emailId: v.optional(v.string()),
+		subject: v.optional(v.string()),
+		createdAt: v.number()
+	}).index('by_userId_and_email_and_dedupeKey', ['userId', 'email', 'dedupeKey']),
+
 	founderIncidentDrafts: defineTable(founderIncidentDraftFields).index('by_incident', ['incident']),
 
 	// One durable outcome per app-owned incident key and Better Auth user.
