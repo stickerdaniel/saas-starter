@@ -2,7 +2,7 @@
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import NotificationRecipientsTable from './notification-recipients-table.svelte';
-	import FounderWelcomeCard from './founder-welcome-card.svelte';
+	import FounderEmailCard from './founder-email-card.svelte';
 	import { ConfirmDialog } from '#lib/components/ui/confirm-dialog/index.js';
 
 	const { t } = getTranslate();
@@ -20,7 +20,11 @@
 		<h1 class="text-2xl font-bold"><T keyName="admin.settings.title" /></h1>
 	</div>
 
-	<FounderWelcomeCard />
+	<div class="flex flex-col gap-4">
+		<FounderEmailCard email="welcome" />
+		<FounderEmailCard email="feedback" />
+		<FounderEmailCard email="cancellation" />
+	</div>
 
 	<!-- Notification Recipients Table -->
 	<NotificationRecipientsTable />

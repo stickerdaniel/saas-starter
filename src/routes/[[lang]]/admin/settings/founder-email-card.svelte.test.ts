@@ -1,7 +1,9 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import { getFunctionName, type FunctionReference } from 'convex/server';
+import { api } from '#lib/convex/_generated/api.js';
+import type { FounderEmail } from '#lib/convex/emails/founderEmailConfig.js';
 import en from '../../../../i18n/en.json';
 
 vi.mock('svelte', () =>
@@ -14,36 +16,43 @@ vi.mock('@tolgee/svelte', async () => {
 	return { getTranslate: () => ({ t: translation }), T };
 });
 
+type EmailConfig = {
+	senderUserId: string | null;
+	name: string;
+	title: string;
+	replyTo: string;
+	subject: string;
+	body: string;
+};
+
 const mocks = vi.hoisted(() => ({
 	mutation: vi.fn(),
-	toast: { success: vi.fn(), error: vi.fn() }
+	toast: { success: vi.fn(), error: vi.fn() },
+	configs: {} as Record<string, EmailConfig>
 }));
 
 vi.mock('svelte-sonner', () => ({ toast: mocks.toast }));
 vi.mock('convex-svelte', () => ({
 	useConvexClient: () => ({ mutation: mocks.mutation }),
 	useQuery: (query: FunctionReference<'query'>) => ({
-		data:
-			getFunctionName(query) === 'users:viewer'
-				? { _id: 'viewer_1' }
-				: {
-						config: {
-							enabled: true,
-							contactUser: { id: 'viewer_1' },
-							name: 'Ada',
-							title: 'Founder',
-							subject: 'Welcome',
-							body: 'Hi {{userFirstName}},\n\nOpen [your dashboard](https://app.example.com) **now**.'
-						},
-						viewerProfile: { name: 'Ada', title: 'Founder', replyTo: '' }
-					},
+		data: getFunctionName(query) === 'users:viewer' ? { _id: 'viewer_1' } : mocks.configs,
 		error: undefined,
 		isLoading: false
 	})
 }));
 
 import { useDictionary } from '../support/test-fixtures/translation';
-import FounderWelcomeCard from './founder-welcome-card.svelte';
+import FounderEmailCard from './founder-email-card.svelte';
+
+// The viewer sends every email, so the edit dialog offers Stop Sending.
+const senderConfig = (): EmailConfig => ({
+	senderUserId: 'viewer_1',
+	name: 'Ada',
+	title: 'Founder',
+	replyTo: '',
+	subject: 'Welcome',
+	body: 'Hi {{userFirstName}},\n\nOpen [your dashboard](https://app.example.com) **now**.'
+});
 
 let component: ReturnType<typeof mount> | undefined;
 
@@ -51,6 +60,12 @@ beforeEach(() => {
 	useDictionary(en);
 	mocks.mutation.mockReset();
 	mocks.toast.error.mockReset();
+	mocks.toast.success.mockReset();
+	mocks.configs = {
+		welcome: senderConfig(),
+		feedback: senderConfig(),
+		cancellation: senderConfig()
+	};
 	vi.spyOn(console, 'error').mockImplementation(() => {});
 	// The body editor's tabs measure their active trigger.
 	vi.stubGlobal(
@@ -61,14 +76,14 @@ beforeEach(() => {
 			disconnect() {}
 		}
 	);
-	component = mount(FounderWelcomeCard, { target: document.body });
-	flushSync();
 });
 
 afterEach(async () => {
 	if (component) await unmount(component);
 	component = undefined;
 	document.body.replaceChildren();
+	// bits-ui releases its body scroll lock on a timer; let it run inside jsdom.
+	await new Promise((resolve) => setTimeout(resolve, 50));
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 });
@@ -79,48 +94,109 @@ const buttonNamed = (name: string, root: ParentNode = document) =>
 const alert = () => document.querySelector('[role="alertdialog"]');
 const alertOpen = () => alert()?.getAttribute('data-state') === 'open';
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const callsTo = (reference: FunctionReference<'mutation'>) =>
+	mocks.mutation.mock.calls.filter(
+		([called]) => getFunctionName(called) === getFunctionName(reference)
+	);
 
-function openStepDown() {
+function mountCard(email: FounderEmail) {
+	component = mount(FounderEmailCard, { target: document.body, props: { email } });
+	flushSync();
+}
+
+function openStop(email: FounderEmail) {
+	mountCard(email);
 	buttonNamed(founder.edit_button).click();
 	flushSync();
-	buttonNamed(founder.step_down).click();
+	buttonNamed(founder.stop_sending).click();
 	flushSync();
 	expect(alertOpen()).toBe(true);
 }
 
-it('blocks dismissing the step-down while it is pending and stays open on failure', async () => {
-	let reject!: (error: Error) => void;
-	mocks.mutation.mockReturnValue(new Promise((_, rej) => (reject = rej)));
-	openStepDown();
+describe.each(['welcome', 'feedback', 'cancellation'] as const)('the %s email card', (email) => {
+	it('blocks dismissing the stop while it is pending and stays open on failure', async () => {
+		let reject!: (error: Error) => void;
+		mocks.mutation.mockReturnValue(new Promise((_, rej) => (reject = rej)));
+		openStop(email);
 
-	const confirm = buttonNamed(founder.step_down, alert()!);
-	confirm.click();
-	confirm.click();
-	flushSync();
-	expect(mocks.mutation).toHaveBeenCalledTimes(1);
+		const stop = buttonNamed(founder.stop_sending, alert()!);
+		stop.click();
+		stop.click();
+		flushSync();
+		expect(callsTo(api.admin.founderWelcome.mutations.disableEmail)).toEqual([
+			[api.admin.founderWelcome.mutations.disableEmail, { email }]
+		]);
 
-	document.dispatchEvent(
-		new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
-	);
-	buttonNamed(founder.cancel, alert()!).click();
-	flushSync();
-	expect(alertOpen()).toBe(true);
-	expect(buttonNamed(founder.cancel, alert()!).disabled).toBe(true);
+		document.dispatchEvent(
+			new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+		);
+		buttonNamed(founder.cancel, alert()!).click();
+		flushSync();
+		expect(alertOpen()).toBe(true);
+		expect(buttonNamed(founder.cancel, alert()!).disabled).toBe(true);
 
-	reject(new Error('backend down'));
-	await settle();
-	flushSync();
+		reject(new Error('backend down'));
+		await settle();
+		flushSync();
 
-	expect(mocks.toast.error).toHaveBeenCalledWith(founder.error);
-	expect(alertOpen()).toBe(true);
-	expect(buttonNamed(founder.step_down, alert()!).disabled).toBe(false);
-	expect(buttonNamed(founder.cancel, alert()!).disabled).toBe(false);
+		expect(mocks.toast.error).toHaveBeenCalledWith(founder.error);
+		expect(alertOpen()).toBe(true);
+		expect(buttonNamed(founder.stop_sending, alert()!).disabled).toBe(false);
+		expect(buttonNamed(founder.cancel, alert()!).disabled).toBe(false);
+	});
+
+	it('closes once the email is stopped', async () => {
+		mocks.mutation.mockResolvedValue(null);
+		openStop(email);
+
+		buttonNamed(founder.stop_sending, alert()!).click();
+		await settle();
+		flushSync();
+
+		expect(callsTo(api.admin.founderWelcome.mutations.disableEmail)).toHaveLength(1);
+		expect(mocks.toast.success).toHaveBeenCalledWith(founder.stopped_sending);
+		expect(alertOpen()).toBe(false);
+	});
+
+	it('saves the dialog as this email, with the viewer as its sender', async () => {
+		mocks.configs[email] = { ...senderConfig(), senderUserId: null };
+		mocks.mutation.mockResolvedValue(null);
+		mountCard(email);
+
+		buttonNamed(founder.become_sender).click();
+		flushSync();
+		buttonNamed(founder.become_sender, document.querySelector('[role="dialog"]')!).click();
+		await settle();
+
+		expect(callsTo(api.admin.founderWelcome.mutations.updateEmailConfig)).toEqual([
+			[
+				api.admin.founderWelcome.mutations.updateEmailConfig,
+				{
+					email,
+					name: 'Ada',
+					title: 'Founder',
+					replyTo: undefined,
+					subject: 'Welcome',
+					body: senderConfig().body
+				}
+			]
+		]);
+	});
+});
+
+it('shows who sends an email and leaves editing to them', () => {
+	mocks.configs.feedback = { ...senderConfig(), senderUserId: 'admin_2', name: 'Grace' };
+	mountCard('feedback');
+
+	expect(document.body.textContent).toContain('Sending as Grace');
+	expect(buttonNamed(founder.edit_button).disabled).toBe(true);
 });
 
 function openBodyEditor() {
+	mountCard('welcome');
 	buttonNamed(founder.edit_button).click();
 	flushSync();
-	const textarea = document.getElementById('config-body') as HTMLTextAreaElement;
+	const textarea = document.getElementById('founder-welcome-body') as HTMLTextAreaElement;
 	return textarea;
 }
 
