@@ -84,9 +84,11 @@ afterEach(async () => {
 const founder = en.admin.settings.founder_welcome;
 const buttonNamed = (name: string, root: ParentNode = document) =>
 	[...root.querySelectorAll('button')].find((button) => button.textContent?.trim() === name)!;
+// Each switch is named after its card, so both read apart on one page.
+let mounted: SwitchableFounderEmail = 'feedback';
 const emailSwitch = () =>
 	document.querySelector(
-		`[role="switch"][aria-label="${founder.switch_label}"]`
+		`[role="switch"][aria-label="${founder[`${mounted}_title`]}"]`
 	) as HTMLButtonElement;
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const callsTo = (reference: FunctionReference<'mutation'>) =>
@@ -95,6 +97,7 @@ const callsTo = (reference: FunctionReference<'mutation'>) =>
 	);
 
 function mountCard(email: SwitchableFounderEmail) {
+	mounted = email;
 	component = mount(FounderEmailCard, { target: document.body, props: { email } });
 	flushSync();
 }

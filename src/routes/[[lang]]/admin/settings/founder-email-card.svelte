@@ -137,7 +137,7 @@
 					<T keyName="admin.settings.founder_welcome.edit_button" />
 				</Button>
 				<Switch
-					aria-label={$t('admin.settings.founder_welcome.switch_label')}
+					aria-label={$t(copy.titleKey)}
 					bind:checked={() => emailSettings.on, handleSwitch}
 					disabled={!settings.canEdit || isSwitching}
 				/>
