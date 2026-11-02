@@ -499,6 +499,8 @@ export default defineConfig(
 	// Tolgee() is TolgeeCore() plus the browser-extension plugin, whose handshake
 	// retries outlive unmount and stop() and then read `window` after Vitest has
 	// removed the jsdom globals.
+	// A lazy import.meta.glob map, such as convex-test's modules, imports on first
+	// use, so the first test pays the cold transform and can time out under load.
 	{
 		files: ['src/**/*.test.ts', 'src/**/test-fixtures/**'],
 		rules: {
@@ -507,6 +509,12 @@ export default defineConfig(
 				{
 					selector: 'CallExpression[callee.name="Tolgee"]',
 					message: 'Use TolgeeCore() in tests; Tolgee() adds the browser-extension handshake.'
+				},
+				{
+					selector:
+						'CallExpression[callee.object.type="MetaProperty"][callee.property.name="glob"]:not(CallExpression[callee.name="preloadModules"] > CallExpression)',
+					message:
+						'Wrap import.meta.glob in `await preloadModules(...)` from src/lib/convex/convexTest.modules.ts, and pass `convexModules` to convexTest: a lazy map imports inside the first test that calls it, where a cold transform can pass the test timeout.'
 				}
 			]
 		}

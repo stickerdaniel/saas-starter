@@ -11,12 +11,15 @@ import resendSchema from '../../../../node_modules/@convex-dev/resend/dist/compo
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { internal } from '../_generated/api';
 import authSchema from '../betterAuth/schema';
+import { convexModules, preloadModules } from '../convexTest.modules';
 import { SUPPORTED_LOCALES } from '../i18n/translations';
 import schema from '../schema';
 import { founderIncidentRegistry } from './founderIncidentRegistry';
 import type { FounderIncidentRenderer, FounderIncidentTemplate } from './founderIncidentTypes';
 
 vi.mock('@gilhrpenner/convex-files-control', () => ({ registerRoutes: () => {} }));
+// The Resend client in `resend.ts` reads its API key when the preloaded modules load.
+vi.hoisted(() => vi.stubEnv('RESEND_API_KEY', 're_test'));
 
 const network = vi.fn<typeof fetch>();
 const incident = 'service-restored';
@@ -28,19 +31,13 @@ const templates = [
 	}
 ];
 const draftApi = internal.emails.founderIncidentDrafts;
-const modules = Object.fromEntries(
-	Object.entries(import.meta.glob('../**/*.ts')).map(([path, loader]) => [
-		path.startsWith('../') ? path.replace(/^\.\.\//u, './') : path.replace(/^\.\//u, './emails/'),
-		loader
-	])
-);
-const authModules = import.meta.glob('../betterAuth/**/*.ts');
-const resendModules = import.meta.glob(
-	'../../../../node_modules/@convex-dev/resend/dist/component/**/*.js'
+const authModules = await preloadModules(import.meta.glob('../betterAuth/**/*.ts'));
+const resendModules = await preloadModules(
+	import.meta.glob('../../../../node_modules/@convex-dev/resend/dist/component/**/*.js')
 );
 
 function createHarness() {
-	const t = convexTest(schema, modules);
+	const t = convexTest(schema, convexModules);
 	t.registerComponent('betterAuth', authSchema, authModules);
 	t.registerComponent('resend', resendSchema, resendModules);
 	// Enqueue schedules Resend's batch mutation; delivery workers are not executed here.
