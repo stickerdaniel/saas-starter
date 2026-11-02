@@ -98,6 +98,7 @@ function createCheckerClone(): { directory: string; repository: string } {
 		);
 		for (const relative of [
 			'scripts/static-checks.ts',
+			'scripts/svelte-kit-sync-lock.ts',
 			'scripts/template-setup.ts',
 			'scripts/english-policy/content.ts',
 			'scripts/english-policy/classifier.ts',
