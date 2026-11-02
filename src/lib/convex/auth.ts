@@ -14,7 +14,17 @@ import * as val from 'valibot';
 import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
 import { requireEmailConfiguration, requireEnv, googleOAuth, githubOAuth } from './env';
-import { isTestEmail } from './emails/helpers';
+import {
+	FOUNDER_FEEDBACK_DEDUPE_KEY,
+	getFounderFeedbackDelay,
+	isTestEmail
+} from './emails/helpers';
+import {
+	CONTACT_SETTING_KEY,
+	readAdminSetting,
+	readFounderEmailActiveSince
+} from './emails/founderEmailConfig';
+import { startFounderEmailErasure } from './emails/founderEmailErasure';
 import { incrementCounter } from './admin/counters';
 import { DISABLED_ADMIN_PATHS } from './admin/adminHttpPaths';
 import {
@@ -168,16 +178,33 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 				}
 
 				// Local seeded admin should not enqueue email-dependent onboarding jobs.
-				if (!seededLocalAdmin) {
-					const contactSetting = await ctx.db
-						.query('adminSettings')
-						.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.contactUserId'))
-						.unique();
-
-					if (!contactSetting) {
-						return;
+				// Each founder email gets a row only while it is on: the welcome while a
+				// contact person is set, the feedback email while its switch is on too.
+				if (
+					!seededLocalAdmin &&
+					(await readFounderEmailActiveSince(ctx.db, 'feedback')) !== undefined
+				) {
+					// Founder feedback email: 48 hours after signup (OAuth) or after
+					// verification (email/password); the send skips anyone who paid.
+					const sendId = await ctx.db.insert('founderEmailSends', {
+						userId: user._id,
+						email: 'feedback',
+						dedupeKey: FOUNDER_FEEDBACK_DEDUPE_KEY,
+						recipientEmail: user.email,
+						status: user.emailVerified ? 'scheduled' : 'pending_verification',
+						createdAt: Date.now()
+					});
+					if (user.emailVerified) {
+						const scheduledFnId = await ctx.scheduler.runAfter(
+							getFounderFeedbackDelay(),
+							internal.emails.founderEmails.sendFounderFeedbackEmail,
+							{ sendId }
+						);
+						await ctx.db.patch('founderEmailSends', sendId, { scheduledFnId });
 					}
+				}
 
+				if (!seededLocalAdmin && (await readAdminSetting(ctx.db, CONTACT_SETTING_KEY))) {
 					if (user.emailVerified) {
 						// OAuth signup: send right away
 						const id = await ctx.db.insert('founderWelcomeEmails', {
@@ -210,6 +237,8 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			 * - Starts erasing the user's customer-journey facts and admin customer
 			 *   email rows; a failing first page is retried later and never
 			 *   blocks the deletion
+			 * - Starts erasing the user's founder email rows, cancelling their pending
+			 *   sends and the component emails not yet handed to Resend
 			 */
 			onDelete: async (ctx, user) => {
 				const passkeyDismissal = await ctx.db
@@ -225,6 +254,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 					await incrementCounter(ctx, 'bannedCount', -1);
 				}
 				await startJourneyErasure(ctx, user._id);
+				await startFounderEmailErasure(ctx, user._id);
 			},
 
 			/**
@@ -280,6 +310,37 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 							});
 						} else {
 							await ctx.db.patch('founderWelcomeEmails', founderRow._id, {
+								status: 'skipped',
+								skippedReason: 'email_changed'
+							});
+						}
+					}
+
+					// Founder feedback email: 48 hours from verification, if pending for
+					// the address it was opened for. Only a pending row moves, so a
+					// repeated update schedules nothing.
+					const feedbackRow = await ctx.db
+						.query('founderEmailSends')
+						.withIndex('by_userId_and_email_and_dedupeKey', (q) =>
+							q
+								.eq('userId', newUser._id)
+								.eq('email', 'feedback')
+								.eq('dedupeKey', FOUNDER_FEEDBACK_DEDUPE_KEY)
+						)
+						.unique();
+					if (feedbackRow?.status === 'pending_verification') {
+						if (newUser.email === feedbackRow.recipientEmail) {
+							const scheduledFnId = await ctx.scheduler.runAfter(
+								getFounderFeedbackDelay(),
+								internal.emails.founderEmails.sendFounderFeedbackEmail,
+								{ sendId: feedbackRow._id }
+							);
+							await ctx.db.patch('founderEmailSends', feedbackRow._id, {
+								status: 'scheduled',
+								scheduledFnId
+							});
+						} else {
+							await ctx.db.patch('founderEmailSends', feedbackRow._id, {
 								status: 'skipped',
 								skippedReason: 'email_changed'
 							});

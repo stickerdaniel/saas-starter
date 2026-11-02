@@ -21,6 +21,7 @@ import type { GenericMutationCtx } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
 import { buildSupportDeepLink, shouldSkipTestEmail } from './helpers';
 import { renderFounderEmail, renderFounderTemplate } from './founderTemplate';
+import { checkFounderRecipient } from './founderEmailConfig';
 import { hasUsablePassword } from '../credentialAccounts';
 import { withPasswordLinkPurpose } from '../utils/passwordLinkPurpose';
 import { shouldSendNotification } from '../support/notificationPreferences';
@@ -475,47 +476,20 @@ export const sendFounderWelcomeEmail = internalMutation({
 			return null;
 		}
 
-		// Resolve current user
-		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-			model: 'user',
-			where: [{ field: '_id', operator: 'eq', value: row.userId }]
+		// Guards shared with the other founder emails, the opt-out included
+		const recipient = await checkFounderRecipient(ctx, {
+			userId: row.userId,
+			recipientEmail: row.signupEmail,
+			logContext: 'sendFounderWelcomeEmail'
 		});
-		if (!user) {
+		if (!recipient.ok) {
 			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
 				status: 'skipped',
-				skippedReason: 'user_deleted'
+				skippedReason: recipient.reason
 			});
 			return null;
 		}
-
-		const { email, name, emailVerified } = user as {
-			email: string;
-			name?: string;
-			emailVerified?: boolean;
-		};
-
-		// Guards
-		if (!emailVerified) {
-			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
-				status: 'skipped',
-				skippedReason: 'not_verified'
-			});
-			return null;
-		}
-		if (email !== row.signupEmail) {
-			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
-				status: 'skipped',
-				skippedReason: 'email_changed'
-			});
-			return null;
-		}
-		if (shouldSkipTestEmail('sendFounderWelcomeEmail', email)) {
-			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
-				status: 'skipped',
-				skippedReason: 'test_email'
-			});
-			return null;
-		}
+		const { email, name } = recipient.user;
 
 		// Guard against empty config (subject/body required for a valid email)
 		if (!config.subject.trim() || !config.body.trim()) {

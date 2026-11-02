@@ -16,7 +16,8 @@ vi.mock('@tolgee/svelte', async () => {
 
 const mocks = vi.hoisted(() => ({
 	mutation: vi.fn(),
-	toast: { success: vi.fn(), error: vi.fn() }
+	toast: { success: vi.fn(), error: vi.fn() },
+	contactId: 'viewer_1'
 }));
 
 vi.mock('svelte-sonner', () => ({ toast: mocks.toast }));
@@ -29,7 +30,7 @@ vi.mock('convex-svelte', () => ({
 				: {
 						config: {
 							enabled: true,
-							contactUser: { id: 'viewer_1' },
+							contactUser: { id: mocks.contactId },
 							name: 'Ada',
 							title: 'Founder',
 							subject: 'Welcome',
@@ -51,6 +52,7 @@ beforeEach(() => {
 	useDictionary(en);
 	mocks.mutation.mockReset();
 	mocks.toast.error.mockReset();
+	mocks.contactId = 'viewer_1';
 	vi.spyOn(console, 'error').mockImplementation(() => {});
 	// The body editor's tabs measure their active trigger.
 	vi.stubGlobal(
@@ -79,6 +81,16 @@ const buttonNamed = (name: string, root: ParentNode = document) =>
 const alert = () => document.querySelector('[role="alertdialog"]');
 const alertOpen = () => alert()?.getAttribute('data-state') === 'open';
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+it('shows another contact person without letting the viewer edit', async () => {
+	if (component) await unmount(component);
+	mocks.contactId = 'someone_else';
+	component = mount(FounderWelcomeCard, { target: document.body });
+	flushSync();
+
+	expect(document.body.textContent).toContain(founder.status_on.replace('{name}', 'Ada'));
+	expect(buttonNamed(founder.edit_button).disabled).toBe(true);
+});
 
 function openStepDown() {
 	buttonNamed(founder.edit_button).click();
@@ -120,7 +132,7 @@ it('blocks dismissing the step-down while it is pending and stays open on failur
 function openBodyEditor() {
 	buttonNamed(founder.edit_button).click();
 	flushSync();
-	const textarea = document.getElementById('config-body') as HTMLTextAreaElement;
+	const textarea = document.getElementById('founder-welcome-body') as HTMLTextAreaElement;
 	return textarea;
 }
 

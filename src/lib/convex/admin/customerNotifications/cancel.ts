@@ -4,8 +4,9 @@ import { internalMutation } from '../../_generated/server';
 import { resend } from '../../emails/resend';
 
 /**
- * Cancel the admin customer emails the Resend component still holds. Erasure
- * calls this by function reference, which keeps the Resend client out of the
+ * Cancel the admin customer emails the Resend component still holds; the founder
+ * email erasure cancels its emails here too. Erasure calls this by function
+ * reference, which keeps the Resend client out of the
  * account deletion trigger's import graph; Convex refuses a dynamic `import()`
  * inside a mutation. The caller bounds `emailIds` per call.
  *
