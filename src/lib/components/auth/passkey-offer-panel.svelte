@@ -6,7 +6,10 @@
 	import AuthPanel from './auth-panel.svelte';
 	import PasskeyOffer from './passkey-offer.svelte';
 
-	/** The passkey offer as a whole auth card, shown where a sign-in finishes. */
+	/**
+	 * The passkey offer as a whole auth card, shown where a sign-in finishes. Swap it in with
+	 * morphAuthCard so the card resizes instead of jumping.
+	 */
 	let {
 		user,
 		oncontinue,
@@ -14,7 +17,7 @@
 	}: { user: PasskeyNudgeUser; oncontinue: () => void; oncreated: () => void } = $props();
 </script>
 
-<AuthPanel>
+<AuthPanel transition>
 	<PasskeyOffer {user} {oncontinue} {oncreated} />
 	{#snippet footer()}
 		<T keyName="auth.passkey_nudge.about_description" />

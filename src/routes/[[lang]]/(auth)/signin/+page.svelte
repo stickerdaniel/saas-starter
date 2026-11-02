@@ -39,6 +39,7 @@
 	} from '#lib/utils/url.js';
 	import { claimPasskeyNudge, type PasskeyNudgeUser } from '#lib/utils/passkey-nudge.js';
 	import PasskeyOfferPanel from '#lib/components/auth/passkey-offer-panel.svelte';
+	import { morphAuthCard } from '#lib/components/auth/auth-card-morph.js';
 	import {
 		continueAfterEnrollment,
 		skipToDestination
@@ -205,7 +206,7 @@
 		passkeyCheckStarted = true;
 		const offer = await claimPasskeyNudge(client);
 		if (authRedirectStarted) return;
-		if (offer) passkeyOffer = offer;
+		if (offer) morphAuthCard(() => (passkeyOffer = offer));
 		else redirectAfterAuthentication();
 	}
 

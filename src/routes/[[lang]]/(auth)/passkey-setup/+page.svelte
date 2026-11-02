@@ -9,6 +9,7 @@
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import PasskeyOfferPanel from '#lib/components/auth/passkey-offer-panel.svelte';
+	import { morphAuthCard } from '#lib/components/auth/auth-card-morph.js';
 	import {
 		continueAfterEnrollment,
 		destinationHref,
@@ -32,7 +33,7 @@
 		started = true;
 		void claimPasskeyNudge(client).then((eligible) => {
 			if (destroyed) return;
-			if (eligible) user = eligible;
+			if (eligible) morphAuthCard(() => (user = eligible));
 			else skipToDestination(data.destination);
 		});
 	});
@@ -51,7 +52,7 @@
 		oncreated={() => void continueAfterEnrollment(data.destination)}
 	/>
 {:else}
-	<AuthPanel>
+	<AuthPanel transition>
 		<div class="min-h-96">
 			<!-- The room the offer's edge loading bar takes, so the content lines up
 			     with the offer that replaces it. -->

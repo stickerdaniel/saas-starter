@@ -10,6 +10,7 @@
 	import { safeAuthDestination } from '#lib/utils/url.js';
 	import AuthPanel from '#lib/components/auth/auth-panel.svelte';
 	import PasskeyOfferPanel from '#lib/components/auth/passkey-offer-panel.svelte';
+	import { morphAuthCard } from '#lib/components/auth/auth-card-morph.js';
 	import {
 		continueAfterEnrollment,
 		skipToDestination
@@ -52,7 +53,7 @@
 		void Promise.all([claimPasskeyNudge(client), minimumDisplay]).then(([offer]) => {
 			if (destroyed) return;
 			settled = true;
-			if (offer) passkeyOffer = offer;
+			if (offer) morphAuthCard(() => (passkeyOffer = offer));
 			else window.location.href = destination;
 		});
 	});
@@ -85,7 +86,7 @@
 		oncreated={() => void continueAfterEnrollment(destination)}
 	/>
 {:else}
-	<AuthPanel>
+	<AuthPanel transition>
 		<div class="min-h-96">
 			<LoadingBar mode="loading" showBackground={false} variant="edge" />
 			<div class="flex h-full flex-col justify-center p-6 md:p-8">
