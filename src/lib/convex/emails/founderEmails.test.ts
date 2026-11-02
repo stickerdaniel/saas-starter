@@ -546,6 +546,26 @@ describe('founder feedback email', () => {
 		});
 	});
 
+	it('reads nothing from Autumn for a row that is no longer waiting', async () => {
+		const t = harness();
+		await enable(t, await createAdmin(t), 'feedback');
+		const userId = await signUp(t);
+		const [row] = await sendRows(t, userId, 'feedback');
+		await t.run(async (ctx) => {
+			await ctx.db.patch('founderEmailSends', row!._id, {
+				status: 'skipped',
+				skippedReason: 'feature_disabled'
+			});
+		});
+
+		await t.action(internal.emails.founderEmailBilling.resolveFounderFeedbackBilling, {
+			sendId: row!._id,
+			userId
+		});
+
+		expect(network).not.toHaveBeenCalled();
+	});
+
 	it('opens no row while the feedback email is off', async () => {
 		const t = harness();
 		const userId = await signUp(t);
@@ -697,6 +717,28 @@ describe('founder cancellation email', () => {
 		});
 	});
 
+	it('reads nothing from Autumn once the row is closed', async () => {
+		const t = harness();
+		await enableBeforeCancellation(t);
+		const userId = await payingCustomer(t);
+		await observe(t, userId);
+		const [row] = await sendRows(t, userId, 'cancellation');
+		await t.run(async (ctx) => {
+			await ctx.db.patch('founderEmailSends', row!._id, {
+				status: 'skipped',
+				skippedReason: 'feature_disabled'
+			});
+		});
+
+		await t.action(internal.emails.founderEmailBilling.resolveFounderCancellationBilling, {
+			sendId: row!._id,
+			userId,
+			attempt: 2
+		});
+
+		expect(autumnCustomer).not.toHaveBeenCalled();
+	});
+
 	it('skips a customer whose address changed before the send', async () => {
 		const t = harness();
 		await enableBeforeCancellation(t);
@@ -792,6 +834,24 @@ describe('founder emails on account deletion', () => {
 
 		expect(await sendRows(t, userId)).toEqual([]);
 		expect(await pendingFounderJobs(t)).toEqual([]);
+	});
+
+	it('cancels a billing read that has not started yet', async () => {
+		const t = harness();
+		await enable(t, await createAdmin(t), 'feedback');
+		const userId = await signUp(t);
+		const [row] = await sendRows(t, userId, 'feedback');
+		// The 48-hour pass hands the billing question to its action.
+		await t.mutation(internal.emails.founderEmails.sendFounderFeedbackEmail, { sendId: row!._id });
+		const [handedOver] = await sendRows(t, userId, 'feedback');
+
+		await deleteUser(t, userId);
+
+		const job = await t.run(async (ctx) =>
+			ctx.db.system.get('_scheduled_functions', handedOver!.scheduledFnId!)
+		);
+		expect(job?.name).toContain('resolveFounderFeedbackBilling');
+		expect(job?.state.kind).toBe('canceled');
 	});
 
 	it("turns off a deleted admin's emails and drops a legacy contact naming them", async () => {

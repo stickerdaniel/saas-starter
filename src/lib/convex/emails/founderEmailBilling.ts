@@ -51,6 +51,11 @@ async function deliverVerdict(
 	}
 }
 
+/** Whether the row is still waiting for this action's answer; checked before any provider read. */
+async function isPending(ctx: ActionCtx, sendId: Id<'founderEmailSends'>): Promise<boolean> {
+	return await ctx.runQuery(internal.emails.founderEmails.isFounderEmailSendPending, { sendId });
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -156,6 +161,7 @@ export const resolveFounderFeedbackBilling = internalAction({
 	args: { sendId: v.id('founderEmailSends'), userId: v.string() },
 	returns: v.null(),
 	handler: async (ctx, { sendId, userId }) => {
+		if (!(await isPending(ctx, sendId))) return null;
 		const billing = classifyFeedbackBilling(await readCustomerBilling(userId), Date.now());
 		if (billing === 'billing_unknown') console.warn({ code: 'founder_feedback_billing_unknown' });
 		const thread = billing === 'not_subscribed' ? await findWelcomeThread(ctx, userId) : undefined;
@@ -195,6 +201,7 @@ export const resolveFounderCancellationBilling = internalAction({
 	args: { sendId: v.id('founderEmailSends'), userId: v.string(), attempt: v.number() },
 	returns: v.null(),
 	handler: async (ctx, { sendId, userId, attempt }) => {
+		if (!(await isPending(ctx, sendId))) return null;
 		const billing = await readScheduledCancellation(userId);
 		await deliverVerdict(ctx, sendId, () =>
 			ctx.runMutation(internal.emails.founderEmails.sendFounderCancellationEmail, {

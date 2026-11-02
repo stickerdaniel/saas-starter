@@ -240,11 +240,13 @@ export const sendFounderFeedbackEmail = internalMutation({
 		if (!guards.ok) return await skipRow(ctx, row._id, guards.reason);
 
 		if (billing === undefined) {
-			await ctx.scheduler.runAfter(
+			// Saved on the row so account deletion cancels the billing read too.
+			const scheduledFnId = await ctx.scheduler.runAfter(
 				0,
 				internal.emails.founderEmailBilling.resolveFounderFeedbackBilling,
 				{ sendId: row._id, userId: row.userId }
 			);
+			await ctx.db.patch('founderEmailSends', row._id, { scheduledFnId });
 			return null;
 		}
 		if (billing !== 'not_subscribed') return await skipRow(ctx, row._id, billing);
@@ -295,8 +297,8 @@ export const sendFounderCancellationEmail = internalMutation({
 
 		if (billing.cancellation === 'unknown') {
 			if (attempt < FOUNDER_CANCELLATION_BILLING_ATTEMPTS) {
-				const scheduledFnId = await ctx.scheduler.runAfter(
-					attempt * FOUNDER_CANCELLATION_BILLING_BACKOFF_MS,
+				const scheduledFnId = await ctx.scheduler.runAt(
+					Date.now() + attempt * FOUNDER_CANCELLATION_BILLING_BACKOFF_MS,
 					internal.emails.founderEmailBilling.resolveFounderCancellationBilling,
 					{ sendId: row._id, userId: row.userId, attempt: attempt + 1 }
 				);
@@ -323,6 +325,20 @@ export const sendFounderCancellationEmail = internalMutation({
 			subject
 		});
 		return null;
+	}
+});
+
+/**
+ * Whether a founder email row is still waiting for its billing answer. The billing
+ * actions check it before any provider read, so a row that was sent, skipped or
+ * erased since the action was scheduled costs no Autumn or Resend call.
+ */
+export const isFounderEmailSendPending = internalQuery({
+	args: { sendId: v.id('founderEmailSends') },
+	returns: v.boolean(),
+	handler: async (ctx, { sendId }) => {
+		const row = await ctx.db.get('founderEmailSends', sendId);
+		return row?.status === 'scheduled';
 	}
 });
 
