@@ -536,6 +536,21 @@ describe('sign-in page passkey offer', () => {
 		expect(followedLink).not.toHaveBeenCalled();
 	});
 
+	it('stays put when the visitor leaves while the check runs', async () => {
+		let finishCheck!: (offer: PasskeyNudgeUser | null) => void;
+		state.claim.mockReturnValue(new Promise((resolve) => (finishCheck = resolve)));
+		await renderSignIn(withDestination(DESTINATION));
+		await submitPassword();
+		await vi.waitFor(() => expect(state.claim).toHaveBeenCalledOnce());
+
+		await unmount(component!);
+		component = undefined;
+		finishCheck(null);
+		await tick();
+
+		expect(navigations).toEqual([]);
+	});
+
 	it('continues without the offer when the session or the check stalls', async () => {
 		state.sessionReachesConvex = false;
 		await renderSignIn(withDestination(DESTINATION));

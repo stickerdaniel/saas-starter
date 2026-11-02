@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import * as v from 'valibot';
 	import { authClient } from '#lib/auth-client.js';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
@@ -142,6 +143,11 @@
 	let passwordSignedIn = $state(false);
 	let passkeyCheckStarted = false;
 	let passkeyOffer = $state<PasskeyNudgeUser | null>(null);
+	// A visitor may follow a link, such as the logo, while the passkey check runs.
+	let left = false;
+	onDestroy(() => {
+		left = true;
+	});
 
 	const id = $props.id();
 
@@ -205,7 +211,7 @@
 		if (passkeyCheckStarted) return;
 		passkeyCheckStarted = true;
 		const offer = await claimPasskeyNudge(client);
-		if (authRedirectStarted) return;
+		if (authRedirectStarted || left) return;
 		if (offer) morphAuthCard(() => (passkeyOffer = offer));
 		else redirectAfterAuthentication();
 	}
