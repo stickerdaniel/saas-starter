@@ -20,6 +20,7 @@ import { t, getValidLocale, type SupportedLocale } from '../i18n/translations';
 import type { GenericMutationCtx } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
 import { buildSupportDeepLink, shouldSkipTestEmail } from './helpers';
+import { renderFounderEmail, renderFounderTemplate } from './founderTemplate';
 import { hasUsablePassword } from '../credentialAccounts';
 import { withPasswordLinkPurpose } from '../utils/passwordLinkPurpose';
 import { shouldSendNotification } from '../support/notificationPreferences';
@@ -444,7 +445,8 @@ export async function sendSupportRateLimitAlert(
  * Send founder welcome email to a new user
  *
  * Reads config from adminSettings at send time (not at schedule time)
- * to ensure the latest config is used. Sends plain text only.
+ * to ensure the latest config is used. Sends a text part and a minimal HTML
+ * part, and stores the component email id and rendered subject on the row.
  */
 export const sendFounderWelcomeEmail = internalMutation({
 	args: { founderWelcomeId: v.id('founderWelcomeEmails') },
@@ -524,20 +526,15 @@ export const sendFounderWelcomeEmail = internalMutation({
 			return null;
 		}
 
-		// Render plain text with {{placeholder}} interpolation
 		const parts = (name?.trim() || 'there').split(/\s+/);
-		const templateVars: Record<string, string> = {
+		const templateVars = {
 			userFirstName: parts[0] ?? '',
 			userLastName: parts.slice(1).join(' '),
 			founderName: config.name,
 			founderTitle: config.title
 		};
-
-		const renderTemplate = (template: string) =>
-			template.replace(/\{\{(\w+)\}\}/g, (_, key) => templateVars[key] ?? '');
-
-		const text = renderTemplate(config.body);
-		const subject = renderTemplate(config.subject);
+		const { text, html } = renderFounderEmail(config.body, templateVars);
+		const subject = renderFounderTemplate(config.subject, templateVars);
 		const emailConfiguration = getReadyEmailConfiguration();
 		if (!emailConfiguration) {
 			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
@@ -547,12 +544,13 @@ export const sendFounderWelcomeEmail = internalMutation({
 			return null;
 		}
 
-		await resend.sendEmail(ctx, {
+		const emailId = await resend.sendEmail(ctx, {
 			from: `${config.name} <${emailConfiguration.sender}>`,
 			replyTo: config.replyTo ? [config.replyTo] : undefined,
 			to: email,
 			subject,
 			text,
+			html,
 			headers: [
 				{ name: 'X-Email-Category', value: 'onboarding' },
 				{ name: 'X-Email-Template', value: 'founder-welcome' }
@@ -561,7 +559,9 @@ export const sendFounderWelcomeEmail = internalMutation({
 
 		await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
 			status: 'sent',
-			sentAt: Date.now()
+			sentAt: Date.now(),
+			emailId,
+			subject
 		});
 		return null;
 	}

@@ -232,12 +232,14 @@ export default defineSchema({
 		bannedCount: v.number()
 	}),
 
-	// Founder welcome emails - delayed personal welcome from a team member
-	// Sent ~16-19 min after signup to feel organic. Config stored in adminSettings.
+	// Founder welcome emails - personal welcome from a team member, sent at signup
+	// or at verification. Config stored in adminSettings.
 	founderWelcomeEmails: defineTable({
 		userId: v.string(),
 		signupEmail: v.string(),
-		delayMs: v.number(),
+		// Delay of the retired randomized welcome; only rows written before the
+		// immediate send carry it.
+		delayMs: v.optional(v.number()),
 		status: v.union(
 			v.literal('pending_verification'),
 			v.literal('scheduled'),
@@ -246,6 +248,9 @@ export default defineSchema({
 		),
 		scheduledFnId: v.optional(v.id('_scheduled_functions')),
 		sentAt: v.optional(v.number()),
+		// Resend component email id and rendered subject, written with the enqueue
+		emailId: v.optional(v.string()),
+		subject: v.optional(v.string()),
 		skippedReason: v.optional(v.string()),
 		createdAt: v.number()
 	}).index('by_user', ['userId']),

@@ -83,7 +83,10 @@ const arbitraryValueExceptions = [
 	"after:content-['+']",
 	"after:content-['−']",
 	'[--bits-accordion-content-height:var(--bits-collapsible-content-height)]',
-	'ml-[calc(--spacing(2)_-_1px)]'
+	'ml-[calc(--spacing(2)_-_1px)]',
+	// ToggleGroup, as the shadcn-svelte registry ships it: its `spacing` prop sets the item
+	// gap through a variable, which no fixed gap step can follow.
+	'gap-[--spacing(var(--gap))]'
 ];
 
 // no-restyle: a caller places a design-system component; its look comes from the
@@ -176,7 +179,6 @@ const privateOwners = [
 	'ChatbarSendButton',
 	'ComposerAttachmentButton',
 	'FilterChipRemoveButton',
-	'FounderBodyPreviewButton',
 	'FounderResetConfirmAction',
 	'HeroFiveCta',
 	'IntegrationLearnMoreButton',
@@ -770,30 +772,6 @@ export const restyleOwners = [
 				'gap-2',
 				'rounded-md',
 				'text-left'
-			]
-		}
-	},
-	{
-		id: 'O52',
-		files: ['src/lib/components/ui/owned/founder-body-preview-button.svelte'],
-		components: {
-			Button: [
-				'max-h-60',
-				'h-auto',
-				'w-full',
-				'justify-start',
-				'whitespace-normal',
-				'font-normal',
-				'shadow-none',
-				'active:translate-y-0',
-				'cursor-text',
-				'overflow-y-auto',
-				'rounded-md',
-				'border',
-				'bg-muted/30',
-				'p-3',
-				'text-left',
-				'text-sm'
 			]
 		}
 	},

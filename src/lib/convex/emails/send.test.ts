@@ -218,6 +218,55 @@ describe('email send provider preflights', () => {
 		}
 	);
 
+	it('sends the founder welcome as text and HTML and records the email it enqueued', async () => {
+		const patch = vi.fn().mockResolvedValue(undefined);
+		const runQuery = vi.fn(async (ref: string) =>
+			ref === 'components.betterAuth.adapter.findOne'
+				? { email: 'ada@example.com', name: 'Ada Lovelace', emailVerified: true }
+				: {
+						enabled: true,
+						name: 'Sam',
+						title: 'Founder',
+						replyTo: 'sam@example.com',
+						subject: 'Welcome, {{userFirstName}}',
+						body: 'Hi {{userFirstName}},\n\nOpen [your dashboard](https://app.example.com) **today**.'
+					}
+		);
+		const ctx = {
+			db: {
+				get: vi.fn().mockResolvedValue({
+					status: 'scheduled',
+					userId: 'user_1',
+					signupEmail: 'ada@example.com'
+				}),
+				patch
+			},
+			runQuery
+		};
+
+		await (sendFounderWelcomeEmail as unknown as RegisteredMutation)._handler(ctx, {
+			founderWelcomeId: 'welcome_1'
+		});
+
+		expect(sendEmail).toHaveBeenCalledWith(
+			ctx,
+			expect.objectContaining({
+				to: 'ada@example.com',
+				subject: 'Welcome, Ada',
+				text: 'Hi Ada,\n\nOpen your dashboard <https://app.example.com> today.',
+				html: expect.stringContaining(
+					'<p>Open <a href="https://app.example.com">your dashboard</a> <strong>today</strong>.</p>'
+				)
+			})
+		);
+		expect(patch).toHaveBeenCalledWith('founderWelcomeEmails', 'welcome_1', {
+			status: 'sent',
+			sentAt: expect.any(Number),
+			emailId: 'email_1',
+			subject: 'Welcome, Ada'
+		});
+	});
+
 	it('rechecks the admin reply cooldown before enqueueing', async () => {
 		shouldSendNotificationMock.mockReturnValue(false);
 		const patch = vi.fn();
