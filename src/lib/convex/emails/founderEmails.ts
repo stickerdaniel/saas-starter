@@ -361,7 +361,7 @@ export const recordFounderEmailSendFailure = internalMutation({
  * password resets and invoices included; this blocks only founder mail, per user.
  * Idempotent; throws for a user id that does not exist. Operator-only:
  *
- *   bunx convex run emails/founderEmails:setPersonalEmailSuppression '{"userId":"<id>","suppressed":true}'
+ *   bunx convex run emails/founderEmails:setPersonalEmailSuppression '{"userId":"<id>","suppressed":true}' --prod
  */
 export const setPersonalEmailSuppression = internalMutation({
 	args: { userId: v.string(), suppressed: v.boolean() },

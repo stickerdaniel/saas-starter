@@ -46,8 +46,8 @@ const arbitraryValueExceptions = [
 	// Admin support skeletons: the measured 17.5px line box has no spacing step,
 	// since h-4.375 generates no CSS.
 	'h-[17.5px]',
-	// Attachment previews, Drawer, feedback widget, sidebar thread list, founder welcome
-	// card, and admin support: viewport fractions and viewport-minus-chrome heights
+	// Attachment previews, Drawer, feedback widget, sidebar thread list, founder email
+	// dialog, and admin support: viewport fractions and viewport-minus-chrome heights
 	// have no scale step.
 	'h-[70vh]',
 	'max-h-[70vh]',

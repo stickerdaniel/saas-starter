@@ -506,12 +506,12 @@ Three personal emails go out as one team member, the contact person set on the w
 
 - **Welcome**: to every new account right after signup or email verification. On while a contact person is set.
 - **Feedback**: 48 hours later, only to people who never paid, as a reply in the welcome's thread when there is one.
-- **Cancellation**: about an hour after a customer schedules a cancellation, asking what was missing. It needs the Autumn billing webhook (`AUTUMN_WEBHOOK_SECRET`), and asks only about cancellations made after it was switched on.
+- **Cancellation**: about an hour after a customer on a plan in `ELIGIBLE_PLANS` (`src/lib/convex/admin/customerNotifications/policy.ts`) schedules a cancellation, asking what was missing. It needs the [Autumn billing webhook](docs/setup/admin-notifications/customer-emails.md) (`AUTUMN_WEBHOOK_SECRET`) to report the cancellation within 3 hours, and asks only about cancellations made after it was switched on.
 
 Feedback and cancellation each have their own switch and template, which only the contact person can change. To stop all three for one user without touching their other mail, run:
 
 ```bash
-bunx convex run emails/founderEmails:setPersonalEmailSuppression '{"userId":"<id>","suppressed":true}'
+bunx convex run emails/founderEmails:setPersonalEmailSuppression '{"userId":"<id>","suppressed":true}' --prod
 ```
 
 #### Founder incident email

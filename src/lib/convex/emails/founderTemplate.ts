@@ -1,8 +1,8 @@
 import { escapeHtml } from './html';
 
 /**
- * Placeholder and markup rendering for the founder welcome email, shared by the
- * sender and the admin preview.
+ * Placeholder and markup rendering for the founder emails, shared by the senders
+ * and the admin preview.
  */
 
 /** The placeholders a founder email template may use. */
