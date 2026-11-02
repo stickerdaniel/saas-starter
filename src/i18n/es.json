@@ -414,7 +414,7 @@
 			"credential_account_not_found": "Esta cuenta no tiene ninguna contraseña establecida.",
 			"credential_account_unusable": "Esta cuenta no puede establecer una contraseña aquí. Cierra sesión y usa el enlace de restablecimiento en la página de inicio de sesión.",
 			"email_change_failed": "No se pudo cambiar el correo",
-			"email_not_verified": "Verifica tu correo electrónico. Revisa tu bandeja de entrada para encontrar el enlace e inicia sesión de nuevo para solicitar uno nuevo.",
+			"email_not_verified": "Tu correo electrónico aún no está verificado. Te hemos enviado un nuevo enlace de verificación. Ábrelo para terminar de iniciar sesión.",
 			"email_same_as_current": "El nuevo correo debe ser diferente al actual",
 			"email_updated": "Correo actualizado correctamente",
 			"email_verification_sent": "Se envió un correo de verificación a tu dirección actual. Revisa tu bandeja de entrada para aprobar el cambio.",

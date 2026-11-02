@@ -462,7 +462,10 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			sendOnSignUp: true,
 			// Password sign-in on an unverified account is the documented way out
 			// of a rejected OAuth link. Without this the attempt is rejected with
-			// no new link, and the old one has usually expired by then.
+			// no new link, and the old one has usually expired by then. The
+			// sign-in page's EMAIL_NOT_VERIFIED message also relies on it: Better
+			// Auth raises that code only after the password matches, and the
+			// message tells the user the new link is already on its way.
 			sendOnSignIn: true,
 			autoSignInAfterVerification: true
 		},

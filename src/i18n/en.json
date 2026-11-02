@@ -414,7 +414,7 @@
 			"credential_account_not_found": "This account has no password set.",
 			"credential_account_unusable": "This account cannot set a password here. Sign out, then use the reset link on the sign-in page.",
 			"email_change_failed": "Failed to change email",
-			"email_not_verified": "Verify your email address. Check your inbox for the link, and sign in again to request a new one.",
+			"email_not_verified": "Your email address isn't verified yet. We've sent you a new verification link. Open it to finish signing in.",
 			"email_same_as_current": "New email must be different from current email",
 			"email_updated": "Email updated successfully",
 			"email_verification_sent": "Verification email sent to your current address. Check your inbox to approve the change.",
