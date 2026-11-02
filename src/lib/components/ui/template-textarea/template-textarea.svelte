@@ -29,10 +29,13 @@
 
 	const varPattern = $derived(new RegExp(`\\{\\{(${variables.join('|')})\\}\\}`, 'g'));
 
+	// The textarea draws the caret and selection from its own plain text, so a mark must
+	// keep every glyph where the textarea puts it: the negative margin cancels the
+	// padding, and the weight stays regular because bolder glyphs are wider.
 	const highlightedHtml = $derived(
 		escapeHtml(value ?? '').replace(
 			varPattern,
-			'<span class="bg-primary/15 text-primary rounded-sm px-0.5 font-medium">{{$1}}</span>'
+			'<span class="bg-primary/15 text-primary -mx-0.5 rounded-sm px-0.5">{{$1}}</span>'
 		) + '\n' // trailing newline ensures div height matches textarea when last line is full
 	);
 
