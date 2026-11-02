@@ -46,8 +46,8 @@
 		"test:packed": "bun scripts/test-packed.ts"
 	},
 	"devDependencies": {
-		"@types/node": "26.6.5",
-		"knip": "6.42.1",
+		"@types/node": "26.6.6",
+		"knip": "6.44.0",
 		"typescript": "6.0.3",
 		"vitest": "5.0.5",
 		"yaml": "2.9.1"
