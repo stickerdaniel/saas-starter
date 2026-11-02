@@ -6,6 +6,7 @@ import { api, components, internal } from '../_generated/api';
 import payingScheduledCancelLink from '../admin/customerNotifications/__fixtures__/autumn/paying-scheduled-cancel-link.json';
 import { normalizeCustomerBilling } from '../admin/customerNotifications/billing';
 import authSchema from '../betterAuth/schema';
+import { convexModules, preloadModules } from '../convexTest.modules';
 import schema from '../schema';
 import {
 	FOUNDER_CANCELLATION_DEFAULTS,
@@ -27,17 +28,12 @@ import { resend } from './resend';
 
 vi.mock('@gilhrpenner/convex-files-control', () => ({ registerRoutes: () => {} }));
 
-// Vite keys this directory's own files as `./x.ts`; convex-test needs every module
-// relative to the Convex root, so move them under `./emails/`.
-const modules = Object.fromEntries(
-	Object.entries(import.meta.glob('../**/*.ts')).map(([path, loader]) => [
-		path.startsWith('../') ? path.replace(/^\.\.\//u, './') : path.replace(/^\.\//u, './emails/'),
-		loader
-	])
-);
-const betterAuthModules = import.meta.glob('../betterAuth/**/*.ts');
+// The Resend client in `resend.ts` reads its API key when the preloaded modules load.
+vi.hoisted(() => vi.stubEnv('RESEND_API_KEY', 're_test'));
+
+const betterAuthModules = await preloadModules(import.meta.glob('../betterAuth/**/*.ts'));
 const harness = () => {
-	const t = convexTest(schema, modules);
+	const t = convexTest(schema, convexModules);
 	t.registerComponent('betterAuth', authSchema, betterAuthModules);
 	return t;
 };
