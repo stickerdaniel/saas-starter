@@ -1,8 +1,7 @@
 import { v, type Infer } from 'convex/values';
-import type { EmailId } from '@convex-dev/resend';
 import { components, internal } from '../_generated/api';
 import type { Doc, Id } from '../_generated/dataModel';
-import { internalMutation, internalQuery, type MutationCtx } from '../_generated/server';
+import { internalMutation, type MutationCtx } from '../_generated/server';
 import {
 	readFounderEmailConfig,
 	type FounderEmail,
@@ -325,42 +324,6 @@ export const sendFounderCancellationEmail = internalMutation({
 			subject
 		});
 		return null;
-	}
-});
-
-/**
- * Whether a founder email row is still waiting for its billing answer. The billing
- * actions check it before any provider read, so a row that was sent, skipped or
- * erased since the action was scheduled costs no Autumn or Resend call.
- */
-export const isFounderEmailSendPending = internalQuery({
-	args: { sendId: v.id('founderEmailSends') },
-	returns: v.boolean(),
-	handler: async (ctx, { sendId }) => {
-		const row = await ctx.db.get('founderEmailSends', sendId);
-		return row?.status === 'scheduled';
-	}
-});
-
-/**
- * The Resend id and subject of the user's sent welcome, which a feedback email can
- * reply to. Null without a sent welcome; `resendId` is null while the component has
- * not handed the welcome to Resend.
- */
-export const getSentFounderWelcome = internalQuery({
-	args: { userId: v.string() },
-	returns: v.union(
-		v.null(),
-		v.object({ resendId: v.union(v.string(), v.null()), subject: v.string() })
-	),
-	handler: async (ctx, { userId }) => {
-		const row = await ctx.db
-			.query('founderWelcomeEmails')
-			.withIndex('by_user', (q) => q.eq('userId', userId))
-			.first();
-		if (row?.status !== 'sent' || !row.emailId || !row.subject) return null;
-		const email = await resend.get(ctx, row.emailId as EmailId);
-		return { resendId: email?.resendId ?? null, subject: row.subject };
 	}
 });
 

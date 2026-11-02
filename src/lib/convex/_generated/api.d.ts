@@ -78,6 +78,7 @@ import type * as emails_events from "../emails/events.js";
 import type * as emails_founderEmailBilling from "../emails/founderEmailBilling.js";
 import type * as emails_founderEmailConfig from "../emails/founderEmailConfig.js";
 import type * as emails_founderEmailErasure from "../emails/founderEmailErasure.js";
+import type * as emails_founderEmailLedger from "../emails/founderEmailLedger.js";
 import type * as emails_founderEmails from "../emails/founderEmails.js";
 import type * as emails_founderIncidentCore from "../emails/founderIncidentCore.js";
 import type * as emails_founderIncidentDelivery from "../emails/founderIncidentDelivery.js";
@@ -216,6 +217,7 @@ declare const fullApi: ApiFromModules<{
   "emails/founderEmailBilling": typeof emails_founderEmailBilling;
   "emails/founderEmailConfig": typeof emails_founderEmailConfig;
   "emails/founderEmailErasure": typeof emails_founderEmailErasure;
+  "emails/founderEmailLedger": typeof emails_founderEmailLedger;
   "emails/founderEmails": typeof emails_founderEmails;
   "emails/founderIncidentCore": typeof emails_founderIncidentCore;
   "emails/founderIncidentDelivery": typeof emails_founderIncidentDelivery;

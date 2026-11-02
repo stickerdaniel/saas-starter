@@ -1,3 +1,4 @@
+import type { EmailId } from '@convex-dev/resend';
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
@@ -12,7 +13,7 @@ import type {
 	FounderFeedbackBilling,
 	FounderThread
 } from './founderEmails';
-import { getEmailDeliveryConfiguration } from './resend';
+import { getEmailDeliveryConfiguration, resend } from './resend';
 
 /**
  * The provider half of the feedback and cancellation emails. Each action answers
@@ -51,9 +52,21 @@ async function deliverVerdict(
 	}
 }
 
-/** Whether the row is still waiting for this action's answer; checked before any provider read. */
+/**
+ * Whether the row is still waiting for this action's answer; checked before any
+ * provider read. A check that fails records the same terminal `send_failed` skip as
+ * a failed hand-back, since this action runs only once.
+ */
 async function isPending(ctx: ActionCtx, sendId: Id<'founderEmailSends'>): Promise<boolean> {
-	return await ctx.runQuery(internal.emails.founderEmails.isFounderEmailSendPending, { sendId });
+	try {
+		return await ctx.runQuery(internal.emails.founderEmailLedger.isFounderEmailSendPending, {
+			sendId
+		});
+	} catch {
+		console.warn({ code: 'founder_email_preflight_failed' });
+		await ctx.runMutation(internal.emails.founderEmails.recordFounderEmailSendFailure, { sendId });
+		return false;
+	}
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -103,19 +116,21 @@ async function readWelcomeThread(
 	userId: string,
 	signal: AbortSignal
 ): Promise<FounderThread | undefined> {
-	const welcome = await ctx.runQuery(internal.emails.founderEmails.getSentFounderWelcome, {
+	const welcome = await ctx.runQuery(internal.emails.founderEmailLedger.getSentFounderWelcome, {
 		userId
 	});
 	if (!welcome) return undefined;
+	// Null while the component has not handed the welcome to Resend yet.
+	const resendId = (await resend.get(ctx, welcome.emailId as EmailId))?.resendId;
 	const configuration = getEmailDeliveryConfiguration();
-	if (!welcome.resendId || configuration.state !== 'ready') {
+	if (!resendId || configuration.state !== 'ready') {
 		throw new Error('welcome_not_addressable');
 	}
 
-	const response = await fetch(
-		`https://api.resend.com/emails/${encodeURIComponent(welcome.resendId)}`,
-		{ headers: { Authorization: `Bearer ${configuration.value.apiKey}` }, signal }
-	);
+	const response = await fetch(`https://api.resend.com/emails/${encodeURIComponent(resendId)}`, {
+		headers: { Authorization: `Bearer ${configuration.value.apiKey}` },
+		signal
+	});
 	if (!response.ok) throw new Error('resend_read_failed');
 	const body: unknown = await response.json();
 	const messageId = isRecord(body) ? body.message_id : undefined;
