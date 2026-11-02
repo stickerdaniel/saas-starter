@@ -89,7 +89,7 @@
 	<AuthPanel transition>
 		<div class="min-h-96">
 			<LoadingBar mode="loading" showBackground={false} variant="edge" />
-			<div class="flex h-full flex-col justify-center p-6 md:p-8">
+			<div class="p-6 md:p-8">
 				<Logo class="mb-6 block size-6" />
 				<div class="flex flex-col gap-2">
 					<h1 class="text-2xl font-bold">
