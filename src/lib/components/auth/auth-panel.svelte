@@ -13,7 +13,10 @@
 	 */
 	type Props = {
 		children: Snippet;
-		/** Names the card for the view transition between sign-in and sign-up. */
+		/**
+		 * Names the card for the morph between auth cards: sign-in and sign-up, and a card
+		 * that turns into the passkey offer (see auth-card-morph.ts).
+		 */
 		transition?: boolean;
 	} & (
 		| {

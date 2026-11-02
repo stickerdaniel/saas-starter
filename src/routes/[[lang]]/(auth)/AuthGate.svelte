@@ -88,7 +88,8 @@
 				     edge loading bar takes above the heading. -->
 				<div class="h-1"></div>
 				<div class="min-h-96 p-6 md:p-8">
-					<!-- Decorative, as above every auth form: the terms footer leads home. -->
+					<!-- Decorative: every gated page keeps a home link outside the gate, in the
+					     terms footer. -->
 					<Logo class="mb-6 block size-6" />
 					<Field.Group>
 						<div class="flex flex-col gap-2" data-auth-gate-stalled>

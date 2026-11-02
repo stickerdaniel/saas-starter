@@ -4,7 +4,7 @@
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import AuthGate from '../AuthGate.svelte';
 	import AuthPanel from '#lib/components/auth/auth-panel.svelte';
-	import Logo from '#lib/components/icons/logo.svelte';
+	import AuthHomeLogo from '#lib/components/auth/auth-home-logo.svelte';
 	import { LoadingBar } from '#lib/components/ui/loading-bar/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -169,7 +169,7 @@
 				variant="edge"
 			/>
 			<div class="p-6 md:p-8">
-				<Logo class="mb-6 block size-6" />
+				<AuthHomeLogo />
 				<Field.Group>
 					<div class="flex flex-col gap-2">
 						<h1 class="text-2xl font-bold">

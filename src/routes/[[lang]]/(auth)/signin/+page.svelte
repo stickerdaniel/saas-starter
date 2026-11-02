@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import * as v from 'valibot';
 	import { authClient } from '#lib/auth-client.js';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { useQuery } from 'convex-svelte';
+	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '#lib/convex/_generated/api.js';
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import AuthGate from '../AuthGate.svelte';
@@ -11,6 +12,7 @@
 	import { signInSchema } from './schema.js';
 	import { localizedHref } from '#lib/utils/i18n.js';
 	import { page } from '$app/state';
+	import { beforeNavigate } from '$app/navigation';
 	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { authFlowContext } from '#lib/hooks/auth-flow.svelte.ts';
@@ -36,13 +38,24 @@
 		safeAuthDestination,
 		verificationErrorIn
 	} from '#lib/utils/url.js';
+	import { claimPasskeyNudge, type PasskeyNudgeUser } from '#lib/utils/passkey-nudge.js';
+	import PasskeyOfferPanel from '#lib/components/auth/passkey-offer-panel.svelte';
+	import { morphAuthCard } from '#lib/components/auth/auth-card-morph.js';
+	import {
+		continueAfterEnrollment,
+		skipToDestination
+	} from '#lib/components/auth/passkey-offer-navigation.js';
 	import SignInForm from './SignInForm.svelte';
 	import { useSearchParams } from 'runed/kit';
 
 	let { data } = $props();
 
+	/** How long a signed-in visitor waits for the passkey check before continuing without it. */
+	const PASSKEY_CHECK_DEADLINE = 6000;
+
 	const { t } = getTranslate();
 	const auth = useAuth();
+	const client = useConvexClient();
 	// Read from the page URL rather than from `params` below, which is empty
 	// during SSR, and before the effect that clears it.
 	const initialVerificationCode = verificationErrorIn(page.url.searchParams);
@@ -126,6 +139,15 @@
 	let lastValidSignInSubmission = $state<string | null>(null);
 	let termsLink = $state<HTMLAnchorElement | null>(null);
 	let authRedirectStarted = false;
+	/** A password sign-in succeeded here; the page continues once Convex has the session. */
+	let passwordSignedIn = $state(false);
+	let passkeyCheckStarted = false;
+	let passkeyOffer = $state<PasskeyNudgeUser | null>(null);
+	// A visitor may follow a link, such as the logo, while the passkey check runs.
+	let left = false;
+	onDestroy(() => {
+		left = true;
+	});
 
 	const id = $props.id();
 
@@ -171,12 +193,33 @@
 		}
 	});
 
-	function redirectAfterAuthentication(offerPasskey = false) {
+	function navigateAfterAuthentication(href: string) {
 		if (authRedirectStarted) return;
 		authRedirectStarted = true;
-		window.location.href = offerPasskey
-			? authPageURL(localizedHref('/passkey-setup'), finalDestination)
-			: finalDestination;
+		window.location.href = href;
+	}
+
+	function redirectAfterAuthentication() {
+		navigateAfterAuthentication(finalDestination);
+	}
+
+	/**
+	 * Decides on the passkey offer with the form still busy. An account that gets it sees it
+	 * in this card; every other account goes straight on.
+	 */
+	async function continueAfterPasswordSignIn() {
+		if (passkeyCheckStarted) return;
+		passkeyCheckStarted = true;
+		const offer = await claimPasskeyNudge(client);
+		if (authRedirectStarted || left) return;
+		if (offer) morphAuthCard(() => (passkeyOffer = offer));
+		else redirectAfterAuthentication();
+	}
+
+	function leaveOffer(move: (destination: string) => unknown) {
+		if (authRedirectStarted) return;
+		authRedirectStarted = true;
+		void move(finalDestination);
 	}
 
 	// Redirect when authenticated, unless the server kept this visitor here to
@@ -185,9 +228,23 @@
 	// away from before it can be read, and the server-side hold buys nothing for
 	// any browser that runs JavaScript.
 	$effect(() => {
-		if (auth.isAuthenticated && !heldForVerificationFailure && !isLoading) {
-			redirectAfterAuthentication();
-		}
+		if (!auth.isAuthenticated) return;
+		if (passwordSignedIn) void continueAfterPasswordSignIn();
+		else if (!heldForVerificationFailure && !isLoading) redirectAfterAuthentication();
+	});
+
+	// Once the session reaches Convex, the auth provider re-runs this page's load and the
+	// server forwards a signed-in visitor to the destination with a programmatic navigation.
+	// Hold it while the passkey check runs and its offer is up; this page moves on itself.
+	beforeNavigate(({ type, cancel }) => {
+		if (passwordSignedIn && !authRedirectStarted && type === 'goto') cancel();
+	});
+
+	// A stalled session or passkey check must not hold a signed-in visitor on the form.
+	$effect(() => {
+		if (!passwordSignedIn || passkeyOffer) return;
+		const deadline = setTimeout(redirectAfterAuthentication, PASSKEY_CHECK_DEADLINE);
+		return () => clearTimeout(deadline);
 	});
 
 	function validateSignIn(): boolean {
@@ -238,6 +295,12 @@
 					callbackURL: authPageURL(localizedHref('/signin'), finalDestination)
 				},
 				{
+					// On success Better Auth's client would follow `callbackURL` by itself and
+					// leave before the passkey check. Per-call hooks run ahead of its redirect
+					// plugin and share the parsed body, so this page keeps the navigation.
+					onSuccess: (ctx) => {
+						ctx.data.redirect = false;
+					},
 					onError: (ctx) => {
 						failed = true;
 						lastValidSignInSubmission = null;
@@ -250,7 +313,7 @@
 				haptic.trigger('success');
 				clearLastSuccessfulAuthMethod();
 				clearPendingOAuthProvider();
-				redirectAfterAuthentication(true);
+				passwordSignedIn = true;
 				return;
 			}
 		} catch (error) {
@@ -259,7 +322,8 @@
 			lastValidSignInSubmission = null;
 			formError = 'auth.messages.generic_error';
 		} finally {
-			isLoading = false;
+			// A successful sign-in keeps the form busy until the page has navigated.
+			if (!passwordSignedIn) isLoading = false;
 		}
 	}
 
@@ -349,25 +413,33 @@
 	noindex
 />
 
-<AuthPanel transition legal bind:termsLink>
-	<AuthGate resumeHref={heldAfterVerificationLink ? finalDestination : ''}>
-		<SignInForm
-			{id}
-			bind:signInData
-			{signInErrors}
-			{formError}
-			{isLoading}
-			{signInProgress}
-			{hasAlternativeAuth}
-			{enabledProviderCount}
-			oauthProviders={oauthProviders.data}
-			redirectTo={requestedDestination}
-			resumeHref={heldAfterVerificationLink ? finalDestination : ''}
-			{termsLink}
-			{isLastUsedAuthMethod}
-			onSubmit={handleSignIn}
-			onOAuth={handleOAuth}
-			onPasskey={handlePasskeyLogin}
-		/>
-	</AuthGate>
-</AuthPanel>
+{#if passkeyOffer}
+	<PasskeyOfferPanel
+		user={passkeyOffer}
+		oncontinue={() => leaveOffer(skipToDestination)}
+		oncreated={() => leaveOffer(continueAfterEnrollment)}
+	/>
+{:else}
+	<AuthPanel transition legal bind:termsLink>
+		<AuthGate resumeHref={heldAfterVerificationLink ? finalDestination : ''}>
+			<SignInForm
+				{id}
+				bind:signInData
+				{signInErrors}
+				{formError}
+				{isLoading}
+				{signInProgress}
+				{hasAlternativeAuth}
+				{enabledProviderCount}
+				oauthProviders={oauthProviders.data}
+				redirectTo={requestedDestination}
+				resumeHref={heldAfterVerificationLink ? finalDestination : ''}
+				{termsLink}
+				{isLastUsedAuthMethod}
+				onSubmit={handleSignIn}
+				onOAuth={handleOAuth}
+				onPasskey={handlePasskeyLogin}
+			/>
+		</AuthGate>
+	</AuthPanel>
+{/if}

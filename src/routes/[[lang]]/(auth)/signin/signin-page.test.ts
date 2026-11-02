@@ -3,8 +3,9 @@
  *
  * Better Auth reads `callbackURL` twice. On a rejected password sign-in it is
  * the destination baked into the fresh verification link, and on success its
- * client navigates to it. Both readings, and the page's own navigation, have to
- * land on the destination the visitor asked for once it has been validated.
+ * client would navigate to it, which this page turns off so it can check for a
+ * passkey offer first. The link and the page's own navigation have to land on
+ * the destination the visitor asked for once it has been validated.
  * The Better Auth side of that contract runs against a real instance in
  * src/lib/utils/__tests__/callback-url.contract.test.ts and
  * src/lib/convex/__tests__/verificationRecovery.test.ts; this file observes what
@@ -20,6 +21,7 @@ import type { ConvexClient } from 'convex/browser';
 import { mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import type * as SvelteReactivity from 'svelte/reactivity';
+import type { PasskeyNudgeUser } from '#lib/utils/passkey-nudge.js';
 import en from '../../../../i18n/en.json';
 
 vi.mock('svelte', () =>
@@ -51,7 +53,10 @@ type AuthError = { code: string; message: string; status: number };
 type AuthResult = { data: unknown; error: AuthError | null };
 type EmailSignIn = (
 	body: { email: string; password: string; callbackURL: string },
-	options: { onError: (context: { error: AuthError }) => void }
+	options: {
+		onSuccess: (context: { data: { redirect: boolean; url: string } }) => void;
+		onError: (context: { error: AuthError }) => void;
+	}
 ) => Promise<AuthResult>;
 type SocialSignIn = (body: {
 	provider: string;
@@ -62,9 +67,11 @@ type SocialSignIn = (body: {
 const state = await vi.hoisted(async () => {
 	// Reactive like SvelteKit's own `page.url`, so a rewrite of the query is
 	// seen by everything that derives from it.
-	const { SvelteURL } = await vi.importActual<typeof SvelteReactivity>(
+	const { SvelteMap, SvelteURL } = await vi.importActual<typeof SvelteReactivity>(
 		'../../../../../node_modules/svelte/src/reactivity/index-client.js'
 	);
+	// Reactive like the real hook, so the page sees the session reach Convex.
+	const auth = new SvelteMap([['isAuthenticated', false]]);
 	return {
 		SvelteURL,
 		page: {
@@ -72,7 +79,24 @@ const state = await vi.hoisted(async () => {
 			params: { lang: 'de' },
 			data: { lang: 'de' }
 		},
-		auth: { isAuthenticated: false, isLoading: false },
+		auth: {
+			get isAuthenticated() {
+				return auth.get('isAuthenticated')!;
+			},
+			set isAuthenticated(value: boolean) {
+				auth.set('isAuthenticated', value);
+			},
+			isLoading: false
+		},
+		/** Whether a successful password sign-in's session reaches Convex on its own. */
+		sessionReachesConvex: true,
+		/** The page's guard against SvelteKit navigations, as last registered. */
+		beforeNavigate: null as ((navigation: { type: string; cancel: () => void }) => void) | null,
+		/** The passkey check: the offered account, or null when there is no offer. */
+		claim: vi.fn<() => Promise<PasskeyNudgeUser | null>>(),
+		/** How the offer leaves: without a passkey, or after adding one. */
+		skip: vi.fn<(destination: string) => void>(),
+		enrolled: vi.fn<(destination: string) => Promise<void>>(),
 		/** Overrides what `useSearchParams` reports; otherwise it mirrors the URL. */
 		cachedDestination: null as string | null,
 		signIn: {
@@ -84,12 +108,38 @@ const state = await vi.hoisted(async () => {
 });
 
 vi.mock('$app/state', () => ({ page: state.page }));
-vi.mock('#lib/auth-client.js', () => ({ authClient: { signIn: state.signIn } }));
+vi.mock('$app/navigation', () => ({
+	beforeNavigate: (callback: NonNullable<typeof state.beforeNavigate>) => {
+		state.beforeNavigate = callback;
+	}
+}));
+vi.mock('#lib/auth-client.js', () => ({
+	authClient: {
+		signIn: state.signIn,
+		getSession: async () => ({ data: { session: { id: 'session-a' } }, error: null }),
+		passkey: { addPasskey: async () => ({ data: { id: 'registered' }, error: null }) },
+		// The offer checks that it still belongs to the signed-in session.
+		useSession: () => ({
+			subscribe: (listener: (snapshot: unknown) => void) => {
+				listener({ data: { session: { id: 'session-a' } } });
+				return () => {};
+			}
+		})
+	}
+}));
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({ useAuth: () => state.auth }));
 vi.mock('#lib/hooks/auth-flow.svelte.ts', () => ({
 	authFlowContext: { get: () => ({ email: '' }), set: () => {} }
 }));
 vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
+vi.mock('#lib/utils/passkey-nudge.js', () => ({
+	claimPasskeyNudge: state.claim,
+	deferPasskeyNudge: vi.fn(async () => {})
+}));
+vi.mock('#lib/components/auth/passkey-offer-navigation.js', () => ({
+	skipToDestination: state.skip,
+	continueAfterEnrollment: state.enrolled
+}));
 vi.mock('runed/kit', () => ({
 	useSearchParams: () => ({
 		get redirectTo() {
@@ -118,6 +168,12 @@ import {
 import SignInPage from './+page.svelte';
 
 const DESTINATION = '/de/app/settings?tab=billing#invoices';
+const OFFERED: PasskeyNudgeUser = {
+	userId: 'user-a',
+	sessionId: 'session-a',
+	name: 'Ada Example',
+	email: 'ada@example.com'
+};
 
 type PageProps = { data: { oauthProviders: { google: boolean; github: boolean } } };
 
@@ -235,7 +291,16 @@ beforeEach(() => {
 		mutation: vi.fn(),
 		query: vi.fn()
 	} as unknown as ConvexClient;
-	state.signIn.email.mockResolvedValue({ data: { redirect: false }, error: null });
+	// Better Auth's order on success: per-call hooks, then its redirect plugin, which follows
+	// `callbackURL` unless a hook turned that off. The session reaches Convex afterwards.
+	state.signIn.email.mockImplementation(async (body, options) => {
+		const data = { redirect: true, url: body.callbackURL };
+		options.onSuccess({ data });
+		if (data.redirect) window.location.href = data.url;
+		if (state.sessionReachesConvex) queueMicrotask(() => (state.auth.isAuthenticated = true));
+		return { data, error: null };
+	});
+	state.claim.mockResolvedValue(null);
 	state.signIn.social.mockResolvedValue({
 		data: { url: 'https://accounts.google.com/o/oauth2', redirect: true },
 		error: null
@@ -252,7 +317,9 @@ afterEach(async () => {
 		clearLastSuccessfulAuthMethod();
 		clearPendingOAuthProvider();
 		state.cachedDestination = null;
+		state.sessionReachesConvex = true;
 		vi.clearAllMocks();
+		vi.useRealTimers();
 	} finally {
 		if (locationDescriptor) Object.defineProperty(window, 'location', locationDescriptor);
 		if (originalElementAnimate) {
@@ -276,11 +343,8 @@ describe('sign-in page destination', () => {
 
 		const { callbackURL } = emailRequest();
 		expect(carried(callbackURL)).toEqual({ page: '/de/signin', destination: DESTINATION });
-		await vi.waitFor(() =>
-			expect(navigations.map(carried)).toEqual([
-				{ page: '/de/passkey-setup', destination: DESTINATION }
-			])
-		);
+		// The only navigation: Better Auth's own redirect to `callbackURL` never starts.
+		await vi.waitFor(() => expect(navigations).toEqual([DESTINATION]));
 	});
 
 	it('keeps the visitor on the form when the password is rejected', async () => {
@@ -338,11 +402,7 @@ describe('sign-in page destination', () => {
 		const { callbackURL } = emailRequest();
 		expect(carried(callbackURL).destination).toBe(DESTINATION);
 		expect(link(en.auth.signin.link_signup).searchParams.get('redirectTo')).toBe(DESTINATION);
-		await vi.waitFor(() =>
-			expect(navigations.map(carried)).toEqual([
-				{ page: '/de/passkey-setup', destination: DESTINATION }
-			])
-		);
+		await vi.waitFor(() => expect(navigations).toEqual([DESTINATION]));
 	});
 
 	it('follows the address bar when its destination changes after mounting', async () => {
@@ -356,11 +416,7 @@ describe('sign-in page destination', () => {
 		}
 		await submitPassword();
 		expect(carried(emailRequest().callbackURL).destination).toBe(DESTINATION);
-		await vi.waitFor(() =>
-			expect(navigations.map(carried)).toEqual([
-				{ page: '/de/passkey-setup', destination: DESTINATION }
-			])
-		);
+		await vi.waitFor(() => expect(navigations).toEqual([DESTINATION]));
 	});
 
 	it('sends an off-site destination nowhere, not even into the OAuth failure URL', async () => {
@@ -379,11 +435,7 @@ describe('sign-in page destination', () => {
 			page: '/de/signin',
 			destination: '/de/app'
 		});
-		await vi.waitFor(() =>
-			expect(navigations.map(carried)).toEqual([
-				{ page: '/de/passkey-setup', destination: '/de/app' }
-			])
-		);
+		await vi.waitFor(() => expect(navigations).toEqual(['/de/app']));
 	});
 
 	/**
@@ -402,11 +454,126 @@ describe('sign-in page destination', () => {
 		expect(carried(errorCallbackURL)).toEqual({ page: '/de/signin', destination: '/favicon.ico' });
 
 		await submitPassword();
-		await vi.waitFor(() =>
-			expect(navigations.map(carried)).toEqual([
-				{ page: '/de/passkey-setup', destination: '/de/app' }
-			])
-		);
+		await vi.waitFor(() => expect(navigations).toEqual(['/de/app']));
+	});
+});
+
+describe('sign-in page passkey offer', () => {
+	function heading(): string {
+		return document.querySelector('h1')?.textContent ?? '';
+	}
+
+	async function offerShown(): Promise<void> {
+		await vi.waitFor(() => expect(heading()).toContain(en.auth.passkey_nudge.title));
+	}
+
+	it('shows the offer in this card, and carries the destination past it', async () => {
+		state.claim.mockResolvedValue(OFFERED);
+		await renderSignIn(withDestination(DESTINATION));
+
+		await submitPassword();
+		await offerShown();
+		expect(navigations).toEqual([]);
+
+		button(en.auth.passkey_nudge.not_now).click();
+		await vi.waitFor(() => expect(state.skip).toHaveBeenCalledWith(DESTINATION));
+	});
+
+	it('moves on to the destination once a passkey is added', async () => {
+		state.claim.mockResolvedValue(OFFERED);
+		await renderSignIn(withDestination(DESTINATION));
+		await submitPassword();
+		await offerShown();
+
+		button(en.auth.passkey_nudge.create_short).click();
+
+		await vi.waitFor(() => expect(state.enrolled).toHaveBeenCalledWith(DESTINATION));
+		const ownMove = vi.fn();
+		state.beforeNavigate!({ type: 'goto', cancel: ownMove });
+		expect(ownMove).not.toHaveBeenCalled();
+	});
+
+	it('stays busy until the session reaches Convex, and only then checks', async () => {
+		state.claim.mockResolvedValue(OFFERED);
+		state.sessionReachesConvex = false;
+		await renderSignIn(withDestination(DESTINATION));
+
+		await submitPassword();
+		await tick();
+
+		expect(button(en.auth.signin.button_signin_loading).disabled).toBe(true);
+		expect(state.claim).not.toHaveBeenCalled();
+
+		state.auth.isAuthenticated = true;
+		await offerShown();
+		expect(state.claim).toHaveBeenCalledOnce();
+		expect(navigations).toEqual([]);
+	});
+
+	/**
+	 * Once the session reaches Convex, the auth provider re-runs this page's load and the
+	 * server answers a signed-in visitor on /signin with a redirect that SvelteKit follows.
+	 */
+	it("holds the auth layout's redirect while checking and while the offer is up", async () => {
+		let finishCheck!: (offer: PasskeyNudgeUser | null) => void;
+		state.claim.mockReturnValue(new Promise((resolve) => (finishCheck = resolve)));
+		await renderSignIn(withDestination(DESTINATION));
+
+		await submitPassword();
+		await vi.waitFor(() => expect(state.claim).toHaveBeenCalledOnce());
+		const whileChecking = vi.fn();
+		state.beforeNavigate!({ type: 'goto', cancel: whileChecking });
+		expect(whileChecking).toHaveBeenCalledOnce();
+
+		finishCheck(OFFERED);
+		await offerShown();
+		const whileOffered = vi.fn();
+		state.beforeNavigate!({ type: 'goto', cancel: whileOffered });
+		expect(whileOffered).toHaveBeenCalledOnce();
+		// The visitor's own way out, such as the footer's Settings link, stays open.
+		const followedLink = vi.fn();
+		state.beforeNavigate!({ type: 'link', cancel: followedLink });
+		expect(followedLink).not.toHaveBeenCalled();
+	});
+
+	it('stays put when the visitor leaves while the check runs', async () => {
+		let finishCheck!: (offer: PasskeyNudgeUser | null) => void;
+		state.claim.mockReturnValue(new Promise((resolve) => (finishCheck = resolve)));
+		await renderSignIn(withDestination(DESTINATION));
+		await submitPassword();
+		await vi.waitFor(() => expect(state.claim).toHaveBeenCalledOnce());
+
+		await unmount(component!);
+		component = undefined;
+		finishCheck(null);
+		await tick();
+
+		expect(navigations).toEqual([]);
+	});
+
+	it('continues without the offer when the session or the check stalls', async () => {
+		state.sessionReachesConvex = false;
+		await renderSignIn(withDestination(DESTINATION));
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+		await submitPassword();
+		await tick();
+		vi.advanceTimersByTime(6000);
+
+		expect(navigations).toEqual([DESTINATION]);
+	});
+
+	it('leaves the offer up for as long as the visitor needs', async () => {
+		state.claim.mockResolvedValue(OFFERED);
+		await renderSignIn(withDestination(DESTINATION));
+		await submitPassword();
+		await offerShown();
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+		vi.advanceTimersByTime(60_000);
+
+		expect(navigations).toEqual([]);
+		expect(heading()).toContain(en.auth.passkey_nudge.title);
 	});
 });
 
