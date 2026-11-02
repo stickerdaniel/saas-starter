@@ -5,6 +5,7 @@ import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/comp
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { components, internal } from '../../_generated/api';
 import type { Id } from '../../_generated/dataModel';
+import { convexModules, preloadModules } from '../../convexTest.modules';
 import schema from '../../schema';
 import { supportAgent } from '../agent';
 import { EMPTY_THREAD_SWEEP_MAX_ATTEMPTS } from '../threadMaintenance';
@@ -12,19 +13,12 @@ import { EMPTY_THREAD_SWEEP_MAX_ATTEMPTS } from '../threadMaintenance';
 const DAY = 24 * 60 * 60 * 1000;
 const SWEEP_THREAD = 'support/threads:sweepEmptyThread';
 
-// Keys relative to the Convex root, which is where convex-test looks for `_generated`.
-const modules = Object.fromEntries(
-	Object.entries(import.meta.glob('../../**/*.ts')).map(([path, loader]) => [
-		`.${new URL(path, 'file:///convex/support/__tests__/').pathname.slice('/convex'.length)}`,
-		loader
-	])
-);
-const agentModules = import.meta.glob(
-	'../../../../../node_modules/@convex-dev/agent/dist/component/**/*.js'
+const agentModules = await preloadModules(
+	import.meta.glob('../../../../../node_modules/@convex-dev/agent/dist/component/**/*.js')
 );
 
 function createHarness() {
-	const t = convexTest(schema, modules);
+	const t = convexTest(schema, convexModules);
 	t.registerComponent('agent', agentSchema, agentModules);
 	return t;
 }
