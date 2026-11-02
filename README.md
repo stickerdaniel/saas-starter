@@ -502,15 +502,21 @@ Transactional email delivered through [Resend](https://www.convex.dev/components
 
 #### Founder emails
 
-Three personal emails go out as a team member, in plain text with optional links, bold and lists, each switched on in `/admin/settings` by the admin who becomes its sender:
+Three personal emails go out as one team member, the contact person set on the welcome card in `/admin/settings`, in plain text with optional links, bold and lists:
 
-- **Welcome**: to every new account right after signup or email verification.
+- **Welcome**: to every new account right after signup or email verification. On while a contact person is set.
 - **Feedback**: 48 hours later, only to people who never paid, as a reply in the welcome's thread when there is one.
 - **Cancellation**: about an hour after a customer schedules a cancellation, asking what was missing. It needs the Autumn billing webhook (`AUTUMN_WEBHOOK_SECRET`), and asks only about cancellations made after it was switched on.
 
+Feedback and cancellation each have their own switch and template, which only the contact person can change. To stop all three for one user without touching their other mail, run:
+
+```bash
+bunx convex run emails/founderEmails:setPersonalEmailSuppression '{"userId":"<id>","suppressed":true}'
+```
+
 #### Founder incident email
 
-Founder incident emails use saved, localized plain-text drafts, so new incidents need no code change or deployment. Set the welcome email's sender in `/admin/settings`, then follow the [incident-follow-up workflow](.agents/skills/incident-follow-up/SKILL.md) for evidence-qualified recipients, exact-message approval and delivery verification.
+Founder incident emails use saved, localized plain-text drafts, so new incidents need no code change or deployment. Set the contact person under Founder Welcome in `/admin/settings`, then follow the [incident-follow-up workflow](.agents/skills/incident-follow-up/SKILL.md) for evidence-qualified recipients, exact-message approval and delivery verification.
 
 The registry sender remains available for existing integrations. New incidents use the saved-draft workflow.
 

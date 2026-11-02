@@ -255,23 +255,13 @@ export default defineSchema({
 		createdAt: v.number()
 	}).index('by_user', ['userId']),
 
-	// The sender of each founder email (emails/founderEmailConfig.ts): at most one row
-	// per email. A row without `senderUserId` keeps that email off. Without a row the
-	// welcome falls back to the `founderWelcome.contactUserId` setting and the others
-	// are off. Templates stay in adminSettings.
-	founderEmailSenders: defineTable({
-		email: v.union(v.literal('welcome'), v.literal('feedback'), v.literal('cancellation')),
-		senderUserId: v.optional(v.string()),
-		name: v.string(),
-		title: v.string(),
-		replyTo: v.optional(v.string()),
-		// When the email last went from off to on; kept through edits while it stays on
-		// and cleared when it is stopped. The cancellation email asks only about
-		// cancellations made after this, so switching it on asks nobody retroactively.
-		enabledAt: v.optional(v.number()),
-		updatedAt: v.number(),
-		updatedBy: v.string()
-	}).index('by_email', ['email']),
+	// Users opted out of the personal founder emails (welcome, feedback, cancellation),
+	// at most one row each. Set by an operator with
+	// emails/founderEmails:setPersonalEmailSuppression; all other mail still goes out.
+	personalEmailSuppressions: defineTable({
+		userId: v.string(),
+		createdAt: v.number()
+	}).index('by_user', ['userId']),
 
 	// One row per founder feedback or cancellation email episode
 	// (emails/founderEmails.ts). The feedback email is keyed `signup`, once per account;

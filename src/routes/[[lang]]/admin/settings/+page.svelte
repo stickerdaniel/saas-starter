@@ -2,6 +2,7 @@
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import NotificationRecipientsTable from './notification-recipients-table.svelte';
+	import FounderWelcomeCard from './founder-welcome-card.svelte';
 	import FounderEmailCard from './founder-email-card.svelte';
 	import { ConfirmDialog } from '#lib/components/ui/confirm-dialog/index.js';
 
@@ -21,7 +22,7 @@
 	</div>
 
 	<div class="flex flex-col gap-4">
-		<FounderEmailCard email="welcome" />
+		<FounderWelcomeCard />
 		<FounderEmailCard email="feedback" />
 		<FounderEmailCard email="cancellation" />
 	</div>

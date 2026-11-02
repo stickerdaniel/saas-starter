@@ -6,7 +6,7 @@ export const FOUNDER_WELCOME_ERROR_CODES = {
 	subjectRequired: 'FOUNDER_WELCOME_SUBJECT_REQUIRED',
 	bodyRequired: 'FOUNDER_WELCOME_BODY_REQUIRED',
 	replyToInvalid: 'FOUNDER_WELCOME_REPLY_TO_INVALID',
-	notCurrentSender: 'FOUNDER_WELCOME_NOT_CURRENT_SENDER'
+	notCurrentContact: 'FOUNDER_WELCOME_NOT_CURRENT_CONTACT'
 } as const;
 
 export type FounderWelcomeErrorCode =

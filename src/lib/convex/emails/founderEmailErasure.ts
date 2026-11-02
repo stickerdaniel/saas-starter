@@ -1,16 +1,16 @@
 import type { Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
-import { FOUNDER_EMAILS, LEGACY_CONTACT_SETTING_KEY } from './founderEmailConfig';
+import { CONTACT_SETTING_KEY, readAdminSetting } from './founderEmailConfig';
 
 /**
  * Remove a deleted user's founder email rows: the welcome, feedback and
- * cancellation ledgers. Runs inside the Better Auth delete trigger, so a pending
- * send is cancelled in the same transaction that deletes the account. The send
- * would skip a deleted user anyway; cancelling keeps the scheduler from holding
- * their id.
+ * cancellation ledgers and their opt-out. Runs inside the Better Auth delete
+ * trigger, so a pending send is cancelled in the same transaction that deletes the
+ * account. The send would skip a deleted user anyway; cancelling keeps the
+ * scheduler from holding their id.
  *
- * A deleted admin who sends an email also stops sending it: their sender row keeps
- * the email explicitly off, and a legacy welcome contact setting naming them goes.
+ * A deleted contact person also stops sending: the contact setting naming them
+ * goes, which turns all three emails off until another admin becomes the contact.
  */
 export async function eraseFounderEmailRows(ctx: MutationCtx, userId: string): Promise<void> {
 	// eslint-disable-next-line @convex-dev/no-collect-in-query -- At most one welcome row per user; collect also erases a stray duplicate
@@ -36,32 +36,17 @@ export async function eraseFounderEmailRows(ctx: MutationCtx, userId: string): P
 		await ctx.db.delete('founderEmailSends', row._id);
 	}
 
-	// Sender rows: at most one per email. Blank the deleted admin's identity but keep
-	// the row as an explicit "off"; deleting a welcome row would hand the welcome back
-	// to the legacy contact person.
-	for (const email of FOUNDER_EMAILS) {
-		const sender = await ctx.db
-			.query('founderEmailSenders')
-			.withIndex('by_email', (q) => q.eq('email', email))
-			.unique();
-		if (!sender) continue;
-		if (sender.senderUserId !== userId && sender.updatedBy !== userId) continue;
-		await ctx.db.patch('founderEmailSenders', sender._id, {
-			senderUserId: undefined,
-			name: '',
-			title: '',
-			replyTo: undefined,
-			enabledAt: undefined,
-			updatedBy: '',
-			updatedAt: Date.now()
-		});
+	// eslint-disable-next-line @convex-dev/no-collect-in-query -- At most one suppression row per user; collect also erases a stray duplicate
+	const suppressions = await ctx.db
+		.query('personalEmailSuppressions')
+		.withIndex('by_user', (q) => q.eq('userId', userId))
+		.collect();
+	for (const row of suppressions) {
+		await ctx.db.delete('personalEmailSuppressions', row._id);
 	}
 
-	const legacyContact = await ctx.db
-		.query('adminSettings')
-		.withIndex('by_key', (q) => q.eq('key', LEGACY_CONTACT_SETTING_KEY))
-		.unique();
-	if (legacyContact?.value === userId) await ctx.db.delete('adminSettings', legacyContact._id);
+	const contact = await readAdminSetting(ctx.db, CONTACT_SETTING_KEY);
+	if (contact?.value === userId) await ctx.db.delete('adminSettings', contact._id);
 }
 
 /** Cancel a scheduled send that has not started; a finished job needs nothing. */

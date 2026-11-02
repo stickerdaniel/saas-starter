@@ -4,7 +4,7 @@ import * as val from 'valibot';
 import { components, internal } from '../../_generated/api';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { env, internalMutation, type MutationCtx } from '../../_generated/server';
-import { readFounderEmailSender } from '../../emails/founderEmailConfig';
+import { readFounderEmailActiveSince } from '../../emails/founderEmailConfig';
 import {
 	FOUNDER_CANCELLATION_DELAY_MS,
 	FOUNDER_CANCELLATION_MAX_OBSERVATION_AGE_MS
@@ -79,8 +79,9 @@ async function cancellationAnchor(
 
 /**
  * Open the founder cancellation email for a scheduled cancellation observed within
- * {@link FOUNDER_CANCELLATION_MAX_OBSERVATION_AGE_MS} of it, when the email was
- * already on at the cancellation: switching it on asks nobody who cancelled before.
+ * {@link FOUNDER_CANCELLATION_MAX_OBSERVATION_AGE_MS} of it, while a contact person
+ * is set and when the email's switch was already on at the cancellation: switching
+ * it on asks nobody who cancelled before.
  * It goes to the account's address at admission, an hour after the cancellation or
  * at once when observed later. Keyed by `canceledAt`, so repeated observations
  * share it and a re-cancel opens another. Its send reads Autumn again first, so
@@ -95,14 +96,8 @@ async function admitFounderCancellation(
 	const cancellation = current?.scheduledCancellation;
 	if (!cancellation) return;
 	if (observedAt - cancellation.canceledAt > FOUNDER_CANCELLATION_MAX_OBSERVATION_AGE_MS) return;
-	const sender = await readFounderEmailSender(ctx.db, 'cancellation');
-	if (
-		sender.senderUserId === undefined ||
-		sender.enabledAt === undefined ||
-		sender.enabledAt > cancellation.canceledAt
-	) {
-		return;
-	}
+	const activeSince = await readFounderEmailActiveSince(ctx.db, 'cancellation');
+	if (activeSince === undefined || activeSince > cancellation.canceledAt) return;
 
 	const dedupeKey = String(cancellation.canceledAt);
 	const existing = await ctx.db

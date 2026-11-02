@@ -1,20 +1,22 @@
 import { v, type Infer } from 'convex/values';
-import { components, internal } from '../_generated/api';
+import { internal } from '../_generated/api';
 import type { Doc, Id } from '../_generated/dataModel';
 import { internalMutation, type MutationCtx } from '../_generated/server';
 import {
+	checkFounderRecipient,
+	readAuthUser,
 	readFounderEmailConfig,
-	type FounderEmail,
-	type FounderEmailConfig,
-	type FounderEmailTemplate
+	type FounderEmailTemplate,
+	type FounderRecipientSkipReason,
+	type FounderSender,
+	type SwitchableFounderEmail
 } from './founderEmailConfig';
 import { renderFounderEmail, renderFounderTemplate } from './founderTemplate';
-import { shouldSkipTestEmail } from './helpers';
 import { assertResendApiKey, getEmailDeliveryConfiguration, resend } from './resend';
 
 /**
  * The personal founder emails beside the welcome, written like a hand-typed message
- * and sent as text with a minimal HTML part, each as the admin who is its sender:
+ * and sent as text with a minimal HTML part, as the welcome's contact person:
  *
  * - The feedback email asks a signup who has never paid, 48 hours after signup
  *   (OAuth) or verification (email/password), what they hoped for, as a reply in
@@ -38,10 +40,7 @@ import { assertResendApiKey, getEmailDeliveryConfiguration, resend } from './res
 export type FounderEmailSkipReason =
 	| 'email_unavailable'
 	| 'feature_disabled'
-	| 'user_deleted'
-	| 'not_verified'
-	| 'email_changed'
-	| 'test_email'
+	| FounderRecipientSkipReason
 	| 'admin'
 	| 'empty_template'
 	// Feedback email only: the billing verdict.
@@ -94,26 +93,25 @@ const FOUNDER_CANCELLATION_BILLING_BACKOFF_MS = 5 * 60 * 1000;
 export const founderThreadValidator = v.object({ inReplyTo: v.string(), subject: v.string() });
 export type FounderThread = Infer<typeof founderThreadValidator>;
 
-type EnabledFounderConfig = Extract<FounderEmailConfig, { enabled: true }>;
 type FounderRecipient = { email: string; name?: string };
 
 type GuardResult =
 	| { ok: false; reason: FounderEmailSkipReason }
 	| {
 			ok: true;
-			config: EnabledFounderConfig;
+			sender: FounderSender;
 			recipient: FounderRecipient;
 			template: FounderEmailTemplate;
 	  };
 
 /**
  * The checks every founder email beside the welcome shares, in the order their skip
- * reasons are recorded. `feature_disabled` means this email has no sender, whatever
- * the others do. `recipientEmail` is the address the row was opened for.
+ * reasons are recorded. `feature_disabled` means this email's switch is off or no
+ * contact person is set. `recipientEmail` is the address the row was opened for.
  */
 async function checkFounderEmailGuards(
 	ctx: MutationCtx,
-	args: { userId: string; email: Exclude<FounderEmail, 'welcome'>; recipientEmail: string }
+	args: { userId: string; email: SwitchableFounderEmail; recipientEmail: string }
 ): Promise<GuardResult> {
 	if (getEmailDeliveryConfiguration().state !== 'ready') {
 		return { ok: false, reason: 'email_unavailable' };
@@ -121,21 +119,25 @@ async function checkFounderEmailGuards(
 	const config = await readFounderEmailConfig(ctx, args.email);
 	if (!config.enabled) return { ok: false, reason: 'feature_disabled' };
 
-	const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-		model: 'user',
-		where: [{ field: '_id', operator: 'eq', value: args.userId }]
-	})) as { email: string; name?: string; emailVerified?: boolean; role?: string | null } | null;
-	if (!user) return { ok: false, reason: 'user_deleted' };
-	if (!user.emailVerified) return { ok: false, reason: 'not_verified' };
-	if (user.email !== args.recipientEmail) return { ok: false, reason: 'email_changed' };
-	if (shouldSkipTestEmail('founderEmail', user.email)) return { ok: false, reason: 'test_email' };
+	const recipient = await checkFounderRecipient(ctx, {
+		userId: args.userId,
+		recipientEmail: args.recipientEmail,
+		logContext: 'founderEmail'
+	});
+	if (!recipient.ok) return recipient;
+	const { user } = recipient;
 	if (user.role === 'admin') return { ok: false, reason: 'admin' };
 
 	const template = config.template;
 	if (!template.subject.trim() || !template.body.trim()) {
 		return { ok: false, reason: 'empty_template' };
 	}
-	return { ok: true, config, recipient: { email: user.email, name: user.name }, template };
+	return {
+		ok: true,
+		sender: config.sender,
+		recipient: { email: user.email, name: user.name },
+		template
+	};
 }
 
 /** Each founder email's `X-Email-Template`, mapped to its `X-Email-Category`. */
@@ -154,7 +156,7 @@ async function sendFounderEmail(
 	ctx: MutationCtx,
 	args: {
 		kind: keyof typeof FOUNDER_EMAIL_CATEGORIES;
-		config: EnabledFounderConfig;
+		sender: FounderSender;
 		recipient: FounderRecipient;
 		template: FounderEmailTemplate;
 		thread?: FounderThread;
@@ -166,8 +168,8 @@ async function sendFounderEmail(
 	const vars = {
 		userFirstName: parts[0] ?? '',
 		userLastName: parts.slice(1).join(' '),
-		founderName: args.config.name,
-		founderTitle: args.config.title
+		founderName: args.sender.name,
+		founderTitle: args.sender.title
 	};
 	const { text, html } = renderFounderEmail(args.template.body, vars);
 	const subject = args.thread
@@ -175,8 +177,8 @@ async function sendFounderEmail(
 		: renderFounderTemplate(args.template.subject, vars);
 
 	const emailId = await resend.sendEmail(ctx, {
-		from: `${args.config.name} <${emailConfiguration.sender}>`,
-		replyTo: args.config.replyTo ? [args.config.replyTo] : undefined,
+		from: `${args.sender.name} <${emailConfiguration.sender}>`,
+		replyTo: args.sender.replyTo ? [args.sender.replyTo] : undefined,
 		to: args.recipient.email,
 		subject,
 		text,
@@ -252,7 +254,7 @@ export const sendFounderFeedbackEmail = internalMutation({
 
 		const { emailId, subject } = await sendFounderEmail(ctx, {
 			kind: 'founder-feedback',
-			config: guards.config,
+			sender: guards.sender,
 			recipient: guards.recipient,
 			template: guards.template,
 			thread
@@ -313,7 +315,7 @@ export const sendFounderCancellationEmail = internalMutation({
 
 		const { emailId, subject } = await sendFounderEmail(ctx, {
 			kind: 'founder-cancellation',
-			config: guards.config,
+			sender: guards.sender,
 			recipient: guards.recipient,
 			template: guards.template
 		});
@@ -339,5 +341,32 @@ export const recordFounderEmailSendFailure = internalMutation({
 		const row = await ctx.db.get('founderEmailSends', sendId);
 		if (row?.status !== 'scheduled') return null;
 		return await skipRow(ctx, sendId, 'send_failed');
+	}
+});
+
+/**
+ * Opt one user out of the personal founder emails (welcome, feedback, cancellation),
+ * or back in. Every pending and future send to them then skips as `suppressed`.
+ * Resend's suppression list would block all mail to the address team-wide,
+ * password resets and invoices included; this blocks only founder mail, per user.
+ * Idempotent; throws for a user id that does not exist. Operator-only:
+ *
+ *   bunx convex run emails/founderEmails:setPersonalEmailSuppression '{"userId":"<id>","suppressed":true}'
+ */
+export const setPersonalEmailSuppression = internalMutation({
+	args: { userId: v.string(), suppressed: v.boolean() },
+	returns: v.null(),
+	handler: async (ctx, { userId, suppressed }) => {
+		if (!(await readAuthUser(ctx, userId))) throw new Error('User not found');
+		const existing = await ctx.db
+			.query('personalEmailSuppressions')
+			.withIndex('by_user', (q) => q.eq('userId', userId))
+			.first();
+		if (suppressed && !existing) {
+			await ctx.db.insert('personalEmailSuppressions', { userId, createdAt: Date.now() });
+		} else if (!suppressed && existing) {
+			await ctx.db.delete('personalEmailSuppressions', existing._id);
+		}
+		return null;
 	}
 });

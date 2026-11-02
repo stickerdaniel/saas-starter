@@ -7,7 +7,11 @@ import payingScheduledCancelLink from '../admin/customerNotifications/__fixtures
 import { normalizeCustomerBilling } from '../admin/customerNotifications/billing';
 import authSchema from '../betterAuth/schema';
 import schema from '../schema';
-import { FOUNDER_CANCELLATION_DEFAULTS, FOUNDER_FEEDBACK_DEFAULTS } from './helpers';
+import {
+	FOUNDER_CANCELLATION_DEFAULTS,
+	FOUNDER_FEEDBACK_DEFAULTS,
+	FOUNDER_WELCOME_DEFAULTS
+} from './helpers';
 import { resend } from './resend';
 
 /**
@@ -245,43 +249,58 @@ async function createAdmin(t: Harness, name = 'Sam Founder', email = 'sam@exampl
 	return await createUser(t, { name, email, role: 'admin' });
 }
 
-/** Save one email from an admin's settings card, which makes them its sender. */
-async function enable(
+type SwitchableEmail = 'feedback' | 'cancellation';
+
+/** Save the welcome card as an admin, which makes them the contact person. */
+async function becomeContact(
 	t: Harness,
 	adminId: string,
-	email: 'welcome' | 'feedback' | 'cancellation',
 	overrides: Partial<{ name: string; title: string; replyTo: string }> = {}
 ) {
 	const admin = await signIn(t, adminId);
-	const configs = await admin.query(api.admin.founderWelcome.queries.getFounderEmailConfigs, {});
-	await admin.mutation(api.admin.founderWelcome.mutations.updateEmailConfig, {
-		email,
+	await admin.mutation(api.admin.founderWelcome.mutations.updateConfig, {
 		name: 'Sam',
 		title: 'Founder',
-		subject: configs[email].subject,
-		body: configs[email].body,
+		subject: FOUNDER_WELCOME_DEFAULTS.subject,
+		body: FOUNDER_WELCOME_DEFAULTS.body,
 		...overrides
 	});
 }
 
-/** The welcome's contact person from before each email had its own sender. */
-async function legacyWelcomeContact(t: Harness, adminId: string) {
-	await t.run(async (ctx) => {
-		await ctx.db.insert('adminSettings', {
-			key: 'founderWelcome.contactUserId',
-			value: adminId,
-			updatedAt: Date.now(),
-			updatedBy: adminId
-		});
-		await ctx.db.insert('adminProfiles', {
-			userId: adminId,
-			founderWelcomeName: 'Sam',
-			founderWelcomeTitle: 'Founder'
-		});
+async function setSwitch(t: Harness, adminId: string, email: SwitchableEmail, enabled: boolean) {
+	const admin = await signIn(t, adminId);
+	await admin.mutation(api.admin.founderWelcome.mutations.setFounderEmailEnabled, {
+		email,
+		enabled
 	});
 }
 
-async function sendRows(t: Harness, userId: string, email?: 'feedback' | 'cancellation') {
+/** A new admin who becomes the contact person and switches the given emails on. */
+async function contactWith(t: Harness, ...emails: SwitchableEmail[]): Promise<string> {
+	const adminId = await createAdmin(t);
+	await becomeContact(t, adminId);
+	for (const email of emails) await setSwitch(t, adminId, email, true);
+	return adminId;
+}
+
+async function suppress(t: Harness, userId: string, suppressed = true) {
+	await t.mutation(internal.emails.founderEmails.setPersonalEmailSuppression, {
+		userId,
+		suppressed
+	});
+}
+
+async function suppressionRows(t: Harness, userId: string) {
+	return await t.run(async (ctx) =>
+		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Test: one user's opt-out rows in a convex-test backend
+		ctx.db
+			.query('personalEmailSuppressions')
+			.withIndex('by_user', (q) => q.eq('userId', userId))
+			.collect()
+	);
+}
+
+async function sendRows(t: Harness, userId: string, email?: SwitchableEmail) {
 	const rows = await t.run(async (ctx) =>
 		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Test: one user's ledger rows in a convex-test backend
 		ctx.db
@@ -302,7 +321,7 @@ async function welcomeRows(t: Harness, userId: string) {
 	);
 }
 
-/** Pending jobs of the founder emails, without the admin signup notices. */
+/** Pending jobs of the feedback and cancellation emails, without the welcome and admin notices. */
 async function pendingFounderJobs(t: Harness) {
 	const jobs = await t.run(async (ctx) => ctx.db.system.query('_scheduled_functions').take(50));
 	return jobs.filter((job) => job.state.kind === 'pending' && job.name.includes('founderEmail'));
@@ -317,10 +336,13 @@ function invoice(total: number, status = 'paid', product = 'free') {
 	return { ...FIXTURE_INVOICE, product_ids: [product], status, total };
 }
 
+const feedbackSends = () =>
+	founderSends().filter((email) => template(email) === 'founder-feedback');
+
 describe('founder welcome email', () => {
-	it('keeps welcoming signups from the legacy contact person', async () => {
+	it('welcomes signups as the contact person', async () => {
 		const t = harness();
-		await legacyWelcomeContact(t, await createAdmin(t));
+		await contactWith(t);
 		const userId = await signUp(t);
 		await drainScheduled(t);
 
@@ -329,28 +351,23 @@ describe('founder welcome email', () => {
 		expect((await welcomeRows(t, userId))[0]).toMatchObject({ status: 'sent' });
 	});
 
-	it('takes over the legacy contact once an admin saves the welcome', async () => {
+	it('skips a suppressed user', async () => {
 		const t = harness();
-		const legacyId = await createAdmin(t, 'Old Founder', 'old@example.com');
-		await legacyWelcomeContact(t, legacyId);
-		await enable(t, await createAdmin(t), 'welcome', { name: 'Sam Two' });
-		await signUp(t);
+		await contactWith(t);
+		const userId = await signUp(t);
+		await suppress(t, userId);
 		await drainScheduled(t);
 
-		expect(founderSends()[0]!.from).toBe('Sam Two <founder@example.com>');
-		const legacy = await t.run(async (ctx) =>
-			ctx.db
-				.query('adminSettings')
-				.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.contactUserId'))
-				.unique()
-		);
-		expect(legacy).toBeNull();
+		expect(founderSends()).toEqual([]);
+		expect((await welcomeRows(t, userId))[0]).toMatchObject({
+			status: 'skipped',
+			skippedReason: 'suppressed'
+		});
 	});
 
-	it('stays off once stopped, even with a legacy contact setting', async () => {
+	it('stays off once the contact person steps down', async () => {
 		const t = harness();
-		const adminId = await createAdmin(t);
-		await legacyWelcomeContact(t, adminId);
+		const adminId = await contactWith(t);
 		const admin = await signIn(t, adminId);
 		await admin.mutation(api.admin.founderWelcome.mutations.stepDown, {});
 		const userId = await signUp(t);
@@ -364,9 +381,7 @@ describe('founder welcome email', () => {
 describe('founder feedback email', () => {
 	it('replies in the welcome thread 48 hours after an OAuth signup who never paid', async () => {
 		const t = harness();
-		const adminId = await createAdmin(t);
-		await enable(t, adminId, 'welcome');
-		await enable(t, adminId, 'feedback');
+		await contactWith(t, 'feedback');
 		const userId = await signUp(t);
 
 		await runFor(t, 47 * HOUR_MS);
@@ -386,22 +401,59 @@ describe('founder feedback email', () => {
 		});
 	});
 
-	it('asks standalone when there is no welcome to reply to', async () => {
+	it('goes out as the contact person, like the welcome', async () => {
 		const t = harness();
-		await enable(t, await createAdmin(t), 'feedback');
+		const adminId = await createAdmin(t);
+		await becomeContact(t, adminId, { name: 'Kim', replyTo: 'help@example.com' });
+		await setSwitch(t, adminId, 'feedback', true);
 		await signUp(t);
 		await drainScheduled(t);
 
+		const [welcome, feedback] = founderSends();
+		for (const email of [welcome, feedback]) {
+			expect(email!.from).toBe('Kim <founder@example.com>');
+			expect(email!.replyTo).toEqual(['help@example.com']);
+		}
+	});
+
+	it('sends the template the contact person saved', async () => {
+		const t = harness();
+		const adminId = await contactWith(t, 'feedback');
+		const admin = await signIn(t, adminId);
+		await admin.mutation(api.admin.founderWelcome.mutations.updateFounderEmailTemplate, {
+			email: 'feedback',
+			subject: 'Anything missing?',
+			body: 'Hi {{userFirstName}}, what did you hope for?'
+		});
+		await signUp(t);
+		await drainScheduled(t);
+
+		expect(feedbackSends()[0]!.text).toBe('Hi Ada, what did you hope for?');
+	});
+
+	it('asks standalone when there is no welcome to reply to', async () => {
+		const t = harness();
+		await contactWith(t, 'feedback');
+		const userId = await signUp(t);
+		// A signup whose welcome never went out.
+		await t.run(async (ctx) => {
+			const welcome = await ctx.db
+				.query('founderWelcomeEmails')
+				.withIndex('by_user', (q) => q.eq('userId', userId))
+				.unique();
+			await ctx.db.delete('founderWelcomeEmails', welcome!._id);
+		});
+		await drainScheduled(t);
+
 		const [feedback] = founderSends();
+		expect(template(feedback)).toBe('founder-feedback');
 		expect(feedback!.subject).toBe(FOUNDER_FEEDBACK_DEFAULTS.subject);
 		expect(header(feedback, 'In-Reply-To')).toBeUndefined();
 	});
 
 	it('sends standalone when the welcome thread cannot be read', async () => {
 		const t = harness();
-		const adminId = await createAdmin(t);
-		await enable(t, adminId, 'welcome');
-		await enable(t, adminId, 'feedback');
+		await contactWith(t, 'feedback');
 		await signUp(t);
 		network.mockImplementation(async (input) => {
 			const url = input instanceof Request ? input.url : String(input);
@@ -410,14 +462,14 @@ describe('founder feedback email', () => {
 		});
 		await drainScheduled(t);
 
-		const feedback = founderSends().find((email) => template(email) === 'founder-feedback');
+		const [feedback] = feedbackSends();
 		expect(feedback!.subject).toBe(FOUNDER_FEEDBACK_DEFAULTS.subject);
 		expect(header(feedback, 'In-Reply-To')).toBeUndefined();
 	});
 
 	it('waits for a password signup to verify, then asks 48 hours later', async () => {
 		const t = harness();
-		await enable(t, await createAdmin(t), 'feedback');
+		await contactWith(t, 'feedback');
 		const userId = await signUp(t, {
 			name: 'Ada Lovelace',
 			email: 'ada@example.com',
@@ -430,15 +482,15 @@ describe('founder feedback email', () => {
 		vi.advanceTimersByTime(3 * DAY_MS);
 		await verify(t, userId);
 		await runFor(t, 47 * HOUR_MS);
-		expect(founderSends()).toEqual([]);
+		expect(feedbackSends()).toEqual([]);
 
 		await drainScheduled(t);
-		expect(founderSends().map(template)).toEqual(['founder-feedback']);
+		expect(feedbackSends()).toHaveLength(1);
 	});
 
 	it('skips the feedback email when the address changed before verification', async () => {
 		const t = harness();
-		await enable(t, await createAdmin(t), 'feedback');
+		await contactWith(t, 'feedback');
 		const userId = await signUp(t, {
 			name: 'Ada Lovelace',
 			email: 'ada@example.com',
@@ -447,7 +499,7 @@ describe('founder feedback email', () => {
 		await verify(t, userId, { email: 'ada@new.example.com' });
 		await drainScheduled(t);
 
-		expect(founderSends()).toEqual([]);
+		expect(feedbackSends()).toEqual([]);
 		expect((await sendRows(t, userId, 'feedback'))[0]).toMatchObject({
 			status: 'skipped',
 			skippedReason: 'email_changed'
@@ -477,12 +529,12 @@ describe('founder feedback email', () => {
 		}
 	])('skips a user with $case', async ({ read, reason }) => {
 		const t = harness();
-		await enable(t, await createAdmin(t), 'feedback');
+		await contactWith(t, 'feedback');
 		autumnCustomer.mockImplementation(async () => read());
 		const userId = await signUp(t);
 		await drainScheduled(t);
 
-		expect(founderSends()).toEqual([]);
+		expect(feedbackSends()).toEqual([]);
 		expect((await sendRows(t, userId, 'feedback'))[0]).toMatchObject({
 			status: 'skipped',
 			skippedReason: reason
@@ -491,14 +543,14 @@ describe('founder feedback email', () => {
 
 	it('still asks a user whose only invoice was fully discounted', async () => {
 		const t = harness();
-		await enable(t, await createAdmin(t), 'feedback');
+		await contactWith(t, 'feedback');
 		autumnCustomer.mockImplementation(async () =>
 			customer({ products: [], invoices: [invoice(0, 'paid', 'pro')] })
 		);
 		await signUp(t);
 		await drainScheduled(t);
 
-		expect(founderSends().map(template)).toEqual(['founder-feedback']);
+		expect(feedbackSends()).toHaveLength(1);
 	});
 
 	it.each([
@@ -506,7 +558,7 @@ describe('founder feedback email', () => {
 		{ case: 'a test address', data: { email: 'ada@e2e.example.com' }, reason: 'test_email' }
 	])('skips $case without asking Autumn', async ({ data, reason }) => {
 		const t = harness();
-		await enable(t, await createAdmin(t), 'feedback');
+		await contactWith(t, 'feedback');
 		const userId = await signUp(t, { name: 'Ada Lovelace', email: 'ada@example.com', ...data });
 		await drainScheduled(t);
 
@@ -517,13 +569,41 @@ describe('founder feedback email', () => {
 		});
 	});
 
-	it('skips a row whose email was stopped before it was due', async () => {
+	it('skips a suppressed user without asking Autumn', async () => {
 		const t = harness();
-		const adminId = await createAdmin(t);
-		await enable(t, adminId, 'feedback');
+		await contactWith(t, 'feedback');
+		const userId = await signUp(t);
+		await suppress(t, userId);
+		await drainScheduled(t);
+
+		expect(founderSends()).toEqual([]);
+		expect(autumnCustomer).not.toHaveBeenCalled();
+		expect((await sendRows(t, userId, 'feedback'))[0]).toMatchObject({
+			status: 'skipped',
+			skippedReason: 'suppressed'
+		});
+	});
+
+	it('skips a row whose email was switched off before it was due', async () => {
+		const t = harness();
+		const adminId = await contactWith(t, 'feedback');
+		const userId = await signUp(t);
+		await setSwitch(t, adminId, 'feedback', false);
+		await drainScheduled(t);
+
+		expect(feedbackSends()).toEqual([]);
+		expect((await sendRows(t, userId, 'feedback'))[0]).toMatchObject({
+			status: 'skipped',
+			skippedReason: 'feature_disabled'
+		});
+	});
+
+	it('skips a row once the contact person stepped down', async () => {
+		const t = harness();
+		const adminId = await contactWith(t, 'feedback');
 		const userId = await signUp(t);
 		const admin = await signIn(t, adminId);
-		await admin.mutation(api.admin.founderWelcome.mutations.disableEmail, { email: 'feedback' });
+		await admin.mutation(api.admin.founderWelcome.mutations.stepDown, {});
 		await drainScheduled(t);
 
 		expect(founderSends()).toEqual([]);
@@ -535,7 +615,7 @@ describe('founder feedback email', () => {
 
 	it('records a send that fails after the billing answer', async () => {
 		const t = harness();
-		await enable(t, await createAdmin(t), 'feedback');
+		await contactWith(t, 'feedback');
 		const userId = await signUp(t);
 		vi.mocked(resend.sendEmail).mockRejectedValue(new Error('component down'));
 		await drainScheduled(t);
@@ -548,7 +628,7 @@ describe('founder feedback email', () => {
 
 	it('reads nothing from Autumn for a row that is no longer waiting', async () => {
 		const t = harness();
-		await enable(t, await createAdmin(t), 'feedback');
+		await contactWith(t, 'feedback');
 		const userId = await signUp(t);
 		const [row] = await sendRows(t, userId, 'feedback');
 		await t.run(async (ctx) => {
@@ -566,12 +646,25 @@ describe('founder feedback email', () => {
 		expect(network).not.toHaveBeenCalled();
 	});
 
-	it('opens no row while the feedback email is off', async () => {
+	it('opens no row while its switch is off', async () => {
 		const t = harness();
+		await contactWith(t);
 		const userId = await signUp(t);
 
 		expect(await sendRows(t, userId)).toEqual([]);
 		expect(await pendingFounderJobs(t)).toEqual([]);
+	});
+
+	it('opens no row without a contact person, whatever the switch says', async () => {
+		const t = harness();
+		const adminId = await contactWith(t, 'feedback');
+		const admin = await signIn(t, adminId);
+		await admin.mutation(api.admin.founderWelcome.mutations.stepDown, {});
+		const userId = await signUp(t);
+		await drainScheduled(t);
+
+		expect(await sendRows(t, userId)).toEqual([]);
+		expect(founderSends()).toEqual([]);
 	});
 });
 
@@ -597,12 +690,13 @@ describe('founder cancellation email', () => {
 		});
 	}
 
-	/** Switch the email on before the fixture's cancellation. */
-	async function enableBeforeCancellation(t: Harness) {
+	/** Make a contact person who switches the email on before the fixture's cancellation. */
+	async function enableBeforeCancellation(t: Harness): Promise<string> {
 		const now = Date.now();
 		vi.setSystemTime(FIXTURE_PRODUCT!.canceled_at - DAY_MS);
-		await enable(t, await createAdmin(t), 'cancellation');
+		const adminId = await contactWith(t, 'cancellation');
 		vi.setSystemTime(now);
+		return adminId;
 	}
 
 	beforeEach(() => {
@@ -622,12 +716,24 @@ describe('founder cancellation email', () => {
 		const [email] = founderSends();
 		expect(template(email)).toBe('founder-cancellation');
 		expect(email!.to).toBe('ada@example.com');
+		expect(email!.from).toBe('Sam <founder@example.com>');
 		expect(email!.subject).toBe(FOUNDER_CANCELLATION_DEFAULTS.subject);
 		expect(header(email, 'X-Email-Category')).toBe('lifecycle');
 		expect((await sendRows(t, userId, 'cancellation'))[0]).toMatchObject({
 			status: 'sent',
 			dedupeKey: String(FIXTURE_PRODUCT!.canceled_at)
 		});
+	});
+
+	it('keeps the first switch-on time when switched on again', async () => {
+		const t = harness();
+		const adminId = await enableBeforeCancellation(t);
+		await setSwitch(t, adminId, 'cancellation', true);
+		const userId = await payingCustomer(t);
+		await observe(t, userId);
+		await drainScheduled(t);
+
+		expect(founderSends().map(template)).toEqual(['founder-cancellation']);
 	});
 
 	it('opens one row for repeated observations of one cancellation', async () => {
@@ -654,11 +760,49 @@ describe('founder cancellation email', () => {
 
 	it('asks nobody who cancelled before the email was switched on', async () => {
 		const t = harness();
-		await enable(t, await createAdmin(t), 'cancellation');
+		await contactWith(t, 'cancellation');
 		const userId = await payingCustomer(t);
 		await observe(t, userId);
 
 		expect(await sendRows(t, userId, 'cancellation')).toEqual([]);
+	});
+
+	it('admits nothing while its switch is off', async () => {
+		const t = harness();
+		const adminId = await enableBeforeCancellation(t);
+		await setSwitch(t, adminId, 'cancellation', false);
+		const userId = await payingCustomer(t);
+		await observe(t, userId);
+
+		expect(await sendRows(t, userId, 'cancellation')).toEqual([]);
+	});
+
+	it('admits nothing without a contact person', async () => {
+		const t = harness();
+		const adminId = await enableBeforeCancellation(t);
+		const admin = await signIn(t, adminId);
+		await admin.mutation(api.admin.founderWelcome.mutations.stepDown, {});
+		const userId = await payingCustomer(t);
+		await observe(t, userId);
+		await drainScheduled(t);
+
+		expect(await sendRows(t, userId, 'cancellation')).toEqual([]);
+		expect(founderSends()).toEqual([]);
+	});
+
+	it('skips a suppressed customer', async () => {
+		const t = harness();
+		await enableBeforeCancellation(t);
+		const userId = await payingCustomer(t);
+		await suppress(t, userId);
+		await observe(t, userId);
+		await drainScheduled(t);
+
+		expect(founderSends()).toEqual([]);
+		expect((await sendRows(t, userId, 'cancellation'))[0]).toMatchObject({
+			status: 'skipped',
+			skippedReason: 'suppressed'
+		});
 	});
 
 	it.each([
@@ -755,48 +899,62 @@ describe('founder cancellation email', () => {
 	});
 });
 
-describe('founder email senders', () => {
-	it('sends each email as the admin who saved it', async () => {
+describe('founder email settings', () => {
+	it('lets only the contact person switch an email', async () => {
 		const t = harness();
-		await enable(t, await createAdmin(t, 'Sam Founder', 'sam@example.com'), 'welcome', {
-			name: 'Sam'
-		});
-		await enable(t, await createAdmin(t, 'Kim Support', 'kim@example.com'), 'feedback', {
-			name: 'Kim',
-			replyTo: 'help@example.com'
-		});
-		await signUp(t);
-		await drainScheduled(t);
-
-		const [welcome, feedback] = founderSends();
-		expect(welcome!.from).toBe('Sam <founder@example.com>');
-		expect(welcome!.replyTo).toEqual(['sam@example.com']);
-		expect(feedback!.from).toBe('Kim <founder@example.com>');
-		expect(feedback!.replyTo).toEqual(['help@example.com']);
-	});
-
-	it('lets only the current sender stop an email', async () => {
-		const t = harness();
-		await enable(t, await createAdmin(t), 'feedback');
+		await contactWith(t);
 		const other = await signIn(t, await createAdmin(t, 'Kim Support', 'kim@example.com'));
 
 		await expect(
-			other.mutation(api.admin.founderWelcome.mutations.disableEmail, { email: 'feedback' })
+			other.mutation(api.admin.founderWelcome.mutations.setFounderEmailEnabled, {
+				email: 'feedback',
+				enabled: true
+			})
+		).rejects.toThrow();
+		const userId = await signUp(t);
+		expect(await sendRows(t, userId)).toEqual([]);
+	});
+
+	it('lets only the contact person edit a template', async () => {
+		const t = harness();
+		await contactWith(t);
+		const other = await signIn(t, await createAdmin(t, 'Kim Support', 'kim@example.com'));
+
+		await expect(
+			other.mutation(api.admin.founderWelcome.mutations.updateFounderEmailTemplate, {
+				email: 'cancellation',
+				subject: 'Hello',
+				body: 'Hi'
+			})
+		).rejects.toThrow();
+		const settings = await other.query(
+			api.admin.founderWelcome.queries.getFounderEmailSettings,
+			{}
+		);
+		expect(settings.cancellation.subject).toBe(FOUNDER_CANCELLATION_DEFAULTS.subject);
+	});
+
+	it('refuses switches while nobody is the contact person', async () => {
+		const t = harness();
+		const admin = await signIn(t, await createAdmin(t));
+
+		await expect(
+			admin.mutation(api.admin.founderWelcome.mutations.setFounderEmailEnabled, {
+				email: 'feedback',
+				enabled: true
+			})
 		).rejects.toThrow();
 	});
 
 	it.each([
-		{ field: 'name', value: '  ' },
-		{ field: 'subject', value: '' },
-		{ field: 'replyTo', value: 'not-an-address' }
-	])('refuses to save an invalid $field', async ({ field, value }) => {
+		{ field: 'subject', value: ' ' },
+		{ field: 'body', value: '' }
+	])('refuses to save an empty $field', async ({ field, value }) => {
 		const t = harness();
-		const admin = await signIn(t, await createAdmin(t));
+		const admin = await signIn(t, await contactWith(t));
 		await expect(
-			admin.mutation(api.admin.founderWelcome.mutations.updateEmailConfig, {
-				email: 'cancellation',
-				name: 'Sam',
-				title: 'Founder',
+			admin.mutation(api.admin.founderWelcome.mutations.updateFounderEmailTemplate, {
+				email: 'feedback',
 				subject: 'Hello',
 				body: 'Hi',
 				[field]: value
@@ -804,41 +962,77 @@ describe('founder email senders', () => {
 		).rejects.toThrow();
 	});
 
-	it('pre-fills an email that is off with the viewer’s last values', async () => {
+	it('shows the shared sender and who may edit', async () => {
 		const t = harness();
-		const adminId = await createAdmin(t);
-		await enable(t, adminId, 'welcome', { name: 'Sammy', title: 'CEO', replyTo: 'hi@example.com' });
-		const admin = await signIn(t, adminId);
+		const contactId = await contactWith(t, 'feedback');
+		const other = await signIn(t, await createAdmin(t, 'Kim Support', 'kim@example.com'));
 
-		const configs = await admin.query(api.admin.founderWelcome.queries.getFounderEmailConfigs, {});
-		expect(configs.welcome.senderUserId).toBe(adminId);
-		expect(configs.cancellation).toMatchObject({
-			senderUserId: null,
-			name: 'Sammy',
-			title: 'CEO',
-			replyTo: 'hi@example.com',
-			subject: FOUNDER_CANCELLATION_DEFAULTS.subject
+		expect(
+			await (
+				await signIn(t, contactId)
+			).query(api.admin.founderWelcome.queries.getFounderEmailSettings, {})
+		).toMatchObject({
+			sender: { name: 'Sam', title: 'Founder' },
+			canEdit: true,
+			feedback: { on: true },
+			cancellation: { on: false }
 		});
+		expect(
+			await other.query(api.admin.founderWelcome.queries.getFounderEmailSettings, {})
+		).toMatchObject({ canEdit: false });
+	});
+});
+
+describe('personal email suppression', () => {
+	it('is idempotent and lets a user back in', async () => {
+		const t = harness();
+		await contactWith(t);
+		const userId = await createUser(t, { name: 'Ada Lovelace', email: 'ada@example.com' });
+		await suppress(t, userId);
+		await suppress(t, userId);
+		expect(await suppressionRows(t, userId)).toHaveLength(1);
+
+		await suppress(t, userId, false);
+		await suppress(t, userId, false);
+		expect(await suppressionRows(t, userId)).toEqual([]);
+	});
+
+	it('refuses a user that does not exist', async () => {
+		const t = harness();
+		const userId = await createUser(t, { name: 'Ada Lovelace', email: 'ada@example.com' });
+		await deleteUser(t, userId);
+
+		await expect(suppress(t, userId)).rejects.toThrow('User not found');
 	});
 });
 
 describe('founder emails on account deletion', () => {
 	it('erases the rows and cancels the pending sends', async () => {
 		const t = harness();
-		const adminId = await createAdmin(t);
-		await enable(t, adminId, 'feedback');
+		await contactWith(t, 'feedback');
 		const userId = await signUp(t);
 		expect(await pendingFounderJobs(t)).toHaveLength(1);
 
 		await deleteUser(t, userId);
 
 		expect(await sendRows(t, userId)).toEqual([]);
+		expect(await welcomeRows(t, userId)).toEqual([]);
 		expect(await pendingFounderJobs(t)).toEqual([]);
+	});
+
+	it('erases the opt-out', async () => {
+		const t = harness();
+		const userId = await createUser(t, { name: 'Ada Lovelace', email: 'ada@example.com' });
+		await suppress(t, userId);
+
+		await deleteUser(t, userId);
+
+		expect(await suppressionRows(t, userId)).toEqual([]);
 	});
 
 	it('cancels a billing read that has not started yet', async () => {
 		const t = harness();
-		await enable(t, await createAdmin(t), 'feedback');
+		await contactWith(t, 'feedback');
 		const userId = await signUp(t);
 		const [row] = await sendRows(t, userId, 'feedback');
 		// The 48-hour pass hands the billing question to its action.
@@ -854,11 +1048,9 @@ describe('founder emails on account deletion', () => {
 		expect(job?.state.kind).toBe('canceled');
 	});
 
-	it("turns off a deleted admin's emails and drops a legacy contact naming them", async () => {
+	it('turns all three emails off when the contact person is deleted', async () => {
 		const t = harness();
-		const adminId = await createAdmin(t);
-		await legacyWelcomeContact(t, adminId);
-		await enable(t, adminId, 'feedback');
+		const adminId = await contactWith(t, 'feedback', 'cancellation');
 
 		await deleteUser(t, adminId);
 		const userId = await signUp(t);
@@ -866,19 +1058,18 @@ describe('founder emails on account deletion', () => {
 
 		expect(await sendRows(t, userId)).toEqual([]);
 		expect(await welcomeRows(t, userId)).toEqual([]);
-		const sender = await t.run(async (ctx) =>
+		const contact = await t.run(async (ctx) =>
 			ctx.db
-				.query('founderEmailSenders')
-				.withIndex('by_email', (q) => q.eq('email', 'feedback'))
+				.query('adminSettings')
+				.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.contactUserId'))
 				.unique()
 		);
-		expect(sender?.senderUserId).toBeUndefined();
-		expect(sender?.name).toBe('');
+		expect(contact).toBeNull();
 	});
 
 	it('keeps the rows of other users', async () => {
 		const t = harness();
-		await enable(t, await createAdmin(t), 'feedback');
+		await contactWith(t, 'feedback');
 		const keptId = await signUp(t, { name: 'Grace Hopper', email: 'grace@example.com' });
 		const deletedId = await signUp(t);
 

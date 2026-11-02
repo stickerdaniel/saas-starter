@@ -19,7 +19,11 @@ import {
 	getFounderFeedbackDelay,
 	isTestEmail
 } from './emails/helpers';
-import { founderEmailHasSender } from './emails/founderEmailConfig';
+import {
+	CONTACT_SETTING_KEY,
+	readAdminSetting,
+	readFounderEmailActiveSince
+} from './emails/founderEmailConfig';
 import { eraseFounderEmailRows } from './emails/founderEmailErasure';
 import { incrementCounter } from './admin/counters';
 import { DISABLED_ADMIN_PATHS } from './admin/adminHttpPaths';
@@ -174,8 +178,12 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 				}
 
 				// Local seeded admin should not enqueue email-dependent onboarding jobs.
-				// Each founder email gets a row only while it has a sender.
-				if (!seededLocalAdmin && (await founderEmailHasSender(ctx.db, 'feedback'))) {
+				// Each founder email gets a row only while it is on: the welcome while a
+				// contact person is set, the feedback email while its switch is on too.
+				if (
+					!seededLocalAdmin &&
+					(await readFounderEmailActiveSince(ctx.db, 'feedback')) !== undefined
+				) {
 					// Founder feedback email: 48 hours after signup (OAuth) or after
 					// verification (email/password); the send skips anyone who paid.
 					const sendId = await ctx.db.insert('founderEmailSends', {
@@ -196,7 +204,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 					}
 				}
 
-				if (!seededLocalAdmin && (await founderEmailHasSender(ctx.db, 'welcome'))) {
+				if (!seededLocalAdmin && (await readAdminSetting(ctx.db, CONTACT_SETTING_KEY))) {
 					if (user.emailVerified) {
 						// OAuth signup: send right away
 						const id = await ctx.db.insert('founderWelcomeEmails', {
