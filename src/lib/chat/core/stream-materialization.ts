@@ -173,16 +173,68 @@ function toCanonicalToolPart(part: UIMessage['parts'][number]): UIMessage['parts
 }
 
 /**
+ * Joins `next` onto `previous` when both append to the same text, reasoning
+ * or tool input part, and returns undefined otherwise. The AI SDK reader
+ * concatenates these deltas and keeps the last provider metadata that was set,
+ * so the joined chunk leaves the message in the state the pair would.
+ */
+function joinDeltaChunks(
+	previous: UIMessageChunk,
+	next: UIMessageChunk
+): UIMessageChunk | undefined {
+	if (previous.type === 'text-delta' && next.type === 'text-delta' && previous.id === next.id) {
+		return {
+			...previous,
+			delta: previous.delta + next.delta,
+			providerMetadata: next.providerMetadata ?? previous.providerMetadata
+		};
+	}
+	if (
+		previous.type === 'reasoning-delta' &&
+		next.type === 'reasoning-delta' &&
+		previous.id === next.id
+	) {
+		return {
+			...previous,
+			delta: previous.delta + next.delta,
+			providerMetadata: next.providerMetadata ?? previous.providerMetadata
+		};
+	}
+	if (
+		previous.type === 'tool-input-delta' &&
+		next.type === 'tool-input-delta' &&
+		previous.toolCallId === next.toolCallId
+	) {
+		return { ...previous, inputTextDelta: previous.inputTextDelta + next.inputTextDelta };
+	}
+	return undefined;
+}
+
+/**
  * Update a UIMessage from UIMessageChunk deltas using the AI SDK chunk reader.
+ *
+ * Every delta page replays the whole stream, and the reader spends one async
+ * step and one message snapshot per chunk, while the agent writes about one
+ * chunk per word. Runs of deltas for one part are therefore joined first, so a
+ * replay costs one reader step per part instead of one per word.
  */
 export async function updateFromUIMessageChunks(
 	uiMessage: UIMessage,
 	parts: UIMessageChunk[]
 ): Promise<UIMessage> {
+	const chunks: UIMessageChunk[] = [];
+	for (const part of parts) {
+		const chunk = redactToolErrorStreamPart(part);
+		const previous = chunks.at(-1);
+		const joined = previous && joinDeltaChunks(previous, chunk);
+		if (joined) chunks[chunks.length - 1] = joined;
+		else chunks.push(chunk);
+	}
+
 	const partsStream = new ReadableStream<UIMessageChunk>({
 		start(controller) {
-			for (const part of parts) {
-				controller.enqueue(redactToolErrorStreamPart(part));
+			for (const chunk of chunks) {
+				controller.enqueue(chunk);
 			}
 			controller.close();
 		}
