@@ -148,6 +148,9 @@ function printOptionalFeatureBanner(opts: {
 export default defineConfig(async ({ command, mode }) => {
 	const cwd = process.cwd();
 	const loadedEnv = loadEnv(mode, cwd, '');
+	// The build's commit SHA, or 'dev' without one. It names both the SvelteKit
+	// version and the Sentry release.
+	const buildVersion = appVersion();
 
 	// Sentry is production-only. CF Workers Builds shares build env vars across the
 	// production and preview triggers, so PUBLIC_SENTRY_DSN would otherwise bake into
@@ -325,7 +328,10 @@ export default defineConfig(async ({ command, mode }) => {
 					loadedEnv.SENTRY_AUTH_TOKEN &&
 					loadedEnv.SENTRY_ORG &&
 					loadedEnv.SENTRY_PROJECT
-				)
+				),
+				// Uploaded source maps carry the release the runtime init reports
+				// (`version` from $app/env). Forwarded only while uploads are on.
+				release: { name: buildVersion }
 			}))
 		);
 	}
@@ -424,7 +430,7 @@ export default defineConfig(async ({ command, mode }) => {
 				remoteFunctions: true
 			},
 			version: {
-				name: appVersion(),
+				name: buildVersion,
 				// Poll /_app/version.json in the background so updated.current flips to
 				// true after a new deploy, letting the beforeNavigate guard in the root
 				// layout force a full document load before importing a dead chunk hash.

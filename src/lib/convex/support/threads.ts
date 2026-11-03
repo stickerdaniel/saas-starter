@@ -28,6 +28,7 @@ import { normalizeNotificationEmail } from './notificationPreferences';
 import { toAgentThreadStatus } from './denormalization';
 import { authComponent } from '../auth';
 import { normalizeSupportPageRoute } from '../../shared/support-page-route';
+import { recordSupportMessageContext } from './messageContext';
 
 export { shouldSendNotification } from './notificationPreferences';
 export { syncSupportLastMessage } from './threadLifecycle';
@@ -340,7 +341,9 @@ export const updateThreadHandoff = mutation({
 		threadId: v.string(),
 		anonymousUserId: v.optional(v.string()), // For anonymous users
 		// Optional so clients that predate per-message routes stay valid.
-		pageUrl: v.optional(v.string())
+		pageUrl: v.optional(v.string()),
+		// The build the sender's tab runs. Clients that predate it omit it.
+		appVersion: v.optional(v.string())
 	},
 	returns: v.boolean(),
 	handler: async (ctx, args) => {
@@ -364,16 +367,13 @@ export const updateThreadHandoff = mutation({
 			skipEmbeddings: true
 		});
 
-		// The request names the page it was made from, like any other message.
-		const pageUrl = normalizeSupportPageRoute(args.pageUrl);
-		if (pageUrl) {
-			await ctx.db.insert('supportMessageContexts', {
-				threadId: args.threadId,
-				messageId,
-				pageUrl,
-				createdAt: Date.now()
-			});
-		}
+		// The request names the page and build it was made from, like any other message.
+		await recordSupportMessageContext(ctx, {
+			threadId: args.threadId,
+			messageId,
+			pageUrl: args.pageUrl,
+			appVersion: args.appVersion
+		});
 
 		// Save assistant response with email prompt
 		// Extract locale from the page URL where the user started the chat

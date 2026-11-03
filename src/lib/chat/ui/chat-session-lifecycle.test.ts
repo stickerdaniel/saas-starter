@@ -3,6 +3,7 @@ import { flushSync, mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import { ConvexClient } from 'convex/browser';
 import { getFunctionName } from 'convex/server';
+import { version } from '$app/env';
 import { api } from '#lib/convex/_generated/api.js';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
@@ -646,7 +647,8 @@ describe('chat session lifecycle', () => {
 			prompt: 'ordered prompt',
 			anonymousUserId: undefined,
 			fileIds: ['old-file-id', 'old-file-id', 'generation-two-file-id'],
-			pageUrl: window.location.pathname
+			pageUrl: window.location.pathname,
+			appVersion: version
 		});
 
 		const current = { page: [], isDone: true, continueCursor: '' };

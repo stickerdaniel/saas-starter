@@ -8,9 +8,15 @@ type SentryClient = NonNullable<ReturnType<typeof Sentry.getClient>>;
 type SentryTransport = NonNullable<ReturnType<SentryClient['getTransport']>>;
 type Envelope = Parameters<SentryTransport['send']>[0];
 
-const { envelopes } = vi.hoisted(() => ({ envelopes: [] as Envelope[] }));
+const { envelopes, runtimeRelease } = vi.hoisted(() => {
+	// A release the host environment could name. Only an explicit release keeps
+	// events on the compiled build whatever the host sets.
+	const runtimeRelease = process.env.SENTRY_RELEASE;
+	process.env.SENTRY_RELEASE = 'host-environment-release';
+	return { envelopes: [] as Envelope[], runtimeRelease };
+});
 
-vi.mock('$app/env', () => ({ browser: false }));
+vi.mock('$app/env', () => ({ browser: false, version: 'compiled-build' }));
 vi.mock('$app/env/public', () => ({ PUBLIC_SENTRY_DSN: 'https://public@example.com/1' }));
 // The server SDK as Cloudflare Workers resolve it: the `workerd` build
 // (@sentry/sveltekit/build/esm/index.workerd.js) exports no `init`.
@@ -40,6 +46,8 @@ import { loadSentry, loadSentryHandle } from './sentry';
 
 afterAll(async () => {
 	await (await loadSentry())?.close();
+	if (runtimeRelease === undefined) delete process.env.SENTRY_RELEASE;
+	else process.env.SENTRY_RELEASE = runtimeRelease;
 });
 
 it('reports a server error without request identity or source context', async () => {
@@ -85,6 +93,7 @@ it('reports a server error without request identity or source context', async ()
 	const [reported] = events;
 	expect(reported).toMatchObject({
 		exception: { values: [{ value: 'A safe exception' }] },
+		release: 'compiled-build',
 		request: { method: 'GET', headers: { 'content-type': 'application/json' } }
 	});
 	const serialized = JSON.stringify(reported);

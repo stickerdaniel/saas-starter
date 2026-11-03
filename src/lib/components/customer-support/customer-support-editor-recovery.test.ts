@@ -8,7 +8,8 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('$app/env', () => ({ browser: true }));
+// A support send reports the build its tab runs.
+vi.mock('$app/env', () => ({ browser: true, version: 'test-build' }));
 
 const state = vi.hoisted(() => ({
 	page: {
