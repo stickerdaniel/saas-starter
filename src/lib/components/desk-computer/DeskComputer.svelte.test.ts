@@ -55,6 +55,8 @@ const BACKSPACE = 13;
 const Q = 15;
 
 const screen = () => document.querySelector('svg text')?.textContent;
+const blinking = () =>
+	document.querySelector('[data-part="cursor"]')?.hasAttribute('data-blink') ?? false;
 const click = (key: number) =>
 	document
 		.querySelector(`[data-key="${key}"]`)
@@ -74,9 +76,10 @@ it('rests on the first CLI command under reduced motion, and a clicked key types
 it('settles on the first CLI command when reduced motion turns on mid-tour', async () => {
 	component = mount(DeskComputer, { target: document.body });
 	flushSync();
-	await vi.waitFor(() => expect(screen()).toBe('> '), { timeout: 5000 });
+	// The cursor blinks once the tour runs.
+	await vi.waitFor(() => expect(blinking()).toBe(true), { timeout: 5000 });
 
 	motion.set(true);
 	expect(screen()).toBe('> bun create saas-starter');
-	expect(document.querySelector('[data-part="cursor"]')?.hasAttribute('data-blink')).toBe(false);
+	expect(blinking()).toBe(false);
 });
