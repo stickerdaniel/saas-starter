@@ -214,9 +214,10 @@ function joinDeltaChunks(
  * Update a UIMessage from UIMessageChunk deltas using the AI SDK chunk reader.
  *
  * Every delta page replays the whole stream, and the reader spends one async
- * step and one message snapshot per chunk, while the agent writes about one
- * chunk per word. Runs of deltas for one part are therefore joined first, so a
- * replay costs one reader step per part instead of one per word.
+ * step and one message snapshot per chunk. The agent joins text inside each
+ * write, but a write lands about every 100 ms, so a long reply still holds one
+ * text chunk per write. Runs of deltas for one part are therefore joined across
+ * writes first, so a replay costs one reader step per run instead of per write.
  */
 export async function updateFromUIMessageChunks(
 	uiMessage: UIMessage,

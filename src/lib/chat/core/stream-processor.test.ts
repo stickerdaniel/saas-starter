@@ -424,9 +424,10 @@ describe('deriveUIMessagesFromDeltas', () => {
 			{ type: 'reasoning-end', id: 'r1' },
 			{ type: 'text-start', id: 't1' },
 			{ type: 'text-delta', id: 't1', delta: 'Checking ' },
+			{ type: 'text-delta', id: 't1', delta: 'the ' },
 			{ type: 'text-start', id: 't2' },
 			{ type: 'text-delta', id: 't2', delta: 'Other ' },
-			{ type: 'text-delta', id: 't1', delta: 'Tokyo.' },
+			{ type: 'text-delta', id: 't1', delta: 'weather.' },
 			{ type: 'text-delta', id: 't2', delta: 'part.' },
 			{ type: 'text-end', id: 't1' },
 			{ type: 'text-end', id: 't2' },
@@ -463,7 +464,7 @@ describe('deriveUIMessagesFromDeltas', () => {
 		}
 
 		expect(decoded!.parts).toEqual(expected!.parts);
-		expect(decoded!.text).toBe('Checking Tokyo.Other part.');
+		expect(decoded!.text).toBe('Checking the weather.Other part.');
 	});
 });
 
