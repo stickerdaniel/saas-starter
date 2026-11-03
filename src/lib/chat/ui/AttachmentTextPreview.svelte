@@ -171,7 +171,7 @@
 				{/snippet}
 				{#snippet link({ token, children })}
 					{#if isSafeHttpUrl(token.href)}
-						<a href={token.href} target="_blank" rel="noopener noreferrer nofollow">
+						<a href={token.href} target="_blank" rel="external noopener noreferrer nofollow">
 							{@render children()}
 						</a>
 					{:else}

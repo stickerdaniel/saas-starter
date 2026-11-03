@@ -145,7 +145,7 @@ function printOptionalFeatureBanner(opts: {
 	console.warn(lines.join('\n'));
 }
 
-export default defineConfig(async ({ mode }) => {
+export default defineConfig(async ({ command, mode }) => {
 	const cwd = process.cwd();
 	const loadedEnv = loadEnv(mode, cwd, '');
 
@@ -345,11 +345,12 @@ export default defineConfig(async ({ mode }) => {
 	// binding at worker boot, and `varlock-wrangler` (both deploy scripts wrap it) uploads that
 	// binding at deploy time as worker vars + secrets. Nothing is embedded in the bundle, so no
 	// @sensitive value can reach the worker script, which Cloudflare serves over its API and
-	// archives per version. The loader options are passed explicitly: varlock's adapter
-	// auto-detection reads the SvelteKit 2 option shape and finds nothing under SvelteKit 3.
-	// The adapter choice and this check read the same environment (scripts/build-target.ts),
-	// so Workers Builds and Pages get the loader and an explicit Node build never does.
-	const cloudflareBuild = isCloudflareBuild();
+	// archives per version. The adapter choice and this check read the same environment
+	// (scripts/build-target.ts), so Workers Builds and Pages get the loader and an explicit
+	// Node build never does. Only `vite build` emits the Worker: the email renderer's dev
+	// server runs in Node during Workers Builds' install step, where the loader throws for
+	// the missing binding.
+	const cloudflareBuild = command === 'build' && isCloudflareBuild();
 	// Third-party notices for the browser build. One instance per config factory
 	// call, so the client plugin and its worker plugins share one accumulator.
 	const licenses = thirdPartyLicenses();
@@ -374,17 +375,14 @@ export default defineConfig(async ({ mode }) => {
 		},
 		// Cloudflare: inject the Workers loader and embed no blob. Vercel/adapter-node
 		// production: embed the resolved-env blob (their only delivery channel), prepared
-		// above. Dev: init-only.
+		// above. Dev: init-only. An empty ssrEntryCode turns off varlock's own adapter
+		// detection, which would inject the loader whenever adapter-cloudflare is configured.
 		varlockVitePlugin(
 			cloudflareBuild
-				? {
-						ssrEntryCode: [CLOUDFLARE_SSR_ENTRY_CODE],
-						ssrEdgeRuntime: true,
-						isCloudflareTarget: true
-					}
+				? { ssrEntryCode: [CLOUDFLARE_SSR_ENTRY_CODE], isCloudflareTarget: true }
 				: mode === 'production'
-					? { ssrInjectMode: 'resolved-env' }
-					: {}
+					? { ssrInjectMode: 'resolved-env', ssrEntryCode: [] }
+					: { ssrEntryCode: [] }
 		),
 		tailwindcss(),
 		sveltekit({
