@@ -213,7 +213,6 @@
 		dedupeChatDisplayMessages(
 			buildDisplayMessages({
 				allMessages,
-				streamMessages,
 				streamingUIMessages,
 				streamCache: core.streamCache
 			})

@@ -208,8 +208,7 @@ const session: ChatSessionPort = {
 	streamCache: {
 		getCachedReasoning: () => undefined,
 		updateReasoningCache: () => {},
-		clearReasoningCache: () => {},
-		updateStatusCache: () => {}
+		clearReasoningCache: () => {}
 	}
 };
 

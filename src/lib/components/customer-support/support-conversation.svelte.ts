@@ -63,8 +63,7 @@ export class SupportConversation implements ChatSessionPort {
 		getCachedReasoning: (order) => this.currentStreamCache().getCachedReasoning(order),
 		updateReasoningCache: (order, reasoning) =>
 			this.currentStreamCache().updateReasoningCache(order, reasoning),
-		clearReasoningCache: (order) => this.currentStreamCache().clearReasoningCache(order),
-		updateStatusCache: (order, status) => this.currentStreamCache().updateStatusCache(order, status)
+		clearReasoningCache: (order) => this.currentStreamCache().clearReasoningCache(order)
 	};
 
 	private readonly threadStreamCache = new StreamCacheManager();

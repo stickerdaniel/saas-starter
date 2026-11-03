@@ -71,20 +71,10 @@ export function selectThreadStreamingUIMessages(
 }
 
 export function buildTransformContext(args: {
-	streamMessages: StreamMessage[];
 	streamingUIMessages: UIMessage[];
 	streamCache: StreamCachePort;
 }): TransformContext {
 	const streamMessageMap = new Map<number, UIMessage>();
-
-	[...args.streamMessages]
-		.sort((a, b) => {
-			if (a.order !== b.order) return a.order - b.order;
-			return a.stepOrder - b.stepOrder;
-		})
-		.forEach((streamMessage) => {
-			args.streamCache.updateStatusCache(streamMessage.order, streamMessage.status);
-		});
 
 	args.streamingUIMessages.forEach((uiMessage) => {
 		streamMessageMap.set(uiMessage.order, uiMessage);
@@ -102,12 +92,10 @@ export function buildTransformContext(args: {
 
 export function buildDisplayMessages(args: {
 	allMessages: ChatMessage[];
-	streamMessages: StreamMessage[];
 	streamingUIMessages: UIMessage[];
 	streamCache: StreamCachePort;
 }): DisplayMessage[] {
 	const context = buildTransformContext({
-		streamMessages: args.streamMessages,
 		streamingUIMessages: args.streamingUIMessages,
 		streamCache: args.streamCache
 	});

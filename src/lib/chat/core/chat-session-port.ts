@@ -1,5 +1,3 @@
-import type { StreamStatus } from './types.js';
-
 /**
  * The stream-cache operations consumed by the shared chat presentation layer.
  *
@@ -10,7 +8,6 @@ export interface StreamCachePort {
 	getCachedReasoning(order: number): string | undefined;
 	updateReasoningCache(order: number, reasoning: string): void;
 	clearReasoningCache(order: number): void;
-	updateStatusCache(order: number, status: StreamStatus): void;
 }
 
 /**

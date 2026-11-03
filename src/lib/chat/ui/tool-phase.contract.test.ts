@@ -65,7 +65,6 @@ function toolLine(rows: object[]) {
 	if (!message) throw new Error('expected one assistant message');
 	const display = buildDisplayMessages({
 		allMessages: [normalizeMessage(message as unknown as ChatMessage)],
-		streamMessages: [],
 		streamingUIMessages: [],
 		streamCache: new StreamCacheManager()
 	})[0]!;
