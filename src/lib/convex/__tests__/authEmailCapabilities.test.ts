@@ -73,10 +73,7 @@ describe('authentication email capability failures', () => {
 		};
 		const callbackCtx = {
 			runMutation: vi.fn(async (_reference: unknown, args: Record<string, unknown>) => {
-				if ('verificationUrl' in args) {
-					return await sendVerificationEmail._handler(mutationCtx, args);
-				}
-				return await sendResetPasswordEmail._handler(mutationCtx, args);
+				return await sendVerificationEmail._handler(mutationCtx, args);
 			})
 		};
 		const options = createAuthOptions(callbackCtx as never);
@@ -123,13 +120,6 @@ describe('authentication email capability failures', () => {
 			options.emailVerification.sendVerificationEmail({
 				user: callbackUser,
 				url: 'https://example.test/verify',
-				token: 'token'
-			})
-		).rejects.toBeInstanceOf(CapabilityConfigurationError);
-		await expect(
-			options.emailAndPassword.sendResetPassword({
-				user: callbackUser,
-				url: 'https://example.test/reset',
 				token: 'token'
 			})
 		).rejects.toBeInstanceOf(CapabilityConfigurationError);
@@ -252,7 +242,8 @@ describe('authentication email capability failures', () => {
 
 		const { createAuthOptions } = await import('../auth');
 		const runMutation = vi.fn().mockResolvedValue(null);
-		const options = createAuthOptions({ runMutation } as never);
+		const runAfter = vi.fn().mockResolvedValue(null);
+		const options = createAuthOptions({ runMutation, scheduler: { runAfter } } as never);
 		const auth = betterAuth({
 			baseURL: 'https://example.test',
 			secret: 'test-secret-that-is-long-enough-for-signing',
@@ -266,11 +257,21 @@ describe('authentication email capability failures', () => {
 			body: { email: 'unknown@example.test', redirectTo: '/reset-password' }
 		});
 		await auth.api.signUpEmail({ body: credentials });
+		runMutation.mockClear();
 		const known = await auth.api.requestPasswordReset({
 			body: { email: credentials.email, redirectTo: '/reset-password' }
 		});
 
 		expect(unknown).toEqual(known);
 		expect(known.status).toBe(true);
+		// A scheduled job builds and enqueues the mail; the response does not wait for
+		// it. Running it in the request would make a known address answer later than
+		// an unknown one.
+		expect(runMutation).not.toHaveBeenCalled();
+		expect(runAfter).toHaveBeenCalledOnce();
+		expect(runAfter.mock.calls[0]?.[2]).toMatchObject({
+			email: credentials.email,
+			resetUrl: expect.stringContaining('/reset-password/')
+		});
 	});
 });

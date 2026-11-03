@@ -493,14 +493,17 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			// Invalidate all other sessions after a password reset (e.g. account recovery after takeover)
 			revokeSessionsOnPasswordReset: true,
 			requireEmailVerification: true,
-			// Password reset email
+			// Password reset email. Better Auth awaits this callback for a known
+			// address and skips it for an unknown one, so the callback only schedules:
+			// rendering and the Resend enqueue stay off the response path that would
+			// reveal the account. The route's email-configuration preflight has run.
 			sendResetPassword: async ({ user, url }: SendResetPasswordArgs) => {
 				const mutationCtx = requireRunMutationCtx(ctx);
 				const email = requireAuthUserEmail(user, 'reset password email');
 				// Better Auth sends this for an OAuth-only account too, and the link
 				// works there: resetPassword creates the credential account it lacks.
 				// Only the wording has to know the difference.
-				await mutationCtx.runMutation(internal.emails.send.sendResetPasswordEmail, {
+				await mutationCtx.scheduler.runAfter(0, internal.emails.send.sendResetPasswordEmail, {
 					email,
 					resetUrl: url,
 					userName: user.name ?? undefined,
