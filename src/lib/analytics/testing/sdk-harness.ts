@@ -87,6 +87,11 @@ export function installNetworkRecorder() {
 			return true;
 		}
 	});
+	// With native CompressionStream the SDK gzips off the main thread and calls the
+	// transport only when zlib finishes, which a loaded runner delays past any flush
+	// window. Without it the SDK gzips synchronously and hands each unbatched event
+	// to the transport inside capture(), so "nothing was sent" is a sound assertion.
+	vi.stubGlobal('CompressionStream', undefined);
 
 	return {
 		events,
@@ -96,8 +101,8 @@ export function installNetworkRecorder() {
 			urls.length = 0;
 		},
 		/**
-		 * Waits for the SDK's send timers, then for every recorded body to be decoded.
-		 * The SDK hands a captured event to its transport on a timer, not synchronously.
+		 * Waits for SDK timers due within `ms`, then for every recorded body to be decoded.
+		 * Timers fire in due order, so load delays this wait but cannot reorder it.
 		 */
 		async flush(ms = 30): Promise<void> {
 			await new Promise((resolve) => setTimeout(resolve, ms));
