@@ -1,3 +1,4 @@
+import postcss from 'postcss';
 import { parse as parseSvelte } from 'svelte/compiler';
 import svelteParser from 'svelte-eslint-parser';
 import * as ts from 'typescript';
@@ -163,19 +164,46 @@ function markupComments(value: unknown, comments: Map<string, SourceComment>): v
 	for (const child of Object.values(node)) markupComments(child, comments);
 }
 
-function svelteComments(file: string, text: string): SourceComment[] {
-	const comments = new Map<string, SourceComment>();
-	const root = parseSvelte(text, { filename: file, modern: true });
-	for (const comment of root.comments) {
-		addCommentRange(
-			comments,
-			comment.type === 'Line' ? 'line' : 'block',
-			comment.start,
-			comment.end
-		);
+/**
+ * The `<style>` comments svelte-eslint-parser's style context walks, at the ranges its
+ * `styleNodeRange` gives them, which end one past the comment. Plain CSS is parsed here
+ * with the same PostCSS; another `lang` takes svelte-eslint-parser's own path.
+ */
+function addStyleComments(
+	comments: Map<string, SourceComment>,
+	file: string,
+	text: string,
+	style: NonNullable<ReturnType<typeof parseSvelte>['css']>
+): void {
+	let lang = 'css';
+	for (const attribute of style.attributes) {
+		if (attribute.type !== 'Attribute' || attribute.name !== 'lang') continue;
+		const [first] = Array.isArray(attribute.value) ? attribute.value : [];
+		if (first?.type === 'Text' && first.data !== '') lang = first.data;
 	}
-	markupComments(root.fragment, comments);
+	if (lang !== 'css' && lang !== 'postcss') {
+		addParserStyleComments(comments, file, text);
+		return;
+	}
+	let sourceAst: postcss.Root;
+	try {
+		sourceAst = postcss.parse(style.content.styles, { from: file });
+	} catch {
+		return;
+	}
+	sourceAst.walkComments((comment) => {
+		const start = comment.source?.start?.offset;
+		const end = comment.source?.end?.offset;
+		if (start === undefined || end === undefined) return;
+		addCommentRange(comments, 'block', style.content.start + start, style.content.start + end + 1);
+	});
+}
 
+function addParserStyleComments(
+	comments: Map<string, SourceComment>,
+	file: string,
+	text: string
+): void {
 	const parsed = svelteParser.parseForESLint(text, {
 		comment: true,
 		filePath: file,
@@ -191,6 +219,22 @@ function svelteComments(file: string, text: string): SourceComment[] {
 			if (start !== undefined && end !== undefined) addCommentRange(comments, 'block', start, end);
 		});
 	}
+}
+
+function svelteComments(file: string, text: string): SourceComment[] {
+	const comments = new Map<string, SourceComment>();
+	const root = parseSvelte(text, { filename: file, modern: true });
+	for (const comment of root.comments) {
+		addCommentRange(
+			comments,
+			comment.type === 'Line' ? 'line' : 'block',
+			comment.start,
+			comment.end
+		);
+	}
+	markupComments(root.fragment, comments);
+
+	if (root.css) addStyleComments(comments, file, text, root.css);
 	return [...comments.values()];
 }
 
