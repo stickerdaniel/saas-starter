@@ -18,6 +18,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sanitizedGitEnv } from './git-context';
+import { withSvelteKitSyncLockSync } from './svelte-kit-sync-lock';
 import { testExecutable } from './test-executable';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -91,6 +92,8 @@ const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 	'scripts/static-checks.ts',
 	'scripts/static-checks.test.ts',
 	'scripts/static-checks.knip.test.ts',
+	'scripts/svelte-kit-sync-lock.ts',
+	'scripts/svelte-kit-sync-lock.test.ts',
 	'scripts/terminal-output.ts',
 	'scripts/test-executable.ts',
 	'scripts/__fixtures__/static-checks/command-recorder.ts',
@@ -502,11 +505,14 @@ function seedGeneratedKitProject(): void {
 			config,
 			"import { sveltekit } from '@sveltejs/kit/vite';\nexport default { plugins: [sveltekit()] };\n"
 		);
-		const sync = spawnSync(BUN, ['svelte-kit', 'sync', '--config', config], {
-			cwd: ROOT,
-			env: sanitizedGitEnv(),
-			encoding: 'utf8'
-		});
+		// Static-check runs in other test files sync this checkout too.
+		const sync = withSvelteKitSyncLockSync(ROOT, () =>
+			spawnSync(BUN, ['svelte-kit', 'sync', '--config', config], {
+				cwd: ROOT,
+				env: sanitizedGitEnv(),
+				encoding: 'utf8'
+			})
+		);
 		if (sync.status !== 0 || !existsSync(generated)) {
 			throw new Error(`SvelteKit sync did not write ${generated}: ${sync.stdout}${sync.stderr}`);
 		}

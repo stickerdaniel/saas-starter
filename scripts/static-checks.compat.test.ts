@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { isolatedGitEnv, sanitizedGitEnv } from './git-context';
 import { compatibilityInvocation } from './static-checks';
+import { withSvelteKitSyncLockSync } from './svelte-kit-sync-lock';
 import { testExecutable } from './test-executable';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -492,12 +493,16 @@ void api.compatUnicodeTarget.viewer;
 					"throw new Error('collected session sentinel');\n"
 				);
 			}
-			const result = spawnSync(BUN, ['vitest', 'list', '--filesOnly'], {
-				cwd: ROOT,
-				env: sanitizedGitEnv(),
-				encoding: 'utf8',
-				timeout: 50_000
-			});
+			// Vitest loads the SvelteKit Vite plugin, which syncs this checkout as static-check
+			// runs in other test files do.
+			const result = withSvelteKitSyncLockSync(ROOT, () =>
+				spawnSync(BUN, ['vitest', 'list', '--filesOnly'], {
+					cwd: ROOT,
+					env: sanitizedGitEnv(),
+					encoding: 'utf8',
+					timeout: 50_000
+				})
+			);
 			expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
 			expect(`${result.stdout}${result.stderr}`).not.toContain('sentinel.test.ts');
 			expect(result.stdout).toContain('scripts/static-checks.compat.test.ts');
