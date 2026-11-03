@@ -23,7 +23,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -145,16 +145,39 @@ function identifierOf(pathSegments: string[]): string | null {
 	return `${pathSegments.slice(0, -1).join('/')}:${fn}`;
 }
 
+/**
+ * Reads the committed `_generated/api.d.ts` unless `freshApi` supplies the
+ * declaration text, which is then compiled from memory beside it.
+ */
 export function surfaceOf(
 	convexRoot: string,
 	protectedIdentifiers: ReadonlySet<string> = new Set(),
-	entry = path.join(convexRoot, '_generated/api.d.ts')
+	freshApi?: string
 ): Surface {
-	if (!existsSync(entry)) {
+	const entry = path.resolve(
+		convexRoot,
+		'_generated',
+		freshApi === undefined ? 'api.d.ts' : '.fresh-api.d.ts'
+	);
+	if (freshApi === undefined && !existsSync(entry)) {
 		throw new Error(`convex-surface: ${entry} is missing, so nothing states what is published`);
 	}
 	const options = compilerOptions(convexRoot);
-	const program = ts.createProgram([entry], options);
+	const host = ts.createCompilerHost(options);
+	if (freshApi !== undefined) {
+		// The entry has to sit in `_generated/` so its relative module imports
+		// resolve, but writing it there would put a scratch file into a tree that
+		// parallel readers walk. The compiler sees it, the disk never does.
+		const isEntry = (fileName: string): boolean => path.resolve(fileName) === entry;
+		const { fileExists, readFile, getSourceFile } = host;
+		host.fileExists = (fileName) => isEntry(fileName) || fileExists(fileName);
+		host.readFile = (fileName) => (isEntry(fileName) ? freshApi : readFile(fileName));
+		host.getSourceFile = (fileName, languageVersion, ...rest) =>
+			isEntry(fileName)
+				? ts.createSourceFile(fileName, freshApi, languageVersion, true)
+				: getSourceFile(fileName, languageVersion, ...rest);
+	}
+	const program = ts.createProgram([entry], options, host);
 	const checker = program.getTypeChecker();
 	const source = program.getSourceFile(entry);
 	if (!source) throw new Error(`convex-surface: could not read ${entry}`);
@@ -341,8 +364,6 @@ export function surfaceOf(
 	return surface;
 }
 
-let freshEntryCounter = 0;
-
 export async function freshSurfaceOf(
 	convexRoot: string,
 	protectedIdentifiers: ReadonlySet<string> = new Set()
@@ -451,17 +472,7 @@ export async function freshSurfaceOf(
 	}
 	const generated = apiCodegen(modulePaths).DTS;
 	if (!generated) throw new Error('convex-surface: Convex did not generate an api declaration');
-	const entry = path.join(
-		convexRoot,
-		'_generated',
-		`.convex-compat-api-${process.pid}-${freshEntryCounter++}.d.ts`
-	);
-	writeFileSync(entry, generated);
-	try {
-		return surfaceOf(convexRoot, protectedIdentifiers, entry);
-	} finally {
-		rmSync(entry, { force: true });
-	}
+	return surfaceOf(convexRoot, protectedIdentifiers, generated);
 }
 
 if (import.meta.main) {

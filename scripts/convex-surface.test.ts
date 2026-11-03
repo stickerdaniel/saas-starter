@@ -1,3 +1,4 @@
+import { chmodSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -95,6 +96,21 @@ describe('surfaceOf', () => {
 			kind: 'mutation',
 			visibility: 'public'
 		});
+	});
+
+	// Other tests walk this tracked fixture in parallel, so a scratch file
+	// written into it lands in their listings. A read-only `_generated/` turns
+	// any such write into an error. Windows ignores directory modes.
+	it.skipIf(process.platform === 'win32')('refreshes without writing into the tree', async () => {
+		const generated = path.join(__dirname, '__fixtures__/convex-surface/_generated');
+		const { mode } = statSync(generated);
+		chmodSync(generated, 0o555);
+		try {
+			const fresh = await freshSurfaceOf(path.join(__dirname, '__fixtures__/convex-surface'));
+			expect(fresh.has('unlisted/hidden:unreachable')).toBe(true);
+		} finally {
+			chmodSync(generated, mode);
+		}
 	});
 
 	it('found nothing else in the fixture', () => {
