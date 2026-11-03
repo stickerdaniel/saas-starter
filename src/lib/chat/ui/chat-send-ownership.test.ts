@@ -23,8 +23,7 @@ describe('ChatInput send ownership', () => {
 			streamCache: {
 				getCachedReasoning: () => undefined,
 				updateReasoningCache: () => {},
-				clearReasoningCache: () => {},
-				updateStatusCache: () => {}
+				clearReasoningCache: () => {}
 			}
 		};
 		const client = new ConvexClient('https://session-port-test.convex.cloud', {
