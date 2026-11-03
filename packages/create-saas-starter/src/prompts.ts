@@ -3,6 +3,7 @@ import {
 	deriveSlug,
 	hasUnsafeTextControl,
 	isValidContactEmail,
+	isValidCountryCode,
 	isValidRepository,
 	isValidSlug,
 	normalizeMultilineText,
@@ -20,7 +21,10 @@ export interface ResolvedOptions {
 	brand: string;
 	company?: string;
 	operator?: string;
-	address?: string;
+	street?: string;
+	postalCode?: string;
+	city?: string;
+	country?: string;
 	email?: string;
 	ref?: string;
 	yes: boolean;
@@ -125,8 +129,7 @@ export async function resolveOptions(
 ): Promise<ResolvedOptions> {
 	options = {
 		...options,
-		company: options.company === undefined ? undefined : normalizeMultilineText(options.company),
-		address: options.address === undefined ? undefined : normalizeMultilineText(options.address)
+		company: options.company === undefined ? undefined : normalizeMultilineText(options.company)
 	};
 	validateProvidedValues(options);
 	const prompts = configuration.prompts ?? defaultPrompts;
@@ -196,13 +199,28 @@ export async function resolveOptions(
 		options.operator,
 		singleLine
 	);
-	const address = await promptOptional(
+	const street = await promptOptional(
 		prompts,
 		signal,
-		'Legal address',
-		options.address,
-		multiline,
-		true
+		'Legal street address',
+		options.street,
+		singleLine
+	);
+	const postalCode = await promptOptional(
+		prompts,
+		signal,
+		'Legal postal code',
+		options.postalCode,
+		singleLine
+	);
+	const city = await promptOptional(prompts, signal, 'Legal city', options.city, singleLine);
+	const country = await promptOptional(
+		prompts,
+		signal,
+		'Legal country code (two letters, such as US)',
+		options.country,
+		(value) =>
+			isValidCountryCode(value ?? '') ? undefined : 'Use two uppercase letters, such as US or DE.'
 	);
 	const email = await promptOptional(
 		prompts,
@@ -221,7 +239,10 @@ export async function resolveOptions(
 		brand,
 		company,
 		operator,
-		address,
+		street,
+		postalCode,
+		city,
+		country,
 		email
 	};
 	validateProvidedValues(resolved);

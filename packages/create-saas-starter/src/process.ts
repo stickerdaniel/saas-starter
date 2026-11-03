@@ -264,7 +264,10 @@ export function setupArguments(options: ResolvedOptions): string[] {
 	for (const [flag, value] of [
 		['--company', options.company],
 		['--operator', options.operator],
-		['--address', options.address],
+		['--street', options.street],
+		['--postal-code', options.postalCode],
+		['--city', options.city],
+		['--country', options.country],
 		['--email', options.email]
 	] as const) {
 		if (value !== undefined) args.push(flag, value);

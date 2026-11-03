@@ -326,8 +326,8 @@ function importLegalConfig(dir: string) {
 	const importer = join(dir, 'import-legal.ts');
 	writeFileSync(
 		importer,
-		"import { LEGAL_CONFIG, getLegalEmailAddress } from './src/lib/config/legal';\n" +
-			'console.log(JSON.stringify({ config: LEGAL_CONFIG, mailto: getLegalEmailAddress() }));\n',
+		"import { LEGAL_CONFIG, formatPostalAddress, getLegalEmailAddress } from './src/lib/config/legal';\n" +
+			'console.log(JSON.stringify({ config: LEGAL_CONFIG, mailto: getLegalEmailAddress(), address: formatPostalAddress(LEGAL_CONFIG.address) }));\n',
 		'utf-8'
 	);
 	const result = spawnSync(BUN, [importer], {
@@ -342,10 +342,25 @@ function importLegalConfig(dir: string) {
 		stderr: result.stderr ?? '',
 		value:
 			result.status === 0
-				? (JSON.parse(result.stdout) as { config: Record<string, unknown>; mailto: string })
+				? (JSON.parse(result.stdout) as {
+						config: Record<string, unknown>;
+						mailto: string;
+						address: string;
+					})
 				: undefined
 	};
 }
+
+const ADDRESS = [
+	'--street',
+	'Hauptstrasse 5',
+	'--postal-code',
+	'12345',
+	'--city',
+	'Berlin',
+	'--country',
+	'DE'
+];
 
 const IDENTITY = [
 	'--brand',
@@ -354,8 +369,7 @@ const IDENTITY = [
 	'Northwind Labs GmbH',
 	'--operator',
 	'Anne Weber',
-	'--address',
-	'Hauptstrasse 5, 12345 Berlin',
+	...ADDRESS,
 	'--email',
 	'kontakt@northwind-labs.de'
 ];
@@ -377,8 +391,7 @@ function asciiDomainOfLength(length: number): string {
 const IDENTITY_WITHOUT_COMPANY = [
 	'--operator',
 	'Anne Weber',
-	'--address',
-	'Hauptstrasse 5, 12345 Berlin',
+	...ADDRESS,
 	'--email',
 	'kontakt@northwind-labs.de'
 ];
@@ -418,12 +431,6 @@ describe('template setup writes importable branding values', () => {
 			value: 'Research / Development @ Northwind'
 		},
 		{ label: 'backslash', flag: '--operator', key: 'operatorName', value: 'Anne\\Marie Weber' },
-		{
-			label: 'multiline address',
-			flag: '--address',
-			key: 'address',
-			value: 'Hauptstrasse 5\n12345 Berlin\nDeutschland'
-		},
 		{
 			// Replacement metacharacters must remain literal data.
 			label: 'replacement metacharacters',
@@ -500,7 +507,7 @@ describe('template setup removes maintainer files', () => {
 			'name: neighbor\n'
 		);
 		const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
-		expect(pkg.templateSetupVersion).toBe(1);
+		expect(pkg.templateSetupVersion).toBe(2);
 		expect(pkg.scripts.setup).toBe('bun scripts/template-setup.ts');
 		expect(pkg.scripts.postinstall).toBe(
 			'bun run generate:content && bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails'
@@ -1605,6 +1612,225 @@ describe('template setup recognizes a genuinely set up project', () => {
 	});
 });
 
+const OLD_LEGAL_DATE = '2025-01-02';
+
+/** Backdates the three legal dates so a later run shows whether it rewrote them. */
+function backdateLegalDates(dir: string): void {
+	const metadata = join(dir, 'src/lib/content/legal-metadata.ts');
+	writeFileSync(
+		metadata,
+		readFileSync(metadata, 'utf-8').replace(
+			/^(\s*(?:privacy|terms|impressum): )'[^']*'/gm,
+			(_match, prefix: string) => `${prefix}'${OLD_LEGAL_DATE}'`
+		),
+		'utf-8'
+	);
+}
+
+function legalDates(dir: string): string[] {
+	const metadata = readFileSync(join(dir, 'src/lib/content/legal-metadata.ts'), 'utf-8');
+	return [...metadata.matchAll(/^\s*(?:privacy|terms|impressum): '([^']+)'/gm)].map(
+		([, date]) => date!
+	);
+}
+
+/** Replaces the address property in a fixture's legal.ts with the given source text. */
+function writeLegalAddress(dir: string, property: string): void {
+	const legal = join(dir, 'src/lib/config/legal.ts');
+	const source = readFileSync(legal, 'utf-8');
+	const updated = source.replace(
+		/^\taddress: (?:\{[^}]*\}|'[^']*'),$/m,
+		() => `\taddress: ${property},`
+	);
+	expect(updated).not.toBe(source);
+	writeFileSync(legal, updated, 'utf-8');
+}
+
+const NORTHWIND_ADDRESS = {
+	streetAddress: 'Hauptstrasse 5',
+	postalCode: '12345',
+	addressLocality: 'Berlin',
+	addressCountry: 'DE'
+};
+
+describe('template setup stores the legal address as fields', () => {
+	it('writes the four address flags as an importable structured address', () => {
+		const dir = createFixture();
+		const street = `O'Brien "Hof" 5, c/o Weber`;
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, '--street', street]);
+		expect(run.code, run.stderr).toBe(0);
+
+		const imported = importLegalConfig(dir);
+		expect(imported.code, imported.stderr).toBe(0);
+		expect(imported.value?.config.address).toEqual({ ...NORTHWIND_ADDRESS, streetAddress: street });
+		expect(imported.value?.address).toBe(`${street}, 12345 Berlin, DE`);
+	});
+
+	it('rejects --address with the replacement flags before writing', () => {
+		const dir = createFixture();
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, '--address', 'Hauptstrasse 5']);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain(
+			'--address was replaced by --street, --postal-code, --city, and --country.'
+		);
+		expect(snapshot(dir)).toEqual(before);
+	});
+
+	it.each(['de', 'DEU', 'D1'])('rejects the country %s before writing', (country) => {
+		const dir = createFixture();
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, '--country', country]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain(
+			`country must be two uppercase letters, such as US or DE, got: ${country}`
+		);
+		expect(snapshot(dir)).toEqual(before);
+	});
+
+	it('keeps deliberately older legal dates on a rerun with the same address', () => {
+		const dir = createFixture();
+		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
+		backdateLegalDates(dir);
+		const afterFirst = snapshot(dir);
+
+		const rerun = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(rerun.code, rerun.stderr).toBe(0);
+		expect(snapshot(dir)).toEqual(afterFirst);
+		expect(legalDates(dir)).toEqual([OLD_LEGAL_DATE, OLD_LEGAL_DATE, OLD_LEGAL_DATE]);
+	});
+
+	it.each([
+		{ flag: '--street', key: 'streetAddress', value: 'Hauptstrasse 7' },
+		{ flag: '--postal-code', key: 'postalCode', value: '10115' },
+		{ flag: '--city', key: 'addressLocality', value: 'Potsdam' },
+		{ flag: '--country', key: 'addressCountry', value: 'AT' }
+	])('bumps the legal dates when only $flag changes', ({ flag, key, value }) => {
+		const dir = createFixture();
+		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
+		backdateLegalDates(dir);
+
+		const rerun = runSetup(dir, [flag, value]);
+		expect(rerun.code, rerun.stderr).toBe(0);
+		const imported = importLegalConfig(dir);
+		expect(imported.code, imported.stderr).toBe(0);
+		expect(imported.value?.config.address).toEqual({ ...NORTHWIND_ADDRESS, [key]: value });
+		const dates = legalDates(dir);
+		expect(dates).toHaveLength(3);
+		expect(new Set(dates).size).toBe(1);
+		expect(dates[0]).not.toBe(OLD_LEGAL_DATE);
+		expect(dates[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+	});
+
+	it('keeps a fork-owned address key across a field change', () => {
+		const dir = createFixture();
+		writeLegalAddress(
+			dir,
+			"{\n\t\tstreetAddress: 'Main 1',\n\t\taddressRegion: 'BE',\n\t\tpostalCode: '1000',\n\t\taddressLocality: 'Brussels',\n\t\taddressCountry: 'BE'\n\t}"
+		);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code, run.stderr).toBe(0);
+		const imported = importLegalConfig(dir);
+		expect(imported.code, imported.stderr).toBe(0);
+		expect(imported.value?.config.address).toEqual({ ...NORTHWIND_ADDRESS, addressRegion: 'BE' });
+	});
+
+	it.each([
+		{
+			label: 'a missing field',
+			property: "{ streetAddress: 'Main 1', postalCode: '1000', addressLocality: 'Brussels' }"
+		},
+		{
+			label: 'a numeric field',
+			property:
+				"{ streetAddress: 'Main 1', postalCode: 1000, addressLocality: 'Brussels', addressCountry: 'BE' }"
+		},
+		{ label: 'a number', property: '42' }
+	])('rejects an address with $label before writing', ({ property }) => {
+		const dir = createFixture();
+		writeLegalAddress(dir, property);
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain('Unsupported LEGAL_CONFIG.address');
+		expect(run.stdout).not.toContain('Applying:');
+		expect(snapshot(dir)).toEqual(before);
+	});
+});
+
+describe('template setup migrates a legacy address string', () => {
+	/** A template copy whose legal.ts predates structured addresses. */
+	function legacyFixture(): string {
+		const dir = createFixture();
+		cpSync(
+			join(ROOT, 'scripts/__fixtures__/template-setup/legacy-string-legal.ts'),
+			join(dir, 'src/lib/config/legal.ts')
+		);
+		return dir;
+	}
+
+	it('requires every address flag without a TTY and writes nothing', () => {
+		const dir = legacyFixture();
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY.slice(0, 6), '--street', 'Main 1']);
+		expect(run.code).toBe(1);
+		expect(run.stdout).toContain('  123 Main Street, Suite 100, San Francisco, CA 94102');
+		expect(run.stderr).toContain('Missing: --postal-code, --city, --country');
+		expect(run.stdout).not.toContain('Applying:');
+		expect(snapshot(dir)).toEqual(before);
+	});
+
+	it('validates the replacement fields before writing', () => {
+		const dir = legacyFixture();
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, '--country', 'Germany']);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain('country must be two uppercase letters');
+		expect(snapshot(dir)).toEqual(before);
+	});
+
+	it('migrates a branded fork once and leaves the next rerun unchanged', () => {
+		const dir = createFixture();
+		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
+		// A fork branded by the previous setup stored a free-form, possibly multiline string.
+		writeLegalAddress(dir, "'Hauptstrasse 5\\n12345 Berlin\\nDeutschland'");
+		backdateLegalDates(dir);
+		const legacy = snapshot(dir);
+
+		const flagless = runSetup(dir, []);
+		expect(flagless.code).toBe(1);
+		expect(flagless.stdout).toContain('  Hauptstrasse 5\n  12345 Berlin\n  Deutschland\n');
+		expect(flagless.stderr).toContain('Missing: --street, --postal-code, --city, --country');
+		expect(snapshot(dir)).toEqual(legacy);
+
+		const migrated = runSetup(dir, ADDRESS);
+		expect(migrated.code, migrated.stderr).toBe(0);
+		const imported = importLegalConfig(dir);
+		expect(imported.code, imported.stderr).toBe(0);
+		expect(imported.value?.config).toMatchObject({
+			brandName: 'Northwind Labs',
+			companyName: 'Northwind Labs GmbH',
+			operatorName: 'Anne Weber',
+			address: NORTHWIND_ADDRESS
+		});
+		expect(imported.value?.mailto).toBe('kontakt@northwind-labs.de');
+		expect(legalDates(dir)[0]).not.toBe(OLD_LEGAL_DATE);
+		const afterMigration = snapshot(dir);
+		expect(afterMigration['README.md']).toBe(legacy['README.md']);
+
+		const rerun = runSetup(dir, []);
+		expect(rerun.code, rerun.stderr).toBe(0);
+		expect(rerun.stdout).not.toContain('single string');
+		expect(snapshot(dir)).toEqual(afterMigration);
+	});
+});
+
 describe('template setup keeps prose values on one line', () => {
 	const multiline = 'Northwind Labs\n\n## Injected Heading\n\nmore text';
 
@@ -1622,20 +1848,18 @@ describe('template setup keeps prose values on one line', () => {
 		expect(snapshot(dir)).toEqual(before);
 	});
 
-	it('still accepts a multi-line address', () => {
-		const dir = createFixture();
-		const run = runSetup(dir, [
-			...REQUIRED,
-			...IDENTITY,
-			'--address',
-			'Hauptstrasse 5\n12345 Berlin\nDeutschland'
-		]);
+	it.each(['--street', '--postal-code', '--city'])(
+		'rejects a multi-line %s before writing',
+		(flag) => {
+			const dir = createFixture();
+			const before = snapshot(dir);
 
-		expect(run.code, run.stderr).toBe(0);
-		const imported = importLegalConfig(dir);
-		expect(imported.code, imported.stderr).toBe(0);
-		expect(imported.value?.config.address).toBe('Hauptstrasse 5\n12345 Berlin\nDeutschland');
-	});
+			const run = runSetup(dir, [...REQUIRED, ...IDENTITY, flag, 'Line 1\nLine 2']);
+			expect(run.code).toBe(1);
+			expect(run.stderr).toContain(`${flag.slice(2)} must be a single line`);
+			expect(snapshot(dir)).toEqual(before);
+		}
+	);
 });
 
 describe('template setup contact email end to end', () => {

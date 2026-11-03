@@ -139,7 +139,7 @@ Projects created with the CLI have already run this step. Otherwise, rebrand the
 bun run setup
 ```
 
-The setup script replaces the project name and central GitHub repository slug, then prompts for brand, company, operator, address, and contact email. Repository links used by the headers, `/llms.txt`, and JSON-LD come from `src/lib/config/site.ts`; legal identity remains in `src/lib/config/legal.ts`. After running it:
+The setup script replaces the project name and central GitHub repository slug, then prompts for brand, company, operator, postal address, and contact email. The address takes four fields: street, postal code, city, and a two-letter country code such as `US`. Repository links used by the headers, `/llms.txt`, and JSON-LD come from `src/lib/config/site.ts`; legal identity remains in `src/lib/config/legal.ts`. A `legal.ts` that still stores the address as one string needs all four fields once, through prompts or, without a TTY, through `--street`, `--postal-code`, `--city`, and `--country`. Setup prints the old string and writes nothing until all four fields are valid. After running it:
 
 1. Replace `static/logo.svg` with your logo, then run `bun run generate:logos`
 2. Refresh email snapshots: `bun run test:unit -- email-snapshots.test.ts -u`

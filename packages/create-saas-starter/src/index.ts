@@ -89,7 +89,8 @@ export function assertSupportedNodeVersion(version = process.versions.node): voi
 }
 
 function legalReminder(options: Awaited<ReturnType<typeof resolveOptions>>): string | undefined {
-	if (options.company && options.operator && options.address && options.email) return undefined;
+	const { company, operator, street, postalCode, city, country, email } = options;
+	if (company && operator && street && postalCode && city && country && email) return undefined;
 	return 'Review the generated legal identity values before publishing or deploying the project.';
 }
 

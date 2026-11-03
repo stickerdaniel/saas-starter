@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getLegalEmailAddress, LEGAL_CONFIG } from '#lib/config/legal.js';
+import { formatPostalAddress, getLegalEmailAddress, LEGAL_CONFIG } from '#lib/config/legal.js';
 import { PUBLIC_MARKETING_ROUTES } from '#lib/marketing/public-routes.js';
 import { impressumMarkdown } from './impressum';
 import { LEGAL_CONTENT_DATES, formatLegalContentDate } from './legal-metadata';
@@ -43,7 +43,7 @@ describe('authored legal content', () => {
 		expect(impressumMarkdown.markdown).toContain('{{OPERATOR_NAME}}');
 		expect(impressumMarkdown.markdown).toContain('{{ADDRESS}}');
 		expect(impressumMarkdown.literals).toEqual({
-			ADDRESS: LEGAL_CONFIG.address,
+			ADDRESS: formatPostalAddress(LEGAL_CONFIG.address),
 			LAST_UPDATED: formatLegalContentDate(LEGAL_CONTENT_DATES.impressum),
 			OPERATOR_NAME: LEGAL_CONFIG.operatorName
 		});

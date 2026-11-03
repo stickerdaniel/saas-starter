@@ -17,7 +17,10 @@ Options:
   --brand <name>            Brand display name
   --company <name>          Legal company name
   --operator <name>         Legal operator name
-  --address <address>       Legal address
+  --street <street>         Legal street address
+  --postal-code <code>      Legal postal code
+  --city <city>             Legal city
+  --country <code>          Legal country as two uppercase letters, such as US
   --email <email>           Legal contact email
   --ref <ref>               GitHub revision to resolve once
   --yes                     Disable interactive prompts
@@ -39,7 +42,10 @@ export interface CliOptions {
 	brand?: string;
 	company?: string;
 	operator?: string;
-	address?: string;
+	street?: string;
+	postalCode?: string;
+	city?: string;
+	country?: string;
 	email?: string;
 	ref?: string;
 	yes: boolean;
@@ -76,6 +82,11 @@ export function parseCliOptions(args: string[]): CliOptions {
 				brand: { type: 'string' },
 				company: { type: 'string' },
 				operator: { type: 'string' },
+				street: { type: 'string' },
+				'postal-code': { type: 'string' },
+				city: { type: 'string' },
+				country: { type: 'string' },
+				// Parsed only to reject it with the replacement options instead of a generic error.
 				address: { type: 'string' },
 				email: { type: 'string' },
 				ref: { type: 'string' },
@@ -104,6 +115,11 @@ export function parseCliOptions(args: string[]): CliOptions {
 	}
 
 	const values = parsed.values;
+	if (values.address !== undefined) {
+		throw new UsageError(
+			'--address was replaced by --street, --postal-code, --city, and --country.'
+		);
+	}
 	return {
 		directory: normalizedString(parsed.positionals[0], 'directory'),
 		slug: normalizedString(values.slug as string | undefined, 'slug'),
@@ -111,7 +127,10 @@ export function parseCliOptions(args: string[]): CliOptions {
 		brand: normalizedString(values.brand as string | undefined, 'brand'),
 		company: normalizedMultilineString(values.company as string | undefined, 'company'),
 		operator: normalizedString(values.operator as string | undefined, 'operator'),
-		address: normalizedMultilineString(values.address as string | undefined, 'address'),
+		street: normalizedString(values.street as string | undefined, 'street'),
+		postalCode: normalizedString(values['postal-code'] as string | undefined, 'postal-code'),
+		city: normalizedString(values.city as string | undefined, 'city'),
+		country: normalizedString(values.country as string | undefined, 'country'),
 		email: normalizedString(values.email as string | undefined, 'email'),
 		ref: normalizedString(values.ref as string | undefined, 'ref'),
 		yes: values.yes === true,
@@ -223,8 +242,23 @@ export function isValidContactEmail(value: string): boolean {
 
 type ProvidedValues = Pick<
 	CliOptions,
-	'slug' | 'repo' | 'brand' | 'company' | 'operator' | 'address' | 'email' | 'ref'
+	| 'slug'
+	| 'repo'
+	| 'brand'
+	| 'company'
+	| 'operator'
+	| 'street'
+	| 'postalCode'
+	| 'city'
+	| 'country'
+	| 'email'
+	| 'ref'
 >;
+
+/** Matches template setup's country check: two uppercase letters, not ISO 3166-1 membership. */
+export function isValidCountryCode(value: string): boolean {
+	return /^[A-Z]{2}$/.test(value);
+}
 
 export function validateProvidedValues(options: ProvidedValues): void {
 	if (options.slug !== undefined && !isValidSlug(options.slug)) {
@@ -235,19 +269,23 @@ export function validateProvidedValues(options: ProvidedValues): void {
 	}
 	for (const [name, value] of [
 		['brand', options.brand],
-		['operator', options.operator]
+		['operator', options.operator],
+		['street', options.street],
+		['postal-code', options.postalCode],
+		['city', options.city]
 	] as const) {
 		if (value !== undefined && !isSingleLine(value)) {
 			throw new UsageError(`--${name} must be a non-empty single-line value.`);
 		}
 	}
-	for (const [name, value] of [
-		['company', options.company],
-		['address', options.address]
-	] as const) {
-		if (value !== undefined && (value.trim() === '' || hasUnsafeTextControl(value, true))) {
-			throw new UsageError(`--${name} must be non-empty text without unsafe controls.`);
-		}
+	if (
+		options.company !== undefined &&
+		(options.company.trim() === '' || hasUnsafeTextControl(options.company, true))
+	) {
+		throw new UsageError('--company must be non-empty text without unsafe controls.');
+	}
+	if (options.country !== undefined && !isValidCountryCode(options.country)) {
+		throw new UsageError('--country must be two uppercase letters, such as US or DE.');
 	}
 	if (options.email !== undefined && !isValidContactEmail(options.email)) {
 		throw new UsageError('--email must use the supported user@domain.tld format.');
