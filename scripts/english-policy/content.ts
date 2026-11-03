@@ -179,7 +179,8 @@ function addStyleComments(
 	for (const attribute of style.attributes) {
 		if (attribute.type !== 'Attribute' || attribute.name !== 'lang') continue;
 		const [first] = Array.isArray(attribute.value) ? attribute.value : [];
-		if (first?.type === 'Text' && first.data !== '') lang = first.data;
+		// svelte-eslint-parser compares the attribute as written, before entities are decoded.
+		if (first?.type === 'Text' && first.raw !== '') lang = first.raw;
 	}
 	if (lang !== 'css' && lang !== 'postcss') {
 		addParserStyleComments(comments, file, text);
