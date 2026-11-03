@@ -1,4 +1,4 @@
-import { browser } from '$app/env';
+import { browser, version } from '$app/env';
 import { PUBLIC_SENTRY_DSN } from '$app/env/public';
 import type { Handle } from '@sveltejs/kit/hooks';
 import type * as Sentry from '@sentry/sveltekit';
@@ -13,6 +13,10 @@ type SentryModule = typeof Sentry;
  */
 const sentryOptions = {
 	dsn: PUBLIC_SENTRY_DSN,
+	// The compiled build, the same name the Vite plugin gives uploaded source
+	// maps. Without it the SDK reads the release from runtime environment
+	// variables, which can name a different build.
+	release: version,
 	tracesSampleRate: 0.1,
 	traceLifecycle: 'static',
 	attachStacktrace: false,

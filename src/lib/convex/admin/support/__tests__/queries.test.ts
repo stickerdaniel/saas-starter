@@ -21,7 +21,7 @@ const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeo
 type Fn<A, R> = { _handler: (ctx: unknown, args: A) => Promise<R> };
 const routesHandler = listMessageRoutesForAdmin as unknown as Fn<
 	{ threadId: string },
-	Array<{ messageId: string; pageUrl: string }>
+	Array<{ messageId: string; pageUrl?: string; appVersion?: string }>
 >;
 
 function makeCtx(rows: Array<Record<string, unknown>>) {
@@ -65,6 +65,30 @@ describe('listMessageRoutesForAdmin', () => {
 		// admin is looking at instead of the oldest ones.
 		expect(order).toHaveBeenCalledWith('desc');
 		expect(take).toHaveBeenCalledWith(SUPPORT_MESSAGE_ROUTES_LIMIT);
+	});
+
+	// A build survives a rejected route, and rows from before the build was
+	// recorded keep their route alone.
+	it('returns the build with each message, also without a route', async () => {
+		const build = '1399ac4b8bcef49fc000539465743aa1a24720ce';
+		const { ctx } = makeCtx([
+			{ _id: 'row_4', threadId: 'thread_1', messageId: 'message_4', appVersion: 'x'.repeat(65) },
+			{ _id: 'row_3', threadId: 'thread_1', messageId: 'message_3', appVersion: build },
+			{
+				_id: 'row_2',
+				threadId: 'thread_1',
+				messageId: 'message_2',
+				pageUrl: '/de/two',
+				appVersion: 'dev'
+			},
+			{ _id: 'row_1', threadId: 'thread_1', messageId: 'message_1', pageUrl: '/de/one' }
+		]);
+
+		await expect(routesHandler._handler(ctx, { threadId: 'thread_1' })).resolves.toEqual([
+			{ messageId: 'message_3', appVersion: build },
+			{ messageId: 'message_2', pageUrl: '/de/two', appVersion: 'dev' },
+			{ messageId: 'message_1', pageUrl: '/de/one' }
+		]);
 	});
 
 	// Routes name the pages a customer was on, so the read stays with the team

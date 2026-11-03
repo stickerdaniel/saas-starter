@@ -55,7 +55,7 @@ const saveMessageMock = supportAgent.saveMessage as unknown as ReturnType<typeof
 const handoffHandler = updateThreadHandoff as unknown as {
 	_handler: (
 		ctx: unknown,
-		args: { threadId: string; anonymousUserId?: string; pageUrl?: string }
+		args: { threadId: string; anonymousUserId?: string; pageUrl?: string; appVersion?: string }
 	) => Promise<boolean>;
 };
 
@@ -94,6 +94,25 @@ describe('updateThreadHandoff route metadata', () => {
 			threadId: 'thread_1',
 			messageId: 'handoff_message_42',
 			pageUrl: '/fr/app/settings',
+			createdAt: expect.any(Number)
+		});
+	});
+
+	it('records the build of the requesting tab, also when its route is rejected', async () => {
+		const ctx = makeCtx();
+		const build = '1399ac4b8bcef49fc000539465743aa1a24720ce';
+
+		await handoffHandler._handler(ctx, {
+			threadId: 'thread_1',
+			anonymousUserId: 'anon_123',
+			pageUrl: 'javascript:alert(1)',
+			appVersion: build
+		});
+
+		expect(ctx.db.insert).toHaveBeenCalledWith('supportMessageContexts', {
+			threadId: 'thread_1',
+			messageId: 'handoff_message_42',
+			appVersion: build,
 			createdAt: expect.any(Number)
 		});
 	});

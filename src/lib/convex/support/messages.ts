@@ -22,7 +22,7 @@ import { createRateLimitError } from './types';
 import { SUPPORT_ERROR_CODES, createSupportError } from './errors';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
 import { MAX_MESSAGE_LENGTH } from '../constants';
-import { normalizeSupportPageRoute } from '../../shared/support-page-route';
+import { recordSupportMessageContext } from './messageContext';
 import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
 import { requireSupportThreadAccess } from './ownership';
 import { listMessagesForThread } from './messageListing';
@@ -284,7 +284,9 @@ export const sendMessage = mutation({
 		anonymousUserId: v.optional(v.string()),
 		fileIds: v.optional(v.array(v.string())),
 		// Optional so clients that predate per-message routes stay valid.
-		pageUrl: v.optional(v.string())
+		pageUrl: v.optional(v.string()),
+		// The build the sender's tab runs. Clients that predate it omit it.
+		appVersion: v.optional(v.string())
 	},
 	returns: v.object({ messageId: v.string() }),
 	handler: async (ctx, args) => {
@@ -369,21 +371,17 @@ export const sendMessage = mutation({
 			messageId = result.messageId;
 		}
 
-		const pageUrl = normalizeSupportPageRoute(args.pageUrl);
-
-		// Where this message was written from. The thread keeps the pageUrl
-		// captured before its first message, so it cannot describe a later report
-		// sent after the visitor navigates elsewhere. The route is deliberately
-		// optional: invalid metadata cannot discard the message that was already
-		// saved.
-		if (pageUrl) {
-			await ctx.db.insert('supportMessageContexts', {
-				threadId: args.threadId,
-				messageId,
-				pageUrl,
-				createdAt: Date.now()
-			});
-		}
+		// Where this message was written from and which build wrote it. The
+		// thread keeps the pageUrl captured before its first message, so it
+		// cannot describe a later report sent after the visitor navigates
+		// elsewhere. Both fields are deliberately optional: invalid metadata
+		// cannot discard the message that was already saved.
+		await recordSupportMessageContext(ctx, {
+			threadId: args.threadId,
+			messageId,
+			pageUrl: args.pageUrl,
+			appVersion: args.appVersion
+		});
 
 		// Sync denormalized search fields with user's message
 		await syncSupportLastMessage(ctx, args.threadId);

@@ -685,7 +685,7 @@ describe('sendMessage per-message route', () => {
 	const saveMessageMock = supportAgent.saveMessage as unknown as ReturnType<typeof vi.fn>;
 
 	const sendHandler = sendMessage as unknown as Fn<
-		{ threadId: string; prompt: string; fileIds?: string[]; pageUrl?: string },
+		{ threadId: string; prompt: string; fileIds?: string[]; pageUrl?: string; appVersion?: string },
 		{ messageId: string }
 	>;
 
@@ -749,6 +749,61 @@ describe('sendMessage per-message route', () => {
 				})
 			]
 		]);
+	});
+
+	// A row keeps the build the tab reported even when its route is rejected,
+	// so a report can still be traced to a commit.
+	it('records the build with the route, and alone when the route is rejected', async () => {
+		const ctx = makeCtx();
+		const build = '1399ac4b8bcef49fc000539465743aa1a24720ce';
+
+		await sendHandler._handler(ctx, {
+			threadId: 't1',
+			prompt: 'The chart is empty',
+			pageUrl: '/de/app',
+			appVersion: build
+		});
+		await sendHandler._handler(ctx, {
+			threadId: 't1',
+			prompt: 'Here too',
+			pageUrl: 'javascript:alert(1)',
+			appVersion: build
+		});
+
+		expect(ctx.db.insert.mock.calls).toEqual([
+			[
+				'supportMessageContexts',
+				{
+					threadId: 't1',
+					messageId: 'message_1',
+					pageUrl: '/de/app',
+					appVersion: build,
+					createdAt: expect.any(Number)
+				}
+			],
+			[
+				'supportMessageContexts',
+				{ threadId: 't1', messageId: 'message_2', appVersion: build, createdAt: expect.any(Number) }
+			]
+		]);
+	});
+
+	it('drops a malformed build and keeps the route', async () => {
+		const ctx = makeCtx();
+
+		await sendHandler._handler(ctx, {
+			threadId: 't1',
+			prompt: 'The chart is empty',
+			pageUrl: '/de/app',
+			appVersion: 'build/../x'
+		});
+
+		expect(ctx.db.insert).toHaveBeenCalledWith('supportMessageContexts', {
+			threadId: 't1',
+			messageId: 'message_1',
+			pageUrl: '/de/app',
+			createdAt: expect.any(Number)
+		});
 	});
 
 	it.each([

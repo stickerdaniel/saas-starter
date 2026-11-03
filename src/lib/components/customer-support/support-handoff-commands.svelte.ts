@@ -1,4 +1,5 @@
 import type { ConvexClient } from 'convex/browser';
+import { version } from '$app/env';
 import { api } from '#lib/convex/_generated/api.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from '#lib/chat/core/optimistic.js';
 import { CHAT_PAGE_SIZE } from '#lib/chat/core/types.js';
@@ -46,7 +47,9 @@ export class SupportHandoffCommands {
 					// The page the request is made from, not the one the thread began on.
 					pageUrl: normalizeSupportPageRoute(
 						typeof window !== 'undefined' ? window.location.pathname : undefined
-					)
+					),
+					// The bundle this tab runs, which a stale tab keeps after a deploy.
+					appVersion: version
 				},
 				{
 					optimisticUpdate: createOptimisticUpdate(
