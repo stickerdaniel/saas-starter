@@ -225,7 +225,7 @@ export async function updateFromUIMessageChunks(
 	const chunks: UIMessageChunk[] = [];
 	for (const part of parts) {
 		const chunk = redactToolErrorStreamPart(part);
-		const previous = chunks.at(-1);
+		const previous = chunks[chunks.length - 1];
 		const joined = previous && joinDeltaChunks(previous, chunk);
 		if (joined) chunks[chunks.length - 1] = joined;
 		else chunks.push(chunk);
