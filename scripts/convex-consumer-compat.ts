@@ -34,8 +34,8 @@
  * both sides.
  */
 
-import { execFileSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import ts from 'typescript';
@@ -422,14 +422,58 @@ function isConsumerSource(line: string): boolean {
 	return line.endsWith('.svelte') || ENTRY_EXTENSIONS.some((extension) => line.endsWith(extension));
 }
 
-function consumerReferencesAt(commit: string): ConsumerReferences {
-	const files = git(['ls-tree', '-r', '-z', '--name-only', commit, '--', CONSUMER_ROOT])
+/**
+ * Every consumer source below `CONSUMER_ROOT` at `commit`, read through one `cat-file --batch`.
+ * A `git show` per file cost one process per source: measured 2026-11-03, 982 of them took
+ * 22 s on a 24-core host at load 70, a fifth of the time a test had to run this check.
+ */
+function consumerSourcesAt(commit: string): Array<{ file: string; source: string }> {
+	const entries = git(['ls-tree', '-r', '-z', commit, '--', CONSUMER_ROOT])
 		.split('\0')
-		.filter(isConsumerSource);
+		.filter(Boolean)
+		.map((record) => {
+			// `<mode> <type> <object>\t<path>`; the path is the only field that may hold spaces.
+			const tab = record.indexOf('\t');
+			const [, type, object] = record.slice(0, tab).split(' ');
+			return { type, object: object!, file: record.slice(tab + 1) };
+		})
+		.filter(({ file }) => isConsumerSource(file));
+	if (entries.length === 0) return [];
+	const output = execFileSync(
+		'git',
+		['-c', `safe.directory=${realpathSync(process.cwd())}`, 'cat-file', '--batch'],
+		{
+			env: isolatedGitEnv(),
+			input: entries.map(({ object }) => `${object}\n`).join(''),
+			maxBuffer: 256 * 1024 * 1024,
+			stdio: ['pipe', 'pipe', 'pipe']
+		}
+	);
+	// Each answer is `<object> <type> <size>\n<size bytes>\n`, in request order. Anything else,
+	// a gitlink or a `<object> missing` line among them, fails the check as `git show` did.
+	const sources: Array<{ file: string; source: string }> = [];
+	let offset = 0;
+	for (const entry of entries) {
+		const headerEnd = output.indexOf(0x0a, offset);
+		const header = output.toString('utf8', offset, headerEnd === -1 ? undefined : headerEnd);
+		const [object, type, size] = header.split(' ');
+		if (entry.type !== 'blob' || object !== entry.object || type !== 'blob' || !size) {
+			throw new Error(
+				`convex-consumer-compat: could not read ${entry.file} at ${commit.slice(0, 8)} (${header})`
+			);
+		}
+		const start = headerEnd + 1;
+		const end = start + Number(size);
+		sources.push({ file: entry.file, source: output.toString('utf8', start, end) });
+		offset = end + 1;
+	}
+	return sources;
+}
+
+function consumerReferencesAt(commit: string): ConsumerReferences {
 	const references: Reference[] = [];
 	const namespaces: NamespaceReference[] = [];
-	for (const file of files) {
-		const source = git(['show', `${commit}:${file}`]);
+	for (const { file, source } of consumerSourcesAt(commit)) {
 		if (file.startsWith(`${CONVEX_ROOT}/`)) {
 			references.push(...scheduledIdentifiersIn(source, file));
 			continue;
@@ -452,6 +496,49 @@ function worktreeRegistrationExists(directory: string): boolean {
 	return registeredWorktreePaths(git(['worktree', 'list', '--porcelain', '-z'])).includes(
 		directory
 	);
+}
+
+/**
+ * Deletes `directory`, a temporary root outside the repository, from a detached child, so
+ * the verdict does not wait for it. It is outside the repository, so a late or failed
+ * removal changes nothing a later command can read; throwing here would discard an answer
+ * the checker already computed and replace the diagnostic that preceded it. The child
+ * ignores stdio, so a caller waiting for this process's output does not also wait for the
+ * deletion, and runs in the temporary directory, so Bun loads no project `bunfig.toml` or
+ * `.env` for it.
+ */
+function removeAfterExit(directory: string): void {
+	const removeNow = (): void => {
+		try {
+			rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+		} catch (error) {
+			console.error(
+				`convex-consumer-compat: could not remove the baseline directory ${directory}: ${
+					error instanceof Error ? error.message : String(error)
+				}`
+			);
+		}
+	};
+	try {
+		const child = spawn(
+			process.execPath,
+			[
+				'--eval',
+				"require('node:fs').rmSync(process.env.CONVEX_COMPAT_DISCARD, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 })"
+			],
+			{
+				cwd: tmpdir(),
+				detached: true,
+				env: { ...process.env, CONVEX_COMPAT_DISCARD: directory },
+				stdio: 'ignore',
+				windowsHide: true
+			}
+		);
+		child.on('error', removeNow);
+		child.unref();
+	} catch {
+		removeNow();
+	}
 }
 
 /**
@@ -535,6 +622,16 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 		surface = new Map(JSON.parse(serialized) as Array<[string, Registration]>);
 	} finally {
 		if (worktreeAdded) {
+			// Moved aside first, so Git drops only the administrative entry and the install inside
+			// is deleted with the temporary root below, after the verdict. Measured 2026-11-03 on
+			// a 24-core host at load 70: removing its 84,000 files took 29 s whichever way they
+			// were deleted, as long as the install itself. A failed move leaves the checkout for
+			// the removal below to delete in place.
+			try {
+				renameSync(dir, path.join(tempRoot, 'discarded'));
+			} catch {
+				// Removed in place below.
+			}
 			try {
 				git(['worktree', 'remove', '--force', dir], process.cwd(), hooks);
 			} catch {
@@ -588,18 +685,7 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 				}
 			}
 		}
-		// The temporary root is outside the repository, so failing to remove it changes
-		// nothing a later command can read. Throwing here would discard an answer the checker
-		// already computed and replace the install or checkout diagnostic that preceded it.
-		try {
-			rmSync(tempRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
-		} catch (error) {
-			console.error(
-				`convex-consumer-compat: could not remove the baseline directory ${tempRoot}: ${
-					error instanceof Error ? error.message : String(error)
-				}`
-			);
-		}
+		removeAfterExit(tempRoot);
 	}
 	if (cleanupFailure) throw new Error(cleanupFailure);
 	return surface;
