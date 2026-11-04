@@ -32,6 +32,7 @@ import { Writable } from 'stream';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
+import { readPid } from './__fixtures__/static-checks/pid-file';
 import { sanitizedGitEnv } from './git-context';
 import { SOURCE_FIXTURE_ROOT } from './source-tree';
 import { testExecutable } from './test-executable';
@@ -852,6 +853,24 @@ describe('commands started before their step', { timeout: CHECKER_SPAWN_TIMEOUT 
 		}
 	);
 
+	it('takes a PID file as ready only once it holds a positive PID', () => {
+		const directory = mkdtempSync(path.join(tmpdir(), 'pid-file-'));
+		try {
+			const file = path.join(directory, 'pid');
+			const states = ['', '0\n', '42'].map((text) => {
+				writeFileSync(file, text);
+				return readPid(file);
+			});
+			writeFileSync(file, '4242\n');
+
+			expect(readPid(path.join(directory, 'missing'))).toBeUndefined();
+			expect(states).toEqual([undefined, undefined, undefined]);
+			expect(readPid(file)).toBe(4242);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
 	/** Alive and not a zombie that its new parent has yet to reap. */
 	function running(pid: number): boolean {
 		const state = spawnSync('ps', ['-o', 'stat=', '-p', String(pid)], { encoding: 'utf8' });
@@ -873,7 +892,10 @@ describe('commands started before their step', { timeout: CHECKER_SPAWN_TIMEOUT 
 				expect(result.status, `${result.stdout}${result.stderr}`).toBe(1);
 				// One grandchild ignores SIGTERM beside its live leader; the other outlived its leader.
 				for (const name of ['stubborn', 'orphaned']) {
-					pids.push(Number(readFileSync(path.join(directory, name), 'utf8')));
+					// Never a malformed one: `Number('')` is 0, and SIGKILL to 0 hits this process group.
+					const pid = readPid(path.join(directory, name));
+					if (pid === undefined) throw new Error(`The driver exited before ${name} held a PID`);
+					pids.push(pid);
 				}
 				const deadline = Date.now() + 5_000;
 				while (pids.some(running) && Date.now() < deadline) {

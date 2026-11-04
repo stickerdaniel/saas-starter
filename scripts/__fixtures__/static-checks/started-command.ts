@@ -7,17 +7,20 @@ import { existsSync, writeSync } from 'node:fs';
 import path from 'node:path';
 import type { Writable } from 'node:stream';
 import { runCommand, startCommand } from '../../static-checks';
+import { readPid } from './pid-file';
 
 const [scenario, directory = ''] = process.argv.slice(2);
 const bun = process.execPath;
 
-async function waitFor(file: string): Promise<void> {
+async function waitFor(file: string, ready = () => existsSync(file)): Promise<void> {
 	const deadline = Date.now() + 10_000;
-	while (!existsSync(file)) {
+	while (!ready()) {
 		if (Date.now() > deadline) throw new Error(`Timed out waiting for ${file}`);
 		await Bun.sleep(10);
 	}
 }
+
+const waitForPid = (file: string) => waitFor(file, () => readPid(file) !== undefined);
 
 // A chunk on one pipe and a chunk on the other have no shared clock; the pauses make the
 // child's write order the order in which its output reaches this process.
@@ -134,8 +137,8 @@ switch (scenario) {
 		const orphaned = path.join(directory, 'orphaned');
 		startCommand(bun, ['-e', STUBBORN_TREE, stubborn]);
 		await startCommand(bun, ['-e', ORPHANED_TREE, orphaned]).finish();
-		await waitFor(stubborn);
-		await waitFor(orphaned);
+		await waitForPid(stubborn);
+		await waitForPid(orphaned);
 		// The failure exit an earlier check takes while later commands still run.
 		process.exit(1);
 	}
