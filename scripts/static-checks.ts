@@ -1161,9 +1161,8 @@ function killStartedGroups(): void {
 
 /**
  * Start a command now and report it later, at its step: nothing it prints and none of its
- * failure lines appear before `finish()`, which runs it from there exactly as `runCommand`
- * would. Until then its pipes hold what it prints, so a command with more output than a pipe
- * holds waits at that write. Its process group is killed when this process exits, so an
+ * failure lines appear before `finish()`, which forwards its output and reports its outcome
+ * the way `runCommand` does, keeping each stream's order. Its process group is killed when this process exits, so an
  * earlier step's `process.exit` leaves no orphan. POSIX only.
  */
 export function startCommand(

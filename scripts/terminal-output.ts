@@ -26,8 +26,9 @@ export interface SanitizedCommandOptions {
 	onProcessGroup?: (pgid: number) => void;
 	/**
 	 * Start the child at once but write nothing until this settles: no marker and none of the
-	 * child's output, which its pipes hold meanwhile. From then on the run is the same as an
-	 * unheld one, so output, markers and write failures are handled the same way.
+	 * child's output, which is kept in memory meanwhile. From then on markers, forwarding and
+	 * write failures follow the unheld path. Each stream keeps its order; held output of the
+	 * two streams is not interleaved in the order it arrived.
 	 */
 	heldUntil?: Promise<void>;
 }
