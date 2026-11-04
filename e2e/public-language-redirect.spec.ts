@@ -70,7 +70,7 @@ test.describe('SSR html lang', () => {
 
 // Old Impressum links from search results and bookmarks must land on the legal notice
 // that replaced the page, whichever representation the client asks for.
-// Cheaper layers rejected because: the endpoint test calls GET alone, while only the
+// Cheaper layers rejected because: the load test calls the redirect alone, while only the
 // deployed hook chain shows that the Markdown negotiation lets the request reach it.
 test('the former Impressum URL redirects to the Contact legal notice', async ({ request }) => {
 	for (const accept of ['text/html', 'text/markdown']) {
@@ -82,4 +82,22 @@ test('the former Impressum URL redirects to the Contact legal notice', async ({ 
 		expect(response.status(), accept).toBe(308);
 		expect(response.headers()['location'], accept).toMatch(/\/en\/contact#legal-notice$/);
 	}
+});
+
+// Fork copy can keep an old in-app link to /impressum. The client router resolves it
+// without a document request, so only a hydrated page shows whether it still redirects.
+test('an in-app link to the former Impressum opens the legal notice', async ({ page }) => {
+	await page.goto('/en/about');
+	await expect(page.locator('#svelte-announcer')).toBeAttached({ timeout: 30_000 });
+	await page.evaluate(() => {
+		const link = document.createElement('a');
+		link.href = '/en/impressum';
+		link.textContent = 'Old Impressum link';
+		document.querySelector('main')?.append(link);
+	});
+
+	await page.getByRole('link', { name: 'Old Impressum link' }).click();
+
+	await expect(page).toHaveURL(/\/en\/contact#legal-notice$/);
+	await expect(page.getByRole('heading', { name: 'Legal notice' })).toBeVisible();
 });
