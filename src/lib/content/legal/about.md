@@ -2,7 +2,7 @@
 
 {{BRAND_NAME}} is an open-source template for SaaS products, built with SvelteKit and Convex. It includes sign-in, billing, an admin panel, AI chat, a support chat, email, and translations.
 
-I ({{OPERATOR_NAME}}) maintain it and use it in production for several of my own projects.
+I ({{OPERATOR_FIRST_NAME}}) maintain it and use it in production for several of my own projects.
 
 ## Customer contact
 

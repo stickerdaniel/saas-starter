@@ -1,4 +1,5 @@
 import { LEGAL_CONFIG } from '#lib/config/legal.js';
+import { operatorFirstName } from '#lib/content/about.js';
 import { markdownText } from '#lib/markdown/literals.js';
 import type { MarketingMarkdownDocument } from '#lib/markdown/types.js';
 
@@ -10,7 +11,7 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 			heading: markdownText`About ${LEGAL_CONFIG.brandName}`,
 			paragraphs: [
 				markdownText`${LEGAL_CONFIG.brandName} is an open-source template for SaaS products, built with SvelteKit and Convex. It includes sign-in, billing, an admin panel, AI chat, a support chat, email, and translations.`,
-				markdownText`I (${LEGAL_CONFIG.operatorName}) maintain it and use it in production for several of my own projects.`
+				markdownText`I (${operatorFirstName}) maintain it and use it in production for several of my own projects.`
 			]
 		},
 		{

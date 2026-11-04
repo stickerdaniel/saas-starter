@@ -56,10 +56,11 @@ await Promise.all([
 	import('./contact/+page.svelte')
 ]);
 
-const IDENTITIES: Array<{ label: string; legal: LegalIdentity }> = [
-	{ label: 'template', legal: TEMPLATE },
-	{ label: 'fork', legal: FORK },
-	{ label: 'sole proprietor', legal: { ...FORK, companyName: '' } }
+/** `firstName` is how About introduces the operator. */
+const IDENTITIES: Array<{ label: string; legal: LegalIdentity; firstName: string }> = [
+	{ label: 'template', legal: TEMPLATE, firstName: 'Daniel' },
+	{ label: 'fork', legal: FORK, firstName: 'Anne' },
+	{ label: 'sole proprietor', legal: { ...FORK, companyName: '' }, firstName: 'Anne' }
 ];
 
 /**
@@ -119,37 +120,40 @@ function linkTarget(content: Element, name: string): string | null | undefined {
 		?.getAttribute('href');
 }
 
-describe.each(IDENTITIES)('server-rendered company pages with the $label identity', ({ legal }) => {
-	const organization = legal.companyName || legal.operatorName;
+describe.each(IDENTITIES)(
+	'server-rendered company pages with the $label identity',
+	({ legal, firstName }) => {
+		const organization = legal.companyName || legal.operatorName;
 
-	it('names the product and its operator on the About page', async () => {
-		const text = visibleText(await serverRender('about', legal));
-		const { aboutMarkdown } = await import('#lib/content/about.js');
+		it('names the product and its operator on the About page', async () => {
+			const text = visibleText(await serverRender('about', legal));
+			const { aboutMarkdown } = await import('#lib/content/about.js');
 
-		expect(text.length).toBeGreaterThanOrEqual(500);
-		// Forks rewrite this copy; only the identity it carries is fixed.
-		expect(aboutMarkdown.literals).toEqual({
-			BRAND_NAME: legal.brandName,
-			OPERATOR_NAME: legal.operatorName
+			expect(text.length).toBeGreaterThanOrEqual(500);
+			// Forks rewrite this copy; only the identity it carries is fixed.
+			expect(aboutMarkdown.literals).toEqual({
+				BRAND_NAME: legal.brandName,
+				OPERATOR_FIRST_NAME: firstName
+			});
+			for (const name of [legal.brandName, firstName]) {
+				expect(text).toContain(collapse(name));
+			}
 		});
-		for (const name of [legal.brandName, legal.operatorName]) {
-			expect(text).toContain(collapse(name));
-		}
-	});
 
-	it('lists the provider, the email and the support chat on the Contact page', async () => {
-		const content = await serverRender('contact', legal);
-		const text = visibleText(content);
-		const { streetAddress, postalCode, addressLocality, addressCountry } = legal.address;
+		it('lists the provider, the email and the support chat on the Contact page', async () => {
+			const content = await serverRender('contact', legal);
+			const text = visibleText(content);
+			const { streetAddress, postalCode, addressLocality, addressCountry } = legal.address;
 
-		expect(text.length).toBeGreaterThanOrEqual(500);
-		expect(providerName(content)).toBe(collapse(organization));
-		expect(text).toContain(collapse(`Operated by ${legal.operatorName}`));
-		expect(text).toContain(
-			collapse(`${streetAddress}, ${postalCode} ${addressLocality}, ${addressCountry}`)
-		);
-		expect(text).toContain(`Email: ${legal.email.user}@${legal.email.domain}.${legal.email.tld}`);
-		expect(linkTarget(content, 'Open the support chat')).toBe('/en/?support=open');
-		expect(linkTarget(content, 'Impressum')).toBe('/en/impressum');
-	});
-});
+			expect(text.length).toBeGreaterThanOrEqual(500);
+			expect(providerName(content)).toBe(collapse(organization));
+			expect(text).toContain(collapse(`Operated by ${legal.operatorName}`));
+			expect(text).toContain(
+				collapse(`${streetAddress}, ${postalCode} ${addressLocality}, ${addressCountry}`)
+			);
+			expect(text).toContain(`Email: ${legal.email.user}@${legal.email.domain}.${legal.email.tld}`);
+			expect(linkTarget(content, 'Open the support chat')).toBe('/en/?support=open');
+			expect(linkTarget(content, 'Impressum')).toBe('/en/impressum');
+		});
+	}
+);
