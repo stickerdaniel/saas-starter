@@ -9,19 +9,19 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 		{
 			heading: markdownText`About ${LEGAL_CONFIG.brandName}`,
 			paragraphs: [
-				markdownText`${LEGAL_CONFIG.brandName} is the personal open-source template of ${LEGAL_CONFIG.operatorName}, built on SvelteKit and Convex. ${LEGAL_CONFIG.operatorName} uses it in production for multiple projects. Besides sign-in and billing, it wires up the feedback loop with the first customers.`
+				markdownText`${LEGAL_CONFIG.brandName} is my personal open-source template, built on SvelteKit and Convex. I use it in production for multiple projects. Besides sign-in and billing, it wires up the feedback loop with your first customers.`
 			]
 		},
 		{
 			heading: 'Who runs it',
 			paragraphs: [
-				markdownText`${LEGAL_CONFIG.operatorName} builds and runs ${LEGAL_CONFIG.brandName}.`
+				markdownText`I'm ${LEGAL_CONFIG.operatorName}. I build and run ${LEGAL_CONFIG.brandName} myself.`
 			]
 		},
 		{
-			heading: 'How we work with customers',
+			heading: 'How I work with customers',
 			paragraphs: [
-				'Once the operator switches them on, verified new accounts get a personal welcome email whose replies reach the sender, accounts that have not paid about 48 hours after verification and customers who cancel a paid plan are asked for feedback, and users a production bug affected can get an email after the fix is live. The support chat hands conversations to a person when they need one.'
+				'Once I switch them on, verified new accounts get a personal welcome email whose replies reach me, accounts that have not paid about 48 hours after verification and customers who cancel a paid plan are asked for feedback, and users a production bug affected can get an email from me after the fix is live. The support chat hands conversations to me when they need a person.'
 			],
 			links: [
 				{ label: 'Contact', href: '/en/contact', description: 'email, support chat, and address' },

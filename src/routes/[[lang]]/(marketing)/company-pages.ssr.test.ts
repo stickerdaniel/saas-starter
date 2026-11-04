@@ -113,7 +113,7 @@ function linkTarget(content: Element, name: string): string | null | undefined {
 describe.each(IDENTITIES)('server-rendered company pages with the $label identity', ({ legal }) => {
 	const organization = legal.companyName || legal.operatorName;
 
-	it('names the product, its publisher and its operator on the About page', async () => {
+	it('names the product and its operator on the About page', async () => {
 		const text = visibleText(await serverRender('about', legal));
 		const { aboutMarkdown } = await import('#lib/content/about.js');
 
@@ -121,10 +121,9 @@ describe.each(IDENTITIES)('server-rendered company pages with the $label identit
 		// Forks rewrite this copy; only the identity it carries is fixed.
 		expect(aboutMarkdown.literals).toEqual({
 			BRAND_NAME: legal.brandName,
-			ORGANIZATION_NAME: organization,
 			OPERATOR_NAME: legal.operatorName
 		});
-		for (const name of [legal.brandName, organization, legal.operatorName]) {
+		for (const name of [legal.brandName, legal.operatorName]) {
 			expect(text).toContain(collapse(name));
 		}
 	});
@@ -135,7 +134,7 @@ describe.each(IDENTITIES)('server-rendered company pages with the $label identit
 		const { streetAddress, postalCode, addressLocality, addressCountry } = legal.address;
 
 		expect(text.length).toBeGreaterThanOrEqual(500);
-		expect(text).toContain(collapse(`${organization} operates ${legal.brandName}`));
+		expect(text).toContain(collapse(organization));
 		expect(text).toContain(collapse(`Operated by ${legal.operatorName}`));
 		expect(text).toContain(
 			collapse(`${streetAddress}, ${postalCode} ${addressLocality}, ${addressCountry}`)

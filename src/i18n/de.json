@@ -894,7 +894,7 @@
 		"search_placeholder": "Nach Seiten suchen..."
 	},
 	"footer": {
-		"about": "Über uns",
+		"about": "Über",
 		"contact": "Kontakt",
 		"copyright": "© {year} {brand}",
 		"impressum": "Impressum",
@@ -967,8 +967,8 @@
 	},
 	"meta": {
 		"about": {
-			"description": "Wer wir sind, was wir entwickeln und wie du uns erreichst.",
-			"title": "Über uns"
+			"description": "Wer es betreibt, wie ich mit Kunden arbeite und wie du mich erreichst.",
+			"title": "Über"
 		},
 		"admin": {
 			"audit_log": {

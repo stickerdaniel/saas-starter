@@ -894,7 +894,7 @@
 		"search_placeholder": "Prueba a buscar páginas..."
 	},
 	"footer": {
-		"about": "Sobre nosotros",
+		"about": "Acerca de",
 		"contact": "Contacto",
 		"copyright": "© {year} {brand}",
 		"impressum": "Aviso legal",
@@ -967,8 +967,8 @@
 	},
 	"meta": {
 		"about": {
-			"description": "Quiénes somos, qué construimos y cómo contactarnos.",
-			"title": "Sobre nosotros"
+			"description": "Quién lo gestiona, cómo trabajo con los clientes y cómo contactarme.",
+			"title": "Acerca de"
 		},
 		"admin": {
 			"audit_log": {
