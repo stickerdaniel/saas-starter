@@ -100,7 +100,7 @@ export function validTemplateEntries(): TarFixtureEntry[] {
 	return [
 		{
 			path: 'root/package.json',
-			data: '{"templateSetupVersion":1,"scripts":{"setup":"bun scripts/template-setup.ts"}}'
+			data: '{"templateSetupVersion":2,"scripts":{"setup":"bun scripts/template-setup.ts"}}'
 		},
 		{ path: 'root/bun.lock', data: '{"lockfileVersion":1}\n' },
 		{ path: 'root/scripts/template-setup.ts', data: 'export {};' },

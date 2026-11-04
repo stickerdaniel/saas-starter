@@ -10,6 +10,11 @@ const MAX_ARCHIVE_ENTRIES = 20_000;
 const MAX_PATH_DEPTH = 64;
 const MAX_META_ENTRY_BYTES = 1024 * 1024;
 export const SCAFFOLD_MARKER = '.saas-starter-scaffold.json';
+/**
+ * The setup flag protocol this creator forwards. A template whose package.json declares any
+ * other `templateSetupVersion` would reject those flags, so its archive fails before staging.
+ */
+const TEMPLATE_SETUP_VERSION = 2;
 
 interface ArchiveFile {
 	path: string;
@@ -450,10 +455,10 @@ function validateTemplateContract(entries: ParsedEntry[]): void {
 		scripts?: Record<string, unknown>;
 	};
 	if (
-		packageJson.templateSetupVersion !== 1 ||
+		packageJson.templateSetupVersion !== TEMPLATE_SETUP_VERSION ||
 		packageJson.scripts?.setup !== 'bun scripts/template-setup.ts'
 	) {
-		fail('templateSetupVersion:1 and the public setup script are required');
+		fail(`templateSetupVersion:${TEMPLATE_SETUP_VERSION} and the public setup script are required`);
 	}
 }
 

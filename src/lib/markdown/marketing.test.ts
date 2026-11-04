@@ -1,17 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
 import { lex } from 'svelte-streamdown';
 import { Lexer } from 'marked';
+import type * as LegalConfig from '#lib/config/legal.js';
 
 const { maliciousAddress, maliciousBrandName, maliciousEmail, maliciousOperatorName } = vi.hoisted(
 	() => ({
-		maliciousAddress: 'Hauptstrasse 5\n\n## Forged section',
+		maliciousAddress: {
+			streetAddress: 'Hauptstrasse 5\n\n## Forged section',
+			postalCode: '12345',
+			addressLocality: 'Berlin',
+			addressCountry: 'DE'
+		} satisfies LegalConfig.LegalPostalAddress,
 		maliciousBrandName: 'SaaS *Starter* [beta]\n## Forged brand',
 		maliciousEmail: 'legal [at] example [dot] test',
 		maliciousOperatorName: 'Operator #1'
 	})
 );
 
-vi.mock('#lib/config/legal.js', () => ({
+// Only the configured values are hostile; the real formatter renders them.
+vi.mock('#lib/config/legal.js', async (importOriginal) => ({
+	...(await importOriginal<typeof LegalConfig>()),
 	LEGAL_CONFIG: {
 		address: maliciousAddress,
 		brandName: maliciousBrandName,
@@ -549,7 +557,7 @@ describe('marketing markdown helpers', () => {
 		const markdown = renderMarketingMarkdown(
 			{
 				title: markdownText`${'\n'}`,
-				description: markdownText`Address: ${maliciousAddress}`,
+				description: markdownText`Address: ${maliciousAddress.streetAddress}`,
 				sections: []
 			},
 			{ origin: 'https://example.com', pathname: '/en/test', lang: 'en' }
@@ -570,7 +578,9 @@ describe('marketing markdown helpers', () => {
 		});
 		const bodyTokens = lex(getMarketingBody(markdown));
 
-		expect(markdown).toContain('Address: Hauptstrasse 5<br><br>\\#\\# Forged section');
+		expect(markdown).toContain(
+			'Address: Hauptstrasse 5<br><br>\\#\\# Forged section\\, 12345 Berlin\\, DE'
+		);
 		expect(
 			bodyTokens.some((token) => token.type === 'heading' && token.text === 'Forged section')
 		).toBe(false);

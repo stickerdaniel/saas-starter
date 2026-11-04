@@ -224,7 +224,10 @@ describe('process contract', () => {
 				options({
 					company: 'Company & Sons',
 					operator: 'Operator Name',
-					address: 'Unicode Straße 1',
+					street: 'Unicode Straße 1',
+					postalCode: '50667',
+					city: 'Köln',
+					country: 'DE',
 					email: 'local@example.test'
 				})
 			)
@@ -241,8 +244,14 @@ describe('process contract', () => {
 			'Company & Sons',
 			'--operator',
 			'Operator Name',
-			'--address',
+			'--street',
 			'Unicode Straße 1',
+			'--postal-code',
+			'50667',
+			'--city',
+			'Köln',
+			'--country',
+			'DE',
 			'--email',
 			'local@example.test'
 		]);

@@ -326,17 +326,26 @@ describe('validateTemplateArchive', () => {
 		await expect(
 			validates([{ path: 'root/.saas-starter-scaffold.json', data: 'x' }])
 		).rejects.toThrow(/forbidden/);
-		await expect(
-			validateTemplateArchive(
-				tarGz(
-					replacing('root/package.json', {
-						path: 'root/package.json',
-						data: '{"templateSetupVersion":2,"scripts":{"setup":"bun scripts/template-setup.ts"}}'
-					})
-				)
-			)
-		).rejects.toThrow(/templateSetupVersion/);
 	});
+
+	it.each([1, 3, '2'])(
+		'rejects templateSetupVersion %j from another setup protocol',
+		async (version) => {
+			await expect(
+				validateTemplateArchive(
+					tarGz(
+						replacing('root/package.json', {
+							path: 'root/package.json',
+							data: JSON.stringify({
+								templateSetupVersion: version,
+								scripts: { setup: 'bun scripts/template-setup.ts' }
+							})
+						})
+					)
+				)
+			).rejects.toThrow('templateSetupVersion:2 and the public setup script are required');
+		}
+	);
 
 	it('bounds tree and alias indexing work at the materialized entry limit', async () => {
 		const base = validTemplateEntries();

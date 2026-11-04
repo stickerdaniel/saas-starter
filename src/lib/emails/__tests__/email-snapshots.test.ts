@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import type { ViteDevServer } from 'vite';
 import * as generated from '../generated/index';
 import { EMAIL_TEMPLATES } from '../templates/registry';
-import { LEGAL_CONFIG } from '#lib/config/legal.js';
+import { LEGAL_CONFIG, formatPostalAddress, type LegalPostalAddress } from '#lib/config/legal.js';
 import { createViteServer } from '../../../../scripts/build-emails';
 
 // The parsed-output cases still need a DOM, so they build one with the jsdom package the
@@ -14,7 +14,7 @@ const { JSDOM } = createRequire(import.meta.url)('jsdom') as {
 	JSDOM: new (html: string) => { window: Window & typeof globalThis };
 };
 
-type LegalSlots = Record<'brandName' | 'companyName' | 'address', string>;
+type LegalSlots = Record<'brandName' | 'companyName', string> & { address: LegalPostalAddress };
 
 const outputNames = Object.values(EMAIL_TEMPLATES).map(({ outputName }) => outputName);
 
@@ -179,13 +179,27 @@ describe('Generated Email Templates', () => {
 				{
 					brandName: 'Northwind <Labs> & "Co"',
 					companyName: 'Northwind & <Partners> "Ltd."',
-					address: '1 <Harbour> Road & "Quay",\u00a0Portsmouth'
+					address: {
+						streetAddress: '1 <Harbour> Road & "Quay"',
+						postalCode: 'PO1\u00a03AX',
+						addressLocality: 'Portsmouth & <Southsea>',
+						addressCountry: 'GB'
+					}
 				},
 				thisYear
 			],
 			[
 				'equal brand and company',
-				{ brandName: 'Northwind', companyName: 'Northwind', address: '1 Harbour Road, Portsmouth' },
+				{
+					brandName: 'Northwind',
+					companyName: 'Northwind',
+					address: {
+						streetAddress: '1 Harbour Road',
+						postalCode: 'PO1 3AX',
+						addressLocality: 'Portsmouth',
+						addressCountry: 'GB'
+					}
+				},
 				thisYear
 			],
 			['another calendar year', LEGAL_CONFIG, thisYear + 1]
@@ -195,7 +209,7 @@ describe('Generated Email Templates', () => {
 				const built = await buildForIdentity(vite!, identity, year);
 				const brand = collapse(identity.brandName);
 				const company = collapse(identity.companyName);
-				const address = collapse(identity.address);
+				const address = collapse(formatPostalAddress(identity.address));
 				for (const { name, html, text } of built) {
 					const dom = new JSDOM(html);
 					try {

@@ -10,8 +10,9 @@
  *
  * Non-interactive mode (piped stdin, CI, agents) requires --slug, --repo, --brand
  * while those still hold their template values. Identity fields (brand, company,
- * operator, address, email) preserve the current legal.ts values when no flag is
- * given, so a re-run without flags keeps the configured identity.
+ * operator, address fields, email) preserve the current legal.ts values when no flag
+ * is given, so a re-run without flags keeps the configured identity. A legal.ts that
+ * still stores the address as one string needs all four address fields first.
  *
  * Runs before dependencies are installed: imports are limited to Node built-ins
  * and dependency-free local modules.
@@ -51,13 +52,24 @@ function normalizeFlag(v: unknown): string | undefined {
 	return t === '' ? undefined : t;
 }
 
+/** Postal address fields in LEGAL_CONFIG.address, with the setup flag that supplies each. */
+const ADDRESS_FIELDS = [
+	{ key: 'streetAddress', flag: '--street', question: 'Street address' },
+	{ key: 'postalCode', flag: '--postal-code', question: 'Postal code' },
+	{ key: 'addressLocality', flag: '--city', question: 'City' },
+	{ key: 'addressCountry', flag: '--country', question: 'Country code (two letters, such as US)' }
+] as const;
+
+type AddressFieldKey = (typeof ADDRESS_FIELDS)[number]['key'];
+type AddressFields = Record<AddressFieldKey, string>;
+
 interface SetupFlags {
 	slug?: string;
 	repo?: string;
 	brand?: string;
 	company?: string;
 	operator?: string;
-	address?: string;
+	address: Partial<AddressFields>;
 	email?: string;
 }
 
@@ -77,6 +89,11 @@ function readFlags(): SetupFlags {
 				brand: { type: 'string' },
 				company: { type: 'string' },
 				operator: { type: 'string' },
+				street: { type: 'string' },
+				'postal-code': { type: 'string' },
+				city: { type: 'string' },
+				country: { type: 'string' },
+				// Parsed only to reject it with the replacement flags instead of a generic error.
 				address: { type: 'string' },
 				email: { type: 'string' },
 				help: { type: 'boolean', short: 'h', default: false }
@@ -90,26 +107,41 @@ function readFlags(): SetupFlags {
 		process.exit(1);
 	}
 
+	if (values.address !== undefined) {
+		console.error(
+			'Error: --address was replaced by --street, --postal-code, --city, and --country.\nRun bun run setup --help to see the supported flags.'
+		);
+		process.exit(1);
+	}
+
 	if (values.help) {
 		console.log(`Template Setup
 
 Usage:
   bun run setup                                          (interactive)
-  bun run setup --slug <s> --repo <owner/name> --brand <s> [--company <s>] [--operator <s>] [--address <s>] [--email <user@domain.tld>]
+  bun run setup --slug <s> --repo <owner/name> --brand <s> [--company <s>] [--operator <s>]
+                [--street <s>] [--postal-code <s>] [--city <s>] [--country <CC>] [--email <user@domain.tld>]
 
 Flags:
-  --slug      Worker slug (1-63 lowercase letters, numbers, or inner hyphens)
-  --repo      GitHub repo in owner/name format
-  --brand     Brand display name
-  --company   Company name (legal entity)
-  --operator  Operator name (person or org running the service)
-  --address   Address used in Impressum and email footer
-  --email     Contact email in user@domain.tld form
-  -h, --help  Show this help
+  --slug         Worker slug (1-63 lowercase letters, numbers, or inner hyphens)
+  --repo         GitHub repo in owner/name format
+  --brand        Brand display name
+  --company      Company name (legal entity)
+  --operator     Operator name (person or org running the service)
+  --street       Street address, such as "123 Main Street, Suite 100"
+  --postal-code  Postal code
+  --city         City
+  --country      Two uppercase letters, such as US or DE
+  --email        Contact email in user@domain.tld form
+  -h, --help     Show this help
+
+The address fields appear in the Impressum and the email footer as
+"street, postal-code city, country".
 
 In non-interactive mode (piped stdin, CI), --slug, --repo, --brand are required
 while they still hold their template values.
 Identity fields without flags preserve current legal.ts values.
+A legal.ts that still stores the address as one string needs all four address flags.
 In interactive mode, missing flags are prompted with current values as defaults.
 Unknown flags are rejected before any file is written.`);
 		process.exit(0);
@@ -121,7 +153,12 @@ Unknown flags are rejected before any file is written.`);
 		brand: normalizeFlag(values.brand),
 		company: normalizeFlag(values.company),
 		operator: normalizeFlag(values.operator),
-		address: normalizeFlag(values.address),
+		address: Object.fromEntries(
+			ADDRESS_FIELDS.flatMap(({ key, flag }) => {
+				const value = normalizeFlag(values[flag.slice('--'.length)]);
+				return value === undefined ? [] : [[key, value]];
+			})
+		),
 		email: normalizeFlag(values.email)
 	};
 }
@@ -644,7 +681,7 @@ function prompt(question: string, fallback: string): Promise<string | undefined>
 			if (!answered) resolve(undefined);
 		};
 		iface.once('close', onClose);
-		iface.question(`${question} [${fallback}]: `, (answer) => {
+		iface.question(`${question}${fallback === '' ? '' : ` [${fallback}]`}: `, (answer) => {
 			answered = true;
 			iface.off('close', onClose);
 			resolve(answer.trim() || fallback);
@@ -753,10 +790,50 @@ export function parseContactEmail(
 
 /**
  * Brand and operator values enter Privacy and Terms paragraphs as raw text. A line
- * break would split the paragraph and can create another heading. Address stays multiline.
+ * break would split the paragraph and can create another heading. Address fields are
+ * joined into one line, so they stay single-line too.
  */
 function singleLineValidator(label: string): Validator {
 	return (value) => (/[\r\n]/.test(value) ? `${label} must be a single line` : undefined);
+}
+
+/** Validates one address field; the country is a syntax check, not ISO 3166-1 membership. */
+export function validateAddressField(key: AddressFieldKey, value: string): string | undefined {
+	const { flag } = ADDRESS_FIELDS.find((field) => field.key === key)!;
+	const label = flag.slice('--'.length);
+	if (value.trim() === '') return `${label} must not be empty`;
+	if (key === 'addressCountry' && !/^[A-Z]{2}$/.test(value)) {
+		return `country must be two uppercase letters, such as US or DE, got: ${value}`;
+	}
+	return singleLineValidator(label)(value);
+}
+
+/**
+ * The address LEGAL_CONFIG stores today: four string fields plus any fork-owned keys,
+ * kept in `object` so a rewrite preserves them, or the single string setup wrote before.
+ */
+export type LegalAddressState =
+	| { kind: 'fields'; fields: AddressFields; object: Record<string, unknown> }
+	| { kind: 'legacy'; text: string };
+
+/** Classifies LEGAL_CONFIG.address and rejects any other shape before setup writes. */
+export function readLegalAddress(config: Record<string, unknown>): LegalAddressState {
+	const address = config.address;
+	if (typeof address === 'string') return { kind: 'legacy', text: address };
+	if (address !== null && typeof address === 'object' && !Array.isArray(address)) {
+		const object = address as Record<string, unknown>;
+		const fields: Partial<AddressFields> = {};
+		for (const { key } of ADDRESS_FIELDS) {
+			const value = object[key];
+			if (typeof value === 'string') fields[key] = value;
+		}
+		if (ADDRESS_FIELDS.every(({ key }) => fields[key] !== undefined)) {
+			return { kind: 'fields', fields: fields as AddressFields, object };
+		}
+	}
+	throw new Error(
+		`Unsupported LEGAL_CONFIG.address: expected an object with string ${ADDRESS_FIELDS.map(({ key }) => key).join(', ')}`
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -1032,14 +1109,23 @@ function currentRepo(source: string): string {
 async function readLegalConfig(file: CanonicalFile): Promise<Record<string, unknown>> {
 	const imported = (await import(pathToFileURL(file.path).href)) as {
 		LEGAL_CONFIG?: unknown;
+		formatPostalAddress?: unknown;
 	};
 	assertOriginalBytes(file);
 	const config = imported.LEGAL_CONFIG;
 	if (config === null || typeof config !== 'object' || Array.isArray(config)) {
 		throw new Error('Could not read LEGAL_CONFIG from src/lib/config/legal.ts');
 	}
+	// Setup rewrites only the initializer, so a module from before structured addresses stays incomplete.
+	if (typeof imported.formatPostalAddress !== 'function') {
+		throw new Error(
+			'src/lib/config/legal.ts does not export formatPostalAddress. Copy LegalPostalAddress and formatPostalAddress from the template legal.ts, then rerun setup.'
+		);
+	}
 	// Validate before structuredClone can normalize class instances or null-prototype objects.
 	serializeConfigValue(config, '');
+	// The rewrite needs the direct initializer; report another source shape before reading fields.
+	findLegalConfigSource(file.source);
 	return structuredClone(config) as Record<string, unknown>;
 }
 
@@ -1891,7 +1977,7 @@ async function main() {
 		brand: brandFlag,
 		company: companyFlag,
 		operator: operatorFlag,
-		address: addressFlag,
+		address: addressFlags,
 		email: emailFlag
 	} = readFlags();
 
@@ -1930,7 +2016,12 @@ async function main() {
 	// Preserve an existing string, including an empty one. Only a missing key gets a suggestion.
 	const oldCompany = readOptionalString(legalConfig, 'companyName');
 	const oldOperator = readString(legalConfig, 'operatorName');
-	const oldAddress = readString(legalConfig, 'address');
+	let oldAddress: LegalAddressState;
+	try {
+		oldAddress = readLegalAddress(legalConfig);
+	} catch (error) {
+		fail(errorMessage(error));
+	}
 	const oldUser = readString(legalEmail, 'user');
 	const oldDomain = readString(legalEmail, 'domain');
 	const oldTld = readString(legalEmail, 'tld');
@@ -1948,6 +2039,20 @@ async function main() {
 		if (missing.length > 0) {
 			console.error(
 				`Error: bun run setup needs --slug, --repo, --brand in non-interactive mode.\nMissing: ${missing.join(', ')}\nExample: bun run setup --slug my-app --repo owner/my-app --brand "My App"`
+			);
+			process.exit(1);
+		}
+	}
+
+	// A legacy string cannot be split reliably, so every field needs an explicit value.
+	if (oldAddress.kind === 'legacy') {
+		console.log('LEGAL_CONFIG.address is still a single string:');
+		for (const line of oldAddress.text.split(/\r?\n/)) console.log(`  ${line}`);
+		console.log('Setup now stores it as street, postal code, city, and country fields.\n');
+		const missing = ADDRESS_FIELDS.filter(({ key }) => addressFlags[key] === undefined);
+		if (!interactive && missing.length > 0) {
+			console.error(
+				`Error: bun run setup needs --street, --postal-code, --city, --country to replace the address string.\nMissing: ${missing.map(({ flag }) => flag).join(', ')}`
 			);
 			process.exit(1);
 		}
@@ -1994,11 +2099,20 @@ async function main() {
 		singleLineValidator('operator')
 	);
 
-	const address = await resolveValue(
-		addressFlag,
-		'Address (for Impressum and email footer)',
-		oldAddress
-	);
+	// A legacy string offers no per-field default; the preflight above already showed it.
+	const resolveAddressField = (key: AddressFieldKey) =>
+		resolveValue(
+			addressFlags[key],
+			ADDRESS_FIELDS.find((field) => field.key === key)!.question,
+			oldAddress.kind === 'fields' ? oldAddress.fields[key] : '',
+			(value) => validateAddressField(key, value)
+		);
+	const address: AddressFields = {
+		streetAddress: await resolveAddressField('streetAddress'),
+		postalCode: await resolveAddressField('postalCode'),
+		addressLocality: await resolveAddressField('addressLocality'),
+		addressCountry: await resolveAddressField('addressCountry')
+	};
 
 	const email = await resolveValue(
 		emailFlag,
@@ -2018,7 +2132,8 @@ async function main() {
 		brand !== oldBrand ||
 		company !== oldCompany ||
 		operator !== oldOperator ||
-		address !== oldAddress ||
+		oldAddress.kind === 'legacy' ||
+		ADDRESS_FIELDS.some(({ key }) => address[key] !== oldAddress.fields[key]) ||
 		email !== oldEmail;
 
 	// Compute every next canonical value before creating a staging directory.
@@ -2026,7 +2141,8 @@ async function main() {
 	nextLegalConfig.brandName = brand;
 	nextLegalConfig.companyName = company;
 	nextLegalConfig.operatorName = operator;
-	nextLegalConfig.address = address;
+	nextLegalConfig.address =
+		oldAddress.kind === 'fields' ? { ...oldAddress.object, ...address } : address;
 	nextLegalConfig.email = { ...legalEmail, user: emailUser, domain: emailDomain, tld: emailTld };
 
 	let nextPackageJson: string;
