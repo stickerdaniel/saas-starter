@@ -1763,15 +1763,27 @@ describe('template setup stores the legal address as fields', () => {
 });
 
 describe('template setup migrates a legacy address string', () => {
-	/** A template copy whose legal.ts predates structured addresses. */
+	/** A template copy whose legal.ts keeps the current helpers but a pre-migration string address. */
 	function legacyFixture(): string {
+		const dir = createFixture();
+		writeLegalAddress(dir, "'123 Main Street, Suite 100, San Francisco, CA 94102'");
+		return dir;
+	}
+
+	it('rejects a legal module without formatPostalAddress and writes nothing', () => {
 		const dir = createFixture();
 		cpSync(
 			join(ROOT, 'scripts/__fixtures__/template-setup/legacy-string-legal.ts'),
 			join(dir, 'src/lib/config/legal.ts')
 		);
-		return dir;
-	}
+		const before = snapshot(dir);
+
+		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain('does not export formatPostalAddress');
+		expect(run.stdout).not.toContain('Applying:');
+		expect(snapshot(dir)).toEqual(before);
+	});
 
 	it('requires every address flag without a TTY and writes nothing', () => {
 		const dir = legacyFixture();

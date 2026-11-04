@@ -1109,11 +1109,18 @@ function currentRepo(source: string): string {
 async function readLegalConfig(file: CanonicalFile): Promise<Record<string, unknown>> {
 	const imported = (await import(pathToFileURL(file.path).href)) as {
 		LEGAL_CONFIG?: unknown;
+		formatPostalAddress?: unknown;
 	};
 	assertOriginalBytes(file);
 	const config = imported.LEGAL_CONFIG;
 	if (config === null || typeof config !== 'object' || Array.isArray(config)) {
 		throw new Error('Could not read LEGAL_CONFIG from src/lib/config/legal.ts');
+	}
+	// Setup rewrites only the initializer, so a module from before structured addresses stays incomplete.
+	if (typeof imported.formatPostalAddress !== 'function') {
+		throw new Error(
+			'src/lib/config/legal.ts does not export formatPostalAddress. Copy LegalPostalAddress and formatPostalAddress from the template legal.ts, then rerun setup.'
+		);
 	}
 	// Validate before structuredClone can normalize class instances or null-prototype objects.
 	serializeConfigValue(config, '');
