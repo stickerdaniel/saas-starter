@@ -19,10 +19,14 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 				'The template includes optional emails: a welcome email from a named person after email verification, a feedback request to accounts that have not paid about 48 hours after verification, a cancellation email, and an incident email to accounts a fixed production bug affected. The support chat hands conversations to a person when needed.'
 			],
 			links: [
-				{ label: 'Contact', href: '/en/contact', description: 'email, support chat, and address' },
+				{ label: 'Contact', href: '/en/contact', description: 'email and support chat' },
+				{
+					label: 'Legal notice',
+					href: '/en/contact#legal-notice',
+					description: 'full provider identification'
+				},
 				{ label: 'Privacy Policy', href: '/en/privacy' },
-				{ label: 'Terms of Service', href: '/en/terms' },
-				{ label: 'Impressum', href: '/en/impressum' }
+				{ label: 'Terms of Service', href: '/en/terms' }
 			]
 		}
 	]

@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatPostalAddress, getLegalEmailAddress, LEGAL_CONFIG } from '#lib/config/legal.js';
 import { PUBLIC_MARKETING_ROUTES } from '#lib/marketing/public-routes.js';
 import { aboutMarkdown } from './about';
-import { contactMarkdown } from './contact';
-import { impressumMarkdown } from './impressum';
+import { contactMarkdown, legalNoticeMarkdown } from './contact';
 import { LEGAL_CONTENT_DATES, formatLegalContentDate } from './legal-metadata';
 import { privacyMarkdown } from './privacy';
 import { termsMarkdown } from './terms';
@@ -11,9 +10,9 @@ import { termsMarkdown } from './terms';
 const legalDocuments = [
 	privacyMarkdown,
 	termsMarkdown,
-	impressumMarkdown,
 	aboutMarkdown,
-	contactMarkdown
+	contactMarkdown,
+	legalNoticeMarkdown
 ];
 // A sole proprietor leaves the company empty; About and Contact then name the operator.
 const organizationName = LEGAL_CONFIG.companyName || LEGAL_CONFIG.operatorName;
@@ -49,29 +48,23 @@ describe('authored legal content', () => {
 			OPERATOR_NAME: LEGAL_CONFIG.operatorName
 		});
 
-		expect(impressumMarkdown.markdown).toContain('# Impressum');
-		expect(impressumMarkdown.markdown).toContain('{{OPERATOR_NAME}}');
-		expect(impressumMarkdown.markdown).toContain('{{ADDRESS}}');
-		expect(impressumMarkdown.literals).toEqual({
-			ADDRESS: formatPostalAddress(LEGAL_CONFIG.address),
-			LAST_UPDATED: formatLegalContentDate(LEGAL_CONTENT_DATES.impressum),
-			OPERATOR_NAME: LEGAL_CONFIG.operatorName
-		});
-
 		expect(aboutMarkdown.markdown).toContain('# About {{BRAND_NAME}}');
 		expect(aboutMarkdown.markdown).toContain('[Contact](contact)');
+		expect(aboutMarkdown.markdown).toContain('[legal notice](contact#legal-notice)');
 		expect(aboutMarkdown.literals).toEqual({
 			BRAND_NAME: LEGAL_CONFIG.brandName,
 			OPERATOR_NAME: LEGAL_CONFIG.operatorName
 		});
 
 		expect(contactMarkdown.markdown).toContain('# Contact');
-		expect(contactMarkdown.markdown).toContain('Operated by {{OPERATOR_NAME}}');
-		expect(contactMarkdown.markdown).toContain('{{ADDRESS}}');
-		expect(contactMarkdown.markdown).toContain('[Impressum](impressum)');
-		expect(contactMarkdown.literals).toEqual({
+		expect(contactMarkdown.literals).toEqual({ BRAND_NAME: LEGAL_CONFIG.brandName });
+
+		expect(legalNoticeMarkdown.markdown).toContain('## Legal notice');
+		expect(legalNoticeMarkdown.markdown).toContain('Operated by {{OPERATOR_NAME}}');
+		expect(legalNoticeMarkdown.markdown).toContain('{{ADDRESS}}');
+		expect(legalNoticeMarkdown.literals).toEqual({
 			ADDRESS: formatPostalAddress(LEGAL_CONFIG.address),
-			BRAND_NAME: LEGAL_CONFIG.brandName,
+			LAST_UPDATED: formatLegalContentDate(LEGAL_CONTENT_DATES.impressum),
 			ORGANIZATION_NAME: organizationName,
 			OPERATOR_NAME: LEGAL_CONFIG.operatorName
 		});
@@ -88,9 +81,9 @@ describe('authored legal content', () => {
 	it.each([
 		['Privacy Policy', privacyMarkdown.markdown],
 		['Terms of Service', termsMarkdown.markdown],
-		['Impressum', impressumMarkdown.markdown],
 		['About', aboutMarkdown.markdown],
-		['Contact', contactMarkdown.markdown]
+		['Contact', contactMarkdown.markdown],
+		['Legal notice', legalNoticeMarkdown.markdown]
 	])('keeps every relative link in %s on a public marketing route', (_name, document) => {
 		const allowed = new Set(
 			PUBLIC_MARKETING_ROUTES.map((route) => route.pathSuffix.replace(/^\//, '')).filter(Boolean)
@@ -98,7 +91,8 @@ describe('authored legal content', () => {
 		const destinations = markdownDestinations(document);
 		for (const destination of destinations) {
 			if (/^(?:[a-z][a-z0-9+.-]*:|\/|#)/i.test(destination)) continue;
-			expect(allowed.has(destination), `Unexpected relative link: ${destination}`).toBe(true);
+			const route = destination.replace(/#.*$/, '');
+			expect(allowed.has(route), `Unexpected relative link: ${destination}`).toBe(true);
 		}
 	});
 

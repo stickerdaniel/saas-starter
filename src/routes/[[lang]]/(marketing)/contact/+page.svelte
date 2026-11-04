@@ -4,18 +4,14 @@
 	import ObfuscatedEmail from '#lib/components/obfuscated-email.svelte';
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { LEGAL_CONFIG } from '#lib/config/legal.js';
-	import { contactMarkdown as source } from '#lib/content/contact.js';
+	import { contactMarkdown, legalNoticeMarkdown } from '#lib/content/contact.js';
 	import { localizedHref } from '#lib/utils/i18n.js';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
 </script>
 
-<SEOHead title={$t('meta.contact.title')} description={$t('meta.contact.description')} />
-
-<!-- Contact content is intentionally English-only, like the Impressum. -->
-<div lang="en" class="mx-auto prose prose-sm max-w-3xl px-6 pt-40 pb-24 lg:px-12 dark:prose-invert">
-	<LegalMarkdown content={source} />
+{#snippet email()}
 	<p>
 		Email:
 		<ObfuscatedEmail
@@ -25,9 +21,22 @@
 			class="underline underline-offset-4"
 		/>
 	</p>
+{/snippet}
+
+<SEOHead title={$t('meta.contact.title')} description={$t('meta.contact.description')} />
+
+<!-- Contact content, including the legal notice, is intentionally English-only. -->
+<div lang="en" class="mx-auto prose prose-sm max-w-3xl px-6 pt-40 pb-24 lg:px-12 dark:prose-invert">
+	<LegalMarkdown content={contactMarkdown} />
+	{@render email()}
 	<p>
 		Support chat:
 		<!-- Only the homepage mounts the support widget; `support=open` opens it on load. -->
 		<a href={resolve(localizedHref('/?support=open'))}>Open the support chat</a>
 	</p>
+	<!-- The footer and the `/impressum` redirect link to this id; scroll-mt clears the fixed header. -->
+	<section id="legal-notice" class="scroll-mt-32">
+		<LegalMarkdown content={legalNoticeMarkdown} />
+		{@render email()}
+	</section>
 </div>

@@ -1,6 +1,7 @@
 export const LEGAL_CONTENT_DATES = {
 	privacy: '2026-09-30',
 	terms: '2026-03-18',
+	// Dates the legal notice on the Contact page; scripts/template-setup.ts parses this key.
 	impressum: '2026-03-21'
 } as const;
 
