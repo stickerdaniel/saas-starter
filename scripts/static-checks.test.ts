@@ -819,6 +819,21 @@ describe('commands started before their step', { timeout: CHECKER_SPAWN_TIMEOUT 
 		expect(status).toBe(3);
 	});
 
+	it.each([[false], [true]])(
+		'keeps replaying after the destination refuses a held chunk (GitHub Actions: %s)',
+		(githubActions) => {
+			const normalize = (output: string) =>
+				output.replaceAll(/terminal-output-[0-9a-f-]+/g, 'TOKEN');
+			const started = drive('destination-error-started', githubActions);
+			const run = drive('destination-error-run', githubActions);
+
+			expect(normalize(started.output)).toBe(normalize(run.output));
+			expect(started.output).toContain('LATER-DIAGNOSTIC');
+			expect(started.status).toBe(1);
+			expect(run.status).toBe(1);
+		}
+	);
+
 	/** Alive and not a zombie that its new parent has yet to reap. */
 	function running(pid: number): boolean {
 		const state = spawnSync('ps', ['-o', 'stat=', '-p', String(pid)], { encoding: 'utf8' });
@@ -904,8 +919,8 @@ describe('English prose workers', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 			GERMAN
 		]);
 
-		expect(workers).toEqual({ labels: files });
-		expect(inline).toEqual({ labels: files });
+		expect(workers).toMatchObject({ labels: files });
+		expect(workers).toEqual(inline);
 	});
 
 	it('withholds an earlier finding behind a later unreadable file, as the inline check does', () => {
@@ -922,7 +937,7 @@ describe('English prose workers', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 		);
 
 		expect(workers).toEqual({ error: 'Transient read failure for the first prose file' });
-		expect(inline).toEqual({ labels: files });
+		expect(inline).toMatchObject({ labels: files });
 	});
 
 	it('falls back to the inline check when a worker closes without a result', () => {
@@ -931,7 +946,7 @@ describe('English prose workers', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 			GERMAN
 		]);
 
-		expect(workers).toEqual({ labels: files });
+		expect(workers).toMatchObject({ labels: files });
 		expect(workers).toEqual(inline);
 	});
 });

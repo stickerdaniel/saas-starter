@@ -1530,13 +1530,18 @@ describe('Knip static-check CLI behavior', { concurrent: false }, () => {
 		expect(order).toEqual(order.toSorted((left, right) => left - right));
 	}, 45_000);
 
+	// Early starts are POSIX-only, so on Windows the same run keeps every linter at its step.
 	it('starts the project linters right after sync in a GitHub Actions lint run', () => {
 		const { status, output, order } = runSlowFormatterLint(true);
 		const [prettier, ...linters] = order;
 		const headers = ['Code formatting', 'ESLint', 'oxlint', 'knip', 'create-saas-starter knip'];
 
 		expect(status, output).toBe(0);
-		expect(linters.every((position) => position >= 0 && position < prettier!)).toBe(true);
+		if (process.platform === 'win32') {
+			expect(order).toEqual(order.toSorted((left, right) => left - right));
+		} else {
+			expect(linters.every((position) => position >= 0 && position < prettier!)).toBe(true);
+		}
 		const positions = headers.map((header) => output.indexOf(`. ${header}\n`));
 		expect(positions).toEqual(positions.toSorted((left, right) => left - right));
 		expect(output).toContain('All checks passed!');
@@ -1564,25 +1569,30 @@ describe('Knip static-check CLI behavior', { concurrent: false }, () => {
 		45_000
 	);
 
-	it('keeps a prose file error received before another prose worker fails', () => {
-		const checkout = createCheckerClone();
-		checkout.env.GITHUB_ACTIONS = 'true';
-		checkout.env.PROSE_WORKER_GATE = path.join(checkout.directory, 'prose-gate');
-		writeFileSync(
-			path.join(checkout.repository, 'scripts', 'english-policy', 'worker.ts'),
-			"import '../__fixtures__/static-checks/prose-worker-fails-after-error.ts';\n"
-		);
-		try {
-			const result = runChecker(checkout, ['--ci', '--scope', 'lint']);
-			const output = `${result.stdout}${result.stderr}`;
+	// The prose workers run only on POSIX; Windows checks prose inline.
+	it.skipIf(process.platform === 'win32')(
+		'keeps a prose file error received before another prose worker fails',
+		() => {
+			const checkout = createCheckerClone();
+			checkout.env.GITHUB_ACTIONS = 'true';
+			checkout.env.PROSE_WORKER_GATE = path.join(checkout.directory, 'prose-gate');
+			writeFileSync(
+				path.join(checkout.repository, 'scripts', 'english-policy', 'worker.ts'),
+				"import '../__fixtures__/static-checks/prose-worker-fails-after-error.ts';\n"
+			);
+			try {
+				const result = runChecker(checkout, ['--ci', '--scope', 'lint']);
+				const output = `${result.stdout}${result.stderr}`;
 
-			expect(output).toContain('Fatal error: Transient read failure for the first prose file');
-			expect(output).not.toContain('All checks passed!');
-			expect(result.status, output).toBe(1);
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}, 45_000);
+				expect(output).toContain('Fatal error: Transient read failure for the first prose file');
+				expect(output).not.toContain('All checks passed!');
+				expect(result.status, output).toBe(1);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
 
 	it('propagates a knip failure and sanitizes its output', () => {
 		const checkout = createCheckerClone();

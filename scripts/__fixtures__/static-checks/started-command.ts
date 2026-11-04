@@ -2,8 +2,10 @@
  * Drives `startCommand` the way a full CI lint run does: commands start first and report at
  * a later point. Usage: `bun started-command.ts <case> <directory>`.
  */
-import { existsSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
+import { existsSync, writeSync } from 'node:fs';
 import path from 'node:path';
+import type { Writable } from 'node:stream';
 import { runCommand, startCommand } from '../../static-checks';
 
 const [scenario, directory = ''] = process.argv.slice(2);
@@ -83,6 +85,41 @@ switch (scenario) {
 		const command = scenario === 'started-missing' ? startCommand(missing, []) : undefined;
 		console.log('before-finish');
 		await (command?.finish() ?? runCommand(missing, []));
+		break;
+	}
+	case 'destination-error-started':
+	case 'destination-error-run': {
+		// A destination that refuses the first chunk carrying SOURCE once, then accepts again.
+		// What it received is printed when the process exits.
+		const received: string[] = [];
+		let refused = false;
+		const destination = Object.assign(new EventEmitter(), {
+			write(text: string, callback: (error?: Error) => void) {
+				received.push(text);
+				if (!refused && text.includes('SOURCE')) {
+					refused = true;
+					callback(new Error('destination refused a write'));
+				} else callback();
+				return true;
+			}
+		}) as unknown as Writable;
+		process.on('exit', () => writeSync(1, `received:${JSON.stringify(received.join(''))}\n`));
+		const done = path.join(directory, 'done');
+		const args = [
+			'-e',
+			`process.stdout.write('SOURCE\\n');
+			setTimeout(() => {
+				process.stderr.write('LATER-DIAGNOSTIC\\n');
+				require('fs').writeFileSync(process.argv[1], '');
+				process.exit(3);
+			}, 200);`,
+			done
+		];
+		const options = { stdout: destination, stderr: destination };
+		if (scenario === 'destination-error-run') await runCommand(bun, args, options);
+		const command = startCommand(bun, args, options);
+		await waitFor(done);
+		await command.finish();
 		break;
 	}
 	default:

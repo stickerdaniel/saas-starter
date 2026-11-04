@@ -1171,12 +1171,23 @@ class DeferredOutput {
 		});
 	}
 
-	async release(): Promise<void> {
+	/**
+	 * Write the held chunks, then pass later ones through. A rejected write does not stop the
+	 * replay: like the live runner, which keeps forwarding the other stream and still writes
+	 * its resume marker, every held chunk is attempted. Resolves to whether all were accepted.
+	 */
+	async release(): Promise<boolean> {
+		let accepted = true;
 		// Chunks that arrive during an awaited write join the queue, so the loop drains them too.
 		for (let chunk = this.#held.shift(); chunk; chunk = this.#held.shift()) {
-			await writeOutput(chunk.destination, chunk.text);
+			const written = await writeOutput(chunk.destination, chunk.text).then(
+				() => true,
+				() => false
+			);
+			accepted &&= written;
 		}
 		this.#released = true;
+		return accepted;
 	}
 }
 
@@ -1191,7 +1202,8 @@ function killStartedGroups(): void {
 		try {
 			process.kill(-pgid, 'SIGKILL');
 		} catch (error) {
-			// ESRCH: the group is gone. EPERM: its id now belongs to another user's processes.
+			// ESRCH: the group is gone. EPERM: no permission to signal it. Either way the exit
+			// status stays the one the run chose, and the other groups are still signalled.
 			const code = (error as NodeJS.ErrnoException).code;
 			if (code !== 'ESRCH' && code !== 'EPERM') throw error;
 		}
@@ -1227,15 +1239,15 @@ export function startCommand(
 	}).catch(() => null);
 	return {
 		async finish() {
-			const result = await output.release().then(
-				() => outcome,
-				() => null
-			);
+			const accepted = await output.release();
+			// A held chunk the destination refused fails the command as a live write failure does.
+			const result = accepted ? await outcome : await outcome.then(() => null);
 			if (group !== undefined) {
 				try {
 					process.kill(-group, 0);
-				} catch {
-					startedGroups.delete(group);
+				} catch (error) {
+					// Only ESRCH shows the group is empty; any other answer keeps it on the kill list.
+					if ((error as NodeJS.ErrnoException).code === 'ESRCH') startedGroups.delete(group);
 				}
 			}
 			reportCommandOutcome(command, args, result);

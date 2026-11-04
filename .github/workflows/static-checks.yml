@@ -95,10 +95,10 @@ jobs:
           echo "$SHA256  $RUNNER_TEMP/bun-lint.zip" | sha256sum -c -
           unzip -q "$RUNNER_TEMP/bun-lint.zip" -d "$RUNNER_TEMP/bun-lint"
           echo "BUN_LINT_BINARY=$RUNNER_TEMP/bun-lint/bun-linux-x64/bun" >> "$GITHUB_ENV"
-      # The compatibility check below builds its baseline in a worktree of its own and only
-      # reads this checkout, so it runs beside the lint scope. Its output goes to a log, and
-      # its exit status is published by rename once it ends, so the report step never reads
-      # a partial status. The redirections detach the task from this step's output.
+      # The compatibility check below builds its baseline in a worktree of its own, so it runs
+      # beside the lint scope. Its output goes to a log, and its exit status is published by
+      # rename once it ends, so the report step never reads a partial status. The redirections
+      # detach the task from this step's output.
       - name: Start the Convex consumer compatibility check
         env:
           CONVEX_COMPAT_BASE: ${{ github.event_name == 'push' && github.event.before || '' }}

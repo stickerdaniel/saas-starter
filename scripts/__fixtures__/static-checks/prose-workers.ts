@@ -11,7 +11,7 @@ const [entry, ...files] = process.argv.slice(2);
 
 const settle = (findings: Promise<EnglishFinding[]>) =>
 	findings.then(
-		(list) => ({ labels: list.map((finding) => finding.label) }),
+		(list) => ({ labels: list.map((finding) => finding.label), findings: list }),
 		(error: Error) => ({ error: error.message })
 	);
 
