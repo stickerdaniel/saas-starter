@@ -61,6 +61,7 @@ import {
 	isJavaScriptSourceFile,
 	type EnglishFinding
 } from './english-policy/content';
+import { startProseWorkers } from './english-policy/workers';
 import {
 	activeGitIndexFingerprint,
 	getStagedChanges,
@@ -77,7 +78,8 @@ import {
 	runSanitizedCommand,
 	sanitizeTerminalField,
 	sanitizeTerminalText,
-	type SanitizedCommandOptions
+	type SanitizedCommandOptions,
+	type SanitizedCommandResult
 } from './terminal-output';
 
 // Configuration (matches CI static-checks.yml exclusions)
@@ -1100,18 +1102,19 @@ function parseCli() {
 	return { ciMode, scope, mode, rawPositionals, filesFrom };
 }
 
+/** A command and its arguments. */
+type CommandLine = [command: string, args: string[]];
+
 /**
- * Run a command and exit if it fails
+ * The one failure policy for a finished command: `null` means it could not start (or its
+ * output could not be written), which exits 1; a nonzero status exits with that status.
  */
-async function runCommand(
+function reportCommandOutcome(
 	command: string,
 	args: string[],
-	options?: SanitizedCommandOptions
-): Promise<void> {
-	let result;
-	try {
-		result = await runSanitizedCommand(command, args, options);
-	} catch {
+	result: SanitizedCommandResult | null
+): void {
+	if (result === null) {
 		console.error(
 			`${colors.red}Command could not start: ${sanitizeTerminalField(command)}${colors.reset}`
 		);
@@ -1123,6 +1126,79 @@ async function runCommand(
 		console.error(`${colors.red}Command failed: ${invocation}${colors.reset}`);
 		process.exit(result.status ?? 1);
 	}
+}
+
+/**
+ * Run a command and exit if it fails
+ */
+export async function runCommand(
+	command: string,
+	args: string[],
+	options?: SanitizedCommandOptions
+): Promise<void> {
+	const result = await runSanitizedCommand(command, args, options).catch(() => null);
+	reportCommandOutcome(command, args, result);
+}
+
+/**
+ * Process groups of started commands. A group stays listed after its leader exits, because
+ * a descendant can outlive the leader; `finish()` drops only a group that is already empty.
+ */
+const startedGroups = new Set<number>();
+
+function killStartedGroups(): void {
+	for (const pgid of startedGroups) {
+		try {
+			process.kill(-pgid, 'SIGKILL');
+		} catch (error) {
+			// ESRCH: the group is gone. EPERM: no permission to signal it. Either way the exit
+			// status stays the one the run chose, and the other groups are still signalled.
+			const code = (error as NodeJS.ErrnoException).code;
+			if (code !== 'ESRCH' && code !== 'EPERM') throw error;
+		}
+	}
+}
+
+/**
+ * Start a command now and report it later, at its step: nothing it prints and none of its
+ * failure lines appear before `finish()`, which forwards its output and reports its outcome
+ * the way `runCommand` does, keeping each stream's order. Its process group is killed when
+ * this process exits, so an earlier step's `process.exit` leaves no orphan. POSIX only.
+ */
+export function startCommand(
+	command: string,
+	args: string[],
+	options: Pick<SanitizedCommandOptions, 'stdout' | 'stderr' | 'githubActions'> = {}
+): { finish(): Promise<void> } {
+	if (!process.listeners('exit').includes(killStartedGroups)) {
+		process.on('exit', killStartedGroups);
+	}
+	let release = (): void => {};
+	const released = new Promise<void>((resolve) => (release = resolve));
+	let group: number | undefined;
+	const outcome = runSanitizedCommand(command, args, {
+		...options,
+		heldUntil: released,
+		onProcessGroup: (pgid) => {
+			group = pgid;
+			startedGroups.add(pgid);
+		}
+	}).catch(() => null);
+	return {
+		async finish() {
+			release();
+			const result = await outcome;
+			if (group !== undefined) {
+				try {
+					process.kill(-group, 0);
+				} catch (error) {
+					// Only ESRCH shows the group is empty; any other answer keeps it on the kill list.
+					if ((error as NodeJS.ErrnoException).code === 'ESRCH') startedGroups.delete(group);
+				}
+			}
+			reportCommandOutcome(command, args, result);
+		}
+	};
 }
 
 /**
@@ -1486,11 +1562,46 @@ async function main(): Promise<void> {
 		}
 	}
 
+	// CI points this at a Bun build whose `bun lint` runs this ESLint config with the
+	// Svelte rules in native code: https://github.com/stickerdaniel/bun/releases
+	const bunLint = process.env.BUN_LINT_BINARY;
+	const eslintFixArgs = assertMode ? [] : ['--fix'];
+	const projectEslint: CommandLine = bunLint
+		? [bunLint, ['lint', '--no-script', '--flavor=eslint', ...eslintFixArgs, '.']]
+		: ['bun', ['eslint', '.', '--concurrency', '2', ...eslintFixArgs]];
+	const oxlint: CommandLine = ['bun', ['oxlint']];
+	const knip: CommandLine = ['bun', ['knip', '--no-progress']];
+	const cliKnip: CommandLine = [
+		'bun',
+		['run', '--cwd', CLI_PACKAGE_DIRECTORY, 'knip', '--no-progress']
+	];
+
 	// SvelteKit sync (always runs — needed by both lint and types)
 	printHeader(step++, 'SvelteKit sync');
 	await runCommand('bun', ['svelte-kit', 'sync']);
 	ledger.ran('svelte-kit sync');
 	console.log('\n');
+
+	// A full CI lint run only asserts, so no check in it writes a file another one reads. The
+	// project-wide linters and the English prose workers start here and run beside the checks
+	// before them; each still reports, and earns ledger credit, at its own step. Other runs
+	// stay sequential: a fix run rewrites files that knip and oxlint read. An early exit kills
+	// the started process groups, which Windows lacks, and a cancelled run leaves them to the
+	// disposable GitHub Actions job, so a local `--ci` run stays sequential too.
+	const early =
+		shouldRunLint &&
+		ciMode &&
+		mode === 'full' &&
+		process.platform !== 'win32' &&
+		process.env.GITHUB_ACTIONS === 'true'
+			? {
+					eslint: startCommand(...projectEslint),
+					oxlint: startCommand(...oxlint),
+					knip: startCommand(...knip),
+					cliKnip: creatorState === 'absent' ? undefined : startCommand(...cliKnip),
+					prose: startProseWorkers(englishProseFiles(fullExistingPaths), 2)
+				}
+			: undefined;
 
 	// -- Lint group: misspell, banned patterns, prettier, eslint, oxlint, knip --
 
@@ -1610,7 +1721,7 @@ async function main(): Promise<void> {
 			const files = englishProseFiles(
 				scopedMode ? ledger.filesFor('english-prose') : fullExistingPaths
 			);
-			const findings = await englishProseFindings(files);
+			const findings = await (early?.prose.findings() ?? englishProseFindings(files));
 			for (const finding of findings) {
 				console.error(
 					`${colors.red}${sanitizeTerminalField(formatEnglishFinding(finding))}${colors.reset}`
@@ -1645,19 +1756,12 @@ async function main(): Promise<void> {
 		// ESLint
 		printHeader(step++, 'ESLint');
 		{
-			const fixArgs = assertMode ? [] : ['--fix'];
 			const files = ledger.filesFor('eslint');
-			// CI points this at a Bun build whose `bun lint` runs this ESLint config with the
-			// Svelte rules in native code: https://github.com/stickerdaniel/bun/releases
-			const bunLint = process.env.BUN_LINT_BINARY;
-			if (!scopedMode && bunLint) {
-				await runCommand(bunLint, ['lint', '--no-script', '--flavor=eslint', ...fixArgs, '.']);
-				ledger.ran('eslint');
-			} else if (!scopedMode) {
-				await runCommand('bun', ['eslint', '.', '--concurrency', '2', ...fixArgs]);
+			if (!scopedMode) {
+				await (early?.eslint.finish() ?? runCommand(...projectEslint));
 				ledger.ran('eslint');
 			} else if (files.length > 0) {
-				await runCommand('bun', ['eslint', ...fixArgs, ...files]);
+				await runCommand('bun', ['eslint', ...eslintFixArgs, ...files]);
 				ledger.ran('eslint', files.length);
 			} else {
 				console.log('No JS/TS/Svelte files to lint');
@@ -1668,7 +1772,7 @@ async function main(): Promise<void> {
 
 		// oxlint
 		printHeader(step++, 'oxlint');
-		await runCommand('bun', ['oxlint']);
+		await (early?.oxlint.finish() ?? runCommand(...oxlint));
 		ledger.ran('oxlint');
 		console.log('\n');
 
@@ -1680,7 +1784,7 @@ async function main(): Promise<void> {
 		// lint. The pre-push file run and CI's lint scope still fail on new dead code.
 		if (mode !== 'staged') {
 			printHeader(step++, 'knip');
-			await runCommand('bun', ['knip', '--no-progress']);
+			await (early?.knip.finish() ?? runCommand(...knip));
 			ledger.ran('knip');
 			console.log('\n');
 
@@ -1689,7 +1793,7 @@ async function main(): Promise<void> {
 				console.log('Generated project has no creator package');
 				ledger.skipped('cli knip', 'creator package removed by setup');
 			} else {
-				await runCommand('bun', ['run', '--cwd', CLI_PACKAGE_DIRECTORY, 'knip', '--no-progress']);
+				await (early?.cliKnip?.finish() ?? runCommand(...cliKnip));
 				ledger.ran('cli knip');
 			}
 			console.log('\n');

@@ -9,7 +9,7 @@
 
 import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
-import type { Writable } from 'stream';
+import { PassThrough, type Readable, type Writable } from 'stream';
 import { dataFor, terminalCategory } from '../eslint/control-character-policy.js';
 export { sanitizeTerminalField } from '../eslint/control-character-policy.js';
 
@@ -19,6 +19,18 @@ export interface SanitizedCommandOptions {
 	stdout?: Writable;
 	stderr?: Writable;
 	githubActions?: boolean;
+	/**
+	 * Start the child as the leader of a new process group (POSIX only) and report the group
+	 * id once it runs, so the caller can signal its whole tree with `process.kill(-pgid)`.
+	 */
+	onProcessGroup?: (pgid: number) => void;
+	/**
+	 * Start the child at once but write nothing until this settles: no marker and none of the
+	 * child's output, which is kept in memory meanwhile. From then on markers, forwarding and
+	 * write failures follow the unheld path. Each stream keeps its order; held output of the
+	 * two streams is not interleaved in the order it arrived.
+	 */
+	heldUntil?: Promise<void>;
 }
 
 export interface SanitizedCommandResult {
@@ -147,23 +159,52 @@ export async function runSanitizedCommand(
 	// streams onto stdout while workflow commands are suspended. Local runs retain
 	// their original descriptors.
 	const childStderr = onActions ? stdout : stderr;
-	if (commandToken) await write(stdout, `\n::stop-commands::${commandToken}\n`);
-
-	try {
+	const launch = () => {
 		const child = spawn(command, args, {
 			cwd: options.cwd,
 			env: colorlessEnvironment(options.env),
-			stdio: ['inherit', 'pipe', 'pipe']
+			stdio: ['inherit', 'pipe', 'pipe'],
+			detached: options.onProcessGroup !== undefined
 		});
+		if (child.pid !== undefined) options.onProcessGroup?.(child.pid);
 		const result = new Promise<SanitizedCommandResult>((resolve, reject) => {
 			child.once('error', reject);
 			child.once('close', (status, signal) => resolve({ status, signal }));
 		});
+		// Claimed now: a held child's spawn error must wait for the release, not crash the run.
+		result.catch(() => undefined);
+		// A held child's output is kept here: Bun reads a child's pipes whether or not anything
+		// listens, and drops what nobody reads.
+		const keep = (output: Readable): Readable => {
+			if (!options.heldUntil) return output;
+			const kept = output.pipe(new PassThrough());
+			// A child that never started closes its pipes without ending them.
+			output.once('close', () => kept.end());
+			return kept;
+		};
+		return { result, output: keep(child.stdout!), errors: keep(child.stderr!) };
+	};
+	// A held child starts now; a spawn that throws still throws where an unheld one does.
+	let started: (() => ReturnType<typeof launch>) | undefined;
+	if (options.heldUntil) {
+		try {
+			const launched = launch();
+			started = () => launched;
+		} catch (error) {
+			started = () => {
+				throw error;
+			};
+		}
+	}
+	await options.heldUntil;
+	if (commandToken) await write(stdout, `\n::stop-commands::${commandToken}\n`);
 
+	try {
+		const launched = (started ?? launch)();
 		const outcomes = await Promise.allSettled([
-			result,
-			forward(child.stdout, stdout),
-			forward(child.stderr, childStderr)
+			launched.result,
+			forward(launched.output, stdout),
+			forward(launched.errors, childStderr)
 		]);
 		const completed = outcomes[0]!;
 		if (completed.status === 'rejected') throw completed.reason;
