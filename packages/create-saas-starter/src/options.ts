@@ -4,7 +4,7 @@ import { parseArgs } from 'node:util';
 import packageJson from '../package.json' with { type: 'json' };
 
 export const CLI_VERSION = packageJson.version;
-export const DEFAULT_TEMPLATE_SHA = '7fe4c4622eba1fb3e8506c9c003d4ec0708eaebe';
+export const DEFAULT_TEMPLATE_SHA = '8a2c3bd982e0c6aac2bdda7821aed704a8034af3';
 
 export const HELP_TEXT = `create-saas-starter ${CLI_VERSION}
 
