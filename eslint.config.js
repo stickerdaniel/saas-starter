@@ -246,6 +246,27 @@ export default defineConfig(
 			]
 		}
 	},
+	// Fontless invalidates fontless/runtime and its importers mid-request in dev. The root
+	// layout's importer graph is small; a server hook's spans most modules, because
+	// $app/paths reaches the hooks through the generated server.
+	{
+		files: ['src/**/*.{ts,js,svelte}'],
+		ignores: ['src/routes/+layout.svelte'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					paths: [
+						{
+							name: 'fontless/runtime',
+							message:
+								'Import fontless/runtime only in src/routes/+layout.svelte. Elsewhere, its dev invalidation re-evaluates its importers mid-request. Server code can read the preload links the layout rendered.'
+						}
+					]
+				}
+			]
+		}
+	},
 	// No console.log/debug/info in src/ (frontend code)
 	{
 		files: ['src/**/*.{ts,js,svelte}'],
