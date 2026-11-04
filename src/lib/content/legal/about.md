@@ -1,23 +1,24 @@
 # About {{BRAND_NAME}}
 
-{{BRAND_NAME}} is my personal open-source template, built on SvelteKit and Convex and made for the day after launch. I use it in production for multiple projects. A feature joins it only after one of those projects uses it. Besides sign-in and billing, it wires up the feedback loop with your first customers.
+{{BRAND_NAME}} is an open-source template for SaaS products, built with SvelteKit and Convex. It includes sign-in, billing, an admin panel, AI chat, a support chat, email, and translations.
 
 ## Who runs it
 
-I'm {{OPERATOR_NAME}}. I build and run {{BRAND_NAME}} myself, from releases to answering your questions.
+I'm {{OPERATOR_NAME}}. I build and maintain {{BRAND_NAME}} and use it in production for multiple projects.
 
-## How I work with customers
+## Customer contact
 
-I ship small releases often and shape them around what customers tell me. Each step of that loop reaches customers directly once it is switched on:
+The template includes optional emails and a support chat:
 
-- **I write to you.** With the welcome email on, new accounts get a personal welcome email from me as soon as the email address is verified. Your reply reaches me.
-- **I ask what is missing.** With feedback on, an account that has not paid about 48 hours after its email address is verified gets a feedback request from me. With the cancellation email on, customers who cancel a paid plan are asked what was missing.
-- **Support hands off to me.** The support chat answers right away and passes the conversation to me when it needs a person.
-- **I tell you about bugs that hit you.** When my records show that a production bug affected your account, I can email you after the fix is live.
+- **Welcome email:** sent from a named person once a new account verifies its email address. Replies reach that person.
+- **Feedback request:** sent to accounts that have not paid about 48 hours after verification.
+- **Cancellation email:** asks customers who cancel a paid plan what was missing.
+- **Support chat:** answers right away and hands the conversation to a person when needed.
+- **Incident email:** after a production bug is fixed, the accounts it affected can get an email.
 
 ## Your data
 
-Product analytics load only after you consent. The [Privacy Policy](privacy) lists the personal data the service keeps and why. The [Terms of Service](terms) describe what you can expect from me.
+Product analytics load only after you consent. The [Privacy Policy](privacy) lists the personal data the service keeps and why. The [Terms of Service](terms) set the terms of use.
 
 ## Get in touch
 
