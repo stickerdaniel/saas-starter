@@ -34,7 +34,7 @@ import {
  */
 
 // Short-lived reports, including retries hidden by an overall successful run.
-const DIAGNOSTIC_ARTIFACTS = new Set(['playwright-report']);
+const DIAGNOSTIC_ARTIFACTS = new Set(['playwright-report', 'unit-test-blob-${{ matrix.shard }}-2']);
 
 // Name prefixes of artifacts a machine consumer reads later (deploy manifests,
 // audit evidence). They may upload unconditionally and keep the maximum.
