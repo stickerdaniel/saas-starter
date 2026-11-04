@@ -24,7 +24,7 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 			heading: 'Email and support chat',
 			paragraphs: [
 				markdownText`Email: ${getObfuscatedLegalEmailAddress()}`,
-				'Write by email for billing, privacy, and legal matters. Include the email address of your account and never send passwords or payment card numbers. For product questions, the support chat on the homepage reaches the same team.'
+				'Write by email for billing, privacy, and legal matters. Include the email address of your account and never send passwords or payment card numbers. For product questions, the support chat on the homepage answers right away and passes the conversation to the team when it needs a person.'
 			],
 			links: [
 				{ label: 'Support chat', href: '/en?support=open' },

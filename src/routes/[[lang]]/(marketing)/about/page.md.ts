@@ -6,24 +6,24 @@ const organizationName = LEGAL_CONFIG.companyName || LEGAL_CONFIG.operatorName;
 
 export const marketingMarkdown: MarketingMarkdownDocument = {
 	title: 'About',
-	description: markdownText`Who publishes ${LEGAL_CONFIG.brandName}, what it does, and how to reach the team.`,
+	description: markdownText`Who publishes ${LEGAL_CONFIG.brandName}, how the team works with customers, and how to reach it.`,
 	sections: [
 		{
 			heading: markdownText`About ${LEGAL_CONFIG.brandName}`,
 			paragraphs: [
-				markdownText`${LEGAL_CONFIG.brandName} is a web application that helps teams launch and run a subscription software product. It combines sign-up and sign-in, subscription billing, transactional email, a customer support chat, and product analytics in one service.`
+				markdownText`${LEGAL_CONFIG.brandName} is an open-source SvelteKit and Convex starter for subscription products. Besides sign-in and billing, it wires up the feedback loop with the first customers.`
 			]
 		},
 		{
 			heading: 'Who we are',
 			paragraphs: [
-				markdownText`${organizationName} publishes ${LEGAL_CONFIG.brandName} and is responsible for the service. ${LEGAL_CONFIG.operatorName} runs it day to day, from product decisions and releases to answering customer questions.`
+				markdownText`${organizationName} publishes ${LEGAL_CONFIG.brandName} and is responsible for the service. ${LEGAL_CONFIG.operatorName} runs it day to day, from releases to answering customer questions.`
 			]
 		},
 		{
-			heading: 'How we work',
+			heading: 'How we work with customers',
 			paragraphs: [
-				'We ship in small, frequent releases and shape the roadmap around the questions customers send us. We collect only the personal data the service needs.'
+				'New accounts get a personal welcome email from one person on the team, and replies reach that person. Users who have not paid after 48 hours and customers who cancel are asked for feedback. The support chat hands conversations to the team when they need a person. Users a production bug affected get an email after the fix is live.'
 			],
 			links: [
 				{ label: 'Contact', href: '/en/contact', description: 'email, support chat, and address' },
