@@ -4,7 +4,7 @@ import type { MarketingMarkdownDocument } from '#lib/markdown/types.js';
 
 export const marketingMarkdown: MarketingMarkdownDocument = {
 	title: 'About',
-	description: markdownText`Who runs ${LEGAL_CONFIG.brandName}, how it works with customers, and how to reach it.`,
+	description: markdownText`Who runs ${LEGAL_CONFIG.brandName}, how I work with customers, and how to reach me.`,
 	sections: [
 		{
 			heading: markdownText`About ${LEGAL_CONFIG.brandName}`,
