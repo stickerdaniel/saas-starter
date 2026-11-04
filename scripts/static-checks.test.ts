@@ -635,14 +635,23 @@ describe('commands started before their step', { timeout: CHECKER_SPAWN_TIMEOUT 
 	const DRIVER = path.join(FIXTURES, 'started-command.ts');
 
 	/** Runs a driver case with stdout and stderr written to one file, in write order. */
-	function drive(scenario: string, githubActions = false): { status: number; output: string } {
+	function drive(
+		scenario: string,
+		githubActions = false,
+		env: Record<string, string> = {}
+	): { status: number; output: string } {
 		const directory = mkdtempSync(path.join(tmpdir(), 'started-command-'));
 		const outputPath = path.join(directory, 'output');
 		const output = openSync(outputPath, 'w');
 		try {
 			const result = spawnSync(BUN, [DRIVER, scenario, directory], {
 				cwd: ROOT,
-				env: { ...sanitizedGitEnv(), NO_COLOR: '1', GITHUB_ACTIONS: String(githubActions) },
+				env: {
+					...sanitizedGitEnv(),
+					NO_COLOR: '1',
+					GITHUB_ACTIONS: String(githubActions),
+					...env
+				},
 				stdio: ['ignore', output, output],
 				timeout: 20_000
 			});
@@ -653,11 +662,15 @@ describe('commands started before their step', { timeout: CHECKER_SPAWN_TIMEOUT 
 		}
 	}
 
-	it('holds both streams until finish and then writes them in arrival order', () => {
-		expect(drive('interleaved')).toEqual({
-			status: 0,
-			output: 'before-finish\nout-1\nerr-1\nout-2\nafter-finish\n'
-		});
+	it('holds both streams until finish and keeps each stream in order', () => {
+		const { status, output } = drive('interleaved');
+		const lines = output.trim().split('\n');
+
+		expect(lines[0]).toBe('before-finish');
+		expect(lines.at(-1)).toBe('after-finish');
+		expect(lines.filter((line) => line.startsWith('out-'))).toEqual(['out-1', 'out-2']);
+		expect(lines.toSorted()).toEqual(['after-finish', 'before-finish', 'err-1', 'out-1', 'out-2']);
+		expect(status).toBe(0);
 	});
 
 	it('shows what a still-running command printed as soon as its step starts', async () => {
@@ -819,16 +832,21 @@ describe('commands started before their step', { timeout: CHECKER_SPAWN_TIMEOUT 
 		expect(status).toBe(3);
 	});
 
-	it.each([[false], [true]])(
-		'keeps replaying after the destination refuses a held chunk (GitHub Actions: %s)',
-		(githubActions) => {
+	it.each([
+		['SOURCE-1', false],
+		['SOURCE-1', true],
+		['::stop-commands::', true]
+	])(
+		'handles a destination that refuses %s like an unheld run (GitHub Actions: %s)',
+		(refuse, githubActions) => {
 			const normalize = (output: string) =>
 				output.replaceAll(/terminal-output-[0-9a-f-]+/g, 'TOKEN');
-			const started = drive('destination-error-started', githubActions);
-			const run = drive('destination-error-run', githubActions);
+			const started = drive('destination-error-started', githubActions, { REFUSE: refuse });
+			const run = drive('destination-error-run', githubActions, { REFUSE: refuse });
 
 			expect(normalize(started.output)).toBe(normalize(run.output));
-			expect(started.output).toContain('LATER-DIAGNOSTIC');
+			expect(started.output.includes('OTHER-SOURCE')).toBe(refuse === 'SOURCE-1');
+			expect(started.output).not.toContain('SOURCE-2');
 			expect(started.status).toBe(1);
 			expect(run.status).toBe(1);
 		}

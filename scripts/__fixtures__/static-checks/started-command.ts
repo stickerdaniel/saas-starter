@@ -89,30 +89,35 @@ switch (scenario) {
 	}
 	case 'destination-error-started':
 	case 'destination-error-run': {
-		// A destination that refuses the first chunk carrying SOURCE once, then accepts again.
-		// What it received is printed when the process exits.
-		const received: string[] = [];
+		// A destination that refuses, once, the first chunk containing REFUSE (`SOURCE-1` or the
+		// opening workflow-command marker), then accepts again. What it accepted is printed
+		// when the process exits.
+		const needle = process.env.REFUSE ?? 'SOURCE-1';
+		const accepted: string[] = [];
 		let refused = false;
 		const destination = Object.assign(new EventEmitter(), {
 			write(text: string, callback: (error?: Error) => void) {
-				received.push(text);
-				if (!refused && text.includes('SOURCE')) {
+				if (!refused && text.includes(needle)) {
 					refused = true;
 					callback(new Error('destination refused a write'));
-				} else callback();
+				} else {
+					accepted.push(text);
+					callback();
+				}
 				return true;
 			}
 		}) as unknown as Writable;
-		process.on('exit', () => writeSync(1, `received:${JSON.stringify(received.join(''))}\n`));
+		process.on('exit', () => writeSync(1, `accepted:${JSON.stringify(accepted.join(''))}\n`));
 		const done = path.join(directory, 'done');
+		// SOURCE-2 follows SOURCE-1 on the same stream; OTHER-SOURCE is on the other one.
 		const args = [
 			'-e',
-			`process.stdout.write('SOURCE\\n');
-			setTimeout(() => {
-				process.stderr.write('LATER-DIAGNOSTIC\\n');
-				require('fs').writeFileSync(process.argv[1], '');
-				process.exit(3);
-			}, 200);`,
+			`const pause = () => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
+			process.stdout.write('SOURCE-1\\n'); pause();
+			process.stdout.write('SOURCE-2\\n'); pause();
+			process.stderr.write('OTHER-SOURCE\\n');
+			require('fs').writeFileSync(process.argv[1], '');
+			process.exit(3);`,
 			done
 		];
 		const options = { stdout: destination, stderr: destination };

@@ -49,7 +49,6 @@ import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSyn
 import { availableParallelism } from 'os';
 import path from 'path';
 import { getFileInfo } from 'prettier';
-import { Writable } from 'stream';
 import type { Diagnostic } from 'typescript';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
@@ -79,7 +78,6 @@ import {
 	runSanitizedCommand,
 	sanitizeTerminalField,
 	sanitizeTerminalText,
-	writeOutput,
 	type SanitizedCommandOptions,
 	type SanitizedCommandResult
 } from './terminal-output';
@@ -1143,55 +1141,6 @@ export async function runCommand(
 }
 
 /**
- * Output of a command started before its step. Chunks from both streams are held in arrival
- * order until `release()` writes them out; after that, chunks pass straight through.
- */
-class DeferredOutput {
-	readonly #held: Array<{ destination: Writable; text: string }> = [];
-	#released = false;
-	readonly stdout: Writable;
-	readonly stderr: Writable;
-
-	constructor(stdout: Writable, stderr: Writable) {
-		this.stdout = this.#sink(stdout);
-		this.stderr = this.#sink(stderr);
-	}
-
-	#sink(destination: Writable): Writable {
-		return new Writable({
-			decodeStrings: false,
-			write: (text: string, _encoding, callback) => {
-				if (this.#released) {
-					writeOutput(destination, text).then(() => callback(), callback);
-					return;
-				}
-				this.#held.push({ destination, text });
-				callback();
-			}
-		});
-	}
-
-	/**
-	 * Write the held chunks, then pass later ones through. A rejected write does not stop the
-	 * replay: like the live runner, which keeps forwarding the other stream and still writes
-	 * its resume marker, every held chunk is attempted. Resolves to whether all were accepted.
-	 */
-	async release(): Promise<boolean> {
-		let accepted = true;
-		// Chunks that arrive during an awaited write join the queue, so the loop drains them too.
-		for (let chunk = this.#held.shift(); chunk; chunk = this.#held.shift()) {
-			const written = await writeOutput(chunk.destination, chunk.text).then(
-				() => true,
-				() => false
-			);
-			accepted &&= written;
-		}
-		this.#released = true;
-		return accepted;
-	}
-}
-
-/**
  * Process groups of started commands. A group stays listed after its leader exits, because
  * a descendant can outlive the leader; `finish()` drops only a group that is already empty.
  */
@@ -1212,8 +1161,10 @@ function killStartedGroups(): void {
 
 /**
  * Start a command now and report it later, at its step: nothing it prints and none of its
- * failure lines appear before `finish()`. Its process group is killed when this process
- * exits, so an earlier step's `process.exit` leaves no orphan. POSIX only.
+ * failure lines appear before `finish()`, which runs it from there exactly as `runCommand`
+ * would. Until then its pipes hold what it prints, so a command with more output than a pipe
+ * holds waits at that write. Its process group is killed when this process exits, so an
+ * earlier step's `process.exit` leaves no orphan. POSIX only.
  */
 export function startCommand(
 	command: string,
@@ -1223,15 +1174,12 @@ export function startCommand(
 	if (!process.listeners('exit').includes(killStartedGroups)) {
 		process.on('exit', killStartedGroups);
 	}
-	const output = new DeferredOutput(
-		options.stdout ?? process.stdout,
-		options.stderr ?? process.stderr
-	);
+	let release = (): void => {};
+	const released = new Promise<void>((resolve) => (release = resolve));
 	let group: number | undefined;
 	const outcome = runSanitizedCommand(command, args, {
-		githubActions: options.githubActions,
-		stdout: output.stdout,
-		stderr: output.stderr,
+		...options,
+		heldUntil: released,
 		onProcessGroup: (pgid) => {
 			group = pgid;
 			startedGroups.add(pgid);
@@ -1239,9 +1187,8 @@ export function startCommand(
 	}).catch(() => null);
 	return {
 		async finish() {
-			const accepted = await output.release();
-			// A held chunk the destination refused fails the command as a live write failure does.
-			const result = accepted ? await outcome : await outcome.then(() => null);
+			release();
+			const result = await outcome;
 			if (group !== undefined) {
 				try {
 					process.kill(-group, 0);

@@ -9,7 +9,7 @@
 
 import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
-import type { Writable } from 'stream';
+import { PassThrough, type Readable, type Writable } from 'stream';
 import { dataFor, terminalCategory } from '../eslint/control-character-policy.js';
 export { sanitizeTerminalField } from '../eslint/control-character-policy.js';
 
@@ -24,6 +24,12 @@ export interface SanitizedCommandOptions {
 	 * id once it runs, so the caller can signal its whole tree with `process.kill(-pgid)`.
 	 */
 	onProcessGroup?: (pgid: number) => void;
+	/**
+	 * Start the child at once but write nothing until this settles: no marker and none of the
+	 * child's output, which its pipes hold meanwhile. From then on the run is the same as an
+	 * unheld one, so output, markers and write failures are handled the same way.
+	 */
+	heldUntil?: Promise<void>;
 }
 
 export interface SanitizedCommandResult {
@@ -89,8 +95,7 @@ export function sanitizeTerminalText(text: string): string {
 	return decoder.write(new TextEncoder().encode(text)) + decoder.end();
 }
 
-/** Write text and resolve once the destination accepted it; rejects on its error or close. */
-export async function writeOutput(output: Writable, text: string): Promise<void> {
+async function write(output: Writable, text: string): Promise<void> {
 	if (text === '') return;
 	await new Promise<void>((resolve, reject) => {
 		const cleanup = (): void => {
@@ -127,14 +132,14 @@ async function forward(input: NodeJS.ReadableStream, output: Writable): Promise<
 		const text = decoder.write(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
 		if (failed) continue;
 		try {
-			await writeOutput(output, text);
+			await write(output, text);
 		} catch (error) {
 			failed = true;
 			failure = error;
 		}
 	}
 	const final = decoder.end();
-	if (!failed) await writeOutput(output, final);
+	if (!failed) await write(output, final);
 	if (failed) throw failure;
 }
 
@@ -153,9 +158,7 @@ export async function runSanitizedCommand(
 	// streams onto stdout while workflow commands are suspended. Local runs retain
 	// their original descriptors.
 	const childStderr = onActions ? stdout : stderr;
-	if (commandToken) await writeOutput(stdout, `\n::stop-commands::${commandToken}\n`);
-
-	try {
+	const launch = () => {
 		const child = spawn(command, args, {
 			cwd: options.cwd,
 			env: colorlessEnvironment(options.env),
@@ -167,11 +170,40 @@ export async function runSanitizedCommand(
 			child.once('error', reject);
 			child.once('close', (status, signal) => resolve({ status, signal }));
 		});
+		// Claimed now: a held child's spawn error must wait for the release, not crash the run.
+		result.catch(() => undefined);
+		// A held child's output is kept here: Bun reads a child's pipes whether or not anything
+		// listens, and drops what nobody reads.
+		const keep = (output: Readable): Readable => {
+			if (!options.heldUntil) return output;
+			const kept = output.pipe(new PassThrough());
+			// A child that never started closes its pipes without ending them.
+			output.once('close', () => kept.end());
+			return kept;
+		};
+		return { result, output: keep(child.stdout!), errors: keep(child.stderr!) };
+	};
+	// A held child starts now; a spawn that throws still throws where an unheld one does.
+	let started: (() => ReturnType<typeof launch>) | undefined;
+	if (options.heldUntil) {
+		try {
+			const launched = launch();
+			started = () => launched;
+		} catch (error) {
+			started = () => {
+				throw error;
+			};
+		}
+	}
+	await options.heldUntil;
+	if (commandToken) await write(stdout, `\n::stop-commands::${commandToken}\n`);
 
+	try {
+		const launched = (started ?? launch)();
 		const outcomes = await Promise.allSettled([
-			result,
-			forward(child.stdout, stdout),
-			forward(child.stderr, childStderr)
+			launched.result,
+			forward(launched.output, stdout),
+			forward(launched.errors, childStderr)
 		]);
 		const completed = outcomes[0]!;
 		if (completed.status === 'rejected') throw completed.reason;
@@ -180,6 +212,6 @@ export async function runSanitizedCommand(
 		}
 		return completed.value;
 	} finally {
-		if (commandToken) await writeOutput(stdout, `\n::${commandToken}::\n`);
+		if (commandToken) await write(stdout, `\n::${commandToken}::\n`);
 	}
 }
