@@ -201,7 +201,8 @@ function recordNavigation(): void {
 	});
 }
 
-async function renderSignIn(search: string, { authenticated = false } = {}): Promise<void> {
+/** Mounts the page and returns while its fallback is still up, before the gate's mount callback resumes. */
+function mountSignIn(search: string, { authenticated = false } = {}): void {
 	state.page.url = new state.SvelteURL(`https://example.com/de/signin${search}`);
 	state.auth.isAuthenticated = authenticated;
 	component = mount(ChatTestProvider<PageProps>, {
@@ -212,6 +213,10 @@ async function renderSignIn(search: string, { authenticated = false } = {}): Pro
 			contentProps: { data: { oauthProviders: { google: true, github: false } } }
 		}
 	});
+}
+
+async function renderSignIn(...args: Parameters<typeof mountSignIn>): Promise<void> {
+	mountSignIn(...args);
 	await tick();
 }
 
@@ -634,6 +639,19 @@ describe('sign-in page once hydrated', () => {
 		);
 		expect(document.body.textContent).not.toContain(en.auth.gate.reload);
 		expect(button(en.auth.signin.button_signin).disabled).toBe(false);
+	});
+
+	it('returns focus from the reload link to the email field', async () => {
+		mountSignIn('');
+		const reload = [...document.querySelectorAll('a')].find(
+			(anchor) => anchor.textContent?.trim() === en.auth.gate.reload
+		)!;
+		reload.focus();
+
+		await vi.waitFor(() => expect(reload.isConnected).toBe(false));
+		await vi.waitFor(() =>
+			expect(document.activeElement).toBe(fieldLabelled(en.auth.signin.email_label))
+		);
 	});
 
 	it('leaves one way on for a held visitor, to the checked destination', async () => {
