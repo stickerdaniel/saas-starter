@@ -183,6 +183,9 @@
 				"unassigned": "Non assigné"
 			},
 			"chat": {
+				"build": "Build",
+				"build_link_copied": "Lien copié",
+				"copy_build_link": "Copier le lien vers ce commit",
 				"open_as_customer": "Ouvrir cette page en tant que client",
 				"placeholder": "Répondre au client...",
 				"send_error": "Échec de l'envoi de la réponse. Réessaie.",

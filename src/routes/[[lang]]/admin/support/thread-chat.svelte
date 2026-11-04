@@ -31,6 +31,7 @@
 	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 	import { canImpersonateUser, impersonateUser } from '../impersonate-user';
 	import { messageRouteToShow } from './message-routes';
+	import MessageBuild from './message-build.svelte';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import {
 		getChatSessionEpoch,
@@ -163,12 +164,15 @@
 		userEmail || thread?.supportMetadata?.notificationEmail || $t('admin.support.no_email')
 	);
 
-	// Routes recorded per message, keyed by the persisted agent message id.
+	// Routes and builds recorded per message, keyed by the persisted agent message id.
 	const messageRoutesQuery = useQuery(api.admin.support.queries.listMessageRoutesForAdmin, () => ({
 		threadId
 	}));
 	const messageRoutes = $derived(
 		new Map((messageRoutesQuery.data ?? []).map((route) => [route.messageId, route.pageUrl]))
+	);
+	const messageBuilds = $derived(
+		new Map((messageRoutesQuery.data ?? []).map((route) => [route.messageId, route.appVersion]))
 	);
 
 	/** Sign in as the customer, at `route` when the admin picked a page they reported from. */
@@ -368,46 +372,54 @@
 						messageRoutes,
 						thread?.supportMetadata?.pageUrl
 					)}
-					{#if route && routeTargetUserId}
-						<!-- The page belongs to the customer's account, so it only shows what
-						     they saw when opened as them. -->
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								{#snippet child({ props })}
-									<button
-										{...props}
-										type="button"
-										onclick={() => impersonateThreadStarter(route)}
-										disabled={impersonating}
-										data-testid="admin-support-message-route"
-										class="flex max-w-17/20 min-w-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-primary hover:underline disabled:pointer-events-none disabled:opacity-50 md:max-w-3/4"
-									>
-										<span class="shrink-0">{$t('admin.support.chat.sent_from')}</span>
-										<span class="truncate">{route}</span>
-										<span class="sr-only">{$t('admin.support.chat.open_as_customer')}</span>
-										{#if impersonating}
-											<LoaderCircle class="size-3 shrink-0 motion-safe:animate-spin" />
-										{:else}
-											<UserRoundCheck class="size-3 shrink-0" />
-										{/if}
-									</button>
-								{/snippet}
-							</Tooltip.Trigger>
-							<Tooltip.Content>{$t('admin.support.chat.open_as_customer')}</Tooltip.Content>
-						</Tooltip.Root>
-					{:else if route}
-						<!-- eslint-disable svelte/no-navigation-without-resolve -->
-						<a
-							href={route}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="flex max-w-17/20 min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-primary hover:underline md:max-w-3/4"
-						>
-							<span class="shrink-0">{$t('admin.support.chat.sent_from')}</span>
-							<span class="truncate">{route}</span>
-							<ExternalLinkIcon class="size-3 shrink-0" />
-						</a>
-						<!-- eslint-enable svelte/no-navigation-without-resolve -->
+					{@const build = messageBuilds.get(message.id)}
+					{#if route || build}
+						<div class="flex max-w-17/20 min-w-0 items-center gap-2.5 md:max-w-3/4">
+							{#if route && routeTargetUserId}
+								<!-- The page belongs to the customer's account, so it only shows what
+								     they saw when opened as them. -->
+								<Tooltip.Root>
+									<Tooltip.Trigger>
+										{#snippet child({ props })}
+											<button
+												{...props}
+												type="button"
+												onclick={() => impersonateThreadStarter(route)}
+												disabled={impersonating}
+												data-testid="admin-support-message-route"
+												class="flex min-w-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-primary hover:underline disabled:pointer-events-none disabled:opacity-50"
+											>
+												<span class="shrink-0">{$t('admin.support.chat.sent_from')}</span>
+												<span class="truncate">{route}</span>
+												<span class="sr-only">{$t('admin.support.chat.open_as_customer')}</span>
+												{#if impersonating}
+													<LoaderCircle class="size-3 shrink-0 motion-safe:animate-spin" />
+												{:else}
+													<UserRoundCheck class="size-3 shrink-0" />
+												{/if}
+											</button>
+										{/snippet}
+									</Tooltip.Trigger>
+									<Tooltip.Content>{$t('admin.support.chat.open_as_customer')}</Tooltip.Content>
+								</Tooltip.Root>
+							{:else if route}
+								<!-- eslint-disable svelte/no-navigation-without-resolve -->
+								<a
+									href={route}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-primary hover:underline"
+								>
+									<span class="shrink-0">{$t('admin.support.chat.sent_from')}</span>
+									<span class="truncate">{route}</span>
+									<ExternalLinkIcon class="size-3 shrink-0" />
+								</a>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							{/if}
+							{#if build}
+								<MessageBuild {build} />
+							{/if}
+						</div>
 					{/if}
 				{/snippet}
 			</ChatMessages>
