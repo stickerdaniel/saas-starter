@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('fontless/runtime', () => ({
-	preloads: [{ href: '/_fonts/outfit.woff2' }, { href: '/_fonts/outfit.woff2' }]
-}));
 vi.mock('virtual:marketing-fonts/server', () => {
 	const href = `data:font/woff2;base64,d09GMg${'A'.repeat(2048)}==`;
 	const font = { css: `@font-face{font-family:Critical;src:url(${href})}`, href };
@@ -12,21 +9,23 @@ vi.mock('virtual:marketing-fonts/server', () => {
 import { handleFontPreload } from './font-preload';
 
 describe('HTML font preloads', () => {
-	it('advertises the font once without replacing existing resource hints or the body', async () => {
-		const response = new Response('<h1>Headline</h1>', {
-			headers: {
-				'content-type': 'text/html; charset=utf-8',
-				link: '</app.js>; rel=modulepreload'
-			}
-		});
+	it("advertises the head's font preloads once without replacing existing resource hints or the body", async () => {
+		const font = '<link rel="preload" as="font" href="/_fonts/outfit.woff2" crossorigin="">';
+		const html = `<html><head>${font}${font}<link rel="preload" as="image" href="/hero.png"></head><body><h1>Headline</h1></body></html>`;
 		const result = await handleFontPreload({
 			event: { route: { id: '/[[lang]]/(app)/dashboard' } } as never,
-			resolve: async () => response
+			resolve: async (_event, options) =>
+				new Response(await options?.transformPageChunk?.({ html, done: true }), {
+					headers: {
+						'content-type': 'text/html; charset=utf-8',
+						link: '</app.js>; rel=modulepreload'
+					}
+				})
 		});
 		expect(result.headers.get('link')).toBe(
 			'</_fonts/outfit.woff2>; rel=preload; as=font; crossorigin; fetchpriority=high, </app.js>; rel=modulepreload'
 		);
-		expect(await result.text()).toBe('<h1>Headline</h1>');
+		expect(await result.text()).toBe(html);
 	});
 
 	it.each(['application/json', 'text/markdown; charset=utf-8'])(
