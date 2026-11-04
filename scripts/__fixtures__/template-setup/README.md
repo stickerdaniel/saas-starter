@@ -107,7 +107,7 @@ The setup script replaces the project name and central GitHub repository slug, t
 3. Update editorial brand mentions in `src/i18n/{en,de,es,fr}.json` (FAQ, hero copy, pricing tier names)
 4. Review the legal copy in `src/lib/content/legal/*.md`
 5. Keep the agent summaries in `src/routes/[[lang]]/(marketing)/{privacy,terms,impressum}/page.md.ts` aligned with the legal copy
-6. Review optional publisher metadata in `src/lib/config/site.ts` and the access limits in `src/lib/content/llms.txt` if your fork adds a public API, MCP server, or agent actions
+6. Review the optional organization logo, description, and profile links in `src/lib/config/site.ts` and the access limits in `src/lib/content/llms.txt` if your fork adds a public API, MCP server, or agent actions
 7. Review the support seed prompt in `src/lib/convex/support/instructions.txt`; development and build commands regenerate its adapter automatically
 
 ## Preview Deployments
@@ -467,7 +467,7 @@ The internal founder incident sender contacts one verified user at a time and re
 
 ### AI Readiness
 
-Marketing pages return structured markdown when an AI agent sends `Accept: text/markdown`, complete with YAML frontmatter. Unknown public markdown URLs return a short markdown 404 with recovery links. The markdown variant sets `Vary: Accept` and stays private because CF Edge and most shared caches do not key on `Vary`. `/llms.txt` lists the public pages, developer resources, and the integrations the template does not expose by default. Sitemap dates come only from authored content metadata, and the localized homepages publish configurable `WebSite` JSON-LD.
+Marketing pages return structured markdown when an AI agent sends `Accept: text/markdown`, complete with YAML frontmatter. Unknown public markdown URLs return a short markdown 404 with recovery links. The markdown variant sets `Vary: Accept` and stays private because CF Edge and most shared caches do not key on `Vary`. `/llms.txt` lists the public pages, developer resources, and the integrations the template does not expose by default. Sitemap dates come only from authored content metadata, and the localized homepages publish `WebSite` and `Organization` JSON-LD. The organization takes its name, postal address, and support email from `src/lib/config/legal.ts`.
 
 ### SEO
 

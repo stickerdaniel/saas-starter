@@ -25,6 +25,10 @@ import {
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
+import {
+	buildSiteStructuredData,
+	type OrganizationLegalIdentity
+} from '../src/lib/seo/structured-data';
 import { testExecutable } from './test-executable';
 
 vi.setConfig({ testTimeout: 15_000 });
@@ -327,7 +331,9 @@ function importLegalConfig(dir: string) {
 	writeFileSync(
 		importer,
 		"import { LEGAL_CONFIG, formatPostalAddress, getLegalEmailAddress } from './src/lib/config/legal';\n" +
-			'console.log(JSON.stringify({ config: LEGAL_CONFIG, mailto: getLegalEmailAddress(), address: formatPostalAddress(LEGAL_CONFIG.address) }));\n',
+			'const { companyName, operatorName } = LEGAL_CONFIG;\n' +
+			'const identity = { companyName, operatorName, address: LEGAL_CONFIG.address, email: getLegalEmailAddress() };\n' +
+			'console.log(JSON.stringify({ config: LEGAL_CONFIG, mailto: getLegalEmailAddress(), address: formatPostalAddress(LEGAL_CONFIG.address), identity }));\n',
 		'utf-8'
 	);
 	const result = spawnSync(BUN, [importer], {
@@ -346,6 +352,8 @@ function importLegalConfig(dir: string) {
 						config: Record<string, unknown>;
 						mailto: string;
 						address: string;
+						/** The structured-data builder's legal input, read from the generated module. */
+						identity: OrganizationLegalIdentity;
 					})
 				: undefined
 	};
@@ -486,6 +494,35 @@ describe('template setup writes importable branding values', () => {
 			user: 'kontakt',
 			domain: 'northwind-labs',
 			tld: 'de'
+		});
+	});
+
+	it('publishes the fork identity in the homepage organization graph', () => {
+		const dir = createFixture();
+		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
+
+		const imported = importLegalConfig(dir);
+		expect(imported.code, imported.stderr).toBe(0);
+		const data = buildSiteStructuredData({
+			origin: 'https://northwind-labs.de',
+			name: 'Northwind Labs',
+			description: 'Northwind Labs homepage',
+			languages: ['en'],
+			repositoryUrl: 'https://github.com/northwind/northwind-labs',
+			legal: imported.value!.identity
+		}) as { '@graph': Array<Record<string, unknown>> };
+
+		expect(data['@graph'].find((node) => node['@type'] === 'Organization')).toMatchObject({
+			'@id': 'https://northwind-labs.de/#organization',
+			name: 'Northwind Labs GmbH',
+			contactPoint: { email: 'kontakt@northwind-labs.de' },
+			address: {
+				'@type': 'PostalAddress',
+				streetAddress: 'Hauptstrasse 5',
+				postalCode: '12345',
+				addressLocality: 'Berlin',
+				addressCountry: 'DE'
+			}
 		});
 	});
 });
