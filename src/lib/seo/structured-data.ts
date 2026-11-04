@@ -1,5 +1,15 @@
+import type { LegalPostalAddress } from '#lib/config/legal.js';
 import type { StructuredDataPublisherConfig } from '#lib/config/site.js';
 import { normalizeSiteOrigin } from '#lib/config/origin.js';
+
+/** The operating organization as `LEGAL_CONFIG` defines it; `email` is the plain address. */
+export interface OrganizationLegalIdentity {
+	/** May be the empty string; the organization is then named after the operator. */
+	companyName: string;
+	operatorName: string;
+	address: LegalPostalAddress;
+	email: string;
+}
 
 interface SiteStructuredDataInput {
 	origin: string;
@@ -7,6 +17,7 @@ interface SiteStructuredDataInput {
 	description: string;
 	languages: readonly string[];
 	repositoryUrl: string;
+	legal: OrganizationLegalIdentity;
 	alternateNames?: readonly string[];
 	sameAs?: readonly string[];
 	publisher?: StructuredDataPublisherConfig;
@@ -31,11 +42,21 @@ function uniqueUrls(values: readonly string[]): string[] {
 	return [...new Set(values.map(normalizePublicUrl))];
 }
 
+/**
+ * Builds the homepage graph: a `WebSite` whose publisher is the legal `Organization`,
+ * plus the organization's logo when configured. Repository links stay on the website;
+ * `publisher.sameAs` lists the organization's own profiles.
+ */
 export function buildSiteStructuredData(input: SiteStructuredDataInput): JsonLdNode {
 	const origin = normalizeSiteOrigin(input.origin);
 	const root = `${origin}/`;
 	const websiteId = `${root}#website`;
+	const organizationId = `${root}#organization`;
 	const sameAs = uniqueUrls([input.repositoryUrl, ...(input.sameAs ?? [])]);
+	const profile = input.publisher;
+	const organizationSameAs = uniqueUrls(profile?.sameAs ?? []);
+	const { legal } = input;
+
 	const graph: JsonLdNode[] = [
 		{
 			'@type': 'WebSite',
@@ -45,39 +66,47 @@ export function buildSiteStructuredData(input: SiteStructuredDataInput): JsonLdN
 			description: input.description,
 			inLanguage: [...input.languages],
 			...(input.alternateNames?.length ? { alternateName: [...input.alternateNames] } : {}),
-			...(sameAs.length ? { sameAs } : {})
+			...(sameAs.length ? { sameAs } : {}),
+			publisher: { '@id': organizationId }
 		}
 	];
 
-	if (input.publisher) {
-		const publisherId = `${root}#organization`;
-		const publisherSameAs = uniqueUrls(input.publisher.sameAs ?? []);
-		const publisher: JsonLdNode = {
-			'@type': 'Organization',
-			'@id': publisherId,
-			name: input.publisher.name,
-			url: root,
-			...(input.publisher.description ? { description: input.publisher.description } : {}),
-			...(publisherSameAs.length ? { sameAs: publisherSameAs } : {})
-		};
-
-		if (input.publisher.logo) {
-			const logoId = `${root}#organization-logo`;
-			const logoUrl = new URL(input.publisher.logo.path, root).toString();
-			graph.push({
-				'@type': 'ImageObject',
-				'@id': logoId,
-				url: logoUrl,
-				contentUrl: logoUrl,
-				width: input.publisher.logo.width,
-				height: input.publisher.logo.height
-			});
-			publisher.logo = { '@id': logoId };
+	const organization: JsonLdNode = {
+		'@type': 'Organization',
+		'@id': organizationId,
+		name: legal.companyName || legal.operatorName,
+		url: root,
+		...(profile?.description ? { description: profile.description } : {}),
+		...(organizationSameAs.length ? { sameAs: organizationSameAs } : {}),
+		contactPoint: {
+			'@type': 'ContactPoint',
+			contactType: 'customer support',
+			email: legal.email
+		},
+		address: {
+			'@type': 'PostalAddress',
+			streetAddress: legal.address.streetAddress,
+			postalCode: legal.address.postalCode,
+			addressLocality: legal.address.addressLocality,
+			addressCountry: legal.address.addressCountry
 		}
+	};
 
-		graph.push(publisher);
-		(graph[0] as JsonLdNode).publisher = { '@id': publisherId };
+	if (profile?.logo) {
+		const logoId = `${root}#organization-logo`;
+		const logoUrl = new URL(profile.logo.path, root).toString();
+		graph.push({
+			'@type': 'ImageObject',
+			'@id': logoId,
+			url: logoUrl,
+			contentUrl: logoUrl,
+			width: profile.logo.width,
+			height: profile.logo.height
+		});
+		organization.logo = { '@id': logoId };
 	}
+
+	graph.push(organization);
 
 	return {
 		'@context': 'https://schema.org',

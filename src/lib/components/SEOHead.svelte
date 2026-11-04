@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, getLanguage } from '#lib/i18n/languages.js';
-	import { LEGAL_CONFIG } from '#lib/config/legal.js';
+	import { LEGAL_CONFIG, getLegalEmailAddress } from '#lib/config/legal.js';
 	import { resolveSiteOrigin } from '#lib/config/site-origin.js';
 	import { SITE_CONFIG, getRepositoryUrl } from '#lib/config/site.js';
 	import { buildSiteStructuredData, serializeStructuredData } from '#lib/seo/structured-data.js';
@@ -30,7 +30,7 @@
 		/** Mark the page as noindex/nofollow and drop canonical/hreflang/og:url
 		 * (private routes: auth, app, admin) */
 		noindex?: boolean;
-		/** Emit the WebSite JSON-LD graph on the localized homepage. */
+		/** Emit the WebSite and Organization JSON-LD graph on the localized homepage. */
 		siteStructuredData?: boolean;
 	}
 
@@ -82,6 +82,12 @@
 				description,
 				languages: SUPPORTED_LANGUAGES.map((language) => language.code),
 				repositoryUrl: getRepositoryUrl(),
+				legal: {
+					companyName: LEGAL_CONFIG.companyName,
+					operatorName: LEGAL_CONFIG.operatorName,
+					address: LEGAL_CONFIG.address,
+					email: getLegalEmailAddress()
+				},
 				...SITE_CONFIG.structuredData
 			})
 		);
