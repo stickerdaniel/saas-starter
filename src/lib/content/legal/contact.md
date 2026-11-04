@@ -18,4 +18,4 @@ Include the email address of your account and a short description of what you tr
 
 ## Email and support chat
 
-Write to us by email for billing, privacy, and legal matters. For product questions, the support chat on our homepage answers right away and passes the conversation to the same team when it needs a person. It keeps the conversation together with any screenshots you attach.
+Write to us by email for billing, privacy, and legal matters. For product questions, the support chat on our homepage answers right away and passes the conversation to a person when it needs one. It keeps the conversation together with any screenshots you attach.
