@@ -6,6 +6,10 @@
  * A file the manifest lacks weighs the manifest median, so new and renamed files still run
  * exactly once; stale weights cost balance, never coverage. Without `--shard` it is the
  * stock BaseSequencer. Refresh the weights with scripts/update-test-durations.ts.
+ *
+ * Scope: runtime projects in the default file order. It replaces Vitest's RandomSequencer,
+ * so an explicit file shuffle (`sequence.shuffle`) is not honoured, sharded or not. A
+ * typecheck spec that shares its project and path with a runtime spec is not supported.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
