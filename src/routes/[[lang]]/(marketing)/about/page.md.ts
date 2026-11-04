@@ -1,5 +1,5 @@
 import { LEGAL_CONFIG } from '#lib/config/legal.js';
-import { operatorFirstName } from '#lib/content/about.js';
+import { operatorFirstName } from '#lib/content/operator.js';
 import { markdownText } from '#lib/markdown/literals.js';
 import type { MarketingMarkdownDocument } from '#lib/markdown/types.js';
 
