@@ -5,8 +5,9 @@
  * A file weighs the time Vitest tracks for it, rounded to centiseconds: environment setup,
  * worker preparation, setup files, collection (its imports) and the test run. Pass the
  * blobs of every shard of the same run; each Unit Tests job uploads its blob as the
- * `unit-test-blob-<n>-2` artifact. A file that failed or did not run keeps its previous
- * weight, and files no longer on disk or in any report drop out.
+ * `unit-test-blob-<n>-2` artifact. Only a passed file supplies a new weight. A failed,
+ * skipped or unfinished file keeps its previous weight, if it has one, and files no longer
+ * on disk or in any report drop out.
  *
  * Usage: bun scripts/update-test-durations.ts --runner <label> [--commit <sha>] [--root <dir>]
  *   [report files or directories, default .vitest-reports]
@@ -44,7 +45,7 @@ function parseFlatted(text: string): unknown {
 export type BlobReport = {
 	vitest: string;
 	coverage: boolean;
-	files: Array<{ key: string; seconds: number; measured: boolean }>;
+	files: Array<{ key: string; seconds: number; passed: boolean }>;
 };
 
 /** The phases Vitest's duration summary adds up for a file. */
@@ -76,7 +77,7 @@ export function readBlobReport(path: string): BlobReport {
 		files: files.map((file) => ({
 			key: testKey(file.projectName ?? '', file.name),
 			seconds: Math.round(trackedMilliseconds(file) / 10) / 100,
-			measured: file.result?.state === 'pass' || file.result?.state === 'skip'
+			passed: file.result?.state === 'pass'
 		}))
 	};
 }
@@ -94,7 +95,7 @@ function reportFiles(paths: string[]): string[] {
 
 /**
  * Builds the manifest for `root` from the blobs of one run. `previous` supplies the weight
- * of files that failed or did not run.
+ * of files that did not pass.
  */
 function buildManifest(options: {
 	root: string;
@@ -115,7 +116,7 @@ function buildManifest(options: {
 			throw new Error(`${file.key} appears in two reports; pass the shards of one run.`);
 		}
 		seen.add(file.key);
-		const seconds = file.measured ? file.seconds : previous[file.key];
+		const seconds = file.passed ? file.seconds : previous[file.key];
 		const path = file.key.slice(file.key.indexOf(':') + 1);
 		if (seconds !== undefined && existsSync(join(root, path))) durations.set(file.key, seconds);
 	}

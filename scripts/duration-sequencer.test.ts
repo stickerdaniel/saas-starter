@@ -1,9 +1,18 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import type { TestSpecification, Vitest } from 'vitest/node';
+import { parse as parseYaml } from 'yaml';
 import {
 	assignShards,
 	DURATIONS_FILE,
@@ -53,10 +62,18 @@ describe('DurationSequencer', () => {
 	afterAll(() => rmSync(fixture, { recursive: true, force: true }));
 
 	const files = ['one', 'two', 'three', 'four', 'fresh'];
+	// FAIL_TEST names the one `<project>:<file>` whose assertion fails.
 	for (const name of files) {
-		writeFileSync(join(fixture, `${name}.test.ts`), `test('${name}', () => {});\n`);
+		writeFileSync(
+			join(fixture, `${name}.test.ts`),
+			`test('${name}', ({ task }) => expect([task.file.projectName, task.file.name].join(':')).not.toBe(process.env.FAIL_TEST));\n`
+		);
 	}
-	// Both projects collect every file. `fresh` and beta's `four` have no weight.
+	writeFileSync(join(fixture, 'idle.test.ts'), `test.skip('idle', () => {});\n`);
+	const keys = ['alpha', 'beta']
+		.flatMap((project) => [...files, 'idle'].map((name) => `${project}:${name}.test.ts`))
+		.sort();
+	// Both projects collect every file. `fresh`, beta's `four` and beta's `idle` have no weight.
 	const manifest: DurationManifest = {
 		source: { commit: 'fixture', vitest: 'fixture', runner: 'fixture', coverage: false },
 		durations: {
@@ -66,7 +83,8 @@ describe('DurationSequencer', () => {
 			'beta:two.test.ts': 3,
 			'alpha:three.test.ts': 2,
 			'beta:three.test.ts': 2,
-			'alpha:four.test.ts': 1
+			'alpha:four.test.ts': 1,
+			'alpha:idle.test.ts': 5
 		}
 	};
 	mkdirSync(join(fixture, 'scripts'));
@@ -102,38 +120,102 @@ describe('DurationSequencer', () => {
 		]);
 	});
 
-	/** Runs the fixture through the pinned Vitest CLI and returns the executed test keys. */
-	function run(label: string, args: string[] = []): string[] {
+	/** Runs the fixture through the pinned Vitest CLI, failing the test `failing` names. */
+	function run(label: string, args: string[] = [], failing = '') {
 		const blob = join(fixture, 'reports', `${label}.json`);
 		const result = spawnSync(
 			process.execPath,
 			[
 				join(ROOT, 'node_modules/vitest/vitest.mjs'),
 				'--run',
+				'--maxWorkers=2',
 				'--reporter=blob',
 				`--outputFile.blob=${blob}`,
 				...args
 			],
-			{ cwd: fixture, encoding: 'utf8', timeout: 60_000 }
+			{
+				cwd: fixture,
+				encoding: 'utf8',
+				timeout: 60_000,
+				env: { ...process.env, FAIL_TEST: failing }
+			}
 		);
-		expect(result.status, result.stderr + result.stdout).toBe(0);
-		return readBlobReport(blob)
-			.files.map((file) => file.key)
-			.sort();
+		const log = result.stderr + result.stdout;
+		expect(existsSync(blob), log).toBe(true);
+		const reported = readBlobReport(blob).files;
+		return {
+			blob,
+			status: result.status,
+			log,
+			keys: reported.map((file) => file.key).sort(),
+			notPassed: reported
+				.filter((file) => !file.passed)
+				.map((file) => file.key)
+				.sort()
+		};
+	}
+
+	/** Runs the required Unit Tests check on the result GitHub derives from the shard exits. */
+	function unitTestsCheck(shardStatuses: Array<number | null>): number | null {
+		const workflow = parseYaml(
+			readFileSync(join(ROOT, '.github/workflows/static-checks.yml'), 'utf8')
+		) as { jobs: Record<string, { name: string; steps: Array<{ run?: string }> }> };
+		const script = Object.values(workflow.jobs)
+			.find((job) => job.name === 'Unit Tests')
+			?.steps.find((step) => step.run)?.run;
+		if (!script) throw new Error('static-checks.yml has no Unit Tests check.');
+		// A matrix job's result is `success` only when every shard succeeded.
+		const result = shardStatuses.every((status) => status === 0) ? 'success' : 'failure';
+		return spawnSync('bash', ['-e', '-o', 'pipefail', '-c', script], {
+			env: { PATH: process.env.PATH, SHARD_RESULT: result },
+			encoding: 'utf8',
+			timeout: 5_000
+		}).status;
 	}
 
 	it('splits a Vitest run into two shards whose union is the unsharded run', () => {
 		const all = run('all');
 		const first = run('shard-1', ['--shard=1/2']);
 		const second = run('shard-2', ['--shard=2/2']);
+		for (const { status, log } of [all, first, second]) expect(status, log).toBe(0);
 
-		expect(all).toHaveLength(files.length * 2);
-		expect(first.length).toBeGreaterThan(0);
-		expect(second.length).toBeGreaterThan(0);
-		expect(first.filter((key) => second.includes(key))).toEqual([]);
-		expect([...first, ...second].sort()).toEqual(all);
+		expect(all.keys).toEqual(keys);
+		expect(first.keys.length).toBeGreaterThan(0);
+		expect(second.keys.length).toBeGreaterThan(0);
+		expect(first.keys.filter((key) => second.keys.includes(key))).toEqual([]);
+		expect([...first.keys, ...second.keys].sort()).toEqual(keys);
 		// The two heaviest weights belong to the same path in two projects.
-		expect(first.includes('alpha:one.test.ts')).not.toBe(first.includes('beta:one.test.ts'));
+		expect(first.keys.includes('alpha:one.test.ts')).not.toBe(
+			first.keys.includes('beta:one.test.ts')
+		);
+		expect(unitTestsCheck([first.status, second.status])).toBe(0);
+	}, 120_000);
+
+	it('fails the shard that runs a failing test and the Unit Tests check', () => {
+		const owners = ['alpha:one.test.ts', 'beta:one.test.ts'].map((failing, round) => {
+			const shards = [1, 2].map((index) =>
+				run(`failing-${round}-${index}`, [`--shard=${index}/2`], failing)
+			);
+			const owner = shards.findIndex((shard) => shard.keys.includes(failing));
+			expect([...shards[0].keys, ...shards[1].keys].sort()).toEqual(keys);
+			for (const [index, shard] of shards.entries()) {
+				expect(shard.status, shard.log).toBe(index === owner ? 1 : 0);
+				// Only the failing test and the skipped files did not pass.
+				expect(shard.notPassed).toEqual(
+					shard.keys.filter((key) => key === failing || key.endsWith(':idle.test.ts'))
+				);
+			}
+			expect(unitTestsCheck(shards.map((shard) => shard.status))).toBe(1);
+			return owner + 1;
+		});
+		// The failing test sat on shard 1, then on shard 2.
+		expect(owners).toEqual([1, 2]);
+	}, 120_000);
+
+	it('refreshes only the weights of passed files that still exist', () => {
+		const shards = [1, 2].map((index) =>
+			run(`refresh-${index}`, [`--shard=${index}/2`], 'alpha:one.test.ts')
+		);
 
 		rmSync(join(fixture, 'three.test.ts'));
 		const update = spawnSync(
@@ -143,8 +225,7 @@ describe('DurationSequencer', () => {
 				`--root=${fixture}`,
 				'--runner=fixture',
 				'--commit=abc123',
-				join(fixture, 'reports/shard-1.json'),
-				join(fixture, 'reports/shard-2.json')
+				...shards.map((shard) => shard.blob)
 			],
 			{ encoding: 'utf8', timeout: 30_000 }
 		);
@@ -153,8 +234,12 @@ describe('DurationSequencer', () => {
 			readFileSync(join(fixture, DURATIONS_FILE), 'utf8')
 		) as DurationManifest;
 		expect(updated.source).toMatchObject({ commit: 'abc123', runner: 'fixture', coverage: false });
+		// Beta's skipped `idle` had no weight to keep.
 		expect(Object.keys(updated.durations)).toEqual(
-			all.filter((key) => !key.endsWith(':three.test.ts'))
+			keys.filter((key) => !key.endsWith(':three.test.ts') && key !== 'beta:idle.test.ts')
 		);
-	}, 120_000);
+		// The failed and the skipped file keep their old weights; a passed file is measured anew.
+		expect(updated.durations).toMatchObject({ 'alpha:one.test.ts': 8, 'alpha:idle.test.ts': 5 });
+		expect(updated.durations['beta:one.test.ts']).not.toBe(7);
+	}, 60_000);
 });
