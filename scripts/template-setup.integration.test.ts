@@ -540,9 +540,11 @@ describe('template setup writes importable branding values', () => {
 		try {
 			const { aboutMarkdown } = await import('../src/lib/content/about');
 			const { contactMarkdown } = await import('../src/lib/content/contact');
-			expect(withLiterals(aboutMarkdown)).toContain(
-				'Northwind Labs GmbH publishes Northwind Labs and is responsible for the service. Anne Weber runs it'
-			);
+			expect(aboutMarkdown.literals).toEqual({
+				BRAND_NAME: 'Northwind Labs',
+				ORGANIZATION_NAME: 'Northwind Labs GmbH',
+				OPERATOR_NAME: 'Anne Weber'
+			});
 			const contact = withLiterals(contactMarkdown);
 			expect(contact).toContain('Northwind Labs GmbH operates Northwind Labs.');
 			expect(contact).toContain('Operated by Anne Weber');

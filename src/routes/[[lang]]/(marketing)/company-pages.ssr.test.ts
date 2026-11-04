@@ -48,6 +48,14 @@ const FORK: LegalIdentity = {
 	email: { user: 'kontakt', domain: 'northwind-labs', tld: 'de' }
 };
 
+// Compile both page graphs once; each render below re-imports them against a mocked config.
+await Promise.all([
+	import('svelte/server'),
+	import('#lib/chat/ui/test-fixtures/ChatTestProvider.svelte'),
+	import('./about/+page.svelte'),
+	import('./contact/+page.svelte')
+]);
+
 const IDENTITIES: Array<{ label: string; legal: LegalIdentity }> = [
 	{ label: 'template', legal: TEMPLATE },
 	{ label: 'fork', legal: FORK },
@@ -88,7 +96,12 @@ async function serverRender(route: 'about' | 'contact', legal: LegalIdentity): P
 function visibleText(content: Element): string {
 	const copy = content.cloneNode(true) as Element;
 	for (const decoy of copy.querySelectorAll('[aria-hidden="true"]')) decoy.remove();
-	return copy.textContent!.replace(/\s+/g, ' ').trim();
+	return collapse(copy.textContent!);
+}
+
+/** Collapses whitespace runs the way HTML text extraction does, for text and expectations alike. */
+function collapse(text: string): string {
+	return text.replace(/\s+/g, ' ').trim();
 }
 
 function linkTarget(content: Element, name: string): string | null | undefined {
@@ -100,13 +113,20 @@ function linkTarget(content: Element, name: string): string | null | undefined {
 describe.each(IDENTITIES)('server-rendered company pages with the $label identity', ({ legal }) => {
 	const organization = legal.companyName || legal.operatorName;
 
-	it('describes the product and its publisher on the About page', async () => {
+	it('names the product, its publisher and its operator on the About page', async () => {
 		const text = visibleText(await serverRender('about', legal));
+		const { aboutMarkdown } = await import('#lib/content/about.js');
 
 		expect(text.length).toBeGreaterThanOrEqual(500);
-		expect(text).toContain(`About ${legal.brandName}`);
-		expect(text).toContain(`${organization} publishes ${legal.brandName}`);
-		expect(text).toContain(`${legal.operatorName} runs it day to day`);
+		// Forks rewrite this copy; only the identity it carries is fixed.
+		expect(aboutMarkdown.literals).toEqual({
+			BRAND_NAME: legal.brandName,
+			ORGANIZATION_NAME: organization,
+			OPERATOR_NAME: legal.operatorName
+		});
+		for (const name of [legal.brandName, organization, legal.operatorName]) {
+			expect(text).toContain(collapse(name));
+		}
 	});
 
 	it('lists the provider, the email and the support chat on the Contact page', async () => {
@@ -115,9 +135,11 @@ describe.each(IDENTITIES)('server-rendered company pages with the $label identit
 		const { streetAddress, postalCode, addressLocality, addressCountry } = legal.address;
 
 		expect(text.length).toBeGreaterThanOrEqual(500);
-		expect(text).toContain(`${organization} operates ${legal.brandName}`);
-		expect(text).toContain(`Operated by ${legal.operatorName}`);
-		expect(text).toContain(`${streetAddress}, ${postalCode} ${addressLocality}, ${addressCountry}`);
+		expect(text).toContain(collapse(`${organization} operates ${legal.brandName}`));
+		expect(text).toContain(collapse(`Operated by ${legal.operatorName}`));
+		expect(text).toContain(
+			collapse(`${streetAddress}, ${postalCode} ${addressLocality}, ${addressCountry}`)
+		);
 		expect(text).toContain(`Email: ${legal.email.user}@${legal.email.domain}.${legal.email.tld}`);
 		expect(linkTarget(content, 'Open the support chat')).toBe('/en/?support=open');
 		expect(linkTarget(content, 'Impressum')).toBe('/en/impressum');
