@@ -1,0 +1,29 @@
+name: Supersede Preview E2E
+
+# A push to a pull request starts a Workers build that runs
+# `convex deploy --preview-create` before it builds the app. That deletes the
+# Convex preview an older "E2E Tests (CF Preview)" run of the branch is still
+# testing. The build's check run, which also cancels that older run, arrives one
+# to two minutes later, after the older run has failed against the missing
+# backend and published its verdict. This run joins the older run's concurrency
+# group when the push lands and cancels it before its backend disappears.
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions: {}
+
+concurrency:
+  # The head-build group of e2e-preview-cf.yml, keyed on that workflow's name.
+  # A fork branch gets a group of its own, so it never cancels a run here.
+  group: E2E Tests (CF Preview)-${{ github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  cancel:
+    name: Cancel older preview E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      # Joining the concurrency group above is the whole effect.
+      - run: echo "Joined this branch's preview E2E concurrency group."
