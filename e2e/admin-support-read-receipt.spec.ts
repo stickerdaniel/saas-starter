@@ -117,6 +117,18 @@ test('a message shows the build it was sent from and copies its commit link', as
 		await expect
 			.poll(() => page.evaluate(() => navigator.clipboard.readText()))
 			.toBe(`${getRepositoryUrl()}/commit/${build}`);
+
+		// The tooltip stays open while the pointer moves onto the full SHA, and
+		// closes once the pointer leaves both.
+		const tooltip = page.locator('[data-slot="tooltip-content"]');
+		await expect(tooltip).toContainText(build);
+		const box = (await tooltip.boundingBox())!;
+		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 8 });
+		// A tooltip that closes on leaving the trigger is gone well within this.
+		await page.waitForTimeout(500);
+		await expect(tooltip).toContainText(build);
+		await page.mouse.move(1, 1, { steps: 8 });
+		await expect(tooltip).toBeHidden();
 	} finally {
 		await client.mutation(api.tests.cleanupAnonymousSupportThreads, {
 			secret: testSecret,
