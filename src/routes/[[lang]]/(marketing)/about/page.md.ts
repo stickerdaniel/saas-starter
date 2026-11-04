@@ -11,7 +11,7 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 		{
 			heading: markdownText`About ${LEGAL_CONFIG.brandName}`,
 			paragraphs: [
-				markdownText`${LEGAL_CONFIG.brandName} is an open-source SvelteKit and Convex starter for subscription products. Besides sign-in and billing, it wires up the feedback loop with the first customers.`
+				markdownText`${LEGAL_CONFIG.brandName} is an open-source SvelteKit and Convex starter. Besides sign-in and billing, it wires up the feedback loop with the first customers.`
 			]
 		},
 		{
