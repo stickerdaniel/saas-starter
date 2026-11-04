@@ -35,6 +35,9 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .convex/
 
+# Vitest blob reports
+/.vitest-reports/
+
 # Playwright
 /playwright-report/
 /blob-report/
