@@ -1,5 +1,6 @@
 /** Optional public profile of the organization; its name and contact data come from `LEGAL_CONFIG`. */
 export interface StructuredDataPublisherConfig {
+	/** Defaults to the homepage meta description. */
 	description?: string;
 	logo?: {
 		path: `/${string}`;

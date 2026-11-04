@@ -33,6 +33,7 @@ describe('SEOHead structured data', () => {
 		expect(graph[1]).toMatchObject({
 			'@id': 'https://example.com/#organization',
 			name: LEGAL_CONFIG.companyName,
+			description: 'Home description',
 			contactPoint: { email: getLegalEmailAddress() },
 			address: { '@type': 'PostalAddress', ...LEGAL_CONFIG.address }
 		});

@@ -76,7 +76,8 @@ export function buildSiteStructuredData(input: SiteStructuredDataInput): JsonLdN
 		'@id': organizationId,
 		name: legal.companyName || legal.operatorName,
 		url: root,
-		...(profile?.description ? { description: profile.description } : {}),
+		// Agents expect a description on the identity entity; the page description is the fallback.
+		description: profile?.description || input.description,
 		...(organizationSameAs.length ? { sameAs: organizationSameAs } : {}),
 		contactPoint: {
 			'@type': 'ContactPoint',

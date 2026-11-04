@@ -54,6 +54,7 @@ describe('site structured data', () => {
 				'@id': 'https://example.com/#organization',
 				name: 'Example Inc.',
 				url: 'https://example.com/',
+				description: 'Example description',
 				contactPoint: {
 					'@type': 'ContactPoint',
 					contactType: 'customer support',
