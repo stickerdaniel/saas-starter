@@ -183,6 +183,9 @@
 				"unassigned": "Nicht zugewiesen"
 			},
 			"chat": {
+				"build": "Build",
+				"build_link_copied": "Link kopiert",
+				"copy_build_link": "Link zu diesem Commit kopieren",
 				"open_as_customer": "Diese Seite als Kunde öffnen",
 				"placeholder": "Antwort an Kunde...",
 				"send_error": "Antwort konnte nicht gesendet werden. Versuch es noch mal.",

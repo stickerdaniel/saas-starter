@@ -5,6 +5,7 @@ import { api } from '../src/lib/convex/_generated/api';
 import { resolveConvexUrl } from './utils/convex-url';
 import { getPreviewBypass } from './utils/preview-bypass';
 import { resolveSiteUrl } from './utils/site-url';
+import { getRepositoryUrl } from '../src/lib/config/site';
 
 const convexUrl = resolveConvexUrl();
 const siteUrl = resolveSiteUrl();
@@ -89,5 +90,49 @@ test('shows an unread support reply and reports when the customer opens it', asy
 				threadIds
 			});
 		}
+	}
+});
+
+// The footer reads the build from the message-route query inside the rendered
+// message list, and only a browser grants and reads a real clipboard.
+test('a message shows the build it was sent from and copies its commit link', async ({ page }) => {
+	test.setTimeout(120_000);
+	const client = new ConvexHttpClient(convexUrl);
+	const build = '3c9d53c781b67138ebb598d7d2249f10f3af61ec';
+	const ticket = await client.mutation(api.tests.createUnreadAnonymousSupportReply, {
+		secret: testSecret,
+		anonymousUserId: `anon_${crypto.randomUUID()}`,
+		messageAppVersion: build
+	});
+	try {
+		await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], {
+			origin: new URL(siteUrl).origin
+		});
+		await page.goto(`/en/admin/support?thread=${ticket.threadId}`);
+		const shown = page.getByTestId('admin-support-message-build');
+		// The build shows without a route: the message carries none past the thread's own.
+		await expect(shown).toHaveText(/3c9d53c/, { timeout: 30000 });
+		await expect(page.getByText(/Sent from/)).toHaveCount(0);
+		await shown.click();
+		await expect
+			.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+			.toBe(`${getRepositoryUrl()}/commit/${build}`);
+
+		// The tooltip stays open while the pointer moves onto the full SHA, and
+		// closes once the pointer leaves both.
+		const tooltip = page.locator('[data-slot="tooltip-content"]');
+		await expect(tooltip).toContainText(build);
+		const box = (await tooltip.boundingBox())!;
+		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 8 });
+		// A tooltip that closes on leaving the trigger is gone well within this.
+		await page.waitForTimeout(500);
+		await expect(tooltip).toContainText(build);
+		await page.mouse.move(1, 1, { steps: 8 });
+		await expect(tooltip).toBeHidden();
+	} finally {
+		await client.mutation(api.tests.cleanupAnonymousSupportThreads, {
+			secret: testSecret,
+			threadIds: ticket.threadIds
+		});
 	}
 });

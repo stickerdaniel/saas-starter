@@ -31,6 +31,11 @@ export function getRepositoryUrl(): string {
 	return `https://github.com/${SITE_CONFIG.githubSlug}`;
 }
 
+/** The repository page of one commit, for a full commit SHA such as a build's `version`. */
+export function getCommitUrl(sha: string): string {
+	return `${getRepositoryUrl()}/commit/${sha}`;
+}
+
 export function getRepositoryDocumentUrl(path: string): string {
 	const normalizedPath = path.replace(/^\/+/, '');
 	return `https://raw.githubusercontent.com/${SITE_CONFIG.githubSlug}/HEAD/${normalizedPath}`;
