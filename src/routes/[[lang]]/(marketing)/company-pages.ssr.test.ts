@@ -104,6 +104,15 @@ function collapse(text: string): string {
 	return text.replace(/\s+/g, ' ').trim();
 }
 
+/** The first paragraph under the Provider heading, where Contact names the provider. */
+function providerName(content: Element): string | undefined {
+	const heading = [...content.querySelectorAll('h2')].find(
+		(element) => element.textContent?.trim() === 'Provider'
+	);
+	const paragraph = heading?.nextElementSibling;
+	return paragraph?.tagName === 'P' ? collapse(paragraph.textContent!) : undefined;
+}
+
 function linkTarget(content: Element, name: string): string | null | undefined {
 	return [...content.querySelectorAll('a')]
 		.find((link) => link.textContent?.trim() === name)
@@ -134,7 +143,7 @@ describe.each(IDENTITIES)('server-rendered company pages with the $label identit
 		const { streetAddress, postalCode, addressLocality, addressCountry } = legal.address;
 
 		expect(text.length).toBeGreaterThanOrEqual(500);
-		expect(text).toContain(collapse(organization));
+		expect(providerName(content)).toBe(collapse(organization));
 		expect(text).toContain(collapse(`Operated by ${legal.operatorName}`));
 		expect(text).toContain(
 			collapse(`${streetAddress}, ${postalCode} ${addressLocality}, ${addressCountry}`)
