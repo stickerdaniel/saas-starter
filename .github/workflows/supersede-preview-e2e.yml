@@ -15,8 +15,9 @@ permissions: {}
 
 concurrency:
   # The head-build group of e2e-preview-cf.yml, keyed on that workflow's name.
-  # A fork branch gets a group of its own, so it never cancels a run here.
-  group: E2E Tests (CF Preview)-${{ github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref || github.run_id }}
+  # A rerun and a fork branch get a group of their own, so neither cancels the
+  # current head's run.
+  group: E2E Tests (CF Preview)-${{ (github.run_attempt == 1 && github.event.pull_request.head.repo.full_name == github.repository) && github.event.pull_request.head.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
