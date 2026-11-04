@@ -21,7 +21,7 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 		{
 			heading: 'How we work with customers',
 			paragraphs: [
-				'New accounts get a personal welcome email, and replies reach the person who sent it. Users who have not paid after 48 hours and customers who cancel are asked for feedback. The support chat hands conversations to a person when they need one. Users a production bug affected get an email after the fix is live.'
+				'Once the operator switches them on, verified new accounts get a personal welcome email whose replies reach the sender, accounts that have not paid about 48 hours after verification and customers who cancel a paid plan are asked for feedback, and users a production bug affected can get an email after the fix is live. The support chat hands conversations to a person when they need one.'
 			],
 			links: [
 				{ label: 'Contact', href: '/en/contact', description: 'email, support chat, and address' },
