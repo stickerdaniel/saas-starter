@@ -57,7 +57,7 @@ import {
 } from './marketing';
 import type { MarketingMarkdownDocument } from './types';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
-import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
+import { marketingMarkdown as contactMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/contact/page.md';
 import { LEGAL_CONFIG } from '#lib/config/legal.js';
 import { LEGAL_CONTENT_DATES } from '#lib/content/legal-metadata.js';
 import { SUPPORTED_LANGUAGES } from '#lib/i18n/languages.js';
@@ -398,7 +398,7 @@ describe('marketing markdown helpers', () => {
 					}
 				]
 			},
-			{ origin: 'https://example.com', pathname: '/en/impressum', lang: 'en' }
+			{ origin: 'https://example.com', pathname: '/en/contact', lang: 'en' }
 		);
 
 		expect(
@@ -570,10 +570,10 @@ describe('marketing markdown helpers', () => {
 		expect(frontmatter).not.toContain(String.fromCodePoint(8203));
 	});
 
-	it('keeps the configured legal address inside the Impressum paragraph', () => {
-		const markdown = renderMarketingMarkdown(impressumMarketingMarkdown, {
+	it('keeps the configured legal address inside the legal notice paragraph', () => {
+		const markdown = renderMarketingMarkdown(contactMarketingMarkdown, {
 			origin: 'https://example.com',
-			pathname: '/en/impressum',
+			pathname: '/en/contact',
 			lang: 'en'
 		});
 		const bodyTokens = lex(getMarketingBody(markdown));
@@ -639,7 +639,7 @@ describe('marketing markdown helpers', () => {
 		expect(llms).toContain('https://example.com/en/contact');
 		expect(llms).toContain('https://example.com/en/privacy');
 		expect(llms).toContain('https://example.com/en/terms');
-		expect(llms).toContain('https://example.com/en/impressum');
+		expect(llms).not.toContain('impressum');
 		expect(llms).toContain('Accept: text/markdown');
 	});
 
@@ -680,7 +680,7 @@ describe('marketing markdown helpers', () => {
 		expect(sitemap).toContain('<loc>https://example.com/de/contact</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/en/privacy</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/en/terms</loc>');
-		expect(sitemap).toContain('<loc>https://example.com/en/impressum</loc>');
+		expect(sitemap).not.toContain('impressum');
 		expect(sitemap).not.toContain('/en/app');
 		expect(sitemap).not.toContain('/en/admin');
 	});
@@ -729,17 +729,20 @@ describe('marketing markdown helpers', () => {
 			)
 		);
 
+		// The legal notice date dates one section of Contact, not the whole page.
+		const datedRoutes = { privacy: LEGAL_CONTENT_DATES.privacy, terms: LEGAL_CONTENT_DATES.terms };
+
 		for (const { code } of SUPPORTED_LANGUAGES) {
-			for (const [route, date] of Object.entries(LEGAL_CONTENT_DATES)) {
+			for (const [route, date] of Object.entries(datedRoutes)) {
 				expect(lastModifiedByPath.get(`/${code}/${route}`)).toBe(date);
 			}
-			for (const path of [`/${code}`, `/${code}/pricing`]) {
+			for (const path of [`/${code}`, `/${code}/pricing`, `/${code}/contact`]) {
 				expect(lastModifiedByPath.has(path)).toBe(true);
 				expect(lastModifiedByPath.get(path)).toBeUndefined();
 			}
 		}
 		for (const [path, lastModified] of lastModifiedByPath) {
-			if (!Object.hasOwn(LEGAL_CONTENT_DATES, path.split('/')[2] ?? '')) {
+			if (!Object.hasOwn(datedRoutes, path.split('/')[2] ?? '')) {
 				expect(lastModified, path).toBeUndefined();
 			}
 		}

@@ -19,7 +19,6 @@ export const ANALYTICS_ROUTES = [
 	'/signup',
 	'/about',
 	'/contact',
-	'/impressum',
 	'/pricing',
 	'/privacy',
 	'/terms',

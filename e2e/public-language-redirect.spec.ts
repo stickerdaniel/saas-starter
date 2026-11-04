@@ -67,3 +67,19 @@ test.describe('SSR html lang', () => {
 		});
 	}
 });
+
+// Old Impressum links from search results and bookmarks must land on the legal notice
+// that replaced the page, whichever representation the client asks for.
+// Cheaper layers rejected because: the endpoint test calls GET alone, while only the
+// deployed hook chain shows that the Markdown negotiation lets the request reach it.
+test('the former Impressum URL redirects to the Contact legal notice', async ({ request }) => {
+	for (const accept of ['text/html', 'text/markdown']) {
+		const response = await request.get('/en/impressum', {
+			maxRedirects: 0,
+			headers: { Accept: accept }
+		});
+
+		expect(response.status(), accept).toBe(308);
+		expect(response.headers()['location'], accept).toMatch(/\/en\/contact#legal-notice$/);
+	}
+});

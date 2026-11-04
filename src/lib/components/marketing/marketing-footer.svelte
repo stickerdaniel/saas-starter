@@ -33,8 +33,12 @@
 					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/contact'))}>
 						<T keyName="footer.contact" />
 					</Button>
-					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/impressum'))}>
-						<T keyName="footer.impressum" />
+					<Button
+						variant="ghost-muted"
+						size="footer"
+						href={resolve(localizedHref('/contact#legal-notice'))}
+					>
+						<T keyName="footer.legal_notice" />
 					</Button>
 					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/terms'))}>
 						<T keyName="footer.terms" />
