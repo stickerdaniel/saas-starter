@@ -27,8 +27,9 @@
 </script>
 
 {#if isCommit}
-	<!-- Stays open on click, so the copy result shows where the pointer is. -->
-	<Tooltip.Root disableCloseOnTriggerClick>
+	<!-- Stays open on click, so the copy result shows where the pointer is, and
+	     while the pointer moves onto it, so the full SHA can be read. -->
+	<Tooltip.Root disableCloseOnTriggerClick disableHoverableContent={false}>
 		<Tooltip.Trigger>
 			{#snippet child({ props })}
 				<button
