@@ -19,6 +19,11 @@ export interface SanitizedCommandOptions {
 	stdout?: Writable;
 	stderr?: Writable;
 	githubActions?: boolean;
+	/**
+	 * Start the child as the leader of a new process group (POSIX only) and report the group
+	 * id once it runs, so the caller can signal its whole tree with `process.kill(-pgid)`.
+	 */
+	onProcessGroup?: (pgid: number) => void;
 }
 
 export interface SanitizedCommandResult {
@@ -84,7 +89,8 @@ export function sanitizeTerminalText(text: string): string {
 	return decoder.write(new TextEncoder().encode(text)) + decoder.end();
 }
 
-async function write(output: Writable, text: string): Promise<void> {
+/** Write text and resolve once the destination accepted it; rejects on its error or close. */
+export async function writeOutput(output: Writable, text: string): Promise<void> {
 	if (text === '') return;
 	await new Promise<void>((resolve, reject) => {
 		const cleanup = (): void => {
@@ -121,14 +127,14 @@ async function forward(input: NodeJS.ReadableStream, output: Writable): Promise<
 		const text = decoder.write(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
 		if (failed) continue;
 		try {
-			await write(output, text);
+			await writeOutput(output, text);
 		} catch (error) {
 			failed = true;
 			failure = error;
 		}
 	}
 	const final = decoder.end();
-	if (!failed) await write(output, final);
+	if (!failed) await writeOutput(output, final);
 	if (failed) throw failure;
 }
 
@@ -147,14 +153,16 @@ export async function runSanitizedCommand(
 	// streams onto stdout while workflow commands are suspended. Local runs retain
 	// their original descriptors.
 	const childStderr = onActions ? stdout : stderr;
-	if (commandToken) await write(stdout, `\n::stop-commands::${commandToken}\n`);
+	if (commandToken) await writeOutput(stdout, `\n::stop-commands::${commandToken}\n`);
 
 	try {
 		const child = spawn(command, args, {
 			cwd: options.cwd,
 			env: colorlessEnvironment(options.env),
-			stdio: ['inherit', 'pipe', 'pipe']
+			stdio: ['inherit', 'pipe', 'pipe'],
+			detached: options.onProcessGroup !== undefined
 		});
+		if (child.pid !== undefined) options.onProcessGroup?.(child.pid);
 		const result = new Promise<SanitizedCommandResult>((resolve, reject) => {
 			child.once('error', reject);
 			child.once('close', (status, signal) => resolve({ status, signal }));
@@ -172,6 +180,6 @@ export async function runSanitizedCommand(
 		}
 		return completed.value;
 	} finally {
-		if (commandToken) await write(stdout, `\n::${commandToken}::\n`);
+		if (commandToken) await writeOutput(stdout, `\n::${commandToken}::\n`);
 	}
 }

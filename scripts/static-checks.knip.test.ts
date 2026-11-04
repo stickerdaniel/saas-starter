@@ -45,6 +45,17 @@ const ESLINT_FIX: CommandInvocation = {
 	command: 'bun',
 	args: ['eslint', '--fix', 'scripts/test-executable.ts']
 };
+const PRETTIER_PROJECT: CommandInvocation = {
+	command: 'bun',
+	args: ['prettier', '--check', '--ignore-unknown', '.']
+};
+const ESLINT_PROJECT: CommandInvocation = {
+	command: 'bun',
+	args: ['eslint', '.', '--concurrency', '2']
+};
+const OXLINT: CommandInvocation = { command: 'bun', args: ['oxlint'] };
+/** The whole-project lint commands a GitHub Actions lint run starts right after sync. */
+const PROJECT_LINTERS = [ESLINT_PROJECT, OXLINT, KNIP, CLI_KNIP];
 const RECORDER_SOURCE = path.join(
 	ROOT,
 	'scripts',
@@ -1483,6 +1494,96 @@ describe('Knip static-check CLI behavior', { concurrent: false }, () => {
 		}
 	}, 30_000);
 
+	/**
+	 * Runs a full CI lint scope whose Prettier step takes 1.5 s. The recorder logs a command
+	 * when it ends, so a linter started before that step is logged before Prettier.
+	 */
+	function runSlowFormatterLint(githubActions: boolean) {
+		const checkout = createCheckerClone();
+		delete checkout.env.BUN_LINT_BINARY;
+		checkout.env.GITHUB_ACTIONS = String(githubActions);
+		checkout.env.STATIC_CHECKS_COMMAND_RESPONSE = JSON.stringify({
+			...PRETTIER_PROJECT,
+			status: 0,
+			delayMs: 1_500
+		});
+		try {
+			const result = runChecker(checkout, ['--ci', '--scope', 'lint']);
+			const log = readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!);
+			return {
+				status: result.status,
+				output: `${result.stdout}${result.stderr}`,
+				order: [PRETTIER_PROJECT, ...PROJECT_LINTERS].map((invocation) =>
+					indexOfInvocation(log, invocation)
+				)
+			};
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}
+
+	it('starts no linter before its step in a full CI lint run outside GitHub Actions', () => {
+		const { status, output, order } = runSlowFormatterLint(false);
+
+		expect(status, output).toBe(0);
+		expect(order.every((position) => position >= 0)).toBe(true);
+		expect(order).toEqual(order.toSorted((left, right) => left - right));
+	}, 45_000);
+
+	it('starts the project linters right after sync in a GitHub Actions lint run', () => {
+		const { status, output, order } = runSlowFormatterLint(true);
+		const [prettier, ...linters] = order;
+		const headers = ['Code formatting', 'ESLint', 'oxlint', 'knip', 'create-saas-starter knip'];
+
+		expect(status, output).toBe(0);
+		expect(linters.every((position) => position >= 0 && position < prettier!)).toBe(true);
+		const positions = headers.map((header) => output.indexOf(`. ${header}\n`));
+		expect(positions).toEqual(positions.toSorted((left, right) => left - right));
+		expect(output).toContain('All checks passed!');
+	}, 45_000);
+
+	it.each([['types'], ['format']])(
+		'starts no lint command in a GitHub Actions %s scope',
+		(scope) => {
+			const checkout = createCheckerClone();
+			delete checkout.env.BUN_LINT_BINARY;
+			checkout.env.GITHUB_ACTIONS = 'true';
+			try {
+				const result = runChecker(checkout, ['--ci', '--scope', scope]);
+				const output = `${result.stdout}${result.stderr}`;
+				const log = readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!);
+
+				expect(result.status, output).toBe(0);
+				expect(PROJECT_LINTERS.map((invocation) => indexOfInvocation(log, invocation))).toEqual(
+					PROJECT_LINTERS.map(() => -1)
+				);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		45_000
+	);
+
+	it('keeps a prose file error received before another prose worker fails', () => {
+		const checkout = createCheckerClone();
+		checkout.env.GITHUB_ACTIONS = 'true';
+		checkout.env.PROSE_WORKER_GATE = path.join(checkout.directory, 'prose-gate');
+		writeFileSync(
+			path.join(checkout.repository, 'scripts', 'english-policy', 'worker.ts'),
+			"import '../__fixtures__/static-checks/prose-worker-fails-after-error.ts';\n"
+		);
+		try {
+			const result = runChecker(checkout, ['--ci', '--scope', 'lint']);
+			const output = `${result.stdout}${result.stderr}`;
+
+			expect(output).toContain('Fatal error: Transient read failure for the first prose file');
+			expect(output).not.toContain('All checks passed!');
+			expect(result.status, output).toBe(1);
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 45_000);
+
 	it('propagates a knip failure and sanitizes its output', () => {
 		const checkout = createCheckerClone();
 		const escape = String.fromCharCode(0x1b);
@@ -1498,7 +1599,8 @@ describe('Knip static-check CLI behavior', { concurrent: false }, () => {
 
 			expect(result.status, output).toBe(23);
 			expect(knipInvocations(checkout)).toEqual([KNIP]);
-			expect(cliKnipInvocations(checkout)).toHaveLength(0);
+			// A GitHub Actions run starts creator knip early, so only its step stays unreached.
+			expect(output).not.toContain('create-saas-starter knip');
 			expect(output).toContain('knipU+001B]0;fixtureU+0007');
 			expect(output).toContain('Command failed: bun knip --no-progress');
 			expect(output).not.toContain(escape);
