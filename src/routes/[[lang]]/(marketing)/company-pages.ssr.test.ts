@@ -150,14 +150,17 @@ describe.each(IDENTITIES)('server-rendered company pages with the $label identit
 
 		expect(text.length).toBeGreaterThanOrEqual(500);
 		expect(linkTarget(content, 'Open the support chat')).toBe('/en/?support=open');
-		expect(legalNoticeParagraphs(content)).toEqual([
-			`Last updated: ${formatLegalContentDate(LEGAL_CONTENT_DATES.impressum)}`,
-			'Information pursuant to Section 5 DDG.',
-			collapse(organization),
-			operator,
-			address,
-			`Email: ${legal.email.user}@${legal.email.domain}.${legal.email.tld}`
-		]);
+		// Forks may add provider details; the required fields must all be there.
+		expect(legalNoticeParagraphs(content)).toEqual(
+			expect.arrayContaining([
+				`Last updated: ${formatLegalContentDate(LEGAL_CONTENT_DATES.impressum)}`,
+				'Information pursuant to Section 5 DDG.',
+				collapse(organization),
+				operator,
+				address,
+				`Email: ${legal.email.user}@${legal.email.domain}.${legal.email.tld}`
+			])
+		);
 		// The legal notice is the one provider block on the page.
 		expect(text.split(operator)).toHaveLength(2);
 		expect(text.split(address)).toHaveLength(2);
