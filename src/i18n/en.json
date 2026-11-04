@@ -894,6 +894,8 @@
 		"search_placeholder": "Try searching for pages..."
 	},
 	"footer": {
+		"about": "About",
+		"contact": "Contact",
 		"copyright": "© {year} {brand}",
 		"impressum": "Legal Notice",
 		"privacy": "Privacy Policy",
@@ -964,6 +966,10 @@
 		"title": "Real {year} Developer Experience"
 	},
 	"meta": {
+		"about": {
+			"description": "Who we are, what we build, and how to reach us.",
+			"title": "About"
+		},
 		"admin": {
 			"audit_log": {
 				"description": "Review admin actions across the platform.",
@@ -1029,6 +1035,10 @@
 				"description": "Create a new account to get started.",
 				"title": "Sign Up"
 			}
+		},
+		"contact": {
+			"description": "Provider details, email, and support chat.",
+			"title": "Contact"
 		},
 		"home": {
 			"description": "SaaS starter for SvelteKit with auth, billing, email, and analytics.",

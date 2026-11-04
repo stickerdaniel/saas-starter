@@ -25,6 +25,7 @@ import {
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
+import type { LegalMarkdownContent } from '../src/lib/content/legal-template';
 import {
 	buildSiteStructuredData,
 	type OrganizationLegalIdentity
@@ -359,6 +360,11 @@ function importLegalConfig(dir: string) {
 	};
 }
 
+/** Legal Markdown with each literal placed where the page renders it. */
+function withLiterals({ markdown, literals }: LegalMarkdownContent): string {
+	return markdown.replace(/\{\{([A-Z][A-Z0-9_]*)\}\}/g, (_, name: string) => literals[name]!);
+}
+
 const ADDRESS = [
 	'--street',
 	'Hauptstrasse 5',
@@ -497,7 +503,7 @@ describe('template setup writes importable branding values', () => {
 		});
 	});
 
-	it('publishes the fork identity in the homepage organization graph', () => {
+	it('publishes the fork identity in the organization graph, About and Contact', async () => {
 		const dir = createFixture();
 		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
 
@@ -524,6 +530,26 @@ describe('template setup writes importable branding values', () => {
 				addressCountry: 'DE'
 			}
 		});
+
+		// The page content modules read LEGAL_CONFIG once at import; load them against the written one.
+		vi.resetModules();
+		vi.doMock('#lib/config/legal.js', async (importOriginal) => ({
+			...(await importOriginal<Record<string, unknown>>()),
+			LEGAL_CONFIG: imported.value!.config
+		}));
+		try {
+			const { aboutMarkdown } = await import('../src/lib/content/about');
+			const { contactMarkdown } = await import('../src/lib/content/contact');
+			expect(withLiterals(aboutMarkdown)).toContain(
+				'Northwind Labs GmbH publishes Northwind Labs and is responsible for the service. Anne Weber runs it'
+			);
+			const contact = withLiterals(contactMarkdown);
+			expect(contact).toContain('Northwind Labs GmbH operates Northwind Labs.');
+			expect(contact).toContain('Operated by Anne Weber');
+			expect(contact).toContain('Hauptstrasse 5, 12345 Berlin, DE');
+		} finally {
+			vi.doUnmock('#lib/config/legal.js');
+		}
 	});
 });
 
