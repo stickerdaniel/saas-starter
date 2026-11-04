@@ -21,6 +21,7 @@ import { OUTFIT_WEIGHTS, marketingFonts } from './scripts/marketing-fonts';
 import { kitGeneratedHmr } from './scripts/kit-generated-hmr';
 import { INLINE_STYLE_THRESHOLD } from './scripts/inline-styles';
 import { sharedTestSettings, toolingTestSettings } from './scripts/vitest-settings.ts';
+import { DurationSequencer } from './scripts/duration-sequencer.ts';
 import { sentrySvelteKit } from '@sentry/sveltekit/vite';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
@@ -494,6 +495,8 @@ export default defineConfig(async ({ command, mode }) => {
 		}),
 		test: {
 			...sharedTestSettings,
+			// CI's Unit Tests shards split files by the measured durations in scripts/test-durations.json.
+			sequence: { sequencer: DurationSequencer },
 			projects: [
 				{
 					extends: true as const,
