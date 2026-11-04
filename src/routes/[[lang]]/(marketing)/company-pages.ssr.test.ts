@@ -10,7 +10,6 @@ import { createRequire } from 'node:module';
 import type { ConvexClient } from 'convex/browser';
 import { describe, expect, it, vi } from 'vitest';
 import type * as LegalConfig from '#lib/config/legal.js';
-import { LEGAL_CONTENT_DATES, formatLegalContentDate } from '#lib/content/legal-metadata.js';
 
 const page = vi.hoisted(() => ({
 	url: new URL('https://example.com/en/about'),
@@ -105,14 +104,13 @@ function collapse(text: string): string {
 	return text.replace(/\s+/g, ' ').trim();
 }
 
-/**
- * The paragraphs of the section the footer and the `/impressum` redirect link to, when
- * that section opens with the Legal notice heading.
- */
-function legalNoticeParagraphs(content: Element): string[] | undefined {
-	const section = content.querySelector('#legal-notice');
-	if (section?.querySelector('h2')?.textContent?.trim() !== 'Legal notice') return undefined;
-	return [...section.querySelectorAll('p')].map((paragraph) => visibleText(paragraph));
+/** The first paragraph under the Provider heading, where Contact names the provider. */
+function providerName(content: Element): string | undefined {
+	const heading = [...content.querySelectorAll('h2')].find(
+		(element) => element.textContent?.trim() === 'Provider'
+	);
+	const paragraph = heading?.nextElementSibling;
+	return paragraph?.tagName === 'P' ? collapse(paragraph.textContent!) : undefined;
 }
 
 function linkTarget(content: Element, name: string): string | null | undefined {
@@ -139,37 +137,19 @@ describe.each(IDENTITIES)('server-rendered company pages with the $label identit
 		}
 	});
 
-	it('lists the email, the support chat and the legal notice on the Contact page', async () => {
+	it('lists the provider, the email and the support chat on the Contact page', async () => {
 		const content = await serverRender('contact', legal);
 		const text = visibleText(content);
 		const { streetAddress, postalCode, addressLocality, addressCountry } = legal.address;
-		const operator = collapse(`Operated by ${legal.operatorName}`);
-		const address = collapse(
-			`${streetAddress}, ${postalCode} ${addressLocality}, ${addressCountry}`
-		);
 
 		expect(text.length).toBeGreaterThanOrEqual(500);
-		expect(linkTarget(content, 'Open the support chat')).toBe('/en/?support=open');
-		// Forks may add provider details; the required fields must all be there.
-		expect(legalNoticeParagraphs(content)).toEqual(
-			expect.arrayContaining([
-				`Last updated: ${formatLegalContentDate(LEGAL_CONTENT_DATES.impressum)}`,
-				'Information pursuant to Section 5 DDG.',
-				collapse(organization),
-				operator,
-				address,
-				`Email: ${legal.email.user}@${legal.email.domain}.${legal.email.tld}`
-			])
+		expect(providerName(content)).toBe(collapse(organization));
+		expect(text).toContain(collapse(`Operated by ${legal.operatorName}`));
+		expect(text).toContain(
+			collapse(`${streetAddress}, ${postalCode} ${addressLocality}, ${addressCountry}`)
 		);
-		// The legal notice is the one provider block on the page.
-		expect(text.split(operator)).toHaveLength(2);
-		expect(text.split(address)).toHaveLength(2);
-	});
-
-	it('links the About page to the Contact legal notice', async () => {
-		const content = await serverRender('about', legal);
-
-		expect(linkTarget(content, 'Contact')).toBe('/en/contact');
-		expect(linkTarget(content, 'legal notice')).toBe('/en/contact#legal-notice');
+		expect(text).toContain(`Email: ${legal.email.user}@${legal.email.domain}.${legal.email.tld}`);
+		expect(linkTarget(content, 'Open the support chat')).toBe('/en/?support=open');
+		expect(linkTarget(content, 'Impressum')).toBe('/en/impressum');
 	});
 });

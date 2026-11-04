@@ -20,4 +20,4 @@ Product analytics load only after you consent. The [Privacy Policy](privacy) lis
 
 ## Get in touch
 
-The [Contact](contact) page lists every way to reach me, including email and the support chat. Its [legal notice](contact#legal-notice) holds the full provider identification.
+The [Contact](contact) page lists every way to reach me, including email and the support chat. The [Impressum](impressum) holds the full provider identification.

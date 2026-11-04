@@ -3,14 +3,15 @@ import { LEGAL_CONTENT_DATES } from '#lib/content/legal-metadata.js';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
 import { marketingMarkdown as aboutMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/about/page.md';
 import { marketingMarkdown as contactMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/contact/page.md';
+import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
 import { marketingMarkdown as pricingMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/pricing/page.md';
 import { marketingMarkdown as privacyMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/privacy/page.md';
 import { marketingMarkdown as termsMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/terms/page.md';
 
 export type PublicMarketingRouteKey =
-	'home' | 'pricing' | 'about' | 'contact' | 'privacy' | 'terms';
+	'home' | 'pricing' | 'about' | 'contact' | 'privacy' | 'terms' | 'impressum';
 export type PublicMarketingPathSuffix =
-	'' | '/pricing' | '/about' | '/contact' | '/privacy' | '/terms';
+	'' | '/pricing' | '/about' | '/contact' | '/privacy' | '/terms' | '/impressum';
 
 export interface PublicMarketingRouteDefinition {
 	key: PublicMarketingRouteKey;
@@ -63,6 +64,13 @@ export const PUBLIC_MARKETING_ROUTES: PublicMarketingRouteDefinition[] = [
 		agentLabel: 'Terms of Service',
 		agentDescription: 'terms and conditions for using the service',
 		lastModified: LEGAL_CONTENT_DATES.terms
+	},
+	{
+		key: 'impressum',
+		pathSuffix: '/impressum',
+		agentLabel: 'Impressum',
+		agentDescription: 'provider identification and contact details',
+		lastModified: LEGAL_CONTENT_DATES.impressum
 	}
 ];
 
@@ -72,12 +80,15 @@ const MARKETING_DOCUMENTS = {
 	about: aboutMarketingMarkdown,
 	contact: contactMarketingMarkdown,
 	privacy: privacyMarketingMarkdown,
-	terms: termsMarketingMarkdown
+	terms: termsMarketingMarkdown,
+	impressum: impressumMarketingMarkdown
 } as const;
 
 export function matchPublicMarketingRoute(pathname: string): MatchedPublicMarketingRoute | null {
 	const normalizedPath = pathname !== '/' ? pathname.replace(/\/+$/, '') : pathname;
-	const match = normalizedPath.match(/^\/([a-z]{2})(?:\/(pricing|about|contact|privacy|terms))?$/);
+	const match = normalizedPath.match(
+		/^\/([a-z]{2})(?:\/(pricing|about|contact|privacy|terms|impressum))?$/
+	);
 
 	if (!match) return null;
 

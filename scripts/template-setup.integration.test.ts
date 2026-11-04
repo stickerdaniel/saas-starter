@@ -539,15 +539,15 @@ describe('template setup writes importable branding values', () => {
 		}));
 		try {
 			const { aboutMarkdown } = await import('../src/lib/content/about');
-			const { legalNoticeMarkdown } = await import('../src/lib/content/contact');
+			const { contactMarkdown } = await import('../src/lib/content/contact');
 			expect(aboutMarkdown.literals).toEqual({
 				BRAND_NAME: 'Northwind Labs',
 				OPERATOR_NAME: 'Anne Weber'
 			});
-			const legalNotice = withLiterals(legalNoticeMarkdown);
-			expect(legalNotice).toContain('Northwind Labs GmbH');
-			expect(legalNotice).toContain('Operated by Anne Weber');
-			expect(legalNotice).toContain('Hauptstrasse 5, 12345 Berlin, DE');
+			const contact = withLiterals(contactMarkdown);
+			expect(contact).toContain('Northwind Labs GmbH');
+			expect(contact).toContain('Operated by Anne Weber');
+			expect(contact).toContain('Hauptstrasse 5, 12345 Berlin, DE');
 		} finally {
 			vi.doUnmock('#lib/config/legal.js');
 		}

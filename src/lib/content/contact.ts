@@ -1,17 +1,10 @@
 import { LEGAL_CONFIG, formatPostalAddress } from '#lib/config/legal.js';
 import contactTemplate from './legal/contact.md?raw';
-import legalNoticeTemplate from './legal/legal-notice.md?raw';
-import { LEGAL_CONTENT_DATES, formatLegalContentDate } from './legal-metadata';
 import { createLegalMarkdown } from './legal-template';
 
 export const contactMarkdown = createLegalMarkdown('Contact', contactTemplate, {
-	BRAND_NAME: LEGAL_CONFIG.brandName
-});
-
-/** The provider identification under Section 5 DDG, rendered at the end of the Contact page. */
-export const legalNoticeMarkdown = createLegalMarkdown('Legal notice', legalNoticeTemplate, {
 	ADDRESS: formatPostalAddress(LEGAL_CONFIG.address),
-	LAST_UPDATED: formatLegalContentDate(LEGAL_CONTENT_DATES.impressum),
+	BRAND_NAME: LEGAL_CONFIG.brandName,
 	// A sole proprietor leaves the company empty; the operator then is the provider.
 	ORGANIZATION_NAME: LEGAL_CONFIG.companyName || LEGAL_CONFIG.operatorName,
 	OPERATOR_NAME: LEGAL_CONFIG.operatorName

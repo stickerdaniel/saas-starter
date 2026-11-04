@@ -135,8 +135,8 @@ Flags:
   --email        Contact email in user@domain.tld form
   -h, --help     Show this help
 
-The address fields appear in the legal notice on the Contact page and in the
-email footer as "street, postal-code city, country".
+The address fields appear in the Impressum, the Contact page, and the email
+footer as "street, postal-code city, country".
 
 In non-interactive mode (piped stdin, CI), --slug, --repo, --brand are required
 while they still hold their template values.

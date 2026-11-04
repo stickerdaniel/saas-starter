@@ -897,7 +897,7 @@
 		"about": "À propos",
 		"contact": "Contact",
 		"copyright": "© {year} {brand}",
-		"legal_notice": "Mentions légales",
+		"impressum": "Mentions légales",
 		"privacy": "Confidentialité",
 		"privacy_settings": "Paramètres de confidentialité",
 		"terms": "Conditions d'utilisation"
@@ -1043,6 +1043,10 @@
 		"home": {
 			"description": "Starter SaaS pour SvelteKit avec auth, paiements, email et analytics.",
 			"title": "Construis et lance ton produit plus rapidement"
+		},
+		"impressum": {
+			"description": "Identification du fournisseur et coordonnées de contact.",
+			"title": "Impressum"
 		},
 		"licenses": {
 			"description": "Licences et mentions des logiciels et ressources tiers que cette application fournit aux navigateurs.",
