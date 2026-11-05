@@ -28,6 +28,7 @@ import {
 	shouldUsePublicAuthSnapshot
 } from '#lib/server/auth-route.js';
 import { loadSentry, loadSentryHandle } from '#lib/monitoring/sentry.js';
+import { logSafeDiagnostic } from '#lib/monitoring/safe-diagnostic.js';
 import {
 	FAILED_LINK_PARAM,
 	FAILED_RESET_LINK,
@@ -495,17 +496,33 @@ export const handle = sequence(
 	handleCacheControl
 );
 
+// Exporting handleError replaces SvelteKit's console report, and Sentry's own
+// handler copies that report: both print the error's stack, whose message and
+// request path can carry user input. Outside dev, the console gets one line of
+// fixed fields instead, and Sentry still receives the full error. Like
+// SvelteKit, it stays silent for app and framework errors such as a 404.
+function logServerError(input: Parameters<HandleServerError>[0]): void {
+	if (input.kind === 'app' || input.kind === 'framework') return;
+	if (dev && input.kind === 'unknown') {
+		console.error(input.error);
+		return;
+	}
+	logSafeDiagnostic('error', '[server] Request failed', {
+		status: input.kind === 'unknown' ? 500 : input.error.status,
+		method: input.event.request.method,
+		route: input.event.route.id
+	});
+}
+
 // Memoized Sentry error handler, created on first error so the SDK import
-// stays lazy. When the DSN is unset the export is undefined, same as before.
+// stays lazy.
 let sentryHandleError: HandleServerError | null = null;
 
-export const handleError: HandleServerError | undefined = PUBLIC_SENTRY_DSN
-	? async (input) => {
-			if (!sentryHandleError) {
-				const sentry = await loadSentry();
-				if (!sentry) return;
-				sentryHandleError = sentry.handleErrorWithSentry<HandleServerError>();
-			}
-			return sentryHandleError(input);
-		}
-	: undefined;
+export const handleError: HandleServerError = async (input) => {
+	if (!sentryHandleError) {
+		const sentry = await loadSentry();
+		if (!sentry) return logServerError(input);
+		sentryHandleError = sentry.handleErrorWithSentry<HandleServerError>(logServerError);
+	}
+	return sentryHandleError(input);
+};
