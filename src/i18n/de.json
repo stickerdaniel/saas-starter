@@ -906,64 +906,64 @@
 		"companies_text": "Vertrauen der besten Teams",
 		"cta": "Jetzt starten",
 		"cta_demo": "Demo anfordern",
-		"description": "Erwecke dein SaaS zum Leben in Minuten, nicht in Monaten. Open-Source Template mit einem Tech-Stack, der dich schnell shippen lässt.",
+		"description": "Auth und Billing, plus alles, was mit deinem ersten Kunden beginnt: eine persönliche Begrüßung, Support mit einem Menschen dahinter und Incident-Mails an Kunden, die ein Bug getroffen hat.",
 		"logo_alt": "{name}-Logo",
-		"tagline": "Mit Produktfokus\nschneller zum Ziel"
+		"tagline": "Gebaut für den Tag\nnach dem Launch."
 	},
 	"integrations": {
 		"cards": {
 			"autumn_stripe": {
 				"button": "Zu Autumn",
-				"description": "Autumn übernimmt Abrechnung, Feature-Gates und Nutzungsverfolgung - ohne Webhook-Komplexität. Stripe für die Zahlungsabwicklung.",
+				"description": "Pläne, Stripe-Checkout und Limits. Zahlt jemand zum ersten Mal, kannst du eine Mail bekommen.",
 				"secondary_button": "Zu Stripe",
 				"secondary_title": "Stripe",
 				"title": "Autumn + Stripe"
 			},
 			"better_auth": {
 				"button": "Zu Better Auth",
-				"description": "Die umfassendste Authentifizierungsbibliothek für TypeScript. Sessions, OAuth, Passkeys und Multi-Tenancy sofort einsatzbereit.",
+				"description": "E-Mail und Passwort, Passkeys, Google und GitHub. Nutzer und Sessions liegen in deiner Datenbank.",
 				"title": "Better Auth"
 			},
 			"convex": {
 				"button": "Zu Convex",
-				"description": "Die reaktive Open-Source-Datenbank für App-Entwickler. TypeScript-Queries laufen auf dem Server und aktualisieren jeden Client in Echtzeit.",
+				"description": "Daten, Hintergrundjobs und Live-Updates in einem typisierten Backend. Lokal ohne Account.",
 				"title": "Convex"
 			},
 			"posthog": {
 				"button": "Zu PostHog",
-				"description": "PostHog ist eine Open-Source-Produktanalyseplattform zur Verfolgung von Nutzerverhalten und Messung von Conversions.",
+				"description": "Analytics, die erst nach Zustimmung lädt und aus URLs nur Kampagnen-Parameter übernimmt.",
 				"title": "PostHog"
 			},
 			"resend": {
 				"button": "Zu Resend",
-				"description": "Die E-Mail-API für Entwickler. Erstelle und versende transaktionale E-Mails mit einer modernen, zuverlässigen API für Skalierung.",
+				"description": "Verschickt Begrüßung, Bestätigung und Incident-Mails. Antworten auf die Begrüßung landen bei dir.",
 				"title": "Resend"
 			},
 			"sentry": {
 				"button": "Zu Sentry",
-				"description": "Anwendungsüberwachung und Fehlerverfolgung. Erkenne Probleme bevor deine Nutzer es tun mit Echtzeit-Alerts und detaillierten Stack-Traces.",
+				"description": "Fängt Fehler im Browser und auf dem Server ab. Ohne DSN lädt das SDK gar nicht erst.",
 				"title": "Sentry"
 			},
 			"shadcn_svblocks": {
 				"button": "Zu Shadcn Svelte",
-				"description": "Eine Sammlung wunderschön gestalteter, barrierefreier Komponenten, gebaut mit Tailwind CSS v4 und Bits UI.",
+				"description": "Barrierearme Komponenten, die öffentlichen Hauptseiten automatisch gegen WCAG 2.1 AA geprüft.",
 				"secondary_button": "SVBlocks",
 				"secondary_title": "SVBlocks",
 				"title": "Shadcn Svelte + SVBlocks"
 			},
 			"svelte": {
 				"button": "Zu Svelte 5",
-				"description": "Das beliebteste Frontend-Framework. Eine einfache, leistungsstarke und zukunftssichere Art, deine Web-App zu erstellen.",
+				"description": "Schnelle, serverseitig gerenderte Seiten. Marketingseiten antworten AI-Agents auch in Markdown.",
 				"title": "Svelte 5"
 			},
 			"tolgee": {
 				"button": "Zu Tolgee",
-				"description": "Internationalisierung richtig gemacht. In-Context-Editing und ML-gestützte Übersetzung für einen nahtlosen Lokalisierungs-Workflow.",
+				"description": "Vier Sprachen mit eigenen URLs. Die Übersetzungen liegen in deinem Repository.",
 				"title": "Tolgee"
 			}
 		},
-		"description": "Superschnelle Lösungen, die tatsächlich Spaß beim Entwickeln machen",
-		"title": "Echte {year} Developer Experience"
+		"description": "Tools, die du sowieso wählen würdest, fertig verbunden. Lokal brauchst du keine Accounts und keine API-Keys.",
+		"title": "Jedes Teil hat schon eine Aufgabe"
 	},
 	"meta": {
 		"about": {
@@ -1041,8 +1041,8 @@
 			"title": "Kontakt"
 		},
 		"home": {
-			"description": "SaaS-Starter für SvelteKit mit Auth, Billing, E-Mail und Analytics.",
-			"title": "Schneller entwickeln und veröffentlichen"
+			"description": "Open-Source-Starter für SvelteKit und Convex mit Auth und Billing, plus Willkommensmails, Support und Incident-Follow-up ab dem ersten Kunden.",
+			"title": "Gebaut für den Tag nach dem Launch"
 		},
 		"impressum": {
 			"description": "Anbieterkennzeichnung und Kontaktdaten.",

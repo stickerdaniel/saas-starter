@@ -906,64 +906,64 @@
 		"companies_text": "Powering the best teams",
 		"cta": "Start Building",
 		"cta_demo": "Request a demo",
-		"description": "SaaS starter with SvelteKit, auth, billing, and analytics.",
+		"description": "Auth and billing, plus the jobs that start with your first customer: a personal welcome, support with a human behind it, and incident emails to customers a bug hit.",
 		"logo_alt": "{name} Logo",
-		"tagline": "Focus on your product.\nShip faster."
+		"tagline": "Built for the day\nafter launch."
 	},
 	"integrations": {
 		"cards": {
 			"autumn_stripe": {
 				"button": "Visit Autumn",
-				"description": "Autumn handles billing, feature gates, and usage tracking—no webhook complexity. Stripe for payment processing.",
+				"description": "Plans, Stripe checkout and usage limits. You can get an email when a customer first pays.",
 				"secondary_button": "Visit Stripe",
 				"secondary_title": "Stripe",
 				"title": "Autumn + Stripe"
 			},
 			"better_auth": {
 				"button": "Visit Better Auth",
-				"description": "The most comprehensive authentication library for TypeScript. Sessions, OAuth, passkeys, and multi-tenancy out of the box.",
+				"description": "Email and password, passkeys, Google and GitHub, with users and sessions in your own database.",
 				"title": "Better Auth"
 			},
 			"convex": {
 				"button": "Visit Convex",
-				"description": "The open source reactive database for app developers. TypeScript queries run on the server and update every client in real time.",
+				"description": "Data, background jobs and live updates in one typed backend. Runs locally without an account.",
 				"title": "Convex"
 			},
 			"posthog": {
 				"button": "Visit PostHog",
-				"description": "PostHog is an open-source product analytics platform to track user behavior and measure conversions.",
+				"description": "Analytics that loads only after consent and keeps only campaign parameters from URLs.",
 				"title": "PostHog"
 			},
 			"resend": {
 				"button": "Visit Resend",
-				"description": "The email API for developers. Build and send transactional emails with a modern, reliable API built for scale.",
+				"description": "Sends the welcome, verification and incident emails. Welcome replies reach your inbox.",
 				"title": "Resend"
 			},
 			"sentry": {
 				"button": "Visit Sentry",
-				"description": "Application monitoring and error tracking. Identify issues before your users do with real-time alerts and detailed stack traces.",
+				"description": "Catches errors in the browser and on the server. Without a DSN, the SDK never loads.",
 				"title": "Sentry"
 			},
 			"shadcn_svblocks": {
 				"button": "Visit Shadcn Svelte",
-				"description": "A set of beautifully-designed, accessible components built with Tailwind CSS v4 and Bits UI.",
+				"description": "Accessible components, with the main public pages checked against WCAG 2.1 AA.",
 				"secondary_button": "SVBlocks",
 				"secondary_title": "SVBlocks",
 				"title": "Shadcn Svelte + SVBlocks"
 			},
 			"svelte": {
 				"button": "Visit Svelte 5",
-				"description": "The most loved frontend framework. A simple, performant, and future-proof way to build your web app.",
+				"description": "Fast server-rendered pages. Marketing pages also answer in markdown when an AI agent asks.",
 				"title": "Svelte 5"
 			},
 			"tolgee": {
 				"button": "Visit Tolgee",
-				"description": "Internationalization done right. In-context editing and ML-powered translation for a seamless localization workflow.",
+				"description": "Four languages, each with its own URLs. Translations live in your repository.",
 				"title": "Tolgee"
 			}
 		},
-		"description": "Super fast solutions that are actually fun to build with",
-		"title": "Real {year} Developer Experience"
+		"description": "Tools you would pick anyway, wired together. Local development needs no accounts or API keys.",
+		"title": "Every piece already has a job"
 	},
 	"meta": {
 		"about": {
@@ -1041,8 +1041,8 @@
 			"title": "Contact"
 		},
 		"home": {
-			"description": "SaaS starter for SvelteKit with auth, billing, email, and analytics.",
-			"title": "Build & Ship Your Product Faster"
+			"description": "Open-source SvelteKit and Convex starter with auth and billing, plus the welcome emails, support and incident follow-up that start with your first customer.",
+			"title": "Built for the Day After Launch"
 		},
 		"impressum": {
 			"description": "Provider identification and contact details.",

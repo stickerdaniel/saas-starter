@@ -602,9 +602,9 @@ describe('marketing markdown helpers', () => {
 		expect(response.headers.get('cache-control')).not.toContain('s-maxage');
 
 		const body = await response.text();
-		expect(body).toContain('# Build & Ship Your Product Faster');
+		expect(body).toContain('# Built for the Day After Launch');
 		expect(body).toContain(
-			`${encodeMarkdownLiteral(LEGAL_CONFIG.brandName)} packages the core infrastructure`
+			`${encodeMarkdownLiteral(LEGAL_CONFIG.brandName)} is an open-source SaaS starter`
 		);
 		expect(body).toContain('lang_served: "de"');
 		expect(body).toContain('content_language: "en"');

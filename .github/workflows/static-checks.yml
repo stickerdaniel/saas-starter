@@ -108,7 +108,7 @@ jobs:
           ( set +e; bun run check:convex-compat > "$dir/log" 2>&1; echo $? > "$dir/status.tmp"; mv "$dir/status.tmp" "$dir/status" ) > /dev/null 2>&1 < /dev/null &
           echo $! > "$dir/pid"
       - run: bun scripts/static-checks.ts --ci --scope lint
-      # Unit Tests runs this too, but the README tells forks to require only this job.
+      # Unit Tests runs this too, but docs/deployment/previews.md tells forks to require only this job.
       - name: Check that the committed icons match static/logo.svg
         run: bun vitest --config vitest.tooling.config.ts --run scripts/generate-logos.test.ts
       # Refuses to remove a Convex function that deployed app code still calls

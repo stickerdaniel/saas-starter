@@ -207,7 +207,7 @@ export function renderLlmsTxt(origin: string): string {
 		AGENT_INSTRUCTIONS_URL: getRepositoryDocumentUrl('AGENTS.md'),
 		BRAND_NAME: encodeMarkdownLiteral(LEGAL_CONFIG.brandName),
 		CANONICAL_PAGES: canonicalPages,
-		DEVELOPER_GUIDE_URL: getRepositoryDocumentUrl('README.md'),
+		DEVELOPER_GUIDE_URL: getRepositoryDocumentUrl('docs/README.md'),
 		REPOSITORY_URL: getRepositoryUrl()
 	});
 }
