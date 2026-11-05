@@ -231,10 +231,11 @@ describe('repository policy scopes', () => {
 		// A tree whose `.git` points nowhere: the pin is fine, the checkout is not.
 		// The files scope reads its sources straight from disk, so the commit probe
 		// is the only git call left to fail.
+		const pin = '0'.repeat(40);
 		const unreadable = mkdtempSync(path.join(tmpdir(), 'knowledge-policy-unreadable-'));
 		try {
 			writeFileSync(path.join(unreadable, '.git'), 'gitdir: ./missing-gitdir\n');
-			write(unreadable, 'docs/decision.md', `---\nsnapshot: ${'0'.repeat(40)}\n---\n`);
+			write(unreadable, 'docs/decision.md', `---\nsnapshot: ${pin}\n---\n`);
 
 			const { findings } = runKnowledgePolicy({
 				root: unreadable,
@@ -243,7 +244,9 @@ describe('repository policy scopes', () => {
 			});
 
 			expect(findings).toHaveLength(1);
-			expect(findings[0]!.message).toContain('not a git repository');
+			// Git words this failure differently per version, so the assertion is that
+			// the finding reports a failed probe and carries whatever reason git gave.
+			expect(findings[0]!.message).toMatch(new RegExp(`Could not check commit ${pin}: \\S`));
 			expect(findings[0]!.message).not.toContain('Fetch the full Git history');
 		} finally {
 			rmSync(unreadable, { recursive: true, force: true });
