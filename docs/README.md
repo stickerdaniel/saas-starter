@@ -1,6 +1,6 @@
 # Documentation
 
-Guides for building a product on this starter, from the first local run to production.
+Guides for building a product on this template, from the first local run to production.
 
 ## Guides
 

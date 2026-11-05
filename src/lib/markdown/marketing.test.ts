@@ -604,7 +604,7 @@ describe('marketing markdown helpers', () => {
 		const body = await response.text();
 		expect(body).toContain('# Built for the Day After Launch');
 		expect(body).toContain(
-			`${encodeMarkdownLiteral(LEGAL_CONFIG.brandName)} is an open-source SaaS starter`
+			`${encodeMarkdownLiteral(LEGAL_CONFIG.brandName)} is an open-source SaaS template`
 		);
 		expect(body).toContain('lang_served: "de"');
 		expect(body).toContain('content_language: "en"');

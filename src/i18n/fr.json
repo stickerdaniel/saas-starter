@@ -906,7 +906,7 @@
 		"companies_text": "Propulsant les meilleures équipes",
 		"cta": "Commencer maintenant",
 		"cta_demo": "Demander une démo",
-		"description": "Auth et facturation, plus ce qui commence avec ton premier client : un accueil personnel, une assistance qui passe la main à un humain, et des emails d'incident aux clients touchés par un bug.",
+		"description": "La connexion et la facturation sont faites, la partie ennuyeuse. Ce qu'il faut pour tes premiers clients aussi : un email de bienvenue de ta part, un chat d'assistance qui te passe la main, et l'email « désolé, c'était nous ».",
 		"logo_alt": "Logo {name}",
 		"tagline": "Conçu pour le lendemain\ndu lancement."
 	},
@@ -1041,7 +1041,7 @@
 			"title": "Contact"
 		},
 		"home": {
-			"description": "Starter open source pour SvelteKit et Convex avec auth et facturation, plus les emails de bienvenue, le support et le suivi d'incidents dès ton premier client.",
+			"description": "Template open source pour SvelteKit et Convex avec connexion et facturation prêtes, plus email de bienvenue, passage de relais du support et suivi des bugs pour tes premiers clients.",
 			"title": "Conçu pour le lendemain du lancement"
 		},
 		"impressum": {

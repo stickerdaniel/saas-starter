@@ -7,7 +7,9 @@
 
 [![Commit activity](https://img.shields.io/github/commit-activity/m/stickerdaniel/saas-starter?label=commits)](https://github.com/stickerdaniel/saas-starter/commits/main)
 
-**Built for the day after launch.** Most starters stop at login and checkout. This one also tells you who paid, who is stuck, and who was hit by a bug.
+saas-starter is an open-source SvelteKit and Convex template for building your SaaS and running it after launch.
+
+Most starters end where the real work starts: your first customer. This one also tells you who paid, who is stuck, and who was hit by a bug.
 
 Runs in production at [Cadenza](https://cadenza.page), the hosted version of [LinkedIn MCP](https://github.com/stickerdaniel/linkedin-mcp-server) [![LinkedIn MCP stars](https://img.shields.io/github/stars/stickerdaniel/linkedin-mcp-server?style=flat&logo=github&label=stars&color=blue)](https://github.com/stickerdaniel/linkedin-mcp-server).
 
@@ -15,7 +17,7 @@ Runs in production at [Cadenza](https://cadenza.page), the hosted version of [Li
 
 ## Why you can build on it
 
-- **Nothing lands here on spec.** A feature only moves into the starter once one of my products uses it in production.
+- **Nothing lands here on spec.** A feature only moves into the template once one of my products uses it in production.
 - **Fixes reach every product.** Cadenza has reviewed 158 template commits in three syncs and taken over 120 of them, among them a checkout bug that silently dead-ended every upgrade path. Each was fixed once, here.
 - **It stays maintained** because my own products run on it. When the base breaks, my products break first.
 - **Fixes stay fixed.** When the right fix was not obvious and the mistake is still easy to write, the fix ships with a guard at the earliest point that catches it again: a type, a lint rule, a static check or a focused test. CI asks every fix for its verdict. [How guards work](docs/development.md#regression-guards).
@@ -24,12 +26,12 @@ Runs in production at [Cadenza](https://cadenza.page), the hosted version of [Li
 
 Each step is wired in. The conversations stay yours.
 
-| Step                 | What the starter does                                                                                                                          |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Launch               | Pushes deploy, and pull requests get previews. Analytics, error tracking and admin metrics are wired in before your first user.                |
-| Talk to users        | New users get a personal welcome email from you, and replies reach your inbox. The support AI answers and hands you threads that need a human. |
-| Learn what they do   | You get an email when a customer first pays, with what they did before paying.                                                                 |
-| Fix it and tell them | After a production fix, an agent can find who the evidence shows was hit and draft one email for you to approve.                               |
+| Step                 | What the template does                                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Launch               | Pushes deploy, and pull requests get previews. Analytics, error tracking and admin metrics are wired in before your first user.                           |
+| Talk to users        | New users get a personal welcome email from you, and replies reach your inbox. The support AI answers and hands you threads that need a human.            |
+| Learn what they do   | You get an email when a customer first pays, with what they did before paying. People who never paid and customers who cancel are asked what was missing. |
+| Fix it and tell them | After a production fix, an agent can find who the evidence shows was hit and draft one email for you to approve.                                          |
 
 Each step turns on once its service is connected, such as Resend for email or the Autumn webhook for payments. The [feature docs](docs/features/README.md) list what each one needs.
 

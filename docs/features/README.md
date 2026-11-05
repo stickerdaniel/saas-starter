@@ -1,6 +1,6 @@
 # Features
 
-What a product built on this starter can do from its first deploy. Each page says what the feature does for you and where its code starts.
+What a product built on this template can do from its first deploy. Each page says what the feature does for you and where its code starts.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/lighthouse-dark.gif">

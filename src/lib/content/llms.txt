@@ -4,7 +4,7 @@
 
 ## Overview
 
-{{BRAND_NAME}} is an open-source SaaS starter built on SvelteKit and Convex. Besides auth and billing, it wires up the feedback loop that starts with the first customer: a personal welcome email, AI support with a human handoff, a first-payment email to admins, and incident follow-up. This file only describes the public marketing pages.
+{{BRAND_NAME}} is an open-source SvelteKit and Convex template for building a SaaS and running it after launch. Besides sign-in and billing, it ships the feedback loop with the first customers: a personal welcome email, feedback and cancellation emails, AI support with a human handoff, a first-payment email to admins, and incident follow-up. This file only describes the public marketing pages.
 
 ## When to use this site
 

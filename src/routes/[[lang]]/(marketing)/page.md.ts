@@ -5,12 +5,12 @@ import type { MarketingMarkdownDocument } from '#lib/markdown/types.js';
 export const marketingMarkdown: MarketingMarkdownDocument = {
 	title: 'Built for the Day After Launch',
 	description:
-		'An open-source SvelteKit and Convex starter with auth and billing, plus the feedback loop that starts with your first customer.',
+		'An open-source SvelteKit and Convex template for building your SaaS and running it after launch.',
 	sections: [
 		{
 			heading: 'What this starter is',
 			paragraphs: [
-				markdownText`${LEGAL_CONFIG.brandName} is an open-source SaaS starter built on SvelteKit, Convex, Better Auth, Autumn, and Resend. Besides auth and billing, it wires up the feedback loop that starts with the first customer.`,
+				markdownText`${LEGAL_CONFIG.brandName} is an open-source SaaS template built on SvelteKit, Convex, Better Auth, Autumn, and Resend. Besides sign-in and billing, it ships the feedback loop with the first customers.`,
 				'Features only move into the starter once a product uses them in production, and each product can pull the fixes made here through a reviewed upstream sync.'
 			]
 		},

@@ -906,7 +906,7 @@
 		"companies_text": "Powering the best teams",
 		"cta": "Start Building",
 		"cta_demo": "Request a demo",
-		"description": "Auth and billing, plus the jobs that start with your first customer: a personal welcome, support with a human behind it, and incident emails to customers a bug hit.",
+		"description": "Sign-in and billing are done, the boring parts. So are the parts for your first customers: a welcome email from you, a support chat that hands over to you, and the “sorry, that one was us” email.",
 		"logo_alt": "{name} Logo",
 		"tagline": "Built for the day\nafter launch."
 	},
@@ -1041,7 +1041,7 @@
 			"title": "Contact"
 		},
 		"home": {
-			"description": "Open-source SvelteKit and Convex starter with auth and billing, plus the welcome emails, support and incident follow-up that start with your first customer.",
+			"description": "Open-source SvelteKit and Convex template with sign-in and billing done, plus the welcome email, support handoff and bug follow-up for your first customers.",
 			"title": "Built for the Day After Launch"
 		},
 		"impressum": {

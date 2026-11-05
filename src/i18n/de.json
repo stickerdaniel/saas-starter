@@ -906,7 +906,7 @@
 		"companies_text": "Vertrauen der besten Teams",
 		"cta": "Jetzt starten",
 		"cta_demo": "Demo anfordern",
-		"description": "Auth und Billing, plus alles, was mit deinem ersten Kunden beginnt: eine persönliche Begrüßung, Support mit einem Menschen dahinter und Incident-Mails an Kunden, die ein Bug getroffen hat.",
+		"description": "Login und Billing sind fertig, die langweiligen Teile. Die Teile für deine ersten Kunden auch: eine Willkommensmail von dir, ein Support-Chat, der an dich übergibt, und die „Sorry, das waren wir“-Mail.",
 		"logo_alt": "{name}-Logo",
 		"tagline": "Gebaut für den Tag\nnach dem Launch."
 	},
@@ -1041,7 +1041,7 @@
 			"title": "Kontakt"
 		},
 		"home": {
-			"description": "Open-Source-Starter für SvelteKit und Convex mit Auth und Billing, plus Willkommensmails, Support und Incident-Follow-up ab dem ersten Kunden.",
+			"description": "Open-Source-Template für SvelteKit und Convex mit fertigem Login und Billing, plus Willkommensmail, Support-Übergabe und Bug-Follow-up für deine ersten Kunden.",
 			"title": "Gebaut für den Tag nach dem Launch"
 		},
 		"impressum": {
