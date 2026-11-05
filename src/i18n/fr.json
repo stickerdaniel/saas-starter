@@ -1037,7 +1037,7 @@
 			}
 		},
 		"contact": {
-			"description": "Coordonnées du fournisseur, e-mail et chat d'assistance.",
+			"description": "E-mail et chat d'assistance.",
 			"title": "Contact"
 		},
 		"home": {

@@ -1037,7 +1037,7 @@
 			}
 		},
 		"contact": {
-			"description": "Anbieterangaben, E-Mail und Support-Chat.",
+			"description": "E-Mail und Support-Chat.",
 			"title": "Kontakt"
 		},
 		"home": {

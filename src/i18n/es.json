@@ -1037,7 +1037,7 @@
 			}
 		},
 		"contact": {
-			"description": "Datos del proveedor, correo electrónico y chat de soporte.",
+			"description": "Correo electrónico y chat de soporte.",
 			"title": "Contacto"
 		},
 		"home": {

@@ -105,15 +105,6 @@ function collapse(text: string): string {
 	return text.replace(/\s+/g, ' ').trim();
 }
 
-/** The first paragraph under the Provider heading, where Contact names the provider. */
-function providerName(content: Element): string | undefined {
-	const heading = [...content.querySelectorAll('h2')].find(
-		(element) => element.textContent?.trim() === 'Provider'
-	);
-	const paragraph = heading?.nextElementSibling;
-	return paragraph?.tagName === 'P' ? collapse(paragraph.textContent!) : undefined;
-}
-
 function linkTarget(content: Element, name: string): string | null | undefined {
 	return [...content.querySelectorAll('a')]
 		.find((link) => link.textContent?.trim() === name)
@@ -123,8 +114,6 @@ function linkTarget(content: Element, name: string): string | null | undefined {
 describe.each(IDENTITIES)(
 	'server-rendered company pages with the $label identity',
 	({ legal, firstName }) => {
-		const organization = legal.companyName || legal.operatorName;
-
 		it('names the product and its operator on the About page', async () => {
 			const text = visibleText(await serverRender('about', legal));
 			const { aboutMarkdown } = await import('#lib/content/about.js');
@@ -140,17 +129,11 @@ describe.each(IDENTITIES)(
 			}
 		});
 
-		it('lists the provider, the email and the support chat on the Contact page', async () => {
+		it('lists the email and the support chat on the Contact page', async () => {
 			const content = await serverRender('contact', legal);
 			const text = visibleText(content);
-			const { streetAddress, postalCode, addressLocality, addressCountry } = legal.address;
 
 			expect(text.length).toBeGreaterThanOrEqual(500);
-			expect(providerName(content)).toBe(collapse(organization));
-			expect(text).toContain(collapse(`Operated by ${legal.operatorName}`));
-			expect(text).toContain(
-				collapse(`${streetAddress}, ${postalCode} ${addressLocality}, ${addressCountry}`)
-			);
 			expect(text).toContain(`Email: ${legal.email.user}@${legal.email.domain}.${legal.email.tld}`);
 			expect(linkTarget(content, 'Open the support chat')).toBe('/en/?support=open');
 			expect(linkTarget(content, 'Impressum')).toBe('/en/impressum');

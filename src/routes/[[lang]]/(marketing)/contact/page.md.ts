@@ -1,25 +1,11 @@
-import {
-	LEGAL_CONFIG,
-	formatPostalAddress,
-	getObfuscatedLegalEmailAddress
-} from '#lib/config/legal.js';
+import { LEGAL_CONFIG, getObfuscatedLegalEmailAddress } from '#lib/config/legal.js';
 import { markdownText } from '#lib/markdown/literals.js';
 import type { MarketingMarkdownDocument } from '#lib/markdown/types.js';
 
-const organizationName = LEGAL_CONFIG.companyName || LEGAL_CONFIG.operatorName;
-
 export const marketingMarkdown: MarketingMarkdownDocument = {
 	title: 'Contact',
-	description: markdownText`Provider details, email, and support chat for ${LEGAL_CONFIG.brandName}.`,
+	description: markdownText`Email and support chat for ${LEGAL_CONFIG.brandName}.`,
 	sections: [
-		{
-			heading: 'Provider',
-			paragraphs: [
-				markdownText`Provider: ${organizationName}`,
-				markdownText`Operated by: ${LEGAL_CONFIG.operatorName}`,
-				markdownText`Address: ${formatPostalAddress(LEGAL_CONFIG.address)}`
-			]
-		},
 		{
 			heading: 'Email and support chat',
 			paragraphs: [
@@ -28,7 +14,7 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 			],
 			links: [
 				{ label: 'Support chat', href: '/en?support=open' },
-				{ label: 'Impressum', href: '/en/impressum', description: 'full provider identification' }
+				{ label: 'Impressum', href: '/en/impressum', description: 'provider and postal address' }
 			]
 		}
 	]

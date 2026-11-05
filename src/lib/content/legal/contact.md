@@ -1,16 +1,6 @@
 # Contact
 
-Reach me with questions about your {{BRAND_NAME}} account, billing, privacy, or the service itself through the channels on this page.
-
-## Provider
-
-{{ORGANIZATION_NAME}}
-
-Operated by {{OPERATOR_NAME}}
-
-{{ADDRESS}}
-
-The [Impressum](impressum) lists the full provider identification.
+Reach me with questions about your {{BRAND_NAME}} account, billing, privacy, or the service itself through the channels on this page. The [Impressum](impressum) lists the provider and postal address.
 
 ## Before you write
 

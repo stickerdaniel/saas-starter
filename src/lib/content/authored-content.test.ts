@@ -15,8 +15,6 @@ const legalDocuments = [
 	aboutMarkdown,
 	contactMarkdown
 ];
-// A sole proprietor leaves the company empty; About and Contact then name the operator.
-const organizationName = LEGAL_CONFIG.companyName || LEGAL_CONFIG.operatorName;
 
 function markdownDestinations(document: string): string[] {
 	const inline = [
@@ -66,15 +64,8 @@ describe('authored legal content', () => {
 		});
 
 		expect(contactMarkdown.markdown).toContain('# Contact');
-		expect(contactMarkdown.markdown).toContain('Operated by {{OPERATOR_NAME}}');
-		expect(contactMarkdown.markdown).toContain('{{ADDRESS}}');
 		expect(contactMarkdown.markdown).toContain('[Impressum](impressum)');
-		expect(contactMarkdown.literals).toEqual({
-			ADDRESS: formatPostalAddress(LEGAL_CONFIG.address),
-			BRAND_NAME: LEGAL_CONFIG.brandName,
-			ORGANIZATION_NAME: organizationName,
-			OPERATOR_NAME: LEGAL_CONFIG.operatorName
-		});
+		expect(contactMarkdown.literals).toEqual({ BRAND_NAME: LEGAL_CONFIG.brandName });
 	});
 
 	it('recognizes inline and reference-style destinations for route validation', () => {
