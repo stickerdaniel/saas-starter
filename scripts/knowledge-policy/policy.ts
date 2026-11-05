@@ -22,18 +22,21 @@ export interface PolicyFinding {
 	message: string;
 }
 
+/** Whether this checkout holds a commit, or why Git could not say. */
+export type CommitAnswer = boolean | { error: string };
+
 export interface PolicyRepository {
 	files: readonly string[];
 	readText(file: string): string;
 	pathExists(file: string): boolean;
-	commitExists(sha: string): boolean;
+	commitExists(sha: string): CommitAnswer;
 }
 
 export interface MetadataValidationContext {
 	file: string;
 	field: string;
 	frontmatter: FrontmatterParseResult;
-	commitExists(sha: string): boolean;
+	commitExists(sha: string): CommitAnswer;
 }
 
 export type MetadataValidator = (
@@ -198,8 +201,14 @@ export function gitCommitValue(options?: {
 		if (!value || !regexMatches(pattern, value)) {
 			return 'Must be a 7 to 40 character lowercase hexadecimal commit ID.';
 		}
-		if (options?.mustExist && !context.commitExists(value)) {
-			return `Commit ${value} is unavailable. Fetch the full Git history and retry.`;
+		if (options?.mustExist) {
+			const exists = context.commitExists(value);
+			if (exists === false) {
+				return `Commit ${value} is unavailable. Fetch the full Git history and retry.`;
+			}
+			if (exists !== true) {
+				return `Could not check commit ${value}: ${exists.error}`;
+			}
 		}
 		return null;
 	};
