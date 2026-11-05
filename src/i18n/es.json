@@ -906,64 +906,64 @@
 		"companies_text": "Impulsando a los mejores equipos",
 		"cta": "Comenzar ahora",
 		"cta_demo": "Solicitar una demo",
-		"description": "Dale vida a tu SaaS en minutos, no en meses. Plantilla open-source cargada con la tecnología que te hace lanzar rápido.",
+		"description": "El login y la facturación ya están hechos, la parte aburrida. Lo de tus primeros clientes también: un email de bienvenida tuyo, un chat de soporte que te pasa la conversación y el email de «perdón, fuimos nosotros».",
 		"logo_alt": "Logo de {name}",
-		"tagline": "Foco en tu producto.\nLanzamiento más rápido."
+		"tagline": "Hecho para el día\ndespués del lanzamiento."
 	},
 	"integrations": {
 		"cards": {
 			"autumn_stripe": {
 				"button": "Visitar Autumn",
-				"description": "Autumn maneja facturación, límites de funciones y seguimiento de uso—sin complejidad de webhooks. Stripe para procesamiento de pagos.",
+				"description": "Planes, checkout de Stripe y límites de uso. Puedes recibir un email con el primer pago de un cliente.",
 				"secondary_button": "Visitar Stripe",
 				"secondary_title": "Stripe",
 				"title": "Autumn + Stripe"
 			},
 			"better_auth": {
 				"button": "Visitar Better Auth",
-				"description": "La biblioteca de autenticación más completa para TypeScript. Sesiones, OAuth, passkeys y multi-tenencia listos para usar.",
+				"description": "Email y contraseña, passkeys, Google y GitHub, con usuarios y sesiones en tu propia base de datos.",
 				"title": "Better Auth"
 			},
 			"convex": {
 				"button": "Visitar Convex",
-				"description": "La base de datos reactiva de código abierto para desarrolladores de apps. Las consultas en TypeScript se ejecutan en el servidor y actualizan cada cliente en tiempo real.",
+				"description": "Datos, tareas de fondo y actualizaciones en vivo en un backend tipado. En local, sin cuenta.",
 				"title": "Convex"
 			},
 			"posthog": {
 				"button": "Visitar PostHog",
-				"description": "PostHog es una plataforma de análisis de productos de código abierto para rastrear el comportamiento del usuario y medir conversiones.",
+				"description": "Analítica que solo carga tras el consentimiento y de las URLs solo envía parámetros de campaña.",
 				"title": "PostHog"
 			},
 			"resend": {
 				"button": "Visitar Resend",
-				"description": "La API de email para desarrolladores. Construye y envía emails transaccionales con una API moderna y confiable diseñada para escalar.",
+				"description": "Envía bienvenida, verificación e incidencias. Las respuestas a la bienvenida llegan a tu bandeja.",
 				"title": "Resend"
 			},
 			"sentry": {
 				"button": "Visitar Sentry",
-				"description": "Monitoreo de aplicaciones y seguimiento de errores. Identifica problemas antes que tus usuarios con alertas en tiempo real y stack traces detallados.",
+				"description": "Captura errores en el navegador y en el servidor. Sin DSN, el SDK ni siquiera se carga.",
 				"title": "Sentry"
 			},
 			"shadcn_svblocks": {
 				"button": "Visitar Shadcn Svelte",
-				"description": "Un conjunto de componentes bellamente diseñados y accesibles construidos con Tailwind CSS v4 y Bits UI.",
+				"description": "Componentes accesibles, con las páginas públicas principales comprobadas contra WCAG 2.1 AA.",
 				"secondary_button": "SVBlocks",
 				"secondary_title": "SVBlocks",
 				"title": "Shadcn Svelte + SVBlocks"
 			},
 			"svelte": {
 				"button": "Visitar Svelte 5",
-				"description": "El framework frontend más amado. Una forma simple, eficiente y a prueba de futuro de construir tu aplicación web.",
+				"description": "Páginas rápidas renderizadas en el servidor, y en markdown cuando un agente de IA las pide.",
 				"title": "Svelte 5"
 			},
 			"tolgee": {
 				"button": "Visitar Tolgee",
-				"description": "Internacionalización bien hecha. Edición en contexto y traducción potenciada por ML para un flujo de localización sin problemas.",
+				"description": "Cuatro idiomas, cada uno con sus propias URLs. Las traducciones viven en tu repositorio.",
 				"title": "Tolgee"
 			}
 		},
-		"description": "Soluciones súper rápidas con las que realmente es divertido construir",
-		"title": "Experiencia de Desarrollo Real {year}"
+		"description": "Herramientas que elegirías de todos modos, ya conectadas. En local no necesitas cuentas ni claves de API.",
+		"title": "Cada pieza ya tiene un trabajo"
 	},
 	"meta": {
 		"about": {
@@ -1041,8 +1041,8 @@
 			"title": "Contacto"
 		},
 		"home": {
-			"description": "Starter SaaS para SvelteKit con auth, pagos, email y analítica.",
-			"title": "Construye y lanza tu producto más rápido"
+			"description": "Plantilla open source para SvelteKit y Convex con login y facturación listos, más email de bienvenida, traspaso de soporte y seguimiento de bugs para tus primeros clientes.",
+			"title": "Hecho para el día después del lanzamiento"
 		},
 		"impressum": {
 			"description": "Identificación del proveedor y datos de contacto.",
