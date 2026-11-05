@@ -2223,7 +2223,7 @@ async function main() {
 		'  3. Update editorial brand mentions in src/i18n/*.json (FAQ, hero, marketing prose, pricing tier names)'
 	);
 	console.log(
-		'  4. Rewrite the About placeholder and review the legal copy in src/lib/content/legal/*.md'
+		'  4. Rewrite the About and Contact placeholders and review the legal copy in src/lib/content/legal/*.md'
 	);
 	console.log('  5. Keep each legal route page.md.ts summary aligned with that copy');
 	console.log('  6. Review site.ts structured data and src/lib/content/llms.txt access limits');

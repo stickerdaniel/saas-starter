@@ -10,7 +10,7 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 			heading: 'Email and support chat',
 			paragraphs: [
 				markdownText`Email: ${getObfuscatedLegalEmailAddress()}`,
-				'Email me for billing, privacy, and legal matters, such as invoices, refunds, or a request to access or delete your data. For product questions, the support chat on the homepage answers right away and hands the conversation to me when it needs a person.'
+				'Email me for privacy and legal matters, such as a request to see or delete your data. For product questions, the support chat on the homepage answers right away and hands the conversation to me when it needs a person.'
 			],
 			links: [
 				{ label: 'Support chat', href: '/en?support=open' },
