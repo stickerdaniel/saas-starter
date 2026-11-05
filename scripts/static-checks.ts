@@ -640,6 +640,31 @@ function creatorPackageState(): 'present' | 'absent' {
 	return 'present';
 }
 
+/**
+ * Refuse a varlock install that bun.lock does not resolve. The SvelteKit sync step loads the
+ * Vite config, whose varlock plugin rewrites the tracked `src/varlock-env.d.ts`, and postinstall
+ * rewrites it and `src/lib/convex/convex-env.d.ts` the same way. Their bytes follow the varlock
+ * version: 1.24.0 swapped the `// @ts-nocheck` and `/* eslint-disable *\/` header lines. CI
+ * installs from bun.lock, so typings a stale install wrote fail its source identity check.
+ * A project whose lockfile has no varlock entry has nothing to compare.
+ */
+function assertVarlockMatchesLockfile(): void {
+	const lockfile = path.join(REPO_ROOT, 'bun.lock');
+	if (!existsSync(lockfile)) return;
+	const locked = /^\s*"varlock": \["varlock@([^"]+)"/m.exec(readFileSync(lockfile, 'utf8'))?.[1];
+	if (!locked) return;
+	const manifest = path.join(REPO_ROOT, 'node_modules', 'varlock', 'package.json');
+	const installed = existsSync(manifest)
+		? (JSON.parse(readFileSync(manifest, 'utf8')) as { version?: unknown }).version
+		: undefined;
+	if (installed === locked) return;
+	fail(
+		`node_modules has ${typeof installed === 'string' ? `varlock ${installed}` : 'no varlock'}, but bun.lock resolves varlock ${locked}.`,
+		'  varlock writes the tracked env typings with the installed version, and CI regenerates\n' +
+			'  them from bun.lock. Run `bun install --frozen-lockfile`, then retry.'
+	);
+}
+
 export const ROUTES = {
 	misspell: (f: string) =>
 		f !== 'scripts/english-policy/pr-metadata.bundle.mjs' &&
@@ -1577,6 +1602,7 @@ async function main(): Promise<void> {
 	];
 
 	// SvelteKit sync (always runs — needed by both lint and types)
+	assertVarlockMatchesLockfile();
 	printHeader(step++, 'SvelteKit sync');
 	await runCommand('bun', ['svelte-kit', 'sync']);
 	ledger.ran('svelte-kit sync');
