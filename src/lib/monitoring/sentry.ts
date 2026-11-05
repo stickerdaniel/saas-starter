@@ -95,6 +95,15 @@ export async function loadSentry(): Promise<SentryModule | null> {
 }
 
 /**
+ * The Sentry module if `loadSentry` already loaded it, else null. Never starts a
+ * load. On the server the request hook loads and initializes it before any load
+ * function runs, so code inside a request reads the request's client.
+ */
+export function loadedSentry(): SentryModule | null {
+	return client;
+}
+
+/**
  * Lazily build the server request hook that initializes Sentry and reports the
  * request, or null when the SDK is unavailable.
  *

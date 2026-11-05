@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { api } from '#lib/convex/_generated/api.js';
 import { createServerConvexHttpClient } from '#lib/server/convex-http.js';
+import { reportRecoveredFailure } from '#lib/server/recovered-failure.js';
 
 export const load = (async (event) => {
 	// Primes the password card so it renders the right form on first paint. The
@@ -13,7 +14,7 @@ export const load = (async (event) => {
 			const client = createServerConvexHttpClient({ token: event.locals.token });
 			return await client.query(api.users.hasPassword, {});
 		} catch (e) {
-			console.error('[settings/+page.server.ts] hasPassword lookup failed:', e);
+			reportRecoveredFailure('[settings] hasPassword lookup failed', e);
 			return null;
 		}
 	})();

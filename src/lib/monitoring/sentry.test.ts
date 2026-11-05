@@ -44,6 +44,14 @@ vi.mock('@sentry/sveltekit', async (importOriginal) => {
 
 import { loadSentry, loadSentryHandle } from './sentry';
 
+function reportedEvents(): Sentry.Event[] {
+	return envelopes.flatMap(([, items]) =>
+		items
+			.filter(([header]) => header.type === 'event')
+			.map(([, payload]) => payload as Sentry.Event)
+	);
+}
+
 afterAll(async () => {
 	await (await loadSentry())?.close();
 	if (runtimeRelease === undefined) delete process.env.SENTRY_RELEASE;
@@ -84,11 +92,7 @@ it('reports a server error without request identity or source context', async ()
 	});
 	await sdk!.flush();
 
-	const events = envelopes.flatMap(([, items]) =>
-		items
-			.filter(([header]) => header.type === 'event')
-			.map(([, payload]) => payload as Sentry.Event)
-	);
+	const events = reportedEvents();
 	expect(events).toHaveLength(1);
 	const [reported] = events;
 	expect(reported).toMatchObject({
@@ -114,4 +118,38 @@ it('reports a server error without request identity or source context', async ()
 			expect(frame).not.toHaveProperty(field);
 		}
 	}
+});
+
+it('reports a failure a load recovered from to the request client', async () => {
+	const { reportRecoveredFailure } = await import('#lib/server/recovered-failure.js');
+	const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+	const handle = await loadSentryHandle();
+	const url = 'https://example.com/app';
+	const event = {
+		request: new Request(url),
+		url: new URL(url),
+		route: { id: '/app' },
+		locals: {},
+		isSubRequest: false
+	} as unknown as RequestEvent;
+
+	await handle!({
+		event,
+		resolve: async () => {
+			reportRecoveredFailure('[test] Lookup failed', new Error('A recovered failure'));
+			return new Response('fallback');
+		}
+	});
+	await (await loadSentry())!.flush();
+	consoleError.mockRestore();
+
+	const reported = reportedEvents().filter(
+		(reportedEvent) => reportedEvent.exception?.values?.[0]?.value === 'A recovered failure'
+	);
+	expect(reported).toHaveLength(1);
+	expect(reported[0]!.exception?.values?.[0]?.mechanism).toMatchObject({
+		type: 'recovered_failure',
+		handled: true
+	});
+	expect(reported[0]!.release).toBe('compiled-build');
 });

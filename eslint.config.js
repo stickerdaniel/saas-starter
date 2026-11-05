@@ -35,6 +35,7 @@ import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js'
 import noDynamicImportRejectionHandlerRule from './eslint/rules/no-dynamic-import-rejection-handler.js';
 import requireStaticModeInitializerRule from './eslint/rules/require-static-mode-initializer.js';
 import noTestInLoopRule from './eslint/rules/no-test-in-loop.js';
+import noRawCaughtErrorLogRule from './eslint/rules/no-raw-caught-error-log.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
@@ -77,7 +78,8 @@ const localPlugin = {
 		'no-literal-control-char': noLiteralControlCharRule,
 		'no-dynamic-import-rejection-handler': noDynamicImportRejectionHandlerRule,
 		'require-static-mode-initializer': requireStaticModeInitializerRule,
-		'no-test-in-loop': noTestInLoopRule
+		'no-test-in-loop': noTestInLoopRule,
+		'no-raw-caught-error-log': noRawCaughtErrorLogRule
 	}
 };
 
@@ -459,6 +461,25 @@ export default defineConfig(
 		},
 		rules: {
 			'local/require-guarded-server-convex-client': 'error'
+		}
+	},
+	{
+		// The server console ends up in a log store, and a caught error's message,
+		// cause or request path can carry user input or tokens.
+		// See eslint/rules/no-raw-caught-error-log.js.
+		files: [
+			'src/hooks.server.ts',
+			'src/**/*.server.ts',
+			'src/**/+server.ts',
+			'src/**/*.remote.ts',
+			'src/lib/server/**/*.ts'
+		],
+		ignores: ['**/*.test.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-raw-caught-error-log': 'error'
 		}
 	},
 	{

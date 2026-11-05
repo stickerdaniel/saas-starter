@@ -25,7 +25,8 @@ function normalizeResponse(response: Response): Response {
  * (page navigation, unload, query cleanup) propagates to the upstream fetch as
  * an AbortError; converting it to a 499 (Client Closed Request) stops it from
  * bubbling up as an unhandled 500 and polluting logs / Sentry. Genuine upstream
- * failures are logged with request context and rethrown so they still surface.
+ * failures are rethrown, so `handleError` logs and reports them. The concrete
+ * path stays out of the log: it can hold a password-reset token.
  */
 export async function proxyAuthRequest(
 	handler: RequestHandler,
@@ -37,7 +38,6 @@ export async function proxyAuthRequest(
 		if (isAbortError(err) || event.request.signal.aborted) {
 			return new Response(null, { status: 499 });
 		}
-		console.error('[auth-proxy]', event.request.method, new URL(event.request.url).pathname, err);
 		throw err;
 	}
 }
