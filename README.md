@@ -144,8 +144,8 @@ The setup script replaces the project name and central GitHub repository slug, t
 1. Replace `static/logo.svg` with your logo, then run `bun run generate:logos`
 2. Refresh email snapshots: `bun run test:unit -- email-snapshots.test.ts -u`
 3. Update editorial brand mentions in `src/i18n/{en,de,es,fr}.json` (FAQ, hero copy, pricing tier names)
-4. Review the legal copy in `src/lib/content/legal/*.md`
-5. Keep the agent summaries in `src/routes/[[lang]]/(marketing)/{privacy,terms,impressum}/page.md.ts` aligned with the legal copy
+4. Rewrite the About and Contact placeholders and review the legal copy in `src/lib/content/legal/*.md`
+5. Keep the agent summaries in `src/routes/[[lang]]/(marketing)/{about,contact,privacy,terms,impressum}/page.md.ts` aligned with the legal copy
 6. Review the optional organization logo, description, and profile links in `src/lib/config/site.ts` and the access limits in `src/lib/content/llms.txt` if your fork adds a public API, MCP server, or agent actions
 7. Review the support seed prompt in `src/lib/convex/support/instructions.txt`; development and build commands regenerate its adapter automatically
 

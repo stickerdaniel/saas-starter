@@ -635,6 +635,8 @@ describe('marketing markdown helpers', () => {
 		]);
 		expect(collectTokenTypes([heading])).not.toContain('em');
 		expect(collectTokenTypes([heading])).not.toContain('link');
+		expect(llms).toContain('https://example.com/en/about');
+		expect(llms).toContain('https://example.com/en/contact');
 		expect(llms).toContain('https://example.com/en/privacy');
 		expect(llms).toContain('https://example.com/en/terms');
 		expect(llms).toContain('https://example.com/en/impressum');
@@ -674,6 +676,8 @@ describe('marketing markdown helpers', () => {
 		expect(sitemap).toContain('<?xml version="1.0" encoding="UTF-8"?>');
 		expect(sitemap).toContain('<loc>https://example.com/en</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/fr/pricing</loc>');
+		expect(sitemap).toContain('<loc>https://example.com/en/about</loc>');
+		expect(sitemap).toContain('<loc>https://example.com/de/contact</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/en/privacy</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/en/terms</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/en/impressum</loc>');

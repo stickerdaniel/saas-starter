@@ -17,6 +17,8 @@ export const ANALYTICS_ROUTES = [
 	'/reset-password',
 	'/signin',
 	'/signup',
+	'/about',
+	'/contact',
 	'/impressum',
 	'/pricing',
 	'/privacy',

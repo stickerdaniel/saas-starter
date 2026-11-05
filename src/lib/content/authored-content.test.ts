@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { formatPostalAddress, getLegalEmailAddress, LEGAL_CONFIG } from '#lib/config/legal.js';
 import { PUBLIC_MARKETING_ROUTES } from '#lib/marketing/public-routes.js';
+import { aboutMarkdown } from './about';
+import { contactMarkdown } from './contact';
 import { impressumMarkdown } from './impressum';
 import { LEGAL_CONTENT_DATES, formatLegalContentDate } from './legal-metadata';
 import { privacyMarkdown } from './privacy';
 import { termsMarkdown } from './terms';
 
-const legalDocuments = [privacyMarkdown, termsMarkdown, impressumMarkdown];
+const legalDocuments = [
+	privacyMarkdown,
+	termsMarkdown,
+	impressumMarkdown,
+	aboutMarkdown,
+	contactMarkdown
+];
 
 function markdownDestinations(document: string): string[] {
 	const inline = [
@@ -47,6 +55,16 @@ describe('authored legal content', () => {
 			LAST_UPDATED: formatLegalContentDate(LEGAL_CONTENT_DATES.impressum),
 			OPERATOR_NAME: LEGAL_CONFIG.operatorName
 		});
+
+		expect(aboutMarkdown.markdown).toContain('# About {{BRAND_NAME}}');
+		expect(aboutMarkdown.literals).toEqual({
+			BRAND_NAME: LEGAL_CONFIG.brandName,
+			OPERATOR_FIRST_NAME: 'Daniel'
+		});
+
+		expect(contactMarkdown.markdown).toContain('# Contact');
+		expect(contactMarkdown.markdown).toContain('[Impressum](impressum)');
+		expect(contactMarkdown.literals).toEqual({ BRAND_NAME: LEGAL_CONFIG.brandName });
 	});
 
 	it('recognizes inline and reference-style destinations for route validation', () => {
@@ -60,7 +78,9 @@ describe('authored legal content', () => {
 	it.each([
 		['Privacy Policy', privacyMarkdown.markdown],
 		['Terms of Service', termsMarkdown.markdown],
-		['Impressum', impressumMarkdown.markdown]
+		['Impressum', impressumMarkdown.markdown],
+		['About', aboutMarkdown.markdown],
+		['Contact', contactMarkdown.markdown]
 	])('keeps every relative link in %s on a public marketing route', (_name, document) => {
 		const allowed = new Set(
 			PUBLIC_MARKETING_ROUTES.map((route) => route.pathSuffix.replace(/^\//, '')).filter(Boolean)

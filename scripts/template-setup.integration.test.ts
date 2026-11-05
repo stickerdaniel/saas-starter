@@ -497,7 +497,7 @@ describe('template setup writes importable branding values', () => {
 		});
 	});
 
-	it('publishes the fork identity in the homepage organization graph', () => {
+	it('publishes the fork identity in the organization graph and About', async () => {
 		const dir = createFixture();
 		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
 
@@ -524,6 +524,22 @@ describe('template setup writes importable branding values', () => {
 				addressCountry: 'DE'
 			}
 		});
+
+		// The page content modules read LEGAL_CONFIG once at import; load them against the written one.
+		vi.resetModules();
+		vi.doMock('#lib/config/legal.js', async (importOriginal) => ({
+			...(await importOriginal<Record<string, unknown>>()),
+			LEGAL_CONFIG: imported.value!.config
+		}));
+		try {
+			const { aboutMarkdown } = await import('../src/lib/content/about');
+			expect(aboutMarkdown.literals).toEqual({
+				BRAND_NAME: 'Northwind Labs',
+				OPERATOR_FIRST_NAME: 'Anne'
+			});
+		} finally {
+			vi.doUnmock('#lib/config/legal.js');
+		}
 	});
 });
 

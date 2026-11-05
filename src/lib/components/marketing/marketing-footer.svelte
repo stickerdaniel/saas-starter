@@ -27,6 +27,12 @@
 				<nav
 					class="flex flex-col items-end gap-0 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-2"
 				>
+					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/about'))}>
+						<T keyName="footer.about" />
+					</Button>
+					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/contact'))}>
+						<T keyName="footer.contact" />
+					</Button>
 					<Button variant="ghost-muted" size="footer" href={resolve(localizedHref('/impressum'))}>
 						<T keyName="footer.impressum" />
 					</Button>

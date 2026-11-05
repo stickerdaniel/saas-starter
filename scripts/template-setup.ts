@@ -135,8 +135,8 @@ Flags:
   --email        Contact email in user@domain.tld form
   -h, --help     Show this help
 
-The address fields appear in the Impressum and the email footer as
-"street, postal-code city, country".
+The address fields appear in the Impressum, the Contact page, and the email
+footer as "street, postal-code city, country".
 
 In non-interactive mode (piped stdin, CI), --slug, --repo, --brand are required
 while they still hold their template values.
@@ -2222,7 +2222,9 @@ async function main() {
 	console.log(
 		'  3. Update editorial brand mentions in src/i18n/*.json (FAQ, hero, marketing prose, pricing tier names)'
 	);
-	console.log('  4. Review the legal copy in src/lib/content/legal/*.md');
+	console.log(
+		'  4. Rewrite the About and Contact placeholders and review the legal copy in src/lib/content/legal/*.md'
+	);
 	console.log('  5. Keep each legal route page.md.ts summary aligned with that copy');
 	console.log('  6. Review site.ts structured data and src/lib/content/llms.txt access limits');
 	console.log('  7. Review src/lib/convex/support/instructions.txt');

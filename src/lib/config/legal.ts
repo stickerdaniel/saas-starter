@@ -1,6 +1,6 @@
 export const LEGAL_CONFIG = {
 	brandName: 'SaaS Starter',
-	companyName: 'SaaS Starter Inc.',
+	companyName: 'ACME Inc.',
 	operatorName: 'Daniel Sticker',
 	address: {
 		streetAddress: '123 Main Street, Suite 100',
