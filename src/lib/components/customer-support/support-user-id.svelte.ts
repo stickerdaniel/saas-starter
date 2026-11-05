@@ -29,3 +29,11 @@ export const supportUserId = new PersistedState<string | null | undefined>(
 	undefined,
 	{ serializer }
 );
+
+/**
+ * Forgets the anonymous id once its tickets belong to an account. Stores `null` and keeps the
+ * key: once the key is gone, Runed's getter falls back to the id it read at page load.
+ */
+export function clearSupportUserId(): void {
+	supportUserId.current = null;
+}
