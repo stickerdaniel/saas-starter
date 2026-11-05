@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { api } from '#lib/convex/_generated/api.js';
 import { createServerConvexHttpClient } from '#lib/server/convex-http.js';
+import { reportRecoveredFailure } from '#lib/server/recovered-failure.js';
 
 export const load = (async () => {
 	// Degrade gracefully on any backend failure, including client construction
@@ -12,7 +13,7 @@ export const load = (async () => {
 		const oauthProviders = await client.query(api.auth.getAvailableOAuthProviders, {});
 		return { oauthProviders };
 	} catch (e) {
-		console.error('[signin/+page.server.ts] OAuth provider lookup failed:', e);
+		reportRecoveredFailure('[signin] OAuth provider lookup failed', e);
 		return { oauthProviders: { google: false, github: false } };
 	}
 }) satisfies PageServerLoad;
