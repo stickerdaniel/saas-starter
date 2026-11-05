@@ -44,7 +44,23 @@ function findVariable(scope, name) {
 }
 
 // Type-only children: a binding named there is no runtime value.
-const TYPE_KEYS = new Set(['typeAnnotation', 'typeArguments', 'typeParameters', 'returnType']);
+const TYPE_KEYS = new Set([
+	'typeAnnotation',
+	'typeArguments',
+	'typeParameters',
+	'returnType',
+	'superTypeArguments'
+]);
+
+// Nodes whose non-computed `key` is a name, not a reference to a binding.
+const NAMED_MEMBERS = new Set([
+	'Property',
+	'MethodDefinition',
+	'PropertyDefinition',
+	'AccessorProperty',
+	'TSAbstractMethodDefinition',
+	'TSAbstractPropertyDefinition'
+]);
 
 // Whether `fn`, through any cast, is the rejection callback of
 // `<promise>.catch(fn)` or `<promise>.then(_, fn)`.
@@ -115,7 +131,7 @@ export default {
 				if (TYPE_KEYS.has(key)) continue;
 				// A property name is no reference to a binding.
 				if (key === 'property' && node.type === 'MemberExpression' && !node.computed) continue;
-				if (key === 'key' && node.type === 'Property' && !node.computed && !node.shorthand) {
+				if (key === 'key' && NAMED_MEMBERS.has(node.type) && !node.computed && !node.shorthand) {
 					continue;
 				}
 				const child = node[key];

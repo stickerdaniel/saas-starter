@@ -30,6 +30,10 @@ tester.run('no-raw-caught-error-log', rule, {
 		`const console = logger; try { await load(); } catch (error) { console.error(error); }`,
 		// A type-only mention of the binding prints nothing of it.
 		`try { run(); } catch (error) { console.error('failed' as unknown as typeof error); }`,
+		// Erased type arguments and member names are no runtime reference either.
+		`class Snapshot<T> { value?: T } try { run(); } catch (error) { console.error(class extends Snapshot<typeof error> {}); }`,
+		`try { run(); } catch (error) { console.error(class { static error() { return 'fixed'; } }); }`,
+		`try { run(); } catch (error) { console.error(class { static error = 'fixed'; }); }`,
 		// A mutable alias is outside the rule's reach.
 		`try { await load(); } catch (error) { let copy = error; console.error(copy); }`
 	],
@@ -66,6 +70,14 @@ tester.run('no-raw-caught-error-log', rule, {
 		},
 		{
 			code: `try { run(); } catch (error) { setTimeout(() => console.error(error)); }`,
+			errors: flagged
+		},
+		{
+			code: `try { run(); } catch (error) { console.error(class { static value = error; }); }`,
+			errors: flagged
+		},
+		{
+			code: `try { run(); } catch (error) { console.error({ [String(error)]: 1 }); }`,
 			errors: flagged
 		},
 		// Casts change no runtime value, wherever they sit.
