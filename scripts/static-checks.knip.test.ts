@@ -56,6 +56,12 @@ const ESLINT_PROJECT: CommandInvocation = {
 const OXLINT: CommandInvocation = { command: 'bun', args: ['oxlint'] };
 /** The whole-project lint commands a GitHub Actions lint run starts right after sync. */
 const PROJECT_LINTERS = [ESLINT_PROJECT, OXLINT, KNIP, CLI_KNIP];
+/** Every checker clone links this repository's node_modules, so this is the clone's varlock. */
+const INSTALLED_VARLOCK = (
+	JSON.parse(readFileSync(path.join(ROOT, 'node_modules/varlock/package.json'), 'utf8')) as {
+		version: string;
+	}
+).version;
 const RECORDER_SOURCE = path.join(
 	ROOT,
 	'scripts',
@@ -1647,6 +1653,47 @@ describe('Knip static-check CLI behavior', { concurrent: false }, () => {
 		} finally {
 			rmSync(checkout.directory, { recursive: true, force: true });
 		}
+	}, 45_000);
+
+	// The clone links the real node_modules. Its lockfile is the real one with only the varlock
+	// resolution replaced, so the installed version alone decides the verdict.
+	function runWithLockedVarlock(locked: string) {
+		const checkout = createCheckerClone();
+		try {
+			const lockfile = readFileSync(path.join(ROOT, 'bun.lock'), 'utf8').replace(
+				/("varlock": \["varlock@)[^"]+"/,
+				`$1${locked}"`
+			);
+			expect(lockfile).toContain(`"varlock": ["varlock@${locked}"`);
+			writeFileSync(path.join(checkout.repository, 'bun.lock'), lockfile);
+			const result = runChecker(checkout, ['--ci', '--scope', 'types']);
+			return {
+				status: result.status,
+				output: `${result.stdout}${result.stderr}`,
+				log: readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)
+			};
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}
+
+	it('refuses a varlock install that bun.lock does not resolve before sync', () => {
+		const { status, output, log } = runWithLockedVarlock(`${INSTALLED_VARLOCK}-locked`);
+
+		expect(status, output).toBe(1);
+		expect(output).toContain(
+			`node_modules has varlock ${INSTALLED_VARLOCK}, but bun.lock resolves varlock ${INSTALLED_VARLOCK}-locked.`
+		);
+		expect(output).toContain('bun install --frozen-lockfile');
+		// The sync would have rewritten the tracked typings with the stale version.
+		expect(log).toEqual([]);
+	}, 45_000);
+
+	it('runs with the varlock version bun.lock resolves', () => {
+		const { status, output } = runWithLockedVarlock(INSTALLED_VARLOCK);
+
+		expect(status, output).toBe(0);
+		expect(output).toContain('All checks passed!');
 	}, 45_000);
 
 	it.each([
