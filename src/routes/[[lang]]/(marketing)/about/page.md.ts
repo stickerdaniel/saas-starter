@@ -5,7 +5,7 @@ import type { MarketingMarkdownDocument } from '#lib/markdown/types.js';
 
 export const marketingMarkdown: MarketingMarkdownDocument = {
 	title: 'About',
-	description: markdownText`What ${LEGAL_CONFIG.brandName} is, who runs it, and how to reach me.`,
+	description: markdownText`What ${LEGAL_CONFIG.brandName} is and who maintains it.`,
 	sections: [
 		{
 			heading: markdownText`About ${LEGAL_CONFIG.brandName}`,
@@ -18,12 +18,6 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 			heading: 'Customer contact',
 			paragraphs: [
 				'The template includes optional emails: a welcome email from a named person after email verification, a feedback request to accounts that have not paid about 48 hours after verification, a cancellation email, and an incident email to accounts a fixed production bug affected. The support chat hands conversations to a person when needed.'
-			],
-			links: [
-				{ label: 'Contact', href: '/en/contact', description: 'email, support chat, and address' },
-				{ label: 'Privacy Policy', href: '/en/privacy' },
-				{ label: 'Terms of Service', href: '/en/terms' },
-				{ label: 'Impressum', href: '/en/impressum' }
 			]
 		}
 	]

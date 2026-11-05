@@ -57,7 +57,6 @@ describe('authored legal content', () => {
 		});
 
 		expect(aboutMarkdown.markdown).toContain('# About {{BRAND_NAME}}');
-		expect(aboutMarkdown.markdown).toContain('[Contact](contact)');
 		expect(aboutMarkdown.literals).toEqual({
 			BRAND_NAME: LEGAL_CONFIG.brandName,
 			OPERATOR_FIRST_NAME: 'Daniel'
