@@ -43,13 +43,21 @@ function findVariable(scope, name) {
 	return null;
 }
 
-// The callee of `<promise>.catch(fn)` or `<promise>.then(_, fn)` that receives `fn`.
+// Type-only children: a binding named there is no runtime value.
+const TYPE_KEYS = new Set(['typeAnnotation', 'typeArguments', 'typeParameters', 'returnType']);
+
+// Whether `fn`, through any cast, is the rejection callback of
+// `<promise>.catch(fn)` or `<promise>.then(_, fn)`.
 function isRejectionCallback(fn) {
-	const call = fn.parent;
-	if (call?.type !== 'CallExpression' || call.callee.type !== 'MemberExpression') return false;
-	const { property, computed } = call.callee;
+	let argument = fn;
+	while (argument.parent && TS_WRAPPERS.has(argument.parent.type)) argument = argument.parent;
+	const call = argument.parent;
+	if (call?.type !== 'CallExpression') return false;
+	const callee = unwrap(call.callee);
+	if (callee?.type !== 'MemberExpression') return false;
+	const { property, computed } = callee;
 	const method = computed ? property.type === 'Literal' && property.value : property.name;
-	const position = call.arguments.indexOf(fn);
+	const position = call.arguments.indexOf(argument);
 	return (method === 'catch' && position === 0) || (method === 'then' && position === 1);
 }
 
@@ -103,8 +111,8 @@ export default {
 			if (node.type === 'Identifier') {
 				return isCaughtVariable(findVariable(sourceCode.getScope(node), node.name));
 			}
-			if (node.type.startsWith('TSType') || node.type === 'TSTypeReference') return false;
 			for (const key of visitorKeys[node.type] ?? []) {
+				if (TYPE_KEYS.has(key)) continue;
 				// A property name is no reference to a binding.
 				if (key === 'property' && node.type === 'MemberExpression' && !node.computed) continue;
 				if (key === 'key' && node.type === 'Property' && !node.computed && !node.shorthand) {
@@ -117,8 +125,9 @@ export default {
 			return false;
 		}
 
-		function isGlobalConsole(callee) {
-			if (callee.type !== 'MemberExpression') return false;
+		function isGlobalConsole(node) {
+			const callee = unwrap(node);
+			if (callee?.type !== 'MemberExpression') return false;
 			const object = unwrap(callee.object);
 			if (object?.type !== 'Identifier' || object.name !== 'console') return false;
 			const variable = findVariable(sourceCode.getScope(object), 'console');

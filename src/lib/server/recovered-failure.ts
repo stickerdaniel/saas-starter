@@ -11,7 +11,7 @@ const REFUSAL_CODES = new Set(['UNAUTHENTICATED', 'NOT_FOUND', 'FORBIDDEN']);
 function refusalCode(error: unknown): string | undefined {
 	try {
 		if (!(error instanceof ConvexError)) return undefined;
-		// Better Auth's `getAuthUser` throws the bare string rather than a code.
+		// Better Auth's `getAuthUser` throws a bare string with no code.
 		if (error.data === 'Unauthenticated') return 'UNAUTHENTICATED';
 		const code = getConvexErrorCode(error);
 		return code !== undefined && REFUSAL_CODES.has(code) ? code : undefined;

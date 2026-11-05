@@ -28,6 +28,8 @@ tester.run('no-raw-caught-error-log', rule, {
 		`try { await load(); } catch (error) { const log = (error: string) => console.error(error); log('x'); }`,
 		// A local console is someone else's sink.
 		`const console = logger; try { await load(); } catch (error) { console.error(error); }`,
+		// A type-only mention of the binding prints nothing of it.
+		`try { run(); } catch (error) { console.error('failed' as unknown as typeof error); }`,
 		// A mutable alias is outside the rule's reach.
 		`try { await load(); } catch (error) { let copy = error; console.error(copy); }`
 	],
@@ -64,6 +66,20 @@ tester.run('no-raw-caught-error-log', rule, {
 		},
 		{
 			code: `try { run(); } catch (error) { setTimeout(() => console.error(error)); }`,
+			errors: flagged
+		},
+		// Casts change no runtime value, wherever they sit.
+		{ code: `try { run(); } catch (error) { console.error(<Error>error); }`, errors: flagged },
+		{
+			code: `load().catch(((error: unknown) => console.error(error)) as (error: unknown) => void);`,
+			errors: flagged
+		},
+		{
+			code: `load().then(undefined, ((error: unknown) => console.error(error)) satisfies (error: unknown) => void);`,
+			errors: flagged
+		},
+		{
+			code: `try { run(); } catch (error) { (console.error as (...args: unknown[]) => void)(error); }`,
 			errors: flagged
 		}
 	]

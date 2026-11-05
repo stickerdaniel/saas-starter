@@ -207,13 +207,13 @@ describe('create-saas-starter tool coverage', () => {
 	});
 });
 
-async function rawCaughtErrorMessages(file: string) {
+async function rawCaughtErrorMessages(file: string, log = "console.error('[run] failed:', error)") {
 	// The real path selects the config block; the snippet stands in for the file.
 	const source = `export async function run(load: () => Promise<void>) {
 	try {
 		await load();
 	} catch (error) {
-		console.error('[run] failed:', error);
+		${log};
 	}
 }
 `;
@@ -239,6 +239,14 @@ describe('no-raw-caught-error-log coverage', () => {
 		},
 		60_000
 	);
+
+	it('sees through a cast around the caught error', async () => {
+		const messages = await rawCaughtErrorMessages(
+			'src/lib/server/auth-proxy.ts',
+			'console.error(<Error>error)'
+		);
+		expect(messages).toHaveLength(1);
+	}, 60_000);
 
 	it.each([
 		['shared code that also runs in the browser', 'src/lib/utils/convex-errors.ts'],
