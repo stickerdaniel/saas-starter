@@ -3,7 +3,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { blocking, defineKnowledgePolicy, exactPaths, fileExtension, underPath } from './policy';
+import {
+	blocking,
+	defineKnowledgePolicy,
+	exactPaths,
+	fileExtension,
+	gitCommitValue,
+	underPath
+} from './policy';
 import { runKnowledgePolicy } from './repository';
 
 function gitWithEnv(root: string, args: string[], env = process.env, input?: string): string {
@@ -37,6 +44,30 @@ const testPolicy = defineKnowledgePolicy({
 	},
 	links: { include: markdown, severity: blocking },
 	textRules: []
+});
+
+const pinnedPolicy = defineKnowledgePolicy({
+	...testPolicy,
+	documents: {
+		...testPolicy.documents,
+		allowed: [
+			{
+				id: 'pinned',
+				match: markdown,
+				severity: blocking,
+				frontmatter: {
+					required: true,
+					requirements: [
+						{
+							ruleId: 'pinned-snapshot',
+							field: 'snapshot',
+							validate: gitCommitValue({ mustExist: true })
+						}
+					]
+				}
+			}
+		]
+	}
 });
 
 describe('repository policy scopes', () => {
@@ -176,6 +207,47 @@ describe('repository policy scopes', () => {
 		git(root, 'add', '.');
 		const result = runKnowledgePolicy({ root, policy: testPolicy, scope: { kind: 'staged' } });
 		expect(result.findings).toEqual([]);
+	});
+
+	it('accepts a pinned commit this checkout holds and rejects one it lacks', () => {
+		write(
+			root,
+			'docs/held.md',
+			`---\nsnapshot: ${git(root, 'rev-parse', '--short=10', 'HEAD')}\n---\n`
+		);
+		write(root, 'docs/gone.md', `---\nsnapshot: ${'0'.repeat(40)}\n---\n`);
+
+		const { findings } = runKnowledgePolicy({
+			root,
+			policy: pinnedPolicy,
+			scope: { kind: 'files', files: ['docs/held.md', 'docs/gone.md'] }
+		});
+
+		expect(findings).toMatchObject([{ ruleId: 'pinned-snapshot', file: 'docs/gone.md' }]);
+		expect(findings[0]!.message).toContain('Fetch the full Git history');
+	});
+
+	it('names what git could not read instead of calling the pin unavailable', () => {
+		// A tree whose `.git` points nowhere: the pin is fine, the checkout is not.
+		// The files scope reads its sources straight from disk, so the commit probe
+		// is the only git call left to fail.
+		const unreadable = mkdtempSync(path.join(tmpdir(), 'knowledge-policy-unreadable-'));
+		try {
+			writeFileSync(path.join(unreadable, '.git'), 'gitdir: ./missing-gitdir\n');
+			write(unreadable, 'docs/decision.md', `---\nsnapshot: ${'0'.repeat(40)}\n---\n`);
+
+			const { findings } = runKnowledgePolicy({
+				root: unreadable,
+				policy: pinnedPolicy,
+				scope: { kind: 'files', files: ['docs/decision.md'] }
+			});
+
+			expect(findings).toHaveLength(1);
+			expect(findings[0]!.message).toContain('not a git repository');
+			expect(findings[0]!.message).not.toContain('Fetch the full Git history');
+		} finally {
+			rmSync(unreadable, { recursive: true, force: true });
+		}
 	});
 
 	it('evaluates tracked symlinks as index-compatible link text in full scope', () => {
