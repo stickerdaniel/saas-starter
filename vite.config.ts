@@ -336,16 +336,24 @@ export default defineConfig(async ({ command, mode }) => {
 		);
 	}
 
-	// Kit writes the resolved env into <outDir>/generated/dev/env. Vitest and the email renderer
-	// (scripts/build-emails.ts, also run by static checks) start their own Vite servers, and a
-	// shared outDir hands a running dev server their env, such as the cloud Convex URLs in
-	// .env.local. The email renderer also gets its own Vite cache: its config hashes differently,
-	// so on start its dependency optimizer deletes and rewrites the dev server's prebundled
-	// node_modules/.vite/deps, and pages fail to hydrate until the rewrite lands. Vitest needs no
-	// override: it scopes its own cache under node_modules/.vite/vitest. Nested here, each stays
-	// inside every .svelte-kit ignore and outside the dev server's watched generated/ directory.
-	const isolatedOutDir = mode === 'test' || mode === 'emails' ? `.svelte-kit/${mode}` : undefined;
-	const isolatedCacheDir = mode === 'emails' ? '.svelte-kit/emails/vite' : undefined;
+	// Kit writes the resolved env into <outDir>/generated/dev/env. Vitest, the email renderer
+	// (scripts/build-emails.ts, also run by static checks) and the dev:test stack behind
+	// Playwright start their own Vite servers, and a shared outDir hands a running dev server
+	// their env: the cloud Convex URLs in .env.local, or the E2E backend, which then answers the
+	// dev server's sign-ins until that backend stops. The email renderer and the dev:test stack
+	// also get their own Vite cache: their configs hash differently, so on start their dependency
+	// optimizer deletes and rewrites the dev server's prebundled node_modules/.vite/deps, and pages
+	// fail to hydrate until the rewrite lands. Vitest needs no override: it scopes its own cache
+	// under node_modules/.vite/vitest. Nested here, each stays inside every .svelte-kit ignore and
+	// outside the dev server's watched generated/ directory.
+	const isolatedOutDir =
+		mode === 'test' || mode === 'emails'
+			? `.svelte-kit/${mode}`
+			: isTestMode
+				? '.svelte-kit/e2e'
+				: undefined;
+	const kitOutDir = isolatedOutDir ?? '.svelte-kit';
+	const isolatedCacheDir = mode === 'emails' || isTestMode ? `${kitOutDir}/vite` : undefined;
 
 	// On Cloudflare, varlock delivers env natively: the Workers loader reads the __VARLOCK_ENV
 	// binding at worker boot, and `varlock-wrangler` (both deploy scripts wrap it) uploads that
@@ -439,8 +447,8 @@ export default defineConfig(async ({ command, mode }) => {
 		}),
 		licenses.plugin,
 		marketingFonts(),
-		// Startup rewrites of .svelte-kit/generated must not reload the SSR runner mid-request.
-		kitGeneratedHmr(),
+		// Startup rewrites of Kit's generated files must not reload the SSR runner mid-request.
+		kitGeneratedHmr(kitOutDir),
 		devtoolsJson(),
 		// Download and self-host the web fonts. Existing static/fonts URLs remain
 		// available for emails, which need stable URLs across deployments.

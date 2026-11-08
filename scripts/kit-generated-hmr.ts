@@ -4,19 +4,19 @@ import type { Plugin } from 'vite';
 /**
  * Drops dev HMR for SvelteKit generated files whose content did not change.
  *
- * Kit caches written content in memory, so every new dev process rewrites all of
- * `.svelte-kit/generated` once at startup, and the watcher reports it. After a
- * production build the first dev render then 500s: `setContext` runs against a
- * second copy of Svelte's server runtime that has no component context
- * (`lifecycle_outside_component`). The same first request passes once those
- * reports no longer reload the SSR runner. A generated file whose content really
- * changed, such as a route added during dev, still reloads.
+ * Kit rewrites files under `<outDir>/generated` at dev startup, and the watcher
+ * reports each write. After a production build the first dev render then 500s:
+ * `setContext` runs against a second copy of Svelte's server runtime that has no
+ * component context (`lifecycle_outside_component`). The same first request
+ * passes once those reports no longer reload the SSR runner.
  *
  * Each environment remembers the source it last loaded for a generated file and
  * keeps its graph when the file on disk still has that source. Real changes,
  * such as a route added during dev, still reload.
+ *
+ * `outDir` is Kit's `outDir` relative to the Vite root, as passed to `sveltekit()`.
  */
-export function kitGeneratedHmr(): Plugin {
+export function kitGeneratedHmr(outDir: string): Plugin {
 	let generatedDir = '';
 	const loaded = new Map<string, Map<string, string>>();
 
@@ -30,7 +30,7 @@ export function kitGeneratedHmr(): Plugin {
 		apply: 'serve',
 		configResolved(config) {
 			// Module ids and watcher paths use forward slashes on every platform.
-			generatedDir = `${config.root}/.svelte-kit/generated/`;
+			generatedDir = `${config.root}/${outDir}/generated/`;
 		},
 		load: {
 			order: 'pre',
