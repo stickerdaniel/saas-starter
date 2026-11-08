@@ -81,6 +81,11 @@ import {
 	type SanitizedCommandOptions,
 	type SanitizedCommandResult
 } from './terminal-output';
+import { withSvelteKitSyncLock } from './svelte-kit-sync-lock';
+
+/** Printed while another process syncs this checkout; the guard test waits for it. */
+export const SVELTE_KIT_SYNC_WAIT_MESSAGE =
+	'Waiting for another SvelteKit sync of this checkout to finish...';
 
 // Configuration (matches CI static-checks.yml exclusions)
 const CONFIG = {
@@ -1601,10 +1606,15 @@ async function main(): Promise<void> {
 		['run', '--cwd', CLI_PACKAGE_DIRECTORY, 'knip', '--no-progress']
 	];
 
-	// SvelteKit sync (always runs — needed by both lint and types)
+	// SvelteKit sync (always runs — needed by both lint and types). Another run's sync of this
+	// checkout can delete files this one is listing, so they take turns.
 	assertVarlockMatchesLockfile();
 	printHeader(step++, 'SvelteKit sync');
-	await runCommand('bun', ['svelte-kit', 'sync']);
+	await withSvelteKitSyncLock(
+		REPO_ROOT,
+		() => runCommand('bun', ['svelte-kit', 'sync']),
+		() => console.log(SVELTE_KIT_SYNC_WAIT_MESSAGE)
+	);
 	ledger.ran('svelte-kit sync');
 	console.log('\n');
 

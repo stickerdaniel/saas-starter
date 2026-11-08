@@ -17,6 +17,8 @@ Root `AGENTS.md` decides whether a fix earns a regression guard and which mechan
 
 A test that `windows-process-lifecycle.yml` runs from `vitest.tooling.config.ts` must not load `vite.config.ts`, directly or through `svelte-kit sync`: the application config bootstraps Varlock, and a swallowed failure there ends in `env_invalid`. Sync with a minimal `--config` instead.
 
+A script or test that can run beside a static-check run and runs `svelte-kit sync`, or a short-lived Vite or Vitest process, in this checkout wraps it in `withSvelteKitSyncLock` (or `withSvelteKitSyncLockSync`) from `scripts/svelte-kit-sync-lock.ts`: every sync deletes and rewrites the root route's generated types, so a concurrent sync of the same checkout can fail with ENOENT. Never hold the lock for a long-lived process such as a dev server; every static-check run would wait on it, and a holder older than any real sync is reclaimed.
+
 Route content, configuration, and generated assets belong in Vitest or an artifact test. Playwright covers deployed response behavior and load-bearing user flows.
 
 Tests and checks should name the invariant, not mirror a current file list unless that file relationship is itself the contract.

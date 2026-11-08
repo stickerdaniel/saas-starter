@@ -54,8 +54,10 @@ import {
 	spellcheckFiles,
 	startCommand,
 	unsafePathCodepoints,
+	SVELTE_KIT_SYNC_WAIT_MESSAGE,
 	usesAssertOnlyChecks
 } from './static-checks';
+import { withSvelteKitSyncLock } from './svelte-kit-sync-lock';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
@@ -630,6 +632,36 @@ describe('knip integration', () => {
 			'knip is a whole-project check and must not count as file-scoped work'
 		).not.toContain('knip');
 	});
+});
+
+describe('SvelteKit sync', () => {
+	// Every sync deletes and rewrites the root route's types, so a second sync of the same
+	// checkout listing them at that moment fails with ENOENT. Concurrent runs take turns.
+	it('waits while another process syncs this checkout', async () => {
+		let output = '';
+		let exited: Promise<number | null> | undefined;
+
+		await withSvelteKitSyncLock(ROOT, async () => {
+			const child = spawn('bun', [SCRIPT, '--scope', 'lint', 'scripts/svelte-kit-sync-lock.ts'], {
+				cwd: ROOT,
+				env: { ...sanitizedGitEnv(), NO_COLOR: '1' }
+			});
+			child.stdout.on('data', (chunk) => (output += chunk));
+			child.stderr.on('data', (chunk) => (output += chunk));
+			exited = new Promise((resolve) => child.on('close', resolve));
+
+			const deadline = Date.now() + 60_000;
+			while (!output.includes(SVELTE_KIT_SYNC_WAIT_MESSAGE)) {
+				expect(Date.now(), `the run never waited for the held lock:\n${output}`).toBeLessThan(
+					deadline
+				);
+				expect(child.exitCode, output).toBeNull();
+				await new Promise((resolve) => setTimeout(resolve, 50));
+			}
+		});
+
+		expect(await exited, output).toBe(0);
+	}, 240_000);
 });
 
 describe('commands started before their step', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
