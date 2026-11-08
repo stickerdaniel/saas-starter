@@ -42,6 +42,7 @@ describe('redactText', () => {
 		['a quoted key value', `{"apiKey":"${BEARER}","model":"m"}`, BEARER],
 		['a credential key with an object value', `{"token":{"value":"${BEARER}"}}`, BEARER],
 		['a credential key spelled with JSON escapes', `{"\\u0074oken":"${BEARER}"}`, BEARER],
+		['a credential in a JSON field name', `{"${GRANT}":1,"note":"ok"}`, GRANT],
 		[
 			'an object value nested in serialized arguments',
 			JSON.stringify({ spec: JSON.stringify({ token: { value: BEARER } }) }),

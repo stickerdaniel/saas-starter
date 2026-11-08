@@ -131,7 +131,9 @@ export function redactText(text: string): string {
  * back as JSON, or `undefined` when `text` is not one. Field names are read
  * decoded and a credential field goes whole whatever its value, which the shape
  * rules cannot do: `{"token":…}` and `{"token":{"value":…}}` keep their
- * credential to a pattern over the text.
+ * credential to a pattern over the text. The shape rules then run over the
+ * written JSON, because `redactCredentials` keeps field names as they are and a
+ * name can hold a credential too.
  */
 function redactSerialized(text: string): string | undefined {
 	const first = text.trimStart().charAt(0);
@@ -142,7 +144,7 @@ function redactSerialized(text: string): string | undefined {
 	} catch {
 		return undefined;
 	}
-	return JSON.stringify(redactCredentials(parsed));
+	return redactShapes(JSON.stringify(redactCredentials(parsed)));
 }
 
 function redactShapes(text: string): string {
