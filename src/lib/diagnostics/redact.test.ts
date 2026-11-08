@@ -126,7 +126,10 @@ describe('redactText', () => {
 		expect(redactText(once)).toBe(once);
 	});
 
-	// Each word is shaped to start a pattern at every position inside it.
+	// Each word is shaped to start a pattern at every position inside it. A scan
+	// that backtracks quadratically over 1 MB runs for minutes. The linear one took
+	// up to 430 ms on a host with a load average of 190, so the budget leaves room
+	// for a loaded CI runner.
 	it.each([
 		['a word without a credential key', 'a'.repeat(1_000_000)],
 		['a hyphenated word', 'x-'.repeat(500_000)],
@@ -138,7 +141,7 @@ describe('redactText', () => {
 	])('finishes %s of 1 MB within a fixed budget', (_label, word) => {
 		const started = performance.now();
 		redactText(`failed: ${word}`);
-		expect(performance.now() - started).toBeLessThan(250);
+		expect(performance.now() - started).toBeLessThan(2_500);
 	});
 
 	it('cuts a long text at its bound and marks the cut', () => {
