@@ -31,6 +31,12 @@ describe('logSafeDiagnostic', () => {
 		expect(first.match(/diagnostic=(\w+)/)?.[1]).not.toBe(second.match(/diagnostic=(\w+)/)?.[1]);
 	});
 
+	it('returns the id the line names', () => {
+		const diagnosticId = logSafeDiagnostic('error', '[test] Failed');
+
+		expect(lastLine()).toBe(`[test] Failed diagnostic=${diagnosticId}`);
+	});
+
 	it('writes the fields in a fixed order', () => {
 		logSafeDiagnostic('error', '[test] Failed', {
 			route: '/api/auth/[...all]',

@@ -73,18 +73,20 @@ afterEach(() => {
 });
 
 describe('reportRecoveredFailure', () => {
-	it('logs one safe line and hands the full error to Sentry', () => {
+	it('logs one safe line and hands the error to Sentry under its diagnostic id', () => {
 		const error = backendFailure();
 
 		reportRecoveredFailure('[test] Lookup failed', error, { route: '/[[lang]]/app' });
 
 		expect(lines()).toHaveLength(1);
-		expect(lines('error')[0]).toMatch(
-			/^\[test\] Lookup failed diagnostic=[0-9a-f]{16} route=\/\[\[lang\]\]\/app$/
-		);
+		const diagnosticId = lines('error')[0]?.match(
+			/^\[test\] Lookup failed diagnostic=([0-9a-f]{16}) route=\/\[\[lang\]\]\/app$/
+		)?.[1];
+		expect(diagnosticId).toBeDefined();
 		expectNoSentinel(lines());
 		expect(runtime.sentry?.captureException).toHaveBeenCalledWith(error, {
-			mechanism: { type: 'recovered_failure', handled: true }
+			mechanism: { type: 'recovered_failure', handled: true },
+			captureContext: { contexts: { correlation: { diagnosticId } } }
 		});
 	});
 
@@ -125,6 +127,10 @@ describe('reportRecoveredFailure', () => {
 		const output = lines().join('\n');
 		expect(output).toContain(MESSAGE_SENTINEL);
 		expect(output).toContain(CAUSE_SENTINEL);
+		// No line names an id, so the event names none.
+		expect(runtime.sentry?.captureException).toHaveBeenCalledWith(expect.anything(), {
+			mechanism: { type: 'recovered_failure', handled: true }
+		});
 	});
 
 	it('keeps the line when the capture throws', () => {

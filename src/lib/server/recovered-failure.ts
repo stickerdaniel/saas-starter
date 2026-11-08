@@ -28,8 +28,10 @@ function refusalCode(error: unknown): string | undefined {
  *
  * Outside dev, the console gets one line of fixed fields, because the error's
  * message, its cause and the request path can carry user input. Sentry, once
- * loaded, gets the full error, except for a backend refusal, which logs a
- * warning with its code instead. Never throws, so the fallback stays intact.
+ * loaded, gets the error under the line's diagnostic id, projected by
+ * `sentry.ts` onto the failure's shape, except for a backend refusal, which
+ * logs a warning with its code instead. Never throws, so the fallback stays
+ * intact.
  */
 export function reportRecoveredFailure(
 	label: string,
@@ -37,16 +39,18 @@ export function reportRecoveredFailure(
 	fields: SafeDiagnosticFields = {}
 ): void {
 	const code = refusalCode(error);
+	let diagnosticId: string | undefined;
 	try {
 		if (dev) console.error(label, error);
-		else logSafeDiagnostic(code ? 'warn' : 'error', label, { ...fields, code });
+		else diagnosticId = logSafeDiagnostic(code ? 'warn' : 'error', label, { ...fields, code });
 	} catch {
 		// A broken console cannot be reported to, and must not cost the capture.
 	}
 	if (code) return;
 	try {
 		loadedSentry()?.captureException(error, {
-			mechanism: { type: 'recovered_failure', handled: true }
+			mechanism: { type: 'recovered_failure', handled: true },
+			...(diagnosticId && { captureContext: { contexts: { correlation: { diagnosticId } } } })
 		});
 	} catch {
 		// Reporting is best effort. The console line above already names the failure.
