@@ -60,12 +60,15 @@ const HEADER_LINE =
 	/(?<![\w-])((?:proxy-)?authorization|(?:set-)?cookie|x-[\w-]{0,64}?(?:signature|token|api-key))\s*:[ \t]*(?:\r?\n[ \t]+)?(?![ \t\r\n]|\\*["'[])[^\r\n]+/gi;
 // `key: value`, `key=value` and their quoted forms, also inside serialized
 // payloads where the quotes arrive escaped once or more
-// (`{\"writeGrant\":\"…\"}`), and with an array value.
+// (`{\"writeGrant\":\"…\"}`), and with an array or object value. Text that
+// parses as JSON is redacted by field instead (`redactSerialized`); these
+// shapes cover what does not parse, such as a cut or malformed payload.
 const CREDENTIAL_KEY_PART = String.raw`(?<![\w-])[\w-]{0,64}(?:grant|signature|token|secret|password|passwd|api[_-]?key|authorization|cookie)(?:\\*["'])?\s*[:=]\s*`;
-const CLOSED_VALUE = String.raw`\\+"(?:[^"\\]|\\+[^"\\])*\\+"|"(?:[^"\\]|\\.)*"|'[^']*'|\[[^[\]]*\]|[^\s,;}&[\])"'\\]+`;
-// A quote or array the text never closes, because a provider or a cut ended
-// it early: the value runs to the end of the text, which may span lines.
-const OPEN_VALUE = String.raw`\\*["'[][\s\S]*`;
+const CLOSED_VALUE = String.raw`\\+"(?:[^"\\]|\\+[^"\\])*\\+"|"(?:[^"\\]|\\.)*"|'[^']*'|\[[^[\]]*\]|\{[^{}]*\}|[^\s,;{}&[\])"'\\]+`;
+// A quote, array or object the text never closes, or an object holding
+// another, because a provider or a cut ended it early: the value runs to the
+// end of the text, which may span lines.
+const OPEN_VALUE = String.raw`\\*["'[{][\s\S]*`;
 const KEYED_VALUE = new RegExp(
 	String.raw`(${CREDENTIAL_KEY_PART})(?!\\*["']?\[Filtered\])(${CLOSED_VALUE}|${OPEN_VALUE})`,
 	'gi'
@@ -116,11 +119,32 @@ function redactUrl(url: string): string {
  */
 export function redactText(text: string): string {
 	const input = text.length > MAX_INPUT_CHARS ? precut(text) : text;
-	const redacted = redactShapes(input);
+	const redacted = redactSerialized(input) ?? redactShapes(input);
 	const dropped = text.length - input.length + Math.max(0, redacted.length - MAX_TEXT_CHARS);
 	return dropped > 0
 		? `${redacted.slice(0, MAX_TEXT_CHARS)}[truncated ${dropped} chars]`
 		: redacted;
+}
+
+/**
+ * A JSON object or array in `text`, redacted as the value it holds and written
+ * back as JSON, or `undefined` when `text` is not one. Field names are read
+ * decoded and a credential field goes whole whatever its value, which the shape
+ * rules cannot do: `{"token":…}` and `{"token":{"value":…}}` keep their
+ * credential to a pattern over the text. The shape rules then run over the
+ * written JSON, because `redactCredentials` keeps field names as they are and a
+ * name can hold a credential too.
+ */
+function redactSerialized(text: string): string | undefined {
+	const first = text.trimStart().charAt(0);
+	if (first !== '{' && first !== '[') return undefined;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(text);
+	} catch {
+		return undefined;
+	}
+	return redactShapes(JSON.stringify(redactCredentials(parsed)));
 }
 
 function redactShapes(text: string): string {

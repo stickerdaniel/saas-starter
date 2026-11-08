@@ -40,6 +40,17 @@ describe('redactText', () => {
 			BEARER
 		],
 		['a quoted key value', `{"apiKey":"${BEARER}","model":"m"}`, BEARER],
+		['a credential key with an object value', `{"token":{"value":"${BEARER}"}}`, BEARER],
+		['a credential key spelled with JSON escapes', `{"\\u0074oken":"${BEARER}"}`, BEARER],
+		['a credential in a JSON field name', `{"${GRANT}":1,"note":"ok"}`, GRANT],
+		[
+			'an object value nested in serialized arguments',
+			JSON.stringify({ spec: JSON.stringify({ token: { value: BEARER } }) }),
+			BEARER
+		],
+		['an object value in a cut payload', `{"token":{"value":"${BEARER}"},"spec":{"a`, BEARER],
+		['an object value in prose', `rejected token: {value: ${BEARER}} upstream`, BEARER],
+		['an object value the text never closes', `{"token":{"value":"${BEARER}`, BEARER],
 		[
 			'a header array in a serialized request',
 			JSON.stringify({ headers: { Authorization: [`Token ${BEARER}`] } }),
@@ -89,7 +100,8 @@ describe('redactText', () => {
 		],
 		['/en/x#access_token=t1&scope=a', '/en/x#access_token=[Filtered]&scope=a'],
 		['/en/reset-password?%74oken=t1', '/en/reset-password?%74oken=[Filtered]'],
-		['failed with api_key=k1 for user', 'failed with api_key=[Filtered] for user']
+		['failed with api_key=k1 for user', 'failed with api_key=[Filtered] for user'],
+		['rejected token: {value: v1} upstream', 'rejected token: [Filtered] upstream']
 	])('redacts %s', (text, expected) => {
 		expect(redactText(text)).toBe(expected);
 	});
