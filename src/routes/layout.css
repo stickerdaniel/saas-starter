@@ -311,7 +311,10 @@
 	}
 }
 
-/* Reserve the scrollbar track up front so content does not shift when it appears. */
+/* Reserve the scrollbar track up front so content does not shift when it appears.
+   WebKit ignores scrollbar-gutter for the styled ::-webkit-scrollbar, so pair this
+   with overflow-y-scroll: the track then always exists and paints nothing while
+   the content fits. */
 @utility scrollbar-stable {
 	scrollbar-gutter: stable;
 }
