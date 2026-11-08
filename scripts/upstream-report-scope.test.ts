@@ -83,7 +83,10 @@ describe('upstream report test inputs', () => {
 	// A blob outside the checkout is still promised by the blobless clone; with lazy fetching
 	// a test could read it through Git and keep passing when that file changes.
 	it('blocks lazy object fetches wherever the suite installs or runs', () => {
-		const gated = steps.filter((step) => step.if?.includes('steps.scope.outputs.run'));
+		// Commands only: the gated cache restore runs no Git command.
+		const gated = steps.filter(
+			(step) => step.if?.includes('steps.scope.outputs.run') && step.run !== undefined
+		);
 		expect(gated.map((step) => step.run?.trim())).toEqual([
 			'bun install --frozen-lockfile --ignore-scripts',
 			'bun run test:upstream-report'

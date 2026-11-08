@@ -44,6 +44,16 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - name: Cache bun install
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          # Cache only bun's global package cache, never node_modules: a
+          # restored node_modules from another lockfile leaves stale nested
+          # deps behind after `bun install`.
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
       - name: Cache misspell binary
         id: misspell-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -158,6 +168,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - name: Cache bun install
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          # Cache only bun's global package cache, never node_modules: a
+          # restored node_modules from another lockfile leaves stale nested
+          # deps behind after `bun install`.
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
       - run: bun scripts/static-checks.ts --ci --scope types
 
@@ -168,6 +188,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - name: Cache bun install
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          # Cache only bun's global package cache, never node_modules: a
+          # restored node_modules from another lockfile leaves stale nested
+          # deps behind after `bun install`.
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
       # Each check serves a fixture component from its own Vite server and reads no generated file.
       - run: bun install --frozen-lockfile --ignore-scripts
       # The runner image ships Chrome's system libraries. --with-deps adds an apt
@@ -190,6 +220,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - name: Cache bun install
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          # Cache only bun's global package cache, never node_modules: a
+          # restored node_modules from another lockfile leaves stale nested
+          # deps behind after `bun install`.
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
       - run: bun run test:unit --shard=${{ matrix.shard }}/2
 
@@ -258,6 +298,17 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: bun scripts/upstream-report-scope.ts
+      - name: Cache bun install
+        if: steps.scope.outputs.run != 'false'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          # Cache only bun's global package cache, never node_modules: a
+          # restored node_modules from another lockfile leaves stale nested
+          # deps behind after `bun install`.
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
       # The tests read no generated file. Without lazy fetching, reading an object outside a
       # sparse checkout fails instead of downloading it; the checkout itself still needs to
       # fetch. A full checkout is no partial clone, so there it changes nothing.
