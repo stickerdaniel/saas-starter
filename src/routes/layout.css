@@ -15,7 +15,11 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-	--scrollbar-w: 3px;
+	/* Width of the styled scrollbar below. Bottom fades inset by it, so a blur
+	   never reaches the thumb. */
+	--scrollbar-w: 6px;
+	--scrollbar-thumb: color-mix(in oklab, var(--foreground) 15%, transparent);
+	--scrollbar-thumb-hover: color-mix(in oklab, var(--foreground) 25%, transparent);
 	--radius: 0.625rem;
 	/* Dialog padding and section spacing. The footer bleeds to the card edge with
 	   negative margins of exactly --dialog-inset, so both sides must read the same
@@ -81,6 +85,8 @@
 }
 
 .dark {
+	--scrollbar-thumb: color-mix(in oklab, var(--foreground) 8%, transparent);
+	--scrollbar-thumb-hover: color-mix(in oklab, var(--foreground) 12%, transparent);
 	--background: oklch(0.141 0.005 285.823);
 	--foreground: oklch(0.985 0 0);
 	--card: oklch(0.21 0.006 285.885);
@@ -305,7 +311,10 @@
 	}
 }
 
-/* Reserve the scrollbar track up front so content does not shift when it appears. */
+/* Reserve the scrollbar track up front so content does not shift when it appears.
+   WebKit ignores scrollbar-gutter for the styled ::-webkit-scrollbar, so pair this
+   with overflow-y-scroll: the track then always exists and paints nothing while
+   the content fits. */
 @utility scrollbar-stable {
 	scrollbar-gutter: stable;
 }
@@ -566,30 +575,36 @@
 	}
 }
 
-@layer components {
-	.scrollbar-thin {
-		&::-webkit-scrollbar {
-			width: var(--scrollbar-w);
-			height: var(--scrollbar-w);
-		}
-
-		&::-webkit-scrollbar-thumb {
-			background: color-mix(in srgb, var(--primary) 15%, transparent);
-		}
-
-		&::-webkit-scrollbar-track {
-			background: transparent;
-		}
-
-		&::-webkit-scrollbar-button {
-			display: none;
-		}
-	}
-}
-
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
+	}
+
+	/* Thin, quiet scrollbars. Iframe owners are excluded because parent scrollbar
+	   styles on them trigger WebKit resize loops: https://webkit.org/b/324485
+	   Chromium drops these rules on any element that sets scrollbar-width or
+	   scrollbar-color, so Tailwind's scrollbar-thin opts an element out of them. */
+	:where(:not(iframe))::-webkit-scrollbar {
+		width: var(--scrollbar-w);
+		height: var(--scrollbar-w);
+	}
+	:where(:not(iframe))::-webkit-scrollbar-track,
+	:where(:not(iframe))::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+	:where(:not(iframe))::-webkit-scrollbar-thumb {
+		background: var(--scrollbar-thumb);
+		border-radius: calc(var(--scrollbar-w) / 2);
+	}
+	:where(:not(iframe))::-webkit-scrollbar-thumb:hover {
+		background: var(--scrollbar-thumb-hover);
+	}
+	/* Firefox has no ::-webkit-scrollbar; the standard properties come closest. */
+	@supports not selector(::-webkit-scrollbar) {
+		:where(:not(iframe)) {
+			scrollbar-width: thin;
+			scrollbar-color: var(--scrollbar-thumb) transparent;
+		}
 	}
 
 	body {
