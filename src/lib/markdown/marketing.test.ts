@@ -1,17 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
 import { lex } from 'svelte-streamdown';
 import { Lexer } from 'marked';
+import type * as LegalConfig from '#lib/config/legal.js';
 
 const { maliciousAddress, maliciousBrandName, maliciousEmail, maliciousOperatorName } = vi.hoisted(
 	() => ({
-		maliciousAddress: 'Hauptstrasse 5\n\n## Forged section',
+		maliciousAddress: {
+			streetAddress: 'Hauptstrasse 5\n\n## Forged section',
+			postalCode: '12345',
+			addressLocality: 'Berlin',
+			addressCountry: 'DE'
+		} satisfies LegalConfig.LegalPostalAddress,
 		maliciousBrandName: 'SaaS *Starter* [beta]\n## Forged brand',
 		maliciousEmail: 'legal [at] example [dot] test',
 		maliciousOperatorName: 'Operator #1'
 	})
 );
 
-vi.mock('#lib/config/legal.js', () => ({
+// Only the configured values are hostile; the real formatter renders them.
+vi.mock('#lib/config/legal.js', async (importOriginal) => ({
+	...(await importOriginal<typeof LegalConfig>()),
 	LEGAL_CONFIG: {
 		address: maliciousAddress,
 		brandName: maliciousBrandName,
@@ -549,7 +557,7 @@ describe('marketing markdown helpers', () => {
 		const markdown = renderMarketingMarkdown(
 			{
 				title: markdownText`${'\n'}`,
-				description: markdownText`Address: ${maliciousAddress}`,
+				description: markdownText`Address: ${maliciousAddress.streetAddress}`,
 				sections: []
 			},
 			{ origin: 'https://example.com', pathname: '/en/test', lang: 'en' }
@@ -570,7 +578,9 @@ describe('marketing markdown helpers', () => {
 		});
 		const bodyTokens = lex(getMarketingBody(markdown));
 
-		expect(markdown).toContain('Address: Hauptstrasse 5<br><br>\\#\\# Forged section');
+		expect(markdown).toContain(
+			'Address: Hauptstrasse 5<br><br>\\#\\# Forged section\\, 12345 Berlin\\, DE'
+		);
 		expect(
 			bodyTokens.some((token) => token.type === 'heading' && token.text === 'Forged section')
 		).toBe(false);
@@ -625,6 +635,8 @@ describe('marketing markdown helpers', () => {
 		]);
 		expect(collectTokenTypes([heading])).not.toContain('em');
 		expect(collectTokenTypes([heading])).not.toContain('link');
+		expect(llms).toContain('https://example.com/en/about');
+		expect(llms).toContain('https://example.com/en/contact');
 		expect(llms).toContain('https://example.com/en/privacy');
 		expect(llms).toContain('https://example.com/en/terms');
 		expect(llms).toContain('https://example.com/en/impressum');
@@ -664,6 +676,8 @@ describe('marketing markdown helpers', () => {
 		expect(sitemap).toContain('<?xml version="1.0" encoding="UTF-8"?>');
 		expect(sitemap).toContain('<loc>https://example.com/en</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/fr/pricing</loc>');
+		expect(sitemap).toContain('<loc>https://example.com/en/about</loc>');
+		expect(sitemap).toContain('<loc>https://example.com/de/contact</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/en/privacy</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/en/terms</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/en/impressum</loc>');

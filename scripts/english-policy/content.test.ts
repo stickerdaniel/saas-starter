@@ -149,6 +149,18 @@ describe('repository prose extraction', () => {
 		]);
 	});
 
+	it('reads a style language the way the ESLint parser does', () => {
+		// `c&#115;s` decodes to `css`, which svelte-eslint-parser does not recognize.
+		const source = `<style lang="c&#115;s">/* ${foreignFixtures.german} */</style>`;
+		expect(checkEnglishText('src/Example.svelte', source)).toEqual([]);
+		expect(
+			checkEnglishText(
+				'src/Example.svelte',
+				`<style lang="css">/* ${foreignFixtures.german} */</style>`
+			)
+		).toMatchObject([{ language: 'de', line: 1 }]);
+	});
+
 	it('checks prose inside Markdown comments', () => {
 		expect(checkEnglishText('docs/example.md', `<!-- ${foreignFixtures.german} -->`)).toMatchObject(
 			[{ language: 'de', line: 1 }]

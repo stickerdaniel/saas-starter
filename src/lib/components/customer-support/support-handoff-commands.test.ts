@@ -1,8 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
+import type * as AppEnv from '$app/env';
 import { SupportConversation } from './support-conversation.svelte.ts';
 import { SupportHandoffCommands } from './support-handoff-commands.svelte.ts';
 import { SupportNavigationState } from './support-navigation-state.svelte.ts';
+
+// The build this tab was loaded with. A deploy after the page load does not
+// change the bundle the tab runs, so it is what the tab has to report.
+const tabBuild = vi.hoisted(() => '0bbdee34af6c4f2a9d1e7b3c5a8f6e2d4c1b9a07');
+vi.mock('$app/env', async (importOriginal) => ({
+	...(await importOriginal<typeof AppEnv>()),
+	version: tabBuild
+}));
 
 function clientWith(mutation: ReturnType<typeof vi.fn>): ConvexClient {
 	return { mutation } as unknown as ConvexClient;
@@ -119,5 +128,20 @@ describe('SupportHandoffCommands route', () => {
 		await new SupportHandoffCommands(conversation).request(clientWith(mutation));
 
 		expect(mutation.mock.calls[0]?.[1]).toMatchObject({ pageUrl: '/fr' });
+	});
+});
+
+describe('SupportHandoffCommands build', () => {
+	it('sends the build this tab runs with the request', async () => {
+		const mutation = vi.fn().mockResolvedValue(undefined);
+		const conversation = new SupportConversation(new SupportNavigationState());
+		conversation.setThread('thread-1');
+
+		await new SupportHandoffCommands(conversation).request(clientWith(mutation));
+
+		expect(mutation.mock.calls[0]?.[1]).toMatchObject({
+			threadId: 'thread-1',
+			appVersion: tabBuild
+		});
 	});
 });

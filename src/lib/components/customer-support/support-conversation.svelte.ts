@@ -1,4 +1,5 @@
 import type { ConvexClient } from 'convex/browser';
+import { version } from '$app/env';
 import { api } from '#lib/convex/_generated/api.js';
 import type { Attachment } from '#lib/chat/index.js';
 import type { ChatSessionPort, StreamCachePort } from '#lib/chat/core/chat-session-port.js';
@@ -63,8 +64,7 @@ export class SupportConversation implements ChatSessionPort {
 		getCachedReasoning: (order) => this.currentStreamCache().getCachedReasoning(order),
 		updateReasoningCache: (order, reasoning) =>
 			this.currentStreamCache().updateReasoningCache(order, reasoning),
-		clearReasoningCache: (order) => this.currentStreamCache().clearReasoningCache(order),
-		updateStatusCache: (order, status) => this.currentStreamCache().updateStatusCache(order, status)
+		clearReasoningCache: (order) => this.currentStreamCache().clearReasoningCache(order)
 	};
 
 	private readonly threadStreamCache = new StreamCacheManager();
@@ -484,7 +484,9 @@ export class SupportConversation implements ChatSessionPort {
 					// captured before its first message.
 					pageUrl: normalizeSupportPageRoute(
 						typeof window !== 'undefined' ? window.location.pathname : undefined
-					)
+					),
+					// The bundle this tab runs, which a stale tab keeps after a deploy.
+					appVersion: version
 				},
 				{
 					optimisticUpdate: createOptimisticUpdate(

@@ -45,14 +45,22 @@ describe('proxyAuthRequest', () => {
 		expect(res.status).toBe(499);
 	});
 
-	it('logs and rethrows genuine upstream failures', async () => {
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+	it('rethrows a genuine upstream failure without logging its path', async () => {
+		const consoles = (['log', 'info', 'warn', 'error', 'debug'] as const).map((level) =>
+			vi.spyOn(console, level).mockImplementation(() => {})
+		);
+		const failure = new TypeError('upstream exploded');
 		const handler: RequestHandler = async () => {
-			throw new TypeError('upstream exploded');
+			throw failure;
 		};
-		await expect(proxyAuthRequest(handler, makeEvent())).rejects.toThrow('upstream exploded');
-		expect(consoleError).toHaveBeenCalled();
-		consoleError.mockRestore();
+		const event = {
+			request: new Request('http://localhost/api/auth/reset-password/token-sentinel-4b1d')
+		} as RequestEvent;
+
+		await expect(proxyAuthRequest(handler, event)).rejects.toBe(failure);
+		// handleError reports the rethrown failure with fixed fields.
+		expect(consoles.flatMap((spy) => spy.mock.calls)).toEqual([]);
+		for (const spy of consoles) spy.mockRestore();
 	});
 
 	it('passes a successful response through with rebuilt headers', async () => {

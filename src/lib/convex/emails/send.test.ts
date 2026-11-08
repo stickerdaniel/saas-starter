@@ -239,7 +239,9 @@ describe('email send provider preflights', () => {
 					userId: 'user_1',
 					signupEmail: 'ada@example.com'
 				}),
-				patch
+				patch,
+				// No personal email suppression for the recipient
+				query: vi.fn(() => ({ withIndex: () => ({ unique: async () => null }) }))
 			},
 			runQuery
 		};

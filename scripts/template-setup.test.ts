@@ -8,6 +8,7 @@ import {
 	isValidWorkerSlug,
 	MAINTAINER_CLI_SCRIPTS,
 	parseContactEmail,
+	readLegalAddress,
 	referencesMaintainerCli,
 	removeMaintainerCliScripts,
 	readmeShowsCompletedSetup,
@@ -19,7 +20,8 @@ import {
 	replaceWranglerNameSource,
 	serializeConfigValue,
 	tsStringLiteral,
-	updateLegalContentDatesSource
+	updateLegalContentDatesSource,
+	validateAddressField
 } from './template-setup';
 
 function asciiDomainOfLength(length: number): string {
@@ -1207,5 +1209,48 @@ describe('template setup interactive answers', () => {
 				() => {}
 			)
 		).toBeUndefined();
+	});
+});
+
+describe('template setup legal address', () => {
+	const fields = {
+		streetAddress: '1 Main Street',
+		postalCode: '12345',
+		addressLocality: 'Berlin',
+		addressCountry: 'DE'
+	};
+
+	it('reads four string fields and keeps fork-owned keys for the rewrite', () => {
+		const address = { ...fields, addressRegion: 'BE' };
+		expect(readLegalAddress({ address })).toEqual({ kind: 'fields', fields, object: address });
+	});
+
+	it('reports the single string earlier setups wrote as legacy', () => {
+		expect(readLegalAddress({ address: 'Line 1\nLine 2' })).toEqual({
+			kind: 'legacy',
+			text: 'Line 1\nLine 2'
+		});
+	});
+
+	it.each([
+		['a missing address', {}],
+		['a missing field', { address: { ...fields, postalCode: undefined } }],
+		['a numeric field', { address: { ...fields, postalCode: 12345 } }],
+		['an array', { address: ['1 Main Street'] }],
+		['null', { address: null }]
+	])('rejects %s', (_label, config) => {
+		expect(() => readLegalAddress(config)).toThrow(/Unsupported LEGAL_CONFIG\.address/);
+	});
+
+	it.each([
+		['addressCountry', 'US', undefined],
+		['addressCountry', 'us', /two uppercase letters/],
+		['addressCountry', 'USA', /two uppercase letters/],
+		['postalCode', ' ', /postal-code must not be empty/],
+		['addressLocality', 'Berlin\nMitte', /city must be a single line/]
+	] as const)('validates %s %j', (key, value, problem) => {
+		const result = validateAddressField(key, value);
+		if (problem) expect(result).toMatch(problem);
+		else expect(result).toBeUndefined();
 	});
 });

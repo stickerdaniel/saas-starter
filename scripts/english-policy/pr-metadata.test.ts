@@ -443,12 +443,14 @@ describe('pull request metadata policy', () => {
 		expect(result.output).not.toContain(sentinel);
 	});
 
-	it('fails closed on malformed event JSON', () => {
-		const event = fixture(trigger(49));
-		writeFileSync(event, '{');
-		const result = run(event);
+	it('fails closed on malformed event JSON', async () => {
+		const eventPath = fixture(trigger(49));
+		writeFileSync(eventPath, '{');
+		const result = await captureCli({ eventPath, repository: REPOSITORY });
 		expect(result.status).toBe(1);
-		expect(`${result.stdout}${result.stderr}`).toContain('could not be read or validated');
+		expect(result.output).toBe(
+			'English policy failed: current pull request metadata could not be read or validated.'
+		);
 	});
 
 	it('treats hostile fetched metadata as data and does not echo it', async () => {

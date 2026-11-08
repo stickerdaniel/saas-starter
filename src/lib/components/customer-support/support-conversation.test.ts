@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
+import type * as AppEnv from '$app/env';
 import type { ChatSessionPort } from '#lib/chat/core/chat-session-port.js';
 import type { ChatCommandError } from '#lib/chat/core/chat-command-error.js';
 import { resolveReasoning } from '#lib/chat/core/display-message-processor.js';
@@ -15,6 +16,14 @@ function deferred<T>() {
 	});
 	return { promise, resolve, reject };
 }
+
+// The build this tab was loaded with. A deploy after the page load does not
+// change the bundle the tab runs, so it is what the tab has to report.
+const tabBuild = vi.hoisted(() => '0bbdee34af6c4f2a9d1e7b3c5a8f6e2d4c1b9a07');
+vi.mock('$app/env', async (importOriginal) => ({
+	...(await importOriginal<typeof AppEnv>()),
+	version: tabBuild
+}));
 
 function clientWith(mutation: ReturnType<typeof vi.fn>): ConvexClient {
 	return { mutation } as unknown as ConvexClient;
@@ -395,5 +404,27 @@ describe('SupportConversation message route', () => {
 		await conversation.sendMessage(client, 'The chart is empty');
 
 		expect(mutation.mock.calls[1]?.[1]).toMatchObject({ pageUrl: '/de' });
+	});
+});
+
+describe('SupportConversation build', () => {
+	it('sends the build this tab runs with each message', async () => {
+		const mutation = vi
+			.fn()
+			.mockResolvedValueOnce({ threadId: 'thread-1' })
+			.mockResolvedValueOnce({ messageId: 'message-1' });
+		const navigation = new SupportNavigationState();
+		const conversation = new SupportConversation(navigation);
+		conversation.beginNewConversation();
+		navigation.startNewThread();
+		const client = clientWith(mutation);
+
+		await conversation.ensureThread(client);
+		await conversation.sendMessage(client, 'The chart is empty');
+
+		expect(mutation.mock.calls[1]?.[1]).toMatchObject({
+			threadId: 'thread-1',
+			appVersion: tabBuild
+		});
 	});
 });

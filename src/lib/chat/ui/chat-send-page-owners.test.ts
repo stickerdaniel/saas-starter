@@ -31,7 +31,8 @@ const page = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/state', () => ({ page }));
-vi.mock('$app/env', () => ({ browser: true, dev: true, building: false }));
+// A support send reports the build its tab runs.
+vi.mock('$app/env', () => ({ browser: true, dev: true, building: false, version: 'test-build' }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), afterNavigate: vi.fn() }));
 vi.mock('$app/paths', () => ({ resolve: (path: string) => path }));
 vi.mock('runed/kit', () => ({

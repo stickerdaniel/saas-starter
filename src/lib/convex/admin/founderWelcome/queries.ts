@@ -3,7 +3,13 @@ import { components } from '../../_generated/api';
 import { internalQuery } from '../../_generated/server';
 import type { QueryCtx } from '../../_generated/server';
 import { adminQuery } from '../../functions';
-import { FOUNDER_WELCOME_DEFAULTS } from '../../emails/helpers';
+import {
+	readFounderEmailEnabledAt,
+	readFounderEmailTemplate,
+	readFounderSender,
+	readWelcomeTemplate,
+	type SwitchableFounderEmail
+} from '../../emails/founderEmailConfig';
 
 export type FounderWelcomeConfig =
 	| {
@@ -38,57 +44,11 @@ const founderWelcomeConfigValidator = v.union(
 
 /** Shared config reader used by both admin and internal queries */
 async function readFounderWelcomeConfig(ctx: QueryCtx): Promise<FounderWelcomeConfig> {
-	const contactSetting = await ctx.db
-		.query('adminSettings')
-		.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.contactUserId'))
-		.unique();
-
-	if (!contactSetting) {
+	const sender = await readFounderSender(ctx);
+	if (!sender) {
 		return { enabled: false as const };
 	}
-
-	const contactUserId = contactSetting.value;
-
-	const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-		model: 'user',
-		where: [{ field: '_id', operator: 'eq', value: contactUserId }]
-	});
-
-	if (!user) {
-		return { enabled: false as const };
-	}
-
-	const { name, email } = user as { name?: string; email: string };
-
-	// Read per-user profile for contact person
-	const profile = await ctx.db
-		.query('adminProfiles')
-		.withIndex('by_user', (q) => q.eq('userId', contactUserId))
-		.unique();
-
-	// Read global email config
-	const subjectSetting = await ctx.db
-		.query('adminSettings')
-		.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.subject'))
-		.unique();
-	const bodySetting = await ctx.db
-		.query('adminSettings')
-		.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.body'))
-		.unique();
-
-	return {
-		enabled: true as const,
-		contactUser: {
-			id: contactUserId,
-			name: name || 'Unknown',
-			email
-		},
-		name: profile?.founderWelcomeName ?? name ?? 'Unknown',
-		title: profile?.founderWelcomeTitle ?? '',
-		subject: subjectSetting?.value ?? FOUNDER_WELCOME_DEFAULTS.subject,
-		body: bodySetting?.value ?? FOUNDER_WELCOME_DEFAULTS.body,
-		replyTo: profile?.founderWelcomeReplyTo ?? email
-	};
+	return { enabled: true as const, ...sender, ...(await readWelcomeTemplate(ctx.db)) };
 }
 
 /** Admin-facing config query — includes viewer's own profile for form pre-fill */
@@ -134,9 +94,45 @@ export const getFounderWelcomeConfig = adminQuery({
 	}
 });
 
+const switchableEmailSettingsValidator = v.object({
+	/** The switch alone; the email also needs a contact to go out. */
+	on: v.boolean(),
+	subject: v.string(),
+	body: v.string()
+});
+
+/**
+ * The feedback and cancellation cards: each email's switch and template, the
+ * shared sender they go out as (null without a contact), and whether the viewer
+ * may change them, which only the contact may.
+ */
+export const getFounderEmailSettings = adminQuery({
+	args: {},
+	returns: v.object({
+		sender: v.union(v.null(), v.object({ name: v.string(), title: v.string() })),
+		canEdit: v.boolean(),
+		feedback: switchableEmailSettingsValidator,
+		cancellation: switchableEmailSettingsValidator
+	}),
+	handler: async (ctx) => {
+		const sender = await readFounderSender(ctx);
+		const forEmail = async (email: SwitchableFounderEmail) => ({
+			on: (await readFounderEmailEnabledAt(ctx.db, email)) !== undefined,
+			...(await readFounderEmailTemplate(ctx.db, email))
+		});
+		return {
+			sender: sender && { name: sender.name, title: sender.title },
+			canEdit: sender?.contactUser.id === ctx.user._id,
+			feedback: await forEmail('feedback'),
+			cancellation: await forEmail('cancellation')
+		};
+	}
+});
+
 /**
  * Get founder welcome config (internal, no auth check)
- * Used by send.ts and auth.ts triggers.
+ * Used by the welcome send and the founder incident sender, which writes as the
+ * welcome's contact person.
  */
 export const getFounderWelcomeConfigInternal = internalQuery({
 	args: {},

@@ -35,6 +35,7 @@ import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js'
 import noDynamicImportRejectionHandlerRule from './eslint/rules/no-dynamic-import-rejection-handler.js';
 import requireStaticModeInitializerRule from './eslint/rules/require-static-mode-initializer.js';
 import noTestInLoopRule from './eslint/rules/no-test-in-loop.js';
+import noRawCaughtErrorLogRule from './eslint/rules/no-raw-caught-error-log.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
@@ -77,7 +78,8 @@ const localPlugin = {
 		'no-literal-control-char': noLiteralControlCharRule,
 		'no-dynamic-import-rejection-handler': noDynamicImportRejectionHandlerRule,
 		'require-static-mode-initializer': requireStaticModeInitializerRule,
-		'no-test-in-loop': noTestInLoopRule
+		'no-test-in-loop': noTestInLoopRule,
+		'no-raw-caught-error-log': noRawCaughtErrorLogRule
 	}
 };
 
@@ -240,6 +242,27 @@ export default defineConfig(
 							allowTypeImports: true,
 							message:
 								'createRawSnippet renders an unescaped HTML string. Render table text with renderTextCell from #lib/components/ui/data-table/index.js, or render a component.'
+						}
+					]
+				}
+			]
+		}
+	},
+	// Fontless invalidates fontless/runtime and its importers mid-request in dev. The root
+	// layout's importer graph is small; a server hook's spans most modules, because
+	// $app/paths reaches the hooks through the generated server.
+	{
+		files: ['src/**/*.{ts,js,svelte}'],
+		ignores: ['src/routes/+layout.svelte'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					paths: [
+						{
+							name: 'fontless/runtime',
+							message:
+								'Import fontless/runtime only in src/routes/+layout.svelte. Elsewhere, its dev invalidation re-evaluates its importers mid-request. Server code can read the preload links the layout rendered.'
 						}
 					]
 				}
@@ -441,6 +464,25 @@ export default defineConfig(
 		}
 	},
 	{
+		// The server console ends up in a log store, and a caught error's message,
+		// cause or request path can carry user input or tokens.
+		// See eslint/rules/no-raw-caught-error-log.js.
+		files: [
+			'src/hooks.server.ts',
+			'src/**/*.server.ts',
+			'src/**/+server.ts',
+			'src/**/*.remote.ts',
+			'src/lib/server/**/*.ts'
+		],
+		ignores: ['**/*.test.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-raw-caught-error-log': 'error'
+		}
+	},
+	{
 		files: ['src/**/*.svelte'],
 		plugins: {
 			local: localPlugin
@@ -499,6 +541,8 @@ export default defineConfig(
 	// Tolgee() is TolgeeCore() plus the browser-extension plugin, whose handshake
 	// retries outlive unmount and stop() and then read `window` after Vitest has
 	// removed the jsdom globals.
+	// A lazy import.meta.glob map, such as convex-test's modules, imports on first
+	// use, so the first test pays the cold transform and can time out under load.
 	{
 		files: ['src/**/*.test.ts', 'src/**/test-fixtures/**'],
 		rules: {
@@ -507,6 +551,12 @@ export default defineConfig(
 				{
 					selector: 'CallExpression[callee.name="Tolgee"]',
 					message: 'Use TolgeeCore() in tests; Tolgee() adds the browser-extension handshake.'
+				},
+				{
+					selector:
+						'CallExpression[callee.object.type="MetaProperty"][callee.property.name="glob"]:not(CallExpression[callee.name="preloadModules"] > CallExpression)',
+					message:
+						'Wrap import.meta.glob in `await preloadModules(...)` from src/lib/convex/convexTest.modules.ts, and pass `convexModules` to convexTest: a lazy map imports inside the first test that calls it, where a cold transform can pass the test timeout.'
 				}
 			]
 		}

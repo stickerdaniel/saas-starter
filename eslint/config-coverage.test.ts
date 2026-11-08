@@ -206,3 +206,58 @@ describe('create-saas-starter tool coverage', () => {
 		expect(readFileSync('knip.config.ts', 'utf8')).toContain("'packages/create-saas-starter/**'");
 	});
 });
+
+async function rawCaughtErrorMessages(file: string, log = "console.error('[run] failed:', error)") {
+	// The real path selects the config block; the snippet stands in for the file.
+	const source = `export async function run(load: () => Promise<void>) {
+	try {
+		await load();
+	} catch (error) {
+		${log};
+	}
+}
+`;
+	const [result] = await eslint.lintText(source, { filePath: file });
+	expect(result.messages.filter((message) => message.fatal)).toEqual([]);
+	return result.messages.filter((message) => message.ruleId === 'local/no-raw-caught-error-log');
+}
+
+describe('no-raw-caught-error-log coverage', () => {
+	it.each([
+		['the server hooks', 'src/hooks.server.ts'],
+		['a page load', 'src/routes/[[lang]]/(auth)/signin/+page.server.ts'],
+		['an endpoint', 'src/routes/api/auth/[...all]/+server.ts'],
+		['a remote function module', 'src/routes/[[lang]]/admin/settings/data.remote.ts'],
+		['a server module', 'src/lib/server/auth-proxy.ts']
+	])(
+		'reaches %s',
+		async (_label, file) => {
+			expect(existsSync(file)).toBe(true);
+			const messages = await rawCaughtErrorMessages(file);
+			expect(messages).toHaveLength(1);
+			expect(messages[0].severity).toBe(2);
+		},
+		60_000
+	);
+
+	it('sees through a cast around the caught error', async () => {
+		const messages = await rawCaughtErrorMessages(
+			'src/lib/server/auth-proxy.ts',
+			'console.error(<Error>error)'
+		);
+		expect(messages).toHaveLength(1);
+	}, 60_000);
+
+	it.each([
+		['shared code that also runs in the browser', 'src/lib/utils/convex-errors.ts'],
+		['Convex functions, which log to the Convex dashboard', 'src/lib/convex/users.ts'],
+		['a test', 'src/lib/server/auth-proxy.test.ts']
+	])(
+		'leaves out %s',
+		async (_label, file) => {
+			expect(existsSync(file)).toBe(true);
+			expect(await rawCaughtErrorMessages(file)).toEqual([]);
+		},
+		60_000
+	);
+});

@@ -15,6 +15,7 @@ import { vStreamArgs } from '@convex-dev/agent/validators';
 import { listMessagesForThread } from '../../support/messageListing';
 import { supportThreadFields } from '../../support/supportThreadFields';
 import { toAgentThreadStatus } from '../../support/denormalization';
+import { normalizeSupportAppVersion } from '../../../shared/support-app-version';
 import { normalizeSupportPageRoute } from '../../../shared/support-page-route';
 
 /** Return validator for supportThreads documents (schema fields + system fields). */
@@ -312,15 +313,23 @@ export const getThreadForAdmin = adminQuery({
 });
 
 /**
- * Get the route each message in a thread was sent from
+ * Get the route each message in a thread was sent from, and the build that sent it
  *
  * The thread's own pageUrl is captured before its first message, so the details
  * panel cannot account for messages sent after the visitor navigates elsewhere.
- * This carries the route recorded with each individual message.
+ * This carries the route and build recorded with each individual message. A row
+ * may hold either one: older rows have no build, and a build survives a route
+ * that failed normalization.
  */
 export const listMessageRoutesForAdmin = adminQuery({
 	args: { threadId: v.string() },
-	returns: v.array(v.object({ messageId: v.string(), pageUrl: v.string() })),
+	returns: v.array(
+		v.object({
+			messageId: v.string(),
+			pageUrl: v.optional(v.string()),
+			appVersion: v.optional(v.string())
+		})
+	),
 	handler: async (ctx, args) => {
 		const contexts = await ctx.db
 			.query('supportMessageContexts')
@@ -330,7 +339,15 @@ export const listMessageRoutesForAdmin = adminQuery({
 
 		return contexts.flatMap((context) => {
 			const pageUrl = normalizeSupportPageRoute(context.pageUrl);
-			return pageUrl ? [{ messageId: context.messageId, pageUrl }] : [];
+			const appVersion = normalizeSupportAppVersion(context.appVersion);
+			if (!pageUrl && !appVersion) return [];
+			return [
+				{
+					messageId: context.messageId,
+					...(pageUrl ? { pageUrl } : {}),
+					...(appVersion ? { appVersion } : {})
+				}
+			];
 		});
 	}
 });

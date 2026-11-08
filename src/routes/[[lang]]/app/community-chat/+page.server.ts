@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { api } from '#lib/convex/_generated/api.js';
 import { createServerConvexHttpClient } from '#lib/server/convex-http.js';
+import { reportRecoveredFailure } from '#lib/server/recovered-failure.js';
 
 export const load = (async (event) => {
 	// Degrade gracefully on any backend failure, including client construction
@@ -11,17 +12,17 @@ export const load = (async (event) => {
 		const client = createServerConvexHttpClient({ token: event.locals.token });
 		const [viewer, messages] = await Promise.all([
 			client.query(api.users.viewer, {}).catch((e) => {
-				console.error('[community-chat/+page.server.ts] Viewer lookup failed:', e);
+				reportRecoveredFailure('[community-chat] Viewer lookup failed', e);
 				return null;
 			}),
 			client.query(api.messages.list, {}).catch((e) => {
-				console.error('[community-chat/+page.server.ts] Messages lookup failed:', e);
+				reportRecoveredFailure('[community-chat] Messages lookup failed', e);
 				return [];
 			})
 		]);
 		return { viewer, messages };
 	} catch (e) {
-		console.error('[community-chat/+page.server.ts] Convex client unavailable:', e);
+		reportRecoveredFailure('[community-chat] Convex client unavailable', e);
 		return { viewer: null, messages: [] };
 	}
 }) satisfies PageServerLoad;

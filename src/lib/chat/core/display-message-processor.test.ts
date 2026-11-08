@@ -20,9 +20,6 @@ function createMockStreamCache(cachedReasoning?: Map<number, string>): StreamCac
 		getCachedReasoning: vi.fn((order: number) => cache.get(order)),
 		updateReasoningCache: vi.fn((order: number, reasoning: string) => cache.set(order, reasoning)),
 		clearReasoningCache: vi.fn((order: number) => cache.delete(order)),
-		getCachedStatus: vi.fn(),
-		updateStatusCache: vi.fn(),
-		hasStatusCache: vi.fn(),
 		clear: vi.fn()
 	} as unknown as StreamCacheManager;
 }

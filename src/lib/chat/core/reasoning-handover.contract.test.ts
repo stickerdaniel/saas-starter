@@ -213,7 +213,6 @@ async function materializeLiveChunks(
 function displayMessage(listMessage: ChatMessage, deltaMessage?: UIMessage) {
 	return buildDisplayMessages({
 		allMessages: [normalizeMessage(listMessage)],
-		streamMessages: deltaMessage ? [activeStreamMessage()] : [],
 		streamingUIMessages: deltaMessage ? [deltaMessage] : [],
 		streamCache: new StreamCacheManager()
 	})[0]!;

@@ -15,14 +15,27 @@
  *      so these stay fast.
  */
 import { spawn, spawnSync } from 'child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+	closeSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	openSync,
+	readFileSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'os';
 import path from 'path';
+import { Writable } from 'stream';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
+import { readPid } from './__fixtures__/static-checks/pid-file';
 import { sanitizedGitEnv } from './git-context';
 import { SOURCE_FIXTURE_ROOT } from './source-tree';
+import { testExecutable } from './test-executable';
 import {
 	argumentBatches,
 	authoredTextFiles,
@@ -39,6 +52,7 @@ import {
 	ROUTES,
 	resolveInputs,
 	spellcheckFiles,
+	startCommand,
 	unsafePathCodepoints,
 	SVELTE_KIT_SYNC_WAIT_MESSAGE,
 	usesAssertOnlyChecks
@@ -56,6 +70,9 @@ const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
  * `static-checks.format.test.ts`.
  */
 const CHECKER_SPAWN_TIMEOUT = 30_000;
+
+const FIXTURES = path.join(ROOT, 'scripts', '__fixtures__', 'static-checks');
+const BUN = testExecutable('bun');
 
 /** Exit code only. Every case here fails at intake, so no check subprocess runs. */
 function run(...args: string[]): number {
@@ -645,4 +662,363 @@ describe('SvelteKit sync', () => {
 
 		expect(await exited, output).toBe(0);
 	}, 240_000);
+});
+
+describe('commands started before their step', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
+	const DRIVER = path.join(FIXTURES, 'started-command.ts');
+
+	/** Runs a driver case with stdout and stderr written to one file, in write order. */
+	function drive(
+		scenario: string,
+		githubActions = false,
+		env: Record<string, string> = {}
+	): { status: number; output: string } {
+		const directory = mkdtempSync(path.join(tmpdir(), 'started-command-'));
+		const outputPath = path.join(directory, 'output');
+		const output = openSync(outputPath, 'w');
+		try {
+			const result = spawnSync(BUN, [DRIVER, scenario, directory], {
+				cwd: ROOT,
+				env: {
+					...sanitizedGitEnv(),
+					NO_COLOR: '1',
+					GITHUB_ACTIONS: String(githubActions),
+					...env
+				},
+				stdio: ['ignore', output, output],
+				timeout: 20_000
+			});
+			return { status: result.status ?? -1, output: readFileSync(outputPath, 'utf8') };
+		} finally {
+			closeSync(output);
+			rmSync(directory, { recursive: true, force: true });
+		}
+	}
+
+	it('holds both streams until finish and keeps each stream in order', () => {
+		const { status, output } = drive('interleaved');
+		const lines = output.trim().split('\n');
+
+		expect(lines[0]).toBe('before-finish');
+		expect(lines.at(-1)).toBe('after-finish');
+		expect(lines.filter((line) => line.startsWith('out-'))).toEqual(['out-1', 'out-2']);
+		expect(lines.toSorted()).toEqual(['after-finish', 'before-finish', 'err-1', 'out-1', 'out-2']);
+		expect(status).toBe(0);
+	});
+
+	it('shows what a still-running command printed as soon as its step starts', async () => {
+		const directory = mkdtempSync(path.join(tmpdir(), 'started-command-'));
+		try {
+			const child = spawn(BUN, [DRIVER, 'gated', directory], {
+				cwd: ROOT,
+				env: { ...sanitizedGitEnv(), NO_COLOR: '1', GITHUB_ACTIONS: 'false' },
+				stdio: ['ignore', 'pipe', 'inherit']
+			});
+			let output = '';
+			child.stdout.on('data', (chunk: Buffer) => {
+				output += chunk.toString();
+				// The command waits for this file, so it can only finish once its prefix is out.
+				if (output.includes('prefix\n')) writeFileSync(path.join(directory, 'gate'), '');
+			});
+			const status = await new Promise<number | null>((resolve) => child.on('close', resolve));
+
+			expect(output).toBe('finishing\nprefix\nsuffix\nfinished\n');
+			expect(status).toBe(0);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it.each([
+		['fails', 'failure', 3, 'diagnostic\nCommand failed: '],
+		['cannot start', 'missing', 1, 'Command could not start: missing-static-checks-command\n']
+	])(
+		'reports a command that %s at finish, the way a sequential run does',
+		(_label, scenario, status, report) => {
+			const started = drive(`started-${scenario}`);
+
+			expect(started.output).toContain(`before-finish\n${report}`);
+			expect(started.status).toBe(status);
+			expect(started).toEqual(drive(`run-${scenario}`));
+		}
+	);
+
+	async function waitFor(ready: () => boolean): Promise<void> {
+		const deadline = Date.now() + 10_000;
+		while (!ready()) {
+			if (Date.now() > deadline) throw new Error('Timed out');
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		}
+	}
+
+	it('finishes only after the destination accepted the held output', async () => {
+		const directory = mkdtempSync(path.join(tmpdir(), 'started-command-'));
+		const exited = path.join(directory, 'exited');
+		const callbacks: Array<() => void> = [];
+		let accepting = false;
+		let text = '';
+		const destination = new Writable({
+			write(chunk: Buffer, _encoding, callback) {
+				text += chunk.toString();
+				if (accepting) callback();
+				else callbacks.push(callback);
+			}
+		});
+		try {
+			const command = startCommand(
+				process.execPath,
+				[
+					'-e',
+					"process.stdout.write('output\\n'); require('fs').writeFileSync(process.argv[1], '')",
+					exited
+				],
+				{ stdout: destination, stderr: destination, githubActions: false }
+			);
+			await waitFor(() => existsSync(exited));
+			const finished = command.finish().then(() => 'finished');
+			const early = await Promise.race([
+				finished,
+				new Promise((resolve) => setTimeout(() => resolve('waiting'), 500))
+			]);
+			accepting = true;
+			for (const callback of callbacks) callback();
+
+			expect(early).toBe('waiting');
+			expect(await finished).toBe('finished');
+			expect(text).toBe('output\n');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it('keeps output that arrives while held output is written, then passes output through', async () => {
+		const directory = mkdtempSync(path.join(tmpdir(), 'started-command-'));
+		const marker = (name: string) => path.join(directory, name);
+		// Each line waits for the test's marker file before it is written.
+		const script = `
+			const { existsSync, writeFileSync } = require('fs');
+			const directory = process.argv[1];
+			const after = (name, next) => {
+				const deadline = Date.now() + 10000;
+				const timer = setInterval(() => {
+					if (existsSync(directory + '/' + name)) {
+						clearInterval(timer);
+						next();
+					} else if (Date.now() > deadline) process.exit(9);
+				}, 10);
+			};
+			process.stdout.write('prefix\\n');
+			writeFileSync(directory + '/printed', '');
+			after('intervene', () => {
+				process.stdout.write('intervening\\n');
+				writeFileSync(directory + '/intervened', '');
+				after('live', () => process.stdout.write('suffix\\n'));
+			});
+		`;
+		let acceptFirst = (): void => {};
+		const firstAccepted = new Promise<void>((resolve) => (acceptFirst = resolve));
+		const chunks: string[] = [];
+		const destination = new Writable({
+			write(chunk: Buffer, _encoding, callback) {
+				chunks.push(chunk.toString());
+				if (chunks.length === 1) void firstAccepted.then(() => callback());
+				else callback();
+			}
+		});
+		try {
+			const command = startCommand(process.execPath, ['-e', script, directory], {
+				stdout: destination,
+				stderr: destination,
+				githubActions: true
+			});
+			await waitFor(() => existsSync(marker('printed')));
+			const finished = command.finish();
+			// The stop marker is now written but unaccepted. The next line arrives meanwhile; the
+			// pause lets it reach the held queue, though the order holds either way.
+			writeFileSync(marker('intervene'), '');
+			await waitFor(() => existsSync(marker('intervened')));
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			acceptFirst();
+			await waitFor(() => chunks.join('').includes('intervening\n'));
+			writeFileSync(marker('live'), '');
+			await finished;
+
+			const token = chunks.join('').match(/^::stop-commands::(.+)$/m)?.[1];
+			expect(chunks.join('')).toBe(
+				`\n::stop-commands::${token}\nprefix\nintervening\nsuffix\n\n::${token}::\n`
+			);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it('replays the GitHub workflow-command markers once, around the output', () => {
+		const { status, output } = drive('started-failure', true);
+		const token = output.match(/^::stop-commands::(.+)$/m)?.[1];
+
+		expect(token).toBeDefined();
+		expect(output.split(`::stop-commands::${token}`)).toHaveLength(2);
+		expect(output.split(`::${token}::`)).toHaveLength(2);
+		expect(output.indexOf('before-finish')).toBeLessThan(output.indexOf('::stop-commands::'));
+		expect(output.indexOf('diagnostic')).toBeGreaterThan(output.indexOf('::stop-commands::'));
+		expect(output.indexOf(`::${token}::`)).toBeGreaterThan(output.indexOf('diagnostic'));
+		expect(status).toBe(3);
+	});
+
+	it.each([
+		['SOURCE-1', false],
+		['SOURCE-1', true],
+		['::stop-commands::', true]
+	])(
+		'handles a destination that refuses %s like an unheld run (GitHub Actions: %s)',
+		(refuse, githubActions) => {
+			const normalize = (output: string) =>
+				output.replaceAll(/terminal-output-[0-9a-f-]+/g, 'TOKEN');
+			const started = drive('destination-error-started', githubActions, { REFUSE: refuse });
+			const run = drive('destination-error-run', githubActions, { REFUSE: refuse });
+
+			expect(normalize(started.output)).toBe(normalize(run.output));
+			expect(started.output.includes('OTHER-SOURCE')).toBe(refuse === 'SOURCE-1');
+			expect(started.output).not.toContain('SOURCE-2');
+			expect(started.status).toBe(1);
+			expect(run.status).toBe(1);
+		}
+	);
+
+	it('takes a PID file as ready only once it holds a positive PID', () => {
+		const directory = mkdtempSync(path.join(tmpdir(), 'pid-file-'));
+		try {
+			const file = path.join(directory, 'pid');
+			const states = ['', '0\n', '42'].map((text) => {
+				writeFileSync(file, text);
+				return readPid(file);
+			});
+			writeFileSync(file, '4242\n');
+
+			expect(readPid(path.join(directory, 'missing'))).toBeUndefined();
+			expect(states).toEqual([undefined, undefined, undefined]);
+			expect(readPid(file)).toBe(4242);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	/** Alive and not a zombie that its new parent has yet to reap. */
+	function running(pid: number): boolean {
+		const state = spawnSync('ps', ['-o', 'stat=', '-p', String(pid)], { encoding: 'utf8' });
+		return state.stdout.trim() !== '' && !state.stdout.trim().startsWith('Z');
+	}
+
+	it.skipIf(process.platform === 'win32')(
+		'kills every descendant of a started command when an earlier check exits',
+		async () => {
+			const directory = mkdtempSync(path.join(tmpdir(), 'started-command-'));
+			const pids: number[] = [];
+			try {
+				const result = spawnSync(BUN, [DRIVER, 'early-exit', directory], {
+					cwd: ROOT,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1', GITHUB_ACTIONS: 'false' },
+					encoding: 'utf8',
+					timeout: 20_000
+				});
+				expect(result.status, `${result.stdout}${result.stderr}`).toBe(1);
+				// One grandchild ignores SIGTERM beside its live leader; the other outlived its leader.
+				for (const name of ['stubborn', 'orphaned']) {
+					// Never a malformed one: `Number('')` is 0, and SIGKILL to 0 hits this process group.
+					const pid = readPid(path.join(directory, name));
+					if (pid === undefined) throw new Error(`The driver exited before ${name} held a PID`);
+					pids.push(pid);
+				}
+				const deadline = Date.now() + 5_000;
+				while (pids.some(running) && Date.now() < deadline) {
+					await new Promise((resolve) => setTimeout(resolve, 20));
+				}
+
+				expect(pids.filter(running)).toEqual([]);
+			} finally {
+				for (const pid of pids) {
+					try {
+						process.kill(pid, 'SIGKILL');
+					} catch {
+						// Already gone.
+					}
+				}
+				rmSync(directory, { recursive: true, force: true });
+			}
+		}
+	);
+});
+
+describe('English prose workers', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
+	const DRIVER = path.join(FIXTURES, 'prose-workers.ts');
+	const GERMAN = 'Das Passwort muss sofort zurückgesetzt werden.\n';
+
+	interface Report {
+		labels?: string[];
+		error?: string;
+	}
+
+	/** What the two-worker pool and the inline check report for the same files. */
+	function compare(
+		entry: string,
+		contents: string[]
+	): { workers: Report; inline: Report; files: string[] } {
+		const directory = mkdtempSync(path.join(tmpdir(), 'prose-workers-'));
+		try {
+			const files = contents.map((content, index) => {
+				const file = path.join(directory, `${index}.${content.startsWith('{') ? 'json' : 'md'}`);
+				writeFileSync(file, content);
+				return file;
+			});
+			const result = spawnSync(BUN, [DRIVER, entry, ...files], {
+				cwd: ROOT,
+				env: { ...sanitizedGitEnv(), PROSE_WORKER_GATE: path.join(directory, 'gate') },
+				encoding: 'utf8',
+				timeout: 20_000
+			});
+			expect(result.status, result.stderr).toBe(0);
+			return { ...(JSON.parse(result.stdout) as { workers: Report; inline: Report }), files };
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	}
+
+	it('reports findings in file order when a later shard finishes first', () => {
+		// Shards [0, 2] and [1]; the fixture worker for [0, 2] posts only after [1] has.
+		const { workers, inline, files } = compare(path.join(FIXTURES, 'prose-worker-gated.ts'), [
+			GERMAN,
+			GERMAN,
+			GERMAN
+		]);
+
+		expect(workers).toMatchObject({ labels: files });
+		expect(workers).toEqual(inline);
+	});
+
+	it('withholds an earlier finding behind a later unreadable file, as the inline check does', () => {
+		const { workers, inline, files } = compare('default', [GERMAN, '{"description": ']);
+
+		expect(workers).toEqual({ error: `Cannot parse ${files[1]} as JSON/JSONC.` });
+		expect(workers).toEqual(inline);
+	});
+
+	it('keeps a received file error when another worker fails, without reading the file again', () => {
+		const { workers, inline, files } = compare(
+			path.join(FIXTURES, 'prose-worker-fails-after-error.ts'),
+			[GERMAN, GERMAN]
+		);
+
+		expect(workers).toEqual({ error: 'Transient read failure for the first prose file' });
+		expect(inline).toMatchObject({ labels: files });
+	});
+
+	it('falls back to the inline check when a worker closes without a result', () => {
+		const { workers, inline, files } = compare(path.join(FIXTURES, 'prose-worker-closes.ts'), [
+			GERMAN,
+			GERMAN
+		]);
+
+		expect(workers).toMatchObject({ labels: files });
+		expect(workers).toEqual(inline);
+	});
 });

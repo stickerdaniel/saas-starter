@@ -5,6 +5,7 @@ import { sanitizedGitEnv, stagedGitEnv } from '../git-context';
 import {
 	evaluateKnowledgePolicy,
 	matchesKnowledgeCandidate,
+	type CommitAnswer,
 	type KnowledgePolicyConfig,
 	type PolicyFinding,
 	type PolicyRepository
@@ -70,18 +71,33 @@ function pathEntryExists(file: string): boolean {
 	}
 }
 
+// `rev-parse --verify --quiet` exits 1 for a commit this checkout does not hold,
+// and 128 when Git could not read the repository at all. `cat-file -e` cannot
+// tell those apart: peeling with `^{commit}` makes a missing object fatal too.
+// Folding both into "unavailable" told everyone to fetch more history, whatever
+// Git had actually complained about.
 function commitExists(
 	root: string,
 	sha: string,
 	env: NodeJS.ProcessEnv = sanitizedGitEnv()
-): boolean {
-	return (
-		spawnSync('git', ['--no-replace-objects', 'cat-file', '-e', `${sha}^{commit}`], {
+): CommitAnswer {
+	const result = spawnSync(
+		'git',
+		['--no-replace-objects', 'rev-parse', '--verify', '--quiet', `${sha}^{commit}`],
+		{
 			cwd: root,
-			stdio: 'ignore',
+			encoding: 'utf8',
+			stdio: ['ignore', 'ignore', 'pipe'],
 			env
-		}).status === 0
+		}
 	);
+	if (result.status === 0 || result.status === 1) return result.status === 0;
+	return {
+		error:
+			result.error?.message ??
+			(result.stderr.trim().replace(/\s+/g, ' ') ||
+				`git ended with ${result.signal ?? `status ${result.status}`}`)
+	};
 }
 
 function listWorkingTreeFiles(root: string): string[] {

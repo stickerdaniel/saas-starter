@@ -4,38 +4,30 @@
 -->
 <script lang="ts">
 	import type { Attachment } from 'svelte/attachments';
+	import markup from './desk-computer.svg?raw';
 
 	let { class: className = '' }: { class?: string } = $props();
 
-	let loaded = $state(false);
-
-	// The ~180 KB figure stays out of the SSR HTML and the critical path: it loads
-	// after the page's load event once the browser is idle, then starts its animation.
-	const figure: Attachment<HTMLDivElement> = (host) => {
+	// The server renders the figure so it paints with the page. Its animation loads
+	// after the page's load event once the browser is idle, off the critical path.
+	const animate: Attachment<HTMLDivElement> = (host) => {
 		let destroyed = false;
 		let stop: (() => void) | undefined;
 		let idleId: number | undefined;
 		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-		async function show() {
-			const [{ default: markup }, { animateDeskComputer }] = await Promise.all([
-				import('./desk-computer.svg?raw'),
-				import('./desk-computer.js')
-			]);
-			if (destroyed) return;
-			// Trusted, bundled static asset; no user input reaches this markup.
-			host.innerHTML = markup;
+		async function start() {
+			const { animateDeskComputer } = await import('./desk-computer.js');
 			const svg = host.querySelector('svg');
-			if (!svg) return;
+			if (destroyed || !svg) return;
 			stop = animateDeskComputer(svg);
-			loaded = true;
 		}
 
 		function schedule() {
 			if ('requestIdleCallback' in window) {
-				idleId = window.requestIdleCallback(() => void show());
+				idleId = window.requestIdleCallback(() => void start());
 			} else {
-				timeoutId = setTimeout(() => void show(), 10_000);
+				timeoutId = setTimeout(() => void start(), 10_000);
 			}
 		}
 
@@ -52,15 +44,9 @@
 	};
 </script>
 
-<div
-	class={[
-		'transition-opacity duration-700 ease-out motion-reduce:transition-none',
-		loaded ? 'opacity-100' : 'opacity-0',
-		className
-	]}
-	aria-hidden="true"
->
-	<div class="desk-computer" {@attach figure}></div>
+<div class={['desk-computer', className]} aria-hidden="true" {@attach animate}>
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- Trusted build-time constant inlined from desk-computer.svg, no user input -->
+	{@html markup}
 </div>
 
 <style>

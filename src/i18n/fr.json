@@ -114,6 +114,8 @@
 			},
 			"founder_welcome": {
 				"cancel": "Annuler",
+				"cancellation_description": "Envoyé environ une heure après qu'un client a programmé une résiliation, pour lui demander ce qui manquait. Pas envoyé s'il la retire d'ici là.",
+				"cancellation_title": "Email de résiliation aux clients",
 				"config_body_label": "Corps de l'email",
 				"config_name_label": "Ton nom",
 				"config_reply_to_label": "Email de réponse",
@@ -132,14 +134,22 @@
 				"editor_variable": "Variable",
 				"editor_write": "Écrire",
 				"error": "Une erreur est survenue. Réessaie.",
+				"feedback_description": "Envoyé 48 heures après l'inscription, uniquement aux personnes qui n'ont jamais payé, en réponse à l'email de bienvenue s'il y en a eu un.",
+				"feedback_title": "Email de retour aux non-abonnés",
+				"needs_contact": "Définis d'abord une personne de contact pour l'email de bienvenue",
 				"save": "Enregistrer les modifications",
 				"saved": "Configuration de l'email de bienvenue enregistrée",
 				"setup_button": "Devenir personne de contact",
 				"setup_title_placeholder": "ex. Fondateur de SaaS Starter",
+				"status_off": "Non envoyé",
+				"status_on": "Envoyé en tant que {name}",
 				"step_down": "Se retirer",
-				"step_down_confirm": "Se retirer en tant que personne de contact ? Les emails de bienvenue ne seront plus envoyés.",
+				"step_down_confirm": "Se retirer en tant que personne de contact ? Les emails de bienvenue, de retour et de résiliation ne seront plus envoyés.",
 				"stepped_down": "Tu n'es plus la personne de contact",
-				"title": "Email de bienvenue du fondateur",
+				"switched_off": "Email désactivé",
+				"switched_on": "Email activé",
+				"template_saved": "Email enregistré",
+				"title": "Email de bienvenue aux nouveaux utilisateurs",
 				"variable_first_name": "Prénom",
 				"variable_founder_name": "Ton nom",
 				"variable_founder_title": "Ton titre",
@@ -884,6 +894,8 @@
 		"search_placeholder": "Essaie de rechercher des pages..."
 	},
 	"footer": {
+		"about": "À propos",
+		"contact": "Contact",
 		"copyright": "© {year} {brand}",
 		"impressum": "Mentions légales",
 		"privacy": "Confidentialité",
@@ -954,6 +966,10 @@
 		"title": "Véritable Expérience Développeur {year}"
 	},
 	"meta": {
+		"about": {
+			"description": "Ce que c'est et qui le maintient.",
+			"title": "À propos"
+		},
 		"admin": {
 			"audit_log": {
 				"description": "Consulte les actions d'administration sur la plateforme.",
@@ -1019,6 +1035,10 @@
 				"description": "Crée un nouveau compte pour commencer.",
 				"title": "Inscription"
 			}
+		},
+		"contact": {
+			"description": "E-mail et chat d'assistance.",
+			"title": "Contact"
 		},
 		"home": {
 			"description": "Starter SaaS pour SvelteKit avec auth, paiements, email et analytics.",

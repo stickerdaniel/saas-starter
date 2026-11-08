@@ -114,12 +114,15 @@ export default defineSchema({
 			filterFields: ['status', 'assignedTo', 'isHandedOff', 'awaitingAdminResponse']
 		}),
 
-	// Where each support message was sent from. The thread's own pageUrl
-	// describes where the conversation began and cannot account for later routes.
+	// Where each support message was sent from, and which build the sender's tab
+	// ran. The thread's own pageUrl describes where the conversation began and
+	// cannot account for later routes. A row holds whichever of the two survived
+	// normalization; rows written before appVersion existed carry only a route.
 	supportMessageContexts: defineTable({
 		threadId: v.string(), // Reference to agent:threads, same id as supportThreads.threadId
 		messageId: v.string(), // Reference to the agent component's message document
-		pageUrl: v.string(), // Same-origin pathname, normalized before every write
+		pageUrl: v.optional(v.string()), // Same-origin pathname, normalized before every write
+		appVersion: v.optional(v.string()), // The tab's kit.version.name, normally a commit SHA
 		createdAt: v.number()
 	}).index('by_thread', ['threadId']),
 
@@ -254,6 +257,38 @@ export default defineSchema({
 		skippedReason: v.optional(v.string()),
 		createdAt: v.number()
 	}).index('by_user', ['userId']),
+
+	// Users opted out of the personal founder emails (welcome, feedback, cancellation),
+	// at most one row each. Set by an operator with
+	// emails/founderEmails:setPersonalEmailSuppression; all other mail still goes out.
+	personalEmailSuppressions: defineTable({
+		userId: v.string(),
+		createdAt: v.number()
+	}).index('by_user', ['userId']),
+
+	// One row per founder feedback or cancellation email episode
+	// (emails/founderEmails.ts). The feedback email is keyed `signup`, once per account;
+	// a cancellation email by its cancellation's `canceledAt`. `recipientEmail` is the
+	// address the row was opened for; the send skips a changed address.
+	founderEmailSends: defineTable({
+		userId: v.string(),
+		email: v.union(v.literal('feedback'), v.literal('cancellation')),
+		dedupeKey: v.string(),
+		recipientEmail: v.string(),
+		status: v.union(
+			v.literal('pending_verification'),
+			v.literal('scheduled'),
+			v.literal('sent'),
+			v.literal('skipped')
+		),
+		skippedReason: v.optional(v.string()),
+		scheduledFnId: v.optional(v.id('_scheduled_functions')),
+		sentAt: v.optional(v.number()),
+		// Resend component email id and subject sent, written with the enqueue
+		emailId: v.optional(v.string()),
+		subject: v.optional(v.string()),
+		createdAt: v.number()
+	}).index('by_userId_and_email_and_dedupeKey', ['userId', 'email', 'dedupeKey']),
 
 	founderIncidentDrafts: defineTable(founderIncidentDraftFields).index('by_incident', ['incident']),
 

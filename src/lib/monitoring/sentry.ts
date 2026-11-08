@@ -1,42 +1,81 @@
-import { browser } from '$app/env';
+import { browser, version } from '$app/env';
 import { PUBLIC_SENTRY_DSN } from '$app/env/public';
 import type { Handle } from '@sveltejs/kit/hooks';
 import type * as Sentry from '@sentry/sveltekit';
 import { devNotice } from '#lib/dev/notice.js';
 
 type SentryModule = typeof Sentry;
+type SentryIntegration = Parameters<SentryModule['addIntegration']>[0];
 
 /**
- * Options shared by the browser and server SDKs. The browser adds its own
- * integrations; the server passes these to `initCloudflareSentryHandle`, whose
+ * Options shared by the browser and server SDKs, and the integration both add.
+ * The server passes the options to `initCloudflareSentryHandle`, whose
  * Cloudflare options accept every field here.
+ *
+ * The projection loads with the SDK, behind the same `PUBLIC_SENTRY_DSN` gate,
+ * so a build without a DSN ships neither in its first paint.
  */
-const sentryOptions = {
-	dsn: PUBLIC_SENTRY_DSN,
-	tracesSampleRate: 0.1,
-	traceLifecycle: 'static',
-	attachStacktrace: false,
-	// Keep the restrictive v10 defaults when upgrading the SDK.
-	dataCollection: {
-		userInfo: false,
-		cookies: false,
-		httpHeaders: {
-			request: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
-			response: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] }
+async function loadSentryOptions() {
+	const [{ scrubBreadcrumb, scrubEvent }, { projectEnvelopeTrace }] = await Promise.all([
+		import('#lib/monitoring/sentry-scrub.js'),
+		import('#lib/diagnostics/sentry-projection.js')
+	]);
+
+	/**
+	 * Projects each envelope header's trace context, which the SDK builds after
+	 * the event hooks, from an inbound request's baggage when there is one. An
+	 * integration's `setup` runs once for every client the SDK creates: the
+	 * browser client, the Node server client, and the Cloudflare client, which
+	 * the SDK keeps across requests.
+	 */
+	const envelopeTraceIntegration: SentryIntegration = {
+		name: 'EnvelopeTraceProjection',
+		setup(sentryClient) {
+			sentryClient.on('beforeEnvelope', ([header]) =>
+				projectEnvelopeTrace(header, sentryClient.getDsn()?.publicKey)
+			);
+		}
+	};
+
+	const options = {
+		dsn: PUBLIC_SENTRY_DSN,
+		// The compiled build, the same name the Vite plugin gives uploaded source
+		// maps. Without it the SDK reads the release from runtime environment
+		// variables, which can name a different build.
+		release: version,
+		tracesSampleRate: 0.1,
+		traceLifecycle: 'static',
+		attachStacktrace: false,
+		// Keep the restrictive v10 defaults when upgrading the SDK.
+		dataCollection: {
+			userInfo: false,
+			cookies: false,
+			httpHeaders: {
+				request: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+				response: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] }
+			},
+			httpBodies: [],
+			urlQueryParams: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+			genAI: { inputs: false, outputs: false },
+			databaseQueryData: false,
+			queues: false,
+			graphQL: { document: false, variables: false },
+			stackFrameVariables: false,
+			frameContextLines: 0
 		},
-		httpBodies: [],
-		urlQueryParams: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
-		genAI: { inputs: false, outputs: false },
-		databaseQueryData: false,
-		queues: false,
-		graphQL: { document: false, variables: false },
-		stackFrameVariables: false,
-		frameContextLines: 0
-	}
-} satisfies Parameters<SentryModule['initCloudflareSentryHandle']>[0];
+		// The policy above filters by name. These reduce every event, transaction
+		// and breadcrumb to the fields sentry-scrub.ts allows, on both runtimes.
+		beforeSend: scrubEvent,
+		beforeSendTransaction: scrubEvent,
+		beforeBreadcrumb: scrubBreadcrumb
+	} satisfies Parameters<SentryModule['initCloudflareSentryHandle']>[0];
+
+	return { options, envelopeTraceIntegration };
+}
 
 let initPromise: Promise<SentryModule | null> | null = null;
 let client: SentryModule | null = null;
+let sentrySetup: Awaited<ReturnType<typeof loadSentryOptions>> | null = null;
 let requestHandle: Handle | null = null;
 
 /**
@@ -69,13 +108,20 @@ export async function loadSentry(): Promise<SentryModule | null> {
 
 	initPromise = (async () => {
 		try {
-			const sentry = await import('@sentry/sveltekit');
+			const [sentry, shared] = await Promise.all([
+				import('@sentry/sveltekit'),
+				loadSentryOptions()
+			]);
 			if (browser) {
 				sentry.init({
-					...sentryOptions,
-					integrations: [sentry.browserSessionIntegration({ lifecycle: 'route' })]
+					...shared.options,
+					integrations: [
+						sentry.browserSessionIntegration({ lifecycle: 'route' }),
+						shared.envelopeTraceIntegration
+					]
 				});
 			}
+			sentrySetup = shared;
 			client = sentry;
 			return sentry;
 		} catch (error: unknown) {
@@ -88,6 +134,15 @@ export async function loadSentry(): Promise<SentryModule | null> {
 	})();
 
 	return initPromise;
+}
+
+/**
+ * The Sentry module if `loadSentry` already loaded it, else null. Never starts a
+ * load. On the server the request hook loads and initializes it before any load
+ * function runs, so code inside a request reads the request's client.
+ */
+export function loadedSentry(): SentryModule | null {
+	return client;
 }
 
 /**
@@ -104,11 +159,14 @@ export async function loadSentry(): Promise<SentryModule | null> {
  */
 export async function loadSentryHandle(): Promise<Handle | null> {
 	const sentry = await loadSentry();
-	if (!sentry) return null;
+	if (!sentry || !sentrySetup) return null;
 	if (!requestHandle) {
 		// Sentry's declarations name the root `Handle` export SvelteKit 3 moved, so
 		// both hooks get the hook type here instead of an inferred `any`.
-		const initHandle: Handle = sentry.initCloudflareSentryHandle(sentryOptions);
+		const initHandle: Handle = sentry.initCloudflareSentryHandle({
+			...sentrySetup.options,
+			integrations: [sentrySetup.envelopeTraceIntegration]
+		});
 		const reportHandle: Handle = sentry.sentryHandle();
 		// The init hook calls `resolve(event)` without options, so nesting loses
 		// nothing that `sequence` would merge.

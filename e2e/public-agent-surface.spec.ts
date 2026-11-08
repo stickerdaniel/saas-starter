@@ -33,7 +33,7 @@ test.describe('public agent surface', () => {
 			['text/html', 'text/markdown', 'text/html'],
 			['text/markdown', 'text/html', 'text/markdown']
 		];
-		for (const path of ['/en', '/en/pricing']) {
+		for (const path of ['/en', '/en/pricing', '/en/about', '/en/contact']) {
 			for (const order of orders) {
 				for (const accept of order) {
 					const label = `${path} ${order.join(' -> ')}: ${accept}`;
@@ -53,6 +53,32 @@ test.describe('public agent surface', () => {
 					}
 				}
 			}
+		}
+	});
+
+	// Agents look for company pages at fixed, unprefixed paths; the locale redirect must land
+	// on the page itself in both representations, not on a 404 or the homepage.
+	// Cheaper layers rejected because: the 307 and the negotiated response after it come from
+	// the deployed hooks and adapter, which unit tests call only one function at a time.
+	test('unprefixed About and Contact paths reach their localized pages', async ({ request }) => {
+		const pages = [
+			{ path: '/about', heading: '# About' },
+			{ path: '/contact', heading: '# Contact' }
+		];
+		for (const { path, heading } of pages) {
+			const html = await request.get(path, {
+				headers: { Accept: 'text/html', 'Accept-Language': 'en' }
+			});
+			expect(html.status(), path).toBe(200);
+			expect(new URL(html.url()).pathname, path).toBe(`/en${path}`);
+			expect(html.headers()['content-type'], path).toContain('text/html');
+
+			const markdown = await request.get(path, {
+				headers: { Accept: 'text/markdown', 'Accept-Language': 'en' }
+			});
+			expect(markdown.status(), path).toBe(200);
+			expect(new URL(markdown.url()).pathname, path).toBe(`/en${path}`);
+			expect(await markdown.text(), path).toContain(heading);
 		}
 	});
 

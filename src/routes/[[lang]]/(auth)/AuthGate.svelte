@@ -45,11 +45,12 @@
 		pending = false;
 		if (!focusWasInFallback) return;
 		await tick();
-		formPane
-			?.querySelector<HTMLElement>(
-				'input:not([disabled]):not([type="hidden"]), button:not([disabled]), a[href]'
-			)
-			?.focus();
+		// A field first: the brand mark above it is a home link, and focus on that
+		// would make the visitor tab back into the form they were reaching for.
+		(
+			formPane?.querySelector<HTMLElement>('input:not([disabled]):not([type="hidden"])') ??
+			formPane?.querySelector<HTMLElement>('button:not([disabled]), a[href]')
+		)?.focus();
 	});
 
 	// The current address, token and redirect included, so reloading resumes

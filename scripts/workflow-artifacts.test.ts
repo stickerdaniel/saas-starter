@@ -295,6 +295,8 @@ interface RunFixture {
 	head: string;
 	runId: string;
 	attempt?: number;
+	// A fork pull request's head repository; the base repository otherwise.
+	headRepo?: string;
 }
 
 function githubContexts(
@@ -339,7 +341,11 @@ function pullRequestEvent(
 		pull_request: {
 			number: run.pr,
 			state: 'open',
-			head: { ref: branchOf(run.pr), sha: run.head, repo },
+			head: {
+				ref: branchOf(run.pr),
+				sha: run.head,
+				repo: { full_name: run.headRepo ?? REPOSITORY }
+			},
 			base: { ref: 'main', sha: MAIN_SHA, repo },
 			user: { login: 'renovate[bot]' }
 		}
@@ -618,6 +624,34 @@ describe('pull request run supersession', () => {
 			expect(resolve(contexts)!.group, `${label} must not cancel the newer head`).not.toBe(
 				newer!.group
 			);
+		}
+	});
+
+	// A push's Workers build deletes the branch's Convex preview a minute or two
+	// before its check run arrives, so the push itself must cancel the older E2E run.
+	it('a push cancels the preview E2E run of the older head build', () => {
+		const e2e = parsedWorkflow('e2e-preview-cf.yml');
+		const supersede = parsedWorkflow('supersede-preview-e2e.yml');
+		const olderBuild = resolveConcurrency(
+			e2e.concurrency,
+			checkRunEvent(e2e.name!, { pr: 1276, head: OLDER_HEAD, runId: '40809222801' })
+		)!.group;
+		const push = (run: RunFixture) =>
+			resolveConcurrency(supersede.concurrency, pullRequestEvent(supersede.name!, run))!;
+
+		const newer = push({ pr: 1276, head: NEWER_HEAD, runId: '40809070663' });
+		expect(newer.group, 'the push joins the older head build run').toBe(olderBuild);
+		expect(newer.cancel, 'the push cancels that run').toBe(true);
+		const isolated: Array<[string, RunFixture]> = [
+			['a rerun of the push', { pr: 1276, head: NEWER_HEAD, runId: '40809070663', attempt: 2 }],
+			['another pull request', { pr: 1280, head: NEWER_HEAD, runId: '40809070700' }],
+			[
+				'a fork branch of the same name',
+				{ pr: 1276, head: NEWER_HEAD, runId: '40809070800', headRepo: 'someone/saas-starter' }
+			]
+		];
+		for (const [label, run] of isolated) {
+			expect(push(run).group, `${label} must not cancel the head build run`).not.toBe(olderBuild);
 		}
 	});
 });

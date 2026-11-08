@@ -39,8 +39,14 @@ function argumentsForProject(extra: string[] = []): string[] {
 		'Company',
 		'--operator',
 		'Operator',
-		'--address',
-		'Address',
+		'--street',
+		'1 Main Street',
+		'--postal-code',
+		'12345',
+		'--city',
+		'City',
+		'--country',
+		'US',
 		'--email',
 		'contact@example.test',
 		'--yes',
@@ -206,6 +212,45 @@ describe('CLI lifecycle', () => {
 			await expect(lstat(path.join(parent, 'project'))).rejects.toMatchObject({ code: 'ENOENT' });
 		}
 	);
+
+	it.for([
+		{ label: 'the default pin', args: [] },
+		{ label: 'an explicit ref', args: ['--ref', 'release'] }
+	])('rejects a protocol 1 template from $label before staging', async ({ args }, { signal }) => {
+		const { parent, messages, cli } = await fixtureIo(signal);
+		const protocolOne = validTemplateEntries().map((entry) =>
+			entry.path === 'root/package.json'
+				? {
+						...entry,
+						data: '{"templateSetupVersion":1,"scripts":{"setup":"bun scripts/template-setup.ts"}}'
+					}
+				: entry
+		);
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) =>
+			new URL(String(input)).hostname === 'api.github.com'
+				? new Response(JSON.stringify({ sha: 'b'.repeat(40) }))
+				: responseFromBuffer(tarGz(protocolOne))
+		);
+		const createStagingTarget = vi.fn(async () => 'unused');
+
+		await expect(cli(argumentsForProject(args), { createStagingTarget })).resolves.toBe(1);
+		expect(createStagingTarget).not.toHaveBeenCalled();
+		await expect(lstat(path.join(parent, 'project'))).rejects.toMatchObject({ code: 'ENOENT' });
+		expect(messages.join('\n')).toContain('templateSetupVersion:2');
+	});
+
+	it('reminds about legal values only while an identity field is missing', async ({ signal }) => {
+		const complete = await fixtureIo(signal);
+		await expect(complete.cli(argumentsForProject(['--dry-run']), {})).resolves.toBe(0);
+		expect(complete.messages.join('\n')).toContain('Dry run complete.');
+		expect(complete.messages.join('\n')).not.toContain('Review the generated legal identity');
+
+		const withoutCountry = await fixtureIo(signal);
+		const args = argumentsForProject(['--dry-run']);
+		args.splice(args.indexOf('--country'), 2);
+		await expect(withoutCountry.cli(args, {})).resolves.toBe(0);
+		expect(withoutCountry.messages.join('\n')).toContain('Review the generated legal identity');
+	});
 
 	it('rejects an overlong materialized path before claiming the target', async ({ signal }) => {
 		const { parent, messages, cli } = await fixtureIo(signal);

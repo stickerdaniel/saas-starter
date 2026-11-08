@@ -20,8 +20,7 @@ export function createChatSession(threadId: string | null = null) {
 		streamCache: {
 			getCachedReasoning: vi.fn<(order: number) => string | undefined>(),
 			updateReasoningCache: vi.fn<(order: number, reasoning: string) => void>(),
-			clearReasoningCache: vi.fn<(order: number) => void>(),
-			updateStatusCache: vi.fn<ChatSessionPort['streamCache']['updateStatusCache']>()
+			clearReasoningCache: vi.fn<(order: number) => void>()
 		}
 	} satisfies ChatSessionPort;
 }

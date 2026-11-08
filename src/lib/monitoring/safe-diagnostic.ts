@@ -45,12 +45,17 @@ function diagnosticId(): string {
 	return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * Writes the line and returns the diagnostic id it names, so a report to
+ * Sentry can carry the same id.
+ */
 export function logSafeDiagnostic(
 	level: SafeDiagnosticLevel,
 	label: string,
 	fields: SafeDiagnosticFields = {}
-): void {
-	const parts = [label, `diagnostic=${diagnosticId()}`];
+): string {
+	const id = diagnosticId();
+	const parts = [label, `diagnostic=${id}`];
 	if (fields.operation !== undefined) parts.push(`operation=${token(fields.operation)}`);
 	if (
 		fields.status !== undefined &&
@@ -69,4 +74,5 @@ export function logSafeDiagnostic(
 	}
 	if (level === 'error') console.error(parts.join(' '));
 	else console.warn(parts.join(' '));
+	return id;
 }

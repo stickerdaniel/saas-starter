@@ -17,8 +17,7 @@ function createStreamCache(): StreamCachePort {
 	return {
 		getCachedReasoning: vi.fn(),
 		updateReasoningCache: vi.fn(),
-		clearReasoningCache: vi.fn(),
-		updateStatusCache: vi.fn()
+		clearReasoningCache: vi.fn()
 	};
 }
 
@@ -90,7 +89,6 @@ describe('buildTransformContext', () => {
 	it('populates stream maps and updates caches from streaming UI messages', () => {
 		const streamCache = createStreamCache();
 		const context = buildTransformContext({
-			streamMessages: [createStreamMessage({ order: 2, status: 'finished' })],
 			streamingUIMessages: [
 				createStreamingUIMessage({
 					order: 2,
@@ -105,7 +103,6 @@ describe('buildTransformContext', () => {
 		});
 
 		expect(context.streamMessageMap.get(2)?.text).toBe('Streaming response');
-		expect(streamCache.updateStatusCache).toHaveBeenCalledWith(2, 'finished');
 		expect(streamCache.updateReasoningCache).toHaveBeenCalledWith(2, 'Thinking');
 	});
 });
@@ -128,7 +125,6 @@ describe('selectThreadStreamingUIMessages', () => {
 	function renderThreadBDuringDecode(streamCache: StreamCacheManager): DisplayMessage[] {
 		return buildDisplayMessages({
 			allMessages: [createAssistantMessage({ order: 0, status: 'pending', text: '' })],
-			streamMessages: [createStreamMessage({ order: 0, status: 'streaming' })],
 			streamingUIMessages: selectThreadStreamingUIMessages(threadAStream, 'thread-b'),
 			streamCache
 		});
@@ -155,7 +151,6 @@ describe('buildDisplayMessages', () => {
 		const message = createAssistantMessage({ text: 'Persisted response' });
 		const displayMessages = buildDisplayMessages({
 			allMessages: [message],
-			streamMessages: [],
 			streamingUIMessages: [],
 			streamCache: createStreamCache()
 		});
@@ -168,7 +163,6 @@ describe('buildDisplayMessages', () => {
 		const message = createAssistantMessage({ order: 3, text: 'Persisted response' });
 		const displayMessages = buildDisplayMessages({
 			allMessages: [message],
-			streamMessages: [createStreamMessage({ order: 3, status: 'streaming' })],
 			streamingUIMessages: [
 				createStreamingUIMessage({
 					order: 3,
@@ -198,7 +192,6 @@ describe('buildDisplayMessages', () => {
 
 		const displayMessages = buildDisplayMessages({
 			allMessages: [userMessage],
-			streamMessages: [createStreamMessage({ order: 2, status: 'streaming' })],
 			streamingUIMessages: [
 				createStreamingUIMessage({
 					id: 'stream:2',
@@ -233,7 +226,6 @@ describe('buildDisplayMessages', () => {
 
 		const displayMessages = buildDisplayMessages({
 			allMessages: [message],
-			streamMessages: [createStreamMessage({ order: 4, status: 'streaming' })],
 			streamingUIMessages: [
 				createStreamingUIMessage({
 					order: 4,
@@ -266,7 +258,6 @@ describe('buildDisplayMessages', () => {
 
 		const displayMessages = buildDisplayMessages({
 			allMessages: [message],
-			streamMessages: [createStreamMessage({ order: 5, status: 'streaming' })],
 			streamingUIMessages: [
 				createStreamingUIMessage({
 					order: 5,

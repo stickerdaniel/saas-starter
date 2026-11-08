@@ -10,6 +10,7 @@ import {
 	UNAVAILABLE_CAPABILITY_USABILITY,
 	type PublicCapabilityUsability
 } from '#lib/dev/features.js';
+import { reportRecoveredFailure } from '#lib/server/recovered-failure.js';
 
 type JwtViewer = {
 	_id: string;
@@ -146,12 +147,15 @@ async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
 		const client = createServerConvexHttpClient({ token: event.locals.token });
 		const viewerPromise = isAuthenticated
 			? client.query(api.users.viewer, {}).catch((e) => {
-					console.error('[auth-layout-data] Viewer lookup failed, falling back to JWT payload:', e);
+					reportRecoveredFailure(
+						'[auth-layout-data] Viewer lookup failed, using the JWT payload',
+						e
+					);
 					return fallbackViewer;
 				})
 			: Promise.resolve(null);
 		const capabilityPromise = client.query(api.capabilities.getUsability, {}).catch((e) => {
-			console.error('[auth-layout-data] Capability lookup failed:', e);
+			reportRecoveredFailure('[auth-layout-data] Capability lookup failed', e);
 			return UNAVAILABLE_CAPABILITY_USABILITY;
 		});
 
@@ -167,14 +171,17 @@ async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
 					})
 						.getCustomer(event)
 						.catch((e) => {
-							console.error('[auth-layout-data] Autumn getCustomer failed:', e);
+							reportRecoveredFailure('[auth-layout-data] Autumn getCustomer failed', e);
 							return null;
 						})
 				: Promise.resolve(null);
 
 		[customer, viewer] = await Promise.all([customerPromise, viewerPromise]);
 	} catch (e) {
-		console.error('[auth-layout-data] Convex client unavailable, using JWT fallback:', e);
+		reportRecoveredFailure(
+			'[auth-layout-data] Convex client unavailable, using the JWT payload',
+			e
+		);
 	}
 
 	return {

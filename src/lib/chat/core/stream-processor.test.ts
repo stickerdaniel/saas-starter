@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readUIMessageStream, type UIMessageChunk } from 'ai';
 import {
 	blankUIMessage,
 	combineStreamingUIMessages,
@@ -409,6 +410,61 @@ describe('deriveUIMessagesFromDeltas', () => {
 				output: { temperature: 10.1, unit: 'C' }
 			})
 		);
+	});
+
+	it('decodes per-word deltas to the message the AI SDK reader builds chunk by chunk', async () => {
+		const signature = { anthropic: { signature: 'sig-1' } };
+		const chunks: UIMessageChunk[] = [
+			{ type: 'start' },
+			{ type: 'start-step' },
+			{ type: 'reasoning-start', id: 'r1' },
+			{ type: 'reasoning-delta', id: 'r1', delta: 'Look ' },
+			{ type: 'reasoning-delta', id: 'r1', delta: 'up ', providerMetadata: signature },
+			{ type: 'reasoning-delta', id: 'r1', delta: 'weather.' },
+			{ type: 'reasoning-end', id: 'r1' },
+			{ type: 'text-start', id: 't1' },
+			{ type: 'text-delta', id: 't1', delta: 'Checking ' },
+			{ type: 'text-delta', id: 't1', delta: 'the ' },
+			{ type: 'text-start', id: 't2' },
+			{ type: 'text-delta', id: 't2', delta: 'Other ' },
+			{ type: 'text-delta', id: 't1', delta: 'weather.' },
+			{ type: 'text-delta', id: 't2', delta: 'part.' },
+			{ type: 'text-end', id: 't1' },
+			{ type: 'text-end', id: 't2' },
+			{ type: 'tool-input-start', toolCallId: 'tool-1', toolName: 'getWeather' },
+			{ type: 'tool-input-delta', toolCallId: 'tool-1', inputTextDelta: '{"city":' },
+			{ type: 'tool-input-delta', toolCallId: 'tool-1', inputTextDelta: '"Tok' }
+		];
+		const streamMessage = createStreamMessage({
+			format: 'UIMessageChunk' as const
+		}) as StreamMessage;
+
+		const [decoded] = await deriveUIMessagesFromDeltas(
+			'thread-1',
+			[streamMessage],
+			chunks.map((part, start) => ({
+				streamId: 'stream-1',
+				start,
+				end: start + 1,
+				parts: [part]
+			}))
+		);
+
+		let expected: UIMessage | undefined;
+		for await (const message of readUIMessageStream({
+			message: blankUIMessage(streamMessage, 'thread-1'),
+			stream: new ReadableStream<UIMessageChunk>({
+				start(controller) {
+					chunks.forEach((chunk) => controller.enqueue(chunk));
+					controller.close();
+				}
+			})
+		})) {
+			expected = message as UIMessage;
+		}
+
+		expect(decoded!.parts).toEqual(expected!.parts);
+		expect(decoded!.text).toBe('Checking the weather.Other part.');
 	});
 });
 

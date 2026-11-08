@@ -1,6 +1,15 @@
 import type { Handle } from '@sveltejs/kit/hooks';
-import { preloads } from 'fontless/runtime';
 import { criticalFontScope } from '#lib/font-loading.js';
+
+/** Hrefs of the font preload links in a document's head, in document order. */
+function fontPreloadHrefs(html: string): string[] {
+	const head = html.slice(0, html.indexOf('</head>'));
+	return [...head.matchAll(/<link\b[^>]*>/gi)].flatMap(([tag]) => {
+		if (!/\srel="preload"/.test(tag) || !/\sas="font"/.test(tag)) return [];
+		const href = /\shref="([^"]+)"/.exec(tag)?.[1];
+		return href ? [href] : [];
+	});
+}
 
 /** Inline public-page fonts; preload the full font for application pages. */
 export const handleFontPreload: Handle = async ({ event, resolve }) => {
@@ -10,6 +19,10 @@ export const handleFontPreload: Handle = async ({ event, resolve }) => {
 	const inlineCriticalFont = scope ? fonts?.[scope] : null;
 	const formPage = event.route.id?.startsWith('/[[lang]]/(auth)/');
 	const scriptPreloads = new Set<string>();
+	// The root layout renders the fontless preloads; the response header repeats them.
+	// Importing fontless/runtime here would put this hook, and through $app/paths most
+	// of the server graph, under each dev invalidation of that module.
+	const fontHrefs = new Set<string>();
 	const response = await resolve(event, {
 		// Let the document arrive before scripts compete for bandwidth. Forms still
 		// preload their full module graph so fields become usable without a waterfall.
@@ -22,7 +35,10 @@ export const handleFontPreload: Handle = async ({ event, resolve }) => {
 				: undefined,
 		// Keep charset in the first 1024 bytes, then start decoding before other styles.
 		transformPageChunk: ({ html }) => {
-			if (!inlineCriticalFont) return html;
+			if (!inlineCriticalFont) {
+				for (const href of fontPreloadHrefs(html)) fontHrefs.add(href);
+				return html;
+			}
 			if (scope === 'public') {
 				// Decode before layout: even invisible text uses fallback `ch` widths.
 				// Keep the face after Fontless's declarations so the inline source wins.
@@ -48,9 +64,8 @@ export const handleFontPreload: Handle = async ({ event, resolve }) => {
 	// Other text can request the full font as needed without delaying the hero.
 	if (inlineCriticalFont) return response;
 
-	const fontHrefs = [...new Set(preloads.map(({ href }) => href))];
-	if (fontHrefs.length === 0) return response;
-	const links = fontHrefs.map(
+	if (fontHrefs.size === 0) return response;
+	const links = [...fontHrefs].map(
 		(href) => `<${href}>; rel=preload; as=font; crossorigin; fetchpriority=high`
 	);
 	const existing = response.headers.get('link');

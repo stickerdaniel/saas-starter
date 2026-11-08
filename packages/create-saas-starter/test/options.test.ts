@@ -87,8 +87,14 @@ describe('parseCliOptions', () => {
 				'Company',
 				'--operator',
 				'Operator',
-				'--address',
-				'Address',
+				'--street',
+				'1 Main Street',
+				'--postal-code',
+				'12345',
+				'--city',
+				'City',
+				'--country',
+				'US',
 				'--email',
 				'local@example.test',
 				'--ref',
@@ -102,6 +108,10 @@ describe('parseCliOptions', () => {
 			slug: 'app',
 			repo: 'owner/app',
 			brand: 'App',
+			street: '1 Main Street',
+			postalCode: '12345',
+			city: 'City',
+			country: 'US',
 			ref: 'release',
 			yes: true,
 			trustTemplate: true,
@@ -117,19 +127,44 @@ describe('parseCliOptions', () => {
 				brand: 'Project',
 				company: 'Company\nDivision',
 				operator: 'Operator',
-				address: 'Line 1\nLine 2',
+				street: 'Straße 1',
+				postalCode: '12345',
+				city: 'Köln',
+				country: 'DE',
 				email: "d'éveloper+local@exämple.test",
 				ref: 'release/v1'
 			})
 		).not.toThrow();
 	});
 
+	it('rejects the replaced --address option with the field options', () => {
+		expect(() => parseCliOptions(['--address', 'Line 1'])).toThrow(
+			'--address was replaced by --street, --postal-code, --city, and --country.'
+		);
+	});
+
+	it.each([
+		['street', 'Line 1\nLine 2'],
+		['postal-code', '12345\n67890'],
+		['city', 'Berlin\r\nMitte']
+	])('rejects a multiline --%s', (option, value) => {
+		expect(() => validateProvidedValues(parseCliOptions([`--${option}`, value]))).toThrow(
+			`--${option} must be a non-empty single-line value.`
+		);
+	});
+
+	it.each(['us', 'USA', 'U1'])(
+		'rejects the country %s that is not two uppercase letters',
+		(value) => {
+			expect(() => validateProvidedValues(parseCliOptions(['--country', value]))).toThrow(
+				'--country must be two uppercase letters'
+			);
+		}
+	);
+
 	it('normalizes CRLF in multiline argv values and rejects bare carriage returns', () => {
-		expect(
-			parseCliOptions(['--company', 'Company\r\nDivision', '--address', 'Line 1\r\nLine 2'])
-		).toMatchObject({
-			company: 'Company\nDivision',
-			address: 'Line 1\nLine 2'
+		expect(parseCliOptions(['--company', 'Company\r\nDivision'])).toMatchObject({
+			company: 'Company\nDivision'
 		});
 		expect(() =>
 			validateProvidedValues({
@@ -147,7 +182,7 @@ describe('parseCliOptions', () => {
 		['right-to-left override', 0x202e]
 	])('rejects %s in every free-text argv value', (_name, code) => {
 		const control = String.fromCodePoint(code);
-		for (const option of ['brand', 'company', 'operator', 'address', 'ref'] as const) {
+		for (const option of ['brand', 'company', 'operator', 'street', 'city', 'ref'] as const) {
 			expect(() =>
 				validateProvidedValues({
 					slug: 'project',
@@ -206,13 +241,19 @@ describe('option resolution and trust', () => {
 			['Brand display name', `before${escape}after`],
 			['Legal company name', `before${bell}after`],
 			['Legal operator name', `before${rightToLeftOverride}after`],
-			['Legal address', `before${lineSeparator}after`]
+			['Legal street address', `before${lineSeparator}after`],
+			['Legal postal code', `before${escape}after`],
+			['Legal city', `before${bell}after`],
+			['Legal country code (two letters, such as US)', 'de']
 		]);
 		const responseByMessage = new Map([
 			['Brand display name', 'Project'],
 			['Legal company name', 'Company\r\nDivision'],
 			['Legal operator name', 'Operator'],
-			['Legal address', 'Line 1\r\nLine 2']
+			['Legal street address', '1 Main Street'],
+			['Legal postal code', '12345'],
+			['Legal city', 'City'],
+			['Legal country code (two letters, such as US)', 'US']
 		]);
 		const prompts: PromptAdapter = {
 			text: async (options) => {
@@ -247,7 +288,10 @@ describe('option resolution and trust', () => {
 			brand: 'Project',
 			company: 'Company\nDivision',
 			operator: 'Operator',
-			address: 'Line 1\nLine 2'
+			street: '1 Main Street',
+			postalCode: '12345',
+			city: 'City',
+			country: 'US'
 		});
 	});
 
@@ -360,8 +404,14 @@ describe('interrupt handling', () => {
 					'Company',
 					'--operator',
 					'Operator',
-					'--address',
-					'Address',
+					'--street',
+					'1 Main Street',
+					'--postal-code',
+					'12345',
+					'--city',
+					'City',
+					'--country',
+					'US',
 					'--email',
 					'contact@example.test'
 				],

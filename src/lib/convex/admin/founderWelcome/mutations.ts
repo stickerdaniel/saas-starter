@@ -1,6 +1,12 @@
 import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
 import { adminMutation } from '../../functions';
+import {
+	CONTACT_SETTING_KEY,
+	FOUNDER_EMAIL_SETTING_KEYS,
+	readFounderEmailEnabledAt,
+	switchableFounderEmailValidator
+} from '../../emails/founderEmailConfig';
 import { FOUNDER_WELCOME_ERROR_CODES, createFounderWelcomeError } from './errors';
 
 /** Helper to upsert an admin setting */
@@ -121,6 +127,59 @@ export const stepDown = adminMutation({
 
 		await deleteSetting(ctx, 'founderWelcome.contactUserId');
 
+		return null;
+	}
+});
+
+/**
+ * The feedback and cancellation emails go out as the welcome's contact person, so
+ * only that admin may change them, as only they edit the welcome in place. Another
+ * admin becomes the contact through `updateConfig` first.
+ */
+async function requireContactPerson(ctx: MutationCtx, adminUserId: string) {
+	const contactSetting = await ctx.db
+		.query('adminSettings')
+		.withIndex('by_key', (q) => q.eq('key', CONTACT_SETTING_KEY))
+		.unique();
+	if (contactSetting?.value !== adminUserId) {
+		throw createFounderWelcomeError(FOUNDER_WELCOME_ERROR_CODES.notCurrentContact);
+	}
+}
+
+/**
+ * Switch the feedback or cancellation email on or off. Switching on stores when,
+ * and a repeated switch-on keeps the first time; switching off clears it. Only the
+ * contact person can call this.
+ */
+export const setFounderEmailEnabled = adminMutation({
+	args: { email: switchableFounderEmailValidator, enabled: v.boolean() },
+	returns: v.null(),
+	handler: async (ctx, { email, enabled }) => {
+		await requireContactPerson(ctx, ctx.user._id);
+		const key = FOUNDER_EMAIL_SETTING_KEYS[email].enabledAt;
+		if (!enabled) {
+			await deleteSetting(ctx, key);
+		} else if ((await readFounderEmailEnabledAt(ctx.db, email)) === undefined) {
+			await upsertSetting(ctx, key, String(Date.now()), ctx.user._id);
+		}
+		return null;
+	}
+});
+
+/** Save the feedback or cancellation template. Only the contact person can call this. */
+export const updateFounderEmailTemplate = adminMutation({
+	args: { email: switchableFounderEmailValidator, subject: v.string(), body: v.string() },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		await requireContactPerson(ctx, ctx.user._id);
+		const subject = args.subject.trim();
+		const body = args.body.trim();
+		if (!subject) throw createFounderWelcomeError(FOUNDER_WELCOME_ERROR_CODES.subjectRequired);
+		if (!body) throw createFounderWelcomeError(FOUNDER_WELCOME_ERROR_CODES.bodyRequired);
+
+		const keys = FOUNDER_EMAIL_SETTING_KEYS[args.email];
+		await upsertSetting(ctx, keys.subject, subject, ctx.user._id);
+		await upsertSetting(ctx, keys.body, body, ctx.user._id);
 		return null;
 	}
 });

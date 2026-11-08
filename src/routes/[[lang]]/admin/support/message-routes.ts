@@ -10,7 +10,8 @@ import { normalizeSupportPageRoute } from '#lib/shared/support-page-route.js';
  */
 export function messageRouteToShow(
 	messageId: string,
-	routes: Map<string, string>,
+	// A message whose context row holds only a build maps to no route.
+	routes: ReadonlyMap<string, string | undefined>,
 	threadPageUrl: string | undefined
 ): string | undefined {
 	const route = normalizeSupportPageRoute(routes.get(messageId));
