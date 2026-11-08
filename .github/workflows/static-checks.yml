@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 15
     env:
       MISSPELL_VERSION: v0.3.4
+      BUN_LINT_SHA256: b234d7b6e840c447cca574b2b9296734f105bb7039228fde57b826f289dac993
       PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
       PUBLIC_CONVEX_SITE_URL: https://placeholder.convex.site
     steps:
@@ -85,14 +86,30 @@ jobs:
             exit 1
           fi
       # ESLint and Prettier take most of this job; this build's `bun lint` and `bun fmt`
-      # run the same configs natively.
+      # run the same configs natively. The cache holds the archive, not the binary,
+      # so the SHA-256 check below covers cached bytes too.
+      - name: Cache Bun with native Svelte linting
+        id: bun-lint-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/bun-lint.zip
+          key: bun-lint-${{ env.BUN_LINT_SHA256 }}
       - name: Install Bun with native Svelte linting
         env:
-          URL: https://github.com/stickerdaniel/bun/releases/download/svelte-lint-4622972d/bun-linux-x64.zip
-          SHA256: b234d7b6e840c447cca574b2b9296734f105bb7039228fde57b826f289dac993
+          # bun-linux-x64.zip of stickerdaniel/bun release svelte-lint-4622972d. The
+          # github.com download link answered 502 and 503 for minutes during a GitHub
+          # incident for unauthenticated users; this authenticated API asset endpoint
+          # serves the same bytes.
+          URL: https://api.github.com/repos/stickerdaniel/bun/releases/assets/707718747
+          GH_TOKEN: ${{ github.token }}
+          CACHE_HIT: ${{ steps.bun-lint-cache.outputs.cache-hit }}
         run: |
-          curl -fsSL --retry 3 -o "$RUNNER_TEMP/bun-lint.zip" "$URL"
-          echo "$SHA256  $RUNNER_TEMP/bun-lint.zip" | sha256sum -c -
+          if [ "$CACHE_HIT" != true ]; then
+            curl -fsSL --retry 5 --retry-delay 30 \
+              -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/octet-stream' \
+              -o "$RUNNER_TEMP/bun-lint.zip" "$URL"
+          fi
+          echo "$BUN_LINT_SHA256  $RUNNER_TEMP/bun-lint.zip" | sha256sum -c -
           unzip -q "$RUNNER_TEMP/bun-lint.zip" -d "$RUNNER_TEMP/bun-lint"
           echo "BUN_LINT_BINARY=$RUNNER_TEMP/bun-lint/bun-linux-x64/bun" >> "$GITHUB_ENV"
       # The compatibility check below builds its baseline in a worktree of its own, so it runs
