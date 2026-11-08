@@ -512,7 +512,7 @@
 			</div>
 		{:else if view === 'waiting'}
 			<!-- Loading skeletons -->
-			<div class="absolute inset-0 scrollbar-thin overflow-y-auto">
+			<div class="absolute inset-0 overflow-y-auto">
 				{#each Array(skeletonCount) as _, i (i)}
 					<div class="border-b p-4 dark:bg-muted/20">
 						<div class="flex flex-col gap-2">
@@ -540,10 +540,7 @@
 			</div>
 		{:else if view === 'list'}
 			<!-- data-tolgee-restricted: thread previews may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
-			<div
-				data-tolgee-restricted
-				class="absolute inset-0 scrollbar-thin overflow-x-hidden overflow-y-auto"
-			>
+			<div data-tolgee-restricted class="absolute inset-0 overflow-x-hidden overflow-y-auto">
 				<InfiniteLoader
 					{loaderState}
 					{triggerLoad}
