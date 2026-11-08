@@ -184,7 +184,9 @@ describe('handleError with Sentry', () => {
 		await (await import('@sentry/sveltekit')).close();
 	});
 
-	it('reports the full error and logs only the safe line', async () => {
+	// This SDK has no projection: its beforeSend stands in for the one in
+	// src/lib/monitoring/sentry.ts, so the event still holds the raw error.
+	it('logs the safe line, then reports the error once under the same diagnostic id', async () => {
 		const handleError = await loadHandleError();
 
 		const result = await handleError(thrownError());
@@ -198,6 +200,24 @@ describe('handleError with Sentry', () => {
 		expect(lines).toHaveLength(1);
 		expect(lines[0]).toMatch(SAFE_LINE);
 		expectNoSentinel(lines);
+		expect(events[0]?.contexts?.correlation).toEqual({
+			diagnosticId: lines[0]?.match(/ diagnostic=([0-9a-f]{16}) /)?.[1]
+		});
+	});
+
+	it('still reports the error when the console throws', async () => {
+		for (const spy of consoleSpies) {
+			spy.mockImplementation(() => {
+				throw new Error('stdout closed');
+			});
+		}
+		const handleError = await loadHandleError();
+
+		await handleError(thrownError());
+		await (await import('@sentry/sveltekit')).flush();
+
+		expect(events).toHaveLength(1);
+		expect(events[0]?.contexts).not.toHaveProperty('correlation');
 	});
 
 	it('neither reports nor logs a 404', async () => {

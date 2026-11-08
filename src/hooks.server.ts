@@ -499,30 +499,49 @@ export const handle = sequence(
 // Exporting handleError replaces SvelteKit's console report, and Sentry's own
 // handler copies that report: both print the error's stack, whose message and
 // request path can carry user input. Outside dev, the console gets one line of
-// fixed fields instead, and Sentry still receives the full error. Like
-// SvelteKit, it stays silent for app and framework errors such as a 404.
-function logServerError(input: Parameters<HandleServerError>[0]): void {
-	if (input.kind === 'app' || input.kind === 'framework') return;
+// fixed fields instead, and the line's diagnostic id is returned so the Sentry
+// event names it too. Like SvelteKit, it stays silent for app and framework
+// errors such as a 404.
+function logServerError(input: Parameters<HandleServerError>[0]): string | undefined {
+	if (input.kind === 'app' || input.kind === 'framework') return undefined;
 	if (dev && input.kind === 'unknown') {
 		console.error(input.error);
-		return;
+		return undefined;
 	}
-	logSafeDiagnostic('error', '[server] Request failed', {
+	return logSafeDiagnostic('error', '[server] Request failed', {
 		status: input.kind === 'unknown' ? 500 : input.error.status,
 		method: input.event.request.method,
 		route: input.event.route.id
 	});
 }
 
-// Memoized Sentry error handler, created on first error so the SDK import
-// stays lazy.
-let sentryHandleError: HandleServerError | null = null;
+type SentryModule = NonNullable<Awaited<ReturnType<typeof loadSentry>>>;
 
+// Memoized Sentry module and error handler, created on the first error so the
+// SDK import stays lazy.
+let sentryReporting: { sentry: SentryModule; handleError: HandleServerError } | null = null;
+
+// The line comes first, then Sentry, whose event `sentry.ts` projects onto the
+// failure's shape: types, frames, route and the line's diagnostic id.
 export const handleError: HandleServerError = async (input) => {
-	if (!sentryHandleError) {
-		const sentry = await loadSentry();
-		if (!sentry) return logServerError(input);
-		sentryHandleError = sentry.handleErrorWithSentry<HandleServerError>(logServerError);
+	let diagnosticId: string | undefined;
+	try {
+		diagnosticId = logServerError(input);
+	} catch {
+		// A broken console loses the line; Sentry still hears of the error.
 	}
-	return sentryHandleError(input);
+	if (!sentryReporting) {
+		const sentry = await loadSentry();
+		if (!sentry) return;
+		// The line above is the console report, so the SDK's handler writes none.
+		sentryReporting = {
+			sentry,
+			handleError: sentry.handleErrorWithSentry<HandleServerError>(() => {})
+		};
+	}
+	const reporting = sentryReporting;
+	return reporting.sentry.withScope((scope) => {
+		if (diagnosticId) scope.setContext('correlation', { diagnosticId });
+		return reporting.handleError(input);
+	});
 };
