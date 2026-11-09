@@ -69,4 +69,4 @@ These are the same two names the hosting platform needs, set a second time for C
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------: |
 | `CI_CONTROL_RUNNER` | Variable. Runner label for the short PR metadata checks, the `Unit Tests` verifier and the Windows lifecycle runner selector. Unset, they run on `ubuntu-latest` |    ○     |
 
-Point it at a Linux runner that can run JavaScript actions and download Bun, and that starts every job in a fresh environment: `Regression Guard Verdict` runs a script from the pull request's own checkout.
+Point it at a Linux runner with `bash`, `git`, `gh` and `jq` that can run JavaScript actions and download Bun. `Regression Guard Verdict` runs a script from the pull request's own checkout, so the runner must give every job a disposable, isolated environment, with no shared writable state, host mounts or host credentials. Cleaning the workspace of a persistent runner is not enough.
