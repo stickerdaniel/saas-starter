@@ -7,11 +7,156 @@ index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2
 diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
 --- a/dist/backend-CgypcZjo.mjs
 +++ b/dist/backend-CgypcZjo.mjs
-@@ -567,0 +568,3 @@
+@@ -321,14 +321,39 @@
+ 		attempts++;
+ 	}
+ }
++const TRANSIENT_DOWNLOAD_STATUSES = /* @__PURE__ */ new Set([408, 409, 429]);
++const DOWNLOAD_MAX_ATTEMPTS = 3;
++var DownloadHttpError = class extends Error {
++	status;
++	constructor(message, status) {
++		super(message);
++		this.status = status;
++	}
++};
++var ArchiveValidationError = class extends Error {};
++function isTransientDownloadStatus(status) {
++	return TRANSIENT_DOWNLOAD_STATUSES.has(status) || status >= 500;
++}
++function isTransientDownloadError(error) {
++	return error instanceof DownloadHttpError ? isTransientDownloadStatus(error.status) : error instanceof TypeError;
++}
++async function waitForDownloadRetry(attempt) {
++	await new Promise((resolve) => setTimeout(resolve, attempt * 1e3));
++}
+ async function fetchConvexReleases() {
+ 	const url = "https://api.github.com/repos/get-convex/convex-backend/releases?per_page=50";
+ 	const headers = {};
+ 	const githubToken = process.env.GITHUB_TOKEN;
+ 	if (githubToken) headers["Authorization"] = `Bearer ${githubToken}`;
+-	const response = await fetch(url, { headers });
+-	if (!response.ok) throw new Error(`Failed to fetch releases: ${response.status}`);
+-	return response.json();
++	for (let attempt = 1; attempt <= DOWNLOAD_MAX_ATTEMPTS; attempt++) try {
++		const response = await fetch(url, { headers });
++		if (!response.ok) throw new DownloadHttpError(`Failed to fetch releases: ${response.status}`, response.status);
++		return await response.json();
++	} catch (error) {
++		if (!isTransientDownloadError(error) || attempt === DOWNLOAD_MAX_ATTEMPTS) throw error;
++		await waitForDownloadRetry(attempt);
++	}
++	throw new Error("Convex release download retry exhausted");
+ }
+ function getPlatformTarget() {
+ 	const arch = process.arch === "x64" ? "x86_64" : process.arch === "arm64" ? "aarch64" : process.arch;
+@@ -357,14 +382,36 @@
+ 	}
+ 	throw new Error(`No Convex binary asset matches '${target}'`);
+ }
+-async function downloadFile(url, destPath) {
+-	const response = await fetch(url, {
+-		headers: { "User-Agent": "node" },
++function isRateLimitExhausted(response) {
++	return (response.status === 403 || response.status === 429) && response.headers.get("x-ratelimit-remaining") === "0";
++}
++async function downloadFile(asset, destPath) {
++	const headers = {
++		Accept: "application/octet-stream",
++		"User-Agent": "node"
++	};
++	const githubToken = process.env.GITHUB_TOKEN;
++	if (githubToken) headers["Authorization"] = `Bearer ${githubToken}`;
++	let url = asset.url;
++	let response = await fetch(url, {
++		headers,
+ 		redirect: "follow"
+ 	});
+-	if (!response.ok) throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
+-	const buffer = await response.arrayBuffer();
+-	await fsp.writeFile(destPath, Buffer.from(buffer));
++	if (isRateLimitExhausted(response)) {
++		await response.body?.cancel();
++		url = asset.browser_download_url;
++		response = await fetch(url, {
++			headers: { "User-Agent": "node" },
++			redirect: "follow"
++		});
++	}
++	if (!response.ok) throw new DownloadHttpError(`Failed to download ${url}: ${response.status} ${response.statusText}`, response.status);
++	const bytes = Buffer.from(await response.arrayBuffer());
++	if (asset.digest) {
++		const actual = `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
++		if (actual !== asset.digest.toLowerCase()) throw new ArchiveValidationError(`${asset.name} has digest ${actual}, expected ${asset.digest}`);
++	}
++	await fsp.writeFile(destPath, bytes);
+ }
+ function extractZip(zipPath, destDir) {
+ 	return new Promise((resolve, reject) => {
+@@ -376,7 +423,7 @@
+ 		];
+ 		ChildProcess$1.spawn("unzip", args, { stdio: "ignore" }).on("error", reject).on("exit", (code) => {
+ 			if (code === 0) resolve();
+-			else reject(/* @__PURE__ */ new Error(`Failed to extract ${zipPath} (exit code ${code})`));
++			else reject(new ArchiveValidationError(`Failed to extract ${zipPath} (exit code ${code})`));
+ 		});
+ 	});
+ }
+@@ -436,17 +483,39 @@
+ 		fs.utimesSync(binaryPath, now, now);
+ 		return binaryPath;
+ 	}
+-	const zipPath = path.join(binaryDir, asset.name);
+ 	logger.info(`Downloading Convex backend ${version}...`, { timestamp: true });
+-	await downloadFile(asset.browser_download_url, zipPath);
+-	logger.info(`Downloaded: ${asset.name}`, { timestamp: true });
+-	await extractZip(zipPath, binaryDir);
+-	const extracted = path.join(binaryDir, `convex-local-backend${isWindows ? ".exe" : ""}`);
+-	await fsp.rename(extracted, binaryPath);
+-	if (!isWindows) fs.chmodSync(binaryPath, 493);
+-	await fsp.rm(zipPath);
+-	logger.info(`Binary ready at: ${binaryPath}`, { timestamp: true });
+-	return binaryPath;
++	for (let attempt = 1; attempt <= DOWNLOAD_MAX_ATTEMPTS; attempt++) {
++		const attemptId = `${process.pid}-${crypto.randomUUID()}`;
++		const zipPath = path.join(binaryDir, `${asset.name}.${attemptId}.tmp`);
++		const extractDir = path.join(binaryDir, `.extract-${attemptId}`);
++		try {
++			await fsp.mkdir(extractDir, { recursive: true });
++			await downloadFile(asset, zipPath);
++			await extractZip(zipPath, extractDir);
++			const extracted = path.join(extractDir, `convex-local-backend${isWindows ? ".exe" : ""}`);
++			const extractedStat = await fsp.stat(extracted).catch(() => null);
++			if (!extractedStat?.isFile()) throw new ArchiveValidationError(`Archive does not contain ${path.basename(extracted)}`);
++			if (!isWindows) await fsp.chmod(extracted, 493);
++			try {
++				await fsp.rename(extracted, binaryPath);
++			} catch (error) {
++				const published = await fsp.stat(binaryPath).catch(() => null);
++				if (!published?.isFile()) throw error;
++			}
++			logger.info(`Binary ready at: ${binaryPath}`, { timestamp: true });
++			return binaryPath;
++		} catch (error) {
++			const retryable = error instanceof ArchiveValidationError || isTransientDownloadError(error);
++			if (!retryable || attempt === DOWNLOAD_MAX_ATTEMPTS) throw error;
++			await waitForDownloadRetry(attempt);
++		} finally {
++			await Promise.all([
++				fsp.rm(zipPath, { force: true }).catch(() => {}),
++				fsp.rm(extractDir, { recursive: true, force: true }).catch(() => {})
++			]);
++		}
++	}
++	throw new Error("Convex binary download retry exhausted");
+ }
+ 
+ //#endregion
+@@ -567,0 +637,3 @@
 +		this.process.on("error", (error) => {
 +			this.logger.error(`Convex backend process failed to start: ${error instanceof Error ? error.message : String(error)}`, { timestamp: true });
 +		});
-@@ -579,2 +582,2 @@
+@@ -579,2 +651,2 @@
 -		this.logger.info(`  Instance secret: ${this.instanceSecret}`, { timestamp: true });
 -		this.logger.info(`  Admin key:       ${this.adminKey}`, { timestamp: true });
 +		this.logger.info(`  Instance secret: [REDACTED]`, { timestamp: true });
@@ -128,3 +273,221 @@ diff --git a/src/index.ts b/src/index.ts
 +                logger.info(`Removed environment variable: ${name}`, { timestamp: true });
 +              }
 +            }
+diff --git a/src/utils.ts b/src/utils.ts
+--- a/src/utils.ts
++++ b/src/utils.ts
+@@ -181,9 +181,46 @@
+   });
+ }
+ 
++interface ReleaseAsset {
++  name: string;
++  /** REST endpoint that serves the bytes for `Accept: application/octet-stream`. */
++  url: string;
++  browser_download_url: string;
++  /** `sha256:<hex>`, or null for assets GitHub has no digest for. */
++  digest?: string | null;
++}
++
+ interface GitHubRelease {
+   tag_name: string;
+-  assets: Array<{ name: string; browser_download_url: string }>;
++  assets: ReleaseAsset[];
++}
++
++const TRANSIENT_DOWNLOAD_STATUSES = new Set([408, 409, 429]);
++const DOWNLOAD_MAX_ATTEMPTS = 3;
++
++class DownloadHttpError extends Error {
++  constructor(
++    message: string,
++    readonly status: number,
++  ) {
++    super(message);
++  }
++}
++
++class ArchiveValidationError extends Error {}
++
++function isTransientDownloadStatus(status: number): boolean {
++  return TRANSIENT_DOWNLOAD_STATUSES.has(status) || status >= 500;
++}
++
++function isTransientDownloadError(error: unknown): boolean {
++  return error instanceof DownloadHttpError
++    ? isTransientDownloadStatus(error.status)
++    : error instanceof TypeError;
++}
++
++async function waitForDownloadRetry(attempt: number): Promise<void> {
++  await new Promise((resolve) => setTimeout(resolve, attempt * 1_000));
+ }
+ 
+ async function fetchConvexReleases(): Promise<GitHubRelease[]> {
+@@ -195,12 +232,24 @@
+     headers["Authorization"] = `Bearer ${githubToken}`;
+   }
+ 
+-  const response = await fetch(url, { headers });
+-  if (!response.ok) {
+-    throw new Error(`Failed to fetch releases: ${response.status}`);
++  for (let attempt = 1; attempt <= DOWNLOAD_MAX_ATTEMPTS; attempt++) {
++    try {
++      const response = await fetch(url, { headers });
++      if (!response.ok) {
++        throw new DownloadHttpError(
++          `Failed to fetch releases: ${response.status}`,
++          response.status,
++        );
++      }
++      // Awaited here so a body that fails mid-read is retried too.
++      return await response.json();
++    } catch (error) {
++      if (!isTransientDownloadError(error) || attempt === DOWNLOAD_MAX_ATTEMPTS) throw error;
++      await waitForDownloadRetry(attempt);
++    }
+   }
+ 
+-  return response.json();
++  throw new Error("Convex release download retry exhausted");
+ }
+ 
+ function getPlatformTarget(): string {
+@@ -219,7 +268,7 @@
+   target: string,
+   version?: string,
+ ): {
+-  asset: { name: string; browser_download_url: string };
++  asset: ReleaseAsset;
+   version: string;
+ } {
+   // If a specific version is requested, find that release
+@@ -243,18 +292,52 @@
+   throw new Error(`No Convex binary asset matches '${target}'`);
+ }
+ 
+-async function downloadFile(url: string, destPath: string): Promise<void> {
+-  const response = await fetch(url, {
+-    headers: { "User-Agent": "node" },
+-    redirect: "follow",
+-  });
++function isRateLimitExhausted(response: Response): boolean {
++  return (
++    (response.status === 403 || response.status === 429) &&
++    response.headers.get("x-ratelimit-remaining") === "0"
++  );
++}
+ 
+-  if (!response.ok) {
+-    throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
++// The anonymous github.com download link has answered 503 and 504 for hours
++// while the REST asset endpoint kept serving, so the bytes come from the API.
++// The API redirects to a signed objects host, and fetch drops Authorization on
++// that cross-origin hop. Once the API's hourly quota is spent, this attempt
++// falls back to the github.com link, which that quota does not cover.
++async function downloadFile(asset: ReleaseAsset, destPath: string): Promise<void> {
++  const headers: Record<string, string> = {
++    Accept: "application/octet-stream",
++    "User-Agent": "node",
++  };
++  const githubToken = process.env.GITHUB_TOKEN;
++  if (githubToken) {
++    headers["Authorization"] = `Bearer ${githubToken}`;
+   }
+ 
+-  const buffer = await response.arrayBuffer();
+-  await fsp.writeFile(destPath, Buffer.from(buffer));
++  let url = asset.url;
++  let response = await fetch(url, { headers, redirect: "follow" });
++  if (isRateLimitExhausted(response)) {
++    await response.body?.cancel();
++    url = asset.browser_download_url;
++    response = await fetch(url, { headers: { "User-Agent": "node" }, redirect: "follow" });
++  }
++  if (!response.ok) {
++    throw new DownloadHttpError(
++      `Failed to download ${url}: ${response.status} ${response.statusText}`,
++      response.status,
++    );
++  }
++
++  const bytes = Buffer.from(await response.arrayBuffer());
++  if (asset.digest) {
++    const actual = `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
++    if (actual !== asset.digest.toLowerCase()) {
++      throw new ArchiveValidationError(
++        `${asset.name} has digest ${actual}, expected ${asset.digest}`,
++      );
++    }
++  }
++  await fsp.writeFile(destPath, bytes);
+ }
+ 
+ function extractZip(zipPath: string, destDir: string): Promise<void> {
+@@ -266,7 +349,7 @@
+         if (code === 0) {
+           resolve();
+         } else {
+-          reject(new Error(`Failed to extract ${zipPath} (exit code ${code})`));
++          reject(new ArchiveValidationError(`Failed to extract ${zipPath} (exit code ${code})`));
+         }
+       });
+   });
+@@ -385,16 +468,47 @@
+     return binaryPath;
+   }
+ 
+-  const zipPath = path.join(binaryDir, asset.name);
+   logger.info(`Downloading Convex backend ${version}...`, { timestamp: true });
+-  await downloadFile(asset.browser_download_url, zipPath);
+-  logger.info(`Downloaded: ${asset.name}`, { timestamp: true });
+ 
+-  await extractZip(zipPath, binaryDir);
+-  const extracted = path.join(binaryDir, `convex-local-backend${isWindows ? ".exe" : ""}`);
+-  await fsp.rename(extracted, binaryPath);
+-  if (!isWindows) fs.chmodSync(binaryPath, 0o755);
+-  await fsp.rm(zipPath);
+-  logger.info(`Binary ready at: ${binaryPath}`, { timestamp: true });
+-  return binaryPath;
++  for (let attempt = 1; attempt <= DOWNLOAD_MAX_ATTEMPTS; attempt++) {
++    const attemptId = `${process.pid}-${crypto.randomUUID()}`;
++    const zipPath = path.join(binaryDir, `${asset.name}.${attemptId}.tmp`);
++    const extractDir = path.join(binaryDir, `.extract-${attemptId}`);
++
++    try {
++      await fsp.mkdir(extractDir, { recursive: true });
++      await downloadFile(asset, zipPath);
++      await extractZip(zipPath, extractDir);
++      const extracted = path.join(
++        extractDir,
++        `convex-local-backend${isWindows ? ".exe" : ""}`,
++      );
++      const extractedStat = await fsp.stat(extracted).catch(() => null);
++      if (!extractedStat?.isFile()) {
++        throw new ArchiveValidationError(`Archive does not contain ${path.basename(extracted)}`);
++      }
++      if (!isWindows) await fsp.chmod(extracted, 0o755);
++
++      try {
++        await fsp.rename(extracted, binaryPath);
++      } catch (error) {
++        const published = await fsp.stat(binaryPath).catch(() => null);
++        if (!published?.isFile()) throw error;
++      }
++
++      logger.info(`Binary ready at: ${binaryPath}`, { timestamp: true });
++      return binaryPath;
++    } catch (error) {
++      const retryable = error instanceof ArchiveValidationError || isTransientDownloadError(error);
++      if (!retryable || attempt === DOWNLOAD_MAX_ATTEMPTS) throw error;
++      await waitForDownloadRetry(attempt);
++    } finally {
++      await Promise.all([
++        fsp.rm(zipPath, { force: true }).catch(() => {}),
++        fsp.rm(extractDir, { recursive: true, force: true }).catch(() => {}),
++      ]);
++    }
++  }
++
++  throw new Error("Convex binary download retry exhausted");
+ }
