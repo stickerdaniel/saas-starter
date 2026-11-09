@@ -73,7 +73,7 @@
 	},
 	"packageManager": "bun@1.4.4",
 	"dependencies": {
-		"@ai-sdk/provider": "4.0.35",
+		"@ai-sdk/provider": "4.0.36",
 		"@better-auth/passkey": "1.6.33",
 		"@better-svelte-email/components": "2.3.0",
 		"@better-svelte-email/server": "2.3.0",
