@@ -633,6 +633,12 @@ describe('concurrent preview builds of one branch', () => {
 			first: { ...pages, CF_PAGES_URL: 'https://newer.app.pages.dev' },
 			second: { ...pages, CF_PAGES_URL: 'https://older.app.pages.dev' },
 			outcome: 'failed'
+		},
+		{
+			name: 'Pages build without a deployment URL',
+			first: { ...pages, WORKERS_NAME: 'app', WORKERS_SUBDOMAIN: 'team' },
+			second: { ...pages, WORKERS_NAME: 'app', WORKERS_SUBDOMAIN: 'team' },
+			outcome: 'failed'
 		}
 	])(
 		'keeps the site URL of the build that replaced a same-commit preview on a $name',

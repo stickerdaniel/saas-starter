@@ -93,7 +93,9 @@ export function detectPlatform(env: NodeJS.ProcessEnv = process.env): PlatformCo
 			} else if (branch && env.WORKERS_NAME && env.WORKERS_SUBDOMAIN) {
 				const alias = sanitizeBranchAlias(branch, env.WORKERS_NAME);
 				siteUrl = `https://${alias}-${env.WORKERS_NAME}.${env.WORKERS_SUBDOMAIN}.workers.dev`;
-				siteUrlIsBranchAlias = true;
+				// A Pages build without CF_PAGES_URL also lands here, but Pages does not
+				// serve this Workers alias.
+				siteUrlIsBranchAlias = Boolean(env.WORKERS_CI) && !env.CF_PAGES;
 			}
 		} else if (productionSiteUrl) {
 			// Explicit custom domains beat Pages and Workers generated hosts.
