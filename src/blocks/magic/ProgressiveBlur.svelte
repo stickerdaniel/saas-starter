@@ -29,7 +29,7 @@
 <div class={cn('relative', _class)}>
 	{#each { length: layers } as _, index (index)}
 		<div
-			class="progressive-blur-layer pointer-events-none absolute inset-0 z-(--blur-z) rounded-[inherit] backdrop-blur-(--blur-radius)"
+			class="progressive-blur-layer"
 			style:--blur-angle="{GRADIENT_ANGLES[direction]}deg"
 			style:--blur-stop-0="{index * segmentSize * 100}%"
 			style:--blur-stop-1="{(index + 1) * segmentSize * 100}%"
@@ -43,8 +43,16 @@
 
 <style>
 	/* Each layer shows its blur only across a band of the gradient: transparent,
-	   opaque, opaque, transparent at the four runtime stops. */
+	   opaque, opaque, transparent at the four runtime stops. The layout lives here
+	   rather than in utility classes, because every instance repeats it per layer. */
 	.progressive-blur-layer {
+		pointer-events: none;
+		position: absolute;
+		inset: 0;
+		z-index: var(--blur-z);
+		border-radius: inherit;
+		-webkit-backdrop-filter: blur(var(--blur-radius));
+		backdrop-filter: blur(var(--blur-radius));
 		mask-image: linear-gradient(
 			var(--blur-angle),
 			rgba(255, 255, 255, 0) var(--blur-stop-0),

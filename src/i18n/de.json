@@ -932,11 +932,19 @@
 			},
 			"updates": {
 				"question": "Wie bekomme ich später Updates?",
-				"answer": "Führe bun run upstream:sync aus. Es findet, wo sich dein Produkt abgespalten hat, und ein Agent prüft jeden Template-Commit gegen deine Änderungen."
+				"answer": "Führe bun run upstream:sync aus. Es findet, wo sich dein Produkt abgespalten hat, und ein Agent prüft jeden Template-Commit gegen deine Änderungen. Deine Änderungen bleiben deine."
 			},
 			"production": {
 				"question": "Ist es bereit für die Produktion?",
 				"answer": "Features kommen erst hierher, wenn ein Produkt sie in Produktion nutzt. So werden die Fehler gefunden, bevor sie dich erreichen. Meistens."
+			},
+			"design": {
+				"question": "Kann ich das Design ändern?",
+				"answer": "Ja. Es nutzt shadcn-svelte-Komponenten und Theme-Tokens in einem Stylesheet, so färbst du die ganze App samt Schreibtisch-Illustration in einer Datei um."
+			},
+			"demo": {
+				"question": "Gibt es eine Demo?",
+				"answer": "Du bist gerade drin. Registriere dich und klick dich durch, und der Support-Chat auf dieser Seite ist der echte."
 			},
 			"agents": {
 				"question": "Können KI-Agenten meine Website lesen?",

@@ -932,11 +932,19 @@
 			},
 			"updates": {
 				"question": "¿Cómo recibo actualizaciones después?",
-				"answer": "Ejecuta bun run upstream:sync. Encuentra dónde se separó tu producto, y un agente revisa cada commit de la plantilla frente a tus cambios."
+				"answer": "Ejecuta bun run upstream:sync. Encuentra dónde se separó tu producto, y un agente revisa cada commit de la plantilla frente a tus cambios. Tus cambios siguen siendo tuyos."
 			},
 			"production": {
 				"question": "¿Está listo para producción?",
 				"answer": "Las funciones solo llegan aquí cuando un producto ya las usa en producción. Así los errores se encuentran antes de llegar a ti. Casi siempre."
+			},
+			"design": {
+				"question": "¿Puedo cambiar el diseño?",
+				"answer": "Sí. Usa componentes de shadcn-svelte y tokens de tema en una sola hoja de estilos, así que cambias los colores de toda la app, ilustración del escritorio incluida, en un archivo."
+			},
+			"demo": {
+				"question": "¿Hay una demo?",
+				"answer": "Estás en ella. Regístrate y explora, y el chat de soporte de esta página es el de verdad."
 			},
 			"agents": {
 				"question": "¿Pueden los agentes de IA leer mi sitio?",

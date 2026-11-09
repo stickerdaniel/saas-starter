@@ -932,11 +932,19 @@
 			},
 			"updates": {
 				"question": "Comment recevoir les mises à jour plus tard ?",
-				"answer": "Lance bun run upstream:sync. La commande trouve où ton produit s'est séparé, et un agent passe en revue chaque commit du modèle face à tes changements."
+				"answer": "Lance bun run upstream:sync. La commande trouve où ton produit s'est séparé, et un agent passe en revue chaque commit du modèle face à tes changements. Tes changements restent les tiens."
 			},
 			"production": {
 				"question": "Est-ce prêt pour la production ?",
 				"answer": "Une fonctionnalité n'arrive ici qu'après avoir servi en production dans un produit. Les bugs sont donc trouvés avant de t'atteindre. En général."
+			},
+			"design": {
+				"question": "Puis-je changer le design ?",
+				"answer": "Oui. Il utilise des composants shadcn-svelte et des tokens de thème dans une seule feuille de style, donc tu recolores toute l'app, illustration du bureau comprise, dans un seul fichier."
+			},
+			"demo": {
+				"question": "Y a-t-il une démo ?",
+				"answer": "Tu es dessus. Inscris-toi et explore, et le chat d'assistance de cette page est le vrai."
 			},
 			"agents": {
 				"question": "Les agents IA peuvent-ils lire mon site ?",
