@@ -28,6 +28,75 @@ export function shouldBlockNavigation(nav: GuardedNavigation, hasActiveUploads: 
 }
 
 /**
+ * Stop a link click that would end a running upload while another navigation
+ * is still under way.
+ *
+ * SvelteKit skips `beforeNavigate` for a navigation that starts while another
+ * one is in flight, so the root layout's guard never sees such a click. A page
+ * that mirrors its own state into the query with `goto` opens that window on
+ * every change. The capture listener on the document runs before every handler
+ * below it: preventing the click stops the browser, and stopping its
+ * propagation keeps both SvelteKit's router and the app's own click handlers,
+ * such as a link whose own handler calls `goto`, from acting on it. Outside
+ * that window the click is left to `beforeNavigate`, so nothing is stopped
+ * twice.
+ *
+ * Back and Forward inside the same window stay uncovered: a popstate cannot be
+ * cancelled from here.
+ */
+export function guardLinkClicksDuringNavigation(
+	doc: Document,
+	read: {
+		navigating: () => boolean;
+		currentUrl: () => URL;
+		uploads: Pick<ActiveUploads, 'any' | 'noteBlocked'>;
+	}
+): () => void {
+	const onClick = (event: MouseEvent) => {
+		if (event.defaultPrevented || !read.navigating()) return;
+		const current = read.currentUrl();
+		const href = followedLink(event, doc.defaultView, current.origin);
+		if (!href) return;
+		// Another origin unloads the document whatever its path is.
+		const to = href.origin === current.origin ? { url: href } : null;
+		if (!shouldBlockNavigation({ from: { url: current }, to }, read.uploads.any)) return;
+		event.preventDefault();
+		event.stopPropagation();
+		read.uploads.noteBlocked();
+	};
+	doc.addEventListener('click', onClick, true);
+	return () => doc.removeEventListener('click', onClick, true);
+}
+
+/**
+ * Where a click takes this tab, or null for the clicks SvelteKit's router also
+ * leaves alone: another button or a modifier, another tab or frame, a
+ * same-origin download, or a protocol that opens another app. A browser ignores
+ * `download` on another origin and navigates there.
+ */
+function followedLink(event: MouseEvent, view: Window | null, origin: string): URL | null {
+	if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+		return null;
+	}
+	// Along the composed path, as SvelteKit's anchor search walks it: at the
+	// document a click inside a shadow root is retargeted to its host, and
+	// `closest` stops at the shadow boundary, so a link around a host or a link
+	// whose label is slotted in would be missed.
+	const anchor = event
+		.composedPath()
+		.find((node): node is Element => node instanceof Element && node.matches('a[href]'));
+	if (!anchor) return null;
+	const target = anchor.getAttribute('target');
+	const topLevel = view !== null && view.parent === view;
+	if (target && target !== '_self' && !((target === '_top' || target === '_parent') && topLevel)) {
+		return null;
+	}
+	const url = new URL(anchor.getAttribute('href') ?? '', anchor.baseURI);
+	if (url.origin === origin && anchor.hasAttribute('download')) return null;
+	return url.protocol === 'http:' || url.protocol === 'https:' ? url : null;
+}
+
+/**
  * Where to reload to when a detected deploy should be taken now, or null.
  *
  * The upload answer has to be part of this one, not a separate hook: a

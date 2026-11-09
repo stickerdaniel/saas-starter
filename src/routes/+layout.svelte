@@ -2,7 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import { browser, dev } from '$app/env';
 	import { beforeNavigate, onNavigate } from '$app/navigation';
-	import { page, updated } from '$app/state';
+	import { navigating, page, updated } from '$app/state';
 	import { T, Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
 	import { ModeWatcher } from 'mode-watcher';
@@ -26,6 +26,7 @@
 	import {
 		ActiveUploads,
 		activeUploadsContext,
+		guardLinkClicksDuringNavigation,
 		shouldBlockNavigation,
 		deployReloadTarget
 	} from '#lib/hooks/active-uploads.svelte.ts';
@@ -116,6 +117,16 @@
 			location.href = reloadTarget.href;
 		}
 	});
+
+	// The guard above never runs for a link clicked while another navigation is
+	// still under way; this covers that click.
+	$effect(() =>
+		guardLinkClicksDuringNavigation(document, {
+			navigating: () => navigating.to !== null,
+			currentUrl: () => new URL(page.url.href),
+			uploads: activeUploads
+		})
+	);
 
 	// Fade page navigations via the View Transitions API (see layout.css).
 	// Same-path navigations (table sort/pagination/search param churn) and
