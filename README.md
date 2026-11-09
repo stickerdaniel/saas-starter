@@ -1,60 +1,50 @@
-# Ship SaaS faster with agents, without the regressions
+# saas-starter
 
 [![Static Checks](https://github.com/stickerdaniel/saas-starter/actions/workflows/static-checks.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/static-checks.yml)
-[![E2E Tests (CF)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-cf.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-cf.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-%233fb950)](https://opensource.org/licenses/MIT)
-
-An open-source SvelteKit + Convex starter/reference application with auth, billing, admin, AI chat, email, and i18n wired end to end.<br>
-Non-obvious recurring bug classes become the earliest guard that can catch them, including types, lint rules, static checks, focused tests, and targeted agent instructions.
-
-**Start on free tiers. Deploy to Cloudflare/Vercel, or your own Node server.**
-
-> [Live demo!](https://saas.daniel.sticker.name) The public demo covers the user-facing features. Run the quick start below to access admin panel, support dashboard, and user management.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lighthouse-dark.gif">
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/lighthouse-light.gif">
-  <img alt="Desktop Lighthouse scores: 100 Performance, Accessibility, Best Practices, and SEO" src="docs/assets/lighthouse-light.gif">
-</picture>
-
-## Why This Exists
-
-I kept rebuilding the same stack and pointing my agent at old repos to copy patterns I had already built, so I collected the best versions here: streaming AI chat with tool calling and file uploads, support chat with human handoff, auth, billing, admin features, emails, and i18n.
-
-The same mistakes also kept showing up across repos. In addition to giving agents good patterns to copy, the codebase enforces its own rules. A recurring bug earns a guard only when the correct path was non-obvious and the mistake remains writable. CI requires every human-authored PR with a conventional `fix` title to include a `Regression guard:` verdict; bot PRs are exempt. The accepted guard fires at the earliest useful point, which can be a type, lint rule, static check, focused test, or targeted instruction.
-
-The stack is deliberately opinionated, following [Rich Harris's case](https://www.youtube.com/watch?v=SmHgtyym6OA&t=2388s) for smart defaults that fit well together.
 
 <!-- template-only -->
 
-## Choose an update model
+[![Commit activity](https://img.shields.io/github/commit-activity/m/stickerdaniel/saas-starter?label=commits)](https://github.com/stickerdaniel/saas-starter/commits/main)
 
-How you create your project decides how it receives later starter changes, so choose before you create it:
+saas-starter is an open-source SvelteKit and Convex template for building your SaaS and running it after launch.
 
-- **CLI or GitHub template** ([Quick Start](#quick-start)): a content copy with its own history and visibility. A GitHub template starts with a single commit; the CLI creates a directory without a Git repository, so initialize, commit, and publish it yourself first. Neither shares a Git ancestor with this repository, so an ordinary merge or rebase has no common base to work from.
-- **Shared-history clone**: keeps this repository as `upstream` and pushes to your own `origin`, so `git merge upstream/main` can bring later changes in. Your repository carries the full starter history and has no GitHub "Sync fork" relationship.
-- **GitHub fork**: keeps the full history in this repository's fork network. A fork of this public repository stays public, cannot change its visibility on its own, and shares pushed commits with the whole network. When upstream changes conflict with yours, GitHub's "Sync fork" offers a pull request and `gh repo sync` stops; its `--force` flag would discard your commits, so resolve conflicts by merging `upstream/main` locally or through that pull request.
+Most starters end where the real work starts: your first customer. This one also tells you who paid, who is stuck, and who was hit by a bug.
 
-Every model takes later changes through the [upstream-sync skill](.agents/skills/upstream-sync/SKILL.md), started with `bun run upstream:sync` and `bun run upstream:changes`. It reviews each upstream commit by intent and adapts it to what your product changed. A merge into a clone or fork moves the bytes, and the skill still reviews every commit that merge brought in.
+Runs in production at [Cadenza](https://cadenza.page), the hosted version of [LinkedIn MCP](https://github.com/stickerdaniel/linkedin-mcp-server) [![LinkedIn MCP stars](https://img.shields.io/github/stars/stickerdaniel/linkedin-mcp-server?style=flat&logo=github&label=stars&color=blue)](https://github.com/stickerdaniel/linkedin-mcp-server).
 
-For a shared-history clone, create an empty repository for your product, then run:
+[Live demo](https://saas.daniel.sticker.name) | [Docs](docs/README.md) | [Quick start](#quick-start)
 
-```bash
-git clone --origin upstream https://github.com/stickerdaniel/saas-starter.git my-saas-product
-cd my-saas-product
-git remote add origin https://github.com/<you>/my-saas-product.git
-git push -u origin main
-```
+## Why you can build on it
 
-For a fork, run `gh repo fork stickerdaniel/saas-starter --clone --fork-name my-saas-product`. Continue either path with `bun install`, [`bun run setup`](#rebrand-the-template), and `bun run dev`.
+- **Nothing lands here on spec.** A feature only moves into the template once one of my products uses it in production.
+- **Fixes reach every product.** Cadenza has reviewed 158 template commits in three syncs and taken over 120 of them, among them a checkout bug that silently dead-ended every upgrade path. Each was fixed once, here.
+- **It stays maintained** because my own products run on it. When the base breaks, my products break first.
+- **Fixes stay fixed.** When the right fix was not obvious and the mistake is still easy to write, the fix ships with a guard at the earliest point that catches it again: a type, a lint rule, a static check or a focused test. CI asks every fix for its verdict. [How guards work](docs/development.md#regression-guards).
 
-`bun run setup` deletes the maintainer CLI (`packages/create-saas-starter` and `.github/workflows/create-saas-starter.yml`) and rebrands files including this README, so review every upstream merge into a clone or fork deliberately. Keep your values in rebranded files, check that the merged README gained no `template-only` sections, and resolve modify/delete conflicts by keeping setup's deletions:
+## The feedback loop after launch
 
-```bash
-git rm -r --ignore-unmatch packages/create-saas-starter .github/workflows/create-saas-starter.yml
-```
+Each step is wired in. The conversations stay yours.
 
-An ordinary merge cannot connect an existing content copy to this history, because it has no common base to work from. To switch models, create a branch from `upstream/main` and replay your product changes onto it.
+| Step                 | What the template does                                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Launch               | Pushes deploy, and pull requests get previews. Analytics, error tracking and admin metrics are wired in before your first user.                           |
+| Talk to users        | New users get a personal welcome email from you, and replies reach your inbox. The support AI answers and hands you threads that need a human.            |
+| Learn what they do   | You get an email when a customer first pays, with what they did before paying. People who never paid and customers who cancel are asked what was missing. |
+| Fix it and tell them | After a production fix, an agent can find who the evidence shows was hit and draft one email for you to approve.                                          |
+
+Each step turns on once its service is connected, such as Resend for email or the Autumn webhook for payments. The [feature docs](docs/features/README.md) list what each one needs.
+
+Under that: auth with passkeys and OAuth, plan limits with an upgrade path, admin with impersonation and an audit log, markdown pages and `/llms.txt` for AI agents, four languages, and automated WCAG 2.1 AA checks. [All features](docs/features/README.md).
+
+## Staying up to date
+
+Your product is its own repository with its own branding and features. Template changes still reach it, and your fixes can travel back:
+
+- **Down:** `bun run upstream:sync` finds where your product split off, `bun run upstream:changes` lists every template commit since, and an agent skill reviews each one against what your product changed.
+- **Up:** `bun run upstream:report` measures which of your fixes touched template code, so you can send the ones that matter back and every product gets them.
+
+Pick how your product receives template changes before you create it: [update models](docs/update-models.md).
 
 <!-- /template-only -->
 
@@ -68,11 +58,10 @@ Create a project with the CLI. It downloads a pinned template revision, runs `bu
 
 ```bash
 npm create saas-starter@latest my-app
+cd my-app && bun run dev
 ```
 
-Alternatively, use `bun create saas-starter@latest my-app` or `npx create-saas-starter@latest my-app`. See the [CLI README](https://github.com/stickerdaniel/saas-starter/blob/main/packages/create-saas-starter/README.md) for options and requirements. When it finishes, run `bun run dev` inside `my-app`.
-
-To create a GitHub template repository instead, run the commands below and then [rebrand it](#rebrand-the-template):
+To create a GitHub template repository instead, run the commands below and then [rebrand it](docs/getting-started.md#rebrand-the-template):
 
 <!-- /template-only -->
 
@@ -83,517 +72,18 @@ bun install
 bun run dev
 ```
 
-Visit the URL printed by `bun run dev` (a stable per-project port) and sign in:
-
-```text
-admin@local.dev
-```
-
-```text
-LocalDevAdmin123!
-```
-
-No external services required. To activate optional features (email, OAuth, billing, AI), add keys to `.env.convex.local`. See the [environment variable matrix](#environment-variables) below.
-
-<details>
-<summary><strong>What about the Convex cloud dev deployment?</strong></summary>
-
-I'd recommend the local embedded backend for day-to-day work. Each git worktree gets its own isolated Convex instance, you can develop multiple features in parallel without conflicts.
-
-```bash
-bunx convex dev --configure                   # creates/links a Convex project
-```
-
-`convex dev` prints a `CONVEX_DEPLOYMENT` value, add it to `.env.local`. `bun run dev` still uses the local embedded backend; the variable is only needed for `dev:cloud` and the Convex CLI.
-
-```bash
-bun run dev:cloud                             # frontend + cloud Convex backend
-bunx convex env set KEY value                 # set backend env vars (see .env-convex.schema / env matrix below)
-```
-
-</details>
-
-<details>
-<summary><strong>Optional: stable named URLs with portless</strong></summary>
-
-`bun run dev` and `bun run test:e2e` already pick stable per-project ports (derived from the project path in `scripts/dev-ports.ts`), so several projects or worktrees run at once without clashing. If you'd rather use names than remember ports, [vercel-labs/portless](https://github.com/vercel-labs/portless) fronts the dev server with a `.localhost` URL and gives each git worktree its own branch subdomain.
-
-Run portless with `--no-tls` so everything stays on HTTP. The Convex backend reaches the browser over a WebSocket on its own local port; an HTTPS frontend would block that as mixed content, plain HTTP does not.
-
-Point the harness at the named URL with `PORTLESS_SITE_URL`. The dev/test wrappers then hand port control to portless, and the same URL flows into the Convex `SITE_URL`/trusted origin and Playwright's base URL:
-
-```bash
-PORTLESS_SITE_URL=http://myapp.localhost bun run dev
-PORTLESS_SITE_URL=http://myapp.localhost bun run test:e2e
-```
-
-This stays optional: a plain clone needs nothing extra and never has to install portless or grant it the privileged ports it binds.
-
-</details>
-
-### Rebrand the template
-
-Projects created with the CLI have already run this step. Otherwise, rebrand the app once it runs:
-
-```bash
-bun run setup
-```
-
-The setup script replaces the project name and central GitHub repository slug, then prompts for brand, company, operator, postal address, and contact email. The address takes four fields: street, postal code, city, and a two-letter country code such as `US`. Repository links used by the headers, `/llms.txt`, and JSON-LD come from `src/lib/config/site.ts`; legal identity remains in `src/lib/config/legal.ts`. A `legal.ts` that still stores the address as one string needs all four fields once, through prompts or, without a TTY, through `--street`, `--postal-code`, `--city`, and `--country`. Setup prints the old string and writes nothing until all four fields are valid. After running it:
-
-1. Replace `static/logo.svg` with your logo, then run `bun run generate:logos`
-2. Refresh email snapshots: `bun run test:unit -- email-snapshots.test.ts -u`
-3. Update editorial brand mentions in `src/i18n/{en,de,es,fr}.json` (FAQ, hero copy, pricing tier names)
-4. Rewrite the About and Contact placeholders and review the legal copy in `src/lib/content/legal/*.md`
-5. Keep the agent summaries in `src/routes/[[lang]]/(marketing)/{about,contact,privacy,terms,impressum}/page.md.ts` aligned with the legal copy
-6. Review the optional organization logo, description, and profile links in `src/lib/config/site.ts` and the access limits in `src/lib/content/llms.txt` if your fork adds a public API, MCP server, or agent actions
-7. Review the support seed prompt in `src/lib/convex/support/instructions.txt`; development and build commands regenerate its adapter automatically
-
-## Preview Deployments
-
-Each PR gets its own preview deployment with an isolated Convex preview backend. Supports both Cloudflare Workers and Vercel.
-
-Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) and connect your repo to your hosting platform.
-
-Protect the production branch, require the `Lint & Format` and `English PR Metadata` checks, and leave **Require branches to be up to date before merging** disabled so independent PRs can finish their checks in parallel. `English PR Metadata` checks the pull request title and each prose paragraph in the body. `Lint & Format` runs the Convex consumer-compatibility guard against the candidate it checks. Before merging, fetch the target and inspect intervening changes; update for conflicts or actual integration dependencies. Checks on an older candidate do not certify the combined tree after the target advances. Hosting builds start from a push, so the push-time check can report a problem after a build has already started.
-
-The guard forces the compatibility release for a renamed function. Alias retirement still needs operational evidence: browser bundles can remain open indefinitely, and a scheduled target must remain until every pending `runAfter` or `runAt` job carrying its old path has run or been cancelled.
-
-The deploy script (`scripts/deploy.ts`) auto-detects the platform from environment variables (`WORKERS_CI`, `CF_PAGES`, or `VERCEL`), tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the preview URL. It also seeds an admin user (`admin@preview.dev`) on every preview. Set the password once as a Convex preview default env var, every new preview deployment inherits it regardless of which CI builds it:
-
-```sh
-bunx convex env default set --type preview PREVIEW_ADMIN_PASSWORD '<password>'
-```
-
-<details>
-<summary><strong>Cloudflare Workers setup</strong></summary>
-
-Deploy via [Cloudflare Workers](https://developers.cloudflare.com/workers/) with Workers Builds:
-
-**1. Create Worker**
-
-- Rename `name` in `wrangler.toml` to your project name
-- Run `bunx varlock-wrangler deploy` (first deploy creates the Worker)
-
-`varlock-wrangler` is a thin wrapper around `wrangler` that resolves the env schema and uploads it to the Worker: non-sensitive values become Worker vars, `@sensitive` ones become Worker secrets, and a `__VARLOCK_ENV` secret carries the resolved graph that the SSR bundle reads at boot. The Cloudflare build embeds no env in the bundle, so resolved secrets never land in the Worker script (which is API-readable and archived per version). Deploying with plain `wrangler` would upload a Worker with no env at all. The other adapters (Vercel, adapter-node) have no upload step, so there the resolved env is still serialized into the bundle, with `@sensitive` values stripped out of it (`scripts/strip-varlock-secrets.ts`).
-
-**2. Connect repo**
-
-- CF dashboard > Workers & Pages > select Worker > Builds > Connect
-- If the repo isn't visible: GitHub Settings > Applications > Cloudflare Workers and Pages > Configure > grant repo access
-
-**3. Configure build commands**
-
-| Field                                | Value                                       |
-| ------------------------------------ | ------------------------------------------- |
-| Build command                        | `bunx varlock run -- bun scripts/deploy.ts` |
-| Deploy command                       | `bun scripts/cf-prod-deploy.ts`             |
-| Non-production branch deploy command | `bun scripts/cf-deploy.ts`                  |
-
-**4. Add build variables** (plain text, visible in logs)
-
-| Variable            | Value                                  | Notes                                                                                                                                                                |
-| ------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WORKERS_NAME`      | Name from `wrangler.toml`              | Required for preview URL construction                                                                                                                                |
-| `WORKERS_SUBDOMAIN` | Account subdomain (e.g., `daniel-ce4`) | Visible at Workers & Pages overview as `*.workers.dev`                                                                                                               |
-| `SITE_URL`          | `https://your-domain.com`              | Production frontend origin. The build maps it to `PUBLIC_SITE_URL`; previews always replace both values with their branch URL. Falls back to `workers.dev` if unset. |
-
-**5. Add build secrets** (encrypted, hidden from logs)
-
-| Secret                      | Where to find it                                             |
-| --------------------------- | ------------------------------------------------------------ |
-| `CONVEX_DEPLOY_KEY`         | Convex dashboard > Project Settings > Production Deploy Keys |
-| `CONVEX_PREVIEW_DEPLOY_KEY` | Convex dashboard > Project Settings > Preview Deploy Keys    |
-
-**6. Set Convex default env vars for previews**
-
-Each preview Convex deployment starts with no env vars. Set defaults in Convex dashboard > Project Settings > Default Environment Variables with only Preview/Development checked (not Production):
-
-`BETTER_AUTH_SECRET`, `RESEND_API_KEY`, `AUTH_EMAIL`, `EMAIL_ASSET_URL`, `AUTUMN_SECRET_KEY`, `OPENROUTER_API_KEY`
-
-Optionally add `AUTH_E2E_TEST_SECRET` for E2E tests on previews.
-
-**7. Enable branch builds**
-
-Enable non-production branch builds for preview deployments. Push a branch and Workers Builds creates a preview deployment with a stable per-branch URL.
-
-</details>
-
-<details>
-<summary><strong>Vercel setup</strong></summary>
-
-Connect your repo to [Vercel](https://vercel.com). Set the required Vercel and Convex preview variables listed in the [environment variable matrix](#environment-variables) below.
-
-- Vercel: Project Settings > Environment Variables
-- Convex: Project settings > Default Environment Variables > Add with ✓ Production
-
-Push a branch and Vercel creates a preview deployment with its own Convex preview backend.
-
-</details>
-
-### Preview cleanup
-
-Convex expires preview deployments after 5 days (14 on Professional), and the team quota is 40 counted across all projects. An active repo reaches that ceiling well before the TTL frees anything, and once it does, creating a preview fails with `DeploymentQuotaReached`.
-
-Two optional mechanisms keep the count down:
-
-- **On PR close** (`.github/workflows/delete-convex-preview.yml`) deletes the branch's preview as soon as its PR is merged or closed, so a short-lived PR stops holding a slot for days. It resolves the deployment by the branch's canonical identifier, treats an already-deleted preview as success, and fails closed without deleting anything if two identifiers normalize to the same slug.
-- **On quota exhaustion** (`scripts/deploy/steps.ts`) prunes the oldest eligible preview and retries once when a build hits `DeploymentQuotaReached`. It never prunes the current branch, the newest preview, or a branch that still exists on the remote.
-
-Both read `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_PROJECT_ID`, and they run in different environments, so the values have to be set in two places: GitHub Actions for the workflow, and the hosting platform's build settings for the deploy script (see the [env matrix](#environment-variables)). Configuring one leaves the other silently inactive, which is easy to miss because the deploy script only reports its half when a build is already failing.
-
-The token is team-scoped. Mint it on the team that owns this project: a token from another team you belong to is valid and authenticates fine, yet every call for this project returns `404` rather than an authorization error.
-
-## Production Deployment
-
-Set the required platform and Convex production variables listed in the [environment variable matrix](#environment-variables) below.
-
-- Platform: Project Settings > Environment Variables (CF Workers or Vercel)
-- Convex: Select your Prod deployment > Settings > Environment Variables > Add
-
-### Deploy
-
-Merge a reviewed pull request into your production branch (default: `main`) and the connected platform deploys the resulting push. Deployment is push-driven, so whatever the merge puts on that branch becomes the production build. Keeping review in that path is a maintainer procedure; what branch protection enforces is the narrower technical half described under [Preview Deployments](#preview-deployments), that a pull request's required checks passed on its tested candidate. Inspect intervening changes before merging an independent PR whose target has advanced. Verify or configure those settings separately for each fork, since they live in GitHub rather than in this repository and an organization rule may already supply some of them.
-
-Each supported platform also has a manual deploy:
-
-**Cloudflare Workers:**
-
-```bash
-bun scripts/cf-prod-deploy.ts
-```
-
-**Vercel:**
-
-```bash
-vercel --prod
-```
-
-<details>
-<summary><strong>Self-hosted production with Coolify</strong></summary>
-
-Use the existing Cloudflare Workers or Vercel setup for preview deployments, and run production on Coolify when you want a self-hosted Node app with the same Convex cloud backend.
-
-**Architecture:**
-
-- **Previews:** Cloudflare Workers or Vercel, using the existing preview deploy flow above
-- **Production app hosting:** Coolify
-- **Backend/data/auth:** Convex cloud production deployment
-
-**Coolify setup:**
-
-1. Add the repo as an application in Coolify and use the Nixpacks build pack
-2. Set the build command to:
-
-```bash
-bunx varlock run -- bun scripts/deploy.ts
-```
-
-3. Set the start command to:
-
-```bash
-node build
-```
-
-4. Set app-level environment variables in Coolify:
-   - `NODE_ADAPTER=1`
-   - `PUBLIC_SITE_URL` (the public frontend origin, for canonical URLs in the server build)
-   - `CONVEX_DEPLOY_KEY`
-   - `TOLGEE_API_KEY` (optional)
-   - `CONVEX_INTERNAL_URL` (optional, only if the app container can reach Convex through a private Docker network URL)
-5. Set the required Convex production environment variables in the Convex dashboard
-6. Set `SITE_URL` on the Convex production deployment to your public production domain
-
-The build command intentionally reuses `scripts/deploy.ts` so production stays aligned with the existing deploy flow: Tolgee sync remains optional, Convex is deployed during the build, and `PUBLIC_CONVEX_URL` / `PUBLIC_CONVEX_SITE_URL` are computed automatically from the deploy output instead of being copied into Coolify by hand.
-
-</details>
-
-### Optional Node container
-
-For an already provisioned Convex backend, build with `docker/node.Dockerfile`. This frontend-only build does not deploy Convex or synchronize translations. The existing Coolify/Nixpacks path above remains available.
-
-```bash
-docker build -f docker/node.Dockerfile -t starter-node \
-  --build-arg APP_BUILD_SHA="$(git rev-parse HEAD)" \
-  --build-arg PUBLIC_SITE_URL=https://app.example.com \
-  --build-arg PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud \
-  --build-arg PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site .
-docker run --rm -p 3000:3000 -e ORIGIN=https://app.example.com starter-node
-```
-
-The image runs `node build` as a non-root user. Public URLs are compiled into the frontend; rebuild to change the origin or backend. Pass private runtime settings such as `CONVEX_INTERNAL_URL` through the container environment. Keep deployment keys and other secrets out of build arguments. Configure a reverse proxy for HTTPS and set `ORIGIN` to its public origin.
-
-Validate the production dependency tree, server modules, asset hashes and HTTP responses under Node:
-
-```bash
-docker run --rm --read-only --tmpfs /tmp \
-  -v "$PWD/scripts/validate-node-runtime.ts:/probe.ts:ro" \
-  --entrypoint node starter-node /probe.ts "$(git rev-parse HEAD)" https://app.example.com
-```
-
-The Node Container workflow checks native AMD64 packaging with placeholder public URLs. Those checks complement the real preview E2E suite. Dependency layers cache separately from source; font downloads still require network access.
-
-### Custom domain (Cloudflare)
-
-No zone cache tuning is needed. HTML shells ship `Cache-Control: public, no-cache`, so a returning visitor always revalidates and never boots a stale shell that points at chunk hashes a new deploy has replaced (which would render a blank page until a hard refresh). Because `no-cache` also keeps the shell out of the edge cache, the zone's Browser Cache TTL setting (which rewrites the browser-facing `max-age` of edge-cacheable responses up to its floor, 4 hours by default) never applies to it.
-
-After deploying, verify the live header carries no injected `max-age`:
-
-```bash
-curl -sI https://your-domain.example/en | grep -i cache-control
-# expect: public, no-cache
-```
-
-### First Admin
-
-Sign up on the site, then either set the user's role to `admin` in the Convex dashboard or run (with the email you signed up with):
-
-```bash
-bunx convex run admin/mutations:seedFirstAdmin '{"email":"you@example.com"}' --prod
-```
-
-<details>
-<summary><strong>Resend webhook (optional)</strong></summary>
-
-For email event tracking (delivery, bounce, open, click):
-
-1. Resend dashboard > Webhooks > Add Endpoint
-2. URL: `https://<your-deployment>.convex.site/resend-webhook`
-3. Select events: `email.delivered`, `email.bounced`, `email.complained`, `email.opened`, `email.clicked`
-4. Copy the signing secret and set it on Convex: `bunx convex env set RESEND_WEBHOOK_SECRET <secret> --prod`
-
-</details>
-
-<details>
-<summary><strong>Custom domain (Cloudflare Workers)</strong></summary>
-
-If your domain's DNS is on Cloudflare: CF dashboard > Workers & Pages > select Worker > Settings > Domains & Routes > Add > Custom Domain. CF creates DNS records and provisions SSL automatically. Set `SITE_URL` on your Convex production deployment to match.
-
-Once a custom domain is live, marketing pages are edge-cached (`s-maxage`), so a production deploy would otherwise serve stale HTML for up to an hour. The production deploy command `scripts/cf-prod-deploy.ts` purges the edge cache after each deploy when you set two values in CF Workers Builds: `CF_ZONE_ID` (build variable, the zone id from the domain's CF Overview page) and `CF_PURGE_TOKEN` (build secret, an API token with the `Zone > Cache Purge` permission). Without them the purge is skipped.
-
-If your domain uses external DNS, use the CF for SaaS method below.
-
-</details>
-
-<details>
-<summary><strong>Custom domain without Cloudflare DNS (CF for SaaS)</strong></summary>
-
-CF Workers custom domains require the domain's DNS zone to be on Cloudflare. If your domain uses external DNS (e.g., registrar-managed DNS, Route 53), use [Cloudflare for SaaS](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/) (Custom Hostnames) on a CF-managed zone you control.
-
-**Prerequisites:**
-
-- A Cloudflare-managed zone (e.g., `proxy-zone.com` with DNS on CF)
-- Your external domain (e.g., `app.yourdomain.com` on non-CF DNS)
-
-**Steps:**
-
-1. In your CF zone's DNS, add an originless record for the fallback origin:
-   - Type: `AAAA`, Name: `saas-fallback`, Value: `100::`, Proxy: enabled
-
-2. In **SSL/TLS > Custom Hostnames**, set the fallback origin to `saas-fallback.proxy-zone.com`
-
-3. Add a wildcard Workers Route on the zone: `*/*` pointing to your Worker
-
-4. Add `app.yourdomain.com` as a Custom Hostname (certificate auto-provisions via HTTP validation)
-
-5. On your external DNS, add a CNAME: `app.yourdomain.com` pointing to `saas-fallback.proxy-zone.com`
-
-6. For automatic cert renewal, add a DCV delegation CNAME on your external DNS:
-   `_acme-challenge.app.yourdomain.com` pointing to `<token>.dcv.cloudflare.com` (shown in the Custom Hostnames dashboard)
-
-7. Set `SITE_URL` on your Convex production deployment to `https://app.yourdomain.com`
-
-The originless `100::` record tells Cloudflare there is no real origin server. The wildcard Workers Route catches all traffic entering the zone (including Custom Hostname traffic) and routes it to your Worker.
-
-</details>
-
----
-
-<details id="environment-variables">
-<summary><strong>Environment Variables</strong></summary>
-
-Two runtimes, two schemas, both managed by [varlock](https://github.com/nickreese/varlock) for type-safe access. `.env.schema` covers SvelteKit (Vite), `.env-convex.schema` covers the Convex backend. The matrix below shows every variable and where it needs to be set.
-
-`✓` required | `○` optional | `·` auto-set by tooling
-
-**Convex backend** (`.env.convex.local` for local, [dashboard](https://dashboard.convex.dev) for cloud):
-
-| Variable                 |                                           | Local | Preview | Prod |
-| ------------------------ | ----------------------------------------- | :---: | :-----: | :--: |
-| `BETTER_AUTH_SECRET`     | Session/token signing secret              |   ·   |    ✓    |  ✓   |
-| `SITE_URL`               | Base URL for OAuth redirects              |   ·   |    ·    |  ✓   |
-| `RESEND_API_KEY`         | Resend API key for transactional email    |   ○   |    ✓    |  ✓   |
-| `AUTH_EMAIL`             | Sender address for auth emails            |   ○   |    ✓    |  ✓   |
-| `EMAIL_ASSET_URL`        | Public URL for email images (always prod) |   ○   |    ✓    |  ✓   |
-| `AUTUMN_SECRET_KEY`      | Autumn billing secret key                 |   ○   |    ✓    |  ✓   |
-| `OPENROUTER_API_KEY`     | OpenRouter API key for AI support chat    |   ○   |    ✓    |  ✓   |
-| `AUTH_E2E_TEST_SECRET`   | Secret for E2E test mutations             |   ○   |    ○    |      |
-| `AUTH_GOOGLE_ID`         | Google OAuth client ID                    |   ○   |    ○    |  ○   |
-| `AUTH_GOOGLE_SECRET`     | Google OAuth client secret                |   ○   |    ○    |  ○   |
-| `AUTH_GITHUB_ID`         | GitHub OAuth client ID                    |   ○   |    ○    |  ○   |
-| `AUTH_GITHUB_SECRET`     | GitHub OAuth client secret                |   ○   |    ○    |  ○   |
-| `RESEND_WEBHOOK_SECRET`  | Resend webhook signing secret             |   ○   |    ○    |  ○   |
-| `AUTUMN_WEBHOOK_SECRET`  | Autumn webhook signing secret             |   ○   |    ○    |  ○   |
-| `ADMIN_TIME_ZONE`        | Time zone of admin customer emails        |   ○   |    ○    |  ○   |
-| `SUPPORT_EMAIL`          | Support contact email                     |   ○   |    ○    |  ○   |
-| `PREVIEW_ADMIN_PASSWORD` | Password for auto-seeded preview admin    |       |    ✓    |      |
-
-Set `PREVIEW_ADMIN_PASSWORD` once as a preview default (`bunx convex env default set --type preview PREVIEW_ADMIN_PASSWORD '<password>'`), new preview deployments inherit it automatically. The other preview values are set per deployment by `scripts/deploy.ts`.
-
-**Hosting platform** (CF Workers build settings or Vercel project settings):
-
-| Variable                       |                                                                                                                                          | Preview | Prod |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | :-----: | :--: |
-| `CONVEX_DEPLOY_KEY`            | Convex production deploy key                                                                                                             |    ✓    |  ✓   |
-| `CONVEX_PREVIEW_DEPLOY_KEY`    | Convex preview deploy key                                                                                                                |    ✓    |      |
-| `CONVEX_MANAGEMENT_TOKEN`      | Convex team token for quota self-heal (mint at Team Settings > Access Tokens, Team ID shown on the same page)                            |    ○    |      |
-| `CONVEX_PROJECT_ID`            | Numeric project id for quota self-heal (`curl -H "Authorization: Bearer $TOKEN" https://api.convex.dev/v1/teams/{teamId}/list_projects`) |    ○    |      |
-| `PUBLIC_SITE_URL`              | Canonical frontend origin. Takes precedence over the platform URL in production; previews always use their own deployment URL            |    ·    |  ○   |
-| `SITE_URL`                     | Cloudflare-compatible production frontend origin, mapped to `PUBLIC_SITE_URL`; separate from Convex `SITE_URL`                           |    ·    |  ○   |
-| `WORKERS_NAME`                 | CF Workers only: worker name (matches `wrangler.toml`)                                                                                   |    ✓    |  ○   |
-| `WORKERS_SUBDOMAIN`            | CF Workers only: account's `workers.dev` subdomain                                                                                       |    ✓    |  ○   |
-| `CF_ZONE_ID`                   | CF Workers only: zone id of the custom domain, for post-deploy edge cache purge (skipped when unset)                                     |         |  ○   |
-| `CF_PURGE_TOKEN`               | CF Workers only: API token with `Cache Purge`, for post-deploy edge cache purge (skipped when unset)                                     |         |  ○   |
-| `NODE_ADAPTER`                 | Set to `1` to build with adapter-node for self-hosted production                                                                         |         |  ○   |
-| `CONVEX_INTERNAL_URL`          | Internal Convex URL for Docker-network routing (self-hosted)                                                                             |         |  ○   |
-| `TOLGEE_API_KEY`               | Tolgee CLI key for deploy-time sync (optional, skips when unset)                                                                         |    ○    |  ○   |
-| `PUBLIC_POSTHOG_API_KEY`       | PostHog analytics API key                                                                                                                |         |  ○   |
-| `PUBLIC_POSTHOG_HOST`          | PostHog ingestion host or managed reverse proxy                                                                                          |         |  ○   |
-| `PUBLIC_POSTHOG_ALLOWED_HOSTS` | Comma-separated hostnames that may send analytics; every other host stays off                                                            |         |  ○   |
-| `PRODUCTION_BRANCH`            | Cloudflare only: production branch name (default: `main`)                                                                                |    ○    |  ○   |
-
-Builds that `scripts/deploy.ts` classifies as previews get empty PostHog key, host, and allowed-hosts values, even when the hosting platform shares build variables with production. Custom build commands are not covered, and existing previews keep their values until rebuilt.
-
-`PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` are intentionally not in this table. The build (`scripts/deploy.ts`) derives both from `CONVEX_DEPLOY_KEY` and overwrites any value you set on the hosting platform, so setting them there has no effect. To point production at a different Convex deployment, change the deploy key, not the URL.
-
-**GitHub Actions, preview cleanup** (repository Settings > Secrets and variables > Actions):
-
-| Variable                  |                                                                                   | Required |
-| ------------------------- | --------------------------------------------------------------------------------- | :------: |
-| `CONVEX_MANAGEMENT_TOKEN` | Secret. The same team token as above, used to delete a preview when its PR closes |    ○     |
-| `CONVEX_PROJECT_ID`       | Variable, not a secret. The same numeric project id                               |    ○     |
-
-These are the same two names the hosting platform needs, set a second time for CI. Without them the `Delete Convex Preview` workflow logs that it is skipping and exits successfully, which also keeps fork PRs green.
-
-</details>
-
-<details>
-<summary><strong>Features</strong></summary>
-
-### Authentication
-
-Sign in with email/password, Google, GitHub, or passkeys. Powered by [Better Auth](https://www.better-auth.com/) running as a [local Convex install](https://labs.convex.dev/better-auth/features/local-install) so every auth feature works without an external service. New signups verify their email before getting access, password resets work out of the box, and users are signed in automatically after verification. Routes are protected by role (`user` or `admin`) via a JWT check in the SvelteKit hook, with no extra round-trip to the backend.
-
-### Billing
-
-[Autumn](https://docs.useautumn.com/welcome) sits on top of Stripe and lets you define pricing tiers and usage gates without writing webhook handlers. Configure your products in `autumn.config.ts` or generate a starter config at [app.useautumn.com/sandbox/quickstart](https://app.useautumn.com/sandbox/quickstart). Ships with a Free tier (3 community + 3 AI messages/month) and a Pro tier ($10/month, unlimited community chat and 30 AI messages/month). The community chat enforces quotas, warns users when they are running low, and offers an upgrade flow.
-
-### Admin Panel
-
-A full admin area at `/admin` with live metrics (total users, active sessions, recent signups), a searchable users table with filtering, sorting, and cursor-based pagination, per-user actions (ban, unban, impersonate, change role, revoke sessions), and a complete audit log. Admins can also get an email when a customer pays for the first time, with a timeline of what they did before; it needs the Autumn webhook from [the setup guide](docs/setup/admin-notifications/customer-emails.md).
-
-### AI Support Chat
-
-An AI agent built on [Convex Agent](https://www.convex.dev/components/agent) and [OpenRouter](https://openrouter.ai/) answers product questions, collects bug reports, and walks users through setup. A floating chatbar is available on every page. Users can attach images or PDFs and annotate screenshots with a built-in canvas editor before sending. When a question needs a human, admins take over from a 3-pane support dashboard with thread assignment, priority levels, internal notes, and status tracking. Users receive an email when an admin replies.
-
-### Email System
-
-Transactional email delivered through [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery tracking. HTML templates are written as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time. `bun run generate:logos` converts your logo to an email-safe PNG. `bun run build:emails` renders every HTML template, and a snapshot test (`src/lib/emails/__tests__/email-snapshots.test.ts`) flags any unintended markup change.
-
-#### Founder emails
-
-Three personal emails go out as one team member, the contact person set on the welcome card in `/admin/settings`, in plain text with optional links, bold and lists:
-
-- **Welcome**: to every new account right after signup or email verification. On while a contact person is set.
-- **Feedback**: 48 hours later, only to people who never paid, as a reply in the welcome's thread when there is one.
-- **Cancellation**: about an hour after a customer on a plan in `ELIGIBLE_PLANS` (`src/lib/convex/admin/customerNotifications/policy.ts`) schedules a cancellation, asking what was missing. It needs the [Autumn billing webhook](docs/setup/admin-notifications/customer-emails.md) (`AUTUMN_WEBHOOK_SECRET`) to report the cancellation within 3 hours, and asks only about cancellations made after it was switched on.
-
-Feedback and cancellation each have their own switch and template, which only the contact person can change. To stop all three for one user without touching their other mail, run:
-
-```bash
-bunx convex run emails/founderEmails:setPersonalEmailSuppression '{"userId":"<id>","suppressed":true}' --prod
-```
-
-#### Founder incident email
-
-Founder incident emails use saved, localized plain-text drafts, so new incidents need no code change or deployment. Set the contact person on the welcome email card in `/admin/settings`, then follow the [incident-follow-up workflow](.agents/skills/incident-follow-up/SKILL.md) for evidence-qualified recipients, exact-message approval and delivery verification.
-
-The registry sender remains available for existing integrations. New incidents use the saved-draft workflow.
-
-### Internationalization
-
-4 languages (EN, DE, ES, FR) with URL-based routing (`/de/pricing`, `/fr/privacy`) powered by [Tolgee](https://docs.tolgee.io/). Edit translations in context with Tolgee DevTools during development. Production builds tag and pull the latest translations automatically. A custom ESLint rule ensures every `aria-label` uses a translation key instead of a hardcoded string.
-
-> This project has too many translation keys for Tolgee Cloud's free tier. A self-hosted instance deploys in one click via [Coolify](https://coolify.io/docs/services/tolgee).
-
-### Analytics
-
-[PostHog](https://posthog.com/) loads only after a visitor allows it in the consent banner, and only on the hostnames you list. Pageviews are cleaned of query secrets, search terms and unknown paths before they leave the browser, and signed-in users are identified by id only. Setup, the managed reverse proxy and the limits are in [the analytics guide](docs/setup/analytics/posthog.md).
-
-### AI Readiness
-
-Marketing pages return structured markdown when an AI agent sends `Accept: text/markdown`, complete with YAML frontmatter. Unknown public markdown URLs return a short markdown 404 with recovery links. The markdown variant sets `Vary: Accept` and stays private because CF Edge and most shared caches do not key on `Vary`. `/llms.txt` lists the public pages, developer resources, and the integrations the template does not expose by default. Sitemap dates come only from authored content metadata, and the localized homepages publish `WebSite` and `Organization` JSON-LD. The organization takes its name, postal address, and support email from `src/lib/config/legal.ts`.
-
-### SEO
-
-Every page includes a `<SEOHead>` component that outputs OpenGraph tags, Twitter Cards, canonical URLs, and `hreflang` alternates for all languages plus `x-default`. An OG image is included at `static/og-image.png` (1200x630). Replace it with your own and run `bun run generate:og-image-url`: the meta tags carry the image's content hash, which is what makes social platforms fetch the new card instead of the cached one for links that were already shared.
-
-### Accessibility
-
-All public pages are tested against WCAG 2.1 AA using axe-core in both light and dark mode. The template includes a skip-to-content link, semantic HTML throughout, translated `aria-label` attributes, and a banned-pattern scanner that enforces `motion-safe:` prefixes on animations.
-
-### Real-Time
-
-Everything updates live: dashboard metrics, the admin users table, community chat, support threads, and AI agent responses streamed token-by-token. Built on Convex reactive queries. Messages, file uploads, and LLM calls are rate-limited via `@convex-dev/rate-limiter`.
-
-### User Settings
-
-Users can update their profile, change their password with live strength feedback, swap their email (triggers re-verification), manage passkeys, and review or revoke active sessions. Uploaded avatars and attachments are validated on the server and cleaned up automatically.
-
-### Dark Mode
-
-Every component supports light and dark mode via `mode-watcher`. Interactive elements provide subtle haptic feedback on mobile via `web-haptics` (respects `prefers-reduced-motion`).
-
-</details>
-
-<details>
-<summary><strong>Developer Experience</strong></summary>
-
-### Worktrees
-
-Each worktree gets its own isolated Convex backend, port, and auth secret via [convex-vite-plugin](https://github.com/juliusmarminge/agent-tools/tree/main/packages/convex-vite-plugin). Run `bun run worktree feature/dark-mode --open-editor cursor` (or `code`) to create one with all local env vars copied over, or use the VS Code task. Work on multiple features in parallel without stepping on each other.
-
-### Type-Safe Environment Variables
-
-[varlock](https://github.com/nickreese/varlock) validates env vars against two schemas and generates TypeScript types from them. `.env.schema` covers SvelteKit (Vite), `.env-convex.schema` covers the Convex backend. If a required variable is missing or mistyped, you find out before the app starts.
-
-### Pre-Commit Hooks
-
-Every commit is checked automatically. `static-checks:staged` first runs spell checking, the English prose policy, banned pattern detection (catches deprecated Tailwind tokens, bare `animate-spin`, and similar issues), Prettier, ESLint, and oxlint on staged files only. `varlock scan` then checks the staged changes for leaked secrets.
-
-### Dead Code Detection
-
-[Knip](https://knip.dev/) is configured for SvelteKit file-system routing and Convex backend entry points. It catches unused exports, stale dependencies, and orphaned files so the codebase stays clean. [oxlint](https://oxc.rs/docs/guide/usage/linter) adds a custom Convex rule that flags unused Convex functions at lint time. Knip runs as the last lint-group step of `bun scripts/static-checks.ts`, so the pre-push file run and CI's lint job fail on an orphaned file, an unlisted import, or a dependency nothing uses. Unused exports and exported types stay warnings because barrel re-exports and schema types are API surface. The pre-commit hook skips Knip because it reads the whole working tree.
-
-### Bundle Analysis
-
-Run `ANALYZE=true bun run build` to generate a treemap with gzip and brotli sizes. Helps you spot bloat before it reaches production.
-
-### VS Code Integration
-
-Dev server, static checks, i18n sync, email build, and worktree creation are all available as VS Code tasks via `Run Task` (`Cmd/Ctrl+Shift+P`).
-
-### Dependency Automation
-
-Renovate groups non-major updates into a single PR and creates separate PRs for packages that tend to ship breaking changes (Better Auth, AI SDK, ESLint), so upgrades are easier to review.
-
-### Email Development
-
-HTML email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. `bun run build:emails` renders each HTML template with mock data, and the snapshot test `src/lib/emails/__tests__/email-snapshots.test.ts` catches any unexpected markup change.
-
-</details>
-
----
+Sign in with `admin@local.dev` / `LocalDevAdmin123!`. No external service or API key is needed until you turn a feature on. Optional features read their keys from `.env.convex.local`; see the [environment variables](docs/reference/environment.md). More options, including the Convex cloud dev deployment, are in [Getting started](docs/getting-started.md).
+
+## Docs
+
+| Guide                                                  | Covers                                        |
+| ------------------------------------------------------ | --------------------------------------------- |
+| [Getting started](docs/getting-started.md)             | Local setup, rebranding, Convex cloud dev     |
+| [Staying up to date](docs/update-models.md)            | CLI copy, clone or fork, and syncing upstream |
+| [Deployment](docs/deployment/README.md)                | Previews per PR, production, custom domains   |
+| [Features](docs/features/README.md)                    | Auth, billing, admin, support, email, i18n    |
+| [Environment variables](docs/reference/environment.md) | Every variable and where it is set            |
+| [Development](docs/development.md)                     | Worktrees, checks, and regression guards      |
 
 ## License
 

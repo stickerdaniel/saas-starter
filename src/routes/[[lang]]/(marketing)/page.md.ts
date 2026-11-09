@@ -3,63 +3,64 @@ import { markdownText } from '#lib/markdown/literals.js';
 import type { MarketingMarkdownDocument } from '#lib/markdown/types.js';
 
 export const marketingMarkdown: MarketingMarkdownDocument = {
-	title: 'Build & Ship Your Product Faster',
+	title: 'Built for the Day After Launch',
 	description:
-		'The free SaaS foundation. An open-source SvelteKit starter with auth, billing, email, and analytics. Deploy on free tiers, own every line.',
+		'An open-source SvelteKit and Convex template for building your SaaS and running it after launch.',
 	sections: [
 		{
 			heading: 'What this starter is',
 			paragraphs: [
-				markdownText`${LEGAL_CONFIG.brandName} packages the core infrastructure needed to launch a production-ready SaaS product with SvelteKit, Convex, Better Auth, Tolgee, and modern billing, email, and analytics tooling.`,
-				'It is designed for founders and product teams who want to focus on product differentiation rather than rebuilding authentication, billing, localization, and operational plumbing.'
+				markdownText`${LEGAL_CONFIG.brandName} is an open-source SaaS template built on SvelteKit, Convex, Better Auth, Autumn, and Resend. Besides sign-in and billing, it ships the feedback loop with the first customers.`,
+				'Features only move into the starter once a product uses them in production, and each product can pull the fixes made here through a reviewed upstream sync.'
 			]
 		},
 		{
-			heading: 'Why teams use it',
+			heading: 'The feedback loop after launch',
 			bullets: [
-				'Launch faster with a ready-made SaaS foundation',
-				'Keep a modern SvelteKit architecture with typed backend integrations',
-				'Start from real product workflows instead of a blank UI kit',
-				'Own the full codebase with an open-source template'
+				'Launch: pushes deploy, and pull requests get previews. Analytics, error tracking and admin metrics are wired in before the first user.',
+				'Talk to users: new users get a personal welcome email from you, and replies reach your inbox. The support AI answers and hands you threads that need a human.',
+				'Learn what they do: you get an email when a customer first pays, with what they did before paying.',
+				'Fix it and tell them: after a production fix, an agent can find who the evidence shows was hit and draft one email for you to approve.',
+				'Also included: plan limits with an upgrade path, and markdown versions of every marketing page plus /llms.txt for AI agents.'
 			]
 		},
 		{
-			heading: 'Key integrations',
+			heading: 'Built on',
 			links: [
 				{
 					label: 'Svelte 5',
 					href: 'https://svelte.dev',
-					description: 'Frontend framework for the application shell and marketing site'
+					description: 'Server-rendered pages, with markdown answers for AI agents'
 				},
 				{
 					label: 'Convex',
 					href: 'https://convex.dev',
-					description: 'Realtime backend, database, and server functions'
+					description: 'Data, background jobs, and live updates in one typed backend'
 				},
 				{
 					label: 'Better Auth',
 					href: 'https://www.better-auth.com/',
-					description: 'Authentication, sessions, OAuth, and passkeys'
+					description: 'Email and password, passkeys, and OAuth, stored in your own database'
 				},
 				{
 					label: 'Autumn',
 					href: 'https://useautumn.com/',
-					description: 'Billing, feature gates, and subscription workflows'
+					description: 'Plans, Stripe checkout, and usage limits with an upgrade path'
 				},
 				{
 					label: 'Tolgee',
 					href: 'https://tolgee.io',
-					description: 'Localization and translation workflow'
+					description: 'Four languages, with translations kept in the repository'
 				},
 				{
 					label: 'PostHog',
 					href: 'https://posthog.com/',
-					description: 'Product analytics and conversion tracking'
+					description: 'Product analytics that loads only after consent'
 				},
 				{
 					label: 'Resend',
 					href: 'https://resend.com',
-					description: 'Transactional email delivery'
+					description: 'Welcome, verification, and incident emails'
 				}
 			]
 		},
