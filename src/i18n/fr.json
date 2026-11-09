@@ -320,6 +320,28 @@
 			}
 		}
 	},
+	"after_launch": {
+		"title": "Ce qui se passe après le lancement",
+		"description": "Tes premiers clients arrivent. Ces éléments tournent déjà quand ils arrivent.",
+		"steps": {
+			"ship": {
+				"title": "Tu livres",
+				"description": "Chaque push est déployé, et chaque pull request a son propre aperçu. Les analytics, le suivi des erreurs et les métriques d'administration tournent avant ton premier utilisateur."
+			},
+			"talk": {
+				"title": "Tu parles à tes utilisateurs",
+				"description": "Chaque nouvel utilisateur reçoit un email de bienvenue de ta part, et les réponses arrivent dans ta boîte de réception. Le chat d'assistance répond et te transmet les conversations qui demandent une personne."
+			},
+			"pay": {
+				"title": "Tu vois qui paie",
+				"description": "Quand un client paie pour la première fois, tu reçois un email avec ce qu'il a fait avant de payer. Le meilleur email de la semaine."
+			},
+			"fix": {
+				"title": "Tu corriges et tu t'excuses",
+				"description": "Après un correctif en production, un agent trouve les comptes touchés par le bug et rédige un email. Tu le lis et tu cliques sur Envoyer."
+			}
+		}
+	},
 	"ai_chat": {
 		"input": {
 			"placeholder": "Écris un message..."
@@ -892,6 +914,35 @@
 		"not_found_description": "La page que tu cherches n'existe pas. Essaie de rechercher ce dont tu as besoin ci-dessous.",
 		"not_found_title": "404 - Page introuvable",
 		"search_placeholder": "Essaie de rechercher des pages..."
+	},
+	"faq": {
+		"title": "Questions avant de commencer",
+		"items": {
+			"free": {
+				"question": "Est-ce gratuit ?",
+				"answer": "Oui, sous licence MIT. Tu paies seulement les services que tu actives, et la plupart commencent avec une offre gratuite."
+			},
+			"accounts": {
+				"question": "Faut-il des comptes pour l'essayer ?",
+				"answer": "Non. Le développement local fonctionne sans comptes ni clés d'API, base de données comprise. Tu en as besoin au moment du déploiement."
+			},
+			"hosting": {
+				"question": "Où est-ce que ça tourne ?",
+				"answer": "Sur Cloudflare Workers, Vercel ou ton propre serveur Node. Chaque branche reçoit un aperçu avec son propre backend, et la branche de production passe en ligne."
+			},
+			"updates": {
+				"question": "Comment recevoir les mises à jour plus tard ?",
+				"answer": "Lance bun run upstream:sync. La commande trouve où ton produit s'est séparé, et un agent passe en revue chaque commit du modèle face à tes changements."
+			},
+			"production": {
+				"question": "Est-ce prêt pour la production ?",
+				"answer": "Une fonctionnalité n'arrive ici qu'après avoir servi en production dans un produit. Les bugs sont donc trouvés avant de t'atteindre. En général."
+			},
+			"agents": {
+				"question": "Les agents IA peuvent-ils lire mon site ?",
+				"answer": "Oui. Les pages marketing répondent en markdown quand un agent le demande, et /llms.txt les liste. Pour être honnête, la moitié de cette FAQ est pour eux."
+			}
+		}
 	},
 	"footer": {
 		"about": "À propos",

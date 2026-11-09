@@ -320,6 +320,28 @@
 			}
 		}
 	},
+	"after_launch": {
+		"title": "Was nach dem Launch passiert",
+		"description": "Deine ersten Kunden kommen. Diese Teile laufen dann schon.",
+		"steps": {
+			"ship": {
+				"title": "Du lieferst",
+				"description": "Jeder Push wird deployt, und jeder Pull Request bekommt seine eigene Vorschau. Analytics, Fehlertracking und Admin-Kennzahlen laufen, bevor dein erster Nutzer es tut."
+			},
+			"talk": {
+				"title": "Du sprichst mit Nutzern",
+				"description": "Jeder neue Nutzer bekommt eine Willkommensmail von dir, und Antworten landen in deinem Postfach. Der Support-Chat antwortet und übergibt dir die Unterhaltungen, die einen Menschen brauchen."
+			},
+			"pay": {
+				"title": "Du siehst, wer zahlt",
+				"description": "Wenn ein Kunde zum ersten Mal zahlt, bekommst du eine Mail mit dem, was er vor dem Kauf getan hat. Die beste Mail der Woche."
+			},
+			"fix": {
+				"title": "Du behebst es und entschuldigst dich",
+				"description": "Nach einem Fix in Produktion findet ein Agent die betroffenen Accounts und entwirft eine Mail. Du liest sie und drückst auf Senden."
+			}
+		}
+	},
 	"ai_chat": {
 		"input": {
 			"placeholder": "Nachricht eingeben..."
@@ -892,6 +914,35 @@
 		"not_found_description": "Die gesuchte Seite existiert nicht. Such unten nach dem, was du brauchst.",
 		"not_found_title": "404 - Seite nicht gefunden",
 		"search_placeholder": "Nach Seiten suchen..."
+	},
+	"faq": {
+		"title": "Fragen vor dem Start",
+		"items": {
+			"free": {
+				"question": "Ist es kostenlos?",
+				"answer": "Ja, es steht unter der MIT-Lizenz. Du zahlst nur für die Dienste, die du einschaltest, und die meisten starten mit einem kostenlosen Tarif."
+			},
+			"accounts": {
+				"question": "Brauche ich Accounts zum Ausprobieren?",
+				"answer": "Nein. Die lokale Entwicklung läuft ohne Accounts und API-Keys, die Datenbank eingeschlossen. Accounts brauchst du erst beim Deployment."
+			},
+			"hosting": {
+				"question": "Wo läuft es?",
+				"answer": "Auf Cloudflare Workers, Vercel oder deinem eigenen Node-Server. Jeder Branch bekommt eine Vorschau mit eigenem Backend, und der Produktions-Branch geht live."
+			},
+			"updates": {
+				"question": "Wie bekomme ich später Updates?",
+				"answer": "Führe bun run upstream:sync aus. Es findet, wo sich dein Produkt abgespalten hat, und ein Agent prüft jeden Template-Commit gegen deine Änderungen."
+			},
+			"production": {
+				"question": "Ist es bereit für die Produktion?",
+				"answer": "Features kommen erst hierher, wenn ein Produkt sie in Produktion nutzt. So werden die Fehler gefunden, bevor sie dich erreichen. Meistens."
+			},
+			"agents": {
+				"question": "Können KI-Agenten meine Website lesen?",
+				"answer": "Ja. Marketingseiten antworten in Markdown, wenn ein Agent danach fragt, und /llms.txt listet sie auf. Ehrlich gesagt ist dieses FAQ zur Hälfte für sie."
+			}
+		}
 	},
 	"footer": {
 		"about": "Über",

@@ -25,6 +25,17 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 			]
 		},
 		{
+			heading: 'Questions before you start',
+			bullets: [
+				'Is it free? Yes, it is MIT licensed. You pay only for the services you switch on, and most of them start on a free tier.',
+				'Do I need accounts to try it? No. Local development runs without accounts or API keys, database included. You need them once you deploy.',
+				'Where does it run? On Cloudflare Workers, Vercel or your own Node server. Every branch gets a preview with its own backend, and the production branch goes live.',
+				'How do I get updates later? Run `bun run upstream:sync`. It finds where your product split off, and an agent reviews every template commit against your changes.',
+				'Is it ready for production? Features only land here after a product uses them in production.',
+				'Can AI agents read my site? Yes. Marketing pages answer in markdown when an agent asks, and /llms.txt lists them.'
+			]
+		},
+		{
 			heading: 'Built on',
 			links: [
 				{
