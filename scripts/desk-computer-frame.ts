@@ -130,7 +130,7 @@ const dataUrl = (svg: string) =>
  * the browser resolves the same colours as for the inline figure.
  */
 export function deskComputerFrameCss(sources: FrameSources): string {
-	const figure = sources.figure.replaceAll(/<!--[\s\S]*?-->/g, '').trim();
+	const figure = sources.figure.trim();
 	const viewBox = /<svg\b[^>]*\bviewBox="([^"]+)"/
 		.exec(figure)?.[1]
 		?.trim()
