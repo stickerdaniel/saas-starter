@@ -37,5 +37,12 @@ export const SOURCE_FIXTURE_DIRECTORY = '__fixtures__';
  * as `.prettierignore` (PRETTIER_IGNORE_FILES in static-checks.ts), so ignoring this path
  * would make the formatter skip the fixture and leave the Prettier case asserting against
  * a run that formatted nothing.
+ *
+ * Park each fixture in its own subdirectory. oxlint, knip, ESLint and svelte-check read
+ * the whole project whatever files a run names, so `.oxlintrc.json`, `knip.config.ts`,
+ * `eslint.config.js` and `tsconfig.json` ignore the subdirectories: otherwise a malformed
+ * or unused fixture another suite holds at that moment fails an unrelated run. Any other
+ * throwaway file a test has to build inside the checkout belongs here as well. Prettier
+ * still reads the subdirectories, because the cases above format a fixture by name.
  */
 export const SOURCE_FIXTURE_ROOT = path.join(REPO_ROOT, 'src', SOURCE_FIXTURE_DIRECTORY);

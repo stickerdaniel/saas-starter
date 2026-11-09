@@ -638,9 +638,8 @@ describe('SvelteKit sync', () => {
 	// Every sync deletes and rewrites the root route's types, so a second sync of the same
 	// checkout listing them at that moment fails with ENOENT. Concurrent runs take turns.
 	//
-	// A type-scoped run over a locale file syncs and then switches every covering check off.
-	// A lint run would end in oxlint and knip over the whole checkout, where sibling suites
-	// park malformed and unused fixture sources, and fail on a file this case never named.
+	// A type-scoped run over a locale file syncs and then switches every covering check off,
+	// so its exit code depends on the sync alone.
 	it('waits while another process syncs this checkout', async () => {
 		let output = '';
 		let exited: Promise<number | null> | undefined;
@@ -665,6 +664,37 @@ describe('SvelteKit sync', () => {
 		});
 
 		expect(await exited, output).toBe(0);
+	}, 240_000);
+});
+
+describe('source fixtures', () => {
+	// oxlint, knip and svelte-check read the whole project whatever files a run names, and
+	// `bun run lint` hands ESLint the whole tree. Sibling suites hold malformed, unimported
+	// sources in SOURCE_FIXTURE_ROOT subdirectories meanwhile, so each of those readers has
+	// to skip them, or a run over unrelated files fails whenever such a suite overlaps it.
+	it('stay out of the whole-project checks of a file-scoped run', () => {
+		const directory = mkdtempSync(path.join(SOURCE_FIXTURE_ROOT, 'static-checks-held-'));
+		const fixture = path.join(directory, 'fixture.ts');
+		writeFileSync(fixture, 'const value = ;\n', 'utf8');
+		// Any type-checked source routes the run through every whole-project reader. Held in a
+		// constant because knip reads a string literal after `bun` as a script to resolve.
+		const named = 'scripts/source-tree.ts';
+		try {
+			const run = spawnSync('bun', [SCRIPT, named], {
+				cwd: ROOT,
+				encoding: 'utf8',
+				env: { ...sanitizedGitEnv(), NO_COLOR: '1' }
+			});
+			expect(run.status, `${run.stdout}${run.stderr}`).toBe(0);
+
+			const eslint = spawnSync('bun', ['eslint', '--no-warn-ignored', fixture], {
+				cwd: ROOT,
+				encoding: 'utf8'
+			});
+			expect(eslint.status, `${eslint.stdout}${eslint.stderr}`).toBe(0);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
 	}, 240_000);
 });
 

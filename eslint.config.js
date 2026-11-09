@@ -97,6 +97,8 @@ export default defineConfig(
 	{
 		ignores: [
 			'scratch/**',
+			// Throwaway test fixtures; see SOURCE_FIXTURE_ROOT in scripts/source-tree.ts.
+			'src/__fixtures__/*/**',
 			'**/_generated/**',
 			'src/lib/convex/convex-env.d.ts',
 			'scripts/english-policy/pr-metadata.bundle.mjs'

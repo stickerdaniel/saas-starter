@@ -29,6 +29,8 @@
 		"references/**",
 		"src/service-worker",
 		"packages/create-saas-starter/**",
-		"src/lib/convex/**"
+		"src/lib/convex/**",
+		// Throwaway test fixtures; see SOURCE_FIXTURE_ROOT in scripts/source-tree.ts.
+		"src/__fixtures__/*/**"
 	]
 }

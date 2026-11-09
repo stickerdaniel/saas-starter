@@ -46,6 +46,8 @@ export default {
 		'src/lib/emails/**',
 		// Fixture trees read from disk by scripts/convex-surface.test.ts, not imported.
 		'scripts/__fixtures__/**',
+		// Throwaway test fixtures; see SOURCE_FIXTURE_ROOT in scripts/source-tree.ts.
+		'src/__fixtures__/*/**',
 		// Scaffolded UI component libraries, installed for future use.
 		'src/lib/components/ai-elements/**',
 		'src/lib/components/prompt-kit/**',

@@ -6,7 +6,8 @@
 		"**/node_modules/**",
 		"**/_generated/**",
 		"**/references/**",
-		"scripts/english-policy/pr-metadata.bundle.mjs"
+		"scripts/english-policy/pr-metadata.bundle.mjs",
+		"src/__fixtures__/*/"
 	],
 	"rules": {
 		"convex/no-unused-functions": [

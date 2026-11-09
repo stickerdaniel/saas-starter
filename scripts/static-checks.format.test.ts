@@ -26,6 +26,7 @@ import {
 	prettierTraversalPaths,
 	resolveInputs
 } from './static-checks';
+import { SOURCE_FIXTURE_ROOT } from './source-tree';
 import { testExecutable } from './test-executable';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -80,6 +81,17 @@ function formatChecks(repository = ROOT) {
 
 const { formatCheck, formatCheckFilesFrom } = formatChecks();
 
+/**
+ * A fresh directory for one case's throwaway files: the absolute path to remove and the
+ * repository-relative POSIX path the checker is given. It sits in SOURCE_FIXTURE_ROOT, whose
+ * subdirectories oxlint and knip skip; under `scripts/` these files failed every lint run
+ * another process started in this checkout meanwhile.
+ */
+function fixtureDirectory(): { directory: string; relative: string } {
+	const directory = mkdtempSync(path.join(SOURCE_FIXTURE_ROOT, 'format-'));
+	return { directory, relative: path.relative(ROOT, directory).split(path.sep).join('/') };
+}
+
 function createCheckerClone(): { directory: string; repository: string } {
 	const directory = path.join(ROOT, 'scratch', `format-ledger-${process.pid}-${Date.now()}`);
 	const repository = path.join(directory, 'repository');
@@ -133,16 +145,20 @@ function withRepositoryFile(
 
 describe('format-only static checks', () => {
 	it('routes a real Prettier parse error through the terminal boundary', () => {
-		const relative = `scripts/.format-control-${process.pid}.ts`;
+		const { directory } = fixtureDirectory();
+		const file = path.join(directory, 'control.ts');
 		const escape = String.fromCharCode(0x1b);
-		withRepositoryFile(relative, `export const value = ${escape}[31m;\n`, (file) => {
+		try {
+			writeFileSync(file, `export const value = ${escape}[31m;\n`);
 			const { status, output } = formatCheck(file);
 			expect(status).not.toBe(0);
 			expect(output).toContain('U+001B');
 			expect(output).not.toContain(escape);
 			expect(output).not.toContain('SvelteKit sync');
 			expect(output).not.toContain('ESLint');
-		});
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
 	// Prettier reads a leading-dash path as an option, warns that the option is unknown,
@@ -266,8 +282,10 @@ describe('format-only static checks', () => {
 	// to make the same comparison: a case-sensitive `.svelte` test classified this file as
 	// unformattable and a mixed computed list exited 0 after checking only its Markdown peer.
 	it('checks a mixed-case Svelte extension the configured plugin formats', () => {
-		const relative = `scripts/.format-component-${process.pid}.SVELTE`;
-		withRepositoryFile(relative, '<script>const value=1</script>\n', () => {
+		const { directory, relative: parent } = fixtureDirectory();
+		const relative = `${parent}/component.SVELTE`;
+		try {
+			writeFileSync(path.join(ROOT, relative), '<script>const value=1</script>\n');
 			const direct = spawnSync(testExecutable('bun'), ['prettier', '--check', '--', relative], {
 				cwd: ROOT,
 				env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
@@ -285,7 +303,9 @@ describe('format-only static checks', () => {
 			expect(computed.status, computed.output).toBe(1);
 			expect(computed.output).toContain(relative);
 			expect(computed.output).toContain(`README.md ${relative}`);
-		});
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
 	}, 40_000);
 
 	it('escapes a route without a backslash and still checks the named file', () => {
@@ -309,9 +329,7 @@ describe('format-only static checks', () => {
 	it.skipIf(process.platform === 'win32')(
 		'keeps a literal backslash from matching the neighbour without one',
 		() => {
-			const directory = path.join(ROOT, 'scripts', `.format-backslash-${process.pid}`);
-			const relative = `scripts/.format-backslash-${process.pid}`;
-			mkdirSync(directory, { recursive: true });
+			const { directory, relative } = fixtureDirectory();
 			try {
 				// Only one of the two is malformed. A pattern that drops the backslash checks the
 				// other file and reports a formatted repository while the named one stays broken.
@@ -373,9 +391,7 @@ describe('format-only static checks', () => {
 	);
 
 	it('refuses two paths that collide under formatter escaping', () => {
-		const directory = path.join(ROOT, 'scripts', `.format-collide-${process.pid}`);
-		const relative = `scripts/.format-collide-${process.pid}`;
-		mkdirSync(directory, { recursive: true });
+		const { directory, relative } = fixtureDirectory();
 		try {
 			writeFileSync(path.join(directory, '[ab].ts'), 'export const a   =1\n');
 			writeFileSync(path.join(directory, '[[]ab@(]).ts'), 'export const b = 1;\n');
@@ -396,9 +412,7 @@ describe('format-only static checks', () => {
 	it.each([']{}.ts', '{]}.ts', '{}].ts'])(
 		'keeps brace escapes from swallowing a literal bracket in %s',
 		(name) => {
-			const directory = path.join(ROOT, 'scripts', `.format-brace-${process.pid}`);
-			const relative = `scripts/.format-brace-${process.pid}`;
-			mkdirSync(directory, { recursive: true });
+			const { directory, relative } = fixtureDirectory();
 			try {
 				// Only the named file is malformed. A pattern that expands into a brace expression
 				// either checks the neighbour and passes, or matches nothing and passes.
@@ -418,9 +432,7 @@ describe('format-only static checks', () => {
 		expect(prettierLiteralPattern('[+.ts')).toBe('[[][+].ts');
 		expect(prettierLiteralPattern('src/routes/+page.svelte')).toBe('src/routes/[+]page.svelte');
 
-		const directory = path.join(ROOT, 'scripts', `.format-plus-${process.pid}`);
-		const relative = `scripts/.format-plus-${process.pid}`;
-		mkdirSync(directory, { recursive: true });
+		const { directory, relative } = fixtureDirectory();
 		try {
 			// Unescaped, `[[]+.ts` quantifies the class and matches the formatted neighbour
 			// instead, which is a green run over a file that was never looked at.
@@ -629,10 +641,9 @@ describe('format-only static checks', () => {
 	it.each(['.git', '.sl', '.svn', '.hg', '.jj'])(
 		"counts Prettier's hard-coded %s exclusion as zero formatter work",
 		(vcsDirectory) => {
-			const parent = path.join(ROOT, 'scripts', `.format-vcs-${process.pid}`);
-			const directory = path.join(parent, vcsDirectory);
-			const relative = `scripts/.format-vcs-${process.pid}/${vcsDirectory}/probe.ts`;
-			mkdirSync(directory, { recursive: true });
+			const { directory: parent, relative: parentRelative } = fixtureDirectory();
+			const relative = `${parentRelative}/${vcsDirectory}/probe.ts`;
+			mkdirSync(path.join(parent, vcsDirectory));
 			writeFileSync(path.join(ROOT, relative), 'export const skipped   =1\n');
 			try {
 				// Prettier's CLI drops these path segments before expansion. `getFileInfo` does not,
@@ -697,18 +708,19 @@ describe('format-only static checks', () => {
 	it.skipIf(process.platform === 'win32')(
 		'rejects a special file Prettier would drop from a mixed batch',
 		() => {
-			const relative = `scripts/.format-fifo-${process.pid}.ts`;
+			const { directory, relative: parent } = fixtureDirectory();
+			const relative = `${parent}/fifo.ts`;
 			const file = path.join(ROOT, relative);
-			const created = spawnSync('mkfifo', [file], { encoding: 'utf8' });
-			expect(created.status, created.stderr).toBe(0);
 			try {
+				const created = spawnSync('mkfifo', [file], { encoding: 'utf8' });
+				expect(created.status, created.stderr).toBe(0);
 				const result = formatCheckFilesFrom(`${relative}\0package.json\0`);
 				expect(result.status, result.output).toBe(1);
 				expect(result.output).toContain('not a regular file');
 				expect(result.output).toContain(relative);
 				expect(result.output).not.toContain('All checks passed');
 			} finally {
-				rmSync(file, { force: true });
+				rmSync(directory, { recursive: true, force: true });
 			}
 		}
 	);
@@ -807,10 +819,9 @@ describe('format-only static checks', () => {
 		// .babelrc is matched by its exact basename, so it cannot carry a unique suffix.
 		// A directory of its own keeps it out of the repository root and off every tool
 		// that would otherwise pick up a stray configuration file.
-		const directory = `scripts/.format-${kind}-${process.pid}`;
+		const { directory, relative: parent } = fixtureDirectory();
 		const name = kind === 'babelrc' ? '.babelrc' : `README.${kind}`;
-		const relative = `${directory}/${name}`;
-		mkdirSync(path.join(ROOT, directory), { recursive: true });
+		const relative = `${parent}/${name}`;
 		try {
 			withRepositoryFile(relative, contents, (file) => {
 				const { status, output } = formatCheck(file);
@@ -818,7 +829,7 @@ describe('format-only static checks', () => {
 				expect(output).toContain(`[warn] ${relative}`);
 			});
 		} finally {
-			rmSync(path.join(ROOT, directory), { recursive: true, force: true });
+			rmSync(directory, { recursive: true, force: true });
 		}
 	});
 
@@ -866,10 +877,9 @@ describe('format-only static checks', () => {
 	}, 60_000);
 
 	it('does not reinterpret a disappeared formatter path as a glob', () => {
-		const directory = `scripts/.format-glob-${process.pid}`;
-		const named = `${directory}/[ab].ts`;
-		const neighbour = `${directory}/a.ts`;
-		mkdirSync(path.join(ROOT, directory), { recursive: true });
+		const { directory, relative } = fixtureDirectory();
+		const named = `${relative}/[ab].ts`;
+		const neighbour = `${relative}/a.ts`;
 		writeFileSync(path.join(ROOT, named), 'export const named = true;\n');
 		writeFileSync(path.join(ROOT, neighbour), 'export const neighbour = true;\n');
 		try {
@@ -891,7 +901,7 @@ describe('format-only static checks', () => {
 			expect(escaped.status).not.toBe(0);
 			expect(`${escaped.stdout}${escaped.stderr}`).toContain('No files matching the pattern');
 		} finally {
-			rmSync(path.join(ROOT, directory), { recursive: true, force: true });
+			rmSync(directory, { recursive: true, force: true });
 		}
 	});
 
