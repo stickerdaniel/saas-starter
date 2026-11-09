@@ -903,7 +903,8 @@
 		"terms": "Conditions d'utilisation"
 	},
 	"hero": {
-		"companies_text": "Propulsant les meilleures équipes",
+		"companies_note": "(logos trouvés sur internet)",
+		"companies_text": "Propulsant les meilleures équipes de demain",
 		"cta": "Commencer maintenant",
 		"cta_demo": "Demander une démo",
 		"description": "La connexion et la facturation sont faites, la partie ennuyeuse. Ce qu'il faut pour tes premiers clients aussi : un email de bienvenue de ta part, un chat d'assistance qui te passe la main, et l'email « désolé, c'était nous ».",

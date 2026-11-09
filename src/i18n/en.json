@@ -903,7 +903,8 @@
 		"terms": "Terms of Service"
 	},
 	"hero": {
-		"companies_text": "Powering the best teams",
+		"companies_note": "(logos I found online)",
+		"companies_text": "Powering tomorrow's best teams",
 		"cta": "Start Building",
 		"cta_demo": "Request a demo",
 		"description": "Sign-in and billing are done, the boring parts. So are the parts for your first customers: a welcome email from you, a support chat that hands over to you, and the “sorry, that one was us” email.",

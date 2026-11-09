@@ -63,12 +63,17 @@
 	<section>
 		<div class="group relative m-auto max-w-6xl px-6">
 			<div class="flex flex-col items-center md:flex-row">
-				<div class="md:max-w-44 md:border-r md:pr-6">
-					<p class="text-end text-sm"><T keyName="hero.companies_text" /></p>
+				<div class="max-w-full shrink-0 md:max-w-80 md:border-r md:pr-6">
+					<p class="text-center text-sm md:text-end">
+						<span class="block"><T keyName="hero.companies_text" /></span>
+						{#if $t('hero.companies_note')}
+							<span class="block text-muted-foreground"><T keyName="hero.companies_note" /></span>
+						{/if}
+					</p>
 				</div>
 				<!-- Checkout Logo Cloud Three  -->
 				<!-- I have provided progressive blur snippet code & Marquee code -->
-				<div class="relative py-6 md:w-[calc(100%-11rem)]">
+				<div class="relative w-full min-w-0 py-6 md:w-auto md:flex-1">
 					<Marquee fade={false} duration={16}>
 						<div class="flex items-center gap-12 pr-12">
 							<img
