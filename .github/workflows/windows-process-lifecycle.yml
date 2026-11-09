@@ -17,7 +17,7 @@ concurrency:
 jobs:
   runner:
     name: Select lifecycle runner
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_CONTROL_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 3
     outputs:
       label: ${{ steps.runner.outputs.label }}

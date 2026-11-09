@@ -174,6 +174,7 @@ interface WorkflowJob {
 	'continue-on-error'?: unknown;
 	steps?: WorkflowStep[];
 	'timeout-minutes'?: unknown;
+	'runs-on'?: unknown;
 	concurrency?: WorkflowConcurrency | string;
 }
 
@@ -225,6 +226,32 @@ describe('workflow job timeouts', () => {
 				).toBe(true);
 			}
 		}
+	});
+});
+
+describe('control runner selection', () => {
+	// Short control jobs run where CI_CONTROL_RUNNER points, so a fork with its own
+	// runners keeps them off the queue of its long jobs; unset, they stay hosted.
+	const controlJobs = [
+		['check-pr-title.yml', 'check'],
+		['require-english-pr.yml', 'english-metadata'],
+		['require-regression-guard.yml', 'check'],
+		['check-attribution.yml', 'check-bot-coauthors'],
+		['static-checks.yml', 'unit-tests'],
+		['windows-process-lifecycle.yml', 'runner']
+	] as const;
+
+	const runnerFor = (file: string, job: string, controlRunner: string) =>
+		interpolate(parsedWorkflow(file).jobs[job]?.['runs-on'], {
+			vars: { CI_CONTROL_RUNNER: controlRunner }
+		});
+
+	it.each(controlJobs)('%s %s stays on ubuntu-latest while unset', (file, job) => {
+		expect(runnerFor(file, job, '')).toBe('ubuntu-latest');
+	});
+
+	it.each(controlJobs)('%s %s runs on the configured control runner', (file, job) => {
+		expect(runnerFor(file, job, 'fork-control')).toBe('fork-control');
 	});
 });
 

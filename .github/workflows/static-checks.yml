@@ -214,7 +214,7 @@ jobs:
     name: Unit Tests
     needs: unit-test-shards
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_CONTROL_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 2
     steps:
       # A cancelled run keeps this always() job alive but skips steps that rely on
