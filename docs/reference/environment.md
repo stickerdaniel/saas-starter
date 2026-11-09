@@ -62,3 +62,11 @@ Builds that `scripts/deploy.ts` classifies as previews get empty PostHog key, ho
 | `CONVEX_PROJECT_ID`       | Variable, not a secret. The same numeric project id                               |    ○     |
 
 These are the same two names the hosting platform needs, set a second time for CI. Without them the `Delete Convex Preview` workflow logs that it is skipping and exits successfully, which also keeps fork PRs green.
+
+**GitHub Actions, control runner** (repository Settings > Secrets and variables > Actions):
+
+| Variable            |                                                                                                                                                                  | Required |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------: |
+| `CI_CONTROL_RUNNER` | Variable. Runner label for the short PR metadata checks, the `Unit Tests` verifier and the Windows lifecycle runner selector. Unset, they run on `ubuntu-latest` |    ○     |
+
+Point it at a Linux runner with `bash`, `git`, `gh` and `jq` that can run JavaScript actions and download Bun. `Regression Guard Verdict` runs a script from the pull request's own checkout, so the runner must give every job a disposable, isolated environment, with no shared writable state, host mounts or host credentials. Cleaning the workspace of a persistent runner is not enough.
