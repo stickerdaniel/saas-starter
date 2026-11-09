@@ -497,6 +497,16 @@
 	transition-property: opacity, color, background-color, border-color, box-shadow;
 }
 
+/* Button's fixed base as one class, so each rendered button repeats a short name instead
+   of about 600 characters of utilities. buttonVariants keeps the classes that callers
+   replace through tailwind-merge. Tailwind sorts this utility before every utility a
+   variant or caller adds, because its first property is pointer-events and it sets more
+   properties than any of them, and its state rules keep their usual specificity. So those
+   classes still win exactly where they replaced the separate base classes before. */
+@utility button-base {
+	@apply inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap outline-hidden select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 motion-reduce:transition-non-spatial dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4;
+}
+
 /* Form fields ease their text color and focus ring. */
 @utility transition-field-colors {
 	transition-property: color, box-shadow;
