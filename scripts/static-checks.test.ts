@@ -637,12 +637,16 @@ describe('knip integration', () => {
 describe('SvelteKit sync', () => {
 	// Every sync deletes and rewrites the root route's types, so a second sync of the same
 	// checkout listing them at that moment fails with ENOENT. Concurrent runs take turns.
+	//
+	// A type-scoped run over a locale file syncs and then switches every covering check off.
+	// A lint run would end in oxlint and knip over the whole checkout, where sibling suites
+	// park malformed and unused fixture sources, and fail on a file this case never named.
 	it('waits while another process syncs this checkout', async () => {
 		let output = '';
 		let exited: Promise<number | null> | undefined;
 
 		await withSvelteKitSyncLock(ROOT, async () => {
-			const child = spawn('bun', [SCRIPT, '--scope', 'lint', 'scripts/svelte-kit-sync-lock.ts'], {
+			const child = spawn('bun', [SCRIPT, '--scope', 'types', 'src/i18n/en.json'], {
 				cwd: ROOT,
 				env: { ...sanitizedGitEnv(), NO_COLOR: '1' }
 			});
