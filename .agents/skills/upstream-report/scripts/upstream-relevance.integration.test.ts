@@ -461,6 +461,12 @@ fi
 # A stalled command outlives run()'s 30 s watchdog, so only the detector's own deadline can
 # end it early, and then exits on its own: the watchdog kills only the detector, not this child.
 STALL_SECONDS=40
+if [ -n "$SLOW_FETCH_MARKER" ]; then
+  case "$command_line" in
+    *" ls-remote "*) sleep 0.1 ;;
+    *" fetch "*) : > "$SLOW_FETCH_MARKER"; exec sleep "$STALL_SECONDS" ;;
+  esac
+fi
 if [ "$SLOW_STATUS" = "1" ]; then
   case "$command_line" in
     *" status --porcelain=v2 "*) exec sleep "$STALL_SECONDS" ;;
@@ -2846,7 +2852,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		const r = run(fork, ['--fetch', '--json'], {
 			GIT_SSH_COMMAND: sshCommand,
 			NODE_ENV: 'test',
-			UPSTREAM_REPORT_TEST_TIMEOUT_MS: '1000'
+			UPSTREAM_REPORT_TEST_TIMEOUT_MS: '1000',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'ls-remote'
 		});
 		expect(r.status).not.toBe(0);
 		expect(existsSync(used)).toBe(false);
@@ -6318,7 +6325,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			SLOW_LS_REMOTE: '1',
-			UPSTREAM_REPORT_TEST_TIMEOUT_MS: '50'
+			UPSTREAM_REPORT_TEST_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'ls-remote'
 		});
 
 		expect(r.status, r.stderr).toBe(0);
@@ -6546,6 +6554,35 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stderr).toMatch(/origin\/main.*not mapped exclusively/);
 	});
 
+	itWithGitWrapper('times out a stalled fetch after upstream advertisement', () => {
+		const marker = join(tmp, 'stalled-fetch-started');
+		const r = run(fork, ['--fetch', '--json'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			SLOW_FETCH_MARKER: marker,
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_TIMEOUT_MS: '50',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'fetch'
+		});
+
+		expect(existsSync(marker), r.stderr).toBe(true);
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/Git operation timed out/);
+	});
+
+	it.each(['', 'ftech', 'local-history'])(
+		'refuses a shortened network deadline without a valid operation (%j)',
+		(operation) => {
+			const r = run(fork, ['--json'], {
+				NODE_ENV: 'test',
+				UPSTREAM_REPORT_TEST_TIMEOUT_MS: '50',
+				UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: operation
+			});
+			expect(r.status).not.toBe(0);
+			expect(r.stderr).toMatch(/needs UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION/);
+		}
+	);
+
 	itWithGitWrapper('times out a stalled origin provenance check', () => {
 		const wrapper = installGitWrapper(tmp);
 		const r = run(fork, ['--json'], {
@@ -6553,6 +6590,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			UPSTREAM_REPORT_TEST_TIMEOUT_MS: '100',
+			UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION: 'ls-remote',
 			SLOW_LS_REMOTE: '1'
 		});
 

@@ -547,10 +547,28 @@ const SIMILARITY_OPERATION_LIMIT =
 		? Number(process.env.UPSTREAM_REPORT_TEST_SIMILARITY_OPERATION_LIMIT)
 		: DEFAULT_SIMILARITY_OPERATION_LIMIT;
 const DEFAULT_NETWORK_TIMEOUT_MS = 30_000;
-const NETWORK_TIMEOUT_MS =
+const TEST_NETWORK_TIMEOUT_MS =
 	process.env.NODE_ENV === 'test' && /^\d+$/.test(process.env.UPSTREAM_REPORT_TEST_TIMEOUT_MS ?? '')
 		? Number(process.env.UPSTREAM_REPORT_TEST_TIMEOUT_MS)
+		: undefined;
+const TIMED_NETWORK_OPERATIONS = ['fetch', 'ls-remote'] as const;
+type TimedNetworkOperation = (typeof TIMED_NETWORK_OPERATIONS)[number];
+const TEST_NETWORK_TIMEOUT_OPERATION = TIMED_NETWORK_OPERATIONS.find(
+	(operation) =>
+		process.env.NODE_ENV === 'test' &&
+		operation === process.env.UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION
+);
+if (TEST_NETWORK_TIMEOUT_MS !== undefined && TEST_NETWORK_TIMEOUT_OPERATION === undefined) {
+	throw new Error(
+		`UPSTREAM_REPORT_TEST_TIMEOUT_MS needs UPSTREAM_REPORT_TEST_TIMEOUT_OPERATION set to one of: ${TIMED_NETWORK_OPERATIONS.join(', ')}`
+	);
+}
+
+function networkCommandTimeout(operation: TimedNetworkOperation): number {
+	return operation === TEST_NETWORK_TIMEOUT_OPERATION
+		? (TEST_NETWORK_TIMEOUT_MS ?? DEFAULT_NETWORK_TIMEOUT_MS)
 		: DEFAULT_NETWORK_TIMEOUT_MS;
+}
 const DEFAULT_WORKTREE_TIMEOUT_MS = 30_000;
 const WORKTREE_TIMEOUT_MS =
 	process.env.NODE_ENV === 'test' &&
@@ -2217,7 +2235,7 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 				],
 				false,
 				trustedTransportEnv(),
-				NETWORK_TIMEOUT_MS
+				networkCommandTimeout('fetch')
 			);
 			verifyLocalRemoteSnapshot(transportUrl);
 		} catch {
@@ -2573,7 +2591,7 @@ function advertisedMainAt(url: string): string {
 		['ls-remote', '--exit-code', '--refs', remote, 'refs/heads/main'],
 		true,
 		trustedTransportEnv(),
-		NETWORK_TIMEOUT_MS
+		networkCommandTimeout('ls-remote')
 	)
 		.toString('utf8')
 		.trim()
