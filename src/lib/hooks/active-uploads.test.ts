@@ -107,6 +107,12 @@ describe('shouldBlockNavigation', () => {
 		);
 	});
 
+	it('blocks a same-page navigation that loads a new document', () => {
+		// A `data-sveltekit-reload` link to this very page, for example.
+		const reload = { ...nav('/app/ai-chat?thread=a', '/app/ai-chat?thread=b'), willUnload: true };
+		expect(shouldBlockNavigation(reload, true)).toBe(true);
+	});
+
 	it('blocks a first navigation that has no origin', () => {
 		expect(shouldBlockNavigation(nav(null, '/app/settings'), true)).toBe(true);
 	});
@@ -255,11 +261,14 @@ describe('guardLinkClicksDuringNavigation', () => {
 			// The router takes the navigation over; this also keeps jsdom from trying it.
 			event.preventDefault();
 		});
-		target.dispatchEvent(
+		const cancelled = !target.dispatchEvent(
 			new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, ...init })
 		);
-		return { followed, reached };
+		return { followed, reached, cancelled };
 	}
+
+	/** A stopped click reaches no app handler, and the browser does not follow it either. */
+	const stopped = { followed: false, reached: false, cancelled: true };
 
 	function appRoot() {
 		const root = document.createElement('div');
@@ -294,7 +303,7 @@ describe('guardLinkClicksDuringNavigation', () => {
 	}
 
 	it('stops a link off the page while a navigation is under way and a file is going out', () => {
-		expect(click('/en/app')).toEqual({ followed: false, reached: false });
+		expect(click('/en/app')).toEqual(stopped);
 		expect(uploads.blockedCount).toBe(1);
 	});
 
@@ -304,11 +313,11 @@ describe('guardLinkClicksDuringNavigation', () => {
 	});
 
 	it('stops a link to another origin, which unloads the document', () => {
-		expect(click('https://elsewhere.test/en/app/settings').followed).toBe(false);
+		expect(click('https://elsewhere.test/en/app/settings')).toEqual(stopped);
 	});
 
 	it('stops a link inside a shadow root', () => {
-		expect(click('/en/app', {}, {}, true).followed).toBe(false);
+		expect(click('/en/app', {}, {}, true)).toEqual(stopped);
 	});
 
 	it('stops a link that wraps a shadow host, clicked inside its shadow root', () => {
@@ -319,7 +328,7 @@ describe('guardLinkClicksDuringNavigation', () => {
 		host.attachShadow({ mode: 'open' }).append(label);
 		anchor.append(host);
 		root.append(anchor);
-		expect(dispatchIn(root, label).followed).toBe(false);
+		expect(dispatchIn(root, label)).toEqual(stopped);
 	});
 
 	it('stops a shadow-root link whose slotted label is clicked', () => {
@@ -331,16 +340,16 @@ describe('guardLinkClicksDuringNavigation', () => {
 		anchor.append(document.createElement('slot'));
 		host.attachShadow({ mode: 'open' }).append(anchor);
 		root.append(host);
-		expect(dispatchIn(root, slotted).followed).toBe(false);
+		expect(dispatchIn(root, slotted)).toEqual(stopped);
 	});
 
 	it('stops a download link to another origin, which the browser follows', () => {
-		expect(click('https://elsewhere.test/report.pdf', {}, { download: '' }).followed).toBe(false);
+		expect(click('https://elsewhere.test/report.pdf', {}, { download: '' })).toEqual(stopped);
 	});
 
 	it('leaves the click to beforeNavigate when no navigation is under way', () => {
 		navigating = false;
-		expect(click('/en/app')).toEqual({ followed: true, reached: true });
+		expect(click('/en/app')).toEqual({ followed: true, reached: true, cancelled: true });
 		expect(uploads.blockedCount).toBe(0);
 	});
 
@@ -353,6 +362,36 @@ describe('guardLinkClicksDuringNavigation', () => {
 
 	it('lets a same-page link through, which keeps the document', () => {
 		expect(click('/en/app/settings?tab=avatar').followed).toBe(true);
+	});
+
+	it('stops a same-page link that SvelteKit hands to the browser, which loads a new document', () => {
+		expect(click('/en/app/settings?tab=avatar', {}, { rel: 'external' })).toEqual(stopped);
+		expect(click('/en/app/settings?tab=avatar', {}, { target: '_self' })).toEqual(stopped);
+		expect(click('/en/app/settings?tab=avatar', {}, { 'data-sveltekit-reload': '' })).toEqual(
+			stopped
+		);
+	});
+
+	it('reads data-sveltekit-reload from the nearest ancestor that sets it', () => {
+		const section = document.createElement('section');
+		section.setAttribute('data-sveltekit-reload', '');
+		document.body.append(section);
+
+		const reloading = document.createElement('div');
+		reloading.append(link('/en/app/settings?tab=avatar'));
+		section.append(reloading);
+		expect(dispatchIn(reloading, reloading.firstElementChild!)).toEqual(stopped);
+
+		const optedOut = document.createElement('div');
+		optedOut.append(link('/en/app/settings?tab=avatar', { 'data-sveltekit-reload': 'false' }));
+		section.append(optedOut);
+		expect(dispatchIn(optedOut, optedOut.firstElementChild!).followed).toBe(true);
+	});
+
+	it('lets a reload link through that only adds a hash, which scrolls', () => {
+		expect(click('/en/app/settings#avatar', {}, { 'data-sveltekit-reload': '' }).followed).toBe(
+			true
+		);
 	});
 
 	it('leaves new-tab, modified and same-origin download clicks to the browser', () => {
