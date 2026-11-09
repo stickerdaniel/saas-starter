@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { BRANCH_HEAD_COMMAND } from './branch-head';
 import { detectPlatform, type PlatformContext } from './platform';
 import {
 	computeBuildEnv,
@@ -88,6 +89,7 @@ function makePlatform(overrides: Partial<PlatformContext> = {}): PlatformContext
 		gitRef: 'main',
 		isPreview: false,
 		siteUrl: 'https://myapp.example.workers.dev',
+		siteUrlIsBranchAlias: false,
 		...overrides
 	};
 }
@@ -473,7 +475,17 @@ describe('deployment-key fallback in the invocation environment', () => {
 
 describe('concurrent preview builds of one branch', () => {
 	const head = 'a'.repeat(40);
-	const env = { ...previewEnv, VERCEL_GIT_COMMIT_SHA: head };
+	const newer = 'b'.repeat(40);
+	const older = 'c'.repeat(40);
+	const env = {
+		WORKERS_CI: '1',
+		WORKERS_CI_BRANCH: 'current',
+		WORKERS_CI_COMMIT_SHA: head,
+		WORKERS_NAME: 'app',
+		WORKERS_SUBDOMAIN: 'team',
+		CONVEX_PREVIEW_DEPLOY_KEY: 'preview-key'
+	};
+	const rejoin = `bunx convex deploy --preview-name current --cmd ${BRANCH_HEAD_COMMAND}`;
 	// What `convex deploy` prints after another `--preview-create` deleted its target.
 	const replaced = {
 		exitCode: 1,
@@ -481,6 +493,62 @@ describe('concurrent preview builds of one branch', () => {
 			'✖ Error fetching POST  https://gone-1.eu-west-1.convex.cloud/api/get_config_hashes 404 Not Found'
 	};
 	const deploys = (events: string[]) => events.filter((event) => event.includes('convex deploy'));
+
+	/**
+	 * The origin head and the branch's Convex preview that concurrent builds
+	 * share. A preview holds the commit whose code it runs. The fake CLI runs
+	 * `--cmd` as the head check between its claim and its push.
+	 */
+	function sharedPreview(origin: string) {
+		let created = 0;
+		const state = {
+			origin,
+			preview: null as { name: string; code: string; siteUrl: string | null } | null
+		};
+		/** Another build's `--preview-create`. */
+		const replace = (code: string, siteUrl: string | null = null) => {
+			state.preview = { name: `preview-${++created}`, code, siteUrl };
+		};
+		/** One build whose own `--preview-create` lost its target to another build. */
+		const build = (buildEnv: NodeJS.ProcessEnv, afterHeadCheck = () => {}) => {
+			const commit =
+				buildEnv.WORKERS_CI_COMMIT_SHA ||
+				buildEnv.CF_PAGES_COMMIT_SHA ||
+				buildEnv.VERCEL_GIT_COMMIT_SHA ||
+				'';
+			return harness(buildEnv, (request) => {
+				const { args } = request;
+				if (request.command === 'git') {
+					const reply = { stdout: `${state.origin}\trefs/heads/current\n` };
+					afterHeadCheck();
+					afterHeadCheck = () => {};
+					return reply;
+				}
+				if (args.includes('--preview-create')) return replaced;
+				if (args.includes('--preview-name')) {
+					if (!state.preview) replace(commit);
+					const preview = state.preview!;
+					if (args.includes('--cmd') && state.origin !== commit) {
+						return { exitCode: 1, stderr: `'${BRANCH_HEAD_COMMAND}' failed` };
+					}
+					preview.code = commit;
+					return { stdout: `Deployed to https://${preview.name}.eu-west-1.convex.cloud` };
+				}
+				const target = args[args.indexOf('--deployment-name') + 1];
+				if (args.includes('env') && target !== state.preview?.name) return { exitCode: 1 };
+				if (args.includes('set') && args.includes('SITE_URL')) {
+					state.preview!.siteUrl = args.at(-1)!;
+				}
+				const reply = defaultReply(request);
+				return args.includes('list')
+					? {
+							stdout: reply.stdout!.replace(/^SITE_URL=.*$/m, `SITE_URL=${state.preview?.siteUrl}`)
+						}
+					: reply;
+			});
+		};
+		return { state, replace, build };
+	}
 
 	beforeEach(() => {
 		vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -501,19 +569,20 @@ describe('concurrent preview builds of one branch', () => {
 			name: 'newer-2',
 			urlSlug: 'newer-2.eu-west-1'
 		});
-		expect(deploys(h.events)).toEqual([
-			'bunx convex deploy --preview-create current',
-			'bunx convex deploy --preview-name current'
-		]);
+		expect(deploys(h.events)).toEqual(['bunx convex deploy --preview-create current', rejoin]);
 	});
 
 	it.each([
 		{
 			name: 'a newer commit is the branch head',
 			buildEnv: env,
-			remote: { stdout: `${'b'.repeat(40)}\trefs/heads/current\n` }
+			remote: { stdout: `${newer}\trefs/heads/current\n` }
 		},
-		{ name: 'the build commit is unknown', buildEnv: previewEnv, remote: undefined },
+		{
+			name: 'the build commit is unknown',
+			buildEnv: { ...env, WORKERS_CI_COMMIT_SHA: '' },
+			remote: undefined
+		},
 		{ name: 'the branch head is unknown', buildEnv: env, remote: { exitCode: 128 } }
 	])('leaves the other preview alone when $name', async ({ buildEnv, remote }) => {
 		const h = harness(buildEnv, (request) =>
@@ -530,6 +599,62 @@ describe('concurrent preview builds of one branch', () => {
 		expect(deploys(h.events)).toEqual(['bunx convex deploy --preview-create current']);
 	});
 
+	it('never pushes into the preview of a commit that lands after its head check', async () => {
+		const shared = sharedPreview(head);
+		shared.replace(older);
+		const build = shared.build(env, () => {
+			shared.state.origin = newer;
+			shared.replace(newer);
+		});
+
+		await expect(deployConvex(detectPlatform(env), build.execution)).rejects.toThrow(
+			`'${BRANCH_HEAD_COMMAND}' failed`
+		);
+		expect(shared.state.preview?.code).toBe(newer);
+	});
+
+	const vercel = { ...previewEnv, VERCEL_GIT_COMMIT_SHA: head };
+	const pages = {
+		CF_PAGES: '1',
+		CF_PAGES_BRANCH: 'current',
+		CF_PAGES_COMMIT_SHA: head,
+		CONVEX_PREVIEW_DEPLOY_KEY: 'preview-key'
+	};
+	it.each([
+		{ name: 'Workers preview alias', first: env, second: env, outcome: 'deployed' },
+		{
+			name: 'Vercel deployment URL',
+			first: { ...vercel, VERCEL_URL: 'newer.vercel.app' },
+			second: { ...vercel, VERCEL_URL: 'older.vercel.app' },
+			outcome: 'failed'
+		},
+		{
+			name: 'Pages deployment URL',
+			first: { ...pages, CF_PAGES_URL: 'https://newer.app.pages.dev' },
+			second: { ...pages, CF_PAGES_URL: 'https://older.app.pages.dev' },
+			outcome: 'failed'
+		}
+	])(
+		'keeps the site URL of the build that replaced a same-commit preview on a $name',
+		async ({ first, second, outcome }) => {
+			const siteUrl = detectPlatform(first).siteUrl;
+			const shared = sharedPreview(head);
+			shared.replace(head, siteUrl);
+			const build = shared.build(second);
+			const platform = detectPlatform(second);
+
+			const result = await deployConvex(platform, build.execution)
+				.then((deployment) => setupPreviewEnv(deployment, platform, build.execution))
+				.then(
+					() => 'deployed',
+					() => 'failed'
+				);
+
+			expect(result).toBe(outcome);
+			expect(shared.state.preview?.siteUrl).toBe(siteUrl);
+		}
+	);
+
 	it('stops after two replacements', async () => {
 		const h = harness(env, (request) =>
 			request.args[1] === 'deploy' ? replaced : defaultReply(request)
@@ -540,8 +665,8 @@ describe('concurrent preview builds of one branch', () => {
 		);
 		expect(deploys(h.events)).toEqual([
 			'bunx convex deploy --preview-create current',
-			'bunx convex deploy --preview-name current',
-			'bunx convex deploy --preview-name current'
+			rejoin,
+			rejoin
 		]);
 	});
 

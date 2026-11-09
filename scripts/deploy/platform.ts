@@ -5,6 +5,11 @@ export interface PlatformContext {
 	gitRef: string | null;
 	isPreview: boolean;
 	siteUrl: string | null;
+	/**
+	 * True when siteUrl is the Workers preview alias, which every build of the
+	 * branch serves. VERCEL_URL and CF_PAGES_URL name a single deployment.
+	 */
+	siteUrlIsBranchAlias: boolean;
 }
 
 const FALLBACK_ALIAS = 'branch';
@@ -64,7 +69,8 @@ export function detectPlatform(env: NodeJS.ProcessEnv = process.env): PlatformCo
 			gitRef: env.VERCEL_GIT_COMMIT_REF || null,
 			isPreview: environment === 'preview',
 			// Vercel provides hostnames only (no protocol)
-			siteUrl: siteHost ? `https://${siteHost}` : null
+			siteUrl: siteHost ? `https://${siteHost}` : null,
+			siteUrlIsBranchAlias: false
 		};
 	}
 
@@ -80,12 +86,14 @@ export function detectPlatform(env: NodeJS.ProcessEnv = process.env): PlatformCo
 		const productionSiteUrl = env.PUBLIC_SITE_URL || env.SITE_URL || null;
 
 		let siteUrl: string | null = null;
+		let siteUrlIsBranchAlias = false;
 		if (isPreview) {
 			if (deployUrl) {
 				siteUrl = deployUrl;
 			} else if (branch && env.WORKERS_NAME && env.WORKERS_SUBDOMAIN) {
 				const alias = sanitizeBranchAlias(branch, env.WORKERS_NAME);
 				siteUrl = `https://${alias}-${env.WORKERS_NAME}.${env.WORKERS_SUBDOMAIN}.workers.dev`;
+				siteUrlIsBranchAlias = true;
 			}
 		} else if (productionSiteUrl) {
 			// Explicit custom domains beat Pages and Workers generated hosts.
@@ -102,7 +110,8 @@ export function detectPlatform(env: NodeJS.ProcessEnv = process.env): PlatformCo
 			deployUrl,
 			gitRef: branch,
 			isPreview,
-			siteUrl
+			siteUrl,
+			siteUrlIsBranchAlias
 		};
 	}
 
@@ -113,6 +122,7 @@ export function detectPlatform(env: NodeJS.ProcessEnv = process.env): PlatformCo
 		deployUrl: null,
 		gitRef: null,
 		isPreview: false,
-		siteUrl: env.PUBLIC_SITE_URL || env.SITE_URL || null
+		siteUrl: env.PUBLIC_SITE_URL || env.SITE_URL || null,
+		siteUrlIsBranchAlias: false
 	};
 }

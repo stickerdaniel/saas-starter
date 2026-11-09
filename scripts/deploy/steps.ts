@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { normalizeSiteOrigin } from '../../src/lib/config/origin';
 import { validateConvexEnvironment } from '../validate-convex-env';
+import { BRANCH_HEAD_COMMAND, isBranchHead } from './branch-head';
 import {
 	checkAborted,
 	createDeploymentExecution,
@@ -210,32 +211,18 @@ const MAX_PREVIEW_REJOINS = 2;
 // `Error fetching POST https://<name>.convex.cloud/api/... 404 Not Found`.
 const DELETED_TARGET = /https:\/\/[^\s/]+\.convex\.cloud\/\S* 404 Not Found/;
 
-/** False when the build commit or the remote branch head is unknown. */
-async function isBranchHead(branch: string, execution: DeploymentExecution): Promise<boolean> {
-	const commit =
-		execution.env.WORKERS_CI_COMMIT_SHA ||
-		execution.env.CF_PAGES_COMMIT_SHA ||
-		execution.env.VERCEL_GIT_COMMIT_SHA;
-	if (!commit) return false;
-	const result = await execution.run({
-		command: 'git',
-		args: ['ls-remote', 'origin', `refs/heads/${branch}`]
-	});
-	throwIfStopped(result);
-	if (!result.ok) return false;
-	const head = result.stdout
-		.split('\n')
-		.map((line) => line.split('\t'))
-		.find(([, ref]) => ref === `refs/heads/${branch}`)?.[0];
-	return head === commit;
-}
-
 /**
  * Deploy once; only a preview quota error can authorize up to three prune/retry
  * rounds. `--preview-create` deletes the branch's preview before it creates a
  * new one, so a concurrent build of the same branch can delete this build's
  * target mid-push. The branch head then deploys to that build's preview with
- * `--preview-name`, which reuses it; a superseded build fails instead.
+ * `--preview-name`, which reuses it; other builds fail instead.
+ *
+ * A rejoined build sets SITE_URL on the shared backend, so only a build whose
+ * site URL is the branch's shared preview alias rejoins. The CLI confirms the head
+ * again after it claims the preview and before it pushes. A preview claimed
+ * before that check cannot belong to a newer commit, because a build creates
+ * its preview only after its commit reaches origin.
  */
 export async function deployConvex(
 	platform: PlatformContext,
@@ -321,7 +308,7 @@ export async function deployConvex(
 			}
 		}
 	);
-	const previewName = platform.isPreview ? platform.gitRef : null;
+	const previewName = platform.isPreview && platform.siteUrlIsBranchAlias ? platform.gitRef : null;
 	for (let rejoin = 1; previewName && rejoin <= MAX_PREVIEW_REJOINS; rejoin++) {
 		if (
 			result.ok ||
@@ -337,7 +324,7 @@ export async function deployConvex(
 		console.log(`Deploying to that preview (${rejoin}/${MAX_PREVIEW_REJOINS})...`);
 		result = await execution.run({
 			command: 'bunx',
-			args: ['convex', 'deploy', '--preview-name', previewName],
+			args: ['convex', 'deploy', '--preview-name', previewName, '--cmd', BRANCH_HEAD_COMMAND],
 			output: 'capture',
 			env: convexDeployEnvironment(platform, execution.env)
 		});

@@ -41,7 +41,8 @@ const platform = {
 	deployUrl: SITE,
 	gitRef: 'current',
 	isPreview: true,
-	siteUrl: SITE
+	siteUrl: SITE,
+	siteUrlIsBranchAlias: false
 } as const;
 
 describe('deployment calls use the reviewed runner', () => {
