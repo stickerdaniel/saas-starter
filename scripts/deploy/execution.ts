@@ -7,6 +7,7 @@ import {
 	type CommandSpec,
 	type CommandSuccess
 } from '../process/command-runner';
+import { stripAnsi } from './utils';
 
 export type ExecutionControls = Pick<CommandSpec, 'signal' | 'timeoutMs'>;
 
@@ -27,21 +28,39 @@ export class DeploymentError extends Error {
 	}
 }
 
-export function commandError(message: string, result: CommandFailure): DeploymentError {
+export interface CommandErrorOptions {
+	/**
+	 * Append the command's captured output. The runner masks sensitive build
+	 * environment values, but not values the command fetched at runtime, so set
+	 * this only for a command whose output holds none.
+	 */
+	showOutput?: boolean;
+}
+
+export function commandError(
+	message: string,
+	result: CommandFailure,
+	{ showOutput = false }: CommandErrorOptions = {}
+): DeploymentError {
 	// Captures can contain runtime secrets that are not in the build environment
-	// (notably `convex env list`). Never print captures at a deployment boundary.
+	// (notably `convex env list`), so they stay hidden unless the caller opts in.
 	return new DeploymentError(
 		result.kind === 'aborted' || result.kind === 'timed_out' ? result.kind : 'command_failed',
-		`${message}\n${result.description}: ${result.kind}${result.exitCode === undefined ? '' : ` (exit ${result.exitCode})`}`,
+		`${message}\n${
+			showOutput
+				? stripAnsi(result.diagnostic)
+				: `${result.description}: ${result.kind}${result.exitCode === undefined ? '' : ` (exit ${result.exitCode})`}`
+		}`,
 		result.kind === 'non_zero_exit' ? result.exitCode : undefined
 	);
 }
 
 export function requireCommand(
 	result: CommandSuccess | CommandFailure,
-	message: string
+	message: string,
+	options?: CommandErrorOptions
 ): asserts result is CommandSuccess {
-	if (!result.ok) throw commandError(message, result);
+	if (!result.ok) throw commandError(message, result, options);
 }
 
 export function throwIfStopped(result: CommandSuccess | CommandFailure): void {

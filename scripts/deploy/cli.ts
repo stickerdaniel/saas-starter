@@ -1,6 +1,9 @@
 import { DeploymentError } from './execution';
 
-/** The entrypoint reports a failure once, without raw provider errors or captures. */
+/**
+ * The entrypoint reports a failure once, without raw provider errors. A message
+ * carries a command capture only where its step opted in with `showOutput`.
+ */
 export function reportCliFailure(error: unknown): void {
 	console.error(
 		error instanceof DeploymentError

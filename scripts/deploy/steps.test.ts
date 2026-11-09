@@ -12,7 +12,7 @@ import {
 	writeE2eConfig,
 	type ConvexDeployment
 } from './steps';
-import { harness } from './__fixtures__/execution';
+import { defaultReply, harness, previewEnv, productionEnv } from './__fixtures__/execution';
 
 const deployment: ConvexDeployment = {
 	urlSlug: 'curious-lark-703.eu-west-1',
@@ -468,5 +468,100 @@ describe('deployment-key fallback in the invocation environment', () => {
 		expect(result.PUBLIC_CONVEX_URL).toBe(slug ? `https://${slug}.convex.cloud` : undefined);
 		expect(result).not.toHaveProperty('__VARLOCK_ENV');
 		expect(env.__VARLOCK_ENV).toBe('manifest');
+	});
+});
+
+describe('concurrent preview builds of one branch', () => {
+	const head = 'a'.repeat(40);
+	const env = { ...previewEnv, VERCEL_GIT_COMMIT_SHA: head };
+	// What `convex deploy` prints after another `--preview-create` deleted its target.
+	const replaced = {
+		exitCode: 1,
+		stderr:
+			'✖ Error fetching POST  https://gone-1.eu-west-1.convex.cloud/api/get_config_hashes 404 Not Found'
+	};
+	const deploys = (events: string[]) => events.filter((event) => event.includes('convex deploy'));
+
+	beforeEach(() => {
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+	});
+	afterEach(() => vi.restoreAllMocks());
+
+	it('deploys the branch head to the preview that replaced its own', async () => {
+		let attempts = 0;
+		const h = harness(env, (request) =>
+			request.args[1] !== 'deploy'
+				? defaultReply(request)
+				: ++attempts === 1
+					? replaced
+					: { stderr: 'Deployed Convex functions to https://newer-2.eu-west-1.convex.cloud' }
+		);
+
+		await expect(deployConvex(detectPlatform(env), h.execution)).resolves.toEqual({
+			name: 'newer-2',
+			urlSlug: 'newer-2.eu-west-1'
+		});
+		expect(deploys(h.events)).toEqual([
+			'bunx convex deploy --preview-create current',
+			'bunx convex deploy --preview-name current'
+		]);
+	});
+
+	it.each([
+		{
+			name: 'a newer commit is the branch head',
+			buildEnv: env,
+			remote: { stdout: `${'b'.repeat(40)}\trefs/heads/current\n` }
+		},
+		{ name: 'the build commit is unknown', buildEnv: previewEnv, remote: undefined },
+		{ name: 'the branch head is unknown', buildEnv: env, remote: { exitCode: 128 } }
+	])('leaves the other preview alone when $name', async ({ buildEnv, remote }) => {
+		const h = harness(buildEnv, (request) =>
+			request.command === 'git' && remote
+				? remote
+				: request.args[1] === 'deploy'
+					? replaced
+					: defaultReply(request)
+		);
+
+		await expect(deployConvex(detectPlatform(buildEnv), h.execution)).rejects.toThrow(
+			'gone-1.eu-west-1.convex.cloud/api/get_config_hashes 404 Not Found'
+		);
+		expect(deploys(h.events)).toEqual(['bunx convex deploy --preview-create current']);
+	});
+
+	it('stops after two replacements', async () => {
+		const h = harness(env, (request) =>
+			request.args[1] === 'deploy' ? replaced : defaultReply(request)
+		);
+
+		await expect(deployConvex(detectPlatform(env), h.execution)).rejects.toThrow(
+			'Convex deployment failed'
+		);
+		expect(deploys(h.events)).toEqual([
+			'bunx convex deploy --preview-create current',
+			'bunx convex deploy --preview-name current',
+			'bunx convex deploy --preview-name current'
+		]);
+	});
+
+	it.each([
+		{ name: 'shows', buildEnv: env, shown: true },
+		{ name: 'hides', buildEnv: productionEnv, shown: false }
+	])('$name the masked CLI output of a failed deploy', async ({ buildEnv, shown }) => {
+		const output = 'src/lib/convex/auth.ts:135:73 Error: Argument of type';
+		const h = harness({ ...buildEnv, CONVEX_PREVIEW_DEPLOY_KEY: 'preview-key' }, (request) =>
+			request.args[1] === 'deploy'
+				? { exitCode: 1, stderr: `${output}\nkey preview-key` }
+				: defaultReply(request)
+		);
+
+		const failure = deployConvex(detectPlatform(buildEnv), h.execution);
+		await expect(failure).rejects.toMatchObject({
+			message: shown ? expect.stringContaining(output) : expect.not.stringContaining(output)
+		});
+		await expect(failure).rejects.toMatchObject({
+			message: expect.not.stringContaining('preview-key')
+		});
 	});
 });
