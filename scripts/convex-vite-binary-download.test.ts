@@ -67,17 +67,17 @@ function cacheEntries(root: string): string[] {
 	return fs.existsSync(cache) ? fs.readdirSync(cache) : [];
 }
 
-function zipWithFile(root: string, name: string, contents: string): Uint8Array {
+function zipWithFile(root: string, name: string, contents: string): Uint8Array<ArrayBuffer> {
 	const source = path.join(root, `archive-source-${randomUUID()}`);
 	fs.mkdirSync(source);
 	const file = path.join(source, name);
 	fs.writeFileSync(file, contents, { mode: 0o755 });
 	const zip = path.join(root, `backend-${randomUUID()}.zip`);
 	expect(spawnSync('zip', ['-q', '-j', zip, file]).status).toBe(0);
-	return fs.readFileSync(zip);
+	return new Uint8Array(fs.readFileSync(zip));
 }
 
-function executableZip(root: string): Uint8Array {
+function executableZip(root: string): Uint8Array<ArrayBuffer> {
 	return zipWithFile(root, `convex-local-backend${executableSuffix}`, '#!/bin/sh\nexit 0\n');
 }
 
