@@ -66,12 +66,19 @@ describe('findLinkedStylesheets', () => {
 					},
 					'nodes/1.js': {
 						file: '_app/immutable/nodes/1.js',
-						css: ['_app/immutable/assets/route.css']
+						css: ['_app/immutable/assets/route.css'],
+						assets: ['_app/immutable/assets/linked.css']
+					},
+					'src/linked.css': {
+						file: '_app/immutable/assets/linked.css',
+						src: 'src/linked.css'
 					}
 				})
 			);
 			fs.writeFileSync(path.join(clientDir, '_app/immutable/assets/shared.css'), 'a'.repeat(10));
 			fs.writeFileSync(path.join(clientDir, '_app/immutable/assets/route.css'), 'a'.repeat(9));
+			// Imported with `?url`: the page links it whatever the threshold.
+			fs.writeFileSync(path.join(clientDir, '_app/immutable/assets/linked.css'), 'a'.repeat(20));
 			// Copied from static/: SvelteKit links it regardless of the threshold.
 			fs.writeFileSync(path.join(clientDir, 'static.css'), 'a'.repeat(20));
 

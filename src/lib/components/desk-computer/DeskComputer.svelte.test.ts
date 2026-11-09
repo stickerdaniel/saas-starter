@@ -62,6 +62,35 @@ const click = (key: number) =>
 		.querySelector(`[data-key="${key}"]`)
 		?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
+it('fills the stylesheet frame with the live figure once the browser is idle', async () => {
+	let idle: (() => void) | undefined;
+	vi.stubGlobal('requestIdleCallback', (callback: () => void) => ((idle = callback), 1));
+	component = mount(DeskComputer, { target: document.body });
+	flushSync();
+	const host = document.querySelector('.desk-computer')!;
+	expect(host.childElementCount).toBe(0);
+
+	idle!();
+	await vi.waitFor(() => expect(host.querySelector('svg [data-part="cursor"]')).not.toBeNull(), {
+		timeout: 5000
+	});
+});
+
+it('keeps an unmounted host empty when the live figure arrives late', async () => {
+	let idle: (() => void) | undefined;
+	vi.stubGlobal('requestIdleCallback', (callback: () => void) => ((idle = callback), 1));
+	component = mount(DeskComputer, { target: document.body });
+	flushSync();
+	const host = document.querySelector('.desk-computer')!;
+
+	idle!();
+	await unmount(component);
+	component = undefined;
+	await import('./desk-computer.js');
+	await new Promise((resolve) => setTimeout(resolve));
+	expect(host.childElementCount).toBe(0);
+});
+
 it('rests on the first CLI command under reduced motion, and a clicked key types', async () => {
 	motion.reduced = true;
 	component = mount(DeskComputer, { target: document.body });
