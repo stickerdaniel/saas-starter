@@ -19,6 +19,8 @@ A test that `windows-process-lifecycle.yml` runs from `vitest.tooling.config.ts`
 
 A script or test that can run beside a static-check run and runs `svelte-kit sync`, or a short-lived Vite or Vitest process, in this checkout wraps it in `withSvelteKitSyncLock` (or `withSvelteKitSyncLockSync`) from `scripts/svelte-kit-sync-lock.ts`: every sync deletes and rewrites the root route's generated types, so a concurrent sync of the same checkout can fail with ENOENT. Never hold the lock for a long-lived process such as a dev server; every static-check run would wait on it, and a holder older than any real sync is reclaimed.
 
+A test that runs `static-checks.ts` in this checkout and asserts a passing run uses a scope whose checks read only the files it names, such as `--scope types src/i18n/en.json`: a lint run ends in oxlint and knip over the whole tree, where sibling suites park malformed and unused fixture sources.
+
 Route content, configuration, and generated assets belong in Vitest or an artifact test. Playwright covers deployed response behavior and load-bearing user flows.
 
 Tests and checks should name the invariant, not mirror a current file list unless that file relationship is itself the contract.
