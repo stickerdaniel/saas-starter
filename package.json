@@ -74,11 +74,11 @@
 	"packageManager": "bun@1.4.4",
 	"dependencies": {
 		"@ai-sdk/provider": "4.0.35",
-		"@better-auth/passkey": "1.6.33",
+		"@better-auth/passkey": "1.6.34",
 		"@better-svelte-email/components": "2.3.0",
 		"@better-svelte-email/server": "2.3.0",
 		"@convex-dev/agent": "0.7.9",
-		"@convex-dev/better-auth": "0.12.6",
+		"@convex-dev/better-auth": "0.13.0",
 		"@convex-dev/rate-limiter": "0.4.3",
 		"@convex-dev/resend": "0.2.10",
 		"@formkit/auto-animate": "0.10.0",
