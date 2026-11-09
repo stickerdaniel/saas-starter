@@ -14,6 +14,8 @@ The deploy script (`scripts/deploy.ts`) auto-detects the platform from environme
 bunx convex env default set --type preview PREVIEW_ADMIN_PASSWORD '<password>'
 ```
 
+Two builds of one branch can run at once, for example when a branch is created and its first commit is pushed in the same second. `convex deploy --preview-create` deletes the branch's preview before it creates a new one, so the later build deletes the earlier build's backend mid-push. A retry with `--preview-create` would delete the other build's backend in turn. The build that lost its backend therefore deploys to the replacement with `--preview-name`, which reuses it, but only while its commit is still the branch head (`scripts/deploy/steps.ts`).
+
 ## Preview cleanup
 
 Convex expires preview deployments after 5 days (14 on Professional), and the team quota is 40 counted across all projects. An active repo reaches that ceiling well before the TTL frees anything, and once it does, creating a preview fails with `DeploymentQuotaReached`.

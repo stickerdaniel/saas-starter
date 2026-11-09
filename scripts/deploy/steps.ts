@@ -205,7 +205,38 @@ export interface PreviewRecovery {
 	currentDeployment?: string | null;
 }
 
-/** Deploy once; only a preview quota error can authorize up to three prune/retry rounds. */
+const MAX_PREVIEW_REJOINS = 2;
+// The CLI retries a 404 from the deployment for about 30 seconds, then prints
+// `Error fetching POST https://<name>.convex.cloud/api/... 404 Not Found`.
+const DELETED_TARGET = /https:\/\/[^\s/]+\.convex\.cloud\/\S* 404 Not Found/;
+
+/** False when the build commit or the remote branch head is unknown. */
+async function isBranchHead(branch: string, execution: DeploymentExecution): Promise<boolean> {
+	const commit =
+		execution.env.WORKERS_CI_COMMIT_SHA ||
+		execution.env.CF_PAGES_COMMIT_SHA ||
+		execution.env.VERCEL_GIT_COMMIT_SHA;
+	if (!commit) return false;
+	const result = await execution.run({
+		command: 'git',
+		args: ['ls-remote', 'origin', `refs/heads/${branch}`]
+	});
+	throwIfStopped(result);
+	if (!result.ok) return false;
+	const head = result.stdout
+		.split('\n')
+		.map((line) => line.split('\t'))
+		.find(([, ref]) => ref === `refs/heads/${branch}`)?.[0];
+	return head === commit;
+}
+
+/**
+ * Deploy once; only a preview quota error can authorize up to three prune/retry
+ * rounds. `--preview-create` deletes the branch's preview before it creates a
+ * new one, so a concurrent build of the same branch can delete this build's
+ * target mid-push. The branch head then deploys to that build's preview with
+ * `--preview-name`, which reuses it; a superseded build fails instead.
+ */
 export async function deployConvex(
 	platform: PlatformContext,
 	execution = createDeploymentExecution(),
@@ -230,7 +261,7 @@ export async function deployConvex(
 	const projectId = execution.env.CONVEX_PROJECT_ID;
 	const management = recovery.management ?? previewManagement;
 	console.log('Deploying Convex functions...');
-	const { result } = await execution.retry(
+	let { result } = await execution.retry(
 		{
 			command: 'bunx',
 			args,
@@ -290,7 +321,30 @@ export async function deployConvex(
 			}
 		}
 	);
-	requireCommand(result, 'Convex deployment failed.');
+	const previewName = platform.isPreview ? platform.gitRef : null;
+	for (let rejoin = 1; previewName && rejoin <= MAX_PREVIEW_REJOINS; rejoin++) {
+		if (
+			result.ok ||
+			result.kind !== 'non_zero_exit' ||
+			!DELETED_TARGET.test(stripAnsi(result.stdout + '\n' + result.stderr))
+		)
+			break;
+		console.log(`Another build of ${previewName} replaced this build's Convex preview.`);
+		if (!(await isBranchHead(previewName, execution))) {
+			console.log(`This commit is not the confirmed head of ${previewName}; leaving that preview.`);
+			break;
+		}
+		console.log(`Deploying to that preview (${rejoin}/${MAX_PREVIEW_REJOINS})...`);
+		result = await execution.run({
+			command: 'bunx',
+			args: ['convex', 'deploy', '--preview-name', previewName],
+			output: 'capture',
+			env: convexDeployEnvironment(platform, execution.env)
+		});
+	}
+	// A preview pushes to an empty or seeded preview database, so its output holds
+	// no production data. Production schema errors can print stored documents.
+	requireCommand(result, 'Convex deployment failed.', { showOutput: platform.isPreview });
 	const combined = stripAnsi(result.stdout + '\n' + result.stderr);
 	const match = combined.match(/https:\/\/(([a-z0-9-]+)(?:\.[a-z0-9-]+)*)\.convex\.cloud/);
 	const urlSlug = match?.[1] ?? null;
