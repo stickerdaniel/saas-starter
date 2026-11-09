@@ -8,11 +8,12 @@
  */
 
 import { runInNewContext } from 'node:vm';
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import appTemplate from '../../app.html?raw';
 import {
 	ActiveUploads,
 	deployReloadTarget,
+	guardLinkClicksDuringNavigation,
 	shouldBlockNavigation
 } from './active-uploads.svelte.ts';
 
@@ -104,6 +105,12 @@ describe('shouldBlockNavigation', () => {
 		expect(shouldBlockNavigation(nav('/app/ai-chat?thread=a', '/app/ai-chat?thread=b'), true)).toBe(
 			false
 		);
+	});
+
+	it('blocks a same-page navigation that loads a new document', () => {
+		// A `data-sveltekit-reload` link to this very page, for example.
+		const reload = { ...nav('/app/ai-chat?thread=a', '/app/ai-chat?thread=b'), willUnload: true };
+		expect(shouldBlockNavigation(reload, true)).toBe(true);
 	});
 
 	it('blocks a first navigation that has no origin', () => {
@@ -209,5 +216,188 @@ describe('deploy recovery after a failed chunk import', () => {
 		shell.failImport();
 		expect(shell.reload).toHaveBeenCalledOnce();
 		expect(uploads.heldReloadCount).toBe(0);
+	});
+});
+
+describe('guardLinkClicksDuringNavigation', () => {
+	const settings = new URL('/en/app/settings', location.origin);
+	let navigating = true;
+	let uploads: ActiveUploads;
+	let stop: () => void;
+
+	function guard() {
+		stop = guardLinkClicksDuringNavigation(document, {
+			navigating: () => navigating,
+			currentUrl: () => settings,
+			uploads
+		});
+	}
+
+	beforeEach(() => {
+		navigating = true;
+		uploads = new ActiveUploads();
+		uploads.claim({});
+		guard();
+	});
+
+	afterEach(() => {
+		stop();
+		document.body.replaceChildren();
+	});
+
+	/**
+	 * Clicks `target` inside `root`, which stands in for the app root where
+	 * SvelteKit's router and Svelte's delegated handlers listen. `followed` is the
+	 * router's answer: it skips a prevented click. `reached` is an app handler that
+	 * acts on every click it receives, as a link whose own handler calls `goto` does.
+	 */
+	function dispatchIn(root: HTMLElement, target: Element, init: MouseEventInit = {}) {
+		let followed = false;
+		let reached = false;
+		root.addEventListener('click', (event) => {
+			reached = true;
+			if (event.defaultPrevented) return;
+			followed = true;
+			// The router takes the navigation over; this also keeps jsdom from trying it.
+			event.preventDefault();
+		});
+		const cancelled = !target.dispatchEvent(
+			new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, ...init })
+		);
+		return { followed, reached, cancelled };
+	}
+
+	/** A stopped click reaches no app handler, and the browser does not follow it either. */
+	const stopped = { followed: false, reached: false, cancelled: true };
+
+	function appRoot() {
+		const root = document.createElement('div');
+		document.body.append(root);
+		return root;
+	}
+
+	function link(href: string, attrs: Record<string, string> = {}) {
+		const anchor = document.createElement('a');
+		anchor.href = href;
+		for (const [name, value] of Object.entries(attrs)) anchor.setAttribute(name, value);
+		return anchor;
+	}
+
+	/** Clicks a plain link, or one placed inside a shadow root. */
+	function click(
+		href: string,
+		init: MouseEventInit = {},
+		attrs: Record<string, string> = {},
+		inShadow = false
+	) {
+		const root = appRoot();
+		const anchor = link(href, attrs);
+		if (inShadow) {
+			const host = document.createElement('div');
+			root.append(host);
+			host.attachShadow({ mode: 'open' }).append(anchor);
+		} else {
+			root.append(anchor);
+		}
+		return dispatchIn(root, anchor, init);
+	}
+
+	it('stops a link off the page while a navigation is under way and a file is going out', () => {
+		expect(click('/en/app')).toEqual(stopped);
+		expect(uploads.blockedCount).toBe(1);
+	});
+
+	it('keeps the stopped click from app handlers that ignore defaultPrevented', () => {
+		const { reached } = click('/en/app');
+		expect(reached).toBe(false);
+	});
+
+	it('stops a link to another origin, which unloads the document', () => {
+		expect(click('https://elsewhere.test/en/app/settings')).toEqual(stopped);
+	});
+
+	it('stops a link inside a shadow root', () => {
+		expect(click('/en/app', {}, {}, true)).toEqual(stopped);
+	});
+
+	it('stops a link that wraps a shadow host, clicked inside its shadow root', () => {
+		const root = appRoot();
+		const anchor = link('/en/app');
+		const host = document.createElement('span');
+		const label = document.createElement('span');
+		host.attachShadow({ mode: 'open' }).append(label);
+		anchor.append(host);
+		root.append(anchor);
+		expect(dispatchIn(root, label)).toEqual(stopped);
+	});
+
+	it('stops a shadow-root link whose slotted label is clicked', () => {
+		const root = appRoot();
+		const host = document.createElement('div');
+		const slotted = document.createElement('span');
+		host.append(slotted);
+		const anchor = link('/en/app');
+		anchor.append(document.createElement('slot'));
+		host.attachShadow({ mode: 'open' }).append(anchor);
+		root.append(host);
+		expect(dispatchIn(root, slotted)).toEqual(stopped);
+	});
+
+	it('stops a download link to another origin, which the browser follows', () => {
+		expect(click('https://elsewhere.test/report.pdf', {}, { download: '' })).toEqual(stopped);
+	});
+
+	it('leaves the click to beforeNavigate when no navigation is under way', () => {
+		navigating = false;
+		expect(click('/en/app')).toEqual({ followed: true, reached: true, cancelled: true });
+		expect(uploads.blockedCount).toBe(0);
+	});
+
+	it('lets a link through once nothing is going out', () => {
+		stop();
+		uploads = new ActiveUploads();
+		guard();
+		expect(click('/en/app').followed).toBe(true);
+	});
+
+	it('lets a same-page link through, which keeps the document', () => {
+		expect(click('/en/app/settings?tab=avatar').followed).toBe(true);
+	});
+
+	it('stops a same-page link that SvelteKit hands to the browser, which loads a new document', () => {
+		expect(click('/en/app/settings?tab=avatar', {}, { rel: 'external' })).toEqual(stopped);
+		expect(click('/en/app/settings?tab=avatar', {}, { target: '_self' })).toEqual(stopped);
+		expect(click('/en/app/settings?tab=avatar', {}, { 'data-sveltekit-reload': '' })).toEqual(
+			stopped
+		);
+	});
+
+	it('reads data-sveltekit-reload from the nearest ancestor that sets it', () => {
+		const section = document.createElement('section');
+		section.setAttribute('data-sveltekit-reload', '');
+		document.body.append(section);
+
+		const reloading = document.createElement('div');
+		reloading.append(link('/en/app/settings?tab=avatar'));
+		section.append(reloading);
+		expect(dispatchIn(reloading, reloading.firstElementChild!)).toEqual(stopped);
+
+		const optedOut = document.createElement('div');
+		optedOut.append(link('/en/app/settings?tab=avatar', { 'data-sveltekit-reload': 'false' }));
+		section.append(optedOut);
+		expect(dispatchIn(optedOut, optedOut.firstElementChild!).followed).toBe(true);
+	});
+
+	it('lets a reload link through that only adds a hash, which scrolls', () => {
+		expect(click('/en/app/settings#avatar', {}, { 'data-sveltekit-reload': '' }).followed).toBe(
+			true
+		);
+	});
+
+	it('leaves new-tab, modified and same-origin download clicks to the browser', () => {
+		expect(click('/en/app', {}, { target: '_blank' }).followed).toBe(true);
+		expect(click('/en/app', { metaKey: true }).followed).toBe(true);
+		expect(click('/en/app/export.csv', {}, { download: '' }).followed).toBe(true);
+		expect(uploads.blockedCount).toBe(0);
 	});
 });
