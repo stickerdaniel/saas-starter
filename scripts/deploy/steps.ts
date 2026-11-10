@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { normalizeSiteOrigin } from '../../src/lib/config/origin';
 import { validateConvexEnvironment } from '../validate-convex-env';
-import { BRANCH_HEAD_COMMAND, isBranchHead } from './branch-head';
+import { BRANCH_HEAD_COMMAND, isBranchHead, otherBranchHead } from './branch-head';
 import {
 	checkAborted,
 	createDeploymentExecution,
@@ -214,9 +214,12 @@ const DELETED_TARGET = /https:\/\/[^\s/]+\.convex\.cloud\/\S* 404 Not Found/;
 /**
  * Deploy once; only a preview quota error can authorize up to three prune/retry
  * rounds. `--preview-create` deletes the branch's preview before it creates a
- * new one, so a concurrent build of the same branch can delete this build's
- * target mid-push. The branch head then deploys to that build's preview with
- * `--preview-name`, which reuses it; other builds fail instead.
+ * new one, so a build whose commit is no longer the branch head on origin stops
+ * before it: the head's build owns the preview. A build without git access
+ * cannot tell and deploys. A concurrent build of the same branch can still
+ * delete this build's target mid-push. The branch head then deploys to that
+ * build's preview with `--preview-name`, which reuses it; other builds fail
+ * instead.
  *
  * A rejoined build sets SITE_URL on the shared backend, so only a build whose
  * site URL is the branch's shared preview alias rejoins. The CLI confirms the head
@@ -242,7 +245,16 @@ export async function deployConvex(
 				'CONVEX_PREVIEW_DEPLOY_KEY not set for preview build — would deploy to production. Aborting.'
 			);
 		}
-		if (platform.gitRef) args.push('--preview-create', platform.gitRef);
+		if (platform.gitRef) {
+			const head = await otherBranchHead(platform.gitRef, execution);
+			if (head) {
+				throw new DeploymentError(
+					'superseded',
+					`${platform.gitRef} is at ${head} on origin; this build leaves the preview to that commit's build.`
+				);
+			}
+			args.push('--preview-create', platform.gitRef);
+		}
 	}
 	const token = execution.env.CONVEX_MANAGEMENT_TOKEN;
 	const projectId = execution.env.CONVEX_PROJECT_ID;
