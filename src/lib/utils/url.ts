@@ -61,9 +61,9 @@ export function safeAuthDestination(url: string, fallback: string): string {
 /**
  * Build an auth page URL that carries an outstanding destination in its query.
  *
- * Better Auth's relative callback rule forbids `#` (`matchesOriginPattern` in
- * better-auth/dist/auth/trusted-origins.mjs), so a destination with a fragment
- * would be dropped as a callback. Inside the query it becomes `%23` and passes.
+ * The callback rule in {@link callbackURLFor} forbids `#`, so a destination with
+ * a fragment would be dropped as a callback. Inside the query it becomes `%23`
+ * and passes.
  *
  * `pagePath` is constructed locally and trusted, while `destination` is not. An
  * invalid destination leaves the bare page.
@@ -83,9 +83,8 @@ export function authPageURL(pagePath: string, destination: string): string {
 /**
  * Apply `encodeURIComponent` plus the six characters it leaves raw.
  *
- * `!'()*~` are outside the callback grammar. If any remain unescaped, Better Auth
- * returns `403 INVALID_CALLBACK_URL` and rejects the request instead of merely
- * dropping the deep link.
+ * `!'()*~` are outside the callback grammar of {@link callbackURLFor}. If any
+ * remain unescaped, it falls back to the bare page and the deep link is lost.
  */
 function encodeCallbackComponent(value: string): string {
 	return encodeURIComponent(value).replace(
@@ -217,16 +216,17 @@ export function splitDestinationError(destination: string): {
 /**
  * Narrow a destination to what Better Auth will accept as a `callbackURL`.
  *
- * Its origin check applies its own relative-path rule to that field, and that
- * rule is stricter than this module's: it takes no fragment and no percent
- * escape in the path (`matchesOriginPattern` in
- * better-auth/dist/auth/trusted-origins.mjs). A value it refuses comes back as
- * `403 INVALID_CALLBACK_URL`, which the sign-in form can only report as a
- * failed sign-in, so correct credentials look wrong and an unverified account
- * never gets its recovery mail. Losing a deep link is the smaller failure, so a
- * destination outside the rule falls back rather than being sent.
+ * Its origin check applies its own relative-path rule to that field
+ * (`isSafeRelativeURL` in better-auth/dist/auth/trusted-origins.mjs). A value
+ * it refuses comes back as `403 INVALID_CALLBACK_URL`, which the sign-in form
+ * can only report as a failed sign-in, so correct credentials look wrong and an
+ * unverified account never gets its recovery mail. Losing a deep link is the
+ * smaller failure, so a destination outside this rule falls back rather than
+ * being sent.
  *
- * The shape is pinned against the real dependency in
+ * This rule is narrower than Better Auth's: it takes no fragment and no percent
+ * escape in the path, both of which Better Auth 1.7 accepts. The containment
+ * is checked against the real dependency in
  * src/lib/utils/__tests__/callback-url.contract.test.ts.
  */
 export function callbackURLFor(destination: string, fallback: string): string {

@@ -3,15 +3,16 @@
  *
  * To regenerate the schema, from the repo root:
  *   cd src/lib/convex
- *   bunx auth generate --config betterAuth/auth.ts -y --output betterAuth/schema.generated.ts
+ *   bunx auth@1.7 generate --config betterAuth/auth.ts -y --output betterAuth/schema.generated.ts
  *
- * Note: with @better-auth/passkey 1.6.x, jiti fails to load the @peculiar/asn1
- * chain pulled in by @simplewebauthn/server. Temporarily comment out
- * `passkey()` and its import in ../auth.ts before generating, then restore
- * after diffing. The passkey table block here can be carried forward unchanged.
+ * Keep the CLI on the installed `better-auth` minor; a newer CLI generates the
+ * schema for its own version. Diff the output into this file, then delete it.
  *
  * Customizations preserved across regeneration:
  * - Admin-list indexes on the `user` table — generator drops them.
+ * - `.index('credentialID', ['credentialID'])` on `passkey`. The passkey plugin
+ *   looks every sign-in up by `credentialID`; the generator emits indexes only
+ *   for unique, sortable and reference fields, so it drops this one.
  * - `.index('updatedAt', ['updatedAt'])` on `session` for activity metrics.
  * - `.index('value', ['value'])` on `verification` so E2E teardown can delete a
  *   user's password-reset tokens, which are keyed by `reset-password:<token>`
@@ -79,6 +80,7 @@ export const tables = {
 	})
 		.index('accountId', ['accountId'])
 		.index('accountId_providerId', ['accountId', 'providerId'])
+		.index('accountId_providerId_userId', ['accountId', 'providerId', 'userId'])
 		.index('providerId_userId', ['providerId', 'userId'])
 		.index('userId', ['userId']),
 	verification: defineTable({
@@ -95,7 +97,9 @@ export const tables = {
 		publicKey: v.string(),
 		privateKey: v.string(),
 		createdAt: v.number(),
-		expiresAt: v.optional(v.union(v.null(), v.number()))
+		expiresAt: v.optional(v.union(v.null(), v.number())),
+		alg: v.optional(v.union(v.null(), v.string())),
+		crv: v.optional(v.union(v.null(), v.string()))
 	}),
 	passkey: defineTable({
 		name: v.optional(v.union(v.null(), v.string())),

@@ -70,11 +70,14 @@ const providerUserInfo = {
 };
 
 function createContext(localUser: { id: string; email: string; emailVerified: boolean }) {
+	// handleOAuthUserInfo first asks who owns the provider account (nobody yet),
+	// then looks the local user up by the provider's email, in the shapes the
+	// real internal adapter returns (better-auth/dist/db/internal-adapter.mjs).
 	const internalAdapter = {
-		findOAuthUser: vi.fn(async () => ({
+		findAccountOwnerByKey: vi.fn(async () => null),
+		findUserByEmail: vi.fn(async () => ({
 			user: localUser,
-			accounts: [{ providerId: 'credential', accountId: localUser.id }],
-			linkedAccount: undefined
+			accounts: [{ providerId: 'credential', accountId: localUser.id }]
 		})),
 		linkAccount: vi.fn(async (account: LinkedAccountWrite) => ({
 			id: 'linked-account-id',
@@ -93,6 +96,9 @@ function createContext(localUser: { id: string; email: string; emailVerified: bo
 			// verification check, and the provider vouches for the address
 			// anyway, so neither verdict moves when this list gains an entry.
 			trustedProviders: [],
+			// Read for a per-provider `requireEmailVerification`, which the app's
+			// providers leave unset.
+			socialProviders: [],
 			options: { account: appOptions.account },
 			baseURL: 'https://example.test/api/auth',
 			secret: 'test-secret',

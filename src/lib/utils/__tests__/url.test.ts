@@ -289,6 +289,14 @@ describe('authPageURL', () => {
 		expect(carried(url)).toBe('/de/app/settings#section');
 	});
 
+	/**
+	 * Better Auth 1.7 accepts these as callbacks; the callback rule here does not,
+	 * and widening it is a decision of its own.
+	 */
+	it.each(['/caf%C3%A9', '/app/a b', '/app,list'])('falls back for %s', (destination) => {
+		expect(callbackURLFor(destination, '/de/app')).toBe('/de/app');
+	});
+
 	it.each(['en', 'de', 'es', 'fr'])('carries a %s destination', (lang) => {
 		const destination = `/${lang}/app/settings?tab=profile#section`;
 		const url = authPageURL(`/${lang}/forgot-password`, destination);
@@ -299,7 +307,7 @@ describe('authPageURL', () => {
 
 	/**
 	 * These are the six characters `encodeURIComponent` leaves raw. Without
-	 * protection, Better Auth returns `403 INVALID_CALLBACK_URL` and rejects the request.
+	 * protection, the callback grammar drops the whole destination.
 	 */
 	it.each([
 		['!', '%21'],
