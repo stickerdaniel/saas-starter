@@ -14,7 +14,7 @@ The deploy script (`scripts/deploy.ts`) auto-detects the platform from environme
 bunx convex env default set --type preview PREVIEW_ADMIN_PASSWORD '<password>'
 ```
 
-Two builds of one branch can run at once, for example when a branch is created and its first commit is pushed in the same second. `convex deploy --preview-create` deletes the branch's preview before it creates a new one, so the later build deletes the earlier build's backend mid-push. A retry with `--preview-create` would delete the other build's backend in turn. The build that lost its backend therefore deploys to the replacement with `--preview-name`, which reuses it, but only while its commit is still the branch head (`scripts/deploy/steps.ts`).
+Two builds of one branch can run at once, for example when a branch is created and its first commit is pushed in the same second. `convex deploy --preview-create` deletes the branch's preview before it creates a new one, so the later build deletes the earlier build's backend mid-push. A retry with `--preview-create` would delete the other build's backend in turn. On Cloudflare Workers, the build that lost its backend therefore deploys to the replacement with `--preview-name`, which reuses it, but only while its commit is still the branch head (`scripts/deploy/steps.ts`). The CLI checks the head again between its claim of the preview and its push, so a commit pushed in the meantime keeps its own backend. Every Workers build of a branch serves the same preview alias, so the rejoined build sets the same `SITE_URL`. Vercel and Cloudflare Pages give each build its own URL, so the build that lost its backend fails there instead of replacing the other build's `SITE_URL`.
 
 ## Preview cleanup
 
