@@ -18,7 +18,7 @@ type DeleteArgs = {
 
 /**
  * The Better Auth component's delete endpoints, as `create-api.js` in
- * @convex-dev/better-auth 0.12.5 implements them: the app's delete trigger runs
+ * @convex-dev/better-auth 0.13.0 implements them: the app's delete trigger runs
  * only when the caller passes `onDeleteHandle`, before each `deleteMany` row and
  * after the `deleteOne` row.
  */

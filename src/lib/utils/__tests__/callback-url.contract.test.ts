@@ -10,11 +10,13 @@ import {
 } from '../../convex/utils/passwordLinkPurpose';
 
 /**
- * `callbackURLFor` carries a copy of a rule that lives in Better Auth, and a
- * copied rule is a claim about the dependency rather than knowledge of it. This
- * asks the installed dependency instead: each destination goes through the real
- * HTTP handler, where the origin-check middleware sits, and the verdict is
- * compared with ours.
+ * `callbackURLFor` keeps a rule of its own that has to stay inside the one
+ * Better Auth enforces, and that containment is a claim about the dependency
+ * rather than knowledge of it. This asks the installed dependency instead: each
+ * destination goes through the real HTTP handler, where the origin-check
+ * middleware sits. Whatever ours sends, the dependency must accept; whatever
+ * leaves the origin, both must refuse. Better Auth 1.7 accepts more than ours
+ * (fragments, percent escapes in the path), which costs only a deep link.
  *
  * The middleware only runs on a `Request`. Calling `auth.api.signInEmail`
  * directly skips it, which is why the recovery tests next door cannot see any
@@ -55,37 +57,30 @@ async function betterAuthAccepts(destination: string): Promise<boolean> {
 	return body.code !== 'INVALID_CALLBACK_URL';
 }
 
-const DESTINATIONS = [
+/** Destinations `callbackURLFor` sends unchanged. */
+const SENT = [
 	'/app',
 	'/de/app/settings',
 	'/app/settings?tab=billing',
 	'/app?redirectTo=%2Fde%2Fapp',
 	'/app@work',
-	'/app#billing',
-	'/caf%C3%A9',
-	'/app/a b',
-	'/app,list',
-	// The six characters `encodeURIComponent` leaves alone, which is how they
-	// reach a callback URL built by embedding a destination in a parameter.
-	'/de/signin?redirectTo=%2Fapp!x',
-	'/de/signin?redirectTo=%2Fapp~x',
-	"/de/signin?redirectTo=%2Fapp'x",
-	'/de/signin?redirectTo=%2Fapp(x',
-	'/de/signin?redirectTo=%2Fapp)x',
-	'/de/signin?redirectTo=%2Fapp*x',
-	'//evil.com',
-	'/\\evil.com'
+	// What `authPageURL` makes of the six characters `encodeURIComponent` leaves
+	// alone when it embeds a destination in a parameter.
+	'/de/signin?redirectTo=%2Fapp%21x%7Ex%27x%28x%29x%2Ax'
 ];
 
+/** Destinations that leave the origin. */
+const LEAVING = ['//evil.com', '/\\evil.com', '/%2Fevil.com', '/%5Cevil.com'];
+
 describe('callbackURLFor against the installed Better Auth', () => {
-	it.each(DESTINATIONS)('agrees with the dependency about %s', async (destination) => {
-		const ours = callbackURLFor(destination, '/fallback') === destination;
-		await expect(betterAuthAccepts(destination)).resolves.toBe(ours);
+	it.each(SENT)('sends %s, which the dependency accepts', async (destination) => {
+		expect(callbackURLFor(destination, '/fallback')).toBe(destination);
+		await expect(betterAuthAccepts(destination)).resolves.toBe(true);
 	});
 
-	it('falls back rather than sending something that would be refused', () => {
-		expect(callbackURLFor('/app#billing', '/de/app')).toBe('/de/app');
-		expect(callbackURLFor('/de/app/settings', '/de/app')).toBe('/de/app/settings');
+	it.each(LEAVING)('refuses %s, as the dependency does', async (destination) => {
+		expect(callbackURLFor(destination, '/fallback')).toBe('/fallback');
+		await expect(betterAuthAccepts(destination)).resolves.toBe(false);
 	});
 });
 
