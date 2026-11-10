@@ -1,27 +1,48 @@
 import { createDeploymentExecution, throwIfStopped, type DeploymentExecution } from './execution';
 import { detectPlatform } from './platform';
 
-/** False when the build commit or the remote branch head is unknown. */
-export async function isBranchHead(
-	branch: string,
-	execution: DeploymentExecution
-): Promise<boolean> {
-	const commit =
-		execution.env.WORKERS_CI_COMMIT_SHA ||
-		execution.env.CF_PAGES_COMMIT_SHA ||
-		execution.env.VERCEL_GIT_COMMIT_SHA;
-	if (!commit) return false;
+function buildCommit(env: NodeJS.ProcessEnv): string | undefined {
+	return env.WORKERS_CI_COMMIT_SHA || env.CF_PAGES_COMMIT_SHA || env.VERCEL_GIT_COMMIT_SHA;
+}
+
+/** The commit origin names as the branch head, or null when git cannot tell. */
+async function originHead(branch: string, execution: DeploymentExecution): Promise<string | null> {
 	const result = await execution.run({
 		command: 'git',
 		args: ['ls-remote', 'origin', `refs/heads/${branch}`]
 	});
 	throwIfStopped(result);
-	if (!result.ok) return false;
-	const head = result.stdout
-		.split('\n')
-		.map((line) => line.split('\t'))
-		.find(([, ref]) => ref === `refs/heads/${branch}`)?.[0];
-	return head === commit;
+	if (!result.ok) return null;
+	return (
+		result.stdout
+			.split('\n')
+			.map((line) => line.split('\t'))
+			.find(([, ref]) => ref === `refs/heads/${branch}`)?.[0] ?? null
+	);
+}
+
+/** False when the build commit or the remote branch head is unknown. */
+export async function isBranchHead(
+	branch: string,
+	execution: DeploymentExecution
+): Promise<boolean> {
+	const commit = buildCommit(execution.env);
+	return !!commit && (await originHead(branch, execution)) === commit;
+}
+
+/**
+ * The branch head on origin when it is another commit than this build's, else
+ * null. An unknown build commit or head returns null, so a build without git
+ * access deploys as before.
+ */
+export async function otherBranchHead(
+	branch: string,
+	execution: DeploymentExecution
+): Promise<string | null> {
+	const commit = buildCommit(execution.env);
+	if (!commit) return null;
+	const head = await originHead(branch, execution);
+	return head && head !== commit ? head : null;
 }
 
 /**

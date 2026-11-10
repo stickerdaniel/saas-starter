@@ -13,7 +13,13 @@ import {
 	writeE2eConfig,
 	type ConvexDeployment
 } from './steps';
-import { defaultReply, harness, previewEnv, productionEnv } from './__fixtures__/execution';
+import {
+	defaultReply,
+	harness,
+	previewEnv,
+	productionEnv,
+	quotaFailure
+} from './__fixtures__/execution';
 
 const deployment: ConvexDeployment = {
 	urlSlug: 'curious-lark-703.eu-west-1',
@@ -509,22 +515,31 @@ describe('concurrent preview builds of one branch', () => {
 		const replace = (code: string, siteUrl: string | null = null) => {
 			state.preview = { name: `preview-${++created}`, code, siteUrl };
 		};
-		/** One build whose own `--preview-create` lost its target to another build. */
+		/**
+		 * One build whose own `--preview-create` lost its target to another build.
+		 * `afterHeadCheck` runs once, after the head check that follows that loss.
+		 */
 		const build = (buildEnv: NodeJS.ProcessEnv, afterHeadCheck = () => {}) => {
 			const commit =
 				buildEnv.WORKERS_CI_COMMIT_SHA ||
 				buildEnv.CF_PAGES_COMMIT_SHA ||
 				buildEnv.VERCEL_GIT_COMMIT_SHA ||
 				'';
+			let lost = false;
 			return harness(buildEnv, (request) => {
 				const { args } = request;
 				if (request.command === 'git') {
 					const reply = { stdout: `${state.origin}\trefs/heads/current\n` };
-					afterHeadCheck();
-					afterHeadCheck = () => {};
+					if (lost) {
+						afterHeadCheck();
+						afterHeadCheck = () => {};
+					}
 					return reply;
 				}
-				if (args.includes('--preview-create')) return replaced;
+				if (args.includes('--preview-create')) {
+					lost = true;
+					return replaced;
+				}
 				if (args.includes('--preview-name')) {
 					if (!state.preview) replace(commit);
 					const preview = state.preview!;
@@ -574,20 +589,25 @@ describe('concurrent preview builds of one branch', () => {
 
 	it.each([
 		{
-			name: 'a newer commit is the branch head',
+			name: 'a newer commit became the branch head',
 			buildEnv: env,
-			remote: { stdout: `${newer}\trefs/heads/current\n` }
+			// The check before `--preview-create`, then the one after the loss.
+			remotes: [
+				{ stdout: `${head}\trefs/heads/current\n` },
+				{ stdout: `${newer}\trefs/heads/current\n` }
+			]
 		},
 		{
 			name: 'the build commit is unknown',
 			buildEnv: { ...env, WORKERS_CI_COMMIT_SHA: '' },
-			remote: undefined
+			remotes: []
 		},
-		{ name: 'the branch head is unknown', buildEnv: env, remote: { exitCode: 128 } }
-	])('leaves the other preview alone when $name', async ({ buildEnv, remote }) => {
+		{ name: 'the branch head is unknown', buildEnv: env, remotes: [{ exitCode: 128 }] }
+	])('leaves the other preview alone when $name', async ({ buildEnv, remotes }) => {
+		let checks = 0;
 		const h = harness(buildEnv, (request) =>
-			request.command === 'git' && remote
-				? remote
+			request.command === 'git' && remotes.length
+				? remotes[Math.min(checks++, remotes.length - 1)]
 				: request.args[1] === 'deploy'
 					? replaced
 					: defaultReply(request)
@@ -660,6 +680,63 @@ describe('concurrent preview builds of one branch', () => {
 			expect(shared.state.preview?.siteUrl).toBe(siteUrl);
 		}
 	);
+
+	it.each([
+		{ name: 'Workers', buildEnv: env },
+		{ name: 'Pages', buildEnv: pages },
+		{ name: 'Vercel', buildEnv: vercel }
+	])(
+		'a late $name build of an older commit leaves the newer preview alone',
+		async ({ buildEnv }) => {
+			const h = harness(buildEnv, (request) =>
+				request.command === 'git'
+					? { stdout: `${newer}\trefs/heads/current\n` }
+					: defaultReply(request)
+			);
+
+			await expect(deployConvex(detectPlatform(buildEnv), h.execution)).rejects.toMatchObject({
+				code: 'superseded'
+			});
+			expect(deploys(h.events)).toEqual([]);
+		}
+	);
+
+	it('leaves the preview to a commit pushed during quota recovery', async () => {
+		const quotaWorkers = {
+			...env,
+			CONVEX_MANAGEMENT_TOKEN: 'management-secret',
+			CONVEX_PROJECT_ID: 'project'
+		};
+		let checks = 0;
+		const h = harness(quotaWorkers, (request) =>
+			request.command === 'git' && request.args.includes('refs/heads/current')
+				? { stdout: `${++checks === 1 ? head : newer}\trefs/heads/current\n` }
+				: request.args[1] === 'deploy'
+					? quotaFailure
+					: defaultReply(request)
+		);
+
+		await expect(
+			deployConvex(detectPlatform(quotaWorkers), h.execution, h.options.recovery)
+		).rejects.toMatchObject({ code: 'superseded' });
+		expect(deploys(h.events)).toEqual(['bunx convex deploy --preview-create current']);
+	});
+
+	it('creates the preview when git cannot name the branch head', async () => {
+		const h = harness(env, (request) =>
+			request.command === 'git'
+				? { exitCode: 128 }
+				: request.args[1] === 'deploy'
+					? { stdout: 'Deployed to https://fresh-1.eu-west-1.convex.cloud' }
+					: defaultReply(request)
+		);
+
+		await expect(deployConvex(detectPlatform(env), h.execution)).resolves.toEqual({
+			name: 'fresh-1',
+			urlSlug: 'fresh-1.eu-west-1'
+		});
+		expect(deploys(h.events)).toEqual(['bunx convex deploy --preview-create current']);
+	});
 
 	it('stops after two replacements', async () => {
 		const h = harness(env, (request) =>

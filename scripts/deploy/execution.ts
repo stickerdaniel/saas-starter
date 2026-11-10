@@ -19,7 +19,8 @@ export class DeploymentError extends Error {
 			| 'aborted'
 			| 'timed_out'
 			| 'prune_blocked'
-			| 'request_failed',
+			| 'request_failed'
+			| 'superseded',
 		message: string,
 		readonly exitCode?: number
 	) {
