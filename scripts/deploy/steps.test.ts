@@ -13,7 +13,13 @@ import {
 	writeE2eConfig,
 	type ConvexDeployment
 } from './steps';
-import { defaultReply, harness, previewEnv, productionEnv } from './__fixtures__/execution';
+import {
+	defaultReply,
+	harness,
+	previewEnv,
+	productionEnv,
+	quotaFailure
+} from './__fixtures__/execution';
 
 const deployment: ConvexDeployment = {
 	urlSlug: 'curious-lark-703.eu-west-1',
@@ -694,6 +700,27 @@ describe('concurrent preview builds of one branch', () => {
 			expect(deploys(h.events)).toEqual([]);
 		}
 	);
+
+	it('leaves the preview to a commit pushed during quota recovery', async () => {
+		const quotaWorkers = {
+			...env,
+			CONVEX_MANAGEMENT_TOKEN: 'management-secret',
+			CONVEX_PROJECT_ID: 'project'
+		};
+		let checks = 0;
+		const h = harness(quotaWorkers, (request) =>
+			request.command === 'git' && request.args.includes('refs/heads/current')
+				? { stdout: `${++checks === 1 ? head : newer}\trefs/heads/current\n` }
+				: request.args[1] === 'deploy'
+					? quotaFailure
+					: defaultReply(request)
+		);
+
+		await expect(
+			deployConvex(detectPlatform(quotaWorkers), h.execution, h.options.recovery)
+		).rejects.toMatchObject({ code: 'superseded' });
+		expect(deploys(h.events)).toEqual(['bunx convex deploy --preview-create current']);
+	});
 
 	it('creates the preview when git cannot name the branch head', async () => {
 		const h = harness(env, (request) =>

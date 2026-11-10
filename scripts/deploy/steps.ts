@@ -207,6 +207,20 @@ export interface PreviewRecovery {
 }
 
 const MAX_PREVIEW_REJOINS = 2;
+
+/** Stops a build once origin names another commit as the head of `branch`. */
+async function leavePreviewToNewerHead(
+	branch: string,
+	execution: DeploymentExecution
+): Promise<void> {
+	const head = await otherBranchHead(branch, execution);
+	if (head) {
+		throw new DeploymentError(
+			'superseded',
+			`${branch} is at ${head} on origin; this build leaves the preview to that commit's build.`
+		);
+	}
+}
 // The CLI retries a 404 from the deployment for about 30 seconds, then prints
 // `Error fetching POST https://<name>.convex.cloud/api/... 404 Not Found`.
 const DELETED_TARGET = /https:\/\/[^\s/]+\.convex\.cloud\/\S* 404 Not Found/;
@@ -215,11 +229,11 @@ const DELETED_TARGET = /https:\/\/[^\s/]+\.convex\.cloud\/\S* 404 Not Found/;
  * Deploy once; only a preview quota error can authorize up to three prune/retry
  * rounds. `--preview-create` deletes the branch's preview before it creates a
  * new one, so a build whose commit is no longer the branch head on origin stops
- * before it: the head's build owns the preview. A build without git access
- * cannot tell and deploys. A concurrent build of the same branch can still
- * delete this build's target mid-push. The branch head then deploys to that
- * build's preview with `--preview-name`, which reuses it; other builds fail
- * instead.
+ * before it and before each quota retry: the head's build owns the preview. A
+ * build without git access cannot tell and deploys. A concurrent build of the
+ * same branch can still delete this build's target mid-push. The branch head
+ * then deploys to that build's preview with `--preview-name`, which reuses it;
+ * other builds fail instead.
  *
  * A rejoined build sets SITE_URL on the shared backend, so only a build whose
  * site URL is the branch's shared preview alias rejoins. The CLI confirms the head
@@ -246,13 +260,7 @@ export async function deployConvex(
 			);
 		}
 		if (platform.gitRef) {
-			const head = await otherBranchHead(platform.gitRef, execution);
-			if (head) {
-				throw new DeploymentError(
-					'superseded',
-					`${platform.gitRef} is at ${head} on origin; this build leaves the preview to that commit's build.`
-				);
-			}
+			await leavePreviewToNewerHead(platform.gitRef, execution);
 			args.push('--preview-create', platform.gitRef);
 		}
 	}
@@ -316,6 +324,9 @@ export async function deployConvex(
 					timeoutMs: execution.timeoutMs
 				});
 				console.log(`[${attempt}/${MAX_RECOVERY_ATTEMPTS}] Pruned preview: ${applied.pruned}`);
+				// The retry repeats `--preview-create`, and a commit pushed during the
+				// rounds so far owns the preview.
+				if (platform.gitRef) await leavePreviewToNewerHead(platform.gitRef, execution);
 				console.log(`Waiting ${POST_PRUNE_DELAY_MS / 1000}s for Convex quota propagation...`);
 			}
 		}
