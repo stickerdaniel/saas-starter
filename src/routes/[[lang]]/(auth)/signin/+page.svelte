@@ -143,7 +143,7 @@
 	let passwordSignedIn = $state(false);
 	let passkeyCheckStarted = false;
 	let passkeyOffer = $state<PasskeyNudgeUser | null>(null);
-	// A visitor may follow a link, such as the logo, while the passkey check runs.
+	// A visitor may follow a link, such as the logo, while the passkey check or an OAuth start runs.
 	let left = false;
 	onDestroy(() => {
 		left = true;
@@ -333,8 +333,12 @@
 		formError = '';
 		beginOAuth(provider);
 
+		let failure: unknown = null;
 		try {
-			await authClient.signIn.social({
+			// A refused start, such as a 400 or 503, resolves with `error`; only a
+			// network failure throws. On success Better Auth's client navigates to
+			// the provider by itself.
+			const { error } = await authClient.signIn.social({
 				provider,
 				callbackURL: authPageURL(localizedHref('/signin'), finalDestination),
 				// Without this the callback reports a failure to Better Auth's default
@@ -344,13 +348,19 @@
 				// and the page narrows the destination again when it navigates.
 				errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signin'), rawDestination)
 			});
+			failure = error;
 		} catch (error) {
-			clearPendingOAuthProvider();
-			console.error(`[SignIn] OAuth ${provider} error:`, error);
-			formError = 'auth.messages.oauth_failed';
-		} finally {
-			isLoading = false;
+			failure = error;
 		}
+		// The pending provider is shared with the page the visitor moved on to,
+		// which may have started its own attempt.
+		if (left) return;
+		if (failure) {
+			clearPendingOAuthProvider();
+			console.error(`[SignIn] OAuth ${provider} error:`, failure);
+			formError = 'auth.messages.oauth_failed';
+		}
+		isLoading = false;
 	}
 
 	/**

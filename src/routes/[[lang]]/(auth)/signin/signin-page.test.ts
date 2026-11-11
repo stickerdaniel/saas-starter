@@ -59,10 +59,10 @@ type EmailSignIn = (
 	}
 ) => Promise<AuthResult>;
 type SocialSignIn = (body: {
-	provider: string;
+	provider: 'google' | 'github';
 	callbackURL: string;
 	errorCallbackURL: string;
-}) => Promise<AuthResult>;
+}) => Promise<unknown>;
 
 const state = await vi.hoisted(async () => {
 	// Reactive like SvelteKit's own `page.url`, so a rewrite of the query is
@@ -160,10 +160,12 @@ vi.mock('runed/kit', () => ({
 	})
 }));
 
+import { createAuthClient } from 'better-auth/client';
 import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import {
 	clearLastSuccessfulAuthMethod,
-	clearPendingOAuthProvider
+	clearPendingOAuthProvider,
+	pendingOAuthProvider
 } from '#lib/hooks/last-auth-method.svelte.ts';
 import SignInPage from './+page.svelte';
 
@@ -669,5 +671,70 @@ describe('sign-in page once hydrated', () => {
 		expect(resumeLinks).toHaveLength(1);
 		const target = link(en.auth.signin.button_resume);
 		expect(target.pathname + target.search + target.hash).toBe(DESTINATION);
+	});
+});
+
+describe('sign-in page OAuth start failure', () => {
+	beforeEach(() => {
+		const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+		return () => logged.mockRestore();
+	});
+
+	/**
+	 * Sends social sign-in through Better Auth's own client, which receives the
+	 * next of `responses` for each start. A refused start then reaches the page
+	 * the way the installed client hands it over: resolved, with `error` set.
+	 */
+	function startsAnswer(...responses: Array<Promise<Response>>): void {
+		const betterAuth = createAuthClient({
+			baseURL: 'https://example.com',
+			fetchOptions: { customFetchImpl: async () => responses.shift()! }
+		});
+		state.signIn.social.mockImplementation((body) => betterAuth.signIn.social(body));
+	}
+
+	function alertText(): string {
+		return document.querySelector('[role="alert"]')?.textContent?.trim() ?? '';
+	}
+
+	it.each([
+		{
+			status: 400,
+			response: () =>
+				Response.json({ code: 'VALIDATION_ERROR', message: 'Invalid body' }, { status: 400 })
+		},
+		{ status: 503, response: () => new Response('Service Unavailable', { status: 503 }) }
+	])('reports a $status and lets the visitor try again', async ({ response }) => {
+		startsAnswer(Promise.resolve(response()));
+		await renderSignIn('');
+
+		button(en.auth.signin.oauth_google).click();
+
+		await vi.waitFor(() => expect(alertText()).toBe(en.auth.messages.oauth_failed));
+		expect(pendingOAuthProvider.current).toBeNull();
+		expect(button(en.auth.signin.oauth_google).disabled).toBe(false);
+		expect(button(en.auth.signin.button_signin).disabled).toBe(false);
+		expect(navigations).toEqual([]);
+	});
+
+	it('leaves a newer attempt alone when an earlier one fails after the visitor left', async () => {
+		let refuseFirst!: (response: Response) => void;
+		startsAnswer(new Promise((resolve) => (refuseFirst = resolve)), new Promise(() => {}));
+		await renderSignIn('');
+		button(en.auth.signin.oauth_google).click();
+		await vi.waitFor(() => expect(state.signIn.social).toHaveBeenCalledOnce());
+		await unmount(component!);
+		document.body.replaceChildren();
+
+		await renderSignIn('');
+		button(en.auth.signin.oauth_google).click();
+		await vi.waitFor(() => expect(state.signIn.social).toHaveBeenCalledTimes(2));
+		refuseFirst(new Response('Service Unavailable', { status: 503 }));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
+
+		expect(pendingOAuthProvider.current).toBe('google');
+		expect(alertText()).toBe('');
+		expect(button(en.auth.signin.oauth_google).disabled).toBe(true);
 	});
 });
