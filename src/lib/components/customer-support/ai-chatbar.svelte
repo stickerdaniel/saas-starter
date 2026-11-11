@@ -28,7 +28,7 @@
 	const { isFeedbackOpen = false }: { isFeedbackOpen?: boolean } = $props();
 
 	const support = supportContext.get();
-	const { conversation } = support;
+	const { conversation, navigation } = support;
 	const anonymousUserId = $derived.by(() => {
 		const userId = conversation.userId;
 		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
@@ -65,6 +65,8 @@
 	// Set on destroy so the thread-creation continuation doesn't subscribe
 	// after cleanup already ran (mutation still in flight during unmount)
 	let destroyed = false;
+	// Counts submits; only the latest one may hand its prompt back to the input.
+	let latestSubmit = 0;
 
 	function releaseWarmResources(): void {
 		if (cleanupTimeoutId !== null) {
@@ -102,14 +104,30 @@
 		if (!input.trim() || conversation.isSending) return;
 
 		const trimmedPrompt = input.trim();
+		const submit = ++latestSubmit;
 		const sessionEpoch = getChatSessionEpoch();
 		const generation = warmGeneration;
+		// The cleared input stays this submit's to restore while its session, warm
+		// generation and mount last, whatever the visitor navigates to meanwhile.
+		const ownsInput = () =>
+			isChatSessionCurrent(sessionEpoch) && warmGeneration === generation && !destroyed;
+		// Until this submit selects its thread, a selection or Back made while the
+		// warm thread is acquired retires it; afterwards that thread's identity does.
+		const navigationRevision = navigation.operationRevision;
 		let sendOperation: ReturnType<typeof conversation.captureOperationIdentity> | undefined;
 		const isCurrent = () =>
-			isChatSessionCurrent(sessionEpoch) &&
-			warmGeneration === generation &&
-			!destroyed &&
-			(!sendOperation || conversation.isOperationIdentityCurrent(sendOperation));
+			ownsInput() &&
+			(sendOperation
+				? conversation.isOperationIdentityCurrent(sendOperation)
+				: navigation.operationRevision === navigationRevision);
+		// A retired submit hands its prompt back to the chatbar unless the message
+		// was already dispatched, which the server may have accepted, the visitor
+		// has typed something new since, or a newer submit cleared the input and
+		// owns its recovery.
+		let dispatched = false;
+		const restoreUnsentPrompt = () => {
+			if (!dispatched && submit === latestSubmit && ownsInput() && !input) input = trimmedPrompt;
+		};
 
 		// Clear input and request widget open before sending
 		// (isSending flag is set by sendMessage)
@@ -125,7 +143,10 @@
 						threadCreation.generation === generation
 							? threadCreation.promise
 							: createWarmThread());
-			if (!isCurrent()) return;
+			if (!isCurrent()) {
+				restoreUnsentPrompt();
+				return;
+			}
 
 			// Update shared context (selectThread sets view='chat' + URL sync)
 			support.selectThread(threadId);
@@ -133,9 +154,13 @@
 
 			// Force Svelte to re-render so ChatRoot subscribes before mutation
 			await tick();
-			if (!isCurrent()) return;
+			if (!isCurrent()) {
+				restoreUnsentPrompt();
+				return;
+			}
 
 			// Send message using centralized method (handles flags + optimistic update)
+			dispatched = true;
 			await conversation.sendMessage(client, trimmedPrompt, { threadId });
 			if (!isCurrent()) return;
 
@@ -151,7 +176,10 @@
 				ownedUnsubscribe?.();
 			}, 500);
 		} catch (error) {
-			if (!isCurrent()) return;
+			if (!isCurrent()) {
+				restoreUnsentPrompt();
+				return;
+			}
 			console.error('[SupportChatbar.send] Failed');
 
 			// Restore the cleared input so the visitor's message is not lost

@@ -1,7 +1,11 @@
 import { createContext } from 'svelte';
 import { getChatSessionEpoch } from '#lib/chat/core/chat-persisted-state.ts';
 import { ComposerSendCoordinator } from '#lib/chat/ui/composer-send-coordinator.ts';
-import { SupportConversation, type SupportAssignedAdmin } from './support-conversation.svelte.ts';
+import {
+	SupportConversation,
+	type SupportAssignedAdmin,
+	type SupportThreadMetadata
+} from './support-conversation.svelte.ts';
 import { SupportHandoffCommands } from './support-handoff-commands.svelte.ts';
 import { SupportNavigationState } from './support-navigation-state.svelte.ts';
 import { SupportNotificationCommands } from './support-notification-commands.svelte.ts';
@@ -49,8 +53,8 @@ export class SupportContext {
 		this.navigation.selectThread(threadId);
 	}
 
-	selectThreadFromUrl(threadId: string): void {
-		this.conversation.selectThreadFromUrl(threadId);
+	selectThreadFromUrl(threadId: string, metadata?: SupportThreadMetadata): void {
+		this.conversation.selectThreadFromUrl(threadId, metadata);
 		this.navigation.selectThreadFromUrl();
 	}
 

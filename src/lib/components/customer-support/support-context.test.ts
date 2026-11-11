@@ -53,12 +53,17 @@ describe('SupportContext', () => {
 			'mail@example.com'
 		);
 
-		support.selectThreadFromUrl('thread-url');
+		support.selectThreadFromUrl('thread-url', {
+			isHandedOff: false,
+			assignedAdmin: undefined,
+			notificationEmail: 'url@example.com'
+		});
 
 		expect(support.conversation.threadId).toBe('thread-url');
-		expect(support.conversation.threadAgentName).toBe('Kai');
-		expect(support.conversation.isHandedOff).toBe(true);
-		expect(support.conversation.notificationEmail).toBe('mail@example.com');
+		expect(support.conversation.threadAgentName).toBeUndefined();
+		expect(support.conversation.isHandedOff).toBe(false);
+		expect(support.conversation.assignedAdmin).toBeUndefined();
+		expect(support.conversation.notificationEmail).toBe('url@example.com');
 		expect(support.navigation.currentView).toBe('chat');
 		expect(support.navigation.skipAnimation).toBe(true);
 		expect(onThreadChange).not.toHaveBeenCalled();

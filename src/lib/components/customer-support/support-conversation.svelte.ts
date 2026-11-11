@@ -1,4 +1,5 @@
 import type { ConvexClient } from 'convex/browser';
+import type { FunctionReturnType } from 'convex/server';
 import { version } from '$app/env';
 import { api } from '#lib/convex/_generated/api.js';
 import type { Attachment } from '#lib/chat/index.js';
@@ -24,6 +25,12 @@ import type { SupportNavigationState } from './support-navigation-state.svelte.t
 const UNORDERED_TURN: AwaitedTurn = { kind: 'unordered' };
 
 export type SupportAssignedAdmin = { name?: string; image: string | null };
+
+/** Thread metadata from a validated `getThread` read. */
+export type SupportThreadMetadata = Pick<
+	FunctionReturnType<typeof api.support.threads.getThread>,
+	'isHandedOff' | 'assignedAdmin' | 'notificationEmail'
+>;
 
 export type SupportOperationIdentity = {
 	threadId: string | null;
@@ -293,8 +300,12 @@ export class SupportConversation implements ChatSessionPort {
 		this.continueCursor = null;
 	}
 
-	/** Adopt a URL-selected thread without resetting metadata loaded by the query. */
-	selectThreadFromUrl(threadId: string): void {
+	/**
+	 * Adopt a URL-selected thread. A different thread takes the metadata of its
+	 * validated read, or none without one; the thread already selected keeps the
+	 * metadata and send lock it has loaded.
+	 */
+	selectThreadFromUrl(threadId: string, metadata?: SupportThreadMetadata): void {
 		if (threadId !== this.threadId) {
 			const establishedThreadChanged = this.threadId !== null;
 			this.invalidateWarmThreadAcquisition();
@@ -303,6 +314,10 @@ export class SupportConversation implements ChatSessionPort {
 			if (establishedThreadChanged) this.threadGeneration++;
 			this.isSending = false;
 			this.isAwaitingStream = false;
+			this.threadAgentName = undefined;
+			this.isHandedOff = metadata?.isHandedOff ?? false;
+			this.assignedAdmin = metadata?.assignedAdmin;
+			this.notificationEmail = metadata?.notificationEmail ?? null;
 		}
 		this.threadId = threadId;
 		this.isNewConversation = false;

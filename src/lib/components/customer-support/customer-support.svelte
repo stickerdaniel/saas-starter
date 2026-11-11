@@ -207,6 +207,11 @@
 		conversation.setUserId(userId);
 	});
 
+	// The URL thread under validation and the user it is validated for. The effect
+	// below reruns on any URL write, such as opening the widget, and only a new
+	// target or user retires earlier work.
+	let validating: { threadId: string; userId: string } | null = null;
+
 	// Sync thread from URL only after validating that it is actually a support thread.
 	// A matching id is settled only while its conversation is on screen: going
 	// back to the list keeps the id, so a later Forward to it must reopen it here.
@@ -220,23 +225,37 @@
 			!userId ||
 			(threadFromUrl === conversation.threadId && navigation.currentView !== 'overview')
 		) {
+			validating = null;
 			return;
 		}
 
 		const anonymousUserId = isAnonymousUser(userId) ? userId : undefined;
 		let cancelled = false;
 
+		// A new URL target, or a new user validating it, is newer than any work
+		// started before it, such as a submit still acquiring its warm thread. That
+		// work retires now; the thread itself is adopted only once validated. The
+		// widget's own URL writes return above, because they name the conversation
+		// already on screen, and a rerun for the target and user already under
+		// validation retires nothing.
+		if (validating?.threadId !== threadFromUrl || validating.userId !== userId) {
+			validating = { threadId: threadFromUrl, userId };
+			navigation.invalidateOperation();
+		}
+
 		void client
 			.query(api.support.threads.getThread, {
 				threadId: threadFromUrl,
 				...(anonymousUserId ? { anonymousUserId } : {})
 			})
-			.then(() => {
+			.then((thread) => {
 				if (cancelled || urlState.thread !== threadFromUrl) return;
-				support.selectThreadFromUrl(threadFromUrl);
+				validating = null;
+				support.selectThreadFromUrl(threadFromUrl, thread);
 			})
 			.catch(() => {
 				if (cancelled || urlState.thread !== threadFromUrl) return;
+				validating = null;
 
 				console.warn('[CustomerSupport.resolveThreadUrl] Invalid');
 				conversation.setThread(null);
