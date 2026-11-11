@@ -207,9 +207,10 @@
 		conversation.setUserId(userId);
 	});
 
-	// The URL thread under validation. The effect below reruns on any URL write,
-	// such as opening the widget, and only a new target retires earlier work.
-	let validatingThread: string | null = null;
+	// The URL thread under validation and the user it is validated for. The effect
+	// below reruns on any URL write, such as opening the widget, and only a new
+	// target or user retires earlier work.
+	let validating: { threadId: string; userId: string } | null = null;
 
 	// Sync thread from URL only after validating that it is actually a support thread.
 	// A matching id is settled only while its conversation is on screen: going
@@ -224,20 +225,21 @@
 			!userId ||
 			(threadFromUrl === conversation.threadId && navigation.currentView !== 'overview')
 		) {
-			validatingThread = null;
+			validating = null;
 			return;
 		}
 
 		const anonymousUserId = isAnonymousUser(userId) ? userId : undefined;
 		let cancelled = false;
 
-		// A new URL target is newer than any work started before it, such as a
-		// submit still acquiring its warm thread. That work retires now; the thread
-		// itself is adopted only once validated. The widget's own URL writes return
-		// above, because they name the conversation already on screen, and a rerun
-		// for the target already under validation retires nothing.
-		if (threadFromUrl !== validatingThread) {
-			validatingThread = threadFromUrl;
+		// A new URL target, or a new user validating it, is newer than any work
+		// started before it, such as a submit still acquiring its warm thread. That
+		// work retires now; the thread itself is adopted only once validated. The
+		// widget's own URL writes return above, because they name the conversation
+		// already on screen, and a rerun for the target and user already under
+		// validation retires nothing.
+		if (validating?.threadId !== threadFromUrl || validating.userId !== userId) {
+			validating = { threadId: threadFromUrl, userId };
 			navigation.invalidateOperation();
 		}
 
@@ -248,12 +250,12 @@
 			})
 			.then((thread) => {
 				if (cancelled || urlState.thread !== threadFromUrl) return;
-				validatingThread = null;
+				validating = null;
 				support.selectThreadFromUrl(threadFromUrl, thread);
 			})
 			.catch(() => {
 				if (cancelled || urlState.thread !== threadFromUrl) return;
-				validatingThread = null;
+				validating = null;
 
 				console.warn('[CustomerSupport.resolveThreadUrl] Invalid');
 				conversation.setThread(null);

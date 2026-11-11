@@ -349,6 +349,52 @@ describe('chatbar submit under URL history', () => {
 		expect(history.current.thread).toBe('thread-a');
 	});
 
+	it('yields when another user takes over the thread being validated', async () => {
+		history = new BrowserHistory({ support: '', thread: '' });
+		const warmThread = Promise.withResolvers<WarmThread>();
+		vi.mocked(client.mutation).mockImplementation((reference) =>
+			getFunctionName(reference) === 'support/threads:getOrCreateWarmThread'
+				? warmThread.promise
+				: Promise.resolve({})
+		);
+		vi.mocked(client.query).mockImplementation(async (reference, args) =>
+			getFunctionName(reference) === 'support/threads:getThread' &&
+			(args as { threadId: string }).threadId === 'thread-b'
+				? new Promise(() => {})
+				: {}
+		);
+		const support = mountSupport();
+		await vi.waitFor(() => expect(support.conversation.userId).toBeTruthy());
+		const input = document.querySelector('textarea')!;
+		input.value = 'question before the session ended';
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+		await tick();
+		flushSync(() => {
+			history.write('thread', 'thread-b');
+		});
+		await tick();
+		document.querySelector<HTMLButtonElement>(`button[aria-label="${en.chat.aria.send}"]`)!.click();
+		await tick();
+
+		// The session ends: thread B is validated again, now for the next user.
+		flushSync(() => support.conversation.setUserId(`${support.conversation.userId}-next`));
+		await tick();
+		warmThread.resolve({ threadId: 'thread-a', notificationEmail: null });
+		await tick();
+		await tick();
+		await tick();
+
+		expect(support.conversation.threadId).toBeNull();
+		expect(history.current.thread).toBe('thread-b');
+		expect(
+			vi
+				.mocked(client.mutation)
+				.mock.calls.some(
+					([reference]) => getFunctionName(reference) === 'support/messages:sendMessage'
+				)
+		).toBe(false);
+	});
+
 	it.each(['warm thread', 'send'] as const)(
 		'gives back the latest prompt when its %s fails after an earlier submit was retired',
 		async (failure) => {
