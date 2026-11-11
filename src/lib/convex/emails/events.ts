@@ -55,7 +55,7 @@ export const handleEmailEvent = internalMutation({
 				break;
 
 			case 'email.bounced':
-				console.warn(`Email ${args.id} bounced:`, args.event.data);
+				console.warn(`Email ${args.id} bounced`);
 				break;
 
 			case 'email.complained':
@@ -75,7 +75,7 @@ export const handleEmailEvent = internalMutation({
 				break;
 
 			case 'email.failed':
-				console.warn(`Email ${args.id} failed:`, args.event.data);
+				console.warn(`Email ${args.id} failed`);
 				break;
 		}
 		return null;

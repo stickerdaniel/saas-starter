@@ -289,8 +289,8 @@ export const getThreadForAdmin = adminQuery({
 							image: userData.image ?? null
 						};
 					}
-				} catch (error) {
-					console.error(`[getThreadForAdmin] Failed to fetch user ${supportThread.userId}:`, error);
+				} catch {
+					console.error({ code: 'support_thread_user_unavailable', threadId: args.threadId });
 					// Leave user as undefined
 				}
 			}

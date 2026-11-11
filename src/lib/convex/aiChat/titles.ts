@@ -87,8 +87,8 @@ export const generateThreadTitle = internalAction({
 				userId: args.userId,
 				models: [captureDirect(usage, providerMetadata, TITLE_MODEL_ID)]
 			});
-		} catch (err) {
-			console.warn('[generateThreadTitle] LLM call failed', err);
+		} catch {
+			console.warn({ code: 'ai_chat_title_failed' });
 			return null;
 		}
 

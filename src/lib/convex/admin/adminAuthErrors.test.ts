@@ -22,7 +22,7 @@ describe('Better Auth admin error normalization', () => {
 		expect(normalizeAdminAuthError(error)).toBe('ADMIN_CANNOT_BAN_SELF');
 	});
 
-	it('throws only safe structured data while retaining the raw cause in logs', async () => {
+	it('keeps the raw provider text out of the thrown data and the log', async () => {
 		const error = new APIError('FORBIDDEN', {
 			code: 'YOU_ARE_NOT_ALLOWED_TO_BAN_USERS',
 			message: 'raw provider text that must stay internal'
@@ -33,10 +33,12 @@ describe('Better Auth admin error normalization', () => {
 		).rejects.toMatchObject({
 			data: { code: 'ADMIN_ACTION_NOT_ALLOWED' }
 		});
-		expect(errorSpy).toHaveBeenCalledWith(
-			'[admin-auth:ban_user] Better Auth operation failed',
-			error
-		);
+		expect(errorSpy).toHaveBeenCalledWith({
+			code: 'admin_auth_failed',
+			operation: 'ban_user',
+			reason: 'ADMIN_ACTION_NOT_ALLOWED'
+		});
+		expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('raw provider text');
 
 		try {
 			await runAdminAuthApi('ban_user', async () => Promise.reject(error));
@@ -67,9 +69,10 @@ describe('Better Auth admin error normalization', () => {
 		}
 
 		expect(thrown).toBe(defect);
-		expect(errorSpy).toHaveBeenCalledWith(
-			'[admin-auth:revoke_user_sessions] Better Auth operation failed',
-			defect
-		);
+		expect(errorSpy).toHaveBeenCalledWith({
+			code: 'admin_auth_failed',
+			operation: 'revoke_user_sessions',
+			reason: 'unexpected'
+		});
 	});
 });

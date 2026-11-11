@@ -612,6 +612,14 @@ export default defineConfig(
 					selector: 'ImportExpression',
 					message:
 						'Convex rejects `import()` in queries and mutations ("dynamic module import unsupported"). Import statically, or put the dependency in its own function and call it by reference. Code that only actions run may disable this with the reason.'
+				},
+				{
+					// A caught error from Better Auth, Autumn, Resend or an LLM provider
+					// quotes the input it rejected or the provider's response body.
+					selector:
+						"CatchClause CallExpression[callee.object.name='console'] Identifier[name=/^(e|err|error)$/]:not(MemberExpression > Identifier.property, Property > Identifier.key)",
+					message:
+						"Log a caught error as `console.error({ code: 'snake_case_code', ...ids })` without the error itself: its message can quote emails, tokens or provider response bodies into the Convex logs."
 				}
 			]
 		}

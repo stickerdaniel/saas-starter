@@ -56,8 +56,8 @@ export async function getSupportOwnerProfile(
 		if (user) {
 			return { userName: user.name, userEmail: user.email };
 		}
-	} catch (error) {
-		console.log(`[supportThreads] Failed to fetch user ${resolvedUserId}:`, error);
+	} catch {
+		console.log({ code: 'support_user_unavailable', userId: resolvedUserId });
 	}
 
 	return { userName: undefined, userEmail: undefined };

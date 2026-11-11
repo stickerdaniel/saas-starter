@@ -54,11 +54,11 @@ export const migrateAnonymousTickets = mutation({
 			if (supportThread.isWarm) {
 				try {
 					await supportAgent.deleteThreadAsync(ctx, { threadId: supportThread.threadId });
-				} catch (error) {
-					console.log(
-						`[migrateAnonymousTickets] Failed to delete warm thread ${supportThread.threadId}:`,
-						error
-					);
+				} catch {
+					console.log({
+						code: 'warm_thread_delete_failed',
+						threadId: supportThread.threadId
+					});
 					continue;
 				}
 

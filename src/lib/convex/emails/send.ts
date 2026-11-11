@@ -348,13 +348,10 @@ export const sendNewUserSignupNotification = internalMutation({
 					]
 				});
 				sentCount++;
-			} catch (error) {
+			} catch {
 				// Log permanent errors (invalid config, API key issues)
 				// The Resend component handles transient errors internally
-				console.error(
-					`[sendNewUserSignupNotification] Failed to enqueue email to ${email}:`,
-					error instanceof Error ? error.message : error
-				);
+				console.error({ code: 'signup_notification_enqueue_failed' });
 			}
 		}
 
@@ -431,12 +428,9 @@ export async function sendSupportRateLimitAlert(
 				]
 			});
 			sentCount++;
-		} catch (error) {
+		} catch {
 			// The Resend component retries transient errors; log permanent ones.
-			console.error(
-				`[sendSupportRateLimitAlert] Failed to enqueue email to ${email}:`,
-				error instanceof Error ? error.message : error
-			);
+			console.error({ code: 'support_rate_limit_alert_enqueue_failed' });
 		}
 	}
 	return sentCount;
