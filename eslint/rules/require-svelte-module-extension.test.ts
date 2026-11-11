@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Linter } from 'eslint';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -9,7 +10,7 @@ let fixtures: string;
 let filename: string;
 
 beforeAll(() => {
-	fixtures = fs.mkdtempSync(path.join(import.meta.dirname, 'tmp-svelte-module-extension-'));
+	fixtures = fs.mkdtempSync(path.join(tmpdir(), 'svelte-module-extension-'));
 	filename = path.join(fixtures, 'consumer.ts');
 	fs.writeFileSync(path.join(fixtures, 'rune.svelte.ts'), 'export const state = {};');
 	fs.writeFileSync(path.join(fixtures, 'js-rune.svelte.js'), 'export const state = {};');

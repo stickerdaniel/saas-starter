@@ -75,15 +75,19 @@ it.each([['--shard=1/2'], ['--shard', '1/2']])(
 	}
 );
 
-import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import {
+	createPrivateCheckout,
+	removePrivateCheckout
+} from './__fixtures__/static-checks/private-checkout';
+// The probe spec and the ownership file it writes live in a private checkout, so neither an
+// active E2E run nor a whole-tree check of this checkout sees them.
 it('executes public coverage without account setup or teardown credentials', () => {
-	const directory = mkdtempSync(join(tmpdir(), 'public-lifecycle-'));
-	const fixture = join(process.cwd(), 'e2e', 'public-lifecycle-probe.spec.ts');
-	const ownership = join(process.cwd(), 'e2e', '.auth', 'owned-test-data.json');
-	if (existsSync(ownership))
-		throw new Error('Finish the active E2E run before running lifecycle selection tests');
+	const checkout = createPrivateCheckout('public-lifecycle-');
+	const directory = checkout.directory;
+	const fixture = join(checkout.repository, 'e2e', 'public-lifecycle-probe.spec.ts');
+	const ownership = join(checkout.repository, 'e2e', '.auth', 'owned-test-data.json');
 	try {
 		writeFileSync(
 			fixture,
@@ -93,6 +97,7 @@ it('executes public coverage without account setup or teardown credentials', () 
 			'bun',
 			['run', 'test:e2e', 'public-lifecycle-probe.spec.ts', '--reporter=json'],
 			{
+				cwd: checkout.repository,
 				encoding: 'utf8',
 				timeout: 30_000,
 				env: {
@@ -109,8 +114,6 @@ it('executes public coverage without account setup or teardown credentials', () 
 		expect(result.status, result.stderr).toBe(0);
 		expect(existsSync(ownership)).toBe(true);
 	} finally {
-		rmSync(ownership, { force: true });
-		rmSync(fixture, { force: true });
-		rmSync(directory, { recursive: true, force: true });
+		removePrivateCheckout(checkout);
 	}
-}, 35_000);
+}, 60_000);

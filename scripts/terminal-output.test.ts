@@ -1,17 +1,16 @@
 import { spawnSync } from 'child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import path from 'path';
 import { PassThrough, Writable } from 'stream';
-import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
-import { SOURCE_FIXTURE_ROOT } from './source-tree';
+import { usePrivateCheckout } from './__fixtures__/static-checks/private-checkout';
 import {
 	colorlessEnvironment,
 	runSanitizedCommand,
 	TerminalOutputDecoder
 } from './terminal-output';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ch = (code: number) => String.fromCharCode(code);
 const bytes = (text: string) => new TextEncoder().encode(text);
 
@@ -283,7 +282,7 @@ describe('sanitized commands', () => {
 	}, 5_000);
 
 	it('joins the child before reporting an output forwarding failure', async () => {
-		const directory = mkdtempSync(path.join(ROOT, 'terminal-output-child-'));
+		const directory = mkdtempSync(path.join(tmpdir(), 'terminal-output-child-'));
 		const marker = path.join(directory, 'finished');
 		const script = `
 			const { writeFileSync } = require('fs');
@@ -370,59 +369,51 @@ describe('sanitized commands', () => {
 	});
 });
 
-// Both fixtures here have to be real files in the source tree: static-checks.ts fails any
-// argument outside the repository, and its banned-pattern route only claims paths under
-// `src/`. They build inside SOURCE_FIXTURE_ROOT, the one directory every source-tree walk
-// skips by name, so no suite can list a fixture and then race its removal.
+// Both fixtures have to be source files of the checkout the checker runs in: static-checks.ts
+// fails any argument outside its repository, and its banned-pattern route only claims paths
+// under `src/`. A private checkout keeps the malformed source away from every other run.
 describe('static-check boundary', () => {
-	it('neutralizes a Prettier code frame built from malformed source', () => {
-		const directory = mkdtempSync(path.join(SOURCE_FIXTURE_ROOT, 'terminal-output-prettier-'));
-		const relative = path.relative(ROOT, path.join(directory, 'fixture.ts'));
-		const esc = ch(0x1b);
-		const bel = ch(0x07);
-		const payload = `${esc}]0;title${bel}`;
+	const checkout = usePrivateCheckout('terminal-output-');
+
+	/** Runs the private checkout's lint scope over one fixture written below its `src/`. */
+	function lintFixture(name: string, contents: string) {
+		const { repository } = checkout();
+		const relative = `src/lib/${name}`;
+		const file = path.join(repository, relative);
+		writeFileSync(file, contents, 'utf8');
 		try {
-			writeFileSync(path.join(ROOT, relative), `// ${payload}\nconst value = ;\n`, 'utf8');
 			const result = spawnSync(
 				'bun',
-				[path.join(ROOT, 'scripts/static-checks.ts'), '--scope', 'lint', relative],
-				{
-					cwd: ROOT,
-					encoding: 'utf8'
-				}
+				[path.join(repository, 'scripts/static-checks.ts'), '--scope', 'lint', relative],
+				{ cwd: repository, encoding: 'utf8' }
 			);
-			const output = result.stdout + result.stderr;
-
-			expect(result.status).toBe(2);
-			expect(output).not.toContain(payload);
-			expect(output).toContain('U+001B]0;titleU+0007');
+			return { status: result.status, output: result.stdout + result.stderr };
 		} finally {
-			rmSync(directory, { recursive: true, force: true });
+			rmSync(file, { force: true });
 		}
+	}
+
+	it('neutralizes a Prettier code frame built from malformed source', () => {
+		const payload = `${ch(0x1b)}]0;title${ch(0x07)}`;
+		const { status, output } = lintFixture(
+			'terminal-output-prettier.ts',
+			`// ${payload}\nconst value = ;\n`
+		);
+
+		expect(status).toBe(2);
+		expect(output).not.toContain(payload);
+		expect(output).toContain('U+001B]0;titleU+0007');
 	}, 60_000);
 
 	it('neutralizes a source line printed by the in-process banned-pattern check', () => {
-		const directory = mkdtempSync(path.join(SOURCE_FIXTURE_ROOT, 'terminal-output-parent-'));
-		const relative = path.relative(ROOT, path.join(directory, 'fixture.ts'));
-		const esc = ch(0x1b);
-		const payload = `${esc}]0;title${ch(0x07)}`;
-		try {
-			writeFileSync(path.join(ROOT, relative), `// execSync( ${payload}\n`, 'utf8');
-			const result = spawnSync(
-				'bun',
-				[path.join(ROOT, 'scripts/static-checks.ts'), '--scope', 'lint', relative],
-				{
-					cwd: ROOT,
-					encoding: 'utf8'
-				}
-			);
-			const output = result.stdout + result.stderr;
+		const payload = `${ch(0x1b)}]0;title${ch(0x07)}`;
+		const { status, output } = lintFixture(
+			'terminal-output-parent.ts',
+			`// execSync( ${payload}\n`
+		);
 
-			expect(result.status).toBe(1);
-			expect(output).not.toContain(payload);
-			expect(output).toContain('U+001B]0;titleU+0007');
-		} finally {
-			rmSync(directory, { recursive: true, force: true });
-		}
+		expect(status).toBe(1);
+		expect(output).not.toContain(payload);
+		expect(output).toContain('U+001B]0;titleU+0007');
 	}, 60_000);
 });

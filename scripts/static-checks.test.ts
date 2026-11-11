@@ -29,12 +29,12 @@ import {
 import { tmpdir } from 'os';
 import path from 'path';
 import { Writable } from 'stream';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { describe, expect, it } from 'vitest';
 
 import { readPid } from './__fixtures__/static-checks/pid-file';
+import { usePrivateCheckout } from './__fixtures__/static-checks/private-checkout';
 import { sanitizedGitEnv } from './git-context';
-import { SOURCE_FIXTURE_ROOT } from './source-tree';
 import { testExecutable } from './test-executable';
 import {
 	argumentBatches,
@@ -48,7 +48,6 @@ import {
 	prettierFormattableFiles,
 	prettierProjectPaths,
 	prettierTraversalPaths,
-	repositoryPaths,
 	ROUTES,
 	resolveInputs,
 	spellcheckFiles,
@@ -77,6 +76,35 @@ const BUN = testExecutable('bun');
 /** Exit code only. Every case here fails at intake, so no check subprocess runs. */
 function run(...args: string[]): number {
 	return spawnSync('bun', [SCRIPT, ...args], { cwd: ROOT, encoding: 'utf8' }).status ?? -1;
+}
+
+/** Cases that write fixtures share this private checkout and remove what they write. */
+const checkout = usePrivateCheckout('static-checks-');
+
+/**
+ * Evaluates `expression` in a child Bun, started in the private checkout, where `checks` is
+ * that checkout's own static-checks module. Its exports resolve paths against their module's
+ * repository, so an in-process call would read the shared checkout instead of the fixture.
+ */
+function evaluateInCheckout(
+	expression: string,
+	values: readonly unknown[] = [],
+	env = sanitizedGitEnv()
+): unknown {
+	const { repository } = checkout();
+	const module = pathToFileURL(path.join(repository, 'scripts', 'static-checks.ts')).href;
+	const result = spawnSync(
+		BUN,
+		[
+			'-e',
+			`const [moduleUrl, encoded] = process.argv.slice(1);\nconst checks = await import(moduleUrl);\nconst values = JSON.parse(encoded);\nprocess.stdout.write(JSON.stringify(await (${expression})));`,
+			module,
+			JSON.stringify(values)
+		],
+		{ cwd: repository, env, timeout: 20_000, killSignal: 'SIGKILL', encoding: 'utf8' }
+	);
+	if (result.status !== 0) throw new Error(`${result.stdout}${result.stderr}`);
+	return JSON.parse(result.stdout);
 }
 
 describe('checker mutation mode', () => {
@@ -380,38 +408,38 @@ describe('repository path safety', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 
 	it('includes untracked nonignored files in the full-mode preflight', () => {
 		const relative = `src/lib/content/.static-checks-untracked-${process.pid}.md`;
-		const file = path.join(ROOT, relative);
+		const file = path.join(checkout().repository, relative);
 		writeFileSync(file, 'safe');
 		try {
-			expect(repositoryPaths()).toContain(relative);
+			expect(evaluateInCheckout('checks.repositoryPaths()')).toContain(relative);
 		} finally {
 			rmSync(file, { force: true });
 		}
 	});
 
-	it('counts files Prettier visits even when local Git configuration ignores them', async () => {
+	it('counts files Prettier visits even when local Git configuration ignores them', () => {
+		const { repository } = checkout();
 		const directory = mkdtempSync(path.join(tmpdir(), 'static-checks-local-ignore-'));
 		const excludes = path.join(directory, 'excludes');
 		const relative = `.static-checks-local-ignore-${process.pid}.json`;
-		const file = path.join(ROOT, relative);
-		const saved = new Map<string, string | undefined>();
-		for (const key of ['GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0']) {
-			saved.set(key, process.env[key]);
-		}
+		const file = path.join(repository, relative);
 		writeFileSync(excludes, `${relative}\n`);
 		writeFileSync(file, '{"safe": true}\n');
-		process.env.GIT_CONFIG_COUNT = '1';
-		process.env.GIT_CONFIG_KEY_0 = 'core.excludesFile';
-		process.env.GIT_CONFIG_VALUE_0 = excludes;
+		const env = {
+			...sanitizedGitEnv(),
+			GIT_CONFIG_COUNT: '1',
+			GIT_CONFIG_KEY_0: 'core.excludesFile',
+			GIT_CONFIG_VALUE_0: excludes
+		};
 		try {
-			expect(repositoryPaths()).not.toContain(relative);
-			expect(await prettierTraversalPaths()).toContain(relative);
-			expect(await prettierFormattableFiles([relative])).toEqual([relative]);
+			// All three run under the same local excludes: the formatter helpers must still see
+			// the file Git ignores.
+			expect(evaluateInCheckout('checks.repositoryPaths()', [], env)).not.toContain(relative);
+			expect(evaluateInCheckout('checks.prettierTraversalPaths()', [], env)).toContain(relative);
+			expect(
+				evaluateInCheckout('checks.prettierFormattableFiles([values[0]])', [relative], env)
+			).toEqual([relative]);
 		} finally {
-			for (const [key, value] of saved) {
-				if (value === undefined) delete process.env[key];
-				else process.env[key] = value;
-			}
 			rmSync(file, { force: true });
 			rmSync(directory, { recursive: true, force: true });
 		}
@@ -445,21 +473,27 @@ describe('repository path safety', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 	it.skipIf(process.platform === 'win32')(
 		'keeps symlinks out of the project formatter ledger',
 		() => {
+			const { repository } = checkout();
 			const relative = `.static-checks-prettier-link-${process.pid}.md`;
-			const file = path.join(ROOT, relative);
-			symlinkSync(path.join(ROOT, 'README.md'), file);
+			const file = path.join(repository, relative);
+			symlinkSync(path.join(repository, 'README.md'), file);
 			try {
-				expect(repositoryPaths()).toContain(relative);
+				expect(evaluateInCheckout('checks.repositoryPaths()')).toContain(relative);
 				// The formatter scope keeps the link's own name, because Prettier neither follows
 				// nor accepts one, and the project ledger is what drops it.
-				expect(resolveInputs([file], 'test', process.cwd(), repositoryPaths, false)).toEqual([
-					relative
-				]);
-				expect(prettierProjectPaths([relative])).toEqual([]);
+				expect(
+					evaluateInCheckout(
+						"checks.resolveInputs([values[0]], 'test', process.cwd(), checks.repositoryPaths, false)",
+						[file]
+					)
+				).toEqual([relative]);
+				expect(prettierProjectPaths([relative], repository)).toEqual([]);
 				// Every other scope routes by extension, so it needs the target instead: under the
 				// link's own `.md` name a TypeScript target reaches no checker and the run passes
 				// having checked nothing.
-				expect(resolveInputs([file], 'test')).toEqual(['README.md']);
+				expect(evaluateInCheckout("checks.resolveInputs([values[0]], 'test')", [file])).toEqual([
+					'README.md'
+				]);
 			} finally {
 				rmSync(file, { force: true });
 			}
@@ -473,14 +507,15 @@ describe('repository path safety', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 	});
 
 	it('rejects a malicious filename before subprocesses run without printing its payload', () => {
-		const directory = path.join(ROOT, 'scratch', 'static-checks-path-test');
+		const { repository } = checkout();
+		const directory = path.join(repository, 'scratch', 'static-checks-path-test');
 		mkdirSync(directory, { recursive: true });
 		const offender = `${String.fromCharCode(0x1b)}]0;OWNED${String.fromCharCode(0x07)}`;
 		const file = path.join(directory, `bad${offender}.txt`);
 		writeFileSync(file, 'safe');
 		try {
-			const result = spawnSync('bun', [SCRIPT, file], {
-				cwd: ROOT,
+			const result = spawnSync('bun', [path.join(repository, 'scripts/static-checks.ts'), file], {
+				cwd: repository,
 				encoding: 'utf8',
 				env: sanitizedGitEnv()
 			});
@@ -498,14 +533,16 @@ describe('repository path safety', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 	it.skipIf(process.platform === 'win32')(
 		'rejects an unsafe symlink name before resolving its target',
 		() => {
-			const directory = path.join(ROOT, 'scratch', 'static-checks-symlink-test');
+			const { repository } = checkout();
+			const directory = path.join(repository, 'scratch', 'static-checks-symlink-test');
 			mkdirSync(directory, { recursive: true });
 			const offender = String.fromCharCode(0x202e);
 			const file = path.join(directory, `unsafe${offender}.md`);
-			symlinkSync(path.join(ROOT, 'README.md'), file);
+			symlinkSync(path.join(repository, 'README.md'), file);
 			try {
-				const result = spawnSync('bun', [SCRIPT, file], {
-					cwd: ROOT,
+				const script = path.join(repository, 'scripts/static-checks.ts');
+				const result = spawnSync('bun', [script, file], {
+					cwd: repository,
 					encoding: 'utf8',
 					env: sanitizedGitEnv()
 				});
@@ -542,28 +579,27 @@ describe('resolveInputs', () => {
 	// ordinary file at the repository root, and only "..", a real ".." segment, or an
 	// absolute result (a different Windows drive) is outside.
 	it('keeps a root file whose name begins with dots', () => {
-		const file = path.join(ROOT, `..resolve-dots-${process.pid}.ts`);
+		const file = path.join(checkout().repository, `..resolve-dots-${process.pid}.ts`);
 		writeFileSync(file, 'export const valid = true;\n');
 		try {
-			expect(resolveInputs([file], 'test')).toEqual([path.basename(file)]);
+			expect(evaluateInCheckout("checks.resolveInputs([values[0]], 'test')", [file])).toEqual([
+				path.basename(file)
+			]);
 		} finally {
 			rmSync(file, { force: true });
 		}
 	});
 
-	// The dot directory builds inside SOURCE_FIXTURE_ROOT, the one directory every recursive
-	// walk of `src/` skips by name. Directly under `src/` it appeared and vanished in the
-	// path of those walks, and a walk that listed it before this case removed it died on
-	// `ENOENT scandir` while this case still passed. The fixture root is itself a `src/`
-	// descendant, so the dot directory is still reached through the directory argument below.
 	it('includes dot-directory descendants of a directory argument', () => {
-		const directory = path.join(SOURCE_FIXTURE_ROOT, '.static-checks-directory-test');
+		const { repository } = checkout();
+		const directory = path.join(repository, 'src', '.static-checks-directory-test');
 		const file = path.join(directory, 'instructions.md');
 		mkdirSync(directory, { recursive: true });
 		writeFileSync(file, 'safe');
 		try {
-			expect(resolveInputs([path.join(ROOT, 'src')], 'test')).toContain(
-				path.relative(ROOT, file).split(path.sep).join('/')
+			const source = path.join(repository, 'src');
+			expect(evaluateInCheckout("checks.resolveInputs([values[0]], 'test')", [source])).toContain(
+				'src/.static-checks-directory-test/instructions.md'
 			);
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
@@ -573,15 +609,17 @@ describe('resolveInputs', () => {
 	it.skipIf(process.platform === 'win32')(
 		'accepts a directory whose files were already named',
 		() => {
-			const directory = path.join(ROOT, `.static-checks-overlap-target-${process.pid}`);
-			const link = path.join(ROOT, `.static-checks-overlap-link-${process.pid}`);
+			const { repository } = checkout();
+			const name = `.static-checks-overlap-target-${process.pid}`;
+			const directory = path.join(repository, name);
+			const link = path.join(repository, `.static-checks-overlap-link-${process.pid}`);
 			const file = path.join(directory, 'only.ts');
 			mkdirSync(directory);
 			writeFileSync(file, 'export {};\n');
 			symlinkSync(directory, link);
 			try {
-				expect(resolveInputs([file, link], 'test')).toEqual([
-					path.relative(ROOT, file).split(path.sep).join('/')
+				expect(evaluateInCheckout("checks.resolveInputs(values, 'test')", [file, link])).toEqual([
+					`${name}/only.ts`
 				]);
 			} finally {
 				rmSync(link, { force: true });
@@ -639,8 +677,8 @@ describe('SvelteKit sync', () => {
 	// checkout listing them at that moment fails with ENOENT. Concurrent runs take turns.
 	//
 	// A type-scoped run over a locale file syncs and then switches every covering check off.
-	// A lint run would end in oxlint and knip over the whole checkout, where sibling suites
-	// park malformed and unused fixture sources, and fail on a file this case never named.
+	// A lint run would end in oxlint and knip over the whole checkout and fail on any file
+	// this case never named.
 	it('waits while another process syncs this checkout', async () => {
 		let output = '';
 		let exited: Promise<number | null> | undefined;
