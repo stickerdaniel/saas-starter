@@ -87,7 +87,11 @@ describe('redactText', () => {
 		['a chunk URL', 'https://example.com/_app/immutable/chunks/DF32kCgm.js'],
 		['token counts', 'maxTokens: 4096, tokenCount: 12'],
 		['a sentence about Convex', 'Convex rejected the mutation for chat_1'],
-		['a release SHA', 'release 4259fcb24d1a6f2b8e0c9d7a5b3e1f0a2c4d6e8f']
+		['a release SHA', 'release 4259fcb24d1a6f2b8e0c9d7a5b3e1f0a2c4d6e8f'],
+		[
+			'a public certificate',
+			'served -----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIU\n-----END CERTIFICATE-----'
+		]
 	])('leaves %s as it is', (_label, text) => {
 		expect(redactText(text)).toBe(text);
 	});
@@ -128,6 +132,58 @@ describe('redactText', () => {
 		]
 	])('filters a header value %s', (_label, text, expected) => {
 		expect(redactText(text)).toBe(expected);
+	});
+
+	it.each([
+		[
+			'a PEM private key',
+			'key rejected: -----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC\n-----END PRIVATE KEY-----\nnext line',
+			'key rejected: [Filtered]\nnext line'
+		],
+		[
+			'a PEM private key a cut left open',
+			'loaded -----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQ',
+			'loaded [Filtered]'
+		],
+		[
+			'a PEM private key inside a serialized payload',
+			'{"pem":"-----BEGIN EC PRIVATE KEY-----\\nMHcCAQEEIBYyU2ludGhldGljS2V5\\n-----END EC PRIVATE KEY-----","ok":false}',
+			'{"pem":"[Filtered]","ok":false}'
+		],
+		[
+			'an OpenPGP private key',
+			'import failed: -----BEGIN PGP PRIVATE KEY BLOCK-----\n\nlQOYBGSyntheticBody\n-----END PGP PRIVATE KEY BLOCK-----\nnext line',
+			'import failed: [Filtered]\nnext line'
+		],
+		[
+			'a private key with a lowercase label',
+			'read -----BEGIN rsa private key-----\nMIIEpAIBAAKCAQEAsynthetic\n-----END rsa private key----- done',
+			'read [Filtered] done'
+		],
+		[
+			'an encrypted private key',
+			'-----BEGIN ENCRYPTED PRIVATE KEY-----\r\nMIIFHDBOBgkqhkiG9w0BBQ0wQTApBgkq\r\n-----END ENCRYPTED PRIVATE KEY-----\r\nok',
+			'[Filtered]\r\nok'
+		],
+		[
+			'a private key whose label has a doubled space',
+			'-----BEGIN RSA  PRIVATE KEY-----\nSyntheticBodyLine\n-----END RSA  PRIVATE KEY-----\nnext: harmless',
+			'[Filtered]\nnext: harmless'
+		]
+	])('filters %s whole', (_label, text, expected) => {
+		expect(redactText(text)).toBe(expected);
+	});
+
+	it('keeps what follows a private key on a second pass', () => {
+		const key = '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBg\n-----END PRIVATE KEY-----';
+		const once = redactText(JSON.stringify({ pem: `before ${key}`, after: 'visible' }));
+		expect(once).toBe('{"pem":"before [Filtered]","after":"visible"}');
+		expect(redactText(once)).toBe(once);
+	});
+
+	it('is stable on a private key a cut left open', () => {
+		const once = redactText('loaded -----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXk');
+		expect(redactText(once)).toBe(once);
 	});
 
 	it('is stable on its own output', () => {
