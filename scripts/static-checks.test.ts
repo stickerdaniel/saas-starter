@@ -86,14 +86,20 @@ const checkout = usePrivateCheckout('static-checks-');
  * that checkout's own static-checks module. Its exports resolve paths against their module's
  * repository, so an in-process call would read the shared checkout instead of the fixture.
  */
-function evaluateInCheckout(expression: string, env = sanitizedGitEnv()): unknown {
+function evaluateInCheckout(
+	expression: string,
+	values: readonly unknown[] = [],
+	env = sanitizedGitEnv()
+): unknown {
 	const { repository } = checkout();
 	const module = pathToFileURL(path.join(repository, 'scripts', 'static-checks.ts')).href;
 	const result = spawnSync(
 		BUN,
 		[
 			'-e',
-			`const checks = await import(${JSON.stringify(module)});\nprocess.stdout.write(JSON.stringify(await (${expression})));`
+			`const [moduleUrl, encoded] = process.argv.slice(1);\nconst checks = await import(moduleUrl);\nconst values = JSON.parse(encoded);\nprocess.stdout.write(JSON.stringify(await (${expression})));`,
+			module,
+			JSON.stringify(values)
 		],
 		{ cwd: repository, env, timeout: 20_000, killSignal: 'SIGKILL', encoding: 'utf8' }
 	);
@@ -428,10 +434,10 @@ describe('repository path safety', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 		try {
 			// All three run under the same local excludes: the formatter helpers must still see
 			// the file Git ignores.
-			expect(evaluateInCheckout('checks.repositoryPaths()', env)).not.toContain(relative);
-			expect(evaluateInCheckout('checks.prettierTraversalPaths()', env)).toContain(relative);
+			expect(evaluateInCheckout('checks.repositoryPaths()', [], env)).not.toContain(relative);
+			expect(evaluateInCheckout('checks.prettierTraversalPaths()', [], env)).toContain(relative);
 			expect(
-				evaluateInCheckout(`checks.prettierFormattableFiles([${JSON.stringify(relative)}])`, env)
+				evaluateInCheckout('checks.prettierFormattableFiles([values[0]])', [relative], env)
 			).toEqual([relative]);
 		} finally {
 			rmSync(file, { force: true });
@@ -470,7 +476,6 @@ describe('repository path safety', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 			const { repository } = checkout();
 			const relative = `.static-checks-prettier-link-${process.pid}.md`;
 			const file = path.join(repository, relative);
-			const named = JSON.stringify(file);
 			symlinkSync(path.join(repository, 'README.md'), file);
 			try {
 				expect(evaluateInCheckout('checks.repositoryPaths()')).toContain(relative);
@@ -478,14 +483,15 @@ describe('repository path safety', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 				// nor accepts one, and the project ledger is what drops it.
 				expect(
 					evaluateInCheckout(
-						`checks.resolveInputs([${named}], 'test', process.cwd(), checks.repositoryPaths, false)`
+						"checks.resolveInputs([values[0]], 'test', process.cwd(), checks.repositoryPaths, false)",
+						[file]
 					)
 				).toEqual([relative]);
 				expect(prettierProjectPaths([relative], repository)).toEqual([]);
 				// Every other scope routes by extension, so it needs the target instead: under the
 				// link's own `.md` name a TypeScript target reaches no checker and the run passes
 				// having checked nothing.
-				expect(evaluateInCheckout(`checks.resolveInputs([${named}], 'test')`)).toEqual([
+				expect(evaluateInCheckout("checks.resolveInputs([values[0]], 'test')", [file])).toEqual([
 					'README.md'
 				]);
 			} finally {
@@ -576,9 +582,9 @@ describe('resolveInputs', () => {
 		const file = path.join(checkout().repository, `..resolve-dots-${process.pid}.ts`);
 		writeFileSync(file, 'export const valid = true;\n');
 		try {
-			expect(evaluateInCheckout(`checks.resolveInputs([${JSON.stringify(file)}], 'test')`)).toEqual(
-				[path.basename(file)]
-			);
+			expect(evaluateInCheckout("checks.resolveInputs([values[0]], 'test')", [file])).toEqual([
+				path.basename(file)
+			]);
 		} finally {
 			rmSync(file, { force: true });
 		}
@@ -591,8 +597,8 @@ describe('resolveInputs', () => {
 		mkdirSync(directory, { recursive: true });
 		writeFileSync(file, 'safe');
 		try {
-			const source = JSON.stringify(path.join(repository, 'src'));
-			expect(evaluateInCheckout(`checks.resolveInputs([${source}], 'test')`)).toContain(
+			const source = path.join(repository, 'src');
+			expect(evaluateInCheckout("checks.resolveInputs([values[0]], 'test')", [source])).toContain(
 				'src/.static-checks-directory-test/instructions.md'
 			);
 		} finally {
@@ -612,8 +618,7 @@ describe('resolveInputs', () => {
 			writeFileSync(file, 'export {};\n');
 			symlinkSync(directory, link);
 			try {
-				const named = JSON.stringify([file, link]);
-				expect(evaluateInCheckout(`checks.resolveInputs(${named}, 'test')`)).toEqual([
+				expect(evaluateInCheckout("checks.resolveInputs(values, 'test')", [file, link])).toEqual([
 					`${name}/only.ts`
 				]);
 			} finally {

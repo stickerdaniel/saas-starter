@@ -93,17 +93,20 @@ const checkout = usePrivateCheckout('static-checks-format-');
 
 /**
  * Evaluates `expression` in a child Bun where `checks` is the private checkout's own
- * static-checks module. Its exports resolve paths against their module's repository, so an
+ * static-checks module and `values` holds `values`, passed as JSON data rather than spliced
+ * into the code. The module's exports resolve paths against their own repository, so an
  * in-process call would read the shared checkout instead of the fixture.
  */
-function evaluateInCheckout(expression: string): unknown {
+function evaluateInCheckout(expression: string, values: readonly unknown[] = []): unknown {
 	const { repository } = checkout();
 	const module = pathToFileURL(path.join(repository, 'scripts', 'static-checks.ts')).href;
 	const result = spawnSync(
 		testExecutable('bun'),
 		[
 			'-e',
-			`const checks = await import(${JSON.stringify(module)});\nprocess.stdout.write(JSON.stringify(await (${expression})));`
+			`const [moduleUrl, encoded] = process.argv.slice(1);\nconst checks = await import(moduleUrl);\nconst values = JSON.parse(encoded);\nprocess.stdout.write(JSON.stringify(await (${expression})));`,
+			module,
+			JSON.stringify(values)
 		],
 		{
 			cwd: repository,
@@ -612,10 +615,10 @@ describe('format-only static checks', () => {
 				});
 				expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(1);
 
-				const root = JSON.stringify(repository);
 				expect(
 					evaluateInCheckout(
-						`checks.resolveInputs([${JSON.stringify(named)}], 'arguments', ${root}, undefined, false)`
+						"checks.resolveInputs([values[0]], 'arguments', values[1], undefined, false)",
+						[named, repository]
 					)
 				).toEqual([named]);
 
@@ -623,7 +626,8 @@ describe('format-only static checks', () => {
 				// the alias before ignore classification and launch.
 				expect(
 					evaluateInCheckout(
-						`checks.resolveInputs([${JSON.stringify(namedDirectory)}], 'arguments', ${root}, (directory) => checks.prettierTraversalPaths(directory, false, ${root}), false)`
+						"checks.resolveInputs([values[0]], 'arguments', values[1], (directory) => checks.prettierTraversalPaths(directory, false, values[1]), false)",
+						[namedDirectory, repository]
 					)
 				).toEqual([`${namedDirectory}/nested.ts`]);
 
