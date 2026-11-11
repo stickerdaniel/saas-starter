@@ -153,10 +153,11 @@ export function hasStreamingAssistantMessage(messages: DisplayMessage[]): boolea
  * all carry the prompt's order, so only an assistant message at that order
  * settles it, and an older turn still answering does not. The prompt itself
  * need not be on the loaded page. Once every loaded message is newer than the
- * turn, the turn has left the page and can no longer show its response, so the
- * wait ends too; this happens when a client misses the response and other
- * devices continue the thread. A turn without an order settles on any live
- * assistant message or a trailing assistant reply.
+ * turn, the turn has left the page and its saved response cannot appear there,
+ * so the wait ends too; this happens when a client misses the response and
+ * other devices continue the thread. A later stream for the turn still shows
+ * and keeps the chat busy through the streaming state. A turn without an order
+ * settles on any live assistant message or a trailing assistant reply.
  */
 export function hasAwaitedResponseStarted(messages: DisplayMessage[], turn: AwaitedTurn): boolean {
 	switch (turn.kind) {
