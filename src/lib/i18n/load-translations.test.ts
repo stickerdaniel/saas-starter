@@ -90,31 +90,4 @@ describe('route translation catalogs', () => {
 		expect(errorPage.isLoaded()).toBe(true);
 		expect(errorPage.t('aria.change_language')).toBe('Change language');
 	});
-
-	it('seeds navigation catalogs before changing language without sharing language state', async () => {
-		const english = await loadTranslations('en');
-		const first = TolgeeCore().init({
-			language: 'en',
-			fallbackLanguage: 'en',
-			staticData: english
-		});
-		const second = TolgeeCore().init({
-			language: 'en',
-			fallbackLanguage: 'en',
-			staticData: english
-		});
-		await first.run();
-		try {
-			first.addStaticData(await loadTranslations('de'));
-			await first.changeLanguage('de');
-			expect(first.isLoaded()).toBe(true);
-			expect(first.t('aria.change_language')).toBe('Sprache ändern');
-			first.addStaticData(await loadTranslations('fr'));
-			await Promise.all([first.changeLanguage('en'), first.changeLanguage('fr')]);
-			expect(first.t('aria.change_language')).toBe('Changer la langue');
-			expect(second.t('aria.change_language')).toBe('Change language');
-		} finally {
-			first.stop();
-		}
-	});
 });

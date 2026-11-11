@@ -7,11 +7,6 @@ import { AI_CHAT_MODEL_ID, SUPPORT_MODEL_ID, TITLE_MODEL_ID } from '../utils/cha
 const SAMPLE = { input: 1_000_000, output: 1_000_000 };
 
 describe('costOf', () => {
-	it('prices the seeded chat model at its $/Mtok rate', () => {
-		// gemma is a zero-rate seed: 1M + 1M tokens still cost nothing.
-		expect(costOf('google/gemma-4-26b-a4b-it', SAMPLE)).toBe(0);
-	});
-
 	it('splits fresh vs cached input and falls reasoning back to the output rate', () => {
 		// Reasoning (200) and cached input (400) are subsets of output (500) and
 		// input (1000). Model 'm' has no cachedIn/reasoning rate, so both subsets

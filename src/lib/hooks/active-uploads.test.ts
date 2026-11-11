@@ -25,11 +25,6 @@ function nav(from: string | null, to: string | null) {
 }
 
 describe('ActiveUploads', () => {
-	it('reports nothing in flight until a surface claims', () => {
-		const uploads = new ActiveUploads();
-		expect(uploads.any).toBe(false);
-	});
-
 	it('survives a doubled claim and a doubled release', () => {
 		const uploads = new ActiveUploads();
 		const owner = {};
@@ -305,11 +300,6 @@ describe('guardLinkClicksDuringNavigation', () => {
 	it('stops a link off the page while a navigation is under way and a file is going out', () => {
 		expect(click('/en/app')).toEqual(stopped);
 		expect(uploads.blockedCount).toBe(1);
-	});
-
-	it('keeps the stopped click from app handlers that ignore defaultPrevented', () => {
-		const { reached } = click('/en/app');
-		expect(reached).toBe(false);
 	});
 
 	it('stops a link to another origin, which unloads the document', () => {

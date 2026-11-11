@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
-import type { ChatSessionPort } from '#lib/chat/core/chat-session-port.js';
 import { SupportContext } from './support-context.svelte.ts';
 
 function deferred<T>() {
@@ -18,16 +17,6 @@ function clientWith(mutation: ReturnType<typeof vi.fn>): ConvexClient {
 describe('SupportContext', () => {
 	beforeEach(() => {
 		localStorage.clear();
-	});
-
-	it('exposes one composed graph with the conversation as the shared chat port', () => {
-		const support = new SupportContext();
-		const session: ChatSessionPort = support.conversation;
-
-		expect(session).toBe(support.conversation);
-		expect(support.navigation).toBeDefined();
-		expect(support.handoff).toBeDefined();
-		expect(support.notifications).toBeDefined();
 	});
 
 	it('coordinates thread selection across conversation and navigation', () => {

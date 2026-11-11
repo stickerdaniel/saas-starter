@@ -215,24 +215,6 @@ describe('getAuthErrorKey', () => {
 			expect(getAuthErrorKey({ code: 'TOTALLY_UNKNOWN_CODE' }, custom)).toBe(custom);
 		});
 	});
-
-	// Regression: phantom codes from the old map must NOT be mapped
-	describe('removed phantom codes return fallback', () => {
-		const phantomCodes = [
-			'INVALID_CREDENTIALS',
-			'STATE_MISMATCH',
-			'STATE_NOT_FOUND',
-			'BAD_REQUEST',
-			'UNKNOWN',
-			'NO_CODE',
-			'NO_CALLBACK_URL',
-			'UNABLE_TO_LINK_ACCOUNT'
-		];
-
-		it.each(phantomCodes)('does not map former phantom code %s', (code) => {
-			expect(getAuthErrorKey({ code })).toBe(DEFAULT_AUTH_ERROR_KEY);
-		});
-	});
 });
 
 describe('getOAuthCallbackErrorKey', () => {

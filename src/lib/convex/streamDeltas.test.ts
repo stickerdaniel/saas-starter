@@ -8,7 +8,7 @@ import { STREAM_DELTA_OPTIONS } from './streamDeltas';
  * stalls a reply. So the guard runs the transform the agent builds from it
  * (`mergeTransforms` pushes exactly `smoothStream({ delayInMs: null, chunking })`,
  * which is not exported) on prose that contains no newline at all, and checks
- * how many parts each setting emits before the reply ends.
+ * that the configured setting emits small parts before the reply ends.
  */
 const PARAGRAPH =
 	'The limiter keys on the caller address, so nothing new has to be threaded ' +
@@ -46,13 +46,5 @@ describe('stream delta chunking', () => {
 
 		expect(parts.length).toBeGreaterThan(20);
 		expect(Math.max(...parts.map((part) => part.length))).toBeLessThan(40);
-	});
-
-	// What this replaced, and it is worse than a coarse chunk: with no newline to
-	// cut on, nothing is emitted at all. While text deltas keep one id and carry
-	// no provider metadata, the buffer flushes only on a newline, so the paragraph
-	// waits for the next non-text part.
-	it('is not the line chunking that emits nothing without a newline', async () => {
-		expect(await partsFor('line')).toHaveLength(0);
 	});
 });

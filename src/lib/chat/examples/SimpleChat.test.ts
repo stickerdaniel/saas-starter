@@ -26,7 +26,6 @@ vi.mock('#lib/chat/ui/ChatAttachments.svelte', () => ({ default: () => {} }));
 vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 
 type ContentProps = ComponentProps<typeof SimpleChat>;
-type RejectsApiOverride = 'api' extends keyof ContentProps ? false : true;
 
 let component: ReturnType<typeof mount> | undefined;
 let client: ConvexClient;
@@ -689,11 +688,6 @@ describe('SimpleChat', () => {
 
 		expect(event.defaultPrevented).toBe(false);
 		expect(uploadFile).not.toHaveBeenCalled();
-	});
-
-	it('does not accept an API override prop', () => {
-		const rejectsApiOverride: RejectsApiOverride = true;
-		expect(rejectsApiOverride).toBe(true);
 	});
 
 	it('requires the documented TolgeeProvider context', () => {

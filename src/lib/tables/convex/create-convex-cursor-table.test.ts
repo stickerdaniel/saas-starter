@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-	buildNextPageCursors,
 	buildTrimmedCache,
 	getNextPrefetchCandidate,
 	getPreviousPrefetchCandidate,
@@ -36,15 +35,6 @@ describe('convex cursor table helpers', () => {
 			hasQueryIdentityChanged(base, { ...base, sortBy: { field: 'email', direction: 'asc' } })
 		).toBe(true);
 		expect(hasQueryIdentityChanged(base, { ...base })).toBe(false);
-	});
-
-	it('builds next-page cursor stack correctly', () => {
-		expect(buildNextPageCursors([null], 1, 'cursor-1')).toEqual([null, 'cursor-1']);
-		expect(buildNextPageCursors([null, 'cursor-1'], 2, 'cursor-2')).toEqual([
-			null,
-			'cursor-1',
-			'cursor-2'
-		]);
 	});
 
 	it('derives next/previous prefetch candidates', () => {

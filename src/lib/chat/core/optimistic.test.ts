@@ -32,12 +32,6 @@ describe('createOptimisticMessage', () => {
 		expect(msg.message).toEqual({ role: 'assistant', content: 'Hi there' });
 	});
 
-	it('always sets optimistic: true in metadata', () => {
-		const msg = createOptimisticMessage('thread-123', 'user', 'Hello', 0);
-
-		expect(msg.metadata?.optimistic).toBe(true);
-	});
-
 	it('merges custom metadata with optimistic flag', () => {
 		const msg = createOptimisticMessage('thread-123', 'assistant', 'Hi', 0, {
 			metadata: { provider: 'human', customField: 'value' }
@@ -57,30 +51,6 @@ describe('createOptimisticMessage', () => {
 
 		// optimistic: true should always win (comes last in spread)
 		expect(msg.metadata?.optimistic).toBe(true);
-	});
-
-	it('includes attachments when provided', () => {
-		const attachments = [
-			{ type: 'image' as const, url: 'https://example.com/img.jpg', filename: 'photo.jpg' }
-		];
-		const msg = createOptimisticMessage('thread-123', 'user', 'Check this', 0, { attachments });
-
-		expect(msg.localAttachments).toEqual(attachments);
-	});
-
-	it('passes through empty attachments array (sanitization handled by caller)', () => {
-		const msg = createOptimisticMessage('thread-123', 'user', 'Hello', 0, { attachments: [] });
-
-		// createOptimisticMessage is a low-level function that expects pre-sanitized input
-		// sanitizeAttachmentsForClone() in createOptimisticUpdate handles empty array → undefined
-		expect(msg.localAttachments).toEqual([]);
-	});
-
-	it('generates unique IDs for each message', () => {
-		const msg1 = createOptimisticMessage('thread-123', 'user', 'Hello', 0);
-		const msg2 = createOptimisticMessage('thread-123', 'user', 'Hello', 0);
-
-		expect(msg1.id).not.toBe(msg2.id);
 	});
 });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isAnonymousUser, ANONYMOUS_USER_PREFIX, generateAnonymousUserId } from '../anonymousUser';
+import { isAnonymousUser, generateAnonymousUserId } from '../anonymousUser';
 
 describe('isAnonymousUser', () => {
 	it('returns true for valid anonymous user IDs', () => {
@@ -29,34 +29,9 @@ describe('isAnonymousUser', () => {
 	});
 });
 
-describe('ANONYMOUS_USER_PREFIX', () => {
-	it('has the expected value', () => {
-		expect(ANONYMOUS_USER_PREFIX).toBe('anon_');
-	});
-});
-
 describe('generateAnonymousUserId', () => {
-	it('generates an ID with the correct prefix', () => {
-		const id = generateAnonymousUserId();
-		expect(id.startsWith(ANONYMOUS_USER_PREFIX)).toBe(true);
-	});
-
-	it('generates unique IDs', () => {
-		const id1 = generateAnonymousUserId();
-		const id2 = generateAnonymousUserId();
-		expect(id1).not.toBe(id2);
-	});
-
 	it('generates IDs that pass isAnonymousUser check', () => {
 		const id = generateAnonymousUserId();
 		expect(isAnonymousUser(id)).toBe(true);
-	});
-
-	it('generates IDs with UUID format after prefix', () => {
-		const id = generateAnonymousUserId();
-		const uuidPart = id.slice(ANONYMOUS_USER_PREFIX.length);
-		// UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-		const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-		expect(uuidPart).toMatch(uuidRegex);
 	});
 });

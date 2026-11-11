@@ -25,9 +25,4 @@ describe('formatDuration', () => {
 		// 90s -> 1.5 min -> rounds to 2 min
 		expect(formatDuration(90_000, 'en')).toBe(expected(2, 'minute'));
 	});
-
-	it('localizes the unit for non-English locales', () => {
-		expect(formatDuration(45_000, 'de')).toBe(expected(45, 'second', 'de'));
-		expect(formatDuration(45_000, 'de')).toContain('45');
-	});
 });

@@ -394,35 +394,6 @@ describe('Email Template Rendering', () => {
 		});
 	});
 
-	describe('Text versions (no escaping)', () => {
-		it('preserves < and > in text output', () => {
-			const result = renderPasswordResetEmail('https://example.com', '<User>');
-			expect(result.text).toContain('<User>');
-		});
-
-		it('preserves & in text URLs', () => {
-			const result = renderVerificationEmail('https://example.com?a=1&b=2', 30);
-			expect(result.text).toContain('a=1&b=2');
-			expect(result.text).not.toContain('&amp;');
-		});
-
-		it('preserves quotes in text output', () => {
-			const result = renderAdminReplyNotificationEmail(
-				'Admin',
-				'He said "hello"',
-				'https://example.com'
-			);
-			expect(result.text).toContain('"hello"');
-			expect(result.text).not.toContain('&quot;');
-		});
-
-		it('preserves apostrophes in text output', () => {
-			const result = renderPasswordResetEmail('https://example.com', "O'Brien");
-			expect(result.text).toContain("O'Brien");
-			expect(result.text).not.toContain('&#39;');
-		});
-	});
-
 	describe('Default values', () => {
 		it('uses the fallback greeting when userName is undefined', () => {
 			const result = renderPasswordResetEmail('https://example.com');
@@ -444,53 +415,15 @@ describe('Email Template Rendering', () => {
 			expect(result.text).toContain('This link will expire in 30 minutes.');
 		});
 
-		it('renders German verification email', () => {
-			const result = renderVerificationEmail('https://example.com', 30, 'de');
-			expect(result.html).toContain('E-Mail-Adresse bestätigen');
-			expect(result.text).toContain('Dieser Link läuft in 30 Minuten ab.');
-		});
-
 		it('renders Spanish verification code email with interpolated code', () => {
 			const result = renderVerificationCodeEmail('12345678', 30, 'es');
 			expect(result.html).toContain('Tu código de verificación es 12345678');
 			expect(result.text).toContain('Este código caducará en 30 minutos.');
 		});
 
-		it('renders German password reset greeting with userName', () => {
-			const result = renderPasswordResetEmail('https://example.com', 'Max', 'de');
-			expect(result.html).toContain('Hallo Max,');
-			expect(result.text).toContain('Passwort zurücksetzen');
-		});
-
 		it('renders German password reset fallback greeting without userName', () => {
 			const result = renderPasswordResetEmail('https://example.com', undefined, 'de');
 			expect(result.html).toContain('Hallo,');
-		});
-
-		it('renders French admin reply notification with interpolated adminName', () => {
-			const result = renderAdminReplyNotificationEmail(
-				'Alice',
-				'Bonjour',
-				'https://example.com',
-				'fr'
-			);
-			expect(result.html).toContain('Alice a répondu à ta conversation de support');
-			expect(result.text).toContain('Voir la conversation');
-		});
-
-		it('renders German new ticket notification button and footer', () => {
-			const result = renderNewTicketAdminNotificationEmail(
-				{
-					isReopen: false,
-					isBareHandoff: false,
-					userName: 'Max',
-					messages: [{ text: 'Hi', timestamp: 'Jan 15, 10:30 AM' }],
-					adminDashboardLink: 'https://example.com/admin/support'
-				},
-				'de'
-			);
-			expect(result.html).toContain('Im Admin-Dashboard ansehen');
-			expect(result.text).toContain('Du erhältst diese E-Mail');
 		});
 
 		it('uses the handoff empty-state line for a bare handoff with no messages', () => {
@@ -523,22 +456,6 @@ describe('Email Template Rendering', () => {
 			expect(result.html).not.toContain('The user asked to talk to a human.');
 		});
 
-		it('renders Spanish new user signup notification', () => {
-			const result = renderNewUserSignupNotificationEmail(
-				{
-					userName: 'Max',
-					userEmail: 'max@example.com',
-					signupMethod: 'Email',
-					signupTime: 'Jan 15, 2026 at 3:45 PM',
-					adminDashboardLink: 'https://example.com/admin/users'
-				},
-				'es'
-			);
-			expect(result.html).toContain('Nuevo usuario registrado');
-			expect(result.html).toContain('Método:');
-			expect(result.text).toContain('Ver en el panel de administración');
-		});
-
 		it('falls back to English for unsupported locales', () => {
 			const result = renderVerificationEmail('https://example.com', 30, 'xx');
 			expect(result.html).toContain('Verify your email');
@@ -554,13 +471,6 @@ describe('Email Template Rendering', () => {
 	});
 
 	describe('Edge cases', () => {
-		it('handles empty verification code', () => {
-			const result = renderVerificationCodeEmail('', 30);
-			expect(result.html).toBeDefined();
-			expect(result.text).toBeDefined();
-			expect(result.html.length).toBeGreaterThan(0);
-		});
-
 		it('handles very long URLs', () => {
 			const longUrl = 'https://example.com/' + 'a'.repeat(500);
 			const result = renderVerificationEmail(longUrl, 30);

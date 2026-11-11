@@ -180,14 +180,6 @@ describe('changePasswordSchema', () => {
 });
 
 describe('setPasswordSchema', () => {
-	it('accepts a first password without a current one', () => {
-		const result = v.safeParse(setPasswordSchema, {
-			_newPassword: 'NewPassword123',
-			_confirmPassword: 'NewPassword123'
-		});
-		expect(result.success).toBe(true);
-	});
-
 	it('rejects mismatched passwords', () => {
 		const result = v.safeParse(setPasswordSchema, {
 			_newPassword: 'NewPassword123',

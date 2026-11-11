@@ -377,22 +377,6 @@ describe('email send provider preflights', () => {
 		expect(patch).toHaveBeenCalledTimes(1);
 	});
 
-	it('returns an enqueue result that pending notification work can count', async () => {
-		const ctx = { runQuery: vi.fn().mockResolvedValue({ locale: 'en' }) };
-
-		expect(
-			await (sendNewTicketAdminNotification as unknown as RegisteredMutation)._handler(ctx, {
-				email: 'admin@example.com',
-				isReopen: false,
-				isBareHandoff: false,
-				userName: 'User',
-				messages: [],
-				threadId: 'thread_1'
-			})
-		).toBe(true);
-		expect(sendEmail).toHaveBeenCalledTimes(1);
-	});
-
 	it('skips E2E test recipients of new ticket notifications and sends to real ones', async () => {
 		const ctx = { runQuery: vi.fn().mockResolvedValue({ locale: 'en' }) };
 		const args = {

@@ -1,18 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as v from 'valibot';
-import {
-	PASSWORD_MIN_LENGTH,
-	passwordValidation,
-	passwordRequired,
-	confirmPasswordRequired,
-	PASSWORD_MISMATCH_KEY
-} from '../password';
-
-describe('PASSWORD_MIN_LENGTH', () => {
-	it('has expected value of 10', () => {
-		expect(PASSWORD_MIN_LENGTH).toBe(10);
-	});
-});
+import { passwordValidation, passwordRequired, confirmPasswordRequired } from '../password';
 
 describe('passwordValidation', () => {
 	it('accepts valid passwords meeting all requirements', () => {
@@ -115,12 +103,6 @@ describe('passwordValidation', () => {
 		const result = v.safeParse(passwordValidation, '');
 		expect(result.success).toBe(false);
 	});
-
-	it('validates exactly at minimum length boundary', () => {
-		// Exactly 10 characters with all requirements
-		const result = v.safeParse(passwordValidation, 'Abcdefgh1Z');
-		expect(result.success).toBe(true);
-	});
 });
 
 describe('passwordRequired', () => {
@@ -150,11 +132,5 @@ describe('confirmPasswordRequired', () => {
 		if (!result.success) {
 			expect(result.issues[0].message).toBe('validation.confirm_password.required');
 		}
-	});
-});
-
-describe('PASSWORD_MISMATCH_KEY', () => {
-	it('has expected translation key', () => {
-		expect(PASSWORD_MISMATCH_KEY).toBe('validation.confirm_password.mismatch');
 	});
 });

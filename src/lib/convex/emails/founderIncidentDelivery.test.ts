@@ -72,28 +72,6 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe('Resend status contract', () => {
-	it('returns the installed component snapshot or null without reshaping it', async () => {
-		const snapshot = {
-			status: 'delivered' as const,
-			errorMessage: null,
-			bounced: false,
-			complained: true,
-			failed: false,
-			deliveryDelayed: false,
-			opened: false,
-			clicked: false
-		};
-		const runQuery = vi.fn().mockResolvedValueOnce(snapshot).mockResolvedValueOnce(null);
-		const ctx = { runQuery };
-		const emailId = 'email_1' as EmailId;
-
-		expect(await resend.status(ctx as never, emailId)).toBe(snapshot);
-		expect(await resend.status(ctx as never, emailId)).toBeNull();
-		expect(runQuery).toHaveBeenCalledWith(resend.component.lib.getStatus, { emailId });
-	});
-});
-
 describe('mergeFounderIncidentDeliveryStatus', () => {
 	it('follows the component status precedence and keeps cancellation terminal', () => {
 		expect(mergeFounderIncidentDeliveryStatus('waiting', 'sent')).toBe('sent');

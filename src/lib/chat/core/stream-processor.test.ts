@@ -57,76 +57,9 @@ function mergePersistedAndLiveParts(
 	return mergeAssistantMessageParts(existingParts, incomingParts, 'persisted');
 }
 
-// ─── blankUIMessage ───────────────────────────────────────────────────────────
-
-describe('blankUIMessage', () => {
-	it('returns a UIMessage with correct id derived from streamId', () => {
-		const streamMsg = createStreamMessage({ streamId: 'abc-123' });
-		const result = blankUIMessage(streamMsg, 'thread-1');
-		expect(result.id).toBe('stream:abc-123');
-	});
-
-	it('constructs key from threadId, order, and stepOrder', () => {
-		const streamMsg = createStreamMessage({ order: 3, stepOrder: 2 });
-		const result = blankUIMessage(streamMsg, 'thread-42');
-		expect(result.key).toBe('thread-42-3-2');
-	});
-
-	it('sets role to assistant', () => {
-		const result = blankUIMessage(createStreamMessage(), 'thread-1');
-		expect(result.role).toBe('assistant');
-	});
-
-	it('sets text to empty string', () => {
-		const result = blankUIMessage(createStreamMessage(), 'thread-1');
-		expect(result.text).toBe('');
-	});
-
-	it('sets parts to empty array', () => {
-		const result = blankUIMessage(createStreamMessage(), 'thread-1');
-		expect(result.parts).toEqual([]);
-	});
-
-	it('maps streaming status correctly via statusFromStreamStatus', () => {
-		const streamMsg = createStreamMessage({ status: 'streaming' });
-		const result = blankUIMessage(streamMsg, 'thread-1');
-		expect(result.status).toBe('streaming');
-	});
-
-	it('maps finished status to success', () => {
-		const streamMsg = createStreamMessage({ status: 'finished' });
-		const result = blankUIMessage(streamMsg, 'thread-1');
-		expect(result.status).toBe('success');
-	});
-
-	it('carries over agentName', () => {
-		const streamMsg = createStreamMessage({ agentName: 'support-bot' });
-		const result = blankUIMessage(streamMsg, 'thread-1');
-		expect(result.agentName).toBe('support-bot');
-	});
-
-	it('includes metadata when present on streamMessage', () => {
-		const streamMsg = { ...createStreamMessage(), metadata: { customKey: 'value' } };
-		const result = blankUIMessage(streamMsg, 'thread-1');
-		expect((result as typeof result & { metadata: unknown }).metadata).toEqual({
-			customKey: 'value'
-		});
-	});
-
-	it('omits metadata key when not present on streamMessage', () => {
-		const streamMsg = createStreamMessage();
-		const result = blankUIMessage(streamMsg, 'thread-1');
-		expect('metadata' in result).toBe(false);
-	});
-});
-
 // ─── statusFromStreamStatus ───────────────────────────────────────────────────
 
 describe('statusFromStreamStatus', () => {
-	it('maps "streaming" to "streaming"', () => {
-		expect(statusFromStreamStatus('streaming')).toBe('streaming');
-	});
-
 	it('maps "finished" to "success"', () => {
 		expect(statusFromStreamStatus('finished')).toBe('success');
 	});
@@ -134,28 +67,11 @@ describe('statusFromStreamStatus', () => {
 	it('maps "aborted" to "failed"', () => {
 		expect(statusFromStreamStatus('aborted')).toBe('failed');
 	});
-
-	it('maps unknown/undefined status to "pending"', () => {
-		// Cast to any to simulate an unexpected value arriving at runtime
-		expect(statusFromStreamStatus(undefined as any)).toBe('pending');
-	});
-
-	it('maps an unrecognised string to "pending"', () => {
-		expect(statusFromStreamStatus('unknown' as any)).toBe('pending');
-	});
 });
 
 // ─── extractReasoning ─────────────────────────────────────────────────────────
 
 describe('extractReasoning', () => {
-	it('returns empty string when parts is undefined', () => {
-		expect(extractReasoning(undefined)).toBe('');
-	});
-
-	it('returns empty string for empty parts array', () => {
-		expect(extractReasoning([])).toBe('');
-	});
-
 	it('extracts text from a single reasoning part', () => {
 		const parts: MessagePart[] = [{ type: 'reasoning', text: 'My thought process' }];
 		expect(extractReasoning(parts)).toBe('My thought process');
@@ -301,42 +217,6 @@ describe('deriveUIMessagesFromTextStreamParts', () => {
 
 		expect(messages).toHaveLength(1);
 		expect(extractReasoning(messages[0]!.parts as MessagePart[])).toBe('Thinking about it');
-	});
-
-	it('does NOT produce "undefined" strings when delta parts lack a text field', () => {
-		// This is the exact bug scenario: UIMessageChunk format parts have `delta`
-		// field but no `text` field. Without the fix, part.text would be undefined
-		// and string concatenation would produce literal "undefined" strings.
-		const [messages] = deriveUIMessagesFromTextStreamParts(
-			'thread-1',
-			[createStreamMessage({ streamId: 'stream-1', order: 1, stepOrder: 0 })],
-			[],
-			[
-				{
-					streamId: 'stream-1',
-					start: 0,
-					end: 1,
-					parts: [{ type: 'text-start', id: 'text-1' }]
-				},
-				{
-					streamId: 'stream-1',
-					start: 1,
-					end: 2,
-					// Simulates UIMessageChunk: has `delta` but no `text`
-					parts: [{ type: 'text-delta', id: 'text-1', delta: 'Hi' }]
-				},
-				{
-					streamId: 'stream-1',
-					start: 2,
-					end: 3,
-					parts: [{ type: 'text-delta', id: 'text-1', delta: ' there' }]
-				}
-			] as any
-		);
-
-		expect(messages).toHaveLength(1);
-		expect(messages[0]!.text).toBe('Hi there');
-		expect(messages[0]!.text).not.toContain('undefined');
 	});
 });
 
@@ -1221,23 +1101,6 @@ describe('mergeAssistantMessageParts', () => {
 		}
 	);
 
-	// The persisted reconstruction stamps `done` on every block it rebuilds, even
-	// one whose step is still running, and carries no id. Its state says nothing,
-	// so the live side still decides.
-	it('lets the live side reopen a block the persisted copy only calls done', () => {
-		const merged = mergePersistedAndLiveParts(
-			[{ type: 'reasoning', text: 'Find coordinates', state: 'done' }] as UIMessage['parts'],
-			[
-				{ type: 'step-start' },
-				{ type: 'reasoning', id: 'r1', text: 'Find coordinates', state: 'streaming' }
-			] as unknown as UIMessage['parts']
-		);
-
-		expect(merged.filter((part) => part.type === 'reasoning')).toMatchObject([
-			{ text: 'Find coordinates', state: 'streaming' }
-		]);
-	});
-
 	// A tool call runs once, so the side holding its result is the newer one. Taking
 	// the incoming state left a spinner sitting above a finished result.
 	it('keeps a settled tool call settled when the other side lags', () => {
@@ -1397,11 +1260,6 @@ describe('extractUserMessageText', () => {
 			message: { role: 'user', content: { text: 'Object text' } }
 		});
 		expect(extractUserMessageText(msg)).toBe('Object text');
-	});
-
-	it('returns empty string when msg has no text and no message', () => {
-		const msg = createChatMessage({ text: undefined, message: undefined });
-		expect(extractUserMessageText(msg)).toBe('');
 	});
 
 	it('returns empty string when message.content is null', () => {

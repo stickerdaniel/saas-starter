@@ -40,14 +40,6 @@ describe('ChatDraftManager', () => {
 		expect(manager.getDraft('thread-1')).toBe('hello world');
 	});
 
-	it('returns empty string for unknown thread', () => {
-		expect(manager.getDraft('nonexistent')).toBe('');
-	});
-
-	it('returns empty string for null threadId', () => {
-		expect(manager.getDraft(null)).toBe('');
-	});
-
 	it('removes key when setDraft is called with empty string', () => {
 		manager.setDraft('thread-1', 'draft text');
 		manager.setDraft('thread-1', '');

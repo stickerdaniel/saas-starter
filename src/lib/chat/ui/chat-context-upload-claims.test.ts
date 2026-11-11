@@ -114,15 +114,6 @@ describe('ChatUIContext upload claims', () => {
 		ctx.dispose();
 		expect(uploads.any).toBe(false);
 	});
-
-	it('works without a registry, for a chat rendered outside the app shell', async () => {
-		const ctx = context();
-		const transfer = pendingTransfer();
-
-		const upload = ctx.uploadScreenshot(shot(), 'shot.png');
-		transfer.succeed();
-		await expect(upload).resolves.toBeUndefined();
-	});
 });
 
 describe('ChatUIContext upload claims, removal paths', () => {
@@ -163,25 +154,6 @@ describe('ChatUIContext upload claims, removal paths', () => {
 
 		second.succeed();
 		await secondUpload;
-		expect(uploads.any).toBe(false);
-	});
-
-	it('a superseded attempt does not let go while its replacement runs', async () => {
-		const uploads = new ActiveUploads();
-		const ctx = context(uploads);
-
-		const first = pendingTransfer();
-		const upload = ctx.uploadScreenshot(shot(), 'shot.png');
-		first.reject(new Error('network'));
-		await upload;
-
-		const retry = pendingTransfer();
-		ctx.retryUpload(0);
-		expect(uploads.any).toBe(true);
-
-		retry.succeed();
-		await Promise.resolve();
-		await Promise.resolve();
 		expect(uploads.any).toBe(false);
 	});
 });

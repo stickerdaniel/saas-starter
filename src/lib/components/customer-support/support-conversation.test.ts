@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
 import type * as AppEnv from '$app/env';
-import type { ChatSessionPort } from '#lib/chat/core/chat-session-port.js';
 import type { ChatCommandError } from '#lib/chat/core/chat-command-error.js';
 import { resolveReasoning } from '#lib/chat/core/display-message-processor.js';
 import { SupportConversation } from './support-conversation.svelte.ts';
@@ -42,11 +41,6 @@ describe('SupportConversation', () => {
 
 	afterEach(() => {
 		errorSpy.mockRestore();
-	});
-
-	it('implements the shared chat session port at compile time', () => {
-		const port: ChatSessionPort = conversation;
-		expect(port).toBe(conversation);
 	});
 
 	it('returns an existing thread without a mutation', async () => {

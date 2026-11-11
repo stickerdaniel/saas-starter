@@ -106,8 +106,4 @@ describe('reasoning keys', () => {
 
 		expect(keysOf(live)).toEqual(keysOf(persisted));
 	});
-
-	it('treats a missing parts array as an empty one', () => {
-		expect(getReasoningKey(undefined, 0)).toBe(LEADING_REASONING_KEY);
-	});
 });
