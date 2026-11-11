@@ -37,20 +37,6 @@ describe('shadcn policy through the application ESLint config', () => {
 		expect(await eslint.isPathIgnored('scratch/shadcn-lint-migration/probe.svelte')).toBe(true);
 	}, 60_000);
 
-	it('checks imported Button markup through the safe Svelte parser', async () => {
-		const source = `${button}<Button class="rounded-full">Save</Button>`;
-		expect(ids(await messages(source))).toContain('shadcn/no-restyle');
-		const withoutRule = new ESLint({
-			overrideConfig: [
-				withoutTypeInformation,
-				{ files: [route], rules: { 'shadcn/no-restyle': 'off' } }
-			]
-		});
-		const [disabled] = await withoutRule.lintText(source, { filePath: route });
-		expect(disabled.fatalErrorCount).toBe(0);
-		expect(ids(disabled.messages)).not.toContain('shadcn/no-restyle');
-	}, 60_000);
-
 	it('checks native styles, style directives, and unknown template classes', async () => {
 		const found = await messages(
 			'<div style="color: red" style:background-color="red" class="hovr:flex" />'

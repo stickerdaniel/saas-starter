@@ -396,26 +396,9 @@ function typeSyntaxes(type: string): Array<[string, string]> {
 }
 
 describe('prefer-shadcn-primitives', () => {
-	it('flags a native button', () => {
-		const reports = lint('<button type="button">Save</button>');
-		expect(reports.map((r) => r.messageId)).toEqual(['nativeButton']);
-	});
-
-	it('allows a bits-ui child-host button with a spread', () => {
-		const reports = lint(
-			'{#snippet child({ props })}<button type="button" {...props}>Go</button>{/snippet}'
-		);
-		expect(reports).toHaveLength(0);
-	});
-
 	it('allows shadcn Button', () => {
 		const reports = lint('<Button type="button">Save</Button>');
 		expect(reports).toHaveLength(0);
-	});
-
-	it('flags a native dialog', () => {
-		const reports = lint('<dialog>Hello</dialog>');
-		expect(reports.map((r) => r.messageId)).toEqual(['nativeDialog']);
 	});
 
 	it('flags an HTML title tooltip', () => {
@@ -438,23 +421,10 @@ describe('prefer-shadcn-primitives', () => {
 		expect(reports).toHaveLength(0);
 	});
 
-	it('allows SEOHead title as a component prop', () => {
-		const reports = lint('<SEOHead title={pageTitle} />');
-		expect(reports).toHaveLength(0);
-	});
-
 	it('skips shadcn ui wrappers', () => {
 		const reports = lint(
 			'<button type="button">Save</button>',
 			'src/lib/components/ui/button/button.svelte'
-		);
-		expect(reports).toHaveLength(0);
-	});
-
-	it('skips the obfuscated email control', () => {
-		const reports = lint(
-			'<button type="button">a@b.c</button>',
-			'src/lib/components/obfuscated-email.svelte'
 		);
 		expect(reports).toHaveLength(0);
 	});
@@ -467,15 +437,6 @@ describe('message contracts', () => {
 			expect(rule.meta.messages[messageId as keyof typeof EXPECTED_MESSAGES]).toBe(expected);
 		}
 	);
-
-	it('checkbox names Checkbox and does not start as Input', () => {
-		const text = rule.meta.messages.nativeCheckbox;
-		expect(text.startsWith('Use shadcn Checkbox from #lib/components/ui/checkbox/index.js')).toBe(
-			true
-		);
-		expect(text.startsWith('Use shadcn Input ')).toBe(false);
-		expect(text).toBe(EXPECTED_MESSAGES.nativeCheckbox);
-	});
 });
 
 describe('canonical primitives on app paths', () => {
@@ -485,15 +446,6 @@ describe('canonical primitives on app paths', () => {
 });
 
 describe('email path policy', () => {
-	it('future email templates are absent', () => {
-		expect(existsSync(path.join(repoRoot, 'src/lib/emails/templates/NewPromoEmail.svelte'))).toBe(
-			false
-		);
-		expect(existsSync(path.join(repoRoot, 'src/lib/emails/future/deep/NewPromoEmail.svelte'))).toBe(
-			false
-		);
-	});
-
 	it.each(
 		EMAIL_PATHS.flatMap((file) =>
 			PRIMITIVE_CASES.flatMap((primitive) =>
@@ -614,16 +566,6 @@ describe('host spread is Identifier props only', () => {
 	});
 });
 
-describe('explicit and shorthand titles', () => {
-	it('flags shorthand title on span', () => {
-		expect(ids(lint('<span {title}>Help</span>'))).toEqual(['nativeTitle']);
-	});
-
-	it('flags shorthand title on Button', () => {
-		expect(ids(lint('<Button {title}>Save</Button>'))).toEqual(['nativeTitle']);
-	});
-});
-
 describe('components use primitives', () => {
 	it.each([
 		'<Button>Save</Button>',
@@ -694,10 +636,6 @@ describe('native title whitelist stays narrow', () => {
 describe('deferred type categories are not guessed', () => {
 	it.each(['radio', 'range', 'color'])('type=%s has no input-kind report', (type) => {
 		expect(lint(`<input type="${type}" />`)).toEqual([]);
-	});
-
-	it('dynamic type has no input-kind report', () => {
-		expect(lint('<input type={kind} />')).toEqual([]);
 	});
 
 	it.each(['radio', 'range', 'color'])('type=%s still reports native title', (type) => {

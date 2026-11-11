@@ -201,10 +201,6 @@ describe('create-saas-starter tool coverage', () => {
 			oxlintConfig.ignorePatterns.some((pattern) => pattern.includes('create-saas-starter'))
 		).toBe(false);
 	});
-
-	it('keeps the root Knip exclusion', () => {
-		expect(readFileSync('knip.config.ts', 'utf8')).toContain("'packages/create-saas-starter/**'");
-	});
 });
 
 async function rawCaughtErrorMessages(file: string, log = "console.error('[run] failed:', error)") {

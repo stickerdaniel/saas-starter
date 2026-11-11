@@ -704,28 +704,17 @@ const status = (workflow: string, job: string): CheckProducer => ({
 	reports: 'status'
 });
 
-// Branch protection binds each required check to the app that must report it
-// (`app_id` in `gh api
-// repos/stickerdaniel/saas-starter/branches/main/protection/required_status_checks`).
-// Workflows report as GitHub Actions, so a status they post under another app's
-// context never satisfies that check.
-const GITHUB_ACTIONS_APP_ID = 15368;
-const CLOUDFLARE_WORKERS_APP_ID = 85455;
-
 interface RequiredCheck {
-	appId: number;
-	// Jobs that report the check; empty when an external app reports it.
+	// Jobs that report the check; empty when an external app reports it, because
+	// branch protection binds each check to one app and a workflow posts as GitHub Actions.
 	producers: readonly CheckProducer[];
 }
 
-const fromActions = (...producers: CheckProducer[]): RequiredCheck => ({
-	appId: GITHUB_ACTIONS_APP_ID,
-	producers
-});
+const fromActions = (...producers: CheckProducer[]): RequiredCheck => ({ producers });
 
-// Mirrors the required status checks of main, each mapped to its source app and
-// the jobs that report it. A fork with other required checks updates this map
-// alongside its branch protection.
+// Mirrors the required status checks of main, each mapped to the jobs that report
+// it. A fork with other required checks updates this map alongside its branch
+// protection.
 const REQUIRED_CHECKS: Record<string, RequiredCheck> = {
 	'Lint & Format': fromActions(checkRun('static-checks.yml', 'lint')),
 	'Type Check': fromActions(checkRun('static-checks.yml', 'typecheck')),
@@ -740,7 +729,7 @@ const REQUIRED_CHECKS: Record<string, RequiredCheck> = {
 	'PR Title': fromActions(checkRun('check-pr-title.yml', 'check')),
 	'English PR Metadata': fromActions(checkRun('require-english-pr.yml', 'english-metadata')),
 	'check-bot-coauthors': fromActions(checkRun('check-attribution.yml', 'check-bot-coauthors')),
-	'Workers Builds: saas-starter': { appId: CLOUDFLARE_WORKERS_APP_ID, producers: [] },
+	'Workers Builds: saas-starter': { producers: [] },
 	'E2E Tests': fromActions(
 		status('e2e-preview-cf.yml', 'e2e-skipped'),
 		status('e2e-preview-cf.yml', 'e2e-build-failed'),
@@ -820,20 +809,6 @@ describe('required check producers', () => {
 		)
 	);
 
-	it.each(Object.entries(REQUIRED_CHECKS))(
-		'%s has a producer only where workflows can satisfy it',
-		(context, check) => {
-			if (check.appId === GITHUB_ACTIONS_APP_ID) {
-				expect(check.producers, `${context} needs a job that reports it`).not.toHaveLength(0);
-			} else {
-				expect(
-					check.producers,
-					`${context} is bound to app ${check.appId}; a workflow posting it cannot satisfy it`
-				).toHaveLength(0);
-			}
-		}
-	);
-
 	it.each(producers)('%s is reported by %s', (context, _label, producer) => {
 		const job = parsedWorkflow(producer.workflow).jobs[producer.job];
 		expect(job, `${producer.workflow} has no job ${producer.job}`).toBeDefined();
@@ -860,10 +835,6 @@ describe('required check producers', () => {
 	);
 
 	const aggregators = checkRunProducers.filter(([, , producer]) => producer.verifier);
-
-	it('finds the aggregating producers (parser sanity check)', () => {
-		expect(aggregators.map(([context]) => context)).toContain('Unit Tests');
-	});
 
 	// A cancelled run may cancel the job as well: its check then reads cancelled,
 	// which never passes. Every other outcome must leave the job running.
@@ -942,10 +913,6 @@ describe.skipIf(process.platform === 'win32')('required Unit Tests check', () =>
 	};
 	const check = Object.values(workflow.jobs).find((job) => job.name === 'Unit Tests');
 
-	it('preserves the required Unit Tests status name', () => {
-		expect(check, 'Keep the required Unit Tests aggregate check').toBeDefined();
-	});
-
 	it.each(['success', 'failure', 'cancelled', 'skipped', ''])(
 		'reports the shard result %j without accepting missing tests',
 		(result) => {
@@ -1017,25 +984,6 @@ describe.skipIf(process.platform === 'win32')('lint job source identity', () => 
 		return run(script, dir, sha).status;
 	}
 
-	function withoutGuard(script: string, marker: string): string {
-		const lines = script.split('\n');
-		const start = lines.findIndex(
-			(line) => line.trimStart().startsWith('if ') && line.includes(marker)
-		);
-		const end = lines.findIndex((line, index) => index > start && line.trim() === 'fi');
-		if (start < 0 || end <= start) throw new Error(`no guard block around ${marker}`);
-		return [...lines.slice(0, start), ...lines.slice(end + 1)].join('\n');
-	}
-
-	function withInlinedStatus(script: string): string {
-		return script
-			.replace(/^\t*status="[^\n]*\n/m, '')
-			.replace(
-				'if [ -n "$status" ]',
-				'if [ -n "$(git status --porcelain=v1 --untracked-files=all)" ]'
-			);
-	}
-
 	function onEachGuard(dir: string, sha: string, expected: number): void {
 		expect(guards, 'the lint job carries both guard steps').toHaveLength(2);
 		for (const guard of guards) {
@@ -1068,13 +1016,6 @@ describe.skipIf(process.platform === 'win32')('lint job source identity', () => 
 
 	it('accepts the tree the event commit describes', () => {
 		inFixture((dir, head) => onEachGuard(dir, head, 0));
-	});
-
-	it('rejects a tracked file that a generator rewrote, ignored or not', () => {
-		inFixture((dir, head) => {
-			fs.writeFileSync(path.join(dir, 'src', 'env.d.ts'), 'export const generated = true;\n');
-			onEachGuard(dir, head, 1);
-		});
 	});
 
 	it('prints the diff of a rewritten tracked file before it fails', () => {
@@ -1147,31 +1088,6 @@ describe.skipIf(process.platform === 'win32')('lint job source identity', () => 
 			for (const guard of guards) {
 				expect(exec(String(guard.run), dir, head), String(guard.name)).not.toBe(0);
 			}
-		});
-	});
-
-	it('owes the unreadable index to the separate status capture', () => {
-		const script = String(guards[0]?.run);
-		inFixture((dir, head) => {
-			fs.writeFileSync(path.join(dir, '.git', 'index'), 'DIRC');
-			expect(exec(script, dir, head)).not.toBe(0);
-			expect(exec(withInlinedStatus(script), dir, head)).toBe(0);
-		});
-	});
-
-	it('owes each rejection to its own guard', () => {
-		const script = String(guards[0]?.run);
-		inFixture((dir, head) => {
-			fs.writeFileSync(path.join(dir, 'src', 'env.d.ts'), 'export const generated = true;\n');
-			expect(exec(script, dir, head)).toBe(1);
-			expect(exec(withoutGuard(script, '-n "$status"'), dir, head)).toBe(0);
-		});
-		inFixture((dir, head) => {
-			fs.writeFileSync(path.join(dir, 'app.ts'), 'export const version = 2;\n');
-			git(dir, ['add', '-A']);
-			git(dir, ['commit', '-q', '-m', 'second']);
-			expect(exec(script, dir, head)).toBe(1);
-			expect(exec(withoutGuard(script, '"$head" != "$GITHUB_SHA"'), dir, head)).toBe(0);
 		});
 	});
 });

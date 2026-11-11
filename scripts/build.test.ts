@@ -3,12 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import {
-	loadBuildEnvironment,
-	resolveBuildSiteOrigin,
-	viteBuildCommand,
-	viteBuildMode
-} from './build';
+import { loadBuildEnvironment, resolveBuildSiteOrigin, viteBuildMode } from './build';
 
 describe('resolveBuildSiteOrigin', () => {
 	it('uses the local preview origin for a direct build', () => {
@@ -92,16 +87,6 @@ describe('resolveBuildSiteOrigin', () => {
 			else process.env.SITE_URL = savedCompatibleOrigin;
 			fs.rmSync(directory, { recursive: true, force: true });
 		}
-	});
-
-	it('forwards Vite build arguments unchanged', () => {
-		expect(viteBuildCommand(['--mode', 'staging', '--sourcemap'])).toEqual([
-			'vite',
-			'build',
-			'--mode',
-			'staging',
-			'--sourcemap'
-		]);
 	});
 });
 

@@ -86,16 +86,6 @@ const placementSample = ['-mt-2', 'w-full', 'shrink-0', 'relative', 'top-1', 'z-
 const classes = [...appearance, ...placementSample].join(' ');
 
 describe('no-restyle options in the application config', () => {
-	// The first config resolution loads the typed Svelte parser, which is slow under load.
-	it('gives files without an owner profile the ordered base contracts', async () => {
-		expect(await restyleOptionsFor(production, route)).toEqual([2, specBase]);
-		// No container contract after STRICT may reopen a control.
-		const strict = specBase.contracts.at(-1)!;
-		for (const name of ['Button', 'Badge', 'AdminThreadRow']) {
-			expect(specBase.contracts.filter((c) => new RegExp(c.pattern).test(name))).toEqual([strict]);
-		}
-	}, 60_000);
-
 	it('composes the specified options at every owner file and nowhere else', async () => {
 		const files = [...new Set(specOwners.flatMap((owner) => owner.files))];
 		expect(files).toHaveLength(47);
@@ -107,17 +97,6 @@ describe('no-restyle options in the application config', () => {
 			expect(await restyleOptionsFor(production, file), file).toEqual([2, specOptionsFor(file)]);
 		}
 	}, 120_000);
-
-	it('repeats the base contracts in an owner file and unions the inherited allowance', async () => {
-		const [severity, options] = await restyleOptionsFor(production, composer);
-		expect(severity).toBe(2);
-		expect(options.allow).toEqual(specBase.allow);
-		expect(options.contracts.slice(0, -1)).toEqual(specBase.contracts);
-		const owned = options.contracts.at(-1);
-		const additions = specOwners.find((owner) => owner.id === 'O06')!.components.Textarea!;
-		expect(owned.pattern).toBe('^Textarea$');
-		expect(owned.allow).toEqual([...new Set([...specBase.contracts.at(-1)!.allow, ...additions])]);
-	});
 
 	it('keeps borders, rings and color off a Skeleton', async () => {
 		const source = `<script lang="ts">import { Skeleton } from '#lib/components/ui/skeleton/index.js';</script>

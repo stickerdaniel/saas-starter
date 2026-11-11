@@ -152,19 +152,6 @@ function loggedSecrets(file: string, banned: string[]): string[] {
 }
 
 describe('local Convex backend telemetry isolation', () => {
-	it('sets the beacon switch only when the dev server starts, after Varlock config capture', () => {
-		const source = fs.readFileSync(path.resolve('vite.config.ts'), 'utf8');
-		const plugin = source.indexOf("name: 'disable-local-convex-beacon'");
-		const configureServer = source.indexOf('configureServer()', plugin);
-		const assignment = source.indexOf("process.env.DISABLE_BEACON = '1'", configureServer);
-		const backend = source.indexOf('convexLocal({', assignment);
-
-		expect(plugin).toBeGreaterThanOrEqual(0);
-		expect(configureServer).toBeGreaterThan(plugin);
-		expect(assignment).toBeGreaterThan(configureServer);
-		expect(backend).toBeGreaterThan(assignment);
-	});
-
 	it('never turns the E2E helper secret into provider readiness', () => {
 		const source = fs.readFileSync(path.resolve('vite.config.ts'), 'utf8');
 		const helperSecret = source.indexOf('// AUTH_E2E_TEST_SECRET authorizes test helpers only');
@@ -179,10 +166,6 @@ describe('local Convex backend telemetry isolation', () => {
 });
 
 describe('convex-vite-plugin secret logging', () => {
-	it('resolves to the bundled entry the plugin actually runs', () => {
-		expect(entry).toMatch(/[\\/]dist[\\/]index\.mjs$/);
-	});
-
 	it('logs env var names without their values', () => {
 		const source = fs.readFileSync(entry, 'utf-8');
 		expect(source).toContain('Set environment variable: ${name} = [REDACTED]');

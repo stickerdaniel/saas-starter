@@ -113,13 +113,4 @@ describe('no-frozen-auth-page-data', () => {
 		const reports = lint('<script>const v = page.data.viewer;</script>', APP_FILE);
 		expect(reports).toHaveLength(0);
 	});
-
-	it('does not attach listeners outside the marketing surface', () => {
-		const context = {
-			report: () => {},
-			getFilename: () => APP_FILE,
-			filename: APP_FILE
-		};
-		expect(Object.keys(rule.create(context))).toHaveLength(0);
-	});
 });

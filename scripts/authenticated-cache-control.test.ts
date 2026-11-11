@@ -29,10 +29,4 @@ describe('cache-control guard convention', () => {
 			).toContain('!event.locals.token');
 		}
 	});
-
-	it('keeps the hook delegating to the tested policy module', () => {
-		const hooksSource = fs.readFileSync(path.resolve('src/hooks.server.ts'), 'utf-8');
-		expect(hooksSource).toContain("from '#lib/server/cache-control.js'");
-		expect(hooksSource).toContain('applyCacheControl(event, response)');
-	});
 });

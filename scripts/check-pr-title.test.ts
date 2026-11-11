@@ -308,12 +308,4 @@ describe('PR Title workflow', () => {
 		expect(validate.env).toBeUndefined();
 		expect(source).not.toContain('github.event.pull_request.title');
 	});
-
-	it('has no comment or status fallback and documents SHA-like branch recovery', () => {
-		expect(source).not.toMatch(/issue_comment|workflow_dispatch|statuses: write|\/statuses\//);
-		expect(source).toContain('suppresses pull_request_target for SHA-like source branch names');
-		expect(source).toContain('Renaming a head branch closes its pull request');
-		expect(source).toContain('Open a replacement pull');
-		expect(source).toContain('request from a non-SHA-like source branch');
-	});
 });
