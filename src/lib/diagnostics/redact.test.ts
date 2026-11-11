@@ -185,6 +185,19 @@ describe('redactText', () => {
 			'rejected: {"pem":"[Filtered]\\nnext line"'
 		],
 		[
+			'a private key with CR line ends',
+			'-----BEGIN PRIVATE KEY-----\rSyntheticBody\r-----END PRIVATE KEY-----\rafter',
+			'[Filtered]\rafter'
+		],
+		[
+			'a private key with CR line ends, serialized',
+			JSON.stringify({
+				pem: '-----BEGIN PRIVATE KEY-----\rSyntheticBody\r-----END PRIVATE KEY-----\rafter',
+				ok: false
+			}),
+			'{"pem":"[Filtered]\\rafter","ok":false}'
+		],
+		[
 			'a private key whose label has a doubled space',
 			'-----BEGIN RSA  PRIVATE KEY-----\nSyntheticBodyLine\n-----END RSA  PRIVATE KEY-----\nnext: harmless',
 			'[Filtered]\nnext: harmless'
