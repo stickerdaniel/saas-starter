@@ -227,6 +227,8 @@ export interface SendMessageOptions {
  */
 export interface SendMessageResult {
 	messageId: string;
+	/** The saved prompt's order, which its reply or terminal notice shares. */
+	order: number;
 }
 
 /**

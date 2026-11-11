@@ -1,9 +1,9 @@
 import { vi } from 'vitest';
-import type { ChatSessionPort } from '../core/chat-session-port';
+import type { AwaitedTurn, ChatSessionPort } from '../core/chat-session-port';
 
 /** A complete shared-session double; consumer tests cannot hide missing port members. */
 export function createChatSession(threadId: string | null = null) {
-	let awaitingStream = false;
+	let awaitedTurn: AwaitedTurn | null = null;
 	return {
 		threadId,
 		get isNewConversation() {
@@ -12,10 +12,13 @@ export function createChatSession(threadId: string | null = null) {
 		threadGeneration: 0,
 		isSending: false,
 		get isAwaitingStream() {
-			return awaitingStream;
+			return awaitedTurn !== null;
+		},
+		get awaitedTurn() {
+			return awaitedTurn;
 		},
 		setAwaitingStream(awaiting: boolean) {
-			awaitingStream = awaiting;
+			awaitedTurn = awaiting ? { kind: 'unordered' } : null;
 		},
 		streamCache: {
 			getCachedReasoning: vi.fn<(order: number) => string | undefined>(),

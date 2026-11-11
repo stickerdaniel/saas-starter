@@ -18,7 +18,7 @@ import { DEFAULT_CHAT_CONFIG } from './types.js';
 import { StreamCacheManager } from './stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from './optimistic.js';
 import { getChatSessionEpoch, isChatSessionCurrent } from './chat-persisted-state.js';
-import type { ChatSessionPort } from './chat-session-port.js';
+import type { AwaitedTurn, ChatSessionPort } from './chat-session-port.js';
 import { ChatCommandError, type ChatCommandErrorCode } from './chat-command-error.js';
 
 export type ChatCoreErrorCode = ChatCommandErrorCode | 'send_failed' | 'create_thread_failed';
@@ -96,8 +96,12 @@ export class ChatCore implements ChatSessionPort {
 	// Widget state (for support chat widget)
 	shouldOpenWidget = $state(false);
 
-	// Awaiting stream state (sticky until stream arrives)
-	isAwaitingStream = $state(false);
+	/**
+	 * The response the last send waits on, sticky until the UI sees it. A send
+	 * waits as `unaccepted` until the backend returns the prompt's order, then
+	 * as `accepted` at that order.
+	 */
+	awaitedTurn = $state<AwaitedTurn | null>(null);
 
 	// Stream cache manager
 	readonly streamCache = new StreamCacheManager();
@@ -121,6 +125,10 @@ export class ChatCore implements ChatSessionPort {
 		return this.threadId !== null;
 	}
 
+	get isAwaitingStream(): boolean {
+		return this.awaitedTurn !== null;
+	}
+
 	/**
 	 * Initialize or load a thread
 	 */
@@ -140,7 +148,7 @@ export class ChatCore implements ChatSessionPort {
 			this.sendRevision++;
 			this.provisionalThreadBinding = null;
 			this.isSending = false;
-			this.isAwaitingStream = false;
+			this.awaitedTurn = null;
 		}
 		this.threadId = threadId;
 		this.isNewConversation = threadId === null;
@@ -192,11 +200,9 @@ export class ChatCore implements ChatSessionPort {
 		this.shouldOpenWidget = false;
 	}
 
-	/**
-	 * Set awaiting stream state
-	 */
+	/** `true` starts an `unaccepted` wait, `false` settles the awaited turn. */
 	setAwaitingStream(awaiting: boolean): void {
-		this.isAwaitingStream = awaiting;
+		this.awaitedTurn = awaiting ? { kind: 'unaccepted' } : null;
 	}
 
 	private isSendOperationCurrent(sessionEpoch: number, sendRevision: number): boolean {
@@ -310,6 +316,11 @@ export class ChatCore implements ChatSessionPort {
 			if (!this.isSendOperationCurrent(sessionEpoch, sendRevision)) {
 				return { ...result, threadCreated };
 			}
+			// The reply, its stream or the notice replacing it lands at the saved
+			// prompt's order; a wait already settled stays settled.
+			if (this.awaitedTurn !== null) {
+				this.awaitedTurn = { kind: 'accepted', order: result.order };
+			}
 
 			// Request widget to open if requested
 			if (options?.openWidgetAfter) {
@@ -366,7 +377,7 @@ export class ChatCore implements ChatSessionPort {
 		this.sendRevision++;
 		this.provisionalThreadBinding = null;
 		this.isSending = false;
-		this.isAwaitingStream = false;
+		this.awaitedTurn = null;
 		this.error = null;
 		this.shouldOpenWidget = false;
 	}
@@ -385,7 +396,7 @@ export class ChatCore implements ChatSessionPort {
 		this.shouldOpenWidget = false;
 		this.hasMore = false;
 		this.continueCursor = null;
-		this.isAwaitingStream = false;
+		this.awaitedTurn = null;
 		this.streamCache.clear();
 	}
 }

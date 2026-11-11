@@ -12,7 +12,7 @@ import {
 	transformToDisplayMessage,
 	type TransformContext
 } from '../core/display-message-processor.js';
-import type { StreamCachePort } from '../core/chat-session-port.js';
+import type { AwaitedTurn, StreamCachePort } from '../core/chat-session-port.js';
 
 export type { MessagesQueryResponse } from '../core/types.js';
 
@@ -146,6 +146,27 @@ export function hasStreamingAssistantMessage(messages: DisplayMessage[]): boolea
 	);
 }
 
-export function hasAssistantResponseStarted(messages: DisplayMessage[]): boolean {
-	return hasStreamingAssistantMessage(messages) || messages.at(-1)?.role === 'assistant';
+/**
+ * Whether the response a send waits on is visible in the rendered thread.
+ *
+ * An accepted prompt's reply, its stream-only message and its terminal notice
+ * all carry the prompt's order, so only an assistant message at that order
+ * settles it, and an older turn still answering does not. The prompt itself
+ * need not be on the loaded page. A turn without an order settles on any live
+ * assistant message or a trailing assistant reply.
+ */
+export function hasAwaitedResponseStarted(messages: DisplayMessage[], turn: AwaitedTurn): boolean {
+	switch (turn.kind) {
+		case 'unaccepted':
+			return false;
+		case 'accepted':
+			return messages.some(
+				(message) => message.role === 'assistant' && message.order === turn.order
+			);
+		case 'unordered':
+			return (
+				hasStreamingAssistantMessage(messages) ||
+				messages[messages.length - 1]?.role === 'assistant'
+			);
+	}
 }

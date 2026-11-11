@@ -101,25 +101,38 @@ describe('ChatCore command outcomes', () => {
 		const mutation = vi
 			.fn()
 			.mockRejectedValueOnce(defect)
-			.mockResolvedValueOnce({ messageId: 'message_1' });
+			.mockResolvedValueOnce({ messageId: 'message_1', order: 1 });
 		const core = makeCore();
 
 		await expect(core.sendMessage(makeClient(mutation), 'first')).rejects.toBe(defect);
 		expect(core.error).toBe('send_failed');
 
 		await expect(core.sendMessage(makeClient(mutation), 'retry')).resolves.toEqual({
-			messageId: 'message_1'
+			messageId: 'message_1',
+			order: 1
 		});
 		expect(core.error).toBeNull();
 		expect(core.isSending).toBe(false);
 		expect(core.isAwaitingStream).toBe(true);
 	});
 
+	it("waits on no response until the backend returns the prompt's order", async () => {
+		const accepted = deferred<{ messageId: string; order: number }>();
+		const core = makeCore();
+
+		const send = core.sendMessage(makeClient(vi.fn(() => accepted.promise)), 'hello');
+		expect(core.awaitedTurn).toEqual({ kind: 'unaccepted' });
+
+		accepted.resolve({ messageId: 'message_1', order: 7 });
+		await send;
+		expect(core.awaitedTurn).toEqual({ kind: 'accepted', order: 7 });
+	});
+
 	it('preserves a concurrent refusal after the active send succeeds', async () => {
-		let resolveMutation: (result: { messageId: string }) => void = () => undefined;
+		let resolveMutation: (result: { messageId: string; order: number }) => void = () => undefined;
 		const mutation = vi.fn(
 			() =>
-				new Promise<{ messageId: string }>((resolve) => {
+				new Promise<{ messageId: string; order: number }>((resolve) => {
 					resolveMutation = resolve;
 				})
 		);
@@ -132,8 +145,8 @@ describe('ChatCore command outcomes', () => {
 		});
 		expect(core.error).toBe('send_in_progress');
 
-		resolveMutation({ messageId: 'message_1' });
-		await expect(activeSend).resolves.toEqual({ messageId: 'message_1' });
+		resolveMutation({ messageId: 'message_1', order: 1 });
+		await expect(activeSend).resolves.toEqual({ messageId: 'message_1', order: 1 });
 		expect(core.error).toBe('send_in_progress');
 		expect(core.isSending).toBe(false);
 		expect(core.isAwaitingStream).toBe(true);
@@ -143,11 +156,11 @@ describe('ChatCore command outcomes', () => {
 	it.each(['resolve', 'reject'] as const)(
 		'keeps a stale thread A send from changing thread B after it %s',
 		async (outcome) => {
-			const threadA = deferred<{ messageId: string }>();
+			const threadA = deferred<{ messageId: string; order: number }>();
 			const mutation = vi
 				.fn()
 				.mockImplementationOnce(() => threadA.promise)
-				.mockResolvedValueOnce({ messageId: 'message_b' });
+				.mockResolvedValueOnce({ messageId: 'message_b', order: 4 });
 			const core = makeCore();
 			const client = makeClient(mutation);
 
@@ -160,7 +173,8 @@ describe('ChatCore command outcomes', () => {
 			expect(core.isAwaitingStream).toBe(false);
 
 			await expect(core.sendMessage(client, 'from B')).resolves.toEqual({
-				messageId: 'message_b'
+				messageId: 'message_b',
+				order: 4
 			});
 			expect(mutation.mock.calls[1]?.[1]).toMatchObject({ threadId: 'thread_b' });
 			expect(core.isSending).toBe(false);
@@ -168,8 +182,8 @@ describe('ChatCore command outcomes', () => {
 
 			const defect = new Error('thread A provider detail');
 			if (outcome === 'resolve') {
-				threadA.resolve({ messageId: 'message_a' });
-				await expect(sendA).resolves.toEqual({ messageId: 'message_a' });
+				threadA.resolve({ messageId: 'message_a', order: 2 });
+				await expect(sendA).resolves.toEqual({ messageId: 'message_a', order: 2 });
 			} else {
 				threadA.reject(defect);
 				await expect(sendA).rejects.toBe(defect);
@@ -178,13 +192,13 @@ describe('ChatCore command outcomes', () => {
 			expect(core.threadId).toBe('thread_b');
 			expect(core.error).toBeNull();
 			expect(core.isSending).toBe(false);
-			expect(core.isAwaitingStream).toBe(true);
+			expect(core.awaitedTurn).toEqual({ kind: 'accepted', order: 4 });
 			expect(errorSpy).not.toHaveBeenCalled();
 		}
 	);
 
 	it('preserves a matching provisional null-to-real thread binding', async () => {
-		const message = deferred<{ messageId: string }>();
+		const message = deferred<{ messageId: string; order: number }>();
 		const mutation = vi
 			.fn()
 			.mockResolvedValueOnce({ threadId: 'thread_created' })
@@ -204,7 +218,7 @@ describe('ChatCore command outcomes', () => {
 		expect(core.threadId).toBe('thread_created');
 		expect(core.isSending).toBe(true);
 		expect(core.isAwaitingStream).toBe(true);
-		message.resolve({ messageId: 'message_1' });
+		message.resolve({ messageId: 'message_1', order: 0 });
 		await expect(send).resolves.toMatchObject({ messageId: 'message_1' });
 	});
 

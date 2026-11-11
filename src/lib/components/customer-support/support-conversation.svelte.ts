@@ -2,7 +2,11 @@ import type { ConvexClient } from 'convex/browser';
 import { version } from '$app/env';
 import { api } from '#lib/convex/_generated/api.js';
 import type { Attachment } from '#lib/chat/index.js';
-import type { ChatSessionPort, StreamCachePort } from '#lib/chat/core/chat-session-port.js';
+import type {
+	AwaitedTurn,
+	ChatSessionPort,
+	StreamCachePort
+} from '#lib/chat/core/chat-session-port.js';
 import { ChatCommandError } from '#lib/chat/core/chat-command-error.js';
 import { ChatDraftManager } from '#lib/chat/core/chat-draft-manager.svelte.ts';
 import { getChatSessionEpoch, isChatSessionCurrent } from '#lib/chat/core/chat-persisted-state.ts';
@@ -13,6 +17,11 @@ import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
 import { isSupportAiEnabled } from '#lib/config/support.js';
 import { normalizeSupportPageRoute } from '#lib/shared/support-page-route.js';
 import type { SupportNavigationState } from './support-navigation-state.svelte.ts';
+
+// Support's send returns no prompt order, and the handoff acknowledgement and
+// team replies are saved at the thread's latest order rather than the
+// prompt's, so the wait settles on any assistant response after the prompt.
+const UNORDERED_TURN: AwaitedTurn = { kind: 'unordered' };
 
 export type SupportAssignedAdmin = { name?: string; image: string | null };
 
@@ -88,6 +97,10 @@ export class SupportConversation implements ChatSessionPort {
 
 	get hasThread(): boolean {
 		return this.threadId !== null;
+	}
+
+	get awaitedTurn(): AwaitedTurn | null {
+		return this.isAwaitingStream ? UNORDERED_TURN : null;
 	}
 
 	get currentAgentName(): string | undefined {

@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'svelte';
+import type ChatInput from '#lib/chat/ui/ChatInput.svelte';
 import type ChatRoot from '#lib/chat/ui/ChatRoot.svelte';
 import { describe, expectTypeOf, it } from 'vitest';
 import type { ChatCore } from '#lib/chat/core/chat-core.svelte.ts';
@@ -25,5 +26,13 @@ describe('first-party boundary compile-time contracts', () => {
 		expectTypeOf<ChatCore['error']>().toEqualTypeOf<ChatCoreErrorCode | null>();
 		expectTypeOf<Parameters<ChatCore['setError']>[0]>().toEqualTypeOf<ChatCoreErrorCode | null>();
 		expectTypeOf<{ threadId: number }>().not.toExtend<ChatSessionPort>();
+	});
+
+	it('refuses a composer without a dispatch', () => {
+		// Submitting empties the composer and settles the send as accepted, so a
+		// missing dispatch would drop the message.
+		expectTypeOf<Omit<ComponentProps<typeof ChatInput>, 'onSend'>>().not.toExtend<
+			ComponentProps<typeof ChatInput>
+		>();
 	});
 });

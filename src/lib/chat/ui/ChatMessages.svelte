@@ -16,6 +16,7 @@
 	import ChatMessage from './ChatMessage.svelte';
 	import type { DisplayMessage, Attachment } from '../core/types.js';
 	import { mode } from 'mode-watcher';
+	import { watch } from 'runed';
 
 	/**
 	 * File metadata for dimension lookup
@@ -70,6 +71,16 @@
 
 	const ctx = getChatUIContext();
 	const chatCtx = new ChatContainerContext();
+
+	// A surface can show another thread without remounting this list. The next
+	// thread opens at its bottom and follows, whatever the reader did in the
+	// last one. A new conversation receiving its first id is the same thread.
+	watch(
+		() => ctx.core.threadId,
+		(threadId, previous) => {
+			if (previous && threadId !== previous) chatCtx.resetConversation();
+		}
+	);
 
 	// Resolve the actual background color from the nearest ancestor for the bottom gradient
 	let wrapperEl: HTMLDivElement | undefined = $state();

@@ -5,15 +5,18 @@
 	import ChatInput from '../ChatInput.svelte';
 	import type { ChatUIContext } from '../chat-context.svelte.ts';
 
+	// Tests that never submit leave the dispatch out; the composer itself requires one.
 	type InputProps = Omit<
 		ComponentProps<typeof ChatInput>,
-		'actionsLeft' | 'actionsRight' | 'notice'
-	>;
+		'actionsLeft' | 'actionsRight' | 'notice' | 'onSend'
+	> &
+		Partial<Pick<ComponentProps<typeof ChatInput>, 'onSend'>>;
 
 	let {
 		context,
 		actions = 'default',
 		withNotice = false,
+		onSend = () => {},
 		...inputProps
 	}: {
 		context: ChatUIContext;
@@ -54,6 +57,7 @@
 >
 	<ChatInput
 		{...inputProps}
+		{onSend}
 		notice={withNotice ? callerNotice : undefined}
 		actionsLeft={actions === 'replace' ? replaceLeft : actions === 'wrap' ? wrapLeft : undefined}
 		actionsRight={actions === 'replace' ? replaceRight : actions === 'wrap' ? wrapRight : undefined}

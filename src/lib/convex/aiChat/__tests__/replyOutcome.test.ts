@@ -6,7 +6,22 @@ import { convexTest } from 'convex-test';
 import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
 import rateLimiterSchema from '../../../../../node_modules/@convex-dev/rate-limiter/dist/component/schema.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { OptimisticLocalStore } from 'convex/browser';
+import { createOptimisticUpdate } from '../../../chat/core/optimistic';
+import { StreamCacheManager } from '../../../chat/core/stream-cache';
 import { redactLanguageModelProviderErrors } from '../../../chat/core/tool-error-redaction';
+import type { MessagesQueryResponse } from '../../../chat/core/types';
+import type { AwaitedTurn } from '../../../chat/core/chat-session-port';
+import {
+	buildDisplayMessages,
+	decodeStreamingUIMessages,
+	dedupeChatDisplayMessages,
+	getActiveStreamIds,
+	getListStreamMessages,
+	getNormalizedMessages,
+	getStreamDeltas,
+	hasAwaitedResponseStarted
+} from '../../../chat/ui/streaming-display';
 import { api, components, internal } from '../../_generated/api';
 // Imported before `convexTest.modules`, which loads every module at once: a
 // module importing `autumn` while this mock still awaits `importOriginal`
@@ -152,11 +167,41 @@ async function setup() {
 			return page;
 		},
 		/** The page the AI chat route renders, through the app's own listing query. */
-		listing: () =>
+		listing: (numItems = 50): Promise<MessagesQueryResponse> =>
 			asUser.query(api.aiChat.messages.listMessages, {
 				threadId,
-				paginationOpts: { cursor: null, numItems: 50 }
+				paginationOpts: { cursor: null, numItems }
 			}),
+		/** The deltas ChatRoot's second subscription reads for the listed streams. */
+		deltas: (streamIds: string[]): Promise<MessagesQueryResponse> =>
+			asUser.query(api.aiChat.messages.listMessages, {
+				threadId,
+				paginationOpts: { cursor: null, numItems: 0 },
+				streamArgs: {
+					kind: 'deltas',
+					cursors: streamIds.map((streamId) => ({ streamId, cursor: 0 }))
+				}
+			}),
+		/** Opens a live agent stream at `order` that has written `text` and has no saved row yet. */
+		stream: async (order: number, text: string) => {
+			const streamId = await t.mutation(components.agent.streams.create, {
+				threadId,
+				order,
+				stepOrder: 0,
+				format: 'UIMessageChunk',
+				agentName: aiChatAgent.options.name
+			});
+			await t.mutation(components.agent.streams.addDelta, {
+				streamId,
+				start: 0,
+				end: 3,
+				parts: [
+					{ type: 'start' },
+					{ type: 'text-start', id: 'text-1' },
+					{ type: 'text-delta', id: 'text-1', delta: text }
+				]
+			});
+		},
 		sidebarPreview: () =>
 			t.run(async (ctx) => {
 				const row = await ctx.db
@@ -335,5 +380,128 @@ describe('AI chat reply outcome', () => {
 		});
 		expect(messages.some(({ text }) => text === GENERATION_FAILED)).toBe(false);
 		expect(await chat.sidebarPreview()).toBe('Hello there');
+	});
+});
+
+/**
+ * The messages ChatRoot renders from a listing: the page, plus the stream-only
+ * messages it decodes from the deltas of the listed streams.
+ */
+async function render(chat: Awaited<ReturnType<typeof setup>>, listing: MessagesQueryResponse) {
+	const streamMessages = getListStreamMessages(listing);
+	const deltas =
+		streamMessages.length > 0
+			? getStreamDeltas(await chat.deltas(getActiveStreamIds(streamMessages)))
+			: [];
+	return dedupeChatDisplayMessages(
+		buildDisplayMessages({
+			allMessages: getNormalizedMessages(listing),
+			streamingUIMessages: await decodeStreamingUIMessages(chat.threadId, streamMessages, deltas),
+			streamCache: new StreamCacheManager()
+		})
+	);
+}
+
+describe('the turn a sent prompt waits on', () => {
+	beforeEach(() => {
+		modelSteps = [];
+		vi.stubEnv('AUTUMN_SECRET_KEY', 'am_sk_test_reply_outcome');
+		vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test-reply-outcome');
+		checkAndCountUsageMock.mockReset().mockResolvedValue('counted');
+		refundUsageMock.mockReset().mockResolvedValue({ status: 'refunded' });
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+		vi.restoreAllMocks();
+	});
+
+	type Chat = Awaited<ReturnType<typeof setup>>;
+	type Prompt = Awaited<ReturnType<Chat['send']>>;
+	const responses: Record<string, (chat: Chat, prompt: Prompt) => Promise<unknown>> = {
+		reply: (chat, prompt) => {
+			modelSteps = [textStep(`Answer at ${prompt.order}`)];
+			return chat.reply(prompt.messageId);
+		},
+		'limit notice': (chat, prompt) => {
+			checkAndCountUsageMock.mockResolvedValueOnce('denied');
+			return chat.reply(prompt.messageId);
+		},
+		'stream without a saved row': (chat, prompt) =>
+			chat.stream(prompt.order, `Streaming at ${prompt.order}`)
+	};
+
+	it.each(Object.entries(responses))(
+		"is settled by its own %s and not by an earlier prompt's",
+		async (_kind, respond) => {
+			const chat = await setup();
+			const a = await chat.send('Prompt A');
+			const b = await chat.send('Prompt B');
+			const awaitingB: AwaitedTurn = { kind: 'accepted', order: b.order };
+
+			await respond(chat, a);
+			const afterA = await render(chat, await chat.listing());
+			expect(afterA).toContainEqual(expect.objectContaining({ role: 'assistant', order: a.order }));
+			expect(hasAwaitedResponseStarted(afterA, awaitingB)).toBe(false);
+
+			await respond(chat, b);
+			expect(hasAwaitedResponseStarted(await render(chat, await chat.listing()), awaitingB)).toBe(
+				true
+			);
+		}
+	);
+
+	it('is settled by a reply whose prompt is outside the loaded page', async () => {
+		const chat = await setup();
+		const prompt = await chat.send('Hello?');
+		modelSteps = [textStep('Hello there')];
+		await chat.reply(prompt.messageId);
+
+		const rendered = await render(chat, await chat.listing(1));
+
+		expect(rendered.map(({ role }) => role)).toEqual(['assistant']);
+		expect(hasAwaitedResponseStarted(rendered, { kind: 'accepted', order: prompt.order })).toBe(
+			true
+		);
+	});
+
+	it('shows the optimistic prompt after a long history at the order the send assigns', async () => {
+		const chat = await setup();
+		await chat.t.mutation(components.agent.messages.addMessages, {
+			threadId: chat.threadId,
+			messages: Array.from({ length: 20 }, (_, turn) => [
+				{ message: { role: 'user' as const, content: `Question ${turn}` } },
+				{ message: { role: 'assistant' as const, content: `Answer ${turn}` } }
+			]).flat()
+		});
+		const queryArgs = {
+			threadId: chat.threadId,
+			paginationOpts: { numItems: 10, cursor: null },
+			streamArgs: { kind: 'list' as const, startOrder: 0 }
+		};
+		const listing = await chat.listing(10);
+		let optimistic: MessagesQueryResponse = listing;
+		const store = {
+			getQuery: () => optimistic,
+			setQuery: (_query: unknown, _args: unknown, value: MessagesQueryResponse) => {
+				optimistic = value;
+			}
+		} as unknown as OptimisticLocalStore;
+
+		createOptimisticUpdate(api.aiChat.messages.listMessages, queryArgs, 'user', 'Next')(store);
+		const rendered = await render(chat, optimistic);
+		const sent = await chat.send('Next');
+
+		// The page holds the newest turns, whose orders exceed its length.
+		expect(Math.max(...listing.page.map(({ order }) => order))).toBeGreaterThan(
+			listing.page.length
+		);
+		expect(rendered[rendered.length - 1]).toMatchObject({
+			role: 'user',
+			text: 'Next',
+			order: sent.order,
+			metadata: { optimistic: true }
+		});
 	});
 });
