@@ -152,7 +152,10 @@ export function hasStreamingAssistantMessage(messages: DisplayMessage[]): boolea
  * An accepted prompt's reply, its stream-only message and its terminal notice
  * all carry the prompt's order, so only an assistant message at that order
  * settles it, and an older turn still answering does not. The prompt itself
- * need not be on the loaded page. A turn without an order settles on any live
+ * need not be on the loaded page. Once every loaded message is newer than the
+ * turn, the turn has left the page and can no longer show its response, so the
+ * wait ends too; this happens when a client misses the response and other
+ * devices continue the thread. A turn without an order settles on any live
  * assistant message or a trailing assistant reply.
  */
 export function hasAwaitedResponseStarted(messages: DisplayMessage[], turn: AwaitedTurn): boolean {
@@ -160,8 +163,9 @@ export function hasAwaitedResponseStarted(messages: DisplayMessage[], turn: Awai
 		case 'unaccepted':
 			return false;
 		case 'accepted':
-			return messages.some(
-				(message) => message.role === 'assistant' && message.order === turn.order
+			return (
+				messages.some((message) => message.role === 'assistant' && message.order === turn.order) ||
+				(messages.length > 0 && messages.every((message) => message.order > turn.order))
 			);
 		case 'unordered':
 			return (

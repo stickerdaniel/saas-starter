@@ -466,6 +466,31 @@ describe('the turn a sent prompt waits on', () => {
 		);
 	});
 
+	it('ends once its turn has left the loaded page unseen', async () => {
+		const chat = await setup();
+		const prompt = await chat.send('Hello?');
+		const awaiting: AwaitedTurn = { kind: 'accepted', order: prompt.order };
+		// A page showing only the prompt still waits for its response.
+		expect(hasAwaitedResponseStarted(await render(chat, await chat.listing(1)), awaiting)).toBe(
+			false
+		);
+		modelSteps = [textStep('Hello there')];
+		await chat.reply(prompt.messageId);
+		// Another device continues the thread while this client misses the reply.
+		await chat.t.mutation(components.agent.messages.addMessages, {
+			threadId: chat.threadId,
+			messages: Array.from({ length: 2 }, (_, turn) => [
+				{ message: { role: 'user' as const, content: `Question ${turn}` } },
+				{ message: { role: 'assistant' as const, content: `Answer ${turn}` } }
+			]).flat()
+		});
+
+		const rendered = await render(chat, await chat.listing(2));
+
+		expect(rendered.every(({ order }) => order > prompt.order)).toBe(true);
+		expect(hasAwaitedResponseStarted(rendered, awaiting)).toBe(true);
+	});
+
 	it('shows the optimistic prompt after a long history at the order the send assigns', async () => {
 		const chat = await setup();
 		await chat.t.mutation(components.agent.messages.addMessages, {
