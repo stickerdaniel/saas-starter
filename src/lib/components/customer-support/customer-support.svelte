@@ -231,9 +231,9 @@
 				threadId: threadFromUrl,
 				...(anonymousUserId ? { anonymousUserId } : {})
 			})
-			.then(() => {
+			.then((thread) => {
 				if (cancelled || urlState.thread !== threadFromUrl) return;
-				support.selectThreadFromUrl(threadFromUrl);
+				support.selectThreadFromUrl(threadFromUrl, thread);
 			})
 			.catch(() => {
 				if (cancelled || urlState.thread !== threadFromUrl) return;

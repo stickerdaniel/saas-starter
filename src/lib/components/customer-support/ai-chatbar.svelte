@@ -28,7 +28,7 @@
 	const { isFeedbackOpen = false }: { isFeedbackOpen?: boolean } = $props();
 
 	const support = supportContext.get();
-	const { conversation } = support;
+	const { conversation, navigation } = support;
 	const anonymousUserId = $derived.by(() => {
 		const userId = conversation.userId;
 		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
@@ -104,12 +104,17 @@
 		const trimmedPrompt = input.trim();
 		const sessionEpoch = getChatSessionEpoch();
 		const generation = warmGeneration;
+		// Until this submit selects its thread, a selection or Back made while the
+		// warm thread is acquired retires it; afterwards that thread's identity does.
+		const navigationRevision = navigation.operationRevision;
 		let sendOperation: ReturnType<typeof conversation.captureOperationIdentity> | undefined;
 		const isCurrent = () =>
 			isChatSessionCurrent(sessionEpoch) &&
 			warmGeneration === generation &&
 			!destroyed &&
-			(!sendOperation || conversation.isOperationIdentityCurrent(sendOperation));
+			(sendOperation
+				? conversation.isOperationIdentityCurrent(sendOperation)
+				: navigation.operationRevision === navigationRevision);
 
 		// Clear input and request widget open before sending
 		// (isSending flag is set by sendMessage)

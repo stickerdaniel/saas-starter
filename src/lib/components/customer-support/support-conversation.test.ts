@@ -174,21 +174,56 @@ describe('SupportConversation', () => {
 		expect(mutation).toHaveBeenCalledTimes(3);
 	});
 
-	it('keeps loaded metadata while adopting a URL-selected identity', () => {
+	it('adopts the validated metadata of a different URL-selected thread', () => {
 		conversation.setThread(
-			'thread-1',
+			'thread-handed-off',
 			'Kai',
 			true,
 			{ name: 'Admin', image: null },
 			'notify@example.com'
 		);
+		expect(conversation.awaitsAgentReply).toBe(false);
 
-		conversation.selectThreadFromUrl('thread-2');
+		conversation.selectThreadFromUrl('thread-ai', {
+			isHandedOff: false,
+			assignedAdmin: undefined,
+			notificationEmail: undefined
+		});
 
-		expect(conversation.threadId).toBe('thread-2');
-		expect(conversation.threadAgentName).toBe('Kai');
+		expect(conversation.threadId).toBe('thread-ai');
+		expect(conversation.threadAgentName).toBeUndefined();
+		expect(conversation.isHandedOff).toBe(false);
+		expect(conversation.assignedAdmin).toBeUndefined();
+		expect(conversation.notificationEmail).toBeNull();
+		expect(conversation.awaitsAgentReply).toBe(true);
+
+		conversation.selectThreadFromUrl('thread-handed-off', {
+			isHandedOff: true,
+			assignedAdmin: { name: 'Admin', image: null },
+			notificationEmail: 'notify@example.com'
+		});
+
 		expect(conversation.isHandedOff).toBe(true);
+		expect(conversation.assignedAdmin).toEqual({ name: 'Admin', image: null });
 		expect(conversation.notificationEmail).toBe('notify@example.com');
+		expect(conversation.awaitsAgentReply).toBe(false);
+	});
+
+	it('keeps metadata and the send lock when the URL selects the same thread', () => {
+		conversation.setThread('thread-1', 'Kai', false, undefined, 'notify@example.com');
+		conversation.setSending(true);
+		conversation.setAwaitingStream(true);
+
+		conversation.selectThreadFromUrl('thread-1', {
+			isHandedOff: false,
+			assignedAdmin: undefined,
+			notificationEmail: 'notify@example.com'
+		});
+
+		expect(conversation.threadAgentName).toBe('Kai');
+		expect(conversation.notificationEmail).toBe('notify@example.com');
+		expect(conversation.isSending).toBe(true);
+		expect(conversation.isAwaitingStream).toBe(true);
 	});
 
 	it('retains same-thread send locks and clears cross-thread locks', () => {

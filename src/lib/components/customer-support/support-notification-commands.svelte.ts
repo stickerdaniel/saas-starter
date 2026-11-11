@@ -16,10 +16,17 @@ export interface SupportNotificationConversationPort {
 
 /** Notification-email command and its in-flight state. */
 export class SupportNotificationCommands {
-	isPending = $state(false);
+	/** Conversation of the latest unsettled update; its mutation outlives a selection change. */
+	private pendingOperation = $state.raw<SupportOperationIdentity | null>(null);
 	private operationRevision = 0;
 
 	constructor(private readonly conversation: SupportNotificationConversationPort) {}
+
+	/** Whether the selected conversation has an email update that has not settled. */
+	get isPending(): boolean {
+		const pending = this.pendingOperation;
+		return pending !== null && this.conversation.isOperationIdentityCurrent(pending);
+	}
 
 	async setEmail(client: ConvexClient, email: string): Promise<NotificationEmailOutcome> {
 		const threadId = this.conversation.threadId;
@@ -31,7 +38,7 @@ export class SupportNotificationCommands {
 		const normalizedEmail = email.trim().toLowerCase();
 		const operation = this.conversation.captureOperationIdentity();
 		const operationRevision = ++this.operationRevision;
-		this.isPending = true;
+		this.pendingOperation = operation;
 		try {
 			const anonymousUserId = this.conversation.getAnonymousUserId();
 			const queryArgs = { threadId, anonymousUserId };
@@ -61,12 +68,12 @@ export class SupportNotificationCommands {
 			this.conversation.setError('notification_update_failed');
 			return { kind: 'failed', code: 'notification_update_failed' };
 		} finally {
-			if (this.operationRevision === operationRevision) this.isPending = false;
+			if (this.operationRevision === operationRevision) this.pendingOperation = null;
 		}
 	}
 
 	reset(): void {
 		this.operationRevision++;
-		this.isPending = false;
+		this.pendingOperation = null;
 	}
 }

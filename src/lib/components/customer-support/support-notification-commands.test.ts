@@ -96,6 +96,27 @@ describe('SupportNotificationCommands', () => {
 		}
 	);
 
+	it.each(['resolve', 'reject'] as const)(
+		'shows thread A pending only on thread A after it %s',
+		async (outcome) => {
+			const threadA = Promise.withResolvers<void>();
+			const client = clientWith(vi.fn(() => threadA.promise));
+			conversation.setThread('thread-a', undefined, true, undefined, 'a@example.com');
+			const updateA = commands.setEmail(client, 'new-a@example.com');
+			expect(commands.isPending).toBe(true);
+
+			conversation.setThread('thread-b', undefined, true, undefined, 'b@example.com');
+			expect(commands.isPending).toBe(false);
+
+			if (outcome === 'resolve') threadA.resolve();
+			else threadA.reject(new Error('thread A provider detail'));
+			await expect(updateA).resolves.toEqual({ kind: 'stale' });
+			expect(commands.isPending).toBe(false);
+			expect(conversation.notificationEmail).toBe('b@example.com');
+			expect(conversation.error).toBeNull();
+		}
+	);
+
 	it('reports a missing thread without entering pending state', async () => {
 		await expect(commands.setEmail(clientWith(vi.fn()), 'user@example.com')).resolves.toEqual({
 			kind: 'missing_thread'

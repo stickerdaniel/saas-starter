@@ -170,4 +170,44 @@ describe('customer support URL history', () => {
 			);
 		expect(threadChecks).toHaveLength(1);
 	});
+
+	it('keeps each thread its own metadata across Back and Forward', async () => {
+		const reads = {
+			thread_human: {
+				isHandedOff: true,
+				assignedAdmin: { name: 'Alice', image: null },
+				notificationEmail: 'notify@example.com'
+			},
+			thread_ai: { isHandedOff: false }
+		};
+		vi.mocked(client.query).mockImplementation(
+			async (_reference, args) => reads[(args as { threadId: keyof typeof reads }).threadId]
+		);
+		const support = mountSupport();
+		await vi.waitFor(() => expect(support.conversation.userId).toBeTruthy());
+		const { conversation } = support;
+
+		history.write('thread', 'thread_human');
+		await vi.waitFor(() => expect(conversation.threadId).toBe('thread_human'));
+		expect(conversation.isHandedOff).toBe(true);
+		expect(conversation.assignedAdmin).toEqual({ name: 'Alice', image: null });
+		expect(conversation.notificationEmail).toBe('notify@example.com');
+
+		history.write('thread', 'thread_ai');
+		await vi.waitFor(() => expect(conversation.threadId).toBe('thread_ai'));
+		expect(conversation.isHandedOff).toBe(false);
+		expect(conversation.assignedAdmin).toBeUndefined();
+		expect(conversation.notificationEmail).toBeNull();
+
+		history.back();
+		await vi.waitFor(() => expect(conversation.threadId).toBe('thread_human'));
+		expect(conversation.isHandedOff).toBe(true);
+		expect(conversation.notificationEmail).toBe('notify@example.com');
+
+		history.forward();
+		await vi.waitFor(() => expect(conversation.threadId).toBe('thread_ai'));
+		expect(conversation.isHandedOff).toBe(false);
+		expect(conversation.assignedAdmin).toBeUndefined();
+		expect(conversation.notificationEmail).toBeNull();
+	});
 });
