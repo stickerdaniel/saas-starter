@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getFunctionName } from 'convex/server';
 import type { ConvexClient } from 'convex/browser';
-import { flushSync, mount, unmount } from 'svelte';
+import { flushSync, mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 
 vi.mock('svelte', () =>
@@ -18,7 +18,10 @@ const mocks = vi.hoisted(() => ({
 			capabilitiesResolved: true,
 			capabilities: {
 				billing: { usable: false, reason: 'unavailable' as const },
-				ai: { usable: false, reason: 'unavailable' as const }
+				ai: { usable: false, reason: 'unavailable' } as {
+					usable: boolean;
+					reason: 'available' | 'unavailable';
+				}
 			}
 		},
 		url: new URL('https://example.com/en')
@@ -58,6 +61,7 @@ vi.mock('#lib/components/customer-support/feedback-widget.svelte', async () => (
 import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import CustomerSupport from './customer-support.svelte';
 import { supportContext, type SupportContext } from './support-context.svelte.ts';
+import en from '../../../i18n/en.json';
 
 type UrlEntry = { support: '' | 'open'; thread: string };
 
@@ -108,6 +112,7 @@ function mountSupport(): SupportContext {
 }
 
 beforeEach(() => {
+	mocks.page.data.capabilities.ai = { usable: false, reason: 'unavailable' };
 	history = new BrowserHistory({ support: 'open', thread: '' });
 	mocks.urlState = {
 		get support() {
@@ -209,5 +214,89 @@ describe('customer support URL history', () => {
 		expect(conversation.isHandedOff).toBe(false);
 		expect(conversation.assignedAdmin).toBeUndefined();
 		expect(conversation.notificationEmail).toBeNull();
+	});
+});
+
+describe('chatbar submit under URL history', () => {
+	type WarmThread = { threadId: string; notificationEmail: null };
+
+	beforeEach(() => {
+		mocks.page.data.capabilities.ai = { usable: true, reason: 'available' };
+	});
+
+	/** Mounts with the widget closed and submits while the warm thread is pending. */
+	async function submitFromClosedWidget(prompt: string) {
+		const warmThread = Promise.withResolvers<WarmThread>();
+		vi.mocked(client.mutation).mockImplementation((reference) =>
+			getFunctionName(reference) === 'support/threads:getOrCreateWarmThread'
+				? warmThread.promise
+				: Promise.resolve({})
+		);
+		const support = mountSupport();
+		await vi.waitFor(() => expect(support.conversation.userId).toBeTruthy());
+		const input = document.querySelector('textarea')!;
+		input.value = prompt;
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+		await tick();
+		document.querySelector<HTMLButtonElement>(`button[aria-label="${en.chat.aria.send}"]`)!.click();
+		await tick();
+		const sends = () =>
+			vi
+				.mocked(client.mutation)
+				.mock.calls.filter(
+					([reference]) => getFunctionName(reference) === 'support/messages:sendMessage'
+				)
+				.map(([, args]) => args);
+		return { support, input, warmThread, sends };
+	}
+
+	it('adopts its warm thread and sends once when nothing navigated', async () => {
+		history = new BrowserHistory({ support: '', thread: '' });
+		const { support, warmThread, sends } = await submitFromClosedWidget(
+			'question for a new thread'
+		);
+
+		warmThread.resolve({ threadId: 'thread-a', notificationEmail: null });
+		await vi.waitFor(() => expect(sends()).toHaveLength(1));
+		await tick();
+
+		expect(sends()[0]).toMatchObject({ threadId: 'thread-a', prompt: 'question for a new thread' });
+		expect(support.conversation.threadId).toBe('thread-a');
+		expect(history.current).toEqual({ support: 'open', thread: 'thread-a' });
+		expect(sends()).toHaveLength(1);
+	});
+
+	it('yields to a history entry whose thread is still being validated', async () => {
+		history = new BrowserHistory({ support: 'open', thread: 'thread-b' });
+		history.write('support', '');
+		history.write('thread', '');
+		const threadRead = Promise.withResolvers<{ isHandedOff: boolean }>();
+		vi.mocked(client.query).mockImplementation(async (reference, args) =>
+			getFunctionName(reference) === 'support/threads:getThread' &&
+			(args as { threadId: string }).threadId === 'thread-b'
+				? threadRead.promise
+				: {}
+		);
+		const { support, input, warmThread, sends } = await submitFromClosedWidget(
+			'question awaiting warm thread'
+		);
+
+		// The history menu returns straight to the earlier entry naming thread B.
+		history.index = 0;
+		flushSync();
+		await tick();
+		warmThread.resolve({ threadId: 'thread-a', notificationEmail: null });
+		await tick();
+		await tick();
+		await tick();
+		expect(support.conversation.threadId).toBeNull();
+		expect(sends()).toEqual([]);
+		expect(history.current.thread).toBe('thread-b');
+		expect(input.value).toBe('question awaiting warm thread');
+
+		threadRead.resolve({ isHandedOff: false });
+		await vi.waitFor(() => expect(support.conversation.threadId).toBe('thread-b'));
+		expect(history.current).toEqual({ support: 'open', thread: 'thread-b' });
+		expect(sends()).toEqual([]);
 	});
 });

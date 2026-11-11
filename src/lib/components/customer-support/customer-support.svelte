@@ -226,6 +226,12 @@
 		const anonymousUserId = isAnonymousUser(userId) ? userId : undefined;
 		let cancelled = false;
 
+		// The URL names a newer target than any work started before it, such as a
+		// submit still acquiring its warm thread. That work retires now; the thread
+		// itself is adopted only once validated. The widget's own URL writes return
+		// above, because they name the conversation already on screen.
+		navigation.invalidateOperation();
+
 		void client
 			.query(api.support.threads.getThread, {
 				threadId: threadFromUrl,
