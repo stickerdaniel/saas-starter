@@ -20,6 +20,11 @@ const arbitraryValueExceptions = [
 	'rounded-[4px]',
 	'[--check-len:23]',
 	'h-[18.4px]',
+	// AttachmentMedia and sent chat attachments: a concentric media radius is the
+	// card radius minus the border and padding, which lands between radius steps.
+	// The default and xs sizes reuse the --radius - 5px entry above.
+	'rounded-[calc(var(--radius)-3px)]',
+	'rounded-[calc(var(--radius-3xl)-9px)]',
 	// AlertDialog, Alert, CardHeader, and the account settings upload row: track
 	// templates mixing auto and fr have no grid-cols-N or grid-rows-N spelling.
 	'grid-rows-[auto_1fr]',

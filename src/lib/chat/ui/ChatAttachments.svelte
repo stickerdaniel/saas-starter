@@ -261,9 +261,11 @@
 {/snippet}
 
 {#if attachments.length > 0}
+	<!-- Sent cards take the user bubble's rounded-3xl radius. Their media stays
+	     concentric: the radius minus the default size's 1px border and p-2. -->
 	<div
 		class="flex gap-2 {readonly
-			? `flex-col ${align === 'right' ? 'items-end' : 'items-start'}`
+			? `flex-col ${align === 'right' ? 'items-end' : 'items-start'} *:data-[slot=attachment]:rounded-3xl **:data-[slot=attachment-media]:rounded-[calc(var(--radius-3xl)-9px)]`
 			: 'flex-row flex-wrap'} {className}"
 	>
 		{#each attachments as attachment, index (attachmentKey(attachment))}
