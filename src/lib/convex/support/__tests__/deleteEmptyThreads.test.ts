@@ -8,7 +8,8 @@ import type { Id } from '../../_generated/dataModel';
 import { convexModules, preloadModules } from '../../convexTest.modules';
 import schema from '../../schema';
 import { supportAgent } from '../agent';
-import { EMPTY_THREAD_SWEEP_MAX_ATTEMPTS } from '../threadMaintenance';
+import { enforceSinglePagination } from '../../__tests__/singlePagination.harness';
+import { deleteEmptyThreads, EMPTY_THREAD_SWEEP_MAX_ATTEMPTS } from '../threadMaintenance';
 
 const DAY = 24 * 60 * 60 * 1000;
 const SWEEP_THREAD = 'support/threads:sweepEmptyThread';
@@ -284,6 +285,16 @@ describe('deleteEmptyThreads', () => {
 		await t.mutation(internal.support.threads.sweepEmptyThread, { supportThreadId: settled.id });
 
 		expect((await snapshot(t)).rows.map((row) => row.sweep)).toEqual(['retained']);
+	});
+
+	it('reads one page per run, as Convex allows', async () => {
+		const t = createHarness();
+		await seedThreads(t, [{ withMessage: false }]);
+		vi.advanceTimersByTime(DAY + 1);
+
+		const run = t.run(async (ctx) => await deleteEmptyThreads(enforceSinglePagination(ctx)));
+
+		await expect(run).resolves.toEqual({ scheduled: 1, released: 0 });
 	});
 
 	it('writes and schedules nothing without candidates', async () => {

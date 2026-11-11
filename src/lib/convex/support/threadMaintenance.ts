@@ -209,16 +209,14 @@ async function recordSweepFailure(
  * retries wait at most a few hours, so the head of the range keeps moving.
  */
 async function releaseStaleClaims(ctx: MutationCtx): Promise<number> {
-	const { page } = await ctx.db
+	// Convex runs one `.paginate()` per mutation and the candidate read in
+	// `deleteEmptyThreads` takes it, so this read is bounded by rows alone.
+	const claimed = await ctx.db
 		.query('supportThreads')
 		.withIndex('by_sweep', (q) => q.eq('sweep', 'queued'))
-		.paginate({
-			numItems: EMPTY_THREAD_SWEEP_BATCH_SIZE,
-			cursor: null,
-			maximumBytesRead: EMPTY_THREAD_SWEEP_MAX_BYTES
-		});
+		.take(EMPTY_THREAD_SWEEP_BATCH_SIZE);
 	let released = 0;
-	for (const supportThread of page) {
+	for (const supportThread of claimed) {
 		const job =
 			supportThread.sweepJobId &&
 			(await ctx.db.system.get('_scheduled_functions', supportThread.sweepJobId));
