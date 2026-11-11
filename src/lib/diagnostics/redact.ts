@@ -53,6 +53,14 @@ const BEARER = /\b(Bearer|Basic)\s+[\w.~+/=-]{6,}/gi;
 // A Convex admin or deploy key: `<deployment>|<key>`.
 const CONVEX_KEY = /\bConvex\s+[\w.:-]+\|[\w.+/=-]+/g;
 const PROVIDER_KEY = /(?<![\w-])(?:sk|rk|pk)-(?:proj-|live-|test-)?[\w-]{20,}/g;
+// A PEM or OpenPGP private key goes whole, BEGIN line included, through the
+// matching END line, or to the end of the text when a cut ended the block
+// early. Nothing of the block stays, so a second pass finds no block to open.
+// The END line counts only at the start of a line, after LF or CR, real or
+// escaped, because an armor header such as `Comment:` may name it before the
+// key body.
+const PRIVATE_KEY_BLOCK =
+	/-----BEGIN ([A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?)-----[\s\S]*?(?:(?:[\r\n]|\\[rn])-----END \1-----|$)/gi;
 // A header written out as text keeps its name; the rest of its line goes, or
 // of the next line when the value wraps onto it indented. A quoted or array
 // value, on either line, is left to KEYED_VALUE, which finds where it closes.
@@ -149,6 +157,7 @@ function redactSerialized(text: string): string | undefined {
 
 function redactShapes(text: string): string {
 	return text
+		.replace(PRIVATE_KEY_BLOCK, FILTERED)
 		.replace(HEADER_LINE, `$1: ${FILTERED}`)
 		.replace(JWT, FILTERED)
 		.replace(BEARER, `$1 ${FILTERED}`)
