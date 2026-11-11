@@ -206,12 +206,18 @@ function resolvePath(
 	file: readonly string[]
 ): ResolvedPath {
 	if (ts.isIdentifier(node)) {
-		const binding = bindings.get(node.text);
-		return binding?.kind === 'path' ? binding.segments : undefined;
+		// A local binding shadows the CommonJS globals of the same name.
+		if (bindings.has(node.text)) {
+			const binding = bindings.get(node.text);
+			return binding?.kind === 'path' ? binding.segments : undefined;
+		}
+		if (node.text === '__dirname') return file.slice(0, -1);
+		if (node.text === '__filename') return [...file];
+		return undefined;
 	}
 	const text = node.getText();
-	if (text === 'import.meta.dirname' || text === '__dirname') return file.slice(0, -1);
-	if (text === 'import.meta.filename' || text === '__filename') return [...file];
+	if (text === 'import.meta.dirname') return file.slice(0, -1);
+	if (text === 'import.meta.filename') return [...file];
 	if (text === 'process.cwd()') return runnerRoot(file);
 	if (!ts.isCallExpression(node)) return undefined;
 
@@ -673,6 +679,17 @@ rmSync(directory, { recursive: true, force: true });`;
 			"writeFileSync(path.join(ROOT, '.probe.ts'), 'source');"
 		].join('\n');
 		expect(transientSourceProducers(source)).toEqual([2]);
+	});
+
+	it('places the CommonJS module anchors unless a local binding shadows them', () => {
+		const source = [
+			"writeFileSync(path.join(__dirname, 'probe.ts'), 'x');",
+			"writeFileSync(__filename, 'x');",
+			'function park(__dirname: string) {',
+			"	writeFileSync(path.join(__dirname, 'probe.ts'), 'x');",
+			'}'
+		].join('\n');
+		expect(transientSourceProducers(source, 'scripts/probe.test.ts')).toEqual([1, 2]);
 	});
 
 	it('reads the segments after an inline module root', () => {

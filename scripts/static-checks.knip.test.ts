@@ -282,6 +282,7 @@ let checkerTemplateRepository: string;
 let bunVersion: string;
 let canary: CanaryOutcome;
 let sharedKitStateBefore: SharedKitState;
+let sharedKitStateAfter: SharedKitState;
 let templateAppBeforeSeed: boolean;
 
 type SharedKitState = { app: string[] | 'absent'; seeds: string[] };
@@ -806,12 +807,17 @@ beforeAll(() => {
 	bunVersion = (spawnSync(BUN, ['--version'], { encoding: 'utf8' }).stdout ?? '').trim();
 	checkerTemplateDirectory = mkdtempSync(path.join(TEMP_ROOT, 'static-checker-template-'));
 	checkerTemplateRepository = path.join(checkerTemplateDirectory, 'repository');
-	sharedKitStateBefore = sharedKitState();
 	prepareCheckerTemplate(checkerTemplateRepository);
 	// After the template commit, which force-adds everything present.
 	linkDependencies(realpathSync.native(ROOT), checkerTemplateRepository);
 	templateAppBeforeSeed = existsSync(path.join(checkerTemplateRepository, 'node_modules', '$app'));
-	seedGeneratedKitProject(checkerTemplateRepository);
+	// Holding this checkout's sync lock keeps a concurrent static-check run from syncing it
+	// between the two snapshots, so any difference comes from the seed.
+	[sharedKitStateBefore, sharedKitStateAfter] = withSvelteKitSyncLockSync(ROOT, () => {
+		const before = sharedKitState();
+		seedGeneratedKitProject(checkerTemplateRepository);
+		return [before, sharedKitState()] as const;
+	});
 	canary = runCanary();
 }, 120_000);
 
@@ -829,7 +835,7 @@ describe('checker template dependencies', () => {
 		expect(realpathSync(path.join(app, 'tsconfig.json'))).toBe(
 			path.join(realpathSync(checkerTemplateRepository), 'node_modules', '$app', 'tsconfig.json')
 		);
-		expect(sharedKitState()).toEqual(sharedKitStateBefore);
+		expect(sharedKitStateAfter).toEqual(sharedKitStateBefore);
 	});
 });
 

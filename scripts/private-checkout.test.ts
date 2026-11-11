@@ -196,7 +196,7 @@ describe('private checkout', () => {
 		}
 	});
 
-	it('mirrors the named source while the caller exports another repository', () => {
+	it('mirrors the named source while the caller exports another repository and pathspec mode', () => {
 		const third = path.join(directory, 'third');
 		mkdirSync(third);
 		git(third, ['init', '--quiet', '--initial-branch=main']);
@@ -205,9 +205,15 @@ describe('private checkout', () => {
 		const index = path.join(third, '.git', 'index');
 		const before = readFileSync(index);
 
-		const saved = { GIT_DIR: process.env.GIT_DIR, GIT_INDEX_FILE: process.env.GIT_INDEX_FILE };
+		const saved = {
+			GIT_DIR: process.env.GIT_DIR,
+			GIT_INDEX_FILE: process.env.GIT_INDEX_FILE,
+			GIT_GLOB_PATHSPECS: process.env.GIT_GLOB_PATHSPECS
+		};
 		process.env.GIT_DIR = path.join(third, '.git');
 		process.env.GIT_INDEX_FILE = index;
+		// Git refuses a global glob mode next to the literal pathspecs the overlay stages with.
+		process.env.GIT_GLOB_PATHSPECS = '1';
 		let checkout: PrivateCheckout;
 		try {
 			checkout = allocate('private-checkout-env-');
@@ -220,6 +226,7 @@ describe('private checkout', () => {
 
 		const committed = [...committedModes(checkout.repository).keys()];
 		expect(committed).toContain('added.txt');
+		expect(committed).toContain('forced.txt');
 		expect(committed).not.toContain('third.txt');
 		expect(readFileSync(index).equals(before)).toBe(true);
 	});

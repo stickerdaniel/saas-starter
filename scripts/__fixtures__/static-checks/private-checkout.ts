@@ -39,10 +39,29 @@ export interface PrivateCheckout {
 	repository: string;
 }
 
+const PATHSPEC_MODES = new Set([
+	'GIT_LITERAL_PATHSPECS',
+	'GIT_GLOB_PATHSPECS',
+	'GIT_NOGLOB_PATHSPECS',
+	'GIT_ICASE_PATHSPECS'
+]);
+
+/**
+ * `sanitizedGitEnv()` without inherited pathspec modes: the force-add below selects literal
+ * pathspecs itself, and Git refuses that combined with a caller's glob or icase mode.
+ */
+function helperGitEnv(): NodeJS.ProcessEnv {
+	const env = sanitizedGitEnv();
+	for (const key of Object.keys(env)) {
+		if (PATHSPEC_MODES.has(key.toUpperCase())) delete env[key];
+	}
+	return env;
+}
+
 function git(cwd: string, args: string[], input?: string): string {
 	const result = spawnSync('git', ['-c', 'maintenance.auto=false', ...args], {
 		cwd,
-		env: sanitizedGitEnv(),
+		env: helperGitEnv(),
 		encoding: 'utf8',
 		input,
 		maxBuffer: 64 * 1024 * 1024
