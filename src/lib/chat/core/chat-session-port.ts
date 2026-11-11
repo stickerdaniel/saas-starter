@@ -11,6 +11,22 @@ export interface StreamCachePort {
 }
 
 /**
+ * The response a sent prompt waits on, which decides what settles the wait.
+ *
+ * - `unaccepted`: the send has not returned yet, so no response can be matched
+ *   to the prompt and nothing settles it.
+ * - `accepted`: the backend saved the prompt at `order`. Its reply, stream or
+ *   terminal notice lands at that same order, so only an assistant message
+ *   there settles it; a reply to an older prompt does not.
+ * - `unordered`: the surface's send reports no order. Any assistant response
+ *   that starts after the prompt settles it.
+ */
+export type AwaitedTurn =
+	| { readonly kind: 'unaccepted' }
+	| { readonly kind: 'accepted'; readonly order: number }
+	| { readonly kind: 'unordered' };
+
+/**
  * Consumer-driven state contract for the shared chat UI.
  *
  * AI chat and customer support keep their domain-specific commands and state,
@@ -22,7 +38,11 @@ export interface ChatSessionPort {
 	readonly isNewConversation: boolean;
 	readonly threadGeneration: number;
 	readonly isSending: boolean;
+	/** True exactly while `awaitedTurn` is set. */
 	readonly isAwaitingStream: boolean;
+	/** The response the last send waits on; null when nothing is awaited. */
+	readonly awaitedTurn: AwaitedTurn | null;
+	/** `false` settles the awaited turn; `true` starts the surface's own kind of wait. */
 	setAwaitingStream(awaiting: boolean): void;
 	readonly streamCache: StreamCachePort;
 }

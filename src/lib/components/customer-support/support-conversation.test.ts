@@ -289,13 +289,15 @@ describe('SupportConversation', () => {
 	});
 
 	it('moves a successful AI send into awaiting-stream state', async () => {
-		const mutation = vi.fn().mockResolvedValue(undefined);
+		const mutation = vi.fn().mockResolvedValue({ messageId: 'message-1' });
 		conversation.setThread('thread-1');
 
 		await conversation.sendMessage(clientWith(mutation), 'hello');
 
 		expect(conversation.isSending).toBe(false);
 		expect(conversation.isAwaitingStream).toBe(true);
+		// Support's send reports no order, so any later assistant response settles it.
+		expect(conversation.awaitedTurn).toEqual({ kind: 'unordered' });
 	});
 
 	it.each(['resolve', 'reject'] as const)(

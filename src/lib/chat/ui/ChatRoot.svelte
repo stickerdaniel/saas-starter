@@ -24,7 +24,7 @@
 		getListStreamMessages,
 		getNormalizedMessages,
 		getStreamDeltas,
-		hasAssistantResponseStarted,
+		hasAwaitedResponseStarted,
 		selectThreadStreamingUIMessages,
 		type MessagesQueryResponse,
 		type ThreadStreamingUIMessages
@@ -232,11 +232,12 @@
 		uiContext.setMessagesReady(messagesReady);
 	});
 
-	// Clear awaiting state once an assistant response becomes visible. The usual
-	// reply starts a stream, while terminal system notices arrive without one.
+	// Clear awaiting state once the awaited turn's response becomes visible. The
+	// usual reply starts a stream, while terminal system notices arrive without one.
 	$effect(() => {
-		if (!core.isAwaitingStream) return;
-		if (hasAssistantResponseStarted(renderDisplayMessages)) {
+		const turn = core.awaitedTurn;
+		if (turn === null) return;
+		if (hasAwaitedResponseStarted(renderDisplayMessages, turn)) {
 			core.setAwaitingStream(false);
 		}
 	});

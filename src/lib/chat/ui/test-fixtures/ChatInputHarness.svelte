@@ -5,14 +5,16 @@
 	import ChatInput from '../ChatInput.svelte';
 	import type { ChatUIContext } from '../chat-context.svelte.ts';
 
+	type InputProps = ComponentProps<typeof ChatInput>;
+
+	// Tests that never submit leave the dispatch out; the composer itself requires one.
 	let {
 		context,
-		onSend,
+		onSend = () => {},
 		showFileButton = false,
 		compact = false
-	}: { context: ChatUIContext } & Pick<
-		ComponentProps<typeof ChatInput>,
-		'onSend' | 'showFileButton' | 'compact'
+	}: { context: ChatUIContext } & Partial<
+		Pick<InputProps, 'onSend' | 'showFileButton' | 'compact'>
 	> = $props();
 </script>
 

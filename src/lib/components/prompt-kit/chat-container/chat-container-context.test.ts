@@ -122,4 +122,23 @@ describe('chat bottom following', () => {
 		context.scrollToBottom('smooth');
 		expect(element.scrollTo).toHaveBeenLastCalledWith({ top: 1200, behavior: 'instant' });
 	});
+
+	it('follows the next conversation from its bottom after the reader scrolled up in the last', () => {
+		scroll(600);
+		context.resetConversation();
+		height = 3000;
+		callbacks.resize([{ target: content }]);
+		expect(element.scrollTo).toHaveBeenLastCalledWith({ top: 3000, behavior: 'instant' });
+
+		scroll(2600);
+		height += 100;
+		callbacks.resize([{ target: content }]);
+		expect(element.scrollTo).toHaveBeenLastCalledWith({ top: 3100, behavior: 'smooth' });
+
+		scroll(2000);
+		element.scrollTo.mockClear();
+		height += 100;
+		callbacks.resize([{ target: content }]);
+		expect(element.scrollTo).not.toHaveBeenCalled();
+	});
 });

@@ -204,6 +204,7 @@ const session: ChatSessionPort = {
 	threadGeneration: 0,
 	isSending: false,
 	isAwaitingStream: false,
+	awaitedTurn: null,
 	setAwaitingStream: () => {},
 	streamCache: {
 		getCachedReasoning: () => undefined,

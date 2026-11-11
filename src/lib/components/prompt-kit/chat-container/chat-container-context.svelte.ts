@@ -15,6 +15,7 @@ export class ChatContainerContext {
 	#resizeMode: ResizeMode = 'smooth';
 	#initialMode: InitialMode = 'instant';
 	#isInitialized = false;
+	#entryFrame = 0;
 
 	isAtBottom = $derived(this.#isAtBottom);
 
@@ -25,13 +26,8 @@ export class ChatContainerContext {
 			() => this.#element,
 			(element) => {
 				if (!element) return;
-				this.#following = true;
-				this.#isInitialized = false;
-				this.#rememberPosition();
-				const frame = requestAnimationFrame(() => {
-					if (this.#following) this.scrollToBottom();
-				});
-				return () => cancelAnimationFrame(frame);
+				this.resetConversation();
+				return () => cancelAnimationFrame(this.#entryFrame);
 			}
 		);
 
@@ -62,6 +58,23 @@ export class ChatContainerContext {
 	setModes(resizeMode: ResizeMode, initialMode: InitialMode) {
 		this.#resizeMode = resizeMode;
 		this.#initialMode = initialMode;
+	}
+
+	/**
+	 * Enter a new conversation in the mounted viewport: forget whether the reader
+	 * scrolled away from the previous one, follow the new one, and place it at
+	 * its bottom with the initial mode. Call it when the shown thread changes;
+	 * the viewport and the content around it stay mounted.
+	 */
+	resetConversation() {
+		this.#following = true;
+		this.#isInitialized = false;
+		this.#rememberPosition();
+		cancelAnimationFrame(this.#entryFrame);
+		if (!this.#element) return;
+		this.#entryFrame = requestAnimationFrame(() => {
+			if (this.#following) this.scrollToBottom();
+		});
 	}
 
 	setElement(element: HTMLElement | null) {

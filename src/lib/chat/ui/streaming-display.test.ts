@@ -6,7 +6,7 @@ import {
 	buildDisplayMessages,
 	buildTransformContext,
 	getActiveStreamIds,
-	hasAssistantResponseStarted,
+	hasAwaitedResponseStarted,
 	hasStreamingAssistantMessage,
 	selectThreadStreamingUIMessages
 } from './streaming-display.js';
@@ -312,12 +312,13 @@ describe('hasStreamingAssistantMessage', () => {
 	});
 });
 
-describe('hasAssistantResponseStarted', () => {
+describe('hasAwaitedResponseStarted for a send without an order', () => {
 	it('accepts a terminal assistant notice without mistaking an older reply for the current turn', () => {
 		const assistant = createDisplayMessage({ status: 'success' });
 		const user = { ...assistant, id: 'user-1', role: 'user' as const };
+		const unordered = { kind: 'unordered' } as const;
 
-		expect(hasAssistantResponseStarted([assistant])).toBe(true);
-		expect(hasAssistantResponseStarted([assistant, user])).toBe(false);
+		expect(hasAwaitedResponseStarted([assistant], unordered)).toBe(true);
+		expect(hasAwaitedResponseStarted([assistant, user], unordered)).toBe(false);
 	});
 });

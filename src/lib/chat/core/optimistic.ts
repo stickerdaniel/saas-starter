@@ -72,7 +72,7 @@ function sanitizeAttachmentsForClone(attachments?: Attachment[]): Attachment[] |
  * @param threadId - The thread ID
  * @param role - Message role ('user' or 'assistant')
  * @param content - Message text content
- * @param order - Message order (typically current page length)
+ * @param order - Message order (the order the backend will assign, see `nextMessageOrder`)
  * @param options - Optional attachments and metadata
  * @returns A ChatMessage object suitable for optimistic display
  *
@@ -116,12 +116,21 @@ export function createOptimisticMessage(
 }
 
 /**
+ * The order the agent gives the next prompt: one past the highest order in the
+ * thread. Orders are thread-wide and the first page holds the newest messages,
+ * so its highest order is the thread's, while its length is unrelated to it.
+ */
+function nextMessageOrder(page: ReadonlyArray<Pick<ChatMessage, 'order'>>): number {
+	return Math.max(-1, ...page.map(({ order }) => order)) + 1;
+}
+
+/**
  * Create an optimistic update callback for message mutations
  *
  * This function returns a callback that can be passed to `client.mutation()`
  * as the `optimisticUpdate` option. It will:
  * 1. Find the current query result for listMessages
- * 2. Append an optimistic message to the page
+ * 2. Append an optimistic message to the page at the next thread order
  * 3. Automatically roll back if the mutation fails
  *
  * @param listMessagesQuery - The listMessages function reference
@@ -208,7 +217,7 @@ export function createOptimisticUpdate(
 			queryArgs.threadId!,
 			role,
 			prompt,
-			current.page.length,
+			nextMessageOrder(current.page),
 			sanitizedOptions
 		);
 

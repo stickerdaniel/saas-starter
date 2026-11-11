@@ -107,30 +107,6 @@ describe('createOptimisticUpdate', () => {
 		);
 	});
 
-	it('sets order based on current page length', () => {
-		getQueryMock.mockReturnValue({
-			page: [{ id: 'msg-1' }, { id: 'msg-2' }, { id: 'msg-3' }],
-			isDone: false,
-			continueCursor: null
-		});
-
-		const updateFn = createOptimisticUpdate(mockQuery, queryArgs, 'user', 'Fourth message');
-		updateFn(mockStore);
-
-		expect(setQueryMock).toHaveBeenCalledWith(
-			mockQuery,
-			queryArgs,
-			expect.objectContaining({
-				page: expect.arrayContaining([
-					expect.objectContaining({
-						order: 3,
-						text: 'Fourth message'
-					})
-				])
-			})
-		);
-	});
-
 	it('no-ops when query result is undefined', () => {
 		getQueryMock.mockReturnValue(undefined);
 

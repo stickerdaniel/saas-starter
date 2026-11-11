@@ -170,3 +170,62 @@ describe('AI chat system notices', () => {
 		}
 	);
 });
+
+describe('scroll intent across threads', () => {
+	it('opens the next thread at its bottom and follows it after the reader scrolled up in the last one', async () => {
+		let resized: (entries: Array<{ target: Element }>) => void = () => {};
+		vi.stubGlobal(
+			'ResizeObserver',
+			class {
+				constructor(callback: typeof resized) {
+					resized = callback;
+				}
+				observe() {}
+				unobserve() {}
+				disconnect() {}
+			}
+		);
+		// The AI chat page keeps one list and one session while the selected thread changes.
+		const core = new ChatCore({
+			threadId: 'thread-a',
+			api: { sendMessage: api.aiChat.messages.sendMessage }
+		});
+		ctx.dispose();
+		ctx = new ChatUIContext(core, client, undefined, 'right');
+		ctx.setDisplayMessages(thread);
+		await renderThread(undefined);
+
+		const log = document.querySelector<HTMLElement>('[role="log"]')!;
+		const content = log.firstElementChild!;
+		const scrollTo = vi.fn();
+		Object.defineProperties(log, {
+			scrollTo: { value: scrollTo },
+			scrollTop: { value: 1600, writable: true },
+			scrollHeight: { get: () => 2000 },
+			clientHeight: { get: () => 400 }
+		});
+		const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+		const contentGrows = () => resized([{ target: content }]);
+		const scrollUp = () => log.dispatchEvent(new WheelEvent('wheel', { deltaY: -120 }));
+
+		scrollUp();
+		scrollTo.mockClear();
+		contentGrows();
+		expect(scrollTo).not.toHaveBeenCalled();
+
+		core.setThread('thread-b');
+		ctx.setDisplayMessages([displayMessage('user-b', 'user', 'A question in B')]);
+		await tick();
+		await nextFrame();
+		expect(scrollTo).toHaveBeenLastCalledWith({ top: 2000, behavior: 'instant' });
+
+		contentGrows();
+		expect(scrollTo).toHaveBeenLastCalledWith({ top: 2000, behavior: 'smooth' });
+
+		scrollUp();
+		scrollTo.mockClear();
+		contentGrows();
+		expect(scrollTo).not.toHaveBeenCalled();
+		expect(document.querySelector('[role="log"]')).toBe(log);
+	});
+});

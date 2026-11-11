@@ -114,8 +114,12 @@
 		dropScope?: 'window' | 'composer';
 		/** Callback when screenshot button clicked */
 		onScreenshot?: () => void;
-		/** Callback when message is sent - receives the prompt text */
-		onSend?: (prompt: string) => Promise<void> | void;
+		/**
+		 * Dispatches the prompt. Required: the composer clears its input and
+		 * settles the send as accepted once this returns, so a composer without it
+		 * would drop the message.
+		 */
+		onSend: (prompt: string) => Promise<void> | void;
 		/** Called when the user submits a composer with no text and no files */
 		onEmptySubmit?: () => void;
 		/** Callback when user requests handoff to human support */
@@ -293,7 +297,7 @@
 			// owns them from here even when onSend throws before returning.
 			let sendPromise: Promise<void> | void;
 			try {
-				sendPromise = onSend?.(prompt);
+				sendPromise = onSend(prompt);
 			} finally {
 				ctx.clearAttachmentsForSend(snapshot);
 			}
