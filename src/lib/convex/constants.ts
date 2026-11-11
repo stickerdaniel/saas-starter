@@ -10,7 +10,10 @@ export const PROFILE_IMAGE_ALLOWED_TYPES = allowedMimeTypes(UPLOAD_PROFILES.prof
 // Mirrors the client-side MAX_MESSAGE_LENGTH in src/lib/chat/core/types.ts.
 export const MAX_MESSAGE_LENGTH = 2000;
 
-// Sentinel stored under providerMetadata.system.notice when the AI chat
-// usage gate denies a turn. The UI maps it to localized copy instead of
-// rendering the English fallback stored with the message.
+// Sentinels stored under providerMetadata.system.notice on an AI chat notice
+// that ends a turn: the usage gate denied it, or the generation failed. The UI
+// maps each to localized copy instead of rendering the English fallback
+// stored with the message.
 export const AI_CHAT_LIMIT_NOTICE = 'ai_chat_limit_reached';
+export const AI_CHAT_GENERATION_FAILED_NOTICE = 'ai_chat_generation_failed';
+export type AiChatNotice = typeof AI_CHAT_LIMIT_NOTICE | typeof AI_CHAT_GENERATION_FAILED_NOTICE;

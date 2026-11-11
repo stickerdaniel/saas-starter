@@ -23,7 +23,9 @@ vi.mock('../../env', () => {
 
 vi.mock('../agent', () => ({
 	aiChatAgent: {
-		saveMessage: vi.fn().mockResolvedValue({ messageId: 'user_message' }),
+		saveMessage: vi
+			.fn()
+			.mockResolvedValue({ messageId: 'user_message', message: { _id: 'user_message', order: 0 } }),
 		streamText: vi.fn()
 	}
 }));
@@ -41,7 +43,8 @@ vi.mock('@convex-dev/agent', async (importOriginal) => {
 	return {
 		...actual,
 		getFile: vi.fn().mockResolvedValue({ filePart: { type: 'file', data: 'f', mediaType: 'x' } }),
-		saveMessage: vi.fn().mockResolvedValue({ messageId: 'notice' })
+		saveMessages: vi.fn().mockResolvedValue({ messages: [{ _id: 'notice', order: 0 }] }),
+		abortStream: vi.fn().mockResolvedValue(false)
 	};
 });
 

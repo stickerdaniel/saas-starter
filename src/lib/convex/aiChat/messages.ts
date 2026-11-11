@@ -5,7 +5,7 @@ import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import { aiChatAgent } from './agent';
 import { paginationOptsValidator } from 'convex/server';
-import { getFile, saveMessage } from '@convex-dev/agent';
+import { abortStream, getFile, saveMessages } from '@convex-dev/agent';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
 import type { UserContent } from 'ai';
@@ -17,7 +17,12 @@ import { checkAndCountUsage, refundUsage } from '../autumn';
 import { requireAiChatThreadRecord } from './ownership';
 import { createRateLimitError } from '../support/types';
 import { AI_CHAT_ERROR_CODES, createAiChatError } from './errors';
-import { AI_CHAT_LIMIT_NOTICE, MAX_MESSAGE_LENGTH } from '../constants';
+import {
+	AI_CHAT_GENERATION_FAILED_NOTICE,
+	AI_CHAT_LIMIT_NOTICE,
+	MAX_MESSAGE_LENGTH,
+	type AiChatNotice
+} from '../constants';
 import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { ensureCaptureStart } from '../admin/journey/capture';
@@ -40,6 +45,9 @@ const THREAD_PREVIEW_LENGTH = 100;
  * Billing is counted inside `createAIResponse` via `checkAndCountUsage`
  * (featureId `ai_chat_messages`) and refunded with `refundUsage` when the
  * generation fails. It is not a separate action the frontend calls. Kept as a mutation for optimistic update support.
+ *
+ * Returns the saved prompt's id and the `order` the agent assigned it. The
+ * reply, or the notice that replaces it, lands at that same order.
  */
 export const sendMessage = authedMutation({
 	args: {
@@ -47,7 +55,7 @@ export const sendMessage = authedMutation({
 		prompt: v.string(),
 		fileIds: v.optional(v.array(v.string()))
 	},
-	returns: v.object({ messageId: v.string() }),
+	returns: v.object({ messageId: v.string(), order: v.number() }),
 	handler: async (ctx, args) => {
 		if (args.prompt.length > MAX_MESSAGE_LENGTH) {
 			throw createAiChatError(AI_CHAT_ERROR_CODES.messageTooLong, {
@@ -86,7 +94,7 @@ export const sendMessage = authedMutation({
 			throw createRateLimitError(rateLimitStatus.retryAfter);
 		}
 
-		let messageId: string;
+		let saved: Awaited<ReturnType<typeof aiChatAgent.saveMessage>>;
 
 		// Build and save message (multimodal or text-only)
 		if (args.fileIds && args.fileIds.length > 0) {
@@ -101,21 +109,20 @@ export const sendMessage = authedMutation({
 				content.push(filePart);
 			}
 
-			const result = await aiChatAgent.saveMessage(ctx, {
+			saved = await aiChatAgent.saveMessage(ctx, {
 				threadId: args.threadId,
 				message: { role: 'user', content },
 				metadata: { fileIds: args.fileIds },
 				skipEmbeddings: true
 			});
-			messageId = result.messageId;
 		} else {
-			const result = await aiChatAgent.saveMessage(ctx, {
+			saved = await aiChatAgent.saveMessage(ctx, {
 				threadId: args.threadId,
 				prompt: args.prompt,
 				skipEmbeddings: true
 			});
-			messageId = result.messageId;
 		}
+		const { messageId } = saved;
 
 		// One receipt per saved user message, in this transaction, so a rejected
 		// or rolled-back send leaves none and a failed AI reply keeps it.
@@ -150,7 +157,7 @@ export const sendMessage = authedMutation({
 			});
 		}
 
-		return { messageId };
+		return { messageId, order: saved.message.order };
 	}
 });
 
@@ -162,7 +169,9 @@ export const sendMessage = authedMutation({
  * a separate check-before plus track-after pair would let concurrent
  * sends race past the limit during the multi-second stream). If
  * generation fails after the unit was counted, the unit is refunded
- * so a failed response never costs a message.
+ * once so a failed response never costs a message, and a terminal
+ * notice resolves the turn. A failure of the sidebar metadata write or
+ * of usage recording after delivery neither refunds nor adds a notice.
  */
 export const createAIResponse = internalAction({
 	args: {
@@ -172,26 +181,40 @@ export const createAIResponse = internalAction({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
+		// Ends the prompt's turn with an assistant notice. `promptMessageId`
+		// makes the agent save it at the prompt's order, after that turn's
+		// steps, with the prompt as parent; without it the agent appends at the
+		// thread's latest order, which belongs to a later prompt once the user
+		// has sent another message. When a failed generation leaves the agent's
+		// reply row pending or its stream live, the listing would overlay that
+		// stream on the notice and the composer would stay busy, so
+		// `failPendingSteps` fails pending rows and `abortStream` stops streams,
+		// both only at this prompt's order.
 		const saveTerminalNotice = async ({
 			content,
 			notice
 		}: {
 			content: string;
-			notice?: typeof AI_CHAT_LIMIT_NOTICE;
+			notice?: AiChatNotice;
 		}) => {
-			await saveMessage(ctx, components.agent, {
+			const { messages } = await saveMessages(ctx, components.agent, {
 				threadId: args.threadId,
 				userId: args.userId,
-				message: { role: 'assistant', content },
+				promptMessageId: args.promptMessageId,
+				failPendingSteps: true,
+				messages: [{ role: 'assistant', content }],
 				...(notice
-					? {
-							metadata: {
-								provider: 'system',
-								providerMetadata: { system: { notice } }
-							}
-						}
+					? { metadata: [{ provider: 'system', providerMetadata: { system: { notice } } }] }
 					: {})
 			});
+			const [saved] = messages;
+			if (saved) {
+				await abortStream(ctx, components.agent, {
+					threadId: args.threadId,
+					order: saved.order,
+					reason: 'AI chat reply failed'
+				});
+			}
 		};
 
 		try {
@@ -243,15 +266,24 @@ export const createAIResponse = internalAction({
 		}
 
 		const sink = makeAgentUsageSink();
-		let result;
+		// The AI SDK turns a provider failure into an error part of the stream:
+		// `consumeStream` still resolves, and `text` resolves from the last
+		// finished step when an earlier tool step succeeded. `onError` sees
+		// every such part, so it decides the outcome together with a rejection.
+		let streamFailure: { error: unknown } | undefined;
+		let failure: { error: unknown } | undefined;
+		let responseText = '';
 		try {
-			result = await aiChatAgent.streamText(
+			const result = await aiChatAgent.streamText(
 				ctx,
 				{ threadId: args.threadId, userId: args.userId },
 				{
 					promptMessageId: args.promptMessageId,
 					prepareStep: prepareToolErrorRedactionStep,
-					experimental_transform: toolErrorRedactionTransform
+					experimental_transform: toolErrorRedactionTransform,
+					onError: ({ error }) => {
+						streamFailure ??= { error };
+					}
 				},
 				{
 					saveStreamDeltas: STREAM_DELTA_OPTIONS,
@@ -260,41 +292,47 @@ export const createAIResponse = internalAction({
 			);
 
 			await result.consumeStream();
-
-			await recordAiUsage(ctx, {
-				feature: 'ai_chat',
-				userId: args.userId,
-				threadId: args.threadId,
-				status: 'ok',
-				models: sink.collect()
-			});
+			failure = streamFailure;
+			// `text` rejects when no step finished or the stream was aborted.
+			if (!failure) responseText = await result.text;
 		} catch (error) {
+			failure = { error };
+		}
+
+		if (failure) {
 			// The unit was counted up front; a failed generation must not cost
-			// a message. The refund window ends here: once the stream is
-			// consumed the response is saved, so later denormalization errors
-			// don't refund a delivered message.
+			// a message. The refund window ends here: once the reply is
+			// delivered, later denormalization errors don't refund it.
 			if (args.userId && usageCounted) {
 				await refundUsage({ customerId: args.userId, featureId: 'ai_chat_messages' });
 			}
 			// Record any usage the model already produced before the failure so a
 			// failed turn is still attributed (status: error), not silently dropped.
-			const models = sink.collect();
-			if (models.length > 0) {
-				await recordAiUsage(ctx, {
-					feature: 'ai_chat',
-					userId: args.userId,
-					threadId: args.threadId,
-					status: 'error',
-					models
-				});
-			}
-			throw error;
+			await recordAiUsage(ctx, {
+				feature: 'ai_chat',
+				userId: args.userId,
+				threadId: args.threadId,
+				status: 'error',
+				models: sink.collect()
+			});
+			await saveTerminalNotice({
+				content: "This reply couldn't be generated.",
+				notice: AI_CHAT_GENERATION_FAILED_NOTICE
+			});
+			throw failure.error;
 		}
+
+		await recordAiUsage(ctx, {
+			feature: 'ai_chat',
+			userId: args.userId,
+			threadId: args.threadId,
+			status: 'ok',
+			models: sink.collect()
+		});
 
 		// Denormalize: update thread sidebar metadata with the AI's response.
 		// Trim and skip an empty preview so a whitespace-only response never lands
 		// as the sidebar label (mirrors the user-message path in sendMessage).
-		const responseText = await result.text;
 		const responsePreview = responseText.trim().slice(0, THREAD_PREVIEW_LENGTH);
 		if (responsePreview) {
 			await ctx.runMutation(internal.aiChat.threads.updateThreadMetadata, {

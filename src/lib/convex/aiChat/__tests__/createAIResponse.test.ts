@@ -50,7 +50,8 @@ vi.mock('@convex-dev/agent', async (importOriginal) => {
 	return {
 		...actual,
 		getFile: vi.fn(),
-		saveMessage: vi.fn().mockResolvedValue({ messageId: 'notice_1' })
+		saveMessages: vi.fn().mockResolvedValue({ messages: [{ _id: 'notice_1', order: 0 }] }),
+		abortStream: vi.fn().mockResolvedValue(false)
 	};
 });
 
@@ -81,7 +82,7 @@ import {
 	requireBillingConfiguration
 } from '../../env';
 import { authComponent } from '../../auth';
-import { saveMessage } from '@convex-dev/agent';
+import { saveMessages } from '@convex-dev/agent';
 import { aiChatAgent } from '../agent';
 import { requireAiChatThreadRecord } from '../ownership';
 import { createAIResponse, sendMessage } from '../messages';
@@ -93,7 +94,7 @@ import {
 
 const checkAndCountUsageMock = checkAndCountUsage as unknown as ReturnType<typeof vi.fn>;
 const refundUsageMock = refundUsage as unknown as ReturnType<typeof vi.fn>;
-const saveMessageMock = saveMessage as unknown as ReturnType<typeof vi.fn>;
+const saveMessagesMock = saveMessages as unknown as ReturnType<typeof vi.fn>;
 const streamTextMock = aiChatAgent.streamText as unknown as ReturnType<typeof vi.fn>;
 const agentSaveMessageMock = aiChatAgent.saveMessage as unknown as ReturnType<typeof vi.fn>;
 const requireAiMock = requireAiConfiguration as unknown as ReturnType<typeof vi.fn>;
@@ -126,7 +127,7 @@ describe('createAIResponse', () => {
 		requireAiMock.mockReturnValue({ apiKey: 'configured' });
 		requireBillingMock.mockReturnValue({ secretKey: 'configured' });
 		refundUsageMock.mockResolvedValue(undefined);
-		saveMessageMock.mockResolvedValue({ messageId: 'notice_1' });
+		saveMessagesMock.mockResolvedValue({ messages: [{ _id: 'notice_1', order: 0 }] });
 		runMutation = vi.fn().mockResolvedValue(null);
 		ctx = { runMutation };
 		streamTextMock.mockResolvedValue({
@@ -143,14 +144,16 @@ describe('createAIResponse', () => {
 
 		expect(streamTextMock).not.toHaveBeenCalled();
 		expect(refundUsageMock).not.toHaveBeenCalled();
-		expect(saveMessageMock).toHaveBeenCalledTimes(1);
-		expect(saveMessageMock.mock.calls[0][2]).toMatchObject({
+		expect(saveMessagesMock).toHaveBeenCalledTimes(1);
+		expect(saveMessagesMock.mock.calls[0][2]).toMatchObject({
 			threadId: 'thread_1',
-			message: { role: 'assistant' },
-			metadata: {
-				provider: 'system',
-				providerMetadata: { system: { notice: 'ai_chat_limit_reached' } }
-			}
+			messages: [{ role: 'assistant' }],
+			metadata: [
+				{
+					provider: 'system',
+					providerMetadata: { system: { notice: 'ai_chat_limit_reached' } }
+				}
+			]
 		});
 		warn.mockRestore();
 	});
@@ -164,12 +167,12 @@ describe('createAIResponse', () => {
 
 		expect(checkAndCountUsageMock).not.toHaveBeenCalled();
 		expect(streamTextMock).not.toHaveBeenCalled();
-		expect(saveMessageMock).toHaveBeenCalledWith(
+		expect(saveMessagesMock).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.anything(),
 			expect.objectContaining({
 				threadId: 'thread_1',
-				message: { role: 'assistant', content: expect.stringContaining('AI is unavailable') }
+				messages: [{ role: 'assistant', content: expect.stringContaining('AI is unavailable') }]
 			})
 		);
 	});
@@ -187,7 +190,7 @@ describe('createAIResponse', () => {
 			featureId: 'ai_chat_messages'
 		});
 		expect(streamTextMock).not.toHaveBeenCalled();
-		expect(saveMessageMock).toHaveBeenCalled();
+		expect(saveMessagesMock).toHaveBeenCalled();
 	});
 
 	it('generates and keeps the counted unit on success', async () => {
@@ -240,7 +243,9 @@ describe('createAIResponse', () => {
 		await expect(handler._handler(ctx, args)).rejects.toThrow('metadata write failed');
 
 		// The stream was consumed, the response is saved: the unit is earned
+		// and the turn needs no failure notice
 		expect(refundUsageMock).not.toHaveBeenCalled();
+		expect(saveMessagesMock).not.toHaveBeenCalled();
 	});
 
 	it('skips entitlement lookup without a userId after static configuration passes', async () => {
@@ -269,7 +274,10 @@ describe('sendMessage provider preflight', () => {
 		});
 		requireAiMock.mockReturnValue({ apiKey: 'configured' });
 		requireBillingMock.mockReturnValue({ secretKey: 'configured' });
-		agentSaveMessageMock.mockResolvedValue({ messageId: 'message_1' });
+		agentSaveMessageMock.mockResolvedValue({
+			messageId: 'message_1',
+			message: { _id: 'message_1', order: 0 }
+		});
 	});
 
 	it.each([requireBillingMock, requireAiMock])(

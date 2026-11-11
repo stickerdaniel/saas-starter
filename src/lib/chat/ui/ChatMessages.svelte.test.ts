@@ -9,6 +9,7 @@ import type { DisplayMessage } from '../core/types.js';
 import { ChatUIContext } from './chat-context.svelte.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import ChatMessagesHarness from './test-fixtures/ChatMessagesHarness.svelte';
+import { AI_CHAT_GENERATION_FAILED_NOTICE, AI_CHAT_LIMIT_NOTICE } from '#lib/convex/constants.js';
 import en from '../../../i18n/en.json';
 
 // Vitest resolves Svelte's server entry by default; use its real client runtime for mounting.
@@ -145,4 +146,27 @@ describe('message author headings', () => {
 
 		expect(headings().map(({ level }) => level)).toEqual([2, 2, 2, 2]);
 	});
+});
+
+describe('AI chat system notices', () => {
+	it.each([
+		{ notice: AI_CHAT_LIMIT_NOTICE, copy: en.chat.notices.limit_reached },
+		{ notice: AI_CHAT_GENERATION_FAILED_NOTICE, copy: en.chat.notices.generation_failed }
+	])(
+		'renders the $notice notice from its translation, not the stored text',
+		async ({ notice, copy }) => {
+			ctx.setDisplayMessages([
+				displayMessage('user-1', 'user', 'Hello?'),
+				displayMessage('notice-1', 'assistant', 'Stored fallback', {
+					provider: 'system',
+					providerMetadata: { system: { notice } }
+				})
+			]);
+
+			await renderThread(undefined);
+
+			expect(document.body.textContent).toContain(copy);
+			expect(document.body.textContent).not.toContain('Stored fallback');
+		}
+	);
 });
