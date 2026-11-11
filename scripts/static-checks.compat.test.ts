@@ -15,9 +15,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import {
+	createPrivateCheckout,
+	removePrivateCheckout
+} from './__fixtures__/static-checks/private-checkout';
 import { isolatedGitEnv, sanitizedGitEnv } from './git-context';
 import { compatibilityInvocation } from './static-checks';
-import { withSvelteKitSyncLockSync } from './svelte-kit-sync-lock';
 import { testExecutable } from './test-executable';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -109,7 +112,7 @@ describe('Convex compatibility static-check entrypoint', () => {
 	it.skipIf(process.platform === 'win32')(
 		'resolves relative and empty PATH entries absolutely',
 		() => {
-			const directory = path.join(ROOT, 'scratch', `test-executable-${process.pid}-${Date.now()}`);
+			const directory = mkdtempSync(path.join(tmpdir(), 'test-executable-'));
 			const tools = path.join(directory, 'tools');
 			const decoy = path.join(directory, 'decoy', 'probe');
 			const relativeCommand = path.join(tools, 'probe');
@@ -189,8 +192,7 @@ describe('Convex compatibility static-check entrypoint', () => {
 	}, 30_000);
 
 	it('reads real ancestry through local replacements and grafts', () => {
-		const directory = path.join(ROOT, 'scratch', `compat-history-${process.pid}-${Date.now()}`);
-		mkdirSync(directory, { recursive: true });
+		const directory = mkdtempSync(path.join(tmpdir(), 'compat-history-'));
 		const env = sanitizedGitEnv();
 		const git = (args: string[], childEnv = env) =>
 			spawnSync('git', ['-c', 'core.useReplaceRefs=true', ...args], {
@@ -480,34 +482,30 @@ void api.compatUnicodeTarget.viewer;
 	// config, which is the cost of this case: observed 2026-10-10, discovery alone took 0.2 s
 	// while loading the config took 1.5 s, and the case took 2 s idle and 9 to 18 s with 12
 	// to 24 copies beside 48 CPU burners on 24 cores. The blocking child gets its own
-	// deadline because Vitest cannot interrupt it.
+	// deadline because Vitest cannot interrupt it. The sentinels and the SvelteKit sync the
+	// config runs stay in a private checkout.
 	it('keeps session scratch and nested agent worktrees out of Vitest discovery', () => {
-		const directories = ['scratch', '.claude/worktrees'].map((parent) =>
-			path.join(ROOT, parent, `compat-discovery-${process.pid}`)
-		);
+		const checkout = createPrivateCheckout('static-compat-discovery-');
 		try {
-			for (const directory of directories) {
+			for (const parent of ['scratch', '.claude/worktrees']) {
+				const directory = path.join(checkout.repository, parent, 'compat-discovery');
 				mkdirSync(directory, { recursive: true });
 				writeFileSync(
 					path.join(directory, 'sentinel.test.ts'),
 					"throw new Error('collected session sentinel');\n"
 				);
 			}
-			// Vitest loads the SvelteKit Vite plugin, which syncs this checkout as static-check
-			// runs in other test files do.
-			const result = withSvelteKitSyncLockSync(ROOT, () =>
-				spawnSync(BUN, ['vitest', 'list', '--filesOnly'], {
-					cwd: ROOT,
-					env: sanitizedGitEnv(),
-					encoding: 'utf8',
-					timeout: 50_000
-				})
-			);
+			const result = spawnSync(BUN, ['vitest', 'list', '--filesOnly'], {
+				cwd: checkout.repository,
+				env: sanitizedGitEnv(),
+				encoding: 'utf8',
+				timeout: 50_000
+			});
 			expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
 			expect(`${result.stdout}${result.stderr}`).not.toContain('sentinel.test.ts');
 			expect(result.stdout).toContain('scripts/static-checks.compat.test.ts');
 		} finally {
-			for (const directory of directories) rmSync(directory, { recursive: true, force: true });
+			removePrivateCheckout(checkout);
 		}
 	}, 60_000);
 

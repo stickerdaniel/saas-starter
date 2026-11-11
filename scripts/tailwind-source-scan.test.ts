@@ -1,9 +1,10 @@
-import { randomBytes } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
+import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { Scanner } from '@tailwindcss/oxide';
-import { afterEach, describe, expect, it } from 'vitest';
-import { SOURCE_FIXTURE_ROOT } from './source-tree';
+import { describe, expect, it } from 'vitest';
+import { sanitizedGitEnv } from './git-context';
 
 /**
  * Tailwind's oxide scanner decides which files feed the CSS source scan from the
@@ -15,59 +16,74 @@ import { SOURCE_FIXTURE_ROOT } from './source-tree';
  *
  * This reads the answer from the scanner itself rather than from the ignore
  * file's text, so it fails for any reason the rule stops reaching the consumer.
- * If the rule is missing while a large scratch tree exists, the scan is slow:
- * that slowness is the defect being guarded, not a flaky test.
+ * The scan runs over a temporary repository that carries this checkout's tracked
+ * ignore files, so its probes never appear in the shared tree.
  */
 const repoRoot = path.resolve(import.meta.dirname, '..');
-const created: string[] = [];
 
-/**
- * Writes `probe.svelte` under a randomly named directory in `parent`, optionally below
- * further `segments`, and returns the absolute file path. The randomized directory is the
- * unit that gets removed, so a probe's whole tree disappears with it.
- */
-function probeFile(parent: string, ...segments: string[]): string {
-	const probeRoot = path.join(parent, `scan-probe-${randomBytes(6).toString('hex')}`);
-	const dir = path.join(probeRoot, ...segments);
-	fs.mkdirSync(dir, { recursive: true });
-	created.push(probeRoot);
-	const file = path.join(dir, 'probe.svelte');
+function git(cwd: string, args: string[]): string {
+	const result = spawnSync('git', args, { cwd, env: sanitizedGitEnv(), encoding: 'utf8' });
+	if (result.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${result.stderr}`);
+	return result.stdout;
+}
+
+/** A Git repository holding every tracked `.gitignore` and `.ignore` of this checkout. */
+function createIgnoreTree(): string {
+	const tree = fs.mkdtempSync(path.join(fs.realpathSync.native(tmpdir()), 'tailwind-scan-'));
+	try {
+		git(tree, ['init', '--quiet']);
+		const ignoreFiles = git(repoRoot, [
+			'ls-files',
+			'-z',
+			'--',
+			':(glob)**/.gitignore',
+			':(glob)**/.ignore'
+		])
+			.split('\0')
+			.filter(Boolean);
+		expect(ignoreFiles).toContain('.gitignore');
+		for (const file of ignoreFiles) {
+			fs.mkdirSync(path.dirname(path.join(tree, file)), { recursive: true });
+			fs.copyFileSync(path.join(repoRoot, file), path.join(tree, file));
+		}
+		return tree;
+	} catch (error) {
+		fs.rmSync(tree, { recursive: true, force: true });
+		throw error;
+	}
+}
+
+/** Writes `probe.svelte` below `segments` of `tree` and returns its absolute path. */
+function probeFile(tree: string, ...segments: string[]): string {
+	const directory = path.join(tree, ...segments);
+	fs.mkdirSync(directory, { recursive: true });
+	const file = path.join(directory, 'probe.svelte');
 	fs.writeFileSync(file, '<div class="bg-red-500"></div>\n');
 	return file;
 }
 
-/**
- * Every probe this suite creates under `src/` has to sit inside SOURCE_FIXTURE_ROOT, the
- * one directory the recursive source walks skip by name. A probe parked anywhere else in
- * `src/` appears and vanishes in the path of those walks, and a walk that listed it before
- * this suite removed it dies on `ENOENT scandir` while this suite still passes.
- */
-function expectParkedInFixtureRoot(file: string): void {
-	const relative = path.relative(SOURCE_FIXTURE_ROOT, file);
-	const parked = relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
-	expect(parked, `Build this probe inside SOURCE_FIXTURE_ROOT, not at ${file}`).toBe(true);
-}
-
-afterEach(() => {
-	for (const dir of created.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
-});
-
 describe('tailwind source scan', () => {
 	it('skips scratch/ and .claude/worktrees/ but still scans src/', () => {
-		const control = probeFile(SOURCE_FIXTURE_ROOT);
-		// A nested scratch directory is source: the rule must stay root-anchored.
-		const nested = probeFile(SOURCE_FIXTURE_ROOT, 'scratch');
-		expectParkedInFixtureRoot(control);
-		expectParkedInFixtureRoot(nested);
-		const scratch = probeFile(path.join(repoRoot, 'scratch'));
-		const worktree = probeFile(path.join(repoRoot, '.claude', 'worktrees'));
-		const scanner = new Scanner({
-			sources: [{ base: repoRoot, pattern: '**/*', negated: false }]
-		});
-		const files = new Set(scanner.files.map((file) => path.resolve(file)));
-		expect(files.has(control)).toBe(true);
-		expect(files.has(nested)).toBe(true);
-		expect(files.has(scratch)).toBe(false);
-		expect(files.has(worktree)).toBe(false);
+		const tree = createIgnoreTree();
+		try {
+			const control = probeFile(tree, 'src', 'lib');
+			// A nested scratch directory is source: the rule must stay root-anchored.
+			const nested = probeFile(tree, 'src', 'lib', 'scratch');
+			// Only the worktrees below .claude are parked copies.
+			const claude = probeFile(tree, '.claude', 'skills');
+			const scratch = probeFile(tree, 'scratch');
+			const worktree = probeFile(tree, '.claude', 'worktrees', 'agent');
+			const scanner = new Scanner({
+				sources: [{ base: tree, pattern: '**/*', negated: false }]
+			});
+			const files = new Set(scanner.files.map((file) => path.resolve(file)));
+			expect(files.has(control)).toBe(true);
+			expect(files.has(nested)).toBe(true);
+			expect(files.has(claude)).toBe(true);
+			expect(files.has(scratch)).toBe(false);
+			expect(files.has(worktree)).toBe(false);
+		} finally {
+			fs.rmSync(tree, { recursive: true, force: true });
+		}
 	});
 });

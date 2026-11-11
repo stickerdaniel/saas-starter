@@ -6,7 +6,6 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 import { sanitizedGitEnv } from './git-context';
-import { SOURCE_FIXTURE_DIRECTORY } from './source-tree';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -72,15 +71,15 @@ const UNRESOLVED = '<unresolved>';
  * A path a test builds, as segments below the checkout root. `undefined` covers everything
  * the scan cannot anchor: a throwaway checkout under `tmpdir()`, an imported constant, a
  * path that climbs out of the checkout. Those are not reported, because a path the scan
- * cannot anchor is not evidence of a path under `src/`.
+ * cannot anchor is not evidence of a path inside the checkout.
  */
 type ResolvedPath = string[] | undefined;
 
 /**
  * What a name stands for. A helper takes the directory as one parameter and the name below
  * it as further ones, so a parameter is either an anchored path or the segments a caller
- * passed for it. Keeping the two apart is what lets `createFixture(SOURCE_FIXTURE_ROOT,
- * '..', '.probe')` normalize to the `src/` path it creates instead of reading as parked.
+ * passed for it. Keeping the two apart is what lets `createFixture(scratch, '..', '.probe')`
+ * normalize to the root path it creates instead of reading as parked under `scratch/`.
  */
 type Binding = { kind: 'path' | 'segments'; segments: string[] } | undefined;
 
@@ -102,7 +101,7 @@ function calleeName(node: ts.CallExpression): string {
 
 /**
  * Collapses `.` and `..` the way the path libraries do, so a fixture reached by climbing out
- * of the fixture root reads as the `src/` path it really is. A climb past the checkout root
+ * of `scratch/` reads as the checkout path it really is. A climb past the checkout root
  * leaves the tree the scan reasons about and is therefore unknown.
  */
 function normalize(segments: string[]): ResolvedPath {
@@ -182,7 +181,6 @@ function argumentSegments(argument: ts.Expression, bindings: Map<string, Binding
 /** Resolves a path expression against the declarations `bindings` already holds. */
 function resolvePath(node: ts.Expression, bindings: Map<string, Binding>): ResolvedPath {
 	if (ts.isIdentifier(node)) {
-		if (node.text === 'SOURCE_FIXTURE_ROOT') return ['src', SOURCE_FIXTURE_DIRECTORY];
 		const binding = bindings.get(node.text);
 		return binding?.kind === 'path' ? binding.segments : undefined;
 	}
@@ -229,20 +227,23 @@ function restBinding(rest: readonly ts.Expression[], bindings: Map<string, Bindi
 	return { kind: 'segments', segments };
 }
 
+/** The top-level directories of the checkout no whole-tree reader walks. */
+const PARKING_DIRECTORIES = new Set(['scratch', 'node_modules']);
+
 /**
- * A path a mutating call must not build. Two cases: anywhere under `src/` outside the fixture
- * root, and inside the fixture root but reached through a segment the scan never read.
+ * A path a mutating call must not build. Two cases: anywhere in the checkout outside
+ * `scratch/` and `node_modules/`, and inside one of them but reached through a segment the
+ * scan never read.
  *
  * The second is not a guess in the other direction. An unresolved segment is a value decided
  * at run time, `..` among its possible values, so a path built through one is parked only if
  * that value happens not to climb. Reporting it keeps the question in the test that owns the
- * fixture, and it stays bounded to fixture-root mutations: an unresolved segment anywhere
- * else still has to place the path under `src/` on its readable segments alone.
+ * fixture.
  */
 function isReportablePath(resolved: ResolvedPath): boolean {
-	if (!resolved || resolved[0] !== 'src') return false;
-	if (resolved[1] !== SOURCE_FIXTURE_DIRECTORY) return true;
-	return resolved.slice(2).includes(UNRESOLVED);
+	if (!resolved) return false;
+	if (!PARKING_DIRECTORIES.has(resolved[0] ?? '')) return true;
+	return resolved.slice(1).includes(UNRESOLVED);
 }
 
 type Helper = { parameters: ts.ParameterDeclaration[]; body: ts.Node };
@@ -280,8 +281,9 @@ function collectHelpers(parsed: ts.SourceFile): Map<string, Helper> {
 }
 
 /**
- * Reports every line of `source` that creates, writes or removes a path under `src/` outside
- * the fixture root.
+ * Reports every line of `source` that creates, writes or removes a statically anchored path
+ * inside the checkout outside `scratch/` and `node_modules/`. A path decided only at run time
+ * is not seen.
  */
 function transientSourceProducers(source: string, fileName = 'probe.test.ts'): number[] {
 	const parsed = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
@@ -391,11 +393,18 @@ const REST_HELPER = [
 	'}'
 ].join('\n');
 
+/** Where the probes below park a fixture, and the former source fixture root. */
+const PARKED = [
+	"const scratch = path.join(repoRoot, 'scratch');",
+	"const fixtureRoot = path.join(repoRoot, 'src', '__fixtures__');"
+].join('\n');
+
 /**
- * A fixture that appears and vanishes directly under `src/` sits in the path of every suite
- * that walks that tree, and a walk which listed the entry before its owner removed it dies
- * on `ENOENT scandir` while the owning suite stays green. Two suites reintroduced that race
- * after it was first fixed, so the placement rule is checked rather than remembered.
+ * A fixture that appears and vanishes in the shared checkout sits in the path of every
+ * whole-tree reader a concurrent run starts: a walk that listed the entry before its owner
+ * removed it dies on `ENOENT scandir`, and oxlint, knip, Prettier or a type check that reads
+ * a malformed or unused fixture fails an unrelated run. The placement rule is checked rather
+ * than remembered.
  */
 describe('transientSourceProducers', () => {
 	it('accepts reading an existing source file', () => {
@@ -415,18 +424,29 @@ rmSync(directory, { recursive: true, force: true });`;
 		expect(transientSourceProducers(source)).toEqual([3, 4, 5]);
 	});
 
+	it('reports a fixture at the checkout root or under scripts/', () => {
+		const source = `${CHECKOUT_ROOT}
+writeFileSync(path.join(repoRoot, \`.format-space-\${process.pid}.ts\`), 'source');
+const directory = path.join(repoRoot, 'scripts', \`.format-plus-\${process.pid}\`);
+mkdirSync(directory, { recursive: true });
+const marker = mkdtempSync(path.join(repoRoot, 'terminal-output-child-'));
+symlinkSync(path.join(repoRoot, 'scripts'), path.join(repoRoot, '.format-link'));`;
+		expect(transientSourceProducers(source)).toEqual([2, 4, 5, 6]);
+	});
+
 	it('reads a combined literal as the segments it spells', () => {
 		const source = `${CHECKOUT_ROOT}
 mkdirSync(path.join(repoRoot, 'src/.probe'), { recursive: true });`;
 		expect(transientSourceProducers(source)).toEqual([2]);
 	});
 
-	it('follows a climb out of the fixture root back into src/', () => {
+	it('follows a climb out of scratch back into the checkout', () => {
 		const source = `${CHECKOUT_ROOT}
-const directory = path.join(SOURCE_FIXTURE_ROOT, '..', '.probe');
+${PARKED}
+const directory = path.join(scratch, '..', '.probe');
 mkdirSync(directory, { recursive: true });
-rmSync(path.join(SOURCE_FIXTURE_ROOT, '../.probe'), { recursive: true, force: true });`;
-		expect(transientSourceProducers(source)).toEqual([3, 4]);
+rmSync(path.join(scratch, '../.probe'), { recursive: true, force: true });`;
+		expect(transientSourceProducers(source)).toEqual([5, 6]);
 	});
 
 	it('follows a directory passed into a helper', () => {
@@ -436,94 +456,121 @@ probeFile(path.join(repoRoot, 'src', 'lib'));`;
 		expect(transientSourceProducers(source)).toEqual([5, 7]);
 	});
 
-	it('accepts the same helper called with the fixture root', () => {
+	it('reports the same helper called with the former fixture root', () => {
 		const source = `${CHECKOUT_ROOT}
+${PARKED}
 ${PROBE_HELPER}
-probeFile(SOURCE_FIXTURE_ROOT);
-probeFile(SOURCE_FIXTURE_ROOT, 'scratch');
-probeFile(path.join(repoRoot, 'scratch'));`;
+probeFile(fixtureRoot);`;
+		expect(transientSourceProducers(source)).toEqual([7, 9]);
+	});
+
+	it('accepts the same helper called with scratch or node_modules', () => {
+		const source = `${CHECKOUT_ROOT}
+${PARKED}
+${PROBE_HELPER}
+probeFile(scratch);
+probeFile(scratch, 'nested');
+probeFile(path.join(repoRoot, 'node_modules', '.cache'));`;
 		expect(transientSourceProducers(source)).toEqual([]);
 	});
 
-	it('follows segments passed as ordinary parameters out of the fixture root', () => {
+	it('follows segments passed as ordinary parameters out of scratch', () => {
 		const source = `${CHECKOUT_ROOT}
+${PARKED}
 ${SEGMENT_HELPER}
-createFixture(SOURCE_FIXTURE_ROOT, '..', '.probe');`;
-		expect(transientSourceProducers(source)).toEqual([4, 5]);
+createFixture(scratch, '..', '.probe');`;
+		expect(transientSourceProducers(source)).toEqual([6, 7]);
 	});
 
-	it('accepts the same segments parked below the fixture root', () => {
+	it('accepts the same segments parked below scratch', () => {
 		const source = `${CHECKOUT_ROOT}
+${PARKED}
 ${SEGMENT_HELPER}
-createFixture(SOURCE_FIXTURE_ROOT, 'nested', '.probe');`;
+createFixture(scratch, 'nested', '.probe');`;
 		expect(transientSourceProducers(source)).toEqual([]);
 	});
 
-	it('follows a rest parameter out of the fixture root', () => {
+	it('reports the same segments below the former fixture root', () => {
 		const source = `${CHECKOUT_ROOT}
-${REST_HELPER}
-createFixture(SOURCE_FIXTURE_ROOT, '..', '.probe');`;
-		expect(transientSourceProducers(source)).toEqual([4, 5]);
+${PARKED}
+${SEGMENT_HELPER}
+createFixture(fixtureRoot, 'nested', '.probe');`;
+		expect(transientSourceProducers(source)).toEqual([6, 7]);
 	});
 
-	it('accepts a rest parameter that stays below the fixture root', () => {
+	it('follows a rest parameter out of scratch', () => {
 		const source = `${CHECKOUT_ROOT}
+${PARKED}
 ${REST_HELPER}
-createFixture(SOURCE_FIXTURE_ROOT);
-createFixture(SOURCE_FIXTURE_ROOT, 'nested', '.probe');
-createFixture(SOURCE_FIXTURE_ROOT, 'nested/../.probe');`;
+createFixture(scratch, '..', '.probe');`;
+		expect(transientSourceProducers(source)).toEqual([6, 7]);
+	});
+
+	it('accepts a rest parameter that stays below scratch', () => {
+		const source = `${CHECKOUT_ROOT}
+${PARKED}
+${REST_HELPER}
+createFixture(scratch);
+createFixture(scratch, 'nested', '.probe');
+createFixture(scratch, 'nested/../.probe');`;
 		expect(transientSourceProducers(source)).toEqual([]);
 	});
 
 	it('reports a rest spread whose segments the scan never read', () => {
 		const source = `${CHECKOUT_ROOT}
+${PARKED}
 ${REST_HELPER}
 const below = JSON.parse(readFileSync(manifest, 'utf8')).segments;
-createFixture(SOURCE_FIXTURE_ROOT, ...below);`;
-		expect(transientSourceProducers(source)).toEqual([4, 5]);
+createFixture(scratch, ...below);`;
+		expect(transientSourceProducers(source)).toEqual([6, 7]);
 	});
 
 	it('reports an ordinary parameter whose value the scan never read', () => {
 		const source = `${CHECKOUT_ROOT}
+${PARKED}
 ${SEGMENT_HELPER}
 const up = readFileSync(manifest, 'utf8').trim();
-createFixture(SOURCE_FIXTURE_ROOT, up, '.probe');`;
-		expect(transientSourceProducers(source)).toEqual([4, 5]);
+createFixture(scratch, up, '.probe');`;
+		expect(transientSourceProducers(source)).toEqual([6, 7]);
 	});
 
-	it('reports a dynamic name joined straight onto the fixture root', () => {
+	it('reports a dynamic name joined straight onto scratch', () => {
 		const source = `${CHECKOUT_ROOT}
-const directory = path.join(SOURCE_FIXTURE_ROOT, suffix);
+${PARKED}
+const directory = path.join(scratch, suffix);
 mkdirSync(directory, { recursive: true });
-writeFileSync(path.join(SOURCE_FIXTURE_ROOT, \`\${suffix}\`), 'safe');`;
-		expect(transientSourceProducers(source)).toEqual([3, 4]);
+writeFileSync(path.join(scratch, \`\${suffix}\`), 'safe');`;
+		expect(transientSourceProducers(source)).toEqual([5, 6]);
 	});
 
 	it('reports a fixed prefix in front of an interpolation it never read', () => {
 		const source = [
 			CHECKOUT_ROOT,
-			'mkdirSync(path.join(SOURCE_FIXTURE_ROOT, `scan-probe-${suffix}`), { recursive: true });',
-			'rmSync(path.join(SOURCE_FIXTURE_ROOT, `scan-probe-${buildName()}`), { recursive: true });'
+			PARKED,
+			'mkdirSync(path.join(scratch, `scan-probe-${suffix}`), { recursive: true });',
+			'rmSync(path.join(scratch, `scan-probe-${buildName()}`), { recursive: true });'
 		].join('\n');
-		expect(transientSourceProducers(source)).toEqual([2, 3]);
+		expect(transientSourceProducers(source)).toEqual([4, 5]);
 	});
 
 	it('reports a traversal spelled in either separator behind a fixed prefix', () => {
 		const source = [
 			CHECKOUT_ROOT,
-			'mkdirSync(path.join(SOURCE_FIXTURE_ROOT, `scan-probe-${hex}/../../.probe`));',
-			'mkdirSync(path.join(SOURCE_FIXTURE_ROOT, `scan-probe-${hex}\\\\..\\\\..\\\\.probe`));'
+			PARKED,
+			'mkdirSync(path.join(scratch, `scan-probe-${hex}/../../.probe`));',
+			'mkdirSync(path.join(scratch, `scan-probe-${hex}\\\\..\\\\..\\\\.probe`));'
 		].join('\n');
-		expect(transientSourceProducers(source)).toEqual([2, 3]);
+		expect(transientSourceProducers(source)).toEqual([4, 5]);
 	});
 
-	it('accepts a randomized child that cannot climb out of the fixture root', () => {
+	it('accepts a randomized child that cannot climb out of scratch', () => {
 		const source = `${CHECKOUT_ROOT}
-const probe = path.join(SOURCE_FIXTURE_ROOT, \`scan-probe-\${randomBytes(6).toString('hex')}\`);
+${PARKED}
+const probe = path.join(scratch, \`scan-probe-\${randomBytes(6).toString('hex')}\`);
 mkdirSync(probe, { recursive: true });
-const owned = path.join(SOURCE_FIXTURE_ROOT, \`probe-\${process.pid}\`);
+const owned = path.join(scratch, \`probe-\${process.pid}\`);
 mkdirSync(owned, { recursive: true });
-const temporary = mkdtempSync(path.join(SOURCE_FIXTURE_ROOT, 'probe-'));
+const temporary = mkdtempSync(path.join(scratch, 'probe-'));
 writeFileSync(path.join(temporary, 'probe.svelte'), '<div></div>');
 rmSync(probe, { recursive: true, force: true });`;
 		expect(transientSourceProducers(source)).toEqual([]);
@@ -547,14 +594,15 @@ renameSync(path.join(tmpdir(), 'staged'), path.join(repoRoot, 'src', '.probe'));
 		expect(transientSourceProducers(source)).toEqual([2, 3, 4, 5]);
 	});
 
-	it('accepts the same fixture parked in the fixture root', () => {
+	it('reports a fixture parked in the former fixture root', () => {
 		const source = `${CHECKOUT_ROOT}
-const directory = path.join(SOURCE_FIXTURE_ROOT, '.probe');
-const temporary = mkdtempSync(path.join(SOURCE_FIXTURE_ROOT, 'probe-'));
+${PARKED}
+const directory = path.join(fixtureRoot, '.probe');
+const temporary = mkdtempSync(path.join(fixtureRoot, 'probe-'));
 mkdirSync(directory, { recursive: true });
 writeFileSync(path.join(temporary, 'instructions.md'), 'safe');
 rmSync(directory, { recursive: true, force: true });`;
-		expect(transientSourceProducers(source)).toEqual([]);
+		expect(transientSourceProducers(source)).toEqual([5, 6, 7, 8]);
 	});
 
 	it('leaves a throwaway checkout under tmpdir() alone', () => {
@@ -565,7 +613,7 @@ writeFileSync(path.join(checkout, 'src', 'good.ts'), 'source');`;
 		expect(transientSourceProducers(source)).toEqual([]);
 	});
 
-	it('finds no producer outside the fixture root in the repository', () => {
+	it('finds no statically anchored producer in the repository', () => {
 		const offenders: string[] = [];
 		let scanned = 0;
 
@@ -580,7 +628,7 @@ writeFileSync(path.join(checkout, 'src', 'good.ts'), 'source');`;
 		expect(scanned, 'Git listed no test sources; the scan examined nothing.').toBeGreaterThan(0);
 		expect(
 			offenders,
-			`Build these under SOURCE_FIXTURE_ROOT (src/${SOURCE_FIXTURE_DIRECTORY}), the one directory the source-tree walks skip by name.`
+			'Write these into a private checkout from scripts/__fixtures__/static-checks/private-checkout.ts, or a tree under tmpdir() when no checkout is needed. In the shared checkout only scratch/ and node_modules/ take throwaway files.'
 		).toEqual([]);
 	});
 });

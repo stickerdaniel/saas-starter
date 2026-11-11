@@ -106,6 +106,8 @@ const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 	'scripts/dev-cloud.test.ts',
 	'scripts/git-context.ts',
 	'scripts/git-context.test.ts',
+	'scripts/private-checkout.test.ts',
+	'scripts/__fixtures__/static-checks/private-checkout.ts',
 	'scripts/static-checks.ts',
 	'scripts/static-checks.test.ts',
 	'scripts/static-checks.knip.test.ts',
@@ -368,8 +370,8 @@ function recorderEnv(logPath: string): NodeJS.ProcessEnv {
 /**
  * Overlays a repository with the worktree copies of Git-tracked sources.
  *
- * Recursively copying ROOT/scripts traverses a directory where static-checks.format.test.ts
- * concurrently creates and removes its `.format-*` fixtures. If one disappears between
+ * Recursively copying ROOT/scripts traversed a directory where static-checks.format.test.ts
+ * concurrently created and removed its `.format-*` fixtures. If one disappears between
  * directory enumeration and traversal, the copy aborts; in the measured case, the native
  * directory_iterator exception terminated the entire Vitest worker, silently omitting the
  * final Knip cases. The index instead provides a stable path set that never contains temporary

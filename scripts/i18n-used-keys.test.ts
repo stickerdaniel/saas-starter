@@ -68,7 +68,7 @@ function walk(dir: string, out: string[] = []): string[] {
 		const full = path.join(dir, entry.name);
 		if (entry.isDirectory()) {
 			// _generated: Convex codegen and built email templates.
-			// __fixtures__: throwaway sources another suite creates and removes mid-run.
+			// __fixtures__: test inputs, never application source.
 			if (
 				entry.name === '_generated' ||
 				entry.name === SOURCE_FIXTURE_DIRECTORY ||
