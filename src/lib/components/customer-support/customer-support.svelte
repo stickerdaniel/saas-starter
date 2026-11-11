@@ -207,6 +207,10 @@
 		conversation.setUserId(userId);
 	});
 
+	// The URL thread under validation. The effect below reruns on any URL write,
+	// such as opening the widget, and only a new target retires earlier work.
+	let validatingThread: string | null = null;
+
 	// Sync thread from URL only after validating that it is actually a support thread.
 	// A matching id is settled only while its conversation is on screen: going
 	// back to the list keeps the id, so a later Forward to it must reopen it here.
@@ -220,17 +224,22 @@
 			!userId ||
 			(threadFromUrl === conversation.threadId && navigation.currentView !== 'overview')
 		) {
+			validatingThread = null;
 			return;
 		}
 
 		const anonymousUserId = isAnonymousUser(userId) ? userId : undefined;
 		let cancelled = false;
 
-		// The URL names a newer target than any work started before it, such as a
+		// A new URL target is newer than any work started before it, such as a
 		// submit still acquiring its warm thread. That work retires now; the thread
 		// itself is adopted only once validated. The widget's own URL writes return
-		// above, because they name the conversation already on screen.
-		navigation.invalidateOperation();
+		// above, because they name the conversation already on screen, and a rerun
+		// for the target already under validation retires nothing.
+		if (threadFromUrl !== validatingThread) {
+			validatingThread = threadFromUrl;
+			navigation.invalidateOperation();
+		}
 
 		void client
 			.query(api.support.threads.getThread, {
@@ -239,10 +248,12 @@
 			})
 			.then((thread) => {
 				if (cancelled || urlState.thread !== threadFromUrl) return;
+				validatingThread = null;
 				support.selectThreadFromUrl(threadFromUrl, thread);
 			})
 			.catch(() => {
 				if (cancelled || urlState.thread !== threadFromUrl) return;
+				validatingThread = null;
 
 				console.warn('[CustomerSupport.resolveThreadUrl] Invalid');
 				conversation.setThread(null);

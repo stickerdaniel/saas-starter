@@ -299,4 +299,109 @@ describe('chatbar submit under URL history', () => {
 		expect(history.current).toEqual({ support: 'open', thread: 'thread-b' });
 		expect(sends()).toEqual([]);
 	});
+
+	it('sends a submit made after a history entry started validating', async () => {
+		history = new BrowserHistory({ support: '', thread: '' });
+		const warmThread = Promise.withResolvers<WarmThread>();
+		const threadRead = Promise.withResolvers<{ isHandedOff: boolean }>();
+		vi.mocked(client.mutation).mockImplementation((reference) =>
+			getFunctionName(reference) === 'support/threads:getOrCreateWarmThread'
+				? warmThread.promise
+				: Promise.resolve({})
+		);
+		vi.mocked(client.query).mockImplementation(async (reference, args) =>
+			getFunctionName(reference) === 'support/threads:getThread' &&
+			(args as { threadId: string }).threadId === 'thread-b'
+				? threadRead.promise
+				: {}
+		);
+		const support = mountSupport();
+		await vi.waitFor(() => expect(support.conversation.userId).toBeTruthy());
+		const input = document.querySelector('textarea')!;
+		input.value = 'question after thread B';
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+		await tick();
+		flushSync(() => {
+			history.write('thread', 'thread-b');
+		});
+		await tick();
+
+		// Submitting opens the widget, a URL write that names no new thread.
+		document.querySelector<HTMLButtonElement>(`button[aria-label="${en.chat.aria.send}"]`)!.click();
+		await tick();
+		expect(history.current.support).toBe('open');
+		warmThread.resolve({ threadId: 'thread-a', notificationEmail: null });
+
+		await vi.waitFor(() =>
+			expect(
+				vi
+					.mocked(client.mutation)
+					.mock.calls.filter(
+						([reference]) => getFunctionName(reference) === 'support/messages:sendMessage'
+					)
+					.map(([, args]) => args)
+			).toEqual([expect.objectContaining({ threadId: 'thread-a' })])
+		);
+		threadRead.resolve({ isHandedOff: false });
+		await tick();
+		await tick();
+		expect(support.conversation.threadId).toBe('thread-a');
+		expect(history.current.thread).toBe('thread-a');
+	});
+
+	it.each(['warm thread', 'send'] as const)(
+		'gives back the latest prompt when its %s fails after an earlier submit was retired',
+		async (failure) => {
+			history = new BrowserHistory({ support: '', thread: '' });
+			const warmThread = Promise.withResolvers<WarmThread>();
+			const sent = Promise.withResolvers<null>();
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			vi.mocked(client.mutation).mockImplementation((reference) =>
+				getFunctionName(reference) === 'support/threads:getOrCreateWarmThread'
+					? warmThread.promise
+					: sent.promise
+			);
+			const support = mountSupport();
+			await vi.waitFor(() => expect(support.conversation.userId).toBeTruthy());
+			const input = document.querySelector('textarea')!;
+			const submit = async (prompt: string) => {
+				input.value = prompt;
+				input.dispatchEvent(new Event('input', { bubbles: true }));
+				await tick();
+				document
+					.querySelector<HTMLButtonElement>(`button[aria-label="${en.chat.aria.send}"]`)!
+					.click();
+				await tick();
+			};
+			const closeWidget = async () => {
+				window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+				await tick();
+			};
+
+			// Closing the widget retires the first submit while both share one warm thread.
+			await submit('first question');
+			await closeWidget();
+			await submit('second question');
+			if (failure === 'warm thread') {
+				warmThread.reject(new Error('warm thread failed'));
+			} else {
+				warmThread.resolve({ threadId: 'thread-a', notificationEmail: null });
+				await vi.waitFor(() =>
+					expect(
+						vi
+							.mocked(client.mutation)
+							.mock.calls.some(
+								([reference]) => getFunctionName(reference) === 'support/messages:sendMessage'
+							)
+					).toBe(true)
+				);
+				sent.reject(new Error('send failed'));
+			}
+			await tick();
+			await tick();
+			await tick();
+
+			expect(input.value).toBe('second question');
+		}
+	);
 });

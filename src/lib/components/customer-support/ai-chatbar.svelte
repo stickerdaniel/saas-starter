@@ -65,6 +65,8 @@
 	// Set on destroy so the thread-creation continuation doesn't subscribe
 	// after cleanup already ran (mutation still in flight during unmount)
 	let destroyed = false;
+	// Counts submits; only the latest one may hand its prompt back to the input.
+	let latestSubmit = 0;
 
 	function releaseWarmResources(): void {
 		if (cleanupTimeoutId !== null) {
@@ -102,6 +104,7 @@
 		if (!input.trim() || conversation.isSending) return;
 
 		const trimmedPrompt = input.trim();
+		const submit = ++latestSubmit;
 		const sessionEpoch = getChatSessionEpoch();
 		const generation = warmGeneration;
 		// The cleared input stays this submit's to restore while its session, warm
@@ -118,11 +121,12 @@
 				? conversation.isOperationIdentityCurrent(sendOperation)
 				: navigation.operationRevision === navigationRevision);
 		// A retired submit hands its prompt back to the chatbar unless the message
-		// was already dispatched, which the server may have accepted, or the
-		// visitor has typed something new since.
+		// was already dispatched, which the server may have accepted, the visitor
+		// has typed something new since, or a newer submit cleared the input and
+		// owns its recovery.
 		let dispatched = false;
 		const restoreUnsentPrompt = () => {
-			if (!dispatched && ownsInput() && !input) input = trimmedPrompt;
+			if (!dispatched && submit === latestSubmit && ownsInput() && !input) input = trimmedPrompt;
 		};
 
 		// Clear input and request widget open before sending
