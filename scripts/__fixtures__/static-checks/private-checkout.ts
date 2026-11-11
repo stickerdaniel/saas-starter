@@ -26,7 +26,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll } from 'vitest';
 import { sanitizedGitEnv } from '../../git-context';
 
@@ -39,11 +39,12 @@ export interface PrivateCheckout {
 	repository: string;
 }
 
-function git(cwd: string, args: string[]): string {
+function git(cwd: string, args: string[], input?: string): string {
 	const result = spawnSync('git', ['-c', 'maintenance.auto=false', ...args], {
 		cwd,
 		env: sanitizedGitEnv(),
 		encoding: 'utf8',
+		input,
 		maxBuffer: 64 * 1024 * 1024
 	});
 	if (result.status !== 0) {
@@ -113,12 +114,33 @@ function removePrivatePath(repository: string, relative: string): void {
 }
 
 /**
- * Makes the private tree match the source's index and working tree. Removals run first and
- * deepest first, so a directory that becomes a file is gone before the file is written and a
- * file that becomes a directory is gone before its children are. `rmSync` removes a link
- * itself, never its target.
+ * The working-tree entry of an indexed path, read without following any ancestor. A missing or
+ * file ancestor means the path is absent, which Git records as a deletion. A linked ancestor
+ * throws: reading through it would commit bytes from outside the source.
  */
-function overlay(source: string, repository: string): void {
+function sourceEntry(source: string, relative: string) {
+	let ancestor = source;
+	for (const segment of path.dirname(relative).split('/')) {
+		if (segment === '.') break;
+		ancestor = path.join(ancestor, segment);
+		const entry = lstatOrUndefined(ancestor);
+		if (entry?.isSymbolicLink()) {
+			throw new Error(`Refusing to read through the linked source ancestor ${ancestor}`);
+		}
+		if (!entry?.isDirectory()) return undefined;
+	}
+	return lstatOrUndefined(path.join(source, relative));
+}
+
+/**
+ * Makes the private tree match the source's index and working tree, and returns the indexed
+ * paths it wrote. Membership comes from the source index: a staged deletion stays deleted even
+ * while its file is still on disk. Bytes come from the working tree: a staged file edited again
+ * carries the newer edit. Removals run first and deepest first, so a directory that becomes a
+ * file is gone before the file is written and a file that becomes a directory is gone before
+ * its children are. `rmSync` removes a link itself, never its target.
+ */
+function overlay(source: string, repository: string): string[] {
 	const indexed = new Set(records(git(source, ['ls-files', '-z'])));
 	const deleted = records(
 		git(source, [
@@ -144,9 +166,10 @@ function overlay(source: string, repository: string): void {
 		if (target && lstatOrUndefined(target)?.isDirectory()) removePrivatePath(repository, file);
 	}
 
+	const written: string[] = [];
 	for (const file of [...changed].sort((a, b) => depth(a) - depth(b))) {
 		const origin = path.join(source, file);
-		const entry = lstatOrUndefined(origin);
+		const entry = sourceEntry(source, file);
 		if (!entry?.isFile() && !entry?.isSymbolicLink()) {
 			// Missing from the working tree as a file or link, which Git records as a deletion.
 			removePrivatePath(repository, file);
@@ -160,16 +183,19 @@ function overlay(source: string, repository: string): void {
 			copyFileSync(origin, target);
 			chmodSync(target, entry.mode & 0o777);
 		}
+		written.push(file);
 	}
+	return written;
 }
 
 /**
- * Links every top-level package of the source's `node_modules`. `$app` and dot entries other
- * than `.bin` stay out: SvelteKit sync writes `$app/types` and `$app/tsconfig.json` relative to
+ * Builds a real `node_modules` in `repository` that links every top-level package of the
+ * source's `node_modules`. `source` is a physical path. `$app` and dot entries other than `.bin`
+ * stay out: SvelteKit sync writes `$app/types` and `$app/tsconfig.json` relative to
  * the project root, and Vite, Vitest and jiti write `.vite`, `.vite-temp`, `.vitest-cache` and
  * `.cache` there, so linking them would send a private run's output into the shared tree.
  */
-function linkDependencies(source: string, repository: string): void {
+export function linkDependencies(source: string, repository: string): void {
 	const sourceModules = path.join(source, 'node_modules');
 	if (!lstatOrUndefined(sourceModules)) return;
 	const privateModules = path.join(repository, 'node_modules');
@@ -201,10 +227,20 @@ export function createPrivateCheckout(prefix: string, source: string = ROOT): Pr
 		if (isInside(sourceRoot, directory)) {
 			throw new Error(`The temporary directory ${directory} is inside ${sourceRoot}.`);
 		}
-		const url = `file://${process.platform === 'win32' ? '/' : ''}${sourceRoot.split(path.sep).join('/')}`;
+		const url = pathToFileURL(sourceRoot).href;
 		git(directory, ['clone', '--quiet', '--no-local', '--depth', '1', url, checkout.repository]);
-		overlay(sourceRoot, checkout.repository);
+		const written = overlay(sourceRoot, checkout.repository);
 		git(checkout.repository, ['add', '-A']);
+		// Forced, because the source index can hold a path an ignore rule covers (`git add -f`),
+		// and `add -A` leaves such a new path out. Only indexed paths are named, so untracked
+		// source files stay out.
+		if (written.length > 0) {
+			git(
+				checkout.repository,
+				['--literal-pathspecs', 'add', '--force', '--pathspec-from-file=-', '--pathspec-file-nul'],
+				`${written.join('\0')}\0`
+			);
+		}
 		git(checkout.repository, [
 			'-c',
 			'user.name=Probe',

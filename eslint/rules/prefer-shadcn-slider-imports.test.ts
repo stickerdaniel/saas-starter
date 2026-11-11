@@ -1,10 +1,14 @@
 // @vitest-environment node
-import { existsSync } from 'node:fs';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
+import {
+	createPrivateCheckout,
+	removePrivateCheckout
+} from '../../scripts/__fixtures__/static-checks/private-checkout';
 import { withoutTypeInformation } from '../without-type-information';
 
 const repoRoot = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
@@ -159,31 +163,56 @@ describe('prefer-shadcn-slider-imports production configuration', () => {
 		60_000
 	);
 
-	it.each([
-		'src/routes/components/ui/+page.svelte',
-		'src/features/payments/components/ui/controls.ts'
-	])('does not exempt application path %s', async (filePath) => {
-		const source = filePath.endsWith('.svelte')
-			? '<script lang="ts">import { Slider } from \'bits-ui\';</script>'
-			: "import { Slider } from 'bits-ui';";
-		const temporaryRoot = filePath.endsWith('.svelte')
-			? path.join(repoRoot, 'src/routes/components')
-			: null;
-		if (temporaryRoot) {
-			expect(existsSync(temporaryRoot)).toBe(false);
-			await mkdir(path.dirname(path.join(repoRoot, filePath)), { recursive: true });
-			await writeFile(path.join(repoRoot, filePath), source);
-		}
-		try {
+	it.each(['src/features/payments/components/ui/controls.ts'])(
+		'does not exempt application path %s',
+		async (filePath) => {
+			const source = "import { Slider } from 'bits-ui';";
 			const config = await eslint.calculateConfigForFile(filePath);
 			expect(config?.rules?.[ruleId]?.[0]).toBe(2);
 			const messages = await sliderMessages(source, filePath);
 			expect(messages).toHaveLength(1);
 			expect(messages[0].messageId).toBe('directSliderImport');
-		} finally {
-			if (temporaryRoot) await rm(temporaryRoot, { recursive: true, force: true });
 		}
-	});
+	);
+
+	// A Svelte route has to exist on disk to be linted, so it is written into a private checkout
+	// that carries the real configuration. The lint runs in a child process: typescript-eslint
+	// refuses a second tsconfig root in one process, which would break every other case here.
+	it('does not exempt application path src/routes/components/ui/+page.svelte', () => {
+		const filePath = 'src/routes/components/ui/+page.svelte';
+		const source = '<script lang="ts">import { Slider } from \'bits-ui\';</script>';
+		const checkout = createPrivateCheckout('slider-imports-');
+		try {
+			const { repository } = checkout;
+			expect(existsSync(path.join(repository, 'src/routes/components'))).toBe(false);
+			mkdirSync(path.dirname(path.join(repository, filePath)), { recursive: true });
+			writeFileSync(path.join(repository, filePath), source);
+			const override = pathToFileURL(path.join(repository, 'eslint/without-type-information.ts'));
+			const script = [
+				"const { ESLint } = await import('eslint');",
+				`const { withoutTypeInformation } = await import(${JSON.stringify(override.href)});`,
+				'const eslint = new ESLint({ cwd: process.cwd(), overrideConfig: withoutTypeInformation });',
+				`const filePath = ${JSON.stringify(filePath)};`,
+				'const config = await eslint.calculateConfigForFile(filePath);',
+				`const [result] = await eslint.lintText(${JSON.stringify(source)}, { filePath });`,
+				`const ruleId = ${JSON.stringify(ruleId)};`,
+				'process.stdout.write(JSON.stringify({ severity: config?.rules?.[ruleId]?.[0], fatal: result.fatalErrorCount, messageIds: result.messages.filter((message) => message.ruleId === ruleId).map((message) => message.messageId) }));'
+			].join('\n');
+			const child = spawnSync('bun', ['-e', script], {
+				cwd: repository,
+				encoding: 'utf8',
+				timeout: 50_000
+			});
+			expect(child.status, child.stderr).toBe(0);
+			expect(JSON.parse(child.stdout)).toEqual({
+				severity: 2,
+				fatal: 0,
+				messageIds: ['directSliderImport']
+			});
+		} finally {
+			removePrivateCheckout(checkout);
+		}
+	}, 60_000);
 
 	it.each(prohibitedSliderBindings)('rejects %s', async (_label, source) => {
 		const messages = await sliderMessages(source);

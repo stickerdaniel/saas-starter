@@ -73,20 +73,24 @@ function exists(file: string): boolean {
 
 /**
  * A committed source repository with installed-looking dependencies, then a mix of staged and
- * unstaged changes: an addition, a deletion, a rename, a link retarget, an executable bit, a
- * directory replaced by a file, an edited file, and an untracked file.
+ * unstaged changes: an addition, a force-added ignored file, a deletion, a rename, a link
+ * retarget, an executable bit, a directory replaced by a file staged and unstaged, an edited
+ * file, and an untracked file. The directory name holds a literal percent escape, which a
+ * file URL has to encode.
  */
 function createSource(directory: string): string {
-	const source = path.join(directory, 'source');
+	const source = path.join(directory, 'source%41');
 	mkdirSync(source);
 	git(source, ['init', '--quiet', '--initial-branch=main']);
-	write(source, '.gitignore', 'node_modules\n');
+	write(source, '.gitignore', 'node_modules\nforced.txt\n');
 	write(source, 'kept.txt', 'committed\n');
 	write(source, 'removed.txt', 'removed\n');
+	write(source, 'unstaged-keep.txt', 'deleted from the index only\n');
 	write(source, 'old-name.txt', 'renamed\n');
 	write(source, 'other.txt', 'other\n');
 	write(source, 'tool.sh', '#!/bin/sh\n');
 	write(source, 'folder/inner.txt', 'inner\n');
+	write(source, 'blocked/inner.txt', 'blocked\n');
 	if (POSIX) symlinkSync('kept.txt', path.join(source, 'link'));
 	write(source, 'node_modules/fake-package/index.js', 'export default 1;\n');
 	write(source, 'node_modules/.bin/fake', '#!/bin/sh\n');
@@ -96,6 +100,8 @@ function createSource(directory: string): string {
 
 	write(source, 'added.txt', 'added\n');
 	git(source, ['add', '--', 'added.txt']);
+	write(source, 'forced.txt', 'forced\n');
+	git(source, ['add', '--force', '--', 'forced.txt']);
 	git(source, ['rm', '--quiet', '--', 'removed.txt']);
 	git(source, ['mv', 'old-name.txt', 'new-name.txt']);
 	git(source, ['rm', '--quiet', '-r', '--', 'folder']);
@@ -109,6 +115,15 @@ function createSource(directory: string): string {
 	}
 	write(source, 'kept.txt', 'edited on disk\n');
 	write(source, 'untracked.txt', 'untracked\n');
+	// Index membership wins over the disk: the file stays on disk but is no longer tracked.
+	git(source, ['rm', '--quiet', '--cached', '--', 'unstaged-keep.txt']);
+	// Working-tree bytes win over the index: staged once, then edited again.
+	write(source, 'restaged.txt', 'staged\n');
+	git(source, ['add', '--', 'restaged.txt']);
+	write(source, 'restaged.txt', 'edited after staging\n');
+	// Unstaged: the index still lists blocked/inner.txt, which no longer exists on disk.
+	rmSync(path.join(source, 'blocked'), { recursive: true });
+	write(source, 'blocked', 'untracked file\n');
 	return source;
 }
 
@@ -137,12 +152,24 @@ describe('private checkout', () => {
 		const read = (file: string) => readFileSync(path.join(repository, file), 'utf8');
 
 		expect(read('added.txt')).toBe('added\n');
+		expect(read('forced.txt')).toBe('forced\n');
 		expect(read('new-name.txt')).toBe('renamed\n');
 		expect(read('folder')).toBe('now a file\n');
 		expect(read('kept.txt')).toBe('edited on disk\n');
-		for (const gone of ['removed.txt', 'old-name.txt', 'untracked.txt']) {
+		expect(read('restaged.txt')).toBe('edited after staging\n');
+		for (const gone of [
+			'removed.txt',
+			'old-name.txt',
+			'untracked.txt',
+			'blocked/inner.txt',
+			'unstaged-keep.txt'
+		]) {
 			expect(exists(path.join(repository, gone)), gone).toBe(false);
 		}
+		expect(
+			exists(path.join(repository, 'blocked')) &&
+				statSync(path.join(repository, 'blocked')).isFile()
+		).toBe(false);
 
 		const committed = committedModes(repository);
 		expect([...committed.keys()].sort()).toEqual(
@@ -150,9 +177,11 @@ describe('private checkout', () => {
 				'.gitignore',
 				'added.txt',
 				'folder',
+				'forced.txt',
 				'kept.txt',
 				'new-name.txt',
 				'other.txt',
+				'restaged.txt',
 				'tool.sh',
 				...(POSIX ? ['link'] : [])
 			].sort()
@@ -215,6 +244,22 @@ describe('private checkout', () => {
 		writeFileSync(path.join(modules, '$app', 'tsconfig.json'), '{}\n');
 		expect(readdirSync(path.join(sourceModules, '$app'))).toEqual(['marker']);
 		expect(readFileSync(path.join(sourceModules, '$app', 'marker'), 'utf8')).toBe('source app\n');
+	});
+
+	it.skipIf(!POSIX)('refuses to read a tracked path through a linked source ancestor', () => {
+		const linked = path.join(directory, 'linked-source');
+		const outside = path.join(directory, 'outside');
+		mkdirSync(linked);
+		git(linked, ['init', '--quiet', '--initial-branch=main']);
+		write(linked, 'nested/file.txt', 'tracked\n');
+		commitAll(linked, 'Initial');
+		write(outside, 'file.txt', 'external bytes\n');
+		rmSync(path.join(linked, 'nested'), { recursive: true });
+		symlinkSync(outside, path.join(linked, 'nested'), 'dir');
+		const prefix = `private-checkout-linked-${randomBytes(6).toString('hex')}-`;
+
+		expect(() => createPrivateCheckout(prefix, linked)).toThrow(/linked source ancestor/);
+		expect(readdirSync(TEMP_ROOT).filter((name) => name.startsWith(prefix))).toEqual([]);
 	});
 
 	it('removes its directory when setup fails', () => {

@@ -4,8 +4,10 @@ import {
 	copyFileSync,
 	existsSync,
 	linkSync,
+	lstatSync,
 	mkdirSync,
 	mkdtempSync,
+	readdirSync,
 	readFileSync,
 	realpathSync,
 	renameSync,
@@ -17,6 +19,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { linkDependencies } from './__fixtures__/static-checks/private-checkout';
 import { sanitizedGitEnv } from './git-context';
 import { withSvelteKitSyncLockSync } from './svelte-kit-sync-lock';
 import { testExecutable } from './test-executable';
@@ -57,7 +60,7 @@ const ESLINT_PROJECT: CommandInvocation = {
 const OXLINT: CommandInvocation = { command: 'bun', args: ['oxlint'] };
 /** The whole-project lint commands a GitHub Actions lint run starts right after sync. */
 const PROJECT_LINTERS = [ESLINT_PROJECT, OXLINT, KNIP, CLI_KNIP];
-/** Every checker clone links this repository's node_modules, so this is the clone's varlock. */
+/** Every checker clone links this repository's packages, so this is the clone's varlock. */
 const INSTALLED_VARLOCK = (
 	JSON.parse(readFileSync(path.join(ROOT, 'node_modules/varlock/package.json'), 'utf8')) as {
 		version: string;
@@ -146,8 +149,9 @@ const REQUIRED_SOURCES = [
 	'src/lib/i18n/language-codes.generated.js'
 ];
 // Tracked files the checker reads beyond its own sources, or that the cases stage and name: the
-// line-ending and ignore rules, the manifest, the other type project configs, and the modules
-// and asset the type, rename, and deletion cases remove.
+// line-ending and ignore rules, the manifest, the other type project configs, the page template
+// the SvelteKit seed sync requires, and the modules and asset the type, rename, and deletion
+// cases remove.
 const CHECKER_TEMPLATE_FILES = [
 	'.gitattributes',
 	'.gitignore',
@@ -155,6 +159,7 @@ const CHECKER_TEMPLATE_FILES = [
 	'package.json',
 	'.agents/skills/tsconfig.json',
 	'src/lib/convex/tsconfig.json',
+	'src/app.html',
 	'src/lib/billing/checkout-result.ts',
 	'src/lib/convex/constants.ts',
 	'static/favicon.ico'
@@ -276,6 +281,29 @@ let checkerTemplateDirectory: string | undefined;
 let checkerTemplateRepository: string;
 let bunVersion: string;
 let canary: CanaryOutcome;
+let sharedKitStateBefore: SharedKitState;
+let templateAppBeforeSeed: boolean;
+
+type SharedKitState = { app: string[] | 'absent'; seeds: string[] };
+
+/**
+ * What a SvelteKit seed sync would leave in this checkout's `node_modules`: the generated `$app`
+ * entries and `.cache/kit-sync-*` scratch configs. Other `.cache` entries belong to tools that
+ * concurrent suites run, so they are not compared.
+ */
+function sharedKitState(): SharedKitState {
+	const modules = path.join(ROOT, 'node_modules');
+	const app = path.join(modules, '$app');
+	const cache = path.join(modules, '.cache');
+	return {
+		app: existsSync(app) ? readdirSync(app).sort() : 'absent',
+		seeds: existsSync(cache)
+			? readdirSync(cache)
+					.filter((name) => name.startsWith('kit-sync-'))
+					.sort()
+			: []
+	};
+}
 
 function readCommandLog(logPath: string): CommandInvocation[] {
 	if (!existsSync(logPath)) return [];
@@ -498,24 +526,25 @@ function seedCreatorState(
 }
 
 /**
- * Ensures Kit 3's generated base tsconfig exists for checker clones.
+ * Ensures Kit 3's generated base tsconfig exists in `project`, the checker template.
  *
- * Sync writes `node_modules/$app/tsconfig.json`, which is what the root config
- * extends. Clones symlink this checkout's `node_modules`, so one write serves
- * every case. A job that installs with `--ignore-scripts` has not synced yet;
- * the first fixture does, and the rest find the file. `.svelte-kit/tsconfig.json`
- * is not a Kit 3 output, and syncing once per case to look for it is not.
+ * Sync writes `node_modules/$app/tsconfig.json`, which is what the root config extends. The
+ * template owns a real `node_modules` from `linkDependencies`, and every clone links it, so one
+ * sync serves every case and never writes this checkout. A job that installs with
+ * `--ignore-scripts` has never synced; the template's `$app` starts absent either way.
+ * `.svelte-kit/tsconfig.json` is not a Kit 3 output, and syncing once per case to look for it
+ * is not.
  *
  * The sync reads a config with only the stock plugin, not `vite.config.ts`. The application
  * config bootstraps Varlock, and a swallowed failure there ends in `env_invalid`, which would
  * put this tooling suite back on the path `vitest.tooling.config.ts` exists to avoid. The
  * generated base config does not depend on the application's Vite options.
  */
-function seedGeneratedKitProject(): void {
-	const generated = path.join(ROOT, 'node_modules', '$app', 'tsconfig.json');
+function seedGeneratedKitProject(project: string): void {
+	const generated = path.join(project, 'node_modules', '$app', 'tsconfig.json');
 	if (existsSync(generated)) return;
-	// Inside `node_modules`, so the bare import resolves from this checkout.
-	const cache = path.join(ROOT, 'node_modules', '.cache');
+	// Inside `node_modules`, so the bare import resolves from the project's packages.
+	const cache = path.join(project, 'node_modules', '.cache');
 	mkdirSync(cache, { recursive: true });
 	const directory = mkdtempSync(path.join(cache, 'kit-sync-'));
 	try {
@@ -524,10 +553,9 @@ function seedGeneratedKitProject(): void {
 			config,
 			"import { sveltekit } from '@sveltejs/kit/vite';\nexport default { plugins: [sveltekit()] };\n"
 		);
-		// Static-check runs in other test files sync this checkout too.
-		const sync = withSvelteKitSyncLockSync(ROOT, () =>
+		const sync = withSvelteKitSyncLockSync(project, () =>
 			spawnSync(BUN, ['svelte-kit', 'sync', '--config', config], {
-				cwd: ROOT,
+				cwd: project,
 				env: sanitizedGitEnv(),
 				encoding: 'utf8'
 			})
@@ -606,12 +634,12 @@ function createCheckerClone(
 			}
 		);
 		if (clone.status !== 0) throw new Error(`Local checker clone failed: ${clone.stderr}`);
+		// The template's own node_modules, which holds the seeded `$app`.
 		symlinkSync(
-			path.join(ROOT, 'node_modules'),
+			path.join(checkerTemplateRepository, 'node_modules'),
 			path.join(repository, 'node_modules'),
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
-		seedGeneratedKitProject();
 		seedCreatorState(repository, state, seed);
 
 		return {
@@ -778,7 +806,12 @@ beforeAll(() => {
 	bunVersion = (spawnSync(BUN, ['--version'], { encoding: 'utf8' }).stdout ?? '').trim();
 	checkerTemplateDirectory = mkdtempSync(path.join(TEMP_ROOT, 'static-checker-template-'));
 	checkerTemplateRepository = path.join(checkerTemplateDirectory, 'repository');
+	sharedKitStateBefore = sharedKitState();
 	prepareCheckerTemplate(checkerTemplateRepository);
+	// After the template commit, which force-adds everything present.
+	linkDependencies(realpathSync.native(ROOT), checkerTemplateRepository);
+	templateAppBeforeSeed = existsSync(path.join(checkerTemplateRepository, 'node_modules', '$app'));
+	seedGeneratedKitProject(checkerTemplateRepository);
 	canary = runCanary();
 }, 120_000);
 
@@ -786,6 +819,18 @@ afterAll(() => {
 	rmSync(recorderDirectory, { recursive: true, force: true });
 	// Unset when setup failed before the template was created.
 	if (checkerTemplateDirectory) rmSync(checkerTemplateDirectory, { recursive: true, force: true });
+});
+
+describe('checker template dependencies', () => {
+	it('seeds SvelteKit output in the template and leaves this checkout unchanged', () => {
+		const app = path.join(checkerTemplateRepository, 'node_modules', '$app');
+		expect(templateAppBeforeSeed).toBe(false);
+		expect(lstatSync(app).isDirectory()).toBe(true);
+		expect(realpathSync(path.join(app, 'tsconfig.json'))).toBe(
+			path.join(realpathSync(checkerTemplateRepository), 'node_modules', '$app', 'tsconfig.json')
+		);
+		expect(sharedKitState()).toEqual(sharedKitStateBefore);
+	});
 });
 
 describe('Windows lifecycle workflow coverage', () => {
@@ -1663,7 +1708,7 @@ describe('Knip static-check CLI behavior', { concurrent: false }, () => {
 		}
 	}, 45_000);
 
-	// The clone links the real node_modules. Its lockfile is the real one with only the varlock
+	// The clone links the real packages. Its lockfile is the real one with only the varlock
 	// resolution replaced, so the installed version alone decides the verdict.
 	function runWithLockedVarlock(locked: string) {
 		const checkout = createCheckerClone();

@@ -83,16 +83,6 @@ type ResolvedPath = string[] | undefined;
  */
 type Binding = { kind: 'path' | 'segments'; segments: string[] } | undefined;
 
-/** `path.resolve(import.meta.dirname, '..')` and the `fileURLToPath` spelling of it. */
-function isCheckoutRoot(node: ts.Expression): boolean {
-	if (!ts.isCallExpression(node)) return false;
-	if (node.expression.getText() !== 'path.resolve') return false;
-	const [base, up] = node.arguments;
-	if (!base || !up || !ts.isStringLiteral(up) || up.text !== '..') return false;
-	const text = base.getText();
-	return text === 'import.meta.dirname' || text === 'path.dirname(fileURLToPath(import.meta.url))';
-}
-
 function calleeName(node: ts.CallExpression): string {
 	return ts.isPropertyAccessExpression(node.expression)
 		? node.expression.name.text
@@ -178,28 +168,71 @@ function argumentSegments(argument: ts.Expression, bindings: Map<string, Binding
 	return [UNRESOLVED];
 }
 
-/** Resolves a path expression against the declarations `bindings` already holds. */
-function resolvePath(node: ts.Expression, bindings: Map<string, Binding>): ResolvedPath {
+/**
+ * The directory Vitest runs a test file from, which `process.cwd()` names: the checkout root,
+ * or the package directory for a test under `packages/<name>/`, which has its own runner.
+ */
+function runnerRoot(file: readonly string[]): string[] {
+	return file[0] === 'packages' && file.length > 2 ? file.slice(0, 2) : [];
+}
+
+/**
+ * The path a `fileURLToPath` argument names: the module itself for `import.meta.url`, and a
+ * literal resolved against the module's directory for `new URL(literal, import.meta.url)`.
+ */
+function fileUrlPath(argument: ts.Expression | undefined, file: readonly string[]): ResolvedPath {
+	if (argument?.getText() === 'import.meta.url') return [...file];
+	if (!argument || !ts.isNewExpression(argument) || argument.expression.getText() !== 'URL') {
+		return undefined;
+	}
+	const [relative, base] = argument.arguments ?? [];
+	if (!relative || !ts.isStringLiteral(relative) || base?.getText() !== 'import.meta.url') {
+		return undefined;
+	}
+	return normalize([...file.slice(0, -1), ...relative.text.split('/')]);
+}
+
+/**
+ * Resolves a path expression against the declarations `bindings` already holds. `file` is the
+ * test's own path as checkout segments, which places every module-relative spelling:
+ * `import.meta.dirname`, `import.meta.filename`, `__dirname`, `__filename`,
+ * `fileURLToPath(...)`, `path.dirname(...)` and `process.cwd()`. The arguments after a resolved
+ * base are read and normalized, never dropped, so
+ * `path.resolve(import.meta.dirname, '..', 'scratch')` is the scratch directory.
+ */
+function resolvePath(
+	node: ts.Expression,
+	bindings: Map<string, Binding>,
+	file: readonly string[]
+): ResolvedPath {
 	if (ts.isIdentifier(node)) {
 		const binding = bindings.get(node.text);
 		return binding?.kind === 'path' ? binding.segments : undefined;
 	}
-	if (isCheckoutRoot(node)) return [];
+	const text = node.getText();
+	if (text === 'import.meta.dirname' || text === '__dirname') return file.slice(0, -1);
+	if (text === 'import.meta.filename' || text === '__filename') return [...file];
+	if (text === 'process.cwd()') return runnerRoot(file);
 	if (!ts.isCallExpression(node)) return undefined;
 
 	const callee = calleeName(node);
 	const [base, ...rest] = node.arguments;
 	if (!base) return undefined;
+	if (callee === 'fileURLToPath') return fileUrlPath(base, file);
+	if (callee === 'dirname') {
+		const child = resolvePath(base, bindings, file);
+		return child && child.length > 0 ? child.slice(0, -1) : undefined;
+	}
 
 	// `mkdtempSync(prefix)` creates a sibling of its prefix: same parent, a name the operating
 	// system generates and which therefore names one child.
 	if (callee === 'mkdtempSync' || callee === 'mkdtemp') {
-		const prefix = resolvePath(base, bindings);
+		const prefix = resolvePath(base, bindings, file);
 		return prefix && prefix.length > 0 ? [...prefix.slice(0, -1), GENERATED] : undefined;
 	}
 	if (callee !== 'join' && callee !== 'resolve') return undefined;
 
-	const start = resolvePath(base, bindings);
+	const start = resolvePath(base, bindings, file);
 	if (!start) return undefined;
 	const segments = [...start];
 	for (const argument of rest) segments.push(...argumentSegments(argument, bindings));
@@ -209,10 +242,11 @@ function resolvePath(node: ts.Expression, bindings: Map<string, Binding>): Resol
 /** What one ordinary parameter stands for at a given call site. */
 function parameterBinding(
 	argument: ts.Expression | undefined,
-	bindings: Map<string, Binding>
+	bindings: Map<string, Binding>,
+	file: readonly string[]
 ): Binding {
 	if (!argument) return undefined;
-	const anchored = resolvePath(argument, bindings);
+	const anchored = resolvePath(argument, bindings, file);
 	if (anchored) return { kind: 'path', segments: anchored };
 	return { kind: 'segments', segments: argumentSegments(argument, bindings) };
 }
@@ -285,8 +319,9 @@ function collectHelpers(parsed: ts.SourceFile): Map<string, Helper> {
  * inside the checkout outside `scratch/` and `node_modules/`. A path decided only at run time
  * is not seen.
  */
-function transientSourceProducers(source: string, fileName = 'probe.test.ts'): number[] {
+function transientSourceProducers(source: string, fileName = 'scripts/probe.test.ts'): number[] {
 	const parsed = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
+	const file = fileName.split('/');
 	const helpers = collectHelpers(parsed);
 	const helperBodies = new Set([...helpers.values()].map((helper) => helper.body));
 	const lines = new Set<number>();
@@ -302,7 +337,7 @@ function transientSourceProducers(source: string, fileName = 'probe.test.ts'): n
 		// Declarations are recorded as they are reached, so a later call resolves the
 		// identifier it actually used rather than a same-named one from elsewhere.
 		if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
-			const resolved = resolvePath(node.initializer, bindings);
+			const resolved = resolvePath(node.initializer, bindings, file);
 			bindings.set(node.name.text, resolved && { kind: 'path', segments: resolved });
 		}
 
@@ -311,7 +346,7 @@ function transientSourceProducers(source: string, fileName = 'probe.test.ts'): n
 			const positions = MUTATING_CALLS.get(callee);
 			for (const position of positions ?? []) {
 				const argument = node.arguments[position];
-				if (!argument || !isReportablePath(resolvePath(argument, bindings))) continue;
+				if (!argument || !isReportablePath(resolvePath(argument, bindings, file))) continue;
 				lines.add(lineOf(node));
 				break;
 			}
@@ -331,7 +366,7 @@ function transientSourceProducers(source: string, fileName = 'probe.test.ts'): n
 						parameter.name.text,
 						parameter.dotDotDotToken
 							? restBinding(node.arguments.slice(index), bindings)
-							: parameterBinding(node.arguments[index], bindings)
+							: parameterBinding(node.arguments[index], bindings, file)
 					);
 				});
 				const nested = new Set([...stack, callee]);
@@ -350,9 +385,12 @@ function transientSourceProducers(source: string, fileName = 'probe.test.ts'): n
 	return [...lines].sort((a, b) => a - b);
 }
 
-/** Tracked test sources, listed by Git so the scan does not walk `node_modules`. */
+/**
+ * Tracked Vitest and Playwright sources in every directory, listed by Git so the scan does not
+ * walk `node_modules`. A pathspec `*` also matches `/`, so `eslint/rules/` and `e2e/` count.
+ */
 function testFiles(): string[] {
-	const result = spawnSync('git', ['ls-files', '-z', '--', '*.test.ts'], {
+	const result = spawnSync('git', ['ls-files', '-z', '--', '*.test.ts', '*.spec.ts'], {
 		cwd: ROOT,
 		encoding: 'utf8',
 		env: sanitizedGitEnv()
@@ -603,6 +641,48 @@ mkdirSync(directory, { recursive: true });
 writeFileSync(path.join(temporary, 'instructions.md'), 'safe');
 rmSync(directory, { recursive: true, force: true });`;
 		expect(transientSourceProducers(source)).toEqual([5, 6, 7, 8]);
+	});
+
+	it('places a URL-derived root two directories above an eslint/rules test', () => {
+		const source = [
+			"const repoRoot = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));",
+			'await mkdir(path.dirname(path.join(repoRoot, filePath)), { recursive: true });',
+			'await writeFile(path.join(repoRoot, filePath), source);'
+		].join('\n');
+		expect(transientSourceProducers(source, 'eslint/rules/probe.test.ts')).toEqual([2, 3]);
+	});
+
+	it('places a fixture directory next to the test module', () => {
+		const source =
+			"fixtures = fs.mkdtempSync(path.join(import.meta.dirname, 'tmp-svelte-module-extension-'));";
+		expect(transientSourceProducers(source, 'eslint/rules/probe.test.ts')).toEqual([1]);
+	});
+
+	it('places a file under the runner root that process.cwd() names', () => {
+		const source = [
+			"const fixture = join(process.cwd(), 'e2e', 'public-lifecycle-probe.spec.ts');",
+			"writeFileSync(fixture, 'source');",
+			'rmSync(fixture, { force: true });'
+		].join('\n');
+		expect(transientSourceProducers(source)).toEqual([2, 3]);
+	});
+
+	it('places the dirname spelling of the module root', () => {
+		const source = [
+			"const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');",
+			"writeFileSync(path.join(ROOT, '.probe.ts'), 'source');"
+		].join('\n');
+		expect(transientSourceProducers(source)).toEqual([2]);
+	});
+
+	it('reads the segments after an inline module root', () => {
+		const source = [
+			"const inline = mkdtempSync(path.resolve(import.meta.dirname, '..', 'scratch', 'probe-'));",
+			"const root = path.resolve(import.meta.dirname, '..');",
+			"const separate = mkdtempSync(path.join(root, 'scratch', 'probe-'));",
+			"const source = mkdtempSync(path.resolve(import.meta.dirname, '..', 'src', 'probe-'));"
+		].join('\n');
+		expect(transientSourceProducers(source)).toEqual([4]);
 	});
 
 	it('leaves a throwaway checkout under tmpdir() alone', () => {

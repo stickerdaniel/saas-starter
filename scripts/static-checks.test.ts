@@ -411,7 +411,7 @@ describe('repository path safety', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 		}
 	});
 
-	it('counts files Prettier visits even when local Git configuration ignores them', async () => {
+	it('counts files Prettier visits even when local Git configuration ignores them', () => {
 		const { repository } = checkout();
 		const directory = mkdtempSync(path.join(tmpdir(), 'static-checks-local-ignore-'));
 		const excludes = path.join(directory, 'excludes');
@@ -426,9 +426,13 @@ describe('repository path safety', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 			GIT_CONFIG_VALUE_0: excludes
 		};
 		try {
+			// All three run under the same local excludes: the formatter helpers must still see
+			// the file Git ignores.
 			expect(evaluateInCheckout('checks.repositoryPaths()', env)).not.toContain(relative);
-			expect(prettierTraversalPaths(repository)).toContain(relative);
-			expect(await prettierFormattableFiles([relative], repository)).toEqual([relative]);
+			expect(evaluateInCheckout('checks.prettierTraversalPaths()', env)).toContain(relative);
+			expect(
+				evaluateInCheckout(`checks.prettierFormattableFiles([${JSON.stringify(relative)}])`, env)
+			).toEqual([relative]);
 		} finally {
 			rmSync(file, { force: true });
 			rmSync(directory, { recursive: true, force: true });
