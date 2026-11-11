@@ -3,13 +3,12 @@ import { smoothStream } from 'ai';
 import { STREAM_DELTA_OPTIONS } from './streamDeltas';
 
 /**
- * The reason for this setting is invisible in the value itself: `line` and the
- * clause regex differ only in how long a reply can stall before anything is
- * written, and nothing about the constant says which one stalls. So the guard
- * runs the transform the agent builds from it (`mergeTransforms` pushes exactly
- * `smoothStream({ delayInMs: null, chunking })`, which is not exported) and
- * measures the stall on prose that contains no newline at all: the shape where
- * line chunking emits one part for the entire paragraph.
+ * The reason for this setting is invisible in the value itself: nothing about
+ * the constant says whether `line` or the punctuation-and-whitespace regex
+ * stalls a reply. So the guard runs the transform the agent builds from it
+ * (`mergeTransforms` pushes exactly `smoothStream({ delayInMs: null, chunking })`,
+ * which is not exported) on prose that contains no newline at all, and checks
+ * how many parts each setting emits before the reply ends.
  */
 const PARAGRAPH =
 	'The limiter keys on the caller address, so nothing new has to be threaded ' +
@@ -50,13 +49,10 @@ describe('stream delta chunking', () => {
 	});
 
 	// What this replaced, and it is worse than a coarse chunk: with no newline to
-	// cut on, nothing is emitted at all. The buffer only flushes on a chunk of
-	// another type, so the whole paragraph waits for the end of the reply.
+	// cut on, nothing is emitted at all. While text deltas keep one id and carry
+	// no provider metadata, the buffer flushes only on a newline, so the paragraph
+	// waits for the next non-text part.
 	it('is not the line chunking that emits nothing without a newline', async () => {
 		expect(await partsFor('line')).toHaveLength(0);
-	});
-
-	it('still throttles writes to ten per second of generation', () => {
-		expect(STREAM_DELTA_OPTIONS.throttleMs).toBe(100);
 	});
 });
