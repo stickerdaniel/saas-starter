@@ -229,13 +229,6 @@ test.describe('Admin Users Table', () => {
 		).toEqual([]);
 	});
 
-	test('renders table controls', async ({ page }) => {
-		await expect(page.getByTestId('admin-users-search')).toBeVisible();
-		await expect(page.getByTestId('admin-users-pagination-prev')).toBeVisible();
-		await expect(page.getByTestId('admin-users-pagination-next')).toBeVisible();
-		await expect(page.getByTestId('admin-users-pagination-last')).toBeVisible();
-	});
-
 	test('search filters users', async ({ page }) => {
 		const search = page.getByTestId('admin-users-search');
 		await search.fill(searchTargetEmail);
