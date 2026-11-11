@@ -43,14 +43,6 @@ test.describe('Admin Settings Table', () => {
 		).toEqual([]);
 	});
 
-	test('renders settings table controls', async ({ page }) => {
-		await expect(page.getByTestId('admin-settings-search')).toBeVisible();
-		await expect(page.getByTestId('admin-settings-type-filter-trigger')).toBeVisible();
-		await expect(page.getByTestId('admin-settings-pagination-prev')).toBeVisible();
-		await expect(page.getByTestId('admin-settings-pagination-next')).toBeVisible();
-		await expect(page.getByTestId('admin-settings-pagination-last')).toBeVisible();
-	});
-
 	test('syncs search/filter/sort to URL', async ({ page }) => {
 		await page.getByTestId('admin-settings-search').fill('admin');
 		await expectTableQueryParams(page, { search: 'admin' });

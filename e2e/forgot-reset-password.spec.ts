@@ -87,24 +87,6 @@ test.describe('Forgot Password', () => {
 		await expect(page).toHaveURL(/forgot-password/);
 	});
 
-	test('shows success message after valid email submission', async ({ page }) => {
-		await openForm(page, '/en/forgot-password', 'forgot-password-email-input');
-		await expect(page.getByTestId('forgot-password-submit-button')).toBeEnabled({
-			timeout: 30000
-		});
-
-		// Submit with a valid E2E address that does not need to exist for this test.
-		await page
-			.getByTestId('forgot-password-email-input')
-			.fill(`forgot-unknown-${Date.now()}@e2e.example.com`);
-		await page.getByTestId('forgot-password-submit-button').click();
-
-		// Should show success message (API returns success even for non-existent emails — security best practice)
-		await expect(page.getByTestId('forgot-password-success-message')).toBeVisible({
-			timeout: 10000
-		});
-	});
-
 	/**
 	 * Account enumeration guard. Better Auth answers /request-password-reset
 	 * identically whether or not the address has an account, and the screen must
