@@ -44,7 +44,7 @@ test('signout works, and is not stopped by an upload in flight', async ({ signou
 			mimeType: 'text/plain',
 			buffer: Buffer.from('Signout regression notes.\n', 'utf8')
 		});
-	await expect(page.getByTestId('attachment-chip').first().getByRole('progressbar')).toBeVisible({
+	await expect(page.getByTestId('attachment-chip').first().getByRole('status')).toBeVisible({
 		timeout: 15000
 	});
 

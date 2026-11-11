@@ -19,8 +19,8 @@ test.describe('AI Chat - attachment text preview', () => {
 		await expect(page.locator('textarea')).toBeVisible({ timeout: 10000 });
 
 		// Attach a markdown file through the hidden file input. Uploading also
-		// exercises the server MIME allowlist: the chip only becomes clickable
-		// once the upload succeeds.
+		// exercises the server MIME allowlist: the attachment only offers a
+		// preview once the upload succeeds.
 		await page
 			.locator('input[type="file"]')
 			.first()
@@ -30,11 +30,7 @@ test.describe('AI Chat - attachment text preview', () => {
 				buffer: Buffer.from(MARKDOWN, 'utf8')
 			});
 
-		const chip = page.getByTestId('attachment-chip').first();
-		await expect(chip).toBeVisible({ timeout: 15000 });
-		// role="button" is only set once the attachment is clickable (upload done).
-		await expect(chip).toHaveAttribute('role', 'button', { timeout: 20000 });
-		await chip.click();
+		await page.getByRole('button', { name: 'Preview e2e-notes.md' }).click({ timeout: 20000 });
 
 		const content = page.getByTestId('attachment-preview-content');
 		await expect(content).toBeVisible({ timeout: 15000 });
@@ -63,8 +59,8 @@ test.describe('AI Chat - attachment text preview', () => {
 			buffer: Buffer.from('# Long title\nPreview title geometry.', 'utf8')
 		});
 
-		const longChip = page.getByTestId('attachment-chip').filter({ hasText: longName });
-		await expect(longChip).toHaveAttribute('role', 'button', { timeout: 20000 });
+		const longPreview = page.getByRole('button', { name: `Preview ${longName}` });
+		await expect(longPreview).toBeAttached({ timeout: 20000 });
 
 		const shortName = 'brief.md';
 		await fileInput.setInputFiles({
@@ -72,9 +68,9 @@ test.describe('AI Chat - attachment text preview', () => {
 			mimeType: 'text/markdown',
 			buffer: Buffer.from('# Brief\nNo hidden title text.', 'utf8')
 		});
-		const shortChip = page.getByTestId('attachment-chip').filter({ hasText: shortName });
-		await expect(shortChip).toHaveAttribute('role', 'button', { timeout: 20000 });
-		await longChip.click();
+		const shortLabel = `Preview ${shortName}`;
+		await expect(page.getByRole('button', { name: shortLabel })).toBeAttached({ timeout: 20000 });
+		await longPreview.click();
 
 		const dialog = page.getByRole('dialog');
 		await expect(dialog).toBeVisible();
@@ -112,32 +108,10 @@ test.describe('AI Chat - attachment text preview', () => {
 		await expect(title).toBeFocused();
 		await expect(tooltip).toHaveText(longName);
 
-		const reopenedBeforeUnmount = await page.evaluate((filename) => {
-			return new Promise<boolean>((resolve) => {
-				const content = document.querySelector<HTMLElement>('[data-slot="dialog-content"]');
-				const closeButton = content?.querySelector<HTMLElement>('[data-slot="dialog-close"]');
-				const shortAttachment = [
-					...document.querySelectorAll<HTMLElement>('[data-testid="attachment-chip"]')
-				].find((element) => element.textContent?.includes(filename));
-				if (!content || !closeButton || !shortAttachment) {
-					resolve(false);
-					return;
-				}
-
-				const reopen = () => {
-					if (content.dataset.state !== 'closed') return;
-					const remainedConnected = content.isConnected;
-					observer.disconnect();
-					shortAttachment.click();
-					resolve(remainedConnected);
-				};
-				const observer = new MutationObserver(reopen);
-				observer.observe(content, { attributes: true, attributeFilter: ['data-state'] });
-				closeButton.click();
-				reopen();
-			});
-		}, shortName);
-		expect(reopenedBeforeUnmount).toBe(true);
+		// Each attachment owns its dialog, so the next preview opens once this one is gone.
+		await close.click();
+		await expect(dialog).toHaveCount(0);
+		await page.getByRole('button', { name: shortLabel }).click();
 		await expect(dialog).toBeVisible();
 		await expect(dialog).toHaveAccessibleName(shortName);
 

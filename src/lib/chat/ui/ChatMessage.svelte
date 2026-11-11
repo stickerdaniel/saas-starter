@@ -140,7 +140,7 @@
 	>
 	{#if attachments.length > 0}
 		<div class="max-w-17/20 md:max-w-3/4">
-			<ChatAttachments {attachments} readonly={true} columns={2} {align} class="px-0" />
+			<ChatAttachments {attachments} readonly={true} {align} />
 		</div>
 	{/if}
 	<Message class="flex w-full flex-col gap-2 {align === 'right' ? 'items-end' : 'items-start'}">

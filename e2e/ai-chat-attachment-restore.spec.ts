@@ -40,7 +40,7 @@ test.describe('AI chat attachment restore', () => {
 	test('an uploaded file is still attached after a reload', async ({ page }) => {
 		await attachNotes(page, 'restored.txt');
 		await expect(chip(page)).toContainText('restored.txt', { timeout: 15000 });
-		await expect(chip(page).getByRole('progressbar')).toBeHidden({ timeout: 30000 });
+		await expect(chip(page).getByRole('status')).toBeHidden({ timeout: 30000 });
 		await expect(chip(page)).not.toHaveAttribute('data-upload-failed', '');
 
 		await page.reload();
@@ -58,7 +58,7 @@ test.describe('AI chat attachment restore', () => {
 			// Deliberately unanswered: an upload that neither finishes nor fails.
 		});
 		await attachNotes(page, 'in-flight.txt');
-		await expect(chip(page).getByRole('progressbar')).toBeVisible({ timeout: 15000 });
+		await expect(chip(page).getByRole('status')).toBeVisible({ timeout: 15000 });
 
 		await page.reload();
 		await waitForAuthenticated(page);

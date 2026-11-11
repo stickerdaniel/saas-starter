@@ -993,7 +993,6 @@
 						attachments={ctx.attachments}
 						onRemove={handleRemoveAttachment}
 						onRetry={handleRetryAttachment}
-						columns={2}
 					/>
 				{/if}
 				<!-- Single line: actions inline beside the textarea (pill). Multi-line:
@@ -1065,7 +1064,6 @@
 						attachments={ctx.attachments}
 						onRemove={handleRemoveAttachment}
 						onRetry={handleRetryAttachment}
-						columns={2}
 					/>
 				{/if}
 				<PromptInputTextarea
