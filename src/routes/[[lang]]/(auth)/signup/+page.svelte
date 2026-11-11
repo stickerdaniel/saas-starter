@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import * as v from 'valibot';
 	import { authClient } from '#lib/auth-client.js';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
@@ -58,6 +59,11 @@
 	let formError = $state(getOAuthCallbackErrorKey(page.url.searchParams.get('error')) ?? '');
 	let verificationStep = $state<{ email: string } | null>(null);
 	let lastValidSignUpSubmission = $state<string | null>(null);
+	// A visitor may follow a link, such as the one to sign-in, while an OAuth start runs.
+	let left = false;
+	onDestroy(() => {
+		left = true;
+	});
 
 	const id = $props.id();
 
@@ -196,24 +202,43 @@
 		formError = '';
 		beginOAuth(provider);
 
+		let failure: unknown = null;
 		try {
-			await authClient.signIn.social({
-				provider,
-				callbackURL: authPageURL(
-					localizedHref('/signin'),
-					safeAuthDestination(params.redirectTo, localizedHref('/app'))
-				),
-				// Without this the callback reports a failure to Better Auth's default
-				// error URL, which is the marketing homepage in production.
-				errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signup'), params.redirectTo)
-			});
+			// A refused start, such as a 400 or 503, resolves with `error`; only a
+			// network failure throws. On success Better Auth's client navigates to
+			// the provider by itself.
+			const { error } = await authClient.signIn.social(
+				{
+					provider,
+					callbackURL: authPageURL(
+						localizedHref('/signin'),
+						safeAuthDestination(params.redirectTo, localizedHref('/app'))
+					),
+					// Without this the callback reports a failure to Better Auth's default
+					// error URL, which is the marketing homepage in production.
+					errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signup'), params.redirectTo)
+				},
+				{
+					// Better Auth's redirect plugin navigates before this call returns. Per-call
+					// hooks run ahead of it, so a page the visitor already left turns it off here.
+					onSuccess: (ctx) => {
+						if (left) ctx.data.redirect = false;
+					}
+				}
+			);
+			failure = error;
 		} catch (error) {
-			clearPendingOAuthProvider();
-			console.error(`[SignUp] OAuth ${provider} error:`, error);
-			formError = 'auth.messages.oauth_failed';
-		} finally {
-			isLoading = false;
+			failure = error;
 		}
+		// The pending provider is shared with the page the visitor moved on to,
+		// which may have started its own attempt.
+		if (left) return;
+		if (failure) {
+			clearPendingOAuthProvider();
+			console.error(`[SignUp] OAuth ${provider} error:`, failure);
+			formError = 'auth.messages.oauth_failed';
+		}
+		isLoading = false;
 	}
 
 	// A callback failure comes back as a URL parameter, since the page that
