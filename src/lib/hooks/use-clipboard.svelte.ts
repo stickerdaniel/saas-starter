@@ -1,5 +1,3 @@
-import { useDebounce } from 'runed';
-
 type Options = {
 	/** The time before the copied status is reset. */
 	delay: number;
@@ -29,15 +27,12 @@ type Options = {
  */
 export class UseClipboard {
 	#copiedStatus = $state<'success' | 'failure'>();
-	// Reactive so useDebounce's $derived wait getter is never read before the
-	// constructor assigns it, and stays correct if the delay ever changes
-	#delay = $state(500);
-	#resetStatus = useDebounce(
-		() => {
-			this.#copiedStatus = undefined;
-		},
-		() => this.#delay
-	);
+	#delay: number;
+	// Owned timer instead of runed's useDebounce: its cancel() defers by one
+	// macrotask when nothing is pending, then clears a timer armed meanwhile
+	#resetTimer: ReturnType<typeof setTimeout> | undefined;
+	// Only the latest copy may write the status and arm the reset
+	#attempt = 0;
 
 	constructor({ delay = 500 }: Partial<Options> = {}) {
 		this.#delay = delay;
@@ -54,18 +49,26 @@ export class UseClipboard {
 	 * @returns
 	 */
 	async copy(text: string) {
+		const attempt = ++this.#attempt;
 		// Re-copy while a reset is pending: clear the badge first so the
-		// success/failure transition re-fires, like the old clearTimeout path
-		if (this.#resetStatus.pending) {
+		// success/failure transition re-fires
+		if (this.#resetTimer !== undefined) {
+			clearTimeout(this.#resetTimer);
+			this.#resetTimer = undefined;
 			this.#copiedStatus = undefined;
 		}
-		this.#resetStatus.cancel();
 
-		this.#copiedStatus = await copyText(text);
+		const status = await copyText(text);
+		// A newer copy started while this one awaited the clipboard; its result wins
+		if (attempt !== this.#attempt) return status;
 
-		void this.#resetStatus().catch(() => {});
+		this.#copiedStatus = status;
+		this.#resetTimer = setTimeout(() => {
+			this.#resetTimer = undefined;
+			this.#copiedStatus = undefined;
+		}, this.#delay);
 
-		return this.#copiedStatus;
+		return status;
 	}
 
 	/** true when the user has just copied to the clipboard. */
