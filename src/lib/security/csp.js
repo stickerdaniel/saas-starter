@@ -190,6 +190,16 @@ export function deriveSentryReportUri(dsn) {
 }
 
 /**
+ * Svelte's server output writes `onload` and `onerror` with this body on every
+ * load/error element (img, iframe, link, ...) that carries spread props or a `use:`
+ * action, bits-ui's Avatar.Image included, so hydration can replay a load that
+ * finished first. Inline handlers fall under script-src-attr, where a hash matches
+ * only next to 'unsafe-hashes'. The hash admits this one body and no other handler.
+ * @type {`sha256-${string}`}
+ */
+const SVELTE_EVENT_REPLAY_HASH = `sha256-${createHash('sha256').update('this.__e=event', 'utf8').digest('base64')}`;
+
+/**
  * Shape of the `csp` option of the `sveltekit()` Vite plugin.
  * @typedef {NonNullable<import('@sveltejs/kit/vite').Config['csp']>} KitCspConfig
  */
@@ -229,6 +239,7 @@ export function buildContentSecurityPolicy({ sentryDsn, appTemplate }) {
 			// (kit's nonce/hash-tagged bootstrap); the template hashes cover the
 			// inline blocks kit does not tag.
 			'script-src': ['self', 'strict-dynamic', ...templateScriptHashes],
+			'script-src-attr': ['unsafe-hashes', SVELTE_EVENT_REPLAY_HASH],
 			'object-src': ['none'],
 			'base-uri': ['self'],
 			'report-uri': [reportUri]

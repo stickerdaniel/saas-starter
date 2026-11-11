@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { defaultTreeAdapter as tree, parse, type DefaultTreeAdapterTypes } from 'parse5';
+import { compile } from 'svelte/compiler';
 import { describe, expect, it } from 'vitest';
 import {
 	appTemplateScriptHashes,
@@ -260,5 +261,23 @@ describe('buildContentSecurityPolicy', () => {
 		expect(csp.reportOnly?.['report-uri']).toEqual([
 			'https://o123456.ingest.sentry.io/api/7890/security/?sentry_key=abc123'
 		]);
+	});
+
+	it('report-only script-src-attr allows the load and error handlers Svelte writes on the server', () => {
+		// Svelte writes them on load/error elements with spread props, such as
+		// bits-ui's Avatar.Image, so hydration can replay a load that finished first.
+		const { js } = compile('<script>let props = $props();</script><img {...props} />', {
+			generate: 'server'
+		});
+		const handlers = [...js.code.matchAll(/ on(?:load|error)="([^"]+)"/g)].flatMap(([, body]) =>
+			body ? [body] : []
+		);
+		expect(handlers).toHaveLength(2);
+		const scriptSrcAttr =
+			buildContentSecurityPolicy({ sentryDsn: SENTRY_DSN, appTemplate }).reportOnly?.[
+				'script-src-attr'
+			] ?? [];
+		expect(scriptSrcAttr).toContain('unsafe-hashes');
+		for (const handler of handlers) expect(scriptSrcAttr).toContain(sha256(handler));
 	});
 });
