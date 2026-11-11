@@ -13,8 +13,9 @@ import { DEFAULT_STREAMING_OPTIONS } from '@convex-dev/agent';
  * appears to stall and then land in one piece. Measured on a three-paragraph
  * reply at 45 tokens/s: 1244ms with no update at all, against 67ms here.
  *
- * The regex splits at every punctuation mark and every whitespace character,
- * so a delta can be written after almost any token.
+ * The regex ends a chunk after every punctuation mark and every whitespace
+ * character, so text becomes writable as soon as one arrives. A run without
+ * either, such as a long identifier, stays buffered until it ends.
  *
  * The cost is more writes, bounded by the throttle rather than by the chunk
  * size: `DeltaStreamer.addParts` coalesces everything that arrives inside one
