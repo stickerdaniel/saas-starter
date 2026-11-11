@@ -86,7 +86,7 @@ export function parseBetterAuthUsers(data: unknown[]): BetterAuthUser[] {
 		if (result.success) {
 			users.push(result.output);
 		} else {
-			console.warn('[parseBetterAuthUsers] Invalid user record:', result.issues[0]?.message);
+			console.warn({ code: 'better_auth_user_invalid', field: val.getDotPath(result.issues[0]) });
 		}
 	}
 	return users;
@@ -103,7 +103,10 @@ export function parseBetterAuthSessions(data: unknown[]): BetterAuthSession[] {
 		if (result.success) {
 			sessions.push(result.output);
 		} else {
-			console.warn('[parseBetterAuthSessions] Invalid session record:', result.issues[0]?.message);
+			console.warn({
+				code: 'better_auth_session_invalid',
+				field: val.getDotPath(result.issues[0])
+			});
 		}
 	}
 	return sessions;

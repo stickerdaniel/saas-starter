@@ -27,9 +27,11 @@ export const handleEmailEvent = internalMutation({
 		await applyFounderIncidentEmailEvent(ctx, args);
 
 		// Log the event for monitoring and debugging
+		// The event payload stays out: it carries recipients, subjects and the
+		// provider's bounce or failure text. The emailEvents row keeps it.
 		console.log('Email event received:', {
 			emailId: args.id,
-			event: args.event
+			eventType: args.event.type
 		});
 
 		// Store the event in the database for analytics
@@ -55,7 +57,7 @@ export const handleEmailEvent = internalMutation({
 				break;
 
 			case 'email.bounced':
-				console.warn(`Email ${args.id} bounced:`, args.event.data);
+				console.warn(`Email ${args.id} bounced`);
 				break;
 
 			case 'email.complained':
@@ -75,7 +77,7 @@ export const handleEmailEvent = internalMutation({
 				break;
 
 			case 'email.failed':
-				console.warn(`Email ${args.id} failed:`, args.event.data);
+				console.warn(`Email ${args.id} failed`);
 				break;
 		}
 		return null;

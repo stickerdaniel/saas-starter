@@ -35,8 +35,8 @@ export function normalizeAdminAuthError(error: unknown): AdminAuthErrorCode | un
 /**
  * Run one Better Auth admin operation at the Convex boundary.
  *
- * Provider failures are logged with their raw cause and exposed to clients only
- * as stable safe codes. Unexpected defects remain throwable and observable.
+ * Provider failures are logged and exposed to clients only as stable safe
+ * codes; the raw cause can quote the submitted email or password policy input. Unexpected defects remain throwable and observable.
  */
 export async function runAdminAuthApi(
 	operation: AdminAuthOperation,
@@ -45,9 +45,8 @@ export async function runAdminAuthApi(
 	try {
 		await call();
 	} catch (error) {
-		console.error(`[admin-auth:${operation}] Better Auth operation failed`, error);
-
 		const code = normalizeAdminAuthError(error);
+		console.error({ code: 'admin_auth_failed', operation, reason: code ?? 'unexpected' });
 		if (!code) throw error;
 
 		throw new ConvexError({ code });

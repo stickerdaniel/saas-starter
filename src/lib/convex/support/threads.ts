@@ -216,8 +216,8 @@ export const listThreads = query({
 							if (admin) {
 								adminMap.set(adminId, { name: admin.name, image: admin.image ?? null });
 							}
-						} catch (error) {
-							console.log(`[listThreads] Failed to fetch admin ${adminId}:`, error);
+						} catch {
+							console.log({ code: 'support_admin_unavailable', adminId });
 						}
 					})
 				);
@@ -310,8 +310,8 @@ export const getThread = query({
 						image: admin.image ?? null
 					};
 				}
-			} catch (error) {
-				console.log(`[getThread] Failed to fetch admin ${supportThread.assignedTo}:`, error);
+			} catch {
+				console.log({ code: 'support_admin_unavailable', adminId: supportThread.assignedTo });
 			}
 		}
 

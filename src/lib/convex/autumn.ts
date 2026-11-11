@@ -115,7 +115,7 @@ export async function checkAndCountUsage({
 		});
 	} catch (error) {
 		if (error instanceof CapabilityConfigurationError) return 'denied';
-		console.warn(`[checkAndCountUsage] Autumn unreachable for ${featureId}:`, error);
+		console.warn({ code: 'autumn_check_unavailable', featureId });
 		return 'unavailable';
 	}
 	if (!result.data) {

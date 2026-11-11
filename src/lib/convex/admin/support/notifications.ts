@@ -364,12 +364,12 @@ export const sendPendingAdminNotification = internalAction({
 					}
 				);
 				if (enqueued) sentCount++;
-			} catch (error) {
-				// Log error but continue to other recipients
-				console.error(
-					`[sendPendingAdminNotification] Failed to send email to ${email}:`,
-					error instanceof Error ? error.message : error
-				);
+			} catch {
+				// Log and continue to other recipients
+				console.error({
+					code: 'admin_notification_send_failed',
+					threadId: notification.threadId
+				});
 			}
 		}
 

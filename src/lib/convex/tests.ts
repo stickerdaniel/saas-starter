@@ -765,11 +765,8 @@ export const cleanupAnonymousSupportThreads = mutation({
 			try {
 				await supportAgent.deleteThreadAsync(ctx, { threadId, pageSize: 100 });
 				deletedAgentThreads++;
-			} catch (error) {
-				console.warn(
-					`[cleanupAnonymousSupportThreads] Failed to delete agent thread ${threadId}:`,
-					error
-				);
+			} catch {
+				console.warn({ code: 'anonymous_thread_delete_failed', threadId });
 			}
 
 			const supportThread = await ctx.db

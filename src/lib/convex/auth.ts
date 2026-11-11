@@ -172,8 +172,8 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 				if (user.role === 'admin') {
 					try {
 						await syncAdminPreferences(ctx, { userId: user._id, email: user.email });
-					} catch (error) {
-						console.error('Failed to create admin preferences:', error);
+					} catch {
+						console.error({ code: 'admin_preferences_create_failed', userId: user._id });
 					}
 				}
 
@@ -359,8 +359,8 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 						// Admin changed email → update preferences
 						await syncAdminPreferences(ctx, { userId: newUser._id, email: newUser.email });
 					}
-				} catch (error) {
-					console.error('Failed to sync admin preferences on user update:', error);
+				} catch {
+					console.error({ code: 'admin_preferences_sync_failed', userId: newUser._id });
 				}
 
 				// Support threads denormalize userName/userEmail into searchText;
@@ -372,8 +372,8 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 							userName: newUser.name ?? undefined,
 							userEmail: newUser.email
 						});
-					} catch (error) {
-						console.error('Failed to sync support thread profile on user update:', error);
+					} catch {
+						console.error({ code: 'support_profile_sync_failed', userId: newUser._id });
 					}
 				}
 			}
