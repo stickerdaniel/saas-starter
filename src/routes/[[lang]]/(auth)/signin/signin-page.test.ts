@@ -58,11 +58,10 @@ type EmailSignIn = (
 		onError: (context: { error: AuthError }) => void;
 	}
 ) => Promise<AuthResult>;
-type SocialSignIn = (body: {
-	provider: 'google' | 'github';
-	callbackURL: string;
-	errorCallbackURL: string;
-}) => Promise<unknown>;
+type SocialSignIn = (
+	body: { provider: 'google' | 'github'; callbackURL: string; errorCallbackURL: string },
+	options?: { onSuccess: (context: { data: { redirect: boolean; url: string } }) => void }
+) => Promise<unknown>;
 
 const state = await vi.hoisted(async () => {
 	// Reactive like SvelteKit's own `page.url`, so a rewrite of the query is
@@ -674,7 +673,7 @@ describe('sign-in page once hydrated', () => {
 	});
 });
 
-describe('sign-in page OAuth start failure', () => {
+describe('sign-in page OAuth start', () => {
 	beforeEach(() => {
 		const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
 		return () => logged.mockRestore();
@@ -684,18 +683,23 @@ describe('sign-in page OAuth start failure', () => {
 	 * Sends social sign-in through Better Auth's own client, which receives the
 	 * next of `responses` for each start. A refused start then reaches the page
 	 * the way the installed client hands it over: resolved, with `error` set.
+	 * A successful start navigates through its default redirect plugin.
 	 */
 	function startsAnswer(...responses: Array<Promise<Response>>): void {
 		const betterAuth = createAuthClient({
 			baseURL: 'https://example.com',
 			fetchOptions: { customFetchImpl: async () => responses.shift()! }
 		});
-		state.signIn.social.mockImplementation((body) => betterAuth.signIn.social(body));
+		state.signIn.social.mockImplementation((body, options) =>
+			betterAuth.signIn.social(body, options)
+		);
 	}
 
 	function alertText(): string {
 		return document.querySelector('[role="alert"]')?.textContent?.trim() ?? '';
 	}
+
+	const PROVIDER_URL = 'https://accounts.google.com/o/oauth2/v2/auth?state=attempt';
 
 	it.each([
 		{
@@ -736,5 +740,31 @@ describe('sign-in page OAuth start failure', () => {
 		expect(pendingOAuthProvider.current).toBe('google');
 		expect(alertText()).toBe('');
 		expect(button(en.auth.signin.oauth_google).disabled).toBe(true);
+	});
+
+	it('sends the visitor to the provider once the start succeeds', async () => {
+		startsAnswer(Promise.resolve(Response.json({ url: PROVIDER_URL, redirect: true })));
+		await renderSignIn('');
+
+		button(en.auth.signin.oauth_google).click();
+
+		await vi.waitFor(() => expect(navigations).toEqual([PROVIDER_URL]));
+	});
+
+	it('keeps a page the visitor left from following its late start', async () => {
+		let startFirst!: (response: Response) => void;
+		startsAnswer(new Promise((resolve) => (startFirst = resolve)));
+		await renderSignIn('');
+		button(en.auth.signin.oauth_google).click();
+		await vi.waitFor(() => expect(state.signIn.social).toHaveBeenCalledOnce());
+		await unmount(component!);
+		document.body.replaceChildren();
+		await renderSignIn('');
+
+		startFirst(Response.json({ url: PROVIDER_URL, redirect: true }));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
+
+		expect(navigations).toEqual([]);
 	});
 });

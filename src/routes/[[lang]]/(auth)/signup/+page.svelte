@@ -207,16 +207,25 @@
 			// A refused start, such as a 400 or 503, resolves with `error`; only a
 			// network failure throws. On success Better Auth's client navigates to
 			// the provider by itself.
-			const { error } = await authClient.signIn.social({
-				provider,
-				callbackURL: authPageURL(
-					localizedHref('/signin'),
-					safeAuthDestination(params.redirectTo, localizedHref('/app'))
-				),
-				// Without this the callback reports a failure to Better Auth's default
-				// error URL, which is the marketing homepage in production.
-				errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signup'), params.redirectTo)
-			});
+			const { error } = await authClient.signIn.social(
+				{
+					provider,
+					callbackURL: authPageURL(
+						localizedHref('/signin'),
+						safeAuthDestination(params.redirectTo, localizedHref('/app'))
+					),
+					// Without this the callback reports a failure to Better Auth's default
+					// error URL, which is the marketing homepage in production.
+					errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signup'), params.redirectTo)
+				},
+				{
+					// Better Auth's redirect plugin navigates before this call returns. Per-call
+					// hooks run ahead of it, so a page the visitor already left turns it off here.
+					onSuccess: (ctx) => {
+						if (left) ctx.data.redirect = false;
+					}
+				}
+			);
 			failure = error;
 		} catch (error) {
 			failure = error;

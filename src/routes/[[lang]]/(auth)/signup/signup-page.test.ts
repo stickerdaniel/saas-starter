@@ -107,8 +107,10 @@ import SignUpPage from './+page.svelte';
 
 type PageProps = { data: { oauthProviders: { google: boolean; github: boolean } } };
 
+const PROVIDER_URL = 'https://github.com/login/oauth/authorize?state=attempt';
 const originalElementAnimate = Object.getOwnPropertyDescriptor(Element.prototype, 'animate');
 let component: ReturnType<typeof mount> | undefined;
+let navigations: string[] = [];
 
 async function renderSignUp(): Promise<void> {
 	const client = {
@@ -173,7 +175,26 @@ beforeEach(() => {
 		}))
 	});
 	const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
-	return () => logged.mockRestore();
+	// Where the page, or Better Auth's redirect plugin, asks the browser to go.
+	// `href` itself is not configurable.
+	const location = Object.getOwnPropertyDescriptor(window, 'location')!;
+	const current = window.location.href;
+	navigations = [];
+	Object.defineProperty(window, 'location', {
+		configurable: true,
+		value: {
+			get href() {
+				return current;
+			},
+			set href(value: string) {
+				navigations.push(value);
+			}
+		}
+	});
+	return () => {
+		logged.mockRestore();
+		Object.defineProperty(window, 'location', location);
+	};
 });
 
 afterEach(async () => {
@@ -262,5 +283,30 @@ describe('sign-up page', () => {
 		expect(pendingOAuthProvider.current).toBe('github');
 		expect(alertText()).toBe('');
 		expect(button(en.auth.signin.oauth_github).disabled).toBe(true);
+	});
+
+	it('sends the visitor to the provider once the start succeeds', async () => {
+		state.network.mockResolvedValue(Response.json({ url: PROVIDER_URL, redirect: true }));
+		await renderSignUp();
+
+		button(en.auth.signin.oauth_github).click();
+
+		await vi.waitFor(() => expect(navigations).toEqual([PROVIDER_URL]));
+	});
+
+	it('keeps a page the visitor left from following its late start', async () => {
+		let startFirst!: (response: Response) => void;
+		state.network.mockReturnValueOnce(new Promise((resolve) => (startFirst = resolve)));
+		await renderSignUp();
+		button(en.auth.signin.oauth_github).click();
+		await vi.waitFor(() => expect(state.network).toHaveBeenCalledOnce());
+		await unmount(component!);
+		document.body.replaceChildren();
+		await renderSignUp();
+
+		startFirst(Response.json({ url: PROVIDER_URL, redirect: true }));
+		await settle();
+
+		expect(navigations).toEqual([]);
 	});
 });
