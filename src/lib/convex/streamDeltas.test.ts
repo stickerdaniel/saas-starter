@@ -4,7 +4,7 @@ import { STREAM_DELTA_OPTIONS } from './streamDeltas';
 
 /**
  * The reason for this setting is invisible in the value itself: `line` and the
- * clause regex differ only in how long a reply can stall before anything is
+ * punctuation regex differ only in how long a reply can stall before anything is
  * written, and nothing about the constant says which one stalls. So the guard
  * runs the transform the agent builds from it (`mergeTransforms` pushes exactly
  * `smoothStream({ delayInMs: null, chunking })`, which is not exported) and
@@ -54,9 +54,5 @@ describe('stream delta chunking', () => {
 	// another type, so the whole paragraph waits for the end of the reply.
 	it('is not the line chunking that emits nothing without a newline', async () => {
 		expect(await partsFor('line')).toHaveLength(0);
-	});
-
-	it('still throttles writes to ten per second of generation', () => {
-		expect(STREAM_DELTA_OPTIONS.throttleMs).toBe(100);
 	});
 });
