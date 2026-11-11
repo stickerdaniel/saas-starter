@@ -23,7 +23,9 @@ vi.mock('../../env', () => {
 
 vi.mock('../agent', () => ({
 	aiChatAgent: {
-		saveMessage: vi.fn().mockResolvedValue({ messageId: 'user_message' }),
+		saveMessage: vi
+			.fn()
+			.mockResolvedValue({ messageId: 'user_message', message: { _id: 'user_message', order: 0 } }),
 		streamText: vi.fn()
 	}
 }));

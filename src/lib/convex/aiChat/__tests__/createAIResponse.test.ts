@@ -240,7 +240,9 @@ describe('createAIResponse', () => {
 		await expect(handler._handler(ctx, args)).rejects.toThrow('metadata write failed');
 
 		// The stream was consumed, the response is saved: the unit is earned
+		// and the turn needs no failure notice
 		expect(refundUsageMock).not.toHaveBeenCalled();
+		expect(saveMessageMock).not.toHaveBeenCalled();
 	});
 
 	it('skips entitlement lookup without a userId after static configuration passes', async () => {
@@ -269,7 +271,10 @@ describe('sendMessage provider preflight', () => {
 		});
 		requireAiMock.mockReturnValue({ apiKey: 'configured' });
 		requireBillingMock.mockReturnValue({ secretKey: 'configured' });
-		agentSaveMessageMock.mockResolvedValue({ messageId: 'message_1' });
+		agentSaveMessageMock.mockResolvedValue({
+			messageId: 'message_1',
+			message: { _id: 'message_1', order: 0 }
+		});
 	});
 
 	it.each([requireBillingMock, requireAiMock])(
