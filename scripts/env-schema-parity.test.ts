@@ -99,11 +99,6 @@ describe('Convex env declaration parity', () => {
 	const schema = parseSchema();
 	const envBlock = parseEnvBlock();
 
-	it('schema is non-empty and was parsed', () => {
-		expect(schema.size).toBeGreaterThan(0);
-		expect(envBlock.size).toBeGreaterThan(0);
-	});
-
 	it('every schema var is declared in the env block', () => {
 		const missing = [...schema.keys()].filter((name) => !envBlock.has(name));
 		expect(

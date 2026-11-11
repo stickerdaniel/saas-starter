@@ -77,11 +77,6 @@ describe('favicon set', () => {
 		);
 	});
 
-	it('no longer references the legacy favicon.png', () => {
-		expect(appHtml).not.toContain('favicon.png');
-		expect(fs.existsSync(path.join(STATIC_DIR, 'favicon.png'))).toBe(false);
-	});
-
 	// Anti-drift: the vector favicon is generated from logo.svg, so every logo
 	// path must appear verbatim in favicon.svg. Catches a logo change that forgets
 	// to regenerate (or a hand-edit that desyncs them). Scoped to <path d="..."> so

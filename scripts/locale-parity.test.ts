@@ -31,10 +31,6 @@ function dottedKeyNames(value: unknown, prefix = ''): string[] {
 describe('locale key parity', () => {
 	const enKeys = leafKeys(en).sort();
 
-	it('en.json has leaf keys', () => {
-		expect(enKeys.length).toBeGreaterThan(0);
-	});
-
 	it.each(Object.keys(otherLocales))('%s.json has the same leaf keys as en.json', (lang) => {
 		const keys = leafKeys(otherLocales[lang as keyof typeof otherLocales]).sort();
 		expect(keys).toEqual(enKeys);

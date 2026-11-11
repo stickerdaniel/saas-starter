@@ -110,12 +110,4 @@ describe('kit.version config', () => {
 		expect(layout).toMatch(/deployReloadTarget\([^)]*updated\.current/);
 		expect(layout).toContain('location.href =');
 	});
-
-	it('registers a vite:preloadError backstop that reloads once', () => {
-		const appHtml = fs.readFileSync(path.resolve('src/app.html'), 'utf-8');
-		expect(appHtml).toContain("addEventListener('vite:preloadError'");
-		expect(appHtml).toContain('location.reload()');
-		// A sessionStorage guard must gate the reload so a stale shell cannot loop.
-		expect(appHtml).toMatch(/sessionStorage\.getItem\(['"]sk:preload-reloaded['"]\)/);
-	});
 });

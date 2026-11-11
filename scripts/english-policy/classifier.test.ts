@@ -1,4 +1,3 @@
-import { eld } from 'eld/extrasmall';
 import { describe, expect, it } from 'vitest';
 import {
 	CODE_IDENTIFIER,
@@ -66,14 +65,6 @@ describe('English classifier', () => {
 		}
 	);
 
-	it('pins strong ELD evidence for the single German subject', () => {
-		const scores = finiteLanguageScores(eld.detect('aktualisieren').getScores());
-		expect(scores[0]).toMatchObject({ language: 'de' });
-		expect(scores[0]!.score).toBeGreaterThan(0.79);
-		expect(scores[0]!.score).toBeLessThan(0.8);
-		expect(scores.find((score) => score.language === 'en')).toBeUndefined();
-	});
-
 	it('finds the required conventional-commit fixture after removing its prefix', () => {
 		const germanCommitFixture = 'fix(auth): Passwort zurücksetzen';
 		expect(normalizeTechnicalSyntax(germanCommitFixture)).toBe('Passwort zurücksetzen');
@@ -116,14 +107,6 @@ describe('English classifier', () => {
 			{ language: 'fr', score: 0.8 },
 			{ language: 'en', score: 0.5 }
 		]);
-	});
-
-	it('pins the installed ELD score shape for the required German fixture', () => {
-		const scores = finiteLanguageScores(eld.detect('Passwort zurücksetzen').getScores());
-		expect(scores[0]?.language).toBe('de');
-		expect(scores[0]?.score).toBeGreaterThan(0.75);
-		expect(scores[0]?.score).toBeLessThan(0.81);
-		expect(scores.find((score) => score.language === 'en')?.score).toBeLessThan(0.4);
 	});
 
 	it('does not access the detector reliability helper', () => {

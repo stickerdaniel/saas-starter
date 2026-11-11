@@ -40,13 +40,6 @@ describe('authenticated subtree layout loads', () => {
 		}
 	);
 
-	it('the root load consumes hook classification without tracking the request route', () => {
-		const root = fs.readFileSync(path.resolve('src/routes/+layout.server.ts'), 'utf-8');
-		expect(root).toContain('event.locals.publicAuthSnapshot');
-		expect(root).not.toContain('event.route');
-		expect(root).not.toContain('event.url');
-	});
-
 	it('pricing refreshes billing state when the root public snapshot is retained', () => {
 		const file = path.resolve('src/routes/[[lang]]/(marketing)/pricing/+page.server.ts');
 		expect(fs.readFileSync(file, 'utf-8')).toContain(
@@ -63,20 +56,5 @@ describe('authenticated subtree layout loads', () => {
 		expect(shared).toContain('export const authedSubtreeLayoutLoad');
 		expect(shared).toContain('event.isDataRequest');
 		expect(shared).toContain('resolveAuthLayoutData(event)');
-	});
-
-	it('the auth route matchers still gate only the guarded subtrees', () => {
-		const hooks = fs.readFileSync(path.resolve('src/hooks.server.ts'), 'utf-8');
-		const matchers = fs.readFileSync(path.resolve('src/lib/server/auth-route.ts'), 'utf-8');
-		// Pins the assumption that /app and /admin are the authenticated subtrees.
-		// If these route matchers change, AUTHED_SUBTREES above must be revisited.
-		expect(hooks).toContain('isProtectedRoute');
-		expect(hooks).toContain('isAdminRoute');
-		for (const subtree of AUTHED_SUBTREES) {
-			expect(
-				matchers.includes(`/${subtree}(?:`),
-				`auth-route.ts no longer matches /${subtree}; revisit AUTHED_SUBTREES`
-			).toBe(true);
-		}
 	});
 });

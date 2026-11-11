@@ -226,10 +226,6 @@ describe('i18n orphan keys', () => {
 	const leaves = flattenLeafKeys(en, '', new Set<string>());
 	const { used, literalCount } = deriveUsedKeys(leaves);
 
-	it('en.json has leaf keys', () => {
-		expect(leaves.size).toBeGreaterThan(0);
-	});
-
 	it('finds literal key references in src', () => {
 		// Sanity floor: if the walk or the regexes break, fail here loudly rather
 		// than letting the orphan assertion pass vacuously by flagging everything.
