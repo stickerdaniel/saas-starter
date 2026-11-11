@@ -118,6 +118,7 @@ import type * as support_denormalization from "../support/denormalization.js";
 import type * as support_errors from "../support/errors.js";
 import type * as support_files from "../support/files.js";
 import type * as support_handoff from "../support/handoff.js";
+import type * as support_messageContext from "../support/messageContext.js";
 import type * as support_messageListing from "../support/messageListing.js";
 import type * as support_messages from "../support/messages.js";
 import type * as support_migration from "../support/migration.js";
@@ -258,6 +259,7 @@ declare const fullApi: ApiFromModules<{
   "support/errors": typeof support_errors;
   "support/files": typeof support_files;
   "support/handoff": typeof support_handoff;
+  "support/messageContext": typeof support_messageContext;
   "support/messageListing": typeof support_messageListing;
   "support/messages": typeof support_messages;
   "support/migration": typeof support_migration;

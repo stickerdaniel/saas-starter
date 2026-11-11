@@ -498,14 +498,19 @@ export const createUnreadAnonymousSupportReply = mutation({
 		anonymousUserId: v.string(),
 		newerThreadCount: v.optional(v.number()),
 		/** The route the customer's message was sent from, past the thread's own `/`. */
-		messageRoute: v.optional(v.string())
+		messageRoute: v.optional(v.string()),
+		/** The build the customer's tab reported with the message. */
+		messageAppVersion: v.optional(v.string())
 	},
 	returns: v.object({
 		threadId: v.string(),
 		threadIds: v.array(v.string()),
 		reply: v.string()
 	}),
-	handler: async (ctx, { secret, anonymousUserId, newerThreadCount = 0, messageRoute }) => {
+	handler: async (
+		ctx,
+		{ secret, anonymousUserId, newerThreadCount = 0, messageRoute, messageAppVersion }
+	) => {
 		requireTestSecret(secret);
 		if (!isAnonymousUser(anonymousUserId)) throw new Error('Invalid anonymous user ID');
 		if (!Number.isInteger(newerThreadCount) || newerThreadCount < 0 || newerThreadCount > 20) {
@@ -527,11 +532,12 @@ export const createUnreadAnonymousSupportReply = mutation({
 			prompt: userMessage,
 			skipEmbeddings: true
 		});
-		if (messageRoute) {
+		if (messageRoute || messageAppVersion) {
 			await ctx.db.insert('supportMessageContexts', {
 				threadId,
 				messageId: request.messageId,
-				pageUrl: messageRoute,
+				...(messageRoute ? { pageUrl: messageRoute } : {}),
+				...(messageAppVersion ? { appVersion: messageAppVersion } : {}),
 				createdAt: replyTimestamp
 			});
 		}
