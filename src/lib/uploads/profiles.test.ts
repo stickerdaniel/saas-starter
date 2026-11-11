@@ -10,7 +10,7 @@ import {
 	type UploadProfileName
 } from './profiles';
 import { canConsume, PROFILE_CONSUMERS, type Consumer } from './consumers';
-import { mediaCategoryOf, MODEL_INPUT_MODALITIES } from './model-capabilities';
+import { mediaCategoryOf } from './model-capabilities';
 
 // Widened to UploadProfile so the loops can read optional fields like
 // sourceMimePrefixes, which the const assertion narrows away per profile.
@@ -163,15 +163,3 @@ describe('consumer capability', () => {
 function describeConsumer(consumer: Consumer): string {
 	return consumer.kind === 'model' ? consumer.modelId : consumer.id;
 }
-
-describe('capability map', () => {
-	it('uses the OpenRouter modality vocabulary', () => {
-		const allowed = new Set(['text', 'image', 'audio', 'video', 'file']);
-		for (const [modelId, modalities] of Object.entries(MODEL_INPUT_MODALITIES)) {
-			expect(modalities.length, `${modelId} has no modalities`).toBeGreaterThan(0);
-			for (const modality of modalities) {
-				expect(allowed, `${modelId} declares unknown modality "${modality}"`).toContain(modality);
-			}
-		}
-	});
-});

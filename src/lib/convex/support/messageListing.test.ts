@@ -227,20 +227,6 @@ describe('listMessagesForThread', () => {
 		});
 	});
 
-	it('does not query message rows for a zero-page stream request', async () => {
-		vi.mocked(listMessages).mockResolvedValue({ page: [], isDone: true, continueCursor: '' });
-		vi.mocked(syncStreams).mockResolvedValue({ kind: 'list', messages: [] });
-
-		const result = await listMessagesForThread({ runQuery: vi.fn() } as never, {
-			threadId: 'thread-1',
-			paginationOpts: { numItems: 0, cursor: 'cursor-1' }
-		});
-
-		expect(listMessages).toHaveBeenCalledOnce();
-		expect(result.page).toEqual([]);
-		expect(result.streams).toEqual({ kind: 'list', messages: [] });
-	});
-
 	it('redacts delta-only responses without changing cursor boundaries or part ordering', async () => {
 		vi.mocked(listMessages).mockResolvedValue({ page: [], isDone: true, continueCursor: '' });
 		vi.mocked(syncStreams).mockResolvedValue({

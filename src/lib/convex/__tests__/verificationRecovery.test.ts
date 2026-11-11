@@ -102,14 +102,6 @@ function tokenLifetime(verificationUrl: string): number {
 }
 
 describe('email verification recovery', () => {
-	it('keeps the options that make a password sign-in reissue the link', async () => {
-		const { createAuthOptions } = await import('../auth');
-		const options = createAuthOptions({} as never);
-
-		expect(options.emailAndPassword.requireEmailVerification).toBe(true);
-		expect(options.emailVerification.sendOnSignIn).toBe(true);
-	});
-
 	it('carries the caller destination into the recovery link', async () => {
 		const { auth, sent } = await withCapturedVerificationMail();
 

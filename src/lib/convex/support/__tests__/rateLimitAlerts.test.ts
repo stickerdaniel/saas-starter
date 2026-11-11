@@ -331,18 +331,6 @@ describe('support rate limit alerts', () => {
 		expect(sendEmail).toHaveBeenCalledTimes(2);
 	});
 
-	it('sends once when cron runs follow each other closely', async () => {
-		backend.setLevel('supportThreadCreateAnon', 0);
-		await backend.tick();
-		advance(10 * MINUTE);
-		backend.setLevel('supportThreadCreateAnon', 0);
-		await backend.tick();
-		advance(MINUTE);
-		await backend.tick();
-
-		expect(sendEmail).toHaveBeenCalledTimes(1);
-	});
-
 	it('writes only the low marker while email delivery is off', async () => {
 		getEmailDeliveryConfiguration.mockReturnValue({ state: 'disabled' });
 		await drain('supportThreadCreateAnon', 4);

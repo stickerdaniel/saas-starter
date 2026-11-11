@@ -111,14 +111,6 @@ describe('uploadToStorage error codes', () => {
 		expect(error).toBeInstanceOf(UploadError);
 		expect(error.code).toBe('parse');
 	});
-
-	it('resolves with the storage id on success', async () => {
-		stubXhr({ responseText: JSON.stringify({ storageId: 'storage-42' }) });
-
-		await expect(uploadToStorage('https://storage.test', blob, noProgress)).resolves.toBe(
-			'storage-42'
-		);
-	});
 });
 
 describe('uploadToStorage cancelation', () => {

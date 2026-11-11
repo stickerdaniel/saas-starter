@@ -1,6 +1,5 @@
 import { gunzipSync } from 'node:zlib';
 import { vi } from 'vitest';
-import type { PostHog } from 'posthog-js';
 
 /** One event as PostHog's ingestion endpoint would receive it. */
 export interface SentEvent {
@@ -122,33 +121,4 @@ export function resetBrowserStores(): void {
 		const name = cookie.split('=')[0]?.trim();
 		if (name) document.cookie = `${name}=; Max-Age=0; Path=/`;
 	}
-}
-
-/**
- * Returns the SDK module. Node caches external packages across `vi.resetModules()`,
- * so isolation comes from a fresh named instance per init, never the default one.
- */
-export async function loadSdk(): Promise<PostHog> {
-	return (await import('posthog-js')).default;
-}
-
-let instanceCounter = 0;
-
-export function initAndWait(
-	posthog: PostHog,
-	token: string,
-	config: Parameters<PostHog['init']>[1],
-	name = `instance_${++instanceCounter}`
-): Promise<PostHog> {
-	return new Promise((resolve) => {
-		const instance = posthog.init(
-			token,
-			{
-				...config,
-				loaded: (loaded) => resolve(loaded as PostHog)
-			},
-			name
-		);
-		if (!instance) throw new Error('posthog.init returned no instance');
-	});
 }

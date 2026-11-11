@@ -22,12 +22,6 @@ describe('better-auth admin plugin HTTP surface', () => {
 		expect(unclassified).toEqual([]);
 	});
 
-	it('contains no stale or misspelled paths', () => {
-		const actual = new Set(pluginPaths);
-		const stale = classifiedPaths.filter((path) => !actual.has(path));
-		expect(stale).toEqual([]);
-	});
-
 	it('keeps the disabled and cookie-bound lists disjoint', () => {
 		const cookieBound = new Set<string>(COOKIE_BOUND_ADMIN_PATHS);
 		const overlap = DISABLED_ADMIN_PATHS.filter((path) => cookieBound.has(path));

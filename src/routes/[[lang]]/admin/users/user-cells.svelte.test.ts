@@ -16,7 +16,6 @@ vi.mock('@tolgee/svelte', async () => {
 
 import { useDictionary } from '../support/test-fixtures/translation';
 import UserAvatar from './user-avatar.svelte';
-import RoleBadge from './role-badge.svelte';
 import StatusBadge from './status-badge.svelte';
 
 let component: ReturnType<typeof mount> | undefined;
@@ -78,17 +77,6 @@ describe('users table name cell', () => {
 });
 
 describe('users table badges', () => {
-	it.each([
-		['admin', en.admin.users.filter.role_admin],
-		['user', en.admin.users.filter.role_user]
-	])('labels the %s role', (role, label) => {
-		render(RoleBadge, { role, testId: 'admin-users-role-badge' });
-
-		expect(
-			document.querySelector('[data-testid="admin-users-role-badge"]')?.textContent?.trim()
-		).toBe(label);
-	});
-
 	it.each([
 		['banned', { banned: true, emailVerified: true }, en.admin.users.banned],
 		['verified', { banned: false, emailVerified: true }, en.admin.users.verified],

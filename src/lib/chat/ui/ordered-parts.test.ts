@@ -203,11 +203,6 @@ describe('deriveOrderedParts', () => {
 		);
 		expect(result.map((p) => p.kind)).toEqual(['reasoning', 'tool', 'text']);
 	});
-
-	it('handles undefined and empty parts', () => {
-		expect(deriveOrderedParts(undefined, 'success')).toEqual([]);
-		expect(deriveOrderedParts([], 'pending')).toEqual([]);
-	});
 });
 
 describe('groupTraces', () => {

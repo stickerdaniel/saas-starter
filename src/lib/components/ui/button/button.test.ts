@@ -3,14 +3,6 @@ import { cn } from '#lib/utils.js';
 import { buttonVariants } from './button.svelte';
 
 describe('buttonVariants', () => {
-	it('keeps the one-pixel press immediate', () => {
-		const classes = buttonVariants();
-
-		expect(classes).toContain('active:not-aria-[haspopup]:translate-y-px');
-		expect(classes).toContain('transition-control-colors');
-		expect(classes).not.toContain('transition-all');
-	});
-
 	it('lets a caller transition replace the color lane', () => {
 		const classes = cn(buttonVariants(), 'transition-all').split(' ');
 

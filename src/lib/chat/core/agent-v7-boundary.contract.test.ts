@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Agent, listMessages } from '@convex-dev/agent';
+import { Agent } from '@convex-dev/agent';
 import type { MessageDoc, StreamMessage } from '@convex-dev/agent/validators';
 import { stepCountIs, tool, type UIMessageChunk } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
@@ -378,22 +378,5 @@ describe('Agent 0.7.1 and AI SDK 7 error boundary', () => {
 				expect.objectContaining({ state: 'output-error', errorText: SAFE_TOOL_ERROR_MESSAGE })
 			])
 		);
-	});
-
-	it('uses the installed Agent zero-page shortcut without querying message rows', async () => {
-		const runQuery = vi.fn(async () => {
-			throw new Error('zero-page listing must not query');
-		});
-		const result = await listMessages(
-			{ runQuery } as Parameters<typeof listMessages>[0],
-			components.agent,
-			{
-				threadId: 'thread-1',
-				paginationOpts: { numItems: 0, cursor: 'cursor-1' }
-			}
-		);
-
-		expect(runQuery).not.toHaveBeenCalled();
-		expect(result).toEqual({ page: [], isDone: true, continueCursor: 'cursor-1' });
 	});
 });

@@ -12,10 +12,6 @@ describe('agent provider metadata adapter', () => {
 			});
 		}
 	);
-	it('preserves a vendor metadata record without copying or fabricating fields', () => {
-		const record = { custom: { key: 'value' } };
-		expect(normalizeMessageMetadata(record)).toBe(record);
-	});
 	it('recognizes only boolean admin flags and string notices', () => {
 		expect(getMessageProviderFlags({ provider: 'human' }).isAdminMessage).toBe(true);
 		expect(

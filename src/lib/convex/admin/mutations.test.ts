@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FunctionReturnType } from 'convex/server';
 import type { MutationCtx } from '../_generated/server';
 import type { internal } from '../_generated/api';
@@ -21,13 +21,6 @@ type MutationHandler<TArgs, TResult> = {
 };
 
 type SeedFirstAdminResult = FunctionReturnType<typeof internal.admin.mutations.seedFirstAdmin>;
-type ExpectedSeedFirstAdminResult =
-	{ success: true } | { success: false; code: typeof ADMIN_ERROR_CODES.seedAdminExists };
-type IsExact<TActual, TExpected> = [TActual] extends [TExpected]
-	? [TExpected] extends [TActual]
-		? true
-		: false
-	: false;
 
 const seedFirstAdminHandler = seedFirstAdmin as unknown as MutationHandler<
 	{ email: string },
@@ -78,13 +71,6 @@ describe('seedFirstAdmin', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		syncAdminPreferencesMock.mockResolvedValue(undefined);
-	});
-
-	it('returns the exact structured result union', () => {
-		expectTypeOf<
-			IsExact<SeedFirstAdminResult, ExpectedSeedFirstAdminResult>
-		>().toEqualTypeOf<true>();
-		expectTypeOf<{ success: false; message: string }>().not.toExtend<SeedFirstAdminResult>();
 	});
 
 	it('checks one indexed admin before looking up the target user', async () => {

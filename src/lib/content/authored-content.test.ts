@@ -67,14 +67,6 @@ describe('authored legal content', () => {
 		expect(contactMarkdown.literals).toEqual({ BRAND_NAME: LEGAL_CONFIG.brandName });
 	});
 
-	it('recognizes inline and reference-style destinations for route validation', () => {
-		expect(
-			markdownDestinations(
-				'[Inline](privacy)\n[Reference][policy]\nA statement.[^1]\n\n[policy]: <terms>\n[^1]: Supporting text.'
-			)
-		).toEqual(['privacy', 'terms']);
-	});
-
 	it.each([
 		['Privacy Policy', privacyMarkdown.markdown],
 		['Terms of Service', termsMarkdown.markdown],

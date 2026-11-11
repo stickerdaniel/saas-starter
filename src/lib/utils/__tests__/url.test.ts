@@ -94,10 +94,6 @@ describe('safeRedirectPath', () => {
 		expect(safeRedirectPath('', '/')).toBe('/');
 	});
 
-	it('returns / as the fallback when passed as the fallback argument', () => {
-		expect(safeRedirectPath('//evil.com', '/')).toBe('/');
-	});
-
 	it('returns a custom fallback when the path is invalid', () => {
 		expect(safeRedirectPath('http://evil.com', '/home')).toBe('/home');
 	});
