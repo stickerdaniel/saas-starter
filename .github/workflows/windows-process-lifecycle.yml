@@ -177,5 +177,18 @@ jobs:
         run: bun vitest --config vitest.tooling.config.ts --run scripts/private-checkout.test.ts
       - if: steps.changes.outputs.run_tests == 'true'
         run: bun vitest --config vitest.tooling.config.ts --run scripts/git-context.test.ts -t 'staged content attributes'
+      # The creator tests transform scripts/windows-job.ts, whose root tsconfig extends the
+      # SvelteKit base config that only sync writes. The install skipped postinstall, and the
+      # stock-plugin config keeps the application's Varlock bootstrap out of this sync. It sits in
+      # node_modules so its bare import resolves from the project.
+      - name: Generate the SvelteKit base tsconfig
+        if: steps.changes.outputs.run_tests == 'true' && hashFiles('packages/create-saas-starter/package.json') != ''
+        shell: bash
+        run: |
+          config=node_modules/.cache/kit-sync-ci/vite.config.mjs
+          mkdir -p "$(dirname "$config")"
+          printf '%s\n' "import { sveltekit } from '@sveltejs/kit/vite';" 'export default { plugins: [sveltekit()] };' > "$config"
+          bun svelte-kit sync --config "$config"
+          test -f node_modules/\$app/tsconfig.json
       - if: steps.changes.outputs.run_tests == 'true' && hashFiles('packages/create-saas-starter/package.json') != ''
         run: bun run --cwd packages/create-saas-starter vitest --run test/process.test.ts test/lifecycle.test.ts
