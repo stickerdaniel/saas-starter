@@ -15,6 +15,7 @@ import { checkAndCountUsage, refundUsage } from '../../autumn';
 import type * as Autumn from '../../autumn';
 import authSchema from '../../betterAuth/schema';
 import { convexModules, preloadModules } from '../../convexTest.modules';
+import { AI_CHAT_GENERATION_FAILED_NOTICE } from '../../constants';
 import schema from '../../schema';
 import { aiChatAgent } from '../agent';
 
@@ -150,6 +151,12 @@ async function setup() {
 			});
 			return page;
 		},
+		/** The page the AI chat route renders, through the app's own listing query. */
+		listing: () =>
+			asUser.query(api.aiChat.messages.listMessages, {
+				threadId,
+				paginationOpts: { cursor: null, numItems: 50 }
+			}),
 		sidebarPreview: () =>
 			t.run(async (ctx) => {
 				const row = await ctx.db
@@ -270,6 +277,47 @@ describe('AI chat reply outcome', () => {
 			expect(await chat.sidebarPreview()).toBe('Weather in Berlin?');
 		}
 	);
+
+	it('settles the turn when the agent cannot save its final step', async () => {
+		const chat = await setup();
+		const prompt = await chat.send('Hello?');
+		modelSteps = [textStep('Hello there')];
+		// The agent saves the final step together with finishing its stream, the only
+		// save that carries `finishStreamId`. Rejecting it leaves the agent's reply row
+		// pending and its stream live.
+		const streamText = aiChatAgent.streamText.bind(aiChatAgent);
+		vi.spyOn(aiChatAgent, 'streamText').mockImplementation((ctx, ...rest) => {
+			const runMutation: typeof ctx.runMutation = (reference, ...mutationArgs) => {
+				const [input] = mutationArgs;
+				if (typeof input === 'object' && input !== null && 'finishStreamId' in input) {
+					return Promise.reject(new Error('final save failed'));
+				}
+				return ctx.runMutation(reference, ...mutationArgs);
+			};
+			return streamText({ ...ctx, runMutation }, ...rest);
+		});
+
+		await expect(chat.reply(prompt.messageId)).rejects.toThrow('final save failed');
+
+		expect(refundUsageMock).toHaveBeenCalledTimes(1);
+		const { page, streams } = await chat.listing();
+		const replies = page.filter(
+			({ role, order }) => role === 'assistant' && order === prompt.order
+		);
+		expect(replies).toContainEqual(
+			expect.objectContaining({
+				status: 'success',
+				text: GENERATION_FAILED,
+				metadata: expect.objectContaining({
+					providerMetadata: { system: { notice: AI_CHAT_GENERATION_FAILED_NOTICE } }
+				})
+			})
+		);
+		// The composer stays busy while any assistant message is pending or streaming.
+		expect(replies.map(({ status }) => status)).not.toContain('pending');
+		expect(replies.map(({ status }) => status)).not.toContain('streaming');
+		expect(streams?.kind === 'list' ? streams.messages : []).toEqual([]);
+	});
 
 	it('keeps the counted unit and adds no notice when the reply is delivered', async () => {
 		const chat = await setup();

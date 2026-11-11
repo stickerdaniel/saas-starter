@@ -16,9 +16,10 @@
 		type OrderedPart
 	} from './ordered-parts.js';
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
-	import { AI_CHAT_LIMIT_NOTICE } from '#lib/convex/constants.js';
+	import { AI_CHAT_GENERATION_FAILED_NOTICE, AI_CHAT_LIMIT_NOTICE } from '#lib/convex/constants.js';
 	import { getMessageProviderFlags } from '../core/provider-metadata.js';
 	import { getTranslate, T } from '@tolgee/svelte';
+	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
 	import LockIcon from '@lucide/svelte/icons/lock';
 
 	const { t } = getTranslate();
@@ -71,6 +72,9 @@
 	const usesFilledBubble = $derived(isUser || isAdminMessage);
 	const align = $derived(ctx.getAlignment(message.role));
 	const isLimitNotice = $derived(providerFlags.systemNotice === AI_CHAT_LIMIT_NOTICE);
+	const isGenerationFailedNotice = $derived(
+		providerFlags.systemNotice === AI_CHAT_GENERATION_FAILED_NOTICE
+	);
 	const authorKey = $derived(
 		isUser
 			? perspective === 'staff'
@@ -153,6 +157,13 @@
 				<div class="flex items-center gap-2 text-sm text-muted-foreground">
 					<LockIcon class="size-4 shrink-0" aria-hidden="true" />
 					<span><T keyName="chat.notices.limit_reached" /></span>
+				</div>
+			</MessageBubble>
+		{:else if isGenerationFailedNotice}
+			<MessageBubble {align} variant="ghost">
+				<div class="flex items-center gap-2 text-sm text-muted-foreground">
+					<CircleAlertIcon class="size-4 shrink-0" aria-hidden="true" />
+					<span><T keyName="chat.notices.generation_failed" /></span>
 				</div>
 			</MessageBubble>
 		{:else}

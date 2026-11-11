@@ -43,7 +43,8 @@ vi.mock('@convex-dev/agent', async (importOriginal) => {
 	return {
 		...actual,
 		getFile: vi.fn().mockResolvedValue({ filePart: { type: 'file', data: 'f', mediaType: 'x' } }),
-		saveMessage: vi.fn().mockResolvedValue({ messageId: 'notice' })
+		saveMessages: vi.fn().mockResolvedValue({ messages: [{ _id: 'notice', order: 0 }] }),
+		abortStream: vi.fn().mockResolvedValue(false)
 	};
 });
 

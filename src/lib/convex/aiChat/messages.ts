@@ -5,7 +5,7 @@ import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import { aiChatAgent } from './agent';
 import { paginationOptsValidator } from 'convex/server';
-import { getFile, saveMessage } from '@convex-dev/agent';
+import { abortStream, getFile, saveMessages } from '@convex-dev/agent';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
 import type { UserContent } from 'ai';
@@ -17,7 +17,12 @@ import { checkAndCountUsage, refundUsage } from '../autumn';
 import { requireAiChatThreadRecord } from './ownership';
 import { createRateLimitError } from '../support/types';
 import { AI_CHAT_ERROR_CODES, createAiChatError } from './errors';
-import { AI_CHAT_LIMIT_NOTICE, MAX_MESSAGE_LENGTH } from '../constants';
+import {
+	AI_CHAT_GENERATION_FAILED_NOTICE,
+	AI_CHAT_LIMIT_NOTICE,
+	MAX_MESSAGE_LENGTH,
+	type AiChatNotice
+} from '../constants';
 import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { ensureCaptureStart } from '../admin/journey/capture';
@@ -176,31 +181,40 @@ export const createAIResponse = internalAction({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		// `promptMessageId` makes the agent save the notice at its prompt's
-		// order, after that turn's steps, with the prompt as parent. Without it
-		// the agent appends at the thread's latest order, which belongs to a
-		// later prompt once the user has sent another message.
+		// Ends the prompt's turn with an assistant notice. `promptMessageId`
+		// makes the agent save it at the prompt's order, after that turn's
+		// steps, with the prompt as parent; without it the agent appends at the
+		// thread's latest order, which belongs to a later prompt once the user
+		// has sent another message. When a failed generation leaves the agent's
+		// reply row pending or its stream live, the listing would overlay that
+		// stream on the notice and the composer would stay busy, so
+		// `failPendingSteps` fails pending rows and `abortStream` stops streams,
+		// both only at this prompt's order.
 		const saveTerminalNotice = async ({
 			content,
 			notice
 		}: {
 			content: string;
-			notice?: typeof AI_CHAT_LIMIT_NOTICE;
+			notice?: AiChatNotice;
 		}) => {
-			await saveMessage(ctx, components.agent, {
+			const { messages } = await saveMessages(ctx, components.agent, {
 				threadId: args.threadId,
 				userId: args.userId,
 				promptMessageId: args.promptMessageId,
-				message: { role: 'assistant', content },
+				failPendingSteps: true,
+				messages: [{ role: 'assistant', content }],
 				...(notice
-					? {
-							metadata: {
-								provider: 'system',
-								providerMetadata: { system: { notice } }
-							}
-						}
+					? { metadata: [{ provider: 'system', providerMetadata: { system: { notice } } }] }
 					: {})
 			});
+			const [saved] = messages;
+			if (saved) {
+				await abortStream(ctx, components.agent, {
+					threadId: args.threadId,
+					order: saved.order,
+					reason: 'AI chat reply failed'
+				});
+			}
 		};
 
 		try {
@@ -301,9 +315,10 @@ export const createAIResponse = internalAction({
 				status: 'error',
 				models: sink.collect()
 			});
-			// The agent marks its pending reply failed but adds no copy that
-			// says so. The notice tells the user this turn ended.
-			await saveTerminalNotice({ content: "This reply couldn't be generated." });
+			await saveTerminalNotice({
+				content: "This reply couldn't be generated.",
+				notice: AI_CHAT_GENERATION_FAILED_NOTICE
+			});
 			throw failure.error;
 		}
 
