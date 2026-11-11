@@ -134,6 +134,10 @@ describe('redactText', () => {
 		expect(redactText(text)).toBe(expected);
 	});
 
+	// An armor header may hold any text, also the END line of its own block.
+	const COMMENTED_KEY =
+		'-----BEGIN PGP PRIVATE KEY BLOCK-----\nComment: expected -----END PGP PRIVATE KEY BLOCK----- at end\n\nlQOYBGSyntheticPrivateBody\n-----END PGP PRIVATE KEY BLOCK-----';
+
 	it.each([
 		[
 			'a PEM private key',
@@ -166,6 +170,21 @@ describe('redactText', () => {
 			'[Filtered]\r\nok'
 		],
 		[
+			'a private key whose comment names its END line',
+			`${COMMENTED_KEY}\nnext line`,
+			'[Filtered]\nnext line'
+		],
+		[
+			'a private key whose comment names its END line, serialized',
+			JSON.stringify({ pem: COMMENTED_KEY, ok: false }),
+			'{"pem":"[Filtered]","ok":false}'
+		],
+		[
+			'a private key whose comment names its END line, in a cut payload',
+			`rejected: {"pem":"${COMMENTED_KEY.replaceAll('\n', '\\n')}\\nnext line"`,
+			'rejected: {"pem":"[Filtered]\\nnext line"'
+		],
+		[
 			'a private key whose label has a doubled space',
 			'-----BEGIN RSA  PRIVATE KEY-----\nSyntheticBodyLine\n-----END RSA  PRIVATE KEY-----\nnext: harmless',
 			'[Filtered]\nnext: harmless'
@@ -183,6 +202,7 @@ describe('redactText', () => {
 
 	it('is stable on a private key a cut left open', () => {
 		const once = redactText('loaded -----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXk');
+		expect(once).toBe('loaded [Filtered]');
 		expect(redactText(once)).toBe(once);
 	});
 
