@@ -1,6 +1,5 @@
 import type { MessagesQueryResponse } from '../../../chat/core/types';
 import { v } from 'convex/values';
-import * as val from 'valibot';
 import { components } from '../../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
 import { adminQuery } from '../../functions';
@@ -9,7 +8,7 @@ import {
 	ADMIN_USERS_BATCH_SIZE,
 	SUPPORT_MESSAGE_ROUTES_LIMIT
 } from './constants';
-import { parseBetterAuthUsers, betterAuthUserSchema } from '../types';
+import { parseBetterAuthUsers } from '../types';
 import { isAnonymousUser } from '../../utils/anonymousUser';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { listMessagesForThread } from '../../support/messageListing';
@@ -412,26 +411,23 @@ export const listInternalUserNotes = adminQuery({
 			.order('desc')
 			.paginate(args.paginationOpts ?? { numItems: SUPPORT_THREADS_PAGE_SIZE, cursor: null });
 
-		// Batch fetch admin info (optimization: single query instead of N queries)
+		// Authors resolve by id, not by current role: a demoted admin keeps their notes' byline.
 		const adminIds = [...new Set(notes.page.map((note) => note.adminUserId))];
 
 		type AdminInfo = { _id: string; name?: string; email?: string };
 		const adminMap = new Map<string, AdminInfo>();
 
 		if (adminIds.length > 0) {
-			// Fetch all admin users with a single query
-			const adminsResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			// `_id in` resolves only this page's authors and returns all matching point reads.
+			const authors = await ctx.runQuery(components.betterAuth.adapter.findMany, {
 				model: 'user',
-				paginationOpts: { cursor: null, numItems: ADMIN_USERS_BATCH_SIZE },
-				where: [{ field: 'role', operator: 'eq', value: 'admin' }]
+				where: [{ field: '_id', operator: 'in', value: adminIds }],
+				paginationOpts: { cursor: null, numItems: adminIds.length },
+				select: ['_id', 'name', 'email']
 			});
 
-			// Build lookup map for admins we need using Valibot validation
-			for (const admin of adminsResult.page) {
-				const parsed = val.safeParse(betterAuthUserSchema, admin);
-				if (parsed.success && adminIds.includes(parsed.output._id)) {
-					adminMap.set(parsed.output._id, parsed.output);
-				}
+			for (const author of authors.page as AdminInfo[]) {
+				adminMap.set(author._id, author);
 			}
 		}
 
