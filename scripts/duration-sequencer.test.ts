@@ -177,6 +177,19 @@ describe('DurationSequencer', () => {
 		};
 	}
 
+	it('refuses to shard two specs collected under one key', async () => {
+		const spec = (pool: string) =>
+			({
+				project: { name: 'alpha', config: { root: fixture } },
+				moduleId: join(fixture, 'one.test.ts'),
+				pool
+			}) as unknown as TestSpecification;
+		const ctx = { config: { root: fixture, shard: { index: 1, count: 2 } } } as unknown as Vitest;
+		await expect(
+			new DurationSequencer(ctx).shard([spec('forks'), spec('typescript')])
+		).rejects.toThrow('alpha:one.test.ts is collected twice');
+	});
+
 	/** Runs the required Unit Tests check on the result GitHub derives from the shard exits. */
 	function unitTestsCheck(shardStatuses: Array<number | null>): number | null {
 		const workflow = parseYaml(
@@ -210,7 +223,8 @@ describe('DurationSequencer', () => {
 		expect(first.keys.includes('alpha:one.test.ts')).not.toBe(
 			first.keys.includes('beta:one.test.ts')
 		);
-		expect(unitTestsCheck([first.status, second.status])).toBe(0);
+		// The check is a Bash script; GitHub runs it on Linux.
+		if (process.platform !== 'win32') expect(unitTestsCheck([first.status, second.status])).toBe(0);
 	}, 120_000);
 
 	it('fails the shard that runs a failing test and the Unit Tests check', () => {
@@ -227,7 +241,9 @@ describe('DurationSequencer', () => {
 					shard.keys.filter((key) => key === failing || key.endsWith(':idle.test.ts'))
 				);
 			}
-			expect(unitTestsCheck(shards.map((shard) => shard.status))).toBe(1);
+			if (process.platform !== 'win32') {
+				expect(unitTestsCheck(shards.map((shard) => shard.status))).toBe(1);
+			}
 			return owner + 1;
 		});
 		// The failing test sat on shard 1, then on shard 2.
@@ -268,5 +284,26 @@ describe('DurationSequencer', () => {
 		// The failed and the skipped file keep their old weights; a passed file is measured anew.
 		expect(updated.durations).toMatchObject({ 'alpha:one.test.ts': 8, 'alpha:idle.test.ts': 5 });
 		expect(updated.durations['beta:one.test.ts']).not.toBe(7);
+
+		// One shard's report alone measures its files anew and keeps the other shard's weights.
+		const partial = spawnSync(
+			'bun',
+			[
+				join(ROOT, 'scripts/update-test-durations.ts'),
+				`--root=${fixture}`,
+				'--runner=fixture',
+				'--commit=def456',
+				shards[1].blob
+			],
+			{ encoding: 'utf8', timeout: 30_000 }
+		);
+		expect(partial.status, partial.stderr).toBe(0);
+		const kept = (
+			JSON.parse(readFileSync(join(fixture, DURATIONS_FILE), 'utf8')) as DurationManifest
+		).durations;
+		expect(Object.keys(kept)).toEqual(Object.keys(updated.durations));
+		for (const key of shards[0].keys.filter((key) => key in kept)) {
+			expect(kept[key]).toBe(updated.durations[key]);
+		}
 	}, 60_000);
 });

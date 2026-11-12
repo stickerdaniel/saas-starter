@@ -135,7 +135,13 @@ export class DurationSequencer extends BaseSequencer {
 		// Vitest calls shard() only when `--shard` is set.
 		const { index, count } = this.ctx.config.shard!;
 		const { durations, workers } = this.#readManifest();
-		const keys = assignShards(files.map(specKey), durations, count, workers)[index - 1];
+		const all = files.map(specKey);
+		const duplicate = all.find((key, position) => all.indexOf(key) !== position);
+		if (duplicate) {
+			// The split assigns keys, so two specs behind one key would both run on two shards.
+			throw new Error(`${duplicate} is collected twice, as a runtime and a typecheck spec.`);
+		}
+		const keys = assignShards(all, durations, count, workers)[index - 1];
 		const mine = new Set(keys);
 		return files.filter((spec) => mine.has(specKey(spec)));
 	}

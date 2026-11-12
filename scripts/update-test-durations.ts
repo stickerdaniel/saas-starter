@@ -5,9 +5,9 @@
  * A file weighs the time Vitest tracks for it, rounded to centiseconds: environment setup,
  * worker preparation, setup files, collection (its imports) and the test run. Pass the
  * blobs of every shard of the same run; each Unit Tests job uploads its blob as the
- * `unit-test-blob-<n>-2` artifact. Only a passed file supplies a new weight. A failed,
- * skipped or unfinished file keeps its previous weight, if it has one, and files no longer
- * on disk or in any report drop out.
+ * `unit-test-blob-<n>-2` artifact. Only a passed file supplies a new weight. Every other file
+ * still on disk keeps its previous weight, if it has one, so a failed test or a missing shard
+ * report costs no weights; files no longer on disk drop out.
  *
  * Usage: bun scripts/update-test-durations.ts --runner <label> [--workers <n>] [--commit <sha>]
  *   [--root <dir>] [report files or directories, default .vitest-reports]
@@ -112,16 +112,15 @@ function buildManifest(options: {
 	if (vitest === undefined || otherVersions.length > 0) {
 		throw new Error('Pass the blob reports of one run, made by one Vitest version.');
 	}
+	const onDisk = (key: string) => existsSync(join(root, key.slice(key.indexOf(':') + 1)));
+	const durations = new Map(Object.entries(previous).filter(([key]) => onDisk(key)));
 	const seen = new Set<string>();
-	const durations = new Map<string, number>();
 	for (const file of reports.flatMap((report) => report.files)) {
 		if (seen.has(file.key)) {
 			throw new Error(`${file.key} appears in two reports; pass the shards of one run.`);
 		}
 		seen.add(file.key);
-		const seconds = file.passed ? file.seconds : previous[file.key];
-		const path = file.key.slice(file.key.indexOf(':') + 1);
-		if (seconds !== undefined && existsSync(join(root, path))) durations.set(file.key, seconds);
+		if (file.passed && onDisk(file.key)) durations.set(file.key, file.seconds);
 	}
 	return {
 		source: {
