@@ -209,8 +209,7 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       - run: bun install --frozen-lockfile
       # The blob report records each file's cost for scripts/update-test-durations.ts.
-      # scripts/test-durations.json models 3 workers per shard; pin them so the model holds.
-      - run: bun run test:unit --shard=${{ matrix.shard }}/2 --maxWorkers=3 --reporter=blob --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}-2.json
+      - run: bun run test:unit --shard=${{ matrix.shard }}/2 --reporter=blob --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}-2.json
       # Diagnostic only: a failed upload leaves the shard's verdict to its tests.
       - name: Upload unit test timings
         if: ${{ !cancelled() }}
