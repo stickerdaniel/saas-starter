@@ -137,7 +137,15 @@ describe('Sentry scrubbing', () => {
 		['CONTENT_x is not defined', '… is not defined'],
 		["Cannot access 'CONTENT_x' before initialization.", "Cannot access '…' before initialization"],
 		['Maximum call stack size exceeded.', 'Maximum call stack size exceeded'],
-		['said CONTENT_x is not a function', '[redacted]']
+		['said CONTENT_x is not a function', '[redacted]'],
+		['Failed to fetch', 'Failed to fetch'],
+		['Load failed', 'Load failed'],
+		[
+			'NetworkError when attempting to fetch resource.',
+			'NetworkError when attempting to fetch resource.'
+		],
+		['Failed to fetch for user@example.com', '[redacted]'],
+		['Load failed: https://example.com/en/reset-password?token=reset-sentinel', '[redacted]']
 	])('keeps the engine wording of %j and none of its program text', (value, expected) => {
 		const scrubbed = scrubEvent({ exception: { values: [{ type: 'TypeError', value }] } });
 

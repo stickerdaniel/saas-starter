@@ -75,7 +75,9 @@ const ELIDED = '…';
 // JSC's JSON.parse SyntaxError quotes the parsed text, and Node's URL TypeError
 // quotes the URL. The wording is JavaScriptCore's (Bun 1.4.3) and V8's (Node,
 // Chromium); a message only shaped like one, with spaces where the engine
-// writes a source path, stays replaced.
+// writes a source path, stays replaced. The last three are the fixed TypeError
+// a rejected fetch() carries on a network failure in Chromium, Safari and
+// Firefox; they name no request, so they stay whole and nothing may follow them.
 const SOURCE_PATH = String.raw`[\w.$\[\]'"]+`;
 const ENGINE_MESSAGES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) => string]> = [
 	[
@@ -103,7 +105,13 @@ const ENGINE_MESSAGES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) 
 		/^Cannot access '[\w$]+' before initialization\.?$/,
 		() => `Cannot access '${ELIDED}' before initialization`
 	],
-	[/^Maximum call stack size exceeded\.?$/, () => 'Maximum call stack size exceeded']
+	[/^Maximum call stack size exceeded\.?$/, () => 'Maximum call stack size exceeded'],
+	[/^Failed to fetch$/, () => 'Failed to fetch'],
+	[/^Load failed$/, () => 'Load failed'],
+	[
+		/^NetworkError when attempting to fetch resource\.$/,
+		() => 'NetworkError when attempting to fetch resource.'
+	]
 ];
 const ENGINE_ERROR_TYPES = new Set(['TypeError', 'RangeError', 'ReferenceError']);
 
