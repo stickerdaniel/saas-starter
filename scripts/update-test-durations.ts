@@ -9,8 +9,10 @@
  * skipped or unfinished file keeps its previous weight, if it has one, and files no longer
  * on disk or in any report drop out.
  *
- * Usage: bun scripts/update-test-durations.ts --runner <label> [--commit <sha>] [--root <dir>]
- *   [report files or directories, default .vitest-reports]
+ * Usage: bun scripts/update-test-durations.ts --runner <label> [--workers <n>] [--commit <sha>]
+ *   [--root <dir>] [report files or directories, default .vitest-reports]
+ * `--workers` is the Vitest worker count per shard on that runner; it defaults to the
+ * manifest's current value.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -103,6 +105,7 @@ function buildManifest(options: {
 	previous: Record<string, number>;
 	commit: string;
 	runner: string;
+	workers: number;
 }): DurationManifest {
 	const { root, reports, previous } = options;
 	const [vitest, ...otherVersions] = new Set(reports.map((report) => report.vitest));
@@ -125,7 +128,8 @@ function buildManifest(options: {
 			commit: options.commit,
 			vitest,
 			runner: options.runner,
-			coverage: reports.some((report) => report.coverage)
+			coverage: reports.some((report) => report.coverage),
+			workers: options.workers
 		},
 		durations: Object.fromEntries([...durations].sort(([a], [b]) => (a < b ? -1 : 1)))
 	};
@@ -137,6 +141,7 @@ if (import.meta.main) {
 		options: {
 			runner: { type: 'string' },
 			commit: { type: 'string' },
+			workers: { type: 'string' },
 			root: { type: 'string', default: join(import.meta.dirname, '..') }
 		}
 	});
@@ -145,18 +150,23 @@ if (import.meta.main) {
 	}
 	const root = resolve(values.root);
 	const output = join(root, DURATIONS_FILE);
-	const previous = existsSync(output)
-		? (JSON.parse(readFileSync(output, 'utf8')) as DurationManifest).durations
-		: {};
+	const current = existsSync(output)
+		? (JSON.parse(readFileSync(output, 'utf8')) as DurationManifest)
+		: undefined;
+	const workers = Number(values.workers ?? current?.source.workers);
+	if (!Number.isInteger(workers) || workers < 1) {
+		throw new Error('Pass --workers with the Vitest worker count per shard on that runner.');
+	}
 	const reports = reportFiles(positionals.length > 0 ? positionals : ['.vitest-reports']);
 	const manifest = buildManifest({
 		root,
 		reports: reports.map(readBlobReport),
-		previous,
+		previous: current?.durations ?? {},
 		commit:
 			values.commit ??
 			execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
-		runner: values.runner
+		runner: values.runner,
+		workers
 	});
 	writeFileSync(output, `${JSON.stringify(manifest, null, '\t')}\n`);
 	console.log(

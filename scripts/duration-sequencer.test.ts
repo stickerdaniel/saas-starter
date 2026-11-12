@@ -30,7 +30,7 @@ describe('assignShards', () => {
 	const keys = [...Object.keys(durations), 'tooling:scripts/new.test.ts'];
 
 	it.each([2, 3])('puts every key in exactly one of %i shards', (count) => {
-		const shards = assignShards(keys, durations, count);
+		const shards = assignShards(keys, durations, count, 1);
 		expect(shards).toHaveLength(count);
 		for (const shard of shards) expect(shard.length).toBeGreaterThan(0);
 		expect(shards.flat().sort()).toEqual([...keys].sort());
@@ -38,7 +38,7 @@ describe('assignShards', () => {
 
 	it('runs a file the manifest lacks on exactly one shard', () => {
 		const keys = ['app:a.test.ts', 'app:b.test.ts', 'app:new.test.ts'];
-		const shards = assignShards(keys, { 'app:a.test.ts': 4, 'app:b.test.ts': 2 }, 2);
+		const shards = assignShards(keys, { 'app:a.test.ts': 4, 'app:b.test.ts': 2 }, 2, 1);
 		expect(shards.filter((shard) => shard.includes('app:new.test.ts'))).toHaveLength(1);
 		expect(shards.flat()).toHaveLength(3);
 	});
@@ -46,14 +46,30 @@ describe('assignShards', () => {
 	it('gives the same shards for keys discovered in any order', () => {
 		const equal = Object.fromEntries(keys.map((key) => [key, 1]));
 		const reversed = [...keys].reverse();
-		expect(assignShards(reversed, equal, 2)).toEqual(assignShards(keys, equal, 2));
-		expect(assignShards(reversed, durations, 3)).toEqual(assignShards(keys, durations, 3));
+		expect(assignShards(reversed, equal, 2, 3)).toEqual(assignShards(keys, equal, 2, 3));
+		expect(assignShards(reversed, durations, 3, 3)).toEqual(assignShards(keys, durations, 3, 3));
 	});
 
 	it('balances measured cost rather than file count', () => {
 		const quick = Array.from({ length: 5 }, (_, i) => `app:quick-${i}.test.ts`);
 		const skewed = { 'app:slow.test.ts': 100, ...Object.fromEntries(quick.map((key) => [key, 1])) };
-		expect(assignShards(Object.keys(skewed), skewed, 2)).toEqual([['app:slow.test.ts'], quick]);
+		expect(assignShards(Object.keys(skewed), skewed, 2, 1)).toEqual([['app:slow.test.ts'], quick]);
+	});
+
+	it('fills the workers idle beside a long file before lengthening another shard', () => {
+		// Projects run one after another over 3 workers. The pole holds its shard for 9 s, time
+		// enough for every other tooling file, so the app files get the second shard.
+		const tooling = Array.from({ length: 6 }, (_, i) => `tooling:quick-${i}.test.ts`);
+		const app = Array.from({ length: 6 }, (_, i) => `app:view-${i}.test.ts`);
+		const weights = {
+			'tooling:pole.test.ts': 9,
+			...Object.fromEntries(tooling.map((key) => [key, 1])),
+			...Object.fromEntries(app.map((key) => [key, 2]))
+		};
+		expect(assignShards(Object.keys(weights), weights, 2, 3)).toEqual([
+			['tooling:pole.test.ts', ...tooling],
+			app
+		]);
 	});
 });
 
@@ -75,7 +91,13 @@ describe('DurationSequencer', () => {
 		.sort();
 	// Both projects collect every file. `fresh`, beta's `four` and beta's `idle` have no weight.
 	const manifest: DurationManifest = {
-		source: { commit: 'fixture', vitest: 'fixture', runner: 'fixture', coverage: false },
+		source: {
+			commit: 'fixture',
+			vitest: 'fixture',
+			runner: 'fixture',
+			coverage: false,
+			workers: 2
+		},
 		durations: {
 			'alpha:one.test.ts': 8,
 			'beta:one.test.ts': 7,
@@ -233,7 +255,12 @@ describe('DurationSequencer', () => {
 		const updated = JSON.parse(
 			readFileSync(join(fixture, DURATIONS_FILE), 'utf8')
 		) as DurationManifest;
-		expect(updated.source).toMatchObject({ commit: 'abc123', runner: 'fixture', coverage: false });
+		expect(updated.source).toMatchObject({
+			commit: 'abc123',
+			runner: 'fixture',
+			coverage: false,
+			workers: 2
+		});
 		// Beta's skipped `idle` had no weight to keep.
 		expect(Object.keys(updated.durations)).toEqual(
 			keys.filter((key) => !key.endsWith(':three.test.ts') && key !== 'beta:idle.test.ts')
