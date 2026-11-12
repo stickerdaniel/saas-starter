@@ -10,6 +10,7 @@
 import { writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { createServer, type Plugin, type ViteDevServer } from 'vite';
 import {
 	EMAIL_TEMPLATES,
@@ -18,6 +19,7 @@ import {
 } from '../src/lib/emails/templates/registry';
 
 const __scriptDir = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(__scriptDir, '..');
 // Keep generated template constants outside the Convex function root. Files
 // beneath src/lib/convex are entry-point candidates, so ignored generated
 // output there has no reconstructible historical surface for compatibility
@@ -57,34 +59,41 @@ export function convertMarkersToTemplate(html: string): string {
 	return html.replace(/__ETA_(\w+)__/g, '{{$1}}').replace(/__BASEURL__/g, '{{baseUrl}}');
 }
 
-// The generator reads its inputs once, so it needs no file watcher, and under Bun
-// 1.3.9 a watcher can hang it. Bun's Linux fs.watch registers each watched
-// directory on its thread pool; when a watcher closes before that registration
-// finishes, the pool thread deadlocks on the watcher's own mutex. On a two-CPU
-// runner two such threads are the whole pool, and the process stops making
-// progress. Bun 1.3.14 replaced that backend.
-// Assigned after resolution because Vite's config merge skips a null override,
-// so `server.watch: null` passed to createServer loses to SvelteKit's watch options.
-const disableFileWatching: Plugin = {
-	name: 'email-generator:disable-file-watching',
+// The renderer shares node_modules/.vite with any running dev server. An optimizer
+// here hashes its config differently, so it would delete and rebuild the deps that
+// server is serving. Vite creates no optimizer only for noDiscovery with an empty
+// include list, cleared after resolution because vite-plugin-svelte adds Svelte's
+// entry points to it.
+const disableDependencyOptimizer: Plugin = {
+	name: 'email-generator:disable-dependency-optimizer',
 	configResolved(config) {
-		config.server.watch = null;
+		for (const environment of Object.values(config.environments)) {
+			environment.optimizeDeps.noDiscovery = true;
+			environment.optimizeDeps.include = [];
+		}
 	}
 };
 
 /**
- * Create Vite server in middleware mode (no HTTP server). The `emails` mode gives it
- * its own SvelteKit outDir in vite.config.ts, so it can run beside a dev server.
- * `ws: false` skips the HMR WebSocket, which middleware mode would otherwise open on
- * port 24678 and which fails whenever another renderer already holds that port.
+ * Create a Vite server that only compiles the email components. The templates
+ * import plain modules through `#lib/*`, so the server loads none of the app's
+ * Vite config: SvelteKit, env loading and the app plugins never run, and nothing
+ * it does can reach a dev server in the same checkout. It reads no `.env` file,
+ * starts no file watcher and no HMR WebSocket, and writes no dependency cache.
  */
 export async function createViteServer(): Promise<ViteDevServer> {
 	return createServer({
-		mode: 'emails',
-		server: { middlewareMode: true, ws: false },
+		configFile: false,
+		envDir: false,
+		root: ROOT,
+		server: { middlewareMode: true, ws: false, watch: null },
 		appType: 'custom',
 		logLevel: 'warn',
-		plugins: [disableFileWatching],
+		plugins: [
+			// prebundleSvelteLibraries would write its metadata into the shared cache.
+			svelte({ configFile: false, prebundleSvelteLibraries: false }),
+			disableDependencyOptimizer
+		],
 		ssr: {
 			noExternal: ['@better-svelte-email/server', '@better-svelte-email/components', 'prettier']
 		}
