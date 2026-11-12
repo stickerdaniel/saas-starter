@@ -171,7 +171,6 @@ export default defineConfig(async ({ command, mode }) => {
 	}
 
 	// Local Convex backend during `bun run dev` and `bun run dev:test` (not CI, builds, postinstall, or scripts).
-	// build:emails uses createServer() which re-enters this config -- lifecycle check prevents that.
 	// dev:cloud runs via dev:frontend (lifecycle = "dev:frontend"), so it's excluded naturally.
 	const lifecycle = process.env.npm_lifecycle_event;
 	const useLocalConvex = (lifecycle === 'dev' || lifecycle === 'dev:test') && !process.env.CI;
@@ -336,24 +335,19 @@ export default defineConfig(async ({ command, mode }) => {
 		);
 	}
 
-	// Kit writes the resolved env into <outDir>/generated/dev/env. Vitest, the email renderer
-	// (scripts/build-emails.ts, also run by static checks) and the dev:test stack behind
-	// Playwright start their own Vite servers, and a shared outDir hands a running dev server
-	// their env: the cloud Convex URLs in .env.local, or the E2E backend, which then answers the
-	// dev server's sign-ins until that backend stops. The email renderer and the dev:test stack
-	// also get their own Vite cache: their configs hash differently, so on start their dependency
-	// optimizer deletes and rewrites the dev server's prebundled node_modules/.vite/deps, and pages
-	// fail to hydrate until the rewrite lands. Vitest needs no override: it scopes its own cache
-	// under node_modules/.vite/vitest. Nested here, each stays inside every .svelte-kit ignore and
+	// Kit writes the resolved env into <outDir>/generated/dev/env. Vitest and the dev:test stack
+	// behind Playwright start their own Vite servers, and a shared outDir hands a running dev
+	// server their env: the cloud Convex URLs in .env.local, or the E2E backend, which then
+	// answers the dev server's sign-ins until that backend stops. The dev:test stack also gets
+	// its own Vite cache: its config hashes differently, so on start its dependency optimizer
+	// deletes and rewrites the dev server's prebundled node_modules/.vite/deps, and pages fail to
+	// hydrate until the rewrite lands. Vitest needs no override: it scopes its own cache under
+	// node_modules/.vite/vitest. Nested here, each stays inside every .svelte-kit ignore and
 	// outside the dev server's watched generated/ directory.
 	const isolatedOutDir =
-		mode === 'test' || mode === 'emails'
-			? `.svelte-kit/${mode}`
-			: isTestMode
-				? '.svelte-kit/e2e'
-				: undefined;
+		mode === 'test' ? '.svelte-kit/test' : isTestMode ? '.svelte-kit/e2e' : undefined;
 	const kitOutDir = isolatedOutDir ?? '.svelte-kit';
-	const isolatedCacheDir = mode === 'emails' || isTestMode ? `${kitOutDir}/vite` : undefined;
+	const isolatedCacheDir = isTestMode ? `${kitOutDir}/vite` : undefined;
 
 	// On Cloudflare, varlock delivers env natively: the Workers loader reads the __VARLOCK_ENV
 	// binding at worker boot, and `varlock-wrangler` (both deploy scripts wrap it) uploads that
@@ -361,9 +355,8 @@ export default defineConfig(async ({ command, mode }) => {
 	// @sensitive value can reach the worker script, which Cloudflare serves over its API and
 	// archives per version. The adapter choice and this check read the same environment
 	// (scripts/build-target.ts), so Workers Builds and Pages get the loader and an explicit
-	// Node build never does. Only `vite build` emits the Worker: the email renderer's dev
-	// server runs in Node during Workers Builds' install step, where the loader throws for
-	// the missing binding.
+	// Node build never does. Only `vite build` emits the Worker: every other process that
+	// loads this config runs in Node, where the loader throws for the missing binding.
 	const cloudflareBuild = command === 'build' && isCloudflareBuild();
 	// Third-party notices for the browser build. One instance per config factory
 	// call, so the client plugin and its worker plugins share one accumulator.
