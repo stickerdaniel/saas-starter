@@ -99,6 +99,32 @@ async function fetchWithRetry(url: string, init: RequestInit, label: string): Pr
 	}
 }
 
+/**
+ * Provisions the session signing key before the first sign-in starts parallel mints.
+ * Better Auth's read-then-create can otherwise produce two keys on a fresh backend.
+ * A verifier that cached JWKS between those inserts rejects the newer key until
+ * the cache expires. Revalidate at the origin so an old preview's cached key set
+ * cannot stand in for provisioning this backend.
+ */
+async function provisionSessionSigningKey(): Promise<void> {
+	const response = await fetchWithRetry(
+		`${SITE_URL}/api/auth/convex/jwks`,
+		{ headers: { ...getPreviewBypass().headers, 'cache-control': 'no-cache' } },
+		'Signing key'
+	);
+	const body: unknown = response.ok ? await response.json().catch(() => undefined) : undefined;
+	const hasKey =
+		typeof body === 'object' &&
+		body !== null &&
+		'keys' in body &&
+		Array.isArray(body.keys) &&
+		body.keys.length > 0;
+	if (!hasKey) {
+		throw new Error(`Session signing key was not provisioned: HTTP ${response.status}`);
+	}
+	console.log('[Setup] Session signing key ready');
+}
+
 async function globalSetup() {
 	const testSecret = process.env.AUTH_E2E_TEST_SECRET;
 
@@ -126,6 +152,7 @@ async function globalSetup() {
 
 	// Resolve preview access before recording any intended backend writes.
 	await fetchVercelBypassCookie(SITE_URL);
+	await provisionSessionSigningKey();
 	const timestamp = beginOwnedTestData();
 
 	// Generate unique emails for this test run
