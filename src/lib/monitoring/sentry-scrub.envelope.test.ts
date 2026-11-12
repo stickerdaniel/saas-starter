@@ -239,4 +239,32 @@ describe('Sentry envelopes from the server handlers', () => {
 		expect(wire).toContain('"environment":"scrub-test-environment"');
 		expect(wire).toContain('"release":"scrub-test-release"');
 	});
+
+	it('keep the browser wording of a fetch the network failed', async () => {
+		const { loadSentry } = await import('./sentry');
+		const sentry = await loadSentry();
+		if (!sentry) throw new Error('Sentry did not initialize');
+		// The fetch wrapper the browser SDK installs. It reads the client's
+		// options when a fetch rejects.
+		const { addFetchInstrumentationHandler } = await import('@sentry/core');
+		// What Chromium's fetch() rejects with when the network fails.
+		vi.stubGlobal('fetch', async () => {
+			throw new TypeError('Failed to fetch');
+		});
+		addFetchInstrumentationHandler(() => {});
+		const sent = envelopes.length;
+
+		const caught: unknown = await fetch('https://api.example.com/private').catch(
+			(error: unknown) => error
+		);
+		sentry.captureException(caught);
+		await sentry.flush(5_000);
+		vi.unstubAllGlobals();
+
+		expect(caught).toBeInstanceOf(TypeError);
+		expect((caught as TypeError).message).toBe('Failed to fetch');
+		const wire = envelopes.slice(sent).join('\n');
+		expect(wire).toContain('"type":"TypeError","value":"Failed to fetch"');
+		expect(wire).not.toContain('api.example.com');
+	});
 });

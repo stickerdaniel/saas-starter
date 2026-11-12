@@ -46,6 +46,10 @@ async function loadSentryOptions() {
 		tracesSampleRate: 0.1,
 		traceLifecycle: 'static',
 		attachStacktrace: false,
+		// The SDK's fetch wrapper appends the request host to a network
+		// failure's message, in the error the app catches too. The host can name
+		// what the user opened, and the projection keeps only the bare wording.
+		enhanceFetchErrorMessages: false,
 		// Keep the restrictive v10 defaults when upgrading the SDK.
 		dataCollection: {
 			userInfo: false,
