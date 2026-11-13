@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 
 /**
  * The authenticated layout scrolls its pages inside a Bits UI scroll area, whose

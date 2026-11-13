@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { guardClientErrors, test } from './utils/test';
 import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
@@ -61,11 +62,13 @@ test('a message route opens the page as the customer, and the bar returns to the
 		});
 
 		await test.step('signing in takes the ticket onto their account', async () => {
-			const context = await browser.newContext({
-				baseURL: siteUrl,
-				storageState: { cookies: [], origins: [] },
-				extraHTTPHeaders: bypass.headers
-			});
+			const context = await guardClientErrors(
+				await browser.newContext({
+					baseURL: siteUrl,
+					storageState: { cookies: [], origins: [] },
+					extraHTTPHeaders: bypass.headers
+				})
+			);
 			try {
 				const customer = await context.newPage();
 				await customer.addInitScript((id) => {

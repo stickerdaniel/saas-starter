@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 
 // Regression guard for #317: the Upgrade/Checkout button must surface an error
 // toast when the underlying Autumn checkout action fails, instead of silently

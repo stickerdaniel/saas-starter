@@ -413,6 +413,26 @@ export default defineConfig(
 		}
 	},
 	{
+		// The raw runner skips the client error guard; e2e/utils/test.ts adds it.
+		// `default` is the same `test`, and 'playwright/test' the same module.
+		files: ['e2e/**/*.ts'],
+		ignores: ['e2e/utils/test.ts'],
+		rules: {
+			'@typescript-eslint/no-restricted-imports': [
+				'error',
+				{
+					paths: ['@playwright/test', 'playwright/test'].map((name) => ({
+						name,
+						importNames: ['test', 'default'],
+						allowTypeImports: true,
+						message:
+							"Import `test` from e2e/utils/test.ts, which fails a test on unexpected client errors. `expect` and types stay on '@playwright/test'."
+					}))
+				}
+			]
+		}
+	},
+	{
 		// The auth setup projects open the first page of a run, so a cold local
 		// route compile lands inside their test budget.
 		files: ['playwright.config.ts'],

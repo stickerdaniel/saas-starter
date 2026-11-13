@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 import fs from 'fs';
 import path from 'path';
 import { waitForAuthenticated } from './utils/auth';

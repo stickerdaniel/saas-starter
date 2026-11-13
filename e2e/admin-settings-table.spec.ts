@@ -1,5 +1,6 @@
 import { ownTestEmail } from './utils/owned-test-data';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './utils/test';
 import {
 	expectTableQueryParamMissing,
 	expectTableQueryParams,
@@ -25,22 +26,9 @@ async function addCustomEmailRecipient(page: Page, email: string) {
 }
 
 test.describe('Admin Settings Table', () => {
-	let uncaughtPageErrors: string[] = [];
-
 	test.beforeEach(async ({ page }) => {
-		uncaughtPageErrors = [];
-		page.on('pageerror', (error) => {
-			uncaughtPageErrors.push(error.message);
-		});
 		await page.goto('/en/admin/settings', { waitUntil: 'domcontentloaded' });
 		await waitForSettingsTableReady(page);
-	});
-
-	test.afterEach(() => {
-		expect(
-			uncaughtPageErrors,
-			`Uncaught browser runtime errors:\n${uncaughtPageErrors.join('\n')}`
-		).toEqual([]);
 	});
 
 	test('syncs search/filter/sort to URL', async ({ page }) => {

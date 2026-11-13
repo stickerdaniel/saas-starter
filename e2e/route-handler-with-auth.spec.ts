@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 
 test.describe('authenticated API access', () => {
 	// Uses pre-authenticated session state from setup

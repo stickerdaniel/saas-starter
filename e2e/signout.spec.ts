@@ -1,4 +1,5 @@
-import { test as base, expect, type Page, type Route } from '@playwright/test';
+import { expect, type Page, type Route } from '@playwright/test';
+import { test as base } from './utils/test';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import { createUser } from './global-setup';

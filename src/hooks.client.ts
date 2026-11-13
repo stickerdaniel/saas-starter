@@ -1,4 +1,5 @@
 import { dev, browser } from '$app/env';
+import { reportClientErrorToE2e } from '#lib/monitoring/e2e-client-error.js';
 import { loadSentry } from '#lib/monitoring/sentry.js';
 import type { HandleClientError } from '@sveltejs/kit/hooks';
 
@@ -6,6 +7,10 @@ import type { HandleClientError } from '@sveltejs/kit/hooks';
 // only unexpected errors and framework errors other than a 404 are logged.
 const customHandleError: HandleClientError = ({ kind, error }) => {
 	if (kind === 'app' || (kind === 'framework' && error.status === 404)) return;
+
+	// Sentry's wrapper calls this handler too, so an E2E test sees the error
+	// whether or not the SDK loaded.
+	reportClientErrorToE2e(error);
 
 	if (dev) {
 		console.error('Client error:', error);

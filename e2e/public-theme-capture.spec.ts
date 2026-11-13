@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './utils/test';
 
 /**
  * The theme toggle's circular reveal is a view transition, and the browser

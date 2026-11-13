@@ -1,4 +1,4 @@
-import { test as setup } from '@playwright/test';
+import { test as setup } from './utils/test';
 import { readTestCredentials, signInAsTestUser } from './utils/auth';
 
 const adminAuthFile = 'e2e/.auth/admin.json';

@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 
 test.describe('private route noindex and robots.txt', () => {
 	test('signin SSR HTML is noindex with no canonical or hreflang', async ({ request }) => {

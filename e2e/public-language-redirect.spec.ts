@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 
 // /pricing is non-prerendered, so a bare (prefixless) request hits the runtime
 // handleLanguage hook that issues the 307. maxRedirects: 0 keeps the raw redirect

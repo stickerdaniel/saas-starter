@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 import { waitForAuthenticated } from './utils/auth';
 
 // All gotos pin the locale to English: unprefixed paths are redirected by

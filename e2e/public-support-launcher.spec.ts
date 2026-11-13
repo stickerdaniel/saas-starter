@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 
 // Cheaper layers rejected because: the launcher opens support by navigating
 // with `goto`. A request never opens the widget. Focus is not asserted here:

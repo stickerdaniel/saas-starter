@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 
 // Drives the auth forms as an anonymous visitor (no stored auth state).
 test.use({ storageState: { cookies: [], origins: [] } });

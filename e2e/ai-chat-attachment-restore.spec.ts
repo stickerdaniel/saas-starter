@@ -1,4 +1,5 @@
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { expect, type Page, type Route } from '@playwright/test';
+import { test } from './utils/test';
 import { waitForAuthenticated } from './utils/auth';
 
 /**

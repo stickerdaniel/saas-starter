@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 
 /**
  * Guards the SSR auth gate in hooks.server.ts (authFirstPattern): a visitor
