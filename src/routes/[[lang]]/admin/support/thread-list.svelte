@@ -565,7 +565,7 @@
 								<AvatarHeading
 									image={thread.userImage}
 									title={thread.lastMessage || $t('admin.support.thread.no_messages')}
-									subtitle={`${thread.userName || thread.userEmail || $t('admin.support.anonymous')}\u00A0\u00A0·\u00A0\u00A0${formatDistanceToNow(new Date(thread.lastMessageAt || thread._creationTime), { locale: dateFnsLocale, addSuffix: true })}`}
+									subtitle={`${thread.userName || thread.userEmail || $t('admin.support.anonymous')}, ${formatDistanceToNow(new Date(thread.lastMessageAt || thread._creationTime), { locale: dateFnsLocale, addSuffix: true })}`}
 									fallbackText={thread.userName}
 									bold={false}
 								/>

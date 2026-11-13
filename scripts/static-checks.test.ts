@@ -162,6 +162,18 @@ describe('route predicates', () => {
 		expect(ROUTES['literal-control-char']('scratch/session/log.txt')).toBe(false);
 	});
 
+	it('routes shipped locale, content and static text through the banned-pattern scan', () => {
+		expect(ROUTES['banned-patterns']('src/i18n/fr.json')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/lib/content/legal/privacy.md')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/lib/content/llms.txt')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/lib/convex/support/instructions.txt')).toBe(true);
+		expect(ROUTES['banned-patterns']('static/manifest.webmanifest')).toBe(true);
+		expect(ROUTES['banned-patterns']('static/logo.svg')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/lib/convex/tsconfig.json')).toBe(false);
+		expect(ROUTES['banned-patterns']('src/lib/convex/AGENTS.md')).toBe(false);
+		expect(ROUTES['banned-patterns']('static/og-image.png')).toBe(false);
+	});
+
 	it('routes supported prose while excluding ignored reports and artifacts', async () => {
 		const foreign = 'Das Passwort muss sofort zurückgesetzt werden.';
 		const files = [

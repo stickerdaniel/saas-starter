@@ -350,7 +350,7 @@
 								: BotIcon}
 							image={showAdminAvatar ? thread.assignedAdmin?.image : undefined}
 							title={thread.lastMessage || thread.summary || $t('support.thread.new_conversation')}
-							subtitle={`${thread.lastMessageRole === 'user' ? $t('support.message.role_you') : showAdminAvatar ? thread.assignedAdmin?.name || $t('support.message.role_support') : thread.lastAgentName || $t('support.message.role_kai')}\u00A0\u00A0·\u00A0\u00A0${formatRelativeTime(thread.lastMessageAt)}`}
+							subtitle={`${thread.lastMessageRole === 'user' ? $t('support.message.role_you') : showAdminAvatar ? thread.assignedAdmin?.name || $t('support.message.role_support') : thread.lastAgentName || $t('support.message.role_kai')}, ${formatRelativeTime(thread.lastMessageAt)}`}
 							bold={false}
 							fallbackText={thread.isHandedOff && thread.assignedAdmin?.name
 								? thread.assignedAdmin.name
