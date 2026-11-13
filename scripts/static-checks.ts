@@ -133,6 +133,53 @@ const CONFIG = {
 	}
 };
 
+/**
+ * Shipped text that ESLint does not parse: the locale values every surface renders,
+ * the legal pages and llms.txt that routes import raw, the support agent's seed
+ * prompt, the HTML shell, the SVGs components import, and the text files served
+ * as-is from static/. Only the middle-dot and em-dash scan reads these; the code
+ * patterns above have no meaning in JSON, SVG or prose.
+ */
+function isShippedTextFile(file: string): boolean {
+	return (
+		/^src\/i18n\/[^/]+\.json$/.test(file) ||
+		/^src\/lib\/content\/.+\.(?:md|txt)$/.test(file) ||
+		file === 'src/lib/convex/support/instructions.txt' ||
+		file === 'src/app.html' ||
+		/^src\/.+\.svg$/.test(file) ||
+		/^static\/.+\.(?:txt|md|json|svg|webmanifest)$/.test(file)
+	);
+}
+
+/**
+ * A middle dot or em dash, written as the character or in a form JSON.parse or the
+ * browser decodes into it: a JSON escape preceded by an even run of backslashes, an
+ * HTML5 named reference with its exact spelling (only the legacy `&middot` may drop
+ * its semicolon), or a numeric reference with or without its semicolon.
+ */
+const MIDDLE_DOT_OR_EM_DASH =
+	/[\u00B7\u2014]|(?<!\\)(?:\\\\)*\\u(?:00[bB]7|2014)|&(?:middot;?|centerdot;|CenterDot;|mdash;)|&#0*(?:183|8212)(?![0-9])|&#[xX]0*(?:[bB]7|2014)(?![0-9a-fA-F])/u;
+
+/** Markup that never renders as text: comments, and script and style elements. */
+const UNRENDERED_MARKUP = /<!--[\s\S]*?-->|<(script|style)\b[\s\S]*?<\/\1\s*>/gi;
+
+/**
+ * The 1-based lines of a shipped text file that render a middle dot or em dash. The
+ * template bans both from everything the app ships; ESLint's
+ * local/no-middle-dot-or-em-dash covers code, and this covers the files
+ * isShippedTextFile names. In HTML and SVG, comments, scripts and styles are blanked
+ * first, line breaks kept, the way ESLint leaves comments and `<style>` alone.
+ * Markdown keeps them, since a code span that shows `<script>` renders its text.
+ */
+export function middleDotOrEmDashLines(file: string, text: string): number[] {
+	const rendered = /\.(?:html|svg)$/.test(file)
+		? text.replace(UNRENDERED_MARKUP, (region) => region.replace(/[^\n]/g, ' '))
+		: text;
+	return rendered
+		.split('\n')
+		.flatMap((line, index) => (MIDDLE_DOT_OR_EM_DASH.test(line) ? [index + 1] : []));
+}
+
 // ANSI colors for direct terminal runs; wrappers set NO_COLOR before sanitizing output.
 const colors =
 	process.env.NO_COLOR === undefined
@@ -674,7 +721,8 @@ export const ROUTES = {
 	misspell: (f: string) =>
 		f !== 'scripts/english-policy/pr-metadata.bundle.mjs' &&
 		!CONFIG.misspell.ignore.some((i) => f.includes(i)),
-	'banned-patterns': (f: string) => /\.(svelte|ts)$/.test(f) && f.startsWith('src/'),
+	'banned-patterns': (f: string) =>
+		(/\.(svelte|ts)$/.test(f) && f.startsWith('src/')) || isShippedTextFile(f),
 	'literal-control-char': (f: string) => /\.(md|txt)$/.test(f) && !f.startsWith('scratch/'),
 	'english-prose': isEnglishPolicyFile,
 	'knowledge-placement': (f: string) => matchesKnowledgeCandidate(knowledgePolicy, f),
@@ -1672,18 +1720,35 @@ async function main(): Promise<void> {
 		}
 		console.log('\n');
 
-		// Banned patterns (deprecated tokens, bare animate-spin, static Sentry imports, execSync, ungated Tolgee apiKey)
+		// Banned patterns (deprecated tokens, bare animate-spin, static Sentry imports, execSync,
+		// ungated Tolgee apiKey, middle dots and em dashes in shipped text ESLint does not parse)
 		printHeader(step++, 'Banned patterns');
 		{
 			const filesToScan = scopedMode
 				? ledger.filesFor('banned-patterns')
-				: [...new Bun.Glob('src/**/*.{svelte,ts}').scanSync({ absolute: false })].map(toPosix);
+				: [
+						...new Bun.Glob(
+							'{src,static}/**/*.{svelte,ts,json,md,txt,svg,webmanifest,html}'
+						).scanSync({
+							absolute: false
+						})
+					]
+						.map(toPosix)
+						.filter(ROUTES['banned-patterns']);
 
 			const violations: string[] = [];
 			for (const file of filesToScan) {
 				const content = Bun.file(file);
 				const text = await content.text();
 				const lines = text.split('\n');
+				if (isShippedTextFile(file)) {
+					for (const line of middleDotOrEmDashLines(file, text)) {
+						violations.push(
+							`${file}:${line}: middle dot or em dash in shipped text (use a comma, colon, line break or spacing): ${lines[line - 1]!.trim()}`
+						);
+					}
+					continue;
+				}
 				for (let i = 0; i < lines.length; i++) {
 					const line = lines[i]!;
 					if (CONFIG.bannedPatterns.deprecated.test(line)) {

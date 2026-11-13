@@ -49,6 +49,7 @@ import {
 	prettierProjectPaths,
 	prettierTraversalPaths,
 	ROUTES,
+	middleDotOrEmDashLines,
 	resolveInputs,
 	spellcheckFiles,
 	startCommand,
@@ -160,6 +161,66 @@ describe('route predicates', () => {
 		expect(ROUTES['literal-control-char']('src/lib/content/llms.txt')).toBe(true);
 		expect(ROUTES['literal-control-char']('src/lib/content/privacy.ts')).toBe(false);
 		expect(ROUTES['literal-control-char']('scratch/session/log.txt')).toBe(false);
+	});
+
+	it('routes shipped locale, content and static text through the banned-pattern scan', () => {
+		expect(ROUTES['banned-patterns']('src/i18n/fr.json')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/lib/content/legal/privacy.md')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/lib/content/llms.txt')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/lib/convex/support/instructions.txt')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/app.html')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/lib/components/desk-computer/desk-computer.svg')).toBe(
+			true
+		);
+		expect(ROUTES['banned-patterns']('static/manifest.webmanifest')).toBe(true);
+		expect(ROUTES['banned-patterns']('static/logo.svg')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/lib/convex/tsconfig.json')).toBe(false);
+		expect(ROUTES['banned-patterns']('src/lib/convex/AGENTS.md')).toBe(false);
+		expect(ROUTES['banned-patterns']('static/og-image.png')).toBe(false);
+	});
+
+	// JSON.parse and the browser decode an escape or a character reference into the
+	// banned character. The characters are built from their code points, so this file
+	// stays free of the text the scan bans.
+	it.each([
+		['the character', `"title": "Pro ${String.fromCharCode(0x00b7)} monthly"`],
+		['a JSON escape', '"title": "Pro \\u2014 monthly"'],
+		['an escape after an escaped backslash', '"title": "C:\\\\\\u00B7"'],
+		['a named reference', 'Pro &middot; monthly'],
+		['the legacy reference without semicolon', 'Pro &middot monthly'],
+		['a decimal reference', 'Pro &#8212; monthly'],
+		['a decimal reference without semicolon', 'Pro &#8212 monthly'],
+		['a hex reference', 'Pro &#xB7; monthly']
+	])('flags a middle dot or em dash written as %s in shipped text', (_label, line) => {
+		expect(middleDotOrEmDashLines('src/i18n/en.json', line)).toEqual([1]);
+	});
+
+	it.each([
+		['an en dash', `Pro ${String.fromCharCode(0x2013)} monthly - &ndash; &#8211;`],
+		['a literal backslash before u2014', '"label": "escape \\\\u2014"'],
+		['a misspelled named reference', 'Pro &MDASH; monthly'],
+		['a reference the parser leaves literal', 'Pro &mdash monthly'],
+		['another code point with the same prefix', 'Pro &#1830; &#x2014a; monthly']
+	])('passes %s in shipped text', (_label, line) => {
+		expect(middleDotOrEmDashLines('src/i18n/en.json', line)).toEqual([]);
+	});
+
+	it('skips comments, scripts and styles in HTML and reports rendered lines', () => {
+		const dash = String.fromCharCode(0x2014);
+		const html = [
+			`<!-- license ${dash}`,
+			`notice ${dash} -->`,
+			`<script>`,
+			`// recovery ${dash} reload`,
+			`</script>`,
+			`<style>p::after { content: '${dash}'; }</style>`,
+			`<meta content="Pro ${dash} monthly" />`
+		].join('\n');
+		expect(middleDotOrEmDashLines('src/app.html', html)).toEqual([7]);
+		expect(middleDotOrEmDashLines('src/i18n/en.json', `"a": "<!-- ${dash} -->"`)).toEqual([1]);
+		expect(
+			middleDotOrEmDashLines('src/lib/content/legal/privacy.md', `Use \`<script>${dash}</script>\``)
+		).toEqual([1]);
 	});
 
 	it('routes supported prose while excluding ignored reports and artifacts', async () => {

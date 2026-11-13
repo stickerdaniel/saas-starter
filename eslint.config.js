@@ -32,6 +32,7 @@ import preferShadcnPrimitivesRule from './eslint/rules/prefer-shadcn-primitives.
 import preferShadcnSliderImportsRule from './eslint/rules/prefer-shadcn-slider-imports.js';
 import safeSvelteParser from './eslint/parsers/safe-svelte-parser.js';
 import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js';
+import noMiddleDotOrEmDashRule from './eslint/rules/no-middle-dot-or-em-dash.js';
 import noDynamicImportRejectionHandlerRule from './eslint/rules/no-dynamic-import-rejection-handler.js';
 import requireStaticModeInitializerRule from './eslint/rules/require-static-mode-initializer.js';
 import noTestInLoopRule from './eslint/rules/no-test-in-loop.js';
@@ -76,6 +77,7 @@ const localPlugin = {
 		'prefer-shadcn-primitives': preferShadcnPrimitivesRule,
 		'prefer-shadcn-slider-imports': preferShadcnSliderImportsRule,
 		'no-literal-control-char': noLiteralControlCharRule,
+		'no-middle-dot-or-em-dash': noMiddleDotOrEmDashRule,
 		'no-dynamic-import-rejection-handler': noDynamicImportRejectionHandlerRule,
 		'require-static-mode-initializer': requireStaticModeInitializerRule,
 		'no-test-in-loop': noTestInLoopRule,
@@ -542,6 +544,19 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-literal-control-char': 'error'
+		}
+	},
+	// The template bans the middle dot and the em dash from everything the app ships.
+	// Tests and their fixtures are not shipped, and they assert or record text in
+	// its source form. See eslint/rules/no-middle-dot-or-em-dash.js.
+	{
+		files: ['src/**/*.{js,ts,svelte}'],
+		ignores: ['**/*.{test,spec}.{js,ts}', '**/__tests__/**', '**/__fixtures__/**'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-middle-dot-or-em-dash': 'error'
 		}
 	},
 	// A test declared inside a loop is a hand-built parameterization; Vitest's

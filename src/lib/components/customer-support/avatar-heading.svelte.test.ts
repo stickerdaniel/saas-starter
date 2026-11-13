@@ -26,13 +26,13 @@ afterEach(() => {
 });
 
 it('takes the initials from the identity, not from a message title', () => {
-	render({ title: 'Help with my invoice', subtitle: 'Ada · now', fallbackText: 'Ada Lovelace' });
+	render({ title: 'Help with my invoice', subtitle: 'Ada, now', fallbackText: 'Ada Lovelace' });
 
 	expect(fallback().textContent?.trim()).toBe('AL');
 });
 
 it('shows a neutral mark when a message row has no identity', () => {
-	render({ title: 'Help with my invoice', subtitle: 'Anonymous · now' });
+	render({ title: 'Help with my invoice', subtitle: 'Anonymous, now' });
 
 	expect(fallback().textContent?.trim()).toBe('?');
 });

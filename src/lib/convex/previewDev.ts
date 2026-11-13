@@ -36,7 +36,7 @@ export const ensurePreviewAdmin = internalMutation({
 			throw new Error(
 				'previewDev:ensurePreviewAdmin is for preview deployments only. ' +
 					'On a local dev backend the admin is already seeded by ' +
-					'localDev:ensureSeededAdmin — sign in as admin@local.dev.'
+					'localDev:ensureSeededAdmin, then sign in as admin@local.dev.'
 			);
 		}
 		const password = process.env.PREVIEW_ADMIN_PASSWORD?.trim();
