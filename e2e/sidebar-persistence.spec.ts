@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 import { waitForAuthenticated } from './utils/auth';
 
 // Guards the sidebar_state cookie round-trip: the provider writes the cookie on

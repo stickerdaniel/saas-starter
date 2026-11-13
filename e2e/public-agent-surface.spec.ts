@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 
 const isCloudflarePreview =
 	(process.env.PLAYWRIGHT_BASE_URL ?? process.env.BASE_URL ?? '').includes('workers.dev') ||

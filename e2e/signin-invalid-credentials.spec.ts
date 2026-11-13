@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 
 // This test runs without auth state - tests unauthenticated behavior
 test.use({ storageState: { cookies: [], origins: [] } });

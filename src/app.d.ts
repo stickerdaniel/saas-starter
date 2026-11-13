@@ -24,6 +24,8 @@ declare global {
 
 	interface Window {
 		__deployRecovery: DeployRecovery;
+		/** Exposed by the E2E guard (e2e/utils/test.ts) on the contexts a test drives. */
+		__e2eReportClientError?: (message: string) => void;
 	}
 }
 

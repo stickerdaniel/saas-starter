@@ -1,5 +1,6 @@
 import { ownTestEmail } from './utils/owned-test-data';
-import { test, expect, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './utils/test';
 import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
@@ -139,7 +140,6 @@ test.describe('Admin Users Table', () => {
 	let searchTargetEmail = '';
 	let negativeCheckEmail = '';
 	const createdSeedEmails: string[] = [];
-	let uncaughtPageErrors: string[] = [];
 
 	test.beforeAll(async () => {
 		test.setTimeout(180000);
@@ -211,22 +211,10 @@ test.describe('Admin Users Table', () => {
 	});
 
 	test.beforeEach(async ({ page }, testInfo) => {
-		uncaughtPageErrors = [];
-		page.on('pageerror', (error) => {
-			uncaughtPageErrors.push(error.message);
-		});
-
 		if (testInfo.annotations.some(({ type }) => type === OPENS_OWN_URL.annotation.type)) return;
 		await page.goto('/en/admin/users');
 		await page.waitForLoadState('domcontentloaded');
 		await waitForUsersTableReady(page);
-	});
-
-	test.afterEach(() => {
-		expect(
-			uncaughtPageErrors,
-			`Uncaught browser runtime errors:\n${uncaughtPageErrors.join('\n')}`
-		).toEqual([]);
 	});
 
 	test('search filters users', async ({ page }) => {

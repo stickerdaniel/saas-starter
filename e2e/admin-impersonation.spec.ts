@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './utils/test';
 import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
@@ -53,7 +54,6 @@ test.describe('Admin Impersonation', () => {
 	let client: ConvexHttpClient;
 	let targetEmail = '';
 	const createdEmails: string[] = [];
-	let uncaughtPageErrors: string[] = [];
 
 	test.beforeAll(async () => {
 		test.setTimeout(180000);
@@ -88,20 +88,6 @@ test.describe('Admin Impersonation', () => {
 				console.warn(`[admin-impersonation] cleanup failed for ${email}:`, error);
 			}
 		}
-	});
-
-	test.beforeEach(async ({ page }) => {
-		uncaughtPageErrors = [];
-		page.on('pageerror', (error) => {
-			uncaughtPageErrors.push(error.message);
-		});
-	});
-
-	test.afterEach(() => {
-		expect(
-			uncaughtPageErrors,
-			`Uncaught browser runtime errors:\n${uncaughtPageErrors.join('\n')}`
-		).toEqual([]);
 	});
 
 	test('impersonates a user, redirects into the app, stops, and records the audit trail', async ({

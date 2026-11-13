@@ -1,5 +1,6 @@
 import { ConvexHttpClient } from 'convex/browser';
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { expect, type Page, type Route } from '@playwright/test';
+import { test } from './utils/test';
 import { api } from '../src/lib/convex/_generated/api';
 import { readTestCredentials, waitForAuthenticated } from './utils/auth';
 import { resolveConvexUrl } from './utils/convex-url';

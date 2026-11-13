@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 import { defaultTreeAdapter as tree, parse, type DefaultTreeAdapterTypes } from 'parse5';
 import { buildContentSecurityPolicy } from '../src/lib/security/csp.js';
 

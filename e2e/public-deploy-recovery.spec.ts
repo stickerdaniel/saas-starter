@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './utils/test';
 
 // The deploy-recovery contract: after a new deploy replaces content-hashed chunks,
 // a dynamic import of a now-deleted hash makes Vite fire vite:preloadError. The app

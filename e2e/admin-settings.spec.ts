@@ -1,7 +1,8 @@
 import { ownTestEmail } from './utils/owned-test-data';
 import { readFileSync } from 'node:fs';
 import type { TestCredentials } from './utils/types';
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 
 /**
  * E2E tests for Admin Settings page - Notification Recipients

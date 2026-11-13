@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { guardClientErrors, test } from './utils/test';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import { resolveConvexUrl } from './utils/convex-url';
@@ -109,10 +110,12 @@ test('remembers Not now on another browser for the same account', async ({ page,
 		await submitSignInForm(page, email, password);
 		await page.getByRole('button', { name: 'Not now', exact: true }).click();
 		await expect(page.locator('#user-menu-trigger')).toBeVisible();
-		const otherBrowser = await browser.newContext({
-			storageState: { cookies: [], origins: [] },
-			extraHTTPHeaders: getPreviewBypass().headers
-		});
+		const otherBrowser = await guardClientErrors(
+			await browser.newContext({
+				storageState: { cookies: [], origins: [] },
+				extraHTTPHeaders: getPreviewBypass().headers
+			})
+		);
 		try {
 			const otherPage = await otherBrowser.newPage();
 			await otherPage.goto(`${resolveSiteUrl()}/en/signin`);

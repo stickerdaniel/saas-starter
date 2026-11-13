@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 import { waitForAuthenticated } from './utils/auth';
 
 // Chromium ignores ::-webkit-scrollbar on an element that sets scrollbar-width

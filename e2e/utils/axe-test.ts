@@ -1,4 +1,5 @@
-import { test as base, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test as base } from './test';
 import AxeBuilder from '@axe-core/playwright';
 
 type AxeFixture = {

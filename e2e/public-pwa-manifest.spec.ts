@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './utils/test';
 
 test.describe('public PWA manifest', () => {
 	test('manifest is served as valid JSON with the expected fields', async ({ request }) => {
