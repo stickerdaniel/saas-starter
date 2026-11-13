@@ -152,15 +152,33 @@ function isShippedTextFile(file: string): boolean {
 }
 
 /**
- * A middle dot or em dash in a line of shipped text that ESLint does not parse. The
+ * A middle dot or em dash, written as the character or in a form JSON.parse or the
+ * browser decodes into it: a JSON escape preceded by an even run of backslashes, an
+ * HTML5 named reference with its exact spelling (only the legacy `&middot` may drop
+ * its semicolon), or a numeric reference with or without its semicolon.
+ */
+const MIDDLE_DOT_OR_EM_DASH =
+	/[\u00B7\u2014]|(?<!\\)(?:\\\\)*\\u(?:00[bB]7|2014)|&(?:middot;?|centerdot;|CenterDot;|mdash;)|&#0*(?:183|8212)(?![0-9])|&#[xX]0*(?:[bB]7|2014)(?![0-9a-fA-F])/u;
+
+/** Markup that never renders as text: comments, and script and style elements. */
+const UNRENDERED_MARKUP = /<!--[\s\S]*?-->|<(script|style)\b[\s\S]*?<\/\1\s*>/gi;
+
+/**
+ * The 1-based lines of a shipped text file that render a middle dot or em dash. The
  * template bans both from everything the app ships; ESLint's
  * local/no-middle-dot-or-em-dash covers code, and this covers the files
- * isShippedTextFile names. JSON.parse, the Markdown renderer and the browser turn a
- * JSON escape or an HTML entity into the same character, so those forms count too.
- * Write a comma, colon, line break or spacing instead.
+ * isShippedTextFile names. In HTML, SVG and Markdown, comments, scripts and styles
+ * are blanked first, line breaks kept, the way ESLint leaves comments and `<style>`
+ * alone.
  */
-export const SHIPPED_MIDDLE_DOT_OR_EM_DASH =
-	/[\u00B7\u2014]|\\u(?:00b7|2014)|&(?:middot|centerdot|mdash|#0*183|#0*8212|#x0*b7|#x0*2014);/iu;
+export function middleDotOrEmDashLines(file: string, text: string): number[] {
+	const rendered = /\.(?:html|svg|md)$/.test(file)
+		? text.replace(UNRENDERED_MARKUP, (region) => region.replace(/[^\n]/g, ' '))
+		: text;
+	return rendered
+		.split('\n')
+		.flatMap((line, index) => (MIDDLE_DOT_OR_EM_DASH.test(line) ? [index + 1] : []));
+}
 
 // ANSI colors for direct terminal runs; wrappers set NO_COLOR before sanitizing output.
 const colors =
@@ -1724,13 +1742,10 @@ async function main(): Promise<void> {
 				const text = await content.text();
 				const lines = text.split('\n');
 				if (isShippedTextFile(file)) {
-					for (let i = 0; i < lines.length; i++) {
-						const line = lines[i]!;
-						if (SHIPPED_MIDDLE_DOT_OR_EM_DASH.test(line)) {
-							violations.push(
-								`${file}:${i + 1}: middle dot or em dash in shipped text (use a comma, colon, line break or spacing): ${line.trim()}`
-							);
-						}
+					for (const line of middleDotOrEmDashLines(file, text)) {
+						violations.push(
+							`${file}:${line}: middle dot or em dash in shipped text (use a comma, colon, line break or spacing): ${lines[line - 1]!.trim()}`
+						);
 					}
 					continue;
 				}
