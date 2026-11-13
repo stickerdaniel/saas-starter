@@ -218,6 +218,9 @@ describe('route predicates', () => {
 		].join('\n');
 		expect(middleDotOrEmDashLines('src/app.html', html)).toEqual([7]);
 		expect(middleDotOrEmDashLines('src/i18n/en.json', `"a": "<!-- ${dash} -->"`)).toEqual([1]);
+		expect(
+			middleDotOrEmDashLines('src/lib/content/legal/privacy.md', `Use \`<script>${dash}</script>\``)
+		).toEqual([1]);
 	});
 
 	it('routes supported prose while excluding ignored reports and artifacts', async () => {

@@ -167,12 +167,12 @@ const UNRENDERED_MARKUP = /<!--[\s\S]*?-->|<(script|style)\b[\s\S]*?<\/\1\s*>/gi
  * The 1-based lines of a shipped text file that render a middle dot or em dash. The
  * template bans both from everything the app ships; ESLint's
  * local/no-middle-dot-or-em-dash covers code, and this covers the files
- * isShippedTextFile names. In HTML, SVG and Markdown, comments, scripts and styles
- * are blanked first, line breaks kept, the way ESLint leaves comments and `<style>`
- * alone.
+ * isShippedTextFile names. In HTML and SVG, comments, scripts and styles are blanked
+ * first, line breaks kept, the way ESLint leaves comments and `<style>` alone.
+ * Markdown keeps them, since a code span that shows `<script>` renders its text.
  */
 export function middleDotOrEmDashLines(file: string, text: string): number[] {
-	const rendered = /\.(?:html|svg|md)$/.test(file)
+	const rendered = /\.(?:html|svg)$/.test(file)
 		? text.replace(UNRENDERED_MARKUP, (region) => region.replace(/[^\n]/g, ' '))
 		: text;
 	return rendered
