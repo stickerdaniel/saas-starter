@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '#lib/auth-client.js';
-	import { useConvexClient } from 'convex-svelte';
+	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { api } from '#lib/convex/_generated/api.js';
 	import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
@@ -24,6 +24,15 @@
 		});
 	});
 
+	// auth.isAuthenticated already holds the server-rendered state while the
+	// socket still waits for its token. A mutation sent in that gap can run
+	// signed out, and this page sends the migration only once. The server
+	// answers this query with the session's user only after it accepted the
+	// token, so the migration waits for that answer.
+	const confirmedViewer = useQuery(api.users.viewer, () =>
+		!auth.isLoading && auth.isAuthenticated && isAnonymousUser(supportUserId.current) ? {} : 'skip'
+	);
+
 	$effect(function resetAttemptsForAuthSessionEffect() {
 		if (auth.isLoading) return;
 
@@ -43,6 +52,7 @@
 		if (!browser) return;
 
 		if (auth.isLoading || !auth.isAuthenticated || !sessionUserId) return;
+		if (confirmedViewer.data?._id !== sessionUserId) return;
 
 		const anonymousId = supportUserId.current;
 		if (!anonymousId || !isAnonymousUser(anonymousId)) return;
