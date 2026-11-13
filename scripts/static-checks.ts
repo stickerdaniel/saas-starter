@@ -129,41 +129,38 @@ const CONFIG = {
 		 * from non-dev builds. The gated form reads `import.meta.env.DEV ?` right after
 		 * the colon, so this pattern only matches the unguarded assignment.
 		 */
-		ungatedTolgeeApiKey: /apiKey:\s*import\.meta\.env\.VITE_TOLGEE_API_KEY/,
-		/**
-		 * A middle dot or em dash in shipped text that ESLint does not parse. The
-		 * template bans both from everything the app ships; ESLint's
-		 * local/no-middle-dot-or-em-dash covers code, and this covers the files
-		 * isShippedTextFile names. Write a comma, colon, line break or spacing instead.
-		 */
-		middleDotOrEmDash: /[\u00B7\u2014]/u
+		ungatedTolgeeApiKey: /apiKey:\s*import\.meta\.env\.VITE_TOLGEE_API_KEY/
 	}
 };
 
 /**
  * Shipped text that ESLint does not parse: the locale values every surface renders,
  * the legal pages and llms.txt that routes import raw, the support agent's seed
- * prompt, and the text files served as-is from static/. Only the middle-dot and
- * em-dash scan reads these; the code patterns above have no meaning in JSON, SVG or
- * prose.
+ * prompt, the HTML shell, the SVGs components import, and the text files served
+ * as-is from static/. Only the middle-dot and em-dash scan reads these; the code
+ * patterns above have no meaning in JSON, SVG or prose.
  */
 function isShippedTextFile(file: string): boolean {
 	return (
 		/^src\/i18n\/[^/]+\.json$/.test(file) ||
 		/^src\/lib\/content\/.+\.(?:md|txt)$/.test(file) ||
 		file === 'src/lib/convex/support/instructions.txt' ||
+		file === 'src/app.html' ||
+		/^src\/.+\.svg$/.test(file) ||
 		/^static\/.+\.(?:txt|md|json|svg|webmanifest)$/.test(file)
 	);
 }
 
 /**
- * Shipped text that mirrors third-party content and keeps its characters as published.
- * Every entry names its reason.
+ * A middle dot or em dash in a line of shipped text that ESLint does not parse. The
+ * template bans both from everything the app ships; ESLint's
+ * local/no-middle-dot-or-em-dash covers code, and this covers the files
+ * isShippedTextFile names. JSON.parse, the Markdown renderer and the browser turn a
+ * JSON escape or an HTML entity into the same character, so those forms count too.
+ * Write a comma, colon, line break or spacing instead.
  */
-const SHIPPED_TEXT_DOT_DASH_ALLOWED_PREFIXES = [
-	// Font licenses are reproduced verbatim from the font authors.
-	'static/fonts/'
-];
+export const SHIPPED_MIDDLE_DOT_OR_EM_DASH =
+	/[\u00B7\u2014]|\\u(?:00b7|2014)|&(?:middot|centerdot|mdash|#0*183|#0*8212|#x0*b7|#x0*2014);/iu;
 
 // ANSI colors for direct terminal runs; wrappers set NO_COLOR before sanitizing output.
 const colors =
@@ -1712,7 +1709,9 @@ async function main(): Promise<void> {
 			const filesToScan = scopedMode
 				? ledger.filesFor('banned-patterns')
 				: [
-						...new Bun.Glob('{src,static}/**/*.{svelte,ts,json,md,txt,svg,webmanifest}').scanSync({
+						...new Bun.Glob(
+							'{src,static}/**/*.{svelte,ts,json,md,txt,svg,webmanifest,html}'
+						).scanSync({
 							absolute: false
 						})
 					]
@@ -1725,12 +1724,9 @@ async function main(): Promise<void> {
 				const text = await content.text();
 				const lines = text.split('\n');
 				if (isShippedTextFile(file)) {
-					if (SHIPPED_TEXT_DOT_DASH_ALLOWED_PREFIXES.some((prefix) => file.startsWith(prefix))) {
-						continue;
-					}
 					for (let i = 0; i < lines.length; i++) {
 						const line = lines[i]!;
-						if (CONFIG.bannedPatterns.middleDotOrEmDash.test(line)) {
+						if (SHIPPED_MIDDLE_DOT_OR_EM_DASH.test(line)) {
 							violations.push(
 								`${file}:${i + 1}: middle dot or em dash in shipped text (use a comma, colon, line break or spacing): ${line.trim()}`
 							);

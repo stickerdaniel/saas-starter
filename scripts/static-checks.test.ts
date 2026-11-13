@@ -50,6 +50,7 @@ import {
 	prettierTraversalPaths,
 	ROUTES,
 	resolveInputs,
+	SHIPPED_MIDDLE_DOT_OR_EM_DASH,
 	spellcheckFiles,
 	startCommand,
 	unsafePathCodepoints,
@@ -167,11 +168,36 @@ describe('route predicates', () => {
 		expect(ROUTES['banned-patterns']('src/lib/content/legal/privacy.md')).toBe(true);
 		expect(ROUTES['banned-patterns']('src/lib/content/llms.txt')).toBe(true);
 		expect(ROUTES['banned-patterns']('src/lib/convex/support/instructions.txt')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/app.html')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/lib/components/desk-computer/desk-computer.svg')).toBe(
+			true
+		);
 		expect(ROUTES['banned-patterns']('static/manifest.webmanifest')).toBe(true);
 		expect(ROUTES['banned-patterns']('static/logo.svg')).toBe(true);
 		expect(ROUTES['banned-patterns']('src/lib/convex/tsconfig.json')).toBe(false);
 		expect(ROUTES['banned-patterns']('src/lib/convex/AGENTS.md')).toBe(false);
 		expect(ROUTES['banned-patterns']('static/og-image.png')).toBe(false);
+	});
+
+	// JSON.parse, the Markdown renderer and the browser decode an escape or an entity
+	// into the banned character. The characters are built from their code points, so
+	// this file stays free of the text the scan bans.
+	it.each([
+		['the character', `"title": "Pro ${String.fromCharCode(0x00b7)} monthly"`],
+		['a JSON escape', '"title": "Pro \\u2014 monthly"'],
+		['a named entity', '<text>Pro &middot; monthly</text>'],
+		['a decimal entity', '<title>Pro &#8212; monthly</title>'],
+		['a hex entity', '<title>Pro &#xB7; monthly</title>']
+	])('flags a middle dot or em dash written as %s in shipped text', (_label, line) => {
+		expect(SHIPPED_MIDDLE_DOT_OR_EM_DASH.test(line)).toBe(true);
+	});
+
+	it('passes an en dash, a hyphen and other entities in shipped text', () => {
+		expect(
+			SHIPPED_MIDDLE_DOT_OR_EM_DASH.test(
+				`"title": "Pro ${String.fromCharCode(0x2013)} monthly - &ndash; &#8211; &amp;"`
+			)
+		).toBe(false);
 	});
 
 	it('routes supported prose while excluding ignored reports and artifacts', async () => {
