@@ -52,7 +52,10 @@ vi.mock('#lib/components/customer-support/use-support-url-state.svelte.ts', () =
 	useSupportUrlState: () => state.urlState
 }));
 vi.mock('#lib/components/customer-support/support-user-id.svelte.ts', () => ({
-	supportUserId: state.supportUserId
+	supportUserId: state.supportUserId,
+	clearSupportUserId: () => {
+		state.supportUserId.current = null;
+	}
 }));
 vi.mock('#lib/components/customer-support/support-unread-state.svelte.ts', () => ({
 	useSupportUnreadState: () => ({ hasUnread: false, count: 0 })
