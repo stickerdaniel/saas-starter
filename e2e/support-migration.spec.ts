@@ -14,7 +14,7 @@ import { waitForAuthenticated } from './utils/auth';
  * 1. Anonymous user creates 105 support tickets (stored with localStorage ID)
  * 2. User authenticates (signs in)
  * 3. System automatically migrates ALL tickets to authenticated account
- * 4. localStorage supportUserId is cleared
+ * 4. localStorage supportUserId holds null
  * 5. Database shows threads now belong to authenticated user with enriched data
  */
 
@@ -66,10 +66,10 @@ test.describe('Support ticket migration', () => {
 		await page.goto('/app');
 		await waitForAuthenticated(page);
 
-		// localStorage should be cleared even with 0 threads (migration succeeded)
+		// The id is cleared even with 0 threads (migration succeeded); the key keeps JSON null.
 		await expect
 			.poll(() => page.evaluate(() => localStorage.getItem('supportUserId')), { timeout: 30000 })
-			.toBeNull();
+			.toBe('null');
 	});
 
 	test('migrates all 105 anonymous tickets and verifies database reassignment', async ({
@@ -121,10 +121,10 @@ test.describe('Support ticket migration', () => {
 			await page.goto('/app');
 			await waitForAuthenticated(page);
 
-			// 5. Wait for localStorage to be cleared (indicates migration complete)
+			// 5. Wait for the id to be cleared to JSON null (indicates migration complete)
 			await expect
 				.poll(() => page.evaluate(() => localStorage.getItem('supportUserId')), { timeout: 60000 })
-				.toBeNull();
+				.toBe('null');
 
 			// 6. Verify ALL 105 threads of this attempt now belong to authenticated user
 			const ownThreadIds = new Set(threadIds);
