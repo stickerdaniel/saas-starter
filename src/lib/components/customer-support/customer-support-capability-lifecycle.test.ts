@@ -88,9 +88,10 @@ import { screenshotEditorContext } from './screenshot-editor/screenshot-editor-c
 import { supportContext } from './support-context.svelte.ts';
 
 let component: ReturnType<typeof mount> | undefined;
-let queryValue: unknown;
+let queryResults: Map<string, unknown>;
 let publishCapability: ((value: unknown) => void) | undefined;
 let publishError: ((error: Error) => void) | undefined;
+let publishViewer: ((value: unknown) => void) | undefined;
 let client: ConvexClient;
 
 function feedbackLauncher(): HTMLButtonElement {
@@ -112,10 +113,31 @@ async function mountSupport(): Promise<void> {
 	await vi.waitFor(() => expect(publishCapability).toBeTypeOf('function'));
 }
 
+/** Publishes a query result the way the Convex client does: cached locally, then pushed. */
+function publishQuery(name: string, publish: (value: unknown) => void, value: unknown): void {
+	queryResults.set(name, value);
+	publish(value);
+}
+
+/** Answers the viewer subscription the way the server does once it accepted the session's token. */
+async function confirmViewer(userId: string): Promise<void> {
+	await vi.waitFor(() => expect(publishViewer).toBeTypeOf('function'));
+	publishQuery('users:viewer', publishViewer!, { _id: userId });
+	await tick();
+}
+
+function mountMigrationBootstrap(): void {
+	component = mount(ChatTestProvider<Record<string, never>>, {
+		target: document.body,
+		props: { client, content: SupportTicketMigrationBootstrap, contentProps: {} }
+	});
+}
+
 beforeEach(() => {
-	queryValue = undefined;
+	queryResults = new Map();
 	publishCapability = undefined;
 	publishError = undefined;
+	publishViewer = undefined;
 	state.page.data.capabilitiesResolved = false;
 	state.urlState.support = '';
 	state.urlState.thread = '';
@@ -127,12 +149,13 @@ beforeEach(() => {
 			publishCapability = onValue;
 			publishError = onError;
 		}
+		if (getFunctionName(reference) === 'users:viewer') publishViewer = onValue;
 		return () => {};
 	});
 	client = {
 		disabled: false,
 		closed: false,
-		client: { localQueryResult: () => queryValue },
+		client: { localQueryResult: (name: string) => queryResults.get(name) },
 		onUpdate,
 		mutation: vi.fn(),
 		query: vi.fn()
@@ -161,11 +184,10 @@ describe('customer support capability lifecycle', () => {
 		expect(feedbackLauncher().disabled).toBe(true);
 		expect(document.querySelector('[data-testid="support-message-send"]')).toBeNull();
 
-		queryValue = {
+		publishQuery('capabilities:getUsability', publishCapability!, {
 			billing: { usable: false, reason: 'unavailable' },
 			ai: { usable: false, reason: 'unavailable' }
-		};
-		publishCapability!(queryValue);
+		});
 		await tick();
 
 		expect(feedbackLauncher().disabled).toBe(false);
@@ -184,11 +206,10 @@ describe('customer support capability lifecycle', () => {
 		expect(thread.awaitsAgentReply).toBe(false);
 		expect(document.body.textContent).not.toContain(en.support.chatbar.disclosure);
 
-		queryValue = {
+		publishQuery('capabilities:getUsability', publishCapability!, {
 			billing: { usable: false, reason: 'unavailable' },
 			ai: { usable: true }
-		};
-		publishCapability!(queryValue);
+		});
 		await tick();
 
 		expect(feedbackLauncher().disabled).toBe(false);
@@ -198,6 +219,30 @@ describe('customer support capability lifecycle', () => {
 		await expect(thread.sendMessage(null as never, 'Second message')).rejects.toMatchObject({
 			code: 'send_in_progress'
 		});
+	});
+});
+
+describe('anonymous ticket migration', () => {
+	it('waits for the server to confirm the signed-in user before migrating', async () => {
+		state.auth.isAuthenticated = true;
+		state.session = { user: { id: 'user-1' } };
+		state.supportUserId.current = 'anon_visitor';
+		vi.mocked(client.mutation).mockResolvedValue({ migratedCount: 1 });
+		mountMigrationBootstrap();
+		const mutations = () =>
+			vi
+				.mocked(client.mutation)
+				.mock.calls.map(([reference, args]) => [getFunctionName(reference), args]);
+		await vi.waitFor(() => expect(publishViewer).toBeTypeOf('function'));
+		await tick();
+		expect(mutations()).toEqual([]);
+
+		await confirmViewer('user-1');
+
+		await vi.waitFor(() => expect(state.supportUserId.current).toBeNull());
+		expect(mutations()).toEqual([
+			['support/migration:migrateAnonymousTickets', { anonymousUserId: 'anon_visitor' }]
+		]);
 	});
 });
 
@@ -237,10 +282,8 @@ describe('customer support diagnostics', () => {
 		state.session = { user: { id: 'user-1' } };
 		state.supportUserId.current = 'anon_visitor';
 		vi.mocked(client.mutation).mockRejectedValue(new Error(secret));
-		component = mount(ChatTestProvider<Record<string, never>>, {
-			target: document.body,
-			props: { client, content: SupportTicketMigrationBootstrap, contentProps: {} }
-		});
+		mountMigrationBootstrap();
+		await confirmViewer('user-1');
 
 		await vi.waitFor(() =>
 			expect(console.error).toHaveBeenCalledExactlyOnceWith(
