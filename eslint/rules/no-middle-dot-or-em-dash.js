@@ -6,7 +6,7 @@
  * Comments are not shipped and stay out of scope, and so is a Svelte `<style>`
  * block, whose text is CSS.
  *
- * The check reads the value, not the source, so an escape such as `'·'` is
+ * The check reads the value, not the source, so an escape such as `'\u00b7'` is
  * reported too: it ships the same character. Regular expressions are code, not
  * text, so a pattern that finds or strips the characters passes.
  *
@@ -18,7 +18,7 @@
  * Good: a gap between two spans, `Draft: ready`, or a line break
  */
 
-const BANNED = /[·—]/u;
+const BANNED = /[\u00B7\u2014]/u;
 
 const MESSAGE =
 	'Shipped text never contains a middle dot or em dash: use a comma, colon, line break or spacing. Data that mirrors third-party or recorded content takes an eslint-disable comment with the reason.';
