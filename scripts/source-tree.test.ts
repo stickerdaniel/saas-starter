@@ -647,8 +647,6 @@ function runsConditionally(node: ts.Node): boolean {
 	);
 }
 
-type Helper = { parameters: ts.ParameterDeclaration[]; body: ts.Node };
-
 /** Every identifier a declaration binds, through array and object destructuring. */
 function boundNames(name: ts.BindingName): string[] {
 	if (ts.isIdentifier(name)) return [name.text];
@@ -663,36 +661,135 @@ function blockScopedNames(list: ts.VariableDeclarationList): string[] {
 	return list.declarations.flatMap((declaration) => boundNames(declaration.name));
 }
 
+/** A local helper: the parameters a call site binds and the body it reads with them. */
+type Helper = { parameters: ts.ParameterDeclaration[]; body: ts.Node };
+
 /**
- * Local helpers, by name. The shape that reintroduced the race twice hides the mutation in a
- * helper and passes the directory in, so a scan that never looks through a call sees a
- * `mkdirSync` on a parameter and reports nothing.
+ * What a name one lexical scope declares stands for: a helper, a `const` alias whose initializer
+ * names one, or any other binding, which hides a same-named helper further out.
  */
-function collectHelpers(parsed: ts.SourceFile): Map<string, Helper> {
-	const helpers = new Map<string, Helper>();
+type HelperBinding =
+	{ kind: 'helper'; helper: Helper } | { kind: 'alias'; target: ts.Identifier } | { kind: 'other' };
+
+const OTHER_BINDING: HelperBinding = { kind: 'other' };
+
+/** The local helpers of one file, and the one a call names. */
+type Helpers = {
+	/** Every helper, one per declaration. */
+	all: readonly Helper[];
+	/** The helper `call` calls, when its callee is an identifier that names one where it stands. */
+	resolve: (call: ts.CallExpression) => Helper | undefined;
+};
+
+/** Whether `node` holds the `let`, `const` and function declarations directly inside it. */
+function isBlockScope(node: ts.Node): boolean {
+	return (
+		ts.isSourceFile(node) ||
+		ts.isBlock(node) ||
+		ts.isModuleBlock(node) ||
+		ts.isCaseBlock(node) ||
+		ts.isCatchClause(node) ||
+		ts.isForStatement(node) ||
+		ts.isForInStatement(node) ||
+		ts.isForOfStatement(node)
+	);
+}
+
+/** Whether `node` holds every `var` declaration inside it, as a function or the file does. */
+function isFunctionScope(node: ts.Node): boolean {
+	return ts.isSourceFile(node) || ts.isFunctionLike(node) || ts.isClassStaticBlockDeclaration(node);
+}
+
+/** The nearest node above `node` that `isScope` accepts. Both scope tests accept the file. */
+function enclosingScope(node: ts.Node, isScope: (node: ts.Node) => boolean): ts.Node {
+	let scope = node.parent;
+	while (!isScope(scope)) scope = scope.parent;
+	return scope;
+}
+
+/**
+ * Local helpers, by the lexical scope that declares them. The shape that reintroduced the race
+ * twice hides the mutation in a helper and passes the directory in, so a scan that never looks
+ * through a call sees a `mkdirSync` on a parameter and reports nothing.
+ *
+ * A helper is a function declaration with a body, or a `const`, `let` or `var` initialized with
+ * an arrow or a function expression. A call names one by an identifier, resolved through the
+ * scopes around the call from the nearest out: a block keeps its `let`, `const` and function
+ * declarations, a function or the file its `var` declarations, and a function its parameters.
+ * The nearest declaration of the name decides, so a same-named helper in another scope is not the
+ * one called, and a parameter or variable of that name that is no helper calls no helper.
+ * `const alias = helper` names the helper its initializer names. A `let` or `var` alias, a
+ * default parameter, an import, a property access and any other indirection name no helper.
+ */
+function collectHelpers(parsed: ts.SourceFile): Helpers {
+	const all: Helper[] = [];
+	const scopes = new Map<ts.Node, Map<string, HelperBinding>>();
+	const declare = (scope: ts.Node, name: string, binding: HelperBinding): void => {
+		const names = scopes.get(scope) ?? new Map<string, HelperBinding>();
+		scopes.set(scope, names);
+		// A `var` may repeat a helper's name in the same scope, so the name may still call it.
+		if (binding.kind !== 'other' || !names.has(name)) names.set(name, binding);
+	};
+	const helperBinding = (
+		parameters: readonly ts.ParameterDeclaration[],
+		body: ts.Node
+	): HelperBinding => {
+		const declared = { parameters: [...parameters], body };
+		all.push(declared);
+		return { kind: 'helper', helper: declared };
+	};
+
 	const visit = (node: ts.Node): void => {
-		if (ts.isFunctionDeclaration(node) && node.name && node.body) {
-			helpers.set(node.name.text, {
-				parameters: [...node.parameters],
-				body: node.body
-			});
-		}
-		if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
-			const initializer = node.initializer;
-			if (
-				(ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer)) &&
-				initializer.body
-			) {
-				helpers.set(node.name.text, {
-					parameters: [...initializer.parameters],
-					body: initializer.body
-				});
+		if (ts.isFunctionLike(node)) {
+			for (const parameter of node.parameters) {
+				for (const name of boundNames(parameter.name)) declare(node, name, OTHER_BINDING);
 			}
+		}
+		if (ts.isFunctionDeclaration(node) && node.name && node.body) {
+			const scope = enclosingScope(node, isBlockScope);
+			declare(scope, node.name.text, helperBinding(node.parameters, node.body));
+		}
+		if (ts.isVariableDeclaration(node)) {
+			const list = node.parent;
+			// A catch clause variable has no declaration list and belongs to the clause.
+			const kind = ts.isVariableDeclarationList(list)
+				? list.flags & ts.NodeFlags.BlockScoped
+				: undefined;
+			const scope = enclosingScope(
+				node,
+				kind === ts.NodeFlags.None ? isFunctionScope : isBlockScope
+			);
+			const value = node.initializer;
+			const binding: HelperBinding =
+				!ts.isIdentifier(node.name) || !value
+					? OTHER_BINDING
+					: ts.isArrowFunction(value) || ts.isFunctionExpression(value)
+						? helperBinding(value.parameters, value.body)
+						: kind === ts.NodeFlags.Const && ts.isIdentifier(value)
+							? { kind: 'alias', target: value }
+							: OTHER_BINDING;
+			for (const name of boundNames(node.name)) declare(scope, name, binding);
 		}
 		ts.forEachChild(node, visit);
 	};
 	visit(parsed);
-	return helpers;
+
+	const resolve = (name: ts.Identifier, seen: ReadonlySet<ts.Identifier>): Helper | undefined => {
+		for (let node: ts.Node | undefined = name.parent; node; node = node.parent) {
+			const binding = scopes.get(node)?.get(name.text);
+			if (!binding) continue;
+			if (binding.kind === 'helper') return binding.helper;
+			// Aliases of each other, as in `const a = b; const b = a;`, name no helper.
+			if (binding.kind === 'other' || seen.has(binding.target)) return undefined;
+			return resolve(binding.target, new Set([...seen, binding.target]));
+		}
+		return undefined;
+	};
+	return {
+		all,
+		resolve: (call) =>
+			ts.isIdentifier(call.expression) ? resolve(call.expression, new Set()) : undefined
+	};
 }
 
 /**
@@ -700,29 +797,28 @@ function collectHelpers(parsed: ts.SourceFile): Map<string, Helper> {
  * helper they call. Reading any other helper at a call site cannot report a line, because its
  * bindings stay in its own scope, so those helpers are skipped instead of read once per call.
  */
-function mutatingHelpers(helpers: Map<string, Helper>): Set<string> {
-	const mutating = new Set<string>();
-	const callees = new Map<string, Set<string>>();
-	for (const [name, helper] of helpers) {
-		const called = new Set<string>();
+function mutatingHelpers(helpers: Helpers): Set<Helper> {
+	const mutating = new Set<Helper>();
+	const callees = new Map<Helper, Set<Helper>>();
+	for (const helper of helpers.all) {
+		const called = new Set<Helper>();
 		const visit = (node: ts.Node): void => {
 			if (ts.isCallExpression(node)) {
-				if (mutatedPositions(node, calleeName(node)).length > 0) mutating.add(name);
-				if (ts.isIdentifier(node.expression) && helpers.has(node.expression.text)) {
-					called.add(node.expression.text);
-				}
+				if (mutatedPositions(node, calleeName(node)).length > 0) mutating.add(helper);
+				const callee = helpers.resolve(node);
+				if (callee) called.add(callee);
 			}
 			ts.forEachChild(node, visit);
 		};
 		for (const part of [...helper.parameters, helper.body]) visit(part);
-		callees.set(name, called);
+		callees.set(helper, called);
 	}
 	let grew = true;
 	while (grew) {
 		grew = false;
-		for (const [name, called] of callees) {
-			if (mutating.has(name) || ![...called].some((callee) => mutating.has(callee))) continue;
-			mutating.add(name);
+		for (const [helper, called] of callees) {
+			if (mutating.has(helper) || ![...called].some((callee) => mutating.has(callee))) continue;
+			mutating.add(helper);
 			grew = true;
 		}
 	}
@@ -773,7 +869,7 @@ function transientSourceProducers(
 	// A helper's body is read once per call site, with that site's arguments bound, never with
 	// its parameters unbound, so it is skipped where it is declared. Its defaults are read there
 	// too, so a default that runs through an alias or a passed reference is still seen.
-	const helperParts = new Set<ts.Node>([...helpers.values()].map((helper) => helper.body));
+	const helperParts = new Set<ts.Node>(helpers.all.map((helper) => helper.body));
 	const mutating = mutatingHelpers(helpers);
 	const lines = new Set<number>();
 
@@ -799,7 +895,7 @@ function transientSourceProducers(
 		}
 	};
 
-	const analyze = (node: ts.Node, bindings: Scope, stack: Set<string>): void => {
+	const analyze = (node: ts.Node, bindings: Scope, stack: ReadonlySet<Helper>): void => {
 		if (helperParts.has(node)) return;
 
 		// A loop variable names each element in turn, a value the scan never reads, so inside the
@@ -930,10 +1026,8 @@ function transientSourceProducers(
 				break;
 			}
 
-			const helper = ts.isIdentifier(node.expression)
-				? helpers.get(node.expression.text)
-				: undefined;
-			if (helper && mutating.has(callee) && !stack.has(callee)) {
+			const helper = helpers.resolve(node);
+			if (helper && mutating.has(helper) && !stack.has(helper)) {
 				// Only the arguments this call site passes are bound: an anchored path where the
 				// argument names one, the segments it spells otherwise. A rest parameter keeps the
 				// whole sequence its call site passed, and one argument the scan cannot read leaves
@@ -942,7 +1036,7 @@ function transientSourceProducers(
 				// `undefined`, in the helper's scope after the parameters in front of it are bound,
 				// so a write the default makes is reported at its own line.
 				const scope = new Scope(bindings);
-				const nested = new Set([...stack, callee]);
+				const nested = new Set([...stack, helper]);
 				helper.parameters.forEach((parameter, index) => {
 					const argument = node.arguments[index];
 					const given = argument && !passesUndefined(argument, bindings) ? argument : undefined;
@@ -973,7 +1067,7 @@ function transientSourceProducers(
 	// top-level statement shares one scope, which is what carries a declaration to its use.
 	const fileScope = new Scope();
 	fileScope.set(SCANNED_FILE, [{ kind: 'path', segments: fileName.split(/[/\\]/) }]);
-	ts.forEachChild(parsed, (child) => analyze(child, fileScope, new Set()));
+	ts.forEachChild(parsed, (child) => analyze(child, fileScope, new Set<Helper>()));
 	return [...lines].sort((a, b) => a - b);
 }
 
@@ -1506,6 +1600,91 @@ keep(process.cwd(), 'given');`;
 const invokeSeed = seed;
 invokeSeed();`;
 		expect(transientSourceProducers(source)).toEqual([1]);
+	});
+
+	it('follows a helper called by its own name', () => {
+		const source = `function seed(root) {
+	mkdirSync(path.join(root, 'src/probe'));
+}
+seed(process.cwd());`;
+		expect(transientSourceProducers(source)).toEqual([2]);
+	});
+
+	it('follows a helper called through a const alias', () => {
+		const source = `function seed(root) {
+	mkdirSync(path.join(root, 'src/probe'));
+}
+const alias = seed;
+alias(process.cwd());`;
+		expect(transientSourceProducers(source)).toEqual([2]);
+	});
+
+	it('follows the same-named helper each call site sees', () => {
+		const outerWrites = `function seed(dir) {
+	writeFileSync(path.join(dir, 'src/probe.ts'), 'x');
+}
+{
+	function seed(dir) {
+		writeFileSync(path.join(dir, 'scratch/probe.ts'), 'x');
+	}
+	seed(process.cwd());
+}
+seed(process.cwd());`;
+		expect(transientSourceProducers(outerWrites)).toEqual([2]);
+		const innerOnly = `function seed(dir) {
+	writeFileSync(path.join(dir, 'src/probe.ts'), 'x');
+}
+{
+	function seed(dir) {
+		writeFileSync(path.join(dir, 'scratch/probe.ts'), 'x');
+	}
+	seed(process.cwd());
+}`;
+		expect(transientSourceProducers(innerOnly)).toEqual([]);
+	});
+
+	it('accepts an alias of a helper that writes below the scratch root it is given', () => {
+		const source = `function park(scratch) {
+	mkdirSync(path.join(scratch, 'probe'));
+}
+const alias = park;
+alias(path.join(process.cwd(), 'scratch'));`;
+		expect(transientSourceProducers(source)).toEqual([]);
+	});
+
+	it('follows a helper that calls another helper through an alias', () => {
+		const source = `function seed(root) {
+	mkdirSync(path.join(root, 'src/probe'));
+}
+function setup(root) {
+	const plant = seed;
+	plant(root);
+}
+setup(process.cwd());`;
+		expect(transientSourceProducers(source)).toEqual([2]);
+	});
+
+	it('reads a same-named binding that is no helper as no helper', () => {
+		const source = `function seed(root) {
+	mkdirSync(path.join(root, 'src/probe'));
+}
+it('seeds', ({ seed }) => {
+	seed(process.cwd());
+});
+{
+	const seed = makeSeeder();
+	seed(process.cwd());
+}`;
+		expect(transientSourceProducers(source)).toEqual([]);
+	});
+
+	it('accepts a parked root passed through an alias', () => {
+		const source = `function seed(root) {
+	mkdirSync(path.join(root, 'src/probe'));
+}
+const alias = seed;
+alias(path.join(process.cwd(), 'node_modules', '.cache'));`;
+		expect(transientSourceProducers(source)).toEqual([]);
 	});
 
 	it('binds the default of a parameter the call site leaves out', () => {
