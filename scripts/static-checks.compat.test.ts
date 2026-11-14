@@ -6,7 +6,6 @@ import {
 	existsSync,
 	mkdirSync,
 	readdirSync,
-	readFileSync,
 	rmSync,
 	symlinkSync,
 	writeFileSync
@@ -15,10 +14,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import {
-	createPrivateCheckout,
-	removePrivateCheckout
-} from './__fixtures__/static-checks/private-checkout';
+import { createCheckerClone } from './__fixtures__/static-checks/compat-harness';
 import { isolatedGitEnv, sanitizedGitEnv } from './git-context';
 import { compatibilityInvocation } from './static-checks';
 import { testExecutable } from './test-executable';
@@ -38,47 +34,9 @@ function run(args: string[], env = sanitizedGitEnv()) {
 }
 
 /**
- * A second checkout of this repository to run the checker against, outside the repository
- * rather than under its `scratch/`. Inside it, the clone is a whole extra copy of the tree
- * that every project-wide tool walks: measured, a full-project format run racing this
- * fixture read the clone's own files and failed a suite whose tracked tree was clean.
- * Killing the test run leaves the copy behind either way, and in the temporary directory
- * that is the operating system's problem instead of the next `eslint .`.
- */
-function createCheckerClone(): { directory: string; repository: string } {
-	const directory = mkdtempSync(path.join(tmpdir(), 'static-compat-'));
-	const repository = path.join(directory, 'repository');
-	try {
-		const result = spawnSync(
-			'git',
-			['clone', '--quiet', '--local', '--no-hardlinks', ROOT, repository],
-			{ env: sanitizedGitEnv(), encoding: 'utf8' }
-		);
-		if (result.status !== 0) throw new Error(`Local checker clone failed: ${result.stderr}`);
-		symlinkSync(
-			path.join(ROOT, 'node_modules'),
-			path.join(repository, 'node_modules'),
-			process.platform === 'win32' ? 'junction' : 'dir'
-		);
-		// Every script, not the three the checker is spelled in. It imports `convex-surface.ts`
-		// and `terminal-output.ts` among others, and copying only the entrypoints left those at
-		// the committed revision: measured, a working-tree change that made the surface reader
-		// throw was invisible to this fixture while the direct checker exited 1 on it.
-		cpSync(path.join(ROOT, 'scripts'), path.join(repository, 'scripts'), {
-			recursive: true,
-			dereference: true
-		});
-		return { directory, repository };
-	} catch (error) {
-		rmSync(directory, { recursive: true, force: true });
-		throw error;
-	}
-}
-
-/**
  * A history-free repository that runs this checkout's checker, for cases that must fail
- * before anything reads a commit. `scripts/` is copied as in the clone above, and every other
- * top-level entry is linked, so imports resolve against this working tree while
+ * before anything reads a commit. `scripts/` is copied as in `createCheckerClone`, and every
+ * other top-level entry is linked, so imports resolve against this working tree while
  * `git ls-files` reports each link as one path. The clone copies the whole object store and
  * checks out the tree: observed 2026-10-10 on a loaded 24-core host, it alone took 0.6 to
  * 5.9 s while the checker run it prepared took under one, and the case timed out.
@@ -364,79 +322,6 @@ describe('Convex compatibility static-check entrypoint', () => {
 	);
 
 	it.skipIf(process.platform === 'win32')(
-		'keeps a Unicode consumer path in the deployed contract',
-		() => {
-			const checkout = createCheckerClone();
-			const env = sanitizedGitEnv();
-			delete env.CI;
-			delete env.CONVEX_COMPAT_BASE;
-			const git = (args: string[]) =>
-				spawnSync('git', args, {
-					cwd: checkout.repository,
-					env,
-					encoding: 'utf8'
-				});
-			const commit = (message: string) =>
-				git([
-					'-c',
-					'user.name=Probe',
-					'-c',
-					'user.email=probe@example.com',
-					'commit',
-					'--quiet',
-					'--no-gpg-sign',
-					'--no-verify',
-					'-m',
-					message
-				]);
-			try {
-				const convexRoot = path.join(checkout.repository, 'src', 'lib', 'convex');
-				const target = path.join(convexRoot, 'compatUnicodeTarget.ts');
-				const route = path.join(checkout.repository, 'src', 'routes', 'überblick');
-				mkdirSync(route, { recursive: true });
-				writeFileSync(
-					target,
-					`import { query } from './_generated/server';
-
-export const viewer = query({ args: {}, handler: async () => null });
-`
-				);
-				writeFileSync(
-					path.join(route, '+page.server.ts'),
-					`import { api } from '#lib/convex/_generated/api.js';
-
-void api.compatUnicodeTarget.viewer;
-`
-				);
-				expect(git(['add', '--all']).status).toBe(0);
-				expect(commit('Add Unicode consumer').status).toBe(0);
-				const baseline = git(['rev-parse', 'HEAD']).stdout.trim();
-				rmSync(target);
-				expect(git(['add', '--all']).status).toBe(0);
-				expect(commit('Remove referenced function').status).toBe(0);
-
-				const result = spawnSync(
-					BUN,
-					[path.join(checkout.repository, 'scripts', 'convex-consumer-compat.ts')],
-					{
-						cwd: checkout.repository,
-						env: { ...env, CONVEX_COMPAT_BASE: baseline },
-						encoding: 'utf8',
-						timeout: 180_000
-					}
-				);
-				const output = `${result.stdout}${result.stderr}`;
-				expect(result.status, output).toBe(1);
-				expect(output).toContain('compatUnicodeTarget:viewer');
-				expect(output).toContain('src/routes/überblick/+page.server.ts');
-			} finally {
-				rmSync(checkout.directory, { recursive: true, force: true });
-			}
-		},
-		240_000
-	);
-
-	it.skipIf(process.platform === 'win32')(
 		'rejects an unsafe repository path before the compatibility child runs',
 		() => {
 			const checkout = createCheckerTree();
@@ -474,47 +359,5 @@ void api.compatUnicodeTarget.viewer;
 		expect(result.status).toBe(1);
 		expect(output).toContain('--scope compat only supports a full-project run');
 		expect(output).not.toContain('Convex consumer compatibility');
-	});
-
-	// The fixture above lives in the temporary directory, and session artifacts still land in
-	// `scratch/`. Ask Vitest rather than searching configuration text: the string can survive
-	// in a comment after the effective exclusion is removed. Asking means loading the real
-	// config, which is the cost of this case: observed 2026-10-10, discovery alone took 0.2 s
-	// while loading the config took 1.5 s, and the case took 2 s idle and 9 to 18 s with 12
-	// to 24 copies beside 48 CPU burners on 24 cores. The blocking child gets its own
-	// deadline because Vitest cannot interrupt it. The sentinels and the SvelteKit sync the
-	// config runs stay in a private checkout.
-	it('keeps session scratch and nested agent worktrees out of Vitest discovery', () => {
-		const checkout = createPrivateCheckout('static-compat-discovery-');
-		try {
-			for (const parent of ['scratch', '.claude/worktrees']) {
-				const directory = path.join(checkout.repository, parent, 'compat-discovery');
-				mkdirSync(directory, { recursive: true });
-				writeFileSync(
-					path.join(directory, 'sentinel.test.ts'),
-					"throw new Error('collected session sentinel');\n"
-				);
-			}
-			const result = spawnSync(BUN, ['vitest', 'list', '--filesOnly'], {
-				cwd: checkout.repository,
-				env: sanitizedGitEnv(),
-				encoding: 'utf8',
-				timeout: 50_000
-			});
-			expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
-			expect(`${result.stdout}${result.stderr}`).not.toContain('sentinel.test.ts');
-			expect(result.stdout).toContain('scripts/static-checks.compat.test.ts');
-		} finally {
-			removePrivateCheckout(checkout);
-		}
-	}, 60_000);
-
-	it('owns the package alias', () => {
-		const packageJson = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as {
-			scripts: Record<string, string>;
-		};
-		expect(packageJson.scripts['check:convex-compat']).toBe(
-			'bun scripts/static-checks.ts --scope compat'
-		);
 	});
 });

@@ -177,6 +177,9 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       - run: bun install --frozen-lockfile
       - run: bun scripts/static-checks.ts --ci --scope types
+      # The unit shards run this too, but a matrix without tooling rows would skip it there.
+      - name: Check that every Vitest project runs in the unit shards
+        run: bun vitest --config vitest.tooling.config.ts --run scripts/workflow-artifacts.test.ts -t 'runs every Vitest project as one complete set of shards'
 
   browser-fixtures:
     name: Browser Fixtures
@@ -200,15 +203,27 @@ jobs:
     strategy:
       fail-fast: false
       # One Vitest run executes its projects one after another, so each project gets its own
-      # jobs. Every project in vite.config.ts needs entries here. tooling stops at 2 shards
-      # because its longest file, not its total, sets the time of each further shard.
+      # jobs. Every project in vite.config.ts needs one complete 1..count set here, which
+      # scripts/workflow-artifacts.test.ts checks. An app shard spends most of its time on
+      # jsdom setup, imports and transforms, which shrink with fewer files per shard. Vitest
+      # places files by a hash of their path, so a tooling shard takes at least its longest
+      # file, the 25 to 50 s full-project format run.
       matrix:
         include:
-          - { project: app, shard: 1, count: 3 }
-          - { project: app, shard: 2, count: 3 }
-          - { project: app, shard: 3, count: 3 }
-          - { project: tooling, shard: 1, count: 2 }
-          - { project: tooling, shard: 2, count: 2 }
+          - { project: app, shard: 1, count: 8 }
+          - { project: app, shard: 2, count: 8 }
+          - { project: app, shard: 3, count: 8 }
+          - { project: app, shard: 4, count: 8 }
+          - { project: app, shard: 5, count: 8 }
+          - { project: app, shard: 6, count: 8 }
+          - { project: app, shard: 7, count: 8 }
+          - { project: app, shard: 8, count: 8 }
+          - { project: tooling, shard: 1, count: 6 }
+          - { project: tooling, shard: 2, count: 6 }
+          - { project: tooling, shard: 3, count: 6 }
+          - { project: tooling, shard: 4, count: 6 }
+          - { project: tooling, shard: 5, count: 6 }
+          - { project: tooling, shard: 6, count: 6 }
     env:
       PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
       PUBLIC_CONVEX_SITE_URL: https://placeholder.convex.site
