@@ -200,15 +200,22 @@ jobs:
     strategy:
       fail-fast: false
       # One Vitest run executes its projects one after another, so each project gets its own
-      # jobs. Every project in vite.config.ts needs entries here. tooling stops at 2 shards
-      # because its longest file, not its total, sets the time of each further shard.
+      # jobs. Every project in vite.config.ts needs one complete 1..count set here, which
+      # scripts/workflow-artifacts.test.ts checks. Vitest places files by a hash of their path,
+      # so a shard's time is at least its longest file: past about 5 tooling shards the
+      # 40 to 50 s static-check suites, not the total, set the time.
       matrix:
         include:
-          - { project: app, shard: 1, count: 3 }
-          - { project: app, shard: 2, count: 3 }
-          - { project: app, shard: 3, count: 3 }
-          - { project: tooling, shard: 1, count: 2 }
-          - { project: tooling, shard: 2, count: 2 }
+          - { project: app, shard: 1, count: 5 }
+          - { project: app, shard: 2, count: 5 }
+          - { project: app, shard: 3, count: 5 }
+          - { project: app, shard: 4, count: 5 }
+          - { project: app, shard: 5, count: 5 }
+          - { project: tooling, shard: 1, count: 5 }
+          - { project: tooling, shard: 2, count: 5 }
+          - { project: tooling, shard: 3, count: 5 }
+          - { project: tooling, shard: 4, count: 5 }
+          - { project: tooling, shard: 5, count: 5 }
     env:
       PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
       PUBLIC_CONVEX_SITE_URL: https://placeholder.convex.site

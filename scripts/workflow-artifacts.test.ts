@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { sanitizedGitEnv } from './git-context';
+import { toolingTestSettings } from './vitest-settings';
 import {
 	evaluate,
 	interpolate,
@@ -909,7 +910,16 @@ describe.skipIf(process.platform === 'win32')('required Unit Tests check', () =>
 	const workflow = parseYaml(
 		fs.readFileSync(path.join(WORKFLOWS_DIR, 'static-checks.yml'), 'utf-8')
 	) as {
-		jobs: Record<string, { name: string; steps: Array<{ run?: string }> }>;
+		jobs: Record<
+			string,
+			{
+				name: string;
+				steps: Array<{ run?: string }>;
+				strategy?: {
+					matrix?: { include?: Array<{ project: string; shard: number; count: number }> };
+				};
+			}
+		>;
 	};
 	const check = Object.values(workflow.jobs).find((job) => job.name === 'Unit Tests');
 
@@ -931,6 +941,43 @@ describe.skipIf(process.platform === 'win32')('required Unit Tests check', () =>
 			}
 		}
 	);
+
+	// A shard job that runs nothing still succeeds under --passWithNoTests, so a project or a
+	// shard missing from the matrix would drop its tests from the required check unnoticed.
+	it('runs every Vitest project as one complete set of shards', () => {
+		const viteConfig = fs.readFileSync(
+			path.resolve(import.meta.dirname, '../vite.config.ts'),
+			'utf-8'
+		);
+		const projectsBlock = viteConfig.slice(viteConfig.indexOf('projects: ['));
+		const projects = projectsBlock
+			.slice(0, projectsBlock.indexOf('\n\t\t\t]'))
+			.split('extends: true')
+			.slice(1)
+			.map((entry) =>
+				entry.includes('test: toolingTestSettings')
+					? toolingTestSettings.name
+					: entry.match(/name: '([^']+)'/)?.[1]
+			);
+		expect(projects.length, 'no Vitest project found in vite.config.ts').toBeGreaterThan(0);
+
+		const shards = workflow.jobs['unit-test-shards'];
+		const byProject = new Map<string, Array<{ shard: number; count: number }>>();
+		for (const row of shards?.strategy?.matrix?.include ?? []) {
+			byProject.set(row.project, [...(byProject.get(row.project) ?? []), row]);
+		}
+		expect([...byProject.keys()].sort()).toEqual([...projects].sort());
+		for (const [project, rows] of byProject) {
+			const count = rows[0]!.count;
+			expect(
+				rows.map((row) => [row.shard, row.count]),
+				`${project} shards`
+			).toEqual(Array.from({ length: count }, (_, index) => [index + 1, count]));
+		}
+		expect(shards?.steps.map((step) => step.run)).toContain(
+			'bun run test:unit --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.count }}'
+		);
+	});
 });
 
 describe.skipIf(process.platform === 'win32')('lint job source identity', () => {
