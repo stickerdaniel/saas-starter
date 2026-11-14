@@ -79,6 +79,13 @@ describe('safeRedirectPath', () => {
 		expect(safeRedirectPath('//user:pass@redirect.invalid/x', '/')).toBe('/');
 	});
 
+	it('rejects dot segments that normalize into a network path', () => {
+		expect(safeRedirectPath('/.//evil.com', '/')).toBe('/');
+		expect(safeRedirectPath('/..//evil.com', '/')).toBe('/');
+		expect(safeRedirectPath('/%2e//evil.com', '/')).toBe('/');
+		expect(safeRedirectPath('/a/..//evil.com', '/')).toBe('/');
+	});
+
 	it('canonicalizes the accepted path so check and use agree', () => {
 		expect(safeRedirectPath('/a/../b', '/')).toBe('/b');
 		expect(safeRedirectPath('/café?q=hello world#x y', '/')).toBe(
