@@ -1,15 +1,18 @@
 name: Supersede Preview E2E
 
-# A push to a pull request starts a Workers build that runs
-# `convex deploy --preview-create` before it builds the app. That deletes the
-# Convex preview an older "E2E Tests (CF Preview)" run of the branch is still
-# testing. The build's check run, which also cancels that older run, arrives one
-# to two minutes later, after the older run has failed against the missing
-# backend and published its verdict. This run joins the older run's concurrency
-# group when the push lands and cancels it before its backend disappears.
+# Two events delete the Convex preview that an "E2E Tests (CF Preview)" run of
+# the branch is still testing:
+# - A push starts a Workers build that runs `convex deploy --preview-create`
+#   before it builds the app. The build's check run, which also cancels the
+#   older run, arrives one to two minutes later, after the older run has failed
+#   against the missing backend and published its verdict.
+# - Closing the pull request runs delete-convex-preview.yml, which deletes the
+#   preview within seconds. No check run follows to cancel the E2E run.
+# On either event this run joins the E2E run's concurrency group and cancels
+# it. A cancelled run publishes no verdict.
 on:
   pull_request:
-    types: [synchronize]
+    types: [synchronize, closed]
 
 permissions: {}
 

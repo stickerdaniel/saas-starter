@@ -180,9 +180,15 @@ interface WorkflowJob {
 	concurrency?: WorkflowConcurrency | string;
 }
 
+interface WorkflowTrigger {
+	paths?: unknown;
+	'paths-ignore'?: unknown;
+	types?: string[];
+}
+
 interface WorkflowFile {
 	name?: string;
-	on: string | string[] | Record<string, { paths?: unknown; 'paths-ignore'?: unknown } | null>;
+	on: string | string[] | Record<string, WorkflowTrigger | null>;
 	concurrency?: WorkflowConcurrency | string;
 	jobs: Record<string, WorkflowJob>;
 }
@@ -200,9 +206,7 @@ function parsedWorkflow(file: string): WorkflowFile {
 	return workflow;
 }
 
-function triggers(
-	workflow: WorkflowFile
-): Record<string, { paths?: unknown; 'paths-ignore'?: unknown }> {
+function triggers(workflow: WorkflowFile): Record<string, WorkflowTrigger> {
 	const on = workflow.on;
 	const events = typeof on === 'string' ? [on] : Array.isArray(on) ? on : Object.keys(on);
 	return Object.fromEntries(
@@ -682,6 +686,18 @@ describe('pull request run supersession', () => {
 		for (const [label, run] of isolated) {
 			expect(push(run).group, `${label} must not cancel the head build run`).not.toBe(olderBuild);
 		}
+	});
+
+	// Closing a pull request deletes its Convex preview within seconds, while the
+	// branch's preview E2E run may still be testing it.
+	it('every preview deletion cancels the preview E2E run of the branch', () => {
+		const actions = (file: string) => triggers(parsedWorkflow(file)).pull_request?.types ?? [];
+		const deleting = actions('delete-convex-preview.yml');
+		expect(deleting, 'delete-convex-preview.yml names the actions that delete').not.toEqual([]);
+		expect(
+			actions('supersede-preview-e2e.yml'),
+			'supersede-preview-e2e.yml must trigger on every pull_request action that deletes the preview'
+		).toEqual(expect.arrayContaining(deleting));
 	});
 });
 
