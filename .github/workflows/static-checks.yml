@@ -218,12 +218,13 @@ jobs:
           - { project: app, shard: 6, count: 8 }
           - { project: app, shard: 7, count: 8 }
           - { project: app, shard: 8, count: 8 }
-          - { project: tooling, shard: 1, count: 6 }
-          - { project: tooling, shard: 2, count: 6 }
-          - { project: tooling, shard: 3, count: 6 }
-          - { project: tooling, shard: 4, count: 6 }
-          - { project: tooling, shard: 5, count: 6 }
-          - { project: tooling, shard: 6, count: 6 }
+          - { project: tooling, shard: 1, count: 7 }
+          - { project: tooling, shard: 2, count: 7 }
+          - { project: tooling, shard: 3, count: 7 }
+          - { project: tooling, shard: 4, count: 7 }
+          - { project: tooling, shard: 5, count: 7 }
+          - { project: tooling, shard: 6, count: 7 }
+          - { project: tooling, shard: 7, count: 7 }
     env:
       PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
       PUBLIC_CONVEX_SITE_URL: https://placeholder.convex.site
