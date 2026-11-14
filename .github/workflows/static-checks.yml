@@ -206,8 +206,8 @@ jobs:
       # jobs. Every project in vite.config.ts needs one complete 1..count set here, which
       # scripts/workflow-artifacts.test.ts checks. An app shard spends most of its time on
       # jsdom setup, imports and transforms, which shrink with fewer files per shard. Vitest
-      # places files by a hash of their path, so a tooling shard takes at least its longest
-      # file, the 25 to 50 s full-project format run.
+      # places files by a hash of their path; scripts/vitest-sequencer.ts deals the 12 heavy
+      # tooling suites (14 to 38 s each) round-robin instead, two per tooling shard here.
       matrix:
         include:
           - { project: app, shard: 1, count: 8 }
