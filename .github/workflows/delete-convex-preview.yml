@@ -6,6 +6,8 @@ name: Delete Convex Preview
 # deletes the preview as soon as the PR closes (merged or not), so a median
 # ~20-minute PR does not occupy a slot for days. Resolves the preview by the
 # branch's canonical identifier; idempotent if it is already gone.
+# supersede-preview-e2e.yml cancels the branch's preview E2E run on the same
+# event, so that run does not fail against the deleted backend.
 #
 # Optional: without CONVEX_MANAGEMENT_TOKEN the script exits 0 and the platform
 # TTL remains the only cleanup.

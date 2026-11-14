@@ -22,7 +22,9 @@ on:
 # deleting the backend an older run of that branch is still testing. It does so
 # before it builds the app, so its check run comes too late to save that run:
 # supersede-preview-e2e.yml joins this group, keyed on this workflow's name, when
-# the push lands and cancels the older run first. A build of the pull request's
+# the push lands and cancels the older run first. It does the same when the pull
+# request closes, because delete-convex-preview.yml then deletes the backend the
+# run is testing. A build of the pull request's
 # current head still cancels it too, which covers a rebuild without a push. A
 # build that is no longer the head (it finished after a newer push), a re-run,
 # and every other event get a group of their own, so they never cancel the
