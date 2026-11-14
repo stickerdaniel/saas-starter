@@ -3,33 +3,45 @@ import { BaseSequencer, type TestSpecification } from 'vitest/node';
 import { toolingTestSettings } from './vitest-settings.ts';
 
 /**
- * Root-relative paths of the slowest tooling suites, 14 to 38 s of test time each on a hosted
- * runner, slowest first, so that a round-robin over this order puts the slowest suites into
- * different shards.
+ * Root-relative paths of the slowest tooling suites, 18 to 38 s of test time each on a hosted
+ * runner, slowest first: every `scripts/static-checks*.test.ts` file plus the named suites of
+ * similar length.
  */
 export const HEAVY_TOOLING_SUITES = [
-	'scripts/static-checks.knip.test.ts',
-	'scripts/static-checks.processes.test.ts',
-	'scripts/static-checks.format-paths.test.ts',
-	'scripts/static-checks.compat-contract.test.ts',
 	'eslint/config-coverage.test.ts',
-	'scripts/static-checks.knip-types.test.ts',
+	'scripts/static-checks.format-scope.test.ts',
+	'scripts/static-checks.format-paths.test.ts',
+	'scripts/static-checks.format-project.test.ts',
+	'scripts/static-checks.compat-contract.test.ts',
+	'scripts/static-checks.knip.test.ts',
+	'scripts/static-checks.compat.test.ts',
 	'scripts/static-checks.knip-cli.test.ts',
 	'scripts/static-checks.format.test.ts',
-	'scripts/static-checks.compat.test.ts',
-	'scripts/static-checks.format-scope.test.ts',
-	'scripts/static-checks.format-project.test.ts',
+	'scripts/static-checks.processes.test.ts',
+	'scripts/static-checks.knip-types.test.ts',
+	'scripts/template-setup.integration.test.ts',
+	'scripts/playwright-selection.test.ts',
+	'scripts/third-party-licenses/kit-build.test.ts',
 	'scripts/static-checks.test.ts'
 ];
 
 const heavyPositions = new Map(HEAVY_TOOLING_SUITES.map((file, position) => [file, position]));
 
 /**
- * Shards like `BaseSequencer`, except that shard k of n also receives the heavy tooling suites
- * at positions p with p % n === k - 1 in `HEAVY_TOOLING_SUITES`. The SHA-1 path placement of
- * `BaseSequencer` put two or three heavy suites into one tooling shard, which then set the
- * time of the whole check. Every other file keeps the shard `BaseSequencer` gives it within
- * its own project.
+ * The 0-based shard of the heavy suite at `position` when the list is dealt in snake order:
+ * positions 0..n-1 go to shards 1..n, the next n back to shards n..1, and so on, so the
+ * slowest suite of one round shares its shard with the fastest of the next.
+ */
+function snakeShard(position: number, count: number): number {
+	const offset = position % count;
+	return Math.floor(position / count) % 2 === 0 ? offset : count - 1 - offset;
+}
+
+/**
+ * Shards like `BaseSequencer`, except that the heavy tooling suites are dealt over the shards
+ * in snake order of `HEAVY_TOOLING_SUITES`. The SHA-1 path placement of `BaseSequencer` put
+ * two or three heavy suites into one tooling shard, which then set the time of the whole
+ * check. Every other file keeps the shard `BaseSequencer` gives it within its own project.
  */
 export class HeavySuiteSequencer extends BaseSequencer {
 	override async shard(files: TestSpecification[]): Promise<TestSpecification[]> {
@@ -44,7 +56,7 @@ export class HeavySuiteSequencer extends BaseSequencer {
 		const light = (await super.shard(tooling)).filter((spec) => heavyPosition(spec) === undefined);
 		const heavy = tooling.filter((spec) => {
 			const position = heavyPosition(spec);
-			return position !== undefined && position % shard.count === shard.index - 1;
+			return position !== undefined && snakeShard(position, shard.count) === shard.index - 1;
 		});
 		return [...others, ...light, ...heavy];
 	}
