@@ -204,24 +204,23 @@ jobs:
       fail-fast: false
       # One Vitest run executes its projects one after another, so each project gets its own
       # jobs. Every project in vite.config.ts needs one complete 1..count set here, which
-      # scripts/workflow-artifacts.test.ts checks. An app shard spends most of its time on
+      # scripts/workflow-artifacts.test.ts checks. A push runs about 12 other jobs beside these;
+      # with 24 shard jobs, one waited 14 s for a runner (35 jobs ran at once on 2026-11-14). An app shard spends most of its time on
       # jsdom setup, imports and transforms, which shrink with fewer files per shard. Vitest
       # places files by a hash of their path; scripts/vitest-sequencer.ts deals the 15 heavy
       # tooling suites (18 to 38 s each) in snake order instead, one or two per tooling shard.
       matrix:
         include:
-          - { project: app, shard: 1, count: 12 }
-          - { project: app, shard: 2, count: 12 }
-          - { project: app, shard: 3, count: 12 }
-          - { project: app, shard: 4, count: 12 }
-          - { project: app, shard: 5, count: 12 }
-          - { project: app, shard: 6, count: 12 }
-          - { project: app, shard: 7, count: 12 }
-          - { project: app, shard: 8, count: 12 }
-          - { project: app, shard: 9, count: 12 }
-          - { project: app, shard: 10, count: 12 }
-          - { project: app, shard: 11, count: 12 }
-          - { project: app, shard: 12, count: 12 }
+          - { project: app, shard: 1, count: 10 }
+          - { project: app, shard: 2, count: 10 }
+          - { project: app, shard: 3, count: 10 }
+          - { project: app, shard: 4, count: 10 }
+          - { project: app, shard: 5, count: 10 }
+          - { project: app, shard: 6, count: 10 }
+          - { project: app, shard: 7, count: 10 }
+          - { project: app, shard: 8, count: 10 }
+          - { project: app, shard: 9, count: 10 }
+          - { project: app, shard: 10, count: 10 }
           - { project: tooling, shard: 1, count: 12 }
           - { project: tooling, shard: 2, count: 12 }
           - { project: tooling, shard: 3, count: 12 }
