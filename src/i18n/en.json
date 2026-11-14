@@ -323,6 +323,28 @@
 			}
 		}
 	},
+	"after_launch": {
+		"title": "What happens after launch",
+		"description": "Your first customers show up. These parts are already running when they do.",
+		"steps": {
+			"ship": {
+				"title": "You ship",
+				"description": "Every push deploys, and every pull request gets its own preview. Analytics, error tracking and admin metrics run before your first user does."
+			},
+			"talk": {
+				"title": "You talk to users",
+				"description": "Each new user gets a welcome email from you, and replies land in your inbox. The support chat answers and hands you the threads that need a person."
+			},
+			"pay": {
+				"title": "You see who pays",
+				"description": "When a customer pays for the first time, you get an email with what they did before paying. Best email of the week."
+			},
+			"fix": {
+				"title": "You fix it and say sorry",
+				"description": "After a production fix, an agent finds the accounts the bug hit and drafts one email. You read it and press send."
+			}
+		}
+	},
 	"ai_chat": {
 		"input": {
 			"placeholder": "Type a message..."
@@ -896,6 +918,43 @@
 		"not_found_description": "The page you're looking for doesn't exist. Try searching for what you need below.",
 		"not_found_title": "404 - Page Not Found",
 		"search_placeholder": "Try searching for pages..."
+	},
+	"faq": {
+		"title": "Questions before you start",
+		"items": {
+			"free": {
+				"question": "Is it free?",
+				"answer": "Yes, it is MIT licensed. You pay only for the services you switch on, and most of them start on a free tier."
+			},
+			"accounts": {
+				"question": "Do I need accounts to try it?",
+				"answer": "No. Local development runs without accounts or API keys, database included. You need them once you deploy."
+			},
+			"hosting": {
+				"question": "Where does it run?",
+				"answer": "On Cloudflare Workers, Vercel or your own Node server. Every branch gets a preview with its own backend, and the production branch goes live."
+			},
+			"updates": {
+				"question": "How do I get updates later?",
+				"answer": "Run bun run upstream:sync. It finds where your product split off, and an agent reviews every template commit against your changes. Your edits stay yours."
+			},
+			"production": {
+				"question": "Is it ready for production?",
+				"answer": "Features only land here after a product uses them in production. So the bugs get found before they reach you. Mostly."
+			},
+			"design": {
+				"question": "Can I change the design?",
+				"answer": "Yes. It uses shadcn-svelte components and theme tokens in one stylesheet, so you can recolor the whole app, desk illustration included, in one file."
+			},
+			"demo": {
+				"question": "Is there a demo?",
+				"answer": "You are on it. Sign up and click around, and the support chat on this page is the real one."
+			},
+			"agents": {
+				"question": "Can AI agents read my site?",
+				"answer": "Yes. Marketing pages answer in markdown when an agent asks, and /llms.txt lists them. Half of this FAQ is for them, honestly."
+			}
+		}
 	},
 	"footer": {
 		"about": "About",

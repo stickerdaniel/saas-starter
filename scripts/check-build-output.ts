@@ -54,8 +54,9 @@ export function findPrerenderedNegotiatedMarketingPages(outDir: string): string[
 
 /**
  * Bundled client stylesheets SvelteKit links instead of inlining, with their length.
- * Only stylesheets in Vite's client manifest qualify; CSS copied from `static/` is
- * always linked, whatever the threshold.
+ * Only stylesheets that chunks import qualify, the ones SvelteKit may inline. A
+ * stylesheet imported with `?url` and CSS copied from `static/` are always linked,
+ * whatever the threshold.
  */
 export function findLinkedStylesheets(
 	clientDir: string,
@@ -63,14 +64,10 @@ export function findLinkedStylesheets(
 ): Array<{ file: string; length: number }> {
 	const manifestPath = path.join(clientDir, '.vite/manifest.json');
 	if (!fs.existsSync(manifestPath)) return [];
-	const manifest: Record<string, { file: string; css?: string[]; assets?: string[] }> = JSON.parse(
+	const manifest: Record<string, { css?: string[] }> = JSON.parse(
 		fs.readFileSync(manifestPath, 'utf-8')
 	);
-	const stylesheets = new Set(
-		Object.values(manifest)
-			.flatMap((chunk) => [chunk.file, ...(chunk.css ?? []), ...(chunk.assets ?? [])])
-			.filter((file) => file.endsWith('.css'))
-	);
+	const stylesheets = new Set(Object.values(manifest).flatMap((chunk) => chunk.css ?? []));
 	return (
 		[...stylesheets]
 			// SvelteKit compares the string length, not the byte size.

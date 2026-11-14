@@ -7,6 +7,9 @@
  * frame loop runs only while something moves and pauses off-screen.
  */
 
+/** The figure's live markup, which replaces the stylesheet frame before the animation starts. */
+export { default as markup } from './desk-computer.svg?raw';
+
 // Key codes in the order of the figure's `data-key` indices, row by row.
 const KEYS = [
 	['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'Backspace'],

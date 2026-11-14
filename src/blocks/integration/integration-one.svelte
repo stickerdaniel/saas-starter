@@ -1,18 +1,16 @@
 <script lang="ts">
 	import IntegrationCard from './card/integration-card.svelte';
-	import {
-		Svelte,
-		Convex,
-		Tolgee,
-		PostHog,
-		SVBlocks,
-		Autumn,
-		BetterAuth,
-		Resend,
-		Sentry
-	} from '../logos/logos';
-	import Shadcn from '../logos/Shadcn.svelte';
-	import Stripe from '../logos/Stripe.svelte';
+	import { Autumn } from '../logos/logos';
+	import svelteLogo from '../logos/svelte.svg?no-inline';
+	import convexLogo from '../logos/convex.svg?no-inline';
+	import betterAuthLogo from '../logos/betterauth.svg?no-inline';
+	import stripeLogo from '../logos/stripe.svg?no-inline';
+	import tolgeeLogo from '../logos/tolgee.svg?no-inline';
+	import postHogLogo from '../logos/posthog.svg?no-inline';
+	import shadcnLogo from '../logos/shadcn.svg?no-inline';
+	import svBlocksLogo from '../logos/svblocks.svg?no-inline';
+	import resendLogo from '../logos/resend.svg?no-inline';
+	import sentryLogo from '../logos/sentry.svg?no-inline';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -36,7 +34,7 @@
 					link="https://svelte.dev"
 					buttonText={$t('integrations.cards.svelte.button')}
 				>
-					<Svelte />
+					<img class="size-10" src={svelteLogo} alt="" width="40" height="40" />
 				</IntegrationCard>
 
 				<IntegrationCard
@@ -45,7 +43,7 @@
 					link="https://convex.dev"
 					buttonText={$t('integrations.cards.convex.button')}
 				>
-					<Convex />
+					<img class="size-10" src={convexLogo} alt="" width="40" height="40" />
 				</IntegrationCard>
 
 				<IntegrationCard
@@ -54,7 +52,7 @@
 					link="https://www.better-auth.com/"
 					buttonText={$t('integrations.cards.better_auth.button')}
 				>
-					<BetterAuth />
+					<img class="size-10" src={betterAuthLogo} alt="" width="40" height="40" />
 				</IntegrationCard>
 
 				<IntegrationCard
@@ -68,7 +66,7 @@
 				>
 					<div class="flex items-center gap-2">
 						<Autumn class="size-10" />
-						<Stripe class="size-10" />
+						<img class="size-10" src={stripeLogo} alt="" width="40" height="40" />
 					</div>
 				</IntegrationCard>
 
@@ -78,7 +76,7 @@
 					link="https://tolgee.io"
 					buttonText={$t('integrations.cards.tolgee.button')}
 				>
-					<Tolgee />
+					<img class="size-10" src={tolgeeLogo} alt="" width="40" height="40" />
 				</IntegrationCard>
 
 				<IntegrationCard
@@ -87,7 +85,7 @@
 					link="https://posthog.com/"
 					buttonText={$t('integrations.cards.posthog.button')}
 				>
-					<PostHog />
+					<img class="size-10" src={postHogLogo} alt="" width="40" height="40" />
 				</IntegrationCard>
 
 				<IntegrationCard
@@ -100,8 +98,8 @@
 					secondaryButtonText={$t('integrations.cards.shadcn_svblocks.secondary_button')}
 				>
 					<div class="flex items-center gap-2">
-						<Shadcn class="size-10" />
-						<SVBlocks class="size-10" />
+						<img class="size-10 dark:invert" src={shadcnLogo} alt="" width="40" height="40" />
+						<img class="size-10 dark:invert" src={svBlocksLogo} alt="" width="40" height="40" />
 					</div>
 				</IntegrationCard>
 
@@ -111,7 +109,7 @@
 					link="https://resend.com"
 					buttonText={$t('integrations.cards.resend.button')}
 				>
-					<Resend />
+					<img class="size-10 dark:invert" src={resendLogo} alt="" width="40" height="40" />
 				</IntegrationCard>
 
 				<IntegrationCard
@@ -120,7 +118,7 @@
 					link="https://sentry.io"
 					buttonText={$t('integrations.cards.sentry.button')}
 				>
-					<Sentry />
+					<img class="size-10 dark:invert" src={sentryLogo} alt="" width="40" height="40" />
 				</IntegrationCard>
 			</div>
 		</div>

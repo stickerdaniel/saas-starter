@@ -19,6 +19,7 @@ import { prepareEmbeddedEnvManifest } from './scripts/strip-varlock-secrets';
 import { thirdPartyLicenses } from './scripts/third-party-licenses/index';
 import { OUTFIT_WEIGHTS, marketingFonts } from './scripts/marketing-fonts';
 import { kitGeneratedHmr } from './scripts/kit-generated-hmr';
+import { deskComputerFrame } from './scripts/desk-computer-frame';
 import { INLINE_STYLE_THRESHOLD } from './scripts/inline-styles';
 import { sharedTestSettings, toolingTestSettings } from './scripts/vitest-settings.ts';
 import { sentrySvelteKit } from '@sentry/sveltekit/vite';
@@ -440,6 +441,7 @@ export default defineConfig(async ({ command, mode }) => {
 		}),
 		licenses.plugin,
 		marketingFonts(),
+		deskComputerFrame(),
 		// Startup rewrites of Kit's generated files must not reload the SSR runner mid-request.
 		kitGeneratedHmr(kitOutDir),
 		devtoolsJson(),

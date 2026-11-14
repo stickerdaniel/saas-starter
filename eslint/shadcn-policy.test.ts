@@ -234,7 +234,7 @@ function getClasses(): string { return 'mt-4'; }
 
 	it.each([
 		['src/lib/emails/components/layout/EmailFooter.svelte', ['shadcn/no-unknown-classes']],
-		['src/blocks/logos/Convex.svelte', ['shadcn/no-unknown-classes']],
+		['src/blocks/logos/OpenRouter.svelte', ['shadcn/no-unknown-classes']],
 		['src/blocks/hero/hero-five.svelte', ['shadcn/no-raw-colors', 'shadcn/no-unknown-classes']]
 	])(
 		'applies the raw color exceptions to the Svelte file %s',
@@ -290,7 +290,7 @@ function getClasses(): string { return 'mt-4'; }
 	// Email clients need inline styles; brand logos get no such exception.
 	it.each([
 		['src/lib/emails/components/layout/EmailFooter.svelte', []],
-		['src/blocks/logos/Convex.svelte', ['shadcn/no-inline-styles']]
+		['src/blocks/logos/OpenRouter.svelte', ['shadcn/no-inline-styles']]
 	])(
 		'applies the inline style exception to the Svelte file %s',
 		async (filePath, expected) => {
