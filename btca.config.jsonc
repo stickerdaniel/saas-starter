@@ -650,6 +650,13 @@
 			"url": "https://github.com/svix/svix-webhooks",
 			"branch": "main",
 			"specialNotes": "Svix SDKs. javascript/src/webhook.ts is the Webhook class that verifies Autumn webhooks; since 2.x it delegates to standardwebhooks and verify() returns nothing, so the caller parses the raw body. Read the installed release tag."
+		},
+		{
+			"type": "git",
+			"name": "tinyglobby",
+			"url": "https://github.com/SuperchupuDev/tinyglobby",
+			"branch": "main",
+			"specialNotes": "The glob matcher Vitest uses to discover test files; scripts/vitest-sequencer.test.ts calls it with Vitest's own options to rebuild the project file sets."
 		}
 	]
 }
