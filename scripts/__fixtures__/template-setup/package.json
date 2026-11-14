@@ -127,7 +127,7 @@
 		"@shadcn/lint": "0.2.0",
 		"@sveltejs/adapter-auto": "7.0.1",
 		"@sveltejs/adapter-cloudflare": "8.0.2",
-		"@sveltejs/adapter-node": "5.5.7",
+		"@sveltejs/adapter-node": "6.0.1",
 		"@sveltejs/adapter-vercel": "7.0.2",
 		"@sveltejs/kit": "3.1.1",
 		"@sveltejs/package": "2.5.8",
