@@ -7,7 +7,7 @@ import { resolveConvexUrl } from './utils/convex-url';
 
 /**
  * A file that is still transferring dies with the page, and dies quietly: the
- * progress bar disappears and the user assumes the file arrived. These assert
+ * upload spinner disappears and the user assumes the file arrived. These assert
  * that leaving is announced, and the far more important converse, that an
  * ordinary departure is not.
  */
@@ -27,9 +27,9 @@ async function stallUpload(page: Page): Promise<void> {
 	});
 }
 
-/** The attempt's progress bar; the storage POST confirms the transfer is active. */
+/** The attempt's upload spinner; the storage POST confirms the transfer is active. */
 function uploadInFlight(page: Page) {
-	return page.getByTestId('attachment-chip').first().getByRole('progressbar');
+	return page.getByTestId('attachment-chip').first().getByRole('status');
 }
 
 async function attachNotes(page: Page, name: string): Promise<void> {
@@ -127,9 +127,9 @@ test.describe('Upload navigation guard', () => {
 	});
 
 	test('moving to another page is stopped and explained', async ({ page }) => {
-		// The progress bar is painted when the attempt starts, before the storage
+		// The upload spinner is painted when the attempt starts, before the storage
 		// POST. The suite shares one user's ten-per-hour upload grant, so this
-		// attempt can be refused: the bar flashes, the guard releases, and the
+		// attempt can be refused: the spinner flashes, the guard releases, and the
 		// click leaves. The stall only holds the POST, so click once that request
 		// is out and the budget has been given back.
 		const storagePost = page.waitForRequest(STORAGE_UPLOAD);

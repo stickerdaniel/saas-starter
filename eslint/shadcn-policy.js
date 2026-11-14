@@ -20,6 +20,11 @@ const arbitraryValueExceptions = [
 	'rounded-[4px]',
 	'[--check-len:23]',
 	'h-[18.4px]',
+	// AttachmentMedia and sent chat attachments: a concentric media radius is the
+	// card radius minus the border and padding, which lands between radius steps.
+	// The default and xs sizes reuse the --radius - 5px entry above.
+	'rounded-[calc(var(--radius)-3px)]',
+	'rounded-[calc(var(--radius-3xl)-9px)]',
 	// AlertDialog, Alert, CardHeader, and the account settings upload row: track
 	// templates mixing auto and fr have no grid-cols-N or grid-rows-N spelling.
 	'grid-rows-[auto_1fr]',
@@ -32,7 +37,7 @@ const arbitraryValueExceptions = [
 	// the composer's 25px pill are not radius tokens.
 	'rounded-[inherit]',
 	'rounded-[25px]',
-	// Sidebar, Dialog, chat scroll buttons, marketing shell, hero, and attachment tiles:
+	// Sidebar, Dialog, chat scroll buttons, marketing shell, and hero:
 	// each calc couples a length to a variable, a percentage, or a sibling gap.
 	'w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]',
 	'w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]',
@@ -42,7 +47,6 @@ const arbitraryValueExceptions = [
 	'w-[calc(100%+1rem)]',
 	'w-[calc(100%+4rem)]',
 	'w-[calc(100%-11rem)]',
-	'w-[calc(50%-0.25rem)]',
 	// Admin support skeletons: the measured 17.5px line box has no spacing step,
 	// since h-4.375 generates no CSS.
 	'h-[17.5px]',
@@ -175,7 +179,6 @@ const strictControls = [
 // own name, which would otherwise fall back to the layout default and reopen sizes.
 const privateOwners = [
 	'AdminThreadRow',
-	'AttachmentRemoveButton',
 	'ChatbarSendButton',
 	'ComposerAttachmentButton',
 	'FilterChipRemoveButton',
@@ -258,20 +261,6 @@ export const restyleOwners = [
 		files: ['src/lib/components/ui/owned/integration-learn-more-button.svelte'],
 		components: {
 			Button: ['pr-2']
-		}
-	},
-	{
-		id: 'O03',
-		files: ['src/lib/components/ui/owned/attachment-remove-button.svelte'],
-		components: {
-			Button: ['p-1', 'hover:bg-secondary/50']
-		}
-	},
-	{
-		id: 'O04',
-		files: ['src/lib/chat/ui/ChatAttachments.svelte'],
-		components: {
-			Progress: ['h-full', 'w-full', 'rounded-none']
 		}
 	},
 	{

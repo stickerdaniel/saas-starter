@@ -60,7 +60,7 @@
 				"allow": ["layout", "truncate"]
 			},
 			{
-				"pattern": "^(Button|CopyButton|ScrollButton|PromptSuggestion|CommandTrigger|NavigationButton|AlertDialogAction|AlertDialogCancel|InputGroupButton|Badge|Input|SidebarInput|InputGroupInput|Textarea|PromptInputTextarea|InputGroupTextarea|SelectTrigger|TabsTrigger|Toggle|Avatar|AvatarImage|AvatarFallback|Kbd|KbdGroup|AdminThreadRow|AttachmentRemoveButton|ChatbarSendButton|ComposerAttachmentButton|FilterChipRemoveButton|FounderResetConfirmAction|HeroFiveCta|IntegrationLearnMoreButton|MarketingWordmark|NavUserTrigger|PasskeyDeleteButton|ScreenshotSubmitButton|SidebarHeaderButton|SupportThreadRow|UserBanMenuItem)$",
+				"pattern": "^(Button|CopyButton|ScrollButton|PromptSuggestion|CommandTrigger|NavigationButton|AlertDialogAction|AlertDialogCancel|InputGroupButton|Badge|Input|SidebarInput|InputGroupInput|Textarea|PromptInputTextarea|InputGroupTextarea|SelectTrigger|TabsTrigger|Toggle|Avatar|AvatarImage|AvatarFallback|Kbd|KbdGroup|AdminThreadRow|ChatbarSendButton|ComposerAttachmentButton|FilterChipRemoveButton|FounderResetConfirmAction|HeroFiveCta|IntegrationLearnMoreButton|MarketingWordmark|NavUserTrigger|PasskeyDeleteButton|ScreenshotSubmitButton|SidebarHeaderButton|SupportThreadRow|UserBanMenuItem)$",
 				"allow": [
 					"m",
 					"mx",
@@ -134,20 +134,6 @@
 			"files": ["src/lib/components/ui/owned/integration-learn-more-button.svelte"],
 			"components": {
 				"Button": ["pr-2"]
-			}
-		},
-		{
-			"id": "O03",
-			"files": ["src/lib/components/ui/owned/attachment-remove-button.svelte"],
-			"components": {
-				"Button": ["p-1", "hover:bg-secondary/50"]
-			}
-		},
-		{
-			"id": "O04",
-			"files": ["src/lib/chat/ui/ChatAttachments.svelte"],
-			"components": {
-				"Progress": ["h-full", "w-full", "rounded-none"]
 			}
 		},
 		{

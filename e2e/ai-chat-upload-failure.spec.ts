@@ -76,13 +76,12 @@ test.describe('AI Chat - upload failure', () => {
 		const failedChip = page.locator('[data-upload-failed]');
 		await expect(failedChip).toBeVisible({ timeout: 20000 });
 
-		// The tile itself is the retry control; there is no separate button.
-		await failedChip.click();
+		await failedChip.getByRole('button', { name: 'Retry uploading recovered.txt' }).click();
 
-		// Recovery is complete when the error is gone and the chip became
+		// Recovery is complete when the error is gone and the attachment became
 		// openable, which only happens once the upload has committed.
 		await expect(failedChip).toBeHidden({ timeout: 20000 });
-		await expect(page.getByTestId('attachment-chip').first()).toHaveAttribute('role', 'button', {
+		await expect(page.getByRole('button', { name: 'Preview recovered.txt' })).toBeAttached({
 			timeout: 20000
 		});
 	});

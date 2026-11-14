@@ -586,17 +586,19 @@
 			"low_messages_plural": "{remaining} of {total} messages remaining this month."
 		},
 		"aria": {
+			"preview_attachment": "Preview {filename}",
 			"remove_attachment": "Remove {filename}",
+			"retry_attachment": "Retry uploading {filename}",
 			"send": "Send"
 		},
 		"attachment": {
-			"dialog_title": "Attachment",
 			"file_fallback": "File",
 			"generic_fallback": "Attachment",
 			"image_fallback": "Image",
 			"preview_error": "Couldn't load preview",
 			"preview_loading": "Loading preview…",
-			"preview_truncated": "Preview truncated to {size}"
+			"preview_truncated": "Preview truncated to {size}",
+			"uploading": "Uploading {progress}%"
 		},
 		"author": {
 			"assistant": "Assistant",
@@ -626,7 +628,6 @@
 			"upload_failed": "Failed to upload \"{filename}\"",
 			"upload_network": "Connection lost.",
 			"upload_readd_hint": "Add the file again.",
-			"upload_retry_hint": "Click to try again.",
 			"upload_server": "Upload rejected."
 		},
 		"input": {

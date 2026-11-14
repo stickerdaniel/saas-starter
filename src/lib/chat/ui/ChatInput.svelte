@@ -992,12 +992,13 @@
 					</div>
 				{/if}
 				{#if ctx.attachments.length > 0}
+					<!-- 11px from the pill's edge in both layouts, so the 14px cards stay
+					     concentric with its 25px corners: 25 - 11 = 14. -->
 					<ChatAttachments
-						class="mx-1 mb-1"
+						class={compactMultiline ? 'mx-2.75 mt-2.75 mb-1' : 'mx-1.25 mt-1.25 mb-1'}
 						attachments={ctx.attachments}
 						onRemove={handleRemoveAttachment}
 						onRetry={handleRetryAttachment}
-						columns={2}
 					/>
 				{/if}
 				<!-- Single line: actions inline beside the textarea (pill). Multi-line:
@@ -1064,12 +1065,13 @@
 		{:else}
 			<div class="flex flex-col">
 				{#if ctx.attachments.length > 0}
+					<!-- 8px from the outer edge (1px border + 7px), so the 14px cards stay
+					     concentric with the 22px rounded-3xl corners: 22 - 8 = 14. -->
 					<ChatAttachments
-						class="mx-3 mt-3"
+						class="mx-1.75 mt-1.75"
 						attachments={ctx.attachments}
 						onRemove={handleRemoveAttachment}
 						onRetry={handleRetryAttachment}
-						columns={2}
 					/>
 				{/if}
 				<PromptInputTextarea
