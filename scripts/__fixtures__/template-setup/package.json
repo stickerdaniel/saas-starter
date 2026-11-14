@@ -67,7 +67,7 @@
 	"packageManager": "bun@1.3.9",
 	"dependencies": {
 		"@ai-sdk/provider": "4.0.10",
-		"@better-auth/passkey": "1.6.30",
+		"@better-auth/passkey": "1.7.19",
 		"@better-svelte-email/components": "2.1.1",
 		"@better-svelte-email/server": "2.1.1",
 		"@convex-dev/agent": "0.7.1",
@@ -95,7 +95,7 @@
 		"ai": "7.0.92",
 		"atmn": "1.1.23",
 		"autumn-js": "0.1.85",
-		"better-auth": "1.6.30",
+		"better-auth": "1.7.19",
 		"convex-helpers": "0.1.120",
 		"convex-svelte": "0.14.0",
 		"date-fns": "4.4.0",
@@ -112,7 +112,7 @@
 		"valibot": "1.4.2",
 		"varlock": "1.18.0",
 		"web-haptics": "0.0.6",
-		"zod": "4.5.4"
+		"zod": "4.6.6"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "4.13.0",
@@ -126,10 +126,10 @@
 		"@resvg/resvg-js": "2.6.2",
 		"@shadcn/lint": "0.2.0",
 		"@sveltejs/adapter-auto": "7.0.1",
-		"@sveltejs/adapter-cloudflare": "7.2.9",
+		"@sveltejs/adapter-cloudflare": "8.0.2",
 		"@sveltejs/adapter-node": "5.5.7",
-		"@sveltejs/adapter-vercel": "6.3.4",
-		"@sveltejs/kit": "2.70.2",
+		"@sveltejs/adapter-vercel": "7.0.2",
+		"@sveltejs/kit": "3.1.1",
 		"@sveltejs/package": "2.5.8",
 		"@sveltejs/vite-plugin-svelte": "7.3.0",
 		"@tailwindcss/oxide": "4.3.2",
@@ -169,7 +169,7 @@
 		"typescript": "6.0.3",
 		"typescript-eslint": "8.69.0",
 		"vaul-svelte": "1.0.0-next.7",
-		"vite": "8.1.4",
+		"vite": "8.3.5",
 		"vite-plugin-devtools-json": "1.1.0",
 		"vitest": "4.1.11",
 		"yaml": "2.9.0"
