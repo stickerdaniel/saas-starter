@@ -742,8 +742,8 @@ const MUTATING_NAME = new RegExp(
  * needs a mutating call, whose name appears in the text, on a path anchored by a spelling whose
  * text appears too. A `\u` escape can spell either name in a form neither pattern sees, because
  * TypeScript decodes it in an identifier, so a file holding one is always parsed. On
- * 2026-11-13, 136 of 1,102 tracked test sources were parsed, and parsing the others was most
- * of a repository scan.
+ * 2026-11-14, 58 of 459 tracked test sources were parsed, and parsing the others was most of
+ * a repository scan.
  */
 function mayProduce(source: string): boolean {
 	return source.includes('\\u') || (ANCHOR_TEXTS.test(source) && MUTATING_NAME.test(source));
@@ -1723,8 +1723,8 @@ writeFileSync(path.join(checkout, 'src', 'good.ts'), 'source');`;
 		expect(transientSourceProducers(source)).toEqual([]);
 	});
 
-	// Reads every committed test file and parses the ones `mayProduce` keeps (136 of 1,102 on
-	// 2026-11-13). A loaded CI shard runs it several times slower than a local run.
+	// Reads every committed test file and parses the ones `mayProduce` keeps (58 of 459 on
+	// 2026-11-14). A loaded CI shard runs it several times slower than a local run.
 	it('finds no statically anchored producer in the repository', { timeout: 30_000 }, () => {
 		const offenders: string[] = [];
 		let scanned = 0;
