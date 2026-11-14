@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import ts from 'typescript';
 import { parse as parseYaml } from 'yaml';
 import { sanitizedGitEnv } from './git-context';
 import { toolingTestSettings } from './vitest-settings';
@@ -906,6 +907,49 @@ describe('required check producers', () => {
 	);
 });
 
+/**
+ * The names of the inline Vitest projects in `configPath`, read from its `projects` array. An
+ * entry whose name is neither a string literal nor `toolingTestSettings` throws, so a project
+ * written in another form fails the matrix check instead of escaping it.
+ */
+function vitestProjects(configPath: string): string[] {
+	const source = ts.createSourceFile(
+		configPath,
+		fs.readFileSync(configPath, 'utf-8'),
+		ts.ScriptTarget.Latest,
+		true
+	);
+	const arrays: ts.ArrayLiteralExpression[] = [];
+	const visit = (node: ts.Node): void => {
+		if (
+			ts.isPropertyAssignment(node) &&
+			node.name.getText() === 'projects' &&
+			ts.isArrayLiteralExpression(node.initializer)
+		) {
+			arrays.push(node.initializer);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(source);
+	if (arrays.length !== 1) throw new Error(`expected one projects array, found ${arrays.length}`);
+	const property = (node: ts.Expression, key: string) =>
+		ts.isObjectLiteralExpression(node)
+			? node.properties.find(
+					(entry): entry is ts.PropertyAssignment =>
+						ts.isPropertyAssignment(entry) && entry.name.getText() === key
+				)?.initializer
+			: undefined;
+	return arrays[0]!.elements.map((element) => {
+		const test = property(element, 'test');
+		if (test && ts.isIdentifier(test) && test.text === 'toolingTestSettings') {
+			return toolingTestSettings.name;
+		}
+		const name = test && property(test, 'name');
+		if (name && ts.isStringLiteralLike(name)) return name.text;
+		throw new Error(`cannot read the name of the Vitest project ${element.getText()}`);
+	});
+}
+
 describe.skipIf(process.platform === 'win32')('required Unit Tests check', () => {
 	const workflow = parseYaml(
 		fs.readFileSync(path.join(WORKFLOWS_DIR, 'static-checks.yml'), 'utf-8')
@@ -944,21 +988,9 @@ describe.skipIf(process.platform === 'win32')('required Unit Tests check', () =>
 
 	// A shard job that runs nothing still succeeds under --passWithNoTests, so a project or a
 	// shard missing from the matrix would drop its tests from the required check unnoticed.
+	// Type Check runs this test as well, so removing every tooling row cannot skip it.
 	it('runs every Vitest project as one complete set of shards', () => {
-		const viteConfig = fs.readFileSync(
-			path.resolve(import.meta.dirname, '../vite.config.ts'),
-			'utf-8'
-		);
-		const projectsBlock = viteConfig.slice(viteConfig.indexOf('projects: ['));
-		const projects = projectsBlock
-			.slice(0, projectsBlock.indexOf('\n\t\t\t]'))
-			.split('extends: true')
-			.slice(1)
-			.map((entry) =>
-				entry.includes('test: toolingTestSettings')
-					? toolingTestSettings.name
-					: entry.match(/name: '([^']+)'/)?.[1]
-			);
+		const projects = vitestProjects(path.resolve(import.meta.dirname, '../vite.config.ts'));
 		expect(projects.length, 'no Vitest project found in vite.config.ts').toBeGreaterThan(0);
 
 		const shards = workflow.jobs['unit-test-shards'];
