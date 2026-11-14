@@ -1,13 +1,10 @@
 import { spawnSync } from 'node:child_process';
 import {
 	chmodSync,
-	copyFileSync,
 	existsSync,
-	linkSync,
 	lstatSync,
 	mkdirSync,
 	mkdtempSync,
-	readdirSync,
 	readFileSync,
 	realpathSync,
 	renameSync,
@@ -15,32 +12,38 @@ import {
 	symlinkSync,
 	writeFileSync
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { linkDependencies } from './__fixtures__/static-checks/private-checkout';
+import {
+	APP_TYPES,
+	BUN,
+	CLI_KNIP,
+	CLI_TYPES,
+	CONVEX_TYPES,
+	KNIP,
+	PRETTIER_README,
+	TEMP_ROOT,
+	cliKnipInvocations,
+	configureFixtureGitIdentity,
+	createRecorderShims,
+	indexOfInvocation,
+	knipInvocations,
+	knipSuite,
+	overlayIndexedSources,
+	readCommandLog,
+	runChecker,
+	runFixtureGit,
+	shellSingleQuote,
+	stageRemoval,
+	type CanaryOutcome,
+	type CheckerClone,
+	type CommandInvocation,
+	type SharedKitState
+} from './__fixtures__/static-checks/knip-harness';
 import { sanitizedGitEnv } from './git-context';
-import { withSvelteKitSyncLockSync } from './svelte-kit-sync-lock';
-import { testExecutable } from './test-executable';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const BUN = testExecutable('bun');
-const KNIP: CommandInvocation = { command: 'bun', args: ['knip', '--no-progress'] };
-const CLI_KNIP: CommandInvocation = {
-	command: 'bun',
-	args: ['run', '--cwd', 'packages/create-saas-starter', 'knip', '--no-progress']
-};
-const CLI_TYPES: CommandInvocation = { command: 'bun', args: ['run', 'check:cli'] };
-const APP_TYPES: CommandInvocation = {
-	command: 'bun',
-	args: ['svelte-check', '--tsconfig', './tsconfig.json', '--tsgo-experimental-api']
-};
-const CONVEX_TYPES: CommandInvocation = { command: 'bun', args: ['run', 'check:convex'] };
-const PRETTIER_README: CommandInvocation = {
-	command: 'bun',
-	args: ['prettier', '--check', '--ignore-unknown', '--', 'README.md']
-};
 const PRETTIER_WRITE: CommandInvocation = {
 	command: 'bun',
 	args: ['prettier', '--write', '--ignore-unknown', '--', 'README.md', 'scripts/test-executable.ts']
@@ -49,30 +52,6 @@ const ESLINT_FIX: CommandInvocation = {
 	command: 'bun',
 	args: ['eslint', '--fix', 'scripts/test-executable.ts']
 };
-const PRETTIER_PROJECT: CommandInvocation = {
-	command: 'bun',
-	args: ['prettier', '--check', '--ignore-unknown', '.']
-};
-const ESLINT_PROJECT: CommandInvocation = {
-	command: 'bun',
-	args: ['eslint', '.', '--concurrency', '2']
-};
-const OXLINT: CommandInvocation = { command: 'bun', args: ['oxlint'] };
-/** The whole-project lint commands a GitHub Actions lint run starts right after sync. */
-const PROJECT_LINTERS = [ESLINT_PROJECT, OXLINT, KNIP, CLI_KNIP];
-/** Every checker clone links this repository's packages, so this is the clone's varlock. */
-const INSTALLED_VARLOCK = (
-	JSON.parse(readFileSync(path.join(ROOT, 'node_modules/varlock/package.json'), 'utf8')) as {
-		version: string;
-	}
-).version;
-const RECORDER_SOURCE = path.join(
-	ROOT,
-	'scripts',
-	'__fixtures__',
-	'static-checks',
-	'command-recorder.ts'
-);
 const WINDOWS_LIFECYCLE_WORKFLOW = path.join(
 	ROOT,
 	'.github',
@@ -113,99 +92,22 @@ const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 	'scripts/__fixtures__/static-checks/private-checkout.ts',
 	'scripts/static-checks.ts',
 	'scripts/static-checks.test.ts',
+	'scripts/static-checks.processes.test.ts',
 	'scripts/static-checks.knip.test.ts',
+	'scripts/static-checks.knip-cli.test.ts',
+	'scripts/static-checks.knip-types.test.ts',
 	'scripts/svelte-kit-sync-lock.ts',
 	'scripts/svelte-kit-sync-lock.test.ts',
 	'scripts/terminal-output.ts',
 	'scripts/test-executable.ts',
 	'scripts/__fixtures__/static-checks/command-recorder.ts',
+	'scripts/__fixtures__/static-checks/knip-harness.ts',
 	'scripts/windows-job.ts',
 	'scripts/windows-job-runner.ps1'
 ];
 // A tracked TypeScript file that the local pre-push run passes to the mutating linters;
 // with only Markdown input, the checker skips ESLint entirely.
 const LINTED_SOURCE = 'scripts/test-executable.ts';
-// The checker template takes `scripts` and the checker dependencies outside it from the worktree
-// index. Without them, a clone would run the committed version, or miss a module the checker
-// imports, while the worktree already uses a modified policy.
-const OVERLAY_PATHSPECS = [
-	'scripts',
-	'eslint/control-character-policy.js',
-	'knowledge-policy.config.ts',
-	'src/lib/content/legal-metadata.ts',
-	'src/lib/i18n/language-codes.generated.js',
-	'tsconfig.json'
-];
-// Sources required to keep a clone run from passing without seeing the change under test.
-const REQUIRED_SOURCES = [
-	'scripts/static-checks.ts',
-	'scripts/template-setup.ts',
-	'src/lib/content/legal-metadata.ts',
-	'scripts/terminal-output.ts',
-	'scripts/convex-consumer-compat.ts',
-	'scripts/english-policy/content.ts',
-	'eslint/control-character-policy.js',
-	'knowledge-policy.config.ts',
-	'src/lib/i18n/language-codes.generated.js'
-];
-// Tracked files the checker reads beyond its own sources, or that the cases stage and name: the
-// line-ending and ignore rules, the manifest, the other type project configs, the page template
-// the SvelteKit seed sync requires, and the modules and asset the type, rename, and deletion
-// cases remove.
-const CHECKER_TEMPLATE_FILES = [
-	'.gitattributes',
-	'.gitignore',
-	'.prettierignore',
-	'package.json',
-	'.agents/skills/tsconfig.json',
-	'src/lib/convex/tsconfig.json',
-	'src/app.html',
-	'src/lib/billing/checkout-result.ts',
-	'src/lib/convex/constants.ts',
-	'static/favicon.ico'
-];
-// Stand-ins for the application and documentation corpus. Full-project runs scan every
-// Markdown file, and the real README links documents the template leaves out. TypeScript
-// rejects the skill project when its include list matches nothing, and a rename case moves a
-// module into `docs/`, which Git requires to exist.
-const CHECKER_TEMPLATE_STUBS: Record<string, string> = {
-	'README.md': 'A static checker fixture.\n',
-	'.agents/skills/fixture/scripts/source.ts': 'export const fixture = true;\n',
-	'docs/.gitkeep': ''
-};
-// Bun canonicalizes the checker's module path through the operating-system API, while
-// `realpathSync` does not canonicalize the invocation cwd. On Windows GitHub runners,
-// os.tmpdir() returns the 8.3 short name (C:\Users\RUNNER~1\...) while REPO_ROOT uses the long
-// form, so every relative file argument falls outside the repository. `realpathSync.native`
-// resolves through the same operating-system API and returns the same spelling for both sides.
-const TEMP_ROOT = realpathSync.native(tmpdir());
-// Default macOS and Windows volumes resolve a path regardless of letter case; most Linux ones do not.
-const CASE_INSENSITIVE_TEMP = (() => {
-	const probe = mkdtempSync(path.join(TEMP_ROOT, 'static-case-probe-'));
-	try {
-		writeFileSync(path.join(probe, 'case'), '');
-		return existsSync(path.join(probe, 'CASE'));
-	} finally {
-		rmSync(probe, { recursive: true, force: true });
-	}
-})();
-
-interface CommandInvocation {
-	command: string;
-	args: string[];
-}
-
-interface CheckerClone {
-	directory: string;
-	repository: string;
-	env: NodeJS.ProcessEnv;
-}
-
-interface CanaryOutcome {
-	status: number | null;
-	output: string;
-	log: CommandInvocation[];
-}
 
 interface WorkflowSelectorOutcome {
 	status: number | null;
@@ -276,45 +178,6 @@ function runWindowsLifecycleSelectorFixture(
 	}
 }
 
-let recorderDirectory: string;
-let checkerTemplateDirectory: string | undefined;
-let checkerTemplateRepository: string;
-let bunVersion: string;
-let canary: CanaryOutcome;
-let sharedKitStateBefore: SharedKitState;
-let sharedKitStateAfter: SharedKitState;
-let templateAppBeforeSeed: boolean;
-
-type SharedKitState = { app: string[] | 'absent'; seeds: string[] };
-
-/**
- * What a SvelteKit seed sync would leave in this checkout's `node_modules`: the generated `$app`
- * entries and `.cache/kit-sync-*` scratch configs. Other `.cache` entries belong to tools that
- * concurrent suites run, so they are not compared.
- */
-function sharedKitState(): SharedKitState {
-	const modules = path.join(ROOT, 'node_modules');
-	const app = path.join(modules, '$app');
-	const cache = path.join(modules, '.cache');
-	return {
-		app: existsSync(app) ? readdirSync(app).sort() : 'absent',
-		seeds: existsSync(cache)
-			? readdirSync(cache)
-					.filter((name) => name.startsWith('kit-sync-'))
-					.sort()
-			: []
-	};
-}
-
-function readCommandLog(logPath: string): CommandInvocation[] {
-	if (!existsSync(logPath)) return [];
-	return readFileSync(logPath, 'utf8')
-		.trim()
-		.split('\n')
-		.filter(Boolean)
-		.map((line) => JSON.parse(line) as CommandInvocation);
-}
-
 function rootIndexSnapshot(): string {
 	const result = spawnSync('git', ['diff', '--cached', '--raw', '-z'], {
 		cwd: ROOT,
@@ -323,378 +186,6 @@ function rootIndexSnapshot(): string {
 	});
 	if (result.status !== 0) throw new Error(`Root index snapshot failed: ${result.stderr}`);
 	return result.stdout;
-}
-
-function runFixtureGit(repository: string, args: string[]): void {
-	const result = spawnSync('git', args, {
-		cwd: repository,
-		env: sanitizedGitEnv(),
-		encoding: 'utf8'
-	});
-	if (result.status !== 0) {
-		throw new Error(`Fixture git ${args.join(' ')} failed: ${result.stdout}${result.stderr}`);
-	}
-}
-
-function configureFixtureGitIdentity(repository: string): void {
-	runFixtureGit(repository, ['config', '--local', 'user.name', 'Static Checks Fixture']);
-	runFixtureGit(repository, [
-		'config',
-		'--local',
-		'user.email',
-		'static-checks-fixture@example.invalid'
-	]);
-}
-
-function shellSingleQuote(value: string): string {
-	return `'${value.replaceAll("'", `'"'"'`)}'`;
-}
-
-/**
- * Creates the recorders under the names the checker uses to start its child processes.
- *
- * On POSIX these are /bin/sh wrappers. With Bun 1.3.9, the oldest version setup supports, a file built
- * by `bun build --compile` runs as the Bun CLI instead of its own entry point as soon as
- * argv[0] is exactly `bun`, which is precisely how the checker starts its child: recording
- * would fail and the real formatters and linters would run (measured on Linux with 1.3.9;
- * 1.3.14 no longer exhibits the effect). The wrapper instead starts the real Bun by its safely
- * quoted absolute path and passes the recorder source as one argument. Windows does not support
- * this wrapper and therefore keeps the compiled file.
- */
-function createRecorderShims(directory: string, bunPath = BUN): void {
-	if (process.platform === 'win32') {
-		const compiledBun = path.join(directory, 'bun.exe');
-		const compiled = spawnSync(
-			bunPath,
-			['build', RECORDER_SOURCE, '--compile', '--outfile', compiledBun],
-			{ cwd: directory, env: sanitizedGitEnv(), encoding: 'utf8' }
-		);
-		if (compiled.status !== 0) {
-			throw new Error(`Command recorder compilation failed: ${compiled.stdout}${compiled.stderr}`);
-		}
-		copyFileSync(compiledBun, path.join(directory, 'misspell.exe'));
-		return;
-	}
-	for (const name of ['bun', 'misspell']) {
-		const shim = path.join(directory, name);
-		writeFileSync(
-			shim,
-			`#!/bin/sh\nSTATIC_CHECKS_COMMAND_NAME=${shellSingleQuote(name)} exec ${shellSingleQuote(bunPath)} ${shellSingleQuote(RECORDER_SOURCE)} "$@"\n`
-		);
-		chmodSync(shim, 0o755);
-	}
-}
-
-function recorderEnv(logPath: string): NodeJS.ProcessEnv {
-	const env: NodeJS.ProcessEnv = {
-		...sanitizedGitEnv(),
-		NO_COLOR: '1',
-		PATH: `${recorderDirectory}${path.delimiter}${process.env.PATH ?? ''}`,
-		STATIC_CHECKS_COMMAND_LOG: logPath
-	};
-	delete env.STATIC_CHECKS_COMMAND_NAME;
-	return env;
-}
-
-/**
- * Overlays a repository with the worktree copies of Git-tracked sources.
- *
- * Recursively copying ROOT/scripts traversed a directory where static-checks.format.test.ts
- * concurrently created and removed its `.format-*` fixtures. If one disappears between
- * directory enumeration and traversal, the copy aborts; in the measured case, the native
- * directory_iterator exception terminated the entire Vitest worker, silently omitting the
- * final Knip cases. The index instead provides a stable path set that never contains temporary
- * fixtures, and each file is overlaid individually. Deleted index paths are removed explicitly
- * with rename detection disabled, so a staged rename cannot leave the old HEAD path beside the
- * new file. This keeps staged sources under test without traversing or recursively deleting a
- * live directory.
- */
-function overlayIndexedSources(repository: string, sourceRoot = ROOT): void {
-	const deleted = spawnSync(
-		'git',
-		[
-			'diff',
-			'--cached',
-			'--name-only',
-			'--diff-filter=D',
-			'--no-renames',
-			'-z',
-			'--',
-			...OVERLAY_PATHSPECS
-		],
-		{
-			cwd: sourceRoot,
-			env: sanitizedGitEnv(),
-			encoding: 'utf8',
-			maxBuffer: 16 * 1024 * 1024
-		}
-	);
-	if (deleted.status !== 0) {
-		throw new Error(`Failed to list deleted indexed sources: ${deleted.stderr}`);
-	}
-	for (const file of deleted.stdout.split('\0').filter(Boolean)) {
-		rmSync(path.join(repository, file), { force: true });
-	}
-
-	const listed = spawnSync('git', ['ls-files', '-z', '--', ...OVERLAY_PATHSPECS], {
-		cwd: sourceRoot,
-		env: sanitizedGitEnv(),
-		encoding: 'utf8',
-		maxBuffer: 16 * 1024 * 1024
-	});
-	if (listed.status !== 0) throw new Error(`Failed to list indexed sources: ${listed.stderr}`);
-	const files = listed.stdout.split('\0').filter(Boolean);
-	// An empty or incomplete set would let the clone run the committed state and silently skip
-	// the change under test.
-	if (sourceRoot === ROOT) {
-		for (const required of REQUIRED_SOURCES) {
-			if (!files.includes(required)) {
-				throw new Error(`Git index does not contain ${required}: ${files.length} paths.`);
-			}
-		}
-	}
-	for (const file of files) {
-		const source = path.join(sourceRoot, file);
-		// A source tracked in the index but missing from the worktree must not silently leave the
-		// committed version in the clone.
-		if (!existsSync(source)) {
-			throw new Error(`Indexed source is missing from the worktree: ${file}`);
-		}
-		mkdirSync(path.dirname(path.join(repository, file)), { recursive: true });
-		copyFileSync(source, path.join(repository, file));
-	}
-}
-
-interface CreatorSeed {
-	/** Root scripts added after the state's canonical scripts. */
-	scripts?: Record<string, string>;
-	/** Child manifest bytes for the present state. */
-	childManifest?: string;
-}
-
-function seedCreatorState(
-	repository: string,
-	state: 'present' | 'absent' | 'inconsistent',
-	seed: CreatorSeed = {}
-): void {
-	const manifestPath = path.join(repository, 'package.json');
-	const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
-		scripts: Record<string, string>;
-	};
-	const template = JSON.parse(
-		readFileSync(path.join(ROOT, 'scripts/__fixtures__/template-setup/package.json'), 'utf8')
-	) as { scripts: Record<string, string> };
-	const names = ['install:cli', 'check:cli', 'test:cli', 'build:cli', 'test:cli:packed'];
-	const child = path.join(repository, 'packages/create-saas-starter');
-	const workflow = path.join(repository, '.github/workflows/create-saas-starter.yml');
-	if (state === 'absent') {
-		for (const name of names) delete manifest.scripts[name];
-		manifest.scripts.postinstall = template.scripts.postinstall.replace(
-			'bun run install:cli && ',
-			''
-		);
-		manifest.scripts.test = template.scripts.test.replace(' && bun run test:cli', '');
-		rmSync(child, { recursive: true, force: true });
-		rmSync(workflow, { force: true });
-	} else {
-		for (const name of names) manifest.scripts[name] = template.scripts[name]!;
-		manifest.scripts.postinstall = template.scripts.postinstall;
-		manifest.scripts.test = template.scripts.test;
-		mkdirSync(path.join(child, 'src'), { recursive: true });
-		writeFileSync(path.join(child, 'src/options.ts'), 'export const option = true;\n');
-		writeFileSync(path.join(child, 'tsconfig.json'), '{}\n');
-		mkdirSync(path.dirname(workflow), { recursive: true });
-		writeFileSync(workflow, 'name: creator\n');
-		if (state === 'present')
-			writeFileSync(
-				path.join(child, 'package.json'),
-				seed.childManifest ?? '{"name":"create-saas-starter","scripts":{"knip":"knip"}}\n'
-			);
-		else rmSync(path.join(child, 'package.json'), { force: true });
-	}
-	Object.assign(manifest.scripts, seed.scripts);
-	writeFileSync(manifestPath, JSON.stringify(manifest, null, '\t') + '\n');
-	const observed = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
-		scripts: Record<string, string>;
-	};
-	expect(Object.hasOwn(observed.scripts, 'install:cli')).toBe(state !== 'absent');
-	expect(observed.scripts).toMatchObject(seed.scripts ?? {});
-	if (seed.childManifest !== undefined)
-		expect(readFileSync(path.join(child, 'package.json'), 'utf8')).toBe(seed.childManifest);
-	expect(existsSync(child)).toBe(state !== 'absent');
-	expect(existsSync(workflow)).toBe(state !== 'absent');
-	expect(existsSync(path.join(child, 'package.json'))).toBe(state === 'present');
-}
-
-/**
- * Ensures Kit 3's generated base tsconfig exists in `project`, the checker template.
- *
- * Sync writes `node_modules/$app/tsconfig.json`, which is what the root config extends. The
- * template owns a real `node_modules` from `linkDependencies`, and every clone links it, so one
- * sync serves every case and never writes this checkout. A job that installs with
- * `--ignore-scripts` has never synced; the template's `$app` starts absent either way.
- * `.svelte-kit/tsconfig.json` is not a Kit 3 output, and syncing once per case to look for it
- * is not.
- *
- * The sync reads a config with only the stock plugin, not `vite.config.ts`. The application
- * config bootstraps Varlock, and a swallowed failure there ends in `env_invalid`, which would
- * put this tooling suite back on the path `vitest.tooling.config.ts` exists to avoid. The
- * generated base config does not depend on the application's Vite options.
- */
-function seedGeneratedKitProject(project: string): void {
-	const generated = path.join(project, 'node_modules', '$app', 'tsconfig.json');
-	if (existsSync(generated)) return;
-	// Inside `node_modules`, so the bare import resolves from the project's packages.
-	const cache = path.join(project, 'node_modules', '.cache');
-	mkdirSync(cache, { recursive: true });
-	const directory = mkdtempSync(path.join(cache, 'kit-sync-'));
-	try {
-		const config = path.join(directory, 'vite.config.mjs');
-		writeFileSync(
-			config,
-			"import { sveltekit } from '@sveltejs/kit/vite';\nexport default { plugins: [sveltekit()] };\n"
-		);
-		const sync = withSvelteKitSyncLockSync(project, () =>
-			spawnSync(BUN, ['svelte-kit', 'sync', '--config', config], {
-				cwd: project,
-				env: sanitizedGitEnv(),
-				encoding: 'utf8'
-			})
-		);
-		if (sync.status !== 0 || !existsSync(generated)) {
-			throw new Error(`SvelteKit sync did not write ${generated}: ${sync.stdout}${sync.stderr}`);
-		}
-	} finally {
-		rmSync(directory, { recursive: true, force: true });
-	}
-}
-
-/**
- * Builds the private repository every checker clone starts from, once per test file.
- *
- * Each case used to clone the whole repository, copy the checker sources over it, and delete
- * it again, while the full-project runs scanned the entire application corpus. On Windows
- * runners that pushed single cases past their timeout. The template carries the checker as the
- * worktree index has it, through the same validated overlay, and replaces the corpus with the
- * declared files and stand-ins. A declared file that left the index fails the suite here,
- * and a checker import outside the overlay fails the canary, instead of either passing
- * against a repository the cases no longer describe.
- */
-function prepareCheckerTemplate(repository: string): void {
-	mkdirSync(repository);
-	overlayIndexedSources(repository);
-	const listed = spawnSync('git', ['ls-files', '-z', '--', ...CHECKER_TEMPLATE_FILES], {
-		cwd: ROOT,
-		env: sanitizedGitEnv(),
-		encoding: 'utf8'
-	});
-	if (listed.status !== 0) {
-		throw new Error(`Failed to list checker template files: ${listed.stderr}`);
-	}
-	const tracked = listed.stdout.split('\0');
-	for (const file of CHECKER_TEMPLATE_FILES) {
-		const source = path.join(ROOT, file);
-		if (!tracked.includes(file)) throw new Error(`Git index does not contain ${file}.`);
-		if (!existsSync(source)) throw new Error(`Checker template file is missing: ${file}`);
-		mkdirSync(path.dirname(path.join(repository, file)), { recursive: true });
-		copyFileSync(source, path.join(repository, file));
-	}
-	for (const [file, content] of Object.entries(CHECKER_TEMPLATE_STUBS)) {
-		mkdirSync(path.dirname(path.join(repository, file)), { recursive: true });
-		writeFileSync(path.join(repository, file), content);
-	}
-	runFixtureGit(repository, ['init', '--quiet']);
-	configureFixtureGitIdentity(repository);
-	// Forced, so a global excludes file cannot drop a path the full repository tracks.
-	runFixtureGit(repository, ['add', '--all', '--force']);
-	runFixtureGit(repository, [
-		'commit',
-		'--quiet',
-		'--no-gpg-sign',
-		'--no-verify',
-		'-m',
-		'Add checker template'
-	]);
-}
-
-function createCheckerClone(
-	state: 'present' | 'absent' | 'inconsistent' = 'present',
-	seed?: CreatorSeed
-): CheckerClone {
-	const directory = mkdtempSync(path.join(TEMP_ROOT, 'static-knip-'));
-	const repository = path.join(directory, 'repository');
-	try {
-		// Every case clones its own copy: the cases rewrite manifests, sources, the index,
-		// and history.
-		const clone = spawnSync(
-			'git',
-			['clone', '--quiet', '--local', '--no-hardlinks', checkerTemplateRepository, repository],
-			{
-				env: sanitizedGitEnv(),
-				encoding: 'utf8'
-			}
-		);
-		if (clone.status !== 0) throw new Error(`Local checker clone failed: ${clone.stderr}`);
-		// The template's own node_modules, which holds the seeded `$app`.
-		symlinkSync(
-			path.join(checkerTemplateRepository, 'node_modules'),
-			path.join(repository, 'node_modules'),
-			process.platform === 'win32' ? 'junction' : 'dir'
-		);
-		seedCreatorState(repository, state, seed);
-
-		return {
-			directory,
-			repository,
-			env: recorderEnv(path.join(directory, 'commands.jsonl'))
-		};
-	} catch (error) {
-		rmSync(directory, { recursive: true, force: true });
-		throw error;
-	}
-}
-
-function runChecker(checkout: CheckerClone, args: string[], input?: string) {
-	return spawnSync(BUN, [path.join(checkout.repository, 'scripts', 'static-checks.ts'), ...args], {
-		cwd: checkout.repository,
-		env: checkout.env,
-		encoding: 'utf8',
-		input
-	});
-}
-
-/** Position of an exact recording, making invocation order comparable. */
-function indexOfInvocation(log: CommandInvocation[], invocation: CommandInvocation): number {
-	return log.findIndex(
-		(entry) =>
-			entry.command === invocation.command &&
-			entry.args.length === invocation.args.length &&
-			entry.args.every((argument, index) => argument === invocation.args[index])
-	);
-}
-
-/**
- * Counts Knip invocations in both common Bun forms.
- *
- * Measurements show that `bun knip …` and `bun run knip …` start the same package script with
- * the same arguments. Counting only the short form would hide a second invocation in the long
- * form and render the exactly-once contract ineffective. Therefore, `run` is stripped only
- * for comparison; the flags after the script name remain unchanged and are still checked
- * exactly.
- */
-function knipInvocations(checkout: CheckerClone): CommandInvocation[] {
-	return readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)
-		.filter((invocation) => invocation.command === 'bun')
-		.map((invocation) =>
-			invocation.args[0] === 'run' ? { ...invocation, args: invocation.args.slice(1) } : invocation
-		)
-		.filter((invocation) => invocation.args[0] === 'knip');
-}
-
-function cliKnipInvocations(checkout: CheckerClone): CommandInvocation[] {
-	return readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!).filter(
-		(invocation) => JSON.stringify(invocation) === JSON.stringify(CLI_KNIP)
-	);
 }
 
 function stageReadme(checkout: CheckerClone): void {
@@ -744,17 +235,6 @@ function stageDeletionOnly(checkout: CheckerClone): void {
 	runFixtureGit(checkout.repository, ['add', '-u', '--', relative]);
 }
 
-/** Stages `git rm` of a committed path, or `git mv` to `destination`, in the private clone. */
-function stageRemoval(checkout: CheckerClone, source: string, destination?: string): void {
-	runFixtureGit(
-		checkout.repository,
-		destination ? ['mv', '--', source, destination] : ['rm', '--quiet', '--', source]
-	);
-	// The creator seed invalidated tracked stat data; refresh it before the checker fingerprints
-	// the index, as stageReadme does.
-	runFixtureGit(checkout.repository, ['status', '--porcelain=v1', '--untracked-files=all']);
-}
-
 function replaceCompatWithRecorder(checkout: CheckerClone): void {
 	writeFileSync(
 		path.join(checkout.repository, 'scripts', 'convex-consumer-compat.ts'),
@@ -767,65 +247,27 @@ appendFileSync(logPath, JSON.stringify({ command: 'compat', args: process.argv.s
 	);
 }
 
-/**
- * Validates the formatter canary before any matrix case runs.
- *
- * If recording does not intercept the call, the checker starts the real formatters, linters,
- * and type checks: the run is not only invalid but also takes several times longer. The canary
- * therefore belongs in the suite setup, and its failure aborts the entire file instead of
- * starting real tools again for every individual case.
- */
-function runCanary(): CanaryOutcome {
-	const checkout = createCheckerClone();
-	checkout.env.STATIC_CHECKS_COMMAND_RESPONSE = JSON.stringify({ ...PRETTIER_README, status: 23 });
-	try {
-		const result = runChecker(checkout, ['--scope', 'format', 'README.md']);
-		const outcome: CanaryOutcome = {
-			status: result.status,
-			output: `${result.stdout}${result.stderr}`,
-			log: readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)
-		};
-		const recorded = JSON.stringify(outcome.log);
-		if (recorded !== JSON.stringify([PRETTIER_README]) || outcome.status !== 23) {
-			throw new Error(
-				`Recorder did not intercept the command: status ${outcome.status} instead of 23, recorded ${recorded}. ` +
-					`Bun used: ${BUN} (${bunVersion}), platform ${process.platform}. ` +
-					`The matrix will not run.\n${outcome.output}`
-			);
-		}
-		return outcome;
-	} finally {
-		rmSync(checkout.directory, { recursive: true, force: true });
-	}
-}
+const suite = knipSuite();
+const { createCheckerClone, recorderEnv } = suite;
+let checkerTemplateRepository: string;
+let bunVersion: string;
+let canary: CanaryOutcome;
+let sharedKitStateBefore: SharedKitState;
+let sharedKitStateAfter: SharedKitState;
+let templateAppBeforeSeed: boolean;
 
 beforeAll(() => {
-	recorderDirectory = mkdtempSync(path.join(TEMP_ROOT, 'static-command-recorder-'));
-	createRecorderShims(recorderDirectory);
-	// Record the binary actually used: running Vitest with Bun X does not prove that
-	// testExecutable('bun') resolves to the same Bun.
-	bunVersion = (spawnSync(BUN, ['--version'], { encoding: 'utf8' }).stdout ?? '').trim();
-	checkerTemplateDirectory = mkdtempSync(path.join(TEMP_ROOT, 'static-checker-template-'));
-	checkerTemplateRepository = path.join(checkerTemplateDirectory, 'repository');
-	prepareCheckerTemplate(checkerTemplateRepository);
-	// After the template commit, which force-adds everything present.
-	linkDependencies(realpathSync.native(ROOT), checkerTemplateRepository);
-	templateAppBeforeSeed = existsSync(path.join(checkerTemplateRepository, 'node_modules', '$app'));
-	// Holding this checkout's sync lock keeps a concurrent static-check run from syncing it
-	// between the two snapshots, so any difference comes from the seed.
-	[sharedKitStateBefore, sharedKitStateAfter] = withSvelteKitSyncLockSync(ROOT, () => {
-		const before = sharedKitState();
-		seedGeneratedKitProject(checkerTemplateRepository);
-		return [before, sharedKitState()] as const;
-	});
-	canary = runCanary();
+	({
+		checkerTemplateRepository,
+		bunVersion,
+		canary,
+		sharedKitStateBefore,
+		sharedKitStateAfter,
+		templateAppBeforeSeed
+	} = suite.setUp());
 }, 120_000);
 
-afterAll(() => {
-	rmSync(recorderDirectory, { recursive: true, force: true });
-	// Unset when setup failed before the template was created.
-	if (checkerTemplateDirectory) rmSync(checkerTemplateDirectory, { recursive: true, force: true });
-});
+afterAll(() => suite.tearDown());
 
 describe('checker template dependencies', () => {
 	it('seeds SvelteKit output in the template and leaves this checkout unchanged', () => {
@@ -893,7 +335,7 @@ describe('Windows lifecycle workflow coverage', () => {
 		}
 		for (const command of [
 			'bun install --frozen-lockfile --ignore-scripts',
-			'bun vitest --config vitest.tooling.config.ts --run scripts/static-checks.knip.test.ts'
+			'bun vitest --config vitest.tooling.config.ts --run scripts/static-checks.knip.test.ts scripts/static-checks.knip-cli.test.ts scripts/static-checks.knip-types.test.ts'
 		]) {
 			const step = steps.find((entry) => entry.includes(`run: ${command}\n`));
 			expect(step).toContain("if: steps.changes.outputs.run_tests == 'true'");
@@ -1468,518 +910,6 @@ describe('Knip static-check CLI behavior', { concurrent: false }, () => {
 				expect(result.status, output).toBe(1);
 				expect(output).toContain(`Command failed: bun ${typecheck.args.join(' ')}`);
 				expect(output).not.toContain('All checks passed!');
-			} finally {
-				rmSync(checkout.directory, { recursive: true, force: true });
-			}
-		},
-		45_000
-	);
-
-	it('reports an honest no-op for a staged deletion that no type check covers', () => {
-		const checkout = createCheckerClone();
-		try {
-			stageRemoval(checkout, 'static/favicon.ico');
-			const result = runChecker(checkout, ['--staged', '--scope', 'types']);
-			const output = `${result.stdout}${result.stderr}`;
-			const log = readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!);
-
-			expect(result.status, output).toBe(0);
-			expect(output).toContain(
-				'NO WORK: staged changes only delete paths absent from the final index.'
-			);
-			expect(log).not.toContainEqual(APP_TYPES);
-			expect(log).not.toContainEqual(CONVEX_TYPES);
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}, 45_000);
-
-	it.each(['a copy', 'a hard link to the destination'] as const)(
-		'rejects a staged rename whose source path is still on disk as %s',
-		(recreation) => {
-			const checkout = createCheckerClone();
-			const source = 'src/lib/billing/checkout-result.ts';
-			const destination = 'docs/checkout-result.txt';
-			try {
-				const original = readFileSync(path.join(checkout.repository, source));
-				stageRemoval(checkout, source, destination);
-				if (recreation === 'a copy') {
-					writeFileSync(path.join(checkout.repository, source), original);
-				} else {
-					linkSync(
-						path.join(checkout.repository, destination),
-						path.join(checkout.repository, source)
-					);
-				}
-				const result = runChecker(checkout, ['--staged', '--scope', 'types']);
-				const output = `${result.stdout}${result.stderr}`;
-
-				expect(result.status, output).toBe(1);
-				expect(output).toContain('Staged file contents differ from the worktree');
-				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([]);
-			} finally {
-				rmSync(checkout.directory, { recursive: true, force: true });
-			}
-		},
-		45_000
-	);
-
-	it.skipIf(!CASE_INSENSITIVE_TEMP)(
-		'accepts a case-only rename whose old spelling resolves to the new file',
-		() => {
-			const checkout = createCheckerClone();
-			const source = 'src/lib/billing/checkout-result.ts';
-			try {
-				stageRemoval(checkout, source, 'src/lib/billing/Checkout-result.ts');
-				expect(existsSync(path.join(checkout.repository, source))).toBe(true);
-				const result = runChecker(checkout, ['--staged', '--scope', 'types']);
-				const output = `${result.stdout}${result.stderr}`;
-
-				expect(result.status, output).toBe(0);
-				expect(output).not.toContain('Staged file contents differ from the worktree');
-				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toContainEqual(APP_TYPES);
-			} finally {
-				rmSync(checkout.directory, { recursive: true, force: true });
-			}
-		},
-		45_000
-	);
-
-	it('returns before command dispatch when the staged index is empty', () => {
-		const checkout = createCheckerClone();
-		try {
-			const result = runChecker(checkout, ['--staged', '--scope', 'lint']);
-			const output = `${result.stdout}${result.stderr}`;
-
-			expect(result.status, output).toBe(0);
-			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([]);
-			expect(output).toContain('No staged files to check');
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}, 30_000);
-
-	/**
-	 * Runs a full CI lint scope whose Prettier step takes 1.5 s. The recorder logs a command
-	 * when it ends, so a linter started before that step is logged before Prettier.
-	 */
-	function runSlowFormatterLint(githubActions: boolean) {
-		const checkout = createCheckerClone();
-		delete checkout.env.BUN_LINT_BINARY;
-		checkout.env.GITHUB_ACTIONS = String(githubActions);
-		checkout.env.STATIC_CHECKS_COMMAND_RESPONSE = JSON.stringify({
-			...PRETTIER_PROJECT,
-			status: 0,
-			delayMs: 1_500
-		});
-		try {
-			const result = runChecker(checkout, ['--ci', '--scope', 'lint']);
-			const log = readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!);
-			return {
-				status: result.status,
-				output: `${result.stdout}${result.stderr}`,
-				order: [PRETTIER_PROJECT, ...PROJECT_LINTERS].map((invocation) =>
-					indexOfInvocation(log, invocation)
-				)
-			};
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}
-
-	it('starts no linter before its step in a full CI lint run outside GitHub Actions', () => {
-		const { status, output, order } = runSlowFormatterLint(false);
-
-		expect(status, output).toBe(0);
-		expect(order.every((position) => position >= 0)).toBe(true);
-		expect(order).toEqual(order.toSorted((left, right) => left - right));
-	}, 45_000);
-
-	// Early starts are POSIX-only, so on Windows the same run keeps every linter at its step.
-	it('starts the project linters right after sync in a GitHub Actions lint run', () => {
-		const { status, output, order } = runSlowFormatterLint(true);
-		const [prettier, ...linters] = order;
-		const headers = ['Code formatting', 'ESLint', 'oxlint', 'knip', 'create-saas-starter knip'];
-
-		expect(status, output).toBe(0);
-		if (process.platform === 'win32') {
-			expect(order).toEqual(order.toSorted((left, right) => left - right));
-		} else {
-			expect(linters.every((position) => position >= 0 && position < prettier!)).toBe(true);
-		}
-		const positions = headers.map((header) => output.indexOf(`. ${header}\n`));
-		expect(positions).toEqual(positions.toSorted((left, right) => left - right));
-		expect(output).toContain('All checks passed!');
-	}, 45_000);
-
-	it.each([['types'], ['format']])(
-		'starts no lint command in a GitHub Actions %s scope',
-		(scope) => {
-			const checkout = createCheckerClone();
-			delete checkout.env.BUN_LINT_BINARY;
-			checkout.env.GITHUB_ACTIONS = 'true';
-			try {
-				const result = runChecker(checkout, ['--ci', '--scope', scope]);
-				const output = `${result.stdout}${result.stderr}`;
-				const log = readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!);
-
-				expect(result.status, output).toBe(0);
-				expect(PROJECT_LINTERS.map((invocation) => indexOfInvocation(log, invocation))).toEqual(
-					PROJECT_LINTERS.map(() => -1)
-				);
-			} finally {
-				rmSync(checkout.directory, { recursive: true, force: true });
-			}
-		},
-		45_000
-	);
-
-	// The prose workers run only on POSIX; Windows checks prose inline.
-	it.skipIf(process.platform === 'win32')(
-		'keeps a prose file error received before another prose worker fails',
-		() => {
-			const checkout = createCheckerClone();
-			checkout.env.GITHUB_ACTIONS = 'true';
-			checkout.env.PROSE_WORKER_GATE = path.join(checkout.directory, 'prose-gate');
-			writeFileSync(
-				path.join(checkout.repository, 'scripts', 'english-policy', 'worker.ts'),
-				"import '../__fixtures__/static-checks/prose-worker-fails-after-error.ts';\n"
-			);
-			try {
-				const result = runChecker(checkout, ['--ci', '--scope', 'lint']);
-				const output = `${result.stdout}${result.stderr}`;
-
-				expect(output).toContain('Fatal error: Transient read failure for the first prose file');
-				expect(output).not.toContain('All checks passed!');
-				expect(result.status, output).toBe(1);
-			} finally {
-				rmSync(checkout.directory, { recursive: true, force: true });
-			}
-		},
-		45_000
-	);
-
-	it('propagates a knip failure and sanitizes its output', () => {
-		const checkout = createCheckerClone();
-		const escape = String.fromCharCode(0x1b);
-		const bell = String.fromCharCode(0x07);
-		checkout.env.STATIC_CHECKS_COMMAND_RESPONSE = JSON.stringify({
-			...KNIP,
-			status: 23,
-			stderr: `knip${escape}]0;fixture${bell}\n`
-		});
-		try {
-			const result = runChecker(checkout, ['--ci', '--scope', 'lint']);
-			const output = `${result.stdout}${result.stderr}`;
-
-			expect(result.status, output).toBe(23);
-			expect(knipInvocations(checkout)).toEqual([KNIP]);
-			// A GitHub Actions run starts creator knip early, so only its step stays unreached.
-			expect(output).not.toContain('create-saas-starter knip');
-			expect(output).toContain('knipU+001B]0;fixtureU+0007');
-			expect(output).toContain('Command failed: bun knip --no-progress');
-			expect(output).not.toContain(escape);
-			expect(output).not.toContain(bell);
-			expect(output).not.toContain('All checks passed!');
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}, 45_000);
-
-	it('skips only creator checks for a completed generated project', () => {
-		const checkout = createCheckerClone('absent');
-		try {
-			const result = runChecker(checkout, ['--ci']);
-			const output = `${result.stdout}${result.stderr}`;
-			expect(result.status, output).toBe(0);
-			expect(knipInvocations(checkout)).toEqual([KNIP]);
-			expect(cliKnipInvocations(checkout)).toEqual([]);
-			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).not.toContainEqual(CLI_TYPES);
-			expect(output).toContain('cli knip         skipped — creator package removed by setup');
-			expect(output).toContain('cli-types        skipped — creator package removed by setup');
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}, 45_000);
-
-	it('rejects a partially removed child before any command dispatch', () => {
-		const checkout = createCheckerClone('inconsistent');
-		try {
-			const result = runChecker(checkout, ['--ci', '--scope', 'types']);
-			expect(result.status).toBe(1);
-			expect(`${result.stdout}${result.stderr}`).toContain('child package.json is missing');
-			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([]);
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}, 45_000);
-
-	// The clone links the real packages. Its lockfile is the real one with only the varlock
-	// resolution replaced, so the installed version alone decides the verdict.
-	function runWithLockedVarlock(locked: string) {
-		const checkout = createCheckerClone();
-		try {
-			const lockfile = readFileSync(path.join(ROOT, 'bun.lock'), 'utf8').replace(
-				/("varlock": \["varlock@)[^"]+"/,
-				`$1${locked}"`
-			);
-			expect(lockfile).toContain(`"varlock": ["varlock@${locked}"`);
-			writeFileSync(path.join(checkout.repository, 'bun.lock'), lockfile);
-			const result = runChecker(checkout, ['--ci', '--scope', 'types']);
-			return {
-				status: result.status,
-				output: `${result.stdout}${result.stderr}`,
-				log: readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)
-			};
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}
-
-	it('refuses a varlock install that bun.lock does not resolve before sync', () => {
-		const { status, output, log } = runWithLockedVarlock(`${INSTALLED_VARLOCK}-locked`);
-
-		expect(status, output).toBe(1);
-		expect(output).toContain(
-			`node_modules has varlock ${INSTALLED_VARLOCK}, but bun.lock resolves varlock ${INSTALLED_VARLOCK}-locked.`
-		);
-		expect(output).toContain('bun install --frozen-lockfile');
-		// The sync would have rewritten the tracked typings with the stale version.
-		expect(log).toEqual([]);
-	}, 45_000);
-
-	it('runs with the varlock version bun.lock resolves', () => {
-		const { status, output } = runWithLockedVarlock(INSTALLED_VARLOCK);
-
-		expect(status, output).toBe(0);
-		expect(output).toContain('All checks passed!');
-	}, 45_000);
-
-	it.each([
-		['a double-quoted invocation', 'bun run "test:cli"'],
-		['a single-quoted invocation', "bun run 'test:cli'"],
-		['a shorthand invocation', 'bun test:cli'],
-		['a split-quoted suffix', 'bun run test:"cli"'],
-		['a split-quoted prefix', 'bun run "test":cli'],
-		['an escaped separator', 'bun run test\\:cli'],
-		['a split-quoted child directory', 'bun run --cwd packages/"create-saas-starter" build'],
-		['a split-quoted child suffix', 'bun run --cwd packages/create-saas-"starter" build']
-	])(
-		'rejects a removed creator still referenced by %s before command dispatch',
-		(_label, command) => {
-			const checkout = createCheckerClone('absent', { scripts: { 'retry-cli': command } });
-			try {
-				const result = runChecker(checkout, ['--ci', '--scope', 'types']);
-				const output = `${result.stdout}${result.stderr}`;
-				expect(result.status, output).toBe(1);
-				expect(output).toContain('Inconsistent creator package');
-				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([]);
-			} finally {
-				rmSync(checkout.directory, { recursive: true, force: true });
-			}
-		},
-		45_000
-	);
-
-	it.each(['test:cli:app', 'test:cli-app'])(
-		'keeps a removed creator absent beside the distinct custom script %s',
-		(name) => {
-			const checkout = createCheckerClone('absent', {
-				scripts: { [name]: 'echo app', custom: `bun run ${name}` }
-			});
-			try {
-				const result = runChecker(checkout, ['--ci', '--scope', 'types']);
-				const output = `${result.stdout}${result.stderr}`;
-				expect(result.status, output).toBe(0);
-				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).not.toContainEqual(
-					CLI_TYPES
-				);
-				expect(output).toContain('cli-types        skipped — creator package removed by setup');
-			} finally {
-				rmSync(checkout.directory, { recursive: true, force: true });
-			}
-		},
-		45_000
-	);
-
-	it.each([
-		'curl https://example.invalid/?label=test:cli',
-		'FOO=test:cli bun scripts/app-task.ts',
-		'bun run --cwd packages/create-saas-starter+docs build',
-		'echo test:cli',
-		'printf test:cli'
-	])(
-		'keeps a removed creator absent beside the unrelated command %s',
-		(command) => {
-			const checkout = createCheckerClone('absent', { scripts: { custom: command } });
-			try {
-				const result = runChecker(checkout, ['--ci', '--scope', 'types']);
-				const output = `${result.stdout}${result.stderr}`;
-				expect(result.status, output).toBe(0);
-				expect(output).toContain('cli-types        skipped — creator package removed by setup');
-			} finally {
-				rmSync(checkout.directory, { recursive: true, force: true });
-			}
-		},
-		45_000
-	);
-
-	it.each([
-		['null', '{"name":"create-saas-starter","scripts":null}\n'],
-		['an array', '{"name":"create-saas-starter","scripts":[]}\n'],
-		['a non-string command', '{"name":"create-saas-starter","scripts":{"knip":1}}\n']
-	])(
-		'rejects child scripts that are %s before command dispatch',
-		(_label, childManifest) => {
-			const checkout = createCheckerClone('present', { childManifest });
-			try {
-				const result = runChecker(checkout, ['--ci', '--scope', 'types']);
-				const output = `${result.stdout}${result.stderr}`;
-				expect(result.status, output).toBe(1);
-				expect(output).toContain('child package.json is malformed');
-				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toEqual([]);
-			} finally {
-				rmSync(checkout.directory, { recursive: true, force: true });
-			}
-		},
-		45_000
-	);
-
-	it('propagates a create-saas-starter Knip failure', () => {
-		const checkout = createCheckerClone();
-		checkout.env.STATIC_CHECKS_COMMAND_RESPONSE = JSON.stringify({ ...CLI_KNIP, status: 24 });
-		try {
-			const result = runChecker(checkout, ['--ci', '--scope', 'lint']);
-			const output = `${result.stdout}${result.stderr}`;
-
-			expect(result.status, output).toBe(24);
-			expect(knipInvocations(checkout)).toEqual([KNIP]);
-			expect(cliKnipInvocations(checkout)).toEqual([CLI_KNIP]);
-			expect(output).toContain(
-				'Command failed: bun run --cwd packages/create-saas-starter knip --no-progress'
-			);
-			expect(output).not.toContain('All checks passed!');
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}, 45_000);
-});
-
-// Every recorded type check below exits 0, which is what the real svelte-check does for a
-// standalone script: its tsconfig never reads the file, so it cannot report the error in it.
-// Only the checker's own question to TypeScript can tell the named file was not checked (#929).
-describe('type project coverage of named files', { concurrent: false }, () => {
-	const STANDALONE = 'scripts/type-coverage-probe.ts';
-	const COVERED = 'src/lib/billing/checkout-result.ts';
-
-	function writeStandaloneScript(checkout: CheckerClone): void {
-		writeFileSync(
-			path.join(checkout.repository, STANDALONE),
-			"export const count: number = 'wrong';\n"
-		);
-	}
-
-	it.each([
-		['alone', [STANDALONE]],
-		['beside a covered file', [STANDALONE, COVERED]]
-	] as const)(
-		'fails a types run naming a standalone script %s',
-		(_label, files) => {
-			const checkout = createCheckerClone();
-			try {
-				writeStandaloneScript(checkout);
-				const result = runChecker(checkout, ['--ci', '--scope', 'types', ...files]);
-				const output = `${result.stdout}${result.stderr}`;
-
-				expect(result.status, output).toBe(1);
-				expect(output).toContain(
-					`1 named source file(s) are read by no type-checked TypeScript project: "${STANDALONE}"`
-				);
-				expect(output).not.toContain('All checks passed!');
-				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).not.toContainEqual(
-					APP_TYPES
-				);
-			} finally {
-				rmSync(checkout.directory, { recursive: true, force: true });
-			}
-		},
-		45_000
-	);
-
-	// No type route claims a .mts file, so only the coverage question can see it: beside a
-	// routed file, svelte-check starts and the run would otherwise pass.
-	it('fails a types run naming a module no route claims beside a covered file', () => {
-		const checkout = createCheckerClone();
-		const module = 'src/lib/type-coverage-probe.mts';
-		try {
-			writeFileSync(
-				path.join(checkout.repository, module),
-				"export const count: number = 'wrong';\n"
-			);
-			const result = runChecker(checkout, ['--ci', '--scope', 'types', module, COVERED]);
-			const output = `${result.stdout}${result.stderr}`;
-
-			expect(result.status, output).toBe(1);
-			expect(output).toContain(
-				`1 named source file(s) are read by no type-checked TypeScript project: "${module}"`
-			);
-			expect(output).not.toContain('All checks passed!');
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}, 45_000);
-
-	it('passes a types run naming only a file the app project includes', () => {
-		const checkout = createCheckerClone();
-		try {
-			const result = runChecker(checkout, ['--ci', '--scope', 'types', COVERED]);
-			const output = `${result.stdout}${result.stderr}`;
-
-			expect(result.status, output).toBe(0);
-			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toContainEqual(APP_TYPES);
-			expect(output).toContain('All checks passed!');
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}, 45_000);
-
-	// svelte-check reports errors in every module its project imports, not only in the files
-	// its tsconfig includes: vite.config.ts pulls scripts/dev-ports.ts into the app program.
-	it('passes a types run naming a script that a project file imports', () => {
-		const checkout = createCheckerClone();
-		try {
-			writeStandaloneScript(checkout);
-			writeFileSync(
-				path.join(checkout.repository, 'src/lib/type-coverage-importer.ts'),
-				"export { count } from '../../scripts/type-coverage-probe';\n"
-			);
-			const result = runChecker(checkout, ['--ci', '--scope', 'types', STANDALONE]);
-			const output = `${result.stdout}${result.stderr}`;
-
-			expect(result.status, output).toBe(0);
-			expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toContainEqual(APP_TYPES);
-			expect(output).toContain('All checks passed!');
-		} finally {
-			rmSync(checkout.directory, { recursive: true, force: true });
-		}
-	}, 45_000);
-
-	// The checker names a link by its target, while TypeScript lists the link under its own
-	// name when the project includes it. Creating a file link needs privileges on Windows.
-	it.skipIf(process.platform === 'win32')(
-		'passes a types run naming a link the app project includes',
-		() => {
-			const checkout = createCheckerClone();
-			const link = 'src/lib/type-coverage-link.ts';
-			try {
-				writeStandaloneScript(checkout);
-				symlinkSync('../../scripts/type-coverage-probe.ts', path.join(checkout.repository, link));
-				const result = runChecker(checkout, ['--ci', '--scope', 'types', link]);
-				const output = `${result.stdout}${result.stderr}`;
-
-				expect(result.status, output).toBe(0);
-				expect(readCommandLog(checkout.env.STATIC_CHECKS_COMMAND_LOG!)).toContainEqual(APP_TYPES);
-				expect(output).toContain('All checks passed!');
 			} finally {
 				rmSync(checkout.directory, { recursive: true, force: true });
 			}
