@@ -15,10 +15,13 @@ import {
 // Bodies mark the selection with «» and a caret with |.
 function parse(marked: string): BodySelection {
 	const caret = marked.indexOf('|');
-	if (caret !== -1) return { value: marked.replace('|', ''), start: caret, end: caret };
+	if (caret !== -1) {
+		return { value: marked.slice(0, caret) + marked.slice(caret + 1), start: caret, end: caret };
+	}
 	const start = marked.indexOf('«');
-	const end = marked.indexOf('»') - 1;
-	return { value: marked.replace('«', '').replace('»', ''), start, end };
+	const close = marked.indexOf('»');
+	const value = marked.slice(0, start) + marked.slice(start + 1, close) + marked.slice(close + 1);
+	return { value, start, end: close - 1 };
 }
 
 /** Apply a command to a marked body and mark the selection it leaves. */
