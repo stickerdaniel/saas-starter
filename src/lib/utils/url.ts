@@ -9,8 +9,9 @@ import { isSupportedLanguage } from '#lib/i18n/languages.js';
  *
  * Prevents open redirect attacks by rejecting absolute and scheme-relative URLs
  * (`//evil.com`, `http:evil.com`), backslash-authority variants (`/\evil.com`),
- * embedded credentials, and control characters — both raw and once-decoded, so
- * a later decode layer cannot resurrect a rejected vector.
+ * embedded credentials, control characters — both raw and once-decoded, so
+ * a later decode layer cannot resurrect a rejected vector — and dot segments
+ * that normalize into a network path (`/.//evil.com`).
  */
 export function safeRedirectPath(url: string, fallback: string): string {
 	if (!url || !url.startsWith('/') || hasUnsafeUrlCharacters(url)) return fallback;
@@ -23,7 +24,9 @@ export function safeRedirectPath(url: string, fallback: string): string {
 		const base = new URL('https://redirect.invalid');
 		const parsed = new URL(url, base);
 		if (parsed.origin !== base.origin || parsed.username || parsed.password) return fallback;
-		return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+		const canonical = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+		// Dot segments can normalize into a network path: `/.//evil.com` becomes `//evil.com`.
+		return canonical.startsWith('//') ? fallback : canonical;
 	} catch {
 		return fallback;
 	}
