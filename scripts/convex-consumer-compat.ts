@@ -38,7 +38,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import ts from 'typescript';
+import typescript from 'typescript';
 
 import {
 	ENTRY_EXTENSIONS,
@@ -48,6 +48,13 @@ import {
 	type Visibility
 } from './convex-surface';
 import { isolatedGitEnv, sanitizedGitEnv } from './git-context';
+
+// Vite rewrites every use of an imported name into a read off the import
+// object, and Vitest wraps a CommonJS package such as `typescript` in a Proxy
+// for default interop. Under `import ts from 'typescript'`, each `ts.isX` in
+// the syntax walks below runs a Proxy trap. The alias reads the Proxy once, at
+// load, and still names the types.
+import ts = typescript;
 
 const CONVEX_ROOT = 'src/lib/convex';
 // App sources contribute direct and namespace-adapter references. Convex source

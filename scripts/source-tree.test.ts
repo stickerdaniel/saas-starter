@@ -2,10 +2,17 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import ts from 'typescript';
+import typescript from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 import { sanitizedGitEnv } from './git-context';
+
+// Vite rewrites every use of an imported name into a read off the import
+// object, and Vitest wraps a CommonJS package such as `typescript` in a Proxy
+// for default interop. Under `import ts from 'typescript'`, each `ts.isX` in
+// the syntax walks below runs a Proxy trap. The alias reads the Proxy once, at
+// load, and still names the types.
+import ts = typescript;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
