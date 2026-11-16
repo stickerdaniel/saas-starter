@@ -1,6 +1,5 @@
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
-import postcss from 'postcss';
 import subsetFont from 'subset-font';
 import type { Plugin, ResolvedConfig } from 'vite';
 import type en from '../src/i18n/en.json';
@@ -8,7 +7,41 @@ import { LEGAL_CONFIG } from '../src/lib/config/legal';
 import { STATIC_TRANSLATIONS } from '../src/lib/i18n/static-translations.generated';
 
 const MODULE = 'virtual:marketing-fonts/server';
-const PACKAGE = '@saas-starter-internal/marketing-fonts';
+
+/**
+ * The Outfit file Fontless serves and the critical faces subset, so the two cannot drift.
+ * Source: https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2
+ *
+ * The name ends with the first 8 hex digits of the file's SHA-256. Fontless names the
+ * immutably cached asset after this path, not the bytes, so new bytes need a new name.
+ */
+export const OUTFIT_FONT = new URL(
+	'../src/lib/assets/fonts/outfit-v15-latin-wght.92684e4a.woff2',
+	import.meta.url
+);
+
+/** Characters `OUTFIT_FONT` covers: the unicode-range Google Fonts declares for its latin file. */
+export const OUTFIT_UNICODE_RANGE = [
+	'U+0000-00FF',
+	'U+0131',
+	'U+0152-0153',
+	'U+02BB-02BC',
+	'U+02C6',
+	'U+02DA',
+	'U+02DC',
+	'U+0304',
+	'U+0308',
+	'U+0329',
+	'U+2000-206F',
+	'U+20AC',
+	'U+2122',
+	'U+2191',
+	'U+2193',
+	'U+2212',
+	'U+2215',
+	'U+FEFF',
+	'U+FFFD'
+] as const;
 
 /**
  * Outfit weights the UI authors. Fontless registers each one and the critical face spans
@@ -68,41 +101,11 @@ export async function criticalFont(font: Buffer, characters: string) {
 	return { css, href };
 }
 
-/** Use Fontless's emitted bytes so the subset and the rest of the page cannot drift. */
-async function readEmittedOutfit(clientDir: string): Promise<Buffer> {
-	const fonts = new Set<string>();
-	const entries = await readdir(clientDir, { recursive: true });
-	for (const entry of entries.filter((entry) => entry.endsWith('.css'))) {
-		const css = postcss.parse(await readFile(path.join(clientDir, entry), 'utf8'));
-		css.walkAtRules('font-face', (rule) => {
-			const declarations = new Map<string, string>();
-			rule.walkDecls((declaration) => {
-				declarations.set(declaration.prop, declaration.value);
-			});
-			if (declarations.get('font-family')?.replaceAll(/["']/g, '') !== 'Outfit') return;
-			const source = /url\(["']?([^"')]+)["']?\)/.exec(declarations.get('src') ?? '')?.[1];
-			if (!source) throw new Error('Outfit must have a self-hosted font URL.');
-			const url = new URL(source, `https://build.invalid/${entry.replaceAll('\\', '/')}`);
-			fonts.add(path.join(clientDir, decodeURIComponent(url.pathname)));
-		});
-	}
-	const [font] = fonts;
-	if (fonts.size !== 1 || !font) {
-		throw new Error(
-			`Expected one shared Outfit font for weights ${OUTFIT_WEIGHT_SPAN.replace(' ', '–')}; found ${fonts.size}. Check the critical font configuration before changing the font family or faces.`
-		);
-	}
-	return readFile(font);
-}
-
 /**
- * Publish the critical font after Kit's client build and before its adapter.
+ * Bundle the critical faces into the server build as `virtual:marketing-fonts/server`.
  *
- * Kit 3 bundles SSR first, so an SSR `writeBundle` runs while the client
- * output directory does not exist yet. This plugin is registered after
- * `sveltekit()`, and the adapter hook is ordered `post`, so `buildApp` sees
- * the font Fontless already wrote and lands the server package before the
- * adapter copies that output.
+ * The module is server-only: its bytes reach the browser inline in HTML. In dev it
+ * exports `null`, so pages load the full font Fontless serves.
  */
 export function marketingFonts(): Plugin {
 	let config: ResolvedConfig;
@@ -114,37 +117,21 @@ export function marketingFonts(): Plugin {
 		resolveId: {
 			filter: { id: /^virtual:marketing-fonts\/server$/ },
 			handler() {
-				if (config.command === 'serve') return `\0${MODULE}`;
-				if (this.environment.name !== 'ssr' || config.isWorker) {
+				if (config.command === 'build' && (this.environment.name !== 'ssr' || config.isWorker)) {
 					throw new Error(`${MODULE} is server-only; font bytes belong in HTML, not JavaScript.`);
 				}
-				return { id: PACKAGE, external: true };
+				return `\0${MODULE}`;
 			}
 		},
 		load: {
 			filter: { id: /^\0virtual:marketing-fonts\/server$/ },
-			handler() {
-				return 'export default null;';
-			}
-		},
-		buildApp: {
-			async handler(builder) {
-				if (config.command !== 'build') return;
-				const server = builder.environments.ssr;
-				const client = builder.environments.client;
-				if (!server || !client) {
-					throw new Error(
-						'marketing-fonts: Kit client and SSR environments are required to publish the critical font.'
-					);
-				}
-				const serverDir = path.resolve(config.root, server.config.build.outDir);
-				const clientDir = path.resolve(config.root, client.config.build.outDir);
-				const font = await readEmittedOutfit(clientDir);
-				const characters = marketingFontCharacters(
-					Object.values(STATIC_TRANSLATIONS),
-					LEGAL_CONFIG.brandName
+			async handler() {
+				if (config.command === 'serve') return 'export default null;';
+				const font = await readFile(OUTFIT_FONT);
+				const critical = await criticalFont(
+					font,
+					marketingFontCharacters(Object.values(STATIC_TRANSLATIONS), LEGAL_CONFIG.brandName)
 				);
-				const critical = await criticalFont(font, characters);
 				const legalDirectory = path.join(config.root, 'src/lib/content/legal');
 				const legalFiles = (await readdir(legalDirectory)).filter((file) => file.endsWith('.md'));
 				const legal = await Promise.all(
@@ -159,16 +146,7 @@ export function marketingFonts(): Plugin {
 				publicCritical.css = publicCritical.css
 					.replace('font-family:"Outfit Critical"', 'font-family:Outfit')
 					.replace('"Outfit Critical",Outfit,', 'Outfit,');
-				const directory = path.join(serverDir, 'node_modules', ...PACKAGE.split('/'));
-				await mkdir(directory, { recursive: true });
-				await writeFile(
-					path.join(directory, 'package.json'),
-					JSON.stringify({ name: PACKAGE, private: true, type: 'module', exports: './index.js' })
-				);
-				await writeFile(
-					path.join(directory, 'index.js'),
-					`export default ${JSON.stringify({ home: critical, public: publicCritical })};\n`
-				);
+				return `export default ${JSON.stringify({ home: critical, public: publicCritical })};\n`;
 			}
 		}
 	};
