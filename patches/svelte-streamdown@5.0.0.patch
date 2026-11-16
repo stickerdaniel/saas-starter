@@ -1,14 +1,13 @@
 diff --git a/dist/AnimatedText.svelte b/dist/AnimatedText.svelte
-index 8dacb7797c03f0e31bafea19edcdf657e06525e8..eab4782c6d2c7b19fbe319aa47eeb796c74ea6b2 100644
+index 8dacb7797c03f0e31bafea19edcdf657e06525e8..22ec7954fdd7f43fb35bee8c2755dfa150eda46f 100644
 --- a/dist/AnimatedText.svelte
 +++ b/dist/AnimatedText.svelte
-@@ -21,10 +21,12 @@
+@@ -21,10 +21,11 @@
  </script>
  
  {#if streamdown.isMounted}
-+	<!-- Whitespace stays a bare text node. In an inline-block, pre-wrap span a
-+	     space cannot collapse at a line break, so it wraps to the next line and
-+	     indents it until the text renders plain. -->
++	<!-- Whitespace is rendered as a plain text node. A space in an inline-block span
++	     keeps its width at a line break and is placed at the start of the next line. -->
  	{#each tokens as token}
 -		<span style={streamdown.animationTextStyle}>
 -			{token}
