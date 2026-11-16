@@ -11,11 +11,37 @@ const MODULE = 'virtual:marketing-fonts/server';
 /**
  * The Outfit file Fontless serves and the critical faces subset, so the two cannot drift.
  * Source: https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2
+ *
+ * The name ends with the first 8 hex digits of the file's SHA-256. Fontless names the
+ * immutably cached asset after this path, not the bytes, so new bytes need a new name.
  */
 export const OUTFIT_FONT = new URL(
-	'../src/lib/assets/fonts/outfit-v15-latin-wght.woff2',
+	'../src/lib/assets/fonts/outfit-v15-latin-wght.92684e4a.woff2',
 	import.meta.url
 );
+
+/** Characters `OUTFIT_FONT` covers: the unicode-range Google Fonts declares for its latin file. */
+export const OUTFIT_UNICODE_RANGE = [
+	'U+0000-00FF',
+	'U+0131',
+	'U+0152-0153',
+	'U+02BB-02BC',
+	'U+02C6',
+	'U+02DA',
+	'U+02DC',
+	'U+0304',
+	'U+0308',
+	'U+0329',
+	'U+2000-206F',
+	'U+20AC',
+	'U+2122',
+	'U+2191',
+	'U+2193',
+	'U+2212',
+	'U+2215',
+	'U+FEFF',
+	'U+FFFD'
+] as const;
 
 /**
  * Outfit weights the UI authors. Fontless registers each one and the critical face spans

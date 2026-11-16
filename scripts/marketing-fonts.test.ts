@@ -1,7 +1,8 @@
+import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import postcss from 'postcss';
 import subsetFont from 'subset-font';
 import type criticalFonts from 'virtual:marketing-fonts/server';
@@ -40,6 +41,16 @@ describe('critical marketing fonts', () => {
 		}
 		expect(new Set(glyphs).size).toBe(glyphs.length);
 		expect(marketingFontCharacters([changed, changed], 'Crème™')).toBe(glyphs);
+	});
+
+	it('names the served Outfit file after its bytes, so its immutable URL changes with them', async () => {
+		const digest = createHash('sha256')
+			.update(await readFile(OUTFIT_FONT))
+			.digest('hex');
+		expect(
+			path.basename(fileURLToPath(OUTFIT_FONT)),
+			'Fontless names the cached font asset after its source path. Rename the file to end with the first 8 hex digits of its SHA-256 whenever its bytes change.'
+		).toMatch(new RegExp(`\\.${digest.slice(0, 8)}\\.woff2$`));
 	});
 
 	it('embeds a WOFF2 subset registered for regular through bold', async () => {

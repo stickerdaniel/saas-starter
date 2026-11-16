@@ -61,4 +61,4 @@ docker run --rm --read-only --tmpfs /tmp \
   --entrypoint node starter-node /probe.ts "$(git rev-parse HEAD)" https://app.example.com
 ```
 
-The Node Container workflow checks native AMD64 packaging with placeholder public URLs. Those checks complement the real preview E2E suite. Dependency layers cache separately from source; font downloads still require network access.
+The Node Container workflow checks native AMD64 packaging with placeholder public URLs. Those checks complement the real preview E2E suite. Dependency layers cache separately from source.

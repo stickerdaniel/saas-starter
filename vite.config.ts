@@ -17,7 +17,12 @@ import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
 import { getManagedProviderUpdates, logSafeOrigin } from './scripts/local-convex-env';
 import { prepareEmbeddedEnvManifest } from './scripts/strip-varlock-secrets';
 import { thirdPartyLicenses } from './scripts/third-party-licenses/index';
-import { OUTFIT_FONT, OUTFIT_WEIGHTS, marketingFonts } from './scripts/marketing-fonts';
+import {
+	OUTFIT_FONT,
+	OUTFIT_UNICODE_RANGE,
+	OUTFIT_WEIGHTS,
+	marketingFonts
+} from './scripts/marketing-fonts';
 import { kitGeneratedHmr } from './scripts/kit-generated-hmr';
 import { INLINE_STYLE_THRESHOLD } from './scripts/inline-styles';
 import { sharedTestSettings, toolingTestSettings } from './scripts/vitest-settings.ts';
@@ -454,35 +459,14 @@ export default defineConfig(async ({ command, mode }) => {
 			assets: { prefix: '/_app/immutable/fonts' },
 			// Keep web-only fallback families out of the tokens shared with email rendering.
 			processCSSVariables: false,
-			// One face per authored weight, all pointing at the variable file, with the
-			// unicode-range Google Fonts declares for its latin subset.
+			// One face per authored weight, all pointing at the variable file.
 			families: OUTFIT_WEIGHTS.map((weight) => ({
 				name: 'Outfit',
 				src: OUTFIT_FONT.href,
 				weight,
 				style: 'normal',
 				display: 'swap' as const,
-				unicodeRange: [
-					'U+0000-00FF',
-					'U+0131',
-					'U+0152-0153',
-					'U+02BB-02BC',
-					'U+02C6',
-					'U+02DA',
-					'U+02DC',
-					'U+0304',
-					'U+0308',
-					'U+0329',
-					'U+2000-206F',
-					'U+20AC',
-					'U+2122',
-					'U+2191',
-					'U+2193',
-					'U+2212',
-					'U+2215',
-					'U+FEFF',
-					'U+FFFD'
-				],
+				unicodeRange: [...OUTFIT_UNICODE_RANGE],
 				fallbacks: ['Arial'],
 				// Every face shares one file, so the single preloaded face covers all weights.
 				preload: true
