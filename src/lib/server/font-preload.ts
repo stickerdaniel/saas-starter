@@ -1,4 +1,5 @@
 import type { Handle } from '@sveltejs/kit/hooks';
+import criticalFonts from 'virtual:marketing-fonts/server';
 import { criticalFontScope } from '#lib/font-loading.js';
 
 /** Hrefs of the font preload links in a document's head, in document order. */
@@ -13,10 +14,8 @@ function fontPreloadHrefs(html: string): string[] {
 
 /** Inline public-page fonts; preload the full font for application pages. */
 export const handleFontPreload: Handle = async ({ event, resolve }) => {
-	// The build creates this module after Kit has analyzed the server routes.
 	const scope = criticalFontScope(event.route.id);
-	const fonts = scope ? (await import('virtual:marketing-fonts/server')).default : null;
-	const inlineCriticalFont = scope ? fonts?.[scope] : null;
+	const inlineCriticalFont = scope ? criticalFonts?.[scope] : null;
 	const formPage = event.route.id?.startsWith('/[[lang]]/(auth)/');
 	const scriptPreloads = new Set<string>();
 	// The root layout renders the fontless preloads; the response header repeats them.

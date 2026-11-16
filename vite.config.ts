@@ -17,7 +17,7 @@ import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
 import { getManagedProviderUpdates, logSafeOrigin } from './scripts/local-convex-env';
 import { prepareEmbeddedEnvManifest } from './scripts/strip-varlock-secrets';
 import { thirdPartyLicenses } from './scripts/third-party-licenses/index';
-import { OUTFIT_WEIGHTS, marketingFonts } from './scripts/marketing-fonts';
+import { OUTFIT_FONT, OUTFIT_WEIGHTS, marketingFonts } from './scripts/marketing-fonts';
 import { kitGeneratedHmr } from './scripts/kit-generated-hmr';
 import { INLINE_STYLE_THRESHOLD } from './scripts/inline-styles';
 import { sharedTestSettings, toolingTestSettings } from './scripts/vitest-settings.ts';
@@ -444,26 +444,49 @@ export default defineConfig(async ({ command, mode }) => {
 		// Startup rewrites of Kit's generated files must not reload the SSR runner mid-request.
 		kitGeneratedHmr(kitOutDir),
 		devtoolsJson(),
-		// Download and self-host the web fonts. Existing static/fonts URLs remain
+		// Serve the committed web fonts under hashed URLs. Existing static/fonts URLs remain
 		// available for emails, which need stable URLs across deployments.
 		fontless({
-			provider: 'google',
-			throwOnError: true,
+			// Fontless requires a provider. With `remote: false`, the npm provider resolves
+			// families only from installed font packages and makes no network request.
+			provider: 'npm',
+			npm: { remote: false },
 			assets: { prefix: '/_app/immutable/fonts' },
 			// Keep web-only fallback families out of the tokens shared with email rendering.
 			processCSSVariables: false,
-			families: [
-				{
-					name: 'Outfit',
-					weights: [...OUTFIT_WEIGHTS],
-					styles: ['normal'],
-					subsets: ['latin'],
-					fallbacks: ['Arial'],
-					display: 'swap',
-					// `true` selects only one face; keep all configured weights preloaded.
-					preload: { subsets: ['latin'], styles: ['normal'] }
-				}
-			],
+			// One face per authored weight, all pointing at the variable file, with the
+			// unicode-range Google Fonts declares for its latin subset.
+			families: OUTFIT_WEIGHTS.map((weight) => ({
+				name: 'Outfit',
+				src: OUTFIT_FONT.href,
+				weight,
+				style: 'normal',
+				display: 'swap' as const,
+				unicodeRange: [
+					'U+0000-00FF',
+					'U+0131',
+					'U+0152-0153',
+					'U+02BB-02BC',
+					'U+02C6',
+					'U+02DA',
+					'U+02DC',
+					'U+0304',
+					'U+0308',
+					'U+0329',
+					'U+2000-206F',
+					'U+20AC',
+					'U+2122',
+					'U+2191',
+					'U+2193',
+					'U+2212',
+					'U+2215',
+					'U+FEFF',
+					'U+FFFD'
+				],
+				fallbacks: ['Arial'],
+				// Every face shares one file, so the single preloaded face covers all weights.
+				preload: true
+			})),
 			// Keep an installed Outfit version from replacing the self-hosted files.
 			experimental: { disableLocalFallbacks: true }
 		}),
