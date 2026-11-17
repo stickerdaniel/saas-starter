@@ -7,7 +7,7 @@ import { resolveConvexUrl } from './utils/convex-url';
 import { getPreviewBypass } from './utils/preview-bypass';
 import { resolveSiteUrl } from './utils/site-url';
 import { getRepositoryUrl } from '../src/lib/config/site';
-import { ownAnonymousSupportOwner } from './utils/owned-test-data';
+import { ownAnonymousSupportOwner, ownSupportThreads } from './utils/owned-test-data';
 
 const convexUrl = resolveConvexUrl();
 const siteUrl = resolveSiteUrl();
@@ -29,6 +29,7 @@ test('shows an unread support reply and reports when the customer opens it', asy
 			newerThreadCount: 20
 		}
 	);
+	ownSupportThreads(threadIds);
 	// The badge stays mounted at zero so its closing transition can play, so
 	// "no unread reply" is now a question about what is shown, not what exists.
 	const shownIndicators = (scope: Page | Locator) =>
@@ -111,6 +112,7 @@ test('a message shows the build it was sent from and copies its commit link', as
 		anonymousUserId,
 		messageAppVersion: build
 	});
+	ownSupportThreads(ticket.threadIds);
 	try {
 		await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], {
 			origin: new URL(siteUrl).origin

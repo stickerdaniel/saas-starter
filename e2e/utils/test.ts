@@ -94,6 +94,8 @@ export async function guardClientErrors(context: BrowserContext): Promise<Browse
  * attempt runs yet, so the context carries its own client-error collector and
  * the sign-in fails when any page error reached it.
  */
+const SIGN_IN_TIMEOUT_MS = 90_000;
+
 async function saveSignedInState(browser: Browser, account: WorkerAccount, workerInfo: WorkerInfo) {
 	const { baseURL, extraHTTPHeaders } = workerInfo.project.use;
 	const errors: string[] = [];
@@ -102,6 +104,10 @@ async function saveSignedInState(browser: Browser, account: WorkerAccount, worke
 		extraHTTPHeaders,
 		storageState: { cookies: [], origins: [] }
 	});
+	// A context outside a test gets Playwright's 30 s defaults, not the test's
+	// budget. The first sign-in of a run pays the cold route compile, so it gets
+	// the 90 s the setup projects had.
+	context.setDefaultTimeout(SIGN_IN_TIMEOUT_MS);
 	try {
 		await collectInto(context, errors);
 		await signInAsTestUser(await context.newPage(), account);
@@ -186,8 +192,8 @@ export const test = base.extend<ClientErrorFixtures, WorkerAccountFixtures>({
 		},
 		// Two sign-ups and two form sign-ins. Locally the first sign-in pays the
 		// cold route compile: observed 2026-10-15, the sign-in HTML arrived after
-		// 25.7 s, and /app compiles next. Each sign-in gets the 90 s it had as a
-		// setup project.
+		// 25.7 s, and /app compiles next. Each sign-in gets SIGN_IN_TIMEOUT_MS, the
+		// 90 s it had as a setup project.
 		{ scope: 'worker', timeout: 180_000 }
 	],
 	workerAccounts: [

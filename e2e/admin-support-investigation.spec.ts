@@ -6,7 +6,7 @@ import { api } from '../src/lib/convex/_generated/api';
 import { submitSignInForm, waitForAuthenticated } from './utils/auth';
 import { resolveConvexUrl } from './utils/convex-url';
 import { getPreviewBypass } from './utils/preview-bypass';
-import { ownAnonymousSupportOwner, ownTestEmail } from './utils/owned-test-data';
+import { ownAnonymousSupportOwner, ownSupportThreads, ownTestEmail } from './utils/owned-test-data';
 import { resolveSiteUrl } from './utils/site-url';
 
 /**
@@ -58,6 +58,7 @@ test('a message route opens the page as the customer, and the bar returns to the
 				anonymousUserId: owner,
 				pageUrl: `${siteUrl}/en`
 			}));
+			ownSupportThreads([threadId]);
 			await client.mutation(api.support.messages.sendMessage, {
 				threadId,
 				prompt: 'The plan comparison does not load',

@@ -64,7 +64,10 @@ export default async function globalTeardown() {
 	const supportOwners = [
 		...new Set([...anonymousOwners, ...remembered.supportOwners, ...accountOwners])
 	];
-	const supportThreadIds = new Set(remembered.supportThreadIds);
+	const supportThreadIds = new Set([
+		...remembered.supportThreadIds,
+		...attempts.flatMap((attempt) => attempt.supportThreadIds)
+	]);
 	for (const userId of supportOwners)
 		for (const thread of await client.mutation(api.tests.getSupportThreadsByUserId, {
 			secret,

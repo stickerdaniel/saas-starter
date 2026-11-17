@@ -4,7 +4,7 @@ import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import { waitForAuthenticated } from './utils/auth';
-import { ownAnonymousSupportOwner } from './utils/owned-test-data';
+import { ownAnonymousSupportOwner, ownSupportThreads } from './utils/owned-test-data';
 
 /**
  * E2E tests for anonymous support ticket migration.
@@ -86,6 +86,7 @@ test.describe('Support ticket migration', () => {
 					pageUrl: '/en/app',
 					count: Math.min(threadsPerCall, 105 - start)
 				});
+				ownSupportThreads(created.threadIds);
 				threadIds.push(...created.threadIds);
 			}
 			console.log(`[Test] Created ${threadIds.length} threads`);

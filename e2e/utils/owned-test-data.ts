@@ -10,6 +10,7 @@
 //
 //   ownTestEmail(email, 'userEmails');          // before the sign-up request
 //   ownAnonymousSupportOwner(anonymousUserId);  // before the first support thread
+//   ownSupportThreads(created.threadIds);       // as soon as the IDs return
 //   const fixtureToken = ownFixture({ kind: 'aiChatHistory' }); // before the seed
 
 import { randomUUID } from 'node:crypto';
@@ -28,6 +29,8 @@ import { isAnonymousUser } from '../../src/lib/convex/utils/anonymousUser';
 
 const RUN_ID_ENV = 'E2E_OWNERSHIP_RUN_ID';
 const root = join(process.cwd(), 'e2e', '.auth', 'owned');
+// The single-file ledger of earlier checkouts; a leftover one lists data no run cleaned.
+const legacyLedger = join(process.cwd(), 'e2e', '.auth', 'owned-test-data.json');
 
 // Every test-only fixture carries its token, so recovery deletes rows by token
 // and never by a user ID that a real account might hold.
@@ -44,6 +47,12 @@ const ownedAttempt = z.object({
 	recipientEmails: z.array(z.string()),
 	/** Anonymous support IDs; teardown adds the user IDs of owned accounts. */
 	supportOwners: z.array(z.string()),
+	/**
+	 * Support threads by ID. A spec's own cleanup can delete the app rows that
+	 * teardown finds threads through while the agent thread survives, so the IDs
+	 * go here before that cleanup runs.
+	 */
+	supportThreadIds: z.array(z.string()),
 	fixtures: z.array(ownedFixture)
 });
 
@@ -65,6 +74,10 @@ export function ownedRunId(): string | undefined {
  * only record of what it left on the backend.
  */
 export function beginOwnedTestData(): string {
+	if (existsSync(legacyLedger))
+		throw new Error(
+			'Unfinished E2E cleanup: recover e2e/.auth/owned-test-data.json from an earlier checkout before starting another run'
+		);
 	const unfinished = existsSync(root)
 		? readdirSync(root, { withFileTypes: true })
 				.filter((entry) => entry.isDirectory())
@@ -95,6 +108,7 @@ function recordInWorker(change: (attempt: OwnedAttempt) => void) {
 				userEmails: [],
 				recipientEmails: [],
 				supportOwners: [],
+				supportThreadIds: [],
 				fixtures: []
 			};
 	change(attempt);
@@ -128,6 +142,14 @@ export function ownAnonymousSupportOwner(anonymousUserId: string) {
 	});
 }
 
+/** Records support thread IDs right after they are created, before any cleanup can hide them. */
+export function ownSupportThreads(threadIds: readonly string[]) {
+	recordInWorker((attempt) => {
+		for (const threadId of threadIds)
+			if (!attempt.supportThreadIds.includes(threadId)) attempt.supportThreadIds.push(threadId);
+	});
+}
+
 /**
  * Records a test-only fixture and returns the token its seed mutation stamps on
  * every row it writes. Call it before the seed.
@@ -138,10 +160,15 @@ export function ownFixture(claim: FixtureClaim): string {
 	return token;
 }
 
-/** Reads every attempt file of the run, including those of workers that died. */
+/**
+ * Reads every attempt file of the run, including those of workers that died.
+ * Throws when the run's directory is gone: that is lost recovery state, not a
+ * run that owned nothing.
+ */
 export function readOwnedRun(runId: string): OwnedAttempt[] {
 	const directory = runDirectory(runId);
-	if (!existsSync(directory)) return [];
+	if (!existsSync(directory))
+		throw new Error(`E2E ownership ledger e2e/.auth/owned/${runId} is missing`);
 	return readdirSync(directory)
 		.filter((name) => /^w\d+\.json$/.test(name))
 		.map((name) => ownedAttempt.parse(JSON.parse(readFileSync(join(directory, name), 'utf8'))));
