@@ -70,11 +70,11 @@ export default defineConfig<object, WorkerAccountOptions>({
 	forbidOnly: isCI,
 	/* Retry on CI only */
 	retries: isCI ? 2 : 0,
-	/* Single worker everywhere: the suite shares one preview Convex backend. Each
-	 * worker signs in with accounts of its own (e2e/utils/test.ts), and the specs
-	 * that read other specs' rows without an owner filter run in chromium-serial
-	 * after every writer, but the suite still runs one test at a time. */
-	workers: 1,
+	/* Four workers on CI share one preview Convex backend: each signs in with
+	 * accounts of its own (e2e/utils/test.ts), and the specs that read other
+	 * specs' rows without an owner filter run in chromium-serial after every
+	 * writer. The local dev:test stack keeps one worker. */
+	workers: isCI ? 4 : 1,
 	/* CI runs against an ephemeral CF preview whose cold start + Convex WebSocket
 	 * boot can make a page take >10s to hydrate. Give each test generous headroom
 	 * so a slow-but-functional preview does not cascade into auth-setup timeouts. */
