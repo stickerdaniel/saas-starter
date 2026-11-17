@@ -87,11 +87,11 @@ it('executes public coverage without account setup or teardown credentials', () 
 	const checkout = createPrivateCheckout('public-lifecycle-');
 	const directory = checkout.directory;
 	const fixture = join(checkout.repository, 'e2e', 'public-lifecycle-probe.spec.ts');
-	const ownership = join(checkout.repository, 'e2e', '.auth', 'owned-test-data.json');
+	const ownership = join(checkout.repository, 'e2e', '.auth', 'owned', 'lifecycle-probe');
 	try {
 		writeFileSync(
 			fixture,
-			"import { test, expect } from '@playwright/test'; import { mkdirSync, writeFileSync } from 'node:fs'; test('secretless public lane', () => { expect(process.env.AUTH_E2E_TEST_SECRET || '').toBe(''); mkdirSync('e2e/.auth', {recursive: true}); writeFileSync('e2e/.auth/owned-test-data.json', JSON.stringify({runId: 'lifecycle-probe', userEmails: [], recipientEmails: []})); });"
+			"import { test, expect } from '@playwright/test'; import { mkdirSync } from 'node:fs'; test('secretless public lane', () => { expect(process.env.AUTH_E2E_TEST_SECRET || '').toBe(''); expect(process.env.E2E_OWNERSHIP_RUN_ID).toBeUndefined(); mkdirSync('e2e/.auth/owned/lifecycle-probe', {recursive: true}); });"
 		);
 		const result = spawnSync(
 			'bun',

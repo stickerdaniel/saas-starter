@@ -1,74 +1,29 @@
 /**
  * Playwright Global Setup
  *
- * Creates fresh test users with unique emails for each test run.
- * Users are deleted in global-teardown.ts after tests complete.
- *
- * Credentials are saved to e2e/.auth/test-credentials.json for tests to read.
+ * Waits for the backend, provisions the session signing key and opens the run's
+ * ownership ledger (e2e/utils/owned-test-data.ts). It creates no accounts: each
+ * authenticated worker creates its own (e2e/utils/test.ts), and global-teardown.ts
+ * deletes everything the ledger lists.
  */
 
-import { ConvexHttpClient } from 'convex/browser';
-import { api } from '../src/lib/convex/_generated/api';
 import { setTimeout as sleep } from 'node:timers/promises';
 import 'varlock/auto-load';
-import fs from 'fs';
-import path from 'path';
-import { beginOwnedTestData, ownTestEmail } from './utils/owned-test-data';
-import globalTeardown from './global-teardown';
-
-const SITE_URL = resolveSiteUrl();
-const TEST_PASSWORD = 'TestPassword123!';
-const SETUP_RETRY_ATTEMPTS = 3;
-// Delays before the 2nd and 3rd attempt of an HTTP call (3 attempts total).
-const HTTP_RETRY_DELAYS_MS = [2000, 5000];
-
-import type { TestCredentials } from './utils/types';
+import { beginOwnedTestData } from './utils/owned-test-data';
 import { waitForConvexUrl } from './utils/convex-url';
 import { resolveSiteUrl } from './utils/site-url';
 import { getPreviewBypass, fetchVercelBypassCookie } from './utils/preview-bypass';
 import { waitForBackendReady } from './utils/backend-readiness';
 
-function isTransientSetupError(error: unknown): boolean {
-	if (!(error instanceof Error)) return false;
-
-	const details = [error.message, error.cause instanceof Error ? error.cause.message : '']
-		.join(' ')
-		.toLowerCase();
-
-	return (
-		details.includes('fetch failed') ||
-		details.includes('connect timeout') ||
-		details.includes('connection refused') ||
-		details.includes('econnreset') ||
-		details.includes('etimedout')
-	);
-}
-
-async function retrySetupStep<T>(label: string, run: () => Promise<T>): Promise<T> {
-	for (let attempt = 1; attempt <= SETUP_RETRY_ATTEMPTS; attempt++) {
-		try {
-			return await run();
-		} catch (error) {
-			if (!isTransientSetupError(error) || attempt === SETUP_RETRY_ATTEMPTS) {
-				throw error;
-			}
-
-			const delayMs = attempt * 1000;
-			console.warn(
-				`[Setup]   ${label} failed on attempt ${attempt}/${SETUP_RETRY_ATTEMPTS}, retrying in ${delayMs}ms`
-			);
-			await new Promise((resolve) => setTimeout(resolve, delayMs));
-		}
-	}
-
-	throw new Error(`[Setup] Unexpected retry fallthrough for ${label}`);
-}
+const SITE_URL = resolveSiteUrl();
+// Delays before the 2nd and 3rd attempt of an HTTP call (3 attempts total).
+const HTTP_RETRY_DELAYS_MS = [2000, 5000];
 
 /**
  * Fetch with retry on network errors and 5xx responses. A cold CF Workers
  * preview can answer the first request with a non-JSON 5xx before the
- * Better Auth handler has warmed up. A 4xx is a real failure (bad request,
- * duplicate email, etc.) and is returned immediately without retrying.
+ * Better Auth handler has warmed up. A 4xx is a real failure and is returned
+ * immediately without retrying.
  */
 async function fetchWithRetry(url: string, init: RequestInit, label: string): Promise<Response> {
 	const totalAttempts = HTTP_RETRY_DELAYS_MS.length + 1;
@@ -104,7 +59,8 @@ async function fetchWithRetry(url: string, init: RequestInit, label: string): Pr
  * Better Auth's read-then-create can otherwise produce two keys on a fresh backend.
  * A verifier that cached JWKS between those inserts rejects the newer key until
  * the cache expires. Revalidate at the origin so an old preview's cached key set
- * cannot stand in for provisioning this backend.
+ * cannot stand in for provisioning this backend. The request also warms the auth
+ * handler, so the workers' single sign-up attempts meet a warm preview.
  */
 async function provisionSessionSigningKey(): Promise<void> {
 	const response = await fetchWithRetry(
@@ -145,161 +101,14 @@ async function globalSetup() {
 		throw new Error('Convex URL not configured');
 	}
 
-	const client = new ConvexHttpClient(convexUrl);
-
-	// Gate user creation on real backend readiness (not just the vite port being open).
+	// Gate the first worker's sign-up on real backend readiness (not just the vite port being open).
 	await waitForBackendReady(convexUrl, testSecret);
 
-	// Resolve preview access before recording any intended backend writes.
+	// Resolve preview access before any worker records an intended backend write.
 	await fetchVercelBypassCookie(SITE_URL);
 	await provisionSessionSigningKey();
-	const timestamp = beginOwnedTestData();
-
-	// Generate unique emails for this test run
-	const credentials: TestCredentials = {
-		user: {
-			email: `test-user-${timestamp}@e2e.example.com`,
-			password: TEST_PASSWORD,
-			name: 'E2E Test User'
-		},
-		admin: {
-			email: `test-admin-${timestamp}@e2e.example.com`,
-			password: TEST_PASSWORD,
-			name: 'E2E Test Admin'
-		},
-		anonymousSupport: {
-			userId: '',
-			threadIds: []
-		}
-	};
-
-	console.log('[Setup] Creating fresh test users...');
-	console.log(`[Setup]   User: ${credentials.user.email}`);
-	console.log(`[Setup]   Admin: ${credentials.admin.email}`);
-
-	// Persist ownership before writes, including a partially successful signup.
-	const authDir = path.join(process.cwd(), 'e2e', '.auth');
-	const credentialsPath = path.join(authDir, 'test-credentials.json');
-	fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2));
-	ownTestEmail(credentials.user.email, 'userEmails');
-	ownTestEmail(credentials.admin.email, 'userEmails');
-	ownTestEmail(credentials.admin.email);
-	try {
-		await createUser(credentials.user, testSecret, client);
-		await createUser(credentials.admin, testSecret, client, true);
-	} catch (error) {
-		try {
-			await globalTeardown();
-		} catch (cleanupError) {
-			throw new AggregateError([error, cleanupError], 'Setup and owned cleanup failed', {
-				cause: cleanupError
-			});
-		}
-		throw error;
-	}
-
-	console.log('[Setup] Test users ready!');
-}
-
-export async function createUser(
-	user: { email: string; password: string; name: string },
-	secret: string,
-	client: ConvexHttpClient,
-	isAdmin = false
-) {
-	const userType = isAdmin ? 'Admin' : 'Regular';
-	const bypass = getPreviewBypass();
-
-	const getHeaders = (): Record<string, string> => ({
-		'Content-Type': 'application/json',
-		Origin: SITE_URL,
-		...bypass.headers
-	});
-
-	// Sign up the user
-	try {
-		const signUpResponse = await fetchWithRetry(
-			`${SITE_URL}/api/auth/sign-up/email`,
-			{
-				method: 'POST',
-				headers: getHeaders(),
-				body: JSON.stringify({
-					email: user.email,
-					password: user.password,
-					name: user.name
-				})
-			},
-			`${userType} signup`
-		);
-
-		if (!signUpResponse.ok) {
-			const bodyText = await signUpResponse.text().catch(() => '');
-			console.error(
-				`[Setup]   Error creating ${userType} user: HTTP ${signUpResponse.status} ${signUpResponse.statusText}`,
-				bodyText.slice(0, 300)
-			);
-			throw new Error(`Failed to create ${userType} test user`);
-		}
-
-		console.log(`[Setup]   ${userType} user created`);
-
-		// Verify email (or set admin role + verify)
-		if (isAdmin) {
-			const result = await retrySetupStep('createTestAdminUser', () =>
-				client.mutation(api.tests.createTestAdminUser, {
-					email: user.email,
-					secret
-				})
-			);
-			if (!result.success) {
-				throw new Error(`Failed to setup admin: ${result.error}`);
-			}
-			console.log(`[Setup]   Admin role set and email verified`);
-		} else {
-			const result = await retrySetupStep('verifyTestUserEmail', () =>
-				client.mutation(api.tests.verifyTestUserEmail, {
-					email: user.email,
-					secret
-				})
-			);
-			if (!result.success) {
-				throw new Error(`Failed to verify email: ${result.error}`);
-			}
-			console.log(`[Setup]   Email verified`);
-		}
-
-		// Verify credentials work
-		const signInResponse = await fetchWithRetry(
-			`${SITE_URL}/api/auth/sign-in/email`,
-			{
-				method: 'POST',
-				headers: getHeaders(),
-				body: JSON.stringify({ email: user.email, password: user.password })
-			},
-			`${userType} signin`
-		);
-
-		if (!signInResponse.ok) {
-			const bodyText = await signInResponse.text().catch(() => '');
-			console.error(
-				`[Setup]   Credential verification failed: HTTP ${signInResponse.status} ${signInResponse.statusText}`,
-				bodyText.slice(0, 300)
-			);
-			throw new Error('Credential verification failed');
-		}
-
-		console.log(`[Setup]   Credentials verified`);
-	} catch (error) {
-		if (error instanceof Error) {
-			const msg = error.message;
-			if (msg.includes('ECONNREFUSED')) {
-				console.error('[Setup] Error: Could not connect to the server.');
-				console.error('[Setup] The dev server should be started by Playwright automatically.');
-				throw new Error('Server connection failed', { cause: error });
-			}
-		}
-		throw error;
-	}
+	const runId = beginOwnedTestData();
+	console.log(`[Setup] Ownership ledger e2e/.auth/owned/${runId} ready`);
 }
 
 export default globalSetup;

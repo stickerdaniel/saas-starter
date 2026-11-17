@@ -2,7 +2,7 @@
 
 ## What belongs here
 
-Every step here is charged to the whole repository. The suite runs `workers: 1` because it shares one preview Convex backend and the admin specs mutate shared rows, `E2E Tests` is a required check on `main`, and against a CF preview each Playwright step pays a round trip: measured in the traces at roughly 2s to resolve a locator and 3s to dispatch a click. What the suite spends is steps, so a spec costs whatever its interactions cost, however few tests it declares.
+Every step here is charged to the whole repository. The suite runs `workers: 1` because it shares one preview Convex backend, `E2E Tests` is a required check on `main`, and against a CF preview each Playwright step pays a round trip: measured in the traces at roughly 2s to resolve a locator and 3s to dispatch a click. What the suite spends is steps, so a spec costs whatever its interactions cost, however few tests it declares.
 
 - A test earns a place here when its failure needs a real browser **and** a deployed backend to appear at all: sign-up and sign-in, entitlement and payment, gates and redirects, prerender and preview-bypass paths, anything whose breakage would be silent in production.
 - A deployed failure that needs no browser earns a request-only spec here instead, driven by Playwright's `request` fixture: adapter output, response headers, edge caching, discovery documents. It is the cheaper form and the right one whenever no page has to open.
@@ -16,7 +16,9 @@ Every step here is charged to the whole repository. The suite runs `workers: 1` 
 - Justify the deployment before writing the spec, in the PR body or a comment on the spec: `Cheaper layers rejected because: <the browser or deployed behavior they cannot reach>`. A spec that opens a page also says why a request-only check cannot reach it.
 - Run `bun run test:e2e` after every E2E change.
 - Tests run against isolated deterministic ports and an isolated local Convex backend. Do not point them at a developer's cloud deployment.
-- Use the seeded test/admin flows and helpers rather than introducing production bypasses.
+- Sign in as the worker's own accounts from the `workerAccounts` fixture (`e2e/utils/test.ts`) rather than introducing production bypasses.
+- A spec that reads data other specs write without an owner filter (an unfiltered list, a global count or a global ordering) belongs to `chromium-serial` in `playwright.config.ts`, which runs after every writing project.
+- Record every account, recipient, anonymous support ID and test-only fixture in `e2e/utils/owned-test-data.ts` before the write that creates it. Global teardown deletes exactly what that ledger lists, so never add a cleanup that sweeps by email suffix or user ID.
 - Prefer role, label, and visible-name selectors. Use kebab-case `data-testid` only when semantic selection is unstable.
 - Keep tests deterministic: control time/data explicitly, avoid arbitrary sleeps, and assert the user-visible outcome.
 - Clean up created data through the existing test helpers. Never set `AUTH_E2E_TEST_SECRET` in production.

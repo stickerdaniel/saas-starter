@@ -9,6 +9,7 @@ import { api } from '../src/lib/convex/_generated/api';
 import { resolveConvexUrl } from './utils/convex-url';
 import { resolveSiteUrl } from './utils/site-url';
 import { getPreviewBypass } from './utils/preview-bypass';
+import { ownTestEmail } from './utils/owned-test-data';
 
 // This test runs without auth state - tests unauthenticated behavior
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -23,18 +24,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 // a lost prefix looks the same as a preserved prefix in the default locale.
 // That test selects by test ID, so translated copy adds no selector cost.
 
-import type { TestCredentials } from './utils/types';
-
 const testSecret = process.env.AUTH_E2E_TEST_SECRET!;
-
-function getSeededUserEmail(): string {
-	const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
-	if (!fs.existsSync(credentialsPath)) {
-		throw new Error('test-credentials.json not found. globalSetup may have failed.');
-	}
-	const credentials: TestCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
-	return credentials.user.email;
-}
 
 /**
  * Opens a password form once its field is enabled. Both forms enable their fields only
@@ -95,7 +85,10 @@ test.describe('Forgot Password', () => {
 	 * seeded address and an address that cannot exist has to leave the user
 	 * looking at the same words.
 	 */
-	test('says the same thing for a known and an unknown address', async ({ page }) => {
+	test('says the same thing for a known and an unknown address', async ({
+		page,
+		workerAccounts
+	}) => {
 		// Both answers must come from the checked-in copy. Local E2E runs a dev server,
 		// so a leak of live Tolgee would render whatever the Tolgee project holds; a
 		// stale record served here makes that leak fail the wording check below.
@@ -105,7 +98,7 @@ test.describe('Forgot Password', () => {
 		stale.auth.messages.reset_link_sent = 'Check your email for a reset link.';
 		await page.route('**/v2/projects/**', (route) => route.fulfill({ json: { en: stale } }));
 
-		const known = await submitForgotPassword(page, getSeededUserEmail());
+		const known = await submitForgotPassword(page, workerAccounts.user.email);
 		const unknown = await submitForgotPassword(
 			page,
 			`definitely-not-registered-${Date.now()}@e2e.example.com`
@@ -262,7 +255,7 @@ test.describe('Reset Password', () => {
 		const encodedDestination = encodeURIComponent(destination);
 		const resetCallback = `/de/reset-password?redirectTo=${encodedDestination}`;
 
-		// Dedicated user: resetting the shared test user's password would break other specs
+		// Dedicated user: resetting the worker user's password would break the worker's other specs
 		const email = `test-reset-revoke-${Date.now()}@e2e.example.com`;
 		const password = 'OldPassword123!';
 		const newPassword = 'NewPassword456!';
@@ -274,6 +267,7 @@ test.describe('Reset Password', () => {
 		});
 
 		try {
+			ownTestEmail(email, 'userEmails');
 			const signUp = await otherSession.post('/api/auth/sign-up/email', {
 				data: { email, password, name: 'E2E Reset Revoke' }
 			});

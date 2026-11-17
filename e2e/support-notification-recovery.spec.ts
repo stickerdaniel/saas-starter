@@ -4,13 +4,18 @@ import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import { resolveConvexUrl } from './utils/convex-url';
+import { ownFixture } from './utils/owned-test-data';
 
 // Cheaper layers rejected because: recovery and stale cleanup must commit through real nested Convex transactions.
 // Request-only verification uses a secret-gated isolated fixture and never enqueues email.
 test('recovers an interrupted support claim and fences duplicate recovery', async () => {
 	const client = new ConvexHttpClient(resolveConvexUrl()!);
 	const secret = process.env.AUTH_E2E_TEST_SECRET!;
-	const fixture = await client.mutation(api.tests.seedSupportNotificationClaim, { secret });
+	const fixtureToken = ownFixture({ kind: 'supportNotification' });
+	const fixture = await client.mutation(api.tests.seedSupportNotificationClaim, {
+		secret,
+		fixtureToken
+	});
 	try {
 		expect(fixture.deadline).toBeGreaterThan(Date.now());
 		const { deadline: _deadline, ...ownership } = fixture;

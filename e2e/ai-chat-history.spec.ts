@@ -4,20 +4,21 @@ import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import type { Id } from '../src/lib/convex/_generated/dataModel';
-import { readTestCredentials } from './utils/auth';
 import { resolveConvexUrl } from './utils/convex-url';
 import { resolveSiteUrl } from './utils/site-url';
-import { ownTestEmail } from './utils/owned-test-data';
+import { ownFixture, ownTestEmail } from './utils/owned-test-data';
 
 // Cheaper layers rejected because: the real index must exclude undefined keys, include zero,
 // and order the authenticated user's complete history before applying the limit.
 // Request-only verification exercises the deployed query without opening a history UI.
 test('lists old-created active conversations before limiting visible history', async ({
-	request
+	request,
+	workerAccounts
 }) => {
 	const client = new ConvexHttpClient(resolveConvexUrl()!);
 	const secret = process.env.AUTH_E2E_TEST_SECRET!;
-	const { admin } = readTestCredentials();
+	// The worker's admin is the foreign user whose row must stay out of this history.
+	const { admin } = workerAccounts;
 	const user = { email: `history-${crypto.randomUUID()}@e2e.example.com` };
 	ownTestEmail(user.email, 'userEmails');
 	const signup = await request.post('/api/auth/sign-up/email', {
@@ -40,7 +41,8 @@ test('lists old-created active conversations before limiting visible history', a
 		secret,
 		email: admin.email
 	});
-	const prefix = `history-${crypto.randomUUID()}`;
+	// Every seeded thread ID starts with the owned token, so teardown finds rows a killed worker left.
+	const prefix = ownFixture({ kind: 'aiChatHistory' });
 	const ids: Array<Id<'aiChatThreads'>> = [];
 	type Row = {
 		threadId: string;
@@ -72,6 +74,7 @@ test('lists old-created active conversations before limiting visible history', a
 		ids.push(
 			...(await client.mutation(api.tests.seedAiChatHistoryRows, {
 				secret,
+				fixtureToken: prefix,
 				userId: own.userId!,
 				rows
 			}))
@@ -79,6 +82,7 @@ test('lists old-created active conversations before limiting visible history', a
 		ids.push(
 			...(await client.mutation(api.tests.seedAiChatHistoryRows, {
 				secret,
+				fixtureToken: prefix,
 				userId: other.userId!,
 				rows: [{ threadId: `${prefix}-foreign`, createdAt: 1, lastMessageAt: 30_000 }]
 			}))

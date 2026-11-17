@@ -1,8 +1,14 @@
 import { components, internal } from './_generated/api';
-import { query, mutation, internalQuery } from './_generated/server';
-import { v } from 'convex/values';
+import {
+	query,
+	mutation,
+	internalQuery,
+	type MutationCtx,
+	type QueryCtx
+} from './_generated/server';
+import { v, type Infer } from 'convex/values';
 import { createFunctionHandle } from 'convex/server';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import { supportAgent } from './support/agent';
 import { isAnonymousUser } from './utils/anonymousUser';
 import { incrementCounter, recalculateCounters } from './admin/counters';
@@ -20,10 +26,34 @@ function requireTestSecret(secret: string): void {
 	}
 }
 
+/**
+ * Check the run token an E2E spec registered in its ownership ledger before a
+ * fixture seed. Recovery deletes a fixture by this token, so a malformed or empty
+ * token could otherwise widen a prefix match.
+ */
+function requireFixtureToken(token: string): void {
+	if (!/^e2e-fixture-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(token)) {
+		throw new Error('Invalid E2E fixture token');
+	}
+}
+
 const supportRecoveryFixturePrefix = '__support-recovery-test:';
 
+/** Cancels the fixture's own scheduled jobs and deletes its row; no other notification is touched. */
+async function deleteSupportRecoveryFixture(
+	ctx: MutationCtx,
+	row: Doc<'pendingAdminNotifications'>
+): Promise<void> {
+	if (!row.threadId.startsWith(supportRecoveryFixturePrefix))
+		throw new Error('Not a recovery fixture');
+	for (const id of [row.scheduledFnId, row.recoveryFnId])
+		if (id && (await ctx.db.system.get(id))?.state.kind === 'pending')
+			await ctx.scheduler.cancel(id);
+	await ctx.db.delete('pendingAdminNotifications', row._id);
+}
+
 export const seedSupportNotificationClaim = mutation({
-	args: { secret: v.string() },
+	args: { secret: v.string(), fixtureToken: v.string() },
 	returns: v.object({
 		notificationId: v.id('pendingAdminNotifications'),
 		generation: v.string(),
@@ -40,8 +70,9 @@ export const seedSupportNotificationClaim = mutation({
 		deadline: number;
 	}> => {
 		requireTestSecret(args.secret);
+		requireFixtureToken(args.fixtureToken);
 		const notificationId = await ctx.db.insert('pendingAdminNotifications', {
-			threadId: supportRecoveryFixturePrefix + crypto.randomUUID(),
+			threadId: supportRecoveryFixturePrefix + args.fixtureToken,
 			messageIds: [],
 			isReopen: false,
 			notificationType: 'newTickets',
@@ -141,14 +172,7 @@ export const deleteSupportNotificationFixture = mutation({
 	handler: async (ctx, args) => {
 		requireTestSecret(args.secret);
 		const row = await ctx.db.get('pendingAdminNotifications', args.notificationId);
-		if (!row) return null;
-		if (!row.threadId.startsWith(supportRecoveryFixturePrefix))
-			throw new Error('Not a recovery fixture');
-		// At most two owned scheduled jobs; no other notification is touched.
-		for (const id of [row.scheduledFnId, row.recoveryFnId])
-			if (id && (await ctx.db.system.get(id))?.state.kind === 'pending')
-				await ctx.scheduler.cancel(id);
-		await ctx.db.delete('pendingAdminNotifications', row._id);
+		if (row) await deleteSupportRecoveryFixture(ctx, row);
 		return null;
 	}
 });
@@ -172,9 +196,11 @@ export const health = query({
 	}
 });
 
+/** Seeds registry rows whose thread IDs all start with `<fixtureToken>-`, the key recovery deletes by. */
 export const seedAiChatHistoryRows = mutation({
 	args: {
 		secret: v.string(),
+		fixtureToken: v.string(),
 		userId: v.string(),
 		rows: v.array(
 			v.object({
@@ -189,7 +215,10 @@ export const seedAiChatHistoryRows = mutation({
 	returns: v.array(v.id('aiChatThreads')),
 	handler: async (ctx, args) => {
 		requireTestSecret(args.secret);
+		requireFixtureToken(args.fixtureToken);
 		if (args.rows.length > 100) throw new Error('History fixture exceeds 100 rows');
+		if (args.rows.some((row) => !row.threadId.startsWith(`${args.fixtureToken}-`)))
+			throw new Error('History fixture thread IDs must start with the fixture token');
 		const ids = [];
 		// A bounded fixture owns only the registry rows returned for cleanup.
 		for (const row of args.rows)
@@ -216,9 +245,11 @@ export const deleteAiChatHistoryRows = mutation({
 	}
 });
 
+/** Seeds ban/unban rows whose reason starts with `<fixtureToken>:`, the key recovery deletes by. */
 export const seedAuditLogRows = mutation({
 	args: {
 		secret: v.string(),
+		fixtureToken: v.string(),
 		fixtureId: v.string(),
 		count: v.number(),
 		offset: v.number(),
@@ -227,9 +258,11 @@ export const seedAuditLogRows = mutation({
 	returns: v.array(v.id('adminAuditLogs')),
 	handler: async (ctx, args) => {
 		requireTestSecret(args.secret);
+		requireFixtureToken(args.fixtureToken);
 		if (!Number.isInteger(args.count) || args.count < 1 || args.count > 100) {
 			throw new Error('Invalid audit fixture');
 		}
+		const reason = `${args.fixtureToken}:${'x'.repeat(Math.min(2048, Math.max(0, args.reasonBytes ?? 20)))}`;
 		const ids = [];
 		// At most 100 rows with capped metadata fit in one fixture transaction.
 		for (let i = 0; i < args.count; i++) {
@@ -239,7 +272,7 @@ export const seedAuditLogRows = mutation({
 					targetUserId: args.fixtureId,
 					action: i % 2 === 0 ? 'ban_user' : 'unban_user',
 					timestamp: args.offset + i,
-					metadata: { reason: 'x'.repeat(Math.min(2048, Math.max(0, args.reasonBytes ?? 20))) }
+					metadata: { reason }
 				})
 			);
 		}
@@ -664,8 +697,8 @@ export const getAuthUserIdByEmail = mutation({
 /**
  * Reset one test user's AI chat upload limit.
  *
- * The full browser suite shares one user, and the upload grant allows ten per
- * hour. A later test that needs a transfer still in flight otherwise has its
+ * All tests of one E2E worker share its user, and the upload grant allows ten
+ * per hour. A later test that needs a transfer still in flight otherwise has its
  * grant refused, the transfer ends, and leaving the page is correctly allowed.
  */
 export const resetAiChatFileUploadLimit = mutation({
@@ -939,6 +972,158 @@ export const cleanupTestData = mutation({
 			deletedCount,
 			message: `Cleaned up ${deletedCount} test notification recipients`
 		};
+	}
+});
+
+/**
+ * A test-only fixture an E2E worker registered in its ownership ledger before
+ * seeding it. Every row the seed wrote carries the token, so recovery after a
+ * killed worker selects rows by token, never by a user ID alone.
+ */
+const ownedFixtureValidator = v.union(
+	// Audit rows are reached through the `by_admin` index of the fixture's own ID.
+	v.object({ kind: v.literal('auditLog'), token: v.string(), fixtureId: v.string() }),
+	v.object({ kind: v.literal('aiChatHistory'), token: v.string() }),
+	v.object({ kind: v.literal('supportNotification'), token: v.string() })
+);
+type OwnedFixture = Infer<typeof ownedFixtureValidator>;
+type DatabaseReader = Pick<QueryCtx, 'db'>;
+
+// A seed call writes at most 100 rows, and the specs clear a fixture before
+// seeding it again, so one bounded read holds every row a token can own.
+const OWNED_FIXTURE_ROW_LIMIT = 200;
+
+async function auditFixtureRows(
+	ctx: DatabaseReader,
+	fixture: Extract<OwnedFixture, { kind: 'auditLog' }>
+) {
+	const rows = await ctx.db
+		.query('adminAuditLogs')
+		.withIndex('by_admin', (q) => q.eq('adminUserId', fixture.fixtureId))
+		.take(OWNED_FIXTURE_ROW_LIMIT);
+	return rows.filter(
+		(row) =>
+			row.targetUserId === fixture.fixtureId &&
+			row.metadata !== undefined &&
+			'reason' in row.metadata &&
+			row.metadata.reason.startsWith(`${fixture.token}:`)
+	);
+}
+
+function aiHistoryFixtureRows(ctx: DatabaseReader, token: string) {
+	// Every thread ID that starts with `<token>-` sorts before `<token>.`.
+	return ctx.db
+		.query('aiChatThreads')
+		.withIndex('by_thread', (q) => q.gte('threadId', `${token}-`).lt('threadId', `${token}.`))
+		.take(OWNED_FIXTURE_ROW_LIMIT);
+}
+
+function notificationFixtureRow(ctx: DatabaseReader, token: string) {
+	return ctx.db
+		.query('pendingAdminNotifications')
+		.withIndex('by_thread', (q) => q.eq('threadId', supportRecoveryFixturePrefix + token))
+		.unique();
+}
+
+/** Deletes every row one registered fixture still holds; global teardown calls it per ledger entry. */
+export const deleteOwnedFixture = mutation({
+	args: { secret: v.string(), fixture: ownedFixtureValidator },
+	returns: v.object({ deleted: v.number() }),
+	handler: async (ctx, { secret, fixture }) => {
+		requireTestSecret(secret);
+		requireFixtureToken(fixture.token);
+		switch (fixture.kind) {
+			case 'auditLog': {
+				const rows = await auditFixtureRows(ctx, fixture);
+				for (const row of rows) await ctx.db.delete('adminAuditLogs', row._id);
+				return { deleted: rows.length };
+			}
+			case 'aiChatHistory': {
+				const rows = await aiHistoryFixtureRows(ctx, fixture.token);
+				for (const row of rows) await ctx.db.delete('aiChatThreads', row._id);
+				return { deleted: rows.length };
+			}
+			case 'supportNotification': {
+				const row = await notificationFixtureRow(ctx, fixture.token);
+				if (row) await deleteSupportRecoveryFixture(ctx, row);
+				return { deleted: row ? 1 : 0 };
+			}
+		}
+	}
+});
+
+const ownedTestDataRemains = v.object({
+	userEmails: v.array(v.string()),
+	recipientEmails: v.array(v.string()),
+	supportThreadOwners: v.array(v.string()),
+	agentThreadIds: v.array(v.string()),
+	fixtureTokens: v.array(v.string())
+});
+
+/**
+ * Reads back what of an E2E run's ownership ledger still exists. Global
+ * teardown keeps the ledger until every list comes back empty. Support data is
+ * checked twice: the app's `supportThreads` rows per owner, and the agent
+ * component's thread per deleted thread ID, whose deletion
+ * `cleanupAnonymousSupportThreads` can only log. Agent threads are checked by
+ * ID because AI chat threads share the component and the owner's user ID.
+ */
+export const findOwnedTestData = query({
+	args: {
+		secret: v.string(),
+		userEmails: v.array(v.string()),
+		recipientEmails: v.array(v.string()),
+		supportOwners: v.array(v.string()),
+		supportThreadIds: v.array(v.string()),
+		fixtures: v.array(ownedFixtureValidator)
+	},
+	returns: ownedTestDataRemains,
+	handler: async (ctx, args) => {
+		requireTestSecret(args.secret);
+		const remaining: Infer<typeof ownedTestDataRemains> = {
+			userEmails: [],
+			recipientEmails: [],
+			supportThreadOwners: [],
+			agentThreadIds: [],
+			fixtureTokens: []
+		};
+		// One indexed lookup per ledger entry; a run's ledger lists a few hundred at most.
+		for (const email of args.userEmails) {
+			const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+				model: 'user',
+				where: [{ field: 'email', value: email }]
+			});
+			if (user) remaining.userEmails.push(email);
+		}
+		for (const email of args.recipientEmails) {
+			const recipient = await ctx.db
+				.query('adminNotificationPreferences')
+				.withIndex('by_email', (q) => q.eq('email', email))
+				.first();
+			if (recipient) remaining.recipientEmails.push(email);
+		}
+		for (const owner of args.supportOwners) {
+			const thread = await ctx.db
+				.query('supportThreads')
+				.withIndex('by_user_warm', (q) => q.eq('userId', owner))
+				.first();
+			if (thread) remaining.supportThreadOwners.push(owner);
+		}
+		for (const threadId of args.supportThreadIds) {
+			const thread = await ctx.runQuery(components.agent.threads.getThread, { threadId });
+			if (thread) remaining.agentThreadIds.push(threadId);
+		}
+		for (const fixture of args.fixtures) {
+			requireFixtureToken(fixture.token);
+			const left =
+				fixture.kind === 'auditLog'
+					? (await auditFixtureRows(ctx, fixture)).length > 0
+					: fixture.kind === 'aiChatHistory'
+						? (await aiHistoryFixtureRows(ctx, fixture.token)).length > 0
+						: (await notificationFixtureRow(ctx, fixture.token)) !== null;
+			if (left) remaining.fixtureTokens.push(fixture.token);
+		}
+		return remaining;
 	}
 });
 

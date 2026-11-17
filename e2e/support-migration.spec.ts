@@ -1,11 +1,10 @@
 import { expect } from '@playwright/test';
 import { test } from './utils/test';
-import fs from 'fs';
-import path from 'path';
 import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import { waitForAuthenticated } from './utils/auth';
+import { ownAnonymousSupportOwner, ownSupportThreads } from './utils/owned-test-data';
 
 /**
  * E2E tests for anonymous support ticket migration.
@@ -18,22 +17,12 @@ import { waitForAuthenticated } from './utils/auth';
  * 5. Database shows threads now belong to authenticated user with enriched data
  */
 
-import type { TestCredentials } from './utils/types';
 import { resolveConvexUrl } from './utils/convex-url';
 
-const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
 const testSecret = process.env.AUTH_E2E_TEST_SECRET!;
 const convexUrl = resolveConvexUrl();
 // Most threads the support fixture helpers in tests.ts create or delete per call.
 const threadsPerCall = 25;
-
-const readCredentials = (): TestCredentials => {
-	if (!fs.existsSync(credentialsPath)) {
-		throw new Error('test-credentials.json not found. globalSetup may have failed.');
-	}
-
-	return JSON.parse(fs.readFileSync(credentialsPath, 'utf-8')) as TestCredentials;
-};
 
 const getConvexClient = () => {
 	if (!convexUrl) {
@@ -42,7 +31,7 @@ const getConvexClient = () => {
 	return new ConvexHttpClient(convexUrl);
 };
 
-// Uses pre-authenticated session state from signin.setup.ts
+// Every context starts signed in as the worker's user.
 test.describe('Support ticket migration', () => {
 	test('clears localStorage when anonymous user has zero threads', async ({ page }) => {
 		const client = getConvexClient();
@@ -73,15 +62,18 @@ test.describe('Support ticket migration', () => {
 	});
 
 	test('migrates all 105 anonymous tickets and verifies database reassignment', async ({
-		page
+		page,
+		workerAccounts
 	}) => {
-		const credentials = readCredentials();
+		const { user } = workerAccounts;
 		const client = getConvexClient();
 
 		// Retries share the signed-in user, and an attempt whose cleanup failed leaves its
 		// migrated threads on that account. Each attempt therefore uses a new anonymous ID
-		// and checks only the threads it created.
+		// and checks only the threads it created. Teardown finds the threads under the
+		// owned anonymous ID before migration and under the owned user after it.
 		const anonymousUserId = `anon_${crypto.randomUUID()}`;
+		ownAnonymousSupportOwner(anonymousUserId);
 		const threadIds: string[] = [];
 		console.log(`[Test] Creating 105 fresh anonymous threads for userId: ${anonymousUserId}`);
 
@@ -94,6 +86,7 @@ test.describe('Support ticket migration', () => {
 					pageUrl: '/en/app',
 					count: Math.min(threadsPerCall, 105 - start)
 				});
+				ownSupportThreads(created.threadIds);
 				threadIds.push(...created.threadIds);
 			}
 			console.log(`[Test] Created ${threadIds.length} threads`);
@@ -108,7 +101,7 @@ test.describe('Support ticket migration', () => {
 			// 2. Get the authenticated user's ID for verification after migration
 			const { userId: authUserId } = await client.mutation(api.tests.getAuthUserIdByEmail, {
 				secret: testSecret,
-				email: credentials.user.email
+				email: user.email
 			});
 			expect(authUserId).not.toBeNull();
 
@@ -145,8 +138,7 @@ test.describe('Support ticket migration', () => {
 
 			// 8. Verify user data was populated on every migrated thread
 			const notEnriched = migrated.filter(
-				(thread) =>
-					thread.userName !== credentials.user.name || thread.userEmail !== credentials.user.email
+				(thread) => thread.userName !== user.name || thread.userEmail !== user.email
 			);
 			expect(notEnriched).toEqual([]);
 

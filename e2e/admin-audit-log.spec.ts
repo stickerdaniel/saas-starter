@@ -7,6 +7,7 @@ import type { Id } from '../src/lib/convex/_generated/dataModel';
 import { resolveConvexUrl } from './utils/convex-url';
 import { resolveSiteUrl } from './utils/site-url';
 import { getPreviewBypass } from './utils/preview-bypass';
+import { ownFixture, ownTestEmail } from './utils/owned-test-data';
 
 const SITE_URL = resolveSiteUrl();
 const TEST_PASSWORD = 'TestPassword123!';
@@ -22,11 +23,14 @@ test('resolves and consumes multi-page audit cursors on the real backend', async
 	client.setAuth(token);
 	const secret = process.env.AUTH_E2E_TEST_SECRET!;
 	const email = `audit-pagination-${crypto.randomUUID()}@e2e.example.com`;
+	ownTestEmail(email, 'userEmails');
 	await createAuthUser(email, 'Audit pagination fixture');
 	const fixture = await client.mutation(api.tests.getAuthUserIdByEmail, { secret, email });
 	const fixtureId = fixture.userId!;
 	await client.mutation(api.tests.deleteTestUser, { secret, email });
-	// Cleanup deletes exactly the seeded rows, never other rows of the fixture id.
+	// Cleanup deletes exactly the seeded rows, never other rows of the fixture id. The
+	// rows carry the owned token, so teardown finds them after a killed worker too.
+	const fixtureToken = ownFixture({ kind: 'auditLog', fixtureId });
 	let seeded: Array<Id<'adminAuditLogs'>> = [];
 	const clear = async () => {
 		if (seeded.length) await client.mutation(api.tests.deleteAuditLogRows, { secret, ids: seeded });
@@ -37,6 +41,7 @@ test('resolves and consumes multi-page audit cursors on the real backend', async
 			if (count)
 				seeded = await client.mutation(api.tests.seedAuditLogRows, {
 					secret,
+					fixtureToken,
 					fixtureId,
 					count,
 					offset: 0
@@ -191,6 +196,7 @@ test.describe('Admin Audit Log', () => {
 		client = new ConvexHttpClient(convexUrl);
 		targetEmail = `audit-target-${Date.now()}@e2e.example.com`;
 
+		ownTestEmail(targetEmail, 'userEmails');
 		await createAuthUser(targetEmail, 'Audit Log Target');
 		createdEmails.push(targetEmail);
 		await client.mutation(api.tests.verifyTestUserEmail, {

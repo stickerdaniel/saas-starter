@@ -516,6 +516,9 @@ test.describe('Admin Users Table', () => {
 		// Distinct prefix keeps it out of the seedPrefix searches above; afterAll
 		// cleans it up via createdSeedEmails.
 		const writeTargetEmail = `write-target-${Date.now()}@e2e.example.com`;
+		// The promotion below gives it an admin recipient row as well.
+		ownTestEmail(writeTargetEmail, 'userEmails');
+		ownTestEmail(writeTargetEmail);
 		await createAuthUser({
 			email: writeTargetEmail,
 			name: 'Write Target User',

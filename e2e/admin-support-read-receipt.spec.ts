@@ -7,6 +7,7 @@ import { resolveConvexUrl } from './utils/convex-url';
 import { getPreviewBypass } from './utils/preview-bypass';
 import { resolveSiteUrl } from './utils/site-url';
 import { getRepositoryUrl } from '../src/lib/config/site';
+import { ownAnonymousSupportOwner, ownSupportThreads } from './utils/owned-test-data';
 
 const convexUrl = resolveConvexUrl();
 const siteUrl = resolveSiteUrl();
@@ -18,6 +19,7 @@ test('shows an unread support reply and reports when the customer opens it', asy
 	browser
 }) => {
 	const anonymousUserId = `anon_${crypto.randomUUID()}`;
+	ownAnonymousSupportOwner(anonymousUserId);
 	const client = new ConvexHttpClient(convexUrl);
 	const { threadId, threadIds, reply } = await client.mutation(
 		api.tests.createUnreadAnonymousSupportReply,
@@ -27,6 +29,7 @@ test('shows an unread support reply and reports when the customer opens it', asy
 			newerThreadCount: 20
 		}
 	);
+	ownSupportThreads(threadIds);
 	// The badge stays mounted at zero so its closing transition can play, so
 	// "no unread reply" is now a question about what is shown, not what exists.
 	const shownIndicators = (scope: Page | Locator) =>
@@ -102,11 +105,14 @@ test('a message shows the build it was sent from and copies its commit link', as
 	test.setTimeout(120_000);
 	const client = new ConvexHttpClient(convexUrl);
 	const build = '3c9d53c781b67138ebb598d7d2249f10f3af61ec';
+	const anonymousUserId = `anon_${crypto.randomUUID()}`;
+	ownAnonymousSupportOwner(anonymousUserId);
 	const ticket = await client.mutation(api.tests.createUnreadAnonymousSupportReply, {
 		secret: testSecret,
-		anonymousUserId: `anon_${crypto.randomUUID()}`,
+		anonymousUserId,
 		messageAppVersion: build
 	});
+	ownSupportThreads(ticket.threadIds);
 	try {
 		await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], {
 			origin: new URL(siteUrl).origin
