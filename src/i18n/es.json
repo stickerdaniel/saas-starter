@@ -586,17 +586,19 @@
 			"low_messages_plural": "{remaining} de {total} mensajes restantes este mes."
 		},
 		"aria": {
+			"preview_attachment": "Vista previa de {filename}",
 			"remove_attachment": "Eliminar {filename}",
+			"retry_attachment": "Reintentar la subida de {filename}",
 			"send": "Enviar"
 		},
 		"attachment": {
-			"dialog_title": "Adjunto",
 			"file_fallback": "Archivo",
 			"generic_fallback": "Adjunto",
 			"image_fallback": "Imagen",
 			"preview_error": "No se pudo cargar la vista previa",
 			"preview_loading": "Cargando vista previa…",
-			"preview_truncated": "Vista previa truncada a {size}"
+			"preview_truncated": "Vista previa truncada a {size}",
+			"uploading": "Subiendo {progress} %"
 		},
 		"author": {
 			"assistant": "Asistente",
@@ -626,7 +628,6 @@
 			"upload_failed": "No se pudo subir \"{filename}\"",
 			"upload_network": "Conexión perdida.",
 			"upload_readd_hint": "Añade el archivo de nuevo.",
-			"upload_retry_hint": "Haz clic para reintentar.",
 			"upload_server": "Subida rechazada."
 		},
 		"input": {

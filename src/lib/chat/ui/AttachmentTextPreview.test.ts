@@ -26,7 +26,7 @@ let client: ConvexClient;
 
 beforeEach(() => {
 	client = new ConvexClient('https://chat-test.convex.cloud', { disabled: true });
-	// jsdom has no ResizeObserver; the tiles and the dialog title measure overflow.
+	// jsdom has no ResizeObserver; the dialog title measures overflow.
 	vi.stubGlobal(
 		'ResizeObserver',
 		class {
@@ -90,7 +90,8 @@ describe('ChatAttachments text loader', () => {
 			}
 		});
 		await settle();
-		document.querySelector<HTMLElement>('[data-testid="attachment-chip"]')!.click();
+		const label = en.chat.aria.preview_attachment.replace('{filename}', 'notes.txt');
+		document.querySelector<HTMLElement>(`button[aria-label="${label}"]`)!.click();
 		await settle();
 	}
 

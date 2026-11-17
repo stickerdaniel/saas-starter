@@ -586,17 +586,19 @@
 			"low_messages_plural": "{remaining} von {total} Nachrichten verbleibend diesen Monat."
 		},
 		"aria": {
+			"preview_attachment": "Vorschau von {filename}",
 			"remove_attachment": "{filename} entfernen",
+			"retry_attachment": "{filename} erneut hochladen",
 			"send": "Senden"
 		},
 		"attachment": {
-			"dialog_title": "Anhang",
 			"file_fallback": "Datei",
 			"generic_fallback": "Anhang",
 			"image_fallback": "Bild",
 			"preview_error": "Vorschau konnte nicht geladen werden",
 			"preview_loading": "Vorschau wird geladen…",
-			"preview_truncated": "Vorschau auf {size} gekürzt"
+			"preview_truncated": "Vorschau auf {size} gekürzt",
+			"uploading": "Wird hochgeladen: {progress} %"
 		},
 		"author": {
 			"assistant": "Assistent",
@@ -626,7 +628,6 @@
 			"upload_failed": "Hochladen von \"{filename}\" fehlgeschlagen",
 			"upload_network": "Verbindung unterbrochen.",
 			"upload_readd_hint": "Datei erneut hinzufügen.",
-			"upload_retry_hint": "Zum Wiederholen klicken.",
 			"upload_server": "Upload abgelehnt."
 		},
 		"input": {
