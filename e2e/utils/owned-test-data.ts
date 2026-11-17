@@ -50,9 +50,10 @@ const ownedAttempt = z.object({
 	/**
 	 * Support threads by ID. A spec's own cleanup can delete the app rows that
 	 * teardown finds threads through while the agent thread survives, so the IDs
-	 * go here before that cleanup runs.
+	 * go here before that cleanup runs. Attempt files from before this field
+	 * read as an empty list, so their accounts and owners stay recoverable.
 	 */
-	supportThreadIds: z.array(z.string()),
+	supportThreadIds: z.array(z.string()).default([]),
 	fixtures: z.array(ownedFixture)
 });
 
