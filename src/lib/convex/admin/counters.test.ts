@@ -92,4 +92,14 @@ describe('dashboard counters', () => {
 			);
 		});
 	});
+
+	it('refuses a repair that cannot delete every row', async () => {
+		const t = harness();
+		await t.run(async (ctx) => {
+			await ctx.db.insert('dashboardCounters', { totalUsers: 7, adminCount: 0, bannedCount: 0 });
+			for (let i = 0; i < 1000; i++)
+				await ctx.db.insert('dashboardCounters', { ...zero, shard: 0 });
+			await expect(recalculateCounters(ctx)).rejects.toThrow('more than 1000 rows');
+		});
+	});
 });

@@ -18,6 +18,8 @@ const COUNTER_DEFAULTS: CounterValues = { totalUsers: 0, adminCount: 0, bannedCo
  * a legacy row without `shard` from before the sharding.
  */
 const SHARD_COUNT = 16;
+// A repair deletes at most this many rows, far above the 17 a valid table holds.
+const REPAIR_ROW_LIMIT = 1000;
 
 function addValues(total: CounterValues, row: CounterValues): CounterValues {
 	return {
@@ -107,7 +109,13 @@ export async function recalculateCounters(ctx: MutationCtx): Promise<CounterValu
 	// Replace every row, malformed ones included, in this one transaction: shard 0
 	// carries the totals and every other shard exists at zero, so the next burst
 	// of sign-ups patches existing rows instead of inserting them.
-	for (const row of await ctx.db.query('dashboardCounters').take(1000)) {
+	const rows = await ctx.db.query('dashboardCounters').take(REPAIR_ROW_LIMIT + 1);
+	if (rows.length > REPAIR_ROW_LIMIT) {
+		throw new Error(
+			`dashboardCounters has more than ${REPAIR_ROW_LIMIT} rows; delete them before recalculating`
+		);
+	}
+	for (const row of rows) {
 		await ctx.db.delete('dashboardCounters', row._id);
 	}
 	for (let shard = 0; shard < SHARD_COUNT; shard++) {
