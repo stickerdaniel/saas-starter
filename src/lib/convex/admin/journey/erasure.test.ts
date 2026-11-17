@@ -292,7 +292,8 @@ describe('account deletion trigger', () => {
 			doc: { _id: USER, role: 'user', banned: false }
 		});
 
-		expect(store.docs('dashboardCounters')[0]?.totalUsers).toBe(1);
+		const counters = store.docs('dashboardCounters');
+		expect(counters.reduce((sum, row) => sum + Number(row.totalUsers), 0)).toBe(1);
 		expect(store.docs('passkeyNudgeDismissals')).toEqual([]);
 		expect(
 			store

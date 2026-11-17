@@ -655,6 +655,14 @@ export default defineConfig(
 						"CatchClause CallExpression[callee.object.name='console'] Identifier[name=/^(e|err|error)$/]:not(MemberExpression > Identifier.property, Property > Identifier.key)",
 					message:
 						"Log a caught error as `console.error({ code: 'snake_case_code', ...ids })` without the error itself: its message can quote emails, tokens or provider response bodies into the Convex logs."
+				},
+				{
+					// Every sign-up patched one counter row, and a burst of concurrent
+					// sign-ups exhausted Convex's conflict retries (FAILED_TO_CREATE_USER).
+					selector:
+						"CallExpression[callee.property.name='first'] > MemberExpression > CallExpression[callee.property.name='query'][arguments.0.value='dashboardCounters']",
+					message:
+						"dashboardCounters is sharded: `.first()` returns one arbitrary shard. Write through `incrementCounter`, which reads one shard via `withIndex('by_shard')`, and read totals with `getCounters`."
 				}
 			]
 		}

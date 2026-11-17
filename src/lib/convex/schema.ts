@@ -226,14 +226,17 @@ export default defineSchema({
 		// Used by the hourly file vacuum to delete metadata of purged files
 		.index('by_storageId', ['storageId']),
 
-	// Dashboard counters - singleton for materialized user metrics
-	// Updated atomically via auth triggers (onCreate, onUpdate) to avoid
-	// fetching all users on every dashboard load.
+	// Dashboard counters - materialized user metrics, sharded over rows so
+	// concurrent sign-ups do not conflict on one document. Updated atomically via
+	// auth triggers (onCreate, onUpdate) to avoid fetching all users on every
+	// dashboard load.
 	dashboardCounters: defineTable({
 		totalUsers: v.number(),
 		adminCount: v.number(),
-		bannedCount: v.number()
-	}),
+		bannedCount: v.number(),
+		// Counter shard 0..15, see admin/counters.ts; absent on the legacy singleton.
+		shard: v.optional(v.number())
+	}).index('by_shard', ['shard']),
 
 	// Founder welcome emails - personal welcome from a team member, sent at signup
 	// or at verification. Config stored in adminSettings.

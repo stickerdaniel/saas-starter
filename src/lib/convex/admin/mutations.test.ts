@@ -53,7 +53,8 @@ function makeCtx(options: {
 		bannedCount: 0
 	};
 	const db = {
-		query: () => ({ first: async () => counters }),
+		// One counter shard, as incrementCounter reads it through `by_shard`.
+		query: () => ({ withIndex: () => ({ unique: async () => counters }) }),
 		patch: async (_table: string, _id: unknown, update: Partial<typeof counters>) => {
 			Object.assign(counters, update);
 		},
