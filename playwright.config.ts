@@ -1,4 +1,10 @@
-import { defineConfig, devices } from '@playwright/test';
+import {
+	defineConfig,
+	devices,
+	type PlaywrightTestOptions,
+	type PlaywrightWorkerOptions,
+	type Project
+} from '@playwright/test';
 
 /**
  * Load environment variables via Varlock schema
@@ -7,6 +13,7 @@ import { defineConfig, devices } from '@playwright/test';
 import 'varlock/auto-load';
 import { getPreviewBypass } from './e2e/utils/preview-bypass';
 import { resolveSiteUrl, TEST_VITE_PORT } from './e2e/utils/site-url';
+import type { WorkerAccountOptions } from './e2e/utils/test';
 import { portlessOwnsPort } from './scripts/dev-ports';
 
 // CI: tests run against actual preview deployment (PUBLIC_SITE_URL set by workflow).
@@ -39,9 +46,21 @@ const hasOverrideUrl = !!process.env.E2E_OVERRIDE_SITE_URL;
 // Preview bypass headers for protected preview deployments (Vercel or Cloudflare Access)
 const bypass = getPreviewBypass();
 
-export default defineConfig({
+// A spec that reads data other specs write without an owner filter belongs here:
+// the unfiltered audit log, the users table with its global counts, and the
+// global recipient list. These run in chromium-serial after every writing
+// project has finished, and no other project lists them.
+const serialSpecs = [
+	'**/admin-audit-log.spec.ts',
+	'**/admin-users-table.spec.ts',
+	'**/admin-settings.spec.ts',
+	'**/admin-settings-table.spec.ts'
+];
+type E2EProject = Project<PlaywrightTestOptions, PlaywrightWorkerOptions & WorkerAccountOptions>;
+
+export default defineConfig<object, WorkerAccountOptions>({
 	testDir: 'e2e',
-	/* Ensure test users exist before running tests */
+	/* Wait for the backend and open the run's ownership ledger */
 	globalSetup: lane === 'public' ? undefined : './e2e/global-setup.ts',
 	/* Clean up test data after all tests complete */
 	globalTeardown: lane === 'public' ? undefined : './e2e/global-teardown.ts',
@@ -51,10 +70,10 @@ export default defineConfig({
 	forbidOnly: isCI,
 	/* Retry on CI only */
 	retries: isCI ? 2 : 0,
-	/* Single worker everywhere: the suite shares one preview Convex backend and the
-	 * admin specs mutate shared rows (notification recipients, users), so running
-	 * specs concurrently would cause intra-project data races. Reliability over
-	 * speed: the serial run is slow but deterministic. */
+	/* Single worker everywhere: the suite shares one preview Convex backend. Each
+	 * worker signs in with accounts of its own (e2e/utils/test.ts), and the specs
+	 * that read other specs' rows without an owner filter run in chromium-serial
+	 * after every writer, but the suite still runs one test at a time. */
 	workers: 1,
 	/* CI runs against an ephemeral CF preview whose cold start + Convex WebSocket
 	 * boot can make a page take >10s to hydrate. Give each test generous headroom
@@ -74,72 +93,60 @@ export default defineConfig({
 	},
 
 	/* Configure projects */
-	projects: [
-		// The setup projects own their budget: they are the first to open a page,
-		// so locally they pay the cold route compile. Observed 2026-10-15: the
-		// sign-in HTML arrived after 25.7 s and the 30 s default expired before
-		// hydration. A longer navigationTimeout cannot extend the test's deadline.
-		// Setup project - authenticates regular user and saves state
-		{
-			name: 'setup',
-			testMatch: '**/signin.setup.ts',
-			timeout: 90_000
-		},
-		// Admin setup - authenticates admin user and saves admin auth state
-		{
-			name: 'admin-setup',
-			testMatch: '**/admin.setup.ts',
-			timeout: 90_000
-		},
-		// Tests that need regular user authentication
-		{
-			name: 'chromium',
-			use: {
-				...devices['Desktop Chrome'],
-				// Use stored auth state from setup
-				storageState: 'e2e/.auth/user.json'
+	projects: (
+		[
+			// Tests that need regular user authentication. Every context starts signed
+			// in as the worker's own user (e2e/utils/test.ts).
+			{
+				name: 'chromium',
+				use: { ...devices['Desktop Chrome'], signedInAs: 'user' },
+				// Public, admin and signout tests have their own authentication requirements.
+				testIgnore: [
+					'**/unauthenticated-redirect.spec.ts',
+					'**/admin-*.spec.ts',
+					'**/signout.spec.ts',
+					'**/public-*.spec.ts'
+				]
 			},
-			dependencies: ['setup'],
-			// Public, admin and signout tests have their own authentication requirements.
-			testIgnore: [
-				'**/unauthenticated-redirect.spec.ts',
-				'**/admin-*.spec.ts',
-				'**/signout.spec.ts',
-				'**/public-*.spec.ts'
-			]
-		},
-		{
-			name: 'chromium-public',
-			use: { ...devices['Desktop Chrome'] },
-			testMatch: '**/public-*.spec.ts'
-		},
-		// Signout test - signs in to a session of its own, so its logout leaves
-		// user.json valid and every retry starts signed in
-		{
-			name: 'chromium-signout',
-			use: { ...devices['Desktop Chrome'] },
-			// Depending on chromium would replay that entire project for targeted
-			// signout runs and place it outside Playwright's shard selection.
-			testMatch: '**/signout.spec.ts'
-		},
-		// Admin tests - require admin role
-		{
-			name: 'chromium-admin',
-			use: {
-				...devices['Desktop Chrome'],
-				// Use stored admin auth state
-				storageState: 'e2e/.auth/admin.json'
+			{
+				name: 'chromium-public',
+				use: { ...devices['Desktop Chrome'] },
+				testMatch: '**/public-*.spec.ts'
 			},
-			dependencies: ['admin-setup'],
-			testMatch: '**/admin-*.spec.ts'
-		},
-		// Tests that specifically test unauthenticated behavior
-		{
-			name: 'chromium-no-auth',
-			use: { ...devices['Desktop Chrome'] },
-			testMatch: '**/unauthenticated-redirect.spec.ts'
-		}
-	].filter(
+			// Signout test - signs in to an account of its own, so its logout ends no
+			// worker session and every retry starts signed in
+			{
+				name: 'chromium-signout',
+				use: { ...devices['Desktop Chrome'] },
+				// Depending on chromium would replay that entire project for targeted
+				// signout runs and place it outside Playwright's shard selection.
+				testMatch: '**/signout.spec.ts'
+			},
+			// Admin tests - every context starts signed in as the worker's own admin
+			{
+				name: 'chromium-admin',
+				use: { ...devices['Desktop Chrome'], signedInAs: 'admin' },
+				testMatch: '**/admin-*.spec.ts',
+				testIgnore: serialSpecs
+			},
+			// Tests that specifically test unauthenticated behavior
+			{
+				name: 'chromium-no-auth',
+				use: { ...devices['Desktop Chrome'] },
+				testMatch: '**/unauthenticated-redirect.spec.ts'
+			},
+			// Global readers. The dependencies start this project only after every
+			// writing project has finished; project-level `workers` alone would only
+			// cap concurrency inside this project, not order it after the others.
+			{
+				name: 'chromium-serial',
+				use: { ...devices['Desktop Chrome'], signedInAs: 'admin' },
+				testMatch: serialSpecs,
+				workers: 1,
+				dependencies: ['chromium', 'chromium-admin', 'chromium-signout']
+			}
+		] satisfies E2EProject[]
+	).filter(
 		(project) =>
 			lane === 'full' ||
 			(lane === 'public' ? project.name === 'chromium-public' : project.name !== 'chromium-public')

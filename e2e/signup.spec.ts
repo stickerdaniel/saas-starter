@@ -5,6 +5,7 @@ import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import { resolveConvexUrl } from './utils/convex-url';
 import { waitForAuthenticated } from './utils/auth';
+import { ownTestEmail } from './utils/owned-test-data';
 
 // This test runs without auth state - drives the signup form as a new visitor
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -45,6 +46,7 @@ test.describe('Signup form', () => {
 	});
 
 	test('signup form creates an account that can sign in once verified', async ({ page }) => {
+		ownTestEmail(signupEmail, 'userEmails');
 		await page.goto('/signup');
 		await page.waitForLoadState('domcontentloaded');
 

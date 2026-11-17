@@ -1,15 +1,12 @@
 import { ownTestEmail } from './utils/owned-test-data';
-import { readFileSync } from 'node:fs';
-import type { TestCredentials } from './utils/types';
 import { expect } from '@playwright/test';
 import { test } from './utils/test';
 
 /**
  * E2E tests for Admin Settings page - Notification Recipients
  *
- * Prerequisites:
- * - Test user must be an admin (promote via Convex dashboard if needed)
- * - Dev server running with Convex backend
+ * Runs in chromium-serial, signed in as the worker's admin, because the
+ * recipient list is global.
  */
 test.describe('Admin Settings Page', () => {
 	test.beforeEach(async ({ page }) => {
@@ -135,14 +132,11 @@ test.describe('Admin Settings Page', () => {
 		await expect(page.getByTestId('admin-settings-filter-clear')).not.toBeVisible();
 	});
 
-	test('toggles notification preference', async ({ page }) => {
+	test('toggles notification preference', async ({ page, workerAccounts }) => {
 		// Wait for table to load
 		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
-		const { admin } = JSON.parse(
-			readFileSync('e2e/.auth/test-credentials.json', 'utf8')
-		) as TestCredentials;
-		const email = admin.email;
+		const email = workerAccounts.admin.email;
 		await page.getByTestId('admin-settings-search').fill(email);
 		await expect(page.getByTestId(`recipient-row-${email}`)).toBeVisible();
 

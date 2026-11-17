@@ -6,6 +6,7 @@ import { api } from '../src/lib/convex/_generated/api';
 import { submitSignInForm, waitForAuthenticated } from './utils/auth';
 import { resolveConvexUrl } from './utils/convex-url';
 import { getPreviewBypass } from './utils/preview-bypass';
+import { ownAnonymousSupportOwner, ownTestEmail } from './utils/owned-test-data';
 import { resolveSiteUrl } from './utils/site-url';
 
 /**
@@ -39,6 +40,10 @@ test('a message route opens the page as the customer, and the bar returns to the
 	const messageRoute = '/en/pricing';
 	let threadId: string | undefined;
 
+	// Teardown finds the ticket under the anonymous owner, or under the account once
+	// sign-in has migrated it.
+	ownTestEmail(email, 'userEmails');
+	ownAnonymousSupportOwner(owner);
 	const signUp = await fetch(`${siteUrl}/api/auth/sign-up/email`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', Origin: siteUrl, ...bypass.headers },

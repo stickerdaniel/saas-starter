@@ -1,17 +1,44 @@
 import { expect, type Page } from '@playwright/test';
-import fs from 'fs';
-import path from 'path';
-import type { TestCredentials } from './types';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../../src/lib/convex/_generated/api';
+import { resolveConvexUrl } from './convex-url';
+import { getPreviewBypass } from './preview-bypass';
+import { resolveSiteUrl } from './site-url';
+import type { AccountRole, TestAccount } from './types';
 
-/** Reads the seeded test users from e2e/.auth/test-credentials.json (created by globalSetup). */
-export function readTestCredentials(): TestCredentials {
-	const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
-
-	if (!fs.existsSync(credentialsPath)) {
-		throw new Error('test-credentials.json not found. globalSetup may have failed.');
+/**
+ * Creates an email/password account: Better Auth's sign-up endpoint, then a test
+ * mutation that verifies the email, or promotes the account to a verified admin
+ * with its notification preferences. Record the email with `ownTestEmail` first,
+ * so a run that dies mid-signup still lists the account for teardown.
+ *
+ * The sign-up request runs once. Global setup has already warmed the auth
+ * handler through the signing-key request, so a failed sign-up is a defect to
+ * report, and a retry could hide a half-created account behind a duplicate.
+ */
+export async function createTestAccount(account: TestAccount, role: AccountRole = 'user') {
+	const secret = process.env.AUTH_E2E_TEST_SECRET;
+	const convexUrl = resolveConvexUrl();
+	if (!secret || !convexUrl)
+		throw new Error('Test accounts need AUTH_E2E_TEST_SECRET and a backend');
+	const siteUrl = resolveSiteUrl();
+	const signUp = await fetch(`${siteUrl}/api/auth/sign-up/email`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', Origin: siteUrl, ...getPreviewBypass().headers },
+		body: JSON.stringify({ email: account.email, password: account.password, name: account.name })
+	});
+	if (!signUp.ok) {
+		const body = await signUp.text().catch(() => '');
+		throw new Error(
+			`Sign-up of ${account.email} failed: HTTP ${signUp.status} ${body.slice(0, 300)}`
+		);
 	}
-
-	return JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
+	const client = new ConvexHttpClient(convexUrl);
+	const result =
+		role === 'admin'
+			? await client.mutation(api.tests.createTestAdminUser, { email: account.email, secret })
+			: await client.mutation(api.tests.verifyTestUserEmail, { email: account.email, secret });
+	if (!result.success) throw new Error(`Setting up ${account.email} failed: ${result.error}`);
 }
 
 /**
@@ -58,9 +85,9 @@ export async function submitSignInForm(page: Page, email: string, password: stri
 	await page.click('[data-testid="signin-button"]');
 }
 
-/** Signs a test user in to a fresh session owned by this page. */
-export async function signInAsTestUser(page: Page, user = readTestCredentials().user) {
-	const { email, password } = user;
+/** Signs a test account in through the form, in a fresh session owned by this page. */
+export async function signInAsTestUser(page: Page, account: TestAccount) {
+	const { email, password } = account;
 	// The form's enabled controls are the readiness signal; waiting for `load`
 	// would also wait on the auth panel's image, which sign-in never needs.
 	await page.goto('/signin', { waitUntil: 'commit' });

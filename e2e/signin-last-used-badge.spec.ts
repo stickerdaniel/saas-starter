@@ -1,22 +1,8 @@
 import { expect } from '@playwright/test';
 import { test } from './utils/test';
-import fs from 'fs';
-import path from 'path';
 import { waitForAuthenticated } from './utils/auth';
 
 test.use({ storageState: { cookies: [], origins: [] } });
-
-import type { TestCredentials } from './utils/types';
-
-function getUserCredentials() {
-	const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
-	if (!fs.existsSync(credentialsPath)) {
-		throw new Error('test-credentials.json not found. globalSetup may have failed.');
-	}
-
-	const credentials: TestCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
-	return credentials.user;
-}
 
 test('shows passkey last-used badge from local storage', async ({ page }) => {
 	await page.goto('/signin');
@@ -33,7 +19,7 @@ test('shows passkey last-used badge from local storage', async ({ page }) => {
 	await expect(page.locator('[data-testid="oauth-github-last-used-badge"]')).toHaveCount(0);
 });
 
-test('email/password signin clears stored last-used method', async ({ page }) => {
+test('email/password signin clears stored last-used method', async ({ page, workerAccounts }) => {
 	await page.goto('/signin');
 	await page.evaluate(() => {
 		localStorage.setItem('auth:last-auth-method', JSON.stringify('google'));
@@ -49,7 +35,7 @@ test('email/password signin clears stored last-used method', async ({ page }) =>
 
 	await expect(page.locator('[data-testid="oauth-google-last-used-badge"]')).toBeVisible();
 
-	const { email, password } = getUserCredentials();
+	const { email, password } = workerAccounts.user;
 	await page.fill('[data-testid="email-input"]', email);
 	await page.fill('[data-testid="password-input"]', password);
 	await page.click('[data-testid="signin-button"]');

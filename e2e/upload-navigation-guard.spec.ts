@@ -2,8 +2,9 @@ import { ConvexHttpClient } from 'convex/browser';
 import { expect, type Page, type Route } from '@playwright/test';
 import { test } from './utils/test';
 import { api } from '../src/lib/convex/_generated/api';
-import { readTestCredentials, waitForAuthenticated } from './utils/auth';
+import { waitForAuthenticated } from './utils/auth';
 import { resolveConvexUrl } from './utils/convex-url';
+import type { TestAccount } from './utils/types';
 
 /**
  * A file that is still transferring dies with the page, and dies quietly: the
@@ -32,15 +33,12 @@ function uploadInFlight(page: Page) {
 	return page.getByTestId('attachment-chip').first().getByRole('progressbar');
 }
 
-async function attachNotes(page: Page, name: string): Promise<void> {
-	// Each upload case owns its budget instead of depending on earlier suite activity.
+async function attachNotes(page: Page, user: TestAccount, name: string): Promise<void> {
+	// Each upload case owns its budget instead of depending on earlier activity of the worker's user.
 	const secret = process.env.AUTH_E2E_TEST_SECRET;
 	if (!secret) throw new Error('AUTH_E2E_TEST_SECRET is required in .env.test');
 	const convex = new ConvexHttpClient(resolveConvexUrl()!);
-	await convex.mutation(api.tests.resetAiChatFileUploadLimit, {
-		secret,
-		email: readTestCredentials().user.email
-	});
+	await convex.mutation(api.tests.resetAiChatFileUploadLimit, { secret, email: user.email });
 	await page
 		.locator('input[type="file"]')
 		.first()
@@ -85,11 +83,14 @@ test.describe('Upload navigation guard', () => {
 		await expect(page.locator('textarea')).toBeVisible({ timeout: 10000 });
 	});
 
-	test('leaving the page is announced while a file is transferring', async ({ page }) => {
+	test('leaving the page is announced while a file is transferring', async ({
+		page,
+		workerAccounts
+	}) => {
 		const storagePost = page.waitForRequest(STORAGE_UPLOAD);
 		await stallUpload(page);
 
-		await attachNotes(page, 'in-flight.txt');
+		await attachNotes(page, workerAccounts.user, 'in-flight.txt');
 		await expect(uploadInFlight(page)).toBeVisible({ timeout: 15000 });
 		await storagePost;
 		await page.waitForTimeout(CONVEX_UNLOAD_WARNING_SETTLE_MS);
@@ -107,7 +108,7 @@ test.describe('Upload navigation guard', () => {
 		await expect.poll(() => wouldPromptOnUnload(page), { timeout: 15000 }).toBe(false);
 	});
 
-	test('the announcement stops once the transfer settles', async ({ page }) => {
+	test('the announcement stops once the transfer settles', async ({ page, workerAccounts }) => {
 		// A stale claim is the quiet failure mode: the prompt outlives the upload
 		// and the app nags for the rest of the session.
 		let failNext = true;
@@ -120,21 +121,21 @@ test.describe('Upload navigation guard', () => {
 			await route.continue();
 		});
 
-		await attachNotes(page, 'settled.txt');
+		await attachNotes(page, workerAccounts.user, 'settled.txt');
 		await expect(page.locator('[data-upload-failed]')).toBeVisible({ timeout: 20000 });
 
 		await expect.poll(() => wouldPromptOnUnload(page), { timeout: 15000 }).toBe(false);
 	});
 
-	test('moving to another page is stopped and explained', async ({ page }) => {
+	test('moving to another page is stopped and explained', async ({ page, workerAccounts }) => {
 		// The progress bar is painted when the attempt starts, before the storage
-		// POST. The suite shares one user's ten-per-hour upload grant, so this
+		// POST. The worker's tests share one user's ten-per-hour upload grant, so this
 		// attempt can be refused: the bar flashes, the guard releases, and the
 		// click leaves. The stall only holds the POST, so click once that request
 		// is out and the budget has been given back.
 		const storagePost = page.waitForRequest(STORAGE_UPLOAD);
 		await stallUpload(page);
-		await attachNotes(page, 'in-flight.txt');
+		await attachNotes(page, workerAccounts.user, 'in-flight.txt');
 		await storagePost;
 		await expect(uploadInFlight(page)).toBeVisible({ timeout: 15000 });
 

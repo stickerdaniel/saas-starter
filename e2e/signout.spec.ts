@@ -2,9 +2,9 @@ import { expect, type Page, type Route } from '@playwright/test';
 import { test as base } from './utils/test';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
-import { createUser } from './global-setup';
-import { signInAsTestUser, waitForAuthenticated } from './utils/auth';
+import { createTestAccount, signInAsTestUser, waitForAuthenticated } from './utils/auth';
 import { resolveConvexUrl } from './utils/convex-url';
+import { ownTestEmail } from './utils/owned-test-data';
 
 const test = base.extend<{ signoutPage: Page }>({
 	signoutPage: async ({ page }, use) => {
@@ -17,8 +17,9 @@ const test = base.extend<{ signoutPage: Page }>({
 			password: 'TestPassword123!',
 			name: 'E2E Signout User'
 		};
+		ownTestEmail(user.email, 'userEmails');
 		try {
-			await createUser(user, secret, client);
+			await createTestAccount(user);
 			await signInAsTestUser(page, user);
 			await use(page);
 		} finally {

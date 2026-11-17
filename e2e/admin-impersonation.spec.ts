@@ -7,6 +7,7 @@ import { resolveConvexUrl } from './utils/convex-url';
 import { resolveSiteUrl } from './utils/site-url';
 import { getPreviewBypass } from './utils/preview-bypass';
 import { waitForAuthenticated } from './utils/auth';
+import { ownTestEmail } from './utils/owned-test-data';
 
 const SITE_URL = resolveSiteUrl();
 const TEST_PASSWORD = 'TestPassword123!';
@@ -70,6 +71,7 @@ test.describe('Admin Impersonation', () => {
 		client = new ConvexHttpClient(convexUrl);
 		targetEmail = `impersonation-target-${Date.now()}@e2e.example.com`;
 
+		ownTestEmail(targetEmail, 'userEmails');
 		await createAuthUser(targetEmail, 'Impersonation Target');
 		createdEmails.push(targetEmail);
 		await client.mutation(api.tests.verifyTestUserEmail, {
