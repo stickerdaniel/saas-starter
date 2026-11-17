@@ -2,7 +2,7 @@
 
 ## What belongs here
 
-Every step here is charged to the whole repository. The suite runs `workers: 1` because it shares one preview Convex backend, `E2E Tests` is a required check on `main`, and against a CF preview each Playwright step pays a round trip: measured in the traces at roughly 2s to resolve a locator and 3s to dispatch a click. What the suite spends is steps, so a spec costs whatever its interactions cost, however few tests it declares.
+Every step here is charged to the whole repository. On CI the suite runs four workers against one shared preview Convex backend (local runs use one), `E2E Tests` is a required check on `main`, and against a CF preview each Playwright step pays a round trip: measured in the traces at roughly 2s to resolve a locator and 3s to dispatch a click. What the suite spends is steps, so a spec costs whatever its interactions cost, however few tests it declares.
 
 - A test earns a place here when its failure needs a real browser **and** a deployed backend to appear at all: sign-up and sign-in, entitlement and payment, gates and redirects, prerender and preview-bypass paths, anything whose breakage would be silent in production.
 - A deployed failure that needs no browser earns a request-only spec here instead, driven by Playwright's `request` fixture: adapter output, response headers, edge caching, discovery documents. It is the cheaper form and the right one whenever no page has to open.
