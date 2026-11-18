@@ -16,20 +16,32 @@ import path from 'node:path';
  * ✅ import { state } from './state.svelte.ts';
  * ✅ import Component from './Component.svelte';
  * ✅ import { state } from './state.svelte.js';   // when state.svelte.js is the real file
+ *
+ * Relative specifiers are always checked. The `aliases` option maps further
+ * specifier prefixes to directories relative to the ESLint working directory,
+ * such as a package.json "imports" entry:
+ *
+ * Config: 'local/require-svelte-module-extension': ['error', { aliases: { '#lib/': 'src/lib/' } }]
  */
 
-// The `#lib/*` package import (package.json "imports") maps to src/lib.
-const LIB_IMPORT = '#lib/';
+/** The alias entry whose prefix starts the specifier, or undefined. */
+function matchAlias(specifier, aliases) {
+	return Object.entries(aliases).find(([prefix]) => specifier.startsWith(prefix));
+}
 
-function isSupportedSpecifier(specifier) {
+function isSupportedSpecifier(specifier, aliases) {
 	return (
-		specifier.startsWith('./') || specifier.startsWith('../') || specifier.startsWith(LIB_IMPORT)
+		specifier.startsWith('./') ||
+		specifier.startsWith('../') ||
+		matchAlias(specifier, aliases) !== undefined
 	);
 }
 
-function resolveSpecifier(specifier, filename, cwd) {
-	if (specifier.startsWith(LIB_IMPORT)) {
-		return path.resolve(cwd, 'src/lib', specifier.slice(LIB_IMPORT.length));
+function resolveSpecifier(specifier, filename, cwd, aliases) {
+	const alias = matchAlias(specifier, aliases);
+	if (alias) {
+		const [prefix, directory] = alias;
+		return path.resolve(cwd, directory, specifier.slice(prefix.length));
 	}
 
 	return path.resolve(path.dirname(filename), specifier);
@@ -51,7 +63,15 @@ export default {
 			description: 'Require explicit .svelte.ts extensions for Svelte rune module imports'
 		},
 		fixable: 'code',
-		schema: [],
+		schema: [
+			{
+				type: 'object',
+				properties: {
+					aliases: { type: 'object', additionalProperties: { type: 'string' } }
+				},
+				additionalProperties: false
+			}
+		],
 		messages: {
 			emittedExtension:
 				'Use the explicit real .svelte.ts extension for this rune module instead of .svelte.js.',
@@ -63,23 +83,24 @@ export default {
 		const filename = context.filename ?? context.getFilename();
 		const cwd = context.cwd ?? process.cwd();
 		const sourceCode = context.sourceCode ?? context.getSourceCode();
+		const aliases = context.options?.[0]?.aliases ?? {};
 
 		function checkSource(node) {
 			if (!node || typeof node.value !== 'string') return;
 
 			const specifier = node.value;
-			if (!isSupportedSpecifier(specifier)) return;
+			if (!isSupportedSpecifier(specifier, aliases)) return;
 
 			let messageId;
 			let replacement;
 
 			if (specifier.endsWith('.svelte.js')) {
 				const stem = specifier.slice(0, -'.svelte.js'.length);
-				if (!targetsTypeScriptModule(resolveSpecifier(stem, filename, cwd))) return;
+				if (!targetsTypeScriptModule(resolveSpecifier(stem, filename, cwd, aliases))) return;
 				messageId = 'emittedExtension';
 				replacement = `${stem}.svelte.ts`;
 			} else if (specifier.endsWith('.svelte')) {
-				const resolved = resolveSpecifier(specifier, filename, cwd);
+				const resolved = resolveSpecifier(specifier, filename, cwd, aliases);
 				// An existing component file with the same stem always wins.
 				if (fs.existsSync(resolved) || !fs.existsSync(`${resolved}.ts`)) return;
 				messageId = 'shortenedExtension';

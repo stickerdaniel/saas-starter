@@ -8,6 +8,7 @@ import stripAnsi from 'strip-ansi';
 import type * as TypeScript from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { sharedTestSettings } from '../scripts/vitest-settings';
+import { CUSTOM_REGISTRARS } from './convex-registrars.js';
 
 /**
  * What `no-literal-control-char` can actually see.
@@ -269,4 +270,76 @@ describe('no-raw-caught-error-log coverage', () => {
 		},
 		60_000
 	);
+});
+
+describe('no-networkidle-wait through the flat config', () => {
+	const ruleId = 'local/no-networkidle-wait';
+	const source = `
+		import { test } from '@playwright/test';
+		test('ready', async ({ page }) => {
+			// page.waitForLoadState('networkidle') in a comment is fine.
+			await page.goto('/en/pricing', { waitUntil: 'networkidle' });
+			await page.waitForLoadState('networkidle');
+			await page.setContent('<main>Ready</main>', { waitUntil: 'networkidle' });
+		});
+	`;
+
+	async function ruleLines(text: string, filePath: string) {
+		const [result] = await eslint.lintText(text, { filePath });
+		expect(result.fatalErrorCount).toBe(0);
+		return result.messages
+			.filter((message) => message.ruleId === ruleId)
+			.map((message) => [message.line, message.severity]);
+	}
+
+	it.each(['e2e/example.spec.ts', 'e2e/utils/readiness.ts'])(
+		'reports both calls in %s as errors',
+		async (filePath) => {
+			expect(await ruleLines(source, filePath)).toEqual([
+				[5, 2],
+				[6, 2],
+				[7, 2]
+			]);
+		},
+		60_000
+	);
+
+	it('accepts an exception with an inline reason', async () => {
+		const excepted = `
+			// eslint-disable-next-line local/no-networkidle-wait -- asserts that no request follows the opt-out
+			await page.waitForLoadState('networkidle');
+		`;
+		expect(await ruleLines(excepted, 'e2e/example.spec.ts')).toEqual([]);
+	}, 60_000);
+
+	it('leaves application code alone', async () => {
+		expect(await ruleLines(source, 'src/lib/example.ts')).toEqual([]);
+	}, 60_000);
+});
+
+describe('project options of the workspace rules', () => {
+	async function ruleIds(text: string, filePath: string) {
+		const [result] = await eslint.lintText(text, { filePath });
+		expect(result.fatalErrorCount).toBe(0);
+		return result.messages.map((message) => message.ruleId);
+	}
+
+	it.each(CUSTOM_REGISTRARS)(
+		'checks %s registrations for returns and args validators',
+		async (builder) => {
+			const ids = await ruleIds(
+				`export const f = ${builder}({ handler: async () => null });`,
+				'src/lib/convex/users.ts'
+			);
+			expect(ids).toContain('local/require-returns-validator');
+			expect(ids).toContain('local/require-custom-registrar-args');
+		},
+		60_000
+	);
+
+	it('resolves #lib/ rune module imports from src/lib', async () => {
+		expect(
+			await ruleIds(`export { haptic } from '#lib/hooks/use-haptic.svelte.js';`, 'src/lib/utils.ts')
+		).toContain('local/require-svelte-module-extension');
+	}, 60_000);
 });

@@ -25,8 +25,8 @@ afterAll(() => {
 	fs.rmSync(fixtures, { recursive: true, force: true });
 });
 
-function lint(code: string) {
-	// The fixture directory stands in for the project root that `#lib/` resolves from.
+function lint(code: string, options: Array<Record<string, unknown>> = []) {
+	// The fixture directory stands in for the project root that aliases resolve from.
 	const linter = new Linter({ cwd: fixtures });
 	return linter.verifyAndFix(
 		code,
@@ -35,7 +35,7 @@ function lint(code: string) {
 				files: ['**/*.ts'],
 				languageOptions: { parser },
 				plugins: { local: { rules: { 'require-svelte-module-extension': rule } } },
-				rules: { 'local/require-svelte-module-extension': 'error' }
+				rules: { 'local/require-svelte-module-extension': ['error', ...options] }
 			}
 		],
 		{ filename }
@@ -81,10 +81,16 @@ describe('require-svelte-module-extension', () => {
 		expect(lint(`import Collision from './collision.svelte';`).messages).toHaveLength(0);
 	});
 
-	it('fixes the emitted form of a #lib rune module import', () => {
-		const result = lint(`import { state } from '#lib/lib-rune.svelte.js';`);
+	it('fixes the emitted form of an aliased rune module import', () => {
+		const result = lint(`import { state } from '#lib/lib-rune.svelte.js';`, [
+			{ aliases: { '#lib/': 'src/lib/' } }
+		]);
 		expect(result.fixed).toBe(true);
 		expect(result.output).toBe(`import { state } from '#lib/lib-rune.svelte.ts';`);
+	});
+
+	it('leaves a specifier with an unconfigured alias prefix alone', () => {
+		expect(lint(`import { state } from '#lib/lib-rune.svelte.js';`).messages).toHaveLength(0);
 	});
 
 	it('fixes a dynamic rune module import', () => {

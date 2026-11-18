@@ -33,6 +33,7 @@ import convexCanonicalRegistrationRule from './eslint/rules/convex-canonical-reg
 import convexAccessFirstRule from './eslint/rules/convex-access-first.js';
 import noSourceTextReadRule from './eslint/rules/no-source-text-read.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
+import { CUSTOM_REGISTRARS, RAW_REGISTRARS } from './eslint/convex-registrars.js';
 import saasStarterPlugin from 'eslint-plugin-saas-starter';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
@@ -187,7 +188,8 @@ export default defineConfig(
 			local: localPlugin
 		},
 		rules: {
-			'local/require-svelte-module-extension': 'error',
+			// Mirrors the `#lib/*` entry of package.json "imports".
+			'local/require-svelte-module-extension': ['error', { aliases: { '#lib/': 'src/lib/' } }],
 			'@typescript-eslint/no-restricted-imports': [
 				'error',
 				{
@@ -381,8 +383,11 @@ export default defineConfig(
 			local: localPlugin
 		},
 		rules: {
-			'local/require-returns-validator': 'error',
-			'local/require-custom-registrar-args': 'error'
+			'local/require-returns-validator': [
+				'error',
+				{ builders: [...RAW_REGISTRARS, ...CUSTOM_REGISTRARS] }
+			],
+			'local/require-custom-registrar-args': ['error', { builders: CUSTOM_REGISTRARS }]
 		}
 	},
 	{
