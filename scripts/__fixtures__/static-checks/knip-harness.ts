@@ -50,7 +50,7 @@ const RECORDER_SOURCE = path.join(
 // imports, while the worktree already uses a modified policy.
 const OVERLAY_PATHSPECS = [
 	'scripts',
-	'eslint/control-character-policy.js',
+	'packages/eslint-plugin/src/control-character-policy.js',
 	'knowledge-policy.config.ts',
 	'src/lib/content/legal-content-dates.ts',
 	'src/lib/content/legal-metadata.ts',
@@ -66,7 +66,7 @@ const REQUIRED_SOURCES = [
 	'scripts/terminal-output.ts',
 	'scripts/convex-consumer-compat.ts',
 	'scripts/english-policy/content.ts',
-	'eslint/control-character-policy.js',
+	'packages/eslint-plugin/src/control-character-policy.js',
 	'knowledge-policy.config.ts',
 	'src/lib/i18n/language-codes.generated.js'
 ];

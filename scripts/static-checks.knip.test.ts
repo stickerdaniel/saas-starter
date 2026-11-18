@@ -81,7 +81,7 @@ const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 	'wrangler.toml',
 	'packages/create-saas-starter/scripts/test-packed.ts',
 	'knowledge-policy.config.ts',
-	'eslint/control-character-policy.js',
+	'packages/eslint-plugin/src/control-character-policy.js',
 	'scripts/knowledge-policy/example.ts',
 	'scripts/english-policy/example.ts',
 	'src/lib/i18n/language-codes.generated.js',

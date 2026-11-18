@@ -4,6 +4,9 @@
 	"templateSetupVersion": 2,
 	"license": "MIT",
 	"type": "module",
+	"workspaces": [
+		"packages/eslint-plugin"
+	],
 	"scripts": {
 		"dev": "bun scripts/dev.ts",
 		"dev:frontend": "bun scripts/dev.ts",

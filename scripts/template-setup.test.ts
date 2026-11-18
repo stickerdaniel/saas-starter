@@ -69,6 +69,11 @@ describe('template setup maintainer manifest', () => {
 		).toMatchObject({ scripts: { custom: 'bun run custom' } });
 	});
 
+	it('keeps a workspace outside the creator package', () => {
+		const workspaces = ['packages/eslint-plugin'];
+		expect(removeMaintainerCliScripts({ ...manifest, workspaces })).toMatchObject({ workspaces });
+	});
+
 	it.each([
 		{
 			label: 'missing script',
@@ -137,10 +142,23 @@ describe('template setup maintainer manifest', () => {
 				(value.scripts as Record<string, unknown>).wrapper = 'cd ./packages/create-saas-starter/';
 			}
 		},
-		{
-			label: 'workspace',
+		...[
+			'packages/*',
+			'packages/create-saas-starter',
+			'packages/create-saas-starter/test',
+			'./packages/create-saas-starter',
+			'packages/../packages/create-saas-starter',
+			42
+		].map((workspace) => ({
+			label: `workspace ${String(workspace)}`,
 			mutate: (value: Record<string, unknown>) => {
-				value.workspaces = [];
+				value.workspaces = ['packages/eslint-plugin', workspace];
+			}
+		})),
+		{
+			label: 'workspace object',
+			mutate: (value: Record<string, unknown>) => {
+				value.workspaces = { packages: ['packages/eslint-plugin'] };
 			}
 		},
 		{

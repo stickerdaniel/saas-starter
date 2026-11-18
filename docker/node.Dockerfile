@@ -6,6 +6,8 @@ WORKDIR /app
 ENV HUSKY=0
 COPY package.json bun.lock bunfig.toml .npmrc ./
 COPY patches ./patches
+# The lockfile lists each workspace; install needs its manifest, not its source.
+COPY packages/eslint-plugin/package.json ./packages/eslint-plugin/package.json
 # Defer only source-dependent root hooks; preserve dependency lifecycle scripts.
 RUN bun -e 'const p = await Bun.file("package.json").json(); delete p.scripts; await Bun.write("package.json", JSON.stringify(p));'
 

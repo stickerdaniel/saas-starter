@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { parser } from 'typescript-eslint';
 import rule from './require-returns-validator.js';
 
-function lint(code: string): Array<{ messageId: string }> {
+function lint(code: string, options: unknown[] = []): Array<{ messageId: string }> {
 	const reports: Array<{ messageId: string }> = [];
 	const ast = parser.parseForESLint(code, {});
 
 	const context = {
+		options,
 		report: (opts: { messageId: string }) => reports.push(opts),
 		getFilename: () => 'test.ts',
 		filename: 'test.ts'
@@ -43,26 +44,31 @@ describe('require-returns-validator', () => {
 		expect(reports[0].messageId).toBe('missingReturns');
 	});
 
-	it('flags internal and custom builders without returns', () => {
-		const code = (builder: string) => `
-			export const f = ${builder}({
-				args: { id: v.string() },
-				handler: async (ctx, args) => null
-			});
-		`;
+	const withoutReturns = (builder: string) => `
+		export const f = ${builder}({
+			args: { id: v.string() },
+			handler: async (ctx, args) => null
+		});
+	`;
+
+	it('flags every Convex builder without returns by default', () => {
 		for (const builder of [
 			'mutation',
 			'action',
 			'internalQuery',
 			'internalMutation',
-			'internalAction',
-			'authedQuery',
-			'authedMutation',
-			'adminQuery',
-			'adminMutation'
+			'internalAction'
 		]) {
-			expect(lint(code(builder)), builder).toHaveLength(1);
+			expect(lint(withoutReturns(builder)), builder).toHaveLength(1);
 		}
+		expect(lint(withoutReturns('authedQuery'))).toHaveLength(0);
+	});
+
+	it('checks exactly the configured builders', () => {
+		const options = [{ builders: ['query', 'authedQuery'] }];
+		expect(lint(withoutReturns('authedQuery'), options)).toHaveLength(1);
+		expect(lint(withoutReturns('query'), options)).toHaveLength(1);
+		expect(lint(withoutReturns('mutation'), options)).toHaveLength(0);
 	});
 
 	it('accepts a registration with a returns validator', () => {

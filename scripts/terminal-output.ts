@@ -10,8 +10,11 @@
 import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
 import { PassThrough, type Readable, type Writable } from 'stream';
-import { dataFor, terminalCategory } from '../eslint/control-character-policy.js';
-export { sanitizeTerminalField } from '../eslint/control-character-policy.js';
+import {
+	dataFor,
+	terminalCategory
+} from '../packages/eslint-plugin/src/control-character-policy.js';
+export { sanitizeTerminalField } from '../packages/eslint-plugin/src/control-character-policy.js';
 
 export interface SanitizedCommandOptions {
 	cwd?: string | URL;

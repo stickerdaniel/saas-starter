@@ -286,6 +286,7 @@ jobs:
             /bunfig.toml
             /.npmrc
             /patches/
+            /packages/eslint-plugin/package.json
             /scripts/vitest-settings.ts
             /tsconfig.tooling.json
             /.github/workflows/static-checks.yml

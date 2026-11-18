@@ -53,7 +53,7 @@ import type { Diagnostic } from 'typescript';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
 import knowledgePolicy from '../knowledge-policy.config';
-import { findLiteralControlCharacters } from '../eslint/control-character-policy.js';
+import { findLiteralControlCharacters } from '../packages/eslint-plugin/src/control-character-policy.js';
 import {
 	checkEnglishText,
 	formatEnglishFinding,

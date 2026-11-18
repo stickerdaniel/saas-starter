@@ -16,33 +16,25 @@ import noHardcodedAriaLabelRule from './eslint/rules/no-hardcoded-aria-label.js'
 import noHardcodedSrOnlyRule from './eslint/rules/no-hardcoded-sr-only.js';
 import noDebounceInRuneRule from './eslint/rules/no-debounce-in-rune.js';
 import noHardcodedModifierKeysRule from './eslint/rules/no-hardcoded-modifier-keys.js';
-import requireReturnsValidatorRule from './eslint/rules/require-returns-validator.js';
-import noBareTestSkipRule from './eslint/rules/no-bare-test-skip.js';
-import requireExplicitStorageStateRule from './eslint/rules/require-explicit-storage-state.js';
-import noNetworkidleWaitRule from './eslint/rules/no-networkidle-wait.js';
-import noModuleStateSingletonRule from './eslint/rules/no-module-state-singleton.js';
-import requireMotionGuardTransitionRule from './eslint/rules/require-motion-guard-transition.js';
 import requireFieldErrorAssociationRule from './eslint/rules/require-field-error-association.js';
 import requireGuardedServerConvexClientRule from './eslint/rules/require-guarded-server-convex-client.js';
 import noFrozenAuthPageDataRule from './eslint/rules/no-frozen-auth-page-data.js';
 import noDestructuredLiveGettersRule from './eslint/rules/no-destructured-live-getters.js';
-import requireSvelteModuleExtensionRule from './eslint/rules/require-svelte-module-extension.js';
 import noAnimatedPixelPressRule from './eslint/rules/no-animated-pixel-press.js';
 import preferShadcnPrimitivesRule from './eslint/rules/prefer-shadcn-primitives.js';
 import preferShadcnSliderImportsRule from './eslint/rules/prefer-shadcn-slider-imports.js';
 import safeSvelteParser from './eslint/parsers/safe-svelte-parser.js';
-import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js';
 import noMiddleDotOrEmDashRule from './eslint/rules/no-middle-dot-or-em-dash.js';
-import noDynamicImportRejectionHandlerRule from './eslint/rules/no-dynamic-import-rejection-handler.js';
 import requireStaticModeInitializerRule from './eslint/rules/require-static-mode-initializer.js';
 import noTestInLoopRule from './eslint/rules/no-test-in-loop.js';
 import noRawCaughtErrorLogRule from './eslint/rules/no-raw-caught-error-log.js';
 import noHistoryCommentRule from './eslint/rules/no-history-comment.js';
 import convexCanonicalRegistrationRule from './eslint/rules/convex-canonical-registration.js';
 import convexAccessFirstRule from './eslint/rules/convex-access-first.js';
-import requireCustomRegistrarArgsRule from './eslint/rules/require-custom-registrar-args.js';
 import noSourceTextReadRule from './eslint/rules/no-source-text-read.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
+import { CUSTOM_REGISTRARS, RAW_REGISTRARS } from './eslint/convex-registrars.js';
+import saasStarterPlugin from 'eslint-plugin-saas-starter';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 // Names the guards that open a public Convex handler. A guard throws on refusal;
@@ -65,6 +57,7 @@ const localPlugin = {
 		}
 	},
 	rules: {
+		...saasStarterPlugin.rules,
 		'require-marketing-markdown': requireMarketingMarkdownRule,
 		'require-marketing-route-registration': requireMarketingRouteRegistrationRule,
 		'no-hardcoded-aria-label': noHardcodedAriaLabelRule,
@@ -72,29 +65,19 @@ const localPlugin = {
 		'no-debounce-in-rune': noDebounceInRuneRule,
 		'no-destructured-live-getters': noDestructuredLiveGettersRule,
 		'no-hardcoded-modifier-keys': noHardcodedModifierKeysRule,
-		'require-returns-validator': requireReturnsValidatorRule,
-		'no-bare-test-skip': noBareTestSkipRule,
-		'require-explicit-storage-state': requireExplicitStorageStateRule,
-		'no-networkidle-wait': noNetworkidleWaitRule,
-		'no-module-state-singleton': noModuleStateSingletonRule,
-		'require-motion-guard-transition': requireMotionGuardTransitionRule,
 		'require-field-error-association': requireFieldErrorAssociationRule,
 		'require-guarded-server-convex-client': requireGuardedServerConvexClientRule,
 		'no-frozen-auth-page-data': noFrozenAuthPageDataRule,
-		'require-svelte-module-extension': requireSvelteModuleExtensionRule,
 		'no-animated-pixel-press': noAnimatedPixelPressRule,
 		'prefer-shadcn-primitives': preferShadcnPrimitivesRule,
 		'prefer-shadcn-slider-imports': preferShadcnSliderImportsRule,
-		'no-literal-control-char': noLiteralControlCharRule,
 		'no-middle-dot-or-em-dash': noMiddleDotOrEmDashRule,
-		'no-dynamic-import-rejection-handler': noDynamicImportRejectionHandlerRule,
 		'require-static-mode-initializer': requireStaticModeInitializerRule,
 		'no-test-in-loop': noTestInLoopRule,
 		'no-raw-caught-error-log': noRawCaughtErrorLogRule,
 		'no-history-comment': noHistoryCommentRule,
 		'convex-canonical-registration': convexCanonicalRegistrationRule,
 		'convex-access-first': convexAccessFirstRule,
-		'require-custom-registrar-args': requireCustomRegistrarArgsRule,
 		'no-source-text-read': noSourceTextReadRule
 	}
 };
@@ -205,7 +188,8 @@ export default defineConfig(
 			local: localPlugin
 		},
 		rules: {
-			'local/require-svelte-module-extension': 'error',
+			// Mirrors the `#lib/*` entry of package.json "imports".
+			'local/require-svelte-module-extension': ['error', { aliases: { '#lib/': 'src/lib/' } }],
 			'@typescript-eslint/no-restricted-imports': [
 				'error',
 				{
@@ -392,22 +376,26 @@ export default defineConfig(
 	{
 		// Every Convex function registration must declare a `returns` validator
 		// (convex-guidelines), and a custom builder registration an `args` one.
-		// See eslint/rules/require-returns-validator.js and
-		// eslint/rules/require-custom-registrar-args.js.
+		// See packages/eslint-plugin/src/rules/require-returns-validator.js and
+		// packages/eslint-plugin/src/rules/require-custom-registrar-args.js.
 		files: ['src/lib/convex/**/*.ts'],
 		plugins: {
 			local: localPlugin
 		},
 		rules: {
-			'local/require-returns-validator': 'error',
-			'local/require-custom-registrar-args': 'error'
+			'local/require-returns-validator': [
+				'error',
+				{ builders: [...RAW_REGISTRARS, ...CUSTOM_REGISTRARS] }
+			],
+			'local/require-custom-registrar-args': ['error', { builders: CUSTOM_REGISTRARS }]
 		}
 	},
 	{
 		// Bare runtime test.skip() dodges timing races instead of fixing them
-		// (#508). See eslint/rules/no-bare-test-skip.js. A self-built browser
-		// context inherits the project's signed-in session unless it names one.
-		// See eslint/rules/require-explicit-storage-state.js.
+		// (#508). See packages/eslint-plugin/src/rules/no-bare-test-skip.js. A
+		// self-built browser context inherits the project's signed-in session
+		// unless it names one.
+		// See packages/eslint-plugin/src/rules/require-explicit-storage-state.js.
 		files: ['e2e/**/*.spec.ts'],
 		plugins: {
 			local: localPlugin
@@ -420,7 +408,7 @@ export default defineConfig(
 	{
 		// Network idle ignores WebSocket traffic, so it passes before Convex-driven
 		// controls are usable; helpers under e2e/utils hide the same wait.
-		// See eslint/rules/no-networkidle-wait.js.
+		// See packages/eslint-plugin/src/rules/no-networkidle-wait.js.
 		files: ['e2e/**/*.ts'],
 		plugins: {
 			local: localPlugin
@@ -467,7 +455,7 @@ export default defineConfig(
 	},
 	{
 		// Module-scope class instances in .svelte.ts are shared across SSR
-		// requests (#500). See eslint/rules/no-module-state-singleton.js.
+		// requests (#500). See packages/eslint-plugin/src/rules/no-module-state-singleton.js.
 		files: ['**/*.svelte.ts'],
 		plugins: {
 			local: localPlugin
@@ -478,7 +466,7 @@ export default defineConfig(
 	},
 	{
 		// fly/slide transitions must be gated on prefers-reduced-motion (#475).
-		// See eslint/rules/require-motion-guard-transition.js.
+		// See packages/eslint-plugin/src/rules/require-motion-guard-transition.js.
 		files: ['**/*.svelte'],
 		plugins: {
 			local: localPlugin
@@ -533,7 +521,7 @@ export default defineConfig(
 		// handler on the first .then() inside it swallows vite:preloadError (#1026).
 		// Server-only modules and the Convex backend are bundled without that
 		// wrapper; universal route modules also run in the client.
-		// See eslint/rules/no-dynamic-import-rejection-handler.js.
+		// See packages/eslint-plugin/src/rules/no-dynamic-import-rejection-handler.js.
 		files: ['src/**/*.{ts,js,svelte}'],
 		ignores: [
 			'src/lib/convex/**',

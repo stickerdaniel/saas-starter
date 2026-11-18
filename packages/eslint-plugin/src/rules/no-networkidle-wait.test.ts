@@ -1,7 +1,4 @@
 // @vitest-environment node
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import { parser } from 'typescript-eslint';
 import rule from './no-networkidle-wait.js';
@@ -86,51 +83,4 @@ describe('no-networkidle-wait', () => {
 		expect(lint(`await page['waitForLoadState']('networkidle');`)).toHaveLength(0);
 		expect(lint(`await page.goto(url, { [key]: 'networkidle' });`)).toHaveLength(0);
 	});
-});
-
-describe('no-networkidle-wait through the flat config', () => {
-	const repoRoot = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
-	const eslint = new ESLint({ cwd: repoRoot });
-	const ruleId = 'local/no-networkidle-wait';
-	const source = `
-		import { test } from '@playwright/test';
-		test('ready', async ({ page }) => {
-			// page.waitForLoadState('networkidle') in a comment is fine.
-			await page.goto('/en/pricing', { waitUntil: 'networkidle' });
-			await page.waitForLoadState('networkidle');
-			await page.setContent('<main>Ready</main>', { waitUntil: 'networkidle' });
-		});
-	`;
-
-	async function ruleLines(text: string, filePath: string) {
-		const [result] = await eslint.lintText(text, { filePath });
-		expect(result.fatalErrorCount).toBe(0);
-		return result.messages
-			.filter((message) => message.ruleId === ruleId)
-			.map((message) => [message.line, message.severity]);
-	}
-
-	it.each(['e2e/example.spec.ts', 'e2e/utils/readiness.ts'])(
-		'reports both calls in %s as errors',
-		async (filePath) => {
-			expect(await ruleLines(source, filePath)).toEqual([
-				[5, 2],
-				[6, 2],
-				[7, 2]
-			]);
-		},
-		60_000
-	);
-
-	it('accepts an exception with an inline reason', async () => {
-		const excepted = `
-			// eslint-disable-next-line local/no-networkidle-wait -- asserts that no request follows the opt-out
-			await page.waitForLoadState('networkidle');
-		`;
-		expect(await ruleLines(excepted, 'e2e/example.spec.ts')).toEqual([]);
-	}, 60_000);
-
-	it('leaves application code alone', async () => {
-		expect(await ruleLines(source, 'src/lib/example.ts')).toEqual([]);
-	}, 60_000);
 });

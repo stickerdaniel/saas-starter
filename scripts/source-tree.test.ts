@@ -172,10 +172,13 @@ const SCANNED_FILE = '<scanned file>';
 
 /**
  * The directory Vitest runs a test file from, which `process.cwd()` names: the checkout root,
- * or the package directory for a test under `packages/<name>/`, which has its own runner.
+ * or `packages/create-saas-starter`, whose tests have their own runner. Other workspace tests,
+ * such as `packages/eslint-plugin`, run in the root tooling project.
  */
 function runnerRoot(file: readonly string[]): string[] {
-	return file[0] === 'packages' && file.length > 2 ? file.slice(0, 2) : [];
+	return file[0] === 'packages' && file[1] === 'create-saas-starter' && file.length > 2
+		? file.slice(0, 2)
+		: [];
 }
 
 /**
@@ -1206,11 +1209,13 @@ await rm(temporaryRoot, { recursive: true, force: true });`;
 		expect(transientSourceProducers(source)).toEqual([2, 3]);
 	});
 
-	it('places process.cwd() in the package directory for a package test', () => {
+	it('places process.cwd() in the creator package directory for a creator test', () => {
 		const source = "writeFileSync(path.join(process.cwd(), 'scratch', 'probe.ts'), 'x');";
 		expect(transientSourceProducers(source)).toEqual([]);
 		const packageTest = 'packages/create-saas-starter/test/probe.test.ts';
 		expect(transientSourceProducers(source, packageTest)).toEqual([1]);
+		const rootRunnerTest = 'packages/eslint-plugin/src/rules/probe.test.ts';
+		expect(transientSourceProducers(source, rootRunnerTest)).toEqual([]);
 	});
 
 	it('places the dirname spelling of the module root', () => {

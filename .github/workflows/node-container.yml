@@ -8,6 +8,7 @@ on:
       - 'src/**'
       - 'static/**'
       - 'package.json'
+      - 'packages/eslint-plugin/package.json'
       - 'bun.lock'
       - 'patches/**'
       - '*config*'
