@@ -45,6 +45,14 @@ vi.mock('@zxcvbn-ts/language-en', async (importOriginal) => {
 	return importOriginal();
 });
 
+// The first evaluation of the dictionaries can take seconds on a busy host. Vitest collects the
+// file without a timeout, so the test's own imports above reuse these cached modules.
+await Promise.all([
+	vi.importActual('@zxcvbn-ts/core'),
+	vi.importActual('@zxcvbn-ts/language-common'),
+	vi.importActual('@zxcvbn-ts/language-en')
+]);
+
 let harness: ReturnType<typeof mount> | undefined;
 let releaseDictionaries: (() => void) | undefined;
 
@@ -54,6 +62,7 @@ afterEach(async () => {
 	harness = undefined;
 	document.body.replaceChildren();
 	idleTasks.clear();
+	vi.useRealTimers();
 	vi.restoreAllMocks();
 });
 
@@ -78,6 +87,7 @@ function score() {
 
 describe('password strength loading', () => {
 	it('warms scoring after page load and allows submission until a score is available', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		const readyState = vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading');
 		let input = await render();
 		input.focus();
@@ -100,7 +110,7 @@ describe('password strength loading', () => {
 		harness = undefined;
 		readyState.mockReturnValue('complete');
 		window.dispatchEvent(new Event('load'));
-		await new Promise((resolve) => setTimeout(resolve, 1100));
+		vi.advanceTimersByTime(1000);
 		runIdleTasks();
 		await vi.dynamicImportSettled();
 		expect(loading.requested, 'Leaving the page must cancel its background download').toEqual([]);
@@ -109,13 +119,9 @@ describe('password strength loading', () => {
 		await vi.dynamicImportSettled();
 		expect(loading.requested, 'Background scoring must yield before starting').toEqual([]);
 		loading.gate = new Promise<void>((resolve) => (releaseDictionaries = resolve));
-		await vi.waitFor(
-			() => {
-				runIdleTasks();
-				expect(loading.requested.toSorted()).toEqual(['common', 'core', 'en']);
-			},
-			{ timeout: 3000 }
-		);
+		vi.advanceTimersByTime(1000);
+		runIdleTasks();
+		await vi.waitFor(() => expect(loading.requested.toSorted()).toEqual(['common', 'core', 'en']));
 		expect(input.value).toBe('');
 		expect(document.activeElement).not.toBe(input);
 		const form = input.form!;
