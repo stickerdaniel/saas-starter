@@ -40,6 +40,7 @@ import noRawCaughtErrorLogRule from './eslint/rules/no-raw-caught-error-log.js';
 import noHistoryCommentRule from './eslint/rules/no-history-comment.js';
 import convexCanonicalRegistrationRule from './eslint/rules/convex-canonical-registration.js';
 import convexAccessFirstRule from './eslint/rules/convex-access-first.js';
+import requireCustomRegistrarArgsRule from './eslint/rules/require-custom-registrar-args.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
@@ -91,7 +92,8 @@ const localPlugin = {
 		'no-raw-caught-error-log': noRawCaughtErrorLogRule,
 		'no-history-comment': noHistoryCommentRule,
 		'convex-canonical-registration': convexCanonicalRegistrationRule,
-		'convex-access-first': convexAccessFirstRule
+		'convex-access-first': convexAccessFirstRule,
+		'require-custom-registrar-args': requireCustomRegistrarArgsRule
 	}
 };
 
@@ -389,13 +391,16 @@ export default defineConfig(
 	},
 	{
 		// Every Convex function registration must declare a `returns` validator
-		// (convex-guidelines). See eslint/rules/require-returns-validator.js.
+		// (convex-guidelines), and a custom builder registration an `args` one.
+		// See eslint/rules/require-returns-validator.js and
+		// eslint/rules/require-custom-registrar-args.js.
 		files: ['src/lib/convex/**/*.ts'],
 		plugins: {
 			local: localPlugin
 		},
 		rules: {
-			'local/require-returns-validator': 'error'
+			'local/require-returns-validator': 'error',
+			'local/require-custom-registrar-args': 'error'
 		}
 	},
 	{

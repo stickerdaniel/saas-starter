@@ -90,6 +90,25 @@ describe('convex-canonical-registration', () => {
 			'indirectReference'
 		],
 		[
+			'an aliased custom builder import',
+			`import { authedQuery as checked } from './functions';
+			export const f = checked({ returns: v.null(), handler: async () => null });`,
+			'aliasedImport'
+		],
+		[
+			'a custom builder held in another binding',
+			`import { adminMutation } from '../functions';
+			const register = adminMutation;
+			export const f = register({ returns: v.null(), handler: async () => null });`,
+			'indirectReference'
+		],
+		[
+			'a namespace import of the custom builders',
+			`import * as builders from '../functions';
+			export const f = builders.authedQuery({ returns: v.null(), handler: async () => null });`,
+			'namespaceImport'
+		],
+		[
 			'a re-exported builder',
 			`export { query as publicQuery } from './_generated/server';`,
 			'reexport'
@@ -110,6 +129,11 @@ describe('convex-canonical-registration', () => {
 			`import { customQuery, customCtx } from 'convex-helpers/server/customFunctions';
 			import { query } from './_generated/server';
 			export const authedQuery = customQuery(query, customCtx(async (ctx) => ({ user: await getUser(ctx) })));`
+		],
+		[
+			'a custom builder called under its own name',
+			`import { authedQuery } from '../functions';
+			export const f = authedQuery({ args: {}, returns: v.null(), handler: async () => null });`
 		],
 		[
 			'a type-only reference to a builder',

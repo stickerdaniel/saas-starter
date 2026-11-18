@@ -1,35 +1,42 @@
 /**
  * ESLint rule: convex-canonical-registration
  *
- * Keeps every raw Convex registration in the one form the access rules read.
+ * Keeps every Convex registration in the one form the registration rules read.
  * `@convex-dev/require-access-control` and `local/convex-access-first` find a
- * registration by the callee names `query`, `mutation`, `action` and an
- * identifier key `handler`, so any other spelling hides a public function from
- * both. The rule requires:
+ * raw registration by the callee names `query`, `mutation`, `action` and an
+ * identifier key `handler`; `local/require-returns-validator` and
+ * `local/require-custom-registrar-args` find a custom one by the builder names in
+ * CUSTOM_REGISTRARS. Any other spelling hides a function from them. The rule
+ * requires:
  *
- * - the builders `query`, `mutation`, `action` and their `internal*` forms are
- *   imported from `_generated/server` under their own names, with no namespace
- *   import and no re-export;
- * - a builder binding is only called, without `?.`, or passed to a builder
- *   imported from convex-helpers (`customQuery(query, ...)`);
- * - a registration takes one object literal whose keys are plain identifiers,
- *   with no spread and no computed key;
+ * - the raw builders `query`, `mutation`, `action` and their `internal*` forms
+ *   are imported from `_generated/server`, and the custom builders from
+ *   `functions`, under their own names, with no namespace import and no
+ *   re-export;
+ * - a builder binding is only called, without `?.`; a raw builder may also be
+ *   passed to a builder imported from convex-helpers (`customQuery(query, ...)`);
+ * - a raw registration takes one object literal whose keys are plain
+ *   identifiers, with no spread and no computed key;
  * - a public registration has an inline `handler` function.
  *
  * Example: export const f = query({ args: {}, returns: v.null(), handler: async (ctx) => { ... } });
  */
 
-const BUILDERS = new Set([
-	'query',
-	'mutation',
-	'action',
-	'internalQuery',
-	'internalMutation',
-	'internalAction'
-]);
+import { CUSTOM_REGISTRARS, RAW_REGISTRARS } from '../convex-registrars.js';
+
 const PUBLIC_BUILDERS = new Set(['query', 'mutation', 'action']);
 
-const isGeneratedServer = (source) => /(^|\/)_generated\/server(\.[jt]s)?$/.test(source);
+/** The builders a module provides, keyed by the import source that names it. */
+const BUILDER_MODULES = [
+	{ module: '_generated/server', raw: true, names: new Set(RAW_REGISTRARS) },
+	{ module: 'functions', raw: false, names: new Set(CUSTOM_REGISTRARS) }
+];
+
+function builderModule(source) {
+	return BUILDER_MODULES.find(({ module }) =>
+		new RegExp(`(^|/)${module}(\\.[jt]s)?$`).test(source)
+	);
+}
 
 function unwrap(node) {
 	let result = node;
@@ -73,13 +80,13 @@ export default {
 		schema: [],
 		messages: {
 			aliasedImport:
-				'Import `{{name}}` from _generated/server under its own name. The access rules find registrations by the builder name, so an alias hides a public function from them.',
+				'Import `{{name}}` from {{module}} under its own name. The registration rules find registrations by the builder name, so an alias hides a function from them.',
 			namespaceImport:
-				'Import the Convex builders from _generated/server by name. The access rules cannot see a registration through a namespace object.',
+				'Import the Convex builders from {{module}} by name. The registration rules cannot see a registration through a namespace object.',
 			reexport:
-				'Import `{{name}}` from _generated/server where it registers a function. The access rules cannot see a registration through a re-exported builder.',
+				'Import `{{name}}` from {{module}} where it registers a function. The registration rules cannot see a registration through a re-exported builder.',
 			indirectReference:
-				'Call `{{name}}` directly, or pass it to a builder imported from convex-helpers. The access rules cannot see a registration through another binding.',
+				'Call `{{name}}` directly{{exception}}. The registration rules cannot see a registration through another binding.',
 			optionalCall:
 				'Call `{{name}}` without `?.`. The access rules do not read a registration inside an optional chain.',
 			configShape:
@@ -111,17 +118,23 @@ export default {
 
 		return {
 			ImportDeclaration(node) {
-				if (!isGeneratedServer(node.source.value)) return;
+				const source = builderModule(node.source.value);
+				if (!source) return;
+				const { module, raw, names } = source;
 				for (const specifier of node.specifiers) {
 					if (specifier.type === 'ImportNamespaceSpecifier') {
-						context.report({ node: specifier, messageId: 'namespaceImport' });
+						context.report({ node: specifier, messageId: 'namespaceImport', data: { module } });
 						continue;
 					}
 					if (specifier.type !== 'ImportSpecifier') continue;
 					const name = specifier.imported.name ?? specifier.imported.value;
-					if (!BUILDERS.has(name)) continue;
+					if (!names.has(name)) continue;
 					if (specifier.local.name !== name) {
-						context.report({ node: specifier, messageId: 'aliasedImport', data: { name } });
+						context.report({
+							node: specifier,
+							messageId: 'aliasedImport',
+							data: { name, module }
+						});
 						continue;
 					}
 					const [variable] = context.sourceCode.getDeclaredVariables(specifier);
@@ -132,27 +145,44 @@ export default {
 						if (parent.type === 'CallExpression' && parent.callee === identifier) {
 							if (parent.optional) {
 								context.report({ node: parent, messageId: 'optionalCall', data: { name } });
-							} else {
+							} else if (raw) {
 								checkRegistration(parent, name);
 							}
-						} else if (!isCustomBuilderArgument(identifier, context.sourceCode)) {
-							context.report({ node: identifier, messageId: 'indirectReference', data: { name } });
+						} else if (!raw || !isCustomBuilderArgument(identifier, context.sourceCode)) {
+							context.report({
+								node: identifier,
+								messageId: 'indirectReference',
+								data: {
+									name,
+									exception: raw ? ', or pass it to a builder imported from convex-helpers' : ''
+								}
+							});
 						}
 					}
 				}
 			},
 			ExportNamedDeclaration(node) {
-				if (!node.source || !isGeneratedServer(node.source.value)) return;
+				const source = node.source && builderModule(node.source.value);
+				if (!source) return;
 				for (const specifier of node.specifiers) {
 					const name = specifier.local.name ?? specifier.local.value;
-					if (BUILDERS.has(name)) {
-						context.report({ node: specifier, messageId: 'reexport', data: { name } });
+					if (source.names.has(name)) {
+						context.report({
+							node: specifier,
+							messageId: 'reexport',
+							data: { name, module: source.module }
+						});
 					}
 				}
 			},
 			ExportAllDeclaration(node) {
-				if (isGeneratedServer(node.source.value)) {
-					context.report({ node, messageId: 'reexport', data: { name: '*' } });
+				const source = builderModule(node.source.value);
+				if (source) {
+					context.report({
+						node,
+						messageId: 'reexport',
+						data: { name: '*', module: source.module }
+					});
 				}
 			}
 		};
