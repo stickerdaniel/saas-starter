@@ -112,12 +112,12 @@ features/refactors/chores. For each commit, from its diff, decide:
 Map **cross-commit dependencies**: a later commit often assumes an earlier one (a
 shared helper, a schema column that became required, a new lint/CI guard, a token
 rename). Port prerequisites first or together; never batch-apply the whole range.
-The review unit is the squashed first-parent commit; for an oversized commit, triage
-within it by file/hunk. See [reference/triage.md](reference/triage.md).
+The review unit is the first-parent commit, a squash or a merge commit; for an oversized
+commit, triage within it by file/hunk. See [reference/triage.md](reference/triage.md).
 
 ## Apply in dependency order
 
-Cherry-pick or hand-port in order.
+Cherry-pick or hand-port in order; a merge commit cherry-picks with `-m 1`.
 
 - **Branding/theme/config**: re-apply the upstream _intent_ on the fork's values; never clobber fork branding or tokens.
 - **i18n JSON conflicts**: use a JSON-aware 3-way deep merge, NEVER a line-based resolver (it corrupts nested objects). See [reference/i18n-merge.md](reference/i18n-merge.md), then run the locale-parity test.

@@ -1,10 +1,11 @@
 # Per-commit triage
 
-The review unit is the **squashed first-parent commit** on upstream's default branch.
-Upstream squash-merges PRs, so each commit is the canonical, net, reviewed diff of one
-PR. Do not pull pre-squash branch commits; they carry intra-PR churn (WIP, fix-the-fix,
-reverts that net out) and give worse signal. For an oversized commit, triage _within_ it
-by file/hunk instead.
+The review unit is the **first-parent commit** on upstream's default branch. Upstream
+lands each PR as one such commit, a squash or a merge commit, so each is the canonical,
+net, reviewed diff of one PR. Read a merge commit's diff against its first parent:
+`git show --diff-merges=first-parent <sha>`. That net diff is the review input; the PR's
+branch commits carry intra-PR churn (WIP, fix-the-fix, reverts that net out) and give
+worse signal. For an oversized commit, triage _within_ it by file/hunk instead.
 
 ## Order
 
@@ -70,7 +71,7 @@ A commit touching dozens of files (audit/omnibus PRs) is still one unit, but tri
 file-by-file: some hunks integrate, some are already-present, some conflict with fork
 divergence. Resolve each part on its own verdict.
 
-Its message is a sequence, not a statement of intent. Upstream squashes a PR into one
-commit carrying a bullet per sub-commit, and the later bullets correct the earlier ones,
+Its message is a sequence, not a statement of intent. A squash commit carries a bullet
+per sub-commit of its PR, and the later bullets correct the earlier ones,
 so a verdict read off the prose lands on a version that was never merged. Three or more
 bullets means the file-by-file pass decides.
