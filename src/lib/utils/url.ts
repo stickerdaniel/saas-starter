@@ -2,16 +2,16 @@ import { VERIFICATION_FAILURE_CODES } from './auth-messages';
 import { isSupportedLanguage } from '#lib/i18n/languages.js';
 
 /**
- * Whitelist-validates a redirect URL: only same-origin root-relative paths
- * (starting with a single /) are allowed. Everything else returns the fallback,
- * and the accepted value is re-emitted in canonical form so the string that
- * passed validation is the string that gets navigated.
+ * Allowlist-validates a redirect URL: only same-origin root-relative paths
+ * (starting with a single /) pass. Everything else returns the fallback, and
+ * the accepted value is re-emitted in canonical form, so the validated string
+ * is the navigated string.
  *
- * Prevents open redirect attacks by rejecting absolute and scheme-relative URLs
- * (`//evil.com`, `http:evil.com`), backslash-authority variants (`/\evil.com`),
- * embedded credentials, control characters — both raw and once-decoded, so
- * a later decode layer cannot resurrect a rejected vector — and dot segments
- * that normalize into a network path (`/.//evil.com`).
+ * Rejects absolute and scheme-relative URLs (`//evil.com`, `http:evil.com`),
+ * backslash-authority variants (`/\evil.com`), embedded credentials, control
+ * characters (raw and once-decoded, so a later decode layer cannot resurrect a
+ * rejected vector), and dot segments that normalize into a network path
+ * (`/.//evil.com`).
  */
 export function safeRedirectPath(url: string, fallback: string): string {
 	if (!url || !url.startsWith('/') || hasUnsafeUrlCharacters(url)) return fallback;
@@ -33,28 +33,24 @@ export function safeRedirectPath(url: string, fallback: string): string {
 }
 
 /**
- * Narrow a caller-supplied destination to a page of this application.
+ * Narrows a caller-supplied destination to a page of this application.
  *
- * `safeRedirectPath` answers the open-redirect question, which is whether a
- * path stays on this origin, and every path does. That is not enough for a
- * destination sign-in hands to Better Auth: the same value becomes the
- * `callbackURL` of the recovery verification link, and a failure is reported by
- * appending `?error=<CODE>` to it, so the destination also has to be something
- * a server hook will see. `/favicon.ico` is same-origin and passes the callback
- * grammar, and Cloudflare answers it from the asset store before this
- * application's Worker is reached at all, so the failure would arrive as an
- * icon and say nothing.
+ * `safeRedirectPath` keeps a path on this origin, and every path stays there.
+ * That is not enough for a destination sign-in hands to Better Auth: the same
+ * value becomes the `callbackURL` of the recovery verification link, and a
+ * failure is reported by appending `?error=<CODE>` to it, so a server hook has
+ * to see the destination. `/favicon.ico` is same-origin and passes the callback
+ * grammar, and Cloudflare answers it from the asset store before the Worker
+ * runs, so the failure would arrive as an icon and say nothing.
  *
- * Requiring the language prefix costs nothing for the application's own links,
- * because `handleLanguage` redirects a prefixless path before any auth rule
- * reads it, so every destination it writes already carries one. The prefix has
- * to be a supported language and not merely two letters: `/zz/app` would
- * otherwise pass here and then be localized into `/en/zz/app`, which is a 404.
+ * The language prefix costs nothing for the application's own links:
+ * `handleLanguage` redirects a prefixless path before any auth rule reads it,
+ * so every destination it writes carries one. The prefix must be a supported
+ * language, not two letters: `/zz/app` would pass and then be localized into
+ * `/en/zz/app`, a 404.
  *
- * What this does refuse is a hand-written prefixless deep link such as
- * `/pricing`, which `handleLanguage` would have localized. Accepting one would
- * mean accepting `/favicon.ico` with it, since nothing here can tell the two
- * apart, and that is the case this exists to stop.
+ * A hand-written prefixless deep link such as `/pricing` is refused. Nothing
+ * here tells it apart from `/favicon.ico`, the case this exists to stop.
  */
 export function safeAuthDestination(url: string, fallback: string): string {
 	const path = safeRedirectPath(url, fallback);
@@ -84,10 +80,10 @@ export function authPageURL(pagePath: string, destination: string): string {
 }
 
 /**
- * Apply `encodeURIComponent` plus the six characters it leaves raw.
+ * `encodeURIComponent` plus the six characters it leaves raw.
  *
- * `!'()*~` are outside the callback grammar of {@link callbackURLFor}. If any
- * remain unescaped, it falls back to the bare page and the deep link is lost.
+ * `!'()*~` are outside the callback grammar of {@link callbackURLFor}. Left
+ * unescaped, the URL falls back to the bare page and the deep link is lost.
  */
 function encodeCallbackComponent(value: string): string {
 	return encodeURIComponent(value).replace(
@@ -108,23 +104,22 @@ function hasControlCharacters(value: string): boolean {
 }
 
 /**
- * Build the URL Better Auth returns to when an OAuth callback fails.
+ * The URL Better Auth returns to when an OAuth callback fails.
  *
- * The failure happens after the browser has left the page that started the
- * flow, so the reason can only travel back through a redirect. Without this the
- * default error URL applies, which sends production users to the marketing
- * homepage with the code in a parameter nothing reads.
+ * The failure happens after the browser left the page that started the flow,
+ * so the reason can only travel back through a redirect. The default error URL
+ * sends production users to the marketing homepage with the code in a
+ * parameter nothing reads.
  *
- * `redirectTo` is carried through so a failed attempt does not lose the
- * destination the user was heading for. It stays on the wide check rather than
- * `safeAuthDestination`: here it is a passenger inside the query of a page this
- * module already chose, not the destination a failure gets appended to, and the
- * page narrows it again when it actually navigates. It is untrusted input from the current
- * URL, so it passes the same whitelist as an actual navigation before being
- * embedded, and the result is narrowed again: this field is origin-checked like
- * any other callback, and `encodeURIComponent` leaves `!~'()*` unescaped, so a
- * destination carrying one of them would take the whole social sign-in down
- * with a 403 rather than merely losing the deep link.
+ * `redirectTo` is carried through so a failed attempt keeps the user's
+ * destination. It stays on the wide check and not `safeAuthDestination`: here
+ * it rides inside the query of a page this module chose, failures are not
+ * appended to it, and the page narrows it again when it navigates. It is
+ * untrusted input from the current URL, so it passes the same allowlist as a
+ * navigation before being embedded, and the result is narrowed again. This
+ * field is origin-checked like any other callback, and `encodeURIComponent`
+ * leaves `!~'()*` unescaped, so a destination with one of them would fail the
+ * whole social sign-in with a 403 instead of losing only the deep link.
  */
 export function oauthErrorCallbackURL(pagePath: string, redirectTo: string): string {
 	const safeRedirectTo = safeRedirectPath(redirectTo, '');
@@ -159,21 +154,19 @@ export function verificationErrorIn(params: Pick<URLSearchParams, 'getAll'>): st
  * Splits a Better Auth link failure off a destination path.
  *
  * A verification link carries the caller's destination as its `callbackURL`,
- * and Better Auth reports a failure by appending `?error=<CODE>` to exactly
- * that URL (`redirectOnError` in
- * better-auth/dist/api/routes/email-verification.mjs). When the destination is
- * a protected route, the browser is then bounced to sign-in with the whole
- * thing wrapped into `redirectTo`, so the code arrives buried one level down
- * where nothing looks for it and the user is told nothing at all.
+ * and Better Auth reports a failure by appending `?error=<CODE>` to that URL
+ * (`redirectOnError` in better-auth/dist/api/routes/email-verification.mjs).
+ * For a protected destination the browser then bounces to sign-in with the
+ * whole URL wrapped into `redirectTo`, so the code arrives one level down where
+ * nothing looks for it.
  *
  * Left in place it also rides into the next verification link, and a later
- * successful verification lands on the destination still carrying the failure
- * of the previous attempt.
+ * successful verification lands on the destination still carrying the previous
+ * failure.
  *
- * Only the codes that route reports are consumed. An `error` parameter is an
- * ordinary thing for a destination to carry, and swallowing the application's
- * own would both report it as an auth failure and drop the state the caller
- * asked to arrive with.
+ * Only the codes that route reports are consumed. An `error` parameter is
+ * ordinary for a destination, and swallowing the application's own would report
+ * it as an auth failure and drop the state the caller asked to arrive with.
  */
 export function splitDestinationError(destination: string): {
 	destination: string;
@@ -184,20 +177,18 @@ export function splitDestinationError(destination: string): {
 	try {
 		const base = new URL('https://redirect.invalid');
 		const parsed = new URL(destination, base);
-		// Every occurrence, not the first: a destination that already carried an
-		// `error` of its own pushes the appended code into second place, which is
-		// precisely the case where the user learns nothing about a link that
-		// failed.
+		// Every occurrence, not the first: a destination with an `error` of its own
+		// pushes the appended code into second place, which is the case where the user
+		// learns nothing about a failed link.
 		const errorCode = verificationErrorIn(parsed.searchParams);
 		if (errorCode === null) {
 			return { destination, errorCode: null };
 		}
 
-		// Every occurrence of that code, not the parameter and not one
-		// occurrence. An `error` the caller put in the destination itself
-		// survives, because it belongs to a different namespace; a second copy of
-		// the appended code does not, and leaving one behind is what let a later
-		// successful link land carrying the failure of the previous attempt.
+		// Every occurrence of that code, not the parameter and not one occurrence. An
+		// `error` the caller put in the destination survives, because it belongs to a
+		// different namespace. A leftover copy of the appended code would let a later
+		// successful link land carrying the previous failure.
 		const kept = new URLSearchParams();
 		for (const [key, value] of parsed.searchParams) {
 			if (key === 'error' && value === errorCode) {
@@ -217,19 +208,18 @@ export function splitDestinationError(destination: string): {
 }
 
 /**
- * Narrow a destination to what Better Auth will accept as a `callbackURL`.
+ * Narrows a destination to what Better Auth accepts as a `callbackURL`.
  *
  * Its origin check applies its own relative-path rule to that field
- * (`isSafeRelativeURL` in better-auth/dist/auth/trusted-origins.mjs). A value
- * it refuses comes back as `403 INVALID_CALLBACK_URL`, which the sign-in form
- * can only report as a failed sign-in, so correct credentials look wrong and an
+ * (`isSafeRelativeURL` in better-auth/dist/auth/trusted-origins.mjs). A refused
+ * value comes back as `403 INVALID_CALLBACK_URL`, which the sign-in form can
+ * only report as a failed sign-in, so correct credentials look wrong and an
  * unverified account never gets its recovery mail. Losing a deep link is the
- * smaller failure, so a destination outside this rule falls back rather than
- * being sent.
+ * smaller failure, so a destination outside this rule falls back.
  *
  * This rule is narrower than Better Auth's: it takes no fragment and no percent
- * escape in the path, both of which Better Auth 1.7 accepts. The containment
- * is checked against the real dependency in
+ * escape in the path, both of which Better Auth 1.7 accepts. The containment is
+ * checked against the real dependency in
  * src/lib/utils/__tests__/callback-url.contract.test.ts.
  */
 export function callbackURLFor(destination: string, fallback: string): string {

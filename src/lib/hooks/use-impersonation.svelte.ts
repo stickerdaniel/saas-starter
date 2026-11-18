@@ -35,11 +35,11 @@ import { duringAuthChange } from '#lib/analytics/client.js';
  * later snapshot in this document load read as not impersonating, so a Stop
  * control never comes back for a session the server has already ended.
  *
- * A full document load resets this, which is exactly the intended lifetime: a
- * new impersonation always starts with one (see `admin/impersonate-user.ts`).
+ * A full document load resets this, the intended lifetime: a new impersonation
+ * always starts with one (see `admin/impersonate-user.ts`).
  *
- * Plain `let`, written only from `stop()` — a browser-only path — so no SSR
- * request can ever observe another request's value.
+ * Plain `let`, written only from `stop()`, a browser-only path, so no SSR
+ * request can observe another request's value.
  */
 let stopConfirmedThisLoad = false;
 
@@ -94,15 +94,15 @@ export class ImpersonationState {
 	 * A plain `!isImpersonating` would conflate "not impersonating" with "session
 	 * not loaded yet", and the session starts out pending with no data. On an SSR
 	 * authenticated page the shell renders before the first session read resolves,
-	 * so the log out control would be live during that window — exactly the trap
-	 * this state exists to prevent. Gate on a resolved session instead.
+	 * so the log out control would be live during that window, the trap this state
+	 * exists to prevent. The gate is a resolved session.
 	 *
 	 * A failed session read counts as resolved: the alternative is a surface with
-	 * no way out at all, and Better Auth clears the data on a 401 so the shell
-	 * falls back to its signed-out rendering anyway.
+	 * no way out, and Better Auth clears the data on a 401, so the shell falls back
+	 * to its signed-out rendering anyway.
 	 *
-	 * Also false while an exit is under way: an ordinary log out there would skip
-	 * the return to the admin page and the upload and chat cleanup of the exit.
+	 * False while an exit is under way: an ordinary log out there would skip the
+	 * return to the admin page and the exit's upload and chat cleanup.
 	 */
 	get canSignOut(): boolean {
 		return this.#resolved && !this.#impersonating && this.#exit === 'idle';
@@ -240,13 +240,12 @@ export class ImpersonationState {
 	}
 
 	async #refreshAndLeave(t: Translate): Promise<void> {
-		// Better Auth's convex plugin does not re-mint the SSR JWT cookie on stop.
-		// Force a session read so the server issues a fresh convex_jwt for the
-		// admin before we navigate, otherwise SSR resolves the still-alive
-		// impersonated token. The fetch resolves errors as { error } instead of
-		// throwing, so both shapes of failure have to be caught here. Both leave
-		// the admin a retry, because navigating now would boot on the target's
-		// identity.
+		// Better Auth's convex plugin does not re-mint the SSR JWT cookie on stop. A
+		// forced session read makes the server issue a fresh convex_jwt for the admin
+		// before navigating; otherwise SSR resolves the still-alive impersonated token.
+		// The fetch resolves errors as { error } instead of throwing, so both failure
+		// shapes are caught here. Both leave the admin a retry, because navigating now
+		// would boot on the target's identity.
 		try {
 			const refreshed = await authClient.getSession({ query: { disableCookieCache: true } });
 			if (refreshed.error || !refreshed.data) {

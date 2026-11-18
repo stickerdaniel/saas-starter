@@ -42,15 +42,12 @@
 	const capabilitiesResolved = $derived(capabilityQuery.data !== undefined);
 	const aiUsable = $derived(capabilityQuery.data?.ai.usable === true);
 
-	// URL state for shareable links
 	const urlState = useSupportUrlState();
 
-	// Widget open state derived from URL
 	const isFeedbackOpen = $derived(urlState.support === 'open');
 
 	let isScreenshotMode = $state(false);
 
-	// Hide AI chatbar when screenshot mode is active or feedback is open
 	let shouldShowAIChatbar = $derived(!isScreenshotMode && !isFeedbackOpen);
 
 	// Initialize the customer-support composition root. Its send owner outlives
@@ -68,12 +65,11 @@
 	supportContext.set(support);
 	const { navigation, conversation } = support;
 
-	// Pre-set skipAnimation if URL already has a thread (before FeedbackWidget mounts)
+	// skipAnimation is set before FeedbackWidget mounts when the URL already has a thread
 	if (urlState.thread) {
 		navigation.skipAnimation = true;
 	}
 
-	// URL state sync handlers
 	function setWidgetOpen(open: boolean) {
 		urlState.support = open ? 'open' : '';
 		// Only while that thread is the one on screen. A closed widget left the
@@ -87,9 +83,9 @@
 
 	// A conversation still being acquired has no id yet, and the mutation that
 	// gives it one resolves after the close and adopts it unless the view has
-	// moved on — putting the id back into the URL of a closed widget. Only
-	// that case leaves the chat view: an established conversation stays put,
-	// so reopening resumes it rather than dropping the visitor on the list.
+	// moved on, which puts the id back into the URL of a closed widget. Only that
+	// case leaves the chat view: an established conversation stays put, so
+	// reopening resumes it instead of dropping the visitor on the list.
 	watch(
 		() => isFeedbackOpen,
 		(open, wasOpen) => {
@@ -107,16 +103,13 @@
 		urlState.thread = threadId ?? '';
 	}
 
-	// Connect support navigation to URL state
 	navigation.setOnThreadChange(setThreadInUrl);
 
-	// Get Convex client for mutations
 	const client = useConvexClient();
 
-	// Provide the client to the conversation for eager thread creation
+	// The conversation creates threads eagerly through the client
 	conversation.setClient(client);
 
-	// Get auth state for user identification
 	const auth = useAuth();
 
 	// Session user id recovers via cookies on prerendered pages, unlike
@@ -131,7 +124,7 @@
 		});
 	});
 
-	// Upload API configuration with locale for translated error messages
+	// The locale lets upload errors arrive translated
 	const uploadConfig: UploadConfig = {
 		generateUploadUrl: api.support.files.generateUploadUrl,
 		saveUploadedFile: api.support.files.saveUploadedFile,
@@ -147,10 +140,10 @@
 		}
 	};
 
-	// Create ChatUIContext at this level so we can handle screenshot uploads.
-	// Report transfers to the app so a navigation that would kill one asks first.
-	// Absent outside the app shell (isolated tests, the standalone example), where
-	// there is no layout to ask.
+	// ChatUIContext lives at this level to handle screenshot uploads. Transfers
+	// are reported to the app, so a navigation that would kill one asks first. The
+	// registry is absent outside the app shell (isolated tests, the standalone
+	// example), where no layout asks.
 	const activeUploads = activeUploadsContext.getOr(null);
 	function createChatUIContext(sendOwner: ComposerSendCoordinator): ChatUIContext {
 		return new ChatUIContext(conversation, client, uploadConfig, 'right', activeUploads, {
@@ -173,12 +166,9 @@
 		previous.dispose();
 	}
 
-	// Revoke blob preview URLs of unsent attachments when the widget unmounts
+	// Revokes the blob preview URLs of unsent attachments
 	onDestroy(() => chatUIContext.dispose());
 
-	/**
-	 * Get or create an anonymous user ID stored in localStorage
-	 */
 	function getAnonymousId(): string {
 		if (!browser) return '';
 
@@ -188,20 +178,15 @@
 		return supportUserId.current;
 	}
 
-	/**
-	 * Get the current user ID (authenticated or anonymous)
-	 */
 	function getUserId(): string {
-		// Use authenticated user ID if available, otherwise fall back to anonymous ID
 		return (auth.isAuthenticated && sessionUserId) || getAnonymousId();
 	}
 
-	// Initialize user ID when component mounts
-	// Threads are now loaded reactively via useQuery in threads-overview.svelte
+	// Threads load reactively through useQuery in threads-overview.svelte
 	$effect(() => {
 		if (!browser || auth.isLoading) return;
-		// Wait for the session of a signed-in user to resolve before falling
-		// back, so we never mint a fresh anonymous id for them
+		// A signed-in user's session resolves first, so no fresh anonymous id is
+		// minted for them
 		if (auth.isAuthenticated && sessionPending) return;
 		const userId = getUserId();
 		conversation.setUserId(userId);
@@ -212,9 +197,9 @@
 	// target or user retires earlier work.
 	let validating: { threadId: string; userId: string } | null = null;
 
-	// Sync thread from URL only after validating that it is actually a support thread.
-	// A matching id is settled only while its conversation is on screen: going
-	// back to the list keeps the id, so a later Forward to it must reopen it here.
+	// The URL thread syncs only after validation as a support thread. A matching
+	// id is settled only while its conversation is on screen: going back to the
+	// list keeps the id, so a later Forward to it must reopen it here.
 	$effect(() => {
 		const threadFromUrl = urlState.thread;
 		const userId = conversation.userId;
@@ -293,7 +278,6 @@
 		}
 	);
 
-	// Watch for widget open requests from chatbar
 	$effect(() => {
 		if (navigation.shouldOpenWidget) {
 			setWidgetOpen(true);
@@ -310,12 +294,12 @@
 		filename: string,
 		dimensions: { width: number; height: number }
 	) {
-		// Upload screenshot via ChatUIContext (adds to the chat attachment list)
+		// Adds the screenshot to the chat attachment list
 		await chatUIContext.uploadScreenshot(blob, filename, dimensions);
 	}
 
-	// Recoverable capture-failure flow: the editor reports the error, we tear the
-	// overlay down and offer retry / contact support instead of a native alert().
+	// Recoverable capture failure: the editor reports the error, the overlay comes
+	// down, and retry or contact support is offered instead of a native alert().
 	let captureErrorOpen = $state(false);
 	let captureEventId = $state<string | undefined>(undefined);
 
@@ -357,7 +341,7 @@
 			body += `\n\n${$t('support.screenshot.error.email_reference', { id: captureEventId })}`;
 		}
 		// Plain location assignment, not an <a href>, so SvelteKit's client router
-		// doesn't intercept the mailto and silently no-op the click.
+		// does not intercept the mailto and silently drop the click.
 		window.location.href = buildMailto({ email: getLegalEmailAddress(), subject, body });
 		captureErrorOpen = false;
 	}
@@ -383,18 +367,17 @@
 <!--
 	The editor is loaded on demand. A deploy can delete its chunk under a page
 	that is still open. The stale-deploy reload in app.html is the first rescue,
-	but it waits while a file is uploading and fires only once per session, so
-	the import can still reject here. An
-	await block with no catch rethrows that rejection from a promise callback,
-	where no <svelte:boundary> sees it, and the page would stay in screenshot mode
-	with neither editor nor launcher. loadScreenshotEditor handles the rejection
-	outside Vite's preload wrapper, so app.html still sees the failure; the boundary
-	handles errors thrown by the loaded editor, whether its effects throw or it
-	fails while being created. It sits inside the fulfilled branch because that
-	branch is also created in a promise callback, so a boundary around the await
-	block would miss a creation error. Both go where a failed capture goes:
-	overlay down, retry offered. The boundary sits inside the screenshot-mode
-	block so every retry gets a fresh one.
+	but it waits while a file is uploading and fires once per session, so the
+	import can still reject here. An await block with no catch rethrows that
+	rejection from a promise callback, where no <svelte:boundary> sees it, and
+	the page would stay in screenshot mode with neither editor nor launcher.
+	loadScreenshotEditor handles the rejection outside Vite's preload wrapper, so
+	app.html still sees the failure. The boundary handles errors thrown by the
+	loaded editor, from its effects or during creation. It sits inside the
+	fulfilled branch because that branch is also created in a promise callback,
+	so a boundary around the await block would miss a creation error. Both go
+	where a failed capture goes: overlay down, retry offered. The boundary sits
+	inside the screenshot-mode block so every retry gets a fresh one.
 -->
 {#if isScreenshotMode}
 	{#await loadScreenshotEditor() then ScreenshotEditor}
