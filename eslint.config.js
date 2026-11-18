@@ -37,6 +37,7 @@ import noDynamicImportRejectionHandlerRule from './eslint/rules/no-dynamic-impor
 import requireStaticModeInitializerRule from './eslint/rules/require-static-mode-initializer.js';
 import noTestInLoopRule from './eslint/rules/no-test-in-loop.js';
 import noRawCaughtErrorLogRule from './eslint/rules/no-raw-caught-error-log.js';
+import noHistoryCommentRule from './eslint/rules/no-history-comment.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
@@ -81,7 +82,8 @@ const localPlugin = {
 		'no-dynamic-import-rejection-handler': noDynamicImportRejectionHandlerRule,
 		'require-static-mode-initializer': requireStaticModeInitializerRule,
 		'no-test-in-loop': noTestInLoopRule,
-		'no-raw-caught-error-log': noRawCaughtErrorLogRule
+		'no-raw-caught-error-log': noRawCaughtErrorLogRule,
+		'no-history-comment': noHistoryCommentRule
 	}
 };
 
@@ -544,6 +546,17 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-literal-control-char': 'error'
+		}
+	},
+	// A comment states how the code works; history goes to the commit or PR.
+	// See eslint/rules/no-history-comment.js.
+	{
+		files: ['**/*.{js,mjs,cjs,ts,svelte}'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-history-comment': 'error'
 		}
 	},
 	// The template bans the middle dot and the em dash from everything the app ships.

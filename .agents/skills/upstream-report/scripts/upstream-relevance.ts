@@ -11,7 +11,7 @@
  *
  * Three outcomes, every one of them measured:
  *
- *   pristine   the path exists upstream and, BEFORE this change, was identical
+ *   pristine   the path exists upstream and, BEFORE the measured change, was identical
  *              to it. Editing untouched template code is the strongest signal
  *              there is: whatever was wrong there is wrong upstream too.
  *   diverged   the path exists upstream but the fork had already rewritten it.

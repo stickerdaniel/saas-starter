@@ -254,7 +254,7 @@ const handleHtmlLang: Handle = async function handleHtmlLang({ event, resolve })
 };
 
 /**
- * Where to send a browser arriving on a verification link that did not work.
+ * Where to send a browser arriving on a verification link that failed.
  *
  * Better Auth reports such a failure by appending its code to the destination
  * the link was minted with (`redirectOnError` in

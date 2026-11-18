@@ -142,8 +142,8 @@ export function getAuthErrorKey(
  * codes, so a caller reading a shared `error` parameter can fall through to
  * `getOAuthCallbackErrorKey`.
  *
- * All four codes reach the user the same way, as a link they clicked that did
- * not work, and the only move available for any of them is to request a new
+ * All four codes reach the user the same way, as a link they clicked that
+ * failed, and the only move available for any of them is to request a new
  * one. Distinguishing them in the copy would tell an unauthenticated visitor
  * whether an account exists.
  */
