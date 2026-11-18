@@ -1,5 +1,5 @@
 /**
- * Unified static checks script (cross-platform TypeScript version)
+ * Static checks, cross-platform.
  *
  * Usage:
  *   bun scripts/static-checks.ts                      - Check all files, auto-fix (local dev)
@@ -28,15 +28,15 @@
  *   --files-from Read NUL-separated UTF-8 paths from a file, or from stdin with "-".
  *                This matches `git diff --no-relative --name-only --diff-filter=d -z`
  *                without quoting, deleted paths, or delimiter ambiguity. Records are
- *                repository-relative, and --no-relative is what keeps them so: with
+ *                repository-relative, and --no-relative keeps them so: with
  *                diff.relative set, git strips the prefix of the current subdirectory
  *                and drops everything above it, so a record would name a same-named
- *                file at the root. An empty stream is an honest no-op, and that is
- *                what makes the producer's exit status the caller's job: a shell
- *                without `pipefail` reports only the last command, so `git diff`
- *                exiting 128 on a bad revision emits nothing, this checker exits 0
- *                over an empty list, and the pipeline reads as a pass. Write the list
- *                to a file and check git's status before invoking, or set `pipefail`.
+ *                file at the root. An empty stream is a legal no-op, so the producer's
+ *                exit status is the caller's job: a shell without `pipefail` reports
+ *                only the last command, so `git diff` exiting 128 on a bad revision
+ *                emits nothing, this checker exits 0 over an empty list, and the
+ *                pipeline reads as a pass. Write the list to a file and check git's
+ *                status before invoking, or set `pipefail`.
  *                Measured: pipeline_status=0 git_status=128 checker_status=0.
  *
  * Paths are validated and normalized at intake (see resolveInputs). An empty
@@ -87,7 +87,7 @@ import { withSvelteKitSyncLock } from './svelte-kit-sync-lock';
 export const SVELTE_KIT_SYNC_WAIT_MESSAGE =
 	'Waiting for another SvelteKit sync of this checkout to finish...';
 
-// Configuration (matches CI static-checks.yml exclusions)
+// Matches the CI static-checks.yml exclusions
 const CONFIG = {
 	ignorePaths: ['references/', 'scratch/'],
 	misspell: {
@@ -101,10 +101,10 @@ const CONFIG = {
 		]
 	},
 	bannedPatterns: {
-		/** Removed shadcn v1 / Tailwind v3 tokens and legacy class names */
+		/** shadcn v1 and Tailwind v3 tokens and legacy class names */
 		deprecated:
 			/ring-offset-background|ring-offset-foreground|text-destructive-foreground|flex-shrink-0|bg-gradient-to-/,
-		/** animate-spin without motion-safe: prefix (WCAG 2.3.3); not longer animate-spin-* names */
+		/** animate-spin without the motion-safe: prefix (WCAG 2.3.3); longer animate-spin-* names pass */
 		bareAnimateSpin: /(?<!motion-safe:)animate-spin(?![\w-])/,
 		/**
 		 * Static value imports/re-exports of the Sentry SDK under src/. They defeat
@@ -114,20 +114,20 @@ const CONFIG = {
 		 */
 		staticSentryImport: /(?:import|export)\s+(?!type[\s{])[^'"]*from\s*['"]@sentry\/sveltekit['"]/,
 		/**
-		 * Shell-string spawning. Removed in #473/#514; build argument arrays and use
-		 * spawn-style helpers instead (see runCommand in scripts/process/command-runner.ts).
-		 * Scope: this scanner only covers .svelte/.ts files under src/ (full runs glob
-		 * that set; --staged/file-args runs filter the given files down to it).
+		 * Shell-string spawning. Build argument arrays and use spawn-style helpers
+		 * instead (see runCommand in scripts/process/command-runner.ts). Scope: this
+		 * scanner covers .svelte and .ts files under src/ (full runs glob that set;
+		 * --staged and file-argument runs filter the given files down to it).
 		 */
 		execSync: /\bexecSync\s*\(/,
 		/**
-		 * Ungated Tolgee apiKey in the root layout. Passing the key straight to
-		 * tolgeeBuilder.init leaves it in place through DCE, so Vite inlines it into
-		 * the deployed client bundle and production/preview builds fetch translations
-		 * from the Tolgee server at runtime. Gate it behind import.meta.env.DEV (see
-		 * src/routes/+layout.svelte) so the key and its value are dead-code-eliminated
-		 * from non-dev builds. The gated form reads `import.meta.env.DEV ?` right after
-		 * the colon, so this pattern only matches the unguarded assignment.
+		 * Ungated Tolgee apiKey in the root layout. Passed straight to
+		 * tolgeeBuilder.init, the key survives DCE, so Vite inlines it into the
+		 * deployed client bundle and production and preview builds fetch translations
+		 * from the Tolgee server at runtime. The gate is import.meta.env.DEV (see
+		 * src/routes/+layout.svelte), which eliminates the key and its value from
+		 * non-dev builds. The gated form reads `import.meta.env.DEV ?` right after the
+		 * colon, so this pattern only matches the unguarded assignment.
 		 */
 		ungatedTolgeeApiKey: /apiKey:\s*import\.meta\.env\.VITE_TOLGEE_API_KEY/
 	}
@@ -180,7 +180,7 @@ export function middleDotOrEmDashLines(file: string, text: string): number[] {
 		.flatMap((line, index) => (MIDDLE_DOT_OR_EM_DASH.test(line) ? [index + 1] : []));
 }
 
-// ANSI colors for direct terminal runs; wrappers set NO_COLOR before sanitizing output.
+// ANSI colors for direct terminal runs. Wrappers set NO_COLOR before sanitizing output.
 const colors =
 	process.env.NO_COLOR === undefined
 		? {
@@ -192,9 +192,7 @@ const colors =
 			}
 		: { reset: '', bold: '', green: '', yellow: '', red: '' };
 
-// ===========================================================================
-// Intake — argv and file arguments become validated, repo-relative POSIX paths
-// ===========================================================================
+// Intake: argv and file arguments become validated, repo-relative POSIX paths
 
 /** Repo root, from this script's own location. Correct under worktrees and nesting. */
 // fileURLToPath, not Bun's import.meta.dir: the latter is undefined under vitest,
@@ -203,14 +201,12 @@ const REPO_ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.me
 
 const USAGE = '  Flags: --ci, --staged, --scope <lint|types|format|compat>, --files-from <path|->';
 
-/** Directories never descended into when a directory argument is expanded. */
 /**
  * Directories a directory expansion never descends into, split the way .gitignore splits
  * them: `/build`, `/dist` and `/.svelte-kit` are anchored there and a tracked
  * `src/build/generator.ts` is an ordinary source file, while `node_modules`, `.git` and
- * `.convex` are ignored at any depth. Comparing segments against one flat list dropped the
- * former from a run that stayed green on its other inputs; comparing substrings, as this
- * did before, also read `src/redist/` as `dist/`.
+ * `.convex` are ignored at any depth. One flat segment list would drop the former, and a
+ * substring comparison would read `src/redist/` as `dist/`.
  */
 const NEVER_WALK_ANYWHERE = new Set(['node_modules', '.git', '.convex']);
 const NEVER_WALK_AT_ROOT = new Set(['.svelte-kit', 'build', 'dist']);
@@ -232,9 +228,7 @@ export const FILES_FROM_GIT_PRODUCER = [
 	'-z'
 ] as const;
 
-/**
- * Reject the run. A gate that cannot see its input must never report success.
- */
+/** A gate that cannot see its input must never report success. */
 function fail(message: string, hint?: string): never {
 	console.error(`${colors.red}${sanitizeTerminalField(message)}${colors.reset}`);
 	if (hint) console.error(sanitizeTerminalText(hint));
@@ -312,14 +306,13 @@ export function existingRepositoryPaths(files: string[]): string[] {
 	return files.filter((file) => existsSync(path.join(REPO_ROOT, file)));
 }
 
-/** Paths Prettier's `.` traversal can visit; it does not follow symbolic links. */
 /**
  * The formatter's own view of a path list: symlinks removed, missing paths either fatal or
  * dropped. Prettier exits 2 on an explicitly named symlink ("Explicitly specified pattern
- * ... is a symbolic link"), and this deliberately differs: a link carries a target path
- * rather than formattable source, so refusing one would fail a whole computed list over an
- * entry that has nothing to format. A list that holds only links is therefore an honest
- * zero, the same as a list of images.
+ * ... is a symbolic link"), and this differs on purpose: a link carries a target path
+ * instead of formattable source, so refusing one would fail a whole computed list over an
+ * entry with nothing to format. A list that holds only links is a legal zero, the same as
+ * a list of images.
  */
 export function prettierProjectPaths(
 	files: string[],
@@ -344,7 +337,7 @@ export function prettierProjectPaths(
 	});
 }
 
-/** A path that vanished between two syscalls, which is the only traversal race to absorb. */
+/** A path that vanished between two syscalls, the only traversal race to absorb. */
 function isMissingPathError(error: unknown): boolean {
 	return (error as NodeJS.ErrnoException | null)?.code === 'ENOENT';
 }
@@ -405,8 +398,8 @@ export function prettierTraversalPaths(
 			// Prettier reads this phase through its own `lstatSafe`, which swallows ENOENT and
 			// nothing else, and a generated tree such as .svelte-kit can lose an entry to a
 			// concurrent sync between the readdir above and the stat below. Skipping a vanished
-			// entry matches what the formatter would have decided; swallowing EACCES or EIO
-			// would instead hide a directory this ledger is supposed to account for.
+			// entry matches the formatter. Swallowing EACCES or EIO would hide a directory this
+			// ledger has to account for.
 			let entry;
 			try {
 				entry = lstatSync(absolute);
@@ -435,25 +428,22 @@ function toPosix(p: string): string {
 }
 
 /**
- * The single door every caller-supplied path comes through.
+ * The single door every caller-supplied path comes through. A path that is not
+ * validated or not normalized here ends in a run that checks nothing and prints
+ * "All checks passed!".
  *
- * Two failures used to hide behind this boundary, and both ended the same way: a run
- * that checked nothing and printed "All checks passed!".
+ *   1. Validation. `static-checks.ts ""` (an empty shell variable expanded into a
+ *      quoted argument) would count as one "specified file", match no extension
+ *      filter, skip every check, and exit 0 (#691). A directory, a missing path, and
+ *      a newline-joined blob would do the same.
  *
- *   1. Nothing VALIDATED a positional. `static-checks.ts ""` — a caller expanding an
- *      empty shell variable into a quoted argument — counted as one "specified file",
- *      matched no extension filter, skipped every check, and exited 0 (#691). A
- *      directory, a missing path, and a newline-joined blob all did the same.
+ *   2. Normalization. The banned-pattern scan and the Convex gate are
+ *      `startsWith('src/')` prefix tests, so an absolute path matches neither and
+ *      those checks no-op, while prettier, eslint and svelte-check accept the same
+ *      path and make the run look substantive. AGENTS.md tells every agent to pass
+ *      absolute paths, so this is the common case.
  *
- *   2. Nothing NORMALIZED a positional. The banned-pattern scan and the Convex gate
- *      are `startsWith('src/')` prefix tests, so an ABSOLUTE path matched neither and
- *      those checks silently no-opped — while prettier, eslint and svelte-check
- *      accepted the very same path and made the run look substantive. AGENTS.md tells
- *      every agent to pass absolute paths, so this was the common case, not the exotic
- *      one.
- *
- * Normalizing here fixes (2) for every prefix gate at once, including the ones a fork
- * adds later, without touching a single gate.
+ * Normalizing here covers every prefix gate at once, including the ones a fork adds.
  */
 export function resolveInputs(
 	raw: string[],
@@ -463,11 +453,11 @@ export function resolveInputs(
 	// Only the formatter refuses to resolve a symlink, because Prettier itself does
 	// (`followSymbolicLinks: false`, and an explicitly named link is an error): it has to see
 	// the link's own path so its ignore rules and its diagnostics name what was typed. Every
-	// other scope routes by extension and needs the target. Lint and types have always
-	// expanded a directory link, and .claude/skills is a tracked one whose target holds
-	// TypeScript, so refusing it here would drop those files from a types run that still
-	// reports success. A leaf link is the same question: `probe.md -> probe.ts` under the
-	// link's own name reaches no checker at all and the run exits 0 having checked nothing.
+	// other scope routes by extension and needs the target. Lint and types expand a directory
+	// link, and .claude/skills is a tracked one whose target holds TypeScript, so refusing it
+	// here would drop those files from a types run that still reports success. A leaf link is
+	// the same question: `probe.md -> probe.ts` under the link's own name reaches no checker
+	// and the run exits 0 having checked nothing.
 	followSymbolicLinks = true
 ): string[] {
 	const out = new Set<string>();
@@ -490,10 +480,10 @@ export function resolveInputs(
 			);
 		}
 
-		// Resolve against the invocation cwd (what the caller typed is relative to),
-		// then re-express against the repo root (what every gate below assumes).
-		// realpath both sides so a checkout reached through a symlink (/tmp ->
-		// /private/tmp, a symlinked worktree) does not read as "outside the repo".
+		// Resolve against the invocation cwd (what the caller typed is relative to), then
+		// re-express against the repo root (what every gate below assumes). realpath on both
+		// sides keeps a checkout reached through a symlink (/tmp -> /private/tmp, a symlinked
+		// worktree) from reading as "outside the repo".
 		const invocationBase = path.resolve(baseDirectory);
 		const absolute = path.resolve(invocationBase, arg);
 		if (!existsSync(absolute)) fail(`No such file (${origin}): ${formatPathForDiagnostic(arg)}`);
@@ -515,8 +505,8 @@ export function resolveInputs(
 		const isSymlink = lstatSync(absolute).isSymbolicLink();
 		// The formatter must classify the path the caller named, including every symlinked
 		// ancestor, because ignore rules are path rules. Canonicalizing `alias/probe.ts` to an
-		// ignored target under `scratch/` made a direct Prettier failure into a zero-file pass.
-		// A relative argument can be re-rooted through a symlinked invocation cwd without
+		// ignored target under `scratch/` would turn a direct Prettier failure into a zero-file
+		// pass. A relative argument can be re-rooted through a symlinked invocation cwd without
 		// resolving any component it names. Absolute arguments keep their own spelling.
 		const fromInvocation = path.relative(invocationBase, absolute);
 		const insideInvocation =
@@ -531,9 +521,9 @@ export function resolveInputs(
 		// An absolute alias outside the physical repository is rejected even when its target
 		// resolves inside. Preserving its spelling would require carrying absolute paths through
 		// a repository-relative ledger, while canonicalizing it changes anchored ignore rules:
-		// direct Prettier checked `alias/scratch/probe.ts`, the wrapper reclassified it as root
-		// `scratch/probe.ts`, and the ignored-path no-op exited 0. Failing closed is the only
-		// honest contract until the ledger can represent external aliases explicitly.
+		// direct Prettier checks `alias/scratch/probe.ts`, the wrapper would reclassify it as root
+		// `scratch/probe.ts`, and the ignored-path no-op would exit 0. Failing closed is the only
+		// sound contract until the ledger can represent external aliases explicitly.
 		const located = followSymbolicLinks ? real : named;
 		const native = path.relative(REPO_ROOT, located);
 		const relative = toPosix(native);
@@ -566,8 +556,8 @@ export function resolveInputs(
 				// Prettier traverses the caller-visible directory. The traversal function walks the
 				// resolved target so it can read the filesystem, then this maps each child back under
 				// the alias the caller named. Without that mapping, `alias/subdir` targeting root
-				// `scratch/` was classified under the target ignore rule and exited 0 on an
-				// unformatted file direct Prettier found through the alias.
+				// `scratch/` is classified under the target ignore rule and exits 0 on an unformatted
+				// file that direct Prettier finds through the alias.
 				if (!followSymbolicLinks) {
 					const suffix = prefix === '' ? file : file.slice(prefix.length);
 					out.add(namedDirectory === '' ? suffix : `${namedDirectory}/${suffix}`);
@@ -613,23 +603,20 @@ function readFilesFrom(source: string): string[] {
 	return records;
 }
 
-// ===========================================================================
-// Ledger — one routing table, one accounting of what actually ran
-// ===========================================================================
+// Ledger: one routing table, one accounting of what actually ran
 
 export function isIgnoredPath(file: string): boolean {
 	return CONFIG.ignorePaths.some((prefix) => file.startsWith(prefix));
 }
 
 /**
- * Which checks are responsible for a repo-relative path. The ONLY place a file set is
- * derived from the path itself, so a check can no longer disagree with the ledger about
- * its own scope, and a new check has to declare a route to be accounted for.
+ * Which checks are responsible for a repo-relative path. The only place a file set is
+ * derived from the path itself, so a check cannot disagree with the ledger about its own
+ * scope, and a new check has to declare a route to be accounted for.
  *
  * Prettier is the one route that is not a path predicate, because the mapping from
  * filename to parser belongs to Prettier and moves when Prettier moves. It is resolved
- * by prettierFormattableFiles() below and reaches the ledger the same way every other
- * route does, through filesFor().
+ * by prettierFormattableFiles() below and reaches the ledger through filesFor().
  */
 const CLI_PACKAGE_DIRECTORY = 'packages/create-saas-starter';
 const CLI_PACKAGE_PREFIX = `${CLI_PACKAGE_DIRECTORY}/`;
@@ -737,8 +724,7 @@ export const ROUTES = {
 	'knowledge-placement': (f: string) => matchesKnowledgeCandidate(knowledgePolicy, f),
 	eslint: (f: string) =>
 		f !== 'scripts/english-policy/pr-metadata.bundle.mjs' && isJavaScriptSourceFile(f),
-	// The old gate was `jsTsSvelteFiles.length === 0 && svelteFiles.length === 0`;
-	// svelteFiles is a subset of jsTsSvelteFiles, so the second clause was dead.
+	// svelteFiles is a subset of jsTsSvelteFiles, so this one predicate covers both
 	'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f) && !f.startsWith(CLI_PACKAGE_PREFIX),
 	'cli-types': (f: string) =>
 		(f.startsWith(CLI_PACKAGE_PREFIX) &&
@@ -756,14 +742,13 @@ const PRETTIER_IGNORE_FILES = ['.gitignore', '.prettierignore'];
 /**
  * The files Prettier would actually format, answered by Prettier.
  *
- * This used to be an extension grammar maintained here by hand, which is a copy of a
- * table Prettier owns and was wrong wherever the two had drifted apart: README.markdown,
- * .babelrc, .geojson and .mjml are all formatted by Prettier and none of them matched, so
- * a file-scoped run skipped them and reported success.
+ * A hand-kept extension grammar would copy a table Prettier owns and drift from it:
+ * README.markdown, .babelrc, .geojson and .mjml are all formatted by Prettier, and a
+ * grammar that misses them makes a file-scoped run skip them and report success.
  *
  * Configuration resolution is part of the routing answer. A parser override can make a
  * filename with no built-in language format-capable, and classifying with `resolveConfig:
- * false` silently removed it from a computed list that the real CLI rejected as unformatted.
+ * false` would remove it from a computed list that the real CLI rejects as unformatted.
  * The config and plugins are project-owned executable inputs that the formatter itself runs;
  * classification must use the same ones. Ignore files are consulted for the same reason: a
  * file the command skips is not work this run may claim.
@@ -775,10 +760,10 @@ export async function prettierFormattableFiles(
 	const candidates = files.filter((file) => !isPrettierAlwaysIgnoredPath(file));
 	if (candidates.length === 0) return [];
 	const ignorePath = PRETTIER_IGNORE_FILES.map((file) => path.join(cwd, file));
-	// `getFileInfo` reads ignore files and may load parser metadata. Starting one promise per
-	// path made a full-format preflight retain an ignored generated tree at once and roughly
-	// doubled the peak memory of direct Prettier in the reproducer. Keep only as many
-	// classifications active as the host can run in parallel; result slots preserve order.
+	// `getFileInfo` reads ignore files and may load parser metadata. One promise per path
+	// would make a full-format preflight retain an ignored generated tree at once, roughly
+	// doubling the peak memory of direct Prettier in the reproducer. Only as many
+	// classifications run as the host can run in parallel; result slots preserve order.
 	const infos: Array<Awaited<ReturnType<typeof getFileInfo>> | undefined> = Array.from({
 		length: candidates.length
 	});
@@ -857,8 +842,9 @@ const TYPE_SOURCE = /\.(?:[cm]?[jt]sx?|svelte)$/;
  *
  * The type routes pick a check by extension or prefix, and the check then reads only what
  * its tsconfig includes plus whatever those files import. A standalone `scripts/probe.ts`
- * reached svelte-check by extension, the generated SvelteKit project never included it,
- * and the ledger reported a whole-project type check over a file it never read (#929).
+ * reaches svelte-check by extension, the generated SvelteKit project never includes it,
+ * and without this the ledger would report a whole-project type check over a file it never
+ * read (#929).
  *
  * Membership is the program, not the include list: svelte-check reports errors in
  * `scripts/dev-ports.ts` because `vite.config.ts` imports it, so a root-only answer would
@@ -964,8 +950,8 @@ type Outcome =
 	| { kind: 'skipped'; reason: string; suppressed: boolean };
 
 /**
- * What the run actually did. The success banner is printed FROM this, so "All checks
- * passed!" can no longer be a claim with nothing behind it.
+ * What the run actually did. The success banner is printed from this, so "All checks
+ * passed!" is never a claim with nothing behind it.
  *
  * `suppressed` separates "this check had files but was switched off" (--scope, or
  * misspell not installed) from "this check had no files". Only the second counts
@@ -998,9 +984,9 @@ class Ledger {
 
 	/**
 	 * File-scoped checks read what survives. The type checks are project-driven: routed paths
-	 * decide only WHETHER they start, and then they check the whole project. Gating them on
-	 * surviving files meant `git rm` of an imported module, the change most likely to break the
-	 * project typecheck, could never start one, and a rename to a non-source name did the same.
+	 * decide only whether they start, and then they check the whole project. Gated on
+	 * surviving files, `git rm` of an imported module, the change most likely to break the
+	 * project typecheck, could never start one, and neither could a rename to a non-source name.
 	 */
 	filesFor(id: CheckId): string[] {
 		if (id === 'prettier') return this.files.filter((file) => this.formattable.has(file));
@@ -1009,8 +995,8 @@ class Ledger {
 
 	/**
 	 * Surviving named source files, whether or not a type route claims them. A route decides
-	 * only whether a project check starts, so asking it first let `src/probe.mts` beside a
-	 * routed file pass without any project reading it; filesOutsideTypeProjects() decides.
+	 * only whether a project check starts, so asking it first would let `src/probe.mts` beside
+	 * a routed file pass without any project reading it; filesOutsideTypeProjects() decides.
 	 */
 	typeSources(): string[] {
 		return this.files.filter((file) => TYPE_SOURCE.test(file));
@@ -1025,23 +1011,23 @@ class Ledger {
 	}
 
 	/**
-	 * Record a reason this run legitimately had nothing to do.
+	 * Records a reason this run legitimately had nothing to do.
 	 *
-	 * The zero-work invariant asks whether a check COULD have run over the named files. A
-	 * `--scope format` run over files Prettier does not format is the caller's answer rather
-	 * than a hole in the gate. A deletion-only staged change is the other honest zero: no
-	 * deleted bytes exist in the final index to check, while the final-index knowledge scan
-	 * still verifies that removing their paths broke no links. Nothing else may call this.
+	 * The zero-work invariant asks whether a check could have run over the named files. A
+	 * `--scope format` run over files Prettier does not format is the caller's answer, not a
+	 * hole in the gate. A deletion-only staged change is the other legal zero: no deleted
+	 * bytes exist in the final index to check, while the final-index knowledge scan still
+	 * verifies that removing their paths broke no links. Nothing else may call this.
 	 */
 	noWork(reason: string): void {
 		this.honestNoWork.push(reason);
 	}
 
 	/**
-	 * Did a FILE-SCOPED check actually consume the caller's files? The always-on
-	 * project checks (oxlint, build-emails, Autumn config) are deliberately not counted: they
-	 * run no matter what you pass, so they can never earn green on the caller's behalf.
-	 * That is exactly what let a zero-file run scroll plausible output past everyone.
+	 * Whether a file-scoped check consumed the caller's files. The always-on project checks
+	 * (oxlint, build-emails, Autumn config) are not counted: they run whatever you pass, so
+	 * they can never earn green on the caller's behalf, and counting them would let a
+	 * zero-file run scroll plausible output past everyone.
 	 */
 	private consumedAnything(): boolean {
 		return CHECK_IDS.some((id) => {
@@ -1057,8 +1043,8 @@ class Ledger {
 	/** The invariant: name files, and the run may only be green if it can point at work it did on them. */
 	assertWorkPerformed(scopeLabel: string): void {
 		if (this.mode === 'full') {
-			// The full-project version of this same bug: if a project glob ever breaks,
-			// CI prints "Scanned 0 files — no banned patterns found" and goes green.
+			// The full-project form of the same failure: a broken project glob would print
+			// "Scanned 0 files" with no banned patterns found and go green.
 			for (const [id, outcome] of this.outcomes) {
 				if (outcome.kind === 'ran' && outcome.files === 0) {
 					fail(`Full-project run: "${id}" matched 0 files — its project glob is broken.`);
@@ -1108,8 +1094,6 @@ class Ledger {
 	}
 }
 
-// ===========================================================================
-
 function parseCli() {
 	const parsed = (() => {
 		try {
@@ -1121,11 +1105,10 @@ function parseCli() {
 					scope: { type: 'string' },
 					'files-from': { type: 'string' }
 				},
-				// Was strict:false, which swallowed every typo. `--scop lint` leaked its
-				// VALUE into the positionals as a bogus file, and `--CI` silently downgraded
-				// CI's assert mode into fix mode: prettier switched from --check to --write
-				// and REWROTE the source it was supposed to be asserting on, then reported
-				// success. An unrecognized flag is now a hard error.
+				// A lenient parser would swallow every typo: `--scop lint` would leak its value into
+				// the positionals as a bogus file, and `--CI` would downgrade CI's assert mode into fix
+				// mode, where prettier switches from --check to --write and rewrites the source it is
+				// supposed to assert on, then reports success. An unrecognized flag is a hard error.
 				strict: true,
 				allowPositionals: true
 			});
@@ -1144,7 +1127,7 @@ function parseCli() {
 		fail(`Invalid --scope value: "${scope}". Use "lint", "types", "format", or "compat".`);
 	}
 
-	// Skip first two positionals (bun runtime + script path)
+	// The first two positionals are the bun runtime and the script path
 	const rawPositionals = positionals.slice(2);
 
 	if (filesFrom !== undefined && rawPositionals.length > 0) {
@@ -1158,7 +1141,7 @@ function parseCli() {
 		);
 	}
 
-	// Mode follows what was ASKED FOR, not what survived filtering.
+	// Mode follows what was asked for, not what survived filtering.
 	const mode: Mode =
 		filesFrom !== undefined || rawPositionals.length > 0 ? 'files' : stagedOnly ? 'staged' : 'full';
 
@@ -1169,9 +1152,8 @@ function parseCli() {
 	}
 
 	// A staged run must end by proving the checked bytes are still the staged bytes, and
-	// that closing argument belongs to the lint-and-types path that owns it. Rather than
-	// spread it over a second exit, the combination is refused, and --staged stays a lint
-	// consumer.
+	// that closing argument belongs to the lint-and-types path that owns it. Instead of a
+	// second exit, the combination is refused, and --staged stays a lint consumer.
 	//
 	// `--files-from` over the staged names is not a substitute, and the diagnostic must not
 	// read as one. It names paths, and every checker then reads the working tree: stage an
@@ -1189,7 +1171,6 @@ function parseCli() {
 	return { ciMode, scope, mode, rawPositionals, filesFrom };
 }
 
-/** A command and its arguments. */
 type CommandLine = [command: string, args: string[]];
 
 /**
@@ -1215,9 +1196,6 @@ function reportCommandOutcome(
 	}
 }
 
-/**
- * Run a command and exit if it fails
- */
 export async function runCommand(
 	command: string,
 	args: string[],
@@ -1292,7 +1270,7 @@ export function startCommand(
  * Every glob metacharacter, spelled as a one-character class rather than backslash-escaped.
  *
  * Prettier resolves an argument as a path first and expands it as a glob only once that
- * path is gone, which is what lets a vanished file quietly match a neighbour: measured with
+ * path is gone, which lets a vanished file quietly match a neighbour: measured with
  * Prettier 3.9.5, `scripts/[ab].ts` checks `scripts/a.ts` and exits 0 after the named file
  * is deleted, while the escaped form exits 2 with "No files matching the pattern".
  *
@@ -1320,14 +1298,14 @@ const GLOB_CLASS_ESCAPES = new Map<string, string>([
 ]);
 
 /**
- * For a stable filesystem snapshot, turn a repository path into a glob pattern that can
+ * For a stable filesystem snapshot, turns a repository path into a glob pattern that can
  * only match that same path. Synchronized mutations between this check and child launch are
- * tracked in #875 and require a file-descriptor/stdin formatter path rather than more escaping.
+ * tracked in #875 and require a file-descriptor or stdin formatter path, not more escaping.
  *
  * `!`, `]`, a literal backslash and a double quote take an extglob rather than a class.
  * `[!]` opens a negated class and the last two cannot appear inside one. `./` is not an
  * option for the `!`: measured with Prettier 3.9.5, `./!a[[]b[]].ts` still reads as a
- * negation, so a run whose named file had vanished matched every other root file and exited
+ * negation, so a run whose named file vanished matches every other root file and exits
  * 0, while `@(!)a[[]b[]].ts` exits 2 with "No files matching the pattern". A backslash and
  * a quote are unrepresentable in a Windows filename, so those two branches are reachable on
  * POSIX alone, where Prettier's `normalizeToPosix` is the identity.
@@ -1368,11 +1346,9 @@ export function prettierLiteralPattern(file: string): string {
  * One Prettier contract, whether the run names files or the whole project. A full run
  * with BUN_LINT_BINARY set uses that build's `bun fmt` instead; see runFormatter().
  *
- * Both Prettier invocations are built here so they cannot drift: the project run used to take
- * neither --ignore-unknown nor the plugins while the file-scoped run passed plugins on
- * the command line, so the two could disagree about what a given file even is. Neither
- * names a plugin now, because .prettierrc declares them once and the formatter reads it.
- * --ignore-unknown makes a path Prettier has no parser for a skip in both runs instead
+ * Both Prettier invocations are built here so they agree about what a given file is.
+ * Neither names a plugin, because .prettierrc declares them once and the formatter reads
+ * it. --ignore-unknown makes a path Prettier has no parser for a skip in both runs instead
  * of a hard error in one.
  */
 export function prettierArguments(formatFlag: '--check' | '--write', files?: string[]): string[] {
@@ -1404,7 +1380,7 @@ function assertRegularFormatterPaths(files: string[]): void {
 
 async function runFormatter(formatFlag: '--check' | '--write', files?: string[]): Promise<void> {
 	if (files === undefined) {
-		// CI points this at the Bun build it lints with. Its `bun fmt` printed the same bytes as
+		// CI points this at the Bun build it lints with. Its `bun fmt` prints the same bytes as
 		// the Prettier versions renovate.json holds for every file here, in a fraction of the
 		// time. Naming Prettier's ignore files keeps it from also reading .git/info/exclude.
 		const bun = process.env.BUN_LINT_BINARY;
@@ -1434,12 +1410,11 @@ async function runFormatter(formatFlag: '--check' | '--write', files?: string[])
  * would be irreversible: `isolatedGitEnv()` blanks the global and system config paths, and a
  * child cannot recover what its own environment no longer names. The checker needs that
  * configuration for its explicit baseline fetch, which relies on `url.*.insteadOf`, the
- * credential helper, the proxy and the CA bundle. Measured through this wrapper, a baseline
- * reachable only through a rewrite rule went unfetched: CI failed closed with "is
- * unreachable" and a local run fell back to the trunk and certified a different baseline.
- * Isolation belongs to the child, which applies it per call. Partial-clone lazy reads remain
- * isolated and can fail closed when they need external transport configuration; see #863 and
- * `isolatedGitEnv()` in `convex-consumer-compat.ts`.
+ * credential helper, the proxy and the CA bundle. A baseline reachable only through a URL
+ * rewrite becomes unreachable once that configuration is removed, so the checker keeps it
+ * for the explicit fetch. Isolation belongs to the child, which applies it per call. Partial-clone lazy
+ * reads remain isolated and can fail closed when they need external transport
+ * configuration; see #863 and `isolatedGitEnv()` in `convex-consumer-compat.ts`.
  */
 export function compatibilityInvocation(ciMode = false) {
 	const env = sanitizedGitEnv();
@@ -1451,16 +1426,11 @@ export function compatibilityInvocation(ciMode = false) {
 	};
 }
 
-/**
- * Check if misspell is installed (cross-platform via Bun.which)
- */
+/** Cross-platform via Bun.which */
 function hasMisspell(): boolean {
 	return Bun.which('misspell') !== null;
 }
 
-/**
- * Print section header
- */
 function printHeader(step: number, title: string): void {
 	console.log(`${colors.bold}${step}. ${title}${colors.reset}`);
 	console.log('======================================================');
@@ -1483,7 +1453,6 @@ export function literalControlCharacterViolations(file: string, text: string): s
 	);
 }
 
-// Main execution
 async function main(): Promise<void> {
 	const { ciMode, scope, mode, rawPositionals, filesFrom } = parseCli();
 
@@ -1493,7 +1462,7 @@ async function main(): Promise<void> {
 	const assertMode = usesAssertOnlyChecks(ciMode, mode);
 	const scopeLabel = scope ?? 'lint + types';
 
-	// Resolve caller-typed paths against the invocation cwd, BEFORE the chdir below.
+	// Caller-typed paths resolve against the invocation cwd, before the chdir below.
 	let inputs: string[] = [];
 	// Staged mode keeps the exact Git paths and the complete starting index state.
 	let stagedIndexPaths: string[] = [];
@@ -1505,8 +1474,8 @@ async function main(): Promise<void> {
 		const raw = filesFrom !== undefined ? readFilesFrom(filesFrom) : rawPositionals;
 		if (filesFrom !== undefined && raw.length === 0) {
 			// The one channel that can carry an empty list. Positionals cannot say this
-			// (`f()` and `f("")` are the same empty set), which is why the `"$FILES"`
-			// idiom used to fake a green run.
+			// (`f()` and `f("")` are the same empty set), so the `"$FILES"` idiom would fake a
+			// green run.
 			console.log('No files to check (empty --files-from list)');
 			process.exit(0);
 		}
@@ -1524,9 +1493,8 @@ async function main(): Promise<void> {
 	}
 
 	// Every glob and every subprocess below assumes the repo root (`bun prettier .`,
-	// `Bun.Glob('src/**/*')`, the `src/` prefix gates). Make that a fact rather than an
-	// unstated precondition — after resolving caller paths, so a relative argument still
-	// means what the caller meant.
+	// `Bun.Glob('src/**/*')`, the `src/` prefix gates). The chdir makes that a fact, after
+	// caller paths are resolved, so a relative argument still means what the caller meant.
 	process.chdir(REPO_ROOT);
 	const creatorState = scope === 'format' || scope === 'compat' ? undefined : creatorPackageState();
 
@@ -1546,8 +1514,8 @@ async function main(): Promise<void> {
 			.filter((change) => change.status === 'R')
 			.map((change) => change.previousPath!);
 		stagedRemovedPaths = [...stagedDeletedPaths, ...stagedRenamedFromPaths];
-		// Keep the original index paths. resolveInputs realpaths symlinks, while
-		// later comparisons must address the paths recorded by Git.
+		// The original index paths stay. resolveInputs realpaths symlinks, while later
+		// comparisons must address the paths recorded by Git.
 		stagedIndexPaths = getStagedFiles(REPO_ROOT, stagedEnv);
 		assertSafePaths([...stagedIndexPaths, ...stagedRemovedPaths]);
 		const transformed = stagedFilesWithContentAttributes(stagedIndexPaths, REPO_ROOT, stagedEnv);
@@ -1578,9 +1546,9 @@ async function main(): Promise<void> {
 	if (scope !== 'format') assertSafePaths(mode === 'full' ? fullRepositoryPaths : inputs);
 
 	// Every file-scoped run needs the formatter route for the zero-work invariant. Every full
-	// run that includes lint counts the same filesystem traversal Prettier performs. Keeping
-	// this on `--scope format` alone left the required `--scope lint` workflow reporting
-	// "whole project" and exiting 0 when `.prettierignore` matched every file.
+	// run that includes lint counts the same filesystem traversal Prettier performs. Without
+	// this on `--scope lint`, that required workflow would report "whole project" and exit 0
+	// when `.prettierignore` matched every file.
 	const ledgerInputs = countFullFormatter ? fullFormatPaths : inputs;
 	const prettierInputs = prettierProjectPaths(ledgerInputs, REPO_ROOT, scopedMode);
 	const formattable = await prettierFormattableFiles(prettierInputs);
@@ -1622,10 +1590,10 @@ async function main(): Promise<void> {
 			await runFormatter('--check', files);
 			ledger.ran('prettier', files.length);
 		} else {
-			// Prettier is the only check in this scope, so it can answer for the whole run:
-			// it would skip every named file, either because it has no parser for it or
-			// because .prettierignore or .gitignore excludes it. Reporting that plainly is
-			// honest; failing would make a caller that passes a mixed file list unusable.
+			// Prettier is the only check in this scope, so it answers for the whole run: it would
+			// skip every named file, either because it has no parser for it or because
+			// .prettierignore or .gitignore excludes it. Failing would make a caller that passes a
+			// mixed file list unusable.
 			console.log(
 				`No formatter work: Prettier formats none of the ${ledger.named} named file(s) ` +
 					'(unknown file type, symbolic link, or excluded by .prettierignore or .gitignore).'
@@ -1663,8 +1631,8 @@ async function main(): Promise<void> {
 		['run', '--cwd', CLI_PACKAGE_DIRECTORY, 'knip', '--no-progress']
 	];
 
-	// SvelteKit sync (always runs — needed by both lint and types). Another run's sync of this
-	// checkout can delete files this one is listing, so they take turns.
+	// SvelteKit sync always runs, because lint and types both need it. Another run's sync of
+	// this checkout can delete files this one is listing, so they take turns.
 	assertVarlockMatchesLockfile();
 	printHeader(step++, 'SvelteKit sync');
 	await withSvelteKitSyncLock(
@@ -1696,10 +1664,9 @@ async function main(): Promise<void> {
 				}
 			: undefined;
 
-	// -- Lint group: misspell, banned patterns, prettier, eslint, oxlint, knip --
+	// Lint group: misspell, banned patterns, prettier, eslint, oxlint, knip
 
 	if (shouldRunLint) {
-		// Spell checking
 		printHeader(step++, 'Spell checking');
 		if (hasMisspell()) {
 			const files = scopedMode ? ledger.filesFor('misspell') : spellcheckFiles(fullExistingPaths);
@@ -1707,7 +1674,7 @@ async function main(): Promise<void> {
 			if (files.length === 0) {
 				console.log('No files to spell check');
 			} else {
-				// Batch files to avoid command line length limits
+				// Batches stay below command line length limits
 				const chunkSize = 100;
 				for (let i = 0; i < files.length; i += chunkSize) {
 					await runCommand('misspell', ['-error', ...files.slice(i, i + chunkSize)]);
@@ -1729,8 +1696,6 @@ async function main(): Promise<void> {
 		}
 		console.log('\n');
 
-		// Banned patterns (deprecated tokens, bare animate-spin, static Sentry imports, execSync,
-		// ungated Tolgee apiKey, middle dots and em dashes in shipped text ESLint does not parse)
 		printHeader(step++, 'Banned patterns');
 		{
 			const filesToScan = scopedMode
@@ -1822,10 +1787,9 @@ async function main(): Promise<void> {
 		console.log('\n');
 
 		// Conservative English-language policy for authored prose. Registered target locale
-		// files are exact exemptions; arbitrary localized assertions in source stay outside
-		// the V1 source scope because only comments are inspected there. Ignored reports can
-		// be checked explicitly with `bun scripts/check-english.ts --artifact <path>` or
-		// `--stdin-label <label>`.
+		// files are exact exemptions. Localized assertions in source stay outside the V1 source
+		// scope, because only comments are inspected there. Ignored reports can be checked with
+		// `bun scripts/check-english.ts --artifact <path>` or `--stdin-label <label>`.
 		printHeader(step++, 'English prose');
 		{
 			const files = englishProseFiles(
@@ -1845,7 +1809,6 @@ async function main(): Promise<void> {
 		}
 		console.log('\n');
 
-		// Code formatting
 		printHeader(step++, 'Code formatting');
 		{
 			const formatFlag = assertMode ? '--check' : '--write';
@@ -1863,7 +1826,6 @@ async function main(): Promise<void> {
 		}
 		console.log('\n');
 
-		// ESLint
 		printHeader(step++, 'ESLint');
 		{
 			const files = ledger.filesFor('eslint');
@@ -1880,7 +1842,6 @@ async function main(): Promise<void> {
 		}
 		console.log('\n');
 
-		// oxlint
 		printHeader(step++, 'oxlint');
 		await (early?.oxlint.finish() ?? runCommand(...oxlint));
 		ledger.ran('oxlint');
@@ -1910,7 +1871,7 @@ async function main(): Promise<void> {
 		}
 	}
 
-	// -- Types group: build-emails, svelte-check and dedicated TypeScript projects --
+	// Types group: build-emails, svelte-check and dedicated TypeScript projects
 
 	if (shouldRunTypes) {
 		// A types-only run over named files asked whether those files type-check, so a file no
@@ -1938,13 +1899,12 @@ async function main(): Promise<void> {
 			console.log('\n');
 		}
 
-		// Build emails (required before type checking)
+		// Type checking needs the built emails
 		printHeader(step++, 'Build emails');
 		await runCommand('bun', ['scripts/build-emails.ts']);
 		ledger.ran('build-emails');
 		console.log('\n');
 
-		// Type checking
 		printHeader(step++, 'Type checking');
 		{
 			const files = ledger.filesFor('svelte-check');
@@ -1962,8 +1922,8 @@ async function main(): Promise<void> {
 						env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' }
 					}
 				);
-				// svelte-check is tsconfig-driven: the routed files decide WHETHER it runs,
-				// then it type-checks the whole project regardless.
+				// svelte-check is tsconfig-driven: the routed files decide whether it runs, then it
+				// type-checks the whole project.
 				ledger.ran('svelte-check', 'project');
 			}
 		}
@@ -1987,7 +1947,6 @@ async function main(): Promise<void> {
 		}
 		console.log('\n');
 
-		// Agent skill type checking
 		printHeader(step++, 'Agent skill type checking');
 		{
 			const files = ledger.filesFor('skill-types');
@@ -2001,7 +1960,6 @@ async function main(): Promise<void> {
 		}
 		console.log('\n');
 
-		// Convex type checking
 		printHeader(step++, 'Convex type checking');
 		{
 			const files = ledger.filesFor('convex');

@@ -1,21 +1,21 @@
 /**
- * Prune merged worktrees + local branches after PRs land, and fast-forward the
- * local trunk when it is safe to do so.
+ * Prunes merged worktrees and local branches after PRs land, and fast-forwards
+ * the local trunk when that is safe.
  *
  * After `gh pr merge --squash --delete-branch`, the remote branch is gone but
- * the local branch and its worktree linger. Left alone they pile up, and a
- * leftover branch also keeps its Convex preview deployment alive (eating deploy
- * quota). This finds every local branch whose upstream was deleted on the
- * remote, confirms via a merged GitHub PR (or git ancestry) that its content is
- * actually in trunk, then removes its worktree, deletes the branch, prunes
- * stale worktree metadata, and finally fast-forwards the trunk in the main
- * checkout when that checkout is clean and has not diverged.
+ * the local branch and its worktree linger. A leftover branch also keeps its
+ * Convex preview deployment alive, which eats deploy quota. This finds every
+ * local branch whose upstream was deleted on the remote, confirms via a merged
+ * GitHub PR (or git ancestry) that its content is in trunk, removes its
+ * worktree, deletes the branch, prunes stale worktree metadata, and
+ * fast-forwards the trunk in the main checkout when that checkout is clean and
+ * has not diverged.
  *
  * Contribution branches are cleaned up too: `bun run worktree --push-remote <r>`
  * stamps `branch.<name>.pushRemote`, and branches carrying that marker are
  * confirmed against a merged PR on that remote (head SHA must equal the local
  * tip) instead of origin. Without such markers the cross-remote path is
- * skipped entirely, so single-remote clones behave exactly as before.
+ * skipped, so single-remote clones never run it.
  *
  * Usage:
  *   bun scripts/prune-worktrees.ts            # remove merged worktrees + branches, ff trunk
@@ -76,12 +76,12 @@ export function selectGoneBranches(
 }
 
 /**
- * Select branches created to contribute to another remote (e.g. a template
- * repo added as `upstream`). Only the explicit `branch.<name>.pushRemote`
- * marker stamped by `bun run worktree --push-remote <r>` puts a branch in this
- * set — branches without it (including fresh worktree branches, which carry no
- * tracking at all) are never candidates. On a plain single-origin clone this
- * returns [], and the whole cross-remote probe is skipped.
+ * Branches created to contribute to another remote (e.g. a template repo added
+ * as `upstream`). Only the explicit `branch.<name>.pushRemote` marker stamped by
+ * `bun run worktree --push-remote <r>` puts a branch in this set. Branches
+ * without it, including fresh worktree branches without tracking, are never
+ * candidates. On a plain single-origin clone this returns [], and the
+ * cross-remote probe is skipped.
  */
 export function selectContributionBranches(
 	branches: BranchInfo[],
@@ -94,10 +94,10 @@ export function selectContributionBranches(
 }
 
 /**
- * Extract the GitHub `owner/repo` slug from a remote URL so `gh` can be pinned
- * to the right repository with `--repo` — with several remotes configured, gh's
- * own resolution depends on ambient state like `gh repo set-default`. Returns
- * null for non-GitHub remotes; callers treat that as "cannot confirm".
+ * The GitHub `owner/repo` slug of a remote URL, which pins `gh` to the right
+ * repository with `--repo`: with several remotes configured, gh's own resolution
+ * depends on ambient state like `gh repo set-default`. Returns null for
+ * non-GitHub remotes, which callers treat as "cannot confirm".
  */
 export function parseRemoteSlug(url: string): string | null {
 	const trimmed = url.trim();
@@ -112,10 +112,7 @@ export function matchMergedPrBySha(prs: Array<{ headRefOid?: string }>, localTip
 	return Boolean(localTip) && prs.some((pr) => pr.headRefOid === localTip);
 }
 
-/**
- * Parse `git worktree list --porcelain` into a branch-name -> worktree-path map.
- * Detached-HEAD worktrees have no `branch` line and are simply omitted.
- */
+/** Detached-HEAD worktrees have no `branch` line and are omitted. */
 export function parseWorktreePorcelain(stdout: string): Map<string, string> {
 	const map = new Map<string, string>();
 	let currentPath: string | null = null;
@@ -133,7 +130,7 @@ export function parseWorktreePorcelain(stdout: string): Map<string, string> {
 	return map;
 }
 
-/** First line of `git worktree list --porcelain` is always the main worktree. */
+/** First line of git worktree list --porcelain is always the main worktree. */
 function getRootWorktree(): string {
 	const result = runCommand('git', ['worktree', 'list', '--porcelain'], { silent: true });
 	if (!result.success || !result.stdout) {
@@ -146,7 +143,7 @@ function getRootWorktree(): string {
 		.replace(/^worktree /, '');
 }
 
-/** Resolve a remote's trunk branch name from its HEAD, falling back to "main". */
+/** Falls back to "main" when the remote's HEAD names no branch. */
 function getTrunk(remote = 'origin'): string {
 	const result = runCommand('git', ['symbolic-ref', '--short', `refs/remotes/${remote}/HEAD`], {
 		silent: true
@@ -157,10 +154,10 @@ function getTrunk(remote = 'origin'): string {
 }
 
 /**
- * Read every explicit `branch.<name>.pushRemote` key in one subprocess. Read
- * from config rather than for-each-ref's `%(push:remotename)`, which also
- * reflects an ambient `remote.pushDefault` and would drag unrelated branches
- * into the contribution set.
+ * Reads every explicit `branch.<name>.pushRemote` key in one subprocess. Config,
+ * not for-each-ref's `%(push:remotename)`, which also reflects an ambient
+ * `remote.pushDefault` and would drag unrelated branches into the contribution
+ * set.
  */
 function getPushRemotes(): Map<string, string> {
 	const result = runCommand('git', ['config', '--get-regexp', '^branch\\..*\\.pushremote$'], {
@@ -181,19 +178,19 @@ function getPushRemotes(): Map<string, string> {
 export type MergeVerdict = 'merged' | 'not-merged' | 'unknown';
 
 /**
- * Decide whether a [gone] branch is safe to delete, from the raw probe results.
- * '[gone]' alone only means the upstream was deleted on the remote — which also
- * happens when a PR is closed unmerged or a branch is deleted by hand — so it is
- * never sufficient on its own.
+ * Decides whether a [gone] branch is safe to delete, from the raw probe
+ * results. '[gone]' alone only means the upstream was deleted on the remote,
+ * which also happens when a PR is closed unmerged or a branch is deleted by
+ * hand, so it is never sufficient on its own.
  *
- * git ancestry ranks first: if the branch tip is already an ancestor of trunk,
- * its content is provably in trunk and deleting it can't lose work, regardless
- * of gh. It catches real merges/rebases but never squash-merges (the squash
- * commit is not the branch tip). gh then covers squash-merges, but only when a
- * merged PR's recorded head SHA is exactly the local branch tip: a name-only
- * match would also delete commits added locally after the merged push. If
- * neither can confirm (offline, gh missing), stay 'unknown' and the caller
- * leaves the branch alone.
+ * git ancestry ranks first: a branch tip that is an ancestor of trunk has its
+ * content in trunk, and deleting it cannot lose work, regardless of gh. It
+ * catches real merges and rebases but never squash-merges (the squash commit is
+ * not the branch tip). gh then covers squash-merges, but only when a merged PR's
+ * recorded head SHA is exactly the local branch tip: a name-only match would
+ * also delete commits added locally after the merged push. When neither can
+ * confirm (offline, gh missing), the verdict is 'unknown' and the caller leaves
+ * the branch alone.
  */
 export function classifyMerge(input: {
 	ghSucceeded: boolean;
@@ -206,12 +203,11 @@ export function classifyMerge(input: {
 }
 
 /**
- * Probe gh + git to decide whether a branch's content is really merged on the
- * given remote. The gh probe is pinned to that remote's GitHub repo and
- * requires the merged PR's head SHA to byte-equal the local tip (see
- * classifyMerge).
+ * Probes gh and git for whether a branch's content is merged on the given
+ * remote. The gh probe is pinned to that remote's GitHub repo and requires the
+ * merged PR's head SHA to byte-equal the local tip (see classifyMerge).
  *
- * Contribution branches accept ONLY the SHA-matched merged PR, and the PR must
+ * Contribution branches accept only the SHA-matched merged PR, and the PR must
  * target the remote's trunk. Ancestry is no proof there: a fresh contribution
  * worktree with no commits of its own has tip == <remote>/<trunk>, and
  * `merge-base --is-ancestor X X` exits 0, so the ancestry shortcut would call
@@ -270,10 +266,10 @@ function confirmMerged(
 }
 
 /**
- * Fast-forward the trunk in the main checkout — best effort only. We never
- * reset, stash, or force: the main checkout often carries uncommitted work, so
- * a dirty tree means `merge --ff-only` would abort anyway. Skip it and leave
- * that work untouched. New worktrees already branch off origin/<trunk>, so a
+ * Fast-forwards the trunk in the main checkout, best effort only. It never
+ * resets, stashes, or forces: the main checkout often carries uncommitted work,
+ * and `merge --ff-only` would abort on a dirty tree anyway, so that tree is
+ * skipped and left untouched. New worktrees branch off origin/<trunk>, so a
  * lagging local trunk is only cosmetic.
  */
 function fastForwardTrunk(rootPath: string, trunk: string, dryRun: boolean): void {
@@ -302,8 +298,8 @@ function fastForwardTrunk(rootPath: string, trunk: string, dryRun: boolean): voi
 		console.log(`${colors.green}Local ${trunk} already up to date with origin.${colors.reset}`);
 		return;
 	}
-	// origin is ahead. If the local trunk ALSO has commits origin lacks, it has
-	// diverged and --ff-only cannot help — skip with a clear message instead of
+	// origin is ahead. A local trunk that also has commits origin lacks has diverged,
+	// and --ff-only cannot help, so it is skipped with a clear message instead of
 	// letting the merge fail on a clean tree.
 	const ahead = runCommand(
 		'git',
@@ -329,10 +325,9 @@ function fastForwardTrunk(rootPath: string, trunk: string, dryRun: boolean): voi
 }
 
 /**
- * Remove a confirmed-merged branch's worktree and delete the branch, or print
- * why it is being kept. Shared by the origin [gone] path and the contribution
- * path — deletion policy (dirty-tree skip, --force, dry-run, reflog anchor) is
- * identical for both.
+ * Removes a confirmed-merged branch's worktree and deletes the branch, or prints
+ * why it is kept. The origin [gone] path and the contribution path share the
+ * deletion policy (dirty-tree skip, --force, dry-run, reflog anchor).
  */
 function pruneBranch(
 	branch: string,
@@ -381,8 +376,8 @@ function pruneBranch(
 	}
 	const deleted = runCommand('git', ['branch', '-D', branch], { silent: true });
 	if (deleted.success) {
-		// git prints "Deleted branch X (was <sha>)"; surface the sha as a
-		// reflog anchor in case a deletion ever needs undoing.
+		// git prints "Deleted branch X (was <sha>)"; the sha is surfaced as a reflog
+		// anchor in case a deletion needs undoing.
 		const wasSha = deleted.stdout.match(/\(was [0-9a-f]+\)/)?.[0] ?? '';
 		console.log(`${colors.green}  deleted branch ${branch} ${wasSha}${colors.reset}`);
 	} else {
@@ -461,8 +456,8 @@ function main(): void {
 		currentBranch
 	});
 	const contributionSet = new Set(contribution);
-	// A branch with an explicit non-origin pushRemote lives on that remote, so
-	// probe it there even if a stale origin tracking ref also reads [gone].
+	// A branch with an explicit non-origin pushRemote lives on that remote, so it is
+	// probed there even if a stale origin tracking ref also reads [gone].
 	const gone = selectGoneBranches(branches, { trunk, currentBranch }).filter(
 		(b) => !contributionSet.has(b)
 	);
@@ -478,9 +473,9 @@ function main(): void {
 		);
 		console.log('');
 		for (const branch of gone) {
-			// [gone] is only a prefilter. Never delete without a confirmed merge:
-			// a closed-unmerged PR or a hand-deleted remote is also [gone], and
-			// `branch -D` would be unrecoverable loss of committed work.
+			// [gone] is only a prefilter. Deletion needs a confirmed merge: a closed-unmerged
+			// PR or a hand-deleted remote is also [gone], and `branch -D` would lose
+			// committed work unrecoverably.
 			const verdict = confirmMerged(branch, { remote: 'origin', trunk });
 			pruneBranch(
 				branch,
@@ -530,7 +525,7 @@ function main(): void {
 	console.log('');
 }
 
-// Only run when executed directly, so the pure helpers above can be unit-tested.
+// Runs only when executed directly, so the pure helpers above can be unit-tested.
 if (import.meta.main) {
 	main();
 }

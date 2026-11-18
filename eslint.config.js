@@ -126,8 +126,8 @@ export default defineConfig(
 	{
 		languageOptions: { globals: { ...globals.browser, ...globals.node } },
 		rules: {
-			// typescript-eslint strongly recommend that you do not use the no-undef lint rule on TypeScript projects.
-			// see: https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
+			// typescript-eslint advises against no-undef on TypeScript projects:
+			// https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
 			'no-undef': 'off'
 		}
 	},
@@ -154,18 +154,17 @@ export default defineConfig(
 			}
 		},
 		rules: {
-			// $bindable() / $props() destructuring patterns trip ESLint v10's
-			// `no-useless-assignment` because the rule doesn't understand runes.
-			// Default values like `ref = $bindable(null)` are real defaults that
-			// the Svelte compiler uses when the prop isn't passed.
+			// $bindable() and $props() destructuring patterns trip ESLint v10's
+			// `no-useless-assignment`, which does not understand runes. Defaults like
+			// `ref = $bindable(null)` are real defaults the Svelte compiler uses when the
+			// prop is not passed.
 			'no-useless-assignment': 'off'
 		}
 	},
-	// Project-specific TypeScript rule overrides
 	{
 		files: ['**/*.ts', '**/*.svelte'],
 		rules: {
-			// Only warn on unused variables, and ignore variables starting with `_`
+			// Unused variables warn, and names starting with `_` are ignored
 			'@typescript-eslint/no-unused-vars': [
 				'warn',
 				{
@@ -174,7 +173,6 @@ export default defineConfig(
 				}
 			],
 
-			// Allow escaping the compiler
 			'@typescript-eslint/ban-ts-comment': 'error',
 
 			// Off globally: ~26 legitimate usages in UI-kit/vendor code (shadcn, Konva, TanStack)
@@ -186,7 +184,7 @@ export default defineConfig(
 			'@typescript-eslint/consistent-type-imports': ['error', { disallowTypeAnnotations: true }]
 		}
 	},
-	// Convex-specific: suppress type-checked rules that don't apply to Convex handler patterns
+	// Type-checked rules that do not apply to Convex handler patterns
 	{
 		files: ['**/src/lib/convex/**/*.ts'],
 		rules: {
@@ -200,7 +198,7 @@ export default defineConfig(
 			'@typescript-eslint/await-thenable': 'off'
 		}
 	},
-	// Prevent barrel imports from large icon libraries (breaks tree-shaking)
+	// Barrel imports from large icon libraries break tree-shaking
 	{
 		files: ['src/**/*.{ts,js,svelte}'],
 		plugins: {
@@ -285,7 +283,7 @@ export default defineConfig(
 			]
 		}
 	},
-	// No console.log/debug/info in src/ (frontend code)
+	// No console.log, debug or info in src/ (frontend code)
 	{
 		files: ['src/**/*.{ts,js,svelte}'],
 		ignores: ['src/lib/convex/**'],
@@ -663,7 +661,7 @@ export default defineConfig(
 			'@typescript-eslint/no-empty-object-type': 'off'
 		}
 	},
-	// Convex best-practice rules — v2 ships ESLint 9 flat config natively
+	// Convex best-practice rules; v2 ships an ESLint 9 flat config
 	...convexPlugin.configs.recommended.map((config) => ({
 		...config,
 		files: ['**/src/lib/convex/**/*.ts']
@@ -718,8 +716,8 @@ export default defineConfig(
 						"Log a caught error as `console.error({ code: 'snake_case_code', ...ids })` without the error itself: its message can quote emails, tokens or provider response bodies into the Convex logs."
 				},
 				{
-					// Every sign-up patched one counter row, and a burst of concurrent
-					// sign-ups exhausted Convex's conflict retries (FAILED_TO_CREATE_USER).
+					// One counter row patched per sign-up lets a burst of concurrent sign-ups
+					// exhaust Convex's conflict retries (FAILED_TO_CREATE_USER).
 					selector:
 						"CallExpression[callee.property.name='first'] > MemberExpression > CallExpression[callee.property.name='query'][arguments.0.value='dashboardCounters']",
 					message:
