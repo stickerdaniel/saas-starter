@@ -38,6 +38,7 @@ import requireStaticModeInitializerRule from './eslint/rules/require-static-mode
 import noTestInLoopRule from './eslint/rules/no-test-in-loop.js';
 import noRawCaughtErrorLogRule from './eslint/rules/no-raw-caught-error-log.js';
 import noHistoryCommentRule from './eslint/rules/no-history-comment.js';
+import convexCanonicalRegistrationRule from './eslint/rules/convex-canonical-registration.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
@@ -87,7 +88,8 @@ const localPlugin = {
 		'require-static-mode-initializer': requireStaticModeInitializerRule,
 		'no-test-in-loop': noTestInLoopRule,
 		'no-raw-caught-error-log': noRawCaughtErrorLogRule,
-		'no-history-comment': noHistoryCommentRule
+		'no-history-comment': noHistoryCommentRule,
+		'convex-canonical-registration': convexCanonicalRegistrationRule
 	}
 };
 
@@ -653,13 +655,19 @@ export default defineConfig(
 		}
 	},
 	// Anyone on the internet can call a public query, mutation or action, so its
-	// handler starts with an access call. Tests and the Better Auth component,
-	// which has its own convex.config.ts, register no application functions.
+	// handler starts with an access call, and every registration keeps the form
+	// the access rule can read. Tests and the Better Auth component, which has
+	// its own convex.config.ts, register no application functions.
+	// See eslint/rules/convex-canonical-registration.js.
 	{
 		files: ['src/lib/convex/**/*.ts'],
 		ignores: ['**/*.test.ts', '**/__tests__/**', 'src/lib/convex/betterAuth/**'],
+		plugins: {
+			local: localPlugin
+		},
 		rules: {
-			'@convex-dev/require-access-control': ['error', { pattern: convexAccessPattern }]
+			'@convex-dev/require-access-control': ['error', { pattern: convexAccessPattern }],
+			'local/convex-canonical-registration': 'error'
 		}
 	},
 	{
