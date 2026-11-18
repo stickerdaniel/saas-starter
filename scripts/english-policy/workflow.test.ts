@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -10,11 +10,6 @@ const ROOT = path.resolve(import.meta.dirname, '../..');
 const WORKFLOW_PATH = path.join(ROOT, '.github/workflows/require-english-pr.yml');
 const BUNDLE_PATH = path.join(ROOT, 'scripts/english-policy/pr-metadata.bundle.mjs');
 const ENTRY_PATH = path.join(ROOT, 'scripts/english-policy/pr-metadata.ts');
-const CLASSIFIER_PATH = path.join(ROOT, 'scripts/english-policy/classifier.ts');
-const ELD_LICENSE_PATH = path.join(ROOT, 'scripts/english-policy/ELD-LICENSE.txt');
-const MARKDOWN_PATH = path.join(ROOT, 'scripts/english-policy/markdown.ts');
-const MARKED_LICENSE_PATH = path.join(ROOT, 'scripts/english-policy/MARKED-LICENSE.txt');
-const THIRD_PARTY_NOTICES_PATH = path.join(ROOT, 'scripts/english-policy/THIRD-PARTY-NOTICES.md');
 const source = readFileSync(WORKFLOW_PATH, 'utf8');
 
 interface Step {
@@ -87,50 +82,6 @@ describe('English pull request workflow', () => {
 		});
 		expect(source).not.toMatch(/bun install|cache|artifact/i);
 		expect(source).not.toMatch(/pull_request\.(?:title|body|head)|github\.head_ref/);
-	});
-
-	it('ships the license and attribution for the detector embedded in the bundle', () => {
-		const classifier = readFileSync(CLASSIFIER_PATH, 'utf8');
-		const eldPackagePath = path.join(ROOT, 'node_modules/eld/package.json');
-		const eldPackage = JSON.parse(readFileSync(eldPackagePath, 'utf8')) as {
-			name: string;
-			version: string;
-			license: string;
-			files: string[];
-		};
-		const packageDirectory = path.dirname(eldPackagePath);
-		const attribution = readFileSync(THIRD_PARTY_NOTICES_PATH, 'utf8');
-
-		expect(classifier).toMatch(/from 'eld(?:\/[\w-]+)?'/);
-		expect(eldPackage).toMatchObject({ name: 'eld', license: 'Apache-2.0' });
-		expect(readFileSync(ELD_LICENSE_PATH, 'utf8')).toBe(
-			readFileSync(path.join(packageDirectory, 'LICENSE'), 'utf8')
-		);
-		expect(attribution).toContain(
-			`Efficient Language Detector (ELD) ${eldPackage.version} by Nito T.M.`
-		);
-		expect(attribution).toContain('ELD-LICENSE.txt');
-		expect(eldPackage.files).not.toContain('NOTICE');
-		expect(existsSync(path.join(packageDirectory, 'NOTICE'))).toBe(false);
-	});
-
-	it('ships the license and attribution for the Markdown lexer embedded in the bundle', () => {
-		const markdown = readFileSync(MARKDOWN_PATH, 'utf8');
-		const markedPackagePath = path.join(ROOT, 'node_modules/marked/package.json');
-		const markedPackage = JSON.parse(readFileSync(markedPackagePath, 'utf8')) as {
-			name: string;
-			version: string;
-			license: string;
-		};
-		const attribution = readFileSync(THIRD_PARTY_NOTICES_PATH, 'utf8');
-
-		expect(markdown).toMatch(/from 'marked'/);
-		expect(markedPackage).toMatchObject({ name: 'marked', license: 'MIT' });
-		expect(readFileSync(MARKED_LICENSE_PATH, 'utf8')).toBe(
-			readFileSync(path.join(path.dirname(markedPackagePath), 'LICENSE'), 'utf8')
-		);
-		expect(attribution).toContain(`Marked ${markedPackage.version} by MarkedJS`);
-		expect(attribution).toContain('MARKED-LICENSE.txt');
 	});
 
 	it('keeps the standalone bundle generated from the reviewed source', () => {

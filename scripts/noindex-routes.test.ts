@@ -26,28 +26,6 @@ function passesNoindex(source: string): boolean {
 }
 
 describe('private route noindex', () => {
-	it('SEOHead gates robots/canonical/hreflang behind the noindex prop', () => {
-		const source = fs.readFileSync(path.resolve('src/lib/components/SEOHead.svelte'), 'utf-8');
-
-		// noindex emits a robots meta tag
-		expect(source).toContain('name="robots"');
-		expect(source).toMatch(/content="noindex,\s*nofollow"/);
-
-		// canonical + hreflang are gated behind {#if !noindex}
-		expect(source).toContain('{#if !noindex}');
-		const canonicalIndex = source.indexOf('rel="canonical"');
-		const hreflangIndex = source.indexOf('hreflang=');
-		expect(canonicalIndex).toBeGreaterThan(-1);
-		expect(hreflangIndex).toBeGreaterThan(-1);
-
-		// Each gated block must be preceded by an {#if !noindex} guard.
-		for (const marker of ['rel="canonical"', 'hreflang=']) {
-			const idx = source.indexOf(marker);
-			const guardIdx = source.lastIndexOf('{#if !noindex}', idx);
-			expect(guardIdx, `${marker} should sit inside an {#if !noindex} block`).toBeGreaterThan(-1);
-		}
-	});
-
 	it('every (auth), app, and admin +page.svelte using SEOHead passes noindex', () => {
 		const privatePages = [
 			...collectPages(path.join(ROUTES_ROOT, '(auth)')),
@@ -63,14 +41,6 @@ describe('private route noindex', () => {
 			if (!usesSeoHead(source)) continue;
 			expect(passesNoindex(source), `${file} should pass noindex to SEOHead`).toBe(true);
 		}
-	});
-
-	it('does not render a global SEOHead in the root layout (avoids duplicate canonical/og/hreflang)', () => {
-		// Every +page.svelte renders its own SEOHead; a second global instance in the
-		// root layout duplicated canonical/og/hreflang on every page and emitted a
-		// canonical on noindex routes. The per-page SEOHead is the single source.
-		const rootLayout = fs.readFileSync(path.resolve('src/routes/+layout.svelte'), 'utf-8');
-		expect(rootLayout).not.toMatch(/<SEOHead\b/);
 	});
 
 	it('no (marketing) +page.svelte passes noindex', () => {

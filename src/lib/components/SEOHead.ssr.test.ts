@@ -20,6 +20,26 @@ function jsonLdBlocks(head: string): unknown[] {
 	);
 }
 
+describe('SEOHead indexing', () => {
+	const head = (noindex: boolean) =>
+		render(SEOHead, { props: { title: 'Page', description: 'Page description', noindex } }).head;
+
+	it('keeps a noindex page out of crawlers without canonical or alternate links', () => {
+		const html = head(true);
+		expect(html).toContain('<meta name="robots" content="noindex, nofollow"');
+		expect(html).not.toContain('rel="canonical"');
+		expect(html).not.toContain('hreflang=');
+		expect(html).not.toContain('property="og:url"');
+	});
+
+	it('gives an indexable page its canonical and alternate links and no robots block', () => {
+		const html = head(false);
+		expect(html).not.toContain('name="robots"');
+		expect(html).toContain('<link rel="canonical" href="https://example.com/en"');
+		expect(html).toContain('hreflang="x-default"');
+	});
+});
+
 describe('SEOHead structured data', () => {
 	it('renders one graph with the website and the legal organization on the homepage', () => {
 		const { head } = render(SEOHead, {

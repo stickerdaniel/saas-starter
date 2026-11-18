@@ -603,16 +603,13 @@ export default defineConfig(
 	},
 	// A test imports what it tests; reading production source as text pins its
 	// wording instead of its behaviour. See eslint/rules/no-source-text-read.js.
-	// The listed directories hold no such read; the scope grows as others convert.
 	{
-		files: [
-			'.agents/**/*.{test,spec}.{ts,js,mjs}',
-			'e2e/**/*.{test,spec}.{ts,js,mjs}',
-			'src/routes/**/*.{test,spec}.{ts,js,mjs}',
-			'src/test/**/*.{test,spec}.{ts,js,mjs}',
-			'src/lib/!(components)/**/*.{test,spec}.{ts,js,mjs}',
-			'src/lib/components/!(motion)/**/*.{test,spec}.{ts,js,mjs}',
-			'src/lib/components/*.{test,spec}.{ts,js,mjs}'
+		// The suffixes Vitest and Playwright run as tests.
+		files: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+		// Both read the live legal-metadata helper as setup input.
+		ignores: [
+			'packages/create-saas-starter/test/lifecycle.test.ts',
+			'scripts/template-setup.integration.test.ts'
 		],
 		plugins: {
 			local: localPlugin

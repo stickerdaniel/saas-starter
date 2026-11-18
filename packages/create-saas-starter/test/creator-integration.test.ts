@@ -165,7 +165,7 @@ describe('creator workflows', () => {
 		// Each job's first Bun command must install the frozen lock, so no check runs on a stale or rewritten one.
 		// Jobs that read nothing postinstall generates may skip the install scripts.
 		// A selection that decides whether the checks run imports Node built-ins only
-		// (scripts/upstream-report-scope.test.ts holds that), so it reads no lock.
+		// (scripts/upstream-report-scope.contract.test.ts holds that), so it reads no lock.
 		const preInstallSelections = new Set(['bun scripts/upstream-report-scope.ts']);
 		const firstBunRuns = Object.entries(jobs).flatMap(([id, job]) => {
 			const run = job.steps

@@ -206,7 +206,7 @@ export const billingPageAuthLoad = async (event: ServerLoadEvent) => resolveAuth
 /**
  * Layout load for the authenticated top-level subtrees. /app and /admin
  * re-export this single function so their guard logic cannot silently diverge
- * (scripts/authenticated-subtree-layouts.test.ts pins the re-export).
+ * (auth-layout-data.test.ts loads both routes).
  *
  * Overrides stale auth-coupled root data (authState, viewer, autumnState,
  * sidebarOpen) when entering a protected subtree through client-side navigation.

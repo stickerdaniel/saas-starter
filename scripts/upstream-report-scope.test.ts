@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import ts from 'typescript';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { runsWhen } from './github-expression';
@@ -100,18 +99,6 @@ describe('upstream report test inputs', () => {
 });
 
 describe('upstream report test selection', () => {
-	it('imports Node built-ins only, because the job runs it before installing', () => {
-		const file = path.join(import.meta.dirname, 'upstream-report-scope.ts');
-		const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest);
-		const specifiers = source.statements.flatMap((statement) =>
-			ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)
-				? [statement.moduleSpecifier.text]
-				: []
-		);
-		expect(specifiers.length).toBeGreaterThan(0);
-		expect(specifiers.filter((specifier) => !specifier.startsWith('node:'))).toEqual([]);
-	});
-
 	const entry = (filename: string, previous?: string) => ({
 		sha: 'b'.repeat(40),
 		filename,

@@ -9,6 +9,7 @@ import {
 	renderErrorTranslations,
 	renderWranglerConfig
 } from './sync-locales';
+import { prerender as marketingPrerender } from '../src/routes/[[lang]]/(marketing)/+layout';
 
 describe('locale-derived configuration', () => {
 	it('has exactly one translation file per configured locale', async () => {
@@ -53,12 +54,8 @@ describe('locale-derived configuration', () => {
 	});
 
 	it('keeps negotiated marketing routes server-rendered across adapters', () => {
-		const layout = fs.readFileSync(
-			path.resolve('src/routes/[[lang]]/(marketing)/+layout.ts'),
-			'utf8'
-		);
 		const config = fs.readFileSync(path.resolve('vite.config.ts'), 'utf8');
-		expect(layout).toContain('export const prerender = false;');
+		expect(marketingPrerender).toBe(false);
 		expect(config).not.toContain('PRERENDER_MARKETING_PAGES');
 		expect(config).not.toContain('prerenderEntries');
 	});

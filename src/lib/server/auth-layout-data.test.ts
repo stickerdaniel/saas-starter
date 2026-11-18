@@ -250,3 +250,47 @@ describe('public auth snapshot', () => {
 		expect(query).not.toHaveBeenCalled();
 	});
 });
+
+// SvelteKit does not rerun a parent server load on client-side navigation
+// (sveltejs/kit#4426), so every subtree that hooks.server.ts gates behind auth
+// resolves auth itself on a data request. A newly gated subtree joins this list.
+describe('authenticated route loads', () => {
+	const subtreeLoads = [
+		['/app', () => import('../../routes/[[lang]]/app/+layout.server')],
+		['/admin', () => import('../../routes/[[lang]]/admin/+layout.server')]
+	] as const;
+
+	it.each(subtreeLoads)('%s resolves fresh auth data on a data request', async (_route, route) => {
+		const { load } = await route();
+		const event = { ...fakeEvent({ sidebarOpen: false } as App.Locals), isDataRequest: true };
+
+		await expect(load(event)).resolves.toMatchObject({
+			authState: { isAuthenticated: false },
+			capabilities: { billing: { usable: false } },
+			sidebarOpen: false
+		});
+	});
+
+	it.each(subtreeLoads)(
+		'%s defers to the root layout on a full document load',
+		async (_route, route) => {
+			const { load } = await route();
+			const event = { ...fakeEvent({} as App.Locals), isDataRequest: false };
+
+			await expect(load(event)).resolves.toEqual({});
+			expect(query).not.toHaveBeenCalled();
+		}
+	);
+
+	it('pricing resolves auth and billing data on every load', async () => {
+		const { load } = await import('../../routes/[[lang]]/(marketing)/pricing/+page.server');
+		const event = { ...fakeEvent({} as App.Locals), isDataRequest: false };
+
+		await expect(load(event)).resolves.toMatchObject({
+			authState: { isAuthenticated: false },
+			autumnState: { customer: null },
+			capabilities: { billing: { usable: false } }
+		});
+		expect(query).toHaveBeenCalledWith('capabilities:getUsability', {});
+	});
+});

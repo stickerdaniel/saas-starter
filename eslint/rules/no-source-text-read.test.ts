@@ -208,7 +208,9 @@ describe('no-source-text-read repository coverage', () => {
 	it.each([
 		'src/lib/convex/example.test.ts',
 		'src/routes/example.svelte.test.ts',
-		'e2e/example.spec.ts'
+		'e2e/example.spec.ts',
+		'scripts/example.test.mts',
+		'scripts/example.spec.cts'
 	])(
 		'reaches %s',
 		async (filePath) => {
