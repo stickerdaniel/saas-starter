@@ -41,7 +41,8 @@ function resolveSpecifier(specifier, filename, cwd, aliases) {
 	const alias = matchAlias(specifier, aliases);
 	if (alias) {
 		const [prefix, directory] = alias;
-		return path.resolve(cwd, directory, specifier.slice(prefix.length));
+		// Joined, not resolved: a prefix without a trailing slash leaves a leading `/` in the rest.
+		return path.join(path.resolve(cwd, directory), specifier.slice(prefix.length));
 	}
 
 	return path.resolve(path.dirname(filename), specifier);

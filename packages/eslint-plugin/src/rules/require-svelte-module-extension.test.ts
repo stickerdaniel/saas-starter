@@ -89,6 +89,14 @@ describe('require-svelte-module-extension', () => {
 		expect(result.output).toBe(`import { state } from '#lib/lib-rune.svelte.ts';`);
 	});
 
+	it('resolves an alias prefix without a trailing slash', () => {
+		const result = lint(`import { state } from '@/lib-rune.svelte.js';`, [
+			{ aliases: { '@': 'src/lib' } }
+		]);
+		expect(result.fixed).toBe(true);
+		expect(result.output).toBe(`import { state } from '@/lib-rune.svelte.ts';`);
+	});
+
 	it('leaves a specifier with an unconfigured alias prefix alone', () => {
 		expect(lint(`import { state } from '#lib/lib-rune.svelte.js';`).messages).toHaveLength(0);
 	});

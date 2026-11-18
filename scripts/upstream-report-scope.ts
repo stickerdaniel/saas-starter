@@ -42,6 +42,8 @@ export const UPSTREAM_REPORT_TEST_INPUTS = [
 	'bunfig.toml',
 	'.npmrc',
 	'patches/',
+	// A root workspace; the frozen install needs its manifest on disk.
+	'packages/eslint-plugin/package.json',
 	// Loaded by the suite's Vitest config and its tests.
 	'scripts/vitest-settings.ts',
 	'tsconfig.tooling.json',
