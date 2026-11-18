@@ -47,13 +47,13 @@
 	},
 	"devDependencies": {
 		"@types/node": "26.6.6",
-		"knip": "6.42.1",
+		"knip": "6.45.1",
 		"typescript": "6.0.3",
-		"vitest": "5.0.5",
+		"vitest": "5.1.0",
 		"yaml": "2.9.1"
 	},
 	"dependencies": {
-		"@clack/prompts": "1.8.1",
-		"tar": "7.5.22"
+		"@clack/prompts": "1.9.0",
+		"tar": "7.5.23"
 	}
 }
