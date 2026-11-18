@@ -12,14 +12,13 @@ import { journeyCaptureStarts } from './admin/journey/capture';
 import { customerNotifications } from './admin/customerNotifications/ledger';
 
 export default defineSchema({
-	// Note: Better Auth component manages its own tables (users, sessions, accounts, verifications)
+	// The Better Auth component owns its tables (user, session, account, verification)
 	passkeyNudgeDismissals: defineTable({
 		userId: v.string(),
 		deferredUntil: v.number()
 	}).index('by_userId', ['userId']),
 
-	// Demo messages table (used in dashboard for billing demo)
-	// Note: Better Auth uses 'user' table (singular), managed by the component
+	// Demo messages for the dashboard billing demo
 	messages: defineTable({
 		userId: v.string(), // Better Auth user ID (string, not document ID)
 		body: v.string(),
@@ -36,20 +35,17 @@ export default defineSchema({
 		// `gte(quotaSettledAt, 0)` range, so erasure never walks unmarked history.
 		.index('by_user_and_settled', ['userId', 'quotaSettledAt']),
 
-	// Email event tracking - stores webhook events from Resend
-	// Intentionally write-only for now: inspect events via the Convex dashboard.
-	// by_email_id is the documented read path (AGENTS.md Email Event Tracking);
-	// add a query on it when needed.
+	// Resend webhook events. The table is write-only: inspect events in the Convex
+	// dashboard. A query that needs them reads through by_email_id.
 	emailEvents: defineTable({
-		emailId: v.string(), // Resend email ID
+		emailId: v.string(),
 		eventType: v.string(), // 'email.delivered', 'email.bounced', etc.
-		timestamp: v.number(), // When the event occurred
-		data: vEmailEvent // Full event payload from Resend
+		timestamp: v.number(),
+		data: vEmailEvent
 	}).index('by_email_id', ['emailId']),
 
-	// Admin audit logs - tracks admin actions for accountability
 	adminAuditLogs: defineTable({
-		adminUserId: v.string(), // Admin who performed the action
+		adminUserId: v.string(),
 		action: v.union(
 			v.literal('impersonate'),
 			v.literal('stop_impersonation'),
@@ -58,8 +54,7 @@ export default defineSchema({
 			v.literal('revoke_sessions'),
 			v.literal('set_role')
 		),
-		targetUserId: v.string(), // User affected by the action
-		// Typed metadata per action type (not v.any() for type safety)
+		targetUserId: v.string(),
 		metadata: v.optional(
 			v.union(
 				v.object({ reason: v.string() }), // ban_user, unban_user
@@ -79,19 +74,17 @@ export default defineSchema({
 		.index('by_target_action', ['targetUserId', 'action'])
 		.index('by_timestamp', ['timestamp']),
 
-	// Internal notes for users - visible only to admins, not to users
-	// Supports both authenticated users (Better Auth IDs) and anonymous users
-	// See: src/lib/convex/utils/anonymousUser.ts for ANONYMOUS_USER_PREFIX constant
+	// Notes about a user that only admins see
 	internalUserNotes: defineTable({
-		userId: v.string(), // Reference to user (Better Auth ID or anonymous ID)
-		adminUserId: v.string(), // Admin who created the note
-		content: v.string(), // Note content
-		createdAt: v.number() // Timestamp when note was created
+		userId: v.string(), // Better Auth ID or anonymous ID (utils/anonymousUser.ts)
+		adminUserId: v.string(),
+		content: v.string(),
+		createdAt: v.number()
 	}).index('by_user', ['userId']),
 
-	// Support feature registry.
-	// Source of truth for support thread membership, access, and denormalized list/search data.
-	// agent:threads remains generic conversation storage/runtime shared across features.
+	// Source of truth for support thread membership, access, and denormalized
+	// list and search data. agent:threads stays generic conversation storage
+	// shared across features.
 	supportThreads: defineTable(supportThreadFields)
 		.index('by_thread', ['threadId'])
 		.index('by_user_warm', ['userId', 'isWarm'])
@@ -140,31 +133,26 @@ export default defineSchema({
 		createdAt: v.number()
 	}).index('by_active', ['active']),
 
-	// Admin settings - key-value store for app configuration
 	adminSettings: defineTable({
-		key: v.string(), // Setting key (e.g., 'defaultSupportEmail')
-		value: v.string(), // Setting value
+		key: v.string(), // e.g. 'defaultSupportEmail'
+		value: v.string(),
 		updatedAt: v.number(),
-		updatedBy: v.optional(v.string()) // Admin who last updated
+		updatedBy: v.optional(v.string())
 	}).index('by_key', ['key']),
 
-	// Pending admin notifications - for debounced delivery
-	// Triggered when user clicks "Talk to human", sends message to handed-off ticket,
-	// or reopens a closed ticket. Uses 4-minute debounce to accumulate multiple messages.
-	// Timer resets if user sends more messages within the delay window, up to 15 minutes
-	// after createdAt.
+	// Debounced admin notifications, one per thread (admin/support/notifications.ts)
 	pendingAdminNotifications: defineTable({
-		threadId: v.string(), // Support thread ID
-		isReopen: v.boolean(), // true = reopened ticket, false = new/handoff ticket
+		threadId: v.string(),
+		isReopen: v.boolean(),
 		notificationType: v.union(v.literal('newTickets'), v.literal('userReplies')), // Which preference toggle to use
-		scheduledFor: v.number(), // Timestamp when notification should send
-		messageIds: v.array(v.string()), // Accumulated message IDs to include
-		scheduledFnId: v.optional(v.id('_scheduled_functions')), // For cancellation
+		scheduledFor: v.number(),
+		messageIds: v.array(v.string()),
+		scheduledFnId: v.optional(v.id('_scheduled_functions')), // Unset while a send owns the claim
 		claimToken: v.optional(v.string()), // Identifies the send that claimed the row; cleared on re-arm and retry
 		generation: v.optional(v.string()),
 		claimLeaseExpiresAt: v.optional(v.number()),
 		recoveryFnId: v.optional(v.id('_scheduled_functions')),
-		retryCount: v.optional(v.number()), // Number of retry attempts (stops after 5)
+		retryCount: v.optional(v.number()), // Capped by MAX_RETRY_COUNT
 		createdAt: v.number()
 	}).index('by_thread', ['threadId']),
 
@@ -183,18 +171,17 @@ export default defineSchema({
 		alertedAt: v.optional(v.number()) // Last alert, for the cooldown
 	}).index('by_bucket', ['bucket']),
 
-	// Admin notification preferences - per-recipient toggles for notification types
-	// Admin users are auto-synced via auth triggers; custom emails can be added manually.
-	// When admin is demoted, isAdminUser is set to false but record is kept dormant.
+	// Per-recipient notification toggles. Auth triggers sync admin users, and
+	// custom emails are added manually. A demoted admin's row stays dormant with
+	// isAdminUser false.
 	adminNotificationPreferences: defineTable({
-		email: v.string(), // Email address to send notifications to
+		email: v.string(),
 		userId: v.optional(v.string()), // Better Auth user ID (undefined for custom emails)
-		isAdminUser: v.boolean(), // true = currently has admin role, false = demoted or custom email
+		isAdminUser: v.boolean(), // false = demoted or custom email
 
-		// Notification type toggles
-		notifyNewSupportTickets: v.boolean(), // New support tickets (handoff from AI)
-		notifyUserReplies: v.boolean(), // User replied, admin didn't respond within 2 min
-		notifyNewSignups: v.boolean(), // New user registrations
+		notifyNewSupportTickets: v.boolean(),
+		notifyUserReplies: v.boolean(), // Visitor messages on a handed-off thread
+		notifyNewSignups: v.boolean(),
 		// Added after rows already existed, so optional: a missing value means on.
 		notifyNewCustomers: v.optional(v.boolean()), // First payments
 		notifyCancellations: v.optional(v.boolean()), // Scheduled cancellations
@@ -212,12 +199,12 @@ export default defineSchema({
 		founderWelcomeReplyTo: v.optional(v.string())
 	}).index('by_user', ['userId']),
 
-	// File metadata - stores image dimensions for proper dialog sizing
-	// (agent component strips unknown fields from file parts, so we store dimensions separately)
+	// Image dimensions for the attachment dialog. The agent component strips
+	// unknown fields from file parts, so the dimensions live here.
 	fileMetadata: defineTable({
 		fileId: v.string(), // Reference to agent:files._id
-		storageId: v.string(), // Convex storage ID for lookups
-		url: v.optional(v.string()), // The actual URL from agent component (optional for legacy records)
+		storageId: v.string(),
+		url: v.optional(v.string()), // Agent component file URL, absent on legacy records
 		width: v.optional(v.number()),
 		height: v.optional(v.number()),
 		createdAt: v.number()
@@ -226,10 +213,9 @@ export default defineSchema({
 		// Used by the hourly file vacuum to delete metadata of purged files
 		.index('by_storageId', ['storageId']),
 
-	// Dashboard counters - materialized user metrics, sharded over rows so
-	// concurrent sign-ups do not conflict on one document. Updated atomically via
-	// auth triggers (onCreate, onUpdate) to avoid fetching all users on every
-	// dashboard load.
+	// Materialized user metrics, sharded over rows so concurrent sign-ups do not
+	// conflict on one document. Auth triggers (onCreate, onUpdate) update them, so
+	// a dashboard load does not fetch all users.
 	dashboardCounters: defineTable({
 		totalUsers: v.number(),
 		adminCount: v.number(),
@@ -238,8 +224,8 @@ export default defineSchema({
 		shard: v.optional(v.number())
 	}).index('by_shard', ['shard']),
 
-	// Founder welcome emails - personal welcome from a team member, sent at signup
-	// or at verification. Config stored in adminSettings.
+	// Personal welcome from a team member, sent at signup or at verification. The
+	// configuration lives in adminSettings.
 	founderWelcomeEmails: defineTable({
 		userId: v.string(),
 		signupEmail: v.string(),
@@ -301,9 +287,8 @@ export default defineSchema({
 		.index('by_incident_and_user', ['incident', 'userId'])
 		.index('by_email_id', ['emailId']),
 
-	// AI chat feature registry.
-	// Source of truth for AI chat membership and sidebar state.
-	// Denormalized fields avoid ctx.runQuery into generic agent tables on the hot path.
+	// Source of truth for AI chat membership and sidebar state. Denormalized fields
+	// keep ctx.runQuery into generic agent tables off the hot path.
 	aiChatThreads: defineTable({
 		threadId: v.string(), // Reference to agent:threads
 		userId: v.string(), // Better Auth user ID
@@ -377,9 +362,6 @@ export default defineSchema({
 
 	customerNotifications
 
-	// Note: The agent component automatically creates the following tables:
-	// - agent:threads - Conversation threads for customer support
-	// - agent:messages - Messages within threads (separate from demo messages table)
-	// - agent:streamingDeltas - Real-time streaming chunks
-	// - agent:embeddings - Vector embeddings for semantic search
+	// The agent component owns agent:threads, agent:messages, agent:streamingDeltas,
+	// and agent:embeddings. agent:messages is separate from the demo messages table.
 });

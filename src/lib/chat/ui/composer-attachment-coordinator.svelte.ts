@@ -47,11 +47,10 @@ const LOGGED_UPLOAD_CODES: Record<UploadErrorCode, true> = {
 
 /** Settings every composer upload surface shares, whatever moves its bytes. */
 type UploadConfigBase = {
-	/** Translate upload errors in the current locale. */
 	translate?: (key: string, params?: Record<string, string | number | bigint | Date>) => string;
-	/** Optional access key provider for file control. */
+	/** Access key provider for file control. */
 	getAccessKey?: () => string | undefined;
-	/** Optional action used by the attachment text preview. */
+	/** Used by the attachment text preview. */
 	getAttachmentText?: AttachmentTextAction;
 	/** Locale sent with server calls whose errors are translated. */
 	locale?: string;
@@ -67,7 +66,7 @@ type UploadConfigBase = {
 /** Uploads straight to Convex storage through the chat upload endpoints. */
 export type DirectUploadConfig = UploadConfigBase &
 	ChatUploadApi & {
-		/** Existing persistence adapter for successful attachment references. */
+		/** Persistence adapter for successful attachment references. */
 		attachmentStore?: ChatAttachmentStore;
 		upload?: never;
 		release?: never;
@@ -78,9 +77,9 @@ export type CustomUploadConfig = UploadConfigBase & {
 	upload: AttachmentTransferUpload;
 	/**
 	 * Gives back a result the composer abandoned before sending it: removed,
-	 * replaced or dropped with the composer, or returned by an attempt that had
-	 * already been canceled. Called at most once per result; a rejection is
-	 * reported, never thrown.
+	 * replaced or dropped with the composer, or returned by an attempt already
+	 * canceled. Called at most once per result. A rejection is reported, never
+	 * thrown.
 	 */
 	release?: (result: AttachmentUploadResult) => Promise<void> | void;
 	/**
@@ -92,7 +91,6 @@ export type CustomUploadConfig = UploadConfigBase & {
 	saveUploadedFile?: never;
 };
 
-/** Configuration for composer attachment uploads. */
 export type UploadConfig = DirectUploadConfig | CustomUploadConfig;
 
 /** A transfer cannot change a composer's discriminant, identity, or local source. */
@@ -138,13 +136,12 @@ export type ComposerAttachmentSendSnapshot = {
  * Individual preprocessing and transport attempts remain inside AttachmentTransfer.
  */
 export class ComposerAttachmentCoordinator {
-	/** Rendered attachments for the live composer. */
 	attachments = $state<Attachment[]>([]);
 
 	/** The upload policy every entry point and this collection read. */
 	readonly profile: UploadProfile;
 
-	/** Public admission limit shared by every composer input surface. */
+	/** Admission limit shared by every composer input surface. */
 	readonly maxAttachments: number;
 
 	/** Attachments held for threads that are not currently live. */
@@ -153,7 +150,7 @@ export class ComposerAttachmentCoordinator {
 	/** One lifecycle owner for each attachment that can still transfer or retry. */
 	private readonly transfers = new SvelteMap<string, AttachmentTransfer>();
 
-	/** Transfer keys that still represent work which should block navigation. */
+	/** Transfer keys whose work still blocks navigation. */
 	private readonly pendingUploads = new SvelteSet<string>();
 
 	/** Takes this coordinator back out of the register of mounted composers. */
@@ -173,7 +170,7 @@ export class ComposerAttachmentCoordinator {
 	/** Last thread observed by the chat rendering this coordinator. */
 	private lastThreadId: string | null | undefined = undefined;
 
-	/** Prevent disposal cleanup from being persisted as a deliberately empty composer. */
+	/** Keeps disposal cleanup from persisting as a deliberately emptied composer. */
 	private disposed = false;
 
 	constructor(options: ComposerAttachmentCoordinatorOptions) {
@@ -209,7 +206,7 @@ export class ComposerAttachmentCoordinator {
 		);
 	}
 
-	/** Add already-built attachment snapshots and persist any settled references. */
+	/** Persists any settled references among the added snapshots. */
 	addAttachments(newAttachments: Attachment[]): void {
 		this.attachments = [...this.attachments, ...newAttachments];
 		this.persist();
@@ -316,10 +313,9 @@ export class ComposerAttachmentCoordinator {
 	}
 
 	/**
-	 * Reconcile the live composer with the currently observed thread.
-	 *
-	 * Returns true only for navigation away from a real thread, which is the same
-	 * transition on which ChatUIContext resets message animation state.
+	 * Reconciles the live composer with the observed thread. Returns true only when
+	 * navigating away from a real thread, the transition on which ChatUIContext
+	 * resets its message animation state.
 	 */
 	syncThread(): boolean {
 		const currentThreadId = untrack(this.getThreadId);
@@ -345,13 +341,12 @@ export class ComposerAttachmentCoordinator {
 	}
 
 	/**
-	 * Move to the existing thread now selected, discarding what the composer
-	 * held for the conversation it leaves instead of parking or carrying it.
+	 * Moves to the selected existing thread and discards what the composer held for
+	 * the conversation it leaves, instead of parking or carrying it.
 	 *
-	 * The entering thread's references are read from the store at this moment:
-	 * a send refused while this composer showed another conversation, or before
-	 * it was built, stored them there. Returns what `syncThread` returns, which
-	 * then has nothing left to do for this thread.
+	 * The entering thread's references are read from the store now: a send refused
+	 * while this composer showed another conversation, or before it was built,
+	 * stored them there. Returns what `syncThread` returns.
 	 */
 	enterSelectedThread(): boolean {
 		const entering = untrack(this.getThreadId);
@@ -371,10 +366,7 @@ export class ComposerAttachmentCoordinator {
 		return leaving !== undefined && leaving !== null;
 	}
 
-	/**
-	 * Drop everything held for the session that ended, including state which has
-	 * not reached persistence yet.
-	 */
+	/** Drops everything held for the ended session, including unpersisted state. */
 	forgetPersistedState(): void {
 		const abandoned = [...this.parked.keys()];
 		const parked = this.dropParked();
@@ -384,9 +376,7 @@ export class ComposerAttachmentCoordinator {
 		this.persist(...abandoned);
 	}
 
-	/**
-	 * Upload a file after synchronously inserting its source-identity placeholder.
-	 */
+	/** Inserts the source-identity placeholder synchronously, then uploads. */
 	async uploadFile(
 		file: File | Blob,
 		filename?: string,
@@ -468,7 +458,7 @@ export class ComposerAttachmentCoordinator {
 		this.settleRefusedStart(key, filename, await transfer.start(), options?.onPreprocessFailed);
 	}
 
-	/** Retry with the transfer's exact retained post-preprocessing payload. */
+	/** Retries with the transfer's retained post-preprocessing payload. */
 	retryUpload(index: number): void {
 		const attachment = this.attachments[index];
 		if (!attachment || !('key' in attachment) || !attachment.key) return;
@@ -526,9 +516,9 @@ export class ComposerAttachmentCoordinator {
 	}
 
 	/**
-	 * Hand stored results back to a custom transport once nothing here holds them.
-	 * Sending clears attachments without this: a sent result belongs to its send
-	 * until the send's outcome decides.
+	 * Hands stored results back to a custom transport once nothing here holds them.
+	 * Sending clears attachments without this, because a sent result belongs to its
+	 * send until the send's outcome decides.
 	 */
 	private releaseAbandoned(attachments: Attachment[]): void {
 		for (const attachment of attachments) {

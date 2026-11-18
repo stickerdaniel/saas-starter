@@ -26,7 +26,6 @@ import { hasUsablePassword } from '../credentialAccounts';
 import { withPasswordLinkPurpose } from '../utils/passwordLinkPurpose';
 import { shouldSendNotification } from '../support/notificationPreferences';
 
-/** Type for user result from Better Auth adapter with optional locale field */
 type UserWithLocale = { locale?: string | null } | null;
 
 /** The validated email configuration, or null while email is not ready. */
@@ -35,10 +34,7 @@ export function getReadyEmailConfiguration() {
 	return configuration.state === 'ready' ? assertResendApiKey(configuration) : null;
 }
 
-/**
- * Look up a user's locale preference by email address.
- * Falls back to default locale if user not found or locale not set.
- */
+/** Falls back to the default locale when the user or its locale is missing. */
 export async function getLocaleForEmail(
 	ctx: GenericMutationCtx<DataModel>,
 	email: string
@@ -50,12 +46,6 @@ export async function getLocaleForEmail(
 	return getValidLocale((result as UserWithLocale)?.locale);
 }
 
-/**
- * Send verification email with verification link
- *
- * Uses pre-rendered HTML templates with template placeholders for dynamic content.
- * Looks up user's locale preference for translated subject and body.
- */
 export const sendVerificationEmail = internalMutation({
 	args: {
 		email: v.string(),
@@ -79,7 +69,6 @@ export const sendVerificationEmail = internalMutation({
 			subject: t(locale, 'email.subject.verify'),
 			html,
 			text,
-			// Analytics tracking via custom headers
 			headers: [
 				{ name: 'X-Email-Category', value: 'authentication' },
 				{ name: 'X-Email-Template', value: 'verification' }
@@ -89,12 +78,6 @@ export const sendVerificationEmail = internalMutation({
 	}
 });
 
-/**
- * Send password reset email with reset link
- *
- * Uses pre-rendered HTML templates with template placeholders for dynamic content.
- * Looks up user's locale preference for translated subject and body.
- */
 export const sendResetPasswordEmail = internalMutation({
 	args: {
 		email: v.string(),
@@ -128,7 +111,6 @@ export const sendResetPasswordEmail = internalMutation({
 			),
 			html,
 			text,
-			// Analytics tracking via custom headers
 			headers: [
 				{ name: 'X-Email-Category', value: 'authentication' },
 				{ name: 'X-Email-Template', value: hasPassword ? 'password-reset' : 'password-set' }
@@ -138,13 +120,6 @@ export const sendResetPasswordEmail = internalMutation({
 	}
 });
 
-/**
- * Send notification email when admin replies to a support thread
- *
- * Called when an admin responds to a user's support request.
- * Uses pre-rendered HTML templates with template placeholders for dynamic content.
- * Looks up user's locale preference for translated subject and body.
- */
 export const sendAdminReplyNotification = internalMutation({
 	args: {
 		supportThreadId: v.id('supportThreads'),
@@ -186,7 +161,6 @@ export const sendAdminReplyNotification = internalMutation({
 			subject: t(locale, 'email.subject.support_reply'),
 			html,
 			text,
-			// Analytics tracking via custom headers
 			headers: [
 				{ name: 'X-Email-Category', value: 'support' },
 				{ name: 'X-Email-Template', value: 'admin-reply' },
@@ -198,15 +172,7 @@ export const sendAdminReplyNotification = internalMutation({
 	}
 });
 
-/**
- * Send notification email to admin when a new ticket is created or reopened
- *
- * Called after the debounce period expires when a user creates a new ticket
- * or sends a message to a previously closed ticket.
- *
- * Uses pre-rendered HTML templates with template placeholders for dynamic content.
- * Looks up admin's locale preference for translated subject and body.
- */
+/** Sends one recipient's debounced ticket email. Returns whether an email was enqueued. */
 export const sendNewTicketAdminNotification = internalMutation({
 	args: {
 		email: v.string(),
@@ -232,7 +198,6 @@ export const sendNewTicketAdminNotification = internalMutation({
 		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
 		const locale = await getLocaleForEmail(ctx, email);
 
-		// Build admin dashboard link for this thread
 		const adminDashboardLink = `${siteUrl}/admin/support?thread=${threadId}`;
 
 		const { html, text } = renderNewTicketAdminNotificationEmail(
@@ -258,7 +223,6 @@ export const sendNewTicketAdminNotification = internalMutation({
 			subject,
 			html,
 			text,
-			// Analytics tracking via custom headers
 			headers: [
 				{ name: 'X-Email-Category', value: 'support-admin' },
 				{ name: 'X-Email-Template', value: isReopen ? 'ticket-reopened' : 'new-ticket' },
@@ -270,13 +234,8 @@ export const sendNewTicketAdminNotification = internalMutation({
 });
 
 /**
- * Send notification email to recipients when a new user signs up
- *
- * Called by auth trigger when a new user is created.
- * Sends to all recipients with new signup notifications enabled (admins + custom emails).
- *
- * Uses pre-rendered HTML templates with template placeholders for dynamic content.
- * Looks up each recipient's locale preference for translated subject and body.
+ * Scheduled by the auth triggers. Every recipient with signup notifications
+ * enabled, admin or custom email, gets one.
  */
 export const sendNewUserSignupNotification = internalMutation({
 	args: {
@@ -292,7 +251,6 @@ export const sendNewUserSignupNotification = internalMutation({
 		if (shouldSkipTestEmail('sendNewUserSignupNotification', userEmail)) return null;
 		if (!getReadyEmailConfiguration()) return null;
 
-		// Get recipients who have new signup notifications enabled
 		const recipients = await ctx.runQuery(
 			internal.admin.notificationPreferences.queries.getRecipientsForNotificationType,
 			{ type: 'newSignups' }
@@ -305,11 +263,9 @@ export const sendNewUserSignupNotification = internalMutation({
 
 		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
 
-		// Build admin dashboard link with search for this user
 		const adminDashboardLink = `${siteUrl}/admin/users?search=${encodeURIComponent(userEmail)}`;
 
-		// Send to each recipient
-		// Note: The Resend component retries transient failures internally via workpool
+		// The Resend component retries transient failures internally via workpool
 		// (5 retries, 30s backoff). Its idempotency key is the per-enqueue email record id,
 		// so it only dedupes retries of an already-enqueued email. Duplicate-send safety
 		// across re-runs of this loop comes from Convex's exactly-once scheduled-mutation
@@ -349,8 +305,8 @@ export const sendNewUserSignupNotification = internalMutation({
 				});
 				sentCount++;
 			} catch {
-				// Log permanent errors (invalid config, API key issues)
-				// The Resend component handles transient errors internally
+				// The Resend component retries transient errors, so this logs permanent
+				// ones such as an invalid configuration or API key
 				console.error({ code: 'signup_notification_enqueue_failed' });
 			}
 		}
@@ -362,7 +318,6 @@ export const sendNewUserSignupNotification = internalMutation({
 				`[sendNewUserSignupNotification] Enqueued notification for ${userEmail} to ${sentCount}/${recipients.length} recipient(s)`
 			);
 		} else if (recipients.length > 0) {
-			// All sends failed - log aggregated error for observability
 			console.error(
 				`[sendNewUserSignupNotification] All ${recipients.length} email sends failed for new user ${userEmail}`
 			);
@@ -372,7 +327,7 @@ export const sendNewUserSignupNotification = internalMutation({
 });
 
 /**
- * Send an alert to admins when a global anonymous support rate limit runs low
+ * Alerts admins when a global anonymous support rate limit runs low.
  *
  * Called by the sampling cron (support/rateLimitAlerts.ts) inside its own
  * transaction, so the cron stays the only writer of the alert state and
@@ -437,11 +392,9 @@ export async function sendSupportRateLimitAlert(
 }
 
 /**
- * Send founder welcome email to a new user
- *
- * Reads config from adminSettings at send time (not at schedule time)
- * to ensure the latest config is used. Sends a text part and a minimal HTML
- * part, and stores the component email id and rendered subject on the row.
+ * Reads the configuration from adminSettings at send time, so the latest one
+ * applies. Sends a text part and a minimal HTML part, and stores the component
+ * email id and rendered subject on the row.
  */
 export const sendFounderWelcomeEmail = internalMutation({
 	args: { founderWelcomeId: v.id('founderWelcomeEmails') },
@@ -457,7 +410,6 @@ export const sendFounderWelcomeEmail = internalMutation({
 			return null;
 		}
 
-		// Read config at send time
 		const config = await ctx.runQuery(
 			internal.admin.founderWelcome.queries.getFounderWelcomeConfigInternal,
 			{}
@@ -485,7 +437,6 @@ export const sendFounderWelcomeEmail = internalMutation({
 		}
 		const { email, name } = recipient.user;
 
-		// Guard against empty config (subject/body required for a valid email)
 		if (!config.subject.trim() || !config.body.trim()) {
 			await ctx.db.patch('founderWelcomeEmails', founderWelcomeId, {
 				status: 'skipped',

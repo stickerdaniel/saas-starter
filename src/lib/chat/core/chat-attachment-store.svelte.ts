@@ -9,37 +9,32 @@ import {
 /**
  * How long a stored attachment is offered back.
  *
- * `files/vacuum.ts` deletes a file nothing references 24 hours after it was
- * last touched, and an attachment nobody sent is never touched again. Offering
- * one back past that would show a tile for a file that is gone and send a dead
- * fileId, so this window stays comfortably inside it. Change one and look at
- * the other.
+ * `files/vacuum.ts` deletes an unreferenced file 24 hours after it was last
+ * touched, and an unsent attachment is never touched again. Past that window a
+ * restored tile would point at a gone file and send a dead fileId, so this
+ * window stays well inside it. A change to one needs a look at the other.
  *
- * Applied on read, so a browser closed for a week cleans up on the way back in
- * rather than needing something to run while it is shut.
+ * The age is checked on read, so a browser closed for a week cleans up when it
+ * comes back.
  */
 const MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 /**
- * What is left of an attachment once the document is gone.
+ * The JSON left of an attachment once the document is gone.
  *
- * Everything here is JSON, and what is missing is the point: `file` and `blob`
- * are the bytes, `preview` is a `blob:` URL that no longer resolves, and `key`
- * names a transfer that no longer exists. `status` and `progress` are not
- * stored either, because only a finished upload is ever written.
+ * `file` and `blob` (the bytes), `preview` (a dead `blob:` URL), and `key` (a
+ * gone transfer) are left out. `status` and `progress` are not stored, because
+ * only a finished upload is written.
  *
- * `savedAt` is when this file reached the server, carried across rewrites. It
- * must not be refreshed by later saves: the vacuum counts from the upload, so a
- * composer left open all day would otherwise keep renewing a file that is
- * already being collected.
+ * `savedAt` is when the file reached the server, carried across rewrites. Later
+ * saves must not refresh it: the vacuum counts from the upload, so a composer
+ * left open all day would keep renewing a file already being collected.
  */
 const storedAttachmentSchema = v.object({
 	/**
-	 * What tells one stored attachment from another, taken from the transfer
-	 * that put it there and kept from then on.
-	 *
-	 * Not the fileId: storage deduplicates by content, so two composers that
-	 * uploaded the same bytes hold the same one and could not be told apart.
+	 * Taken from the transfer that stored the attachment. Not the fileId: storage
+	 * deduplicates by content, so two composers with the same bytes hold the same
+	 * fileId.
 	 */
 	id: v.string(),
 	type: v.picklist(['file', 'screenshot']),
@@ -64,11 +59,9 @@ type StoredRecord = v.InferOutput<typeof storeSchema>;
 export type AttachmentsByThread = Map<string, Attachment[]>;
 
 /**
- * Turn an attachment into its storable form, or nothing.
- *
- * Only a settled upload qualifies. A transfer still running has its bytes in
- * memory and nothing on the server to point at, and a failed one has neither,
- * so both would come back as a tile for a file that was never stored.
+ * Only a settled upload has a storable form. A running transfer has nothing on
+ * the server yet and a failed one never will, so either would come back as a
+ * tile for a file that was never stored.
  */
 function toStored(attachment: Attachment, savedAt: number): StoredAttachment | undefined {
 	if (attachment.type !== 'file' && attachment.type !== 'screenshot') return undefined;
@@ -92,14 +85,13 @@ function toStored(attachment: Attachment, savedAt: number): StoredAttachment | u
 	};
 }
 
-/** Rebuild the composer entry. Matches what a just-finished upload looks like. */
+/** Rebuilds the composer entry in the shape of a just-finished upload. */
 function fromStored(stored: StoredAttachment): Attachment {
 	return {
 		type: stored.type,
-		// The identity it was stored under, so it stays the same attachment across
-		// every load. Carried rather than left off: the composer falls back to name
-		// and size to tell its tiles apart, and two files can reach the same name
-		// and size once both have been re-encoded, which crashes the keyed list.
+		// The stored identity keeps it the same attachment across loads. Without it
+		// the composer falls back to name and size, which two re-encoded files can
+		// share, and the keyed list crashes.
 		key: stored.id,
 		name: stored.name,
 		size: stored.size,
@@ -114,53 +106,46 @@ function fromStored(stored: StoredAttachment): Attachment {
 }
 
 /**
- * Keeps uploaded attachments across a reload, per thread and per surface.
- *
- * The sibling of `ChatDraftManager`: the text a user left in the composer
- * already survives a refresh, and the file next to it should not be the one
- * thing that does not. Only the reference is kept; the file itself is already
- * in storage once its upload finished.
+ * Keeps uploaded attachments across a reload, per thread and per surface, like
+ * `ChatDraftManager` keeps the text. Only the reference is kept, because the
+ * file is already in storage once its upload finished.
  */
 export class ChatAttachmentStore {
 	readonly namespace: string;
 	private readonly stored: PersistedState<StoredRecord>;
 
 	/**
-	 * When each attachment reached the server, by the identity of the transfer
-	 * that put it there, for as long as this document lives.
+	 * When each attachment reached the server, by transfer identity, for the
+	 * lifetime of this document.
 	 *
-	 * Kept here rather than read back out of the record every time, because the
-	 * record can go and come back while the attachment does not: sending clears
-	 * the composer, and a send that fails puts the very same attachments back
-	 * (`ComposerSendCoordinator`). Re-stamping them there would hand a file that is
-	 * hours old another twelve, past the point the vacuum collects it, and the
-	 * user would come back to a tile for nothing.
+	 * The record can go and come back while the attachment does not: sending clears
+	 * the composer, and a failed send puts the same attachments back
+	 * (`ComposerSendCoordinator`). Re-stamping them then would give an hours-old
+	 * file another twelve, past the point the vacuum collects it.
 	 *
-	 * By transfer and not by file, because the same bytes uploaded again are a
-	 * new file as far as its age is concerned: the agent component hands back
-	 * the fileId it already had and starts its clock over, so keying on that
-	 * would let the second upload inherit the first one's age and expire early.
+	 * Keyed by transfer and not by file: the agent component returns the existing
+	 * fileId for re-uploaded bytes and restarts its clock, so a fileId key would let
+	 * the second upload inherit the first one's age and expire early.
 	 *
 	 * Bounded by the attachments one page load touches.
 	 */
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- bookkeeping, never rendered
 	private readonly stamps = new Map<string, number>();
 
-	/** How an attachment names the transfer that stored it. */
 	private static transferId(attachment: Attachment): string | undefined {
 		return 'key' in attachment ? attachment.key : undefined;
 	}
 
 	/**
-	 * @param surface which chat this belongs to, e.g. `ai-chat`. The namespace
-	 * is added here so no caller can spell it differently.
+	 * @param surface which chat this belongs to, e.g. `ai-chat`. The namespace is
+	 * added here so no caller can spell it differently.
 	 */
 	constructor(surface: string) {
 		this.namespace = `${ATTACHMENT_STORAGE_PREFIX}${surface}`;
 		this.stored = new PersistedState<StoredRecord>(this.namespace, {});
 	}
 
-	/** Everything still on offer, anything too old already dropped. */
+	/** Everything still on offer, with expired entries dropped. */
 	read(): AttachmentsByThread {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- handed to the caller and read once, never rendered
 		const restored: AttachmentsByThread = new Map();
@@ -174,36 +159,29 @@ export class ChatAttachmentStore {
 	}
 
 	/**
-	 * What one thread is holding right now.
-	 *
-	 * Separate from `read` because a page walking back into a thread has to see
-	 * what is there at that moment, the way the draft beside it does, rather
-	 * than the copy it took when it started.
+	 * Reads this thread from current storage when the page returns to it, rather than
+	 * reusing the snapshot captured when the page started.
 	 */
 	readThread(threadId: string | null): Attachment[] {
 		const items = this.fresh(this.parse())[threadId ?? ''] ?? [];
 		return items.map((item) => this.revive(item));
 	}
 
-	/** Rebuild one entry, remembering the age it arrived with. */
 	private revive(item: StoredAttachment): Attachment {
-		// So a page that restores and saves does not start its clock over.
+		// Keeps a restore-then-save from restarting the clock
 		this.stamps.set(item.id, item.savedAt);
 		return fromStored(item);
 	}
 
 	/**
-	 * Record what the given threads are holding.
-	 *
-	 * Merged rather than replacing: a thread this caller has not touched belongs
-	 * to another tab, and an empty list means that composer was emptied, which is
-	 * the one case where an entry has to go.
+	 * Merges the given threads into storage. A thread this caller did not touch
+	 * belongs to another tab. An empty list means the composer was emptied, the one
+	 * case that removes an entry.
 	 */
 	write(snapshot: AttachmentsByThread): void {
 		const previous = this.parse();
-		// The same sweep `read` does. Without it a thread abandoned long ago would
-		// sit in storage forever: nothing hands it back, and every later save
-		// carries it along.
+		// Without this sweep an abandoned thread would stay in storage forever, carried
+		// along by every later save.
 		const next: StoredRecord = this.fresh(previous);
 		const now = Date.now();
 		for (const [threadId, attachments] of snapshot) {
@@ -219,9 +197,8 @@ export class ChatAttachmentStore {
 			if (items.length > 0) next[threadId] = items;
 			else delete next[threadId];
 		}
-		// Progress ticks run through here and change nothing, since only finished
-		// uploads are stored. Comparing keeps them from rewriting the same bytes
-		// a hundred times per file.
+		// Progress ticks pass through here and change nothing, because only finished
+		// uploads are stored. The comparison skips rewriting the same bytes per tick.
 		if (JSON.stringify(next) === JSON.stringify(previous)) return;
 		this.stored.current = next;
 	}
@@ -282,13 +259,10 @@ export class ChatAttachmentStore {
 	}
 
 	/**
-	 * Read what is on disk, tolerating anything.
-	 *
-	 * `localStorage` is writable by whoever holds the browser, and its contents
-	 * outlive any shape this code has had. A blob that does not parse is dropped
-	 * whole rather than per entry: the store is only ever written by this class,
-	 * so a mismatch means it is not ours, and unsent attachments are the safest
-	 * thing in the app to lose.
+	 * `localStorage` is writable by whoever holds the browser and outlives any shape
+	 * this code has had. A blob that does not parse is dropped whole: only this
+	 * class writes the store, so a mismatch means foreign data, and unsent
+	 * attachments are the safest thing in the app to lose.
 	 */
 	private parse(): StoredRecord {
 		const parsed = v.safeParse(storeSchema, this.stored.current);

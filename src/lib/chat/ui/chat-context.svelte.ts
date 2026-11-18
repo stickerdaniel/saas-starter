@@ -1,9 +1,4 @@
-/**
- * Chat UI Context
- *
- * Provides context for chat UI components to access shared state and configuration.
- * Uses Svelte's native context API with a class-based approach for type safety.
- */
+/** Shared state and configuration of the chat UI components, set by ChatRoot. */
 
 import { getContext, setContext, untrack } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -58,9 +53,6 @@ export type ChatUIContextOptions = {
 	sendOwner?: ComposerSendCoordinator;
 };
 
-/**
- * Message alignment - controls which side messages appear on
- */
 export type ChatAlignment = 'left' | 'right';
 
 export type ChatConversationOrigin = {
@@ -77,43 +69,34 @@ export type ChatSendSnapshot = {
 	attachments: ComposerAttachmentSendSnapshot;
 };
 
-/**
- * Chat UI Context class
- *
- * Holds both the core state and UI-specific state like reasoning accordion states.
- */
+/** Core state plus UI state such as the reasoning accordions. */
 export class ChatUIContext implements ComposerSendTarget {
-	/** The core chat state manager */
 	readonly core: ChatSessionPort;
 
-	/** Convex client for queries/mutations */
 	readonly client: ConvexClient;
 
-	/** Upload configuration (optional - required for uploadFile method) */
+	/** Required by uploadFile */
 	readonly uploadConfig?: UploadConfig;
 
-	/** User message alignment (assistant gets opposite) */
+	/** The assistant gets the opposite side */
 	readonly userAlignment: ChatAlignment;
 
-	/** UI state: which reasoning accordions are open */
 	reasoningOpenState = $state(new SvelteMap<string, boolean>());
 
-	/** Tracks messages that have been auto-opened (for auto-close logic) */
+	/** Messages auto-opened, for the auto-close logic */
 	autoOpenedMessages = $state(new SvelteSet<string>());
 
-	/** Tracks reasoning blocks the user has manually toggled (auto-sync should not override) */
+	/** Reasoning blocks the user toggled, which auto-sync must not override */
 	userToggledMessages = $state(new SvelteSet<string>());
 
-	/** Processed messages with display fields (set by ChatMessages) */
+	/** Set by ChatMessages */
 	displayMessages = $state<DisplayMessage[]>([]);
 
-	/** Whether the messages query has resolved (prevents suggestion chip flash) */
+	/** Whether the messages query has resolved, which prevents a suggestion chip flash */
 	messagesReady = $state(false);
 
-	/** Fade animation state for messages */
 	readonly messagesFade = new FadeOnLoad<DisplayMessage[]>();
 
-	/** Current input value */
 	inputValue = $state('');
 	private inputRevision = 0;
 	private conversationOrigin: ChatConversationOrigin;
@@ -124,7 +107,6 @@ export class ChatUIContext implements ComposerSendTarget {
 	/** Moves whenever the send owner's pending sends do. */
 	private pendingSendsVersion = $state(0);
 
-	/** Attachment collection and lifecycle owner behind this UI facade. */
 	private readonly attachmentCoordinator: ComposerAttachmentCoordinator;
 
 	/** The one composer mounted inside this ChatRoot. */
@@ -133,7 +115,6 @@ export class ChatUIContext implements ComposerSendTarget {
 	/** Where that composer wants a refused screenshot reported. */
 	private composerRefusal?: ComposerUploadFileOptions['onPreprocessFailed'];
 
-	/** Tracks if we've ever displayed messages in this session */
 	private _hasEverDisplayedMessages = false;
 
 	constructor(
@@ -177,66 +158,45 @@ export class ChatUIContext implements ComposerSendTarget {
 	}
 
 	/**
-	 * Let go of every composer this context is holding, because the session they
-	 * belong to has ended.
+	 * Lets go of every composer this context holds, because their session ended.
 	 *
-	 * Emptying storage is not enough on its own: this context keeps its own
-	 * copy and would write it back on its next save. The support widget makes
-	 * that certain rather than unlikely, since it belongs to the shell and is
-	 * still mounted on whatever page the user lands on after signing out.
+	 * Emptying storage alone is not enough: this context keeps its own copy and
+	 * would write it back on its next save. The support widget belongs to the
+	 * shell and stays mounted on the page the user lands on after signing out, so
+	 * that write back would happen.
 	 */
 	forgetPersistedState(): void {
 		this.attachmentCoordinator.forgetPersistedState();
 	}
 
-	/**
-	 * Get alignment for a given role
-	 * User messages use userAlignment, all other roles get the opposite
-	 */
+	/** User messages use userAlignment, every other role the opposite side. */
 	getAlignment(role: MessageRole): ChatAlignment {
 		if (role === 'user') return this.userAlignment;
 		return this.userAlignment === 'right' ? 'left' : 'right';
 	}
 
-	/**
-	 * Check if reasoning accordion is open for a message
-	 */
 	isReasoningOpen(messageId: string): boolean {
 		return this.reasoningOpenState.get(messageId) ?? false;
 	}
 
-	/**
-	 * Set reasoning accordion open state
-	 */
 	setReasoningOpen(messageId: string, isOpen: boolean): void {
 		this.reasoningOpenState.set(messageId, isOpen);
 	}
 
-	/**
-	 * Toggle reasoning accordion
-	 */
 	toggleReasoning(messageId: string): void {
 		const current = this.reasoningOpenState.get(messageId) ?? false;
 		this.reasoningOpenState.set(messageId, !current);
 	}
 
-	/**
-	 * Check if a message was auto-opened (for auto-close logic)
-	 */
 	wasAutoOpened(messageId: string): boolean {
 		return this.autoOpenedMessages.has(messageId);
 	}
 
-	/**
-	 * Mark a message as having been auto-opened
-	 */
 	markAutoOpened(messageId: string): void {
 		this.autoOpenedMessages.add(messageId);
 	}
 
-	/**
-	 * Clear auto-opened tracking for a message (after auto-close)
-	 */
+	/** Called after the auto-close */
 	clearAutoOpened(messageId: string): void {
 		this.autoOpenedMessages.delete(messageId);
 	}
@@ -245,23 +205,14 @@ export class ChatUIContext implements ComposerSendTarget {
 		return this.autoOpenedMessages.keys();
 	}
 
-	/**
-	 * Mark a reasoning block as user-toggled (auto-sync should not override)
-	 */
 	markUserToggled(messageId: string): void {
 		this.userToggledMessages.add(messageId);
 	}
 
-	/**
-	 * Check if a reasoning block was user-toggled
-	 */
 	wasUserToggled(messageId: string): boolean {
 		return this.userToggledMessages.has(messageId);
 	}
 
-	/**
-	 * Clear user-toggled tracking for a reasoning block
-	 */
 	clearUserToggled(messageId: string): void {
 		this.userToggledMessages.delete(messageId);
 	}
@@ -270,25 +221,22 @@ export class ChatUIContext implements ComposerSendTarget {
 		return this.userToggledMessages.keys();
 	}
 
-	/**
-	 * Update display messages
-	 */
 	setDisplayMessages(messages: DisplayMessage[]): void {
 		this.syncConversationOrigin();
-		// The attachment coordinator owns thread identity and preserves the
-		// historical park/adopt transitions. UI animation resets only when leaving
-		// a real thread, never when a new conversation first receives its id.
+		// The attachment coordinator owns thread identity and its park/adopt
+		// transitions. The UI animation resets only when leaving a real thread, never
+		// when a new conversation first receives its id.
 		if (this.attachmentCoordinator.syncThread()) {
 			this.messagesFade.reset();
 			this._hasEverDisplayedMessages = false;
 		}
 		this.displayMessages = messages;
 
-		// Only trigger animation on truly first display of messages
+		// Animate only the first display of messages
 		if (messages.length > 0 && !this._hasEverDisplayedMessages) {
 			this._hasEverDisplayedMessages = true;
 
-			// Only animate if first messages are real (not optimistic)
+			// Only when the first messages are real, not optimistic
 			if (!this.messagesFade.hasLoadedOnce) {
 				const hasRealMessages = messages.some((m) => !m.metadata?.optimistic);
 				if (hasRealMessages) {
@@ -299,10 +247,10 @@ export class ChatUIContext implements ComposerSendTarget {
 	}
 
 	/**
-	 * Show the existing thread the conversation moved to with that thread's own
-	 * stored attachments, dropping the ones held for the conversation it left.
-	 * For surfaces that never carry files from one conversation into another;
-	 * call it before the messages of the new thread are displayed.
+	 * Shows the existing thread the conversation moved to with that thread's own
+	 * stored attachments, dropping the ones held for the conversation it left. For
+	 * surfaces that never carry files from one conversation into another. Call it
+	 * before the messages of the new thread are displayed.
 	 */
 	enterSelectedThread(): void {
 		this.syncConversationOrigin();
@@ -312,9 +260,7 @@ export class ChatUIContext implements ComposerSendTarget {
 		}
 	}
 
-	/**
-	 * Set messages ready state (true when query has resolved)
-	 */
+	/** True once the query has resolved */
 	setMessagesReady(ready: boolean): void {
 		this.messagesReady = ready;
 	}
@@ -344,9 +290,6 @@ export class ChatUIContext implements ComposerSendTarget {
 		if (this.composerRefusal === handler) this.composerRefusal = undefined;
 	}
 
-	/**
-	 * Set input value
-	 */
 	setInputValue(value: string): void {
 		if (!this.applyInputValue(value)) return;
 		this.emitInputProjection('user-edit', getChatSessionEpoch(), this.syncConversationOrigin());
@@ -380,9 +323,6 @@ export class ChatUIContext implements ComposerSendTarget {
 		});
 	}
 
-	/**
-	 * Clear input
-	 */
 	clearInput(): void {
 		this.setInputValue('');
 	}
@@ -504,7 +444,7 @@ export class ChatUIContext implements ComposerSendTarget {
 		return this.attachmentCoordinator.profile;
 	}
 
-	/** Existing picker cap, now owned by the attachment coordinator. */
+	/** The picker cap, owned by the attachment coordinator. */
 	get maxAttachments(): number {
 		return this.attachmentCoordinator.maxAttachments;
 	}
@@ -514,17 +454,14 @@ export class ChatUIContext implements ComposerSendTarget {
 		return this.attachmentCoordinator.canAddAttachment;
 	}
 
-	/** Add already-built attachment snapshots. */
 	addAttachments(newAttachments: Attachment[]): void {
 		this.attachmentCoordinator.addAttachments(newAttachments);
 	}
 
-	/** Remove the attachment at an index. */
 	removeAttachment(index: number): void {
 		this.attachmentCoordinator.removeAttachment(index);
 	}
 
-	/** Remove every attachment from the live composer. */
 	clearAttachments(): void {
 		this.attachmentCoordinator.clearAttachments();
 	}
@@ -542,7 +479,6 @@ export class ChatUIContext implements ComposerSendTarget {
 		return this.attachmentCoordinator.hasFile(name, size);
 	}
 
-	/** Upload a file through the attachment coordinator. */
 	uploadFile(
 		file: File | Blob,
 		filename?: string,
@@ -567,51 +503,33 @@ export class ChatUIContext implements ComposerSendTarget {
 		});
 	}
 
-	/**
-	 * Reset state for navigation transitions (e.g., when returning to overview)
-	 * This ensures clean state when the chat view slides out
-	 */
+	/** Resets state when the chat view slides out, e.g. back to the overview. */
 	resetForNavigation(): void {
 		this.messagesFade.reset();
 		this._hasEverDisplayedMessages = false;
 		this.displayMessages = [];
 	}
 
-	/**
-	 * Get the last message
-	 */
 	get lastMessage(): DisplayMessage | undefined {
 		return this.displayMessages.at(-1);
 	}
 
-	/**
-	 * Check if last message is from user
-	 */
 	get lastMessageIsUser(): boolean {
 		return this.lastMessage?.role === 'user';
 	}
 
-	/**
-	 * Check if chat is empty
-	 */
 	get isEmpty(): boolean {
 		return this.displayMessages.length === 0;
 	}
 
-	/**
-	 * Check if any upload is in progress
-	 */
 	get hasUploadingFiles(): boolean {
 		return this.attachmentCoordinator.hasUploadingFiles;
 	}
 
 	/**
-	 * Whether any attachment failed to upload.
-	 *
-	 * Blocks sending, because only successful uploads reach the backend while
-	 * the whole attachment list is rendered optimistically: sending anyway would
-	 * show the user a file that was never stored. The inline error offers retry
-	 * and discard, so this is a prompt to decide, not a dead end.
+	 * Blocks sending: only successful uploads reach the backend while the whole
+	 * attachment list renders optimistically, so a send would show a file that was
+	 * never stored. The inline error offers retry and discard.
 	 */
 	get hasFailedUploads(): boolean {
 		return this.attachmentCoordinator.hasFailedUploads;
@@ -640,34 +558,22 @@ export class ChatUIContext implements ComposerSendTarget {
 		);
 	}
 
-	/**
-	 * Check if message can be sent
-	 */
 	get canSend(): boolean {
 		return this.sendGatesOpen && !!this.inputValue.trim();
 	}
 
-	/**
-	 * Check if any assistant message is currently streaming
-	 * Uses displayMessages which is always synced from query
-	 */
+	/** Reads displayMessages, which always mirrors the query. */
 	get isStreaming(): boolean {
 		return this.displayMessages.some(
 			(m) => m.role === 'assistant' && (m.status === 'pending' || m.status === 'streaming')
 		);
 	}
 
-	/**
-	 * Check if chat is currently processing (sending, awaiting stream, or streaming)
-	 * Single source of truth for input blocking logic
-	 */
+	/** Sending, awaiting a stream, or streaming. The one input-blocking signal. */
 	get isProcessing(): boolean {
 		return this.core.isSending || this.core.isAwaitingStream || this.isStreaming;
 	}
 
-	/**
-	 * Get all successfully uploaded file IDs
-	 */
 	get uploadedFileIds(): string[] {
 		return this.attachmentCoordinator.uploadedFileIds;
 	}
@@ -675,17 +581,11 @@ export class ChatUIContext implements ComposerSendTarget {
 
 const CHAT_UI_KEY = Symbol('chat-ui');
 
-/**
- * Set chat UI context
- */
 export function setChatUIContext(context: ChatUIContext): void {
 	setContext(CHAT_UI_KEY, context);
 }
 
-/**
- * Get chat UI context
- * @throws Error if used outside of ChatRoot
- */
+/** @throws Error if used outside of ChatRoot */
 export function getChatUIContext(): ChatUIContext {
 	const context = getContext<ChatUIContext>(CHAT_UI_KEY);
 
@@ -696,9 +596,6 @@ export function getChatUIContext(): ChatUIContext {
 	return context;
 }
 
-/**
- * Try to get chat UI context (returns undefined if not found)
- */
 export function tryGetChatUIContext(): ChatUIContext | undefined {
 	return getContext<ChatUIContext>(CHAT_UI_KEY);
 }

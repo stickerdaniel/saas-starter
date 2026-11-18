@@ -38,19 +38,16 @@ export { syncSupportLastMessage } from './threadLifecycle';
 // agent:threads owns only generic conversation runtime/storage.
 
 /**
- * Create a new support thread
+ * Creates a support thread. A user may hold several.
  *
- * Creates a conversation thread for customer support.
- * Each user can have multiple threads for different support topics.
- *
- * IMPORTANT: Agent threads don't support custom metadata, so we create
- * a separate supportThreads record to store admin-specific data.
+ * Agent threads carry no custom metadata, so a separate supportThreads record
+ * stores the admin-side data.
  */
 export const createThread = mutation({
 	args: {
 		anonymousUserId: v.optional(v.string()),
 		title: v.optional(v.string()),
-		pageUrl: v.optional(v.string()) // URL of the page where user started the chat
+		pageUrl: v.optional(v.string())
 	},
 	returns: v.object({
 		threadId: v.string(),
@@ -124,10 +121,7 @@ export const getOrCreateWarmThread = mutation({
 });
 
 /**
- * List all threads for a user
- *
- * Returns paginated threads with last message preview and metadata.
- * Threads are ordered by most recent activity (last message time).
+ * Lists the caller's threads, most recent message first.
  *
  * @security Authenticated callers use server-verified identity.
  *           Anonymous callers must present the same anon_* proof used to create the thread.
@@ -172,7 +166,6 @@ export const listThreads = query({
 		);
 		const owner = await getSupportOwnerIdentity(ctx, args.anonymousUserId);
 		if (!owner) {
-			// No valid user ID - return empty results
 			return { page: [], isDone: true, continueCursor: '' };
 		}
 
@@ -184,7 +177,6 @@ export const listThreads = query({
 		// Bounded: each owner has at most one pre-warmed thread.
 		const supportThreads = supportThreadsPage.page.filter((supportThread) => !supportThread.isWarm);
 
-		// Collect unique admin IDs and fetch their info
 		const adminIds = new Set<string>();
 		for (const supportThread of supportThreads) {
 			if (supportThread.assignedTo) adminIds.add(supportThread.assignedTo);
@@ -260,18 +252,16 @@ export const listThreads = query({
 });
 
 /**
- * Get a specific thread
+ * Returns one thread of the caller. `isHandedOff` tells the widget whether to
+ * offer the handoff button.
  *
- * Retrieves thread metadata including title, summary, and creation time.
- * Also returns isHandedOff status for the frontend to show/hide handoff button.
- *
- * @security Verifies ownership - users can only access their own threads.
- *           Authenticated users use server-verified ID, anonymous users use client ID.
+ * @security Users read only their own threads. Authenticated users are matched
+ *           by server-verified ID, anonymous users by their client ID.
  */
 export const getThread = query({
 	args: {
 		threadId: v.string(),
-		anonymousUserId: v.optional(v.string()) // For anonymous users
+		anonymousUserId: v.optional(v.string())
 	},
 	returns: v.object({
 		_id: v.string(),
@@ -299,7 +289,6 @@ export const getThread = query({
 			anonymousUserId: args.anonymousUserId
 		});
 
-		// Fetch assigned admin info if thread is assigned
 		let assignedAdmin: { name?: string; image: string | null } | undefined;
 		if (supportThread?.assignedTo) {
 			try {
@@ -334,16 +323,14 @@ export const getThread = query({
 });
 
 /**
- * Request handoff to human support
+ * Hands a thread to human support at the visitor's request.
  *
- * User-initiated action to transfer the conversation to human support.
- * Once handed off, AI will never respond in this thread again.
- * This action is permanent and cannot be reversed.
+ * The handoff is permanent: the agent never answers in this thread again.
  */
 export const updateThreadHandoff = mutation({
 	args: {
 		threadId: v.string(),
-		anonymousUserId: v.optional(v.string()), // For anonymous users
+		anonymousUserId: v.optional(v.string()),
 		// Optional so clients that predate per-message routes stay valid.
 		pageUrl: v.optional(v.string()),
 		// The build the sender's tab runs. Clients that predate it omit it.
@@ -356,12 +343,10 @@ export const updateThreadHandoff = mutation({
 			anonymousUserId: args.anonymousUserId
 		});
 
-		// Already handed off - no action needed
 		if (supportThread.isHandedOff) {
 			return true;
 		}
 
-		// Save user message: "Talk to support"
 		const { messageId } = await supportAgent.saveMessage(ctx, {
 			threadId: args.threadId,
 			message: {
@@ -379,8 +364,8 @@ export const updateThreadHandoff = mutation({
 			appVersion: args.appVersion
 		});
 
-		// Save assistant response with email prompt
-		// Extract locale from the page URL where the user started the chat
+		// The acknowledgement carries the email prompt, in the locale of the page
+		// where the chat started
 		const locale = extractLocaleFromUrl(supportThread.pageUrl);
 		await supportAgent.saveMessage(ctx, {
 			threadId: args.threadId,
@@ -391,10 +376,9 @@ export const updateThreadHandoff = mutation({
 			skipEmbeddings: true
 		});
 
-		// Mark as handed off - user is waiting for admin response. The request is
-		// the owner's own message, so a pre-warmed thread stops being an empty
-		// placeholder here, exactly as on an ordinary first message; otherwise
-		// anonymous-ticket migration would delete it as unused.
+		// The request is the owner's own message, so a pre-warmed thread stops being
+		// an empty placeholder here, exactly as on an ordinary first message.
+		// Otherwise anonymous-ticket migration would delete it as unused.
 		const now = Date.now();
 		await ctx.db.patch('supportThreads', supportThread._id, {
 			isWarm: false,
@@ -404,11 +388,8 @@ export const updateThreadHandoff = mutation({
 		});
 		await recordFirstSupportContact(ctx, supportThread, now);
 
-		// Sync last message for search
 		await syncSupportLastMessage(ctx, args.threadId);
 
-		// Get recent user messages and schedule admin notification immediately
-		// This starts the 2-minute debounce as soon as "Talk to human" is pressed
 		const recentMessageIds = await ctx.runQuery(
 			internal.admin.support.notifications.getRecentUserMessages,
 			{ threadId: args.threadId }
@@ -424,7 +405,7 @@ export const updateThreadHandoff = mutation({
 				threadId: args.threadId,
 				messageIds: recentMessageIds,
 				isReopen: false,
-				notificationType: 'newTickets' // Handoff from AI to human
+				notificationType: 'newTickets'
 			}
 		);
 
@@ -433,26 +414,12 @@ export const updateThreadHandoff = mutation({
 });
 
 /**
- * Get admin user avatars for display in support widget
+ * Returns admin names and avatars for the support widget.
  *
- * Returns public profile information (name and avatar) for admin users.
- *
- * @security INTENTIONALLY PUBLIC - Security Decision Documentation
- *
- * This query is intentionally unauthenticated because:
- * 1. Purpose: Displays friendly admin avatars in the customer support widget
- *    to build trust before users start a conversation
- * 2. Data exposed: Only names and profile images - no emails, IDs, or sensitive data
- * 3. Risk assessment: LOW - This information is typically public on company
- *    "About Us" or "Team" pages anyway
- * 4. Trade-off: Better UX (welcoming support widget) vs minor info disclosure
- *
- * If you need to hide admin identities:
- * - Convert to authedQuery() to require authentication
- * - Or return only images without names
- * - Or use generic placeholder avatars
- *
- * Reviewed: 2024-12 | Decision: Acceptable for current use case
+ * @security Public by design. The widget shows the team before a visitor starts a
+ * conversation. Only names and profile images leave the server, no emails or IDs.
+ * To hide admin identities, require authentication, drop the names, or return
+ * placeholder avatars.
  */
 export const getAdminAvatars = query({
 	args: {},
@@ -464,7 +431,6 @@ export const getAdminAvatars = query({
 	),
 	handler: async (ctx) => {
 		publicEndpoint('The support widget shows admin names and avatars to every visitor.');
-		// Fetch all users with admin role
 		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
 			model: 'user',
 			paginationOpts: { cursor: null, numItems: 100 },
@@ -477,7 +443,6 @@ export const getAdminAvatars = query({
 			image?: string | null;
 		}>;
 
-		// Return only name and image (public profile data)
 		return admins.map((admin) => ({
 			name: admin.name,
 			image: admin.image ?? null
@@ -486,18 +451,15 @@ export const getAdminAvatars = query({
 });
 
 /**
- * Set notification email for a support thread
+ * Opts the thread owner in to an email when an admin replies.
  *
- * Allows users to opt-in to email notifications when an admin responds.
- * Email is normalized (lowercase, trimmed) before saving.
- *
- * @security Verifies thread ownership before allowing email to be set.
+ * @security Only the thread owner can set the address.
  */
 export const updateNotificationEmail = mutation({
 	args: {
 		threadId: v.string(),
 		email: v.string(),
-		anonymousUserId: v.optional(v.string()) // For anonymous users
+		anonymousUserId: v.optional(v.string())
 	},
 	returns: v.boolean(),
 	handler: async (ctx, args) => {
@@ -515,14 +477,7 @@ export const updateNotificationEmail = mutation({
 	}
 });
 
-// ============================================================================
-// Internal Sync Mutations (for keeping denormalized search fields in sync)
-// ============================================================================
-
-/**
- * Sync thread metadata (title/summary) to denormalized search fields.
- * Called when thread metadata is updated.
- */
+/** Copies a thread's title and summary into the denormalized search fields. */
 export const updateThreadMetadata = internalMutation({
 	args: {
 		threadId: v.string(),
@@ -537,11 +492,11 @@ export const updateThreadMetadata = internalMutation({
 });
 
 /**
- * Sync last message to denormalized search fields.
- * Called after a message is sent (user or admin).
+ * Copies the last message into the denormalized search fields after a user or
+ * admin message.
  *
- * Mutation-context callers import the lifecycle helper directly; this facade
- * preserves the existing Convex function path for action-context callers.
+ * Action-context callers use this function path. Mutation-context callers call
+ * syncSupportLastMessage directly.
  */
 export const updateLastMessage = internalMutation({
 	args: {
@@ -598,8 +553,8 @@ export const syncUserProfile = internalMutation({
 });
 
 /**
- * Backfill support denormalized fields from existing supportThreads + agent data.
- * Run manually before removing any historical compatibility code.
+ * Backfills the denormalized support fields from supportThreads and agent data.
+ * Run it manually before removing any compatibility code.
  */
 export const backfillThreadMetadata = internalMutation({
 	args: {},
@@ -607,11 +562,7 @@ export const backfillThreadMetadata = internalMutation({
 	handler: async (ctx) => await backfillThreadMetadataRecord(ctx)
 });
 
-/**
- * Internal query to get thread locale from pageUrl
- *
- * Used by internal actions that need to return localized messages.
- */
+/** Returns the locale of a thread's pageUrl, for actions that write localized messages. */
 export const getThreadLocale = internalQuery({
 	args: {
 		threadId: v.string()
@@ -621,11 +572,8 @@ export const getThreadLocale = internalQuery({
 });
 
 /**
- * Internal mutation to delete empty threads (no messages after 24h)
- *
- * Called by cron job to clean up threads created during eager thread creation
- * where the user never sent a message. Each run schedules one check per
- * candidate.
+ * Cron entry that deletes pre-created threads still without a message after 24
+ * hours. Each run schedules one check per candidate.
  *
  * @see src/lib/convex/crons.ts
  */

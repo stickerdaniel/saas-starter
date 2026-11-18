@@ -11,10 +11,9 @@ export interface GuardedNavigation {
 /**
  * Whether a navigation would destroy a file that is still transferring.
  *
- * Leaving the document has no `to` at all, so that case has to be answered
- * first: comparing `to?.url.pathname` against `from` would give the right
- * answer there only by accident, and would flip silently once either side of
- * the comparison changes.
+ * Leaving the document has no `to` at all, so that case is answered first:
+ * comparing `to?.url.pathname` against `from` gives the right answer there only
+ * by accident, and would flip silently once either side changes.
  */
 export function shouldBlockNavigation(nav: GuardedNavigation, hasActiveUploads: boolean): boolean {
 	if (!hasActiveUploads) return false;
@@ -29,7 +28,7 @@ export function shouldBlockNavigation(nav: GuardedNavigation, hasActiveUploads: 
 }
 
 /**
- * Stop a link click that would end a running upload while another navigation
+ * Stops a link click that would end a running upload while another navigation
  * is still under way.
  *
  * SvelteKit skips `beforeNavigate` for a navigation that starts while another
@@ -37,10 +36,9 @@ export function shouldBlockNavigation(nav: GuardedNavigation, hasActiveUploads: 
  * that mirrors its own state into the query with `goto` opens that window on
  * every change. The capture listener on the document runs before every handler
  * below it: preventing the click stops the browser, and stopping its
- * propagation keeps both SvelteKit's router and the app's own click handlers,
- * such as a link whose own handler calls `goto`, from acting on it. Outside
- * that window the click is left to `beforeNavigate`, so nothing is stopped
- * twice.
+ * propagation keeps SvelteKit's router and the app's own click handlers (such
+ * as a link whose handler calls `goto`) from acting on it. Outside that window
+ * the click is left to `beforeNavigate`, so nothing is stopped twice.
  *
  * Back and Forward inside the same window stay uncovered: a popstate cannot be
  * cancelled from here.
@@ -135,16 +133,16 @@ function parentAcrossShadow(el: Element): Element | null {
 /**
  * Where to reload to when a detected deploy should be taken now, or null.
  *
- * The upload answer has to be part of this one, not a separate hook: a
- * same-page navigation is let through above because it keeps the document, and
- * this would turn that very navigation into a full load that does not. Nothing
- * would ask either, because SvelteKit skips the callbacks while a navigation is
- * already under way. The stale chunks survive one more click; the file would not.
+ * The upload answer is part of this one, not a separate hook: a same-page
+ * navigation is let through above because it keeps the document, and this
+ * would turn that navigation into a full load that does not. Nothing would ask
+ * either, because SvelteKit skips the callbacks while a navigation is under
+ * way. The stale chunks survive one more click; the file would not.
  *
- * Deferring is cheap here specifically: the navigations that reach this line
- * while a file is going out are the same-page ones, which reuse the route that
- * is already loaded rather than importing a chunk that a deploy may have
- * deleted. The vite:preloadError backstop in app.html covers the rest.
+ * Deferring is cheap here: the navigations that reach this line while a file
+ * is going out are the same-page ones, which reuse the loaded route instead of
+ * importing a chunk a deploy may have deleted. The vite:preloadError backstop
+ * in app.html covers the rest.
  */
 export function deployReloadTarget(
 	nav: GuardedNavigation,
@@ -157,16 +155,15 @@ export function deployReloadTarget(
 }
 
 /**
- * Which surfaces currently have a file in flight, shared via context.
+ * Which surfaces have a file in flight, shared via context.
  *
- * A transfer that dies with the document is invisible: the progress bar simply
+ * A transfer that dies with the document is invisible: the progress bar
  * disappears and the user assumes the file arrived. The root layout has to ask
- * before that happens, and it cannot see into the surfaces that transfer files,
- * so they report here instead: the page's chat, the support chat, the avatar
- * picker.
+ * first, and it cannot see into the surfaces that transfer files, so they
+ * report here: the page's chat, the support chat, the avatar picker.
  *
- * Instantiated per request in the root layout — never a module-level singleton,
- * which would leak across SSR requests.
+ * Instantiated per request in the root layout, never as a module-level
+ * singleton, which would leak across SSR requests.
  */
 export class ActiveUploads {
 	// Owner identities rather than a count: a count that misses one release (a
@@ -189,12 +186,12 @@ export class ActiveUploads {
 	}
 
 	/**
-	 * Let the next navigation through without asking.
+	 * Lets the next navigation through without asking.
 	 *
-	 * For navigations the app itself starts, where stopping would strand the
-	 * user: signing out has already destroyed the session, a checkout redirect
+	 * For navigations the app starts itself, where stopping would strand the user:
+	 * signing out has already destroyed the session, and a checkout redirect
 	 * follows an operation that already happened. Call it immediately before
-	 * navigating — the next navigation of any kind consumes it.
+	 * navigating, because the next navigation of any kind consumes it.
 	 */
 	suspendOnce(): void {
 		this.#suspended = true;

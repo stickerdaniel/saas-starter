@@ -1,8 +1,8 @@
 /**
- * Worktree management (cross-platform TypeScript version)
+ * Worktree management.
  *
  * New worktrees branch from a freshly fetched origin/<trunk> by default, so a
- * stale local main can never seed one with old code. Pass --base to override or
+ * stale local main never seeds one with old code. Pass --base to override or
  * --no-fetch to skip the fetch.
  *
  * Contribution mode: --push-remote <remote> targets another configured remote
@@ -24,7 +24,6 @@ import { join } from 'path';
 import { parseArgs } from 'util';
 import { parseRemoteSlug } from './prune-worktrees';
 
-// ANSI colors for terminal output
 const colors = {
 	reset: '\x1b[0m',
 	bold: '\x1b[1m',
@@ -33,8 +32,8 @@ const colors = {
 	red: '\x1b[31m'
 };
 
-// Parse command line arguments. strict mode rejects mistyped flags
-// (e.g. --bse main) instead of silently swallowing them.
+// Strict mode rejects mistyped flags (e.g. --bse main) instead of silently
+// swallowing them.
 function parseCliArgs() {
 	try {
 		return parseArgs({
@@ -74,9 +73,6 @@ if (positionals.length > 1) {
 	process.exit(1);
 }
 
-/**
- * Run a command and return the result
- */
 function runCommand(
 	command: string,
 	args: string[],
@@ -99,9 +95,7 @@ function runCommand(
 	};
 }
 
-/**
- * Run a command with inherited stdio (shows output in real-time)
- */
+/** Inherits stdio, so output shows in real time. */
 function runCommandInherit(command: string, args: string[], cwd?: string): boolean {
 	const result = spawnSync(command, args, {
 		stdio: 'inherit',
@@ -112,9 +106,8 @@ function runCommandInherit(command: string, args: string[], cwd?: string): boole
 }
 
 /**
- * Get main repo path (where .git directory is).
- * Uses `git worktree list --porcelain` so this returns the main repo root
- * even when invoked from inside an auxiliary worktree.
+ * The main repo root, also from inside an auxiliary worktree, via
+ * `git worktree list --porcelain`.
  */
 function getRootWorktree(): string {
 	const result = runCommand('git', ['worktree', 'list', '--porcelain'], { silent: true });
@@ -122,9 +115,8 @@ function getRootWorktree(): string {
 		console.error(`${colors.red}Error: Not in a git repository${colors.reset}`);
 		process.exit(1);
 	}
-	// First line of --porcelain output is always "worktree <path>" for the
-	// main worktree, regardless of which worktree the script is invoked from.
-	// Trim to strip trailing \r on Windows (CRLF line endings).
+	// The first line of --porcelain output is always "worktree <path>" for the main
+	// worktree. Trim strips a trailing \r on Windows (CRLF line endings).
 	const firstLine = result.stdout.split('\n')[0].trim();
 	const mainRepoPath = firstLine.replace(/^worktree /, '');
 	if (!mainRepoPath) {
@@ -135,9 +127,9 @@ function getRootWorktree(): string {
 }
 
 /**
- * Resolve a remote's HEAD branch name, or null when the remote's HEAD ref is
- * unset locally (e.g. a brand new clone that never ran `git remote set-head`,
- * or a hand-added remote, where it is never set automatically).
+ * Null when the remote's HEAD ref is unset locally, e.g. a new clone that never
+ * ran `git remote set-head`, or a hand-added remote, where it is never set
+ * automatically.
  */
 function getRemoteHead(remote: string): string | null {
 	const result = runCommand('git', ['symbolic-ref', '--short', `refs/remotes/${remote}/HEAD`], {
@@ -148,17 +140,12 @@ function getRemoteHead(remote: string): string | null {
 		: null;
 }
 
-/**
- * Resolve the trunk branch name (the default base for new worktrees) from the
- * remote's HEAD, falling back to "main".
- */
+/** The default base for new worktrees, from the remote's HEAD with "main" as fallback. */
 function getTrunk(remote = 'origin'): string {
 	return getRemoteHead(remote) ?? 'main';
 }
 
-/**
- * Setup worktree (copies files and installs deps)
- */
+/** Copies the local env and settings files and installs deps. */
 function setupWorktree(
 	rootPath: string,
 	contribution?: { remote: string; slug: string | null }
@@ -169,7 +156,6 @@ function setupWorktree(
 	console.log('======================================================');
 	console.log('');
 
-	// Copy .env.local if it exists
 	const envLocalSrc = join(rootPath, '.env.local');
 	if (existsSync(envLocalSrc)) {
 		console.log('Copying .env.local...');
@@ -180,7 +166,6 @@ function setupWorktree(
 	}
 	console.log('');
 
-	// Copy .env.convex.local if it exists
 	const envConvexLocalSrc = join(rootPath, '.env.convex.local');
 	if (existsSync(envConvexLocalSrc)) {
 		console.log('Copying .env.convex.local...');
@@ -193,7 +178,6 @@ function setupWorktree(
 	}
 	console.log('');
 
-	// Copy .env.test if it exists
 	const envTestSrc = join(rootPath, '.env.test');
 	if (existsSync(envTestSrc)) {
 		console.log('Copying .env.test...');
@@ -204,7 +188,6 @@ function setupWorktree(
 	}
 	console.log('');
 
-	// Copy .claude/settings.local.json if it exists
 	const claudeSettingsSrc = join(rootPath, '.claude', 'settings.local.json');
 	if (existsSync(claudeSettingsSrc)) {
 		console.log('Copying .claude/settings.local.json...');
@@ -226,7 +209,7 @@ function setupWorktree(
 	console.log(`${colors.green}Dependencies installed${colors.reset}`);
 	console.log('');
 
-	// Ensure husky hooks are executable (bun install/husky can reset the bit)
+	// Husky hooks must stay executable; bun install or husky can reset the bit
 	const huskyDir = join(process.cwd(), '.husky');
 	if (existsSync(huskyDir)) {
 		for (const entry of readdirSync(huskyDir)) {
@@ -265,9 +248,6 @@ function setupWorktree(
 	console.log('');
 }
 
-/**
- * Show help message
- */
 function showHelp(): void {
 	console.log('Usage:');
 	console.log(
@@ -298,24 +278,21 @@ function showHelp(): void {
 	console.log('  bun scripts/create-worktree.ts feature-auth --open-editor cursor');
 }
 
-// Main execution
 function main(): void {
-	// Show help
 	if (values.help) {
 		showHelp();
 		process.exit(0);
 	}
 
-	// SETUP-ONLY MODE (for Cursor UI)
+	// Setup-only mode (for Cursor UI)
 	if (setupOnly) {
 		const rootPath = getRootWorktree();
 		setupWorktree(rootPath);
 		process.exit(0);
 	}
 
-	// FULL MODE (create + setup)
+	// Full mode: create + setup
 
-	// Validate branch name
 	if (!branchName) {
 		console.error(`${colors.red}Error: Branch name is required${colors.reset}`);
 		console.log('');
@@ -324,7 +301,7 @@ function main(): void {
 		process.exit(1);
 	}
 
-	// Contribution mode: validate the target remote before touching git state.
+	// Contribution mode validates the target remote before touching git state.
 	const pushRemoteRaw = values['push-remote'] as string | undefined;
 	const pushRemote = pushRemoteRaw?.trim();
 	if (pushRemoteRaw !== undefined && !pushRemote) {
@@ -355,14 +332,12 @@ function main(): void {
 	console.log('======================================================');
 	console.log('');
 
-	// Get root worktree path
 	const rootPath = getRootWorktree();
 	console.log(`Root worktree: ${rootPath}`);
 
-	// Determine target worktree path.
-	// Worktrees live in <repo>.worktrees/ (sibling of main repo) with slashes
-	// flattened to dashes. The git branch name keeps its original slashes;
-	// only the on-disk folder name is flattened.
+	// Worktrees live in <repo>.worktrees/ (sibling of the main repo) with slashes
+	// flattened to dashes. The git branch name keeps its slashes; only the on-disk
+	// folder name is flattened.
 	const worktreesDir = `${rootPath}.worktrees`;
 	const folderName = branchName.replace(/\//g, '-');
 	const worktreePath = join(worktreesDir, folderName);
@@ -370,15 +345,14 @@ function main(): void {
 	console.log(`Target worktree: ${worktreePath}`);
 	console.log('');
 
-	// Check if worktree already exists
 	if (existsSync(worktreePath)) {
 		console.error(
 			`${colors.red}Error: Worktree directory already exists: ${worktreePath}${colors.reset}`
 		);
 		console.log('');
-		// Explain the flattening rule unconditionally. The collision can come
-		// from either direction (new branch has /, or existing branch had /),
-		// and the user can't tell which from the error alone.
+		// The flattening rule is explained unconditionally. The collision can come from
+		// either direction (new branch has /, or existing branch had /), and the error
+		// alone does not tell which.
 		console.log(
 			`${colors.yellow}Note: worktree folder names flatten slashes to dashes.${colors.reset}`
 		);
@@ -402,12 +376,11 @@ function main(): void {
 		process.exit(1);
 	}
 
-	// Determine base branch. Default is the REMOTE trunk (origin/<trunk>, or the
-	// --push-remote's trunk in contribution mode), NOT the current local branch:
-	// branching off the remote keeps a new worktree independent of whatever
-	// stale state the local checkout is in, so a forgotten `git pull` on main
-	// can no longer seed a worktree with old code. Pass --base <branch> to stack
-	// intentionally (e.g. on another feature branch).
+	// The default base is the remote trunk (origin/<trunk>, or the --push-remote's
+	// trunk in contribution mode), not the current local branch: branching off the
+	// remote keeps a new worktree independent of the local checkout's state, so a
+	// forgotten `git pull` on main cannot seed a worktree with old code. Pass
+	// --base <branch> to stack intentionally (e.g. on another feature branch).
 	const baseArgRaw = values['base'] as string | undefined;
 	const baseArg = baseArgRaw?.trim();
 	if (baseArgRaw !== undefined && !baseArg) {
@@ -422,9 +395,9 @@ function main(): void {
 		);
 	}
 
-	// Refresh the base from the remote before branching (unless --no-fetch). This
-	// is what makes "forgot to pull main" harmless: the worktree always starts
-	// from the current remote trunk, not the local ref, which routinely lags.
+	// The base is refreshed from the remote before branching (unless --no-fetch), so
+	// a forgotten pull of main is harmless: the worktree starts from the current
+	// remote trunk, not the local ref, which routinely lags.
 	const noFetch = values['no-fetch'] ?? false;
 	if (!noFetch) {
 		console.log(baseArg ? `Fetching ${baseRemote}...` : `Fetching ${baseRemote}/${trunk}...`);
@@ -445,7 +418,6 @@ function main(): void {
 		);
 	}
 
-	// Create worktree
 	console.log('Creating git worktree...');
 	if (!runCommandInherit('git', ['worktree', 'add', worktreePath, '-b', branchName, baseBranch])) {
 		console.error(`${colors.red}Failed to create worktree${colors.reset}`);
@@ -453,28 +425,28 @@ function main(): void {
 	}
 	console.log(`${colors.green}Worktree created${colors.reset}`);
 
-	// Branching off a remote-tracking ref (<remote>/<trunk>) makes git auto-set
-	// the new branch's upstream to the trunk (branch.autoSetupMerge). Unset it so
-	// `git status` doesn't compare against the trunk and the first
+	// Branching off a remote-tracking ref (<remote>/<trunk>) makes git set the new
+	// branch's upstream to the trunk (branch.autoSetupMerge). Unsetting it keeps
+	// `git status` from comparing against the trunk, and the first
 	// `git push -u origin HEAD` sets the correct upstream.
 	const unset = runCommand('git', ['-C', worktreePath, 'branch', '--unset-upstream'], {
 		silent: true
 	});
-	// With a <remote>/<trunk> base an upstream definitely existed, so a failed
-	// unset (e.g. a config.lock race with a parallel create) left the wrong
-	// upstream set — warn so it gets fixed before the first push. A local --base
-	// has no upstream, making the failure an expected no-op we ignore.
+	// With a <remote>/<trunk> base an upstream existed, so a failed unset (e.g. a
+	// config.lock race with a parallel create) leaves the wrong upstream set, and
+	// the warning gets it fixed before the first push. A local --base has no
+	// upstream, so the failure is an expected no-op.
 	if (!unset.success && baseBranch.startsWith(`${baseRemote}/`)) {
 		console.log(
 			`${colors.yellow}Warning: could not unset the auto-configured upstream; run \`git branch --unset-upstream\` in the worktree before pushing.${colors.reset}`
 		);
 	}
 
-	// Contribution mode: stamp git's own pushRemote key. It routes a bare
-	// `git push` to the contribution remote (verified with push.default=simple
-	// and no upstream set) and doubles as the durable marker worktree:prune
-	// reads to know where this branch's PR lives. Branch config is shared
-	// repo-wide, so prune sees it from the main checkout too.
+	// Contribution mode stamps git's own pushRemote key. It routes a bare
+	// `git push` to the contribution remote (verified with push.default=simple and no
+	// upstream set) and doubles as the durable marker worktree:prune reads to know
+	// where this branch's PR lives. Branch config is shared repo-wide, so prune sees
+	// it from the main checkout too.
 	if (pushRemote) {
 		const stamped = runCommand(
 			'git',
@@ -492,14 +464,12 @@ function main(): void {
 		}
 	}
 
-	// Change to new worktree and run setup
 	process.chdir(worktreePath);
 	setupWorktree(rootPath, pushRemote ? { remote: pushRemote, slug: pushRemoteSlug } : undefined);
 
 	console.log(`Worktree location: ${worktreePath}`);
 	console.log('');
 
-	// Open in editor if requested
 	if (openEditor) {
 		console.log(`Opening in ${openEditor}...`);
 		switch (openEditor) {

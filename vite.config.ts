@@ -53,7 +53,7 @@ function computeLocalConvexStateId(projectDir: string, suffix?: string): string 
 			gitBranch = result.stdout.trim();
 		}
 	} catch {
-		// Ignore git errors and fall back to a stable "unknown" branch marker.
+		// A git error falls back to a stable "unknown" branch marker.
 	}
 
 	const input = suffix ? `${gitBranch}:${projectDir}:${suffix}` : `${gitBranch}:${projectDir}`;
@@ -79,28 +79,23 @@ function getPersistentBetterAuthSecret(projectDir: string, suffix?: string): str
 	return secret;
 }
 
-/**
- * Parse a dotenv-style file into a Record<string, string>.
- * Skips blank lines and comments. Does not expand variables.
- */
+/** Skips blank lines and comments. Does not expand variables. */
 function parseEnvFile(filePath: string): Record<string, string> {
 	if (!fs.existsSync(filePath)) return {};
 	const vars: Record<string, string> = {};
 	for (const line of fs.readFileSync(filePath, 'utf-8').split('\n')) {
 		const trimmed = line.trim();
 		if (!trimmed || trimmed.startsWith('#')) continue;
-		// Strip optional leading `export`
 		const effective = trimmed.startsWith('export ') ? trimmed.slice(7).trim() : trimmed;
 		const eqIndex = effective.indexOf('=');
 		if (eqIndex === -1) continue;
 		const key = effective.slice(0, eqIndex).trim();
 		let value = effective.slice(eqIndex + 1).trim();
-		// Strip inline comment (only outside of quotes)
+		// Inline comments are stripped only outside of quotes
 		if (!value.startsWith('"') && !value.startsWith("'")) {
 			const hashIndex = value.indexOf(' #');
 			if (hashIndex !== -1) value = value.slice(0, hashIndex).trim();
 		}
-		// Strip surrounding quotes
 		if (
 			(value.startsWith('"') && value.endsWith('"')) ||
 			(value.startsWith("'") && value.endsWith("'"))
@@ -115,11 +110,11 @@ function parseEnvFile(filePath: string): Record<string, string> {
 }
 
 /**
- * Print a boot-time banner showing which optional features are active vs
- * gated by missing env vars. Source of truth is `src/lib/dev/features.ts`
- * (also consumed by the in-context devNotice helper).
+ * Prints which optional features are active and which wait for missing env
+ * vars. `src/lib/dev/features.ts` is the source of truth, shared with the
+ * in-context devNotice helper.
  *
- * Skipped in CI, on build, and during E2E (callers gate this).
+ * Callers skip it in CI, on build, and during E2E.
  */
 function printOptionalFeatureBanner(opts: {
 	convexEnv: Record<string, string>;
@@ -160,13 +155,12 @@ export default defineConfig(async ({ command, mode }) => {
 
 	// Sentry is production-only. CF Workers Builds shares build env vars across the
 	// production and preview triggers, so PUBLIC_SENTRY_DSN would otherwise bake into
-	// preview/PR deploys: it loads the SDK on every public page (which destabilizes the
-	// public E2E run) and reports PR errors into the prod Sentry project. Blank the
-	// Sentry vars for any non-production build. Blank, not delete: PUBLIC_SENTRY_DSN is a
-	// static public variable in src/env.ts, and SvelteKit rejects a missing value at build
-	// time. An empty string keeps the export but reads as falsy, so the SDK is still
-	// dead-code-eliminated. Mirrors the prod/preview check in scripts/cf-deploy.ts
-	// (WORKERS_CI_BRANCH).
+	// preview and PR deploys: it loads the SDK on every public page (which destabilizes
+	// the public E2E run) and reports PR errors into the prod Sentry project. Non-production
+	// builds blank the Sentry vars. Blank, not delete: PUBLIC_SENTRY_DSN is a static public
+	// variable in src/env.ts, and SvelteKit rejects a missing value at build time. An empty
+	// string keeps the export but reads as falsy, so the SDK is still dead-code-eliminated.
+	// Mirrors the prod/preview check in scripts/cf-deploy.ts (WORKERS_CI_BRANCH).
 	const ciBranch = process.env.WORKERS_CI_BRANCH;
 	const isProductionDeploy = !ciBranch || ciBranch === (process.env.PRODUCTION_BRANCH || 'main');
 	if (!isProductionDeploy) {
@@ -176,8 +170,9 @@ export default defineConfig(async ({ command, mode }) => {
 		}
 	}
 
-	// Local Convex backend during `bun run dev` and `bun run dev:test` (not CI, builds, postinstall, or scripts).
-	// dev:cloud runs via dev:frontend (lifecycle = "dev:frontend"), so it's excluded naturally.
+	// Local Convex backend during `bun run dev` and `bun run dev:test` (not CI, builds,
+	// postinstall, or scripts). dev:cloud runs via dev:frontend (lifecycle = "dev:frontend"),
+	// so it is excluded.
 	const lifecycle = process.env.npm_lifecycle_event;
 	const useLocalConvex = (lifecycle === 'dev' || lifecycle === 'dev:test') && !process.env.CI;
 	const isTestMode = lifecycle === 'dev:test';
@@ -191,12 +186,11 @@ export default defineConfig(async ({ command, mode }) => {
 		const siteProxyUrl = `http://localhost:${siteProxyPort}`;
 		const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true';
 
-		// Wipe the state dir HERE, not via the plugin's reset option: the plugin
-		// rm's the whole dir at boot, i.e. AFTER getPersistentBetterAuthSecret
-		// below has written the fresh secret file into it. The reset run itself
-		// stays green (the backend keeps the secret in memory), but every
-		// following run then re-rolls the secret against this run's surviving
-		// JWKS rows and /api/auth/convex/token 500s with "Failed to decrypt
+		// The state dir is wiped here, not via the plugin's reset option: the plugin removes
+		// the whole dir at boot, after getPersistentBetterAuthSecret below has written the
+		// fresh secret file into it. The reset run itself stays green (the backend keeps the
+		// secret in memory), but every following run then re-rolls the secret against this
+		// run's surviving JWKS rows, and /api/auth/convex/token 500s with "Failed to decrypt
 		// private key" until the next reset.
 		if (resetLocalBackend) {
 			fs.rmSync(path.join(cwd, '.convex', computeLocalConvexStateId(cwd, stateIdSuffix)), {
@@ -205,9 +199,9 @@ export default defineConfig(async ({ command, mode }) => {
 			});
 		}
 
-		// Write backend URL so E2E tests (Playwright) can discover it.
-		// Test mode writes to a separate file so dev's .backend-url isn't clobbered when
-		// `bun run dev` and `bun run dev:test` run concurrently.
+		// The backend URL file lets E2E tests (Playwright) discover it. Test mode writes a
+		// separate file, so dev's .backend-url survives `bun run dev` and `bun run dev:test`
+		// running concurrently.
 		const convexStateDir = path.join(cwd, '.convex');
 		fs.mkdirSync(convexStateDir, { recursive: true });
 		const backendUrlFile = isTestMode ? '.test-backend-url' : '.backend-url';
@@ -215,25 +209,22 @@ export default defineConfig(async ({ command, mode }) => {
 		const betterAuthSecret =
 			loadedEnv.BETTER_AUTH_SECRET?.trim() || getPersistentBetterAuthSecret(cwd, stateIdSuffix);
 
-		// Load Convex backend env vars from .env.convex.local.
-		// SITE_URL is stripped: locally it must always track the running dev server
-		// (or PORTLESS_SITE_URL), and a static value copied into the file would pin
-		// Better Auth's trusted origin to the wrong origin and silently break
-		// sign-in. The envVars callback below derives it and warns when a stripped
-		// value differed.
+		// Convex backend env vars come from .env.convex.local. SITE_URL is stripped: locally
+		// it must track the running dev server (or PORTLESS_SITE_URL), and a static value
+		// copied into the file would pin Better Auth's trusted origin to the wrong origin and
+		// silently break sign-in. The envVars callback below derives it and warns when a
+		// stripped value differed.
 		const {
 			SITE_URL: ignoredLocalSiteUrl,
 			CAPABILITY_PROFILE: _ignoredLocalCapabilityProfile,
 			...convexLocalEnv
 		} = parseEnvFile(path.join(cwd, '.env.convex.local'));
 		const managedProviderUpdates = getManagedProviderUpdates(isTestMode ? {} : convexLocalEnv);
-		// The Convex backend env values used to be merged into varlock's redaction
-		// map here so that convex-vite-plugin's startup logging was masked. That
-		// never worked: `resetRedactionMap` replaces the whole map rather than
-		// adding to it, and varlock's own vite integration calls it again from its
-		// `config` hook — which Vite runs after this factory returns — so every
-		// merged value was dropped before the plugin ever logged. The values are
-		// redacted at the sink instead (patches/convex-vite-plugin@0.4.0.patch).
+		// Merging the Convex backend env values into varlock's redaction map here cannot mask
+		// convex-vite-plugin's startup logging: `resetRedactionMap` replaces the whole map, and
+		// varlock's own vite integration calls it again from its `config` hook, which Vite runs
+		// after this factory returns, so every merged value is dropped before the plugin logs.
+		// The values are redacted at the sink (patches/convex-vite-plugin@0.4.0.patch).
 		if (!isTestMode && !process.env.WORKERS_CI) {
 			printOptionalFeatureBanner({
 				convexEnv: convexLocalEnv,
@@ -244,13 +235,12 @@ export default defineConfig(async ({ command, mode }) => {
 		process.env.PUBLIC_CONVEX_URL = backendUrl;
 		process.env.PUBLIC_CONVEX_SITE_URL = siteProxyUrl;
 
-		// Isolate heap knobs for the spawned local backend (inherits this env).
-		// Better Auth's bundle keeps ~50 MiB resident between requests.
-		// USER_HEAP (default 64 MiB) sizes the working heap and prevents OOMs;
-		// EXTRA (default 32 MiB) is the carry-over allowance the restart check
-		// actually uses. Without EXTRA the backend recycles the isolate after
-		// nearly every UDF (TooMuchMemoryCarryOver) and each request re-imports
-		// the bundle. https://github.com/get-convex/convex-backend/issues/312
+		// Heap knobs for the spawned local backend, which inherits this env. Better Auth's
+		// bundle keeps ~50 MiB resident between requests. USER_HEAP (default 64 MiB) sizes the
+		// working heap and prevents OOMs; EXTRA (default 32 MiB) is the carry-over allowance
+		// the restart check uses. Without EXTRA the backend recycles the isolate after nearly
+		// every UDF (TooMuchMemoryCarryOver) and each request re-imports the bundle.
+		// https://github.com/get-convex/convex-backend/issues/312
 		process.env.ISOLATE_MAX_USER_HEAP_SIZE ??= '134217728';
 		process.env.ISOLATE_MAX_HEAP_EXTRA_SIZE ??= '134217728';
 
@@ -268,15 +258,15 @@ export default defineConfig(async ({ command, mode }) => {
 				port: backendPort,
 				siteProxyPort,
 				stateIdSuffix,
-				// Never let the plugin wipe the state dir itself: the reset already
-				// happened above, BEFORE the better-auth secret file was written.
+				// The plugin must never wipe the state dir itself: the reset already happened above,
+				// before the better-auth secret file was written.
 				reset: false,
 				onReady: [{ name: 'localDev:ensureSeededAdmin' }],
 				envVars: ({ vitePort, resolvedUrls }) => {
-					// When portless fronts vite, resolvedUrls.local[0] is vite's own
-					// localhost URL, not the .localhost named origin -- so the trustedOrigin
-					// would mismatch. Use the SAME predicate as the dev/test wrappers so the
-					// wrapper-bound port, Playwright baseURL, and Convex SITE_URL always agree.
+					// When portless fronts vite, resolvedUrls.local[0] is vite's own localhost URL, not
+					// the .localhost named origin, so the trustedOrigin would mismatch. The predicate is
+					// the one the dev and test wrappers use, so the wrapper-bound port, Playwright
+					// baseURL, and Convex SITE_URL agree.
 					const siteUrl = portlessOwnsPort()
 						? process.env.PORTLESS_SITE_URL!
 						: (resolvedUrls?.local[0] ?? `http://localhost:${vitePort}`);
@@ -288,7 +278,7 @@ export default defineConfig(async ({ command, mode }) => {
 						);
 					}
 					return {
-						// Auto-generated defaults for local dev
+						// Generated defaults for local dev
 						BETTER_AUTH_SECRET: betterAuthSecret,
 						SITE_URL: siteUrl,
 						LOCAL_CONVEX_DEV: 'true',
@@ -310,11 +300,10 @@ export default defineConfig(async ({ command, mode }) => {
 		);
 	}
 
-	// Ensure PUBLIC_CONVEX_URL is set for production builds so prerendering can
-	// initialize the auth/Convex providers (they validate the URL at import time).
-	// The actual value doesn't matter for prerendered pages — they render as
-	// unauthenticated and the Convex client is never used. In CI, the real URL
-	// is provided as a build secret.
+	// PUBLIC_CONVEX_URL must be set for production builds so prerendering can initialize
+	// the auth and Convex providers, which validate the URL at import time. The value does
+	// not matter for prerendered pages: they render unauthenticated and never use the
+	// Convex client. CI provides the real URL as a build secret.
 	if (mode === 'production' && !process.env.PUBLIC_CONVEX_URL) {
 		if (!process.env.CI && !process.env.WORKERS_CI) {
 			console.warn(
@@ -325,7 +314,7 @@ export default defineConfig(async ({ command, mode }) => {
 		process.env.PUBLIC_CONVEX_URL = 'https://prerender-placeholder.convex.cloud';
 	}
 
-	// Sentry source map upload + auto-instrumentation (no-op when DSN is absent)
+	// Sentry source map upload and auto-instrumentation
 	if (loadedEnv.PUBLIC_SENTRY_DSN) {
 		plugins.push(
 			...(await sentrySvelteKit({
@@ -370,9 +359,9 @@ export default defineConfig(async ({ command, mode }) => {
 
 	plugins.push(
 		// The other adapters (Vercel, adapter-node) have no equivalent upload step, so there
-		// the resolved manifest IS still serialized into the SSR bundle (ssrInjectMode below).
-		// It has to drop the plaintext of @sensitive vars, which write-only platform secrets
-		// (Convex deploy/preview keys, management token) would otherwise leave readable in the
+		// the resolved manifest is serialized into the SSR bundle (ssrInjectMode below). It has
+		// to drop the plaintext of @sensitive vars, which write-only platform secrets (Convex
+		// deploy and preview keys, management token) would otherwise leave readable in the
 		// deployed artifact, and it must not overwrite the host's runtime values with the empty
 		// strings that stand in for them. buildStart runs after varlock's config reload and
 		// before the manifest is serialized, and mutates the same live binding
@@ -414,21 +403,18 @@ export default defineConfig(async ({ command, mode }) => {
 					}
 				}
 			}),
-			// Consult https://svelte.dev/docs/kit/integrations
-			// for more information about preprocessors
 			preprocess: vitePreprocess(),
 			compilerOptions: {
 				// Remote functions require the async compiler mode.
 				experimental: { async: true }
 			},
 			inlineStyleThreshold: INLINE_STYLE_THRESHOLD,
-			// object-src/base-uri stay enforced (embedded as <meta> on prerendered
-			// pages, as a header on SSR pages). script-src runs report-only and is
-			// wired to Sentry only when PUBLIC_SENTRY_DSN is set at build time.
-			// frame-ancestors is not here — it cannot ride a <meta> tag, so it lives
-			// in hooks.server.ts / _headers / vercel.json. See src/lib/security/csp.js.
-			// script-src hashes are derived from the inline scripts of the app template.
-			// Evaluated after the preview-build Sentry blanking above.
+			// object-src and base-uri stay enforced (a <meta> on prerendered pages, a header on SSR
+			// pages). script-src runs report-only and reports to Sentry only when PUBLIC_SENTRY_DSN
+			// is set at build time. frame-ancestors cannot ride a <meta> tag, so it lives in
+			// hooks.server.ts, _headers and vercel.json. See src/lib/security/csp.js. script-src
+			// hashes derive from the inline scripts of the app template. Evaluated after the
+			// preview-build Sentry blanking above.
 			csp: buildContentSecurityPolicy({
 				sentryDsn: process.env.PUBLIC_SENTRY_DSN,
 				appTemplate: fs.readFileSync(path.join(cwd, 'src/app.html'), 'utf8')
@@ -438,9 +424,9 @@ export default defineConfig(async ({ command, mode }) => {
 			},
 			version: {
 				name: buildVersion,
-				// Poll /_app/version.json in the background so updated.current flips to
-				// true after a new deploy, letting the beforeNavigate guard in the root
-				// layout force a full document load before importing a dead chunk hash.
+				// Polling /_app/version.json flips updated.current after a new deploy, so the
+				// beforeNavigate guard in the root layout forces a full document load before importing
+				// a dead chunk hash.
 				pollInterval: 300000
 			}
 		}),
@@ -449,8 +435,8 @@ export default defineConfig(async ({ command, mode }) => {
 		// Startup rewrites of Kit's generated files must not reload the SSR runner mid-request.
 		kitGeneratedHmr(kitOutDir),
 		devtoolsJson(),
-		// Serve the committed web fonts under hashed URLs. Existing static/fonts URLs remain
-		// available for emails, which need stable URLs across deployments.
+		// Serves the committed web fonts under hashed URLs. The static/fonts URLs remain for
+		// emails, which need stable URLs across deployments.
 		fontless({
 			// Fontless requires a provider. With `remote: false`, the npm provider resolves
 			// families only from installed font packages and makes no network request.
@@ -474,7 +460,6 @@ export default defineConfig(async ({ command, mode }) => {
 			// Keep an installed Outfit version from replacing the self-hosted files.
 			experimental: { disableLocalFallbacks: true }
 		}),
-		// Bundle analyzer
 		...(process.env.ANALYZE === 'true'
 			? [
 					visualizer({
@@ -533,13 +518,12 @@ export default defineConfig(async ({ command, mode }) => {
 			noExternal: [
 				'svelte-konva',
 				'@tolgee/web',
-				// convex-svelte (>=0.14.0), @mmailaender/convex-better-auth-svelte
-				// (>=0.8.1), and @stickerdaniel/convex-autumn-svelte (>=0.3.0) all ship a
-				// top-level `"svelte"` field, so SvelteKit auto-bundles them.
-				// WASM image codec used by the image-processing worker. Bundling avoids
-				// SSR-time `import 'svelte'`-style hazards if the package adds main-thread
-				// surfaces in the future; the worker chunk still keeps the WASM payload out
-				// of the client entry.
+				// convex-svelte (>=0.14.0), @mmailaender/convex-better-auth-svelte (>=0.8.1), and
+				// @stickerdaniel/convex-autumn-svelte (>=0.3.0) all ship a top-level `"svelte"` field,
+				// so SvelteKit bundles them automatically. The WASM image codec of the
+				// image-processing worker is bundled against SSR-time `import 'svelte'`-style hazards
+				// should the package add main-thread surfaces; the worker chunk keeps the WASM payload
+				// out of the client entry.
 				'@jsquash/webp'
 			],
 			...(mode === 'production' && {

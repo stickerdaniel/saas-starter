@@ -22,10 +22,10 @@ export function getManagedProviderUpdates(
  * The origin of a developer-supplied URL, for logging.
  *
  * `.env.convex.local` holds secrets, and a URL a developer typed can carry
- * userinfo or a query token. The one place such a value still reaches the
- * console is the warning about an ignored `SITE_URL`, so it is reduced to
- * scheme, host and port — enough to say which stale value is being ignored,
- * without the credential-bearing parts.
+ * userinfo or a query token. Such a value reaches the console only in the
+ * warning about an ignored `SITE_URL`, so it is reduced to scheme, host and
+ * port: enough to say which stale value is ignored, without the
+ * credential-bearing parts.
  */
 export function logSafeOrigin(value: string): string {
 	try {

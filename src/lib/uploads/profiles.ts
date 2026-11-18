@@ -3,13 +3,12 @@
  *
  * Every client and server constant about accepted types and size caps derives
  * from a profile here, so the picker, the drop/paste gate and the server
- * validator cannot drift apart. They used to be three independent literals
- * (see #782), and the profile-image surface had already drifted.
+ * validator agree.
  *
- * Which model or pipeline reads the files lives in `consumers.ts` instead, so
- * importing a profile in browser code does not pull model ids into the client
- * bundle. Imported by both browser and Convex code, so this module stays free
- * of Svelte, browser APIs and `convex/values`.
+ * Which model or pipeline reads the files lives in `consumers.ts`, so importing
+ * a profile in browser code pulls no model ids into the client bundle. Browser
+ * and Convex code both import this module, so it stays free of Svelte, browser
+ * APIs and `convex/values`.
  */
 
 export type UploadProfile = {
@@ -19,10 +18,9 @@ export type UploadProfile = {
 	 * Mime families a user may PICK, where that is wider than what is stored.
 	 *
 	 * Only meaningful on a surface with a transcoder in between. The avatar
-	 * re-encodes to WebP before upload, so an iPhone's HEIC is a perfectly good
-	 * input even though HEIC is never stored. Checking the picked file against
-	 * the stored list would reject the platform default before the transcoder
-	 * ever ran.
+	 * re-encodes to WebP before upload, so an iPhone's HEIC is a good input
+	 * although HEIC is never stored. Checking the picked file against the stored
+	 * list would reject the platform default before the transcoder ran.
 	 */
 	sourceMimePrefixes?: readonly string[];
 	maxBytes: number;
@@ -98,16 +96,14 @@ export const UPLOAD_PROFILES = {
 
 export type UploadProfileName = keyof typeof UPLOAD_PROFILES;
 
-/** Mime types a profile accepts, deduplicated. */
 export function allowedMimeTypes(profile: UploadProfile): string[] {
 	return Array.from(new Set(Object.values(profile.extensions)));
 }
 
 /**
- * Value for a file input's `accept` attribute.
- *
- * Offers the input families where the surface has a transcoder, so the picker
- * is not narrower than what the surface can actually take.
+ * Value for a file input's `accept` attribute. It offers the input families
+ * where the surface has a transcoder, so the picker is not narrower than what
+ * the surface takes.
  */
 export function acceptAttribute(profile: UploadProfile): string {
 	const families = (profile.sourceMimePrefixes ?? []).map((prefix) => `${prefix}*`);
@@ -150,7 +146,7 @@ export function profileMimeType(
 export type UploadPayloadRefusal = { reason: 'type' } | { reason: 'size'; limit: UploadByteLimit };
 
 /**
- * Check the exact name, type and bytes about to be uploaded. Images are held
+ * Checks the exact name, type and bytes about to be uploaded. Images are held
  * to `imageUploadLimit`, everything else to `maxBytes`.
  */
 export function checkUploadPayload(
@@ -167,16 +163,15 @@ export function checkUploadPayload(
 
 /**
  * Whether a user may pick this file, which on a transcoding surface is wider
- * than what may be stored. Falls back to the storage answer where no input
- * family is declared, so a surface without a transcoder behaves as before.
+ * than what may be stored. Without a declared input family it gives the
+ * storage answer.
  *
  * Picking is not a promise that the result is storable: the avatar transcoder
  * is not total (it passes GIFs through, keeps the original when the re-encode
  * is larger, and falls back on a decode failure). The server's finalize step
  * enforces the storage list on the uploaded type, `updateProfileImage` for the
  * avatar, so a surface that uses this must have one. Re-checking the
- * transcoder's output with acceptsMimeType on the client only rejects early,
- * before the upload.
+ * transcoder's output with acceptsMimeType on the client only rejects early.
  */
 export function acceptsSource(profile: UploadProfile, mimeType: string): boolean {
 	const essence = mimeType.split(';')[0]!.trim().toLowerCase();

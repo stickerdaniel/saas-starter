@@ -1,22 +1,11 @@
-/**
- * Shared helpers for email sending logic.
- *
- * Extracted from send.ts so they can be imported by both
- * production code and unit tests without pulling in Convex runtime deps.
- */
+/** Email helpers without Convex runtime dependencies, so unit tests can import them. */
 
-/**
- * Check if an email address belongs to an E2E test user.
- * Test emails are skipped to prevent sending real emails during automated testing.
- */
+/** Identifies the reserved E2E test-email suffix. */
 export function isTestEmail(email: string): boolean {
 	return email.endsWith('@e2e.example.com');
 }
 
-/**
- * Check if email should be skipped for E2E test users and log if so.
- * Returns true if email was skipped, false if it should be sent.
- */
+/** Logs the skip and returns true for an E2E test address. */
 export function shouldSkipTestEmail(action: string, email: string): boolean {
 	if (isTestEmail(email)) {
 		console.log(`[${action}] Skipping test email: ${email}`);
@@ -25,7 +14,6 @@ export function shouldSkipTestEmail(action: string, email: string): boolean {
 	return false;
 }
 
-/** Default content for founder welcome email */
 export const FOUNDER_WELCOME_DEFAULTS = {
 	subject: 'A quick hello',
 	body: `Hey {{userFirstName}},

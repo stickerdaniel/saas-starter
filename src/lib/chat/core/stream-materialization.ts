@@ -16,18 +16,11 @@ import {
 	SAFE_TOOL_ERROR_MESSAGE
 } from './tool-error-redaction.js';
 
-/**
- * Extract text content from a stream delta part, handling both formats:
- * - UIMessageChunk format: content is in `delta` field
- * - TextStreamPart format: content is in `text` field
- */
+/** UIMessageChunk carries the text in `delta`, TextStreamPart in `text`. */
 function getDeltaText(part: { text?: string; delta?: string }): string {
 	return part.delta ?? part.text ?? '';
 }
 
-/**
- * Create a blank UIMessage from stream metadata
- */
 export function blankUIMessage<METADATA = unknown>(
 	streamMessage: StreamMessage & { metadata?: METADATA },
 	threadId: string
@@ -47,9 +40,6 @@ export function blankUIMessage<METADATA = unknown>(
 	};
 }
 
-/**
- * Convert stream status to message status
- */
 export function statusFromStreamStatus(
 	status: StreamMessage['status']
 ): MessageStatus | 'streaming' {
@@ -66,11 +56,9 @@ export function statusFromStreamStatus(
 }
 
 /**
- * Get parts from deltas with cursor tracking.
- *
  * Agent stores delta parts as `v.any()` and relates them to the declared stream
  * format only at this application boundary. Callers select the SDK type after
- * branching on that format; stream fixtures cover both supported encodings.
+ * branching on that format. Stream fixtures cover both supported encodings.
  */
 export function getParts<T extends UIMessageChunk | TextStreamPart<ToolSet>>(
 	deltas: StreamDelta[],
@@ -102,9 +90,6 @@ export function getParts<T extends UIMessageChunk | TextStreamPart<ToolSet>>(
 	return { parts, cursor };
 }
 
-/**
- * Merge provider metadata objects
- */
 function mergeProviderMetadata(
 	a: ProviderMetadata | undefined,
 	b: ProviderMetadata | undefined
@@ -113,9 +98,6 @@ function mergeProviderMetadata(
 	return { ...a, ...b };
 }
 
-/**
- * Join text parts into a single string
- */
 function joinText(parts: UIMessage['parts']): string {
 	return parts
 		.map((part) => {
@@ -161,10 +143,10 @@ function isToolUIPart(part: UIMessage['parts'][number]): boolean {
  * One spelling for every tool call. The live AI SDK materialization types a
  * runtime-registered call `dynamic-tool` with a separate `toolName`, while the
  * persisted reconstruction in `@convex-dev/agent` rebuilds the same call as
- * `tool-{name}` without one (issue #894). Two spellings of one `toolCallId`
- * were never matched, so both views rendered side by side, and matching them
- * as they are would let field-wise merging copy the incoming type over the
- * other. The persisted spelling is the one that survives the handover.
+ * `tool-{name}` without one (issue #894). Unmatched, both views of one
+ * `toolCallId` render side by side, and matching them as they are would let
+ * field-wise merging copy the incoming type over the other. The persisted
+ * spelling is the one that survives the handover.
  */
 function toCanonicalToolPart(part: UIMessage['parts'][number]): UIMessage['parts'][number] {
 	if (part.type !== 'dynamic-tool') return part;
@@ -211,13 +193,13 @@ function joinDeltaChunks(
 }
 
 /**
- * Update a UIMessage from UIMessageChunk deltas using the AI SDK chunk reader.
+ * Applies UIMessageChunk deltas through the AI SDK chunk reader.
  *
  * Every delta page replays the whole stream, and the reader spends one async
  * step and one message snapshot per chunk. The agent joins text inside each
- * write, but a write lands about every 100 ms, so a long reply still holds one
- * text chunk per write. Runs of deltas for one part are therefore joined across
- * writes first, so a replay costs one reader step per run instead of per write.
+ * write, but a write lands about every 100 ms, so a long reply holds one text
+ * chunk per write. Runs of deltas for one part are joined across writes first,
+ * so a replay costs one reader step per run instead of per write.
  */
 export async function updateFromUIMessageChunks(
 	uiMessage: UIMessage,
@@ -266,9 +248,6 @@ export async function updateFromUIMessageChunks(
 	return redactUIMessageToolErrors(message);
 }
 
-/**
- * Update UIMessage from text stream parts
- */
 export function updateFromTextStreamParts(
 	threadId: string,
 	streamMessage: StreamMessage,
@@ -431,11 +410,7 @@ export function updateFromTextStreamParts(
 	return [{ streamId: streamMessage.streamId, cursor, message }, true];
 }
 
-/**
- * Derive UIMessages from text stream parts
- *
- * Main entry point for processing streaming deltas into displayable messages
- */
+/** Entry point that turns streaming deltas into displayable messages. */
 export function deriveUIMessagesFromTextStreamParts(
 	threadId: string,
 	streamMessages: StreamMessage[],
@@ -478,9 +453,6 @@ export function deriveUIMessagesFromTextStreamParts(
 	return [messages, newStreams, changed];
 }
 
-/**
- * Decode stream deltas using the format declared on each stream.
- */
 export async function deriveUIMessagesFromDeltas(
 	threadId: string,
 	streamMessages: StreamMessage[],
@@ -511,18 +483,16 @@ export async function deriveUIMessagesFromDeltas(
 }
 
 /**
- * Combine streamed assistant steps so they match the grouped saved-message shape.
+ * Collapses streamed assistant steps of one order into one grouped UI message,
+ * the grouping of the upstream @convex-dev/agent `combineUIMessages`.
  *
- * Mirrors the upstream @convex-dev/agent `combineUIMessages` grouping semantics:
- * repeated assistant steps with the same order collapse into one grouped UI message.
- *
- * Two streams of one order do not occur here today: `@convex-dev/agent` opens one
- * delta stream per `streamText` call with a fixed `stepOrder` and one call covers
- * every step, both the AI chat and the support agent schedule one generation per
- * prompt, and only streams with status `streaming` are materialized. Should that
- * shape ever arrive, the merge below would apply heuristics written for the
- * persisted and live pair of one stream to two unrelated ones, whose parts share
- * no content to match on; upstream concatenates the non-tool parts instead.
+ * Two streams of one order do not occur: `@convex-dev/agent` opens one delta
+ * stream per `streamText` call with a fixed `stepOrder`, one call covers every
+ * step, the AI chat and the support agent schedule one generation per prompt,
+ * and only streams with status `streaming` are materialized. On such input the
+ * merge below would apply heuristics written for the persisted and live pair of
+ * one stream to two unrelated ones. Upstream concatenates the non-tool parts
+ * instead.
  */
 export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
 	const sortedMessages = [...messages].sort((a, b) => {
@@ -578,17 +548,17 @@ function mergeCanonicalParts(
 
 	const compatiblePrefixLength = getCompatiblePrefixLength(existingParts, incomingParts);
 	// A prefix of step separators alone is no evidence that the two sides are
-	// snapshots of one sequence. Every step opens with one, so two steps that
-	// share nothing else still agree on it, and the shortcut would then drop
-	// every block the existing side holds behind that separator. At least one
-	// part carrying an id, a tool call or text has to line up first.
+	// snapshots of one sequence. Every step opens with one, so two unrelated steps
+	// still agree on it, and the shortcut would drop every block the existing side
+	// holds behind that separator. At least one part carrying an id, a tool call or
+	// text has to line up first.
 	//
 	// A tool call behind the prefix rules the shortcut out as well. It closes the
 	// step the prefix belongs to, and an incoming side that ends before it is a
 	// later step whose opening words repeat the closed one, because text parts
-	// carry no id to tell the two apart. Taking the shortcut there overwrote the
-	// closed step's text and moved the later step in front of the tool call, so
-	// that input goes through the fallback, which keeps the tool boundary.
+	// carry no id. The shortcut would overwrite the closed step's text and move the
+	// later step in front of the tool call, so that input goes through the
+	// fallback, which keeps the tool boundary.
 	const prefixCarriesContent = existingParts
 		.slice(0, compatiblePrefixLength)
 		.some((part) => part.type !== 'step-start');
@@ -607,10 +577,9 @@ function mergeCanonicalParts(
 	}
 
 	const mergedParts = [...existingParts];
-	// Blocks this snapshot has already spoken for, either by merging into them or
-	// by contributing them. One block can only be the continuation of one other,
-	// and without this a second incoming part whose text also grows out of the
-	// same block would swallow the first.
+	// Blocks this snapshot has merged into or contributed. One block continues at
+	// most one other, and without this set a second incoming part whose text grows
+	// out of the same block would swallow the first.
 	const claimedIndices = new Set<number>();
 	// The block the last incoming part matched. Everything the next one can
 	// continue sits behind it, because both sides list their blocks in the order
@@ -685,55 +654,50 @@ function mergeCanonicalParts(
 }
 
 /**
- * The block an incoming reasoning or text part continues, when no streaming id
+ * The block an incoming reasoning or text part continues when no streaming id
  * connects the two, or -1 when it opens a block of its own.
  *
- * The two sides carry the id inconsistently, which is what left one block
- * rendering twice: a persisted message reconstructs reasoning without any id
- * (`UIMessages.ts` in `@convex-dev/agent`), while the live stream stamps one on
- * (`id` from the AI SDK, `streamPartId` from the legacy decoder). An id lookup
- * across that pair matches nothing, so a text search is the only thing that can
- * recognize the block, and without it the part falls through to the push and
- * appends a second copy of what is already there.
+ * The two sides carry the id inconsistently: a persisted message reconstructs
+ * reasoning without any id (`UIMessages.ts` in `@convex-dev/agent`), while the
+ * live stream stamps one on (`id` from the AI SDK, `streamPartId` from the
+ * legacy decoder). An id lookup across that pair matches nothing, so only a
+ * text search recognizes the block. Without it the part falls through to the
+ * push and the block renders twice.
  *
- * That search runs in order, from `cursor + 1`, and takes the first compatible
- * block it finds. Both producers list reasoning and text in the order the model
- * wrote them, and a live snapshot always carries whole steps, so the block the
- * previous incoming part settled on is where the next one starts looking. A
- * search that weighed the candidates instead let a short opening block claim the
- * longer one further down, which left the block that owned it with nothing to
- * merge into and appended it a second time.
+ * The search runs in order from `cursor + 1` and takes the first compatible
+ * block. Both producers list reasoning and text in the order the model wrote
+ * them, and a live snapshot always carries whole steps. A search that weighs
+ * the candidates instead lets a short opening block claim a longer one further
+ * down, and the block that owned it is appended a second time.
  *
- * `cursor` moves on a match alone. A live snapshot opens each of its steps with
- * a `step-start` the persisted side has no counterpart for, so that separator
- * gets pushed onto the tail; moving the cursor there would carry the search past
- * every block still waiting for its continuation.
+ * `cursor` moves on a match alone. A live snapshot opens each step with a
+ * `step-start` that the persisted side lacks, so that separator is pushed onto
+ * the tail. Moving the cursor there would carry the search past every block
+ * still waiting for its continuation.
  *
  * A block another part of the same snapshot already claimed is off limits, so
  * two blocks growing out of the same opening words cost a missed merge and never
  * a lost block. An empty incoming block never adopts a block that already
- * carries text, because that would hand its id to text belonging to a block
- * already finished. Two empty blocks in order are the same block that has only
- * just opened on both sides: the provider opens one with an empty delta for a
- * signature-only reasoning detail, and the persisted row keeps it, so rejecting
- * every empty block rendered that one twice while the stream was open.
+ * carries text, because that would hand its id to text of a finished block. Two
+ * empty blocks in order are the same block just opened on both sides: the
+ * provider opens one with an empty delta for a signature-only reasoning detail,
+ * and the persisted row keeps it. Rejecting every empty block renders that one
+ * twice while the stream is open.
  *
  * `incomingPrecedesTool` carries the only ordering evidence the two sides share.
  * Reasoning comes before its own step's tool calls, so a block with a tool call
  * behind it is closed. An incoming part that also has one behind it can be that
  * same closed block. One that has none can only be it while its text is a prefix
- * of the block's, because a snapshot lagging one tool chunk behind holds a
- * shorter copy of the words the block already has, and a later step that repeats
- * those opening words extends them instead. Without the prefix condition, that
- * later step would merge into the closed block and move itself in front of the
- * tool call that ran between them.
+ * of the block's: a snapshot lagging one tool chunk behind holds a shorter copy
+ * of the block's words, while a later step that repeats those opening words
+ * extends them. Without the prefix condition, that later step would merge into
+ * the closed block and move in front of the tool call that ran between them.
  *
  * The price is a later step whose text is still a strict prefix of the block a
- * tool call closed, which only two streams of one order combined can produce: it
- * stays inside that closed block until its words grow past the ones they share,
- * and nothing renders twice while it does. Only two streams of one order can
- * produce it, which `combineStreamingUIMessages` above records as unreachable, so
- * the rule is tuned for the one race that is reachable: the delta snapshot
+ * tool call closed. It stays inside that block until its words grow past the
+ * shared ones, and nothing renders twice meanwhile. Only two streams of one
+ * order can produce it, which `combineStreamingUIMessages` records as
+ * unreachable, so the rule is tuned for the reachable race: the delta snapshot
  * lagging one tool chunk behind the page.
  */
 function findCounterpart(

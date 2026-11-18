@@ -46,7 +46,6 @@ if (!PUBLIC_SENTRY_DSN) {
 	});
 }
 
-// Route matchers
 function isAuthPage(pathname: string): boolean {
 	return /^\/[a-z]{2}\/(signin|signup)$/.test(pathname);
 }
@@ -55,9 +54,7 @@ function isShadcnDemoRoute(pathname: string): boolean {
 	return /^\/[a-z]{2}\/shadcn-demo(\/|$)/.test(pathname);
 }
 
-/**
- * Safely access event.url.search — throws during prerendering
- */
+/** `event.url.search` throws during prerendering. */
 function safeUrlSearch(url: URL): string {
 	try {
 		return url.search;
@@ -76,11 +73,9 @@ export function shouldBypassLanguageRedirect(pathname: string): boolean {
 }
 
 /**
- * Resolve the language for a bare/prefixless path. Precedence:
- *   1. an explicit choice in the lang_pref cookie (only if supported),
- *   2. the first supported Accept-Language tag,
- *   3. DEFAULT_LANGUAGE.
- * Exported for the unit guard. The cookie value is untrusted, so it is validated.
+ * Language of a prefixless path, by precedence: a supported lang_pref cookie
+ * choice, the first supported Accept-Language tag, then DEFAULT_LANGUAGE. The
+ * cookie value is untrusted, so it is validated. Exported for the unit guard.
  */
 export function resolveBarePathLanguage(
 	cookieValue: string | undefined,
@@ -97,9 +92,6 @@ export function resolveBarePathLanguage(
 	return DEFAULT_LANGUAGE;
 }
 
-/**
- * Block access to dev-only routes in production
- */
 const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, resolve }) {
 	if (!dev && isShadcnDemoRoute(event.url.pathname)) {
 		return new Response('Not found', { status: 404 });
@@ -108,11 +100,10 @@ const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, 
 };
 
 /**
- * Resolve the Convex JWT for SSR: from the short-lived JWT cookie when it is
- * still alive, otherwise re-minted from the Better Auth session cookie (see
- * #lib/server/convex-jwt). Without the re-mint, a tab idle past the JWT TTL
- * gets bounced to /signin on the next full load even though the session is
- * still valid.
+ * Resolves the Convex JWT for SSR: from the short-lived JWT cookie while it is
+ * alive, otherwise re-minted from the Better Auth session cookie (see
+ * #lib/server/convex-jwt). Without the re-mint, a tab idle past the JWT TTL is
+ * bounced to /signin on the next full load although the session is valid.
  */
 const handleAuth: Handle = async function handleAuth({ event, resolve }) {
 	event.locals.publicAuthSnapshot = shouldUsePublicAuthSnapshot({
@@ -128,11 +119,10 @@ const handleAuth: Handle = async function handleAuth({ event, resolve }) {
 };
 
 /**
- * Read persisted sidebar open/collapsed state so SSR renders the correct first
- * paint and the authenticated shell does not flash a full-width content reflow
- * on reload. Read here (not in a +layout.server.ts load) so prerendered
- * marketing pages stay buildable — the same reason the JWT token flows through
- * locals. Defaults to open when the cookie is absent.
+ * Reads the persisted sidebar state so SSR paints the shell at its final width
+ * without a reflow on reload. It is read here and not in a +layout.server.ts
+ * load so prerendered marketing pages stay buildable, the same reason the JWT
+ * flows through locals. A missing cookie means open.
  */
 const handleSidebarState: Handle = async function handleSidebarState({ event, resolve }) {
 	event.locals.sidebarOpen = event.cookies.get(SIDEBAR_COOKIE_NAME) !== 'false';
@@ -206,22 +196,18 @@ export const handlePublicMarkdownNotFound: Handle = async function handlePublicM
 	});
 };
 
-/**
- * Handle language detection and redirect to localized URLs
- */
 const handleLanguage: Handle = async function handleLanguage({ event, resolve }) {
 	const pathname = event.url.pathname;
 
-	// Skip routes that should stay at the root or manage their own content negotiation
+	// Routes that stay at the root or negotiate their own content
 	if (shouldBypassLanguageRedirect(pathname)) {
 		return resolve(event);
 	}
 
-	// Check if path starts with a supported language code
 	const langMatch = pathname.match(/^\/([a-z]{2})(\/|$)/);
 	const hasLangPrefix = langMatch ? isSupportedLanguage(langMatch[1]) : false;
 
-	// If no language prefix, redirect to add one. An explicit lang_pref cookie
+	// A prefixless path redirects to a prefixed one. An explicit lang_pref cookie
 	// choice wins; Accept-Language is the fallback.
 	if (!hasLangPrefix) {
 		const preferredLang = resolveBarePathLanguage(
@@ -236,14 +222,13 @@ const handleLanguage: Handle = async function handleLanguage({ event, resolve })
 };
 
 /**
- * Substitute the %lang% placeholder in app.html with the request's language so
- * SSR and prerendered HTML ship the correct <html lang> on first paint for
- * non-JS crawlers and screen readers. Derives lang from the pathname the same
- * way handleLanguage does; defaults to DEFAULT_LANGUAGE for any unprefixed or
- * unsupported path (handleLanguage already 307-redirects those before render).
- * The client-side watch in +layout.svelte keeps lang in sync across SPA
- * navigations. Reading event.url.pathname is prerender-safe (handleLanguage
- * reads it unconditionally); only url.search/searchParams throw during prerender.
+ * Substitutes the %lang% placeholder in app.html, so SSR and prerendered HTML
+ * ship the right <html lang> on first paint for non-JS crawlers and screen
+ * readers. The language derives from the pathname as in handleLanguage, with
+ * DEFAULT_LANGUAGE for an unprefixed or unsupported path (handleLanguage
+ * already 307-redirects those before render). The client-side watch in
+ * +layout.svelte keeps lang in sync across SPA navigations. Reading
+ * event.url.pathname is prerender-safe; only url.search and searchParams throw.
  */
 const handleHtmlLang: Handle = async function handleHtmlLang({ event, resolve }) {
 	const langMatch = event.url.pathname.match(/^\/([a-z]{2})(\/|$)/);
@@ -259,31 +244,30 @@ const handleHtmlLang: Handle = async function handleHtmlLang({ event, resolve })
  * Better Auth reports such a failure by appending its code to the destination
  * the link was minted with (`redirectOnError` in
  * better-auth/dist/api/routes/email-verification.mjs). That destination is an
- * ordinary page of ours and has no reason to know about it: a protected one
- * bounces to sign-in with the code buried inside `redirectTo`, where nothing
- * reads it and it rides into the next link, and a public one renders as if
- * nothing had happened. `/en/pricing?checkout=pro` is the reachable case, since
- * that is the `redirectTo` the pricing table writes for a signed-out visitor.
+ * ordinary page that knows nothing about it: a protected one bounces to sign-in
+ * with the code buried inside `redirectTo`, where nothing reads it and it rides
+ * into the next link, and a public one renders as if nothing happened.
+ * `/en/pricing?checkout=pro` is the reachable case, the `redirectTo` the
+ * pricing table writes for a signed-out visitor.
  *
- * Doing it here rather than on the pages is what makes it hold for every
- * destination, including the ones that do not exist yet, and it happens before
- * anything renders, so no page announces a success that did not occur.
+ * Handling it here holds for every destination, including future ones, and
+ * runs before anything renders, so no page announces a success that did not
+ * occur.
  *
- * Returns null for sign-in itself, which is where this sends people and which
- * reads the code from the query on its own.
+ * Returns null for sign-in itself, the target, which reads the code from the
+ * query on its own.
  *
  * A prerendered destination never reaches this: every supported adapter answers
  * it from its static files before any hook runs, so
- * `/en/privacy?error=TOKEN_EXPIRED` would render the privacy page and say
- * nothing. The marketing routes stay server-rendered for this and for the
- * markdown negotiation, and `scripts/check-build-output.ts` fails a build that
+ * `/en/privacy?error=TOKEN_EXPIRED` would render the privacy page silently. The
+ * marketing routes stay server-rendered for this and for the markdown
+ * negotiation, and `scripts/check-build-output.ts` fails a build that
  * prerenders them.
  *
- * One widening rather than a hole: Better Auth appends the same
- * `INVALID_TOKEN` to a failed password-reset callback, so an expired reset link
- * now lands on sign-in with the same message instead of on a reset form that
- * ignored the parameter. Sign-in carries the forgot-password link, and the
- * token that came with it was rejected anyway.
+ * Better Auth appends the same `INVALID_TOKEN` to a failed password-reset
+ * callback, so an expired reset link lands on sign-in with the same message,
+ * not on a reset form that ignores the parameter. Sign-in carries the
+ * forgot-password link, and the token was rejected anyway.
  */
 export function verificationFailureRedirect(
 	pathname: string,
@@ -307,17 +291,17 @@ export function verificationFailureRedirect(
 /**
  * The real page behind a chain of auth interstitials.
  *
- * `/email-verified` and `/reset-password` are waiting rooms rather than
- * destinations, and carrying one forward is what let a signed-in visitor be told
- * an address had been verified: sign-in sends an authenticated caller straight
- * back to `redirectTo`, and the failure code is not part of that value.
+ * `/email-verified` and `/reset-password` are waiting rooms, not destinations.
+ * Carried forward, one tells a signed-in visitor an address was verified:
+ * sign-in sends an authenticated caller straight back to `redirectTo`, and the
+ * failure code is not part of that value.
  *
  * It repeats because one layer is not the limit. Sign-up accepts any
  * same-origin continuation, including another interstitial, so
  * `/en/signup?redirectTo=/en/email-verified?redirectTo=/en/app` mints a link
- * whose destination is a waiting room wrapping a waiting room. The bound is
- * what guarantees termination rather than a guess about how deep that goes;
- * anything deeper is not a link this app produces and lands on the default.
+ * whose destination is a waiting room wrapping a waiting room. The bound
+ * guarantees termination; anything deeper is not a link this app produces and
+ * lands on the default.
  */
 function unwrapInterstitial(destination: string, lang: string): string {
 	let current = destination;
@@ -346,26 +330,25 @@ function unwrapInterstitial(destination: string, lang: string): string {
 /**
  * Where a signed-in visitor on an auth page is sent, or null to leave them on it.
  *
- * Sending them on is right almost always: the page they are looking at is a
- * sign-in form they no longer need. The exception is a page carrying the report
- * of a link that failed, because sign-in is the only page that shows one and
- * the bounce would drop the parameter on the way past. Better Auth rejects an
- * expired token before it looks at the session (`redirectOnError` runs ahead of
- * any session work in better-auth/dist/api/routes/email-verification.mjs), so an
- * old verification mail opened in a signed-in browser arrives exactly here, and
- * nothing about clicking it again produces a different outcome.
+ * Usually they are sent on, because the page is a sign-in form they no longer
+ * need. A page carrying the report of a failed link is the exception: sign-in
+ * is the only page that shows one, and the bounce would drop the parameter.
+ * Better Auth rejects an expired token before it looks at the session
+ * (`redirectOnError` runs ahead of any session work in
+ * better-auth/dist/api/routes/email-verification.mjs), so an old verification
+ * mail opened in a signed-in browser arrives here, and clicking it again gives
+ * the same outcome.
  *
  * Only the four verification codes hold the visitor. An OAuth callback code
- * reaches the same parameter and the same page, but it arrives on a browser
- * that has just failed to authenticate rather than one already carrying a
- * session, so the combination does not occur.
+ * reaches the same parameter and page, but on a browser that just failed to
+ * authenticate, not one carrying a session.
  */
 export function authPageRedirect(search: string, lang: string): string | null {
 	const params = new URLSearchParams(search);
 
-	// Every value, because a destination that carried an `error` of its own
-	// pushes the appended code into second place, and that is exactly the case
-	// where the visitor would otherwise be bounced past the only report of it.
+	// Every value: a destination with an `error` of its own pushes the appended
+	// code into second place, which is the case where the visitor would be bounced
+	// past the only report of it.
 	if (verificationErrorIn(params) !== null) {
 		return null;
 	}
@@ -373,21 +356,17 @@ export function authPageRedirect(search: string, lang: string): string | null {
 	return safeAuthDestination(params.get('redirectTo') ?? '', `/${lang}/app`);
 }
 
-/**
- * Handle auth redirects with language-aware paths
- */
 const authFirstPattern: Handle = async function authFirstPattern({ event, resolve }) {
 	const authenticated = !!event.locals.token;
 	const pathname = event.url.pathname;
 
-	// Extract language from path (e.g., /en/signin -> en)
 	const langMatch = pathname.match(/^\/([a-z]{2})\//);
 	const lang = langMatch?.[1] ?? DEFAULT_LANGUAGE;
 
-	// Before every other rule, so a failed link is reported rather than wrapped
-	// into `redirectTo` by the protected-route branch below. `safeUrlSearch`
-	// because reading the query throws while prerendering, where no such URL
-	// exists anyway.
+	// Runs before every other rule, so a failed link is reported instead of being
+	// wrapped into `redirectTo` by the protected-route branch below.
+	// `safeUrlSearch` because the query throws while prerendering, where no such
+	// URL exists.
 	const verificationFailure = verificationFailureRedirect(pathname, safeUrlSearch(event.url), lang);
 	if (verificationFailure !== null) {
 		redirect(307, verificationFailure);
@@ -404,13 +383,13 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 		redirect(307, destination);
 	}
 
-	// Admin routes require authentication AND admin role
+	// Admin routes require authentication and the admin role
 	if (isAdminRoute(pathname)) {
 		if (!authenticated) {
 			const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + safeUrlSearch(event.url))}`;
 			redirect(307, destination);
 		}
-		// Check admin role from JWT payload (fast, no Convex query needed)
+		// The JWT payload carries the role, so no Convex query is needed
 		const payload = decodeJwtPayload(event.locals.token);
 		if (payload?.role !== 'admin') {
 			redirect(307, `/${lang}/app`);
@@ -421,10 +400,9 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 };
 
 /**
- * Set revalidation cache headers for unauthenticated marketing pages.
- * Placed AFTER handleMarketingMarkdown — markdown requests return early
- * (no resolve() call) so this hook is skipped for them, preserving
- * the existing markdown 5-minute TTL.
+ * Revalidation cache headers for unauthenticated marketing pages. It runs after
+ * handleMarketingMarkdown, whose markdown responses return without resolve(),
+ * so they keep their own 5-minute TTL.
  */
 const handleCacheControl: Handle = async function handleCacheControl({ event, resolve }) {
 	const response = await resolve(event);
@@ -433,11 +411,11 @@ const handleCacheControl: Handle = async function handleCacheControl({ event, re
 };
 
 /**
- * Forward requests through Sentry's request handler, loading the SDK lazily
- * (see #lib/monitoring/sentry) so it stays out of the server bundle and cold
- * start when PUBLIC_SENTRY_DSN is unset. The DSN is statically replaced at
- * build time, so the unset case reduces this hook to a plain pass-through.
- * The loaded hook also initializes the server SDK.
+ * Forwards requests through Sentry's request handler and loads the SDK lazily
+ * (see #lib/monitoring/sentry), so it stays out of the server bundle and cold
+ * start when PUBLIC_SENTRY_DSN is unset. The DSN is replaced statically at
+ * build time, so the unset case reduces this hook to a pass-through. The loaded
+ * hook also initializes the server SDK.
  */
 const handleSentry: Handle = async function handleSentry({ event, resolve }) {
 	if (!PUBLIC_SENTRY_DSN) {
@@ -448,8 +426,8 @@ const handleSentry: Handle = async function handleSentry({ event, resolve }) {
 };
 
 /**
- * Add security headers to responses produced by the application hook chain.
- * Adapter-owned normalization redirects are created outside this chain.
+ * Security headers for responses of the application hook chain. Adapter-owned
+ * normalization redirects are created outside this chain.
  */
 const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ event, resolve }) {
 	const response = await resolve(event);
@@ -462,12 +440,12 @@ const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ eve
 	);
 	response.headers.set('X-DNS-Prefetch-Control', 'off');
 	response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
-	// script-src/object-src/base-uri now live in the SvelteKit csp option (vite.config.ts):
-	// on SSR pages SvelteKit sets the Content-Security-Policy header, on prerendered pages a
-	// <meta>. frame-ancestors cannot ride a <meta> and SvelteKit can't set headers on
-	// prerendered static pages, so it stays a header here (SSR) and in _headers /
-	// vercel.json (prerendered). Append rather than overwrite: a plain headers.set
-	// would clobber the object-src/base-uri header SvelteKit already set on SSR pages.
+	// script-src, object-src and base-uri live in the SvelteKit csp option
+	// (vite.config.ts): SvelteKit sets the Content-Security-Policy header on SSR
+	// pages and a <meta> on prerendered ones. frame-ancestors cannot ride a <meta>,
+	// and SvelteKit cannot set headers on prerendered static pages, so it is a
+	// header here (SSR) and in _headers and vercel.json (prerendered). Appending
+	// keeps the object-src and base-uri header SvelteKit already set on SSR pages.
 	const kitCsp = response.headers.get('Content-Security-Policy');
 	response.headers.set(
 		'Content-Security-Policy',

@@ -29,9 +29,8 @@
  * The check is an incomplete lower bound. Direct app references and namespace
  * adapters are read as text; persisted scheduler targets inside Convex use the
  * TypeScript syntax tree. A reference through a renamed import, bracket notation,
- * or a dynamically assembled value does not register. What it catches
- * reliably is the case that actually happens: a rename done in one commit across
- * both sides.
+ * or a dynamically assembled value does not register. It reliably catches the
+ * common case: a rename done in one commit across both sides.
  */
 
 import { execFileSync, spawn } from 'node:child_process';
@@ -105,13 +104,12 @@ type Baseline = { commit: string } | { root: true } | { unavailable: string } | 
 function resolveBaseline(): Baseline {
 	// Set by CI on trunk pushes to the push event's pre-push SHA: a push can
 	// carry several commits, and HEAD~1 would let the first of them bless a
-	// rename the deployed build never saw. Also the way to point the check at a
-	// known-bad commit to prove it catches what it was written for. An all-zero
-	// SHA (branch creation) falls back to the trunk resolution below; a nonzero
-	// SHA that cannot be found fails CI instead of falling back, because the
-	// one way that happens on a push is a force push that moved the deployed
-	// tip out of reach: exactly the state in which HEAD~1 would bless what
-	// that tip still calls.
+	// rename the deployed build never saw. It also points the check at a
+	// known-bad commit to prove it catches the failure. An all-zero SHA (branch
+	// creation) falls back to the trunk resolution below. A nonzero SHA that
+	// cannot be found fails CI instead of falling back, because on a push that
+	// happens only after a force push moved the deployed tip out of reach: the
+	// state in which HEAD~1 would bless what that tip still calls.
 	const override = process.env.CONVEX_COMPAT_BASE?.trim();
 	if (override && !/^0+$/.test(override)) {
 		try {
@@ -154,7 +152,7 @@ function resolveBaseline(): Baseline {
 		}
 		// On the trunk itself the merge base is HEAD, and a commit would be asked
 		// only about the consumer it just rewrote: it would bless its own removal.
-		// Step back to the parent instead (CI pushes land here only when the
+		// The parent is the baseline instead (CI pushes land here only when the
 		// pre-push SHA above was unusable).
 		if (base === git(['rev-parse', 'HEAD']).trim()) {
 			try {
@@ -262,8 +260,8 @@ function staticFunctionReferences(
 			const identifier = initializer.arguments[0];
 			if (!identifier || !ts.isStringLiteralLike(identifier)) continue;
 			if (!/^(?:[A-Za-z0-9_]+\/)*[A-Za-z0-9_]+:[A-Za-z0-9_]+$/.test(identifier.text)) continue;
-			// makeFunctionReference does not encode visibility at runtime. Preserve both
-			// candidates here; the baseline surface keeps only the one actually published.
+			// makeFunctionReference does not encode visibility at runtime. Both candidates
+			// stay here; the baseline surface keeps only the one actually published.
 			references.set(declaration.name.text, [
 				{ identifier: identifier.text, visibility: 'public', file },
 				{ identifier: identifier.text, visibility: 'internal', file }
@@ -457,7 +455,7 @@ function consumerSourcesAt(commit: string): Array<{ file: string; source: string
 		}
 	);
 	// Each answer is `<object> <type> <size>\n<size bytes>\n`, in request order. Anything else,
-	// a gitlink or a `<object> missing` line among them, fails the check as `git show` did.
+	// a gitlink or a `<object> missing` line among them, fails the check.
 	const sources: Array<{ file: string; source: string }> = [];
 	let offset = 0;
 	for (const entry of entries) {
@@ -577,13 +575,12 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 		// `objects/info/alternates`, so a commit only `FETCH_HEAD` reaches disappears, and a
 		// shared clone of a partial one borrows the incomplete object store without inheriting
 		// `remote.origin.promisor`, so a missing blob can never be fetched. Both fail a
-		// baseline the surrounding repository resolved perfectly well. The empty hook
-		// directory suppresses checkout hooks, and the child commands below ignore global and
-		// system configuration. A linked worktree still shares repository-local mechanisms:
+		// baseline the surrounding repository resolved. The empty hook directory suppresses
+		// checkout hooks, and the child commands below ignore global and system
+		// configuration. A linked worktree still shares repository-local mechanisms:
 		// attributes, filters, fsmonitor and install scripts can rewrite its files or shared Git
-		// state. Fixing that requires separating materialization from execution and is tracked in
-		// #863; a partial guard here was rolled back after three consecutive review rounds each
-		// found another way around it.
+		// state. Fixing that requires separating materialization from execution, tracked in
+		// #863; a partial guard here does not close it.
 		//
 		// `core.sparseCheckout` is turned off for this one command because a linked worktree
 		// inherits it from the shared repository. Measured with git 2.55.0: a checkout whose
@@ -643,9 +640,9 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 				git(['worktree', 'remove', '--force', dir], process.cwd(), hooks);
 			} catch {
 				// Guarded, because an unguarded throw here escapes the `finally`, replaces the
-				// install or surface diagnostic that brought us in, and skips both the prune
-				// below and the temporary-root removal. Windows returns EPERM for a locked
-				// dependency file, which is exactly when the Git removal has already failed.
+				// install or surface diagnostic that led here, and skips both the prune below
+				// and the temporary-root removal. Windows returns EPERM for a locked dependency
+				// file, which is exactly when the Git removal has already failed.
 				try {
 					rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 				} catch (error) {
