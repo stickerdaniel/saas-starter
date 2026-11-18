@@ -36,7 +36,7 @@ import { devNotice } from '../dev/notice';
 import { publicEndpoint } from './access';
 import { SUPPORTED_LANGUAGES } from '../i18n/languages';
 
-// Required for triggers to work - references internal auth functions
+// Triggers need the internal auth functions
 const authFunctions: AuthFunctions = internal.auth;
 
 // Better Auth mints verification tokens with a one-hour lifetime unless
@@ -121,7 +121,6 @@ const scheduleNewUserSignupNotification = async (
 	const signupMethod = await detectSignupMethod(ctx, user._id);
 	const signupTime = formatSignupTime(user.createdAt);
 
-	// Schedule signup notification email (runs after transaction commits)
 	await ctx.scheduler.runAfter(0, internal.emails.send.sendNewUserSignupNotification, {
 		userName: user.name ?? undefined,
 		userEmail: user.email,
@@ -130,9 +129,7 @@ const scheduleNewUserSignupNotification = async (
 	});
 };
 
-// The component client has methods needed for integrating Convex with Better Auth,
-// as well as helper methods for general use.
-// Using local schema to include admin plugin fields (role, banned, etc.)
+// The local schema carries the admin plugin fields (role, banned, and others)
 export const authComponent = createClient<DataModel, typeof authSchema>(components.betterAuth, {
 	local: {
 		schema: authSchema
@@ -141,19 +138,13 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 	triggers: {
 		user: {
 			/**
-			 * Called when a new user signs up
-			 * - Sends new user signup notification to admins only after verification
-			 * - Creates notification preferences if user is admin (rare)
-			 *
-			 * Notification scheduling is intentionally unwrapped — it relies on
-			 * Convex transactional atomicity (scheduler + query cannot fail for
-			 * data created in the same flow). Preference sync IS wrapped because
-			 * it writes to a separate table with more failure modes.
+			 * Notification scheduling stays unwrapped: the scheduler and query cannot
+			 * fail for data created in the same transaction. The preference sync is
+			 * wrapped, because it writes another table with more failure modes.
 			 */
 			onCreate: async (ctx, user) => {
 				const seededLocalAdmin = isLocalSeededAdmin(user);
 
-				// --- Materialized dashboard counters ---
 				await incrementCounter(ctx, 'totalUsers', 1);
 				if (user.role === 'admin') {
 					await incrementCounter(ctx, 'adminCount', 1);
@@ -162,14 +153,14 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 					await incrementCounter(ctx, 'bannedCount', 1);
 				}
 
-				// Send signup stats email immediately only for already-verified users
-				// (e.g. OAuth providers with verified emails)
+				// Only an already verified user, such as an OAuth signup, is announced
+				// right away
 				if (user.emailVerified && !seededLocalAdmin) {
 					await scheduleNewUserSignupNotification(ctx, user);
 				}
 
-				// If new user is admin (rare but possible via seeding), create preferences
-				// Non-critical: don't block signup if preference creation fails
+				// Seeding can create an admin. A failed preference sync does not block the
+				// signup.
 				if (user.role === 'admin') {
 					try {
 						await syncAdminPreferences(ctx, { userId: user._id, email: user.email });
@@ -233,13 +224,10 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			},
 
 			/**
-			 * Called when a user is deleted
-			 * - Decrements materialized dashboard counters
-			 * - Starts erasing the user's customer-journey facts and admin customer
-			 *   email rows; a failing first page is retried later and never
-			 *   blocks the deletion
-			 * - Starts erasing the user's founder email rows, cancelling their pending
-			 *   sends and the component emails not yet handed to Resend
+			 * Journey erasure covers customer-journey facts and admin customer email
+			 * rows. It retries a failing first page later and never blocks the
+			 * deletion. Founder email erasure also cancels pending sends and the
+			 * component emails not yet handed to Resend.
 			 */
 			onDelete: async (ctx, user) => {
 				const passkeyDismissal = await ctx.db
@@ -259,14 +247,8 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			},
 
 			/**
-			 * Called when a user is updated
-			 * - Sends signup notification when email becomes verified
-			 * - Detects admin role changes and syncs notification preferences
-			 * - Re-syncs denormalized support thread identity on name/email change
-			 *
-			 * Notification scheduling is intentionally unwrapped (see onCreate).
-			 * Preference and support thread syncs ARE wrapped to prevent blocking
-			 * user updates.
+			 * Notification scheduling stays unwrapped (see onCreate). The preference
+			 * and support thread syncs are wrapped, so they cannot block a user update.
 			 */
 			onUpdate: async (ctx, newUser, oldUser) => {
 				const becameVerified = oldUser.emailVerified !== true && newUser.emailVerified === true;
@@ -276,7 +258,6 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 				const isBanned = newUser.banned === true;
 				const seededLocalAdmin = isLocalSeededAdmin(newUser);
 
-				// --- Materialized dashboard counters ---
 				if (!wasAdmin && isAdmin) {
 					await incrementCounter(ctx, 'adminCount', 1);
 				} else if (wasAdmin && !isAdmin) {
@@ -291,7 +272,6 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 				if (becameVerified && !seededLocalAdmin) {
 					await scheduleNewUserSignupNotification(ctx, newUser);
 
-					// Founder welcome email: schedule if pending
 					const founderRow = await ctx.db
 						.query('founderWelcomeEmails')
 						.withIndex('by_user', (q) => q.eq('userId', newUser._id))
@@ -351,13 +331,11 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 
 				try {
 					if (!wasAdmin && isAdmin) {
-						// Promoted to admin → activate/create preferences
 						await syncAdminPreferences(ctx, { userId: newUser._id, email: newUser.email });
 					} else if (wasAdmin && !isAdmin) {
-						// Demoted from admin → deactivate preferences (keep dormant)
+						// A demoted admin's preferences stay dormant
 						await deactivateAdminPreferencesHelper(ctx, newUser._id);
 					} else if (isAdmin && oldUser.email !== newUser.email) {
-						// Admin changed email → update preferences
 						await syncAdminPreferences(ctx, { userId: newUser._id, email: newUser.email });
 					}
 				} catch {
@@ -423,7 +401,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 	}
 });
 
-// Export trigger handlers (required for triggers to be registered)
+// Triggers register only through these exports
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 
 function buildTrustedOrigins(): string[] {
@@ -455,10 +433,10 @@ function isTestEmailRequest(body: unknown): boolean {
 	return typeof email === 'string' && isTestEmail(email);
 }
 
-// Creates Better Auth options object (used by adapter and betterAuth CLI).
-// Typed via `satisfies` (not a return annotation) so the concrete plugin
-// types survive into createAuth — admin/mutations.ts calls plugin endpoints
-// like auth.api.banUser in-process, which a plain BetterAuthOptions erases.
+// Better Auth options for the adapter and the betterAuth CLI. `satisfies`
+// instead of a return annotation keeps the concrete plugin types in createAuth.
+// admin/mutations.ts calls plugin endpoints such as auth.api.banUser in-process,
+// which a plain BetterAuthOptions erases.
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 	return {
 		baseURL: requireEnv('SITE_URL', { feature: 'Better Auth base URL' }),
@@ -513,7 +491,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			}
 		},
 		emailVerification: {
-			// Email verification (moved from emailAndPassword in Better Auth 1.4.x)
 			sendVerificationEmail: async ({ user, url }: SendVerificationEmailArgs) => {
 				const mutationCtx = requireRunMutationCtx(ctx);
 				const email = requireAuthUserEmail(user, 'verification email');
@@ -576,7 +553,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			})
 		},
 		plugins: [
-			// The Convex plugin is required for Convex compatibility
 			convex({
 				authConfig,
 				jwksRotateOnTokenGenerationError: true
@@ -590,12 +566,10 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 	} satisfies BetterAuthOptions;
 };
 
-// Creates Better Auth instance (used in http.ts for routes)
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	return betterAuth(createAuthOptions(ctx));
 };
 
-/** Returns which OAuth providers are configured and available */
 export const getAvailableOAuthProviders = query({
 	args: {},
 	returns: v.object({ google: v.boolean(), github: v.boolean() }),

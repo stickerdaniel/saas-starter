@@ -1,21 +1,11 @@
 /**
- * Debounced Admin Notification System
+ * Debounced admin emails for support threads.
  *
- * Sends email notifications to admins when:
- * - New support tickets are created (user clicks "Talk to human")
- * - Closed tickets are reopened (user sends message to closed ticket)
- * - Users send messages to handed-off tickets awaiting admin response
- *
- * Uses a 4-minute debounce to accumulate multiple messages before sending,
- * capped at 15 minutes after the first trigger.
- *
- * Flow:
- * 1. User triggers notification (handoff, new message to handed-off ticket, or reopen)
- * 2. scheduleAdminNotification creates/updates the pending notification with a 4-minute delay
- * 3. If user sends more messages, timer resets and messages accumulate
- * 4. After 4 minutes of no new messages, or 15 minutes after the first trigger,
- *    sendPendingAdminNotification fires
- * 5. Email sent to recipients based on adminNotificationPreferences table
+ * A handoff, a reopen, or a user message on a handed-off thread schedules one
+ * pending notification per thread. Each further message restarts
+ * NOTIFICATION_DELAY_MS, capped at MAX_DEBOUNCE_AGE_MS after the first trigger,
+ * so one email carries the accumulated messages. Recipients come from the
+ * adminNotificationPreferences table.
  */
 
 import { v } from 'convex/values';
@@ -33,7 +23,6 @@ import { receivesNotification } from '../notificationPreferences/queries';
 import { getEmailDeliveryConfiguration } from '../../emails/resend';
 import { shouldSkipTestEmail } from '../../emails/helpers';
 
-/** Delay before sending a notification after the latest message. */
 const NOTIFICATION_DELAY_MS = 4 * 60 * 1000;
 
 /**
@@ -43,7 +32,6 @@ const NOTIFICATION_DELAY_MS = 4 * 60 * 1000;
  */
 const MAX_DEBOUNCE_AGE_MS = 15 * 60 * 1000;
 
-/** Maximum number of retry attempts before giving up */
 const MAX_RETRY_COUNT = 5;
 
 // Convex runtime actions have a 30-minute maximum, plus a minute for recovery margin.
@@ -78,28 +66,15 @@ async function finishNotification(
 		});
 }
 
-/** Logged when the running send no longer owns its row and skips cleanup. */
 const OWNERSHIP_MOVED_LOG =
 	'[sendPendingAdminNotification] Pending notification no longer owned by this send; row was re-armed, claimed by a newer send, or cancelled, skipping cleanup:';
 
 /**
- * Schedule or update an admin notification for a support thread
+ * Schedules or extends the pending admin notification for a support thread.
  *
- * Called when:
- * - User clicks "Talk to human" (with previous messages) → notificationType: 'newTickets'
- * - User sends messages to a handed-off thread → notificationType: 'userReplies'
- * - User reopens a closed ticket → notificationType: 'newTickets'
- *
- * If a pending notification exists, it cancels the old scheduled job,
- * adds the new messages, and reschedules with a fresh 4-minute delay, but no
- * later than 15 minutes after the row was created and no earlier than its
- * current deadline. A row whose running send already enqueued a recipient
- * starts a fresh window.
- *
- * @param args.threadId - The support thread ID
- * @param args.messageIds - Array of message IDs to include in the notification
- * @param args.isReopen - Whether this is a reopened ticket (true) or new ticket (false)
- * @param args.notificationType - Which preference toggle to check ('newTickets' or 'userReplies')
+ * A handoff or a reopen passes `newTickets`. A message on a handed-off thread
+ * passes `userReplies`. `notificationType` selects the preference toggle that
+ * picks recipients.
  */
 export const scheduleAdminNotification = internalMutation({
 	args: {
@@ -112,12 +87,10 @@ export const scheduleAdminNotification = internalMutation({
 	handler: async (ctx, args) => {
 		if (getEmailDeliveryConfiguration().state !== 'ready') return null;
 
-		// A handoff with no prior user messages (a bare "Talk to a human") still
-		// notifies admins. Downstream the email renders a no-messages fallback line
-		// instead of message excerpts.
+		// An empty messageIds (a bare "Talk to a human") still notifies admins. The
+		// email then renders a fallback line instead of message excerpts.
 		const now = Date.now();
 
-		// Check for existing pending notification for this thread
 		const existing = await ctx.db
 			.query('pendingAdminNotifications')
 			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
@@ -155,7 +128,6 @@ export const scheduleAdminNotification = internalMutation({
 						Math.min(now + NOTIFICATION_DELAY_MS, existing.createdAt + MAX_DEBOUNCE_AGE_MS)
 					);
 
-			// Cancel the existing scheduled function if it's still pending
 			if (existing.scheduledFnId) {
 				const scheduledFn = await ctx.db.system.get(existing.scheduledFnId);
 				if (scheduledFn?.state.kind === 'pending') {
@@ -163,12 +135,10 @@ export const scheduleAdminNotification = internalMutation({
 				}
 			}
 
-			// Update existing notification: add new messages (deduplicate)
 			const existingSet = new Set(existing.messageIds);
 			const newMessageIds = args.messageIds.filter((id) => !existingSet.has(id));
 			const updatedMessageIds = [...existing.messageIds, ...newMessageIds];
 
-			// Schedule new notification
 			const newScheduledFnId = await ctx.scheduler.runAfter(
 				scheduledFor - now,
 				internal.admin.support.notifications.sendPendingAdminNotification,
@@ -191,12 +161,11 @@ export const scheduleAdminNotification = internalMutation({
 				claimLeaseExpiresAt: undefined,
 				recoveryFnId: undefined,
 				isReopen: existing.isReopen || args.isReopen,
-				// Preserve 'newTickets' if either call was for new ticket (primary event)
+				// 'newTickets' wins because it is the primary event
 				notificationType:
 					existing.notificationType === 'newTickets' ? 'newTickets' : args.notificationType
 			});
 		} else {
-			// Create new pending notification
 			const notificationId = await ctx.db.insert('pendingAdminNotifications', {
 				threadId: args.threadId,
 				isReopen: args.isReopen,
@@ -207,7 +176,6 @@ export const scheduleAdminNotification = internalMutation({
 				createdAt: now
 			});
 
-			// Schedule the notification to be sent
 			const scheduledFnId = await ctx.scheduler.runAfter(
 				NOTIFICATION_DELAY_MS,
 				internal.admin.support.notifications.sendPendingAdminNotification,
@@ -216,7 +184,6 @@ export const scheduleAdminNotification = internalMutation({
 				}
 			);
 
-			// Update with the scheduled function ID
 			await ctx.db.patch('pendingAdminNotifications', notificationId, {
 				scheduledFnId
 			});
@@ -227,26 +194,15 @@ export const scheduleAdminNotification = internalMutation({
 });
 
 /**
- * Send a pending admin notification
- *
- * Called by the scheduler after the debounce period expires.
- * Fetches all accumulated messages and sends email to the appropriate recipients.
- *
- * Recipient selection (via adminNotificationPreferences table):
- * - If ticket is assigned AND assignee has the notification type enabled → only assignee
- * - Otherwise → all recipients with the notification type enabled (admins + custom emails)
+ * Sends the accumulated messages of a pending notification to its recipients.
  *
  * Ownership protocol: the claim clears scheduledFnId and writes a fresh claim
- * token, and every mutation this action runs afterwards passes that token and
- * may only touch the row while it is still unscheduled and carries the same
- * token. Email sends take seconds outside any transaction, so a customer message
- * can arrive in that window, re-arm the row with a fresh scheduled function and
- * take ownership back. The re-armed send may even claim the row before this one
- * finishes; its new token keeps this send from deleting or retrying that claim.
- * The delete and reschedule below then do nothing, and the newer send delivers
- * the accumulated messages.
- *
- * @param args.notificationId - The pending notification record ID
+ * token. Every later mutation of this action passes that token and touches the
+ * row only while it is still unscheduled and carries the same token. Email sends
+ * take seconds outside any transaction, so a customer message can re-arm the
+ * row in that window and take ownership back. The re-armed send may claim the
+ * row before this one finishes. Its new token keeps this send from deleting or
+ * retrying that claim, and the newer send delivers the accumulated messages.
  */
 export const sendPendingAdminNotification = internalAction({
 	args: {
@@ -254,10 +210,6 @@ export const sendPendingAdminNotification = internalAction({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		// Claim ownership atomically before doing any work
-		// This follows the "claim-then-act" pattern - the idiomatic Convex approach
-		// The mutation checks that scheduledFnId is set (not already claimed), clears
-		// it, and returns the claim token every later cleanup must present
 		const notification = await ctx.runMutation(
 			internal.admin.support.notifications.claimNotificationForSending,
 			{
@@ -268,7 +220,6 @@ export const sendPendingAdminNotification = internalAction({
 		);
 
 		if (!notification) {
-			// Already claimed by another instance, rescheduled, or deleted
 			console.log(
 				`[sendPendingAdminNotification] Notification ${args.notificationId} not claimable (already claimed or rescheduled), skipping`
 			);
@@ -287,7 +238,6 @@ export const sendPendingAdminNotification = internalAction({
 			return null;
 		}
 
-		// Get support thread data
 		const supportThread = await ctx.runQuery(
 			internal.admin.support.notifications.getSupportThread,
 			{
@@ -299,7 +249,6 @@ export const sendPendingAdminNotification = internalAction({
 			console.log(
 				`[sendPendingAdminNotification] Thread ${notification.threadId} not found, skipping`
 			);
-			// Clean up the pending notification (the thread is gone)
 			const deleted = await ctx.runMutation(
 				internal.admin.support.notifications.deletePendingNotification,
 				{
@@ -311,11 +260,8 @@ export const sendPendingAdminNotification = internalAction({
 			return null;
 		}
 
-		// Determine target emails based on stored notification type
-		// - 'newTickets' for handoffs and reopened tickets
-		// - 'userReplies' for follow-up messages to handed-off tickets
-		// E2E test addresses are never sent to, so they are dropped here: they must
-		// neither count as a delivery nor keep an all-test notification retrying.
+		// E2E test addresses never receive email. Dropping them here keeps them from
+		// counting as a delivery and keeps an all-test notification from retrying.
 		const targetEmails = (
 			await ctx.runQuery(internal.admin.support.notifications.getNotificationTargetEmails, {
 				assignedTo: supportThread.assignedTo,
@@ -325,7 +271,6 @@ export const sendPendingAdminNotification = internalAction({
 
 		if (targetEmails.length === 0) {
 			console.log('[sendPendingAdminNotification] No target emails found, skipping notification');
-			// Clean up the pending notification (there are no recipients)
 			const deleted = await ctx.runMutation(
 				internal.admin.support.notifications.deletePendingNotification,
 				{
@@ -337,12 +282,10 @@ export const sendPendingAdminNotification = internalAction({
 			return null;
 		}
 
-		// Fetch message contents
 		const messages = await ctx.runQuery(internal.admin.support.notifications.getMessageContents, {
 			messageIds: notification.messageIds
 		});
 
-		// Send email to each target with per-recipient error handling
 		let sentCount = 0;
 		for (const email of targetEmails) {
 			try {
@@ -354,9 +297,8 @@ export const sendPendingAdminNotification = internalAction({
 						claimToken: notification.claimToken,
 						email,
 						isReopen: notification.isReopen,
-						// A handoff with no accumulated messages is a bare "Talk to a human",
-						// so the email's empty-state line names the handoff instead of the
-						// neutral "no messages" shared with reopen/reply notifications.
+						// A handoff without messages is a bare "Talk to a human". Its empty-state
+						// line names the handoff instead of the neutral "no messages" line.
 						isBareHandoff: notification.messageIds.length === 0,
 						userName: supportThread.userName || 'Anonymous',
 						messages,
@@ -365,7 +307,6 @@ export const sendPendingAdminNotification = internalAction({
 				);
 				if (enqueued) sentCount++;
 			} catch {
-				// Log and continue to other recipients
 				console.error({
 					code: 'admin_notification_send_failed',
 					threadId: notification.threadId
@@ -387,7 +328,6 @@ export const sendPendingAdminNotification = internalAction({
 			return null;
 		}
 
-		// If all sends failed, reschedule for retry (up to MAX_RETRY_COUNT attempts)
 		if (sentCount === 0 && !notification.hadEnqueue) {
 			const currentRetry = notification.retryCount;
 			if (currentRetry >= MAX_RETRY_COUNT) {
@@ -408,20 +348,19 @@ export const sendPendingAdminNotification = internalAction({
 			console.error(
 				`[sendPendingAdminNotification] All ${targetEmails.length} email sends failed for thread ${notification.threadId}, retry ${currentRetry + 1}/${MAX_RETRY_COUNT}...`
 			);
-			// Reschedule with 1 minute delay via mutation (for guaranteed delivery semantics)
+			// The retry is scheduled from a mutation for its guaranteed delivery semantics
 			const rescheduled = await ctx.runMutation(
 				internal.admin.support.notifications.reschedulePendingNotification,
 				{
 					notificationId: args.notificationId,
 					claimToken: notification.claimToken,
-					delayMs: 60_000 // 1 minute retry delay
+					delayMs: 60_000
 				}
 			);
 			if (!rescheduled) console.log(OWNERSHIP_MOVED_LOG, args.notificationId);
 			return null;
 		}
 
-		// Clean up the pending notification
 		const deleted = await ctx.runMutation(
 			internal.admin.support.notifications.deletePendingNotification,
 			{
@@ -438,36 +377,23 @@ export const sendPendingAdminNotification = internalAction({
 	}
 });
 
-// ============================================================================
-// Helper queries and mutations (internal only)
-// ============================================================================
-
 /**
- * Claim ownership of a pending notification before sending
+ * Claims a pending notification for one send.
  *
- * Uses atomic mutation to prevent race conditions. Only one action can claim
- * a notification - once claimed, scheduledFnId is cleared to prevent other
- * actions from proceeding.
- *
- * This follows the "claim-then-act" pattern which is the idiomatic Convex
- * approach for coordinating work in actions:
- * - pending (scheduledFnId set) → claimed (scheduledFnId cleared, claimToken
- *   written) → deleted
- *
- * The claim token tells two sends apart when the row is re-armed and claimed
- * again before an earlier send finishes: both see an unscheduled row, but only
- * the newest claim holds the token on it.
+ * The claim clears scheduledFnId, so no other action can claim the row, and
+ * writes a claim token. The token tells two sends apart when the row is re-armed
+ * and claimed again before an earlier send finishes: both see an unscheduled
+ * row, but only the newest claim holds the token on it.
  *
  * Only a caller that asks for a token is granted a claim. An action that started
  * before this protocol was deployed claims without asking and cleans up without
- * a token, so a tokened claim would strand its row unscheduled and a tokenless
- * one could be deleted by another such send. That caller gets no claim: the row
+ * a token. A tokened claim would strand its row unscheduled, and a tokenless one
+ * could be deleted by another such send. That caller gets no claim, and the row
  * is handed to a fresh send, which claims it with a token.
  *
- * @param args.notificationId - The notification to claim
  * @param args.issueToken - Set by callers that pass the returned token to every cleanup
- * @returns The notification data and claim token if claimed, null if already
- *   claimed, handed off, or not found
+ * @returns The notification and claim token, or null when the row is missing,
+ *   already claimed, or handed off
  */
 export const claimNotificationForSending = internalMutation({
 	args: {
@@ -491,13 +417,10 @@ export const claimNotificationForSending = internalMutation({
 	handler: async (ctx, args) => {
 		const notification = await ctx.db.get('pendingAdminNotifications', args.notificationId);
 
-		// Not found or already claimed (scheduledFnId is undefined when claimed)
 		if (!notification || notification.scheduledFnId === undefined) {
 			return null;
 		}
 
-		// A caller without token support cannot hold a claim safely, so a new send
-		// takes the row over right away
 		if (args.issueToken !== true || args.receiptProtocol !== 1) {
 			const handoffFnId = await ctx.scheduler.runAfter(
 				0,
@@ -510,9 +433,6 @@ export const claimNotificationForSending = internalMutation({
 			return null;
 		}
 
-		// Clear scheduledFnId and write a fresh token to claim ownership atomically
-		// This prevents other actions from claiming this notification, and an older
-		// send from cleaning up after this claim
 		const claimToken = crypto.randomUUID();
 		const generation = notification.generation ?? crypto.randomUUID();
 		const claimLeaseExpiresAt = Date.now() + CLAIM_LEASE_MS;
@@ -549,9 +469,6 @@ export const claimNotificationForSending = internalMutation({
 	}
 });
 
-/**
- * Get support thread data for notification
- */
 export const getSupportThread = internalQuery({
 	args: {
 		threadId: v.string()
@@ -573,13 +490,13 @@ export const getSupportThread = internalQuery({
 });
 
 /**
- * Whether the send that presents `claimToken` still owns a pending notification
+ * Whether the send that presents `claimToken` still owns a pending notification.
  *
  * A send owns its row only while the row is unscheduled and carries the token
- * claimNotificationForSending issued to that send. A scheduledFnId means the row
- * was re-armed or rescheduled and a newer job owns it; a different token means a
- * newer send has claimed it since. Only a claim made before tokens existed
- * matches a missing token, because every new claim writes one.
+ * claimNotificationForSending issued to that send. A scheduledFnId means a newer
+ * job owns the re-armed or rescheduled row. A different token means a newer send
+ * has claimed it. Only a claim made before tokens existed matches a missing
+ * token, because every new claim writes one.
  */
 function isOwnedByClaim(
 	notification: Doc<'pendingAdminNotifications'>,
@@ -589,15 +506,14 @@ function isOwnedByClaim(
 }
 
 /**
- * Delete a pending notification that the running send still owns
+ * Deletes a pending notification that the running send still owns.
  *
  * Any other owner holds messages this send did not deliver: the row was re-armed
- * with additional messages while this send was running, and possibly claimed
- * again by the newer send, so deleting it would drop those messages.
+ * with additional messages while this send was running. Deleting it would drop
+ * those messages.
  *
- * @param args.notificationId - The notification to delete
  * @param args.claimToken - The token returned by this send's claim
- * @returns true if deleted, false if not found or owned by a newer send
+ * @returns false when the row is missing or owned by a newer send
  */
 export const deletePendingNotification = internalMutation({
 	args: {
@@ -608,12 +524,10 @@ export const deletePendingNotification = internalMutation({
 	handler: async (ctx, args) => {
 		const notification = await ctx.db.get('pendingAdminNotifications', args.notificationId);
 
-		// Not found - already deleted
 		if (!notification) {
 			return false;
 		}
 
-		// Re-armed or claimed again while the send was running, so a newer send owns the row
 		if (!isOwnedByClaim(notification, args.claimToken)) {
 			return false;
 		}
@@ -624,20 +538,15 @@ export const deletePendingNotification = internalMutation({
 });
 
 /**
- * Reschedule a pending notification for retry
- *
- * Called when all email sends fail to ensure the notification is retried later.
- * Updates the scheduledFnId to point to the new scheduled function.
+ * Schedules a retry for a pending notification whose sends all failed.
  *
  * Only the send that owns the row may retry it. A row re-armed during the failed
- * sends already carries a newer job for the same messages, and a row claimed
- * again belongs to the newer send, so either is left alone. The retry clears the
- * claim token, which ends this send's ownership.
+ * sends already carries a newer job for the same messages. A row claimed again
+ * belongs to the newer send. The retry clears the claim token, which ends this
+ * send's ownership.
  *
- * @param args.notificationId - The notification to reschedule
  * @param args.claimToken - The token returned by this send's claim
- * @param args.delayMs - Delay in milliseconds before retry (default 60 seconds)
- * @returns true if rescheduled, false if not found or owned by a newer send
+ * @returns false when the row is missing, owned by a newer send, or out of retries
  */
 export const reschedulePendingNotification = internalMutation({
 	args: {
@@ -653,24 +562,21 @@ export const reschedulePendingNotification = internalMutation({
 			return false;
 		}
 
-		// Re-armed or claimed again while the send was running, so a newer send owns the retry
 		if (!isOwnedByClaim(notification, args.claimToken)) {
 			return false;
 		}
 
-		const delayMs = args.delayMs ?? 60_000; // Default 1 minute
+		const delayMs = args.delayMs ?? 60_000;
 		const nextRetryCount = (notification.retryCount ?? 0) + 1;
 		if (nextRetryCount > MAX_RETRY_COUNT) return false;
 		await cancelRecovery(ctx, notification);
 
-		// Schedule new send attempt
 		const newScheduledFnId = await ctx.scheduler.runAfter(
 			delayMs,
 			internal.admin.support.notifications.sendPendingAdminNotification,
 			{ notificationId: args.notificationId }
 		);
 
-		// Update notification with new scheduled function ID and incremented retry count
 		await ctx.db.patch('pendingAdminNotifications', args.notificationId, {
 			scheduledFor: Date.now() + delayMs,
 			scheduledFnId: newScheduledFnId,
@@ -745,14 +651,10 @@ export const listLegacyNotificationClaims = internalQuery({
 });
 
 /**
- * Get target email addresses for admin notification
+ * Returns the recipients of a notification type from adminNotificationPreferences.
  *
- * Uses the adminNotificationPreferences table to determine recipients.
- * If assigned admin has the notification enabled, prioritizes them.
- * Otherwise returns all recipients with the notification type enabled.
- *
- * @param assignedTo - Optional admin user ID for ticket assignment priority
- * @param notificationType - Type of notification ('newTickets' or 'userReplies')
+ * An assigned admin with the type enabled is the only recipient. Otherwise every
+ * recipient with the type enabled, admin or custom email, receives it.
  */
 export const getNotificationTargetEmails = internalQuery({
 	args: {
@@ -764,10 +666,8 @@ export const getNotificationTargetEmails = internalQuery({
 		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: rows exist only through admin actions (promotions, custom recipients), one per email
 		const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
 
-		// Filter to active recipients (admins or custom emails) with this notification enabled
 		const activePrefs = allPrefs.filter((p) => receivesNotification(p, args.notificationType));
 
-		// If assigned admin has this notification enabled, prioritize them
 		if (args.assignedTo) {
 			const assignedPref = activePrefs.find((p) => p.userId === args.assignedTo);
 			if (assignedPref) {
@@ -780,10 +680,9 @@ export const getNotificationTargetEmails = internalQuery({
 });
 
 /**
- * Get message contents for notification
+ * Formats messages from the agent component for the email.
  *
- * Fetches messages from the agent component and formats them for the email.
- * Truncates messages longer than 500 characters to keep email size reasonable.
+ * Each message is cut to 500 characters to keep the email small.
  */
 export const getMessageContents = internalQuery({
 	args: {
@@ -793,15 +692,13 @@ export const getMessageContents = internalQuery({
 	handler: async (ctx, args) => {
 		const messages: Array<{ text: string; timestamp: string }> = [];
 
-		// Fetch all messages in batch using getMessagesByIds
-		// Note: messageIds are stored as strings but the agent component expects typed IDs
+		// messageIds are stored as strings, and the agent component expects typed IDs
 		const messagesResult = await ctx.runQuery(components.agent.messages.getMessagesByIds, {
 			messageIds: args.messageIds as Array<Id<'messages'>>
 		});
 
 		for (const message of messagesResult) {
 			if (message?.text) {
-				// Format timestamp
 				const date = new Date(message._creationTime);
 				const timestamp = date.toLocaleString('en-US', {
 					month: 'short',
@@ -812,7 +709,7 @@ export const getMessageContents = internalQuery({
 				});
 
 				messages.push({
-					text: message.text.slice(0, 500), // Truncate long messages
+					text: message.text.slice(0, 500),
 					timestamp
 				});
 			}
@@ -823,14 +720,10 @@ export const getMessageContents = internalQuery({
 });
 
 /**
- * Get recent user messages from a thread for notification
+ * Returns the IDs of a thread's recent user messages in chronological order.
  *
- * Fetches user messages from a thread, excluding:
- * - AI/assistant messages
- * - System messages like "Talk to support"
- *
- * Used when user clicks "Talk to human" to include previous messages in notification.
- * Returns up to 10 messages by default to keep notification email focused.
+ * The first notification of a thread that reaches the team includes them.
+ * Assistant messages and the "Talk to support" message are left out.
  */
 export const getRecentUserMessages = internalQuery({
 	args: {
@@ -841,7 +734,6 @@ export const getRecentUserMessages = internalQuery({
 	handler: async (ctx, args) => {
 		const maxMessages = args.limit ?? 10;
 
-		// Fetch recent messages from the thread (newest first)
 		const result = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
 			threadId: args.threadId,
 			order: 'desc',
@@ -849,11 +741,9 @@ export const getRecentUserMessages = internalQuery({
 			paginationOpts: { numItems: 50, cursor: null }
 		});
 
-		// Filter to only user messages, excluding "Talk to support" system message
 		const userMessages = result.page.filter((msg) => {
 			if (msg.message?.role !== 'user') return false;
 
-			// Extract text from the message
 			const text =
 				typeof msg.message.content === 'string'
 					? msg.message.content
@@ -864,13 +754,11 @@ export const getRecentUserMessages = internalQuery({
 								.join(' ')
 						: '';
 
-			// Exclude the "Talk to support" system message
 			if (text.toLowerCase().trim() === 'talk to support') return false;
 
 			return true;
 		});
 
-		// Take only the most recent messages and reverse to chronological order
 		const recentMessages = userMessages.slice(0, maxMessages).reverse();
 
 		return recentMessages.map((msg) => msg._id);
@@ -878,12 +766,10 @@ export const getRecentUserMessages = internalQuery({
 });
 
 /**
- * Cancel a pending notification for a thread
+ * Cancels a thread's pending notification when the ticket is closed or assigned
+ * before the email goes out.
  *
- * Called when a ticket is closed or assigned before the notification is sent.
- * This prevents stale notifications from being sent.
- *
- * @returns true if cancelled, false if no pending notification found
+ * @returns false when the thread has no pending notification
  */
 export const cancelPendingNotification = internalMutation({
 	args: {
@@ -900,7 +786,6 @@ export const cancelPendingNotification = internalMutation({
 			return false;
 		}
 
-		// Cancel scheduled function if still pending
 		if (pending.scheduledFnId) {
 			const scheduledFn = await ctx.db.system.get(pending.scheduledFnId);
 			if (scheduledFn?.state.kind === 'pending') {
@@ -908,7 +793,6 @@ export const cancelPendingNotification = internalMutation({
 			}
 		}
 
-		// Delete the pending notification
 		await finishNotification(ctx, pending);
 		return true;
 	}

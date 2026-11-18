@@ -1,8 +1,6 @@
 /**
- * Email Template Rendering Utilities
- *
- * Renders pre-built email templates with dynamic data using simple {{var}} interpolation.
- * Templates are generated at build-time from Svelte components.
+ * Fills the email templates through `{{var}}` interpolation. The templates are
+ * generated at build time from Svelte components.
  */
 
 import type {
@@ -43,10 +41,7 @@ import { requireEmailConfiguration } from '../env';
 import { t, DEFAULT_LOCALE, getValidLocale } from '../i18n/translations';
 import { escapeHtml } from './html';
 
-/**
- * Simple template renderer that replaces {{varName}} patterns with values.
- * Compatible with Convex runtime (no Node.js dependencies).
- */
+/** Replaces `{{varName}}` patterns. It runs in the Convex runtime, without Node.js dependencies. */
 function renderTemplate(template: string, data: Record<string, string | number>): string {
 	return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
 		const value = data[key];
@@ -54,18 +49,10 @@ function renderTemplate(template: string, data: Record<string, string | number>)
 	});
 }
 
-/** Get the validated base URL for email assets and footer links. */
 function getBaseUrl(): string {
 	return requireEmailConfiguration().assetUrl;
 }
 
-/**
- * Render verification email with magic link
- * @param verificationUrl - URL to verify email
- * @param expiryMinutes - Minutes until link expires
- * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
- * @returns Rendered HTML and plain text email
- */
 export function renderVerificationEmail(
 	verificationUrl: VerificationEmailData['verificationUrl'],
 	expiryMinutes: VerificationEmailData['expiryMinutes'],
@@ -99,15 +86,10 @@ export function renderVerificationEmail(
 }
 
 /**
- * Render verification code email with OTP code
- *
- * NOTE: Not currently in use. Kept for future OTP-based verification.
- * Add a corresponding mutation in send.ts when needed.
+ * Unused until OTP-based verification needs it. A matching mutation in send.ts
+ * wires it up.
  *
  * @param code - 8-digit verification code
- * @param expiryMinutes - Minutes until code expires
- * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
- * @returns Rendered HTML and plain text email
  */
 export function renderVerificationCodeEmail(
 	code: VerificationCodeEmailData['code'],
@@ -148,11 +130,7 @@ export function renderVerificationCodeEmail(
  * to reset and none that "will remain unchanged" if the mail was not expected.
  * The template takes every string as a prop, so only the key prefix changes.
  *
- * @param resetUrl - URL to reset password page with token
- * @param userName - User's name for personalization (optional, falls back to a generic greeting)
- * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
  * @param hasPassword - Whether the account has a password to reset today
- * @returns Rendered HTML and plain text email
  */
 export function renderPasswordResetEmail(
 	resetUrl: PasswordResetEmailData['resetUrl'],
@@ -212,14 +190,6 @@ export function renderPasswordResetEmail(
 	};
 }
 
-/**
- * Render admin reply notification email
- * @param adminName - Name of the admin who replied
- * @param messagePreview - Preview text of the admin's message
- * @param deepLink - URL to view the full conversation
- * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
- * @returns Rendered HTML and plain text email
- */
 export function renderAdminReplyNotificationEmail(
 	adminName: AdminReplyNotificationEmailData['adminName'],
 	messagePreview: AdminReplyNotificationEmailData['messagePreview'],
@@ -253,25 +223,13 @@ export function renderAdminReplyNotificationEmail(
 	};
 }
 
-/**
- * Render new ticket admin notification email
- *
- * Sent to admins when:
- * - User clicks "Talk to human" (handoff from AI)
- * - User sends message to a handed-off ticket
- * - User reopens a closed ticket
- *
- * @param data - Email data including isReopen, user info, messages, and admin dashboard link
- * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
- * @returns Rendered HTML and plain text email
- */
+/** Sent to admins for a handoff, a message on a handed-off ticket, or a reopen. */
 export function renderNewTicketAdminNotificationEmail(
 	data: NewTicketAdminNotificationEmailData,
 	locale: string = DEFAULT_LOCALE
 ): RenderedEmail {
 	const baseUrl = getBaseUrl();
 
-	// Compute text values based on isReopen flag using translations
 	const titleText = data.isReopen
 		? t(locale, 'email.body.ticket_reopened')
 		: t(locale, 'email.body.ticket_new');
@@ -282,7 +240,6 @@ export function renderNewTicketAdminNotificationEmail(
 		? t(locale, 'email.subject.ticket_reopened', { userName: data.userName })
 		: t(locale, 'email.subject.ticket_new', { userName: data.userName });
 
-	// Build HTML for messages (only show timestamp for first message)
 	const messagesHtml = data.messages
 		.map(
 			(m, index) => `
@@ -317,7 +274,6 @@ export function renderNewTicketAdminNotificationEmail(
 		footerText: escapeHtml(footerText)
 	};
 
-	// For plain text version (only show timestamp for first message)
 	const messagesText = data.messages
 		.map((m, index) => (index === 0 ? `[${m.timestamp}] ${m.text}` : m.text))
 		.join('\n\n');
@@ -339,15 +295,6 @@ export function renderNewTicketAdminNotificationEmail(
 	};
 }
 
-/**
- * Render new user signup notification email
- *
- * Sent to admins when a new user registers on the platform.
- *
- * @param data - Email data including user info and admin dashboard link
- * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
- * @returns Rendered HTML and plain text email
- */
 export function renderNewUserSignupNotificationEmail(
 	data: NewUserSignupNotificationEmailData,
 	locale: string = DEFAULT_LOCALE
@@ -526,15 +473,7 @@ function renderCustomerEmail(
 	};
 }
 
-/**
- * Render the new customer admin notification email
- *
- * Sent to admins when a customer's first eligible payment is observed.
- *
- * @param data - The customer, their first payment and the composed journey
- * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
- * @returns Subject, rendered HTML and plain text email
- */
+/** Sent to admins when a customer's first eligible payment is observed. */
 export function renderNewCustomerAdminNotificationEmail(
 	data: NewCustomerAdminNotificationEmailData,
 	locale: string = DEFAULT_LOCALE
@@ -555,14 +494,8 @@ export function renderNewCustomerAdminNotificationEmail(
 }
 
 /**
- * Render the cancellation admin notification email
- *
  * Sent to admins when a paying customer's scheduled cancellation is observed.
  * The footer states the period the journey covers.
- *
- * @param data - The customer, how long they paid and the composed journey
- * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
- * @returns Subject, rendered HTML and plain text email
  */
 export function renderCancellationAdminNotificationEmail(
 	data: CancellationAdminNotificationEmailData,
@@ -608,15 +541,7 @@ export function getRateLimitAlertLimitName(
 	return t(locale, RATE_LIMIT_ALERT_LIMIT_NAME_KEYS[bucket]);
 }
 
-/**
- * Render support rate limit alert email
- *
- * Sent to admins when a global anonymous support rate limit stays nearly used up.
- *
- * @param data - Bucket, its sampled level and refill rate, and the admin dashboard link
- * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
- * @returns Rendered HTML and plain text email
- */
+/** Sent to admins when a global anonymous support rate limit stays nearly used up. */
 export function renderSupportRateLimitAlertEmail(
 	data: SupportRateLimitAlertEmailData,
 	locale: string = DEFAULT_LOCALE

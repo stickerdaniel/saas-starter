@@ -15,10 +15,7 @@ import { incrementCounter, recalculateCounters } from './admin/counters';
 import { aiChatRateLimiter } from './aiChat/rateLimit';
 import { getAiChatSidebarActivityAt } from './aiChat/visibility';
 
-/**
- * Verify the e2e test secret. Throws if missing or mismatched.
- * AUTH_E2E_TEST_SECRET is only set in test environments.
- */
+/** Throws unless `secret` matches AUTH_E2E_TEST_SECRET, which only test environments set. */
 function requireTestSecret(secret: string): void {
 	const expected = process.env.AUTH_E2E_TEST_SECRET;
 	if (!expected || secret !== expected) {
@@ -333,7 +330,6 @@ export const getTestUser = internalQuery({
 	// v.any(): user doc shape is owned by the Better Auth component, not this app
 	returns: v.any(),
 	handler: async (ctx, { email }) => {
-		// Use Better Auth adapter to find user by email
 		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 			model: 'user',
 			where: [{ field: 'email', value: email }]
@@ -342,9 +338,7 @@ export const getTestUser = internalQuery({
 	}
 });
 
-// Mark test user email as verified
-// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
-// Only use for test accounts - it bypasses the normal email verification flow
+// Marks a test user's email verified, bypassing the email verification flow
 export const verifyTestUserEmail = mutation({
 	args: { email: v.string(), secret: v.string() },
 	returns: v.object({
@@ -355,7 +349,6 @@ export const verifyTestUserEmail = mutation({
 	handler: async (ctx, { email, secret }) => {
 		requireTestSecret(secret);
 
-		// Find user by email using Better Auth adapter
 		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 			model: 'user',
 			where: [{ field: 'email', value: email }]
@@ -365,12 +358,10 @@ export const verifyTestUserEmail = mutation({
 			return { success: false, error: 'User not found' };
 		}
 
-		// Check if already verified (adapter uses emailVerified boolean, stored as emailVerificationTime)
 		if (user.emailVerified) {
 			return { success: true, alreadyVerified: true };
 		}
 
-		// Mark email as verified using Better Auth adapter's updateOne method
 		await ctx.runMutation(components.betterAuth.adapter.updateOne, {
 			input: {
 				model: 'user',
@@ -383,9 +374,7 @@ export const verifyTestUserEmail = mutation({
 	}
 });
 
-// Promote existing test user to admin role and verify email
-// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
-// User must already exist (created via signup) - sets role to admin AND verifies email
+// Promotes an existing test user, created via signup, to admin and verifies the email
 export const createTestAdminUser = mutation({
 	args: { email: v.string(), secret: v.string() },
 	returns: v.object({
@@ -399,7 +388,6 @@ export const createTestAdminUser = mutation({
 	handler: async (ctx, { email, secret }) => {
 		requireTestSecret(secret);
 
-		// Find user by email using Better Auth adapter
 		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 			model: 'user',
 			where: [{ field: 'email', value: email }]
@@ -409,12 +397,10 @@ export const createTestAdminUser = mutation({
 			return { success: false, error: 'User not found. Sign up the user first.' };
 		}
 
-		// Check if already admin and verified
 		if (user.role === 'admin' && user.emailVerified) {
 			return { success: true, alreadyAdmin: true, alreadyVerified: true };
 		}
 
-		// Set role to admin AND verify email in one operation
 		await ctx.runMutation(components.betterAuth.adapter.updateOne, {
 			input: {
 				model: 'user',
@@ -426,7 +412,7 @@ export const createTestAdminUser = mutation({
 		// delete trigger decrements it again when the fixture is removed.
 		if (user.role !== 'admin') await incrementCounter(ctx, 'adminCount', 1);
 
-		// Create notification preferences entry for the admin (needed for admin-settings E2E tests)
+		// The admin-settings E2E tests need the admin's notification preferences row
 		const existingPref = await ctx.db
 			.query('adminNotificationPreferences')
 			.withIndex('by_email', (q) => q.eq('email', email))
@@ -461,9 +447,7 @@ export const createTestAdminUser = mutation({
 // sets across calls.
 const SUPPORT_THREAD_FIXTURE_BATCH = 25;
 
-// Create anonymous support thread(s) for E2E tests
-// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
-// Use count param to create multiple threads (for pagination testing)
+// `count` creates several threads for pagination tests
 export const createAnonymousSupportThread = mutation({
 	args: {
 		secret: v.string(),
@@ -637,8 +621,6 @@ export const createUnreadAnonymousSupportReply = mutation({
 	}
 });
 
-// Get support threads by userId for E2E test verification
-// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
 export const getSupportThreadsByUserId = mutation({
 	args: {
 		secret: v.string(),
@@ -670,8 +652,6 @@ export const getSupportThreadsByUserId = mutation({
 	}
 });
 
-// Get the authenticated user's ID by email for E2E test verification
-// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
 export const getAuthUserIdByEmail = mutation({
 	args: {
 		secret: v.string(),
@@ -716,8 +696,6 @@ export const resetAiChatFileUploadLimit = mutation({
 	}
 });
 
-// Get the most recent password reset token for a test user
-// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
 // Reset emails are skipped for @e2e.example.com addresses (emails/helpers.ts),
 // so E2E tests read the token Better Auth stored in the verification model.
 export const getPasswordResetToken = mutation({
@@ -761,8 +739,6 @@ export const getPasswordResetToken = mutation({
 
 const SUPPORT_MESSAGE_CONTEXT_DELETE_BATCH = 100;
 
-// Clean up anonymous support threads created in E2E tests
-// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
 export const cleanupAnonymousSupportThreads = mutation({
 	args: {
 		secret: v.string(),
@@ -821,8 +797,7 @@ export const cleanupAnonymousSupportThreads = mutation({
 	}
 });
 
-// Delete a test user and all their associated accounts/sessions
-// Used by globalTeardown to clean up fresh test users created each run
+// globalTeardown deletes each run's fresh test users with their accounts and sessions
 export const deleteTestUser = mutation({
 	args: { email: v.string(), secret: v.string() },
 	returns: v.object({
@@ -836,7 +811,6 @@ export const deleteTestUser = mutation({
 	handler: async (ctx, { email, secret }) => {
 		requireTestSecret(secret);
 
-		// Find user by email
 		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 			model: 'user',
 			where: [{ field: 'email', value: email }]
@@ -937,9 +911,7 @@ export const deleteTestUser = mutation({
 	}
 });
 
-// Clean up test data created during E2E tests
-// Removes notification recipients with test email patterns
-// Note: Does NOT delete test user accounts - only test artifacts
+// Deletes the listed E2E notification recipients. Test user accounts stay.
 export const cleanupTestData = mutation({
 	args: { secret: v.string(), emails: v.optional(v.array(v.string())) },
 	returns: v.object({
@@ -1127,15 +1099,14 @@ export const findOwnedTestData = query({
 	}
 });
 
-// Bulk-delete ALL stale E2E test users (@e2e.example.com)
-// Finds all users matching the pattern and deletes them + accounts + sessions
+// Deletes every @e2e.example.com user with its accounts, sessions, and notification
+// preferences
 export const cleanupAllTestUsers = mutation({
 	args: { secret: v.string() },
 	returns: v.object({ success: v.boolean(), found: v.number(), deleted: v.number() }),
 	handler: async (ctx, { secret }) => {
 		requireTestSecret(secret);
 
-		// Fetch all users and filter for e2e pattern
 		const e2eUsers: Array<{ _id: string; email: string }> = [];
 		let cursor: string | null = null;
 		let hasMore = true;

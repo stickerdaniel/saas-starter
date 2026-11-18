@@ -11,9 +11,8 @@ import { resolveOffsetLastPage, sliceOffsetPage } from '../pagination';
 import { filterAuditRowsByMatch } from './search';
 
 /**
- * The six admin actions recorded in the adminAuditLogs table.
- * Mirrors the `action` union in schema.ts. Exported so the frontend can build
- * the action filter without redeclaring the literals.
+ * Mirrors the `action` union of adminAuditLogs in schema.ts. The frontend builds
+ * its action filter from it.
  */
 export const auditLogActionValidator = v.union(
 	v.literal('impersonate'),
@@ -25,9 +24,8 @@ export const auditLogActionValidator = v.union(
 );
 
 /**
- * Typed metadata per action, mirroring the schema's optional metadata union.
- * Exported so `queries.test.ts` can assert it stays structurally in sync with
- * the same union declared in schema.ts (the two must never drift apart).
+ * Mirrors the metadata union in schema.ts. `queries.test.ts` asserts that the two
+ * stay structurally equal.
  */
 export const auditLogMetadataValidator = v.optional(
 	v.union(
@@ -39,10 +37,9 @@ export const auditLogMetadataValidator = v.optional(
 );
 
 /**
- * A resolved user reference for an audit log row. The raw Better Auth id is
- * always present; name/email/image are filled only while the user still exists.
- * `exists: false` means the user was deleted after the action was logged, but
- * the id stays available so the UI can still reference the original actor/target.
+ * A user reference of an audit log row. The Better Auth id is always present.
+ * Name, email, and image are filled only while the user still exists.
+ * `exists: false` marks a user deleted after the action was logged.
  */
 const auditLogUserRefValidator = v.object({
 	id: v.string(),
@@ -52,10 +49,7 @@ const auditLogUserRefValidator = v.object({
 	exists: v.boolean()
 });
 
-/**
- * Full item shape returned by `listAuditLogs`. The frontend imports this
- * validator (or the inferred {@link AuditLogItem} type) to render the table.
- */
+/** Item shape of `listAuditLogs`. The frontend table renders {@link AuditLogItem}. */
 export const auditLogItemValidator = v.object({
 	id: v.string(), // adminAuditLogs document _id
 	action: auditLogActionValidator,
@@ -85,9 +79,8 @@ type AuditLogFilters = {
 };
 
 /**
- * Sort configuration for the audit log table. Only the timestamp column is
- * sortable; the UI flips between newest-first and oldest-first. Direction
- * defaults to 'desc' (newest first) when the arg is omitted.
+ * Only the timestamp column is sortable. An omitted sort means 'desc', newest
+ * first.
  */
 export const auditLogSortByValidator = v.object({
 	field: v.literal('timestamp'),
@@ -99,22 +92,17 @@ type AuditLogDirection = 'asc' | 'desc';
 const INDEX_CURSOR_PREFIX = 'audit:v1:';
 
 /**
- * Pick the most selective index for the given filter and return the query
- * ordered by `direction` (defaults to newest-first).
+ * Picks the most selective index for the filters and orders by `direction`.
  *
- * The action filter combines with one user filter: actionFilter can be paired
- * with either adminUserId or targetUserId, served by the compound indexes
- * by_admin_action / by_target_action. The two user filters stay mutually
- * exclusive (the UI never sets both). Priority: admin+action -> target+action
- * -> action -> admin -> target -> unfiltered (by_timestamp).
+ * The two user filters are mutually exclusive, because the UI never sets both.
+ * Priority: admin+action, target+action, action, admin, target, then
+ * by_timestamp.
  *
- * The single-filter indexes by_admin / by_target must NOT be dropped in favor
- * of the compound ones: with only one equality field pinned, a compound index
- * orders by (action, _creationTime) instead of purely by time, so the log rows
- * would sort by action first rather than newest-first. Within each branch,
- * ordering by the chosen index resolves to `_creationTime` after the pinned
- * fields, which matches the `timestamp` insertion order used by the writers in
- * admin/mutations.ts.
+ * The single-filter indexes by_admin and by_target must stay. With one equality
+ * field pinned, a compound index orders by (action, _creationTime), so the rows
+ * would sort by action before time. Within each branch the index order resolves
+ * to `_creationTime` after the pinned fields, which matches the `timestamp`
+ * insertion order of the writers in admin/mutations.ts.
  */
 function queryAuditLogs(
 	ctx: QueryCtx,
@@ -164,10 +152,9 @@ function queryAuditLogs(
 }
 
 /**
- * Resolve a set of Better Auth user ids to { name, email, image }. Deleted
- * users are simply absent from the returned map. Lookups are bounded by page
- * size: a page holds at most `2 * numItems` unique ids (admin + target).
- * The adapter resolves `_id in` with point reads and returns all matches.
+ * Resolves Better Auth user ids. Deleted users are absent from the map. A page
+ * holds at most `2 * numItems` unique ids (admin and target), and the adapter
+ * resolves `_id in` with point reads.
  */
 async function resolveUsers(
 	ctx: QueryCtx,
@@ -198,12 +185,7 @@ function toUserRef(
 	return { id, name: info.name, email: info.email, image: info.image, exists: true };
 }
 
-/**
- * Resolve and shape a batch of audit rows into the {@link auditLogItemValidator}
- * item shape returned to the client. Shared by both the cursor path and the
- * search path so the row mapping stays in one place. Enrichment is bounded by
- * batch size (see {@link resolveUsers}).
- */
+/** User lookups are bounded by the batch size (see {@link resolveUsers}). */
 async function enrichAuditRows(
 	ctx: QueryCtx,
 	rows: Array<Doc<'adminAuditLogs'>>
@@ -225,19 +207,15 @@ async function enrichAuditRows(
 }
 
 /**
- * Search path for the audit log: resolve the search string to a set of matching
- * user ids (same semantics as the users table, see {@link collectMatchingUserIds}),
- * then scan the log — respecting the action filter — and keep rows whose admin
- * OR target user is in that set.
+ * Search path: resolves the search string to matching user ids with the users
+ * table's semantics ({@link collectMatchingUserIds}). It then scans the log
+ * under the action filter and keeps rows whose admin or target is in that set.
  *
- * Bounded scan: capped at 5001 rows via .take(), the same cap as
- * {@link getAuditLogCount}, so the search path never runs an unbounded
- * .collect() on a template-scale table (a full 5001 means "5000+"). List and
- * count share this function so their totals stay consistent.
+ * The scan stops at 5001 rows, the cap of {@link getAuditLogCount}, and a full
+ * 5001 means "5000+". List and count share this function so their totals agree.
  *
- * The two user filters (adminUserId / targetUserId) are intentionally ignored
- * here: the UI clears them whenever a search is active (they are mutually
- * exclusive with search), so only the action filter can co-exist with it.
+ * The user filters are ignored here, because the UI clears them while a search
+ * is active.
  */
 async function scanMatchingAuditRows(
 	ctx: QueryCtx,
@@ -251,18 +229,12 @@ async function scanMatchingAuditRows(
 }
 
 /**
- * List admin audit log entries, newest first, with cursor pagination.
+ * Backend half of the table-kit contract. `continueCursor` is null exactly when
+ * `isDone` is true.
  *
- * Backend half of the project table-kit contract: returns
- * `{ items, continueCursor, isDone }` where `continueCursor` is null exactly
- * when `isDone` is true. Each page is enriched with the admin/target user
- * details (bounded by page size, see {@link resolveUsers}).
- *
- * A `search` string switches to the enumerate-and-offset path
- * ({@link scanMatchingAuditRows}): the Better Auth component has no search index,
- * so the log is scanned and filtered to rows whose admin/target matches, then
- * sliced by an opaque numeric-offset cursor (String(pageEnd)) — the same
- * mechanism the users table uses for its search.
+ * A `search` string switches to {@link scanMatchingAuditRows}, because the Better
+ * Auth component has no search index. The matching rows are sliced by an opaque
+ * numeric-offset cursor, as in the users table search.
  */
 export const listAuditLogs = adminQuery({
 	args: {
@@ -324,11 +296,8 @@ export const listAuditLogs = adminQuery({
 });
 
 /**
- * Resolve a single Better Auth user id to the same {@link auditLogUserRefValidator}
- * shape the table cells use. Powers the deep-linked filter chip: when the page
- * loads with `?admin=<id>` / `?target=<id>` the name is not in any visible row,
- * so the chip resolves it here. A single point read (see {@link resolveUsers}),
- * `exists: false` (id echoed back) for a user deleted after the action was logged.
+ * Resolves one user id for the deep-linked filter chip. A page loaded with
+ * `?admin=<id>` or `?target=<id>` may show no row that carries the name.
  */
 export const resolveAuditLogUser = adminQuery({
 	args: { userId: v.string() },
@@ -340,16 +309,11 @@ export const resolveAuditLogUser = adminQuery({
 });
 
 /**
- * Count audit log entries matching the same filter as {@link listAuditLogs}.
- * Count half of the table-kit contract.
+ * Count half of the table-kit contract, with the filters of {@link listAuditLogs}.
  *
- * Capped at 5001 via .take() — this is a template-scale table, so we avoid an
- * unbounded .collect(). A returned 5001 means "5000+"; the UI can render a
- * "5000+" indicator if it ever reaches the cap.
- *
- * A `search` string counts via the same scan+filter as {@link listAuditLogs}
- * (shared {@link scanMatchingAuditRows}), so the footer total stays consistent
- * with the rows shown.
+ * The count stops at 5001 to stay bounded, and a returned 5001 means "5000+".
+ * A `search` string counts through {@link scanMatchingAuditRows}, so the footer
+ * total matches the rows shown.
  */
 export const getAuditLogCount = adminQuery({
 	args: {
@@ -368,23 +332,20 @@ export const getAuditLogCount = adminQuery({
 });
 
 /**
- * Resolve the last page for the audit log table in one server call, so the
- * table-kit "jump to last page" action does not have to walk cursors from the
- * client. Same filter semantics as {@link listAuditLogs} (reuses
- * {@link queryAuditLogs}).
+ * Resolves the last page in one server call for the table-kit "jump to last
+ * page" action, so the client walks no cursors.
  *
  * Returns the 1-indexed last page and the cursor that fetches it (null for a
- * single-page result), matching the { page, cursor } contract of
+ * single-page result). The { page, cursor } contract matches
  * resolveUsersLastPage and resolveNotificationRecipientsLastPage.
  *
- * The walk is bounded to ceil(5001 / numItems) pages, mirroring the 5001-row
- * cap in getAuditLogCount: on a table larger than that it lands on the capped
- * last page instead of scanning unbounded. Indexed cursors identify the
- * last row of the preceding page and can be walked repeatedly in one query.
+ * The walk stops after ceil(5001 / numItems) pages, the 5001-row cap of
+ * getAuditLogCount, and lands on the capped last page of a larger table.
+ * Indexed cursors identify the last row of the preceding page, so one query can
+ * walk them repeatedly.
  *
- * A `search` string resolves the last page from the scanned-and-filtered row
- * count directly (offset math, like resolveUsersLastPage), since the search
- * path paginates by numeric offset rather than native cursors.
+ * A `search` string computes the last page from the matching row count, because
+ * the search path paginates by numeric offset.
  */
 export const resolveAuditLogLastPage = adminQuery({
 	args: {

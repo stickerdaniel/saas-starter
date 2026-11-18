@@ -63,7 +63,7 @@ type TurnOutcome = Infer<typeof turnOutcomeValidator>;
 
 /**
  * Rows read back for one turn. Each attempt runs at most five model steps
- * (agent.ts), each an assistant row plus a tool row, so two attempts and their
+ * (agent.ts), each an assistant row plus a tool row. Two attempts and their
  * prompt fit with room to spare.
  */
 const TURN_OUTCOME_PAGE_SIZE = 30;
@@ -156,8 +156,7 @@ async function runTurnAttempt(
 ): Promise<TurnAttempt> {
 	const sink = makeAgentUsageSink();
 	try {
-		// Stream the AI response with tool execution support
-		// maxSteps is configured at the agent level (agent.ts) for multi-step tool execution
+		// maxSteps is configured on the agent (agent.ts)
 		const result = await supportAgent.streamText(
 			ctx,
 			{ threadId: turn.threadId, userId: turn.userId },
@@ -171,12 +170,11 @@ async function runTurnAttempt(
 			},
 			{
 				usageHandler: sink.usageHandler,
-				// Save streaming deltas to database for real-time updates
 				saveStreamDeltas: STREAM_DELTA_OPTIONS
 			}
 		);
 
-		// Consume the stream to process all tool calls and responses
+		// Consuming the stream processes all tool calls and responses
 		await result.consumeStream();
 		return { models: sink.collect() };
 	} catch (error) {
@@ -271,12 +269,10 @@ const SUPPORT_TURN_CHECK_DELAY_MS = 3 * 60 * 1000;
 const SUPPORT_TURN_EXTRA_CHECKS = 5;
 
 /**
- * Send a user message and get AI response with streaming
+ * Saves a visitor message with optional file attachments.
  *
- * This mutation saves the user's message and schedules an internal action
- * to generate the AI response asynchronously with streaming support.
- *
- * Supports multimodal messages with file and image attachments.
+ * In AI mode it schedules createAIResponse. A human-only thread schedules an
+ * admin notification instead.
  */
 export const sendMessage = mutation({
 	args: {
@@ -311,9 +307,8 @@ export const sendMessage = mutation({
 		const aiEnabled = isSupportAiEnabled() && getCapabilityConfigurations().ai.state === 'ready';
 		const isHumanOnly = wasHandedOff || !aiEnabled;
 
-		// Rate limit check - stricter limits for anonymous users
-		// Authenticated users: keyed by verified user ID
-		// Anonymous users: keyed by anonymous user ID (fallback: thread ID if none)
+		// Anonymous visitors get a stricter limit. A missing owner ID falls back to
+		// the thread ID as the key.
 		const limitName = owner.isAnonymous ? 'supportMessageAnon' : 'supportMessage';
 		const userKey = effectiveUserId || `anon:${args.threadId}`;
 
@@ -325,12 +320,9 @@ export const sendMessage = mutation({
 
 		let messageId: string;
 
-		// Check if we have file attachments
 		if (args.fileIds && args.fileIds.length > 0) {
-			// Build multimodal message content
 			const content: UserContent = [];
 
-			// Add text part
 			if (args.prompt.trim()) {
 				content.push({
 					type: 'text',
@@ -338,18 +330,16 @@ export const sendMessage = mutation({
 				});
 			}
 
-			// Add file/image parts
-			// Note: Dimensions are now stored separately in fileMetadata table at upload time
-			// and retrieved via getFileMetadataBatch query on the frontend
+			// Image dimensions live in the fileMetadata table, written at upload time
+			// and read through getFileMetadataBatch
 			for (const fileId of args.fileIds) {
 				const { filePart } = await getFile(ctx, components.agent, fileId);
 
-				// Use filePart for all files - preserves filename for both images and PDFs
-				// The mediaType field (e.g. "image/jpeg", "application/pdf") allows LLMs to identify content type
+				// filePart keeps the filename for images and PDFs. Its mediaType tells the
+				// model the content type.
 				content.push(filePart);
 			}
 
-			// Save multimodal message
 			const result = await supportAgent.saveMessage(ctx, {
 				threadId: args.threadId,
 				message: {
@@ -362,7 +352,6 @@ export const sendMessage = mutation({
 
 			messageId = result.messageId;
 		} else {
-			// Save text-only message
 			const result = await supportAgent.saveMessage(ctx, {
 				threadId: args.threadId,
 				prompt: args.prompt,
@@ -384,7 +373,6 @@ export const sendMessage = mutation({
 			appVersion: args.appVersion
 		});
 
-		// Sync denormalized search fields with user's message
 		await syncSupportLastMessage(ctx, args.threadId);
 
 		// A thread the agent used to answer reaches the team for the first time
@@ -429,9 +417,7 @@ export const sendMessage = mutation({
 			});
 		}
 
-		// Only humans respond once a thread is human-only
 		if (!isHumanOnly) {
-			// AI mode: Schedule async action to generate AI response with streaming
 			const jobId = await ctx.scheduler.runAfter(0, internal.support.messages.createAIResponse, {
 				threadId: args.threadId,
 				promptMessageId: messageId,
@@ -451,8 +437,6 @@ export const sendMessage = mutation({
 			);
 		}
 
-		// Reopen thread and mark as awaiting response when user sends message
-		// Check if this is a reopened ticket (was closed, now being reopened)
 		const wasClosedBeforeThisMessage = supportThread.status === 'done';
 		const now = Date.now();
 
@@ -467,9 +451,8 @@ export const sendMessage = mutation({
 		});
 		await recordFirstSupportContact(ctx, supportThread, now);
 
-		// Schedule admin notification for human-only tickets
-		// We only notify for those since AI-handled tickets don't need admin attention
-		// Note: scheduleAdminNotification handles both create and update cases internally
+		// AI-handled threads need no admin email. scheduleAdminNotification merges
+		// into a pending notification when one exists.
 		if (isHumanOnly) {
 			await ctx.scheduler.runAfter(
 				0,
@@ -493,11 +476,6 @@ export const sendMessage = mutation({
 });
 
 /**
- * Internal action to generate AI response with streaming
- *
- * This runs asynchronously and streams the AI response back to the database,
- * which automatically syncs to all connected clients via Convex's reactivity.
- *
  * Every turn ends answered or with the team: after each attempt the persisted
  * outcome is read back, an attempt that left nothing visible is retried once,
  * and a turn still without a reply is handed off through settleUnansweredTurn,
@@ -540,26 +518,23 @@ export const createAIResponse = internalAction({
 		// runTurn reads it again right before each model dispatch.
 		if ((await readOutcome(ctx, args)).handedOff) return null;
 
-		// Global rate limit check for cost protection
-		// This MUST fail the request to protect against runaway costs
+		// The global limit protects against runaway model costs, so it refuses the turn
 		const globalStatus = await supportRateLimiter.limit(ctx, 'globalLLM');
 		if (!globalStatus.ok) {
 			console.error(
 				`[createAIResponse] Global LLM rate limit exceeded. Retry after: ${globalStatus.retryAfter}ms`
 			);
 
-			// Get locale from thread's pageUrl for translated message
 			const locale = await ctx.runQuery(internal.support.threads.getThreadLocale, {
 				threadId: args.threadId
 			});
 
-			// Save a system message so user knows why there's no response
+			// The saved message tells the visitor why no answer follows
 			await ctx.runMutation(internal.support.messages.createAssistantMessage, {
 				threadId: args.threadId,
 				text: t(locale, 'backend.support.rate_limit.global')
 			});
 
-			// Don't throw - message saved explains the situation
 			return null;
 		}
 
@@ -587,7 +562,6 @@ export const createAIResponse = internalAction({
 		await recordTurnUsage(ctx, args, run);
 
 		if (hasReplied(run.outcome)) {
-			// Sync denormalized search fields with AI response
 			await ctx.runMutation(internal.support.threads.updateLastMessage, {
 				threadId: args.threadId
 			});
@@ -692,14 +666,10 @@ export const ensureSupportTurnSettled = internalMutation({
 });
 
 /**
- * List messages in a thread with streaming support
+ * Lists a thread's messages with streaming deltas.
  *
- * Returns paginated messages with streaming deltas included.
- * This query is reactive and will automatically update when new messages or
- * streaming deltas arrive.
- *
- * Note: We fetch messages using listMessagesByThreadId and enrich with UIMessage
- * format because listUIMessages doesn't include custom metadata fields.
+ * The listing reads listMessagesByThreadId and builds UIMessages itself, because
+ * listUIMessages drops custom metadata fields.
  */
 export const listMessages = query({
 	args: {
@@ -758,13 +728,9 @@ export const createAssistantMessage = internalMutation({
 });
 
 /**
- * Get file metadata (dimensions) for multiple files by URL
+ * Returns image dimensions by file URL, used to size the attachment dialog.
  *
- * Used to load image dimensions for proper dialog sizing when
- * displaying message attachments. Queries directly by URL since
- * we store the URL from the agent component.
- *
- * Returns a map of URL -> dimensions.
+ * The lookup goes by URL because messages store the agent component's file URL.
  */
 export const getFileMetadataBatch = query({
 	args: {
