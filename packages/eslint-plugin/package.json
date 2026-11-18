@@ -1,0 +1,14 @@
+{
+	"name": "eslint-plugin-saas-starter",
+	"version": "0.0.0",
+	"private": true,
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.js",
+		"./control-character-policy": "./src/control-character-policy.js"
+	},
+	"peerDependencies": {
+		"eslint": "^10.14.0"
+	}
+}

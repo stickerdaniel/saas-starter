@@ -89,7 +89,7 @@ describe('no-networkidle-wait', () => {
 });
 
 describe('no-networkidle-wait through the flat config', () => {
-	const repoRoot = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
+	const repoRoot = path.resolve(fileURLToPath(new URL('../../../..', import.meta.url)));
 	const eslint = new ESLint({ cwd: repoRoot });
 	const ruleId = 'local/no-networkidle-wait';
 	const source = `

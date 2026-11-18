@@ -10,7 +10,7 @@
  * Example: export const f = authedQuery({ args: {}, returns: v.null(), handler: async (ctx) => null });
  */
 
-import { CUSTOM_REGISTRARS } from '../convex-registrars.js';
+import { CUSTOM_REGISTRARS } from '../../../../eslint/convex-registrars.js';
 
 const REGISTRARS = new Set(CUSTOM_REGISTRARS);
 

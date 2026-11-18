@@ -17,7 +17,7 @@
  * ✅ export const f = query({ args: {}, returns: v.null(), handler: async () => null });
  */
 
-import { CUSTOM_REGISTRARS, RAW_REGISTRARS } from '../convex-registrars.js';
+import { CUSTOM_REGISTRARS, RAW_REGISTRARS } from '../../../../eslint/convex-registrars.js';
 
 const CONVEX_REGISTRARS = new Set([...RAW_REGISTRARS, ...CUSTOM_REGISTRARS]);
 

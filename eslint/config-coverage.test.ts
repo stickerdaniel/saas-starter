@@ -128,7 +128,7 @@ describe('no-literal-control-char coverage', () => {
 		['a Svelte component', 'src/routes/+layout.svelte'],
 		['a build script outside src/', 'scripts/static-checks.ts'],
 		['the ESLint config itself', 'eslint.config.js'],
-		['the rule implementation', 'eslint/rules/no-literal-control-char.js'],
+		['the rule implementation', 'packages/eslint-plugin/src/rules/no-literal-control-char.js'],
 		['the generated env types despite their file-wide disable', 'src/varlock-env.d.ts']
 	])(
 		'reaches %s',

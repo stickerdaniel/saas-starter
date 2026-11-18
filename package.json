@@ -4,6 +4,9 @@
 	"templateSetupVersion": 2,
 	"license": "MIT",
 	"type": "module",
+	"workspaces": [
+		"packages/eslint-plugin"
+	],
 	"imports": {
 		"#lib/*": "./src/lib/*",
 		"#blocks/*": "./src/blocks/*",
@@ -160,6 +163,7 @@
 		"eld": "2.1.0",
 		"eslint": "10.14.0",
 		"eslint-config-prettier": "10.1.8",
+		"eslint-plugin-saas-starter": "workspace:*",
 		"eslint-plugin-svelte": "3.23.1",
 		"fontless": "1.3.4",
 		"globals": "17.13.0",

@@ -1,5 +1,5 @@
 import * as svelteParser from 'svelte-eslint-parser';
-import { sanitizeDiagnosticText } from '../control-character-policy.js';
+import { sanitizeDiagnosticText } from 'eslint-plugin-saas-starter/control-character-policy';
 
 /**
  * Keep parser failures safe for terminal and CI output.

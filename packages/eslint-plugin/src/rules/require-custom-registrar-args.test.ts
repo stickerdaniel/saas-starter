@@ -1,7 +1,7 @@
 import { Linter } from 'eslint';
 import { parser } from 'typescript-eslint';
 import { describe, expect, it } from 'vitest';
-import { CUSTOM_REGISTRARS } from '../convex-registrars.js';
+import { CUSTOM_REGISTRARS } from '../../../../eslint/convex-registrars.js';
 import rule from './require-custom-registrar-args.js';
 
 const linter = new Linter({ configType: 'flat' });
