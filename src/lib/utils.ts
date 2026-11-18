@@ -19,6 +19,7 @@ export const twMergeConfig: ConfigExtension<DefaultClassGroupIds, DefaultThemeGr
 		},
 		classGroups: {
 			rounded: [{ rounded: ['theme-pill'] }],
+			select: ['selectable'],
 			transition: [{ transition: ['control-colors', 'field-colors', 'non-spatial'] }]
 		}
 	}

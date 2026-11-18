@@ -28,7 +28,7 @@
 		role="alert"
 		data-slot="field-error"
 		transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
-		class={cn('text-sm font-normal text-destructive', className)}
+		class={cn('text-sm font-normal text-destructive selectable', className)}
 		{...restProps}
 	>
 		{#if children}

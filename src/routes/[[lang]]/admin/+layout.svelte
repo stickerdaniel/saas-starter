@@ -91,5 +91,8 @@
 	rootLabel="Admin"
 	sidebarOpen={data.sidebarOpen}
 >
-	{@render children?.()}
+	<!-- Admin pages show emails, IDs and support threads that staff copy. -->
+	<div class="contents selectable">
+		{@render children?.()}
+	</div>
 </AuthenticatedLayout>
