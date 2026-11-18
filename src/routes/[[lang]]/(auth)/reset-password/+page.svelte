@@ -221,7 +221,7 @@
 						<div
 							data-testid="reset-password-form-error"
 							transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
-							class="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+							class="rounded-md bg-destructive/10 p-3 text-sm text-destructive selectable"
 						>
 							<T keyName={formError} />
 						</div>

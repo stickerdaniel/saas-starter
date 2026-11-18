@@ -37,7 +37,7 @@
 	bind:this={ref}
 	data-slot="alert"
 	role="alert"
-	class={cn(alertVariants({ variant }), className)}
+	class={cn('selectable', alertVariants({ variant }), className)}
 	{...restProps}
 >
 	{@render children?.()}

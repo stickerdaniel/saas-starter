@@ -402,7 +402,9 @@
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		{#if captureEventId}
-			<p class="rounded-md bg-muted px-2 py-1.5 font-mono text-xs break-all text-muted-foreground">
+			<p
+				class="rounded-md bg-muted px-2 py-1.5 font-mono text-xs break-all text-muted-foreground selectable"
+			>
 				{$t('support.screenshot.error.event_id', { id: captureEventId })}
 			</p>
 		{/if}

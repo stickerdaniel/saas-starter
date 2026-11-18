@@ -41,7 +41,7 @@
 	data-slot="code-block"
 	data-variant={variant}
 	data-size={size}
-	class={cn(codeBlockVariants({ variant }), className)}
+	class={cn('selectable', codeBlockVariants({ variant }), className)}
 	{...restProps}
 >
 	{@render children?.()}

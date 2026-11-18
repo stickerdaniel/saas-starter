@@ -132,7 +132,7 @@
 </script>
 
 <div
-	class="flex w-full flex-col gap-1 {align === 'right'
+	class="flex w-full flex-col gap-1 selectable {align === 'right'
 		? 'items-end'
 		: 'items-start'} {isFirstInGroup ? 'mt-8' : 'mt-1'}"
 >

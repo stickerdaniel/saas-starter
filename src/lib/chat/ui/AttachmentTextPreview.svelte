@@ -149,7 +149,10 @@
 		</div>
 	{/if}
 {:else}
-	<div class="h-[70vh] w-full overflow-auto rounded-md" data-testid="attachment-preview-content">
+	<div
+		class="h-[70vh] w-full overflow-auto rounded-md selectable"
+		data-testid="attachment-preview-content"
+	>
 		{#if previewKind.kind === 'plaintext'}
 			<pre class="text-sm break-words whitespace-pre-wrap">{text}</pre>
 		{:else}

@@ -83,5 +83,7 @@
 			>
 		{/snippet}
 	</Tooltip.Trigger>
-	<Tooltip.Content class="wrap-anywhere" aria-hidden="true">{text}</Tooltip.Content>
+	<Tooltip.Content class="wrap-anywhere" aria-hidden="true"
+		><span class="selectable">{text}</span></Tooltip.Content
+	>
 </Tooltip.Root>

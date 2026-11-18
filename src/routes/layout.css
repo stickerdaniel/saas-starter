@@ -323,6 +323,13 @@
 	-webkit-user-drag: none;
 }
 
+/* Opts a subtree back into text selection under the body default in the base layer.
+   twMergeConfig in utils.ts groups it with select-* so a caller's select-none wins. */
+@utility selectable {
+	-webkit-user-select: text;
+	user-select: text;
+}
+
 @utility ease-sidebar {
 	transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
 }
@@ -607,8 +614,14 @@
 		}
 	}
 
+	/* Text is not selectable by default, so a drag, double-click or long press on app
+	   chrome selects nothing. Inputs, textareas and contenteditable stay selectable.
+	   Text people copy, such as messages, code and errors, opts back in with the
+	   selectable utility. */
 	body {
 		@apply bg-background text-foreground;
+		-webkit-user-select: none;
+		user-select: none;
 	}
 
 	html.auth-shell-bg,
