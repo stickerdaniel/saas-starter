@@ -1,8 +1,9 @@
 /**
  * Access calls for public Convex handlers. Every public `query`, `mutation` and
- * `action` handler starts with an access call; the ESLint rule
- * `@convex-dev/require-access-control` reads the call by its name. Custom
- * builders in `functions.ts` check identity themselves.
+ * `action` handler awaits an access call before any effect; the ESLint rules
+ * `@convex-dev/require-access-control` and `local/convex-access-first` read
+ * the call by its name. Custom builders in `functions.ts` check identity
+ * themselves.
  */
 import type { FunctionReference, OptionalRestArgs } from 'convex/server';
 import type { ActionCtx } from './_generated/server';

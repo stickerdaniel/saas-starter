@@ -2,9 +2,10 @@
  * ESLint rule: convex-canonical-registration
  *
  * Keeps every raw Convex registration in the one form the access rules read.
- * `@convex-dev/require-access-control` finds a registration by the callee
- * names `query`, `mutation`, `action` and an identifier key `handler`, so any
- * other spelling hides a public function from it. The rule requires:
+ * `@convex-dev/require-access-control` and `local/convex-access-first` find a
+ * registration by the callee names `query`, `mutation`, `action` and an
+ * identifier key `handler`, so any other spelling hides a public function from
+ * both. The rule requires:
  *
  * - the builders `query`, `mutation`, `action` and their `internal*` forms are
  *   imported from `_generated/server` under their own names, with no namespace
