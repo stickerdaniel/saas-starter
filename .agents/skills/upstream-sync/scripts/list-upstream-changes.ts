@@ -8,10 +8,11 @@
  * tag (security highest) and the divergence categories it touches, and nothing is
  * filtered out by default, so every commit stays in view.
  *
- * Unit of review = the squashed first-parent commit on upstream's default branch.
- * Upstream squash-merges PRs, so each commit is the canonical, net, reviewed unit
- * of "what landed"; do NOT drop to pre-squash branch commits (intra-PR churn, worse
- * signal). For an oversized commit, triage WITHIN it by file/hunk.
+ * Unit of review = the first-parent commit on upstream's default branch. Upstream lands
+ * each PR as one such commit, a squash or a merge commit, so each is the canonical, net,
+ * reviewed unit of "what landed"; a merge commit's diff is taken against its first
+ * parent. Do NOT drop to the PR's branch commits (intra-PR churn, worse signal). For an
+ * oversized commit, triage WITHIN it by file/hunk.
  *
  * Read-only: prints only, never writes. Commits are listed oldest-first, which is
  * the dependency/integration order.
@@ -140,11 +141,10 @@ function main() {
 		e.sha ? [e.sha] : []
 	);
 
-	// Oldest-first first-parent squash commits since base; %x09 = tab field sep. The full
-	// SHA only matches excluded entries; output keeps the short one.
+	// Oldest-first first-parent commits since base, merge commits included; %x09 = tab field
+	// sep. The full SHA only matches excluded entries; output keeps the short one.
 	const raw = git([
 		'log',
-		'--no-merges',
 		'--first-parent',
 		'--reverse',
 		'--format=%h%x09%H%x09%an%x09%s',
@@ -154,7 +154,9 @@ function main() {
 
 	const commits = rows.map((line) => {
 		const [sha = '', fullSha = '', author = '', subject = ''] = line.split('\t');
-		const files = git(['show', '--name-only', '--format=', sha], true).split('\n').filter(Boolean);
+		const files = git(['show', '--name-only', '--format=', '--diff-merges=first-parent', sha], true)
+			.split('\n')
+			.filter(Boolean);
 		const { priority, type } = classify(subject, author);
 		return {
 			sha,

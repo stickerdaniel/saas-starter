@@ -197,6 +197,36 @@ describe('find-fork-point', () => {
 		expect(listedSubjects(fork)).toEqual(['feat: upstream 4']);
 	});
 
+	it('lists a PR that upstream merged with a merge commit as one change', () => {
+		git(upstream, ['checkout', '-q', '-b', 'feature']);
+		writeFiles(upstream, { 'src/merged.ts': 'export const merged = 1;\n' });
+		commitAll(upstream, 'wip: first draft');
+		writeFiles(upstream, { 'src/merged.ts': 'export const merged = 2;\n' });
+		commitAll(upstream, 'wip: fix the draft');
+		git(upstream, ['checkout', '-q', 'main']);
+		git(upstream, [
+			'merge',
+			'-q',
+			'--no-ff',
+			'--no-verify',
+			'-m',
+			'feat: merged PR (#9)',
+			'feature'
+		]);
+
+		const fork = cloneAt('merge-pr', shas.u4);
+		writeFiles(fork, { '.upstream-sync.json': JSON.stringify({ lastSynced: shas.u4 }) });
+		commitAll(fork, 'chore: record sync');
+
+		const listed = bunJson(fork, LIST_CHANGES).json as {
+			commits: Array<{ subject: string; files: number }>;
+		};
+		expect(listed.commits).toEqual([
+			expect.objectContaining({ subject: 'feat: merged PR (#9)', files: 1 })
+		]);
+		expect(bunJson(fork, FORK_POINT).json.candidateCount).toBe(1);
+	});
+
 	it('keeps the setup-recorded fork point across a fast-forward sync', () => {
 		const fork = cloneAt('ff-recorded', shas.u2);
 		// What `bun run setup` writes right after creation, before the first own commit.

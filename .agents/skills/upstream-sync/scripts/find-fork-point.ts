@@ -287,7 +287,7 @@ function main() {
 	const upstreamHead = git(['rev-parse', 'upstream/main']);
 	const lastSynced = (marker?.lastSynced as string) || forkPoint;
 	const ahead = git(
-		['rev-list', '--count', '--no-merges', '--first-parent', `${lastSynced}..upstream/main`],
+		['rev-list', '--count', '--first-parent', `${lastSynced}..upstream/main`],
 		true
 	);
 
@@ -350,7 +350,7 @@ function main() {
 	);
 	console.log(`Upstream HEAD: ${upstreamHead}`);
 	console.log(
-		`Candidate commits to review: ${ahead || '0'}  (git log --no-merges --first-parent ${lastSynced.slice(0, 8)}..upstream/main)`
+		`Candidate commits to review: ${ahead || '0'}  (git log --first-parent ${lastSynced.slice(0, 8)}..upstream/main)`
 	);
 	console.log('');
 	console.log(`Next: bun .agents/skills/upstream-sync/scripts/list-upstream-changes.ts`);
