@@ -35,5 +35,6 @@ export const sharedTestSettings = {
 export const toolingTestSettings = {
 	name: 'tooling',
 	environment: 'node',
+	setupFiles: ['./scripts/vitest-git-env.ts'],
 	exclude: ['src/**']
 };
