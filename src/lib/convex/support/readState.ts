@@ -1,6 +1,7 @@
 import { mutation, query } from '../_generated/server';
 import { v } from 'convex/values';
 import { getSupportOwnerIdentity, requireSupportThreadRecord } from './ownership';
+import { publicEndpoint } from '../access';
 
 /**
  * One past the largest number the badge spells out, so the query never scans
@@ -19,6 +20,9 @@ export const hasUnreadAdminReply = query({
 	args: { anonymousUserId: v.optional(v.string()) },
 	returns: v.boolean(),
 	handler: async (ctx, args) => {
+		publicEndpoint(
+			'Anonymous visitors read their own unread state; reads stay within the resolved owner.'
+		);
 		const owner = await getSupportOwnerIdentity(ctx, args.anonymousUserId);
 		if (!owner) return false;
 
@@ -46,6 +50,9 @@ export const unreadAdminReplyCount = query({
 	args: { anonymousUserId: v.optional(v.string()) },
 	returns: v.number(),
 	handler: async (ctx, args) => {
+		publicEndpoint(
+			'Anonymous visitors read their own unread count; reads stay within the resolved owner.'
+		);
 		const owner = await getSupportOwnerIdentity(ctx, args.anonymousUserId);
 		if (!owner) return 0;
 

@@ -41,6 +41,10 @@ import noHistoryCommentRule from './eslint/rules/no-history-comment.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
+// Names the guards that open a public Convex handler. A guard throws on refusal;
+// a boolean predicate such as `canEdit` or `hasRole` is no guard. `publicEndpoint`
+// from src/lib/convex/access.ts marks a function open to every caller.
+const convexAccessPattern = '^(require|assert|ensure)([A-Z_]|$)|^publicEndpoint$';
 const localPlugin = {
 	processors: {
 		// Varlock writes a file-wide disable into generated environment types. Blank
@@ -646,6 +650,16 @@ export default defineConfig(
 		rules: {
 			// An unbounded read fails once it crosses the 16 MiB / 32k-row transaction limit.
 			'@convex-dev/no-collect-in-query': 'error'
+		}
+	},
+	// Anyone on the internet can call a public query, mutation or action, so its
+	// handler starts with an access call. Tests and the Better Auth component,
+	// which has its own convex.config.ts, register no application functions.
+	{
+		files: ['src/lib/convex/**/*.ts'],
+		ignores: ['**/*.test.ts', '**/__tests__/**', 'src/lib/convex/betterAuth/**'],
+		rules: {
+			'@convex-dev/require-access-control': ['error', { pattern: convexAccessPattern }]
 		}
 	},
 	{

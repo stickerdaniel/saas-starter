@@ -1,6 +1,7 @@
 import { ConvexError, v } from 'convex/values';
 import { query } from './_generated/server';
 import { authComponent, createAuth } from './auth';
+import { requireAuthUser } from './authGuard';
 import { authedQuery, authedMutation } from './functions';
 import { appRateLimiter } from './rateLimit';
 import { tables } from './betterAuth/schema';
@@ -56,7 +57,8 @@ export const viewer = query({
 		...tables.user.validator.fields
 	}),
 	handler: async (ctx) => {
-		return authComponent.getAuthUser(ctx);
+		const user = await requireAuthUser(ctx);
+		return user;
 	}
 });
 

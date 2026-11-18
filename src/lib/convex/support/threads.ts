@@ -27,6 +27,7 @@ import {
 import { normalizeNotificationEmail } from './notificationPreferences';
 import { toAgentThreadStatus } from './denormalization';
 import { authComponent } from '../auth';
+import { publicEndpoint } from '../access';
 import { normalizeSupportPageRoute } from '../../shared/support-page-route';
 import { recordSupportMessageContext } from './messageContext';
 
@@ -166,6 +167,9 @@ export const listThreads = query({
 		continueCursor: v.string()
 	}),
 	handler: async (ctx, args) => {
+		publicEndpoint(
+			'Anonymous visitors list their own threads; reads stay within the resolved owner.'
+		);
 		const owner = await getSupportOwnerIdentity(ctx, args.anonymousUserId);
 		if (!owner) {
 			// No valid user ID - return empty results
@@ -459,6 +463,7 @@ export const getAdminAvatars = query({
 		})
 	),
 	handler: async (ctx) => {
+		publicEndpoint('The support widget shows admin names and avatars to every visitor.');
 		// Fetch all users with admin role
 		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
 			model: 'user',
