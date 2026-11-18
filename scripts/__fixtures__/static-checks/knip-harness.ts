@@ -52,6 +52,7 @@ const OVERLAY_PATHSPECS = [
 	'scripts',
 	'eslint/control-character-policy.js',
 	'knowledge-policy.config.ts',
+	'src/lib/content/legal-content-dates.ts',
 	'src/lib/content/legal-metadata.ts',
 	'src/lib/i18n/language-codes.generated.js',
 	'tsconfig.json'
@@ -60,6 +61,7 @@ const OVERLAY_PATHSPECS = [
 const REQUIRED_SOURCES = [
 	'scripts/static-checks.ts',
 	'scripts/template-setup.ts',
+	'src/lib/content/legal-content-dates.ts',
 	'src/lib/content/legal-metadata.ts',
 	'scripts/terminal-output.ts',
 	'scripts/convex-consumer-compat.ts',

@@ -1,6 +1,7 @@
 import { LEGAL_CONFIG } from '#lib/config/legal.js';
 import privacyTemplate from './legal/privacy.md?raw';
-import { LEGAL_CONTENT_DATES, formatLegalContentDate } from './legal-metadata';
+import { LEGAL_CONTENT_DATES } from './legal-content-dates';
+import { formatLegalContentDate } from './legal-metadata';
 import { createLegalMarkdown } from './legal-template';
 
 export const privacyMarkdown = createLegalMarkdown('Privacy Policy', privacyTemplate, {

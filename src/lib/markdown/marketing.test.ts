@@ -59,7 +59,7 @@ import type { MarketingMarkdownDocument } from './types';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
 import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
 import { LEGAL_CONFIG } from '#lib/config/legal.js';
-import { LEGAL_CONTENT_DATES } from '#lib/content/legal-metadata.js';
+import { LEGAL_CONTENT_DATES } from '#lib/content/legal-content-dates.js';
 import { SUPPORTED_LANGUAGES } from '#lib/i18n/languages.js';
 
 const sampleDocument: MarketingMarkdownDocument = {

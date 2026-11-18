@@ -1,6 +1,7 @@
 import { LEGAL_CONFIG, formatPostalAddress } from '#lib/config/legal.js';
 import impressumTemplate from './legal/impressum.md?raw';
-import { LEGAL_CONTENT_DATES, formatLegalContentDate } from './legal-metadata';
+import { LEGAL_CONTENT_DATES } from './legal-content-dates';
+import { formatLegalContentDate } from './legal-metadata';
 import { createLegalMarkdown } from './legal-template';
 
 export const impressumMarkdown = createLegalMarkdown('Impressum', impressumTemplate, {

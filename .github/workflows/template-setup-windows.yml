@@ -15,6 +15,7 @@ on:
       - 'wrangler.toml'
       - 'src/lib/config/legal.ts'
       - 'src/lib/config/site.ts'
+      - 'src/lib/content/legal-content-dates.ts'
       - 'src/lib/content/legal-metadata.ts'
       - '.github/workflows/template-setup-windows.yml'
   pull_request:
@@ -30,6 +31,7 @@ on:
       - 'wrangler.toml'
       - 'src/lib/config/legal.ts'
       - 'src/lib/config/site.ts'
+      - 'src/lib/content/legal-content-dates.ts'
       - 'src/lib/content/legal-metadata.ts'
       - '.github/workflows/template-setup-windows.yml'
 

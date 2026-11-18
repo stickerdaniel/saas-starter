@@ -29,6 +29,7 @@ import { listMessagesForThread } from './messageListing';
 import { syncSupportLastMessage } from './threads';
 import { recordFirstSupportContact } from './threadLifecycle';
 import { getFileMetadataByUrls } from '../files/metadata';
+import { publicEndpoint } from '../access';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { recordAiUsage } from '../aiUsage/record';
 import { mergeByModel, type CapturedModelUsage } from '../aiUsage/capture';
@@ -774,6 +775,7 @@ export const getFileMetadataBatch = query({
 		v.object({ width: v.optional(v.number()), height: v.optional(v.number()) })
 	),
 	handler: async (ctx, args): Promise<Record<string, { width?: number; height?: number }>> => {
+		publicEndpoint('Returns only image dimensions for storage URLs the caller already holds.');
 		return await getFileMetadataByUrls(ctx, args.urls);
 	}
 });

@@ -18,8 +18,7 @@ import { describe, expect, it } from 'vitest';
  * so it is matched via its fallback literal rather than a plain set().
  */
 
-function parseHeadersFile(filePath: string): Map<string, string> {
-	const content = fs.readFileSync(filePath, 'utf-8');
+function parseHeadersFile(content: string): Map<string, string> {
 	const headers = new Map<string, string>();
 
 	let inGlobalBlock = false;
@@ -43,8 +42,7 @@ function parseHeadersFile(filePath: string): Map<string, string> {
 	return headers;
 }
 
-function parseHooksHeaders(filePath: string): Map<string, string> {
-	const content = fs.readFileSync(filePath, 'utf-8');
+function parseHooksHeaders(content: string): Map<string, string> {
 	const headers = new Map<string, string>();
 
 	// Match: response.headers.set('Header-Name', 'value' | "value")
@@ -75,8 +73,7 @@ function parseHooksHeaders(filePath: string): Map<string, string> {
 	return headers;
 }
 
-function parseVercelHeaders(filePath: string): Map<string, string> {
-	const content = fs.readFileSync(filePath, 'utf-8');
+function parseVercelHeaders(content: string): Map<string, string> {
 	const config = JSON.parse(content) as {
 		headers?: Array<{ source: string; headers: Array<{ key: string; value: string }> }>;
 	};
@@ -90,68 +87,71 @@ function parseVercelHeaders(filePath: string): Map<string, string> {
 	return headers;
 }
 
-describe('security headers sync', () => {
-	const headersFilePath = path.resolve('_headers');
-	const hooksFilePath = path.resolve('src/hooks.server.ts');
-	const vercelFilePath = path.resolve('vercel.json');
+// Canonical security header set; every source must carry exactly these.
+const EXPECTED = new Map<string, string>([
+	['x-content-type-options', 'nosniff'],
+	['x-frame-options', 'DENY'],
+	['referrer-policy', 'strict-origin-when-cross-origin'],
+	[
+		'permissions-policy',
+		'camera=(), microphone=(), geolocation=(), browsing-topics=(), payment=(), usb=(), serial=()'
+	],
+	['x-dns-prefetch-control', 'off'],
+	['strict-transport-security', 'max-age=63072000; includeSubDomains'],
+	['content-security-policy', "frame-ancestors 'none'"],
+	['cross-origin-opener-policy', 'same-origin-allow-popups'],
+	['cross-origin-resource-policy', 'same-origin']
+]);
 
-	// Canonical security header set — every source below must carry exactly these.
-	const expected = new Map<string, string>([
-		['x-content-type-options', 'nosniff'],
-		['x-frame-options', 'DENY'],
-		['referrer-policy', 'strict-origin-when-cross-origin'],
-		[
-			'permissions-policy',
-			'camera=(), microphone=(), geolocation=(), browsing-topics=(), payment=(), usb=(), serial=()'
-		],
-		['x-dns-prefetch-control', 'off'],
-		['strict-transport-security', 'max-age=63072000; includeSubDomains'],
-		['content-security-policy', "frame-ancestors 'none'"],
-		['cross-origin-opener-policy', 'same-origin-allow-popups'],
-		['cross-origin-resource-policy', 'same-origin']
-	]);
+interface HeaderSources {
+	_headers: string;
+	'hooks.server.ts': string;
+	'vercel.json': string;
+}
+
+/** Every header on which the three sources disagree with the canonical set or each other. */
+function headerMismatches(sources: HeaderSources): string[] {
+	const parsed = {
+		_headers: parseHeadersFile(sources['_headers']),
+		'hooks.server.ts': parseHooksHeaders(sources['hooks.server.ts']),
+		'vercel.json': parseVercelHeaders(sources['vercel.json'])
+	};
+	const mismatches: string[] = [];
+	for (const [source, headers] of Object.entries(parsed)) {
+		for (const [name, value] of EXPECTED) {
+			if (headers.get(name) !== value) mismatches.push(`${source} missing/mismatched "${name}"`);
+		}
+		// No source may carry a security header the others lack.
+		for (const [name, value] of headers) {
+			for (const [other, otherHeaders] of Object.entries(parsed)) {
+				if (otherHeaders.get(name) !== value) {
+					mismatches.push(`${source} has "${name}: ${value}" but ${other} does not`);
+				}
+			}
+		}
+	}
+	return mismatches;
+}
+
+describe('security headers sync', () => {
+	const sources: HeaderSources = {
+		_headers: fs.readFileSync(path.resolve('_headers'), 'utf-8'),
+		'hooks.server.ts': fs.readFileSync(path.resolve('src/hooks.server.ts'), 'utf-8'),
+		'vercel.json': fs.readFileSync(path.resolve('vercel.json'), 'utf-8')
+	};
 
 	it('_headers, hooks.server.ts, and vercel.json define the same security headers', () => {
-		const fileHeaders = parseHeadersFile(headersFilePath);
-		const hookHeaders = parseHooksHeaders(hooksFilePath);
-		const vercelHeaders = parseVercelHeaders(vercelFilePath);
+		expect(headerMismatches(sources)).toEqual([]);
+	});
 
-		for (const [name, value] of expected) {
-			expect(fileHeaders.get(name), `_headers missing/mismatched "${name}"`).toBe(value);
-			expect(hookHeaders.get(name), `hooks.server.ts missing/mismatched "${name}"`).toBe(value);
-			expect(vercelHeaders.get(name), `vercel.json missing/mismatched "${name}"`).toBe(value);
-		}
-
-		// No source may carry a security header the others lack.
-		for (const [name, value] of fileHeaders) {
-			expect(
-				hookHeaders.get(name),
-				`_headers has "${name}: ${value}" but hooks.server.ts does not`
-			).toBe(value);
-			expect(
-				vercelHeaders.get(name),
-				`_headers has "${name}: ${value}" but vercel.json does not`
-			).toBe(value);
-		}
-		for (const [name, value] of hookHeaders) {
-			expect(
-				fileHeaders.get(name),
-				`hooks.server.ts has "${name}: ${value}" but _headers does not`
-			).toBe(value);
-			expect(
-				vercelHeaders.get(name),
-				`hooks.server.ts has "${name}: ${value}" but vercel.json does not`
-			).toBe(value);
-		}
-		for (const [name, value] of vercelHeaders) {
-			expect(
-				fileHeaders.get(name),
-				`vercel.json has "${name}: ${value}" but _headers does not`
-			).toBe(value);
-			expect(
-				hookHeaders.get(name),
-				`vercel.json has "${name}: ${value}" but hooks.server.ts does not`
-			).toBe(value);
-		}
+	it('rejects a hook that sends a different frame policy', () => {
+		const hooks = sources['hooks.server.ts'].replace(
+			"'X-Frame-Options', 'DENY'",
+			"'X-Frame-Options', 'SAMEORIGIN'"
+		);
+		expect(hooks).not.toBe(sources['hooks.server.ts']);
+		expect(headerMismatches({ ...sources, 'hooks.server.ts': hooks })).toContain(
+			'hooks.server.ts missing/mismatched "x-frame-options"'
+		);
 	});
 });

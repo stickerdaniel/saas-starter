@@ -292,6 +292,7 @@ describe('validateTemplateArchive', () => {
 		'README.md',
 		'src/lib/config/site.ts',
 		'src/lib/config/legal.ts',
+		'src/lib/content/legal-content-dates.ts',
 		'src/lib/content/legal-metadata.ts'
 	])('rejects an archive missing setup input %s', async (requiredFile) => {
 		const entries = validTemplateEntries().filter((entry) => entry.path !== `root/${requiredFile}`);

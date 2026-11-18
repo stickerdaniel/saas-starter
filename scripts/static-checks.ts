@@ -223,6 +223,15 @@ export function isNeverWalked(file: string): boolean {
 	);
 }
 
+/** Git arguments whose `-z` records `--files-from -` reads; the newline diagnostic names them. */
+export const FILES_FROM_GIT_PRODUCER = [
+	'diff',
+	'--no-relative',
+	'--name-only',
+	'--diff-filter=d',
+	'-z'
+] as const;
+
 /**
  * Reject the run. A gate that cannot see its input must never report success.
  */
@@ -477,7 +486,7 @@ export function resolveInputs(
 			fail(
 				`Newline inside a single path argument (${origin}): ${JSON.stringify(arg.slice(0, 40))}`,
 				"  A computed list arrived as one positional argument. Pipe Git's native\n" +
-					'  path records instead: `git diff --no-relative --name-only --diff-filter=d -z | ... --files-from -`.'
+					`  path records instead: \`git ${FILES_FROM_GIT_PRODUCER.join(' ')} | ... --files-from -\`.`
 			);
 		}
 

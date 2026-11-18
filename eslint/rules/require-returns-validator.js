@@ -17,18 +17,9 @@
  * ✅ export const f = query({ args: {}, returns: v.null(), handler: async () => null });
  */
 
-const CONVEX_REGISTRARS = new Set([
-	'query',
-	'mutation',
-	'action',
-	'internalQuery',
-	'internalMutation',
-	'internalAction',
-	'authedQuery',
-	'authedMutation',
-	'adminQuery',
-	'adminMutation'
-]);
+import { CUSTOM_REGISTRARS, RAW_REGISTRARS } from '../convex-registrars.js';
+
+const CONVEX_REGISTRARS = new Set([...RAW_REGISTRARS, ...CUSTOM_REGISTRARS]);
 
 /** Property key name for both identifier and string-literal keys. */
 function keyName(property) {

@@ -5,6 +5,7 @@ import { components, internal } from '../_generated/api';
 import { ANONYMOUS_GLOBAL_RATE_LIMIT_KEY, supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 import { getSupportOwnerIdentity } from './ownership';
+import { publicEndpoint } from '../access';
 import { fetchAttachmentText } from '../files/attachmentText';
 import { vGenerateUploadUrlResult } from '../files/validators';
 import { validateUploadBlob } from '../files/upload';
@@ -27,6 +28,9 @@ export const generateUploadUrl = mutation({
 	},
 	returns: vGenerateUploadUrlResult,
 	handler: async (ctx, args) => {
+		publicEndpoint(
+			'Anonymous visitors attach files to support messages; the rate limit bounds each owner.'
+		);
 		const owner = await getSupportOwnerIdentity(ctx, args.anonymousUserId);
 
 		// Rate limit check - anonymous users share a single global bucket to prevent
@@ -95,6 +99,9 @@ export const saveUploadedFile = action({
 		filename: string | undefined;
 		isImage: boolean;
 	}> => {
+		publicEndpoint(
+			'Anonymous visitors register their uploads; the upload token authorizes the file.'
+		);
 		// Finalize upload with files-control before registering with agent
 		const accessKey = args.accessKey?.trim() || 'support';
 		await ctx.runMutation(components.convexFilesControl.upload.finalizeUpload, {
@@ -215,6 +222,9 @@ export const getAttachmentText = action({
 	},
 	returns: v.object({ text: v.string(), truncated: v.boolean() }),
 	handler: async (ctx, args): Promise<{ text: string; truncated: boolean }> => {
+		publicEndpoint(
+			'Anonymous visitors preview text attachments; the preview rate limit bounds each owner.'
+		);
 		await ctx.runMutation(internal.support.files.checkPreviewAccess, {
 			anonymousUserId: args.anonymousUserId
 		});

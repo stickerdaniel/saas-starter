@@ -1,5 +1,5 @@
 import { spawnSync } from 'child_process';
-import { lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { lstatSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,6 +9,7 @@ import { formatChecks, repositoryFileWriter } from './__fixtures__/static-checks
 import { usePrivateCheckout } from './__fixtures__/static-checks/private-checkout';
 import { sanitizedGitEnv } from './git-context';
 import {
+	FILES_FROM_GIT_PRODUCER,
 	isNeverWalked,
 	prettierArguments,
 	prettierLiteralPattern,
@@ -367,17 +368,33 @@ describe('format-only static checks', () => {
 		expect(resolveInputs(['scripts', 'scripts'], 'arguments', ROOT)).toEqual(once);
 	});
 
-	it('documents a Git producer that excludes deleted paths and stays root-relative', () => {
-		const source = readFileSync(SCRIPT, 'utf8');
-		// --no-relative decides which records the producer emits at all: measured with git
-		// 2.55.0 and diff.relative=true, running it from scripts/ reports a change to
-		// scripts/AGENTS.md as the record "AGENTS.md" and omits every path above that
-		// directory, so the consumer would check the root file of the same name.
-		for (const documented of source.matchAll(/git diff [^`]*--name-only[^`]*/g)) {
-			expect(documented[0]).toContain('--no-relative');
+	// The newline diagnostic names this producer. With diff.relative set and without
+	// --no-relative, git run from scripts/ strips that prefix and omits every path above it.
+	it('checks every record of the documented Git producer run from a subdirectory', () => {
+		const { repository } = checkout();
+		const subdirectory = path.join(repository, 'scripts');
+		const files = [`.format-root-${process.pid}.ts`, `scripts/.format-nested-${process.pid}.ts`];
+		const git = (args: string[], cwd = repository) =>
+			spawnSync('git', args, { cwd, env: sanitizedGitEnv(), timeout: 10_000 });
+		for (const file of files) {
+			writeFileSync(path.join(repository, file), 'export const value    =    1;\n');
 		}
-		expect(source).toContain('git diff --no-relative --name-only --diff-filter=d -z');
-	});
+		try {
+			expect(git(['add', '--intent-to-add', '--', ...files]).status).toBe(0);
+			const records = git(
+				['-c', 'diff.relative=true', ...FILES_FROM_GIT_PRODUCER],
+				subdirectory
+			).stdout;
+
+			const result = formatChecks(repository).formatCheckFilesFrom(records, subdirectory);
+
+			expect(result.status).toBe(1);
+			for (const file of files) expect(result.output).toContain(`[warn] ${file}`);
+		} finally {
+			git(['reset', '-q', '--', ...files]);
+			for (const file of files) rmSync(path.join(repository, file), { force: true });
+		}
+	}, 60_000);
 
 	it('rejects the replacement character produced by lossy argv decoding', () => {
 		const { repository } = checkout();

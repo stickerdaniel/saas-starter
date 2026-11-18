@@ -1,11 +1,11 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import type { RequestEvent } from '@sveltejs/kit';
 import { betterAuth } from 'better-auth';
 import { memoryAdapter } from 'better-auth/adapters/memory';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { authPageURL } from '#lib/utils/url.js';
 import {
 	authPageRedirect,
+	handle,
 	resolveBarePathLanguage,
 	shouldBypassLanguageRedirect,
 	shouldRenderPublicMarkdownNotFound,
@@ -13,13 +13,32 @@ import {
 } from './hooks.server';
 
 describe('hooks.server', () => {
-	it('wraps early Markdown responses with the security-header handle', () => {
-		const source = fs.readFileSync(path.resolve('src/hooks.server.ts'), 'utf8');
-		const sequence = source.slice(source.indexOf('export const handle = sequence('));
-		expect(sequence.indexOf('handleSecurityHeaders')).toBeGreaterThanOrEqual(0);
-		expect(sequence.indexOf('handleSecurityHeaders')).toBeLessThan(
-			sequence.indexOf('handleMarketingMarkdown')
+	// Negotiated Markdown returns before resolve(), so only a handle outside it adds headers.
+	it('sends security headers on an early Markdown response', async () => {
+		const url = new URL('https://example.com/en/pricing');
+		const event = {
+			url,
+			request: new Request(url, { headers: { Accept: 'text/markdown' } }),
+			route: { id: '/[[lang]]/(marketing)/pricing' },
+			params: { lang: 'en' },
+			locals: {},
+			cookies: { get: () => undefined, getAll: () => [] }
+		} as unknown as RequestEvent;
+		const resolve = vi.fn();
+		// Kit's server runtime opens this store around every handle call; sequence() reads it.
+		// The module ships no public types, so its one used export is typed here.
+		const { with_request_store } = await vi.importActual<{
+			with_request_store: <T>(store: { event: RequestEvent; state: object }, run: () => T) => T;
+		}>('@sveltejs/kit/internal/server');
+
+		const response = await with_request_store({ event, state: {} }, () =>
+			handle({ event, resolve })
 		);
+
+		expect(resolve).not.toHaveBeenCalled();
+		expect(response.headers.get('Content-Type')).toContain('text/markdown');
+		expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+		expect(response.headers.get('Content-Security-Policy')).toContain("frame-ancestors 'none'");
 	});
 
 	it('bypasses localization redirects for root discovery files and api routes', () => {

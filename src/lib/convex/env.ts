@@ -9,7 +9,7 @@
  *
  * varlock (.env-convex.schema) stays canonical for code generation and for the
  * scripts that check which vars exist and which are required;
- * `scripts/env-schema-parity.test.ts` keeps the two declarations in sync.
+ * `scripts/env-schema-parity.contract.test.ts` keeps the two declarations in sync.
  *
  * What it does NOT do, despite what the decorators suggest: no value ever
  * passes through varlock on this path. `.env.convex.local` is read by a

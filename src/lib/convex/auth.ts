@@ -33,6 +33,7 @@ import {
 } from './admin/notificationPreferences/helpers';
 import { startJourneyErasure } from './admin/journey/erasure';
 import { devNotice } from '../dev/notice';
+import { publicEndpoint } from './access';
 import { SUPPORTED_LANGUAGES } from '../i18n/languages';
 
 // Required for triggers to work - references internal auth functions
@@ -599,6 +600,7 @@ export const getAvailableOAuthProviders = query({
 	args: {},
 	returns: v.object({ google: v.boolean(), github: v.boolean() }),
 	handler: async () => {
+		publicEndpoint('The sign-in page lists the configured providers before anyone signs in.');
 		if (!googleOAuth.enabled) {
 			devNotice({
 				feature: 'Google sign-in',

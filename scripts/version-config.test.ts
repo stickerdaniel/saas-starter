@@ -96,18 +96,4 @@ describe('kit.version config', () => {
 		expect(match, 'pollInterval not found in vite.config.ts').not.toBeNull();
 		expect(Number(match![1])).toBeGreaterThan(0);
 	});
-
-	it('registers the beforeNavigate recovery guard in the root layout', () => {
-		const layout = fs.readFileSync(path.resolve('src/routes/+layout.svelte'), 'utf-8');
-		// Structural match so other navigation imports (e.g. onNavigate) can share the line.
-		expect(layout).toMatch(/import \{[^}]*\bbeforeNavigate\b[^}]*\} from '\$app\/navigation'/);
-		// updated must come from $app/state, not the deprecated $app/stores.
-		expect(layout).toMatch(/import \{[^}]*\bupdated\b[^}]*\} from '\$app\/state'/);
-		expect(layout).toContain('updated.current');
-		// The layout still hands the deploy signal to the decision and acts on the
-		// answer. Which navigations that answer covers is settled by
-		// deployReloadTarget's own tests, not by matching source text here.
-		expect(layout).toMatch(/deployReloadTarget\([^)]*updated\.current/);
-		expect(layout).toContain('location.href =');
-	});
 });

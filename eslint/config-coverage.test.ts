@@ -1,6 +1,8 @@
 // @vitest-environment node
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { ESLint } from 'eslint';
 import stripAnsi from 'strip-ansi';
 import type * as TypeScript from 'typescript';
@@ -83,11 +85,22 @@ describe('Svelte type-aware linting', () => {
 
 	// When TypeScript reads raw markup for a Svelte file, typescript-eslint rebuilds its
 	// program for every Svelte file it lints, which multiplies a full run's lint time.
+	// The component lives under tmpdir() because a tracked .svelte file outside every
+	// tsconfig fails type-aware linting.
 	it('lets the type checker read Svelte files as TypeScript', async () => {
-		const file = 'src/routes/+layout.svelte';
-		await eslint.lintText(readFileSync(file, 'utf-8'), { filePath: file });
-		const ts: typeof TypeScript = createRequire(import.meta.url)('typescript');
-		expect(ts.sys.readFile(file)).not.toBe(readFileSync(file, 'utf-8'));
+		const markup =
+			'<script lang="ts">\n\tlet { label }: { label: string } = $props();\n</script>\n\n<p>{label}</p>\n';
+		const directory = mkdtempSync(path.join(tmpdir(), 'ts-sys-hook-'));
+		const component = path.join(directory, 'component.svelte');
+		try {
+			writeFileSync(component, markup);
+			// The real path selects the type-aware Svelte config that installs the hook.
+			await eslint.lintText(markup, { filePath: 'src/routes/+layout.svelte' });
+			const ts: typeof TypeScript = createRequire(import.meta.url)('typescript');
+			expect(ts.sys.readFile(component)).not.toBe(markup);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
 	}, 60_000);
 });
 

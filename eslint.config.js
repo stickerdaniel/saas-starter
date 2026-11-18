@@ -37,9 +37,18 @@ import noDynamicImportRejectionHandlerRule from './eslint/rules/no-dynamic-impor
 import requireStaticModeInitializerRule from './eslint/rules/require-static-mode-initializer.js';
 import noTestInLoopRule from './eslint/rules/no-test-in-loop.js';
 import noRawCaughtErrorLogRule from './eslint/rules/no-raw-caught-error-log.js';
+import noHistoryCommentRule from './eslint/rules/no-history-comment.js';
+import convexCanonicalRegistrationRule from './eslint/rules/convex-canonical-registration.js';
+import convexAccessFirstRule from './eslint/rules/convex-access-first.js';
+import requireCustomRegistrarArgsRule from './eslint/rules/require-custom-registrar-args.js';
+import noSourceTextReadRule from './eslint/rules/no-source-text-read.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
+// Names the guards that open a public Convex handler. A guard throws on refusal;
+// a boolean predicate such as `canEdit` or `hasRole` is no guard. `publicEndpoint`
+// from src/lib/convex/access.ts marks a function open to every caller.
+const convexAccessPattern = '^(require|assert|ensure)([A-Z_]|$)|^publicEndpoint$';
 const localPlugin = {
 	processors: {
 		// Varlock writes a file-wide disable into generated environment types. Blank
@@ -81,7 +90,12 @@ const localPlugin = {
 		'no-dynamic-import-rejection-handler': noDynamicImportRejectionHandlerRule,
 		'require-static-mode-initializer': requireStaticModeInitializerRule,
 		'no-test-in-loop': noTestInLoopRule,
-		'no-raw-caught-error-log': noRawCaughtErrorLogRule
+		'no-raw-caught-error-log': noRawCaughtErrorLogRule,
+		'no-history-comment': noHistoryCommentRule,
+		'convex-canonical-registration': convexCanonicalRegistrationRule,
+		'convex-access-first': convexAccessFirstRule,
+		'require-custom-registrar-args': requireCustomRegistrarArgsRule,
+		'no-source-text-read': noSourceTextReadRule
 	}
 };
 
@@ -379,13 +393,16 @@ export default defineConfig(
 	},
 	{
 		// Every Convex function registration must declare a `returns` validator
-		// (convex-guidelines). See eslint/rules/require-returns-validator.js.
+		// (convex-guidelines), and a custom builder registration an `args` one.
+		// See eslint/rules/require-returns-validator.js and
+		// eslint/rules/require-custom-registrar-args.js.
 		files: ['src/lib/convex/**/*.ts'],
 		plugins: {
 			local: localPlugin
 		},
 		rules: {
-			'local/require-returns-validator': 'error'
+			'local/require-returns-validator': 'error',
+			'local/require-custom-registrar-args': 'error'
 		}
 	},
 	{
@@ -546,6 +563,17 @@ export default defineConfig(
 			'local/no-literal-control-char': 'error'
 		}
 	},
+	// A comment states how the code works; history goes to the commit or PR.
+	// See eslint/rules/no-history-comment.js.
+	{
+		files: ['**/*.{js,mjs,cjs,ts,svelte}'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-history-comment': 'error'
+		}
+	},
 	// The template bans the middle dot and the em dash from everything the app ships.
 	// Tests and their fixtures are not shipped, and they assert or record text in
 	// its source form. See eslint/rules/no-middle-dot-or-em-dash.js.
@@ -571,6 +599,18 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-test-in-loop': 'error'
+		}
+	},
+	// A test imports what it tests; reading production source as text pins its
+	// wording instead of its behaviour. See eslint/rules/no-source-text-read.js.
+	{
+		// The suffixes Vitest and Playwright run as tests.
+		files: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-source-text-read': ['error', { roots: ['src', 'scripts'] }]
 		}
 	},
 	// Tolgee() is TolgeeCore() plus the browser-extension plugin, whose handshake
@@ -633,6 +673,27 @@ export default defineConfig(
 		rules: {
 			// An unbounded read fails once it crosses the 16 MiB / 32k-row transaction limit.
 			'@convex-dev/no-collect-in-query': 'error'
+		}
+	},
+	// Anyone on the internet can call a public query, mutation or action, so its
+	// handler completes an access call before any effect, and every registration
+	// keeps the form the access rules can read. Tests and the Better Auth
+	// component, which has its own convex.config.ts, register no application
+	// functions. See eslint/rules/convex-access-first.js and
+	// eslint/rules/convex-canonical-registration.js.
+	{
+		files: ['src/lib/convex/**/*.ts'],
+		ignores: ['**/*.test.ts', '**/__tests__/**', 'src/lib/convex/betterAuth/**'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'@convex-dev/require-access-control': ['error', { pattern: convexAccessPattern }],
+			'local/convex-canonical-registration': 'error',
+			'local/convex-access-first': [
+				'error',
+				{ pattern: convexAccessPattern, synchronous: ['publicEndpoint', 'requireTestSecret'] }
+			]
 		}
 	},
 	{

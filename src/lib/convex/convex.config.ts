@@ -23,7 +23,7 @@ validateCapabilityEnvironment(process.env);
  *
  * Env values are always strings, so only string-like validators are allowed
  * (`v.string()`, string `v.literal()`/`v.union()`, and `v.optional()`).
- * `scripts/env-schema-parity.test.ts` keeps this block in sync with the schema.
+ * `scripts/env-schema-parity.contract.test.ts` keeps this block in sync with the schema.
  */
 const app = defineApp({
 	env: {

@@ -4,7 +4,8 @@ import { PUBLIC_MARKETING_ROUTES } from '#lib/marketing/public-routes.js';
 import { aboutMarkdown } from './about';
 import { contactMarkdown } from './contact';
 import { impressumMarkdown } from './impressum';
-import { LEGAL_CONTENT_DATES, formatLegalContentDate } from './legal-metadata';
+import { LEGAL_CONTENT_DATES } from './legal-content-dates';
+import { formatLegalContentDate } from './legal-metadata';
 import { privacyMarkdown } from './privacy';
 import { termsMarkdown } from './terms';
 

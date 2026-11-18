@@ -5,6 +5,7 @@ import { components, internal } from '../_generated/api';
 import { aiChatRateLimiter } from './rateLimit';
 import { authComponent } from '../auth';
 import { authedMutation } from '../functions';
+import { requireActionAccess } from '../access';
 import { fetchAttachmentText } from '../files/attachmentText';
 import { vGenerateUploadUrlResult } from '../files/validators';
 import { validateUploadBlob } from '../files/upload';
@@ -83,7 +84,7 @@ export const saveUploadedFile = action({
 		filename: string | undefined;
 		isImage: boolean;
 	}> => {
-		await ctx.runMutation(internal.aiChat.files.requireFileAccess, {});
+		await requireActionAccess(ctx, internal.aiChat.files.requireFileAccess);
 
 		const accessKey = args.accessKey?.trim() || 'ai-chat';
 		await ctx.runMutation(components.convexFilesControl.upload.finalizeUpload, {
@@ -192,7 +193,7 @@ export const getAttachmentText = action({
 	args: { url: v.string(), locale: v.optional(v.string()) },
 	returns: v.object({ text: v.string(), truncated: v.boolean() }),
 	handler: async (ctx, args): Promise<{ text: string; truncated: boolean }> => {
-		await ctx.runMutation(internal.aiChat.files.checkPreviewAccess, {});
+		await requireActionAccess(ctx, internal.aiChat.files.checkPreviewAccess);
 		return await fetchAttachmentText(args.url, args.locale);
 	}
 });
