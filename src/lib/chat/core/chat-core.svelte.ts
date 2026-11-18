@@ -1,9 +1,4 @@
-/**
- * Chat Core - Headless state management for AI chat
- *
- * This class manages all chat state and logic without any UI dependencies.
- * It can be used with any UI implementation.
- */
+/** Headless chat state without UI dependencies. */
 
 import type { ConvexClient } from 'convex/browser';
 import type { FunctionReference } from 'convex/server';
@@ -24,20 +19,13 @@ import { ChatCommandError, type ChatCommandErrorCode } from './chat-command-erro
 export type ChatCoreErrorCode = ChatCommandErrorCode | 'send_failed' | 'create_thread_failed';
 type CreateThreadArgs = CreateThreadOptions & Record<string, unknown>;
 
-/**
- * Result from creating a thread
- */
 export interface CreateThreadResult {
 	threadId: string;
 	notificationEmail?: string | null;
 	[key: string]: unknown;
 }
 
-/**
- * API endpoints configuration for ChatCore
- */
 export interface ChatCoreAPI {
-	/** Mutation to send a message */
 	sendMessage: FunctionReference<
 		'mutation',
 		'public',
@@ -49,51 +37,36 @@ export interface ChatCoreAPI {
 		},
 		SendMessageResult
 	>;
-	/** Mutation to create a thread - returns CreateThreadResult */
+	/** Returns a CreateThreadResult */
 	createThread?: FunctionReference<'mutation', 'public', CreateThreadArgs, CreateThreadResult>;
-	/** Query to list messages (required for optimistic updates) */
+	/** Required for optimistic updates */
 	listMessages?: ChatMessagesQuery;
 }
 
-/**
- * Options for creating a ChatCore instance
- */
 export interface ChatCoreOptions {
-	/** Initial thread ID (optional) */
 	threadId?: string | null;
 	/** Bind commands for headless sends; omit when the surface owns its commands. */
 	api?: ChatCoreAPI;
-	/** Chat configuration */
 	config?: ChatConfig;
 }
 
-/**
- * Chat Core class - Headless state management
- *
- * Manages thread state, messages, optimistic updates, and pagination.
- * Stream processing is handled separately via StreamCacheManager.
- */
+/** Stream processing lives in StreamCacheManager. */
 export class ChatCore implements ChatSessionPort {
-	// Thread state
 	threadId = $state<string | null>(null);
-	/** True when user starts a new conversation - enables immediate suggestion display */
+	/** True while a new conversation starts, so suggestions show at once */
 	isNewConversation = $state(false);
-	/** Monotonic counter — bumps each time a new thread session starts.
-	 *  Used as a {#key} to replay chip entrance animations. */
+	/** Bumps on every new thread session. A {#key} on it replays the chip
+	 *  entrance animations. */
 	threadGeneration = $state(0);
 
-	// Loading states
 	isLoading = $state(false);
 	isSending = $state(false);
 
-	// Error state
 	error = $state<ChatCoreErrorCode | null>(null);
 
-	// Pagination state
 	hasMore = $state(false);
 	continueCursor = $state<string | null>(null);
 
-	// Widget state (for support chat widget)
 	shouldOpenWidget = $state(false);
 
 	/**
@@ -103,10 +76,8 @@ export class ChatCore implements ChatSessionPort {
 	 */
 	awaitedTurn = $state<AwaitedTurn | null>(null);
 
-	// Stream cache manager
 	readonly streamCache = new StreamCacheManager();
 
-	// Configuration
 	private readonly api?: ChatCoreAPI;
 	private readonly config: Required<ChatConfig>;
 	private sendRevision = 0;
@@ -120,7 +91,6 @@ export class ChatCore implements ChatSessionPort {
 		this.config = { ...DEFAULT_CHAT_CONFIG, ...options.config };
 	}
 
-	// Derived state
 	get hasThread(): boolean {
 		return this.threadId !== null;
 	}
@@ -129,9 +99,6 @@ export class ChatCore implements ChatSessionPort {
 		return this.awaitedTurn !== null;
 	}
 
-	/**
-	 * Initialize or load a thread
-	 */
 	setThreadOriginBinder(
 		binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
 	): void {
@@ -158,44 +125,27 @@ export class ChatCore implements ChatSessionPort {
 		this.streamCache.clear();
 	}
 
-	/**
-	 * Set loading state
-	 */
 	setLoading(loading: boolean): void {
 		this.isLoading = loading;
 	}
 
-	/**
-	 * Set sending state
-	 */
 	setSending(sending: boolean): void {
 		this.isSending = sending;
 	}
 
-	/**
-	 * Set error state
-	 */
 	setError(error: ChatCoreErrorCode | null): void {
 		this.error = error;
 	}
 
-	/**
-	 * Clear error
-	 */
 	clearError(): void {
 		this.error = null;
 	}
 
-	/**
-	 * Request widget to open (used when message sent from chatbar)
-	 */
+	/** Used when a message is sent from the chatbar */
 	requestWidgetOpen(): void {
 		this.shouldOpenWidget = true;
 	}
 
-	/**
-	 * Clear widget open request
-	 */
 	clearWidgetOpenRequest(): void {
 		this.shouldOpenWidget = false;
 	}
@@ -210,20 +160,9 @@ export class ChatCore implements ChatSessionPort {
 	}
 
 	/**
-	 * Send a message with optional file attachments
-	 *
-	 * This method handles the complete message sending flow:
-	 * - Thread creation (if needed and createThread API configured)
-	 * - Validation
-	 * - Optimistic updates via store.setQuery (automatic rollback on failure)
-	 * - Backend mutation
-	 * - Error handling
-	 * - Widget opening (optional)
-	 *
-	 * @param client - Convex client instance
-	 * @param prompt - Message text content
-	 * @param options - Optional configuration
-	 * @returns Promise with message ID and optional thread creation result
+	 * Sends a message. Creates the thread first when none exists and the
+	 * createThread API is configured, and applies an optimistic update that Convex
+	 * rolls back on failure.
 	 */
 	async sendMessage(
 		client: ConvexClient,
@@ -257,7 +196,7 @@ export class ChatCore implements ChatSessionPort {
 		let failureCode: ChatCoreErrorCode = 'send_failed';
 
 		try {
-			// Ensure thread exists (lazy thread creation)
+			// Lazy thread creation
 			let threadId = this.threadId;
 			if (!threadId) {
 				failureCode = 'create_thread_failed';
@@ -277,15 +216,14 @@ export class ChatCore implements ChatSessionPort {
 				this.provisionalThreadBinding = { threadId, sendRevision };
 				this.threadOriginBinder?.(threadId, sessionEpoch, this.threadGeneration);
 
-				// Update threadId directly (setThread would clear streamCache, error,
-				// and the pagination cursors)
+				// Assigned directly: setThread would clear streamCache, error, and the
+				// pagination cursors
 				this.threadId = threadId;
 				this.provisionalThreadBinding = null;
 				this.isNewConversation = false;
 				failureCode = 'send_failed';
 			}
 
-			// Build optimistic update if listMessages query is available
 			const mutationOptions = api.listMessages
 				? {
 						optimisticUpdate: createOptimisticUpdate(
@@ -302,7 +240,6 @@ export class ChatCore implements ChatSessionPort {
 					}
 				: undefined;
 
-			// Send message with optional attachments and optimistic update
 			const result = await client.mutation(
 				api.sendMessage,
 				{
@@ -322,7 +259,6 @@ export class ChatCore implements ChatSessionPort {
 				this.awaitedTurn = { kind: 'accepted', order: result.order };
 			}
 
-			// Request widget to open if requested
 			if (options?.openWidgetAfter) {
 				this.requestWidgetOpen();
 			}
@@ -334,7 +270,7 @@ export class ChatCore implements ChatSessionPort {
 				this.setError(failureCode);
 				this.setAwaitingStream(false);
 			}
-			// Optimistic update automatically rolled back on failure
+			// Convex rolls the optimistic update back
 			throw error;
 		} finally {
 			if (this.isSendOperationCurrent(sessionEpoch, sendRevision)) {
@@ -343,13 +279,6 @@ export class ChatCore implements ChatSessionPort {
 		}
 	}
 
-	/**
-	 * Create a new thread
-	 *
-	 * @param client - Convex client instance
-	 * @param options - Thread creation options
-	 * @returns Promise with thread creation result
-	 */
 	async createThread(
 		client: ConvexClient,
 		options?: CreateThreadOptions
@@ -382,9 +311,6 @@ export class ChatCore implements ChatSessionPort {
 		this.shouldOpenWidget = false;
 	}
 
-	/**
-	 * Reset the core state
-	 */
 	reset(): void {
 		this.sendRevision++;
 		this.provisionalThreadBinding = null;
@@ -401,7 +327,6 @@ export class ChatCore implements ChatSessionPort {
 	}
 }
 
-/** Create a new headless chat session. */
 export function createChatCore(options: ChatCoreOptions): ChatCore {
 	return new ChatCore(options);
 }

@@ -70,23 +70,18 @@
 		class: className = '',
 		contentClass
 	}: {
-		/** Suggestion chips to show when empty */
+		/** Shown while the composer is empty */
 		suggestions?: Array<{ text: string; label: string }>;
-		/** Input placeholder text */
 		placeholder?: string;
-		/** Placeholder text when suggestions are not visible */
+		/** Placeholder while suggestions are hidden */
 		placeholderNoSuggestions?: string;
-		/** Placeholder copy to rotate through in compact mode */
+		/** Rotated through in compact mode */
 		placeholders?: string[];
 		/** Accessible input name when it differs from the visible placeholder */
 		inputLabel?: string;
-		/** Whether to show camera/screenshot button */
 		showCameraButton?: boolean;
-		/** Whether to show file upload button */
 		showFileButton?: boolean;
-		/** Whether to show the handoff to human button */
 		showHandoffButton?: boolean;
-		/** Whether to use the compact single-row composer */
 		compact?: boolean;
 		/**
 		 * Whether a human answers this thread, so nothing is waiting on a model.
@@ -95,7 +90,6 @@
 		 * with the agent switched off sets it on threads the team has not seen.
 		 */
 		isHumanOnly?: boolean;
-		/** Whether user is rate limited from sending messages */
 		isRateLimited?: boolean;
 		/**
 		 * Whether the user may not write here at all, as opposed to waiting on a
@@ -112,7 +106,6 @@
 		allowAttachmentOnlySend?: boolean;
 		/** Where dropped files are captured: the whole window, or only on the composer */
 		dropScope?: 'window' | 'composer';
-		/** Callback when screenshot button clicked */
 		onScreenshot?: () => void;
 		/**
 		 * Dispatches the prompt. Required: the composer clears its input and
@@ -122,20 +115,16 @@
 		onSend: (prompt: string) => Promise<void> | void;
 		/** Called when the user submits a composer with no text and no files */
 		onEmptySubmit?: () => void;
-		/** Callback when user requests handoff to human support */
 		onRequestHandoff?: () => void;
 		/**
 		 * Receives every refused or failed file in place of the default toasts, so
 		 * the caller can show it persistently, for example through `notice`.
 		 */
 		onAttachmentRejected?: (rejection: { filename: string; reason: string }) => void;
-		/** Custom left actions slot; receives the default actions to render alongside */
 		actionsLeft?: Snippet<[defaults: Snippet]>;
-		/** Custom right actions slot; receives the default actions to render alongside */
 		actionsRight?: Snippet<[defaults: Snippet]>;
 		/** Persistent feedback shown above the composer while set */
 		notice?: Snippet;
-		/** Additional CSS classes */
 		class?: string;
 		/** Classes for the compact layout's wrapper around the field and its actions */
 		contentClass?: string;
@@ -155,8 +144,7 @@
 	// A screenshot reaches the context from the caller, not through this composer.
 	ctx.registerAttachmentRefusal(rejectPreparedAttachment);
 
-	// Use centralized isProcessing from context (single source of truth)
-	// When handed off to human support, don't block - use fire-and-forget pattern
+	// A human-only thread does not block the input: its sends are fire and forget
 	const isBusy = $derived(ctx.isProcessing && !isHumanOnly);
 	const acceptsAttachments = $derived(!disabled && !attachmentsDisabledReason);
 	// At the cap the file controls stay hoverable and focusable, so their tooltip
@@ -199,8 +187,8 @@
 	);
 	// Compact mode rotates through the caller's suggestion copy as vanishing hints.
 	const rotatingPlaceholders = $derived(compact ? placeholders : []);
-	// Content-based key so the index only resets when the copy actually changes
-	// (locale or thread switch), not on every re-derivation of the same list.
+	// The key derives from the content, so the index resets only when the copy
+	// changes (locale or thread switch), not on every re-derivation of the same list
 	const placeholderKey = $derived(rotatingPlaceholders.join('\u0001'));
 	const visiblePlaceholder = $derived(
 		rotatingPlaceholders.length > 0
@@ -260,16 +248,14 @@
 		ctx.unregisterAttachmentRefusal(rejectPreparedAttachment);
 	});
 
-	// Check if last assistant message is complete (for handoff button visibility)
 	const lastAssistantComplete = $derived.by(() => {
 		const last = ctx.displayMessages.findLast((m) => m.role === 'assistant');
 		return last?.status === 'success' || last?.status === 'failed';
 	});
 
-	// Sticky state: once true, stays true for the session
+	// Sticky: once shown, the handoff button stays for the session
 	let hasShownHandoffButton = $state(false);
 
-	// Update sticky state when conditions are first met
 	$effect(() => {
 		if (lastAssistantComplete && !hasShownHandoffButton) {
 			hasShownHandoffButton = true;
@@ -292,9 +278,9 @@
 		// even when the composer unmounts before the transport answers.
 		const settle = ctx.beginSend(snapshot);
 		try {
-			// Invoke onSend before clearing attachments so existing consumers can
-			// capture their exact transport payload synchronously. The pending send
-			// owns them from here even when onSend throws before returning.
+			// onSend runs before the attachments clear, so consumers can capture their
+			// exact transport payload synchronously. The pending send owns them from here
+			// even when onSend throws before returning.
 			let sendPromise: Promise<void> | void;
 			try {
 				sendPromise = onSend(prompt);
@@ -339,22 +325,20 @@
 		input.value = '';
 	}
 
-	// Compact layout switches ChatGPT-style once the text wraps: the pill
-	// (rounded-full, inline actions) becomes a rounded box with the action row
-	// below the textarea. Wrapping is detected from the textarea's scrollHeight
-	// vs its single-line height, re-measured on every input/layout change.
+	// The compact layout switches once the text wraps: the pill (rounded-full,
+	// inline actions) becomes a rounded box with the action row below the
+	// textarea. Wrapping is re-measured on every input and layout change.
 	let compactWrapper: HTMLDivElement | undefined = $state();
 	let compactMultiline = $state(false);
-	// True once the textarea content exceeds its max height and starts to
-	// scroll internally; the overflowing text then fades into the composer
-	// background at both edges instead of clipping hard.
+	// True once the textarea content exceeds its max height and scrolls
+	// internally. The overflowing text then fades into the composer background at
+	// both edges instead of clipping hard.
 	let compactScrollable = $state(false);
 	// Wrap detection must not read the textarea's live geometry: switching the
 	// layout changes the field's width (inline actions vs full row), so the same
-	// text can wrap in the pill but fit expanded — geometry-based checks
-	// oscillate at that boundary. Instead the text is measured with canvas
-	// measureText against the width the field has IN THE PILL layout; that
-	// reference width is layout-independent, so the decision is stable.
+	// text can wrap in the pill but fit expanded, and geometry-based checks
+	// oscillate at that boundary. Canvas measureText against the field width of the
+	// pill layout gives a layout-independent reference, so the decision is stable.
 	let measureCanvas: CanvasRenderingContext2D | null = null;
 	function textNeedsWrap(textarea: HTMLTextAreaElement, pillWidth: number): boolean {
 		const value = textarea.value;
@@ -391,8 +375,8 @@
 		return () => observer.disconnect();
 	});
 
-	// Re-measure after every value change once the DOM settled — covers typing,
-	// paste, draft restore, and ?prompt= prefill alike.
+	// Re-measures after every value change once the DOM settled: typing, paste,
+	// draft restore, and ?prompt= prefill alike.
 	$effect(() => {
 		if (!compact) return;
 		void ctx.inputValue;
@@ -405,10 +389,9 @@
 		});
 	});
 
-	// Drag/drop for the compact composer, on the window or on the composer
-	// alone. The non-compact path gets this from <FileUpload>; the compact path
-	// handles it here so a dropped file attaches (and, critically, so the browser
-	// doesn't navigate away to open it).
+	// Drag and drop for the compact composer, on the window or on the composer
+	// alone. The non-compact path gets this from <FileUpload>. A dropped file must
+	// attach here, or the browser navigates away to open it.
 	const dropEnabled = $derived(compact && showFileButton && !isRateLimited && acceptsAttachments);
 	// Starts over whenever eligibility or scope changes: a drag refused midway
 	// skips its own leave and drop, and must not revive the overlay once files
@@ -490,13 +473,11 @@
 	}
 
 	/**
-	 * When the browser left `File.type` empty or generic, infer it from the
-	 * extension before handing the file to the rest of the pipeline. This is
-	 * the difference between an HEIC drag landing as `image/heic` (rejected)
-	 * vs. a legitimate Finder-dragged `.png` landing as `''` (skipped from
-	 * processImage and uploaded as `application/octet-stream`, then rejected
-	 * server-side). Same inference as `isAllowedKind` and the composer's final
-	 * check, so the three stay consistent.
+	 * Infers an empty or generic `File.type` from the extension before the rest of
+	 * the pipeline sees the file. Without it a Finder-dragged `.png` arrives as `''`,
+	 * skips processImage, uploads as `application/octet-stream`, and the server
+	 * rejects it. `isAllowedKind` and the composer's final check use the same
+	 * inference.
 	 */
 	function normalizeMime(file: File): File {
 		const mime = profileMimeType(profile, file.name, file.type);
@@ -505,11 +486,10 @@
 	}
 
 	/**
-	 * Route image-typed files through processImage (resize + WebP encode on a
-	 * worker) before handing them to the upload context. The preprocess
-	 * callback runs INSIDE ctx.uploadFile, after the placeholder attachment
-	 * is inserted, so canSend / hasFile / attachment-cap guards see the
-	 * in-progress attachment during the encode window.
+	 * Routes image files through processImage (resize and WebP encode on a worker)
+	 * before the upload. The preprocess callback runs inside ctx.uploadFile after
+	 * the placeholder attachment is inserted, so canSend, hasFile and the
+	 * attachment cap see the attachment during the encode.
 	 */
 	function attachFile(file: File | Blob, filename: string) {
 		if (file.type?.startsWith('image/')) {
@@ -517,16 +497,14 @@
 				onPreprocessFailed: rejectPreparedAttachment,
 				preprocess: async (input) => {
 					const processed = await processImage(input);
-					// Post-process guard. WebP at q=85 is almost always smaller
-					// than the source for screenshots and large photos, but pathological
-					// inputs (already heavily compressed JPEGs, small high-detail tiles)
-					// can re-encode larger, GIFs or a failed encode come back
-					// unchanged, and the encoded type need not be one this surface
-					// accepts. The limit and the type hold for what is actually
-					// uploaded:
-					//   - if neither the encoded output NOR the original passes,
-					//     refuse: the input cap allows up to MAX_INPUT_IMAGE_SIZE, so
-					//     the original may be too big as well.
+					// WebP at q=85 is almost always smaller than the source for screenshots and
+					// large photos, but heavily compressed JPEGs or small high-detail tiles can
+					// re-encode larger, GIFs and failed encodes come back unchanged, and the
+					// encoded type need not be one this surface accepts. The limit and the type
+					// hold for what is uploaded:
+					//   - when neither the encoded output nor the original passes, refuse: the
+					//     input cap allows up to MAX_INPUT_IMAGE_SIZE, so the original may be too
+					//     big as well.
 					//   - otherwise fall back to the original that passes.
 					const limit = imageUploadLimit(profile);
 					const passes = (blob: Blob, mimeType: string) =>
@@ -541,17 +519,15 @@
 							blob: input,
 							mimeType: input.type,
 							filename
-							// Skip width/height; ctx.uploadFile will read them off the
-							// original blob.
+							// ctx.uploadFile reads width and height off the original blob
 						};
 					}
 					return {
 						blob: processed.blob,
 						mimeType: processed.mimeType,
-						// Derive the upload filename from the actual mime type rather
-						// than the passthrough flag; the main-thread fallback also
-						// transforms to WebP, and we never want WebP bytes under a
-						// .png/.jpg name.
+						// The filename follows the actual MIME type, not the passthrough flag: the
+						// main-thread fallback also encodes WebP, and WebP bytes must not carry a
+						// .png or .jpg name.
 						filename:
 							processed.mimeType === 'image/webp'
 								? filename.replace(/\.[^.]+$/, '') + '.webp'
@@ -593,9 +569,8 @@
 
 	async function handleFilesAdded(files: File[]) {
 		if (!acceptsAttachments) return;
-		// Upload files through context (with duplicate detection and size validation)
+		// The context runs duplicate detection and size validation
 		for (const raw of files) {
-			// Check attachment limit
 			if (!ctx.canAddAttachment) {
 				haptic.trigger('error');
 				rejectAttachment(raw.name, $t('chat.error.max_attachments', { max: ctx.maxAttachments }));
@@ -604,17 +579,17 @@
 				continue;
 			}
 
-			// MIME allowlist gate (drag/drop bypasses the file picker's
-			// `accept` filter, so HEIC/TIFF/etc. would otherwise slip through
-			// to processImage and waste an upload before the server rejects).
+			// Drag and drop bypasses the picker's `accept` filter, so without this gate
+			// HEIC or TIFF would reach processImage and waste an upload before the server
+			// rejects it.
 			if (!isAllowedKind(raw)) {
 				haptic.trigger('error');
 				rejectAttachment(raw.name, $t('chat.error.file_type_not_allowed', { filename: raw.name }));
 				continue;
 			}
 
-			// Normalise BEFORE size/branch checks so attachFile sees a real
-			// MIME type and routes images through processImage.
+			// Normalized before the size and branch checks, so attachFile sees a real MIME
+			// type and routes images through processImage
 			const file = normalizeMime(raw);
 
 			const isImage = file.type.startsWith('image/');
@@ -633,7 +608,7 @@
 
 			if (!ctx.hasFile(file.name, file.size)) {
 				haptic.trigger('medium');
-				// Fire and forget - context manages progress
+				// Fire and forget: the context tracks progress
 				attachFile(file, file.name);
 			}
 		}
@@ -670,18 +645,16 @@
 		if (!items) return;
 
 		for (const item of items) {
-			// Only file items become attachments; string items (e.g. pasted
-			// text, which now matches text/plain in the allowlist) fall through
-			// to the textarea's default paste handling.
+			// String items such as pasted text fall through to the textarea's default
+			// paste handling.
 			if (item.kind !== 'file') continue;
 
 			const raw = item.getAsFile();
 			if (!raw) continue;
 
-			// Extension-aware allowlist gate: a pasted file's clipboard type is
-			// often empty/generic (notably .md/.txt), so check the extension
-			// fallback like handleFilesAdded rather than the bare item.type.
-			// Without a rejection handler this stays silent, as it always was.
+			// A pasted file's clipboard type is often empty or generic (notably .md and
+			// .txt), so the gate checks the extension fallback like handleFilesAdded.
+			// Without a rejection handler the refusal stays silent.
 			if (!isAllowedKind(raw)) {
 				if (onAttachmentRejected) {
 					const filename = pastedFilename(raw);
@@ -690,13 +663,12 @@
 				continue;
 			}
 
-			// Coerce empty/generic MIME from the extension before branching, so
-			// attachFile routes images through processImage and the upload sends
-			// the correct Content-Type for text files.
+			// An empty or generic MIME type is inferred from the extension before branching,
+			// so attachFile routes images through processImage and text files upload with
+			// the right Content-Type.
 			const file = normalizeMime(raw);
 			const filename = pastedFilename(file);
 
-			// Check attachment limit
 			if (!ctx.canAddAttachment) {
 				haptic.trigger('error');
 				rejectAttachment(filename, $t('chat.error.max_attachments', { max: ctx.maxAttachments }));
@@ -705,10 +677,9 @@
 				continue;
 			}
 
-			// Type-aware size cap — images go through processImage which
-			// shrinks them before upload, so we only enforce the absurdity
-			// ceiling on the input. Non-image files upload as-is, so the
-			// profile's storage cap applies to the input directly.
+			// Images shrink through processImage before upload, so only the input ceiling
+			// applies to them. Other files upload as they are, so the profile's storage cap
+			// applies to the input.
 			const isImage = file.type.startsWith('image/');
 			const cap = isImage ? MAX_INPUT_IMAGE_SIZE : profile.maxBytes;
 			const label = isImage ? MAX_INPUT_IMAGE_SIZE_LABEL : profile.maxBytesLabel;
@@ -722,7 +693,7 @@
 				continue;
 			}
 
-			// Check for duplicates (unlikely for pasted files, but consistent with file upload)
+			// Duplicates are unlikely for pasted files; the check matches the file upload path
 			if (!ctx.hasFile(filename, file.size)) {
 				attachFile(file, filename);
 			}
@@ -914,9 +885,8 @@
 {/snippet}
 
 <div bind:this={containerEl} class={className} {@attach composerDragTarget}>
-	<!-- Suggestion chips - shown when starting new conversation or after messages loaded and empty -->
-	<!-- isNewConversation: show immediately for draft threads (eager creation) -->
-	<!-- messagesReady: wait for query to resolve for existing threads (prevents flash) -->
+	<!-- isNewConversation shows suggestions at once for draft threads. messagesReady
+	     waits for the query on existing threads, which prevents a flash. -->
 	{#if showSuggestions}
 		<div class="pb-2">
 			{#key ctx.core.threadGeneration}
@@ -967,10 +937,10 @@
 		</div>
 	{/if}
 	<!-- Fixed 25px radius: the one-line pill is 48px tall (36px field + 12px
-	     padding) plus its border, so 25px is fully round there and simply stays
-	     put when the field grows — no radius jump between layouts. -->
-	<!-- Input focus intentionally uses the text caret without an extra ring around
-	     the composer. Action buttons keep their own focus indicators. -->
+	     padding) plus its border, so 25px is fully round there and stays put when
+	     the field grows, with no radius jump between layouts. -->
+	<!-- Input focus uses the text caret without a ring around the composer. Action
+	     buttons keep their own focus indicators. -->
 	<PromptInput
 		class={compact
 			? `relative z-20 rounded-[25px] border-0 bg-popover composer-elevation ${compactMultiline ? 'p-0' : 'p-1.5'}`
@@ -1000,11 +970,10 @@
 						columns={2}
 					/>
 				{/if}
-				<!-- Single line: actions inline beside the textarea (pill). Multi-line:
-				     the textarea spans the full width and the actions drop to a row
-				     below (ChatGPT-style). Only the action bars move between branches;
-				     the textarea itself never remounts, so focus and caret survive the
-				     layout switch mid-typing. -->
+				<!-- Single line: actions inline beside the textarea (pill). Multi-line: the
+				     textarea spans the full width and the actions drop to a row below. Only
+				     the action bars move between branches; the textarea never remounts, so
+				     focus and caret survive the layout switch mid-typing. -->
 				<div class="flex min-w-0 items-end gap-1">
 					{#if !compactMultiline}
 						<PromptInputActions class="shrink-0">
