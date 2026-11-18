@@ -41,6 +41,7 @@ import noHistoryCommentRule from './eslint/rules/no-history-comment.js';
 import convexCanonicalRegistrationRule from './eslint/rules/convex-canonical-registration.js';
 import convexAccessFirstRule from './eslint/rules/convex-access-first.js';
 import requireCustomRegistrarArgsRule from './eslint/rules/require-custom-registrar-args.js';
+import noSourceTextReadRule from './eslint/rules/no-source-text-read.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
@@ -93,7 +94,8 @@ const localPlugin = {
 		'no-history-comment': noHistoryCommentRule,
 		'convex-canonical-registration': convexCanonicalRegistrationRule,
 		'convex-access-first': convexAccessFirstRule,
-		'require-custom-registrar-args': requireCustomRegistrarArgsRule
+		'require-custom-registrar-args': requireCustomRegistrarArgsRule,
+		'no-source-text-read': noSourceTextReadRule
 	}
 };
 
@@ -597,6 +599,26 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-test-in-loop': 'error'
+		}
+	},
+	// A test imports what it tests; reading production source as text pins its
+	// wording instead of its behaviour. See eslint/rules/no-source-text-read.js.
+	// The listed directories hold no such read; the scope grows as others convert.
+	{
+		files: [
+			'.agents/**/*.{test,spec}.{ts,js,mjs}',
+			'e2e/**/*.{test,spec}.{ts,js,mjs}',
+			'src/routes/**/*.{test,spec}.{ts,js,mjs}',
+			'src/test/**/*.{test,spec}.{ts,js,mjs}',
+			'src/lib/!(components)/**/*.{test,spec}.{ts,js,mjs}',
+			'src/lib/components/!(motion)/**/*.{test,spec}.{ts,js,mjs}',
+			'src/lib/components/*.{test,spec}.{ts,js,mjs}'
+		],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-source-text-read': ['error', { roots: ['src', 'scripts'] }]
 		}
 	},
 	// Tolgee() is TolgeeCore() plus the browser-extension plugin, whose handshake
