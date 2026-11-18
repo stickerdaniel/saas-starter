@@ -3,12 +3,10 @@
  * upstream-relevance.ts: decide, per changed file, whether a change could
  * belong in the upstream template.
  *
- * This exists so the question stops being a judgement call. A fork accumulates
- * its own code next to copied template code, and after a few months nobody can
- * tell them apart by looking. Guessing goes both ways: template bugs get fixed
- * privately and every other fork keeps them, or fork-only work gets offered
- * upstream where it makes no sense.
- *
+ * A fork accumulates its own code next to copied template code, and after a
+ * few months nobody can tell them apart by looking. Guessing fails both ways:
+ * template bugs get fixed privately and every other fork keeps them, or
+ * fork-only work gets offered upstream where it makes no sense.
  * Three outcomes, every one of them measured:
  *
  *   pristine   the path exists upstream and, BEFORE the measured change, was identical
@@ -80,13 +78,10 @@ const WINDOWS_SAFETY_MODE =
 // JSON flag and summary all use this threshold.
 const STALE_AFTER_DAYS = 1;
 
-// Overlap ranks a shared file's changes; it does NOT gate them. Three review
-// rounds each found a new input where a threshold silently dropped a real
-// finding, because the underlying question is undecidable from line matching:
-// a removed line absent upstream is either fork-only code or a template line
-// this fork had renamed, and nothing in the diff distinguishes them. The last
-// measurement settled it: on the branch that carried this repository's one
-// genuine upstream bug, a 20% gate suppressed exactly that file at 15%.
+// Overlap ranks a shared file's changes; it does not gate them. The underlying
+// question is undecidable from line matching: a removed line absent upstream is
+// either fork-only code or a template line this fork had renamed, and nothing
+// in the diff distinguishes them, so every threshold drops some real finding.
 //
 // So every shared file that changed is reported, ordered by how much of what it
 // replaced still exists upstream. That costs about five extra glances on a
@@ -1180,20 +1175,20 @@ interface Region {
 }
 
 /**
- * One region per hunk, describing WHERE that hunk landed: everything it
+ * One region per hunk, describing where that hunk landed: everything it
  * removed, plus the context git kept around it.
  *
  * Per hunk and not per file, because the two kinds of hunk are scored by
  * different evidence (see regionOverlap) and pooling them lets one erase the
  * other: a file that removes a fork-only call in one place and inserts a guard
- * beside template code in another scored purely on the fork-only removal, which
- * sorted the most upstream-shaped file in the branch to the bottom.
- * Added lines are excluded on purpose. They are by
- * definition absent upstream, so counting them would drive every overlap toward
- * zero and hide exactly the pristine-file edits this is meant to catch.
+ * beside template code in another would score purely on the fork-only removal
+ * and sort the most upstream-shaped file in the branch to the bottom.
+ * Added lines are excluded on purpose. They are by definition absent upstream,
+ * so counting them would drive every overlap toward zero and hide exactly the
+ * pristine-file edits this is meant to catch.
  *
  * Only lines inside a hunk are read, so the `---`/`+++` file headers are
- * already excluded by position. They are deliberately NOT filtered by prefix: a
+ * already excluded by position. They are deliberately not filtered by prefix: a
  * removed line whose own content starts with `--` reaches the parser as
  * `---content`, and skipping it discards the only evidence a one-line change
  * has.
@@ -1442,9 +1437,9 @@ function readUpstreamMarker(root: string): MarkerSnapshot {
 			: markerSnapshotFromBytes(bytes);
 	}
 	const p = join(root, MARKER);
-	// Open first and bind inspection plus reading to one descriptor. An atomic
-	// replacement between lstat and read used to select a different parent, then
-	// leave its remote and tracking ref behind when the final snapshot aborted.
+	// Open first and bind inspection plus reading to one descriptor. Otherwise an
+	// atomic replacement between lstat and read can select a different parent, then
+	// leave its remote and tracking ref behind when the final snapshot aborts.
 	let fd: number;
 	try {
 		fd = openSync(
@@ -2017,8 +2012,7 @@ function rejectUrlRewrite(url: string): void {
 /**
  * Make `upstream/main` readable without writing anything, unless told to.
  *
- * Three things go wrong here if you let them, and all three end in confident
- * wrong answers instead of errors:
+ * Three things here end in confident wrong answers instead of errors:
  *
  * 1. `git remote add` and `git fetch` write config and refs that every linked
  *    worktree shares, and the URL comes from a file the branch controls. So
@@ -2642,8 +2636,8 @@ function verifyOriginSnapshot(snapshot: OriginSnapshot): void {
  * Always the merge base, including for an explicit --base. The file list comes
  * from `base...head` while every verdict compares against `base` directly, so a
  * base that is not an ancestor of HEAD enumerates against one commit and
- * classifies against another; a sibling branch passed here reported an empty
- * list and exited zero.
+ * classifies against another; a sibling branch passed here would report an
+ * empty list and exit zero.
  */
 function resolveBase(
 	head: string,
@@ -2925,10 +2919,10 @@ function changedPaths(base: string, head: string): string[] {
 	// already holds the change: the path drops out of all three lists and the
 	// run exits zero on a state the repository was never in.
 	//
-	// Deliberately NOT allowFail. An empty result from a failed git call is
+	// Deliberately not allowFail. An empty result from a failed git call is
 	// indistinguishable from an empty result from a clean tree, and the second
 	// one exits zero saying there is nothing to report. A broken diff.renames
-	// value in inherited config was enough to produce exactly that.
+	// value in inherited config is enough to produce exactly that.
 	const collect = (fn: () => void, what: string): void => {
 		try {
 			fn();
@@ -3937,9 +3931,9 @@ function verdictFor(
 	if (upstreamEntry === undefined) {
 		// macOS and Windows compare filenames case-insensitively while git does
 		// not, so a fork file differing from a template file only in case is one
-		// file to the filesystem and two to the exact lookup. Calling that
-		// Hiding it would be a silent negative on what may be the same file; say it is
-		// ambiguous instead.
+		// file to the filesystem and two to the exact lookup. Hiding it would be a
+		// silent negative on what may be the same file, so it is reported as
+		// ambiguous.
 		const folded = upstream.byFold.get(path.toLowerCase());
 		if (folded !== undefined) {
 			return classifyVerdict({
@@ -3995,10 +3989,9 @@ function verdictFor(
 		// template file copied to a product-specific path and customised in the
 		// same commit. Measured on this fork, src/lib/emails/templates/
 		// SessionHandoffEmail.svelte is a 59% copy of the template's own
-		// NewTicketAdminNotificationEmail.svelte, shares no blob and no name, and
-		// was silently hidden. An accessibility fix made in it would never have
-		// been offered upstream, which is precisely the loss this tool exists to
-		// prevent.
+		// NewTicketAdminNotificationEmail.svelte and shares no blob and no name.
+		// An accessibility fix made in it would never be offered upstream, the
+		// loss this tool exists to prevent.
 		const contents = contentsOf(working, entries, localBlobs);
 		let incompleteNote = contents.incompleteNote;
 		for (const content of contents.values) {
@@ -4260,10 +4253,8 @@ function commandLineArguments() {
 				all: { type: 'boolean', default: false }
 			},
 			allowPositionals: true,
-			// Strict on purpose. With strict:false a mistyped `--bsae origin/main`
-			// became a boolean flag plus a positional, and a positional replaces the
-			// whole automatic file list, so the run checked one nonexistent path and
-			// exited zero saying there was nothing to send upstream.
+			// Strict parsing rejects a mistyped option whose value would otherwise become
+			// a positional path and narrow the automatic file list.
 			strict: true
 		});
 	} catch (err) {
@@ -4345,9 +4336,9 @@ function main() {
 		const requested = new Map<string, string[]>();
 		const unmatched: string[] = [];
 		for (const spec of positionals) {
-			// Hand one canonical, repository-relative spelling to both readers. The
-			// base lookup used to receive the raw argument after chdir, so a deleted
-			// `config.ts` typed from `product/` looked for `/config.ts` instead.
+			// One canonical, repository-relative spelling goes to both readers. A raw
+			// argument after chdir would make a deleted `config.ts` typed from `product/`
+			// look for `/config.ts`.
 			const pathspec = callerPathspec(root, calledFrom, spec);
 			if (pathspec === null) {
 				unmatched.push(spec);
@@ -4626,12 +4617,12 @@ function main() {
 }
 
 // Measured on Bun 1.3.14: SIGINT reaches the exit listener and SIGTERM and
-// SIGHUP do not, so those two leave the copy behind. A handler for them is the
-// wrong answer and was measured to be worse: this file spends almost all of its
-// time inside execFileSync, a JS handler cannot run until the event loop turns,
-// and installing one only replaces the default disposition. The run then
-// ignores SIGTERM entirely and needs SIGKILL. Sweeping on the way in cleans up
-// after whatever killed the last run, which no handler can promise anyway.
+// SIGHUP do not, so those two leave the copy behind. A handler for them is
+// worse: this file spends almost all of its time inside execFileSync, a JS
+// handler cannot run until the event loop turns, and installing one only
+// replaces the default disposition, so the run ignores SIGTERM entirely and
+// needs SIGKILL. Sweeping on the way in cleans up after whatever killed the
+// last run, which no handler can promise anyway.
 if (import.meta.main) {
 	process.on('exit', dropScratchIndex);
 	main();
