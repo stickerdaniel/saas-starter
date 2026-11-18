@@ -435,6 +435,7 @@ function validateTemplateContract(entries: ParsedEntry[]): void {
 		'README.md',
 		'src/lib/config/site.ts',
 		'src/lib/config/legal.ts',
+		'src/lib/content/legal-content-dates.ts',
 		'src/lib/content/legal-metadata.ts'
 	];
 	for (const requiredFile of requiredFiles) {

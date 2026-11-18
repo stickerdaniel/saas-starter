@@ -58,6 +58,7 @@ const FIXTURE_FILES = [
 	'scripts/template-setup.ts',
 	'src/lib/config/legal.ts',
 	'src/lib/config/site.ts',
+	'src/lib/content/legal-content-dates.ts',
 	'src/lib/content/legal-metadata.ts',
 	'static/manifest.webmanifest',
 	'src/app.html'
@@ -66,6 +67,7 @@ const FIXTURE_FILES = [
 /** Copied from the live template so the rewrite runs against the files a project ships. */
 const LIVE_FILES: ReadonlySet<string> = new Set([
 	'scripts/template-setup.ts',
+	'src/lib/content/legal-metadata.ts',
 	'static/manifest.webmanifest',
 	'src/app.html'
 ]);
@@ -76,33 +78,12 @@ afterAll(() => {
 	for (const dir of fixtures) rmSync(dir, { recursive: true, force: true });
 });
 
-const LEGAL_CONTENT_DATES_BLOCK = /^export const LEGAL_CONTENT_DATES = \{\n[^}]*\n\} as const;$/gm;
-
-/**
- * Runs the live legal-metadata helper with fixture-owned template dates, so setup executes its
- * real import while date preconditions stay independent of a generated caller.
- */
-function legalMetadataSource(): string {
-	const live = readFileSync(join(ROOT, 'src/lib/content/legal-metadata.ts'), 'utf-8');
-	const dates = readFileSync(
-		join(ROOT, 'scripts/__fixtures__/template-setup/legal-content-dates.ts'),
-		'utf-8'
-	).trimEnd();
-	expect(live.match(LEGAL_CONTENT_DATES_BLOCK)).toHaveLength(1);
-	expect(dates.match(LEGAL_CONTENT_DATES_BLOCK)).toEqual([dates]);
-	return live.replace(LEGAL_CONTENT_DATES_BLOCK, () => dates);
-}
-
 function createFixture(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'template-setup-'));
 	fixtures.push(dir);
 	for (const rel of FIXTURE_FILES) {
 		const dest = join(dir, rel);
 		mkdirSync(dirname(dest), { recursive: true });
-		if (rel === 'src/lib/content/legal-metadata.ts') {
-			writeFileSync(dest, legalMetadataSource());
-			continue;
-		}
 		cpSync(
 			join(ROOT, LIVE_FILES.has(rel) ? rel : `scripts/__fixtures__/template-setup/${rel}`),
 			dest
@@ -154,8 +135,8 @@ type FaultPhase =
 	| 'single-cleanup-rmdir'
 	| 'legal-backup'
 	| 'legal-config-install'
-	| 'legal-metadata-install'
-	| 'legal-metadata-and-restore'
+	| 'legal-dates-install'
+	| 'legal-dates-and-restore'
 	| 'legal-cleanup-unlink'
 	| 'legal-cleanup-rmdir'
 	| 'workflow-delete'
@@ -190,7 +171,7 @@ const realRenameSync = fs.renameSync;
 const realUnlinkSync = fs.unlinkSync;
 const realRmdirSync = fs.rmdirSync;
 const realRmSync = fs.rmSync;
-let metadataFaulted = false;
+let datesFaulted = false;
 
 function fail(operation, detail) {
 	console.error('FAULT_HIT ' + id + ' operation=' + operation + ' ' + detail);
@@ -238,21 +219,21 @@ const replacements = {
 			isStage(source) &&
 			source.endsWith('/legal.ts') &&
 			destination.endsWith('/src/lib/config/legal.ts');
-		const legalMetadataInstall =
-			(phase === 'legal-metadata-install' || phase === 'legal-metadata-and-restore') &&
+		const legalDatesInstall =
+			(phase === 'legal-dates-install' || phase === 'legal-dates-and-restore') &&
 			isStage(source) &&
-			source.endsWith('/legal-metadata.ts') &&
-			destination.endsWith('/src/lib/content/legal-metadata.ts');
+			source.endsWith('/legal-content-dates.ts') &&
+			destination.endsWith('/src/lib/content/legal-content-dates.ts');
 		const legalRestore =
-			phase === 'legal-metadata-and-restore' &&
-			metadataFaulted &&
+			phase === 'legal-dates-and-restore' &&
+			datesFaulted &&
 			source.endsWith('/legal.ts.backup') &&
 			destination.endsWith('/src/lib/config/legal.ts');
 		if (singleInstall || legalBackup || legalConfigInstall) {
 			fail('renameSync', 'from=' + source + ' to=' + destination);
 		}
-		if (legalMetadataInstall) {
-			metadataFaulted = true;
+		if (legalDatesInstall) {
+			datesFaulted = true;
 			fail('renameSync', 'from=' + source + ' to=' + destination);
 		}
 		if (legalRestore) {
@@ -1065,46 +1046,17 @@ describe('template setup records the creation fork point', () => {
 	});
 });
 
-describe('template setup legal metadata anchors', () => {
-	it('updates the three exported dates without matching a comment', () => {
+describe('template setup legal dates module', () => {
+	it('dates every legal page with the setup date', () => {
 		const dir = createFixture();
-		const metadata = join(dir, 'src/lib/content/legal-metadata.ts');
-		writeFileSync(
-			metadata,
-			readFileSync(metadata, 'utf-8').replace(
-				"\timpressum: '2026-03-21'",
-				'\t// impressum: \'2000-01-01\'\n\timpressum: "2026-03-21"'
-			),
-			'utf-8'
-		);
 
 		const run = runSetup(dir, [...REQUIRED, ...IDENTITY]);
 		expect(run.code, run.stderr).toBe(0);
-		const updated = readFileSync(metadata, 'utf-8');
-		expect(updated).toContain("// impressum: '2000-01-01'");
-		const dates = [...updated.matchAll(/^\s*(privacy|terms|impressum): ['"]([^'"]+)['"]/gm)].map(
-			([, , date]) => date
-		);
+		const dates = legalDates(dir);
 		expect(dates).toHaveLength(3);
 		expect(new Set(dates).size).toBe(1);
 		expect(dates[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-	});
-
-	it('rejects a flagless re-run with a missing exported date before writes', () => {
-		const dir = createFixture();
-		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
-		const metadata = join(dir, 'src/lib/content/legal-metadata.ts');
-		writeFileSync(
-			metadata,
-			readFileSync(metadata, 'utf-8').replace(/^\s*impressum: ['"][^'"]+['"]\r?\n/m, ''),
-			'utf-8'
-		);
-		const before = snapshot(dir);
-
-		const rerun = runSetup(dir, []);
-		expect(rerun.code).toBe(1);
-		expect(rerun.stderr).toMatch(/Could not update every date/);
-		expect(snapshot(dir)).toEqual(before);
+		expect(run.stdout).toContain(`updated legal-content-dates.ts (Last Updated: ${dates[0]})`);
 	});
 });
 
@@ -1665,14 +1617,15 @@ describe('template setup recognizes a genuinely set up project', () => {
 	});
 });
 
+const LEGAL_DATES = 'src/lib/content/legal-content-dates.ts';
 const OLD_LEGAL_DATE = '2025-01-02';
 
 /** Backdates the three legal dates so a later run shows whether it rewrote them. */
 function backdateLegalDates(dir: string): void {
-	const metadata = join(dir, 'src/lib/content/legal-metadata.ts');
+	const dates = join(dir, LEGAL_DATES);
 	writeFileSync(
-		metadata,
-		readFileSync(metadata, 'utf-8').replace(
+		dates,
+		readFileSync(dates, 'utf-8').replace(
 			/^(\s*(?:privacy|terms|impressum): )'[^']*'/gm,
 			(_match, prefix: string) => `${prefix}'${OLD_LEGAL_DATE}'`
 		),
@@ -1681,8 +1634,8 @@ function backdateLegalDates(dir: string): void {
 }
 
 function legalDates(dir: string): string[] {
-	const metadata = readFileSync(join(dir, 'src/lib/content/legal-metadata.ts'), 'utf-8');
-	return [...metadata.matchAll(/^\s*(?:privacy|terms|impressum): '([^']+)'/gm)].map(
+	const source = readFileSync(join(dir, LEGAL_DATES), 'utf-8');
+	return [...source.matchAll(/^\s*(?:privacy|terms|impressum): '([^']+)'/gm)].map(
 		([, date]) => date!
 	);
 }
@@ -2045,13 +1998,16 @@ describe('template setup atomic single-file replacements', () => {
 	});
 });
 
-const LEGAL_OUTPUTS = ['src/lib/config/legal.ts', 'src/lib/content/legal-metadata.ts'] as const;
+const LEGAL_OUTPUTS = [
+	'src/lib/config/legal.ts',
+	'src/lib/content/legal-content-dates.ts'
+] as const;
 
-function setLegalModes(dir: string): { config: number; metadata: number } {
+function setLegalModes(dir: string): { config: number; dates: number } {
 	chmodSync(join(dir, LEGAL_OUTPUTS[0]), 0o640);
 	chmodSync(join(dir, LEGAL_OUTPUTS[1]), 0o604);
-	const modes = { config: mode(dir, LEGAL_OUTPUTS[0]), metadata: mode(dir, LEGAL_OUTPUTS[1]) };
-	if (process.platform !== 'win32') expect(modes.config).not.toBe(modes.metadata);
+	const modes = { config: mode(dir, LEGAL_OUTPUTS[0]), dates: mode(dir, LEGAL_OUTPUTS[1]) };
+	if (process.platform !== 'win32') expect(modes.config).not.toBe(modes.dates);
 	return modes;
 }
 
@@ -2078,19 +2034,19 @@ describe('template setup legal pair commit protocol', () => {
 		if (phase === 'partial-write') expect(failed.stderr).toContain('prefix=true');
 		expect(snapshot(dir)).toEqual(before);
 		expect(mode(dir, LEGAL_OUTPUTS[0])).toBe(originalModes.config);
-		expect(mode(dir, LEGAL_OUTPUTS[1])).toBe(originalModes.metadata);
+		expect(mode(dir, LEGAL_OUTPUTS[1])).toBe(originalModes.dates);
 
 		const retry = runSetup(dir, [...REQUIRED, ...IDENTITY]);
 		expect(retry.code, retry.stderr).toBe(0);
 		expect(snapshot(dir)).toEqual(expected);
 		expect(mode(dir, LEGAL_OUTPUTS[0])).toBe(originalModes.config);
-		expect(mode(dir, LEGAL_OUTPUTS[1])).toBe(originalModes.metadata);
+		expect(mode(dir, LEGAL_OUTPUTS[1])).toBe(originalModes.dates);
 	});
 
 	it.each([
 		{ phase: 'legal-backup' as const, operation: 'renameSync' },
 		{ phase: 'legal-config-install' as const, operation: 'renameSync' },
-		{ phase: 'legal-metadata-install' as const, operation: 'renameSync' }
+		{ phase: 'legal-dates-install' as const, operation: 'renameSync' }
 	])('restores the original pair after $phase fails before commit', ({ phase, operation }) => {
 		const dir = createFixture();
 		const originalModes = setLegalModes(dir);
@@ -2100,7 +2056,7 @@ describe('template setup legal pair commit protocol', () => {
 		expectFault(failed, fault, operation);
 		expect(snapshot(dir)).toEqual(before);
 		expect(mode(dir, LEGAL_OUTPUTS[0])).toBe(originalModes.config);
-		expect(mode(dir, LEGAL_OUTPUTS[1])).toBe(originalModes.metadata);
+		expect(mode(dir, LEGAL_OUTPUTS[1])).toBe(originalModes.dates);
 
 		const retry = runSetup(dir, [...REQUIRED, ...IDENTITY]);
 		expect(retry.code, retry.stderr).toBe(0);
@@ -2109,9 +2065,9 @@ describe('template setup legal pair commit protocol', () => {
 	it('preserves the backup and recovery file when restoring the config fails', () => {
 		const dir = createFixture();
 		const beforeConfig = readFileSync(join(dir, LEGAL_OUTPUTS[0]));
-		const beforeMetadata = readFileSync(join(dir, LEGAL_OUTPUTS[1]));
+		const beforeDates = readFileSync(join(dir, LEGAL_OUTPUTS[1]));
 		const fault = createFaultPreload(dir, {
-			phase: 'legal-metadata-and-restore',
+			phase: 'legal-dates-and-restore',
 			target: LEGAL_OUTPUTS[0]
 		});
 		const failed = runSetup(dir, [...REQUIRED, ...IDENTITY], fault.path);
@@ -2122,9 +2078,9 @@ describe('template setup legal pair commit protocol', () => {
 		expect(failed.stderr).toContain('template-setup.ts');
 		expect(failed.stderr).toMatch(/Recovery required/);
 		expect(failed.stderr).toMatch(/legal\.ts\.backup/);
-		expect(failed.stderr).toMatch(/canonical config=.*canonical metadata=/);
+		expect(failed.stderr).toMatch(/canonical config=.*canonical dates=/);
 		expect(existsSync(join(dir, LEGAL_OUTPUTS[0]))).toBe(false);
-		expect(readFileSync(join(dir, LEGAL_OUTPUTS[1]))).toEqual(beforeMetadata);
+		expect(readFileSync(join(dir, LEGAL_OUTPUTS[1]))).toEqual(beforeDates);
 
 		const stages = stagingArtifacts(dir);
 		expect(stages.length).toBeGreaterThan(0);
@@ -2147,7 +2103,7 @@ describe('template setup legal pair commit protocol', () => {
 		setLegalModes(expectedDir);
 		expect(runSetup(expectedDir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
 		const expectedConfig = readFileSync(join(expectedDir, LEGAL_OUTPUTS[0]));
-		const expectedMetadata = readFileSync(join(expectedDir, LEGAL_OUTPUTS[1]));
+		const expectedDates = readFileSync(join(expectedDir, LEGAL_OUTPUTS[1]));
 
 		const dir = createFixture();
 		const originalModes = setLegalModes(dir);
@@ -2155,15 +2111,15 @@ describe('template setup legal pair commit protocol', () => {
 		const failed = runSetup(dir, [...REQUIRED, ...IDENTITY], fault.path);
 		expectFault(failed, fault, operation);
 		expect(readFileSync(join(dir, LEGAL_OUTPUTS[0]))).toEqual(expectedConfig);
-		expect(readFileSync(join(dir, LEGAL_OUTPUTS[1]))).toEqual(expectedMetadata);
+		expect(readFileSync(join(dir, LEGAL_OUTPUTS[1]))).toEqual(expectedDates);
 		expect(mode(dir, LEGAL_OUTPUTS[0])).toBe(originalModes.config);
-		expect(mode(dir, LEGAL_OUTPUTS[1])).toBe(originalModes.metadata);
+		expect(mode(dir, LEGAL_OUTPUTS[1])).toBe(originalModes.dates);
 		expect(stagingArtifacts(dir).length).toBeGreaterThan(0);
 
 		const retry = runSetup(dir, [...REQUIRED, ...IDENTITY]);
 		expect(retry.code, retry.stderr).toBe(0);
 		expect(readFileSync(join(dir, LEGAL_OUTPUTS[0]))).toEqual(expectedConfig);
-		expect(readFileSync(join(dir, LEGAL_OUTPUTS[1]))).toEqual(expectedMetadata);
+		expect(readFileSync(join(dir, LEGAL_OUTPUTS[1]))).toEqual(expectedDates);
 	});
 });
 

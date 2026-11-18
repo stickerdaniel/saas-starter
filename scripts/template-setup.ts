@@ -582,13 +582,13 @@ type LegalPairState =
 function replaceLegalPair(
 	config: CanonicalFile,
 	configContent: string,
-	metadata: CanonicalFile,
-	metadataContent: string
+	dates: CanonicalFile,
+	datesContent: string
 ): void {
 	const stagedConfig = stageFile(config, configContent);
-	let stagedMetadata: StagedFile;
+	let stagedDates: StagedFile;
 	try {
-		stagedMetadata = stageFile(metadata, metadataContent);
+		stagedDates = stageFile(dates, datesContent);
 	} catch (error) {
 		const cleanupErrors: string[] = [];
 		removeOwnedFile(stagedConfig.path, cleanupErrors);
@@ -607,12 +607,12 @@ function replaceLegalPair(
 	let state: LegalPairState = 'PREPARED';
 	try {
 		assertOriginalBytes(config);
-		assertOriginalBytes(metadata);
+		assertOriginalBytes(dates);
 		renameSync(config.path, backupPath);
 		state = 'CONFIG_BACKED_UP';
 		renameSync(stagedConfig.path, config.path);
 		state = 'CONFIG_INSTALLED';
-		renameSync(stagedMetadata.path, metadata.path);
+		renameSync(stagedDates.path, dates.path);
 		state = 'COMMITTED';
 	} catch (error) {
 		if (state === 'CONFIG_BACKED_UP') {
@@ -623,7 +623,7 @@ function replaceLegalPair(
 				throw new Error(
 					`Recovery required after legal pair failure: state=${state}; backup=${backupPath}; ` +
 						`recovery=${recoveryPath}; canonical config=${canonicalState(config)}; ` +
-						`canonical metadata=${canonicalState(metadata)}; operation failed: ${errorMessage(error)}; ` +
+						`canonical dates=${canonicalState(dates)}; operation failed: ${errorMessage(error)}; ` +
 						`restore failed: ${errorMessage(restoreError)}`,
 					{ cause: restoreError }
 				);
@@ -637,7 +637,7 @@ function replaceLegalPair(
 				throw new Error(
 					`Recovery required after legal pair failure: state=${state}; backup=${backupPath}; ` +
 						`recovery=${recoveryPath}; canonical config=${canonicalState(config)}; ` +
-						`canonical metadata=${canonicalState(metadata)}; operation failed: ${errorMessage(error)}; ` +
+						`canonical dates=${canonicalState(dates)}; operation failed: ${errorMessage(error)}; ` +
 						`restore failed: ${errorMessage(restoreError)}`,
 					{ cause: restoreError }
 				);
@@ -647,9 +647,9 @@ function replaceLegalPair(
 		const cleanupErrors: string[] = [];
 		removeOwnedFile(stagedConfig.path, cleanupErrors);
 		removeOwnedFile(recoveryPath, cleanupErrors);
-		removeOwnedFile(stagedMetadata.path, cleanupErrors);
+		removeOwnedFile(stagedDates.path, cleanupErrors);
 		removeOwnedDirectory(stagedConfig.directory, cleanupErrors);
-		removeOwnedDirectory(stagedMetadata.directory, cleanupErrors);
+		removeOwnedDirectory(stagedDates.directory, cleanupErrors);
 		if (cleanupErrors.length > 0) {
 			throw new Error(
 				`${errorMessage(error)}; legal pair state=${state}; cleanup failed: ${cleanupErrors.join('; ')}`,
@@ -662,9 +662,9 @@ function replaceLegalPair(
 	const cleanupErrors: string[] = [];
 	removeOwnedFile(backupPath, cleanupErrors);
 	removeOwnedFile(stagedConfig.path, cleanupErrors);
-	removeOwnedFile(stagedMetadata.path, cleanupErrors);
+	removeOwnedFile(stagedDates.path, cleanupErrors);
 	removeOwnedDirectory(stagedConfig.directory, cleanupErrors);
-	removeOwnedDirectory(stagedMetadata.directory, cleanupErrors);
+	removeOwnedDirectory(stagedDates.directory, cleanupErrors);
 	if (cleanupErrors.length > 0) {
 		throw new Error(
 			`Legal pair state=${state}; commit completed, but cleanup failed: ${cleanupErrors.join('; ')}`
@@ -1333,129 +1333,23 @@ export function replaceGithubSlugSource(source: string, value: string): string {
 	return source.slice(0, match.start) + replacement + source.slice(match.end);
 }
 
-interface LegalContentDateMatch {
-	start: number;
-	end: number;
-	quote: "'" | '"';
-}
-
-function findLegalContentDateProperties(source: string): LegalContentDateMatch[] {
-	const masked = maskTypeScriptNonCode(source);
-	const initializers = [
-		...masked.matchAll(/^export[ \t]+const[ \t]+LEGAL_CONTENT_DATES[ \t]*=[ \t]*\{/gm)
-	];
-	if (initializers.length !== 1) {
-		throw new Error('Could not update every date in src/lib/content/legal-metadata.ts');
-	}
-
-	const initializer = initializers[0]!;
-	const open = initializer.index + initializer[0].lastIndexOf('{');
-	let close = -1;
-	let braceDepth = 1;
-	for (let index = open + 1; index < masked.length; index += 1) {
-		if (masked[index] === '{') braceDepth += 1;
-		if (masked[index] === '}') {
-			braceDepth -= 1;
-			if (braceDepth === 0) {
-				close = index;
-				break;
-			}
-		}
-	}
-	if (close === -1) {
-		throw new Error('Could not update every date in src/lib/content/legal-metadata.ts');
-	}
-
-	const expected = new Set(['privacy', 'terms', 'impressum']);
-	const matches = new Map<string, LegalContentDateMatch[]>();
-	let segmentStart = open + 1;
-	braceDepth = 1;
-	let bracketDepth = 0;
-	let parenthesisDepth = 0;
-	for (let index = open + 1; index <= close; index += 1) {
-		const char = masked[index];
-		const atBoundary =
-			index === close ||
-			(char === ',' && braceDepth === 1 && bracketDepth === 0 && parenthesisDepth === 0);
-		if (atBoundary) {
-			const segment = masked.slice(segmentStart, index);
-			const leading = /^\s*/.exec(segment)![0].length;
-			const propertyStart = segmentStart + leading;
-			const key = /^(privacy|terms|impressum)\b/.exec(masked.slice(propertyStart))?.[1];
-			if (key && expected.has(key)) {
-				const keyMatches = matches.get(key) ?? [];
-				matches.set(key, keyMatches);
-				let cursor = propertyStart + key.length;
-				while (/\s/.test(masked[cursor] ?? '')) cursor += 1;
-				if (masked[cursor] !== ':') {
-					keyMatches.push({ start: -1, end: -1, quote: "'" });
-				} else {
-					cursor += 1;
-					while (/\s/.test(masked[cursor] ?? '')) cursor += 1;
-					const quote = masked[cursor];
-					if (quote !== "'" && quote !== '"') {
-						keyMatches.push({ start: -1, end: -1, quote: "'" });
-					} else {
-						const literalEnd = masked.indexOf(quote, cursor + 1);
-						const literal = literalEnd === -1 ? '' : source.slice(cursor + 1, literalEnd);
-						const trailing = literalEnd === -1 ? '' : masked.slice(literalEnd + 1, index).trim();
-						keyMatches.push(
-							literalEnd !== -1 &&
-								trailing === '' &&
-								!literal.includes('\\') &&
-								isIsoCalendarDate(literal)
-								? { start: cursor, end: literalEnd + 1, quote }
-								: { start: -1, end: -1, quote: "'" }
-						);
-					}
-				}
-			}
-			segmentStart = index + 1;
-			continue;
-		}
-		if (char === '{') braceDepth += 1;
-		else if (char === '}') braceDepth -= 1;
-		else if (char === '[') bracketDepth += 1;
-		else if (char === ']') bracketDepth -= 1;
-		else if (char === '(') parenthesisDepth += 1;
-		else if (char === ')') parenthesisDepth -= 1;
-	}
-
-	const properties = [...expected].flatMap((key) => matches.get(key) ?? []);
-	if (
-		properties.length !== expected.size ||
-		[...expected].some((key) => matches.get(key)?.length !== 1) ||
-		properties.some(({ start }) => start === -1)
-	) {
-		throw new Error('Could not update every date in src/lib/content/legal-metadata.ts');
-	}
-	return properties;
-}
-
-export function replaceLegalContentDatesSource(source: string, value: string): string {
-	if (!isIsoCalendarDate(value)) throw new Error(`Invalid legal content date: ${value}`);
-	const properties = findLegalContentDateProperties(source).sort(
-		(left, right) => right.start - left.start
-	);
-	return properties.reduce(
-		(updated, property) =>
-			updated.slice(0, property.start) +
-			property.quote +
-			value +
-			property.quote +
-			updated.slice(property.end),
-		source
-	);
-}
-
+/**
+ * Returns the next `src/lib/content/legal-content-dates.ts`: every legal page dated `value`
+ * after a legal identity change, otherwise `source` unchanged.
+ */
 export function updateLegalContentDatesSource(
 	source: string,
 	value: string,
 	legalIdentityChanged: boolean
 ): string {
-	if (legalIdentityChanged) return replaceLegalContentDatesSource(source, value);
-	findLegalContentDateProperties(source);
-	return source;
+	if (!legalIdentityChanged) return source;
+	if (!isIsoCalendarDate(value)) throw new Error(`Invalid legal content date: ${value}`);
+	return `export const LEGAL_CONTENT_DATES = {
+	privacy: '${value}',
+	terms: '${value}',
+	impressum: '${value}'
+} as const;
+`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1987,7 +1881,7 @@ async function main() {
 	let readmeFile: CanonicalFile;
 	let siteFile: CanonicalFile;
 	let legalConfigFile: CanonicalFile;
-	let legalMetadataFile: CanonicalFile;
+	let legalDatesFile: CanonicalFile;
 	let webManifestFile: CanonicalFile;
 	let appHtmlFile: CanonicalFile;
 	try {
@@ -1997,7 +1891,7 @@ async function main() {
 		readmeFile = inspectCanonicalFile('README.md');
 		siteFile = inspectCanonicalFile('src/lib/config/site.ts');
 		legalConfigFile = inspectCanonicalFile('src/lib/config/legal.ts');
-		legalMetadataFile = inspectCanonicalFile('src/lib/content/legal-metadata.ts');
+		legalDatesFile = inspectCanonicalFile('src/lib/content/legal-content-dates.ts');
 		webManifestFile = inspectCanonicalFile('static/manifest.webmanifest');
 		appHtmlFile = inspectCanonicalFile('src/app.html');
 		inspectRemovalTarget(CREATOR_WORKFLOW, 'file');
@@ -2149,7 +2043,7 @@ async function main() {
 	let nextWrangler: string;
 	let nextReadme: string;
 	let nextSiteConfig: string;
-	let nextLegalMetadata: string;
+	let nextLegalDates: string;
 	let nextLegalSource: string;
 	let nextLock: string | undefined;
 	let nextWebManifest: string;
@@ -2167,8 +2061,8 @@ async function main() {
 			githubUrl
 		});
 		nextSiteConfig = replaceGithubSlugSource(siteFile.source, repo);
-		nextLegalMetadata = updateLegalContentDatesSource(
-			legalMetadataFile.source,
+		nextLegalDates = updateLegalContentDatesSource(
+			legalDatesFile.source,
 			setupDate,
 			legalIdentityChanged
 		);
@@ -2182,12 +2076,12 @@ async function main() {
 
 	console.log(`\nApplying: slug=${slug}, repo=${repo}, brand="${brand}"\n`);
 
-	replaceLegalPair(legalConfigFile, nextLegalSource, legalMetadataFile, nextLegalMetadata);
+	replaceLegalPair(legalConfigFile, nextLegalSource, legalDatesFile, nextLegalDates);
 	console.log('  updated legal.ts');
 	console.log(
 		legalIdentityChanged
-			? `  updated legal-metadata.ts (Last Updated: ${setupDate})`
-			: '  updated legal-metadata.ts (content unchanged)'
+			? `  updated legal-content-dates.ts (Last Updated: ${setupDate})`
+			: '  updated legal-content-dates.ts (content unchanged)'
 	);
 
 	replaceAtomically(packageFile, nextPackageJson);

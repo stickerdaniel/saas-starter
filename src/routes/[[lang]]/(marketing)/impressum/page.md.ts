@@ -3,7 +3,8 @@ import {
 	formatPostalAddress,
 	getObfuscatedLegalEmailAddress
 } from '#lib/config/legal.js';
-import { LEGAL_CONTENT_DATES, formatLegalContentDate } from '#lib/content/legal-metadata.js';
+import { LEGAL_CONTENT_DATES } from '#lib/content/legal-content-dates.js';
+import { formatLegalContentDate } from '#lib/content/legal-metadata.js';
 import { markdownText } from '#lib/markdown/literals.js';
 import type { MarketingMarkdownDocument } from '#lib/markdown/types.js';
 

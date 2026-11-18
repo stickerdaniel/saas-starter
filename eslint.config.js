@@ -606,11 +606,6 @@ export default defineConfig(
 	{
 		// The suffixes Vitest and Playwright run as tests.
 		files: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
-		// Both read the live legal-metadata helper as setup input.
-		ignores: [
-			'packages/create-saas-starter/test/lifecycle.test.ts',
-			'scripts/template-setup.integration.test.ts'
-		],
 		plugins: {
 			local: localPlugin
 		},

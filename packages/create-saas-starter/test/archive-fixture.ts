@@ -108,6 +108,7 @@ export function validTemplateEntries(): TarFixtureEntry[] {
 		{ path: 'root/README.md', data: '# Fixture\n' },
 		{ path: 'root/src/lib/config/site.ts', data: 'export {};' },
 		{ path: 'root/src/lib/config/legal.ts', data: 'export {};' },
+		{ path: 'root/src/lib/content/legal-content-dates.ts', data: 'export {};' },
 		{ path: 'root/src/lib/content/legal-metadata.ts', data: 'export {};' },
 		{ path: 'root/AGENTS.md', data: '# Guidance\n' },
 		{ path: 'root/CLAUDE.md', type: 'SymbolicLink', linkpath: 'AGENTS.md' },

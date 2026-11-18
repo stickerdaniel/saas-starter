@@ -14,7 +14,6 @@ import {
 	readmeShowsCompletedSetup,
 	replaceGithubSlugSource,
 	replaceLegalConfigSource,
-	replaceLegalContentDatesSource,
 	replaceLockRootNameSource,
 	replaceReadmeSource,
 	replaceWranglerNameSource,
@@ -393,47 +392,20 @@ describe('template setup legal dates', () => {
 	privacy: '2026-03-18',
 	terms: '2026-03-18',
 	impressum: '2026-03-21'
-} as const;`;
-
-	it('dates every rewritten legal document with the setup date', () => {
-		const updated = replaceLegalContentDatesSource(source, '2026-08-24');
-		expect(updated.match(/2026-08-24/g)).toHaveLength(3);
-	});
-
-	it('updates only direct properties in the exported initializer', () => {
-		const misleadingSource = `// impressum: '1999-01-01'
-export const LEGAL_CONTENT_DATES = {
-	privacy: '2026-03-18',
-	terms: '2026-03-18',
-	// impressum: '2000-01-01'
-	impressum: "2026-03-21"
 } as const;
+`;
 
-const example = { impressum: '2001-01-01' };`;
-		const updated = replaceLegalContentDatesSource(misleadingSource, '2026-08-24');
-
-		expect(updated).toContain("// impressum: '1999-01-01'");
-		expect(updated).toContain("// impressum: '2000-01-01'");
-		expect(updated).toContain("const example = { impressum: '2001-01-01' };");
-		expect(updated).toContain('impressum: "2026-08-24"');
-		expect(updated.match(/2026-08-24/g)).toHaveLength(3);
-	});
-
-	it('preserves legal dates when the legal identity is unchanged', () => {
-		expect(updateLegalContentDatesSource(source, '2026-08-24', false)).toBe(source);
-	});
-
-	it('validates every direct property even when no date changes are needed', () => {
-		const missing = source.replace("impressum: '2026-03-21'", '');
-		expect(() => updateLegalContentDatesSource(missing, '2026-08-24', false)).toThrow(
-			/Could not update every date/
+	it('dates every legal page after an identity change and keeps the bytes otherwise', () => {
+		expect(updateLegalContentDatesSource(source, '2026-08-24', true)).toBe(
+			source
+				.replace("privacy: '2026-03-18'", "privacy: '2026-08-24'")
+				.replace("terms: '2026-03-18'", "terms: '2026-08-24'")
+				.replace("impressum: '2026-03-21'", "impressum: '2026-08-24'")
 		);
-	});
-
-	it('fails before writes when the metadata shape has drifted', () => {
-		expect(() =>
-			replaceLegalContentDatesSource(source.replace("impressum: '2026-03-21'", ''), '2026-08-24')
-		).toThrow(/Could not update every date/);
+		expect(updateLegalContentDatesSource(source, '2026-08-24', false)).toBe(source);
+		expect(() => updateLegalContentDatesSource(source, '2026-02-30', true)).toThrow(
+			'Invalid legal content date: 2026-02-30'
+		);
 	});
 });
 

@@ -11,6 +11,7 @@ on:
       - scripts/template-setup.ts
       - scripts/__fixtures__/template-setup/**
       - scripts/test-executable.ts
+      - src/lib/content/legal-content-dates.ts
       - src/lib/content/legal-metadata.ts
       - tsconfig.json
       - vite.config.ts
@@ -28,6 +29,7 @@ on:
       - scripts/template-setup.ts
       - scripts/__fixtures__/template-setup/**
       - scripts/test-executable.ts
+      - src/lib/content/legal-content-dates.ts
       - src/lib/content/legal-metadata.ts
       - tsconfig.json
       - vite.config.ts
