@@ -323,7 +323,7 @@
 	-webkit-user-drag: none;
 }
 
-/* Opts a subtree back into text selection under the body default above.
+/* Opts a subtree back into text selection under the body default in the base layer.
    twMergeConfig in utils.ts groups it with select-* so a caller's select-none wins. */
 @utility selectable {
 	-webkit-user-select: text;

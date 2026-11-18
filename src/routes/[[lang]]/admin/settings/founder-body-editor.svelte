@@ -326,7 +326,7 @@
 			<!-- The email renders on white in both themes, with the block margins, list
 			     markers and link styles mail clients keep and the app's reset removes. -->
 			<div
-				class="m-1 rounded-sm bg-white p-3 [&_:is(p,ul,ol)]:my-3.5 [&_:is(p,ul,ol):first-child]:mt-0 [&_:is(p,ul,ol):last-child]:mb-0 [&_a]:text-info [&_a]:underline [&_ol]:list-decimal [&_ol]:ps-6 [&_ul]:list-disc [&_ul]:ps-6"
+				class="m-1 rounded-sm bg-white p-3 selectable [&_:is(p,ul,ol)]:my-3.5 [&_:is(p,ul,ol):first-child]:mt-0 [&_:is(p,ul,ol):last-child]:mb-0 [&_a]:text-info [&_a]:underline [&_ol]:list-decimal [&_ol]:ps-6 [&_ul]:list-disc [&_ul]:ps-6"
 			>
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -- The renderer escapes every value it emits -->
 				{@html previewHtml}

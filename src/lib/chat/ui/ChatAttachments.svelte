@@ -304,7 +304,9 @@
 				<span {...props} class="truncate {className}" {@attach measureLine(id, text)}>{text}</span>
 			{/snippet}
 		</Tooltip.Trigger>
-		<Tooltip.Content class="wrap-anywhere" {side} aria-hidden="true">{text}</Tooltip.Content>
+		<Tooltip.Content class="wrap-anywhere" {side} aria-hidden="true"
+			><span class="selectable">{text}</span></Tooltip.Content
+		>
 	</Tooltip.Root>
 {/snippet}
 
@@ -331,7 +333,9 @@
 						</Dialog.Title>
 					{/snippet}
 				</Tooltip.Trigger>
-				<Tooltip.Content class="wrap-anywhere">{dialogTitle}</Tooltip.Content>
+				<Tooltip.Content class="wrap-anywhere"
+					><span class="selectable">{dialogTitle}</span></Tooltip.Content
+				>
 			</Tooltip.Root>
 		</Dialog.Header>
 		{#if selectedAttachment}

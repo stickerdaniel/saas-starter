@@ -31,7 +31,7 @@
 				</p>
 			</div>
 			<Field.Field>
-				<p class="text-sm text-muted-foreground">
+				<p class="text-sm text-muted-foreground selectable">
 					<T keyName="auth.verification.sent_to" params={{ email }} />
 				</p>
 			</Field.Field>
