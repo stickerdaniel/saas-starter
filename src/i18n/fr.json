@@ -877,13 +877,6 @@
 			"intro": "Merci pour ton inscription. Vérifie ton adresse email pour finaliser ton inscription.",
 			"preview": "Vérifie ton adresse email",
 			"title": "Vérifie ton email"
-		},
-		"verification_code": {
-			"description": "Saisis ce code pour finaliser ta vérification",
-			"disclaimer": "Si tu n'as pas demandé ce code, tu peux ignorer cet email.",
-			"expiry": "Ce code expirera dans {expiryMinutes} minutes.",
-			"preview": "Ton code de vérification est {code}",
-			"title": "Vérifie ton email"
 		}
 	},
 	"error_page": {

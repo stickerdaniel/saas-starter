@@ -40,19 +40,6 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 			disclaimerText: '__ETA_disclaimerText__'
 		}
 	},
-	VerificationCodeEmail: {
-		outputName: 'verificationCode',
-		props: {
-			lang: '__ETA_lang__',
-			code: '__ETA_code__',
-			badgeText: '__ETA_badgeText__',
-			titleText: '__ETA_titleText__',
-			descriptionText: '__ETA_descriptionText__',
-			previewText: '__ETA_previewText__',
-			expiryText: '__ETA_expiryText__',
-			disclaimerText: '__ETA_disclaimerText__'
-		}
-	},
 	PasswordResetEmail: {
 		outputName: 'passwordReset',
 		props: {

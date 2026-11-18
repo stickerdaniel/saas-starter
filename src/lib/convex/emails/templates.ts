@@ -5,7 +5,6 @@
 
 import type {
 	VerificationEmailData,
-	VerificationCodeEmailData,
 	PasswordResetEmailData,
 	AdminReplyNotificationEmailData,
 	NewTicketAdminNotificationEmailData,
@@ -20,8 +19,6 @@ import { buildJourneyTimeline, type RailRole } from './journeyTimeline';
 import {
 	VERIFICATION_HTML,
 	VERIFICATION_TEXT,
-	VERIFICATIONCODE_HTML,
-	VERIFICATIONCODE_TEXT,
 	PASSWORDRESET_HTML,
 	PASSWORDRESET_TEXT,
 	ADMINREPLYNOTIFICATION_HTML,
@@ -82,42 +79,6 @@ export function renderVerificationEmail(
 	return {
 		html: renderTemplate(VERIFICATION_HTML, data),
 		text: renderTemplate(VERIFICATION_TEXT, textData)
-	};
-}
-
-/**
- * Unused until OTP-based verification needs it. A matching mutation in send.ts
- * wires it up.
- *
- * @param code - 8-digit verification code
- */
-export function renderVerificationCodeEmail(
-	code: VerificationCodeEmailData['code'],
-	expiryMinutes: VerificationCodeEmailData['expiryMinutes'],
-	locale: string = DEFAULT_LOCALE
-): RenderedEmail {
-	const baseUrl = getBaseUrl();
-
-	const texts = {
-		badgeText: t(locale, 'email.badge.auth'),
-		titleText: t(locale, 'email.verification_code.title'),
-		descriptionText: t(locale, 'email.verification_code.description'),
-		previewText: t(locale, 'email.verification_code.preview', { code }),
-		expiryText: t(locale, 'email.verification_code.expiry', { expiryMinutes }),
-		disclaimerText: t(locale, 'email.verification_code.disclaimer')
-	};
-
-	const data = {
-		lang: getValidLocale(locale),
-		code: escapeHtml(code),
-		baseUrl: escapeHtml(baseUrl),
-		...Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, escapeHtml(v)]))
-	};
-	const textData = { code, baseUrl, ...texts };
-
-	return {
-		html: renderTemplate(VERIFICATIONCODE_HTML, data),
-		text: renderTemplate(VERIFICATIONCODE_TEXT, textData)
 	};
 }
 

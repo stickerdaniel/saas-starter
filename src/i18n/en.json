@@ -877,13 +877,6 @@
 			"intro": "Thanks for signing up. Verify your email address to complete your registration.",
 			"preview": "Verify your email address",
 			"title": "Verify your email"
-		},
-		"verification_code": {
-			"description": "Enter this code to complete your verification",
-			"disclaimer": "If you didn't request this code, you can ignore this email.",
-			"expiry": "This code will expire in {expiryMinutes} minutes.",
-			"preview": "Your verification code is {code}",
-			"title": "Verify your email"
 		}
 	},
 	"error_page": {

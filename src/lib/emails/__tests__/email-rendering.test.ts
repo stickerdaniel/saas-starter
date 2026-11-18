@@ -19,7 +19,6 @@ import type {
 import { LEGAL_CONFIG } from '#lib/config/legal.js';
 import {
 	renderVerificationEmail,
-	renderVerificationCodeEmail,
 	renderPasswordResetEmail,
 	renderAdminReplyNotificationEmail,
 	renderNewTicketAdminNotificationEmail,
@@ -103,18 +102,6 @@ const RENDERERS: RendererCase[] = [
 			s.verification.disclaimer
 		],
 		values: []
-	},
-	{
-		name: 'renderVerificationCodeEmail',
-		render: (locale) => renderVerificationCodeEmail('48151623', expiryMinutes, locale),
-		copy: (s) => [
-			s.badge.auth,
-			s.verification_code.title,
-			s.verification_code.description,
-			fill(s.verification_code.expiry, { expiryMinutes }),
-			s.verification_code.disclaimer
-		],
-		values: ['48151623']
 	},
 	{
 		name: 'renderPasswordResetEmail',
@@ -413,12 +400,6 @@ describe('Email Template Rendering', () => {
 			const result = renderVerificationEmail('https://example.com', 30);
 			expect(result.html).toContain('Verify your email');
 			expect(result.text).toContain('This link will expire in 30 minutes.');
-		});
-
-		it('renders Spanish verification code email with interpolated code', () => {
-			const result = renderVerificationCodeEmail('12345678', 30, 'es');
-			expect(result.html).toContain('Tu código de verificación es 12345678');
-			expect(result.text).toContain('Este código caducará en 30 minutos.');
 		});
 
 		it('renders German password reset fallback greeting without userName', () => {
