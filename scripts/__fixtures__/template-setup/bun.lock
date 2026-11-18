@@ -3,6 +3,9 @@
   "workspaces": {
     "": {
       "name": "saas-starter"
+    },
+    "packages/eslint-plugin": {
+      "name": "eslint-plugin-saas-starter"
     }
   }
 }

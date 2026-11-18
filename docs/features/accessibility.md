@@ -5,5 +5,6 @@ The main public pages (home, sign-in, password reset, pricing, terms, and privac
 ## Where to start in the code
 
 - [`e2e/public-a11y.spec.ts`](../../e2e/public-a11y.spec.ts) and [`e2e/utils/axe-test.ts`](../../e2e/utils/axe-test.ts): the WCAG checks and their documented exceptions
-- [`eslint/rules/`](../../eslint/rules/): accessibility and motion lint rules such as `no-hardcoded-aria-label` and `require-motion-guard-transition`
+- [`eslint/rules/`](../../eslint/rules/): accessibility lint rules such as `no-hardcoded-aria-label`
+- [`require-motion-guard-transition.js`](../../packages/eslint-plugin/src/rules/require-motion-guard-transition.js): the reduced-motion lint rule for transitions and height keyframes
 - [`src/AGENTS.md`](../../src/AGENTS.md): UI rules for localized accessibility copy and decorative controls

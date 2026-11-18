@@ -568,7 +568,7 @@
 			"name": "svelteEslintParser",
 			"url": "https://github.com/sveltejs/svelte-eslint-parser",
 			"branch": "main",
-			"specialNotes": "Svelte ESLint parser. AST node shapes and parserOptions used by the wrapper in eslint/parsers/safe-svelte-parser.js and by the rule tests under eslint/rules."
+			"specialNotes": "Svelte ESLint parser. AST node shapes and parserOptions used by the wrapper in eslint/parsers/safe-svelte-parser.js and by the rule tests under eslint/rules and packages/eslint-plugin/src/rules."
 		},
 		{
 			"type": "git",

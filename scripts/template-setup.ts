@@ -340,14 +340,36 @@ export function referencesMaintainerCli(command: string): boolean {
 	return script || MAINTAINER_CLI_REFERENCE.path.test(concatenated);
 }
 
+/**
+ * Setup removes the creator package, so a root workspace may name only literal directories outside
+ * it: a glob such as `packages/*` or the creator path would leave the lockfile listing a removed
+ * workspace.
+ */
+function assertWorkspacesOutsideCreator(workspaces: unknown): void {
+	if (!Array.isArray(workspaces)) {
+		throw new Error('Invalid package.json: workspaces must be an array of paths');
+	}
+	for (const workspace of workspaces) {
+		if (
+			typeof workspace !== 'string' ||
+			!/^[\w.-]+(?:\/[\w.-]+)*$/.test(workspace) ||
+			workspace.split('/').some((segment) => segment === '.' || segment === '..') ||
+			workspace === CREATOR_PACKAGE ||
+			workspace.startsWith(`${CREATOR_PACKAGE}/`)
+		) {
+			throw new Error(
+				`Invalid package.json: workspace ${JSON.stringify(workspace)} must be a literal directory outside ${CREATOR_PACKAGE}`
+			);
+		}
+	}
+}
+
 export function removeMaintainerCliScripts(value: unknown): Record<string, unknown> {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) {
 		throw new Error('Invalid package.json: expected a manifest object');
 	}
 	const manifest = value as Record<string, unknown>;
-	if (Object.hasOwn(manifest, 'workspaces')) {
-		throw new Error('Invalid package.json: root workspaces are not supported');
-	}
+	if (Object.hasOwn(manifest, 'workspaces')) assertWorkspacesOutsideCreator(manifest.workspaces);
 	const original = manifest.scripts;
 	if (!original || typeof original !== 'object' || Array.isArray(original)) {
 		throw new Error('Invalid package.json: expected a scripts object');
