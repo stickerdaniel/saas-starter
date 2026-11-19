@@ -1,4 +1,3 @@
-import path from 'node:path';
 import type { FunctionReference } from 'convex/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { freshSurfaceOf } from '../../../../scripts/convex-surface';
@@ -23,6 +22,10 @@ type IncidentHandler = {
 		args: { userId: string; incident: string }
 	) => Promise<FounderIncidentQueueResult>;
 };
+
+// Generating and type-checking the api of the whole Convex tree takes about 8 s on an idle host.
+// Vitest collects the file without a timeout, so the surface test only reads the result.
+const surface = await freshSurfaceOf(`${__dirname}/..`);
 
 const handler = (queueFounderIncidentEmail as unknown as IncidentHandler)._handler;
 const mutableRegistry = founderIncidentRegistry as Record<string, FounderIncidentRenderer>;
@@ -90,14 +93,13 @@ afterEach(() => {
 });
 
 describe('founder incident application binding', () => {
-	it('publishes the internal single-recipient mutation', async () => {
+	it('publishes the internal single-recipient mutation', () => {
 		expect(generatedReference).toBeDefined();
-		const surface = await freshSurfaceOf(path.resolve(__dirname, '..'));
 		expect(surface.get('emails/founderIncidentSend:queueFounderIncidentEmail')).toEqual({
 			kind: 'mutation',
 			visibility: 'internal'
 		});
-	}, 20_000);
+	});
 
 	it('rejects the reserved test key before database or auth access', async () => {
 		const db = { query: vi.fn(), insert: vi.fn() };
