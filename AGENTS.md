@@ -113,7 +113,7 @@ Pick the earliest mechanism that fires, not the most thorough one. A guard that 
 4. Prove the behavior: a test, when only the outcome separates right from wrong. Take the cheapest layer that fails for the same causal reason, from pure Vitest, `convex-test`, component, SvelteKit HTTP, artifact, and local Playwright through deployed HTTP and deployed Playwright.
 5. Write it down: an `AGENTS.md` line or a skill, for judgement calls with no mechanical signature. Weakest option, because it works only when read first.
 
-Guard a rendered detail (DOM ancestry, wrapper placement, CSS class, copy, cosmetic pixels, transition-timed styles) only when that exact property is a published user or platform contract.
+Guard a rendered detail (DOM ancestry, wrapper placement, CSS class, copy, position, size, spacing, order, color, transition-timed styles) only when that exact property is a published user or platform contract. A visible layout fix stays a rendered detail even when a user notices it: inspected screenshots are its evidence, and its verdict is `Regression guard: not warranted, <what the screenshots show>`. Layout that code computes from data or input is behavior and earns a test.
 
 A finished mechanical guard fails on the buggy revision for the same causal reason, and its message names the correct pattern. When it does not, move one boundary outward or rewrite the message. A written guard is finished when one sentence names both the triggering situation and the required pattern in the nearest `AGENTS.md` or applicable skill.
 
