@@ -33,6 +33,11 @@ import { CUSTOM_REGISTRARS } from './convex-registrars.js';
 const eslint = new ESLint();
 const offender = String.fromCharCode(0x1b);
 
+// The first type-aware Svelte lint loads the config and builds the TypeScript program of the
+// whole app, which no test timeout can bound under load; every later Svelte lint reuses that
+// program. A top-level await builds it while Vitest collects the file, without a timeout.
+await eslint.lintText('<script lang="ts"></script>', { filePath: 'src/routes/+layout.svelte' });
+
 describe('Svelte type-aware linting', () => {
 	it('recognizes stores through imported types', async () => {
 		const [result] = await eslint.lintText(

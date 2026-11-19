@@ -3,7 +3,11 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { createCheckerClone } from './__fixtures__/static-checks/compat-harness';
+import {
+	COMPAT_CASE_TIMEOUT_MS,
+	COMPAT_CHILD_TIMEOUT_MS,
+	createCheckerClone
+} from './__fixtures__/static-checks/compat-harness';
 import {
 	createPrivateCheckout,
 	removePrivateCheckout
@@ -74,7 +78,7 @@ void api.compatUnicodeTarget.viewer;
 						cwd: checkout.repository,
 						env: { ...env, CONVEX_COMPAT_BASE: baseline },
 						encoding: 'utf8',
-						timeout: 180_000
+						timeout: COMPAT_CHILD_TIMEOUT_MS
 					}
 				);
 				const output = `${result.stdout}${result.stderr}`;
@@ -85,7 +89,7 @@ void api.compatUnicodeTarget.viewer;
 				rmSync(checkout.directory, { recursive: true, force: true });
 			}
 		},
-		240_000
+		COMPAT_CASE_TIMEOUT_MS
 	);
 
 	// The fixture above lives in the temporary directory, and session artifacts still land in
