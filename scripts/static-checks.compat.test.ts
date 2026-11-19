@@ -1,20 +1,15 @@
 import { spawnSync } from 'node:child_process';
-import {
-	chmodSync,
-	cpSync,
-	mkdtempSync,
-	existsSync,
-	mkdirSync,
-	readdirSync,
-	rmSync,
-	symlinkSync,
-	writeFileSync
-} from 'node:fs';
+import { chmodSync, mkdtempSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { createCheckerClone } from './__fixtures__/static-checks/compat-harness';
+import {
+	COMPAT_CASE_TIMEOUT_MS,
+	COMPAT_CHILD_TIMEOUT_MS,
+	createCheckerClone,
+	createCheckerTree
+} from './__fixtures__/static-checks/compat-harness';
 import { isolatedGitEnv, sanitizedGitEnv } from './git-context';
 import { compatibilityInvocation } from './static-checks';
 import { testExecutable } from './test-executable';
@@ -31,39 +26,6 @@ function run(args: string[], env = sanitizedGitEnv()) {
 		encoding: 'utf8',
 		env
 	});
-}
-
-/**
- * A history-free repository that runs this checkout's checker, for cases that must fail
- * before anything reads a commit. `scripts/` is copied as in `createCheckerClone`, and every
- * other top-level entry is linked, so imports resolve against this working tree while
- * `git ls-files` reports each link as one path. The clone copies the whole object store and
- * checks out the tree: observed 2026-10-10 on a loaded 24-core host, it alone took 0.6 to
- * 5.9 s while the checker run it prepared took under one, and the case timed out.
- */
-function createCheckerTree(): { directory: string; repository: string } {
-	const directory = mkdtempSync(path.join(tmpdir(), 'static-tree-'));
-	const repository = path.join(directory, 'repository');
-	try {
-		mkdirSync(repository);
-		const result = spawnSync('git', ['init', '--quiet', '--initial-branch=main', repository], {
-			env: sanitizedGitEnv(),
-			encoding: 'utf8'
-		});
-		if (result.status !== 0) throw new Error(`Checker repository init failed: ${result.stderr}`);
-		for (const entry of readdirSync(ROOT)) {
-			if (entry === '.git' || entry === 'scripts') continue;
-			symlinkSync(path.join(ROOT, entry), path.join(repository, entry));
-		}
-		cpSync(path.join(ROOT, 'scripts'), path.join(repository, 'scripts'), {
-			recursive: true,
-			dereference: true
-		});
-		return { directory, repository };
-	} catch (error) {
-		rmSync(directory, { recursive: true, force: true });
-		throw error;
-	}
 }
 
 describe('Convex compatibility static-check entrypoint', () => {
@@ -302,7 +264,7 @@ describe('Convex compatibility static-check entrypoint', () => {
 						cwd: checkout.repository,
 						env: childEnv,
 						encoding: 'utf8',
-						timeout: 110_000
+						timeout: COMPAT_CHILD_TIMEOUT_MS
 					}
 				);
 				const output = `${result.stdout}${result.stderr}`;
@@ -318,7 +280,7 @@ describe('Convex compatibility static-check entrypoint', () => {
 				rmSync(checkout.directory, { recursive: true, force: true });
 			}
 		},
-		120_000
+		COMPAT_CASE_TIMEOUT_MS
 	);
 
 	it.skipIf(process.platform === 'win32')(
