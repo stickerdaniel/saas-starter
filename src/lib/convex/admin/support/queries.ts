@@ -471,7 +471,7 @@ export const getAwaitingResponseCount = adminQuery({
 });
 
 /**
- * List all admin users for assignment dropdown
+ * Lists up to ADMIN_USERS_BATCH_SIZE admin users for the assignment dropdown.
  */
 export const listAdmins = adminQuery({
 	args: {},
@@ -484,7 +484,7 @@ export const listAdmins = adminQuery({
 		})
 	),
 	handler: async (ctx) => {
-		// Fetch all users with admin role
+		// One page of admins: the dropdown lists at most ADMIN_USERS_BATCH_SIZE.
 		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
 			model: 'user',
 			paginationOpts: { cursor: null, numItems: ADMIN_USERS_BATCH_SIZE },

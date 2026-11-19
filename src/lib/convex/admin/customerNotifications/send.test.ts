@@ -30,7 +30,7 @@ import {
 type Registered = { _handler: (ctx: never, args: never) => Promise<unknown> };
 const asRegistered = (fn: unknown) => fn as Registered;
 
-/** Every console line the code under test wrote, as one string. */
+/** Every console line the code under test wrote, one entry per call. */
 function captureLogs() {
 	const lines: string[] = [];
 	for (const method of ['log', 'info', 'warn', 'error', 'debug'] as const) {

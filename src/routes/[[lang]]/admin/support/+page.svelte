@@ -165,7 +165,7 @@
 		goto(resolve(url.pathname + url.search), { reset: false });
 	}
 
-	// Reset overlay state when thread changes
+	// Close the overlay once no thread is selected.
 	$effect(() => {
 		if (!threadId) {
 			adminSupportUI.close();
