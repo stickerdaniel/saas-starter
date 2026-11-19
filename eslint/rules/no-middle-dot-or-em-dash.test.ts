@@ -17,6 +17,13 @@ const ruleId = 'local/no-middle-dot-or-em-dash';
 const DOT = String.fromCharCode(0x00b7);
 const DASH = String.fromCharCode(0x2014);
 
+// The first lint imports eslint.config.js with its plugins and parsers, about 3 s on an idle
+// host. Vitest collects the file without a timeout, so the cases below reuse the loaded config.
+await Promise.all([
+	eslint.lintText('', { filePath: 'src/lib/convex/example.ts' }),
+	eslint.lintText('', { filePath: 'src/lib/components/example.svelte' })
+]);
+
 async function reports(source: string, filePath: string) {
 	const [result] = await eslint.lintText(source, { filePath });
 	expect(result.messages.filter((message) => message.fatal)).toEqual([]);
