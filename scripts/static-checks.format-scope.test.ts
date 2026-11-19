@@ -17,9 +17,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
 
 // Most tests here block on real Bun and Prettier processes, so Vitest checks the budget only
-// after spawnSync returns; the helpers' 10 s child timeout is the hang guard. The slowest test
-// without its own budget took 5.2 s on a GitHub-hosted runner and 4.4 s on Ubicloud
-// (observed 2026-10-15), so the 5 s default failed a run whose assertions all passed.
+// after spawnSync returns; a child's own timeout is the hang guard. The slowest test without
+// its own budget took 5.2 s on a GitHub-hosted runner and 4.4 s on Ubicloud (observed
+// 2026-10-15), so the 5 s default failed a run whose assertions all passed.
 vi.setConfig({ testTimeout: 30_000 });
 
 /**

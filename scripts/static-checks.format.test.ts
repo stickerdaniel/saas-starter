@@ -5,7 +5,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { stripVTControlCharacters } from 'util';
 import { describe, expect, it, vi } from 'vitest';
-import { formatChecks, repositoryFileWriter } from './__fixtures__/static-checks/format-harness';
+import {
+	FORMAT_CASE_TIMEOUT_MS,
+	FORMAT_CHILD_TIMEOUT_MS,
+	formatChecks,
+	repositoryFileWriter
+} from './__fixtures__/static-checks/format-harness';
 import { usePrivateCheckout } from './__fixtures__/static-checks/private-checkout';
 import { sanitizedGitEnv } from './git-context';
 import {
@@ -21,11 +26,8 @@ import { testExecutable } from './test-executable';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
 
-// Most tests here block on real Bun and Prettier processes, so Vitest checks the budget only
-// after spawnSync returns; the helpers' 10 s child timeout is the hang guard. The slowest test
-// without its own budget took 5.2 s on a GitHub-hosted runner and 4.4 s on Ubicloud
-// (observed 2026-10-15), so the 5 s default failed a run whose assertions all passed.
-vi.setConfig({ testTimeout: 30_000 });
+// Cases block on real Bun and Prettier children; `format-harness.ts` derives both limits.
+vi.setConfig({ testTimeout: FORMAT_CASE_TIMEOUT_MS });
 
 /** Read-only cases check the shared checkout; nothing they run writes into it. */
 const { formatCheck, formatCheckFilesFrom } = formatChecks();
@@ -66,7 +68,7 @@ describe('format-only static checks', () => {
 				cwd: directory,
 				env,
 				encoding: 'utf8',
-				timeout: 10_000
+				timeout: FORMAT_CHILD_TIMEOUT_MS
 			});
 			const output = stripVTControlCharacters(`${checked.stdout}${checked.stderr}`);
 			expect(checked.status).toBe(1);
@@ -76,7 +78,7 @@ describe('format-only static checks', () => {
 			const ignored = spawnSync(
 				process.execPath,
 				[prettierBin, '--check', '--ignore-unknown', name],
-				{ cwd: directory, env, encoding: 'utf8', timeout: 10_000 }
+				{ cwd: directory, env, encoding: 'utf8', timeout: FORMAT_CHILD_TIMEOUT_MS }
 			);
 			const ignoredOutput = stripVTControlCharacters(`${ignored.stdout}${ignored.stderr}`);
 			expect(ignored.status).toBe(0);
@@ -112,7 +114,7 @@ describe('format-only static checks', () => {
 			rmSync(path.join(repository, spaced), { force: true });
 			rmSync(path.join(repository, plain), { force: true });
 		}
-	}, 60_000);
+	});
 
 	it.skipIf(process.platform === 'win32')('accepts a path made entirely of spaces', () => {
 		withRepositoryFile(' ', 'plain text\n', (file) => {
@@ -179,7 +181,7 @@ describe('format-only static checks', () => {
 			const direct = spawnSync(testExecutable('bun'), ['prettier', '--check', '--', relative], {
 				cwd: repository,
 				env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
-				timeout: 10_000,
+				timeout: FORMAT_CHILD_TIMEOUT_MS,
 				killSignal: 'SIGKILL',
 				encoding: 'utf8'
 			});
@@ -194,7 +196,7 @@ describe('format-only static checks', () => {
 			expect(computed.output).toContain(relative);
 			expect(computed.output).toContain(`README.md ${relative}`);
 		});
-	}, 40_000);
+	});
 
 	it('escapes a route without a backslash and still checks the named file', () => {
 		const route = 'src/routes/[[lang]]/(marketing)/+page.svelte';
@@ -394,7 +396,7 @@ describe('format-only static checks', () => {
 			git(['reset', '-q', '--', ...files]);
 			for (const file of files) rmSync(path.join(repository, file), { force: true });
 		}
-	}, 60_000);
+	});
 
 	it('rejects the replacement character produced by lossy argv decoding', () => {
 		const { repository } = checkout();
@@ -429,8 +431,7 @@ describe('format-only static checks', () => {
 				rmSync(path.join(repository, safe), { force: true });
 				rmSync(path.join(repository, unsafe), { force: true });
 			}
-		},
-		60_000
+		}
 	);
 
 	it('rejects an unsafe child without contaminating another repository check', () => {
@@ -450,7 +451,7 @@ describe('format-only static checks', () => {
 			const sibling = spawnSync(testExecutable('bun'), [SCRIPT, '--ci', '--scope', 'compat'], {
 				cwd: ROOT,
 				env: { ...sanitizedGitEnv(), PATH: '', CI: 'true', CONVEX_COMPAT_BASE: 'missing ref' },
-				timeout: 10_000,
+				timeout: FORMAT_CHILD_TIMEOUT_MS,
 				killSignal: 'SIGKILL',
 				encoding: 'utf8'
 			});

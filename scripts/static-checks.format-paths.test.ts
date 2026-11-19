@@ -4,7 +4,12 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { describe, expect, it, vi } from 'vitest';
-import { formatChecks, repositoryFileWriter } from './__fixtures__/static-checks/format-harness';
+import {
+	FORMAT_CASE_TIMEOUT_MS,
+	FORMAT_CHILD_TIMEOUT_MS,
+	formatChecks,
+	repositoryFileWriter
+} from './__fixtures__/static-checks/format-harness';
 import { usePrivateCheckout } from './__fixtures__/static-checks/private-checkout';
 import { sanitizedGitEnv } from './git-context';
 import {
@@ -17,11 +22,8 @@ import { testExecutable } from './test-executable';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-// Most tests here block on real Bun and Prettier processes, so Vitest checks the budget only
-// after spawnSync returns; the helpers' 10 s child timeout is the hang guard. The slowest test
-// without its own budget took 5.2 s on a GitHub-hosted runner and 4.4 s on Ubicloud
-// (observed 2026-10-15), so the 5 s default failed a run whose assertions all passed.
-vi.setConfig({ testTimeout: 30_000 });
+// Cases block on real Bun and Prettier children; `format-harness.ts` derives both limits.
+vi.setConfig({ testTimeout: FORMAT_CASE_TIMEOUT_MS });
 
 /** Read-only cases check the shared checkout; nothing they run writes into it. */
 const { formatCheck } = formatChecks();
@@ -49,7 +51,7 @@ function evaluateInCheckout(expression: string, values: readonly unknown[] = [])
 		{
 			cwd: repository,
 			env: sanitizedGitEnv(),
-			timeout: 10_000,
+			timeout: FORMAT_CHILD_TIMEOUT_MS,
 			killSignal: 'SIGKILL',
 			encoding: 'utf8'
 		}
@@ -290,8 +292,7 @@ describe('format-only static checks', () => {
 			} finally {
 				rmSync(invalid, { force: true });
 			}
-		},
-		60_000
+		}
 	);
 
 	it('keeps locally Git-ignored files in an explicit Prettier directory', () => {
@@ -405,7 +406,7 @@ describe('format-only static checks', () => {
 			expect(result.status).toBe(1);
 			expect(`${result.stdout}${result.stderr}`).toContain('no check ran over any of them');
 		});
-	}, 60_000);
+	});
 
 	it('does not reinterpret a disappeared formatter path as a glob', () => {
 		const { repository } = checkout();
