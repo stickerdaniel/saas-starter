@@ -9,8 +9,7 @@ import type { PrivateCheckout } from './private-checkout';
  * Test budget for a describe block whose tests start the checker in a child Bun.
  * Loading its imports takes about a second idle, and CPU contention multiplies
  * that: in a fork, a case measured at 1.8s idle took 5.6s beside a whole-project
- * check, past Vitest's 5s default. This matches the file-wide budget in
- * `static-checks.format.test.ts`.
+ * check, past Vitest's 5s default.
  */
 export const CHECKER_SPAWN_TIMEOUT = 30_000;
 

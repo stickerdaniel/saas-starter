@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { CHECKER_SPAWN_TIMEOUT } from './__fixtures__/static-checks/checker-harness';
 import {
 	COMPAT_CASE_TIMEOUT_MS,
 	COMPAT_CHILD_TIMEOUT_MS,
@@ -28,7 +29,7 @@ function run(args: string[], env = sanitizedGitEnv()) {
 	});
 }
 
-describe('Convex compatibility static-check entrypoint', () => {
+describe('Convex compatibility static-check entrypoint', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 	it.skipIf(process.platform === 'win32')(
 		'resolves relative and empty PATH entries absolutely',
 		() => {
@@ -109,7 +110,7 @@ describe('Convex compatibility static-check entrypoint', () => {
 		expect(output).not.toContain('Executable not found');
 		expect(output).not.toContain(`${ESCAPE}]0;OWNED`);
 		expect(output).not.toContain(BELL);
-	}, 30_000);
+	});
 
 	it('reads real ancestry through local replacements and grafts', () => {
 		const directory = mkdtempSync(path.join(tmpdir(), 'compat-history-'));
@@ -176,7 +177,7 @@ describe('Convex compatibility static-check entrypoint', () => {
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
 		}
-	}, 30_000);
+	});
 
 	it.skipIf(process.platform === 'win32')(
 		'protects the direct checker from rewritten ancestry and external checkout configuration',
