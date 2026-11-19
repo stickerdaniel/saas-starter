@@ -471,7 +471,7 @@ export const getAwaitingResponseCount = adminQuery({
 });
 
 /**
- * List all admin users for assignment dropdown
+ * Lists up to ADMIN_USERS_BATCH_SIZE admin users for the assignment dropdown.
  */
 export const listAdmins = adminQuery({
 	args: {},
