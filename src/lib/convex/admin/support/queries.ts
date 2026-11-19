@@ -484,7 +484,7 @@ export const listAdmins = adminQuery({
 		})
 	),
 	handler: async (ctx) => {
-		// Fetch all users with admin role
+		// One page of admins: the dropdown lists at most ADMIN_USERS_BATCH_SIZE.
 		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
 			model: 'user',
 			paginationOpts: { cursor: null, numItems: ADMIN_USERS_BATCH_SIZE },

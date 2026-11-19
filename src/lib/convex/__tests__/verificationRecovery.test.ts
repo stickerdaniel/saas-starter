@@ -51,13 +51,13 @@ const CREDENTIALS = {
 	password: 'correct-horse-battery-staple'
 };
 
+type VerificationMail = { verificationUrl: string; expiryMinutes: number };
+
 /**
  * A Better Auth instance carrying the real `emailAndPassword` and
  * `emailVerification` blocks, backed by memory instead of Convex and with the
  * mail send captured rather than dispatched.
  */
-type VerificationMail = { verificationUrl: string; expiryMinutes: number };
-
 async function withCapturedVerificationMail() {
 	const { createAuthOptions } = await import('../auth');
 	const sent: VerificationMail[] = [];
