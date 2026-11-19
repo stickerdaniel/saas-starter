@@ -57,7 +57,7 @@ export async function getCounters(ctx: QueryCtx): Promise<CounterValues> {
  * retries the later one, which then patches the new row.
  */
 export async function incrementCounter(
-	ctx: MutationCtx,
+	ctx: Pick<MutationCtx, 'db'>,
 	field: CounterField,
 	delta: number
 ): Promise<void> {

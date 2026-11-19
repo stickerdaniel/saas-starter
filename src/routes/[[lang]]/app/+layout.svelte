@@ -5,7 +5,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { tick, onDestroy } from 'svelte';
+	import { tick, onDestroy, onMount } from 'svelte';
 	import { localizedHref } from '#lib/utils/i18n.js';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '#lib/convex/_generated/api.js';
@@ -13,6 +13,7 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
+	import { layoutProbe } from '#lib/effect/spike-client.js';
 
 	const { t } = getTranslate();
 
@@ -24,6 +25,8 @@
 	let { children, data }: Props = $props();
 
 	const client = useConvexClient();
+	// T0 spike: Effect in the shared app layout.
+	onMount(() => layoutProbe(() => client.query(api.users.hasPassword, {})));
 	const viewer = $derived(data.viewer as typeof data.viewer & { role?: string });
 
 	// Match the sidebar's initial display count; "Show more" bumps this limit,

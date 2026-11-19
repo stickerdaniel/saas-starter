@@ -5,6 +5,7 @@ import { components } from './_generated/api';
 import { handleAutumnWebhook } from './admin/customerNotifications/observe';
 import { authComponent, createAuth } from './auth';
 import { resend } from './emails/resend';
+import { echoHttp } from './effectSpike/probes';
 
 const http = httpRouter();
 
@@ -82,5 +83,8 @@ http.route({
 		return await resend.handleResendEventWebhook(ctx, req);
 	})
 });
+
+// T0 spike: an Effect program behind runHttpAction.
+http.route({ path: '/effect-spike/echo', method: 'GET', handler: echoHttp });
 
 export default http;
