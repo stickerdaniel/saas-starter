@@ -877,13 +877,6 @@
 			"intro": "Gracias por registrarte. Verifica tu dirección de email para completar tu registro.",
 			"preview": "Verifica tu dirección de email",
 			"title": "Verifica tu email"
-		},
-		"verification_code": {
-			"description": "Introduce este código para completar tu verificación",
-			"disclaimer": "Si no solicitaste este código, puedes ignorar este email.",
-			"expiry": "Este código caducará en {expiryMinutes} minutos.",
-			"preview": "Tu código de verificación es {code}",
-			"title": "Verifica tu email"
 		}
 	},
 	"error_page": {

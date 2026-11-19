@@ -1,7 +1,6 @@
 import type { ComponentProps } from 'svelte';
 import type { AnonymousRateLimitBucket } from '../../convex/support/rateLimitAlertFields';
 import type VerificationEmail from './VerificationEmail.svelte';
-import type VerificationCodeEmail from './VerificationCodeEmail.svelte';
 import type PasswordResetEmail from './PasswordResetEmail.svelte';
 import type AdminReplyNotificationEmail from './AdminReplyNotificationEmail.svelte';
 import type NewTicketAdminNotificationEmail from './NewTicketAdminNotificationEmail.svelte';
@@ -13,7 +12,6 @@ import type { ComposedJourney } from '../../convex/admin/customerNotifications/c
 
 // Extract component prop types
 export type VerificationEmailProps = ComponentProps<typeof VerificationEmail>;
-export type VerificationCodeEmailProps = ComponentProps<typeof VerificationCodeEmail>;
 export type PasswordResetEmailProps = ComponentProps<typeof PasswordResetEmail>;
 export type AdminReplyNotificationEmailProps = ComponentProps<typeof AdminReplyNotificationEmail>;
 export type NewTicketAdminNotificationEmailProps = ComponentProps<
@@ -42,16 +40,6 @@ export type CancellationAdminNotificationEmailProps = ComponentProps<
  */
 export type VerificationEmailData = {
 	verificationUrl: string;
-	expiryMinutes: number;
-};
-
-/**
- * Data required to render a verification code email (OTP)
- * @property code - 8-digit verification code
- * @property expiryMinutes - Minutes until the code expires
- */
-export type VerificationCodeEmailData = {
-	code: string;
 	expiryMinutes: number;
 };
 
