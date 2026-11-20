@@ -55,8 +55,7 @@ export class ChatCore implements ChatSessionPort {
 	threadId = $state<string | null>(null);
 	/** True while a new conversation starts, so suggestions show at once */
 	isNewConversation = $state(false);
-	/** Bumps on every new thread session. A {#key} on it replays the chip
-	 *  entrance animations. */
+	/** Bumps on every new thread session. */
 	threadGeneration = $state(0);
 
 	isLoading = $state(false);

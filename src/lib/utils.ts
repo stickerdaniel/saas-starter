@@ -14,8 +14,7 @@ import {
 export const twMergeConfig: ConfigExtension<DefaultClassGroupIds, DefaultThemeGroupIds> = {
 	extend: {
 		theme: {
-			leading: ['composer'],
-			animate: ['chip-in']
+			leading: ['composer']
 		},
 		classGroups: {
 			rounded: [{ rounded: ['theme-pill'] }],

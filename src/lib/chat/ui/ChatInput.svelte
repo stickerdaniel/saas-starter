@@ -889,26 +889,21 @@
 	     waits for the query on existing threads, which prevents a flash. -->
 	{#if showSuggestions}
 		<div class="pb-2">
-			{#key ctx.core.threadGeneration}
-				<div class="flex flex-wrap gap-2">
-					{#each suggestions as suggestion, i (suggestion.text)}
-						<div
-							class="max-w-full min-w-0 motion-safe:animate-chip-in motion-safe:animation-delay-var sm:max-w-56"
-							style:--delay="{i * 50}ms"
+			<div class="flex flex-wrap gap-2">
+				{#each suggestions as suggestion (suggestion.text)}
+					<div class="max-w-full min-w-0 sm:max-w-56">
+						<PromptSuggestion
+							class="w-full"
+							truncate
+							title={suggestion.text}
+							{disabled}
+							onclick={() => handleSuggestionClick(suggestion.text)}
 						>
-							<PromptSuggestion
-								class="w-full"
-								truncate
-								title={suggestion.text}
-								{disabled}
-								onclick={() => handleSuggestionClick(suggestion.text)}
-							>
-								{suggestion.label}
-							</PromptSuggestion>
-						</div>
-					{/each}
-				</div>
-			{/key}
+							{suggestion.label}
+						</PromptSuggestion>
+					</div>
+				{/each}
+			</div>
 		</div>
 	{/if}
 	{#if ctx.exceedsMessageLength || ctx.exceedsAttachmentLimit || attachmentsDisabledReason || notice}

@@ -1,7 +1,5 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { fly } from 'svelte/transition';
-	import { prefersReducedMotion } from 'svelte/motion';
 	import { getTranslate } from '@tolgee/svelte';
 	import {
 		ChatContainerRoot,
@@ -187,27 +185,6 @@
 			? (msg: DisplayMessage) => extractAttachments(msg, fileMetadata)
 			: (msg: DisplayMessage) => defaultExtractAttachments(msg, fileMetadata)
 	);
-
-	// Arm per-message enter animations one frame after the initial batch has
-	// rendered, so loading a thread's history doesn't replay an intro for
-	// every message. messagesFade resets on thread navigation, which re-arms.
-	let animateNewMessages = $state(false);
-	$effect(() => {
-		if (!ctx.messagesFade.hasLoadedOnce) {
-			animateNewMessages = false;
-			return;
-		}
-		const raf = requestAnimationFrame(() => (animateNewMessages = true));
-		return () => cancelAnimationFrame(raf);
-	});
-
-	function messageEnterDuration(message: DisplayMessage): number {
-		if (!animateNewMessages || prefersReducedMotion.current) return 0;
-		// A confirmed row replaces its optimistic twin under a new key; skip
-		// that remount so an own send animates once, on the optimistic append.
-		if (message.role === 'user' && !message.metadata?.optimistic) return 0;
-		return 200;
-	}
 </script>
 
 <div bind:this={wrapperEl} class="relative h-full {className}">
@@ -227,22 +204,20 @@
 					class="mx-auto w-full max-w-3xl px-8 py-20 {ctx.messagesFade.animationClass}"
 				>
 					{#each ctx.displayMessages as message, index (message.id)}
-						<div in:fly={{ y: 8, duration: messageEnterDuration(message) }}>
-							<ChatMessage
-								{message}
-								{perspective}
-								{authorHeadingLevel}
-								attachments={getAttachments(message)}
-								isFirstInGroup={isFirstInGroup(index, ctx.displayMessages)}
-								isHandoffMessage={isHandoffAnchor(message, HANDOFF_MESSAGE)}
-								{showEmailPrompt}
-								{currentEmail}
-								{isEmailPending}
-								{defaultEmail}
-								{onSubmitEmail}
-								{messageFooter}
-							/>
-						</div>
+						<ChatMessage
+							{message}
+							{perspective}
+							{authorHeadingLevel}
+							attachments={getAttachments(message)}
+							isFirstInGroup={isFirstInGroup(index, ctx.displayMessages)}
+							isHandoffMessage={isHandoffAnchor(message, HANDOFF_MESSAGE)}
+							{showEmailPrompt}
+							{currentEmail}
+							{isEmailPending}
+							{defaultEmail}
+							{onSubmitEmail}
+							{messageFooter}
+						/>
 					{/each}
 				</div>
 			{/if}
@@ -253,15 +228,15 @@
 	</ChatContainerRoot>
 
 	<!-- Scroll button: right-aligned in narrow views, centered when content is max-w constrained.
-	     The wrapper owns placement and the centering shift, so ScrollButton keeps its own
-	     translate and scale motion; it sizes to the button and passes pointer events through. -->
+	     The wrapper owns placement and the centering shift; it sizes to the button and passes
+	     pointer events through. -->
 	<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 w-full">
 		<div
 			class="absolute right-9 bottom-6 z-20 flex @min-3xl/main:right-auto @min-3xl/main:left-1/2 @min-3xl/main:-translate-x-1/2"
 		>
 			<ScrollButton
 				isAtBottom={chatCtx.isAtBottom}
-				onScrollToBottom={() => chatCtx.scrollToBottom()}
+				onScrollToBottom={() => chatCtx.scrollToBottom('instant')}
 			/>
 		</div>
 	</div>

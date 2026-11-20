@@ -186,28 +186,6 @@
 	--color-premium-accent-foreground: var(--premium-accent-foreground);
 	--color-premium-ring: var(--premium-ring);
 
-	/* Stock auto-animate add: hold at scale(.98)/opacity:0 for first half, then ease in */
-	@keyframes chip-in {
-		0% {
-			transform: scale(0.98);
-			opacity: 0;
-		}
-
-		50% {
-			transform: scale(0.98);
-			opacity: 0;
-		}
-
-		100% {
-			transform: scale(1);
-			opacity: 1;
-		}
-	}
-
-	/* Chip recipe over the keyframes above. Phase offsets stay with each consumer
-	   through animation-delay-var. */
-	--animate-chip-in: chip-in 375ms ease-out both;
-
 	/* Micro labels: avatar initials, unread counts, and small badges. No line-height
 	   companion, so the element keeps the one it inherits. */
 	--text-2xs: 0.625rem;
@@ -485,11 +463,6 @@
 		transform: none;
 		filter: none;
 	}
-}
-
-/* Per-item stagger: the element sets --delay, for example style:--delay="{i * 50}ms". */
-@utility animation-delay-var {
-	animation-delay: var(--delay);
 }
 
 /* Button's lane from #803: colors and shadow ease, while the pixel press does not. */

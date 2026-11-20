@@ -399,16 +399,12 @@
 			"files": ["src/lib/components/prompt-kit/scroll-button/ScrollButton.svelte"],
 			"components": {
 				"Button": [
-					"transition-all",
+					"transition-opacity",
 					"duration-150",
 					"ease-out",
 					"active:not-aria-[haspopup]:translate-y-0",
-					"translate-y-0",
-					"scale-100",
 					"opacity-100",
 					"pointer-events-none",
-					"translate-y-4",
-					"scale-95",
 					"opacity-0"
 				]
 			}

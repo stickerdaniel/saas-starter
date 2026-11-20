@@ -165,30 +165,25 @@
 		<div class="relative z-20 mx-auto w-full max-w-3xl -translate-y-4">
 			{#if (chatCore.isNewConversation || chatUIContext.messagesReady) && chatUIContext.displayMessages.length === 0 && !chatUIContext.inputValue.trim() && hasMessagesAvailable && suggestions.length > 0}
 				<div class="mx-4 pb-2">
-					{#key chatCore.threadGeneration}
-						<div class="flex flex-wrap gap-2">
-							{#each suggestions as suggestion, i (suggestion.text)}
-								<div
-									class="max-w-full min-w-0 motion-safe:animate-chip-in motion-safe:animation-delay-var sm:max-w-56"
-									style:--delay="{i * 50}ms"
+					<div class="flex flex-wrap gap-2">
+						{#each suggestions as suggestion (suggestion.text)}
+							<div class="max-w-full min-w-0 sm:max-w-56">
+								<PromptSuggestion
+									class="w-full"
+									truncate
+									title={suggestion.text}
+									onclick={() => {
+										chatUIContext.setInputValue(suggestion.text);
+										tick().then(() => {
+											chatContainer?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+										});
+									}}
 								>
-									<PromptSuggestion
-										class="w-full"
-										truncate
-										title={suggestion.text}
-										onclick={() => {
-											chatUIContext.setInputValue(suggestion.text);
-											tick().then(() => {
-												chatContainer?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
-											});
-										}}
-									>
-										{suggestion.label}
-									</PromptSuggestion>
-								</div>
-							{/each}
-						</div>
-					{/key}
+									{suggestion.label}
+								</PromptSuggestion>
+							</div>
+						{/each}
+					</div>
 				</div>
 			{/if}
 			<MessageQuotaBanner

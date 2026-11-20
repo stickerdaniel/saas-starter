@@ -281,9 +281,7 @@ function getClasses(): string { return 'mt-4'; }
 
 	it('knows the inline-style replacement utilities from layout.css', async () => {
 		expect(
-			await productionMessages(
-				'<div class="animation-delay-var scrollbar-stable sliding-header-mask"></div>'
-			)
+			await productionMessages('<div class="scrollbar-stable sliding-header-mask"></div>')
 		).toEqual([]);
 	}, 60_000);
 
@@ -353,7 +351,7 @@ function getClasses(): string { return 'mt-4'; }
 	it('knows the arbitrary-value replacement tokens and utilities from layout.css', async () => {
 		expect(
 			await productionMessages(
-				'<div class="text-2xs animate-chip-in leading-composer transition-control-colors transition-field-colors auth-card-transition composer-scroll-mask sidebar-shortcut-mask thread-timestamp-mask marketing-footer-mask rounded-theme-pill tooltip-arrow-offset"></div>'
+				'<div class="text-2xs leading-composer transition-control-colors transition-field-colors auth-card-transition composer-scroll-mask sidebar-shortcut-mask thread-timestamp-mask marketing-footer-mask rounded-theme-pill tooltip-arrow-offset"></div>'
 			)
 		).toEqual([]);
 	}, 60_000);

@@ -153,7 +153,9 @@
 			     ChatInput has no createThread configured, so it must not mount (and
 			     accept a send) until threadId exists. -->
 			<div class="flex h-full items-center justify-center" role="status">
-				<LoaderCircleIcon class="size-5 text-muted-foreground motion-safe:animate-spin" />
+				<LoaderCircleIcon
+					class="size-5 text-muted-foreground {resolvingThread ? 'motion-safe:animate-spin' : ''}"
+				/>
 				<span class="sr-only">{$t('aria.loading')}</span>
 			</div>
 		{/if}

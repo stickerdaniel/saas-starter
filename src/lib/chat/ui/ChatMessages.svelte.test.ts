@@ -229,3 +229,22 @@ describe('scroll intent across threads', () => {
 		expect(document.querySelector('[role="log"]')).toBe(log);
 	});
 });
+
+describe('scroll button', () => {
+	it('jumps to the bottom without a smooth scroll', async () => {
+		await renderThread(undefined);
+		await new Promise((resolve) => requestAnimationFrame(resolve));
+		const log = document.querySelector<HTMLElement>('[role="log"]')!;
+		const scrollTo = vi.fn();
+		Object.defineProperties(log, {
+			scrollTo: { value: scrollTo },
+			scrollHeight: { get: () => 2000 }
+		});
+
+		document
+			.querySelector<HTMLButtonElement>(`button[aria-label="${en.aria.scroll_to_bottom}"]`)!
+			.click();
+
+		expect(scrollTo).toHaveBeenCalledExactlyOnceWith({ top: 2000, behavior: 'instant' });
+	});
+});
