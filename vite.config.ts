@@ -17,6 +17,7 @@ import { buildAdapter, isCloudflareBuild } from './scripts/build-target';
 import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
 import { getManagedProviderUpdates, logSafeOrigin } from './scripts/local-convex-env';
 import { prepareEmbeddedEnvManifest } from './scripts/strip-varlock-secrets';
+import { clearTestBackendExit, recordTestBackendExit } from './scripts/test-backend-exit';
 import { thirdPartyLicenses } from './scripts/third-party-licenses/index';
 import {
 	OUTFIT_FONT,
@@ -208,6 +209,7 @@ export default defineConfig(async ({ command, mode }) => {
 		fs.mkdirSync(convexStateDir, { recursive: true });
 		const backendUrlFile = isTestMode ? '.test-backend-url' : '.backend-url';
 		fs.writeFileSync(path.join(convexStateDir, backendUrlFile), backendUrl);
+		if (isTestMode) clearTestBackendExit(cwd);
 		const betterAuthSecret =
 			loadedEnv.BETTER_AUTH_SECRET?.trim() || getPersistentBetterAuthSecret(cwd, stateIdSuffix);
 
@@ -267,6 +269,7 @@ export default defineConfig(async ({ command, mode }) => {
 				// before the better-auth secret file was written.
 				reset: false,
 				onReady: [{ name: 'localDev:ensureSeededAdmin' }],
+				onBackendExit: isTestMode ? (error) => recordTestBackendExit(error, cwd) : undefined,
 				envVars: ({ vitePort, resolvedUrls }) => {
 					// When portless fronts vite, resolvedUrls.local[0] is vite's own localhost URL, not
 					// the .localhost named origin, so the trustedOrigin would mismatch. The predicate is

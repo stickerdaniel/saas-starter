@@ -5,7 +5,7 @@ diff --git a/node_modules/convex-vite-plugin/.bun-tag-f7bcc5c18e81cda6 b/.bun-ta
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
-index a2446d37d147b021fb5315b9d3ffbd9e5f0e8ca0..3550d8fde699fb3ed951acf73adb2936a7d4a267 100644
+index a2446d37d147b021fb5315b9d3ffbd9e5f0e8ca0..9f482667fa588d2d8f3b5bcb953e3665972fec94 100644
 --- a/dist/backend-CgypcZjo.mjs
 +++ b/dist/backend-CgypcZjo.mjs
 @@ -321,14 +321,40 @@ async function waitForHttpOk(url, timeoutMs = 3e4) {
@@ -126,7 +126,7 @@ index a2446d37d147b021fb5315b9d3ffbd9e5f0e8ca0..3550d8fde699fb3ed951acf73adb2936
  	const binaryName = `convex-local-backend-${version}${isWindows ? ".exe" : ""}`;
  	const binaryPath = path.join(binaryDir, binaryName);
  	if (fs.existsSync(binaryPath)) {
-@@ -436,17 +495,42 @@ async function downloadConvexBinary(options, logger) {
+@@ -436,21 +495,63 @@ async function downloadConvexBinary(options, logger) {
  		fs.utimesSync(binaryPath, now, now);
  		return binaryPath;
  	}
@@ -179,17 +179,75 @@ index a2446d37d147b021fb5315b9d3ffbd9e5f0e8ca0..3550d8fde699fb3ed951acf73adb2936
  }
  
  //#endregion
-@@ -565,6 +649,9 @@ var ConvexBackend = class {
+ //#region src/backend.ts
++const EXIT_OUTPUT_TAIL = 8e3;
++function readTail(file, bytes) {
++	try {
++		const fd = fs.openSync(file, "r");
++		try {
++			const size = fs.fstatSync(fd).size;
++			const buffer = Buffer.alloc(Math.min(size, bytes));
++			fs.readSync(fd, buffer, 0, buffer.length, size - buffer.length);
++			const text = buffer.toString();
++			return size > bytes ? text.slice(text.indexOf("\n") + 1) : text;
++		} finally {
++			fs.closeSync(fd);
++		}
++	} catch {
++		return "";
++	}
++}
+ /**
+ * Manages a local Convex backend instance.
+ * Handles starting, stopping, deploying, and setting environment variables.
+@@ -514,6 +615,7 @@ var ConvexBackend = class {
+ 		this.binaryVersion = options.binaryVersion;
+ 		this.binaryCacheDir = options.binaryCacheDir;
+ 		this.binaryCacheTtl = options.binaryCacheTtl ?? 10080 * 60 * 1e3;
++		this.onExit = options.onExit;
+ 		this.port = options.port ?? 3210;
+ 		this.siteProxyPort = options.siteProxyPort ?? 3211;
+ 		this.backendUrl = `http://127.0.0.1:${this.port}`;
+@@ -549,7 +651,9 @@ var ConvexBackend = class {
+ 			version: this.binaryVersion,
+ 			cacheDir: this.binaryCacheDir
+ 		}, this.logger);
+-		this.process = ChildProcess$1.spawn(convexBinary, [
++		const outputFile = this.stdio === "ignore" ? path.join(backendDir, "backend.log") : void 0;
++		const outputFd = outputFile ? fs.openSync(outputFile, "w") : void 0;
++		const child = ChildProcess$1.spawn(convexBinary, [
+ 			"--port",
+ 			String(this.port),
+ 			"--site-proxy-port",
+@@ -563,7 +667,26 @@ var ConvexBackend = class {
+ 			sqlitePath
+ 		], {
  			cwd: backendDir,
- 			stdio: this.stdio
- 		});
+-			stdio: this.stdio
++			stdio: outputFd === void 0 ? this.stdio : [
++				"ignore",
++				outputFd,
++				outputFd
++			]
++		});
++		if (outputFd !== void 0) fs.closeSync(outputFd);
++		this.process = child;
++		child.once("exit", (code, signal) => {
++			if (this.process !== child) return;
++			this.process = void 0;
++			const output = outputFile ? readTail(outputFile, EXIT_OUTPUT_TAIL) : "";
++			this.onExit?.({
++				code,
++				signal,
++				output: output.replace(/\x1b\[[0-9;]*m/g, "").trim()
++			});
++		});
 +		this.process.on("error", (error) => {
 +			this.logger.error(`Convex backend process failed to start: ${error instanceof Error ? error.message : String(error)}`, { timestamp: true });
-+		});
+ 		});
  		if (!this.process.pid) throw new Error("Convex process failed to start - no PID assigned");
  		this.logger.info(`Backend spawned on port ${this.port} (waiting for ready...)`, { timestamp: true });
- 	}
-@@ -576,8 +663,8 @@ var ConvexBackend = class {
+@@ -576,8 +699,8 @@ var ConvexBackend = class {
  		await this.healthCheck();
  		this.logger.info("Backend ready", { timestamp: true });
  		this.logger.info(`  Instance name:   ${this.instanceName}`, { timestamp: true });
@@ -201,7 +259,7 @@ index a2446d37d147b021fb5315b9d3ffbd9e5f0e8ca0..3550d8fde699fb3ed951acf73adb2936
  	}
  	/**
 diff --git a/dist/index.d.mts b/dist/index.d.mts
-index f94f821bfc625a3d896c5c1c779c42ea52bc039d..73889386d9fdac5d93daaaf810c2a24c663018a1 100644
+index f94f821bfc625a3d896c5c1c779c42ea52bc039d..4d211d89bb441d3e6eea5c62a2288e92707f9d24 100644
 --- a/dist/index.d.mts
 +++ b/dist/index.d.mts
 @@ -36,11 +36,12 @@ interface ConvexLocalOptions {
@@ -219,8 +277,20 @@ index f94f821bfc625a3d896c5c1c779c42ea52bc039d..73889386d9fdac5d93daaaf810c2a24c
    /** File watching configuration */
    watch?: {
      /** Glob patterns to watch (defaults to <convexDir>/*.ts and <convexDir>/**\/*.ts) */
+@@ -65,6 +66,11 @@ interface ConvexLocalOptions {
+    * ```
+    */
+   onReady?: ConvexFunctionCall[] | undefined;
++  /**
++   * Called when the backend process ends while its dev server still uses it, for
++   * example after a crash. The error names the exit code or signal and the last output.
++   */
++  onBackendExit?: ((error: Error) => void) | undefined;
+   /** Timeout for deploy operations in milliseconds (defaults to 60000) */
+   deployTimeout?: number | undefined;
+   /** Timeout for backend health check in milliseconds (defaults to 10000) */
 diff --git a/dist/index.mjs b/dist/index.mjs
-index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..66f05c5ada241281c58f5acc4fab1f8801e55fc5 100644
+index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..e95497d35da0bfd9122f8d7de0d5169267846774 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -68,23 +68,25 @@ function convexLocal(options = {}) {
@@ -251,7 +321,37 @@ index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..66f05c5ada241281c58f5acc4fab1f88
  		} finally {
  			isDeploying = false;
  			if (pendingDeploy) {
-@@ -201,17 +203,26 @@ function convexLocal(options = {}) {
+@@ -107,12 +109,10 @@ function convexLocal(options = {}) {
+ 		config(config, env) {
+ 			if (env.command !== "serve") return;
+ 			if (runningBackend?.process?.pid) {
+-				const pid = runningBackend.process.pid;
++				const staleBackend = runningBackend;
+ 				runningBackend = null;
+ 				setImmediate(() => {
+-					try {
+-						process.kill(pid, "SIGKILL");
+-					} catch {}
++					staleBackend.stop(false);
+ 				});
+ 			}
+ 			return { define: {
+@@ -193,7 +193,13 @@ function convexLocal(options = {}) {
+ 							healthCheckTimeout,
+ 							binaryVersion: options.binaryVersion,
+ 							binaryCacheDir: options.binaryCacheDir,
+-							binaryCacheTtl
++							binaryCacheTtl,
++							onExit: (exit) => {
++								const cause = exit.signal ? `signal ${exit.signal}` : `exit code ${exit.code}`;
++								const error = new Error(`Convex backend exited unexpectedly with ${cause}` + (exit.output ? `; its last output:\n${exit.output}` : ""));
++								logger.error(error.message, { timestamp: true });
++								options.onBackendExit?.(error);
++							}
+ 						}, logger);
+ 						backend.backendDir = backendDir;
+ 						const isResume = stateExists && !options.reset;
+@@ -201,17 +207,26 @@ function convexLocal(options = {}) {
  						await backend.spawn(backendDir);
  						runningBackend = backend;
  						await backend.waitForReady();
@@ -280,14 +380,131 @@ index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..66f05c5ada241281c58f5acc4fab1f88
  						if (options.onReady && options.onReady.length > 0) {
  							logger.info(`Running ${options.onReady.length} startup function(s)...`, { timestamp: true });
  							for (const fn of options.onReady) try {
+diff --git a/dist/lib.d.mts b/dist/lib.d.mts
+index ccefb59e9b15a4dc21240e708aa62ad7c97ac03c..71ea391542beafccb02e35d28f834c122a81e16f 100644
+--- a/dist/lib.d.mts
++++ b/dist/lib.d.mts
+@@ -86,6 +86,14 @@ interface ConvexBackendOptions {
+   binaryCacheDir?: string | undefined;
+   /** How long to use a cached binary before checking for updates in milliseconds (defaults to 7 days) */
+   binaryCacheTtl?: number | undefined;
++  /** Called once when the backend process ends without stop(). */
++  onExit?: ((exit: BackendExit) => void) | undefined;
++}
++interface BackendExit {
++  code: number | null;
++  signal: NodeJS.Signals | null;
++  /** The end of backend.log in the state directory, written only when stdio is "ignore". */
++  output: string;
+ }
+ /**
+  * Manages a local Convex backend instance.
+@@ -112,6 +120,7 @@ declare class ConvexBackend {
+   private readonly binaryVersion;
+   private readonly binaryCacheDir;
+   private readonly binaryCacheTtl;
++  private readonly onExit;
+   /**
+    * Create a new ConvexBackend instance.
+    *
+@@ -214,5 +223,5 @@ declare function generateKeyPair(instanceName: string): {
+   adminKey: string;
+ };
+ //#endregion
+-export { ConvexBackend, type ConvexBackendOptions, type ConvexLogger, type LogLevel, createConvexLogger, generateAdminKey, generateInstanceSecret, generateKeyPair, normalizeLogger };
++export { type BackendExit, ConvexBackend, type ConvexBackendOptions, type ConvexLogger, type LogLevel, createConvexLogger, generateAdminKey, generateInstanceSecret, generateKeyPair, normalizeLogger };
+ //# sourceMappingURL=lib.d.mts.map
+\ No newline at end of file
 diff --git a/src/backend.ts b/src/backend.ts
-index 27271554f6ed8c2c8aba185bbb62f8a16c7e8c7d..394ad068a44c40b43f361a1cedd7e435a2219c7a 100644
+index 27271554f6ed8c2c8aba185bbb62f8a16c7e8c7d..903bfba691ed258eb420e707ba7661f1e30e7b9d 100644
 --- a/src/backend.ts
 +++ b/src/backend.ts
-@@ -180,6 +180,18 @@ export class ConvexBackend {
-       },
+@@ -45,6 +45,37 @@ export interface ConvexBackendOptions {
+   binaryCacheDir?: string | undefined;
+   /** How long to use a cached binary before checking for updates in milliseconds (defaults to 7 days) */
+   binaryCacheTtl?: number | undefined;
++  /** Called once when the backend process ends without stop(). */
++  onExit?: ((exit: BackendExit) => void) | undefined;
++}
++
++export interface BackendExit {
++  code: number | null;
++  signal: NodeJS.Signals | null;
++  /** The end of backend.log in the state directory, written only when stdio is "ignore". */
++  output: string;
++}
++
++// The backend logs its startup and its errors, about 12 KB in all. A crash
++// leaves its last words at the end, which is the part worth keeping.
++const EXIT_OUTPUT_TAIL = 8_000;
++
++function readTail(file: string, bytes: number): string {
++  try {
++    const fd = fs.openSync(file, "r");
++    try {
++      const size = fs.fstatSync(fd).size;
++      const buffer = Buffer.alloc(Math.min(size, bytes));
++      fs.readSync(fd, buffer, 0, buffer.length, size - buffer.length);
++      const text = buffer.toString();
++      // A cut tail starts mid-line, possibly inside an escape sequence.
++      return size > bytes ? text.slice(text.indexOf("\n") + 1) : text;
++    } finally {
++      fs.closeSync(fd);
++    }
++  } catch {
++    return "";
++  }
+ }
+ 
+ /**
+@@ -73,6 +104,7 @@ export class ConvexBackend {
+   private readonly binaryVersion: string | undefined;
+   private readonly binaryCacheDir: string | undefined;
+   private readonly binaryCacheTtl: number;
++  private readonly onExit: ((exit: BackendExit) => void) | undefined;
+ 
+   /**
+    * Create a new ConvexBackend instance.
+@@ -112,6 +144,7 @@ export class ConvexBackend {
+     this.binaryVersion = options.binaryVersion;
+     this.binaryCacheDir = options.binaryCacheDir;
+     this.binaryCacheTtl = options.binaryCacheTtl ?? 7 * 24 * 60 * 60 * 1000; // 7 days
++    this.onExit = options.onExit;
+ 
+     // Use fixed ports if provided
+     this.port = options.port ?? 3210;
+@@ -159,7 +192,11 @@ export class ConvexBackend {
+       this.logger,
      );
  
+-    this.process = childProcess.spawn(
++    // A file, not a pipe: deploy() blocks the event loop in spawnSync, and a pipe
++    // nobody drains fills up and stalls the backend that the deploy waits on.
++    const outputFile = this.stdio === "ignore" ? path.join(backendDir, "backend.log") : undefined;
++    const outputFd = outputFile ? fs.openSync(outputFile, "w") : undefined;
++    const child = childProcess.spawn(
+       convexBinary,
+       [
+         "--port",
+@@ -176,9 +213,31 @@ export class ConvexBackend {
+       ],
+       {
+         cwd: backendDir,
+-        stdio: this.stdio,
++        stdio: outputFd === undefined ? this.stdio : ["ignore", outputFd, outputFd],
+       },
+     );
++    if (outputFd !== undefined) fs.closeSync(outputFd);
++    this.process = child;
++
++    // stop() clears this.process first, so only an exit nobody asked for reaches onExit.
++    child.once("exit", (code, signal) => {
++      if (this.process !== child) return;
++      this.process = undefined;
++      const output = outputFile ? readTail(outputFile, EXIT_OUTPUT_TAIL) : "";
++      this.onExit?.({ code, signal, output: output.replace(/\x1b\[[0-9;]*m/g, "").trim() });
++    });
++
 +    // A failed exec leaves pid undefined, so the check below already rejects
 +    // spawn() and reports the failure. What it does not stop is the 'error'
 +    // event that lands afterwards: with no listener Node prints the whole error
@@ -299,11 +516,10 @@ index 27271554f6ed8c2c8aba185bbb62f8a16c7e8c7d..394ad068a44c40b43f361a1cedd7e435
 +        { timestamp: true },
 +      );
 +    });
-+
+ 
      if (!this.process.pid) {
        throw new Error("Convex process failed to start - no PID assigned");
-     }
-@@ -198,8 +210,8 @@ export class ConvexBackend {
+@@ -198,8 +257,8 @@ export class ConvexBackend {
  
      this.logger.info("Backend ready", { timestamp: true });
      this.logger.info(`  Instance name:   ${this.instanceName}`, { timestamp: true });
@@ -314,7 +530,7 @@ index 27271554f6ed8c2c8aba185bbb62f8a16c7e8c7d..394ad068a44c40b43f361a1cedd7e435
      this.logger.info(`  Backend URL:     ${this.backendUrl}`, { timestamp: true });
    }
  
-@@ -260,7 +272,7 @@ export class ConvexBackend {
+@@ -260,7 +319,7 @@ export class ConvexBackend {
    /**
     * Set an environment variable on the backend.
     */
@@ -324,7 +540,7 @@ index 27271554f6ed8c2c8aba185bbb62f8a16c7e8c7d..394ad068a44c40b43f361a1cedd7e435
  
      const backendUrl = `http://localhost:${this.port}`;
 diff --git a/src/index.ts b/src/index.ts
-index 9ed17e6d7512b75cce299b04e762380e6636a2d3..53b2e620fe4bf90c2a2d62daefcbc7fc9be3244f 100644
+index 9ed17e6d7512b75cce299b04e762380e6636a2d3..66064e2302c6f44f54df6e59fc91780da6815b61 100644
 --- a/src/index.ts
 +++ b/src/index.ts
 @@ -83,13 +83,14 @@ export interface ConvexLocalOptions {
@@ -344,7 +560,19 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..53b2e620fe4bf90c2a2d62daefcbc7fc
      | undefined;
    /** File watching configuration */
    watch?:
-@@ -183,15 +184,15 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+@@ -117,6 +118,11 @@ export interface ConvexLocalOptions {
+    * ```
+    */
+   onReady?: ConvexFunctionCall[] | undefined;
++  /**
++   * Called when the backend process ends while its dev server still uses it, for
++   * example after a crash. The error names the exit code or signal and the last output.
++   */
++  onBackendExit?: ((error: Error) => void) | undefined;
+   /** Timeout for deploy operations in milliseconds (defaults to 60000) */
+   deployTimeout?: number | undefined;
+   /** Timeout for backend health check in milliseconds (defaults to 10000) */
+@@ -183,15 +189,15 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
      return matches && !ignored;
    };
  
@@ -363,7 +591,7 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..53b2e620fe4bf90c2a2d62daefcbc7fc
      }
  
      isDeploying = true;
-@@ -200,12 +201,14 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+@@ -200,12 +206,14 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
      try {
        backend.deploy();
        logger.info("Deploy successful", { timestamp: true });
@@ -378,7 +606,43 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..53b2e620fe4bf90c2a2d62daefcbc7fc
      } finally {
        isDeploying = false;
        if (pendingDeploy) {
-@@ -373,7 +376,10 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+@@ -239,15 +247,12 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+ 
+       // Defer killing the old backend to avoid blocking Vite's config phase
+       if (runningBackend?.process?.pid) {
+-        const pid = runningBackend.process.pid;
++        const staleBackend = runningBackend;
+         runningBackend = null;
+-        // Kill async via setImmediate to not block config()
++        // Kill async via setImmediate to not block config(). stop() marks the
++        // exit as requested, so it does not reach onBackendExit.
+         setImmediate(() => {
+-          try {
+-            process.kill(pid, "SIGKILL");
+-          } catch {
+-            // Process might already be dead
+-          }
++          void staleBackend.stop(false);
+         });
+       }
+ 
+@@ -354,6 +359,15 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+                 binaryVersion: options.binaryVersion,
+                 binaryCacheDir: options.binaryCacheDir,
+                 binaryCacheTtl,
++                onExit: (exit) => {
++                  const cause = exit.signal ? `signal ${exit.signal}` : `exit code ${exit.code}`;
++                  const error = new Error(
++                    `Convex backend exited unexpectedly with ${cause}` +
++                      (exit.output ? `; its last output:\n${exit.output}` : ""),
++                  );
++                  logger.error(error.message, { timestamp: true });
++                  options.onBackendExit?.(error);
++                },
+               },
+               logger,
+             );
+@@ -373,7 +387,10 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
              // Wait for backend to be ready before making API calls
              await backend.waitForReady();
  
@@ -390,7 +654,7 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..53b2e620fe4bf90c2a2d62daefcbc7fc
              if (options.envVars) {
                const envVars =
                  typeof options.envVars === "function"
-@@ -381,13 +387,23 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+@@ -381,13 +398,23 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
                    : options.envVars;
  
                for (const [name, value] of Object.entries(envVars)) {
@@ -416,6 +680,19 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..53b2e620fe4bf90c2a2d62daefcbc7fc
  
              // Run onReady functions (e.g., seed scripts)
              if (options.onReady && options.onReady.length > 0) {
+diff --git a/src/lib.ts b/src/lib.ts
+index e382c41efd2fed18bcbc18771069b65804fa2b90..b1e45fb1382ca8c7b181539a53028ace30f1cf2a 100644
+--- a/src/lib.ts
++++ b/src/lib.ts
+@@ -18,7 +18,7 @@
+  */
+ 
+ // Backend exports
+-export { ConvexBackend, type ConvexBackendOptions } from "./backend.ts";
++export { type BackendExit, ConvexBackend, type ConvexBackendOptions } from "./backend.ts";
+ 
+ // Logger exports
+ export { type ConvexLogger, type LogLevel, createConvexLogger, normalizeLogger } from "./logger.ts";
 diff --git a/src/utils.ts b/src/utils.ts
 index 7e3dd778e873f678e33b89c3bb16e9fb09c84b79..2492ed687f93d21d65758aff7b90cbbbc7737f2e 100644
 --- a/src/utils.ts

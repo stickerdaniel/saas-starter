@@ -31,7 +31,7 @@ function resolveLocalTestConvexUrl(): string | undefined {
 	return url;
 }
 
-function usesLocalTestBackend(): boolean {
+export function usesLocalTestBackend(): boolean {
 	return (
 		process.env.VARLOCK_ENV === 'test' && !process.env.CI && !process.env.E2E_OVERRIDE_SITE_URL
 	);

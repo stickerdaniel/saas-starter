@@ -10,7 +10,8 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import 'varlock/auto-load';
 import { beginOwnedTestData } from './utils/owned-test-data';
-import { waitForConvexUrl } from './utils/convex-url';
+import { usesLocalTestBackend, waitForConvexUrl } from './utils/convex-url';
+import { watchTestBackendExit } from '../scripts/test-backend-exit';
 import { resolveSiteUrl } from './utils/site-url';
 import { getPreviewBypass, fetchVercelBypassCookie } from './utils/preview-bypass';
 import { waitForBackendReady } from './utils/backend-readiness';
@@ -109,6 +110,15 @@ async function globalSetup() {
 	await provisionSessionSigningKey();
 	const runId = beginOwnedTestData();
 	console.log(`[Setup] Ownership ledger e2e/.auth/owned/${runId} ready`);
+
+	if (!usesLocalTestBackend()) return;
+	// SIGINT is Playwright's graceful stop: the run ends as interrupted, with its
+	// reports written and both teardowns run.
+	return watchTestBackendExit((error) => {
+		console.error(`[E2E] ${error.split('\n', 1)[0]}`);
+		console.error('[E2E] Stopping the run, because every later test would fail against it.');
+		process.kill(process.pid, 'SIGINT');
+	});
 }
 
 export default globalSetup;
