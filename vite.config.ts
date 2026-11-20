@@ -36,6 +36,7 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { fontless } from 'fontless';
 import { loadEnv, type PluginOption } from 'vite';
 import { emptyCssSources } from './scripts/css-sources.ts';
+import { moduleGraph } from './scripts/spike/module-graph-plugin.ts';
 
 const stylesheet = path.join(import.meta.dirname, 'src/routes/layout.css');
 const missingCssSources = emptyCssSources(stylesheet, fs.readFileSync(stylesheet, 'utf8'));
@@ -460,6 +461,7 @@ export default defineConfig(async ({ command, mode }) => {
 			// Keep an installed Outfit version from replacing the self-hosted files.
 			experimental: { disableLocalFallbacks: true }
 		}),
+		...(process.env.T0_GRAPH ? [moduleGraph(process.env.T0_GRAPH)] : []),
 		...(process.env.ANALYZE === 'true'
 			? [
 					visualizer({

@@ -26,6 +26,7 @@
 	import { toast } from 'svelte-sonner';
 	import { mode } from 'mode-watcher';
 	import { tick, onMount } from 'svelte';
+	import { routeProbe } from '#lib/effect/spike-client.js';
 	import { fly } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
 
@@ -77,6 +78,8 @@
 
 	// Auto-focus input on mount
 	onMount(() => {
+		// T0 spike: Effect in one app route.
+		void routeProbe('spike');
 		tick().then(() => document.querySelector<HTMLTextAreaElement>('textarea')?.focus());
 	});
 

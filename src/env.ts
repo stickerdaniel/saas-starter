@@ -20,5 +20,7 @@ export const variables = defineEnvVars({
 	PUBLIC_POSTHOG_ALLOWED_HOSTS: { public: true, static: true },
 	PUBLIC_SNAPDOM_PROXY_URL: { public: true, static: true },
 	// Provided by the host at runtime on private Docker networks; unset everywhere else.
-	CONVEX_INTERNAL_URL: { schema: (value) => value ?? '' }
+	CONVEX_INTERNAL_URL: { schema: (value) => value ?? '' },
+	// T0 spike: enables the /api/effect-spike Worker fixture when 1.
+	EFFECT_SPIKE_FIXTURE: { schema: (value) => value ?? '' }
 });

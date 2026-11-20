@@ -35,7 +35,7 @@ export function isPreviewAdminEmail(email: string): boolean {
  * Preview admins keep the admin role marker but never receive email
  */
 export async function syncAdminPreferences(
-	ctx: MutationCtx,
+	ctx: Pick<MutationCtx, 'db'>,
 	args: { userId: string; email: string }
 ): Promise<void> {
 	const now = Date.now();
@@ -120,7 +120,7 @@ export async function syncAdminPreferences(
  * Sets isAdminUser=false but keeps the record for potential re-promotion.
  */
 export async function deactivateAdminPreferencesHelper(
-	ctx: MutationCtx,
+	ctx: Pick<MutationCtx, 'db'>,
 	userId: string
 ): Promise<void> {
 	const existing = await ctx.db

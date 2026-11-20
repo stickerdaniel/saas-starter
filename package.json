@@ -108,6 +108,7 @@
 		"convex-helpers": "0.1.129",
 		"convex-svelte": "0.15.1",
 		"date-fns": "4.4.0",
+		"effect": "4.1.4",
 		"konva": "10.9.0",
 		"mode-watcher": "1.1.0",
 		"motion-sv": "0.2.2",
@@ -127,6 +128,7 @@
 	"devDependencies": {
 		"@axe-core/playwright": "4.14.0",
 		"@convex-dev/eslint-plugin": "5.0.1",
+		"@effect/vitest": "4.1.4",
 		"@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
 		"@eslint/compat": "2.1.1",
 		"@eslint/js": "10.0.1",
