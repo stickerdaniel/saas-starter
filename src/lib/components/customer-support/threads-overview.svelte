@@ -328,11 +328,9 @@
 			<!-- data-tolgee-restricted: thread previews may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
 			<div data-tolgee-restricted class={threadsFade.animationClass}>
 				{#each threads as thread (thread._id)}
-					{@const isSelected = thread._id === conversation.threadId}
 					{@const showAdminAvatar = thread.isHandedOff && thread.assignedAdmin}
 					<SupportThreadRow
 						type="button"
-						selected={isSelected}
 						onclick={() =>
 							support.selectThread(
 								thread._id,
