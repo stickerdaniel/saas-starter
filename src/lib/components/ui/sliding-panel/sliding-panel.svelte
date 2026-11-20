@@ -52,6 +52,6 @@
 	});
 </script>
 
-<div class={slideClasses}>
+<div class={slideClasses} inert={open ? undefined : true}>
 	{@render children()}
 </div>

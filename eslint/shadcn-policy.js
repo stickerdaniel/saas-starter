@@ -394,8 +394,6 @@ export const restyleOwners = [
 				'px-5',
 				'transition-colors',
 				'duration-150',
-				'bg-muted-foreground/[0.04]',
-				'hover:bg-muted-foreground/[0.06]',
 				'h-auto',
 				'w-full',
 				'justify-start',

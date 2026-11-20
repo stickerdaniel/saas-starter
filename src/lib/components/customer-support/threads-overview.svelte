@@ -7,7 +7,7 @@
 	import SupportThreadRow from '#lib/components/ui/owned/support-thread-row.svelte';
 	import { Avatar, AvatarImage, AvatarFallback } from '#lib/components/ui/avatar/index.js';
 	import BotIcon from '@lucide/svelte/icons/bot';
-	import LearnMoreChevron from '#lib/components/motion/learn-more-chevron.svelte';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UsersRoundIcon from '@lucide/svelte/icons/users-round';
@@ -47,6 +47,24 @@
 		() => (conversation.userId ? { anonymousUserId } : 'skip'),
 		{ initialNumItems: 20 }
 	);
+
+	// Returning from a conversation puts focus back on the row that opened it, so a keyboard
+	// user keeps their place. The browser shows the focus ring only after keyboard input.
+	let overviewElement = $state<HTMLElement | null>(null);
+	let returnFocusThreadId: string | null = null;
+	$effect(() => {
+		if (navigation.currentView !== 'overview' || !overviewElement) return;
+		const threadId = returnFocusThreadId;
+		returnFocusThreadId = null;
+		if (!threadId) return;
+		const active = document.activeElement;
+		if (active && active !== document.body && active.isConnected && !active.closest('[inert]')) {
+			return;
+		}
+		overviewElement
+			.querySelector<HTMLElement>(`[data-thread-id="${CSS.escape(threadId)}"]`)
+			?.focus({ preventScroll: true });
+	});
 
 	// Filter out threads with no messages (e.g., eagerly created but never used threads)
 	const threads = $derived(threadsQuery.results.filter(hasConversationActivity));
@@ -208,7 +226,11 @@
 	}
 </script>
 
-<div class="flex h-full flex-col" inert={navigation.currentView !== 'overview' ? true : undefined}>
+<div
+	bind:this={overviewElement}
+	class="flex h-full flex-col"
+	inert={navigation.currentView !== 'overview' ? true : undefined}
+>
 	<!-- Thread List -->
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		<!-- Announced for the same reason as the paging failure below: it arrives
@@ -328,19 +350,20 @@
 			<!-- data-tolgee-restricted: thread previews may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
 			<div data-tolgee-restricted class={threadsFade.animationClass}>
 				{#each threads as thread (thread._id)}
-					{@const isSelected = thread._id === conversation.threadId}
 					{@const showAdminAvatar = thread.isHandedOff && thread.assignedAdmin}
 					<SupportThreadRow
 						type="button"
-						selected={isSelected}
-						onclick={() =>
+						data-thread-id={thread._id}
+						onclick={() => {
+							returnFocusThreadId = thread._id;
 							support.selectThread(
 								thread._id,
 								thread.lastAgentName,
 								thread.isHandedOff,
 								thread.assignedAdmin,
 								thread.notificationEmail
-							)}
+							);
+						}}
 					>
 						<AvatarHeading
 							icon={thread.isHandedOff
@@ -364,8 +387,7 @@
 							<span class="sr-only">{$t('support.thread.unread_reply')}</span>
 						{/if}
 
-						<!-- Chevron -->
-						<LearnMoreChevron class="size-5 shrink-0 text-muted-foreground" />
+						<ChevronRightIcon class="size-5 shrink-0 text-muted-foreground rtl:-scale-x-100" />
 					</SupportThreadRow>
 				{/each}
 
