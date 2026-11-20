@@ -275,7 +275,6 @@
 	// optimistic updates on re-focus.
 </script>
 
-<!-- Glow container with group hover/focus behavior -->
 <div
 	class="ai-chatbar fixed bottom-5 left-1/2 z-40 w-full -translate-x-1/2 pr-19 pl-5 md:mb-0 md:p-0 {!mounted.current ||
 	delayedFeedbackOpen
