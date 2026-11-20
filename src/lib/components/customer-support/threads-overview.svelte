@@ -7,7 +7,7 @@
 	import SupportThreadRow from '#lib/components/ui/owned/support-thread-row.svelte';
 	import { Avatar, AvatarImage, AvatarFallback } from '#lib/components/ui/avatar/index.js';
 	import BotIcon from '@lucide/svelte/icons/bot';
-	import LearnMoreChevron from '#lib/components/motion/learn-more-chevron.svelte';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UsersRoundIcon from '@lucide/svelte/icons/users-round';
@@ -387,8 +387,7 @@
 							<span class="sr-only">{$t('support.thread.unread_reply')}</span>
 						{/if}
 
-						<!-- Chevron -->
-						<LearnMoreChevron class="size-5 shrink-0 text-muted-foreground" />
+						<ChevronRightIcon class="size-5 shrink-0 text-muted-foreground rtl:-scale-x-100" />
 					</SupportThreadRow>
 				{/each}
 

@@ -12,7 +12,6 @@
 <Button
 	bind:ref
 	variant="ghost-tint"
-	affordance="learn-more"
 	class={cn(
 		'flex h-auto w-full items-center justify-start gap-3 border-b border-border/30 p-4 px-5 text-left font-normal whitespace-normal shadow-none transition-colors duration-150 active:translate-y-0',
 		className
