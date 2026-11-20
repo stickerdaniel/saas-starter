@@ -2,10 +2,10 @@
 	import { Html, Body, Preview, Container } from '@better-svelte-email/components';
 	import { Badge, Button, Card } from '#lib/emails/components/ui/index.js';
 	import { EmailHead, EmailHeader, EmailFooter } from '#lib/emails/components/layout/index.js';
-	import { JOURNEY_DARK_UTILITIES } from '#lib/convex/admin/journey/theme.js';
+	import { JOURNEY_DARK_UTILITIES } from '#lib/confect/admin/journey/theme.js';
 
 	// All user-facing copy is passed in as props so the caller can resolve
-	// translated strings (see src/lib/convex/emails/templates.ts). English
+	// translated strings (see src/lib/confect/emails/templates.ts). English
 	// defaults keep the build-time preview rendering. `timelineHtml` is the
 	// journey (tiles, rail and notes), built per recipient with inline colours.
 	let {

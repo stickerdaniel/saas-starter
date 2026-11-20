@@ -11,12 +11,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { ConvexBackend } from 'convex-vite-plugin/lib';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { testExecutable } from './test-executable';
 
 const originalFetch = globalThis.fetch;
 const originalGithubToken = process.env.GITHUB_TOKEN;
 const tempRoots: string[] = [];
 
 const releasesUrl = 'https://api.github.com/repos/get-convex/convex-backend/releases?per_page=50';
+const pinnedReleaseUrl =
+	'https://api.github.com/repos/get-convex/convex-backend/releases/tags/precompiled-test';
 const assetApiUrl = 'https://api.github.com/repos/get-convex/convex-backend/releases/assets/1';
 const browserDownloadUrl =
 	'https://github.com/get-convex/convex-backend/releases/download/backend.zip';
@@ -37,25 +40,30 @@ function platformAsset(): string {
 	return `convex-local-backend-${arch}-pc-windows-msvc.zip`;
 }
 
-// The release listing as GitHub's REST API returns it, newest first.
-function releasesResponse(digest: string | null = null): Response {
-	const releases = [
-		{
-			tag_name: version,
-			assets: [
-				{
-					name: platformAsset(),
-					url: assetApiUrl,
-					browser_download_url: browserDownloadUrl,
-					digest
-				}
-			]
-		}
-	];
-	return new Response(JSON.stringify(releases), {
+function release(digest: string | null) {
+	return {
+		tag_name: version,
+		assets: [
+			{
+				name: platformAsset(),
+				url: assetApiUrl,
+				browser_download_url: browserDownloadUrl,
+				digest
+			}
+		]
+	};
+}
+
+function jsonResponse(body: unknown): Response {
+	return new Response(JSON.stringify(body), {
 		status: 200,
 		headers: { 'content-type': 'application/json' }
 	});
+}
+
+// The release listing as GitHub's REST API returns it, newest first.
+function releasesResponse(digest: string | null = null): Response {
+	return jsonResponse([release(digest)]);
 }
 
 function sha256(bytes: Uint8Array): string {
@@ -82,11 +90,16 @@ function executableZip(root: string): Uint8Array<ArrayBuffer> {
 }
 
 /** Acquires the binary through the installed plugin; the stub binary exits at once. */
-async function acquire(root: string, fetchImpl: typeof fetch): Promise<string> {
+async function acquire(
+	root: string,
+	fetchImpl: typeof fetch,
+	binaryVersion?: string
+): Promise<string> {
 	globalThis.fetch = fetchImpl;
 	const backend = new ConvexBackend(
 		{
 			binaryCacheDir: path.join(root, 'cache'),
+			binaryVersion,
 			projectDir: root,
 			stdio: 'ignore',
 			instanceName: 'test-instance',
@@ -261,6 +274,92 @@ describe.skipIf(process.platform === 'win32')('convex-vite-plugin binary downloa
 		const binaryPath = await acquire(root, fetchImpl);
 		expect(fetchImpl).toHaveBeenCalledTimes(4);
 		expect(cacheEntries(root)).toEqual([path.basename(binaryPath)]);
+	});
+
+	it('reads a pinned version by its release tag', async () => {
+		const root = temporaryRoot();
+		const archive = executableZip(root);
+		const requests: string[] = [];
+		const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+			requests.push(String(input));
+			return requests.length === 1 ? jsonResponse(release(sha256(archive))) : new Response(archive);
+		});
+		expect(fs.existsSync(await acquire(root, fetchImpl, version))).toBe(true);
+		expect(requests).toEqual([pinnedReleaseUrl, assetApiUrl]);
+	});
+
+	it('refuses a pinned version whose release publishes no digest', async () => {
+		const root = temporaryRoot();
+		const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse(release(null)));
+		await expect(acquire(root, fetchImpl, version)).rejects.toThrow(
+			`Convex backend ${version} publishes no SHA-256 digest`
+		);
+		expect(fetchImpl).toHaveBeenCalledTimes(1);
+		expect(cacheEntries(root)).toEqual([]);
+	});
+
+	describe.skipIf(process.getuid?.() === 0)('when another process publishes first', () => {
+		const originalPath = process.env.PATH;
+
+		afterEach(() => {
+			process.env.PATH = originalPath;
+			for (const root of tempRoots) {
+				const cache = path.join(root, 'cache');
+				if (fs.existsSync(cache)) fs.chmodSync(cache, 0o755);
+			}
+		});
+
+		function publishDuringExtraction(root: string, contents: string): void {
+			const published = path.join(root, 'published');
+			fs.writeFileSync(published, contents, { mode: 0o755 });
+			const bin = path.join(root, 'bin');
+			fs.mkdirSync(bin);
+			const target = path.join(root, 'cache', `convex-local-backend-${version}${executableSuffix}`);
+			fs.writeFileSync(
+				path.join(bin, 'unzip'),
+				[
+					'#!/bin/sh',
+					`${JSON.stringify(testExecutable('unzip'))} "$@" || exit 1`,
+					`cp ${JSON.stringify(published)} ${JSON.stringify(target)}`,
+					`chmod 555 ${JSON.stringify(path.dirname(target))}`
+				].join('\n'),
+				{ mode: 0o755 }
+			);
+			process.env.PATH = `${bin}${path.delimiter}${originalPath}`;
+		}
+
+		function pinnedFetch(archive: Uint8Array<ArrayBuffer>) {
+			return vi
+				.fn<typeof fetch>()
+				.mockResolvedValueOnce(jsonResponse(release(sha256(archive))))
+				.mockResolvedValueOnce(new Response(archive, { status: 200 }));
+		}
+
+		it('refuses a published binary that differs from the verified archive', async () => {
+			const root = temporaryRoot();
+			const archive = executableZip(root);
+			publishDuringExtraction(root, '#!/bin/sh\nexit 1\n');
+			await expect(acquire(root, pinnedFetch(archive), version)).rejects.toThrow(
+				'differs from the verified'
+			);
+		});
+
+		it('accepts a published binary with the verified bytes', async () => {
+			const root = temporaryRoot();
+			const archive = executableZip(root);
+			publishDuringExtraction(root, '#!/bin/sh\nexit 0\n');
+			expect(fs.existsSync(await acquire(root, pinnedFetch(archive), version))).toBe(true);
+		});
+	});
+
+	it('starts a cached pinned version without contacting GitHub', async () => {
+		const root = temporaryRoot();
+		const cached = path.join(root, 'cache', `convex-local-backend-${version}${executableSuffix}`);
+		fs.mkdirSync(path.dirname(cached), { recursive: true });
+		fs.writeFileSync(cached, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+		const fetchImpl = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('offline'));
+		expect(await acquire(root, fetchImpl, version)).toBe(cached);
+		expect(fetchImpl).not.toHaveBeenCalled();
 	});
 
 	it('leaves no binary or temporary files after exhausted failures', async () => {

@@ -4,11 +4,11 @@ import schema from '../../schema';
 import { components } from '../../_generated/api';
 import type { Doc } from '../../_generated/dataModel';
 import type { QueryCtx } from '../../_generated/server';
-import { adminQuery } from '../../functions';
-import type { BetterAuthUser } from '../types';
-import { collectMatchingUserIds } from '../userSearch';
-import { resolveOffsetLastPage, sliceOffsetPage } from '../pagination';
-import { filterAuditRowsByMatch } from './search';
+import { adminQuery } from '../../../confect/functions';
+import type { BetterAuthUser } from '../../../confect/admin/types';
+import { collectMatchingUserIds } from '../../../confect/admin/userSearch';
+import { resolveOffsetLastPage, sliceOffsetPage } from '../../../confect/admin/pagination';
+import { filterAuditRowsByMatch } from '../../../confect/admin/auditLog/search';
 
 /**
  * Mirrors the `action` union of adminAuditLogs in schema.ts. The frontend builds

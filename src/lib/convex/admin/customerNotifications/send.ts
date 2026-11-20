@@ -3,23 +3,31 @@ import * as val from 'valibot';
 import { components, internal } from '../../_generated/api';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { env, internalMutation, type MutationCtx } from '../../_generated/server';
-import { requireEnv } from '../../env';
-import { isTestEmail } from '../../emails/helpers';
-import { resend } from '../../emails/resend';
+import { requireEnv } from '../../../confect/env';
+import { isTestEmail } from '../../../confect/emails/helpers';
+import { resend } from '../../../confect/emails/resend';
 import { getLocaleForEmail, getReadyEmailConfiguration } from '../../emails/send';
 import {
 	renderCancellationAdminNotificationEmail,
 	renderNewCustomerAdminNotificationEmail
-} from '../../emails/templates';
+} from '../../../confect/emails/templates';
 import type {
 	CancellationAdminNotificationEmailData,
 	NewCustomerAdminNotificationEmailData
 } from '../../../emails/templates/types';
-import { collectJourney, presentJourney, type PresentedJourney } from '../journey/collect';
-import { resolveTimeZone, type JourneyFormat } from '../journey/format';
-import { JOURNEY_SOURCES } from '../journey/registry';
+import {
+	collectJourney,
+	presentJourney,
+	type PresentedJourney
+} from '../../../confect/admin/journey/collect';
+import { resolveTimeZone, type JourneyFormat } from '../../../confect/admin/journey/format';
+import { JOURNEY_SOURCES } from '../../../confect/admin/journey/registry';
 import type { NotificationType } from '../notificationPreferences/queries';
-import { composeCancellation, composeNewCustomer, type ComposedJourney } from './compose';
+import {
+	composeCancellation,
+	composeNewCustomer,
+	type ComposedJourney
+} from '../../../confect/admin/customerNotifications/compose';
 
 /**
  * The admin customer emails: one scheduled run per ledger row, which

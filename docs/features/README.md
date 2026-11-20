@@ -24,7 +24,7 @@ What a product built on this template can do from its first deploy. Each page sa
 
 **AI chat.** Signed-in users get a streaming AI chat with tool calling and file uploads at `/app/ai-chat`, next to a community chat at `/app/community-chat`. Both count against the [billing](billing.md) quotas.
 
-**Real-time.** Everything updates live: dashboard metrics, the admin users table, community chat, support threads, and AI agent responses streamed token-by-token. Built on Convex reactive queries. Messages, file uploads, and LLM calls are rate-limited via `@convex-dev/rate-limiter` ([`rateLimit.ts`](../../src/lib/convex/rateLimit.ts)).
+**Real-time.** Everything updates live: dashboard metrics, the admin users table, community chat, support threads, and AI agent responses streamed token-by-token. Built on Convex reactive queries. Messages, file uploads, and LLM calls are rate-limited via `@convex-dev/rate-limiter` ([`rateLimit.ts`](../../src/lib/confect/rateLimit.ts)).
 
 **User settings.** Users can update their profile, change their password with live strength feedback, swap their email (triggers re-verification), manage passkeys, and review or revoke active sessions. Uploaded avatars and attachments are validated on the server and cleaned up automatically. The page lives in [`app/settings`](../../src/routes/%5B%5Blang%5D%5D/app/settings/).
 

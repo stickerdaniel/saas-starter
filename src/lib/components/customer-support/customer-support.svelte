@@ -17,7 +17,7 @@
 		type ComposerSendLease
 	} from '#lib/chat/ui/composer-send-coordinator.ts';
 	import { browser } from '$app/env';
-	import { generateAnonymousUserId, isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
+	import { generateAnonymousUserId, isAnonymousUser } from '#lib/confect/utils/anonymousUser.js';
 	import { supportUserId } from './support-user-id.svelte.ts';
 	import { useSupportUrlState } from './use-support-url-state.svelte.ts';
 	import { getTranslate } from '@tolgee/svelte';

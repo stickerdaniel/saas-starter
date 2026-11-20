@@ -1,15 +1,15 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 import { vEmailEvent } from '@convex-dev/resend';
-import { supportThreadFields } from './support/supportThreadFields';
-import { vAnonymousRateLimitBucket } from './support/rateLimitAlertFields';
+import { supportThreadFields } from '../confect/support/supportThreadFields';
+import { vAnonymousRateLimitBucket } from '../confect/support/rateLimitAlertFields';
 import {
 	founderIncidentDraftFields,
 	founderIncidentEmailFields
-} from './emails/founderIncidentTypes';
-import { aiUsageFeatureValidator } from './aiUsage/feature';
-import { journeyCaptureStarts } from './admin/journey/capture';
-import { customerNotifications } from './admin/customerNotifications/ledger';
+} from '../confect/emails/founderIncidentTypes';
+import { aiUsageFeatureValidator } from '../confect/aiUsage/feature';
+import { journeyCaptureStarts } from '../confect/admin/journey/capture';
+import { customerNotifications } from '../confect/admin/customerNotifications/ledger';
 
 export default defineSchema({
 	// The Better Auth component owns its tables (user, session, account, verification)

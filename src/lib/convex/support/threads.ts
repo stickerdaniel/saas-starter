@@ -1,21 +1,21 @@
 import { mutation, query, internalMutation, internalQuery } from '../_generated/server';
 import { v } from 'convex/values';
-import { supportAgent } from './agent';
+import { supportAgent } from '../../confect/support/agent';
 import { components, internal } from '../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
-import { t, extractLocaleFromUrl } from '../i18n/translations';
+import { t, extractLocaleFromUrl } from '../../confect/i18n/translations';
 import {
 	requireSupportThreadAccess,
 	requireSupportThreadRecord,
 	getSupportOwnerIdentity,
 	requireSupportOwnerIdentity
-} from './ownership';
+} from '../../confect/support/ownership';
 import {
 	createSupportThreadRecord,
 	limitSupportThreadCreate,
 	recordFirstSupportContact,
 	syncSupportLastMessage
-} from './threadLifecycle';
+} from '../../confect/support/threadLifecycle';
 import {
 	backfillThreadMetadata as backfillThreadMetadataRecord,
 	deleteEmptyThreads as deleteEmptyThreadRecords,
@@ -23,16 +23,16 @@ import {
 	getThreadLocale as getSupportThreadLocale,
 	syncUserProfile as syncSupportUserProfile,
 	updateThreadMetadata as updateSupportThreadMetadata
-} from './threadMaintenance';
-import { normalizeNotificationEmail } from './notificationPreferences';
-import { toAgentThreadStatus } from './denormalization';
+} from '../../confect/support/threadMaintenance';
+import { normalizeNotificationEmail } from '../../confect/support/notificationPreferences';
+import { toAgentThreadStatus } from '../../confect/support/denormalization';
 import { authComponent } from '../auth';
-import { publicEndpoint } from '../access';
+import { publicEndpoint } from '../../confect/access';
 import { normalizeSupportPageRoute } from '../../shared/support-page-route';
-import { recordSupportMessageContext } from './messageContext';
+import { recordSupportMessageContext } from '../../confect/support/messageContext';
 
-export { shouldSendNotification } from './notificationPreferences';
-export { syncSupportLastMessage } from './threadLifecycle';
+export { shouldSendNotification } from '../../confect/support/notificationPreferences';
+export { syncSupportLastMessage } from '../../confect/support/threadLifecycle';
 
 // supportThreads is the source of truth for membership and list rendering.
 // agent:threads owns only generic conversation runtime/storage.

@@ -147,6 +147,13 @@ export function harness(
 		events.push(`delete:${name}`);
 		previews = previews.filter((preview) => preview.name !== name);
 	});
-	const options = { writeConfig, recovery: { management: { list, remove }, now: () => NOW } };
-	return { execution, events, spawn, sleep, writeConfig, list, remove, options };
+	const generateContent = vi.fn(() => {
+		events.push('content');
+	});
+	const options = {
+		writeConfig,
+		generateContent,
+		recovery: { management: { list, remove }, now: () => NOW }
+	};
+	return { execution, events, spawn, sleep, writeConfig, generateContent, list, remove, options };
 }

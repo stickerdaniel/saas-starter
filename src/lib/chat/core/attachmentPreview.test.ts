@@ -9,8 +9,8 @@ import {
 	MAX_PREVIEW_TEXT_CHARS
 } from './attachmentPreview.js';
 import { ALLOWED_FILE_EXT_MIME, ALLOWED_FILE_TYPES } from './types.js';
-import { isAllowedStorageUrl } from '../../convex/files/attachmentText.js';
-import { ALLOWED_MIME_TYPES } from '../../convex/files/upload.js';
+import { isAllowedStorageUrl } from '../../confect/files/attachmentText.js';
+import { ALLOWED_MIME_TYPES } from '../../confect/files/upload.js';
 
 describe('getExtension', () => {
 	it('returns the lowercased extension with dot', () => {

@@ -38,6 +38,7 @@ describe('deployment pipeline', () => {
 			'tolgee pull',
 			'bunx convex env set CAPABILITY_PROFILE production --prod',
 			'bunx convex env list --prod',
+			'content',
 			'bunx convex deploy',
 			'bunx convex run --deployment-name preview-backend aiChat/activityMigration:start',
 			'config',
@@ -63,6 +64,7 @@ describe('deployment pipeline', () => {
 		expect(h.events).toEqual([
 			'tolgee tag --filter-extracted --tag preview',
 			'tolgee pull',
+			'content',
 			'bunx convex deploy --preview-create current',
 			'bunx convex env set --deployment-name preview-backend CAPABILITY_PROFILE preview',
 			`bunx convex env set --deployment-name preview-backend SITE_URL ${SITE}`,
@@ -118,6 +120,7 @@ describe('deployment pipeline', () => {
 		await main(development.execution, development.options);
 		expect(development.events).toEqual([
 			'tolgee pull',
+			'content',
 			'bunx convex deploy',
 			'bunx convex run --deployment-name preview-backend aiChat/activityMigration:start',
 			'config',
@@ -128,6 +131,7 @@ describe('deployment pipeline', () => {
 		expect(unknown.events).toEqual([
 			'bunx convex env set CAPABILITY_PROFILE production --prod',
 			'bunx convex env list --prod',
+			'content',
 			'bunx convex deploy',
 			'bunx convex run --deployment-name preview-backend aiChat/activityMigration:start',
 			'config',
@@ -141,7 +145,11 @@ describe('deployment pipeline', () => {
 			CONVEX_DEPLOY_KEY: 'production-key'
 		});
 		await expect(main(h.execution, h.options)).rejects.toMatchObject({ code: 'configuration' });
-		expect(h.events).toEqual(['tolgee tag --filter-extracted --tag preview', 'tolgee pull']);
+		expect(h.events).toEqual([
+			'tolgee tag --filter-extracted --tag preview',
+			'tolgee pull',
+			'content'
+		]);
 		expect(console.error).not.toHaveBeenCalled();
 	});
 	it('rejects conflicting production origins before any remote work', async () => {

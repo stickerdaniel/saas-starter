@@ -29,6 +29,8 @@
 		"references/**",
 		"src/service-worker",
 		"packages/create-saas-starter/**",
-		"src/lib/convex/**"
+		"src/lib/convex/**",
+		"src/lib/confect/**",
+		"src/lib/convex-components/**"
 	]
 }

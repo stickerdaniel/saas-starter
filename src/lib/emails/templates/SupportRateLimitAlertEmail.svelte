@@ -4,7 +4,7 @@
 	import { EmailHead, EmailHeader, EmailFooter } from '#lib/emails/components/layout/index.js';
 
 	// All user-facing copy is passed in as props so the caller can resolve
-	// translated strings (see src/lib/convex/emails/templates.ts). English
+	// translated strings (see src/lib/confect/emails/templates.ts). English
 	// defaults keep the build-time preview rendering. The two meter widths are
 	// whole percents the caller computes from the sampled level, not from copy.
 	let {

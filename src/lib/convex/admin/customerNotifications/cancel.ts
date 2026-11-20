@@ -1,7 +1,7 @@
 import type { EmailId } from '@convex-dev/resend';
 import { v } from 'convex/values';
 import { internalMutation } from '../../_generated/server';
-import { resend } from '../../emails/resend';
+import { resend } from '../../../confect/emails/resend';
 
 /**
  * Cancel the admin customer emails the Resend component still holds; the founder

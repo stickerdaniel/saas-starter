@@ -897,7 +897,7 @@ describe('Knip static-check CLI behavior', { concurrent: false }, () => {
 			'docs/checkout-result.txt',
 			APP_TYPES
 		],
-		['deleting a Convex module', 'src/lib/convex/constants.ts', undefined, CONVEX_TYPES]
+		['deleting a Convex module', 'src/lib/confect/constants.ts', undefined, CONVEX_TYPES]
 	] as const)(
 		'fails a staged type run when %s breaks the project typecheck',
 		(_label, source, destination, typecheck) => {

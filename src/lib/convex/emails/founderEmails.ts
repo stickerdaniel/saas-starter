@@ -10,9 +10,13 @@ import {
 	type FounderRecipientSkipReason,
 	type FounderSender,
 	type SwitchableFounderEmail
-} from './founderEmailConfig';
-import { renderFounderEmail, renderFounderTemplate } from './founderTemplate';
-import { assertResendApiKey, getEmailDeliveryConfiguration, resend } from './resend';
+} from '../../confect/emails/founderEmailConfig';
+import { renderFounderEmail, renderFounderTemplate } from '../../confect/emails/founderTemplate';
+import {
+	assertResendApiKey,
+	getEmailDeliveryConfiguration,
+	resend
+} from '../../confect/emails/resend';
 
 /**
  * The personal founder emails beside the welcome, written like a hand-typed message

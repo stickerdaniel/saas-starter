@@ -10,7 +10,7 @@
 	import { ConvexError } from 'convex/values';
 	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
-	import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
+	import { isAnonymousUser } from '#lib/confect/utils/anonymousUser.js';
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';

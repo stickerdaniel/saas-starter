@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { internalMutation } from '../_generated/server';
 import type { QueryCtx } from '../_generated/server';
-import { FILE_ERROR_CODES, createFileError } from './errors';
+import { FILE_ERROR_CODES, createFileError } from '../../confect/files/errors';
 
 /**
  * Shared file metadata (image dimensions) used by both aiChat and support.

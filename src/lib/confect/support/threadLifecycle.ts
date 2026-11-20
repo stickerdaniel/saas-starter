@@ -1,0 +1,162 @@
+import type { Doc } from '../../convex/_generated/dataModel';
+import type { MutationCtx, QueryCtx } from '../../convex/_generated/server';
+import { components } from '../../convex/_generated/api';
+import { buildSupportMessageDenormalization, buildSupportSearchText } from './denormalization';
+import type { SupportLatestThreadMessage } from './denormalization';
+import { supportAgent } from './agent';
+import { ANONYMOUS_GLOBAL_RATE_LIMIT_KEY, supportRateLimiter } from './rateLimit';
+import { createRateLimitError } from './types';
+import { normalizeSupportPageRoute } from '../../shared/support-page-route';
+import { ensureCaptureStart } from '../admin/journey/capture';
+
+export async function limitSupportThreadCreate(
+	ctx: MutationCtx,
+	owner: { ownerId: string; isAnonymous: boolean }
+): Promise<void> {
+	const limitName = owner.isAnonymous ? 'supportThreadCreateAnon' : 'supportThreadCreate';
+	const key = owner.isAnonymous ? ANONYMOUS_GLOBAL_RATE_LIMIT_KEY : owner.ownerId;
+	const status = await supportRateLimiter.limit(ctx, limitName, { key });
+	if (!status.ok) {
+		// Anonymous callers share a global bucket, so exhaustion is high demand,
+		// not the visitor's own message rate.
+		throw createRateLimitError(status.retryAfter);
+	}
+}
+
+export async function getLatestCompletedThreadMessage(
+	ctx: QueryCtx,
+	threadId: string
+): Promise<SupportLatestThreadMessage | undefined> {
+	const messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
+		threadId,
+		order: 'desc',
+		statuses: ['success'],
+		excludeToolMessages: true,
+		paginationOpts: { numItems: 1, cursor: null }
+	});
+
+	return messages.page[0];
+}
+
+export async function getSupportOwnerProfile(
+	ctx: QueryCtx | MutationCtx,
+	resolvedUserId: string,
+	isAnonymous: boolean
+): Promise<{ userName?: string; userEmail?: string }> {
+	if (isAnonymous) {
+		return { userName: undefined, userEmail: undefined };
+	}
+
+	try {
+		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: '_id', operator: 'eq', value: resolvedUserId }],
+			select: ['name', 'email']
+		});
+		if (user) {
+			return { userName: user.name, userEmail: user.email };
+		}
+	} catch {
+		console.log({ code: 'support_user_unavailable', userId: resolvedUserId });
+	}
+
+	return { userName: undefined, userEmail: undefined };
+}
+
+export async function createSupportThreadRecord(
+	ctx: MutationCtx,
+	args: {
+		resolvedUserId: string;
+		isAnonymous: boolean;
+		title: string;
+		summary: string;
+		pageUrl?: string;
+		isWarm?: boolean;
+		awaitingAdminResponse: boolean;
+	}
+): Promise<{ threadId: string; notificationEmail?: string }> {
+	const { threadId } = await supportAgent.createThread(ctx, {
+		userId: args.resolvedUserId,
+		title: args.title,
+		summary: args.summary
+	});
+
+	const { userName, userEmail } = await getSupportOwnerProfile(
+		ctx,
+		args.resolvedUserId,
+		args.isAnonymous
+	);
+	const now = Date.now();
+
+	await ctx.db.insert('supportThreads', {
+		threadId,
+		userId: args.resolvedUserId,
+		isWarm: args.isWarm,
+		status: 'open',
+		// A thread with no message yet is not a ticket. The mode is latched on
+		// the first message instead, so an abandoned draft never reaches the
+		// admin lists, which select on this flag alone.
+		isHandedOff: false,
+		awaitingAdminResponse: args.awaitingAdminResponse,
+		assignedTo: undefined,
+		priority: undefined,
+		pageUrl: normalizeSupportPageRoute(args.pageUrl),
+		createdAt: now,
+		updatedAt: now,
+		notificationEmail: userEmail,
+		searchText: buildSupportSearchText({
+			title: args.title,
+			summary: args.summary,
+			userName,
+			userEmail
+		}),
+		title: args.title,
+		summary: args.summary,
+		lastMessage: undefined,
+		lastMessageAt: undefined,
+		lastMessageRole: undefined,
+		lastAgentName: undefined,
+		userName,
+		userEmail
+	});
+
+	return { threadId, notificationEmail: userEmail };
+}
+
+export async function syncSupportLastMessage(ctx: MutationCtx, threadId: string): Promise<void> {
+	const supportThread = await ctx.db
+		.query('supportThreads')
+		.withIndex('by_thread', (q) => q.eq('threadId', threadId))
+		.first();
+
+	if (!supportThread) {
+		console.log(`[syncLastMessage] No supportThread found for: ${threadId}`);
+		return;
+	}
+
+	const latestMessage = await getLatestCompletedThreadMessage(ctx, threadId);
+	const patch = buildSupportMessageDenormalization({
+		title: supportThread.title,
+		summary: supportThread.summary,
+		userName: supportThread.userName,
+		userEmail: supportThread.userEmail,
+		latestMessage
+	});
+
+	await ctx.db.patch('supportThreads', supportThread._id, { ...patch, updatedAt: Date.now() });
+}
+
+/**
+ * Record the owner's first contact in a thread: their first ordinary message
+ * or their handoff request. Callers have verified the owner, anonymous
+ * included. Set once and never overwritten, so later replies leave it alone.
+ */
+export async function recordFirstSupportContact(
+	ctx: MutationCtx,
+	supportThread: Doc<'supportThreads'>,
+	at: number
+): Promise<void> {
+	if (supportThread.firstUserMessageAt !== undefined) return;
+	await ctx.db.patch('supportThreads', supportThread._id, { firstUserMessageAt: at });
+	await ensureCaptureStart(ctx, 'support');
+}

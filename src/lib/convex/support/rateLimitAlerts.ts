@@ -2,8 +2,11 @@ import { v } from 'convex/values';
 import { calculateRateLimit, HOUR, MINUTE } from '@convex-dev/rate-limiter';
 import { internalMutation } from '../_generated/server';
 import { sendSupportRateLimitAlert } from '../emails/send';
-import { ANONYMOUS_GLOBAL_RATE_LIMIT_KEY, supportRateLimiter } from './rateLimit';
-import type { AnonymousRateLimitBucket } from './rateLimitAlertFields';
+import {
+	ANONYMOUS_GLOBAL_RATE_LIMIT_KEY,
+	supportRateLimiter
+} from '../../confect/support/rateLimit';
+import type { AnonymousRateLimitBucket } from '../../confect/support/rateLimitAlertFields';
 
 /**
  * Saturation alerts for the global anonymous support rate limits

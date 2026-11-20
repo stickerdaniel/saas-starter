@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { query } from './_generated/server';
-import { publicEndpoint } from './access';
-import { getCapabilityConfigurations } from './env';
+import { publicEndpoint } from '../confect/access';
+import { getCapabilityConfigurations } from '../confect/env';
 import { projectCapabilityUsability } from '../dev/features';
 
 const capabilityStatus = v.union(

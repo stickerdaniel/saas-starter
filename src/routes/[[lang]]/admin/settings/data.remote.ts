@@ -1,7 +1,7 @@
 import { form, getRequestEvent } from '$app/server';
 import { invalid } from '@sveltejs/kit';
 import { api } from '#lib/convex/_generated/api.js';
-import { NOTIFICATION_EMAIL_ALREADY_EXISTS } from '#lib/convex/admin/notificationPreferences/errors.js';
+import { NOTIFICATION_EMAIL_ALREADY_EXISTS } from '#lib/confect/admin/notificationPreferences/errors.js';
 import { createServerConvexHttpClient } from '#lib/server/convex-http.js';
 import { getConvexErrorCode } from '#lib/utils/convex-errors.js';
 import { addEmailSchema } from './email-schema';

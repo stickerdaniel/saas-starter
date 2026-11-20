@@ -6,14 +6,14 @@ import { internalAction, type ActionCtx } from '../_generated/server';
 import {
 	readCustomerBilling,
 	type CustomerBillingRead
-} from '../admin/customerNotifications/autumnRead';
-import { normalizeCustomerBilling } from '../admin/customerNotifications/billing';
+} from '../../confect/admin/customerNotifications/autumnRead';
+import { normalizeCustomerBilling } from '../../confect/admin/customerNotifications/billing';
 import type {
 	FounderCancellationBilling,
 	FounderFeedbackBilling,
 	FounderThread
 } from './founderEmails';
-import { getEmailDeliveryConfiguration, resend } from './resend';
+import { getEmailDeliveryConfiguration, resend } from '../../confect/emails/resend';
 
 /**
  * The provider half of the feedback and cancellation emails. Each action answers

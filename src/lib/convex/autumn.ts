@@ -2,7 +2,7 @@ import { Autumn } from '@useautumn/convex';
 import { components } from './_generated/api';
 import { authComponent } from './auth';
 import type { BillingConfiguration, CapabilityConfiguration } from '../dev/features';
-import { CapabilityConfigurationError, requireBillingConfiguration } from './env';
+import { CapabilityConfigurationError, requireBillingConfiguration } from '../confect/env';
 
 class GuardedAutumn extends Autumn {
 	override async getAuthParams(args: Parameters<Autumn['getAuthParams']>[0]) {

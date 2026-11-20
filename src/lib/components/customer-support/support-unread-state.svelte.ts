@@ -1,6 +1,6 @@
 import { useQuery } from 'convex-svelte';
 import { api } from '#lib/convex/_generated/api.js';
-import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
+import { isAnonymousUser } from '#lib/confect/utils/anonymousUser.js';
 import { supportUserId } from './support-user-id.svelte.ts';
 
 export function useSupportUnreadState() {

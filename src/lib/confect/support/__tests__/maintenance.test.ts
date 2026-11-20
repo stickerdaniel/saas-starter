@@ -1,0 +1,435 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../../convex/auth', () => ({
+	authComponent: {
+		getAuthUser: vi.fn(),
+		getAnyUserById: vi.fn()
+	}
+}));
+
+vi.mock('../agent', () => ({
+	supportAgent: {
+		updateThreadMetadata: vi.fn(),
+		deleteThreadAsync: vi.fn()
+	}
+}));
+
+vi.mock('../../../convex/_generated/api', () => ({
+	components: {
+		agent: {
+			threads: {
+				getThread: 'components.agent.threads.getThread'
+			},
+			messages: {
+				listMessagesByThreadId: 'components.agent.messages.listMessagesByThreadId'
+			}
+		},
+		betterAuth: {
+			adapter: {
+				findOne: 'components.betterAuth.adapter.findOne'
+			}
+		}
+	},
+	internal: {
+		support: {
+			threads: { syncUserProfile: 'internal.support.threads.syncUserProfile' }
+		}
+	}
+}));
+
+import { authComponent } from '../../../convex/auth';
+import { supportAgent } from '../agent';
+import { migrateAnonymousTickets } from '../../../convex/support/migration';
+import { backfillThreadMetadata, syncUserProfile } from '../../../convex/support/threads';
+
+const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
+const getAnyUserByIdMock = authComponent.getAnyUserById as unknown as ReturnType<typeof vi.fn>;
+const updateThreadMetadataMock = supportAgent.updateThreadMetadata as unknown as ReturnType<
+	typeof vi.fn
+>;
+const deleteThreadAsyncMock = supportAgent.deleteThreadAsync as unknown as ReturnType<typeof vi.fn>;
+
+type MutationHandler<TArgs, TResult> = {
+	_handler: (ctx: unknown, args: TArgs) => Promise<TResult>;
+};
+
+const backfillThreadMetadataHandler = backfillThreadMetadata as unknown as MutationHandler<
+	Record<string, never>,
+	{ updated: number; total: number }
+>;
+const migrateAnonymousTicketsHandler = migrateAnonymousTickets as unknown as MutationHandler<
+	{ anonymousUserId: string },
+	{ migratedCount: number }
+>;
+const syncUserProfileHandler = syncUserProfile as unknown as MutationHandler<
+	{ userId: string; userName?: string; userEmail?: string; cursor?: string; endCursor?: string },
+	null
+>;
+
+/**
+ * Serves `threads` in index order the way `.paginate()` does, one page per call.
+ * A range longer than `splitAbove` comes back incomplete with `SplitRequired`,
+ * as a page that hit `maximumBytesRead` does.
+ */
+function paginateOver<T>(threads: T[], splitAbove = Infinity) {
+	return vi.fn(
+		async ({
+			numItems,
+			cursor,
+			endCursor
+		}: {
+			numItems: number;
+			cursor: string | null;
+			endCursor?: string | null;
+		}) => {
+			const start = cursor === null ? 0 : Number(cursor);
+			const end =
+				endCursor == null ? Math.min(start + numItems, threads.length) : Number(endCursor);
+			if (end - start > splitAbove) {
+				return {
+					page: threads.slice(start, start + splitAbove),
+					isDone: false,
+					continueCursor: String(end),
+					pageStatus: 'SplitRequired' as const,
+					splitCursor: String(start + Math.floor((end - start) / 2))
+				};
+			}
+			return {
+				page: threads.slice(start, end),
+				isDone: end >= threads.length,
+				continueCursor: String(end)
+			};
+		}
+	);
+}
+
+function threadRows(count: number) {
+	return Array.from({ length: count }, (_, i) => ({ _id: `doc_${i}`, threadId: `thread_${i}` }));
+}
+
+/** Runs every scheduled continuation, including ones scheduled by a continuation. */
+async function drainScheduled(
+	runAfter: ReturnType<typeof vi.fn>,
+	ctx: unknown,
+	handlers: Record<string, MutationHandler<never, unknown>>
+) {
+	for (let i = 0; i < runAfter.mock.calls.length; i++) {
+		const [, ref, args] = runAfter.mock.calls[i] as [number, string, never];
+		await handlers[ref]._handler(ctx, args);
+	}
+}
+
+describe('support maintenance helpers', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('backfills support denormalized fields from the live user profile', async () => {
+		const collect = vi.fn().mockResolvedValue([
+			{
+				_id: 'support_doc_1',
+				threadId: 'thread_1',
+				userId: 'user_1',
+				userName: 'Ada Old',
+				userEmail: 'old@example.com'
+			},
+			{
+				_id: 'support_doc_anon',
+				threadId: 'thread_anon',
+				userId: 'anon_123'
+			}
+		]);
+		const patch = vi.fn().mockResolvedValue(undefined);
+		const runQuery = vi.fn(async (ref: string, args: { threadId?: string }) => {
+			if (ref === 'components.agent.threads.getThread') {
+				return { _id: args.threadId, title: 'Billing', summary: 'Upgrade issue' };
+			}
+			if (ref === 'components.betterAuth.adapter.findOne') {
+				return { name: 'Ada', email: 'ada@example.com' };
+			}
+			if (ref === 'components.agent.messages.listMessagesByThreadId') {
+				return {
+					page: [
+						{
+							text: 'Latest support reply',
+							_creationTime: 1234,
+							agentName: 'Kai',
+							message: { role: 'assistant' }
+						}
+					]
+				};
+			}
+			throw new Error(`Unexpected runQuery ref: ${ref}`);
+		});
+		const ctx = {
+			db: {
+				query: vi.fn(() => ({
+					collect
+				})),
+				patch
+			},
+			runQuery
+		};
+
+		const result = await backfillThreadMetadataHandler._handler(ctx, {});
+
+		expect(result).toEqual({ updated: 2, total: 2 });
+
+		// Authenticated thread: stale denormalized values are replaced by the live profile
+		expect(patch).toHaveBeenNthCalledWith(1, 'supportThreads', 'support_doc_1', {
+			title: 'Billing',
+			summary: 'Upgrade issue',
+			userName: 'Ada',
+			userEmail: 'ada@example.com',
+			lastMessage: 'Latest support reply',
+			lastMessageAt: 1234,
+			lastMessageRole: 'assistant',
+			lastAgentName: 'Kai',
+			searchText: 'billing | upgrade issue | latest support reply | ada | ada@example.com'
+		});
+
+		// Anonymous thread: no profile fetch, no identity in searchText
+		expect(patch).toHaveBeenNthCalledWith(2, 'supportThreads', 'support_doc_anon', {
+			title: 'Billing',
+			summary: 'Upgrade issue',
+			userName: undefined,
+			userEmail: undefined,
+			lastMessage: 'Latest support reply',
+			lastMessageAt: 1234,
+			lastMessageRole: 'assistant',
+			lastAgentName: 'Kai',
+			searchText: 'billing | upgrade issue | latest support reply'
+		});
+
+		const profileLookups = runQuery.mock.calls.filter(
+			([ref]) => ref === 'components.betterAuth.adapter.findOne'
+		);
+		expect(profileLookups).toHaveLength(1);
+		expect(profileLookups[0][1]).toEqual({
+			model: 'user',
+			where: [{ field: '_id', operator: 'eq', value: 'user_1' }],
+			select: ['name', 'email']
+		});
+	});
+
+	it('syncs denormalized profile fields across all threads of a user', async () => {
+		const paginate = paginateOver([
+			{
+				_id: 'support_doc_1',
+				title: 'Billing',
+				summary: 'Upgrade issue',
+				lastMessage: 'Latest support reply',
+				userName: 'Ada Old',
+				userEmail: 'old@example.com',
+				notificationEmail: 'custom@example.com',
+				updatedAt: 1000
+			},
+			{
+				_id: 'support_doc_2',
+				userName: 'Ada Old',
+				userEmail: 'old@example.com'
+			}
+		]);
+		const withIndex = vi.fn(() => ({ paginate }));
+		const patch = vi.fn().mockResolvedValue(undefined);
+		const runAfter = vi.fn().mockResolvedValue(undefined);
+		const ctx = {
+			db: {
+				query: vi.fn(() => ({ withIndex })),
+				patch
+			},
+			scheduler: { runAfter }
+		};
+
+		const result = await syncUserProfileHandler._handler(ctx, {
+			userId: 'user_1',
+			userName: 'Ada New',
+			userEmail: 'new@example.com'
+		});
+
+		expect(result).toBeNull();
+		// Exact patch objects: notificationEmail and updatedAt are intentionally untouched
+		expect(patch).toHaveBeenNthCalledWith(1, 'supportThreads', 'support_doc_1', {
+			userName: 'Ada New',
+			userEmail: 'new@example.com',
+			searchText: 'billing | upgrade issue | latest support reply | ada new | new@example.com'
+		});
+		expect(patch).toHaveBeenNthCalledWith(2, 'supportThreads', 'support_doc_2', {
+			userName: 'Ada New',
+			userEmail: 'new@example.com',
+			searchText: 'ada new | new@example.com'
+		});
+		expect(runAfter).not.toHaveBeenCalled();
+	});
+
+	it('syncs the profile past the first page through scheduled continuations', async () => {
+		const threads = threadRows(250);
+		const patch = vi.fn().mockResolvedValue(undefined);
+		const runAfter = vi.fn().mockResolvedValue(undefined);
+		const ctx = {
+			db: {
+				query: vi.fn(() => ({ withIndex: vi.fn(() => ({ paginate: paginateOver(threads) })) })),
+				patch
+			},
+			scheduler: { runAfter }
+		};
+		getAnyUserByIdMock.mockResolvedValue({ name: 'Ada New', email: 'new@example.com' });
+
+		await syncUserProfileHandler._handler(ctx, {
+			userId: 'user_1',
+			userName: 'Ada New',
+			userEmail: 'new@example.com'
+		});
+		// The trigger's own transaction stops after one page
+		expect(patch).toHaveBeenCalledTimes(100);
+
+		await drainScheduled(runAfter, ctx, {
+			'internal.support.threads.syncUserProfile': syncUserProfileHandler
+		});
+
+		expect(new Set(patch.mock.calls.map(([, id]) => id)).size).toBe(250);
+		for (const [, , fields] of patch.mock.calls) {
+			expect(fields).toMatchObject({ userName: 'Ada New', userEmail: 'new@example.com' });
+		}
+		expect(runAfter.mock.calls.map(([, , args]) => args.cursor)).toEqual(['100', '200']);
+	});
+
+	it('splits a page the byte cap left incomplete instead of skipping its threads', async () => {
+		const threads = threadRows(250);
+		const patch = vi.fn().mockResolvedValue(undefined);
+		const runAfter = vi.fn().mockResolvedValue(undefined);
+		const ctx = {
+			db: {
+				query: vi.fn(() => ({
+					withIndex: vi.fn(() => ({ paginate: paginateOver(threads, 60) }))
+				})),
+				patch
+			},
+			scheduler: { runAfter }
+		};
+		getAnyUserByIdMock.mockResolvedValue({ name: 'Ada New', email: 'new@example.com' });
+
+		await syncUserProfileHandler._handler(ctx, {
+			userId: 'user_1',
+			userName: 'Ada New',
+			userEmail: 'new@example.com'
+		});
+		// The incomplete page is not written; its two halves are scheduled instead
+		expect(patch).not.toHaveBeenCalled();
+		expect(runAfter.mock.calls.map(([, , args]) => [args.cursor, args.endCursor])).toEqual([
+			[undefined, '50'],
+			['50', undefined]
+		]);
+
+		await drainScheduled(runAfter, ctx, {
+			'internal.support.threads.syncUserProfile': syncUserProfileHandler
+		});
+
+		expect(new Set(patch.mock.calls.map(([, id]) => id)).size).toBe(250);
+		expect(patch).toHaveBeenCalledTimes(250);
+	});
+
+	it('stops a profile continuation once a newer profile has been saved', async () => {
+		const patch = vi.fn().mockResolvedValue(undefined);
+		const runAfter = vi.fn().mockResolvedValue(undefined);
+		const ctx = {
+			db: {
+				query: vi.fn(() => ({
+					withIndex: vi.fn(() => ({ paginate: paginateOver(threadRows(250)) }))
+				})),
+				patch
+			},
+			scheduler: { runAfter }
+		};
+		getAnyUserByIdMock.mockResolvedValue({ name: 'Ada Newer', email: 'new@example.com' });
+
+		await syncUserProfileHandler._handler(ctx, {
+			userId: 'user_1',
+			userName: 'Ada New',
+			userEmail: 'new@example.com',
+			cursor: '100'
+		});
+
+		expect(patch).not.toHaveBeenCalled();
+		expect(runAfter).not.toHaveBeenCalled();
+	});
+
+	it('migrates only supportThreads for an anonymous user', async () => {
+		getAuthUserMock.mockResolvedValue({
+			_id: 'user_1',
+			name: 'Ada',
+			email: 'ada@example.com'
+		});
+
+		const collect = vi.fn().mockResolvedValue([
+			{
+				_id: 'support_doc_1',
+				threadId: 'thread_support_1',
+				title: 'Billing',
+				summary: 'Upgrade issue',
+				lastMessage: 'Anon message',
+				notificationEmail: undefined
+			},
+			{
+				_id: 'support_doc_warm',
+				threadId: 'thread_support_warm',
+				isWarm: true,
+				notificationEmail: undefined
+			},
+			{
+				_id: 'support_doc_2',
+				threadId: 'thread_support_2',
+				notificationEmail: 'custom@example.com'
+			}
+		]);
+		const patch = vi.fn().mockResolvedValue(undefined);
+		const deleteDoc = vi.fn().mockResolvedValue(undefined);
+		const ctx = {
+			db: {
+				query: vi.fn(() => ({
+					withIndex: vi.fn(() => ({
+						collect
+					}))
+				})),
+				patch,
+				delete: deleteDoc
+			}
+		};
+
+		const result = await migrateAnonymousTicketsHandler._handler(ctx, {
+			anonymousUserId: 'anon_123'
+		});
+
+		expect(result).toEqual({ migratedCount: 2 });
+		expect(deleteThreadAsyncMock).toHaveBeenCalledWith(ctx, {
+			threadId: 'thread_support_warm'
+		});
+		expect(patch).not.toHaveBeenCalledWith('supportThreads', 'support_doc_warm', expect.anything());
+		expect(updateThreadMetadataMock).toHaveBeenCalledTimes(2);
+		expect(updateThreadMetadataMock).toHaveBeenNthCalledWith(1, ctx, {
+			threadId: 'thread_support_1',
+			patch: { userId: 'user_1' }
+		});
+		expect(updateThreadMetadataMock).toHaveBeenNthCalledWith(2, ctx, {
+			threadId: 'thread_support_2',
+			patch: { userId: 'user_1' }
+		});
+		expect(patch).toHaveBeenNthCalledWith(1, 'supportThreads', 'support_doc_1', {
+			userId: 'user_1',
+			userName: 'Ada',
+			userEmail: 'ada@example.com',
+			searchText: 'billing | upgrade issue | anon message | ada | ada@example.com',
+			notificationEmail: 'ada@example.com',
+			updatedAt: expect.any(Number)
+		});
+		expect(patch).toHaveBeenNthCalledWith(2, 'supportThreads', 'support_doc_2', {
+			userId: 'user_1',
+			userName: 'Ada',
+			userEmail: 'ada@example.com',
+			searchText: 'ada | ada@example.com',
+			notificationEmail: 'custom@example.com',
+			updatedAt: expect.any(Number)
+		});
+		expect(deleteDoc).toHaveBeenCalledWith('supportThreads', 'support_doc_warm');
+	});
+});

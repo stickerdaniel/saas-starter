@@ -6,14 +6,14 @@ This repository is a SaaS template built with SvelteKit, Svelte 5, Convex, Bette
 
 The nearest `AGENTS.md` owns task-specific guidance. Read the relevant file before editing that area:
 
-| Scope                             | Guidance                                                 |
-| --------------------------------- | -------------------------------------------------------- |
-| Application code                  | [`src/AGENTS.md`](./src/AGENTS.md)                       |
-| Routes, rendering, forms          | [`src/routes/AGENTS.md`](./src/routes/AGENTS.md)         |
-| Convex backend                    | [`src/lib/convex/AGENTS.md`](./src/lib/convex/AGENTS.md) |
-| E2E tests                         | [`e2e/AGENTS.md`](./e2e/AGENTS.md)                       |
-| Scripts, deployment, build guards | [`scripts/AGENTS.md`](./scripts/AGENTS.md)               |
-| Repository documentation          | [`docs/AGENTS.md`](./docs/AGENTS.md)                     |
+| Scope                             | Guidance                                                   |
+| --------------------------------- | ---------------------------------------------------------- |
+| Application code                  | [`src/AGENTS.md`](./src/AGENTS.md)                         |
+| Routes, rendering, forms          | [`src/routes/AGENTS.md`](./src/routes/AGENTS.md)           |
+| Convex backend                    | [`src/lib/confect/AGENTS.md`](./src/lib/confect/AGENTS.md) |
+| E2E tests                         | [`e2e/AGENTS.md`](./e2e/AGENTS.md)                         |
+| Scripts, deployment, build guards | [`scripts/AGENTS.md`](./scripts/AGENTS.md)                 |
+| Repository documentation          | [`docs/AGENTS.md`](./docs/AGENTS.md)                       |
 
 Skills hold dependency and workflow tutorials. Use the applicable skill instead of copying its contents into an instruction file.
 
@@ -150,10 +150,10 @@ Deployment is push-driven. Never run `convex deploy`, `wrangler deploy`, or the 
 
 Two Varlock schemas cover separate runtimes:
 
-| Schema               | Runtime                    | Generated types                  |
-| -------------------- | -------------------------- | -------------------------------- |
-| `.env.schema`        | SvelteKit / Worker / local | `src/varlock-env.d.ts`           |
-| `.env-convex.schema` | Convex backend             | `src/lib/convex/convex-env.d.ts` |
+| Schema               | Runtime                    | Generated types                   |
+| -------------------- | -------------------------- | --------------------------------- |
+| `.env.schema`        | SvelteKit / Worker / local | `src/varlock-env.d.ts`            |
+| `.env-convex.schema` | Convex backend             | `src/lib/confect/convex-env.d.ts` |
 
 Use `.env.local` for SvelteKit and `.env.convex.local` for the local Convex backend. Public browser variables must be declared `@public`; application code imports `PUBLIC_*` variables from `$app/env/public` after listing them in `src/env.ts`.
 

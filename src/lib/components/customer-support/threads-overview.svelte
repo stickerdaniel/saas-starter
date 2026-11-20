@@ -21,7 +21,7 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { avatarGroupHover } from '#lib/components/motion/avatar-group-hover.svelte.ts';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
+	import { isAnonymousUser } from '#lib/confect/utils/anonymousUser.js';
 	import { isSupportAiEnabled } from '#lib/config/support.js';
 	import { page } from '$app/state';
 	import { DEFAULT_LANGUAGE } from '#lib/i18n/languages.js';

@@ -36,6 +36,7 @@
 			"matchPackageNames": [
 				"!effect",
 				"!/^@effect//",
+				"!/^@confect//",
 				"!better-auth",
 				"!ai",
 				"!eslint",
@@ -57,6 +58,7 @@
 			"matchPackageNames": [
 				"!effect",
 				"!/^@effect//",
+				"!/^@confect//",
 				"!better-auth",
 				"!ai",
 				"!autumn-js",
@@ -176,6 +178,13 @@
 			"groupSlug": "effect"
 		},
 		{
+			"description": "Confect packages share one exact version: @confect/server, @confect/cli and @confect/test peer on the matching @confect/core. Every update lands as one reviewed branch that fixes its breaking changes and reruns the Convex suites.",
+			"matchPackageNames": ["/^@confect//"],
+			"rangeStrategy": "pin",
+			"groupName": "confect",
+			"groupSlug": "confect"
+		},
+		{
 			"description": "Suppress abandonment warnings for packages we keep intentionally. clsx and husky are stable/feature-complete, date-fns still ships fixes, vaul-svelte is stuck on 1.0.0-next.7 but has no viable Svelte 5 alternative, mode-watcher is dormant (last release 2025-06) but shallowly integrated with no active replacement; on the next Svelte major bump watch for the render_fn error (svecosystem/mode-watcher#161) and fall back to a ~50-line self-roll if it bites.",
 			"matchPackageNames": ["clsx", "date-fns", "husky", "mode-watcher", "vaul-svelte"],
 			"abandonmentThreshold": "10 years"
@@ -186,6 +195,7 @@
 			"matchPackageNames": [
 				"!effect",
 				"!/^@effect//",
+				"!/^@confect//",
 				"!/^better-auth$/",
 				"!/^@better-auth//",
 				"!/^@convex-dev/better-auth$/",

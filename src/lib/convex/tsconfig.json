@@ -26,6 +26,6 @@
 		"isolatedModules": true,
 		"noEmit": true
 	},
-	"include": ["./**/*"],
+	"include": ["./**/*", "../confect/**/*", "../convex-components/**/*"],
 	"exclude": ["./_generated"]
 }

@@ -53,6 +53,8 @@ describe('categoriesFor', () => {
 		expect(categoriesFor(['src/routes/layout.css'])).toEqual(['theme']);
 		expect(categoriesFor(['.github/workflows/ci.yml'])).toEqual(['env/deploy']);
 		expect(categoriesFor(['src/lib/convex/schema.ts'])).toEqual(['backend']);
+		expect(categoriesFor(['src/lib/confect/functions.ts'])).toEqual(['backend']);
+		expect(categoriesFor(['src/lib/convex-components/betterAuth/adapter.ts'])).toEqual(['backend']);
 		expect(categoriesFor(['e2e/login.spec.ts'])).toEqual(['tests']);
 		expect(categoriesFor(['package.json'])).toEqual(['config']);
 		expect(categoriesFor(['src/lib/config/legal.ts'])).toEqual(['branding']);

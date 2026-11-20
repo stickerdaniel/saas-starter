@@ -1,7 +1,10 @@
 import { mutation, query } from '../_generated/server';
 import { v } from 'convex/values';
-import { getSupportOwnerIdentity, requireSupportThreadRecord } from './ownership';
-import { publicEndpoint } from '../access';
+import {
+	getSupportOwnerIdentity,
+	requireSupportThreadRecord
+} from '../../confect/support/ownership';
+import { publicEndpoint } from '../../confect/access';
 
 /**
  * One past the largest number the badge spells out, so the query never scans

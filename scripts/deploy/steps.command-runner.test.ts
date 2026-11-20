@@ -154,7 +154,7 @@ describe.each(['aborted', 'timed_out'] as const)('pipeline %s propagation', (sto
 				runner: { spawn, createTimer, killProcessTree }
 			});
 			const writeConfig = vi.fn();
-			const pending = main(execution, { writeConfig });
+			const pending = main(execution, { writeConfig, generateContent: () => {} });
 			const rejected = expect(pending).rejects.toMatchObject({ code: stop });
 			await vi.waitFor(() => expect(spawn.mock.calls.some(([r]) => matches(r))).toBe(true));
 			const callsAtStop = spawn.mock.calls.length;

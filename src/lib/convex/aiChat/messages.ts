@@ -1,37 +1,37 @@
-import { getAiChatSidebarActivityAt } from './visibility';
+import { getAiChatSidebarActivityAt } from '../../confect/aiChat/visibility';
 import type { MessagesQueryResponse } from '../../chat/core/types';
 import { internalAction } from '../_generated/server';
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
-import { aiChatAgent } from './agent';
+import { aiChatAgent } from '../../confect/aiChat/agent';
 import { paginationOptsValidator } from 'convex/server';
 import { abortStream, getFile, saveMessages } from '@convex-dev/agent';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
 import type { UserContent } from 'ai';
-import { aiChatRateLimiter } from './rateLimit';
-import { listMessagesForThread } from '../support/messageListing';
-import { authedMutation, authedQuery } from '../functions';
+import { aiChatRateLimiter } from '../../confect/aiChat/rateLimit';
+import { listMessagesForThread } from '../../confect/support/messageListing';
+import { authedMutation, authedQuery } from '../../confect/functions';
 import { getFileMetadataByUrls } from '../files/metadata';
 import { checkAndCountUsage, refundUsage } from '../autumn';
-import { requireAiChatThreadRecord } from './ownership';
-import { createRateLimitError } from '../support/types';
-import { AI_CHAT_ERROR_CODES, createAiChatError } from './errors';
+import { requireAiChatThreadRecord } from '../../confect/aiChat/ownership';
+import { createRateLimitError } from '../../confect/support/types';
+import { AI_CHAT_ERROR_CODES, createAiChatError } from '../../confect/aiChat/errors';
 import {
 	AI_CHAT_GENERATION_FAILED_NOTICE,
 	AI_CHAT_LIMIT_NOTICE,
 	MAX_MESSAGE_LENGTH,
 	type AiChatNotice
-} from '../constants';
-import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
-import { makeAgentUsageSink } from '../aiUsage/agentUsage';
-import { ensureCaptureStart } from '../admin/journey/capture';
+} from '../../confect/constants';
+import { STREAM_DELTA_OPTIONS } from '../../confect/streamDeltas';
+import { makeAgentUsageSink } from '../../confect/aiUsage/agentUsage';
+import { ensureCaptureStart } from '../../confect/admin/journey/capture';
 import { recordAiUsage } from '../aiUsage/record';
 import {
 	CapabilityConfigurationError,
 	requireAiConfiguration,
 	requireBillingConfiguration
-} from '../env';
+} from '../../confect/env';
 import {
 	prepareToolErrorRedactionStep,
 	toolErrorRedactionTransform

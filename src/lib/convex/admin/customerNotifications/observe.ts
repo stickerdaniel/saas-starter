@@ -1,8 +1,8 @@
 import { Webhook } from 'svix';
 import { internal } from '../../_generated/api';
 import { env, httpAction } from '../../_generated/server';
-import { readCustomerBilling } from './autumnRead';
-import { normalizeCustomerBilling } from './billing';
+import { readCustomerBilling } from '../../../confect/admin/customerNotifications/autumnRead';
+import { normalizeCustomerBilling } from '../../../confect/admin/customerNotifications/billing';
 
 /**
  * The Autumn webhook (`/autumn-webhook`, delivered by Svix). A billing event

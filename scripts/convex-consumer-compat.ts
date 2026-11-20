@@ -56,9 +56,10 @@ import { isolatedGitEnv, sanitizedGitEnv } from './git-context';
 import ts = typescript;
 
 const CONVEX_ROOT = 'src/lib/convex';
-// App sources contribute direct and namespace-adapter references. Convex source
-// contributes scheduler targets because persisted runAfter/runAt jobs outlive
-// the deployment that created them.
+// App sources contribute direct and namespace-adapter references. Backend source,
+// the functions directory and the helpers beside it, contributes scheduler targets
+// because persisted runAfter/runAt jobs outlive the deployment that created them.
+const BACKEND_ROOTS = [CONVEX_ROOT, 'src/lib/confect'];
 const CONSUMER_ROOT = 'src';
 
 export type Reference = { identifier: string; visibility: Visibility; file: string };
@@ -479,7 +480,7 @@ function consumerReferencesAt(commit: string): ConsumerReferences {
 	const references: Reference[] = [];
 	const namespaces: NamespaceReference[] = [];
 	for (const { file, source } of consumerSourcesAt(commit)) {
-		if (file.startsWith(`${CONVEX_ROOT}/`)) {
+		if (BACKEND_ROOTS.some((root) => file.startsWith(`${root}/`))) {
 			references.push(...scheduledIdentifiersIn(source, file));
 			continue;
 		}

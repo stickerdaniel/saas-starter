@@ -2,8 +2,8 @@ import { v } from 'convex/values';
 import { components } from './_generated/api';
 import { internalMutation, type MutationCtx } from './_generated/server';
 import { createAuth } from './auth';
-import { readSeedUser, type SeedUser } from './betterAuth/seedUser';
-import { syncAdminPreferences } from './admin/notificationPreferences/helpers';
+import { readSeedUser, type SeedUser } from '../convex-components/betterAuth/seedUser';
+import { syncAdminPreferences } from '../confect/admin/notificationPreferences/helpers';
 
 function getRequiredLocalSeedEnv(name: string): string {
 	const value = process.env[name]?.trim();

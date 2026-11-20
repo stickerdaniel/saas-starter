@@ -4,7 +4,7 @@ import { clearPersistedChatState } from '#lib/chat/core/chat-persisted-state.js'
 import { getAuthErrorKey } from '#lib/utils/auth-messages.js';
 import { localizedHref } from '#lib/utils/i18n.js';
 import { normalizeSupportPageRoute } from '#lib/shared/support-page-route.js';
-import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
+import { isAnonymousUser } from '#lib/confect/utils/anonymousUser.js';
 import { adminReturnTarget, writeInvestigationReturn } from '#lib/admin/investigation-return.js';
 
 /**

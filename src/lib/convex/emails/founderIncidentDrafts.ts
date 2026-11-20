@@ -5,21 +5,21 @@ import {
 	enqueueFounderIncidentEmail,
 	findFounderIncidentEmail,
 	prepareFounderIncidentEmail
-} from './founderIncidentCore';
+} from '../../confect/emails/founderIncidentCore';
 import {
 	draftApprovalDigest,
 	renderDraftTemplate,
 	validateDraftEnvelope,
 	validateDraftIncident,
 	validateDraftTemplates
-} from './founderIncidentDraftContent';
-import { founderIncidentRegistry } from './founderIncidentRegistry';
+} from '../../confect/emails/founderIncidentDraftContent';
+import { founderIncidentRegistry } from '../../confect/emails/founderIncidentRegistry';
 import { resolveFounderIncidentContact } from './founderIncidentSend';
 import {
 	founderIncidentPreviewValidator,
 	founderIncidentQueueResultValidator,
 	founderIncidentTemplateValidator
-} from './founderIncidentTypes';
+} from '../../confect/emails/founderIncidentTypes';
 
 async function findDraft(ctx: QueryCtx, incident: string) {
 	validateDraftIncident(incident, founderIncidentRegistry);

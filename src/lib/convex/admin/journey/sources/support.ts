@@ -1,16 +1,16 @@
 import { v, type Infer } from 'convex/values';
 import { internal } from '../../../_generated/api';
 import { internalQuery } from '../../../_generated/server';
-import { t } from '../../../i18n/translations';
-import { createClock, formatCount } from '../format';
+import { t } from '../../../../confect/i18n/translations';
+import { createClock, formatCount } from '../../../../confect/admin/journey/format';
 import {
 	coverageValidator,
 	defineJourneySource,
 	journeyRequestFields,
 	type JourneySource,
 	type JourneyStep
-} from '../source';
-import { readCapture } from './partitions';
+} from '../../../../confect/admin/journey/source';
+import { readCapture } from '../../../../confect/admin/journey/sources/partitions';
 
 /**
  * First recorded support contacts: support threads whose owner first wrote

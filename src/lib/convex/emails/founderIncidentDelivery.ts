@@ -1,11 +1,11 @@
 import type { EmailEvent, EmailId } from '@convex-dev/resend';
 import { v } from 'convex/values';
 import { internalMutation, type MutationCtx } from '../_generated/server';
-import { resend } from './resend';
+import { resend } from '../../confect/emails/resend';
 import {
 	founderIncidentDeliveryStatusValidator,
 	type FounderIncidentDeliveryStatus
-} from './founderIncidentTypes';
+} from '../../confect/emails/founderIncidentTypes';
 
 const deliveryRank: Record<Exclude<FounderIncidentDeliveryStatus, 'unknown'>, number> = {
 	waiting: 0,

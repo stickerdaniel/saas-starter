@@ -2,18 +2,18 @@ import type { MessagesQueryResponse } from '../../../chat/core/types';
 import { v } from 'convex/values';
 import { components } from '../../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
-import { adminQuery } from '../../functions';
+import { adminQuery } from '../../../confect/functions';
 import {
 	SUPPORT_THREADS_PAGE_SIZE,
 	ADMIN_USERS_BATCH_SIZE,
 	SUPPORT_MESSAGE_ROUTES_LIMIT
-} from './constants';
-import { parseBetterAuthUsers } from '../types';
-import { isAnonymousUser } from '../../utils/anonymousUser';
+} from '../../../confect/admin/support/constants';
+import { parseBetterAuthUsers } from '../../../confect/admin/types';
+import { isAnonymousUser } from '../../../confect/utils/anonymousUser';
 import { vStreamArgs } from '@convex-dev/agent/validators';
-import { listMessagesForThread } from '../../support/messageListing';
-import { supportThreadFields } from '../../support/supportThreadFields';
-import { toAgentThreadStatus } from '../../support/denormalization';
+import { listMessagesForThread } from '../../../confect/support/messageListing';
+import { supportThreadFields } from '../../../confect/support/supportThreadFields';
+import { toAgentThreadStatus } from '../../../confect/support/denormalization';
 import { normalizeSupportAppVersion } from '../../../shared/support-app-version';
 import { normalizeSupportPageRoute } from '../../../shared/support-page-route';
 

@@ -144,7 +144,7 @@ function isShippedTextFile(file: string): boolean {
 	return (
 		/^src\/i18n\/[^/]+\.json$/.test(file) ||
 		/^src\/lib\/content\/.+\.(?:md|txt)$/.test(file) ||
-		file === 'src/lib/convex/support/instructions.txt' ||
+		file === 'src/lib/confect/support/instructions.txt' ||
 		file === 'src/app.html' ||
 		/^src\/.+\.svg$/.test(file) ||
 		/^static\/.+\.(?:txt|md|json|svg|webmanifest)$/.test(file)
@@ -691,7 +691,7 @@ function creatorPackageState(): 'present' | 'absent' {
 /**
  * Refuse a varlock install that bun.lock does not resolve. The SvelteKit sync step loads the
  * Vite config, whose varlock plugin rewrites the tracked `src/varlock-env.d.ts`, and postinstall
- * rewrites it and `src/lib/convex/convex-env.d.ts` the same way. Their bytes follow the varlock
+ * rewrites it and `src/lib/confect/convex-env.d.ts` the same way. Their bytes follow the varlock
  * version: 1.24.0 swapped the `// @ts-nocheck` and `/* eslint-disable *\/` header lines. CI
  * installs from bun.lock, so typings a stale install wrote fail its source identity check.
  * A project whose lockfile has no varlock entry has nothing to compare.
@@ -733,7 +733,10 @@ export const ROUTES = {
 		f === 'scripts/windows-job.ts',
 	'skill-types': (f: string) =>
 		f === '.agents/skills/tsconfig.json' || /^\.agents\/skills\/[^/]+\/scripts\/.+\.ts$/.test(f),
-	convex: (f: string) => f.startsWith('src/lib/convex/')
+	convex: (f: string) =>
+		f.startsWith('src/lib/convex/') ||
+		f.startsWith('src/lib/confect/') ||
+		f.startsWith('src/lib/convex-components/')
 } as const;
 
 /** The ignore files Prettier's CLI consults unless --ignore-path overrides them. */

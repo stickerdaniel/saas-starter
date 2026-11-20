@@ -3,7 +3,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import { getFunctionName, type FunctionReference } from 'convex/server';
 import { api } from '#lib/convex/_generated/api.js';
-import type { SwitchableFounderEmail } from '#lib/convex/emails/founderEmailConfig.js';
+import type { SwitchableFounderEmail } from '#lib/confect/emails/founderEmailConfig.js';
 import en from '../../../../i18n/en.json';
 
 vi.mock('svelte', () =>

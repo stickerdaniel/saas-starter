@@ -3,7 +3,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import { getFunctionName, type FunctionReference } from 'convex/server';
 import en from '../../../../i18n/en.json';
-import type { AdminUserData } from '#lib/convex/admin/types.js';
+import type { AdminUserData } from '#lib/confect/admin/types.js';
 import type { ActionEvent } from './data-table-actions.svelte';
 import type { PageData } from './$types';
 

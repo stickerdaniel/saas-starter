@@ -2,11 +2,11 @@ import { v, type Infer } from 'convex/values';
 import { internalMutation } from '../_generated/server';
 import type { ActionCtx } from '../_generated/server';
 import { internal } from '../_generated/api';
-import { costOf } from '../pricing/prices';
-import { sumOptional, type CapturedModelUsage } from './capture';
-import { aiUsageFeatureValidator } from './feature';
+import { costOf } from '../../confect/pricing/prices';
+import { sumOptional, type CapturedModelUsage } from '../../confect/aiUsage/capture';
+import { aiUsageFeatureValidator } from '../../confect/aiUsage/feature';
 
-export type { CapturedModelUsage } from './capture';
+export type { CapturedModelUsage } from '../../confect/aiUsage/capture';
 
 /** The LLM operations we meter. */
 export type Feature = Infer<typeof aiUsageFeatureValidator>;

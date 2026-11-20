@@ -1,17 +1,17 @@
 import { internalMutation, type MutationCtx } from '../_generated/server';
 import { components } from '../_generated/api';
 import { v } from 'convex/values';
-import type { BetterAuthUser } from './types';
-import { roleValidator } from './types';
-import { adminMutation } from '../functions';
+import type { BetterAuthUser } from '../../confect/admin/types';
+import { roleValidator } from '../../confect/admin/types';
+import { adminMutation } from '../../confect/functions';
 import { authComponent, createAuth } from '../auth';
 import {
 	syncAdminPreferences,
 	deactivateAdminPreferencesHelper
-} from './notificationPreferences/helpers';
-import { runAdminAuthApi } from './adminAuthErrors';
-import { ADMIN_ERROR_CODES, createAdminError } from './errors';
-import { incrementCounter } from './counters';
+} from '../../confect/admin/notificationPreferences/helpers';
+import { runAdminAuthApi } from '../../confect/admin/adminAuthErrors';
+import { ADMIN_ERROR_CODES, createAdminError } from '../../confect/admin/errors';
+import { incrementCounter } from '../../confect/admin/counters';
 
 /**
  * Helper to find a user by email from the BetterAuth component

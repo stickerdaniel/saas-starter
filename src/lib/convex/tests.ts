@@ -9,11 +9,11 @@ import {
 import { v, type Infer } from 'convex/values';
 import { createFunctionHandle } from 'convex/server';
 import type { Doc, Id } from './_generated/dataModel';
-import { supportAgent } from './support/agent';
-import { isAnonymousUser } from './utils/anonymousUser';
-import { incrementCounter, recalculateCounters } from './admin/counters';
-import { aiChatRateLimiter } from './aiChat/rateLimit';
-import { getAiChatSidebarActivityAt } from './aiChat/visibility';
+import { supportAgent } from '../confect/support/agent';
+import { isAnonymousUser } from '../confect/utils/anonymousUser';
+import { incrementCounter, recalculateCounters } from '../confect/admin/counters';
+import { aiChatRateLimiter } from '../confect/aiChat/rateLimit';
+import { getAiChatSidebarActivityAt } from '../confect/aiChat/visibility';
 
 /** Throws unless `secret` matches AUTH_E2E_TEST_SECRET, which only test environments set. */
 function requireTestSecret(secret: string): void {

@@ -7,16 +7,16 @@
 
 import { v } from 'convex/values';
 import * as val from 'valibot';
-import { adminMutation } from '../../functions';
+import { adminMutation } from '../../../confect/functions';
 import { internalMutation, type MutationCtx } from '../../_generated/server';
 import { components } from '../../_generated/api';
-import { syncAdminPreferences } from './helpers';
+import { syncAdminPreferences } from '../../../confect/admin/notificationPreferences/helpers';
 import { notificationToggleFieldValidator } from './queries';
 import {
 	NOTIFICATION_EMAIL_ALREADY_EXISTS,
 	NOTIFICATION_PREFERENCE_ERROR_CODES,
 	createNotificationPreferenceError
-} from './errors';
+} from '../../../confect/admin/notificationPreferences/errors';
 
 /**
  * Bulk toggles come from the selection on one table page, so a batch never

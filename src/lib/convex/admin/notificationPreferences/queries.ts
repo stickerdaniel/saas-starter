@@ -6,16 +6,19 @@
  */
 
 import { v, type Infer } from 'convex/values';
-import { adminQuery } from '../../functions';
+import { adminQuery } from '../../../confect/functions';
 import { internalQuery } from '../../_generated/server';
 import type { QueryCtx } from '../../_generated/server';
 import type { Doc } from '../../_generated/dataModel';
 import { components } from '../../_generated/api';
-import { isTestEmail } from '../../emails/helpers';
-import { MAX_RECIPIENTS, PREFERENCE_SCAN } from '../customerNotifications/policy';
-import { parseBetterAuthUsers } from '../types';
-import { resolveOffsetLastPage, sliceOffsetPage } from '../pagination';
-import { isPreviewAdminEmail } from './helpers';
+import { isTestEmail } from '../../../confect/emails/helpers';
+import {
+	MAX_RECIPIENTS,
+	PREFERENCE_SCAN
+} from '../../../confect/admin/customerNotifications/policy';
+import { parseBetterAuthUsers } from '../../../confect/admin/types';
+import { resolveOffsetLastPage, sliceOffsetPage } from '../../../confect/admin/pagination';
+import { isPreviewAdminEmail } from '../../../confect/admin/notificationPreferences/helpers';
 
 /**
  * Notification type validator for internal queries

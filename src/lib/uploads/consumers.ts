@@ -11,7 +11,7 @@
  * state that the chat models cannot read a PDF on their own.
  */
 
-import { AI_CHAT_MODEL_ID, SUPPORT_MODEL_ID } from '../convex/utils/chatModel';
+import { AI_CHAT_MODEL_ID, SUPPORT_MODEL_ID } from '../confect/utils/chatModel';
 import { mediaCategoryOf, MODEL_INPUT_MODALITIES } from './model-capabilities';
 import type { UploadProfileName } from './profiles';
 

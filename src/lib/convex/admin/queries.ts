@@ -1,18 +1,18 @@
 import { type QueryCtx } from '../_generated/server';
 import { components } from '../_generated/api';
 import { v } from 'convex/values';
-import type { AdminUserData, BetterAuthUser } from './types';
-import { adminUserDataValidator, parseBetterAuthUsers } from './types';
-import { adminQuery } from '../functions';
-import { getCounters } from './counters';
-import { resolveOffsetLastPage, sliceOffsetPage } from './pagination';
+import type { AdminUserData, BetterAuthUser } from '../../confect/admin/types';
+import { adminUserDataValidator, parseBetterAuthUsers } from '../../confect/admin/types';
+import { adminQuery } from '../../confect/functions';
+import { getCounters } from '../../confect/admin/counters';
+import { resolveOffsetLastPage, sliceOffsetPage } from '../../confect/admin/pagination';
 import {
 	applyUserSearch,
 	fetchAllUsersWithFilters,
 	DEFAULT_USER_SORT,
 	type AdapterWhereCondition,
 	type AdapterFindManyResult
-} from './userSearch';
+} from '../../confect/admin/userSearch';
 
 type ProviderFilter = 'credential' | 'google' | 'github' | 'passkey';
 

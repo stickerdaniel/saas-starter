@@ -1,10 +1,13 @@
 import { v } from 'convex/values';
 import { internal, components } from '../../_generated/api';
 import { saveMessage, getFile } from '@convex-dev/agent';
-import { adminMutation } from '../../functions';
-import { ADMIN_SUPPORT_ERROR_CODES, createAdminSupportError } from './errors';
+import { adminMutation } from '../../../confect/functions';
+import {
+	ADMIN_SUPPORT_ERROR_CODES,
+	createAdminSupportError
+} from '../../../confect/admin/support/errors';
 import { shouldSendNotification, syncSupportLastMessage } from '../../support/threads';
-import { MAX_MESSAGE_LENGTH } from '../../constants';
+import { MAX_MESSAGE_LENGTH } from '../../../confect/constants';
 import type { AssistantContent, TextPart, FilePart } from 'ai';
 
 const EMAIL_REPLY_PREVIEW_CHARACTERS = 200;

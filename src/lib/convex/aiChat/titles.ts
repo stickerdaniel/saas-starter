@@ -2,15 +2,15 @@ import { internalAction } from '../_generated/server';
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import { generateText } from 'ai';
-import { TITLE_MODEL_ID } from '../utils/chatModel';
+import { TITLE_MODEL_ID } from '../../confect/utils/chatModel';
 import { getAutumnSdk } from '../autumn';
-import { orModel, captureDirect } from '../aiUsage/capture';
+import { orModel, captureDirect } from '../../confect/aiUsage/capture';
 import { recordAiUsage } from '../aiUsage/record';
 import {
 	CapabilityConfigurationError,
 	requireAiConfiguration,
 	requireBillingConfiguration
-} from '../env';
+} from '../../confect/env';
 
 // Clamp the stored title; the sidebar span also CSS-truncates for display.
 const MAX_TITLE_LENGTH = 60;

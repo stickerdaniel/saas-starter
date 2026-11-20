@@ -2,15 +2,15 @@ import { v } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
 import { action, internalMutation } from '../_generated/server';
 import { components, internal } from '../_generated/api';
-import { aiChatRateLimiter } from './rateLimit';
+import { aiChatRateLimiter } from '../../confect/aiChat/rateLimit';
 import { authComponent } from '../auth';
-import { authedMutation } from '../functions';
-import { requireActionAccess } from '../access';
-import { fetchAttachmentText } from '../files/attachmentText';
-import { vGenerateUploadUrlResult } from '../files/validators';
-import { validateUploadBlob } from '../files/upload';
-import { releaseUploadStaging, UPLOAD_STAGING_TTL_MS } from '../files/staging';
-import { FILE_ERROR_CODES, createFileError } from '../files/errors';
+import { authedMutation } from '../../confect/functions';
+import { requireActionAccess } from '../../confect/access';
+import { fetchAttachmentText } from '../../confect/files/attachmentText';
+import { vGenerateUploadUrlResult } from '../../confect/files/validators';
+import { validateUploadBlob } from '../../confect/files/upload';
+import { releaseUploadStaging, UPLOAD_STAGING_TTL_MS } from '../../confect/files/staging';
+import { FILE_ERROR_CODES, createFileError } from '../../confect/files/errors';
 
 /**
  * Generate a URL for uploading files to Convex storage

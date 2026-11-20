@@ -4,13 +4,22 @@ import * as val from 'valibot';
 import { components, internal } from '../../_generated/api';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { env, internalMutation, type MutationCtx } from '../../_generated/server';
-import { readFounderEmailActiveSince } from '../../emails/founderEmailConfig';
+import { readFounderEmailActiveSince } from '../../../confect/emails/founderEmailConfig';
 import {
 	FOUNDER_CANCELLATION_DELAY_MS,
 	FOUNDER_CANCELLATION_MAX_OBSERVATION_AGE_MS
-} from '../../emails/helpers';
-import { paymentValidator, currentValidator, type Current, type Payment } from './billing';
-import { cancellationEpisode, newCustomerEpisode, newCustomerEpisodeKey } from './ledger';
+} from '../../../confect/emails/helpers';
+import {
+	paymentValidator,
+	currentValidator,
+	type Current,
+	type Payment
+} from '../../../confect/admin/customerNotifications/billing';
+import {
+	cancellationEpisode,
+	newCustomerEpisode,
+	newCustomerEpisodeKey
+} from '../../../confect/admin/customerNotifications/ledger';
 
 /**
  * Admission turns one observed billing read into ledger rows. Every webhook
