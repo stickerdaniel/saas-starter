@@ -16,6 +16,8 @@ export default {
 		// Scripts and test infrastructure
 		'eslint/shadcn-policy.js',
 		'scripts/*.ts',
+		// T0 spike runners, run by hand.
+		'scripts/spike/*.ts',
 		'e2e/**/*.ts',
 		// Loaded by the browser fixture checks through Vite's browser entry, not a static import.
 		'src/lib/components/tables/test-fixtures/TableScrollHarness.svelte',
