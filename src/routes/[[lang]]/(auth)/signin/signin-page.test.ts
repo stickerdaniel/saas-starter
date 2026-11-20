@@ -8,7 +8,7 @@
  * the destination the visitor asked for once it has been validated.
  * The Better Auth side of that contract runs against a real instance in
  * src/lib/utils/__tests__/callback-url.contract.test.ts and
- * src/lib/convex/__tests__/verificationRecovery.test.ts; this file observes what
+ * src/lib/confect/__tests__/verificationRecovery.test.ts; this file observes what
  * the page hands to it and where the page itself navigates.
  *
  * Better Auth, the session hook, and the shared auth-flow email are the only

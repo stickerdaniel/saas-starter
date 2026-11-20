@@ -114,7 +114,7 @@ describe('route predicates', () => {
 		expect(ROUTES['banned-patterns']('src/i18n/fr.json')).toBe(true);
 		expect(ROUTES['banned-patterns']('src/lib/content/legal/privacy.md')).toBe(true);
 		expect(ROUTES['banned-patterns']('src/lib/content/llms.txt')).toBe(true);
-		expect(ROUTES['banned-patterns']('src/lib/convex/support/instructions.txt')).toBe(true);
+		expect(ROUTES['banned-patterns']('src/lib/confect/support/instructions.txt')).toBe(true);
 		expect(ROUTES['banned-patterns']('src/app.html')).toBe(true);
 		expect(ROUTES['banned-patterns']('src/lib/components/desk-computer/desk-computer.svg')).toBe(
 			true
@@ -122,7 +122,7 @@ describe('route predicates', () => {
 		expect(ROUTES['banned-patterns']('static/manifest.webmanifest')).toBe(true);
 		expect(ROUTES['banned-patterns']('static/logo.svg')).toBe(true);
 		expect(ROUTES['banned-patterns']('src/lib/convex/tsconfig.json')).toBe(false);
-		expect(ROUTES['banned-patterns']('src/lib/convex/AGENTS.md')).toBe(false);
+		expect(ROUTES['banned-patterns']('src/lib/confect/AGENTS.md')).toBe(false);
 		expect(ROUTES['banned-patterns']('static/og-image.png')).toBe(false);
 	});
 
@@ -335,6 +335,17 @@ describe('route predicates', () => {
 		expect(ROUTES['svelte-check']('packages/create-saas-starter/src/index.ts')).toBe(false);
 		expect(ROUTES['cli-types']('packages/create-saas-starter/README.md')).toBe(false);
 		expect(ROUTES['cli-types']('scripts/static-checks.ts')).toBe(false);
+	});
+
+	it('routes the Convex functions, their helpers and the local components to check:convex', () => {
+		for (const file of [
+			'src/lib/convex/users.ts',
+			'src/lib/confect/functions.ts',
+			'src/lib/convex-components/betterAuth/adapter.ts'
+		]) {
+			expect(ROUTES.convex(file), file).toBe(true);
+		}
+		expect(ROUTES.convex('src/lib/server/auth-proxy.ts')).toBe(false);
 	});
 
 	it('routes every skill script through the shared skills project', () => {

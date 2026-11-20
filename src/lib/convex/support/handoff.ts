@@ -5,8 +5,8 @@ import type { PaginationResult } from 'convex/server';
 import type { MessageDoc } from '@convex-dev/agent/validators';
 import { components, internal } from '../_generated/api';
 import { syncSupportLastMessage } from './threads';
-import { supportAgent } from './agent';
-import { extractLocaleFromUrl, t } from '../i18n/translations';
+import { supportAgent } from '../../confect/support/agent';
+import { extractLocaleFromUrl, t } from '../../confect/i18n/translations';
 
 /**
  * Internal handoff used by the support agent's request_handoff tool

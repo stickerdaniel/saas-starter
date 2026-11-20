@@ -6,8 +6,8 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Switch } from '#lib/components/ui/switch/index.js';
 	import { toast } from 'svelte-sonner';
-	import type { SwitchableFounderEmail } from '#lib/convex/emails/founderEmailConfig.js';
-	import type { FounderTemplateVariables } from '#lib/convex/emails/founderTemplate.js';
+	import type { SwitchableFounderEmail } from '#lib/confect/emails/founderEmailConfig.js';
+	import type { FounderTemplateVariables } from '#lib/confect/emails/founderTemplate.js';
 	import FounderEmailDialog from './founder-email-dialog.svelte';
 	import FounderEmailStatus from './founder-email-status.svelte';
 

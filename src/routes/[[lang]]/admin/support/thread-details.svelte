@@ -5,7 +5,7 @@
 	import {
 		INTERNAL_NOTES_PAGE_SIZE,
 		INTERNAL_NOTE_TEXTAREA_ROWS
-	} from '#lib/convex/admin/support/constants.js';
+	} from '#lib/confect/admin/support/constants.js';
 	import * as Select from '#lib/components/ui/select/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';

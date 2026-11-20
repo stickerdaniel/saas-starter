@@ -12,6 +12,9 @@ export default {
 		// Convex backend: every export is an entry point consumed by the Convex runtime
 		'src/lib/convex/**/*.ts',
 		'!src/lib/convex/_generated/**',
+		// The local Better Auth component: Convex deploys every module in it as well
+		'src/lib/convex-components/betterAuth/**/*.ts',
+		'!src/lib/convex-components/betterAuth/_generated/**',
 
 		// Scripts and test infrastructure
 		'eslint/shadcn-policy.js',
@@ -72,7 +75,15 @@ export default {
 		// Dynamically loaded by Varlock's SvelteKit plugin for Cloudflare runtime injection.
 		'@varlock/cloudflare-integration',
 		// Required by patches/oxlint-plugin-convex@0.1.1.patch.
-		'@oxlint/plugins'
+		'@oxlint/plugins',
+		// The Confect toolchain, pinned with the peers it resolves against. No module imports
+		// it until the Convex functions are declared as Confect groups.
+		'@confect/core',
+		'@confect/server',
+		'@confect/cli',
+		'@confect/test',
+		'@effect/platform-node',
+		'@effect/platform-node-shared'
 	],
 	ignoreBinaries: [
 		// Windows process tree cleanup in scripts/dev-cloud.ts.

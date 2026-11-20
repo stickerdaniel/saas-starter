@@ -83,7 +83,7 @@ const CHECKER_TEMPLATE_FILES = [
 	'src/lib/convex/tsconfig.json',
 	'src/app.html',
 	'src/lib/billing/checkout-result.ts',
-	'src/lib/convex/constants.ts',
+	'src/lib/confect/constants.ts',
 	'static/favicon.ico'
 ];
 // Stand-ins for the application and documentation corpus. Full-project runs scan every

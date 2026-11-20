@@ -14,7 +14,7 @@ import { getChatSessionEpoch, isChatSessionCurrent } from '#lib/chat/core/chat-p
 import { StreamCacheManager } from '#lib/chat/core/stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from '#lib/chat/core/optimistic.js';
 import { CHAT_PAGE_SIZE } from '#lib/chat/core/types.js';
-import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
+import { isAnonymousUser } from '#lib/confect/utils/anonymousUser.js';
 import { isSupportAiEnabled } from '#lib/config/support.js';
 import { normalizeSupportPageRoute } from '#lib/shared/support-page-route.js';
 import type { SupportNavigationState } from './support-navigation-state.svelte.ts';

@@ -1,10 +1,10 @@
 import { mutation } from '../_generated/server';
 import { v } from 'convex/values';
-import { requireAuthUser } from '../authGuard';
-import { isAnonymousUser } from '../utils/anonymousUser';
-import { supportAgent } from './agent';
-import { buildSupportSearchText } from './denormalization';
-import { SUPPORT_ERROR_CODES, createSupportError } from './errors';
+import { requireAuthUser } from '../../confect/authGuard';
+import { isAnonymousUser } from '../../confect/utils/anonymousUser';
+import { supportAgent } from '../../confect/support/agent';
+import { buildSupportSearchText } from '../../confect/support/denormalization';
+import { SUPPORT_ERROR_CODES, createSupportError } from '../../confect/support/errors';
 
 /**
  * Migrate anonymous support tickets to an authenticated user account.

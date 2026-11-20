@@ -5,7 +5,7 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import * as Field from '#lib/components/ui/field/index.js';
-	import type { FounderTemplateVariables } from '#lib/convex/emails/founderTemplate.js';
+	import type { FounderTemplateVariables } from '#lib/confect/emails/founderTemplate.js';
 	import FounderBodyEditor from './founder-body-editor.svelte';
 
 	/**

@@ -16,7 +16,10 @@
 		type OrderedPart
 	} from './ordered-parts.js';
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
-	import { AI_CHAT_GENERATION_FAILED_NOTICE, AI_CHAT_LIMIT_NOTICE } from '#lib/convex/constants.js';
+	import {
+		AI_CHAT_GENERATION_FAILED_NOTICE,
+		AI_CHAT_LIMIT_NOTICE
+	} from '#lib/confect/constants.js';
 	import { getMessageProviderFlags } from '../core/provider-metadata.js';
 	import { getTranslate, T } from '@tolgee/svelte';
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';

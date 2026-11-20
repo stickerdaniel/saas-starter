@@ -12,8 +12,8 @@
 	import { safeParse } from 'valibot';
 	import { emailSchema } from '#lib/schemas/auth.js';
 	import { translateFormError } from '#lib/utils/validation-i18n.js';
-	import { FOUNDER_WELCOME_DEFAULTS } from '#lib/convex/emails/helpers.js';
-	import type { FounderTemplateVariables } from '#lib/convex/emails/founderTemplate.js';
+	import { FOUNDER_WELCOME_DEFAULTS } from '#lib/confect/emails/helpers.js';
+	import type { FounderTemplateVariables } from '#lib/confect/emails/founderTemplate.js';
 	import FounderEmailDialog from './founder-email-dialog.svelte';
 	import FounderEmailStatus from './founder-email-status.svelte';
 

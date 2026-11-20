@@ -1,6 +1,10 @@
 import { internal } from '../../../_generated/api';
 import { internalQuery } from '../../../_generated/server';
-import { defineJourneySource, journeyRequestFields, type JourneySource } from '../source';
+import {
+	defineJourneySource,
+	journeyRequestFields,
+	type JourneySource
+} from '../../../../confect/admin/journey/source';
 import {
 	partitionedFactsValidator,
 	partitionedSlots,
@@ -8,7 +12,7 @@ import {
 	readPartitioned,
 	type PartitionedCopy,
 	type PartitionedFacts
-} from './partitions';
+} from '../../../../confect/admin/journey/sources/partitions';
 
 /**
  * Community messages a user sent and kept: only messages the quota backstop

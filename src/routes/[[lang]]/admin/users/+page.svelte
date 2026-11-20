@@ -13,7 +13,7 @@
 	import { setUserActionHandler } from './user-actions-context';
 	import { adminCache } from '#lib/hooks/admin-cache.svelte.ts';
 	import type { PageData } from './$types';
-	import { type UserRole, type AdminUserData } from '#lib/convex/admin/types.js';
+	import { type UserRole, type AdminUserData } from '#lib/confect/admin/types.js';
 	import { createSvelteTable } from '#lib/components/ui/data-table/index.js';
 	import { createRowSelection } from '#lib/components/ui/data-table/row-selection.svelte.ts';
 	import ConvexCursorTableShell from '#lib/components/tables/convex-cursor-table-shell.svelte';

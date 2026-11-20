@@ -20,7 +20,7 @@
 		FOUNDER_TEMPLATE_VARIABLES,
 		renderFounderEmail,
 		type FounderTemplateVariables
-	} from '#lib/convex/emails/founderTemplate.js';
+	} from '#lib/confect/emails/founderTemplate.js';
 	import {
 		bodyFormats,
 		continueList,

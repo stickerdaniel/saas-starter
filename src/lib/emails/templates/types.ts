@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'svelte';
-import type { AnonymousRateLimitBucket } from '../../convex/support/rateLimitAlertFields';
+import type { AnonymousRateLimitBucket } from '../../confect/support/rateLimitAlertFields';
 import type VerificationEmail from './VerificationEmail.svelte';
 import type PasswordResetEmail from './PasswordResetEmail.svelte';
 import type AdminReplyNotificationEmail from './AdminReplyNotificationEmail.svelte';
@@ -8,7 +8,7 @@ import type NewUserSignupNotificationEmail from './NewUserSignupNotificationEmai
 import type SupportRateLimitAlertEmail from './SupportRateLimitAlertEmail.svelte';
 import type NewCustomerAdminNotificationEmail from './NewCustomerAdminNotificationEmail.svelte';
 import type CancellationAdminNotificationEmail from './CancellationAdminNotificationEmail.svelte';
-import type { ComposedJourney } from '../../convex/admin/customerNotifications/compose';
+import type { ComposedJourney } from '../../confect/admin/customerNotifications/compose';
 
 // Extract component prop types
 export type VerificationEmailProps = ComponentProps<typeof VerificationEmail>;

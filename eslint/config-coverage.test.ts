@@ -181,7 +181,7 @@ describe('no-literal-control-char coverage', () => {
 	// them would buy no coverage and add only unused-directive warnings.
 	it.each([
 		['Convex codegen output', 'src/lib/convex/_generated/api.js'],
-		['the varlock Convex env types', 'src/lib/convex/convex-env.d.ts']
+		['the varlock Convex env types', 'src/lib/confect/convex-env.d.ts']
 	])(
 		'leaves %s ignored, because its generator disables ESLint inside the file',
 		async (_label, file) => {

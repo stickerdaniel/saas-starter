@@ -1,12 +1,12 @@
 import { v } from 'convex/values';
 import { internalMutation } from '../_generated/server';
-import { authedQuery, authedMutation } from '../functions';
-import { aiChatAgent } from './agent';
+import { authedQuery, authedMutation } from '../../confect/functions';
+import { aiChatAgent } from '../../confect/aiChat/agent';
 import { components } from '../_generated/api';
-import { requireAiChatThreadRecord } from './ownership';
-import { getAiChatSidebarActivityAt } from './visibility';
-import { aiChatRateLimiter } from './rateLimit';
-import { createRateLimitError } from '../support/types';
+import { requireAiChatThreadRecord } from '../../confect/aiChat/ownership';
+import { getAiChatSidebarActivityAt } from '../../confect/aiChat/visibility';
+import { aiChatRateLimiter } from '../../confect/aiChat/rateLimit';
+import { createRateLimitError } from '../../confect/support/types';
 
 // aiChatThreads is the feature registry for AI chat access and sidebar state.
 // agent:threads remains generic conversation storage/runtime shared across features.

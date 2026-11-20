@@ -15,7 +15,7 @@
 	import { supportContext } from './support-context.svelte.ts';
 	import { CHAT_PAGE_SIZE, MAX_MESSAGE_LENGTH } from '#lib/chat/core/types.js';
 	import { getTranslate } from '@tolgee/svelte';
-	import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
+	import { isAnonymousUser } from '#lib/confect/utils/anonymousUser.js';
 	import {
 		getChatSessionEpoch,
 		isChatSessionCurrent,

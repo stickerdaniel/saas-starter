@@ -2,14 +2,14 @@ import { v } from 'convex/values';
 import { components } from '../../_generated/api';
 import { internalQuery } from '../../_generated/server';
 import type { QueryCtx } from '../../_generated/server';
-import { adminQuery } from '../../functions';
+import { adminQuery } from '../../../confect/functions';
 import {
 	readFounderEmailEnabledAt,
 	readFounderEmailTemplate,
 	readFounderSender,
 	readWelcomeTemplate,
 	type SwitchableFounderEmail
-} from '../../emails/founderEmailConfig';
+} from '../../../confect/emails/founderEmailConfig';
 
 export type FounderWelcomeConfig =
 	| {

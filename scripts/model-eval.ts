@@ -15,7 +15,7 @@
  *   bun run model:eval -- --json /tmp/eval.json        # also write raw results
  */
 import { writeFileSync } from 'node:fs';
-import { AI_CHAT_MODEL_ID } from '../src/lib/convex/utils/chatModel.ts';
+import { AI_CHAT_MODEL_ID } from '../src/lib/confect/utils/chatModel.ts';
 import {
 	checkCatalog,
 	checkImage,

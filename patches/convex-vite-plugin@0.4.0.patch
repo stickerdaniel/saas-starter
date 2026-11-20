@@ -5,12 +5,15 @@ diff --git a/node_modules/convex-vite-plugin/.bun-tag-f7bcc5c18e81cda6 b/.bun-ta
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
+index a2446d37d147b021fb5315b9d3ffbd9e5f0e8ca0..3550d8fde699fb3ed951acf73adb2936a7d4a267 100644
 --- a/dist/backend-CgypcZjo.mjs
 +++ b/dist/backend-CgypcZjo.mjs
-@@ -321,14 +321,39 @@
+@@ -321,14 +321,40 @@ async function waitForHttpOk(url, timeoutMs = 3e4) {
  		attempts++;
  	}
  }
+-async function fetchConvexReleases() {
+-	const url = "https://api.github.com/repos/get-convex/convex-backend/releases?per_page=50";
 +const TRANSIENT_DOWNLOAD_STATUSES = /* @__PURE__ */ new Set([408, 409, 429]);
 +const DOWNLOAD_MAX_ATTEMPTS = 3;
 +var DownloadHttpError = class extends Error {
@@ -30,8 +33,8 @@ diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
 +async function waitForDownloadRetry(attempt) {
 +	await new Promise((resolve) => setTimeout(resolve, attempt * 1e3));
 +}
- async function fetchConvexReleases() {
- 	const url = "https://api.github.com/repos/get-convex/convex-backend/releases?per_page=50";
++async function fetchConvexReleases(version) {
++	const url = version ? `https://api.github.com/repos/get-convex/convex-backend/releases/tags/${encodeURIComponent(version)}` : "https://api.github.com/repos/get-convex/convex-backend/releases?per_page=50";
  	const headers = {};
  	const githubToken = process.env.GITHUB_TOKEN;
  	if (githubToken) headers["Authorization"] = `Bearer ${githubToken}`;
@@ -41,7 +44,8 @@ diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
 +	for (let attempt = 1; attempt <= DOWNLOAD_MAX_ATTEMPTS; attempt++) try {
 +		const response = await fetch(url, { headers });
 +		if (!response.ok) throw new DownloadHttpError(`Failed to fetch releases: ${response.status}`, response.status);
-+		return await response.json();
++		const body = await response.json();
++		return Array.isArray(body) ? body : [body];
 +	} catch (error) {
 +		if (!isTransientDownloadError(error) || attempt === DOWNLOAD_MAX_ATTEMPTS) throw error;
 +		await waitForDownloadRetry(attempt);
@@ -50,7 +54,7 @@ diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
  }
  function getPlatformTarget() {
  	const arch = process.arch === "x64" ? "x86_64" : process.arch === "arm64" ? "aarch64" : process.arch;
-@@ -357,14 +382,36 @@
+@@ -357,14 +383,39 @@ function findAsset(releases, target, version) {
  	}
  	throw new Error(`No Convex binary asset matches '${target}'`);
  }
@@ -59,6 +63,9 @@ diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
 -		headers: { "User-Agent": "node" },
 +function isRateLimitExhausted(response) {
 +	return (response.status === 403 || response.status === 429) && response.headers.get("x-ratelimit-remaining") === "0";
++}
++async function fileSha256(filePath) {
++	return crypto.createHash("sha256").update(await fsp.readFile(filePath)).digest("hex");
 +}
 +async function downloadFile(asset, destPath) {
 +	const headers = {
@@ -93,7 +100,7 @@ diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
  }
  function extractZip(zipPath, destDir) {
  	return new Promise((resolve, reject) => {
-@@ -376,7 +423,7 @@
+@@ -376,7 +427,7 @@ function extractZip(zipPath, destDir) {
  		];
  		ChildProcess$1.spawn("unzip", args, { stdio: "ignore" }).on("error", reject).on("exit", (code) => {
  			if (code === 0) resolve();
@@ -102,11 +109,29 @@ diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
  		});
  	});
  }
-@@ -436,17 +483,39 @@
+@@ -428,7 +479,15 @@ async function downloadConvexBinary(options, logger) {
+ 		const cachedBinary = findCachedBinary(binaryDir, cacheTtlMs);
+ 		if (cachedBinary) return cachedBinary;
+ 	}
+-	const { asset, version } = findAsset(await fetchConvexReleases(), target, options.version);
++	if (options.version) {
++		const pinnedPath = path.join(binaryDir, `convex-local-backend-${options.version}${isWindows ? ".exe" : ""}`);
++		if (fs.existsSync(pinnedPath)) {
++			const now = /* @__PURE__ */ new Date();
++			fs.utimesSync(pinnedPath, now, now);
++			return pinnedPath;
++		}
++	}
++	const { asset, version } = findAsset(await fetchConvexReleases(options.version), target, options.version);
+ 	const binaryName = `convex-local-backend-${version}${isWindows ? ".exe" : ""}`;
+ 	const binaryPath = path.join(binaryDir, binaryName);
+ 	if (fs.existsSync(binaryPath)) {
+@@ -436,17 +495,42 @@ async function downloadConvexBinary(options, logger) {
  		fs.utimesSync(binaryPath, now, now);
  		return binaryPath;
  	}
 -	const zipPath = path.join(binaryDir, asset.name);
++	if (options.version && !asset.digest) throw new Error(`Convex backend ${version} publishes no SHA-256 digest for ${asset.name}; a pinned version downloads only a verified archive`);
  	logger.info(`Downloading Convex backend ${version}...`, { timestamp: true });
 -	await downloadFile(asset.browser_download_url, zipPath);
 -	logger.info(`Downloaded: ${asset.name}`, { timestamp: true });
@@ -134,6 +159,8 @@ diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
 +			} catch (error) {
 +				const published = await fsp.stat(binaryPath).catch(() => null);
 +				if (!published?.isFile()) throw error;
++				const [ours, theirs] = await Promise.all([fileSha256(extracted), fileSha256(binaryPath)]);
++				if (ours !== theirs) throw new Error(`${binaryPath} differs from the verified ${asset.name} of Convex backend ${version}`);
 +			}
 +			logger.info(`Binary ready at: ${binaryPath}`, { timestamp: true });
 +			return binaryPath;
@@ -152,60 +179,115 @@ diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
  }
  
  //#endregion
-@@ -567,0 +637,3 @@
+@@ -565,6 +649,9 @@ var ConvexBackend = class {
+ 			cwd: backendDir,
+ 			stdio: this.stdio
+ 		});
 +		this.process.on("error", (error) => {
 +			this.logger.error(`Convex backend process failed to start: ${error instanceof Error ? error.message : String(error)}`, { timestamp: true });
 +		});
-@@ -579,2 +651,2 @@
+ 		if (!this.process.pid) throw new Error("Convex process failed to start - no PID assigned");
+ 		this.logger.info(`Backend spawned on port ${this.port} (waiting for ready...)`, { timestamp: true });
+ 	}
+@@ -576,8 +663,8 @@ var ConvexBackend = class {
+ 		await this.healthCheck();
+ 		this.logger.info("Backend ready", { timestamp: true });
+ 		this.logger.info(`  Instance name:   ${this.instanceName}`, { timestamp: true });
 -		this.logger.info(`  Instance secret: ${this.instanceSecret}`, { timestamp: true });
 -		this.logger.info(`  Admin key:       ${this.adminKey}`, { timestamp: true });
 +		this.logger.info(`  Instance secret: [REDACTED]`, { timestamp: true });
 +		this.logger.info(`  Admin key:       [REDACTED]`, { timestamp: true });
+ 		this.logger.info(`  Backend URL:     ${this.backendUrl}`, { timestamp: true });
+ 	}
+ 	/**
 diff --git a/dist/index.d.mts b/dist/index.d.mts
+index f94f821bfc625a3d896c5c1c779c42ea52bc039d..73889386d9fdac5d93daaaf810c2a24c663018a1 100644
 --- a/dist/index.d.mts
 +++ b/dist/index.d.mts
-@@ -38,0 +39 @@
+@@ -36,11 +36,12 @@ interface ConvexLocalOptions {
+   /**
+    * Environment variables to set on the backend.
+    * Can be a static object or a function that receives info about the Vite dev server.
 +   * Null values are removed after the initial deploy succeeds.
-@@ -40 +41 @@
+    */
 -  envVars?: Record<string, string> | ((info: {
 +  envVars?: Record<string, string | null> | ((info: {
-@@ -43 +44 @@
+     vitePort: number;
+     resolvedUrls: ResolvedServerUrls | null;
 -  }) => Record<string, string> | Promise<Record<string, string>>) | undefined;
 +  }) => Record<string, string | null> | Promise<Record<string, string | null>>) | undefined;
+   /** File watching configuration */
+   watch?: {
+     /** Glob patterns to watch (defaults to <convexDir>/*.ts and <convexDir>/**\/*.ts) */
 diff --git a/dist/index.mjs b/dist/index.mjs
+index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..66f05c5ada241281c58f5acc4fab1f8801e55fc5 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
-@@ -71 +71 @@
+@@ -68,23 +68,25 @@ function convexLocal(options = {}) {
+ 	const deploy = () => {
+ 		if (!backend?.port) {
+ 			logger.warn("Cannot deploy: backend not running", { timestamp: true });
 -			return;
 +			return false;
-@@ -75 +75 @@
+ 		}
+ 		if (isDeploying) {
+ 			pendingDeploy = true;
 -			return;
 +			return false;
-@@ -81,0 +82 @@
+ 		}
+ 		isDeploying = true;
+ 		logger.info("Deploying...", { timestamp: true });
+ 		try {
+ 			backend.deploy();
+ 			logger.info("Deploy successful", { timestamp: true });
 +			return true;
-@@ -87,0 +89 @@
+ 		} catch (error) {
+ 			const errMsg = error instanceof Error ? error.message : String(error);
+ 			logger.error(`Deploy failed: ${errMsg}`, {
+ 				timestamp: true,
+ 				...error instanceof Error && { error }
+ 			});
 +			return false;
-@@ -203,0 +206 @@
+ 		} finally {
+ 			isDeploying = false;
+ 			if (pendingDeploy) {
+@@ -201,17 +203,26 @@ function convexLocal(options = {}) {
+ 						await backend.spawn(backendDir);
+ 						runningBackend = backend;
+ 						await backend.waitForReady();
 +						const envVarsToRemove = [];
-@@ -209,0 +213,4 @@
+ 						if (options.envVars) {
+ 							const envVars = typeof options.envVars === "function" ? await options.envVars({
+ 								vitePort,
+ 								resolvedUrls
+ 							}) : options.envVars;
+ 							for (const [name, value] of Object.entries(envVars)) {
 +								if (value === null) {
 +									envVarsToRemove.push(name);
 +									continue;
 +								}
-@@ -211 +218 @@
+ 								await backend.setEnv(name, value);
 -								logger.info(`Set environment variable: ${name} = ${value}`, { timestamp: true });
 +								logger.info(`Set environment variable: ${name} = [REDACTED]`, { timestamp: true });
-@@ -214 +221,5 @@
+ 							}
+ 						}
 -						deploy();
 +						const initialDeploySucceeded = deploy();
 +						if (initialDeploySucceeded) for (const name of envVarsToRemove) {
 +							await backend.setEnv(name, null);
 +							logger.info(`Removed environment variable: ${name}`, { timestamp: true });
 +						}
+ 						if (options.onReady && options.onReady.length > 0) {
+ 							logger.info(`Running ${options.onReady.length} startup function(s)...`, { timestamp: true });
+ 							for (const fn of options.onReady) try {
 diff --git a/src/backend.ts b/src/backend.ts
+index 27271554f6ed8c2c8aba185bbb62f8a16c7e8c7d..394ad068a44c40b43f361a1cedd7e435a2219c7a 100644
 --- a/src/backend.ts
 +++ b/src/backend.ts
-@@ -182,0 +183,12 @@
+@@ -180,6 +180,18 @@ export class ConvexBackend {
+       },
+     );
+ 
 +    // A failed exec leaves pid undefined, so the check below already rejects
 +    // spawn() and reports the failure. What it does not stop is the 'error'
 +    // event that lands afterwards: with no listener Node prints the whole error
@@ -218,53 +300,111 @@ diff --git a/src/backend.ts b/src/backend.ts
 +      );
 +    });
 +
-@@ -201,2 +213,2 @@
+     if (!this.process.pid) {
+       throw new Error("Convex process failed to start - no PID assigned");
+     }
+@@ -198,8 +210,8 @@ export class ConvexBackend {
+ 
+     this.logger.info("Backend ready", { timestamp: true });
+     this.logger.info(`  Instance name:   ${this.instanceName}`, { timestamp: true });
 -    this.logger.info(`  Instance secret: ${this.instanceSecret}`, { timestamp: true });
 -    this.logger.info(`  Admin key:       ${this.adminKey}`, { timestamp: true });
 +    this.logger.info(`  Instance secret: [REDACTED]`, { timestamp: true });
 +    this.logger.info(`  Admin key:       [REDACTED]`, { timestamp: true });
-@@ -263 +275 @@
+     this.logger.info(`  Backend URL:     ${this.backendUrl}`, { timestamp: true });
+   }
+ 
+@@ -260,7 +272,7 @@ export class ConvexBackend {
+   /**
+    * Set an environment variable on the backend.
+    */
 -  async setEnv(name: string, value: string): Promise<void> {
 +  async setEnv(name: string, value: string | null): Promise<void> {
+     if (!this.port) throw new Error("Backend not started");
+ 
+     const backendUrl = `http://localhost:${this.port}`;
 diff --git a/src/index.ts b/src/index.ts
+index 9ed17e6d7512b75cce299b04e762380e6636a2d3..53b2e620fe4bf90c2a2d62daefcbc7fc9be3244f 100644
 --- a/src/index.ts
 +++ b/src/index.ts
-@@ -85,0 +86 @@
+@@ -83,13 +83,14 @@ export interface ConvexLocalOptions {
+   /**
+    * Environment variables to set on the backend.
+    * Can be a static object or a function that receives info about the Vite dev server.
 +   * Null values are removed after the initial deploy succeeds.
-@@ -88 +89 @@
+    */
+   envVars?:
 -    | Record<string, string>
 +    | Record<string, string | null>
-@@ -92 +93 @@
+     | ((info: {
+         vitePort: number;
+         resolvedUrls: ResolvedServerUrls | null;
 -      }) => Record<string, string> | Promise<Record<string, string>>)
 +      }) => Record<string, string | null> | Promise<Record<string, string | null>>)
-@@ -186 +187 @@
+     | undefined;
+   /** File watching configuration */
+   watch?:
+@@ -183,15 +184,15 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+     return matches && !ignored;
+   };
+ 
 -  const deploy = (): void => {
 +  const deploy = (): boolean => {
-@@ -189 +190 @@
+     if (!backend?.port) {
+       logger.warn("Cannot deploy: backend not running", { timestamp: true });
 -      return;
 +      return false;
-@@ -194 +195 @@
+     }
+ 
+     if (isDeploying) {
+       pendingDeploy = true;
 -      return;
 +      return false;
-@@ -202,0 +204 @@
+     }
+ 
+     isDeploying = true;
+@@ -200,12 +201,14 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+     try {
+       backend.deploy();
+       logger.info("Deploy successful", { timestamp: true });
 +      return true;
-@@ -208,0 +211 @@
+     } catch (error) {
+       const errMsg = error instanceof Error ? error.message : String(error);
+       logger.error(`Deploy failed: ${errMsg}`, {
+         timestamp: true,
+         ...(error instanceof Error && { error }),
+       });
 +      return false;
-@@ -376 +379,4 @@
+     } finally {
+       isDeploying = false;
+       if (pendingDeploy) {
+@@ -373,7 +376,10 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+             // Wait for backend to be ready before making API calls
+             await backend.waitForReady();
+ 
 -            // Set user-provided env vars
 +            // Set non-null env vars before deploy so the current definition can boot.
 +            // Removals wait until the new definition has deployed successfully because
 +            // a persisted backend may still require those variables until then.
 +            const envVarsToRemove: string[] = [];
-@@ -383,0 +390,4 @@
+             if (options.envVars) {
+               const envVars =
+                 typeof options.envVars === "function"
+@@ -381,13 +387,23 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+                   : options.envVars;
+ 
+               for (const [name, value] of Object.entries(envVars)) {
 +                if (value === null) {
 +                  envVarsToRemove.push(name);
 +                  continue;
 +                }
-@@ -385 +395 @@
+                 await backend.setEnv(name, value);
 -                logger.info(`Set environment variable: ${name} = ${value}`, { timestamp: true });
 +                logger.info(`Set environment variable: ${name} = [REDACTED]`, { timestamp: true });
-@@ -390 +400,7 @@
+               }
+             }
+ 
+             // Initial deploy
 -            deploy();
 +            const initialDeploySucceeded = deploy();
 +            if (initialDeploySucceeded) {
@@ -273,10 +413,14 @@ diff --git a/src/index.ts b/src/index.ts
 +                logger.info(`Removed environment variable: ${name}`, { timestamp: true });
 +              }
 +            }
+ 
+             // Run onReady functions (e.g., seed scripts)
+             if (options.onReady && options.onReady.length > 0) {
 diff --git a/src/utils.ts b/src/utils.ts
+index 7e3dd778e873f678e33b89c3bb16e9fb09c84b79..2492ed687f93d21d65758aff7b90cbbbc7737f2e 100644
 --- a/src/utils.ts
 +++ b/src/utils.ts
-@@ -181,9 +181,46 @@
+@@ -181,13 +181,53 @@ export function onProcessExit(handler: () => Promise<void>): void {
    });
  }
  
@@ -323,8 +467,17 @@ diff --git a/src/utils.ts b/src/utils.ts
 +  await new Promise((resolve) => setTimeout(resolve, attempt * 1_000));
  }
  
- async function fetchConvexReleases(): Promise<GitHubRelease[]> {
-@@ -195,12 +232,24 @@
+-async function fetchConvexReleases(): Promise<GitHubRelease[]> {
+-  const url = "https://api.github.com/repos/get-convex/convex-backend/releases?per_page=50";
++async function fetchConvexReleases(version?: string): Promise<GitHubRelease[]> {
++  // A pinned version is read by its tag: the listing holds only the 50 newest releases.
++  const url = version
++    ? `https://api.github.com/repos/get-convex/convex-backend/releases/tags/${encodeURIComponent(version)}`
++    : "https://api.github.com/repos/get-convex/convex-backend/releases?per_page=50";
+   const headers: HeadersInit = {};
+ 
+   const githubToken = process.env.GITHUB_TOKEN;
+@@ -195,12 +235,25 @@ async function fetchConvexReleases(): Promise<GitHubRelease[]> {
      headers["Authorization"] = `Bearer ${githubToken}`;
    }
  
@@ -341,7 +494,8 @@ diff --git a/src/utils.ts b/src/utils.ts
 +        );
 +      }
 +      // Awaited here so a body that fails mid-read is retried too.
-+      return await response.json();
++      const body: GitHubRelease | GitHubRelease[] = await response.json();
++      return Array.isArray(body) ? body : [body];
 +    } catch (error) {
 +      if (!isTransientDownloadError(error) || attempt === DOWNLOAD_MAX_ATTEMPTS) throw error;
 +      await waitForDownloadRetry(attempt);
@@ -353,7 +507,7 @@ diff --git a/src/utils.ts b/src/utils.ts
  }
  
  function getPlatformTarget(): string {
-@@ -219,7 +268,7 @@
+@@ -219,7 +272,7 @@ function findAsset(
    target: string,
    version?: string,
  ): {
@@ -362,7 +516,7 @@ diff --git a/src/utils.ts b/src/utils.ts
    version: string;
  } {
    // If a specific version is requested, find that release
-@@ -243,18 +292,52 @@
+@@ -243,18 +296,56 @@ function findAsset(
    throw new Error(`No Convex binary asset matches '${target}'`);
  }
  
@@ -377,14 +531,16 @@ diff --git a/src/utils.ts b/src/utils.ts
 +    response.headers.get("x-ratelimit-remaining") === "0"
 +  );
 +}
- 
--  if (!response.ok) {
--    throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
++
 +// The anonymous github.com download link has answered 503 and 504 for hours
 +// while the REST asset endpoint kept serving, so the bytes come from the API.
 +// The API redirects to a signed objects host, and fetch drops Authorization on
 +// that cross-origin hop. Once the API's hourly quota is spent, this attempt
 +// falls back to the github.com link, which that quota does not cover.
++async function fileSha256(filePath: string): Promise<string> {
++  return crypto.createHash("sha256").update(await fsp.readFile(filePath)).digest("hex");
++}
++
 +async function downloadFile(asset: ReleaseAsset, destPath: string): Promise<void> {
 +  const headers: Record<string, string> = {
 +    Accept: "application/octet-stream",
@@ -393,10 +549,8 @@ diff --git a/src/utils.ts b/src/utils.ts
 +  const githubToken = process.env.GITHUB_TOKEN;
 +  if (githubToken) {
 +    headers["Authorization"] = `Bearer ${githubToken}`;
-   }
++  }
  
--  const buffer = await response.arrayBuffer();
--  await fsp.writeFile(destPath, Buffer.from(buffer));
 +  let url = asset.url;
 +  let response = await fetch(url, { headers, redirect: "follow" });
 +  if (isRateLimitExhausted(response)) {
@@ -404,13 +558,16 @@ diff --git a/src/utils.ts b/src/utils.ts
 +    url = asset.browser_download_url;
 +    response = await fetch(url, { headers: { "User-Agent": "node" }, redirect: "follow" });
 +  }
-+  if (!response.ok) {
+   if (!response.ok) {
+-    throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
 +    throw new DownloadHttpError(
 +      `Failed to download ${url}: ${response.status} ${response.statusText}`,
 +      response.status,
 +    );
-+  }
-+
+   }
+ 
+-  const buffer = await response.arrayBuffer();
+-  await fsp.writeFile(destPath, Buffer.from(buffer));
 +  const bytes = Buffer.from(await response.arrayBuffer());
 +  if (asset.digest) {
 +    const actual = `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
@@ -424,7 +581,7 @@ diff --git a/src/utils.ts b/src/utils.ts
  }
  
  function extractZip(zipPath: string, destDir: string): Promise<void> {
-@@ -266,7 +349,7 @@
+@@ -266,7 +357,7 @@ function extractZip(zipPath: string, destDir: string): Promise<void> {
          if (code === 0) {
            resolve();
          } else {
@@ -433,15 +590,43 @@ diff --git a/src/utils.ts b/src/utils.ts
          }
        });
    });
-@@ -385,16 +468,47 @@
+@@ -370,8 +461,20 @@ export async function downloadConvexBinary(
+     }
+   }
+ 
++  if (options.version) {
++    const pinnedPath = path.join(
++      binaryDir,
++      `convex-local-backend-${options.version}${isWindows ? ".exe" : ""}`,
++    );
++    if (fs.existsSync(pinnedPath)) {
++      const now = new Date();
++      fs.utimesSync(pinnedPath, now, now);
++      return pinnedPath;
++    }
++  }
++
+   // No valid cache, fetch from GitHub
+-  const releases = await fetchConvexReleases();
++  const releases = await fetchConvexReleases(options.version);
+   const { asset, version } = findAsset(releases, target, options.version);
+ 
+   const binaryName = `convex-local-backend-${version}${isWindows ? ".exe" : ""}`;
+@@ -385,16 +488,59 @@ export async function downloadConvexBinary(
      return binaryPath;
    }
  
 -  const zipPath = path.join(binaryDir, asset.name);
++  if (options.version && !asset.digest) {
++    throw new Error(
++      `Convex backend ${version} publishes no SHA-256 digest for ${asset.name}; a pinned version downloads only a verified archive`,
++    );
++  }
++
    logger.info(`Downloading Convex backend ${version}...`, { timestamp: true });
 -  await downloadFile(asset.browser_download_url, zipPath);
 -  logger.info(`Downloaded: ${asset.name}`, { timestamp: true });
- 
+-
 -  await extractZip(zipPath, binaryDir);
 -  const extracted = path.join(binaryDir, `convex-local-backend${isWindows ? ".exe" : ""}`);
 -  await fsp.rename(extracted, binaryPath);
@@ -449,6 +634,7 @@ diff --git a/src/utils.ts b/src/utils.ts
 -  await fsp.rm(zipPath);
 -  logger.info(`Binary ready at: ${binaryPath}`, { timestamp: true });
 -  return binaryPath;
++
 +  for (let attempt = 1; attempt <= DOWNLOAD_MAX_ATTEMPTS; attempt++) {
 +    const attemptId = `${process.pid}-${crypto.randomUUID()}`;
 +    const zipPath = path.join(binaryDir, `${asset.name}.${attemptId}.tmp`);
@@ -473,6 +659,12 @@ diff --git a/src/utils.ts b/src/utils.ts
 +      } catch (error) {
 +        const published = await fsp.stat(binaryPath).catch(() => null);
 +        if (!published?.isFile()) throw error;
++        const [ours, theirs] = await Promise.all([fileSha256(extracted), fileSha256(binaryPath)]);
++        if (ours !== theirs) {
++          throw new Error(
++            `${binaryPath} differs from the verified ${asset.name} of Convex backend ${version}`,
++          );
++        }
 +      }
 +
 +      logger.info(`Binary ready at: ${binaryPath}`, { timestamp: true });

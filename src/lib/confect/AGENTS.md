@@ -1,0 +1,97 @@
+# Convex backend guidance
+
+Read `.agents/skills/convex-guidelines/SKILL.md` before writing, reviewing, or modifying any Convex query, mutation, action, schema, HTTP endpoint, auth code, storage code, or cron.
+
+## Layout
+
+This guide covers three directories:
+
+| Directory                    | Holds                                                                                                                                                                                                          |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/convex/`            | The Convex functions directory: modules that register queries, mutations, actions or HTTP actions, `schema.ts`, `http.ts`, `crons.ts`, `auth.config.ts`, `convex.config.ts`, `tsconfig.json` and `_generated/` |
+| `src/lib/confect/`           | Everything else the backend runs or tests: helpers, shared validators, `env.ts`, the support prompt, tests, fixtures and the `convexTest.modules.ts` harness                                                   |
+| `src/lib/convex-components/` | The local Better Auth component, mounted by `src/lib/convex/convex.config.ts`                                                                                                                                  |
+
+Convex deploys every module in `src/lib/convex/`, and the Confect CLI treats every `.ts` file there outside the reserved names as generated output. Put a new helper or test in `src/lib/confect/`, at the relative path of the module it serves. A file in `src/lib/confect/` never takes the name `auth.ts`, `http.ts`, `crons.ts` or `schema.ts`: Confect reads those names as entry files.
+
+## Required verification
+
+Run both after Convex or Convex-imported shared-code changes:
+
+```bash
+bun scripts/static-checks.ts <changed files...>
+bun run check:convex
+```
+
+Generated Convex bindings may change as a local backend side effect. Revert `_generated/**` churn unless regeneration is the intended change.
+
+## Authentication and authorization
+
+Use the local Better Auth component. Derive identity server-side; never authorize from a caller-supplied user ID. `/app/**` and `/admin/**` route protection lives in server hooks, while every backend function still enforces its own authorization.
+
+The public E2E helper mutations in `src/lib/convex/tests.ts` are safe only while `AUTH_E2E_TEST_SECRET` is absent from production. Never configure that variable in the production Convex environment.
+
+## Where a backend guard belongs
+
+Validators and generated types carry the mechanical API boundary, so a test that re-proves them adds nothing.
+
+Authorization and tenant-boundary policy belongs to the backend layer, never to a browser test. A pure test over an extracted rule or a hand-written context double is sufficient only when that rule is the behavior under test.
+
+`convex-test` is a mock. Once a release matching the pinned `convex` version is adopted, with the local Better Auth component registered, it can test function behavior such as application-driven rollback and atomic scheduling. It cannot prove platform retry, execution, or hosted-state guarantees. A hand-written store or scheduler spy has the same limit.
+
+The local backend runs the real backend code and covers transaction limits, cron activation, client subscriptions, search ranking, and index backfill/readiness against local state when kept current. Hosted retry behavior, plan quotas, cloud durability, and behavior that depends on production data require a preview or production deployment with the relevant state and constraints.
+
+A hand-written provider payload, context double, or auth session is a claim about that dependency. Derive it from a measured sample or an official fixture.
+
+## Platform and durability rules
+
+- Scheduling from mutations is atomic; scheduled mutations execute exactly once with platform retries for internal failures.
+- Scheduling from actions is not atomic, and actions execute at most once.
+- `@convex-dev/resend` handles durable retry and idempotency; permanent send errors may be caught and reported.
+- `@useautumn/convex` returns `{ data: null, error }` for non-2xx and transport failures. State-changing entitlement gates fail closed whenever `error` is present or `data` is missing or indeterminate.
+- Convex components own isolated storage namespaces. Access component files through component APIs, not application `ctx.storage`.
+
+When an intentional bounded `.collect()`, sequential mutation, or other normally flagged pattern is correct, add a short inline reason at the call site.
+
+## Load and scheduling
+
+Each rule below comes from a measured incident on a Convex deployment. They keep background work proportional to real work and every transaction inside its limits (16 MiB and 32,000 rows read, 16,000 documents written).
+
+- A cron handler writes and schedules nothing when there is no work: it first checks for work with a cheap bounded read, such as an indexed `.first()` or one capped page. Every scheduled function leaves a system row after it completes, kept for 7 days by default on a self-hosted backend.
+- A retry or timeout is scheduled with `ctx.scheduler.runAt` for the moment it becomes due, and its target checks that it is still current (a status or generation field). A cron that scans for due rows is polling; keep crons as a slow safety net.
+- A cron or scheduled mutation that walks a table has a row and byte budget per run. `patch`, `replace`, and `delete` each read the whole document, so they count against the read limit.
+- A job that reschedules itself saves its cursor and schedules its next run in a transaction that commits. A mutation that throws drops everything it scheduled, so an item too large for a batch gets its own transaction instead of failing every run.
+- Each document has one scheduled writer. Loops that share a cursor or counter row conflict with each other, and a mutation that still conflicts after its retries (4 by default) fails.
+- A module that exports queries imports no heavy library at the top level. A cold isolate loads the whole import graph of the function's file, and a large one made queries time out. Put heavy code in its own module behind a function reference.
+- A reactive query does no CPU-heavy work per row. It reruns on every change it read, so compute the value when the row is written and store it.
+- A component mounted on every page subscribes only while its content is visible or opened. Subscriptions for UI nobody had opened added enough query load to return 503s.
+
+## Email
+
+Production email uses `@convex-dev/resend`. Keep send helpers, templates, generated email output, and webhook event handling in their existing `emails/` boundaries. Use the `convexResend` btca resource for component behavior and `betterSvelteEmail` for template tooling.
+
+Applications own incident audiences, stable keys, renderers, and contact resolution. Register incident senders as internal single-recipient mutations. The ledger permits at most one committed component enqueue per incident/user; verify delivery through the component and provider state.
+
+Keep the template's `founderIncidentRegistry.ts` empty and preserve its unconditional application binding for existing callers. New incidents use saved drafts through the `incident-follow-up` skill; a changed preview needs renewed human approval, not merely a fresh digest. Preserve used incident keys and copy; `__*` keys belong only to binding tests.
+
+## Analytics
+
+Server analytics is best-effort and scheduled off the request path. Identify by Convex user ID, never email. Properties contain only non-PII enums, booleans, buckets, statuses, and tool names; never bodies, names, email addresses, provider IDs, URLs, search terms, or raw errors.
+
+Prefer system-of-record tables over duplicate events. Add an event only when it has a reachable chokepoint, a downstream consumer, and a non-PII schema.
+
+## Billing configuration
+
+After changing `autumn.config.ts`, review the preview, then apply it explicitly with `--yes`; without it, `atmn push` only previews:
+
+```bash
+bunx atmn push        # sandbox preview
+bunx atmn push --yes  # apply to sandbox
+bunx atmn push -p --yes
+```
+
+CI preview does not update either live catalog.
+
+## Local execution
+
+Cloud functions use `bun convex run module:functionName '{"arg":"value"}'`. For the embedded local backend, use its HTTP query/mutation/action API with the admin key and backend URL printed by the dev server; the Convex CLI does not target that backend.

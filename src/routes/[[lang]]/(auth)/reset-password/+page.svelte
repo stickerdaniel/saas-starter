@@ -22,7 +22,7 @@
 	import { getAuthErrorKey } from '#lib/utils/auth-messages.js';
 	import { authPageURL } from '#lib/utils/url.js';
 	import { translateValidationErrors } from '#lib/utils/validation-i18n.js';
-	import { passwordLinkPurpose } from '#lib/convex/utils/passwordLinkPurpose.js';
+	import { passwordLinkPurpose } from '#lib/confect/utils/passwordLinkPurpose.js';
 
 	const { t } = getTranslate();
 	const auth = useAuth();

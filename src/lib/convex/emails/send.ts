@@ -1,7 +1,11 @@
 import { internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
 import { components, internal } from '../_generated/api';
-import { resend, assertResendApiKey, getEmailDeliveryConfiguration } from './resend';
+import {
+	resend,
+	assertResendApiKey,
+	getEmailDeliveryConfiguration
+} from '../../confect/emails/resend';
 import {
 	renderVerificationEmail,
 	renderPasswordResetEmail,
@@ -10,21 +14,21 @@ import {
 	renderNewUserSignupNotificationEmail,
 	renderSupportRateLimitAlertEmail,
 	getRateLimitAlertLimitName
-} from './templates';
-import { requireEnv } from '../env';
+} from '../../confect/emails/templates';
+import { requireEnv } from '../../confect/env';
 import type {
 	NotificationMessage,
 	SupportRateLimitAlertEmailData
 } from '../../emails/templates/types';
-import { t, getValidLocale, type SupportedLocale } from '../i18n/translations';
+import { t, getValidLocale, type SupportedLocale } from '../../confect/i18n/translations';
 import type { GenericMutationCtx } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
-import { buildSupportDeepLink, shouldSkipTestEmail } from './helpers';
-import { renderFounderEmail, renderFounderTemplate } from './founderTemplate';
-import { checkFounderRecipient } from './founderEmailConfig';
-import { hasUsablePassword } from '../credentialAccounts';
-import { withPasswordLinkPurpose } from '../utils/passwordLinkPurpose';
-import { shouldSendNotification } from '../support/notificationPreferences';
+import { buildSupportDeepLink, shouldSkipTestEmail } from '../../confect/emails/helpers';
+import { renderFounderEmail, renderFounderTemplate } from '../../confect/emails/founderTemplate';
+import { checkFounderRecipient } from '../../confect/emails/founderEmailConfig';
+import { hasUsablePassword } from '../../confect/credentialAccounts';
+import { withPasswordLinkPurpose } from '../../confect/utils/passwordLinkPurpose';
+import { shouldSendNotification } from '../../confect/support/notificationPreferences';
 
 type UserWithLocale = { locale?: string | null } | null;
 

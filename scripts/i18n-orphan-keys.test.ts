@@ -22,7 +22,9 @@ import en from '../src/i18n/en.json';
 
 const SCAN_ROOT = path.resolve('src');
 const EXCLUDED_DIRS = new Set([path.join(SCAN_ROOT, 'i18n')]);
-const CONVEX_ROOT = path.join(SCAN_ROOT, 'lib', 'convex');
+const CONVEX_ROOTS = ['convex', 'confect'].map((dir) => path.join(SCAN_ROOT, 'lib', dir));
+const inConvexRoot = (file: string) =>
+	CONVEX_ROOTS.some((root) => file.startsWith(root + path.sep));
 
 // ---------------------------------------------------------------------------
 // Literal extraction — same regexes as i18n-used-keys.test.ts.
@@ -35,7 +37,7 @@ const KEYNAME_ATTR = /keyName=(?:"([^"\n]*)"|\{\s*'([^'\n]*)'\s*\}|\{\s*"([^"\n]
 const TOLGEE_T = /\$t\(\s*(?:'([^'\n]*)'|"([^"\n]*)")/g;
 
 // Convex backend helper t(locale, 'key', params?) — the key is the 2nd arg.
-// Only meaningful under src/lib/convex/ where the helper lives.
+// Only meaningful under src/lib/convex/ and src/lib/confect/, where the helper is used.
 const CONVEX_T =
 	/(?<![\w$.])t\(\s*(?:['"][a-z]{2}['"]|[\w.$]+(?:\([^()]*\))?)\s*,\s*(?:'([^'\n]*)'|"([^"\n]*)")/g;
 
@@ -169,7 +171,7 @@ function deriveUsedKeys(leaves: Set<string>): { used: Set<string>; literalCount:
 
 		// (a) literal references
 		const literalPatterns: RegExp[] = [KEYNAME_ATTR, TOLGEE_T];
-		if (file.startsWith(CONVEX_ROOT + path.sep)) literalPatterns.push(CONVEX_T);
+		if (inConvexRoot(file)) literalPatterns.push(CONVEX_T);
 		for (const pattern of literalPatterns) {
 			for (const match of content.matchAll(pattern)) {
 				const key = match.slice(1).find((g) => g !== undefined);

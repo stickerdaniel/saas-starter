@@ -1,6 +1,6 @@
 import { isStepCount, streamText, type ModelMessage, type TextStreamPart, type ToolSet } from 'ai';
 import { openrouter } from '@openrouter/ai-sdk-provider';
-import { getGeocoding, getWeather } from '../../src/lib/convex/aiChat/tools/weather.ts';
+import { getGeocoding, getWeather } from '../../src/lib/confect/aiChat/tools/weather.ts';
 import { materializeFromStreamParts } from './materialize.ts';
 import type { MaterializedAssistant } from './types.ts';
 

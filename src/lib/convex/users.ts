@@ -1,11 +1,11 @@
 import { ConvexError, v } from 'convex/values';
 import { query } from './_generated/server';
 import { authComponent, createAuth } from './auth';
-import { requireAuthUser } from './authGuard';
-import { authedQuery, authedMutation } from './functions';
-import { appRateLimiter } from './rateLimit';
-import { tables } from './betterAuth/schema';
-import { credentialAccounts, hasUsablePassword } from './credentialAccounts';
+import { requireAuthUser } from '../confect/authGuard';
+import { authedQuery, authedMutation } from '../confect/functions';
+import { appRateLimiter } from '../confect/rateLimit';
+import { tables } from '../convex-components/betterAuth/schema';
+import { credentialAccounts, hasUsablePassword } from '../confect/credentialAccounts';
 import * as val from 'valibot';
 import { passwordValidation } from '../schemas/password';
 

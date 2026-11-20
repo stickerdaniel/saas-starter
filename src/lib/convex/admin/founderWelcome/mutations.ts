@@ -1,13 +1,16 @@
 import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
-import { adminMutation } from '../../functions';
+import { adminMutation } from '../../../confect/functions';
 import {
 	CONTACT_SETTING_KEY,
 	FOUNDER_EMAIL_SETTING_KEYS,
 	readFounderEmailEnabledAt,
 	switchableFounderEmailValidator
-} from '../../emails/founderEmailConfig';
-import { FOUNDER_WELCOME_ERROR_CODES, createFounderWelcomeError } from './errors';
+} from '../../../confect/emails/founderEmailConfig';
+import {
+	FOUNDER_WELCOME_ERROR_CODES,
+	createFounderWelcomeError
+} from '../../../confect/admin/founderWelcome/errors';
 
 /** Helper to upsert an admin setting */
 async function upsertSetting(ctx: MutationCtx, key: string, value: string, adminUserId: string) {

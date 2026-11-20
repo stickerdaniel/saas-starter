@@ -1,11 +1,11 @@
 import { v } from 'convex/values';
-import { PROFILE_IMAGE_ALLOWED_TYPES, PROFILE_IMAGE_MAX_SIZE } from './constants';
-import { authedMutation } from './functions';
+import { PROFILE_IMAGE_ALLOWED_TYPES, PROFILE_IMAGE_MAX_SIZE } from '../confect/constants';
+import { authedMutation } from '../confect/functions';
 import { components } from './_generated/api';
-import { appRateLimiter } from './rateLimit';
-import { createRateLimitError } from './support/types';
-import { vGenerateUploadUrlResult } from './files/validators';
-import { FILE_ERROR_CODES, createFileError } from './files/errors';
+import { appRateLimiter } from '../confect/rateLimit';
+import { createRateLimitError } from '../confect/support/types';
+import { vGenerateUploadUrlResult } from '../confect/files/validators';
+import { FILE_ERROR_CODES, createFileError } from '../confect/files/errors';
 
 /**
  * Generate an upload URL for file uploads

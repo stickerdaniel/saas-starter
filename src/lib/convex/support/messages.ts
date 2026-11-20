@@ -10,29 +10,29 @@ import {
 } from '../_generated/server';
 import { v, type Infer } from 'convex/values';
 import { internal } from '../_generated/api';
-import { supportAgent } from './agent';
+import { supportAgent } from '../../confect/support/agent';
 import { paginationOptsValidator } from 'convex/server';
 import { getFile } from '@convex-dev/agent';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
 import { APICallError, RetryError, type UserContent } from 'ai';
-import { supportRateLimiter } from './rateLimit';
+import { supportRateLimiter } from '../../confect/support/rateLimit';
 import { isSupportAiEnabled } from '../../config/support';
-import { createRateLimitError } from './types';
-import { SUPPORT_ERROR_CODES, createSupportError } from './errors';
-import { t, extractLocaleFromUrl } from '../i18n/translations';
-import { MAX_MESSAGE_LENGTH } from '../constants';
-import { recordSupportMessageContext } from './messageContext';
-import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
-import { requireSupportThreadAccess } from './ownership';
-import { listMessagesForThread } from './messageListing';
+import { createRateLimitError } from '../../confect/support/types';
+import { SUPPORT_ERROR_CODES, createSupportError } from '../../confect/support/errors';
+import { t, extractLocaleFromUrl } from '../../confect/i18n/translations';
+import { MAX_MESSAGE_LENGTH } from '../../confect/constants';
+import { recordSupportMessageContext } from '../../confect/support/messageContext';
+import { STREAM_DELTA_OPTIONS } from '../../confect/streamDeltas';
+import { requireSupportThreadAccess } from '../../confect/support/ownership';
+import { listMessagesForThread } from '../../confect/support/messageListing';
 import { syncSupportLastMessage } from './threads';
-import { recordFirstSupportContact } from './threadLifecycle';
+import { recordFirstSupportContact } from '../../confect/support/threadLifecycle';
 import { getFileMetadataByUrls } from '../files/metadata';
-import { publicEndpoint } from '../access';
-import { makeAgentUsageSink } from '../aiUsage/agentUsage';
+import { publicEndpoint } from '../../confect/access';
+import { makeAgentUsageSink } from '../../confect/aiUsage/agentUsage';
 import { recordAiUsage } from '../aiUsage/record';
-import { mergeByModel, type CapturedModelUsage } from '../aiUsage/capture';
+import { mergeByModel, type CapturedModelUsage } from '../../confect/aiUsage/capture';
 import {
 	settleUnanswered,
 	turnLogFields,
@@ -43,7 +43,7 @@ import {
 	CapabilityConfigurationError,
 	getCapabilityConfigurations,
 	requireAiConfiguration
-} from '../env';
+} from '../../confect/env';
 import {
 	prepareToolErrorRedactionStep,
 	toolErrorRedactionTransform

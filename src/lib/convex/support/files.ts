@@ -2,15 +2,18 @@ import { v } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
 import { action, internalMutation, mutation } from '../_generated/server';
 import { components, internal } from '../_generated/api';
-import { ANONYMOUS_GLOBAL_RATE_LIMIT_KEY, supportRateLimiter } from './rateLimit';
-import { createRateLimitError } from './types';
-import { getSupportOwnerIdentity } from './ownership';
-import { publicEndpoint } from '../access';
-import { fetchAttachmentText } from '../files/attachmentText';
-import { vGenerateUploadUrlResult } from '../files/validators';
-import { validateUploadBlob } from '../files/upload';
-import { releaseUploadStaging, UPLOAD_STAGING_TTL_MS } from '../files/staging';
-import { FILE_ERROR_CODES, createFileError } from '../files/errors';
+import {
+	ANONYMOUS_GLOBAL_RATE_LIMIT_KEY,
+	supportRateLimiter
+} from '../../confect/support/rateLimit';
+import { createRateLimitError } from '../../confect/support/types';
+import { getSupportOwnerIdentity } from '../../confect/support/ownership';
+import { publicEndpoint } from '../../confect/access';
+import { fetchAttachmentText } from '../../confect/files/attachmentText';
+import { vGenerateUploadUrlResult } from '../../confect/files/validators';
+import { validateUploadBlob } from '../../confect/files/upload';
+import { releaseUploadStaging, UPLOAD_STAGING_TTL_MS } from '../../confect/files/staging';
+import { FILE_ERROR_CODES, createFileError } from '../../confect/files/errors';
 
 /**
  * Generate a URL and token for uploading files directly to Convex storage

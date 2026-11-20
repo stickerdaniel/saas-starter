@@ -1,13 +1,13 @@
 import { internalAction, internalMutation } from './_generated/server';
 import { v, ConvexError } from 'convex/values';
 import { components, internal } from './_generated/api';
-import { authedQuery, authedMutation } from './functions';
+import { authedQuery, authedMutation } from '../confect/functions';
 import { checkAndCountUsage } from './autumn';
-import { appRateLimiter } from './rateLimit';
-import { createRateLimitError } from './support/types';
-import { MAX_MESSAGE_LENGTH } from './constants';
-import { requireBillingConfiguration } from './env';
-import { ensureCaptureStart } from './admin/journey/capture';
+import { appRateLimiter } from '../confect/rateLimit';
+import { createRateLimitError } from '../confect/support/types';
+import { MAX_MESSAGE_LENGTH } from '../confect/constants';
+import { requireBillingConfiguration } from '../confect/env';
+import { ensureCaptureStart } from '../confect/admin/journey/capture';
 
 export const list = authedQuery({
 	args: {},

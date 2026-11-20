@@ -4,7 +4,7 @@ import {
 	markupSpans,
 	type FounderTemplateVariables,
 	type ListMarker
-} from '#lib/convex/emails/founderTemplate.js';
+} from '#lib/confect/emails/founderTemplate.js';
 
 /**
  * Formatting commands for the founder body editor. Each reads the body and its

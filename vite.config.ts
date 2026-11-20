@@ -257,6 +257,9 @@ export default defineConfig(async ({ command, mode }) => {
 			},
 			convexLocal({
 				convexDir: 'src/lib/convex',
+				// One backend release for every checkout, so local runs and their measurements
+				// compare like with like. The patched plugin starts a cached copy offline.
+				binaryVersion: 'precompiled-2026-11-14-d63233b',
 				port: backendPort,
 				siteProxyPort,
 				stateIdSuffix,

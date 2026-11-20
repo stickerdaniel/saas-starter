@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { AdminUserData, UserRole } from '#lib/convex/admin/types.js';
+	import type { AdminUserData, UserRole } from '#lib/confect/admin/types.js';
 
 	export type ActionEvent =
 		| { type: 'impersonate'; userId: string }
@@ -21,7 +21,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { T } from '@tolgee/svelte';
-	import { USER_ROLES } from '#lib/convex/admin/types.js';
+	import { USER_ROLES } from '#lib/confect/admin/types.js';
 	import { getAdminViewerId } from '../viewer-context';
 	import { getUserActionHandler } from './user-actions-context';
 

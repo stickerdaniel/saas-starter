@@ -1,12 +1,26 @@
 #!/usr/bin/env bun
 
-import { existsSync, mkdirSync, readFileSync, watch, writeFileSync, type FSWatcher } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	watch,
+	writeFileSync,
+	type FSWatcher
+} from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SUPPORT_SOURCE = path.join(PROJECT_ROOT, 'src/lib/convex/support/instructions.txt');
-const SUPPORT_OUTPUT = path.join(PROJECT_ROOT, 'src/lib/convex/support/instructions.generated.ts');
+const SUPPORT_SOURCE = path.join(PROJECT_ROOT, 'src/lib/confect/support/instructions.txt');
+const SUPPORT_OUTPUT = path.join(PROJECT_ROOT, 'src/lib/confect/support/instructions.generated.ts');
+// Ignored outputs at their former paths. Convex deploys every module in its functions
+// directory, so a stale copy there would stay deployed.
+const LEGACY_OUTPUTS = [
+	'src/lib/convex/support/instructions.generated.ts',
+	'src/lib/convex/convex-env.d.ts'
+].map((file) => path.join(PROJECT_ROOT, file));
 
 export function renderGeneratedSupportInstructions(source: string): string {
 	const normalizedSource = source.replace(/\r\n?/g, '\n').replace(/\n$/, '');
@@ -14,6 +28,7 @@ export function renderGeneratedSupportInstructions(source: string): string {
 }
 
 export function generateAuthoredContent(): boolean {
+	for (const file of LEGACY_OUTPUTS) rmSync(file, { force: true });
 	const generated = renderGeneratedSupportInstructions(readFileSync(SUPPORT_SOURCE, 'utf8'));
 	mkdirSync(path.dirname(SUPPORT_OUTPUT), { recursive: true });
 	if (existsSync(SUPPORT_OUTPUT) && readFileSync(SUPPORT_OUTPUT, 'utf8') === generated) {

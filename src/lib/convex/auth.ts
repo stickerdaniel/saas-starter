@@ -11,29 +11,29 @@ import { admin } from 'better-auth/plugins/admin';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { createAuthMiddleware } from 'better-auth/api';
 import * as val from 'valibot';
-import authSchema from './betterAuth/schema';
+import authSchema from '../convex-components/betterAuth/schema';
 import authConfig from './auth.config';
-import { requireEmailConfiguration, requireEnv, googleOAuth, githubOAuth } from './env';
+import { requireEmailConfiguration, requireEnv, googleOAuth, githubOAuth } from '../confect/env';
 import {
 	FOUNDER_FEEDBACK_DEDUPE_KEY,
 	getFounderFeedbackDelay,
 	isTestEmail
-} from './emails/helpers';
+} from '../confect/emails/helpers';
 import {
 	CONTACT_SETTING_KEY,
 	readAdminSetting,
 	readFounderEmailActiveSince
-} from './emails/founderEmailConfig';
+} from '../confect/emails/founderEmailConfig';
 import { startFounderEmailErasure } from './emails/founderEmailErasure';
-import { incrementCounter } from './admin/counters';
-import { DISABLED_ADMIN_PATHS } from './admin/adminHttpPaths';
+import { incrementCounter } from '../confect/admin/counters';
+import { DISABLED_ADMIN_PATHS } from '../confect/admin/adminHttpPaths';
 import {
 	syncAdminPreferences,
 	deactivateAdminPreferencesHelper
-} from './admin/notificationPreferences/helpers';
+} from '../confect/admin/notificationPreferences/helpers';
 import { startJourneyErasure } from './admin/journey/erasure';
 import { devNotice } from '../dev/notice';
-import { publicEndpoint } from './access';
+import { publicEndpoint } from '../confect/access';
 import { SUPPORTED_LANGUAGES } from '../i18n/languages';
 
 // Triggers need the internal auth functions

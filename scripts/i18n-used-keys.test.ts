@@ -19,7 +19,9 @@ import en from '../src/i18n/en.json';
 const SCAN_ROOT = path.resolve('src');
 // src/i18n holds the locale JSON files themselves, not key references.
 const EXCLUDED_DIRS = new Set([path.join(SCAN_ROOT, 'i18n')]);
-const CONVEX_ROOT = path.join(SCAN_ROOT, 'lib', 'convex');
+const CONVEX_ROOTS = ['convex', 'confect'].map((dir) => path.join(SCAN_ROOT, 'lib', dir));
+const inConvexRoot = (file: string) =>
+	CONVEX_ROOTS.some((root) => file.startsWith(root + path.sep));
 
 // <T keyName="..."> static attribute, plus the expression forms
 // keyName={'...'} and keyName={"..."}.
@@ -29,12 +31,12 @@ const KEYNAME_ATTR = /keyName=(?:"([^"\n]*)"|\{\s*'([^'\n]*)'\s*\}|\{\s*"([^"\n]
 // argument; a params object may follow and the call may span lines.
 const TOLGEE_T = /\$t\(\s*(?:'([^'\n]*)'|"([^"\n]*)")/g;
 
-// Convex backend helper from src/lib/convex/i18n/translations.ts:
+// Convex backend helper from src/lib/confect/i18n/translations.ts:
 // t(locale, 'key', params?) — the key is the SECOND argument. The first
 // argument is a locale literal ('de'), an identifier (locale, data.locale),
 // or a single call (extractLocaleFromUrl(pageUrl)). The negative lookbehind
 // keeps this from matching insert(, import(, $t(, foo.t( etc. Only applied
-// under src/lib/convex/ where the helper lives.
+// under src/lib/convex/ and src/lib/confect/, where the helper is used.
 const CONVEX_T =
 	/(?<![\w$.])t\(\s*(?:['"][a-z]{2}['"]|[\w.$]+(?:\([^()]*\))?)\s*,\s*(?:'([^'\n]*)'|"([^"\n]*)")/g;
 
@@ -110,7 +112,7 @@ function collectKeyRefs(): KeyRef[] {
 	for (const file of walk(SCAN_ROOT)) {
 		const content = fs.readFileSync(file, 'utf-8');
 		const patterns: RegExp[] = [KEYNAME_ATTR, TOLGEE_T];
-		if (file.startsWith(CONVEX_ROOT + path.sep)) patterns.push(CONVEX_T);
+		if (inConvexRoot(file)) patterns.push(CONVEX_T);
 		refs.push(...extractRefs(content, path.relative(process.cwd(), file), patterns));
 	}
 	return refs;

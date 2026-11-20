@@ -4,7 +4,7 @@ import { renderComponent, renderTextCell } from '#lib/components/ui/data-table/i
 import DataTableCheckbox from '#lib/components/data-table-checkbox.svelte';
 import DataTableColumnHeader from '#lib/components/admin/data-table-column-header.svelte';
 import DataTableActions from './data-table-actions.svelte';
-import type { AdminUserData } from '#lib/convex/admin/types.js';
+import type { AdminUserData } from '#lib/confect/admin/types.js';
 import { DEFAULT_LANGUAGE } from '#lib/i18n/languages.js';
 import StatusBadge from './status-badge.svelte';
 import RoleBadge from './role-badge.svelte';

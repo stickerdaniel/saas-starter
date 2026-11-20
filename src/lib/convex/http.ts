@@ -4,7 +4,7 @@ import { httpAction } from './_generated/server';
 import { components } from './_generated/api';
 import { handleAutumnWebhook } from './admin/customerNotifications/observe';
 import { authComponent, createAuth } from './auth';
-import { resend } from './emails/resend';
+import { resend } from '../confect/emails/resend';
 
 const http = httpRouter();
 

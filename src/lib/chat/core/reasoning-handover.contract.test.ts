@@ -27,7 +27,7 @@ import { normalizeMessage } from './message-extraction.js';
 import { StreamCacheManager } from './stream-cache.js';
 import { buildDisplayMessages } from '../ui/streaming-display.js';
 import { getActiveStreamingPartIndex, getReasoningKey } from '../ui/reasoning-parts.js';
-import { mergeMaterializedStreamsIntoPage } from '../../convex/support/messageListing.js';
+import { mergeMaterializedStreamsIntoPage } from '../../confect/support/messageListing.js';
 import type { ChatMessage, MessagePart } from './types.js';
 
 /** The wire chunks a two-step tool response produces, in order. */

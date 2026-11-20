@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock the validated email capability before importing templates.
-vi.mock('#lib/convex/env.js', () => ({
+vi.mock('#lib/confect/env.js', () => ({
 	requireEmailConfiguration: () => ({
 		apiKey: 'configured',
 		sender: 'test@example.com',
@@ -24,7 +24,7 @@ import {
 	renderNewTicketAdminNotificationEmail,
 	renderNewUserSignupNotificationEmail,
 	renderSupportRateLimitAlertEmail
-} from '#lib/convex/emails/templates.js';
+} from '#lib/confect/emails/templates.js';
 
 const ASSET_URL = 'https://test.example.com';
 

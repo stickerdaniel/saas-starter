@@ -9,7 +9,7 @@ import type { DisplayMessage } from '../core/types.js';
 import { ChatUIContext } from './chat-context.svelte.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import ChatMessagesHarness from './test-fixtures/ChatMessagesHarness.svelte';
-import { AI_CHAT_GENERATION_FAILED_NOTICE, AI_CHAT_LIMIT_NOTICE } from '#lib/convex/constants.js';
+import { AI_CHAT_GENERATION_FAILED_NOTICE, AI_CHAT_LIMIT_NOTICE } from '#lib/confect/constants.js';
 import en from '../../../i18n/en.json';
 
 // Vitest resolves Svelte's server entry by default; use its real client runtime for mounting.

@@ -56,7 +56,7 @@ const CATEGORY_RULES: Array<[string, RegExp]> = [
 		/^\.env|wrangler|vercel|fly\.|dockerfile|^scripts\/deploy|convex\.config|\.github\/workflows\//i
 	],
 	['branding', /legal|brand|marketing|logo|seo|manifest|favicon/i],
-	['backend', /^src\/lib\/convex\/|^convex\//],
+	['backend', /^src\/lib\/(?:convex|confect|convex-components)\/|^convex\//],
 	['tests', /(^|\/)e2e\/|\.test\.|\.spec\./],
 	[
 		'config',

@@ -1,6 +1,6 @@
 # Application code guidance
 
-This scope covers SvelteKit application code under `src/`. Backend-specific rules in `src/lib/convex/AGENTS.md` and route-specific rules in `src/routes/AGENTS.md` take precedence in their directories.
+This scope covers SvelteKit application code under `src/`. Backend-specific rules in `src/lib/confect/AGENTS.md` and route-specific rules in `src/routes/AGENTS.md` take precedence in their directories.
 
 ## Stack and structure
 

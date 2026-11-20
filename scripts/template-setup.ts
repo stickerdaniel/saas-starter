@@ -2143,7 +2143,7 @@ async function main() {
 	);
 	console.log('  5. Keep each legal route page.md.ts summary aligned with that copy');
 	console.log('  6. Review site.ts structured data and src/lib/content/llms.txt access limits');
-	console.log('  7. Review src/lib/convex/support/instructions.txt');
+	console.log('  7. Review src/lib/confect/support/instructions.txt');
 	console.log('');
 	rl?.close();
 }

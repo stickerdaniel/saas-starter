@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { internalMutation, internalQuery } from '../_generated/server';
 import { internal } from '../_generated/api';
-import { getAiChatSidebarActivityAt } from './visibility';
+import { getAiChatSidebarActivityAt } from '../../confect/aiChat/visibility';
 
 // Pace byte-bounded pages below the backend's write-rate budget.
 const PAGE_DELAY_MS = 250;

@@ -25,7 +25,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { isAnonymousUser } from '../../src/lib/convex/utils/anonymousUser';
+import { isAnonymousUser } from '../../src/lib/confect/utils/anonymousUser';
 
 const RUN_ID_ENV = 'E2E_OWNERSHIP_RUN_ID';
 const root = join(process.cwd(), 'e2e', '.auth', 'owned');

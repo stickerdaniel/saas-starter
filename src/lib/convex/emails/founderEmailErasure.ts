@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { internalMutation, type MutationCtx } from '../_generated/server';
-import { CONTACT_SETTING_KEY, readAdminSetting } from './founderEmailConfig';
+import { CONTACT_SETTING_KEY, readAdminSetting } from '../../confect/emails/founderEmailConfig';
 
 /**
  * Erase a deleted user's founder email rows in bounded pages: the welcome,

@@ -6,7 +6,7 @@
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { api } from '#lib/convex/_generated/api.js';
-	import { isAnonymousUser } from '#lib/convex/utils/anonymousUser.js';
+	import { isAnonymousUser } from '#lib/confect/utils/anonymousUser.js';
 	import { clearSupportUserId, supportUserId } from './support-user-id.svelte.ts';
 
 	const auth = useAuth();

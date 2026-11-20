@@ -18,10 +18,10 @@ import {
 	type MutationCtx
 } from '../../_generated/server';
 import { internal, components } from '../../_generated/api';
-import { supportThreadFields } from '../../support/supportThreadFields';
+import { supportThreadFields } from '../../../confect/support/supportThreadFields';
 import { receivesNotification } from '../notificationPreferences/queries';
-import { getEmailDeliveryConfiguration } from '../../emails/resend';
-import { shouldSkipTestEmail } from '../../emails/helpers';
+import { getEmailDeliveryConfiguration } from '../../../confect/emails/resend';
+import { shouldSkipTestEmail } from '../../../confect/emails/helpers';
 
 const NOTIFICATION_DELAY_MS = 4 * 60 * 1000;
 

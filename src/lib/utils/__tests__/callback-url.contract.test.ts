@@ -7,7 +7,7 @@ import { authPageURL, callbackURLFor } from '../url';
 import {
 	passwordLinkPurpose,
 	withPasswordLinkPurpose
-} from '../../convex/utils/passwordLinkPurpose';
+} from '../../confect/utils/passwordLinkPurpose';
 
 /**
  * `callbackURLFor` keeps a rule of its own that has to stay inside the one
