@@ -6,13 +6,15 @@ Read `.agents/skills/convex-guidelines/SKILL.md` before writing, reviewing, or m
 
 This guide covers three directories:
 
-| Directory                    | Holds                                                                                                                                                                                                          |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/convex/`            | The Convex functions directory: modules that register queries, mutations, actions or HTTP actions, `schema.ts`, `http.ts`, `crons.ts`, `auth.config.ts`, `convex.config.ts`, `tsconfig.json` and `_generated/` |
-| `src/lib/confect/`           | Everything else the backend runs or tests: helpers, shared validators, `env.ts`, the support prompt, tests, fixtures and the `convexTest.modules.ts` harness                                                   |
-| `src/lib/convex-components/` | The local Better Auth component, mounted by `src/lib/convex/convex.config.ts`                                                                                                                                  |
+| Directory                    | Holds                                                                                                                                                                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/convex/`            | The Convex functions directory: modules that register queries, mutations, actions or HTTP actions, `schema.ts`, `http.ts`, `crons.ts`, `auth.config.ts`, `convex.config.ts`, `tsconfig.json` and `_generated/`                                    |
+| `src/lib/confect/`           | Everything else the backend runs or tests: helpers, shared validators, `env.ts`, the support prompt, tests, fixtures, the `convexTest.modules.ts` harness, one Confect table per file in `tables/`, and the committed CLI output in `_generated/` |
+| `src/lib/convex-components/` | The local Better Auth component, mounted by `src/lib/convex/convex.config.ts`                                                                                                                                                                     |
 
 Convex deploys every module in `src/lib/convex/`, and the Confect CLI treats every `.ts` file there outside the reserved names as generated output. Put a new helper or test in `src/lib/confect/`, at the relative path of the module it serves. A file in `src/lib/confect/` never takes the name `auth.ts`, `http.ts`, `crons.ts` or `schema.ts`: Confect reads those names as entry files.
+
+A table change goes into both `src/lib/convex/schema.ts` and the table's file in `src/lib/confect/tables/`, and `scripts/confect-parity.test.ts` fails while their deployment schemas differ. `bun run confect:stage` regenerates `src/lib/confect/_generated/`. Commit its output: CI fails on a stale copy.
 
 ## Required verification
 
