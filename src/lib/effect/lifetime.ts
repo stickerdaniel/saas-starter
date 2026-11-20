@@ -1,4 +1,4 @@
-import type * as Cause from 'effect/Cause';
+import * as Cause from 'effect/Cause';
 import * as Effect from 'effect/Effect';
 import * as Exit from 'effect/Exit';
 import type * as Fiber from 'effect/Fiber';
@@ -56,7 +56,13 @@ export class Lifetime {
 		if (this.#ended) return;
 		this.#ended = true;
 		const fibers = [...this.#fibers];
-		for (const fiber of fibers) fiber.interruptUnsafe();
+		for (const fiber of fibers) {
+			try {
+				fiber.interruptUnsafe();
+			} catch (error) {
+				Effect.runFork(this.#onCleanupFailure(Cause.die(error)), { scheduler: this.#scheduler });
+			}
+		}
 		const cleanup = Scope.closeUnsafe(this.#scope, Exit.void);
 		const pending = fibers.map(exited);
 		if (cleanup) {

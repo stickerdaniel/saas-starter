@@ -145,6 +145,32 @@ describe('Lifetime', () => {
 		expect(lines.filter((line) => line.includes('Lifetime cleanup failed'))).toEqual([]);
 	});
 
+	it('keeps closing when an observer of an owned fiber throws', async () => {
+		const log: string[] = [];
+		const causes: Array<Cause.Cause<unknown>> = [];
+		const lifetime = new Lifetime({
+			onCleanupFailure: (cause) => Effect.sync(() => causes.push(cause))
+		});
+		const first = lifetime.run(Effect.never);
+		first.addObserver(() => {
+			throw new Error('observer');
+		});
+		const second = lifetime.run(
+			Effect.gen(function* () {
+				yield* Effect.addFinalizer(() => Effect.sync(() => log.push('finalizer')));
+				yield* Effect.never;
+			})
+		);
+
+		expect(() => lifetime.end()).not.toThrow();
+		await lifetime.whenClosed();
+
+		expect(log).toEqual(['finalizer']);
+		expect(Exit.hasInterrupts(await exitOf(second))).toBe(true);
+		expect(causes).toHaveLength(1);
+		expect(Cause.squash(causes[0]!)).toEqual(new Error('observer'));
+	});
+
 	it('returns an interrupted fiber and runs no step after end()', async () => {
 		const log: string[] = [];
 		const lifetime = new Lifetime();
