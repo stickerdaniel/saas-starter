@@ -10,6 +10,7 @@ import { CLOUDFLARE_SSR_ENTRY_CODE } from '@varlock/cloudflare-integration/ssr-e
 import { varlockLoadedEnv, varlockVitePlugin } from '@varlock/vite-integration';
 import { convexLocal } from 'convex-vite-plugin';
 import { DEV_FEATURES, type DevFeature } from './src/lib/dev/features';
+import { variables as envVariables } from './src/env.ts';
 import { buildContentSecurityPolicy } from './src/lib/security/csp.js';
 import { appVersion } from './scripts/app-version';
 import { buildAdapter, isCloudflareBuild } from './scripts/build-target';
@@ -36,6 +37,7 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { fontless } from 'fontless';
 import { loadEnv, type PluginOption } from 'vite';
 import { emptyCssSources } from './scripts/css-sources.ts';
+import { MODULE_GRAPH_FILE, moduleGraph } from './scripts/module-graph-plugin.ts';
 
 const stylesheet = path.join(import.meta.dirname, 'src/routes/layout.css');
 const missingCssSources = emptyCssSources(stylesheet, fs.readFileSync(stylesheet, 'utf8'));
@@ -459,6 +461,16 @@ export default defineConfig(async ({ command, mode }) => {
 			})),
 			// Keep an installed Outfit version from replacing the self-hosted files.
 			experimental: { disableLocalFallbacks: true }
+		}),
+		moduleGraph({
+			outFile: path.join(cwd, kitOutDir, 'output', MODULE_GRAPH_FILE),
+			root: cwd,
+			publicEnv: () =>
+				Object.fromEntries(
+					Object.entries(envVariables).flatMap(([name, config]) =>
+						'public' in config && config.public ? [[name, process.env[name]]] : []
+					)
+				)
 		}),
 		...(process.env.ANALYZE === 'true'
 			? [

@@ -1,3 +1,11 @@
+import effectLeafImports from './rules/effect-leaf-imports.js';
+import effectNoManualRetry from './rules/effect-no-manual-retry.js';
+import effectNoPromiseRace from './rules/effect-no-promise-race.js';
+import effectNoRawTimers from './rules/effect-no-raw-timers.js';
+import effectNoTryInGen from './rules/effect-no-try-in-gen.js';
+import effectRunBoundary from './rules/effect-run-boundary.js';
+import effectSubpathImport from './rules/effect-subpath-import.js';
+import effectTaggedErrors from './rules/effect-tagged-errors.js';
 import noBareTestSkip from './rules/no-bare-test-skip.js';
 import noDynamicImportRejectionHandler from './rules/no-dynamic-import-rejection-handler.js';
 import noLiteralControlChar from './rules/no-literal-control-char.js';
@@ -18,6 +26,14 @@ import requireSvelteModuleExtension from './rules/require-svelte-module-extensio
 export default {
 	meta: { name: 'eslint-plugin-saas-starter', version: '0.0.0' },
 	rules: {
+		'effect-leaf-imports': effectLeafImports,
+		'effect-no-manual-retry': effectNoManualRetry,
+		'effect-no-promise-race': effectNoPromiseRace,
+		'effect-no-raw-timers': effectNoRawTimers,
+		'effect-no-try-in-gen': effectNoTryInGen,
+		'effect-run-boundary': effectRunBoundary,
+		'effect-subpath-import': effectSubpathImport,
+		'effect-tagged-errors': effectTaggedErrors,
 		'no-bare-test-skip': noBareTestSkip,
 		'no-dynamic-import-rejection-handler': noDynamicImportRejectionHandler,
 		'no-literal-control-char': noLiteralControlChar,

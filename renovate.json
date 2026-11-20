@@ -34,6 +34,8 @@
 			"groupName": "all non-major dependencies",
 			"groupSlug": "all-minor-patch",
 			"matchPackageNames": [
+				"!effect",
+				"!/^@effect//",
 				"!better-auth",
 				"!ai",
 				"!eslint",
@@ -53,6 +55,8 @@
 			"groupName": "all major dependencies",
 			"groupSlug": "all-major",
 			"matchPackageNames": [
+				"!effect",
+				"!/^@effect//",
 				"!better-auth",
 				"!ai",
 				"!autumn-js",
@@ -165,6 +169,13 @@
 			"allowedVersions": "0.8.1"
 		},
 		{
+			"description": "Effect packages share one exact version in every manifest: @effect/* peers on the matching effect release, and an unpinned range resolves a newer @effect/* than the effect it runs with. Every update, major or minor, lands as one reviewed branch that fixes its breaking changes and reruns the Effect suites under Vitest and Bun.",
+			"matchPackageNames": ["effect", "/^@effect//"],
+			"rangeStrategy": "pin",
+			"groupName": "effect",
+			"groupSlug": "effect"
+		},
+		{
 			"description": "Suppress abandonment warnings for packages we keep intentionally. clsx and husky are stable/feature-complete, date-fns still ships fixes, vaul-svelte is stuck on 1.0.0-next.7 but has no viable Svelte 5 alternative, mode-watcher is dormant (last release 2025-06) but shallowly integrated with no active replacement; on the next Svelte major bump watch for the render_fn error (svecosystem/mode-watcher#161) and fall back to a ~50-line self-roll if it bites.",
 			"matchPackageNames": ["clsx", "date-fns", "husky", "mode-watcher", "vaul-svelte"],
 			"abandonmentThreshold": "10 years"
@@ -173,6 +184,8 @@
 			"description": "Pin updates stay outside the regular upgrade groups so a delayed group update does not also block pinning. While version ranges remain in the manifest, OSV matching can still miss the installed vulnerable version. The two ecosystem groups receive their own pin branches.",
 			"matchUpdateTypes": ["pin"],
 			"matchPackageNames": [
+				"!effect",
+				"!/^@effect//",
 				"!/^better-auth$/",
 				"!/^@better-auth//",
 				"!/^@convex-dev/better-auth$/",
