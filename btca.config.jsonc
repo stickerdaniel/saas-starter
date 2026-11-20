@@ -653,6 +653,14 @@
 		},
 		{
 			"type": "git",
+			"name": "effect",
+			"url": "https://github.com/Effect-TS/effect",
+			"branch": "main",
+			"tag": "effect@4.1.4",
+			"specialNotes": "Effect 4 monorepo: packages/effect holds effect and its subpath modules, packages/vitest holds @effect/vitest. Read the pinned tag with git show effect@4.1.4:<path>; main runs ahead of the installed release. src/lib/effect/ builds on Scope, Fiber, Scheduler, Clock and Schedule from it."
+		},
+		{
+			"type": "git",
 			"name": "tinyglobby",
 			"url": "https://github.com/SuperchupuDev/tinyglobby",
 			"branch": "main",

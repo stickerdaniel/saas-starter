@@ -177,6 +177,8 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       - run: bun install --frozen-lockfile
       - run: bun scripts/static-checks.ts --ci --scope types
+      - name: Run the Effect suites under Bun's test runner
+        run: bun run test:bun
       # The unit shards run this too, but a matrix without tooling rows would skip it there.
       - name: Check that every Vitest project runs in the unit shards
         run: bun vitest --config vitest.tooling.config.ts --run scripts/workflow-artifacts.test.ts -t 'runs every Vitest project as one complete set of shards'

@@ -53,6 +53,18 @@ A human starts the `upstream-sync` skill (`.agents/skills/upstream-sync/SKILL.md
 - A human approves changes to product defaults and new or broadened lint or type suppressions; an automated review cannot approve them.
 - When adding a dependency, add its repository to `btca.config.jsonc` and clone it into the btca sandbox after verifying the default branch.
 
+## Effect
+
+`src/lib/effect/` holds the shared Effect patterns. Load `.agents/skills/effect-patterns/SKILL.md` before writing or reviewing Effect code, and read Effect source through the `effect` resource in `btca.config.jsonc` at tag `effect@4.1.4`.
+
+- Import from `effect/<Module>` subpaths. The `effect` barrel is for type-only imports.
+- `Effect.run*` and `ManagedRuntime.make` run only in the modules the `allow` list of `local/effect-run-boundary` names. Other code returns an Effect.
+- Convex queries and mutations run on `MixedScheduler("sync")` and use no timers: no `Effect.sleep`, `Schedule`, `withRetry`, `within`, non-immediate forks or `Stream`. Durable retries and delays stay on `ctx.scheduler`, crons and Workpool.
+- Convex actions and the SvelteKit server use the default scheduler, `withRetry`, `within` and the shared tagged errors.
+- `(marketing)` routes load no Effect module in their initial JS. `bun run build` fails when one does, when a route has no entry in `bundle-budget.json`, and, on a build with the public configuration the file records, when a route's gzip JS exceeds its entry plus allowance.
+- `errors.ts`, `retry.ts`, `timeout.ts`, `lifetime.ts`, `scheduler.ts`, `clock.ts` and `testing.ts` import only `effect/*`, `convex/values` and each other. Forks copy these seven files as one set.
+- The Effect lint rules take `files` globs. A converted directory joins the globs in `eslint.config.js`; there are no baseline files.
+
 ## Workflow
 
 Create work that needs a branch or PR in an isolated worktree:

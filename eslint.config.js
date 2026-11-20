@@ -41,6 +41,15 @@ const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 // a boolean predicate such as `canEdit` or `hasRole` is no guard. `publicEndpoint`
 // from src/lib/convex/access.ts marks a function open to every caller.
 const convexAccessPattern = '^(require|assert|ensure)([A-Z_]|$)|^publicEndpoint$';
+const EFFECT_LEAF_MODULES = [
+	'errors',
+	'retry',
+	'timeout',
+	'lifetime',
+	'scheduler',
+	'clock',
+	'testing'
+].map((name) => `src/lib/effect/${name}.ts`);
 const localPlugin = {
 	processors: {
 		// Varlock writes a file-wide disable into generated environment types. Blank
@@ -620,6 +629,36 @@ export default defineConfig(
 						'Wrap import.meta.glob in `await preloadModules(...)` from src/lib/convex/convexTest.modules.ts, and pass `convexModules` to convexTest: a lazy map imports inside the first test that calls it, where a cold transform can pass the test timeout.'
 				}
 			]
+		}
+	},
+	{
+		files: ['**/*.{js,mjs,cjs,ts,svelte}'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/effect-subpath-import': ['error', { files: ['src/**', 'scripts/**'] }],
+			'local/effect-run-boundary': [
+				'error',
+				{
+					files: ['src/**', 'scripts/**'],
+					allow: [
+						'src/lib/effect/lifetime.ts',
+						'src/lib/server/effect-runtime.ts',
+						'src/lib/effect/client-runtime.ts',
+						'**/*.{test,spec}.ts'
+					]
+				}
+			],
+			'local/effect-no-raw-timers': [
+				'error',
+				{ files: ['src/lib/effect/**'], allow: ['**/*.{test,spec}.ts'] }
+			],
+			'local/effect-no-promise-race': ['error', { files: ['src/lib/effect/**'] }],
+			'local/effect-tagged-errors': ['error', { files: ['src/lib/effect/**'] }],
+			'local/effect-no-try-in-gen': ['error', { files: ['src/lib/effect/**'] }],
+			'local/effect-no-manual-retry': ['error', { files: ['src/lib/effect/**'] }],
+			'local/effect-leaf-imports': ['error', { files: EFFECT_LEAF_MODULES }]
 		}
 	},
 	// shadcn/lint: class names must produce CSS and stay readable to the linter.
