@@ -376,19 +376,12 @@
 			transparent 95%
 		);
 		filter: blur(20px);
-		transform: translate(-50%, -50%) rotate(0deg);
-		transition: opacity 0.5s ease-in-out;
-		animation: border-spin 4s linear infinite;
+		transform: translate(-50%, -50%);
 		pointer-events: none;
 	}
-	:global(.group:hover .ai-gradient-wrapper),
 	:global(.group:focus-within .ai-gradient-wrapper),
-	:global(.group:hover .ai-gradient-wrapper-glow),
 	:global(.group:focus-within .ai-gradient-wrapper-glow) {
 		inset: -4px;
-	}
-	:global(.group:hover .ai-gradient-wrapper-glow::before) {
-		opacity: 1;
 	}
 	:global(.ai-pill-bg) {
 		position: absolute;
@@ -437,20 +430,7 @@
 		opacity: 0;
 		transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 	}
-	@keyframes border-spin {
-		0% {
-			transform: translate(-50%, -50%) rotate(0deg);
-		}
-		100% {
-			transform: translate(-50%, -50%) rotate(-360deg);
-		}
-	}
-
 	@media (prefers-reduced-motion: reduce) {
-		:global(.ai-gradient-wrapper::before),
-		:global(.ai-gradient-wrapper-glow::before) {
-			animation: none;
-		}
 		:global(.ai-gradient-wrapper),
 		:global(.ai-gradient-wrapper-glow) {
 			transition: none;
