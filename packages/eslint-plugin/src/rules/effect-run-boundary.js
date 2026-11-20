@@ -31,8 +31,9 @@ export default {
 		};
 		const checkModuleSpecifiers = (node, local) => {
 			const module = effectModule(node.source?.value ?? '');
-			if (!module) return;
+			if (!module || node.importKind === 'type' || node.exportKind === 'type') return;
 			for (const specifier of node.specifiers) {
+				if (specifier.importKind === 'type' || specifier.exportKind === 'type') continue;
 				const member = specifierName(local(specifier));
 				if (specifier.type !== 'ImportNamespaceSpecifier' && isRunner(module, member)) {
 					report(specifier, module, member);
@@ -50,6 +51,7 @@ export default {
 				if (node.source) checkModuleSpecifiers(node, (specifier) => specifier.local);
 			},
 			ExportAllDeclaration(node) {
+				if (node.exportKind === 'type') return;
 				const module = effectModule(node.source.value);
 				if (module === 'Effect' || module === 'ManagedRuntime') {
 					report(node, module, '*');

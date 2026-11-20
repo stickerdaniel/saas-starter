@@ -18,7 +18,10 @@ describe('effect-leaf-imports', () => {
 		"import { v } from 'convex/values/extra';",
 		"export * from '#lib/utils';",
 		"export { within } from '../server/timeout';",
-		'const mod = await import(path);'
+		'const mod = await import(path);',
+		"const runtime = require('../server/effect-runtime');",
+		"const runtime = module.require('../server/effect-runtime');",
+		'const mod = require(path);'
 	])('reports an import outside the leaf set: %s', (code) => {
 		expect(lint(code)).toEqual([{ messageId: 'leafImport', line: 1 }]);
 	});
@@ -30,7 +33,8 @@ describe('effect-leaf-imports', () => {
 		"import { isRetryable } from './errors';",
 		"import { isRetryable } from './errors.ts';",
 		"import { syncScheduler } from './scheduler.js';",
-		"export { adjust } from 'effect/testing/TestClock';"
+		"export { adjust } from 'effect/testing/TestClock';",
+		"const { isRetryable } = require('./errors');"
 	])('allows effect subpaths, convex/values and sibling leaves: %s', (code) => {
 		expect(lint(code)).toEqual([]);
 	});

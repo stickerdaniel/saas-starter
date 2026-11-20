@@ -30,9 +30,19 @@ describe('effect-run-boundary', () => {
 	it.each([
 		`export { runPromise } from 'effect/Effect';`,
 		`export { runPromise as run } from 'effect/Effect';`,
-		`export * from 'effect/ManagedRuntime';`
-	])('reports a re-exported runner: %s', (code) => {
+		`export * from 'effect/ManagedRuntime';`,
+		`import { type Effect, runFork } from 'effect/Effect';`
+	])('reports a re-exported or value-imported runner: %s', (code) => {
 		expect(lint(code)).toEqual([{ messageId: 'runner', line: 1 }]);
+	});
+
+	it.each([
+		"import type { runFork } from 'effect/Effect';",
+		"import { type runFork, gen } from 'effect/Effect';",
+		"export type { runFork } from 'effect/Effect';",
+		"export type * from 'effect/Effect';"
+	])('allows type-only runner imports and re-exports: %s', (code) => {
+		expect(lint(code)).toEqual([]);
 	});
 
 	it.each([

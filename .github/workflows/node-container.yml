@@ -5,6 +5,9 @@ on:
     paths:
       - 'docker/**'
       - 'scripts/validate-node-runtime*'
+      - 'scripts/check-bundle-budget.ts'
+      - 'scripts/module-graph-plugin.ts'
+      - 'bundle-budget.json'
       - 'src/**'
       - 'static/**'
       - 'package.json'

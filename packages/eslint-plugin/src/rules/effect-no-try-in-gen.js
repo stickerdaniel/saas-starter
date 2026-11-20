@@ -31,12 +31,27 @@ export default {
 		if (!inScope(context)) return {};
 		const isGeneratorFactory = (callee) =>
 			isEffectMember(resolveEffect(context, callee), 'Effect', ['gen', 'fn', 'fnUntraced']);
-		const isEffectGenerator = (fn) => {
-			if (fn.type !== 'FunctionExpression' || !fn.generator) return false;
-			const call = fn.parent;
-			if (call?.type !== 'CallExpression' || !call.arguments.includes(fn)) return false;
+		const isFactoryArgument = (node) => {
+			const call = node.parent;
+			if (call?.type !== 'CallExpression' || !call.arguments.includes(node)) return false;
 			if (isGeneratorFactory(call.callee)) return true;
 			return call.callee.type === 'CallExpression' && isGeneratorFactory(call.callee.callee);
+		};
+		const bindingOf = (fn) => {
+			if (fn.type === 'FunctionDeclaration') return fn;
+			if (fn.parent?.type === 'VariableDeclarator' && fn.parent.init === fn) return fn.parent;
+			return undefined;
+		};
+		const isEffectGenerator = (fn) => {
+			if (!fn.generator) return false;
+			if (fn.type === 'FunctionExpression' && isFactoryArgument(fn)) return true;
+			const binding = bindingOf(fn);
+			if (!binding) return false;
+			return context.sourceCode
+				.getDeclaredVariables(binding)
+				.some((variable) =>
+					variable.references.some((reference) => isFactoryArgument(reference.identifier))
+				);
 		};
 		return {
 			TryStatement(node) {

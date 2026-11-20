@@ -46,6 +46,17 @@ export default {
 			},
 			ImportExpression(node) {
 				check(node, node.source);
+			},
+			CallExpression(node) {
+				const { callee } = node;
+				const isRequire =
+					(callee.type === 'Identifier' && callee.name === 'require') ||
+					(callee.type === 'MemberExpression' &&
+						callee.object.type === 'Identifier' &&
+						callee.object.name === 'module' &&
+						callee.property.type === 'Identifier' &&
+						callee.property.name === 'require');
+				if (isRequire) check(node, node.arguments[0]);
 			}
 		};
 	}
