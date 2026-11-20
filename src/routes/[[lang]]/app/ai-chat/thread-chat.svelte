@@ -72,8 +72,8 @@
 	$effect(() => {
 		const newId = threadId || null;
 		if (chatCore.threadId !== newId) {
-			// When transitioning from null to a real threadId (initial creation),
-			// just update the ID without resetting state to avoid re-animating suggestions
+			// A new conversation that just created its thread keeps its state and only
+			// records the id; setThread would reset it.
 			if (chatCore.threadId === null && newId !== null) {
 				chatCore.threadId = newId;
 			} else {
