@@ -9,7 +9,6 @@ export type CopyButtonPropsWithoutHTML = WithChildren<
 		ref?: HTMLButtonElement | null;
 		text: string;
 		icon?: Snippet<[]>;
-		animationDuration?: number;
 		onCopy?: (status: UseClipboard['status']) => void;
 	}
 >;

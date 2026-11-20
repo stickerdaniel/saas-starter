@@ -4,7 +4,7 @@
 	/**
 	 * The trailing chevron of a "Learn more" style control. On hover it slides
 	 * along the reading direction and its two arms spread apart into an arrow.
-	 * Fine-pointer hover and keyboard focus drive the same decorative state.
+	 * Only fine-pointer hover drives it; keyboard focus keeps the resting shape.
 	 *
 	 * Drawn as two separate strokes rather than one polyline because the arms
 	 * have to rotate independently about the apex at (10, 8). Purely decorative:

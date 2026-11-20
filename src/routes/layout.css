@@ -463,30 +463,6 @@
 	animation: fade-in 200ms ease-out both;
 }
 
-@utility enter-blur-up-wait {
-	opacity: 0;
-	transform: translateY(var(--enter-from-y, 6px));
-	filter: blur(var(--enter-from-blur, 6px));
-
-	@media (prefers-reduced-motion: reduce) {
-		opacity: 1;
-		transform: none;
-		filter: none;
-	}
-}
-
-@utility animate-enter-blur-up {
-	animation: enter-blur-up var(--enter-duration, 400ms) var(--enter-ease, ease-out) both;
-	animation-delay: var(--enter-delay, 0ms);
-
-	@media (prefers-reduced-motion: reduce) {
-		animation: none;
-		opacity: 1;
-		transform: none;
-		filter: none;
-	}
-}
-
 /* Per-item stagger: the element sets --delay, for example style:--delay="{i * 50}ms". */
 @utility animation-delay-var {
 	animation-delay: var(--delay);
@@ -565,20 +541,6 @@
 	}
 	to {
 		opacity: 1;
-	}
-}
-
-@keyframes enter-blur-up {
-	from {
-		opacity: 0;
-		transform: translateY(var(--enter-from-y, 6px));
-		filter: blur(var(--enter-from-blur, 6px));
-	}
-
-	to {
-		opacity: 1;
-		transform: translateY(0);
-		filter: blur(0);
 	}
 }
 
@@ -895,24 +857,8 @@
 	vector-effect: non-scaling-stroke;
 	transition: transform var(--learn-out) var(--learn-ease);
 }
-.t-learn:focus-visible .t-learn-chevron {
-	transform: translateX(var(--learn-shift));
-	transition-duration: var(--learn-in);
-}
-.t-learn:focus-visible .t-learn-arm {
-	transition-duration: var(--learn-in);
-}
-.t-learn:focus-visible .t-learn-arm-top {
-	transform: rotate(var(--learn-spread));
-}
-.t-learn:focus-visible .t-learn-arm-bot {
-	transform: rotate(calc(var(--learn-spread) * -1));
-}
 :where([dir='rtl']) .t-learn-chevron {
 	transform: scaleX(-1);
-}
-:where([dir='rtl']) .t-learn:focus-visible .t-learn-chevron {
-	transform: translateX(calc(var(--learn-shift) * -1)) scaleX(-1);
 }
 @media (hover: hover) and (pointer: fine) {
 	.t-learn:hover .t-learn-chevron {

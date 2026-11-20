@@ -7,8 +7,6 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { scale } from 'svelte/transition';
-	import { prefersReducedMotion } from 'svelte/motion';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import type { CopyButtonProps } from './types';
 
@@ -18,7 +16,6 @@
 		ref = $bindable(null),
 		text,
 		icon,
-		animationDuration = 500,
 		variant = 'ghost',
 		size: sizeProp = 'icon',
 		onCopy,
@@ -48,17 +45,17 @@
 	}}
 >
 	{#if clipboard.status === 'success'}
-		<div in:scale={{ duration: animationDuration, start: prefersReducedMotion.current ? 1 : 0.85 }}>
+		<div>
 			<CheckIcon tabindex={-1} />
 			<span class="sr-only">{$t('aria.copied')}</span>
 		</div>
 	{:else if clipboard.status === 'failure'}
-		<div in:scale={{ duration: animationDuration, start: prefersReducedMotion.current ? 1 : 0.85 }}>
+		<div>
 			<XIcon tabindex={-1} />
 			<span class="sr-only">{$t('aria.copy_failed')}</span>
 		</div>
 	{:else}
-		<div in:scale={{ duration: animationDuration, start: prefersReducedMotion.current ? 1 : 0.85 }}>
+		<div>
 			{#if icon}
 				{@render icon()}
 			{:else}
