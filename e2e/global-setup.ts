@@ -113,11 +113,12 @@ async function globalSetup() {
 
 	if (!usesLocalTestBackend()) return;
 	// SIGINT is Playwright's graceful stop: the run ends as interrupted, with its
-	// reports written and both teardowns run.
+	// reports written and both teardowns run. Emitting it reaches Playwright's
+	// handler on every platform; a self-sent signal terminates Windows processes.
 	return watchTestBackendExit((error) => {
 		console.error(`[E2E] ${error.split('\n', 1)[0]}`);
 		console.error('[E2E] Stopping the run, because every later test would fail against it.');
-		process.kill(process.pid, 'SIGINT');
+		process.emit('SIGINT');
 	});
 }
 
