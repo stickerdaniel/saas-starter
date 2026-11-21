@@ -2,12 +2,18 @@
  * ESLint rule: no-source-text-read
  *
  * Flags a test that reads a production source file as text: `readFileSync` or
- * `readFile` from `node:fs` or `node:fs/promises`, `Bun.file`, a `?raw` import,
- * a raw `import.meta.glob`, or a same-file helper that passes one of its
- * parameters to one of those reads. A target counts when it has a code extension,
+ * `readFile` from `node:fs` or `node:fs/promises`, `Bun.file`, either reader
+ * through a `const` alias or destructuring, a `?raw` import, a raw
+ * `import.meta.glob`, or a same-file helper that passes one of its parameters to
+ * one of those reads. A target counts when it has a code extension,
  * sits under one of the `roots` option's directories, and is not itself a test or
  * fixture. Files outside the roots, and non-code files such as `.css`, `.html` and
  * `.json`, are out of scope.
+ *
+ * A shared helper can hand the same text to a test. The `helpers` option lists such
+ * helpers by module and export name, and taking one from its module counts as a
+ * read: a named import, a namespace member or destructuring, or the same through
+ * `import()`. A use of the module the rule cannot follow counts as well.
  *
  * Generated output is not authored source: a target whose basename contains
  * `.generated.` or `.bundle.` passes, so a test may compare a committed generated
@@ -16,8 +22,9 @@
  * Why: a test imports what it tests. An assertion on source text passes while the
  * behaviour it names breaks, and fails on a harmless rewrite. The exception is a
  * two-sided contract that reads the real producer and the real consumer and
- * rejects a planted corruption. It lives in a `*.contract.test.ts` file, which
- * this rule skips.
+ * rejects a planted corruption. The `contracts` option lists each such file by its
+ * repository path, and the rule skips exactly the listed files. A human approves
+ * each entry.
  *
  * The rule computes a path from string literals, `const` bindings, template
  * literals, `+`, `path.resolve` / `join` / `dirname`, `import.meta.dirname`,
@@ -40,6 +47,7 @@ const FS_MODULES = new Set(['fs', 'node:fs', 'fs/promises', 'node:fs/promises'])
 const PATH_MODULES = new Set(['path', 'node:path']);
 const URL_MODULES = new Set(['url', 'node:url']);
 const READERS = new Set(['readFileSync', 'readFile']);
+const FS_OBJECT_PATHS = new Set(['', 'promises', 'default', 'default.promises']);
 const PATH_HELPERS = new Set(['resolve', 'join', 'dirname']);
 const CODE_EXTENSIONS = new Set([
 	'.ts',
@@ -55,7 +63,8 @@ const CODE_EXTENSIONS = new Set([
 const TEST_NAME = /\.(test|spec)\./;
 const GENERATED_NAME = /\.(generated|bundle)\./;
 const TEST_DIRECTORIES = new Set(['__tests__', '__fixtures__', 'test-fixtures']);
-const CONTRACT_FILE = /\.contract\.test\.[^./]+$/;
+const WHY_AND_EXEMPTION =
+	"a test that reads production source as text passes while behaviour breaks. The one exemption is a two-sided contract that reads both producer and consumer, rejects a planted corruption, and is listed in this rule's `contracts` option in `eslint.config.js`; a human approves each new entry.";
 const TS_WRAPPERS = new Set([
 	'TSAsExpression',
 	'TSSatisfiesExpression',
@@ -63,6 +72,10 @@ const TS_WRAPPERS = new Set([
 	'TSTypeAssertion',
 	'TSInstantiationExpression'
 ]);
+
+// The package.json `imports` and SvelteKit aliases a test reaches a helper through.
+const ALIASES = { '#lib/': 'src/lib/', '#blocks/': 'src/blocks/', '$lib/': 'src/lib/' };
+const withoutExtension = (file) => file.replace(/\.(c|m)?[jt]sx?$/, '');
 
 function unwrap(node) {
 	let result = node;
@@ -108,52 +121,154 @@ export default {
 			{
 				type: 'object',
 				properties: {
-					roots: { type: 'array', items: { type: 'string' }, uniqueItems: true }
+					roots: { type: 'array', items: { type: 'string' }, uniqueItems: true },
+					contracts: { type: 'array', items: { type: 'string' }, uniqueItems: true },
+					helpers: {
+						type: 'array',
+						items: {
+							type: 'object',
+							properties: {
+								module: { type: 'string' },
+								names: { type: 'array', items: { type: 'string' }, minItems: 1 }
+							},
+							required: ['module', 'names'],
+							additionalProperties: false
+						}
+					}
 				},
 				required: ['roots'],
 				additionalProperties: false
 			}
 		],
 		messages: {
-			sourceTextRead:
-				'Import the module behind `{{target}}` and test its behaviour; a test that reads production source as text passes while behaviour breaks. A two-sided contract that reads both producer and consumer and rejects a planted corruption belongs in a `*.contract.test.ts` file.'
+			sourceTextRead: `Import the module behind \`{{target}}\` and test its behaviour; ${WHY_AND_EXEMPTION}`,
+			sourceTextHelper: `\`{{name}}\` hands production source text to this test; ${WHY_AND_EXEMPTION}`
 		}
 	},
 	create(context) {
 		const filename = context.filename;
-		if (CONTRACT_FILE.test(path.basename(filename))) return {};
-
 		const cwd = context.cwd;
+		const relativeFilename = path.relative(cwd, filename).split(path.sep).join('/');
+		if (context.options[0].contracts?.includes(relativeFilename)) return {};
+
 		const directory = path.dirname(filename);
 		const roots = context.options[0].roots.map((root) => root.replace(/\/+$/, ''));
 		const sourceCode = context.sourceCode;
 		const wrapperReads = new Map();
+		const helpers = (context.options[0].helpers ?? []).map(({ module, names }) => ({
+			module: withoutExtension(module),
+			names: new Set(names)
+		}));
 
 		const variableOf = (identifier) =>
 			findVariable(sourceCode.getScope(identifier), identifier.name);
 		// Configured globals such as `URL` and `__dirname` are scope variables without a definition.
 		const isGlobal = (identifier) => !variableOf(identifier)?.defs.length;
 
-		/** `{ source, imported }` when `identifier` is bound by an import declaration. */
+		/** The `import()` an awaited expression resolves, as in `await import('node:fs')`. */
+		function awaitedImport(node) {
+			const awaited = unwrap(node);
+			return awaited?.type === 'AwaitExpression' && awaited.argument.type === 'ImportExpression'
+				? awaited.argument
+				: undefined;
+		}
+
+		/** The function `import(x).then(fn)` hands the module to. */
+		function thenCallback(loader) {
+			const member = loader.parent;
+			const call = member?.parent;
+			if (member?.type !== 'MemberExpression' || member.object !== loader) return undefined;
+			if (propertyName(member) !== 'then' || call?.type !== 'CallExpression') return undefined;
+			return call.callee === member && FUNCTIONS.has(call.arguments[0]?.type)
+				? call.arguments[0]
+				: undefined;
+		}
+
+		/** The `import()` whose module the first parameter of `fn` receives. */
+		function thenImport(fn) {
+			const callee = fn.parent?.type === 'CallExpression' ? fn.parent.callee : undefined;
+			const loader = callee?.type === 'MemberExpression' ? callee.object : undefined;
+			return loader?.type === 'ImportExpression' && thenCallback(loader) === fn
+				? loader
+				: undefined;
+		}
+
+		/**
+		 * The property names from `pattern` down to `name`: `[]` when the pattern is the
+		 * name, `['promises', 'readFile']` for `{ promises: { readFile: name } }`.
+		 */
+		function patternKeys(pattern, name) {
+			if (pattern === name) return [];
+			if (pattern?.type === 'AssignmentPattern') return patternKeys(pattern.left, name);
+			if (pattern?.type !== 'ObjectPattern') return undefined;
+			for (const entry of pattern.properties) {
+				if (entry.type !== 'Property' || entry.computed) continue;
+				const keys = patternKeys(entry.value, name);
+				if (keys) return [nameOf(entry.key), ...keys];
+			}
+			return undefined;
+		}
+
+		/**
+		 * `{ source, imported }` for a name bound from a dynamic import: `default` for the
+		 * module, a dotted path such as `promises.readFile` for a nested destructuring.
+		 */
+		function dynamicImportOf(def) {
+			const [loader, pattern] =
+				def.type === 'Variable'
+					? [awaitedImport(def.node.init), def.node.id]
+					: def.type === 'Parameter' && FUNCTIONS.has(def.node.type)
+						? [thenImport(def.node), def.node.params[0]]
+						: [];
+			const source = loader && evaluate(loader.source, new Map());
+			if (source === undefined) return undefined;
+			const keys = patternKeys(pattern, def.name);
+			if (!keys) return undefined;
+			return { source, imported: keys.length ? keys.join('.') : 'default' };
+		}
+
+		/** `{ source, imported }` when `identifier` is bound by an import declaration or `import()`. */
 		function importOf(identifier) {
 			if (identifier?.type !== 'Identifier') return undefined;
 			const def = variableOf(identifier)?.defs[0];
+			if (def && def.type !== 'ImportBinding') return dynamicImportOf(def);
 			if (def?.type !== 'ImportBinding') return undefined;
 			const imported = def.node.type === 'ImportSpecifier' ? nameOf(def.node.imported) : 'default';
 			return { source: def.parent.source.value, imported };
 		}
 
+		/**
+		 * What a `const` binding of `identifier` holds: `{ value, keys: [] }` for
+		 * `const x = value`, `{ value, keys: ['a', 'b'] }` for `const { a: { b: x } } = value`.
+		 */
+		function constAlias(identifier) {
+			if (identifier?.type !== 'Identifier') return undefined;
+			const def = variableOf(identifier)?.defs[0];
+			if (def?.type !== 'Variable' || def.parent.kind !== 'const' || !def.node.init) {
+				return undefined;
+			}
+			const keys = patternKeys(def.node.id, def.name);
+			return keys ? { value: unwrap(def.node.init), keys } : undefined;
+		}
+
+		/** True for a node:fs module, its `promises`, or either taken through `default`. */
+		const isFsPath = (keys) => FS_OBJECT_PATHS.has(keys.join('.'));
+
 		/** True for `fs`, `fs.promises` and `promises` bound from a node:fs module. */
-		function isFsObject(wrapped) {
+		function isFsObject(wrapped, seen = new Set()) {
 			const node = unwrap(wrapped);
 			if (node?.type === 'MemberExpression') {
-				return propertyName(node) === 'promises' && isFsObject(node.object);
+				return propertyName(node) === 'promises' && isFsObject(node.object, seen);
 			}
+			const loader = awaitedImport(node);
+			if (loader) return FS_MODULES.has(evaluate(loader.source, new Map()));
 			const binding = importOf(node);
-			return (
-				FS_MODULES.has(binding?.source) &&
-				(binding.imported === 'default' || binding.imported === 'promises')
-			);
+			if (binding) {
+				return FS_MODULES.has(binding.source) && isFsPath(binding.imported.split('.'));
+			}
+			const alias = constAlias(node);
+			if (!alias || seen.has(alias.value) || !isFsPath(alias.keys)) return false;
+			return isFsObject(alias.value, new Set(seen).add(alias.value));
 		}
 
 		/** True when `callee` names `name` from one of `modules`, as an import or a member of one. */
@@ -167,18 +282,37 @@ export default {
 			return modules.has(binding?.source) && binding.imported === 'default';
 		}
 
-		function isReader(callee) {
+		/** True when `object`, then `keys`, reaches `Bun.file` or a reader of a node:fs module. */
+		function isMemberReader(keys, object, seen) {
+			const property = keys.at(-1);
+			const prefix = keys.slice(0, -1);
+			if (property === 'file' && object.type === 'Identifier' && object.name === 'Bun') {
+				return prefix.length === 0 && isGlobal(object);
+			}
+			return READERS.has(property) && isFsPath(prefix) && isFsObject(object, seen);
+		}
+
+		/** True when `callee` is a file reader, also through `const` aliases and destructuring. */
+		function isReader(callee, seen = new Set()) {
 			if (callee.type === 'Identifier') {
 				const binding = importOf(callee);
-				return FS_MODULES.has(binding?.source) && READERS.has(binding.imported);
+				if (binding) {
+					const keys = binding.imported.split('.');
+					return (
+						FS_MODULES.has(binding.source) &&
+						READERS.has(keys.at(-1)) &&
+						isFsPath(keys.slice(0, -1))
+					);
+				}
+				const alias = constAlias(callee);
+				if (!alias || seen.has(alias.value)) return false;
+				const next = new Set(seen).add(alias.value);
+				return alias.keys.length === 0
+					? isReader(alias.value, next)
+					: isMemberReader(alias.keys, alias.value, next);
 			}
 			if (callee.type !== 'MemberExpression') return false;
-			const property = propertyName(callee);
-			const object = unwrap(callee.object);
-			if (property === 'file' && object.type === 'Identifier') {
-				return object.name === 'Bun' && isGlobal(object);
-			}
-			return READERS.has(property) && isFsObject(callee.object);
+			return isMemberReader([propertyName(callee)], unwrap(callee.object), seen);
 		}
 
 		/** Absolute path of a file URL, or the path unchanged when it already is one. */
@@ -345,11 +479,13 @@ export default {
 			return reads.flatMap((read) => readTargets(read, argumentsEnv));
 		}
 
-		/** A Vite import specifier as a path: relative to this file, or rooted at the repository. */
+		/** A Vite import specifier as a path: relative to this file, an alias, or rooted at the repository. */
 		function specifierPath(specifier) {
 			if (specifier.startsWith('./') || specifier.startsWith('../')) {
 				return path.resolve(directory, specifier);
 			}
+			const alias = Object.keys(ALIASES).find((prefix) => specifier.startsWith(prefix));
+			if (alias) return path.join(cwd, ALIASES[alias], specifier.slice(alias.length));
 			return specifier.startsWith('/') ? path.join(cwd, specifier) : undefined;
 		}
 
@@ -376,6 +512,96 @@ export default {
 			if (value === undefined || value.includes(PARAMETER_MARKER)) return;
 			const target = authoredSource(value);
 			if (target) context.report({ node, messageId: 'sourceTextRead', data: { target } });
+		}
+
+		/** The `helpers` entry an import specifier names, by its repository path. */
+		function helperOf(specifier) {
+			const absolute = specifierPath(specifier);
+			if (absolute === undefined) return undefined;
+			const relative = withoutExtension(path.relative(cwd, absolute).split(path.sep).join('/'));
+			return helpers.find((helper) => helper.module === relative);
+		}
+
+		/** Reports `name` taken from a helper; an unknown name stands for all its listed exports. */
+		function reportHelper(node, helper, name) {
+			if (name !== undefined && !helper.names.has(name)) return;
+			const reported = name ?? [...helper.names].join('` or `');
+			context.report({ node, messageId: 'sourceTextHelper', data: { name: reported } });
+		}
+
+		/** Reports the listed exports a destructuring takes; a rest element takes them all. */
+		function checkPattern(pattern, helper) {
+			for (const entry of pattern.properties) {
+				const key = entry.type === 'Property' ? entry.key : undefined;
+				const name = entry.computed ? evaluate(key, new Map()) : nameOf(key);
+				reportHelper(entry, helper, name);
+			}
+		}
+
+		/** Follows a helper module held as one value to what the test takes from it. */
+		function checkModuleValue(node, helper) {
+			const parent = node.parent;
+			if (parent?.type === 'MemberExpression' && parent.object === node) {
+				const name = parent.computed ? evaluate(parent.property, new Map()) : propertyName(parent);
+				reportHelper(parent, helper, name);
+				return;
+			}
+			const declared = parent?.type === 'VariableDeclarator' && parent.init === node;
+			const pattern = declared
+				? parent.id
+				: parent?.type === 'AssignmentExpression' && parent.right === node
+					? parent.left
+					: undefined;
+			if (pattern?.type === 'ObjectPattern') checkPattern(pattern, helper);
+			else if (declared && pattern.type === 'Identifier') {
+				for (const variable of sourceCode.getDeclaredVariables(parent)) {
+					checkModuleVariable(variable, helper);
+				}
+			} else reportHelper(node, helper);
+		}
+
+		function checkModuleVariable(variable, helper) {
+			for (const reference of variable.references) {
+				if (reference.init || !reference.isRead() || reference.isValueReference === false) continue;
+				if (reference.identifier.parent?.type === 'TSTypeQuery') continue;
+				checkModuleValue(reference.identifier, helper);
+			}
+		}
+
+		function checkHelperImport(node) {
+			const helper = typeof node.source.value === 'string' && helperOf(node.source.value);
+			if (!helper) return;
+			for (const specifier of node.specifiers) {
+				if (specifier.type === 'ImportSpecifier') {
+					reportHelper(specifier, helper, nameOf(specifier.imported));
+					continue;
+				}
+				for (const variable of sourceCode.getDeclaredVariables(specifier)) {
+					checkModuleVariable(variable, helper);
+				}
+			}
+		}
+
+		function checkHelperImportExpression(node) {
+			const specifier = evaluate(node.source, new Map());
+			const helper = typeof specifier === 'string' && helperOf(specifier);
+			if (!helper) return;
+			if (node.parent?.type === 'AwaitExpression') {
+				checkModuleValue(node.parent, helper);
+				return;
+			}
+			const callback = thenCallback(node);
+			if (!callback) {
+				reportHelper(node, helper);
+				return;
+			}
+			const [parameter] = callback.params;
+			if (parameter?.type === 'ObjectPattern') checkPattern(parameter, helper);
+			else if (parameter?.type === 'Identifier') {
+				for (const variable of sourceCode.getDeclaredVariables(callback)) {
+					if (variable.defs[0]?.name === parameter) checkModuleVariable(variable, helper);
+				}
+			} else if (parameter) reportHelper(parameter, helper);
 		}
 
 		function checkRawSpecifier(node, specifier) {
@@ -406,9 +632,11 @@ export default {
 		return {
 			ImportDeclaration(node) {
 				checkRawSpecifier(node, node.source.value);
+				checkHelperImport(node);
 			},
 			ImportExpression(node) {
 				checkRawSpecifier(node, evaluate(node.source, new Map()));
+				checkHelperImportExpression(node);
 			},
 			CallExpression(node) {
 				if (isImportMeta(node.callee.object) && propertyName(node.callee) === 'glob') {
