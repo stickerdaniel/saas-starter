@@ -19,7 +19,21 @@ function reports(code: string, testFile = 'src/lib/example.test.ts') {
 					// The repository config declares these, which binds `URL` and `__dirname` in scope.
 					languageOptions: { parser, globals: { ...globals.browser, ...globals.node } },
 					plugins: { local: { rules: { 'no-source-text-read': rule } } },
-					rules: { 'local/no-source-text-read': ['error', { roots: ['src', 'scripts'] }] }
+					rules: {
+						'local/no-source-text-read': [
+							'error',
+							{
+								roots: ['src', 'scripts'],
+								contracts: [
+									'scripts/x.contract.test.ts',
+									'src/lib/feature/__tests__/inventory.contract.test.ts'
+								],
+								helpers: [
+									{ module: 'src/lib/test-utils/source-scanner.ts', names: ['readSources'] }
+								]
+							}
+						]
+					}
 				}
 			],
 			{ filename: path.join(repoRoot, testFile) }
@@ -38,7 +52,7 @@ describe('no-source-text-read', () => {
 				line: 2,
 				messageId: 'sourceTextRead',
 				message:
-					'Import the module behind `src/lib/convex/users.ts` and test its behaviour; a test that reads production source as text passes while behaviour breaks. A two-sided contract that reads both producer and consumer and rejects a planted corruption belongs in a `*.contract.test.ts` file.'
+					"Import the module behind `src/lib/convex/users.ts` and test its behaviour; a test that reads production source as text passes while behaviour breaks. The one exemption is a two-sided contract that reads both producer and consumer, rejects a planted corruption, and is listed in this rule's `contracts` option in `eslint.config.js`; a human approves each new entry."
 			}
 		]);
 	});
@@ -140,9 +154,183 @@ describe('no-source-text-read', () => {
 		]);
 	});
 
-	it('skips a two-sided contract file', () => {
+	it.each([
+		['a $lib ?raw import', `import source from '$lib/convex/users.ts?raw';`],
+		['a #lib ?raw import', `import source from '#lib/convex/users.ts?raw';`],
+		[
+			'a dynamic $lib ?raw import',
+			`const { default: source } = await import('$lib/convex/users.ts?raw');`
+		],
+		[
+			'a $lib raw glob',
+			`import.meta.glob('$lib/convex/*.ts', { query: '?raw', import: 'default' });`
+		]
+	])('resolves %s through the alias', (_kind, code) => {
+		expect(reports(code).map(({ messageId }) => messageId)).toEqual(['sourceTextRead']);
+	});
+
+	it.each([
+		[
+			'destructuring',
+			`const { readFileSync } = await import('node:fs');\nreadFileSync('src/lib/convex/users.ts', 'utf8');`
+		],
+		[
+			'a module binding',
+			`const fs = await import('node:fs');\nfs.readFileSync('src/lib/convex/users.ts', 'utf8');`
+		],
+		[
+			'an awaited module',
+			`(await import('node:fs/promises')).readFile('src/lib/convex/users.ts', 'utf8');`
+		],
+		[
+			'a then callback',
+			`import('node:fs').then(({ readFileSync }) => readFileSync('src/lib/convex/users.ts', 'utf8'));`
+		]
+	])('reports a dynamic node:fs import read through %s', (_kind, code) => {
+		expect(reports(code).map(({ messageId }) => messageId)).toEqual(['sourceTextRead']);
+		expect(reports(code.replace('src/lib/convex/users.ts', 'package.json'))).toEqual([]);
+	});
+
+	it.each([
+		[
+			'destructuring from a namespace import',
+			`import * as fs from 'node:fs';\nconst { readFileSync } = fs;\nreadFileSync('src/lib/convex/users.ts', 'utf8');`
+		],
+		[
+			'a const bound to a namespace member',
+			`import * as fs from 'node:fs';\nconst read = fs.readFileSync;\nread('src/lib/convex/users.ts', 'utf8');`
+		],
+		[
+			'a const bound to Bun.file',
+			`const read = Bun.file;\nawait read('src/lib/convex/users.ts').text();`
+		],
+		[
+			'an alias of an alias',
+			`import { readFileSync } from 'node:fs';\nconst read = readFileSync;\nconst load = read;\nload('src/lib/convex/users.ts', 'utf8');`
+		],
+		[
+			'promises destructured from a namespace import',
+			`import * as fs from 'node:fs';\nconst { promises } = fs;\nawait promises.readFile('src/lib/convex/users.ts', 'utf8');`
+		],
+		[
+			'nested destructuring from a namespace import',
+			`import * as fs from 'node:fs';\nconst { promises: { readFile } } = fs;\nawait readFile('src/lib/convex/users.ts', 'utf8');`
+		],
+		[
+			'nested destructuring from a default import',
+			`import fs from 'node:fs';\nconst { promises: { readFile: read } } = fs;\nawait read('src/lib/convex/users.ts', 'utf8');`
+		],
+		[
+			'nested destructuring of an awaited import',
+			`const { promises: { readFile } } = await import('node:fs');\nawait readFile('src/lib/convex/users.ts', 'utf8');`
+		],
+		[
+			'nested destructuring in a then callback',
+			`import('node:fs').then(({ promises: { readFile } }) => readFile('src/lib/convex/users.ts', 'utf8'));`
+		]
+	])('reports a reader reached through %s', (_kind, code) => {
+		expect(reports(code).map(({ messageId }) => messageId)).toEqual(['sourceTextRead']);
+		expect(reports(code.replace('src/lib/convex/users.ts', 'package.json'))).toEqual([]);
+	});
+
+	it('skips exactly the files the contracts option lists', () => {
 		const code = `${fsImport}readFileSync('src/lib/convex/users.ts', 'utf8');`;
 		expect(reports(code, 'scripts/x.contract.test.ts')).toEqual([]);
+		expect(reports(code, 'scripts/y.contract.test.ts')).toEqual([
+			expect.objectContaining({ line: 2, messageId: 'sourceTextRead' })
+		]);
+	});
+
+	describe('a helper that returns source text', () => {
+		const helperTest = 'src/lib/feature/__tests__/inventory.test.ts';
+		const assertion = `\nconst rows = readSources();\nexpect(rows[0].text).toContain('requireAdmin');`;
+
+		it.each([
+			[
+				'a relative import',
+				`import { readSources } from '../../test-utils/source-scanner';${assertion}`
+			],
+			[
+				'an aliased import with its extension',
+				`import { readSources } from '#lib/test-utils/source-scanner.ts';${assertion}`
+			],
+			[
+				'a renamed import',
+				`import { readSources as sources } from '$lib/test-utils/source-scanner';\nexpect(sources()[0].text).toContain('requireAdmin');`
+			]
+		])('reports %s in an ordinary test', (_kind, code) => {
+			expect(reports(code, helperTest)).toEqual([
+				expect.objectContaining({
+					line: 1,
+					messageId: 'sourceTextHelper',
+					message: expect.stringContaining('`readSources`')
+				})
+			]);
+		});
+
+		it('reports a call through a namespace import', () => {
+			const code = `import * as scanner from '../../test-utils/source-scanner';\nexpect(scanner.readSources()[0].text).toContain('requireAdmin');`;
+			expect(reports(code, helperTest)).toEqual([
+				expect.objectContaining({ line: 2, messageId: 'sourceTextHelper' })
+			]);
+		});
+
+		it.each([
+			[
+				'destructuring from a namespace import',
+				`import * as scan from '../../test-utils/source-scanner';\nconst { readSources } = scan;\nexpect(readSources()[0].text).toContain('requireAdmin');`,
+				2
+			],
+			[
+				'a member of a dynamic import',
+				`const scan = await import('../../test-utils/source-scanner');\nexpect(scan.readSources()[0].text).toContain('requireAdmin');`,
+				2
+			],
+			[
+				'destructuring from a dynamic import',
+				`const { readSources } = await import('#lib/test-utils/source-scanner.ts');\nexpect(readSources()[0].text).toContain('requireAdmin');`,
+				1
+			],
+			[
+				'a member of an awaited dynamic import',
+				`expect((await import('$lib/test-utils/source-scanner')).readSources()[0].text).toContain('requireAdmin');`,
+				1
+			],
+			[
+				'a dynamic import handed to then',
+				`import('../../test-utils/source-scanner').then(({ readSources }) => readSources());`,
+				1
+			],
+			[
+				'a namespace the rule cannot follow',
+				`import * as scan from '../../test-utils/source-scanner';\ninspect(scan);`,
+				2
+			]
+		])('reports %s', (_kind, code, line) => {
+			expect(reports(code, helperTest)).toEqual([
+				expect.objectContaining({ line, messageId: 'sourceTextHelper' })
+			]);
+		});
+
+		it("allows the helper in a listed contract and the module's other exports anywhere", () => {
+			const code = `import { readSources } from '../../test-utils/source-scanner';${assertion}`;
+			expect(reports(code, 'src/lib/feature/__tests__/inventory.contract.test.ts')).toEqual([]);
+			expect(reports(code, 'src/lib/feature/__tests__/other.contract.test.ts')).toEqual([
+				expect.objectContaining({ line: 1, messageId: 'sourceTextHelper' })
+			]);
+			expect(
+				reports(
+					`import { scanSources } from '../../test-utils/source-scanner';\nscanSources([]);`,
+					helperTest
+				)
+			).toEqual([]);
+			expect(
+				reports(
+					`const { scanSources } = await import('../../test-utils/source-scanner');\nscanSources([]);`,
+					helperTest
+				)
+			).toEqual([]);
+		});
 	});
 
 	it.each([
@@ -178,6 +366,10 @@ describe('no-source-text-read', () => {
 			`const readFileSync = (p: string) => p;\nreadFileSync('src/lib/convex/users.ts');`
 		],
 		[
+			'a readFile destructured from an object that is not node:fs',
+			`const { promises: { readFile } } = { promises: { readFile: (p: string) => p } };\nreadFile('src/lib/convex/users.ts');`
+		],
+		[
 			'a nested reader whose parameter shadows the wrapper parameter',
 			`${fsImport}const read = (p: string) => {\n\tconst inner = (p: string) => readFileSync(p, 'utf8');\n\treturn inner('package.json');\n};\nread('src/hooks.server.ts');`
 		],
@@ -210,7 +402,9 @@ describe('no-source-text-read repository coverage', () => {
 		'src/routes/example.svelte.test.ts',
 		'e2e/example.spec.ts',
 		'scripts/example.test.mts',
-		'scripts/example.spec.cts'
+		'scripts/example.spec.cts',
+		'src/lib/convex/example.contract.test.ts',
+		'src/lib/components/example.contract.dom.svelte.test.ts'
 	])(
 		'reaches %s',
 		async (filePath) => {
@@ -221,7 +415,7 @@ describe('no-source-text-read repository coverage', () => {
 		60_000
 	);
 
-	it.each(['src/lib/convex/example.contract.test.ts', 'src/lib/convex/example.ts'])(
+	it.each(['scripts/avatar-inline-route.contract.test.ts', 'src/lib/convex/example.ts'])(
 		'leaves %s alone',
 		async (filePath) => {
 			expect(await ruleMessages(filePath)).toEqual([]);

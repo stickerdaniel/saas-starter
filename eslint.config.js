@@ -610,7 +610,19 @@ export default defineConfig(
 			local: localPlugin
 		},
 		rules: {
-			'local/no-source-text-read': ['error', { roots: ['src', 'scripts'] }]
+			'local/no-source-text-read': [
+				'error',
+				{
+					roots: ['src', 'scripts'],
+					contracts: [
+						'eslint/rules/require-static-mode-initializer.contract.test.ts',
+						'scripts/avatar-inline-route.contract.test.ts',
+						'scripts/env-schema-parity.contract.test.ts',
+						'scripts/security-headers-sync.contract.test.ts',
+						'scripts/upstream-report-scope.contract.test.ts'
+					]
+				}
+			]
 		}
 	},
 	// Tolgee() is TolgeeCore() plus the browser-extension plugin, whose handshake
