@@ -6,7 +6,8 @@ const events = vi.hoisted((): string[] => []);
 vi.mock('varlock/auto-load', () => ({}));
 vi.mock('../e2e/utils/site-url', () => ({ resolveSiteUrl: () => 'https://preview.example.com' }));
 vi.mock('../e2e/utils/convex-url', () => ({
-	waitForConvexUrl: async () => 'https://test.convex.cloud'
+	waitForConvexUrl: async () => 'https://test.convex.cloud',
+	usesLocalTestBackend: () => false
 }));
 vi.mock('../e2e/utils/backend-readiness', () => ({ waitForBackendReady: vi.fn() }));
 vi.mock('../e2e/utils/preview-bypass', () => ({
