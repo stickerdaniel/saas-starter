@@ -9,7 +9,8 @@
 	 * Drawn as two separate strokes rather than one polyline because the arms
 	 * have to rotate independently about the apex at (10, 8). Purely decorative:
 	 * the motion conveys no state, so coarse pointers keep the resting shape.
-	 * Requires `t-learn` on the interactive ancestor.
+	 * Requires `t-learn` on the interactive ancestor. layout.css draws the arm strokes, so
+	 * each instance's markup stays short.
 	 */
 	let { class: className }: { class?: string } = $props();
 </script>
@@ -22,20 +23,6 @@
 	fill="none"
 	aria-hidden="true"
 >
-	<path
-		class="t-learn-arm t-learn-arm-top"
-		d="M6 4L10 8"
-		stroke="currentColor"
-		stroke-width="1.5"
-		stroke-linecap="round"
-		stroke-linejoin="round"
-	/>
-	<path
-		class="t-learn-arm t-learn-arm-bot"
-		d="M10 8L6 12"
-		stroke="currentColor"
-		stroke-width="1.5"
-		stroke-linecap="round"
-		stroke-linejoin="round"
-	/>
+	<path class="t-learn-arm t-learn-arm-top" d="M6 4L10 8" />
+	<path class="t-learn-arm t-learn-arm-bot" d="M10 8L6 12" />
 </svg>

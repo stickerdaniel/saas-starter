@@ -3,6 +3,8 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import HeroFive from '#blocks/hero/hero-five.svelte';
 	import IntegrationOne from '#blocks/integration/integration-one.svelte';
+	import AfterLaunchOne from '#blocks/after-launch/after-launch-one.svelte';
+	import FaqOne from '#blocks/faq/faq-one.svelte';
 	import LazyCustomerSupport from '#lib/components/customer-support/lazy-customer-support.svelte';
 	const { t } = getTranslate();
 </script>
@@ -16,3 +18,5 @@
 
 <HeroFive />
 <IntegrationOne />
+<AfterLaunchOne />
+<FaqOne />

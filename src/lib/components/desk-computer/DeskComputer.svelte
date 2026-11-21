@@ -4,12 +4,14 @@
 -->
 <script lang="ts">
 	import type { Attachment } from 'svelte/attachments';
-	import markup from './desk-computer.svg?raw';
+	import frame from 'virtual:desk-computer-frame.css?url';
 
 	let { class: className = '' }: { class?: string } = $props();
 
-	// The server renders the figure so it paints with the page. Its animation loads
-	// after the page's load event once the browser is idle, off the critical path.
+	// The head links a render-blocking stylesheet that paints the figure as an image, so it
+	// arrives with the page without its markup in the HTML (scripts/desk-computer-frame.ts).
+	// The live markup and its animation load after the page's load event once the browser is
+	// idle, off the critical path.
 	const animate: Attachment<HTMLDivElement> = (host) => {
 		let destroyed = false;
 		let stop: (() => void) | undefined;
@@ -17,10 +19,13 @@
 		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
 		async function start() {
-			const { animateDeskComputer } = await import('./desk-computer.js');
+			const { animateDeskComputer, markup } = await import('./desk-computer.js');
+			if (destroyed) return;
+			// Filling the host ends the stylesheet frame in the same task, so no frame paints
+			// both figures or neither.
+			host.innerHTML = markup;
 			const svg = host.querySelector('svg');
-			if (destroyed || !svg) return;
-			stop = animateDeskComputer(svg);
+			if (svg) stop = animateDeskComputer(svg);
 		}
 
 		function schedule() {
@@ -44,10 +49,11 @@
 	};
 </script>
 
-<div class={['desk-computer', className]} aria-hidden="true" {@attach animate}>
-	<!-- eslint-disable-next-line svelte/no-at-html-tags -- Trusted build-time constant inlined from desk-computer.svg, no user input -->
-	{@html markup}
-</div>
+<svelte:head>
+	<link rel="stylesheet" href={frame} />
+</svelte:head>
+
+<div class={['desk-computer', className]} aria-hidden="true" {@attach animate}></div>
 
 <style>
 	/* The anatomy kit's tokens, derived from the app theme so the figure follows its palette:
@@ -92,7 +98,7 @@
 	}
 
 	/* The injected SVG is not part of this component's markup, so its rules are global
-	   below the scoped wrapper. */
+	   below the scoped wrapper. The stylesheet frame embeds these rules and the tokens above. */
 	.desk-computer :global {
 		.iso-svg {
 			display: block;
