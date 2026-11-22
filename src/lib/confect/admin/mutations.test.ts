@@ -3,7 +3,7 @@ import type { FunctionReturnType } from 'convex/server';
 import type { MutationCtx } from '../../convex/_generated/server';
 import type { internal } from '../../convex/_generated/api';
 import { ADMIN_ERROR_CODES } from './errors';
-import { authComponent } from '../../convex/auth';
+import { authComponent } from '../authServer';
 
 const { syncAdminPreferencesMock } = vi.hoisted(() => ({
 	syncAdminPreferencesMock: vi.fn()

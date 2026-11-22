@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../convex/auth', () => ({
+vi.mock('../../authServer', () => ({
 	authComponent: {
 		safeGetAuthUser: vi.fn()
 	}
@@ -35,7 +35,7 @@ vi.mock('../../../convex/_generated/api', () => ({
 	internal: {}
 }));
 
-import { authComponent } from '../../../convex/auth';
+import { authComponent } from '../../authServer';
 import { supportAgent } from '../agent';
 import { supportRateLimiter } from '../rateLimit';
 import { getOrCreateWarmThread } from '../threads';

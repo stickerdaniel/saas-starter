@@ -15,7 +15,7 @@ const { autumnCheck, generateText, orModel } = vi.hoisted(() => ({
 	orModel: vi.fn(() => 'model')
 }));
 
-vi.mock('../../convex/autumn', () => ({
+vi.mock('../autumn', () => ({
 	getAutumnSdk: vi.fn(async () => ({ check: autumnCheck }))
 }));
 
@@ -26,7 +26,7 @@ vi.mock('../aiUsage/capture', () => ({
 	captureDirect: vi.fn(() => ({ model: 'model' }))
 }));
 
-vi.mock('../../convex/aiUsage/record', () => ({ recordAiUsage: vi.fn() }));
+vi.mock('../aiUsage/record', () => ({ recordAiUsage: vi.fn() }));
 
 vi.mock('../../convex/_generated/api', () => ({
 	internal: {
@@ -36,13 +36,13 @@ vi.mock('../../convex/_generated/api', () => ({
 	}
 }));
 
-import { getAutumnSdk } from '../../convex/autumn';
+import { getAutumnSdk } from '../autumn';
 import {
 	CapabilityConfigurationError,
 	requireAiConfiguration,
 	requireBillingConfiguration
 } from '../env';
-import { generateThreadTitle } from '../../convex/aiChat/titles';
+import { generateThreadTitle } from './titles';
 
 const getAutumnSdkMock = getAutumnSdk as unknown as ReturnType<typeof vi.fn>;
 const requireAiMock = requireAiConfiguration as unknown as ReturnType<typeof vi.fn>;

@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
  * redirect itself cannot run here.
  */
 
-const storagePath = path.resolve('src/lib/convex/storage.ts');
+const storagePath = path.resolve('src/lib/confect/storage.ts');
 const httpPath = path.resolve('src/lib/convex/http.ts');
 
 /** Every way the avatar URL storage.ts builds misses the route http.ts registers. */

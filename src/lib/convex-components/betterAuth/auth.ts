@@ -1,4 +1,4 @@
-import { createAuth } from '../../convex/auth';
+import { createAuth } from '../../confect/authServer';
 import { createSchemaGenerationContext } from './schemaGenerationContext';
 
 // Export a static instance for Better Auth CLI schema generation

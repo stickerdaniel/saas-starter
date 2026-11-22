@@ -4,7 +4,7 @@ import {
 	applyFounderIncidentEmailEvent,
 	mergeFounderIncidentDeliveryStatus,
 	reconcileFounderIncidentEmailDelivery
-} from '../../convex/emails/founderIncidentDelivery';
+} from './founderIncidentDelivery';
 import { resend } from './resend';
 
 type IncidentRow = {

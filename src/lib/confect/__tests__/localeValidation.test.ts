@@ -24,7 +24,7 @@ vi.mock('../../convex/_generated/server', () => ({
 }));
 
 async function parseUser(user: Record<string, unknown>, action: 'create' | 'update') {
-	const { createAuthOptions } = await import('../../convex/auth');
+	const { createAuthOptions } = await import('../authServer');
 	return parseUserInput(createAuthOptions({} as never), user, action);
 }
 

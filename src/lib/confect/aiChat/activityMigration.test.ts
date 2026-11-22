@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runPage, start } from '../../convex/aiChat/activityMigration';
+import { runPage, start } from './activityMigration';
 import { getAiChatSidebarActivityAt } from './visibility';
 
 type Row = {

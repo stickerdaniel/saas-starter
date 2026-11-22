@@ -12,7 +12,7 @@ import { safeAuthDestination } from '#lib/utils/url.js';
 export const INVESTIGATION_RETURN_COOKIE = 'admin_investigation_return';
 
 // The impersonated session's lifetime (Better Auth's default, not overridden in
-// src/lib/convex/auth.ts). An older origin belongs to an investigation that has
+// src/lib/confect/authServer.ts). An older origin belongs to an investigation that has
 // already ended on its own.
 const MAX_AGE_SECONDS = 3600;
 // Browsers drop a cookie past roughly 4 KB of name and value without saying so;

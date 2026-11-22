@@ -8,13 +8,13 @@ This guide covers three directories:
 
 | Directory                    | Holds                                                                                                                                                                                                                                                                                      |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/lib/convex/`            | The Convex functions directory: modules that register queries, mutations, actions or HTTP actions, `schema.ts`, `http.ts`, `crons.ts`, `auth.config.ts`, `convex.config.ts`, `tsconfig.json` and `_generated/`                                                                             |
+| `src/lib/convex/`            | The Convex functions directory: `schema.ts`, `http.ts`, `crons.ts`, `auth.config.ts`, `convex.config.ts`, `tsconfig.json`, `_generated/` and one module per Confect group that re-exports its functions                                                                                    |
 | `src/lib/confect/`           | Everything else the backend runs or tests: the Confect groups with their functions, helpers, shared validators, `env.ts`, the support prompt, tests, fixtures, the `convexTest.modules.ts` harness, one Confect table per file in `tables/`, and the committed CLI output in `_generated/` |
 | `src/lib/convex-components/` | The local Better Auth component, mounted by `src/lib/convex/convex.config.ts`                                                                                                                                                                                                              |
 
 Convex deploys every module in `src/lib/convex/`, and the Confect CLI treats every `.ts` file there outside the reserved names as generated output. Put a new helper or test in `src/lib/confect/`, at the relative path of the module it serves. A file in `src/lib/confect/` never takes the name `auth.ts`, `http.ts`, `crons.ts` or `schema.ts`: Confect reads those names as entry files.
 
-A function in a Confect group lives at `src/lib/confect/<path>.ts`, unchanged and with its own access guard, beside `<path>.spec.ts`, which declares it with a `FunctionSpec.convex*` constructor and a type-only import, and `<path>.impl.ts`, which passes it to `FunctionImpl.make`. `src/lib/convex/<path>.ts` re-exports the same functions, so the published path stays. The definition module imports a spec only with `import type` and nothing from `@confect/server` or `_generated/registeredFunctions`; `local/confect-definition-imports` enforces this, and `groups.test.ts` fails when a group and its native module publish different functions.
+A function in a Confect group lives at `src/lib/confect/<path>.ts`, unchanged and with its own access guard, beside `<path>.spec.ts`, which declares it with a `FunctionSpec.convex*` constructor and a type-only import, and `<path>.impl.ts`, which passes it to `FunctionImpl.make`. `src/lib/convex/<path>.ts` re-exports the same functions, so the published path stays. The `auth` group's functions and the Better Auth server code live in `authServer.ts`. The definition module imports a spec only with `import type` and nothing from `@confect/server` or `_generated/registeredFunctions`; `local/confect-definition-imports` enforces this, and `groups.test.ts` fails when a group and its native module publish different functions.
 
 A table change goes into both `src/lib/convex/schema.ts` and the table's file in `src/lib/confect/tables/`, and `scripts/confect-parity.test.ts` fails while their deployment schemas differ. `bun run confect:stage` regenerates `src/lib/confect/_generated/`. Commit its output: CI fails on a stale copy.
 
@@ -33,7 +33,7 @@ Generated Convex bindings may change as a local backend side effect. Revert `_ge
 
 Use the local Better Auth component. Derive identity server-side; never authorize from a caller-supplied user ID. `/app/**` and `/admin/**` route protection lives in server hooks, while every backend function still enforces its own authorization.
 
-The public E2E helper mutations in `src/lib/convex/tests.ts` are safe only while `AUTH_E2E_TEST_SECRET` is absent from production. Never configure that variable in the production Convex environment.
+The public E2E helper mutations in `src/lib/confect/tests.ts` are safe only while `AUTH_E2E_TEST_SECRET` is absent from production. Never configure that variable in the production Convex environment.
 
 ## Where a backend guard belongs
 

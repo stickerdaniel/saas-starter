@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../convex/auth', () => ({
+vi.mock('../../authServer', () => ({
 	authComponent: {
 		safeGetAuthUser: vi.fn()
 	}
@@ -29,7 +29,7 @@ import {
 	requireSupportThreadAccess,
 	requireSupportThreadRecord
 } from '../ownership';
-import { authComponent } from '../../../convex/auth';
+import { authComponent } from '../../authServer';
 import { supportAgent } from '../agent';
 import { SUPPORT_ERROR_CODES } from '../errors';
 

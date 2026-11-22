@@ -26,7 +26,7 @@ import {
 } from './threadMaintenance';
 import { normalizeNotificationEmail } from './notificationPreferences';
 import { toAgentThreadStatus } from './denormalization';
-import { authComponent } from '../../convex/auth';
+import { authComponent } from '../authServer';
 import { publicEndpoint } from '../access';
 import { normalizeSupportPageRoute } from '../../shared/support-page-route';
 import { recordSupportMessageContext } from './messageContext';

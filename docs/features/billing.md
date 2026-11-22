@@ -9,7 +9,7 @@ Define your own plans in `autumn.config.ts`, or generate a starter config at [ap
 ## Where to start in the code
 
 - [`autumn.config.ts`](../../autumn.config.ts): features and plans
-- [`src/lib/convex/autumn.ts`](../../src/lib/convex/autumn.ts): the backend client every gate goes through
+- [`src/lib/confect/autumn.ts`](../../src/lib/confect/autumn.ts): the backend client every gate goes through
 - [Pricing page](../../src/routes/%5B%5Blang%5D%5D/%28marketing%29/pricing/)
 - [Checkout components](../../src/lib/components/billing/) and the [quota banner](../../src/lib/components/message-quota-banner.svelte)
 - [`.agents/skills/autumn-best-practices/SKILL.md`](../../.agents/skills/autumn-best-practices/SKILL.md): conventions for changing plans and gates

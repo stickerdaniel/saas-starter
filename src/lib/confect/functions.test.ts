@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CUSTOM_REGISTRARS } from '../../../eslint/convex-registrars.js';
 
-vi.mock('../convex/auth', () => ({ authComponent: {} }));
+vi.mock('./authServer', () => ({ authComponent: {} }));
 
 describe('custom Convex builders', () => {
 	// The ESLint rules read custom registrations by these names, so a builder

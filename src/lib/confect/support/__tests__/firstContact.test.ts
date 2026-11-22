@@ -9,7 +9,7 @@ const state = vi.hoisted(() => ({
 	threads: 0
 }));
 
-vi.mock('../../../convex/auth', () => ({
+vi.mock('../../authServer', () => ({
 	authComponent: {
 		getAuthUser: vi.fn(async () => {
 			if (!state.user) throw new Error('Unauthenticated');

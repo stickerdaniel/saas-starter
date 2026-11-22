@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../convex/auth', () => ({
+vi.mock('../../authServer', () => ({
 	authComponent: {
 		getAuthUser: vi.fn(),
 		getAnyUserById: vi.fn()
@@ -37,7 +37,7 @@ vi.mock('../../../convex/_generated/api', () => ({
 	}
 }));
 
-import { authComponent } from '../../../convex/auth';
+import { authComponent } from '../../authServer';
 import { supportAgent } from '../agent';
 import { migrateAnonymousTickets } from '../migration';
 import { backfillThreadMetadata, syncUserProfile } from '../threads';

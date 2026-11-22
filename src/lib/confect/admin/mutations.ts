@@ -4,7 +4,7 @@ import { v } from 'convex/values';
 import type { BetterAuthUser } from './types';
 import { roleValidator } from './types';
 import { adminMutation } from '../functions';
-import { authComponent, createAuth } from '../../convex/auth';
+import { authComponent, createAuth } from '../authServer';
 import {
 	syncAdminPreferences,
 	deactivateAdminPreferencesHelper

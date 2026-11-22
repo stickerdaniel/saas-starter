@@ -41,7 +41,7 @@ vi.mock('../threads', () => ({
 	syncSupportLastMessage: vi.fn()
 }));
 
-vi.mock('../../../convex/files/metadata', () => ({
+vi.mock('../../files/metadata', () => ({
 	getFileMetadataByUrls: vi.fn()
 }));
 
@@ -49,7 +49,7 @@ vi.mock('../../aiUsage/agentUsage', () => ({
 	makeAgentUsageSink: vi.fn(() => ({ usageHandler: vi.fn(), collect: () => [] }))
 }));
 
-vi.mock('../../../convex/aiUsage/record', () => ({
+vi.mock('../../aiUsage/record', () => ({
 	recordAiUsage: vi.fn()
 }));
 
@@ -155,7 +155,7 @@ import {
 } from '../messages';
 import { listMessagesForThread } from '../messageListing';
 import { makeAgentUsageSink } from '../../aiUsage/agentUsage';
-import { recordAiUsage } from '../../../convex/aiUsage/record';
+import { recordAiUsage } from '../../aiUsage/record';
 import { syncSupportLastMessage } from '../threads';
 import { isSupportAiEnabled } from '../../../config/support';
 import {

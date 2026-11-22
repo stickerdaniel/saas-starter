@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../support/agent', () => ({ supportAgent: {} }));
-import * as testHelpers from '../../convex/tests';
+import * as testHelpers from '../tests';
 
 type Registered = {
 	isPublic?: boolean;

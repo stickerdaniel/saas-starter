@@ -26,15 +26,15 @@ import { api, components, internal } from '../../../convex/_generated/api';
 // Imported before `convexTest.modules`, which loads every module at once: a
 // module importing `autumn` while this mock still awaits `importOriginal`
 // would receive the original.
-import { checkAndCountUsage, refundUsage } from '../../../convex/autumn';
-import type * as Autumn from '../../../convex/autumn';
+import { checkAndCountUsage, refundUsage } from '../../autumn';
+import type * as Autumn from '../../autumn';
 import authSchema from '../../../convex-components/betterAuth/schema';
 import { convexModules, preloadModules } from '../../convexTest.modules';
 import { AI_CHAT_GENERATION_FAILED_NOTICE } from '../../constants';
 import schema from '../../../convex/schema';
 import { aiChatAgent } from '../agent';
 
-vi.mock('../../../convex/autumn', async (importOriginal) => ({
+vi.mock('../../autumn', async (importOriginal) => ({
 	...(await importOriginal<typeof Autumn>()),
 	checkAndCountUsage: vi.fn(),
 	refundUsage: vi.fn()

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../convex/auth', () => ({
+vi.mock('../authServer', () => ({
 	authComponent: {
 		getAuthUser: vi.fn(),
 		safeGetAuthUser: vi.fn()
 	}
 }));
 
-vi.mock('../../convex/autumn', () => ({
+vi.mock('../autumn', () => ({
 	checkAndCountUsage: vi.fn()
 }));
 
@@ -32,11 +32,11 @@ vi.mock('../../convex/_generated/api', () => ({
 	}
 }));
 
-import { authComponent } from '../../convex/auth';
-import { checkAndCountUsage } from '../../convex/autumn';
+import { authComponent } from '../authServer';
+import { checkAndCountUsage } from '../autumn';
 import { appRateLimiter } from '../rateLimit';
 import { requireBillingConfiguration } from '../env';
-import { enforceAndTrackMessageUsage, removeMessage, send } from '../../convex/messages';
+import { enforceAndTrackMessageUsage, removeMessage, send } from '../messages';
 
 const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
 const checkAndCountUsageMock = checkAndCountUsage as unknown as ReturnType<typeof vi.fn>;

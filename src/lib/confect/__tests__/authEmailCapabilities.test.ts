@@ -57,8 +57,8 @@ describe('authentication email capability failures', () => {
 
 		const [{ createAuthOptions }, sendModule, resendModule, { CapabilityConfigurationError }] =
 			await Promise.all([
-				import('../../convex/auth'),
-				import('../../convex/emails/send'),
+				import('../authServer'),
+				import('../emails/send'),
 				import('../emails/resend'),
 				import('../env')
 			]);
@@ -141,8 +141,8 @@ describe('authentication email capability failures', () => {
 		vi.stubEnv('CAPABILITY_PROFILE', 'test');
 
 		const [{ createAuthOptions }, sendModule, resendModule] = await Promise.all([
-			import('../../convex/auth'),
-			import('../../convex/emails/send'),
+			import('../authServer'),
+			import('../emails/send'),
 			import('../emails/resend')
 		]);
 		const sendVerificationEmail = sendModule.sendVerificationEmail as unknown as RegisteredMutation;
@@ -186,7 +186,7 @@ describe('authentication email capability failures', () => {
 		vi.stubEnv('EMAIL_ASSET_URL', 'https://assets.example.com');
 
 		const [{ createAuthOptions }, resendModule] = await Promise.all([
-			import('../../convex/auth'),
+			import('../authServer'),
 			import('../emails/resend')
 		]);
 		const enqueue = vi.spyOn(resendModule.resend, 'sendEmail');
@@ -240,7 +240,7 @@ describe('authentication email capability failures', () => {
 		vi.stubEnv('AUTH_EMAIL', 'sender@example.com');
 		vi.stubEnv('EMAIL_ASSET_URL', 'https://assets.example.com');
 
-		const { createAuthOptions } = await import('../../convex/auth');
+		const { createAuthOptions } = await import('../authServer');
 		const runMutation = vi.fn().mockResolvedValue(null);
 		const runAfter = vi.fn().mockResolvedValue(null);
 		const options = createAuthOptions({ runMutation, scheduler: { runAfter } } as never);

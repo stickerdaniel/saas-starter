@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // sendAdminReply is an adminMutation, so its _handler first runs the customCtx
 // that calls authComponent.getAuthUser. Mock auth to hand back an admin user and
 // keep the rest of the module graph light.
-vi.mock('../../../../convex/auth', () => ({
+vi.mock('../../../authServer', () => ({
 	authComponent: {
 		getAuthUser: vi.fn(),
 		safeGetAuthUser: vi.fn()
@@ -47,7 +47,7 @@ vi.mock('../../../../convex/_generated/api', () => ({
 }));
 
 import { saveMessage, getFile } from '@convex-dev/agent';
-import { authComponent } from '../../../../convex/auth';
+import { authComponent } from '../../../authServer';
 import { shouldSendNotification } from '../../../support/threads';
 import { sendAdminReply, updateThreadAssignment } from '../mutations';
 

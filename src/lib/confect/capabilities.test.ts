@@ -27,7 +27,7 @@ describe('public capability usability', () => {
 		vi.stubEnv('CAPABILITY_PROFILE', 'local');
 		for (const key of providerKeys) vi.stubEnv(key, '');
 
-		const { getUsability } = await import('../convex/capabilities');
+		const { getUsability } = await import('./capabilities');
 		const result = await (getUsability as unknown as RegisteredQuery)._handler();
 
 		expect(result).toEqual({
@@ -62,7 +62,7 @@ describe('public capability usability', () => {
 		vi.stubEnv('AUTUMN_SECRET_KEY', 'configured-billing-key');
 		vi.stubEnv('OPENROUTER_API_KEY', 'configured-ai-key');
 
-		const { getUsability } = await import('../convex/capabilities');
+		const { getUsability } = await import('./capabilities');
 		const result = await (getUsability as unknown as RegisteredQuery)._handler();
 
 		expect(result).toEqual({ billing: { usable: true }, ai: { usable: true } });

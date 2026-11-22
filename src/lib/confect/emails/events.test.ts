@@ -1,6 +1,6 @@
 import type { EmailEvent, EmailId } from '@convex-dev/resend';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { handleEmailEvent } from '../../convex/emails/events';
+import { handleEmailEvent } from './events';
 
 const handler = (handleEmailEvent as unknown as { _handler: unknown })._handler as (
 	ctx: unknown,

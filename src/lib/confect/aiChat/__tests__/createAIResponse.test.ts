@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../convex/auth', () => ({
+vi.mock('../../authServer', () => ({
 	authComponent: {
 		getAuthUser: vi.fn(),
 		safeGetAuthUser: vi.fn()
 	}
 }));
 
-vi.mock('../../../convex/autumn', () => ({
+vi.mock('../../autumn', () => ({
 	checkAndCountUsage: vi.fn(),
 	refundUsage: vi.fn().mockResolvedValue(undefined)
 }));
@@ -75,18 +75,18 @@ vi.mock('../../../convex/_generated/api', () => ({
 	}
 }));
 
-import { checkAndCountUsage, refundUsage } from '../../../convex/autumn';
+import { checkAndCountUsage, refundUsage } from '../../autumn';
 import {
 	CapabilityConfigurationError,
 	requireAiConfiguration,
 	requireBillingConfiguration
 } from '../../env';
-import { authComponent } from '../../../convex/auth';
+import { authComponent } from '../../authServer';
 import { saveMessages } from '@convex-dev/agent';
 import { aiChatAgent } from '../agent';
 import { requireAiChatThreadRecord } from '../ownership';
-import { createAIResponse, sendMessage } from '../../../convex/aiChat/messages';
-import { updateThreadMetadata } from '../../../convex/aiChat/threads';
+import { createAIResponse, sendMessage } from '../messages';
+import { updateThreadMetadata } from '../threads';
 import {
 	prepareToolErrorRedactionStep,
 	toolErrorRedactionTransform
