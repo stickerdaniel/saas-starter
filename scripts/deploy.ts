@@ -32,6 +32,7 @@ import {
 	type PreviewRecovery
 } from './deploy/steps';
 import { colors } from './deploy/utils';
+import { CONFECT_DEV_ENABLED, confectPreflight } from './confect-dev';
 import { generateAuthoredContent } from './generate-authored-content';
 
 export async function main(
@@ -40,6 +41,7 @@ export async function main(
 		recovery?: PreviewRecovery;
 		writeConfig?: typeof writeE2eConfig;
 		generateContent?: () => void;
+		confectPreflight?: typeof confectPreflight;
 	} = {}
 ): Promise<void> {
 	checkAborted(execution.signal);
@@ -54,6 +56,12 @@ export async function main(
 	}
 	(options.generateContent ?? generateAuthoredContent)();
 	checkAborted(execution.signal);
+	if (CONFECT_DEV_ENABLED) {
+		await (options.confectPreflight ?? confectPreflight)(process.cwd(), {
+			signal: execution.signal
+		});
+		checkAborted(execution.signal);
+	}
 	const deployment = await deployConvex(platform, execution, options.recovery);
 	if (platform.isPreview) await setupPreviewEnv(deployment, platform, execution);
 	await prepareAiChatHistory(deployment, execution);

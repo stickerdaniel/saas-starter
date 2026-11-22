@@ -1,4 +1,5 @@
 import type { FSWatcher } from 'node:fs';
+import { CONFECT_DEV_ENABLED, runCloudConfectDev } from './confect-dev';
 import { generateAuthoredContent, watchAuthoredContent } from './generate-authored-content';
 
 type AuthoredContentLifecycle = {
@@ -38,6 +39,11 @@ function preflightCloudDevProfile(): void {
 
 async function main(): Promise<void> {
 	preflightCloudDevProfile();
+	if (CONFECT_DEV_ENABLED) {
+		process.exit(
+			await runCloudConfectDev({ args: process.argv.slice(2), env: { ...process.env } })
+		);
+	}
 	const authoredContentWatcher = startAuthoredContentSync(
 		process.env.AUTHORED_CONTENT_WATCH !== '0'
 	);
