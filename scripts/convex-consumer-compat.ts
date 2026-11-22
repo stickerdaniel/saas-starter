@@ -27,14 +27,29 @@
  * removal.
  *
  * The check is an incomplete lower bound. Direct app references and namespace
- * adapters are read as text; persisted scheduler targets inside Convex use the
- * TypeScript syntax tree. A reference through a renamed import, bracket notation,
- * or a dynamically assembled value does not register. It reliably catches the
- * common case: a rename done in one commit across both sides.
+ * adapters are read as text, so a reference through a renamed import, bracket
+ * notation, or a dynamically assembled value does not register. It reliably
+ * catches the common case: a rename done in one commit across both sides.
+ * Persisted scheduler targets in backend source use the TypeScript syntax tree
+ * and follow local bindings. Under `src/lib/confect`, a `runAfter` or `runAt`
+ * target that does not resolve to a function path fails the check. Under
+ * `src/lib/convex`, so does a target rooted in an `api` or `internal` import
+ * from a module other than the generated api.
  */
 
 import { execFileSync, spawn } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync } from 'node:fs';
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	renameSync,
+	rmSync,
+	statSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import typescript from 'typescript';
@@ -56,15 +71,29 @@ import { isolatedGitEnv, sanitizedGitEnv } from './git-context';
 import ts = typescript;
 
 const CONVEX_ROOT = 'src/lib/convex';
+const CONFECT_ROOT = 'src/lib/confect';
+const CONFECT_REFS_MODULE = `${CONFECT_ROOT}/_generated/refs`;
+const CONVEX_API_MODULE = `${CONVEX_ROOT}/_generated/api`;
 // App sources contribute direct and namespace-adapter references. Backend source,
 // the functions directory and the helpers beside it, contributes scheduler targets
 // because persisted runAfter/runAt jobs outlive the deployment that created them.
-const BACKEND_ROOTS = [CONVEX_ROOT, 'src/lib/confect'];
+const BACKEND_ROOTS = [CONVEX_ROOT, CONFECT_ROOT];
 const CONSUMER_ROOT = 'src';
 
 export type Reference = { identifier: string; visibility: Visibility; file: string };
 export type NamespaceReference = { prefix: string; visibility: Visibility; file: string };
-type ConsumerReferences = { references: Reference[]; namespaces: NamespaceReference[] };
+type UnresolvedTarget = { file: string; line: number; expression: string };
+type ScheduledTargets = {
+	references: Reference[];
+	unresolved: UnresolvedTarget[];
+	unverifiedApiImports: UnresolvedTarget[];
+};
+type ConsumerSource = { file: string; source: string };
+type ConsumerReferences = {
+	references: Reference[];
+	namespaces: NamespaceReference[];
+	unresolved: UnresolvedTarget[];
+};
 
 function git(
 	args: string[],
@@ -219,181 +248,278 @@ function unwrapExpression(expression: ts.Expression): ts.Expression {
 		ts.isParenthesizedExpression(current) ||
 		ts.isAsExpression(current) ||
 		ts.isTypeAssertionExpression(current) ||
-		ts.isSatisfiesExpression(current)
+		ts.isSatisfiesExpression(current) ||
+		ts.isNonNullExpression(current)
 	) {
 		current = current.expression;
 	}
 	return current;
 }
 
-function referenceFromExpression(expression: ts.Expression, file: string): Reference | null {
-	let current = unwrapExpression(expression);
-	const segments: string[] = [];
-	while (ts.isPropertyAccessExpression(current)) {
-		segments.unshift(current.name.text);
-		current = current.expression;
-	}
-	if (!ts.isIdentifier(current) || (current.text !== 'api' && current.text !== 'internal')) {
-		return null;
-	}
-	const identifier =
-		segments.length < 2 ? null : `${segments.slice(0, -1).join('/')}:${segments.at(-1)}`;
-	if (!identifier) return null;
-	return { identifier, visibility: current.text === 'api' ? 'public' : 'internal', file };
+type TargetRoot =
+	| { kind: 'convex'; visibility: Visibility }
+	| { kind: 'confectRefs' }
+	| { kind: 'functionReference'; identifier: string };
+type TargetPath = { root: TargetRoot; segments: readonly string[] };
+
+const SCHEDULING_METHODS: ReadonlySet<string> = new Set(['runAfter', 'runAt']);
+const RESOLUTION_DEPTH = 32;
+
+function convexRoot(name: string): TargetPath | null {
+	if (name === 'api') return { root: { kind: 'convex', visibility: 'public' }, segments: [] };
+	if (name === 'internal')
+		return { root: { kind: 'convex', visibility: 'internal' }, segments: [] };
+	return null;
 }
 
-function staticFunctionReferences(
-	sourceFile: ts.SourceFile,
-	file: string
-): Map<string, Reference[]> {
-	const references = new Map<string, Reference[]>();
-	for (const statement of sourceFile.statements) {
-		if (!ts.isVariableStatement(statement)) continue;
-		for (const declaration of statement.declarationList.declarations) {
-			if (!ts.isIdentifier(declaration.name) || !declaration.initializer) continue;
-			const initializer = unwrapExpression(declaration.initializer);
-			if (
-				!ts.isCallExpression(initializer) ||
-				!ts.isIdentifier(initializer.expression) ||
-				initializer.expression.text !== 'makeFunctionReference'
-			)
-				continue;
-			const identifier = initializer.arguments[0];
-			if (!identifier || !ts.isStringLiteralLike(identifier)) continue;
-			if (!/^(?:[A-Za-z0-9_]+\/)*[A-Za-z0-9_]+:[A-Za-z0-9_]+$/.test(identifier.text)) continue;
+function functionIdentifier(segments: readonly string[]): string | null {
+	return segments.length < 2 ? null : `${segments.slice(0, -1).join('/')}:${segments.at(-1)}`;
+}
+
+function referencesOf({ root, segments }: TargetPath, file: string): Reference[] | null {
+	switch (root.kind) {
+		case 'convex': {
+			const identifier = functionIdentifier(segments);
+			return identifier ? [{ identifier, visibility: root.visibility, file }] : null;
+		}
+		case 'confectRefs': {
+			const [visibility, ...groupPath] = segments;
+			if (visibility !== 'public' && visibility !== 'internal') return null;
+			const identifier = functionIdentifier(groupPath);
+			return identifier ? [{ identifier, visibility, file }] : null;
+		}
+		case 'functionReference':
 			// makeFunctionReference does not encode visibility at runtime. Both candidates
 			// stay here; the baseline surface keeps only the one actually published.
-			references.set(declaration.name.text, [
-				{ identifier: identifier.text, visibility: 'public', file },
-				{ identifier: identifier.text, visibility: 'internal', file }
-			]);
-		}
+			return segments.length > 0
+				? null
+				: [
+						{ identifier: root.identifier, visibility: 'public', file },
+						{ identifier: root.identifier, visibility: 'internal', file }
+					];
 	}
-	return references;
 }
 
-function bindingNameContains(binding: ts.BindingName, name: string): boolean {
-	if (ts.isIdentifier(binding)) return binding.text === name;
-	return binding.elements.some(
-		(element) => !ts.isOmittedExpression(element) && bindingNameContains(element.name, name)
+function importsModule(file: string, specifier: string, module: string): boolean {
+	if (!specifier.startsWith('.')) return false;
+	const resolved = path.posix.join(path.posix.dirname(file), specifier);
+	return resolved.replace(/\.[cm]?[jt]s$/, '') === module;
+}
+
+function isConstDeclaration(declaration: ts.VariableDeclaration): boolean {
+	return (
+		ts.isVariableDeclarationList(declaration.parent) &&
+		(declaration.parent.flags & ts.NodeFlags.Const) !== 0
 	);
 }
 
-function statementsDeclareBlockBinding(statements: readonly ts.Statement[], name: string): boolean {
-	return statements.some((statement) => {
-		if (ts.isVariableStatement(statement)) {
-			return (
-				(statement.declarationList.flags & ts.NodeFlags.BlockScoped) !== 0 &&
-				statement.declarationList.declarations.some((declaration) =>
-					bindingNameContains(declaration.name, name)
-				)
+function singleFileChecker(sourceFile: ts.SourceFile): ts.TypeChecker {
+	const host: ts.CompilerHost = {
+		getSourceFile: () => sourceFile,
+		getDefaultLibFileName: () => 'lib.d.ts',
+		writeFile: () => {},
+		getCurrentDirectory: () => '',
+		getCanonicalFileName: (fileName) => fileName,
+		useCaseSensitiveFileNames: () => true,
+		getNewLine: () => '\n',
+		fileExists: (fileName) => fileName === sourceFile.fileName,
+		readFile: () => undefined
+	};
+	return ts
+		.createProgram({
+			rootNames: [sourceFile.fileName],
+			options: { allowJs: true, noLib: true, noResolve: true, types: [] },
+			host
+		})
+		.getTypeChecker();
+}
+
+function memberName(expression: ts.Expression): string | undefined {
+	if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
+	if (
+		ts.isElementAccessExpression(expression) &&
+		ts.isStringLiteralLike(expression.argumentExpression)
+	) {
+		return expression.argumentExpression.text;
+	}
+	return undefined;
+}
+
+function isMakeFunctionReferenceCall(expression: ts.Expression): expression is ts.CallExpression {
+	return (
+		ts.isCallExpression(expression) &&
+		ts.isIdentifier(expression.expression) &&
+		expression.expression.text === 'makeFunctionReference'
+	);
+}
+
+function isTopLevelDeclaration(declaration: ts.VariableDeclaration): boolean {
+	return (
+		ts.isVariableDeclarationList(declaration.parent) &&
+		ts.isVariableStatement(declaration.parent.parent) &&
+		ts.isSourceFile(declaration.parent.parent.parent)
+	);
+}
+
+function bindingKey(element: ts.BindingElement): string | undefined {
+	const key = element.propertyName ?? element.name;
+	return ts.isIdentifier(key) || ts.isStringLiteral(key) ? key.text : undefined;
+}
+
+function scheduledCallResolver(sourceFile: ts.SourceFile, file: string) {
+	let checker: ts.TypeChecker | undefined;
+
+	const declarationOf = (identifier: ts.Identifier): ts.Declaration | undefined => {
+		checker ??= singleFileChecker(sourceFile);
+		const declarations = checker.getSymbolAtLocation(identifier)?.declarations ?? [];
+		return declarations.length === 1 ? declarations[0] : undefined;
+	};
+
+	const importedPath = (declaration: ts.ImportDeclaration, name: string): TargetPath | null => {
+		if (!ts.isStringLiteral(declaration.moduleSpecifier)) return null;
+		const specifier = declaration.moduleSpecifier.text;
+		if (name === 'default') {
+			return importsModule(file, specifier, CONFECT_REFS_MODULE)
+				? { root: { kind: 'confectRefs' }, segments: [] }
+				: null;
+		}
+		return importsModule(file, specifier, CONVEX_API_MODULE) ? convexRoot(name) : null;
+	};
+
+	const bindingPath = (element: ts.BindingElement, depth: number): TargetPath | null => {
+		if (element.dotDotDotToken || element.initializer) return null;
+		if (!ts.isObjectBindingPattern(element.parent)) return null;
+		const key = bindingKey(element);
+		if (key === undefined) return null;
+		const owner = element.parent.parent;
+		const base = ts.isBindingElement(owner)
+			? bindingPath(owner, depth + 1)
+			: ts.isVariableDeclaration(owner) && isConstDeclaration(owner) && owner.initializer
+				? resolve(owner.initializer, depth + 1)
+				: null;
+		return base && { root: base.root, segments: [...base.segments, key] };
+	};
+
+	const declarationPath = (identifier: ts.Identifier, depth: number): TargetPath | null => {
+		const declaration = declarationOf(identifier);
+		if (!declaration) return null;
+		if (ts.isImportClause(declaration)) return importedPath(declaration.parent, 'default');
+		if (ts.isImportSpecifier(declaration)) {
+			return importedPath(
+				declaration.parent.parent.parent,
+				(declaration.propertyName ?? declaration.name).text
 			);
 		}
-		return (
-			((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) &&
-				statement.name?.text === name) ??
-			false
-		);
-	});
-}
-
-function functionDeclaresVarBinding(body: ts.ConciseBody | undefined, name: string): boolean {
-	if (!body) return false;
-	let found = false;
-	const visit = (node: ts.Node): void => {
-		if (found || (node !== body && ts.isFunctionLike(node))) return;
-		if (
-			ts.isVariableDeclarationList(node) &&
-			(node.flags & ts.NodeFlags.BlockScoped) === 0 &&
-			node.declarations.some((declaration) => bindingNameContains(declaration.name, name))
-		) {
-			found = true;
-			return;
+		if (ts.isVariableDeclaration(declaration)) {
+			if (!ts.isIdentifier(declaration.name) || !declaration.initializer) return null;
+			const followed =
+				isConstDeclaration(declaration) ||
+				(isTopLevelDeclaration(declaration) &&
+					isMakeFunctionReferenceCall(unwrapExpression(declaration.initializer)));
+			return followed ? resolve(declaration.initializer, depth + 1) : null;
 		}
-		ts.forEachChild(node, visit);
+		if (ts.isBindingElement(declaration)) return bindingPath(declaration, depth + 1);
+		return null;
 	};
-	visit(body);
-	return found;
+
+	const resolve = (expression: ts.Expression, depth: number): TargetPath | null => {
+		if (depth > RESOLUTION_DEPTH) return null;
+		const current = unwrapExpression(expression);
+		if (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) {
+			const member = memberName(current);
+			if (member === undefined) return null;
+			const base = resolve(current.expression, depth + 1);
+			return base && { root: base.root, segments: [...base.segments, member] };
+		}
+		if (ts.isIdentifier(current)) return declarationPath(current, depth + 1);
+		if (isMakeFunctionReferenceCall(current)) {
+			const [identifier] = current.arguments;
+			if (!identifier || !ts.isStringLiteralLike(identifier)) return null;
+			if (!/^(?:[A-Za-z0-9_]+\/)*[A-Za-z0-9_]+:[A-Za-z0-9_]+$/.test(identifier.text)) return null;
+			return { root: { kind: 'functionReference', identifier: identifier.text }, segments: [] };
+		}
+		return null;
+	};
+
+	const isSchedulingAlias = (identifier: ts.Identifier, depth = 0): boolean => {
+		if (depth > RESOLUTION_DEPTH) return false;
+		const declaration = declarationOf(identifier);
+		if (!declaration) return false;
+		if (ts.isVariableDeclaration(declaration)) {
+			if (!isConstDeclaration(declaration) || !declaration.initializer) return false;
+			const initializer = unwrapExpression(declaration.initializer);
+			if (ts.isIdentifier(initializer)) return isSchedulingAlias(initializer, depth + 1);
+			const member = memberName(initializer);
+			return member !== undefined && SCHEDULING_METHODS.has(member);
+		}
+		if (ts.isBindingElement(declaration)) {
+			const key = bindingKey(declaration);
+			return key !== undefined && SCHEDULING_METHODS.has(key);
+		}
+		return false;
+	};
+
+	return {
+		isSchedulingCallee: (callee: ts.Expression): boolean => {
+			const current = unwrapExpression(callee);
+			if (ts.isIdentifier(current)) {
+				return SCHEDULING_METHODS.has(current.text) || isSchedulingAlias(current);
+			}
+			const member = memberName(current);
+			return member !== undefined && SCHEDULING_METHODS.has(member);
+		},
+		resolveTarget: (target: ts.Expression): Reference[] | null => {
+			const resolved = resolve(target, 0);
+			return resolved && referencesOf(resolved, file);
+		},
+		importsApiRoot: (target: ts.Expression): boolean => {
+			let current = unwrapExpression(target);
+			while (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) {
+				current = unwrapExpression(current.expression);
+			}
+			if (!ts.isIdentifier(current)) return false;
+			const declaration = declarationOf(current);
+			return (
+				declaration !== undefined &&
+				ts.isImportSpecifier(declaration) &&
+				convexRoot((declaration.propertyName ?? declaration.name).text) !== null
+			);
+		}
+	};
 }
 
-function shadowsStaticReference(target: ts.Identifier): boolean {
-	let ancestor: ts.Node | undefined = target.parent;
-	while (ancestor && !ts.isSourceFile(ancestor)) {
-		if (ts.isBlock(ancestor) && statementsDeclareBlockBinding(ancestor.statements, target.text)) {
-			return true;
-		}
-		if (
-			ts.isCaseBlock(ancestor) &&
-			statementsDeclareBlockBinding(
-				ancestor.clauses.flatMap((clause) => clause.statements),
-				target.text
-			)
-		) {
-			return true;
-		}
-		if (ts.isCatchClause(ancestor) && ancestor.variableDeclaration) {
-			if (bindingNameContains(ancestor.variableDeclaration.name, target.text)) return true;
-		}
-		if (
-			(ts.isForStatement(ancestor) ||
-				ts.isForInStatement(ancestor) ||
-				ts.isForOfStatement(ancestor)) &&
-			ancestor.initializer &&
-			ts.isVariableDeclarationList(ancestor.initializer) &&
-			(ancestor.initializer.flags & ts.NodeFlags.BlockScoped) !== 0 &&
-			ancestor.initializer.declarations.some((declaration) =>
-				bindingNameContains(declaration.name, target.text)
-			)
-		) {
-			return true;
-		}
-		if (ts.isFunctionLike(ancestor)) {
-			if (
-				ancestor.parameters.some((parameter) => bindingNameContains(parameter.name, target.text))
-			) {
-				return true;
-			}
-			if (ancestor.name && ts.isIdentifier(ancestor.name) && ancestor.name.text === target.text) {
-				return true;
-			}
-			if (functionDeclaresVarBinding(ancestor.body, target.text)) return true;
-		}
-		if (
-			(ts.isClassDeclaration(ancestor) || ts.isClassExpression(ancestor)) &&
-			ancestor.name?.text === target.text
-		) {
-			return true;
-		}
-		ancestor = ancestor.parent;
-	}
-	return false;
-}
-
-export function scheduledIdentifiersIn(source: string, file: string): Reference[] {
+export function scheduledIdentifiersIn(source: string, file: string): ScheduledTargets {
+	const references: Reference[] = [];
+	const unresolved: UnresolvedTarget[] = [];
+	const unverifiedApiImports: UnresolvedTarget[] = [];
 	const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
-	const staticReferences = staticFunctionReferences(sourceFile, file);
-	const found: Reference[] = [];
+	const { isSchedulingCallee, resolveTarget, importsApiRoot } = scheduledCallResolver(
+		sourceFile,
+		file
+	);
 	const visit = (node: ts.Node): void => {
-		if (
-			ts.isCallExpression(node) &&
-			ts.isPropertyAccessExpression(node.expression) &&
-			(node.expression.name.text === 'runAfter' || node.expression.name.text === 'runAt') &&
-			node.arguments[1]
-		) {
-			const receiver = unwrapExpression(node.expression.expression);
-			if (ts.isPropertyAccessExpression(receiver) && receiver.name.text === 'scheduler') {
-				const target = unwrapExpression(node.arguments[1]);
-				const reference = referenceFromExpression(target, file);
-				if (reference) found.push(reference);
-				else if (ts.isIdentifier(target) && !shadowsStaticReference(target)) {
-					found.push(...(staticReferences.get(target.text) ?? []));
+		if (ts.isCallExpression(node) && isSchedulingCallee(node.expression)) {
+			const [, target] = node.arguments;
+			const spread = node.arguments.slice(0, 2).some((argument) => ts.isSpreadElement(argument));
+			if (target || spread) {
+				const resolved = target && !spread ? resolveTarget(target) : null;
+				if (resolved) references.push(...resolved);
+				else {
+					const subject = target ?? node;
+					const entry = {
+						file,
+						line: sourceFile.getLineAndCharacterOfPosition(subject.getStart(sourceFile)).line + 1,
+						expression: subject.getText(sourceFile).replace(/\s+/g, ' ')
+					};
+					unresolved.push(entry);
+					if (target && !spread && importsApiRoot(target)) unverifiedApiImports.push(entry);
 				}
 			}
 		}
 		ts.forEachChild(node, visit);
 	};
 	visit(sourceFile);
-	return found;
+	return { references, unresolved, unverifiedApiImports };
 }
 
 export function expandNamespaceReferences(
@@ -433,7 +559,7 @@ function isConsumerSource(line: string): boolean {
  * A `git show` per file cost one process per source: measured 2026-11-03, 982 of them took
  * 22 s on a 24-core host at load 70, a fifth of the time a test had to run this check.
  */
-function consumerSourcesAt(commit: string): Array<{ file: string; source: string }> {
+function consumerSourcesAt(commit: string): ConsumerSource[] {
 	const entries = git(['ls-tree', '-r', '-z', commit, '--', CONSUMER_ROOT])
 		.split('\0')
 		.filter(Boolean)
@@ -457,7 +583,7 @@ function consumerSourcesAt(commit: string): Array<{ file: string; source: string
 	);
 	// Each answer is `<object> <type> <size>\n<size bytes>\n`, in request order. Anything else,
 	// a gitlink or a `<object> missing` line among them, fails the check.
-	const sources: Array<{ file: string; source: string }> = [];
+	const sources: ConsumerSource[] = [];
 	let offset = 0;
 	for (const entry of entries) {
 		const headerEnd = output.indexOf(0x0a, offset);
@@ -476,18 +602,59 @@ function consumerSourcesAt(commit: string): Array<{ file: string; source: string
 	return sources;
 }
 
-function consumerReferencesAt(commit: string): ConsumerReferences {
+function workingTreeSources(root: string): ConsumerSource[] {
+	if (!existsSync(root)) return [];
+	return readdirSync(root, { recursive: true, encoding: 'utf8' })
+		.map((relative) => path.join(root, relative).split(path.sep).join('/'))
+		.filter((file) => isConsumerSource(file) && statSync(file).isFile())
+		.sort()
+		.map((file) => ({ file, source: readFileSync(file, 'utf8') }));
+}
+
+export function consumerReferencesIn(sources: readonly ConsumerSource[]): ConsumerReferences {
 	const references: Reference[] = [];
 	const namespaces: NamespaceReference[] = [];
-	for (const { file, source } of consumerSourcesAt(commit)) {
+	const unresolved: UnresolvedTarget[] = [];
+	for (const { file, source } of sources) {
 		if (BACKEND_ROOTS.some((root) => file.startsWith(`${root}/`))) {
-			references.push(...scheduledIdentifiersIn(source, file));
+			const scheduled = scheduledIdentifiersIn(source, file);
+			references.push(...scheduled.references);
+			unresolved.push(
+				...(file.startsWith(`${CONFECT_ROOT}/`)
+					? scheduled.unresolved
+					: scheduled.unverifiedApiImports)
+			);
 			continue;
 		}
 		references.push(...identifiersIn(source, file));
 		namespaces.push(...namespaceReferencesIn(source, file));
 	}
-	return { references, namespaces };
+	return { references, namespaces, unresolved };
+}
+
+// A reference only counts if the baseline actually delivered it the way the
+// consumer asked (public through `api.`, internal through `internal.`): one
+// that did not match was broken or noise already.
+export function requiredReferences(
+	consumers: Pick<ConsumerReferences, 'references' | 'namespaces'>,
+	promised: Surface
+): Reference[] {
+	return [
+		...consumers.references,
+		...expandNamespaceReferences(consumers.namespaces, promised)
+	].filter((ref) => promised.get(ref.identifier)?.visibility === ref.visibility);
+}
+
+export function brokenReferences(
+	required: readonly Reference[],
+	promised: Surface,
+	available: Surface
+): Reference[] {
+	return required.filter((ref) => {
+		const was = promised.get(ref.identifier)!;
+		const now = available.get(ref.identifier);
+		return !now || now.kind !== was.kind || now.visibility !== ref.visibility;
+	});
 }
 
 /** Paths registered by `git worktree list --porcelain -z`. */
@@ -713,31 +880,41 @@ export async function main(): Promise<void> {
 		process.exit(0);
 	}
 
-	const baselineConsumers = consumerReferencesAt(baseline.commit);
+	const workingTreeUnresolved = consumerReferencesIn(
+		BACKEND_ROOTS.flatMap((root) => workingTreeSources(root))
+	).unresolved;
+	const baselineConsumers = consumerReferencesIn(consumerSourcesAt(baseline.commit));
+	if (workingTreeUnresolved.length > 0 || baselineConsumers.unresolved.length > 0) {
+		console.error(
+			'convex-consumer-compat: these scheduled calls have a target this check cannot resolve to a function path.\n'
+		);
+		for (const [where, targets] of [
+			['working tree', workingTreeUnresolved],
+			[`at ${baseline.commit.slice(0, 8)}`, baselineConsumers.unresolved]
+		] as const) {
+			for (const target of targets) {
+				console.error(`  ${target.file}:${target.line} ${target.expression} (${where})`);
+			}
+		}
+		console.error(
+			'\nA pending job keeps the path its call scheduled, so an unknown target leaves\n' +
+				'nothing for this check to keep published. Schedule an `internal.*` or `api.*`\n' +
+				`path, a \`refs.internal.*\` or \`refs.public.*\` chain from ${CONFECT_REFS_MODULE},\n` +
+				'or a const bound to one of them.'
+		);
+		process.exit(1);
+	}
 	const protectedIdentifiers = new Set([
 		...baselineConsumers.references.map((ref) => ref.identifier),
 		...baselineConsumers.namespaces.map((ref) => `${ref.prefix}:*`)
 	]);
 	const promised = surfaceAt(baseline.commit, protectedIdentifiers);
-	const baselineReferences = [
-		...baselineConsumers.references,
-		...expandNamespaceReferences(baselineConsumers.namespaces, promised)
-	];
-	// A reference only counts if the baseline actually delivered it the way the
-	// consumer asked (public through `api.`, internal through `internal.`): one
-	// that did not match was broken or noise already.
-	const required = baselineReferences.filter(
-		(ref) => promised.get(ref.identifier)?.visibility === ref.visibility
-	);
+	const required = requiredReferences(baselineConsumers, promised);
 	const available = await freshSurfaceOf(
 		CONVEX_ROOT,
 		new Set(required.map((ref) => ref.identifier))
 	);
-	const broken = required.filter((ref) => {
-		const was = promised.get(ref.identifier)!;
-		const now = available.get(ref.identifier);
-		return !now || now.kind !== was.kind || now.visibility !== ref.visibility;
-	});
+	const broken = brokenReferences(required, promised, available);
 
 	if (broken.length === 0) {
 		console.log(
