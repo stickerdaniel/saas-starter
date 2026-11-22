@@ -1,5 +1,7 @@
+import { CONFECT_DEV_ENABLED, runLocalConfectDev } from './confect-dev';
 import { watchAuthoredContent } from './generate-authored-content';
 import { portlessOwnsPort, preflightOrExit, resolveDevPort } from './dev-ports';
+import { localConvexMode } from './local-convex-env';
 
 // Wrapper for `bun run dev` and `bun run dev:frontend`. Spawns vite on a
 // deterministic per-project port (see scripts/dev-ports.ts) so parallel
@@ -12,6 +14,17 @@ if (!portlessOwnsPort()) {
 	const port = resolveDevPort();
 	await preflightOrExit(port, 'dev');
 	portArgs = ['--port', String(port), '--strictPort'];
+}
+
+const confectDevMode = localConvexMode(process.env);
+if (CONFECT_DEV_ENABLED && confectDevMode) {
+	process.exit(
+		await runLocalConfectDev({
+			mode: confectDevMode,
+			command: ['vite', 'dev', ...portArgs],
+			env: { ...process.env }
+		})
+	);
 }
 
 const authoredContentWatcher = watchAuthoredContent();

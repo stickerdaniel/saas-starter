@@ -1,4 +1,3 @@
-import * as childProcess from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -15,7 +14,12 @@ import { buildContentSecurityPolicy } from './src/lib/security/csp.js';
 import { appVersion } from './scripts/app-version';
 import { buildAdapter, isCloudflareBuild } from './scripts/build-target';
 import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
-import { getManagedProviderUpdates, logSafeOrigin } from './scripts/local-convex-env';
+import {
+	computeLocalConvexStateId,
+	getManagedProviderUpdates,
+	localConvexMode,
+	logSafeOrigin
+} from './scripts/local-convex-env';
 import { prepareEmbeddedEnvManifest } from './scripts/strip-varlock-secrets';
 import { clearTestBackendExit, recordTestBackendExit } from './scripts/test-backend-exit';
 import { thirdPartyLicenses } from './scripts/third-party-licenses/index';
@@ -43,28 +47,6 @@ import { MODULE_GRAPH_FILE, moduleGraph } from './scripts/module-graph-plugin.ts
 const stylesheet = path.join(import.meta.dirname, 'src/routes/layout.css');
 const missingCssSources = emptyCssSources(stylesheet, fs.readFileSync(stylesheet, 'utf8'));
 if (missingCssSources.length > 0) throw new Error(missingCssSources.join('\n'));
-
-function computeLocalConvexStateId(projectDir: string, suffix?: string): string {
-	let gitBranch = 'unknown';
-	try {
-		const result = childProcess.spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-			cwd: projectDir,
-			encoding: 'utf-8',
-			stdio: ['ignore', 'pipe', 'pipe']
-		});
-		if (result.status === 0 && result.stdout) {
-			gitBranch = result.stdout.trim();
-		}
-	} catch {
-		// A git error falls back to a stable "unknown" branch marker.
-	}
-
-	const input = suffix ? `${gitBranch}:${projectDir}:${suffix}` : `${gitBranch}:${projectDir}`;
-	const hash = crypto.createHash('sha256').update(input).digest('hex').slice(0, 16);
-	const sanitizedBranch = gitBranch.replace(/[^a-zA-Z0-9-]/g, '-');
-	const sanitizedSuffix = suffix ? `-${suffix.replace(/[^a-zA-Z0-9-]/g, '-')}` : '';
-	return `${sanitizedBranch}${sanitizedSuffix}-${hash}`;
-}
 
 function getPersistentBetterAuthSecret(projectDir: string, suffix?: string): string {
 	const stateId = computeLocalConvexStateId(projectDir, suffix);
@@ -177,7 +159,7 @@ export default defineConfig(async ({ command, mode }) => {
 	// postinstall, or scripts). dev:cloud runs via dev:frontend (lifecycle = "dev:frontend"),
 	// so it is excluded.
 	const lifecycle = process.env.npm_lifecycle_event;
-	const useLocalConvex = (lifecycle === 'dev' || lifecycle === 'dev:test') && !process.env.CI;
+	const useLocalConvex = localConvexMode(process.env) !== undefined;
 	const isTestMode = lifecycle === 'dev:test';
 	const stateIdSuffix = isTestMode ? 'e2e' : undefined;
 	const plugins: PluginOption[] = [];
@@ -271,6 +253,7 @@ export default defineConfig(async ({ command, mode }) => {
 				// The plugin must never wipe the state dir itself: the reset already happened above,
 				// before the better-auth secret file was written.
 				reset: false,
+				...(process.env.CONVEX_STARTUP_STATUS_FILE ? { watch: { patterns: [] } } : {}),
 				onReady: [{ name: 'localDev:ensureSeededAdmin' }],
 				onBackendExit: isTestMode ? (error) => recordTestBackendExit(error, cwd) : undefined,
 				envVars: ({ vitePort, resolvedUrls }) => {

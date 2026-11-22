@@ -146,7 +146,7 @@ function assertGitTopLevel(root: string): void {
 	}
 }
 
-function bunExecutable(): string {
+export function bunExecutable(): string {
 	return process.versions.bun ? process.execPath : 'bun';
 }
 
@@ -372,6 +372,47 @@ function removeEmptyDirectories(directory: string): void {
 		removeEmptyDirectories(child);
 		if (readdirSync(child).length === 0) rmdirSync(child);
 	}
+}
+
+export function applyWriteSets(scratch: string, root: string): StageResult {
+	assertRealWriteRoots(root);
+	assertRealDirectories(root, CONVEX_DIR);
+	const groups = groupModules(scratch);
+	const generatedSource = path.join(scratch, CONFECT_GENERATED_DIR);
+	const generatedExpected = manifest(generatedSource);
+	assertRegularFiles(generatedExpected, generatedSource);
+	const generatedTarget = path.join(root, CONFECT_GENERATED_DIR);
+	mkdirSync(generatedTarget, { recursive: true });
+	const generated = syncDirectory(generatedSource, generatedTarget, generatedExpected);
+	const source = manifest(path.join(scratch, CONVEX_DIR));
+	const target = manifest(path.join(root, CONVEX_DIR));
+	const result = {
+		added: generated.added.map((file) => `${CONFECT_GENERATED_DIR}/${file}`),
+		changed: generated.changed.map((file) => `${CONFECT_GENERATED_DIR}/${file}`),
+		removed: generated.removed.map((file) => `${CONFECT_GENERATED_DIR}/${file}`)
+	};
+	for (const file of manifestDifference(target, source)) {
+		const relative = `${CONVEX_DIR}/${file}`;
+		const change: Change = !target.has(file)
+			? 'created'
+			: !source.has(file)
+				? 'deleted'
+				: 'changed';
+		if (!isCliWrite(relative, change, groups)) continue;
+		const destination = path.join(root, relative);
+		if (change === 'deleted') {
+			unlinkSync(destination);
+			result.removed.push(relative);
+			continue;
+		}
+		if (!source.get(file)?.startsWith(FILE_PREFIX)) {
+			throw new StageError(`${relative} in the codegen output is not a regular file.`);
+		}
+		mkdirSync(path.dirname(destination), { recursive: true });
+		replaceFile(destination, readFileSync(path.join(scratch, relative)));
+		(change === 'created' ? result.added : result.changed).push(relative);
+	}
+	return result;
 }
 
 export async function stage(

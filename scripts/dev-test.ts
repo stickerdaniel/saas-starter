@@ -1,6 +1,8 @@
 import 'varlock/auto-load';
+import { CONFECT_DEV_ENABLED, runLocalConfectDev } from './confect-dev';
 import { watchAuthoredContent } from './generate-authored-content';
 import { portlessOwnsPort, preflightOrExit, resolveTestPort } from './dev-ports';
+import { localConvexMode } from './local-convex-env';
 import { invalidateLocalTestBackendUrl } from '../e2e/utils/convex-url';
 
 export interface TestServerLaunchOptions<T> {
@@ -55,6 +57,17 @@ async function main(): Promise<void> {
 	// as SITE_URL into the Convex backend (vite.config.ts envVars callback) and becomes the
 	// trustedOrigin for BetterAuth. Test setup sends the same origin, so the
 	// hostnames must match. Forcing --host 127.0.0.1 here breaks BetterAuth's origin check.
+	const testEnv = { ...process.env, npm_lifecycle_event: 'dev:test' };
+	if (CONFECT_DEV_ENABLED && localConvexMode(testEnv)) {
+		process.exit(
+			await launchTestServer({
+				testPort,
+				portless,
+				preflight: () => preflightOrExit(testPort, 'dev:test'),
+				spawn: (command) => runLocalConfectDev({ mode: 'dev:test', command, env: testEnv })
+			})
+		);
+	}
 	let authoredContentWatcher: ReturnType<typeof watchAuthoredContent> | undefined;
 	const child = await launchTestServer({
 		testPort,

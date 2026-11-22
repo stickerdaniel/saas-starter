@@ -290,10 +290,63 @@ index f94f821bfc625a3d896c5c1c779c42ea52bc039d..4d211d89bb441d3e6eea5c62a2288e92
    deployTimeout?: number | undefined;
    /** Timeout for backend health check in milliseconds (defaults to 10000) */
 diff --git a/dist/index.mjs b/dist/index.mjs
-index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..e95497d35da0bfd9122f8d7de0d5169267846774 100644
+index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..b48bd4b7fc3194021e70bc74b214a6ba862c2438 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
-@@ -68,23 +68,25 @@ function convexLocal(options = {}) {
+@@ -1,5 +1,6 @@
+ import { a as matchPattern, i as findUnusedPortSync, n as computeStateId, r as debounce, t as ConvexBackend, u as generateKeyPair } from "./backend-CgypcZjo.mjs";
+ import * as fs from "node:fs";
++import { randomUUID } from "node:crypto";
+ import * as path from "node:path";
+ import { createLogger } from "vite";
+ 
+@@ -17,6 +18,45 @@ function loadPersistedKeys(keysPath) {
+ 	} catch {}
+ 	return null;
+ }
++function createStartupReporter(projectDir, backendUrl) {
++	const file = process.env.CONVEX_STARTUP_STATUS_FILE;
++	const nonce = process.env.CONVEX_STARTUP_NONCE;
++	const mode = process.env.CONVEX_STARTUP_MODE;
++	let published = false;
++	const publish = (outcome) => {
++		if (!file || published) return;
++		published = true;
++		const target = path.resolve(projectDir, file);
++		const fromSource = path.relative(path.join(projectDir, "src"), target);
++		let temporary;
++		try {
++			if (!nonce || mode !== "dev" && mode !== "dev:test") throw new Error("the startup nonce or mode is missing");
++			if (fromSource !== ".." && !fromSource.startsWith(`..${path.sep}`) && !path.isAbsolute(fromSource)) throw new Error("the status file must be outside src");
++			fs.mkdirSync(path.dirname(target), { recursive: true });
++			temporary = `${target}.${process.pid}.${randomUUID()}.tmp`;
++			fs.writeFileSync(temporary, `${JSON.stringify({
++				outcome,
++				backendUrl,
++				nonce,
++				mode
++			})}\n`, {
++				flag: "wx",
++				mode: 384
++			});
++			fs.renameSync(temporary, target);
++			temporary = void 0;
++		} catch (error) {
++			logger.error(`Cannot publish the startup result: ${error instanceof Error ? error.message : String(error)}`, { timestamp: true });
++		} finally {
++			if (temporary) fs.rmSync(temporary, { force: true });
++		}
++	};
++	return {
++		enabled: Boolean(file),
++		succeed: () => publish("success"),
++		fail: () => publish("failure")
++	};
++}
+ function savePersistedKeys(keysPath, keys) {
+ 	const dir = path.dirname(keysPath);
+ 	fs.mkdirSync(dir, { recursive: true });
+@@ -68,23 +108,25 @@ function convexLocal(options = {}) {
  	const deploy = () => {
  		if (!backend?.port) {
  			logger.warn("Cannot deploy: backend not running", { timestamp: true });
@@ -321,7 +374,14 @@ index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..e95497d35da0bfd9122f8d7de0d51692
  		} finally {
  			isDeploying = false;
  			if (pendingDeploy) {
-@@ -107,12 +109,10 @@ function convexLocal(options = {}) {
+@@ -101,18 +143,17 @@ function convexLocal(options = {}) {
+ 	logger.info(`Using ports: backend=${port}, siteProxy=${siteProxyPort}`, { timestamp: true });
+ 	const stateId = computeStateId(projectDir, options.stateIdSuffix);
+ 	const backendDir = path.join(projectDir, ".convex", stateId);
++	const startup = createStartupReporter(projectDir, backendUrl);
+ 	return {
+ 		name: "vite-plugin-convex-local",
+ 		enforce: "pre",
  		config(config, env) {
  			if (env.command !== "serve") return;
  			if (runningBackend?.process?.pid) {
@@ -336,13 +396,30 @@ index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..e95497d35da0bfd9122f8d7de0d51692
  				});
  			}
  			return { define: {
-@@ -193,7 +193,13 @@ function convexLocal(options = {}) {
+@@ -125,6 +166,7 @@ function convexLocal(options = {}) {
+ 			if (!exitHandlersRegistered) {
+ 				exitHandlersRegistered = true;
+ 				const handleExit = () => {
++					startup.fail();
+ 					if (runningBackend?.process?.pid) try {
+ 						process.kill(runningBackend.process.pid, "SIGKILL");
+ 					} catch {}
+@@ -133,6 +175,7 @@ function convexLocal(options = {}) {
+ 				process.once("SIGINT", handleExit);
+ 				process.once("SIGTERM", handleExit);
+ 			}
++			if (startup.enabled) server.httpServer?.once("close", startup.fail);
+ 			const handleFileChange = (filePath) => {
+ 				if (shouldWatch(filePath)) {
+ 					const relativePath = filePath.startsWith(projectDir) ? filePath.slice(projectDir.length + 1) : filePath;
+@@ -193,7 +236,14 @@ function convexLocal(options = {}) {
  							healthCheckTimeout,
  							binaryVersion: options.binaryVersion,
  							binaryCacheDir: options.binaryCacheDir,
 -							binaryCacheTtl
 +							binaryCacheTtl,
 +							onExit: (exit) => {
++								startup.fail();
 +								const cause = exit.signal ? `signal ${exit.signal}` : `exit code ${exit.code}`;
 +								const error = new Error(`Convex backend exited unexpectedly with ${cause}` + (exit.output ? `; its last output:\n${exit.output}` : ""));
 +								logger.error(error.message, { timestamp: true });
@@ -351,7 +428,7 @@ index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..e95497d35da0bfd9122f8d7de0d51692
  						}, logger);
  						backend.backendDir = backendDir;
  						const isResume = stateExists && !options.reset;
-@@ -201,17 +207,26 @@ function convexLocal(options = {}) {
+@@ -201,17 +251,27 @@ function convexLocal(options = {}) {
  						await backend.spawn(backendDir);
  						runningBackend = backend;
  						await backend.waitForReady();
@@ -373,6 +450,7 @@ index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..e95497d35da0bfd9122f8d7de0d51692
  						}
 -						deploy();
 +						const initialDeploySucceeded = deploy();
++						if (!initialDeploySucceeded) startup.fail();
 +						if (initialDeploySucceeded) for (const name of envVarsToRemove) {
 +							await backend.setEnv(name, null);
 +							logger.info(`Removed environment variable: ${name}`, { timestamp: true });
@@ -380,6 +458,25 @@ index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..e95497d35da0bfd9122f8d7de0d51692
  						if (options.onReady && options.onReady.length > 0) {
  							logger.info(`Running ${options.onReady.length} startup function(s)...`, { timestamp: true });
  							for (const fn of options.onReady) try {
+@@ -220,15 +280,18 @@ function convexLocal(options = {}) {
+ 								logger.info(`${fn.name} completed`, { timestamp: true });
+ 							} catch (error) {
+ 								const errMsg = error instanceof Error ? error.message : String(error);
++								startup.fail();
+ 								logger.error(`Failed to run ${fn.name}: ${errMsg}`, {
+ 									timestamp: true,
+ 									...error instanceof Error && { error }
+ 								});
+ 							}
+ 						}
++						startup.succeed();
+ 						const backendUrl$1 = `http://localhost:${backend.port}`;
+ 						logger.info(`Backend ready at ${backendUrl$1}`, { timestamp: true });
+ 					} catch (error) {
++						startup.fail();
+ 						logger.error(`Backend initialization failed: ${String(error)}`, { timestamp: true });
+ 					}
+ 				})();
 diff --git a/dist/lib.d.mts b/dist/lib.d.mts
 index ccefb59e9b15a4dc21240e708aa62ad7c97ac03c..71ea391542beafccb02e35d28f834c122a81e16f 100644
 --- a/dist/lib.d.mts
@@ -540,10 +637,72 @@ index 27271554f6ed8c2c8aba185bbb62f8a16c7e8c7d..903bfba691ed258eb420e707ba7661f1
  
      const backendUrl = `http://localhost:${this.port}`;
 diff --git a/src/index.ts b/src/index.ts
-index 9ed17e6d7512b75cce299b04e762380e6636a2d3..66064e2302c6f44f54df6e59fc91780da6815b61 100644
+index 9ed17e6d7512b75cce299b04e762380e6636a2d3..c0c53c4eefad992383adca54eac2896ebafc871b 100644
 --- a/src/index.ts
 +++ b/src/index.ts
-@@ -83,13 +83,14 @@ export interface ConvexLocalOptions {
+@@ -1,5 +1,6 @@
+ import type { Logger, Plugin, ResolvedServerUrls, ViteDevServer } from "vite";
+ 
++import { randomUUID } from "node:crypto";
+ import * as fs from "node:fs";
+ import * as path from "node:path";
+ import { createLogger } from "vite";
+@@ -42,6 +43,54 @@ function loadPersistedKeys(keysPath: string): PersistedKeys | null {
+   return null;
+ }
+ 
++type StartupReporter = { enabled: boolean; succeed: () => void; fail: () => void };
++
++function createStartupReporter(projectDir: string, backendUrl: string): StartupReporter {
++  const file = process.env.CONVEX_STARTUP_STATUS_FILE;
++  const nonce = process.env.CONVEX_STARTUP_NONCE;
++  const mode = process.env.CONVEX_STARTUP_MODE;
++  let published = false;
++  const publish = (outcome: "success" | "failure") => {
++    if (!file || published) return;
++    published = true;
++    const target = path.resolve(projectDir, file);
++    const fromSource = path.relative(path.join(projectDir, "src"), target);
++    let temporary: string | undefined;
++    try {
++      if (!nonce || (mode !== "dev" && mode !== "dev:test")) {
++        throw new Error("the startup nonce or mode is missing");
++      }
++      if (
++        fromSource !== ".." &&
++        !fromSource.startsWith(`..${path.sep}`) &&
++        !path.isAbsolute(fromSource)
++      ) {
++        throw new Error("the status file must be outside src");
++      }
++      fs.mkdirSync(path.dirname(target), { recursive: true });
++      temporary = `${target}.${process.pid}.${randomUUID()}.tmp`;
++      fs.writeFileSync(temporary, `${JSON.stringify({ outcome, backendUrl, nonce, mode })}\n`, {
++        flag: "wx",
++        mode: 0o600,
++      });
++      fs.renameSync(temporary, target);
++      temporary = undefined;
++    } catch (error) {
++      logger.error(
++        `Cannot publish the startup result: ${error instanceof Error ? error.message : String(error)}`,
++        { timestamp: true },
++      );
++    } finally {
++      if (temporary) fs.rmSync(temporary, { force: true });
++    }
++  };
++  return {
++    enabled: Boolean(file),
++    succeed: () => publish("success"),
++    fail: () => publish("failure"),
++  };
++}
++
+ function savePersistedKeys(keysPath: string, keys: PersistedKeys): void {
+   const dir = path.dirname(keysPath);
+   fs.mkdirSync(dir, { recursive: true });
+@@ -83,13 +132,14 @@ export interface ConvexLocalOptions {
    /**
     * Environment variables to set on the backend.
     * Can be a static object or a function that receives info about the Vite dev server.
@@ -560,7 +719,7 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..66064e2302c6f44f54df6e59fc91780d
      | undefined;
    /** File watching configuration */
    watch?:
-@@ -117,6 +118,11 @@ export interface ConvexLocalOptions {
+@@ -117,6 +167,11 @@ export interface ConvexLocalOptions {
     * ```
     */
    onReady?: ConvexFunctionCall[] | undefined;
@@ -572,7 +731,7 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..66064e2302c6f44f54df6e59fc91780d
    /** Timeout for deploy operations in milliseconds (defaults to 60000) */
    deployTimeout?: number | undefined;
    /** Timeout for backend health check in milliseconds (defaults to 10000) */
-@@ -183,15 +189,15 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+@@ -183,15 +238,15 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
      return matches && !ignored;
    };
  
@@ -591,7 +750,7 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..66064e2302c6f44f54df6e59fc91780d
      }
  
      isDeploying = true;
-@@ -200,12 +206,14 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+@@ -200,12 +255,14 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
      try {
        backend.deploy();
        logger.info("Deploy successful", { timestamp: true });
@@ -606,7 +765,15 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..66064e2302c6f44f54df6e59fc91780d
      } finally {
        isDeploying = false;
        if (pendingDeploy) {
-@@ -239,15 +247,12 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+@@ -228,6 +285,7 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+   // Compute deterministic state directory based on git branch + cwd + optional suffix
+   const stateId = computeStateId(projectDir, options.stateIdSuffix);
+   const backendDir = path.join(projectDir, ".convex", stateId);
++  const startup = createStartupReporter(projectDir, backendUrl);
+ 
+   return {
+     name: "vite-plugin-convex-local",
+@@ -239,15 +297,12 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
  
        // Defer killing the old backend to avoid blocking Vite's config phase
        if (runningBackend?.process?.pid) {
@@ -626,11 +793,28 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..66064e2302c6f44f54df6e59fc91780d
          });
        }
  
-@@ -354,6 +359,15 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+@@ -268,6 +323,7 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+       if (!exitHandlersRegistered) {
+         exitHandlersRegistered = true;
+         const handleExit = () => {
++          startup.fail();
+           if (runningBackend?.process?.pid) {
+             try {
+               process.kill(runningBackend.process.pid, "SIGKILL");
+@@ -280,6 +336,7 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+         process.once("SIGINT", handleExit);
+         process.once("SIGTERM", handleExit);
+       }
++      if (startup.enabled) server.httpServer?.once("close", startup.fail);
+ 
+       const handleFileChange = (filePath: string) => {
+         if (shouldWatch(filePath)) {
+@@ -354,6 +411,16 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
                  binaryVersion: options.binaryVersion,
                  binaryCacheDir: options.binaryCacheDir,
                  binaryCacheTtl,
 +                onExit: (exit) => {
++                  startup.fail();
 +                  const cause = exit.signal ? `signal ${exit.signal}` : `exit code ${exit.code}`;
 +                  const error = new Error(
 +                    `Convex backend exited unexpectedly with ${cause}` +
@@ -642,7 +826,7 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..66064e2302c6f44f54df6e59fc91780d
                },
                logger,
              );
-@@ -373,7 +387,10 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+@@ -373,7 +440,10 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
              // Wait for backend to be ready before making API calls
              await backend.waitForReady();
  
@@ -654,7 +838,7 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..66064e2302c6f44f54df6e59fc91780d
              if (options.envVars) {
                const envVars =
                  typeof options.envVars === "function"
-@@ -381,13 +398,23 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+@@ -381,13 +451,24 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
                    : options.envVars;
  
                for (const [name, value] of Object.entries(envVars)) {
@@ -671,6 +855,7 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..66064e2302c6f44f54df6e59fc91780d
              // Initial deploy
 -            deploy();
 +            const initialDeploySucceeded = deploy();
++            if (!initialDeploySucceeded) startup.fail();
 +            if (initialDeploySucceeded) {
 +              for (const name of envVarsToRemove) {
 +                await backend.setEnv(name, null);
@@ -680,6 +865,26 @@ index 9ed17e6d7512b75cce299b04e762380e6636a2d3..66064e2302c6f44f54df6e59fc91780d
  
              // Run onReady functions (e.g., seed scripts)
              if (options.onReady && options.onReady.length > 0) {
+@@ -401,6 +482,7 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+                   logger.info(`${fn.name} completed`, { timestamp: true });
+                 } catch (error) {
+                   const errMsg = error instanceof Error ? error.message : String(error);
++                  startup.fail();
+                   logger.error(`Failed to run ${fn.name}: ${errMsg}`, {
+                     timestamp: true,
+                     ...(error instanceof Error && { error }),
+@@ -409,9 +491,11 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+               }
+             }
+ 
++            startup.succeed();
+             const backendUrl = `http://localhost:${backend.port}`;
+             logger.info(`Backend ready at ${backendUrl}`, { timestamp: true });
+           } catch (error) {
++            startup.fail();
+             logger.error(`Backend initialization failed: ${String(error)}`, { timestamp: true });
+           }
+         })();
 diff --git a/src/lib.ts b/src/lib.ts
 index e382c41efd2fed18bcbc18771069b65804fa2b90..b1e45fb1382ca8c7b181539a53028ace30f1cf2a 100644
 --- a/src/lib.ts
