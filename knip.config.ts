@@ -15,6 +15,7 @@ export default {
 		// The local Better Auth component: Convex deploys every module in it as well
 		'src/lib/convex-components/betterAuth/**/*.ts',
 		'!src/lib/convex-components/betterAuth/_generated/**',
+		'src/lib/confect/tables/*.ts',
 
 		// Scripts and test infrastructure
 		'eslint/shadcn-policy.js',
@@ -44,6 +45,7 @@ export default {
 		// Checked by packages/create-saas-starter/knip.config.ts in the same lint gate.
 		'packages/create-saas-starter/**',
 		'src/lib/convex/_generated/**',
+		'src/lib/confect/_generated/**',
 		// Email templates are loaded through vite.ssrLoadModule in scripts/build-emails.ts,
 		// never imported statically.
 		'src/lib/emails/**',
@@ -78,7 +80,6 @@ export default {
 		'@oxlint/plugins',
 		// The Confect toolchain, pinned with the peers it resolves against. No module imports
 		// it until the Convex functions are declared as Confect groups.
-		'@confect/core',
 		'@confect/server',
 		'@confect/cli',
 		'@confect/test',
