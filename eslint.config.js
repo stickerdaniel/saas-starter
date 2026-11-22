@@ -31,6 +31,7 @@ import noRawCaughtErrorLogRule from './eslint/rules/no-raw-caught-error-log.js';
 import noHistoryCommentRule from './eslint/rules/no-history-comment.js';
 import convexCanonicalRegistrationRule from './eslint/rules/convex-canonical-registration.js';
 import convexAccessFirstRule from './eslint/rules/convex-access-first.js';
+import confectDefinitionImportsRule from './eslint/rules/confect-definition-imports.js';
 import noSourceTextReadRule from './eslint/rules/no-source-text-read.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 import { CUSTOM_REGISTRARS, RAW_REGISTRARS } from './eslint/convex-registrars.js';
@@ -92,6 +93,7 @@ const localPlugin = {
 		'no-history-comment': noHistoryCommentRule,
 		'convex-canonical-registration': convexCanonicalRegistrationRule,
 		'convex-access-first': convexAccessFirstRule,
+		'confect-definition-imports': confectDefinitionImportsRule,
 		'no-source-text-read': noSourceTextReadRule
 	}
 };
@@ -736,6 +738,22 @@ export default defineConfig(
 				'error',
 				{ pattern: convexAccessPattern, synchronous: ['publicEndpoint', 'requireTestSecret'] }
 			]
+		}
+	},
+	{
+		files: ['src/lib/confect/**/*.ts'],
+		ignores: [
+			'src/lib/confect/_generated/**',
+			'**/*.spec.ts',
+			'**/*.impl.ts',
+			'**/*.test.ts',
+			'**/__tests__/**'
+		],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/confect-definition-imports': 'error'
 		}
 	},
 	{

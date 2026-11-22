@@ -6,11 +6,7 @@ vi.mock('../ownership', () => ({
 }));
 
 import { getSupportOwnerIdentity, requireSupportThreadRecord } from '../ownership';
-import {
-	hasUnreadAdminReply,
-	markThreadRead,
-	unreadAdminReplyCount
-} from '../../../convex/support/readState';
+import { hasUnreadAdminReply, markThreadRead, unreadAdminReplyCount } from '../readState';
 
 const getOwnerMock = getSupportOwnerIdentity as unknown as ReturnType<typeof vi.fn>;
 const requireThreadMock = requireSupportThreadRecord as unknown as ReturnType<typeof vi.fn>;

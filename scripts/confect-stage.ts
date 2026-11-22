@@ -35,6 +35,12 @@ const RESERVED_CONVEX_MODULES: ReadonlySet<string> = new Set(
 );
 const WRITE_ROOTS = [CONVEX_GENERATED_DIR, CONFECT_GENERATED_DIR];
 const LEGACY_SCHEMA = `${CONFECT_DIR}/schema.ts`;
+const SPEC_SUFFIX = '.spec.ts';
+const SPEC_EXCLUDED_DIRECTORIES: ReadonlySet<string> = new Set([
+	'_generated',
+	'tables',
+	'middleware'
+]);
 const CLI_ENTRY = 'node_modules/@confect/cli/bin/confect.mjs';
 const NODE_MODULES = 'node_modules';
 
@@ -63,6 +69,7 @@ export class StageError extends Error {
 	override name = 'StageError';
 }
 
+const GITLINK_MODE = '160000';
 const FILE_PREFIX = 'file:';
 const LINK_PREFIX = 'link:';
 
@@ -143,22 +150,33 @@ function bunExecutable(): string {
 	return process.versions.bun ? process.execPath : 'bun';
 }
 
-function listedFiles(root: string): string[] {
-	const result = spawnSync(
-		'git',
-		['ls-files', '-z', '--cached', '--others', '--exclude-standard'],
-		{
-			cwd: root,
-			encoding: 'utf8',
-			maxBuffer: 256 * 1024 * 1024,
-			stdio: ['ignore', 'pipe', 'pipe']
-		}
-	);
+function gitLsFiles(root: string, args: string[]): string[] {
+	const result = spawnSync('git', ['ls-files', '-z', ...args], {
+		cwd: root,
+		encoding: 'utf8',
+		maxBuffer: 256 * 1024 * 1024,
+		stdio: ['ignore', 'pipe', 'pipe']
+	});
 	if (result.error) throw result.error;
 	if (result.status !== 0) {
 		throw new StageError(`git ls-files failed in ${root}:\n${result.stderr}`);
 	}
-	return [...new Set(result.stdout.split('\0').filter((file) => file !== ''))];
+	return result.stdout.split('\0').filter((entry) => entry !== '');
+}
+
+function listedFiles(root: string): string[] {
+	return [...new Set(gitLsFiles(root, ['--cached', '--others', '--exclude-standard']))];
+}
+
+function assertNoGitlinks(root: string): void {
+	const gitlinks = gitLsFiles(root, ['--stage'])
+		.filter((entry) => entry.startsWith(`${GITLINK_MODE} `))
+		.map((entry) => entry.slice(entry.indexOf('\t') + 1));
+	if (gitlinks.length > 0) {
+		throw new StageError(
+			`${gitlinks.join(', ')} ${gitlinks.length === 1 ? 'is a submodule' : 'are submodules'} in the Git index and cannot be staged.`
+		);
+	}
 }
 
 function copyListedFile(root: string, scratch: string, file: string): void {
@@ -189,6 +207,7 @@ function isOutsideSourceTree(file: string): boolean {
 
 export function prepareScratch(root: string): string {
 	assertGitTopLevel(root);
+	assertNoGitlinks(root);
 	assertRealWriteRoots(root);
 	const scratch = mkdtempSync(path.join(tmpdir(), 'confect-stage-'));
 	try {
@@ -236,24 +255,47 @@ function isInside(file: string, directory: string): boolean {
 	return file.startsWith(`${directory}/`);
 }
 
-function isCliWrite(file: string, change: Change): boolean {
+export function groupModules(root: string): Set<string> {
+	const confect = path.join(root, CONFECT_DIR);
+	const modules = new Set<string>();
+	if (!existsSync(confect)) return modules;
+	for (const entry of readdirSync(confect, { recursive: true, encoding: 'utf8' })) {
+		const relative = entry.split(path.sep).join('/');
+		if (!relative.endsWith(SPEC_SUFFIX)) continue;
+		if (relative.split('/').some((segment) => SPEC_EXCLUDED_DIRECTORIES.has(segment))) continue;
+		modules.add(`${CONVEX_DIR}/${relative.slice(0, -SPEC_SUFFIX.length)}.ts`);
+	}
+	return modules;
+}
+
+function isCliWrite(file: string, change: Change, groups: ReadonlySet<string>): boolean {
 	if (isInside(file, CONFECT_GENERATED_DIR) || isInside(file, CONVEX_GENERATED_DIR)) return true;
 	if (!isInside(file, CONVEX_DIR) || !file.endsWith('.ts') || file === CONVEX_CONFIG) return false;
 	switch (change) {
 		case 'created':
-			return true;
 		case 'changed':
-			return RESERVED_CONVEX_MODULES.has(file);
+			return groups.has(file) || RESERVED_CONVEX_MODULES.has(file);
 		case 'deleted':
-			return LEGACY_CONVEX_MODULE_DELETIONS_ALLOWED;
+			return LEGACY_CONVEX_MODULE_DELETIONS_ALLOWED && !groups.has(file);
 	}
 }
 
-export function writeSetViolations(before: Manifest, after: Manifest): string[] {
+export function writeSetViolations(
+	before: Manifest,
+	after: Manifest,
+	groups: ReadonlySet<string>
+): string[] {
 	const violations: string[] = [];
 	for (const file of manifestDifference(before, after)) {
 		const change: Change = !before.has(file) ? 'created' : !after.has(file) ? 'deleted' : 'changed';
-		if (!isCliWrite(file, change)) violations.push(`${change} ${file}`);
+		if (!isCliWrite(file, change, groups)) violations.push(`${change} ${file}`);
+	}
+	for (const file of [...groups].sort()) {
+		if (!before.has(file) && !after.has(file)) {
+			violations.push(`missing ${file}`);
+		}
+		const registration = `${CONFECT_GENERATED_DIR}/registeredFunctions/${file.slice(CONVEX_DIR.length + 1)}`;
+		if (!after.has(registration)) violations.push(`missing ${registration}`);
 	}
 	return violations;
 }
@@ -272,9 +314,10 @@ export async function withScratchCodegen<T>(
 	try {
 		options.prepare?.(scratch);
 		assertRealWriteRoots(scratch);
+		const groups = groupModules(scratch);
 		const before = scratchManifest(scratch);
 		(options.codegen ?? confectCodegen)(scratch, options.profile ?? 'local');
-		const violations = writeSetViolations(before, scratchManifest(scratch));
+		const violations = writeSetViolations(before, scratchManifest(scratch), groups);
 		if (violations.length > 0) {
 			throw new StageError(
 				`confect codegen wrote outside its write sets:\n${violations.map((line) => `  ${line}`).join('\n')}`

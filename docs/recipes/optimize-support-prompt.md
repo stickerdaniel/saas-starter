@@ -9,7 +9,7 @@ Build one example per resolved thread:
 - **Input:** the opening user question plus the minimum context needed to make it unambiguous.
 - **Gold answer:** the real response that resolved the thread.
 
-Exclude spam, duplicates, abandoned conversations, and threads closed without a useful answer. The current support storage and prompt-override seam live under [`src/lib/convex/support/`](../../src/lib/convex/support/); inspect those modules rather than copying symbol names from this recipe.
+Exclude spam, duplicates, abandoned conversations, and threads closed without a useful answer. The current support storage and prompt-override seam live under [`src/lib/confect/support/`](../../src/lib/confect/support/); inspect those modules rather than copying symbol names from this recipe.
 
 ## Objective
 

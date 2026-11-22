@@ -9,8 +9,7 @@ The agent runs on [Convex Agent](https://www.convex.dev/components/agent) with m
 ## Where to start in the code
 
 - [`src/lib/confect/support/instructions.txt`](../../src/lib/confect/support/instructions.txt): the seed prompt
-- [`src/lib/convex/support/`](../../src/lib/convex/support/): the thread, message and handoff functions
-- [`src/lib/confect/support/`](../../src/lib/confect/support/): the agent, its tools, and the thread lifecycle helpers
+- [`src/lib/confect/support/`](../../src/lib/confect/support/): the thread, message and handoff functions with their Confect groups, the agent, its tools, and the thread lifecycle helpers
 - [`src/lib/components/customer-support/`](../../src/lib/components/customer-support/): the chat users see
 - [Support dashboard](../../src/routes/%5B%5Blang%5D%5D/admin/support/)
 - [Screenshot proxy setup](../setup/customer-support/screenshot-proxy-setup.md): needed only when screenshots must include external images

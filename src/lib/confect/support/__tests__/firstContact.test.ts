@@ -69,15 +69,11 @@ vi.mock('../threadLifecycle', async () => {
 // writes the canned assistant acknowledgement.
 vi.mock('../../../config/support', () => ({ isSupportAiEnabled: () => false }));
 
-import {
-	createThread,
-	getOrCreateWarmThread,
-	updateThreadHandoff
-} from '../../../convex/support/threads';
-import { createAssistantMessage, sendMessage } from '../../../convex/support/messages';
-import { internalSetHandoff } from '../../../convex/support/handoff';
-import { migrateAnonymousTickets } from '../../../convex/support/migration';
-import { sendAdminReply } from '../../../convex/admin/support/mutations';
+import { createThread, getOrCreateWarmThread, updateThreadHandoff } from '../threads';
+import { createAssistantMessage, sendMessage } from '../messages';
+import { internalSetHandoff } from '../handoff';
+import { migrateAnonymousTickets } from '../migration';
+import { sendAdminReply } from '../../admin/support/mutations';
 import { createJourneyStore } from '../../admin/journey/journeyStore.fixtures';
 
 type Registered = { _handler: (ctx: never, args: never) => Promise<unknown> };

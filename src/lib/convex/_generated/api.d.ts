@@ -11,7 +11,6 @@
 import type * as admin_auditLog_queries from "../admin/auditLog/queries.js";
 import type * as admin_customerNotifications_admission from "../admin/customerNotifications/admission.js";
 import type * as admin_customerNotifications_cancel from "../admin/customerNotifications/cancel.js";
-import type * as admin_customerNotifications_observe from "../admin/customerNotifications/observe.js";
 import type * as admin_customerNotifications_send from "../admin/customerNotifications/send.js";
 import type * as admin_founderWelcome_mutations from "../admin/founderWelcome/mutations.js";
 import type * as admin_founderWelcome_queries from "../admin/founderWelcome/queries.js";
@@ -76,7 +75,6 @@ declare const fullApi: ApiFromModules<{
   "admin/auditLog/queries": typeof admin_auditLog_queries;
   "admin/customerNotifications/admission": typeof admin_customerNotifications_admission;
   "admin/customerNotifications/cancel": typeof admin_customerNotifications_cancel;
-  "admin/customerNotifications/observe": typeof admin_customerNotifications_observe;
   "admin/customerNotifications/send": typeof admin_customerNotifications_send;
   "admin/founderWelcome/mutations": typeof admin_founderWelcome_mutations;
   "admin/founderWelcome/queries": typeof admin_founderWelcome_queries;

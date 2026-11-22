@@ -2,11 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MutationCtx } from '../../../convex/_generated/server';
 import { ensurePreviewAdmin } from '../../../convex/previewDev';
 import { syncAdminPreferences } from './helpers';
-import { getNotificationTargetEmails } from '../../../convex/admin/support/notifications';
-import {
-	getRecipientsForNotificationType,
-	type NotificationType
-} from '../../../convex/admin/notificationPreferences/queries';
+import { getNotificationTargetEmails } from '../support/notifications';
+import { getRecipientsForNotificationType, type NotificationType } from './queries';
 
 type Preference = {
 	_id: string;

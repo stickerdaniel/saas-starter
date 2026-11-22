@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type * as HandoffModule from '../../../convex/support/handoff';
+import type * as HandoffModule from '../handoff';
 
 // createAIResponse pulls in the whole support module graph at import. Stub the
 // heavy or env-dependent siblings so this stays a handler-level unit test that
@@ -37,7 +37,7 @@ vi.mock('../messageListing', () => ({
 	listMessagesForThread: vi.fn()
 }));
 
-vi.mock('../../../convex/support/threads', () => ({
+vi.mock('../threads', () => ({
 	syncSupportLastMessage: vi.fn()
 }));
 
@@ -55,7 +55,7 @@ vi.mock('../../../convex/aiUsage/record', () => ({
 
 // The watchdog's handoff is covered in support/handoff.test.ts; here it is the
 // call the watchdog makes.
-vi.mock('../../../convex/support/handoff', async (importOriginal) => ({
+vi.mock('../handoff', async (importOriginal) => ({
 	...(await importOriginal<typeof HandoffModule>()),
 	settleUnanswered: vi.fn()
 }));
@@ -144,7 +144,7 @@ import type { MessageDoc } from '@convex-dev/agent/validators';
 import { supportAgent } from '../agent';
 import { requireSupportThreadAccess } from '../ownership';
 import { supportRateLimiter } from '../rateLimit';
-import { settleUnanswered } from '../../../convex/support/handoff';
+import { settleUnanswered } from '../handoff';
 import {
 	createAIResponse,
 	createAssistantMessage,
@@ -152,11 +152,11 @@ import {
 	getTurnOutcome,
 	listMessages,
 	sendMessage
-} from '../../../convex/support/messages';
+} from '../messages';
 import { listMessagesForThread } from '../messageListing';
 import { makeAgentUsageSink } from '../../aiUsage/agentUsage';
 import { recordAiUsage } from '../../../convex/aiUsage/record';
-import { syncSupportLastMessage } from '../../../convex/support/threads';
+import { syncSupportLastMessage } from '../threads';
 import { isSupportAiEnabled } from '../../../config/support';
 import {
 	CapabilityConfigurationError,

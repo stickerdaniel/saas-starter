@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getActive, savePrompt, setActive } from '../../../convex/support/promptStore';
+import { getActive, savePrompt, setActive } from '../promptStore';
 
 /**
  * Handler-level unit tests (the codebase idiom): each Convex fn exposes its

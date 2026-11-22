@@ -9,6 +9,6 @@ The settings page also holds the founder welcome email, see [Email](email.md), a
 ## Where to start in the code
 
 - [Admin routes](../../src/routes/%5B%5Blang%5D%5D/admin/): dashboard, users, audit log, settings, and support
-- [`src/lib/convex/admin/`](../../src/lib/convex/admin/): admin queries and mutations, the audit log, and the customer emails
+- [`src/lib/confect/admin/`](../../src/lib/confect/admin/): admin queries and mutations, the audit log, and the customer emails, each module beside its Confect group spec and implementation
 - [`src/hooks.server.ts`](../../src/hooks.server.ts): only admins reach `/admin`
 - [First admin](../deployment/production.md#first-admin): promote the first account in production

@@ -8,7 +8,7 @@ import {
 	listNotificationRecipients,
 	resolveNotificationRecipientsLastPage,
 	type NotificationRecipient
-} from '../../../convex/admin/notificationPreferences/queries';
+} from './queries';
 
 type Fn<A, R> = { _handler: (ctx: unknown, args: A) => Promise<R> };
 type ListArgs = { cursor?: string; numItems: number; typeFilter?: 'admin' | 'custom' };

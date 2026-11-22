@@ -11,9 +11,9 @@ vi.mock('../support/ownership', () => ({
 }));
 vi.mock('../support/agent', () => ({ supportAgent: {} }));
 
-import { listAuditLogs } from '../../convex/admin/auditLog/queries';
-import { listThreadsForAdmin } from '../../convex/admin/support/queries';
-import { listThreads } from '../../convex/support/threads';
+import { listAuditLogs } from '../admin/auditLog/queries';
+import { listThreadsForAdmin } from '../admin/support/queries';
+import { listThreads } from '../support/threads';
 
 const users = [
 	{ _id: 'a', name: 'Alice', email: 'alice@example.test', image: '/alice.png' },

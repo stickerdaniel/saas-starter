@@ -1,6 +1,6 @@
 import { cronJobs } from 'convex/server';
 import { internal } from './_generated/api';
-import { RATE_LIMIT_SAMPLE_INTERVAL_MINUTES } from './support/rateLimitAlerts';
+import { RATE_LIMIT_SAMPLE_INTERVAL_MINUTES } from '../confect/support/rateLimitAlerts';
 
 const crons = cronJobs();
 

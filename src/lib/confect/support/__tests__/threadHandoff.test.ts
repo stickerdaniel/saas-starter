@@ -47,7 +47,7 @@ vi.mock('../../../convex/_generated/api', () => ({
 
 import { requireSupportThreadRecord } from '../ownership';
 import { supportAgent } from '../agent';
-import { updateThreadHandoff } from '../../../convex/support/threads';
+import { updateThreadHandoff } from '../threads';
 
 const requireRecordMock = requireSupportThreadRecord as unknown as ReturnType<typeof vi.fn>;
 const saveMessageMock = supportAgent.saveMessage as unknown as ReturnType<typeof vi.fn>;

@@ -38,7 +38,7 @@ vi.mock('../../../convex/_generated/api', () => ({
 import { authComponent } from '../../../convex/auth';
 import { supportAgent } from '../agent';
 import { supportRateLimiter } from '../rateLimit';
-import { getOrCreateWarmThread } from '../../../convex/support/threads';
+import { getOrCreateWarmThread } from '../threads';
 
 const safeGetAuthUserMock = authComponent.safeGetAuthUser as unknown as ReturnType<typeof vi.fn>;
 const createThreadMock = supportAgent.createThread as unknown as ReturnType<typeof vi.fn>;

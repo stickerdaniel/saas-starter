@@ -11,7 +11,7 @@ import {
 	getRecentDashboardMetrics,
 	listUsers,
 	resolveUsersLastPage
-} from '../../convex/admin/queries';
+} from './queries';
 
 type Fn<A, R> = { _handler: (ctx: unknown, args: A) => Promise<R> };
 type ListUsersArgs = {

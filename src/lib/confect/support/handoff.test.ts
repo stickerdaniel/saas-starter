@@ -5,7 +5,7 @@ import type { MessageDoc } from '@convex-dev/agent/validators';
 // internalSetHandoff calls syncSupportLastMessage from ./threads for the
 // denormalization sync. Stub it so the test stays a handler-level unit test and
 // never pulls the heavy threads module (agent, rate limiter, ownership).
-vi.mock('../../convex/support/threads', () => ({ syncSupportLastMessage: vi.fn() }));
+vi.mock('./threads', () => ({ syncSupportLastMessage: vi.fn() }));
 
 // The acknowledgement pulls in the agent and the translation table; both are
 // env-dependent, so stub them and keep this a handler-level unit test.
@@ -16,8 +16,8 @@ vi.mock('../i18n/translations', () => ({
 	extractLocaleFromUrl: vi.fn(() => 'en')
 }));
 
-import { internalSetHandoff, settleUnansweredTurn } from '../../convex/support/handoff';
-import { syncSupportLastMessage } from '../../convex/support/threads';
+import { internalSetHandoff, settleUnansweredTurn } from './handoff';
+import { syncSupportLastMessage } from './threads';
 import { supportAgent } from './agent';
 
 /**

@@ -3,15 +3,11 @@ import type { EmailId } from '@convex-dev/resend';
 import { makeFunctionReference } from 'convex/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { onDelete } from '../../../convex/auth';
-import { admitObservation } from '../../../convex/admin/customerNotifications/admission';
-import { cancelUnsentEmails } from '../../../convex/admin/customerNotifications/cancel';
+import { admitObservation } from '../customerNotifications/admission';
+import { cancelUnsentEmails } from '../customerNotifications/cancel';
 import { eraseFounderEmailPage } from '../../../convex/emails/founderEmailErasure';
 import { resend } from '../../emails/resend';
-import {
-	continueErasure,
-	erasePage,
-	startJourneyErasure
-} from '../../../convex/admin/journey/erasure';
+import { continueErasure, erasePage, startJourneyErasure } from './erasure';
 import { createJourneyStore, type JobState } from './journeyStore.fixtures';
 
 type Registered = { _handler: (ctx: never, args: never) => Promise<unknown> };

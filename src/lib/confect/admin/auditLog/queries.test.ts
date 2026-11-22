@@ -10,7 +10,7 @@ import {
 	listAuditLogs,
 	resolveAuditLogLastPage,
 	type AuditLogItem
-} from '../../../convex/admin/auditLog/queries';
+} from './queries';
 
 /**
  * Regression guard: the adminAuditLogs.metadata union is declared twice — once
