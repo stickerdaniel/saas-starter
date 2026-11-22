@@ -67,24 +67,24 @@ const OPENS_OWN_URL = { annotation: { type: 'opens-own-url' } };
 
 async function applySeedSearch(page: Page, seedPrefix: string) {
 	await page.getByTestId('admin-users-search').fill(seedPrefix);
-	// The search is debounced, and the unfiltered first page already lists the
-	// newest seed users. Only the filtered total shows the search has applied;
-	// paging before then lands on page 1 again once it does.
-	await expect(page.getByTestId('admin-users-selection-text')).toHaveText(
-		new RegExp(` of ${SEED_USER_COUNT} users selected$`)
-	);
-	await expect.poll(async () => page.getByTestId('admin-users-loading').count()).toBe(0);
+	await expectTableQueryParams(page, { search: seedPrefix });
 	await expect
 		.poll(
 			async () => {
 				const emails = (await page.getByTestId('admin-users-email-cell').allTextContents())
 					.map((value) => value.trim())
 					.filter(Boolean);
-				return emails.length > 0 && emails.every((email) => email.includes(seedPrefix));
+				return {
+					selection: await page.getByTestId('admin-users-selection-text').textContent(),
+					matchesSearch: emails.length > 0 && emails.every((email) => email.includes(seedPrefix))
+				};
 			},
 			{ timeout: 10000 }
 		)
-		.toBe(true);
+		.toEqual({
+			selection: expect.stringMatching(new RegExp(` of ${SEED_USER_COUNT} users selected$`)),
+			matchesSearch: true
+		});
 }
 
 function getRoleWeight(roleLabel: string) {
@@ -237,14 +237,11 @@ test.describe('Admin Users Table', () => {
 
 		await page.getByTestId('admin-users-role-filter-trigger').click();
 		await page.getByTestId('admin-users-role-filter-admin').click();
-		await expect.poll(async () => page.getByTestId('admin-users-loading').count()).toBe(0);
 		await expect(page.getByTestId('admin-users-filter-clear')).toBeVisible();
-
-		const roleLabels = (await page.getByTestId('admin-users-role-badge').allTextContents()).map(
-			(value) => value.trim()
+		await expect(page.getByTestId('admin-users-role-badge')).toHaveText(
+			seedUsers.filter(({ role }) => role === 'admin').map(() => 'Admin'),
+			{ timeout: 10000 }
 		);
-		expect(roleLabels.length).toBeGreaterThan(0);
-		expect(roleLabels.every((role) => role.toLowerCase() === 'admin')).toBe(true);
 
 		await page.getByTestId('admin-users-filter-clear').click();
 		await expect(page.getByTestId('admin-users-filter-clear')).toHaveCount(0);
@@ -255,13 +252,10 @@ test.describe('Admin Users Table', () => {
 
 		await page.getByTestId('admin-users-status-filter-trigger').click();
 		await page.getByTestId('admin-users-status-filter-unverified').click();
-		await expect.poll(async () => page.getByTestId('admin-users-loading').count()).toBe(0);
-
-		const statusLabels = (await page.getByTestId('admin-users-status-badge').allTextContents()).map(
-			(value) => value.trim()
+		await expect(page.getByTestId('admin-users-status-badge')).toHaveText(
+			seedUsers.filter(({ verification }) => verification === 'unverified').map(() => 'Unverified'),
+			{ timeout: 10000 }
 		);
-		expect(statusLabels.length).toBeGreaterThan(0);
-		expect(statusLabels.every((status) => status.toLowerCase() === 'unverified')).toBe(true);
 	});
 
 	test('pagination next and previous navigates pages', async ({ page }) => {

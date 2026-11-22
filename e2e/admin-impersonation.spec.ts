@@ -173,6 +173,7 @@ test.describe('Admin Impersonation', () => {
 		await page.waitForURL(origin, { timeout: 30000 });
 		await page.waitForLoadState('domcontentloaded');
 		await expect(page.getByTestId('admin-users-page')).toBeVisible();
+		await expect(page.getByTestId('admin-users-search')).toBeVisible({ timeout: 30000 });
 		await expect(page.getByTestId('admin-users-search')).toHaveValue(targetEmail);
 		await expect.poll(async () => page.getByTestId('investigation-bar').count()).toBe(0);
 		expect(page.url()).toBe(origin);
