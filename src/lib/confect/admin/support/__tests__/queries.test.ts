@@ -14,7 +14,7 @@ vi.mock('../../../support/messageListing', () => ({ listMessagesForThread: vi.fn
 
 import { authComponent } from '../../../../convex/auth';
 import { SUPPORT_MESSAGE_ROUTES_LIMIT } from '../constants';
-import { listMessageRoutesForAdmin } from '../../../../convex/admin/support/queries';
+import { listMessageRoutesForAdmin } from '../queries';
 
 const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
 

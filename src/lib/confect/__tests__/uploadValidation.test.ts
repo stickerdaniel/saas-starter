@@ -32,7 +32,7 @@ vi.mock('../../convex/_generated/api', () => ({
 }));
 
 import { storeFile } from '@convex-dev/agent';
-import { saveUploadedFile as saveSupportFile } from '../../convex/support/files';
+import { saveUploadedFile as saveSupportFile } from '../support/files';
 import { saveUploadedFile as saveAiChatFile } from '../../convex/aiChat/files';
 
 type SaveUploadedFileArgs = {

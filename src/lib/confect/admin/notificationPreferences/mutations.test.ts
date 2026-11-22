@@ -7,7 +7,7 @@ vi.mock('../../../convex/auth', () => ({
 	authComponent: { getAuthUser: vi.fn(async () => authUser.current) }
 }));
 
-import { updatePreferences } from '../../../convex/admin/notificationPreferences/mutations';
+import { updatePreferences } from './mutations';
 
 type Args = { emails: string[]; field: 'notifyNewSignups'; value: boolean };
 const handler = (

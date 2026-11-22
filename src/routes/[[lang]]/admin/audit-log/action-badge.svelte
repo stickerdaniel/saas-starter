@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { T } from '@tolgee/svelte';
 	import { Badge, type BadgeVariant } from '#lib/components/ui/badge/index.js';
-	import type { AuditLogItem } from '#lib/convex/admin/auditLog/queries.js';
+	import type { AuditLogItem } from '#lib/confect/admin/auditLog/queries.js';
 
 	type AuditLogAction = AuditLogItem['action'];
 

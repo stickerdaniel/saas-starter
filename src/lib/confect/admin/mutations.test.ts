@@ -14,7 +14,7 @@ vi.mock('./notificationPreferences/helpers', () => ({
 	deactivateAdminPreferencesHelper: vi.fn()
 }));
 
-import { seedFirstAdmin, setUserRole } from '../../convex/admin/mutations';
+import { seedFirstAdmin, setUserRole } from './mutations';
 
 type MutationHandler<TArgs, TResult> = {
 	_handler: (ctx: MutationCtx, args: TArgs) => Promise<TResult>;

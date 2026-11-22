@@ -39,8 +39,8 @@ vi.mock('../../../convex/_generated/api', () => ({
 
 import { authComponent } from '../../../convex/auth';
 import { supportAgent } from '../agent';
-import { migrateAnonymousTickets } from '../../../convex/support/migration';
-import { backfillThreadMetadata, syncUserProfile } from '../../../convex/support/threads';
+import { migrateAnonymousTickets } from '../migration';
+import { backfillThreadMetadata, syncUserProfile } from '../threads';
 
 const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
 const getAnyUserByIdMock = authComponent.getAnyUserById as unknown as ReturnType<typeof vi.fn>;

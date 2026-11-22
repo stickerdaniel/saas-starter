@@ -1,6 +1,6 @@
-import { aiChatSource } from '../../../convex/admin/journey/sources/aiChat';
-import { communitySource } from '../../../convex/admin/journey/sources/community';
-import { supportSource } from '../../../convex/admin/journey/sources/support';
+import { aiChatSource } from './sources/aiChat';
+import { communitySource } from './sources/community';
+import { supportSource } from './sources/support';
 
 /**
  * The journey sources this app reads, in display order: their steps and tiles

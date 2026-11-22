@@ -16,6 +16,8 @@ export default {
 		'src/lib/convex-components/betterAuth/**/*.ts',
 		'!src/lib/convex-components/betterAuth/_generated/**',
 		'src/lib/confect/tables/*.ts',
+		// The Confect CLI imports every group implementation from its generated registration.
+		'src/lib/confect/**/*.impl.ts',
 
 		// Scripts and test infrastructure
 		'eslint/shadcn-policy.js',
@@ -78,12 +80,10 @@ export default {
 		'@varlock/cloudflare-integration',
 		// Required by patches/oxlint-plugin-convex@0.1.1.patch.
 		'@oxlint/plugins',
-		// The Confect toolchain, pinned with the peers it resolves against. No module imports
-		// it until the Convex functions are declared as Confect groups.
-		'@confect/server',
+		// The Confect CLI and test harness, pinned with the peers they resolve against. No module
+		// imports them: scripts/confect-stage.ts runs the CLI by path.
 		'@confect/cli',
 		'@confect/test',
-		'@effect/platform-node',
 		'@effect/platform-node-shared'
 	],
 	ignoreBinaries: [

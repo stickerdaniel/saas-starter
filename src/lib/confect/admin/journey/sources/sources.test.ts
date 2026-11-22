@@ -10,9 +10,9 @@ import {
 	type JourneyRequest,
 	type JourneySource
 } from '../source';
-import * as aiChat from '../../../../convex/admin/journey/sources/aiChat';
-import * as community from '../../../../convex/admin/journey/sources/community';
-import * as support from '../../../../convex/admin/journey/sources/support';
+import * as aiChat from './aiChat';
+import * as community from './community';
+import * as support from './support';
 
 type Registered = { _handler: (ctx: never, args: never) => Promise<unknown> };
 const asRegistered = (fn: unknown) => fn as Registered;

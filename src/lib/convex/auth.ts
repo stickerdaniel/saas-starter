@@ -2,7 +2,7 @@ import { createClient, type GenericCtx, type AuthFunctions } from '@convex-dev/b
 import { requireRunMutationCtx } from '@convex-dev/better-auth/utils';
 import { convex } from '@convex-dev/better-auth/plugins';
 import { components, internal } from './_generated/api';
-import { type DataModel } from './_generated/dataModel';
+import type { DataModel } from './_generated/dataModel';
 import { query } from './_generated/server';
 import { v } from 'convex/values';
 import type { GenericMutationCtx } from 'convex/server';
@@ -31,7 +31,7 @@ import {
 	syncAdminPreferences,
 	deactivateAdminPreferencesHelper
 } from '../confect/admin/notificationPreferences/helpers';
-import { startJourneyErasure } from './admin/journey/erasure';
+import { startJourneyErasure } from '../confect/admin/journey/erasure';
 import { devNotice } from '../dev/notice';
 import { publicEndpoint } from '../confect/access';
 import { SUPPORTED_LANGUAGES } from '../i18n/languages';

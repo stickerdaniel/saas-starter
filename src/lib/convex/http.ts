@@ -2,7 +2,7 @@ import { httpRouter } from 'convex/server';
 import { registerRoutes as registerFilesControlRoutes } from '@gilhrpenner/convex-files-control';
 import { httpAction } from './_generated/server';
 import { components } from './_generated/api';
-import { handleAutumnWebhook } from './admin/customerNotifications/observe';
+import { handleAutumnWebhook } from '../confect/admin/customerNotifications/observe';
 import { authComponent, createAuth } from './auth';
 import { resend } from '../confect/emails/resend';
 

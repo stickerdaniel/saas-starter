@@ -54,6 +54,32 @@ const count = FunctionImpl.make(databaseSchema, notes, 'count', () => Effect.suc
 export default GroupImpl.make(databaseSchema, notes).pipe(Layer.provide(count), GroupImpl.finalize);
 `;
 
+const PLAIN_DEFINITION = `import { queryGeneric } from 'convex/server';
+import { v } from 'convex/values';
+
+export const count = queryGeneric({ args: {}, returns: v.number(), handler: async () => 0 });
+`;
+
+const PLAIN_SPEC = `import { FunctionSpec, GroupSpec } from '@confect/core';
+import type { count } from './notes';
+
+export default GroupSpec.make().addFunction(FunctionSpec.convexPublicQuery<typeof count>()('count'));
+`;
+
+const PLAIN_IMPL = `import { FunctionImpl, GroupImpl } from '@confect/server';
+import * as Layer from 'effect/Layer';
+import databaseSchema from './_generated/schema';
+import { count } from './notes';
+import notes from './notes.spec';
+
+export default GroupImpl.make(databaseSchema, notes).pipe(
+	Layer.provide(FunctionImpl.make(databaseSchema, notes, 'count', count)),
+	GroupImpl.finalize
+);
+`;
+
+const NATIVE_REEXPORT = `export { count } from '../confect/notes';\n`;
+
 const PROFILE_GATED_CONFIG = `import { defineApp } from 'convex/server';
 
 if (process.env.CAPABILITY_PROFILE !== 'local') {
@@ -134,6 +160,13 @@ function appending(file: string, text: string): Codegen {
 function write(root: string, file: string, contents: string): void {
 	mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
 	writeFileSync(path.join(root, file), contents);
+}
+
+function plainGroup(root: string): void {
+	write(root, 'src/lib/confect/notes.ts', PLAIN_DEFINITION);
+	write(root, 'src/lib/confect/notes.spec.ts', PLAIN_SPEC);
+	write(root, 'src/lib/confect/notes.impl.ts', PLAIN_IMPL);
+	write(root, `${CONVEX_DIR}/notes.ts`, NATIVE_REEXPORT);
 }
 
 function generatedFiles(root: string): string[] {
@@ -233,6 +266,67 @@ describe('confect staging codegen', () => {
 		expect(generatedFiles(root)).toEqual([]);
 	});
 
+	it('lets the CLI replace the native module of a plain group with its generated module', async () => {
+		const root = checkout();
+		plainGroup(root);
+
+		const generated = await withScratchCodegen(root, (scratch) =>
+			readFileSync(path.join(scratch, CONVEX_DIR, 'notes.ts'), 'utf8')
+		);
+
+		expect(generated).toContain('export const count = registeredFunctions.count;');
+		expect(readFileSync(path.join(root, CONVEX_DIR, 'notes.ts'), 'utf8')).toBe(NATIVE_REEXPORT);
+	}, 60_000);
+
+	it('fails when the codegen creates a module no group declares', async () => {
+		const root = checkout();
+
+		await expect(
+			stage(root, { codegen: appending(`${CONVEX_DIR}/stray.ts`, 'export {};\n') })
+		).rejects.toThrow(`created ${CONVEX_DIR}/stray.ts`);
+	}, 60_000);
+
+	it('fails when the codegen deletes the module of a declared group', async () => {
+		const root = checkout();
+		plainGroup(root);
+		const deletesGroup: Codegen = (scratch, profile) => {
+			confectCodegen(scratch, profile);
+			rmSync(path.join(scratch, CONVEX_DIR, 'notes.ts'));
+		};
+
+		await expect(stage(root, { codegen: deletesGroup })).rejects.toThrow(
+			`deleted ${CONVEX_DIR}/notes.ts`
+		);
+	}, 60_000);
+
+	it('fails when the codegen writes no module for a declared group', async () => {
+		const root = checkout();
+		plainGroup(root);
+		rmSync(path.join(root, CONVEX_DIR, 'notes.ts'));
+		const skipsGroup: Codegen = (scratch, profile) => {
+			confectCodegen(scratch, profile);
+			rmSync(path.join(scratch, CONVEX_DIR, 'notes.ts'));
+		};
+
+		await expect(stage(root, { codegen: skipsGroup })).rejects.toThrow(
+			`missing ${CONVEX_DIR}/notes.ts`
+		);
+	}, 60_000);
+
+	it('fails when the codegen leaves a declared group without its registration', async () => {
+		const root = checkout();
+		plainGroup(root);
+		const dropsRegistration: Codegen = (scratch, profile) => {
+			confectCodegen(scratch, profile);
+			writeFileSync(path.join(scratch, CONVEX_DIR, 'notes.ts'), NATIVE_REEXPORT);
+			rmSync(path.join(scratch, CONFECT_GENERATED_DIR, 'registeredFunctions', 'notes.ts'));
+		};
+
+		await expect(stage(root, { codegen: dropsRegistration })).rejects.toThrow(
+			`missing ${CONFECT_GENERATED_DIR}/registeredFunctions/notes.ts`
+		);
+	}, 60_000);
+
 	it('refuses a linked functions directory in the checkout before the codegen runs', async () => {
 		const root = checkout();
 		const outside = linkedConvexDirectory(root);
@@ -270,9 +364,12 @@ describe('confect staging codegen', () => {
 		expect(codegen).not.toHaveBeenCalled();
 	});
 
-	it('refuses a submodule in the Git index', async () => {
+	it.each([
+		['a populated', true],
+		['an unpopulated', false]
+	])('refuses %s submodule in the Git index', async (_, populated) => {
 		const root = checkout();
-		write(root, 'packages/submodule/input.ts', 'export const input = 1;\n');
+		if (populated) write(root, 'packages/submodule/input.ts', 'export const input = 1;\n');
 		runGit(root, [
 			'update-index',
 			'--add',
@@ -281,7 +378,9 @@ describe('confect staging codegen', () => {
 		]);
 		const codegen = vi.fn<Codegen>(altersAuthored);
 
-		await expect(stage(root, { codegen })).rejects.toThrow('packages/submodule is a directory');
+		await expect(stage(root, { codegen })).rejects.toThrow(
+			'packages/submodule is a submodule in the Git index'
+		);
 		expect(codegen).not.toHaveBeenCalled();
 	});
 

@@ -3,7 +3,7 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	import UserAvatar from '#lib/components/user-avatar.svelte';
-	import type { AuditLogItem } from '#lib/convex/admin/auditLog/queries.js';
+	import type { AuditLogItem } from '#lib/confect/admin/auditLog/queries.js';
 
 	interface Props {
 		/** Absent while the table loads: the cell renders its skeleton. */

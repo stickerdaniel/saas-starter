@@ -13,7 +13,7 @@
 	import { createCursorSorting } from '#lib/tables/convex/sorting.svelte.ts';
 	import { createTableUrlSchema } from '#lib/tables/convex/url.js';
 	import { toCursorListResult } from '#lib/tables/convex/contract.js';
-	import type { AuditLogItem } from '#lib/convex/admin/auditLog/queries.js';
+	import type { AuditLogItem } from '#lib/confect/admin/auditLog/queries.js';
 	import { browser } from '$app/env';
 	import { createColumns } from './columns.js';
 	import DataTableFilters from './data-table-filters.svelte';

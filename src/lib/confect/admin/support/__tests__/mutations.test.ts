@@ -15,7 +15,7 @@ vi.mock('@convex-dev/agent', () => ({
 	getFile: vi.fn()
 }));
 
-vi.mock('../../../../convex/support/threads', () => ({
+vi.mock('../../../support/threads', () => ({
 	shouldSendNotification: vi.fn(() => false),
 	syncSupportLastMessage: vi.fn()
 }));
@@ -48,8 +48,8 @@ vi.mock('../../../../convex/_generated/api', () => ({
 
 import { saveMessage, getFile } from '@convex-dev/agent';
 import { authComponent } from '../../../../convex/auth';
-import { shouldSendNotification } from '../../../../convex/support/threads';
-import { sendAdminReply, updateThreadAssignment } from '../../../../convex/admin/support/mutations';
+import { shouldSendNotification } from '../../../support/threads';
+import { sendAdminReply, updateThreadAssignment } from '../mutations';
 
 const saveMessageMock = saveMessage as unknown as ReturnType<typeof vi.fn>;
 const getFileMock = getFile as unknown as ReturnType<typeof vi.fn>;

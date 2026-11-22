@@ -2,17 +2,13 @@ import { vi } from 'vitest';
 import type { EmailId, SendEmailOptions } from '@convex-dev/resend';
 import { resend } from '../../emails/resend';
 import { createJourneyStore } from '../journey/journeyStore.fixtures';
-import * as aiChat from '../../../convex/admin/journey/sources/aiChat';
-import * as community from '../../../convex/admin/journey/sources/community';
-import * as support from '../../../convex/admin/journey/sources/support';
-import { getJourneyRecipients } from '../../../convex/admin/notificationPreferences/queries';
+import * as aiChat from '../journey/sources/aiChat';
+import * as community from '../journey/sources/community';
+import * as support from '../journey/sources/support';
+import { getJourneyRecipients } from '../notificationPreferences/queries';
 import type { Payment } from './billing';
 import { cancellationEpisode, newCustomerEpisode } from './ledger';
-import {
-	enqueueRecipient,
-	sendCancellation,
-	sendNewCustomer
-} from '../../../convex/admin/customerNotifications/send';
+import { enqueueRecipient, sendCancellation, sendNewCustomer } from './send';
 
 /**
  * A seeded deployment for the customer email senders: the in-memory store with

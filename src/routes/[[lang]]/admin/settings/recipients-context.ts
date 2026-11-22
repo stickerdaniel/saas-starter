@@ -3,7 +3,7 @@ import type { RowSelectionState } from '@tanstack/table-core';
 import type {
 	NotificationRecipient,
 	NotificationToggleField
-} from '#lib/convex/admin/notificationPreferences/queries.js';
+} from '#lib/confect/admin/notificationPreferences/queries.js';
 
 export type ToggleField = NotificationToggleField;
 

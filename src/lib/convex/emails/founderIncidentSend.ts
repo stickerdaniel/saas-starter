@@ -1,6 +1,6 @@
 import { internal } from '../_generated/api';
 import type { QueryCtx } from '../_generated/server';
-import type { FounderWelcomeConfig } from '../admin/founderWelcome/queries';
+import type { FounderWelcomeConfig } from '../../confect/admin/founderWelcome/queries';
 import { createFounderIncidentEmailMutation } from '../../confect/emails/founderIncidentCore';
 import { founderIncidentRegistry } from '../../confect/emails/founderIncidentRegistry';
 import type { FounderIncidentContact } from '../../confect/emails/founderIncidentTypes';

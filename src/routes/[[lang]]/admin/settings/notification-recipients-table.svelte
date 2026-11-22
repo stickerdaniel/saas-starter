@@ -22,7 +22,7 @@
 	import { createTableUrlSchema } from '#lib/tables/convex/url.js';
 	import { toCursorListResult } from '#lib/tables/convex/contract.js';
 	import { columns } from './columns.js';
-	import type { NotificationRecipient } from '#lib/convex/admin/notificationPreferences/queries.js';
+	import type { NotificationRecipient } from '#lib/confect/admin/notificationPreferences/queries.js';
 	import { adminCache } from '#lib/hooks/admin-cache.svelte.ts';
 	import AddEmailDialog from './add-email-dialog.svelte';
 	import { browser } from '$app/env';

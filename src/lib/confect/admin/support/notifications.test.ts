@@ -11,7 +11,7 @@ vi.mock('../../emails/resend', () => ({
 	}))
 }));
 
-import { enqueueRecipient } from '../../../convex/admin/support/notificationDelivery';
+import { enqueueRecipient } from './notificationDelivery';
 import { getEmailDeliveryConfiguration } from '../../emails/resend';
 import { shouldSkipTestEmail } from '../../emails/helpers';
 import { getFunctionName } from 'convex/server';
@@ -22,7 +22,7 @@ import {
 	reschedulePendingNotification,
 	scheduleAdminNotification,
 	sendPendingAdminNotification
-} from '../../../convex/admin/support/notifications';
+} from './notifications';
 
 /**
  * Handler-level unit test (the codebase idiom): the Convex fn exposes its

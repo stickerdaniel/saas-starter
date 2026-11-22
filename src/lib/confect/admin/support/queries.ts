@@ -1,0 +1,505 @@
+import type { MessagesQueryResponse } from '../../../chat/core/types';
+import { v } from 'convex/values';
+import { components } from '../../../convex/_generated/api';
+import { paginationOptsValidator } from 'convex/server';
+import { adminQuery } from '../../functions';
+import {
+	SUPPORT_THREADS_PAGE_SIZE,
+	ADMIN_USERS_BATCH_SIZE,
+	SUPPORT_MESSAGE_ROUTES_LIMIT
+} from './constants';
+import { parseBetterAuthUsers } from '../types';
+import { isAnonymousUser } from '../../utils/anonymousUser';
+import { vStreamArgs } from '@convex-dev/agent/validators';
+import { listMessagesForThread } from '../../support/messageListing';
+import { supportThreadFields } from '../../support/supportThreadFields';
+import { toAgentThreadStatus } from '../../support/denormalization';
+import { normalizeSupportAppVersion } from '../../../shared/support-app-version';
+import { normalizeSupportPageRoute } from '../../../shared/support-page-route';
+
+/** Return validator for supportThreads documents (schema fields + system fields). */
+const vSupportMetadata = v.object({
+	_id: v.string(),
+	_creationTime: v.number(),
+	...supportThreadFields
+});
+
+/**
+ * List threads with admin filters
+ *
+ * ARCHITECTURE: Queries supportThreads table with admin metadata.
+ *
+ * Supports filtering by:
+ * - assignedTo (specific admin or null for unassigned)
+ * - status (open, done)
+ * - search (title, summary, or message content)
+ *
+ * Non-search results are ordered by updatedAt; search results use relevance order.
+ */
+export const listThreadsForAdmin = adminQuery({
+	args: {
+		filter: v.union(
+			v.literal('all'),
+			v.literal('unassigned'),
+			v.object({ assignedTo: v.string() })
+		),
+		status: v.optional(v.union(v.literal('open'), v.literal('done'))),
+		search: v.optional(v.string()),
+		paginationOpts: v.optional(paginationOptsValidator)
+	},
+	returns: v.object({
+		page: v.array(
+			v.object({
+				_id: v.string(),
+				_creationTime: v.number(),
+				userId: v.string(),
+				title: v.optional(v.string()),
+				summary: v.optional(v.string()),
+				status: v.union(v.literal('active'), v.literal('archived')),
+				supportMetadata: vSupportMetadata,
+				lastMessage: v.optional(v.string()),
+				lastMessageAt: v.optional(v.number()),
+				userName: v.optional(v.string()),
+				userEmail: v.optional(v.string()),
+				userImage: v.optional(v.string())
+			})
+		),
+		isDone: v.boolean(),
+		continueCursor: v.string()
+	}),
+	handler: async (ctx, args) => {
+		const paginationOpts = args.paginationOpts ?? {
+			numItems: SUPPORT_THREADS_PAGE_SIZE,
+			cursor: null
+		};
+
+		let supportThreads;
+		const isSearchActive = !!args.search?.trim();
+
+		// Extract typed values for type-safe comparisons
+		const statusFilter = args.status; // 'open' | 'done' | undefined
+		const filterType = args.filter; // 'all' | 'unassigned' | { assignedTo: string }
+		const assignedToFilter =
+			typeof filterType === 'object' && 'assignedTo' in filterType
+				? filterType.assignedTo
+				: undefined;
+		const isUnassigned = filterType === 'unassigned';
+
+		// =========================================================================
+		// QUERY PATH: Search vs Non-Search
+		// =========================================================================
+		if (isSearchActive) {
+			// SEARCH PATH: Use chainable search filter builder
+			const searchQuery = args.search!.trim();
+
+			supportThreads = await ctx.db
+				.query('supportThreads')
+				.withSearchIndex('search_all', (q) => {
+					// Only show threads that have been handed off to human support
+					let filter = q.search('searchText', searchQuery).eq('isHandedOff', true);
+					if (statusFilter) filter = filter.eq('status', statusFilter);
+					if (isUnassigned) filter = filter.eq('assignedTo', undefined);
+					else if (assignedToFilter) filter = filter.eq('assignedTo', assignedToFilter);
+					return filter;
+				})
+				.paginate(paginationOpts);
+		} else {
+			// NON-SEARCH PATH: Only show threads that have been handed off to human support
+			// All paths filter by isHandedOff === true
+			if (statusFilter && (isUnassigned || assignedToFilter)) {
+				// Combined: status + assignment, ordered by recent activity.
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withIndex('by_handed_off_status_assigned_updated', (q) =>
+						q
+							.eq('isHandedOff', true)
+							.eq('status', statusFilter)
+							.eq('assignedTo', isUnassigned ? undefined : assignedToFilter)
+					)
+					.order('desc')
+					.paginate(paginationOpts);
+			} else if (statusFilter) {
+				// Status only.
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withIndex('by_handed_off_status_updated', (q) =>
+						q.eq('isHandedOff', true).eq('status', statusFilter)
+					)
+					.order('desc')
+					.paginate(paginationOpts);
+			} else if (isUnassigned) {
+				// Unassigned only (no status filter).
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withIndex('by_handed_off_assigned_updated', (q) =>
+						q.eq('isHandedOff', true).eq('assignedTo', undefined)
+					)
+					.order('desc')
+					.paginate(paginationOpts);
+			} else if (assignedToFilter) {
+				// Specific admin only (no status filter).
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withIndex('by_handed_off_assigned_updated', (q) =>
+						q.eq('isHandedOff', true).eq('assignedTo', assignedToFilter)
+					)
+					.order('desc')
+					.paginate(paginationOpts);
+			} else {
+				// No filters.
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withIndex('by_handed_off_updated', (q) => q.eq('isHandedOff', true))
+					.order('desc')
+					.paginate(paginationOpts);
+			}
+		}
+
+		const validThreads = supportThreads.page.map((supportThread) => ({
+			_id: supportThread.threadId,
+			_creationTime: supportThread.createdAt,
+			userId: supportThread.userId,
+			title: supportThread.title,
+			summary: supportThread.summary,
+			status: toAgentThreadStatus(supportThread.status),
+			supportMetadata: supportThread,
+			lastMessage: supportThread.lastMessage,
+			lastMessageAt: supportThread.lastMessageAt,
+			userName: supportThread.userName,
+			userEmail: supportThread.userEmail
+		}));
+
+		// =========================================================================
+		// ENRICHMENT: Batch fetch user images from Better Auth
+		// =========================================================================
+		const userIds = [
+			...new Set(
+				validThreads.map((t) => t.userId).filter((id): id is string => !!id && !isAnonymousUser(id))
+			)
+		];
+
+		const userImageMap = new Map<string, string>();
+
+		if (userIds.length > 0) {
+			// `_id in` resolves only this page's owners and returns all matching point reads.
+			const users = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'user',
+				where: [{ field: '_id', operator: 'in', value: userIds }],
+				paginationOpts: { cursor: null, numItems: userIds.length },
+				select: ['_id', 'image']
+			});
+
+			// Build lookup map for user images
+			for (const user of users.page as Array<{ _id: string; image?: string | null }>) {
+				if (user.image) {
+					userImageMap.set(user._id, user.image);
+				}
+			}
+		}
+
+		// Add userImage to each thread
+		const threadsWithImages = validThreads.map((thread) => ({
+			...thread,
+			userImage: thread.userId ? userImageMap.get(thread.userId) : undefined
+		}));
+
+		return {
+			page: threadsWithImages,
+			isDone: supportThreads.isDone,
+			continueCursor: supportThreads.continueCursor
+		};
+	}
+});
+
+/**
+ * Get thread details for admin view
+ * Includes assignment, status, priority, and user info
+ */
+export const getThreadForAdmin = adminQuery({
+	args: { threadId: v.string() },
+	returns: v.object({
+		_id: v.string(),
+		_creationTime: v.number(),
+		userId: v.string(),
+		title: v.optional(v.string()),
+		summary: v.optional(v.string()),
+		status: v.union(v.literal('active'), v.literal('archived')),
+		supportMetadata: vSupportMetadata,
+		assignedAdmin: v.optional(
+			v.object({
+				id: v.string(),
+				name: v.optional(v.string()),
+				email: v.optional(v.string()),
+				image: v.union(v.string(), v.null())
+			})
+		),
+		user: v.optional(
+			v.object({
+				id: v.string(),
+				name: v.optional(v.string()),
+				email: v.optional(v.string()),
+				image: v.union(v.string(), v.null())
+			})
+		)
+	}),
+	handler: async (ctx, args) => {
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread) {
+			throw new Error(`Support thread not found for threadId: ${args.threadId}`);
+		}
+
+		// 4. Get assigned admin details
+		let assignedAdmin;
+		if (supportThread.assignedTo) {
+			const admin = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+				model: 'user',
+				where: [{ field: '_id', operator: 'eq', value: supportThread.assignedTo }],
+				select: ['id', 'name', 'email', 'image']
+			})) as { _id: string; name?: string; email?: string; image?: string | null } | null;
+			if (admin) {
+				assignedAdmin = {
+					id: admin._id,
+					name: admin.name,
+					email: admin.email,
+					image: admin.image ?? null
+				};
+			}
+		}
+
+		// 5. Get user details (handle anonymous users)
+		let user;
+		if (supportThread.userId) {
+			if (!isAnonymousUser(supportThread.userId)) {
+				// Registered user - lookup in user table
+				try {
+					const userData = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+						model: 'user',
+						where: [{ field: '_id', operator: 'eq', value: supportThread.userId }],
+						select: ['id', 'name', 'email', 'image']
+					})) as { _id: string; name?: string; email?: string; image?: string | null } | null;
+					if (userData) {
+						user = {
+							id: userData._id,
+							name: userData.name,
+							email: userData.email,
+							image: userData.image ?? null
+						};
+					}
+				} catch {
+					console.error({ code: 'support_thread_user_unavailable', threadId: args.threadId });
+					// Leave user as undefined
+				}
+			}
+			// For anonymous users, leave user as undefined
+		}
+
+		return {
+			_id: supportThread.threadId,
+			_creationTime: supportThread.createdAt,
+			userId: supportThread.userId,
+			title: supportThread.title,
+			summary: supportThread.summary,
+			status: toAgentThreadStatus(supportThread.status),
+			supportMetadata: supportThread,
+			assignedAdmin,
+			user
+		};
+	}
+});
+
+/**
+ * Get the route each message in a thread was sent from, and the build that sent it
+ *
+ * The thread's own pageUrl is captured before its first message, so the details
+ * panel cannot account for messages sent after the visitor navigates elsewhere.
+ * This carries the route and build recorded with each individual message. A row
+ * may hold either one: older rows have no build, and a build survives a route
+ * that failed normalization.
+ */
+export const listMessageRoutesForAdmin = adminQuery({
+	args: { threadId: v.string() },
+	returns: v.array(
+		v.object({
+			messageId: v.string(),
+			pageUrl: v.optional(v.string()),
+			appVersion: v.optional(v.string())
+		})
+	),
+	handler: async (ctx, args) => {
+		const contexts = await ctx.db
+			.query('supportMessageContexts')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.order('desc')
+			.take(SUPPORT_MESSAGE_ROUTES_LIMIT);
+
+		return contexts.flatMap((context) => {
+			const pageUrl = normalizeSupportPageRoute(context.pageUrl);
+			const appVersion = normalizeSupportAppVersion(context.appVersion);
+			if (!pageUrl && !appVersion) return [];
+			return [
+				{
+					messageId: context.messageId,
+					...(pageUrl ? { pageUrl } : {}),
+					...(appVersion ? { appVersion } : {})
+				}
+			];
+		});
+	}
+});
+
+export const listMessagesForAdmin = adminQuery({
+	args: {
+		threadId: v.string(),
+		paginationOpts: paginationOptsValidator,
+		streamArgs: vStreamArgs
+	},
+	// v.any(): paginated message + stream shape is owned by @convex-dev/agent
+	returns: v.any(),
+	handler: async (ctx, args): Promise<MessagesQueryResponse> => {
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread) {
+			throw new Error(`Support thread not found for threadId: ${args.threadId}`);
+		}
+
+		return await listMessagesForThread(ctx, {
+			threadId: args.threadId,
+			paginationOpts: args.paginationOpts,
+			streamArgs: args.streamArgs
+		});
+	}
+});
+
+/**
+ * Get internal notes for a user
+ *
+ * Supports both authenticated users and anonymous users (anon_* IDs).
+ * Notes are user-level, so they appear across all threads for that user.
+ */
+export const listInternalUserNotes = adminQuery({
+	args: {
+		userId: v.string(), // Better Auth user ID or anon_* for anonymous
+		paginationOpts: v.optional(paginationOptsValidator)
+	},
+	returns: v.object({
+		page: v.array(
+			v.object({
+				_id: v.string(),
+				_creationTime: v.number(),
+				userId: v.string(),
+				adminUserId: v.string(),
+				content: v.string(),
+				createdAt: v.number(),
+				adminName: v.optional(v.string()),
+				adminEmail: v.optional(v.string())
+			})
+		),
+		isDone: v.boolean(),
+		continueCursor: v.string()
+	}),
+	handler: async (ctx, args) => {
+		const notes = await ctx.db
+			.query('internalUserNotes')
+			.withIndex('by_user', (q) => q.eq('userId', args.userId))
+			.order('desc')
+			.paginate(args.paginationOpts ?? { numItems: SUPPORT_THREADS_PAGE_SIZE, cursor: null });
+
+		// Authors resolve by id, not by current role: a demoted admin keeps their notes' byline.
+		const adminIds = [...new Set(notes.page.map((note) => note.adminUserId))];
+
+		type AdminInfo = { _id: string; name?: string; email?: string };
+		const adminMap = new Map<string, AdminInfo>();
+
+		if (adminIds.length > 0) {
+			// `_id in` resolves only this page's authors and returns all matching point reads.
+			const authors = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'user',
+				where: [{ field: '_id', operator: 'in', value: adminIds }],
+				paginationOpts: { cursor: null, numItems: adminIds.length },
+				select: ['_id', 'name', 'email']
+			});
+
+			for (const author of authors.page as AdminInfo[]) {
+				adminMap.set(author._id, author);
+			}
+		}
+
+		// Enrich notes with admin info from the map
+		const notesWithAdminInfo = notes.page.map((note) => {
+			const admin = adminMap.get(note.adminUserId);
+			return {
+				...note,
+				adminName: admin?.name,
+				adminEmail: admin?.email
+			};
+		});
+
+		return {
+			page: notesWithAdminInfo,
+			isDone: notes.isDone,
+			continueCursor: notes.continueCursor
+		};
+	}
+});
+
+/**
+ * Get count of threads awaiting admin response (capped at 100)
+ *
+ * Returns min(actualCount, 100) for sidebar badge display.
+ * UI shows "99+" when the returned value is 100.
+ */
+export const getAwaitingResponseCount = adminQuery({
+	args: {},
+	returns: v.number(),
+	handler: async (ctx) => {
+		// Capped at 100 to avoid unbounded scan; UI shows "99+" for >= 100
+		const awaitingThreads = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_needs_response', (q) =>
+				q.eq('isHandedOff', true).eq('status', 'open').eq('awaitingAdminResponse', true)
+			)
+			.take(100);
+		return awaitingThreads.length;
+	}
+});
+
+/**
+ * Lists up to ADMIN_USERS_BATCH_SIZE admin users for the assignment dropdown.
+ */
+export const listAdmins = adminQuery({
+	args: {},
+	returns: v.array(
+		v.object({
+			id: v.string(),
+			name: v.optional(v.string()),
+			email: v.optional(v.string()),
+			image: v.union(v.string(), v.null())
+		})
+	),
+	handler: async (ctx) => {
+		// One page of admins: the dropdown lists at most ADMIN_USERS_BATCH_SIZE.
+		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: { cursor: null, numItems: ADMIN_USERS_BATCH_SIZE },
+			where: [{ field: 'role', operator: 'eq', value: 'admin' }]
+		});
+
+		// Parse and filter valid admin records using Valibot validation
+		const admins = parseBetterAuthUsers(result.page);
+
+		// Return admin info
+		return admins.map((admin) => ({
+			id: admin._id,
+			name: admin.name,
+			email: admin.email,
+			image: admin.image ?? null
+		}));
+	}
+});

@@ -9,7 +9,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '#lib/convex/_generated/api.js';
-	import type { AuditLogItem } from '#lib/convex/admin/auditLog/queries.js';
+	import type { AuditLogItem } from '#lib/confect/admin/auditLog/queries.js';
 
 	const { t } = getTranslate();
 
