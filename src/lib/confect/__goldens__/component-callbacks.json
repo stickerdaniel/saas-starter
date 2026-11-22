@@ -1,0 +1,8 @@
+{
+	"betterAuth": {
+		"onCreate": "auth:onCreate internal mutation",
+		"onDelete": "auth:onDelete internal mutation",
+		"onUpdate": "auth:onUpdate internal mutation"
+	},
+	"resend": { "onEmailEvent": "emails/events:handleEmailEvent internal mutation" }
+}

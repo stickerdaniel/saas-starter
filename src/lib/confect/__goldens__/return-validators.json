@@ -1,0 +1,17 @@
+{
+	"action": {
+		"function": "aiChat/files:getAttachmentText",
+		"invalid": "Error Return value validation failed for action \"goldenReturnProbe:getAttachmentText\": Validator error: Missing required field `text` in object",
+		"valid": "ok"
+	},
+	"mutation": {
+		"function": "admin/mutations:banUser",
+		"invalid": "Error Return value validation failed for mutation \"goldenReturnProbe:banUser\": Validator error: Missing required field `success` in object",
+		"valid": "ok"
+	},
+	"query": {
+		"function": "admin/auditLog/queries:listAuditLogs",
+		"invalid": "Error Return value validation failed for query \"goldenReturnProbe:listAuditLogs\": Validator error: Missing required field `items` in object",
+		"valid": "ok"
+	}
+}

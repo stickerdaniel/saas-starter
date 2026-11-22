@@ -1,6 +1,8 @@
 import { Linter } from 'eslint';
 import { parser } from 'typescript-eslint';
+import { FunctionSpec } from '@confect/core';
 import { describe, expect, it } from 'vitest';
+import { CONFECT_NATIVE_SPECS, CONFECT_PLAIN_SPECS } from '../convex-registrars.js';
 import rule from './convex-canonical-registration.js';
 
 const linter = new Linter({ configType: 'flat' });
@@ -112,6 +114,74 @@ describe('convex-canonical-registration', () => {
 			'a re-exported builder',
 			`export { query as publicQuery } from './_generated/server';`,
 			'reexport'
+		],
+		[
+			'an aliased Confect constructor import',
+			`import { FunctionSpec as Spec } from '@confect/core';
+			export const f = Spec.convexPublicQuery<typeof list>()('list');`,
+			'aliasedImport'
+		],
+		[
+			'a namespace import of Confect',
+			`import * as Confect from '@confect/server';
+			export const f = Confect.FunctionImpl.make(databaseSchema, notes, 'list', list);`,
+			'namespaceImport'
+		],
+		[
+			'a plain spec whose name differs from its registration',
+			`import { FunctionSpec } from '@confect/core';
+			export const f = FunctionSpec.convexPublicQuery<typeof list>()('listAll');`,
+			'plainSpecShape'
+		],
+		[
+			'a plain spec without its registration type',
+			`import { FunctionSpec } from '@confect/core';
+			export const f = FunctionSpec.convexInternalMutation()('remove');`,
+			'plainSpecShape'
+		],
+		[
+			'a plain spec named by a variable',
+			`import { FunctionSpec } from '@confect/core';
+			const name = 'list';
+			export const f = FunctionSpec.convexPublicQuery<typeof list>()(name);`,
+			'plainSpecShape'
+		],
+		[
+			'a native spec named by a variable',
+			`import { FunctionSpec } from '@confect/core';
+			export const f = FunctionSpec.publicQuery({ name: listName, args: Schema.Struct({}), returns: Schema.Null });`,
+			'nativeSpecShape'
+		],
+		[
+			'a native spec with a spread config',
+			`import { FunctionSpec } from '@confect/core';
+			export const f = FunctionSpec.internalAction({ ...shared, name: 'sync' });`,
+			'nativeSpecShape'
+		],
+		[
+			'a spec constructor held in another binding',
+			`import { FunctionSpec } from '@confect/core';
+			const make = FunctionSpec.convexPublicQuery;
+			export const f = make<typeof list>()('list');`,
+			'confectMember'
+		],
+		[
+			'a spec constructor read by a computed key',
+			`import { FunctionSpec } from '@confect/core';
+			export const f = FunctionSpec[kind]<typeof list>()('list');`,
+			'confectMember'
+		],
+		[
+			'a Confect constructor passed away whole',
+			`import { FunctionSpec } from '@confect/core';
+			export const f = register(FunctionSpec);`,
+			'indirectReference'
+		],
+		[
+			'an implementation named by a variable',
+			`import { FunctionImpl } from '@confect/server';
+			export const f = FunctionImpl.make(databaseSchema, notes, name, list);`,
+			'implShape'
 		]
 	])('reports %s', (_label, code, messageId) => {
 		expect(messageIds(code)).toContain(messageId);
@@ -149,8 +219,44 @@ describe('convex-canonical-registration', () => {
 			'a builder of the same name from another module',
 			`import { query as q } from 'some-library';
 			export const f = q({ handler: someFunction });`
+		],
+		[
+			'a Confect group of plain specs',
+			`import { FunctionSpec, GroupSpec } from '@confect/core';
+			import type { list, remove } from './notes';
+			export default GroupSpec.make()
+				.addFunction(FunctionSpec.convexPublicQuery<typeof list>()('list'))
+				.addFunction(FunctionSpec.convexInternalMutation<typeof remove>()('remove'));`
+		],
+		[
+			'a Confect-native spec',
+			`import { FunctionSpec } from '@confect/core';
+			export const f = FunctionSpec.publicPaginatedQuery({ name: 'page', args: Schema.Struct({}), item: Schema.String });`
+		],
+		[
+			'a Confect group implementation',
+			`import { FunctionImpl, GroupImpl } from '@confect/server';
+			import * as Layer from 'effect/Layer';
+			export default GroupImpl.make(databaseSchema, notes).pipe(
+				Layer.provide([FunctionImpl.make(databaseSchema, notes, 'list', list)]),
+				GroupImpl.finalize
+			);`
+		],
+		[
+			'a Confect type reference',
+			`import { FunctionSpec } from '@confect/core';
+			type Any = FunctionSpec.AnyWithProps;
+			export const isSpec = FunctionSpec.isFunctionSpec;`
 		]
 	])('passes %s', (_label, code) => {
 		expect(messageIds(code)).toEqual([]);
+	});
+
+	it('knows every function constructor Confect exports', () => {
+		expect([...CONFECT_NATIVE_SPECS, ...CONFECT_PLAIN_SPECS].sort()).toEqual(
+			Object.keys(FunctionSpec)
+				.filter((name) => name !== 'TypeId' && name !== 'isFunctionSpec')
+				.sort()
+		);
 	});
 });

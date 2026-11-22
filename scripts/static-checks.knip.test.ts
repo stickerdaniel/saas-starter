@@ -99,6 +99,8 @@ const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 	'scripts/static-checks.knip-types.test.ts',
 	'scripts/svelte-kit-sync-lock.ts',
 	'scripts/svelte-kit-sync-lock.test.ts',
+	'scripts/checkout-lock.ts',
+	'scripts/checkout-lock.test.ts',
 	'scripts/terminal-output.ts',
 	'scripts/test-executable.ts',
 	'scripts/__fixtures__/static-checks/command-recorder.ts',

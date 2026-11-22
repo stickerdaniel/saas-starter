@@ -1,0 +1,449 @@
+{
+	"columns": ["visibility", "kind", "args digest", "returns digest"],
+	"modules": {
+		"admin/auditLog/queries": {
+			"getAuditLogCount": ["public", "query", "07b97745cf99c47d", "cddf8275afa15408"],
+			"listAuditLogs": ["public", "query", "baa53cfcdad5b258", "c87a375af3cecdc4"],
+			"resolveAuditLogLastPage": ["public", "query", "fea436c25c6c9a5d", "057bb8c475eaeb7e"],
+			"resolveAuditLogUser": ["public", "query", "3b83ee450a3cde21", "3f2be43c82e6bef4"]
+		},
+		"admin/customerNotifications/admission": {
+			"admitObservation": ["internal", "mutation", "edc70aa247f981d1", "bcde375ebd4cbacf"]
+		},
+		"admin/customerNotifications/cancel": {
+			"cancelUnsentEmails": ["internal", "mutation", "2c69bcbd0d188659", "bcde375ebd4cbacf"]
+		},
+		"admin/customerNotifications/send": {
+			"enqueueRecipient": ["internal", "mutation", "2783c2f3f398aadf", "00404e686415370f"],
+			"sendCancellation": ["internal", "mutation", "b2100b3d93f09f90", "bcde375ebd4cbacf"],
+			"sendNewCustomer": ["internal", "mutation", "b2100b3d93f09f90", "bcde375ebd4cbacf"]
+		},
+		"admin/founderWelcome/mutations": {
+			"setFounderEmailEnabled": ["public", "mutation", "9ce3e863afcf23e6", "bcde375ebd4cbacf"],
+			"stepDown": ["public", "mutation", "5151b7eb8536aa97", "bcde375ebd4cbacf"],
+			"updateConfig": ["public", "mutation", "3a159412def7d8d5", "bcde375ebd4cbacf"],
+			"updateFounderEmailTemplate": ["public", "mutation", "df6b5bd19ce7d7d8", "bcde375ebd4cbacf"]
+		},
+		"admin/founderWelcome/queries": {
+			"getFounderEmailSettings": ["public", "query", "5151b7eb8536aa97", "a0405bc354f8ea9a"],
+			"getFounderWelcomeConfig": ["public", "query", "5151b7eb8536aa97", "2d7a03d420c8fa00"],
+			"getFounderWelcomeConfigInternal": [
+				"internal",
+				"query",
+				"5151b7eb8536aa97",
+				"bed6ca0041548a8d"
+			]
+		},
+		"admin/journey/erasure": {
+			"continueErasure": ["internal", "mutation", "b078c2873cd93549", "bcde375ebd4cbacf"],
+			"erasePage": ["internal", "mutation", "310c029168906ce9", "f8e62f4d961b3962"]
+		},
+		"admin/journey/sources/aiChat": {
+			"read": ["internal", "query", "5ea626106e5ebccd", "fe9f7824d139f518"]
+		},
+		"admin/journey/sources/community": {
+			"read": ["internal", "query", "5ea626106e5ebccd", "fe9f7824d139f518"]
+		},
+		"admin/journey/sources/support": {
+			"read": ["internal", "query", "5ea626106e5ebccd", "1adda5a7c2129c01"]
+		},
+		"admin/mutations": {
+			"banUser": ["public", "mutation", "756a5ab6a79627a5", "296b6c98fce8621a"],
+			"revokeUserSessions": ["public", "mutation", "3b83ee450a3cde21", "296b6c98fce8621a"],
+			"seedFirstAdmin": ["internal", "mutation", "92a026eb059d4cf1", "70f9faba18dd41a1"],
+			"setUserRole": ["public", "mutation", "34cffabf4b8149cc", "296b6c98fce8621a"],
+			"unbanUser": ["public", "mutation", "3b83ee450a3cde21", "296b6c98fce8621a"]
+		},
+		"admin/notificationPreferences/index": {
+			"addCustomEmail": ["public", "mutation", "92a026eb059d4cf1", "bcde375ebd4cbacf"],
+			"getJourneyRecipients": ["internal", "query", "bfb4cd2c4e41e8e9", "d23af736a6a78bb5"],
+			"getNotificationRecipientCount": ["public", "query", "a10f5208c79ad271", "cddf8275afa15408"],
+			"getRecipientsForNotificationType": [
+				"internal",
+				"query",
+				"bfb4cd2c4e41e8e9",
+				"58b0824194bb057c"
+			],
+			"listNotificationRecipients": ["public", "query", "8470dd1eb40c023d", "a6c355dc10a6f56b"],
+			"removeCustomEmail": ["public", "mutation", "92a026eb059d4cf1", "bcde375ebd4cbacf"],
+			"resolveNotificationRecipientsLastPage": [
+				"public",
+				"query",
+				"24cefe17721b2f78",
+				"057bb8c475eaeb7e"
+			],
+			"syncAllAdminPreferences": ["internal", "mutation", "5151b7eb8536aa97", "3b105d594b6f6b4a"],
+			"updatePreference": ["public", "mutation", "0a07f0a75f961bb3", "bcde375ebd4cbacf"],
+			"updatePreferences": ["public", "mutation", "a3e450358f45f6fb", "bcde375ebd4cbacf"]
+		},
+		"admin/notificationPreferences/mutations": {
+			"addCustomEmail": ["public", "mutation", "92a026eb059d4cf1", "bcde375ebd4cbacf"],
+			"removeCustomEmail": ["public", "mutation", "92a026eb059d4cf1", "bcde375ebd4cbacf"],
+			"syncAllAdminPreferences": ["internal", "mutation", "5151b7eb8536aa97", "3b105d594b6f6b4a"],
+			"updatePreference": ["public", "mutation", "0a07f0a75f961bb3", "bcde375ebd4cbacf"],
+			"updatePreferences": ["public", "mutation", "a3e450358f45f6fb", "bcde375ebd4cbacf"]
+		},
+		"admin/notificationPreferences/queries": {
+			"getJourneyRecipients": ["internal", "query", "bfb4cd2c4e41e8e9", "d23af736a6a78bb5"],
+			"getNotificationRecipientCount": ["public", "query", "a10f5208c79ad271", "cddf8275afa15408"],
+			"getRecipientsForNotificationType": [
+				"internal",
+				"query",
+				"bfb4cd2c4e41e8e9",
+				"58b0824194bb057c"
+			],
+			"listNotificationRecipients": ["public", "query", "8470dd1eb40c023d", "a6c355dc10a6f56b"],
+			"resolveNotificationRecipientsLastPage": [
+				"public",
+				"query",
+				"24cefe17721b2f78",
+				"057bb8c475eaeb7e"
+			]
+		},
+		"admin/queries": {
+			"getDashboardMetrics": ["public", "query", "5151b7eb8536aa97", "9fec8f9995992245"],
+			"getUserCount": ["public", "query", "ebbd33a02cc3b46b", "cddf8275afa15408"],
+			"listUsers": ["public", "query", "d2eb96603d5116a0", "cceee52c9bb1f8c8"],
+			"resolveUsersLastPage": ["public", "query", "1d4c04994de31aa6", "057bb8c475eaeb7e"]
+		},
+		"admin/support/mutations": {
+			"addInternalUserNote": ["public", "mutation", "e63c8c8973444af4", "bcde375ebd4cbacf"],
+			"sendAdminReply": ["public", "mutation", "123012237ef3d79e", "bcde375ebd4cbacf"],
+			"updateThreadAssignment": ["public", "mutation", "df3ac5977a6e95db", "bcde375ebd4cbacf"],
+			"updateThreadPriority": ["public", "mutation", "0608512c68ee8597", "bcde375ebd4cbacf"],
+			"updateThreadStatus": ["public", "mutation", "a4a76fcc94e97501", "bcde375ebd4cbacf"]
+		},
+		"admin/support/notificationDelivery": {
+			"cleanupReceipts": ["internal", "mutation", "81f31fcf04de73e1", "bcde375ebd4cbacf"],
+			"enqueueRecipient": ["internal", "mutation", "63bffc7bdadee11c", "7cb541e84f226754"]
+		},
+		"admin/support/notifications": {
+			"cancelPendingNotification": ["internal", "mutation", "7f3f856a82776c16", "7cb541e84f226754"],
+			"claimNotificationForSending": [
+				"internal",
+				"mutation",
+				"8150302be42e4690",
+				"aeee47b5665cbd37"
+			],
+			"deletePendingNotification": ["internal", "mutation", "9a5797daa4dbd749", "7cb541e84f226754"],
+			"getMessageContents": ["internal", "query", "566bd568c6532cf2", "08ce8c669820121b"],
+			"getNotificationTargetEmails": ["internal", "query", "af1b1ff81b5a406c", "58b0824194bb057c"],
+			"getRecentUserMessages": ["internal", "query", "3ccd0f488b2e5243", "58b0824194bb057c"],
+			"getSupportThread": ["internal", "query", "7f3f856a82776c16", "007ebd230df59bbf"],
+			"listLegacyNotificationClaims": ["internal", "query", "aba4a69d6728db62", "55654eea66428c2f"],
+			"recoverNotificationClaim": ["internal", "mutation", "de0ea8e3b4328065", "7cb541e84f226754"],
+			"reschedulePendingNotification": [
+				"internal",
+				"mutation",
+				"1711c6d0a600cf6f",
+				"7cb541e84f226754"
+			],
+			"scheduleAdminNotification": ["internal", "mutation", "f135a5f77df23ec6", "bcde375ebd4cbacf"],
+			"sendPendingAdminNotification": ["internal", "action", "90339e40e92a6978", "bcde375ebd4cbacf"]
+		},
+		"admin/support/queries": {
+			"getAwaitingResponseCount": ["public", "query", "5151b7eb8536aa97", "cddf8275afa15408"],
+			"getThreadForAdmin": ["public", "query", "7f3f856a82776c16", "1d439ba41ca36b26"],
+			"listAdmins": ["public", "query", "5151b7eb8536aa97", "eb954dfaf3d485de"],
+			"listInternalUserNotes": ["public", "query", "e2d17c59d2ace079", "d68b40c912ebc977"],
+			"listMessageRoutesForAdmin": ["public", "query", "7f3f856a82776c16", "46d0b4dc2eb296ff"],
+			"listMessagesForAdmin": ["public", "query", "41992ba5b0bbfc81", "0c4eff9f3ccf00b3"],
+			"listThreadsForAdmin": ["public", "query", "be2dcdbc6890cdad", "2997b42d6131d3ad"]
+		},
+		"aiChat/activityMigration": {
+			"runPage": ["internal", "mutation", "1383e1fdc1595d03", "bcde375ebd4cbacf"],
+			"start": ["internal", "mutation", "567f4ac803cf4d68", "016db72088fb47ff"],
+			"status": ["internal", "query", "5151b7eb8536aa97", "8f02e1727ce52338"]
+		},
+		"aiChat/files": {
+			"checkPreviewAccess": ["internal", "mutation", "5151b7eb8536aa97", "bcde375ebd4cbacf"],
+			"generateUploadUrl": ["public", "mutation", "5151b7eb8536aa97", "71537c1f87837b16"],
+			"getAttachmentText": ["public", "action", "14ef1120ab5b3177", "413e85261d58b45c"],
+			"requireFileAccess": ["internal", "mutation", "5151b7eb8536aa97", "bcde375ebd4cbacf"],
+			"saveUploadedFile": ["public", "action", "78a23a8f6c874a82", "6195014416e89a68"]
+		},
+		"aiChat/messages": {
+			"createAIResponse": ["internal", "action", "ab153c745735f7fd", "bcde375ebd4cbacf"],
+			"getFileMetadataBatch": ["public", "query", "e0f227178d8bb417", "ea1a86249a1cb0ee"],
+			"listMessages": ["public", "query", "41992ba5b0bbfc81", "0c4eff9f3ccf00b3"],
+			"sendMessage": ["public", "mutation", "123012237ef3d79e", "131ac4f6b3cc872f"]
+		},
+		"aiChat/threads": {
+			"backfillThreadMetadata": ["internal", "mutation", "5151b7eb8536aa97", "91f2a227ec254f1e"],
+			"createThread": ["public", "mutation", "5151b7eb8536aa97", "7f3f856a82776c16"],
+			"deleteStaleWarmThreads": ["internal", "mutation", "5151b7eb8536aa97", "519fb59a7a2d1268"],
+			"deleteThread": ["public", "mutation", "7f3f856a82776c16", "bcde375ebd4cbacf"],
+			"getOrCreateWarmThread": ["public", "mutation", "5151b7eb8536aa97", "7f3f856a82776c16"],
+			"getWarmThread": ["public", "query", "5151b7eb8536aa97", "44dec5d2f93d7f4f"],
+			"listThreads": ["public", "query", "f14bd0a6d604268b", "687717ad68772565"],
+			"setThreadTitleIfEmpty": ["internal", "mutation", "957b87426e4073a2", "bcde375ebd4cbacf"],
+			"updateThreadMetadata": ["internal", "mutation", "737abc3a7053d5df", "bcde375ebd4cbacf"]
+		},
+		"aiChat/titles": {
+			"generateThreadTitle": ["internal", "action", "9f8c80681082602d", "bcde375ebd4cbacf"]
+		},
+		"aiUsage/record": {
+			"insert": ["internal", "mutation", "855d87c32941e050", "bcde375ebd4cbacf"]
+		},
+		"auth": {
+			"getAvailableOAuthProviders": ["public", "query", "5151b7eb8536aa97", "3bde3f56ec759292"],
+			"onCreate": ["internal", "mutation", "4a114ce21fdc770e", "74234e98afe7498f"],
+			"onDelete": ["internal", "mutation", "4a114ce21fdc770e", "74234e98afe7498f"],
+			"onUpdate": ["internal", "mutation", "c231f2075d06af1f", "74234e98afe7498f"]
+		},
+		"autumn": {
+			"attach": ["public", "action", "4fb167449bcc5936", "74234e98afe7498f"],
+			"billingPortal": ["public", "action", "b59d01022c4862cc", "74234e98afe7498f"],
+			"cancel": ["public", "action", "c6e9a32b742f224e", "74234e98afe7498f"],
+			"check": ["public", "action", "5f18963da8760376", "74234e98afe7498f"],
+			"checkout": ["public", "action", "a2e50074da83709f", "74234e98afe7498f"],
+			"createCustomer": ["public", "action", "c8e09f23e7d414b7", "74234e98afe7498f"],
+			"createEntity": ["public", "action", "ddb460c59f75f709", "74234e98afe7498f"],
+			"createReferralCode": ["public", "action", "1b23707d6d6e78ea", "74234e98afe7498f"],
+			"getEntity": ["public", "action", "aa3109c7d3cc3808", "74234e98afe7498f"],
+			"listProducts": ["public", "action", "5151b7eb8536aa97", "74234e98afe7498f"],
+			"query": ["public", "action", "c9f84e1c678f16f9", "74234e98afe7498f"],
+			"redeemReferralCode": ["public", "action", "7ce6507fc4db4d21", "74234e98afe7498f"],
+			"setupPayment": ["public", "action", "fed6229914e01b7f", "74234e98afe7498f"],
+			"track": ["public", "action", "3bbed088e5c8ec10", "74234e98afe7498f"],
+			"usage": ["public", "action", "38ba3d6f83f74bf5", "74234e98afe7498f"]
+		},
+		"capabilities": { "getUsability": ["public", "query", "5151b7eb8536aa97", "d88eb7e302105a77"] },
+		"emails/events": {
+			"handleEmailEvent": ["internal", "mutation", "e8fa517d67e015f7", "bcde375ebd4cbacf"]
+		},
+		"emails/founderEmailBilling": {
+			"resolveFounderCancellationBilling": [
+				"internal",
+				"action",
+				"9102aa1e607aed9c",
+				"bcde375ebd4cbacf"
+			],
+			"resolveFounderFeedbackBilling": [
+				"internal",
+				"action",
+				"0a5f9905a877e05a",
+				"bcde375ebd4cbacf"
+			]
+		},
+		"emails/founderEmailErasure": {
+			"continueFounderEmailErasure": [
+				"internal",
+				"mutation",
+				"00209d145af94ad5",
+				"bcde375ebd4cbacf"
+			],
+			"eraseFounderEmailPage": ["internal", "mutation", "3b83ee450a3cde21", "7cb541e84f226754"]
+		},
+		"emails/founderEmailLedger": {
+			"getSentFounderWelcome": ["internal", "query", "3b83ee450a3cde21", "2f9d403d8340aedb"],
+			"isFounderEmailSendPending": ["internal", "query", "d0b03688b7a50b3e", "7cb541e84f226754"]
+		},
+		"emails/founderEmails": {
+			"recordFounderEmailSendFailure": [
+				"internal",
+				"mutation",
+				"d0b03688b7a50b3e",
+				"bcde375ebd4cbacf"
+			],
+			"sendFounderCancellationEmail": [
+				"internal",
+				"mutation",
+				"e8de1afe6e816a02",
+				"bcde375ebd4cbacf"
+			],
+			"sendFounderFeedbackEmail": ["internal", "mutation", "d6b44801d95f0585", "bcde375ebd4cbacf"],
+			"setPersonalEmailSuppression": [
+				"internal",
+				"mutation",
+				"3fd2c24efe79102c",
+				"bcde375ebd4cbacf"
+			]
+		},
+		"emails/founderIncidentDelivery": {
+			"reconcileFounderIncidentEmailDelivery": [
+				"internal",
+				"mutation",
+				"550f1a20ada109b8",
+				"a0eb3a942596767d"
+			]
+		},
+		"emails/founderIncidentDrafts": {
+			"previewDraft": ["internal", "query", "550f1a20ada109b8", "0edd1440793cbc10"],
+			"queueDraft": ["internal", "mutation", "e865a50f2da7b472", "733beabc771b4b98"],
+			"saveDraft": ["internal", "mutation", "0203383bc0230b52", "ffaa83ca0d5299e8"]
+		},
+		"emails/founderIncidentSend": {
+			"queueFounderIncidentEmail": ["internal", "mutation", "550f1a20ada109b8", "733beabc771b4b98"]
+		},
+		"emails/send": {
+			"sendAdminReplyNotification": [
+				"internal",
+				"mutation",
+				"6d84d6756f0d3223",
+				"bcde375ebd4cbacf"
+			],
+			"sendFounderWelcomeEmail": ["internal", "mutation", "ed21b6c675637494", "bcde375ebd4cbacf"],
+			"sendNewTicketAdminNotification": [
+				"internal",
+				"mutation",
+				"eee04928dca09f57",
+				"7cb541e84f226754"
+			],
+			"sendNewUserSignupNotification": [
+				"internal",
+				"mutation",
+				"f9da563fead0fb98",
+				"bcde375ebd4cbacf"
+			],
+			"sendResetPasswordEmail": ["internal", "mutation", "04201227d7ffff59", "bcde375ebd4cbacf"],
+			"sendVerificationEmail": ["internal", "mutation", "ecded2c0cebe2b47", "bcde375ebd4cbacf"]
+		},
+		"files/cleanup": {
+			"cleanupExpiredFiles": ["internal", "mutation", "f14bd0a6d604268b", "44e3478819658fcf"]
+		},
+		"files/metadata": {
+			"storeFileMetadata": ["internal", "mutation", "b8844095cf30aa53", "1f59fe9c346cb913"]
+		},
+		"files/vacuum": {
+			"deleteUnusedFiles": ["internal", "mutation", "e91a6f41160e06d0", "bcde375ebd4cbacf"]
+		},
+		"localDev": {
+			"ensureSeededAdmin": ["internal", "mutation", "5151b7eb8536aa97", "1c49ae7253550e23"]
+		},
+		"messages": {
+			"enforceAndTrackMessageUsage": ["internal", "action", "0344023963f4dfc5", "bcde375ebd4cbacf"],
+			"list": ["public", "query", "5151b7eb8536aa97", "8e7407263fbfc41c"],
+			"markMessageSettled": ["internal", "mutation", "ef30e797aa8884ae", "bcde375ebd4cbacf"],
+			"removeMessage": ["internal", "mutation", "ef30e797aa8884ae", "bcde375ebd4cbacf"],
+			"send": ["public", "mutation", "af8c522ac6f049c6", "ef30e797aa8884ae"]
+		},
+		"previewDev": {
+			"ensurePreviewAdmin": ["internal", "mutation", "5151b7eb8536aa97", "1c49ae7253550e23"]
+		},
+		"storage": {
+			"generateUploadUrl": ["public", "mutation", "5151b7eb8536aa97", "71537c1f87837b16"],
+			"updateProfileImage": ["public", "mutation", "7d592e379ed43500", "00404e686415370f"]
+		},
+		"support/files": {
+			"checkPreviewAccess": ["internal", "mutation", "a13bcd12cc862d69", "bcde375ebd4cbacf"],
+			"generateUploadUrl": ["public", "mutation", "a13bcd12cc862d69", "71537c1f87837b16"],
+			"getAttachmentText": ["public", "action", "56a4ccd2490214f8", "413e85261d58b45c"],
+			"saveUploadedFile": ["public", "action", "78a23a8f6c874a82", "6195014416e89a68"]
+		},
+		"support/handoff": {
+			"internalSetHandoff": ["internal", "mutation", "82244c7e5465b09c", "bcde375ebd4cbacf"],
+			"settleUnansweredTurn": ["internal", "mutation", "187c3115578f0a1a", "bcde375ebd4cbacf"]
+		},
+		"support/messages": {
+			"createAIResponse": ["internal", "action", "ab153c745735f7fd", "bcde375ebd4cbacf"],
+			"createAssistantMessage": ["internal", "mutation", "03de732690c90cb5", "0c4eff9f3ccf00b3"],
+			"ensureSupportTurnSettled": ["internal", "mutation", "8755baaf04f6633f", "bcde375ebd4cbacf"],
+			"getFileMetadataBatch": ["public", "query", "e0f227178d8bb417", "ea1a86249a1cb0ee"],
+			"getTurnOutcome": ["internal", "query", "9fcf647695703c12", "98708561a703500c"],
+			"listMessages": ["public", "query", "c07374b98c92badd", "0c4eff9f3ccf00b3"],
+			"sendMessage": ["public", "mutation", "9facd8fe0006e216", "ec710e67d9c3aacd"]
+		},
+		"support/migration": {
+			"migrateAnonymousTickets": ["public", "mutation", "d237b17f4b7103ea", "8f844cbe2204c5b8"]
+		},
+		"support/promptStore": {
+			"getActive": ["internal", "query", "ce54fcef5458a793", "9eb9d9bb9dd67fb0"],
+			"savePrompt": ["internal", "mutation", "6a6c0b063cbc2254", "4dcea807fa198ca5"],
+			"setActive": ["internal", "mutation", "429c6d8355f38328", "bcde375ebd4cbacf"]
+		},
+		"support/rateLimitAlerts": {
+			"sampleAnonymousRateLimits": ["internal", "mutation", "5151b7eb8536aa97", "bcde375ebd4cbacf"]
+		},
+		"support/readState": {
+			"hasUnreadAdminReply": ["public", "query", "a13bcd12cc862d69", "7cb541e84f226754"],
+			"markThreadRead": ["public", "mutation", "543908474c0f529a", "bcde375ebd4cbacf"],
+			"unreadAdminReplyCount": ["public", "query", "a13bcd12cc862d69", "cddf8275afa15408"]
+		},
+		"support/threads": {
+			"backfillThreadMetadata": ["internal", "mutation", "5151b7eb8536aa97", "91f2a227ec254f1e"],
+			"createThread": ["public", "mutation", "714edef192aad2c2", "e9d95330c06cfbaf"],
+			"deleteEmptyThreads": ["internal", "mutation", "5151b7eb8536aa97", "a6d891bf136dfa07"],
+			"getAdminAvatars": ["public", "query", "5151b7eb8536aa97", "00cd166cb63e45ab"],
+			"getOrCreateWarmThread": ["public", "mutation", "05990f86f81124d5", "e9d95330c06cfbaf"],
+			"getThread": ["public", "query", "d22e44fc688a1429", "33a1c890135d5647"],
+			"getThreadLocale": ["internal", "query", "7f3f856a82776c16", "00404e686415370f"],
+			"listThreads": ["public", "query", "a714838a64d54e68", "e180379d06b4a256"],
+			"sweepEmptyThread": ["internal", "mutation", "60481676961eec09", "bcde375ebd4cbacf"],
+			"syncUserProfile": ["internal", "mutation", "5b0226b5fd507590", "bcde375ebd4cbacf"],
+			"updateLastMessage": ["internal", "mutation", "7f3f856a82776c16", "bcde375ebd4cbacf"],
+			"updateNotificationEmail": ["public", "mutation", "64e11be13b37b8ab", "7cb541e84f226754"],
+			"updateThreadHandoff": ["public", "mutation", "d628f0edc4b4967a", "7cb541e84f226754"],
+			"updateThreadMetadata": ["internal", "mutation", "06dab6a516d5daa0", "bcde375ebd4cbacf"]
+		},
+		"tests": {
+			"cleanupAllTestUsers": ["public", "mutation", "e3b36a6473b293e2", "1e83cc5378dea674"],
+			"cleanupAnonymousSupportThreads": [
+				"public",
+				"mutation",
+				"d79ce408c1924999",
+				"786bcb8cebf9ce69"
+			],
+			"cleanupTestData": ["public", "mutation", "4750ddae3b3c42e6", "12d2f70bab140133"],
+			"createAnonymousSupportThread": [
+				"public",
+				"mutation",
+				"954ab80635668c02",
+				"88adde7cdb7c8e9f"
+			],
+			"createTestAdminUser": ["public", "mutation", "fc1e15266873dd30", "92ddf515cbf730e0"],
+			"createUnreadAnonymousSupportReply": [
+				"public",
+				"mutation",
+				"676c5280e30ed951",
+				"5574bbcc80efe9f8"
+			],
+			"deleteAiChatHistoryRows": ["public", "mutation", "0e666c15799c3f54", "bcde375ebd4cbacf"],
+			"deleteAuditLogRows": ["public", "mutation", "7ab1d66c2742c08b", "bcde375ebd4cbacf"],
+			"deleteOwnedFixture": ["public", "mutation", "c753ddfe54361b77", "519fb59a7a2d1268"],
+			"deleteSupportNotificationFixture": [
+				"public",
+				"mutation",
+				"f748f8126c8bbb1d",
+				"bcde375ebd4cbacf"
+			],
+			"deleteTestUser": ["public", "mutation", "fc1e15266873dd30", "f8161d1521478928"],
+			"findOwnedTestData": ["public", "query", "20847d0c62478868", "e8555c1cf526f496"],
+			"getAuthUserIdByEmail": ["public", "mutation", "fc1e15266873dd30", "376c7d0747f6cfdd"],
+			"getLegacyAuditLogCursor": ["public", "query", "175bf4c72fd97d7a", "00404e686415370f"],
+			"getPasswordResetToken": ["public", "mutation", "fc1e15266873dd30", "c14b71aa2f8a5a56"],
+			"getSupportThreadsByUserId": ["public", "mutation", "f02ef852b7f485ac", "f22a4169bb82df99"],
+			"getTestUser": ["internal", "query", "92a026eb059d4cf1", "0c4eff9f3ccf00b3"],
+			"health": ["public", "query", "e3b36a6473b293e2", "efde83ecf2efd768"],
+			"recalculateDashboardCounters": [
+				"public",
+				"mutation",
+				"e3b36a6473b293e2",
+				"5936140f5090b9e0"
+			],
+			"recoverSupportNotificationFixture": [
+				"public",
+				"mutation",
+				"a1149b4d4115e4d7",
+				"6c4ac7f566418be7"
+			],
+			"resetAiChatFileUploadLimit": ["public", "mutation", "fc1e15266873dd30", "bcde375ebd4cbacf"],
+			"seedAiChatHistoryRows": ["public", "mutation", "22b7a194f989e509", "318ebd6468b6ce68"],
+			"seedAuditLogRows": ["public", "mutation", "ddb929ac849d844c", "0aac72c03bcb064a"],
+			"seedSupportNotificationClaim": [
+				"public",
+				"mutation",
+				"038f29651bb733e0",
+				"de0ea8e3b4328065"
+			],
+			"verifyTestUserEmail": ["public", "mutation", "fc1e15266873dd30", "ea8b91484616e13d"]
+		},
+		"users": {
+			"dismissPasskeyNudge": ["public", "mutation", "5151b7eb8536aa97", "bcde375ebd4cbacf"],
+			"getPasskeyNudgeDismissal": ["public", "query", "5151b7eb8536aa97", "cddf8275afa15408"],
+			"hasPassword": ["public", "query", "5151b7eb8536aa97", "7cb541e84f226754"],
+			"setPassword": ["public", "mutation", "726ecaac6da85351", "923165779003134c"],
+			"viewer": ["public", "query", "5151b7eb8536aa97", "55a07d5ec395fa1b"]
+		}
+	}
+}

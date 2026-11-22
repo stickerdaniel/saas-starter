@@ -22,7 +22,7 @@ Every commit is checked automatically. `static-checks:staged` first runs spell c
 
 ## Dead Code Detection
 
-[Knip](https://knip.dev/) is configured for SvelteKit file-system routing and Convex backend entry points. It catches unused exports, stale dependencies, and orphaned files so the codebase stays clean. [oxlint](https://oxc.rs/docs/guide/usage/linter) adds a custom Convex rule that flags unused Convex functions at lint time. Knip runs as the last lint-group step of `bun scripts/static-checks.ts`, so the pre-push file run and CI's lint job fail on an orphaned file, an unlisted import, or a dependency nothing uses. Unused exports and exported types stay warnings because barrel re-exports and schema types are API surface. The pre-commit hook skips Knip because it reads the whole working tree.
+[Knip](https://knip.dev/) is configured for SvelteKit file-system routing and Convex backend entry points. It catches unused exports, stale dependencies, and orphaned files so the codebase stays clean. The unit test `scripts/convex-unused-functions.test.ts` fails when a function in the Confect spec has no `api`, `internal` or Confect `refs` reference outside tests and e2e specs, unless `src/lib/confect/__goldens__/unused-functions.json` lists it. Knip runs as the last lint-group step of `bun scripts/static-checks.ts`, so the pre-push file run and CI's lint job fail on an orphaned file, an unlisted import, or a dependency nothing uses. Unused exports and exported types stay warnings because barrel re-exports and schema types are API surface. The pre-commit hook skips Knip because it reads the whole working tree.
 
 ## Bundle Analysis
 

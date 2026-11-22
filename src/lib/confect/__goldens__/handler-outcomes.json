@@ -1,0 +1,612 @@
+{
+	"admin/auditLog/queries:getAuditLogCount": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/auditLog/queries:listAuditLogs": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/auditLog/queries:resolveAuditLogLastPage": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/auditLog/queries:resolveAuditLogUser": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/founderWelcome/mutations:setFounderEmailEnabled": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/founderWelcome/mutations:stepDown": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/founderWelcome/mutations:updateConfig": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/founderWelcome/mutations:updateFounderEmailTemplate": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/founderWelcome/queries:getFounderEmailSettings": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/founderWelcome/queries:getFounderWelcomeConfig": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/mutations:banUser": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/mutations:revokeUserSessions": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/mutations:setUserRole": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/mutations:unbanUser": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/index:addCustomEmail": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/index:getNotificationRecipientCount": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/index:listNotificationRecipients": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/index:removeCustomEmail": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/index:resolveNotificationRecipientsLastPage": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/index:updatePreference": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/index:updatePreferences": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/mutations:addCustomEmail": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/mutations:removeCustomEmail": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/mutations:updatePreference": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/mutations:updatePreferences": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/queries:getNotificationRecipientCount": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/queries:listNotificationRecipients": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/notificationPreferences/queries:resolveNotificationRecipientsLastPage": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/queries:getDashboardMetrics": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/queries:getUserCount": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/queries:listUsers": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/queries:resolveUsersLastPage": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/support/mutations:addInternalUserNote": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/support/mutations:sendAdminReply": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/support/mutations:updateThreadAssignment": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/support/mutations:updateThreadPriority": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/support/mutations:updateThreadStatus": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/support/queries:getAwaitingResponseCount": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/support/queries:getThreadForAdmin": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/support/queries:listAdmins": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/support/queries:listInternalUserNotes": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/support/queries:listMessageRoutesForAdmin": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/support/queries:listMessagesForAdmin": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"admin/support/queries:listThreadsForAdmin": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"ADMIN_ACCESS_REQUIRED\"}"
+	},
+	"aiChat/files:generateUploadUrl": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"aiChat/files:getAttachmentText": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"FILE_FETCH_FAILED\"}"
+	},
+	"aiChat/files:saveUploadedFile": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Validator error: Expected ID for table \"pendingUploads\", got `golden`"
+	},
+	"aiChat/messages:getFileMetadataBatch": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"aiChat/messages:listMessages": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"AI_CHAT_THREAD_NOT_FOUND\"}"
+	},
+	"aiChat/messages:sendMessage": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"AI_CHAT_THREAD_NOT_FOUND\"}"
+	},
+	"aiChat/threads:createThread": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"aiChat/threads:deleteThread": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"AI_CHAT_THREAD_NOT_FOUND\"}"
+	},
+	"aiChat/threads:getOrCreateWarmThread": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"aiChat/threads:getWarmThread": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"aiChat/threads:listThreads": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"auth:getAvailableOAuthProviders": {
+		"anonymous": "ok",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"autumn:attach": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:billingPortal": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:cancel": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:check": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:checkout": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:createCustomer": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:createEntity": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:createReferralCode": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:getEntity": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:listProducts": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:query": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:redeemReferralCode": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:setupPayment": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:track": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"autumn:usage": {
+		"anonymous": "Error [capability] billing is misconfigured",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"capabilities:getUsability": {
+		"anonymous": "ok",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"messages:list": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"messages:send": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error [capability] billing is misconfigured"
+	},
+	"storage:generateUploadUrl": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"storage:updateProfileImage": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Validator error: Expected ID for table \"pendingUploads\", got `golden`"
+	},
+	"support/files:generateUploadUrl": {
+		"anonymous": "ok",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"support/files:getAttachmentText": {
+		"anonymous": "ConvexError {\"code\":\"FILE_FETCH_FAILED\"}",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"FILE_FETCH_FAILED\"}"
+	},
+	"support/files:saveUploadedFile": {
+		"anonymous": "Error Validator error: Expected ID for table \"pendingUploads\", got `golden`",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Validator error: Expected ID for table \"pendingUploads\", got `golden`"
+	},
+	"support/messages:getFileMetadataBatch": {
+		"anonymous": "ok",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"support/messages:listMessages": {
+		"anonymous": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}"
+	},
+	"support/messages:sendMessage": {
+		"anonymous": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}"
+	},
+	"support/migration:migrateAnonymousTickets": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"SUPPORT_ANONYMOUS_USER_INVALID\"}"
+	},
+	"support/readState:hasUnreadAdminReply": {
+		"anonymous": "ok",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"support/readState:markThreadRead": {
+		"anonymous": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}"
+	},
+	"support/readState:unreadAdminReplyCount": {
+		"anonymous": "ok",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"support/threads:createThread": {
+		"anonymous": "ConvexError {\"code\":\"SUPPORT_AUTHENTICATION_REQUIRED\"}",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"support/threads:getAdminAvatars": {
+		"anonymous": "ok",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"support/threads:getOrCreateWarmThread": {
+		"anonymous": "ConvexError {\"code\":\"SUPPORT_AUTHENTICATION_REQUIRED\"}",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"support/threads:getThread": {
+		"anonymous": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}"
+	},
+	"support/threads:listThreads": {
+		"anonymous": "ok",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"support/threads:updateNotificationEmail": {
+		"anonymous": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}"
+	},
+	"support/threads:updateThreadHandoff": {
+		"anonymous": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}"
+	},
+	"tests:cleanupAllTestUsers": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:cleanupAnonymousSupportThreads": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:cleanupTestData": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:createAnonymousSupportThread": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:createTestAdminUser": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:createUnreadAnonymousSupportReply": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:deleteAiChatHistoryRows": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:deleteAuditLogRows": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:deleteOwnedFixture": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:deleteSupportNotificationFixture": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:deleteTestUser": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:findOwnedTestData": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:getAuthUserIdByEmail": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:getLegacyAuditLogCursor": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:getPasswordResetToken": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:getSupportThreadsByUserId": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:health": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:recalculateDashboardCounters": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:recoverSupportNotificationFixture": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:resetAiChatFileUploadLimit": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:seedAiChatHistoryRows": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:seedAuditLogRows": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:seedSupportNotificationClaim": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:verifyTestUserEmail": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"users:dismissPasskeyNudge": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"users:getPasskeyNudgeDismissal": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"users:hasPassword": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"users:setPassword": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"users:viewer": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	}
+}

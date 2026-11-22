@@ -209,7 +209,10 @@ export default defineConfig(async ({ command, mode }) => {
 		fs.mkdirSync(convexStateDir, { recursive: true });
 		const backendUrlFile = isTestMode ? '.test-backend-url' : '.backend-url';
 		fs.writeFileSync(path.join(convexStateDir, backendUrlFile), backendUrl);
-		if (isTestMode) clearTestBackendExit(cwd);
+		if (isTestMode) {
+			fs.writeFileSync(path.join(convexStateDir, '.test-site-url'), siteProxyUrl);
+			clearTestBackendExit(cwd);
+		}
 		const betterAuthSecret =
 			loadedEnv.BETTER_AUTH_SECRET?.trim() || getPersistentBetterAuthSecret(cwd, stateIdSuffix);
 

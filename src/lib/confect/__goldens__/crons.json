@@ -1,0 +1,27 @@
+{
+	"cleanupExpiredFiles": {
+		"args": [{}],
+		"function": "files/cleanup:cleanupExpiredFiles",
+		"schedule": { "hours": 1, "type": "interval" }
+	},
+	"deleteEmptyThreads": {
+		"args": [{}],
+		"function": "support/threads:deleteEmptyThreads",
+		"schedule": { "minutes": 15, "type": "interval" }
+	},
+	"deleteStaleWarmThreads": {
+		"args": [{}],
+		"function": "aiChat/threads:deleteStaleWarmThreads",
+		"schedule": { "hours": 24, "type": "interval" }
+	},
+	"deleteUnusedFiles": {
+		"args": [{}],
+		"function": "files/vacuum:deleteUnusedFiles",
+		"schedule": { "hours": 1, "type": "interval" }
+	},
+	"sampleAnonymousSupportRateLimits": {
+		"args": [{}],
+		"function": "support/rateLimitAlerts:sampleAnonymousRateLimits",
+		"schedule": { "minutes": 10, "type": "interval" }
+	}
+}

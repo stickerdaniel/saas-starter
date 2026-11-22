@@ -1,0 +1,169 @@
+{
+	"counts": {
+		"indexes": 50,
+		"searchIndexes": 1,
+		"stagedDbIndexes": 0,
+		"stagedSearchIndexes": 0,
+		"stagedVectorIndexes": 0,
+		"tables": 27,
+		"vectorIndexes": 0
+	},
+	"schemaValidation": true,
+	"tables": {
+		"adminAuditLogs": {
+			"documentType": "3bb9b87b2102b185",
+			"indexes": {
+				"by_action": { "fields": ["action"] },
+				"by_admin": { "fields": ["adminUserId"] },
+				"by_admin_action": { "fields": ["adminUserId", "action"] },
+				"by_target": { "fields": ["targetUserId"] },
+				"by_target_action": { "fields": ["targetUserId", "action"] },
+				"by_timestamp": { "fields": ["timestamp"] }
+			}
+		},
+		"adminNotificationPreferences": {
+			"documentType": "79316aef5fa89d98",
+			"indexes": { "by_email": { "fields": ["email"] }, "by_user": { "fields": ["userId"] } }
+		},
+		"adminProfiles": {
+			"documentType": "2d2490b40bd75199",
+			"indexes": { "by_user": { "fields": ["userId"] } }
+		},
+		"adminSettings": {
+			"documentType": "7ecf7dbd82096654",
+			"indexes": { "by_key": { "fields": ["key"] } }
+		},
+		"aiChatHistoryMigration": { "documentType": "7540498d725eba1b" },
+		"aiChatMessageReceipts": {
+			"documentType": "3b83ee450a3cde21",
+			"indexes": { "by_user": { "fields": ["userId"] } }
+		},
+		"aiChatThreads": {
+			"documentType": "54295b32e5b9b5eb",
+			"indexes": {
+				"by_thread": { "fields": ["threadId"] },
+				"by_user": { "fields": ["userId"] },
+				"by_userId_and_sidebarActivityAt": { "fields": ["userId", "sidebarActivityAt"] },
+				"by_user_warm": { "fields": ["userId", "isWarm"] }
+			}
+		},
+		"aiUsage": {
+			"documentType": "48bfffe35253fdbf",
+			"indexes": {
+				"by_feature_at": { "fields": ["feature", "at"] },
+				"by_user_at": { "fields": ["userId", "at"] }
+			}
+		},
+		"customerNotifications": {
+			"documentType": "05b613dc1db033f3",
+			"indexes": {
+				"by_kind_and_episode": { "fields": ["kind", "episodeKey"] },
+				"by_user": { "fields": ["userId"] }
+			}
+		},
+		"dashboardCounters": {
+			"documentType": "665516d3f2ea5592",
+			"indexes": { "by_shard": { "fields": ["shard"] } }
+		},
+		"emailEvents": {
+			"documentType": "77e3e57e6b41dd1e",
+			"indexes": { "by_email_id": { "fields": ["emailId"] } }
+		},
+		"fileMetadata": {
+			"documentType": "53843a940dca0e5f",
+			"indexes": { "by_storageId": { "fields": ["storageId"] }, "by_url": { "fields": ["url"] } }
+		},
+		"founderEmailSends": {
+			"documentType": "f359f229e860b0ac",
+			"indexes": {
+				"by_userId_and_email_and_dedupeKey": { "fields": ["userId", "email", "dedupeKey"] }
+			}
+		},
+		"founderIncidentDrafts": {
+			"documentType": "aa63343040fd34a1",
+			"indexes": { "by_incident": { "fields": ["incident"] } }
+		},
+		"founderIncidentEmails": {
+			"documentType": "4ac317cb46d0802d",
+			"indexes": {
+				"by_email_id": { "fields": ["emailId"] },
+				"by_incident_and_user": { "fields": ["incident", "userId"] }
+			}
+		},
+		"founderWelcomeEmails": {
+			"documentType": "4148cf9a96690326",
+			"indexes": { "by_user": { "fields": ["userId"] } }
+		},
+		"internalUserNotes": {
+			"documentType": "23d50dffdf348754",
+			"indexes": { "by_user": { "fields": ["userId"] } }
+		},
+		"journeyCaptureStarts": {
+			"documentType": "31a895dd68ee3a81",
+			"indexes": { "by_source": { "fields": ["source"] } }
+		},
+		"messages": {
+			"documentType": "302dd130a69ce3f3",
+			"indexes": {
+				"by_user": { "fields": ["userId"] },
+				"by_user_and_settled": { "fields": ["userId", "quotaSettledAt"] }
+			}
+		},
+		"passkeyNudgeDismissals": {
+			"documentType": "5620e35f884ac42d",
+			"indexes": { "by_userId": { "fields": ["userId"] } }
+		},
+		"pendingAdminNotifications": {
+			"documentType": "bd333cf857d2f70e",
+			"indexes": { "by_thread": { "fields": ["threadId"] } }
+		},
+		"personalEmailSuppressions": {
+			"documentType": "c294b735a676c0b2",
+			"indexes": { "by_user": { "fields": ["userId"] } }
+		},
+		"supportAgentPrompts": {
+			"documentType": "54d49ed9ddd1ba60",
+			"indexes": { "by_active": { "fields": ["active"] } }
+		},
+		"supportMessageContexts": {
+			"documentType": "1477f60a576255a3",
+			"indexes": { "by_thread": { "fields": ["threadId"] } }
+		},
+		"supportNotificationReceipts": {
+			"documentType": "f0edfb1d40db6eba",
+			"indexes": {
+				"by_notificationId_and_generation_and_email": {
+					"fields": ["notificationId", "generation", "email"]
+				}
+			}
+		},
+		"supportRateLimitAlerts": {
+			"documentType": "d50e7c4a8ab72f3d",
+			"indexes": { "by_bucket": { "fields": ["bucket"] } }
+		},
+		"supportThreads": {
+			"documentType": "48370da6cc05e543",
+			"indexes": {
+				"by_handed_off_assigned_updated": { "fields": ["isHandedOff", "assignedTo", "updatedAt"] },
+				"by_handed_off_status_assigned_updated": {
+					"fields": ["isHandedOff", "status", "assignedTo", "updatedAt"]
+				},
+				"by_handed_off_status_updated": { "fields": ["isHandedOff", "status", "updatedAt"] },
+				"by_handed_off_updated": { "fields": ["isHandedOff", "updatedAt"] },
+				"by_needs_response": { "fields": ["isHandedOff", "status", "awaitingAdminResponse"] },
+				"by_sweep": { "fields": ["sweep"] },
+				"by_thread": { "fields": ["threadId"] },
+				"by_user_and_first_user_message": { "fields": ["userId", "firstUserMessageAt"] },
+				"by_user_and_last_message": { "fields": ["userId", "lastMessageAt"] },
+				"by_user_and_unread_admin_reply": { "fields": ["userId", "hasUnreadAdminReply"] },
+				"by_user_warm": { "fields": ["userId", "isWarm"] }
+			},
+			"searchIndexes": {
+				"search_all": {
+					"filterFields": ["status", "assignedTo", "isHandedOff", "awaitingAdminResponse"],
+					"searchField": "searchText"
+				}
+			}
+		}
+	}
+}
