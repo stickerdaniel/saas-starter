@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { checkProfileParity, checkSchemaParity } from './confect-parity';
-import { CONFECT_DIR, CONVEX_DIR } from './confect-stage';
+import { CONFECT_DIR, CONVEX_DIR } from './confect-codegen';
 
 const REPOSITORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 

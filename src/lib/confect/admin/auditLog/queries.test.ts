@@ -20,6 +20,14 @@ import {
  * writer persist a shape the reader can't type. This test compares the
  * structural JSON of both, order-independent, so they can never silently drift.
  */
+function canonical(value: unknown): string {
+	return JSON.stringify(value, (_key, field: unknown) =>
+		typeof field === 'object' && field !== null && !Array.isArray(field)
+			? Object.fromEntries(Object.entries(field).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+			: field
+	);
+}
+
 function normalizeUnion(validator: { isOptional: string }): {
 	optional: boolean;
 	members: string[];
@@ -29,8 +37,8 @@ function normalizeUnion(validator: { isOptional: string }): {
 	const json = (validator as unknown as { json: { type: string; value?: unknown[] } }).json;
 	const members =
 		json.type === 'union' && Array.isArray(json.value)
-			? json.value.map((member) => JSON.stringify(member)).sort()
-			: [JSON.stringify(json)];
+			? json.value.map(canonical).sort()
+			: [canonical(json)];
 	return { optional: validator.isOptional === 'optional', members };
 }
 

@@ -103,8 +103,7 @@ export function devCloudCommands(args: string[] = process.argv.slice(2)): ChildC
 		},
 		{
 			command: process.execPath,
-			args: [path.join(PROJECT_ROOT, 'scripts/dev-convex-cloud.ts'), ...args],
-			env: { AUTHORED_CONTENT_WATCH: '0' }
+			args: [path.join(PROJECT_ROOT, 'scripts/dev-convex-cloud.ts'), ...args]
 		}
 	];
 }

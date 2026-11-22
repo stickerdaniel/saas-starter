@@ -1,1 +1,3 @@
-export { insert } from '../../confect/aiUsage/record';
+import registeredFunctions from "../../confect/_generated/registeredFunctions/aiUsage/record";
+
+export const insert = registeredFunctions.insert;

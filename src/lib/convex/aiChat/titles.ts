@@ -1,1 +1,3 @@
-export { generateThreadTitle } from '../../confect/aiChat/titles';
+import registeredFunctions from "../../confect/_generated/registeredFunctions/aiChat/titles";
+
+export const generateThreadTitle = registeredFunctions.generateThreadTitle;

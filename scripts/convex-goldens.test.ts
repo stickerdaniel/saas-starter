@@ -8,6 +8,7 @@ import {
 	apiTypeFixtureIdentifiers,
 	consumedNativeExports,
 	inventoryGolden,
+	orphanedExports,
 	scheduledTargets,
 	specInventory
 } from './convex-goldens';
@@ -30,6 +31,14 @@ function publishedRegistrations(): string[] {
 			})
 		)
 		.sort();
+}
+
+async function registeredNames(): Promise<Map<string, Set<string>>> {
+	const registrations = new Map<string, Set<string>>();
+	for (const { group, name } of await specInventory()) {
+		registrations.set(group, (registrations.get(group) ?? new Set()).add(name));
+	}
+	return registrations;
 }
 
 const trees: string[] = [];
@@ -65,17 +74,31 @@ describe('Convex goldens', () => {
 
 	it('keep the committed spec set and leave no native helper export in use', async () => {
 		const functions = await specInventory();
-		const registrations = new Map<string, Set<string>>();
-		for (const { group, name } of functions) {
-			registrations.set(group, (registrations.get(group) ?? new Set()).add(name));
-		}
-		const consumed = consumedNativeExports(registrations);
+		const consumed = consumedNativeExports(await registeredNames());
 
 		expect(consumed).toEqual([]);
 		await expect(await goldenText(inventoryGolden(functions, consumed))).toMatchFileSnapshot(
 			golden('inventory.json')
 		);
 	}, 60_000);
+
+	it('leave no export beside the registered functions in a module the CLI owns', async () => {
+		expect(orphanedExports(await registeredNames())).toEqual([]);
+	}, 60_000);
+
+	it('report an authored helper left in a generated module and in an entry file', () => {
+		const root = treeWith({
+			'src/lib/convex/notes.ts':
+				'import registeredFunctions from "../confect/_generated/registeredFunctions/notes";\n\nexport const list = registeredFunctions.list;\nexport function helper() {}\n',
+			'src/lib/convex/http.ts':
+				'import http from "../confect/http";\nexport type Route = string;\nexport default http;\n'
+		});
+
+		expect(orphanedExports(new Map([['notes', new Set(['list'])]]), root)).toEqual([
+			'src/lib/convex/http:Route',
+			'src/lib/convex/notes:helper'
+		]);
+	});
 
 	it('publish exactly the functions of the committed spec set', async () => {
 		const specified = (await specInventory())

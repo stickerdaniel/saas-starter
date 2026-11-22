@@ -13,5 +13,8 @@ docs/references/
 
 # Generated files
 **/_generated/
+src/lib/convex/**
+!src/lib/convex/convex.config.ts
+!src/lib/convex/tsconfig.json
 src/varlock-env.d.ts
 scripts/english-policy/pr-metadata.bundle.mjs

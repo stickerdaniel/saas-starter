@@ -744,6 +744,8 @@ export default defineConfig(
 		files: ['src/lib/confect/**/*.ts'],
 		ignores: [
 			'src/lib/confect/_generated/**',
+			'src/lib/confect/crons.ts',
+			'src/lib/confect/http.ts',
 			'**/*.spec.ts',
 			'**/*.impl.ts',
 			'**/*.test.ts',

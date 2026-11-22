@@ -1,1 +1,3 @@
-export { read } from '../../../../confect/admin/journey/sources/aiChat';
+import registeredFunctions from "../../../../confect/_generated/registeredFunctions/admin/journey/sources/aiChat";
+
+export const read = registeredFunctions.read;

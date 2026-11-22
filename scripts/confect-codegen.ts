@@ -22,6 +22,7 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { withCheckoutLock } from './checkout-lock';
+import { generateAuthoredContent } from './generate-authored-content';
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, '..');
 
@@ -43,8 +44,9 @@ const SPEC_EXCLUDED_DIRECTORIES: ReadonlySet<string> = new Set([
 ]);
 const CLI_ENTRY = 'node_modules/@confect/cli/bin/confect.mjs';
 const NODE_MODULES = 'node_modules';
-
-export const LEGACY_CONVEX_MODULE_DELETIONS_ALLOWED = true;
+const GIT_DIRECTORY = '.git';
+const GENERATED_MODULE =
+	/^(?:"use node";\n\n)?import registeredFunctions from "[^"\n]*\/_generated\/registeredFunctions\/[^"\n]+";\n\n(?:export const experimental_reuseContext = true;\n\n)?(?:export const (\w+) = registeredFunctions\.\1;\n)*$/;
 
 export type CapabilityProfile = 'local' | 'test';
 
@@ -57,16 +59,25 @@ export type ScratchOptions = {
 	prepare?: (scratch: string) => void;
 };
 
-export type StageResult = {
+export type CodegenResult = {
 	added: readonly string[];
 	changed: readonly string[];
 	removed: readonly string[];
 };
 
+export type Push = (scratch: string, signal: AbortSignal) => Promise<void>;
+
+export type GenerateOptions = {
+	codegen?: Codegen;
+	generateContent?: () => void;
+	signal?: AbortSignal;
+	onWait?: () => void;
+};
+
 type Change = 'created' | 'changed' | 'deleted';
 
-export class StageError extends Error {
-	override name = 'StageError';
+export class CodegenError extends Error {
+	override name = 'CodegenError';
 }
 
 const GITLINK_MODE = '160000';
@@ -87,7 +98,7 @@ export function manifest(
 			if (entry.isSymbolicLink()) entries.set(child, `${LINK_PREFIX}${readlinkSync(absolute)}`);
 			else if (entry.isDirectory()) visit(child);
 			else if (entry.isFile()) entries.set(child, `${FILE_PREFIX}${hashFile(absolute)}`);
-			else throw new StageError(`${absolute} is neither a file, a directory nor a link.`);
+			else throw new CodegenError(`${absolute} is neither a file, a directory nor a link.`);
 		}
 	};
 	visit('');
@@ -106,7 +117,7 @@ function hashFile(file: string): string {
 function assertRegularFiles(entries: Manifest, directory: string): void {
 	const links = [...entries].filter(([, entry]) => !entry.startsWith(FILE_PREFIX));
 	if (links.length > 0) {
-		throw new StageError(
+		throw new CodegenError(
 			`${directory} may hold only regular files and directories; found links: ${links.map(([file]) => file).join(', ')}`
 		);
 	}
@@ -123,7 +134,7 @@ function assertRealDirectories(root: string, relative: string): void {
 			return;
 		}
 		if (stats.isSymbolicLink() || !stats.isDirectory()) {
-			throw new StageError(`${current} must be a real directory, not a link or a file.`);
+			throw new CodegenError(`${current} must be a real directory, not a link or a file.`);
 		}
 	}
 }
@@ -140,9 +151,7 @@ function assertGitTopLevel(root: string): void {
 	});
 	const topLevel = result.status === 0 ? result.stdout.trim() : undefined;
 	if (topLevel === undefined || realpathSync.native(topLevel) !== realpathSync.native(root)) {
-		throw new StageError(
-			`${root} is not the top level of a Git checkout. Run git init in ${root}.`
-		);
+		throw new CodegenError(`${root} has a .git entry but is not the top level of a Git checkout.`);
 	}
 }
 
@@ -159,13 +168,9 @@ function gitLsFiles(root: string, args: string[]): string[] {
 	});
 	if (result.error) throw result.error;
 	if (result.status !== 0) {
-		throw new StageError(`git ls-files failed in ${root}:\n${result.stderr}`);
+		throw new CodegenError(`git ls-files failed in ${root}:\n${result.stderr}`);
 	}
 	return result.stdout.split('\0').filter((entry) => entry !== '');
-}
-
-function listedFiles(root: string): string[] {
-	return [...new Set(gitLsFiles(root, ['--cached', '--others', '--exclude-standard']))];
 }
 
 function assertNoGitlinks(root: string): void {
@@ -173,10 +178,31 @@ function assertNoGitlinks(root: string): void {
 		.filter((entry) => entry.startsWith(`${GITLINK_MODE} `))
 		.map((entry) => entry.slice(entry.indexOf('\t') + 1));
 	if (gitlinks.length > 0) {
-		throw new StageError(
-			`${gitlinks.join(', ')} ${gitlinks.length === 1 ? 'is a submodule' : 'are submodules'} in the Git index and cannot be staged.`
+		throw new CodegenError(
+			`${gitlinks.join(', ')} ${gitlinks.length === 1 ? 'is a submodule' : 'are submodules'} in the Git index and cannot be copied.`
 		);
 	}
+}
+
+function walkedFiles(root: string): string[] {
+	const files: string[] = [];
+	const visit = (relative: string) => {
+		for (const entry of readdirSync(path.join(root, relative), { withFileTypes: true })) {
+			if (entry.name === NODE_MODULES || entry.name === GIT_DIRECTORY) continue;
+			const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+			if (entry.isDirectory()) visit(child);
+			else files.push(child);
+		}
+	};
+	visit('');
+	return files;
+}
+
+export function checkoutFiles(root: string): string[] {
+	if (!existsSync(path.join(root, GIT_DIRECTORY))) return walkedFiles(root);
+	assertGitTopLevel(root);
+	assertNoGitlinks(root);
+	return [...new Set(gitLsFiles(root, ['--cached', '--others', '--exclude-standard']))];
 }
 
 function copyListedFile(root: string, scratch: string, file: string): void {
@@ -195,8 +221,8 @@ function copyListedFile(root: string, scratch: string, file: string): void {
 		mkdirSync(path.dirname(destination), { recursive: true });
 		copyFileSync(source, destination);
 	} else if (stats.isDirectory()) {
-		throw new StageError(
-			`${file} is a directory in the Git index, such as a submodule, and cannot be staged.`
+		throw new CodegenError(
+			`${file} is a directory in the Git index, such as a submodule, and cannot be copied.`
 		);
 	}
 }
@@ -206,14 +232,11 @@ function isOutsideSourceTree(file: string): boolean {
 }
 
 export function prepareScratch(root: string): string {
-	assertGitTopLevel(root);
-	assertNoGitlinks(root);
+	const files = checkoutFiles(root).filter(isOutsideSourceTree);
 	assertRealWriteRoots(root);
-	const scratch = mkdtempSync(path.join(tmpdir(), 'confect-stage-'));
+	const scratch = mkdtempSync(path.join(tmpdir(), 'confect-codegen-'));
 	try {
-		for (const file of listedFiles(root).filter(isOutsideSourceTree)) {
-			copyListedFile(root, scratch, file);
-		}
+		for (const file of files) copyListedFile(root, scratch, file);
 		const generated = path.join(root, CONFECT_GENERATED_DIR);
 		cpSync(path.join(root, 'src'), path.join(scratch, 'src'), {
 			recursive: true,
@@ -237,7 +260,7 @@ export const confectCodegen: Codegen = (scratch, profile) => {
 	});
 	if (result.error) throw result.error;
 	if (result.status !== 0) {
-		throw new StageError(
+		throw new CodegenError(
 			`confect codegen exited with ${result.status ?? result.signal}:\n${result.stdout}${result.stderr}`
 		);
 	}
@@ -245,7 +268,7 @@ export const confectCodegen: Codegen = (scratch, profile) => {
 
 export function assertNoLegacySchema(root: string): void {
 	if (existsSync(path.join(root, LEGACY_SCHEMA))) {
-		throw new StageError(
+		throw new CodegenError(
 			`${LEGACY_SCHEMA} is not supported by Confect 10.6.0. Declare one table per file in ${CONFECT_DIR}/tables/.`
 		);
 	}
@@ -268,32 +291,50 @@ export function groupModules(root: string): Set<string> {
 	return modules;
 }
 
-function isCliWrite(file: string, change: Change, groups: ReadonlySet<string>): boolean {
+export function isGeneratedModule(source: string): boolean {
+	return GENERATED_MODULE.test(source);
+}
+
+export function generatedModules(root: string): Set<string> {
+	const modules = new Set<string>();
+	const directory = path.join(root, CONVEX_DIR);
+	if (!existsSync(directory)) return modules;
+	for (const entry of readdirSync(directory, { recursive: true, encoding: 'utf8' })) {
+		const file = `${CONVEX_DIR}/${entry.split(path.sep).join('/')}`;
+		if (!file.endsWith('.ts') || isInside(file, CONVEX_GENERATED_DIR)) continue;
+		const absolute = path.join(root, file);
+		if (!lstatSync(absolute).isFile()) continue;
+		if (isGeneratedModule(readFileSync(absolute, 'utf8'))) modules.add(file);
+	}
+	return modules;
+}
+
+type WriteContext = { groups: ReadonlySet<string>; generated: ReadonlySet<string> };
+
+function isCliWrite(file: string, change: Change, context: WriteContext): boolean {
 	if (isInside(file, CONFECT_GENERATED_DIR) || isInside(file, CONVEX_GENERATED_DIR)) return true;
 	if (!isInside(file, CONVEX_DIR) || !file.endsWith('.ts') || file === CONVEX_CONFIG) return false;
 	switch (change) {
 		case 'created':
 		case 'changed':
-			return groups.has(file) || RESERVED_CONVEX_MODULES.has(file);
+			return context.groups.has(file) || RESERVED_CONVEX_MODULES.has(file);
 		case 'deleted':
-			return LEGACY_CONVEX_MODULE_DELETIONS_ALLOWED && !groups.has(file);
+			return context.generated.has(file) && !context.groups.has(file);
 	}
 }
 
 export function writeSetViolations(
 	before: Manifest,
 	after: Manifest,
-	groups: ReadonlySet<string>
+	context: WriteContext
 ): string[] {
 	const violations: string[] = [];
 	for (const file of manifestDifference(before, after)) {
 		const change: Change = !before.has(file) ? 'created' : !after.has(file) ? 'deleted' : 'changed';
-		if (!isCliWrite(file, change, groups)) violations.push(`${change} ${file}`);
+		if (!isCliWrite(file, change, context)) violations.push(`${change} ${file}`);
 	}
-	for (const file of [...groups].sort()) {
-		if (!before.has(file) && !after.has(file)) {
-			violations.push(`missing ${file}`);
-		}
+	for (const file of [...context.groups].sort()) {
+		if (!before.has(file) && !after.has(file)) violations.push(`missing ${file}`);
 		const registration = `${CONFECT_GENERATED_DIR}/registeredFunctions/${file.slice(CONVEX_DIR.length + 1)}`;
 		if (!after.has(registration)) violations.push(`missing ${registration}`);
 	}
@@ -314,12 +355,12 @@ export async function withScratchCodegen<T>(
 	try {
 		options.prepare?.(scratch);
 		assertRealWriteRoots(scratch);
-		const groups = groupModules(scratch);
+		const context = { groups: groupModules(scratch), generated: generatedModules(scratch) };
 		const before = scratchManifest(scratch);
 		(options.codegen ?? confectCodegen)(scratch, options.profile ?? 'local');
-		const violations = writeSetViolations(before, scratchManifest(scratch), groups);
+		const violations = writeSetViolations(before, scratchManifest(scratch), context);
 		if (violations.length > 0) {
-			throw new StageError(
+			throw new CodegenError(
 				`confect codegen wrote outside its write sets:\n${violations.map((line) => `  ${line}`).join('\n')}`
 			);
 		}
@@ -330,7 +371,7 @@ export async function withScratchCodegen<T>(
 }
 
 function replaceFile(destination: string, contents: Buffer): void {
-	const temporary = `${destination}.${process.pid}.stage-tmp`;
+	const temporary = `${destination}.${process.pid}.codegen-tmp`;
 	rmSync(temporary, { force: true });
 	try {
 		writeFileSync(temporary, contents, { flag: 'wx' });
@@ -341,7 +382,7 @@ function replaceFile(destination: string, contents: Buffer): void {
 	}
 }
 
-function syncDirectory(source: string, target: string, expected: Manifest): StageResult {
+function syncDirectory(source: string, target: string, expected: Manifest): CodegenResult {
 	const current = manifest(target);
 	assertRegularFiles(current, target);
 	const added: string[] = [];
@@ -374,10 +415,10 @@ function removeEmptyDirectories(directory: string): void {
 	}
 }
 
-export function applyWriteSets(scratch: string, root: string): StageResult {
+export function applyWriteSets(scratch: string, root: string): CodegenResult {
 	assertRealWriteRoots(root);
 	assertRealDirectories(root, CONVEX_DIR);
-	const groups = groupModules(scratch);
+	const context = { groups: groupModules(scratch), generated: generatedModules(root) };
 	const generatedSource = path.join(scratch, CONFECT_GENERATED_DIR);
 	const generatedExpected = manifest(generatedSource);
 	assertRegularFiles(generatedExpected, generatedSource);
@@ -398,7 +439,7 @@ export function applyWriteSets(scratch: string, root: string): StageResult {
 			: !source.has(file)
 				? 'deleted'
 				: 'changed';
-		if (!isCliWrite(relative, change, groups)) continue;
+		if (!isCliWrite(relative, change, context)) continue;
 		const destination = path.join(root, relative);
 		if (change === 'deleted') {
 			unlinkSync(destination);
@@ -406,7 +447,7 @@ export function applyWriteSets(scratch: string, root: string): StageResult {
 			continue;
 		}
 		if (!source.get(file)?.startsWith(FILE_PREFIX)) {
-			throw new StageError(`${relative} in the codegen output is not a regular file.`);
+			throw new CodegenError(`${relative} in the codegen output is not a regular file.`);
 		}
 		mkdirSync(path.dirname(destination), { recursive: true });
 		replaceFile(destination, readFileSync(path.join(scratch, relative)));
@@ -415,54 +456,40 @@ export function applyWriteSets(scratch: string, root: string): StageResult {
 	return result;
 }
 
-export async function stage(
+export function regenerate(
 	root: string,
-	options: { codegen?: Codegen } = {}
-): Promise<StageResult> {
-	return withCheckoutLock(root, () => {
-		const convexBefore = manifest(path.join(root, CONVEX_DIR));
-		return withScratchCodegen(
-			root,
-			(scratch) => {
-				const source = path.join(scratch, CONFECT_GENERATED_DIR);
-				const expected = manifest(source);
-				assertRegularFiles(expected, source);
-				if (expected.size === 0) {
-					throw new StageError(`confect codegen wrote nothing into ${CONFECT_GENERATED_DIR}.`);
-				}
-				assertRealDirectories(root, CONFECT_GENERATED_DIR);
-				const target = path.join(root, CONFECT_GENERATED_DIR);
-				mkdirSync(target, { recursive: true });
-				const result = syncDirectory(source, target, expected);
-				const mismatched = manifestDifference(expected, manifest(target));
-				if (mismatched.length > 0) {
-					throw new StageError(
-						`${CONFECT_GENERATED_DIR} differs from the codegen output after the copy: ${mismatched.join(', ')}`
-					);
-				}
-				const convexChanged = manifestDifference(
-					convexBefore,
-					manifest(path.join(root, CONVEX_DIR))
-				);
-				if (convexChanged.length > 0) {
-					throw new StageError(
-						`${CONVEX_DIR} changed during the staging run: ${convexChanged.join(', ')}`
-					);
-				}
-				return result;
-			},
-			options
-		);
+	options: GenerateOptions & { push?: Push } = {}
+): Promise<CodegenResult> {
+	(options.generateContent ?? generateAuthoredContent)();
+	return withScratchCodegen(
+		root,
+		async (scratch) => {
+			if (options.push && options.signal) await options.push(scratch, options.signal);
+			return applyWriteSets(scratch, root);
+		},
+		{ codegen: options.codegen }
+	);
+}
+
+export function confectPreflight(
+	root: string,
+	options: GenerateOptions = {}
+): Promise<CodegenResult> {
+	return withCheckoutLock(root, () => regenerate(root, options), {
+		signal: options.signal,
+		onWait: options.onWait
 	});
 }
 
 async function main(): Promise<void> {
-	const result = await stage(PROJECT_ROOT);
+	const result = await confectPreflight(PROJECT_ROOT, {
+		onWait: () => console.log('[confect] Waiting for the checkout lock.')
+	});
 	const changes = result.added.length + result.changed.length + result.removed.length;
 	console.log(
 		changes === 0
-			? `${CONFECT_GENERATED_DIR} is up to date.`
-			: `${CONFECT_GENERATED_DIR}: ${result.added.length} added, ${result.changed.length} changed, ${result.removed.length} removed.`
+			? '[confect] Generated files are up to date.'
+			: `[confect] ${result.added.length} added, ${result.changed.length} changed, ${result.removed.length} removed.`
 	);
 }
 

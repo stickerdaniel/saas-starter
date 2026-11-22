@@ -9,7 +9,7 @@ import {
 	withScratchCodegen,
 	type CapabilityProfile,
 	type ScratchOptions
-} from './confect-stage';
+} from './confect-codegen';
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, '..');
 

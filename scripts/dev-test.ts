@@ -1,5 +1,5 @@
 import 'varlock/auto-load';
-import { CONFECT_DEV_ENABLED, runLocalConfectDev } from './confect-dev';
+import { runLocalConfectDev } from './confect-dev';
 import { watchAuthoredContent } from './generate-authored-content';
 import { portlessOwnsPort, preflightOrExit, resolveTestPort } from './dev-ports';
 import { localConvexMode } from './local-convex-env';
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
 	// trustedOrigin for BetterAuth. Test setup sends the same origin, so the
 	// hostnames must match. Forcing --host 127.0.0.1 here breaks BetterAuth's origin check.
 	const testEnv = { ...process.env, npm_lifecycle_event: 'dev:test' };
-	if (CONFECT_DEV_ENABLED && localConvexMode(testEnv)) {
+	if (localConvexMode(testEnv)) {
 		process.exit(
 			await launchTestServer({
 				testPort,

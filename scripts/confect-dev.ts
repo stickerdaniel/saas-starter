@@ -3,24 +3,21 @@ import { randomUUID } from 'node:crypto';
 import { lstatSync, readFileSync, rmSync, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { parseEnv } from 'node:util';
 import { withCheckoutLock } from './checkout-lock';
 import {
-	applyWriteSets,
 	bunExecutable,
 	CONFECT_GENERATED_DIR,
 	CONVEX_DIR,
-	withScratchCodegen,
+	regenerate,
 	type Codegen,
-	type StageResult
-} from './confect-stage';
-import { generateAuthoredContent } from './generate-authored-content';
+	type Push
+} from './confect-codegen';
 import { computeLocalConvexStateId, type LocalConvexMode } from './local-convex-env';
-
-export const CONFECT_DEV_ENABLED = false;
 
 const STARTUP_DEADLINE_MS = 300_000;
 const STARTUP_POLL_MS = 100;
-const PUSH_TIMEOUT_MS = 120_000;
+const PUSH_LIMITS: PushLimits = { timeoutMs: 120_000, graceMs: 5_000 };
 const ENV_SCHEMA = '.env-convex.schema';
 const RESTART_FILES: ReadonlySet<string> = new Set([
 	'convex.json',
@@ -32,6 +29,11 @@ const AUTHORED_CONVEX_FILES: ReadonlySet<string> = new Set([
 	`${CONVEX_DIR}/convex.config.ts`,
 	`${CONVEX_DIR}/tsconfig.json`
 ]);
+const DEPLOYMENT_SELECTION = [
+	'CONVEX_DEPLOYMENT',
+	'CONVEX_SELF_HOSTED_URL',
+	'CONVEX_SELF_HOSTED_ADMIN_KEY'
+] as const;
 const GENERATED_PROMPT = 'src/lib/confect/support/instructions.generated.ts';
 
 const LOCAL_FILES = {
@@ -66,8 +68,6 @@ export type ChangeKind = 'source' | 'restart' | 'ignored';
 
 export type LocalCredentials = { backendUrl: string; adminKey: string };
 
-export type Push = (scratch: string, signal: AbortSignal) => Promise<void>;
-
 export type RunOptions = {
 	root: string;
 	push: Push;
@@ -76,8 +76,6 @@ export type RunOptions = {
 	codegen?: Codegen;
 	generateContent?: () => void;
 };
-
-type GenerateOptions = Pick<RunOptions, 'codegen' | 'generateContent'> & { signal?: AbortSignal };
 
 const log = (line: string) => console.log(`[confect-dev] ${line}`);
 
@@ -148,12 +146,13 @@ export async function awaitStartup({
 	});
 	const deadline = Date.now() + deadlineMs;
 	for (;;) {
-		const check = read();
-		if (check.state === 'ready') return check.backendUrl;
-		if (check.state === 'failed') throw new StartupError(check.reason);
+		await Promise.resolve();
 		if (exitCode !== undefined) {
 			throw new StartupError(`Vite exited with ${exitCode} before the startup marker`);
 		}
+		const check = read();
+		if (check.state === 'ready') return check.backendUrl;
+		if (check.state === 'failed') throw new StartupError(check.reason);
 		if (Date.now() >= deadline) {
 			throw new StartupError(`no startup marker within ${deadlineMs} ms`);
 		}
@@ -254,31 +253,6 @@ function watchCheckoutForRuns(root: string, request: () => void): Pick<FSWatcher
 	});
 }
 
-function regenerate(
-	root: string,
-	options: GenerateOptions & { push?: Push }
-): Promise<StageResult> {
-	(options.generateContent ?? generateAuthoredContent)();
-	return withScratchCodegen(
-		root,
-		async (scratch) => {
-			if (options.push && options.signal) await options.push(scratch, options.signal);
-			return applyWriteSets(scratch, root);
-		},
-		{ codegen: options.codegen }
-	);
-}
-
-export function confectPreflight(
-	root: string,
-	options: GenerateOptions = {}
-): Promise<StageResult> {
-	return withCheckoutLock(root, () => regenerate(root, options), {
-		signal: options.signal,
-		onWait: () => log('Waiting for the checkout lock.')
-	});
-}
-
 export function createRun(options: RunOptions): () => Promise<void> {
 	return async () => {
 		try {
@@ -308,30 +282,82 @@ export function localPushCommand(credentials: LocalCredentials): string[] {
 	];
 }
 
+export function cloudPushEnv(root: string, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+	const local = readText(path.join(root, '.env.local'));
+	const selected = local === undefined ? {} : parseEnv(local);
+	const forwarded: NodeJS.ProcessEnv = { ...env };
+	for (const key of DEPLOYMENT_SELECTION) {
+		const value = selected[key];
+		if (forwarded[key] === undefined && value !== undefined && value !== '') forwarded[key] = value;
+	}
+	return forwarded;
+}
+
 export function cloudPushCommand(args: readonly string[]): string[] {
 	return [bunExecutable(), 'x', 'convex', 'dev', '--once', ...args];
 }
 
 function exitOf(child: ChildProcess): Promise<number> {
 	return new Promise((resolve) => {
-		child.once('error', () => resolve(1));
+		child.once('error', () => {
+			if (child.pid === undefined) resolve(1);
+		});
 		child.once('exit', (code) => resolve(code ?? 1));
 	});
 }
 
-export function commandPush(command: readonly string[], env: NodeJS.ProcessEnv): Push {
+type PushLimits = { readonly timeoutMs: number; readonly graceMs: number };
+
+type PushEnd =
+	| { readonly kind: 'exited'; readonly code: number }
+	| { readonly kind: 'timed-out' }
+	| { readonly kind: 'cancelled' }
+	| { readonly kind: 'not-started' };
+
+function endOf(child: ChildProcess, signal: AbortSignal, limits: PushLimits): Promise<PushEnd> {
+	return new Promise((resolve) => {
+		let stopped: 'timed-out' | 'cancelled' | undefined;
+		let forceKill: NodeJS.Timeout | undefined;
+		const stop = (reason: 'timed-out' | 'cancelled') => {
+			if (stopped !== undefined) return;
+			stopped = reason;
+			child.kill('SIGTERM');
+			forceKill = setTimeout(() => child.kill('SIGKILL'), limits.graceMs);
+		};
+		const cancel = () => stop('cancelled');
+		const deadline = setTimeout(() => stop('timed-out'), limits.timeoutMs);
+		const settle = (end: PushEnd) => {
+			clearTimeout(deadline);
+			clearTimeout(forceKill);
+			signal.removeEventListener('abort', cancel);
+			resolve(end);
+		};
+		signal.addEventListener('abort', cancel, { once: true });
+		child.once('error', () => {
+			if (child.pid === undefined) settle({ kind: 'not-started' });
+		});
+		child.once('exit', (code) =>
+			settle(stopped === undefined ? { kind: 'exited', code: code ?? 1 } : { kind: stopped })
+		);
+	});
+}
+
+export function commandPush(
+	command: readonly string[],
+	env: NodeJS.ProcessEnv,
+	limits: PushLimits = PUSH_LIMITS
+): Push {
 	return async (scratch, signal) => {
 		const [file, ...args] = command;
 		if (file === undefined) throw new Error('The push command is empty.');
-		const child = spawn(file, args, {
-			cwd: scratch,
-			env,
-			signal,
-			stdio: ['ignore', 'inherit', 'inherit'],
-			timeout: PUSH_TIMEOUT_MS
-		});
-		const code = await exitOf(child);
-		if (code !== 0) throw new Error(`the push exited with ${code}`);
+		signal.throwIfAborted();
+		const child = spawn(file, args, { cwd: scratch, env, stdio: ['ignore', 'inherit', 'inherit'] });
+		const end = await endOf(child, signal, limits);
+		if (end.kind === 'not-started') throw new Error('the push did not start');
+		if (end.kind === 'timed-out')
+			throw new Error(`the push timed out after ${limits.timeoutMs} ms`);
+		if (end.kind === 'cancelled') throw new Error('the push was cancelled');
+		if (end.code !== 0) throw new Error(`the push exited with ${end.code}`);
 	};
 }
 
@@ -477,7 +503,7 @@ export async function runCloudConfectDev({
 	queue.open(
 		createRun({
 			root,
-			push: commandPush(cloudPushCommand(args), env),
+			push: commandPush(cloudPushCommand(args), cloudPushEnv(root, env)),
 			signal: controller.signal,
 			log
 		})

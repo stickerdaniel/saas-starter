@@ -17,15 +17,15 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { checkoutLockPath, withCheckoutLock } from './checkout-lock';
 import {
+	CodegenError,
 	CONFECT_GENERATED_DIR,
 	CONVEX_DIR,
 	confectCodegen,
+	confectPreflight,
 	manifest,
-	stage,
-	StageError,
 	withScratchCodegen,
 	type Codegen
-} from './confect-stage';
+} from './confect-codegen';
 
 const REPOSITORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -106,10 +106,16 @@ import { label } from '../../../../packages/fields/index';
 export default Table.make(() => Schema.Struct({ label }));
 `;
 
+const AUTHORED_MODULE = 'export const authored = 1;\n';
+
 const checkouts: string[] = [];
 
+function preflight(root: string, options: { codegen?: Codegen } = {}) {
+	return confectPreflight(root, { ...options, generateContent: () => {} });
+}
+
 function checkout({ git = true }: { git?: boolean } = {}): string {
-	const root = mkdtempSync(path.join(tmpdir(), 'confect-stage-checkout-'));
+	const root = mkdtempSync(path.join(tmpdir(), 'confect-codegen-checkout-'));
 	checkouts.push(root);
 	writeFileSync(
 		path.join(root, 'package.json'),
@@ -117,7 +123,6 @@ function checkout({ git = true }: { git?: boolean } = {}): string {
 	);
 	writeFileSync(path.join(root, 'convex.json'), JSON.stringify({ functions: `${CONVEX_DIR}/` }));
 	mkdirSync(path.join(root, CONVEX_DIR), { recursive: true });
-	writeFileSync(path.join(root, CONVEX_DIR, 'authored.ts'), 'export const authored = 1;\n');
 	write(root, `${CONVEX_DIR}/convex.config.ts`, APP_CONFIG);
 	write(root, 'src/lib/confect/tables/notes.ts', TABLE);
 	write(root, '.gitignore', 'node_modules\n');
@@ -145,7 +150,7 @@ const altersAuthored: Codegen = (scratch) => {
 };
 
 function outsideDirectory(): string {
-	const directory = mkdtempSync(path.join(tmpdir(), 'confect-stage-outside-'));
+	const directory = mkdtempSync(path.join(tmpdir(), 'confect-codegen-outside-'));
 	checkouts.push(directory);
 	return directory;
 }
@@ -180,21 +185,21 @@ afterEach(() => {
 	}
 });
 
-describe('confect staging codegen', () => {
+describe('confect codegen preflight', () => {
 	it('leaves no generated table wrapper behind after a table is renamed', async () => {
 		const root = checkout();
-		await stage(root);
+		await preflight(root);
 		expect(generatedFiles(root)).toContain('tables/notes.ts');
 
 		renameSync(
 			path.join(root, 'src/lib/confect/tables/notes.ts'),
 			path.join(root, 'src/lib/confect/tables/memos.ts')
 		);
-		const result = await stage(root);
+		const result = await preflight(root);
 
 		expect(generatedFiles(root)).toContain('tables/memos.ts');
 		expect(generatedFiles(root)).not.toContain('tables/notes.ts');
-		expect(result.removed).toContain('tables/notes.ts');
+		expect(result.removed).toContain(`${CONFECT_GENERATED_DIR}/tables/notes.ts`);
 		expect(readFileSync(path.join(root, CONFECT_GENERATED_DIR, 'id.ts'), 'utf8')).not.toContain(
 			'"notes"'
 		);
@@ -204,12 +209,12 @@ describe('confect staging codegen', () => {
 		const root = checkout();
 		write(root, 'src/lib/confect/notes.spec.ts', SPEC);
 		write(root, 'src/lib/confect/notes.impl.ts', IMPL);
-		await stage(root);
+		await preflight(root);
 		expect(generatedFiles(root)).toContain('registeredFunctions/notes.ts');
 
 		rmSync(path.join(root, 'src/lib/confect/notes.spec.ts'));
 		rmSync(path.join(root, 'src/lib/confect/notes.impl.ts'));
-		await stage(root);
+		await preflight(root);
 
 		expect(generatedFiles(root).filter((file) => file.startsWith('registeredFunctions/'))).toEqual(
 			[]
@@ -220,7 +225,7 @@ describe('confect staging codegen', () => {
 		const root = checkout();
 		write(root, `${CONFECT_GENERATED_DIR}/stale/old.ts`, 'export {};\n');
 
-		await stage(root);
+		await preflight(root);
 
 		expect(existsSync(path.join(root, CONFECT_GENERATED_DIR, 'stale'))).toBe(false);
 	}, 60_000);
@@ -233,7 +238,7 @@ describe('confect staging codegen', () => {
 			writeFileSync(path.join(scratch, CONVEX_DIR, 'unexpected.json'), '{}');
 		};
 
-		await expect(stage(root, { codegen: writesJson })).rejects.toThrow(
+		await expect(preflight(root, { codegen: writesJson })).rejects.toThrow(
 			`created ${CONVEX_DIR}/unexpected.json`
 		);
 		expect(manifest(path.join(root, CONVEX_DIR))).toEqual(before);
@@ -244,7 +249,7 @@ describe('confect staging codegen', () => {
 		const root = checkout();
 
 		await expect(
-			stage(root, { codegen: appending(`${CONVEX_DIR}/convex.config.ts`, '\n') })
+			preflight(root, { codegen: appending(`${CONVEX_DIR}/convex.config.ts`, '\n') })
 		).rejects.toThrow(`changed ${CONVEX_DIR}/convex.config.ts`);
 		expect(generatedFiles(root)).toEqual([]);
 	}, 60_000);
@@ -253,14 +258,15 @@ describe('confect staging codegen', () => {
 		const root = checkout();
 
 		await expect(
-			stage(root, { codegen: appending('src/lib/confect/tables/notes.ts', '\n') })
+			preflight(root, { codegen: appending('src/lib/confect/tables/notes.ts', '\n') })
 		).rejects.toThrow('changed src/lib/confect/tables/notes.ts');
 	}, 60_000);
 
 	it('fails when the codegen changes an authored module in the functions directory', async () => {
 		const root = checkout();
+		write(root, `${CONVEX_DIR}/authored.ts`, AUTHORED_MODULE);
 
-		await expect(stage(root, { codegen: altersAuthored })).rejects.toThrow(
+		await expect(preflight(root, { codegen: altersAuthored })).rejects.toThrow(
 			`changed ${CONVEX_DIR}/authored.ts`
 		);
 		expect(generatedFiles(root)).toEqual([]);
@@ -282,7 +288,7 @@ describe('confect staging codegen', () => {
 		const root = checkout();
 
 		await expect(
-			stage(root, { codegen: appending(`${CONVEX_DIR}/stray.ts`, 'export {};\n') })
+			preflight(root, { codegen: appending(`${CONVEX_DIR}/stray.ts`, 'export {};\n') })
 		).rejects.toThrow(`created ${CONVEX_DIR}/stray.ts`);
 	}, 60_000);
 
@@ -294,7 +300,7 @@ describe('confect staging codegen', () => {
 			rmSync(path.join(scratch, CONVEX_DIR, 'notes.ts'));
 		};
 
-		await expect(stage(root, { codegen: deletesGroup })).rejects.toThrow(
+		await expect(preflight(root, { codegen: deletesGroup })).rejects.toThrow(
 			`deleted ${CONVEX_DIR}/notes.ts`
 		);
 	}, 60_000);
@@ -308,7 +314,7 @@ describe('confect staging codegen', () => {
 			rmSync(path.join(scratch, CONVEX_DIR, 'notes.ts'));
 		};
 
-		await expect(stage(root, { codegen: skipsGroup })).rejects.toThrow(
+		await expect(preflight(root, { codegen: skipsGroup })).rejects.toThrow(
 			`missing ${CONVEX_DIR}/notes.ts`
 		);
 	}, 60_000);
@@ -322,7 +328,7 @@ describe('confect staging codegen', () => {
 			rmSync(path.join(scratch, CONFECT_GENERATED_DIR, 'registeredFunctions', 'notes.ts'));
 		};
 
-		await expect(stage(root, { codegen: dropsRegistration })).rejects.toThrow(
+		await expect(preflight(root, { codegen: dropsRegistration })).rejects.toThrow(
 			`missing ${CONFECT_GENERATED_DIR}/registeredFunctions/notes.ts`
 		);
 	}, 60_000);
@@ -332,7 +338,7 @@ describe('confect staging codegen', () => {
 		const outside = linkedConvexDirectory(root);
 		const codegen = vi.fn<Codegen>(altersAuthored);
 
-		await expect(stage(root, { codegen })).rejects.toThrow(
+		await expect(preflight(root, { codegen })).rejects.toThrow(
 			`${path.join(root, CONVEX_DIR)} must be a real directory`
 		);
 		expect(codegen).not.toHaveBeenCalled();
@@ -356,11 +362,26 @@ describe('confect staging codegen', () => {
 		expect(readFileSync(path.join(outside, 'authored.ts'), 'utf8')).toBe('ORIGINAL\n');
 	});
 
-	it('requires the root to be the top level of a Git checkout', async () => {
+	it('generates in a checkout without Git, as a hosting build may run it', async () => {
 		const root = checkout({ git: false });
+		plainGroup(root);
+
+		await preflight(root);
+
+		expect(readFileSync(path.join(root, CONVEX_DIR, 'notes.ts'), 'utf8')).toContain(
+			'export const count = registeredFunctions.count;'
+		);
+		expect(generatedFiles(root)).toContain('registeredFunctions/notes.ts');
+	}, 60_000);
+
+	it('refuses a .git entry that does not make the root a Git top level', async () => {
+		const root = checkout({ git: false });
+		writeFileSync(path.join(root, '.git'), 'gitdir: /nonexistent\n');
 		const codegen = vi.fn<Codegen>(altersAuthored);
 
-		await expect(stage(root, { codegen })).rejects.toThrow(`Run git init in ${root}.`);
+		await expect(preflight(root, { codegen })).rejects.toThrow(
+			'is not the top level of a Git checkout'
+		);
 		expect(codegen).not.toHaveBeenCalled();
 	});
 
@@ -378,7 +399,7 @@ describe('confect staging codegen', () => {
 		]);
 		const codegen = vi.fn<Codegen>(altersAuthored);
 
-		await expect(stage(root, { codegen })).rejects.toThrow(
+		await expect(preflight(root, { codegen })).rejects.toThrow(
 			'packages/submodule is a submodule in the Git index'
 		);
 		expect(codegen).not.toHaveBeenCalled();
@@ -391,19 +412,32 @@ describe('confect staging codegen', () => {
 			write(scratch, `${CONFECT_GENERATED_DIR}/example.ts`, 'export const ok = true;\n');
 		};
 
-		await expect(stage(root, { codegen: writesExample })).rejects.toThrow();
+		await expect(preflight(root, { codegen: writesExample })).rejects.toThrow();
 		const live = readdirSync(path.join(root, CONFECT_GENERATED_DIR), { recursive: true });
-		expect(live.filter((file) => String(file).endsWith('.stage-tmp'))).toEqual([]);
+		expect(live.filter((file) => String(file).endsWith('.codegen-tmp'))).toEqual([]);
 	});
 
-	it('lets the CLI remove a native module in the scratch copy only', async () => {
+	it('fails when the codegen deletes an authored module and keeps it in the checkout', async () => {
 		const root = checkout();
+		write(root, `${CONVEX_DIR}/authored.ts`, AUTHORED_MODULE);
 
-		await stage(root);
+		await expect(preflight(root)).rejects.toThrow(`deleted ${CONVEX_DIR}/authored.ts`);
+		expect(readFileSync(path.join(root, CONVEX_DIR, 'authored.ts'), 'utf8')).toBe(AUTHORED_MODULE);
+	}, 60_000);
 
-		expect(readFileSync(path.join(root, CONVEX_DIR, 'authored.ts'), 'utf8')).toBe(
-			'export const authored = 1;\n'
-		);
+	it('removes the generated module of a removed group from the checkout', async () => {
+		const root = checkout();
+		plainGroup(root);
+		await preflight(root);
+		expect(existsSync(path.join(root, CONVEX_DIR, 'notes.ts'))).toBe(true);
+
+		for (const file of ['notes.ts', 'notes.spec.ts', 'notes.impl.ts']) {
+			rmSync(path.join(root, 'src/lib/confect', file));
+		}
+		const result = await preflight(root);
+
+		expect(existsSync(path.join(root, CONVEX_DIR, 'notes.ts'))).toBe(false);
+		expect(result.removed).toContain(`${CONVEX_DIR}/notes.ts`);
 	}, 60_000);
 
 	it('refuses a link in the generated tree and leaves its target unchanged', async () => {
@@ -415,7 +449,7 @@ describe('confect staging codegen', () => {
 			path.join(root, CONFECT_GENERATED_DIR, 'tables/notes.ts')
 		);
 
-		await expect(stage(root)).rejects.toBeInstanceOf(StageError);
+		await expect(preflight(root)).rejects.toBeInstanceOf(CodegenError);
 		expect(readFileSync(path.join(root, 'src/lib/config/victim.ts'), 'utf8')).toBe('ORIGINAL\n');
 	}, 60_000);
 
@@ -427,7 +461,7 @@ describe('confect staging codegen', () => {
 			symlinkSync(outside, path.join(scratch, CONFECT_GENERATED_DIR, 'linked'), 'junction');
 		};
 
-		await expect(stage(root, { codegen: writesLink })).rejects.toThrow('linked');
+		await expect(preflight(root, { codegen: writesLink })).rejects.toThrow('linked');
 		expect(generatedFiles(root)).toEqual([]);
 	}, 60_000);
 
@@ -437,7 +471,7 @@ describe('confect staging codegen', () => {
 		writeFileSync(path.join(outside, 'keep.ts'), 'KEEP\n');
 		symlinkSync(outside, path.join(root, CONFECT_GENERATED_DIR), 'junction');
 
-		await expect(stage(root)).rejects.toBeInstanceOf(StageError);
+		await expect(preflight(root)).rejects.toBeInstanceOf(CodegenError);
 		expect(readdirSync(outside)).toEqual(['keep.ts']);
 		expect(readFileSync(path.join(outside, 'keep.ts'), 'utf8')).toBe('KEEP\n');
 	}, 60_000);
@@ -447,7 +481,7 @@ describe('confect staging codegen', () => {
 		write(root, 'packages/fields/index.ts', PACKAGE_HELPER);
 		write(root, 'src/lib/confect/tables/notes.ts', TABLE_WITH_PACKAGE_HELPER);
 
-		await stage(root);
+		await preflight(root);
 
 		expect(generatedFiles(root)).toContain('tables/notes.ts');
 	}, 60_000);
@@ -458,7 +492,7 @@ describe('confect staging codegen', () => {
 		vi.stubEnv('CAPABILITY_PROFILE', 'production');
 
 		try {
-			await stage(root);
+			await preflight(root);
 			expect(process.env.CAPABILITY_PROFILE).toBe('production');
 		} finally {
 			vi.unstubAllEnvs();
@@ -471,7 +505,7 @@ describe('confect staging codegen', () => {
 		write(root, 'src/lib/confect/schema.ts', 'export default {};\n');
 		const codegen = vi.fn<Codegen>();
 
-		await expect(stage(root, { codegen })).rejects.toBeInstanceOf(StageError);
+		await expect(preflight(root, { codegen })).rejects.toBeInstanceOf(CodegenError);
 		expect(codegen).not.toHaveBeenCalled();
 	});
 
@@ -481,7 +515,7 @@ describe('confect staging codegen', () => {
 		let pending: Promise<unknown> | undefined;
 
 		await withCheckoutLock(root, async () => {
-			pending = stage(root, { codegen });
+			pending = preflight(root, { codegen });
 			await new Promise((resolve) => setTimeout(resolve, 300));
 			expect(codegen).not.toHaveBeenCalled();
 		});

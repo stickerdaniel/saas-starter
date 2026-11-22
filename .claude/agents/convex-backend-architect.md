@@ -98,7 +98,7 @@ NEVER omit the `returns` validator. If a function returns nothing, use `returns:
 
 ### Schema Design Principles
 
-1. **Always define schemas** in `convex/schema.ts`
+1. **Define tables** in `src/lib/confect/tables/`, one per file; `src/lib/convex/schema.ts` is generated from them
 2. **Include all index fields in index names**: `by_field1_and_field2`
 3. **System fields** (`_id`, `_creationTime`) are automatic - never define them
 4. **Use proper validators**: Match TypeScript types exactly
@@ -187,7 +187,7 @@ When given a task:
 
 - Leverage Convex's automatic real-time subscriptions
 - Use `ctx.scheduler.runAfter()` for delayed execution
-- Define cron jobs in `convex/crons.ts` using `crons.interval()` or `crons.cron()`
+- Define cron jobs in `src/lib/confect/crons.ts` with `CronJobs.make().add(CronJob.make(...))` and Confect `refs`
 - Always use function references (from `internal` or `api`) when scheduling
 
 ## Quality Standards

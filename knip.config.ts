@@ -82,7 +82,7 @@ export default {
 		// Required by patches/oxlint-plugin-convex@0.1.1.patch.
 		'@oxlint/plugins',
 		// The Confect CLI and test harness, pinned with the peers they resolve against. No module
-		// imports them: scripts/confect-stage.ts runs the CLI by path.
+		// imports them: scripts/confect-codegen.ts runs the CLI by path.
 		'@confect/cli',
 		'@confect/test',
 		'@effect/platform-node-shared'

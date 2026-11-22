@@ -17,7 +17,7 @@ import { ConvexBackend } from 'convex-vite-plugin/lib';
 import type { ObjectFieldType, ValidatorJSON } from 'convex/values';
 import * as Exit from 'effect/Exit';
 import * as Schema from 'effect/Schema';
-import { CONFECT_GENERATED_DIR, CONVEX_DIR } from './confect-stage';
+import { CONFECT_GENERATED_DIR, CONVEX_DIR } from './confect-codegen';
 
 type Value =
 	null | boolean | number | string | readonly Value[] | { readonly [key: string]: Value };

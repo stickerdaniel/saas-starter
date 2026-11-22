@@ -1,1 +1,3 @@
-export { read } from '../../../../confect/admin/journey/sources/support';
+import registeredFunctions from "../../../../confect/_generated/registeredFunctions/admin/journey/sources/support";
+
+export const read = registeredFunctions.read;

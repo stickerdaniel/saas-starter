@@ -319,6 +319,26 @@ export function consumedNativeExports(
 	);
 }
 
+export function orphanedExports(
+	registrations: ReadonlyMap<string, ReadonlySet<string>>,
+	root = process.cwd()
+): string[] {
+	return filesBelow(
+		root,
+		CONVEX_ROOT,
+		(relative) => relative.endsWith('.ts') && !relative.endsWith('.d.ts')
+	).flatMap((file) => {
+		const relative = file.slice(CONVEX_ROOT.length + 1);
+		const module = relative.slice(0, -'.ts'.length);
+		const allowed = AUTHORED_ENTRY_FILES.has(relative)
+			? new Set(['default'])
+			: (registrations.get(module) ?? new Set<string>());
+		return exportedNames(file, readFileSync(path.resolve(root, file), 'utf8'))
+			.filter((name) => !allowed.has(name))
+			.map((name) => `${CONVEX_ROOT}/${module}:${name}`);
+	});
+}
+
 function functionReference(identifier: string, visibility: Visibility): string {
 	const [module = '', name = ''] = identifier.split(':');
 	return `typeof ${visibility === 'public' ? 'api' : 'internal'}.${[...module.split('/'), name].join('.')}`;

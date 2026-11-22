@@ -1,1 +1,3 @@
-export { cancelUnsentEmails } from '../../../confect/admin/customerNotifications/cancel';
+import registeredFunctions from "../../../confect/_generated/registeredFunctions/admin/customerNotifications/cancel";
+
+export const cancelUnsentEmails = registeredFunctions.cancelUnsentEmails;

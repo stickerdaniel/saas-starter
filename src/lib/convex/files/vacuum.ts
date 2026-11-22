@@ -1,1 +1,3 @@
-export { deleteUnusedFiles } from '../../confect/files/vacuum';
+import registeredFunctions from "../../confect/_generated/registeredFunctions/files/vacuum";
+
+export const deleteUnusedFiles = registeredFunctions.deleteUnusedFiles;

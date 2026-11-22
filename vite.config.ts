@@ -40,10 +40,11 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { configDefaults, defineConfig } from 'vitest/config';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { fontless } from 'fontless';
-import { loadEnv, type PluginOption } from 'vite';
+import { loadEnv, normalizePath, type PluginOption } from 'vite';
 import { emptyCssSources } from './scripts/css-sources.ts';
 import { MODULE_GRAPH_FILE, moduleGraph } from './scripts/module-graph-plugin.ts';
 
+const featureCatalog = normalizePath(path.join(import.meta.dirname, 'src/lib/dev/features.ts'));
 const stylesheet = path.join(import.meta.dirname, 'src/routes/layout.css');
 const missingCssSources = emptyCssSources(stylesheet, fs.readFileSync(stylesheet, 'utf8'));
 if (missingCssSources.length > 0) throw new Error(missingCssSources.join('\n'));
@@ -242,6 +243,13 @@ export default defineConfig(async ({ command, mode }) => {
 					if (isTestMode) process.env.LOCAL_E2E_RUNTIME = '1';
 				}
 			},
+			{
+				name: 'feature-catalog-without-restart',
+				configResolved(config) {
+					const kept = config.configFileDependencies.filter((file) => file !== featureCatalog);
+					config.configFileDependencies.splice(0, Infinity, ...kept);
+				}
+			},
 			convexLocal({
 				convexDir: 'src/lib/convex',
 				// One backend release for every checkout, so local runs and their measurements
@@ -253,7 +261,7 @@ export default defineConfig(async ({ command, mode }) => {
 				// The plugin must never wipe the state dir itself: the reset already happened above,
 				// before the better-auth secret file was written.
 				reset: false,
-				...(process.env.CONVEX_STARTUP_STATUS_FILE ? { watch: { patterns: [] } } : {}),
+				watch: { patterns: [] },
 				onReady: [{ name: 'localDev:ensureSeededAdmin' }],
 				onBackendExit: isTestMode ? (error) => recordTestBackendExit(error, cwd) : undefined,
 				envVars: ({ vitePort, resolvedUrls }) => {
