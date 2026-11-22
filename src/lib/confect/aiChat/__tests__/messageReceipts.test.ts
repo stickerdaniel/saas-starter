@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../convex/auth', () => ({
+vi.mock('../../authServer', () => ({
 	authComponent: {
 		getAuthUser: vi.fn().mockResolvedValue({ _id: 'sender' }),
 		safeGetAuthUser: vi.fn()
 	}
 }));
 
-vi.mock('../../../convex/autumn', () => ({
+vi.mock('../../autumn', () => ({
 	checkAndCountUsage: vi.fn().mockResolvedValue('counted'),
 	refundUsage: vi.fn().mockResolvedValue('refunded')
 }));
@@ -51,7 +51,7 @@ vi.mock('@convex-dev/agent', async (importOriginal) => {
 import { aiChatAgent } from '../agent';
 import { aiChatRateLimiter } from '../rateLimit';
 import { requireAiChatThreadRecord } from '../ownership';
-import { createAIResponse, sendMessage } from '../../../convex/aiChat/messages';
+import { createAIResponse, sendMessage } from '../messages';
 import { MAX_MESSAGE_LENGTH } from '../../constants';
 import { createJourneyStore } from '../../admin/journey/journeyStore.fixtures';
 

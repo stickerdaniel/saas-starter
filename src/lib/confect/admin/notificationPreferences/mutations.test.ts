@@ -3,7 +3,7 @@ import { ADMIN_ERROR_CODES } from '../errors';
 import { NOTIFICATION_PREFERENCE_ERROR_CODES } from './errors';
 
 const authUser = vi.hoisted(() => ({ current: { _id: 'admin_1', role: 'admin' } }));
-vi.mock('../../../convex/auth', () => ({
+vi.mock('../../authServer', () => ({
 	authComponent: { getAuthUser: vi.fn(async () => authUser.current) }
 }));
 

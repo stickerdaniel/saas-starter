@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../convex/auth', () => ({
+vi.mock('../authServer', () => ({
 	authComponent: { getAuthUser: vi.fn().mockResolvedValue({ _id: 'viewer', role: 'admin' }) }
 }));
 vi.mock('../support/ownership', () => ({

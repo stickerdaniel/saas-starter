@@ -9,7 +9,7 @@
 import { customQuery, customMutation, customCtx } from 'convex-helpers/server/customFunctions';
 import { ADMIN_ERROR_CODES, createAdminError } from './admin/errors';
 import { query, mutation } from '../convex/_generated/server';
-import { authComponent } from '../convex/auth';
+import { authComponent } from './authServer';
 import type { BetterAuthUser } from './admin/types';
 
 /**

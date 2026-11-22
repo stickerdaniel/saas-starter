@@ -1,24 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ValidatorJSON } from 'convex/values';
 
-vi.mock('../../convex/auth', () => ({
+vi.mock('../authServer', () => ({
 	authComponent: {
 		getAuthUser: vi.fn().mockResolvedValue({ _id: 'reader' }),
 		safeGetAuthUser: vi.fn()
 	}
 }));
 
-vi.mock('../../convex/autumn', () => ({
+vi.mock('../autumn', () => ({
 	checkAndCountUsage: vi.fn()
 }));
 
-import { checkAndCountUsage } from '../../convex/autumn';
-import {
-	enforceAndTrackMessageUsage,
-	list,
-	markMessageSettled,
-	removeMessage
-} from '../../convex/messages';
+import { checkAndCountUsage } from '../autumn';
+import { enforceAndTrackMessageUsage, list, markMessageSettled, removeMessage } from '../messages';
 import { createJourneyStore } from '../admin/journey/journeyStore.fixtures';
 
 type Registered = { _handler: (ctx: never, args: never) => Promise<unknown> };

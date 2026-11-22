@@ -28,10 +28,10 @@ import { requireSupportThreadAccess } from './ownership';
 import { listMessagesForThread } from './messageListing';
 import { syncSupportLastMessage } from './threads';
 import { recordFirstSupportContact } from './threadLifecycle';
-import { getFileMetadataByUrls } from '../../convex/files/metadata';
+import { getFileMetadataByUrls } from '../files/metadata';
 import { publicEndpoint } from '../access';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
-import { recordAiUsage } from '../../convex/aiUsage/record';
+import { recordAiUsage } from '../aiUsage/record';
 import { mergeByModel, type CapturedModelUsage } from '../aiUsage/capture';
 import {
 	settleUnanswered,

@@ -589,7 +589,7 @@
 			"name": "autumnTypescript",
 			"url": "https://github.com/useautumn/typescript",
 			"branch": "main",
-			"specialNotes": "Autumn TypeScript monorepo, the 0.1.x autumn-js line this repository installs. convex/ is the @useautumn/convex package behind src/lib/convex/autumn.ts, package/ the installed autumn-js line, atmn/ the atmn CLI. The autumnJs resource is the newer 1.x line, so read it only for migration questions."
+			"specialNotes": "Autumn TypeScript monorepo, the 0.1.x autumn-js line this repository installs. convex/ is the @useautumn/convex package behind src/lib/confect/autumn.ts, package/ the installed autumn-js line, atmn/ the atmn CLI. The autumnJs resource is the newer 1.x line, so read it only for migration questions."
 		},
 		{
 			"type": "git",

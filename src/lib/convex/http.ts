@@ -3,7 +3,7 @@ import { registerRoutes as registerFilesControlRoutes } from '@gilhrpenner/conve
 import { httpAction } from './_generated/server';
 import { components } from './_generated/api';
 import { handleAutumnWebhook } from '../confect/admin/customerNotifications/observe';
-import { authComponent, createAuth } from './auth';
+import { authComponent, createAuth } from '../confect/authServer';
 import { resend } from '../confect/emails/resend';
 
 const http = httpRouter();

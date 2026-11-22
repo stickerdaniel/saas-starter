@@ -27,7 +27,7 @@ HTML templates are Svelte components built from a shadcn-style email component l
 ## Where to start in the code
 
 - [`src/lib/emails/`](../../src/lib/emails/): templates and the email component library
-- [`src/lib/convex/emails/`](../../src/lib/convex/emails/): sending, the founder emails, and delivery events
+- [`src/lib/confect/emails/`](../../src/lib/confect/emails/): sending, the founder emails, and delivery events
 - [Founder email settings](../../src/routes/%5B%5Blang%5D%5D/admin/settings/founder-welcome-card.svelte)
 - [Resend webhook](../deployment/production.md#resend-webhook-optional): delivery, bounce, open, and click events
 - [Environment variables](../reference/environment.md): `RESEND_API_KEY`, `AUTH_EMAIL`, and `EMAIL_ASSET_URL`

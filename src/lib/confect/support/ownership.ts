@@ -1,7 +1,7 @@
 import { SUPPORT_ERROR_CODES, createSupportError } from './errors';
 import { components } from '../../convex/_generated/api';
 import type { MutationCtx, QueryCtx } from '../../convex/_generated/server';
-import { authComponent } from '../../convex/auth';
+import { authComponent } from '../authServer';
 import { supportAgent } from './agent';
 import { isAnonymousUser } from '../utils/anonymousUser';
 

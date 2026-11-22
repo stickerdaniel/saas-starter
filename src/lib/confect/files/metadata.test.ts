@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { QueryCtx } from '../../convex/_generated/server';
-import { getFileMetadataByUrls } from '../../convex/files/metadata';
+import { getFileMetadataByUrls } from './metadata';
 import { FILE_ERROR_CODES } from './errors';
 
 describe('getFileMetadataByUrls', () => {

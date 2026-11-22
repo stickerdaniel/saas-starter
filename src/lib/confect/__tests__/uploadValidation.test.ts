@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@convex-dev/agent', () => ({ storeFile: vi.fn() }));
 
-vi.mock('../../convex/auth', () => ({
+vi.mock('../authServer', () => ({
 	authComponent: {
 		getAuthUser: vi.fn(),
 		safeGetAuthUser: vi.fn()
@@ -33,7 +33,7 @@ vi.mock('../../convex/_generated/api', () => ({
 
 import { storeFile } from '@convex-dev/agent';
 import { saveUploadedFile as saveSupportFile } from '../support/files';
-import { saveUploadedFile as saveAiChatFile } from '../../convex/aiChat/files';
+import { saveUploadedFile as saveAiChatFile } from '../aiChat/files';
 
 type SaveUploadedFileArgs = {
 	storageId: string;

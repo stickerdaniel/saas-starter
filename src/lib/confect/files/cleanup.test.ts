@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { MutationCtx } from '../../convex/_generated/server';
 import { components } from '../../convex/_generated/api';
-import { cleanupExpiredFiles } from '../../convex/files/cleanup';
+import { cleanupExpiredFiles } from './cleanup';
 
 const handler = (
 	cleanupExpiredFiles as unknown as {

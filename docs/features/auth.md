@@ -8,7 +8,7 @@ Users manage their profile, password, email address, passkeys, and active sessio
 
 ## Where to start in the code
 
-- [`src/lib/convex/auth.ts`](../../src/lib/convex/auth.ts): providers, verification, and signup side effects such as the welcome email
+- [`src/lib/confect/authServer.ts`](../../src/lib/confect/authServer.ts): providers, verification, and signup side effects such as the welcome email
 - [`src/hooks.server.ts`](../../src/hooks.server.ts): route protection for `/app` and `/admin`
 - [Sign-in and sign-up pages](../../src/routes/%5B%5Blang%5D%5D/%28auth%29/)
 - [Account settings](../../src/routes/%5B%5Blang%5D%5D/app/settings/)

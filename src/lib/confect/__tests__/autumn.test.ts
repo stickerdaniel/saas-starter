@@ -22,7 +22,7 @@ const { PUBLISHED_ACTION_NAMES, autumnSdkConstruction, check } = vi.hoisted(() =
 	check: vi.fn()
 }));
 
-vi.mock('../../convex/auth', () => ({
+vi.mock('../authServer', () => ({
 	authComponent: {
 		getAuthUser: vi.fn().mockResolvedValue({
 			_id: 'user_1',
@@ -79,8 +79,8 @@ vi.mock('autumn-js', () => ({
 	}
 }));
 
-import * as autumnModule from '../../convex/autumn';
-import { checkAndCountUsage, getAutumnSdk, refundUsage } from '../../convex/autumn';
+import * as autumnModule from '../autumn';
+import { checkAndCountUsage, getAutumnSdk, refundUsage } from '../autumn';
 
 function setReadyBilling() {
 	vi.stubEnv('AUTUMN_SECRET_KEY', 'configured-autumn-key');

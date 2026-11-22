@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../convex/auth', () => ({
+vi.mock('../authServer', () => ({
 	authComponent: {
 		getAuthUser: vi.fn(async () => ({ _id: 'user-1', role: 'user' })),
 		safeGetAuthUser: vi.fn()
@@ -22,7 +22,7 @@ vi.mock('../../convex/_generated/api', () => ({
 	}
 }));
 
-import { updateProfileImage } from '../../convex/storage';
+import { updateProfileImage } from '../storage';
 import { PROFILE_IMAGE_ALLOWED_TYPES, PROFILE_IMAGE_MAX_SIZE } from '../constants';
 
 type UpdateProfileImageHandler = {

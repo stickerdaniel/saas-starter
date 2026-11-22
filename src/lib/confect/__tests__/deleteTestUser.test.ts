@@ -7,7 +7,7 @@ vi.mock('convex/server', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	createFunctionHandle: async () => 'auth-on-delete'
 }));
-import { createTestAdminUser, deleteTestUser } from '../../convex/tests';
+import { createTestAdminUser, deleteTestUser } from '../tests';
 
 type Doc = { _id: string; model: string; userId?: string; email?: string; role?: string };
 type DeleteArgs = {

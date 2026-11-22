@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../support/agent', () => ({ supportAgent: {} }));
 vi.mock('../admin/counters', () => ({ recalculateCounters: vi.fn() }));
-import { cleanupTestData, deleteAuditLogRows } from '../../convex/tests';
+import { cleanupTestData, deleteAuditLogRows } from '../tests';
 
 type Row = { _id: string; email: string };
 function store() {

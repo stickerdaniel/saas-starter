@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../../convex/auth', () => ({
+vi.mock('../../../authServer', () => ({
 	authComponent: { getAuthUser: vi.fn(), safeGetAuthUser: vi.fn() }
 }));
 vi.mock('../../../../convex/_generated/api', () => ({
@@ -12,7 +12,7 @@ vi.mock('@convex-dev/agent/validators', async () => {
 });
 vi.mock('../../../support/messageListing', () => ({ listMessagesForThread: vi.fn() }));
 
-import { authComponent } from '../../../../convex/auth';
+import { authComponent } from '../../../authServer';
 import { SUPPORT_MESSAGE_ROUTES_LIMIT } from '../constants';
 import { listMessageRoutesForAdmin } from '../queries';
 

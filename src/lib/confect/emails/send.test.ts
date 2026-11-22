@@ -82,7 +82,7 @@ import {
 	sendNewUserSignupNotification,
 	sendResetPasswordEmail,
 	sendVerificationEmail
-} from '../../convex/emails/send';
+} from './send';
 
 type RegisteredMutation = {
 	_handler: (ctx: unknown, args: Record<string, unknown>) => Promise<unknown>;

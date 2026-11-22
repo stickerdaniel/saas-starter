@@ -6,7 +6,7 @@ import { env, internalMutation, type MutationCtx } from '../../../convex/_genera
 import { requireEnv } from '../../env';
 import { isTestEmail } from '../../emails/helpers';
 import { resend } from '../../emails/resend';
-import { getLocaleForEmail, getReadyEmailConfiguration } from '../../../convex/emails/send';
+import { getLocaleForEmail, getReadyEmailConfiguration } from '../../emails/send';
 import {
 	renderCancellationAdminNotificationEmail,
 	renderNewCustomerAdminNotificationEmail

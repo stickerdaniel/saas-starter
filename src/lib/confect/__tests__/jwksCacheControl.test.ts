@@ -29,7 +29,7 @@ vi.stubEnv('SITE_URL', BASE_URL);
 vi.stubEnv('BETTER_AUTH_SECRET', 'jwks-cache-control-test-secret-value');
 vi.stubEnv('CONVEX_SITE_URL', CONVEX_SITE_URL);
 
-const { createAuthOptions } = await import('../../convex/auth');
+const { createAuthOptions } = await import('../authServer');
 
 type StoredJwk = {
 	id: string;

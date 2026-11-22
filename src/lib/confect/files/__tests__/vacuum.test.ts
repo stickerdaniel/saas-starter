@@ -18,7 +18,7 @@ vi.mock('../../../convex/_generated/api', () => ({
 	}
 }));
 
-import { deleteUnusedFiles } from '../../../convex/files/vacuum';
+import { deleteUnusedFiles } from '../vacuum';
 
 type MutationHandler<TArgs, TResult> = {
 	_handler: (ctx: unknown, args: TArgs) => Promise<TResult>;

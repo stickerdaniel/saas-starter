@@ -33,7 +33,7 @@ vi.mock('../../convex/_generated/server', () => ({
 	internalMutation: (definition: unknown) => definition
 }));
 
-const { createAuthOptions } = await import('../../convex/auth');
+const { createAuthOptions } = await import('../authServer');
 
 const appOptions = createAuthOptions({} as never) as {
 	account?: {
