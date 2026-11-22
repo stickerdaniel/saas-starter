@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { type BackendExit, ConvexBackend } from 'convex-vite-plugin/lib';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { recordTestBackendExit, watchTestBackendExit } from './test-backend-exit';
 
 const version = 'precompiled-test';
@@ -40,7 +40,11 @@ async function startBackend(onExit: (exit: BackendExit) => void) {
 	);
 	await backend.spawn(stateDir);
 	const child = backend.process!;
-	const exited = once(child, 'exit');
+	const exited = once(child, 'close');
+	onTestFinished(async () => {
+		await backend.stop(false);
+		await exited;
+	});
 	await vi.waitFor(() =>
 		expect(fs.readFileSync(path.join(stateDir, 'backend.log'), 'utf8')).toContain('stderr')
 	);
@@ -53,13 +57,15 @@ afterEach(() => {
 
 describe.skipIf(process.platform === 'win32')('convex-vite-plugin backend exit', () => {
 	it('reports the signal and the last backend output', async () => {
-		const exit = Promise.withResolvers<BackendExit>();
-		const { child } = await startBackend(exit.resolve);
+		const onExit = vi.fn<(exit: BackendExit) => void>();
+		const { child, exited } = await startBackend(onExit);
 
-		process.kill(child.pid!, 'SIGSEGV');
+		process.kill(child.pid!, 'SIGKILL');
 
-		const { code, signal, output } = await exit.promise;
-		expect({ code, signal }).toEqual({ code: null, signal: 'SIGSEGV' });
+		await exited;
+		expect(onExit).toHaveBeenCalledTimes(1);
+		const [{ code, signal, output }] = onExit.mock.calls[0]!;
+		expect({ code, signal }).toEqual({ code: null, signal: 'SIGKILL' });
 		expect(output).toContain('INFO probe backend serving');
 		expect(output).toContain('probe stderr line');
 	}, 5_000);
@@ -70,7 +76,6 @@ describe.skipIf(process.platform === 'win32')('convex-vite-plugin backend exit',
 
 		await backend.stop(false);
 		await exited;
-		await new Promise((resolve) => setTimeout(resolve, 300));
 
 		expect(onExit).not.toHaveBeenCalled();
 	});
