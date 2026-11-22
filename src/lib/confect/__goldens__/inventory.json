@@ -1,0 +1,307 @@
+{
+	"columns": ["visibility", "kind", "runtime", "provenance"],
+	"consumedNativeExports": [],
+	"digest": "ea32af4c45388dfb",
+	"groups": {
+		"admin/auditLog/queries": {
+			"getAuditLogCount": ["public", "query", "Convex", "Convex"],
+			"listAuditLogs": ["public", "query", "Convex", "Convex"],
+			"resolveAuditLogLastPage": ["public", "query", "Convex", "Convex"],
+			"resolveAuditLogUser": ["public", "query", "Convex", "Convex"]
+		},
+		"admin/customerNotifications/admission": {
+			"admitObservation": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"admin/customerNotifications/cancel": {
+			"cancelUnsentEmails": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"admin/customerNotifications/send": {
+			"enqueueRecipient": ["internal", "mutation", "Convex", "Convex"],
+			"sendCancellation": ["internal", "mutation", "Convex", "Convex"],
+			"sendNewCustomer": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"admin/founderWelcome/mutations": {
+			"setFounderEmailEnabled": ["public", "mutation", "Convex", "Convex"],
+			"stepDown": ["public", "mutation", "Convex", "Convex"],
+			"updateConfig": ["public", "mutation", "Convex", "Convex"],
+			"updateFounderEmailTemplate": ["public", "mutation", "Convex", "Convex"]
+		},
+		"admin/founderWelcome/queries": {
+			"getFounderEmailSettings": ["public", "query", "Convex", "Convex"],
+			"getFounderWelcomeConfig": ["public", "query", "Convex", "Convex"],
+			"getFounderWelcomeConfigInternal": ["internal", "query", "Convex", "Convex"]
+		},
+		"admin/journey/erasure": {
+			"continueErasure": ["internal", "mutation", "Convex", "Convex"],
+			"erasePage": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"admin/journey/sources/aiChat": { "read": ["internal", "query", "Convex", "Convex"] },
+		"admin/journey/sources/community": { "read": ["internal", "query", "Convex", "Convex"] },
+		"admin/journey/sources/support": { "read": ["internal", "query", "Convex", "Convex"] },
+		"admin/mutations": {
+			"banUser": ["public", "mutation", "Convex", "Convex"],
+			"revokeUserSessions": ["public", "mutation", "Convex", "Convex"],
+			"seedFirstAdmin": ["internal", "mutation", "Convex", "Convex"],
+			"setUserRole": ["public", "mutation", "Convex", "Convex"],
+			"unbanUser": ["public", "mutation", "Convex", "Convex"]
+		},
+		"admin/notificationPreferences/index": {
+			"addCustomEmail": ["public", "mutation", "Convex", "Convex"],
+			"getJourneyRecipients": ["internal", "query", "Convex", "Convex"],
+			"getNotificationRecipientCount": ["public", "query", "Convex", "Convex"],
+			"getRecipientsForNotificationType": ["internal", "query", "Convex", "Convex"],
+			"listNotificationRecipients": ["public", "query", "Convex", "Convex"],
+			"removeCustomEmail": ["public", "mutation", "Convex", "Convex"],
+			"resolveNotificationRecipientsLastPage": ["public", "query", "Convex", "Convex"],
+			"syncAllAdminPreferences": ["internal", "mutation", "Convex", "Convex"],
+			"updatePreference": ["public", "mutation", "Convex", "Convex"],
+			"updatePreferences": ["public", "mutation", "Convex", "Convex"]
+		},
+		"admin/notificationPreferences/mutations": {
+			"addCustomEmail": ["public", "mutation", "Convex", "Convex"],
+			"removeCustomEmail": ["public", "mutation", "Convex", "Convex"],
+			"syncAllAdminPreferences": ["internal", "mutation", "Convex", "Convex"],
+			"updatePreference": ["public", "mutation", "Convex", "Convex"],
+			"updatePreferences": ["public", "mutation", "Convex", "Convex"]
+		},
+		"admin/notificationPreferences/queries": {
+			"getJourneyRecipients": ["internal", "query", "Convex", "Convex"],
+			"getNotificationRecipientCount": ["public", "query", "Convex", "Convex"],
+			"getRecipientsForNotificationType": ["internal", "query", "Convex", "Convex"],
+			"listNotificationRecipients": ["public", "query", "Convex", "Convex"],
+			"resolveNotificationRecipientsLastPage": ["public", "query", "Convex", "Convex"]
+		},
+		"admin/queries": {
+			"getDashboardMetrics": ["public", "query", "Convex", "Convex"],
+			"getUserCount": ["public", "query", "Convex", "Convex"],
+			"listUsers": ["public", "query", "Convex", "Convex"],
+			"resolveUsersLastPage": ["public", "query", "Convex", "Convex"]
+		},
+		"admin/support/mutations": {
+			"addInternalUserNote": ["public", "mutation", "Convex", "Convex"],
+			"sendAdminReply": ["public", "mutation", "Convex", "Convex"],
+			"updateThreadAssignment": ["public", "mutation", "Convex", "Convex"],
+			"updateThreadPriority": ["public", "mutation", "Convex", "Convex"],
+			"updateThreadStatus": ["public", "mutation", "Convex", "Convex"]
+		},
+		"admin/support/notificationDelivery": {
+			"cleanupReceipts": ["internal", "mutation", "Convex", "Convex"],
+			"enqueueRecipient": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"admin/support/notifications": {
+			"cancelPendingNotification": ["internal", "mutation", "Convex", "Convex"],
+			"claimNotificationForSending": ["internal", "mutation", "Convex", "Convex"],
+			"deletePendingNotification": ["internal", "mutation", "Convex", "Convex"],
+			"getMessageContents": ["internal", "query", "Convex", "Convex"],
+			"getNotificationTargetEmails": ["internal", "query", "Convex", "Convex"],
+			"getRecentUserMessages": ["internal", "query", "Convex", "Convex"],
+			"getSupportThread": ["internal", "query", "Convex", "Convex"],
+			"listLegacyNotificationClaims": ["internal", "query", "Convex", "Convex"],
+			"recoverNotificationClaim": ["internal", "mutation", "Convex", "Convex"],
+			"reschedulePendingNotification": ["internal", "mutation", "Convex", "Convex"],
+			"scheduleAdminNotification": ["internal", "mutation", "Convex", "Convex"],
+			"sendPendingAdminNotification": ["internal", "action", "Convex", "Convex"]
+		},
+		"admin/support/queries": {
+			"getAwaitingResponseCount": ["public", "query", "Convex", "Convex"],
+			"getThreadForAdmin": ["public", "query", "Convex", "Convex"],
+			"listAdmins": ["public", "query", "Convex", "Convex"],
+			"listInternalUserNotes": ["public", "query", "Convex", "Convex"],
+			"listMessageRoutesForAdmin": ["public", "query", "Convex", "Convex"],
+			"listMessagesForAdmin": ["public", "query", "Convex", "Convex"],
+			"listThreadsForAdmin": ["public", "query", "Convex", "Convex"]
+		},
+		"aiChat/activityMigration": {
+			"runPage": ["internal", "mutation", "Convex", "Convex"],
+			"start": ["internal", "mutation", "Convex", "Convex"],
+			"status": ["internal", "query", "Convex", "Convex"]
+		},
+		"aiChat/files": {
+			"checkPreviewAccess": ["internal", "mutation", "Convex", "Convex"],
+			"generateUploadUrl": ["public", "mutation", "Convex", "Convex"],
+			"getAttachmentText": ["public", "action", "Convex", "Convex"],
+			"requireFileAccess": ["internal", "mutation", "Convex", "Convex"],
+			"saveUploadedFile": ["public", "action", "Convex", "Convex"]
+		},
+		"aiChat/messages": {
+			"createAIResponse": ["internal", "action", "Convex", "Convex"],
+			"getFileMetadataBatch": ["public", "query", "Convex", "Convex"],
+			"listMessages": ["public", "query", "Convex", "Convex"],
+			"sendMessage": ["public", "mutation", "Convex", "Convex"]
+		},
+		"aiChat/threads": {
+			"backfillThreadMetadata": ["internal", "mutation", "Convex", "Convex"],
+			"createThread": ["public", "mutation", "Convex", "Convex"],
+			"deleteStaleWarmThreads": ["internal", "mutation", "Convex", "Convex"],
+			"deleteThread": ["public", "mutation", "Convex", "Convex"],
+			"getOrCreateWarmThread": ["public", "mutation", "Convex", "Convex"],
+			"getWarmThread": ["public", "query", "Convex", "Convex"],
+			"listThreads": ["public", "query", "Convex", "Convex"],
+			"setThreadTitleIfEmpty": ["internal", "mutation", "Convex", "Convex"],
+			"updateThreadMetadata": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"aiChat/titles": { "generateThreadTitle": ["internal", "action", "Convex", "Convex"] },
+		"aiUsage/record": { "insert": ["internal", "mutation", "Convex", "Convex"] },
+		"auth": {
+			"getAvailableOAuthProviders": ["public", "query", "Convex", "Convex"],
+			"onCreate": ["internal", "mutation", "Convex", "Convex"],
+			"onDelete": ["internal", "mutation", "Convex", "Convex"],
+			"onUpdate": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"autumn": {
+			"attach": ["public", "action", "Convex", "Convex"],
+			"billingPortal": ["public", "action", "Convex", "Convex"],
+			"cancel": ["public", "action", "Convex", "Convex"],
+			"check": ["public", "action", "Convex", "Convex"],
+			"checkout": ["public", "action", "Convex", "Convex"],
+			"createCustomer": ["public", "action", "Convex", "Convex"],
+			"createEntity": ["public", "action", "Convex", "Convex"],
+			"createReferralCode": ["public", "action", "Convex", "Convex"],
+			"getEntity": ["public", "action", "Convex", "Convex"],
+			"listProducts": ["public", "action", "Convex", "Convex"],
+			"query": ["public", "action", "Convex", "Convex"],
+			"redeemReferralCode": ["public", "action", "Convex", "Convex"],
+			"setupPayment": ["public", "action", "Convex", "Convex"],
+			"track": ["public", "action", "Convex", "Convex"],
+			"usage": ["public", "action", "Convex", "Convex"]
+		},
+		"capabilities": { "getUsability": ["public", "query", "Convex", "Convex"] },
+		"emails/events": { "handleEmailEvent": ["internal", "mutation", "Convex", "Convex"] },
+		"emails/founderEmailBilling": {
+			"resolveFounderCancellationBilling": ["internal", "action", "Convex", "Convex"],
+			"resolveFounderFeedbackBilling": ["internal", "action", "Convex", "Convex"]
+		},
+		"emails/founderEmailErasure": {
+			"continueFounderEmailErasure": ["internal", "mutation", "Convex", "Convex"],
+			"eraseFounderEmailPage": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"emails/founderEmailLedger": {
+			"getSentFounderWelcome": ["internal", "query", "Convex", "Convex"],
+			"isFounderEmailSendPending": ["internal", "query", "Convex", "Convex"]
+		},
+		"emails/founderEmails": {
+			"recordFounderEmailSendFailure": ["internal", "mutation", "Convex", "Convex"],
+			"sendFounderCancellationEmail": ["internal", "mutation", "Convex", "Convex"],
+			"sendFounderFeedbackEmail": ["internal", "mutation", "Convex", "Convex"],
+			"setPersonalEmailSuppression": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"emails/founderIncidentDelivery": {
+			"reconcileFounderIncidentEmailDelivery": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"emails/founderIncidentDrafts": {
+			"previewDraft": ["internal", "query", "Convex", "Convex"],
+			"queueDraft": ["internal", "mutation", "Convex", "Convex"],
+			"saveDraft": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"emails/founderIncidentSend": {
+			"queueFounderIncidentEmail": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"emails/send": {
+			"sendAdminReplyNotification": ["internal", "mutation", "Convex", "Convex"],
+			"sendFounderWelcomeEmail": ["internal", "mutation", "Convex", "Convex"],
+			"sendNewTicketAdminNotification": ["internal", "mutation", "Convex", "Convex"],
+			"sendNewUserSignupNotification": ["internal", "mutation", "Convex", "Convex"],
+			"sendResetPasswordEmail": ["internal", "mutation", "Convex", "Convex"],
+			"sendVerificationEmail": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"files/cleanup": { "cleanupExpiredFiles": ["internal", "mutation", "Convex", "Convex"] },
+		"files/metadata": { "storeFileMetadata": ["internal", "mutation", "Convex", "Convex"] },
+		"files/vacuum": { "deleteUnusedFiles": ["internal", "mutation", "Convex", "Convex"] },
+		"localDev": { "ensureSeededAdmin": ["internal", "mutation", "Convex", "Convex"] },
+		"messages": {
+			"enforceAndTrackMessageUsage": ["internal", "action", "Convex", "Convex"],
+			"list": ["public", "query", "Convex", "Convex"],
+			"markMessageSettled": ["internal", "mutation", "Convex", "Convex"],
+			"removeMessage": ["internal", "mutation", "Convex", "Convex"],
+			"send": ["public", "mutation", "Convex", "Convex"]
+		},
+		"previewDev": { "ensurePreviewAdmin": ["internal", "mutation", "Convex", "Convex"] },
+		"storage": {
+			"generateUploadUrl": ["public", "mutation", "Convex", "Convex"],
+			"updateProfileImage": ["public", "mutation", "Convex", "Convex"]
+		},
+		"support/files": {
+			"checkPreviewAccess": ["internal", "mutation", "Convex", "Convex"],
+			"generateUploadUrl": ["public", "mutation", "Convex", "Convex"],
+			"getAttachmentText": ["public", "action", "Convex", "Convex"],
+			"saveUploadedFile": ["public", "action", "Convex", "Convex"]
+		},
+		"support/handoff": {
+			"internalSetHandoff": ["internal", "mutation", "Convex", "Convex"],
+			"settleUnansweredTurn": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"support/messages": {
+			"createAIResponse": ["internal", "action", "Convex", "Convex"],
+			"createAssistantMessage": ["internal", "mutation", "Convex", "Convex"],
+			"ensureSupportTurnSettled": ["internal", "mutation", "Convex", "Convex"],
+			"getFileMetadataBatch": ["public", "query", "Convex", "Convex"],
+			"getTurnOutcome": ["internal", "query", "Convex", "Convex"],
+			"listMessages": ["public", "query", "Convex", "Convex"],
+			"sendMessage": ["public", "mutation", "Convex", "Convex"]
+		},
+		"support/migration": { "migrateAnonymousTickets": ["public", "mutation", "Convex", "Convex"] },
+		"support/promptStore": {
+			"getActive": ["internal", "query", "Convex", "Convex"],
+			"savePrompt": ["internal", "mutation", "Convex", "Convex"],
+			"setActive": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"support/rateLimitAlerts": {
+			"sampleAnonymousRateLimits": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"support/readState": {
+			"hasUnreadAdminReply": ["public", "query", "Convex", "Convex"],
+			"markThreadRead": ["public", "mutation", "Convex", "Convex"],
+			"unreadAdminReplyCount": ["public", "query", "Convex", "Convex"]
+		},
+		"support/threads": {
+			"backfillThreadMetadata": ["internal", "mutation", "Convex", "Convex"],
+			"createThread": ["public", "mutation", "Convex", "Convex"],
+			"deleteEmptyThreads": ["internal", "mutation", "Convex", "Convex"],
+			"getAdminAvatars": ["public", "query", "Convex", "Convex"],
+			"getOrCreateWarmThread": ["public", "mutation", "Convex", "Convex"],
+			"getThread": ["public", "query", "Convex", "Convex"],
+			"getThreadLocale": ["internal", "query", "Convex", "Convex"],
+			"listThreads": ["public", "query", "Convex", "Convex"],
+			"sweepEmptyThread": ["internal", "mutation", "Convex", "Convex"],
+			"syncUserProfile": ["internal", "mutation", "Convex", "Convex"],
+			"updateLastMessage": ["internal", "mutation", "Convex", "Convex"],
+			"updateNotificationEmail": ["public", "mutation", "Convex", "Convex"],
+			"updateThreadHandoff": ["public", "mutation", "Convex", "Convex"],
+			"updateThreadMetadata": ["internal", "mutation", "Convex", "Convex"]
+		},
+		"tests": {
+			"cleanupAllTestUsers": ["public", "mutation", "Convex", "Convex"],
+			"cleanupAnonymousSupportThreads": ["public", "mutation", "Convex", "Convex"],
+			"cleanupTestData": ["public", "mutation", "Convex", "Convex"],
+			"createAnonymousSupportThread": ["public", "mutation", "Convex", "Convex"],
+			"createTestAdminUser": ["public", "mutation", "Convex", "Convex"],
+			"createUnreadAnonymousSupportReply": ["public", "mutation", "Convex", "Convex"],
+			"deleteAiChatHistoryRows": ["public", "mutation", "Convex", "Convex"],
+			"deleteAuditLogRows": ["public", "mutation", "Convex", "Convex"],
+			"deleteOwnedFixture": ["public", "mutation", "Convex", "Convex"],
+			"deleteSupportNotificationFixture": ["public", "mutation", "Convex", "Convex"],
+			"deleteTestUser": ["public", "mutation", "Convex", "Convex"],
+			"findOwnedTestData": ["public", "query", "Convex", "Convex"],
+			"getAuthUserIdByEmail": ["public", "mutation", "Convex", "Convex"],
+			"getLegacyAuditLogCursor": ["public", "query", "Convex", "Convex"],
+			"getPasswordResetToken": ["public", "mutation", "Convex", "Convex"],
+			"getSupportThreadsByUserId": ["public", "mutation", "Convex", "Convex"],
+			"getTestUser": ["internal", "query", "Convex", "Convex"],
+			"health": ["public", "query", "Convex", "Convex"],
+			"recalculateDashboardCounters": ["public", "mutation", "Convex", "Convex"],
+			"recoverSupportNotificationFixture": ["public", "mutation", "Convex", "Convex"],
+			"resetAiChatFileUploadLimit": ["public", "mutation", "Convex", "Convex"],
+			"seedAiChatHistoryRows": ["public", "mutation", "Convex", "Convex"],
+			"seedAuditLogRows": ["public", "mutation", "Convex", "Convex"],
+			"seedSupportNotificationClaim": ["public", "mutation", "Convex", "Convex"],
+			"verifyTestUserEmail": ["public", "mutation", "Convex", "Convex"]
+		},
+		"users": {
+			"dismissPasskeyNudge": ["public", "mutation", "Convex", "Convex"],
+			"getPasskeyNudgeDismissal": ["public", "query", "Convex", "Convex"],
+			"hasPassword": ["public", "query", "Convex", "Convex"],
+			"setPassword": ["public", "mutation", "Convex", "Convex"],
+			"viewer": ["public", "query", "Convex", "Convex"]
+		}
+	}
+}

@@ -1,0 +1,31 @@
+{
+	"targets": [
+		"admin/customerNotifications/send:sendCancellation internal mutation",
+		"admin/customerNotifications/send:sendNewCustomer internal mutation",
+		"admin/journey/erasure:continueErasure internal mutation",
+		"admin/support/notificationDelivery:cleanupReceipts internal mutation",
+		"admin/support/notifications:cancelPendingNotification internal mutation",
+		"admin/support/notifications:recoverNotificationClaim internal mutation",
+		"admin/support/notifications:scheduleAdminNotification internal mutation",
+		"admin/support/notifications:sendPendingAdminNotification internal action",
+		"aiChat/activityMigration:runPage internal mutation",
+		"aiChat/messages:createAIResponse internal action",
+		"aiChat/titles:generateThreadTitle internal action",
+		"aiUsage/record:insert internal mutation",
+		"emails/founderEmailBilling:resolveFounderCancellationBilling internal action",
+		"emails/founderEmailBilling:resolveFounderFeedbackBilling internal action",
+		"emails/founderEmailErasure:continueFounderEmailErasure internal mutation",
+		"emails/founderEmails:sendFounderFeedbackEmail internal mutation",
+		"emails/send:sendAdminReplyNotification internal mutation",
+		"emails/send:sendFounderWelcomeEmail internal mutation",
+		"emails/send:sendNewUserSignupNotification internal mutation",
+		"emails/send:sendResetPasswordEmail internal mutation",
+		"files/vacuum:deleteUnusedFiles internal mutation",
+		"messages:enforceAndTrackMessageUsage internal action",
+		"support/messages:createAIResponse internal action",
+		"support/messages:ensureSupportTurnSettled internal mutation",
+		"support/threads:sweepEmptyThread internal mutation",
+		"support/threads:syncUserProfile internal mutation"
+	],
+	"unresolved": []
+}

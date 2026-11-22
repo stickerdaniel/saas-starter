@@ -3,13 +3,18 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { invalidateLocalTestBackendUrl, waitForConvexUrl } from '../e2e/utils/convex-url';
+import {
+	invalidateLocalTestBackendUrl,
+	resolveConvexSiteUrl,
+	waitForConvexUrl
+} from '../e2e/utils/convex-url';
 
 const ENV_KEYS = [
 	'VARLOCK_ENV',
 	'CI',
 	'E2E_OVERRIDE_SITE_URL',
 	'PUBLIC_CONVEX_URL',
+	'PUBLIC_CONVEX_SITE_URL',
 	'VITE_CONVEX_URL'
 ];
 
@@ -17,26 +22,37 @@ function useOwnedLocalTestBackend(): void {
 	process.env.VARLOCK_ENV = 'test';
 }
 
+let saved: Record<string, string | undefined>;
+const tempDirs: string[] = [];
+
+beforeEach(() => {
+	saved = {};
+	for (const key of ENV_KEYS) {
+		saved[key] = process.env[key];
+		delete process.env[key];
+	}
+});
+
+afterEach(() => {
+	for (const dir of tempDirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+	for (const key of ENV_KEYS) {
+		if (saved[key] === undefined) delete process.env[key];
+		else process.env[key] = saved[key];
+	}
+});
+
+describe('resolveConvexSiteUrl', () => {
+	it('refuses the environment site URL when the local test backend published none', () => {
+		useOwnedLocalTestBackend();
+		process.env.PUBLIC_CONVEX_SITE_URL = 'https://remote-preview.convex.site';
+		const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'saas-starter-e2e-convex-url-'));
+		tempDirs.push(cwd);
+
+		expect(() => resolveConvexSiteUrl(cwd)).toThrow('.test-site-url');
+	});
+});
+
 describe('waitForConvexUrl', () => {
-	let saved: Record<string, string | undefined>;
-	const tempDirs: string[] = [];
-
-	beforeEach(() => {
-		saved = {};
-		for (const key of ENV_KEYS) {
-			saved[key] = process.env[key];
-			delete process.env[key];
-		}
-	});
-
-	afterEach(() => {
-		for (const dir of tempDirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
-		for (const key of ENV_KEYS) {
-			if (saved[key] === undefined) delete process.env[key];
-			else process.env[key] = saved[key];
-		}
-	});
-
 	it('invalidates a stale publication before waiting for the current backend', async () => {
 		useOwnedLocalTestBackend();
 		const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'saas-starter-e2e-convex-url-'));

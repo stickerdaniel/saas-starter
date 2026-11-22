@@ -9,13 +9,6 @@
 		"scripts/english-policy/pr-metadata.bundle.mjs"
 	],
 	"rules": {
-		"convex/no-unused-functions": [
-			"warn",
-			{
-				"ignorePatterns": ["tests.*", "localDev.*"],
-				"ignoreUsageFiles": ["**/*.test.ts", "e2e/**"]
-			}
-		],
 		"convex/no-invalid-module-path": "error",
 		"typescript/array-type": ["error", { "default": "array-simple" }],
 		"typescript/consistent-type-imports": ["error", { "disallowTypeAnnotations": true }]

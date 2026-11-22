@@ -611,6 +611,13 @@ function workingTreeSources(root: string): ConsumerSource[] {
 		.map((file) => ({ file, source: readFileSync(file, 'utf8') }));
 }
 
+export function workingTreeScheduledTargets(): Pick<
+	ConsumerReferences,
+	'references' | 'unresolved'
+> {
+	return consumerReferencesIn(BACKEND_ROOTS.flatMap((root) => workingTreeSources(root)));
+}
+
 export function consumerReferencesIn(sources: readonly ConsumerSource[]): ConsumerReferences {
 	const references: Reference[] = [];
 	const namespaces: NamespaceReference[] = [];
@@ -880,9 +887,7 @@ export async function main(): Promise<void> {
 		process.exit(0);
 	}
 
-	const workingTreeUnresolved = consumerReferencesIn(
-		BACKEND_ROOTS.flatMap((root) => workingTreeSources(root))
-	).unresolved;
+	const workingTreeUnresolved = workingTreeScheduledTargets().unresolved;
 	const baselineConsumers = consumerReferencesIn(consumerSourcesAt(baseline.commit));
 	if (workingTreeUnresolved.length > 0 || baselineConsumers.unresolved.length > 0) {
 		console.error(

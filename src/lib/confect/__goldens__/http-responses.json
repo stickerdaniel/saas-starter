@@ -1,0 +1,94 @@
+[
+	{
+		"method": "GET",
+		"path": "/.well-known/openid-configuration",
+		"status": [302],
+		"headers": { "location": "/api/auth/convex/.well-known/openid-configuration" }
+	},
+	{
+		"method": "GET",
+		"path": "/api/auth/convex/jwks",
+		"status": [200],
+		"headers": {
+			"cache-control": "public, max-age=60, must-revalidate",
+			"content-type": "application/json"
+		}
+	},
+	{
+		"method": "GET",
+		"path": "/api/auth/get-session",
+		"status": [200],
+		"headers": { "cache-control": "no-store", "content-type": "application/json" }
+	},
+	{
+		"method": "POST",
+		"path": "/api/auth/admin/ban-user",
+		"request": { "headers": { "content-type": "application/json" }, "body": "{}" },
+		"status": [404],
+		"headers": { "content-type": "text/plain;charset=UTF-8" }
+	},
+	{
+		"method": "GET",
+		"path": "/files/download",
+		"status": [400],
+		"headers": {
+			"access-control-allow-headers": "Content-Type, Authorization, x-download-password",
+			"access-control-allow-methods": "GET, POST, OPTIONS",
+			"access-control-allow-origin": "*",
+			"content-type": "application/json"
+		}
+	},
+	{
+		"method": "OPTIONS",
+		"path": "/files/download",
+		"request": {
+			"headers": { "origin": "https://example.test", "access-control-request-method": "GET" }
+		},
+		"status": [204],
+		"headers": {
+			"access-control-allow-headers": "Content-Type, Authorization, x-download-password",
+			"access-control-allow-methods": "GET, POST, OPTIONS",
+			"access-control-allow-origin": "https://example.test"
+		}
+	},
+	{
+		"method": "GET",
+		"path": "/files/inline",
+		"status": [400],
+		"headers": { "content-type": "application/json" }
+	},
+	{
+		"method": "HEAD",
+		"path": "/files/inline",
+		"status": [400],
+		"headers": { "content-type": "application/json" }
+	},
+	{
+		"method": "GET",
+		"path": "/files/inline?token=golden",
+		"status": [500],
+		"headers": { "content-type": "application/json" }
+	},
+	{
+		"method": "POST",
+		"path": "/autumn-webhook",
+		"request": { "headers": { "content-type": "application/json" }, "body": "{}" },
+		"status": [401, 503],
+		"headers": {}
+	},
+	{
+		"method": "POST",
+		"path": "/resend-webhook",
+		"request": { "headers": { "content-type": "application/json" }, "body": "{}" },
+		"status": [500],
+		"headers": { "content-type": "application/json" }
+	},
+	{ "method": "GET", "path": "/goldens/unknown", "status": [404] },
+	{ "method": "POST", "path": "/goldens/unknown", "status": [404] },
+	{ "method": "OPTIONS", "path": "/goldens/unknown", "status": [404] },
+	{ "method": "HEAD", "path": "/goldens/unknown", "status": [404] },
+	{ "method": "GET", "path": "/autumn-webhook", "status": [404] },
+	{ "method": "POST", "path": "/files/inline", "status": [404] },
+	{ "method": "OPTIONS", "path": "/files/inline", "status": [404] },
+	{ "method": "HEAD", "path": "/autumn-webhook", "status": [404] }
+]

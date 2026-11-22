@@ -18,6 +18,7 @@ export default {
 		'src/lib/confect/tables/*.ts',
 		// The Confect CLI imports every group implementation from its generated registration.
 		'src/lib/confect/**/*.impl.ts',
+		'src/lib/confect/__goldens__/_generated/*.ts',
 
 		// Scripts and test infrastructure
 		'eslint/shadcn-policy.js',

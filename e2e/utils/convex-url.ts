@@ -16,8 +16,25 @@ function testBackendUrlFile(cwd = process.cwd()): string {
 	return path.join(cwd, '.convex', '.test-backend-url');
 }
 
+function testSiteUrlFile(cwd = process.cwd()): string {
+	return path.join(cwd, '.convex', '.test-site-url');
+}
+
 export function invalidateLocalTestBackendUrl(cwd = process.cwd()): void {
 	fs.rmSync(testBackendUrlFile(cwd), { force: true });
+	fs.rmSync(testSiteUrlFile(cwd), { force: true });
+}
+
+export function resolveConvexSiteUrl(cwd = process.cwd()): string | undefined {
+	if (!usesLocalTestBackend()) return process.env.PUBLIC_CONVEX_SITE_URL || undefined;
+	const file = testSiteUrlFile(cwd);
+	const url = fs.existsSync(file) ? fs.readFileSync(file, 'utf-8').trim() : '';
+	if (!url) {
+		throw new Error(
+			`Local test mode found no Convex site URL in ${file}. Check that \`bun run dev:test\` started successfully.`
+		);
+	}
+	return url;
 }
 
 function resolveLocalTestConvexUrl(): string | undefined {

@@ -1,0 +1,10 @@
+[
+	"GET /.well-known/openid-configuration",
+	"GET /api/auth/*",
+	"GET /files/download",
+	"GET /files/inline",
+	"OPTIONS /files/download",
+	"POST /api/auth/*",
+	"POST /autumn-webhook",
+	"POST /resend-webhook"
+]

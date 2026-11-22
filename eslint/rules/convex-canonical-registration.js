@@ -22,9 +22,21 @@
  * Example: export const f = query({ args: {}, returns: v.null(), handler: async (ctx) => { ... } });
  */
 
-import { CUSTOM_REGISTRARS, RAW_REGISTRARS } from '../convex-registrars.js';
+import {
+	CONFECT_CONSTRUCTORS,
+	CONFECT_NATIVE_SPECS,
+	CONFECT_PLAIN_SPECS,
+	CUSTOM_REGISTRARS,
+	RAW_REGISTRARS
+} from '../convex-registrars.js';
 
 const PUBLIC_BUILDERS = new Set(['query', 'mutation', 'action']);
+const NATIVE_SPECS = new Set(CONFECT_NATIVE_SPECS);
+const PLAIN_SPECS = new Set(CONFECT_PLAIN_SPECS);
+const CONSTRUCTOR_MEMBERS = {
+	FunctionSpec: new Set([...CONFECT_NATIVE_SPECS, ...CONFECT_PLAIN_SPECS]),
+	FunctionImpl: new Set(['make'])
+};
 
 /** The builders a module provides, keyed by the import source that names it. */
 const BUILDER_MODULES = [
@@ -35,6 +47,20 @@ const BUILDER_MODULES = [
 function builderModule(source) {
 	return BUILDER_MODULES.find(({ module }) =>
 		new RegExp(`(^|/)${module}(\\.[jt]s)?$`).test(source)
+	);
+}
+
+function isStringLiteral(node) {
+	return node?.type === 'Literal' && typeof node.value === 'string';
+}
+
+function hasPlainKeys(config) {
+	return (
+		config?.type === 'ObjectExpression' &&
+		config.properties.every(
+			(property) =>
+				property.type === 'Property' && !property.computed && property.key.type === 'Identifier'
+		)
 	);
 }
 
@@ -75,7 +101,8 @@ export default {
 	meta: {
 		type: 'problem',
 		docs: {
-			description: 'Require the canonical form for raw Convex function registrations'
+			description:
+				'Require the canonical form for raw Convex function registrations and Confect specs'
 		},
 		schema: [],
 		messages: {
@@ -92,19 +119,21 @@ export default {
 			configShape:
 				'Pass `{{name}}` one object literal with plain identifier keys and no spread. The access rules read `handler` only as a plain key of that object.',
 			inlineHandler:
-				'Write the `handler` of this public `{{name}}` inline as a function. The access rules read the access call inside the handler body.'
+				'Write the `handler` of this public `{{name}}` inline as a function. The access rules read the access call inside the handler body.',
+			confectMember:
+				'Call `{{name}}` as a member of its Confect constructor, without `?.`. The spec graph checks cannot see a registration through another binding.',
+			plainSpecShape:
+				"Write `FunctionSpec.{{name}}<typeof f>()('f')` with the string equal to the type query. The goldens and the generated groups pair a plain spec with its Convex registration by that name.",
+			nativeSpecShape:
+				'Pass `FunctionSpec.{{name}}` one object literal with plain identifier keys and a string literal `name`. The spec graph checks read the function name from it.',
+			implShape:
+				"Call `FunctionImpl.make(schema, group, 'name', implementation)` with a string literal name. The spec graph checks pair an implementation with its spec by that name."
 		}
 	},
 	create(context) {
 		function checkRegistration(call, name) {
 			const config = call.arguments.length === 1 ? unwrap(call.arguments[0]) : null;
-			if (
-				config?.type !== 'ObjectExpression' ||
-				config.properties.some(
-					(property) =>
-						property.type !== 'Property' || property.computed || property.key.type !== 'Identifier'
-				)
-			) {
+			if (!hasPlainKeys(config)) {
 				context.report({ node: call, messageId: 'configShape', data: { name } });
 				return;
 			}
@@ -116,8 +145,108 @@ export default {
 			}
 		}
 
+		function checkConfectReference(identifier, constructor) {
+			const member = identifier.parent;
+			if (member.type !== 'MemberExpression' || member.object !== identifier) {
+				context.report({
+					node: identifier,
+					messageId: 'indirectReference',
+					data: { name: constructor, exception: '' }
+				});
+				return;
+			}
+			const allowed = CONSTRUCTOR_MEMBERS[constructor];
+			const name = member.computed ? null : member.property.name;
+			if (!allowed || (name !== null && !allowed.has(name))) return;
+			const call = member.parent;
+			if (
+				name === null ||
+				member.optional ||
+				call.type !== 'CallExpression' ||
+				call.callee !== member ||
+				call.optional
+			) {
+				context.report({
+					node: member,
+					messageId: 'confectMember',
+					data: { name: `${constructor}.${name ?? '[]'}` }
+				});
+				return;
+			}
+			if (constructor === 'FunctionImpl') {
+				if (call.arguments.length !== 4 || !isStringLiteral(call.arguments[2])) {
+					context.report({ node: call, messageId: 'implShape' });
+				}
+				return;
+			}
+			if (NATIVE_SPECS.has(name)) {
+				const config = call.arguments.length === 1 ? unwrap(call.arguments[0]) : null;
+				const nameProperty =
+					hasPlainKeys(config) &&
+					config.properties.find((property) => property.key.name === 'name');
+				if (!nameProperty || !isStringLiteral(nameProperty.value)) {
+					context.report({ node: call, messageId: 'nativeSpecShape', data: { name } });
+				}
+				return;
+			}
+			if (PLAIN_SPECS.has(name)) {
+				const [type, ...extraTypes] = (call.typeArguments ?? call.typeParameters)?.params ?? [];
+				const named = call.parent;
+				const valid =
+					call.arguments.length === 0 &&
+					extraTypes.length === 0 &&
+					type?.type === 'TSTypeQuery' &&
+					type.exprName.type === 'Identifier' &&
+					named.type === 'CallExpression' &&
+					named.callee === call &&
+					!named.optional &&
+					named.arguments.length === 1 &&
+					isStringLiteral(named.arguments[0]) &&
+					named.arguments[0].value === type.exprName.name;
+				if (!valid) context.report({ node: call, messageId: 'plainSpecShape', data: { name } });
+			}
+		}
+
+		function checkConfectImport(node, names) {
+			for (const specifier of node.specifiers) {
+				if (specifier.type === 'ImportNamespaceSpecifier') {
+					context.report({
+						node: specifier,
+						messageId: 'namespaceImport',
+						data: { module: node.source.value }
+					});
+					continue;
+				}
+				if (specifier.type !== 'ImportSpecifier') continue;
+				const name = specifier.imported.name ?? specifier.imported.value;
+				if (!names.includes(name)) continue;
+				if (specifier.local.name !== name) {
+					context.report({
+						node: specifier,
+						messageId: 'aliasedImport',
+						data: { name, module: node.source.value }
+					});
+					continue;
+				}
+				const [variable] = context.sourceCode.getDeclaredVariables(specifier);
+				for (const reference of variable?.references ?? []) {
+					const identifier = reference.identifier;
+					if (reference.isTypeReference || identifier.parent.type === 'TSTypeQuery') continue;
+					if (identifier.parent.type === 'TSQualifiedName') continue;
+					checkConfectReference(identifier, name);
+				}
+			}
+		}
+
 		return {
 			ImportDeclaration(node) {
+				const confect = Object.hasOwn(CONFECT_CONSTRUCTORS, node.source.value)
+					? CONFECT_CONSTRUCTORS[node.source.value]
+					: undefined;
+				if (confect) {
+					checkConfectImport(node, confect);
+					return;
+				}
 				const source = builderModule(node.source.value);
 				if (!source) return;
 				const { module, raw, names } = source;
