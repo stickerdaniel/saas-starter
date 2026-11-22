@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
  */
 
 const storagePath = path.resolve('src/lib/confect/storage.ts');
-const httpPath = path.resolve('src/lib/convex/http.ts');
+const httpPath = path.resolve('src/lib/confect/http.ts');
 
 /** Every way the avatar URL storage.ts builds misses the route http.ts registers. */
 function inlineRouteProblems(storage: string, http: string): string[] {

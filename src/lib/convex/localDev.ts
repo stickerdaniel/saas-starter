@@ -1,1 +1,3 @@
-export { ensureSeededAdmin } from '../confect/localDev';
+import registeredFunctions from "../confect/_generated/registeredFunctions/localDev";
+
+export const ensureSeededAdmin = registeredFunctions.ensureSeededAdmin;

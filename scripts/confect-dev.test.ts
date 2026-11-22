@@ -8,14 +8,20 @@ import {
 	awaitStartup,
 	checkStartupStatus,
 	classifyChange,
-	confectPreflight,
+	cloudPushEnv,
+	commandPush,
 	createChangeFilter,
 	createRun,
 	createRunQueue,
-	readAdminKey,
-	type Push
+	readAdminKey
 } from './confect-dev';
-import { CONFECT_GENERATED_DIR, CONVEX_DIR, type Codegen } from './confect-stage';
+import {
+	CONFECT_GENERATED_DIR,
+	CONVEX_DIR,
+	confectPreflight,
+	type Codegen,
+	type Push
+} from './confect-codegen';
 import { computeLocalConvexStateId } from './local-convex-env';
 
 const NONCE = 'nonce-1';
@@ -116,14 +122,29 @@ describe('startup barrier', () => {
 	const signal = new AbortController().signal;
 
 	it('returns the backend URL once the marker turns ready', async () => {
-		const reads = [undefined, undefined, marker()];
+		const reads: Array<string | undefined> = [undefined, undefined, marker()];
+		let polls = 0;
 		const url = await awaitStartup({
-			read: () => checkStartupStatus(reads.shift() ?? marker(), expected),
+			read: () => {
+				polls += 1;
+				return checkStartupStatus(reads.shift(), expected);
+			},
 			exited: new Promise(() => {}),
 			signal
 		});
 
 		expect(url).toBe(URL);
+		expect(polls).toBe(3);
+	});
+
+	it('fails when Vite has exited even though a ready marker is present', async () => {
+		await expect(
+			awaitStartup({
+				read: () => checkStartupStatus(marker(), expected),
+				exited: Promise.resolve(42),
+				signal
+			})
+		).rejects.toThrow('Vite exited with 42 before the startup marker');
 	});
 
 	it('fails when Vite exits before the marker', async () => {
@@ -310,6 +331,62 @@ describe('development run', () => {
 	}, 60_000);
 });
 
+describe('push command', () => {
+	const resistsSigterm = (exitAfterMs: number) =>
+		`const fs = require('node:fs'); process.on('SIGTERM', () => {}); fs.writeFileSync(process.env.READY_FILE, String(process.pid)); setTimeout(() => { fs.writeFileSync(process.env.EXIT_FILE, ''); process.exit(0); }, ${exitAfterMs});`;
+
+	async function startResistant(
+		exitAfterMs: number,
+		limits: { timeoutMs: number; graceMs: number }
+	) {
+		const dir = mkdtempSync(path.join(tmpdir(), 'confect-push-'));
+		roots.push(dir);
+		const readyFile = path.join(dir, 'ready');
+		const exitFile = path.join(dir, 'exited');
+		const controller = new AbortController();
+		const push = commandPush(
+			[process.execPath, '-e', resistsSigterm(exitAfterMs)],
+			{ ...process.env, READY_FILE: readyFile, EXIT_FILE: exitFile },
+			limits
+		)(dir, controller.signal);
+		const outcome = push.then(
+			() => ({ error: undefined, exited: existsSync(exitFile) }),
+			(error: unknown) => ({ error: String(error), exited: existsSync(exitFile) })
+		);
+		await expect.poll(() => existsSync(readyFile), { timeout: 5_000 }).toBe(true);
+		return { controller, outcome, pid: Number(readFileSync(readyFile, 'utf8')) };
+	}
+
+	function alive(pid: number) {
+		try {
+			process.kill(pid, 0);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	it('rejects a cancelled push only after the child exits, even when it exits 0', async () => {
+		const { controller, outcome } = await startResistant(1_000, {
+			timeoutMs: 60_000,
+			graceMs: 30_000
+		});
+		controller.abort();
+
+		expect(await outcome).toEqual({ error: 'Error: the push was cancelled', exited: true });
+	}, 10_000);
+
+	it('kills a child that ignores SIGTERM after the timeout and grace, then rejects', async () => {
+		const { outcome, pid } = await startResistant(60_000, { timeoutMs: 300, graceMs: 300 });
+
+		expect(await outcome).toEqual({
+			error: 'Error: the push timed out after 300 ms',
+			exited: false
+		});
+		expect(alive(pid)).toBe(false);
+	}, 10_000);
+});
+
 describe('deploy preflight', () => {
 	it('writes the codegen output into the checkout', async () => {
 		const root = checkout();
@@ -366,5 +443,31 @@ describe('local credentials', () => {
 		write(root, `.convex/${computeLocalConvexStateId(root)}/keys.json`, '{"adminKey":"dev-key"}');
 
 		expect(() => readAdminKey(root, 'dev:test')).toThrow('holds no admin key');
+	});
+});
+
+describe('cloud push environment', () => {
+	it('forwards the deployment selected only in the ignored .env.local', () => {
+		const root = checkout();
+		write(
+			root,
+			'.env.local',
+			'CONVEX_DEPLOYMENT=dev:example-123 # team: t\nCONVEX_URL=https://example.convex.cloud\n'
+		);
+
+		const env = cloudPushEnv(root, { PATH: '/bin' });
+
+		expect(env.CONVEX_DEPLOYMENT).toBe('dev:example-123');
+		expect(env.CONVEX_URL).toBeUndefined();
+		expect(env.PATH).toBe('/bin');
+	});
+
+	it('keeps a deployment the process environment already selects', () => {
+		const root = checkout();
+		write(root, '.env.local', 'CONVEX_DEPLOYMENT=dev:from-file\n');
+
+		expect(cloudPushEnv(root, { CONVEX_DEPLOYMENT: 'dev:from-env' }).CONVEX_DEPLOYMENT).toBe(
+			'dev:from-env'
+		);
 	});
 });

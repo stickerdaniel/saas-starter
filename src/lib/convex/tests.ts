@@ -1,27 +1,27 @@
-export {
-	cleanupAllTestUsers,
-	cleanupAnonymousSupportThreads,
-	cleanupTestData,
-	createAnonymousSupportThread,
-	createTestAdminUser,
-	createUnreadAnonymousSupportReply,
-	deleteAiChatHistoryRows,
-	deleteAuditLogRows,
-	deleteOwnedFixture,
-	deleteSupportNotificationFixture,
-	deleteTestUser,
-	findOwnedTestData,
-	getAuthUserIdByEmail,
-	getLegacyAuditLogCursor,
-	getPasswordResetToken,
-	getSupportThreadsByUserId,
-	getTestUser,
-	health,
-	recalculateDashboardCounters,
-	recoverSupportNotificationFixture,
-	resetAiChatFileUploadLimit,
-	seedAiChatHistoryRows,
-	seedAuditLogRows,
-	seedSupportNotificationClaim,
-	verifyTestUserEmail
-} from '../confect/tests';
+import registeredFunctions from "../confect/_generated/registeredFunctions/tests";
+
+export const cleanupAllTestUsers = registeredFunctions.cleanupAllTestUsers;
+export const cleanupAnonymousSupportThreads = registeredFunctions.cleanupAnonymousSupportThreads;
+export const cleanupTestData = registeredFunctions.cleanupTestData;
+export const createAnonymousSupportThread = registeredFunctions.createAnonymousSupportThread;
+export const createTestAdminUser = registeredFunctions.createTestAdminUser;
+export const createUnreadAnonymousSupportReply = registeredFunctions.createUnreadAnonymousSupportReply;
+export const deleteAiChatHistoryRows = registeredFunctions.deleteAiChatHistoryRows;
+export const deleteAuditLogRows = registeredFunctions.deleteAuditLogRows;
+export const deleteOwnedFixture = registeredFunctions.deleteOwnedFixture;
+export const deleteSupportNotificationFixture = registeredFunctions.deleteSupportNotificationFixture;
+export const deleteTestUser = registeredFunctions.deleteTestUser;
+export const findOwnedTestData = registeredFunctions.findOwnedTestData;
+export const getAuthUserIdByEmail = registeredFunctions.getAuthUserIdByEmail;
+export const getLegacyAuditLogCursor = registeredFunctions.getLegacyAuditLogCursor;
+export const getPasswordResetToken = registeredFunctions.getPasswordResetToken;
+export const getSupportThreadsByUserId = registeredFunctions.getSupportThreadsByUserId;
+export const getTestUser = registeredFunctions.getTestUser;
+export const health = registeredFunctions.health;
+export const recalculateDashboardCounters = registeredFunctions.recalculateDashboardCounters;
+export const recoverSupportNotificationFixture = registeredFunctions.recoverSupportNotificationFixture;
+export const resetAiChatFileUploadLimit = registeredFunctions.resetAiChatFileUploadLimit;
+export const seedAiChatHistoryRows = registeredFunctions.seedAiChatHistoryRows;
+export const seedAuditLogRows = registeredFunctions.seedAuditLogRows;
+export const seedSupportNotificationClaim = registeredFunctions.seedSupportNotificationClaim;
+export const verifyTestUserEmail = registeredFunctions.verifyTestUserEmail;

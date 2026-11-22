@@ -6,7 +6,7 @@ import type { Id } from '../../convex/_generated/dataModel';
 
 const THRESHOLD_MS = 1000 * 60 * 60 * 24; // 24 hours
 
-// Registered in convex/crons.ts
+// Registered in confect/crons.ts
 export const deleteUnusedFiles = internalMutation({
 	args: { cursor: v.optional(v.string()) },
 	returns: v.null(),

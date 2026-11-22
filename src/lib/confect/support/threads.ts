@@ -575,7 +575,7 @@ export const getThreadLocale = internalQuery({
  * Cron entry that deletes pre-created threads still without a message after 24
  * hours. Each run schedules one check per candidate.
  *
- * @see src/lib/convex/crons.ts
+ * @see src/lib/confect/crons.ts
  */
 export const deleteEmptyThreads = internalMutation({
 	args: {},

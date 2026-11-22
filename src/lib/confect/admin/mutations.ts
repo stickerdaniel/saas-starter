@@ -222,6 +222,10 @@ export const setUserRole = adminMutation({
 	}
 });
 
+type SeedFirstAdminResult =
+	| { readonly success: false; readonly code: typeof ADMIN_ERROR_CODES.seedAdminExists }
+	| { readonly success: true; code?: undefined };
+
 /**
  * Seed first admin user (one-time setup)
  * This should be called once to set up the first admin
@@ -238,7 +242,7 @@ export const seedFirstAdmin = internalMutation({
 			code: v.literal(ADMIN_ERROR_CODES.seedAdminExists)
 		})
 	),
-	handler: async (ctx, args) => {
+	handler: async (ctx, args): Promise<SeedFirstAdminResult> => {
 		const existingAdmins = await ctx.runQuery(components.betterAuth.adapter.findMany, {
 			model: 'user',
 			where: [{ field: 'role', operator: 'eq', value: 'admin' }],

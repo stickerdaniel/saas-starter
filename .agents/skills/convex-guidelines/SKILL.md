@@ -11,7 +11,7 @@ These guidelines must be followed when writing, reviewing, or modifying any Conv
 
 ### HTTP Endpoint Syntax
 
-- HTTP endpoints are defined in `convex/http.ts` and require an `httpAction` decorator:
+- HTTP endpoints are defined in `src/lib/confect/http.ts` and require an `httpAction` decorator. The router there is a plain Convex `httpRouter()`: register every route on it first, then append the catch-all routes of `HttpRouter.make(Layer.empty).getRoutes()` from `@confect/server` last, because Better Auth registers `/.well-known/openid-configuration` only when no route matches it. The route golden in `src/lib/confect/__goldens__/http-routes.json` fails on another order. `convex/http.ts` in the example below is the plain Convex form:
 
 ```typescript
 import { httpRouter } from 'convex/server';
@@ -109,7 +109,7 @@ export const list = query({
 
 ## Schema Guidelines
 
-- Always define your schema in `convex/schema.ts` and import schema definition functions from `convex/server`.
+- The schema is generated from the Confect tables in `src/lib/confect/tables/`, one table per file. `src/lib/convex/schema.ts` is CLI output.
 - System fields `_creationTime` (`v.number()`) and `_id` (`v.id(tableName)`) are automatic — never define them manually.
 - Include all index fields in the index name: index on `["field1", "field2"]` → name `by_field1_and_field2`.
 - Index fields must be queried in the order they are defined. To query in a different order, create a separate index.
@@ -123,7 +123,7 @@ This section applies to projects using `@convex-dev/better-auth` with a local in
 - Auth is configured via `createAuth()` and `createAuthOptions()`.
 - Use `authComponent.getAuthUser(ctx)` to get the current authenticated user in any query, mutation, or action. It throws `ConvexError('Unauthenticated')` if there is no authenticated user, and otherwise returns the user (never `null`), so no `if (!user)` guard is needed after it. When unauthenticated should be a valid, non-throwing case, use `authComponent.safeGetAuthUser(ctx)`, which returns `undefined` instead of throwing.
 - NEVER accept a `userId` or any user identifier as a function argument for authorization. Always derive identity server-side via `authComponent.getAuthUser(ctx)`.
-- HTTP auth routes are registered via `authComponent.registerRoutes(http, createAuth)` in `convex/http.ts`.
+- HTTP auth routes are registered via `authComponent.registerRoutes(http, createAuth)` in `src/lib/confect/http.ts`.
 - Auth tables (`user`, `session`, `account`, `verification`, `jwks`, `passkey`) are managed by the Better Auth component.
 - Supported auth methods: email/password, OAuth (Google, GitHub), passkeys.
 

@@ -12,7 +12,7 @@ import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { createAuthMiddleware } from 'better-auth/api';
 import * as val from 'valibot';
 import authSchema from '../convex-components/betterAuth/schema';
-import authConfig from '../convex/auth.config';
+import authConfig from './auth';
 import { requireEmailConfiguration, requireEnv, googleOAuth, githubOAuth } from './env';
 import {
 	FOUNDER_FEEDBACK_DEDUPE_KEY,

@@ -8,7 +8,7 @@
  * - Platform detection (Vercel, Cloudflare Workers/Pages, unknown)
  * - Tolgee translation tagging and pulling (optional, skipped without TOLGEE_API_KEY)
  * - Convex environment variable validation (production and preview)
- * - Authored-content generation, which also removes stale outputs from the functions directory
+ * - Authored-content generation and Confect codegen, checked against the CLI write sets
  * - Convex deployment
  * - Preview environment setup (SITE_URL, admin seeding)
  * - E2E config file generation (preview only)
@@ -32,15 +32,13 @@ import {
 	type PreviewRecovery
 } from './deploy/steps';
 import { colors } from './deploy/utils';
-import { CONFECT_DEV_ENABLED, confectPreflight } from './confect-dev';
-import { generateAuthoredContent } from './generate-authored-content';
+import { confectPreflight } from './confect-codegen';
 
 export async function main(
 	execution = createDeploymentExecution(),
 	options: {
 		recovery?: PreviewRecovery;
 		writeConfig?: typeof writeE2eConfig;
-		generateContent?: () => void;
 		confectPreflight?: typeof confectPreflight;
 	} = {}
 ): Promise<void> {
@@ -54,14 +52,10 @@ export async function main(
 		await setProductionCapabilityProfile(platform, execution);
 		await validateConvexEnv(platform, undefined, execution);
 	}
-	(options.generateContent ?? generateAuthoredContent)();
+	await (options.confectPreflight ?? confectPreflight)(process.cwd(), {
+		signal: execution.signal
+	});
 	checkAborted(execution.signal);
-	if (CONFECT_DEV_ENABLED) {
-		await (options.confectPreflight ?? confectPreflight)(process.cwd(), {
-			signal: execution.signal
-		});
-		checkAborted(execution.signal);
-	}
 	const deployment = await deployConvex(platform, execution, options.recovery);
 	if (platform.isPreview) await setupPreviewEnv(deployment, platform, execution);
 	await prepareAiChatHistory(deployment, execution);

@@ -1,1 +1,3 @@
-export { cleanupExpiredFiles } from '../../confect/files/cleanup';
+import registeredFunctions from "../../confect/_generated/registeredFunctions/files/cleanup";
+
+export const cleanupExpiredFiles = registeredFunctions.cleanupExpiredFiles;

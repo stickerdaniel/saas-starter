@@ -147,13 +147,14 @@ export function harness(
 		events.push(`delete:${name}`);
 		previews = previews.filter((preview) => preview.name !== name);
 	});
-	const generateContent = vi.fn(() => {
-		events.push('content');
+	const confectPreflight = vi.fn(async () => {
+		events.push('codegen');
+		return { added: [], changed: [], removed: [] };
 	});
 	const options = {
 		writeConfig,
-		generateContent,
+		confectPreflight,
 		recovery: { management: { list, remove }, now: () => NOW }
 	};
-	return { execution, events, spawn, sleep, writeConfig, generateContent, list, remove, options };
+	return { execution, events, spawn, sleep, writeConfig, confectPreflight, list, remove, options };
 }

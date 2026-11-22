@@ -82,6 +82,11 @@ const EXPECTED_SET_PASSWORD_CODES = new Set([
 	'PASSWORD_TOO_LONG'
 ]);
 
+type SetPasswordResult =
+	| { ok: boolean; code: string; retryAfter?: undefined }
+	| { ok: boolean; code: string; retryAfter: number }
+	| { ok: boolean; code?: undefined; retryAfter?: undefined };
+
 /**
  * Set a first password for the signed-in user.
  *
@@ -103,7 +108,7 @@ export const setPassword = authedMutation({
 		code: v.optional(v.string()),
 		retryAfter: v.optional(v.number())
 	}),
-	handler: async (ctx, args) => {
+	handler: async (ctx, args): Promise<SetPasswordResult> => {
 		const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
 
 		// An impersonation session belongs to the target user, and

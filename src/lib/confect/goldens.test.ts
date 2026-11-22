@@ -1,5 +1,6 @@
 // @vitest-environment node
 /// <reference types="vite/client" />
+import { readFileSync } from 'node:fs';
 import { HttpRouter } from '@confect/server';
 import {
 	httpRouter,
@@ -246,19 +247,20 @@ describe('Convex goldens', () => {
 });
 
 describe('the HTTP route golden', () => {
-	const routes = nativeRouter.getRoutes();
+	const routes = nativeRouter.getRoutes().filter(([path]) => path !== CONFECT_CATCH_ALL);
+	const committedRoutes: unknown = JSON.parse(
+		readFileSync(new URL(golden('http-routes.json'), import.meta.url), 'utf8')
+	);
 
 	it('accepts the application routes behind the complete Confect catch-all', () => {
-		expect(routesGolden(withRoutes(HttpRouter.make(Layer.empty), routes))).toEqual(
-			routesGolden(nativeRouter)
-		);
+		expect(routesGolden(withRoutes(HttpRouter.make(Layer.empty), routes))).toEqual(committedRoutes);
 	});
 
 	it('rejects a Confect router without an application route', () => {
 		const withoutInline = routes.filter(([path]) => path !== '/files/inline');
 
 		expect(routesGolden(withRoutes(HttpRouter.make(Layer.empty), withoutInline))).not.toEqual(
-			routesGolden(nativeRouter)
+			committedRoutes
 		);
 	});
 

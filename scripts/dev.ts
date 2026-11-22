@@ -1,5 +1,4 @@
-import { CONFECT_DEV_ENABLED, runLocalConfectDev } from './confect-dev';
-import { watchAuthoredContent } from './generate-authored-content';
+import { runLocalConfectDev } from './confect-dev';
 import { portlessOwnsPort, preflightOrExit, resolveDevPort } from './dev-ports';
 import { localConvexMode } from './local-convex-env';
 
@@ -17,7 +16,7 @@ if (!portlessOwnsPort()) {
 }
 
 const confectDevMode = localConvexMode(process.env);
-if (CONFECT_DEV_ENABLED && confectDevMode) {
+if (confectDevMode) {
 	process.exit(
 		await runLocalConfectDev({
 			mode: confectDevMode,
@@ -26,8 +25,6 @@ if (CONFECT_DEV_ENABLED && confectDevMode) {
 		})
 	);
 }
-
-const authoredContentWatcher = watchAuthoredContent();
 
 // We deliberately do NOT pass --host (see scripts/dev-test.ts for the reasoning):
 // vite's default host `localhost` keeps resolvedUrls.local[0] aligned with the
@@ -42,7 +39,6 @@ const child = Bun.spawn(['vite', 'dev', ...portArgs], {
 });
 
 const onSignal = (signal: NodeJS.Signals) => {
-	authoredContentWatcher.close();
 	try {
 		child.kill(signal);
 	} catch {
@@ -53,5 +49,4 @@ process.on('SIGINT', () => onSignal('SIGINT'));
 process.on('SIGTERM', () => onSignal('SIGTERM'));
 
 const code = await child.exited;
-authoredContentWatcher.close();
 process.exit(code ?? 0);

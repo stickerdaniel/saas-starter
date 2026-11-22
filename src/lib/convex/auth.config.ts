@@ -1,6 +1,3 @@
-import type { AuthConfig } from 'convex/server';
-import { getAuthConfigProvider } from '@convex-dev/better-auth/auth-config';
+import auth from "../confect/auth";
 
-export default {
-	providers: [getAuthConfigProvider()]
-} satisfies AuthConfig;
+export default auth;

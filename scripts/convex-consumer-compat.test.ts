@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { confectCodegen } from './confect-stage';
+import { confectCodegen } from './confect-codegen';
 import {
 	brokenReferences,
 	consumerReferencesIn,

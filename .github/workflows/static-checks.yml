@@ -127,12 +127,12 @@ jobs:
       - run: bun scripts/static-checks.ts --ci --scope lint
       - name: Check that the committed Confect codegen is current
         run: |
-          bun run confect:stage
-          status="$(git status --porcelain=v1 --untracked-files=all -- src/lib/confect/_generated)"
+          bun run confect:codegen
+          status="$(git status --porcelain=v1 --untracked-files=all -- src/lib/convex src/lib/confect/_generated)"
           if [ -n "$status" ]; then
-            echo "src/lib/confect/_generated differs from a fresh staging run. Run bun run confect:stage and commit the result." >&2
+            echo "src/lib/convex or src/lib/confect/_generated differs from a fresh codegen run. Run bun run confect:codegen and commit the result." >&2
             printf '%s\n' "$status" >&2
-            git diff -- src/lib/confect/_generated | head -c 20000 >&2 || true
+            git diff -- src/lib/convex src/lib/confect/_generated | head -c 20000 >&2 || true
             exit 1
           fi
       # Unit Tests runs this too, but docs/deployment/previews.md tells forks to require only this job.
