@@ -27,7 +27,16 @@
  *   await requireOwner(ctx, row); await ctx.db.patch(...); }
  */
 
+import path from 'node:path';
+
 const PUBLIC_BUILDERS = new Set(['query', 'mutation', 'action']);
+const NATIVE_PUBLIC_SPECS = new Set([
+	'publicQuery',
+	'publicPaginatedQuery',
+	'publicMutation',
+	'publicAction',
+	'publicNodeAction'
+]);
 const DB_WRITES = new Set(['insert', 'patch', 'replace', 'delete']);
 const STORAGE_WRITES = new Set(['store', 'delete', 'generateUploadUrl']);
 const RUNNERS = new Set(['runMutation', 'runAction']);
@@ -93,6 +102,94 @@ function collectCalls(node, calls = []) {
 	return calls;
 }
 
+function importDefinition(context, identifier) {
+	for (let scope = context.sourceCode.getScope(identifier); scope; scope = scope.upper) {
+		const variable = scope.set.get(identifier.name);
+		if (!variable) continue;
+		const definition = variable.defs[0];
+		return definition?.type === 'ImportBinding' ? definition : null;
+	}
+	return null;
+}
+
+function isConfectCore(context, node, name) {
+	if (node?.type !== 'Identifier') return false;
+	const definition = importDefinition(context, node);
+	if (!definition || definition.parent.source.value !== '@confect/core') return false;
+	const specifier = definition.node;
+	if (specifier.type !== 'ImportSpecifier') return false;
+	const imported =
+		specifier.imported.type === 'Identifier' ? specifier.imported.name : specifier.imported.value;
+	return imported === name;
+}
+
+function methodName(call) {
+	const callee = call?.type === 'CallExpression' ? call.callee : null;
+	return callee?.type === 'MemberExpression' && !callee.computed && !callee.optional
+		? propertyName(callee)
+		: null;
+}
+
+function outerCall(call) {
+	const member = call.parent;
+	if (member?.type !== 'MemberExpression' || member.object !== call || member.computed) return null;
+	const outer = member.parent;
+	return outer?.type === 'CallExpression' && outer.callee === member ? outer : null;
+}
+
+function specName(call) {
+	const config = call.arguments.length === 1 ? unwrap(call.arguments[0]) : null;
+	const property =
+		config?.type === 'ObjectExpression' &&
+		config.properties.find(
+			(entry) =>
+				entry.type === 'Property' &&
+				!entry.computed &&
+				entry.key.type === 'Identifier' &&
+				entry.key.name === 'name'
+		);
+	return property && property.value.type === 'Literal' && typeof property.value.value === 'string'
+		? property.value.value
+		: null;
+}
+
+function coveringMiddleware(context, spec) {
+	const covering = [];
+	let node = spec;
+	for (
+		let outer = outerCall(node);
+		outer && methodName(outer) === 'middleware';
+		outer = outerCall(node)
+	) {
+		covering.push(outer.arguments[0]);
+		node = outer;
+	}
+	const addFunction = node.parent;
+	if (
+		addFunction?.type !== 'CallExpression' ||
+		methodName(addFunction) !== 'addFunction' ||
+		addFunction.arguments[0] !== node
+	) {
+		return null;
+	}
+	let top = addFunction;
+	for (let outer = outerCall(top); outer; outer = outerCall(top)) top = outer;
+	for (let link = top; ; link = link.callee.object) {
+		if (link?.type !== 'CallExpression' || link.callee.type !== 'MemberExpression') return null;
+		if (methodName(link) === 'make' && isConfectCore(context, link.callee.object, 'GroupSpec')) {
+			return covering;
+		}
+		if (methodName(link) === 'middleware') covering.push(link.arguments[0]);
+	}
+}
+
+function groupPath(context, directory) {
+	const file = path.relative(context.cwd, context.filename).split(path.sep).join('/');
+	const prefix = directory.endsWith('/') ? directory : `${directory}/`;
+	const relative = file.startsWith(prefix) ? file.slice(prefix.length) : file;
+	return relative.replace(/\.spec\.[jt]s$/, '');
+}
+
 export default {
 	meta: {
 		type: 'problem',
@@ -104,7 +201,10 @@ export default {
 				type: 'object',
 				properties: {
 					pattern: { type: 'string' },
-					synchronous: { type: 'array', items: { type: 'string' } }
+					synchronous: { type: 'array', items: { type: 'string' } },
+					middleware: { type: 'array', items: { type: 'string' } },
+					public: { type: 'object', additionalProperties: { type: 'string' } },
+					directory: { type: 'string' }
 				},
 				required: ['pattern'],
 				additionalProperties: false
@@ -116,13 +216,60 @@ export default {
 			notAwaited:
 				"Await `{{name}}` as its own statement: the handler otherwise runs on before the check completes, and its refusal arrives after the work is done. A guard that throws synchronously belongs on the rule's `synchronous` list.",
 			effectBeforeGuard:
-				'Run the guard statement before this effect. A refused caller must not change data, schedule work or reach the network; reads that find the resource may stay before the guard.'
+				'Run the guard statement before this effect. A refused caller must not change data, schedule work or reach the network; reads that find the resource may stay before the guard.',
+			missingMiddleware:
+				"Attach an access middleware ({{middleware}}) to `{{name}}` or to its own group with `.middleware(...)`, or list `{{name}}` in the rule's `public` allowlist with the reason it serves every caller. A parent group's middleware does not cover a subgroup.",
+			unreadGroup:
+				'Pass this public spec to `.addFunction(...)` on a `GroupSpec.make()` chain in this file, so the access rule can see the middleware that covers it.'
 		}
 	},
 	create(context) {
-		const { pattern: source, synchronous = [] } = context.options[0];
+		const {
+			pattern: source,
+			synchronous = [],
+			middleware = [],
+			public: publicFunctions = {},
+			directory = 'src/lib/confect'
+		} = context.options[0];
 		const pattern = new RegExp(source);
 		const synchronousGuards = new Set(synchronous);
+		const middlewareSource = new RegExp(
+			`(^|/)middleware/(${middleware.map((name) => name.replace(/[^\w$]/g, '')).join('|')})\\.spec(\\.[jt]s)?$`
+		);
+
+		const isAccessMiddleware = (node) => {
+			if (middleware.length === 0 || node?.type !== 'Identifier') return false;
+			const definition = importDefinition(context, node);
+			return (
+				definition?.node.type === 'ImportDefaultSpecifier' &&
+				middlewareSource.test(definition.parent.source.value)
+			);
+		};
+
+		function checkNativeSpec(call) {
+			const member = call.callee;
+			if (
+				member.type !== 'MemberExpression' ||
+				member.computed ||
+				!NATIVE_PUBLIC_SPECS.has(propertyName(member)) ||
+				!isConfectCore(context, member.object, 'FunctionSpec')
+			) {
+				return;
+			}
+			const covering = coveringMiddleware(context, call);
+			if (covering === null) {
+				context.report({ node: call, messageId: 'unreadGroup' });
+				return;
+			}
+			if (covering.some(isAccessMiddleware)) return;
+			const name = `${groupPath(context, directory)}:${specName(call) ?? '?'}`;
+			if (Object.hasOwn(publicFunctions, name)) return;
+			context.report({
+				node: call,
+				messageId: 'missingMiddleware',
+				data: { name, middleware: middleware.join(', ') || 'none configured' }
+			});
+		}
 
 		// An optional chain can skip the call, so `guard?.(ctx)` and `guards?.require(ctx)` are no guard.
 		const guardCall = (expression) => {
@@ -152,6 +299,7 @@ export default {
 
 		return {
 			CallExpression(node) {
+				checkNativeSpec(node);
 				if (node.callee.type !== 'Identifier' || !PUBLIC_BUILDERS.has(node.callee.name)) return;
 				const config = node.arguments[0] && unwrap(node.arguments[0]);
 				if (config?.type !== 'ObjectExpression') return;

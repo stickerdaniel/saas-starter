@@ -29,6 +29,8 @@ import {
 	CUSTOM_REGISTRARS,
 	RAW_REGISTRARS
 } from '../convex-registrars.js';
+import { resolveEffect } from 'eslint-plugin-saas-starter/effect-scope';
+import { findDefinition, isPlainOnlySpec } from '../confect-spec-kinds.js';
 
 const PUBLIC_BUILDERS = new Set(['query', 'mutation', 'action']);
 const NATIVE_SPECS = new Set(CONFECT_NATIVE_SPECS);
@@ -97,6 +99,34 @@ function isCustomBuilderArgument(identifier, sourceCode) {
 	return false;
 }
 
+const isFunction = (node) =>
+	node?.type === 'ArrowFunctionExpression' || node?.type === 'FunctionExpression';
+
+const isStaticReference = (node) =>
+	node.type === 'Identifier' ||
+	(node.type === 'MemberExpression' && !node.computed && isStaticReference(node.object));
+
+const EAGER_MEMBER = /^run|Unsafe$|Eager$/;
+
+function evaluatesBinding(node) {
+	switch (node?.type) {
+		case 'AssignmentPattern':
+			return true;
+		case 'ObjectPattern':
+			return node.properties.some((property) =>
+				property.type === 'RestElement'
+					? evaluatesBinding(property.argument)
+					: property.computed || evaluatesBinding(property.value)
+			);
+		case 'ArrayPattern':
+			return node.elements.some(evaluatesBinding);
+		case 'RestElement':
+			return evaluatesBinding(node.argument);
+		default:
+			return false;
+	}
+}
+
 export default {
 	meta: {
 		type: 'problem',
@@ -127,10 +157,121 @@ export default {
 			nativeSpecShape:
 				'Pass `FunctionSpec.{{name}}` one object literal with plain identifier keys and a string literal `name`. The spec graph checks read the function name from it.',
 			implShape:
-				"Call `FunctionImpl.make(schema, group, 'name', implementation)` with a string literal name. The spec graph checks pair an implementation with its spec by that name."
+				"Call `FunctionImpl.make(schema, group, 'name', implementation)` with a string literal name. The spec graph checks pair an implementation with its spec by that name.",
+			inlineImplementation:
+				'Pass a native implementation to `FunctionImpl.make` inline, or the Convex registration of a plain spec by its import. The registration rules read the handler form only inline, and accept an import only when the group comes from a spec file of plain specs that reads no value from another module.',
+			eagerImplementation:
+				'Return `Effect.gen(...)` or an `Effect.fn(...)(...)` call directly from this implementation, with every step, default value and computed key inside the Effect; `.pipe(...)` and `Effect.fn` may follow with `effect/Effect` operators only, given identifiers, namespace import members, literals and functions, and no `run*`, `*Unsafe` or `*Eager` member. Confect calls the implementation before it runs middleware, so a step outside the Effect runs for a caller the middleware refuses.'
 		}
 	},
 	create(context) {
+		const effectMember = (node, member) => {
+			const binding = resolveEffect(context, node);
+			return binding?.namespace === 'Effect' && binding.member === member;
+		};
+
+		const isGenerator = (node) => node?.type === 'FunctionExpression' && node.generator;
+
+		const isNamespaceMember = (node) =>
+			node.type === 'MemberExpression' &&
+			!node.computed &&
+			node.object.type === 'Identifier' &&
+			findDefinition(context, node.object)?.node.type === 'ImportNamespaceSpecifier';
+
+		const isInertReference = (node) => node.type === 'Identifier' || isNamespaceMember(node);
+
+		const isInertArgument = (node) =>
+			isInertReference(node) ||
+			isFunction(node) ||
+			node.type === 'Literal' ||
+			(node.type === 'TemplateLiteral' && node.expressions.length === 0);
+
+		const isEffectOperatorReference = (node) => {
+			if (!isStaticReference(node)) return false;
+			const binding = resolveEffect(context, node);
+			return (
+				binding?.namespace === 'Effect' &&
+				Boolean(binding.member) &&
+				!EAGER_MEMBER.test(binding.member)
+			);
+		};
+
+		const isEffectOperator = (node) =>
+			isEffectOperatorReference(node) ||
+			(node.type === 'CallExpression' &&
+				isEffectOperatorReference(node.callee) &&
+				node.arguments.every(isInertArgument));
+
+		function isEffectFn(call) {
+			if (call.type !== 'CallExpression') return false;
+			const [body, ...pipeables] = call.arguments;
+			if (effectMember(call.callee, 'fn')) {
+				return isGenerator(body) && pipeables.every(isEffectOperator);
+			}
+			return (
+				call.callee.type === 'CallExpression' &&
+				effectMember(call.callee.callee, 'fn') &&
+				call.callee.arguments.every(
+					(argument) => argument.type === 'Literal' && typeof argument.value === 'string'
+				) &&
+				isGenerator(body) &&
+				pipeables.every(isEffectOperator)
+			);
+		}
+
+		function isLazyEffect(node) {
+			const expression = unwrap(node);
+			if (expression.type !== 'CallExpression') return false;
+			if (effectMember(expression.callee, 'gen')) {
+				return expression.arguments.length === 1 && isGenerator(expression.arguments[0]);
+			}
+			if (isEffectFn(expression.callee)) {
+				return expression.arguments.every(isInertReference);
+			}
+			const { callee } = expression;
+			return (
+				callee.type === 'MemberExpression' &&
+				!callee.computed &&
+				callee.property.type === 'Identifier' &&
+				callee.property.name === 'pipe' &&
+				isLazyEffect(callee.object) &&
+				expression.arguments.every(isEffectOperator)
+			);
+		}
+
+		function checkImplementation(group, name, implementation) {
+			const value = unwrap(implementation);
+			if (value.type === 'Identifier') {
+				if (
+					findDefinition(context, value)?.type !== 'ImportBinding' ||
+					!isPlainOnlySpec(context, group, name, PLAIN_SPECS)
+				) {
+					context.report({ node: value, messageId: 'inlineImplementation' });
+				}
+				return;
+			}
+			if (!isFunction(value)) {
+				context.report({ node: value, messageId: 'inlineImplementation' });
+				return;
+			}
+			const statements = value.body.type === 'BlockStatement' ? value.body.body : null;
+			const returned =
+				statements === null
+					? value.body
+					: statements.length === 1 && statements[0].type === 'ReturnStatement'
+						? statements[0].argument
+						: null;
+			if (
+				value.async ||
+				value.generator ||
+				value.params.some(evaluatesBinding) ||
+				!returned ||
+				!isLazyEffect(returned)
+			) {
+				context.report({ node: value, messageId: 'eagerImplementation' });
+			}
+		}
+
 		function checkRegistration(call, name) {
 			const config = call.arguments.length === 1 ? unwrap(call.arguments[0]) : null;
 			if (!hasPlainKeys(config)) {
@@ -176,7 +317,9 @@ export default {
 			if (constructor === 'FunctionImpl') {
 				if (call.arguments.length !== 4 || !isStringLiteral(call.arguments[2])) {
 					context.report({ node: call, messageId: 'implShape' });
+					return;
 				}
+				checkImplementation(call.arguments[1], call.arguments[2], call.arguments[3]);
 				return;
 			}
 			if (NATIVE_SPECS.has(name)) {

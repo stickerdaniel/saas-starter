@@ -6,7 +6,8 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.js",
-		"./control-character-policy": "./src/control-character-policy.js"
+		"./control-character-policy": "./src/control-character-policy.js",
+		"./effect-scope": "./src/effect-scope.js"
 	},
 	"peerDependencies": {
 		"eslint": "^10.14.0"

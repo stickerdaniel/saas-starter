@@ -31,6 +31,7 @@ import noRawCaughtErrorLogRule from './eslint/rules/no-raw-caught-error-log.js';
 import noHistoryCommentRule from './eslint/rules/no-history-comment.js';
 import convexCanonicalRegistrationRule from './eslint/rules/convex-canonical-registration.js';
 import convexAccessFirstRule from './eslint/rules/convex-access-first.js';
+import convexEffectQuerySafetyRule from './eslint/rules/convex-effect-query-safety.js';
 import confectDefinitionImportsRule from './eslint/rules/confect-definition-imports.js';
 import noSourceTextReadRule from './eslint/rules/no-source-text-read.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
@@ -42,6 +43,7 @@ const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 // a boolean predicate such as `canEdit` or `hasRole` is no guard. `publicEndpoint`
 // from src/lib/confect/access.ts marks a function open to every caller.
 const convexAccessPattern = '^(require|assert|ensure)([A-Z_]|$)|^publicEndpoint$';
+const CONFECT_PUBLIC_FUNCTIONS = {};
 // Code the Convex runtime loads: the registration modules in the functions directory,
 // the helpers, tests and shared validators beside it, and the local components.
 const CONVEX_RUNTIME_DIRS = ['src/lib/convex', 'src/lib/confect', 'src/lib/convex-components'];
@@ -93,6 +95,7 @@ const localPlugin = {
 		'no-history-comment': noHistoryCommentRule,
 		'convex-canonical-registration': convexCanonicalRegistrationRule,
 		'convex-access-first': convexAccessFirstRule,
+		'convex-effect-query-safety': convexEffectQuerySafetyRule,
 		'confect-definition-imports': confectDefinitionImportsRule,
 		'no-source-text-read': noSourceTextReadRule
 	}
@@ -736,8 +739,14 @@ export default defineConfig(
 			'local/convex-canonical-registration': 'error',
 			'local/convex-access-first': [
 				'error',
-				{ pattern: convexAccessPattern, synchronous: ['publicEndpoint', 'requireTestSecret'] }
-			]
+				{
+					pattern: convexAccessPattern,
+					synchronous: ['publicEndpoint', 'requireTestSecret'],
+					middleware: ['RequireUser', 'RequireAdmin', 'VisitorAccess'],
+					public: CONFECT_PUBLIC_FUNCTIONS
+				}
+			],
+			'local/convex-effect-query-safety': 'error'
 		}
 	},
 	{

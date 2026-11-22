@@ -1,11 +1,76 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { Linter } from 'eslint';
 import { parser } from 'typescript-eslint';
 import { FunctionSpec } from '@confect/core';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { CONFECT_NATIVE_SPECS, CONFECT_PLAIN_SPECS } from '../convex-registrars.js';
 import rule from './convex-canonical-registration.js';
 
-const linter = new Linter({ configType: 'flat' });
+const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'convex-canonical-registration-'));
+fs.writeFileSync(
+	path.join(directory, 'notes.spec.ts'),
+	`import { FunctionSpec, GroupSpec } from '@confect/core';
+import type { list } from './notes';
+export default GroupSpec.make().addFunction(FunctionSpec.convexPublicQuery<typeof list>()('list'));
+`
+);
+fs.writeFileSync(
+	path.join(directory, 'native.spec.ts'),
+	`import { FunctionSpec, GroupSpec } from '@confect/core';
+import type { list } from './notes';
+export default GroupSpec.make()
+	.addFunction(FunctionSpec.convexPublicQuery<typeof list>()('list'))
+	.addFunction(FunctionSpec.publicQuery({ name: 'page', args: () => ({}), returns: () => Schema.Null }));
+`
+);
+fs.writeFileSync(
+	path.join(directory, 'asserted.spec.ts'),
+	`import { FunctionSpec, GroupSpec } from '@confect/core';
+import type { list } from './legacy';
+export const nativeGroup = GroupSpec.make().addFunction(
+	FunctionSpec.internalQuery({ name: 'list', args: () => ({}), returns: () => Schema.Number } as const)
+);
+const legacy = GroupSpec.make().addFunction(FunctionSpec.convexInternalQuery<typeof list>()('list'));
+export default GroupSpec.addGroupsAt(legacy, { nativeGroup });
+`
+);
+fs.writeFileSync(
+	path.join(directory, 'typed.spec.ts'),
+	`import { FunctionSpec, GroupSpec } from '@confect/core';
+import { type list } from './notes';
+export default GroupSpec.make().addFunction(FunctionSpec.convexPublicQuery<typeof list>()('list'));
+`
+);
+fs.writeFileSync(
+	path.join(directory, 'barrel.spec.ts'),
+	`import { FunctionSpec, GroupSpec } from '@confect/core';
+import type { list } from './legacy';
+import { nativeGroup } from './native-group';
+export { nativeGroup } from './native-group';
+const legacy = GroupSpec.make().addFunction(FunctionSpec.convexPublicQuery<typeof list>()('list'));
+export default GroupSpec.addGroupsAt(legacy, { nativeGroup });
+`
+);
+
+fs.writeFileSync(
+	path.join(directory, 'mixed.spec.ts'),
+	`import { FunctionSpec, GroupSpec } from '@confect/core';
+import type { list } from './legacy';
+export const nativeGroup = GroupSpec.make().addFunction(
+	FunctionSpec.publicQuery({ name: 'list', args: () => ({}), returns: () => Schema.Number })
+);
+const legacy = GroupSpec.make().addFunction(FunctionSpec.convexPublicQuery<typeof list>()('list'));
+export default GroupSpec.addGroupsAt(legacy, { nativeGroup });
+`
+);
+
+afterAll(() => {
+	fs.rmSync(directory, { recursive: true, force: true });
+});
+
+const linter = new Linter({ configType: 'flat', cwd: directory });
 const config = [
 	{
 		files: ['**/*.ts'],
@@ -17,7 +82,7 @@ const config = [
 
 function messageIds(code: string) {
 	return linter
-		.verify(code, config, { filename: 'src/lib/convex/notes.ts' })
+		.verify(code, config, { filename: path.join(directory, 'notes.impl.ts') })
 		.map((message) => message.messageId);
 }
 
@@ -237,6 +302,8 @@ describe('convex-canonical-registration', () => {
 			'a Confect group implementation',
 			`import { FunctionImpl, GroupImpl } from '@confect/server';
 			import * as Layer from 'effect/Layer';
+			import { list } from './notes';
+			import notes from './notes.spec';
 			export default GroupImpl.make(databaseSchema, notes).pipe(
 				Layer.provide([FunctionImpl.make(databaseSchema, notes, 'list', list)]),
 				GroupImpl.finalize
@@ -258,5 +325,184 @@ describe('convex-canonical-registration', () => {
 				.filter((name) => name !== 'TypeId' && name !== 'isFunctionSpec')
 				.sort()
 		);
+	});
+
+	describe('a native implementation', () => {
+		const implementation = (handler: string, extra = "import * as Effect from 'effect/Effect';") =>
+			messageIds(`import { FunctionImpl } from '@confect/server';
+			${extra}
+			export const f = FunctionImpl.make(databaseSchema, notes, 'list', ${handler});`);
+
+		it.each([
+			['an Effect.gen', '() => Effect.gen(function* () { return yield* Effect.succeed(null); })'],
+			[
+				'an Effect.gen piped through references and functions',
+				"({ text }) => Effect.gen(function* () { return text; }).pipe(Effect.orDie, Effect.catchTag('Missing', () => Effect.succeed(null)))"
+			],
+			[
+				'an Effect.fn call',
+				"(args) => Effect.fn('notes.list')(function* (input) { return input; })(args)"
+			],
+			[
+				'a block that only returns the Effect',
+				'(args) => { return Effect.gen(function* () { return args; }); }'
+			],
+			[
+				'a named gen import',
+				'() => gen(function* () { return null; })',
+				"import { gen } from 'effect/Effect';"
+			],
+			[
+				'an Effect.gen piped through an operator with a callback',
+				'() => Effect.gen(function* () { return 1; }).pipe(Effect.map((value) => value + 1))'
+			],
+			[
+				'an Effect.fn call with an operator pipeable',
+				"(args) => Effect.fn('notes.list')(function* (input) { return input; }, Effect.withSpan('notes'))(args)"
+			],
+			[
+				'a destructured parameter with plain keys',
+				'({ text, page: { size } }) => Effect.gen(function* () { return [text, size]; })'
+			],
+			[
+				'a pipe argument from a namespace import',
+				'() => Effect.gen(function* () { return null; }).pipe(Effect.provide(Layers.Live))',
+				"import * as Effect from 'effect/Effect';\nimport * as Layers from './layers';"
+			]
+		])('passes %s', (_label, handler, extra?: string) => {
+			expect(implementation(handler, extra)).toEqual([]);
+		});
+
+		it.each([
+			[
+				'a factory with an observable step before the Effect',
+				'(args) => { console.log("list", args); return Effect.gen(function* () { return args; }); }'
+			],
+			[
+				'a factory that reads before the Effect',
+				'(args) => { const row = load(args); return Effect.gen(function* () { return row; }); }'
+			],
+			['an Effect built from an eager value', '() => Effect.succeed(compute())'],
+			['an async implementation', 'async () => Effect.gen(function* () { return null; })'],
+			[
+				'a default value computed before the Effect',
+				'({ limit = expensive() }) => Effect.gen(function* () { return limit; })'
+			],
+			[
+				'a pipe argument computed before the Effect',
+				'() => Effect.gen(function* () { return null; }).pipe(Effect.provideService(Tag, build()))'
+			],
+			[
+				'an Effect.fn called with a computed argument',
+				'(args) => Effect.fn(function* (input) { return input; })(prepare(args))'
+			],
+			[
+				'a pipe callback that runs before the Effect',
+				'() => Effect.gen(function* () { return "ok"; }).pipe((effect) => { danger(); return effect; })'
+			],
+			[
+				'a computed key in the parameter destructuring',
+				'({ [eager()]: value }) => Effect.gen(function* () { return value; })'
+			],
+			[
+				'a computed key in a nested parameter pattern',
+				'({ page: { [eager()]: size } }) => Effect.gen(function* () { return size; })'
+			],
+			[
+				'a pipe operator that runs the Effect',
+				'() => Effect.gen(function* () { return null; }).pipe(Effect.runSync)'
+			],
+			[
+				'a pipe operator from another module',
+				'() => Effect.gen(function* () { return null; }).pipe(withAudit(log))'
+			],
+			[
+				'an Effect.fn pipeable that is a plain function',
+				"(args) => Effect.fn('notes.list')(function* (input) { return input; }, (effect) => { danger(); return effect; })(args)"
+			],
+			[
+				'a pipe operator that runs the Effect eagerly',
+				'() => Effect.gen(function* () { return null; }).pipe(Effect.fnUntracedEager(function* (program) { danger(); return yield* program; }))'
+			],
+			[
+				'a pipe argument read through a property',
+				'() => Effect.gen(function* () { return 1; }).pipe(Effect.map(operators.mapper))'
+			],
+			[
+				'a pipe argument read below a namespace export',
+				'() => Effect.gen(function* () { return 1; }).pipe(Effect.map(Operators.registry.mapper))',
+				"import * as Effect from 'effect/Effect';\nimport * as Operators from './operators';"
+			],
+			[
+				'an Effect.fn called with a property read',
+				"(args) => Effect.fn('notes.list')(function* (input) { return input; })(args.input)"
+			],
+			[
+				'gen from a module other than effect/Effect',
+				'() => Effect.gen(function* () { return null; })',
+				"import * as Effect from './effect';"
+			]
+		])('reports %s', (_label, handler, extra?: string) => {
+			expect(implementation(handler, extra)).toEqual(['eagerImplementation']);
+		});
+
+		it.each([
+			['a native spec', 'native', 'page'],
+			['a plain spec next to a native one', 'native', 'list'],
+			['a plain spec next to an asserted native one', 'asserted', 'list'],
+			['a name the spec file does not declare', 'notes', 'other']
+		])('reports an imported implementation of %s', (_label, spec, name) => {
+			expect(
+				messageIds(`import { FunctionImpl } from '@confect/server';
+				import { list } from './factories';
+				import notes from './${spec}.spec';
+				export const f = FunctionImpl.make(databaseSchema, notes, '${name}', list);`)
+			).toEqual(['inlineImplementation']);
+		});
+
+		it('reports an imported implementation for a group its spec file re-exports from another module', () => {
+			expect(
+				messageIds(`import { FunctionImpl } from '@confect/server';
+				import { list } from './factories';
+				import { nativeGroup } from './barrel.spec';
+				export const f = FunctionImpl.make(databaseSchema, nativeGroup, 'list', list);`)
+			).toEqual(['inlineImplementation']);
+		});
+
+		it('reports an imported implementation whose name has another kind in a second group of its spec file', () => {
+			expect(
+				messageIds(`import { FunctionImpl } from '@confect/server';
+				import { list } from './factories';
+				import { nativeGroup } from './mixed.spec';
+				export const f = FunctionImpl.make(databaseSchema, nativeGroup, 'list', list);`)
+			).toEqual(['inlineImplementation']);
+		});
+
+		it('reports an imported implementation whose spec file it cannot read', () => {
+			expect(
+				messageIds(`import { FunctionImpl } from '@confect/server';
+				import { list } from './notes';
+				import notes from './missing.spec';
+				export const f = FunctionImpl.make(databaseSchema, notes, 'list', list);`)
+			).toEqual(['inlineImplementation']);
+		});
+
+		it('passes an imported implementation from a spec file with a specifier-level type import', () => {
+			expect(
+				messageIds(`import { FunctionImpl } from '@confect/server';
+				import { list } from './notes';
+				import notes from './typed.spec';
+				export const f = FunctionImpl.make(databaseSchema, notes, 'list', list);`)
+			).toEqual([]);
+		});
+
+		it('reports an implementation held in a local binding', () => {
+			expect(
+				implementation(
+					'list',
+					"import * as Effect from 'effect/Effect';\nconst list = () => Effect.gen(function* () { return null; });"
+				)
+			).toEqual(['inlineImplementation']);
+		});
 	});
 });
