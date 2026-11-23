@@ -1,4 +1,4 @@
-import { expect } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { guardClientErrors, test } from './utils/test';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
@@ -16,6 +16,12 @@ test.use({ storageState: { cookies: [], origins: [] } });
 const password = 'PasskeyTestPassword123!';
 // The query holds a double slash and the hash a nested path, which route resolution would rewrite.
 const destination = '/en/app/community-chat?source=https://example.com/invite#latest//replies';
+const home = '/en/app/community-chat';
+const at = (target: string) => (url: URL) => url.pathname + url.search + url.hash === target;
+const documentAt = (page: Page, target: string) =>
+	page.waitForEvent('domcontentloaded', {
+		predicate: (loaded) => at(target)(new URL(loaded.url()))
+	});
 const client = () => new ConvexHttpClient(resolveConvexUrl()!);
 const secret = () => process.env.AUTH_E2E_TEST_SECRET!;
 
@@ -58,7 +64,7 @@ test('offers, registers and uses a passkey while preserving the destination', as
 		await page.screenshot({ path: testInfo.outputPath('passkey-mobile.png') });
 		await page.getByLabel('Passkey name', { exact: true }).fill('E2E passkey');
 		await page.getByRole('button', { name: 'Create passkey', exact: true }).click();
-		await expect(page).toHaveURL(destination);
+		await page.waitForURL(at(destination));
 		await expect(page.getByText('Passkey added successfully', { exact: true })).toBeVisible();
 		const registered = await (
 			await page.request.get('/api/auth/passkey/list-user-passkeys')
@@ -74,8 +80,9 @@ test('offers, registers and uses a passkey while preserving the destination', as
 		await page.request.post('/api/auth/sign-out', { headers: { Origin: resolveSiteUrl() } });
 		await page.context().clearCookies();
 		await page.goto(`/en/signin?redirectTo=${encodeURIComponent(destination)}`);
+		const returned = documentAt(page, destination);
 		await submitSignInForm(page, email, password);
-		await expect(page).toHaveURL(destination);
+		await returned;
 		await expect(page.getByRole('heading', { name: 'Make your next sign-in easier' })).toHaveCount(
 			0
 		);
@@ -83,7 +90,9 @@ test('offers, registers and uses a passkey while preserving the destination', as
 		await page.request.post('/api/auth/sign-out', { headers: { Origin: resolveSiteUrl() } });
 		await page.context().clearCookies();
 		await page.goto('/en/signin');
+		const signedIn = documentAt(page, home);
 		await page.getByRole('button', { name: 'Sign in with Passkey', exact: true }).click();
+		await signedIn;
 		await expect(page.locator('#user-menu-trigger')).toBeVisible();
 		expect(
 			await page.evaluate(() => JSON.parse(localStorage.getItem('auth:last-auth-method') ?? 'null'))
@@ -108,7 +117,9 @@ test('remembers Not now on another browser for the same account', async ({ page,
 		await page.context().clearCookies();
 		await page.goto('/en/signin');
 		await submitSignInForm(page, email, password);
+		const deferred = documentAt(page, home);
 		await page.getByRole('button', { name: 'Not now', exact: true }).click();
+		await deferred;
 		await expect(page.locator('#user-menu-trigger')).toBeVisible();
 		const otherBrowser = await guardClientErrors(
 			await browser.newContext({
@@ -119,7 +130,9 @@ test('remembers Not now on another browser for the same account', async ({ page,
 		try {
 			const otherPage = await otherBrowser.newPage();
 			await otherPage.goto(`${resolveSiteUrl()}/en/signin`);
+			const signedIn = documentAt(otherPage, home);
 			await submitSignInForm(otherPage, email, password);
+			await signedIn;
 			await expect(otherPage.locator('#user-menu-trigger')).toBeVisible();
 			await expect(
 				otherPage.getByRole('heading', { name: 'Make your next sign-in easier' })
