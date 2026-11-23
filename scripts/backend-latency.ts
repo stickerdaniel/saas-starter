@@ -8,8 +8,14 @@ import { required } from './required';
 
 export const MAX_LOAD_AVERAGE = 8;
 const REQUEST_DEADLINE_MS = 10_000;
+const RUNS = 100;
+const WARMUP = 10;
+const ATTEMPTS = 3;
 
-const oneMinuteLoad = () => required(os.loadavg()[0], 'load average');
+function oneMinuteLoad() {
+	if (process.platform === 'win32') throw new Error('No load average on Windows');
+	return required(os.loadavg()[0], 'load average');
+}
 
 export type FunctionKind = 'query' | 'mutation';
 
@@ -45,13 +51,15 @@ export type Execution =
 	| { kind: 'failed'; error: string }
 	| { kind: 'ambiguous'; completions: number };
 
+const completionsOf = (entries: readonly LogEntry[], identifier: string) =>
+	entries.filter((entry) => entry.kind === 'Completion' && entry.identifier === identifier);
+
 export function executionOf(
 	entries: readonly LogEntry[],
 	identifier: string
 ): Execution | undefined {
-	const completions = entries.filter(
-		(entry) =>
-			entry.kind === 'Completion' && entry.identifier === identifier && entry.willRetry !== true
+	const completions = completionsOf(entries, identifier).filter(
+		(entry) => entry.willRetry === false
 	);
 	const [completion] = completions;
 	if (completion === undefined) return undefined;
@@ -90,13 +98,18 @@ export type Attempt = {
 	roundTrip: { p50Ms: number; p95Ms: number; minMs: number; maxMs: number };
 	executed: number;
 	notExecuted: { cached: number; failed: number; missing: number; ambiguous: number };
+	lateCompletions: number;
 	userExecution:
 		{ proven: true; p50Ms: number; p95Ms: number } | { proven: false; callsWithoutField: number };
 };
 
 const round = (value: number) => Number(value.toFixed(3));
 
-export function summarizeAttempt(samples: readonly CallSample[], load: LoadReading): Attempt {
+export function summarizeAttempt(
+	samples: readonly CallSample[],
+	load: LoadReading,
+	lateCompletions: number
+): Attempt {
 	const roundTrips = samples.map((sample) => sample.roundTripMs);
 	const notExecuted = { cached: 0, failed: 0, missing: 0, ambiguous: 0 };
 	const userExecution: number[] = [];
@@ -111,7 +124,7 @@ export function summarizeAttempt(samples: readonly CallSample[], load: LoadReadi
 	const allExecuted = executed === samples.length;
 	return {
 		load,
-		counted: allExecuted && countsUnderLoad(load),
+		counted: allExecuted && withoutField === 0 && lateCompletions === 0 && countsUnderLoad(load),
 		roundTrip: {
 			p50Ms: round(percentile(roundTrips, 50)),
 			p95Ms: round(percentile(roundTrips, 95)),
@@ -120,6 +133,7 @@ export function summarizeAttempt(samples: readonly CallSample[], load: LoadReadi
 		},
 		executed,
 		notExecuted,
+		lateCompletions,
 		userExecution:
 			allExecuted && withoutField === 0
 				? {
@@ -184,24 +198,37 @@ async function awaitExecution(backend: Backend, identifier: string, cursor: numb
 	}
 }
 
+async function countLateCompletions(backend: Backend, identifier: string, cursor: number) {
+	const signal = AbortSignal.timeout(REQUEST_DEADLINE_MS);
+	const seen: LogEntry[] = [];
+	let next = cursor;
+	while (true) {
+		try {
+			const page = await readLogs(backend, next, signal);
+			seen.push(...page.entries);
+			next = page.newCursor;
+		} catch (error) {
+			if (signal.aborted) return completionsOf(seen, identifier).length;
+			throw error;
+		}
+	}
+}
+
 export type RunOptions = {
 	identifier: string;
 	kind: FunctionKind;
 	args: unknown;
-	runs: number;
-	warmup: number;
-	attempts: number;
 };
 
 async function measure(backend: Backend, options: RunOptions): Promise<Attempt> {
 	let cursor = await currentCursor(backend);
-	for (let i = 0; i < options.warmup; i++) {
+	for (let i = 0; i < WARMUP; i++) {
 		await call(backend, options.kind, options.identifier, options.args);
 		cursor = (await awaitExecution(backend, options.identifier, cursor)).cursor;
 	}
 	const start = oneMinuteLoad();
 	const samples: CallSample[] = [];
-	for (let i = 0; i < options.runs; i++) {
+	for (let i = 0; i < RUNS; i++) {
 		const begin = performance.now();
 		await call(backend, options.kind, options.identifier, options.args);
 		const roundTripMs = performance.now() - begin;
@@ -209,7 +236,9 @@ async function measure(backend: Backend, options: RunOptions): Promise<Attempt> 
 		cursor = read.cursor;
 		samples.push({ roundTripMs, execution: read.execution });
 	}
-	return summarizeAttempt(samples, { start, end: oneMinuteLoad() });
+	const end = oneMinuteLoad();
+	const late = await countLateCompletions(backend, options.identifier, cursor);
+	return summarizeAttempt(samples, { start, end }, late);
 }
 
 export function pinnedBackendRevision(viteConfig: string): string | undefined {
@@ -222,7 +251,7 @@ async function run(root: string, options: RunOptions) {
 		adminKey: readAdminKey(root, 'dev:test')
 	};
 	const attempts: Attempt[] = [];
-	for (let i = 0; i < options.attempts; i++) {
+	for (let i = 0; i < ATTEMPTS; i++) {
 		const attempt = await measure(backend, options);
 		attempts.push(attempt);
 		if (attempt.counted) break;
@@ -231,9 +260,12 @@ async function run(root: string, options: RunOptions) {
 	return {
 		identifier: options.identifier,
 		kind: options.kind,
-		runs: options.runs,
+		runs: RUNS,
+		warmup: WARMUP,
 		backendUrl: backend.url,
-		backendRevision: pinnedBackendRevision(readFileSync(path.join(root, 'vite.config.ts'), 'utf8')),
+		configuredBackendRevision: pinnedBackendRevision(
+			readFileSync(path.join(root, 'vite.config.ts'), 'utf8')
+		),
 		maxLoadAverage: MAX_LOAD_AVERAGE,
 		cpus: os.cpus().length,
 		status: counted ? 'counted' : 'unproven',
@@ -242,32 +274,23 @@ async function run(root: string, options: RunOptions) {
 	};
 }
 
-const countSchema = (min: number) => v.pipe(v.number(), v.integer(), v.minValue(min));
-
 if (import.meta.main) {
 	const { values } = parseArgs({
 		options: {
 			function: { type: 'string' },
 			kind: { type: 'string', default: 'mutation' },
 			args: { type: 'string', default: '{}' },
-			runs: { type: 'string', default: '100' },
-			warmup: { type: 'string', default: '10' },
-			attempts: { type: 'string', default: '3' },
 			out: { type: 'string' }
 		}
 	});
 	const kind = v.parse(v.picklist(['query', 'mutation']), values.kind);
-	const count = (value: string, min: number) => v.parse(countSchema(min), Number(value));
 	if (!values.function) {
 		throw new Error('Usage: bun run measure:backend --function <module:name> [--kind mutation]');
 	}
 	const report = await run(process.cwd(), {
 		identifier: values.function,
 		kind,
-		args: JSON.parse(values.args),
-		runs: count(values.runs, 1),
-		warmup: count(values.warmup, 0),
-		attempts: count(values.attempts, 1)
+		args: JSON.parse(values.args)
 	});
 	const text = JSON.stringify(report, null, 2);
 	if (values.out) writeFileSync(values.out, `${text}\n`);

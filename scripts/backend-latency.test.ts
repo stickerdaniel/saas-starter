@@ -84,6 +84,10 @@ describe('log stream', () => {
 		});
 	});
 
+	it('does not count a completion without the retry flag', () => {
+		expect(executionIn(completion({ willRetry: undefined }))).toBeUndefined();
+	});
+
 	it('ignores other functions and console entries', () => {
 		const other = completion({ identifier: 'users:getProfile' });
 		const consoleEntry = { kind: 'Console', identifier: IDENTIFIER, message: 'x' };
@@ -115,14 +119,14 @@ describe('attempt summary', () => {
 	const quiet = { start: 1, end: 1 };
 
 	it('counts a quiet run where every call executed', () => {
-		const attempt = summarizeAttempt([executed(10, 2), executed(20, 4), executed(30, 6)], quiet);
+		const attempt = summarizeAttempt([executed(10, 2), executed(20, 4), executed(30, 6)], quiet, 0);
 		expect(attempt.counted).toBe(true);
 		expect(attempt.roundTrip.p50Ms).toBe(20);
 		expect(attempt.userExecution).toEqual({ proven: true, p50Ms: 4, p95Ms: 6 });
 	});
 
 	it('does not count a run above the load limit', () => {
-		expect(summarizeAttempt([executed(10, 2)], { start: 30, end: 1 }).counted).toBe(false);
+		expect(summarizeAttempt([executed(10, 2)], { start: 30, end: 1 }, 0).counted).toBe(false);
 	});
 
 	it('does not count a run with a cached or unlogged call', () => {
@@ -132,15 +136,23 @@ describe('attempt summary', () => {
 				{ roundTripMs: 1, execution: { kind: 'cached' } },
 				{ roundTripMs: 1, execution: undefined }
 			],
-			quiet
+			quiet,
+			0
 		);
 		expect(attempt.counted).toBe(false);
 		expect(attempt.notExecuted).toMatchObject({ cached: 1, missing: 1 });
 	});
 
 	it('leaves the execution-time gate unproven when one call lacks the field', () => {
-		const attempt = summarizeAttempt([executed(10, 2), executed(20, undefined)], quiet);
+		const attempt = summarizeAttempt([executed(10, 2), executed(20, undefined)], quiet, 0);
 		expect(attempt.userExecution).toEqual({ proven: false, callsWithoutField: 1 });
+		expect(attempt.counted).toBe(false);
+	});
+
+	it('does not count a run when a completion arrives after the last call', () => {
+		const attempt = summarizeAttempt([executed(10, 2), executed(20, 4)], quiet, 1);
+		expect(attempt.counted).toBe(false);
+		expect(attempt.lateCompletions).toBe(1);
 	});
 });
 
