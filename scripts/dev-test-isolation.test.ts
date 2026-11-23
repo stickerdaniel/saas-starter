@@ -65,7 +65,7 @@ it('leaves a running dev server its env and dependency cache', { timeout: 60_000
 				const env = await vite.ssrLoadModule('$app/env/public');
 				await vite.close();
 				const served = JSON.stringify({ url: env.PUBLIC_CONVEX_URL, cacheDir: vite.config.cacheDir });
-				process.stdout.write(served + '\\n', () => process.exit(0));`
+				process.stdout.write(served + '\\n', () => process.exit());`
 			],
 			{
 				cwd: checkout,
