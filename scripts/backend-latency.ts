@@ -25,7 +25,8 @@ const logEntrySchema = v.looseObject({
 	cachedResult: v.optional(v.boolean()),
 	userExecutionTime: v.optional(v.nullable(v.number())),
 	willRetry: v.optional(v.nullable(v.boolean())),
-	error: v.optional(v.nullable(v.string()))
+	error: v.optional(v.nullable(v.string())),
+	identityType: v.optional(v.string())
 });
 
 const logPageSchema = v.object({
@@ -49,14 +50,37 @@ export type Execution =
 	| { kind: 'executed'; userExecutionMs: number | undefined }
 	| { kind: 'cached' }
 	| { kind: 'failed'; error: string }
-	| { kind: 'ambiguous'; completions: number };
+	| { kind: 'ambiguous'; completions: number }
+	| { kind: 'wrongIdentity'; identityType: string | undefined };
+
+export const actingIdentitySchema = v.looseObject({
+	subject: v.string(),
+	issuer: v.string(),
+	sessionId: v.string()
+});
+
+export type ActingIdentity = v.InferOutput<typeof actingIdentitySchema>;
+
+export const identityTypesFor = (identity: ActingIdentity | undefined): readonly string[] =>
+	identity ? ['member_acting_user', 'team_acting_user'] : ['instance_admin'];
+
+export function authorization(
+	adminKey: string,
+	identity: ActingIdentity | undefined,
+	nonce: string
+): string {
+	if (!identity) return `Convex ${adminKey}`;
+	const claims = JSON.stringify({ ...identity, latencyProbeCall: nonce });
+	return `Convex ${adminKey}:${Buffer.from(claims).toString('base64')}`;
+}
 
 const completionsOf = (entries: readonly LogEntry[], identifier: string) =>
 	entries.filter((entry) => entry.kind === 'Completion' && entry.identifier === identifier);
 
 export function executionOf(
 	entries: readonly LogEntry[],
-	identifier: string
+	identifier: string,
+	identityTypes: readonly string[]
 ): Execution | undefined {
 	const all = completionsOf(entries, identifier);
 	const completions = all.filter((entry) => entry.willRetry === false);
@@ -65,6 +89,10 @@ export function executionOf(
 	if (completion === undefined && !unflagged) return undefined;
 	if (completion === undefined || unflagged || completions.length > 1) {
 		return { kind: 'ambiguous', completions: all.length };
+	}
+	const { identityType } = completion;
+	if (identityType === undefined || !identityTypes.includes(identityType)) {
+		return { kind: 'wrongIdentity', identityType };
 	}
 	if (completion.error) return { kind: 'failed', error: completion.error };
 	if (completion.cachedResult !== false) return { kind: 'cached' };
@@ -99,7 +127,13 @@ export type Attempt = {
 	counted: boolean;
 	roundTrip: { p50Ms: number; p95Ms: number; minMs: number; maxMs: number };
 	executed: number;
-	notExecuted: { cached: number; failed: number; missing: number; ambiguous: number };
+	notExecuted: {
+		cached: number;
+		failed: number;
+		missing: number;
+		ambiguous: number;
+		wrongIdentity: number;
+	};
 	lateCompletions: number;
 	userExecution:
 		{ proven: true; p50Ms: number; p95Ms: number } | { proven: false; callsWithoutField: number };
@@ -113,7 +147,7 @@ export function summarizeAttempt(
 	lateCompletions: number
 ): Attempt {
 	const roundTrips = samples.map((sample) => sample.roundTripMs);
-	const notExecuted = { cached: 0, failed: 0, missing: 0, ambiguous: 0 };
+	const notExecuted = { cached: 0, failed: 0, missing: 0, ambiguous: 0, wrongIdentity: 0 };
 	const userExecution: number[] = [];
 	let withoutField = 0;
 	for (const { execution } of samples) {
@@ -149,16 +183,21 @@ export function summarizeAttempt(
 
 type Backend = { url: string; adminKey: string };
 
-async function call(backend: Backend, kind: FunctionKind, identifier: string, args: unknown) {
-	const response = await fetch(`${backend.url}/api/${kind}`, {
+async function call(backend: Backend, options: RunOptions) {
+	const response = await fetch(`${backend.url}/api/${options.kind}`, {
 		method: 'POST',
-		headers: { Authorization: `Convex ${backend.adminKey}`, 'Content-Type': 'application/json' },
-		body: JSON.stringify({ path: identifier, args, format: 'json' }),
+		headers: {
+			Authorization: authorization(backend.adminKey, options.identity, crypto.randomUUID()),
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ path: options.identifier, args: options.args, format: 'json' }),
 		signal: AbortSignal.timeout(REQUEST_DEADLINE_MS)
 	});
 	const body: unknown = await response.json();
 	if (!response.ok || !v.is(v.object({ status: v.literal('success') }), body)) {
-		throw new Error(`${identifier} failed with HTTP ${response.status}: ${JSON.stringify(body)}`);
+		throw new Error(
+			`${options.identifier} failed with HTTP ${response.status}: ${JSON.stringify(body)}`
+		);
 	}
 }
 
@@ -181,7 +220,8 @@ async function currentCursor(backend: Backend): Promise<number> {
 	}
 }
 
-async function awaitExecution(backend: Backend, identifier: string, cursor: number) {
+async function awaitExecution(backend: Backend, options: RunOptions, cursor: number) {
+	const identityTypes = identityTypesFor(options.identity);
 	const signal = AbortSignal.timeout(REQUEST_DEADLINE_MS);
 	const seen: LogEntry[] = [];
 	let next = cursor;
@@ -190,12 +230,14 @@ async function awaitExecution(backend: Backend, identifier: string, cursor: numb
 		try {
 			page = await readLogs(backend, next, signal);
 		} catch (error) {
-			if (signal.aborted) return { execution: executionOf(seen, identifier), cursor: next };
+			if (signal.aborted) {
+				return { execution: executionOf(seen, options.identifier, identityTypes), cursor: next };
+			}
 			throw error;
 		}
 		seen.push(...page.entries);
 		next = page.newCursor;
-		const execution = executionOf(seen, identifier);
+		const execution = executionOf(seen, options.identifier, identityTypes);
 		if (execution !== undefined) return { execution, cursor: next };
 	}
 }
@@ -220,13 +262,14 @@ export type RunOptions = {
 	identifier: string;
 	kind: FunctionKind;
 	args: unknown;
+	identity: ActingIdentity | undefined;
 };
 
 async function measure(backend: Backend, options: RunOptions): Promise<Attempt> {
 	let cursor = await currentCursor(backend);
 	for (let i = 0; i < WARMUP; i++) {
-		await call(backend, options.kind, options.identifier, options.args);
-		const read = await awaitExecution(backend, options.identifier, cursor);
+		await call(backend, options);
+		const read = await awaitExecution(backend, options, cursor);
 		if (read.execution?.kind !== 'executed') {
 			throw new Error(`Warmup call ${i + 1} did not execute: ${read.execution?.kind ?? 'missing'}`);
 		}
@@ -236,9 +279,9 @@ async function measure(backend: Backend, options: RunOptions): Promise<Attempt> 
 	const samples: CallSample[] = [];
 	for (let i = 0; i < RUNS; i++) {
 		const begin = performance.now();
-		await call(backend, options.kind, options.identifier, options.args);
+		await call(backend, options);
 		const roundTripMs = performance.now() - begin;
-		const read = await awaitExecution(backend, options.identifier, cursor);
+		const read = await awaitExecution(backend, options, cursor);
 		cursor = read.cursor;
 		samples.push({ roundTripMs, execution: read.execution });
 	}
@@ -266,6 +309,7 @@ async function run(root: string, options: RunOptions) {
 	return {
 		identifier: options.identifier,
 		kind: options.kind,
+		identity: options.identity ?? null,
 		runs: RUNS,
 		warmup: WARMUP,
 		backendUrl: backend.url,
@@ -286,17 +330,23 @@ if (import.meta.main) {
 			function: { type: 'string' },
 			kind: { type: 'string', default: 'mutation' },
 			args: { type: 'string', default: '{}' },
+			identity: { type: 'string' },
 			out: { type: 'string' }
 		}
 	});
 	const kind = v.parse(v.picklist(['query', 'mutation']), values.kind);
 	if (!values.function) {
-		throw new Error('Usage: bun run measure:backend --function <module:name> [--kind mutation]');
+		throw new Error(
+			'Usage: bun run measure:backend --function <module:name> [--kind mutation] [--identity <json>]'
+		);
 	}
 	const report = await run(process.cwd(), {
 		identifier: values.function,
 		kind,
-		args: JSON.parse(values.args)
+		args: JSON.parse(values.args),
+		identity: values.identity
+			? v.parse(actingIdentitySchema, JSON.parse(values.identity))
+			: undefined
 	});
 	const text = JSON.stringify(report, null, 2);
 	if (values.out) writeFileSync(values.out, `${text}\n`);

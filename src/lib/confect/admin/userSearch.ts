@@ -2,6 +2,7 @@ import { type QueryCtx } from '../../convex/_generated/server';
 import { components } from '../../convex/_generated/api';
 import type { BetterAuthUser } from './types';
 import { parseBetterAuthUsers } from './types';
+import type { UserSortSchema } from './schemas';
 
 /**
  * A single condition for the Better Auth adapter's `findMany` `where` clause.
@@ -25,10 +26,7 @@ export type AdapterWhereCondition = {
 	value: string | number | boolean | string[] | number[] | null;
 };
 
-export type UserSortBy = {
-	field: 'createdAt' | 'email' | 'name' | 'role' | 'provider';
-	direction: 'asc' | 'desc';
-};
+export type UserSortBy = typeof UserSortSchema.Type;
 
 export type AdapterFindManyResult = {
 	page: unknown[];

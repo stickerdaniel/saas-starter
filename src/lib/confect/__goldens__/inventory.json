@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "4ce555461af6e94c",
+	"digest": "dbd4225ffcab474a",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Convex"],
@@ -72,10 +72,10 @@
 			"resolveNotificationRecipientsLastPage": ["public", "query", "Convex", "Convex"]
 		},
 		"admin/queries": {
-			"getDashboardMetrics": ["public", "query", "Convex", "Convex"],
-			"getUserCount": ["public", "query", "Convex", "Convex"],
-			"listUsers": ["public", "query", "Convex", "Convex"],
-			"resolveUsersLastPage": ["public", "query", "Convex", "Convex"]
+			"getDashboardMetrics": ["public", "query", "Convex", "Confect"],
+			"getUserCount": ["public", "query", "Convex", "Confect"],
+			"listUsers": ["public", "query", "Convex", "Confect"],
+			"resolveUsersLastPage": ["public", "query", "Convex", "Confect"]
 		},
 		"admin/support/mutations": {
 			"addInternalUserNote": ["public", "mutation", "Convex", "Convex"],
