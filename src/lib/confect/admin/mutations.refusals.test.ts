@@ -137,7 +137,82 @@ describe('banUser', () => {
 	});
 });
 
+describe('public admin mutations boundary', () => {
+	const calls = (caller: Pick<Harness, 'mutation'>, target: string) => [
+		caller.mutation(api.admin.mutations.banUser, { userId: target, reason: 'test' }),
+		caller.mutation(api.admin.mutations.unbanUser, { userId: target }),
+		caller.mutation(api.admin.mutations.revokeUserSessions, { userId: target }),
+		caller.mutation(api.admin.mutations.setUserRole, { userId: target, role: 'admin' })
+	];
+
+	it('refuses anonymous callers on every public mutation and writes nothing', async () => {
+		const t = harness();
+		const target = await createUser(t, 'user', 'target@example.com');
+
+		for (const call of calls(t, target)) expect(await refusal(call)).toBe('Unauthenticated');
+		expect(await auditLogs(t)).toEqual([]);
+		expect((await roleOf(t, target))?.role).toBe('user');
+	});
+
+	it('refuses non-admin callers on every public mutation and writes nothing', async () => {
+		const t = harness();
+		const user = await signIn(t, 'user', 'user@example.com');
+		const target = await createUser(t, 'user', 'target@example.com');
+
+		for (const call of calls(user.caller, target))
+			expect(await refusal(call)).toEqual({ code: 'ADMIN_ACCESS_REQUIRED' });
+		expect(await auditLogs(t)).toEqual([]);
+		expect((await roleOf(t, target))?.role).toBe('user');
+	});
+});
+
+describe('unbanUser', () => {
+	it('refuses an unknown target with the provider code mapped and writes nothing', async () => {
+		const t = harness();
+		const admin = await signIn(t, 'admin', 'admin@example.com');
+
+		expect(
+			await refusal(
+				admin.caller.mutation(api.admin.mutations.unbanUser, { userId: 'missing-user' })
+			)
+		).toEqual({ code: 'ADMIN_USER_NOT_FOUND' });
+		expect(await auditLogs(t)).toEqual([]);
+	});
+});
+
+describe('revokeUserSessions', () => {
+	it('revokes the target sessions and records the change', async () => {
+		const t = harness();
+		const admin = await signIn(t, 'admin', 'admin@example.com');
+		const target = await signIn(t, 'user', 'target@example.com');
+
+		await expect(
+			admin.caller.mutation(api.admin.mutations.revokeUserSessions, { userId: target.userId })
+		).resolves.toEqual({ success: true });
+		expect(
+			await t.query(components.betterAuth.adapter.findMany, {
+				model: 'session',
+				where: [{ field: 'userId', operator: 'eq', value: target.userId }],
+				paginationOpts: { cursor: null, numItems: 10 }
+			})
+		).toMatchObject({ page: [] });
+		expect(await auditLogs(t)).toMatchObject([
+			{ adminUserId: admin.userId, action: 'revoke_sessions', targetUserId: target.userId }
+		]);
+	});
+});
+
 describe('seedFirstAdmin', () => {
+	it('promotes the user without a caller identity while no admin exists', async () => {
+		const t = harness();
+		const target = await createUser(t, 'user', 'target@example.com');
+
+		await expect(
+			t.mutation(internal.admin.mutations.seedFirstAdmin, { email: 'target@example.com' })
+		).resolves.toEqual({ success: true });
+		expect((await roleOf(t, target))?.role).toBe('admin');
+	});
+
 	it('refuses an unknown email while no admin exists', async () => {
 		const t = harness();
 
