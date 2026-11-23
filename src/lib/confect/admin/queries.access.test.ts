@@ -131,4 +131,44 @@ describe('admin user queries as an admin', () => {
 			recentSignups: 0
 		});
 	});
+
+	it('resolves the last page cursor and sums the dashboard counters', async () => {
+		const t = harness();
+		const admin = await signIn(t, 'admin', 'admin@example.com');
+		await createUser(t, 'user', 'first@example.com', 1);
+		await createUser(t, 'user', 'second@example.com', 2);
+		await t.run(async (ctx) => {
+			await ctx.db.insert('dashboardCounters', {
+				shard: 0,
+				totalUsers: 2,
+				adminCount: 1,
+				bannedCount: 0
+			});
+			await ctx.db.insert('dashboardCounters', {
+				shard: 1,
+				totalUsers: 1,
+				adminCount: 0,
+				bannedCount: 2
+			});
+		});
+
+		const lastPage = await admin.caller.query(api.admin.queries.resolveUsersLastPage, {
+			numItems: 1
+		});
+		expect(lastPage.page).toBe(3);
+		if (lastPage.cursor === null) throw new Error('Expected a cursor for the last page');
+		const page = await admin.caller.query(api.admin.queries.listUsers, {
+			numItems: 1,
+			cursor: lastPage.cursor
+		});
+		const all = await admin.caller.query(api.admin.queries.listUsers, { numItems: 10 });
+		expect(page.items).toEqual(all.items.slice(2));
+		await expect(
+			admin.caller.query(api.admin.queries.getDashboardMetrics, {})
+		).resolves.toMatchObject({
+			totalUsers: 3,
+			adminCount: 1,
+			bannedCount: 2
+		});
+	});
 });
