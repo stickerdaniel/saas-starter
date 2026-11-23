@@ -1,11 +1,12 @@
 import { PaginationOptions } from '@confect/core';
 import * as Schema from 'effect/Schema';
+import { Id } from '../../_generated/id';
 import type { MessagesQueryResponse } from '../../../chat/core/types';
 import { StreamArgs } from '../../schemas/agent';
 import { SupportThreadSchema } from '../../support/supportThreadFields';
 
 const SupportMetadataSchema = Schema.Struct({
-	_id: Schema.String,
+	_id: Id('supportThreads'),
 	_creationTime: Schema.Number,
 	...SupportThreadSchema.fields
 });
@@ -97,7 +98,7 @@ export const InternalNotesSchema = Schema.Struct({
 	page: Schema.mutable(
 		Schema.Array(
 			Schema.Struct({
-				_id: Schema.String,
+				_id: Id('internalUserNotes'),
 				_creationTime: Schema.Number,
 				...InternalUserNoteSchema.fields,
 				adminName: Schema.optional(Schema.String),

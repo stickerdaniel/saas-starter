@@ -143,12 +143,12 @@
 		},
 		"admin/support/queries": {
 			"getAwaitingResponseCount": ["public", "query", "5151b7eb8536aa97", "cddf8275afa15408"],
-			"getThreadForAdmin": ["public", "query", "7f3f856a82776c16", "1d439ba41ca36b26"],
+			"getThreadForAdmin": ["public", "query", "7f3f856a82776c16", "969330d4c872a4be"],
 			"listAdmins": ["public", "query", "5151b7eb8536aa97", "eb954dfaf3d485de"],
-			"listInternalUserNotes": ["public", "query", "e2d17c59d2ace079", "d68b40c912ebc977"],
+			"listInternalUserNotes": ["public", "query", "e2d17c59d2ace079", "0acfcd796acb4734"],
 			"listMessageRoutesForAdmin": ["public", "query", "7f3f856a82776c16", "46d0b4dc2eb296ff"],
 			"listMessagesForAdmin": ["public", "query", "41992ba5b0bbfc81", "0c4eff9f3ccf00b3"],
-			"listThreadsForAdmin": ["public", "query", "be2dcdbc6890cdad", "2997b42d6131d3ad"]
+			"listThreadsForAdmin": ["public", "query", "be2dcdbc6890cdad", "348e13aa1974aa81"]
 		},
 		"aiChat/activityMigration": {
 			"runPage": ["internal", "mutation", "1383e1fdc1595d03", "bcde375ebd4cbacf"],
