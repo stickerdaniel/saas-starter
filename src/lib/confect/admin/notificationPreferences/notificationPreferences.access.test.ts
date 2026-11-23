@@ -192,6 +192,16 @@ describe('notification preference refusals', () => {
 							email: 'kim@example.com',
 							field: 'notifyNewSignups',
 							value: true
+						}),
+						admin.mutation(group.updatePreferences, {
+							emails: ['custom@example.com', 'custom@example.com'],
+							field: 'notifyNewSignups',
+							value: false
+						}),
+						admin.mutation(group.updatePreferences, {
+							emails: ['custom@example.com', 'kim@example.com'],
+							field: 'notifyNewSignups',
+							value: false
 						})
 					].map(refusal)
 				)
@@ -201,6 +211,8 @@ describe('notification preference refusals', () => {
 				{ code: NOTIFICATION_PREFERENCE_ERROR_CODES.emailNotFound },
 				{ code: NOTIFICATION_PREFERENCE_ERROR_CODES.adminRecipientRequired },
 				{ code: NOTIFICATION_PREFERENCE_ERROR_CODES.notFound },
+				{ code: NOTIFICATION_PREFERENCE_ERROR_CODES.dormant },
+				{ code: NOTIFICATION_PREFERENCE_ERROR_CODES.invalidBatch },
 				{ code: NOTIFICATION_PREFERENCE_ERROR_CODES.dormant }
 			]);
 			expect(await stored(t)).toEqual(before);
