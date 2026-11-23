@@ -1,5 +1,6 @@
 import { isAPIError } from 'better-auth/api';
-import { ConvexError } from 'convex/values';
+import * as Effect from 'effect/Effect';
+import { AdminRefusal } from '../errorCodecs';
 
 export type AdminAuthErrorCode =
 	| 'ADMIN_CANNOT_BAN_SELF'
@@ -32,23 +33,13 @@ export function normalizeAdminAuthError(error: unknown): AdminAuthErrorCode | un
 		: 'ADMIN_AUTH_ACTION_FAILED';
 }
 
-/**
- * Run one Better Auth admin operation at the Convex boundary.
- *
- * Provider failures are logged and exposed to clients only as stable safe
- * codes; the raw cause can quote the submitted email or password policy input. Unexpected defects remain throwable and observable.
- */
-export async function runAdminAuthApi(
-	operation: AdminAuthOperation,
-	call: () => Promise<unknown>
-): Promise<void> {
-	try {
-		await call();
-	} catch (error) {
-		const code = normalizeAdminAuthError(error);
-		console.error({ code: 'admin_auth_failed', operation, reason: code ?? 'unexpected' });
-		if (!code) throw error;
-
-		throw new ConvexError({ code });
-	}
-}
+export const adminAuthApi = (operation: AdminAuthOperation, call: () => Promise<unknown>) =>
+	Effect.tryPromise({ try: call, catch: (error) => error }).pipe(
+		Effect.asVoid,
+		Effect.catch((error) => {
+			const code = normalizeAdminAuthError(error);
+			return Effect.sync(() =>
+				console.error({ code: 'admin_auth_failed', operation, reason: code ?? 'unexpected' })
+			).pipe(Effect.andThen(code ? Effect.fail(new AdminRefusal({ code })) : Effect.die(error)));
+		})
+	);

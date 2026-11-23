@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "c950d257396c9e82",
+	"digest": "4ce555461af6e94c",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Convex"],
@@ -39,11 +39,11 @@
 		"admin/journey/sources/community": { "read": ["internal", "query", "Convex", "Convex"] },
 		"admin/journey/sources/support": { "read": ["internal", "query", "Convex", "Convex"] },
 		"admin/mutations": {
-			"banUser": ["public", "mutation", "Convex", "Convex"],
-			"revokeUserSessions": ["public", "mutation", "Convex", "Convex"],
-			"seedFirstAdmin": ["internal", "mutation", "Convex", "Convex"],
-			"setUserRole": ["public", "mutation", "Convex", "Convex"],
-			"unbanUser": ["public", "mutation", "Convex", "Convex"]
+			"banUser": ["public", "mutation", "Convex", "Confect"],
+			"revokeUserSessions": ["public", "mutation", "Convex", "Confect"],
+			"seedFirstAdmin": ["internal", "mutation", "Convex", "Confect"],
+			"setUserRole": ["public", "mutation", "Convex", "Confect"],
+			"unbanUser": ["public", "mutation", "Convex", "Confect"]
 		},
 		"admin/notificationPreferences/index": {
 			"addCustomEmail": ["public", "mutation", "Convex", "Convex"],

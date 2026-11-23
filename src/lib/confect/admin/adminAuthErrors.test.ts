@@ -1,6 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APIError } from 'better-auth/api';
-import { normalizeAdminAuthError, runAdminAuthApi } from './adminAuthErrors';
+import { ConvexError } from 'convex/values';
+import * as Cause from 'effect/Cause';
+import * as Effect from 'effect/Effect';
+import * as Exit from 'effect/Exit';
+import * as Schema from 'effect/Schema';
+import { AdminRefusal, AdminRefusalCodec } from '../errorCodecs';
+import { adminAuthApi, normalizeAdminAuthError, type AdminAuthOperation } from './adminAuthErrors';
+
+const runAdminAuthApi = async (operation: AdminAuthOperation, call: () => Promise<unknown>) => {
+	const exit = await Effect.runPromiseExit(adminAuthApi(operation, call));
+	if (Exit.isSuccess(exit)) return;
+	const error = Cause.squash(exit.cause);
+	throw error instanceof AdminRefusal
+		? new ConvexError(Schema.encodeSync(AdminRefusalCodec)(error))
+		: error;
+};
 
 describe('Better Auth admin error normalization', () => {
 	let errorSpy: ReturnType<typeof vi.spyOn>;

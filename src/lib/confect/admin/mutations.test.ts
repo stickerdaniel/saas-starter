@@ -6,15 +6,15 @@ import { ADMIN_ERROR_CODES } from './errors';
 import { authComponent } from '../authServer';
 
 const { syncAdminPreferencesMock } = vi.hoisted(() => ({
-	syncAdminPreferencesMock: vi.fn()
+	syncAdminPreferencesMock: vi.fn(async () => undefined)
 }));
 
 vi.mock('./notificationPreferences/helpers', () => ({
 	syncAdminPreferences: syncAdminPreferencesMock,
-	deactivateAdminPreferencesHelper: vi.fn()
+	deactivateAdminPreferencesHelper: vi.fn(async () => undefined)
 }));
 
-import { seedFirstAdmin, setUserRole } from './mutations';
+import { seedFirstAdmin, setUserRole } from '../../convex/admin/mutations';
 
 type MutationHandler<TArgs, TResult> = {
 	_handler: (ctx: MutationCtx, args: TArgs) => Promise<TResult>;
@@ -58,7 +58,7 @@ function makeCtx(options: {
 		patch: async (_table: string, _id: unknown, update: Partial<typeof counters>) => {
 			Object.assign(counters, update);
 		},
-		insert: vi.fn()
+		insert: vi.fn(async () => undefined)
 	};
 	return {
 		ctx: { runQuery, runMutation, db } as unknown as MutationCtx,
@@ -177,7 +177,7 @@ describe('role change counters', () => {
 		'$previous to $next leaves $expected admins',
 		async ({ previous, next, initial, expected }) => {
 			const actor = { _id: 'actor', role: 'admin' };
-			const auth = vi.spyOn(authComponent, 'getAuthUser').mockResolvedValue(actor as never);
+			const auth = vi.spyOn(authComponent, 'safeGetAuthUser').mockResolvedValue(actor as never);
 			const { ctx, counters } = makeCtx({
 				user: { _id: 'target', email: 'target@example.com', role: previous },
 				admins: [actor, { _id: 'target', role: 'admin' }],
@@ -193,4 +193,25 @@ describe('role change counters', () => {
 			}
 		}
 	);
+});
+
+describe('last admin guard', () => {
+	it('refuses demoting the only admin the role index returns and writes nothing', async () => {
+		const actor = { _id: 'actor', role: 'admin' };
+		const auth = vi.spyOn(authComponent, 'safeGetAuthUser').mockResolvedValue(actor as never);
+		const { ctx, counters, runMutation } = makeCtx({
+			user: { _id: 'target', email: 'target@example.com', role: 'admin' },
+			admins: [{ _id: 'target', role: 'admin' }],
+			adminCount: 1
+		});
+		try {
+			await expect(
+				setUserRoleHandler._handler(ctx, { userId: 'target', role: 'user' })
+			).rejects.toMatchObject({ data: { code: ADMIN_ERROR_CODES.lastAdmin } });
+			expect(runMutation).not.toHaveBeenCalled();
+			expect(counters.adminCount).toBe(1);
+		} finally {
+			auth.mockRestore();
+		}
+	});
 });
