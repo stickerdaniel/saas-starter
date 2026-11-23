@@ -33,13 +33,17 @@ function publishedRegistrations(): string[] {
 		.sort();
 }
 
-async function registeredNames(): Promise<Map<string, Set<string>>> {
+function registeredNames(): Map<string, Set<string>> {
 	const registrations = new Map<string, Set<string>>();
-	for (const { group, name } of await specInventory()) {
+	for (const { group, name } of functions) {
 		registrations.set(group, (registrations.get(group) ?? new Set()).add(name));
 	}
 	return registrations;
 }
+
+const functions = await specInventory();
+const consumed = consumedNativeExports(registeredNames());
+const surface = await freshSurfaceOf('src/lib/convex');
 
 const trees: string[] = [];
 
@@ -73,18 +77,15 @@ describe('Convex goldens', () => {
 	});
 
 	it('keep the committed spec set and leave no native helper export in use', async () => {
-		const functions = await specInventory();
-		const consumed = consumedNativeExports(await registeredNames());
-
 		expect(consumed).toEqual([]);
 		await expect(await goldenText(inventoryGolden(functions, consumed))).toMatchFileSnapshot(
 			golden('inventory.json')
 		);
 	}, 60_000);
 
-	it('leave no export beside the registered functions in a module the CLI owns', async () => {
-		expect(orphanedExports(await registeredNames())).toEqual([]);
-	}, 60_000);
+	it('leave no export beside the registered functions in a module the CLI owns', () => {
+		expect(orphanedExports(registeredNames())).toEqual([]);
+	});
 
 	it('report an authored helper left in a generated module and in an entry file', () => {
 		const root = treeWith({
@@ -100,23 +101,23 @@ describe('Convex goldens', () => {
 		]);
 	});
 
-	it('publish exactly the functions of the committed spec set', async () => {
-		const specified = (await specInventory())
+	it('publish exactly the functions of the committed spec set', () => {
+		const specified = functions
 			.map(({ group, name, visibility, kind }) => `${group}:${name} ${visibility} ${kind}`)
 			.sort();
 
 		expect(publishedRegistrations()).toEqual(specified);
-	}, 60_000);
+	});
 
 	it('keep the scheduled targets the compatibility check resolves', async () => {
-		await expect(await goldenText(await scheduledTargets())).toMatchFileSnapshot(
+		await expect(await goldenText(scheduledTargets(surface))).toMatchFileSnapshot(
 			golden('scheduled-targets.json')
 		);
 	}, 60_000);
 
-	it('give every published function a compile-time type golden', async () => {
-		const published = [...(await freshSurfaceOf('src/lib/convex')).keys()].sort();
+	it('give every published function a compile-time type golden', () => {
+		const published = [...surface.keys()].sort();
 
 		expect(apiTypeFixtureIdentifiers(readFileSync(API_TYPES_FIXTURE, 'utf8'))).toEqual(published);
-	}, 60_000);
+	});
 });
