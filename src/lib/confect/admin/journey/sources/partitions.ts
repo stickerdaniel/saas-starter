@@ -1,9 +1,10 @@
-import { v, type Infer } from 'convex/values';
+import * as Effect from 'effect/Effect';
+import type { QueryCtx as ConvexQueryCtx } from '../../../../convex/_generated/server';
+import { QueryCtx } from '../../../_generated/services';
 import { t } from '../../../i18n/translations';
-import type { QueryCtx } from '../../../../convex/_generated/server';
 import { createClock, formatCount, type JourneyFormat } from '../format';
+import type { PartitionCountSchema, PartitionedFactsSchema } from '../schemas';
 import {
-	coverageValidator,
 	type Coverage,
 	type JourneyMetric,
 	type JourneyMetricSlot,
@@ -39,25 +40,17 @@ export function partitionRanges(request: JourneyRequest): {
 }
 
 /** One partition's counted events, with the first and last it saw. */
-const partitionCountValidator = v.object({
-	count: v.number(),
-	firstAt: v.union(v.number(), v.null()),
-	lastAt: v.union(v.number(), v.null()),
-	truncated: v.boolean()
-});
-export type PartitionCount = Infer<typeof partitionCountValidator>;
+export type PartitionCount = typeof PartitionCountSchema.Type;
 
 /** Facts of a partitioned source; a null partition was not queried. */
-export const partitionedFactsValidator = v.object({
-	coverage: coverageValidator,
-	before: v.union(partitionCountValidator, v.null()),
-	after: v.union(partitionCountValidator, v.null())
-});
-export type PartitionedFacts = Infer<typeof partitionedFactsValidator>;
+export type PartitionedFacts = typeof PartitionedFactsSchema.Type;
+
+export const withQuery = <A>(run: (ctx: ConvexQueryCtx) => Promise<A>) =>
+	QueryCtx.use((ctx) => Effect.promise(() => run(ctx)));
 
 /** The source's capture marker: when this deployment first recorded it, if ever. */
 export async function readCapture(
-	ctx: QueryCtx,
+	ctx: ConvexQueryCtx,
 	source: string
 ): Promise<NonNullable<Coverage['capture']>> {
 	const marker = await ctx.db
@@ -77,7 +70,7 @@ export type WindowPage<Row> = { page: readonly Row[]; isDone: boolean };
  * their own. A source never captured reads nothing more.
  */
 export async function readPartitioned<Row extends { _creationTime: number }>(
-	ctx: QueryCtx,
+	ctx: ConvexQueryCtx,
 	source: string,
 	request: JourneyRequest,
 	scan: (window: JourneyRequest['window']) => Promise<WindowPage<Row>>,

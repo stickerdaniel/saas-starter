@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "af0d7e2daf8821ec",
+	"digest": "3364e76c59e9ee83",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -32,12 +32,12 @@
 			"getFounderWelcomeConfigInternal": ["internal", "query", "Convex", "Confect"]
 		},
 		"admin/journey/erasure": {
-			"continueErasure": ["internal", "mutation", "Convex", "Convex"],
-			"erasePage": ["internal", "mutation", "Convex", "Convex"]
+			"continueErasure": ["internal", "mutation", "Convex", "Confect"],
+			"erasePage": ["internal", "mutation", "Convex", "Confect"]
 		},
-		"admin/journey/sources/aiChat": { "read": ["internal", "query", "Convex", "Convex"] },
-		"admin/journey/sources/community": { "read": ["internal", "query", "Convex", "Convex"] },
-		"admin/journey/sources/support": { "read": ["internal", "query", "Convex", "Convex"] },
+		"admin/journey/sources/aiChat": { "read": ["internal", "query", "Convex", "Confect"] },
+		"admin/journey/sources/community": { "read": ["internal", "query", "Convex", "Confect"] },
+		"admin/journey/sources/support": { "read": ["internal", "query", "Convex", "Confect"] },
 		"admin/mutations": {
 			"banUser": ["public", "mutation", "Convex", "Confect"],
 			"revokeUserSessions": ["public", "mutation", "Convex", "Confect"],

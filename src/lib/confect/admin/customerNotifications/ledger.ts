@@ -1,10 +1,6 @@
 import { defineTable } from 'convex/server';
 import { v, type Infer } from 'convex/values';
-import {
-	journeyEpisodeValidator,
-	journeyRequestFields,
-	type JourneyRequest
-} from '../journey/source';
+import type { JourneyRequest } from '../journey/source';
 import { frozenBillingValidator, type Payment } from './billing';
 import { CANCELLATION, NEW_CUSTOMER } from './policy';
 
@@ -21,6 +17,16 @@ import { CANCELLATION, NEW_CUSTOMER } from './policy';
  * committed, not that anything was delivered; delivery state lives in the
  * Resend component under `emailIds`.
  */
+
+const journeyEpisodeValidator = v.union(v.literal('new_customer'), v.literal('cancellation'));
+
+const journeyRequestValidator = v.object({
+	episode: journeyEpisodeValidator,
+	userId: v.string(),
+	signupAt: v.number(),
+	paymentAt: v.number(),
+	window: v.object({ start: v.number(), end: v.number() })
+});
 
 export const skippedReasonValidator = v.union(
 	v.literal('owner_deleted'),
@@ -46,7 +52,7 @@ export const customerNotifications = defineTable({
 	// Set when the send failed before any recipient was attempted.
 	failedReason: v.optional(v.literal('audience_unavailable')),
 	billing: frozenBillingValidator,
-	request: v.object(journeyRequestFields),
+	request: journeyRequestValidator,
 	observedAt: v.number(),
 	sendAt: v.number(),
 	scheduledFnId: v.optional(v.id('_scheduled_functions')),

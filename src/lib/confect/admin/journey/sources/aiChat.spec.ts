@@ -1,6 +1,10 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { read } from './aiChat';
+import { JourneyRequestFields, PartitionedFactsSchema } from '../schemas';
 
 export default GroupSpec.make().addFunction(
-	FunctionSpec.convexInternalQuery<typeof read>()('read')
+	FunctionSpec.internalQuery({
+		name: 'read',
+		args: () => JourneyRequestFields,
+		returns: () => PartitionedFactsSchema
+	})
 );

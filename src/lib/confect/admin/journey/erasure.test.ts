@@ -7,7 +7,8 @@ import { admitObservation } from '../../../convex/admin/customerNotifications/ad
 import { cancelUnsentEmails } from '../../../convex/admin/customerNotifications/cancel';
 import { eraseFounderEmailPage } from '../../emails/founderEmailErasure';
 import { resend } from '../../emails/resend';
-import { continueErasure, erasePage, startJourneyErasure } from './erasure';
+import { continueErasure, erasePage } from '../../../convex/admin/journey/erasure';
+import { startJourneyErasure } from './erasure';
 import { createJourneyStore, type JobState } from './journeyStore.fixtures';
 
 type Registered = { _handler: (ctx: never, args: never) => Promise<unknown> };
@@ -274,6 +275,24 @@ describe('journey erasure', () => {
 			false
 		);
 	});
+});
+
+describe('erasure page without progress', () => {
+	it.each(['community', 'support'] as const)(
+		'fails a %s page that reads nothing and is not done',
+		async (step) => {
+			const stalled = {
+				query: () => ({
+					withIndex: () => ({
+						paginate: async () => ({ page: [], isDone: false, continueCursor: 'stalled' })
+					})
+				})
+			};
+			await expect(
+				setup().mutate(erasePage as unknown as Registered, { userId: USER, step }, { db: stalled })
+			).rejects.toThrow(/^journey_erasure_no_progress$/);
+		}
+	);
 });
 
 describe('account deletion trigger', () => {

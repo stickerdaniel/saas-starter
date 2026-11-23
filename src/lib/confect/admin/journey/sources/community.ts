@@ -1,13 +1,11 @@
 import { internal } from '../../../../convex/_generated/api';
-import { internalQuery } from '../../../../convex/_generated/server';
-import { defineJourneySource, journeyRequestFields, type JourneySource } from '../source';
+import { defineJourneySource, type JourneyRequest, type JourneySource } from '../source';
 import {
-	partitionedFactsValidator,
 	partitionedSlots,
 	presentPartitioned,
 	readPartitioned,
-	type PartitionedCopy,
-	type PartitionedFacts
+	withQuery,
+	type PartitionedCopy
 } from './partitions';
 
 /**
@@ -33,11 +31,9 @@ const COPY = {
 	}
 } as const satisfies PartitionedCopy;
 
-export const read = internalQuery({
-	args: journeyRequestFields,
-	returns: partitionedFactsValidator,
-	handler: async (ctx, request): Promise<PartitionedFacts> =>
-		await readPartitioned(
+export const readCommunity = (request: JourneyRequest) =>
+	withQuery((ctx) =>
+		readPartitioned(
 			ctx,
 			'community',
 			request,
@@ -57,7 +53,7 @@ export const read = internalQuery({
 					}),
 			(message) => message.quotaSettledAt !== undefined
 		)
-});
+	);
 
 export const communitySource: JourneySource<'community'> = defineJourneySource({
 	id: 'community',
