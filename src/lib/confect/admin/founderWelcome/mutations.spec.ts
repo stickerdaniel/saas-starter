@@ -1,19 +1,49 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type {
-	setFounderEmailEnabled,
-	stepDown,
-	updateConfig,
-	updateFounderEmailTemplate
-} from './mutations';
+import * as Schema from 'effect/Schema';
+import { FounderWelcomeRefusalCodec } from '../../errorCodecs';
+import RequireAdmin from '../../middleware/RequireAdmin.spec';
+import { SwitchableFounderEmailSchema } from './schemas';
 
 export default GroupSpec.make()
 	.addFunction(
-		FunctionSpec.convexPublicMutation<typeof setFounderEmailEnabled>()('setFounderEmailEnabled')
+		FunctionSpec.publicMutation({
+			name: 'setFounderEmailEnabled',
+			args: () => ({ email: SwitchableFounderEmailSchema, enabled: Schema.Boolean }),
+			returns: () => Schema.Null,
+			error: () => FounderWelcomeRefusalCodec
+		}).middleware(RequireAdmin)
 	)
-	.addFunction(FunctionSpec.convexPublicMutation<typeof stepDown>()('stepDown'))
-	.addFunction(FunctionSpec.convexPublicMutation<typeof updateConfig>()('updateConfig'))
 	.addFunction(
-		FunctionSpec.convexPublicMutation<typeof updateFounderEmailTemplate>()(
-			'updateFounderEmailTemplate'
-		)
+		FunctionSpec.publicMutation({
+			name: 'stepDown',
+			args: () => ({}),
+			returns: () => Schema.Null,
+			error: () => FounderWelcomeRefusalCodec
+		}).middleware(RequireAdmin)
+	)
+	.addFunction(
+		FunctionSpec.publicMutation({
+			name: 'updateConfig',
+			args: () => ({
+				name: Schema.String,
+				title: Schema.String,
+				subject: Schema.String,
+				body: Schema.String,
+				replyTo: Schema.optionalKey(Schema.String)
+			}),
+			returns: () => Schema.Null,
+			error: () => FounderWelcomeRefusalCodec
+		}).middleware(RequireAdmin)
+	)
+	.addFunction(
+		FunctionSpec.publicMutation({
+			name: 'updateFounderEmailTemplate',
+			args: () => ({
+				email: SwitchableFounderEmailSchema,
+				subject: Schema.String,
+				body: Schema.String
+			}),
+			returns: () => Schema.Null,
+			error: () => FounderWelcomeRefusalCodec
+		}).middleware(RequireAdmin)
 	);

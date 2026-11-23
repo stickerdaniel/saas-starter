@@ -5,6 +5,10 @@ import type { AdminAuthErrorCode } from './admin/adminAuthErrors';
 import { RateLimited, Unauthenticated } from '../effect/errors';
 import { ADMIN_ERROR_CODES, type AdminErrorCode } from './admin/errors';
 import {
+	FOUNDER_WELCOME_ERROR_CODES,
+	type FounderWelcomeErrorCode
+} from './admin/founderWelcome/errors';
+import {
 	NOTIFICATION_EMAIL_ALREADY_EXISTS,
 	NOTIFICATION_PREFERENCE_ERROR_CODES,
 	type NotificationPreferenceErrorCode
@@ -61,6 +65,17 @@ export class AdminRefusal extends Data.TaggedError('AdminRefusal')<{
 export const AdminRefusalCodec = wireCodec(
 	AdminRefusal,
 	Schema.Struct({ code: Schema.Literals(ADMIN_REFUSAL_CODES) }),
+	({ code }) => ({ code }),
+	({ code }) => ({ code })
+);
+
+export class FounderWelcomeRefusal extends Data.TaggedError('FounderWelcomeRefusal')<{
+	readonly code: FounderWelcomeErrorCode;
+}> {}
+
+export const FounderWelcomeRefusalCodec = wireCodec(
+	FounderWelcomeRefusal,
+	Schema.Struct({ code: Schema.Literals(Object.values(FOUNDER_WELCOME_ERROR_CODES)) }),
 	({ code }) => ({ code }),
 	({ code }) => ({ code })
 );
