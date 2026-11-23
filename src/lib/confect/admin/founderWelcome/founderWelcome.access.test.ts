@@ -21,12 +21,12 @@ const harness = () => {
 };
 type Harness = ReturnType<typeof harness>;
 
-async function signInAdmin(t: Harness, name: string, email: string) {
+async function signIn(t: Harness, role: 'user' | 'admin', name: string, email: string) {
 	const now = Date.now();
 	const user = (await t.mutation(components.betterAuth.adapter.create, {
 		input: {
 			model: 'user',
-			data: { name, email, emailVerified: true, role: 'admin', createdAt: now, updatedAt: now }
+			data: { name, email, emailVerified: true, role, createdAt: now, updatedAt: now }
 		}
 	})) as { _id: string };
 	const session = (await t.mutation(components.betterAuth.adapter.create, {
@@ -46,6 +46,7 @@ async function signInAdmin(t: Harness, name: string, email: string) {
 		caller: t.withIdentity({ subject: user._id, sessionId: session._id })
 	};
 }
+const signInAdmin = (t: Harness, name: string, email: string) => signIn(t, 'admin', name, email);
 type Admin = Awaited<ReturnType<typeof signInAdmin>>;
 
 async function refusal(call: Promise<unknown>) {
@@ -204,5 +205,46 @@ describe('founder welcome config', () => {
 		expect(
 			await t.query(internal.admin.founderWelcome.queries.getFounderWelcomeConfigInternal, {})
 		).toEqual(config);
+	});
+});
+
+describe('founder welcome access', () => {
+	const publicCalls = (caller: Pick<Harness, 'query' | 'mutation'>) => [
+		caller.query(api.admin.founderWelcome.queries.getFounderWelcomeConfig, {}),
+		caller.query(api.admin.founderWelcome.queries.getFounderEmailSettings, {}),
+		caller.mutation(api.admin.founderWelcome.mutations.updateConfig, welcome),
+		caller.mutation(api.admin.founderWelcome.mutations.stepDown, {}),
+		caller.mutation(api.admin.founderWelcome.mutations.setFounderEmailEnabled, {
+			email: 'feedback',
+			enabled: true
+		}),
+		caller.mutation(api.admin.founderWelcome.mutations.updateFounderEmailTemplate, {
+			email: 'feedback',
+			subject: 'Hi',
+			body: 'Hi'
+		})
+	];
+	const settings = (t: Harness) => t.run((ctx) => ctx.db.query('adminSettings').take(10));
+
+	it('refuses an anonymous caller on every public function and serves the internal query', async () => {
+		const t = harness();
+
+		expect(await Promise.all(publicCalls(t).map(refusal))).toEqual(
+			Array(6).fill('Unauthenticated')
+		);
+		expect(await settings(t)).toEqual([]);
+		await expect(
+			t.query(internal.admin.founderWelcome.queries.getFounderWelcomeConfigInternal, {})
+		).resolves.toEqual({ enabled: false });
+	});
+
+	it('refuses a signed-in non-admin on every public function and writes nothing', async () => {
+		const t = harness();
+		const user = await signIn(t, 'user', 'Normal User', 'normal@example.com');
+
+		expect(await Promise.all(publicCalls(user.caller).map(refusal))).toEqual(
+			Array(6).fill({ code: 'ADMIN_ACCESS_REQUIRED' })
+		);
+		expect(await settings(t)).toEqual([]);
 	});
 });
