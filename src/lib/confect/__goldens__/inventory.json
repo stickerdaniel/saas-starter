@@ -1,13 +1,13 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "dbd4225ffcab474a",
+	"digest": "b35d42b1cd22457e",
 	"groups": {
 		"admin/auditLog/queries": {
-			"getAuditLogCount": ["public", "query", "Convex", "Convex"],
-			"listAuditLogs": ["public", "query", "Convex", "Convex"],
-			"resolveAuditLogLastPage": ["public", "query", "Convex", "Convex"],
-			"resolveAuditLogUser": ["public", "query", "Convex", "Convex"]
+			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
+			"listAuditLogs": ["public", "query", "Convex", "Confect"],
+			"resolveAuditLogLastPage": ["public", "query", "Convex", "Confect"],
+			"resolveAuditLogUser": ["public", "query", "Convex", "Confect"]
 		},
 		"admin/customerNotifications/admission": {
 			"admitObservation": ["internal", "mutation", "Convex", "Confect"]
