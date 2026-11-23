@@ -17,7 +17,7 @@ const password = 'PasskeyTestPassword123!';
 // The query holds a double slash and the hash a nested path, which route resolution would rewrite.
 const destination = '/en/app/community-chat?source=https://example.com/invite#latest//replies';
 const home = '/en/app/community-chat';
-const at = (target: string) => (url: URL) => url.pathname + url.search + url.hash === target;
+const at = (target: string) => (url: URL) => url.href === new URL(target, resolveSiteUrl()).href;
 const documentAt = (page: Page, target: string) =>
 	page.waitForEvent('domcontentloaded', {
 		predicate: (loaded) => at(target)(new URL(loaded.url()))
