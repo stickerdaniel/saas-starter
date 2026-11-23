@@ -99,10 +99,9 @@ const autumnWebhook = EffectHttpRouter.add('POST', '/autumn-webhook', (request) 
 	)
 );
 
-const autumnHandler = HttpRouter.make(autumnWebhook)
-	.getRoutes()
-	.find(([, method]) => method === 'POST')?.[2];
-if (autumnHandler === undefined) throw new Error('The Confect router has no POST route');
-http.route({ path: '/autumn-webhook', method: 'POST', handler: autumnHandler });
+for (const [path, method, handler] of HttpRouter.make(autumnWebhook).getRoutes()) {
+	http.route({ pathPrefix: path.slice(0, -1), method, handler });
+	if (method === 'POST') http.route({ path: '/autumn-webhook', method, handler });
+}
 
 export default http;
