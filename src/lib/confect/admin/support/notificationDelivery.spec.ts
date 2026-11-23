@@ -1,6 +1,19 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { cleanupReceipts, enqueueRecipient } from './notificationDelivery';
+import * as Schema from 'effect/Schema';
+import { ReceiptCleanupArgsSchema, RecipientEnqueueArgsSchema } from './schemas';
 
 export default GroupSpec.make()
-	.addFunction(FunctionSpec.convexInternalMutation<typeof cleanupReceipts>()('cleanupReceipts'))
-	.addFunction(FunctionSpec.convexInternalMutation<typeof enqueueRecipient>()('enqueueRecipient'));
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'cleanupReceipts',
+			args: () => ReceiptCleanupArgsSchema.fields,
+			returns: () => Schema.Null
+		})
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'enqueueRecipient',
+			args: () => RecipientEnqueueArgsSchema.fields,
+			returns: () => Schema.Boolean
+		})
+	);

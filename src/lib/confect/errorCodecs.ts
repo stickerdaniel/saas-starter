@@ -4,6 +4,7 @@ import * as SchemaTransformation from 'effect/SchemaTransformation';
 import type { AdminAuthErrorCode } from './admin/adminAuthErrors';
 import { RateLimited, Unauthenticated } from '../effect/errors';
 import { ADMIN_ERROR_CODES, type AdminErrorCode } from './admin/errors';
+import { ADMIN_SUPPORT_ERROR_CODES } from './admin/support/errors';
 import {
 	FOUNDER_WELCOME_ERROR_CODES,
 	type FounderWelcomeErrorCode
@@ -198,4 +199,30 @@ export const SupportAuthenticationRequiredCodec = wireCodec(
 	Schema.Struct({ code: Schema.Literal(SUPPORT_ERROR_CODES.authenticationRequired) }),
 	() => undefined,
 	() => ({ code: SUPPORT_ERROR_CODES.authenticationRequired })
+);
+
+const AdminSupportRefusalWire = Schema.Union([
+	Schema.Struct({
+		code: Schema.Literal(ADMIN_SUPPORT_ERROR_CODES.messageTooLong),
+		maxLength: Schema.Number
+	}),
+	Schema.Struct({
+		code: Schema.Literals([
+			ADMIN_SUPPORT_ERROR_CODES.threadNotFound,
+			ADMIN_SUPPORT_ERROR_CODES.emptyMessage,
+			ADMIN_SUPPORT_ERROR_CODES.emptyNote,
+			ADMIN_SUPPORT_ERROR_CODES.assigneeNotAdmin
+		])
+	})
+]);
+
+export class AdminSupportRefusal extends Data.TaggedError('AdminSupportRefusal')<{
+	readonly refusal: typeof AdminSupportRefusalWire.Type;
+}> {}
+
+export const AdminSupportRefusalCodec = wireCodec(
+	AdminSupportRefusal,
+	AdminSupportRefusalWire,
+	(refusal) => ({ refusal }),
+	({ refusal }) => refusal
 );

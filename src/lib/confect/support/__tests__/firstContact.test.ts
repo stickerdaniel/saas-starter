@@ -73,7 +73,7 @@ import { createThread, getOrCreateWarmThread, updateThreadHandoff } from '../thr
 import { createAssistantMessage, sendMessage } from '../messages';
 import { internalSetHandoff } from '../handoff';
 import { migrateAnonymousTickets } from '../migration';
-import { sendAdminReply } from '../../admin/support/mutations';
+import { sendAdminReply } from '../../../convex/admin/support/mutations';
 import { createJourneyStore } from '../../admin/journey/journeyStore.fixtures';
 
 type Registered = { _handler: (ctx: never, args: never) => Promise<unknown> };

@@ -3,7 +3,11 @@ import { Id } from '../../_generated/id';
 import type { MessagesQueryResponse } from '../../../chat/core/types';
 import { StreamArgs } from '../../schemas/agent';
 import { PaginationOpts } from '../../schemas/pagination';
-import { SupportThreadSchema } from '../../support/supportThreadFields';
+import {
+	SupportThreadPrioritySchema,
+	SupportThreadSchema,
+	SupportThreadStatusSchema
+} from '../../support/supportThreadFields';
 
 const SupportMetadataSchema = Schema.Struct({
 	_id: Id('supportThreads'),
@@ -108,4 +112,51 @@ export const InternalNotesSchema = Schema.Struct({
 	),
 	isDone: Schema.Boolean,
 	continueCursor: Schema.String
+});
+
+export const ThreadAssignmentArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	adminUserId: Schema.optional(Schema.String)
+});
+
+export const ThreadStatusArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	status: SupportThreadStatusSchema
+});
+
+export const ThreadPriorityArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	priority: Schema.optional(SupportThreadPrioritySchema)
+});
+
+export const AdminReplyArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	prompt: Schema.String,
+	fileIds: Schema.optional(Schema.mutable(Schema.Array(Schema.String)))
+});
+
+export const InternalNoteArgsSchema = Schema.Struct({
+	userId: Schema.String,
+	content: Schema.String
+});
+
+export const NotificationMessagesSchema = Schema.mutable(
+	Schema.Array(Schema.Struct({ text: Schema.String, timestamp: Schema.String }))
+);
+
+export const RecipientEnqueueArgsSchema = Schema.Struct({
+	notificationId: Id('pendingAdminNotifications'),
+	generation: Schema.String,
+	claimToken: Schema.String,
+	email: Schema.String,
+	isReopen: Schema.Boolean,
+	isBareHandoff: Schema.Boolean,
+	userName: Schema.String,
+	messages: NotificationMessagesSchema,
+	threadId: Schema.String
+});
+
+export const ReceiptCleanupArgsSchema = Schema.Struct({
+	notificationId: Id('pendingAdminNotifications'),
+	cursor: Schema.Union([Schema.String, Schema.Null])
 });

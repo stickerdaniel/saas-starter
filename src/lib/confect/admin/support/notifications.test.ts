@@ -11,7 +11,7 @@ vi.mock('../../emails/resend', () => ({
 	}))
 }));
 
-import { enqueueRecipient } from './notificationDelivery';
+import { enqueueRecipient } from '../../../convex/admin/support/notificationDelivery';
 import { getEmailDeliveryConfiguration } from '../../emails/resend';
 import { shouldSkipTestEmail } from '../../emails/helpers';
 import { getFunctionName } from 'convex/server';
