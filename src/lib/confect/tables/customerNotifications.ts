@@ -1,14 +1,14 @@
 import { Table } from '@confect/core';
 import * as Schema from 'effect/Schema';
 import { Id } from '../_generated/id';
+import { JourneyEpisodeSchema, JourneyRequestSchema } from '../admin/journey/schemas';
 
-const episode = Schema.Literals(['new_customer', 'cancellation']);
 const interval = Schema.Literals(['month', 'year']);
 
 export default Table.make(() =>
 	Schema.Struct({
 		userId: Schema.String,
-		kind: episode,
+		kind: JourneyEpisodeSchema,
 		episodeKey: Schema.String,
 		status: Schema.Literals(['scheduled', 'enqueued', 'skipped', 'failed']),
 		skippedReason: Schema.optional(
@@ -39,13 +39,7 @@ export default Table.make(() =>
 				})
 			)
 		}),
-		request: Schema.Struct({
-			episode,
-			userId: Schema.String,
-			signupAt: Schema.Number,
-			paymentAt: Schema.Number,
-			window: Schema.Struct({ start: Schema.Number, end: Schema.Number })
-		}),
+		request: JourneyRequestSchema,
 		observedAt: Schema.Number,
 		sendAt: Schema.Number,
 		scheduledFnId: Schema.optional(Id('_scheduled_functions')),
