@@ -8,6 +8,7 @@ import en from '../../../../i18n/en.json';
 import es from '../../../../i18n/es.json';
 import fr from '../../../../i18n/fr.json';
 import { createClock, formatDuration } from '../journey/format';
+import { enqueueRecipient } from '../../../convex/admin/customerNotifications/send';
 import { getRecipientsForNotificationType } from '../notificationPreferences/queries';
 import {
 	deactivateAdminPreferencesHelper,
@@ -291,6 +292,24 @@ describe('recipients and outcomes', () => {
 		expect(noAudience.row(ids[1]!)).toMatchObject({ skippedReason: 'no_recipients' });
 		expect(unconfigured.row(ids[2]!)).toMatchObject({ skippedReason: 'email_unavailable' });
 		expect(sendEmail).not.toHaveBeenCalled();
+	});
+
+	it('rejects a direct enqueue while email is unconfigured', async () => {
+		const { store } = setupSend();
+		const sendEmail = installResend();
+		vi.unstubAllEnvs();
+
+		await expect(
+			store.mutate(asRegistered(enqueueRecipient), {
+				to: 'owner@example.com',
+				subject: 'New customer',
+				html: '<p>New customer</p>',
+				text: 'New customer',
+				template: 'new-customer'
+			})
+		).rejects.toThrow('email_unavailable');
+		expect(sendEmail).not.toHaveBeenCalled();
+		expect(store.docs('resend:emails')).toEqual([]);
 	});
 
 	it('rolls back only the recipient whose component enqueue crosses its write limit', async () => {
