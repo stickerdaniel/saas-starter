@@ -1,4 +1,4 @@
-import { PaginationOptions, SchemaToValidator } from '@confect/core';
+import { SchemaToValidator } from '@confect/core';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { vEmailEvent, vEmailId } from '@convex-dev/resend';
 import { validate } from 'convex-helpers/validators';
@@ -7,6 +7,7 @@ import { v, type GenericValidator } from 'convex/values';
 import * as Schema from 'effect/Schema';
 import { describe, expect, it } from 'vitest';
 import { StreamArgs } from './agent';
+import { PaginationOpts } from './pagination';
 import { EmailEvent, EmailId } from './resend';
 
 const sent = {
@@ -95,11 +96,13 @@ const cases: ReadonlyArray<{
 		]
 	},
 	{
-		name: 'PaginationOptions',
-		schema: PaginationOptions.PaginationOptions,
+		name: 'PaginationOpts',
+		schema: PaginationOpts,
 		native: paginationOptsValidator,
 		accepted: [
 			{ numItems: 10, cursor: null },
+			{ numItems: Number.POSITIVE_INFINITY, cursor: null },
+			{ numItems: 10, cursor: null, endCursor: undefined, id: undefined },
 			{
 				numItems: 10,
 				cursor: 'c1',
@@ -133,24 +136,5 @@ describe.each(cases)('$name', ({ schema, native, accepted, rejected }) => {
 	it.each(rejected)('rejects a value the native validator rejects: %j', (value) => {
 		expect(validate(native, value)).toBe(false);
 		expect(() => Schema.decodeUnknownSync(schema)(value)).toThrow();
-	});
-});
-
-describe('PaginationOptions exceptions owned by Confect', () => {
-	const decode = Schema.decodeUnknownSync(PaginationOptions.PaginationOptions);
-
-	it.each([
-		['a non-finite count', { numItems: Number.POSITIVE_INFINITY, cursor: null }],
-		['an explicit undefined endCursor', { numItems: 10, cursor: null, endCursor: undefined }],
-		['an explicit undefined id', { numItems: 10, cursor: null, id: undefined }]
-	])('rejects %s that the native validator accepts', (_label, value) => {
-		expect(validate(paginationOptsValidator, value)).toBe(true);
-		expect(() => decode(value)).toThrow();
-	});
-
-	it('strips an excess key that the native validator rejects', () => {
-		const value = { numItems: 10, cursor: null, surplus: 1 };
-		expect(validate(paginationOptsValidator, value)).toBe(false);
-		expect(decode(value)).toEqual({ numItems: 10, cursor: null });
 	});
 });

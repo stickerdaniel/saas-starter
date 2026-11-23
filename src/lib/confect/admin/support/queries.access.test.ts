@@ -60,6 +60,7 @@ async function refusal(call: Promise<unknown>) {
 }
 
 const page = { numItems: 10, cursor: null };
+const unbounded = { numItems: Number.POSITIVE_INFINITY, cursor: null };
 
 const calls = (caller: Caller) => [
 	caller.query(api.admin.support.queries.getAwaitingResponseCount, {}),
@@ -71,7 +72,19 @@ const calls = (caller: Caller) => [
 		threadId: 'thread_1',
 		paginationOpts: page
 	}),
-	caller.query(api.admin.support.queries.listThreadsForAdmin, { filter: 'all' })
+	caller.query(api.admin.support.queries.listThreadsForAdmin, { filter: 'all' }),
+	caller.query(api.admin.support.queries.listInternalUserNotes, {
+		userId: 'customer_1',
+		paginationOpts: unbounded
+	}),
+	caller.query(api.admin.support.queries.listMessagesForAdmin, {
+		threadId: 'thread_1',
+		paginationOpts: unbounded
+	}),
+	caller.query(api.admin.support.queries.listThreadsForAdmin, {
+		filter: 'all',
+		paginationOpts: unbounded
+	})
 ];
 
 async function seedThread(t: Harness, ownerId: string, assignedTo: string) {
@@ -108,7 +121,7 @@ describe('admin support queries access', () => {
 
 		const refusals = await Promise.all(calls(t).map(refusal));
 
-		expect(refusals).toEqual(Array(7).fill('Unauthenticated'));
+		expect(refusals).toEqual(Array(10).fill('Unauthenticated'));
 	});
 
 	it('refuses a signed-in non-admin on every query', async () => {
@@ -118,7 +131,7 @@ describe('admin support queries access', () => {
 		const refusals = await Promise.all(calls(user.caller).map(refusal));
 
 		expect(refusals).toEqual(
-			Array(7).fill(createAdminError(ADMIN_ERROR_CODES.accessRequired).data)
+			Array(10).fill(createAdminError(ADMIN_ERROR_CODES.accessRequired).data)
 		);
 	});
 });
@@ -194,6 +207,53 @@ describe('admin support queries as an admin', () => {
 		expect(await list({ filter: 'all', status: 'open' })).toEqual(['thread_1']);
 		expect(await list({ filter: 'unassigned', status: 'done' })).toEqual(['thread_2']);
 		expect(await list({ filter: mine, status: 'done' })).toEqual([]);
+	});
+
+	it('searches the inbox and continues a page from its cursor', async () => {
+		const t = harness();
+		const admin = await signIn(t, 'admin', 'admin@example.com');
+		await t.run(async (ctx) => {
+			for (const [threadId, searchText, status, updatedAt] of [
+				['thread_1', 'refund for march', 'open', 1],
+				['thread_2', 'refund for april', 'done', 2],
+				['thread_3', 'invoice address', 'open', 3]
+			] as const) {
+				await ctx.db.insert('supportThreads', {
+					threadId,
+					userId: 'anon_guest',
+					status,
+					isHandedOff: true,
+					searchText,
+					createdAt: 1,
+					updatedAt
+				});
+			}
+		});
+		const { listThreadsForAdmin } = api.admin.support.queries;
+		const ids = (result: { page: ReadonlyArray<{ _id: string }> }) =>
+			result.page.map((thread) => thread._id);
+
+		const first = await admin.caller.query(listThreadsForAdmin, {
+			filter: 'all',
+			paginationOpts: { numItems: 2, cursor: null }
+		});
+		const rest = await admin.caller.query(listThreadsForAdmin, {
+			filter: 'all',
+			paginationOpts: { numItems: 2, cursor: first.continueCursor }
+		});
+		expect([ids(first), ids(rest)]).toEqual([['thread_3', 'thread_2'], ['thread_1']]);
+
+		const refunds = await admin.caller.query(listThreadsForAdmin, {
+			filter: 'all',
+			search: 'refund'
+		});
+		expect(ids(refunds).sort()).toEqual(['thread_1', 'thread_2']);
+		const openRefunds = await admin.caller.query(listThreadsForAdmin, {
+			filter: 'all',
+			status: 'open',
+			search: 'refund'
+		});
+		expect(ids(openRefunds)).toEqual(['thread_1']);
 	});
 
 	it('fails the thread details and the transcript of an unknown thread', async () => {

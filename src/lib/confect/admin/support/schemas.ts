@@ -1,8 +1,8 @@
-import { PaginationOptions } from '@confect/core';
 import * as Schema from 'effect/Schema';
 import { Id } from '../../_generated/id';
 import type { MessagesQueryResponse } from '../../../chat/core/types';
 import { StreamArgs } from '../../schemas/agent';
+import { PaginationOpts } from '../../schemas/pagination';
 import { SupportThreadSchema } from '../../support/supportThreadFields';
 
 const SupportMetadataSchema = Schema.Struct({
@@ -36,7 +36,7 @@ export const ThreadListArgsSchema = Schema.Struct({
 	]),
 	status: Schema.optionalKey(Schema.Literals(['open', 'done'])),
 	search: Schema.optionalKey(Schema.String),
-	paginationOpts: Schema.optionalKey(PaginationOptions.PaginationOptions)
+	paginationOpts: Schema.optionalKey(PaginationOpts)
 });
 
 export const ThreadListSchema = Schema.Struct({
@@ -76,7 +76,7 @@ export const MessageRoutesSchema = Schema.mutable(
 
 export const MessageListArgsSchema = Schema.Struct({
 	threadId: Schema.String,
-	paginationOpts: PaginationOptions.PaginationOptions,
+	paginationOpts: PaginationOpts,
 	streamArgs: Schema.optionalKey(StreamArgs)
 });
 
@@ -91,7 +91,7 @@ export const InternalUserNoteSchema = Schema.Struct({
 
 export const InternalNotesArgsSchema = Schema.Struct({
 	userId: Schema.String,
-	paginationOpts: Schema.optionalKey(PaginationOptions.PaginationOptions)
+	paginationOpts: Schema.optionalKey(PaginationOpts)
 });
 
 export const InternalNotesSchema = Schema.Struct({
