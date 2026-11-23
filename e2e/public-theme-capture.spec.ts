@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { test } from './utils/test';
 
 /**
@@ -20,11 +20,8 @@ import { test } from './utils/test';
 
 type Mode = 'dark' | 'light';
 type Capture = { before: Mode; after: Mode };
-type RevealLog = { requested: number; captures: Capture[] };
-type RevealWindow = Window & { __themeReveal?: RevealLog };
-
-const revealLog = (page: Page) =>
-	page.evaluate(() => (window as RevealWindow).__themeReveal ?? { requested: 0, captures: [] });
+type RevealEvent = { kind: 'requested' } | ({ kind: 'captured' } & Capture);
+type RevealWindow = Window & { __themeReveal?: (event: RevealEvent) => Promise<void> };
 
 test.use({ colorScheme: 'light' });
 
@@ -33,16 +30,20 @@ test('the theme reveal captures the theme it switches to', async ({ page }) => {
 	// to the page's own update callback and at its exact return. The native API
 	// still schedules, captures, and settles the transition; the wrapper only reads
 	// the root around the callback it forwards.
+	const reveal = { requested: 0, captures: [] as Capture[] };
+	await page.exposeFunction('__themeReveal', (event: RevealEvent) => {
+		if (event.kind === 'requested') reveal.requested += 1;
+		else reveal.captures.push({ before: event.before, after: event.after });
+	});
 	await page.addInitScript(() => {
 		const mode = (): Mode =>
 			document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-		const log: RevealLog = { requested: 0, captures: [] };
-		(window as RevealWindow).__themeReveal = log;
+		const report = (event: RevealEvent) => void (window as RevealWindow).__themeReveal?.(event);
 		const recording = (update: ViewTransitionUpdateCallback): ViewTransitionUpdateCallback =>
 			function (this: unknown, ...args: []) {
 				const before = mode();
 				const result = update.apply(this, args);
-				log.captures.push({ before, after: mode() });
+				report({ kind: 'captured', before, after: mode() });
 				return result;
 			};
 		const native = Document.prototype.startViewTransition;
@@ -51,7 +52,7 @@ test('the theme reveal captures the theme it switches to', async ({ page }) => {
 			options?: ViewTransitionUpdateCallback | StartViewTransitionOptions,
 			...rest: []
 		) {
-			log.requested += 1;
+			report({ kind: 'requested' });
 			const forwarded =
 				typeof options === 'function'
 					? recording(options)
@@ -73,15 +74,14 @@ test('the theme reveal captures the theme it switches to', async ({ page }) => {
 	// CI preview and still leaves the local 30s test budget room for navigation.
 	const toggle = page.getByRole('button', { name: 'Toggle theme' });
 	await expect(async () => {
-		if ((await revealLog(page)).requested === 0) await toggle.click();
-		expect((await revealLog(page)).requested).toBeGreaterThan(0);
+		if (reveal.requested === 0) await toggle.click();
+		expect(reveal.requested).toBeGreaterThan(0);
 	}).toPass({ intervals: [250, 500, 1_000], timeout: 20_000 });
 
 	// The browser runs the update callback later than the request; wait for it.
-	await expect.poll(async () => (await revealLog(page)).captures.length).toBe(1);
+	await expect.poll(() => reveal.captures.length).toBe(1);
 
-	const { requested, captures } = await revealLog(page);
-	expect(requested).toBe(1);
-	expect(captures[0]).toEqual({ before: 'light', after: 'dark' });
+	expect(reveal.requested).toBe(1);
+	expect(reveal.captures[0]).toEqual({ before: 'light', after: 'dark' });
 	await expect(page.locator('html')).toHaveClass(/\bdark\b/);
 });
