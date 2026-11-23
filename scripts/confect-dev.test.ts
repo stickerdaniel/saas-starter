@@ -1,8 +1,16 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	watch,
+	writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { checkoutLockPath } from './checkout-lock';
 import {
 	awaitStartup,
@@ -67,6 +75,20 @@ function gate() {
 	return { opened, open };
 }
 
+function written(file: string): Promise<string> {
+	const contents = () => (existsSync(file) ? readFileSync(file, 'utf8') : '');
+	return new Promise((resolve) => {
+		const settle = () => {
+			const text = contents();
+			if (text === '') return;
+			watcher.close();
+			resolve(text);
+		};
+		const watcher = watch(path.dirname(file), settle);
+		settle();
+	});
+}
+
 async function until(condition: () => boolean): Promise<void> {
 	const deadline = Date.now() + 10_000;
 	while (!condition()) {
@@ -76,6 +98,7 @@ async function until(condition: () => boolean): Promise<void> {
 }
 
 afterEach(() => {
+	vi.useRealTimers();
 	for (const root of roots.splice(0)) {
 		rmSync(checkoutLockPath(root), { force: true });
 		rmSync(root, { recursive: true, force: true });
@@ -353,8 +376,8 @@ describe('push command', () => {
 			() => ({ error: undefined, exited: existsSync(exitFile) }),
 			(error: unknown) => ({ error: String(error), exited: existsSync(exitFile) })
 		);
-		await expect.poll(() => existsSync(readyFile), { timeout: 5_000 }).toBe(true);
-		return { controller, outcome, pid: Number(readFileSync(readyFile, 'utf8')) };
+		const pid = Number(await written(readyFile));
+		return { controller, outcome, pid };
 	}
 
 	function alive(pid: number) {
@@ -377,7 +400,9 @@ describe('push command', () => {
 	}, 10_000);
 
 	it('kills a child that ignores SIGTERM after the timeout and grace, then rejects', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		const { outcome, pid } = await startResistant(60_000, { timeoutMs: 300, graceMs: 300 });
+		vi.advanceTimersByTime(600);
 
 		expect(await outcome).toEqual({
 			error: 'Error: the push timed out after 300 ms',
