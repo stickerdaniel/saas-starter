@@ -178,6 +178,28 @@ describe('signature verification', () => {
 });
 
 describe('response table', () => {
+	it.each(['/autumn-webhook/', '/AUTUMN-WEBHOOK'])(
+		'answers a signed delivery to %s with an empty 404',
+		async (path) => {
+			const { deliver, rows } = setup();
+			const fetchMock = stubAutumn(json(payingActiveCouponCard.data));
+			const signed = delivery(billingUpdated(CUSTOMER));
+
+			const response = await deliver(
+				new Request(`https://example.convex.site${path}`, {
+					method: 'POST',
+					headers: signed.headers,
+					body: await signed.text()
+				})
+			);
+
+			expect(response.status).toBe(404);
+			expect(await response.text()).toBe('');
+			expect(fetchMock).not.toHaveBeenCalled();
+			expect(rows()).toEqual([]);
+		}
+	);
+
 	it.each([
 		['billing.updated', billingUpdated(CUSTOMER)],
 		['customer.products.updated', productsUpdated(CUSTOMER)],
