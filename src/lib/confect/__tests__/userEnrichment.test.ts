@@ -15,7 +15,7 @@ vi.mock('../support/ownership', () => ({
 vi.mock('../support/agent', () => ({ supportAgent: {} }));
 
 import { listAuditLogs } from '../../convex/admin/auditLog/queries';
-import { listThreadsForAdmin } from '../admin/support/queries';
+import { listThreadsForAdmin } from '../../convex/admin/support/queries';
 import { listThreads } from '../support/threads';
 
 const users = [
@@ -71,10 +71,13 @@ function invoke<T>(query: unknown, ctx: unknown, args: unknown): Promise<T> {
 
 function thread(userId: string, assignedTo?: string) {
 	return {
+		_id: `row-${userId}-${assignedTo}`,
+		_creationTime: 1,
 		threadId: `thread-${userId}-${assignedTo}`,
 		userId,
 		assignedTo,
 		createdAt: 1,
+		updatedAt: 1,
 		status: 'open'
 	};
 }

@@ -6,17 +6,13 @@ vi.mock('../../../authServer', () => ({
 vi.mock('../../../../convex/_generated/api', () => ({
 	components: { betterAuth: { adapter: {} }, agent: {} }
 }));
-vi.mock('@convex-dev/agent/validators', async () => {
-	const { v } = await import('convex/values');
-	return { vStreamArgs: v.optional(v.any()) };
-});
 vi.mock('../../../support/messageListing', () => ({ listMessagesForThread: vi.fn() }));
 
 import { authComponent } from '../../../authServer';
 import { SUPPORT_MESSAGE_ROUTES_LIMIT } from '../constants';
-import { listMessageRoutesForAdmin } from '../queries';
+import { listMessageRoutesForAdmin } from '../../../../convex/admin/support/queries';
 
-const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
+const getAuthUserMock = authComponent.safeGetAuthUser as unknown as ReturnType<typeof vi.fn>;
 
 type Fn<A, R> = { _handler: (ctx: unknown, args: A) => Promise<R> };
 const routesHandler = listMessageRoutesForAdmin as unknown as Fn<

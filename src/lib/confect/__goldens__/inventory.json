@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "3364e76c59e9ee83",
+	"digest": "c8a14feaba6e0953",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -103,13 +103,13 @@
 			"sendPendingAdminNotification": ["internal", "action", "Convex", "Convex"]
 		},
 		"admin/support/queries": {
-			"getAwaitingResponseCount": ["public", "query", "Convex", "Convex"],
-			"getThreadForAdmin": ["public", "query", "Convex", "Convex"],
-			"listAdmins": ["public", "query", "Convex", "Convex"],
-			"listInternalUserNotes": ["public", "query", "Convex", "Convex"],
-			"listMessageRoutesForAdmin": ["public", "query", "Convex", "Convex"],
-			"listMessagesForAdmin": ["public", "query", "Convex", "Convex"],
-			"listThreadsForAdmin": ["public", "query", "Convex", "Convex"]
+			"getAwaitingResponseCount": ["public", "query", "Convex", "Confect"],
+			"getThreadForAdmin": ["public", "query", "Convex", "Confect"],
+			"listAdmins": ["public", "query", "Convex", "Confect"],
+			"listInternalUserNotes": ["public", "query", "Convex", "Confect"],
+			"listMessageRoutesForAdmin": ["public", "query", "Convex", "Confect"],
+			"listMessagesForAdmin": ["public", "query", "Convex", "Confect"],
+			"listThreadsForAdmin": ["public", "query", "Convex", "Confect"]
 		},
 		"aiChat/activityMigration": {
 			"runPage": ["internal", "mutation", "Convex", "Convex"],
