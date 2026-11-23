@@ -300,7 +300,7 @@ function seedCreatorState(
 	};
 	const template = JSON.parse(
 		readFileSync(path.join(ROOT, 'scripts/__fixtures__/template-setup/package.json'), 'utf8')
-	) as { scripts: Record<string, string> };
+	) as { scripts: Record<string, string> & { postinstall: string; test: string } };
 	const names = ['install:cli', 'check:cli', 'test:cli', 'build:cli', 'test:cli:packed'];
 	const child = path.join(repository, 'packages/create-saas-starter');
 	const workflow = path.join(repository, '.github/workflows/create-saas-starter.yml');

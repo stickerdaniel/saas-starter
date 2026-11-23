@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { createServer, type Plugin, type ViteDevServer } from 'vite';
+import { createServer, isRunnableDevEnvironment, type Plugin, type ViteDevServer } from 'vite';
 import { afterEach, describe, expect, it } from 'vitest';
 import { kitGeneratedHmr } from './kit-generated-hmr';
 
@@ -49,7 +49,9 @@ async function serveGeneratedModule(outDir: string) {
 		plugins: [kitGeneratedHmr(outDir), ssrHandled]
 	});
 	servers.push(server);
-	const runner = server.environments.ssr.runner;
+	const ssr = server.environments.ssr;
+	if (!isRunnableDevEnvironment(ssr)) throw new Error('The SSR environment is not runnable');
+	const { runner } = ssr;
 	await runner.import(id);
 	const shared = async () => (await runner.import<{ instance: object }>('/shared.js')).instance;
 

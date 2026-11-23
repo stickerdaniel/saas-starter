@@ -2,6 +2,7 @@ import fs from 'fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BRANCH_HEAD_COMMAND } from './branch-head';
 import { detectPlatform, type PlatformContext } from './platform';
+import { required } from '../required';
 import {
 	computeBuildEnv,
 	deployConvex,
@@ -607,7 +608,7 @@ describe('concurrent preview builds of one branch', () => {
 		let checks = 0;
 		const h = harness(buildEnv, (request) =>
 			request.command === 'git' && remotes.length
-				? remotes[Math.min(checks++, remotes.length - 1)]
+				? required(remotes[Math.min(checks++, remotes.length - 1)], 'git remote reply')
 				: request.args[1] === 'deploy'
 					? replaced
 					: defaultReply(request)

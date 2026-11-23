@@ -1,0 +1,11 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"declaration": false,
+		"declarationMap": false,
+		"noEmit": true,
+		"types": ["node", "bun-types"]
+	},
+	"include": ["**/*.ts", "../src/marketing-fonts.d.ts"],
+	"exclude": ["__fixtures__/convex-surface-broken/**", "__fixtures__/convex-surface-any/**"]
+}

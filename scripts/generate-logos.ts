@@ -18,6 +18,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { required } from './required';
 import { Resvg } from '@resvg/resvg-js';
 
 const ROOT = join(import.meta.dirname, '..');
@@ -54,8 +55,9 @@ function parseRootAttributes(svgContent: string): {
 	const attrRegex = /([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 	let match;
 	while ((match = attrRegex.exec(attrsString)) !== null) {
-		const [, name, doubleQ, singleQ] = match;
-		const value = doubleQ ?? singleQ;
+		const [, attrName, doubleQ, singleQ] = match;
+		const name = required(attrName, 'SVG attribute name');
+		const value = required(doubleQ ?? singleQ, `value of SVG attribute ${name}`);
 		if (name === 'viewBox') {
 			viewBox = value;
 		} else if (name === 'width') {
@@ -77,7 +79,7 @@ function parseRootAttributes(svgContent: string): {
 
 	// Extract inner content (everything between <svg> and </svg>)
 	const innerMatch = svgContent.match(/<svg(?:\s[^>]*)?\s*>([\s\S]*)<\/svg>/);
-	const innerContent = innerMatch ? innerMatch[1] : '';
+	const innerContent = innerMatch?.[1] ?? '';
 
 	return { namespaceAttrs, presentationAttrs, viewBox, width, height, innerContent };
 }
@@ -101,7 +103,14 @@ function buildWrapperSvg(source: string, o: RenderOpts): string {
 	let vbHeight: number;
 
 	if (viewBox) {
-		[minX, minY, vbWidth, vbHeight] = viewBox.split(/\s+/).map(Number);
+		const [x, y, w, h] = viewBox
+			.trim()
+			.split(/[\s,]+/)
+			.map(Number);
+		minX = required(x, 'viewBox min-x');
+		minY = required(y, 'viewBox min-y');
+		vbWidth = required(w, 'viewBox width');
+		vbHeight = required(h, 'viewBox height');
 	} else if (width && height) {
 		vbWidth = parseFloat(width);
 		vbHeight = parseFloat(height);

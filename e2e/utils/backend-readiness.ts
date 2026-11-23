@@ -47,7 +47,11 @@ export async function waitForBackendReady(
 	// while the caller's regular setup client remains unaffected and survives
 	// the abort.
 	const client = new ConvexHttpClient(convexUrl, {
-		fetch: (input, init) => fetch(input, { ...init, signal: controller.signal })
+		fetch: Object.assign(
+			(input: Parameters<typeof fetch>[0], init?: RequestInit) =>
+				fetch(input, { ...init, signal: controller.signal }),
+			{ preconnect: fetch.preconnect }
+		)
 	});
 
 	const start = Date.now();

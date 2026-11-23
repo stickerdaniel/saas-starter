@@ -135,13 +135,13 @@ describe('Knip static-check CLI behavior', { concurrent: false }, () => {
 });
 
 // Every recorded type check below exits 0, which is what the real svelte-check does for a
-// standalone script: its tsconfig never reads the file, so it cannot report the error in it.
+// standalone module: its tsconfig never reads the file, so it cannot report the error in it.
 // Only the checker's own question to TypeScript can tell the named file was not checked (#929).
 describe('type project coverage of named files', { concurrent: false }, () => {
-	const STANDALONE = 'scripts/type-coverage-probe.ts';
+	const STANDALONE = 'type-coverage-probe.ts';
 	const COVERED = 'src/lib/billing/checkout-result.ts';
 
-	function writeStandaloneScript(checkout: CheckerClone): void {
+	function writeStandaloneModule(checkout: CheckerClone): void {
 		writeFileSync(
 			path.join(checkout.repository, STANDALONE),
 			"export const count: number = 'wrong';\n"
@@ -152,11 +152,11 @@ describe('type project coverage of named files', { concurrent: false }, () => {
 		['alone', [STANDALONE]],
 		['beside a covered file', [STANDALONE, COVERED]]
 	] as const)(
-		'fails a types run naming a standalone script %s',
+		'fails a types run naming a standalone module %s',
 		(_label, files) => {
 			const checkout = createCheckerClone();
 			try {
-				writeStandaloneScript(checkout);
+				writeStandaloneModule(checkout);
 				const result = runChecker(checkout, ['--ci', '--scope', 'types', ...files]);
 				const output = `${result.stdout}${result.stderr}`;
 
@@ -214,13 +214,13 @@ describe('type project coverage of named files', { concurrent: false }, () => {
 
 	// svelte-check reports errors in every module its project imports, not only in the files
 	// its tsconfig includes: vite.config.ts pulls scripts/dev-ports.ts into the app program.
-	it('passes a types run naming a script that a project file imports', () => {
+	it('passes a types run naming a module that a project file imports', () => {
 		const checkout = createCheckerClone();
 		try {
-			writeStandaloneScript(checkout);
+			writeStandaloneModule(checkout);
 			writeFileSync(
 				path.join(checkout.repository, 'src/lib/type-coverage-importer.ts'),
-				"export { count } from '../../scripts/type-coverage-probe';\n"
+				"export { count } from '../../type-coverage-probe';\n"
 			);
 			const result = runChecker(checkout, ['--ci', '--scope', 'types', STANDALONE]);
 			const output = `${result.stdout}${result.stderr}`;
@@ -241,8 +241,8 @@ describe('type project coverage of named files', { concurrent: false }, () => {
 			const checkout = createCheckerClone();
 			const link = 'src/lib/type-coverage-link.ts';
 			try {
-				writeStandaloneScript(checkout);
-				symlinkSync('../../scripts/type-coverage-probe.ts', path.join(checkout.repository, link));
+				writeStandaloneModule(checkout);
+				symlinkSync('../../type-coverage-probe.ts', path.join(checkout.repository, link));
 				const result = runChecker(checkout, ['--ci', '--scope', 'types', link]);
 				const output = `${result.stdout}${result.stderr}`;
 

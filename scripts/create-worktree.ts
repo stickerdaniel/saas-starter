@@ -23,6 +23,7 @@ import { chmodSync, existsSync, copyFileSync, mkdirSync, readdirSync, statSync }
 import { join } from 'path';
 import { parseArgs } from 'util';
 import { parseRemoteSlug } from './prune-worktrees';
+import { required } from './required';
 
 const colors = {
 	reset: '\x1b[0m',
@@ -117,7 +118,10 @@ function getRootWorktree(): string {
 	}
 	// The first line of --porcelain output is always "worktree <path>" for the main
 	// worktree. Trim strips a trailing \r on Windows (CRLF line endings).
-	const firstLine = result.stdout.split('\n')[0].trim();
+	const firstLine = required(
+		result.stdout.split('\n')[0],
+		'first line of git worktree list'
+	).trim();
 	const mainRepoPath = firstLine.replace(/^worktree /, '');
 	if (!mainRepoPath) {
 		console.error(`${colors.red}Error: Could not determine main repo path${colors.reset}`);

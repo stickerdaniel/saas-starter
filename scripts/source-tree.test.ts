@@ -6,6 +6,7 @@ import typescript from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 import { sanitizedGitEnv } from './git-context';
+import { required } from './required';
 
 // Vite rewrites every use of an imported name into a read off the import
 // object, and Vitest wraps a CommonJS package such as `typescript` in a Proxy
@@ -440,7 +441,8 @@ function resolvePaths(node: ts.Expression, bindings: Scope): ResolvedPath[] {
 	const anchored = fileAnchoredPath(node, bindings);
 	if (anchored) return [anchored];
 	if (ts.isTemplateExpression(node) && node.head.text === '') {
-		const [, first, ...rest] = templatePieces(node);
+		const [, head, ...rest] = templatePieces(node);
+		const first = required(head, 'first template expression');
 		if (typeof first === 'string') return [undefined];
 		const parts = stringParts(rest);
 		return resolvePaths(first, bindings).map((anchor) => anchor && continuePath(anchor, parts));
@@ -1348,7 +1350,7 @@ writeFileSync(path.join(repoRoot, 'scratch/') + 'probe.ts', 'x');`;
 		['writeFile', 0],
 		['writeFileSync', 0]
 	] as const)('reports %s on its path argument %i', (name, position) => {
-		const args = Array.from({ length: position + 1 }, (_, index) =>
+		const args = Array.from<unknown, string>({ length: position + 1 }, (_, index) =>
 			index === position ? "path.join(process.cwd(), 'src', 'probe.ts')" : 'other'
 		);
 		if (name === 'open' || name === 'openSync') args.push("'w'");

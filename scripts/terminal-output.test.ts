@@ -247,16 +247,16 @@ describe('sanitized commands', () => {
 		expect(tokens[0]).toBeDefined();
 		expect(tokens[1]).toBeDefined();
 		expect(tokens[0]).not.toBe(tokens[1]);
-		for (let index = 0; index < outputs.length; index++) {
+		for (const [index, output] of outputs.entries()) {
 			const token = tokens[index]!;
-			const stop = outputs[index].indexOf(`::stop-commands::${token}`);
-			const resume = outputs[index].indexOf(`::${token}::`);
+			const stop = output.indexOf(`::stop-commands::${token}`);
+			const resume = output.indexOf(`::${token}::`);
 			expect(token).toMatch(
 				/^terminal-output-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 			);
 			expect(stop).toBeGreaterThanOrEqual(0);
 			expect(resume).toBeGreaterThan(stop);
-			expect(outputs[index]).toMatch(new RegExp(`^::${token}::$`, 'm'));
+			expect(output).toMatch(new RegExp(`^::${token}::$`, 'm'));
 		}
 	});
 

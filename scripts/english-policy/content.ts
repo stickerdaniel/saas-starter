@@ -6,6 +6,7 @@ import * as typescriptParser from '@typescript-eslint/parser';
 import { SUPPORTED_LANGUAGE_CODES } from '../../src/lib/i18n/language-codes.generated.js';
 import { classifyEnglish, splitTextWindows, type TextWindow } from './classifier';
 import { withoutCodeBlocks } from './markdown';
+import { required } from '../required';
 
 export interface EnglishFinding {
 	label: string;
@@ -213,10 +214,12 @@ function addParserStyleComments(
 		range: true,
 		tokens: true
 	});
-	const styleContext = parsed.services.getStyleContext();
+	const { services } = parsed;
+	if (!services.isSvelte) throw new Error(`svelte-eslint-parser read ${file} as a script module`);
+	const styleContext = services.getStyleContext();
 	if (styleContext.status === 'success') {
 		styleContext.sourceAst.walkComments((comment) => {
-			const [start, end] = parsed.services.styleNodeRange(comment);
+			const [start, end] = services.styleNodeRange(comment);
 			if (start !== undefined && end !== undefined) addCommentRange(comments, 'block', start, end);
 		});
 	}
@@ -289,8 +292,9 @@ function propertyName(node: ts.PropertyName): string | null {
 }
 
 function jsonStrings(text: string, label: string, allLeaves: boolean): TextWindow[] {
-	const source = ts.parseJsonText(label, text);
-	if (source.parseDiagnostics.length > 0) {
+	const source: ts.JsonSourceFile & { readonly parseDiagnostics?: readonly ts.Diagnostic[] } =
+		ts.parseJsonText(label, text);
+	if (required(source.parseDiagnostics, 'TypeScript JSON parse diagnostics').length > 0) {
 		throw new Error(`Cannot parse ${label} as JSON/JSONC.`);
 	}
 	const statement = source.statements[0];
