@@ -4,10 +4,13 @@ import { NOTIFICATION_PREFERENCE_ERROR_CODES } from './errors';
 
 const authUser = vi.hoisted(() => ({ current: { _id: 'admin_1', role: 'admin' } }));
 vi.mock('../../authServer', () => ({
-	authComponent: { getAuthUser: vi.fn(async () => authUser.current) }
+	authComponent: {
+		getAuthUser: vi.fn(async () => authUser.current),
+		safeGetAuthUser: vi.fn(async () => authUser.current)
+	}
 }));
 
-import { updatePreferences } from './mutations';
+import { updatePreferences } from '../../../convex/admin/notificationPreferences/mutations';
 
 type Args = { emails: string[]; field: 'notifyNewSignups'; value: boolean };
 const handler = (

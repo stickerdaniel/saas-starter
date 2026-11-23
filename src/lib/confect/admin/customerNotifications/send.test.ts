@@ -9,7 +9,7 @@ import es from '../../../../i18n/es.json';
 import fr from '../../../../i18n/fr.json';
 import { createClock, formatDuration } from '../journey/format';
 import { enqueueRecipient } from '../../../convex/admin/customerNotifications/send';
-import { getRecipientsForNotificationType } from '../notificationPreferences/queries';
+import { getRecipientsForNotificationType } from '../../../convex/admin/notificationPreferences/queries';
 import {
 	deactivateAdminPreferencesHelper,
 	syncAdminPreferences

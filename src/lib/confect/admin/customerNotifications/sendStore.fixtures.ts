@@ -5,7 +5,7 @@ import { createJourneyStore } from '../journey/journeyStore.fixtures';
 import * as aiChat from '../journey/sources/aiChat';
 import * as community from '../journey/sources/community';
 import * as support from '../journey/sources/support';
-import { getJourneyRecipients } from '../notificationPreferences/queries';
+import { getJourneyRecipients } from '../../../convex/admin/notificationPreferences/queries';
 import type { Payment } from './billing';
 import { cancellationEpisode, newCustomerEpisode } from './ledger';
 import {

@@ -1,14 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../authServer', () => ({
-	authComponent: { getAuthUser: vi.fn(async () => ({ _id: 'admin_1', role: 'admin' })) }
+	authComponent: {
+		getAuthUser: vi.fn(async () => ({ _id: 'admin_1', role: 'admin' })),
+		safeGetAuthUser: vi.fn(async () => ({ _id: 'admin_1', role: 'admin' }))
+	}
 }));
 
 import {
 	listNotificationRecipients,
-	resolveNotificationRecipientsLastPage,
-	type NotificationRecipient
-} from './queries';
+	resolveNotificationRecipientsLastPage
+} from '../../../convex/admin/notificationPreferences/queries';
+import type { NotificationRecipient } from './queries';
 
 type Fn<A, R> = { _handler: (ctx: unknown, args: A) => Promise<R> };
 type ListArgs = { cursor?: string; numItems: number; typeFilter?: 'admin' | 'custom' };
