@@ -243,11 +243,18 @@ describe('admin support queries as an admin', () => {
 		});
 		expect([ids(first), ids(rest)]).toEqual([['thread_3', 'thread_2'], ['thread_1']]);
 
-		const refunds = await admin.caller.query(listThreadsForAdmin, {
+		const firstRefund = await admin.caller.query(listThreadsForAdmin, {
 			filter: 'all',
-			search: 'refund'
+			search: 'refund',
+			paginationOpts: { numItems: 1, cursor: null }
 		});
-		expect(ids(refunds).sort()).toEqual(['thread_1', 'thread_2']);
+		const nextRefund = await admin.caller.query(listThreadsForAdmin, {
+			filter: 'all',
+			search: 'refund',
+			paginationOpts: { numItems: 1, cursor: firstRefund.continueCursor }
+		});
+		expect([ids(firstRefund).length, ids(nextRefund).length]).toEqual([1, 1]);
+		expect([...ids(firstRefund), ...ids(nextRefund)].sort()).toEqual(['thread_1', 'thread_2']);
 		const openRefunds = await admin.caller.query(listThreadsForAdmin, {
 			filter: 'all',
 			status: 'open',
