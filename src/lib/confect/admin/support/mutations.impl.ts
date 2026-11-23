@@ -63,12 +63,6 @@ const cancelPendingNotification = (threadId: string) =>
 		);
 	});
 
-/**
- * Assign a thread to an admin, or unassign it without `adminUserId`. Any
- * supplied id, including an empty string, must name an admin: the picker only
- * offers admins, but the mutation is callable without it. Assigning cancels
- * the pending admin notification.
- */
 const assignThread = ({ threadId, adminUserId }: typeof ThreadAssignmentArgsSchema.Type) =>
 	Effect.gen(function* () {
 		const supportThread = yield* requireSupportThread(threadId);
@@ -94,7 +88,6 @@ const assignThread = ({ threadId, adminUserId }: typeof ThreadAssignmentArgsSche
 		return null;
 	});
 
-/** Set a thread open or done. Closing it cancels the pending admin notification. */
 const setThreadStatus = ({ threadId, status }: typeof ThreadStatusArgsSchema.Type) =>
 	Effect.gen(function* () {
 		const supportThread = yield* requireSupportThread(threadId);
@@ -105,7 +98,6 @@ const setThreadStatus = ({ threadId, status }: typeof ThreadStatusArgsSchema.Typ
 		return null;
 	});
 
-/** Set or clear the priority of a thread. */
 const setThreadPriority = ({ threadId, priority }: typeof ThreadPriorityArgsSchema.Type) =>
 	Effect.gen(function* () {
 		const supportThread = yield* requireSupportThread(threadId);
@@ -115,12 +107,6 @@ const setThreadPriority = ({ threadId, priority }: typeof ThreadPriorityArgsSche
 		return null;
 	});
 
-/**
- * Add a human admin message, distinct from an AI answer, without triggering
- * the AI. The first reply assigns the thread to the replying admin. The
- * customer gets an email when notifications are on and the cooldown has
- * passed, and the pending admin notification is cancelled.
- */
 const replyAsAdmin = ({ threadId, prompt, fileIds }: typeof AdminReplyArgsSchema.Type) =>
 	Effect.gen(function* () {
 		if (!prompt.trim() && (!fileIds || fileIds.length === 0)) {
@@ -148,7 +134,6 @@ const replyAsAdmin = ({ threadId, prompt, fileIds }: typeof AdminReplyArgsSchema
 				}
 				messageContent = content;
 			}
-			// Standalone saveMessage sets the admin as agentName; Agent.saveMessage uses the agent's name.
 			return saveMessage(ctx, components.agent, {
 				threadId,
 				agentName: adminName,
@@ -168,21 +153,15 @@ const replyAsAdmin = ({ threadId, prompt, fileIds }: typeof AdminReplyArgsSchema
 			});
 		});
 
-		// An assigned thread is human-only: user messages no longer trigger the AI.
 		const shouldAutoAssign = !supportThread.assignedTo;
 		const shouldNotify = shouldSendNotification(
 			supportThread.notificationEmail,
 			supportThread.notificationSentAt
 		);
-		// A legacy unread thread has one known unread reply even though it predates
-		// the numeric field. Convex OCC retries concurrent admin replies against
-		// fresh state, so each committed reply increments exactly once.
 		const unreadAdminReplyCount = supportThread.hasUnreadAdminReply
 			? (supportThread.unreadAdminReplyCount ?? 1) + 1
 			: 1;
 
-		// The scheduled email mutation owns the cooldown timestamp, so only a
-		// committed provider enqueue can consume it.
 		yield* withCtx((ctx) =>
 			ctx.db.patch('supportThreads', supportThread._id, {
 				awaitingAdminResponse: false,
@@ -216,11 +195,6 @@ const replyAsAdmin = ({ threadId, prompt, fileIds }: typeof AdminReplyArgsSchema
 		return null;
 	});
 
-/**
- * Add an internal note about a user, never shown to users. Notes are
- * user-level, for an authenticated user or an anonymous anon_* id, so they
- * appear across all threads of that user.
- */
 const addNote = ({ userId, content }: typeof InternalNoteArgsSchema.Type) =>
 	Effect.gen(function* () {
 		if (!content.trim()) return yield* refuse({ code: ADMIN_SUPPORT_ERROR_CODES.emptyNote });

@@ -191,6 +191,42 @@ describe('sendAdminReply', () => {
 		);
 	});
 
+	it('schedules the customer email, then cancels the pending admin notification', async () => {
+		shouldSendNotificationMock.mockReturnValue(true);
+		const ctx = makeCtx({ notificationEmail: 'user@example.com' });
+
+		await replyHandler._handler(ctx, { threadId: 't1', prompt: 'hi' });
+
+		expect(
+			ctx.scheduler.runAfter.mock.calls.map(([delay, target, args]) => [
+				delay,
+				getFunctionName(target),
+				args
+			])
+		).toEqual([
+			[
+				0,
+				'emails/send:sendAdminReplyNotification',
+				expect.objectContaining({ supportThreadId: 'st_1', email: 'user@example.com' })
+			],
+			[0, 'admin/support/notifications:cancelPendingNotification', { threadId: 't1' }]
+		]);
+	});
+
+	it('cancels the pending admin notification when no email goes out', async () => {
+		const ctx = makeCtx();
+
+		await replyHandler._handler(ctx, { threadId: 't1', prompt: 'hi' });
+
+		expect(
+			ctx.scheduler.runAfter.mock.calls.map(([delay, target, args]) => [
+				delay,
+				getFunctionName(target),
+				args
+			])
+		).toEqual([[0, 'admin/support/notifications:cancelPendingNotification', { threadId: 't1' }]]);
+	});
+
 	it('marks a truncated email preview with an ellipsis', async () => {
 		shouldSendNotificationMock.mockReturnValue(true);
 		const ctx = makeCtx({ notificationEmail: 'user@example.com' });
