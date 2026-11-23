@@ -8,7 +8,11 @@ import * as support from '../journey/sources/support';
 import { getJourneyRecipients } from '../notificationPreferences/queries';
 import type { Payment } from './billing';
 import { cancellationEpisode, newCustomerEpisode } from './ledger';
-import { enqueueRecipient, sendCancellation, sendNewCustomer } from './send';
+import {
+	enqueueRecipient,
+	sendCancellation,
+	sendNewCustomer
+} from '../../../convex/admin/customerNotifications/send';
 
 /**
  * A seeded deployment for the customer email senders: the in-memory store with

@@ -1,9 +1,12 @@
 import { HttpRouter } from '@confect/server';
+import * as Effect from 'effect/Effect';
+import * as EffectHttpRouter from 'effect/http/HttpRouter';
 import { registerRoutes as registerFilesControlRoutes } from '@gilhrpenner/convex-files-control';
 import { httpRouter } from 'convex/server';
-import * as Layer from 'effect/Layer';
 import { httpAction } from '../convex/_generated/server';
 import { components } from '../convex/_generated/api';
+import refs from './_generated/refs';
+import { MutationRunner } from './_generated/services';
 import { handleAutumnWebhook } from './admin/customerNotifications/observe';
 import { authComponent, createAuth } from './authServer';
 import { resend } from './emails/resend';
@@ -70,10 +73,6 @@ http.route({
 	})
 });
 
-// Autumn webhook endpoint (Svix-signed), which admits new customers for the
-// admin customer emails. Setup: docs/setup/admin-notifications/customer-emails.md
-http.route({ path: '/autumn-webhook', method: 'POST', handler: handleAutumnWebhook });
-
 // Resend webhook endpoint
 // Configure this URL in your Resend dashboard: https://your-deployment.convex.site/resend-webhook
 // This endpoint receives email events (delivered, bounced, complained, opened, clicked)
@@ -85,7 +84,22 @@ http.route({
 	})
 });
 
-for (const [path, method, handler] of HttpRouter.make(Layer.empty).getRoutes()) {
+const autumnWebhook = EffectHttpRouter.add('POST', '/autumn-webhook', (request) =>
+	handleAutumnWebhook(request, (observation) =>
+		Effect.gen(function* () {
+			const mutations = yield* MutationRunner;
+			return yield* mutations.runMutation(
+				refs.internal.admin.customerNotifications.admission.admitObservation,
+				observation
+			);
+		}).pipe(
+			Effect.as(true),
+			Effect.catchCause(() => Effect.succeed(false))
+		)
+	)
+);
+
+for (const [path, method, handler] of HttpRouter.make(autumnWebhook).getRoutes()) {
 	http.route({ pathPrefix: path.slice(0, -1), method, handler });
 }
 

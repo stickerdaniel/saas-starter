@@ -2,8 +2,8 @@ import { inspect } from 'node:util';
 import { Webhook } from 'svix';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createJourneyStore } from '../journey/journeyStore.fixtures';
-import { admitObservation } from './admission';
-import { handleAutumnWebhook } from './observe';
+import { admitObservation } from '../../../convex/admin/customerNotifications/admission';
+import http from '../../../convex/http';
 import payingActiveCouponCard from './__fixtures__/autumn/paying-active-coupon-card.json';
 import payingScheduledCancelLink from './__fixtures__/autumn/paying-scheduled-cancel-link.json';
 import zeroTotalEndedA from './__fixtures__/autumn/zero-total-ended-a.json';
@@ -31,14 +31,30 @@ const ADMIT = 'admin/customerNotifications/admission:admitObservation';
 const SEND = 'admin/customerNotifications/send:sendNewCustomer';
 const PAID = payingActiveCouponCard.data.invoices[0]!;
 
+const unmodelled = () => {
+	throw new Error('Unmodelled action call');
+};
+
+const actionCtx = (store: ReturnType<typeof createJourneyStore>) => ({
+	...store.actionCtx(),
+	runQuery: unmodelled,
+	runAction: unmodelled,
+	scheduler: {},
+	auth: {},
+	storage: {},
+	meta: {}
+});
+
 function setup(functions: Record<string, Registered> = {}) {
 	const store = createJourneyStore({
 		users: [{ _id: CUSTOMER, name: 'Ada', email: 'ada@example.com', createdAt: SIGNUP }],
 		functions: { [ADMIT]: admitObservation as unknown as Registered, ...functions }
 	});
-	/** Deliver one request to the handler, the way the HTTP router would. */
-	const deliver = (request: Request) =>
-		(handleAutumnWebhook as unknown as HttpHandler)._handler(store.actionCtx(), request);
+	const deliver = (request: Request) => {
+		const [handler] = http.lookup(new URL(request.url).pathname, 'POST') ?? [];
+		if (!handler) throw new Error('No route for the request');
+		return (handler as unknown as HttpHandler)._handler(actionCtx(store), request);
+	};
 	const rows = () => store.docs('customerNotifications');
 	return { store, deliver, rows };
 }

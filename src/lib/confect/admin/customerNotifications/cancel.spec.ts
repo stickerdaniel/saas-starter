@@ -1,6 +1,10 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { cancelUnsentEmails } from './cancel';
+import * as Schema from 'effect/Schema';
 
 export default GroupSpec.make().addFunction(
-	FunctionSpec.convexInternalMutation<typeof cancelUnsentEmails>()('cancelUnsentEmails')
+	FunctionSpec.internalMutation({
+		name: 'cancelUnsentEmails',
+		args: () => ({ emailIds: Schema.Array(Schema.String) }),
+		returns: () => Schema.Null
+	})
 );
