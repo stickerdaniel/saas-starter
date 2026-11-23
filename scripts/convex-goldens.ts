@@ -118,8 +118,7 @@ export function inventoryGolden(
 	};
 }
 
-export async function scheduledTargets() {
-	const surface = await freshSurfaceOf(CONVEX_ROOT);
+export function scheduledTargets(surface: Surface) {
 	const { references, unresolved } = workingTreeScheduledTargets();
 	const targets = [...new Set(references.map(({ identifier }) => identifier))]
 		.sort(compare)

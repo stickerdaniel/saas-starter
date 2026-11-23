@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished } from 'vitest';
 
 type Scenario = {
 	deploySucceeds?: boolean;
@@ -72,6 +72,15 @@ async function startPlugin(scenario: Scenario): Promise<string> {
 			'--eval',
 			String.raw`
 				const failing = process.env.TEST_FAILING_FUNCTION;
+				const settled = new Promise((resolve) => {
+					for (const method of ['log', 'error']) {
+						const write = console[method].bind(console);
+						console[method] = (...args) => {
+							write(...args);
+							if (/Backend (ready at|initialization failed)/.test(args.join(' '))) resolve();
+						};
+					}
+				});
 				globalThis.fetch = async (input, init) => {
 					const url = String(input);
 					if (url.endsWith('/version')) return new Response(null, { status: 200 });
@@ -104,7 +113,7 @@ async function startPlugin(scenario: Scenario): Promise<string> {
 					config: { server: { port: 5173 } },
 					resolvedUrls: null
 				});
-				await new Promise((resolve) => setTimeout(resolve, 2500));
+				await settled;
 				process.exit(0);
 			`
 		],
@@ -121,6 +130,9 @@ async function startPlugin(scenario: Scenario): Promise<string> {
 			stdio: ['ignore', 'pipe', 'pipe']
 		}
 	);
+	onTestFinished(() => {
+		child.kill('SIGKILL');
+	});
 	let output = '';
 	child.stdout?.setEncoding('utf8');
 	child.stderr?.setEncoding('utf8');
