@@ -85,7 +85,15 @@ describe('log stream', () => {
 	});
 
 	it('does not count a completion without the retry flag', () => {
-		expect(executionIn(completion({ willRetry: undefined }))).toBeUndefined();
+		expect(executionIn(completion({ willRetry: undefined }))).toEqual({
+			kind: 'ambiguous',
+			completions: 1
+		});
+	});
+
+	it('does not count a window where an unflagged completion sits next to a final one', () => {
+		const unflagged = completion({ willRetry: undefined, cachedResult: true });
+		expect(executionIn(unflagged, completion())).toEqual({ kind: 'ambiguous', completions: 2 });
 	});
 
 	it('ignores other functions and console entries', () => {

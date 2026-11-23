@@ -58,12 +58,14 @@ export function executionOf(
 	entries: readonly LogEntry[],
 	identifier: string
 ): Execution | undefined {
-	const completions = completionsOf(entries, identifier).filter(
-		(entry) => entry.willRetry === false
-	);
+	const all = completionsOf(entries, identifier);
+	const completions = all.filter((entry) => entry.willRetry === false);
 	const [completion] = completions;
-	if (completion === undefined) return undefined;
-	if (completions.length > 1) return { kind: 'ambiguous', completions: completions.length };
+	const unflagged = all.some((entry) => typeof entry.willRetry !== 'boolean');
+	if (completion === undefined && !unflagged) return undefined;
+	if (completion === undefined || unflagged || completions.length > 1) {
+		return { kind: 'ambiguous', completions: all.length };
+	}
 	if (completion.error) return { kind: 'failed', error: completion.error };
 	if (completion.cachedResult !== false) return { kind: 'cached' };
 	const seconds = completion.userExecutionTime;
@@ -224,7 +226,11 @@ async function measure(backend: Backend, options: RunOptions): Promise<Attempt> 
 	let cursor = await currentCursor(backend);
 	for (let i = 0; i < WARMUP; i++) {
 		await call(backend, options.kind, options.identifier, options.args);
-		cursor = (await awaitExecution(backend, options.identifier, cursor)).cursor;
+		const read = await awaitExecution(backend, options.identifier, cursor);
+		if (read.execution?.kind !== 'executed') {
+			throw new Error(`Warmup call ${i + 1} did not execute: ${read.execution?.kind ?? 'missing'}`);
+		}
+		cursor = read.cursor;
 	}
 	const start = oneMinuteLoad();
 	const samples: CallSample[] = [];
