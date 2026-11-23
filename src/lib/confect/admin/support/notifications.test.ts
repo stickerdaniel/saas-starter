@@ -22,7 +22,7 @@ import {
 	reschedulePendingNotification,
 	scheduleAdminNotification,
 	sendPendingAdminNotification
-} from './notifications';
+} from '../../../convex/admin/support/notifications';
 
 /**
  * Handler-level unit test (the codebase idiom): the Convex fn exposes its
@@ -197,14 +197,16 @@ describe('sendPendingAdminNotification', () => {
 				isReopen: false,
 				notificationType: 'newTickets',
 				retryCount: 0,
-				claimToken: 'token_1'
+				claimToken: 'token_1',
+				generation: 'generation_1',
+				hadEnqueue: false
 			};
 			const runMutation = vi.fn().mockResolvedValueOnce(notification).mockResolvedValueOnce(true);
 			const runQuery = vi.fn();
 
 			expect(
 				await sendPendingAdminNotificationH._handler(
-					{ runMutation, runQuery },
+					{ runMutation, runQuery, runAction: vi.fn(), vectorSearch: vi.fn() },
 					{ notificationId: 'notification_1' }
 				)
 			).toBeNull();
@@ -318,7 +320,17 @@ function createActionCtx(
 		const name = getFunctionName(reference as Parameters<typeof getFunctionName>[0]);
 		switch (name) {
 			case 'admin/support/notifications:getSupportThread':
-				return { threadId: args.threadId, userName: 'Visitor', assignedTo: undefined };
+				return {
+					_id: 'support_thread_1',
+					_creationTime: 0,
+					threadId: args.threadId,
+					userId: 'anon_visitor',
+					status: 'open',
+					createdAt: 0,
+					updatedAt: 0,
+					userName: 'Visitor',
+					assignedTo: undefined
+				};
 			case 'admin/support/notifications:getNotificationTargetEmails':
 				return options.targetEmails ?? ['admin@example.com'];
 			case 'admin/support/notifications:getMessageContents':
@@ -329,7 +341,15 @@ function createActionCtx(
 		}
 	});
 
-	return { runMutation, runQuery, sentEmails, sendAttempts, messageIdsSeen };
+	return {
+		runMutation,
+		runQuery,
+		runAction: vi.fn(),
+		vectorSearch: vi.fn(),
+		sentEmails,
+		sendAttempts,
+		messageIdsSeen
+	};
 }
 
 describe('pending notification ownership', () => {
@@ -652,6 +672,23 @@ describe('test recipients in pending notifications', () => {
 		expect(runAfter).toHaveBeenCalledTimes(2);
 		expect(runAfter.mock.calls[1][0]).toBe(60_000);
 		expect(send.sendAttempts).toEqual(['admin@example.com']);
+	});
+
+	it('finishes the row when every send fails at the retry ceiling', async () => {
+		const { ctx, rows, runAfter } = createCtx();
+		const notificationId = await schedulePending(ctx, rows);
+		rows[0].retryCount = 5;
+		const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			await sendPendingAdminNotificationH._handler(createActionCtx(ctx, { sendThrows: true }), {
+				notificationId
+			});
+		} finally {
+			errors.mockRestore();
+		}
+
+		expect(rows).toHaveLength(0);
+		expect(runAfter).toHaveBeenCalledTimes(1);
 	});
 
 	it('completes without sends or retries when every recipient is a test address', async () => {

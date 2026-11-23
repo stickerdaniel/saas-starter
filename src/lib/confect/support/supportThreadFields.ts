@@ -1,4 +1,3 @@
-import { SchemaToValidator } from '@confect/core';
 import * as Schema from 'effect/Schema';
 import { Id } from '../_generated/id';
 
@@ -72,5 +71,3 @@ export const SupportThreadSchema = Schema.Struct({
 	// Failed sweep attempts so far; the sweep gives up at its maximum
 	sweepAttempts: Schema.optional(Schema.Number)
 });
-
-export const supportThreadFields = SchemaToValidator.compileTableSchema(SupportThreadSchema).fields;

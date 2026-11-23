@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "d29068e74228cd55",
+	"digest": "ea816a5faffbfac4",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -89,18 +89,18 @@
 			"enqueueRecipient": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"admin/support/notifications": {
-			"cancelPendingNotification": ["internal", "mutation", "Convex", "Convex"],
-			"claimNotificationForSending": ["internal", "mutation", "Convex", "Convex"],
-			"deletePendingNotification": ["internal", "mutation", "Convex", "Convex"],
-			"getMessageContents": ["internal", "query", "Convex", "Convex"],
-			"getNotificationTargetEmails": ["internal", "query", "Convex", "Convex"],
-			"getRecentUserMessages": ["internal", "query", "Convex", "Convex"],
-			"getSupportThread": ["internal", "query", "Convex", "Convex"],
-			"listLegacyNotificationClaims": ["internal", "query", "Convex", "Convex"],
-			"recoverNotificationClaim": ["internal", "mutation", "Convex", "Convex"],
-			"reschedulePendingNotification": ["internal", "mutation", "Convex", "Convex"],
-			"scheduleAdminNotification": ["internal", "mutation", "Convex", "Convex"],
-			"sendPendingAdminNotification": ["internal", "action", "Convex", "Convex"]
+			"cancelPendingNotification": ["internal", "mutation", "Convex", "Confect"],
+			"claimNotificationForSending": ["internal", "mutation", "Convex", "Confect"],
+			"deletePendingNotification": ["internal", "mutation", "Convex", "Confect"],
+			"getMessageContents": ["internal", "query", "Convex", "Confect"],
+			"getNotificationTargetEmails": ["internal", "query", "Convex", "Confect"],
+			"getRecentUserMessages": ["internal", "query", "Convex", "Confect"],
+			"getSupportThread": ["internal", "query", "Convex", "Confect"],
+			"listLegacyNotificationClaims": ["internal", "query", "Convex", "Confect"],
+			"recoverNotificationClaim": ["internal", "mutation", "Convex", "Confect"],
+			"reschedulePendingNotification": ["internal", "mutation", "Convex", "Confect"],
+			"scheduleAdminNotification": ["internal", "mutation", "Convex", "Confect"],
+			"sendPendingAdminNotification": ["internal", "action", "Convex", "Confect"]
 		},
 		"admin/support/queries": {
 			"getAwaitingResponseCount": ["public", "query", "Convex", "Confect"],

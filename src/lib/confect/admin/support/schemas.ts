@@ -1,3 +1,4 @@
+import { SchemaToValidator } from '@confect/core';
 import * as Schema from 'effect/Schema';
 import { Id } from '../../_generated/id';
 import type { MessagesQueryResponse } from '../../../chat/core/types';
@@ -144,6 +145,10 @@ export const NotificationMessagesSchema = Schema.mutable(
 	Schema.Array(Schema.Struct({ text: Schema.String, timestamp: Schema.String }))
 );
 
+export const notificationMessagesValidator = SchemaToValidator.compileSchema(
+	NotificationMessagesSchema
+);
+
 export const RecipientEnqueueArgsSchema = Schema.Struct({
 	notificationId: Id('pendingAdminNotifications'),
 	generation: Schema.String,
@@ -160,3 +165,78 @@ export const ReceiptCleanupArgsSchema = Schema.Struct({
 	notificationId: Id('pendingAdminNotifications'),
 	cursor: Schema.Union([Schema.String, Schema.Null])
 });
+
+export const AdminNotificationTypeSchema = Schema.Literals(['newTickets', 'userReplies']);
+
+const pendingNotificationId = Id('pendingAdminNotifications');
+const strings = Schema.mutable(Schema.Array(Schema.String));
+
+export const NotificationScheduleArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	messageIds: strings,
+	isReopen: Schema.Boolean,
+	notificationType: AdminNotificationTypeSchema
+});
+
+export const NotificationSendArgsSchema = Schema.Struct({ notificationId: pendingNotificationId });
+
+export const NotificationClaimArgsSchema = Schema.Struct({
+	notificationId: pendingNotificationId,
+	issueToken: Schema.optional(Schema.Boolean),
+	receiptProtocol: Schema.optional(Schema.Literal(1))
+});
+
+export const NotificationClaimSchema = Schema.NullOr(
+	Schema.Struct({
+		threadId: Schema.String,
+		messageIds: strings,
+		isReopen: Schema.Boolean,
+		notificationType: AdminNotificationTypeSchema,
+		retryCount: Schema.Number,
+		claimToken: Schema.String,
+		generation: Schema.String,
+		hadEnqueue: Schema.Boolean
+	})
+);
+
+export const SupportThreadDocSchema = Schema.NullOr(SupportMetadataSchema);
+
+export const NotificationOwnershipArgsSchema = Schema.Struct({
+	notificationId: pendingNotificationId,
+	claimToken: Schema.optional(Schema.String)
+});
+
+export const NotificationRescheduleArgsSchema = Schema.Struct({
+	notificationId: pendingNotificationId,
+	claimToken: Schema.optional(Schema.String),
+	delayMs: Schema.optional(Schema.Number)
+});
+
+export const NotificationRecoveryArgsSchema = Schema.Struct({
+	notificationId: pendingNotificationId,
+	generation: Schema.String,
+	claimToken: Schema.String,
+	deadline: Schema.Number
+});
+
+export const LegacyClaimsArgsSchema = Schema.Struct({ paginationOpts: PaginationOpts });
+
+export const LegacyClaimsSchema = Schema.Struct({
+	page: Schema.mutable(Schema.Array(pendingNotificationId)),
+	continueCursor: Schema.String,
+	isDone: Schema.Boolean
+});
+
+export const TargetEmailsArgsSchema = Schema.Struct({
+	assignedTo: Schema.optional(Schema.String),
+	notificationType: AdminNotificationTypeSchema
+});
+
+export const MessageContentsArgsSchema = Schema.Struct({ messageIds: strings });
+
+export const RecentUserMessagesArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	limit: Schema.optional(Schema.Number)
+});
+
+export const StringListSchema = strings;
