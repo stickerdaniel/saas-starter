@@ -138,7 +138,7 @@ describe.skipIf(process.platform === 'win32')('convex-vite-plugin binary downloa
 		const root = temporaryRoot();
 		const archive = executableZip(root);
 		const requests: Array<{ url: string; init?: RequestInit }> = [];
-		const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+		const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
 			requests.push({ url: String(input), init });
 			return requests.length === 1 ? releasesResponse() : new Response(archive, { status: 200 });
 		});
@@ -157,7 +157,7 @@ describe.skipIf(process.platform === 'win32')('convex-vite-plugin binary downloa
 		const root = temporaryRoot();
 		const archive = executableZip(root);
 		const requests: Array<{ url: string; init?: RequestInit }> = [];
-		const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+		const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
 			const url = String(input);
 			requests.push({ url, init });
 			if (url === assetApiUrl) {
@@ -280,7 +280,7 @@ describe.skipIf(process.platform === 'win32')('convex-vite-plugin binary downloa
 		const root = temporaryRoot();
 		const archive = executableZip(root);
 		const requests: string[] = [];
-		const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+		const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (input) => {
 			requests.push(String(input));
 			return requests.length === 1 ? jsonResponse(release(sha256(archive))) : new Response(archive);
 		});

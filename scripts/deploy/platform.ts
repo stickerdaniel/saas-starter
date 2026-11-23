@@ -43,16 +43,14 @@ export function sanitizeBranchAlias(branch: string, workerName: string): string 
 export function detectPlatform(env: NodeJS.ProcessEnv = process.env): PlatformContext {
 	// Vercel: VERCEL is set to "1" by the platform
 	if (env.VERCEL) {
-		const vercelEnvironment = env.VERCEL_ENV;
+		const environment = env.VERCEL_ENV || 'development';
 		if (
-			vercelEnvironment &&
-			vercelEnvironment !== 'production' &&
-			vercelEnvironment !== 'preview' &&
-			vercelEnvironment !== 'development'
+			environment !== 'production' &&
+			environment !== 'preview' &&
+			environment !== 'development'
 		) {
 			throw new Error('Unsupported VERCEL_ENV; expected production, preview, or development');
 		}
-		const environment = vercelEnvironment || 'development';
 		const vercelUrl = env.VERCEL_URL || null;
 		// VERCEL_URL is the per-deployment generated host (changes every deploy).
 		// For production builds prefer VERCEL_PROJECT_PRODUCTION_URL, the stable

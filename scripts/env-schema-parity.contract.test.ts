@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { required } from './required';
 
 /**
  * The Convex `env` block in `src/lib/convex/convex.config.ts` and the varlock
@@ -30,8 +31,8 @@ function parseSchema(content: string): VarMap {
 	const vars: VarMap = new Map();
 	let blockIsOptional = false;
 
-	for (let i = headerEnd + 1; i < lines.length; i++) {
-		const line = lines[i].trim();
+	for (const raw of lines.slice(headerEnd + 1)) {
+		const line = raw.trim();
 		if (!line) {
 			blockIsOptional = false;
 			continue;
@@ -40,9 +41,9 @@ function parseSchema(content: string): VarMap {
 			if (line.includes('@optional')) blockIsOptional = true;
 			continue;
 		}
-		const match = line.match(/^([A-Z_][A-Z0-9_]*)=/);
-		if (match) {
-			vars.set(match[1], { required: !blockIsOptional });
+		const [, name] = line.match(/^([A-Z_][A-Z0-9_]*)=/) ?? [];
+		if (name !== undefined) {
+			vars.set(name, { required: !blockIsOptional });
 			blockIsOptional = false;
 		}
 	}
@@ -55,12 +56,12 @@ function parseEnvBlock(content: string): VarMap {
 	expect(blockMatch, 'env block not found in convex.config.ts').not.toBeNull();
 
 	const vars: VarMap = new Map();
-	for (const raw of blockMatch![1].split('\n')) {
+	for (const raw of required(blockMatch?.[1], 'env block body').split('\n')) {
 		const line = raw.trim();
 		if (!line || line.startsWith('//')) continue;
-		const match = line.match(/^([A-Z_][A-Z0-9_]*):\s*(.+)$/);
-		if (!match) continue;
-		vars.set(match[1], { required: !match[2].startsWith('v.optional(') });
+		const [, name, validator] = line.match(/^([A-Z_][A-Z0-9_]*):\s*(.+)$/) ?? [];
+		if (name === undefined || validator === undefined) continue;
+		vars.set(name, { required: !validator.startsWith('v.optional(') });
 	}
 	return vars;
 }

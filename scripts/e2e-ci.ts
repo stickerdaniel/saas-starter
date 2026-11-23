@@ -3,6 +3,7 @@ import { appendFileSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getPreviewBypass } from '../e2e/utils/preview-bypass';
+import { required } from './required';
 
 export function shardCount(value: string | undefined): number {
 	if (value === undefined || value === '') return 1;
@@ -59,7 +60,7 @@ function publishedOrigins(check: PreviewCheck, alias: boolean): string[] {
 		? /^Preview Alias URL: (https:\/\/\S+)$/gm
 		: /^Preview(?: Alias)? URL: (https:\/\/\S+)$/gm;
 	return [...(check.output?.summary || '').matchAll(pattern)].map(
-		(match) => new URL(match[1]).origin
+		(match) => new URL(required(match[1], 'preview URL')).origin
 	);
 }
 /** API JSON is not typed at runtime; selection and identity rely on these fields. */
@@ -117,10 +118,16 @@ export function verifiedCloudflarePreview(
 		);
 	const ids = [
 		...(check.output?.summary || '').matchAll(/^Build ID: \[([^\]\n]*)\]\(https:\/\/\S+\)$/gm)
-	].map((match) => match[1]);
-	if (ids.length !== 1 || !BUILD_UUID.test(ids[0]))
+	].map((match) => required(match[1], 'Cloudflare build ID'));
+	const [buildUuid] = ids;
+	if (ids.length !== 1 || buildUuid === undefined || !BUILD_UUID.test(buildUuid))
 		throw new Error(`Check ${check.id} does not name exactly one Cloudflare build UUID`);
-	return { checkId: id, sha, origin: origin ?? published[0], buildUuid: ids[0] };
+	return {
+		checkId: id,
+		sha,
+		origin: origin ?? required(published[0], 'published preview origin'),
+		buildUuid
+	};
 }
 
 /** Manual runs test the newest completed build that published the requested origin. */
@@ -499,7 +506,7 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
 		});
 		console.log(`Preview still serves build ${process.env.E2E_BUILD_UUID}`);
 	} else if (mode === 'reconcile') {
-		const directory = process.argv[3];
+		const directory = required(process.argv[3], 'evidence directory argument');
 		const files = readdirSync(directory, { recursive: true }).map(String);
 		const load = (file: string) =>
 			JSON.parse(readFileSync(join(directory, file), 'utf8')) as Report;
@@ -508,7 +515,7 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
 		console.log(
 			JSON.stringify(
 				reconcile(
-					load(inventories[0]),
+					load(required(inventories[0], 'full-suite inventory')),
 					files.filter((file) => file.endsWith('results.json')).map(load)
 				)
 			)

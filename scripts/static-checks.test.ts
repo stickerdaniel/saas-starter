@@ -27,6 +27,7 @@ import {
 } from './__fixtures__/static-checks/checker-harness';
 import { usePrivateCheckout } from './__fixtures__/static-checks/private-checkout';
 import { sanitizedGitEnv } from './git-context';
+import { required } from './required';
 import { testExecutable } from './test-executable';
 import {
 	argumentBatches,
@@ -360,6 +361,19 @@ describe('route predicates', () => {
 		expect(ROUTES['skill-types']('.agents/skills/upstream-report/SKILL.md')).toBe(false);
 	});
 
+	it('routes every script and its tests through check:scripts', () => {
+		for (const file of [
+			'scripts/confect-dev.ts',
+			'scripts/confect-dev.test.ts',
+			'scripts/deploy/platform.ts',
+			'scripts/tsconfig.json'
+		]) {
+			expect(ROUTES['script-types'](file), file).toBe(true);
+		}
+		expect(ROUTES['script-types']('scripts/AGENTS.md')).toBe(false);
+		expect(ROUTES['script-types']('src/lib/server/auth-proxy.ts')).toBe(false);
+	});
+
 	it('are blind to an absolute path, which is why normalization is load-bearing', () => {
 		const absolute = path.join(ROOT, 'src/lib/utils/auth-messages.ts');
 		const absoluteConvex = path.join(ROOT, 'src/lib/convex/schema.ts');
@@ -370,8 +384,10 @@ describe('route predicates', () => {
 		expect(ROUTES.convex(absoluteConvex)).toBe(false);
 
 		// The defence: normalize first, and the same files route.
-		expect(ROUTES['banned-patterns'](resolveInputs([absolute], 'test')[0])).toBe(true);
-		expect(ROUTES.convex(resolveInputs([absoluteConvex], 'test')[0])).toBe(true);
+		expect(ROUTES['banned-patterns'](required(resolveInputs([absolute], 'test')[0], 'input'))).toBe(
+			true
+		);
+		expect(ROUTES.convex(required(resolveInputs([absoluteConvex], 'test')[0], 'input'))).toBe(true);
 	});
 });
 

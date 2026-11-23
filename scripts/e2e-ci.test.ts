@@ -25,6 +25,7 @@ import {
 	type Report,
 	type VerifiedBuild
 } from './e2e-ci';
+import { required } from './required';
 function report(ids: string[]): Report {
 	return {
 		suites: [
@@ -419,7 +420,10 @@ describe('preview build discovery', () => {
 	async function servedAlias(responses: Handler[]) {
 		let index = 0;
 		const server = await serve((request, response) =>
-			responses[Math.min(index++, responses.length - 1)](request, response)
+			required(responses[Math.min(index++, responses.length - 1)], 'alias response')(
+				request,
+				response
+			)
 		);
 		const fetcher = ((url: string | URL, init?: RequestInit) =>
 			fetch(String(url).replace(alias, server.origin), init)) as typeof fetch;
@@ -658,7 +662,7 @@ describe('workflow compatibility', () => {
 				GH_TOKEN: 'token',
 				E2E_EXPECTED_SHA: sha,
 				PREVIEW_URL: '',
-				SUMMARY: check().output.summary,
+				SUMMARY: check().output.summary ?? '',
 				GITHUB_EVENT_PATH: eventPath,
 				GITHUB_API_URL: api.origin,
 				GITHUB_REPOSITORY: 'owner/repo',
@@ -750,7 +754,7 @@ describe('workflow compatibility', () => {
 		return String(value ?? '').replace(/\$\{\{(.*?)\}\}/g, (_, expression: string) => {
 			const key = expression.trim();
 			if (!(key in context)) throw new Error(`Unresolved workflow expression: ${key}`);
-			return context[key];
+			return required(context[key], `workflow expression ${key}`);
 		});
 	}
 
@@ -764,7 +768,7 @@ describe('workflow compatibility', () => {
 		type Job = { env: Record<string, unknown>; steps: Step[]; outputs?: Record<string, unknown> };
 		const workflow = parseYaml(
 			readFileSync(join(root, '.github/workflows/e2e-preview-cf.yml'), 'utf8')
-		) as { jobs: Record<string, Job> };
+		) as { jobs: Record<'prepare' | 'exclusive' | 'public', Job> };
 		const action = parseYaml(
 			readFileSync(join(root, '.github/actions/e2e-run/action.yml'), 'utf8')
 		) as {
@@ -796,7 +800,7 @@ describe('workflow compatibility', () => {
 				outputs.map((name) => [`needs.prepare.outputs.${name}`, prepared[name] ?? ''])
 			)
 		};
-		const checks = ['exclusive', 'public'].flatMap((lane) => {
+		const checks = (['exclusive', 'public'] as const).flatMap((lane) => {
 			const job = workflow.jobs[lane];
 			const step = job.steps.find((candidate) => candidate.uses === './.github/actions/e2e-run')!;
 			const inputs = Object.fromEntries(

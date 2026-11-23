@@ -375,7 +375,10 @@ function scheduledCallResolver(sourceFile: ts.SourceFile, file: string) {
 		return declarations.length === 1 ? declarations[0] : undefined;
 	};
 
-	const importedPath = (declaration: ts.ImportDeclaration, name: string): TargetPath | null => {
+	const importedPath = (
+		declaration: ts.ImportDeclaration | ts.JSDocImportTag,
+		name: string
+	): TargetPath | null => {
 		if (!ts.isStringLiteral(declaration.moduleSpecifier)) return null;
 		const specifier = declaration.moduleSpecifier.text;
 		if (name === 'default') {

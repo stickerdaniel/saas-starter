@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { SOURCE_FIXTURE_DIRECTORY } from './source-tree';
+import { required } from './required';
 import en from '../src/i18n/en.json';
 
 // Defined-but-unused guard for translation keys: every leaf key in en.json must
@@ -182,19 +183,23 @@ function deriveUsedKeys(leaves: Set<string>): { used: Set<string>; literalCount:
 		}
 
 		// (b/d-via-literal) any dotted string literal that resolves to a leaf
-		for (const match of content.matchAll(DOTTED_LITERAL)) markIfLeaf(match[1]);
+		for (const match of content.matchAll(DOTTED_LITERAL))
+			markIfLeaf(required(match[1], 'dotted literal'));
 
 		// (c) interpolation + template prefixes
-		for (const match of content.matchAll(INTERP_ATTR_PREFIX)) prefixes.add(match[1]);
-		for (const match of content.matchAll(TEMPLATE_PREFIX)) prefixes.add(match[1]);
+		for (const match of content.matchAll(INTERP_ATTR_PREFIX))
+			prefixes.add(required(match[1], 'interpolation prefix'));
+		for (const match of content.matchAll(TEMPLATE_PREFIX))
+			prefixes.add(required(match[1], 'template prefix'));
 
 		// (d) member-access chains (object-property access, not quoted strings)
 		const quotedDotted = new Set<string>();
 		for (const match of content.matchAll(ANY_QUOTED_DOTTED)) {
-			if (match[1].includes('.')) quotedDotted.add(match[1]);
+			const literal = required(match[1], 'quoted dotted literal');
+			if (literal.includes('.')) quotedDotted.add(literal);
 		}
 		for (const match of content.matchAll(MEMBER_CHAIN)) {
-			const chain = match[1];
+			const chain = required(match[1], 'member chain');
 			if (quotedDotted.has(chain)) continue; // already handled as a literal
 			const parts = chain.split('.');
 			for (let i = 0; i < parts.length; i++) {

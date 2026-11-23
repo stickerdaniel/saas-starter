@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { required } from '../required';
 import {
 	currentPullRequestUrl,
 	evaluatePullRequestMetadata,
@@ -314,7 +315,7 @@ describe('pull request metadata policy', () => {
 			expect(result.output).not.toContain(foreignFixtures.french);
 
 			expect(requests).toHaveLength(1);
-			const [{ input, init }] = requests;
+			const { input, init } = required(requests[0], 'captured request');
 			const headers = new Headers(init.headers);
 			expect(input).toBe(requestUrl);
 			expect(init).toMatchObject({ method: 'GET', redirect: 'error' });

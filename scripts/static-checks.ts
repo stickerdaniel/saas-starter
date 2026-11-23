@@ -733,6 +733,8 @@ export const ROUTES = {
 		f === 'scripts/windows-job.ts',
 	'skill-types': (f: string) =>
 		f === '.agents/skills/tsconfig.json' || /^\.agents\/skills\/[^/]+\/scripts\/.+\.ts$/.test(f),
+	'script-types': (f: string) =>
+		f === 'scripts/tsconfig.json' || (f.startsWith('scripts/') && f.endsWith('.ts')),
 	convex: (f: string) =>
 		f.startsWith('src/lib/convex/') ||
 		f.startsWith('src/lib/confect/') ||
@@ -823,17 +825,24 @@ const LINT_CHECKS: CheckId[] = [
 	'prettier',
 	'eslint'
 ];
-const TYPE_CHECKS: CheckId[] = ['svelte-check', 'cli-types', 'skill-types', 'convex'];
+const TYPE_CHECKS: CheckId[] = [
+	'svelte-check',
+	'cli-types',
+	'skill-types',
+	'script-types',
+	'convex'
+];
 
 /**
  * The TypeScript project config each type check reads: `svelte-check --tsconfig`, the
- * creator's `tsc --noEmit`, `check:skills` and `check:convex`. A missing config is skipped
- * here, because the check that owns it already fails or is skipped on its own.
+ * creator's `tsc --noEmit`, `check:skills`, `check:scripts` and `check:convex`. A missing
+ * config is skipped here, because the check that owns it already fails or is skipped on its own.
  */
 const TYPE_PROJECT_CONFIGS = [
 	'tsconfig.json',
 	`${CLI_PACKAGE_DIRECTORY}/tsconfig.json`,
 	'.agents/skills/tsconfig.json',
+	'scripts/tsconfig.json',
 	'src/lib/convex/tsconfig.json'
 ];
 
@@ -844,7 +853,7 @@ const TYPE_SOURCE = /\.(?:[cm]?[jt]sx?|svelte)$/;
  * The named source files that no type-checked project reads, answered by TypeScript.
  *
  * The type routes pick a check by extension or prefix, and the check then reads only what
- * its tsconfig includes plus whatever those files import. A standalone `scripts/probe.ts`
+ * its tsconfig includes plus whatever those files import. A standalone root `probe.ts`
  * reaches svelte-check by extension, the generated SvelteKit project never includes it,
  * and without this the ledger would report a whole-project type check over a file it never
  * read (#929).
@@ -1959,6 +1968,19 @@ async function main(): Promise<void> {
 			} else {
 				console.log('No agent skill TypeScript files to check');
 				ledger.ran('skill-types', 0);
+			}
+		}
+		console.log('\n');
+
+		printHeader(step++, 'Script type checking');
+		{
+			const files = ledger.filesFor('script-types');
+			if (!scopedMode || files.length > 0) {
+				await runCommand('bun', ['run', 'check:scripts']);
+				ledger.ran('script-types', 'project');
+			} else {
+				console.log('No script TypeScript files to check');
+				ledger.ran('script-types', 0);
 			}
 		}
 		console.log('\n');

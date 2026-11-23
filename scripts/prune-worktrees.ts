@@ -25,6 +25,7 @@
 
 import { spawnSync } from 'child_process';
 import { parseArgs } from 'util';
+import { required } from './required';
 
 const colors = {
 	reset: '\x1b[0m',
@@ -104,7 +105,7 @@ export function parseRemoteSlug(url: string): string | null {
 	const match =
 		trimmed.match(/^https:\/\/github\.com\/([^/]+\/[^/]+?)(?:\.git)?\/?$/) ??
 		trimmed.match(/^(?:ssh:\/\/)?git@github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?\/?$/);
-	return match ? match[1] : null;
+	return match?.[1] ?? null;
 }
 
 /** True iff a merged PR's recorded head SHA byte-equals the local branch tip. */
@@ -137,8 +138,7 @@ function getRootWorktree(): string {
 		console.error(`${colors.red}Error: Not in a git repository${colors.reset}`);
 		process.exit(1);
 	}
-	return result.stdout
-		.split('\n')[0]
+	return required(result.stdout.split('\n')[0], 'first line of git worktree list')
 		.trim()
 		.replace(/^worktree /, '');
 }
@@ -169,8 +169,8 @@ function getPushRemotes(): Map<string, string> {
 	for (const line of result.stdout.split('\n')) {
 		// Keys print with the variable name lowercased ("pushremote"); the branch
 		// name keeps its case and may itself contain dots or slashes.
-		const match = line.match(/^branch\.(.+)\.pushremote\s+(\S+)$/i);
-		if (match) map.set(match[1], match[2]);
+		const [, branch, remote] = line.match(/^branch\.(.+)\.pushremote\s+(\S+)$/i) ?? [];
+		if (branch !== undefined && remote !== undefined) map.set(branch, remote);
 	}
 	return map;
 }
@@ -446,7 +446,8 @@ function main(): void {
 		.split('\n')
 		.filter(Boolean)
 		.map((line) => {
-			const [name, track = ''] = line.split('|');
+			const [refName, track = ''] = line.split('|');
+			const name = required(refName, 'branch name in git for-each-ref output');
 			return { name, track, pushRemote: pushRemotes.get(name) ?? '' };
 		});
 

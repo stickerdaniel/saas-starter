@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { required } from './required';
 import { LEGAL_CONFIG } from '../src/lib/config/legal';
 
 const STATIC_DIR = path.resolve('static');
@@ -84,7 +85,9 @@ describe('favicon set', () => {
 	it('favicon.svg contains every path from logo.svg', () => {
 		const logo = fs.readFileSync(path.join(STATIC_DIR, 'logo.svg'), 'utf-8');
 		const favicon = fs.readFileSync(path.join(STATIC_DIR, 'favicon.svg'), 'utf-8');
-		const paths = [...logo.matchAll(/<path[^>]*\bd="([^"]+)"/g)].map((m) => m[1]);
+		const paths = [...logo.matchAll(/<path[^>]*\bd="([^"]+)"/g)].map((m) =>
+			required(m[1], 'logo path data')
+		);
 		expect(paths.length).toBeGreaterThan(0);
 		for (const d of paths) {
 			expect(favicon, `favicon.svg missing logo path ${d.slice(0, 24)}…`).toContain(d);

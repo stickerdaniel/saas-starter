@@ -30,6 +30,7 @@ import {
 	type OrganizationLegalIdentity
 } from '../src/lib/seo/structured-data';
 import { testExecutable } from './test-executable';
+import { required } from './required';
 
 vi.setConfig({ testTimeout: 15_000 });
 
@@ -757,7 +758,10 @@ describe('template setup manifest preflight', () => {
 			label: 'a moved install command',
 			mutate: (scripts: Record<string, string>) => {
 				scripts.postinstall =
-					scripts.postinstall.replace('bun run install:cli && ', '') + ' && bun run install:cli';
+					required(scripts.postinstall, 'postinstall script').replace(
+						'bun run install:cli && ',
+						''
+					) + ' && bun run install:cli';
 			}
 		},
 		{
@@ -1099,7 +1103,9 @@ describe('template setup quick start', () => {
 		const run = runSetup(dir, [...REQUIRED, ...IDENTITY, '--brand', '~~Northwind~~']);
 		expect(run.code, run.stderr).toBe(0);
 		const afterFirst = snapshot(dir);
-		expect(afterFirst['README.md'].split('\n')[0]).toBe('# \\~\\~Northwind\\~\\~');
+		expect(required(afterFirst['README.md'], 'README.md').split('\n')[0]).toBe(
+			'# \\~\\~Northwind\\~\\~'
+		);
 
 		const rerun = runSetup(dir, []);
 		expect(rerun.code, rerun.stderr).toBe(0);
