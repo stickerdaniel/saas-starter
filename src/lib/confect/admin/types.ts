@@ -1,4 +1,3 @@
-import { v } from 'convex/values';
 import * as val from 'valibot';
 
 /**
@@ -8,12 +7,6 @@ import * as val from 'valibot';
  */
 export const USER_ROLES = ['user', 'admin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
-
-/**
- * Convex validator for user roles.
- * Use this in mutation args for type-safe role validation.
- */
-export const roleValidator = v.union(v.literal('user'), v.literal('admin'));
 
 /**
  * Better Auth user type (managed by the BetterAuth component).
@@ -129,22 +122,3 @@ export interface AdminUserData {
 	createdAt?: number;
 	updatedAt?: number;
 }
-
-/**
- * Convex return validator mirroring {@link AdminUserData}.
- * Keep both in sync when adding fields.
- */
-export const adminUserDataValidator = v.object({
-	id: v.string(),
-	name: v.optional(v.string()),
-	email: v.string(),
-	emailVerified: v.optional(v.boolean()),
-	image: v.optional(v.union(v.string(), v.null())),
-	role: roleValidator,
-	banned: v.boolean(),
-	banReason: v.optional(v.union(v.string(), v.null())),
-	banExpires: v.optional(v.union(v.number(), v.null())),
-	providers: v.array(v.string()),
-	createdAt: v.optional(v.number()),
-	updatedAt: v.optional(v.number())
-});
