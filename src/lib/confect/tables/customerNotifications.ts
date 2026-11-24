@@ -1,9 +1,8 @@
 import { Table } from '@confect/core';
 import * as Schema from 'effect/Schema';
 import { Id } from '../_generated/id';
+import { FrozenBillingSchema } from '../admin/customerNotifications/billing';
 import { JourneyEpisodeSchema, JourneyRequestSchema } from '../admin/journey/schemas';
-
-const interval = Schema.Literals(['month', 'year']);
 
 export default Table.make(() =>
 	Schema.Struct({
@@ -21,24 +20,7 @@ export default Table.make(() =>
 			])
 		),
 		failedReason: Schema.optional(Schema.Literal('audience_unavailable')),
-		billing: Schema.Struct({
-			firstPayment: Schema.Struct({
-				invoiceAt: Schema.Number,
-				total: Schema.Number,
-				currency: Schema.String,
-				planId: Schema.String,
-				interval
-			}),
-			current: Schema.NullOr(
-				Schema.Struct({
-					planId: Schema.String,
-					interval,
-					scheduledCancellation: Schema.optional(
-						Schema.Struct({ canceledAt: Schema.Number, accessUntil: Schema.Number })
-					)
-				})
-			)
-		}),
+		billing: FrozenBillingSchema,
 		request: JourneyRequestSchema,
 		observedAt: Schema.Number,
 		sendAt: Schema.Number,

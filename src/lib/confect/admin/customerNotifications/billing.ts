@@ -1,4 +1,3 @@
-import { v, type Infer } from 'convex/values';
 import * as Schema from 'effect/Schema';
 import { ELIGIBLE_PLANS, type EligiblePlans } from './policy';
 
@@ -14,57 +13,41 @@ import { ELIGIBLE_PLANS, type EligiblePlans } from './policy';
  */
 
 /** The billing intervals of the plans these emails cover. */
-export const billingIntervalValidator = v.union(v.literal('month'), v.literal('year'));
-export type BillingInterval = Infer<typeof billingIntervalValidator>;
+const BillingIntervalSchema = Schema.Literals(['month', 'year']);
+export type BillingInterval = typeof BillingIntervalSchema.Type;
 
 /**
  * The first eligible payment: the earliest returned paid invoice with a
  * positive total for an eligible plan. `interval` is the one that plan bills.
  */
-export const paymentValidator = v.object({
-	invoiceAt: v.number(),
-	total: v.number(),
-	currency: v.string(),
-	planId: v.string(),
-	interval: billingIntervalValidator
-});
-export type Payment = Infer<typeof paymentValidator>;
-
-/**
- * The active eligible product. `scheduledCancellation` is set only while a
- * cancellation is scheduled and access has not ended yet.
- */
-export const currentValidator = v.object({
-	planId: v.string(),
-	interval: billingIntervalValidator,
-	scheduledCancellation: v.optional(v.object({ canceledAt: v.number(), accessUntil: v.number() }))
-});
-export type Current = Infer<typeof currentValidator>;
-
-/** What a ledger row freezes: the payment that anchors the email and the product at admission. */
-export const frozenBillingValidator = v.object({
-	firstPayment: paymentValidator,
-	current: v.union(currentValidator, v.null())
-});
-export type FrozenBilling = Infer<typeof frozenBillingValidator>;
-
-const BillingInterval = Schema.Literals(['month', 'year']);
-
 export const PaymentSchema = Schema.Struct({
 	invoiceAt: Schema.Number,
 	total: Schema.Number,
 	currency: Schema.String,
 	planId: Schema.String,
-	interval: BillingInterval
+	interval: BillingIntervalSchema
 });
+export type Payment = typeof PaymentSchema.Type;
 
+/**
+ * The active eligible product. `scheduledCancellation` is set only while a
+ * cancellation is scheduled and access has not ended yet.
+ */
 export const CurrentSchema = Schema.Struct({
 	planId: Schema.String,
-	interval: BillingInterval,
-	scheduledCancellation: Schema.optionalKey(
+	interval: BillingIntervalSchema,
+	scheduledCancellation: Schema.optional(
 		Schema.Struct({ canceledAt: Schema.Number, accessUntil: Schema.Number })
 	)
 });
+export type Current = typeof CurrentSchema.Type;
+
+/** What a ledger row freezes: the payment that anchors the email and the product at admission. */
+export const FrozenBillingSchema = Schema.Struct({
+	firstPayment: PaymentSchema,
+	current: Schema.NullOr(CurrentSchema)
+});
+export type FrozenBilling = typeof FrozenBillingSchema.Type;
 
 /**
  * Normalizing one Autumn customer read (API 1.2, `GET /customers/<id>` with
