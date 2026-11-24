@@ -190,15 +190,23 @@ export const FileRefusalCodec = wireCodec(
 	({ refusal }) => refusal
 );
 
-export class SupportAuthenticationRequired extends Data.TaggedError(
-	'SupportAuthenticationRequired'
-) {}
+const SupportRefusalWire = Schema.Struct({
+	code: Schema.Literals([
+		SUPPORT_ERROR_CODES.authenticationRequired,
+		SUPPORT_ERROR_CODES.threadNotFound,
+		SUPPORT_ERROR_CODES.threadForbidden
+	])
+});
 
-export const SupportAuthenticationRequiredCodec = wireCodec(
-	SupportAuthenticationRequired,
-	Schema.Struct({ code: Schema.Literal(SUPPORT_ERROR_CODES.authenticationRequired) }),
-	() => undefined,
-	() => ({ code: SUPPORT_ERROR_CODES.authenticationRequired })
+export class SupportRefusal extends Data.TaggedError('SupportRefusal')<{
+	readonly refusal: typeof SupportRefusalWire.Type;
+}> {}
+
+export const SupportRefusalCodec = wireCodec(
+	SupportRefusal,
+	SupportRefusalWire,
+	(refusal) => ({ refusal }),
+	({ refusal }) => refusal
 );
 
 const AdminSupportRefusalWire = Schema.Union([

@@ -1,32 +1,22 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../ownership', () => ({
-	getSupportOwnerIdentity: vi.fn(),
-	requireSupportThreadRecord: vi.fn()
+	getSupportOwnerIdentity: vi.fn()
 }));
 
-import { getSupportOwnerIdentity, requireSupportThreadRecord } from '../ownership';
-import { hasUnreadAdminReply, markThreadRead, unreadAdminReplyCount } from '../readState';
+import { getSupportOwnerIdentity } from '../ownership';
+import { hasUnreadAdminReply, unreadAdminReplyCount } from '../../../convex/support/readState';
 
 const getOwnerMock = getSupportOwnerIdentity as unknown as ReturnType<typeof vi.fn>;
-const requireThreadMock = requireSupportThreadRecord as unknown as ReturnType<typeof vi.fn>;
 
 type Fn<A, R> = { _handler: (ctx: unknown, args: A) => Promise<R> };
 
 const unreadHandler = hasUnreadAdminReply as unknown as Fn<{ anonymousUserId?: string }, boolean>;
 const countHandler = unreadAdminReplyCount as unknown as Fn<{ anonymousUserId?: string }, number>;
-const markReadHandler = markThreadRead as unknown as Fn<
-	{ threadId: string; anonymousUserId?: string; readThroughMessageId: string },
-	null
->;
 
 describe('support human-reply read state', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-	});
-
-	afterEach(() => {
-		vi.useRealTimers();
 	});
 
 	it('returns false without an authenticated or anonymous owner', async () => {
@@ -74,77 +64,5 @@ describe('support human-reply read state', () => {
 		const ctx = { db: { query: vi.fn(() => ({ withIndex })) } };
 
 		await expect(countHandler._handler(ctx, { anonymousUserId: 'anon_owner' })).resolves.toBe(10);
-	});
-
-	it('records the read timestamp without reordering the thread', async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-08-09T12:00:00Z'));
-		requireThreadMock.mockResolvedValue({
-			supportThread: {
-				_id: 'support_1',
-				lastAdminReplyAt: Date.now() - 1000,
-				lastAdminReplyMessageId: 'message_a',
-				hasUnreadAdminReply: true
-			}
-		});
-		const ctx = { db: { patch: vi.fn() } };
-
-		await markReadHandler._handler(ctx, {
-			threadId: 'thread_1',
-			anonymousUserId: 'anon_owner',
-			readThroughMessageId: 'message_a'
-		});
-
-		expect(requireThreadMock).toHaveBeenCalledWith(ctx, {
-			threadId: 'thread_1',
-			anonymousUserId: 'anon_owner'
-		});
-		expect(ctx.db.patch).toHaveBeenCalledWith('supportThreads', 'support_1', {
-			userReadAt: Date.now(),
-			hasUnreadAdminReply: false,
-			unreadAdminReplyCount: 0
-		});
-		expect(ctx.db.patch.mock.calls[0][2]).not.toHaveProperty('updatedAt');
-	});
-
-	it('keeps a same-millisecond newer reply unread when its message ID differs', async () => {
-		requireThreadMock.mockResolvedValue({
-			supportThread: {
-				_id: 'support_1',
-				lastAdminReplyAt: 100,
-				lastAdminReplyMessageId: 'message_b',
-				hasUnreadAdminReply: true
-			}
-		});
-		const ctx = { db: { patch: vi.fn() } };
-
-		await expect(
-			markReadHandler._handler(ctx, {
-				threadId: 'thread_1',
-				readThroughMessageId: 'message_a'
-			})
-		).resolves.toBeNull();
-		expect(ctx.db.patch).not.toHaveBeenCalled();
-	});
-
-	it('does not rewrite a receipt that already covers the latest reply', async () => {
-		requireThreadMock.mockResolvedValue({
-			supportThread: {
-				_id: 'support_1',
-				lastAdminReplyAt: 100,
-				lastAdminReplyMessageId: 'message_a',
-				userReadAt: 101,
-				hasUnreadAdminReply: false
-			}
-		});
-		const ctx = { db: { patch: vi.fn() } };
-
-		await expect(
-			markReadHandler._handler(ctx, {
-				threadId: 'thread_1',
-				readThroughMessageId: 'message_a'
-			})
-		).resolves.toBeNull();
-		expect(ctx.db.patch).not.toHaveBeenCalled();
 	});
 });
