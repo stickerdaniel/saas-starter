@@ -1,26 +1,13 @@
 import { Table } from '@confect/core';
 import * as Schema from 'effect/Schema';
+import { AuditLogActionSchema, AuditLogMetadataSchema } from '../admin/auditLog/schemas';
 
 export default Table.make(() =>
 	Schema.Struct({
 		adminUserId: Schema.String,
-		action: Schema.Literals([
-			'impersonate',
-			'stop_impersonation',
-			'ban_user',
-			'unban_user',
-			'revoke_sessions',
-			'set_role'
-		]),
+		action: AuditLogActionSchema,
 		targetUserId: Schema.String,
-		metadata: Schema.optional(
-			Schema.Union([
-				Schema.Struct({ reason: Schema.String }),
-				Schema.Struct({ newRole: Schema.String, previousRole: Schema.String }),
-				Schema.Struct({ durationMs: Schema.Number }),
-				Schema.Struct({})
-			])
-		),
+		metadata: AuditLogMetadataSchema,
 		timestamp: Schema.Number
 	})
 )

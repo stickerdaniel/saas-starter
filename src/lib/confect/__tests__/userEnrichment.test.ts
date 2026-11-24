@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../authServer', () => ({
-	authComponent: { getAuthUser: vi.fn().mockResolvedValue({ _id: 'viewer', role: 'admin' }) }
+	authComponent: {
+		getAuthUser: vi.fn().mockResolvedValue({ _id: 'viewer', role: 'admin' }),
+		safeGetAuthUser: vi.fn().mockResolvedValue({ _id: 'viewer', role: 'admin' })
+	}
 }));
 vi.mock('../support/ownership', () => ({
 	getSupportOwnerIdentity: vi.fn().mockResolvedValue({ ownerId: 'viewer', isAnonymous: false }),
@@ -11,7 +14,7 @@ vi.mock('../support/ownership', () => ({
 }));
 vi.mock('../support/agent', () => ({ supportAgent: {} }));
 
-import { listAuditLogs } from '../admin/auditLog/queries';
+import { listAuditLogs } from '../../convex/admin/auditLog/queries';
 import { listThreadsForAdmin } from '../admin/support/queries';
 import { listThreads } from '../support/threads';
 

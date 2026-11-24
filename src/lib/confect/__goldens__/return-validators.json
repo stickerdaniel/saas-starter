@@ -11,7 +11,7 @@
 	},
 	"query": {
 		"function": "admin/auditLog/queries:listAuditLogs",
-		"invalid": "Error Return value validation failed for query \"goldenReturnProbe:listAuditLogs\": Validator error: Missing required field `items` in object",
+		"invalid": "Error Return value validation failed for query \"goldenReturnProbe:listAuditLogs\": Validator error: Missing required field `isDone` in object",
 		"valid": "ok"
 	}
 }
