@@ -1,17 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../authServer', () => ({
-	authComponent: { getAuthUser: vi.fn(async () => ({ _id: 'admin_1', role: 'admin' })) }
+	authComponent: { safeGetAuthUser: vi.fn(async () => ({ _id: 'admin_1', role: 'admin' })) }
 }));
 
 import type { QueryCtx } from '../../convex/_generated/server';
 import type { AdminUserData } from './types';
-import {
-	countUsersWithFilters,
-	getRecentDashboardMetrics,
-	listUsers,
-	resolveUsersLastPage
-} from './queries';
+import { listUsers, resolveUsersLastPage } from '../../convex/admin/queries';
+import { countUsersWithFilters, getRecentDashboardMetrics } from './queries';
 
 type Fn<A, R> = { _handler: (ctx: unknown, args: A) => Promise<R> };
 type ListUsersArgs = {

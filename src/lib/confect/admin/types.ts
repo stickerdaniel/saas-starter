@@ -1,4 +1,5 @@
 import * as val from 'valibot';
+import type { AdminUserDataSchema } from './schemas';
 
 /**
  * Role enum - single source of truth for user roles.
@@ -105,20 +106,4 @@ export function parseBetterAuthSessions(data: unknown[]): BetterAuthSession[] {
 	return sessions;
 }
 
-/**
- * User data returned from admin queries (formatted for UI).
- */
-export interface AdminUserData {
-	id: string;
-	name?: string;
-	email: string;
-	emailVerified?: boolean;
-	image?: string | null;
-	role: UserRole;
-	banned: boolean;
-	banReason?: string | null;
-	banExpires?: number | null;
-	providers: string[];
-	createdAt?: number;
-	updatedAt?: number;
-}
+export type AdminUserData = typeof AdminUserDataSchema.Type;

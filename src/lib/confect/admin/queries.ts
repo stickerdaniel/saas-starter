@@ -1,10 +1,8 @@
 import { type QueryCtx } from '../../convex/_generated/server';
 import { components } from '../../convex/_generated/api';
-import { v } from 'convex/values';
 import type { AdminUserData, BetterAuthUser } from './types';
-import { adminUserDataValidator } from './schemas';
+import type { ListUsersArgsSchema, UserCountArgsSchema, UsersLastPageArgsSchema } from './schemas';
 import { parseBetterAuthUsers } from './types';
-import { adminQuery } from '../functions';
 import { getCounters } from './counters';
 import { resolveOffsetLastPage, sliceOffsetPage } from './pagination';
 import {
@@ -238,339 +236,188 @@ export async function getRecentDashboardMetrics(
 	return { activeIn24h: activeUsers.size, recentSignups };
 }
 
-/**
- * List users with pagination for admin user management
- *
- * Uses adapter cursor pagination by default. Falls back to offset-based
- * pagination when `search` is present (fetches all matching users, then slices)
- * to support OR search across email and name fields.
- *
- * @param args.cursor - Pagination cursor (adapter cursor or offset depending on search mode)
- * @param args.numItems - Number of items to fetch per page
- * @param args.search - Optional search term to filter by email or name (triggers offset mode)
- * @param args.roleFilter - Optional role filter ('admin', 'user', or 'all')
- * @param args.statusFilter - Optional status filter ('verified', 'unverified', 'banned')
- * @param args.sortBy - Optional sort configuration with field and direction
- * @returns Paginated list of users with cursor info
- */
-export const listUsers = adminQuery({
-	args: {
-		cursor: v.optional(v.string()),
-		numItems: v.number(),
-		search: v.optional(v.string()),
-		roleFilter: v.optional(v.union(v.literal('admin'), v.literal('user'))),
-		statusFilter: v.optional(
-			v.union(v.literal('verified'), v.literal('unverified'), v.literal('banned'))
-		),
-		providerFilter: v.optional(
-			v.union(
-				v.literal('credential'),
-				v.literal('google'),
-				v.literal('github'),
-				v.literal('passkey')
-			)
-		),
-		sortBy: v.optional(
-			v.object({
-				field: v.union(
-					v.literal('createdAt'),
-					v.literal('email'),
-					v.literal('name'),
-					v.literal('role'),
-					v.literal('provider')
-				),
-				direction: v.union(v.literal('asc'), v.literal('desc'))
-			})
-		)
-	},
-	returns: v.object({
-		items: v.array(adminUserDataValidator),
-		continueCursor: v.union(v.string(), v.null()),
-		isDone: v.boolean()
-	}),
-	handler: async (ctx, args) => {
-		const whereConditions = buildUserWhereConditions({
-			roleFilter: args.roleFilter,
-			statusFilter: args.statusFilter
-		});
-		const isProviderSort = args.sortBy?.field === 'provider';
-		// Use non-provider sort for the adapter (provider sort is applied locally after enrichment)
-		const sortBy = isProviderSort ? DEFAULT_USER_SORT : (args.sortBy ?? DEFAULT_USER_SORT);
+export async function readUsersPage(ctx: QueryCtx, args: typeof ListUsersArgsSchema.Type) {
+	const whereConditions = buildUserWhereConditions({
+		roleFilter: args.roleFilter,
+		statusFilter: args.statusFilter
+	});
+	const isProviderSort = args.sortBy?.field === 'provider';
+	const sortBy = isProviderSort ? DEFAULT_USER_SORT : (args.sortBy ?? DEFAULT_USER_SORT);
 
-		// Provider filter/sort requires fetching account data first, so use offset mode.
-		// Search also requires offset mode for multi-field OR filtering.
-		if (args.search?.trim() || args.providerFilter || isProviderSort) {
-			const allUsers = await fetchAllUsersWithFilters(ctx, { whereConditions, sortBy });
-			let filteredUsers = applyUserSearch(allUsers, args.search);
+	if (args.search?.trim() || args.providerFilter || isProviderSort) {
+		const allUsers = await fetchAllUsersWithFilters(ctx, { whereConditions, sortBy });
+		let filteredUsers = applyUserSearch(allUsers, args.search);
 
-			// Filter by provider: only include users who have an account with this provider
-			if (args.providerFilter) {
-				const providerUserIds = await fetchUserIdsForProvider(ctx, args.providerFilter);
-				filteredUsers = filteredUsers.filter((u) => providerUserIds.has(u._id));
-			}
-
-			// Provider sort requires enriching all filtered users before pagination
-			if (isProviderSort) {
-				const allProviderMap = await fetchProvidersForUsers(
-					ctx,
-					filteredUsers.map((u) => u._id)
-				);
-				// Precompute sort keys to avoid repeated work in comparator
-				const sortKeys = new Map<string, string>();
-				for (const u of filteredUsers) {
-					sortKeys.set(u._id, (allProviderMap.get(u._id) ?? []).join(','));
-				}
-				const dir = args.sortBy?.direction === 'asc' ? 1 : -1;
-				filteredUsers.sort((a, b) => {
-					return dir * (sortKeys.get(a._id) ?? '').localeCompare(sortKeys.get(b._id) ?? '');
-				});
-			}
-
-			const {
-				items: usersPage,
-				continueCursor,
-				isDone
-			} = sliceOffsetPage(filteredUsers, args.cursor, args.numItems);
-
-			const providerMap = await fetchProvidersForUsers(
-				ctx,
-				usersPage.map((u) => u._id)
-			);
-
-			return {
-				items: usersPage.map((u) => mapAdminUser(u, providerMap.get(u._id) ?? [])),
-				continueCursor,
-				isDone
-			};
+		if (args.providerFilter) {
+			const providerUserIds = await fetchUserIdsForProvider(ctx, args.providerFilter);
+			filteredUsers = filteredUsers.filter((u) => providerUserIds.has(u._id));
 		}
 
-		// No search or provider filter: preserve adapter cursor pagination path.
-		const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
-			model: 'user',
-			paginationOpts: {
-				cursor: args.cursor ?? null,
-				numItems: args.numItems
-			},
-			sortBy,
-			where: whereConditions.length > 0 ? whereConditions : undefined
-		})) as AdapterFindManyResult;
+		if (isProviderSort) {
+			const allProviderMap = await fetchProvidersForUsers(
+				ctx,
+				filteredUsers.map((u) => u._id)
+			);
+			const sortKeys = new Map<string, string>();
+			for (const u of filteredUsers) {
+				sortKeys.set(u._id, (allProviderMap.get(u._id) ?? []).join(','));
+			}
+			const dir = args.sortBy?.direction === 'asc' ? 1 : -1;
+			filteredUsers.sort((a, b) => {
+				return dir * (sortKeys.get(a._id) ?? '').localeCompare(sortKeys.get(b._id) ?? '');
+			});
+		}
 
-		const users = parseBetterAuthUsers(result.page);
+		const {
+			items: usersPage,
+			continueCursor,
+			isDone
+		} = sliceOffsetPage(filteredUsers, args.cursor, args.numItems);
+
 		const providerMap = await fetchProvidersForUsers(
 			ctx,
-			users.map((u) => u._id)
+			usersPage.map((u) => u._id)
 		);
 
 		return {
-			items: users.map((u) => mapAdminUser(u, providerMap.get(u._id) ?? [])),
-			// The adapter can hand back a cursor on its last page; done pages carry none.
-			continueCursor: result.isDone ? null : result.continueCursor,
-			isDone: result.isDone
+			items: usersPage.map((u) => mapAdminUser(u, providerMap.get(u._id) ?? [])),
+			continueCursor,
+			isDone
 		};
 	}
-});
 
-/**
- * Get total user count with filters for pagination
- *
- * Counts users matching the given filters. Used for pagination UI
- * to display total count alongside paginated results.
- *
- * @param args.search - Optional search term to filter by email or name
- * @param args.roleFilter - Optional role filter ('admin', 'user', or 'all')
- * @param args.statusFilter - Optional status filter ('verified', 'unverified', 'banned')
- * @returns Total count of matching users
- */
-export const getUserCount = adminQuery({
-	args: {
-		search: v.optional(v.string()),
-		roleFilter: v.optional(v.union(v.literal('admin'), v.literal('user'))),
-		statusFilter: v.optional(
-			v.union(v.literal('verified'), v.literal('unverified'), v.literal('banned'))
-		),
-		providerFilter: v.optional(
-			v.union(
-				v.literal('credential'),
-				v.literal('google'),
-				v.literal('github'),
-				v.literal('passkey')
-			)
-		)
-	},
-	returns: v.number(),
-	handler: async (ctx, args) => {
-		const whereConditions = buildUserWhereConditions({
-			roleFilter: args.roleFilter,
-			statusFilter: args.statusFilter
-		});
-		if (!args.search?.trim() && !args.providerFilter) {
-			return await countUsersWithFilters(ctx, whereConditions);
-		}
-		const allUsers = await fetchAllUsersWithFilters(ctx, {
-			whereConditions,
-			sortBy: DEFAULT_USER_SORT
-		});
+	const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+		model: 'user',
+		paginationOpts: {
+			cursor: args.cursor ?? null,
+			numItems: args.numItems
+		},
+		sortBy,
+		where: whereConditions.length > 0 ? whereConditions : undefined
+	})) as AdapterFindManyResult;
 
+	const users = parseBetterAuthUsers(result.page);
+	const providerMap = await fetchProvidersForUsers(
+		ctx,
+		users.map((u) => u._id)
+	);
+
+	return {
+		items: users.map((u) => mapAdminUser(u, providerMap.get(u._id) ?? [])),
+		continueCursor: result.isDone ? null : result.continueCursor,
+		isDone: result.isDone
+	};
+}
+
+export async function countMatchingUsers(ctx: QueryCtx, args: typeof UserCountArgsSchema.Type) {
+	const whereConditions = buildUserWhereConditions({
+		roleFilter: args.roleFilter,
+		statusFilter: args.statusFilter
+	});
+	if (!args.search?.trim() && !args.providerFilter) {
+		return await countUsersWithFilters(ctx, whereConditions);
+	}
+	const allUsers = await fetchAllUsersWithFilters(ctx, {
+		whereConditions,
+		sortBy: DEFAULT_USER_SORT
+	});
+
+	let filtered = applyUserSearch(allUsers, args.search);
+
+	if (args.providerFilter) {
+		const providerUserIds = await fetchUserIdsForProvider(ctx, args.providerFilter);
+		filtered = filtered.filter((u) => providerUserIds.has(u._id));
+	}
+
+	return filtered.length;
+}
+
+export async function findUsersLastPage(
+	ctx: QueryCtx,
+	args: typeof UsersLastPageArgsSchema.Type
+): Promise<{ page: number; cursor: string | null }> {
+	const whereConditions = buildUserWhereConditions({
+		roleFilter: args.roleFilter,
+		statusFilter: args.statusFilter
+	});
+	const isProviderSort = args.sortBy?.field === 'provider';
+	const sortBy = isProviderSort ? DEFAULT_USER_SORT : (args.sortBy ?? DEFAULT_USER_SORT);
+	const pageSize = Number.isFinite(args.numItems) && args.numItems > 0 ? args.numItems : 10;
+	const strideSize = Math.max(pageSize, 1000);
+
+	let total: number;
+	if (!args.search?.trim() && !args.providerFilter) {
+		total = await countUsersWithFilters(ctx, whereConditions);
+	} else {
+		const allUsers = await fetchAllUsersWithFilters(ctx, { whereConditions, sortBy });
 		let filtered = applyUserSearch(allUsers, args.search);
-
 		if (args.providerFilter) {
 			const providerUserIds = await fetchUserIdsForProvider(ctx, args.providerFilter);
 			filtered = filtered.filter((u) => providerUserIds.has(u._id));
 		}
-
-		return filtered.length;
+		total = filtered.length;
 	}
-});
-
-/**
- * Resolve last page metadata for users table in a single query call.
- *
- * This avoids client-side cursor walking for jump-to-last actions.
- * For search mode we can compute offset cursor directly from total.
- * For adapter cursor mode we still walk internally, but only server-side.
- */
-export const resolveUsersLastPage = adminQuery({
-	args: {
-		numItems: v.number(),
-		search: v.optional(v.string()),
-		roleFilter: v.optional(v.union(v.literal('admin'), v.literal('user'))),
-		statusFilter: v.optional(
-			v.union(v.literal('verified'), v.literal('unverified'), v.literal('banned'))
-		),
-		providerFilter: v.optional(
-			v.union(
-				v.literal('credential'),
-				v.literal('google'),
-				v.literal('github'),
-				v.literal('passkey')
-			)
-		),
-		sortBy: v.optional(
-			v.object({
-				field: v.union(
-					v.literal('createdAt'),
-					v.literal('email'),
-					v.literal('name'),
-					v.literal('role'),
-					v.literal('provider')
-				),
-				direction: v.union(v.literal('asc'), v.literal('desc'))
-			})
-		)
-	},
-	returns: v.object({
-		page: v.number(),
-		cursor: v.union(v.string(), v.null())
-	}),
-	handler: async (ctx, args): Promise<{ page: number; cursor: string | null }> => {
-		const whereConditions = buildUserWhereConditions({
-			roleFilter: args.roleFilter,
-			statusFilter: args.statusFilter
-		});
-		const isProviderSort = args.sortBy?.field === 'provider';
-		const sortBy = isProviderSort ? DEFAULT_USER_SORT : (args.sortBy ?? DEFAULT_USER_SORT);
-		const pageSize = Number.isFinite(args.numItems) && args.numItems > 0 ? args.numItems : 10;
-		const strideSize = Math.max(pageSize, 1000);
-
-		let total: number;
-		if (!args.search?.trim() && !args.providerFilter) {
-			total = await countUsersWithFilters(ctx, whereConditions);
-		} else {
-			const allUsers = await fetchAllUsersWithFilters(ctx, { whereConditions, sortBy });
-			let filtered = applyUserSearch(allUsers, args.search);
-			if (args.providerFilter) {
-				const providerUserIds = await fetchUserIdsForProvider(ctx, args.providerFilter);
-				filtered = filtered.filter((u) => providerUserIds.has(u._id));
-			}
-			total = filtered.length;
-		}
-		const offsetLastPage = resolveOffsetLastPage(total, pageSize);
-		const isOffsetMode = !!args.search?.trim() || !!args.providerFilter || isProviderSort;
-		if (isOffsetMode || offsetLastPage.cursor === null) {
-			return offsetLastPage;
-		}
-
-		// Adapter cursor mode: walk native cursors up to the last page's offset.
-		const lastPage = offsetLastPage.page;
-		const targetOffset = (lastPage - 1) * pageSize;
-
-		let offset = 0;
-		let cursor: string | null = null;
-
-		while (offset + strideSize <= targetOffset) {
-			const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
-				model: 'user',
-				paginationOpts: { cursor, numItems: strideSize },
-				sortBy,
-				where: whereConditions.length > 0 ? whereConditions : undefined
-			})) as AdapterFindManyResult;
-
-			if (result.isDone || !result.continueCursor) {
-				return {
-					page: lastPage,
-					cursor
-				};
-			}
-
-			cursor = result.continueCursor;
-			offset += strideSize;
-		}
-
-		const remaining = targetOffset - offset;
-		if (remaining > 0) {
-			const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
-				model: 'user',
-				paginationOpts: { cursor, numItems: remaining },
-				sortBy,
-				where: whereConditions.length > 0 ? whereConditions : undefined
-			})) as AdapterFindManyResult;
-			cursor = result.continueCursor ?? cursor;
-		}
-
-		return {
-			page: lastPage,
-			cursor
-		};
+	const offsetLastPage = resolveOffsetLastPage(total, pageSize);
+	const isOffsetMode = !!args.search?.trim() || !!args.providerFilter || isProviderSort;
+	if (isOffsetMode || offsetLastPage.cursor === null) {
+		return offsetLastPage;
 	}
-});
 
-/**
- * Get dashboard metrics for admin
- *
- * Computes aggregate statistics for the admin dashboard including
- * user counts, active users, and recent signups.
- *
- * @returns Dashboard metrics object with:
- *   - totalUsers: Total number of registered users
- *   - adminCount: Number of users with admin role
- *   - bannedCount: Number of banned users
- *   - activeIn24h: Unique users active in last 24 hours
- *   - recentSignups: Users registered in last 7 days
- */
-export const getDashboardMetrics = adminQuery({
-	args: {},
-	returns: v.object({
-		totalUsers: v.number(),
-		adminCount: v.number(),
-		bannedCount: v.number(),
-		activeIn24h: v.number(),
-		recentSignups: v.number()
-	}),
-	handler: async (ctx) => {
-		const now = Date.now();
-		const oneDayAgo = now - 24 * 60 * 60 * 1000;
-		const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
-		const [counters, recent] = await Promise.all([
-			getCounters(ctx),
-			getRecentDashboardMetrics(ctx, oneDayAgo, sevenDaysAgo)
-		]);
+	const lastPage = offsetLastPage.page;
+	const targetOffset = (lastPage - 1) * pageSize;
 
-		return {
-			totalUsers: counters.totalUsers,
-			adminCount: counters.adminCount,
-			bannedCount: counters.bannedCount,
-			activeIn24h: recent.activeIn24h,
-			recentSignups: recent.recentSignups
-		};
+	let offset = 0;
+	let cursor: string | null = null;
+
+	while (offset + strideSize <= targetOffset) {
+		const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: { cursor, numItems: strideSize },
+			sortBy,
+			where: whereConditions.length > 0 ? whereConditions : undefined
+		})) as AdapterFindManyResult;
+
+		if (result.isDone || !result.continueCursor) {
+			return {
+				page: lastPage,
+				cursor
+			};
+		}
+
+		cursor = result.continueCursor;
+		offset += strideSize;
 	}
-});
+
+	const remaining = targetOffset - offset;
+	if (remaining > 0) {
+		const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: { cursor, numItems: remaining },
+			sortBy,
+			where: whereConditions.length > 0 ? whereConditions : undefined
+		})) as AdapterFindManyResult;
+		cursor = result.continueCursor ?? cursor;
+	}
+
+	return {
+		page: lastPage,
+		cursor
+	};
+}
+
+export async function readDashboardMetrics(ctx: QueryCtx, now: number) {
+	const oneDayAgo = now - 24 * 60 * 60 * 1000;
+	const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+	const [counters, recent] = await Promise.all([
+		getCounters(ctx),
+		getRecentDashboardMetrics(ctx, oneDayAgo, sevenDaysAgo)
+	]);
+
+	return {
+		totalUsers: counters.totalUsers,
+		adminCount: counters.adminCount,
+		bannedCount: counters.bannedCount,
+		activeIn24h: recent.activeIn24h,
+		recentSignups: recent.recentSignups
+	};
+}

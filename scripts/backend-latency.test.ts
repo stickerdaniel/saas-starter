@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+	authorization,
 	countsUnderLoad,
 	executionOf,
+	identityTypesFor,
 	parseLogPage,
 	percentile,
 	pinnedBackendRevision,
@@ -37,7 +39,12 @@ const completion = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const executionIn = (...entries: unknown[]) =>
-	executionOf(parseLogPage({ entries, newCursor: 1 }).entries, IDENTIFIER);
+	executionOf(parseLogPage({ entries, newCursor: 1 }).entries, IDENTIFIER, ['instance_admin']);
+
+const ADMIN = { subject: 'user_1', issuer: 'https://convex.test', sessionId: 'session_1' };
+
+const actingExecutionIn = (...entries: unknown[]) =>
+	executionOf(parseLogPage({ entries, newCursor: 1 }).entries, IDENTIFIER, identityTypesFor(ADMIN));
 
 describe('percentile', () => {
 	it('takes the median for p50, averaging the middle pair', () => {
@@ -106,8 +113,54 @@ describe('log stream', () => {
 		expect(executionIn(completion(), completion())).toEqual({ kind: 'ambiguous', completions: 2 });
 	});
 
+	it('does not count an admin-key call that the backend ran as another identity', () => {
+		expect(executionIn(completion({ identityType: 'member_acting_user' }))).toEqual({
+			kind: 'wrongIdentity',
+			identityType: 'member_acting_user'
+		});
+	});
+
+	it('counts an acting-as call only when the backend ran it as the acting user', () => {
+		expect(actingExecutionIn(completion({ identityType: 'member_acting_user' }))).toEqual({
+			kind: 'executed',
+			userExecutionMs: 21.371333
+		});
+		expect(actingExecutionIn(completion())).toEqual({
+			kind: 'wrongIdentity',
+			identityType: 'instance_admin'
+		});
+		expect(actingExecutionIn(completion({ identityType: undefined }))).toEqual({
+			kind: 'wrongIdentity',
+			identityType: undefined
+		});
+	});
+
 	it('rejects a page without a cursor', () => {
 		expect(() => parseLogPage({ entries: [] })).toThrow();
+	});
+});
+
+describe('authorization header', () => {
+	const actingAs = (header: string) => {
+		const [key, encoded] = header.replace(/^Convex /, '').split(':');
+		return { key, identity: JSON.parse(Buffer.from(encoded ?? '', 'base64').toString('utf8')) };
+	};
+
+	it('sends the bare admin key without an identity', () => {
+		expect(authorization('local|secret', undefined, 'n1')).toBe('Convex local|secret');
+	});
+
+	it('appends the acting identity with a per-call claim after the admin key', () => {
+		expect(actingAs(authorization('local|secret', ADMIN, 'n1'))).toEqual({
+			key: 'local|secret',
+			identity: { ...ADMIN, latencyProbeCall: 'n1' }
+		});
+	});
+
+	it('gives every call its own identity so the query cache cannot answer it', () => {
+		expect(authorization('local|secret', ADMIN, 'n1')).not.toBe(
+			authorization('local|secret', ADMIN, 'n2')
+		);
 	});
 });
 
@@ -149,6 +202,19 @@ describe('attempt summary', () => {
 		);
 		expect(attempt.counted).toBe(false);
 		expect(attempt.notExecuted).toMatchObject({ cached: 1, missing: 1 });
+	});
+
+	it('does not count a run with a call under the wrong identity', () => {
+		const attempt = summarizeAttempt(
+			[
+				executed(10, 2),
+				{ roundTripMs: 1, execution: { kind: 'wrongIdentity', identityType: 'instance_admin' } }
+			],
+			quiet,
+			0
+		);
+		expect(attempt.counted).toBe(false);
+		expect(attempt.notExecuted).toMatchObject({ wrongIdentity: 1 });
 	});
 
 	it('leaves the execution-time gate unproven when one call lacks the field', () => {
