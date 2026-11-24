@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runPage, start } from './activityMigration';
+import { runPage, start } from '../../convex/aiChat/activityMigration';
 import { getAiChatSidebarActivityAt } from './visibility';
 
 type Row = {
@@ -19,6 +19,7 @@ type State = {
 	scheduledFnId?: string;
 };
 type PageArgs = { id: string; cursor: string | null };
+const MAX_PAGES = 10;
 const invoke = <R>(fn: unknown, ctx: unknown, args: unknown): Promise<R> =>
 	(fn as { _handler: (ctx: unknown, args: unknown) => Promise<R> })._handler(ctx, args);
 
@@ -114,7 +115,9 @@ describe('AI sidebar activity', () => {
 		expect(f.state()?.processed).toBe(100);
 		await invoke(start, f.ctx, {});
 		expect(f.jobs).toHaveLength(2);
-		for (let i = 1; i < f.jobs.length; i++) await invoke(runPage, f.ctx, f.jobs[i]);
+		for (let i = 1; i < Math.min(f.jobs.length, MAX_PAGES); i++) {
+			await invoke(runPage, f.ctx, f.jobs[i]);
+		}
 		expect(f.state()).toMatchObject({
 			status: 'complete',
 			processed: 205,

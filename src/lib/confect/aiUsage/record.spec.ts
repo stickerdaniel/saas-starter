@@ -1,6 +1,11 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { insert } from './record';
+import * as Schema from 'effect/Schema';
+import { UsageEventArgsSchema } from './schemas';
 
 export default GroupSpec.make().addFunction(
-	FunctionSpec.convexInternalMutation<typeof insert>()('insert')
+	FunctionSpec.internalMutation({
+		name: 'insert',
+		args: () => UsageEventArgsSchema.fields,
+		returns: () => Schema.Null
+	})
 );

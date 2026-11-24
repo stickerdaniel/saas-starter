@@ -28,29 +28,36 @@ vi.mock('../aiUsage/capture', () => ({
 
 vi.mock('../aiUsage/record', () => ({ recordAiUsage: vi.fn() }));
 
-vi.mock('../../convex/_generated/api', () => ({
-	internal: {
-		aiChat: {
-			threads: { setThreadTitleIfEmpty: 'internal.aiChat.threads.setThreadTitleIfEmpty' }
-		}
-	}
-}));
-
+import { getFunctionName } from 'convex/server';
 import { getAutumnSdk } from '../autumn';
 import {
 	CapabilityConfigurationError,
 	requireAiConfiguration,
 	requireBillingConfiguration
 } from '../env';
-import { generateThreadTitle } from './titles';
+import { generateThreadTitle } from '../../convex/aiChat/titles';
 
 const getAutumnSdkMock = getAutumnSdk as unknown as ReturnType<typeof vi.fn>;
 const requireAiMock = requireAiConfiguration as unknown as ReturnType<typeof vi.fn>;
 const requireBillingMock = requireBillingConfiguration as unknown as ReturnType<typeof vi.fn>;
 
+type ActionFake = {
+	runMutation: ReturnType<typeof vi.fn>;
+	runQuery: ReturnType<typeof vi.fn>;
+	runAction: ReturnType<typeof vi.fn>;
+	vectorSearch: ReturnType<typeof vi.fn>;
+};
+
+const actionCtx = (runMutation: ReturnType<typeof vi.fn>): ActionFake => ({
+	runMutation,
+	runQuery: vi.fn(),
+	runAction: vi.fn(),
+	vectorSearch: vi.fn()
+});
+
 type RegisteredAction = {
 	_handler: (
-		ctx: { runMutation: ReturnType<typeof vi.fn> },
+		ctx: ActionFake,
 		args: { threadId: string; prompt: string; userId?: string }
 	) => Promise<null>;
 };
@@ -80,7 +87,7 @@ describe('generateThreadTitle', () => {
 			});
 			const runMutation = vi.fn();
 
-			expect(await handler._handler({ runMutation }, args)).toBeNull();
+			expect(await handler._handler(actionCtx(runMutation), args)).toBeNull();
 			expect(getAutumnSdkMock).not.toHaveBeenCalled();
 			expect(orModel).not.toHaveBeenCalled();
 			expect(generateText).not.toHaveBeenCalled();
@@ -94,7 +101,7 @@ describe('generateThreadTitle', () => {
 		);
 		const runMutation = vi.fn();
 
-		expect(await handler._handler({ runMutation }, args)).toBeNull();
+		expect(await handler._handler(actionCtx(runMutation), args)).toBeNull();
 		expect(generateText).not.toHaveBeenCalled();
 		expect(runMutation).not.toHaveBeenCalled();
 	});
@@ -105,7 +112,7 @@ describe('generateThreadTitle', () => {
 		});
 		const runMutation = vi.fn();
 
-		expect(await handler._handler({ runMutation }, args)).toBeNull();
+		expect(await handler._handler(actionCtx(runMutation), args)).toBeNull();
 		expect(autumnCheck).toHaveBeenCalledTimes(1);
 		expect(generateText).not.toHaveBeenCalled();
 		expect(runMutation).not.toHaveBeenCalled();
@@ -115,7 +122,7 @@ describe('generateThreadTitle', () => {
 		autumnCheck.mockResolvedValue({ data: { allowed: false } });
 		const runMutation = vi.fn();
 
-		expect(await handler._handler({ runMutation }, args)).toBeNull();
+		expect(await handler._handler(actionCtx(runMutation), args)).toBeNull();
 		expect(getAutumnSdkMock).toHaveBeenCalledTimes(1);
 		expect(generateText).not.toHaveBeenCalled();
 		expect(runMutation).not.toHaveBeenCalled();
@@ -125,11 +132,49 @@ describe('generateThreadTitle', () => {
 		autumnCheck.mockResolvedValue({ data: null });
 		const runMutation = vi.fn().mockResolvedValue(null);
 
-		expect(await handler._handler({ runMutation }, args)).toBeNull();
+		expect(await handler._handler(actionCtx(runMutation), args)).toBeNull();
 		expect(generateText).toHaveBeenCalledTimes(1);
-		expect(runMutation).toHaveBeenCalledWith('internal.aiChat.threads.setThreadTitleIfEmpty', {
-			threadId: 'thread_1',
-			title: 'Configure Billing'
+		expect(runMutation).toHaveBeenCalledTimes(1);
+		const [ref, input] = runMutation.mock.calls[0];
+		expect([getFunctionName(ref), input]).toEqual([
+			'aiChat/threads:setThreadTitleIfEmpty',
+			{ threadId: 'thread_1', title: 'Configure Billing' }
+		]);
+	});
+
+	it('writes the first line without wrapping quotes, clamped to 60 characters', async () => {
+		generateText.mockResolvedValue({
+			text: `"${'A'.repeat(70)}"\nSecond line`,
+			usage: {},
+			providerMetadata: {}
 		});
+		const runMutation = vi.fn().mockResolvedValue(null);
+
+		expect(await handler._handler(actionCtx(runMutation), args)).toBeNull();
+		expect(runMutation.mock.calls[0]?.[1]).toEqual({ threadId: 'thread_1', title: 'A'.repeat(60) });
+	});
+
+	it('skips the write when the model call fails', async () => {
+		generateText.mockRejectedValue(new Error('provider down'));
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const runMutation = vi.fn();
+
+		expect(await handler._handler(actionCtx(runMutation), args)).toBeNull();
+		expect(warn).toHaveBeenCalledWith({ code: 'ai_chat_title_failed' });
+		expect(runMutation).not.toHaveBeenCalled();
+		warn.mockRestore();
+	});
+
+	it('skips the entitlement check for a thread without a user', async () => {
+		const runMutation = vi.fn().mockResolvedValue(null);
+
+		expect(
+			await handler._handler(actionCtx(runMutation), {
+				threadId: 'thread_1',
+				prompt: 'Hello there'
+			})
+		).toBeNull();
+		expect(autumnCheck).not.toHaveBeenCalled();
+		expect(runMutation).toHaveBeenCalledTimes(1);
 	});
 });
