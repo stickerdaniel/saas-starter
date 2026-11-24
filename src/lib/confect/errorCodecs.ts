@@ -194,7 +194,8 @@ const SupportRefusalWire = Schema.Struct({
 	code: Schema.Literals([
 		SUPPORT_ERROR_CODES.authenticationRequired,
 		SUPPORT_ERROR_CODES.threadNotFound,
-		SUPPORT_ERROR_CODES.threadForbidden
+		SUPPORT_ERROR_CODES.threadForbidden,
+		SUPPORT_ERROR_CODES.anonymousUserInvalid
 	])
 });
 

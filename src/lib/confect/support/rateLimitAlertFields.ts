@@ -15,3 +15,5 @@ export const vAnonymousRateLimitBucket = v.union(
 );
 
 export type AnonymousRateLimitBucket = Infer<typeof vAnonymousRateLimitBucket>;
+
+export const RATE_LIMIT_SAMPLE_INTERVAL_MINUTES = 10;

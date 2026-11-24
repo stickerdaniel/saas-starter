@@ -24,7 +24,7 @@ vi.mock('../../env', () => ({
 	requireEmailConfiguration: vi.fn(() => emailConfiguration)
 }));
 
-import { sampleAnonymousRateLimits } from '../rateLimitAlerts';
+import { sampleAnonymousRateLimits } from '../../../convex/support/rateLimitAlerts';
 import { getRecipientsForNotificationType } from '../../../convex/admin/notificationPreferences/queries';
 
 type Handler = { _handler: (ctx: unknown, args: Record<string, unknown>) => Promise<unknown> };

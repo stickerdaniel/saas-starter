@@ -72,7 +72,7 @@ vi.mock('../../../config/support', () => ({ isSupportAiEnabled: () => false }));
 import { createThread, getOrCreateWarmThread, updateThreadHandoff } from '../threads';
 import { createAssistantMessage, sendMessage } from '../messages';
 import { internalSetHandoff } from '../handoff';
-import { migrateAnonymousTickets } from '../migration';
+import { migrateAnonymousTickets } from '../../../convex/support/migration';
 import { sendAdminReply } from '../../../convex/admin/support/mutations';
 import { createJourneyStore } from '../../admin/journey/journeyStore.fixtures';
 

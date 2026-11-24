@@ -1,8 +1,10 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { sampleAnonymousRateLimits } from './rateLimitAlerts';
+import * as Schema from 'effect/Schema';
 
 export default GroupSpec.make().addFunction(
-	FunctionSpec.convexInternalMutation<typeof sampleAnonymousRateLimits>()(
-		'sampleAnonymousRateLimits'
-	)
+	FunctionSpec.internalMutation({
+		name: 'sampleAnonymousRateLimits',
+		args: () => ({}),
+		returns: () => Schema.Null
+	})
 );

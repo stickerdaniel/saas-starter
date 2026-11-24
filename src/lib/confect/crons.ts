@@ -1,7 +1,7 @@
 import { CronJob, CronJobs } from '@confect/server';
 import * as Duration from 'effect/Duration';
 import refs from './_generated/refs';
-import { RATE_LIMIT_SAMPLE_INTERVAL_MINUTES } from './support/rateLimitAlerts';
+import { RATE_LIMIT_SAMPLE_INTERVAL_MINUTES } from './support/rateLimitAlertFields';
 
 export default CronJobs.make()
 	// See the docs at https://docs.convex.dev/agents/files
