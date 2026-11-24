@@ -5,6 +5,7 @@ import * as Schema from 'effect/Schema';
 import { describe, expect, it } from 'vitest';
 import {
 	AttachmentTextArgsSchema,
+	HandoffArgsSchema,
 	NotificationEmailArgsSchema,
 	ProfileSyncArgsSchema,
 	PromptActivationArgsSchema,
@@ -20,6 +21,7 @@ import {
 	ThreadMetadataArgsSchema,
 	ThreadReadArgsSchema,
 	TicketMigrationArgsSchema,
+	UnansweredTurnSchema,
 	UploadRegistrationArgsSchema,
 	WarmThreadArgsSchema
 } from './schemas';
@@ -186,6 +188,41 @@ const cases: ReadonlyArray<{
 		name: 'SweepArgs',
 		schema: SweepArgsSchema,
 		accepted: [{ supportThreadId: 'k1' }]
+	},
+	{
+		name: 'HandoffArgs',
+		schema: HandoffArgsSchema,
+		accepted: [
+			{ threadId: '' },
+			{ threadId: 't1', acknowledge: undefined },
+			{ threadId: 't1', acknowledge: false }
+		]
+	},
+	{
+		name: 'UnansweredTurn',
+		schema: UnansweredTurnSchema,
+		accepted: [
+			{ threadId: 't1', promptMessageId: 'm1', reason: 'job_missing' },
+			{
+				threadId: 't1',
+				promptMessageId: 'm1',
+				reason: 'no_reply',
+				attempts: undefined,
+				visibleText: undefined,
+				errorName: undefined,
+				status: undefined
+			},
+			{
+				threadId: 't1',
+				promptMessageId: 'm1',
+				reason: 'retry_rate_limited',
+				attempts: 2,
+				visibleText: false,
+				errorName: 'other',
+				status: 502.5
+			},
+			{ threadId: 't1', promptMessageId: 'm1', reason: 'partial_reply', status: Number.NaN }
+		]
 	}
 ];
 

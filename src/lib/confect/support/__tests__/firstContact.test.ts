@@ -75,7 +75,7 @@ import {
 	updateThreadHandoff
 } from '../../../convex/support/threads';
 import { createAssistantMessage, sendMessage } from '../messages';
-import { internalSetHandoff } from '../handoff';
+import { internalSetHandoff } from '../../../convex/support/handoff';
 import { migrateAnonymousTickets } from '../../../convex/support/migration';
 import { sendAdminReply } from '../../../convex/admin/support/mutations';
 import { createJourneyStore } from '../../admin/journey/journeyStore.fixtures';

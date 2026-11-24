@@ -37,7 +37,7 @@ import {
 	turnLogFields,
 	type TurnErrorName,
 	type UnansweredTurn
-} from './handoff';
+} from './handoffTurns';
 import {
 	CapabilityConfigurationError,
 	getCapabilityConfigurations,

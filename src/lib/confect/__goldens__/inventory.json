@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "3555727f4ab6a27a",
+	"digest": "fe45a1a8a439ed0e",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -227,8 +227,8 @@
 			"saveUploadedFile": ["public", "action", "Convex", "Confect"]
 		},
 		"support/handoff": {
-			"internalSetHandoff": ["internal", "mutation", "Convex", "Convex"],
-			"settleUnansweredTurn": ["internal", "mutation", "Convex", "Convex"]
+			"internalSetHandoff": ["internal", "mutation", "Convex", "Confect"],
+			"settleUnansweredTurn": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"support/messages": {
 			"createAIResponse": ["internal", "action", "Convex", "Convex"],
