@@ -33,7 +33,7 @@ vi.mock('../../../convex/_generated/api', () => ({
 }));
 
 import { getSupportOwnerIdentity } from '../ownership';
-import { listThreads } from '../threads';
+import { listThreads } from '../../../convex/support/threads';
 
 const getSupportOwnerIdentityMock = getSupportOwnerIdentity as unknown as ReturnType<typeof vi.fn>;
 

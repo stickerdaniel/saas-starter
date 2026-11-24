@@ -69,7 +69,11 @@ vi.mock('../threadLifecycle', async () => {
 // writes the canned assistant acknowledgement.
 vi.mock('../../../config/support', () => ({ isSupportAiEnabled: () => false }));
 
-import { createThread, getOrCreateWarmThread, updateThreadHandoff } from '../threads';
+import {
+	createThread,
+	getOrCreateWarmThread,
+	updateThreadHandoff
+} from '../../../convex/support/threads';
 import { createAssistantMessage, sendMessage } from '../messages';
 import { internalSetHandoff } from '../handoff';
 import { migrateAnonymousTickets } from '../../../convex/support/migration';

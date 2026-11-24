@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "a3d6346d99197e9b",
+	"digest": "3555727f4ab6a27a",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -254,20 +254,20 @@
 			"unreadAdminReplyCount": ["public", "query", "Convex", "Confect"]
 		},
 		"support/threads": {
-			"backfillThreadMetadata": ["internal", "mutation", "Convex", "Convex"],
-			"createThread": ["public", "mutation", "Convex", "Convex"],
-			"deleteEmptyThreads": ["internal", "mutation", "Convex", "Convex"],
-			"getAdminAvatars": ["public", "query", "Convex", "Convex"],
-			"getOrCreateWarmThread": ["public", "mutation", "Convex", "Convex"],
-			"getThread": ["public", "query", "Convex", "Convex"],
-			"getThreadLocale": ["internal", "query", "Convex", "Convex"],
-			"listThreads": ["public", "query", "Convex", "Convex"],
-			"sweepEmptyThread": ["internal", "mutation", "Convex", "Convex"],
-			"syncUserProfile": ["internal", "mutation", "Convex", "Convex"],
-			"updateLastMessage": ["internal", "mutation", "Convex", "Convex"],
-			"updateNotificationEmail": ["public", "mutation", "Convex", "Convex"],
-			"updateThreadHandoff": ["public", "mutation", "Convex", "Convex"],
-			"updateThreadMetadata": ["internal", "mutation", "Convex", "Convex"]
+			"backfillThreadMetadata": ["internal", "mutation", "Convex", "Confect"],
+			"createThread": ["public", "mutation", "Convex", "Confect"],
+			"deleteEmptyThreads": ["internal", "mutation", "Convex", "Confect"],
+			"getAdminAvatars": ["public", "query", "Convex", "Confect"],
+			"getOrCreateWarmThread": ["public", "mutation", "Convex", "Confect"],
+			"getThread": ["public", "query", "Convex", "Confect"],
+			"getThreadLocale": ["internal", "query", "Convex", "Confect"],
+			"listThreads": ["public", "query", "Convex", "Confect"],
+			"sweepEmptyThread": ["internal", "mutation", "Convex", "Confect"],
+			"syncUserProfile": ["internal", "mutation", "Convex", "Confect"],
+			"updateLastMessage": ["internal", "mutation", "Convex", "Confect"],
+			"updateNotificationEmail": ["public", "mutation", "Convex", "Confect"],
+			"updateThreadHandoff": ["public", "mutation", "Convex", "Confect"],
+			"updateThreadMetadata": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"tests": {
 			"cleanupAllTestUsers": ["public", "mutation", "Convex", "Convex"],

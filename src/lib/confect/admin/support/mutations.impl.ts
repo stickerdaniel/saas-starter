@@ -13,7 +13,8 @@ import { MAX_MESSAGE_LENGTH } from '../../constants';
 import { AdminSupportRefusal } from '../../errorCodecs';
 import RequireAdminImpl from '../../middleware/RequireAdmin.impl';
 import { CurrentUser } from '../../middleware/RequireUser.spec';
-import { shouldSendNotification, syncSupportLastMessage } from '../../support/threads';
+import { shouldSendNotification } from '../../support/notificationPreferences';
+import { syncSupportLastMessage } from '../../support/threadLifecycle';
 import { ADMIN_SUPPORT_ERROR_CODES } from './errors';
 import mutations from './mutations.spec';
 import type {

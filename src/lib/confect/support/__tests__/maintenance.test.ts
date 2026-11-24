@@ -1,3 +1,4 @@
+import { getFunctionName, type FunctionReference } from 'convex/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../authServer', () => ({
@@ -40,7 +41,7 @@ vi.mock('../../../convex/_generated/api', () => ({
 import { authComponent } from '../../authServer';
 import { supportAgent } from '../agent';
 import { migrateAnonymousTickets } from '../../../convex/support/migration';
-import { backfillThreadMetadata, syncUserProfile } from '../threads';
+import { backfillThreadMetadata, syncUserProfile } from '../../../convex/support/threads';
 
 const safeGetAuthUserMock = authComponent.safeGetAuthUser as unknown as ReturnType<typeof vi.fn>;
 const getAnyUserByIdMock = authComponent.getAnyUserById as unknown as ReturnType<typeof vi.fn>;
@@ -114,8 +115,8 @@ async function drainScheduled(
 	handlers: Record<string, MutationHandler<never, unknown>>
 ) {
 	for (let i = 0; i < runAfter.mock.calls.length; i++) {
-		const [, ref, args] = runAfter.mock.calls[i] as [number, string, never];
-		await handlers[ref]._handler(ctx, args);
+		const [, ref, args] = runAfter.mock.calls[i] as [number, FunctionReference<'mutation'>, never];
+		await handlers[getFunctionName(ref)]._handler(ctx, args);
 	}
 }
 
@@ -284,7 +285,7 @@ describe('support maintenance helpers', () => {
 		expect(patch).toHaveBeenCalledTimes(100);
 
 		await drainScheduled(runAfter, ctx, {
-			'internal.support.threads.syncUserProfile': syncUserProfileHandler
+			'support/threads:syncUserProfile': syncUserProfileHandler
 		});
 
 		expect(new Set(patch.mock.calls.map(([, id]) => id)).size).toBe(250);
@@ -322,7 +323,7 @@ describe('support maintenance helpers', () => {
 		]);
 
 		await drainScheduled(runAfter, ctx, {
-			'internal.support.threads.syncUserProfile': syncUserProfileHandler
+			'support/threads:syncUserProfile': syncUserProfileHandler
 		});
 
 		expect(new Set(patch.mock.calls.map(([, id]) => id)).size).toBe(250);
