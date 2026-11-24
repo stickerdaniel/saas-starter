@@ -2,7 +2,7 @@
  * Better Auth admin plugin HTTP paths, split by how the app exposes them.
  *
  * The app performs admin actions through custom Convex mutations
- * (`admin/mutations.ts`) so that guards and audit-log writes are atomic with
+ * (`admin/mutations.impl.ts`) so that guards and audit-log writes are atomic with
  * the action and cannot be bypassed. The raw plugin HTTP endpoints would skip
  * both, so they are disabled at the router via Better Auth `disabledPaths`.
  * `disabledPaths` only affects HTTP routing; in-process `auth.api.*` calls
