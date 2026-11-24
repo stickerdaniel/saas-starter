@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "ea816a5faffbfac4",
+	"digest": "194fe8804826db99",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -249,9 +249,9 @@
 			"sampleAnonymousRateLimits": ["internal", "mutation", "Convex", "Convex"]
 		},
 		"support/readState": {
-			"hasUnreadAdminReply": ["public", "query", "Convex", "Convex"],
-			"markThreadRead": ["public", "mutation", "Convex", "Convex"],
-			"unreadAdminReplyCount": ["public", "query", "Convex", "Convex"]
+			"hasUnreadAdminReply": ["public", "query", "Convex", "Confect"],
+			"markThreadRead": ["public", "mutation", "Convex", "Confect"],
+			"unreadAdminReplyCount": ["public", "query", "Convex", "Confect"]
 		},
 		"support/threads": {
 			"backfillThreadMetadata": ["internal", "mutation", "Convex", "Convex"],

@@ -7,6 +7,7 @@ import { makeFunctionReference } from 'convex/server';
 import { ConvexError, type Value } from 'convex/values';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import * as Option from 'effect/Option';
 import * as Schema from 'effect/Schema';
 import { describe, expect, it } from 'vitest';
 import { components } from '../../convex/_generated/api';
@@ -29,7 +30,8 @@ import {
 	AuthRefusalCodec,
 	FileRefusalCodec,
 	NotificationPreferenceRefusalCodec,
-	RateLimitedCodec
+	RateLimitedCodec,
+	SupportRefusalCodec
 } from '../errorCodecs';
 import { FILE_ERROR_CODES, createFileError } from '../files/errors';
 import { SUPPORT_ERROR_CODES, createSupportError } from '../support/errors';
@@ -83,7 +85,8 @@ const wireGroup = GroupSpec.make()
 	.addFunction(refusal('rateLimited', RateLimitedCodec))
 	.addFunction(refusal('auth', AuthRefusalCodec))
 	.addFunction(refusal('file', FileRefusalCodec))
-	.addFunction(refusal('notificationPreference', NotificationPreferenceRefusalCodec));
+	.addFunction(refusal('notificationPreference', NotificationPreferenceRefusalCodec))
+	.addFunction(refusal('support', SupportRefusalCodec));
 
 const modules = {
 	...convexModules,
@@ -149,7 +152,10 @@ const modules = {
 				Layer.provide(
 					FunctionImpl.make(databaseSchema, visitorGroup, 'owner', () =>
 						Effect.gen(function* () {
-							return (yield* SupportOwner).ownerId;
+							return Option.match(yield* SupportOwner, {
+								onNone: () => 'none',
+								onSome: (owner) => owner.ownerId
+							});
 						})
 					)
 				),
@@ -183,6 +189,11 @@ const modules = {
 						})
 					),
 					FunctionImpl.make(databaseSchema, wireGroup, 'notificationPreference', ({ refusal }) =>
+						Effect.gen(function* () {
+							return yield* Effect.fail(refusal);
+						})
+					),
+					FunctionImpl.make(databaseSchema, wireGroup, 'support', ({ refusal }) =>
 						Effect.gen(function* () {
 							return yield* Effect.fail(refusal);
 						})
@@ -334,9 +345,14 @@ describe('RequireAdmin', () => {
 });
 
 describe('VisitorAccess', () => {
-	it('refuses a caller with neither a session nor an anonymous id', async () => {
-		const error = await rejection(harness().query(query('policyProbe/visitor:owner'), {}));
-		expect(error.data).toEqual(createSupportError(SUPPORT_ERROR_CODES.authenticationRequired).data);
+	it('provides no owner to a caller with neither a session nor an anonymous id', async () => {
+		await expect(harness().query(query('policyProbe/visitor:owner'), {})).resolves.toBe('none');
+	});
+
+	it('provides no owner for an anonymous id without the anon_ prefix', async () => {
+		await expect(
+			harness().query(query('policyProbe/visitor:owner'), { anonymousUserId: 'visitor_1' })
+		).resolves.toBe('none');
 	});
 
 	it('provides an anonymous visitor as SupportOwner', async () => {
@@ -349,6 +365,14 @@ describe('VisitorAccess', () => {
 		const t = harness();
 		const { userId, caller } = await signIn(t, 'user');
 		await expect(caller.query(query('policyProbe/visitor:owner'), {})).resolves.toBe(userId);
+	});
+
+	it('prefers the session over an anonymous id', async () => {
+		const t = harness();
+		const { userId, caller } = await signIn(t, 'user');
+		await expect(
+			caller.query(query('policyProbe/visitor:owner'), { anonymousUserId: 'anon_1' })
+		).resolves.toBe(userId);
 	});
 });
 
@@ -375,6 +399,15 @@ describe('error codecs on the wire', () => {
 		const error = await refuse('admin', { code });
 		expect(error.data).toEqual(new ConvexError({ code }).data);
 		expect(getAuthErrorKey(getConvexErrorData(error))).toBe(key);
+	});
+
+	it.each([
+		SUPPORT_ERROR_CODES.authenticationRequired,
+		SUPPORT_ERROR_CODES.threadNotFound,
+		SUPPORT_ERROR_CODES.threadForbidden
+	])('sends support refusal %s as the support helpers do', async (code) => {
+		const error = await refuse('support', { code });
+		expect(error.data).toEqual(createSupportError(code).data);
 	});
 
 	it('sends a rate limit as the chat and support clients read it', async () => {
