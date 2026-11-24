@@ -1,49 +1,28 @@
-/**
- * Admin Notification Preferences Queries
- *
- * Queries for retrieving notification recipient preferences.
- * Used by the admin settings UI and notification send logic.
- */
-
-import { v, type Infer } from 'convex/values';
-import { adminQuery } from '../../functions';
-import { internalQuery } from '../../../convex/_generated/server';
-import type { QueryCtx } from '../../../convex/_generated/server';
-import type { Doc } from '../../../convex/_generated/dataModel';
+import * as Effect from 'effect/Effect';
 import { components } from '../../../convex/_generated/api';
+import type { Doc } from '../../../convex/_generated/dataModel';
+import type { QueryCtx as ConvexQueryCtx } from '../../../convex/_generated/server';
+import { QueryCtx } from '../../_generated/services';
 import { isTestEmail } from '../../emails/helpers';
 import { MAX_RECIPIENTS, PREFERENCE_SCAN } from '../customerNotifications/policy';
-import { parseBetterAuthUsers } from '../types';
 import { resolveOffsetLastPage, sliceOffsetPage } from '../pagination';
+import { parseBetterAuthUsers } from '../types';
 import { isPreviewAdminEmail } from './helpers';
+import type {
+	ListRecipientsArgsSchema,
+	NotificationRecipientSchema,
+	NotificationToggleFieldSchema,
+	NotificationTypeSchema,
+	RecipientCountArgsSchema,
+	RecipientsLastPageArgsSchema
+} from './schemas';
 
-/**
- * Notification type validator for internal queries
- */
-export const notificationTypeValidator = v.union(
-	v.literal('newTickets'),
-	v.literal('userReplies'),
-	v.literal('newSignups'),
-	v.literal('newCustomers'),
-	v.literal('cancellations')
-);
+export type NotificationType = typeof NotificationTypeSchema.Type;
 
-export type NotificationType = Infer<typeof notificationTypeValidator>;
-
-/** The preference fields an admin toggles, one per notification type. */
-export const notificationToggleFieldValidator = v.union(
-	v.literal('notifyNewSupportTickets'),
-	v.literal('notifyUserReplies'),
-	v.literal('notifyNewSignups'),
-	v.literal('notifyNewCustomers'),
-	v.literal('notifyCancellations')
-);
-
-export type NotificationToggleField = Infer<typeof notificationToggleFieldValidator>;
+export type NotificationToggleField = typeof NotificationToggleFieldSchema.Type;
 
 type NotificationPreference = Doc<'adminNotificationPreferences'>;
 
-/** The toggle that gates each notification type; exhaustive by construction. */
 const NOTIFICATION_TYPE_TOGGLES = {
 	newTickets: 'notifyNewSupportTickets',
 	userReplies: 'notifyUserReplies',
@@ -52,11 +31,6 @@ const NOTIFICATION_TYPE_TOGGLES = {
 	cancellations: 'notifyCancellations'
 } as const satisfies Record<NotificationType, NotificationToggleField>;
 
-/**
- * Whether a preference row wants notifications of `type`. The only place a
- * toggle is read: a toggle added after rows already existed is optional, and
- * a missing value means on.
- */
 function wantsNotification(
 	preference: Pick<NotificationPreference, NotificationToggleField>,
 	type: NotificationType
@@ -64,16 +38,10 @@ function wantsNotification(
 	return preference[NOTIFICATION_TYPE_TOGGLES[type]] ?? true;
 }
 
-/** A current admin or a custom address; a demoted admin's row stays dormant. */
 function isActiveRecipient(preference: Pick<NotificationPreference, 'isAdminUser' | 'userId'>) {
 	return preference.isAdminUser || preference.userId === undefined;
 }
 
-/**
- * Whether a preference row receives email of `type`: an active recipient
- * with the toggle on. The preview admin never receives email, whatever its
- * stored toggles say.
- */
 export function receivesNotification(
 	preference: NotificationPreference,
 	type: NotificationType
@@ -85,22 +53,7 @@ export function receivesNotification(
 	);
 }
 
-/**
- * Notification recipient data for UI display
- */
-export interface NotificationRecipient {
-	email: string;
-	name?: string;
-	userId?: string;
-	isAdminUser: boolean;
-	notifyNewSupportTickets: boolean;
-	notifyUserReplies: boolean;
-	notifyNewSignups: boolean;
-	notifyNewCustomers: boolean;
-	notifyCancellations: boolean;
-	createdAt: number;
-	updatedAt: number;
-}
+export type NotificationRecipient = typeof NotificationRecipientSchema.Type;
 
 type NotificationRecipientTypeFilter = 'admin' | 'custom';
 
@@ -120,7 +73,7 @@ type AdapterFindManyResult = {
 	continueCursor: string | null;
 };
 
-async function getAdminUserNameMap(ctx: QueryCtx) {
+async function getAdminUserNameMap(ctx: ConvexQueryCtx) {
 	const userMap = new Map<string, string>();
 	let cursor: string | null = null;
 
@@ -207,7 +160,7 @@ function sortNotificationRecipients(
 }
 
 async function getFilteredSortedRecipients(
-	ctx: QueryCtx,
+	ctx: ConvexQueryCtx,
 	args: {
 		search?: string;
 		typeFilter?: NotificationRecipientTypeFilter;
@@ -236,161 +189,31 @@ async function getFilteredSortedRecipients(
 	return sortNotificationRecipients(filtered, args.sortBy ?? DEFAULT_RECIPIENT_SORT);
 }
 
-/**
- * List notification recipients (paginated) for the admin settings UI
- *
- * Returns preferences where:
- * - isAdminUser=true (active admins)
- * - OR userId is undefined (custom email addresses)
- *
- * Dormant preferences (demoted admins with isAdminUser=false and userId set) are excluded.
- * Uses offset-based pagination over the filtered/sorted result set.
- *
- * @param args.cursor - Offset cursor (stringified integer) for the next page
- * @param args.numItems - Number of items per page
- * @param args.search - Optional search term to filter by email or name
- * @param args.typeFilter - Optional filter by recipient type ('admin' or 'custom')
- * @param args.sortBy - Optional sort configuration with field and direction
- * @returns Paginated list with `items`, `continueCursor`, and `isDone`
- * @security Requires admin role
- */
-export const listNotificationRecipients = adminQuery({
-	args: {
-		cursor: v.optional(v.string()),
-		numItems: v.number(),
-		search: v.optional(v.string()),
-		typeFilter: v.optional(v.union(v.literal('admin'), v.literal('custom'))),
-		sortBy: v.optional(
-			v.object({
-				field: v.union(
-					v.literal('email'),
-					v.literal('name'),
-					v.literal('type'),
-					v.literal('createdAt')
-				),
-				direction: v.union(v.literal('asc'), v.literal('desc'))
-			})
-		)
-	},
-	returns: v.object({
-		items: v.array(
-			v.object({
-				email: v.string(),
-				name: v.optional(v.string()),
-				userId: v.optional(v.string()),
-				isAdminUser: v.boolean(),
-				notifyNewSupportTickets: v.boolean(),
-				notifyUserReplies: v.boolean(),
-				notifyNewSignups: v.boolean(),
-				notifyNewCustomers: v.boolean(),
-				notifyCancellations: v.boolean(),
-				createdAt: v.number(),
-				updatedAt: v.number()
-			})
-		),
-		continueCursor: v.union(v.string(), v.null()),
-		isDone: v.boolean()
-	}),
-	handler: async (
-		ctx,
-		args
-	): Promise<{
-		items: NotificationRecipient[];
-		continueCursor: string | null;
-		isDone: boolean;
-	}> => {
-		const recipients = await getFilteredSortedRecipients(ctx, {
-			search: args.search,
-			typeFilter: args.typeFilter,
-			sortBy: args.sortBy
-		});
-		return sliceOffsetPage(recipients, args.cursor, args.numItems);
-	}
-});
+const withQuery = <A>(run: (ctx: ConvexQueryCtx) => Promise<A>) =>
+	QueryCtx.use((ctx) => Effect.promise(() => run(ctx)));
 
-/**
- * Count notification recipients matching the given filters.
- *
- * Applies the same search and type filters as `listNotificationRecipients`
- * to provide an accurate total for pagination UI.
- *
- * @param args.search - Optional search term to filter by email or name
- * @param args.typeFilter - Optional filter by recipient type ('admin' or 'custom')
- * @returns Total count of matching recipients
- * @security Requires admin role
- */
-export const getNotificationRecipientCount = adminQuery({
-	args: {
-		search: v.optional(v.string()),
-		typeFilter: v.optional(v.union(v.literal('admin'), v.literal('custom')))
-	},
-	returns: v.number(),
-	handler: async (ctx, args): Promise<number> => {
-		const recipients = await getFilteredSortedRecipients(ctx, {
-			search: args.search,
-			typeFilter: args.typeFilter
-		});
-		return recipients.length;
-	}
-});
+export const listRecipients = (args: typeof ListRecipientsArgsSchema.Type) =>
+	withQuery(async (ctx) =>
+		sliceOffsetPage(await getFilteredSortedRecipients(ctx, args), args.cursor, args.numItems)
+	);
 
-export const resolveNotificationRecipientsLastPage = adminQuery({
-	args: {
-		numItems: v.number(),
-		search: v.optional(v.string()),
-		typeFilter: v.optional(v.union(v.literal('admin'), v.literal('custom')))
-	},
-	returns: v.object({
-		page: v.number(),
-		cursor: v.union(v.string(), v.null())
-	}),
-	handler: async (ctx, args): Promise<{ page: number; cursor: string | null }> => {
-		const recipients = await getFilteredSortedRecipients(ctx, {
-			search: args.search,
-			typeFilter: args.typeFilter
-		});
-		return resolveOffsetLastPage(recipients.length, args.numItems);
-	}
-});
+export const countRecipients = (args: typeof RecipientCountArgsSchema.Type) =>
+	withQuery(async (ctx) => (await getFilteredSortedRecipients(ctx, args)).length);
 
-/**
- * Get email addresses for a specific notification type
- *
- * Used by notification send logic to determine recipients.
- * Only returns emails where:
- * - The specific notification toggle is enabled
- * - AND (isAdminUser=true OR userId is undefined for custom emails)
- *
- * @internal Used by email send mutations
- */
-export const getRecipientsForNotificationType = internalQuery({
-	args: {
-		type: notificationTypeValidator
-	},
-	returns: v.array(v.string()),
-	handler: async (ctx, args): Promise<string[]> => {
+export const findRecipientsLastPage = (args: typeof RecipientsLastPageArgsSchema.Type) =>
+	withQuery(async (ctx) =>
+		resolveOffsetLastPage((await getFilteredSortedRecipients(ctx, args)).length, args.numItems)
+	);
+
+export const recipientsForType = (type: NotificationType) =>
+	withQuery(async (ctx) => {
 		// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: rows exist only through admin actions (promotions, custom recipients), one per email
 		const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
-		return allPrefs.filter((p) => receivesNotification(p, args.type)).map((p) => p.email);
-	}
-});
+		return allPrefs.filter((p) => receivesNotification(p, type)).map((p) => p.email);
+	});
 
-/**
- * The recipients of one customer email, from a bounded scan: at most
- * `PREFERENCE_SCAN` preference rows in creation order, and at most
- * `MAX_RECIPIENTS` of the addresses that receive `type`, test addresses left
- * out. `truncated` says that rows were left unread or matches left out, so
- * the result is not the whole audience; nobody counts what was left out.
- *
- * Callers run it under read limits, so a scan of unusually large rows fails
- * instead of taking the caller's budget.
- *
- * @internal Used by the admin customer email senders
- */
-export const getJourneyRecipients = internalQuery({
-	args: { type: notificationTypeValidator },
-	returns: v.object({ emails: v.array(v.string()), truncated: v.boolean() }),
-	handler: async (ctx, { type }) => {
+export const journeyRecipients = (type: NotificationType) =>
+	withQuery(async (ctx) => {
 		const scanned = await ctx.db.query('adminNotificationPreferences').take(PREFERENCE_SCAN + 1);
 		const matched = scanned
 			.slice(0, PREFERENCE_SCAN)
@@ -401,5 +224,4 @@ export const getJourneyRecipients = internalQuery({
 			emails: matched.slice(0, MAX_RECIPIENTS),
 			truncated: scanned.length > PREFERENCE_SCAN || matched.length > MAX_RECIPIENTS
 		};
-	}
-});
+	});

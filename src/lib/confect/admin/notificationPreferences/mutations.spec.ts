@@ -1,17 +1,46 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type {
-	addCustomEmail,
-	removeCustomEmail,
-	syncAllAdminPreferences,
-	updatePreference,
-	updatePreferences
-} from './mutations';
+import * as Schema from 'effect/Schema';
+import { NotificationPreferenceRefusalCodec } from '../../errorCodecs';
+import RequireAdmin from '../../middleware/RequireAdmin.spec';
+import { PreferenceBatchArgsSchema, PreferenceToggleArgsSchema } from './schemas';
 
 export default GroupSpec.make()
-	.addFunction(FunctionSpec.convexPublicMutation<typeof addCustomEmail>()('addCustomEmail'))
-	.addFunction(FunctionSpec.convexPublicMutation<typeof removeCustomEmail>()('removeCustomEmail'))
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof syncAllAdminPreferences>()('syncAllAdminPreferences')
+		FunctionSpec.publicMutation({
+			name: 'addCustomEmail',
+			args: () => ({ email: Schema.String }),
+			returns: () => Schema.Null,
+			error: () => NotificationPreferenceRefusalCodec
+		}).middleware(RequireAdmin)
 	)
-	.addFunction(FunctionSpec.convexPublicMutation<typeof updatePreference>()('updatePreference'))
-	.addFunction(FunctionSpec.convexPublicMutation<typeof updatePreferences>()('updatePreferences'));
+	.addFunction(
+		FunctionSpec.publicMutation({
+			name: 'removeCustomEmail',
+			args: () => ({ email: Schema.String }),
+			returns: () => Schema.Null,
+			error: () => NotificationPreferenceRefusalCodec
+		}).middleware(RequireAdmin)
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'syncAllAdminPreferences',
+			args: () => ({}),
+			returns: () => Schema.Struct({ synced: Schema.Number, skipped: Schema.Number })
+		})
+	)
+	.addFunction(
+		FunctionSpec.publicMutation({
+			name: 'updatePreference',
+			args: () => PreferenceToggleArgsSchema.fields,
+			returns: () => Schema.Null,
+			error: () => NotificationPreferenceRefusalCodec
+		}).middleware(RequireAdmin)
+	)
+	.addFunction(
+		FunctionSpec.publicMutation({
+			name: 'updatePreferences',
+			args: () => PreferenceBatchArgsSchema.fields,
+			returns: () => Schema.Null,
+			error: () => NotificationPreferenceRefusalCodec
+		}).middleware(RequireAdmin)
+	);

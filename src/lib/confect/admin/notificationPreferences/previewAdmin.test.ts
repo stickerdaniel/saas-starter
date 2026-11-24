@@ -3,7 +3,8 @@ import type { MutationCtx } from '../../../convex/_generated/server';
 import { ensurePreviewAdmin } from '../../previewDev';
 import { syncAdminPreferences } from './helpers';
 import { getNotificationTargetEmails } from '../support/notifications';
-import { getRecipientsForNotificationType, type NotificationType } from './queries';
+import { getRecipientsForNotificationType } from '../../../convex/admin/notificationPreferences/queries';
+import type { NotificationType } from './queries';
 
 type Preference = {
 	_id: string;

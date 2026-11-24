@@ -25,7 +25,7 @@ vi.mock('../../env', () => ({
 }));
 
 import { sampleAnonymousRateLimits } from '../rateLimitAlerts';
-import { getRecipientsForNotificationType } from '../../admin/notificationPreferences/queries';
+import { getRecipientsForNotificationType } from '../../../convex/admin/notificationPreferences/queries';
 
 type Handler = { _handler: (ctx: unknown, args: Record<string, unknown>) => Promise<unknown> };
 type Row = Record<string, unknown> & { _id: string };

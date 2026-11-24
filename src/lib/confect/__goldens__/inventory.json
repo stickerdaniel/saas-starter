@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "2515c24c0929470e",
+	"digest": "af0d7e2daf8821ec",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -46,30 +46,30 @@
 			"unbanUser": ["public", "mutation", "Convex", "Confect"]
 		},
 		"admin/notificationPreferences/index": {
-			"addCustomEmail": ["public", "mutation", "Convex", "Convex"],
-			"getJourneyRecipients": ["internal", "query", "Convex", "Convex"],
-			"getNotificationRecipientCount": ["public", "query", "Convex", "Convex"],
-			"getRecipientsForNotificationType": ["internal", "query", "Convex", "Convex"],
-			"listNotificationRecipients": ["public", "query", "Convex", "Convex"],
-			"removeCustomEmail": ["public", "mutation", "Convex", "Convex"],
-			"resolveNotificationRecipientsLastPage": ["public", "query", "Convex", "Convex"],
-			"syncAllAdminPreferences": ["internal", "mutation", "Convex", "Convex"],
-			"updatePreference": ["public", "mutation", "Convex", "Convex"],
-			"updatePreferences": ["public", "mutation", "Convex", "Convex"]
+			"addCustomEmail": ["public", "mutation", "Convex", "Confect"],
+			"getJourneyRecipients": ["internal", "query", "Convex", "Confect"],
+			"getNotificationRecipientCount": ["public", "query", "Convex", "Confect"],
+			"getRecipientsForNotificationType": ["internal", "query", "Convex", "Confect"],
+			"listNotificationRecipients": ["public", "query", "Convex", "Confect"],
+			"removeCustomEmail": ["public", "mutation", "Convex", "Confect"],
+			"resolveNotificationRecipientsLastPage": ["public", "query", "Convex", "Confect"],
+			"syncAllAdminPreferences": ["internal", "mutation", "Convex", "Confect"],
+			"updatePreference": ["public", "mutation", "Convex", "Confect"],
+			"updatePreferences": ["public", "mutation", "Convex", "Confect"]
 		},
 		"admin/notificationPreferences/mutations": {
-			"addCustomEmail": ["public", "mutation", "Convex", "Convex"],
-			"removeCustomEmail": ["public", "mutation", "Convex", "Convex"],
-			"syncAllAdminPreferences": ["internal", "mutation", "Convex", "Convex"],
-			"updatePreference": ["public", "mutation", "Convex", "Convex"],
-			"updatePreferences": ["public", "mutation", "Convex", "Convex"]
+			"addCustomEmail": ["public", "mutation", "Convex", "Confect"],
+			"removeCustomEmail": ["public", "mutation", "Convex", "Confect"],
+			"syncAllAdminPreferences": ["internal", "mutation", "Convex", "Confect"],
+			"updatePreference": ["public", "mutation", "Convex", "Confect"],
+			"updatePreferences": ["public", "mutation", "Convex", "Confect"]
 		},
 		"admin/notificationPreferences/queries": {
-			"getJourneyRecipients": ["internal", "query", "Convex", "Convex"],
-			"getNotificationRecipientCount": ["public", "query", "Convex", "Convex"],
-			"getRecipientsForNotificationType": ["internal", "query", "Convex", "Convex"],
-			"listNotificationRecipients": ["public", "query", "Convex", "Convex"],
-			"resolveNotificationRecipientsLastPage": ["public", "query", "Convex", "Convex"]
+			"getJourneyRecipients": ["internal", "query", "Convex", "Confect"],
+			"getNotificationRecipientCount": ["public", "query", "Convex", "Confect"],
+			"getRecipientsForNotificationType": ["internal", "query", "Convex", "Confect"],
+			"listNotificationRecipients": ["public", "query", "Convex", "Confect"],
+			"resolveNotificationRecipientsLastPage": ["public", "query", "Convex", "Confect"]
 		},
 		"admin/queries": {
 			"getDashboardMetrics": ["public", "query", "Convex", "Confect"],
