@@ -1,5 +1,6 @@
 import * as Schema from 'effect/Schema';
 import { Id } from '../_generated/id';
+import { PaginationOpts } from '../schemas/pagination';
 
 export const SupportOwnerArgsSchema = Schema.Struct({
 	anonymousUserId: Schema.optional(Schema.String)
@@ -63,3 +64,120 @@ export const AttachmentTextSchema = Schema.Struct({
 	text: Schema.String,
 	truncated: Schema.Boolean
 });
+
+export const ThreadCreateArgsSchema = Schema.Struct({
+	anonymousUserId: Schema.optional(Schema.String),
+	title: Schema.optional(Schema.String),
+	pageUrl: Schema.optional(Schema.String)
+});
+
+export const WarmThreadArgsSchema = Schema.Struct({
+	anonymousUserId: Schema.optional(Schema.String),
+	pageUrl: Schema.optional(Schema.String)
+});
+
+export const OwnedThreadSchema = Schema.Struct({
+	threadId: Schema.String,
+	notificationEmail: Schema.optional(Schema.String)
+});
+
+export const ThreadListArgsSchema = Schema.Struct({
+	anonymousUserId: Schema.optional(Schema.String),
+	paginationOpts: Schema.optional(PaginationOpts)
+});
+
+const AssignedAdminSchema = Schema.Struct({
+	name: Schema.optional(Schema.String),
+	image: Schema.Union([Schema.String, Schema.Null])
+});
+
+const AgentThreadStatusSchema = Schema.Literals(['active', 'archived']);
+
+export const ThreadListSchema = Schema.Struct({
+	page: Schema.mutable(
+		Schema.Array(
+			Schema.Struct({
+				_id: Schema.String,
+				_creationTime: Schema.Number,
+				userId: Schema.String,
+				title: Schema.optional(Schema.String),
+				summary: Schema.optional(Schema.String),
+				status: AgentThreadStatusSchema,
+				lastAgentName: Schema.optional(Schema.String),
+				lastMessageRole: Schema.optional(Schema.Literals(['user', 'assistant', 'tool', 'system'])),
+				lastMessage: Schema.optional(Schema.String),
+				lastMessageAt: Schema.optional(Schema.Number),
+				isHandedOff: Schema.Boolean,
+				hasUnreadAdminReply: Schema.Boolean,
+				notificationEmail: Schema.optional(Schema.String),
+				assignedAdmin: Schema.optional(AssignedAdminSchema)
+			})
+		)
+	),
+	isDone: Schema.Boolean,
+	continueCursor: Schema.String
+});
+
+export const ThreadAccessArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	anonymousUserId: Schema.optional(Schema.String)
+});
+
+export const OwnerThreadSchema = Schema.Struct({
+	_id: Schema.String,
+	_creationTime: Schema.Number,
+	userId: Schema.optional(Schema.String),
+	title: Schema.optional(Schema.String),
+	summary: Schema.optional(Schema.String),
+	status: AgentThreadStatusSchema,
+	isHandedOff: Schema.Boolean,
+	lastAdminReplyAt: Schema.optional(Schema.Number),
+	lastAdminReplyMessageId: Schema.optional(Schema.String),
+	userReadAt: Schema.optional(Schema.Number),
+	hasUnreadAdminReply: Schema.Boolean,
+	notificationEmail: Schema.optional(Schema.String),
+	assignedAdmin: Schema.optional(AssignedAdminSchema)
+});
+
+export const ThreadHandoffArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	anonymousUserId: Schema.optional(Schema.String),
+	pageUrl: Schema.optional(Schema.String),
+	appVersion: Schema.optional(Schema.String)
+});
+
+export const AdminAvatarsSchema = Schema.mutable(Schema.Array(AssignedAdminSchema));
+
+export const NotificationEmailArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	email: Schema.String,
+	anonymousUserId: Schema.optional(Schema.String)
+});
+
+export const ThreadMetadataArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	title: Schema.optional(Schema.String),
+	summary: Schema.optional(Schema.String)
+});
+
+export const ThreadIdArgsSchema = Schema.Struct({ threadId: Schema.String });
+
+export const ProfileSyncArgsSchema = Schema.Struct({
+	userId: Schema.String,
+	userName: Schema.optional(Schema.String),
+	userEmail: Schema.optional(Schema.String),
+	cursor: Schema.optional(Schema.String),
+	endCursor: Schema.optional(Schema.String)
+});
+
+export const BackfillResultSchema = Schema.Struct({
+	updated: Schema.Number,
+	total: Schema.Number
+});
+
+export const SweepRunSchema = Schema.Struct({
+	scheduled: Schema.Number,
+	released: Schema.Number
+});
+
+export const SweepArgsSchema = Schema.Struct({ supportThreadId: Id('supportThreads') });

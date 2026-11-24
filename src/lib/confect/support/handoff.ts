@@ -4,7 +4,7 @@ import { v, type Infer, type ObjectType } from 'convex/values';
 import type { PaginationResult } from 'convex/server';
 import type { MessageDoc } from '@convex-dev/agent/validators';
 import { components, internal } from '../../convex/_generated/api';
-import { syncSupportLastMessage } from './threads';
+import { syncSupportLastMessage } from './threadLifecycle';
 import { supportAgent } from './agent';
 import { extractLocaleFromUrl, t } from '../i18n/translations';
 

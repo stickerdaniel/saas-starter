@@ -1,45 +1,127 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type {
-	backfillThreadMetadata,
-	createThread,
-	deleteEmptyThreads,
-	getAdminAvatars,
-	getOrCreateWarmThread,
-	getThread,
-	getThreadLocale,
-	listThreads,
-	sweepEmptyThread,
-	syncUserProfile,
-	updateLastMessage,
-	updateNotificationEmail,
-	updateThreadHandoff,
-	updateThreadMetadata
-} from './threads';
+import * as Schema from 'effect/Schema';
+import { SupportRefusalCodec } from '../errorCodecs';
+import VisitorAccess from '../middleware/VisitorAccess.spec';
+import {
+	AdminAvatarsSchema,
+	BackfillResultSchema,
+	NotificationEmailArgsSchema,
+	OwnedThreadSchema,
+	OwnerThreadSchema,
+	ProfileSyncArgsSchema,
+	SweepArgsSchema,
+	SweepRunSchema,
+	ThreadAccessArgsSchema,
+	ThreadCreateArgsSchema,
+	ThreadHandoffArgsSchema,
+	ThreadIdArgsSchema,
+	ThreadListArgsSchema,
+	ThreadListSchema,
+	ThreadMetadataArgsSchema,
+	WarmThreadArgsSchema
+} from './schemas';
 
 export default GroupSpec.make()
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof backfillThreadMetadata>()('backfillThreadMetadata')
-	)
-	.addFunction(FunctionSpec.convexPublicMutation<typeof createThread>()('createThread'))
-	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof deleteEmptyThreads>()('deleteEmptyThreads')
-	)
-	.addFunction(FunctionSpec.convexPublicQuery<typeof getAdminAvatars>()('getAdminAvatars'))
-	.addFunction(
-		FunctionSpec.convexPublicMutation<typeof getOrCreateWarmThread>()('getOrCreateWarmThread')
-	)
-	.addFunction(FunctionSpec.convexPublicQuery<typeof getThread>()('getThread'))
-	.addFunction(FunctionSpec.convexInternalQuery<typeof getThreadLocale>()('getThreadLocale'))
-	.addFunction(FunctionSpec.convexPublicQuery<typeof listThreads>()('listThreads'))
-	.addFunction(FunctionSpec.convexInternalMutation<typeof sweepEmptyThread>()('sweepEmptyThread'))
-	.addFunction(FunctionSpec.convexInternalMutation<typeof syncUserProfile>()('syncUserProfile'))
-	.addFunction(FunctionSpec.convexInternalMutation<typeof updateLastMessage>()('updateLastMessage'))
-	.addFunction(
-		FunctionSpec.convexPublicMutation<typeof updateNotificationEmail>()('updateNotificationEmail')
+		FunctionSpec.internalMutation({
+			name: 'backfillThreadMetadata',
+			args: () => ({}),
+			returns: () => BackfillResultSchema
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexPublicMutation<typeof updateThreadHandoff>()('updateThreadHandoff')
+		FunctionSpec.publicMutation({
+			name: 'createThread',
+			args: () => ThreadCreateArgsSchema.fields,
+			returns: () => OwnedThreadSchema,
+			error: () => SupportRefusalCodec
+		}).middleware(VisitorAccess)
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof updateThreadMetadata>()('updateThreadMetadata')
+		FunctionSpec.internalMutation({
+			name: 'deleteEmptyThreads',
+			args: () => ({}),
+			returns: () => SweepRunSchema
+		})
+	)
+	.addFunction(
+		FunctionSpec.publicQuery({
+			name: 'getAdminAvatars',
+			args: () => ({}),
+			returns: () => AdminAvatarsSchema
+		})
+	)
+	.addFunction(
+		FunctionSpec.publicMutation({
+			name: 'getOrCreateWarmThread',
+			args: () => WarmThreadArgsSchema.fields,
+			returns: () => OwnedThreadSchema,
+			error: () => SupportRefusalCodec
+		}).middleware(VisitorAccess)
+	)
+	.addFunction(
+		FunctionSpec.publicQuery({
+			name: 'getThread',
+			args: () => ThreadAccessArgsSchema.fields,
+			returns: () => OwnerThreadSchema,
+			error: () => SupportRefusalCodec
+		}).middleware(VisitorAccess)
+	)
+	.addFunction(
+		FunctionSpec.internalQuery({
+			name: 'getThreadLocale',
+			args: () => ThreadIdArgsSchema.fields,
+			returns: () => Schema.String
+		})
+	)
+	.addFunction(
+		FunctionSpec.publicQuery({
+			name: 'listThreads',
+			args: () => ThreadListArgsSchema.fields,
+			returns: () => ThreadListSchema
+		}).middleware(VisitorAccess)
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'sweepEmptyThread',
+			args: () => SweepArgsSchema.fields,
+			returns: () => Schema.Null
+		})
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'syncUserProfile',
+			args: () => ProfileSyncArgsSchema.fields,
+			returns: () => Schema.Null
+		})
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'updateLastMessage',
+			args: () => ThreadIdArgsSchema.fields,
+			returns: () => Schema.Null
+		})
+	)
+	.addFunction(
+		FunctionSpec.publicMutation({
+			name: 'updateNotificationEmail',
+			args: () => NotificationEmailArgsSchema.fields,
+			returns: () => Schema.Boolean,
+			error: () => SupportRefusalCodec
+		}).middleware(VisitorAccess)
+	)
+	.addFunction(
+		FunctionSpec.publicMutation({
+			name: 'updateThreadHandoff',
+			args: () => ThreadHandoffArgsSchema.fields,
+			returns: () => Schema.Boolean,
+			error: () => SupportRefusalCodec
+		}).middleware(VisitorAccess)
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'updateThreadMetadata',
+			args: () => ThreadMetadataArgsSchema.fields,
+			returns: () => Schema.Null
+		})
 	);

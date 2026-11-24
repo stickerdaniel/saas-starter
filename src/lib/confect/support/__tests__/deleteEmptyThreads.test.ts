@@ -57,10 +57,12 @@ async function runCron(t: Harness) {
 	return sweep;
 }
 
-/** Runs the cron until a run finds no candidate, as successive cron ticks would. */
+const MAX_CRON_RUNS = 10;
+
+/** Runs the cron until a run finds no candidate, at most MAX_CRON_RUNS times, as successive cron ticks would. */
 async function runCronUntilIdle(t: Harness) {
 	let runs = 0;
-	while ((await runCron(t)).scheduled > 0) runs++;
+	while (runs < MAX_CRON_RUNS && (await runCron(t)).scheduled > 0) runs++;
 	return runs;
 }
 

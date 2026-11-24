@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as HandoffModule from '../handoff';
+import type * as ThreadLifecycleModule from '../threadLifecycle';
 
 // createAIResponse pulls in the whole support module graph at import. Stub the
 // heavy or env-dependent siblings so this stays a handler-level unit test that
@@ -37,9 +38,10 @@ vi.mock('../messageListing', () => ({
 	listMessagesForThread: vi.fn()
 }));
 
-vi.mock('../threads', () => ({
-	syncSupportLastMessage: vi.fn()
-}));
+vi.mock('../threadLifecycle', async () => {
+	const actual = await vi.importActual<typeof ThreadLifecycleModule>('../threadLifecycle');
+	return { ...actual, syncSupportLastMessage: vi.fn() };
+});
 
 vi.mock('../../files/metadata', () => ({
 	getFileMetadataByUrls: vi.fn()
@@ -156,7 +158,7 @@ import {
 import { listMessagesForThread } from '../messageListing';
 import { makeAgentUsageSink } from '../../aiUsage/agentUsage';
 import { recordAiUsage } from '../../aiUsage/record';
-import { syncSupportLastMessage } from '../threads';
+import { syncSupportLastMessage } from '../threadLifecycle';
 import { isSupportAiEnabled } from '../../../config/support';
 import {
 	CapabilityConfigurationError,

@@ -5,13 +5,23 @@ import * as Schema from 'effect/Schema';
 import { describe, expect, it } from 'vitest';
 import {
 	AttachmentTextArgsSchema,
+	NotificationEmailArgsSchema,
+	ProfileSyncArgsSchema,
 	PromptActivationArgsSchema,
 	PromptLocaleArgsSchema,
 	SavePromptArgsSchema,
 	SupportOwnerArgsSchema,
+	SweepArgsSchema,
+	ThreadAccessArgsSchema,
+	ThreadCreateArgsSchema,
+	ThreadHandoffArgsSchema,
+	ThreadIdArgsSchema,
+	ThreadListArgsSchema,
+	ThreadMetadataArgsSchema,
 	ThreadReadArgsSchema,
 	TicketMigrationArgsSchema,
-	UploadRegistrationArgsSchema
+	UploadRegistrationArgsSchema,
+	WarmThreadArgsSchema
 } from './schemas';
 
 const cases: ReadonlyArray<{
@@ -100,6 +110,82 @@ const cases: ReadonlyArray<{
 			{ url: 'https://files.test/a.txt', anonymousUserId: undefined, locale: undefined },
 			{ url: 'https://files.test/a.txt', anonymousUserId: 'anon_1', locale: 'de' }
 		]
+	},
+	{
+		name: 'ThreadCreateArgs',
+		schema: ThreadCreateArgsSchema,
+		accepted: [
+			{},
+			{ anonymousUserId: undefined, title: undefined, pageUrl: undefined },
+			{ anonymousUserId: 'anon_1', title: '', pageUrl: '/de/app' }
+		]
+	},
+	{
+		name: 'WarmThreadArgs',
+		schema: WarmThreadArgsSchema,
+		accepted: [{}, { anonymousUserId: undefined, pageUrl: undefined }, { pageUrl: '' }]
+	},
+	{
+		name: 'ThreadListArgs',
+		schema: ThreadListArgsSchema,
+		accepted: [
+			{},
+			{ paginationOpts: undefined },
+			{ anonymousUserId: 'anon_1', paginationOpts: { numItems: 20, cursor: null } },
+			{ paginationOpts: { numItems: 5, cursor: 'c1', endCursor: null, maximumRowsRead: 1 } }
+		]
+	},
+	{
+		name: 'ThreadAccessArgs',
+		schema: ThreadAccessArgsSchema,
+		accepted: [{ threadId: '' }, { threadId: 't1', anonymousUserId: undefined }]
+	},
+	{
+		name: 'ThreadHandoffArgs',
+		schema: ThreadHandoffArgsSchema,
+		accepted: [
+			{ threadId: 't1' },
+			{ threadId: 't1', anonymousUserId: undefined, pageUrl: undefined, appVersion: undefined },
+			{ threadId: 't1', anonymousUserId: 'anon_1', pageUrl: 'javascript:1', appVersion: 'abc' }
+		]
+	},
+	{
+		name: 'NotificationEmailArgs',
+		schema: NotificationEmailArgsSchema,
+		accepted: [
+			{ threadId: 't1', email: '' },
+			{ threadId: 't1', email: 'not-an-email', anonymousUserId: undefined }
+		]
+	},
+	{
+		name: 'ThreadMetadataArgs',
+		schema: ThreadMetadataArgsSchema,
+		accepted: [{ threadId: 't1' }, { threadId: 't1', title: undefined, summary: '' }]
+	},
+	{
+		name: 'ThreadIdArgs',
+		schema: ThreadIdArgsSchema,
+		accepted: [{ threadId: '' }]
+	},
+	{
+		name: 'ProfileSyncArgs',
+		schema: ProfileSyncArgsSchema,
+		accepted: [
+			{ userId: 'u1' },
+			{
+				userId: 'u1',
+				userName: undefined,
+				userEmail: undefined,
+				cursor: undefined,
+				endCursor: undefined
+			},
+			{ userId: 'u1', userName: '', userEmail: 'a@b.co', cursor: 'c1', endCursor: 'c2' }
+		]
+	},
+	{
+		name: 'SweepArgs',
+		schema: SweepArgsSchema,
+		accepted: [{ supportThreadId: 'k1' }]
 	}
 ];
 
