@@ -6,24 +6,10 @@ vi.mock('../../authServer', () => ({
 	}
 }));
 
-vi.mock('../agent', () => ({
-	supportAgent: {
-		getThreadMetadata: vi.fn()
-	}
-}));
-
-import {
-	getSupportOwnerIdentity,
-	requireSupportOwnerIdentity,
-	requireSupportThreadAccess,
-	requireSupportThreadRecord
-} from '../ownership';
+import { getSupportOwnerIdentity } from '../ownership';
 import { authComponent } from '../../authServer';
-import { supportAgent } from '../agent';
-import { SUPPORT_ERROR_CODES } from '../errors';
 
 const safeGetAuthUserMock = authComponent.safeGetAuthUser as unknown as ReturnType<typeof vi.fn>;
-const getThreadMetadataMock = supportAgent.getThreadMetadata as unknown as ReturnType<typeof vi.fn>;
 
 function createCtx() {
 	return {
@@ -74,143 +60,5 @@ describe('support ownership helpers', () => {
 
 		await expect(getSupportOwnerIdentity(ctx, undefined)).resolves.toBeNull();
 		await expect(getSupportOwnerIdentity(ctx, 'user_123')).resolves.toBeNull();
-	});
-
-	it('throws when a caller has no authenticated or anonymous identity', async () => {
-		const ctx = createCtx();
-		safeGetAuthUserMock.mockResolvedValue(undefined);
-
-		await expect(requireSupportOwnerIdentity(ctx, undefined)).rejects.toMatchObject({
-			data: { code: SUPPORT_ERROR_CODES.authenticationRequired }
-		});
-	});
-
-	it('allows an authenticated owner to access their own thread', async () => {
-		const ctx = createCtx();
-		safeGetAuthUserMock.mockResolvedValue({ _id: 'auth_user_1' } as never);
-		const firstMock = vi.fn().mockResolvedValue({
-			threadId: 'thread_1',
-			userId: 'auth_user_1'
-		});
-		(
-			ctx as unknown as {
-				db: { query: ReturnType<typeof vi.fn> };
-			}
-		).db.query.mockReturnValue({
-			withIndex: vi.fn(() => ({
-				first: firstMock
-			}))
-		});
-		getThreadMetadataMock.mockResolvedValue({
-			threadId: 'thread_1',
-			userId: 'auth_user_1'
-		} as never);
-
-		const result = await requireSupportThreadAccess(ctx, { threadId: 'thread_1' });
-
-		expect(result.owner).toEqual({
-			ownerId: 'auth_user_1',
-			isAnonymous: false
-		});
-		expect(result.supportThread).toEqual({ threadId: 'thread_1', userId: 'auth_user_1' });
-		expect(result.thread).toEqual({ threadId: 'thread_1', userId: 'auth_user_1' });
-	});
-
-	it('allows an anonymous owner with the matching proof token', async () => {
-		const ctx = createCtx();
-		safeGetAuthUserMock.mockResolvedValue(undefined);
-		(
-			ctx as unknown as {
-				db: { query: ReturnType<typeof vi.fn> };
-			}
-		).db.query.mockReturnValue({
-			withIndex: vi.fn(() => ({
-				first: vi.fn().mockResolvedValue({
-					threadId: 'thread_1',
-					userId: 'anon_owner'
-				})
-			}))
-		});
-		getThreadMetadataMock.mockResolvedValue({
-			threadId: 'thread_1',
-			userId: 'anon_owner'
-		} as never);
-
-		const result = await requireSupportThreadAccess(ctx, {
-			threadId: 'thread_1',
-			anonymousUserId: 'anon_owner'
-		});
-
-		expect(result.owner).toEqual({
-			ownerId: 'anon_owner',
-			anonymousUserId: 'anon_owner',
-			isAnonymous: true
-		});
-	});
-
-	it('rejects non-owners for thread access', async () => {
-		const ctx = createCtx();
-		safeGetAuthUserMock.mockResolvedValue({ _id: 'auth_user_2' } as never);
-		(
-			ctx as unknown as {
-				db: { query: ReturnType<typeof vi.fn> };
-			}
-		).db.query.mockReturnValue({
-			withIndex: vi.fn(() => ({
-				first: vi.fn().mockResolvedValue({
-					threadId: 'thread_1',
-					userId: 'auth_user_1'
-				})
-			}))
-		});
-		getThreadMetadataMock.mockResolvedValue({
-			threadId: 'thread_1',
-			userId: 'auth_user_1'
-		} as never);
-
-		await expect(requireSupportThreadAccess(ctx, { threadId: 'thread_1' })).rejects.toMatchObject({
-			data: { code: SUPPORT_ERROR_CODES.threadForbidden }
-		});
-	});
-
-	it('rejects owned non-support threads before agent lookup', async () => {
-		const ctx = createCtx();
-		safeGetAuthUserMock.mockResolvedValue({ _id: 'auth_user_1' } as never);
-		(
-			ctx as unknown as {
-				db: { query: ReturnType<typeof vi.fn> };
-			}
-		).db.query.mockReturnValue({
-			withIndex: vi.fn(() => ({
-				first: vi.fn().mockResolvedValue(null)
-			}))
-		});
-
-		await expect(requireSupportThreadAccess(ctx, { threadId: 'thread_1' })).rejects.toMatchObject({
-			data: { code: SUPPORT_ERROR_CODES.threadNotFound }
-		});
-		expect(getThreadMetadataMock).not.toHaveBeenCalled();
-	});
-
-	it('returns the registry record without agent lookup when only support membership is needed', async () => {
-		const ctx = createCtx();
-		safeGetAuthUserMock.mockResolvedValue({ _id: 'auth_user_1' } as never);
-		(
-			ctx as unknown as {
-				db: { query: ReturnType<typeof vi.fn> };
-			}
-		).db.query.mockReturnValue({
-			withIndex: vi.fn(() => ({
-				first: vi.fn().mockResolvedValue({
-					threadId: 'thread_1',
-					userId: 'auth_user_1'
-				})
-			}))
-		});
-
-		const result = await requireSupportThreadRecord(ctx, { threadId: 'thread_1' });
-
-		expect(result.supportThread).toEqual({ threadId: 'thread_1', userId: 'auth_user_1' });
-		expect(getThreadMetadataMock).not.toHaveBeenCalled();
 	});
 });

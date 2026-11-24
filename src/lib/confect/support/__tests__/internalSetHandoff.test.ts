@@ -79,6 +79,21 @@ describe('internalSetHandoff', () => {
 		expect(await assistantTexts(t, threadId)).toEqual([]);
 	});
 
+	it('announces the handoff for immediate delivery', async () => {
+		const t = harness();
+		const threadId = await warmThread(t, 'anon_owner');
+		const now = Date.now();
+
+		await t.mutation(internal.support.handoff.internalSetHandoff, { threadId });
+
+		const jobs = await t.run((ctx) => ctx.db.system.query('_scheduled_functions').take(100));
+		expect(
+			jobs
+				.filter((job) => job.name === 'admin/support/notifications:scheduleAdminNotification')
+				.map((job) => job.scheduledTime)
+		).toEqual([now]);
+	});
+
 	it('acknowledges the visitor when asked', async () => {
 		const t = harness();
 		const threadId = await warmThread(t, 'anon_owner');

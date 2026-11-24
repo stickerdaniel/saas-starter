@@ -49,7 +49,9 @@ const CONFECT_PUBLIC_FUNCTIONS = {
 	'support/files:getAttachmentText':
 		'Anonymous visitors preview text attachments; the preview rate limit bounds each owner.',
 	'support/files:saveUploadedFile':
-		'Anonymous visitors register their uploads; the upload token authorizes the file.'
+		'Anonymous visitors register their uploads; the upload token authorizes the file.',
+	'support/messages:getFileMetadataBatch':
+		'Returns only image dimensions for storage URLs the caller already holds.'
 };
 // Code the Convex runtime loads: the registration modules in the functions directory,
 // the helpers, tests and shared validators beside it, and the local components.

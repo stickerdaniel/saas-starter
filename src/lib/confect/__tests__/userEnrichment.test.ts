@@ -7,10 +7,7 @@ vi.mock('../authServer', () => ({
 	}
 }));
 vi.mock('../support/ownership', () => ({
-	getSupportOwnerIdentity: vi.fn().mockResolvedValue({ ownerId: 'viewer', isAnonymous: false }),
-	requireSupportOwnerIdentity: vi.fn(),
-	requireSupportThreadAccess: vi.fn(),
-	requireSupportThreadRecord: vi.fn()
+	getSupportOwnerIdentity: vi.fn().mockResolvedValue({ ownerId: 'viewer', isAnonymous: false })
 }));
 vi.mock('../support/agent', () => ({ supportAgent: {} }));
 

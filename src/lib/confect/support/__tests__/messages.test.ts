@@ -1,5 +1,7 @@
+import { getFunctionName, type FunctionReference } from 'convex/server';
+import * as Effect from 'effect/Effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type * as HandoffModule from '../handoffTurns';
+import type * as HandoffModule from '../handoff.impl';
 import type * as ThreadLifecycleModule from '../threadLifecycle';
 
 // createAIResponse pulls in the whole support module graph at import. Stub the
@@ -11,7 +13,8 @@ vi.mock('../../admin/journey/capture', () => ({ ensureCaptureStart: vi.fn() }));
 vi.mock('../agent', () => ({
 	supportAgent: {
 		streamText: vi.fn(),
-		saveMessage: vi.fn()
+		saveMessage: vi.fn(),
+		getThreadMetadata: vi.fn(async () => ({}))
 	}
 }));
 
@@ -31,7 +34,7 @@ vi.mock('../../i18n/translations', () => ({
 }));
 
 vi.mock('../ownership', () => ({
-	requireSupportThreadAccess: vi.fn()
+	getSupportOwnerIdentity: vi.fn()
 }));
 
 vi.mock('../messageListing', () => ({
@@ -57,9 +60,9 @@ vi.mock('../../aiUsage/record', () => ({
 
 // The watchdog's handoff is covered in support/handoff.test.ts; here it is the
 // call the watchdog makes.
-vi.mock('../handoffTurns', async (importOriginal) => ({
+vi.mock('../handoff.impl', async (importOriginal) => ({
 	...(await importOriginal<typeof HandoffModule>()),
-	settleUnanswered: vi.fn()
+	settleUnanswered: vi.fn(() => Effect.void)
 }));
 
 vi.mock('../../constants', () => ({ MAX_MESSAGE_LENGTH: 4000 }));
@@ -91,13 +94,6 @@ vi.mock('@convex-dev/agent', async (importOriginal) => {
 	return { ...actual, getFile: vi.fn() };
 });
 
-vi.mock('@convex-dev/agent/validators', async () => {
-	const { v } = await import('convex/values');
-	return { vStreamArgs: v.optional(v.any()) };
-});
-
-// Ref strings are inlined here because vi.mock factories are hoisted above any
-// module-scope const. The same literals are re-declared below for the assertions.
 vi.mock('../../../convex/_generated/api', () => ({
 	components: {
 		agent: {
@@ -106,47 +102,46 @@ vi.mock('../../../convex/_generated/api', () => ({
 				listMessagesByThreadId: 'components.agent.messages.listMessagesByThreadId'
 			}
 		}
-	},
-	internal: {
-		support: {
-			handoff: {
-				internalSetHandoff: 'internal.support.handoff.internalSetHandoff',
-				settleUnansweredTurn: 'internal.support.handoff.settleUnansweredTurn'
-			},
-			promptStore: { getActive: 'internal.support.promptStore.getActive' },
-			threads: {
-				getThreadLocale: 'internal.support.threads.getThreadLocale',
-				updateLastMessage: 'internal.support.threads.updateLastMessage'
-			},
-			messages: {
-				createAIResponse: 'internal.support.messages.createAIResponse',
-				createAssistantMessage: 'internal.support.messages.createAssistantMessage',
-				ensureSupportTurnSettled: 'internal.support.messages.ensureSupportTurnSettled',
-				getTurnOutcome: 'internal.support.messages.getTurnOutcome'
-			}
-		},
-		admin: {
-			support: {
-				notifications: {
-					getRecentUserMessages: 'internal.admin.support.notifications.getRecentUserMessages',
-					scheduleAdminNotification:
-						'internal.admin.support.notifications.scheduleAdminNotification'
-				}
-			}
-		}
 	}
 }));
 
-const GET_ACTIVE_REF = 'internal.support.promptStore.getActive';
-const GET_TURN_OUTCOME_REF = 'internal.support.messages.getTurnOutcome';
+const GET_ACTIVE_REF = 'support/promptStore:getActive';
+const GET_TURN_OUTCOME_REF = 'support/messages:getTurnOutcome';
+
+type Reference = FunctionReference<'query' | 'mutation' | 'action', 'internal'>;
+
+function named(fn: { mock: { calls: unknown[][] } }) {
+	return fn.mock.calls.map(([reference, ...rest]) => [
+		getFunctionName(reference as Reference),
+		...rest
+	]);
+}
+
+function scheduled(ctx: { scheduler: { runAfter: { mock: { calls: unknown[][] } } } }) {
+	return ctx.scheduler.runAfter.mock.calls.map(([delay, reference, ...rest]) => [
+		delay,
+		getFunctionName(reference as Reference),
+		...rest
+	]);
+}
+
+const VISITOR = { ownerId: 'user_1', isAnonymous: false };
+
+function threadTable(thread: () => Record<string, unknown>) {
+	return {
+		query: () => ({
+			withIndex: () => ({ first: async () => ({ userId: VISITOR.ownerId, ...thread() }) })
+		})
+	};
+}
 
 import { APICallError, RetryError } from 'ai';
 import { getFile } from '@convex-dev/agent';
 import type { MessageDoc } from '@convex-dev/agent/validators';
 import { supportAgent } from '../agent';
-import { requireSupportThreadAccess } from '../ownership';
+import { getSupportOwnerIdentity } from '../ownership';
 import { supportRateLimiter } from '../rateLimit';
-import { settleUnanswered } from '../handoffTurns';
+import { settleUnanswered } from '../handoff.impl';
 import {
 	createAIResponse,
 	createAssistantMessage,
@@ -154,7 +149,7 @@ import {
 	getTurnOutcome,
 	listMessages,
 	sendMessage
-} from '../messages';
+} from '../../../convex/support/messages';
 import { listMessagesForThread } from '../messageListing';
 import { makeAgentUsageSink } from '../../aiUsage/agentUsage';
 import { recordAiUsage } from '../../aiUsage/record';
@@ -171,6 +166,7 @@ import {
 } from '../../../chat/core/tool-error-redaction';
 
 const syncMock = syncSupportLastMessage as unknown as ReturnType<typeof vi.fn>;
+const ownerMock = getSupportOwnerIdentity as unknown as ReturnType<typeof vi.fn>;
 
 const aiEnabledMock = isSupportAiEnabled as unknown as ReturnType<typeof vi.fn>;
 const getCapabilitiesMock = getCapabilityConfigurations as unknown as ReturnType<typeof vi.fn>;
@@ -201,15 +197,18 @@ const READY = [NOTHING_SHOWN, NOTHING_SHOWN];
 function makeCtx(override: string | null, outcomes: TurnOutcome[] = [...READY, ANSWERED]) {
 	const pending = [...outcomes];
 	return {
-		runQuery: vi.fn(async (ref: string) => {
-			if (ref === GET_TURN_OUTCOME_REF) {
+		runQuery: vi.fn(async (ref: Reference) => {
+			const name = getFunctionName(ref);
+			if (name === GET_TURN_OUTCOME_REF) {
 				const next = pending.shift();
 				if (!next) throw new Error('unexpected turn outcome read');
 				return next;
 			}
-			return ref === GET_ACTIVE_REF ? override : undefined;
+			return name === GET_ACTIVE_REF ? override : undefined;
 		}),
-		runMutation: vi.fn().mockResolvedValue(null)
+		runMutation: vi.fn().mockResolvedValue(null),
+		runAction: vi.fn(),
+		vectorSearch: vi.fn()
 	};
 }
 
@@ -229,7 +228,12 @@ describe('createAIResponse prompt override wiring', () => {
 	// the thread is not handed off either, so it is absent from the admin lists.
 	it('hands a job scheduled before the switch to the team instead of dropping it', async () => {
 		aiEnabledMock.mockReturnValue(false);
-		const ctx = { runQuery: vi.fn(), runMutation: vi.fn().mockResolvedValue(null) };
+		const ctx = {
+			runQuery: vi.fn(),
+			runMutation: vi.fn().mockResolvedValue(null),
+			runAction: vi.fn(),
+			vectorSearch: vi.fn()
+		};
 
 		await handler._handler(ctx, args);
 
@@ -237,26 +241,49 @@ describe('createAIResponse prompt override wiring', () => {
 		expect(ctx.runQuery).not.toHaveBeenCalled();
 		// acknowledge, because no model speaks in this turn: without it the visitor
 		// gets no reply at all, and an anonymous one gets no email prompt either.
-		expect(ctx.runMutation).toHaveBeenCalledWith('internal.support.handoff.internalSetHandoff', {
-			threadId: 'thread_1',
-			acknowledge: true
-		});
+		expect(named(ctx.runMutation)).toContainEqual([
+			'support/handoff:internalSetHandoff',
+			{ threadId: 'thread_1', acknowledge: true }
+		]);
 	});
 
 	it('hands queued work to the team when AI configuration is lost', async () => {
 		requireAiMock.mockImplementationOnce(() => {
 			throw new CapabilityConfigurationError('ai', 'misconfigured');
 		});
-		const ctx = { runQuery: vi.fn(), runMutation: vi.fn().mockResolvedValue(null) };
+		const ctx = {
+			runQuery: vi.fn(),
+			runMutation: vi.fn().mockResolvedValue(null),
+			runAction: vi.fn(),
+			vectorSearch: vi.fn()
+		};
 
 		await handler._handler(ctx, args);
 
 		expect(streamTextMock).not.toHaveBeenCalled();
 		expect(ctx.runQuery).not.toHaveBeenCalled();
-		expect(ctx.runMutation).toHaveBeenCalledWith('internal.support.handoff.internalSetHandoff', {
-			threadId: 'thread_1',
-			acknowledge: true
+		expect(named(ctx.runMutation)).toContainEqual([
+			'support/handoff:internalSetHandoff',
+			{ threadId: 'thread_1', acknowledge: true }
+		]);
+	});
+
+	it('rethrows a configuration failure that is not a capability error', async () => {
+		const failure = new Error('configuration store unavailable');
+		requireAiMock.mockImplementationOnce(() => {
+			throw failure;
 		});
+		const ctx = {
+			runQuery: vi.fn(),
+			runMutation: vi.fn().mockResolvedValue(null),
+			runAction: vi.fn(),
+			vectorSearch: vi.fn()
+		};
+
+		await expect(handler._handler(ctx, args)).rejects.toBe(failure);
+
+		expect(streamTextMock).not.toHaveBeenCalled();
+		expect(ctx.runMutation).not.toHaveBeenCalled();
 	});
 
 	it('hands off if AI is lost immediately before model transport', async () => {
@@ -267,12 +294,12 @@ describe('createAIResponse prompt override wiring', () => {
 
 		await handler._handler(ctx, args);
 
-		expect(ctx.runQuery).toHaveBeenCalledWith(GET_ACTIVE_REF, {});
+		expect(named(ctx.runQuery)).toContainEqual([GET_ACTIVE_REF, {}]);
 		expect(streamTextMock).not.toHaveBeenCalled();
-		expect(ctx.runMutation).toHaveBeenCalledWith('internal.support.handoff.internalSetHandoff', {
-			threadId: 'thread_1',
-			acknowledge: true
-		});
+		expect(named(ctx.runMutation)).toContainEqual([
+			'support/handoff:internalSetHandoff',
+			{ threadId: 'thread_1', acknowledge: true }
+		]);
 	});
 
 	it('passes the active stored prompt to streamText as the system override', async () => {
@@ -280,7 +307,7 @@ describe('createAIResponse prompt override wiring', () => {
 
 		await handler._handler(ctx, args);
 
-		expect(ctx.runQuery).toHaveBeenCalledWith(GET_ACTIVE_REF, {});
+		expect(named(ctx.runQuery)).toContainEqual([GET_ACTIVE_REF, {}]);
 		expect(streamTextMock).toHaveBeenCalledTimes(1);
 		expect(streamTextMock.mock.calls[0][2]).toEqual({
 			promptMessageId: 'prompt_1',
@@ -309,7 +336,6 @@ describe('createAIResponse prompt override wiring', () => {
 // therefore has to forward the attached fileIds as saveMessage metadata, and only
 // for the multimodal branch — a plain text message must not carry a fileIds key.
 describe('sendMessage attachment refcount metadata', () => {
-	const requireAccessMock = requireSupportThreadAccess as unknown as ReturnType<typeof vi.fn>;
 	const saveMessageMock = supportAgent.saveMessage as unknown as ReturnType<typeof vi.fn>;
 	const getFileMock = getFile as unknown as ReturnType<typeof vi.fn>;
 
@@ -320,23 +346,23 @@ describe('sendMessage attachment refcount metadata', () => {
 
 	function makeSendCtx() {
 		return {
-			db: { patch: vi.fn() },
-			scheduler: { runAfter: vi.fn() }
+			db: {
+				patch: vi.fn(),
+				...threadTable(() => ({
+					_id: 'st_1',
+					status: 'open',
+					isWarm: false,
+					isHandedOff: false,
+					pageUrl: ''
+				}))
+			},
+			scheduler: { runAfter: vi.fn(async (..._args: unknown[]) => 'job_1') }
 		};
 	}
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		requireAccessMock.mockResolvedValue({
-			owner: { ownerId: 'user_1', isAnonymous: false },
-			supportThread: {
-				_id: 'st_1',
-				status: 'open',
-				isWarm: false,
-				isHandedOff: false,
-				pageUrl: ''
-			}
-		});
+		ownerMock.mockResolvedValue(VISITOR);
 		saveMessageMock.mockResolvedValue({ messageId: 'm1' });
 		getFileMock.mockResolvedValue({
 			filePart: {
@@ -368,7 +394,6 @@ describe('sendMessage attachment refcount metadata', () => {
 });
 
 describe('sendMessage routing between the agent and the team', () => {
-	const requireAccessMock = requireSupportThreadAccess as unknown as ReturnType<typeof vi.fn>;
 	const saveMessageMock = supportAgent.saveMessage as unknown as ReturnType<typeof vi.fn>;
 
 	const sendHandler = sendMessage as unknown as Fn<
@@ -376,16 +401,17 @@ describe('sendMessage routing between the agent and the team', () => {
 		{ messageId: string }
 	>;
 
-	const CREATE_AI_RESPONSE_REF = 'internal.support.messages.createAIResponse';
-	const ENSURE_SETTLED_REF = 'internal.support.messages.ensureSupportTurnSettled';
-	const SCHEDULE_NOTIFICATION_REF =
-		'internal.admin.support.notifications.scheduleAdminNotification';
-	const RECENT_USER_MESSAGES_REF = 'internal.admin.support.notifications.getRecentUserMessages';
+	const CREATE_AI_RESPONSE_REF = 'support/messages:createAIResponse';
+	const ENSURE_SETTLED_REF = 'support/messages:ensureSupportTurnSettled';
+	const SCHEDULE_NOTIFICATION_REF = 'admin/support/notifications:scheduleAdminNotification';
+	const RECENT_USER_MESSAGES_REF = 'admin/support/notifications:getRecentUserMessages';
+	let thread: Record<string, unknown> = {};
 
 	// A distinct id per save, so an assertion about which message the team was
 	// told about cannot be satisfied by the acknowledgement written after it.
 	beforeEach(() => {
 		vi.clearAllMocks();
+		ownerMock.mockResolvedValue(VISITOR);
 		let saves = 0;
 		saveMessageMock.mockImplementation(async () => ({ messageId: `m${++saves}` }));
 	});
@@ -397,30 +423,27 @@ describe('sendMessage routing between the agent and the team', () => {
 
 	function makeCtx(recentUserMessages: string[] = []) {
 		return {
-			db: { patch: vi.fn() },
+			db: { patch: vi.fn(), ...threadTable(() => thread) },
 			runQuery: vi.fn().mockResolvedValue(recentUserMessages),
 			runMutation: vi.fn().mockResolvedValue(null),
-			scheduler: { runAfter: vi.fn() }
+			scheduler: { runAfter: vi.fn(async (..._args: unknown[]) => 'job_0') }
 		};
 	}
 
 	function givenThread(overrides: Record<string, unknown>) {
-		requireAccessMock.mockResolvedValue({
-			owner: { ownerId: 'user_1', isAnonymous: false },
-			supportThread: {
-				_id: 'st_1',
-				status: 'open',
-				isWarm: false,
-				isHandedOff: false,
-				pageUrl: '',
-				...overrides
-			}
-		});
+		thread = {
+			_id: 'st_1',
+			status: 'open',
+			isWarm: false,
+			isHandedOff: false,
+			pageUrl: '',
+			...overrides
+		};
 	}
 
 	/** The reference each scheduled job was queued under, in call order. */
-	function scheduledRefs(ctx: ReturnType<typeof makeCtx>): string[] {
-		return ctx.scheduler.runAfter.mock.calls.map((call) => call[1] as string);
+	function scheduledRefs(ctx: ReturnType<typeof makeCtx>) {
+		return scheduled(ctx).map((call) => call[1]);
 	}
 
 	it('answers with the agent and leaves the team alone by default', async () => {
@@ -450,9 +473,7 @@ describe('sendMessage routing between the agent and the team', () => {
 
 		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'hi' });
 
-		expect(
-			ctx.scheduler.runAfter.mock.calls.find((call) => call[1] === ENSURE_SETTLED_REF)
-		).toEqual([
+		expect(scheduled(ctx).find((call) => call[1] === ENSURE_SETTLED_REF)).toEqual([
 			3 * 60 * 1000,
 			ENSURE_SETTLED_REF,
 			{ threadId: 't1', promptMessageId: 'm1', jobId: 'job_1', checksLeft: 5 }
@@ -523,7 +544,7 @@ describe('sendMessage routing between the agent and the team', () => {
 		await sendHandler._handler(ctx, { threadId: 't1', prompt });
 
 		expect(scheduledRefs(ctx)).toEqual([SCHEDULE_NOTIFICATION_REF]);
-		expect(ctx.scheduler.runAfter.mock.calls).not.toContainEqual(
+		expect(scheduled(ctx)).not.toContainEqual(
 			expect.arrayContaining([expect.anything(), CREATE_AI_RESPONSE_REF, expect.anything()])
 		);
 		expect(JSON.stringify(ctx.scheduler.runAfter.mock.calls)).not.toContain(prompt);
@@ -579,7 +600,7 @@ describe('sendMessage routing between the agent and the team', () => {
 
 		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'still broken' });
 
-		expect(ctx.runQuery).toHaveBeenCalledWith(RECENT_USER_MESSAGES_REF, { threadId: 't1' });
+		expect(named(ctx.runQuery)).toContainEqual([RECENT_USER_MESSAGES_REF, { threadId: 't1' }]);
 		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
 			expect.objectContaining({ messageIds: ['msg_report', 'msg_details', 'msg_followup'] })
 		);
@@ -683,7 +704,6 @@ describe('sendMessage routing between the agent and the team', () => {
 });
 
 describe('sendMessage per-message route', () => {
-	const requireAccessMock = requireSupportThreadAccess as unknown as ReturnType<typeof vi.fn>;
 	const saveMessageMock = supportAgent.saveMessage as unknown as ReturnType<typeof vi.fn>;
 
 	const sendHandler = sendMessage as unknown as Fn<
@@ -693,16 +713,7 @@ describe('sendMessage per-message route', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		requireAccessMock.mockResolvedValue({
-			owner: { ownerId: 'user_1', isAnonymous: false },
-			supportThread: {
-				_id: 'st_1',
-				status: 'open',
-				isWarm: false,
-				isHandedOff: true,
-				pageUrl: '/en/app'
-			}
-		});
+		ownerMock.mockResolvedValue(VISITOR);
 		let saves = 0;
 		saveMessageMock.mockImplementation(async () => ({ messageId: `message_${++saves}` }));
 		(getFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -712,10 +723,20 @@ describe('sendMessage per-message route', () => {
 
 	function makeCtx() {
 		return {
-			db: { patch: vi.fn(), insert: vi.fn() },
+			db: {
+				patch: vi.fn(),
+				insert: vi.fn(),
+				...threadTable(() => ({
+					_id: 'st_1',
+					status: 'open',
+					isWarm: false,
+					isHandedOff: true,
+					pageUrl: '/en/app'
+				}))
+			},
 			runQuery: vi.fn().mockResolvedValue([]),
 			runMutation: vi.fn().mockResolvedValue(null),
-			scheduler: { runAfter: vi.fn() }
+			scheduler: { runAfter: vi.fn(async (..._args: unknown[]) => 'job_0') }
 		};
 	}
 
@@ -844,8 +865,8 @@ describe('createAIResponse turn recovery', () => {
 	const limitMock = supportRateLimiter.limit as unknown as ReturnType<typeof vi.fn>;
 	const recordMock = recordAiUsage as unknown as ReturnType<typeof vi.fn>;
 	const sinkMock = makeAgentUsageSink as unknown as ReturnType<typeof vi.fn>;
-	const SETTLE_REF = 'internal.support.handoff.settleUnansweredTurn';
-	const LAST_MESSAGE = ['internal.support.threads.updateLastMessage', { threadId: 'thread_1' }];
+	const SETTLE_REF = 'support/handoff:settleUnansweredTurn';
+	const LAST_MESSAGE = ['support/threads:updateLastMessage', { threadId: 'thread_1' }];
 	const TURN = { threadId: 'thread_1', promptMessageId: 'm1' };
 	const HANDED_OFF_SILENT: TurnOutcome = { handedOff: true, answered: false, visibleText: false };
 	const PARTIAL: TurnOutcome = { handedOff: false, answered: false, visibleText: true };
@@ -878,7 +899,7 @@ describe('createAIResponse turn recovery', () => {
 
 		expect(streamTextMock.mock.calls.map((call) => call[2].promptMessageId)).toEqual(['m1', 'm1']);
 		expect(limitMock.mock.calls.filter((call) => call[1] === 'globalLLM')).toHaveLength(2);
-		expect(ctx.runMutation.mock.calls).toEqual([LAST_MESSAGE]);
+		expect(named(ctx.runMutation)).toEqual([LAST_MESSAGE]);
 		expect(vi.mocked(console.warn).mock.calls).toEqual([
 			[{ code: 'support_turn_retried', threadId: 'thread_1', promptMessageId: 'm1', attempts: 2 }]
 		]);
@@ -890,7 +911,7 @@ describe('createAIResponse turn recovery', () => {
 		await expect(handler._handler(ctx, TURN)).resolves.toBeNull();
 
 		expect(streamTextMock).toHaveBeenCalledTimes(2);
-		expect(ctx.runMutation.mock.calls).toEqual(
+		expect(named(ctx.runMutation)).toEqual(
 			settled({ reason: 'no_reply', attempts: 2, visibleText: false })
 		);
 	});
@@ -902,7 +923,7 @@ describe('createAIResponse turn recovery', () => {
 		await handler._handler(ctx, TURN);
 
 		expect(streamTextMock).toHaveBeenCalledOnce();
-		expect(ctx.runMutation.mock.calls).toEqual(
+		expect(named(ctx.runMutation)).toEqual(
 			settled({ reason: 'partial_reply', attempts: 1, visibleText: true })
 		);
 	});
@@ -921,7 +942,7 @@ describe('createAIResponse turn recovery', () => {
 		await expect(handler._handler(ctx, TURN)).resolves.toBeNull();
 
 		expect(streamTextMock).toHaveBeenCalledTimes(2);
-		expect(ctx.runMutation.mock.calls).toEqual(
+		expect(named(ctx.runMutation)).toEqual(
 			settled({
 				reason: 'no_reply',
 				attempts: 2,
@@ -966,7 +987,7 @@ describe('createAIResponse turn recovery', () => {
 
 		await handler._handler(ctx, TURN);
 
-		expect(ctx.runMutation.mock.calls).toEqual(
+		expect(named(ctx.runMutation)).toEqual(
 			settled({ reason: 'no_reply', attempts: 2, visibleText: false, ...coded })
 		);
 		expect(JSON.stringify(ctx.runMutation.mock.calls)).not.toContain('PRIVATE_');
@@ -983,7 +1004,7 @@ describe('createAIResponse turn recovery', () => {
 		await handler._handler(ctx, TURN);
 
 		expect(streamTextMock).toHaveBeenCalledOnce();
-		expect(ctx.runMutation.mock.calls).toEqual(
+		expect(named(ctx.runMutation)).toEqual(
 			settled({ reason: 'retry_rate_limited', attempts: 1, visibleText: false })
 		);
 	});
@@ -1020,7 +1041,7 @@ describe('createAIResponse turn recovery', () => {
 		expect(streamTextMock).toHaveBeenCalledOnce();
 		// The first attempt still told the visitor nothing, so the settlement makes
 		// sure they hear back; it writes nothing when the handoff already did.
-		expect(ctx.runMutation.mock.calls).toEqual(
+		expect(named(ctx.runMutation)).toEqual(
 			settled({ reason: 'handoff_without_reply', attempts: 1, visibleText: false })
 		);
 	});
@@ -1033,7 +1054,7 @@ describe('createAIResponse turn recovery', () => {
 		await handler._handler(ctx, TURN);
 
 		expect(streamTextMock).toHaveBeenCalledOnce();
-		expect(ctx.runMutation.mock.calls).toEqual(
+		expect(named(ctx.runMutation)).toEqual(
 			settled({ reason: 'handoff_without_reply', attempts: 1, visibleText: false })
 		);
 	});
@@ -1047,7 +1068,7 @@ describe('createAIResponse turn recovery', () => {
 		await handler._handler(ctx, TURN);
 
 		expect(streamTextMock).toHaveBeenCalledOnce();
-		expect(ctx.runMutation.mock.calls).toEqual([LAST_MESSAGE]);
+		expect(named(ctx.runMutation)).toEqual([LAST_MESSAGE]);
 		expect(console.warn).not.toHaveBeenCalled();
 	});
 
@@ -1180,13 +1201,16 @@ it('lists the visitor thread without failed text-less agent steps', async () => 
 	vi.clearAllMocks();
 	const visitorList = listMessages as unknown as Fn<Record<string, unknown>, unknown>;
 
-	await visitorList._handler(
-		{},
-		{ threadId: 'thread_1', paginationOpts: { numItems: 50, cursor: null } }
-	);
+	ownerMock.mockResolvedValue(VISITOR);
+	const ctx = { db: threadTable(() => ({ threadId: 'thread_1' })) };
+
+	await visitorList._handler(ctx, {
+		threadId: 'thread_1',
+		paginationOpts: { numItems: 50, cursor: null }
+	});
 
 	expect(listMessagesForThread).toHaveBeenCalledWith(
-		{},
+		ctx,
 		expect.objectContaining({ threadId: 'thread_1', hideFailedTextlessAssistant: true })
 	);
 });
@@ -1238,7 +1262,7 @@ describe('ensureSupportTurnSettled', () => {
 		null
 	>;
 	const settleMock = settleUnanswered as unknown as ReturnType<typeof vi.fn>;
-	const ENSURE_REF = 'internal.support.messages.ensureSupportTurnSettled';
+	const ENSURE_REF = 'support/messages:ensureSupportTurnSettled';
 	const ARGS = { threadId: 'thread_1', promptMessageId: 'm1', jobId: 'job_1', checksLeft: 2 };
 	const UNANSWERED = { handedOff: false, rows: [PROMPT, FAILED_REASONING] };
 	const ANSWERED_TURN = { handedOff: false, rows: [PROMPT, assistantText('a2', 3, 'success')] };
@@ -1260,7 +1284,7 @@ describe('ensureSupportTurnSettled', () => {
 		return {
 			...base,
 			db: { ...base.db, system: { get: vi.fn(async () => job) } },
-			scheduler: { runAfter: vi.fn() }
+			scheduler: { runAfter: vi.fn(async (..._args: unknown[]) => 'job_2') }
 		};
 	}
 
@@ -1274,7 +1298,7 @@ describe('ensureSupportTurnSettled', () => {
 
 		expect(ctx.db.system.get).toHaveBeenCalledWith('_scheduled_functions', 'job_1');
 		expect(settleMock.mock.calls).toEqual([
-			[ctx, { threadId: 'thread_1', promptMessageId: 'm1', reason, visibleText: false }]
+			[{ threadId: 'thread_1', promptMessageId: 'm1', reason, visibleText: false }]
 		]);
 	});
 
@@ -1286,10 +1310,7 @@ describe('ensureSupportTurnSettled', () => {
 		await watchdog._handler(ctx, ARGS);
 
 		expect(settleMock.mock.calls).toEqual([
-			[
-				ctx,
-				{ threadId: 'thread_1', promptMessageId: 'm1', reason: 'job_failed', visibleText: false }
-			]
+			[{ threadId: 'thread_1', promptMessageId: 'm1', reason: 'job_failed', visibleText: false }]
 		]);
 	});
 
@@ -1319,9 +1340,7 @@ describe('ensureSupportTurnSettled', () => {
 		await watchdog._handler(ctx, ARGS);
 
 		expect(settleMock).not.toHaveBeenCalled();
-		expect(ctx.scheduler.runAfter.mock.calls).toEqual([
-			[3 * 60 * 1000, ENSURE_REF, { ...ARGS, checksLeft: 1 }]
-		]);
+		expect(scheduled(ctx)).toEqual([[3 * 60 * 1000, ENSURE_REF, { ...ARGS, checksLeft: 1 }]]);
 	});
 
 	// Handing off underneath a job that may still write would leave two replies.
@@ -1393,6 +1412,20 @@ describe('createAssistantMessage', () => {
 	});
 
 	it('saves the message while the agent holds the thread', async () => {
+		saveMessageMock.mockResolvedValueOnce({
+			messageId: 'm1',
+			message: {
+				_id: 'm1',
+				_creationTime: 0,
+				threadId: 'thread_1',
+				order: 0,
+				stepOrder: 1,
+				status: 'success',
+				tool: false,
+				message: { role: 'assistant', content: 'busy' }
+			}
+		});
+
 		await create._handler(ctxWithThread(false), { threadId: 'thread_1', text: 'busy' });
 
 		expect(saveMessageMock).toHaveBeenCalledWith(

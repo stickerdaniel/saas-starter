@@ -4,7 +4,7 @@ import * as Option from 'effect/Option';
 import type { QueryCtx as ConvexQueryCtx } from '../../convex/_generated/server';
 import databaseSchema from '../_generated/schema';
 import { MutationCtx, QueryCtx } from '../_generated/services';
-import { SupportRefusal } from '../errorCodecs';
+import { SupportRefusal, type SupportRefusalCode } from '../errorCodecs';
 import { SUPPORT_ERROR_CODES } from '../support/errors';
 import { getSupportOwnerIdentity } from '../support/ownership';
 import VisitorAccess, { SupportOwner } from './VisitorAccess.spec';
@@ -22,8 +22,7 @@ const supportOwner = (ctx: Parameters<typeof getSupportOwnerIdentity>[0], args: 
 		Effect.map(Option.fromNullishOr)
 	);
 
-const refuse = (code: SupportRefusal['refusal']['code']) =>
-	Effect.fail(new SupportRefusal({ refusal: { code } }));
+const refuse = (code: SupportRefusalCode) => Effect.fail(new SupportRefusal({ refusal: { code } }));
 
 export const requireOwnedSupportThread = (db: ConvexQueryCtx['db'], threadId: string) =>
 	Effect.gen(function* () {

@@ -32,7 +32,19 @@ vi.mock('../agent', () => ({
 				args: { threadId: string; prompt?: string; message?: { role: string } }
 			) => {
 				state.saved.push({ threadId: args.threadId, role: args.message?.role ?? 'user' });
-				return { messageId: `message_${state.saved.length}` };
+				const messageId = `message_${state.saved.length}`;
+				return {
+					messageId,
+					message: {
+						_id: messageId,
+						_creationTime: 0,
+						threadId: args.threadId,
+						order: state.saved.length,
+						stepOrder: 0,
+						status: 'success',
+						tool: false
+					}
+				};
 			}
 		),
 		updateThreadMetadata: vi.fn(),
@@ -74,7 +86,7 @@ import {
 	getOrCreateWarmThread,
 	updateThreadHandoff
 } from '../../../convex/support/threads';
-import { createAssistantMessage, sendMessage } from '../messages';
+import { createAssistantMessage, sendMessage } from '../../../convex/support/messages';
 import { internalSetHandoff } from '../../../convex/support/handoff';
 import { migrateAnonymousTickets } from '../../../convex/support/migration';
 import { sendAdminReply } from '../../../convex/admin/support/mutations';

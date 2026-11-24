@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../ownership', () => ({
-	getSupportOwnerIdentity: vi.fn(),
-	requireSupportOwnerIdentity: vi.fn(),
-	requireSupportThreadAccess: vi.fn(),
-	requireSupportThreadRecord: vi.fn()
+	getSupportOwnerIdentity: vi.fn()
 }));
 
 vi.mock('../agent', () => ({

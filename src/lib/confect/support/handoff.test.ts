@@ -50,13 +50,13 @@ function makeCtx(thread: { _id: string; threadId: string; isHandedOff: boolean }
 			patch: vi.fn()
 		},
 		runQuery: vi.fn(async () => []),
-		scheduler: { runAfter: vi.fn((..._args: unknown[]) => {}) }
+		scheduler: { runAfter: vi.fn(async (..._args: unknown[]) => 'job_1') }
 	};
 }
 
 describe('internalSetHandoff', () => {
 	it('flags the thread and schedules a notification with no prior user messages', async () => {
-		const runAfter = vi.fn((..._args: unknown[]) => {});
+		const runAfter = vi.fn(async (..._args: unknown[]) => 'job_1');
 		const patch = vi.fn();
 		const thread = { _id: 'st_1', threadId: 'thread_1', isHandedOff: false };
 
@@ -95,7 +95,7 @@ describe('internalSetHandoff', () => {
 	});
 
 	it('is a no-op when the thread is already handed off', async () => {
-		const runAfter = vi.fn((..._args: unknown[]) => {});
+		const runAfter = vi.fn(async (..._args: unknown[]) => 'job_1');
 		const patch = vi.fn();
 		const thread = { _id: 'st_1', threadId: 'thread_1', isHandedOff: true };
 
@@ -235,7 +235,7 @@ describe('settleUnansweredTurn', () => {
 				// getRecentUserMessages
 				return [];
 			}),
-			scheduler: { runAfter: vi.fn((..._args: unknown[]) => {}) }
+			scheduler: { runAfter: vi.fn(async (..._args: unknown[]) => 'job_1') }
 		};
 	}
 

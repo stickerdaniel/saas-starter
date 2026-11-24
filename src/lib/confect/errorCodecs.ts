@@ -190,7 +190,7 @@ export const FileRefusalCodec = wireCodec(
 	({ refusal }) => refusal
 );
 
-const SupportRefusalWire = Schema.Struct({
+const SupportCodeRefusalWire = Schema.Struct({
 	code: Schema.Literals([
 		SUPPORT_ERROR_CODES.authenticationRequired,
 		SUPPORT_ERROR_CODES.threadNotFound,
@@ -199,6 +199,16 @@ const SupportRefusalWire = Schema.Struct({
 		SUPPORT_ERROR_CODES.notificationEmailInvalid
 	])
 });
+
+export type SupportRefusalCode = typeof SupportCodeRefusalWire.Type.code;
+
+const SupportRefusalWire = Schema.Union([
+	SupportCodeRefusalWire,
+	Schema.Struct({
+		code: Schema.Literal(SUPPORT_ERROR_CODES.messageTooLong),
+		maxLength: Schema.Number
+	})
+]);
 
 export class SupportRefusal extends Data.TaggedError('SupportRefusal')<{
 	readonly refusal: typeof SupportRefusalWire.Type;

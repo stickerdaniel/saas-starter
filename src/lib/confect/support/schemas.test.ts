@@ -4,13 +4,18 @@ import { v } from 'convex/values';
 import * as Schema from 'effect/Schema';
 import { describe, expect, it } from 'vitest';
 import {
+	AIResponseArgsSchema,
+	AssistantMessageArgsSchema,
 	AttachmentTextArgsSchema,
+	FileMetadataBatchArgsSchema,
 	HandoffArgsSchema,
 	NotificationEmailArgsSchema,
 	ProfileSyncArgsSchema,
 	PromptActivationArgsSchema,
 	PromptLocaleArgsSchema,
+	SavedAssistantMessageSchema,
 	SavePromptArgsSchema,
+	SendMessageArgsSchema,
 	SupportOwnerArgsSchema,
 	SweepArgsSchema,
 	ThreadAccessArgsSchema,
@@ -21,8 +26,11 @@ import {
 	ThreadMetadataArgsSchema,
 	ThreadReadArgsSchema,
 	TicketMigrationArgsSchema,
+	TurnArgsSchema,
+	TurnWatchArgsSchema,
 	UnansweredTurnSchema,
 	UploadRegistrationArgsSchema,
+	VisitorMessageListArgsSchema,
 	WarmThreadArgsSchema
 } from './schemas';
 
@@ -223,6 +231,96 @@ const cases: ReadonlyArray<{
 			},
 			{ threadId: 't1', promptMessageId: 'm1', reason: 'partial_reply', status: Number.NaN }
 		]
+	},
+	{
+		name: 'SendMessageArgs',
+		schema: SendMessageArgsSchema,
+		accepted: [
+			{ threadId: '', prompt: '' },
+			{
+				threadId: 't1',
+				prompt: 'p',
+				anonymousUserId: undefined,
+				fileIds: undefined,
+				pageUrl: undefined,
+				appVersion: undefined
+			},
+			{
+				threadId: 't1',
+				prompt: 'p',
+				anonymousUserId: 'anon_1',
+				fileIds: [],
+				pageUrl: '/de/app',
+				appVersion: 'abc'
+			},
+			{ threadId: 't1', prompt: 'p', fileIds: ['f1', 'f2'] }
+		]
+	},
+	{
+		name: 'AIResponseArgs',
+		schema: AIResponseArgsSchema,
+		accepted: [
+			{ threadId: 't1', promptMessageId: 'm1' },
+			{ threadId: 't1', promptMessageId: 'm1', userId: undefined },
+			{ threadId: 't1', promptMessageId: 'm1', userId: 'anon_1' }
+		]
+	},
+	{
+		name: 'TurnArgs',
+		schema: TurnArgsSchema,
+		accepted: [{ threadId: '', promptMessageId: '' }]
+	},
+	{
+		name: 'TurnWatchArgs',
+		schema: TurnWatchArgsSchema,
+		accepted: [
+			{ threadId: 't1', promptMessageId: 'm1', jobId: 'k1', checksLeft: 0 },
+			{ threadId: 't1', promptMessageId: 'm1', jobId: 'k1', checksLeft: 4.5 }
+		]
+	},
+	{
+		name: 'VisitorMessageListArgs',
+		schema: VisitorMessageListArgsSchema,
+		accepted: [
+			{ threadId: 't1', paginationOpts: { numItems: 20, cursor: null } },
+			{
+				threadId: 't1',
+				anonymousUserId: undefined,
+				paginationOpts: { numItems: 20, cursor: 'c1' },
+				streamArgs: undefined
+			},
+			{
+				threadId: 't1',
+				anonymousUserId: 'anon_1',
+				paginationOpts: { numItems: 20, cursor: null },
+				streamArgs: { kind: 'list' }
+			},
+			{
+				threadId: 't1',
+				paginationOpts: { numItems: 20, cursor: null },
+				streamArgs: { kind: 'list', startOrder: 3 }
+			},
+			{
+				threadId: 't1',
+				paginationOpts: { numItems: 20, cursor: null },
+				streamArgs: { kind: 'deltas', cursors: [] }
+			},
+			{
+				threadId: 't1',
+				paginationOpts: { numItems: 20, cursor: null },
+				streamArgs: { kind: 'deltas', cursors: [{ streamId: 's1', cursor: 0 }] }
+			}
+		]
+	},
+	{
+		name: 'AssistantMessageArgs',
+		schema: AssistantMessageArgsSchema,
+		accepted: [{ threadId: 't1', text: '' }]
+	},
+	{
+		name: 'FileMetadataBatchArgs',
+		schema: FileMetadataBatchArgsSchema,
+		accepted: [{ urls: [] }, { urls: ['https://files.test/a.png', ''] }]
 	}
 ];
 
@@ -233,4 +331,31 @@ describe.each(cases)('$name', ({ schema, accepted }) => {
 		expect(validate(native, value)).toBe(true);
 		expect(() => Schema.decodeUnknownSync(schema)(value)).not.toThrow();
 	});
+});
+
+describe('SavedAssistantMessage', () => {
+	const saved = {
+		messageId: 'm1',
+		message: {
+			_id: 'm1',
+			_creationTime: 1,
+			threadId: 't1',
+			order: 1,
+			stepOrder: 0,
+			status: 'success',
+			tool: false,
+			message: { role: 'assistant', content: 'ok' }
+		}
+	};
+
+	it.each([null, saved])('decodes a saved message or null: %j', (value) => {
+		expect(Schema.decodeUnknownSync(SavedAssistantMessageSchema)(value)).toEqual(value);
+	});
+
+	it.each([42, { messageId: 'm1' }, { ...saved, message: { ...saved.message, status: 'done' } }])(
+		'refuses a value that is not a saved message: %j',
+		(value) => {
+			expect(() => Schema.decodeUnknownSync(SavedAssistantMessageSchema)(value)).toThrow();
+		}
+	);
 });

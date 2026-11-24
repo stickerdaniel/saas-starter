@@ -17,7 +17,7 @@ import refs from '../_generated/refs';
 import databaseSchema from '../_generated/schema';
 import { MutationCtx, QueryCtx, QueryRunner, Scheduler } from '../_generated/services';
 import { authComponent } from '../authServer';
-import { SupportRefusal } from '../errorCodecs';
+import { SupportRefusal, type SupportRefusalCode } from '../errorCodecs';
 import { extractLocaleFromUrl, t } from '../i18n/translations';
 import VisitorAccessImpl, { requireOwnedSupportThread } from '../middleware/VisitorAccess.impl';
 import { SupportOwner } from '../middleware/VisitorAccess.spec';
@@ -57,8 +57,7 @@ const withMutation = <A>(run: (ctx: ConvexMutationCtx) => Promise<A>) =>
 const withQuery = <A>(run: (ctx: ConvexQueryCtx) => Promise<A>) =>
 	QueryCtx.use((ctx) => Effect.promise(() => run(ctx)));
 
-const refuse = (code: SupportRefusal['refusal']['code']) =>
-	Effect.fail(new SupportRefusal({ refusal: { code } }));
+const refuse = (code: SupportRefusalCode) => Effect.fail(new SupportRefusal({ refusal: { code } }));
 
 const requireOwner = Effect.gen(function* () {
 	const owner = yield* SupportOwner;
