@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "c8a14feaba6e0953",
+	"digest": "d29068e74228cd55",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -78,15 +78,15 @@
 			"resolveUsersLastPage": ["public", "query", "Convex", "Confect"]
 		},
 		"admin/support/mutations": {
-			"addInternalUserNote": ["public", "mutation", "Convex", "Convex"],
-			"sendAdminReply": ["public", "mutation", "Convex", "Convex"],
-			"updateThreadAssignment": ["public", "mutation", "Convex", "Convex"],
-			"updateThreadPriority": ["public", "mutation", "Convex", "Convex"],
-			"updateThreadStatus": ["public", "mutation", "Convex", "Convex"]
+			"addInternalUserNote": ["public", "mutation", "Convex", "Confect"],
+			"sendAdminReply": ["public", "mutation", "Convex", "Confect"],
+			"updateThreadAssignment": ["public", "mutation", "Convex", "Confect"],
+			"updateThreadPriority": ["public", "mutation", "Convex", "Confect"],
+			"updateThreadStatus": ["public", "mutation", "Convex", "Confect"]
 		},
 		"admin/support/notificationDelivery": {
-			"cleanupReceipts": ["internal", "mutation", "Convex", "Convex"],
-			"enqueueRecipient": ["internal", "mutation", "Convex", "Convex"]
+			"cleanupReceipts": ["internal", "mutation", "Convex", "Confect"],
+			"enqueueRecipient": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"admin/support/notifications": {
 			"cancelPendingNotification": ["internal", "mutation", "Convex", "Convex"],

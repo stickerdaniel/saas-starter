@@ -1,8 +1,6 @@
+import { getFunctionName, type FunctionReference } from 'convex/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// sendAdminReply is an adminMutation, so its _handler first runs the customCtx
-// that calls authComponent.getAuthUser. Mock auth to hand back an admin user and
-// keep the rest of the module graph light.
 vi.mock('../../../authServer', () => ({
 	authComponent: {
 		getAuthUser: vi.fn(),
@@ -30,30 +28,17 @@ vi.mock('../../../../convex/_generated/api', () => ({
 	components: {
 		agent: {},
 		betterAuth: { adapter: { findOne: 'components.betterAuth.adapter.findOne' } }
-	},
-	internal: {
-		admin: {
-			support: {
-				notifications: {
-					cancelPendingNotification:
-						'internal.admin.support.notifications.cancelPendingNotification'
-				}
-			}
-		},
-		emails: {
-			send: { sendAdminReplyNotification: 'internal.emails.send.sendAdminReplyNotification' }
-		}
 	}
 }));
 
 import { saveMessage, getFile } from '@convex-dev/agent';
 import { authComponent } from '../../../authServer';
 import { shouldSendNotification } from '../../../support/threads';
-import { sendAdminReply, updateThreadAssignment } from '../mutations';
+import { sendAdminReply, updateThreadAssignment } from '../../../../convex/admin/support/mutations';
 
 const saveMessageMock = saveMessage as unknown as ReturnType<typeof vi.fn>;
 const getFileMock = getFile as unknown as ReturnType<typeof vi.fn>;
-const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
+const getAuthUserMock = authComponent.safeGetAuthUser as unknown as ReturnType<typeof vi.fn>;
 const shouldSendNotificationMock = shouldSendNotification as unknown as ReturnType<typeof vi.fn>;
 
 type RegisteredFunction<TArgs, TResult> = {
@@ -99,7 +84,15 @@ function makeCtx({
 				Object.assign(supportThread, patch);
 			})
 		},
-		scheduler: { runAfter: vi.fn() }
+		scheduler: {
+			runAfter: vi.fn<
+				(
+					delay: number,
+					target: FunctionReference<'mutation', 'internal'>,
+					args: Record<string, unknown>
+				) => Promise<string>
+			>(async () => 'scheduled_1')
+		}
 	};
 }
 
@@ -198,6 +191,42 @@ describe('sendAdminReply', () => {
 		);
 	});
 
+	it('schedules the customer email, then cancels the pending admin notification', async () => {
+		shouldSendNotificationMock.mockReturnValue(true);
+		const ctx = makeCtx({ notificationEmail: 'user@example.com' });
+
+		await replyHandler._handler(ctx, { threadId: 't1', prompt: 'hi' });
+
+		expect(
+			ctx.scheduler.runAfter.mock.calls.map(([delay, target, args]) => [
+				delay,
+				getFunctionName(target),
+				args
+			])
+		).toEqual([
+			[
+				0,
+				'emails/send:sendAdminReplyNotification',
+				expect.objectContaining({ supportThreadId: 'st_1', email: 'user@example.com' })
+			],
+			[0, 'admin/support/notifications:cancelPendingNotification', { threadId: 't1' }]
+		]);
+	});
+
+	it('cancels the pending admin notification when no email goes out', async () => {
+		const ctx = makeCtx();
+
+		await replyHandler._handler(ctx, { threadId: 't1', prompt: 'hi' });
+
+		expect(
+			ctx.scheduler.runAfter.mock.calls.map(([delay, target, args]) => [
+				delay,
+				getFunctionName(target),
+				args
+			])
+		).toEqual([[0, 'admin/support/notifications:cancelPendingNotification', { threadId: 't1' }]]);
+	});
+
 	it('marks a truncated email preview with an ellipsis', async () => {
 		shouldSendNotificationMock.mockReturnValue(true);
 		const ctx = makeCtx({ notificationEmail: 'user@example.com' });
@@ -207,14 +236,15 @@ describe('sendAdminReply', () => {
 			prompt: 'a'.repeat(201)
 		});
 
-		expect(ctx.scheduler.runAfter).toHaveBeenCalledWith(
+		const [delay, target, args] = ctx.scheduler.runAfter.mock.calls[0];
+		expect([delay, getFunctionName(target), args]).toEqual([
 			0,
-			'internal.emails.send.sendAdminReplyNotification',
+			'emails/send:sendAdminReplyNotification',
 			expect.objectContaining({
 				supportThreadId: 'st_1',
 				messagePreview: `${'a'.repeat(199)}…`
 			})
-		);
+		]);
 		expect(ctx.db.patch.mock.calls[0][2]).not.toHaveProperty('notificationSentAt');
 	});
 
@@ -228,7 +258,7 @@ describe('sendAdminReply', () => {
 		await replyHandler._handler(ctx, { threadId: 't1', prompt: 'second reply' });
 
 		const emailSchedules = ctx.scheduler.runAfter.mock.calls.filter(
-			(call) => call[1] === 'internal.emails.send.sendAdminReplyNotification'
+			(call) => getFunctionName(call[1]) === 'emails/send:sendAdminReplyNotification'
 		);
 		expect(emailSchedules).toHaveLength(2);
 		expect(ctx.db.patch.mock.calls[0][2]).not.toHaveProperty('notificationSentAt');
@@ -287,11 +317,12 @@ describe('updateThreadAssignment', () => {
 			'st_1',
 			expect.objectContaining({ assignedTo: 'admin_2' })
 		);
-		expect(ctx.scheduler.runAfter).toHaveBeenCalledWith(
+		const [delay, target, args] = ctx.scheduler.runAfter.mock.calls[0];
+		expect([delay, getFunctionName(target), args]).toEqual([
 			0,
-			'internal.admin.support.notifications.cancelPendingNotification',
+			'admin/support/notifications:cancelPendingNotification',
 			{ threadId: 't1' }
-		);
+		]);
 	});
 
 	it('unassigns without looking up a target', async () => {

@@ -2,6 +2,10 @@ import { SchemaToValidator } from '@confect/core';
 import * as Schema from 'effect/Schema';
 import { Id } from '../_generated/id';
 
+export const SupportThreadStatusSchema = Schema.Literals(['open', 'done']);
+
+export const SupportThreadPrioritySchema = Schema.Literals(['low', 'medium', 'high']);
+
 export const SupportThreadSchema = Schema.Struct({
 	// Reference to agent:threads
 	threadId: Schema.String,
@@ -9,14 +13,14 @@ export const SupportThreadSchema = Schema.Struct({
 	userId: Schema.String,
 	// true = pre-warmed empty support thread awaiting first message
 	isWarm: Schema.optional(Schema.Boolean),
-	status: Schema.Literals(['open', 'done']),
+	status: SupportThreadStatusSchema,
 	// true = human-only mode, undefined/false = AI responds
 	isHandedOff: Schema.optional(Schema.Boolean),
 	// true = user waiting for reply, false = admin has responded
 	awaitingAdminResponse: Schema.optional(Schema.Boolean),
 	// Admin user ID (for tracking, not AI control)
 	assignedTo: Schema.optional(Schema.String),
-	priority: Schema.optional(Schema.Literals(['low', 'medium', 'high'])),
+	priority: Schema.optional(SupportThreadPrioritySchema),
 	dueDate: Schema.optional(Schema.Number),
 	// URL where user started chat
 	pageUrl: Schema.optional(Schema.String),
