@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "3d2737c96a639eee",
+	"digest": "a3d6346d99197e9b",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -221,10 +221,10 @@
 			"updateProfileImage": ["public", "mutation", "Convex", "Convex"]
 		},
 		"support/files": {
-			"checkPreviewAccess": ["internal", "mutation", "Convex", "Convex"],
-			"generateUploadUrl": ["public", "mutation", "Convex", "Convex"],
-			"getAttachmentText": ["public", "action", "Convex", "Convex"],
-			"saveUploadedFile": ["public", "action", "Convex", "Convex"]
+			"checkPreviewAccess": ["internal", "mutation", "Convex", "Confect"],
+			"generateUploadUrl": ["public", "mutation", "Convex", "Confect"],
+			"getAttachmentText": ["public", "action", "Convex", "Confect"],
+			"saveUploadedFile": ["public", "action", "Convex", "Confect"]
 		},
 		"support/handoff": {
 			"internalSetHandoff": ["internal", "mutation", "Convex", "Convex"],

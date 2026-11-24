@@ -4,12 +4,14 @@ import { v } from 'convex/values';
 import * as Schema from 'effect/Schema';
 import { describe, expect, it } from 'vitest';
 import {
+	AttachmentTextArgsSchema,
 	PromptActivationArgsSchema,
 	PromptLocaleArgsSchema,
 	SavePromptArgsSchema,
 	SupportOwnerArgsSchema,
 	ThreadReadArgsSchema,
-	TicketMigrationArgsSchema
+	TicketMigrationArgsSchema,
+	UploadRegistrationArgsSchema
 } from './schemas';
 
 const cases: ReadonlyArray<{
@@ -61,6 +63,42 @@ const cases: ReadonlyArray<{
 		accepted: [
 			{ id: 'k1', active: true },
 			{ id: 'k2', active: false }
+		]
+	},
+	{
+		name: 'UploadRegistrationArgs',
+		schema: UploadRegistrationArgsSchema,
+		accepted: [
+			{ storageId: 's1', uploadToken: '', mimeType: '' },
+			{
+				storageId: 's1',
+				uploadToken: 't',
+				mimeType: 'image/png',
+				filename: undefined,
+				locale: undefined,
+				accessKey: undefined,
+				width: undefined,
+				height: undefined
+			},
+			{
+				storageId: 's1',
+				uploadToken: 't',
+				mimeType: 'image/png',
+				filename: 'a.png',
+				locale: 'de',
+				accessKey: 'support',
+				width: 0,
+				height: 1.5
+			}
+		]
+	},
+	{
+		name: 'AttachmentTextArgs',
+		schema: AttachmentTextArgsSchema,
+		accepted: [
+			{ url: '' },
+			{ url: 'https://files.test/a.txt', anonymousUserId: undefined, locale: undefined },
+			{ url: 'https://files.test/a.txt', anonymousUserId: 'anon_1', locale: 'de' }
 		]
 	}
 ];
