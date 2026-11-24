@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "b35d42b1cd22457e",
+	"digest": "2515c24c0929470e",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -21,15 +21,15 @@
 			"sendNewCustomer": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"admin/founderWelcome/mutations": {
-			"setFounderEmailEnabled": ["public", "mutation", "Convex", "Convex"],
-			"stepDown": ["public", "mutation", "Convex", "Convex"],
-			"updateConfig": ["public", "mutation", "Convex", "Convex"],
-			"updateFounderEmailTemplate": ["public", "mutation", "Convex", "Convex"]
+			"setFounderEmailEnabled": ["public", "mutation", "Convex", "Confect"],
+			"stepDown": ["public", "mutation", "Convex", "Confect"],
+			"updateConfig": ["public", "mutation", "Convex", "Confect"],
+			"updateFounderEmailTemplate": ["public", "mutation", "Convex", "Confect"]
 		},
 		"admin/founderWelcome/queries": {
-			"getFounderEmailSettings": ["public", "query", "Convex", "Convex"],
-			"getFounderWelcomeConfig": ["public", "query", "Convex", "Convex"],
-			"getFounderWelcomeConfigInternal": ["internal", "query", "Convex", "Convex"]
+			"getFounderEmailSettings": ["public", "query", "Convex", "Confect"],
+			"getFounderWelcomeConfig": ["public", "query", "Convex", "Confect"],
+			"getFounderWelcomeConfigInternal": ["internal", "query", "Convex", "Confect"]
 		},
 		"admin/journey/erasure": {
 			"continueErasure": ["internal", "mutation", "Convex", "Convex"],

@@ -1,19 +1,30 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type {
-	getFounderEmailSettings,
-	getFounderWelcomeConfig,
-	getFounderWelcomeConfigInternal
-} from './queries';
+import RequireAdmin from '../../middleware/RequireAdmin.spec';
+import {
+	FounderEmailSettingsSchema,
+	FounderWelcomeAdminConfigSchema,
+	FounderWelcomeConfigSchema
+} from './schemas';
 
 export default GroupSpec.make()
 	.addFunction(
-		FunctionSpec.convexPublicQuery<typeof getFounderEmailSettings>()('getFounderEmailSettings')
+		FunctionSpec.publicQuery({
+			name: 'getFounderEmailSettings',
+			args: () => ({}),
+			returns: () => FounderEmailSettingsSchema
+		}).middleware(RequireAdmin)
 	)
 	.addFunction(
-		FunctionSpec.convexPublicQuery<typeof getFounderWelcomeConfig>()('getFounderWelcomeConfig')
+		FunctionSpec.publicQuery({
+			name: 'getFounderWelcomeConfig',
+			args: () => ({}),
+			returns: () => FounderWelcomeAdminConfigSchema
+		}).middleware(RequireAdmin)
 	)
 	.addFunction(
-		FunctionSpec.convexInternalQuery<typeof getFounderWelcomeConfigInternal>()(
-			'getFounderWelcomeConfigInternal'
-		)
+		FunctionSpec.internalQuery({
+			name: 'getFounderWelcomeConfigInternal',
+			args: () => ({}),
+			returns: () => FounderWelcomeConfigSchema
+		})
 	);

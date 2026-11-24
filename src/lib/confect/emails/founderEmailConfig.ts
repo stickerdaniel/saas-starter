@@ -1,6 +1,6 @@
-import { v, type Infer } from 'convex/values';
 import { components } from '../../convex/_generated/api';
 import type { QueryCtx } from '../../convex/_generated/server';
+import type { SwitchableFounderEmailSchema } from '../admin/founderWelcome/schemas';
 import {
 	FOUNDER_CANCELLATION_DEFAULTS,
 	FOUNDER_FEEDBACK_DEFAULTS,
@@ -20,12 +20,7 @@ import {
  * signup trigger in `auth.ts` reads it, and `functions.ts` imports `auth.ts`.
  */
 
-/** The founder emails beside the welcome, which an admin switches on and off. */
-export const switchableFounderEmailValidator = v.union(
-	v.literal('feedback'),
-	v.literal('cancellation')
-);
-export type SwitchableFounderEmail = Infer<typeof switchableFounderEmailValidator>;
+export type SwitchableFounderEmail = typeof SwitchableFounderEmailSchema.Type;
 
 export type FounderEmailTemplate = { subject: string; body: string };
 
