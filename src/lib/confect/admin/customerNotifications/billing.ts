@@ -1,4 +1,5 @@
 import { v, type Infer } from 'convex/values';
+import * as Schema from 'effect/Schema';
 import { ELIGIBLE_PLANS, type EligiblePlans } from './policy';
 
 /**
@@ -46,6 +47,24 @@ export const frozenBillingValidator = v.object({
 	current: v.union(currentValidator, v.null())
 });
 export type FrozenBilling = Infer<typeof frozenBillingValidator>;
+
+const BillingInterval = Schema.Literals(['month', 'year']);
+
+export const PaymentSchema = Schema.Struct({
+	invoiceAt: Schema.Number,
+	total: Schema.Number,
+	currency: Schema.String,
+	planId: Schema.String,
+	interval: BillingInterval
+});
+
+export const CurrentSchema = Schema.Struct({
+	planId: Schema.String,
+	interval: BillingInterval,
+	scheduledCancellation: Schema.optionalKey(
+		Schema.Struct({ canceledAt: Schema.Number, accessUntil: Schema.Number })
+	)
+});
 
 /**
  * Normalizing one Autumn customer read (API 1.2, `GET /customers/<id>` with

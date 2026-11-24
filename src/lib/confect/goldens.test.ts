@@ -188,10 +188,8 @@ function routesGolden(value: unknown): Json {
 		.filter(isConfectCatchAll)
 		.map(([, method]) => String(method))
 		.sort();
-	if (
-		catchAllMethods.length > 0 &&
-		catchAllMethods.join() !== [...ROUTABLE_HTTP_METHODS].sort().join()
-	) {
+	if (catchAllMethods.length === 0) throw new Error('the router has no Confect catch-all');
+	if (catchAllMethods.join() !== [...ROUTABLE_HTTP_METHODS].sort().join()) {
 		throw new Error(`the router has a Confect catch-all for ${catchAllMethods.join(', ')} only`);
 	}
 	return routes

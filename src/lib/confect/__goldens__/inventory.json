@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "ea32af4c45388dfb",
+	"digest": "c950d257396c9e82",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Convex"],
@@ -10,15 +10,15 @@
 			"resolveAuditLogUser": ["public", "query", "Convex", "Convex"]
 		},
 		"admin/customerNotifications/admission": {
-			"admitObservation": ["internal", "mutation", "Convex", "Convex"]
+			"admitObservation": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"admin/customerNotifications/cancel": {
-			"cancelUnsentEmails": ["internal", "mutation", "Convex", "Convex"]
+			"cancelUnsentEmails": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"admin/customerNotifications/send": {
-			"enqueueRecipient": ["internal", "mutation", "Convex", "Convex"],
-			"sendCancellation": ["internal", "mutation", "Convex", "Convex"],
-			"sendNewCustomer": ["internal", "mutation", "Convex", "Convex"]
+			"enqueueRecipient": ["internal", "mutation", "Convex", "Confect"],
+			"sendCancellation": ["internal", "mutation", "Convex", "Confect"],
+			"sendNewCustomer": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"admin/founderWelcome/mutations": {
 			"setFounderEmailEnabled": ["public", "mutation", "Convex", "Convex"],

@@ -1,8 +1,10 @@
+import * as Effect from 'effect/Effect';
+import type * as HttpServerRequest from 'effect/http/HttpServerRequest';
+import * as HttpServerResponse from 'effect/http/HttpServerResponse';
 import { Webhook } from 'svix';
-import { internal } from '../../../convex/_generated/api';
-import { env, httpAction } from '../../../convex/_generated/server';
+import { env } from '../../../convex/_generated/server';
 import { readCustomerBilling } from './autumnRead';
-import { normalizeCustomerBilling } from './billing';
+import { normalizeCustomerBilling, type Current, type Payment } from './billing';
 
 /**
  * The Autumn webhook (`/autumn-webhook`, delivered by Svix). A billing event
@@ -20,6 +22,13 @@ import { normalizeCustomerBilling } from './billing';
 
 const BILLING_UPDATED = 'billing.updated';
 const CUSTOMER_PRODUCTS_UPDATED = 'customer.products.updated';
+
+export type Observation = {
+	readonly userId: string;
+	readonly firstPayment: Payment | null;
+	readonly current: Current | null;
+	readonly observedAt: number;
+};
 
 type CustomerIdRead =
 	{ kind: 'id'; customerId: string } | { kind: 'unsupported' } | { kind: 'malformed' };
@@ -56,74 +65,86 @@ function readCustomerId(event: unknown): CustomerIdRead {
 	return { kind: 'id', customerId };
 }
 
-const respond = (status: number) => new Response(null, { status });
+const respond = (status: number) => HttpServerResponse.empty({ status });
 
-export const handleAutumnWebhook = httpAction(async (ctx, request) => {
-	const secret = env.AUTUMN_WEBHOOK_SECRET;
-	let webhook: Webhook | null = null;
+const logged = (level: 'warn' | 'error', entry: { code: string; userId?: string }) =>
+	Effect.sync(() => console[level](entry));
+
+function webhookFor(secret: string | undefined): Webhook | null {
 	try {
-		if (secret) webhook = new Webhook(secret);
+		return secret ? new Webhook(secret) : null;
 	} catch {
-		// A secret that is not a Svix signing secret counts as no secret.
+		return null;
 	}
-	if (!webhook) {
-		console.error({ code: 'webhook_not_configured' });
-		return respond(503);
-	}
+}
 
-	// Svix signs the exact bytes it sent, so verify the raw body before parsing it.
-	const raw = await request.text();
+function verified(webhook: Webhook, raw: string, headers: Record<string, string | undefined>) {
 	try {
 		webhook.verify(raw, {
-			'svix-id': request.headers.get('svix-id') ?? '',
-			'svix-timestamp': request.headers.get('svix-timestamp') ?? '',
-			'svix-signature': request.headers.get('svix-signature') ?? ''
+			'svix-id': headers['svix-id'] ?? '',
+			'svix-timestamp': headers['svix-timestamp'] ?? '',
+			'svix-signature': headers['svix-signature'] ?? ''
 		});
+		return true;
 	} catch {
-		return respond(401);
+		return false;
 	}
+}
 
-	let event: unknown;
+function parsed(raw: string): unknown {
 	try {
-		event = JSON.parse(raw);
+		return JSON.parse(raw);
 	} catch {
-		event = undefined;
+		return undefined;
 	}
-	const read = readCustomerId(event);
-	if (read.kind === 'unsupported') return respond(200);
-	if (read.kind === 'malformed') {
-		console.warn({ code: 'webhook_payload_malformed' });
-		return respond(400);
-	}
-	const { customerId: userId } = read;
+}
 
-	const billing = await readCustomerBilling(userId);
-	if (billing.kind === 'not_found') return respond(200);
-	if (billing.kind !== 'ok') {
-		const log = billing.kind === 'failed' ? console.error : console.warn;
-		log({ code: billing.code, userId });
-		return respond(503);
-	}
+export const handleAutumnWebhook = <R>(
+	request: HttpServerRequest.HttpServerRequest,
+	admit: (observation: Observation) => Effect.Effect<boolean, never, R>
+) =>
+	Effect.gen(function* () {
+		const webhook = webhookFor(env.AUTUMN_WEBHOOK_SECRET);
+		if (!webhook) {
+			yield* logged('error', { code: 'webhook_not_configured' });
+			return respond(503);
+		}
 
-	const observedAt = Date.now();
-	const observed = normalizeCustomerBilling(billing.data, observedAt);
-	if (observed.kind === 'malformed') {
-		console.warn({ code: `billing_malformed_${observed.code}`, userId });
-		return respond(200);
-	}
-	// Admission needs a first payment or a scheduled cancellation; without either it has nothing to do.
-	if (!observed.firstPayment && !observed.current?.scheduledCancellation) return respond(200);
+		const raw = yield* Effect.orDie(request.text);
+		if (!verified(webhook, raw, request.headers)) return respond(401);
 
-	try {
-		await ctx.runMutation(internal.admin.customerNotifications.admission.admitObservation, {
+		const read = readCustomerId(parsed(raw));
+		if (read.kind === 'unsupported') return respond(200);
+		if (read.kind === 'malformed') {
+			yield* logged('warn', { code: 'webhook_payload_malformed' });
+			return respond(400);
+		}
+		const { customerId: userId } = read;
+
+		const billing = yield* Effect.promise(() => readCustomerBilling(userId));
+		if (billing.kind === 'not_found') return respond(200);
+		if (billing.kind !== 'ok') {
+			yield* logged(billing.kind === 'failed' ? 'error' : 'warn', { code: billing.code, userId });
+			return respond(503);
+		}
+
+		const observedAt = Date.now();
+		const observed = normalizeCustomerBilling(billing.data, observedAt);
+		if (observed.kind === 'malformed') {
+			yield* logged('warn', { code: `billing_malformed_${observed.code}`, userId });
+			return respond(200);
+		}
+		if (!observed.firstPayment && !observed.current?.scheduledCancellation) return respond(200);
+
+		const admitted = yield* admit({
 			userId,
 			firstPayment: observed.firstPayment,
 			current: observed.current,
 			observedAt
 		});
-	} catch {
-		console.error({ code: 'admission_failed', userId });
-		return respond(503);
-	}
-	return respond(200);
-});
+		if (!admitted) {
+			yield* logged('error', { code: 'admission_failed', userId });
+			return respond(503);
+		}
+		return respond(200);
+	});

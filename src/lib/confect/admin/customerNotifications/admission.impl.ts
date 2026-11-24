@@ -1,12 +1,221 @@
 import { FunctionImpl, GroupImpl } from '@confect/server';
+import * as DateTime from 'effect/DateTime';
+import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import * as val from 'valibot';
+import { components } from '../../../convex/_generated/api';
+import type { Doc } from '../../../convex/_generated/dataModel';
+import { env } from '../../../convex/_generated/server';
+import refs from '../../_generated/refs';
 import databaseSchema from '../../_generated/schema';
-import { admitObservation } from './admission';
+import { MutationCtx, Scheduler } from '../../_generated/services';
+import { readFounderEmailActiveSince } from '../../emails/founderEmailConfig';
+import {
+	FOUNDER_CANCELLATION_DELAY_MS,
+	FOUNDER_CANCELLATION_MAX_OBSERVATION_AGE_MS
+} from '../../emails/helpers';
+import type { Current, Payment } from './billing';
 import admission from './admission.spec';
+import { cancellationEpisode, newCustomerEpisode, newCustomerEpisodeKey } from './ledger';
 
+/**
+ * Admission turns one observed billing read into ledger rows. Every webhook
+ * delivery observes again, and Svix redelivers whenever an acknowledgement is
+ * lost, so admission is idempotent on each episode key: an existing row is
+ * joined, never rescheduled, and its frozen facts are never rewritten.
+ *
+ * There is no release date or payment age bound: enabling the webhook on a
+ * deployment with paying customers emails each of them once, on their next
+ * billing event, and once more for a cancellation already scheduled then.
+ *
+ * A recent scheduled cancellation also opens the founder's personal cancellation
+ * email (`founderEmailSends`), on its own key and independent of the admin row.
+ */
+
+const signupSchema = val.object({ createdAt: val.number() });
+
+type NewRow = Pick<
+	Doc<'customerNotifications'>,
+	'userId' | 'kind' | 'episodeKey' | 'billing' | 'request' | 'observedAt' | 'sendAt'
+>;
+
+/** Insert the episode's row and schedule its sender, unless the episode already has a row. */
+const admitEpisode = (row: NewRow) =>
+	Effect.gen(function* () {
+		const ctx = yield* MutationCtx;
+		const scheduler = yield* Scheduler;
+		const existing = yield* Effect.promise(() =>
+			ctx.db
+				.query('customerNotifications')
+				.withIndex('by_kind_and_episode', (q) =>
+					q.eq('kind', row.kind).eq('episodeKey', row.episodeKey)
+				)
+				.first()
+		);
+		if (existing) return;
+
+		const notificationId = yield* Effect.promise(() =>
+			ctx.db.insert('customerNotifications', { ...row, status: 'scheduled' })
+		);
+		const sendAt = DateTime.makeUnsafe(row.sendAt);
+		const scheduledFnId =
+			row.kind === 'new_customer'
+				? yield* scheduler.runAt(
+						sendAt,
+						refs.internal.admin.customerNotifications.send.sendNewCustomer,
+						{ notificationId }
+					)
+				: yield* scheduler.runAt(
+						sendAt,
+						refs.internal.admin.customerNotifications.send.sendCancellation,
+						{ notificationId }
+					);
+		yield* Effect.promise(() =>
+			ctx.db.patch('customerNotifications', notificationId, { scheduledFnId })
+		);
+	});
+
+/**
+ * The payment a cancellation is measured from: the one the customer's
+ * new-customer row froze, because Autumn returns only the newest invoices and
+ * a later read may no longer include the first one; otherwise the first
+ * payment this read shows. Null when there is neither.
+ */
+const cancellationAnchor = (userId: string, observed: Payment | null) =>
+	Effect.gen(function* () {
+		const ctx = yield* MutationCtx;
+		const newCustomer = yield* Effect.promise(() =>
+			ctx.db
+				.query('customerNotifications')
+				.withIndex('by_kind_and_episode', (q) =>
+					q.eq('kind', 'new_customer').eq('episodeKey', newCustomerEpisodeKey(userId))
+				)
+				.first()
+		);
+		return newCustomer?.billing.firstPayment ?? observed;
+	});
+
+/**
+ * Open the founder cancellation email for a scheduled cancellation observed within
+ * {@link FOUNDER_CANCELLATION_MAX_OBSERVATION_AGE_MS} of it, while a contact person
+ * is set and when the email's switch was already on at the cancellation: switching
+ * it on asks nobody who cancelled before.
+ * It goes to the account's address at admission, an hour after the cancellation or
+ * at once when observed later. Keyed by `canceledAt`, so repeated observations
+ * share it and a re-cancel opens another. Its send reads Autumn again first, so
+ * admission never withdraws it.
+ */
+const admitFounderCancellation = (userId: string, current: Current | null, observedAt: number) =>
+	Effect.gen(function* () {
+		const cancellation = current?.scheduledCancellation;
+		if (!cancellation) return;
+		if (observedAt - cancellation.canceledAt > FOUNDER_CANCELLATION_MAX_OBSERVATION_AGE_MS) return;
+		const ctx = yield* MutationCtx;
+		const activeSince = yield* Effect.promise(() =>
+			readFounderEmailActiveSince(ctx.db, 'cancellation')
+		);
+		if (activeSince === undefined || activeSince > cancellation.canceledAt) return;
+
+		const dedupeKey = String(cancellation.canceledAt);
+		const existing = yield* Effect.promise(() =>
+			ctx.db
+				.query('founderEmailSends')
+				.withIndex('by_userId_and_email_and_dedupeKey', (q) =>
+					q.eq('userId', userId).eq('email', 'cancellation').eq('dedupeKey', dedupeKey)
+				)
+				.unique()
+		);
+		if (existing) return;
+
+		const user = yield* Effect.promise(
+			() =>
+				ctx.runQuery(components.betterAuth.adapter.findOne, {
+					model: 'user',
+					where: [{ field: '_id', operator: 'eq', value: userId }]
+				}) as Promise<{ email: string } | null>
+		);
+		if (!user) return;
+
+		const sendId = yield* Effect.promise(() =>
+			ctx.db.insert('founderEmailSends', {
+				userId,
+				email: 'cancellation',
+				dedupeKey,
+				recipientEmail: user.email,
+				status: 'scheduled',
+				createdAt: Date.now()
+			})
+		);
+		const scheduler = yield* Scheduler;
+		const scheduledFnId = yield* scheduler.runAt(
+			DateTime.makeUnsafe(
+				Math.max(observedAt, cancellation.canceledAt + FOUNDER_CANCELLATION_DELAY_MS)
+			),
+			refs.internal.emails.founderEmailBilling.resolveFounderCancellationBilling,
+			{ sendId, userId, attempt: 1 }
+		);
+		yield* Effect.promise(() => ctx.db.patch('founderEmailSends', sendId, { scheduledFnId }));
+	});
+
+/**
+ * Admit what one billing read shows and schedule the sends. Runs in the
+ * webhook's request, after the billing read. Writes nothing once
+ * `AUTUMN_WEBHOOK_SECRET` is unset, which pauses observation even for a
+ * delivery that verified before the pause, and nothing for a user that no
+ * longer exists, so a delivery racing the account deletion leaves no row.
+ *
+ * - A first eligible payment is a `new_customer` row, sent once its window
+ *   closes.
+ * - A scheduled cancellation is a `cancellation` row, sent now. It needs a
+ *   payment to measure from that is not later than the cancellation; a
+ *   new-customer row this same read just admitted already provides one.
+ *
+ * A row is written whether or not any admin wants the email. A recent
+ * scheduled cancellation also opens the founder cancellation email, whatever the
+ * admin rows do.
+ */
 export default GroupImpl.make(databaseSchema, admission).pipe(
 	Layer.provide([
-		FunctionImpl.make(databaseSchema, admission, 'admitObservation', admitObservation)
+		FunctionImpl.make(
+			databaseSchema,
+			admission,
+			'admitObservation',
+			({ userId, firstPayment, current, observedAt }) =>
+				Effect.gen(function* () {
+					if (!env.AUTUMN_WEBHOOK_SECRET) return null;
+					const ctx = yield* MutationCtx;
+					const user: unknown = yield* Effect.promise(() =>
+						ctx.runQuery(components.betterAuth.adapter.findOne, {
+							model: 'user',
+							where: [{ field: '_id', operator: 'eq', value: userId }],
+							select: ['createdAt']
+						})
+					);
+					if (user === null) return null;
+					const { createdAt: signupAt } = val.parse(signupSchema, user);
+					const now = Date.now();
+					const frozen = (payment: Payment) => ({
+						userId,
+						billing: { firstPayment: payment, current },
+						observedAt
+					});
+
+					if (firstPayment) {
+						const episode = newCustomerEpisode({ userId, signupAt, firstPayment, now });
+						yield* admitEpisode({ ...frozen(firstPayment), kind: 'new_customer', ...episode });
+					}
+
+					yield* admitFounderCancellation(userId, current, observedAt);
+
+					const canceledAt = current?.scheduledCancellation?.canceledAt;
+					if (canceledAt === undefined) return null;
+					const anchor = yield* cancellationAnchor(userId, firstPayment);
+					if (!anchor || anchor.invoiceAt > canceledAt) return null;
+					const episode = cancellationEpisode({ userId, signupAt, anchor, canceledAt, now });
+					yield* admitEpisode({ ...frozen(anchor), kind: 'cancellation', ...episode });
+					return null;
+				})
+		)
 	]),
 	GroupImpl.finalize
 );
