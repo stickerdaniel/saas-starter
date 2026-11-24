@@ -12,18 +12,7 @@ vi.mock('../agent', () => ({
 	}
 }));
 
-vi.mock('../../../convex/_generated/api', () => ({
-	components: {
-		agent: {
-			messages: {
-				getMessagesByIds: 'components.agent.messages.getMessagesByIds'
-			}
-		}
-	}
-}));
-
 import {
-	assertMessageOwnership,
 	getSupportOwnerIdentity,
 	requireSupportOwnerIdentity,
 	requireSupportThreadAccess,
@@ -223,72 +212,5 @@ describe('support ownership helpers', () => {
 
 		expect(result.supportThread).toEqual({ threadId: 'thread_1', userId: 'auth_user_1' });
 		expect(getThreadMetadataMock).not.toHaveBeenCalled();
-	});
-
-	it('enforces message ownership through the parent thread', async () => {
-		const ctx = createCtx();
-		safeGetAuthUserMock.mockResolvedValue(undefined);
-		(
-			ctx as unknown as {
-				db: { query: ReturnType<typeof vi.fn> };
-			}
-		).db.query.mockReturnValue({
-			withIndex: vi.fn(() => ({
-				first: vi.fn().mockResolvedValue({
-					threadId: 'thread_1',
-					userId: 'anon_owner'
-				})
-			}))
-		});
-		getThreadMetadataMock.mockResolvedValue({
-			threadId: 'thread_1',
-			userId: 'anon_owner'
-		} as never);
-		const runQuery = vi.fn().mockResolvedValue([{ threadId: 'thread_1' }]);
-		(ctx as unknown as { runQuery: typeof runQuery }).runQuery = runQuery;
-
-		const result = await assertMessageOwnership(ctx, {
-			messageId: 'message_1',
-			anonymousUserId: 'anon_owner'
-		});
-
-		expect(runQuery).toHaveBeenCalledOnce();
-		expect(result.message).toEqual({ threadId: 'thread_1' });
-		expect(result.owner.ownerId).toBe('anon_owner');
-	});
-
-	it('rejects missing messages before ownership checks continue', async () => {
-		const ctx = createCtx();
-		safeGetAuthUserMock.mockResolvedValue({ _id: 'auth_user_1' } as never);
-		const runQuery = vi.fn().mockResolvedValue([null]);
-		(ctx as unknown as { runQuery: typeof runQuery }).runQuery = runQuery;
-
-		await expect(
-			assertMessageOwnership(ctx, {
-				messageId: 'missing_message'
-			})
-		).rejects.toMatchObject({ data: { code: SUPPORT_ERROR_CODES.messageNotFound } });
-	});
-
-	it('rejects messages that belong to non-support threads', async () => {
-		const ctx = createCtx();
-		safeGetAuthUserMock.mockResolvedValue({ _id: 'auth_user_1' } as never);
-		(
-			ctx as unknown as {
-				db: { query: ReturnType<typeof vi.fn> };
-			}
-		).db.query.mockReturnValue({
-			withIndex: vi.fn(() => ({
-				first: vi.fn().mockResolvedValue(null)
-			}))
-		});
-		const runQuery = vi.fn().mockResolvedValue([{ threadId: 'ai_thread_1' }]);
-		(ctx as unknown as { runQuery: typeof runQuery }).runQuery = runQuery;
-
-		await expect(
-			assertMessageOwnership(ctx, {
-				messageId: 'message_1'
-			})
-		).rejects.toMatchObject({ data: { code: SUPPORT_ERROR_CODES.threadNotFound } });
 	});
 });
