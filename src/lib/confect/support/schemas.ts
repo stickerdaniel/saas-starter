@@ -1,7 +1,9 @@
 import type { Agent } from '@convex-dev/agent';
+import { vMessageDoc } from '@convex-dev/agent/validators';
+import { validate } from 'convex-helpers/validators';
+import { v } from 'convex/values';
 import * as Schema from 'effect/Schema';
 import { Id } from '../_generated/id';
-import type { MessagesQueryResponse } from '../../chat/core/types';
 import { StreamArgs } from '../schemas/agent';
 import { PaginationOpts } from '../schemas/pagination';
 
@@ -256,16 +258,25 @@ export const VisitorMessageListArgsSchema = Schema.Struct({
 	streamArgs: Schema.optionalKey(StreamArgs)
 });
 
-export const VisitorMessageListSchema: Schema.Codec<MessagesQueryResponse> = Schema.Any;
+export { MessageListSchema as VisitorMessageListSchema } from '../admin/support/schemas';
 
 export const AssistantMessageArgsSchema = Schema.Struct({
 	threadId: Schema.String,
 	text: Schema.String
 });
 
-export const SavedAssistantMessageSchema: Schema.Codec<Awaited<
-	ReturnType<Agent['saveMessage']>
-> | null> = Schema.Any;
+type SavedAssistantMessage = Awaited<ReturnType<Agent['saveMessage']>> | null;
+
+const savedAssistantMessage = v.union(
+	v.null(),
+	v.object({ messageId: v.string(), message: vMessageDoc })
+);
+
+export const SavedAssistantMessageSchema = Schema.toType(
+	Schema.Unknown.pipe(
+		Schema.refine((value): value is SavedAssistantMessage => validate(savedAssistantMessage, value))
+	)
+);
 
 export const FileMetadataBatchArgsSchema = Schema.Struct({
 	urls: Schema.mutable(Schema.Array(Schema.String))

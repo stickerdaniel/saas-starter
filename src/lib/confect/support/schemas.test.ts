@@ -13,6 +13,7 @@ import {
 	ProfileSyncArgsSchema,
 	PromptActivationArgsSchema,
 	PromptLocaleArgsSchema,
+	SavedAssistantMessageSchema,
 	SavePromptArgsSchema,
 	SendMessageArgsSchema,
 	SupportOwnerArgsSchema,
@@ -330,4 +331,31 @@ describe.each(cases)('$name', ({ schema, accepted }) => {
 		expect(validate(native, value)).toBe(true);
 		expect(() => Schema.decodeUnknownSync(schema)(value)).not.toThrow();
 	});
+});
+
+describe('SavedAssistantMessage', () => {
+	const saved = {
+		messageId: 'm1',
+		message: {
+			_id: 'm1',
+			_creationTime: 1,
+			threadId: 't1',
+			order: 1,
+			stepOrder: 0,
+			status: 'success',
+			tool: false,
+			message: { role: 'assistant', content: 'ok' }
+		}
+	};
+
+	it.each([null, saved])('decodes a saved message or null: %j', (value) => {
+		expect(Schema.decodeUnknownSync(SavedAssistantMessageSchema)(value)).toEqual(value);
+	});
+
+	it.each([42, { messageId: 'm1' }, { ...saved, message: { ...saved.message, status: 'done' } }])(
+		'refuses a value that is not a saved message: %j',
+		(value) => {
+			expect(() => Schema.decodeUnknownSync(SavedAssistantMessageSchema)(value)).toThrow();
+		}
+	);
 });

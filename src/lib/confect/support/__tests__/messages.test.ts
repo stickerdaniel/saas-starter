@@ -94,11 +94,6 @@ vi.mock('@convex-dev/agent', async (importOriginal) => {
 	return { ...actual, getFile: vi.fn() };
 });
 
-vi.mock('@convex-dev/agent/validators', async () => {
-	const { v } = await import('convex/values');
-	return { vStreamArgs: v.optional(v.any()) };
-});
-
 vi.mock('../../../convex/_generated/api', () => ({
 	components: {
 		agent: {
@@ -1417,6 +1412,20 @@ describe('createAssistantMessage', () => {
 	});
 
 	it('saves the message while the agent holds the thread', async () => {
+		saveMessageMock.mockResolvedValueOnce({
+			messageId: 'm1',
+			message: {
+				_id: 'm1',
+				_creationTime: 0,
+				threadId: 'thread_1',
+				order: 0,
+				stepOrder: 1,
+				status: 'success',
+				tool: false,
+				message: { role: 'assistant', content: 'busy' }
+			}
+		});
+
 		await create._handler(ctxWithThread(false), { threadId: 'thread_1', text: 'busy' });
 
 		expect(saveMessageMock).toHaveBeenCalledWith(
