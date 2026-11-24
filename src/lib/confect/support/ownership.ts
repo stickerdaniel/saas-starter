@@ -1,5 +1,4 @@
 import { SUPPORT_ERROR_CODES, createSupportError } from './errors';
-import { components } from '../../convex/_generated/api';
 import type { MutationCtx, QueryCtx } from '../../convex/_generated/server';
 import { authComponent } from '../authServer';
 import { supportAgent } from './agent';
@@ -90,27 +89,4 @@ export async function requireSupportThreadAccess(
 	}
 
 	return { supportThread, thread, owner };
-}
-
-export async function assertMessageOwnership(
-	ctx: SupportAccessCtx,
-	args: {
-		messageId: string;
-		anonymousUserId?: string;
-	}
-) {
-	const [message] = await ctx.runQuery(components.agent.messages.getMessagesByIds, {
-		messageIds: [args.messageId]
-	});
-
-	if (!message) {
-		throw createSupportError(SUPPORT_ERROR_CODES.messageNotFound);
-	}
-
-	const { supportThread, thread, owner } = await requireSupportThreadAccess(ctx, {
-		threadId: message.threadId,
-		anonymousUserId: args.anonymousUserId
-	});
-
-	return { message, supportThread, thread, owner };
 }
