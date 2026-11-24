@@ -1,5 +1,6 @@
 import { internalMutation } from '../../convex/_generated/server';
 import { v } from 'convex/values';
+import { notificationMessagesValidator } from '../admin/support/schemas';
 import { components, internal } from '../../convex/_generated/api';
 import { resend, assertResendApiKey, getEmailDeliveryConfiguration } from './resend';
 import {
@@ -179,12 +180,7 @@ export const sendNewTicketAdminNotification = internalMutation({
 		isReopen: v.boolean(),
 		isBareHandoff: v.boolean(),
 		userName: v.string(),
-		messages: v.array(
-			v.object({
-				text: v.string(),
-				timestamp: v.string()
-			})
-		),
+		messages: notificationMessagesValidator,
 		threadId: v.string()
 	},
 	returns: v.boolean(),

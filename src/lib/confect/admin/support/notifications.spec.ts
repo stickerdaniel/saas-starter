@@ -1,67 +1,106 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type {
-	cancelPendingNotification,
-	claimNotificationForSending,
-	deletePendingNotification,
-	getMessageContents,
-	getNotificationTargetEmails,
-	getRecentUserMessages,
-	getSupportThread,
-	listLegacyNotificationClaims,
-	recoverNotificationClaim,
-	reschedulePendingNotification,
-	scheduleAdminNotification,
-	sendPendingAdminNotification
-} from './notifications';
+import * as Schema from 'effect/Schema';
+import {
+	LegacyClaimsArgsSchema,
+	LegacyClaimsSchema,
+	MessageContentsArgsSchema,
+	NotificationClaimArgsSchema,
+	NotificationClaimSchema,
+	NotificationMessagesSchema,
+	NotificationOwnershipArgsSchema,
+	NotificationRecoveryArgsSchema,
+	NotificationRescheduleArgsSchema,
+	NotificationScheduleArgsSchema,
+	NotificationSendArgsSchema,
+	RecentUserMessagesArgsSchema,
+	StringListSchema,
+	SupportThreadDocSchema,
+	TargetEmailsArgsSchema,
+	ThreadArgsSchema
+} from './schemas';
 
 export default GroupSpec.make()
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof cancelPendingNotification>()(
-			'cancelPendingNotification'
-		)
+		FunctionSpec.internalMutation({
+			name: 'cancelPendingNotification',
+			args: () => ThreadArgsSchema.fields,
+			returns: () => Schema.Boolean
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof claimNotificationForSending>()(
-			'claimNotificationForSending'
-		)
+		FunctionSpec.internalMutation({
+			name: 'claimNotificationForSending',
+			args: () => NotificationClaimArgsSchema.fields,
+			returns: () => NotificationClaimSchema
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof deletePendingNotification>()(
-			'deletePendingNotification'
-		)
-	)
-	.addFunction(FunctionSpec.convexInternalQuery<typeof getMessageContents>()('getMessageContents'))
-	.addFunction(
-		FunctionSpec.convexInternalQuery<typeof getNotificationTargetEmails>()(
-			'getNotificationTargetEmails'
-		)
+		FunctionSpec.internalMutation({
+			name: 'deletePendingNotification',
+			args: () => NotificationOwnershipArgsSchema.fields,
+			returns: () => Schema.Boolean
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalQuery<typeof getRecentUserMessages>()('getRecentUserMessages')
-	)
-	.addFunction(FunctionSpec.convexInternalQuery<typeof getSupportThread>()('getSupportThread'))
-	.addFunction(
-		FunctionSpec.convexInternalQuery<typeof listLegacyNotificationClaims>()(
-			'listLegacyNotificationClaims'
-		)
+		FunctionSpec.internalQuery({
+			name: 'getMessageContents',
+			args: () => MessageContentsArgsSchema.fields,
+			returns: () => NotificationMessagesSchema
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof recoverNotificationClaim>()(
-			'recoverNotificationClaim'
-		)
+		FunctionSpec.internalQuery({
+			name: 'getNotificationTargetEmails',
+			args: () => TargetEmailsArgsSchema.fields,
+			returns: () => StringListSchema
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof reschedulePendingNotification>()(
-			'reschedulePendingNotification'
-		)
+		FunctionSpec.internalQuery({
+			name: 'getRecentUserMessages',
+			args: () => RecentUserMessagesArgsSchema.fields,
+			returns: () => StringListSchema
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof scheduleAdminNotification>()(
-			'scheduleAdminNotification'
-		)
+		FunctionSpec.internalQuery({
+			name: 'getSupportThread',
+			args: () => ThreadArgsSchema.fields,
+			returns: () => SupportThreadDocSchema
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalAction<typeof sendPendingAdminNotification>()(
-			'sendPendingAdminNotification'
-		)
+		FunctionSpec.internalQuery({
+			name: 'listLegacyNotificationClaims',
+			args: () => LegacyClaimsArgsSchema.fields,
+			returns: () => LegacyClaimsSchema
+		})
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'recoverNotificationClaim',
+			args: () => NotificationRecoveryArgsSchema.fields,
+			returns: () => Schema.Boolean
+		})
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'reschedulePendingNotification',
+			args: () => NotificationRescheduleArgsSchema.fields,
+			returns: () => Schema.Boolean
+		})
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'scheduleAdminNotification',
+			args: () => NotificationScheduleArgsSchema.fields,
+			returns: () => Schema.Null
+		})
+	)
+	.addFunction(
+		FunctionSpec.internalAction({
+			name: 'sendPendingAdminNotification',
+			args: () => NotificationSendArgsSchema.fields,
+			returns: () => Schema.Null
+		})
 	);
