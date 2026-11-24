@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "ea5c0b1f6bd1b1f7",
+	"digest": "904f460530fe613a",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -112,9 +112,9 @@
 			"listThreadsForAdmin": ["public", "query", "Convex", "Confect"]
 		},
 		"aiChat/activityMigration": {
-			"runPage": ["internal", "mutation", "Convex", "Convex"],
-			"start": ["internal", "mutation", "Convex", "Convex"],
-			"status": ["internal", "query", "Convex", "Convex"]
+			"runPage": ["internal", "mutation", "Convex", "Confect"],
+			"start": ["internal", "mutation", "Convex", "Confect"],
+			"status": ["internal", "query", "Convex", "Confect"]
 		},
 		"aiChat/files": {
 			"checkPreviewAccess": ["internal", "mutation", "Convex", "Convex"],
@@ -140,8 +140,8 @@
 			"setThreadTitleIfEmpty": ["internal", "mutation", "Convex", "Convex"],
 			"updateThreadMetadata": ["internal", "mutation", "Convex", "Convex"]
 		},
-		"aiChat/titles": { "generateThreadTitle": ["internal", "action", "Convex", "Convex"] },
-		"aiUsage/record": { "insert": ["internal", "mutation", "Convex", "Convex"] },
+		"aiChat/titles": { "generateThreadTitle": ["internal", "action", "Convex", "Confect"] },
+		"aiUsage/record": { "insert": ["internal", "mutation", "Convex", "Confect"] },
 		"auth": {
 			"getAvailableOAuthProviders": ["public", "query", "Convex", "Convex"],
 			"onCreate": ["internal", "mutation", "Convex", "Convex"],
