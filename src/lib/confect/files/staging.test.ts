@@ -3,7 +3,7 @@ import { getFunctionAddress } from 'convex/server';
 import { storeFile } from '@convex-dev/agent';
 import type * as AgentModule from '@convex-dev/agent';
 import type { ActionCtx } from '../../convex/_generated/server';
-import { saveUploadedFile as saveSupportFile } from '../support/files';
+import { saveUploadedFile as saveSupportFile } from '../../convex/support/files';
 import { saveUploadedFile as saveChatFile } from '../aiChat/files';
 
 vi.mock('@convex-dev/agent', async (original) => ({
@@ -74,7 +74,10 @@ describe.each([
 					staging.delete(String(input.storageId));
 				}
 				return null;
-			}
+			},
+			runQuery: vi.fn(),
+			runAction: vi.fn(),
+			vectorSearch: vi.fn()
 		} as unknown as ActionCtx;
 		return { ctx, staging, agentFiles, error };
 	}

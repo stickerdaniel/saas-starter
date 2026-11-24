@@ -43,7 +43,12 @@ const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 // a boolean predicate such as `canEdit` or `hasRole` is no guard. `publicEndpoint`
 // from src/lib/confect/access.ts marks a function open to every caller.
 const convexAccessPattern = '^(require|assert|ensure)([A-Z_]|$)|^publicEndpoint$';
-const CONFECT_PUBLIC_FUNCTIONS = {};
+const CONFECT_PUBLIC_FUNCTIONS = {
+	'support/files:getAttachmentText':
+		'Anonymous visitors preview text attachments; the preview rate limit bounds each owner.',
+	'support/files:saveUploadedFile':
+		'Anonymous visitors register their uploads; the upload token authorizes the file.'
+};
 // Code the Convex runtime loads: the registration modules in the functions directory,
 // the helpers, tests and shared validators beside it, and the local components.
 const CONVEX_RUNTIME_DIRS = ['src/lib/convex', 'src/lib/confect', 'src/lib/convex-components'];
