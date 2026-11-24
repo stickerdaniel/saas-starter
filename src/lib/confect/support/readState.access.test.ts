@@ -92,6 +92,8 @@ const markRead = (anonymousUserId: string | undefined, readThroughMessageId = 'm
 describe('support read state access', () => {
 	it('refuses an unknown thread before checking the owner', async () => {
 		const t = harness();
+		await seedThread(t, { threadId: 'thread_other' });
+		const before = await threads(t);
 
 		expect(await refusal(t.mutation(readState.markThreadRead, markRead(undefined)))).toEqual(
 			createSupportError(SUPPORT_ERROR_CODES.threadNotFound).data
@@ -99,6 +101,7 @@ describe('support read state access', () => {
 		expect(await refusal(t.mutation(readState.markThreadRead, markRead('anon_owner')))).toEqual(
 			createSupportError(SUPPORT_ERROR_CODES.threadNotFound).data
 		);
+		expect(await threads(t)).toEqual(before);
 	});
 
 	it('refuses a caller without owner on an existing thread without writing', async () => {
