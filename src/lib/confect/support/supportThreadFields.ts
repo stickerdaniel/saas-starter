@@ -1,60 +1,72 @@
-import { v } from 'convex/values';
+import { SchemaToValidator } from '@confect/core';
+import * as Schema from 'effect/Schema';
+import { Id } from '../_generated/id';
 
-/**
- * Canonical field definitions for the supportThreads table.
- *
- * Used by both schema.ts (defineTable) and admin query return validators (v.object).
- * Adding a field here automatically updates both — no validator drift.
- */
-export const supportThreadFields = {
-	threadId: v.string(), // Reference to agent:threads
-	userId: v.string(), // Denormalized for quick lookups; every write path sets it (auth or anon_* owner)
-	isWarm: v.optional(v.boolean()), // true = pre-warmed empty support thread awaiting first message
-	status: v.union(v.literal('open'), v.literal('done')),
-	isHandedOff: v.optional(v.boolean()), // true = human-only mode, undefined/false = AI responds
-	awaitingAdminResponse: v.optional(v.boolean()), // true = user waiting for reply, false = admin has responded
-	assignedTo: v.optional(v.string()), // Admin user ID (for tracking, not AI control)
-	priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
-	dueDate: v.optional(v.number()),
-	pageUrl: v.optional(v.string()), // URL where user started chat
-	createdAt: v.number(),
-	updatedAt: v.number(),
+export const SupportThreadSchema = Schema.Struct({
+	// Reference to agent:threads
+	threadId: Schema.String,
+	// Denormalized for quick lookups; every write path sets it (auth or anon_* owner)
+	userId: Schema.String,
+	// true = pre-warmed empty support thread awaiting first message
+	isWarm: Schema.optional(Schema.Boolean),
+	status: Schema.Literals(['open', 'done']),
+	// true = human-only mode, undefined/false = AI responds
+	isHandedOff: Schema.optional(Schema.Boolean),
+	// true = user waiting for reply, false = admin has responded
+	awaitingAdminResponse: Schema.optional(Schema.Boolean),
+	// Admin user ID (for tracking, not AI control)
+	assignedTo: Schema.optional(Schema.String),
+	priority: Schema.optional(Schema.Literals(['low', 'medium', 'high'])),
+	dueDate: Schema.optional(Schema.Number),
+	// URL where user started chat
+	pageUrl: Schema.optional(Schema.String),
+	createdAt: Schema.Number,
+	updatedAt: Schema.Number,
 
 	// Denormalized search fields (for server-side full-text search)
-	searchText: v.optional(v.string()), // Combined: title | summary | lastMessage | userName | userEmail
-	title: v.optional(v.string()), // From agent:threads
-	summary: v.optional(v.string()), // From agent:threads
-	lastMessage: v.optional(v.string()), // From agent:messages (truncated to 500 chars)
-	lastMessageAt: v.optional(v.number()), // Timestamp of the latest non-tool successful message
-	lastMessageRole: v.optional(
-		v.union(v.literal('user'), v.literal('assistant'), v.literal('tool'), v.literal('system'))
-	),
-	lastAgentName: v.optional(v.string()),
+	// Combined: title | summary | lastMessage | userName | userEmail
+	searchText: Schema.optional(Schema.String),
+	// From agent:threads
+	title: Schema.optional(Schema.String),
+	// From agent:threads
+	summary: Schema.optional(Schema.String),
+	// From agent:messages (truncated to 500 chars)
+	lastMessage: Schema.optional(Schema.String),
+	// Timestamp of the latest non-tool successful message
+	lastMessageAt: Schema.optional(Schema.Number),
+	lastMessageRole: Schema.optional(Schema.Literals(['user', 'assistant', 'tool', 'system'])),
+	lastAgentName: Schema.optional(Schema.String),
 	// When the owner first wrote in this thread: an ordinary message or the
 	// handoff request. Set once, never by creation, prewarm or replies.
-	firstUserMessageAt: v.optional(v.number()),
-	userName: v.optional(v.string()), // From user table
-	userEmail: v.optional(v.string()), // From user table
+	firstUserMessageAt: Schema.optional(Schema.Number),
+	// From user table
+	userName: Schema.optional(Schema.String),
+	// From user table
+	userEmail: Schema.optional(Schema.String),
 
 	// Human support read state
-	lastAdminReplyAt: v.optional(v.number()),
-	lastAdminReplyMessageId: v.optional(v.string()),
-	userReadAt: v.optional(v.number()),
-	hasUnreadAdminReply: v.optional(v.boolean()),
+	lastAdminReplyAt: Schema.optional(Schema.Number),
+	lastAdminReplyMessageId: Schema.optional(Schema.String),
+	userReadAt: Schema.optional(Schema.Number),
+	hasUnreadAdminReply: Schema.optional(Schema.Boolean),
 	/** Number of admin messages after the user's last read receipt. Optional
 	 * during the Boolean-to-count compatibility window; an unread legacy thread
 	 * without the field represents one unread message. */
-	unreadAdminReplyCount: v.optional(v.number()),
+	unreadAdminReplyCount: Schema.optional(Schema.Number),
 
 	// Email notification settings
-	notificationEmail: v.optional(v.string()), // Email to notify on admin response
-	notificationSentAt: v.optional(v.number()), // Last notification timestamp (for 30-min cooldown)
+	// Email to notify on admin response
+	notificationEmail: Schema.optional(Schema.String),
+	// Last notification timestamp (for 30-min cooldown)
+	notificationSentAt: Schema.optional(Schema.Number),
 
 	// Empty-thread sweep state: undefined = candidate, queued = a check or retry
 	// job owns it, retained = has messages, failed = gave up after the last attempt
-	sweep: v.optional(v.union(v.literal('queued'), v.literal('retained'), v.literal('failed'))),
+	sweep: Schema.optional(Schema.Literals(['queued', 'retained', 'failed'])),
 	// The owning job, so a cron run can settle a claim whose job ended
-	sweepJobId: v.optional(v.id('_scheduled_functions')),
+	sweepJobId: Schema.optional(Id('_scheduled_functions')),
 	// Failed sweep attempts so far; the sweep gives up at its maximum
-	sweepAttempts: v.optional(v.number())
-};
+	sweepAttempts: Schema.optional(Schema.Number)
+});
+
+export const supportThreadFields = SchemaToValidator.compileTableSchema(SupportThreadSchema).fields;

@@ -5,7 +5,9 @@ export const StreamArgs = Schema.UndefinedOr(
 		Schema.Struct({ kind: Schema.Literal('list'), startOrder: Schema.optional(Schema.Number) }),
 		Schema.Struct({
 			kind: Schema.Literal('deltas'),
-			cursors: Schema.Array(Schema.Struct({ streamId: Schema.String, cursor: Schema.Number }))
+			cursors: Schema.mutable(
+				Schema.Array(Schema.Struct({ streamId: Schema.String, cursor: Schema.Number }))
+			)
 		})
 	])
 );
