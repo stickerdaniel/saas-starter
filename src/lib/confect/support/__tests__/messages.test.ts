@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type * as HandoffModule from '../handoff';
+import type * as HandoffModule from '../handoffTurns';
 import type * as ThreadLifecycleModule from '../threadLifecycle';
 
 // createAIResponse pulls in the whole support module graph at import. Stub the
@@ -57,7 +57,7 @@ vi.mock('../../aiUsage/record', () => ({
 
 // The watchdog's handoff is covered in support/handoff.test.ts; here it is the
 // call the watchdog makes.
-vi.mock('../handoff', async (importOriginal) => ({
+vi.mock('../handoffTurns', async (importOriginal) => ({
 	...(await importOriginal<typeof HandoffModule>()),
 	settleUnanswered: vi.fn()
 }));
@@ -146,7 +146,7 @@ import type { MessageDoc } from '@convex-dev/agent/validators';
 import { supportAgent } from '../agent';
 import { requireSupportThreadAccess } from '../ownership';
 import { supportRateLimiter } from '../rateLimit';
-import { settleUnanswered } from '../handoff';
+import { settleUnanswered } from '../handoffTurns';
 import {
 	createAIResponse,
 	createAssistantMessage,

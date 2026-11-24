@@ -2,9 +2,6 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { getFunctionName } from 'convex/server';
 import type { MessageDoc } from '@convex-dev/agent/validators';
 
-// internalSetHandoff calls syncSupportLastMessage from ./threadLifecycle for the
-// denormalization sync. Stub it so the test stays a handler-level unit test and
-// never pulls the heavy lifecycle module (agent, rate limiter, journey capture).
 vi.mock('./threadLifecycle', () => ({ syncSupportLastMessage: vi.fn() }));
 
 // The acknowledgement pulls in the agent and the translation table; both are
@@ -16,7 +13,7 @@ vi.mock('../i18n/translations', () => ({
 	extractLocaleFromUrl: vi.fn(() => 'en')
 }));
 
-import { internalSetHandoff, settleUnansweredTurn } from './handoff';
+import { internalSetHandoff, settleUnansweredTurn } from '../../convex/support/handoff';
 import { syncSupportLastMessage } from './threadLifecycle';
 import { supportAgent } from './agent';
 

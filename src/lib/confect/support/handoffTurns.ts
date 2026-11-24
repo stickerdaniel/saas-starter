@@ -1,88 +1,16 @@
-import { internalMutation, type MutationCtx } from '../../convex/_generated/server';
+import type { MutationCtx } from '../../convex/_generated/server';
 import type { Doc } from '../../convex/_generated/dataModel';
-import { v, type Infer, type ObjectType } from 'convex/values';
 import type { PaginationResult } from 'convex/server';
 import type { MessageDoc } from '@convex-dev/agent/validators';
 import { components, internal } from '../../convex/_generated/api';
 import { syncSupportLastMessage } from './threadLifecycle';
 import { supportAgent } from './agent';
 import { extractLocaleFromUrl, t } from '../i18n/translations';
+import type { TurnErrorNameSchema, UnansweredTurnSchema } from './schemas';
 
-/**
- * Internal handoff used by the support agent's request_handoff tool
- * (support/tools/handoff.ts).
- *
- * Mirrors updateThreadHandoff's flag flip, denormalization sync, and admin
- * notification, but skips the canned "Talk to support" / handoff-response
- * messages: the model relays its own message in the same turn, and the
- * threadId is trusted from the agent tool context, so there is no caller to
- * authorize and no button-press text to inject.
- *
- * Kept in its own file rather than in threads.ts so the tool's internal
- * mutation stays separate from the user-facing widget mutation.
- */
-export const internalSetHandoff = internalMutation({
-	args: {
-		threadId: v.string(),
-		// Set by a caller that has no model speaking for it. The agent tool leaves
-		// it off because the model answers in the same turn; a job the agent
-		// switch caught mid-flight has nobody to answer, so it asks for the canned
-		// acknowledgement instead and the visitor is not left without a reply.
-		// settleUnansweredTurn below always asks for it, for the same reason.
-		acknowledge: v.optional(v.boolean())
-	},
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		const supportThread = await findSupportThread(ctx, args.threadId);
+export type TurnErrorName = typeof TurnErrorNameSchema.Type;
 
-		if (!supportThread) {
-			console.log(`[internalSetHandoff] No supportThread found for: ${args.threadId}`);
-			return null;
-		}
-
-		await handOffThread(ctx, supportThread, { acknowledge: args.acknowledge === true });
-		return null;
-	}
-});
-
-/** Why a support agent turn ended without a reply. Coded, so it can be logged. */
-const unansweredTurnReasonValidator = v.union(
-	v.literal('no_reply'),
-	v.literal('partial_reply'),
-	v.literal('retry_rate_limited'),
-	v.literal('handoff_without_reply'),
-	v.literal('job_failed'),
-	v.literal('job_missing')
-);
-
-/**
- * The only error names a turn log may carry. Anything else a turn throws is
- * logged as `other`: a thrown name is not a coded value until it is listed here,
- * and a provider error's message can carry the visitor's prompt.
- */
-const turnErrorNameValidator = v.union(
-	v.literal('AbortError'),
-	v.literal('TimeoutError'),
-	v.literal('APICallError'),
-	v.literal('other')
-);
-
-export type TurnErrorName = Infer<typeof turnErrorNameValidator>;
-
-const unansweredTurnFields = {
-	threadId: v.string(),
-	promptMessageId: v.string(),
-	reason: unansweredTurnReasonValidator,
-	/** Model attempts the turn made; absent when the watchdog settles it. */
-	attempts: v.optional(v.number()),
-	/** Whether the turn persisted assistant text the visitor may have seen. */
-	visibleText: v.optional(v.boolean()),
-	errorName: v.optional(turnErrorNameValidator),
-	/** HTTP status of a provider failure; logged only when it is an integer. */
-	status: v.optional(v.number())
-};
-
-export type UnansweredTurn = ObjectType<typeof unansweredTurnFields>;
+export type UnansweredTurn = typeof UnansweredTurnSchema.Type;
 
 /**
  * Settle a support agent turn that ended without a reply, and log what it took.
@@ -172,16 +100,6 @@ async function acknowledgeUnrepliedTurn(
 	return true;
 }
 
-/** createAIResponse's entry point to settleUnanswered, which an action cannot call directly. */
-export const settleUnansweredTurn = internalMutation({
-	args: unansweredTurnFields,
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		await settleUnanswered(ctx, args);
-		return null;
-	}
-});
-
 /**
  * The fields of a turn log line. Every value is coded: the thread and prompt are
  * named by their internal ids, never by their content, so a log line leads to
@@ -201,7 +119,7 @@ export function turnLogFields(
 	};
 }
 
-async function findSupportThread(
+export async function findSupportThread(
 	ctx: MutationCtx,
 	threadId: string
 ): Promise<Doc<'supportThreads'> | null> {
@@ -216,7 +134,7 @@ async function findSupportThread(
  * acknowledge the visitor, and announce it as a new ticket. Returns whether this
  * call flipped it; a thread already handed off is left untouched.
  */
-async function handOffThread(
+export async function handOffThread(
 	ctx: MutationCtx,
 	supportThread: Doc<'supportThreads'>,
 	options: { acknowledge: boolean }

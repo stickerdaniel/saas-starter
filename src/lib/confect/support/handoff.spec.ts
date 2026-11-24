@@ -1,10 +1,19 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { internalSetHandoff, settleUnansweredTurn } from './handoff';
+import * as Schema from 'effect/Schema';
+import { HandoffArgsSchema, UnansweredTurnSchema } from './schemas';
 
 export default GroupSpec.make()
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof internalSetHandoff>()('internalSetHandoff')
+		FunctionSpec.internalMutation({
+			name: 'internalSetHandoff',
+			args: () => HandoffArgsSchema.fields,
+			returns: () => Schema.Null
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof settleUnansweredTurn>()('settleUnansweredTurn')
+		FunctionSpec.internalMutation({
+			name: 'settleUnansweredTurn',
+			args: () => UnansweredTurnSchema.fields,
+			returns: () => Schema.Null
+		})
 	);

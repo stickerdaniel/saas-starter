@@ -181,3 +181,32 @@ export const SweepRunSchema = Schema.Struct({
 });
 
 export const SweepArgsSchema = Schema.Struct({ supportThreadId: Id('supportThreads') });
+
+export const HandoffArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	acknowledge: Schema.optional(Schema.Boolean)
+});
+
+export const TurnErrorNameSchema = Schema.Literals([
+	'AbortError',
+	'TimeoutError',
+	'APICallError',
+	'other'
+]);
+
+export const UnansweredTurnSchema = Schema.Struct({
+	threadId: Schema.String,
+	promptMessageId: Schema.String,
+	reason: Schema.Literals([
+		'no_reply',
+		'partial_reply',
+		'retry_rate_limited',
+		'handoff_without_reply',
+		'job_failed',
+		'job_missing'
+	]),
+	attempts: Schema.optional(Schema.Number),
+	visibleText: Schema.optional(Schema.Boolean),
+	errorName: Schema.optional(TurnErrorNameSchema),
+	status: Schema.optional(Schema.Number)
+});
