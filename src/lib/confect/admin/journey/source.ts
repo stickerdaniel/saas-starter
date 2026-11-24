@@ -1,7 +1,7 @@
 import type { FunctionReference } from 'convex/server';
-import { v, type Infer, type ObjectType } from 'convex/values';
 import type { QueryCtx } from '../../../convex/_generated/server';
 import type { JourneyFormat } from './format';
+import type { CoverageSchema, JourneyEpisodeSchema, JourneyRequestSchema } from './schemas';
 
 /**
  * The contract between the shared journey core and the sources a fork
@@ -10,21 +10,9 @@ import type { JourneyFormat } from './format';
  * The core never imports a source; the registry is passed in.
  */
 
-export const journeyEpisodeValidator = v.union(
-	v.literal('new_customer'),
-	v.literal('cancellation')
-);
-export type JourneyEpisode = Infer<typeof journeyEpisodeValidator>;
+export type JourneyEpisode = typeof JourneyEpisodeSchema.Type;
 
-/** Argument fields of every source read: the frozen request of one email. */
-export const journeyRequestFields = {
-	episode: journeyEpisodeValidator,
-	userId: v.string(),
-	signupAt: v.number(),
-	paymentAt: v.number(),
-	window: v.object({ start: v.number(), end: v.number() })
-};
-export type JourneyRequest = ObjectType<typeof journeyRequestFields>;
+export type JourneyRequest = typeof JourneyRequestSchema.Type;
 
 /**
  * How complete a source's read was. `truncated` comes from the backend's
@@ -32,16 +20,7 @@ export type JourneyRequest = ObjectType<typeof journeyRequestFields>;
  * is set by sources that record their own facts: `not_started` when this
  * deployment has never captured the source, otherwise the marker's time.
  */
-export const coverageValidator = v.object({
-	truncated: v.boolean(),
-	capture: v.optional(
-		v.union(
-			v.object({ kind: v.literal('started'), at: v.number() }),
-			v.object({ kind: v.literal('not_started') })
-		)
-	)
-});
-export type Coverage = Infer<typeof coverageValidator>;
+export type Coverage = typeof CoverageSchema.Type;
 
 /** Dot and title colour: plain, the payment, friction, and the cancellation. */
 export type JourneyTone = 'neutral' | 'paid' | 'problem' | 'canceled';

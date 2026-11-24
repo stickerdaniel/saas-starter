@@ -1,7 +1,14 @@
-import { v, type Infer } from 'convex/values';
+import * as Effect from 'effect/Effect';
 import { internal } from '../../../convex/_generated/api';
 import type { Doc } from '../../../convex/_generated/dataModel';
-import { internalMutation, type MutationCtx } from '../../../convex/_generated/server';
+import type { MutationCtx as ConvexMutationCtx } from '../../../convex/_generated/server';
+import { MutationCtx, Scheduler } from '../../_generated/services';
+import {
+	ErasureStepSchema,
+	type ContinuationSchema,
+	type ErasurePageArgsSchema,
+	type ErasureRunSchema
+} from './schemas';
 
 /**
  * Erase the journey facts of a deleted user, in bounded pages.
@@ -15,19 +22,12 @@ import { internalMutation, type MutationCtx } from '../../../convex/_generated/s
  * that have not left yet are cancelled.
  */
 
-const erasureStep = v.union(
-	v.literal('ledger'),
-	v.literal('receipts'),
-	v.literal('community'),
-	v.literal('support')
-);
-type ErasureStep = Infer<typeof erasureStep>;
+type ErasureStep = typeof ErasureStepSchema.Type;
 
 /** Steps run in this order. */
-const ERASURE_ORDER: ErasureStep[] = erasureStep.members.map((member) => member.value);
+const ERASURE_ORDER = ErasureStepSchema.literals;
 
-const continuation = v.object({ step: erasureStep, cursor: v.optional(v.string()) });
-type Continuation = Infer<typeof continuation>;
+type Continuation = typeof ContinuationSchema.Type;
 
 const MiB = 1024 * 1024;
 
@@ -60,15 +60,26 @@ type StepOutcome =
 	/** Work done and this step is complete. */
 	| { kind: 'finished' };
 
+const EMPTY: StepOutcome = { kind: 'empty' };
+const PROGRESS: StepOutcome = { kind: 'progress' };
+const FINISHED: StepOutcome = { kind: 'finished' };
+
+type StepEffect<A> = Effect.Effect<A, never, MutationCtx | Scheduler>;
+
 type StepDefinition = {
 	/** Whether `run` calls `.paginate`, which Convex allows once per function. */
 	paginates: boolean;
-	run(ctx: MutationCtx, userId: string, cursor: string | undefined): Promise<StepOutcome>;
+	run(userId: string, cursor: string | undefined): StepEffect<StepOutcome>;
 	/** Bounded check for whether a page of this step could find anything. */
-	probe(ctx: MutationCtx, userId: string): Promise<boolean>;
+	probe(userId: string): StepEffect<boolean>;
 };
 
-function notificationRows(ctx: MutationCtx, userId: string) {
+const withCtx = <A>(run: (ctx: ConvexMutationCtx) => Promise<A>) =>
+	MutationCtx.use((ctx) => Effect.promise(() => run(ctx)));
+
+const noProgress = Effect.die(new Error('journey_erasure_no_progress'));
+
+function notificationRows(ctx: ConvexMutationCtx, userId: string) {
 	return ctx.db.query('customerNotifications').withIndex('by_user', (q) => q.eq('userId', userId));
 }
 
@@ -76,22 +87,20 @@ function notificationRows(ctx: MutationCtx, userId: string) {
  * Cancel a ledger row's scheduled send while it is `pending`: the scheduler
  * would also mark a running send cancelled, and every other state is final.
  */
-async function cancelPendingSend(
-	ctx: MutationCtx,
-	row: Doc<'customerNotifications'>
-): Promise<void> {
-	if (!row.scheduledFnId) return;
-	const job = await ctx.db.system.get('_scheduled_functions', row.scheduledFnId);
-	if (job?.state.kind === 'pending') await ctx.scheduler.cancel(row.scheduledFnId);
-}
+const cancelPendingSend = ({ scheduledFnId }: Doc<'customerNotifications'>) =>
+	Effect.gen(function* () {
+		if (!scheduledFnId) return;
+		const job = yield* withCtx((ctx) => ctx.db.system.get('_scheduled_functions', scheduledFnId));
+		if (job?.state.kind === 'pending') yield* (yield* Scheduler).cancel(scheduledFnId);
+	});
 
-function settledMessages(ctx: MutationCtx, userId: string) {
+function settledMessages(ctx: ConvexMutationCtx, userId: string) {
 	return ctx.db
 		.query('messages')
 		.withIndex('by_user_and_settled', (q) => q.eq('userId', userId).gte('quotaSettledAt', 0));
 }
 
-function supportContacts(ctx: MutationCtx, userId: string) {
+function supportContacts(ctx: ConvexMutationCtx, userId: string) {
 	return ctx.db
 		.query('supportThreads')
 		.withIndex('by_user_and_first_user_message', (q) =>
@@ -105,122 +114,128 @@ const STEPS = {
 	// failure fails the page.
 	ledger: {
 		paginates: false,
-		async run(ctx, userId) {
-			const rows = await notificationRows(ctx, userId).take(LEDGER_PAGE.rows);
-			if (rows.length === 0) return { kind: 'empty' };
-			const erased: typeof rows = [];
-			const emailIds: string[] = [];
-			for (const [index, row] of rows.entries()) {
-				const ids = row.emailIds ?? [];
-				if (index > 0 && emailIds.length + ids.length > LEDGER_PAGE.emailIds) break;
-				erased.push(row);
-				emailIds.push(...ids);
-			}
-			if (emailIds.length > 0) {
-				await ctx.runMutation(internal.admin.customerNotifications.cancel.cancelUnsentEmails, {
-					emailIds
-				});
-			}
-			for (const row of erased) {
-				await cancelPendingSend(ctx, row);
-				await ctx.db.delete('customerNotifications', row._id);
-			}
-			return erased.length < rows.length || rows.length === LEDGER_PAGE.rows
-				? { kind: 'progress' }
-				: { kind: 'finished' };
-		},
-		async probe(ctx, userId) {
-			return (await notificationRows(ctx, userId).first()) !== null;
-		}
+		run: (userId) =>
+			Effect.gen(function* () {
+				const rows = yield* withCtx((ctx) => notificationRows(ctx, userId).take(LEDGER_PAGE.rows));
+				if (rows.length === 0) return EMPTY;
+				const erased: typeof rows = [];
+				const emailIds: string[] = [];
+				for (const [index, row] of rows.entries()) {
+					const ids = row.emailIds ?? [];
+					if (index > 0 && emailIds.length + ids.length > LEDGER_PAGE.emailIds) break;
+					erased.push(row);
+					emailIds.push(...ids);
+				}
+				if (emailIds.length > 0) {
+					yield* withCtx(async (ctx): Promise<void> => {
+						await ctx.runMutation(internal.admin.customerNotifications.cancel.cancelUnsentEmails, {
+							emailIds
+						});
+					});
+				}
+				for (const row of erased) {
+					yield* cancelPendingSend(row);
+					yield* withCtx((ctx) => ctx.db.delete('customerNotifications', row._id));
+				}
+				return erased.length < rows.length || rows.length === LEDGER_PAGE.rows
+					? PROGRESS
+					: FINISHED;
+			}),
+		probe: (userId) =>
+			withCtx(async (ctx) => (await notificationRows(ctx, userId).first()) !== null)
 	},
 	// Progress by deletion.
 	receipts: {
 		paginates: false,
-		async run(ctx, userId) {
-			const receipts = await ctx.db
-				.query('aiChatMessageReceipts')
-				.withIndex('by_user', (q) => q.eq('userId', userId))
-				.take(RECEIPTS_PER_PAGE);
-			if (receipts.length === 0) return { kind: 'empty' };
-			for (const receipt of receipts) {
-				await ctx.db.delete('aiChatMessageReceipts', receipt._id);
-			}
-			return receipts.length < RECEIPTS_PER_PAGE ? { kind: 'finished' } : { kind: 'progress' };
-		},
-		async probe(ctx, userId) {
-			const receipt = await ctx.db
-				.query('aiChatMessageReceipts')
-				.withIndex('by_user', (q) => q.eq('userId', userId))
-				.first();
-			return receipt !== null;
-		}
+		run: (userId) =>
+			Effect.gen(function* () {
+				const receipts = yield* withCtx((ctx) =>
+					ctx.db
+						.query('aiChatMessageReceipts')
+						.withIndex('by_user', (q) => q.eq('userId', userId))
+						.take(RECEIPTS_PER_PAGE)
+				);
+				if (receipts.length === 0) return EMPTY;
+				yield* withCtx(async (ctx) => {
+					for (const receipt of receipts) {
+						await ctx.db.delete('aiChatMessageReceipts', receipt._id);
+					}
+				});
+				return receipts.length < RECEIPTS_PER_PAGE ? FINISHED : PROGRESS;
+			}),
+		probe: (userId) =>
+			withCtx(async (ctx) => {
+				const receipt = await ctx.db
+					.query('aiChatMessageReceipts')
+					.withIndex('by_user', (q) => q.eq('userId', userId))
+					.first();
+				return receipt !== null;
+			})
 	},
 	// Messages stay; only their settlement marker is cleared, which moves them
 	// out of the settled range. Every page starts again from the front, so an
 	// unmarked history is never scanned and never scheduled.
 	community: {
 		paginates: true,
-		async run(ctx, userId) {
-			const page = await settledMessages(ctx, userId).paginate({
-				cursor: null,
-				...COMMUNITY_PAGE
-			});
-			if (page.page.length === 0) {
-				if (page.isDone) return { kind: 'empty' };
-				throw new Error('journey_erasure_no_progress');
-			}
-			for (const message of page.page) {
-				await ctx.db.patch('messages', message._id, { quotaSettledAt: undefined });
-			}
-			return page.isDone ? { kind: 'finished' } : { kind: 'progress' };
-		},
-		async probe(ctx, userId) {
-			return (await settledMessages(ctx, userId).first()) !== null;
-		}
+		run: (userId) =>
+			Effect.gen(function* () {
+				const page = yield* withCtx((ctx) =>
+					settledMessages(ctx, userId).paginate({ cursor: null, ...COMMUNITY_PAGE })
+				);
+				if (page.page.length === 0) {
+					if (page.isDone) return EMPTY;
+					return yield* noProgress;
+				}
+				yield* withCtx(async (ctx) => {
+					for (const message of page.page) {
+						await ctx.db.patch('messages', message._id, { quotaSettledAt: undefined });
+					}
+				});
+				return page.isDone ? FINISHED : PROGRESS;
+			}),
+		probe: (userId) => withCtx(async (ctx) => (await settledMessages(ctx, userId).first()) !== null)
 	},
 	// Threads stay; their first-contact time is cleared, which moves them out of
 	// the range. Every page starts again from the front. The byte bound makes a
 	// page of large threads shorter instead of failing it.
 	support: {
 		paginates: true,
-		async run(ctx, userId) {
-			const page = await supportContacts(ctx, userId).paginate({ cursor: null, ...SUPPORT_PAGE });
-			if (page.page.length === 0) {
-				if (page.isDone) return { kind: 'empty' };
-				// Restarting from the front would read the same nothing again.
-				throw new Error('journey_erasure_no_progress');
-			}
-			for (const thread of page.page) {
-				await ctx.db.patch('supportThreads', thread._id, { firstUserMessageAt: undefined });
-			}
-			return page.isDone ? { kind: 'finished' } : { kind: 'progress' };
-		},
-		async probe(ctx, userId) {
-			return (await supportContacts(ctx, userId).first()) !== null;
-		}
+		run: (userId) =>
+			Effect.gen(function* () {
+				const page = yield* withCtx((ctx) =>
+					supportContacts(ctx, userId).paginate({ cursor: null, ...SUPPORT_PAGE })
+				);
+				if (page.page.length === 0) {
+					if (page.isDone) return EMPTY;
+					// Restarting from the front would read the same nothing again.
+					return yield* noProgress;
+				}
+				yield* withCtx(async (ctx) => {
+					for (const thread of page.page) {
+						await ctx.db.patch('supportThreads', thread._id, { firstUserMessageAt: undefined });
+					}
+				});
+				return page.isDone ? FINISHED : PROGRESS;
+			}),
+		probe: (userId) => withCtx(async (ctx) => (await supportContacts(ctx, userId).first()) !== null)
 	}
 } satisfies Record<ErasureStep, StepDefinition>;
 
-async function nextStepWithWork(
-	ctx: MutationCtx,
-	userId: string,
-	from: number
-): Promise<Continuation | null> {
-	for (const step of ERASURE_ORDER.slice(from)) {
-		if (await STEPS[step].probe(ctx, userId)) return { step };
-	}
-	return null;
-}
+const nextStepWithWork = (userId: string, from: number) =>
+	Effect.gen(function* () {
+		for (const step of ERASURE_ORDER.slice(from)) {
+			if (yield* STEPS[step].probe(userId)) return { step };
+		}
+		return null;
+	});
 
 /**
  * One page of erasure, starting at `step`. Returns where the next page starts,
  * or null when nothing is left. Always run through `runErasurePage`, which
  * applies the page limits.
  */
-export const erasePage = internalMutation({
-	args: { userId: v.string(), step: erasureStep, cursor: v.optional(v.string()) },
-	returns: v.union(continuation, v.null()),
-	handler: async (ctx, { userId, step, cursor }) => {
+export const eraseJourneyPage = ({ userId, step, cursor }: typeof ErasurePageArgsSchema.Type) =>
+	Effect.gen(function* () {
 		const start = ERASURE_ORDER.indexOf(step);
 		let paginated = false;
 		for (const [offset, current] of ERASURE_ORDER.slice(start).entries()) {
@@ -229,21 +244,19 @@ export const erasePage = internalMutation({
 			if (definition.paginates && paginated) {
 				// A second .paginate in this function would fail, so a later page
 				// takes over, and only when this step has something to do.
-				return await nextStepWithWork(ctx, userId, index);
+				return yield* nextStepWithWork(userId, index);
 			}
-			const outcome = await definition.run(ctx, userId, offset === 0 ? cursor : undefined);
+			const outcome = yield* definition.run(userId, offset === 0 ? cursor : undefined);
 			paginated ||= definition.paginates;
 			if (outcome.kind === 'empty') continue;
-			if (outcome.kind === 'progress' && (await definition.probe(ctx, userId))) {
-				return { step: current, cursor: outcome.cursor };
+			if (outcome.kind === 'progress' && (yield* definition.probe(userId))) {
+				const next: Continuation = { step: current, cursor: outcome.cursor };
+				return next;
 			}
-			return await nextStepWithWork(ctx, userId, index + 1);
+			return yield* nextStepWithWork(userId, index + 1);
 		}
 		return null;
-	}
-});
-
-type ErasureRun = Continuation & { userId: string; attempt: number };
+	});
 
 /**
  * Run one page as a caught child transaction, then schedule what follows: the
@@ -252,7 +265,10 @@ type ErasureRun = Continuation & { userId: string; attempt: number };
  * leaves its rows in place, so rerunning `continueErasure` for the user after
  * the cause is fixed resumes it.
  */
-async function runErasurePage(ctx: MutationCtx, run: ErasureRun): Promise<void> {
+export async function runErasurePage(
+	ctx: ConvexMutationCtx,
+	run: typeof ErasureRunSchema.Type
+): Promise<void> {
 	const { userId, step, cursor, attempt } = run;
 	let next: Continuation | null;
 	try {
@@ -286,20 +302,6 @@ async function runErasurePage(ctx: MutationCtx, run: ErasureRun): Promise<void> 
  * Start erasure from the account deletion trigger. The first page is attempt
  * 1 and runs as a caught child, so its failure never blocks the deletion.
  */
-export async function startJourneyErasure(ctx: MutationCtx, userId: string): Promise<void> {
-	await runErasurePage(ctx, { userId, step: erasureStep.members[0].value, attempt: 1 });
+export async function startJourneyErasure(ctx: ConvexMutationCtx, userId: string): Promise<void> {
+	await runErasurePage(ctx, { userId, step: ERASURE_ORDER[0], attempt: 1 });
 }
-
-export const continueErasure = internalMutation({
-	args: {
-		userId: v.string(),
-		step: erasureStep,
-		cursor: v.optional(v.string()),
-		attempt: v.number()
-	},
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		await runErasurePage(ctx, args);
-		return null;
-	}
-});

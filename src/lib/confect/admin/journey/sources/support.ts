@@ -1,16 +1,14 @@
-import { v, type Infer } from 'convex/values';
 import { internal } from '../../../../convex/_generated/api';
-import { internalQuery } from '../../../../convex/_generated/server';
 import { t } from '../../../i18n/translations';
 import { createClock, formatCount } from '../format';
+import type { SupportFactsSchema } from '../schemas';
 import {
-	coverageValidator,
 	defineJourneySource,
-	journeyRequestFields,
+	type JourneyRequest,
 	type JourneySource,
 	type JourneyStep
 } from '../source';
-import { readCapture } from './partitions';
+import { readCapture, withQuery } from './partitions';
 
 /**
  * First recorded support contacts: support threads whose owner first wrote
@@ -41,17 +39,10 @@ const COPY = {
 	}
 } as const;
 
-const supportFactsValidator = v.object({
-	coverage: coverageValidator,
-	/** First-contact times of the checked threads, earliest first. */
-	contacts: v.array(v.number())
-});
-type SupportFacts = Infer<typeof supportFactsValidator>;
+type SupportFacts = typeof SupportFactsSchema.Type;
 
-export const read = internalQuery({
-	args: journeyRequestFields,
-	returns: supportFactsValidator,
-	handler: async (ctx, { userId, window }): Promise<SupportFacts> => {
+export const readSupport = ({ userId, window }: JourneyRequest) =>
+	withQuery(async (ctx): Promise<SupportFacts> => {
 		const capture = await readCapture(ctx, 'support');
 		if (capture.kind === 'not_started') {
 			return { coverage: { truncated: false, capture }, contacts: [] };
@@ -73,8 +64,7 @@ export const read = internalQuery({
 				.slice(0, THREADS_CHECKED)
 				.flatMap(({ firstUserMessageAt: at }) => (at === undefined ? [] : [at]))
 		};
-	}
-});
+	});
 
 export const supportSource: JourneySource<'support'> = defineJourneySource({
 	id: 'support',

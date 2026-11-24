@@ -1,6 +1,19 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { continueErasure, erasePage } from './erasure';
+import * as Schema from 'effect/Schema';
+import { ContinuationSchema, ErasurePageArgsSchema, ErasureRunSchema } from './schemas';
 
 export default GroupSpec.make()
-	.addFunction(FunctionSpec.convexInternalMutation<typeof continueErasure>()('continueErasure'))
-	.addFunction(FunctionSpec.convexInternalMutation<typeof erasePage>()('erasePage'));
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'continueErasure',
+			args: () => ErasureRunSchema.fields,
+			returns: () => Schema.Null
+		})
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'erasePage',
+			args: () => ErasurePageArgsSchema.fields,
+			returns: () => Schema.Union([ContinuationSchema, Schema.Null])
+		})
+	);
