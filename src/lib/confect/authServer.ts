@@ -435,7 +435,7 @@ function isTestEmailRequest(body: unknown): boolean {
 
 // Better Auth options for the adapter and the betterAuth CLI. `satisfies`
 // instead of a return annotation keeps the concrete plugin types in createAuth.
-// admin/mutations.ts calls plugin endpoints such as auth.api.banUser in-process,
+// admin/mutations.impl.ts calls plugin endpoints such as auth.api.banUser in-process,
 // which a plain BetterAuthOptions erases.
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 	return {
@@ -443,7 +443,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 		trustedOrigins: buildTrustedOrigins(),
 		secret: requireEnv('BETTER_AUTH_SECRET', { feature: 'Better Auth session signing' }),
 		// Admin actions must go through the custom mutations in
-		// admin/mutations.ts (atomic audit log + guards). Disabling the raw
+		// admin/mutations.impl.ts (atomic audit log + guards). Disabling the raw
 		// HTTP endpoints closes the unguarded path; in-process auth.api calls
 		// from those mutations are unaffected. See admin/adminHttpPaths.ts.
 		disabledPaths: [...DISABLED_ADMIN_PATHS],
