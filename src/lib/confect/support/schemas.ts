@@ -1,5 +1,8 @@
+import type { Agent } from '@convex-dev/agent';
 import * as Schema from 'effect/Schema';
 import { Id } from '../_generated/id';
+import type { MessagesQueryResponse } from '../../chat/core/types';
+import { StreamArgs } from '../schemas/agent';
 import { PaginationOpts } from '../schemas/pagination';
 
 export const SupportOwnerArgsSchema = Schema.Struct({
@@ -210,3 +213,65 @@ export const UnansweredTurnSchema = Schema.Struct({
 	errorName: Schema.optional(TurnErrorNameSchema),
 	status: Schema.optional(Schema.Number)
 });
+
+export const SendMessageArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	prompt: Schema.String,
+	anonymousUserId: Schema.optional(Schema.String),
+	fileIds: Schema.optional(Schema.mutable(Schema.Array(Schema.String))),
+	pageUrl: Schema.optional(Schema.String),
+	appVersion: Schema.optional(Schema.String)
+});
+
+export const SentMessageSchema = Schema.Struct({ messageId: Schema.String });
+
+export const AIResponseArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	promptMessageId: Schema.String,
+	userId: Schema.optional(Schema.String)
+});
+
+export const TurnArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	promptMessageId: Schema.String
+});
+
+export const TurnOutcomeSchema = Schema.Struct({
+	handedOff: Schema.Boolean,
+	answered: Schema.Boolean,
+	visibleText: Schema.Boolean
+});
+
+export const TurnWatchArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	promptMessageId: Schema.String,
+	jobId: Id('_scheduled_functions'),
+	checksLeft: Schema.Number
+});
+
+export const VisitorMessageListArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	anonymousUserId: Schema.optional(Schema.String),
+	paginationOpts: PaginationOpts,
+	streamArgs: Schema.optionalKey(StreamArgs)
+});
+
+export const VisitorMessageListSchema: Schema.Codec<MessagesQueryResponse> = Schema.Any;
+
+export const AssistantMessageArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	text: Schema.String
+});
+
+export const SavedAssistantMessageSchema: Schema.Codec<Awaited<
+	ReturnType<Agent['saveMessage']>
+> | null> = Schema.Any;
+
+export const FileMetadataBatchArgsSchema = Schema.Struct({
+	urls: Schema.mutable(Schema.Array(Schema.String))
+});
+
+export const FileMetadataBatchSchema = Schema.Record(
+	Schema.String,
+	Schema.Struct({ width: Schema.optional(Schema.Number), height: Schema.optional(Schema.Number) })
+);

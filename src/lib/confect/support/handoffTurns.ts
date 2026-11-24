@@ -2,7 +2,7 @@ import type { MutationCtx } from '../../convex/_generated/server';
 import type { Doc } from '../../convex/_generated/dataModel';
 import type { PaginationResult } from 'convex/server';
 import type { MessageDoc } from '@convex-dev/agent/validators';
-import { components, internal } from '../../convex/_generated/api';
+import { components } from '../../convex/_generated/api';
 import { syncSupportLastMessage } from './threadLifecycle';
 import { supportAgent } from './agent';
 import { extractLocaleFromUrl, t } from '../i18n/translations';
@@ -11,34 +11,6 @@ import type { TurnErrorNameSchema, UnansweredTurnSchema } from './schemas';
 export type TurnErrorName = typeof TurnErrorNameSchema.Type;
 
 export type UnansweredTurn = typeof UnansweredTurnSchema.Type;
-
-/**
- * Settle a support agent turn that ended without a reply, and log what it took.
- *
- * Called by createAIResponse through settleUnansweredTurn, and directly by its
- * watchdog (ensureSupportTurnSettled) inside its own transaction, so both
- * callers share one outcome:
- * - A thread still with the agent is handed to the team with the
- *   acknowledgement, and logged as an error. Only the call that flips the
- *   thread logs, so one turn is not logged twice.
- * - A thread already handed off was told to the team by whoever flipped it,
- *   typically the agent's request_handoff with the model then saying nothing.
- *   Only the visitor's acknowledgement can be missing; it is written once and
- *   logged as a warning.
- */
-export async function settleUnanswered(ctx: MutationCtx, turn: UnansweredTurn): Promise<void> {
-	const supportThread = await findSupportThread(ctx, turn.threadId);
-	if (!supportThread) return;
-
-	if (await handOffThread(ctx, supportThread, { acknowledge: true })) {
-		console.error({ code: 'support_turn_unanswered', ...turnLogFields(turn) });
-		return;
-	}
-
-	if (await acknowledgeUnrepliedTurn(ctx, supportThread, turn.promptMessageId)) {
-		console.warn({ code: 'support_turn_handoff_without_reply', ...turnLogFields(turn) });
-	}
-}
 
 /**
  * Rows read per page when checking for a reply since the prompt: a turn's own
@@ -62,7 +34,7 @@ const REPLY_LOOKBACK_PAGES = 10;
  * from a second tab, and does not count. Reads back page by page until it
  * passes the prompt's order. Returns whether it wrote the acknowledgement.
  */
-async function acknowledgeUnrepliedTurn(
+export async function acknowledgeUnrepliedTurn(
 	ctx: MutationCtx,
 	supportThread: Doc<'supportThreads'>,
 	promptMessageId: string
@@ -129,56 +101,16 @@ export async function findSupportThread(
 		.first();
 }
 
-/**
- * Flip a thread to the team: latch the flag, sync the admin preview, optionally
- * acknowledge the visitor, and announce it as a new ticket. Returns whether this
- * call flipped it; a thread already handed off is left untouched.
- */
-export async function handOffThread(
+export async function markHandedOff(
 	ctx: MutationCtx,
-	supportThread: Doc<'supportThreads'>,
-	options: { acknowledge: boolean }
-): Promise<boolean> {
-	if (supportThread.isHandedOff) return false;
-
-	const { threadId } = supportThread;
-
-	// Mark as handed off - user is waiting for admin response
+	supportThread: Doc<'supportThreads'>
+): Promise<void> {
 	await ctx.db.patch('supportThreads', supportThread._id, {
 		isHandedOff: true,
 		awaitingAdminResponse: true,
 		updatedAt: Date.now()
 	});
-
-	// Keep denormalized search fields in sync
-	await syncSupportLastMessage(ctx, threadId);
-
-	// Notify admins that a human needs to pick up this thread (same path as the
-	// widget handoff button). A handoff with no prior user messages still
-	// schedules the notification; the email renders a no-messages fallback.
-	//
-	// Read before any acknowledgement is written: the query keeps the newest
-	// 50 entries of any role and filters afterwards, so the canned sentence
-	// would take a slot and could push the oldest report out of the window.
-	const recentMessageIds = await ctx.runQuery(
-		internal.admin.support.notifications.getRecentUserMessages,
-		{ threadId }
-	);
-
-	// After the sync, so the admin list preview and its search index keep the
-	// visitor's own message rather than this canned sentence.
-	if (options.acknowledge) {
-		await saveHandoffAcknowledgement(ctx, supportThread);
-	}
-
-	await ctx.scheduler.runAfter(0, internal.admin.support.notifications.scheduleAdminNotification, {
-		threadId,
-		messageIds: recentMessageIds,
-		isReopen: false,
-		notificationType: 'newTickets' // Handoff from AI to human
-	});
-
-	return true;
+	await syncSupportLastMessage(ctx, supportThread.threadId);
 }
 
 /** The canned sentence telling the visitor the team has their message. */
@@ -186,7 +118,7 @@ function handoffAcknowledgement(supportThread: Doc<'supportThreads'>): string {
 	return t(extractLocaleFromUrl(supportThread.pageUrl), 'backend.support.handoff.response');
 }
 
-async function saveHandoffAcknowledgement(
+export async function saveHandoffAcknowledgement(
 	ctx: MutationCtx,
 	supportThread: Doc<'supportThreads'>
 ): Promise<void> {

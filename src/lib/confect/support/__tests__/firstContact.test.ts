@@ -74,7 +74,7 @@ import {
 	getOrCreateWarmThread,
 	updateThreadHandoff
 } from '../../../convex/support/threads';
-import { createAssistantMessage, sendMessage } from '../messages';
+import { createAssistantMessage, sendMessage } from '../../../convex/support/messages';
 import { internalSetHandoff } from '../../../convex/support/handoff';
 import { migrateAnonymousTickets } from '../../../convex/support/migration';
 import { sendAdminReply } from '../../../convex/admin/support/mutations';

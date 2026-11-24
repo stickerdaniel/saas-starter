@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "fe45a1a8a439ed0e",
+	"digest": "ea5c0b1f6bd1b1f7",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -231,13 +231,13 @@
 			"settleUnansweredTurn": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"support/messages": {
-			"createAIResponse": ["internal", "action", "Convex", "Convex"],
-			"createAssistantMessage": ["internal", "mutation", "Convex", "Convex"],
-			"ensureSupportTurnSettled": ["internal", "mutation", "Convex", "Convex"],
-			"getFileMetadataBatch": ["public", "query", "Convex", "Convex"],
-			"getTurnOutcome": ["internal", "query", "Convex", "Convex"],
-			"listMessages": ["public", "query", "Convex", "Convex"],
-			"sendMessage": ["public", "mutation", "Convex", "Convex"]
+			"createAIResponse": ["internal", "action", "Convex", "Confect"],
+			"createAssistantMessage": ["internal", "mutation", "Convex", "Confect"],
+			"ensureSupportTurnSettled": ["internal", "mutation", "Convex", "Confect"],
+			"getFileMetadataBatch": ["public", "query", "Convex", "Confect"],
+			"getTurnOutcome": ["internal", "query", "Convex", "Confect"],
+			"listMessages": ["public", "query", "Convex", "Confect"],
+			"sendMessage": ["public", "mutation", "Convex", "Confect"]
 		},
 		"support/migration": { "migrateAnonymousTickets": ["public", "mutation", "Convex", "Confect"] },
 		"support/promptStore": {
