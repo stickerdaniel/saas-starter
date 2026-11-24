@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "194fe8804826db99",
+	"digest": "3d2737c96a639eee",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -239,14 +239,14 @@
 			"listMessages": ["public", "query", "Convex", "Convex"],
 			"sendMessage": ["public", "mutation", "Convex", "Convex"]
 		},
-		"support/migration": { "migrateAnonymousTickets": ["public", "mutation", "Convex", "Convex"] },
+		"support/migration": { "migrateAnonymousTickets": ["public", "mutation", "Convex", "Confect"] },
 		"support/promptStore": {
-			"getActive": ["internal", "query", "Convex", "Convex"],
-			"savePrompt": ["internal", "mutation", "Convex", "Convex"],
-			"setActive": ["internal", "mutation", "Convex", "Convex"]
+			"getActive": ["internal", "query", "Convex", "Confect"],
+			"savePrompt": ["internal", "mutation", "Convex", "Confect"],
+			"setActive": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"support/rateLimitAlerts": {
-			"sampleAnonymousRateLimits": ["internal", "mutation", "Convex", "Convex"]
+			"sampleAnonymousRateLimits": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"support/readState": {
 			"hasUnreadAdminReply": ["public", "query", "Convex", "Confect"],

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../authServer', () => ({
 	authComponent: {
-		getAuthUser: vi.fn(),
+		safeGetAuthUser: vi.fn(),
 		getAnyUserById: vi.fn()
 	}
 }));
@@ -39,10 +39,10 @@ vi.mock('../../../convex/_generated/api', () => ({
 
 import { authComponent } from '../../authServer';
 import { supportAgent } from '../agent';
-import { migrateAnonymousTickets } from '../migration';
+import { migrateAnonymousTickets } from '../../../convex/support/migration';
 import { backfillThreadMetadata, syncUserProfile } from '../threads';
 
-const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
+const safeGetAuthUserMock = authComponent.safeGetAuthUser as unknown as ReturnType<typeof vi.fn>;
 const getAnyUserByIdMock = authComponent.getAnyUserById as unknown as ReturnType<typeof vi.fn>;
 const updateThreadMetadataMock = supportAgent.updateThreadMetadata as unknown as ReturnType<
 	typeof vi.fn
@@ -355,7 +355,7 @@ describe('support maintenance helpers', () => {
 	});
 
 	it('migrates only supportThreads for an anonymous user', async () => {
-		getAuthUserMock.mockResolvedValue({
+		safeGetAuthUserMock.mockResolvedValue({
 			_id: 'user_1',
 			name: 'Ada',
 			email: 'ada@example.com'
