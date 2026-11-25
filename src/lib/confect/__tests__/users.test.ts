@@ -199,7 +199,7 @@ describe('setPassword', { timeout: 30_000 }, () => {
 	it.each([
 		['a weak password', 'short', 'PASSWORD_TOO_WEAK'],
 		['an overlong password', `Aa1${'x'.repeat(300)}`, 'PASSWORD_TOO_LONG']
-	])('rejects %s before the limit and writes nothing', async (_name, newPassword, code) => {
+	])('rejects %s without writing or spending the limit', async (_name, newPassword, code) => {
 		const t = harness();
 		const { caller, userId } = await signIn(t, 'weak@example.com');
 		for (let i = 0; i <= SET_PASSWORD_ATTEMPTS_PER_HOUR; i++) {
@@ -209,6 +209,16 @@ describe('setPassword', { timeout: 30_000 }, () => {
 			});
 		}
 		expect(await accounts(t, userId)).toEqual([]);
+
+		rejectSetPassword('PASSWORD_TOO_SHORT');
+		for (let i = 0; i < SET_PASSWORD_ATTEMPTS_PER_HOUR; i++) {
+			await expect(
+				caller.mutation(api.users.setPassword, { newPassword: STRONG_PASSWORD })
+			).resolves.toEqual({ ok: false, code: 'PASSWORD_TOO_SHORT' });
+		}
+		await expect(
+			caller.mutation(api.users.setPassword, { newPassword: STRONG_PASSWORD })
+		).resolves.toEqual({ ok: false, code: 'RATE_LIMITED', retryAfter: expect.any(Number) });
 	});
 
 	it('refuses a stale session and an impersonation session', async () => {

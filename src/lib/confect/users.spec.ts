@@ -1,7 +1,7 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
 import * as Schema from 'effect/Schema';
 import RequireUser from './middleware/RequireUser.spec';
-import { BetterAuthUserSchema } from './schemas/betterAuth';
+import { BetterAuthUserId, BetterAuthUserSchema } from './schemas/betterAuth';
 
 export default GroupSpec.make()
 	.addFunction(
@@ -43,7 +43,7 @@ export default GroupSpec.make()
 			args: () => ({}),
 			returns: () =>
 				Schema.Struct({
-					_id: Schema.String,
+					_id: BetterAuthUserId,
 					_creationTime: Schema.Number,
 					...BetterAuthUserSchema.fields
 				})

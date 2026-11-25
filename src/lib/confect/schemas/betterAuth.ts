@@ -1,4 +1,10 @@
+import type { GenericId } from 'convex/values';
 import * as Schema from 'effect/Schema';
+
+export const BetterAuthUserId = Schema.String.pipe(
+	Schema.refine((_value: string): _value is GenericId<'user'> => true),
+	Schema.toType
+);
 
 const optionalNullable = <S extends Schema.Top>(schema: S) =>
 	Schema.optional(Schema.Union([Schema.Null, schema]));
