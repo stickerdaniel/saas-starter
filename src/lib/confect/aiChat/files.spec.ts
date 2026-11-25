@@ -6,9 +6,9 @@ import {
 	AttachmentTextArgsSchema,
 	AttachmentTextSchema,
 	RegisteredUploadSchema,
-	UploadRegistrationArgsSchema,
-	UploadUrlSchema
+	UploadRegistrationArgsSchema
 } from './schemas';
+import { UploadUrlSchema } from '../files/schemas';
 
 export default GroupSpec.make()
 	.addFunction(

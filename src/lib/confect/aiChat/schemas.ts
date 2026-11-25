@@ -58,14 +58,6 @@ export const MetadataBackfillSchema = Schema.Struct({
 	total: Schema.Number
 });
 
-export const UploadUrlSchema = Schema.Struct({
-	uploadUrl: Schema.String,
-	uploadToken: Schema.String,
-	uploadTokenExpiresAt: Schema.Number,
-	storageProvider: Schema.Literals(['convex', 'r2']),
-	storageId: Schema.NullOr(Schema.String)
-});
-
 export const UploadRegistrationArgsSchema = Schema.Struct({
 	storageId: Id('_storage'),
 	uploadToken: Schema.String,

@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "6e7c03195b046bd7",
+	"digest": "3e912e4592fb45c1",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -204,21 +204,21 @@
 			"sendResetPasswordEmail": ["internal", "mutation", "Convex", "Confect"],
 			"sendVerificationEmail": ["internal", "mutation", "Convex", "Confect"]
 		},
-		"files/cleanup": { "cleanupExpiredFiles": ["internal", "mutation", "Convex", "Convex"] },
-		"files/metadata": { "storeFileMetadata": ["internal", "mutation", "Convex", "Convex"] },
-		"files/vacuum": { "deleteUnusedFiles": ["internal", "mutation", "Convex", "Convex"] },
+		"files/cleanup": { "cleanupExpiredFiles": ["internal", "mutation", "Convex", "Confect"] },
+		"files/metadata": { "storeFileMetadata": ["internal", "mutation", "Convex", "Confect"] },
+		"files/vacuum": { "deleteUnusedFiles": ["internal", "mutation", "Convex", "Confect"] },
 		"localDev": { "ensureSeededAdmin": ["internal", "mutation", "Convex", "Confect"] },
 		"messages": {
-			"enforceAndTrackMessageUsage": ["internal", "action", "Convex", "Convex"],
-			"list": ["public", "query", "Convex", "Convex"],
-			"markMessageSettled": ["internal", "mutation", "Convex", "Convex"],
-			"removeMessage": ["internal", "mutation", "Convex", "Convex"],
-			"send": ["public", "mutation", "Convex", "Convex"]
+			"enforceAndTrackMessageUsage": ["internal", "action", "Convex", "Confect"],
+			"list": ["public", "query", "Convex", "Confect"],
+			"markMessageSettled": ["internal", "mutation", "Convex", "Confect"],
+			"removeMessage": ["internal", "mutation", "Convex", "Confect"],
+			"send": ["public", "mutation", "Convex", "Confect"]
 		},
 		"previewDev": { "ensurePreviewAdmin": ["internal", "mutation", "Convex", "Confect"] },
 		"storage": {
-			"generateUploadUrl": ["public", "mutation", "Convex", "Convex"],
-			"updateProfileImage": ["public", "mutation", "Convex", "Convex"]
+			"generateUploadUrl": ["public", "mutation", "Convex", "Confect"],
+			"updateProfileImage": ["public", "mutation", "Convex", "Confect"]
 		},
 		"support/files": {
 			"checkPreviewAccess": ["internal", "mutation", "Convex", "Confect"],

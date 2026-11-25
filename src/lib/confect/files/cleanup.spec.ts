@@ -1,6 +1,10 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { cleanupExpiredFiles } from './cleanup';
+import * as Schema from 'effect/Schema';
 
 export default GroupSpec.make().addFunction(
-	FunctionSpec.convexInternalMutation<typeof cleanupExpiredFiles>()('cleanupExpiredFiles')
+	FunctionSpec.internalMutation({
+		name: 'cleanupExpiredFiles',
+		args: () => ({ limit: Schema.optional(Schema.Number) }),
+		returns: () => Schema.Struct({ deletedCount: Schema.Number, hasMore: Schema.Boolean })
+	})
 );

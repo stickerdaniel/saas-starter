@@ -1,146 +1,109 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+// @vitest-environment node
+/// <reference types="vite/client" />
+import { convexTest } from 'convex-test';
+import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { components, internal } from '../../../convex/_generated/api';
+import schema from '../../../convex/schema';
+import { convexModules, preloadModules } from '../../convexTest.modules';
 
-vi.mock('../../../convex/_generated/api', () => ({
-	components: {
-		agent: {
-			files: {
-				getFilesToDelete: 'components.agent.files.getFilesToDelete',
-				deleteFiles: 'components.agent.files.deleteFiles'
-			}
-		}
-	},
-	internal: {
-		files: {
-			vacuum: {
-				deleteUnusedFiles: 'internal.files.vacuum.deleteUnusedFiles'
-			}
-		}
-	}
-}));
-
-import { deleteUnusedFiles } from '../vacuum';
-
-type MutationHandler<TArgs, TResult> = {
-	_handler: (ctx: unknown, args: TArgs) => Promise<TResult>;
-};
-
-const deleteUnusedFilesHandler = deleteUnusedFiles as unknown as MutationHandler<
-	{ cursor?: string },
-	void
->;
+const agentModules = await preloadModules(
+	import.meta.glob('../../../../../node_modules/@convex-dev/agent/dist/component/**/*.js')
+);
 
 const DAY_MS = 1000 * 60 * 60 * 24;
+const START = Date.UTC(2026, 9, 8, 12);
+const PAGE_SIZE = 100;
 
-type MetadataRow = { _id: string; storageId: string };
+const harness = () => {
+	const t = convexTest(schema, convexModules);
+	t.registerComponent('agent', agentSchema, agentModules);
+	return t;
+};
+type Harness = ReturnType<typeof harness>;
 
-function createCtx(options: {
-	page: Array<{ _id: string; storageId: string; lastTouchedAt: number }>;
-	isDone?: boolean;
-	metadataRows?: MetadataRow[];
-}) {
-	const metadataRows = options.metadataRows ?? [];
-	const deletedMetadataIds: string[] = [];
-
-	const ctx = {
-		runQuery: vi.fn().mockResolvedValue({
-			page: options.page,
-			isDone: options.isDone ?? true,
-			continueCursor: 'cursor_1'
-		}),
-		runMutation: vi.fn().mockResolvedValue(undefined),
-		storage: { delete: vi.fn().mockResolvedValue(undefined) },
-		scheduler: { runAfter: vi.fn().mockResolvedValue(undefined) },
-		db: {
-			query: vi.fn(() => ({
-				withIndex: vi.fn(
-					(
-						_name: string,
-						cb: (q: { eq: (field: string, value: string) => unknown }) => unknown
-					) => {
-						let requestedStorageId = '';
-						cb({
-							eq: (_field, value) => {
-								requestedStorageId = value;
-								return {};
-							}
-						});
-						return {
-							collect: vi
-								.fn()
-								.mockResolvedValue(
-									metadataRows.filter((row) => row.storageId === requestedStorageId)
-								)
-						};
-					}
-				)
-			})),
-			delete: vi.fn(async (_table: string, id: string) => {
-				deletedMetadataIds.push(id);
-			})
-		}
-	};
-
-	return { ctx, deletedMetadataIds };
+async function addAgentFile(t: Harness, hash: string) {
+	const storageId = await t.run(async (ctx) => await ctx.storage.store(new Blob([hash])));
+	await t.mutation(components.agent.files.addFile, { storageId, hash, filename: `${hash}.png` });
+	return storageId;
 }
 
+const addMetadata = (t: Harness, storageId: string, url: string) =>
+	t.run(
+		async (ctx) =>
+			await ctx.db.insert('fileMetadata', {
+				fileId: `file-${url}`,
+				storageId,
+				url,
+				width: 1,
+				height: 1,
+				createdAt: Date.now()
+			})
+	);
+
+const metadataStorageIds = (t: Harness) =>
+	t.run(async (ctx) => (await ctx.db.query('fileMetadata').take(10)).map((row) => row.storageId));
+
+const storedBlob = (t: Harness, storageId: string) =>
+	t.run(async (ctx) => await ctx.db.system.get(storageId as never));
+
+const scheduled = (t: Harness) =>
+	t.run(async (ctx) => await ctx.db.system.query('_scheduled_functions').take(10));
+
+const vacuum = (t: Harness) => t.mutation(internal.files.vacuum.deleteUnusedFiles, {});
+
+beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(START);
+});
+
+afterEach(() => {
+	vi.useRealTimers();
+});
+
 describe('files vacuum', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-	});
-
 	it('cascade-deletes fileMetadata rows for vacuumed files', async () => {
-		const staleFile = {
-			_id: 'agent_file_1',
-			storageId: 'storage_1',
-			lastTouchedAt: Date.now() - 2 * DAY_MS
-		};
-		const { ctx, deletedMetadataIds } = createCtx({
-			page: [staleFile],
-			metadataRows: [
-				{ _id: 'meta_1', storageId: 'storage_1' },
-				{ _id: 'meta_2', storageId: 'storage_1' },
-				{ _id: 'meta_other', storageId: 'storage_other' }
-			]
-		});
+		const t = harness();
+		const stale = await addAgentFile(t, 'stale');
+		await addMetadata(t, stale, 'https://files.test/stale-1');
+		await addMetadata(t, stale, 'https://files.test/stale-2');
+		await addMetadata(t, 'storage_other', 'https://files.test/other');
+		vi.setSystemTime(START + 2 * DAY_MS);
 
-		await deleteUnusedFilesHandler._handler(ctx, {});
+		await vacuum(t);
 
-		expect(ctx.storage.delete).toHaveBeenCalledWith('storage_1');
-		expect(deletedMetadataIds).toEqual(['meta_1', 'meta_2']);
-		expect(ctx.runMutation).toHaveBeenCalledWith('components.agent.files.deleteFiles', {
-			fileIds: ['agent_file_1']
+		expect(await storedBlob(t, stale)).toBeNull();
+		expect(await metadataStorageIds(t)).toEqual(['storage_other']);
+		const remaining = await t.query(components.agent.files.getFilesToDelete, {
+			paginationOpts: { cursor: null, numItems: 10 }
 		});
+		expect(remaining.page).toEqual([]);
+		expect(await scheduled(t)).toEqual([]);
 	});
 
 	it('keeps fileMetadata for recently touched files', async () => {
-		const freshFile = {
-			_id: 'agent_file_1',
-			storageId: 'storage_1',
-			lastTouchedAt: Date.now()
-		};
-		const { ctx, deletedMetadataIds } = createCtx({
-			page: [freshFile],
-			metadataRows: [{ _id: 'meta_1', storageId: 'storage_1' }]
-		});
+		const t = harness();
+		const fresh = await addAgentFile(t, 'fresh');
+		await addMetadata(t, fresh, 'https://files.test/fresh');
 
-		await deleteUnusedFilesHandler._handler(ctx, {});
+		await vacuum(t);
 
-		expect(ctx.storage.delete).not.toHaveBeenCalled();
-		expect(deletedMetadataIds).toEqual([]);
-		expect(ctx.runMutation).toHaveBeenCalledWith('components.agent.files.deleteFiles', {
-			fileIds: []
-		});
+		expect(await storedBlob(t, fresh)).not.toBeNull();
+		expect(await metadataStorageIds(t)).toEqual([fresh]);
 	});
 
 	it('schedules a continuation when pagination is not done', async () => {
-		const { ctx } = createCtx({ page: [], isDone: false });
+		const t = harness();
+		for (let i = 0; i <= PAGE_SIZE; i++) await addAgentFile(t, `stale-${i}`);
+		vi.setSystemTime(START + 2 * DAY_MS);
 
-		await deleteUnusedFilesHandler._handler(ctx, {});
+		await vacuum(t);
 
-		expect(ctx.scheduler.runAfter).toHaveBeenCalledWith(
-			0,
-			'internal.files.vacuum.deleteUnusedFiles',
-			{ cursor: 'cursor_1' }
-		);
+		expect(await scheduled(t)).toEqual([
+			expect.objectContaining({
+				name: 'files/vacuum:deleteUnusedFiles',
+				args: [{ cursor: expect.any(String) }]
+			})
+		]);
 	});
 });
