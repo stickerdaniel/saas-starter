@@ -1,4 +1,4 @@
-import type { CaptureResult } from 'posthog-js';
+import type { CaptureResult } from 'posthog-js/dist/module.slim';
 import { describe, expect, it } from 'vitest';
 import { sanitizeCaptureResult, sanitizeUrl, type SanitizeContext } from './sanitize';
 

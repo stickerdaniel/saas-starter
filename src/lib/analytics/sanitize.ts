@@ -1,4 +1,4 @@
-import type { CaptureResult, Properties } from 'posthog-js';
+import type { CaptureResult, Properties } from 'posthog-js/dist/module.slim';
 import { reportedPath } from './routes';
 
 /**

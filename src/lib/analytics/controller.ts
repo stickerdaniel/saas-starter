@@ -1,4 +1,4 @@
-import type { CaptureResult, PostHog, Properties } from 'posthog-js';
+import type { CaptureResult, PostHog, Properties } from 'posthog-js/dist/module.slim';
 import type { AnalyticsConfig } from './config';
 import {
 	createGrantId,
