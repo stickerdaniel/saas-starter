@@ -490,7 +490,7 @@ export default defineConfig(async ({ command, mode }) => {
 
 	return {
 		cacheDir: isolatedCacheDir,
-		...(devtoolsEnabled && { devtools: { apply: 'serve' as const } }),
+		...(devtoolsEnabled && { devtools: { apply: 'serve' as const, mcp: false } }),
 		plugins,
 		worker: {
 			plugins: () => [licenses.workerPlugin()]
