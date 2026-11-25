@@ -1,5 +1,7 @@
 import * as Schema from 'effect/Schema';
 import { Id } from '../_generated/id';
+import { StreamArgs } from '../schemas/agent';
+import { PaginationOpts } from '../schemas/pagination';
 
 export const MigrationStartArgsSchema = Schema.Struct({ restart: Schema.optional(Schema.Boolean) });
 
@@ -92,3 +94,32 @@ export const AttachmentTextSchema = Schema.Struct({
 	text: Schema.String,
 	truncated: Schema.Boolean
 });
+
+export const SendMessageArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	prompt: Schema.String,
+	fileIds: Schema.optional(Schema.mutable(Schema.Array(Schema.String)))
+});
+
+export const SentMessageSchema = Schema.Struct({ messageId: Schema.String, order: Schema.Number });
+
+export const AIResponseArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	promptMessageId: Schema.String,
+	userId: Schema.optional(Schema.String)
+});
+
+export const MessageListArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	paginationOpts: PaginationOpts,
+	streamArgs: Schema.optionalKey(StreamArgs)
+});
+
+export const FileMetadataBatchArgsSchema = Schema.Struct({
+	urls: Schema.mutable(Schema.Array(Schema.String))
+});
+
+export const FileMetadataBatchSchema = Schema.Record(
+	Schema.String,
+	Schema.Struct({ width: Schema.optional(Schema.Number), height: Schema.optional(Schema.Number) })
+);

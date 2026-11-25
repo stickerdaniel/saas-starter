@@ -1,8 +1,10 @@
 import { FunctionImpl, GroupImpl } from '@confect/server';
+import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import refs from '../_generated/refs';
 import databaseSchema from '../_generated/schema';
-import { MutationCtx } from '../_generated/services';
+import { MutationCtx, Scheduler } from '../_generated/services';
 import { costOf } from '../pricing/prices';
 import { sumOptional } from './capture';
 import record from './record.spec';
@@ -80,6 +82,23 @@ const usageRow = (args: typeof UsageEventArgsSchema.Type, at: number) => {
 		at
 	};
 };
+
+export const recordAiUsage = (args: typeof UsageEventArgsSchema.Type) =>
+	args.models.length === 0
+		? Effect.void
+		: Effect.gen(function* () {
+				yield* (yield* Scheduler).runAfter(
+					Duration.zero,
+					refs.internal.aiUsage.record.insert,
+					args
+				);
+			}).pipe(
+				Effect.catchCause(() =>
+					Effect.sync(() => {
+						console.error({ code: 'ai_usage_record_failed', feature: args.feature });
+					})
+				)
+			);
 
 export default GroupImpl.make(databaseSchema, record).pipe(
 	Layer.provide([

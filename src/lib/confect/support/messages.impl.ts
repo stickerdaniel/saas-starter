@@ -29,7 +29,7 @@ import {
 } from '../_generated/services';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { mergeByModel, type CapturedModelUsage } from '../aiUsage/capture';
-import { recordAiUsage } from '../aiUsage/record';
+import { recordAiUsage } from '../aiUsage/record.impl';
 import { MAX_MESSAGE_LENGTH } from '../constants';
 import {
 	CapabilityConfigurationError,
@@ -191,15 +191,14 @@ const runTurn = (ctx: ConvexActionCtx, turn: SupportTurn, instructions: string |
 		}
 	});
 
-async function recordTurnUsage(ctx: ConvexActionCtx, turn: SupportTurn, run: TurnRun) {
-	await recordAiUsage(ctx, {
+const recordTurnUsage = (turn: SupportTurn, run: TurnRun) =>
+	recordAiUsage({
 		feature: 'support_chat',
 		userId: turn.userId,
 		threadId: turn.threadId,
 		status: run.outcome.answered ? 'ok' : run.outcome.visibleText ? 'partial' : 'error',
 		models: mergeByModel(run.attempts.flatMap((attempt) => attempt.models))
 	});
-}
 
 const unansweredReason = (run: TurnRun) =>
 	run.outcome.handedOff
@@ -365,7 +364,7 @@ export default GroupImpl.make(databaseSchema, messages).pipe(
 				const [firstAttempt] = run.attempts;
 				if (!firstAttempt) return null;
 
-				yield* Effect.promise(() => recordTurnUsage(ctx, args, run));
+				yield* recordTurnUsage(args, run);
 
 				if (hasReplied(run.outcome)) {
 					yield* (yield* MutationRunner)

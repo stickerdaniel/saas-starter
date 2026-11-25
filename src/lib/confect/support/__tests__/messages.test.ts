@@ -54,9 +54,10 @@ vi.mock('../../aiUsage/agentUsage', () => ({
 	makeAgentUsageSink: vi.fn(() => ({ usageHandler: vi.fn(), collect: () => [] }))
 }));
 
-vi.mock('../../aiUsage/record', () => ({
-	recordAiUsage: vi.fn()
-}));
+vi.mock('../../aiUsage/record.impl', async (importOriginal) => {
+	const { void: done } = await import('effect/Effect');
+	return { ...(await importOriginal<object>()), recordAiUsage: vi.fn(() => done) };
+});
 
 // The watchdog's handoff is covered in support/handoff.test.ts; here it is the
 // call the watchdog makes.
@@ -152,7 +153,7 @@ import {
 } from '../../../convex/support/messages';
 import { listMessagesForThread } from '../messageListing';
 import { makeAgentUsageSink } from '../../aiUsage/agentUsage';
-import { recordAiUsage } from '../../aiUsage/record';
+import { recordAiUsage } from '../../aiUsage/record.impl';
 import { syncSupportLastMessage } from '../threadLifecycle';
 import { isSupportAiEnabled } from '../../../config/support';
 import {
@@ -1094,7 +1095,7 @@ describe('createAIResponse turn recovery', () => {
 		await handler._handler(ctx, TURN);
 
 		expect(recordMock).toHaveBeenCalledOnce();
-		expect(recordMock.mock.calls[0][1]).toEqual({
+		expect(recordMock.mock.calls[0][0]).toEqual({
 			feature: 'support_chat',
 			userId: undefined,
 			threadId: 'thread_1',
@@ -1116,7 +1117,7 @@ describe('createAIResponse turn recovery', () => {
 
 		await handler._handler(ctx, TURN);
 
-		expect(recordMock.mock.calls.map((call) => call[1].status)).toEqual([status]);
+		expect(recordMock.mock.calls.map((call) => call[0].status)).toEqual([status]);
 	});
 });
 

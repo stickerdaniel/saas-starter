@@ -1,3 +1,4 @@
+import * as Effect from 'effect/Effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../authServer', () => ({
@@ -38,7 +39,7 @@ vi.mock('../rateLimit', () => ({
 }));
 
 vi.mock('../ownership', () => ({
-	requireAiChatThreadRecord: vi.fn()
+	ownedAiChatThread: vi.fn()
 }));
 
 vi.mock('../../support/messageListing', () => ({
@@ -55,9 +56,9 @@ vi.mock('@convex-dev/agent', async (importOriginal) => {
 	};
 });
 
-vi.mock('@convex-dev/agent/validators', async () => {
+vi.mock('@convex-dev/agent/validators', async (importOriginal) => {
 	const { v } = await import('convex/values');
-	return { vStreamArgs: v.optional(v.any()) };
+	return { ...(await importOriginal<Record<string, unknown>>()), vStreamArgs: v.optional(v.any()) };
 });
 
 vi.mock('../../../convex/_generated/api', () => ({
@@ -84,8 +85,8 @@ import {
 import { authComponent } from '../../authServer';
 import { saveMessages } from '@convex-dev/agent';
 import { aiChatAgent } from '../agent';
-import { requireAiChatThreadRecord } from '../ownership';
-import { createAIResponse, sendMessage } from '../messages';
+import { ownedAiChatThread } from '../ownership';
+import { createAIResponse, sendMessage } from '../../../convex/aiChat/messages';
 import { updateThreadMetadata } from '../../../convex/aiChat/threads';
 import {
 	prepareToolErrorRedactionStep,
@@ -99,8 +100,8 @@ const streamTextMock = aiChatAgent.streamText as unknown as ReturnType<typeof vi
 const agentSaveMessageMock = aiChatAgent.saveMessage as unknown as ReturnType<typeof vi.fn>;
 const requireAiMock = requireAiConfiguration as unknown as ReturnType<typeof vi.fn>;
 const requireBillingMock = requireBillingConfiguration as unknown as ReturnType<typeof vi.fn>;
-const requireThreadMock = requireAiChatThreadRecord as unknown as ReturnType<typeof vi.fn>;
-const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
+const ownedThreadMock = ownedAiChatThread as unknown as ReturnType<typeof vi.fn>;
+const safeGetAuthUserMock = authComponent.safeGetAuthUser as unknown as ReturnType<typeof vi.fn>;
 
 type RegisteredFunction<TArgs> = {
 	_handler: (ctx: unknown, args: TArgs) => Promise<unknown>;
@@ -120,7 +121,12 @@ const args = { threadId: 'thread_1', promptMessageId: 'prompt_1', userId: 'user_
 // is never refunded by later denormalization errors.
 describe('createAIResponse', () => {
 	let runMutation: ReturnType<typeof vi.fn>;
-	let ctx: { runMutation: ReturnType<typeof vi.fn> };
+	let ctx: {
+		runMutation: ReturnType<typeof vi.fn>;
+		runQuery: ReturnType<typeof vi.fn>;
+		runAction: ReturnType<typeof vi.fn>;
+		vectorSearch: ReturnType<typeof vi.fn>;
+	};
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -129,7 +135,7 @@ describe('createAIResponse', () => {
 		refundUsageMock.mockResolvedValue(undefined);
 		saveMessagesMock.mockResolvedValue({ messages: [{ _id: 'notice_1', order: 0 }] });
 		runMutation = vi.fn().mockResolvedValue(null);
-		ctx = { runMutation };
+		ctx = { runMutation, runQuery: vi.fn(), runAction: vi.fn(), vectorSearch: vi.fn() };
 		streamTextMock.mockResolvedValue({
 			consumeStream: vi.fn().mockResolvedValue(undefined),
 			text: Promise.resolve('Hello there')
@@ -226,6 +232,30 @@ describe('createAIResponse', () => {
 		});
 	});
 
+	it('rethrows the generation error as the same object after its notice', async () => {
+		checkAndCountUsageMock.mockResolvedValue('counted');
+		const failure = new Error('model exploded');
+		streamTextMock.mockRejectedValue(failure);
+
+		await expect(handler._handler(ctx, args)).rejects.toBe(failure);
+
+		expect(saveMessagesMock.mock.calls[0][2]).toMatchObject({
+			metadata: [{ providerMetadata: { system: { notice: 'ai_chat_generation_failed' } } }]
+		});
+	});
+
+	it('rethrows a non-configuration error from the configuration check as the same object', async () => {
+		const failure = new Error('env read failed');
+		requireBillingMock.mockImplementationOnce(() => {
+			throw failure;
+		});
+
+		await expect(handler._handler(ctx, args)).rejects.toBe(failure);
+
+		expect(saveMessagesMock).not.toHaveBeenCalled();
+		expect(checkAndCountUsageMock).not.toHaveBeenCalled();
+	});
+
 	it('does not refund a failed generation that was never counted (outage)', async () => {
 		checkAndCountUsageMock.mockResolvedValue('unavailable');
 		streamTextMock.mockRejectedValue(new Error('model exploded'));
@@ -266,12 +296,14 @@ describe('sendMessage provider preflight', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		getAuthUserMock.mockResolvedValue({ _id: 'user_1' });
-		requireThreadMock.mockResolvedValue({
-			_id: 'record_1',
-			isWarm: false,
-			lastMessageAt: undefined
-		});
+		safeGetAuthUserMock.mockResolvedValue({ _id: 'user_1' });
+		ownedThreadMock.mockReturnValue(
+			Effect.succeed({
+				_id: 'record_1',
+				isWarm: false,
+				lastMessageAt: undefined
+			})
+		);
 		requireAiMock.mockReturnValue({ apiKey: 'configured' });
 		requireBillingMock.mockReturnValue({ secretKey: 'configured' });
 		agentSaveMessageMock.mockResolvedValue({
@@ -307,13 +339,13 @@ describe('sendMessage provider preflight', () => {
 				lastMessageAt: undefined as number | undefined,
 				sidebarActivityAt: undefined as number | undefined
 			};
-			requireThreadMock.mockResolvedValue(record);
+			ownedThreadMock.mockReturnValue(Effect.succeed(record));
 			const ctx = {
 				db: {
 					insert: vi.fn(),
 					patch: async (_table: string, _id: string, patch: object) => Object.assign(record, patch)
 				},
-				scheduler: { runAfter: vi.fn() }
+				scheduler: { runAfter: vi.fn().mockResolvedValue('job_1') }
 			};
 			await sendHandler._handler(ctx, { threadId: 'thread_1', prompt: 'hello' });
 			expect(record.isWarm).toBe(false);

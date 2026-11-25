@@ -26,7 +26,10 @@ vi.mock('../aiUsage/capture', () => ({
 	captureDirect: vi.fn(() => ({ model: 'model' }))
 }));
 
-vi.mock('../aiUsage/record', () => ({ recordAiUsage: vi.fn() }));
+vi.mock('../aiUsage/record.impl', async (importOriginal) => {
+	const { void: done } = await import('effect/Effect');
+	return { ...(await importOriginal<object>()), recordAiUsage: vi.fn(() => done) };
+});
 
 import { getFunctionName } from 'convex/server';
 import { getAutumnSdk } from '../autumn';
@@ -36,6 +39,7 @@ import {
 	requireBillingConfiguration
 } from '../env';
 import { generateThreadTitle } from '../../convex/aiChat/titles';
+import { recordAiUsage } from '../aiUsage/record.impl';
 
 const getAutumnSdkMock = getAutumnSdk as unknown as ReturnType<typeof vi.fn>;
 const requireAiMock = requireAiConfiguration as unknown as ReturnType<typeof vi.fn>;
@@ -152,6 +156,11 @@ describe('generateThreadTitle', () => {
 
 		expect(await handler._handler(actionCtx(runMutation), args)).toBeNull();
 		expect(runMutation.mock.calls[0]?.[1]).toEqual({ threadId: 'thread_1', title: 'A'.repeat(60) });
+		expect(recordAiUsage).toHaveBeenCalledWith({
+			feature: 'ai_chat_title',
+			userId: 'user_1',
+			models: [{ model: 'model' }]
+		});
 	});
 
 	it('skips the write when the model call fails', async () => {
@@ -162,6 +171,7 @@ describe('generateThreadTitle', () => {
 		expect(await handler._handler(actionCtx(runMutation), args)).toBeNull();
 		expect(warn).toHaveBeenCalledWith({ code: 'ai_chat_title_failed' });
 		expect(runMutation).not.toHaveBeenCalled();
+		expect(recordAiUsage).not.toHaveBeenCalled();
 		warn.mockRestore();
 	});
 

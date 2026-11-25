@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../authServer', () => ({
 	authComponent: {
-		getAuthUser: vi.fn().mockResolvedValue({ _id: 'sender' }),
-		safeGetAuthUser: vi.fn()
+		getAuthUser: vi.fn(),
+		safeGetAuthUser: vi.fn().mockResolvedValue({ _id: 'sender' })
 	}
 }));
 
@@ -35,7 +35,7 @@ vi.mock('../rateLimit', () => ({
 }));
 
 vi.mock('../ownership', () => ({
-	requireAiChatThreadRecord: vi.fn()
+	ownedAiChatThread: vi.fn()
 }));
 
 vi.mock('@convex-dev/agent', async (importOriginal) => {
@@ -48,17 +48,18 @@ vi.mock('@convex-dev/agent', async (importOriginal) => {
 	};
 });
 
+import * as Effect from 'effect/Effect';
 import { aiChatAgent } from '../agent';
 import { aiChatRateLimiter } from '../rateLimit';
-import { requireAiChatThreadRecord } from '../ownership';
-import { createAIResponse, sendMessage } from '../messages';
+import { ownedAiChatThread } from '../ownership';
+import { createAIResponse, sendMessage } from '../../../convex/aiChat/messages';
 import { MAX_MESSAGE_LENGTH } from '../../constants';
 import { createJourneyStore } from '../../admin/journey/journeyStore.fixtures';
 
 type Registered = { _handler: (ctx: never, args: never) => Promise<unknown> };
 
 const limitMock = aiChatRateLimiter.limit as unknown as ReturnType<typeof vi.fn>;
-const requireThreadMock = requireAiChatThreadRecord as unknown as ReturnType<typeof vi.fn>;
+const ownedThreadMock = ownedAiChatThread as unknown as ReturnType<typeof vi.fn>;
 const streamTextMock = aiChatAgent.streamText as unknown as ReturnType<typeof vi.fn>;
 
 function setup() {
@@ -69,7 +70,7 @@ function setup() {
 		createdAt: 0,
 		isWarm: false
 	});
-	requireThreadMock.mockImplementation(async () => store.docs('aiChatThreads')[0]);
+	ownedThreadMock.mockImplementation(() => Effect.sync(() => store.docs('aiChatThreads')[0]));
 	const send = (args: { prompt: string; fileIds?: string[] }) =>
 		store.mutate(sendMessage as unknown as Registered, { threadId: 'thread_1', ...args });
 	const receipts = () => store.docs('aiChatMessageReceipts').map((row) => row.userId);
@@ -131,7 +132,12 @@ describe('AI chat message receipts', () => {
 
 		await expect(
 			(createAIResponse as unknown as Registered)._handler(
-				store.actionCtx() as never,
+				{
+					...store.actionCtx(),
+					runQuery: vi.fn(),
+					runAction: vi.fn(),
+					vectorSearch: vi.fn()
+				} as never,
 				{ threadId: 'thread_1', promptMessageId: 'user_message', userId: 'sender' } as never
 			)
 		).rejects.toThrow('provider down');
