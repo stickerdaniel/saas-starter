@@ -5,7 +5,7 @@
  * a reload: it shares cookies and storage. jsdom has one sessionStorage, so per-tab
  * session storage is not modelled.
  */
-import type { PostHog } from 'posthog-js';
+import type { PostHog } from 'posthog-js/dist/module.slim';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAuthClient } from 'better-auth/svelte';
 import { duringAuthChange, setAnalyticsController } from './client';

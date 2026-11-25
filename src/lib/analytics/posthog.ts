@@ -1,4 +1,4 @@
-import type { BeforeSendFn, PostHog } from 'posthog-js';
+import type { BeforeSendFn, PostHog } from 'posthog-js/dist/module.slim';
 
 /**
  * The PostHog SDK options, in one place. Everything automatic is off: the app owns
@@ -36,7 +36,7 @@ const SECRET_QUERY_PARAMS = [
 ];
 
 export async function loadPosthog(): Promise<PostHog> {
-	return (await import('posthog-js')).default;
+	return (await import('posthog-js/dist/module.slim')).default;
 }
 
 /** A named instance, so a stale default instance can never pick up this config. */
