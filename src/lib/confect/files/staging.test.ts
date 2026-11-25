@@ -4,7 +4,7 @@ import { storeFile } from '@convex-dev/agent';
 import type * as AgentModule from '@convex-dev/agent';
 import type { ActionCtx } from '../../convex/_generated/server';
 import { saveUploadedFile as saveSupportFile } from '../../convex/support/files';
-import { saveUploadedFile as saveChatFile } from '../aiChat/files';
+import { saveUploadedFile as saveChatFile } from '../../convex/aiChat/files';
 
 vi.mock('@convex-dev/agent', async (original) => ({
 	...(await original<typeof AgentModule>()),

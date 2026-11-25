@@ -50,6 +50,10 @@ const CONFECT_PUBLIC_FUNCTIONS = {
 		'Anonymous visitors preview text attachments; the preview rate limit bounds each owner.',
 	'support/files:saveUploadedFile':
 		'Anonymous visitors register their uploads; the upload token authorizes the file.',
+	'aiChat/files:getAttachmentText':
+		'Its first step, checkPreviewAccess, requires a session and spends a preview token before any fetch.',
+	'aiChat/files:saveUploadedFile':
+		'Its first step, requireFileAccess, requires a session before the upload token is finalized.',
 	'support/messages:getFileMetadataBatch':
 		'Returns only image dimensions for storage URLs the caller already holds.'
 };
