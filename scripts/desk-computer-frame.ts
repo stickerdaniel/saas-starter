@@ -27,6 +27,27 @@ export interface FrameSources {
 	tailwindTheme: string;
 }
 
+/**
+ * Reads the frame's sources below the project root. `watch` hears the path of every source
+ * that belongs to the project.
+ */
+export async function readFrameSources(
+	root: string,
+	watch: (file: string) => void = () => {}
+): Promise<FrameSources> {
+	const read = (relative: string) => {
+		watch(`${root}/${relative}`);
+		return readFile(`${root}/${relative}`, 'utf8');
+	};
+	const tailwindTheme = createRequire(`${root}/package.json`).resolve('tailwindcss/theme.css');
+	return {
+		layout: await read(LAYOUT),
+		component: await read(COMPONENT),
+		figure: await read(FIGURE),
+		tailwindTheme: await readFile(tailwindTheme, 'utf8')
+	};
+}
+
 const compact = (text: string) => text.replaceAll(/\s+/g, ' ').trim();
 
 function collect(container: Container, into: Tokens) {
@@ -203,19 +224,9 @@ export function deskComputerFrame(): Plugin {
 				const [path, query] = id.split('?', 2);
 				// Vite's CSS and asset plugins answer `?url` with the stylesheet's address.
 				if (path !== file() || new URLSearchParams(query).has('url')) return;
-				const read = (relative: string) => {
-					this.addWatchFile(`${root}/${relative}`);
-					return readFile(`${root}/${relative}`, 'utf8');
-				};
-				const tailwindTheme = createRequire(`${root}/package.json`).resolve(
-					'tailwindcss/theme.css'
+				return deskComputerFrameCss(
+					await readFrameSources(root, (source) => this.addWatchFile(source))
 				);
-				return deskComputerFrameCss({
-					layout: await read(LAYOUT),
-					component: await read(COMPONENT),
-					figure: await read(FIGURE),
-					tailwindTheme: await readFile(tailwindTheme, 'utf8')
-				});
 			}
 		},
 		// Nothing imports the stylesheet's content, so dev drops it by hand when a source

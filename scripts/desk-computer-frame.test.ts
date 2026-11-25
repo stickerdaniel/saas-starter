@@ -1,19 +1,13 @@
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { deskComputerFrameCss, type FrameSources } from './desk-computer-frame';
+import { deskComputerFrameCss, readFrameSources } from './desk-computer-frame';
 
 const require = createRequire(import.meta.url);
-const { JSDOM } = require('jsdom') as { JSDOM: new () => { window: Window } };
-const root = path.join(import.meta.dirname, '..');
-const read = (file: string) => readFileSync(path.join(root, file), 'utf8');
-const sources: FrameSources = {
-	layout: read('src/routes/layout.css'),
-	component: read('src/lib/components/desk-computer/DeskComputer.svelte'),
-	figure: read('src/lib/components/desk-computer/desk-computer.svg'),
-	tailwindTheme: readFileSync(require.resolve('tailwindcss/theme.css'), 'utf8')
+const { JSDOM } = require('jsdom') as {
+	JSDOM: new () => { window: Window & typeof globalThis };
 };
+const sources = await readFrameSources(path.join(import.meta.dirname, '..'));
 
 /** The light and the dark frame image of a generated stylesheet, decoded. */
 function frames(css: string) {
