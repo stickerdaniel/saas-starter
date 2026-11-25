@@ -73,10 +73,17 @@ function terminateTree(child: ChildProcess, force: boolean): void {
 		});
 		return;
 	}
+	signalGroup(child.pid, force ? 'SIGKILL' : 'SIGTERM');
+}
+
+function signalGroup(pid: number, signal: NodeJS.Signals | 0): boolean {
 	try {
-		process.kill(-child.pid, force ? 'SIGKILL' : 'SIGTERM');
+		process.kill(-pid, signal);
+		return true;
 	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+		const { code } = error as NodeJS.ErrnoException;
+		if (code === 'ESRCH' || (process.platform === 'darwin' && code === 'EPERM')) return false;
+		throw error;
 	}
 }
 
@@ -85,13 +92,7 @@ function processTreeExists(child: ChildProcess): boolean {
 	if (process.platform === 'win32') {
 		return child.exitCode === null && child.signalCode === null;
 	}
-	try {
-		process.kill(-child.pid, 0);
-		return true;
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false;
-		throw error;
-	}
+	return signalGroup(child.pid, 0);
 }
 
 export function devCloudCommands(args: string[] = process.argv.slice(2)): ChildCommand[] {

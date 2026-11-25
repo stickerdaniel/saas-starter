@@ -369,7 +369,8 @@ describe('runUntilOneExits', () => {
 			const pidFile = path.join(directory, 'grandchild.pid');
 			const escapedPidFile = JSON.stringify(pidFile);
 			const leader = `const fs=require('node:fs');const timer=setInterval(()=>{if(fs.existsSync(${escapedPidFile})){clearInterval(timer);process.exit(7)}},10)`;
-			const worker = `const{spawn}=require('node:child_process');const fs=require('node:fs');process.on('SIGTERM',()=>process.exit(0));const child=spawn(process.execPath,['-e','process.on(\\'SIGTERM\\',()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(${escapedPidFile},String(child.pid));setInterval(()=>{},1000)`;
+			const grandchild = `process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(${escapedPidFile},String(process.pid));setInterval(()=>{},1000)`;
+			const worker = `const{spawn}=require('node:child_process');process.on('SIGTERM',()=>process.exit(0));spawn(process.execPath,['-e',${JSON.stringify(grandchild)}],{stdio:'ignore'});setInterval(()=>{},1000)`;
 			try {
 				const code = await runUntilOneExits(
 					[
