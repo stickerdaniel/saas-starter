@@ -82,7 +82,7 @@ import {
 	sendNewUserSignupNotification,
 	sendResetPasswordEmail,
 	sendVerificationEmail
-} from './send';
+} from '../../convex/emails/send';
 
 type RegisteredMutation = {
 	_handler: (ctx: unknown, args: Record<string, unknown>) => Promise<unknown>;
@@ -217,6 +217,51 @@ describe('email send provider preflights', () => {
 			expect(sendEmail).not.toHaveBeenCalled();
 		}
 	);
+
+	it('marks a scheduled founder welcome terminal while the feature is off', async () => {
+		const patch = vi.fn().mockResolvedValue(undefined);
+		const ctx = {
+			db: {
+				get: vi.fn().mockResolvedValue({
+					status: 'scheduled',
+					userId: 'user_1',
+					signupEmail: 'user@example.com'
+				}),
+				patch
+			},
+			runQuery: vi.fn().mockResolvedValue({ enabled: false })
+		};
+
+		await (sendFounderWelcomeEmail as unknown as RegisteredMutation)._handler(ctx, {
+			founderWelcomeId: 'welcome_1'
+		});
+
+		expect(patch).toHaveBeenCalledWith('founderWelcomeEmails', 'welcome_1', {
+			status: 'skipped',
+			skippedReason: 'feature_disabled'
+		});
+		expect(sendEmail).not.toHaveBeenCalled();
+	});
+
+	it('keeps notifying the other signup recipients after one enqueue fails', async () => {
+		sendEmail.mockRejectedValueOnce(new Error('component down')).mockResolvedValueOnce('email_2');
+		const runQuery = vi.fn(async (ref: string) =>
+			ref === 'components.betterAuth.adapter.findOne'
+				? { locale: 'en' }
+				: ['first@example.com', 'second@example.com']
+		);
+
+		await (sendNewUserSignupNotification as unknown as RegisteredMutation)._handler(
+			{ runQuery, db: {} },
+			{ userEmail: 'user@example.com', signupMethod: 'Email', signupTime: 'now' }
+		);
+
+		expect(sendEmail).toHaveBeenCalledTimes(2);
+		expect(sendEmail).toHaveBeenLastCalledWith(
+			expect.anything(),
+			expect.objectContaining({ to: 'second@example.com' })
+		);
+	});
 
 	it('sends the founder welcome as text and HTML and records the email it enqueued', async () => {
 		const patch = vi.fn().mockResolvedValue(undefined);

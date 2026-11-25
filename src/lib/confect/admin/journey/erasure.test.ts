@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { onDelete } from '../../authServer';
 import { admitObservation } from '../../../convex/admin/customerNotifications/admission';
 import { cancelUnsentEmails } from '../../../convex/admin/customerNotifications/cancel';
-import { eraseFounderEmailPage } from '../../emails/founderEmailErasure';
+import { eraseFounderEmailPage } from '../../../convex/emails/founderEmailErasure';
 import { resend } from '../../emails/resend';
 import { continueErasure, erasePage } from '../../../convex/admin/journey/erasure';
 import { startJourneyErasure } from './erasure';

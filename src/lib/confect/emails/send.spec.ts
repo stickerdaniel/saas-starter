@@ -1,35 +1,76 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type {
-	sendAdminReplyNotification,
-	sendFounderWelcomeEmail,
-	sendNewTicketAdminNotification,
-	sendNewUserSignupNotification,
-	sendResetPasswordEmail,
-	sendVerificationEmail
-} from './send';
+import * as Schema from 'effect/Schema';
+import { Id } from '../_generated/id';
+import { NotificationMessagesSchema } from '../admin/support/schemas';
 
 export default GroupSpec.make()
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof sendAdminReplyNotification>()(
-			'sendAdminReplyNotification'
-		)
+		FunctionSpec.internalMutation({
+			name: 'sendAdminReplyNotification',
+			args: () => ({
+				supportThreadId: Id('supportThreads'),
+				email: Schema.String,
+				adminName: Schema.String,
+				messagePreview: Schema.String,
+				threadId: Schema.String,
+				pageUrl: Schema.optional(Schema.String)
+			}),
+			returns: () => Schema.Null
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof sendFounderWelcomeEmail>()('sendFounderWelcomeEmail')
+		FunctionSpec.internalMutation({
+			name: 'sendFounderWelcomeEmail',
+			args: () => ({ founderWelcomeId: Id('founderWelcomeEmails') }),
+			returns: () => Schema.Null
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof sendNewTicketAdminNotification>()(
-			'sendNewTicketAdminNotification'
-		)
+		FunctionSpec.internalMutation({
+			name: 'sendNewTicketAdminNotification',
+			args: () => ({
+				email: Schema.String,
+				isReopen: Schema.Boolean,
+				isBareHandoff: Schema.Boolean,
+				userName: Schema.String,
+				messages: NotificationMessagesSchema,
+				threadId: Schema.String
+			}),
+			returns: () => Schema.Boolean
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof sendNewUserSignupNotification>()(
-			'sendNewUserSignupNotification'
-		)
+		FunctionSpec.internalMutation({
+			name: 'sendNewUserSignupNotification',
+			args: () => ({
+				userName: Schema.optional(Schema.String),
+				userEmail: Schema.String,
+				signupMethod: Schema.Literals(['Email', 'Google', 'GitHub']),
+				signupTime: Schema.String
+			}),
+			returns: () => Schema.Null
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof sendResetPasswordEmail>()('sendResetPasswordEmail')
+		FunctionSpec.internalMutation({
+			name: 'sendResetPasswordEmail',
+			args: () => ({
+				email: Schema.String,
+				resetUrl: Schema.String,
+				userName: Schema.optional(Schema.String),
+				userId: Schema.String
+			}),
+			returns: () => Schema.Null
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof sendVerificationEmail>()('sendVerificationEmail')
+		FunctionSpec.internalMutation({
+			name: 'sendVerificationEmail',
+			args: () => ({
+				email: Schema.String,
+				verificationUrl: Schema.String,
+				expiryMinutes: Schema.optional(Schema.Number)
+			}),
+			returns: () => Schema.Null
+		})
 	);

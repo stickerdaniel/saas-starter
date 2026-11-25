@@ -1,12 +1,18 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { continueFounderEmailErasure, eraseFounderEmailPage } from './founderEmailErasure';
+import * as Schema from 'effect/Schema';
 
 export default GroupSpec.make()
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof continueFounderEmailErasure>()(
-			'continueFounderEmailErasure'
-		)
+		FunctionSpec.internalMutation({
+			name: 'continueFounderEmailErasure',
+			args: () => ({ userId: Schema.String, attempt: Schema.Number }),
+			returns: () => Schema.Null
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof eraseFounderEmailPage>()('eraseFounderEmailPage')
+		FunctionSpec.internalMutation({
+			name: 'eraseFounderEmailPage',
+			args: () => ({ userId: Schema.String }),
+			returns: () => Schema.Boolean
+		})
 	);
