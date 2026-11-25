@@ -210,10 +210,12 @@
 			stroke-linecap: round;
 			stroke-linejoin: round;
 		}
+		/* SVG text collapses a trailing space; `pre` keeps it, so the cursor sits behind it. */
 		.pc-text {
 			fill: color-mix(in oklch, var(--anatomy-lit) 78%, var(--pc-glass));
 			font-family: var(--anatomy-mono);
 			letter-spacing: 0.02em;
+			white-space: pre;
 		}
 		.pc-cursor {
 			fill: var(--pc-accent);
