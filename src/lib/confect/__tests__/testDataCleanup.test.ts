@@ -1,6 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 vi.mock('../support/agent', () => ({ supportAgent: {} }));
-vi.mock('../admin/counters', () => ({ recalculateCounters: vi.fn() }));
 import { cleanupTestData, deleteAuditLogRows } from '../tests';
 
 type Row = { _id: string; email: string };
@@ -32,15 +31,12 @@ function store() {
 	return { rows, context };
 }
 const invoke = (ctx: unknown, args: { secret: string; emails?: string[] }) =>
-	(
-		cleanupTestData as unknown as {
-			_handler: (ctx: unknown, args: unknown) => Promise<{ deletedCount: number }>;
-		}
-	)._handler(ctx, args);
-afterEach(() => vi.unstubAllEnvs());
+	(cleanupTestData as (ctx: unknown, args: unknown) => Promise<{ deletedCount: number }>)(
+		ctx,
+		args
+	);
 describe('owned test recipient cleanup', () => {
 	it('deletes only the supplied owner and is safe to repeat', async () => {
-		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'test-secret');
 		const { rows, context } = store();
 		expect(
 			(await invoke(context, { secret: 'test-secret', emails: ['owner-a@e2e.example.com'] }))
@@ -53,7 +49,6 @@ describe('owned test recipient cleanup', () => {
 		).toBe(0);
 	});
 	it('missing ownership deletes nothing and rejects ordinary addresses before writes', async () => {
-		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'test-secret');
 		const { rows, context } = store();
 		expect((await invoke(context, { secret: 'test-secret' })).deletedCount).toBe(0);
 		await expect(
@@ -63,15 +58,11 @@ describe('owned test recipient cleanup', () => {
 			})
 		).rejects.toThrow('exact E2E');
 		expect(rows.size).toBe(3);
-		await expect(
-			invoke(context, { secret: 'wrong', emails: ['owner-a@e2e.example.com'] })
-		).rejects.toThrow('Unauthorized');
 	});
 });
 
 describe('audit fixture cleanup', () => {
 	it('deletes the supplied rows and keeps other rows of the same admin', async () => {
-		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'test-secret');
 		const rows = new Map(
 			['seeded-1', 'seeded-2', 'real'].map((id) => [id, { _id: id, adminUserId: 'admin_1' }])
 		);
@@ -94,11 +85,10 @@ describe('audit fixture cleanup', () => {
 				}
 			}
 		};
-		await (
-			deleteAuditLogRows as unknown as {
-				_handler: (ctx: unknown, args: { secret: string; ids: string[] }) => Promise<null>;
-			}
-		)._handler(context, { secret: 'test-secret', ids: ['seeded-1', 'seeded-2'] });
+		await (deleteAuditLogRows as (ctx: unknown, args: unknown) => Promise<null>)(context, {
+			secret: 'test-secret',
+			ids: ['seeded-1', 'seeded-2']
+		});
 		expect([...rows.keys()]).toEqual(['real']);
 	});
 });

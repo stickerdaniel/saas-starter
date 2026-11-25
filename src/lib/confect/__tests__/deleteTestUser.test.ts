@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { incrementCounter } = vi.hoisted(() => ({ incrementCounter: vi.fn() }));
 vi.mock('../support/agent', () => ({ supportAgent: {} }));
-vi.mock('../admin/counters', () => ({ incrementCounter, recalculateCounters: vi.fn() }));
+vi.mock('../admin/counters', () => ({ incrementCounter }));
 vi.mock('convex/server', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	createFunctionHandle: async () => 'auth-on-delete'
@@ -66,19 +66,17 @@ function authComponent(docs: Doc[]) {
 }
 
 const run = (fn: unknown, ctx: unknown, email: string) =>
-	(fn as { _handler: (ctx: unknown, args: unknown) => Promise<{ success: boolean }> })._handler(
-		ctx,
-		{ email, secret: 'test-secret' }
-	);
+	(fn as (ctx: unknown, args: unknown) => Promise<{ success: boolean }>)(ctx, {
+		email,
+		secret: 'test-secret'
+	});
 
 afterEach(() => {
-	vi.unstubAllEnvs();
 	incrementCounter.mockClear();
 });
 
 describe('test user fixtures', () => {
 	it('runs the auth delete triggers for the user and each of its sessions', async () => {
-		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'test-secret');
 		const email = 'owner@e2e.example.com';
 		const { ctx, docs, triggered } = authComponent([
 			{ _id: 'u', model: 'user', email },
@@ -93,7 +91,6 @@ describe('test user fixtures', () => {
 	});
 
 	it('counts an admin promotion once, so the delete trigger leaves the count balanced', async () => {
-		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'test-secret');
 		const email = 'admin@e2e.example.com';
 		const { ctx } = authComponent([{ _id: 'u', model: 'user', email, role: 'user' }]);
 

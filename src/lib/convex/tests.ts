@@ -1,6 +1,5 @@
 import registeredFunctions from "../confect/_generated/registeredFunctions/tests";
 
-export const cleanupAllTestUsers = registeredFunctions.cleanupAllTestUsers;
 export const cleanupAnonymousSupportThreads = registeredFunctions.cleanupAnonymousSupportThreads;
 export const cleanupTestData = registeredFunctions.cleanupTestData;
 export const createAnonymousSupportThread = registeredFunctions.createAnonymousSupportThread;
@@ -16,9 +15,7 @@ export const getAuthUserIdByEmail = registeredFunctions.getAuthUserIdByEmail;
 export const getLegacyAuditLogCursor = registeredFunctions.getLegacyAuditLogCursor;
 export const getPasswordResetToken = registeredFunctions.getPasswordResetToken;
 export const getSupportThreadsByUserId = registeredFunctions.getSupportThreadsByUserId;
-export const getTestUser = registeredFunctions.getTestUser;
 export const health = registeredFunctions.health;
-export const recalculateDashboardCounters = registeredFunctions.recalculateDashboardCounters;
 export const recoverSupportNotificationFixture = registeredFunctions.recoverSupportNotificationFixture;
 export const resetAiChatFileUploadLimit = registeredFunctions.resetAiChatFileUploadLimit;
 export const seedAiChatHistoryRows = registeredFunctions.seedAiChatHistoryRows;
