@@ -1,6 +1,10 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { deleteUnusedFiles } from './vacuum';
+import * as Schema from 'effect/Schema';
 
 export default GroupSpec.make().addFunction(
-	FunctionSpec.convexInternalMutation<typeof deleteUnusedFiles>()('deleteUnusedFiles')
+	FunctionSpec.internalMutation({
+		name: 'deleteUnusedFiles',
+		args: () => ({ cursor: Schema.optional(Schema.String) }),
+		returns: () => Schema.Null
+	})
 );

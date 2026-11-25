@@ -1,10 +1,10 @@
 import { Table } from '@confect/core';
 import * as Schema from 'effect/Schema';
+import { FileReferenceFields } from '../files/schemas';
 
 export default Table.make(() =>
 	Schema.Struct({
-		fileId: Schema.String,
-		storageId: Schema.String,
+		...FileReferenceFields,
 		url: Schema.optional(Schema.String),
 		width: Schema.optional(Schema.Number),
 		height: Schema.optional(Schema.Number),

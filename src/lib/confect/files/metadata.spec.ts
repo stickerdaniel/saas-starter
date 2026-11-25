@@ -1,6 +1,17 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { storeFileMetadata } from './metadata';
+import * as Schema from 'effect/Schema';
+import { Id } from '../_generated/id';
+import { FileReferenceFields } from './schemas';
 
 export default GroupSpec.make().addFunction(
-	FunctionSpec.convexInternalMutation<typeof storeFileMetadata>()('storeFileMetadata')
+	FunctionSpec.internalMutation({
+		name: 'storeFileMetadata',
+		args: () => ({
+			...FileReferenceFields,
+			url: Schema.String,
+			width: Schema.Number,
+			height: Schema.Number
+		}),
+		returns: () => Id('fileMetadata')
+	})
 );

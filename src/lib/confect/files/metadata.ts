@@ -1,5 +1,3 @@
-import { v } from 'convex/values';
-import { internalMutation } from '../../convex/_generated/server';
 import type { QueryCtx } from '../../convex/_generated/server';
 import { FILE_ERROR_CODES, createFileError } from './errors';
 
@@ -43,47 +41,3 @@ export async function getFileMetadataByUrls(
 
 	return results;
 }
-
-/**
- * Store file metadata (dimensions) for proper dialog sizing.
- *
- * Called internally after uploading an image from either feature. Stores
- * dimensions separately because the agent component's file parts schema
- * doesn't preserve custom fields.
- */
-export const storeFileMetadata = internalMutation({
-	args: {
-		fileId: v.string(),
-		storageId: v.string(),
-		url: v.string(),
-		width: v.number(),
-		height: v.number()
-	},
-	returns: v.id('fileMetadata'),
-	handler: async (ctx, args) => {
-		// Check if metadata already exists by URL (avoid duplicates)
-		const existing = await ctx.db
-			.query('fileMetadata')
-			.withIndex('by_url', (q) => q.eq('url', args.url))
-			.first();
-
-		if (existing) {
-			// Update existing metadata
-			await ctx.db.patch('fileMetadata', existing._id, {
-				width: args.width,
-				height: args.height
-			});
-			return existing._id;
-		}
-
-		// Insert new metadata
-		return await ctx.db.insert('fileMetadata', {
-			fileId: args.fileId,
-			storageId: args.storageId,
-			url: args.url,
-			width: args.width,
-			height: args.height,
-			createdAt: Date.now()
-		});
-	}
-});

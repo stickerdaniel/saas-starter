@@ -1,10 +1,10 @@
 import { Table } from '@confect/core';
 import * as Schema from 'effect/Schema';
+import { MessageFields } from '../schemas/messages';
 
 export default Table.make(() =>
 	Schema.Struct({
-		userId: Schema.String,
-		body: Schema.String,
+		...MessageFields,
 		quotaSettledAt: Schema.optional(Schema.Number)
 	})
 )

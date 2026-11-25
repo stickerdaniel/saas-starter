@@ -140,6 +140,17 @@ export const AuthRefusalCodec = wireCodec(
 	({ code }) => ({ code })
 );
 
+export class CommunityRefusal extends Data.TaggedError('CommunityRefusal')<{
+	readonly maxLength: number;
+}> {}
+
+export const CommunityRefusalCodec = wireCodec(
+	CommunityRefusal,
+	Schema.Struct({ code: Schema.Literal('COMMUNITY_MESSAGE_TOO_LONG'), maxLength: Schema.Number }),
+	({ maxLength }) => ({ maxLength }),
+	({ maxLength }) => ({ code: 'COMMUNITY_MESSAGE_TOO_LONG' as const, maxLength })
+);
+
 const NOTIFICATION_PREFERENCE_REFUSAL_CODES = [
 	NOTIFICATION_EMAIL_ALREADY_EXISTS,
 	...Object.values(NOTIFICATION_PREFERENCE_ERROR_CODES)
