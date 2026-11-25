@@ -55,9 +55,11 @@
       </div> -->
 		</div>
 
-		<!-- Below the call to action on narrow screens, beside the headline from lg. -->
+		<!-- Below the call to action on narrow screens, beside the headline from lg. There a
+		     margin centres it: under a fractional translate, Firefox rasterizes the stylesheet
+		     frame a third of a pixel off the live figure. -->
 		<DeskComputer
-			class="absolute bottom-5 left-1/2 w-100 -translate-x-1/2 lg:top-1/2 lg:bottom-auto lg:left-9/20 lg:mt-13 lg:w-175 lg:translate-x-0 lg:-translate-y-1/2 xl:left-13/25 xl:mt-16"
+			class="absolute bottom-5 left-1/2 w-100 -translate-x-1/2 lg:top-1/2 lg:bottom-auto lg:left-9/20 lg:-mt-51 lg:w-175 lg:translate-x-0 xl:left-13/25 xl:-mt-48"
 		/>
 	</section>
 	<section>
