@@ -3,6 +3,7 @@
  *
  * Typed subset of kit/iso-kit.mjs from https://github.com/wheresryan22/anatomy at commit
  * 689dcf966e63d92be10a5d593c6e19e10acd4422, reduced to the parts the figure draws with.
+ * `pathOf` differs from the kit: it writes each point as its step from the one before.
  *
  * MIT License, Copyright (c) 2026 Ryan
  *
@@ -85,15 +86,53 @@ export function depthOf([x, y, z]: Point3, projection: Projection): number {
 	return (x * cosA + y * sinA) * cosE + z * sinE;
 }
 
-function tenth(value: number): string {
-	const text = (Math.round(value * 10) / 10).toFixed(1).replace(/\.0$/, '');
-	return text === '-0' ? '0' : text;
+/** A count of tenths as the shortest path number: no leading zero and no trailing `.0`. */
+function tenths(count: number): string {
+	const sign = count < 0 ? '-' : '';
+	const whole = Math.trunc(Math.abs(count) / 10);
+	const fraction = Math.abs(count) % 10;
+	return fraction ? `${sign}${whole || ''}.${fraction}` : `${sign}${whole}`;
 }
 
+/**
+ * Path data through the points, each rounded to a tenth. The first point is absolute and
+ * every later one is its step from the point before, so equal shapes in different places
+ * share their text. A sign or a second decimal point already ends the number before it,
+ * and only where neither does a space separates two numbers.
+ */
 export function pathOf(points: readonly Point2[], closed = false): string {
-	if (!points.length) return '';
-	const d = points.map(([x, y], at) => `${at ? 'L' : 'M'}${tenth(x)} ${tenth(y)}`).join('');
-	return closed ? `${d}Z` : d;
+	const [start, ...rest] = points.map(([x, y]): readonly [number, number] => [
+		Math.round(x * 10),
+		Math.round(y * 10)
+	]);
+	if (!start) return '';
+	let d = '';
+	let command = '';
+	let last = '';
+	const write = (next: string, values: readonly number[]) => {
+		if (next !== command) {
+			d += next;
+			command = next;
+			last = '';
+		}
+		for (const value of values) {
+			const text = tenths(value);
+			const ends = text.startsWith('-') || (text.startsWith('.') && last.includes('.'));
+			d += last && !ends ? ` ${text}` : text;
+			last = text;
+		}
+	};
+	write('M', start);
+	let at = start;
+	for (const point of rest) {
+		const dx = point[0] - at[0];
+		const dy = point[1] - at[1];
+		at = point;
+		if (dx && dy) write('l', [dx, dy]);
+		else if (dx) write('h', [dx]);
+		else if (dy) write('v', [dy]);
+	}
+	return closed ? `${d}z` : d;
 }
 
 /** Each point paired with its successor, wrapping the last point back to the first. */
