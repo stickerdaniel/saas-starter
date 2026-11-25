@@ -132,6 +132,8 @@ export function pathOf(points: readonly Point2[], closed = false): string {
 		else if (dx) write('h', [dx]);
 		else if (dy) write('v', [dy]);
 	}
+	// Points that all round to the start still draw the dot a round line cap gives them.
+	if (rest.length && command === 'M') write('h', [0]);
 	return closed ? `${d}z` : d;
 }
 
