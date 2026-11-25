@@ -1,0 +1,12 @@
+diff --git a/dist/client.svelte.js b/dist/client.svelte.js
+index aea81b2150f83bf84e67d9ae6600055b13783b1c..7cbcbbfea4e04b6500a71be7f9eae420f3888e84 100644
+--- a/dist/client.svelte.js
++++ b/dist/client.svelte.js
+@@ -146,6 +146,7 @@ export function useQuery(query, args = {}, options = {}) {
+         }
+         // Touch reactive state.result so updates retrigger computations
+         void state.result;
++        void state.argsForLastResult;
+         return value;
+     });
+     const result = $derived.by(() => {
