@@ -86,7 +86,7 @@ import { saveMessages } from '@convex-dev/agent';
 import { aiChatAgent } from '../agent';
 import { requireAiChatThreadRecord } from '../ownership';
 import { createAIResponse, sendMessage } from '../messages';
-import { updateThreadMetadata } from '../threads';
+import { updateThreadMetadata } from '../../../convex/aiChat/threads';
 import {
 	prepareToolErrorRedactionStep,
 	toolErrorRedactionTransform
