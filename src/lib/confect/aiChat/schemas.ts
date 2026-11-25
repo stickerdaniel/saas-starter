@@ -19,3 +19,39 @@ export const TitleArgsSchema = Schema.Struct({
 	prompt: Schema.String,
 	userId: Schema.optional(Schema.String)
 });
+
+export const ThreadListArgsSchema = Schema.Struct({ limit: Schema.optional(Schema.Number) });
+
+export const ThreadListSchema = Schema.Struct({
+	threads: Schema.mutable(
+		Schema.Array(
+			Schema.Struct({
+				_id: Schema.String,
+				title: Schema.optional(Schema.String),
+				lastMessage: Schema.optional(Schema.String),
+				lastMessageAt: Schema.Number
+			})
+		)
+	),
+	hasMore: Schema.Boolean
+});
+
+export const ThreadRefSchema = Schema.Struct({ threadId: Schema.String });
+
+export const ThreadMetadataArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	lastMessage: Schema.optional(Schema.String),
+	lastMessageAt: Schema.optional(Schema.Number)
+});
+
+export const ThreadTitleArgsSchema = Schema.Struct({
+	threadId: Schema.String,
+	title: Schema.String
+});
+
+export const StaleWarmSweepSchema = Schema.Struct({ deleted: Schema.Number });
+
+export const MetadataBackfillSchema = Schema.Struct({
+	updated: Schema.Number,
+	total: Schema.Number
+});

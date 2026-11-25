@@ -5,6 +5,7 @@ import type { AdminAuthErrorCode } from './admin/adminAuthErrors';
 import { RateLimited, Unauthenticated } from '../effect/errors';
 import { ADMIN_ERROR_CODES, type AdminErrorCode } from './admin/errors';
 import { ADMIN_SUPPORT_ERROR_CODES } from './admin/support/errors';
+import { AI_CHAT_ERROR_CODES } from './aiChat/errors';
 import {
 	FOUNDER_WELCOME_ERROR_CODES,
 	type FounderWelcomeErrorCode
@@ -243,6 +244,25 @@ export class AdminSupportRefusal extends Data.TaggedError('AdminSupportRefusal')
 export const AdminSupportRefusalCodec = wireCodec(
 	AdminSupportRefusal,
 	AdminSupportRefusalWire,
+	(refusal) => ({ refusal }),
+	({ refusal }) => refusal
+);
+
+const AiChatRefusalWire = Schema.Union([
+	Schema.Struct({ code: Schema.Literal(AI_CHAT_ERROR_CODES.threadNotFound) }),
+	Schema.Struct({
+		code: Schema.Literal(AI_CHAT_ERROR_CODES.messageTooLong),
+		maxLength: Schema.Number
+	})
+]);
+
+export class AiChatRefusal extends Data.TaggedError('AiChatRefusal')<{
+	readonly refusal: typeof AiChatRefusalWire.Type;
+}> {}
+
+export const AiChatRefusalCodec = wireCodec(
+	AiChatRefusal,
+	AiChatRefusalWire,
 	(refusal) => ({ refusal }),
 	({ refusal }) => refusal
 );

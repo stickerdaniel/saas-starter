@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "904f460530fe613a",
+	"digest": "3b29f4fed5321a98",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -130,15 +130,15 @@
 			"sendMessage": ["public", "mutation", "Convex", "Convex"]
 		},
 		"aiChat/threads": {
-			"backfillThreadMetadata": ["internal", "mutation", "Convex", "Convex"],
-			"createThread": ["public", "mutation", "Convex", "Convex"],
-			"deleteStaleWarmThreads": ["internal", "mutation", "Convex", "Convex"],
-			"deleteThread": ["public", "mutation", "Convex", "Convex"],
-			"getOrCreateWarmThread": ["public", "mutation", "Convex", "Convex"],
-			"getWarmThread": ["public", "query", "Convex", "Convex"],
-			"listThreads": ["public", "query", "Convex", "Convex"],
-			"setThreadTitleIfEmpty": ["internal", "mutation", "Convex", "Convex"],
-			"updateThreadMetadata": ["internal", "mutation", "Convex", "Convex"]
+			"backfillThreadMetadata": ["internal", "mutation", "Convex", "Confect"],
+			"createThread": ["public", "mutation", "Convex", "Confect"],
+			"deleteStaleWarmThreads": ["internal", "mutation", "Convex", "Confect"],
+			"deleteThread": ["public", "mutation", "Convex", "Confect"],
+			"getOrCreateWarmThread": ["public", "mutation", "Convex", "Confect"],
+			"getWarmThread": ["public", "query", "Convex", "Confect"],
+			"listThreads": ["public", "query", "Convex", "Confect"],
+			"setThreadTitleIfEmpty": ["internal", "mutation", "Convex", "Confect"],
+			"updateThreadMetadata": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"aiChat/titles": { "generateThreadTitle": ["internal", "action", "Convex", "Confect"] },
 		"aiUsage/record": { "insert": ["internal", "mutation", "Convex", "Confect"] },
