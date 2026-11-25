@@ -152,7 +152,7 @@
 		"@sentry/core": "11.15.0",
 		"@shadcn/lint": "0.2.0",
 		"@sveltejs/adapter-auto": "8.0.1",
-		"@sveltejs/adapter-cloudflare": "8.0.3",
+		"@sveltejs/adapter-cloudflare": "8.0.2",
 		"@sveltejs/adapter-node": "6.0.5",
 		"@sveltejs/adapter-vercel": "7.0.5",
 		"@sveltejs/kit": "3.4.0",

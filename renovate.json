@@ -161,6 +161,11 @@
 			"allowedVersions": "<2.21.0"
 		},
 		{
+			"description": "Hold @sveltejs/adapter-cloudflare below 8.0.3: 8.0.3 gives the SSR build the workerd resolve conditions, so @sentry/sveltekit resolves to its workerd entry with a static cloudflare:workers import, and SvelteKit's route analysis fails in Node with ERR_UNSUPPORTED_ESM_URL_SCHEME in every production build that sets PUBLIC_SENTRY_DSN. Remove once a production build with Sentry passes on the newer adapter.",
+			"matchPackageNames": ["@sveltejs/adapter-cloudflare"],
+			"allowedVersions": "<8.0.3"
+		},
+		{
 			"description": "Hold the root knip at 6.42.1: 6.46.1 reports $app from the valid \"extends\": \"$app/tsconfig\" in tsconfig.json as an unlisted dependency, which ignoreDependencies cannot reach. Remove once a knip release resolves the extends or the project accepts a reviewed ignore for it. The create-saas-starter package's knip is not held.",
 			"matchFileNames": ["package.json"],
 			"matchPackageNames": ["knip"],
