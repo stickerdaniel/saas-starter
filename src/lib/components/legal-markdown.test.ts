@@ -66,9 +66,9 @@ describe('LegalMarkdown', () => {
 				href: 'https://example.org/docs',
 				target: '_blank',
 				rel: 'noopener noreferrer'
-			},
-			{ ...internal, text: 'Backslash', href: '/privacy' }
+			}
 		]);
+		expect(document.body.textContent).toContain('Backslash');
 		expect(document.body.textContent).toContain('Script');
 		expect(document.body.textContent).toContain('Protocol');
 		expect(document.querySelector('[href^="javascript:" i], [src^="javascript:" i]')).toBeNull();

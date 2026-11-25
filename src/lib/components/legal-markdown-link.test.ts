@@ -43,7 +43,18 @@ describe('resolveLegalMarkdownLink', () => {
 		});
 		expect(
 			resolveLegalMarkdownLink(String.raw`/\evil.example/privacy`, '/privacy', currentUrl, localize)
-		).toEqual({ href: '/privacy', external: false });
+		).toBeNull();
+		expect(
+			resolveLegalMarkdownLink('/\t/evil.example/privacy', '/privacy', currentUrl, localize)
+		).toBeNull();
+		expect(
+			resolveLegalMarkdownLink(
+				'/docs/..//evil.example/privacy',
+				'https://evil.example/privacy',
+				currentUrl,
+				localize
+			)
+		).toBeNull();
 		expect(resolveLegalMarkdownLink('#rights', null, currentUrl, localize)).toEqual({
 			href: '#rights',
 			external: false

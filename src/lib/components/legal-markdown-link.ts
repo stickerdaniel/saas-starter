@@ -21,16 +21,29 @@ function withoutLanguagePrefix(pathname: string): string {
 	return `/${segments.slice(2).join('/')}`;
 }
 
+const AMBIGUOUS_URL_CHARACTERS = /[\p{Cc}\\]/u;
+
+function isLocalPath(url: string | null): url is string {
+	return (
+		url !== null &&
+		url.startsWith('/') &&
+		!url.startsWith('//') &&
+		!AMBIGUOUS_URL_CHARACTERS.test(url)
+	);
+}
+
 export function resolveLegalMarkdownLink(
 	href: string,
 	transformedHref: string | null,
 	currentUrl: Pick<URL, 'href'>,
 	localize: (path: string) => string
 ): ResolvedLegalMarkdownLink | null {
-	if (!href || href.startsWith('//')) return null;
+	if (!href || AMBIGUOUS_URL_CHARACTERS.test(href)) return null;
 	if (href.startsWith('#')) return { href, external: false };
 	if (href.startsWith('/')) {
-		return transformedHref === null ? null : { href: transformedHref, external: false };
+		return isLocalPath(href) && isLocalPath(transformedHref)
+			? { href: transformedHref, external: false }
+			: null;
 	}
 
 	if (parseAbsoluteUrl(href) !== null) {

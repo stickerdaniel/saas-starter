@@ -37,6 +37,24 @@
 			"noticeFiles": ["third-party-notices/ai-sdk-provider-utils-5.0.72.txt"]
 		},
 		{
+			"name": "@zxcvbn-ts/core",
+			"version": "4.3.0",
+			"sourceUrl": "https://github.com/zxcvbn-ts/zxcvbn/blob/f85444e5abd102b197bd2959880766de8dbaab3e/LICENSE.txt",
+			"noticeFiles": ["third-party-notices/zxcvbn-ts-f85444e5abd102b197bd2959880766de8dbaab3e.txt"]
+		},
+		{
+			"name": "@zxcvbn-ts/language-common",
+			"version": "4.2.0",
+			"sourceUrl": "https://github.com/zxcvbn-ts/zxcvbn/blob/f85444e5abd102b197bd2959880766de8dbaab3e/LICENSE.txt",
+			"noticeFiles": ["third-party-notices/zxcvbn-ts-f85444e5abd102b197bd2959880766de8dbaab3e.txt"]
+		},
+		{
+			"name": "@zxcvbn-ts/language-en",
+			"version": "4.1.2",
+			"sourceUrl": "https://github.com/zxcvbn-ts/zxcvbn/blob/f85444e5abd102b197bd2959880766de8dbaab3e/LICENSE.txt",
+			"noticeFiles": ["third-party-notices/zxcvbn-ts-f85444e5abd102b197bd2959880766de8dbaab3e.txt"]
+		},
+		{
 			"name": "motion-sv",
 			"version": "0.2.2",
 			"sourceUrl": "https://github.com/hanielu/motion-svelte/tree/motion-sv@0.2.2",
@@ -71,10 +89,17 @@
 		},
 		{
 			"name": "svelte-toolbelt",
-			"version": "0.10.6",
-			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/tree/v0.10.6",
+			"version": "0.10.7",
+			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/tree/v0.10.7",
 			"license": "MIT",
-			"supplementalNoticeFiles": ["third-party-notices/svelte-toolbelt-0.10.6-NOTICE.txt"]
+			"supplementalNoticeFiles": ["third-party-notices/svelte-toolbelt-0.10.7-NOTICE.txt"]
+		},
+		{
+			"name": "svelte-toolbelt",
+			"version": "0.13.0",
+			"sourceUrl": "https://github.com/huntabyte/svelte-toolbelt/tree/v0.13.0",
+			"license": "MIT",
+			"supplementalNoticeFiles": ["third-party-notices/svelte-toolbelt-0.13.0-NOTICE.txt"]
 		}
 	],
 	"customNotices": [
