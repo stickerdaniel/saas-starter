@@ -1,17 +1,52 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type {
-	checkPreviewAccess,
-	generateUploadUrl,
-	getAttachmentText,
-	requireFileAccess,
-	saveUploadedFile
-} from './files';
+import * as Schema from 'effect/Schema';
+import { FileRefusalCodec, UnauthenticatedCodec } from '../errorCodecs';
+import RequireUser from '../middleware/RequireUser.spec';
+import {
+	AttachmentTextArgsSchema,
+	AttachmentTextSchema,
+	RegisteredUploadSchema,
+	UploadRegistrationArgsSchema,
+	UploadUrlSchema
+} from './schemas';
 
 export default GroupSpec.make()
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof checkPreviewAccess>()('checkPreviewAccess')
+		FunctionSpec.internalMutation({
+			name: 'checkPreviewAccess',
+			args: () => ({}),
+			returns: () => Schema.Null,
+			error: () => FileRefusalCodec
+		}).middleware(RequireUser)
 	)
-	.addFunction(FunctionSpec.convexPublicMutation<typeof generateUploadUrl>()('generateUploadUrl'))
-	.addFunction(FunctionSpec.convexPublicAction<typeof getAttachmentText>()('getAttachmentText'))
-	.addFunction(FunctionSpec.convexInternalMutation<typeof requireFileAccess>()('requireFileAccess'))
-	.addFunction(FunctionSpec.convexPublicAction<typeof saveUploadedFile>()('saveUploadedFile'));
+	.addFunction(
+		FunctionSpec.publicMutation({
+			name: 'generateUploadUrl',
+			args: () => ({}),
+			returns: () => UploadUrlSchema,
+			error: () => FileRefusalCodec
+		}).middleware(RequireUser)
+	)
+	.addFunction(
+		FunctionSpec.publicAction({
+			name: 'getAttachmentText',
+			args: () => AttachmentTextArgsSchema.fields,
+			returns: () => AttachmentTextSchema,
+			error: () => Schema.Union([FileRefusalCodec, UnauthenticatedCodec])
+		})
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'requireFileAccess',
+			args: () => ({}),
+			returns: () => Schema.Null
+		}).middleware(RequireUser)
+	)
+	.addFunction(
+		FunctionSpec.publicAction({
+			name: 'saveUploadedFile',
+			args: () => UploadRegistrationArgsSchema.fields,
+			returns: () => RegisteredUploadSchema,
+			error: () => UnauthenticatedCodec
+		})
+	);

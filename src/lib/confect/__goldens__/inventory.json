@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "3b29f4fed5321a98",
+	"digest": "c94e96ce67a00e4d",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -117,11 +117,11 @@
 			"status": ["internal", "query", "Convex", "Confect"]
 		},
 		"aiChat/files": {
-			"checkPreviewAccess": ["internal", "mutation", "Convex", "Convex"],
-			"generateUploadUrl": ["public", "mutation", "Convex", "Convex"],
-			"getAttachmentText": ["public", "action", "Convex", "Convex"],
-			"requireFileAccess": ["internal", "mutation", "Convex", "Convex"],
-			"saveUploadedFile": ["public", "action", "Convex", "Convex"]
+			"checkPreviewAccess": ["internal", "mutation", "Convex", "Confect"],
+			"generateUploadUrl": ["public", "mutation", "Convex", "Confect"],
+			"getAttachmentText": ["public", "action", "Convex", "Confect"],
+			"requireFileAccess": ["internal", "mutation", "Convex", "Confect"],
+			"saveUploadedFile": ["public", "action", "Convex", "Confect"]
 		},
 		"aiChat/messages": {
 			"createAIResponse": ["internal", "action", "Convex", "Convex"],

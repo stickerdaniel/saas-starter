@@ -1,7 +1,7 @@
 {
 	"action": {
 		"function": "aiChat/files:getAttachmentText",
-		"invalid": "Error Return value validation failed for action \"goldenReturnProbe:getAttachmentText\": Validator error: Missing required field `text` in object",
+		"invalid": "Error Return value validation failed for action \"goldenReturnProbe:getAttachmentText\": Validator error: Missing required field `truncated` in object",
 		"valid": "ok"
 	},
 	"mutation": {

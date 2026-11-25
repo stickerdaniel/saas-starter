@@ -26,14 +26,14 @@ vi.mock('../../convex/_generated/api', () => ({
 		}
 	},
 	internal: {
-		aiChat: { files: { requireFileAccess: 'internal.aiChat.files.requireFileAccess' } },
 		files: { metadata: { storeFileMetadata: 'internal.files.metadata.storeFileMetadata' } }
 	}
 }));
 
 import { storeFile } from '@convex-dev/agent';
+import { getFunctionName, type FunctionReference } from 'convex/server';
 import { saveUploadedFile as saveSupportFile } from '../../convex/support/files';
-import { saveUploadedFile as saveAiChatFile } from '../aiChat/files';
+import { saveUploadedFile as saveAiChatFile } from '../../convex/aiChat/files';
 
 type SaveUploadedFileArgs = {
 	storageId: string;
@@ -53,7 +53,7 @@ const storeFileMock = storeFile as unknown as ReturnType<typeof vi.fn>;
 const DOWNLOAD_URL = 'https://files.test/download/storage-1';
 
 const mutationResults: Record<string, unknown> = {
-	'internal.aiChat.files.requireFileAccess': null,
+	'aiChat/files:requireFileAccess': null,
 	'files.upload.finalizeUpload': null,
 	'files.download.createDownloadGrant': { downloadToken: 'download-token' },
 	'files.download.consumeDownloadGrantForUrl': { status: 'ok', downloadUrl: DOWNLOAD_URL },
@@ -85,9 +85,10 @@ function saveAsClaimedPng(action: SaveUploadedFileHandler) {
 }
 
 beforeEach(() => {
-	runMutation = vi.fn(async (reference: string) => {
-		if (!(reference in mutationResults)) throw new Error(`Unexpected mutation ${reference}`);
-		return mutationResults[reference];
+	runMutation = vi.fn(async (reference: string | FunctionReference<'mutation'>) => {
+		const name = typeof reference === 'string' ? reference : getFunctionName(reference);
+		if (!(name in mutationResults)) throw new Error(`Unexpected mutation ${name}`);
+		return mutationResults[name];
 	});
 	storeFileMock.mockReset();
 	storeFileMock.mockResolvedValue({
