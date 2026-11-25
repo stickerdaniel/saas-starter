@@ -1,13 +1,13 @@
+// @vitest-environment node
+/// <reference types="vite/client" />
+import { convexTest } from 'convex-test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { api } from '../convex/_generated/api';
+import schema from '../convex/schema';
+import { convexModules } from './convexTest.modules';
 
-vi.mock('../convex/_generated/server', () => ({
-	env: process.env,
-	query: (definition: { handler: unknown }) => ({ ...definition, _handler: definition.handler })
-}));
-
-type RegisteredQuery = {
-	_handler: () => Promise<unknown>;
-};
+const getUsability = () =>
+	convexTest(schema, convexModules).query(api.capabilities.getUsability, {});
 
 const providerKeys = [
 	'RESEND_API_KEY',
@@ -19,7 +19,6 @@ const providerKeys = [
 
 afterEach(() => {
 	vi.unstubAllEnvs();
-	vi.resetModules();
 });
 
 describe('public capability usability', () => {
@@ -27,8 +26,7 @@ describe('public capability usability', () => {
 		vi.stubEnv('CAPABILITY_PROFILE', 'local');
 		for (const key of providerKeys) vi.stubEnv(key, '');
 
-		const { getUsability } = await import('./capabilities');
-		const result = await (getUsability as unknown as RegisteredQuery)._handler();
+		const result = await getUsability();
 
 		expect(result).toEqual({
 			billing: { usable: false, reason: 'unavailable' },
@@ -62,8 +60,7 @@ describe('public capability usability', () => {
 		vi.stubEnv('AUTUMN_SECRET_KEY', 'configured-billing-key');
 		vi.stubEnv('OPENROUTER_API_KEY', 'configured-ai-key');
 
-		const { getUsability } = await import('./capabilities');
-		const result = await (getUsability as unknown as RegisteredQuery)._handler();
+		const result = await getUsability();
 
 		expect(result).toEqual({ billing: { usable: true }, ai: { usable: true } });
 		expect(JSON.stringify(result)).not.toContain('configured');

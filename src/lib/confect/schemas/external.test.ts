@@ -6,7 +6,9 @@ import { paginationOptsValidator } from 'convex/server';
 import { v, type GenericValidator } from 'convex/values';
 import * as Schema from 'effect/Schema';
 import { describe, expect, it } from 'vitest';
+import { tables } from '../../convex-components/betterAuth/schema';
 import { StreamArgs } from './agent';
+import { BetterAuthUserSchema } from './betterAuth';
 import { PaginationOpts } from './pagination';
 import { EmailEvent, EmailId } from './resend';
 
@@ -93,6 +95,45 @@ const cases: ReadonlyArray<{
 			{ kind: 'list', startOrder: '3' },
 			{ kind: 'deltas', cursors: [{ streamId: 's1' }] },
 			{ kind: 'other' }
+		]
+	},
+	{
+		name: 'BetterAuthUser',
+		schema: BetterAuthUserSchema,
+		native: tables.user.validator,
+		accepted: [
+			{
+				name: 'Ada',
+				email: 'ada@example.com',
+				emailVerified: true,
+				createdAt: 1,
+				updatedAt: 2
+			},
+			{
+				name: 'Ada',
+				email: 'ada@example.com',
+				emailVerified: false,
+				image: null,
+				createdAt: 1,
+				updatedAt: 2,
+				userId: null,
+				role: 'admin',
+				banned: true,
+				banReason: 'spam',
+				banExpires: 3,
+				locale: 'de'
+			}
+		],
+		rejected: [
+			{ name: 'Ada', email: 'ada@example.com', createdAt: 1, updatedAt: 2 },
+			{
+				name: 'Ada',
+				email: 'ada@example.com',
+				emailVerified: true,
+				createdAt: 1,
+				updatedAt: 2,
+				banned: 'yes'
+			}
 		]
 	},
 	{

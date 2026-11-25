@@ -1,6 +1,10 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { ensureSeededAdmin } from './localDev';
+import { SeededAdminSchema } from './schemas/seededAdmin';
 
 export default GroupSpec.make().addFunction(
-	FunctionSpec.convexInternalMutation<typeof ensureSeededAdmin>()('ensureSeededAdmin')
+	FunctionSpec.internalMutation({
+		name: 'ensureSeededAdmin',
+		args: () => ({}),
+		returns: () => SeededAdminSchema
+	})
 );

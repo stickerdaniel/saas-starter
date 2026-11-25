@@ -265,7 +265,7 @@ describe('no-raw-caught-error-log coverage', () => {
 
 	it.each([
 		['shared code that also runs in the browser', 'src/lib/utils/convex-errors.ts'],
-		['Convex functions, which log to the Convex dashboard', 'src/lib/confect/users.ts'],
+		['Convex functions, which log to the Convex dashboard', 'src/lib/confect/users.impl.ts'],
 		['a test', 'src/lib/server/auth-proxy.test.ts']
 	])(
 		'leaves out %s',
