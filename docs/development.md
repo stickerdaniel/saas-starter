@@ -30,7 +30,7 @@ Run `ANALYZE=true bun run build` to generate a treemap with gzip and brotli size
 
 ## Svelte DevTools
 
-`bun run dev` adds the [Svelte DevTools](https://github.com/sveltejs/vite-devtools-svelte) to the Vite DevTools dock and serves them standalone at `/.svelte-devtools/`; the first visit asks for a one-time code the dev server prints. The `svelte-devtools` entry in `.mcp.json` gives agents the same data while `bun run dev` runs. `bun run dev:test`, Vitest and builds load neither.
+`bun run dev` adds the [Svelte DevTools](https://github.com/sveltejs/vite-devtools-svelte) to the Vite DevTools dock and serves them standalone at `/.svelte-devtools/`; the first visit asks for a one-time code the dev server prints. The `svelte-devtools` entry in `.mcp.json` gives agents the same data while `bun run dev` runs. `bun run dev:test`, Vitest and builds leave both plugins off.
 
 ## VS Code Integration
 
