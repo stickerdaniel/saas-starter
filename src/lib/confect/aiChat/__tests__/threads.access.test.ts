@@ -177,7 +177,7 @@ describe('aiChat/threads sidebar list', () => {
 		const t = harness();
 		const { userId, caller } = await signIn(t, 'default-limit@example.com');
 		await t.run(async (ctx) => {
-			for (let at = 1; at <= 21; at++) {
+			for (let at = 21; at >= 1; at--) {
 				await ctx.db.insert('aiChatThreads', {
 					userId,
 					threadId: `thread_${at}`,
