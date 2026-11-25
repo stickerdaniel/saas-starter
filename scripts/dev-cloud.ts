@@ -82,9 +82,23 @@ function signalGroup(pid: number, signal: NodeJS.Signals | 0): boolean {
 		return true;
 	} catch (error) {
 		const { code } = error as NodeJS.ErrnoException;
-		if (code === 'ESRCH' || (process.platform === 'darwin' && code === 'EPERM')) return false;
+		if (code === 'ESRCH') return false;
+		if (process.platform === 'darwin' && code === 'EPERM' && onlyZombiesIn(pid)) return false;
 		throw error;
 	}
+}
+
+function onlyZombiesIn(pgid: number): boolean {
+	const listing = spawnSync('ps', ['-A', '-o', 'pgid=,stat='], {
+		encoding: 'utf8',
+		timeout: 5_000
+	});
+	if (listing.status !== 0) return false;
+	return listing.stdout
+		.split('\n')
+		.map((line) => line.trim().split(/\s+/))
+		.filter(([group]) => Number(group) === pgid)
+		.every(([, stat = '']) => stat.startsWith('Z'));
 }
 
 function processTreeExists(child: ChildProcess): boolean {

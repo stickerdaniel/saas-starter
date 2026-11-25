@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	devCloudCommands,
 	exitCodeFor,
@@ -341,8 +341,9 @@ describe('runUntilOneExits', () => {
 			const directory = mkdtempSync(path.join(tmpdir(), 'dev-cloud-process-'));
 			const pidFile = path.join(directory, 'grandchild.pid');
 			const escapedPidFile = JSON.stringify(pidFile);
+			const escapedTempFile = JSON.stringify(`${pidFile}.tmp`);
 			const leader = `const fs=require('node:fs');const timer=setInterval(()=>{if(fs.existsSync(${escapedPidFile})){clearInterval(timer);process.exit(7)}},10)`;
-			const worker = `const{spawn}=require('node:child_process');const fs=require('node:fs');process.on('SIGTERM',()=>{});const child=spawn(process.execPath,['-e','process.on(\\'SIGTERM\\',()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(${escapedPidFile},String(child.pid));setInterval(()=>{},1000)`;
+			const worker = `const{spawn}=require('node:child_process');const fs=require('node:fs');process.on('SIGTERM',()=>{});const child=spawn(process.execPath,['-e','process.on(\\'SIGTERM\\',()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(${escapedTempFile},String(child.pid));fs.renameSync(${escapedTempFile},${escapedPidFile});setInterval(()=>{},1000)`;
 			try {
 				const code = await runUntilOneExits(
 					[
@@ -368,8 +369,9 @@ describe('runUntilOneExits', () => {
 			const directory = mkdtempSync(path.join(tmpdir(), 'dev-cloud-wrapper-exit-'));
 			const pidFile = path.join(directory, 'grandchild.pid');
 			const escapedPidFile = JSON.stringify(pidFile);
+			const escapedTempFile = JSON.stringify(`${pidFile}.tmp`);
 			const leader = `const fs=require('node:fs');const timer=setInterval(()=>{if(fs.existsSync(${escapedPidFile})){clearInterval(timer);process.exit(7)}},10)`;
-			const grandchild = `process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(${escapedPidFile},String(process.pid));setInterval(()=>{},1000)`;
+			const grandchild = `process.on('SIGTERM',()=>{});const fs=require('node:fs');fs.writeFileSync(${escapedTempFile},String(process.pid));fs.renameSync(${escapedTempFile},${escapedPidFile});setInterval(()=>{},1000)`;
 			const worker = `const{spawn}=require('node:child_process');process.on('SIGTERM',()=>process.exit(0));spawn(process.execPath,['-e',${JSON.stringify(grandchild)}],{stdio:'ignore'});setInterval(()=>{},1000)`;
 			try {
 				const code = await runUntilOneExits(
@@ -384,6 +386,39 @@ describe('runUntilOneExits', () => {
 				expect(await waitUntilStopped(grandchildPid)).toBe(true);
 			} finally {
 				rmSync(directory, { recursive: true, force: true });
+			}
+		},
+		10_000
+	);
+
+	it.runIf(process.platform === 'darwin').each([
+		['a live member remains', undefined],
+		['the process listing fails', tmpdir()]
+	])(
+		'rejects on EPERM when %s',
+		async (_label, searchPath) => {
+			if (searchPath) vi.stubEnv('PATH', searchPath);
+			const groups = new Set<number>();
+			const kill = process.kill.bind(process);
+			const spy = vi.spyOn(process, 'kill').mockImplementation((pid, signal) => {
+				if (pid >= 0) return kill(pid, signal);
+				groups.add(-pid);
+				throw Object.assign(new Error('kill EPERM'), { code: 'EPERM' });
+			});
+			try {
+				await expect(
+					runUntilOneExits(
+						[
+							{ command: process.execPath, args: ['-e', 'setInterval(()=>{},1000)'] },
+							{ command: process.execPath, args: ['-e', 'process.exit(7)'] }
+						],
+						{ stdio: 'ignore', graceMs: 100, forceMs: 500 }
+					)
+				).rejects.toMatchObject({ code: 'EPERM' });
+			} finally {
+				spy.mockRestore();
+				vi.unstubAllEnvs();
+				for (const group of groups) if (processExists(-group)) process.kill(-group, 'SIGKILL');
 			}
 		},
 		10_000
