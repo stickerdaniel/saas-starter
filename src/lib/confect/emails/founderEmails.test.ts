@@ -462,12 +462,13 @@ describe('founder feedback email', () => {
 				.withIndex('by_user', (q) => q.eq('userId', userId))
 				.unique();
 			expect(welcome).toMatchObject({ status: 'sent', emailId: expect.any(String) });
-			await ctx.db.patch('founderWelcomeEmails', welcome!._id, { status: 'skipped' });
+			if (!welcome) throw new Error('welcome row missing');
+			await ctx.db.patch('founderWelcomeEmails', welcome._id, { status: 'skipped' });
 		});
 		await drainScheduled(t);
 
 		const [feedback] = feedbackSends();
-		expect(feedback!.subject).toBe(FOUNDER_FEEDBACK_DEFAULTS.subject);
+		expect(feedback).toMatchObject({ subject: FOUNDER_FEEDBACK_DEFAULTS.subject });
 		expect(header(feedback, 'In-Reply-To')).toBeUndefined();
 	});
 
@@ -652,10 +653,11 @@ describe('founder feedback email', () => {
 		const userId = await signUp(t);
 		await drainScheduled(t);
 		const [row] = await sendRows(t, userId, 'feedback');
+		if (!row) throw new Error('send row missing');
 		expect(row).toMatchObject({ status: 'sent' });
 
 		await t.mutation(internal.emails.founderEmails.recordFounderEmailSendFailure, {
-			sendId: row!._id
+			sendId: row._id
 		});
 
 		expect((await sendRows(t, userId, 'feedback'))[0]).toMatchObject({ status: 'sent' });

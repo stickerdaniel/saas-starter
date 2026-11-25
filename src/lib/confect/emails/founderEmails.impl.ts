@@ -74,7 +74,10 @@ export default GroupImpl.make(databaseSchema, founderEmails).pipe(
 					if (billing.cancellation === 'unknown') {
 						if (attempt < FOUNDER_CANCELLATION_BILLING_ATTEMPTS) {
 							const scheduledFnId = yield* (yield* Scheduler).runAt(
-								DateTime.makeUnsafe(Date.now() + attempt * FOUNDER_CANCELLATION_BILLING_BACKOFF_MS),
+								DateTime.mapEpochMillis(
+									DateTime.makeUnsafe(Date.now()),
+									(now) => now + attempt * FOUNDER_CANCELLATION_BILLING_BACKOFF_MS
+								),
 								refs.internal.emails.founderEmailBilling.resolveFounderCancellationBilling,
 								{ sendId: row._id, userId: row.userId, attempt: attempt + 1 }
 							);

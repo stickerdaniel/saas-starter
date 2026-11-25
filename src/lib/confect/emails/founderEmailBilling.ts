@@ -21,10 +21,6 @@ import { getEmailDeliveryConfiguration, resend } from './resend';
  * the welcome's thread in Resend. Both are scheduled only after the database
  * guards passed, so a skipped user costs no provider call.
  *
- * An action runs at most once, so a failed hand-back would leave the row
- * `scheduled` with nothing left to move it. The action records such a failure as
- * a `send_failed` skip instead.
- *
  * Logs carry a fixed code only, never provider responses or errors, which may
  * carry provider text.
  */
