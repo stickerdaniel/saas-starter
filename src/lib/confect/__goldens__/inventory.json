@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "7453b2013be8fe18",
+	"digest": "d4ffe297f241f944",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -168,22 +168,22 @@
 		"capabilities": { "getUsability": ["public", "query", "Convex", "Convex"] },
 		"emails/events": { "handleEmailEvent": ["internal", "mutation", "Convex", "Confect"] },
 		"emails/founderEmailBilling": {
-			"resolveFounderCancellationBilling": ["internal", "action", "Convex", "Convex"],
-			"resolveFounderFeedbackBilling": ["internal", "action", "Convex", "Convex"]
+			"resolveFounderCancellationBilling": ["internal", "action", "Convex", "Confect"],
+			"resolveFounderFeedbackBilling": ["internal", "action", "Convex", "Confect"]
 		},
 		"emails/founderEmailErasure": {
 			"continueFounderEmailErasure": ["internal", "mutation", "Convex", "Convex"],
 			"eraseFounderEmailPage": ["internal", "mutation", "Convex", "Convex"]
 		},
 		"emails/founderEmailLedger": {
-			"getSentFounderWelcome": ["internal", "query", "Convex", "Convex"],
-			"isFounderEmailSendPending": ["internal", "query", "Convex", "Convex"]
+			"getSentFounderWelcome": ["internal", "query", "Convex", "Confect"],
+			"isFounderEmailSendPending": ["internal", "query", "Convex", "Confect"]
 		},
 		"emails/founderEmails": {
-			"recordFounderEmailSendFailure": ["internal", "mutation", "Convex", "Convex"],
-			"sendFounderCancellationEmail": ["internal", "mutation", "Convex", "Convex"],
-			"sendFounderFeedbackEmail": ["internal", "mutation", "Convex", "Convex"],
-			"setPersonalEmailSuppression": ["internal", "mutation", "Convex", "Convex"]
+			"recordFounderEmailSendFailure": ["internal", "mutation", "Convex", "Confect"],
+			"sendFounderCancellationEmail": ["internal", "mutation", "Convex", "Confect"],
+			"sendFounderFeedbackEmail": ["internal", "mutation", "Convex", "Confect"],
+			"setPersonalEmailSuppression": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"emails/founderIncidentDelivery": {
 			"reconcileFounderIncidentEmailDelivery": ["internal", "mutation", "Convex", "Confect"]
