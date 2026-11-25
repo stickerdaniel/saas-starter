@@ -25,14 +25,22 @@ function spawnedChildren() {
 		.mock.results.flatMap((result) => (result.type === 'return' ? [result.value] : []));
 }
 
-afterEach(() => {
-	if (process.platform !== 'win32') {
-		for (const { pid } of spawnedChildren()) {
-			if (pid && processExists(-pid)) process.kill(-pid, 'SIGKILL');
-		}
+function killGroup(pgid: number): void {
+	try {
+		process.kill(-pgid, 'SIGKILL');
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
 	}
-	vi.mocked(spawn).mockClear();
-	vi.mocked(spawnSync).mockReset();
+}
+
+afterEach(() => {
+	try {
+		if (process.platform === 'win32') return;
+		for (const { pid } of spawnedChildren()) if (pid && processExists(-pid)) killGroup(pid);
+	} finally {
+		vi.mocked(spawn).mockClear();
+		vi.mocked(spawnSync).mockReset();
+	}
 });
 
 function processExists(pid: number): boolean {
@@ -415,20 +423,23 @@ describe('runUntilOneExits', () => {
 
 	describe.runIf(process.platform === 'darwin')('when a group refuses signals with EPERM', () => {
 		const live = { command: process.execPath, args: ['-e', 'setInterval(()=>{},1000)'] };
-		const resistant = {
-			command: process.execPath,
-			args: ['-e', "process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"]
-		};
 		const exiting = { command: process.execPath, args: ['-e', 'process.exit(7)'] };
 		const options = { stdio: 'ignore', graceMs: 100, forceMs: 500 } as const;
 
-		async function refusing(groupsThatRefuse: number, run: () => Promise<void>) {
+		type Delivery = 'refuse' | 'drop' | 'deliver';
+
+		async function refusing(
+			deliver: (group: number, signal: string | number | undefined) => Delivery,
+			run: () => Promise<void>
+		) {
 			const groups: number[] = [];
 			const kill = process.kill.bind(process);
 			const spy = vi.spyOn(process, 'kill').mockImplementation((pid, signal) => {
 				if (pid >= 0) return kill(pid, signal);
 				if (!groups.includes(-pid)) groups.push(-pid);
-				if (groups.indexOf(-pid) >= groupsThatRefuse) return kill(pid, signal);
+				const delivery = deliver(groups.indexOf(-pid), signal);
+				if (delivery === 'deliver') return kill(pid, signal);
+				if (delivery === 'drop') return true;
 				throw Object.assign(new Error('kill EPERM'), { code: 'EPERM' });
 			});
 			try {
@@ -439,11 +450,14 @@ describe('runUntilOneExits', () => {
 		}
 
 		it('rejects while a live member remains', async () => {
-			await refusing(Infinity, async () => {
-				await expect(runUntilOneExits([live, exiting], options)).rejects.toMatchObject({
-					code: 'EPERM'
-				});
-			});
+			await refusing(
+				() => 'refuse',
+				async () => {
+					await expect(runUntilOneExits([live, exiting], options)).rejects.toMatchObject({
+						code: 'EPERM'
+					});
+				}
+			);
 		});
 
 		it('rejects when the process listing times out', async () => {
@@ -456,16 +470,23 @@ describe('runUntilOneExits', () => {
 				signal: 'SIGKILL',
 				error: Object.assign(new Error('spawnSync /bin/ps ETIMEDOUT'), { code: 'ETIMEDOUT' })
 			});
-			await refusing(Infinity, async () => {
-				await expect(runUntilOneExits([live, exiting], options)).rejects.toMatchObject({
-					code: 'EPERM'
-				});
-			});
+			await refusing(
+				() => 'refuse',
+				async () => {
+					await expect(runUntilOneExits([live, exiting], options)).rejects.toMatchObject({
+						code: 'EPERM'
+					});
+				}
+			);
 		});
 
 		it('still stops the other groups before it rejects', async () => {
-			await refusing(1, async () => {
-				await expect(runUntilOneExits([live, resistant, exiting], options)).rejects.toMatchObject({
+			const firstRefusesSecondDropsSigterm = (
+				group: number,
+				signal: string | number | undefined
+			) => (group === 0 ? 'refuse' : group === 1 && signal === 'SIGTERM' ? 'drop' : 'deliver');
+			await refusing(firstRefusesSecondDropsSigterm, async () => {
+				await expect(runUntilOneExits([live, live, exiting], options)).rejects.toMatchObject({
 					code: 'EPERM'
 				});
 				expect(spawnedChildren().map(({ pid }) => pid !== undefined && processExists(pid))).toEqual(
