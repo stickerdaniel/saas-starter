@@ -1,8 +1,15 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { queueFounderIncidentEmail } from './founderIncidentSend';
+import { FounderIncidentRefusalCodec } from '../errorCodecs';
+import {
+	FounderIncidentQueueResultSchema,
+	FounderIncidentRecipientArgsSchema
+} from './founderIncidentTypes';
 
 export default GroupSpec.make().addFunction(
-	FunctionSpec.convexInternalMutation<typeof queueFounderIncidentEmail>()(
-		'queueFounderIncidentEmail'
-	)
+	FunctionSpec.internalMutation({
+		name: 'queueFounderIncidentEmail',
+		args: () => FounderIncidentRecipientArgsSchema.fields,
+		returns: () => FounderIncidentQueueResultSchema,
+		error: () => FounderIncidentRefusalCodec
+	})
 );

@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "16d9043720690b2a",
+	"digest": "7453b2013be8fe18",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -166,7 +166,7 @@
 			"usage": ["public", "action", "Convex", "Convex"]
 		},
 		"capabilities": { "getUsability": ["public", "query", "Convex", "Convex"] },
-		"emails/events": { "handleEmailEvent": ["internal", "mutation", "Convex", "Convex"] },
+		"emails/events": { "handleEmailEvent": ["internal", "mutation", "Convex", "Confect"] },
 		"emails/founderEmailBilling": {
 			"resolveFounderCancellationBilling": ["internal", "action", "Convex", "Convex"],
 			"resolveFounderFeedbackBilling": ["internal", "action", "Convex", "Convex"]
@@ -186,15 +186,15 @@
 			"setPersonalEmailSuppression": ["internal", "mutation", "Convex", "Convex"]
 		},
 		"emails/founderIncidentDelivery": {
-			"reconcileFounderIncidentEmailDelivery": ["internal", "mutation", "Convex", "Convex"]
+			"reconcileFounderIncidentEmailDelivery": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"emails/founderIncidentDrafts": {
-			"previewDraft": ["internal", "query", "Convex", "Convex"],
-			"queueDraft": ["internal", "mutation", "Convex", "Convex"],
-			"saveDraft": ["internal", "mutation", "Convex", "Convex"]
+			"previewDraft": ["internal", "query", "Convex", "Confect"],
+			"queueDraft": ["internal", "mutation", "Convex", "Confect"],
+			"saveDraft": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"emails/founderIncidentSend": {
-			"queueFounderIncidentEmail": ["internal", "mutation", "Convex", "Convex"]
+			"queueFounderIncidentEmail": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"emails/send": {
 			"sendAdminReplyNotification": ["internal", "mutation", "Convex", "Convex"],

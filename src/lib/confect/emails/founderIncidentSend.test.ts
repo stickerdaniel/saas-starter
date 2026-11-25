@@ -4,7 +4,7 @@ import { freshSurfaceOf } from '../../../../scripts/convex-surface';
 import { internal } from '../../convex/_generated/api';
 import type { FounderWelcomeConfig } from '../admin/founderWelcome/queries';
 import { founderIncidentRegistry } from './founderIncidentRegistry';
-import { queueFounderIncidentEmail } from './founderIncidentSend';
+import { queueFounderIncidentEmail } from '../../convex/emails/founderIncidentSend';
 import type { FounderIncidentQueueResult, FounderIncidentRenderer } from './founderIncidentTypes';
 import { resend } from './resend';
 

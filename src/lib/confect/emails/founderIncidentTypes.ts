@@ -1,90 +1,109 @@
-import { v, type Infer } from 'convex/values';
+import * as Schema from 'effect/Schema';
+import { EmailEvent, EmailId } from '../schemas/resend';
 import type { SupportedLocale } from '../i18n/translations';
 
-export const founderIncidentSkipReasonValidator = v.union(
-	v.literal('user_deleted'),
-	v.literal('not_verified'),
-	v.literal('test_email'),
-	v.literal('founder_not_configured')
-);
+export const FounderIncidentSkipReasonSchema = Schema.Literals([
+	'user_deleted',
+	'not_verified',
+	'test_email',
+	'founder_not_configured'
+]);
 
-export const founderIncidentDeliveryStatusValidator = v.union(
-	v.literal('waiting'),
-	v.literal('queued'),
-	v.literal('sent'),
-	v.literal('delivery_delayed'),
-	v.literal('delivered'),
-	v.literal('bounced'),
-	v.literal('failed'),
-	v.literal('cancelled'),
-	v.literal('unknown')
-);
+export const FounderIncidentDeliveryStatusSchema = Schema.Literals([
+	'waiting',
+	'queued',
+	'sent',
+	'delivery_delayed',
+	'delivered',
+	'bounced',
+	'failed',
+	'cancelled',
+	'unknown'
+]);
 
-export const founderIncidentQueueResultValidator = v.union(
-	v.object({ status: v.literal('enqueued') }),
-	v.object({ status: v.literal('already_processed') }),
-	v.object({
-		status: v.literal('skipped'),
-		reason: founderIncidentSkipReasonValidator
-	})
-);
-
-export const founderIncidentEmailFields = {
-	userId: v.string(),
-	incident: v.string(),
-	status: v.union(v.literal('enqueued'), v.literal('skipped')),
-	emailId: v.optional(v.string()),
-	skippedReason: v.optional(founderIncidentSkipReasonValidator),
-	locale: v.optional(v.string()),
-	deliveryStatus: v.optional(founderIncidentDeliveryStatusValidator),
-	deliveryUpdatedAt: v.optional(v.number()),
-	complainedAt: v.optional(v.number()),
-	enqueuedAt: v.optional(v.number()),
-	createdAt: v.number()
-};
-
-export const founderIncidentTemplateValidator = v.object({
-	locale: v.string(),
-	subject: v.string(),
-	text: v.string()
+const FounderIncidentSkippedSchema = Schema.Struct({
+	status: Schema.Literal('skipped'),
+	reason: FounderIncidentSkipReasonSchema
 });
 
-export const founderIncidentDraftFields = {
-	incident: v.string(),
-	revision: v.number(),
-	templates: v.array(founderIncidentTemplateValidator),
-	createdAt: v.number(),
-	updatedAt: v.number()
-};
+export const FounderIncidentQueueResultSchema = Schema.Union([
+	Schema.Struct({ status: Schema.Literal('enqueued') }),
+	Schema.Struct({ status: Schema.Literal('already_processed') }),
+	FounderIncidentSkippedSchema
+]);
 
-export const founderIncidentEnvelopeValidator = v.object({
-	from: v.string(),
-	to: v.string(),
-	replyTo: v.optional(v.array(v.string())),
-	headers: v.array(v.object({ name: v.string(), value: v.string() })),
-	subject: v.string(),
-	text: v.string()
+export const FounderIncidentTemplateSchema = Schema.Struct({
+	locale: Schema.String,
+	subject: Schema.String,
+	text: Schema.String
 });
 
-export const founderIncidentPreviewValidator = v.union(
-	v.object({
-		status: v.literal('ready'),
-		incident: v.string(),
-		userId: v.string(),
-		revision: v.number(),
-		locale: v.string(),
-		envelope: founderIncidentEnvelopeValidator,
-		approvalDigest: v.string()
+const FounderIncidentEnvelopeSchema = Schema.Struct({
+	from: Schema.String,
+	to: Schema.String,
+	replyTo: Schema.optional(Schema.mutable(Schema.Array(Schema.String))),
+	headers: Schema.mutable(
+		Schema.Array(Schema.Struct({ name: Schema.String, value: Schema.String }))
+	),
+	subject: Schema.String,
+	text: Schema.String
+});
+
+export const FounderIncidentPreviewSchema = Schema.Union([
+	Schema.Struct({
+		status: Schema.Literal('ready'),
+		incident: Schema.String,
+		userId: Schema.String,
+		revision: Schema.Number,
+		locale: Schema.String,
+		envelope: FounderIncidentEnvelopeSchema,
+		approvalDigest: Schema.String
 	}),
-	v.object({ status: v.literal('skipped'), reason: founderIncidentSkipReasonValidator })
-);
+	FounderIncidentSkippedSchema
+]);
 
-export type FounderIncidentTemplate = Infer<typeof founderIncidentTemplateValidator>;
-export type FounderIncidentEnvelope = Infer<typeof founderIncidentEnvelopeValidator>;
-export type FounderIncidentSkipped = Extract<FounderIncidentQueueResult, { status: 'skipped' }>;
-export type FounderIncidentSkipReason = Infer<typeof founderIncidentSkipReasonValidator>;
-export type FounderIncidentDeliveryStatus = Infer<typeof founderIncidentDeliveryStatusValidator>;
-export type FounderIncidentQueueResult = Infer<typeof founderIncidentQueueResultValidator>;
+export const FounderIncidentRecipientArgsSchema = Schema.Struct({
+	userId: Schema.String,
+	incident: Schema.String
+});
+
+export const SaveDraftArgsSchema = Schema.Struct({
+	incident: Schema.String,
+	expectedRevision: Schema.Union([Schema.Null, Schema.Number]),
+	templates: Schema.Array(FounderIncidentTemplateSchema)
+});
+
+export const DraftRevisionSchema = Schema.Struct({ revision: Schema.Number });
+
+export const PreviewDraftArgsSchema = Schema.Struct({
+	incident: Schema.String,
+	userId: Schema.String
+});
+
+export const QueueDraftArgsSchema = Schema.Struct({
+	incident: Schema.String,
+	userId: Schema.String,
+	approvalDigest: Schema.String
+});
+
+export const FounderIncidentReconciliationSchema = Schema.Union([
+	Schema.Struct({ status: Schema.Literal('not_found') }),
+	Schema.Struct({ status: Schema.Literal('skipped') }),
+	Schema.Struct({
+		status: Schema.Literal('reconciled'),
+		deliveryStatus: FounderIncidentDeliveryStatusSchema,
+		complained: Schema.Boolean
+	})
+]);
+
+export const EmailEventArgsSchema = Schema.Struct({ id: EmailId, event: EmailEvent });
+
+export type FounderIncidentTemplate = typeof FounderIncidentTemplateSchema.Type;
+export type FounderIncidentEnvelope = typeof FounderIncidentEnvelopeSchema.Type;
+export type FounderIncidentSkipped = typeof FounderIncidentSkippedSchema.Type;
+export type FounderIncidentSkipReason = typeof FounderIncidentSkipReasonSchema.Type;
+export type FounderIncidentDeliveryStatus = typeof FounderIncidentDeliveryStatusSchema.Type;
+export type FounderIncidentQueueResult = typeof FounderIncidentQueueResultSchema.Type;
 
 export type FounderIncidentContact = {
 	name: string;

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createFounderIncidentEmailMutation } from './founderIncidentCore';
-import { defineFounderIncidentRegistry } from './founderIncidentTypes';
+import { queueFounderIncidentEmail } from '../../convex/emails/founderIncidentSend';
+import { founderIncidentRegistry } from './founderIncidentRegistry';
+import type { FounderIncidentRenderer } from './founderIncidentTypes';
 import { resend } from './resend';
 
 type TestUser = {
@@ -9,6 +10,9 @@ type TestUser = {
 	locale?: string | null;
 	name?: string;
 } | null;
+
+const incidentKey = 'service_restored_2026_08_24';
+const mutableRegistry = founderIncidentRegistry as Record<string, FounderIncidentRenderer>;
 
 type Handler = {
 	_handler: (
@@ -35,13 +39,8 @@ function setup({
 		text: `Hello ${recipientName} from ${senderName}`
 	})
 } = {}) {
-	const registry = defineFounderIncidentRegistry({
-		service_restored_2026_08_24: render
-	});
-	const mutation = createFounderIncidentEmailMutation({
-		registry,
-		resolveContact: async () => contact
-	}) as unknown as Handler;
+	mutableRegistry[incidentKey] = render;
+	const mutation = queueFounderIncidentEmail as unknown as Handler;
 	const rows: Array<Record<string, unknown>> = [];
 	const db = {
 		query() {
@@ -74,19 +73,21 @@ function setup({
 	};
 	const ctx = {
 		db,
-		async runQuery() {
-			return user;
+		async runQuery(_reference: unknown, args: Record<string, unknown>) {
+			if (args.model === 'user') return user;
+			return contact ? { enabled: true, ...contact } : { enabled: false };
 		}
 	};
 	return { ctx, handler: mutation._handler, rows };
 }
 
 afterEach(() => {
+	delete mutableRegistry[incidentKey];
 	vi.restoreAllMocks();
 	vi.unstubAllEnvs();
 });
 
-describe('createFounderIncidentEmailMutation', () => {
+describe('queueFounderIncidentEmail', () => {
 	it('queues one localized plain-text email and records the component enqueue', async () => {
 		vi.stubEnv('RESEND_API_KEY', 're_test');
 		vi.stubEnv('AUTH_EMAIL', 'founder@example.com');

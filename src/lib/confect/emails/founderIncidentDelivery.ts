@@ -1,11 +1,6 @@
 import type { EmailEvent, EmailId } from '@convex-dev/resend';
-import { v } from 'convex/values';
-import { internalMutation, type MutationCtx } from '../../convex/_generated/server';
-import { resend } from './resend';
-import {
-	founderIncidentDeliveryStatusValidator,
-	type FounderIncidentDeliveryStatus
-} from './founderIncidentTypes';
+import type { MutationCtx } from '../../convex/_generated/server';
+import type { FounderIncidentDeliveryStatus } from './founderIncidentTypes';
 
 const deliveryRank: Record<Exclude<FounderIncidentDeliveryStatus, 'unknown'>, number> = {
 	waiting: 0,
@@ -18,7 +13,7 @@ const deliveryRank: Record<Exclude<FounderIncidentDeliveryStatus, 'unknown'>, nu
 	cancelled: 100
 };
 
-const terminalDeliveryStatuses = new Set<FounderIncidentDeliveryStatus>([
+export const terminalDeliveryStatuses = new Set<FounderIncidentDeliveryStatus>([
 	'delivered',
 	'bounced',
 	'failed',
@@ -90,55 +85,3 @@ export async function applyFounderIncidentEmailEvent(
 		deliveryUpdatedAt: timestamp
 	});
 }
-
-const reconciliationResultValidator = v.union(
-	v.object({ status: v.literal('not_found') }),
-	v.object({ status: v.literal('skipped') }),
-	v.object({
-		status: v.literal('reconciled'),
-		deliveryStatus: founderIncidentDeliveryStatusValidator,
-		complained: v.boolean()
-	})
-);
-
-/** Refresh one incident row from the Resend component's retained delivery state. */
-export const reconcileFounderIncidentEmailDelivery = internalMutation({
-	args: {
-		userId: v.string(),
-		incident: v.string()
-	},
-	returns: reconciliationResultValidator,
-	handler: async (ctx, { userId, incident }) => {
-		const incidentEmail = await ctx.db
-			.query('founderIncidentEmails')
-			.withIndex('by_incident_and_user', (q) => q.eq('incident', incident).eq('userId', userId))
-			.unique();
-		if (!incidentEmail) return { status: 'not_found' as const };
-		if (incidentEmail.status === 'skipped') return { status: 'skipped' as const };
-
-		const snapshot = incidentEmail.emailId
-			? await resend.status(ctx, incidentEmail.emailId as EmailId)
-			: null;
-		const complained = Boolean(incidentEmail.complainedAt || snapshot?.complained);
-		const now = Date.now();
-
-		if (!snapshot && terminalDeliveryStatuses.has(incidentEmail.deliveryStatus ?? 'unknown')) {
-			return {
-				status: 'reconciled' as const,
-				deliveryStatus: incidentEmail.deliveryStatus as FounderIncidentDeliveryStatus,
-				complained
-			};
-		}
-
-		const deliveryStatus = snapshot
-			? mergeFounderIncidentDeliveryStatus(incidentEmail.deliveryStatus, snapshot.status)
-			: 'unknown';
-		await ctx.db.patch('founderIncidentEmails', incidentEmail._id, {
-			deliveryStatus,
-			deliveryUpdatedAt: now,
-			...(!incidentEmail.complainedAt && snapshot?.complained ? { complainedAt: now } : {})
-		});
-
-		return { status: 'reconciled' as const, deliveryStatus, complained };
-	}
-});

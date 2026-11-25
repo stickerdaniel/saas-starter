@@ -1,7 +1,36 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { previewDraft, queueDraft, saveDraft } from './founderIncidentDrafts';
+import { FounderIncidentRefusalCodec } from '../errorCodecs';
+import {
+	DraftRevisionSchema,
+	FounderIncidentPreviewSchema,
+	FounderIncidentQueueResultSchema,
+	PreviewDraftArgsSchema,
+	QueueDraftArgsSchema,
+	SaveDraftArgsSchema
+} from './founderIncidentTypes';
 
 export default GroupSpec.make()
-	.addFunction(FunctionSpec.convexInternalQuery<typeof previewDraft>()('previewDraft'))
-	.addFunction(FunctionSpec.convexInternalMutation<typeof queueDraft>()('queueDraft'))
-	.addFunction(FunctionSpec.convexInternalMutation<typeof saveDraft>()('saveDraft'));
+	.addFunction(
+		FunctionSpec.internalQuery({
+			name: 'previewDraft',
+			args: () => PreviewDraftArgsSchema.fields,
+			returns: () => FounderIncidentPreviewSchema,
+			error: () => FounderIncidentRefusalCodec
+		})
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'queueDraft',
+			args: () => QueueDraftArgsSchema.fields,
+			returns: () => FounderIncidentQueueResultSchema,
+			error: () => FounderIncidentRefusalCodec
+		})
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'saveDraft',
+			args: () => SaveDraftArgsSchema.fields,
+			returns: () => DraftRevisionSchema,
+			error: () => FounderIncidentRefusalCodec
+		})
+	);

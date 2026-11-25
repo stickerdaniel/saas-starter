@@ -1,22 +1,23 @@
-import { ConvexError, v } from 'convex/values';
-import { components } from '../../convex/_generated/api';
-import { internalMutation, type MutationCtx, type QueryCtx } from '../../convex/_generated/server';
+import * as Effect from 'effect/Effect';
+import { components, internal } from '../../convex/_generated/api';
+import type { MutationCtx, QueryCtx } from '../../convex/_generated/server';
+import type { FounderWelcomeConfig } from '../admin/founderWelcome/queries';
+import { FounderIncidentRefusal } from '../errorCodecs';
 import { getValidLocale, type SupportedLocale } from '../i18n/translations';
+import { FOUNDER_INCIDENT_REFUSALS } from './founderIncidentErrors';
 import { isTestEmail } from './helpers';
 import { assertResendApiKey, resend } from './resend';
-import {
-	founderIncidentQueueResultValidator,
-	type FounderIncidentContact,
-	type FounderIncidentEnvelope,
-	type FounderIncidentRegistry,
-	type FounderIncidentRenderer,
-	type FounderIncidentSkipped
+import type {
+	FounderIncidentContact,
+	FounderIncidentEnvelope,
+	FounderIncidentQueueResult,
+	FounderIncidentRegistry,
+	FounderIncidentRenderer,
+	FounderIncidentSkipped,
+	FounderIncidentSkipReason
 } from './founderIncidentTypes';
 
-type FounderIncidentMutationOptions<Registry extends FounderIncidentRegistry> = {
-	registry: Registry;
-	resolveContact: (ctx: QueryCtx) => Promise<FounderIncidentContact | null>;
-};
+type ContactResolver = (ctx: QueryCtx) => Promise<FounderIncidentContact | null>;
 
 type PreparedFounderIncident = {
 	status: 'ready';
@@ -24,13 +25,32 @@ type PreparedFounderIncident = {
 	envelope: FounderIncidentEnvelope;
 };
 
-function validateRenderedEmail(subject: string, text: string): { subject: string; text: string } {
+export const refuseFounderIncident = (
+	reason: (typeof FOUNDER_INCIDENT_REFUSALS)[keyof typeof FOUNDER_INCIDENT_REFUSALS]
+) => Effect.fail(new FounderIncidentRefusal({ reason }));
+
+const skipped = (reason: FounderIncidentSkipReason): FounderIncidentSkipped => ({
+	status: 'skipped',
+	reason
+});
+
+function validateRenderedEmail(subject: string, text: string) {
 	const normalizedSubject = subject.trim();
 	const normalizedText = text.trim();
-	if (!normalizedSubject || /[\r\n]/.test(normalizedSubject) || !normalizedText) {
-		throw new ConvexError('Invalid founder incident email content');
-	}
-	return { subject: normalizedSubject, text: normalizedText };
+	return !normalizedSubject || /[\r\n]/.test(normalizedSubject) || !normalizedText
+		? refuseFounderIncident(FOUNDER_INCIDENT_REFUSALS.invalidContent)
+		: Effect.succeed({ subject: normalizedSubject, text: normalizedText });
+}
+
+export async function resolveFounderIncidentContact(
+	ctx: QueryCtx
+): Promise<FounderIncidentContact | null> {
+	const config: FounderWelcomeConfig = await ctx.runQuery(
+		internal.admin.founderWelcome.queries.getFounderWelcomeConfigInternal,
+		{}
+	);
+	if (!config.enabled) return null;
+	return { name: config.name, replyTo: config.replyTo };
 }
 
 export async function findFounderIncidentEmail(ctx: QueryCtx, incident: string, userId: string) {
@@ -41,54 +61,55 @@ export async function findFounderIncidentEmail(ctx: QueryCtx, incident: string, 
 }
 
 /** Resolve eligibility and normalize once, before previewing or enqueueing. */
-export async function prepareFounderIncidentEmail(
+export const prepareFounderIncidentEmail = (
 	ctx: QueryCtx,
 	userId: string,
 	render: FounderIncidentRenderer,
-	resolveContact: (ctx: QueryCtx) => Promise<FounderIncidentContact | null>
-): Promise<PreparedFounderIncident | FounderIncidentSkipped> {
-	const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-		model: 'user',
-		where: [{ field: '_id', operator: 'eq', value: userId }]
+	resolveContact: ContactResolver
+): Effect.Effect<PreparedFounderIncident | FounderIncidentSkipped, FounderIncidentRefusal> =>
+	Effect.gen(function* () {
+		const user = yield* Effect.promise(() =>
+			ctx.runQuery(components.betterAuth.adapter.findOne, {
+				model: 'user',
+				where: [{ field: '_id', operator: 'eq', value: userId }]
+			})
+		);
+		if (!user) return skipped('user_deleted');
+
+		const { email, emailVerified, locale, name } = user as {
+			email: string;
+			emailVerified?: boolean;
+			locale?: string | null;
+			name?: string;
+		};
+		if (!emailVerified) return skipped('not_verified');
+		if (isTestEmail(email)) return skipped('test_email');
+
+		const contact = yield* Effect.promise(() => resolveContact(ctx));
+		if (!contact) return skipped('founder_not_configured');
+
+		const effectiveLocale = getValidLocale(locale);
+		const rendered = yield* Effect.sync(() =>
+			render({ locale: effectiveLocale, recipientName: name, senderName: contact.name })
+		);
+		const { subject, text } = yield* validateRenderedEmail(rendered.subject, rendered.text);
+		const emailConfiguration = yield* Effect.sync(() => assertResendApiKey());
+		return {
+			status: 'ready',
+			locale: effectiveLocale,
+			envelope: {
+				from: `${contact.name} <${emailConfiguration.sender}>`,
+				replyTo: contact.replyTo ? [contact.replyTo] : undefined,
+				to: email,
+				subject,
+				text,
+				headers: [
+					{ name: 'X-Email-Category', value: 'incident' },
+					{ name: 'X-Email-Template', value: 'founder-incident' }
+				]
+			}
+		};
 	});
-	if (!user) return { status: 'skipped', reason: 'user_deleted' };
-
-	const { email, emailVerified, locale, name } = user as {
-		email: string;
-		emailVerified?: boolean;
-		locale?: string | null;
-		name?: string;
-	};
-	if (!emailVerified) return { status: 'skipped', reason: 'not_verified' };
-	if (isTestEmail(email)) return { status: 'skipped', reason: 'test_email' };
-
-	const contact = await resolveContact(ctx);
-	if (!contact) return { status: 'skipped', reason: 'founder_not_configured' };
-
-	const effectiveLocale = getValidLocale(locale);
-	const rendered = render({
-		locale: effectiveLocale,
-		recipientName: name,
-		senderName: contact.name
-	});
-	const { subject, text } = validateRenderedEmail(rendered.subject, rendered.text);
-	const emailConfiguration = assertResendApiKey();
-	return {
-		status: 'ready',
-		locale: effectiveLocale,
-		envelope: {
-			from: `${contact.name} <${emailConfiguration.sender}>`,
-			replyTo: contact.replyTo ? [contact.replyTo] : undefined,
-			to: email,
-			subject,
-			text,
-			headers: [
-				{ name: 'X-Email-Category', value: 'incident' },
-				{ name: 'X-Email-Template', value: 'founder-incident' }
-			]
-		}
-	};
-}
 
 /** Component work and the application ledger commit or roll back together. */
 export async function enqueueFounderIncidentEmail(
@@ -114,34 +135,35 @@ export async function enqueueFounderIncidentEmail(
 }
 
 /** Legacy registry sender: eligibility skips remain terminal ledger outcomes. */
-export function createFounderIncidentEmailMutation<Registry extends FounderIncidentRegistry>({
-	registry,
-	resolveContact
-}: FounderIncidentMutationOptions<Registry>) {
-	return internalMutation({
-		args: { userId: v.string(), incident: v.string() },
-		returns: founderIncidentQueueResultValidator,
-		handler: async (ctx, { userId, incident }) => {
-			const render = Object.prototype.hasOwnProperty.call(registry, incident)
-				? registry[incident]
-				: undefined;
-			if (!render) throw new ConvexError('Unknown founder incident key');
-			if (await findFounderIncidentEmail(ctx, incident, userId)) {
-				return { status: 'already_processed' as const };
-			}
+export const queueFounderIncidentEmail = (
+	ctx: MutationCtx,
+	registry: FounderIncidentRegistry,
+	resolveContact: ContactResolver,
+	{ userId, incident }: { userId: string; incident: string }
+): Effect.Effect<FounderIncidentQueueResult, FounderIncidentRefusal> =>
+	Effect.gen(function* () {
+		const render = Object.prototype.hasOwnProperty.call(registry, incident)
+			? registry[incident]
+			: undefined;
+		if (!render) return yield* refuseFounderIncident(FOUNDER_INCIDENT_REFUSALS.unknownKey);
+		if (yield* Effect.promise(() => findFounderIncidentEmail(ctx, incident, userId))) {
+			return { status: 'already_processed' };
+		}
 
-			const prepared = await prepareFounderIncidentEmail(ctx, userId, render, resolveContact);
-			if (prepared.status === 'skipped') {
-				await ctx.db.insert('founderIncidentEmails', {
+		const prepared = yield* prepareFounderIncidentEmail(ctx, userId, render, resolveContact);
+		if (prepared.status === 'skipped') {
+			yield* Effect.promise(() =>
+				ctx.db.insert('founderIncidentEmails', {
 					userId,
 					incident,
 					status: 'skipped',
 					skippedReason: prepared.reason,
 					createdAt: Date.now()
-				});
-				return prepared;
-			}
-			return await enqueueFounderIncidentEmail(ctx, incident, userId, prepared);
+				})
+			);
+			return prepared;
 		}
+		return yield* Effect.promise(() =>
+			enqueueFounderIncidentEmail(ctx, incident, userId, prepared)
+		);
 	});
-}

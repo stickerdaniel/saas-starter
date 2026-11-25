@@ -1,5 +1,9 @@
 import { Table } from '@confect/core';
 import * as Schema from 'effect/Schema';
+import {
+	FounderIncidentDeliveryStatusSchema,
+	FounderIncidentSkipReasonSchema
+} from '../emails/founderIncidentTypes';
 
 export default Table.make(() =>
 	Schema.Struct({
@@ -7,23 +11,9 @@ export default Table.make(() =>
 		incident: Schema.String,
 		status: Schema.Literals(['enqueued', 'skipped']),
 		emailId: Schema.optional(Schema.String),
-		skippedReason: Schema.optional(
-			Schema.Literals(['user_deleted', 'not_verified', 'test_email', 'founder_not_configured'])
-		),
+		skippedReason: Schema.optional(FounderIncidentSkipReasonSchema),
 		locale: Schema.optional(Schema.String),
-		deliveryStatus: Schema.optional(
-			Schema.Literals([
-				'waiting',
-				'queued',
-				'sent',
-				'delivery_delayed',
-				'delivered',
-				'bounced',
-				'failed',
-				'cancelled',
-				'unknown'
-			])
-		),
+		deliveryStatus: Schema.optional(FounderIncidentDeliveryStatusSchema),
 		deliveryUpdatedAt: Schema.optional(Schema.Number),
 		complainedAt: Schema.optional(Schema.Number),
 		enqueuedAt: Schema.optional(Schema.Number),

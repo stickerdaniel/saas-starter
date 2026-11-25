@@ -1,6 +1,6 @@
 import type { EmailEvent, EmailId } from '@convex-dev/resend';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { handleEmailEvent } from './events';
+import { handleEmailEvent } from '../../convex/emails/events';
 
 const handler = (handleEmailEvent as unknown as { _handler: unknown })._handler as (
 	ctx: unknown,
@@ -39,7 +39,14 @@ describe('handleEmailEvent', () => {
 		const event = {
 			type,
 			created_at: '2026-11-11T10:00:00.000Z',
-			data: { email_id: 'resend_1', to: ['alice@example.com'], subject: 'Welcome', ...details }
+			data: {
+				created_at: '2026-11-11T10:00:00.000Z',
+				email_id: 'resend_1',
+				from: 'Acme <hello@example.com>',
+				to: ['alice@example.com'],
+				subject: 'Welcome',
+				...details
+			}
 		} as unknown as EmailEvent;
 		const { ctx, inserts } = setup();
 
@@ -47,5 +54,38 @@ describe('handleEmailEvent', () => {
 
 		expect(inserts).toMatchObject([{ emailId: 'email_1', eventType: type, data: event }]);
 		expect(JSON.stringify(logged.map((spy) => spy.mock.calls))).not.toContain('alice@example.com');
+	});
+
+	it('advances the matching incident delivery before storing the event', async () => {
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+		const writes: Array<[string, Record<string, unknown>]> = [];
+		const row = { _id: 'incident_row', emailId: 'email_1', deliveryStatus: 'sent' };
+		const db = {
+			query: () => ({ withIndex: () => ({ unique: async () => row }) }),
+			patch: async (_table: string, _id: string, patch: Record<string, unknown>) => {
+				writes.push(['patch', patch]);
+			},
+			insert: async (_table: string, inserted: Record<string, unknown>) => {
+				writes.push(['insert', inserted]);
+			}
+		};
+		const event = {
+			type: 'email.delivered',
+			created_at: '2026-11-11T10:00:00.000Z',
+			data: {
+				created_at: '2026-11-11T10:00:00.000Z',
+				email_id: 'resend_1',
+				from: 'Acme <hello@example.com>',
+				to: ['alice@example.com'],
+				subject: 'Welcome'
+			}
+		} as unknown as EmailEvent;
+
+		await handler({ db }, { id: 'email_1' as EmailId, event });
+
+		expect(writes).toEqual([
+			['patch', { deliveryStatus: 'delivered', deliveryUpdatedAt: Date.parse(event.created_at) }],
+			['insert', expect.objectContaining({ emailId: 'email_1', eventType: 'email.delivered' })]
+		]);
 	});
 });
