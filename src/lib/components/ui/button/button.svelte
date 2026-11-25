@@ -6,8 +6,9 @@
 	export const buttonVariants = tv(
 		{
 			// Deviation from upstream: the fixed base lives in tokens.css as button-base. The
-			// classes callers replace stay here, where tailwind-merge can drop them.
-			base: 'button-base group/button rounded-md active:not-aria-[haspopup]:translate-y-px transition-control-colors',
+			// classes callers replace stay here, where tailwind-merge can drop them. So does the
+			// reduced-motion lane: as a class of its own it sorts after transition-control-colors.
+			base: 'button-base group/button rounded-md active:not-aria-[haspopup]:translate-y-px transition-control-colors motion-reduce:transition-non-spatial',
 			variants: {
 				variant: {
 					default: 'bg-primary text-primary-foreground hover:bg-primary/80',

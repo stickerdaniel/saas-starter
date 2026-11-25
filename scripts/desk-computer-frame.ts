@@ -184,11 +184,12 @@ export function deskComputerFrameCss(sources: FrameSources): string {
 
 	// `:empty` holds the frame until the component fills the host with the live figure. The
 	// image box rounds its height up to whole pixels: browsers fit a fractional background
-	// tile to the pixel grid, which would scale the figure off the inline one's lines.
+	// tile to the pixel grid, which would scale the figure off the inline one's lines. A
+	// browser without `round()` keeps the plain height before it.
 	// `contain: layout` anchors the box to the host wherever the host is placed.
 	return (
 		`.desk-computer:empty{aspect-ratio:${width}/${height};contain:layout}` +
-		'.desk-computer:empty::before{content:"";position:absolute;top:0;left:0;width:100%;height:round(up,100%,1px);' +
+		'.desk-computer:empty::before{content:"";position:absolute;top:0;left:0;width:100%;height:100%;height:round(up,100%,1px);' +
 		`background:url("${frame(light)}") 0 0/100% 100% no-repeat}` +
 		`.dark .desk-computer:empty::before{background-image:url("${frame(new Map([...light, ...layout.dark, ...dark]))}")}`
 	);

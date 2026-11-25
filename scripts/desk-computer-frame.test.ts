@@ -21,10 +21,12 @@ function frames(css: string) {
 describe('desk computer stylesheet frame', () => {
 	it('paints well-formed SVG images, which browsers parse as XML', () => {
 		const { window } = new JSDOM();
+		const keys = sources.figure.match(/\sdata-key=/g)?.length ?? 0;
+		expect(keys).toBeGreaterThan(0);
 		for (const image of Object.values(frames(deskComputerFrameCss(sources)))) {
 			const document = new window.DOMParser().parseFromString(image, 'image/svg+xml');
 			expect(document.querySelector('parsererror')).toBeNull();
-			expect(document.querySelectorAll('[data-key]')).toHaveLength(58);
+			expect(document.querySelectorAll('[data-key]')).toHaveLength(keys);
 		}
 	});
 
