@@ -11,6 +11,7 @@ import authSchema from '../../convex-components/betterAuth/schema';
 import { checkAndCountUsage } from '../autumn';
 import { MAX_MESSAGE_LENGTH } from '../constants';
 import { convexModules, preloadModules } from '../convexTest.modules';
+import { appRateLimiter } from '../rateLimit';
 
 vi.mock('../autumn', () => ({ checkAndCountUsage: vi.fn() }));
 
@@ -222,6 +223,19 @@ describe('send', () => {
 		expect((data as { retryAfter: number }).retryAfter).toBeGreaterThan(0);
 		expect(await messages(t)).toHaveLength(SENDS_PER_MINUTE);
 		expect(await scheduled(t)).toHaveLength(SENDS_PER_MINUTE);
+	});
+
+	it('forwards the limiter delay unchanged and writes nothing', async () => {
+		const t = harness();
+		const { caller } = await signIn(t, 'Ada');
+		vi.spyOn(appRateLimiter, 'limit').mockResolvedValueOnce({ ok: false, retryAfter: 12000 });
+
+		await expect(failure(caller.mutation(api.messages.send, { body: 'hello' }))).resolves.toEqual({
+			code: 'RATE_LIMITED',
+			retryAfter: 12000
+		});
+		expect(await messages(t)).toEqual([]);
+		expect(await scheduled(t)).toEqual([]);
 	});
 
 	it('inserts the message and schedules the quota backstop with its id', async () => {
