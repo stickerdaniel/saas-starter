@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "355af63c9a9296a5",
+	"digest": "6e7c03195b046bd7",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -165,7 +165,7 @@
 			"track": ["public", "action", "Convex", "Convex"],
 			"usage": ["public", "action", "Convex", "Convex"]
 		},
-		"capabilities": { "getUsability": ["public", "query", "Convex", "Convex"] },
+		"capabilities": { "getUsability": ["public", "query", "Convex", "Confect"] },
 		"emails/events": { "handleEmailEvent": ["internal", "mutation", "Convex", "Confect"] },
 		"emails/founderEmailBilling": {
 			"resolveFounderCancellationBilling": ["internal", "action", "Convex", "Confect"],
@@ -207,7 +207,7 @@
 		"files/cleanup": { "cleanupExpiredFiles": ["internal", "mutation", "Convex", "Convex"] },
 		"files/metadata": { "storeFileMetadata": ["internal", "mutation", "Convex", "Convex"] },
 		"files/vacuum": { "deleteUnusedFiles": ["internal", "mutation", "Convex", "Convex"] },
-		"localDev": { "ensureSeededAdmin": ["internal", "mutation", "Convex", "Convex"] },
+		"localDev": { "ensureSeededAdmin": ["internal", "mutation", "Convex", "Confect"] },
 		"messages": {
 			"enforceAndTrackMessageUsage": ["internal", "action", "Convex", "Convex"],
 			"list": ["public", "query", "Convex", "Convex"],
@@ -215,7 +215,7 @@
 			"removeMessage": ["internal", "mutation", "Convex", "Convex"],
 			"send": ["public", "mutation", "Convex", "Convex"]
 		},
-		"previewDev": { "ensurePreviewAdmin": ["internal", "mutation", "Convex", "Convex"] },
+		"previewDev": { "ensurePreviewAdmin": ["internal", "mutation", "Convex", "Confect"] },
 		"storage": {
 			"generateUploadUrl": ["public", "mutation", "Convex", "Convex"],
 			"updateProfileImage": ["public", "mutation", "Convex", "Convex"]
@@ -297,11 +297,11 @@
 			"verifyTestUserEmail": ["public", "mutation", "Convex", "Convex"]
 		},
 		"users": {
-			"dismissPasskeyNudge": ["public", "mutation", "Convex", "Convex"],
-			"getPasskeyNudgeDismissal": ["public", "query", "Convex", "Convex"],
-			"hasPassword": ["public", "query", "Convex", "Convex"],
-			"setPassword": ["public", "mutation", "Convex", "Convex"],
-			"viewer": ["public", "query", "Convex", "Convex"]
+			"dismissPasskeyNudge": ["public", "mutation", "Convex", "Confect"],
+			"getPasskeyNudgeDismissal": ["public", "query", "Convex", "Confect"],
+			"hasPassword": ["public", "query", "Convex", "Confect"],
+			"setPassword": ["public", "mutation", "Convex", "Confect"],
+			"viewer": ["public", "query", "Convex", "Confect"]
 		}
 	}
 }

@@ -44,6 +44,8 @@ const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 // from src/lib/confect/access.ts marks a function open to every caller.
 const convexAccessPattern = '^(require|assert|ensure)([A-Z_]|$)|^publicEndpoint$';
 const CONFECT_PUBLIC_FUNCTIONS = {
+	'capabilities:getUsability':
+		'Every page, signed in or not, hides the controls of an unconfigured capability.',
 	'support/threads:getAdminAvatars':
 		'The support widget shows admin names and avatars to every visitor.',
 	'support/files:getAttachmentText':
