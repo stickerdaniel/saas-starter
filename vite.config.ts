@@ -35,6 +35,7 @@ import { sharedTestSettings, toolingTestSettings } from './scripts/vitest-settin
 import { HeavySuiteSequencer } from './scripts/vitest-sequencer.ts';
 import { sentrySvelteKit } from '@sentry/sveltekit/vite';
 import devtoolsJson from 'vite-plugin-devtools-json';
+import { svelteDevtools } from '@sveltejs/vite-devtools-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { configDefaults, defineConfig } from 'vitest/config';
@@ -162,6 +163,7 @@ export default defineConfig(async ({ command, mode }) => {
 	const lifecycle = process.env.npm_lifecycle_event;
 	const useLocalConvex = localConvexMode(process.env) !== undefined;
 	const isTestMode = lifecycle === 'dev:test';
+	const devtoolsEnabled = command === 'serve' && !isTestMode && mode !== 'test';
 	const stateIdSuffix = isTestMode ? 'e2e' : undefined;
 	const plugins: PluginOption[] = [];
 
@@ -389,6 +391,7 @@ export default defineConfig(async ({ command, mode }) => {
 					: { ssrEntryCode: [] }
 		),
 		tailwindcss(),
+		...(devtoolsEnabled ? [svelteDevtools()] : []),
 		sveltekit({
 			adapter: { cloudflare, node, auto }[buildAdapter()](),
 			...(isolatedOutDir && {
@@ -487,6 +490,7 @@ export default defineConfig(async ({ command, mode }) => {
 
 	return {
 		cacheDir: isolatedCacheDir,
+		...(devtoolsEnabled && { devtools: { apply: 'serve' as const } }),
 		plugins,
 		worker: {
 			plugins: () => [licenses.workerPlugin()]

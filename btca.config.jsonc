@@ -551,6 +551,20 @@
 		},
 		{
 			"type": "git",
+			"name": "viteDevtoolsSvelte",
+			"url": "https://github.com/sveltejs/vite-devtools-svelte",
+			"branch": "main",
+			"specialNotes": "@sveltejs/vite-devtools-svelte package. Svelte DevTools Vite plugin, its Vite DevTools dock panel and the MCP server behind `.mcp.json` svelte-devtools. Wired dev-server-only in vite.config.ts."
+		},
+		{
+			"type": "git",
+			"name": "viteDevtools",
+			"url": "https://github.com/vitejs/devtools",
+			"branch": "main",
+			"specialNotes": "@vitejs/devtools package. Vite DevTools dock enabled by the `devtools` option in vite.config.ts; SvelteKit injects its embedded client."
+		},
+		{
+			"type": "git",
 			"name": "transitionsDev",
 			"url": "https://github.com/Jakubantalik/transitions.dev",
 			"branch": "main",
