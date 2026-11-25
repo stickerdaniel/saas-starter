@@ -15,6 +15,7 @@ import {
 	NOTIFICATION_PREFERENCE_ERROR_CODES,
 	type NotificationPreferenceErrorCode
 } from './admin/notificationPreferences/errors';
+import { FOUNDER_INCIDENT_REFUSALS } from './emails/founderIncidentErrors';
 import { FILE_ERROR_CODES } from './files/errors';
 import { SUPPORT_ERROR_CODES } from './support/errors';
 
@@ -265,4 +266,17 @@ export const AiChatRefusalCodec = wireCodec(
 	AiChatRefusalWire,
 	(refusal) => ({ refusal }),
 	({ refusal }) => refusal
+);
+
+const FounderIncidentRefusalWire = Schema.Literals(Object.values(FOUNDER_INCIDENT_REFUSALS));
+
+export class FounderIncidentRefusal extends Data.TaggedError('FounderIncidentRefusal')<{
+	readonly reason: typeof FounderIncidentRefusalWire.Type;
+}> {}
+
+export const FounderIncidentRefusalCodec = wireCodec(
+	FounderIncidentRefusal,
+	FounderIncidentRefusalWire,
+	(reason) => ({ reason }),
+	({ reason }) => reason
 );

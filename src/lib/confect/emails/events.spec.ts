@@ -1,6 +1,11 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { handleEmailEvent } from './events';
+import * as Schema from 'effect/Schema';
+import { EmailEventArgsSchema } from './founderIncidentTypes';
 
 export default GroupSpec.make().addFunction(
-	FunctionSpec.convexInternalMutation<typeof handleEmailEvent>()('handleEmailEvent')
+	FunctionSpec.internalMutation({
+		name: 'handleEmailEvent',
+		args: () => EmailEventArgsSchema.fields,
+		returns: () => Schema.Null
+	})
 );

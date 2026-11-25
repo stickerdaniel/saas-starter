@@ -7,6 +7,7 @@ import type {
 	SchemaDefinition
 } from 'convex/server';
 import { convexTest } from 'convex-test';
+import { ConvexError } from 'convex/values';
 import resendSchema from '../../../../node_modules/@convex-dev/resend/dist/component/schema.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { internal } from '../../convex/_generated/api';
@@ -502,5 +503,57 @@ describe('founder incident drafts with real components', () => {
 		);
 		await expect(h.save([{ ...templates[0]!, text: 'Revised' }], 1)).rejects.toThrow('frozen');
 		expect(await h.queue('unapproved')).toEqual({ status: 'already_processed' });
+	});
+
+	it('refuses with the bare message as the error data', async () => {
+		const errorData = (call: Promise<unknown>) =>
+			call.then(
+				() => 'resolved',
+				(error: unknown) => (error instanceof ConvexError ? error.data : error)
+			);
+		const h = await setup();
+		const revised = [{ locale: 'en', subject: 'Restored', text: 'Revised' }];
+		const unknownDraft = [await errorData(h.preview()), await errorData(h.queue('none'))];
+		const invalidRevision = await errorData(h.save(templates, 0));
+		await h.save();
+		const conflict = await errorData(h.save(revised, null));
+		const reservedKey = await errorData(h.save(templates, null, '__reserved'));
+		const mismatch = await errorData(h.queue('not-approved'));
+		const unknownKey = await errorData(
+			h.t.mutation(internal.emails.founderIncidentSend.queueFounderIncidentEmail, {
+				incident,
+				userId: h.userId
+			})
+		);
+		await h.queue((await h.ready()).approvalDigest);
+		const frozen = await errorData(h.save(revised, 1));
+
+		const empty = await setup();
+		await empty.save([{ locale: 'en', subject: 'Restored', text: '{{userFirstName}}' }]);
+		const digest = (await empty.ready()).approvalDigest;
+		await inComponent(empty.t, 'betterAuth', authSchema, (ctx) =>
+			ctx.db.patch('user', empty.userId, { name: ' ' })
+		);
+		const invalidContent = await errorData(empty.queue(digest));
+
+		expect({
+			unknownDraft,
+			invalidRevision,
+			conflict,
+			reservedKey,
+			mismatch,
+			unknownKey,
+			frozen,
+			invalidContent
+		}).toEqual({
+			unknownDraft: ['Unknown founder incident draft', 'Unknown founder incident draft'],
+			invalidRevision: 'Invalid founder incident expected revision',
+			conflict: 'Founder incident draft revision conflict',
+			reservedKey: 'Invalid or reserved founder incident draft key',
+			mismatch: 'Founder incident approval no longer matches; preview again',
+			unknownKey: 'Unknown founder incident key',
+			frozen: 'Founder incident draft is frozen after processing',
+			invalidContent: 'Invalid founder incident email content'
+		});
 	});
 });

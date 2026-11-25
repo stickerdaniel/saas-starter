@@ -6,7 +6,7 @@ export const EmailId = Schema.String.pipe(
 	Schema.toType
 );
 
-const OneOrMany = Schema.Union([Schema.String, Schema.Array(Schema.String)]);
+const OneOrMany = Schema.Union([Schema.String, Schema.mutable(Schema.Array(Schema.String))]);
 const NameValue = Schema.Struct({ name: Schema.String, value: Schema.String });
 
 const commonFields = {
@@ -19,10 +19,13 @@ const commonFields = {
 	bcc: Schema.optional(OneOrMany),
 	reply_to: Schema.optional(OneOrMany),
 	message_id: Schema.optional(Schema.String),
-	headers: Schema.optional(Schema.Array(NameValue)),
+	headers: Schema.optional(Schema.mutable(Schema.Array(NameValue))),
 	subject: Schema.String,
 	tags: Schema.optional(
-		Schema.Union([Schema.Record(Schema.String, Schema.String), Schema.Array(NameValue)])
+		Schema.Union([
+			Schema.Record(Schema.String, Schema.String),
+			Schema.mutable(Schema.Array(NameValue))
+		])
 	)
 };
 

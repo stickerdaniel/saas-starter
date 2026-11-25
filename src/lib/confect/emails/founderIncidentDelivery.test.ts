@@ -1,9 +1,9 @@
 import type { EmailEvent, EmailId } from '@convex-dev/resend';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { reconcileFounderIncidentEmailDelivery } from '../../convex/emails/founderIncidentDelivery';
 import {
 	applyFounderIncidentEmailEvent,
-	mergeFounderIncidentDeliveryStatus,
-	reconcileFounderIncidentEmailDelivery
+	mergeFounderIncidentDeliveryStatus
 } from './founderIncidentDelivery';
 import { resend } from './resend';
 

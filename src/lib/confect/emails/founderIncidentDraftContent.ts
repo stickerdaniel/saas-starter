@@ -22,7 +22,7 @@ export function validateDraftIncident(incident: string, registry: FounderInciden
 }
 
 /** Canonical locale ordering makes retries independent of input array order. */
-export function validateDraftTemplates(templates: FounderIncidentTemplate[]) {
+export function validateDraftTemplates(templates: readonly FounderIncidentTemplate[]) {
 	if (templates.length === 0 || templates.length > SUPPORTED_LOCALES.length) {
 		throw new ConvexError('Invalid founder incident template count');
 	}
@@ -53,7 +53,7 @@ export function validateDraftTemplates(templates: FounderIncidentTemplate[]) {
 }
 
 export function renderDraftTemplate(
-	templates: FounderIncidentTemplate[],
+	templates: readonly FounderIncidentTemplate[],
 	{ locale, recipientName, senderName }: FounderIncidentRenderInput
 ) {
 	const template = templates.find((entry) => entry.locale === locale);
