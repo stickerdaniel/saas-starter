@@ -51,28 +51,30 @@
 
 <style>
 	/* The figure has no outlines, its faces are fills in tones derived from the app theme:
-	   faces toward the viewer take the page background, tops a light grey, and the faces
-	   turned away step darker. The screen is dark in both themes. */
+	   faces toward the viewer take the muted tone, tops the border grey, and the faces
+	   turned away step darker. The screen follows the theme. */
 	.desk-computer {
-		--anatomy-top: color-mix(in oklch, var(--muted) 60%, var(--border));
-		--anatomy-shade-3: var(--background);
-		--anatomy-shade-2: color-mix(in oklch, var(--muted) 20%, var(--border));
-		--anatomy-shade-1: color-mix(in oklch, var(--border) 87%, var(--muted-foreground));
-		--anatomy-shade-0: color-mix(in oklch, var(--border) 68%, var(--muted-foreground));
-		--anatomy-lit: var(--background);
+		--anatomy-top: var(--border);
+		--anatomy-shade-3: var(--muted);
+		--anatomy-shade-2: color-mix(in oklch, var(--border) 95%, var(--muted-foreground));
+		--anatomy-shade-1: color-mix(in oklch, var(--border) 68%, var(--muted-foreground));
+		--anatomy-shade-0: color-mix(in oklch, var(--border) 42%, var(--muted-foreground));
 		--anatomy-ease: cubic-bezier(0.32, 0.72, 0, 1);
 		--anatomy-mono: var(--font-mono, ui-monospace, monospace);
-		--pc-cast: color-mix(in oklch, var(--border) 79%, var(--muted-foreground));
-		--pc-well: color-mix(in oklch, var(--border) 84%, var(--muted-foreground));
-		--pc-vent: color-mix(in oklch, var(--border) 47%, var(--muted-foreground));
-		--pc-floor: color-mix(in oklch, var(--border) 95%, var(--muted-foreground));
-		--pc-rim: var(--muted);
+		--pc-cast: color-mix(in oklch, var(--border) 53%, var(--muted-foreground));
+		--pc-well: var(--anatomy-shade-1);
+		--pc-vent: color-mix(in oklch, var(--border) 10%, var(--muted-foreground));
+		--pc-floor: color-mix(in oklch, var(--border) 84%, var(--muted-foreground));
+		--pc-rim: color-mix(in oklch, var(--muted) 50%, var(--border));
 		--pc-ink: color-mix(in oklch, var(--foreground) 80%, var(--background));
 		--pc-ink-soft: var(--muted-foreground);
-		--pc-glass: color-mix(in oklch, var(--foreground) 97%, var(--background));
-		--pc-glass-off: var(--foreground);
-		--pc-pit: color-mix(in oklch, var(--foreground) 70%, black);
-		--pc-lip: var(--pc-ink);
+		--pc-slot: color-mix(in oklch, var(--foreground) 97%, var(--background));
+		--pc-slot-lip: var(--pc-ink);
+		--pc-screen: var(--background);
+		--pc-screen-off: color-mix(in oklch, var(--border) 85%, var(--muted-foreground));
+		--pc-screen-lip: var(--anatomy-shade-2);
+		--pc-screen-pit: var(--anatomy-shade-1);
+		--pc-pixel: var(--foreground);
 		/* The light theme's --chart-1. It is fixed here because the dark theme's is blue. */
 		--pc-accent: oklch(0.646 0.222 41.116);
 	}
@@ -80,23 +82,23 @@
 	/* The translucent dark border cannot carry a solid shade, so the dark tones mix the
 	   card, muted and background colours instead. */
 	:global(.dark) .desk-computer {
-		--anatomy-top: color-mix(in oklch, var(--card) 38%, var(--muted));
-		--anatomy-shade-3: color-mix(in oklch, var(--muted) 87%, var(--muted-foreground));
-		--anatomy-shade-2: color-mix(in oklch, var(--card) 53%, var(--muted));
-		--anatomy-shade-1: color-mix(in oklch, var(--card) 71%, var(--background));
-		--anatomy-shade-0: color-mix(in oklch, var(--card) 42%, var(--background));
-		--anatomy-lit: var(--foreground);
-		--pc-cast: color-mix(in oklch, var(--card) 13%, var(--background));
-		--pc-well: var(--anatomy-shade-0);
-		--pc-vent: color-mix(in oklch, var(--background) 70%, black);
-		--pc-floor: color-mix(in oklch, var(--card) 85%, var(--background));
+		--anatomy-top: var(--card);
+		--anatomy-shade-3: color-mix(in oklch, var(--muted) 96%, var(--muted-foreground));
+		--anatomy-shade-2: color-mix(in oklch, var(--card) 85%, var(--background));
+		--anatomy-shade-1: var(--background);
+		--anatomy-shade-0: color-mix(in oklch, var(--background) 82%, black);
+		--pc-cast: color-mix(in oklch, var(--background) 70%, black);
+		--pc-well: color-mix(in oklch, var(--background) 92%, black);
+		--pc-vent: color-mix(in oklch, var(--background) 50%, black);
+		--pc-floor: color-mix(in oklch, var(--card) 28%, var(--background));
 		--pc-rim: color-mix(in oklch, var(--muted) 75%, var(--muted-foreground));
 		--pc-ink: color-mix(in oklch, var(--muted-foreground) 80%, var(--background));
 		--pc-ink-soft: color-mix(in oklch, var(--muted) 66%, var(--muted-foreground));
-		--pc-glass: var(--pc-vent);
-		--pc-glass-off: color-mix(in oklch, var(--background) 55%, black);
-		--pc-pit: color-mix(in oklch, var(--background) 43%, black);
-		--pc-lip: var(--pc-floor);
+		--pc-slot: color-mix(in oklch, var(--background) 70%, black);
+		--pc-slot-lip: var(--anatomy-shade-2);
+		--pc-screen: var(--pc-slot);
+		--pc-screen-off: color-mix(in oklch, var(--background) 55%, black);
+		--pc-screen-pit: color-mix(in oklch, var(--background) 43%, black);
 	}
 
 	/* The injected SVG is not part of this component's markup, so its rules are global
@@ -181,38 +183,42 @@
 			fill: var(--anatomy-shade-0);
 		}
 		.pc-dark,
-		.pc-recess-crt > g > .pc-floor,
 		.pc-recess-slot > g > .pc-floor {
-			fill: var(--pc-glass);
+			fill: var(--pc-slot);
 		}
-		.pc-recess-crt > .pc-wall[data-face='up'],
 		.pc-recess-slot > .pc-wall {
-			fill: var(--pc-lip);
+			fill: var(--pc-slot-lip);
+		}
+		.pc-recess-crt > g > .pc-floor {
+			fill: var(--pc-screen);
+		}
+		.pc-recess-crt > .pc-wall[data-face='up'] {
+			fill: var(--pc-screen-lip);
 		}
 		.pc-recess-crt > .pc-wall[data-face='side'] {
-			fill: var(--pc-pit);
+			fill: var(--pc-screen-pit);
 		}
 		.pc-glass {
-			fill: var(--pc-glass-off);
+			fill: var(--pc-screen-off);
 			transition: fill 0.5s var(--anatomy-ease);
 		}
 		.pc-glass[data-on] {
-			fill: var(--pc-glass);
+			fill: var(--pc-screen);
 		}
 		.pc-sheen {
-			fill: color-mix(in oklch, var(--anatomy-lit) 4%, transparent);
+			fill: color-mix(in oklch, var(--pc-pixel) 4%, transparent);
 		}
 		/* The mark keeps static/logo.svg's proportions: stroke 2 on a 24 unit glyph. */
 		.pc-logo {
 			fill: none;
-			stroke: var(--anatomy-lit);
+			stroke: var(--pc-pixel);
 			stroke-width: 2;
 			stroke-linecap: round;
 			stroke-linejoin: round;
 		}
 		/* SVG text collapses a trailing space; `pre` keeps it, so the cursor sits behind it. */
 		.pc-text {
-			fill: color-mix(in oklch, var(--anatomy-lit) 78%, var(--pc-glass));
+			fill: color-mix(in oklch, var(--pc-pixel) 78%, var(--pc-screen));
 			font-family: var(--anatomy-mono);
 			letter-spacing: 0.02em;
 			white-space: pre;
@@ -226,12 +232,12 @@
 		}
 		.pc-beam {
 			fill: none;
-			stroke: var(--anatomy-lit);
+			stroke: var(--pc-pixel);
 			stroke-width: 1.2;
 			stroke-linecap: round;
 		}
 		.pc-dot {
-			fill: var(--anatomy-lit);
+			fill: var(--pc-pixel);
 		}
 		.pc-key,
 		.pc-computer {
