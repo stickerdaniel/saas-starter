@@ -76,6 +76,23 @@ function terminateTree(child: ChildProcess, force: boolean): void {
 	signalGroup(child.pid, force ? 'SIGKILL' : 'SIGTERM');
 }
 
+function terminateTrees(children: ChildProcess[], force: boolean): unknown[] {
+	const failures: unknown[] = [];
+	for (const child of children) {
+		try {
+			terminateTree(child, force);
+		} catch (failure) {
+			failures.push(failure);
+		}
+	}
+	return failures;
+}
+
+function stopTrees(children: ChildProcess[], force: boolean): void {
+	const failures = terminateTrees(children, force);
+	if (failures.length > 0) throw failures[0];
+}
+
 function signalGroup(pid: number, signal: NodeJS.Signals | 0): boolean {
 	try {
 		process.kill(-pid, signal);
@@ -89,9 +106,10 @@ function signalGroup(pid: number, signal: NodeJS.Signals | 0): boolean {
 }
 
 function onlyZombiesIn(pgid: number): boolean {
-	const listing = spawnSync('ps', ['-A', '-o', 'pgid=,stat='], {
+	const listing = spawnSync('/bin/ps', ['-A', '-o', 'pgid=,stat='], {
 		encoding: 'utf8',
-		timeout: 5_000
+		timeout: 5_000,
+		killSignal: 'SIGKILL'
 	});
 	if (listing.status !== 0) return false;
 	return listing.stdout
@@ -157,15 +175,15 @@ export async function runUntilOneExits(
 
 		try {
 			const first = await Promise.race([...exits, signalExit]);
-			for (const child of children) terminateTree(child, false);
+			stopTrees(children, false);
 			const directChildrenExited = await waitForAll(exits, options.graceMs ?? DEFAULT_GRACE_MS);
 			if (!directChildrenExited || children.some(processTreeExists)) {
-				for (const child of children) terminateTree(child, true);
+				stopTrees(children, true);
 				await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
 			}
 			return exitCodeFor(first.code, first.signal);
 		} catch (error) {
-			for (const child of children) terminateTree(child, true);
+			terminateTrees(children, true);
 			await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
 			throw error;
 		} finally {

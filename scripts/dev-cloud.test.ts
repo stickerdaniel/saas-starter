@@ -1,9 +1,10 @@
 import { spawn, spawnSync } from 'node:child_process';
+import type * as ChildProcessModule from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	devCloudCommands,
 	exitCodeFor,
@@ -12,6 +13,27 @@ import {
 	windowsTreeKillArgs
 } from './dev-cloud';
 import { openWindowsJobLifetime, windowsJobCommand, WINDOWS_JOB_TOKEN_ENV } from './windows-job';
+
+vi.mock('node:child_process', async (importOriginal) => {
+	const actual = await importOriginal<typeof ChildProcessModule>();
+	return { ...actual, spawn: vi.fn(actual.spawn), spawnSync: vi.fn(actual.spawnSync) };
+});
+
+function spawnedChildren() {
+	return vi
+		.mocked(spawn)
+		.mock.results.flatMap((result) => (result.type === 'return' ? [result.value] : []));
+}
+
+afterEach(() => {
+	if (process.platform !== 'win32') {
+		for (const { pid } of spawnedChildren()) {
+			if (pid && processExists(-pid)) process.kill(-pid, 'SIGKILL');
+		}
+	}
+	vi.mocked(spawn).mockClear();
+	vi.mocked(spawnSync).mockReset();
+});
 
 function processExists(pid: number): boolean {
 	try {
@@ -391,38 +413,67 @@ describe('runUntilOneExits', () => {
 		10_000
 	);
 
-	it.runIf(process.platform === 'darwin').each([
-		['a live member remains', undefined],
-		['the process listing fails', tmpdir()]
-	])(
-		'rejects on EPERM when %s',
-		async (_label, searchPath) => {
-			if (searchPath) vi.stubEnv('PATH', searchPath);
-			const groups = new Set<number>();
+	describe.runIf(process.platform === 'darwin')('when a group refuses signals with EPERM', () => {
+		const live = { command: process.execPath, args: ['-e', 'setInterval(()=>{},1000)'] };
+		const resistant = {
+			command: process.execPath,
+			args: ['-e', "process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"]
+		};
+		const exiting = { command: process.execPath, args: ['-e', 'process.exit(7)'] };
+		const options = { stdio: 'ignore', graceMs: 100, forceMs: 500 } as const;
+
+		async function refusing(groupsThatRefuse: number, run: () => Promise<void>) {
+			const groups: number[] = [];
 			const kill = process.kill.bind(process);
 			const spy = vi.spyOn(process, 'kill').mockImplementation((pid, signal) => {
 				if (pid >= 0) return kill(pid, signal);
-				groups.add(-pid);
+				if (!groups.includes(-pid)) groups.push(-pid);
+				if (groups.indexOf(-pid) >= groupsThatRefuse) return kill(pid, signal);
 				throw Object.assign(new Error('kill EPERM'), { code: 'EPERM' });
 			});
 			try {
-				await expect(
-					runUntilOneExits(
-						[
-							{ command: process.execPath, args: ['-e', 'setInterval(()=>{},1000)'] },
-							{ command: process.execPath, args: ['-e', 'process.exit(7)'] }
-						],
-						{ stdio: 'ignore', graceMs: 100, forceMs: 500 }
-					)
-				).rejects.toMatchObject({ code: 'EPERM' });
+				await run();
 			} finally {
 				spy.mockRestore();
-				vi.unstubAllEnvs();
-				for (const group of groups) if (processExists(-group)) process.kill(-group, 'SIGKILL');
 			}
-		},
-		10_000
-	);
+		}
+
+		it('rejects while a live member remains', async () => {
+			await refusing(Infinity, async () => {
+				await expect(runUntilOneExits([live, exiting], options)).rejects.toMatchObject({
+					code: 'EPERM'
+				});
+			});
+		});
+
+		it('rejects when the process listing times out', async () => {
+			vi.mocked(spawnSync).mockReturnValue({
+				pid: 0,
+				output: [],
+				stdout: '',
+				stderr: '',
+				status: null,
+				signal: 'SIGKILL',
+				error: Object.assign(new Error('spawnSync /bin/ps ETIMEDOUT'), { code: 'ETIMEDOUT' })
+			});
+			await refusing(Infinity, async () => {
+				await expect(runUntilOneExits([live, exiting], options)).rejects.toMatchObject({
+					code: 'EPERM'
+				});
+			});
+		});
+
+		it('still stops the other groups before it rejects', async () => {
+			await refusing(1, async () => {
+				await expect(runUntilOneExits([live, resistant, exiting], options)).rejects.toMatchObject({
+					code: 'EPERM'
+				});
+				expect(spawnedChildren().map(({ pid }) => pid !== undefined && processExists(pid))).toEqual(
+					[true, false, false]
+				);
+			});
+		});
+	});
 
 	it.runIf(process.platform === 'win32')(
 		'kills descendants when the managed root exits first',
