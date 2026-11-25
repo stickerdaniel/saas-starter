@@ -1,9 +1,10 @@
 import { spawn, spawnSync } from 'node:child_process';
+import type * as ChildProcessModule from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	devCloudCommands,
 	exitCodeFor,
@@ -12,6 +13,35 @@ import {
 	windowsTreeKillArgs
 } from './dev-cloud';
 import { openWindowsJobLifetime, windowsJobCommand, WINDOWS_JOB_TOKEN_ENV } from './windows-job';
+
+vi.mock('node:child_process', async (importOriginal) => {
+	const actual = await importOriginal<typeof ChildProcessModule>();
+	return { ...actual, spawn: vi.fn(actual.spawn), spawnSync: vi.fn(actual.spawnSync) };
+});
+
+function spawnedChildren() {
+	return vi
+		.mocked(spawn)
+		.mock.results.flatMap((result) => (result.type === 'return' ? [result.value] : []));
+}
+
+function killGroup(pgid: number): void {
+	try {
+		process.kill(-pgid, 'SIGKILL');
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+	}
+}
+
+afterEach(() => {
+	try {
+		if (process.platform === 'win32') return;
+		for (const { pid } of spawnedChildren()) if (pid && processExists(-pid)) killGroup(pid);
+	} finally {
+		vi.mocked(spawn).mockClear();
+		vi.mocked(spawnSync).mockReset();
+	}
+});
 
 function processExists(pid: number): boolean {
 	try {
@@ -335,19 +365,22 @@ describe('runUntilOneExits', () => {
 		process.platform === 'win32' ? WINDOWS_CHILD_TEST_TIMEOUT_MS : undefined
 	);
 
+	const leader =
+		"const fs=require('node:fs');const[pidFile]=process.argv.slice(1);const timer=setInterval(()=>{if(fs.existsSync(pidFile)){clearInterval(timer);process.exit(7)}},10)";
+
 	it.skipIf(process.platform === 'win32')(
 		'force-stops a signal-resistant child and its grandchild',
 		async () => {
 			const directory = mkdtempSync(path.join(tmpdir(), 'dev-cloud-process-'));
 			const pidFile = path.join(directory, 'grandchild.pid');
-			const escapedPidFile = JSON.stringify(pidFile);
-			const leader = `const fs=require('node:fs');const timer=setInterval(()=>{if(fs.existsSync(${escapedPidFile})){clearInterval(timer);process.exit(7)}},10)`;
-			const worker = `const{spawn}=require('node:child_process');const fs=require('node:fs');process.on('SIGTERM',()=>{});const child=spawn(process.execPath,['-e','process.on(\\'SIGTERM\\',()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(${escapedPidFile},String(child.pid));setInterval(()=>{},1000)`;
+			const tempFile = `${pidFile}.tmp`;
+			const worker =
+				"const{spawn}=require('node:child_process');const fs=require('node:fs');const[pidFile,tempFile]=process.argv.slice(1);process.on('SIGTERM',()=>{});const child=spawn(process.execPath,['-e',\"process.on('SIGTERM',()=>{});setInterval(()=>{},1000)\"],{stdio:'ignore'});fs.writeFileSync(tempFile,String(child.pid));fs.renameSync(tempFile,pidFile);setInterval(()=>{},1000)";
 			try {
 				const code = await runUntilOneExits(
 					[
-						{ command: process.execPath, args: ['-e', leader] },
-						{ command: process.execPath, args: ['-e', worker] }
+						{ command: process.execPath, args: ['-e', leader, pidFile] },
+						{ command: process.execPath, args: ['-e', worker, pidFile, tempFile] }
 					],
 					{ stdio: 'ignore', graceMs: 100, forceMs: 500 }
 				);
@@ -367,14 +400,16 @@ describe('runUntilOneExits', () => {
 		async () => {
 			const directory = mkdtempSync(path.join(tmpdir(), 'dev-cloud-wrapper-exit-'));
 			const pidFile = path.join(directory, 'grandchild.pid');
-			const escapedPidFile = JSON.stringify(pidFile);
-			const leader = `const fs=require('node:fs');const timer=setInterval(()=>{if(fs.existsSync(${escapedPidFile})){clearInterval(timer);process.exit(7)}},10)`;
-			const worker = `const{spawn}=require('node:child_process');const fs=require('node:fs');process.on('SIGTERM',()=>process.exit(0));const child=spawn(process.execPath,['-e','process.on(\\'SIGTERM\\',()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(${escapedPidFile},String(child.pid));setInterval(()=>{},1000)`;
+			const tempFile = `${pidFile}.tmp`;
+			const grandchild =
+				"process.on('SIGTERM',()=>{});const fs=require('node:fs');const[pidFile,tempFile]=process.argv.slice(1);fs.writeFileSync(tempFile,String(process.pid));fs.renameSync(tempFile,pidFile);setInterval(()=>{},1000)";
+			const worker =
+				"const{spawn}=require('node:child_process');process.on('SIGTERM',()=>process.exit(0));spawn(process.execPath,['-e',...process.argv.slice(1)],{stdio:'ignore'});setInterval(()=>{},1000)";
 			try {
 				const code = await runUntilOneExits(
 					[
-						{ command: process.execPath, args: ['-e', leader] },
-						{ command: process.execPath, args: ['-e', worker] }
+						{ command: process.execPath, args: ['-e', leader, pidFile] },
+						{ command: process.execPath, args: ['-e', worker, grandchild, pidFile, tempFile] }
 					],
 					{ stdio: 'ignore', graceMs: 100, forceMs: 500 }
 				);
@@ -387,6 +422,81 @@ describe('runUntilOneExits', () => {
 		},
 		10_000
 	);
+
+	describe.runIf(process.platform === 'darwin')('when a group refuses signals with EPERM', () => {
+		const live = { command: process.execPath, args: ['-e', 'setInterval(()=>{},1000)'] };
+		const exiting = { command: process.execPath, args: ['-e', 'process.exit(7)'] };
+		const options = { stdio: 'ignore', graceMs: 100, forceMs: 500 } as const;
+
+		type Delivery = 'refuse' | 'drop' | 'deliver';
+
+		async function refusing(
+			deliver: (group: number, signal: string | number | undefined) => Delivery,
+			run: () => Promise<void>
+		) {
+			const groups: number[] = [];
+			const kill = process.kill.bind(process);
+			const spy = vi.spyOn(process, 'kill').mockImplementation((pid, signal) => {
+				if (pid >= 0) return kill(pid, signal);
+				if (!groups.includes(-pid)) groups.push(-pid);
+				const delivery = deliver(groups.indexOf(-pid), signal);
+				if (delivery === 'deliver') return kill(pid, signal);
+				if (delivery === 'drop') return true;
+				throw Object.assign(new Error('kill EPERM'), { code: 'EPERM' });
+			});
+			try {
+				await run();
+			} finally {
+				spy.mockRestore();
+			}
+		}
+
+		it('rejects while a live member remains', async () => {
+			await refusing(
+				() => 'refuse',
+				async () => {
+					await expect(runUntilOneExits([live, exiting], options)).rejects.toMatchObject({
+						code: 'EPERM'
+					});
+				}
+			);
+		});
+
+		it('rejects when the process listing times out', async () => {
+			vi.mocked(spawnSync).mockReturnValue({
+				pid: 0,
+				output: [],
+				stdout: '',
+				stderr: '',
+				status: null,
+				signal: 'SIGKILL',
+				error: Object.assign(new Error('spawnSync /bin/ps ETIMEDOUT'), { code: 'ETIMEDOUT' })
+			});
+			await refusing(
+				() => 'refuse',
+				async () => {
+					await expect(runUntilOneExits([live, exiting], options)).rejects.toMatchObject({
+						code: 'EPERM'
+					});
+				}
+			);
+		});
+
+		it('still stops the other groups before it rejects', async () => {
+			const firstRefusesSecondDropsSigterm = (
+				group: number,
+				signal: string | number | undefined
+			) => (group === 0 ? 'refuse' : group === 1 && signal === 'SIGTERM' ? 'drop' : 'deliver');
+			await refusing(firstRefusesSecondDropsSigterm, async () => {
+				await expect(runUntilOneExits([live, live, exiting], options)).rejects.toMatchObject({
+					code: 'EPERM'
+				});
+				expect(spawnedChildren().map(({ pid }) => pid !== undefined && processExists(pid))).toEqual(
+					[true, false, false]
+				);
+			});
+		});
+	});
 
 	it.runIf(process.platform === 'win32')(
 		'kills descendants when the managed root exits first',

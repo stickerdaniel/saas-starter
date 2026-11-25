@@ -73,11 +73,50 @@ function terminateTree(child: ChildProcess, force: boolean): void {
 		});
 		return;
 	}
-	try {
-		process.kill(-child.pid, force ? 'SIGKILL' : 'SIGTERM');
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+	signalGroup(child.pid, force ? 'SIGKILL' : 'SIGTERM');
+}
+
+function terminateTrees(children: ChildProcess[], force: boolean): unknown[] {
+	const failures: unknown[] = [];
+	for (const child of children) {
+		try {
+			terminateTree(child, force);
+		} catch (failure) {
+			failures.push(failure);
+		}
 	}
+	return failures;
+}
+
+function stopTrees(children: ChildProcess[], force: boolean): void {
+	const failures = terminateTrees(children, force);
+	if (failures.length > 0) throw failures[0];
+}
+
+function signalGroup(pid: number, signal: NodeJS.Signals | 0): boolean {
+	try {
+		process.kill(-pid, signal);
+		return true;
+	} catch (error) {
+		const { code } = error as NodeJS.ErrnoException;
+		if (code === 'ESRCH') return false;
+		if (process.platform === 'darwin' && code === 'EPERM' && onlyZombiesIn(pid)) return false;
+		throw error;
+	}
+}
+
+function onlyZombiesIn(pgid: number): boolean {
+	const listing = spawnSync('/bin/ps', ['-A', '-o', 'pgid=,stat='], {
+		encoding: 'utf8',
+		timeout: 5_000,
+		killSignal: 'SIGKILL'
+	});
+	if (listing.status !== 0) return false;
+	return listing.stdout
+		.split('\n')
+		.map((line) => line.trim().split(/\s+/))
+		.filter(([group]) => Number(group) === pgid)
+		.every(([, stat = '']) => stat.startsWith('Z'));
 }
 
 function processTreeExists(child: ChildProcess): boolean {
@@ -85,13 +124,7 @@ function processTreeExists(child: ChildProcess): boolean {
 	if (process.platform === 'win32') {
 		return child.exitCode === null && child.signalCode === null;
 	}
-	try {
-		process.kill(-child.pid, 0);
-		return true;
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false;
-		throw error;
-	}
+	return signalGroup(child.pid, 0);
 }
 
 export function devCloudCommands(args: string[] = process.argv.slice(2)): ChildCommand[] {
@@ -142,15 +175,15 @@ export async function runUntilOneExits(
 
 		try {
 			const first = await Promise.race([...exits, signalExit]);
-			for (const child of children) terminateTree(child, false);
+			stopTrees(children, false);
 			const directChildrenExited = await waitForAll(exits, options.graceMs ?? DEFAULT_GRACE_MS);
 			if (!directChildrenExited || children.some(processTreeExists)) {
-				for (const child of children) terminateTree(child, true);
+				stopTrees(children, true);
 				await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
 			}
 			return exitCodeFor(first.code, first.signal);
 		} catch (error) {
-			for (const child of children) terminateTree(child, true);
+			terminateTrees(children, true);
 			await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
 			throw error;
 		} finally {
