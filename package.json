@@ -30,6 +30,7 @@
 		"postbuild": "bun scripts/check-build-output.ts && bun scripts/check-bundle-budget.ts",
 		"start": "node build",
 		"generate:logos": "bun scripts/generate-logos.ts",
+		"generate:desk-computer": "bun scripts/generate-desk-computer.ts",
 		"generate:og-image-url": "bun scripts/generate-og-image-url.ts",
 		"build:emails": "bun scripts/build-emails.ts",
 		"preview": "vite preview",
