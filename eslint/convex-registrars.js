@@ -45,3 +45,24 @@ export const CONFECT_PLAIN_SPECS = [
 	'convexPublicNodeAction',
 	'convexInternalNodeAction'
 ];
+
+export const CONFECT_LIBRARY_FUNCTIONS = {
+	'authComponent.triggersApi()': ['auth:onCreate', 'auth:onUpdate', 'auth:onDelete'],
+	'autumn.api()': [
+		'autumn:attach',
+		'autumn:billingPortal',
+		'autumn:cancel',
+		'autumn:check',
+		'autumn:checkout',
+		'autumn:createCustomer',
+		'autumn:createEntity',
+		'autumn:createReferralCode',
+		'autumn:getEntity',
+		'autumn:listProducts',
+		'autumn:query',
+		'autumn:redeemReferralCode',
+		'autumn:setupPayment',
+		'autumn:track',
+		'autumn:usage'
+	]
+};

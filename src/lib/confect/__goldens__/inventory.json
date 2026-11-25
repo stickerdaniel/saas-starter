@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "3e912e4592fb45c1",
+	"digest": "39f4340288738053",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -143,7 +143,7 @@
 		"aiChat/titles": { "generateThreadTitle": ["internal", "action", "Convex", "Confect"] },
 		"aiUsage/record": { "insert": ["internal", "mutation", "Convex", "Confect"] },
 		"auth": {
-			"getAvailableOAuthProviders": ["public", "query", "Convex", "Convex"],
+			"getAvailableOAuthProviders": ["public", "query", "Convex", "Confect"],
 			"onCreate": ["internal", "mutation", "Convex", "Convex"],
 			"onDelete": ["internal", "mutation", "Convex", "Convex"],
 			"onUpdate": ["internal", "mutation", "Convex", "Convex"]

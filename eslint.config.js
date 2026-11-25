@@ -35,15 +35,20 @@ import convexEffectQuerySafetyRule from './eslint/rules/convex-effect-query-safe
 import confectDefinitionImportsRule from './eslint/rules/confect-definition-imports.js';
 import noSourceTextReadRule from './eslint/rules/no-source-text-read.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
-import { CUSTOM_REGISTRARS, RAW_REGISTRARS } from './eslint/convex-registrars.js';
+import {
+	CONFECT_LIBRARY_FUNCTIONS,
+	CUSTOM_REGISTRARS,
+	RAW_REGISTRARS
+} from './eslint/convex-registrars.js';
 import saasStarterPlugin from 'eslint-plugin-saas-starter';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 // Names the guards that open a public Convex handler. A guard throws on refusal;
-// a boolean predicate such as `canEdit` or `hasRole` is no guard. `publicEndpoint`
-// from src/lib/confect/access.ts marks a function open to every caller.
-const convexAccessPattern = '^(require|assert|ensure)([A-Z_]|$)|^publicEndpoint$';
+// a boolean predicate such as `canEdit` or `hasRole` is no guard.
+const convexAccessPattern = '^(require|assert|ensure)([A-Z_]|$)';
 const CONFECT_PUBLIC_FUNCTIONS = {
+	'auth:getAvailableOAuthProviders':
+		'The sign-in page lists the configured providers before anyone signs in.',
 	'capabilities:getUsability':
 		'Every page, signed in or not, hides the controls of an unconfigured capability.',
 	'support/threads:getAdminAvatars':
@@ -751,12 +756,15 @@ export default defineConfig(
 		},
 		rules: {
 			'@convex-dev/require-access-control': ['error', { pattern: convexAccessPattern }],
-			'local/convex-canonical-registration': 'error',
+			'local/convex-canonical-registration': [
+				'error',
+				{ libraryFunctions: Object.values(CONFECT_LIBRARY_FUNCTIONS).flat() }
+			],
 			'local/convex-access-first': [
 				'error',
 				{
 					pattern: convexAccessPattern,
-					synchronous: ['publicEndpoint', 'requireTestSecret'],
+					synchronous: ['requireTestSecret'],
 					middleware: ['RequireUser', 'RequireAdmin', 'VisitorAccess'],
 					public: CONFECT_PUBLIC_FUNCTIONS
 				}

@@ -66,6 +66,28 @@ export default GroupSpec.addGroupsAt(legacy, { nativeGroup });
 `
 );
 
+const librarySpec = `import { FunctionSpec, GroupSpec } from '@confect/core';
+import * as Schema from 'effect/Schema';
+import type { onCreate, onDelete } from './library';
+export default GroupSpec.make()
+	.addFunction(FunctionSpec.publicQuery({ name: 'page', args: () => ({}), returns: () => Schema.Null }))
+	.addFunction(FunctionSpec.convexInternalMutation<typeof onCreate>()('onCreate'))
+	.addFunction(FunctionSpec.convexInternalMutation<typeof onDelete>()('onDelete'));
+`;
+fs.writeFileSync(path.join(directory, 'library.spec.ts'), librarySpec);
+fs.writeFileSync(
+	path.join(directory, 'grouped.spec.ts'),
+	`import { FunctionSpec, GroupSpec } from '@confect/core';
+import * as Schema from 'effect/Schema';
+import type { onCreate } from './library';
+export const sub = GroupSpec.make().addFunction(FunctionSpec.convexInternalMutation<typeof onCreate>()('onCreate'));
+const root = GroupSpec.make().addFunction(FunctionSpec.publicQuery({ name: 'page', args: () => ({}), returns: () => Schema.Null }));
+export default GroupSpec.addGroupsAt(root, { sub });
+`
+);
+fs.mkdirSync(path.join(directory, 'nested'));
+fs.writeFileSync(path.join(directory, 'nested', 'library.spec.ts'), librarySpec);
+
 afterAll(() => {
 	fs.rmSync(directory, { recursive: true, force: true });
 });
@@ -504,5 +526,85 @@ describe('convex-canonical-registration', () => {
 				)
 			).toEqual(['inlineImplementation']);
 		});
+	});
+});
+
+describe('convex-canonical-registration library functions', () => {
+	function libraryMessageIds(
+		code: string,
+		libraryFunctions: string[],
+		file = 'library.impl.ts',
+		confectDirectory = '.'
+	) {
+		return linter
+			.verify(
+				code,
+				[
+					{
+						...config[0],
+						rules: {
+							'local/convex-canonical-registration': [
+								'error' as const,
+								{ confectDirectory, libraryFunctions }
+							]
+						}
+					}
+				],
+				{ filename: path.join(directory, file) }
+			)
+			.map((message) => message.messageId);
+	}
+
+	const imported = (
+		name: string,
+		spec = './library.spec'
+	) => `import { FunctionImpl } from '@confect/server';
+		import { ${name} } from './library';
+		import library from '${spec}';
+		export const f = FunctionImpl.make(databaseSchema, library, '${name}', ${name});`;
+
+	it('passes a listed plain function in a group with a native spec', () => {
+		expect(libraryMessageIds(imported('onCreate'), ['library:onCreate'])).toEqual([]);
+	});
+
+	it('passes a listed plain function of a nested group by its path', () => {
+		expect(
+			libraryMessageIds(
+				imported('onCreate', './library.spec'),
+				['nested/library:onCreate'],
+				'nested/library.impl.ts'
+			)
+		).toEqual([]);
+	});
+
+	it.each([
+		['an unlisted plain function in that group', 'onDelete', ['library:onCreate']],
+		['a listed name of another group', 'onCreate', ['other:onCreate']],
+		['a listed native function', 'page', ['library:page']]
+	])('reports %s', (_label, name, listed) => {
+		expect(libraryMessageIds(imported(name), listed)).toEqual(['inlineImplementation']);
+	});
+
+	it('reports a listed function of a subgroup its spec file exports by name', () => {
+		expect(
+			libraryMessageIds(
+				`import { FunctionImpl } from '@confect/server';
+				import { onCreate } from './library';
+				import { sub } from './grouped.spec';
+				export const f = FunctionImpl.make(databaseSchema, sub, 'onCreate', onCreate);`,
+				['grouped:onCreate']
+			)
+		).toEqual(['inlineImplementation']);
+	});
+
+	it('reports a listed function of a group outside the Confect directory', () => {
+		expect(
+			libraryMessageIds(
+				imported('onCreate', '../library.spec'),
+				['library:onCreate', '../library:onCreate'],
+				'nested/library.impl.ts',
+				'nested'
+			)
+		).toEqual(['inlineImplementation']);
 	});
 });

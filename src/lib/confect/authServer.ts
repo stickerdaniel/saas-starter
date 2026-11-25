@@ -3,8 +3,6 @@ import { requireRunMutationCtx } from '@convex-dev/better-auth/utils';
 import { convex } from '@convex-dev/better-auth/plugins';
 import { components, internal } from '../convex/_generated/api';
 import type { DataModel } from '../convex/_generated/dataModel';
-import { query } from '../convex/_generated/server';
-import { v } from 'convex/values';
 import type { GenericMutationCtx } from 'convex/server';
 import { passkey } from '@better-auth/passkey';
 import { admin } from 'better-auth/plugins/admin';
@@ -32,8 +30,6 @@ import {
 	deactivateAdminPreferencesHelper
 } from './admin/notificationPreferences/helpers';
 import { startJourneyErasure } from './admin/journey/erasure';
-import { devNotice } from '../dev/notice';
-import { publicEndpoint } from './access';
 import { SUPPORTED_LANGUAGES } from '../i18n/languages';
 
 // Triggers need the internal auth functions
@@ -569,29 +565,3 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	return betterAuth(createAuthOptions(ctx));
 };
-
-export const getAvailableOAuthProviders = query({
-	args: {},
-	returns: v.object({ google: v.boolean(), github: v.boolean() }),
-	handler: async () => {
-		publicEndpoint('The sign-in page lists the configured providers before anyone signs in.');
-		if (!googleOAuth.enabled) {
-			devNotice({
-				feature: 'Google sign-in',
-				missing: ['AUTH_GOOGLE_ID', 'AUTH_GOOGLE_SECRET'],
-				scope: 'convex'
-			});
-		}
-		if (!githubOAuth.enabled) {
-			devNotice({
-				feature: 'GitHub sign-in',
-				missing: ['AUTH_GITHUB_ID', 'AUTH_GITHUB_SECRET'],
-				scope: 'convex'
-			});
-		}
-		return {
-			google: googleOAuth.enabled,
-			github: githubOAuth.enabled
-		};
-	}
-});
