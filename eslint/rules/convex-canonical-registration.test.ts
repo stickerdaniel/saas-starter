@@ -85,6 +85,10 @@ const root = GroupSpec.make().addFunction(FunctionSpec.publicQuery({ name: 'page
 export default GroupSpec.addGroupsAt(root, { sub });
 `
 );
+fs.writeFileSync(
+	path.join(directory, 'leaky.spec.ts'),
+	`import { pageArgs } from './args';\n${librarySpec}`
+);
 fs.mkdirSync(path.join(directory, 'nested'));
 fs.writeFileSync(path.join(directory, 'nested', 'library.spec.ts'), librarySpec);
 
@@ -583,6 +587,12 @@ describe('convex-canonical-registration library functions', () => {
 		['a listed native function', 'page', ['library:page']]
 	])('reports %s', (_label, name, listed) => {
 		expect(libraryMessageIds(imported(name), listed)).toEqual(['inlineImplementation']);
+	});
+
+	it('reports a listed function whose spec file reads a value from another module', () => {
+		expect(libraryMessageIds(imported('onCreate', './leaky.spec'), ['leaky:onCreate'])).toEqual([
+			'inlineImplementation'
+		]);
 	});
 
 	it('reports a listed function of a subgroup its spec file exports by name', () => {

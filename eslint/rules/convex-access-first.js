@@ -212,7 +212,7 @@ export default {
 		],
 		messages: {
 			missingGuard:
-				"Start this public handler with a guard statement: `await requireUser(ctx);`, `const access = await requireUser(ctx);`, or a guard on the rule's `synchronous` list such as `publicEndpoint('<reason>');`. A guard inside a condition, logical expression, loop, try block, nested function or multi-declarator statement can be skipped.",
+				"Start this public handler with a guard statement: `await requireUser(ctx);`, `const access = await requireUser(ctx);`, or a guard on the rule's `synchronous` list. A guard inside a condition, logical expression, loop, try block, nested function or multi-declarator statement can be skipped.",
 			notAwaited:
 				"Await `{{name}}` as its own statement: the handler otherwise runs on before the check completes, and its refusal arrives after the work is done. A guard that throws synchronously belongs on the rule's `synchronous` list.",
 			effectBeforeGuard:
