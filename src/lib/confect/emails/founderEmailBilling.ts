@@ -1,8 +1,6 @@
 import type { EmailId } from '@convex-dev/resend';
-import { v } from 'convex/values';
 import { internal } from '../../convex/_generated/api';
-import type { Id } from '../../convex/_generated/dataModel';
-import { internalAction, type ActionCtx } from '../../convex/_generated/server';
+import type { ActionCtx } from '../../convex/_generated/server';
 import {
 	readCustomerBilling,
 	type CustomerBillingRead
@@ -12,7 +10,7 @@ import type {
 	FounderCancellationBilling,
 	FounderFeedbackBilling,
 	FounderThread
-} from './founderEmails';
+} from './founderEmailTypes';
 import { getEmailDeliveryConfiguration, resend } from './resend';
 
 /**
@@ -24,8 +22,8 @@ import { getEmailDeliveryConfiguration, resend } from './resend';
  * guards passed, so a skipped user costs no provider call.
  *
  * An action runs at most once, so a failed hand-back would leave the row
- * `scheduled` with nothing left to move it. {@link deliverVerdict} records such a
- * failure as a `send_failed` skip instead.
+ * `scheduled` with nothing left to move it. The action records such a failure as
+ * a `send_failed` skip instead.
  *
  * Logs carry a fixed code only, never provider responses or errors, which may
  * carry provider text.
@@ -33,41 +31,6 @@ import { getEmailDeliveryConfiguration, resend } from './resend';
 
 /** How long the welcome thread lookup may take in total, Resend's response body included. */
 const WELCOME_THREAD_TIMEOUT_MS = 5_000;
-
-/**
- * Hand a verdict back to the owning mutation. When that mutation rejects (Resend
- * unconfigured, a component failure), record a terminal `send_failed` skip so the
- * row does not stay `scheduled` forever.
- */
-async function deliverVerdict(
-	ctx: ActionCtx,
-	sendId: Id<'founderEmailSends'>,
-	send: () => Promise<unknown>
-): Promise<void> {
-	try {
-		await send();
-	} catch {
-		console.warn({ code: 'founder_email_send_failed' });
-		await ctx.runMutation(internal.emails.founderEmails.recordFounderEmailSendFailure, { sendId });
-	}
-}
-
-/**
- * Whether the row is still waiting for this action's answer; checked before any
- * provider read. A check that fails records the same terminal `send_failed` skip as
- * a failed hand-back, since this action runs only once.
- */
-async function isPending(ctx: ActionCtx, sendId: Id<'founderEmailSends'>): Promise<boolean> {
-	try {
-		return await ctx.runQuery(internal.emails.founderEmailLedger.isFounderEmailSendPending, {
-			sendId
-		});
-	} catch {
-		console.warn({ code: 'founder_email_preflight_failed' });
-		await ctx.runMutation(internal.emails.founderEmails.recordFounderEmailSendFailure, { sendId });
-		return false;
-	}
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -145,7 +108,7 @@ async function readWelcomeThread(
  * lookup that fails or outlasts {@link WELCOME_THREAD_TIMEOUT_MS} logs a coded
  * warning and never holds back the email.
  */
-async function findWelcomeThread(
+export async function findWelcomeThread(
 	ctx: ActionCtx,
 	userId: string
 ): Promise<FounderThread | undefined> {
@@ -168,35 +131,13 @@ async function findWelcomeThread(
 }
 
 /**
- * Whether a feedback-email recipient ever bought, and the welcome thread to reply
- * in when they did not. Costs one Autumn customer read per row that passed the
- * guards, and one Resend read when the email goes out.
- */
-export const resolveFounderFeedbackBilling = internalAction({
-	args: { sendId: v.id('founderEmailSends'), userId: v.string() },
-	returns: v.null(),
-	handler: async (ctx, { sendId, userId }) => {
-		if (!(await isPending(ctx, sendId))) return null;
-		const billing = classifyFeedbackBilling(await readCustomerBilling(userId), Date.now());
-		if (billing === 'billing_unknown') console.warn({ code: 'founder_feedback_billing_unknown' });
-		const thread = billing === 'not_subscribed' ? await findWelcomeThread(ctx, userId) : undefined;
-		await deliverVerdict(ctx, sendId, () =>
-			ctx.runMutation(internal.emails.founderEmails.sendFounderFeedbackEmail, {
-				sendId,
-				billing,
-				...(thread && { thread })
-			})
-		);
-		return null;
-	}
-});
-
-/**
  * The customer's scheduled cancellation as Autumn reports it now. A customer Autumn
  * no longer has, or one without an active plan, has none to ask about; a failed
  * read or a record the normalizer cannot trust is unknown.
  */
-async function readScheduledCancellation(userId: string): Promise<FounderCancellationBilling> {
+export async function readScheduledCancellation(
+	userId: string
+): Promise<FounderCancellationBilling> {
 	const read = await readCustomerBilling(userId);
 	if (read.kind === 'not_found') return { cancellation: 'none' };
 	if (read.kind !== 'ok') return { cancellation: 'unknown' };
@@ -206,25 +147,3 @@ async function readScheduledCancellation(userId: string): Promise<FounderCancell
 	if (!scheduled) return { cancellation: 'none' };
 	return { cancellation: 'scheduled', canceledAt: scheduled.canceledAt };
 }
-
-/**
- * Whether a cancellation email's customer still has the cancellation it was opened
- * for. Costs one Autumn customer read per attempt, at most
- * `FOUNDER_CANCELLATION_BILLING_ATTEMPTS` per cancellation.
- */
-export const resolveFounderCancellationBilling = internalAction({
-	args: { sendId: v.id('founderEmailSends'), userId: v.string(), attempt: v.number() },
-	returns: v.null(),
-	handler: async (ctx, { sendId, userId, attempt }) => {
-		if (!(await isPending(ctx, sendId))) return null;
-		const billing = await readScheduledCancellation(userId);
-		await deliverVerdict(ctx, sendId, () =>
-			ctx.runMutation(internal.emails.founderEmails.sendFounderCancellationEmail, {
-				sendId,
-				attempt,
-				billing
-			})
-		);
-		return null;
-	}
-});

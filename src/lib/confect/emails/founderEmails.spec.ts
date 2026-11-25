@@ -1,29 +1,38 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type {
-	recordFounderEmailSendFailure,
-	sendFounderCancellationEmail,
-	sendFounderFeedbackEmail,
-	setPersonalEmailSuppression
-} from './founderEmails';
+import * as Schema from 'effect/Schema';
+import {
+	FounderCancellationSendArgsSchema,
+	FounderEmailSendArgsSchema,
+	FounderFeedbackSendArgsSchema,
+	PersonalEmailSuppressionArgsSchema
+} from './founderEmailTypes';
 
 export default GroupSpec.make()
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof recordFounderEmailSendFailure>()(
-			'recordFounderEmailSendFailure'
-		)
+		FunctionSpec.internalMutation({
+			name: 'recordFounderEmailSendFailure',
+			args: () => FounderEmailSendArgsSchema.fields,
+			returns: () => Schema.Null
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof sendFounderCancellationEmail>()(
-			'sendFounderCancellationEmail'
-		)
+		FunctionSpec.internalMutation({
+			name: 'sendFounderCancellationEmail',
+			args: () => FounderCancellationSendArgsSchema.fields,
+			returns: () => Schema.Null
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof sendFounderFeedbackEmail>()(
-			'sendFounderFeedbackEmail'
-		)
+		FunctionSpec.internalMutation({
+			name: 'sendFounderFeedbackEmail',
+			args: () => FounderFeedbackSendArgsSchema.fields,
+			returns: () => Schema.Null
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalMutation<typeof setPersonalEmailSuppression>()(
-			'setPersonalEmailSuppression'
-		)
+		FunctionSpec.internalMutation({
+			name: 'setPersonalEmailSuppression',
+			args: () => PersonalEmailSuppressionArgsSchema.fields,
+			returns: () => Schema.Null
+		})
 	);

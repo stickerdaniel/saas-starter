@@ -1,12 +1,23 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
-import type { getSentFounderWelcome, isFounderEmailSendPending } from './founderEmailLedger';
+import * as Schema from 'effect/Schema';
+import {
+	FounderEmailSendArgsSchema,
+	FounderWelcomeArgsSchema,
+	SentFounderWelcomeSchema
+} from './founderEmailTypes';
 
 export default GroupSpec.make()
 	.addFunction(
-		FunctionSpec.convexInternalQuery<typeof getSentFounderWelcome>()('getSentFounderWelcome')
+		FunctionSpec.internalQuery({
+			name: 'getSentFounderWelcome',
+			args: () => FounderWelcomeArgsSchema.fields,
+			returns: () => SentFounderWelcomeSchema
+		})
 	)
 	.addFunction(
-		FunctionSpec.convexInternalQuery<typeof isFounderEmailSendPending>()(
-			'isFounderEmailSendPending'
-		)
+		FunctionSpec.internalQuery({
+			name: 'isFounderEmailSendPending',
+			args: () => FounderEmailSendArgsSchema.fields,
+			returns: () => Schema.Boolean
+		})
 	);

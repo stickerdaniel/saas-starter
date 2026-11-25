@@ -451,6 +451,26 @@ describe('founder feedback email', () => {
 		expect(header(feedback, 'In-Reply-To')).toBeUndefined();
 	});
 
+	it('asks standalone when the welcome row is no longer sent', async () => {
+		const t = harness();
+		await contactWith(t, 'feedback');
+		const userId = await signUp(t);
+		await runFor(t, 47 * HOUR_MS);
+		await t.run(async (ctx) => {
+			const welcome = await ctx.db
+				.query('founderWelcomeEmails')
+				.withIndex('by_user', (q) => q.eq('userId', userId))
+				.unique();
+			expect(welcome).toMatchObject({ status: 'sent', emailId: expect.any(String) });
+			await ctx.db.patch('founderWelcomeEmails', welcome!._id, { status: 'skipped' });
+		});
+		await drainScheduled(t);
+
+		const [feedback] = feedbackSends();
+		expect(feedback!.subject).toBe(FOUNDER_FEEDBACK_DEFAULTS.subject);
+		expect(header(feedback, 'In-Reply-To')).toBeUndefined();
+	});
+
 	it('sends standalone when the welcome thread cannot be read', async () => {
 		const t = harness();
 		await contactWith(t, 'feedback');
@@ -624,6 +644,21 @@ describe('founder feedback email', () => {
 			status: 'skipped',
 			skippedReason: 'send_failed'
 		});
+	});
+
+	it('keeps a sent row when a late failure is recorded', async () => {
+		const t = harness();
+		await contactWith(t, 'feedback');
+		const userId = await signUp(t);
+		await drainScheduled(t);
+		const [row] = await sendRows(t, userId, 'feedback');
+		expect(row).toMatchObject({ status: 'sent' });
+
+		await t.mutation(internal.emails.founderEmails.recordFounderEmailSendFailure, {
+			sendId: row!._id
+		});
+
+		expect((await sendRows(t, userId, 'feedback'))[0]).toMatchObject({ status: 'sent' });
 	});
 
 	it('reads nothing from Autumn for a row that is no longer waiting', async () => {
