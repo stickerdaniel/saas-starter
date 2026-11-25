@@ -2,13 +2,15 @@
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test';
 import type { FunctionArgs } from 'convex/server';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { internal } from '../../convex/_generated/api';
 import schema from '../../convex/schema';
 import { convexModules } from '../convexTest.modules';
+import { PRICES } from '../pricing/prices';
 
 const PRICED = 'google/gemma-4-26b-a4b-it';
 const UNPRICED = 'vendor/unpriced-model';
+const PAID = 'vendor/paid-model';
 
 const tokens = { inputTokens: 10, outputTokens: 4, totalTokens: 14 };
 const native = { model: UNPRICED, ...tokens, nativeCostUsd: 0.25 };
@@ -71,6 +73,36 @@ describe('aiUsage/record:insert', () => {
 					costUsd: 0,
 					costSource: 'computed'
 				}
+			]
+		});
+	});
+
+	afterEach(() => {
+		delete PRICES[PAID];
+	});
+
+	it('prices fresh input, cached input, text output and reasoning at their own rates', async () => {
+		PRICES[PAID] = { in: 1, cachedIn: 3, out: 2, reasoning: 4 };
+		const [row] = await recorded({
+			feature: 'ai_chat',
+			models: [
+				{
+					model: PAID,
+					inputTokens: 1000,
+					cachedInputTokens: 200,
+					outputTokens: 500,
+					reasoningTokens: 100,
+					totalTokens: 1500
+				},
+				native
+			]
+		});
+		expect(row).toMatchObject({
+			costSource: 'mixed',
+			costUsd: expect.closeTo(0.2526, 10),
+			models: [
+				{ costUsd: expect.closeTo(0.0026, 10), costSource: 'computed' },
+				{ costUsd: 0.25, costSource: 'native' }
 			]
 		});
 	});

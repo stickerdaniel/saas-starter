@@ -172,6 +172,28 @@ describe('aiChat/threads sidebar list', () => {
 			hasMore: false
 		});
 	});
+
+	it('lists the 20 newest threads without a limit', async () => {
+		const t = harness();
+		const { userId, caller } = await signIn(t, 'default-limit@example.com');
+		await t.run(async (ctx) => {
+			for (let at = 21; at >= 1; at--) {
+				await ctx.db.insert('aiChatThreads', {
+					userId,
+					threadId: `thread_${at}`,
+					createdAt: at,
+					lastMessageAt: at,
+					sidebarActivityAt: at
+				});
+			}
+		});
+
+		const { threads, hasMore } = await caller.query(api.aiChat.threads.listThreads, {});
+		expect(threads.map((thread) => thread._id)).toEqual(
+			Array.from({ length: 20 }, (_, index) => `thread_${21 - index}`)
+		);
+		expect(hasMore).toBe(true);
+	});
 });
 
 describe('aiChat/threads internal writes', () => {
