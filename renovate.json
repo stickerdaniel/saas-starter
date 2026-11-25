@@ -156,6 +156,17 @@
 			"allowedVersions": "<0.2.1"
 		},
 		{
+			"description": "Hold bits-ui below 2.21.0: 2.21.0 no longer opens a Tooltip on focus after a touch (huntabyte/bits-ui#2245), which TruncatedText relies on to show clipped text on touch, and src/lib/components/truncated-text.svelte.test.ts fails. Remove once TruncatedText opens clipped text with a tap instead.",
+			"matchPackageNames": ["bits-ui"],
+			"allowedVersions": "<2.21.0"
+		},
+		{
+			"description": "Hold the root knip at 6.42.1: 6.46.1 reports $app from the valid \"extends\": \"$app/tsconfig\" in tsconfig.json as an unlisted dependency, which ignoreDependencies cannot reach. Remove once a knip release resolves the extends or the project accepts a reviewed ignore for it. The create-saas-starter package's knip is not held.",
+			"matchFileNames": ["package.json"],
+			"matchPackageNames": ["knip"],
+			"allowedVersions": "<=6.42.1"
+		},
+		{
 			"description": "Hold Prettier at 3.9.10: CI formats with `bun fmt` from the Bun build in .github/workflows/static-checks.yml, which was checked to print the same bytes as these three versions, while editors and local runs without BUN_LINT_BINARY use Prettier. Lift these holds only after both print the same bytes for every file in the project.",
 			"matchPackageNames": ["prettier"],
 			"allowedVersions": "3.9.10"
