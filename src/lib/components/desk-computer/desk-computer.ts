@@ -17,10 +17,8 @@ const KEYS = [
 ].flat();
 const PHRASES = ['bun create saas-starter', 'cd my-app', 'bun run dev'];
 const MAX_CHARS = 24;
-// Screen-space constants of the generated figure: the CRT's vertical centre and the
-// prompt's left edge, both in the glass plane's units.
+// The CRT's vertical centre in the generated figure, in the glass plane's units.
 const CRT_MID = 113.5;
-const TEXT_X = -34;
 // How far a pressed key travels, in figure units.
 const KEY_TRAVEL = 2.2;
 // Screen direction of one unit down the z axis, axisVector(P, [0, 0, -1]) for the
@@ -50,6 +48,7 @@ function part(svg: SVGSVGElement, selector: string): SVGElement {
 export function animateDeskComputer(svg: SVGSVGElement): () => void {
 	const keyEls = KEYS.map((_, index) => part(svg, `[data-key="${index}"]`));
 	const textEl = svg.querySelector('text') ?? missing('text');
+	const textX = Number(textEl.getAttribute('x'));
 	const cursor = part(svg, '[data-part="cursor"]');
 	const crt = part(svg, '[data-part="crt"]');
 	const beam = part(svg, '[data-part="beam"]');
@@ -113,7 +112,7 @@ export function animateDeskComputer(svg: SVGSVGElement): () => void {
 
 	function write() {
 		textEl.textContent = `> ${line}`;
-		cursor.setAttribute('x', String(TEXT_X + textEl.getComputedTextLength() + 0.4));
+		cursor.setAttribute('x', String(textX + textEl.getComputedTextLength() + 0.4));
 	}
 
 	function setPower(next: boolean) {

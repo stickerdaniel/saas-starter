@@ -50,45 +50,53 @@
 </div>
 
 <style>
-	/* The anatomy kit's tokens, derived from the app theme so the figure follows its palette:
-	   sides shade from the top face toward the edge colour, lines step from foreground to
-	   border. Solids fill with the page background so the figure blends in. */
+	/* The figure has no outlines, its faces are fills in tones derived from the app theme:
+	   faces toward the viewer take the page background, tops a light grey, and the faces
+	   turned away step darker. The screen is dark in both themes. */
 	.desk-computer {
-		--anatomy-paper: var(--background);
-		--anatomy-top: var(--background);
-		--anatomy-shade-3: var(--muted);
-		--anatomy-shade-2: color-mix(in oklch, var(--muted), var(--border));
-		--anatomy-shade-1: var(--border);
-		--anatomy-shade-0: color-mix(in oklch, var(--border) 88%, var(--muted-foreground));
-		--anatomy-lit-shade: color-mix(in oklch, var(--muted), var(--border));
-		--anatomy-hi: var(--foreground);
-		--anatomy-mid: var(--muted-foreground);
-		--anatomy-lo: color-mix(in oklch, var(--muted-foreground) 55%, var(--border));
-		--anatomy-faint: color-mix(in oklch, var(--muted-foreground) 20%, var(--border));
-		--anatomy-lit: var(--foreground);
-		--anatomy-halo: var(--muted-foreground);
-		--anatomy-halo-opacity: 0.32;
-		--anatomy-dot: var(--foreground);
-		--anatomy-weight: 0.6px;
+		--anatomy-top: color-mix(in oklch, var(--muted) 60%, var(--border));
+		--anatomy-shade-3: var(--background);
+		--anatomy-shade-2: color-mix(in oklch, var(--muted) 20%, var(--border));
+		--anatomy-shade-1: color-mix(in oklch, var(--border) 87%, var(--muted-foreground));
+		--anatomy-shade-0: color-mix(in oklch, var(--border) 68%, var(--muted-foreground));
+		--anatomy-lit: var(--background);
 		--anatomy-ease: cubic-bezier(0.32, 0.72, 0, 1);
 		--anatomy-mono: var(--font-mono, ui-monospace, monospace);
+		--pc-cast: color-mix(in oklch, var(--border) 79%, var(--muted-foreground));
+		--pc-well: color-mix(in oklch, var(--border) 84%, var(--muted-foreground));
+		--pc-vent: color-mix(in oklch, var(--border) 47%, var(--muted-foreground));
+		--pc-floor: color-mix(in oklch, var(--border) 95%, var(--muted-foreground));
+		--pc-rim: var(--muted);
+		--pc-ink: color-mix(in oklch, var(--foreground) 80%, var(--background));
+		--pc-ink-soft: var(--muted-foreground);
+		--pc-glass: color-mix(in oklch, var(--foreground) 97%, var(--background));
+		--pc-glass-off: var(--foreground);
+		--pc-pit: color-mix(in oklch, var(--foreground) 70%, black);
+		--pc-lip: var(--pc-ink);
+		/* The light theme's --chart-1. It is fixed here because the dark theme's is blue. */
+		--pc-accent: oklch(0.646 0.222 41.116);
 	}
 
-	/* Dark tops sit on the card colour and the sides fall back to the page background; the
-	   translucent dark border cannot carry a solid shade. */
+	/* The translucent dark border cannot carry a solid shade, so the dark tones mix the
+	   card, muted and background colours instead. */
 	:global(.dark) .desk-computer {
-		--anatomy-top: var(--card);
-		--anatomy-shade-3: color-mix(in oklch, var(--card) 75%, var(--background));
-		--anatomy-shade-2: color-mix(in oklch, var(--card) 50%, var(--background));
-		--anatomy-shade-1: color-mix(in oklch, var(--card) 25%, var(--background));
-		--anatomy-shade-0: var(--background);
-		--anatomy-lit-shade: var(--card);
-		--anatomy-hi: color-mix(in oklch, var(--foreground) 85%, var(--background));
-		--anatomy-mid: color-mix(in oklch, var(--muted-foreground) 60%, var(--background));
-		--anatomy-lo: color-mix(in oklch, var(--muted-foreground) 35%, var(--background));
-		--anatomy-faint: var(--muted);
-		--anatomy-halo: var(--background);
-		--anatomy-halo-opacity: 0.9;
+		--anatomy-top: color-mix(in oklch, var(--card) 38%, var(--muted));
+		--anatomy-shade-3: color-mix(in oklch, var(--muted) 87%, var(--muted-foreground));
+		--anatomy-shade-2: color-mix(in oklch, var(--card) 53%, var(--muted));
+		--anatomy-shade-1: color-mix(in oklch, var(--card) 71%, var(--background));
+		--anatomy-shade-0: color-mix(in oklch, var(--card) 42%, var(--background));
+		--anatomy-lit: var(--foreground);
+		--pc-cast: color-mix(in oklch, var(--card) 13%, var(--background));
+		--pc-well: var(--anatomy-shade-0);
+		--pc-vent: color-mix(in oklch, var(--background) 70%, black);
+		--pc-floor: color-mix(in oklch, var(--card) 85%, var(--background));
+		--pc-rim: color-mix(in oklch, var(--muted) 75%, var(--muted-foreground));
+		--pc-ink: color-mix(in oklch, var(--muted-foreground) 80%, var(--background));
+		--pc-ink-soft: color-mix(in oklch, var(--muted) 66%, var(--muted-foreground));
+		--pc-glass: var(--pc-vent);
+		--pc-glass-off: color-mix(in oklch, var(--background) 55%, black);
+		--pc-pit: color-mix(in oklch, var(--background) 43%, black);
+		--pc-lip: var(--pc-floor);
 	}
 
 	/* The injected SVG is not part of this component's markup, so its rules are global
@@ -100,17 +108,9 @@
 			height: auto;
 			overflow: visible;
 		}
-		.iso-svg path,
-		.iso-svg circle {
-			vector-effect: non-scaling-stroke;
-		}
+		/* Sits under a solid's faces, so the seams between them show a face tone. */
 		.iso-fill {
-			fill: var(--anatomy-paper);
-			stroke: none;
-		}
-		.iso-shade,
-		.iso-top {
-			stroke: none;
+			fill: var(--anatomy-shade-1);
 		}
 		.iso-shade[data-shade='0'] {
 			fill: var(--anatomy-shade-0);
@@ -127,69 +127,83 @@
 		.iso-top {
 			fill: var(--anatomy-top);
 		}
-		.iso-halo {
-			fill: var(--anatomy-halo);
-			stroke: none;
-			filter: blur(9px);
-			opacity: var(--anatomy-halo-opacity);
-			transform: translateY(3px);
+		[data-accent] {
+			--anatomy-top: var(--pc-accent);
+			--anatomy-shade-3: color-mix(in oklch, var(--pc-accent) 90%, black);
+			--anatomy-shade-2: color-mix(in oklch, var(--pc-accent) 84%, black);
+			--anatomy-shade-1: color-mix(in oklch, var(--pc-accent) 78%, black);
+			--anatomy-shade-0: color-mix(in oklch, var(--pc-accent) 70%, black);
 		}
-		.iso-line {
+
+		.pc-cast,
+		.pc-print {
+			fill: var(--pc-cast);
+		}
+		.pc-well,
+		.pc-screw {
+			fill: var(--pc-well);
+		}
+		.pc-vent,
+		.pc-eject {
+			fill: var(--pc-vent);
+		}
+		.pc-groove {
+			fill: var(--anatomy-shade-0);
+		}
+		.pc-groove-floor {
+			fill: var(--pc-floor);
+		}
+		.pc-led {
+			fill: var(--pc-ink);
+			transition: opacity 0.4s var(--anatomy-ease);
+		}
+		.pc-cord {
 			fill: none;
-			stroke: var(--anatomy-lo);
-			stroke-width: var(--anatomy-weight);
+			stroke: var(--pc-ink);
+			stroke-width: 1.5;
 			stroke-linecap: round;
 			stroke-linejoin: round;
 		}
-		.iso-line[data-tone='hi'] {
-			stroke: var(--anatomy-hi);
-		}
-		.iso-line[data-tone='mid'] {
-			stroke: var(--anatomy-mid);
-		}
-		.iso-line[data-tone='faint'] {
-			stroke: var(--anatomy-faint);
-		}
-		.iso-dots circle {
-			fill: var(--anatomy-dot);
-			stroke: none;
-			opacity: 0.32;
-		}
-		.iso-dots[data-tone='hi'] circle {
-			opacity: 0.85;
-		}
-		.iso-dots[data-tone='mid'] circle {
-			opacity: 0.45;
+		.pc-cord[data-side='back'] {
+			stroke: var(--pc-ink-soft);
 		}
 
-		.pc-bezel {
+		/* A recess paints its opening in the colour of its back plane, then the two walls
+		   the viewer sees, then the back plane itself. */
+		.pc-bezel,
+		.pc-recess-bezel > g > .pc-floor {
 			fill: var(--anatomy-top);
 		}
-		.pc-dark {
+		.pc-recess-bezel > .pc-wall[data-face='up'] {
+			fill: var(--pc-rim);
+		}
+		.pc-recess-bezel > .pc-wall[data-face='side'] {
 			fill: var(--anatomy-shade-0);
 		}
+		.pc-dark,
+		.pc-recess-crt > g > .pc-floor,
+		.pc-recess-slot > g > .pc-floor {
+			fill: var(--pc-glass);
+		}
+		.pc-recess-crt > .pc-wall[data-face='up'],
+		.pc-recess-slot > .pc-wall {
+			fill: var(--pc-lip);
+		}
+		.pc-recess-crt > .pc-wall[data-face='side'] {
+			fill: var(--pc-pit);
+		}
 		.pc-glass {
-			fill: var(--anatomy-shade-0);
+			fill: var(--pc-glass-off);
 			transition: fill 0.5s var(--anatomy-ease);
 		}
 		.pc-glass[data-on] {
-			fill: var(--anatomy-lit-shade);
+			fill: var(--pc-glass);
 		}
-		.pc-glow {
-			fill: var(--anatomy-lit);
-			opacity: 0.07;
-			filter: blur(6px);
+		.pc-sheen {
+			fill: color-mix(in oklch, var(--anatomy-lit) 4%, transparent);
 		}
-		.pc-scan {
-			fill: none;
-			stroke: var(--anatomy-faint);
-			stroke-width: 0.5px;
-			opacity: 0.7;
-		}
-		/* The mark scales with the figure, unlike the hairlines, so it keeps static/logo.svg's
-		   proportions (stroke 2 on a 24 unit glyph) at any size. */
-		.iso-svg .pc-logo {
-			vector-effect: none;
+		/* The mark keeps static/logo.svg's proportions: stroke 2 on a 24 unit glyph. */
+		.pc-logo {
 			fill: none;
 			stroke: var(--anatomy-lit);
 			stroke-width: 2;
@@ -197,12 +211,12 @@
 			stroke-linejoin: round;
 		}
 		.pc-text {
-			fill: var(--anatomy-lit);
+			fill: color-mix(in oklch, var(--anatomy-lit) 78%, var(--pc-glass));
 			font-family: var(--anatomy-mono);
 			letter-spacing: 0.02em;
 		}
 		.pc-cursor {
-			fill: var(--anatomy-lit);
+			fill: var(--pc-accent);
 		}
 		/* Blinks only while the tour types or shortly after a click; idle, it holds still. */
 		.pc-cursor[data-blink] {
@@ -211,24 +225,18 @@
 		.pc-beam {
 			fill: none;
 			stroke: var(--anatomy-lit);
-			stroke-width: 1.4px;
+			stroke-width: 1.2;
 			stroke-linecap: round;
 		}
 		.pc-dot {
 			fill: var(--anatomy-lit);
 		}
-		.pc-cord {
-			stroke-width: 1.1px;
-		}
 		.pc-key,
 		.pc-computer {
 			cursor: pointer;
 		}
-		.pc-key[data-down] .iso-edge {
-			stroke: var(--anatomy-hi);
-		}
-		[data-part='led'] {
-			transition: opacity 0.4s var(--anatomy-ease);
+		.pc-key[data-down] .iso-top {
+			fill: var(--anatomy-shade-1);
 		}
 	}
 
