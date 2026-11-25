@@ -365,20 +365,22 @@ describe('runUntilOneExits', () => {
 		process.platform === 'win32' ? WINDOWS_CHILD_TEST_TIMEOUT_MS : undefined
 	);
 
+	const leader =
+		"const fs=require('node:fs');const[pidFile]=process.argv.slice(1);const timer=setInterval(()=>{if(fs.existsSync(pidFile)){clearInterval(timer);process.exit(7)}},10)";
+
 	it.skipIf(process.platform === 'win32')(
 		'force-stops a signal-resistant child and its grandchild',
 		async () => {
 			const directory = mkdtempSync(path.join(tmpdir(), 'dev-cloud-process-'));
 			const pidFile = path.join(directory, 'grandchild.pid');
-			const escapedPidFile = JSON.stringify(pidFile);
-			const escapedTempFile = JSON.stringify(`${pidFile}.tmp`);
-			const leader = `const fs=require('node:fs');const timer=setInterval(()=>{if(fs.existsSync(${escapedPidFile})){clearInterval(timer);process.exit(7)}},10)`;
-			const worker = `const{spawn}=require('node:child_process');const fs=require('node:fs');process.on('SIGTERM',()=>{});const child=spawn(process.execPath,['-e','process.on(\\'SIGTERM\\',()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(${escapedTempFile},String(child.pid));fs.renameSync(${escapedTempFile},${escapedPidFile});setInterval(()=>{},1000)`;
+			const tempFile = `${pidFile}.tmp`;
+			const worker =
+				"const{spawn}=require('node:child_process');const fs=require('node:fs');const[pidFile,tempFile]=process.argv.slice(1);process.on('SIGTERM',()=>{});const child=spawn(process.execPath,['-e',\"process.on('SIGTERM',()=>{});setInterval(()=>{},1000)\"],{stdio:'ignore'});fs.writeFileSync(tempFile,String(child.pid));fs.renameSync(tempFile,pidFile);setInterval(()=>{},1000)";
 			try {
 				const code = await runUntilOneExits(
 					[
-						{ command: process.execPath, args: ['-e', leader] },
-						{ command: process.execPath, args: ['-e', worker] }
+						{ command: process.execPath, args: ['-e', leader, pidFile] },
+						{ command: process.execPath, args: ['-e', worker, pidFile, tempFile] }
 					],
 					{ stdio: 'ignore', graceMs: 100, forceMs: 500 }
 				);
@@ -398,16 +400,16 @@ describe('runUntilOneExits', () => {
 		async () => {
 			const directory = mkdtempSync(path.join(tmpdir(), 'dev-cloud-wrapper-exit-'));
 			const pidFile = path.join(directory, 'grandchild.pid');
-			const escapedPidFile = JSON.stringify(pidFile);
-			const escapedTempFile = JSON.stringify(`${pidFile}.tmp`);
-			const leader = `const fs=require('node:fs');const timer=setInterval(()=>{if(fs.existsSync(${escapedPidFile})){clearInterval(timer);process.exit(7)}},10)`;
-			const grandchild = `process.on('SIGTERM',()=>{});const fs=require('node:fs');fs.writeFileSync(${escapedTempFile},String(process.pid));fs.renameSync(${escapedTempFile},${escapedPidFile});setInterval(()=>{},1000)`;
-			const worker = `const{spawn}=require('node:child_process');process.on('SIGTERM',()=>process.exit(0));spawn(process.execPath,['-e',${JSON.stringify(grandchild)}],{stdio:'ignore'});setInterval(()=>{},1000)`;
+			const tempFile = `${pidFile}.tmp`;
+			const grandchild =
+				"process.on('SIGTERM',()=>{});const fs=require('node:fs');const[pidFile,tempFile]=process.argv.slice(1);fs.writeFileSync(tempFile,String(process.pid));fs.renameSync(tempFile,pidFile);setInterval(()=>{},1000)";
+			const worker =
+				"const{spawn}=require('node:child_process');process.on('SIGTERM',()=>process.exit(0));spawn(process.execPath,['-e',...process.argv.slice(1)],{stdio:'ignore'});setInterval(()=>{},1000)";
 			try {
 				const code = await runUntilOneExits(
 					[
-						{ command: process.execPath, args: ['-e', leader] },
-						{ command: process.execPath, args: ['-e', worker] }
+						{ command: process.execPath, args: ['-e', leader, pidFile] },
+						{ command: process.execPath, args: ['-e', worker, grandchild, pidFile, tempFile] }
 					],
 					{ stdio: 'ignore', graceMs: 100, forceMs: 500 }
 				);
