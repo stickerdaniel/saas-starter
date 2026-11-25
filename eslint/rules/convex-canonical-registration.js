@@ -30,7 +30,8 @@ import {
 	RAW_REGISTRARS
 } from '../convex-registrars.js';
 import { resolveEffect } from 'eslint-plugin-saas-starter/effect-scope';
-import { findDefinition, isPlainOnlySpec } from '../confect-spec-kinds.js';
+import path from 'node:path';
+import { findDefinition, isPlainOnlySpec, plainFunctionId } from '../confect-spec-kinds.js';
 
 const PUBLIC_BUILDERS = new Set(['query', 'mutation', 'action']);
 const NATIVE_SPECS = new Set(CONFECT_NATIVE_SPECS);
@@ -134,7 +135,20 @@ export default {
 			description:
 				'Require the canonical form for raw Convex function registrations and Confect specs'
 		},
-		schema: [],
+		schema: [
+			{
+				type: 'object',
+				properties: {
+					confectDirectory: { type: 'string' },
+					libraryFunctions: {
+						type: 'array',
+						items: { type: 'string', pattern: '^[^:]+:[^:]+$' },
+						uniqueItems: true
+					}
+				},
+				additionalProperties: false
+			}
+		],
 		messages: {
 			aliasedImport:
 				'Import `{{name}}` from {{module}} under its own name. The registration rules find registrations by the builder name, so an alias hides a function from them.',
@@ -159,12 +173,19 @@ export default {
 			implShape:
 				"Call `FunctionImpl.make(schema, group, 'name', implementation)` with a string literal name. The spec graph checks pair an implementation with its spec by that name.",
 			inlineImplementation:
-				'Pass a native implementation to `FunctionImpl.make` inline, or the Convex registration of a plain spec by its import. The registration rules read the handler form only inline, and accept an import only when the group comes from a spec file of plain specs that reads no value from another module.',
+				'Pass a native implementation to `FunctionImpl.make` inline, or the Convex registration of a plain spec by its import. The registration rules read the handler form only inline, and accept an import only when the group comes from a spec file that reads no value from another module and either holds only plain specs or lists the function as library-created.',
 			eagerImplementation:
 				'Return `Effect.gen(...)` or an `Effect.fn(...)(...)` call directly from this implementation, with every step, default value and computed key inside the Effect; `.pipe(...)` and `Effect.fn` may follow with `effect/Effect` operators only, given identifiers, namespace import members, literals and functions, and no `run*`, `*Unsafe` or `*Eager` member. Confect calls the implementation before it runs middleware, so a step outside the Effect runs for a caller the middleware refuses.'
 		}
 	},
 	create(context) {
+		const { confectDirectory = 'src/lib/confect', libraryFunctions = [] } =
+			context.options[0] ?? {};
+		const confectRoot = path.resolve(context.cwd, confectDirectory);
+		const listed = new Set(libraryFunctions);
+		const isListedLibraryFunction = (group, name) =>
+			listed.has(plainFunctionId(context, group, name, PLAIN_SPECS, confectRoot));
+
 		const effectMember = (node, member) => {
 			const binding = resolveEffect(context, node);
 			return binding?.namespace === 'Effect' && binding.member === member;
@@ -244,7 +265,10 @@ export default {
 			if (value.type === 'Identifier') {
 				if (
 					findDefinition(context, value)?.type !== 'ImportBinding' ||
-					!isPlainOnlySpec(context, group, name, PLAIN_SPECS)
+					!(
+						isPlainOnlySpec(context, group, name, PLAIN_SPECS) ||
+						isListedLibraryFunction(group, name)
+					)
 				) {
 					context.report({ node: value, messageId: 'inlineImplementation' });
 				}

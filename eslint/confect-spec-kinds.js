@@ -128,6 +128,21 @@ export function specKind(context, group, name) {
 	return name?.type === 'Literal' ? specOf(context, group)?.kinds.get(name.value) : undefined;
 }
 
+export function plainFunctionId(context, group, name, plainKinds, root) {
+	if (group?.type !== 'Identifier' || name?.type !== 'Literal') return null;
+	if (findDefinition(context, group)?.node.type !== 'ImportDefaultSpecifier') return null;
+	const file = specFile(context, group);
+	const spec = file ? kindsOf(file) : null;
+	if (!spec?.isolated || !plainKinds.has(spec.kinds.get(name.value))) return null;
+	const relative = path.relative(root, file);
+	if (relative.startsWith('..') || path.isAbsolute(relative)) return null;
+	const groupPath = relative
+		.replace(/\.spec\.ts$/, '')
+		.split(path.sep)
+		.join('/');
+	return `${groupPath}:${name.value}`;
+}
+
 export function isPlainOnlySpec(context, group, name, plainKinds) {
 	const spec = specOf(context, group);
 	return (

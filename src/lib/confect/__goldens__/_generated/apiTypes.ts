@@ -105,7 +105,7 @@ export type ApiTypeGoldens = [
 	Expect<Equal<Golden<typeof internal.aiChat.threads.updateThreadMetadata>, ['mutation', 'internal', { readonly threadId: string; readonly lastMessage?: string | undefined; readonly lastMessageAt?: number | undefined; }, null]>>,
 	Expect<Equal<Golden<typeof internal.aiChat.titles.generateThreadTitle>, ['action', 'internal', { readonly threadId: string; readonly prompt: string; readonly userId?: string | undefined; }, null]>>,
 	Expect<Equal<Golden<typeof internal.aiUsage.record.insert>, ['mutation', 'internal', { readonly feature: 'ai_chat' | 'ai_chat_title' | 'support_chat'; readonly models: { readonly model: string; readonly inputTokens: number; readonly outputTokens: number; readonly totalTokens: number; readonly provider?: string | undefined; readonly reasoningTokens?: number | undefined; readonly cachedInputTokens?: number | undefined; readonly nativeCostUsd?: number | undefined; }[]; readonly userId?: string | undefined; readonly status?: 'ok' | 'partial' | 'error' | undefined; readonly threadId?: string | undefined; }, null]>>,
-	Expect<Equal<Golden<typeof api.auth.getAvailableOAuthProviders>, ['query', 'public', {}, { google: boolean; github: boolean; }]>>,
+	Expect<Equal<Golden<typeof api.auth.getAvailableOAuthProviders>, ['query', 'public', {}, { readonly google: boolean; readonly github: boolean; }]>>,
 	Expect<Equal<Golden<typeof internal.auth.onCreate>, ['mutation', 'internal', { model: string; doc: any; }, null]>>,
 	Expect<Equal<Golden<typeof internal.auth.onDelete>, ['mutation', 'internal', { model: string; doc: any; }, null]>>,
 	Expect<Equal<Golden<typeof internal.auth.onUpdate>, ['mutation', 'internal', { model: string; oldDoc: any; newDoc: any; }, null]>>,
