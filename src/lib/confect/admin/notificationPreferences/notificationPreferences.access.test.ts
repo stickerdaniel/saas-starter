@@ -50,6 +50,19 @@ async function signIn(t: Harness, role: 'user' | 'admin', email: string) {
 	return t.withIdentity({ subject: userId, sessionId: session._id });
 }
 
+async function changeEmail(t: Harness, userId: string, email: string) {
+	const readUser = () =>
+		t.query(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: '_id', operator: 'eq', value: userId }]
+		});
+	const oldDoc = await readUser();
+	await t.mutation(components.betterAuth.adapter.updateOne, {
+		input: { model: 'user', where: [{ field: '_id', value: userId }], update: { email } }
+	});
+	await t.mutation(internal.auth.onUpdate, { model: 'user', oldDoc, newDoc: await readUser() });
+}
+
 async function refusal(call: Promise<unknown>) {
 	const error = await call.then(
 		() => undefined,
@@ -256,5 +269,71 @@ describe('notification preferences as an admin', () => {
 
 		await admin.mutation(mutations.removeCustomEmail, { email: 'NEW@example.com' });
 		expect(await stored(t)).toEqual([]);
+	});
+
+	it("merges a custom recipient into an admin who takes over its email, keeping the recipient's toggles", async () => {
+		const t = harness();
+		const userId = await createUser(t, 'admin', 'kim@example.com');
+		await seed(
+			t,
+			{ ...preference('kim@example.com', userId), isAdminUser: true },
+			{
+				...preference('kim@new.example.com'),
+				notifyNewSupportTickets: false,
+				notifyNewSignups: true,
+				notifyCancellations: false
+			}
+		);
+
+		await changeEmail(t, userId, 'kim@new.example.com');
+
+		const merged = {
+			email: 'kim@new.example.com',
+			userId,
+			isAdminUser: true,
+			notifyNewSupportTickets: false,
+			notifyUserReplies: true,
+			notifyNewSignups: true,
+			notifyNewCustomers: true,
+			notifyCancellations: false,
+			createdAt: 1,
+			updatedAt: expect.any(Number)
+		};
+		expect(await stored(t)).toEqual([merged]);
+
+		const admin = await signIn(t, 'admin', 'admin@example.com');
+		await admin.mutation(api.admin.notificationPreferences.mutations.updatePreference, {
+			email: 'kim@new.example.com',
+			field: 'notifyNewSignups',
+			value: false
+		});
+		expect(await stored(t)).toEqual([{ ...merged, notifyNewSignups: false }]);
+	});
+
+	it('merges the custom recipient when an older user row shares the new email', async () => {
+		const t = harness();
+		const userId = await createUser(t, 'admin', 'kim@example.com');
+		const dormant = preference('kim@new.example.com', 'former-admin');
+		await seed(
+			t,
+			dormant,
+			{ ...preference('kim@example.com', userId), isAdminUser: true },
+			{
+				...preference('kim@new.example.com'),
+				notifyNewSignups: true
+			}
+		);
+
+		await changeEmail(t, userId, 'kim@new.example.com');
+
+		expect(await stored(t)).toEqual([
+			dormant,
+			{
+				...preference('kim@new.example.com', userId),
+				isAdminUser: true,
+				notifyNewSignups: true,
+				updatedAt: expect.any(Number)
+			}
+		]);
 	});
 });

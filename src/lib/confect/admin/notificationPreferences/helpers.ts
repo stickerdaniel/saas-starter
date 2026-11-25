@@ -14,6 +14,8 @@ import type { MutationCtx } from '../../../convex/_generated/server';
 
 export const PREVIEW_ADMIN_EMAIL = 'admin@preview.dev';
 
+const ROWS_PER_EMAIL_LIMIT = 16;
+
 function normalizeNotificationEmail(email: string): string {
 	return email.trim().toLowerCase();
 }
@@ -30,7 +32,8 @@ export function isPreviewAdminEmail(email: string): boolean {
  * - Admin's email changes
  * - User signs up as admin (rare)
  *
- * If preference exists: updates isAdminUser=true and email
+ * If preference exists: updates isAdminUser=true and email, merging a custom
+ *   recipient that already holds the new email
  * If not exists: creates with the identity's notification defaults
  * Preview admins keep the admin role marker but never receive email
  */
@@ -58,10 +61,32 @@ export async function syncAdminPreferences(
 		.first();
 
 	if (existing) {
+		// A new email that is already a custom recipient merges into the admin row,
+		// which takes over the custom recipient's toggles. Older user rows can share
+		// the email, so the custom row is searched among all rows on it.
+		const rowsOnEmail =
+			existing.email === email
+				? []
+				: await ctx.db
+						.query('adminNotificationPreferences')
+						.withIndex('by_email', (q) => q.eq('email', email))
+						.take(ROWS_PER_EMAIL_LIMIT);
+		const customRecipient = rowsOnEmail.find((row) => row.userId === undefined);
+		if (customRecipient) {
+			await ctx.db.delete('adminNotificationPreferences', customRecipient._id);
+		}
+
 		// Reactivate and update email if changed
 		await ctx.db.patch('adminNotificationPreferences', existing._id, {
 			email,
 			isAdminUser: true,
+			...(customRecipient && {
+				notifyNewSupportTickets: customRecipient.notifyNewSupportTickets,
+				notifyUserReplies: customRecipient.notifyUserReplies,
+				notifyNewSignups: customRecipient.notifyNewSignups,
+				notifyNewCustomers: customRecipient.notifyNewCustomers,
+				notifyCancellations: customRecipient.notifyCancellations
+			}),
 			...previewAdminPatch,
 			updatedAt: now
 		});
