@@ -214,13 +214,19 @@ describe('type project coverage of named files', { concurrent: false }, () => {
 
 	// svelte-check reports errors in every module its project imports, not only in the files
 	// its tsconfig includes: vite.config.ts pulls scripts/dev-ports.ts into the app program.
+	// The relay sits outside every include list, so only a program that parses repository
+	// files it reached by import can see the probe.
 	it('passes a types run naming a module that a project file imports', () => {
 		const checkout = createCheckerClone();
 		try {
 			writeStandaloneModule(checkout);
 			writeFileSync(
+				path.join(checkout.repository, 'type-coverage-relay.ts'),
+				"export { count } from './type-coverage-probe';\n"
+			);
+			writeFileSync(
 				path.join(checkout.repository, 'src/lib/type-coverage-importer.ts'),
-				"export { count } from '../../type-coverage-probe';\n"
+				"export { count } from '../../type-coverage-relay';\n"
 			);
 			const result = runChecker(checkout, ['--ci', '--scope', 'types', STANDALONE]);
 			const output = `${result.stdout}${result.stderr}`;

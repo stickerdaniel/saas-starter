@@ -865,6 +865,10 @@ const TYPE_SOURCE = /\.(?:[cm]?[jt]sx?|svelte)$/;
  * Svelte components count as project files the way svelte-check parses the config, but
  * their imports are not followed, so a module reachable only from a component is rejected.
  *
+ * The program reads every file under `node_modules` as empty, because only repository files
+ * decide the answer and parsing every resolved declaration dominates its time and memory. A
+ * repository file reachable only through a `node_modules` declaration is therefore rejected.
+ *
  * Both sides are compared as canonical paths. resolveInputs() names a symbolic link by its
  * target, while TypeScript lists a link under its own name, so an included link would
  * otherwise reject the very file it points to.
@@ -916,10 +920,17 @@ export async function filesOutsideTypeProjects(
 	let remaining = files.filter((file) => !roots.has(file));
 	for (const project of projects) {
 		if (remaining.length === 0) break;
+		const host = ts.createCompilerHost(project.options);
+		const getSourceFile = host.getSourceFile.bind(host);
+		host.getSourceFile = (fileName, languageVersion, ...rest) =>
+			toPosix(path.relative(cwd, fileName)).split('/').includes('node_modules')
+				? ts.createSourceFile(fileName, '', languageVersion)
+				: getSourceFile(fileName, languageVersion, ...rest);
 		const program = ts.createProgram({
 			rootNames: project.fileNames,
 			options: project.options,
-			projectReferences: project.projectReferences
+			projectReferences: project.projectReferences,
+			host
 		});
 		const read = new Set(program.getSourceFiles().map((source) => relative(source.fileName)));
 		remaining = remaining.filter((file) => !read.has(file));
