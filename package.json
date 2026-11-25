@@ -220,7 +220,8 @@
 		"oxlint-plugin-convex@0.1.1": "patches/oxlint-plugin-convex@0.1.1.patch",
 		"convex-vite-plugin@0.4.0": "patches/convex-vite-plugin@0.4.0.patch",
 		"@mmailaender/convex-better-auth-svelte@0.10.0": "patches/@mmailaender%2Fconvex-better-auth-svelte@0.10.0.patch",
-		"svelte-streamdown@5.0.0": "patches/svelte-streamdown@5.0.0.patch"
+		"svelte-streamdown@5.0.0": "patches/svelte-streamdown@5.0.0.patch",
+		"convex-svelte@0.15.1": "patches/convex-svelte@0.15.1.patch"
 	},
 	"overrides": {
 		"zod": "$zod",
