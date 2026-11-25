@@ -1146,6 +1146,22 @@ describe('founder emails on account deletion', () => {
 		expect(await welcomeRows(t, userId)).toEqual([]);
 	});
 
+	it('stops retrying a failing page after its fourth attempt', async () => {
+		const t = harness();
+		await contactWith(t);
+		const userId = await signUp(t);
+		await drainScheduled(t);
+		vi.mocked(resend.status).mockRejectedValue(new Error('component down'));
+
+		await t.mutation(internal.emails.founderEmailErasure.continueFounderEmailErasure, {
+			userId,
+			attempt: 4
+		});
+
+		expect(await pendingFounderJobs(t)).toEqual([]);
+		expect(await welcomeRows(t, userId)).toHaveLength(1);
+	});
+
 	it('erases a long cancellation history page by page', async () => {
 		const t = harness();
 		const userId = await createUser(t, { name: 'Ada Lovelace', email: 'ada@example.com' });

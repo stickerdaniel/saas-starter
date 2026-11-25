@@ -58,7 +58,7 @@ describe('authentication email capability failures', () => {
 		const [{ createAuthOptions }, sendModule, resendModule, { CapabilityConfigurationError }] =
 			await Promise.all([
 				import('../authServer'),
-				import('../emails/send'),
+				import('../../convex/emails/send'),
 				import('../emails/resend'),
 				import('../env')
 			]);
@@ -142,7 +142,7 @@ describe('authentication email capability failures', () => {
 
 		const [{ createAuthOptions }, sendModule, resendModule] = await Promise.all([
 			import('../authServer'),
-			import('../emails/send'),
+			import('../../convex/emails/send'),
 			import('../emails/resend')
 		]);
 		const sendVerificationEmail = sendModule.sendVerificationEmail as unknown as RegisteredMutation;

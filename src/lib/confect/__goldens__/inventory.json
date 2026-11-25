@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "d4ffe297f241f944",
+	"digest": "355af63c9a9296a5",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -172,8 +172,8 @@
 			"resolveFounderFeedbackBilling": ["internal", "action", "Convex", "Confect"]
 		},
 		"emails/founderEmailErasure": {
-			"continueFounderEmailErasure": ["internal", "mutation", "Convex", "Convex"],
-			"eraseFounderEmailPage": ["internal", "mutation", "Convex", "Convex"]
+			"continueFounderEmailErasure": ["internal", "mutation", "Convex", "Confect"],
+			"eraseFounderEmailPage": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"emails/founderEmailLedger": {
 			"getSentFounderWelcome": ["internal", "query", "Convex", "Confect"],
@@ -197,12 +197,12 @@
 			"queueFounderIncidentEmail": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"emails/send": {
-			"sendAdminReplyNotification": ["internal", "mutation", "Convex", "Convex"],
-			"sendFounderWelcomeEmail": ["internal", "mutation", "Convex", "Convex"],
-			"sendNewTicketAdminNotification": ["internal", "mutation", "Convex", "Convex"],
-			"sendNewUserSignupNotification": ["internal", "mutation", "Convex", "Convex"],
-			"sendResetPasswordEmail": ["internal", "mutation", "Convex", "Convex"],
-			"sendVerificationEmail": ["internal", "mutation", "Convex", "Convex"]
+			"sendAdminReplyNotification": ["internal", "mutation", "Convex", "Confect"],
+			"sendFounderWelcomeEmail": ["internal", "mutation", "Convex", "Confect"],
+			"sendNewTicketAdminNotification": ["internal", "mutation", "Convex", "Confect"],
+			"sendNewUserSignupNotification": ["internal", "mutation", "Convex", "Confect"],
+			"sendResetPasswordEmail": ["internal", "mutation", "Convex", "Confect"],
+			"sendVerificationEmail": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"files/cleanup": { "cleanupExpiredFiles": ["internal", "mutation", "Convex", "Convex"] },
 		"files/metadata": { "storeFileMetadata": ["internal", "mutation", "Convex", "Convex"] },
