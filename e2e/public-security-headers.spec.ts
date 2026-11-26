@@ -47,7 +47,7 @@ function expectAppTemplateScriptsServed(headers: Record<string, string>, html: s
 	const expected = (policy.reportOnly?.['script-src'] ?? []).filter((source) =>
 		source.startsWith('sha256-')
 	);
-	// The reload bootstrap and the mode-watcher theme initializer.
+	// The reload bootstrap and the theme initializer.
 	expect(expected, 'policy hashes for the two app.html inline scripts').toHaveLength(2);
 
 	const served = servedInlineScriptHashes(html);

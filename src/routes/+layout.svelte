@@ -5,7 +5,7 @@
 	import { navigating, page, updated } from '$app/state';
 	import { T, Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
-	import { ModeWatcher } from 'mode-watcher';
+	import '#lib/theme.svelte.ts';
 	import AppAuthProvider from '#lib/components/app/app-auth-provider.svelte';
 	import AppAutumnProvider from '#lib/components/app/app-autumn-provider.svelte';
 	import AnalyticsRoot from '#lib/components/analytics/analytics-root.svelte';
@@ -250,13 +250,6 @@
 		<link rel="preload" as="font" {href} crossorigin="" />
 	{/each}
 </svelte:head>
-
-<!-- synchronousModeChanges keeps the root class write out of a requestAnimationFrame,
-	so the theme toggle's view transition captures the new theme rather than the one it
-	replaced. See src/lib/components/ui/light-switch/theme-reveal.ts.
-	disableHeadScriptInjection: src/app.html runs the initial-mode script, so its CSP hash
-	is derived from the template. Keep that script's config aligned with these props. -->
-<ModeWatcher disableHeadScriptInjection synchronousModeChanges />
 
 <AppAuthProvider>
 	<AppAutumnProvider>

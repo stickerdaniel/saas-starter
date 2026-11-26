@@ -2,7 +2,7 @@
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import { getTranslate } from '@tolgee/svelte';
-	import { toggleMode } from 'mode-watcher';
+	import { toggleMode } from '#lib/theme.svelte.ts';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { startThemeReveal } from './theme-reveal';

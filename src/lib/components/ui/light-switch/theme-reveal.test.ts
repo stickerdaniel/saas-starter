@@ -3,19 +3,16 @@
  * for the browser's ViewTransition.
  *
  * Four failure modes cost more than the animation. The reveal opens onto the
- * theme it just replaced when mode-watcher writes the root class after the
- * update callback returns, which only the root layout's ModeWatcher
- * configuration keeps out of a `requestAnimationFrame`. The circle opens away
+ * theme it just replaced when the root class is written after the update
+ * callback returns. The circle opens away
  * from the toggle when the origin lands on the root before the pseudo-elements
  * exist. A transition settling after a second toggle strips the marker that
  * second reveal runs under. And an unwatched `updateCallbackDone` turns a
  * failed theme update into a page-level unhandled rejection while hiding the
  * error itself.
  *
- * The first of those four has two halves. The switch's own flush is proved on
- * the real switch under the real ModeWatcher in the last describe. mode-watcher
- * writes the root class synchronously whenever it runs under Vitest, so the root
- * layout's half only fails in a real browser: e2e/public-theme-capture.spec.ts.
+ * The first of those four is proved on the real switch and the real theme module
+ * in the last describe.
  */
 
 import { mount, tick, unmount } from 'svelte';
@@ -269,7 +266,6 @@ describe('theme reveal', () => {
 });
 
 describe('theme switch', () => {
-	/** The key mode-watcher persists the chosen mode under. */
 	const MODE_KEY = 'mode-watcher-mode';
 	let harness: ReturnType<typeof mount> | undefined;
 
@@ -278,13 +274,12 @@ describe('theme switch', () => {
 		harness = undefined;
 		document.body.replaceChildren();
 		localStorage.removeItem(MODE_KEY);
-		localStorage.removeItem('mode-watcher-theme');
 		root.classList.remove('dark');
-		root.removeAttribute('data-theme');
 	});
 
 	it('has the root on the new theme when the reveal update callback returns', async () => {
 		localStorage.setItem(MODE_KEY, 'light');
+		window.dispatchEvent(new StorageEvent('storage', { key: MODE_KEY, newValue: 'light' }));
 		const started = stubViewTransitions();
 		harness = mount(ThemeRevealHarness, { target: document.body });
 		await tick();

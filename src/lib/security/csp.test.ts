@@ -13,7 +13,7 @@ import {
 	deriveSentryReportUri
 } from './csp.js';
 
-// Only the initializer parity check below runs script, and only the template's own
+// Only the theme initializer check below runs script, and only the template's own
 // initializer on a blank document.
 const { JSDOM } = createRequire(import.meta.url)('jsdom') as {
 	JSDOM: new (
@@ -56,7 +56,7 @@ const policyScriptHashes = (template: string) =>
 
 describe('CSP script-src hashes', () => {
 	it('report-only script-src allows exactly the inline scripts of src/app.html', () => {
-		// app.html owns the reload bootstrap and the mode-watcher theme initializer.
+		// app.html owns the reload bootstrap and the theme initializer.
 		const bodies = parsedInlineScripts(appTemplate);
 		expect(bodies, 'src/app.html should own exactly two inline scripts').toHaveLength(2);
 		expect(policyScriptHashes(appTemplate).toSorted()).toEqual(bodies.map(sha256).toSorted());
@@ -149,41 +149,12 @@ describe('CSP script-src hashes', () => {
 	});
 });
 
-describe('mode-watcher initializer copied into src/app.html', () => {
-	const upstreamSource = readFileSync(
-		path.resolve('node_modules/mode-watcher/dist/mode.js'),
-		'utf8'
-	);
-	const upstreamSetInitialMode = upstreamSource.match(/function setInitialMode[\s\S]*?\n\}/)?.[0];
-	// ModeWatcher's defaults, which src/routes/+layout.svelte does not override.
-	const defaultConfig = {
-		defaultMode: 'system',
-		darkClassNames: ['dark'],
-		lightClassNames: [],
-		defaultTheme: '',
-		modeStorageKey: 'mode-watcher-mode',
-		themeStorageKey: 'mode-watcher-theme'
-	};
-	const copiedInitializer = parsedInlineScripts(appTemplate).find((body) =>
-		body.includes('function setInitialMode')
+describe('theme initializer in src/app.html', () => {
+	const initializer = parsedInlineScripts(appTemplate).find((body) =>
+		body.includes('mode-watcher-mode')
 	);
 
-	it('tracks the upstream setInitialMode source', () => {
-		expect(
-			upstreamSetInitialMode,
-			'setInitialMode not found in mode-watcher/dist/mode.js'
-		).toBeDefined();
-		expect(
-			sha256(upstreamSetInitialMode!),
-			"mode-watcher's setInitialMode changed upstream: port the change into the copy in src/app.html"
-		).toBe('sha256-NNW8Woh/BBAB32UgnIohmp5dmS5tYyx630lkf4nITzY=');
-	});
-
-	// Root and storage state after running an initializer on a fresh document.
-	function initialState(
-		script: string,
-		{ stored, theme, systemLight }: { stored?: string; theme?: string; systemLight: boolean }
-	) {
+	function initialRoot(stored: string | undefined, systemLight: boolean) {
 		const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
 			url: 'https://example.test/',
 			runScripts: 'outside-only'
@@ -193,37 +164,40 @@ describe('mode-watcher initializer copied into src/app.html', () => {
 			window.matchMedia = ((query: string) => ({
 				matches: query === '(prefers-color-scheme: light)' && systemLight
 			})) as unknown as typeof window.matchMedia;
-			if (stored) window.localStorage.setItem('mode-watcher-mode', stored);
-			if (theme) window.localStorage.setItem('mode-watcher-theme', theme);
-			window.eval(script);
+			if (stored !== undefined) window.localStorage.setItem('mode-watcher-mode', stored);
+			window.eval(initializer!);
 			const root = window.document.documentElement;
 			return {
 				className: root.className,
 				colorScheme: root.style.colorScheme,
-				dataTheme: root.getAttribute('data-theme'),
-				storedMode: window.localStorage.getItem('mode-watcher-mode'),
-				storedTheme: window.localStorage.getItem('mode-watcher-theme')
+				storedMode: window.localStorage.getItem('mode-watcher-mode')
 			};
 		} finally {
 			window.close();
 		}
 	}
 
+	// The outcomes of mode-watcher 1.1.0's setInitialMode with this app's config.
 	it.each([
-		{ stored: 'light', systemLight: false },
-		{ stored: 'dark', systemLight: true },
-		{ stored: 'system', systemLight: true },
-		{ stored: 'system', systemLight: false },
-		{ systemLight: true },
-		{ systemLight: false },
-		{ stored: 'dark', theme: 'forest', systemLight: true }
-	])('sets the same initial state as upstream for %o', (preferences) => {
-		expect(copiedInitializer, 'no setInitialMode script in src/app.html').toBeDefined();
-		const upstream = `(${upstreamSetInitialMode})(${JSON.stringify(defaultConfig)});`;
-		expect(initialState(copiedInitializer!, preferences)).toEqual(
-			initialState(upstream, preferences)
-		);
-	});
+		{ stored: 'light', systemLight: false, scheme: 'light', storedMode: 'light' },
+		{ stored: 'dark', systemLight: true, scheme: 'dark', storedMode: 'dark' },
+		{ stored: 'system', systemLight: true, scheme: 'light', storedMode: 'system' },
+		{ stored: 'system', systemLight: false, scheme: 'dark', storedMode: 'system' },
+		{ stored: undefined, systemLight: true, scheme: 'light', storedMode: 'system' },
+		{ stored: undefined, systemLight: false, scheme: 'dark', storedMode: 'system' },
+		{ stored: 'sepia', systemLight: true, scheme: 'dark', storedMode: 'sepia' },
+		{ stored: '', systemLight: true, scheme: 'dark', storedMode: '' }
+	] as const)(
+		'applies the $scheme theme for stored mode $stored with a light system $systemLight',
+		({ stored, systemLight, scheme, storedMode }) => {
+			expect(initializer, 'no theme initializer script in src/app.html').toBeDefined();
+			expect(initialRoot(stored, systemLight)).toEqual({
+				className: scheme === 'dark' ? 'dark' : '',
+				colorScheme: scheme,
+				storedMode
+			});
+		}
+	);
 });
 
 describe('deriveSentryReportUri', () => {

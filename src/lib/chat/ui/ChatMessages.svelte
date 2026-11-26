@@ -15,7 +15,7 @@
 	import { isHandoffAnchor } from './handoff-anchor.js';
 	import ChatMessage from './ChatMessage.svelte';
 	import type { DisplayMessage, Attachment } from '../core/types.js';
-	import { mode } from 'mode-watcher';
+	import { mode } from '#lib/theme.svelte.ts';
 	import { watch } from 'runed';
 
 	/**

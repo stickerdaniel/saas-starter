@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Streamdown, type StreamdownProps } from 'svelte-streamdown';
 	import { cn } from '#lib/utils.js';
-	import { mode } from 'mode-watcher';
+	import { mode } from '#lib/theme.svelte.ts';
 	import { paceStreamingText } from './streaming-pace.svelte.ts';
 
 	type Props = StreamdownProps & {

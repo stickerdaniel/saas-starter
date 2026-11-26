@@ -17,9 +17,7 @@ import { defaultTreeAdapter as tree, parse } from 'parse5';
  *
  * SvelteKit tags its own inline scripts but not the ones written in src/app.html.
  * Those are served verbatim on every page, so their hashes are derived from the
- * template itself and follow any edit to it. The mode-watcher initializer lives in
- * app.html for this reason: the copy ModeWatcher injects is serialized from bundled
- * function source, which each bundler reformats into different bytes.
+ * template itself and follow any edit to it.
  */
 
 const HTML_NAMESPACE = 'http://www.w3.org/1999/xhtml';

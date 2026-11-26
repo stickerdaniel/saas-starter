@@ -60,10 +60,9 @@ export function startThemeReveal(toggle: Element, applyTheme: () => void): void 
 
 	const transition = document.startViewTransition(() => {
 		applyTheme();
-		// mode-watcher writes the root class from a derived that only a Svelte
-		// effect reads, so the write is still queued when this callback returns.
-		// The browser captures the new snapshot at that moment, which would leave
-		// the reveal opening onto the theme it just replaced.
+		// Components that read the mode re-render in queued effects. The browser
+		// captures the new snapshot when this callback returns, so they would still
+		// show the theme the reveal replaces.
 		flushSync();
 	});
 

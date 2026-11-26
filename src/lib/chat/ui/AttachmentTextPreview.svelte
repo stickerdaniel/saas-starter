@@ -2,7 +2,7 @@
 	import { Streamdown } from 'svelte-streamdown';
 	import Code from 'svelte-streamdown/code';
 	import Math from 'svelte-streamdown/math';
-	import { mode } from 'mode-watcher';
+	import { mode } from '#lib/theme.svelte.ts';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { getTranslate } from '@tolgee/svelte';
 	import { tryGetChatUIContext } from './chat-context.svelte.ts';
