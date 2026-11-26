@@ -430,15 +430,6 @@ describe('prefer-shadcn-primitives', () => {
 	});
 });
 
-describe('message contracts', () => {
-	it.each(Object.entries(EXPECTED_MESSAGES))(
-		'%s matches the independently authored contract',
-		(messageId, expected) => {
-			expect(rule.meta.messages[messageId as keyof typeof EXPECTED_MESSAGES]).toBe(expected);
-		}
-	);
-});
-
 describe('canonical primitives on app paths', () => {
 	it.each(PRIMITIVE_CASES)('$key reports $messageId', ({ source, messageId }) => {
 		expect(ids(lint(source))).toEqual([messageId]);

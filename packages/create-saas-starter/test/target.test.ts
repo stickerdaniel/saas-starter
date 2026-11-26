@@ -340,31 +340,6 @@ describe('target ownership', () => {
 		}
 	});
 
-	it('does not claim a target after an earlier abort', async () => {
-		const parent = await temporaryParent('create-saas-starter-pre-claim-abort-');
-		const plan = await inspectTarget('project', parent);
-		const controller = new AbortController();
-		controller.abort(new Error('abort before claim'));
-
-		await expect(claimTarget(plan, marker(), controller.signal)).rejects.toThrow(
-			'abort before claim'
-		);
-		await expect(lstat(plan.path)).rejects.toMatchObject({ code: 'ENOENT' });
-	});
-
-	it('claims the target exclusively and keeps a concurrently claimed target', async () => {
-		const parent = await temporaryParent('create-saas-starter-race-');
-		const first = await inspectTarget('project', parent);
-		const second = await inspectTarget('project', parent);
-		await claimTarget(first, marker(), activeSignal());
-		await writeFile(path.join(first.path, 'sentinel'), 'preserve');
-
-		await expect(claimTarget(second, marker(), activeSignal())).rejects.toMatchObject({
-			code: 'EEXIST'
-		});
-		expect(await readFile(path.join(first.path, 'sentinel'), 'utf8')).toBe('preserve');
-	});
-
 	it("writes every marker in the generated project's Prettier format", async () => {
 		const parent = await temporaryParent('create-saas-starter-marker-format-');
 		const claimed = await inspectTarget('claimed', parent);

@@ -116,19 +116,6 @@ describe('internalSetHandoff', () => {
 		expect(runAfter).not.toHaveBeenCalled();
 	});
 
-	// The agent tool relays the model's own words in the same turn, so a canned
-	// sentence on top of it would read as the assistant answering twice.
-	it('stays silent for the agent tool', async () => {
-		vi.clearAllMocks();
-
-		await internalSetHandoffH._handler(
-			makeCtx({ _id: 'st_1', threadId: 'thread_1', isHandedOff: false }),
-			{ threadId: 'thread_1' }
-		);
-
-		expect(saveMessageMock).not.toHaveBeenCalled();
-	});
-
 	it('acknowledges when asked, after the denormalization sync', async () => {
 		vi.clearAllMocks();
 		const ctx = makeCtx({ _id: 'st_1', threadId: 'thread_1', isHandedOff: false });

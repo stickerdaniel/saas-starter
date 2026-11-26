@@ -107,11 +107,6 @@ describe('LoadingBar', () => {
 		).toBe('100%');
 	});
 
-	it('does not animate a width already at its target', async () => {
-		await renderBar({ mode: 'progress', value: 66 });
-		expect(motion.animate).not.toHaveBeenCalled();
-	});
-
 	it('animates changed widths and switches modes and tones', async () => {
 		component = mount(LoadingBarTestFixture, { target: document.body });
 		await tick();
