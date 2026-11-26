@@ -8,7 +8,6 @@ import stripAnsi from 'strip-ansi';
 import type * as TypeScript from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { sharedTestSettings } from '../scripts/vitest-settings';
-import { CUSTOM_REGISTRARS } from './convex-registrars.js';
 
 /**
  * What `no-literal-control-char` can actually see.
@@ -328,19 +327,6 @@ describe('project options of the workspace rules', () => {
 		expect(result.fatalErrorCount).toBe(0);
 		return result.messages.map((message) => message.ruleId);
 	}
-
-	it.each(CUSTOM_REGISTRARS)(
-		'checks %s registrations for returns and args validators',
-		async (builder) => {
-			const ids = await ruleIds(
-				`export const f = ${builder}({ handler: async () => null });`,
-				'src/lib/convex/users.ts'
-			);
-			expect(ids).toContain('local/require-returns-validator');
-			expect(ids).toContain('local/require-custom-registrar-args');
-		},
-		60_000
-	);
 
 	it('resolves #lib/ rune module imports from src/lib', async () => {
 		expect(

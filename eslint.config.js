@@ -37,7 +37,8 @@ import noSourceTextReadRule from './eslint/rules/no-source-text-read.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 import {
 	CONFECT_LIBRARY_FUNCTIONS,
-	CUSTOM_REGISTRARS,
+	PLAIN_HTTP_ROUTES,
+	PLAIN_REGISTRATION_PATHS,
 	RAW_REGISTRARS
 } from './eslint/convex-registrars.js';
 import saasStarterPlugin from 'eslint-plugin-saas-starter';
@@ -443,19 +444,13 @@ export default defineConfig(
 	},
 	{
 		// Every Convex function registration must declare a `returns` validator
-		// (convex-guidelines), and a custom builder registration an `args` one.
-		// See packages/eslint-plugin/src/rules/require-returns-validator.js and
-		// packages/eslint-plugin/src/rules/require-custom-registrar-args.js.
+		// (convex-guidelines). See packages/eslint-plugin/src/rules/require-returns-validator.js.
 		files: convexRuntimeFiles,
 		plugins: {
 			local: localPlugin
 		},
 		rules: {
-			'local/require-returns-validator': [
-				'error',
-				{ builders: [...RAW_REGISTRARS, ...CUSTOM_REGISTRARS] }
-			],
-			'local/require-custom-registrar-args': ['error', { builders: CUSTOM_REGISTRARS }]
+			'local/require-returns-validator': ['error', { builders: RAW_REGISTRARS }]
 		}
 	},
 	{
@@ -772,14 +767,13 @@ export default defineConfig(
 		}
 	},
 	// Anyone on the internet can call a public query, mutation or action, so its
-	// handler completes an access call before any effect, and every registration
-	// keeps the form the access rules can read. Tests and the Better Auth
-	// component, which has its own convex.config.ts, register no application
-	// functions. See eslint/rules/convex-access-first.js and
-	// eslint/rules/convex-canonical-registration.js.
+	// handler completes an access call before any effect, and every application
+	// function is a native Confect spec. PLAIN_REGISTRATION_PATHS names the files
+	// that register no application functions. See eslint/rules/convex-access-first.js
+	// and eslint/rules/convex-canonical-registration.js.
 	{
-		files: ['src/lib/convex/**/*.ts', 'src/lib/confect/**/*.ts'],
-		ignores: ['**/*.test.ts', '**/__tests__/**'],
+		files: convexRuntimeFiles,
+		ignores: Object.keys(PLAIN_REGISTRATION_PATHS),
 		plugins: {
 			local: localPlugin
 		},
@@ -787,7 +781,10 @@ export default defineConfig(
 			'@convex-dev/require-access-control': ['error', { pattern: convexAccessPattern }],
 			'local/convex-canonical-registration': [
 				'error',
-				{ libraryFunctions: Object.values(CONFECT_LIBRARY_FUNCTIONS).flat() }
+				{
+					libraryFunctions: Object.values(CONFECT_LIBRARY_FUNCTIONS).flat(),
+					httpRoutes: Object.keys(PLAIN_HTTP_ROUTES)
+				}
 			],
 			'local/convex-access-first': [
 				'error',

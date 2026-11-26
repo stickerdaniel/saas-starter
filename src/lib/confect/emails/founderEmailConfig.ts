@@ -16,8 +16,7 @@ import {
  * person. Setting a contact switches the welcome on; feedback and cancellation each
  * have their own switch on top.
  *
- * This module registers no functions and must not import `functions.ts`: the
- * signup trigger in `auth.ts` reads it, and `functions.ts` imports `auth.ts`.
+ * This module registers no functions: the signup trigger in `auth.ts` reads it.
  */
 
 export type SwitchableFounderEmail = typeof SwitchableFounderEmailSchema.Type;

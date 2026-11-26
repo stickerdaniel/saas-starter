@@ -40,7 +40,6 @@ import { withRetry } from '../../effect/retry';
 import { within } from '$lib/effect/timeout';
 import { withRetry as retryOther } from './retry';
 import { mutation, query, action, internalAction } from './_generated/server';
-import { authedMutation } from './functions';
 import { FunctionImpl } from '@confect/server';
 import notes from './notes.spec';
 import missing from './missing.spec';
@@ -71,12 +70,6 @@ describe('convex-effect-query-safety', () => {
 		["within(work, '1 second')", 'within']
 	])('reports %s in a query handler', (statement, name) => {
 		expect(lint(registered('query', statement))).toEqual([{ messageId: 'timer', name }]);
-	});
-
-	it('reports a timer in a custom mutation builder handler', () => {
-		expect(lint(registered('authedMutation', "Effect.sleep('1 second')"))).toEqual([
-			{ messageId: 'timer', name: 'Effect.sleep' }
-		]);
 	});
 
 	it.each([

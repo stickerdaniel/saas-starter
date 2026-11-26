@@ -4,9 +4,8 @@
  * Plain mutation-context helpers shared by Better Auth triggers (auth.ts),
  * admin role management (admin/mutations.ts), and the dev seeders.
  *
- * Lives in its own file because auth.ts cannot import
- * notificationPreferences/mutations.ts without an import cycle
- * (auth.ts <- functions.ts <- mutations.ts). Same pattern as
+ * Lives in its own file so auth.ts reads it without importing
+ * notificationPreferences/mutations.ts. Same pattern as
  * incrementCounter in admin/counters.ts.
  */
 

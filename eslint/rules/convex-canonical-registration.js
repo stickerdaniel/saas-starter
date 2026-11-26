@@ -1,32 +1,30 @@
 /**
  * ESLint rule: convex-canonical-registration
  *
- * Keeps every Convex registration in the one form the registration rules read.
- * `@convex-dev/require-access-control` and `local/convex-access-first` find a
- * raw registration by the callee names `query`, `mutation`, `action` and an
- * identifier key `handler`; `local/require-returns-validator` and
- * `local/require-custom-registrar-args` find a custom one by the builder names in
- * CUSTOM_REGISTRARS. Any other spelling hides a function from them. The rule
- * requires:
+ * Registers every application function as a native Confect spec, and keeps the
+ * plain registrations that remain in the one form the registration rules read.
+ * The rule refuses:
  *
- * - the raw builders `query`, `mutation`, `action` and their `internal*` forms
- *   are imported from `_generated/server`, and the custom builders from
- *   `functions`, under their own names, with no namespace import and no
- *   re-export;
- * - a builder binding is only called, without `?.`; a raw builder may also be
- *   passed to a builder imported from convex-helpers (`customQuery(query, ...)`);
- * - a raw registration takes one object literal whose keys are plain
- *   identifiers, with no spread and no computed key;
- * - a public registration has an inline `handler` function.
+ * - a value import of a raw builder (`query`, `mutation`, `action`, their
+ *   `internal*` forms and `httpAction` from `_generated/server`, the `*Generic`
+ *   builders from `convex/server`);
+ * - a plain spec (`FunctionSpec.convex*`) whose `<group>:<name>` is not in
+ *   `libraryFunctions`;
+ * - `httpAction` anywhere except as the inline `handler` of an `http.route` call
+ *   in `httpFile` whose `path` is in `httpRoutes`.
  *
- * Example: export const f = query({ args: {}, returns: v.null(), handler: async (ctx) => { ... } });
+ * `eslint/convex-registrars.js` holds these lists with a reason per entry. For a
+ * raw registration the rule also requires the form `@convex-dev/require-access-control`
+ * and `local/convex-access-first` read: the builder imported under its own name,
+ * with no namespace import and no re-export, called once with an object literal
+ * of plain identifier keys, and an inline `handler` for a public one.
  */
 
 import {
 	CONFECT_CONSTRUCTORS,
 	CONFECT_NATIVE_SPECS,
 	CONFECT_PLAIN_SPECS,
-	CUSTOM_REGISTRARS,
+	GENERIC_REGISTRARS,
 	RAW_REGISTRARS
 } from '../convex-registrars.js';
 import { resolveEffect } from 'eslint-plugin-saas-starter/effect-scope';
@@ -43,8 +41,8 @@ const CONSTRUCTOR_MEMBERS = {
 
 /** The builders a module provides, keyed by the import source that names it. */
 const BUILDER_MODULES = [
-	{ module: '_generated/server', raw: true, names: new Set(RAW_REGISTRARS) },
-	{ module: 'functions', raw: false, names: new Set(CUSTOM_REGISTRARS) }
+	{ module: '_generated/server', names: new Set([...RAW_REGISTRARS, 'httpAction']) },
+	{ module: 'convex/server', names: new Set(GENERIC_REGISTRARS) }
 ];
 
 function builderModule(source) {
@@ -144,12 +142,24 @@ export default {
 						type: 'array',
 						items: { type: 'string', pattern: '^[^:]+:[^:]+$' },
 						uniqueItems: true
+					},
+					httpFile: { type: 'string' },
+					httpRoutes: {
+						type: 'array',
+						items: { type: 'string', pattern: '^/' },
+						uniqueItems: true
 					}
 				},
 				additionalProperties: false
 			}
 		],
 		messages: {
+			plainRegistration:
+				'Register this function as a native Confect spec with `FunctionSpec` and `FunctionImpl.make`. `{{name}}` from {{module}} registers a plain Convex function, which only the library functions and HTTP routes in `eslint/convex-registrars.js` keep.',
+			unlistedPlainSpec:
+				'Write `{{id}}` as a native Confect spec. A plain spec stays only for a function a library creates, listed in CONFECT_LIBRARY_FUNCTIONS in `eslint/convex-registrars.js`.',
+			unlistedHttpRoute:
+				'Serve this route through the Confect `HttpRouter`. `httpAction` stays only as the inline `handler` of an `http.route` call in {{file}} whose `path` is listed in PLAIN_HTTP_ROUTES in `eslint/convex-registrars.js`.',
 			aliasedImport:
 				'Import `{{name}}` from {{module}} under its own name. The registration rules find registrations by the builder name, so an alias hides a function from them.',
 			namespaceImport:
@@ -179,10 +189,60 @@ export default {
 		}
 	},
 	create(context) {
-		const { confectDirectory = 'src/lib/confect', libraryFunctions = [] } =
-			context.options[0] ?? {};
+		const {
+			confectDirectory = 'src/lib/confect',
+			libraryFunctions = [],
+			httpFile = 'src/lib/confect/http.ts',
+			httpRoutes = []
+		} = context.options[0] ?? {};
 		const confectRoot = path.resolve(context.cwd, confectDirectory);
 		const listed = new Set(libraryFunctions);
+		const isHttpFile = path.resolve(context.cwd, httpFile) === path.resolve(context.filename);
+		const listedRoutes = new Set(httpRoutes);
+
+		function specFunctionId(name) {
+			const relative = path.relative(confectRoot, context.filename);
+			if (
+				relative.startsWith('..') ||
+				path.isAbsolute(relative) ||
+				!relative.endsWith('.spec.ts')
+			) {
+				return null;
+			}
+			return `${relative
+				.replace(/\.spec\.ts$/, '')
+				.split(path.sep)
+				.join('/')}:${name}`;
+		}
+
+		function isListedRoute(identifier) {
+			const call = identifier.parent;
+			const property = call.parent;
+			const config = property?.parent;
+			const route = config?.parent;
+			if (
+				!isHttpFile ||
+				call.type !== 'CallExpression' ||
+				call.callee !== identifier ||
+				call.optional ||
+				property?.type !== 'Property' ||
+				property.value !== call ||
+				property.computed ||
+				property.key.type !== 'Identifier' ||
+				property.key.name !== 'handler' ||
+				!hasPlainKeys(config) ||
+				route?.type !== 'CallExpression' ||
+				route.arguments.length !== 1 ||
+				route.arguments[0] !== config ||
+				route.callee.type !== 'MemberExpression' ||
+				route.callee.computed ||
+				route.callee.property.name !== 'route'
+			) {
+				return false;
+			}
+			const routePath = config.properties.find((entry) => entry.key.name === 'path');
+			return isStringLiteral(routePath?.value) && listedRoutes.has(routePath.value.value);
+		}
 		const isListedLibraryFunction = (group, name) =>
 			listed.has(plainFunctionId(context, group, name, PLAIN_SPECS, confectRoot));
 
@@ -370,7 +430,19 @@ export default {
 					named.arguments.length === 1 &&
 					isStringLiteral(named.arguments[0]) &&
 					named.arguments[0].value === type.exprName.name;
-				if (!valid) context.report({ node: call, messageId: 'plainSpecShape', data: { name } });
+				if (!valid) {
+					context.report({ node: call, messageId: 'plainSpecShape', data: { name } });
+					return;
+				}
+				const functionName = named.arguments[0].value;
+				const id = specFunctionId(functionName);
+				if (!id || !listed.has(id)) {
+					context.report({
+						node: named,
+						messageId: 'unlistedPlainSpec',
+						data: { id: id ?? functionName }
+					});
+				}
 			}
 		}
 
@@ -416,7 +488,7 @@ export default {
 				}
 				const source = builderModule(node.source.value);
 				if (!source) return;
-				const { module, raw, names } = source;
+				const { module, names } = source;
 				for (const specifier of node.specifiers) {
 					if (specifier.type === 'ImportNamespaceSpecifier') {
 						context.report({ node: specifier, messageId: 'namespaceImport', data: { module } });
@@ -425,6 +497,7 @@ export default {
 					if (specifier.type !== 'ImportSpecifier') continue;
 					const name = specifier.imported.name ?? specifier.imported.value;
 					if (!names.has(name)) continue;
+					if (node.importKind === 'type' || specifier.importKind === 'type') continue;
 					if (specifier.local.name !== name) {
 						context.report({
 							node: specifier,
@@ -434,24 +507,40 @@ export default {
 						continue;
 					}
 					const [variable] = context.sourceCode.getDeclaredVariables(specifier);
-					for (const reference of variable?.references ?? []) {
-						const identifier = reference.identifier;
-						if (reference.isTypeReference || identifier.parent.type === 'TSTypeQuery') continue;
+					const references = (variable?.references ?? []).filter(
+						(reference) =>
+							!reference.isTypeReference && reference.identifier.parent.type !== 'TSTypeQuery'
+					);
+					if (name === 'httpAction') {
+						for (const { identifier } of references) {
+							if (!isListedRoute(identifier)) {
+								context.report({
+									node: identifier,
+									messageId: 'unlistedHttpRoute',
+									data: { file: httpFile }
+								});
+							}
+						}
+						continue;
+					}
+					context.report({
+						node: specifier,
+						messageId: 'plainRegistration',
+						data: { name, module }
+					});
+					for (const { identifier } of references) {
 						const parent = identifier.parent;
 						if (parent.type === 'CallExpression' && parent.callee === identifier) {
 							if (parent.optional) {
 								context.report({ node: parent, messageId: 'optionalCall', data: { name } });
-							} else if (raw) {
+							} else {
 								checkRegistration(parent, name);
 							}
-						} else if (!raw || !isCustomBuilderArgument(identifier, context.sourceCode)) {
+						} else if (!isCustomBuilderArgument(identifier, context.sourceCode)) {
 							context.report({
 								node: identifier,
 								messageId: 'indirectReference',
-								data: {
-									name,
-									exception: raw ? ', or pass it to a builder imported from convex-helpers' : ''
-								}
+								data: { name, exception: ', or pass it to a builder imported from convex-helpers' }
 							});
 						}
 					}

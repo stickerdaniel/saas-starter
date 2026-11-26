@@ -16,7 +16,7 @@
  * ❌ export const f = query({ args: {}, handler: async () => null });
  * ✅ export const f = query({ args: {}, returns: v.null(), handler: async () => null });
  *
- * Config: 'local/require-returns-validator': ['error', { builders: ['query', 'authedQuery'] }]
+ * Config: 'local/require-returns-validator': ['error', { builders: ['query', 'checkedQuery'] }]
  */
 
 const CONVEX_BUILDERS = [

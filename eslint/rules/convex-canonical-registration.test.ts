@@ -118,8 +118,8 @@ const canonical = `
 `;
 
 describe('convex-canonical-registration', () => {
-	it('passes a canonical registration', () => {
-		expect(messageIds(canonical)).toEqual([]);
+	it('reports only the imports of a canonical raw registration', () => {
+		expect(messageIds(canonical)).toEqual(['plainRegistration', 'plainRegistration']);
 	});
 
 	it.each([
@@ -181,25 +181,6 @@ describe('convex-canonical-registration', () => {
 			const open = customRegister(query);
 			export const f = open({ args: {}, returns: v.null(), handler: async () => null });`,
 			'indirectReference'
-		],
-		[
-			'an aliased custom builder import',
-			`import { authedQuery as checked } from './functions';
-			export const f = checked({ returns: v.null(), handler: async () => null });`,
-			'aliasedImport'
-		],
-		[
-			'a custom builder held in another binding',
-			`import { adminMutation } from '../functions';
-			const register = adminMutation;
-			export const f = register({ returns: v.null(), handler: async () => null });`,
-			'indirectReference'
-		],
-		[
-			'a namespace import of the custom builders',
-			`import * as builders from '../functions';
-			export const f = builders.authedQuery({ returns: v.null(), handler: async () => null });`,
-			'namespaceImport'
 		],
 		[
 			'a re-exported builder',
@@ -289,35 +270,27 @@ describe('convex-canonical-registration', () => {
 			'a builder passed to a convex-helpers custom builder',
 			`import { customQuery, customCtx } from 'convex-helpers/server/customFunctions';
 			import { query } from './_generated/server';
-			export const authedQuery = customQuery(query, customCtx(async (ctx) => ({ user: await getUser(ctx) })));`
-		],
-		[
-			'a custom builder called under its own name',
-			`import { authedQuery } from '../functions';
-			export const f = authedQuery({ args: {}, returns: v.null(), handler: async () => null });`
-		],
-		[
-			'a type-only reference to a builder',
-			`import { query } from './_generated/server';
-			type Builder = typeof query;`
+			export const checkedQuery = customQuery(query, customCtx(async (ctx) => ({ user: await getUser(ctx) })));`
 		],
 		[
 			'a method handler',
 			`import { query } from './_generated/server';
 			export const f = query({ args: {}, returns: v.null(), async handler(ctx) { await requireUser(ctx); return null; } });`
+		]
+	])('reports only the import of %s', (_label, code) => {
+		expect(messageIds(code)).toEqual(['plainRegistration']);
+	});
+
+	it.each([
+		[
+			'a type-only import of a builder',
+			`import type { query } from './_generated/server';
+			type Builder = typeof query;`
 		],
 		[
 			'a builder of the same name from another module',
 			`import { query as q } from 'some-library';
 			export const f = q({ handler: someFunction });`
-		],
-		[
-			'a Confect group of plain specs',
-			`import { FunctionSpec, GroupSpec } from '@confect/core';
-			import type { list, remove } from './notes';
-			export default GroupSpec.make()
-				.addFunction(FunctionSpec.convexPublicQuery<typeof list>()('list'))
-				.addFunction(FunctionSpec.convexInternalMutation<typeof remove>()('remove'));`
 		],
 		[
 			'a Confect-native spec',
@@ -616,5 +589,155 @@ describe('convex-canonical-registration library functions', () => {
 				'nested'
 			)
 		).toEqual(['inlineImplementation']);
+	});
+});
+
+describe('convex-canonical-registration ratchet', () => {
+	function ratchetMessageIds(code: string, file: string, libraryFunctions: string[] = []) {
+		return linter
+			.verify(
+				code,
+				[
+					{
+						...config[0],
+						rules: {
+							'local/convex-canonical-registration': [
+								'error' as const,
+								{
+									confectDirectory: 'confect',
+									libraryFunctions,
+									httpFile: 'confect/http.ts',
+									httpRoutes: ['/resend-webhook']
+								}
+							]
+						}
+					}
+				],
+				{ filename: path.join(directory, file) }
+			)
+			.map((message) => message.messageId);
+	}
+
+	const plainSpecs = `import { FunctionSpec, GroupSpec } from '@confect/core';
+		import type { onCreate, onDelete } from './library';
+		export default GroupSpec.make()
+			.addFunction(FunctionSpec.convexInternalMutation<typeof onCreate>()('onCreate'))
+			.addFunction(FunctionSpec.convexInternalMutation<typeof onDelete>()('onDelete'));`;
+
+	it('passes plain specs a library creates when the list names them', () => {
+		expect(
+			ratchetMessageIds(plainSpecs, 'confect/billing/library.spec.ts', [
+				'billing/library:onCreate',
+				'billing/library:onDelete'
+			])
+		).toEqual([]);
+	});
+
+	it.each([
+		['an unlisted plain spec', 'confect/library.spec.ts', ['library:onCreate']],
+		[
+			'a listed name in another group',
+			'confect/other.spec.ts',
+			['library:onCreate', 'library:onDelete']
+		],
+		[
+			'a plain spec outside the Confect directory',
+			'library.spec.ts',
+			['../library:onCreate', '../library:onDelete']
+		],
+		[
+			'a plain spec outside a spec file',
+			'confect/library.ts',
+			['library:onCreate', 'library:onDelete']
+		]
+	])('reports %s', (_label, file, listed) => {
+		expect(ratchetMessageIds(plainSpecs, file, listed)).toContain('unlistedPlainSpec');
+	});
+
+	it('names the unlisted function by its group path', () => {
+		const [message] = linter.verify(
+			plainSpecs,
+			[
+				{
+					...config[0],
+					rules: {
+						'local/convex-canonical-registration': [
+							'error' as const,
+							{ confectDirectory: 'confect', libraryFunctions: ['billing/library:onDelete'] }
+						]
+					}
+				}
+			],
+			{
+				filename: path.join(directory, 'confect/billing/library.spec.ts')
+			}
+		);
+		expect(message?.message).toContain('`billing/library:onCreate`');
+	});
+
+	it.each([
+		[
+			'a raw mutation in a helper',
+			`import { mutation } from '../convex/_generated/server';\nexport const helper = mutation;`
+		],
+		['a raw internal action', `import { internalAction } from '../convex/_generated/server';`],
+		['mutationGeneric', `import { mutationGeneric } from 'convex/server';`],
+		['httpActionGeneric', `import { httpActionGeneric } from 'convex/server';`]
+	])('reports a value import of %s', (_label, code) => {
+		expect(ratchetMessageIds(code, 'confect/helpers.ts')).toContain('plainRegistration');
+	});
+
+	it.each([
+		['a namespace import of convex/server', `import * as server from 'convex/server';`],
+		[
+			'a namespace import of the generated server',
+			`import * as server from '../convex/_generated/server';`
+		]
+	])('reports %s', (_label, code) => {
+		expect(ratchetMessageIds(code, 'confect/helpers.ts')).toEqual(['namespaceImport']);
+	});
+
+	it('passes the convex/server helpers that register nothing', () => {
+		expect(
+			ratchetMessageIds(
+				`import { httpRouter, createFunctionHandle, defineTable } from 'convex/server';
+				import { env, type MutationCtx } from '../convex/_generated/server';`,
+				'confect/helpers.ts'
+			)
+		).toEqual([]);
+	});
+
+	const route = (
+		routePath: string,
+		handler = 'httpAction(async (ctx, request) => new Response(null))'
+	) =>
+		`import { httpRouter } from 'convex/server';
+		import { httpAction } from '../convex/_generated/server';
+		const http = httpRouter();
+		http.route({ path: ${routePath}, method: 'POST', handler: ${handler} });`;
+
+	it('passes httpAction on a listed route in the HTTP file', () => {
+		expect(ratchetMessageIds(route("'/resend-webhook'"), 'confect/http.ts')).toEqual([]);
+	});
+
+	it.each([
+		['an unlisted path', route("'/other-webhook'"), 'confect/http.ts'],
+		['a path held in a variable', route('webhookPath'), 'confect/http.ts'],
+		['a listed path outside the HTTP file', route("'/resend-webhook'"), 'confect/routes.ts'],
+		[
+			'a handler built outside the route',
+			`import { httpAction } from '../convex/_generated/server';
+			const handler = httpAction(async () => new Response(null));
+			http.route({ path: '/resend-webhook', method: 'POST', handler });`,
+			'confect/http.ts'
+		],
+		[
+			'an httpAction held in another binding',
+			`import { httpAction } from '../convex/_generated/server';
+			const wrap = httpAction;`,
+			'confect/http.ts'
+		]
+	])('reports httpAction on %s', (_label, code, file) => {
+		expect(ratchetMessageIds(code, file)).toEqual(['unlistedHttpRoute']);
 	});
 });
