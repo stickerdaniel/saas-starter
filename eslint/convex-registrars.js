@@ -10,7 +10,6 @@ export const RAW_REGISTRARS = [
 	'internalAction'
 ];
 
-/** The `convex/server` builders that register a function without the generated data model. */
 export const GENERIC_REGISTRARS = [
 	'queryGeneric',
 	'mutationGeneric',
@@ -50,14 +49,6 @@ export const CONFECT_PLAIN_SPECS = [
 	'convexInternalNodeAction'
 ];
 
-/**
- * The plain Convex registrations `convex-canonical-registration` admits; every other
- * function is a native Confect spec. CONFECT_LIBRARY_FUNCTIONS lists the functions a
- * library call creates, keyed by that call. PLAIN_HTTP_ROUTES lists the routes in
- * `src/lib/confect/http.ts` that keep an `httpAction` handler. PLAIN_REGISTRATION_PATHS
- * lists the files the rule does not read. The routes `authComponent.registerRoutes`
- * and `registerFilesControlRoutes` add come from the libraries and import no builder.
- */
 export const CONFECT_LIBRARY_FUNCTIONS = {
 	'authComponent.triggersApi()': ['auth:onCreate', 'auth:onUpdate', 'auth:onDelete'],
 	'autumn.api()': [
@@ -90,7 +81,5 @@ export const PLAIN_REGISTRATION_PATHS = {
 	'**/*.test.ts':
 		'Tests register harness functions, such as mutationGeneric in profileImageUpload.test.ts.',
 	'**/__tests__/**':
-		'Tests register harness functions, such as mutationGeneric in profileImageUpload.test.ts.',
-	'src/lib/convex-components/**':
-		'The Better Auth component registers its own functions through createApi under its own convex.config.ts.'
+		'Tests register harness functions, such as mutationGeneric in profileImageUpload.test.ts.'
 };
