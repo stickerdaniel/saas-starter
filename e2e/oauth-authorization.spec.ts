@@ -252,6 +252,19 @@ test('every authorization server metadata URL serves the rewritten document', as
 	expect(otherIssuer.status()).toBe(404);
 });
 
+test('a signed-in user cannot create a client outside registration', async ({ request }) => {
+	await signInByRequest({ request }, await newAccount('create-client'));
+	const created = await request.post(`${siteUrl()}/api/auth/oauth2/create-client`, {
+		headers: { Origin: siteUrl() },
+		data: {
+			client_name: 'Managed client',
+			redirect_uris: ['https://app.example.com/callback'],
+			token_endpoint_auth_method: 'none'
+		}
+	});
+	expect(created.status()).toBe(404);
+});
+
 test('registration refuses a client name longer than 100 characters', async ({ request }) => {
 	const metadata = await fetchMetadata(request);
 	const refused = await register(request, metadata, 'n'.repeat(101));

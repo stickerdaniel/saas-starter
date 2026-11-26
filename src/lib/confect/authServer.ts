@@ -499,7 +499,17 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 		// admin/mutations.impl.ts (atomic audit log + guards). Disabling the raw
 		// HTTP endpoints closes the unguarded path; in-process auth.api calls
 		// from those mutations are unaffected. See admin/adminHttpPaths.ts.
-		disabledPaths: [...DISABLED_ADMIN_PATHS, '/oauth2/delete-consent', '/oauth2/update-consent'],
+		disabledPaths: [
+			...DISABLED_ADMIN_PATHS,
+			'/oauth2/delete-consent',
+			'/oauth2/update-consent',
+			'/oauth2/create-client',
+			'/oauth2/update-client',
+			'/oauth2/client/rotate-secret',
+			'/oauth2/delete-client',
+			'/oauth2/get-client',
+			'/oauth2/get-clients'
+		],
 		database: grantGuardedAdapter(ctx),
 		user: {
 			additionalFields: {

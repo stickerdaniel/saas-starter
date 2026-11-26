@@ -99,8 +99,8 @@ export async function newAccount(label: string): Promise<TestAccount> {
 	return account;
 }
 
-export async function signInByRequest(page: Page, account: TestAccount) {
-	const response = await page.request.post(`${siteUrl()}/api/auth/sign-in/email`, {
+export async function signInByRequest({ request }: Pick<Page, 'request'>, account: TestAccount) {
+	const response = await request.post(`${siteUrl()}/api/auth/sign-in/email`, {
 		headers: { Origin: siteUrl() },
 		data: { email: account.email, password: account.password }
 	});
