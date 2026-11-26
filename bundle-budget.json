@@ -8,7 +8,8 @@
 	],
 	"allowance": {
 		"marketing": 1024,
-		"app": 40960
+		"app": 40960,
+		"lazyChunk": 16384
 	},
 	"routes": {
 		"/[[lang]]/(auth)/email-verified": {
@@ -37,7 +38,7 @@
 		},
 		"/[[lang]]/(marketing)": {
 			"initial": 287725,
-			"lazy": 713668
+			"lazy": 230602
 		},
 		"/[[lang]]/(marketing)/about": {
 			"initial": 310984,
@@ -114,6 +115,11 @@
 		"/[[lang]]/shadcn-demo": {
 			"initial": 329594,
 			"lazy": 229300
+		}
+	},
+	"lazyChunks": {
+		"support-widget": {
+			"lazy": 489133
 		}
 	}
 }
