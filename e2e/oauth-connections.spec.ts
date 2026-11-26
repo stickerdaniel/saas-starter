@@ -70,6 +70,18 @@ test('a connection shows in the apps tab and Revoke ends it', async ({ page, req
 	expect(decodeOAuthError(await refused.json()).error).toBe('invalid_grant');
 });
 
+test('a connection without mcp:read shows no access in the apps tab', async ({ page, request }) => {
+	const metadata = await fetchMetadata(request);
+	const clientId = await registerClient(request, metadata, 'Write-only client');
+	await signInByRequest(page, await newAccount('write-only'));
+	await connectByRequest(page, metadata, clientId, 'mcp:write');
+
+	await openAppsTab(page);
+	await expect(connection(page, 'Write-only client').getByRole('definition').first()).toHaveText(
+		'No access'
+	);
+});
+
 test('revoking one client asks the other client for consent again and keeps one grant', async ({
 	page,
 	request

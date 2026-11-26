@@ -30,9 +30,11 @@
 		connection?.clientName || $t('mcp.connections.unnamed_app');
 
 	const levelKey = (connection: Connection) =>
-		connection.scopes.includes('mcp:write')
-			? 'mcp.connections.level_change'
-			: 'mcp.connections.level_view';
+		!connection.scopes.includes('mcp:read')
+			? 'mcp.connections.level_none'
+			: connection.scopes.includes('mcp:write')
+				? 'mcp.connections.level_change'
+				: 'mcp.connections.level_view';
 
 	const connectedOn = (connection: Connection) =>
 		connection.connectedAt === null
@@ -128,7 +130,7 @@
 		}
 	}
 >
-	<AlertDialog.Content>
+	<AlertDialog.Content class="max-h-[calc(100dvh-2rem)] overflow-y-auto wrap-anywhere">
 		<AlertDialog.Header>
 			<AlertDialog.Title>
 				{$t('mcp.connections.revoke_title', { app: appName(shown) })}

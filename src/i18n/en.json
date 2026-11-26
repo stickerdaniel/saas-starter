@@ -1477,6 +1477,7 @@
 			"connected": "Connected",
 			"level_view": "View only",
 			"level_change": "View and change",
+			"level_none": "No access",
 			"unknown_date": "Unknown",
 			"unnamed_app": "Unnamed app",
 			"load_more": "Show more",
