@@ -48,7 +48,7 @@ A Confect spec declares arguments and return values with Effect Schema (`Schema.
 - Register with the Confect constructors of the same kind: `FunctionSpec.internalQuery`, `internalMutation` and `internalAction` for private functions, `FunctionSpec.publicQuery`, `publicMutation` and `publicAction` for the public API. The plain builders from `./_generated/server` (`internalQuery`, `query` and the others) stay with the library functions listed in `eslint/convex-registrars.js`.
 - Do NOT register functions through the `api` or `internal` objects.
 - ALWAYS include `args` validators for every function.
-- ALWAYS include `returns` validators for every function. If a function returns nothing, use `returns: v.null()`.
+- ALWAYS declare `returns` for every function. A Confect spec that returns nothing declares `returns: () => Schema.Null`; plain Convex writes `returns: v.null()`.
 - **Scheduled retry functions MUST have a max retry count.** Add a `retryCount` field to the relevant table and stop retrying after N attempts (typically 5). Log the final failure for observability.
 
 ### Function Calling
@@ -187,11 +187,11 @@ const messages = await ctx.db
 
 ### Cron Jobs
 
-Jobs are declared in `src/lib/confect/crons.ts` with `CronJobs.make().add(CronJob.make(name, interval, reference, args))`. The reference is a function of a Confect group, taken from `refs.internal` in `src/lib/confect/_generated/refs`. The plain `cronJobs()` syntax below shows the Convex semantics behind it.
+Jobs are declared in `src/lib/confect/crons.ts` with `CronJobs.make().add(CronJob.make(name, schedule, reference, args))`. The schedule is an Effect `Duration` or `Cron`. The reference is a mutation or action of a Confect group, taken from `refs.internal` in `src/lib/confect/_generated/refs`. The three rules and the example below are plain Convex `cronJobs()` syntax and show the semantics behind it.
 
-- Only use `crons.interval` or `crons.cron` methods. Do NOT use `crons.hourly`, `crons.daily`, or `crons.weekly` helpers.
-- Both cron methods take a FunctionReference. Do NOT pass the function directly.
-- Define crons by declaring the top-level `crons` object, calling methods on it, and exporting it as default:
+- Plain Convex: only use `crons.interval` or `crons.cron` methods. Do NOT use `crons.hourly`, `crons.daily`, or `crons.weekly` helpers.
+- Both forms take a function reference. Do NOT pass the function directly.
+- Plain Convex: define crons by declaring the top-level `crons` object, calling methods on it, and exporting it as default:
 
 ```typescript
 import { cronJobs } from 'convex/server';
