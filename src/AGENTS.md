@@ -9,7 +9,7 @@ This scope covers SvelteKit application code under `src/`. Backend-specific rule
 - Better Auth through the local Convex component install
 - Tolgee with URL-based locales
 
-Use existing structure: reusable UI in `src/lib/components`, routes under `src/routes/[[lang]]`, translations in `src/i18n`, shared i18n logic in `src/lib/i18n`, and server hooks in `src/hooks.server.ts`.
+Use existing structure: general app UI in `src/lib/components`, chat UI in `src/lib/chat`, registry blocks in `src/blocks`, where `jsrepo.json` installs them, localized pages under `src/routes/[[lang]]`, translations in `src/i18n`, shared i18n logic in `src/lib/i18n`, and server hooks in `src/hooks.server.ts`.
 
 ## Svelte and UI
 
@@ -36,7 +36,7 @@ General animation craft lives in the `emil-design-eng` skill. Prefer CSS for sim
 
 ## Internationalization
 
-- Tolgee is offline (see the root `AGENTS.md`); edit the committed `src/i18n/*.json` files directly.
+- Edit the committed `src/i18n/*.json` files directly; live Tolgee is an explicit opt-in (see the root `AGENTS.md`).
 - Add every new key to all supported locale files with idiomatic translations.
 - Key names use nested objects, never literal dots in leaf names.
 - The locale registry in `src/lib/i18n/languages.ts` is canonical; run `bun run i18n:sync` after adding or removing a locale.
