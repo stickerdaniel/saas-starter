@@ -209,7 +209,9 @@ const SupportCodeRefusalWire = Schema.Struct({
 		SUPPORT_ERROR_CODES.threadNotFound,
 		SUPPORT_ERROR_CODES.threadForbidden,
 		SUPPORT_ERROR_CODES.anonymousUserInvalid,
-		SUPPORT_ERROR_CODES.notificationEmailInvalid
+		SUPPORT_ERROR_CODES.notificationEmailInvalid,
+		SUPPORT_ERROR_CODES.attachmentUnavailable,
+		SUPPORT_ERROR_CODES.migrationTooManyFiles
 	])
 });
 
@@ -252,7 +254,8 @@ const AdminSupportRefusalWire = Schema.Union([
 			ADMIN_SUPPORT_ERROR_CODES.threadNotFound,
 			ADMIN_SUPPORT_ERROR_CODES.emptyMessage,
 			ADMIN_SUPPORT_ERROR_CODES.emptyNote,
-			ADMIN_SUPPORT_ERROR_CODES.assigneeNotAdmin
+			ADMIN_SUPPORT_ERROR_CODES.assigneeNotAdmin,
+			ADMIN_SUPPORT_ERROR_CODES.attachmentUnavailable
 		])
 	})
 ]);
@@ -269,7 +272,12 @@ export const AdminSupportRefusalCodec = wireCodec(
 );
 
 const AiChatRefusalWire = Schema.Union([
-	Schema.Struct({ code: Schema.Literal(AI_CHAT_ERROR_CODES.threadNotFound) }),
+	Schema.Struct({
+		code: Schema.Literals([
+			AI_CHAT_ERROR_CODES.threadNotFound,
+			AI_CHAT_ERROR_CODES.attachmentUnavailable
+		])
+	}),
 	Schema.Struct({
 		code: Schema.Literal(AI_CHAT_ERROR_CODES.messageTooLong),
 		maxLength: Schema.Number

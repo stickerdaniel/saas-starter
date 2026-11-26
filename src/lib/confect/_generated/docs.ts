@@ -13,6 +13,7 @@ export type CustomerNotificationsDoc = Document.Document<typeof schemaDefinition
 export type DashboardCountersDoc = Document.Document<typeof schemaDefinition, "dashboardCounters">;
 export type EmailEventsDoc = Document.Document<typeof schemaDefinition, "emailEvents">;
 export type FileMetadataDoc = Document.Document<typeof schemaDefinition, "fileMetadata">;
+export type FileOwnersDoc = Document.Document<typeof schemaDefinition, "fileOwners">;
 export type FounderEmailSendsDoc = Document.Document<typeof schemaDefinition, "founderEmailSends">;
 export type FounderIncidentDraftsDoc = Document.Document<typeof schemaDefinition, "founderIncidentDrafts">;
 export type FounderIncidentEmailsDoc = Document.Document<typeof schemaDefinition, "founderIncidentEmails">;
@@ -43,6 +44,7 @@ export interface Docs {
   dashboardCounters: DashboardCountersDoc;
   emailEvents: EmailEventsDoc;
   fileMetadata: FileMetadataDoc;
+  fileOwners: FileOwnersDoc;
   founderEmailSends: FounderEmailSendsDoc;
   founderIncidentDrafts: FounderIncidentDraftsDoc;
   founderIncidentEmails: FounderIncidentEmailsDoc;

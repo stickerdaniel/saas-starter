@@ -1,6 +1,6 @@
 import { FunctionImpl, GroupImpl } from '@confect/server';
-import { abortStream, getFile, saveMessages } from '@convex-dev/agent';
-import type { UserContent } from 'ai';
+import { abortStream, saveMessages } from '@convex-dev/agent';
+import type { FilePart, UserContent } from 'ai';
 import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
@@ -36,6 +36,7 @@ import {
 } from '../env';
 import { AiChatRefusal } from '../errorCodecs';
 import { getFileMetadataByUrls } from '../files/metadata';
+import { requireOwnedFiles } from '../files/owners';
 import RequireUserImpl from '../middleware/RequireUser.impl';
 import { CurrentUser } from '../middleware/RequireUser.spec';
 import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
@@ -72,6 +73,7 @@ const limitMessage = (ctx: ConvexMutationCtx, userId: string) =>
 async function saveUserMessage(
 	ctx: ConvexMutationCtx,
 	args: typeof SendMessageArgsSchema.Type,
+	fileParts: FilePart[],
 	userId: string,
 	record: ThreadRecord
 ) {
@@ -79,7 +81,7 @@ async function saveUserMessage(
 		args.fileIds && args.fileIds.length > 0
 			? await aiChatAgent.saveMessage(ctx, {
 					threadId: args.threadId,
-					message: { role: 'user', content: await fileContent(ctx, args.prompt, args.fileIds) },
+					message: { role: 'user', content: fileContent(args.prompt, fileParts) },
 					metadata: { fileIds: args.fileIds },
 					skipEmbeddings: true
 				})
@@ -102,13 +104,10 @@ async function saveUserMessage(
 	return saved;
 }
 
-async function fileContent(ctx: ConvexMutationCtx, prompt: string, fileIds: string[]) {
+function fileContent(prompt: string, fileParts: FilePart[]) {
 	const content: UserContent = [];
 	if (prompt.trim()) content.push({ type: 'text', text: prompt });
-	for (const fileId of fileIds) {
-		const { filePart } = await getFile(ctx, components.agent, fileId);
-		content.push(filePart);
-	}
+	content.push(...fileParts);
 	return content;
 }
 
@@ -313,8 +312,16 @@ export default GroupImpl.make(databaseSchema, messages).pipe(
 				}
 
 				yield* limitMessage(ctx, userId);
+				const fileParts = yield* requireOwnedFiles(
+					ctx,
+					userId,
+					args.fileIds ?? [],
+					new AiChatRefusal({ refusal: { code: AI_CHAT_ERROR_CODES.attachmentUnavailable } })
+				);
 
-				const saved = yield* Effect.promise(() => saveUserMessage(ctx, args, userId, record));
+				const saved = yield* Effect.promise(() =>
+					saveUserMessage(ctx, args, fileParts, userId, record)
+				);
 
 				const scheduler = yield* Scheduler;
 				yield* scheduler.runAfter(Duration.zero, refs.internal.aiChat.messages.createAIResponse, {

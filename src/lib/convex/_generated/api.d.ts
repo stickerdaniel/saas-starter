@@ -48,6 +48,7 @@ import type * as emails_founderIncidentSend from "../emails/founderIncidentSend.
 import type * as emails_send from "../emails/send.js";
 import type * as files_cleanup from "../files/cleanup.js";
 import type * as files_metadata from "../files/metadata.js";
+import type * as files_owners from "../files/owners.js";
 import type * as files_vacuum from "../files/vacuum.js";
 import type * as http from "../http.js";
 import type * as localDev from "../localDev.js";
@@ -115,6 +116,7 @@ declare const fullApi: ApiFromModules<{
   "emails/send": typeof emails_send;
   "files/cleanup": typeof files_cleanup;
   "files/metadata": typeof files_metadata;
+  "files/owners": typeof files_owners;
   "files/vacuum": typeof files_vacuum;
   http: typeof http;
   localDev: typeof localDev;

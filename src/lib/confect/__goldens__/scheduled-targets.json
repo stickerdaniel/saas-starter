@@ -20,6 +20,7 @@
 		"emails/send:sendFounderWelcomeEmail internal mutation",
 		"emails/send:sendNewUserSignupNotification internal mutation",
 		"emails/send:sendResetPasswordEmail internal mutation",
+		"files/owners:purge internal mutation",
 		"files/vacuum:deleteUnusedFiles internal mutation",
 		"messages:enforceAndTrackMessageUsage internal action",
 		"oauth/cleanup:deleteExpiredTokens internal mutation",

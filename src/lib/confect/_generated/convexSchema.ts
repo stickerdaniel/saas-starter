@@ -13,6 +13,7 @@ import customerNotifications from "./tables/customerNotifications";
 import dashboardCounters from "./tables/dashboardCounters";
 import emailEvents from "./tables/emailEvents";
 import fileMetadata from "./tables/fileMetadata";
+import fileOwners from "./tables/fileOwners";
 import founderEmailSends from "./tables/founderEmailSends";
 import founderIncidentDrafts from "./tables/founderIncidentDrafts";
 import founderIncidentEmails from "./tables/founderIncidentEmails";
@@ -43,6 +44,7 @@ export default $defineSchema({
   dashboardCounters: $Table.tableDefinition(dashboardCounters),
   emailEvents: $Table.tableDefinition(emailEvents),
   fileMetadata: $Table.tableDefinition(fileMetadata),
+  fileOwners: $Table.tableDefinition(fileOwners),
   founderEmailSends: $Table.tableDefinition(founderEmailSends),
   founderIncidentDrafts: $Table.tableDefinition(founderIncidentDrafts),
   founderIncidentEmails: $Table.tableDefinition(founderIncidentEmails),

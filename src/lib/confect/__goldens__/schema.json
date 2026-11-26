@@ -1,11 +1,11 @@
 {
 	"counts": {
-		"indexes": 51,
+		"indexes": 53,
 		"searchIndexes": 1,
 		"stagedDbIndexes": 0,
 		"stagedSearchIndexes": 0,
 		"stagedVectorIndexes": 0,
-		"tables": 28,
+		"tables": 29,
 		"vectorIndexes": 0
 	},
 	"schemaValidation": true,
@@ -72,6 +72,13 @@
 		"fileMetadata": {
 			"documentType": "53843a940dca0e5f",
 			"indexes": { "by_storageId": { "fields": ["storageId"] }, "by_url": { "fields": ["url"] } }
+		},
+		"fileOwners": {
+			"documentType": "f34ff83f4d23fff3",
+			"indexes": {
+				"by_fileId_and_ownerId": { "fields": ["fileId", "ownerId"] },
+				"by_ownerId": { "fields": ["ownerId"] }
+			}
 		},
 		"founderEmailSends": {
 			"documentType": "f359f229e860b0ac",

@@ -12,6 +12,7 @@ import customerNotifications from "./tables/customerNotifications";
 import dashboardCounters from "./tables/dashboardCounters";
 import emailEvents from "./tables/emailEvents";
 import fileMetadata from "./tables/fileMetadata";
+import fileOwners from "./tables/fileOwners";
 import founderEmailSends from "./tables/founderEmailSends";
 import founderIncidentDrafts from "./tables/founderIncidentDrafts";
 import founderIncidentEmails from "./tables/founderIncidentEmails";
@@ -42,6 +43,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<{
   readonly dashboardCounters: typeof dashboardCounters;
   readonly emailEvents: typeof emailEvents;
   readonly fileMetadata: typeof fileMetadata;
+  readonly fileOwners: typeof fileOwners;
   readonly founderEmailSends: typeof founderEmailSends;
   readonly founderIncidentDrafts: typeof founderIncidentDrafts;
   readonly founderIncidentEmails: typeof founderIncidentEmails;
@@ -71,6 +73,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<{
   dashboardCounters,
   emailEvents,
   fileMetadata,
+  fileOwners,
   founderEmailSends,
   founderIncidentDrafts,
   founderIncidentEmails,

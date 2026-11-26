@@ -1,4 +1,4 @@
-import { getFile, saveMessage } from '@convex-dev/agent';
+import { saveMessage } from '@convex-dev/agent';
 import { FunctionImpl, GroupImpl } from '@confect/server';
 import type { AssistantContent, FilePart, TextPart } from 'ai';
 import * as Duration from 'effect/Duration';
@@ -11,6 +11,7 @@ import databaseSchema from '../../_generated/schema';
 import { MutationCtx, Scheduler } from '../../_generated/services';
 import { MAX_MESSAGE_FILES, MAX_MESSAGE_LENGTH } from '../../constants';
 import { AdminSupportRefusal } from '../../errorCodecs';
+import { requireOwnedFiles } from '../../files/owners';
 import RequireAdminImpl from '../../middleware/RequireAdmin.impl';
 import { CurrentUser } from '../../middleware/RequireUser.spec';
 import { shouldSendNotification } from '../../support/notificationPreferences';
@@ -127,6 +128,16 @@ const replyAsAdmin = ({ threadId, prompt, fileIds }: typeof AdminReplyArgsSchema
 		}
 		const supportThread = yield* requireSupportThread(threadId);
 		const user = yield* CurrentUser;
+		const fileParts = yield* MutationCtx.use((ctx) =>
+			requireOwnedFiles(
+				ctx,
+				user._id,
+				fileIds ?? [],
+				new AdminSupportRefusal({
+					refusal: { code: ADMIN_SUPPORT_ERROR_CODES.attachmentUnavailable }
+				})
+			)
+		);
 		const replyTimestamp = Date.now();
 		const adminName = user.name || user.email || 'Admin';
 
@@ -135,10 +146,7 @@ const replyAsAdmin = ({ threadId, prompt, fileIds }: typeof AdminReplyArgsSchema
 			if (fileIds && fileIds.length > 0) {
 				const content: Array<TextPart | FilePart> = [];
 				if (prompt.trim()) content.push({ type: 'text', text: prompt.trim() });
-				for (const fileId of fileIds) {
-					const { filePart } = await getFile(ctx, components.agent, fileId);
-					content.push(filePart);
-				}
+				content.push(...fileParts);
 				messageContent = content;
 			}
 			return saveMessage(ctx, components.agent, {
