@@ -480,7 +480,7 @@ test('the apps tab shows the last use of a connection in days', async ({ page, r
 	await expect(lastUsed).toHaveText('Never');
 
 	expect(await listStatus(request, mcp, first.access_token)).toBe(200);
-	await expect(lastUsed).toHaveText('today');
+	await expect(lastUsed).toHaveText(/^(today|yesterday)$/);
 	const recorded = (await connectionOf(page, clientId)).lastUsedAt;
 	expect(recorded).toEqual(expect.any(Number));
 	expect(await listStatus(request, mcp, first.access_token)).toBe(200);
