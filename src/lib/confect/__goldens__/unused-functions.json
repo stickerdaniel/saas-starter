@@ -24,8 +24,6 @@
 	"emails/founderIncidentDrafts:queueDraft",
 	"emails/founderIncidentDrafts:saveDraft",
 	"emails/founderIncidentSend:queueFounderIncidentEmail",
-	"oauth/connections:list",
-	"oauth/connections:revoke",
 	"previewDev:ensurePreviewAdmin",
 	"support/promptStore:savePrompt",
 	"support/promptStore:setActive",

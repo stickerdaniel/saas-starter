@@ -88,6 +88,8 @@
 	);
 
 	let isLoading = $state(false);
+	const resumesAuthorization = page.url.searchParams.has('sig');
+	let authorizationResumed = false;
 
 	/**
 	 * Whether this page is holding a visitor who was already signed in when it
@@ -237,7 +239,8 @@
 	// server forwards a signed-in visitor to the destination with a programmatic navigation.
 	// Hold it while the passkey check runs and its offer is up; this page moves on itself.
 	beforeNavigate(({ type, cancel }) => {
-		if (passwordSignedIn && !authRedirectStarted && type === 'goto') cancel();
+		if (type !== 'goto') return;
+		if ((passwordSignedIn && !authRedirectStarted) || authorizationResumed) cancel();
 	});
 
 	// A stalled session or passkey check must not hold a signed-in visitor on the form.
@@ -277,6 +280,11 @@
 		lastValidSignInSubmission = signInSubmissionToken;
 
 		isLoading = true;
+
+		if (resumesAuthorization) {
+			await resumeAuthorization();
+			return;
+		}
 
 		try {
 			let failed = false;
@@ -325,6 +333,34 @@
 			// A successful sign-in keeps the form busy until the page has navigated.
 			if (!passwordSignedIn) isLoading = false;
 		}
+	}
+
+	async function resumeAuthorization() {
+		let failure = 'auth.messages.generic_error';
+		try {
+			const { oauthAuthClient } = await import('#lib/auth-client-oauth.js');
+			const { data, error } = await oauthAuthClient.signIn.email(
+				{ email: signInData.email, password: signInData.password },
+				{
+					onSuccess: (ctx) => {
+						ctx.data.redirect = false;
+					}
+				}
+			);
+			if (error) failure = getAuthErrorKey(error, 'auth.messages.invalid_credentials');
+			else if (data.url) {
+				haptic.trigger('success');
+				authorizationResumed = true;
+				navigateAfterAuthentication(data.url);
+				return;
+			}
+		} catch (error) {
+			console.error('[SignIn] Authorization resume error:', error);
+		}
+		lastValidSignInSubmission = null;
+		haptic.trigger('error');
+		formError = failure;
+		isLoading = false;
 	}
 
 	async function handleOAuth(provider: PendingOAuthProvider) {

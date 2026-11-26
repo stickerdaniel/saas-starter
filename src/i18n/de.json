@@ -1032,6 +1032,10 @@
 			"signup": {
 				"description": "Erstelle ein neues Konto.",
 				"title": "Registrieren"
+			},
+			"consent": {
+				"title": "Zugriff erlauben",
+				"description": "Erlaube einer App den Zugriff auf dein Konto."
 			}
 		},
 		"contact": {
@@ -1266,7 +1270,8 @@
 			"account": "Konto",
 			"email": "E-Mail",
 			"password": "Passwort",
-			"security": "Sicherheit"
+			"security": "Sicherheit",
+			"apps": "Apps"
 		},
 		"title": "Einstellungen"
 	},
@@ -1435,5 +1440,51 @@
 		"text_link": "Alle Hinweise herunterladen",
 		"title": "Drittanbieter-Lizenzen",
 		"unavailable": "Lizenzhinweise werden bei Produktions-Builds erzeugt und stehen in der Entwicklungsumgebung nicht zur Verfügung."
+	},
+	"mcp": {
+		"capability": {
+			"get_account": "Deinen Namen, deine E-Mail-Adresse und dein Profilbild sehen",
+			"list_community_messages": "Die Nachrichten im Community-Chat lesen",
+			"post_community_message": "In deinem Namen Nachrichten im Community-Chat posten"
+		},
+		"consent": {
+			"title": "{app} möchte auf dein Konto zugreifen",
+			"signed_in_as": "Du bist als {email} angemeldet.",
+			"can_view": "{app} kann sehen",
+			"cannot_change": "{app} kann nicht ändern",
+			"change_question": "Darf {app} auch Änderungen vornehmen?",
+			"view_only": "Nein, nur ansehen",
+			"view_only_description": "{app} ändert nichts.",
+			"view_and_change": "Ja, ansehen und ändern",
+			"no_access": "{app} erhält keinen Zugriff auf deine Daten.",
+			"allow": "Erlauben",
+			"deny": "Ablehnen",
+			"footer_before": "Du kannst diese Verbindung jederzeit in den",
+			"footer_link": "Einstellungen",
+			"footer_after": "entfernen.",
+			"error_title": "Diese Verbindung kann nicht fortgesetzt werden",
+			"error_description": "Starte die Verbindung erneut in der App, die du verbinden möchtest.",
+			"unnamed_app": "Eine App"
+		},
+		"connections": {
+			"title": "Verbundene Apps",
+			"description": "Apps, denen du den Zugriff auf dein Konto erlaubt hast.",
+			"empty_title": "Keine verbundenen Apps",
+			"empty_description": "Apps, die du mit deinem Konto verbindest, erscheinen hier.",
+			"revoke": "Widerrufen",
+			"revoke_label": "Zugriff für {app} widerrufen",
+			"access": "Zugriff",
+			"connected": "Verbunden",
+			"level_view": "Nur ansehen",
+			"level_change": "Ansehen und ändern",
+			"unknown_date": "Unbekannt",
+			"unnamed_app": "Unbenannte App",
+			"load_more": "Mehr anzeigen",
+			"revoke_title": "Zugriff für {app} widerrufen?",
+			"revoke_description": "{app} verliert sofort den Zugriff auf dein Konto. Um die App wieder zu nutzen, verbinde sie erneut in {app}.",
+			"revoke_cancel": "Abbrechen",
+			"revoke_confirm": "Zugriff widerrufen",
+			"revoke_failed": "Der Zugriff konnte nicht widerrufen werden. Versuche es erneut."
+		}
 	}
 }

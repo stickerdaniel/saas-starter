@@ -25,7 +25,7 @@ export default GroupSpec.make()
 			args: () => ({ paginationOpts: PaginationOpts }),
 			returns: () =>
 				Schema.Struct({
-					page: Schema.Array(Connection),
+					page: Schema.mutable(Schema.Array(Connection)),
 					isDone: Schema.Boolean,
 					continueCursor: Schema.String
 				})
