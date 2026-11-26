@@ -154,7 +154,10 @@ function buildWrapperSvg(source: string, o: RenderOpts): string {
 /** Core resvg render: wrapper SVG -> PNG Buffer. Shared by every PNG output. */
 function renderToBuffer(source: string, o: RenderOpts): Buffer {
 	const wrapperSvg = buildWrapperSvg(source, o);
-	const resvg = new Resvg(wrapperSvg, { fitTo: { mode: 'width', value: o.size } });
+	const resvg = new Resvg(wrapperSvg, {
+		fitTo: { mode: 'width', value: o.size },
+		font: { loadSystemFonts: false }
+	});
 	return Buffer.from(resvg.render().asPng());
 }
 
