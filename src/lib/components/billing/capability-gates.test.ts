@@ -92,6 +92,8 @@ vi.mock('../../../routes/[[lang]]/app/ai-chat/thread-chat.svelte', () => ({
 
 import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import CheckoutProviderHarness from './test-fixtures/CheckoutProviderHarness.svelte';
+import CheckoutManagerProbe from './test-fixtures/CheckoutManagerProbe.svelte';
+import type { BillingCheckoutManager } from './checkout-context.svelte.ts';
 import NavUserHarness from './test-fixtures/NavUserHarness.svelte';
 import PricingThree from '#blocks/pricing/pricing-three.svelte';
 import AIChatPage from '../../../routes/[[lang]]/app/ai-chat/+page.svelte';
@@ -317,24 +319,20 @@ describe('billing checkout provider', () => {
 
 	it('shows nothing when the checkout closes before its dialog loads', async () => {
 		state.page.data = { capabilities: { billing: usable, ai: unavailable } };
-		let answerRestart!: (preview: typeof confirmationPreview) => void;
-		autumn.checkout
-			.mockResolvedValueOnce(confirmationPreview)
-			.mockReturnValueOnce(new Promise((resolve) => (answerRestart = resolve)));
+		autumn.checkout.mockResolvedValue(confirmationPreview);
 		const chunk = holdDialogChunk();
-		await mountUnderProvider(PricingThree, {});
-		checkoutButton().click();
+		let checkout!: BillingCheckoutManager;
+		await mountUnderProvider(CheckoutManagerProbe, { expose: (manager) => (checkout = manager) });
+		await checkout.start({ productId: 'pro' });
 		await vi.waitFor(() => expect(chunk.requested).toBe(true));
 
-		// Starting again drops the preview that asked for the dialog.
-		checkoutButton().click();
-		await vi.waitFor(() => expect(autumn.checkout).toHaveBeenCalledTimes(2));
+		checkout.cancel();
 		chunk.release();
 		await vi.dynamicImportSettled();
 		await tick();
 		expect(confirmationDialog()).toBeNull();
 
-		answerRestart(confirmationPreview);
+		await checkout.start({ productId: 'pro' });
 		await vi.waitFor(() =>
 			expect(confirmationDialog()?.textContent).toContain(en.billing.confirmation.title)
 		);
