@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import 'tailwindcss' source('..');
 /* Add Streamdown styles to your Tailwind build */
 @source '../../node_modules/svelte-streamdown/**/*';
 
