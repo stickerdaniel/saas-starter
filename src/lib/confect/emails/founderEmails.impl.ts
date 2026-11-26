@@ -86,7 +86,7 @@ export default GroupImpl.make(databaseSchema, founderEmails).pipe(
 							);
 							return null;
 						}
-						console.warn({ code: 'founder_cancellation_billing_unknown' });
+						yield* Effect.logWarning({ code: 'founder_cancellation_billing_unknown' });
 						return yield* Effect.promise(() => skipRow(ctx, row._id, 'billing_unknown'));
 					}
 					if (billing.cancellation === 'none' || String(billing.canceledAt) !== row.dedupeKey) {

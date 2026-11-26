@@ -32,7 +32,7 @@ export default GroupImpl.make(databaseSchema, vacuum).pipe(
 				const touchedBefore = Date.now() - Duration.toMillis(UNTOUCHED_FOR);
 				const toDelete = files.page.filter((file) => file.lastTouchedAt < touchedBefore);
 				if (toDelete.length > 0) {
-					yield* Effect.sync(() => console.debug(`Deleting ${toDelete.length} files...`));
+					yield* Effect.logDebug(`Deleting ${toDelete.length} files...`);
 				}
 				yield* Effect.promise(() =>
 					Promise.all(toDelete.map((file) => ctx.storage.delete(file.storageId as Id<'_storage'>)))
@@ -49,8 +49,8 @@ export default GroupImpl.make(databaseSchema, vacuum).pipe(
 					})
 				);
 				if (!files.isDone) {
-					yield* Effect.sync(() =>
-						console.debug(`Deleted ${toDelete.length} files but not done yet, continuing...`)
+					yield* Effect.logDebug(
+						`Deleted ${toDelete.length} files but not done yet, continuing...`
 					);
 					yield* (yield* Scheduler).runAfter(
 						Duration.zero,

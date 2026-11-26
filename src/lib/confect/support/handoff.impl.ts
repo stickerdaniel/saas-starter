@@ -44,14 +44,17 @@ export const settleUnanswered = (turn: UnansweredTurn) =>
 		const supportThread = yield* withMutation((ctx) => findSupportThread(ctx, turn.threadId));
 		if (!supportThread) return;
 		if (yield* handOffThread(supportThread, { acknowledge: true })) {
-			console.error({ code: 'support_turn_unanswered', ...turnLogFields(turn) });
+			yield* Effect.logError({ code: 'support_turn_unanswered', ...turnLogFields(turn) });
 			return;
 		}
 		const acknowledged = yield* withMutation((ctx) =>
 			acknowledgeUnrepliedTurn(ctx, supportThread, turn.promptMessageId)
 		);
 		if (acknowledged) {
-			console.warn({ code: 'support_turn_handoff_without_reply', ...turnLogFields(turn) });
+			yield* Effect.logWarning({
+				code: 'support_turn_handoff_without_reply',
+				...turnLogFields(turn)
+			});
 		}
 	});
 
@@ -61,7 +64,7 @@ export default GroupImpl.make(databaseSchema, handoff).pipe(
 			Effect.gen(function* () {
 				const supportThread = yield* withMutation((ctx) => findSupportThread(ctx, threadId));
 				if (!supportThread) {
-					console.log(`[internalSetHandoff] No supportThread found for: ${threadId}`);
+					yield* Effect.log(`[internalSetHandoff] No supportThread found for: ${threadId}`);
 					return null;
 				}
 				yield* handOffThread(supportThread, { acknowledge: acknowledge === true });

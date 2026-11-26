@@ -68,7 +68,7 @@ function readCustomerId(event: unknown): CustomerIdRead {
 const respond = (status: number) => HttpServerResponse.empty({ status });
 
 const logged = (level: 'warn' | 'error', entry: { code: string; userId?: string }) =>
-	Effect.sync(() => console[level](entry));
+	(level === 'warn' ? Effect.logWarning : Effect.logError)(entry);
 
 function webhookFor(secret: string | undefined): Webhook | null {
 	try {

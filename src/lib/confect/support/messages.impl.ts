@@ -339,7 +339,7 @@ export default GroupImpl.make(databaseSchema, messages).pipe(
 					supportRateLimiter.limit(ctx, 'globalLLM')
 				);
 				if (!globalStatus.ok) {
-					console.error(
+					yield* Effect.logError(
 						`[createAIResponse] Global LLM rate limit exceeded. Retry after: ${globalStatus.retryAfter}ms`
 					);
 					const locale = yield* (yield* QueryRunner)
@@ -373,7 +373,7 @@ export default GroupImpl.make(databaseSchema, messages).pipe(
 						})
 						.pipe(Effect.orDie);
 					if (run.attempts.length > 1) {
-						console.warn({
+						yield* Effect.logWarning({
 							code: 'support_turn_retried',
 							...turnLogFields({ ...args, attempts: run.attempts.length, ...firstAttempt.error })
 						});
@@ -427,7 +427,7 @@ export default GroupImpl.make(databaseSchema, messages).pipe(
 				if (hasReplied(outcome)) return null;
 
 				if (state === 'pending' || state === 'inProgress' || state === 'canceled') {
-					console.error({
+					yield* Effect.logError({
 						code: 'support_turn_unsettled',
 						...turnLogFields({ threadId: args.threadId, promptMessageId: args.promptMessageId }),
 						state

@@ -213,7 +213,7 @@ export default GroupImpl.make(databaseSchema, send).pipe(
 						)
 					);
 					if (recipients.length === 0) {
-						console.log('[sendNewUserSignupNotification] No recipients configured, skipping');
+						yield* Effect.log('[sendNewUserSignupNotification] No recipients configured, skipping');
 						return null;
 					}
 
@@ -251,10 +251,9 @@ export default GroupImpl.make(databaseSchema, send).pipe(
 							return 'sent' as const;
 						}).pipe(
 							Effect.catchCause(() =>
-								Effect.sync(() => {
-									console.error({ code: 'signup_notification_enqueue_failed' });
-									return 'failed' as const;
-								})
+								Effect.logError({ code: 'signup_notification_enqueue_failed' }).pipe(
+									Effect.as('failed' as const)
+								)
 							)
 						);
 
@@ -272,11 +271,11 @@ export default GroupImpl.make(databaseSchema, send).pipe(
 					if (emailUnavailable && sentCount === 0) return null;
 
 					if (sentCount > 0) {
-						console.log(
+						yield* Effect.log(
 							`[sendNewUserSignupNotification] Enqueued notification for ${userEmail} to ${sentCount}/${recipients.length} recipient(s)`
 						);
 					} else if (recipients.length > 0) {
-						console.error(
+						yield* Effect.logError(
 							`[sendNewUserSignupNotification] All ${recipients.length} email sends failed for new user ${userEmail}`
 						);
 					}

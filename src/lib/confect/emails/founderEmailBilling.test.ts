@@ -1,3 +1,4 @@
+import { ConvexLogger } from '@confect/server';
 import * as Effect from 'effect/Effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActionCtx } from '../../convex/_generated/server';
@@ -40,7 +41,8 @@ function stallingBody(signal: AbortSignal | null | undefined): Response {
 	return new Response(body, { status: 200 });
 }
 
-const find = () => Effect.runPromise(findWelcomeThread(ctx, USER_ID));
+const find = () =>
+	Effect.runPromise(findWelcomeThread(ctx, USER_ID).pipe(Effect.provide(ConvexLogger.layer)));
 const signalOfResendRequest = () => network.mock.calls[0]?.[1].signal;
 
 beforeEach(() => {

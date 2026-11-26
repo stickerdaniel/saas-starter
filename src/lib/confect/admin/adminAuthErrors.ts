@@ -38,8 +38,10 @@ export const adminAuthApi = (operation: AdminAuthOperation, call: () => Promise<
 		Effect.asVoid,
 		Effect.catch((error) => {
 			const code = normalizeAdminAuthError(error);
-			return Effect.sync(() =>
-				console.error({ code: 'admin_auth_failed', operation, reason: code ?? 'unexpected' })
-			).pipe(Effect.andThen(code ? Effect.fail(new AdminRefusal({ code })) : Effect.die(error)));
+			return Effect.logError({
+				code: 'admin_auth_failed',
+				operation,
+				reason: code ?? 'unexpected'
+			}).pipe(Effect.andThen(code ? Effect.fail(new AdminRefusal({ code })) : Effect.die(error)));
 		})
 	);
