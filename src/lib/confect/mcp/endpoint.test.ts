@@ -202,6 +202,38 @@ describe('tool list', () => {
 	});
 });
 
+describe('scope challenge', () => {
+	const list = { jsonrpc: '2.0', id: 1, method: 'tools/list' };
+	const write = {
+		jsonrpc: '2.0',
+		id: 2,
+		method: 'tools/call',
+		params: { name: 'post_community_message', arguments: { body: 'hello' } }
+	};
+	const batch = (messages: readonly unknown[]) =>
+		new Request(MCP_URL, {
+			method: 'POST',
+			headers: rpc('legacy', 'tools/call').headers,
+			body: JSON.stringify(messages)
+		});
+
+	it('refuses a legacy batch that calls a tool beyond the scopes of the principal', async () => {
+		const sendAs = vi.fn();
+		const response = await appHandler({ scopes: READ, sendAs })(batch([list, write]));
+		expect(response.status).toBe(403);
+		expect(response.headers.get('www-authenticate')).toBe(
+			`Bearer error="insufficient_scope", scope="mcp:read mcp:write", resource_metadata="${CONVEX_SITE}/.well-known/oauth-protected-resource/mcp"`
+		);
+		expect(sendAs).not.toHaveBeenCalled();
+	});
+
+	it('hands a legacy batch within the scopes of the principal to the SDK', async () => {
+		const response = await appHandler({ scopes: READ })(batch([list]));
+		expect(response.status).toBe(200);
+		expect(await response.text()).toContain('list_community_messages');
+	});
+});
+
 describe('acting user', () => {
 	it('posts each message as the principal of its own request', async () => {
 		const received: unknown[] = [];

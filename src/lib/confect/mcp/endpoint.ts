@@ -84,7 +84,19 @@ const RpcHead = Schema.Struct({
 	params: Schema.optional(Schema.Struct({ name: Schema.optional(Schema.Unknown) }))
 });
 
-const decodeHead = Schema.decodeUnknownOption(Schema.fromJsonString(RpcHead));
+const decodeJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
+
+const decodeHead = Schema.decodeUnknownOption(RpcHead);
+
+const calledToolNames = (body: string) => {
+	const json = Option.getOrUndefined(decodeJson(body));
+	const messages: readonly unknown[] = Array.isArray(json) ? json : [json];
+	return messages
+		.flatMap((message) => Option.toArray(decodeHead(message)))
+		.flatMap(({ method, params }) =>
+			method === 'tools/call' && typeof params?.name === 'string' ? [params.name] : []
+		);
+};
 
 type BoundedBody =
 	| { readonly tooLarge: true }
@@ -206,20 +218,17 @@ const serve =
 			});
 			const access = scopeAccess.pipe(Layer.provide(principal));
 
-			const head = decodeHead(new TextDecoder().decode(body.bytes));
-			if (Option.isSome(head) && head.value.method === 'tools/call') {
-				const name = head.value.params?.name;
-				const tool = typeof name === 'string' ? Record.get(toolkit.tools, name) : Option.none();
-				if (Option.isSome(tool)) {
-					const decision = yield* McpAccess.useSync((rule) => rule.decide(tool.value)).pipe(
-						Effect.provide(access)
-					);
-					if (decision._tag === 'InsufficientScope') {
-						return challenge(verdict, 403, [
-							'error="insufficient_scope"',
-							`scope="${decision.required.join(' ')}"`
-						]);
-					}
+			for (const name of calledToolNames(new TextDecoder().decode(body.bytes))) {
+				const tool = Record.get(toolkit.tools, name);
+				if (Option.isNone(tool)) continue;
+				const decision = yield* McpAccess.useSync((rule) => rule.decide(tool.value)).pipe(
+					Effect.provide(access)
+				);
+				if (decision._tag === 'InsufficientScope') {
+					return challenge(verdict, 403, [
+						'error="insufficient_scope"',
+						`scope="${decision.required.join(' ')}"`
+					]);
 				}
 			}
 
