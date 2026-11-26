@@ -48,6 +48,7 @@ type Env = {
   readonly LOCAL_SEEDED_ADMIN_EMAIL: string | undefined;
   readonly LOCAL_SEEDED_ADMIN_NAME: string | undefined;
   readonly LOCAL_SEEDED_ADMIN_PASSWORD: string | undefined;
+  readonly MCP_PUBLIC_ORIGIN: string | undefined;
   readonly OPENROUTER_API_KEY: string | undefined;
   readonly PREVIEW_ADMIN_PASSWORD: string | undefined;
   readonly RESEND_API_KEY: string | undefined;

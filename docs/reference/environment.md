@@ -24,6 +24,7 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 | `AUTUMN_WEBHOOK_SECRET`  | Autumn webhook signing secret             |   ○   |    ○    |  ○   |
 | `ADMIN_TIME_ZONE`        | Time zone of admin customer emails        |   ○   |    ○    |  ○   |
 | `SUPPORT_EMAIL`          | Support contact email                     |   ○   |    ○    |  ○   |
+| `MCP_PUBLIC_ORIGIN`      | Custom domain origin of the MCP endpoint  |   ○   |    ○    |  ○   |
 | `PREVIEW_ADMIN_PASSWORD` | Password for auto-seeded preview admin    |       |    ✓    |      |
 
 Set `PREVIEW_ADMIN_PASSWORD` once as a preview default (`bunx convex env default set --type preview PREVIEW_ADMIN_PASSWORD '<password>'`), new preview deployments inherit it automatically. The other preview values are set per deployment by `scripts/deploy.ts`.

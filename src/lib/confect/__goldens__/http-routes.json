@@ -1,8 +1,12 @@
 [
+	"GET /.well-known/oauth-authorization-server/api/auth",
 	"GET /.well-known/openid-configuration",
 	"GET /api/auth/*",
+	"GET /api/auth/.well-known/oauth-authorization-server",
 	"GET /files/download",
 	"GET /files/inline",
+	"OPTIONS /.well-known/oauth-authorization-server/api/auth",
+	"OPTIONS /api/auth/.well-known/oauth-authorization-server",
 	"OPTIONS /files/download",
 	"POST /api/auth/*",
 	"POST /autumn-webhook",

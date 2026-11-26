@@ -6,6 +6,7 @@ import type { Doc } from '../convex/_generated/dataModel';
 import refs from './_generated/refs';
 import databaseSchema from './_generated/schema';
 import { MutationCtx, MutationRunner, QueryCtx, Scheduler } from './_generated/services';
+import { appRateLimiter } from './rateLimit';
 import type {
 	DeleteOwnedFixtureArgs,
 	DeleteSupportNotificationFixtureArgs,
@@ -268,6 +269,14 @@ export default GroupImpl.make(databaseSchema, tests).pipe(
 				yield* requireTestSecret(args.secret);
 				const ctx = yield* MutationCtx;
 				return yield* Effect.promise(() => resetAiChatFileUploadLimit(ctx, args));
+			})
+		),
+		FunctionImpl.make(databaseSchema, tests, 'resetOAuthRegistrationLimit', (args) =>
+			Effect.gen(function* () {
+				yield* requireTestSecret(args.secret);
+				const ctx = yield* MutationCtx;
+				yield* Effect.promise(() => appRateLimiter.reset(ctx, 'oauthClientRegistration'));
+				return null;
 			})
 		),
 		FunctionImpl.make(databaseSchema, tests, 'seedAiChatHistoryRows', (args) =>

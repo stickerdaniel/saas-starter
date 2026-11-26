@@ -19,6 +19,8 @@
  *   and carry the user id in `value`. Without it that deletion is a table scan,
  *   which shares the caller's transaction budget and fails the whole cleanup on
  *   a long-lived backend.
+ * - `.index('expiresAt', ['expiresAt'])` on `oauthAccessToken` and
+ *   `oauthRefreshToken`, so the expiry job reaches expired rows without a scan.
  *
  * Custom-index pattern: https://labs.convex.dev/better-auth/features/local-install#adding-custom-indexes.
  */
@@ -114,7 +116,134 @@ export const tables = {
 		aaguid: v.optional(v.union(v.null(), v.string()))
 	})
 		.index('credentialID', ['credentialID'])
+		.index('userId', ['userId']),
+	oauthClient: defineTable({
+		clientId: v.string(),
+		clientSecret: v.optional(v.union(v.null(), v.string())),
+		clientDiscoveryId: v.optional(v.union(v.null(), v.string())),
+		disabled: v.optional(v.union(v.null(), v.boolean())),
+		skipConsent: v.optional(v.union(v.null(), v.boolean())),
+		enableEndSession: v.optional(v.union(v.null(), v.boolean())),
+		subjectType: v.optional(v.union(v.null(), v.string())),
+		scopes: v.optional(v.union(v.null(), v.array(v.string()))),
+		clientCredentialsScopes: v.optional(v.union(v.null(), v.array(v.string()))),
+		userId: v.optional(v.union(v.null(), v.string())),
+		createdAt: v.optional(v.union(v.null(), v.number())),
+		updatedAt: v.optional(v.union(v.null(), v.number())),
+		name: v.optional(v.union(v.null(), v.string())),
+		uri: v.optional(v.union(v.null(), v.string())),
+		icon: v.optional(v.union(v.null(), v.string())),
+		contacts: v.optional(v.union(v.null(), v.array(v.string()))),
+		tos: v.optional(v.union(v.null(), v.string())),
+		policy: v.optional(v.union(v.null(), v.string())),
+		softwareId: v.optional(v.union(v.null(), v.string())),
+		softwareVersion: v.optional(v.union(v.null(), v.string())),
+		softwareStatement: v.optional(v.union(v.null(), v.string())),
+		redirectUris: v.array(v.string()),
+		postLogoutRedirectUris: v.optional(v.union(v.null(), v.array(v.string()))),
+		backchannelLogoutUri: v.optional(v.union(v.null(), v.string())),
+		backchannelLogoutSessionRequired: v.optional(v.union(v.null(), v.boolean())),
+		tokenEndpointAuthMethod: v.optional(v.union(v.null(), v.string())),
+		applicationType: v.optional(v.union(v.null(), v.string())),
+		jwks: v.optional(v.union(v.null(), v.string())),
+		jwksUri: v.optional(v.union(v.null(), v.string())),
+		grantTypes: v.optional(v.union(v.null(), v.array(v.string()))),
+		responseTypes: v.optional(v.union(v.null(), v.array(v.string()))),
+		requirePKCE: v.optional(v.union(v.null(), v.boolean())),
+		dpopBoundAccessTokens: v.optional(v.union(v.null(), v.boolean())),
+		referenceId: v.optional(v.union(v.null(), v.string())),
+		metadata: v.optional(v.union(v.null(), v.string()))
+	})
+		.index('clientId', ['clientId'])
+		.index('userId', ['userId']),
+	oauthResource: defineTable({
+		identifier: v.string(),
+		name: v.string(),
+		accessTokenTtl: v.optional(v.union(v.null(), v.number())),
+		refreshTokenTtl: v.optional(v.union(v.null(), v.number())),
+		signingAlgorithm: v.optional(v.union(v.null(), v.string())),
+		signingKeyId: v.optional(v.union(v.null(), v.string())),
+		allowedScopes: v.optional(v.union(v.null(), v.array(v.string()))),
+		customClaims: v.optional(v.union(v.null(), v.string())),
+		dpopBoundAccessTokensRequired: v.optional(v.union(v.null(), v.boolean())),
+		disabled: v.optional(v.union(v.null(), v.boolean())),
+		createdAt: v.optional(v.union(v.null(), v.number())),
+		updatedAt: v.optional(v.union(v.null(), v.number())),
+		policyVersion: v.optional(v.union(v.null(), v.number())),
+		metadata: v.optional(v.union(v.null(), v.string()))
+	}).index('identifier', ['identifier']),
+	oauthClientResource: defineTable({
+		clientId: v.string(),
+		resourceId: v.string(),
+		metadata: v.optional(v.union(v.null(), v.string())),
+		createdAt: v.optional(v.union(v.null(), v.number()))
+	})
+		.index('resourceId', ['resourceId'])
+		.index('clientId_resourceId', ['clientId', 'resourceId']),
+	oauthRefreshToken: defineTable({
+		token: v.string(),
+		clientId: v.string(),
+		sessionId: v.optional(v.union(v.null(), v.string())),
+		userId: v.string(),
+		referenceId: v.optional(v.union(v.null(), v.string())),
+		authorizationCodeId: v.optional(v.union(v.null(), v.string())),
+		resources: v.optional(v.union(v.null(), v.array(v.string()))),
+		requestedUserInfoClaims: v.optional(v.union(v.null(), v.array(v.string()))),
+		expiresAt: v.optional(v.union(v.null(), v.number())),
+		createdAt: v.optional(v.union(v.null(), v.number())),
+		revoked: v.optional(v.union(v.null(), v.number())),
+		rotatedAt: v.optional(v.union(v.null(), v.number())),
+		rotationReplayResponse: v.optional(v.union(v.null(), v.string())),
+		rotationReplayExpiresAt: v.optional(v.union(v.null(), v.number())),
+		authTime: v.optional(v.union(v.null(), v.number())),
+		confirmation: v.optional(v.union(v.null(), v.string())),
+		scopes: v.array(v.string())
+	})
+		.index('authorizationCodeId', ['authorizationCodeId'])
+		.index('token', ['token'])
+		.index('clientId', ['clientId'])
+		.index('sessionId', ['sessionId'])
 		.index('userId', ['userId'])
+		.index('expiresAt', ['expiresAt']),
+	oauthAccessToken: defineTable({
+		token: v.optional(v.union(v.null(), v.string())),
+		clientId: v.string(),
+		sessionId: v.optional(v.union(v.null(), v.string())),
+		userId: v.optional(v.union(v.null(), v.string())),
+		referenceId: v.optional(v.union(v.null(), v.string())),
+		authorizationCodeId: v.optional(v.union(v.null(), v.string())),
+		resources: v.optional(v.union(v.null(), v.array(v.string()))),
+		requestedUserInfoClaims: v.optional(v.union(v.null(), v.array(v.string()))),
+		refreshId: v.optional(v.union(v.null(), v.string())),
+		expiresAt: v.optional(v.union(v.null(), v.number())),
+		createdAt: v.optional(v.union(v.null(), v.number())),
+		revoked: v.optional(v.union(v.null(), v.number())),
+		confirmation: v.optional(v.union(v.null(), v.string())),
+		scopes: v.array(v.string())
+	})
+		.index('authorizationCodeId', ['authorizationCodeId'])
+		.index('token', ['token'])
+		.index('clientId', ['clientId'])
+		.index('sessionId', ['sessionId'])
+		.index('userId', ['userId'])
+		.index('refreshId', ['refreshId'])
+		.index('expiresAt', ['expiresAt']),
+	oauthConsent: defineTable({
+		clientId: v.string(),
+		userId: v.optional(v.union(v.null(), v.string())),
+		referenceId: v.optional(v.union(v.null(), v.string())),
+		resources: v.optional(v.union(v.null(), v.array(v.string()))),
+		requestedUserInfoClaims: v.optional(v.union(v.null(), v.array(v.string()))),
+		scopes: v.array(v.string()),
+		createdAt: v.optional(v.union(v.null(), v.number())),
+		updatedAt: v.optional(v.union(v.null(), v.number()))
+	})
+		.index('clientId_userId', ['clientId', 'userId'])
+		.index('clientId_referenceId_userId', ['clientId', 'referenceId', 'userId'])
+		.index('userId', ['userId']),
+	oauthClientAssertion: defineTable({
+		expiresAt: v.number()
+	})
 };
 
 const schema = defineSchema(tables);

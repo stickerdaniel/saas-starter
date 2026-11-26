@@ -7,8 +7,11 @@ import type { GenericMutationCtx } from 'convex/server';
 import { passkey } from '@better-auth/passkey';
 import { admin } from 'better-auth/plugins/admin';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
-import { createAuthMiddleware } from 'better-auth/api';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import * as val from 'valibot';
+import { asOAuthError, assertConsentIsCurrent, assertRefreshHasGrant } from './oauth/grants';
+import { createOAuthProvider } from './oauth/provider';
+import { appRateLimiter } from './rateLimit';
 import authSchema from '../convex-components/betterAuth/schema';
 import authConfig from './auth';
 import { requireEmailConfiguration, requireEnv, googleOAuth, githubOAuth } from './env';
@@ -240,6 +243,9 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 				}
 				await startJourneyErasure(ctx, user._id);
 				await startFounderEmailErasure(ctx, user._id);
+				await ctx.scheduler.runAfter(0, internal.oauth.cleanup.eraseUserGrants, {
+					userId: user._id
+				});
 			},
 
 			/**
@@ -353,6 +359,12 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 				}
 			}
 		},
+		oauthConsent: {
+			onCreate: assertConsentIsCurrent
+		},
+		oauthRefreshToken: {
+			onCreate: assertRefreshHasGrant
+		},
 		session: {
 			/**
 			 * Impersonation audit trail. The impersonate/stop-impersonating
@@ -421,6 +433,29 @@ const EMAIL_CAPABILITY_PREFLIGHT_PATHS = new Set([
 	'/send-verification-email'
 ]);
 
+const grantGuardedAdapter = (ctx: GenericCtx<DataModel>) => {
+	const createAdapter = authComponent.adapter(ctx);
+	return (options: Parameters<typeof createAdapter>[0]) => {
+		const adapter = createAdapter(options);
+		return {
+			...adapter,
+			create: <T extends Record<string, unknown>, R = T>(
+				input: Parameters<typeof adapter.create<T, R>>[0]
+			) => adapter.create<T, R>(input).catch(asOAuthError)
+		};
+	};
+};
+
+const rejectRegistrationOverLimit = async (ctx: GenericCtx<DataModel>) => {
+	const status = await appRateLimiter.limit(requireRunMutationCtx(ctx), 'oauthClientRegistration');
+	if (!status.ok) {
+		throw new APIError('TOO_MANY_REQUESTS', {
+			error: 'too_many_requests',
+			error_description: 'client registration limit reached'
+		});
+	}
+};
+
 function isTestEmailRequest(body: unknown): boolean {
 	if (process.env.CAPABILITY_PROFILE !== 'test' || typeof body !== 'object' || body === null) {
 		return false;
@@ -442,8 +477,8 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 		// admin/mutations.impl.ts (atomic audit log + guards). Disabling the raw
 		// HTTP endpoints closes the unguarded path; in-process auth.api calls
 		// from those mutations are unaffected. See admin/adminHttpPaths.ts.
-		disabledPaths: [...DISABLED_ADMIN_PATHS],
-		database: authComponent.adapter(ctx),
+		disabledPaths: [...DISABLED_ADMIN_PATHS, '/oauth2/delete-consent', '/oauth2/update-consent'],
+		database: grantGuardedAdapter(ctx),
 		user: {
 			additionalFields: {
 				locale: {
@@ -529,8 +564,10 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			// Better Auth runs some email callbacks in the background after committing
 			// user or verification state. Reject email-producing routes before their
 			// handlers can write when the complete delivery group is unavailable.
-			before: createAuthMiddleware(async (ctx) => {
-				if (!EMAIL_CAPABILITY_PREFLIGHT_PATHS.has(ctx.path) || isTestEmailRequest(ctx.body)) return;
+			before: createAuthMiddleware(async (hookCtx) => {
+				if (hookCtx.path === '/oauth2/register') return rejectRegistrationOverLimit(ctx);
+				if (!EMAIL_CAPABILITY_PREFLIGHT_PATHS.has(hookCtx.path) || isTestEmailRequest(hookCtx.body))
+					return;
 				requireEmailConfiguration();
 			}),
 			// The key set is identical for every caller, so consumers may use their own
@@ -557,7 +594,8 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			admin({
 				defaultRole: 'user',
 				adminRoles: ['admin']
-			})
+			}),
+			createOAuthProvider(ctx)
 		]
 	} satisfies BetterAuthOptions;
 };

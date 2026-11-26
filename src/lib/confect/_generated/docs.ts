@@ -20,6 +20,7 @@ export type FounderWelcomeEmailsDoc = Document.Document<typeof schemaDefinition,
 export type InternalUserNotesDoc = Document.Document<typeof schemaDefinition, "internalUserNotes">;
 export type JourneyCaptureStartsDoc = Document.Document<typeof schemaDefinition, "journeyCaptureStarts">;
 export type MessagesDoc = Document.Document<typeof schemaDefinition, "messages">;
+export type OauthGrantEpochsDoc = Document.Document<typeof schemaDefinition, "oauthGrantEpochs">;
 export type PasskeyNudgeDismissalsDoc = Document.Document<typeof schemaDefinition, "passkeyNudgeDismissals">;
 export type PendingAdminNotificationsDoc = Document.Document<typeof schemaDefinition, "pendingAdminNotifications">;
 export type PersonalEmailSuppressionsDoc = Document.Document<typeof schemaDefinition, "personalEmailSuppressions">;
@@ -49,6 +50,7 @@ export interface Docs {
   internalUserNotes: InternalUserNotesDoc;
   journeyCaptureStarts: JourneyCaptureStartsDoc;
   messages: MessagesDoc;
+  oauthGrantEpochs: OauthGrantEpochsDoc;
   passkeyNudgeDismissals: PasskeyNudgeDismissalsDoc;
   pendingAdminNotifications: PendingAdminNotificationsDoc;
   personalEmailSuppressions: PersonalEmailSuppressionsDoc;

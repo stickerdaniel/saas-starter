@@ -249,6 +249,293 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | Array<number>
                     | null;
                 }>;
+              }
+            | {
+                model: "oauthClient";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "clientSecret"
+                    | "clientDiscoveryId"
+                    | "disabled"
+                    | "skipConsent"
+                    | "enableEndSession"
+                    | "subjectType"
+                    | "scopes"
+                    | "clientCredentialsScopes"
+                    | "userId"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "name"
+                    | "uri"
+                    | "icon"
+                    | "contacts"
+                    | "tos"
+                    | "policy"
+                    | "softwareId"
+                    | "softwareVersion"
+                    | "softwareStatement"
+                    | "redirectUris"
+                    | "postLogoutRedirectUris"
+                    | "backchannelLogoutUri"
+                    | "backchannelLogoutSessionRequired"
+                    | "tokenEndpointAuthMethod"
+                    | "applicationType"
+                    | "jwks"
+                    | "jwksUri"
+                    | "grantTypes"
+                    | "responseTypes"
+                    | "requirePKCE"
+                    | "dpopBoundAccessTokens"
+                    | "referenceId"
+                    | "metadata"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthResource";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "identifier"
+                    | "name"
+                    | "accessTokenTtl"
+                    | "refreshTokenTtl"
+                    | "signingAlgorithm"
+                    | "signingKeyId"
+                    | "allowedScopes"
+                    | "customClaims"
+                    | "dpopBoundAccessTokensRequired"
+                    | "disabled"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "policyVersion"
+                    | "metadata"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClientResource";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "resourceId"
+                    | "metadata"
+                    | "createdAt"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthRefreshToken";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "token"
+                    | "clientId"
+                    | "sessionId"
+                    | "userId"
+                    | "referenceId"
+                    | "authorizationCodeId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "revoked"
+                    | "rotatedAt"
+                    | "rotationReplayResponse"
+                    | "rotationReplayExpiresAt"
+                    | "authTime"
+                    | "confirmation"
+                    | "scopes"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthAccessToken";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "token"
+                    | "clientId"
+                    | "sessionId"
+                    | "userId"
+                    | "referenceId"
+                    | "authorizationCodeId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "refreshId"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "revoked"
+                    | "confirmation"
+                    | "scopes"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthConsent";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "userId"
+                    | "referenceId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "scopes"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClientAssertion";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field: "expiresAt" | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
               };
           onDeleteHandle?: string;
         },
@@ -342,7 +629,130 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   userId: string;
                 };
                 model: "passkey";
-              };
+              }
+            | {
+                data: {
+                  applicationType?: null | string;
+                  backchannelLogoutSessionRequired?: null | boolean;
+                  backchannelLogoutUri?: null | string;
+                  clientCredentialsScopes?: null | Array<string>;
+                  clientDiscoveryId?: null | string;
+                  clientId: string;
+                  clientSecret?: null | string;
+                  contacts?: null | Array<string>;
+                  createdAt?: null | number;
+                  disabled?: null | boolean;
+                  dpopBoundAccessTokens?: null | boolean;
+                  enableEndSession?: null | boolean;
+                  grantTypes?: null | Array<string>;
+                  icon?: null | string;
+                  jwks?: null | string;
+                  jwksUri?: null | string;
+                  metadata?: null | string;
+                  name?: null | string;
+                  policy?: null | string;
+                  postLogoutRedirectUris?: null | Array<string>;
+                  redirectUris: Array<string>;
+                  referenceId?: null | string;
+                  requirePKCE?: null | boolean;
+                  responseTypes?: null | Array<string>;
+                  scopes?: null | Array<string>;
+                  skipConsent?: null | boolean;
+                  softwareId?: null | string;
+                  softwareStatement?: null | string;
+                  softwareVersion?: null | string;
+                  subjectType?: null | string;
+                  tokenEndpointAuthMethod?: null | string;
+                  tos?: null | string;
+                  updatedAt?: null | number;
+                  uri?: null | string;
+                  userId?: null | string;
+                };
+                model: "oauthClient";
+              }
+            | {
+                data: {
+                  accessTokenTtl?: null | number;
+                  allowedScopes?: null | Array<string>;
+                  createdAt?: null | number;
+                  customClaims?: null | string;
+                  disabled?: null | boolean;
+                  dpopBoundAccessTokensRequired?: null | boolean;
+                  identifier: string;
+                  metadata?: null | string;
+                  name: string;
+                  policyVersion?: null | number;
+                  refreshTokenTtl?: null | number;
+                  signingAlgorithm?: null | string;
+                  signingKeyId?: null | string;
+                  updatedAt?: null | number;
+                };
+                model: "oauthResource";
+              }
+            | {
+                data: {
+                  clientId: string;
+                  createdAt?: null | number;
+                  metadata?: null | string;
+                  resourceId: string;
+                };
+                model: "oauthClientResource";
+              }
+            | {
+                data: {
+                  authTime?: null | number;
+                  authorizationCodeId?: null | string;
+                  clientId: string;
+                  confirmation?: null | string;
+                  createdAt?: null | number;
+                  expiresAt?: null | number;
+                  referenceId?: null | string;
+                  requestedUserInfoClaims?: null | Array<string>;
+                  resources?: null | Array<string>;
+                  revoked?: null | number;
+                  rotatedAt?: null | number;
+                  rotationReplayExpiresAt?: null | number;
+                  rotationReplayResponse?: null | string;
+                  scopes: Array<string>;
+                  sessionId?: null | string;
+                  token: string;
+                  userId: string;
+                };
+                model: "oauthRefreshToken";
+              }
+            | {
+                data: {
+                  authorizationCodeId?: null | string;
+                  clientId: string;
+                  confirmation?: null | string;
+                  createdAt?: null | number;
+                  expiresAt?: null | number;
+                  referenceId?: null | string;
+                  refreshId?: null | string;
+                  requestedUserInfoClaims?: null | Array<string>;
+                  resources?: null | Array<string>;
+                  revoked?: null | number;
+                  scopes: Array<string>;
+                  sessionId?: null | string;
+                  token?: null | string;
+                  userId?: null | string;
+                };
+                model: "oauthAccessToken";
+              }
+            | {
+                data: {
+                  clientId: string;
+                  createdAt?: null | number;
+                  referenceId?: null | string;
+                  requestedUserInfoClaims?: null | Array<string>;
+                  resources?: null | Array<string>;
+                  scopes: Array<string>;
+                  updatedAt?: null | number;
+                  userId?: null | string;
+                };
+                model: "oauthConsent";
+              }
+            | { data: { expiresAt: number }; model: "oauthClientAssertion" };
           onCreateHandle?: string;
           select?: Array<string>;
           unique?: Array<string>;
@@ -554,6 +964,293 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "aaguid"
                     | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClient";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "clientSecret"
+                    | "clientDiscoveryId"
+                    | "disabled"
+                    | "skipConsent"
+                    | "enableEndSession"
+                    | "subjectType"
+                    | "scopes"
+                    | "clientCredentialsScopes"
+                    | "userId"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "name"
+                    | "uri"
+                    | "icon"
+                    | "contacts"
+                    | "tos"
+                    | "policy"
+                    | "softwareId"
+                    | "softwareVersion"
+                    | "softwareStatement"
+                    | "redirectUris"
+                    | "postLogoutRedirectUris"
+                    | "backchannelLogoutUri"
+                    | "backchannelLogoutSessionRequired"
+                    | "tokenEndpointAuthMethod"
+                    | "applicationType"
+                    | "jwks"
+                    | "jwksUri"
+                    | "grantTypes"
+                    | "responseTypes"
+                    | "requirePKCE"
+                    | "dpopBoundAccessTokens"
+                    | "referenceId"
+                    | "metadata"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthResource";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "identifier"
+                    | "name"
+                    | "accessTokenTtl"
+                    | "refreshTokenTtl"
+                    | "signingAlgorithm"
+                    | "signingKeyId"
+                    | "allowedScopes"
+                    | "customClaims"
+                    | "dpopBoundAccessTokensRequired"
+                    | "disabled"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "policyVersion"
+                    | "metadata"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClientResource";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "resourceId"
+                    | "metadata"
+                    | "createdAt"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthRefreshToken";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "token"
+                    | "clientId"
+                    | "sessionId"
+                    | "userId"
+                    | "referenceId"
+                    | "authorizationCodeId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "revoked"
+                    | "rotatedAt"
+                    | "rotationReplayResponse"
+                    | "rotationReplayExpiresAt"
+                    | "authTime"
+                    | "confirmation"
+                    | "scopes"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthAccessToken";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "token"
+                    | "clientId"
+                    | "sessionId"
+                    | "userId"
+                    | "referenceId"
+                    | "authorizationCodeId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "refreshId"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "revoked"
+                    | "confirmation"
+                    | "scopes"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthConsent";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "userId"
+                    | "referenceId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "scopes"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClientAssertion";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field: "expiresAt" | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
                     | "lt"
@@ -814,6 +1511,293 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | Array<number>
                     | null;
                 }>;
+              }
+            | {
+                model: "oauthClient";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "clientSecret"
+                    | "clientDiscoveryId"
+                    | "disabled"
+                    | "skipConsent"
+                    | "enableEndSession"
+                    | "subjectType"
+                    | "scopes"
+                    | "clientCredentialsScopes"
+                    | "userId"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "name"
+                    | "uri"
+                    | "icon"
+                    | "contacts"
+                    | "tos"
+                    | "policy"
+                    | "softwareId"
+                    | "softwareVersion"
+                    | "softwareStatement"
+                    | "redirectUris"
+                    | "postLogoutRedirectUris"
+                    | "backchannelLogoutUri"
+                    | "backchannelLogoutSessionRequired"
+                    | "tokenEndpointAuthMethod"
+                    | "applicationType"
+                    | "jwks"
+                    | "jwksUri"
+                    | "grantTypes"
+                    | "responseTypes"
+                    | "requirePKCE"
+                    | "dpopBoundAccessTokens"
+                    | "referenceId"
+                    | "metadata"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthResource";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "identifier"
+                    | "name"
+                    | "accessTokenTtl"
+                    | "refreshTokenTtl"
+                    | "signingAlgorithm"
+                    | "signingKeyId"
+                    | "allowedScopes"
+                    | "customClaims"
+                    | "dpopBoundAccessTokensRequired"
+                    | "disabled"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "policyVersion"
+                    | "metadata"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClientResource";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "resourceId"
+                    | "metadata"
+                    | "createdAt"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthRefreshToken";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "token"
+                    | "clientId"
+                    | "sessionId"
+                    | "userId"
+                    | "referenceId"
+                    | "authorizationCodeId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "revoked"
+                    | "rotatedAt"
+                    | "rotationReplayResponse"
+                    | "rotationReplayExpiresAt"
+                    | "authTime"
+                    | "confirmation"
+                    | "scopes"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthAccessToken";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "token"
+                    | "clientId"
+                    | "sessionId"
+                    | "userId"
+                    | "referenceId"
+                    | "authorizationCodeId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "refreshId"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "revoked"
+                    | "confirmation"
+                    | "scopes"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthConsent";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "userId"
+                    | "referenceId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "scopes"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClientAssertion";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field: "expiresAt" | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
               };
           onDeleteHandle?: string;
         },
@@ -832,7 +1816,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | "account"
             | "verification"
             | "jwks"
-            | "passkey";
+            | "passkey"
+            | "oauthClient"
+            | "oauthResource"
+            | "oauthClientResource"
+            | "oauthRefreshToken"
+            | "oauthAccessToken"
+            | "oauthConsent"
+            | "oauthClientAssertion";
           offset?: number;
           paginationOpts: {
             cursor: string | null;
@@ -878,7 +1869,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | "account"
             | "verification"
             | "jwks"
-            | "passkey";
+            | "passkey"
+            | "oauthClient"
+            | "oauthResource"
+            | "oauthClientResource"
+            | "oauthRefreshToken"
+            | "oauthAccessToken"
+            | "oauthConsent"
+            | "oauthClientAssertion";
           select?: Array<string>;
           where?: Array<{
             connector?: "AND" | "OR";
@@ -1199,6 +2197,405 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | Array<number>
                     | null;
                 }>;
+              }
+            | {
+                increment: Record<string, number>;
+                model: "oauthClient";
+                set?: {
+                  applicationType?: null | string;
+                  backchannelLogoutSessionRequired?: null | boolean;
+                  backchannelLogoutUri?: null | string;
+                  clientCredentialsScopes?: null | Array<string>;
+                  clientDiscoveryId?: null | string;
+                  clientId?: string;
+                  clientSecret?: null | string;
+                  contacts?: null | Array<string>;
+                  createdAt?: null | number;
+                  disabled?: null | boolean;
+                  dpopBoundAccessTokens?: null | boolean;
+                  enableEndSession?: null | boolean;
+                  grantTypes?: null | Array<string>;
+                  icon?: null | string;
+                  jwks?: null | string;
+                  jwksUri?: null | string;
+                  metadata?: null | string;
+                  name?: null | string;
+                  policy?: null | string;
+                  postLogoutRedirectUris?: null | Array<string>;
+                  redirectUris?: Array<string>;
+                  referenceId?: null | string;
+                  requirePKCE?: null | boolean;
+                  responseTypes?: null | Array<string>;
+                  scopes?: null | Array<string>;
+                  skipConsent?: null | boolean;
+                  softwareId?: null | string;
+                  softwareStatement?: null | string;
+                  softwareVersion?: null | string;
+                  subjectType?: null | string;
+                  tokenEndpointAuthMethod?: null | string;
+                  tos?: null | string;
+                  updatedAt?: null | number;
+                  uri?: null | string;
+                  userId?: null | string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "clientSecret"
+                    | "clientDiscoveryId"
+                    | "disabled"
+                    | "skipConsent"
+                    | "enableEndSession"
+                    | "subjectType"
+                    | "scopes"
+                    | "clientCredentialsScopes"
+                    | "userId"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "name"
+                    | "uri"
+                    | "icon"
+                    | "contacts"
+                    | "tos"
+                    | "policy"
+                    | "softwareId"
+                    | "softwareVersion"
+                    | "softwareStatement"
+                    | "redirectUris"
+                    | "postLogoutRedirectUris"
+                    | "backchannelLogoutUri"
+                    | "backchannelLogoutSessionRequired"
+                    | "tokenEndpointAuthMethod"
+                    | "applicationType"
+                    | "jwks"
+                    | "jwksUri"
+                    | "grantTypes"
+                    | "responseTypes"
+                    | "requirePKCE"
+                    | "dpopBoundAccessTokens"
+                    | "referenceId"
+                    | "metadata"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                increment: Record<string, number>;
+                model: "oauthResource";
+                set?: {
+                  accessTokenTtl?: null | number;
+                  allowedScopes?: null | Array<string>;
+                  createdAt?: null | number;
+                  customClaims?: null | string;
+                  disabled?: null | boolean;
+                  dpopBoundAccessTokensRequired?: null | boolean;
+                  identifier?: string;
+                  metadata?: null | string;
+                  name?: string;
+                  policyVersion?: null | number;
+                  refreshTokenTtl?: null | number;
+                  signingAlgorithm?: null | string;
+                  signingKeyId?: null | string;
+                  updatedAt?: null | number;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "identifier"
+                    | "name"
+                    | "accessTokenTtl"
+                    | "refreshTokenTtl"
+                    | "signingAlgorithm"
+                    | "signingKeyId"
+                    | "allowedScopes"
+                    | "customClaims"
+                    | "dpopBoundAccessTokensRequired"
+                    | "disabled"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "policyVersion"
+                    | "metadata"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                increment: Record<string, number>;
+                model: "oauthClientResource";
+                set?: {
+                  clientId?: string;
+                  createdAt?: null | number;
+                  metadata?: null | string;
+                  resourceId?: string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "resourceId"
+                    | "metadata"
+                    | "createdAt"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                increment: Record<string, number>;
+                model: "oauthRefreshToken";
+                set?: {
+                  authTime?: null | number;
+                  authorizationCodeId?: null | string;
+                  clientId?: string;
+                  confirmation?: null | string;
+                  createdAt?: null | number;
+                  expiresAt?: null | number;
+                  referenceId?: null | string;
+                  requestedUserInfoClaims?: null | Array<string>;
+                  resources?: null | Array<string>;
+                  revoked?: null | number;
+                  rotatedAt?: null | number;
+                  rotationReplayExpiresAt?: null | number;
+                  rotationReplayResponse?: null | string;
+                  scopes?: Array<string>;
+                  sessionId?: null | string;
+                  token?: string;
+                  userId?: string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "token"
+                    | "clientId"
+                    | "sessionId"
+                    | "userId"
+                    | "referenceId"
+                    | "authorizationCodeId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "revoked"
+                    | "rotatedAt"
+                    | "rotationReplayResponse"
+                    | "rotationReplayExpiresAt"
+                    | "authTime"
+                    | "confirmation"
+                    | "scopes"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                increment: Record<string, number>;
+                model: "oauthAccessToken";
+                set?: {
+                  authorizationCodeId?: null | string;
+                  clientId?: string;
+                  confirmation?: null | string;
+                  createdAt?: null | number;
+                  expiresAt?: null | number;
+                  referenceId?: null | string;
+                  refreshId?: null | string;
+                  requestedUserInfoClaims?: null | Array<string>;
+                  resources?: null | Array<string>;
+                  revoked?: null | number;
+                  scopes?: Array<string>;
+                  sessionId?: null | string;
+                  token?: null | string;
+                  userId?: null | string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "token"
+                    | "clientId"
+                    | "sessionId"
+                    | "userId"
+                    | "referenceId"
+                    | "authorizationCodeId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "refreshId"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "revoked"
+                    | "confirmation"
+                    | "scopes"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                increment: Record<string, number>;
+                model: "oauthConsent";
+                set?: {
+                  clientId?: string;
+                  createdAt?: null | number;
+                  referenceId?: null | string;
+                  requestedUserInfoClaims?: null | Array<string>;
+                  resources?: null | Array<string>;
+                  scopes?: Array<string>;
+                  updatedAt?: null | number;
+                  userId?: null | string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "userId"
+                    | "referenceId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "scopes"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                increment: Record<string, number>;
+                model: "oauthClientAssertion";
+                set?: { expiresAt?: number };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field: "expiresAt" | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
               };
           onUpdateHandle?: string;
         },
@@ -1474,6 +2871,398 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "aaguid"
                     | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClient";
+                update: {
+                  applicationType?: null | string;
+                  backchannelLogoutSessionRequired?: null | boolean;
+                  backchannelLogoutUri?: null | string;
+                  clientCredentialsScopes?: null | Array<string>;
+                  clientDiscoveryId?: null | string;
+                  clientId?: string;
+                  clientSecret?: null | string;
+                  contacts?: null | Array<string>;
+                  createdAt?: null | number;
+                  disabled?: null | boolean;
+                  dpopBoundAccessTokens?: null | boolean;
+                  enableEndSession?: null | boolean;
+                  grantTypes?: null | Array<string>;
+                  icon?: null | string;
+                  jwks?: null | string;
+                  jwksUri?: null | string;
+                  metadata?: null | string;
+                  name?: null | string;
+                  policy?: null | string;
+                  postLogoutRedirectUris?: null | Array<string>;
+                  redirectUris?: Array<string>;
+                  referenceId?: null | string;
+                  requirePKCE?: null | boolean;
+                  responseTypes?: null | Array<string>;
+                  scopes?: null | Array<string>;
+                  skipConsent?: null | boolean;
+                  softwareId?: null | string;
+                  softwareStatement?: null | string;
+                  softwareVersion?: null | string;
+                  subjectType?: null | string;
+                  tokenEndpointAuthMethod?: null | string;
+                  tos?: null | string;
+                  updatedAt?: null | number;
+                  uri?: null | string;
+                  userId?: null | string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "clientSecret"
+                    | "clientDiscoveryId"
+                    | "disabled"
+                    | "skipConsent"
+                    | "enableEndSession"
+                    | "subjectType"
+                    | "scopes"
+                    | "clientCredentialsScopes"
+                    | "userId"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "name"
+                    | "uri"
+                    | "icon"
+                    | "contacts"
+                    | "tos"
+                    | "policy"
+                    | "softwareId"
+                    | "softwareVersion"
+                    | "softwareStatement"
+                    | "redirectUris"
+                    | "postLogoutRedirectUris"
+                    | "backchannelLogoutUri"
+                    | "backchannelLogoutSessionRequired"
+                    | "tokenEndpointAuthMethod"
+                    | "applicationType"
+                    | "jwks"
+                    | "jwksUri"
+                    | "grantTypes"
+                    | "responseTypes"
+                    | "requirePKCE"
+                    | "dpopBoundAccessTokens"
+                    | "referenceId"
+                    | "metadata"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthResource";
+                update: {
+                  accessTokenTtl?: null | number;
+                  allowedScopes?: null | Array<string>;
+                  createdAt?: null | number;
+                  customClaims?: null | string;
+                  disabled?: null | boolean;
+                  dpopBoundAccessTokensRequired?: null | boolean;
+                  identifier?: string;
+                  metadata?: null | string;
+                  name?: string;
+                  policyVersion?: null | number;
+                  refreshTokenTtl?: null | number;
+                  signingAlgorithm?: null | string;
+                  signingKeyId?: null | string;
+                  updatedAt?: null | number;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "identifier"
+                    | "name"
+                    | "accessTokenTtl"
+                    | "refreshTokenTtl"
+                    | "signingAlgorithm"
+                    | "signingKeyId"
+                    | "allowedScopes"
+                    | "customClaims"
+                    | "dpopBoundAccessTokensRequired"
+                    | "disabled"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "policyVersion"
+                    | "metadata"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClientResource";
+                update: {
+                  clientId?: string;
+                  createdAt?: null | number;
+                  metadata?: null | string;
+                  resourceId?: string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "resourceId"
+                    | "metadata"
+                    | "createdAt"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthRefreshToken";
+                update: {
+                  authTime?: null | number;
+                  authorizationCodeId?: null | string;
+                  clientId?: string;
+                  confirmation?: null | string;
+                  createdAt?: null | number;
+                  expiresAt?: null | number;
+                  referenceId?: null | string;
+                  requestedUserInfoClaims?: null | Array<string>;
+                  resources?: null | Array<string>;
+                  revoked?: null | number;
+                  rotatedAt?: null | number;
+                  rotationReplayExpiresAt?: null | number;
+                  rotationReplayResponse?: null | string;
+                  scopes?: Array<string>;
+                  sessionId?: null | string;
+                  token?: string;
+                  userId?: string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "token"
+                    | "clientId"
+                    | "sessionId"
+                    | "userId"
+                    | "referenceId"
+                    | "authorizationCodeId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "revoked"
+                    | "rotatedAt"
+                    | "rotationReplayResponse"
+                    | "rotationReplayExpiresAt"
+                    | "authTime"
+                    | "confirmation"
+                    | "scopes"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthAccessToken";
+                update: {
+                  authorizationCodeId?: null | string;
+                  clientId?: string;
+                  confirmation?: null | string;
+                  createdAt?: null | number;
+                  expiresAt?: null | number;
+                  referenceId?: null | string;
+                  refreshId?: null | string;
+                  requestedUserInfoClaims?: null | Array<string>;
+                  resources?: null | Array<string>;
+                  revoked?: null | number;
+                  scopes?: Array<string>;
+                  sessionId?: null | string;
+                  token?: null | string;
+                  userId?: null | string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "token"
+                    | "clientId"
+                    | "sessionId"
+                    | "userId"
+                    | "referenceId"
+                    | "authorizationCodeId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "refreshId"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "revoked"
+                    | "confirmation"
+                    | "scopes"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthConsent";
+                update: {
+                  clientId?: string;
+                  createdAt?: null | number;
+                  referenceId?: null | string;
+                  requestedUserInfoClaims?: null | Array<string>;
+                  resources?: null | Array<string>;
+                  scopes?: Array<string>;
+                  updatedAt?: null | number;
+                  userId?: null | string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "userId"
+                    | "referenceId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "scopes"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClientAssertion";
+                update: { expiresAt?: number };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field: "expiresAt" | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
                     | "lt"
@@ -1778,6 +3567,398 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "aaguid"
                     | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClient";
+                update: {
+                  applicationType?: null | string;
+                  backchannelLogoutSessionRequired?: null | boolean;
+                  backchannelLogoutUri?: null | string;
+                  clientCredentialsScopes?: null | Array<string>;
+                  clientDiscoveryId?: null | string;
+                  clientId?: string;
+                  clientSecret?: null | string;
+                  contacts?: null | Array<string>;
+                  createdAt?: null | number;
+                  disabled?: null | boolean;
+                  dpopBoundAccessTokens?: null | boolean;
+                  enableEndSession?: null | boolean;
+                  grantTypes?: null | Array<string>;
+                  icon?: null | string;
+                  jwks?: null | string;
+                  jwksUri?: null | string;
+                  metadata?: null | string;
+                  name?: null | string;
+                  policy?: null | string;
+                  postLogoutRedirectUris?: null | Array<string>;
+                  redirectUris?: Array<string>;
+                  referenceId?: null | string;
+                  requirePKCE?: null | boolean;
+                  responseTypes?: null | Array<string>;
+                  scopes?: null | Array<string>;
+                  skipConsent?: null | boolean;
+                  softwareId?: null | string;
+                  softwareStatement?: null | string;
+                  softwareVersion?: null | string;
+                  subjectType?: null | string;
+                  tokenEndpointAuthMethod?: null | string;
+                  tos?: null | string;
+                  updatedAt?: null | number;
+                  uri?: null | string;
+                  userId?: null | string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "clientSecret"
+                    | "clientDiscoveryId"
+                    | "disabled"
+                    | "skipConsent"
+                    | "enableEndSession"
+                    | "subjectType"
+                    | "scopes"
+                    | "clientCredentialsScopes"
+                    | "userId"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "name"
+                    | "uri"
+                    | "icon"
+                    | "contacts"
+                    | "tos"
+                    | "policy"
+                    | "softwareId"
+                    | "softwareVersion"
+                    | "softwareStatement"
+                    | "redirectUris"
+                    | "postLogoutRedirectUris"
+                    | "backchannelLogoutUri"
+                    | "backchannelLogoutSessionRequired"
+                    | "tokenEndpointAuthMethod"
+                    | "applicationType"
+                    | "jwks"
+                    | "jwksUri"
+                    | "grantTypes"
+                    | "responseTypes"
+                    | "requirePKCE"
+                    | "dpopBoundAccessTokens"
+                    | "referenceId"
+                    | "metadata"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthResource";
+                update: {
+                  accessTokenTtl?: null | number;
+                  allowedScopes?: null | Array<string>;
+                  createdAt?: null | number;
+                  customClaims?: null | string;
+                  disabled?: null | boolean;
+                  dpopBoundAccessTokensRequired?: null | boolean;
+                  identifier?: string;
+                  metadata?: null | string;
+                  name?: string;
+                  policyVersion?: null | number;
+                  refreshTokenTtl?: null | number;
+                  signingAlgorithm?: null | string;
+                  signingKeyId?: null | string;
+                  updatedAt?: null | number;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "identifier"
+                    | "name"
+                    | "accessTokenTtl"
+                    | "refreshTokenTtl"
+                    | "signingAlgorithm"
+                    | "signingKeyId"
+                    | "allowedScopes"
+                    | "customClaims"
+                    | "dpopBoundAccessTokensRequired"
+                    | "disabled"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "policyVersion"
+                    | "metadata"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClientResource";
+                update: {
+                  clientId?: string;
+                  createdAt?: null | number;
+                  metadata?: null | string;
+                  resourceId?: string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "resourceId"
+                    | "metadata"
+                    | "createdAt"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthRefreshToken";
+                update: {
+                  authTime?: null | number;
+                  authorizationCodeId?: null | string;
+                  clientId?: string;
+                  confirmation?: null | string;
+                  createdAt?: null | number;
+                  expiresAt?: null | number;
+                  referenceId?: null | string;
+                  requestedUserInfoClaims?: null | Array<string>;
+                  resources?: null | Array<string>;
+                  revoked?: null | number;
+                  rotatedAt?: null | number;
+                  rotationReplayExpiresAt?: null | number;
+                  rotationReplayResponse?: null | string;
+                  scopes?: Array<string>;
+                  sessionId?: null | string;
+                  token?: string;
+                  userId?: string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "token"
+                    | "clientId"
+                    | "sessionId"
+                    | "userId"
+                    | "referenceId"
+                    | "authorizationCodeId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "revoked"
+                    | "rotatedAt"
+                    | "rotationReplayResponse"
+                    | "rotationReplayExpiresAt"
+                    | "authTime"
+                    | "confirmation"
+                    | "scopes"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthAccessToken";
+                update: {
+                  authorizationCodeId?: null | string;
+                  clientId?: string;
+                  confirmation?: null | string;
+                  createdAt?: null | number;
+                  expiresAt?: null | number;
+                  referenceId?: null | string;
+                  refreshId?: null | string;
+                  requestedUserInfoClaims?: null | Array<string>;
+                  resources?: null | Array<string>;
+                  revoked?: null | number;
+                  scopes?: Array<string>;
+                  sessionId?: null | string;
+                  token?: null | string;
+                  userId?: null | string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "token"
+                    | "clientId"
+                    | "sessionId"
+                    | "userId"
+                    | "referenceId"
+                    | "authorizationCodeId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "refreshId"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "revoked"
+                    | "confirmation"
+                    | "scopes"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthConsent";
+                update: {
+                  clientId?: string;
+                  createdAt?: null | number;
+                  referenceId?: null | string;
+                  requestedUserInfoClaims?: null | Array<string>;
+                  resources?: null | Array<string>;
+                  scopes?: Array<string>;
+                  updatedAt?: null | number;
+                  userId?: null | string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "clientId"
+                    | "userId"
+                    | "referenceId"
+                    | "resources"
+                    | "requestedUserInfoClaims"
+                    | "scopes"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "_id";
+                  mode?: "sensitive" | "insensitive";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "oauthClientAssertion";
+                update: { expiresAt?: number };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field: "expiresAt" | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
                     | "lt"

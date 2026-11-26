@@ -9,6 +9,16 @@
 		"function": "support/threads:deleteEmptyThreads",
 		"schedule": { "minutes": 15, "type": "interval" }
 	},
+	"deleteExpiredOAuthTokens": {
+		"args": [{}],
+		"function": "oauth/cleanup:deleteExpiredTokens",
+		"schedule": { "hours": 1, "type": "interval" }
+	},
+	"deleteStaleOAuthClients": {
+		"args": [{}],
+		"function": "oauth/cleanup:deleteStaleClients",
+		"schedule": { "hours": 24, "type": "interval" }
+	},
 	"deleteStaleWarmThreads": {
 		"args": [{}],
 		"function": "aiChat/threads:deleteStaleWarmThreads",

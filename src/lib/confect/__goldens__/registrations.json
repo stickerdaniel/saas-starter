@@ -318,6 +318,19 @@
 			"removeMessage": ["internal", "mutation", "ef30e797aa8884ae", "bcde375ebd4cbacf"],
 			"send": ["public", "mutation", "af8c522ac6f049c6", "ef30e797aa8884ae"]
 		},
+		"oauth/cleanup": {
+			"deleteExpiredTokens": ["internal", "mutation", "5151b7eb8536aa97", "bcde375ebd4cbacf"],
+			"deleteStaleClients": ["internal", "mutation", "e91a6f41160e06d0", "bcde375ebd4cbacf"],
+			"eraseUserGrants": ["internal", "mutation", "3b83ee450a3cde21", "bcde375ebd4cbacf"]
+		},
+		"oauth/connections": {
+			"epoch": ["internal", "query", "3b83ee450a3cde21", "cddf8275afa15408"],
+			"list": ["public", "query", "aba4a69d6728db62", "294c0a201ea77c9d"],
+			"revoke": ["public", "mutation", "bd9e044020132fa6", "fefea1c739ee397e"]
+		},
+		"oauth/metadata": {
+			"authorizationServer": ["internal", "query", "5151b7eb8536aa97", "e627abcc79e4377f"]
+		},
 		"previewDev": {
 			"ensurePreviewAdmin": ["internal", "mutation", "5151b7eb8536aa97", "1c49ae7253550e23"]
 		},
@@ -420,6 +433,7 @@
 				"6c4ac7f566418be7"
 			],
 			"resetAiChatFileUploadLimit": ["public", "mutation", "fc1e15266873dd30", "bcde375ebd4cbacf"],
+			"resetOAuthRegistrationLimit": ["public", "mutation", "e3b36a6473b293e2", "bcde375ebd4cbacf"],
 			"seedAiChatHistoryRows": ["public", "mutation", "22b7a194f989e509", "318ebd6468b6ce68"],
 			"seedAuditLogRows": ["public", "mutation", "ddb929ac849d844c", "0aac72c03bcb064a"],
 			"seedSupportNotificationClaim": [

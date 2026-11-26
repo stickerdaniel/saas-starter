@@ -3,7 +3,7 @@ import * as Effect from 'effect/Effect';
 import * as EffectHttpRouter from 'effect/http/HttpRouter';
 import * as Layer from 'effect/Layer';
 import { registerRoutes as registerFilesControlRoutes } from '@gilhrpenner/convex-files-control';
-import { httpRouter } from 'convex/server';
+import { httpRouter, type RoutableMethod } from 'convex/server';
 import { httpAction } from '../convex/_generated/server';
 import { components } from '../convex/_generated/api';
 import refs from './_generated/refs';
@@ -11,6 +11,10 @@ import { MutationRunner } from './_generated/services';
 import { handleAutumnWebhook } from './admin/customerNotifications/observe';
 import { authComponent, createAuth } from './authServer';
 import { resend } from './emails/resend';
+import {
+	AUTHORIZATION_SERVER_METADATA_PATHS,
+	authorizationServerMetadataRoutes
+} from './oauth/metadata';
 
 const http = httpRouter();
 
@@ -85,6 +89,23 @@ http.route({
 	})
 });
 
+const mountExact = (
+	routes: HttpRouter.Routes,
+	paths: readonly string[],
+	methods: readonly RoutableMethod[]
+) => {
+	const handlers = new Map(
+		HttpRouter.make(routes)
+			.getRoutes()
+			.map(([, method, handler]) => [method, handler])
+	);
+	for (const method of methods) {
+		const handler = handlers.get(method);
+		if (handler === undefined) throw new Error(`The Confect router has no ${method} route`);
+		for (const path of paths) http.route({ path, method, handler });
+	}
+};
+
 const autumnWebhook = EffectHttpRouter.add('POST', '/autumn-webhook', (request) =>
 	handleAutumnWebhook(request, (observation) =>
 		Effect.gen(function* () {
@@ -100,11 +121,12 @@ const autumnWebhook = EffectHttpRouter.add('POST', '/autumn-webhook', (request) 
 	)
 );
 
-const autumnHandler = HttpRouter.make(autumnWebhook)
-	.getRoutes()
-	.find(([, method]) => method === 'POST')?.[2];
-if (autumnHandler === undefined) throw new Error('The Confect router has no POST route');
-http.route({ path: '/autumn-webhook', method: 'POST', handler: autumnHandler });
+mountExact(autumnWebhook, ['/autumn-webhook'], ['POST']);
+mountExact(
+	authorizationServerMetadataRoutes(refs.internal.oauth.metadata.authorizationServer),
+	AUTHORIZATION_SERVER_METADATA_PATHS,
+	['GET', 'OPTIONS']
+);
 
 for (const [path, method, handler] of HttpRouter.make(Layer.empty).getRoutes()) {
 	http.route({ pathPrefix: path.slice(0, -1), method, handler });

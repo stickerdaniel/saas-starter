@@ -369,6 +369,16 @@
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
 		"user": "Error [capability] billing is misconfigured"
 	},
+	"oauth/connections:list": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
+	"oauth/connections:revoke": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
 	"storage:generateUploadUrl": {
 		"anonymous": "ConvexError \"Unauthenticated\"",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
@@ -550,6 +560,11 @@
 		"user": "Error Unauthorized: Invalid test secret"
 	},
 	"tests:resetAiChatFileUploadLimit": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
+	"tests:resetOAuthRegistrationLimit": {
 		"anonymous": "Error Unauthorized: Invalid test secret",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
 		"user": "Error Unauthorized: Invalid test secret"

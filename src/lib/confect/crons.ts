@@ -42,6 +42,22 @@ export default CronJobs.make()
 			{}
 		)
 	)
+	.add(
+		CronJob.make(
+			'deleteStaleOAuthClients',
+			Duration.hours(24),
+			refs.internal.oauth.cleanup.deleteStaleClients,
+			{}
+		)
+	)
+	.add(
+		CronJob.make(
+			'deleteExpiredOAuthTokens',
+			Duration.hours(1),
+			refs.internal.oauth.cleanup.deleteExpiredTokens,
+			{}
+		)
+	)
 	// Email admins when a global anonymous support rate limit stays nearly used up.
 	// Reads three rate limit rows per run and writes only when a bucket changes state.
 	.add(
