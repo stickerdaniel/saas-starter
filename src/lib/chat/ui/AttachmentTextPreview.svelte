@@ -3,8 +3,8 @@
 	import Code from 'svelte-streamdown/code';
 	import Math from 'svelte-streamdown/math';
 	import { mode } from '#lib/theme.svelte.ts';
-	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { getTranslate } from '@tolgee/svelte';
+	import AttachmentPreviewStatus from './AttachmentPreviewStatus.svelte';
 	import { tryGetChatUIContext } from './chat-context.svelte.ts';
 	import {
 		getPreviewKind,
@@ -125,13 +125,7 @@
 </script>
 
 {#if status === 'loading'}
-	<div
-		class="flex h-[70vh] w-full items-center justify-center rounded-md"
-		data-testid="attachment-preview-loading"
-	>
-		<LoaderCircleIcon class="size-6 text-muted-foreground motion-safe:animate-spin" />
-		<span class="sr-only">{$t('chat.attachment.preview_loading')}</span>
-	</div>
+	<AttachmentPreviewStatus status="loading" />
 {:else if status === 'error'}
 	{#if url && iframeFallback}
 		<!-- Fall back to the raw browser view when text could not be loaded. -->
@@ -141,12 +135,7 @@
 			class="h-[70vh] w-full rounded-md"
 		></iframe>
 	{:else}
-		<div
-			class="flex h-[70vh] w-full items-center justify-center text-sm text-muted-foreground"
-			data-testid="attachment-preview-error"
-		>
-			{$t('chat.attachment.preview_error')}
-		</div>
+		<AttachmentPreviewStatus status="error" />
 	{/if}
 {:else}
 	<div

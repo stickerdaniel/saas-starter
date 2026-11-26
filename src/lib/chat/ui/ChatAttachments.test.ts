@@ -21,8 +21,12 @@ vi.mock('svelte/reactivity', () =>
 // A duplicate list key throws in every mode; development mode adds the key and index detail.
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
-// Only an opened preview dialog renders the text preview; its stylesheet imports are out of scope.
-vi.mock('./AttachmentTextPreview.svelte', () => ({ default: () => {} }));
+// Only an opened preview dialog renders the text preview; its stylesheet imports are out of
+// scope. A test that opens one decides when its import settles with gatePreviewImport.
+vi.mock(
+	'./AttachmentTextPreview.svelte',
+	() => import('./test-fixtures/AttachmentTextPreviewStub.svelte')
+);
 
 type ChatAttachmentsProps = {
 	attachments: Attachment[];
@@ -179,6 +183,157 @@ describe('ChatAttachments', () => {
 
 		expect(chips[0]!.textContent).toContain(en.chat.error.upload_network);
 		expect(chips[0]!.textContent).not.toContain('ready to send');
+	});
+
+	describe('text preview', () => {
+		const unhandledRejections: unknown[] = [];
+		const recordRejection = (reason: unknown) => unhandledRejections.push(reason);
+
+		beforeEach(() => {
+			unhandledRejections.length = 0;
+			process.on('unhandledRejection', recordRejection);
+		});
+
+		afterEach(() => {
+			process.off('unhandledRejection', recordRejection);
+		});
+
+		/**
+		 * Holds the preview's import pending until the test settles the returned gate.
+		 * `started` resolves once the component has asked for the module.
+		 */
+		function gatePreviewImport() {
+			const started = Promise.withResolvers<void>();
+			const gate = Promise.withResolvers<void>();
+			vi.doMock('./AttachmentTextPreview.svelte', async () => {
+				started.resolve();
+				await gate.promise;
+				return import('./test-fixtures/AttachmentTextPreviewStub.svelte');
+			});
+			return { started: started.promise, resolve: gate.resolve, reject: gate.reject };
+		}
+
+		type PreviewGate = ReturnType<typeof gatePreviewImport>;
+
+		async function importSettled() {
+			await vi.dynamicImportSettled();
+			flushSync();
+		}
+
+		afterEach(importSettled);
+
+		const loading = () => document.querySelector('[data-testid="attachment-preview-loading"]');
+		const error = () => document.querySelector('[data-testid="attachment-preview-error"]');
+		const preview = () => document.querySelector('[data-testid="attachment-text-preview"]');
+		const dialog = () => document.querySelector('[role="dialog"]');
+		const chip = () => document.querySelector<HTMLElement>('[data-testid="attachment-chip"]')!;
+		const closeButton = () => dialog()!.querySelector<HTMLElement>('[data-slot="dialog-close"]')!;
+
+		async function open(gate: PreviewGate) {
+			chip().click();
+			await gate.started;
+			flushSync();
+		}
+
+		async function openNotes(gate: PreviewGate) {
+			await renderAttachments({
+				attachments: [
+					{
+						type: 'remote-file',
+						url: 'https://cdn.test/notes.md',
+						filename: 'notes.md',
+						contentType: 'text/markdown'
+					}
+				],
+				readonly: true
+			});
+			await open(gate);
+		}
+
+		async function failToLoad(gate: PreviewGate) {
+			gate.reject(new TypeError('Failed to fetch dynamically imported module'));
+			await importSettled();
+			await vi.waitFor(() => expect(error()).not.toBeNull());
+		}
+
+		async function closeAndUnmount() {
+			closeButton().click();
+			await vi.waitFor(() => expect(dialog()).toBeNull());
+		}
+
+		it('shows the loading state until the preview has loaded', async () => {
+			const gate = gatePreviewImport();
+
+			await openNotes(gate);
+			expect(loading()).not.toBeNull();
+			expect(preview()).toBeNull();
+
+			gate.resolve();
+			await importSettled();
+			await vi.waitFor(() => expect(preview()?.textContent).toBe('notes.md'));
+			expect(loading()).toBeNull();
+		});
+
+		it('shows no preview once the dialog closed before it loaded', async () => {
+			const gate = gatePreviewImport();
+			await openNotes(gate);
+			expect(loading()).not.toBeNull();
+
+			await closeAndUnmount();
+			gate.resolve();
+			await importSettled();
+
+			expect(dialog()).toBeNull();
+			expect(preview()).toBeNull();
+		});
+
+		it('shows the error state when the preview fails to load', async () => {
+			const gate = gatePreviewImport();
+			await openNotes(gate);
+
+			await failToLoad(gate);
+
+			expect(error()?.textContent?.trim()).toBe(en.chat.attachment.preview_error);
+			expect(loading()).toBeNull();
+			expect(preview()).toBeNull();
+			expect(unhandledRejections).toEqual([]);
+		});
+
+		it('loads the preview again on the next open after a failed load', async () => {
+			const failed = gatePreviewImport();
+			await openNotes(failed);
+			await failToLoad(failed);
+			await closeAndUnmount();
+
+			const retry = gatePreviewImport();
+			await open(retry);
+			retry.resolve();
+			await importSettled();
+
+			await vi.waitFor(() => expect(preview()?.textContent).toBe('notes.md'));
+			expect(error()).toBeNull();
+		});
+
+		it('loads the preview again when the dialog reopens while its content is still mounted', async () => {
+			const failed = gatePreviewImport();
+			await openNotes(failed);
+			await failToLoad(failed);
+			const content = dialog();
+
+			closeButton().click();
+			flushSync();
+			const retry = gatePreviewImport();
+			await open(retry);
+			expect(dialog()).toBe(content);
+			expect(loading()).not.toBeNull();
+
+			retry.resolve();
+			await importSettled();
+
+			await vi.waitFor(() => expect(preview()?.textContent).toBe('notes.md'));
+			expect(dialog()).toBe(content);
+			expect(error()).toBeNull();
+		});
 	});
 
 	describe('overflow tooltips', () => {
