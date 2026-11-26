@@ -522,7 +522,7 @@ export default defineConfig(async ({ command, mode }) => {
 			]
 		},
 		optimizeDeps: {
-			include: ['svelte-konva', 'konva']
+			include: ['svelte-konva', 'konva', 'svelte-streamdown/code', 'svelte-streamdown/math']
 		},
 		ssr: {
 			// The SSR prebundle copies Svelte's context into a second module.
