@@ -5,8 +5,8 @@
 	import { toast } from 'svelte-sonner';
 	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
-	import CheckoutDialog from './checkout-dialog.svelte';
 	import { setBillingCheckoutContext } from './checkout-context.svelte.ts';
+	import type CheckoutDialog from './checkout-dialog.svelte';
 
 	let { children } = $props();
 
@@ -19,7 +19,7 @@
 		page.data.capabilities?.billing.usable === true || page.data.localE2E?.billing === true
 	);
 
-	setBillingCheckoutContext({
+	const checkout = setBillingCheckoutContext({
 		checkout: checkoutOperation,
 		attach: attachOperation,
 		redirect: (url) => {
@@ -44,8 +44,19 @@
 			);
 		}
 	});
+
+	// Most pages never open a checkout, so the dialog loads on the first one and
+	// stays mounted after that, reading whatever state the manager has by then.
+	let dialog: Promise<{ default: typeof CheckoutDialog }> | null = $state(null);
+	$effect(() => {
+		if (checkout.open) dialog ??= import('./checkout-dialog.svelte');
+	});
 </script>
 
 {@render children()}
 
-<CheckoutDialog />
+{#if dialog}
+	{#await dialog then { default: Dialog }}
+		<Dialog />
+	{/await}
+{/if}
