@@ -86,7 +86,7 @@
 				{:else}
 					<div class="flex flex-col gap-8">
 						<div class="flex flex-col gap-2">
-							<h1 class="text-2xl font-bold">{$t('mcp.consent.title', { app })}</h1>
+							<h1 class="text-2xl font-bold wrap-anywhere">{$t('mcp.consent.title', { app })}</h1>
 							{#if data.viewer?.email}
 								<p class="text-balance text-muted-foreground">
 									{$t('mcp.consent.signed_in_as', { email: data.viewer.email })}
