@@ -19,7 +19,7 @@ import authSchema from '../../../convex-components/betterAuth/schema';
 import { UPLOAD_PROFILES } from '../../../uploads/profiles';
 import { convexModules, preloadModules } from '../../convexTest.modules';
 import type { Id } from '../../../convex/_generated/dataModel';
-import type { UploadPurpose } from '../uploadRoute';
+import { UPLOAD_BODY_DEADLINE_MS, type UploadPurpose } from '../uploadRoute';
 
 type Staged = { size: number; contentType: string | null };
 
@@ -381,6 +381,31 @@ describe.each(Object.keys(PURPOSES) as UploadPurpose[])('POST /uploads/%s', (pur
 
 		expect(response.status).toBe(413);
 		expect(body.pulled()).toBeLessThanOrEqual(profile.maxBytes + 2 * CHUNK_BYTES);
+		expect(await stored(t)).toEqual(nothingStored);
+	});
+
+	it('answers 408 and stores nothing when the body stalls past the deadline', async () => {
+		const t = harness();
+		const { caller, headers } = await asCaller(t, purpose);
+		const stalled = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.enqueue(new Uint8Array(CHUNK_BYTES));
+			}
+		});
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+		const pending = caller.fetch(`/uploads/${purpose}`, {
+			method: 'POST',
+			body: stalled,
+			headers: { ...headers, 'Content-Type': profile.accepted().type },
+			duplex: 'half'
+		} as RequestInit);
+		await vi.advanceTimersByTimeAsync(UPLOAD_BODY_DEADLINE_MS);
+		const response = await pending;
+
+		expect(response.status).toBe(408);
+		expect(await response.json()).toEqual({ code: 'UPLOAD_TIMED_OUT' });
+		vi.useRealTimers();
 		expect(await stored(t)).toEqual(nothingStored);
 	});
 });

@@ -20,6 +20,7 @@ const REFUSAL_STATUS = {
 	Unauthenticated: 401,
 	[SUPPORT_ERROR_CODES.authenticationRequired]: 401,
 	UPLOAD_ORIGIN_FORBIDDEN: 403,
+	UPLOAD_TIMED_OUT: 408,
 	[FILE_ERROR_CODES.tooLarge]: 413,
 	[FILE_ERROR_CODES.typeNotAllowed]: 415,
 	RATE_LIMITED: 429,
@@ -97,20 +98,40 @@ const authorize = (ctx: ActionCtx, request: Request, purpose: UploadPurpose) => 
 	}
 };
 
-async function readWithin(body: Request['body'], maxBytes: number) {
-	if (body === null) return [];
-	const reader = body.getReader();
+export const UPLOAD_BODY_DEADLINE_MS = 120_000;
+
+type BodyRead =
+	| { chunks: Array<Uint8Array<ArrayBuffer>> }
+	| { refusal: typeof FILE_ERROR_CODES.tooLarge | 'UPLOAD_TIMED_OUT' };
+
+async function drain(
+	reader: ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>>,
+	maxBytes: number
+): Promise<BodyRead> {
 	const chunks: Array<Uint8Array<ArrayBuffer>> = [];
 	let received = 0;
 	for (;;) {
 		const { done, value } = await reader.read();
-		if (done) return chunks;
+		if (done) return { chunks };
 		received += value.byteLength;
-		if (received > maxBytes) {
-			await reader.cancel();
-			return undefined;
-		}
+		if (received > maxBytes) return { refusal: FILE_ERROR_CODES.tooLarge };
 		chunks.push(value);
+	}
+}
+
+async function readWithin(body: Request['body'], maxBytes: number): Promise<BodyRead> {
+	if (body === null) return { chunks: [] };
+	const reader = body.getReader();
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const deadline = new Promise<BodyRead>((resolve) => {
+		timer = setTimeout(() => resolve({ refusal: 'UPLOAD_TIMED_OUT' }), UPLOAD_BODY_DEADLINE_MS);
+	});
+	try {
+		const read = await Promise.race([drain(reader, maxBytes), deadline]);
+		if ('refusal' in read) reader.cancel().catch(() => undefined);
+		return read;
+	} finally {
+		clearTimeout(timer);
 	}
 }
 
@@ -199,9 +220,9 @@ export const receiveUpload =
 			if (Number(request.headers.get('Content-Length')) > maxBytes) {
 				return refuse(FILE_ERROR_CODES.tooLarge, cors);
 			}
-			const chunks = await readWithin(request.body, maxBytes);
-			if (chunks === undefined) return refuse(FILE_ERROR_CODES.tooLarge, cors);
-			const blob = new Blob(chunks, { type: request.headers.get('Content-Type') ?? '' });
+			const read = await readWithin(request.body, maxBytes);
+			if ('refusal' in read) return refuse(read.refusal, cors);
+			const blob = new Blob(read.chunks, { type: request.headers.get('Content-Type') ?? '' });
 			const query = new URL(request.url).searchParams;
 			const result =
 				purpose === 'profileImage'
