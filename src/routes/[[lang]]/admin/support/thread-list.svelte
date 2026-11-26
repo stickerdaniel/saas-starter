@@ -21,7 +21,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
 	import { page } from '$app/state';
-	import { getDateFnsLocale } from '#lib/utils/i18n.js';
+	import { getDateFnsLocale } from '#lib/utils/date-fns-locale.js';
 
 	const dateFnsLocale = $derived(getDateFnsLocale(page.data.lang));
 

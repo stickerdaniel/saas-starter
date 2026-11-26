@@ -20,7 +20,7 @@
 
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { page } from '$app/state';
-	import { getDateFnsLocale } from '#lib/utils/i18n.js';
+	import { getDateFnsLocale } from '#lib/utils/date-fns-locale.js';
 	import { buildMailto } from '#lib/utils/mailto.js';
 	import { normalizeSupportPageRoute } from '#lib/shared/support-page-route.js';
 	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
