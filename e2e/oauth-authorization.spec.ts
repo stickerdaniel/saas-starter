@@ -82,6 +82,32 @@ test('a public client signs in, consents, exchanges the code and rotates its ref
 	expect(decodeOAuthError(await reused.json()).error).toBe('invalid_grant');
 });
 
+test('a narrowed consent stops the refresh token of the wider grant', async ({ page, request }) => {
+	const metadata = await fetchMetadata(request);
+	const clientId = await registerClient(request, metadata, 'Narrowed client');
+	await signedInPage(page, 'narrowed');
+
+	const wide = authorization(metadata, clientId, BOTH_SCOPES);
+	await openConsent(page, wide);
+	const first = await exchange(request, metadata, clientId, await allow(page), wide);
+	expect(scopesOf(first.scope)).toEqual(scopesOf(BOTH_SCOPES));
+
+	const again = authorization(metadata, clientId, BOTH_SCOPES);
+	const narrow = { ...again, url: `${again.url}&prompt=consent` };
+	await openConsent(page, narrow);
+	await page.getByRole('checkbox', { name: CHANGE_CAPABILITY }).uncheck();
+	const second = await exchange(request, metadata, clientId, await allow(page), narrow);
+	expect(scopesOf(second.scope)).toEqual(['mcp:read', 'offline_access']);
+
+	const stale = await refresh(request, metadata, clientId, first.refresh_token ?? '');
+	expect(stale.status()).toBe(400);
+	expect(decodeOAuthError(await stale.json()).error).toBe('invalid_grant');
+
+	const current = await refresh(request, metadata, clientId, second.refresh_token ?? '');
+	expect(current.status()).toBe(200);
+	expect(scopesOf((await parseTokens(current)).scope)).toEqual(['mcp:read', 'offline_access']);
+});
+
 test('a passkey sign-in resumes the authorization at the consent page', async ({
 	page,
 	request

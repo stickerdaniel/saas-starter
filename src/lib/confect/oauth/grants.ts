@@ -102,7 +102,7 @@ export const assertConsentIsCurrent = async (
 
 export const assertRefreshHasGrant = async (
 	ctx: GenericMutationCtx<DataModel>,
-	refreshToken: GrantRow
+	refreshToken: GrantRow & { scopes: readonly string[] }
 ) => {
 	const { userId, referenceId } = refreshToken;
 	const consent =
@@ -114,8 +114,11 @@ export const assertRefreshHasGrant = async (
 						{ field: 'referenceId', operator: 'eq', value: referenceId },
 						{ field: 'userId', operator: 'eq', value: userId }
 					],
-					select: ['_id']
+					select: ['scopes']
 				})
 			: null;
-	if (!consent) reject('oauth_refresh_without_grant');
+	const consented = new Set<string>(consent?.scopes ?? []);
+	if (!consent || !refreshToken.scopes.every((scope) => consented.has(scope))) {
+		reject('oauth_refresh_without_grant');
+	}
 };

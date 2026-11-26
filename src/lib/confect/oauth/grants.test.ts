@@ -50,7 +50,10 @@ async function harness() {
 			onCreateHandle
 		});
 
-	const createRefreshToken = (referenceId: string) =>
+	const createRefreshToken = (
+		referenceId: string,
+		scopes: string[] = ['mcp:read', 'offline_access']
+	) =>
 		t.mutation(components.betterAuth.adapter.create, {
 			input: {
 				model: 'oauthRefreshToken',
@@ -59,7 +62,7 @@ async function harness() {
 					clientId: CLIENT_ID,
 					userId,
 					referenceId,
-					scopes: ['mcp:read', 'offline_access'],
+					scopes,
 					createdAt: now,
 					expiresAt: now + 60_000
 				}
@@ -98,6 +101,18 @@ describe('the grant guards', () => {
 			data: { code: 'oauth_refresh_without_grant' }
 		});
 		await createRefreshToken('1');
+		expect(await rows('oauthRefreshToken')).toEqual(['1']);
+	});
+
+	it('reject a refresh token with a scope the consent lacks and write no row', async () => {
+		const { createConsent, createRefreshToken, rows } = await harness();
+		await createConsent('1');
+
+		await expect(
+			createRefreshToken('1', ['mcp:read', 'mcp:write', 'offline_access'])
+		).rejects.toMatchObject({ data: { code: 'oauth_refresh_without_grant' } });
+		expect(await rows('oauthRefreshToken')).toEqual([]);
+		await createRefreshToken('1', ['mcp:read']);
 		expect(await rows('oauthRefreshToken')).toEqual(['1']);
 	});
 });
