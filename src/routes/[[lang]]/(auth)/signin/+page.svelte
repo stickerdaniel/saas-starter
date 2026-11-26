@@ -388,7 +388,6 @@
 		haptic.trigger('light');
 		isLoading = true;
 		formError = '';
-		beginOAuth(provider);
 
 		let failure: unknown = null;
 		try {
@@ -399,6 +398,7 @@
 				? (await import('#lib/auth-client-oauth.js')).oauthAuthClient.signIn.social
 				: authClient.signIn.social;
 			if (left) return;
+			beginOAuth(provider);
 			const { error } = await signInSocial(
 				{
 					provider,

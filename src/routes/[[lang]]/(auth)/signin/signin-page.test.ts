@@ -102,7 +102,9 @@ const state = await vi.hoisted(async () => {
 			email: vi.fn<EmailSignIn>(),
 			social: vi.fn<SocialSignIn>(),
 			passkey: vi.fn<() => Promise<AuthResult>>()
-		}
+		},
+		/** Holds the resume client's import until a test lets it finish. */
+		oauthClientImport: Promise.withResolvers<void>()
 	};
 });
 
@@ -127,6 +129,10 @@ vi.mock('#lib/auth-client.js', () => ({
 	}
 }));
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({ useAuth: () => state.auth }));
+vi.mock('#lib/auth-client-oauth.js', async () => {
+	await state.oauthClientImport.promise;
+	return { oauthAuthClient: { signIn: state.signIn } };
+});
 vi.mock('#lib/hooks/auth-flow.svelte.ts', () => ({
 	authFlowContext: { get: () => ({ email: '' }), set: () => {} }
 }));
@@ -740,6 +746,21 @@ describe('sign-in page OAuth start', () => {
 		expect(pendingOAuthProvider.current).toBe('google');
 		expect(alertText()).toBe('');
 		expect(button(en.auth.signin.oauth_google).disabled).toBe(true);
+	});
+
+	it('stores no pending provider when the visitor leaves while the resume client loads', async () => {
+		await renderSignIn('?client_id=client-a&sig=signed');
+		button(en.auth.signin.oauth_google).click();
+		await tick();
+		await unmount(component!);
+		component = undefined;
+
+		state.oauthClientImport.resolve();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
+
+		expect(state.signIn.social).not.toHaveBeenCalled();
+		expect(pendingOAuthProvider.current).toBeNull();
 	});
 
 	it('sends the visitor to the provider once the start succeeds', async () => {
