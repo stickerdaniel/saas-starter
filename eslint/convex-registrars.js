@@ -74,12 +74,18 @@ export const PLAIN_HTTP_ROUTES = {
 	'/files/inline':
 		'A Confect HTTP handler cannot call the files-control mutation consumeDownloadGrantForUrl, which resolves the grant.',
 	'/resend-webhook':
-		'resend.handleResendEventWebhook takes the Convex action context and the request as they arrive.'
+		'resend.handleResendEventWebhook takes the Convex action context and the request as they arrive.',
+	...Object.fromEntries(
+		['/uploads/aiChat', '/uploads/support', '/uploads/profileImage'].map((path) => [
+			path,
+			'storeFile of @convex-dev/agent takes the Convex action context with storage, and the route reads the raw request body as a stream.'
+		])
+	)
 };
 
 export const PLAIN_REGISTRATION_PATHS = {
 	'**/*.test.ts':
-		'Tests register harness functions, such as mutationGeneric in profileImageUpload.test.ts.',
+		'Tests register harness functions, such as mutationGeneric in uploadRoute.test.ts.',
 	'**/__tests__/**':
-		'Tests register harness functions, such as mutationGeneric in profileImageUpload.test.ts.'
+		'Tests register harness functions, such as mutationGeneric in uploadRoute.test.ts.'
 };

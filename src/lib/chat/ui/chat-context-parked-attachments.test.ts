@@ -1,4 +1,3 @@
-import { api } from '#lib/convex/_generated/api.js';
 /**
  * An attachment survives the switch to another thread.
  *
@@ -12,6 +11,7 @@ import { api } from '#lib/convex/_generated/api.js';
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
 import { createChatSession } from '../__tests__/session-fixture';
+import type { AttachmentTransferUpload } from './attachment-transfer.js';
 
 const uploadFileWithProgress = vi.fn();
 
@@ -25,8 +25,7 @@ const { ChatUIContext } = await import('./chat-context.svelte.ts');
 const { ActiveUploads } = await import('#lib/hooks/active-uploads.svelte.ts');
 
 const uploadConfig = {
-	generateUploadUrl: api.support.files.generateUploadUrl,
-	saveUploadedFile: api.support.files.saveUploadedFile
+	purpose: 'support'
 } satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[2]>;
 
 /** A transfer the test decides the outcome of, plus the signal that cancels it. */
@@ -38,8 +37,8 @@ function pendingTransfer() {
 	uploadFileWithProgress.mockImplementationOnce(
 		(...args: unknown[]) =>
 			new Promise((resolve, reject) => {
-				report = args[3] as (progress: number) => void;
-				signal = args[7] as AbortSignal;
+				report = args[2] as (progress: number) => void;
+				signal = args[5] as AbortSignal;
 				settle = resolve;
 				fail = reject;
 			})
@@ -305,14 +304,17 @@ describe('ChatUIContext parked attachments', () => {
 		expect(stalled.canceled).toBe(true);
 	});
 
-	it('files a parked upload under the thread it was picked in', () => {
-		// Every surface derives the access key from the thread on screen, and the
-		// key is what the stored file is filed under. Reading it when the encoder
-		// finally hands over would file the image in the thread the user moved to.
-		const transfer = pendingTransfer();
+	it('hands a custom transport the access key of the thread the file was picked in', () => {
+		// A custom transport derives the access key from the thread on screen.
+		// Reading it when the encoder finally hands over would file the image in
+		// the thread the user moved to.
+		const transport = vi.fn<AttachmentTransferUpload>(async () => ({
+			fileId: 'file-1',
+			url: 'https://example.test/file-1'
+		}));
 		const core = createChatSession('thread-a');
 		const keyedConfig = {
-			...uploadConfig,
+			upload: transport,
 			getAccessKey: () => core.threadId ?? undefined
 		} satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[2]>;
 		const ctx = new ChatUIContext(core, {} as ConvexClient, keyedConfig, 'right', null);
@@ -341,10 +343,9 @@ describe('ChatUIContext parked attachments', () => {
 				core.threadId = 'thread-b';
 				ctx.setDisplayMessages([]);
 				finishEncoding();
-				await vi.waitFor(() => expect(uploadFileWithProgress).toHaveBeenCalledTimes(1));
+				await vi.waitFor(() => expect(transport).toHaveBeenCalledTimes(1));
 
-				expect(uploadFileWithProgress.mock.calls[0]?.[6]).toBe('thread-a');
-				transfer.succeed();
+				expect(transport.mock.calls[0]?.[0].accessKey).toBe('thread-a');
 				await upload;
 			});
 	});

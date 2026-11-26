@@ -126,14 +126,12 @@
 
 	// The locale lets upload errors arrive translated
 	const uploadConfig: UploadConfig = {
-		generateUploadUrl: api.support.files.generateUploadUrl,
-		saveUploadedFile: api.support.files.saveUploadedFile,
+		purpose: 'support',
 		getAttachmentText: api.support.files.getAttachmentText,
 		locale: page.data.lang,
 		translate: (key, params) => $t(key, params),
-		getAccessKey: () => conversation.threadId ?? conversation.userId ?? 'support',
 		attachmentStore: new ChatAttachmentStore('support'),
-		getGenerateUploadUrlArgs: () => {
+		getVisitorArgs: () => {
 			const userId = conversation.userId;
 			const anonymousUserId = isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
 			return anonymousUserId ? { anonymousUserId } : {};

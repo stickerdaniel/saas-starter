@@ -1,15 +1,14 @@
 import { FunctionImpl, GroupImpl } from '@confect/server';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import { components } from '../../convex/_generated/api';
 import type { MutationCtx as ConvexMutationCtx } from '../../convex/_generated/server';
 import refs from '../_generated/refs';
 import databaseSchema from '../_generated/schema';
-import { ActionCtx, MutationCtx, MutationRunner } from '../_generated/services';
+import { MutationCtx, MutationRunner } from '../_generated/services';
 import { FileRefusal } from '../errorCodecs';
 import { fetchAttachmentText } from '../files/attachmentText';
 import { FILE_ERROR_CODES } from '../files/errors';
-import { registerUpload } from '../files/registerUpload';
+import { presignedUploadRefusal } from '../files/upload';
 import RequireUserImpl from '../middleware/RequireUser.impl';
 import { CurrentUser } from '../middleware/RequireUser.spec';
 import files from './files.spec';
@@ -30,10 +29,20 @@ const limitUser = (ctx: ConvexMutationCtx, { name, code }: FileBucket) =>
 				new FileRefusal({ refusal: { code, retryAfter: status.retryAfter } })
 			);
 		}
+		return key;
 	});
 
 export default GroupImpl.make(databaseSchema, files).pipe(
 	Layer.provide([
+		FunctionImpl.make(databaseSchema, files, 'authorizeUpload', () =>
+			Effect.gen(function* () {
+				const ctx = yield* MutationCtx;
+				return yield* limitUser(ctx, {
+					name: 'aiChatFileUpload',
+					code: FILE_ERROR_CODES.uploadRateLimited
+				});
+			})
+		),
 		FunctionImpl.make(databaseSchema, files, 'checkPreviewAccess', () =>
 			Effect.gen(function* () {
 				const ctx = yield* MutationCtx;
@@ -46,16 +55,7 @@ export default GroupImpl.make(databaseSchema, files).pipe(
 		),
 		FunctionImpl.make(databaseSchema, files, 'generateUploadUrl', () =>
 			Effect.gen(function* () {
-				const ctx = yield* MutationCtx;
-				yield* limitUser(ctx, {
-					name: 'aiChatFileUpload',
-					code: FILE_ERROR_CODES.uploadRateLimited
-				});
-				return yield* Effect.promise(() =>
-					ctx.runMutation(components.convexFilesControl.upload.generateUploadUrl, {
-						provider: 'convex'
-					})
-				);
+				return yield* presignedUploadRefusal;
 			})
 		),
 		FunctionImpl.make(databaseSchema, files, 'getAttachmentText', ({ url, locale }) =>
@@ -67,20 +67,9 @@ export default GroupImpl.make(databaseSchema, files).pipe(
 				return yield* Effect.promise(() => fetchAttachmentText(url, locale));
 			})
 		),
-		FunctionImpl.make(databaseSchema, files, 'requireFileAccess', () =>
+		FunctionImpl.make(databaseSchema, files, 'saveUploadedFile', () =>
 			Effect.gen(function* () {
-				yield* CurrentUser;
-				return null;
-			})
-		),
-		FunctionImpl.make(databaseSchema, files, 'saveUploadedFile', (args) =>
-			Effect.gen(function* () {
-				const mutations = yield* MutationRunner;
-				yield* mutations
-					.runMutation(refs.internal.aiChat.files.requireFileAccess, {})
-					.pipe(Effect.catchTag('SchemaError', Effect.die));
-				const ctx = yield* ActionCtx;
-				return yield* Effect.promise(() => registerUpload(ctx, args, 'ai-chat'));
+				return yield* presignedUploadRefusal;
 			})
 		)
 	]),

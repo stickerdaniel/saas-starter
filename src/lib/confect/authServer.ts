@@ -412,7 +412,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 // Triggers register only through these exports
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 
-function buildTrustedOrigins(): string[] {
+export function buildTrustedOrigins(): string[] {
 	const siteUrl = process.env.SITE_URL;
 	if (!siteUrl) return [];
 	try {

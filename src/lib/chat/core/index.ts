@@ -56,11 +56,11 @@ export {
 export { StreamCacheManager } from './stream-cache.js';
 
 // File upload
-export type { UploadResult, ProgressCallback } from './file-uploader.js';
+export type { AttachmentUploadResult, ProgressCallback } from './file-uploader.js';
 export type { UploadErrorCode } from '../../uploads/transfer.js';
 
 export { uploadFileWithProgress } from './file-uploader.js';
-export { uploadToStorage, UploadError } from '../../uploads/transfer.js';
+export { UploadError } from '../../uploads/transfer.js';
 
 // Chat core
 export type {

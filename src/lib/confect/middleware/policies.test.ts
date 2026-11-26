@@ -13,7 +13,6 @@ import { describe, expect, it } from 'vitest';
 import { components } from '../../convex/_generated/api';
 import schema from '../../convex/schema';
 import authSchema from '../../convex-components/betterAuth/schema';
-import { normalizeUploadProviderError } from '../../uploads/transfer';
 import { getAuthErrorKey } from '../../utils/auth-messages';
 import { getConvexErrorCode, getConvexErrorData } from '../../utils/convex-errors';
 import databaseSchema from '../_generated/schema';
@@ -462,20 +461,16 @@ describe('error codecs on the wire', () => {
 	});
 
 	it.each([
-		[createFileError(FILE_ERROR_CODES.tooLarge, { maxBytes: 10, actualBytes: 11 }), undefined],
-		[createFileError(FILE_ERROR_CODES.typeNotAllowed, { allowedTypes: ['image/png'] }), undefined],
-		[createFileError(FILE_ERROR_CODES.typeNotAllowed), undefined],
-		[createFileError(FILE_ERROR_CODES.uploadRateLimited, { retryAfter: 2_000 }), 2_000],
-		[createFileError(FILE_ERROR_CODES.previewRateLimited, { retryAfter: 3_000 }), 3_000],
-		[createFileError(FILE_ERROR_CODES.metadataLimit, { maxUrls: 100 }), undefined],
-		[createFileError(FILE_ERROR_CODES.fetchFailed), undefined],
-		[createFileError(FILE_ERROR_CODES.storageUnavailable), undefined]
-	])('sends upload refusal %o as the upload adapter reads it', async (today, retryAfterMs) => {
+		createFileError(FILE_ERROR_CODES.tooLarge, { maxBytes: 10, actualBytes: 11 }),
+		createFileError(FILE_ERROR_CODES.typeNotAllowed, { allowedTypes: ['image/png'] }),
+		createFileError(FILE_ERROR_CODES.typeNotAllowed),
+		createFileError(FILE_ERROR_CODES.uploadRateLimited, { retryAfter: 2_000 }),
+		createFileError(FILE_ERROR_CODES.previewRateLimited, { retryAfter: 3_000 }),
+		createFileError(FILE_ERROR_CODES.metadataLimit, { maxUrls: 100 }),
+		createFileError(FILE_ERROR_CODES.fetchFailed),
+		createFileError(FILE_ERROR_CODES.storageUnavailable)
+	])('sends upload refusal %o as the producer does', async (today) => {
 		const error = await refuse('file', today.data);
 		expect(error.data).toEqual(today.data);
-		expect(normalizeUploadProviderError(error)).toMatchObject({
-			providerCode: today.data.code,
-			retryAfterMs
-		});
 	});
 });

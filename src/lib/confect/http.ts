@@ -11,6 +11,7 @@ import { MutationRunner } from './_generated/services';
 import { handleAutumnWebhook } from './admin/customerNotifications/observe';
 import { authComponent, createAuth } from './authServer';
 import { resend } from './emails/resend';
+import { receiveUpload, uploadPreflight } from './files/uploadRoute';
 import {
 	AUTHORIZATION_SERVER_METADATA_PATHS,
 	authorizationServerMetadataRoutes
@@ -24,7 +25,8 @@ authComponent.registerRoutes(http, createAuth);
 // files-control download route (/files/download?token=...). Serves files from
 // the component's storage namespace via download grants; profile images use
 // permanent shareable grants (no access key), so no checkDownloadRequest hook
-// is needed. Upload stays on the presigned-URL flow (no HTTP upload route).
+// is needed. Uploads arrive through the /uploads routes below, not through the
+// component's upload route.
 registerFilesControlRoutes(http, components.convexFilesControl, {
 	enableDownloadRoute: true,
 	enableUploadRoute: false
@@ -76,6 +78,37 @@ http.route({
 			}
 		});
 	})
+});
+
+http.route({
+	path: '/uploads/aiChat',
+	method: 'POST',
+	handler: httpAction(receiveUpload('aiChat'))
+});
+http.route({
+	path: '/uploads/aiChat',
+	method: 'OPTIONS',
+	handler: httpAction(async (_ctx, request) => uploadPreflight(request))
+});
+http.route({
+	path: '/uploads/support',
+	method: 'POST',
+	handler: httpAction(receiveUpload('support'))
+});
+http.route({
+	path: '/uploads/support',
+	method: 'OPTIONS',
+	handler: httpAction(async (_ctx, request) => uploadPreflight(request))
+});
+http.route({
+	path: '/uploads/profileImage',
+	method: 'POST',
+	handler: httpAction(receiveUpload('profileImage'))
+});
+http.route({
+	path: '/uploads/profileImage',
+	method: 'OPTIONS',
+	handler: httpAction(async (_ctx, request) => uploadPreflight(request))
 });
 
 // Resend webhook endpoint

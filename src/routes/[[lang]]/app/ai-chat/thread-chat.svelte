@@ -50,12 +50,10 @@
 	const client = useConvexClient();
 
 	const uploadConfig: UploadConfig = {
-		generateUploadUrl: api.aiChat.files.generateUploadUrl,
-		saveUploadedFile: api.aiChat.files.saveUploadedFile,
+		purpose: 'aiChat',
 		getAttachmentText: api.aiChat.files.getAttachmentText,
 		locale: page.data.lang,
 		translate: (key, params) => $t(key, params),
-		getAccessKey: () => threadId || 'ai-chat',
 		attachmentStore: new ChatAttachmentStore('ai-chat')
 	};
 

@@ -37,7 +37,7 @@ test('signout works, and is not stopped by an upload in flight', async ({ signou
 	await expect(page.locator('textarea')).toBeVisible({ timeout: 10000 });
 
 	// Hold the storage POST open so a transfer is running across the whole logout.
-	await page.route(/\/api\/storage\/upload/, (_route: Route) => {});
+	await page.route(/\/uploads\/aiChat\?/, (_route: Route) => {});
 	await page
 		.locator('input[type="file"]')
 		.first()

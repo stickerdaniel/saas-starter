@@ -12,18 +12,11 @@
 	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { useConvexClient } from 'convex-svelte';
-	import { api } from '#lib/convex/_generated/api.js';
 	import { getAuthErrorKey } from '#lib/utils/auth-messages.js';
 	import { acceptAttribute, UPLOAD_PROFILES } from '#lib/uploads/profiles.js';
 	import { getProfileImageInputError, prepareProfileImage } from '#lib/uploads/profile-image.js';
-	import {
-		isUploadAbort,
-		requestUploadGrant,
-		uploadGrantedWithAdapter,
-		UploadError,
-		type UploadAdapter
-	} from '#lib/uploads/transfer.js';
+	import { isUploadAbort, UploadError } from '#lib/uploads/transfer.js';
+	import { uploadToEndpoint } from '#lib/uploads/upload-endpoint.js';
 	import { translateValidationErrors } from '#lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
@@ -42,12 +35,12 @@
 
 	let { user }: Props = $props();
 
-	const convexClient = useConvexClient();
-	const profileImageUploadAdapter: UploadAdapter<string> = {
-		grant: () => convexClient.mutation(api.storage.generateUploadUrl, {}),
-		commit: ({ storageId, uploadToken }) =>
-			convexClient.mutation(api.storage.updateProfileImage, { storageId, uploadToken })
-	};
+	function decodeProfileImageUrl(body: unknown): string {
+		const fields = typeof body === 'object' && body !== null ? body : {};
+		const url = 'url' in fields ? fields.url : undefined;
+		if (typeof url !== 'string') throw new UploadError('parse');
+		return url;
+	}
 	const profileImageMaxSizeLabel = UPLOAD_PROFILES.profileImage.maxBytesLabel;
 	let profileImageUploadController: AbortController | undefined;
 
@@ -93,17 +86,14 @@
 			return;
 		}
 
-		// Avatar policy stays local; the neutral adapter owns only the matching
-		// grant, browser transport, commit, and provider-error mechanics.
+		// Avatar policy stays local; the shared endpoint helper owns the
+		// credentials, browser transport, and provider-error mechanics.
 		isUploading = true;
 		uploadProgress = 0;
 		const controller = new AbortController();
 		profileImageUploadController = controller;
 
 		try {
-			// Preserve the existing provider sequence: reserve the upload before
-			// preparing the image, then validate the exact bytes being sent.
-			const grant = await requestUploadGrant(profileImageUploadAdapter, controller.signal);
 			const prepared = await prepareProfileImage(file);
 			if (!prepared.ok) {
 				toast.error($t('settings.account.avatar.select_error'));
@@ -111,10 +101,10 @@
 				return;
 			}
 
-			const { value: imageUrl } = await uploadGrantedWithAdapter({
-				adapter: profileImageUploadAdapter,
-				grant,
+			const imageUrl = await uploadToEndpoint({
+				purpose: 'profileImage',
 				blob: prepared.blob,
+				decode: decodeProfileImageUrl,
 				onProgress: (progress) => {
 					uploadProgress = progress;
 				},

@@ -84,8 +84,7 @@ function chatSurface({
 	const release = vi.fn();
 	const uploadConfig: UploadConfig = persistent
 		? {
-				generateUploadUrl: api.aiChat.files.generateUploadUrl,
-				saveUploadedFile: api.aiChat.files.saveUploadedFile,
+				purpose: 'aiChat',
 				attachmentStore: store,
 				profile
 			}

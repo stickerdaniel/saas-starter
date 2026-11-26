@@ -8,7 +8,13 @@
 	"OPTIONS /.well-known/oauth-authorization-server/api/auth",
 	"OPTIONS /api/auth/.well-known/oauth-authorization-server",
 	"OPTIONS /files/download",
+	"OPTIONS /uploads/aiChat",
+	"OPTIONS /uploads/profileImage",
+	"OPTIONS /uploads/support",
 	"POST /api/auth/*",
 	"POST /autumn-webhook",
-	"POST /resend-webhook"
+	"POST /resend-webhook",
+	"POST /uploads/aiChat",
+	"POST /uploads/profileImage",
+	"POST /uploads/support"
 ]

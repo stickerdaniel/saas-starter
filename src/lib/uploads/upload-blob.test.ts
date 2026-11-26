@@ -1,11 +1,11 @@
 /**
- * The storage-neutral blob transport behind both the direct storage upload and
- * a surface's own endpoint: request shape, response decoding, progress,
- * cancelation and the shared error vocabulary.
+ * The storage-neutral blob transport behind every upload endpoint: request
+ * shape, response decoding, progress, cancelation and the shared error
+ * vocabulary.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { uploadBlobWithProgress, uploadToStorage, UploadError } from './transfer.js';
+import { uploadBlobWithProgress, UploadError } from './transfer.js';
 
 type Handler = (event?: unknown) => void;
 
@@ -234,30 +234,5 @@ describe('uploadBlobWithProgress', () => {
 		expect(error.name).toBe('AbortError');
 		expect(error).not.toBeInstanceOf(UploadError);
 		expect(decode).not.toHaveBeenCalled();
-	});
-});
-
-describe('uploadToStorage on the shared transport', () => {
-	it('still answers with the storage id and labels the blob type', async () => {
-		const server = fakeServer();
-
-		const pending = uploadToStorage('https://storage.test', blob, () => {});
-		server.respond(200, JSON.stringify({ storageId: 'storage-9' }));
-
-		await expect(pending).resolves.toBe('storage-9');
-		expect(server.headers).toEqual([['Content-Type', 'image/webp']]);
-	});
-
-	it.each([
-		{ status: 201, body: JSON.stringify({ storageId: 'storage-9' }) },
-		{ status: 202, body: JSON.stringify({ storageId: 'storage-9' }) },
-		{ status: 204, body: '' }
-	])('refuses a $status answer as http, whatever its body', async ({ status, body }) => {
-		const server = fakeServer();
-
-		const pending = uploadToStorage('https://storage.test', blob, () => {}).catch((error) => error);
-		server.respond(status, body);
-
-		expect(await pending).toMatchObject({ name: 'UploadError', code: 'http', status });
 	});
 });
