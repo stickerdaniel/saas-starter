@@ -222,7 +222,8 @@
 		"convex-vite-plugin@0.4.0": "patches/convex-vite-plugin@0.4.0.patch",
 		"@mmailaender/convex-better-auth-svelte@0.10.0": "patches/@mmailaender%2Fconvex-better-auth-svelte@0.10.0.patch",
 		"svelte-streamdown@5.1.1": "patches/svelte-streamdown@5.1.1.patch",
-		"convex-svelte@0.15.1": "patches/convex-svelte@0.15.1.patch"
+		"convex-svelte@0.15.1": "patches/convex-svelte@0.15.1.patch",
+		"@confect/server@10.6.0": "patches/@confect%2Fserver@10.6.0.patch"
 	},
 	"overrides": {
 		"zod": "4.6.7",
