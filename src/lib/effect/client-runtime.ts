@@ -8,6 +8,13 @@ export type Claim = {
 	readonly wait: <B, E>(effect: Effect.Effect<B, E>) => Effect.Effect<B, E>;
 };
 
+export const runClientEffect = <A, E>(
+	effect: Effect.Effect<A, E>
+): Exit.Exit<A, E> | Promise<Exit.Exit<A, E>> => {
+	const fiber = Effect.runFork(effect);
+	return fiber.pollUnsafe() ?? new Promise((resolve) => fiber.addObserver(resolve));
+};
+
 export class LatestFiber<A> {
 	#current: Fiber.Fiber<unknown, unknown> | undefined;
 	#version = 0;

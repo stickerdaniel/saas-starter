@@ -2,6 +2,8 @@
 
 import type { ConvexClient } from 'convex/browser';
 import type { FunctionReference } from 'convex/server';
+import * as Data from 'effect/Data';
+import * as Effect from 'effect/Effect';
 import type {
 	SendMessageOptions,
 	SendMessageResult,
@@ -12,7 +14,7 @@ import type {
 import { DEFAULT_CHAT_CONFIG } from './types.js';
 import { StreamCacheManager } from './stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from './optimistic.js';
-import { getChatSessionEpoch, isChatSessionCurrent } from './chat-persisted-state.js';
+import { SendOwnership, type SendClaim } from './send-ownership.js';
 import {
 	ChatConversation,
 	type AwaitedTurn,
@@ -22,6 +24,19 @@ import { ChatCommandError, type ChatCommandErrorCode } from './chat-command-erro
 
 export type ChatCoreErrorCode = ChatCommandErrorCode | 'send_failed' | 'create_thread_failed';
 type CreateThreadArgs = CreateThreadOptions & Record<string, unknown>;
+
+type Empty = Record<never, never>;
+
+type ChatSendOp = Data.TaggedEnum<{
+	Idle: Empty;
+	Locked: Empty;
+	CreatingThread: Empty;
+	Sending: { readonly threadId: string };
+}>;
+const ChatSendOp = Data.taggedEnum<ChatSendOp>();
+
+const mutate = <A>(run: () => Promise<A>): Effect.Effect<A, unknown> =>
+	Effect.tryPromise({ try: run, catch: (error) => error });
 
 export interface CreateThreadResult {
 	threadId: string;
@@ -61,7 +76,7 @@ export class ChatCore implements ChatSessionPort {
 	isNewConversation = $state(false);
 
 	isLoading = $state(false);
-	isSending = $state(false);
+	#op = $state.raw<ChatSendOp>(ChatSendOp.Idle());
 
 	error = $state<ChatCoreErrorCode | null>(null);
 
@@ -81,7 +96,7 @@ export class ChatCore implements ChatSessionPort {
 
 	private readonly api?: ChatCoreAPI;
 	private readonly config: Required<ChatConfig>;
-	private sendRevision = 0;
+	readonly #ownership = new SendOwnership();
 
 	constructor(options: ChatCoreOptions) {
 		this.#conversation = new ChatConversation(options.threadId ?? null);
@@ -98,6 +113,15 @@ export class ChatCore implements ChatSessionPort {
 		return this.#conversation.threadId;
 	}
 
+	get isSending(): boolean {
+		return this.#op._tag !== 'Idle';
+	}
+
+	set isSending(sending: boolean) {
+		if (!sending) this.#op = ChatSendOp.Idle();
+		else if (this.#op._tag === 'Idle') this.#op = ChatSendOp.Locked();
+	}
+
 	get hasThread(): boolean {
 		return this.threadId !== null;
 	}
@@ -108,9 +132,7 @@ export class ChatCore implements ChatSessionPort {
 
 	setThread(threadId: string | null): void {
 		if (threadId !== this.threadId) {
-			this.sendRevision++;
-			this.isSending = false;
-			this.awaitedTurn = null;
+			this.#supersede();
 			this.#conversation = new ChatConversation(threadId);
 		}
 		this.isNewConversation = threadId === null;
@@ -150,8 +172,14 @@ export class ChatCore implements ChatSessionPort {
 		this.awaitedTurn = awaiting ? { kind: 'unaccepted' } : null;
 	}
 
-	private isSendOperationCurrent(sessionEpoch: number, sendRevision: number): boolean {
-		return isChatSessionCurrent(sessionEpoch) && this.sendRevision === sendRevision;
+	#supersede(): void {
+		this.#ownership.supersede();
+		this.#op = ChatSendOp.Idle();
+		this.awaitedTurn = null;
+	}
+
+	#enter(claim: SendClaim, from: ChatSendOp['_tag'], next: ChatSendOp): void {
+		if (this.#ownership.owns(claim) && this.#op._tag === from) this.#op = next;
 	}
 
 	/**
@@ -181,8 +209,7 @@ export class ChatCore implements ChatSessionPort {
 			throw new Error('Chat commands are not configured for this session');
 		}
 
-		const sessionEpoch = getChatSessionEpoch();
-		const sendRevision = ++this.sendRevision;
+		const claim = this.#ownership.claim();
 		this.clearError();
 		this.setSending(true);
 		this.setAwaitingStream(true);
@@ -190,20 +217,25 @@ export class ChatCore implements ChatSessionPort {
 		let threadCreated: CreateThreadResult | undefined;
 		let failureCode: ChatCoreErrorCode = 'send_failed';
 
-		try {
-			// Lazy thread creation
+		const program = Effect.gen({ self: this }, function* () {
 			let threadId = this.threadId;
-			if (!threadId) {
+			if (threadId) {
+				this.#enter(claim, 'Locked', ChatSendOp.Sending({ threadId }));
+			} else {
+				this.#enter(claim, 'Locked', ChatSendOp.CreatingThread());
 				failureCode = 'create_thread_failed';
-				if (!api.createThread) {
-					throw new Error('Cannot send message: no thread and createThread not configured');
+				const createThread = api.createThread;
+				if (!createThread) {
+					return yield* Effect.fail(
+						new Error('Cannot send message: no thread and createThread not configured')
+					);
 				}
 
-				const result = await client.mutation(api.createThread, {
-					...options?.createThreadOptions
-				});
-				if (!this.isSendOperationCurrent(sessionEpoch, sendRevision)) {
-					throw new Error('Chat session ended');
+				const result = yield* mutate(() =>
+					client.mutation(createThread, { ...options?.createThreadOptions })
+				);
+				if (!this.#ownership.owns(claim)) {
+					return yield* Effect.fail(new Error('Chat session ended'));
 				}
 
 				threadId = result.threadId;
@@ -212,6 +244,7 @@ export class ChatCore implements ChatSessionPort {
 				// pagination cursors
 				this.#conversation.assign(threadId);
 				this.isNewConversation = false;
+				this.#enter(claim, 'CreatingThread', ChatSendOp.Sending({ threadId }));
 				failureCode = 'send_failed';
 			}
 
@@ -231,43 +264,40 @@ export class ChatCore implements ChatSessionPort {
 					}
 				: undefined;
 
-			const result = await client.mutation(
-				api.sendMessage,
-				{
-					threadId,
-					prompt: trimmedPrompt,
-					userId: options?.userId,
-					fileIds: options?.fileIds
-				},
-				mutationOptions
+			const result = yield* mutate(() =>
+				client.mutation(
+					api.sendMessage,
+					{
+						threadId,
+						prompt: trimmedPrompt,
+						userId: options?.userId,
+						fileIds: options?.fileIds
+					},
+					mutationOptions
+				)
 			);
-			if (!this.isSendOperationCurrent(sessionEpoch, sendRevision)) {
-				return { ...result, threadCreated };
-			}
-			// The reply, its stream or the notice replacing it lands at the saved
-			// prompt's order; a wait already settled stays settled.
-			if (this.awaitedTurn !== null) {
-				this.awaitedTurn = { kind: 'accepted', order: result.order };
-			}
-
-			if (options?.openWidgetAfter) {
-				this.requestWidgetOpen();
-			}
-
 			return { ...result, threadCreated };
-		} catch (error) {
-			if (this.isSendOperationCurrent(sessionEpoch, sendRevision)) {
+		});
+
+		return this.#ownership.run(claim, program, {
+			success: (result) => {
+				// The reply, its stream or the notice replacing it lands at the saved
+				// prompt's order; a wait already settled stays settled.
+				if (this.awaitedTurn !== null) {
+					this.awaitedTurn = { kind: 'accepted', order: result.order };
+				}
+				if (options?.openWidgetAfter) {
+					this.requestWidgetOpen();
+				}
+			},
+			failure: () => {
 				console.error('[ChatCore.sendMessage] Failed');
 				this.setError(failureCode);
+				// Convex rolls the optimistic update back
 				this.setAwaitingStream(false);
-			}
-			// Convex rolls the optimistic update back
-			throw error;
-		} finally {
-			if (this.isSendOperationCurrent(sessionEpoch, sendRevision)) {
-				this.setSending(false);
-			}
-		}
+			},
+			settle: () => this.setSending(false)
+		});
 	}
 
 	async createThread(
@@ -294,24 +324,20 @@ export class ChatCore implements ChatSessionPort {
 
 	/** Reset session-owned flags without changing the selected thread. */
 	forgetChatSession(): void {
-		this.sendRevision++;
-		this.isSending = false;
-		this.awaitedTurn = null;
+		this.#supersede();
 		this.error = null;
 		this.shouldOpenWidget = false;
 	}
 
 	reset(): void {
-		this.sendRevision++;
+		this.#supersede();
 		this.#conversation = new ChatConversation();
 		this.isNewConversation = false;
 		this.isLoading = false;
-		this.isSending = false;
 		this.error = null;
 		this.shouldOpenWidget = false;
 		this.hasMore = false;
 		this.continueCursor = null;
-		this.awaitedTurn = null;
 		this.streamCache.clear();
 	}
 }
