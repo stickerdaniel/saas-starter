@@ -131,6 +131,23 @@
 	// pointerup, a key on Enter, Space or ArrowDown, and a click only when no
 	// pointer made it (detail 0, as from a screen reader). Every one of them
 	// opens, so a second activation before the menu loaded cannot close it.
+	$effect(() => {
+		if (!pending) return;
+		const dropOnOutsidePress = (event: PointerEvent) => {
+			if (event.target instanceof Node && button?.contains(event.target)) return;
+			pending = null;
+		};
+		const dropOnEscape = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') pending = null;
+		};
+		document.addEventListener('pointerdown', dropOnOutsidePress, true);
+		document.addEventListener('keydown', dropOnEscape, true);
+		return () => {
+			document.removeEventListener('pointerdown', dropOnOutsidePress, true);
+			document.removeEventListener('keydown', dropOnEscape, true);
+		};
+	});
+
 	function activate(origin: 'keyboard' | 'pointer') {
 		pending = origin;
 		void load();

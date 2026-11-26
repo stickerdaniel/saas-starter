@@ -180,6 +180,45 @@ describe('LanguageSwitcher', () => {
 		expect(document.activeElement).toBe(other);
 	});
 
+	it('drops a mouse activation when a press lands elsewhere before the menu loads', async () => {
+		const other = document.createElement('div');
+		document.body.append(other);
+		const chunk = holdMenuChunk();
+		trigger().dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType: 'mouse' })
+		);
+		await vi.waitFor(() => expect(chunk.requested).toBe(true));
+		await tick();
+		other.dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType: 'mouse' })
+		);
+
+		chunk.release();
+		await vi.waitFor(() =>
+			expect(document.querySelector('[data-dropdown-menu-trigger]')).not.toBeNull()
+		);
+		await settle();
+		expect(menu()).toBeNull();
+	});
+
+	it('drops a mouse activation cancelled with Escape before the menu loads', async () => {
+		const chunk = holdMenuChunk();
+		trigger().dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType: 'mouse' })
+		);
+		await vi.waitFor(() => expect(chunk.requested).toBe(true));
+		await tick();
+		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+		chunk.release();
+		await vi.waitFor(() =>
+			expect(document.querySelector('[data-dropdown-menu-trigger]')).not.toBeNull()
+		);
+		await settle();
+		expect(menu()).toBeNull();
+		expect(document.activeElement).toBe(document.body);
+	});
+
 	it('opens a pointer retry after a failed keyboard activation like a pointer', async () => {
 		vi.doUnmock('./ui/language-switcher/language-switcher.svelte');
 		vi.doMock('./ui/language-switcher/language-switcher.svelte', () => {
