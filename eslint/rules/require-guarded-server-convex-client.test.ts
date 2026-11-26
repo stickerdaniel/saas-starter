@@ -123,6 +123,14 @@ describe('require-guarded-server-convex-client', () => {
 			'Effect.gen(function* () { return () => createServerConvexHttpClient({}); }).pipe(recoverWith("x", () => null), Effect.map((create) => create()))'
 		],
 		[
+			'lifted into a value before its recovery',
+			'Effect.gen(function* () { return createServerConvexHttpClient({}); }).pipe(Effect.succeed, recoverWith("x", Effect.succeed(null)), Effect.flatten)'
+		],
+		[
+			'in a nested Effect.gen yielded as a value and run after the recovery',
+			'Effect.gen(function* () { return yield* Effect.gen(function* () { return createServerConvexHttpClient({}); }).pipe(Effect.succeed); }).pipe(recoverWith("x", Effect.succeed(null)), Effect.flatten)'
+		],
+		[
 			'before the recovered Effect.gen',
 			'(createServerConvexHttpClient({}), Effect.gen(function* () {}).pipe(recoverWith("x", null)))'
 		]

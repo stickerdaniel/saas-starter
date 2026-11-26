@@ -2,7 +2,7 @@
  * ESLint rule: require-guarded-server-convex-client
  *
  * Flags `createServerConvexHttpClient(...)` constructed outside a try block or
- * an `Effect.gen(...).pipe(recoverWith(...))` in a SvelteKit server load
+ * an `Effect.gen(...).pipe(recoverWith(...), ...)` in a SvelteKit server load
  * (`+page.server.ts` / `+layout.server.ts`).
  *
  * Why: the helper throws SYNCHRONOUSLY when the Convex URL is unresolved (a
@@ -36,7 +36,7 @@ export default {
 		schema: [],
 		messages: {
 			unguardedConstruction:
-				'createServerConvexHttpClient() throws synchronously when the Convex URL is unresolved (e.g. a freshly provisioned preview before env propagates). Construct it inside a try, or inside an Effect.gen piped through recoverWith(...), so the SSR load degrades to a fallback instead of 500ing the page (#594). The per-query .catch does not cover the construction line.'
+				'createServerConvexHttpClient() throws synchronously when the Convex URL is unresolved (e.g. a freshly provisioned preview before env propagates). Construct it inside a try, or inside an Effect.gen whose first pipe step is recoverWith(...), so the SSR load degrades to a fallback instead of 500ing the page (#594). The per-query .catch does not cover the construction line.'
 		}
 	},
 	create(context) {
@@ -58,19 +58,34 @@ export default {
 			);
 		}
 
-		function isRecoveredEffectGen(node) {
+		function isRecoverWith(node) {
+			return (
+				node?.type === 'CallExpression' &&
+				node.callee?.type === 'Identifier' &&
+				node.callee.name === 'recoverWith'
+			);
+		}
+
+		function isOrDie(node) {
+			return (
+				node?.type === 'MemberExpression' &&
+				node.object?.type === 'Identifier' &&
+				node.object.name === 'Effect' &&
+				node.property?.name === 'orDie'
+			);
+		}
+
+		function isPipedEffectGen(node) {
 			return (
 				node.type === 'CallExpression' &&
 				node.callee?.type === 'MemberExpression' &&
 				node.callee.property?.name === 'pipe' &&
-				isEffectGen(node.callee.object) &&
-				node.arguments.some(
-					(argument) =>
-						argument.type === 'CallExpression' &&
-						argument.callee?.type === 'Identifier' &&
-						argument.callee.name === 'recoverWith'
-				)
+				isEffectGen(node.callee.object)
 			);
+		}
+
+		function isRecoveredEffectGen(node) {
+			return isPipedEffectGen(node) && isRecoverWith(node.arguments[0]);
 		}
 
 		function isFunction(node) {
@@ -89,11 +104,9 @@ export default {
 		function yieldedEffectGen(node) {
 			if (node.type !== 'YieldExpression' || !node.delegate || !node.argument) return undefined;
 			if (isEffectGen(node.argument)) return node.argument;
-			const { callee } = node.argument;
-			return callee?.type === 'MemberExpression' &&
-				callee.property?.name === 'pipe' &&
-				isEffectGen(callee.object)
-				? callee.object
+			return isPipedEffectGen(node.argument) &&
+				node.argument.arguments.every((step) => isRecoverWith(step) || isOrDie(step))
+				? node.argument.callee.object
 				: undefined;
 		}
 
