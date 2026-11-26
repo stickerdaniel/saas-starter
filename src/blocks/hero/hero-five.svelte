@@ -23,7 +23,7 @@
 	<section class="relative flex items-center justify-center">
 		<!-- Below the call to action on narrow screens, beside the headline from lg. -->
 		<DeskComputer
-			class="absolute bottom-5 left-1/2 w-100 -translate-x-1/2 lg:top-1/2 lg:bottom-auto lg:left-9/20 lg:mt-8 lg:w-175 lg:translate-x-0 lg:-translate-y-1/2 xl:left-13/25"
+			class="absolute bottom-5 left-1/2 w-100 -translate-x-1/2 lg:top-1/2 lg:bottom-auto lg:left-9/20 lg:mt-13 lg:w-175 lg:translate-x-0 lg:-translate-y-1/2 xl:left-13/25 xl:mt-16"
 		/>
 
 		<div class="pointer-events-none w-full pt-20 pb-78 font-marketing-critical lg:pt-40 lg:pb-36">
