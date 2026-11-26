@@ -61,13 +61,10 @@ export class SupportConversation implements ChatSessionPort {
 	isHandedOff = $state(false);
 	assignedAdmin = $state<SupportAssignedAdmin | undefined>(undefined);
 	notificationEmail = $state<string | null>(null);
-	isLoading = $state(false);
 	isSending = $state(false);
 	error = $state<string | null>(null);
 	threadGeneration = $state(0);
 	isNewConversation = $state(false);
-	hasMore = $state(false);
-	continueCursor = $state<string | null>(null);
 	isAwaitingStream = $state(false);
 	rateLimitedUntil = $state<number | null>(null);
 
@@ -138,10 +135,6 @@ export class SupportConversation implements ChatSessionPort {
 		this.drafts.setDraft(threadId, text);
 	}
 
-	clearDraft(threadId: string | null): void {
-		this.drafts.clearDraft(threadId);
-	}
-
 	setRateLimited(retryAfterMs: number): void {
 		this.rateLimitedUntil = Date.now() + retryAfterMs;
 	}
@@ -158,14 +151,6 @@ export class SupportConversation implements ChatSessionPort {
 		this.userId = userId;
 	}
 
-	setThreadAgentName(agentName: string | undefined): void {
-		this.threadAgentName = agentName;
-	}
-
-	setAssignedAdmin(admin: SupportAssignedAdmin | undefined): void {
-		this.assignedAdmin = admin;
-	}
-
 	setNotificationEmail(email: string | null): void {
 		this.notificationEmail = email;
 	}
@@ -176,10 +161,6 @@ export class SupportConversation implements ChatSessionPort {
 
 	setAwaitingStream(awaiting: boolean): void {
 		this.isAwaitingStream = awaiting;
-	}
-
-	setLoading(loading: boolean): void {
-		this.isLoading = loading;
 	}
 
 	setSending(sending: boolean): void {
@@ -296,8 +277,6 @@ export class SupportConversation implements ChatSessionPort {
 		this.isHandedOff = isHandedOff ?? false;
 		this.assignedAdmin = assignedAdmin;
 		this.notificationEmail = notificationEmail ?? null;
-		this.hasMore = false;
-		this.continueCursor = null;
 	}
 
 	/**
@@ -335,8 +314,6 @@ export class SupportConversation implements ChatSessionPort {
 		this.isHandedOff = false;
 		this.assignedAdmin = undefined;
 		this.notificationEmail = null;
-		this.hasMore = false;
-		this.continueCursor = null;
 		this.isNewConversation = true;
 		this.threadGeneration++;
 	}
@@ -580,11 +557,8 @@ export class SupportConversation implements ChatSessionPort {
 		this.isHandedOff = false;
 		this.assignedAdmin = undefined;
 		this.notificationEmail = null;
-		this.isLoading = false;
 		this.isSending = false;
 		this.error = null;
 		this.isNewConversation = false;
-		this.hasMore = false;
-		this.continueCursor = null;
 	}
 }

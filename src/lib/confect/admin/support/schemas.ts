@@ -1,4 +1,3 @@
-import { SchemaToValidator } from '@confect/core';
 import * as Schema from 'effect/Schema';
 import { Id } from '../../_generated/id';
 import type { MessagesQueryResponse } from '../../../chat/core/types';
@@ -143,10 +142,6 @@ export const InternalNoteArgsSchema = Schema.Struct({
 
 export const NotificationMessagesSchema = Schema.mutable(
 	Schema.Array(Schema.Struct({ text: Schema.String, timestamp: Schema.String }))
-);
-
-export const notificationMessagesValidator = SchemaToValidator.compileSchema(
-	NotificationMessagesSchema
 );
 
 export const RecipientEnqueueArgsSchema = Schema.Struct({

@@ -278,7 +278,7 @@ export const restyleOwners = [
 		id: 'O05',
 		files: ['src/lib/components/ui/owned/composer-attachment-button.svelte'],
 		components: {
-			Button: ['border-0', 'bg-transparent', 'shadow-none', 'aria-disabled:opacity-50']
+			Button: ['aria-disabled:opacity-50']
 		}
 	},
 	{

@@ -2,12 +2,9 @@
 	import { Button, type ButtonProps } from '#lib/components/ui/button/index.js';
 	import { cn } from '#lib/utils.js';
 
-	type Props = Omit<ButtonProps, 'variant' | 'size' | 'shape' | 'justify' | 'affordance'> & {
-		/** The compact composer drops the outline chrome but keeps its hover and open states. */
-		compact?: boolean;
-	};
+	type Props = Omit<ButtonProps, 'variant' | 'size' | 'shape' | 'justify' | 'affordance'>;
 
-	let { compact = false, ref = $bindable(null), class: className, ...restProps }: Props = $props();
+	let { ref = $bindable(null), class: className, ...restProps }: Props = $props();
 </script>
 
 <Button
@@ -15,10 +12,6 @@
 	variant="outline"
 	size="icon"
 	shape="pill"
-	class={cn(
-		'aria-disabled:opacity-50',
-		compact && 'border-0 bg-transparent shadow-none',
-		className
-	)}
+	class={cn('aria-disabled:opacity-50', className)}
 	{...restProps}
 />
