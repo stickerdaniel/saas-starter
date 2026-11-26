@@ -48,20 +48,20 @@ const ownedFixture = Schema.Union([
 const ownedAttempt = Schema.Struct({
 	runId: Schema.String,
 	workerIndex: Schema.Int,
-	userEmails: Schema.Array(Schema.String),
-	recipientEmails: Schema.Array(Schema.String),
+	userEmails: Schema.mutable(Schema.Array(Schema.String)),
+	recipientEmails: Schema.mutable(Schema.Array(Schema.String)),
 	/** Anonymous support IDs; teardown adds the user IDs of owned accounts. */
-	supportOwners: Schema.Array(Schema.String),
+	supportOwners: Schema.mutable(Schema.Array(Schema.String)),
 	/**
 	 * Support threads by ID. A spec's own cleanup can delete the app rows that
 	 * teardown finds threads through while the agent thread survives, so the IDs
 	 * go here before that cleanup runs. Attempt files from before this field
 	 * read as an empty list, so their accounts and owners stay recoverable.
 	 */
-	supportThreadIds: Schema.Array(Schema.String).pipe(
+	supportThreadIds: Schema.mutable(Schema.Array(Schema.String)).pipe(
 		Schema.withDecodingDefault(Effect.succeed([]))
 	),
-	fixtures: Schema.Array(ownedFixture)
+	fixtures: Schema.mutable(Schema.Array(ownedFixture))
 });
 const decodeOwnedAttempt = Schema.decodeUnknownSync(ownedAttempt);
 

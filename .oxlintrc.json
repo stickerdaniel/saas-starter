@@ -19,7 +19,10 @@
 					{ "name": "zod", "message": "zod is not a dependency. Validate with effect/Schema." }
 				],
 				"patterns": [
-					{ "group": ["zod/*"], "message": "zod is not a dependency. Validate with effect/Schema." }
+					{
+						"group": ["zod/**"],
+						"message": "zod is not a dependency. Validate with effect/Schema."
+					}
 				]
 			}
 		]

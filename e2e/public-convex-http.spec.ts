@@ -21,7 +21,7 @@ const Probes = Schema.Array(
 		request: Schema.optional(
 			Schema.Struct({ headers: Schema.optional(Headers), body: Schema.optional(Schema.String) })
 		),
-		status: Schema.Array(Schema.Number),
+		status: Schema.Array(Schema.Finite),
 		headers: Schema.optional(Headers)
 	})
 );
