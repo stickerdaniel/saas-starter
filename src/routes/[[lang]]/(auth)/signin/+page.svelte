@@ -398,6 +398,7 @@
 			const signInSocial = resumesAuthorization
 				? (await import('#lib/auth-client-oauth.js')).oauthAuthClient.signIn.social
 				: authClient.signIn.social;
+			if (left) return;
 			const { error } = await signInSocial(
 				{
 					provider,
