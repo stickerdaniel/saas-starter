@@ -106,9 +106,9 @@ const config = [
 	}
 ];
 
-function messageIds(code: string) {
+function messageIds(code: string, file = 'notes.impl.ts') {
 	return linter
-		.verify(code, config, { filename: path.join(directory, 'notes.impl.ts') })
+		.verify(code, config, { filename: path.join(directory, file) })
 		.map((message) => message.messageId);
 }
 
@@ -488,11 +488,26 @@ describe('convex-canonical-registration', () => {
 
 		it('passes an imported implementation from a spec file with a specifier-level type import', () => {
 			expect(
-				messageIds(`import { FunctionImpl } from '@confect/server';
+				messageIds(
+					`import { FunctionImpl } from '@confect/server';
 				import { list } from './notes';
 				import notes from './typed.spec';
-				export const f = FunctionImpl.make(databaseSchema, notes, 'list', list);`)
+				export const f = FunctionImpl.make(databaseSchema, notes, 'list', list);`,
+					'typed.impl.ts'
+				)
 			).toEqual([]);
+		});
+
+		it('reports an imported implementation for the plain-only group of another spec file', () => {
+			expect(
+				messageIds(
+					`import { FunctionImpl } from '@confect/server';
+				import { list } from './notes';
+				import notes from './notes.spec';
+				export const f = FunctionImpl.make(databaseSchema, notes, 'list', list);`,
+					'probe.impl.ts'
+				)
+			).toEqual(['inlineImplementation']);
 		});
 
 		it('reports an implementation held in a local binding', () => {
@@ -739,5 +754,51 @@ describe('convex-canonical-registration ratchet', () => {
 		]
 	])('reports httpAction on %s', (_label, code, file) => {
 		expect(ratchetMessageIds(code, file)).toEqual(['unlistedHttpRoute']);
+	});
+
+	it('reports httpAction on a route of an object other than the httpRouter() binding', () => {
+		expect(
+			ratchetMessageIds(
+				`import { httpRouter } from 'convex/server';
+				import { httpAction } from '../convex/_generated/server';
+				const http = httpRouter();
+				const nested = { route(config) { http.route({ ...config, path: '/other' }); } };
+				nested.route({ path: '/resend-webhook', method: 'POST', handler: httpAction(async () => new Response(null)) });`,
+				'confect/http.ts'
+			)
+		).toEqual(['unlistedHttpRoute']);
+	});
+
+	it.each([
+		['a constructor subpath', `import * as FunctionSpec from '@confect/core/FunctionSpec';`],
+		['a constructor from a local module', `import { FunctionImpl } from './constructors';`],
+		['a re-exported constructor', `export { FunctionSpec } from '@confect/core';`],
+		['a re-exported package root', `export * from '@confect/server';`]
+	])('reports %s', (_label, code) => {
+		expect(ratchetMessageIds(code, 'confect/helpers.ts')).toEqual([
+			expect.stringMatching(/^(constructorSubpath|reexport)$/)
+		]);
+	});
+
+	it.each([
+		['a value import', `import { plainHandler } from './__tests__/plainRoute';`],
+		['a re-export', `export { plainHandler } from './routes.test';`],
+		['a side-effect import', `import './__tests__/setup';`]
+	])('reports %s from a test file', (_label, code) => {
+		expect(ratchetMessageIds(code, 'confect/http.ts')).toEqual(['testModuleImport']);
+	});
+
+	it('passes a type import from a test file', () => {
+		expect(
+			ratchetMessageIds(`import type { Fixture } from './__tests__/fixtures';`, 'confect/http.ts')
+		).toEqual([]);
+	});
+
+	it.each([
+		['a re-exported group', `export { sub as default } from './autumn.spec';`],
+		['a forwarded default', `import { sub } from './autumn.spec';\nexport default sub;`],
+		['a forwarded named group', `import { sub } from './autumn.spec';\nexport { sub };`]
+	])('reports %s in a spec file', (_label, code) => {
+		expect(ratchetMessageIds(code, 'confect/probe.spec.ts')).toEqual(['specForwarding']);
 	});
 });

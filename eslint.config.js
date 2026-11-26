@@ -767,10 +767,9 @@ export default defineConfig(
 		}
 	},
 	// Anyone on the internet can call a public query, mutation or action, so its
-	// handler completes an access call before any effect, and every application
-	// function is a native Confect spec. PLAIN_REGISTRATION_PATHS names the files
-	// that register no application functions. See eslint/rules/convex-access-first.js
-	// and eslint/rules/convex-canonical-registration.js.
+	// handler completes an access call before any effect, and every registration
+	// keeps the form the access rules can read. See eslint/rules/convex-access-first.js and
+	// eslint/rules/convex-canonical-registration.js.
 	{
 		files: convexRuntimeFiles,
 		ignores: Object.keys(PLAIN_REGISTRATION_PATHS),

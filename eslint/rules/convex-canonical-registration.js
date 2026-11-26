@@ -1,23 +1,19 @@
 /**
  * ESLint rule: convex-canonical-registration
  *
- * Registers every application function as a native Confect spec, and keeps the
- * plain registrations that remain in the one form the registration rules read.
- * The rule refuses:
+ * Keeps every Convex registration in the one form the registration rules read.
+ * `@convex-dev/require-access-control` and `local/convex-access-first` find a
+ * raw registration by the callee names `query`, `mutation`, `action` and an
+ * identifier key `handler`. Any other spelling hides a function from them. The rule
+ * requires:
  *
- * - a value import of a raw builder (`query`, `mutation`, `action`, their
- *   `internal*` forms and `httpAction` from `_generated/server`, the `*Generic`
- *   builders from `convex/server`);
- * - a plain spec (`FunctionSpec.convex*`) whose `<group>:<name>` is not in
- *   `libraryFunctions`;
- * - `httpAction` anywhere except as the inline `handler` of an `http.route` call
- *   in `httpFile` whose `path` is in `httpRoutes`.
+ * - a builder binding is only called, without `?.`; a raw builder may also be
+ *   passed to a builder imported from convex-helpers (`customQuery(query, ...)`);
+ * - a raw registration takes one object literal whose keys are plain
+ *   identifiers, with no spread and no computed key;
+ * - a public registration has an inline `handler` function.
  *
- * `eslint/convex-registrars.js` holds these lists with a reason per entry. For a
- * raw registration the rule also requires the form `@convex-dev/require-access-control`
- * and `local/convex-access-first` read: the builder imported under its own name,
- * with no namespace import and no re-export, called once with an object literal
- * of plain identifier keys, and an inline `handler` for a public one.
+ * Example: export const f = query({ args: {}, returns: v.null(), handler: async (ctx) => { ... } });
  */
 
 import {
@@ -44,6 +40,16 @@ const BUILDER_MODULES = [
 	{ module: '_generated/server', names: new Set([...RAW_REGISTRARS, 'httpAction']) },
 	{ module: 'convex/server', names: new Set(GENERIC_REGISTRARS) }
 ];
+
+const CONFECT_SUBPATH = /^(@confect\/(?:core|server))\/./;
+const CONSTRUCTOR_ROOTS = new Map(
+	Object.entries(CONFECT_CONSTRUCTORS).flatMap(([root, names]) => names.map((name) => [name, root]))
+);
+const TEST_MODULE = /(^|\/)__tests__(\/|$)|\.test(\.[cm]?[jt]s)?$/;
+
+const isTypeOnly = (node, kind) =>
+	node[kind] === 'type' ||
+	(node.specifiers.length > 0 && node.specifiers.every((specifier) => specifier[kind] === 'type'));
 
 function builderModule(source) {
 	return BUILDER_MODULES.find(({ module }) =>
@@ -154,6 +160,12 @@ export default {
 			}
 		],
 		messages: {
+			constructorSubpath:
+				'Import from `{{root}}` instead of `{{source}}`. The registration rules read the Confect constructors only through the package root.',
+			testModuleImport:
+				'Move what `{{source}}` provides out of the test files. The registration rules skip test files, so application code loads nothing from them.',
+			specForwarding:
+				'Build this group in this spec file. A spec file that forwards a group from another module registers its functions under its own group name, outside the library list.',
 			plainRegistration:
 				'Register this function as a native Confect spec with `FunctionSpec` and `FunctionImpl.make`. `{{name}}` from {{module}} registers a plain Convex function, which only the library functions and HTTP routes in `eslint/convex-registrars.js` keep.',
 			unlistedPlainSpec:
@@ -183,7 +195,7 @@ export default {
 			implShape:
 				"Call `FunctionImpl.make(schema, group, 'name', implementation)` with a string literal name. The spec graph checks pair an implementation with its spec by that name.",
 			inlineImplementation:
-				'Pass a native implementation to `FunctionImpl.make` inline, or the Convex registration of a plain spec by its import. The registration rules read the handler form only inline, and accept an import only when the group comes from a spec file that reads no value from another module and either holds only plain specs or lists the function as library-created.',
+				'Pass a native implementation to `FunctionImpl.make` inline, or the Convex registration of a plain spec by its import. The registration rules read the handler form only inline, and accept an import only when the group is the default import of the sibling spec file, which reads no value from another module and either holds only plain specs or lists the function as library-created.',
 			eagerImplementation:
 				'Return `Effect.gen(...)` or an `Effect.fn(...)(...)` call directly from this implementation, with every step, default value and computed key inside the Effect; `.pipe(...)` and `Effect.fn` may follow with `effect/Effect` operators only, given identifiers, namespace import members, literals and functions, and no `run*`, `*Unsafe` or `*Eager` member. Confect calls the implementation before it runs middleware, so a step outside the Effect runs for a caller the middleware refuses.'
 		}
@@ -199,6 +211,88 @@ export default {
 		const listed = new Set(libraryFunctions);
 		const isHttpFile = path.resolve(context.cwd, httpFile) === path.resolve(context.filename);
 		const listedRoutes = new Set(httpRoutes);
+		const isSpecFile = context.filename.endsWith('.spec.ts');
+
+		function isImportOf(identifier, source, name) {
+			const definition = findDefinition(context, identifier);
+			return (
+				definition?.type === 'ImportBinding' &&
+				definition.parent.importKind !== 'type' &&
+				definition.parent.source.value === source &&
+				definition.node.type === 'ImportSpecifier' &&
+				(definition.node.imported.name ?? definition.node.imported.value) === name
+			);
+		}
+
+		function isHttpRouter(node) {
+			if (node.type !== 'Identifier') return false;
+			const definition = findDefinition(context, node);
+			const init = definition?.node.init;
+			return (
+				definition?.type === 'Variable' &&
+				definition.parent.kind === 'const' &&
+				definition.parent.parent.type === 'Program' &&
+				init?.type === 'CallExpression' &&
+				init.arguments.length === 0 &&
+				init.callee.type === 'Identifier' &&
+				isImportOf(init.callee, 'convex/server', 'httpRouter')
+			);
+		}
+
+		function isSiblingSpecGroup(group) {
+			if (group?.type !== 'Identifier' || !context.filename.endsWith('.impl.ts')) return false;
+			const definition = findDefinition(context, group);
+			if (
+				definition?.type !== 'ImportBinding' ||
+				definition.node.type !== 'ImportDefaultSpecifier'
+			) {
+				return false;
+			}
+			const source = definition.parent.source.value;
+			const resolved = path.resolve(path.dirname(context.filename), source).replace(/\.ts$/, '');
+			return (
+				source.startsWith('.') && resolved === context.filename.replace(/\.impl\.ts$/, '.spec')
+			);
+		}
+
+		function isImportedBinding(node) {
+			const root = node.type === 'MemberExpression' ? rootObject(node) : node;
+			return root.type === 'Identifier' && findDefinition(context, root)?.type === 'ImportBinding';
+		}
+
+		function rootObject(node) {
+			let result = node;
+			while (result.type === 'MemberExpression') result = result.object;
+			return result;
+		}
+
+		function checkSourceExport(node, typeOnly) {
+			const source = node.source.value;
+			if (typeOnly) return;
+			if (TEST_MODULE.test(source)) {
+				context.report({ node, messageId: 'testModuleImport', data: { source } });
+			}
+			const subpath = CONFECT_SUBPATH.exec(source);
+			if (subpath) {
+				context.report({
+					node,
+					messageId: 'constructorSubpath',
+					data: { root: subpath[1], source }
+				});
+			} else if (Object.hasOwn(CONFECT_CONSTRUCTORS, source)) {
+				const names = CONFECT_CONSTRUCTORS[source];
+				const exported =
+					node.type === 'ExportAllDeclaration'
+						? ['*']
+						: node.specifiers
+								.map((specifier) => specifier.local.name ?? specifier.local.value)
+								.filter((name) => names.includes(name));
+				for (const name of exported) {
+					context.report({ node, messageId: 'reexport', data: { name, module: source } });
+				}
+			}
+			if (isSpecFile) context.report({ node, messageId: 'specForwarding' });
+		}
 
 		function specFunctionId(name) {
 			const relative = path.relative(confectRoot, context.filename);
@@ -236,7 +330,8 @@ export default {
 				route.arguments[0] !== config ||
 				route.callee.type !== 'MemberExpression' ||
 				route.callee.computed ||
-				route.callee.property.name !== 'route'
+				route.callee.property.name !== 'route' ||
+				!isHttpRouter(route.callee.object)
 			) {
 				return false;
 			}
@@ -325,6 +420,7 @@ export default {
 			if (value.type === 'Identifier') {
 				if (
 					findDefinition(context, value)?.type !== 'ImportBinding' ||
+					!isSiblingSpecGroup(group) ||
 					!(
 						isPlainOnlySpec(context, group, name, PLAIN_SPECS) ||
 						isListedLibraryFunction(group, name)
@@ -479,6 +575,33 @@ export default {
 
 		return {
 			ImportDeclaration(node) {
+				const typeOnly = isTypeOnly(node, 'importKind');
+				if (!typeOnly && TEST_MODULE.test(node.source.value)) {
+					context.report({
+						node,
+						messageId: 'testModuleImport',
+						data: { source: node.source.value }
+					});
+				}
+				const subpath = CONFECT_SUBPATH.exec(node.source.value);
+				if (subpath && !typeOnly) {
+					context.report({
+						node,
+						messageId: 'constructorSubpath',
+						data: { root: subpath[1], source: node.source.value }
+					});
+				}
+				for (const specifier of node.specifiers) {
+					if (specifier.type !== 'ImportSpecifier' || specifier.importKind === 'type') continue;
+					const root = CONSTRUCTOR_ROOTS.get(specifier.imported.name ?? specifier.imported.value);
+					if (root && root !== node.source.value && !subpath && node.importKind !== 'type') {
+						context.report({
+							node: specifier,
+							messageId: 'constructorSubpath',
+							data: { root, source: node.source.value }
+						});
+					}
+				}
 				const confect = Object.hasOwn(CONFECT_CONSTRUCTORS, node.source.value)
 					? CONFECT_CONSTRUCTORS[node.source.value]
 					: undefined;
@@ -547,6 +670,15 @@ export default {
 				}
 			},
 			ExportNamedDeclaration(node) {
+				if (node.source) {
+					checkSourceExport(node, isTypeOnly(node, 'exportKind'));
+				} else if (isSpecFile && node.exportKind !== 'type') {
+					for (const specifier of node.specifiers) {
+						if (specifier.exportKind !== 'type' && isImportedBinding(specifier.local)) {
+							context.report({ node: specifier, messageId: 'specForwarding' });
+						}
+					}
+				}
 				const source = node.source && builderModule(node.source.value);
 				if (!source) return;
 				for (const specifier of node.specifiers) {
@@ -560,7 +692,18 @@ export default {
 					}
 				}
 			},
+			ExportDefaultDeclaration(node) {
+				const declaration = unwrap(node.declaration);
+				if (
+					isSpecFile &&
+					(declaration.type === 'Identifier' || declaration.type === 'MemberExpression') &&
+					isImportedBinding(declaration)
+				) {
+					context.report({ node, messageId: 'specForwarding' });
+				}
+			},
 			ExportAllDeclaration(node) {
+				checkSourceExport(node, node.exportKind === 'type');
 				const source = builderModule(node.source.value);
 				if (source) {
 					context.report({
