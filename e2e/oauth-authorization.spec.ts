@@ -278,17 +278,34 @@ test('every authorization server metadata URL serves the rewritten document', as
 	expect(otherIssuer.status()).toBe(404);
 });
 
-test('a signed-in user cannot create a client outside registration', async ({ request }) => {
-	await signInByRequest({ request }, await newAccount('create-client'));
-	const created = await request.post(`${siteUrl()}/api/auth/oauth2/create-client`, {
-		headers: { Origin: siteUrl() },
-		data: {
-			client_name: 'Managed client',
-			redirect_uris: ['https://app.example.com/callback'],
-			token_endpoint_auth_method: 'none'
-		}
-	});
-	expect(created.status()).toBe(404);
+test('a signed-in user reaches none of the client management endpoints', async ({ request }) => {
+	const clientId = await registerClient(request, await fetchMetadata(request), 'Managed client');
+	await signInByRequest({ request }, await newAccount('client-management'));
+	const endpoints = [
+		{
+			path: 'create-client',
+			data: {
+				client_name: 'Managed client',
+				redirect_uris: ['https://app.example.com/callback'],
+				token_endpoint_auth_method: 'none'
+			}
+		},
+		{ path: 'update-client', data: { client_id: clientId, update: { client_name: 'Renamed' } } },
+		{ path: 'client/rotate-secret', data: { client_id: clientId } },
+		{ path: 'delete-client', data: { client_id: clientId } },
+		{ path: `get-client?client_id=${clientId}` },
+		{ path: 'get-clients' }
+	];
+	for (const { path, data } of endpoints) {
+		const url = `${siteUrl()}/api/auth/oauth2/${path}`;
+		const response = data
+			? await request.post(url, { headers: { Origin: siteUrl() }, data })
+			: await request.get(url);
+		expect({ status: response.status(), body: await response.text() }, path).toEqual({
+			status: 404,
+			body: 'Not Found'
+		});
+	}
 });
 
 test('registration refuses a client name longer than 100 characters', async ({ request }) => {
