@@ -47,14 +47,17 @@ const hasOverrideUrl = !!process.env.E2E_OVERRIDE_SITE_URL;
 const bypass = getPreviewBypass();
 
 // A spec that reads data other specs write without an owner filter belongs here:
-// the unfiltered audit log, the users table with its global counts, and the
-// global recipient list. These run in chromium-serial after every writing
-// project has finished, and no other project lists them.
+// the unfiltered audit log, the users table with its global counts, the
+// global recipient list, and the deployment-wide OAuth registration limit.
+// These run in chromium-serial after every writing project has finished, and
+// no other project lists them.
 const serialSpecs = [
 	'**/admin-audit-log.spec.ts',
 	'**/admin-users-table.spec.ts',
 	'**/admin-settings.spec.ts',
-	'**/admin-settings-table.spec.ts'
+	'**/admin-settings-table.spec.ts',
+	'**/oauth-authorization.spec.ts',
+	'**/oauth-connections.spec.ts'
 ];
 type E2EProject = Project<PlaywrightTestOptions, PlaywrightWorkerOptions & WorkerAccountOptions>;
 
@@ -105,7 +108,8 @@ export default defineConfig<object, WorkerAccountOptions>({
 					'**/unauthenticated-redirect.spec.ts',
 					'**/admin-*.spec.ts',
 					'**/signout.spec.ts',
-					'**/public-*.spec.ts'
+					'**/public-*.spec.ts',
+					...serialSpecs
 				]
 			},
 			{
