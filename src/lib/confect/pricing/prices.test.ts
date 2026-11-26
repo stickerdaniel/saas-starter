@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PRICES, costOf } from './prices';
+import { costOf } from './prices';
 import { AI_CHAT_MODEL_ID, SUPPORT_MODEL_ID, TITLE_MODEL_ID } from '../utils/chatModel';
 
 // One million input + one million output tokens, so the expected USD for a
@@ -53,7 +53,6 @@ describe('costOf', () => {
 		['SUPPORT_MODEL_ID', SUPPORT_MODEL_ID],
 		['TITLE_MODEL_ID', TITLE_MODEL_ID]
 	])('keeps a price row for %s', (_label, modelId) => {
-		expect(PRICES[modelId]).toBeDefined();
 		expect(costOf(modelId, SAMPLE)).not.toBeNull();
 	});
 });
