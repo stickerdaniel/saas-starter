@@ -5,7 +5,7 @@ import agentSchema from '../../../../node_modules/@convex-dev/agent/dist/compone
 import rateLimiterSchema from '../../../../node_modules/@convex-dev/rate-limiter/dist/component/schema.js';
 import { ConvexError } from 'convex/values';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, components } from '../../convex/_generated/api';
+import { api, components, internal } from '../../convex/_generated/api';
 import schema from '../../convex/schema';
 import authSchema from '../../convex-components/betterAuth/schema';
 import { MAX_MESSAGE_FILES, MAX_MESSAGE_LENGTH } from '../constants';
@@ -64,7 +64,7 @@ const fileParts = async (t: Harness, threadId: string) =>
 		)
 		.filter((type) => type === 'file').length;
 
-async function storeFile(t: Harness) {
+async function storeFile(t: Harness, ownerId: string) {
 	const storageId = await t.run((ctx) =>
 		ctx.storage.store(new Blob(['notes'], { type: 'text/plain' }))
 	);
@@ -74,6 +74,7 @@ async function storeFile(t: Harness) {
 		filename: 'notes.txt',
 		mediaType: 'text/plain'
 	});
+	await t.mutation(internal.files.owners.grantFileOwner, { fileId, ownerId });
 	return fileId;
 }
 
@@ -157,7 +158,7 @@ describe('support message access', () => {
 	it('refuses more file ids than the cap before checking access or the rate limit', async () => {
 		const t = harness();
 		const threadId = await ownedThread(t);
-		const fileId = await storeFile(t);
+		const fileId = await storeFile(t, OWNER);
 		for (let sent = 0; sent < ANONYMOUS_MESSAGES_PER_MINUTE; sent++) {
 			await t.mutation(api.support.messages.sendMessage, {
 				threadId,
@@ -186,10 +187,26 @@ describe('support message access', () => {
 		expect(await fileParts(t, threadId)).toBe(0);
 	});
 
+	it("refuses another visitor's file without saving a message", async () => {
+		const t = harness();
+		const threadId = await ownedThread(t);
+		const fileId = await storeFile(t, 'anon_other');
+
+		await expect(
+			t.mutation(api.support.messages.sendMessage, {
+				threadId,
+				anonymousUserId: OWNER,
+				prompt: 'Files',
+				fileIds: [fileId]
+			})
+		).rejects.toThrow();
+		expect(await visitorMessages(t, threadId)).toHaveLength(0);
+	});
+
 	it('accepts a send with exactly the cap of file ids', async () => {
 		const t = harness();
 		const threadId = await ownedThread(t);
-		const fileId = await storeFile(t);
+		const fileId = await storeFile(t, OWNER);
 
 		await expect(
 			t.mutation(api.support.messages.sendMessage, {

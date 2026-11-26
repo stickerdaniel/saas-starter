@@ -11,6 +11,7 @@ import { MutationCtx, Scheduler } from '../_generated/services';
 import vacuum from './vacuum.spec';
 
 const UNTOUCHED_FOR = Duration.hours(24);
+const MAX_OWNERS_PER_FILE = 1000;
 
 const metadataRowsOf = (ctx: ConvexMutationCtx, storageId: string) =>
 	// eslint-disable-next-line @convex-dev/no-collect-in-query -- Bounded: <=100 files per batch, fileMetadata is deduped by URL (~1 row per file)
@@ -18,6 +19,12 @@ const metadataRowsOf = (ctx: ConvexMutationCtx, storageId: string) =>
 		.query('fileMetadata')
 		.withIndex('by_storageId', (q) => q.eq('storageId', storageId))
 		.collect();
+
+const ownerRowsOf = (ctx: ConvexMutationCtx, fileId: string) =>
+	ctx.db
+		.query('fileOwners')
+		.withIndex('by_file_and_owner', (q) => q.eq('fileId', fileId))
+		.take(MAX_OWNERS_PER_FILE);
 
 export default GroupImpl.make(databaseSchema, vacuum).pipe(
 	Layer.provide([
@@ -39,8 +46,12 @@ export default GroupImpl.make(databaseSchema, vacuum).pipe(
 				);
 				for (const file of toDelete) {
 					const rows = yield* Effect.promise(() => metadataRowsOf(ctx, file.storageId));
+					const owners = yield* Effect.promise(() => ownerRowsOf(ctx, file._id));
 					yield* Effect.promise(() =>
-						Promise.all(rows.map((row) => ctx.db.delete('fileMetadata', row._id)))
+						Promise.all([
+							...rows.map((row) => ctx.db.delete('fileMetadata', row._id)),
+							...owners.map((row) => ctx.db.delete('fileOwners', row._id))
+						])
 					);
 				}
 				yield* Effect.promise(() =>

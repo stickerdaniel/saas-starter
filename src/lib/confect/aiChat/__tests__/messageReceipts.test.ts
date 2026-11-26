@@ -70,6 +70,8 @@ function setup() {
 		createdAt: 0,
 		isWarm: false
 	});
+	for (const fileId of ['file_1', 'file_2'])
+		store.insert('fileOwners', { fileId, ownerId: 'sender' });
 	ownedThreadMock.mockImplementation(() => Effect.sync(() => store.docs('aiChatThreads')[0]));
 	const send = (args: { prompt: string; fileIds?: string[] }) =>
 		store.mutate(sendMessage as unknown as Registered, { threadId: 'thread_1', ...args });

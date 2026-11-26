@@ -1,5 +1,5 @@
 import { FunctionImpl, GroupImpl } from '@confect/server';
-import { abortStream, getFile, saveMessages } from '@convex-dev/agent';
+import { abortStream, saveMessages } from '@convex-dev/agent';
 import type { UserContent } from 'ai';
 import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
@@ -36,6 +36,7 @@ import {
 } from '../env';
 import { AiChatRefusal } from '../errorCodecs';
 import { getFileMetadataByUrls } from '../files/metadata';
+import { ownedFilePart } from '../files/owners';
 import RequireUserImpl from '../middleware/RequireUser.impl';
 import { CurrentUser } from '../middleware/RequireUser.spec';
 import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
@@ -79,7 +80,10 @@ async function saveUserMessage(
 		args.fileIds && args.fileIds.length > 0
 			? await aiChatAgent.saveMessage(ctx, {
 					threadId: args.threadId,
-					message: { role: 'user', content: await fileContent(ctx, args.prompt, args.fileIds) },
+					message: {
+						role: 'user',
+						content: await fileContent(ctx, args.prompt, args.fileIds, userId)
+					},
 					metadata: { fileIds: args.fileIds },
 					skipEmbeddings: true
 				})
@@ -102,12 +106,16 @@ async function saveUserMessage(
 	return saved;
 }
 
-async function fileContent(ctx: ConvexMutationCtx, prompt: string, fileIds: string[]) {
+async function fileContent(
+	ctx: ConvexMutationCtx,
+	prompt: string,
+	fileIds: string[],
+	userId: string
+) {
 	const content: UserContent = [];
 	if (prompt.trim()) content.push({ type: 'text', text: prompt });
 	for (const fileId of fileIds) {
-		const { filePart } = await getFile(ctx, components.agent, fileId);
-		content.push(filePart);
+		content.push(await ownedFilePart(ctx, fileId, userId));
 	}
 	return content;
 }

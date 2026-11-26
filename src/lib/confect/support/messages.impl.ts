@@ -1,5 +1,4 @@
 import { FunctionImpl, GroupImpl } from '@confect/server';
-import { getFile } from '@convex-dev/agent';
 import { APICallError, RetryError, type UserContent } from 'ai';
 import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
@@ -38,6 +37,7 @@ import {
 } from '../env';
 import { SupportRefusal } from '../errorCodecs';
 import { getFileMetadataByUrls } from '../files/metadata';
+import { ownedFilePart } from '../files/owners';
 import { extractLocaleFromUrl, t } from '../i18n/translations';
 import VisitorAccessImpl, { requireOwnedSupportThread } from '../middleware/VisitorAccess.impl';
 import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
@@ -232,9 +232,10 @@ const handToTeam = (threadId: string) =>
 
 async function saveVisitorMessage(
 	ctx: ConvexMutationCtx,
-	args: typeof SendMessageArgsSchema.Type
+	args: typeof SendMessageArgsSchema.Type,
+	ownerId: string
 ): Promise<string> {
-	const messageId = await saveVisitorContent(ctx, args);
+	const messageId = await saveVisitorContent(ctx, args, ownerId);
 	await recordSupportMessageContext(ctx, {
 		threadId: args.threadId,
 		messageId,
@@ -296,7 +297,8 @@ async function listVisitorMessages(
 
 async function saveVisitorContent(
 	ctx: ConvexMutationCtx,
-	args: typeof SendMessageArgsSchema.Type
+	args: typeof SendMessageArgsSchema.Type,
+	ownerId: string
 ): Promise<string> {
 	if (args.fileIds && args.fileIds.length > 0) {
 		const content: UserContent = [];
@@ -304,8 +306,7 @@ async function saveVisitorContent(
 			content.push({ type: 'text', text: args.prompt });
 		}
 		for (const fileId of args.fileIds) {
-			const { filePart } = await getFile(ctx, components.agent, fileId);
-			content.push(filePart);
+			content.push(await ownedFilePart(ctx, fileId, ownerId));
 		}
 		const result = await supportAgent.saveMessage(ctx, {
 			threadId: args.threadId,
@@ -496,7 +497,9 @@ export default GroupImpl.make(databaseSchema, messages).pipe(
 					return yield* Effect.fail(new RateLimited({ retryAfter: rateLimitStatus.retryAfter }));
 				}
 
-				const messageId = yield* Effect.promise(() => saveVisitorMessage(ctx, args));
+				const messageId = yield* Effect.promise(() =>
+					saveVisitorMessage(ctx, args, effectiveUserId)
+				);
 
 				const announced =
 					isHumanOnly && !wasHandedOff && !wasWarmThread

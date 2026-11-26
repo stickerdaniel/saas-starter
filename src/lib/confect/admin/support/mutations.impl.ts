@@ -1,4 +1,4 @@
-import { getFile, saveMessage } from '@convex-dev/agent';
+import { saveMessage } from '@convex-dev/agent';
 import { FunctionImpl, GroupImpl } from '@confect/server';
 import type { AssistantContent, FilePart, TextPart } from 'ai';
 import * as Duration from 'effect/Duration';
@@ -15,6 +15,7 @@ import RequireAdminImpl from '../../middleware/RequireAdmin.impl';
 import { CurrentUser } from '../../middleware/RequireUser.spec';
 import { shouldSendNotification } from '../../support/notificationPreferences';
 import { syncSupportLastMessage } from '../../support/threadLifecycle';
+import { ownedFilePart } from '../../files/owners';
 import { ADMIN_SUPPORT_ERROR_CODES } from './errors';
 import mutations from './mutations.spec';
 import type {
@@ -136,8 +137,7 @@ const replyAsAdmin = ({ threadId, prompt, fileIds }: typeof AdminReplyArgsSchema
 				const content: Array<TextPart | FilePart> = [];
 				if (prompt.trim()) content.push({ type: 'text', text: prompt.trim() });
 				for (const fileId of fileIds) {
-					const { filePart } = await getFile(ctx, components.agent, fileId);
-					content.push(filePart);
+					content.push(await ownedFilePart(ctx, fileId, user._id));
 				}
 				messageContent = content;
 			}

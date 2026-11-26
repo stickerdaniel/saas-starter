@@ -82,6 +82,23 @@ describe('files vacuum', () => {
 		expect(await scheduled(t)).toEqual([]);
 	});
 
+	it('deletes the owner rows of vacuumed files only', async () => {
+		const t = harness();
+		const { fileId: stale } = await t.mutation(components.agent.files.addFile, {
+			storageId: await t.run(async (ctx) => await ctx.storage.store(new Blob(['stale']))),
+			hash: 'stale'
+		});
+		for (const fileId of [stale, 'file_other']) {
+			await t.mutation(internal.files.owners.grantFileOwner, { fileId, ownerId: 'user_1' });
+		}
+		vi.setSystemTime(START + 2 * DAY_MS);
+
+		await vacuum(t);
+
+		const owners = await t.run(async (ctx) => await ctx.db.query('fileOwners').take(10));
+		expect(owners.map((row) => row.fileId)).toEqual(['file_other']);
+	});
+
 	it('keeps fileMetadata for recently touched files', async () => {
 		const t = harness();
 		const fresh = await addAgentFile(t, 'fresh');
