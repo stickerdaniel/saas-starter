@@ -3,6 +3,7 @@
 import { betterAuth } from 'better-auth';
 import { memoryAdapter } from 'better-auth/adapters/memory';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createAuthOptions } from '../authServer';
 
 vi.mock('../../convex/_generated/api', () => ({
 	components: {
@@ -240,7 +241,6 @@ describe('authentication email capability failures', () => {
 		vi.stubEnv('AUTH_EMAIL', 'sender@example.com');
 		vi.stubEnv('EMAIL_ASSET_URL', 'https://assets.example.com');
 
-		const { createAuthOptions } = await import('../authServer');
 		const runMutation = vi.fn().mockResolvedValue(null);
 		const runAfter = vi.fn().mockResolvedValue(null);
 		const options = createAuthOptions({ runMutation, scheduler: { runAfter } } as never);
