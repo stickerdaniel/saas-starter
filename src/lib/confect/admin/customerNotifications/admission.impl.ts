@@ -2,7 +2,7 @@ import { FunctionImpl, GroupImpl } from '@confect/server';
 import * as DateTime from 'effect/DateTime';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import * as val from 'valibot';
+import * as Schema from 'effect/Schema';
 import { components } from '../../../convex/_generated/api';
 import type { Doc } from '../../../convex/_generated/dataModel';
 import { env } from '../../../convex/_generated/server';
@@ -32,7 +32,9 @@ import { cancellationEpisode, newCustomerEpisode, newCustomerEpisodeKey } from '
  * email (`founderEmailSends`), on its own key and independent of the admin row.
  */
 
-const signupSchema = val.object({ createdAt: val.number() });
+const signupSchema = Schema.Struct({
+	createdAt: Schema.Number.check(Schema.makeFilter((createdAt) => !Number.isNaN(createdAt)))
+});
 
 type NewRow = Pick<
 	Doc<'customerNotifications'>,
@@ -192,7 +194,9 @@ export default GroupImpl.make(databaseSchema, admission).pipe(
 						})
 					);
 					if (user === null) return null;
-					const { createdAt: signupAt } = val.parse(signupSchema, user);
+					const { createdAt: signupAt } = yield* Schema.decodeUnknownEffect(signupSchema)(
+						user
+					).pipe(Effect.orDie);
 					const now = Date.now();
 					const frozen = (payment: Payment) => ({
 						userId,

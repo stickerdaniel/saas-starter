@@ -1,7 +1,8 @@
 import { FunctionImpl, GroupImpl } from '@confect/server';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import * as val from 'valibot';
+import * as Option from 'effect/Option';
+import * as Schema from 'effect/Schema';
 import { components } from '../../../convex/_generated/api';
 import type { Doc, Id } from '../../../convex/_generated/dataModel';
 import { env, type MutationCtx as ConvexMutationCtx } from '../../../convex/_generated/server';
@@ -134,10 +135,12 @@ const CANCELLATION_EMAIL: EpisodeEmail<CancellationAdminNotificationEmailData> =
 	render: renderCancellationAdminNotificationEmail
 };
 
-const customerSchema = val.object({
-	email: val.string(),
-	name: val.optional(val.nullable(val.string()))
-});
+const decodeCustomer = Schema.decodeUnknownOption(
+	Schema.Struct({
+		email: Schema.String,
+		name: Schema.optional(Schema.NullOr(Schema.String))
+	})
+);
 
 /** The live customer's name and email, or null once the account is gone. */
 async function liveCustomer(ctx: ConvexMutationCtx, userId: string) {
@@ -145,8 +148,10 @@ async function liveCustomer(ctx: ConvexMutationCtx, userId: string) {
 		model: 'user',
 		where: [{ field: '_id', operator: 'eq', value: userId }]
 	});
-	const user = val.safeParse(customerSchema, row);
-	return user.success ? { name: user.output.name?.trim() ?? '', email: user.output.email } : null;
+	return decodeCustomer(row).pipe(
+		Option.map((user) => ({ name: user.name?.trim() ?? '', email: user.email })),
+		Option.getOrNull
+	);
 }
 
 const utf8Bytes = (value: string) => new TextEncoder().encode(value).byteLength;

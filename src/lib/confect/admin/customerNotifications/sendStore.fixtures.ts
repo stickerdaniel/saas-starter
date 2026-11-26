@@ -54,7 +54,7 @@ export type Admin = { id: string; email: string; locale?: string };
 export function setupSend(
 	options: {
 		admins?: Admin[];
-		customer?: { name?: string; email: string };
+		customer?: { name?: string; email?: string };
 		functions?: Record<string, Registered>;
 	} = {}
 ) {

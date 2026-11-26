@@ -1,7 +1,7 @@
 import * as Effect from 'effect/Effect';
-import * as val from 'valibot';
 import { components } from '../../../convex/_generated/api';
 import type { MutationCtx as ConvexMutationCtx } from '../../../convex/_generated/server';
+import { isEmailAddress } from '../../../effect/schema';
 import { MutationCtx } from '../../_generated/services';
 import { NotificationPreferenceRefusal } from '../../errorCodecs';
 import {
@@ -88,7 +88,7 @@ export const updateManyPreferences = ({
 export const addCustomRecipient = (rawEmail: string) =>
 	Effect.gen(function* () {
 		const email = rawEmail.toLowerCase().trim();
-		if (!val.safeParse(val.pipe(val.string(), val.email()), email).success) {
+		if (!isEmailAddress(email)) {
 			return yield* refuse(NOTIFICATION_PREFERENCE_ERROR_CODES.invalidEmail);
 		}
 		if (yield* findByEmail(email)) return yield* refuse(NOTIFICATION_EMAIL_ALREADY_EXISTS);

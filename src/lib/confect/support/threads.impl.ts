@@ -5,13 +5,13 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 import type { PaginationOptions } from 'convex/server';
-import * as val from 'valibot';
 import { components } from '../../convex/_generated/api';
 import type { Doc } from '../../convex/_generated/dataModel';
 import type {
 	MutationCtx as ConvexMutationCtx,
 	QueryCtx as ConvexQueryCtx
 } from '../../convex/_generated/server';
+import { isEmailAddress } from '../../effect/schema';
 import { normalizeSupportPageRoute } from '../../shared/support-page-route';
 import refs from '../_generated/refs';
 import databaseSchema from '../_generated/schema';
@@ -67,7 +67,7 @@ const requireOwner = Effect.gen(function* () {
 
 const normalizeNotificationEmail = (email: string) => {
 	const normalized = email.trim().toLowerCase();
-	if (normalized && !val.safeParse(val.pipe(val.string(), val.email()), normalized).success) {
+	if (normalized && !isEmailAddress(normalized)) {
 		return refuse(SUPPORT_ERROR_CODES.notificationEmailInvalid);
 	}
 	return Effect.succeed(normalized || undefined);

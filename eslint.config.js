@@ -99,6 +99,21 @@ const CONFECT_PUBLIC_FUNCTIONS = {
 const CONVEX_RUNTIME_DIRS = ['src/lib/convex', 'src/lib/confect', 'src/lib/convex-components'];
 const convexRuntimeFiles = CONVEX_RUNTIME_DIRS.map((dir) => `${dir}/**/*.ts`);
 const convexRuntimeTrees = CONVEX_RUNTIME_DIRS.map((dir) => `${dir}/**`);
+const FONTLESS_RUNTIME_IMPORT = {
+	name: 'fontless/runtime',
+	message:
+		'Import fontless/runtime only in src/routes/+layout.svelte. Elsewhere, its dev invalidation re-evaluates its importers mid-request. Server code can read the preload links the layout rendered.'
+};
+const SCHEMA_LIBRARY_MESSAGE =
+	'Convex code validates with effect/Schema. A file that must keep valibot is listed in SCHEMA_LIBRARY_EXCEPTIONS with its reason.';
+const SCHEMA_LIBRARY_EXCEPTIONS = {
+	'src/lib/confect/admin/types.ts':
+		'The admin users page imports it, so its valibot schemas ship to the browser.',
+	'src/lib/confect/users.impl.ts':
+		'It parses with passwordValidation from src/lib/schemas/password.ts, which the password forms share.',
+	'src/lib/confect/authServer.ts':
+		"Better Auth returns the locale validator's issue message to API callers, and that message is valibot's."
+};
 const EFFECT_LEAF_MODULES = [
 	'errors',
 	'retry',
@@ -325,13 +340,23 @@ export default defineConfig(
 			'no-restricted-imports': [
 				'error',
 				{
+					paths: [FONTLESS_RUNTIME_IMPORT]
+				}
+			]
+		}
+	},
+	{
+		files: convexRuntimeFiles,
+		ignores: Object.keys(SCHEMA_LIBRARY_EXCEPTIONS),
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
 					paths: [
-						{
-							name: 'fontless/runtime',
-							message:
-								'Import fontless/runtime only in src/routes/+layout.svelte. Elsewhere, its dev invalidation re-evaluates its importers mid-request. Server code can read the preload links the layout rendered.'
-						}
-					]
+						FONTLESS_RUNTIME_IMPORT,
+						...['valibot', 'zod'].map((name) => ({ name, message: SCHEMA_LIBRARY_MESSAGE }))
+					],
+					patterns: [{ group: ['valibot/*', 'zod/*'], message: SCHEMA_LIBRARY_MESSAGE }]
 				}
 			]
 		}

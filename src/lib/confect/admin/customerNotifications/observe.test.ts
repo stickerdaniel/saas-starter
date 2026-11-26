@@ -45,9 +45,9 @@ const actionCtx = (store: ReturnType<typeof createJourneyStore>) => ({
 	meta: {}
 });
 
-function setup(functions: Record<string, Registered> = {}) {
+function setup(functions: Record<string, Registered> = {}, createdAt = SIGNUP) {
 	const store = createJourneyStore({
-		users: [{ _id: CUSTOMER, name: 'Ada', email: 'ada@example.com', createdAt: SIGNUP }],
+		users: [{ _id: CUSTOMER, name: 'Ada', email: 'ada@example.com', createdAt }],
 		functions: { [ADMIT]: admitObservation as unknown as Registered, ...functions }
 	});
 	const deliver = (request: Request) => {
@@ -368,6 +368,18 @@ describe('response table', () => {
 		expect(response.status).toBe(503);
 		expect(logs.lines).toEqual([expect.stringContaining("'admission_failed'")]);
 		expect(logs.text()).not.toContain(SENTINEL);
+	});
+
+	it('answers 503 and admits nothing when the signup time is not a number', async () => {
+		const logs = captureLogs();
+		const { deliver, rows } = setup({}, Number.NaN);
+		stubAutumn(json(payingActiveCouponCard.data));
+
+		const response = await deliver(delivery(billingUpdated(CUSTOMER)));
+
+		expect(response.status).toBe(503);
+		expect(rows()).toEqual([]);
+		expect(logs.lines).toEqual([expect.stringContaining("'admission_failed'")]);
 	});
 });
 
