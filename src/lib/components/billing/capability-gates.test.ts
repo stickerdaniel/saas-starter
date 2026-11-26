@@ -340,6 +340,29 @@ describe('billing checkout provider', () => {
 		expect(autumn.checkout).toHaveBeenCalledOnce();
 	});
 
+	it('closes a checkout whose dialog fails to load and loads it on the next one', async () => {
+		state.page.data = { capabilities: { billing: usable, ai: unavailable } };
+		autumn.checkout.mockResolvedValue(confirmationPreview);
+		vi.doUnmock('./checkout-dialog.svelte');
+		vi.doMock('./checkout-dialog.svelte', () => {
+			throw new Error('Failed to fetch dynamically imported module');
+		});
+		await mountUnderProvider(PricingThree, {});
+
+		checkoutButton().click();
+		await vi.waitFor(() =>
+			expect(toast.error).toHaveBeenCalledExactlyOnceWith(en.billing.checkout_failed)
+		);
+		expect(confirmationDialog()).toBeNull();
+
+		vi.doUnmock('./checkout-dialog.svelte');
+		checkoutButton().click();
+		await vi.waitFor(() =>
+			expect(confirmationDialog()?.textContent).toContain(en.billing.confirmation.title)
+		);
+		expect(autumn.checkout).toHaveBeenCalledTimes(2);
+	});
+
 	it('shows nothing when the checkout closes before its dialog loads', async () => {
 		state.page.data = { capabilities: { billing: usable, ai: unavailable } };
 		autumn.checkout.mockResolvedValue(confirmationPreview);
