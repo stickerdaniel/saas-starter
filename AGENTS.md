@@ -11,7 +11,7 @@ The nearest `AGENTS.md` owns task-specific guidance. Read the relevant file befo
 | Application code                  | [`src/AGENTS.md`](./src/AGENTS.md)                         |
 | Routes, rendering, forms          | [`src/routes/AGENTS.md`](./src/routes/AGENTS.md)           |
 | Convex backend                    | [`src/lib/confect/AGENTS.md`](./src/lib/confect/AGENTS.md) |
-| E2E tests                         | [`e2e/AGENTS.md`](./e2e/AGENTS.md)                         |
+| E2E tests in the full template    | `e2e/AGENTS.md`                                            |
 | Scripts, deployment, build guards | [`scripts/AGENTS.md`](./scripts/AGENTS.md)                 |
 | Repository documentation          | [`docs/AGENTS.md`](./docs/AGENTS.md)                       |
 

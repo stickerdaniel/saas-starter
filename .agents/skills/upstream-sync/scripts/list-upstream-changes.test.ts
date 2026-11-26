@@ -60,6 +60,14 @@ describe('categoriesFor', () => {
 		expect(categoriesFor(['src/lib/config/legal.ts'])).toEqual(['branding']);
 	});
 
+	it('labels a Confect declaration as backend and a Confect test as a test', () => {
+		expect(categoriesFor(['src/lib/confect/admin/auditLog/queries.spec.ts'])).toEqual(['backend']);
+		expect(categoriesFor(['src/lib/confect/admin/auditLog/queries.test.ts'])).toEqual([
+			'backend',
+			'tests'
+		]);
+	});
+
 	it('returns multiple distinct categories and none for unrelated files', () => {
 		const cats = categoriesFor(['src/i18n/de.json', 'src/lib/convex/auth.ts', 'README.md']);
 		expect(cats).toContain('i18n');

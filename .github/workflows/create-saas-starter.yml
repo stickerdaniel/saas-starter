@@ -102,7 +102,8 @@ jobs:
       - run: bun run --cwd packages/create-saas-starter typecheck
       # The release gate tests fail instead of skipping here, because this
       # entry has the npm that publishes.
-      - run: bun run --cwd packages/create-saas-starter test
+      - if: hashFiles('packages/create-saas-starter/test/**/*.test.ts') != ''
+        run: bun run --cwd packages/create-saas-starter test
         env:
           CREATE_SAAS_STARTER_RELEASE_GATE_TEST: ${{ matrix.release_gate_test }}
       - run: bun run --cwd packages/create-saas-starter knip

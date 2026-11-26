@@ -1,0 +1,51 @@
+name: Reduced Export
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# Main pushes and PRs supersede older checks; a rerun keeps a group of its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.run_attempt == 1 && (github.event_name == 'push' && github.ref == 'refs/heads/main' && 'main' || github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+
+jobs:
+  without-tests:
+    name: Export Without Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MISSPELL_VERSION: v0.3.4
+      PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
+      PUBLIC_CONVEX_SITE_URL: https://placeholder.convex.site
+      PUBLIC_SITE_URL: https://app.example.com
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      # The lint scope runs misspell in CI mode, as the Lint & Format job does.
+      - name: Cache misspell binary
+        id: misspell-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/misspell-bin
+          key: misspell-${{ runner.os }}-${{ runner.arch }}-${{ env.MISSPELL_VERSION }}
+      - if: steps.misspell-cache.outputs.cache-hit != 'true'
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
+        with:
+          go-version: 'stable'
+          cache: false
+      - if: steps.misspell-cache.outputs.cache-hit != 'true'
+        env:
+          GOBIN: ${{ runner.temp }}/misspell-bin
+        run: go install -ldflags "-X main.version=$MISSPELL_VERSION" "github.com/client9/misspell/cmd/misspell@$MISSPELL_VERSION"
+      - name: Verify misspell binary
+        env:
+          GOBIN: ${{ runner.temp }}/misspell-bin
+        run: |
+          test "$("$GOBIN/misspell" -v)" = "$MISSPELL_VERSION"
+          echo "$GOBIN" >> "$GITHUB_PATH"
+      - run: bun run check:reduced-export

@@ -24,6 +24,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
+import { pathSets } from '../../../../scripts/path-sets';
 import { staleMarkerMessage } from './stale-marker';
 
 const MARKER = '.upstream-sync.json';
@@ -48,7 +49,7 @@ function git(args: string[], allowFail = false): string {
 
 // Divergence categories: which fork-divergence area a changed path belongs to.
 // Generic shapes, not fork specifics. Used to flag commits that need adaptation.
-const CATEGORY_RULES: Array<[string, RegExp]> = [
+const CATEGORY_RULES: Array<[string, { test: (path: string) => boolean }]> = [
 	['i18n', /^src\/i18n\/|\bmessages?\/|\.ftl$/],
 	['theme', /layout\.css$|app\.css$|tailwind|theme|design-?tokens|design-?system/i],
 	[
@@ -57,7 +58,7 @@ const CATEGORY_RULES: Array<[string, RegExp]> = [
 	],
 	['branding', /legal|brand|marketing|logo|seo|manifest|favicon/i],
 	['backend', /^src\/lib\/(?:convex|confect|convex-components)\/|^convex\//],
-	['tests', /(^|\/)e2e\/|\.test\.|\.spec\./],
+	['tests', { test: pathSets.tests.includes }],
 	[
 		'config',
 		/package\.json$|tsconfig|eslint|oxlint|\.prettier|knip|components\.json$|svelte\.config/i

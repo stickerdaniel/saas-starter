@@ -1,4 +1,7 @@
 import type { KnipConfig } from 'knip';
+import { existsSync } from 'node:fs';
+
+const e2eFiles = existsSync('playwright.config.ts') ? ['e2e/**/*.ts'] : [];
 
 export default {
 	entry: [
@@ -23,8 +26,12 @@ export default {
 		// Scripts and test infrastructure
 		'eslint/shadcn-policy.js',
 		'scripts/*.ts',
-		'e2e/**/*.ts',
+		'scripts/english-policy/pr-metadata.ts',
+		...e2eFiles,
 		'src/lib/server/test-fixtures/*.ts',
+		// The unit harness that tests import: every project keeps it, with or without tests.
+		'src/lib/confect/convexTest.modules.ts',
+		'src/lib/effect/*.ts',
 		// Loaded by the browser fixture checks through Vite's browser entry, not a static import.
 		'src/lib/components/tables/test-fixtures/TableScrollHarness.svelte',
 		'src/lib/components/test-fixtures/StreamdownOverlayHarness.svelte',
@@ -44,12 +51,19 @@ export default {
 		// it as an entry keeps it available while the rest of src/lib/chat stays checked.
 		'src/lib/chat/examples/SimpleChat.svelte'
 	],
-	project: ['autumn.config.ts', 'src/**/*.{ts,svelte}', 'scripts/**/*.ts', 'e2e/**/*.ts'],
+	project: [
+		'autumn.config.ts',
+		'src/**/*.{ts,svelte}',
+		'src/lib/security/csp.js',
+		'scripts/**/*.ts',
+		...e2eFiles
+	],
 	ignore: [
 		// Checked by packages/create-saas-starter/knip.config.ts in the same lint gate.
 		'packages/create-saas-starter/**',
 		'src/lib/convex/_generated/**',
 		'src/lib/confect/_generated/**',
+		'src/lib/convex-components/betterAuth/_generated/**',
 		// Email templates are loaded through vite.ssrLoadModule in scripts/build-emails.ts,
 		// never imported statically.
 		'src/lib/emails/**',
@@ -86,7 +100,9 @@ export default {
 		// imports them: scripts/confect-codegen.ts runs the CLI by path.
 		'@confect/cli',
 		'@confect/test',
-		'@effect/platform-node-shared'
+		'@effect/platform-node-shared',
+		// Tests import it; a project without them keeps it for its first Convex test.
+		'convex-test'
 	],
 	ignoreBinaries: [
 		// Windows process tree cleanup in scripts/dev-cloud.ts.

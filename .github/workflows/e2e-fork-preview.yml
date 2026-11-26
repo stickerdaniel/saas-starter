@@ -27,6 +27,7 @@ concurrency:
 jobs:
   prepare:
     outputs:
+      e2e: ${{ steps.profile.outputs.e2e }}
       url: ${{ steps.metadata.outputs.url }}
       convex-url: ${{ steps.metadata.outputs.convex-url }}
       convex-site-url: ${{ steps.metadata.outputs.convex-site-url }}
@@ -68,6 +69,12 @@ jobs:
           # Don't leave the read-write pull_request_target token in .git/config
           # where the untrusted checkout's install scripts could grab it.
           persist-credentials: false
+
+      - name: Select preview test profile
+        id: profile
+        env:
+          RUN_E2E: ${{ hashFiles('playwright.config.ts') != '' }}
+        run: echo "e2e=$RUN_E2E" >> "$GITHUB_OUTPUT"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -120,6 +127,7 @@ jobs:
           fi
 
       - name: Fetch E2E config from preview
+        if: steps.profile.outputs.e2e == 'true'
         run: |
           set -euo pipefail
           echo "Fetching config from: ${PREVIEW_URL}/.well-known/e2e-config.json"
@@ -132,6 +140,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Wait for Convex backend readiness
+        if: steps.profile.outputs.e2e == 'true'
         run: |
           echo "Waiting for Convex backend at: ${PUBLIC_CONVEX_URL}"
           # A cold preview backend can take about a minute to boot (the
@@ -166,6 +175,7 @@ jobs:
           exit 1
 
       - name: Export discovered target
+        if: steps.profile.outputs.e2e == 'true'
         id: metadata
         run: |
           {
@@ -175,6 +185,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Prepare safe browser partition
+        if: steps.profile.outputs.e2e == 'true'
         id: partition
         env:
           E2E_PUBLIC_SHARDS: ${{ vars.E2E_PUBLIC_SHARDS }}
@@ -183,6 +194,7 @@ jobs:
   exclusive:
     name: Exclusive preview coverage
     needs: prepare
+    if: needs.prepare.outputs.e2e == 'true'
     runs-on: ${{ vars.E2E_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 25
     environment: fork-preview
@@ -214,7 +226,7 @@ jobs:
   public:
     name: Public preview shard ${{ matrix.shard }}
     needs: prepare
-    if: needs.prepare.outputs.count != '1'
+    if: needs.prepare.outputs.e2e == 'true' && needs.prepare.outputs.count != '1'
     runs-on: ${{ vars.E2E_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     environment: fork-preview
@@ -246,7 +258,7 @@ jobs:
   aggregate:
     name: Complete preview verdict
     needs: [prepare, exclusive, public]
-    if: always() && needs.prepare.result != 'skipped'
+    if: always() && needs.prepare.result != 'skipped' && needs.prepare.outputs.e2e != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
