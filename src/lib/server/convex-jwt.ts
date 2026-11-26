@@ -66,7 +66,10 @@ const convexToken = (options: { mintFromSession?: boolean }) =>
 const fetchMintedToken = (event: RequestEvent) =>
 	Effect.tryPromise(async (signal) => {
 		const response = await event.fetch(TOKEN_ENDPOINT, { signal });
-		if (!response.ok) return undefined;
+		if (!response.ok) {
+			await response.body?.cancel();
+			return undefined;
+		}
 		const body = (await response.json()) as { token?: unknown };
 		return typeof body.token === 'string' && body.token !== '' ? body.token : undefined;
 	}).pipe(Effect.timeout(MINT_TIMEOUT_MS));

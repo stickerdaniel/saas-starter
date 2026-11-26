@@ -52,6 +52,28 @@ describe('runServerEffect', () => {
 		expect(Math.max(...afterFirstYield)).toBe(Math.min(...afterFirstYield));
 	}, 20_000);
 
+	it('lets a pending timer fire before a long chain of steps finishes', async () => {
+		let steps = 0;
+		let stepsWhenTimerFired = -1;
+		setTimeout(() => {
+			stepsWhenTimerFired = steps;
+		}, 0);
+		const loop = (left: number): Effect.Effect<void> =>
+			left === 0
+				? Effect.void
+				: Effect.flatMap(
+						Effect.sync(() => {
+							steps += 1;
+						}),
+						() => loop(left - 1)
+					);
+
+		await runServerEffect(loop(200_000));
+
+		expect(stepsWhenTimerFired).toBeGreaterThanOrEqual(0);
+		expect(stepsWhenTimerFired).toBeLessThan(200_000);
+	}, 20_000);
+
 	it('rethrows the failure value itself', async () => {
 		const failure = new Error('refused');
 		await expect(runServerEffect(Effect.fail(failure))).rejects.toBe(failure);

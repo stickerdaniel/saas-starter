@@ -665,6 +665,13 @@
 			"url": "https://github.com/SuperchupuDev/tinyglobby",
 			"branch": "main",
 			"specialNotes": "The glob matcher Vitest uses to discover test files; scripts/vitest-sequencer.test.ts calls it with Vitest's own options to rebuild the project file sets."
+		},
+		{
+			"type": "git",
+			"name": "esbuild",
+			"url": "https://github.com/evanw/esbuild",
+			"branch": "main",
+			"specialNotes": "src/lib/server/effect-runtime.workers.test.ts bundles its Miniflare fixture with esbuild's build API."
 		}
 	]
 }

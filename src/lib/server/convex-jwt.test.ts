@@ -251,6 +251,35 @@ describe('the token mint', () => {
 			expect(setCookie).not.toHaveBeenCalled();
 		}, 10_000);
 
+		it('falls back to signed out at 5 s when headers and body together take longer', async ({
+			expect
+		}) => {
+			const token = fakeJwt({ sub: 'user_1', exp: Math.floor(Date.now() / 1000) + 900 });
+			const later = <T>(value: T) =>
+				new Promise<T>((resolve) => setTimeout(() => resolve(value), 3_000));
+			const { event, setCookie } = mintEvent(() =>
+				later({ ok: true, json: () => later({ token }) } as unknown as Response)
+			);
+
+			const { value, elapsed } = await settledAfter(resolveConvexToken(event));
+
+			expect(value).toBeUndefined();
+			expect(elapsed).toBeGreaterThanOrEqual(4_900);
+			expect(elapsed).toBeLessThan(5_900);
+			expect(setCookie).not.toHaveBeenCalled();
+		}, 10_000);
+
+		it('cancels the unread body of a refused mint', async ({ expect }) => {
+			const { promise: cancelled, resolve: cancel } = Promise.withResolvers<'cancelled'>();
+			const body = new ReadableStream<Uint8Array>({ cancel: () => cancel('cancelled') });
+			const { event } = mintEvent(async () => new Response(body, { status: 503 }));
+
+			await expect(resolveConvexToken(event)).resolves.toBeUndefined();
+			await expect(
+				Promise.race([cancelled, new Promise((resolve) => setTimeout(resolve, 6_000, 'open'))])
+			).resolves.toBe('cancelled');
+		}, 10_000);
+
 		it('asks the token endpoint once when the mint times out', async ({ expect }) => {
 			const { event, fetch } = mintEvent(untilAborted);
 
@@ -276,6 +305,23 @@ describe('the token mint', () => {
 
 		await expect(minted).resolves.toBe(token);
 		expect(setCookie).toHaveBeenCalledWith('better-auth.convex_jwt', token, expect.anything());
+	});
+
+	it('falls back to signed out when the token body is not JSON', async () => {
+		const { event, setCookie } = mintEvent(async () => new Response('<html>', { status: 200 }));
+
+		await expect(resolveConvexToken(event)).resolves.toBeUndefined();
+		expect(setCookie).not.toHaveBeenCalled();
+	});
+
+	it('falls back to signed out when mirroring the cookie throws', async () => {
+		const token = fakeJwt({ sub: 'user_1', exp: Math.floor(Date.now() / 1000) + 900 });
+		const { event, setCookie } = mintEvent(async () => Response.json({ token }));
+		setCookie.mockImplementation(() => {
+			throw new Error('Cannot set cookies after the response is sent');
+		});
+
+		await expect(resolveConvexToken(event)).resolves.toBeUndefined();
 	});
 
 	it('mints through the request-bound fetch with the relative token path', async () => {

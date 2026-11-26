@@ -11,12 +11,15 @@ export class ServerRequest extends Context.Service<ServerRequest, RequestEvent>(
 	'ServerRequest'
 ) {}
 
-const scheduler = new MixedScheduler('sync');
+const runOptions =
+	globalThis.navigator?.userAgent === 'Cloudflare-Workers'
+		? { scheduler: new MixedScheduler('sync') }
+		: {};
 const runtime = ManagedRuntime.make(Layer.empty);
 runtime.runSync(Effect.void);
 
 export async function runServerEffect<A, E>(effect: Effect.Effect<A, E>): Promise<A> {
-	const exit = await runtime.runPromiseExit(effect, { scheduler });
+	const exit = await runtime.runPromiseExit(effect, runOptions);
 	if (Exit.isSuccess(exit)) return exit.value;
 	throw Cause.squash(exit.cause);
 }
