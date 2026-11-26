@@ -10,6 +10,8 @@
  * session via the Better Auth token endpoint instead.
  */
 
+import * as Effect from 'effect/Effect';
+import { runRequestEffect, ServerRequest } from './effect-runtime';
 import { decodeJwtPayload } from './jwt';
 
 import type { RequestEvent } from '@sveltejs/kit';
@@ -37,35 +39,44 @@ export function hasBetterAuthSessionCookie(
  * undefined for signed-out requests and when minting fails, which is the same
  * signed-out path the caller took before.
  */
-export async function resolveConvexToken(
+export function resolveConvexToken(
 	event: RequestEvent,
 	options: { mintFromSession?: boolean } = {}
 ): Promise<string | undefined> {
-	const isSecure = new URL(event.request.url).protocol === 'https:';
-	const jwtCookie = event.cookies.get(cookieName(JWT_COOKIE_BASE, isSecure));
-	if (jwtCookie) return jwtCookie;
-
-	if (!hasBetterAuthSessionCookie(event)) return undefined;
-	if (options.mintFromSession === false) return undefined;
-
-	// The Better Auth routes run through this hook themselves; minting there
-	// would recurse into the token endpoint.
-	if (event.url.pathname.startsWith('/api/auth')) return undefined;
-
-	return mintConvexToken(event, isSecure);
+	return runRequestEffect(event, convexToken(options));
 }
 
-async function mintConvexToken(
-	event: RequestEvent,
-	isSecure: boolean
-): Promise<string | undefined> {
-	try {
-		const response = await event.fetch(TOKEN_ENDPOINT, {
-			signal: AbortSignal.timeout(MINT_TIMEOUT_MS)
-		});
-		if (!response.ok) return undefined;
+const convexToken = (options: { mintFromSession?: boolean }) =>
+	Effect.gen(function* () {
+		const event = yield* ServerRequest;
+		const isSecure = new URL(event.request.url).protocol === 'https:';
+		const jwtCookie = event.cookies.get(cookieName(JWT_COOKIE_BASE, isSecure));
+		if (jwtCookie) return jwtCookie;
+
+		if (!hasBetterAuthSessionCookie(event)) return undefined;
+		if (options.mintFromSession === false) return undefined;
+
+		// The Better Auth routes run through this hook themselves; minting there
+		// would recurse into the token endpoint.
+		if (event.url.pathname.startsWith('/api/auth')) return undefined;
+
+		return yield* mintConvexToken(event, isSecure);
+	});
+
+const fetchMintedToken = (event: RequestEvent) =>
+	Effect.tryPromise(async (signal) => {
+		const response = await event.fetch(TOKEN_ENDPOINT, { signal });
+		if (!response.ok) {
+			await response.body?.cancel();
+			return undefined;
+		}
 		const body = (await response.json()) as { token?: unknown };
-		const token = typeof body.token === 'string' && body.token !== '' ? body.token : undefined;
+		return typeof body.token === 'string' && body.token !== '' ? body.token : undefined;
+	}).pipe(Effect.timeout(MINT_TIMEOUT_MS));
+
+const mintConvexToken = (event: RequestEvent, isSecure: boolean) =>
+	Effect.gen(function* () {
+		const token = yield* fetchMintedToken(event);
 		if (!token) return undefined;
 
 		// Mirror the cookie Better Auth would set so subsequent requests in the
@@ -86,9 +97,8 @@ async function mintConvexToken(
 		}
 
 		return token;
-	} catch {
+	}).pipe(
 		// Transient failure (deploy window, timeout): fall back to the signed-out
 		// path, which is what every such request hit unconditionally before.
-		return undefined;
-	}
-}
+		Effect.catchCause(() => Effect.succeed(undefined))
+	);
