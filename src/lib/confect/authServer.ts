@@ -447,7 +447,7 @@ const grantGuardedAdapter = (ctx: GenericCtx<DataModel>) => {
 };
 
 const MAX_CLIENT_NAME_LENGTH = 100;
-const MAX_REGISTRATION_LENGTH = 16_384;
+const MAX_CLIENT_METADATA_LENGTH = 16_384;
 
 const rejectOversizedRegistration = (body: unknown) => {
 	const clientName =
@@ -460,10 +460,10 @@ const rejectOversizedRegistration = (body: unknown) => {
 			error_description: `client_name exceeds ${MAX_CLIENT_NAME_LENGTH} characters`
 		});
 	}
-	if ((JSON.stringify(body) ?? '').length > MAX_REGISTRATION_LENGTH) {
+	if ((JSON.stringify(body) ?? '').length > MAX_CLIENT_METADATA_LENGTH) {
 		throw new APIError('BAD_REQUEST', {
 			error: 'invalid_client_metadata',
-			error_description: `client metadata exceeds ${MAX_REGISTRATION_LENGTH} characters`
+			error_description: `client metadata exceeds ${MAX_CLIENT_METADATA_LENGTH} characters`
 		});
 	}
 };
