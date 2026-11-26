@@ -104,6 +104,13 @@ describe('require-guarded-server-convex-client', () => {
 		expect(reports).toHaveLength(0);
 	});
 
+	it('allows construction in a recovered Effect.gen yielded by an unrecovered one', () => {
+		const reports = lint(
+			'export const load = (event) => runRequestEffect(event, Effect.gen(function* () { return yield* Effect.gen(function* () { return createServerConvexHttpClient({}); }).pipe(recoverWith("x", null)); }));'
+		);
+		expect(reports).toHaveLength(0);
+	});
+
 	it.each([
 		['without a recovery', 'Effect.gen(function* () { return createServerConvexHttpClient({}); })'],
 		[

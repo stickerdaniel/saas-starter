@@ -145,7 +145,11 @@ export default {
 						if (child !== node.argument.callee) walk(child, guard);
 					}
 				}
-				walkEffectGen(yielded, guard, guard);
+				walkEffectGen(
+					yielded,
+					guard,
+					isRecoveredEffectGen(node.argument) ? { ...guard, effect: true } : guard
+				);
 				return;
 			}
 
