@@ -187,7 +187,7 @@ const finish = (notificationId: Id<'customerNotifications'>, outcome: Outcome) =
 	);
 
 const log = (level: 'warn' | 'error', code: string, notificationId: Id<'customerNotifications'>) =>
-	Effect.sync(() => console[level]({ code, notificationId }));
+	(level === 'warn' ? Effect.logWarning : Effect.logError)({ code, notificationId });
 
 /** Send `episode`'s email for one ledger row; a row of another kind or already finished is left alone. */
 const sendEpisode = <Data extends { journey: ComposedJourney | null }>(

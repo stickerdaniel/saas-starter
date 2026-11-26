@@ -1,0 +1,60 @@
+diff --git a/dist/ConvexLogger.js b/dist/ConvexLogger.js
+index dee4b2709fa17657ca8d5522cc212b91d1e54612..f9485ad339b62db0d99a0a25d0bde981388c9bcd 100644
+--- a/dist/ConvexLogger.js
++++ b/dist/ConvexLogger.js
+@@ -1,7 +1,7 @@
+ import { __exportAll } from "./_virtual/_rolldown/runtime.js";
+ import * as Effect from "effect/Effect";
+ import * as Layer from "effect/Layer";
+-import * as Match from "effect/Match";
++import * as References from "effect/References";
+ import * as Console from "effect/Console";
+ import * as Logger from "effect/Logger";
+ // src/ConvexLogger.ts
+@@ -10,23 +10,32 @@ var ConvexLogger_exports = /* @__PURE__ */ __exportAll({
+ 	logger: () => logger
+ });
+ /**
+-* Writes structured Effect logs through Convex's severity-aware console
+-* methods. Trace and Debug use `console.debug`, Info uses `console.info`, Warn
+-* uses `console.warn`, and Error and Fatal use `console.error`. The payload
+-* retains the original Effect level, cause, annotations, spans, timestamp, and
+-* fiber ID.
++* Passes the log's message arguments, then a non-empty cause, to the console
++* method of its level. Trace and Debug use `console.debug`, Info uses
++* `console.log`, Warn uses `console.warn`, and Error and Fatal use
++* `console.error`. It adds no level, timestamp, annotations, spans or fiber ID.
+ */
+-const logger = Logger.make((options) => {
+-	const console = options.fiber.getRef(Console.Console);
+-	const output = Logger.formatStructured.log(options);
+-	return Match.value(options.logLevel).pipe(Match.whenOr("Trace", "Debug", () => console.debug(output)), Match.when("Info", () => console.info(output)), Match.when("Warn", () => console.warn(output)), Match.whenOr("Error", "Fatal", () => console.error(output)), Match.whenOr("All", "None", () => console.log(output)), Match.exhaustive);
++const methods = {
++	All: "log",
++	Trace: "debug",
++	Debug: "debug",
++	Info: "log",
++	Warn: "warn",
++	Error: "error",
++	Fatal: "error",
++	None: "log"
++};
++const logger = Logger.make(({ fiber, logLevel, message, cause }) => {
++	const console = fiber.getRef(Console.Console);
++	const args = Array.isArray(message) ? message : [message];
++	console[methods[logLevel]](...args, ...cause.reasons.length > 0 ? [cause] : []);
+ });
+ /**
+-* Replaces Effect's default console logger without changing custom loggers,
+-* tracing, or the minimum log level. Confect installs this layer automatically
+-* for function handlers and HTTP routes.
++* Replaces Effect's default console logger without changing custom loggers or
++* tracing, and lowers the minimum log level to Debug. Confect installs this
++* layer automatically for function handlers and HTTP routes.
+ */
+-const layer = Layer.effect(Logger.CurrentLoggers, Effect.map(Logger.CurrentLoggers, (loggers) => new Set(Array.from(loggers, (current) => current === Logger.defaultLogger ? logger : current))));
++const layer = Layer.merge(Layer.succeed(References.MinimumLogLevel, "Debug"), Layer.effect(Logger.CurrentLoggers, Effect.map(Logger.CurrentLoggers, (loggers) => new Set(Array.from(loggers, (current) => current === Logger.defaultLogger ? logger : current)))));
+ export { ConvexLogger_exports, layer, logger };
+ 
+ //# sourceMappingURL=ConvexLogger.js.map
+\ No newline at end of file

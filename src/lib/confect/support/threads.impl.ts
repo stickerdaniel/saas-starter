@@ -196,7 +196,7 @@ const recordSweepFailure = (supportThread: Doc<'supportThreads'>) =>
 					sweepJobId: undefined
 				})
 			);
-			console.warn('[deleteEmptyThreads] Gave up on a support thread', {
+			yield* Effect.logWarning('[deleteEmptyThreads] Gave up on a support thread', {
 				supportThreadId: supportThread._id,
 				attempts
 			});

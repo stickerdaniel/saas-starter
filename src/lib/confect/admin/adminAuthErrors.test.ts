@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APIError } from 'better-auth/api';
+import { ConvexLogger } from '@confect/server';
 import { ConvexError } from 'convex/values';
 import * as Cause from 'effect/Cause';
 import * as Effect from 'effect/Effect';
@@ -9,7 +10,9 @@ import { AdminRefusal, AdminRefusalCodec } from '../errorCodecs';
 import { adminAuthApi, normalizeAdminAuthError, type AdminAuthOperation } from './adminAuthErrors';
 
 const runAdminAuthApi = async (operation: AdminAuthOperation, call: () => Promise<unknown>) => {
-	const exit = await Effect.runPromiseExit(adminAuthApi(operation, call));
+	const exit = await Effect.runPromiseExit(
+		adminAuthApi(operation, call).pipe(Effect.provide(ConvexLogger.layer))
+	);
 	if (Exit.isSuccess(exit)) return;
 	const error = Cause.squash(exit.cause);
 	throw error instanceof AdminRefusal

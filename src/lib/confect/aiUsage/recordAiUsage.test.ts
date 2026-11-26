@@ -1,4 +1,4 @@
-import { Scheduler as ConfectScheduler } from '@confect/server';
+import { Scheduler as ConfectScheduler, ConvexLogger } from '@confect/server';
 import type { Scheduler as ConvexScheduler } from 'convex/server';
 import { getFunctionName } from 'convex/server';
 import * as Effect from 'effect/Effect';
@@ -27,7 +27,7 @@ function schedulerDouble(runAfter: (...args: unknown[]) => Promise<string>) {
 const run = (
 	effect: ReturnType<typeof recordAiUsage>,
 	layer: ReturnType<typeof schedulerDouble>['layer']
-) => Effect.runPromise(effect.pipe(Effect.provide(layer)));
+) => Effect.runPromise(effect.pipe(Effect.provide([layer, ConvexLogger.layer])));
 
 afterEach(() => {
 	vi.restoreAllMocks();

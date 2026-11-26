@@ -160,7 +160,7 @@ export default GroupImpl.make(databaseSchema, mutations).pipe(
 				yield* setRole(user._id, 'admin');
 				yield* withCtx((ctx) => incrementCounter(ctx, 'adminCount', 1));
 				yield* withCtx((ctx) => syncAdminPreferences(ctx, { userId: user._id, email: user.email }));
-				yield* Effect.sync(() => console.log(`User ${email} has been set as admin`));
+				yield* Effect.log(`User ${email} has been set as admin`);
 				return { success: true } as const;
 			})
 		)

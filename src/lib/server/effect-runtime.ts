@@ -3,9 +3,9 @@ import * as Cause from 'effect/Cause';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Exit from 'effect/Exit';
-import * as Layer from 'effect/Layer';
 import * as ManagedRuntime from 'effect/ManagedRuntime';
 import { MixedScheduler } from 'effect/Scheduler';
+import { consoleLogging } from '#lib/effect/console-logging.js';
 
 export class ServerRequest extends Context.Service<ServerRequest, RequestEvent>()(
 	'ServerRequest'
@@ -15,7 +15,7 @@ const runOptions =
 	globalThis.navigator?.userAgent === 'Cloudflare-Workers'
 		? { scheduler: new MixedScheduler('sync') }
 		: {};
-const runtime = ManagedRuntime.make(Layer.empty);
+const runtime = ManagedRuntime.make(consoleLogging);
 runtime.runSync(Effect.void);
 
 export async function runServerEffect<A, E>(effect: Effect.Effect<A, E>): Promise<A> {

@@ -258,17 +258,15 @@ const sendPendingAdminNotification = ({
 			.pipe(Effect.orDie);
 
 		if (!notification) {
-			yield* Effect.sync(() =>
-				console.log(
-					`[sendPendingAdminNotification] Notification ${notificationId} not claimable (already claimed or rescheduled), skipping`
-				)
+			yield* Effect.log(
+				`[sendPendingAdminNotification] Notification ${notificationId} not claimable (already claimed or rescheduled), skipping`
 			);
 			return null;
 		}
 
 		const ownership = { notificationId, claimToken: notification.claimToken };
 		const logIfMoved = (owned: boolean) =>
-			owned ? Effect.void : Effect.sync(() => console.log(OWNERSHIP_MOVED_LOG, notificationId));
+			owned ? Effect.void : Effect.log(OWNERSHIP_MOVED_LOG, notificationId);
 		const finish = mutations
 			.runMutation(refs.internal.admin.support.notifications.deletePendingNotification, ownership)
 			.pipe(Effect.orDie, Effect.flatMap(logIfMoved));
@@ -285,10 +283,8 @@ const sendPendingAdminNotification = ({
 			.pipe(Effect.orDie);
 
 		if (!supportThread) {
-			yield* Effect.sync(() =>
-				console.log(
-					`[sendPendingAdminNotification] Thread ${notification.threadId} not found, skipping`
-				)
+			yield* Effect.log(
+				`[sendPendingAdminNotification] Thread ${notification.threadId} not found, skipping`
 			);
 			yield* finish;
 			return null;
@@ -306,8 +302,8 @@ const sendPendingAdminNotification = ({
 		);
 
 		if (targetEmails.length === 0) {
-			yield* Effect.sync(() =>
-				console.log('[sendPendingAdminNotification] No target emails found, skipping notification')
+			yield* Effect.log(
+				'[sendPendingAdminNotification] No target emails found, skipping notification'
 			);
 			yield* finish;
 			return null;
@@ -337,13 +333,10 @@ const sendPendingAdminNotification = ({
 				})
 				.pipe(
 					Effect.catchCause(() =>
-						Effect.sync(() => {
-							console.error({
-								code: 'admin_notification_send_failed',
-								threadId: notification.threadId
-							});
-							return false;
-						})
+						Effect.logError({
+							code: 'admin_notification_send_failed',
+							threadId: notification.threadId
+						}).pipe(Effect.as(false))
 					)
 				);
 			if (enqueued) sentCount++;
@@ -359,19 +352,15 @@ const sendPendingAdminNotification = ({
 		if (sentCount === 0 && !notification.hadEnqueue) {
 			const currentRetry = notification.retryCount;
 			if (currentRetry >= MAX_RETRY_COUNT) {
-				yield* Effect.sync(() =>
-					console.error(
-						`[sendPendingAdminNotification] All ${targetEmails.length} email sends failed for thread ${notification.threadId} after ${currentRetry} retries, giving up`
-					)
+				yield* Effect.logError(
+					`[sendPendingAdminNotification] All ${targetEmails.length} email sends failed for thread ${notification.threadId} after ${currentRetry} retries, giving up`
 				);
 				yield* finish;
 				return null;
 			}
 
-			yield* Effect.sync(() =>
-				console.error(
-					`[sendPendingAdminNotification] All ${targetEmails.length} email sends failed for thread ${notification.threadId}, retry ${currentRetry + 1}/${MAX_RETRY_COUNT}...`
-				)
+			yield* Effect.logError(
+				`[sendPendingAdminNotification] All ${targetEmails.length} email sends failed for thread ${notification.threadId}, retry ${currentRetry + 1}/${MAX_RETRY_COUNT}...`
 			);
 			// The retry is scheduled from a mutation for its guaranteed delivery semantics
 			yield* mutations
@@ -385,10 +374,8 @@ const sendPendingAdminNotification = ({
 
 		yield* finish;
 
-		yield* Effect.sync(() =>
-			console.log(
-				`[sendPendingAdminNotification] Sent ${notification.isReopen ? 'reopen' : 'new ticket'} notification for thread ${notification.threadId} to ${sentCount}/${targetEmails.length} recipient(s)`
-			)
+		yield* Effect.log(
+			`[sendPendingAdminNotification] Sent ${notification.isReopen ? 'reopen' : 'new ticket'} notification for thread ${notification.threadId} to ${sentCount}/${targetEmails.length} recipient(s)`
 		);
 		return null;
 	});
@@ -535,10 +522,8 @@ const reschedulePendingNotification = (
 			})
 		);
 
-		yield* Effect.sync(() =>
-			console.log(
-				`[reschedulePendingNotification] Rescheduled notification for thread ${notification.threadId} with ${delayMs}ms delay (retry ${nextRetryCount}/${MAX_RETRY_COUNT})`
-			)
+		yield* Effect.log(
+			`[reschedulePendingNotification] Rescheduled notification for thread ${notification.threadId} with ${delayMs}ms delay (retry ${nextRetryCount}/${MAX_RETRY_COUNT})`
 		);
 
 		return true;
@@ -560,10 +545,8 @@ const recoverNotificationClaim = (
 		)
 			return false;
 		if ((notification.retryCount ?? 0) >= MAX_RETRY_COUNT) {
-			yield* Effect.sync(() =>
-				console.error(
-					'[recoverNotificationClaim] Retry limit reached; abandoned notification stopped'
-				)
+			yield* Effect.logError(
+				'[recoverNotificationClaim] Retry limit reached; abandoned notification stopped'
 			);
 			yield* finishNotification(notification);
 			return true;

@@ -34,7 +34,7 @@ export default GroupImpl.make(databaseSchema, events).pipe(
 			Effect.gen(function* () {
 				const ctx = yield* MutationCtx;
 				yield* Effect.promise(() => applyFounderIncidentEmailEvent(ctx, { id, event }));
-				console.log('Email event received:', { emailId: id, eventType: event.type });
+				yield* Effect.log('Email event received:', { emailId: id, eventType: event.type });
 				yield* Effect.promise(() =>
 					ctx.db.insert('emailEvents', {
 						emailId: id,

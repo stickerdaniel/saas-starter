@@ -28,7 +28,7 @@ const deliverVerdict = <E, R>(
 		Effect.asVoid,
 		Effect.catchCause(() =>
 			Effect.gen(function* () {
-				console.warn({ code: 'founder_email_send_failed' });
+				yield* Effect.logWarning({ code: 'founder_email_send_failed' });
 				yield* recordSendFailure(sendId);
 			})
 		)
@@ -43,7 +43,7 @@ const isPending = (sendId: Id<'founderEmailSends'>) =>
 	}).pipe(
 		Effect.catchCause(() =>
 			Effect.gen(function* () {
-				console.warn({ code: 'founder_email_preflight_failed' });
+				yield* Effect.logWarning({ code: 'founder_email_preflight_failed' });
 				yield* recordSendFailure(sendId);
 				return false;
 			})
@@ -82,7 +82,7 @@ export default GroupImpl.make(databaseSchema, founderEmailBilling).pipe(
 					const read = yield* readCustomerBilling(userId);
 					const billing = classifyFeedbackBilling(read, Date.now());
 					if (billing === 'billing_unknown')
-						console.warn({ code: 'founder_feedback_billing_unknown' });
+						yield* Effect.logWarning({ code: 'founder_feedback_billing_unknown' });
 					const ctx = yield* ActionCtx;
 					const thread =
 						billing === 'not_subscribed' ? yield* findWelcomeThread(ctx, userId) : undefined;

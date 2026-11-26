@@ -36,11 +36,14 @@ function captureLogs() {
 	const lines: string[] = [];
 	for (const method of ['log', 'info', 'warn', 'error', 'debug'] as const) {
 		vi.spyOn(console, method).mockImplementation((...args: unknown[]) => {
-			lines.push(args.map((arg) => inspect(arg, { depth: 8 })).join(' '));
+			lines.push(`${method} ${args.map((arg) => inspect(arg, { depth: 8 })).join(' ')}`);
 		});
 	}
 	return lines;
 }
+
+const consoleCall = (method: string, ...args: unknown[]) =>
+	`${method} ${args.map((arg) => inspect(arg, { depth: 8 })).join(' ')}`;
 
 const fill = (message: string, params: Record<string, string>) =>
 	message.replace(/\{(\w+)\}/g, (_, key: string) => params[key] ?? `{${key}}`);
@@ -190,7 +193,9 @@ describe('private data stays out of the email path', () => {
 		expect(row(id)?.status).toBe('enqueued');
 		if (failing) {
 			expect(logs.join('\n')).toContain('journey_source_unavailable');
-			expect(logs.join('\n')).toContain('email_enqueue_failed');
+			expect(logs).toContain(
+				consoleCall('error', { code: 'email_enqueue_failed', notificationId: id })
+			);
 		}
 	});
 });
@@ -368,7 +373,7 @@ describe('recipients and outcomes', () => {
 		expect(enqueued()).toHaveLength(20);
 		expect(enqueued().map((email) => email.to)).not.toContain('admin20@example.com');
 		expect(row(id)).toMatchObject({ status: 'enqueued', audienceTruncated: true });
-		expect(logs.join('\n')).toContain('audience_truncated');
+		expect(logs).toEqual([consoleCall('warn', { code: 'audience_truncated', notificationId: id })]);
 	});
 
 	it('reports an incomplete scan that found nobody instead of an empty audience', async () => {

@@ -115,10 +115,7 @@ export const findWelcomeThread = (
 	readWelcomeThread(ctx, userId).pipe(
 		Effect.timeout(WELCOME_THREAD_TIMEOUT_MS),
 		Effect.catchCause(() =>
-			Effect.sync(() => {
-				console.warn({ code: 'founder_feedback_thread_unavailable' });
-				return undefined;
-			})
+			Effect.logWarning({ code: 'founder_feedback_thread_unavailable' }).pipe(Effect.as(undefined))
 		)
 	);
 

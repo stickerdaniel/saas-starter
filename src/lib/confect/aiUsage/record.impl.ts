@@ -94,9 +94,7 @@ export const recordAiUsage = (args: typeof UsageEventArgsSchema.Type) =>
 				);
 			}).pipe(
 				Effect.catchCause(() =>
-					Effect.sync(() => {
-						console.error({ code: 'ai_usage_record_failed', feature: args.feature });
-					})
+					Effect.logError({ code: 'ai_usage_record_failed', feature: args.feature })
 				)
 			);
 
