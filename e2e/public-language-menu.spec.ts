@@ -169,9 +169,6 @@ test.describe('language menu on first activation', () => {
 	});
 
 	test.describe('when its chunk fails', () => {
-		// The failed import still rejects after app.html started the reload.
-		test.use({ allowedClientErrors: [/dynamically imported module/i] });
-
 		test('reloads the page once', async ({ page }) => {
 			await openPage(page);
 			test.skip(

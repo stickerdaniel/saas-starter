@@ -150,9 +150,6 @@ test.describe('Upload navigation guard', () => {
 	});
 
 	test.describe('when a chunk fails to load', () => {
-		// The failed import still rejects after app.html decided to keep the page.
-		test.use({ allowedClientErrors: [/dynamically imported module/i] });
-
 		test('the page stays while a file is transferring', async ({ page, workerAccounts }) => {
 			test.skip(
 				await servedByDevServer(page),
