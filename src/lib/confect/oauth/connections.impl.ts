@@ -34,6 +34,7 @@ const clientNames = (clientIds: readonly string[]) =>
 			ctx.runQuery(components.betterAuth.adapter.findMany, {
 				model: 'oauthClient',
 				where: [{ field: 'clientId', operator: 'in', value: [...clientIds] }],
+				select: ['clientId', 'name'],
 				paginationOpts: { cursor: null, numItems: clientIds.length }
 			})
 		);

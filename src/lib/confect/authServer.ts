@@ -446,6 +446,28 @@ const grantGuardedAdapter = (ctx: GenericCtx<DataModel>) => {
 	};
 };
 
+const MAX_CLIENT_NAME_LENGTH = 100;
+const MAX_REGISTRATION_LENGTH = 16_384;
+
+const rejectOversizedRegistration = (body: unknown) => {
+	const clientName =
+		typeof body === 'object' && body !== null && 'client_name' in body
+			? body.client_name
+			: undefined;
+	if (typeof clientName === 'string' && clientName.length > MAX_CLIENT_NAME_LENGTH) {
+		throw new APIError('BAD_REQUEST', {
+			error: 'invalid_client_metadata',
+			error_description: `client_name exceeds ${MAX_CLIENT_NAME_LENGTH} characters`
+		});
+	}
+	if ((JSON.stringify(body) ?? '').length > MAX_REGISTRATION_LENGTH) {
+		throw new APIError('BAD_REQUEST', {
+			error: 'invalid_client_metadata',
+			error_description: `client metadata exceeds ${MAX_REGISTRATION_LENGTH} characters`
+		});
+	}
+};
+
 const rejectRegistrationOverLimit = async (ctx: GenericCtx<DataModel>) => {
 	const status = await appRateLimiter.limit(requireRunMutationCtx(ctx), 'oauthClientRegistration');
 	if (!status.ok) {
@@ -565,7 +587,10 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			// user or verification state. Reject email-producing routes before their
 			// handlers can write when the complete delivery group is unavailable.
 			before: createAuthMiddleware(async (hookCtx) => {
-				if (hookCtx.path === '/oauth2/register') return rejectRegistrationOverLimit(ctx);
+				if (hookCtx.path === '/oauth2/register') {
+					rejectOversizedRegistration(hookCtx.body);
+					return rejectRegistrationOverLimit(ctx);
+				}
 				if (!EMAIL_CAPABILITY_PREFLIGHT_PATHS.has(hookCtx.path) || isTestEmailRequest(hookCtx.body))
 					return;
 				requireEmailConfiguration();
