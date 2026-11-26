@@ -68,13 +68,15 @@ async function requestCustomer(
 	secretKey: string,
 	signal: AbortSignal
 ): Promise<CustomerBillingRead> {
+	const request = new AbortController();
+	signal.addEventListener('abort', () => request.abort(signal.reason), { once: true });
 	let response: Response;
 	try {
 		response = await fetch(
 			`${AUTUMN_API}/customers/${encodeURIComponent(customerId)}?expand=invoices`,
 			{
 				headers: { Authorization: `Bearer ${secretKey}`, 'x-api-version': '1.2' },
-				signal
+				signal: request.signal
 			}
 		);
 	} catch {
@@ -83,7 +85,7 @@ async function requestCustomer(
 
 	const classified = classifyStatus(response.status);
 	if (classified) {
-		await response.body?.cancel().catch(() => undefined);
+		request.abort();
 		return classified;
 	}
 	try {

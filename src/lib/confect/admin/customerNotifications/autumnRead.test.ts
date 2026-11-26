@@ -100,22 +100,11 @@ describe('readCustomerBilling', () => {
 		expect(settled).toEqual(TIMED_OUT);
 	});
 
-	it('cancels the unread body of a refused response', async () => {
-		let cancelled = false;
-		stubFetch(
-			async () =>
-				new Response(
-					new ReadableStream<Uint8Array>({
-						cancel() {
-							cancelled = true;
-						}
-					}),
-					{ status: 503 }
-				)
-		);
+	it('aborts the request of a refused response before returning', async () => {
+		const fetchMock = stubFetch(async () => new Response(new ReadableStream(), { status: 503 }));
 
 		expect(await read('user_1')).toEqual({ kind: 'retry', code: 'autumn_unavailable' });
-		expect(cancelled).toBe(true);
+		expect(fetchMock.mock.calls[0]![1].signal?.aborted).toBe(true);
 	});
 
 	it.each<[string, number, CustomerBillingRead]>([
