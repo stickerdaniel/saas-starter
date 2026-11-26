@@ -8,7 +8,6 @@ import stripAnsi from 'strip-ansi';
 import type * as TypeScript from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { sharedTestSettings } from '../scripts/vitest-settings';
-import { CUSTOM_REGISTRARS } from './convex-registrars.js';
 
 /**
  * What `no-literal-control-char` can actually see.
@@ -329,22 +328,163 @@ describe('project options of the workspace rules', () => {
 		return result.messages.map((message) => message.ruleId);
 	}
 
-	it.each(CUSTOM_REGISTRARS)(
-		'checks %s registrations for returns and args validators',
-		async (builder) => {
-			const ids = await ruleIds(
-				`export const f = ${builder}({ handler: async () => null });`,
-				'src/lib/convex/users.ts'
-			);
-			expect(ids).toContain('local/require-returns-validator');
-			expect(ids).toContain('local/require-custom-registrar-args');
-		},
-		60_000
-	);
-
 	it('resolves #lib/ rune module imports from src/lib', async () => {
 		expect(
 			await ruleIds(`export { haptic } from '#lib/hooks/use-haptic.svelte.js';`, 'src/lib/utils.ts')
 		).toContain('local/require-svelte-module-extension');
+	}, 60_000);
+});
+
+describe('registration ratchet through the flat config', () => {
+	async function ratchetReports(text: string, filePath: string) {
+		const [result] = await eslint.lintText(text, { filePath });
+		expect(result.fatalErrorCount).toBe(0);
+		return result.messages
+			.filter((message) => message.ruleId === 'local/convex-canonical-registration')
+			.map((message) => message.messageId);
+	}
+
+	it('refuses a plain spec built from a constructor subpath', async () => {
+		expect(
+			await ratchetReports(
+				`import * as FunctionSpec from '@confect/core/FunctionSpec';
+				import { GroupSpec } from '@confect/core';
+				import type { attach } from './autumn';
+				export default GroupSpec.make().addFunction(FunctionSpec.convexPublicAction<typeof attach>()('attach'));`,
+				'src/lib/confect/probe.spec.ts'
+			)
+		).toEqual(['constructorSubpath']);
+	}, 60_000);
+
+	it('refuses a constructor barrel and the spec that imports from it', async () => {
+		expect(
+			await ratchetReports(
+				`export { FunctionSpec, GroupSpec } from '@confect/core';`,
+				'src/lib/confect/constructors.ts'
+			)
+		).toEqual(['reexport', 'reexport']);
+		expect(
+			await ratchetReports(
+				`import { FunctionSpec, GroupSpec } from './constructors';
+				import type { attach } from './autumn';
+				export default GroupSpec.make().addFunction(FunctionSpec.convexPublicAction<typeof attach>()('attach'));`,
+				'src/lib/confect/probe.spec.ts'
+			)
+		).toEqual(['constructorSubpath', 'constructorSubpath']);
+	}, 60_000);
+
+	it('refuses an application import of a plain handler from a test path', async () => {
+		const helper = `import { httpActionGeneric } from 'convex/server';
+			export const plainHandler = httpActionGeneric(async () => new Response(null));`;
+		expect(await ratchetReports(helper, 'src/lib/confect/__tests__/plainRoute.ts')).toEqual([]);
+		expect(
+			await ratchetReports(
+				`import { httpRouter } from 'convex/server';
+				import { plainHandler } from './__tests__/plainRoute';
+				const http = httpRouter();
+				http.route({ path: '/other', method: 'POST', handler: plainHandler });
+				export default http;`,
+				'src/lib/confect/http.ts'
+			)
+		).toEqual(['testModuleImport']);
+	}, 60_000);
+
+	it('refuses a listed route registered through a forwarding helper', async () => {
+		expect(
+			await ratchetReports(
+				`import { httpRouter } from 'convex/server';
+				import { httpAction } from '../convex/_generated/server';
+				const http = httpRouter();
+				const nested = { route(config: { path: string; method: 'POST'; handler: ReturnType<typeof httpAction> }) { http.route({ ...config, path: '/other' }); } };
+				nested.route({ path: '/resend-webhook', method: 'POST', handler: httpAction(async () => new Response(null)) });
+				export default http;`,
+				'src/lib/confect/http.ts'
+			)
+		).toEqual(['unlistedHttpRoute']);
+	}, 60_000);
+
+	it('refuses a library group forwarded under another group name', async () => {
+		expect(
+			await ratchetReports(
+				`export { sub as default } from './autumn.spec';`,
+				'src/lib/confect/probe.spec.ts'
+			)
+		).toEqual(['specForwarding']);
+		expect(
+			await ratchetReports(
+				`import { FunctionImpl, GroupImpl } from '@confect/server';
+				import * as Layer from 'effect/Layer';
+				import databaseSchema from './_generated/schema';
+				import probe from './probe.spec';
+				import { sub } from './autumn.spec';
+				import { attach } from './autumn';
+				export default GroupImpl.make(databaseSchema, probe).pipe(
+					Layer.provide(FunctionImpl.make(databaseSchema, sub, 'attach', attach)),
+					GroupImpl.finalize
+				);`,
+				'src/lib/confect/probe.impl.ts'
+			)
+		).toEqual(['inlineImplementation']);
+	}, 60_000);
+
+	it('refuses a constructor exported under another name and its two-barrel chain', async () => {
+		const chain: Array<[string, string]> = [
+			[
+				`import { FunctionSpec } from '@confect/core';
+				import { FunctionImpl } from '@confect/server';
+				export { FunctionSpec as FS, FunctionImpl as FI };`,
+				'src/lib/convex-components/constructors.ts'
+			],
+			[`export { FS, FI } from './constructors';`, 'src/lib/convex-components/constructors2.ts'],
+			[
+				`import { FS } from '../convex-components/constructors2';
+				import { GroupSpec } from '@confect/core';
+				import type { attach } from './autumn';
+				export default GroupSpec.make().addFunction(FS.convexPublicAction<typeof attach>()('attach'));`,
+				'src/lib/confect/probe.spec.ts'
+			],
+			[
+				`import { FI } from '../convex-components/constructors2';
+				import { GroupImpl } from '@confect/server';
+				import * as Layer from 'effect/Layer';
+				import databaseSchema from './_generated/schema';
+				import probe from './probe.spec';
+				import { attach } from './autumn';
+				export default GroupImpl.make(databaseSchema, probe).pipe(
+					Layer.provide(FI.make(databaseSchema, probe, 'attach', attach)),
+					GroupImpl.finalize
+				);`,
+				'src/lib/confect/probe.impl.ts'
+			]
+		];
+		const reports: Array<string | undefined> = [];
+		for (const [text, filePath] of chain) reports.push(...(await ratchetReports(text, filePath)));
+		expect(reports).toEqual(['indirectReference', 'indirectReference']);
+		expect(
+			await ratchetReports(
+				`import { FunctionSpec } from '@confect/core';
+				export default FunctionSpec;`,
+				'src/lib/convex-components/constructors.ts'
+			)
+		).toEqual(['indirectReference']);
+	}, 60_000);
+
+	it('refuses a raw builder in a helper outside the Convex directories', async () => {
+		expect(
+			await ratchetReports(
+				`import { httpActionGeneric } from 'convex/server';
+				export const plainHandler = httpActionGeneric(async () => new Response(null));`,
+				'src/lib/http/plainRoute.ts'
+			)
+		).toContain('plainRegistration');
+	}, 60_000);
+
+	it('refuses a barrel outside the Convex directories that re-exports a test helper', async () => {
+		expect(
+			await ratchetReports(
+				`export { plainHandler } from '../confect/__tests__/plainRoute';`,
+				'src/lib/http/plainRoute.ts'
+			)
+		).toEqual(['testModuleImport']);
 	}, 60_000);
 });

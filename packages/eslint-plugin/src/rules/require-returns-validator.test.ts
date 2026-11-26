@@ -61,12 +61,12 @@ describe('require-returns-validator', () => {
 		]) {
 			expect(lint(withoutReturns(builder)), builder).toHaveLength(1);
 		}
-		expect(lint(withoutReturns('authedQuery'))).toHaveLength(0);
+		expect(lint(withoutReturns('checkedQuery'))).toHaveLength(0);
 	});
 
 	it('checks exactly the configured builders', () => {
-		const options = [{ builders: ['query', 'authedQuery'] }];
-		expect(lint(withoutReturns('authedQuery'), options)).toHaveLength(1);
+		const options = [{ builders: ['query', 'checkedQuery'] }];
+		expect(lint(withoutReturns('checkedQuery'), options)).toHaveLength(1);
 		expect(lint(withoutReturns('query'), options)).toHaveLength(1);
 		expect(lint(withoutReturns('mutation'), options)).toHaveLength(0);
 	});

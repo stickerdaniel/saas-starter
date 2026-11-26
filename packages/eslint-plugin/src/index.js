@@ -11,7 +11,6 @@ import noDynamicImportRejectionHandler from './rules/no-dynamic-import-rejection
 import noLiteralControlChar from './rules/no-literal-control-char.js';
 import noModuleStateSingleton from './rules/no-module-state-singleton.js';
 import noNetworkidleWait from './rules/no-networkidle-wait.js';
-import requireCustomRegistrarArgs from './rules/require-custom-registrar-args.js';
 import requireExplicitStorageState from './rules/require-explicit-storage-state.js';
 import requireMotionGuardTransition from './rules/require-motion-guard-transition.js';
 import requireReturnsValidator from './rules/require-returns-validator.js';
@@ -39,7 +38,6 @@ export default {
 		'no-literal-control-char': noLiteralControlChar,
 		'no-module-state-singleton': noModuleStateSingleton,
 		'no-networkidle-wait': noNetworkidleWait,
-		'require-custom-registrar-args': requireCustomRegistrarArgs,
 		'require-explicit-storage-state': requireExplicitStorageState,
 		'require-motion-guard-transition': requireMotionGuardTransition,
 		'require-returns-validator': requireReturnsValidator,

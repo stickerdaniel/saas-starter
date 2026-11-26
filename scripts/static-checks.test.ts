@@ -341,7 +341,7 @@ describe('route predicates', () => {
 	it('routes the Convex functions, their helpers and the local components to check:convex', () => {
 		for (const file of [
 			'src/lib/convex/users.ts',
-			'src/lib/confect/functions.ts',
+			'src/lib/confect/tests.ts',
 			'src/lib/convex-components/betterAuth/adapter.ts'
 		]) {
 			expect(ROUTES.convex(file), file).toBe(true);

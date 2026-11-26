@@ -1,9 +1,9 @@
 import { resolveEffect } from 'eslint-plugin-saas-starter/effect-scope';
 import { findDefinition, specKind, walk } from '../confect-spec-kinds.js';
-import { CUSTOM_REGISTRARS, RAW_REGISTRARS } from '../convex-registrars.js';
+import { RAW_REGISTRARS } from '../convex-registrars.js';
 
 const TRANSACTIONAL_BUILDERS = new Set(
-	[...RAW_REGISTRARS, ...CUSTOM_REGISTRARS].filter((name) => /(query|mutation)$/i.test(name))
+	RAW_REGISTRARS.filter((name) => /(query|mutation)$/i.test(name))
 );
 const TRANSACTIONAL_SPEC = /(Query|Mutation)$/;
 const HELPERS = [

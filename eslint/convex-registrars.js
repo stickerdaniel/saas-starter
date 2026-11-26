@@ -1,8 +1,4 @@
-/**
- * The Convex registration builders the local rules recognise by name.
- * `src/lib/confect/functions.test.ts` checks that CUSTOM_REGISTRARS names every
- * export of `src/lib/confect/functions.ts`.
- */
+/** The Convex registration builders the local rules recognise by name. */
 
 /** Convex's own builders from `_generated/server`. */
 export const RAW_REGISTRARS = [
@@ -14,8 +10,15 @@ export const RAW_REGISTRARS = [
 	'internalAction'
 ];
 
-/** The custom builders `src/lib/confect/functions.ts` exports. */
-export const CUSTOM_REGISTRARS = ['authedQuery', 'authedMutation', 'adminQuery', 'adminMutation'];
+export const GENERIC_REGISTRARS = [
+	'queryGeneric',
+	'mutationGeneric',
+	'actionGeneric',
+	'internalQueryGeneric',
+	'internalMutationGeneric',
+	'internalActionGeneric',
+	'httpActionGeneric'
+];
 
 export const CONFECT_CONSTRUCTORS = {
 	'@confect/core': ['FunctionSpec', 'GroupSpec'],
@@ -65,4 +68,18 @@ export const CONFECT_LIBRARY_FUNCTIONS = {
 		'autumn:track',
 		'autumn:usage'
 	]
+};
+
+export const PLAIN_HTTP_ROUTES = {
+	'/files/inline':
+		'A Confect HTTP handler cannot call the files-control mutation consumeDownloadGrantForUrl, which resolves the grant.',
+	'/resend-webhook':
+		'resend.handleResendEventWebhook takes the Convex action context and the request as they arrive.'
+};
+
+export const PLAIN_REGISTRATION_PATHS = {
+	'**/*.test.ts':
+		'Tests register harness functions, such as mutationGeneric in profileImageUpload.test.ts.',
+	'**/__tests__/**':
+		'Tests register harness functions, such as mutationGeneric in profileImageUpload.test.ts.'
 };
