@@ -1,3 +1,4 @@
+import { appendVary } from '#lib/http/vary.js';
 import { matchPublicMarketingRoute } from '#lib/marketing/public-routes.js';
 
 /**
@@ -10,11 +11,16 @@ export function applyCacheControl(
 	event: { url: URL; locals: { token?: string | null }; route: { id: string | null } },
 	response: Response
 ): void {
-	if (
-		response.status === 200 &&
-		!event.locals.token &&
-		matchPublicMarketingRoute(event.url.pathname)
-	) {
+	const isMarketingDocument =
+		response.status === 200 && matchPublicMarketingRoute(event.url.pathname) !== null;
+	if (isMarketingDocument) {
+		// These URLs also serve markdown via Accept header, whatever the token
+		// state. CF edge ignores Vary, so this is safe only because every route
+		// reaching this branch is non-prerendered and the markdown variant is
+		// private (kept out of shared caches).
+		appendVary(response.headers, 'Accept');
+	}
+	if (isMarketingDocument && !event.locals.token) {
 		// Marketing HTML shells reference content-hashed JS chunks. A cached shell
 		// that survives a deploy points at chunks the new asset set no longer
 		// serves, preventing hydration and arming the client-side recovery
@@ -32,10 +38,6 @@ export function applyCacheControl(
 		// document load — a stale shell whose entry import 404s dies before any
 		// listener exists. Never widen this to a max-age.
 		response.headers.set('Cache-Control', 'public, no-cache');
-		// These URLs also serve markdown via Accept header. CF edge ignores Vary, so
-		// this is safe only because every route reaching this branch is non-prerendered
-		// and the markdown variant is private (kept out of shared caches).
-		response.headers.set('Vary', 'Accept');
 	} else if (
 		response.status === 200 &&
 		!event.locals.token &&

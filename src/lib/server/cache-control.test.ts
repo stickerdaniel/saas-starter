@@ -60,6 +60,22 @@ describe('applyCacheControl', () => {
 		expect(response.headers.get('vary')).toBe('Accept');
 	});
 
+	describe.each([
+		{ state: 'signed out', token: null },
+		{ state: 'signed in', token: 'jwt' }
+	])('marketing HTML $state', ({ token }) => {
+		it.each([
+			{ prior: undefined, expected: 'Accept' },
+			{ prior: 'Accept-Encoding', expected: 'Accept-Encoding, Accept' },
+			{ prior: 'Origin, accept', expected: 'Origin, accept' },
+			{ prior: 'ACCEPT, Accept-Encoding', expected: 'ACCEPT, Accept-Encoding' }
+		])('varies on Accept given prior Vary $prior', ({ prior, expected }) => {
+			const response = htmlResponse(prior === undefined ? {} : { Vary: prior });
+			applyCacheControl(makeEvent({ path: '/en', token }), response);
+			expect(response.headers.get('vary')).toBe(expected);
+		});
+	});
+
 	it('keeps unauthenticated auth-group HTML publicly revalidatable', () => {
 		const response = htmlResponse();
 		applyCacheControl(

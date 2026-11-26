@@ -17,6 +17,7 @@ import { renderAuthoredTemplate } from '#lib/content/authored-template.js';
 import { isIsoCalendarDate } from '#lib/content/legal-metadata.js';
 import { getRepositoryDocumentUrl, getRepositoryUrl } from '#lib/config/site.js';
 import { prefersMarkdownHeader } from '#lib/http/accept.js';
+import { appendVary } from '#lib/http/vary.js';
 
 const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
@@ -136,17 +137,6 @@ export function createMarkdownNotAcceptableResponse(): Response {
 			Vary: 'Accept'
 		}
 	});
-}
-
-function appendVary(headers: Headers, value: string): void {
-	const entries = (headers.get('Vary') ?? '')
-		.split(',')
-		.map((entry) => entry.trim())
-		.filter(Boolean);
-	if (!entries.some((entry) => entry.toLowerCase() === value.toLowerCase())) {
-		entries.push(value);
-	}
-	headers.set('Vary', entries.join(', '));
 }
 
 export function renderPublicMarkdownNotFound(origin: string, lang: string): string {
