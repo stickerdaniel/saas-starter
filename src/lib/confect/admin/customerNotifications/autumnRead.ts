@@ -69,7 +69,10 @@ async function requestCustomer(
 	signal: AbortSignal
 ): Promise<CustomerBillingRead> {
 	const request = new AbortController();
-	signal.addEventListener('abort', () => request.abort(signal.reason), { once: true });
+	const abortRequest = (reason?: unknown) => {
+		if (!request.signal.aborted) request.abort(reason);
+	};
+	signal.addEventListener('abort', () => abortRequest(signal.reason), { once: true });
 	let response: Response;
 	try {
 		response = await fetch(
@@ -85,7 +88,7 @@ async function requestCustomer(
 
 	const classified = classifyStatus(response.status);
 	if (classified) {
-		request.abort();
+		abortRequest();
 		return classified;
 	}
 	try {

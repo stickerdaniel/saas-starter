@@ -107,6 +107,27 @@ describe('readCustomerBilling', () => {
 		expect(fetchMock.mock.calls[0]![1].signal?.aborted).toBe(true);
 	});
 
+	it('aborts the request once when refused headers arrive after the deadline', async () => {
+		let repeatedAborts = 0;
+		class CountingAbortController extends AbortController {
+			override abort(reason?: unknown) {
+				if (this.signal.aborted) repeatedAborts += 1;
+				super.abort(reason);
+			}
+		}
+		vi.stubGlobal('AbortController', CountingAbortController);
+		stubFetch(
+			() =>
+				new Promise((resolve) =>
+					setTimeout(() => resolve(new Response(null, { status: 401 })), BUDGET_MS + 1000)
+				)
+		);
+
+		expect(await readAfterBudget()).toEqual(TIMED_OUT);
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(repeatedAborts).toBe(0);
+	});
+
 	it.each<[string, number, CustomerBillingRead]>([
 		['missing customer', 404, { kind: 'not_found' }],
 		['not ready', 202, { kind: 'retry', code: 'autumn_not_ready' }],
