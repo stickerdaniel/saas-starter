@@ -185,9 +185,12 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 		this.dropSurfaceIfIdle();
 	}
 
-	/** Whether a send this owner took over still waits for its outcome or for its group. */
-	get hasPendingSends(): boolean {
-		return this.pending.size > 0;
+	/**
+	 * Whether a send this owner took over still waits for its outcome or for its
+	 * group, or refused work still waits for its conversation's thread id.
+	 */
+	get hasOutstandingWork(): boolean {
+		return this.pending.size > 0 || this.held.length > 0;
 	}
 
 	/**
@@ -225,9 +228,9 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 	}
 
 	forgetPersistedState(): void {
-		this.abandon(() => true);
 		for (const held of this.held) held.unsubscribe();
 		this.held = [];
+		this.abandon(() => true);
 		this.pendingChanged();
 	}
 
@@ -256,7 +259,7 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 
 	private dropSurfaceIfIdle(): void {
 		const surface = surfaceOwnerOf.get(this);
-		if (surface && this.pending.size === 0) dropSurfaceOwnerIfUnused(surface);
+		if (surface && !this.hasOutstandingWork) dropSurfaceOwnerIfUnused(surface);
 	}
 
 	private storedDraftCaptured(threadId: string, sends: PendingSend[]): boolean {
@@ -327,6 +330,11 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 	private flushHeld(held: HeldRestoration, threadId: string): void {
 		if (!isChatSessionCurrent(held.sessionEpoch)) return;
 		this.held = this.held.filter((candidate) => candidate !== held);
+		this.restoreHeld(held, threadId);
+		this.dropSurfaceIfIdle();
+	}
+
+	private restoreHeld(held: HeldRestoration, threadId: string): void {
 		const target = this.matchingTarget(held.conversation);
 		if (target) {
 			const text = joinWork(held.texts, target.inputValue);
@@ -448,7 +456,7 @@ function registerSurfaceOwner(surface: string, owner: ComposerSendCoordinator): 
 }
 
 function dropSurfaceOwnerIfUnused(entry: SurfaceOwner): void {
-	if (entry.leases === 0 && !entry.owner.hasPendingSends) dropSurfaceOwner(entry);
+	if (entry.leases === 0 && !entry.owner.hasOutstandingWork) dropSurfaceOwner(entry);
 }
 
 function dropSurfaceOwner(entry: SurfaceOwner): void {

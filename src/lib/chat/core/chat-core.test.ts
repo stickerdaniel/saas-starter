@@ -197,7 +197,7 @@ describe('ChatCore command outcomes', () => {
 		}
 	);
 
-	it('preserves a matching provisional null-to-real thread binding', async () => {
+	it('keeps the send lock when the created thread is set again during creation', async () => {
 		const message = deferred<{ messageId: string; order: number }>();
 		const mutation = vi
 			.fn()

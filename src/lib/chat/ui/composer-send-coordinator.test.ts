@@ -170,6 +170,21 @@ function leasedSurface(name: string, options: { persistent?: boolean } = {}) {
 	return { chat, lease };
 }
 
+/** The listeners `core`'s conversation will call when it receives its thread id. */
+function assignmentListeners(core: ChatCore): Set<(threadId: string) => void> {
+	const listening = new Set<(threadId: string) => void>();
+	const whenAssigned = core.conversation.whenAssigned.bind(core.conversation);
+	vi.spyOn(core.conversation, 'whenAssigned').mockImplementation((listener) => {
+		listening.add(listener);
+		const unsubscribe = whenAssigned(listener);
+		return () => {
+			listening.delete(listener);
+			unsubscribe();
+		};
+	});
+	return listening;
+}
+
 /** What the transport hands back for `file(key)`. */
 const fileA = { fileId: 'file-a', url: 'https://chat.test/a.txt' };
 const fileB = { fileId: 'file-b', url: 'https://chat.test/b.txt' };
@@ -471,24 +486,65 @@ describe('surface lifetime', () => {
 		expect(reopened.attachments()).toEqual([]);
 	});
 
-	it('stores nothing of an ended session when its new conversation gets an id afterwards', async () => {
-		const chat = chatSurface();
-		const unmountSurface = chat.owner.mount();
+	it('keeps a held refusal of a released surface for its next mount', async () => {
+		const name = `settlement-${crypto.randomUUID()}`;
+		const left = leasedSurface(name);
 		const core = new ChatCore({ threadId: null });
-		const composer = await chat.open(null, core);
-		await composer.send('old session', 'a');
+		const composer = await left.chat.open(null, core);
+		await composer.send('held words', 'a');
 		await composer.close();
-		chat.sends[0]!.reject(new Error('refused'));
+		left.lease.release();
+		left.chat.sends[0]!.reject(new Error('refused'));
 		await settleWork();
 
-		clearPersistedChatState();
+		const entered = leasedSurface(name);
+		const reopened = await entered.chat.open(null, core);
+		expect(reopened.attachments()).toEqual(['a']);
+		entered.lease.release();
+	});
+
+	it('retires a released surface owner once its held refusal is stored', async () => {
+		const name = `settlement-${crypto.randomUUID()}`;
+		const left = leasedSurface(name);
+		const core = new ChatCore({ threadId: null });
+		const composer = await left.chat.open(null, core);
+		await composer.send('held words', 'a');
+		await composer.close();
+		left.lease.release();
+		left.chat.sends[0]!.reject(new Error('refused'));
+		await settleWork();
+
 		core.conversation.assign('thread-created');
 		await settleWork();
-		unmountSurface();
 
-		expect(chat.drafts!.getDraft('thread-created')).toBe('');
-		expect(chat.store!.readThread('thread-created')).toEqual([]);
-		const reopened = await chat.open('thread-created', core);
+		expect(left.chat.drafts!.getDraft('thread-created')).toBe('held words');
+		expect(keys(left.chat.store!.readThread('thread-created'))).toEqual(['a']);
+		const entered = leasedSurface(name);
+		expect(entered.chat.owner).not.toBe(left.chat.owner);
+		entered.lease.release();
+	});
+
+	it('lets go of a held refusal of a released surface when the session ends', async () => {
+		const name = `settlement-${crypto.randomUUID()}`;
+		const left = leasedSurface(name);
+		const core = new ChatCore({ threadId: null });
+		const listening = assignmentListeners(core);
+		const composer = await left.chat.open(null, core);
+		await composer.send('old session', 'a');
+		await composer.close();
+		left.lease.release();
+		left.chat.sends[0]!.reject(new Error('refused'));
+		await settleWork();
+		expect(listening.size).toBe(1);
+
+		clearPersistedChatState();
+		expect(listening.size).toBe(0);
+		core.conversation.assign('thread-created');
+		await settleWork();
+
+		expect(left.chat.drafts!.getDraft('thread-created')).toBe('');
+		expect(left.chat.store!.readThread('thread-created')).toEqual([]);
+		const reopened = await chatSurface({ name }).open('thread-created', core);
 		expect(reopened.text()).toBe('');
 		expect(reopened.attachments()).toEqual([]);
 	});

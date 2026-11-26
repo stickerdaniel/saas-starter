@@ -82,7 +82,6 @@ export class ChatCore implements ChatSessionPort {
 	private readonly api?: ChatCoreAPI;
 	private readonly config: Required<ChatConfig>;
 	private sendRevision = 0;
-	private provisionalThreadBinding: { threadId: string; sendRevision: number } | null = null;
 
 	constructor(options: ChatCoreOptions) {
 		this.#conversation = new ChatConversation(options.threadId ?? null);
@@ -108,20 +107,11 @@ export class ChatCore implements ChatSessionPort {
 	}
 
 	setThread(threadId: string | null): void {
-		const bindsActiveProvisionalThread =
-			this.threadId === null &&
-			threadId !== null &&
-			this.provisionalThreadBinding?.threadId === threadId &&
-			this.provisionalThreadBinding.sendRevision === this.sendRevision;
-		if (threadId !== this.threadId && !bindsActiveProvisionalThread) {
+		if (threadId !== this.threadId) {
 			this.sendRevision++;
-			this.provisionalThreadBinding = null;
 			this.isSending = false;
 			this.awaitedTurn = null;
-		}
-		if (threadId !== this.threadId) {
-			if (bindsActiveProvisionalThread) this.#conversation.assign(threadId);
-			else this.#conversation = new ChatConversation(threadId);
+			this.#conversation = new ChatConversation(threadId);
 		}
 		this.isNewConversation = threadId === null;
 		this.hasMore = false;
@@ -218,11 +208,9 @@ export class ChatCore implements ChatSessionPort {
 
 				threadId = result.threadId;
 				threadCreated = result;
-				this.provisionalThreadBinding = { threadId, sendRevision };
 				// Assigned directly: setThread would clear streamCache, error, and the
 				// pagination cursors
 				this.#conversation.assign(threadId);
-				this.provisionalThreadBinding = null;
 				this.isNewConversation = false;
 				failureCode = 'send_failed';
 			}
@@ -307,7 +295,6 @@ export class ChatCore implements ChatSessionPort {
 	/** Reset session-owned flags without changing the selected thread. */
 	forgetChatSession(): void {
 		this.sendRevision++;
-		this.provisionalThreadBinding = null;
 		this.isSending = false;
 		this.awaitedTurn = null;
 		this.error = null;
@@ -316,7 +303,6 @@ export class ChatCore implements ChatSessionPort {
 
 	reset(): void {
 		this.sendRevision++;
-		this.provisionalThreadBinding = null;
 		this.#conversation = new ChatConversation();
 		this.isNewConversation = false;
 		this.isLoading = false;
