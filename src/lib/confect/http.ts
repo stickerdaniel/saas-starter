@@ -20,7 +20,7 @@ import {
 const http = httpRouter();
 
 // Better Auth routes
-authComponent.registerRoutes(http, createAuth);
+authComponent.registerRoutesLazy(http, createAuth);
 
 // files-control download route (/files/download?token=...). Serves files from
 // the component's storage namespace via download grants; profile images use
