@@ -11,15 +11,19 @@ const executeOptions = {
 	context: {}
 };
 
-function executeRequestHandoff(
+async function executeRequestHandoff(
 	ctx: { threadId?: string; runMutation: ReturnType<typeof vi.fn> },
-	input: Record<string, unknown> = {}
+	input: unknown = {}
 ) {
 	const tool = { ...requestHandoff, ctx: ctx as unknown as ToolCtx };
 	if (!tool.execute) {
 		throw new Error('requestHandoff must be executable');
 	}
-	return tool.execute(input, executeOptions);
+	const decoded = await asSchema(requestHandoff.inputSchema).validate?.(input);
+	if (!decoded?.success) {
+		throw new Error('requestHandoff refused its input');
+	}
+	return tool.execute(decoded.value, executeOptions);
 }
 
 afterEach(() => {
@@ -52,6 +56,18 @@ describe('requestHandoff', () => {
 			type: 'object',
 			properties: {},
 			additionalProperties: false
+		});
+	});
+
+	it('decodes any object from the model to an empty input', async () => {
+		expect(
+			await asSchema(requestHandoff.inputSchema).validate?.({ $reason: 'visitor-private-marker' })
+		).toEqual({ success: true, value: {} });
+	});
+
+	it.each([null, [], 'help', 1])('refuses %j as input', async (input) => {
+		expect(await asSchema(requestHandoff.inputSchema).validate?.(input)).toMatchObject({
+			success: false
 		});
 	});
 

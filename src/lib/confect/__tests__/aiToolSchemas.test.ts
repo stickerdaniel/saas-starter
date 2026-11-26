@@ -7,21 +7,21 @@ describe('AI tool input schemas', () => {
 	it.each([
 		[
 			'getGeocoding',
-			getGeocoding.inputSchema,
+			asSchema(getGeocoding.inputSchema),
 			`{"$schema":"http://json-schema.org/draft-07/schema#","type":"object","properties":{"location":{"type":"string","description":"The location to get the geocoding for, e.g. 'San Francisco'"}},"required":["location"],"additionalProperties":false}`
 		],
 		[
 			'getWeather',
-			getWeather.inputSchema,
+			asSchema(getWeather.inputSchema),
 			`{"$schema":"http://json-schema.org/draft-07/schema#","type":"object","properties":{"latitude":{"type":"number"},"longitude":{"type":"number"}},"required":["latitude","longitude"],"additionalProperties":false}`
 		],
 		[
 			'requestHandoff',
-			requestHandoff.inputSchema,
+			asSchema(requestHandoff.inputSchema),
 			`{"$schema":"http://json-schema.org/draft-07/schema#","type":"object","properties":{},"additionalProperties":false}`
 		]
 	])('sends the %s JSON Schema to the model', async (_name, inputSchema, expected) => {
-		expect(JSON.stringify(await asSchema(inputSchema).jsonSchema)).toBe(expected);
+		expect(JSON.stringify(await inputSchema.jsonSchema)).toBe(expected);
 	});
 
 	it('passes valid getWeather input to the tool without extra keys', async () => {
