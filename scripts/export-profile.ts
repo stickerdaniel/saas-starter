@@ -8,17 +8,15 @@ function exists(path: string): boolean {
 
 function removeEmptyParents(root: string, path: string): void {
 	for (let directory = dirname(path); directory !== '.'; directory = dirname(directory)) {
-		const absolute = join(root, directory);
-		if (!exists(absolute)) continue;
-		if (readdirSync(absolute).length > 0) return;
-		rmdirSync(absolute);
+		if (readdirSync(join(root, directory)).length > 0) return;
+		rmdirSync(join(root, directory));
 	}
 }
 
 /**
  * Deletes the files of the named sets among `files`, the template's own paths under `root`,
  * and returns the paths it deleted, sorted. A file outside `files` stays, and so does its
- * directory. A listed file that is already gone is skipped, so a second run finishes a first one.
+ * directory. A listed file that is already gone is skipped, and no directory is removed for it.
  */
 export function deletePathSets(
 	root: string,
@@ -27,11 +25,10 @@ export function deletePathSets(
 ): string[] {
 	const deleted: string[] = [];
 	for (const path of files.filter((file) => inPathSets(file, names)).sort()) {
-		if (exists(join(root, path))) {
-			rmSync(join(root, path));
-			deleted.push(path);
-		}
+		if (!exists(join(root, path))) continue;
+		rmSync(join(root, path));
 		removeEmptyParents(root, path);
+		deleted.push(path);
 	}
 	return deleted;
 }

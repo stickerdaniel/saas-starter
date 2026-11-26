@@ -72,27 +72,22 @@ describe('deletePathSets', () => {
 		expect(existsSync(join(tree, 'e2e/utils'))).toBe(false);
 	});
 
-	it('finishes a run that stopped halfway, and deletes nothing on a second run', () => {
+	it('skips a listed file that is gone and keeps an empty directory it did not empty', () => {
 		tree = mkdtempSync(join(tmpdir(), 'export-profile-'));
 		const tracked = [
 			'e2e/public-a11y.spec.ts',
 			'e2e/utils/auth.ts',
 			'packages/create-saas-starter/test/release-gate.test.ts',
-			'scripts/__fixtures__/static-checks/private-checkout.ts',
-			'scripts/static-checks.ts'
+			'scripts/__fixtures__/static-checks/private-checkout.ts'
 		];
-		for (const file of ['e2e/utils/auth.ts', 'scripts/static-checks.ts']) {
-			mkdirSync(dirname(join(tree, file)), { recursive: true });
-			writeFileSync(join(tree, file), '');
-		}
+		mkdirSync(join(tree, 'e2e/utils'), { recursive: true });
+		writeFileSync(join(tree, 'e2e/utils/auth.ts'), '');
 		mkdirSync(join(tree, 'scripts/__fixtures__/static-checks'), { recursive: true });
 
 		expect(deletePathSets(tree, tracked, ['tests'])).toEqual(['e2e/utils/auth.ts']);
 		expect(deletePathSets(tree, tracked, ['tests'])).toEqual([]);
 		expect(
-			['e2e', 'scripts/__fixtures__', 'scripts/static-checks.ts'].filter((path) =>
-				existsSync(join(tree, path))
-			)
-		).toEqual(['scripts/static-checks.ts']);
+			['e2e', 'scripts/__fixtures__/static-checks'].filter((path) => existsSync(join(tree, path)))
+		).toEqual(['scripts/__fixtures__/static-checks']);
 	});
 });
