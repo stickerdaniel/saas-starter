@@ -7,6 +7,8 @@ description: Canonical Convex backend coding patterns — validators, function r
 
 These guidelines must be followed when writing, reviewing, or modifying any Convex backend code.
 
+A function in `src/lib/confect/` is registered as a native Confect spec and implementation, as `src/lib/confect/AGENTS.md` ("Layout") describes. The plain `query`, `mutation` and `action` registrations in the examples below show Convex semantics: arguments, return values, calls, pagination and storage. Outside test files, lint rejects them as written in `src/lib/confect/`.
+
 ## Function Guidelines
 
 ### HTTP Endpoint Syntax
@@ -32,6 +34,8 @@ http.route({
 
 ### Validators
 
+A Confect spec declares arguments and return values with Effect Schema (`Schema.Array`, `Schema.Union`, `Schema.Struct`, and `Id('table')` from `src/lib/confect/_generated/id`). The `v` validators below are the Convex forms those compile to, and their limits hold for both.
+
 - Use `v.array(validator)` for arrays, `v.union(...)` for unions, and `v.object({ ... })` for objects.
 - Discriminated unions: use `v.literal("kind")` inside `v.union(v.object({ kind: v.literal("a"), ... }), ...)`.
 - Common validators: `v.id(tableName)`, `v.string()`, `v.number()`, `v.boolean()`, `v.int64()` (not `v.bigint()`), `v.record(keys, values)` (not `v.map`/`v.set`).
@@ -41,7 +45,7 @@ http.route({
 
 ### Function Registration
 
-- Use `internalQuery`, `internalMutation`, `internalAction` for private functions (from `./_generated/server`). Use `query`, `mutation`, `action` for public API.
+- Register with the Confect constructors of the same kind: `FunctionSpec.internalQuery`, `internalMutation` and `internalAction` for private functions, `FunctionSpec.publicQuery`, `publicMutation` and `publicAction` for the public API. The plain builders from `./_generated/server` (`internalQuery`, `query` and the others) stay with the library functions listed in `eslint/convex-registrars.js`.
 - Do NOT register functions through the `api` or `internal` objects.
 - ALWAYS include `args` validators for every function.
 - ALWAYS include `returns` validators for every function. If a function returns nothing, use `returns: v.null()`.
@@ -58,6 +62,7 @@ http.route({
 - For same-file calls, add a type annotation on the return value to avoid TypeScript circularity:
 
 ```typescript
+// Plain Convex registration, shown for its semantics. In src/lib/confect/, register through a Confect spec.
 export const f = query({
 	args: { name: v.string() },
 	returns: v.string(),
@@ -86,7 +91,7 @@ export const g = query({
 
 ### Pagination
 
-- Import `paginationOptsValidator` from `convex/server` and use `args: { paginationOpts: paginationOptsValidator, ... }`.
+- In a Confect spec, declare the argument as `paginationOpts: PaginationOpts` from `src/lib/confect/schemas/pagination.ts`. Plain Convex code imports `paginationOptsValidator` from `convex/server` and uses `args: { paginationOpts: paginationOptsValidator, ... }`.
 - Paginated return object has `page`, `isDone`, and `continueCursor` (NOT `results`).
 - Example:
 
@@ -95,6 +100,7 @@ import { query } from './_generated/server';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 
+// Plain Convex registration, shown for its semantics. In src/lib/confect/, register through a Confect spec.
 export const list = query({
 	args: { paginationOpts: paginationOptsValidator, author: v.string() },
 	handler: async (ctx, args) => {
@@ -181,6 +187,8 @@ const messages = await ctx.db
 
 ### Cron Jobs
 
+Jobs are declared in `src/lib/confect/crons.ts` with `CronJobs.make().add(CronJob.make(name, interval, reference, args))`. The reference is a function of a Confect group, taken from `refs.internal` in `src/lib/confect/_generated/refs`. The plain `cronJobs()` syntax below shows the Convex semantics behind it.
+
 - Only use `crons.interval` or `crons.cron` methods. Do NOT use `crons.hourly`, `crons.daily`, or `crons.weekly` helpers.
 - Both cron methods take a FunctionReference. Do NOT pass the function directly.
 - Define crons by declaring the top-level `crons` object, calling methods on it, and exporting it as default:
@@ -190,6 +198,7 @@ import { cronJobs } from 'convex/server';
 import { internal } from './_generated/api';
 import { internalAction } from './_generated/server';
 
+// Plain Convex registration, shown for its semantics. In src/lib/confect/, register through a Confect spec.
 const empty = internalAction({
 	args: {},
 	handler: async (ctx, args) => {
@@ -202,8 +211,8 @@ crons.interval('delete inactive users', { hours: 2 }, internal.crons.empty, {});
 export default crons;
 ```
 
-- You can register Convex functions within `crons.ts` just like any other file.
-- If a cron calls an internal function, always import `internal` from `_generated/api`, even if the function is registered in the same file.
+- Register a job's target in the Confect group it belongs to; `crons.ts` holds only the job list.
+- Plain Convex code that calls an internal function from a cron imports `internal` from `_generated/api`, even if the function is registered in the same file.
 
 ## File Storage Guidelines
 
@@ -214,6 +223,7 @@ export default crons;
 import { query } from './_generated/server';
 import { v } from 'convex/values';
 
+// Plain Convex registration, shown for its semantics. In src/lib/confect/, register through a Confect spec.
 export const getFileMetadata = query({
 	args: { fileId: v.id('_storage') },
 	returns: v.any(),
