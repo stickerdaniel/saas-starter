@@ -19,10 +19,6 @@ import users from './users.spec';
 
 const NUDGE_DEFERRAL = Duration.days(30);
 
-const viewer = Effect.gen(function* () {
-	return yield* CurrentUser;
-});
-
 const EXPECTED_SET_PASSWORD_CODES: ReadonlySet<string> = new Set([
 	'PASSWORD_ALREADY_SET',
 	'PASSWORD_TOO_SHORT',
@@ -144,13 +140,12 @@ export default GroupImpl.make(databaseSchema, users).pipe(
 		),
 		FunctionImpl.make(databaseSchema, users, 'viewer', () =>
 			Effect.gen(function* () {
-				return yield* viewer;
+				return yield* CurrentUser;
 			})
 		),
 		FunctionImpl.make(databaseSchema, users, 'viewerAs', ({ userId }) =>
 			Effect.gen(function* () {
-				const user = yield* QueryCtx.use(actingUser(userId));
-				return yield* Effect.provideService(viewer, CurrentUser, user);
+				return yield* QueryCtx.use(actingUser(userId));
 			})
 		)
 	]),
