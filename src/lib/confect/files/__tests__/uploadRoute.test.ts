@@ -4,7 +4,12 @@ import { convexTest } from 'convex-test';
 import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
 import rateLimiterSchema from '../../../../../node_modules/@convex-dev/rate-limiter/dist/component/schema.js';
 import filesControl from '@gilhrpenner/convex-files-control/test';
-import { mutationGeneric, type GenericDataModel, type GenericMutationCtx } from 'convex/server';
+import {
+	actionGeneric,
+	mutationGeneric,
+	type GenericDataModel,
+	type GenericMutationCtx
+} from 'convex/server';
 import { ConvexError, v } from 'convex/values';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, components } from '../../../convex/_generated/api';
@@ -18,6 +23,7 @@ import type { UploadPurpose } from '../uploadRoute';
 type Staged = { size: number; contentType: string | null };
 
 const staged = new Map<string, Staged>();
+const discarded: string[] = [];
 
 const uploadModulePath = Object.keys(filesControl.modules).find((path) =>
 	path.endsWith('/component/upload.ts')
@@ -50,6 +56,23 @@ filesControl.modules[uploadModulePath] = async () => {
 		})
 	};
 };
+
+const cleanUpModulePath = Object.keys(filesControl.modules).find((path) =>
+	path.endsWith('/component/cleanUp.ts')
+);
+if (cleanUpModulePath === undefined) throw new Error('files-control has no cleanUp module');
+const loadCleanUp = filesControl.modules[cleanUpModulePath];
+
+filesControl.modules[cleanUpModulePath] = async () => ({
+	...((await loadCleanUp()) as object),
+	deleteStorageFile: actionGeneric({
+		args: { storageId: v.string(), storageProvider: v.literal('convex') },
+		handler: async (_ctx, { storageId }) => {
+			discarded.push(storageId);
+			return null;
+		}
+	})
+});
 
 const betterAuthModules = await preloadModules(
 	import.meta.glob('../../../convex-components/betterAuth/**/*.ts')
@@ -227,6 +250,7 @@ afterEach(() => {
 	vi.unstubAllEnvs();
 	vi.restoreAllMocks();
 	staged.clear();
+	discarded.length = 0;
 });
 
 describe('upload route identity', () => {
@@ -469,6 +493,7 @@ describe('profile image uploads', () => {
 				paginationOpts: { numItems: 10, cursor: null }
 			});
 			expect(page).toEqual([expect.objectContaining({ expiresAt: null })]);
+			expect(discarded).toEqual([]);
 			await expect(
 				t.query(components.convexFilesControl.queries.hasAccessKey, {
 					storageId: page[0]!.storageId,
@@ -488,7 +513,7 @@ describe('profile image uploads', () => {
 		expect(await stored(t)).toEqual(nothingStored);
 	});
 
-	it('answers 500 without a site URL, issues no grant and leaves no live file', async () => {
+	it('answers 500 without a site URL, issues no grant and deletes the staged blob', async () => {
 		const t = harness();
 		const { caller } = await signIn(t);
 		vi.stubEnv('CONVEX_SITE_URL', '');
@@ -502,7 +527,9 @@ describe('profile image uploads', () => {
 		const { page } = await t.query(components.convexFilesControl.queries.listFilesPage, {
 			paginationOpts: { numItems: 10, cursor: null }
 		});
-		for (const file of page) expect(file.expiresAt).toBeLessThanOrEqual(Date.now());
+		expect(page).toEqual([]);
+		expect(discarded).toEqual([...staged.keys()]);
+		expect(discarded).toHaveLength(1);
 	});
 });
 

@@ -139,26 +139,18 @@ async function storeChatAttachment(ctx: ActionCtx, blob: Blob, query: URLSearchP
 	return { fileId: file.fileId, url: file.url, filename: file.filename, isImage };
 }
 
-async function discardStaged(
-	ctx: ActionCtx,
-	staged: { uploadToken: string; storageId: string },
-	userId: string
-) {
+async function discardStaged(ctx: ActionCtx, storageId: string) {
 	try {
-		await ctx.runMutation(components.convexFilesControl.upload.finalizeUpload, {
-			...staged,
-			accessKeys: [userId],
-			expiresAt: Date.now()
-		});
-		await ctx.runMutation(components.convexFilesControl.cleanUp.deleteFile, {
-			storageId: staged.storageId
+		await ctx.runAction(components.convexFilesControl.cleanUp.deleteStorageFile, {
+			storageId,
+			storageProvider: 'convex'
 		});
 	} catch {
-		console.error('Staged profile image cleanup failed; the expiry sweep removes it');
+		console.error('Staged profile image cleanup failed');
 	}
 }
 
-async function storeProfileImage(ctx: ActionCtx, blob: Blob, userId: string) {
+async function storeProfileImage(ctx: ActionCtx, blob: Blob) {
 	validateUploadBlob(blob, undefined, UPLOAD_PROFILES.profileImage);
 	const { uploadUrl, uploadToken } = await ctx.runMutation(
 		components.convexFilesControl.upload.generateUploadUrl,
@@ -182,7 +174,7 @@ async function storeProfileImage(ctx: ActionCtx, blob: Blob, userId: string) {
 		});
 		return { url };
 	} catch (error) {
-		await discardStaged(ctx, { uploadToken, storageId }, userId);
+		await discardStaged(ctx, storageId);
 		throw error;
 	}
 }
@@ -196,7 +188,7 @@ export const receiveUpload =
 			return refuse('Unauthenticated', cors);
 		}
 		try {
-			const ownerId = await authorize(ctx, request, purpose);
+			await authorize(ctx, request, purpose);
 			const { maxBytes } = PROFILES[purpose];
 			if (Number(request.headers.get('Content-Length')) > maxBytes) {
 				return refuse(FILE_ERROR_CODES.tooLarge, cors);
@@ -207,7 +199,7 @@ export const receiveUpload =
 			const query = new URL(request.url).searchParams;
 			const result =
 				purpose === 'profileImage'
-					? await storeProfileImage(ctx, blob, ownerId)
+					? await storeProfileImage(ctx, blob)
 					: await storeChatAttachment(ctx, blob, query);
 			return Response.json(result, { headers: cors });
 		} catch (error) {
