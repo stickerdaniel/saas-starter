@@ -19,6 +19,14 @@ function write(scheme: Scheme) {
 	root.style.colorScheme = scheme;
 }
 
+function stored(): string | null {
+	try {
+		return localStorage.getItem(MODE_STORAGE_KEY);
+	} catch {
+		return null;
+	}
+}
+
 function persist(next: UserMode): boolean {
 	try {
 		localStorage.setItem(MODE_STORAGE_KEY, next);
@@ -49,7 +57,7 @@ function apply() {
 
 if (typeof window !== 'undefined') {
 	const prefersLight = window.matchMedia?.('(prefers-color-scheme: light)');
-	userMode = toUserMode(localStorage.getItem(MODE_STORAGE_KEY));
+	userMode = toUserMode(stored());
 	persist(userMode);
 	systemLight = prefersLight?.matches ?? false;
 	apply();
