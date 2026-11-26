@@ -1,4 +1,5 @@
 import * as Console from 'effect/Console';
+import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Logger from 'effect/Logger';
 import type * as LogLevel from 'effect/LogLevel';
@@ -22,6 +23,17 @@ export const consoleLogger = Logger.make(({ fiber, logLevel, message, cause }) =
 });
 
 export const consoleLogging = Layer.merge(
-	Logger.layer([consoleLogger]),
+	Layer.effect(
+		Logger.CurrentLoggers,
+		Effect.map(
+			Logger.CurrentLoggers,
+			(loggers) =>
+				new Set(
+					Array.from(loggers, (logger) =>
+						logger === Logger.defaultLogger ? consoleLogger : logger
+					)
+				)
+		)
+	),
 	Layer.succeed(References.MinimumLogLevel, 'Debug')
 );

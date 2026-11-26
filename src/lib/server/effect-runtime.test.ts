@@ -1,5 +1,6 @@
 import * as Effect from 'effect/Effect';
-import { describe, expect, it } from 'vitest';
+import * as Tracer from 'effect/Tracer';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runServerEffect } from './effect-runtime';
 
 function stackDepth(): number {
@@ -11,6 +12,10 @@ function stackDepth(): number {
 }
 
 describe('runServerEffect', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	it('finishes two runs whose waits overlap in overlap', async () => {
 		const { promise: opened, resolve: open } = Promise.withResolvers<void>();
 		const waiting = runServerEffect(
@@ -78,5 +83,27 @@ describe('runServerEffect', () => {
 		const failure = new Error('refused');
 		await expect(runServerEffect(Effect.fail(failure))).rejects.toBe(failure);
 		await expect(runServerEffect(Effect.die(failure))).rejects.toBe(failure);
+	});
+
+	it('records a log as an event on the active span', async () => {
+		const events: string[] = [];
+		const tracer = Tracer.make({
+			span(options) {
+				const span = new Tracer.NativeSpan(options);
+				const record = span.event.bind(span);
+				span.event = (name, startTime, attributes) => {
+					events.push(name);
+					record(name, startTime, attributes);
+				};
+				return span;
+			}
+		});
+		vi.spyOn(console, 'log').mockImplementation(() => {});
+
+		await runServerEffect(
+			Effect.log('loaded the viewer').pipe(Effect.withSpan('load'), Effect.withTracer(tracer))
+		);
+
+		expect(events).toEqual(['loaded the viewer']);
 	});
 });
