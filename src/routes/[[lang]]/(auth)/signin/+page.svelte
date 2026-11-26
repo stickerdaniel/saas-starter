@@ -2,6 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import * as v from 'valibot';
 	import { authClient } from '#lib/auth-client.js';
+	import type { oauthAuthClient } from '#lib/auth-client-oauth.js';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '#lib/convex/_generated/api.js';
@@ -12,7 +13,8 @@
 	import { signInSchema } from './schema.js';
 	import { localizedHref } from '#lib/utils/i18n.js';
 	import { page } from '$app/state';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { authFlowContext } from '#lib/hooks/auth-flow.svelte.ts';
@@ -34,6 +36,7 @@
 		FAILED_LINK_PARAM,
 		FAILED_RESET_LINK,
 		authPageURL,
+		callbackURLFor,
 		oauthErrorCallbackURL,
 		safeAuthDestination,
 		verificationErrorIn
@@ -90,6 +93,7 @@
 	let isLoading = $state(false);
 	const resumesAuthorization = page.url.searchParams.has('sig');
 	let authorizationResumed = false;
+	const authorizationRedirect = v.object({ url: v.string() });
 
 	/**
 	 * Whether this page is holding a visitor who was already signed in when it
@@ -282,7 +286,18 @@
 		isLoading = true;
 
 		if (resumesAuthorization) {
-			await resumeAuthorization();
+			await resumeAuthorization(
+				(oauth) =>
+					oauth.signIn.email(
+						{ email: signInData.email, password: signInData.password },
+						{
+							onSuccess: (ctx) => {
+								ctx.data.redirect = false;
+							}
+						}
+					),
+				'auth.messages.invalid_credentials'
+			);
 			return;
 		}
 
@@ -335,27 +350,29 @@
 		}
 	}
 
-	async function resumeAuthorization() {
+	async function resumeAuthorization(
+		signIn: (client: typeof oauthAuthClient) => Promise<{ data: unknown; error: unknown }>,
+		fallbackKey: string
+	) {
 		let failure = 'auth.messages.generic_error';
+		let url: string | null = null;
 		try {
 			const { oauthAuthClient } = await import('#lib/auth-client-oauth.js');
-			const { data, error } = await oauthAuthClient.signIn.email(
-				{ email: signInData.email, password: signInData.password },
-				{
-					onSuccess: (ctx) => {
-						ctx.data.redirect = false;
-					}
-				}
-			);
-			if (error) failure = getAuthErrorKey(error, 'auth.messages.invalid_credentials');
-			else if (data.url) {
-				haptic.trigger('success');
-				authorizationResumed = true;
-				navigateAfterAuthentication(data.url);
-				return;
+			const { data, error } = await signIn(oauthAuthClient);
+			if (error) failure = getAuthErrorKey(error, fallbackKey);
+			else {
+				const redirect = v.safeParse(authorizationRedirect, data);
+				if (redirect.success) url = redirect.output.url;
 			}
 		} catch (error) {
 			console.error('[SignIn] Authorization resume error:', error);
+		}
+		if (left) return;
+		if (url) {
+			haptic.trigger('success');
+			authorizationResumed = true;
+			navigateAfterAuthentication(url);
+			return;
 		}
 		lastValidSignInSubmission = null;
 		haptic.trigger('error');
@@ -374,7 +391,10 @@
 			// A refused start, such as a 400 or 503, resolves with `error`; only a
 			// network failure throws. On success Better Auth's client navigates to
 			// the provider by itself.
-			const { error } = await authClient.signIn.social(
+			const signInSocial = resumesAuthorization
+				? (await import('#lib/auth-client-oauth.js')).oauthAuthClient.signIn.social
+				: authClient.signIn.social;
+			const { error } = await signInSocial(
 				{
 					provider,
 					callbackURL: authPageURL(localizedHref('/signin'), finalDestination),
@@ -383,7 +403,12 @@
 					//
 					// Keep the raw value here: this deliberately uses the broader validation,
 					// and the page narrows the destination again when it navigates.
-					errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signin'), rawDestination)
+					errorCallbackURL: resumesAuthorization
+						? callbackURLFor(
+								`${localizedHref('/signin')}${page.url.search}`,
+								localizedHref('/signin')
+							)
+						: oauthErrorCallbackURL(localizedHref('/signin'), rawDestination)
 				},
 				{
 					// Better Auth's redirect plugin navigates before this call returns. Per-call
@@ -431,13 +456,31 @@
 		formError = errorKey;
 		clearPendingOAuthProvider();
 		// One write, so the URL is rewritten once rather than twice.
-		params.update({ error: '', error_description: '', [FAILED_LINK_PARAM]: '' });
+		if (resumesAuthorization) {
+			const url = new URL(page.url.href);
+			for (const key of ['error', 'error_description', FAILED_LINK_PARAM])
+				url.searchParams.delete(key);
+			void goto(resolve(url.pathname + url.search), { replace: true, reset: false });
+		} else params.update({ error: '', error_description: '', [FAILED_LINK_PARAM]: '' });
 	});
 
 	async function handlePasskeyLogin() {
 		haptic.trigger('light');
 		isLoading = true;
 		formError = '';
+
+		if (resumesAuthorization) {
+			await resumeAuthorization(
+				(oauth) =>
+					oauth.signIn.passkey(undefined, {
+						onSuccess: (ctx) => {
+							ctx.data.redirect = false;
+						}
+					}),
+				'auth.messages.passkey_failed'
+			);
+			return;
+		}
 
 		try {
 			const result = await authClient.signIn.passkey();
