@@ -21,7 +21,7 @@ vi.mock('../../../support/threadLifecycle', () => ({
 	syncSupportLastMessage: vi.fn()
 }));
 
-vi.mock('../../../constants', () => ({ MAX_MESSAGE_LENGTH: 4000 }));
+vi.mock('../../../constants', () => ({ MAX_MESSAGE_LENGTH: 4000, MAX_MESSAGE_FILES: 6 }));
 
 vi.mock('../../../i18n/translations', () => ({
 	t: vi.fn(() => 'translated')

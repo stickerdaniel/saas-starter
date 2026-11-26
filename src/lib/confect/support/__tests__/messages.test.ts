@@ -66,7 +66,7 @@ vi.mock('../handoff.impl', async (importOriginal) => ({
 	settleUnanswered: vi.fn(() => Effect.void)
 }));
 
-vi.mock('../../constants', () => ({ MAX_MESSAGE_LENGTH: 4000 }));
+vi.mock('../../constants', () => ({ MAX_MESSAGE_LENGTH: 4000, MAX_MESSAGE_FILES: 6 }));
 
 vi.mock('../../../config/support', () => ({ isSupportAiEnabled: vi.fn(() => true) }));
 
