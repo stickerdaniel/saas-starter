@@ -11,6 +11,20 @@
 	"rules": {
 		"convex/no-invalid-module-path": "error",
 		"typescript/array-type": ["error", { "default": "array-simple" }],
-		"typescript/consistent-type-imports": ["error", { "disallowTypeAnnotations": true }]
+		"typescript/consistent-type-imports": ["error", { "disallowTypeAnnotations": true }],
+		"no-restricted-imports": [
+			"error",
+			{
+				"paths": [
+					{ "name": "zod", "message": "zod is not a dependency. Validate with effect/Schema." }
+				],
+				"patterns": [
+					{
+						"group": ["zod/**"],
+						"message": "zod is not a dependency. Validate with effect/Schema."
+					}
+				]
+			}
+		]
 	}
 }

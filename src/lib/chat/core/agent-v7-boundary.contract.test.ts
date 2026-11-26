@@ -3,9 +3,10 @@ import { Agent } from '@convex-dev/agent';
 import type { MessageDoc, StreamMessage } from '@convex-dev/agent/validators';
 import { stepCountIs, tool, type UIMessageChunk } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
-import * as z from 'zod';
+import * as Schema from 'effect/Schema';
 import { getFunctionAddress, type FunctionArgs } from 'convex/server';
 import { components } from '#lib/convex/_generated/api.js';
+import { toAiInputSchema } from '../../effect/schema';
 import { deriveUIMessagesFromDeltas } from './stream-materialization';
 import {
 	prepareToolErrorRedactionStep,
@@ -195,7 +196,7 @@ async function runAgentTurn(execute: () => Promise<unknown>) {
 		name: 'contract-agent',
 		languageModel: redactLanguageModelProviderErrors(model),
 		tools: {
-			operation: tool({ inputSchema: z.object({}), execute })
+			operation: tool({ inputSchema: toAiInputSchema(Schema.Struct({})), execute })
 		}
 	});
 

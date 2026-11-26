@@ -213,8 +213,7 @@
 		"vite-plugin-devtools-json": "1.1.2",
 		"vitest": "5.1.1",
 		"wrangler": "4.165.0",
-		"yaml": "2.9.1",
-		"zod": "4.6.7"
+		"yaml": "2.9.1"
 	},
 	"patchedDependencies": {
 		"oxlint-plugin-convex@0.1.1": "patches/oxlint-plugin-convex@0.1.1.patch",
@@ -224,7 +223,7 @@
 		"convex-svelte@0.15.1": "patches/convex-svelte@0.15.1.patch"
 	},
 	"overrides": {
-		"zod": "$zod",
+		"zod": "4.6.7",
 		"@peculiar/asn1-schema": "2.11.1",
 		"acorn": "8.19.0",
 		"vite": "$vite",
