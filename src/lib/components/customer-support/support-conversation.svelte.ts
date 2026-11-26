@@ -3,11 +3,12 @@ import type { FunctionReturnType } from 'convex/server';
 import { version } from '$app/env';
 import { api } from '#lib/convex/_generated/api.js';
 import type { Attachment } from '#lib/chat/index.js';
-import type {
-	AwaitedTurn,
-	ChatSessionPort,
-	StreamCachePort
-} from '#lib/chat/core/chat-session-port.js';
+import {
+	ChatConversation,
+	type AwaitedTurn,
+	type ChatSessionPort,
+	type StreamCachePort
+} from '#lib/chat/core/chat-session-port.svelte.ts';
 import { ChatCommandError } from '#lib/chat/core/chat-command-error.js';
 import { ChatDraftManager } from '#lib/chat/core/chat-draft-manager.svelte.ts';
 import { getChatSessionEpoch, isChatSessionCurrent } from '#lib/chat/core/chat-persisted-state.ts';
@@ -57,6 +58,7 @@ type ThreadCreation = {
 export class SupportConversation implements ChatSessionPort {
 	userId = $state<string | null>(null);
 	threadId = $state<string | null>(null);
+	#conversation = $state.raw(new ChatConversation());
 	threadAgentName = $state<string | undefined>(undefined);
 	isHandedOff = $state(false);
 	assignedAdmin = $state<SupportAssignedAdmin | undefined>(undefined);
@@ -88,7 +90,6 @@ export class SupportConversation implements ChatSessionPort {
 	private sendRevision = 0;
 	private operationRevision = 0;
 	private threadAcquisitionSendRevision: number | null = null;
-	private bindThreadOrigin?: (threadId: string, epoch: number, generation: number) => void;
 
 	constructor(
 		private readonly navigation: SupportNavigationState,
@@ -97,6 +98,10 @@ export class SupportConversation implements ChatSessionPort {
 
 	get awaitsAgentReply(): boolean {
 		return !this.isHandedOff && isSupportAiEnabled() && this.isAiUsable();
+	}
+
+	get conversation(): ChatConversation {
+		return this.#conversation;
 	}
 
 	get hasThread(): boolean {
@@ -177,12 +182,6 @@ export class SupportConversation implements ChatSessionPort {
 
 	setHandedOff(isHandedOff: boolean): void {
 		this.isHandedOff = isHandedOff;
-	}
-
-	setThreadOriginBinder(
-		binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
-	): void {
-		this.bindThreadOrigin = binder;
 	}
 
 	get currentOperationRevision(): number {
@@ -271,6 +270,7 @@ export class SupportConversation implements ChatSessionPort {
 			if (establishedThreadChanged) this.threadGeneration++;
 			this.isSending = false;
 			this.isAwaitingStream = false;
+			this.#conversation = new ChatConversation(threadId);
 		}
 		this.threadId = threadId;
 		this.threadAgentName = agentName;
@@ -297,6 +297,7 @@ export class SupportConversation implements ChatSessionPort {
 			this.isHandedOff = metadata?.isHandedOff ?? false;
 			this.assignedAdmin = metadata?.assignedAdmin;
 			this.notificationEmail = metadata?.notificationEmail ?? null;
+			this.#conversation = new ChatConversation(threadId);
 		}
 		this.threadId = threadId;
 		this.isNewConversation = false;
@@ -310,6 +311,7 @@ export class SupportConversation implements ChatSessionPort {
 		this.isSending = false;
 		this.isAwaitingStream = false;
 		this.threadId = null;
+		this.#conversation = new ChatConversation();
 		this.threadAgentName = undefined;
 		this.isHandedOff = false;
 		this.assignedAdmin = undefined;
@@ -326,6 +328,7 @@ export class SupportConversation implements ChatSessionPort {
 		if (this.threadId) return this.threadId;
 
 		const epoch = getChatSessionEpoch();
+		const conversation = this.#conversation;
 		const generation = this.threadGeneration;
 		const operationRevision = this.operationRevision;
 		const navigationRevision = this.navigation.operationRevision;
@@ -355,7 +358,7 @@ export class SupportConversation implements ChatSessionPort {
 				) {
 					return result.threadId;
 				}
-				this.bindThreadOrigin?.(result.threadId, epoch, generation);
+				if (conversation.threadId === null) conversation.assign(result.threadId);
 				if (!this.threadId && this.navigation.currentView === 'chat') {
 					this.threadId = result.threadId;
 					this.notificationEmail = result.notificationEmail ?? null;
@@ -390,6 +393,7 @@ export class SupportConversation implements ChatSessionPort {
 		}
 
 		const sessionEpoch = getChatSessionEpoch();
+		const conversation = this.#conversation;
 		const generation = this.threadGeneration;
 		const operationRevision = this.operationRevision;
 		const navigationRevision = this.navigation.operationRevision;
@@ -452,7 +456,7 @@ export class SupportConversation implements ChatSessionPort {
 			}
 
 			if (!this.threadId) {
-				this.bindThreadOrigin?.(threadId, sessionEpoch, generation);
+				if (conversation.threadId === null) conversation.assign(threadId);
 				this.threadId = threadId;
 				this.navigation.showChat();
 			}
@@ -553,6 +557,7 @@ export class SupportConversation implements ChatSessionPort {
 		this.operationRevision++;
 		this.userId = null;
 		this.threadId = null;
+		this.#conversation = new ChatConversation();
 		this.threadAgentName = undefined;
 		this.isHandedOff = false;
 		this.assignedAdmin = undefined;

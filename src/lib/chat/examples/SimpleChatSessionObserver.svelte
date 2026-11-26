@@ -10,7 +10,6 @@
 	api={session.api}
 	externalCore={session.core}
 	contextOptions={{
-		bindThreadOrigin: (binder) => session.core.setThreadOriginBinder(binder),
 		forgetSession: () => session.core.forgetChatSession()
 	}}
 >

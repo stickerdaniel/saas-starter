@@ -12,7 +12,7 @@ import {
 	transformToDisplayMessage,
 	type TransformContext
 } from '../core/display-message-processor.js';
-import type { AwaitedTurn, StreamCachePort } from '../core/chat-session-port.js';
+import type { AwaitedTurn, StreamCachePort } from '../core/chat-session-port.svelte.ts';
 
 export type { MessagesQueryResponse } from '../core/types.js';
 

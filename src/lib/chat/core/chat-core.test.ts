@@ -197,7 +197,7 @@ describe('ChatCore command outcomes', () => {
 		}
 	);
 
-	it('preserves a matching provisional null-to-real thread binding', async () => {
+	it('keeps the send lock when the created thread is set again during creation', async () => {
 		const message = deferred<{ messageId: string; order: number }>();
 		const mutation = vi
 			.fn()
@@ -210,7 +210,7 @@ describe('ChatCore command outcomes', () => {
 				createThread: 'api.threads.create' as never
 			}
 		});
-		core.setThreadOriginBinder((threadId) => core.setThread(threadId));
+		core.conversation.whenAssigned((threadId) => core.setThread(threadId));
 
 		const send = core.sendMessage(makeClient(mutation), 'hello');
 		await vi.waitFor(() => expect(mutation).toHaveBeenCalledTimes(2));

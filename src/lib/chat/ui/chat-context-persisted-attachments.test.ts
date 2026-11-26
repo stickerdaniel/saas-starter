@@ -10,7 +10,7 @@
 
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
-import type { ChatCore } from '../core/chat-core.svelte.ts';
+import { createChatSession } from '../__tests__/session-fixture';
 import type { Attachment } from '../core/types.js';
 
 const uploadFileWithProgress = vi.fn();
@@ -66,7 +66,7 @@ function pendingTransfer() {
  * closed, so `setDisplayMessages` may never run.
  */
 function chatAt(threadId: string | null, { rendered = true } = {}) {
-	const core = { threadId } as unknown as ChatCore;
+	const core = createChatSession(threadId);
 	const uploadConfig = {
 		purpose: 'support',
 		attachmentStore: new ChatAttachmentStore(surface)
@@ -77,7 +77,7 @@ function chatAt(threadId: string | null, { rendered = true } = {}) {
 	return {
 		ctx,
 		switchTo(next: string | null) {
-			(core as { threadId: string | null }).threadId = next;
+			core.setThread(next);
 			ctx.setDisplayMessages([]);
 		}
 	};

@@ -4,7 +4,11 @@ import type ChatRoot from '#lib/chat/ui/ChatRoot.svelte';
 import { describe, expectTypeOf, it } from 'vitest';
 import type { ChatCore } from '#lib/chat/core/chat-core.svelte.ts';
 import type { ChatCoreErrorCode } from '#lib/chat/index.js';
-import type { ChatSessionPort, StreamCachePort } from '#lib/chat/core/chat-session-port.js';
+import type {
+	ChatConversation,
+	ChatSessionPort,
+	StreamCachePort
+} from '#lib/chat/core/chat-session-port.svelte.ts';
 import type { ChatUIContext } from '#lib/chat/ui/chat-context.svelte.ts';
 import type { SupportConversation } from '#lib/components/customer-support/support-conversation.svelte.ts';
 
@@ -19,6 +23,10 @@ describe('first-party boundary compile-time contracts', () => {
 		expectTypeOf<{ api: never }>().not.toExtend<
 			Pick<ComponentProps<typeof ChatRoot>, 'externalCore'>
 		>();
+		expectTypeOf<ChatSessionPort['conversation']>().toEqualTypeOf<ChatConversation>();
+		expectTypeOf<Pick<ChatConversation, 'threadId'>>().toEqualTypeOf<{
+			readonly threadId: string | null;
+		}>();
 		expectTypeOf<ChatSessionPort['streamCache']>().toEqualTypeOf<StreamCachePort>();
 		expectTypeOf<ChatSessionPort['setAwaitingStream']>().toEqualTypeOf<
 			(awaiting: boolean) => void

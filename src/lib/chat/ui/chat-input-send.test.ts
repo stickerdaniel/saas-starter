@@ -98,7 +98,6 @@ function createContext(threadId: string | null): ChatUIContext {
 		'right',
 		null,
 		{
-			bindThreadOrigin: (binder) => contextCore.setThreadOriginBinder(binder),
 			forgetSession: () => contextCore.forgetChatSession()
 		}
 	);
@@ -280,9 +279,9 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		await tick();
 		document.querySelector<HTMLButtonElement>(`button[aria-label="${en.chat.aria.send}"]`)!.click();
 		await tick();
-		core.threadId = 'thread-created';
+		core.conversation.assign('thread-created');
 		ctx.setDisplayMessages([]);
-		core.threadId = 'thread-b';
+		core.setThread('thread-b');
 		core.isNewConversation = false;
 		ctx.setDisplayMessages([]);
 		const newer: Attachment = { type: 'image', url: 'https://chat.test/thread-b.png' };
@@ -368,7 +367,6 @@ describe('ChatInput send rollback through ChatRoot', () => {
 			'right',
 			null,
 			{
-				bindThreadOrigin: (binder) => conversation.setThreadOriginBinder(binder),
 				forgetSession: () => conversation.forgetChatSession()
 			}
 		);

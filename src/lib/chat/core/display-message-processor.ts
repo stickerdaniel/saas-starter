@@ -7,7 +7,7 @@
 
 import type { ChatMessage, DisplayMessage } from './types.js';
 import { extractReasoning, extractUserMessageText } from './message-extraction.js';
-import type { StreamCachePort } from './chat-session-port.js';
+import type { StreamCachePort } from './chat-session-port.svelte.ts';
 import type { UIMessage } from '@convex-dev/agent';
 import { mergeAssistantMessageParts } from './stream-materialization.js';
 import { redactToolErrorParts } from './tool-error-redaction.js';

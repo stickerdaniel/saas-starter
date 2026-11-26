@@ -58,7 +58,6 @@ function createSupportFixture(): {
 	const { conversation } = support;
 	support.selectThread('thread-support');
 	const context = new ChatUIContext(conversation, client, undefined, 'right', null, {
-		bindThreadOrigin: (binder) => conversation.setThreadOriginBinder(binder),
 		forgetSession: () => conversation.forgetChatSession()
 	});
 	return { support, context };
@@ -368,7 +367,6 @@ describe('support feedback read receipt', () => {
 		const support = new SupportContext();
 		support.selectThread('thread-support');
 		const ctx = new ChatUIContext(support.conversation, readClient, undefined, 'right', null, {
-			bindThreadOrigin: (binder) => support.conversation.setThreadOriginBinder(binder),
 			forgetSession: () => support.conversation.forgetChatSession()
 		});
 		// The file's afterEach restores the console spies even when an assertion fails.

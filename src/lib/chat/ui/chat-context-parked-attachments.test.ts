@@ -62,7 +62,7 @@ function threadedChat(threadId: string, uploads: InstanceType<typeof ActiveUploa
 	return {
 		ctx,
 		switchTo(next: string | null) {
-			core.threadId = next;
+			core.setThread(next);
 			ctx.setDisplayMessages([]);
 		}
 	};
@@ -340,7 +340,7 @@ describe('ChatUIContext parked attachments', () => {
 		return vi
 			.waitFor(() => expect(ctx.attachments).toHaveLength(1))
 			.then(async () => {
-				core.threadId = 'thread-b';
+				core.setThread('thread-b');
 				ctx.setDisplayMessages([]);
 				finishEncoding();
 				await vi.waitFor(() => expect(transport).toHaveBeenCalledTimes(1));

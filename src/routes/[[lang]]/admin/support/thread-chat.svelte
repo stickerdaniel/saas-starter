@@ -97,7 +97,6 @@
 	// svelte-ignore state_referenced_locally
 	const owner = sendOwner ?? new ComposerSendCoordinator();
 	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'left', activeUploads, {
-		bindThreadOrigin: (binder) => chatCore.setThreadOriginBinder(binder),
 		forgetSession: () => chatCore.forgetChatSession(),
 		sendOwner: owner
 	});

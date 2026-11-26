@@ -46,7 +46,6 @@
 			'right',
 			null,
 			{
-				bindThreadOrigin: (binder) => core.setThreadOriginBinder(binder),
 				forgetSession: () => core.forgetChatSession()
 			}
 		);

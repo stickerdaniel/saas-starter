@@ -4,7 +4,7 @@ import type * as Svelte from 'svelte';
 import type { ConvexClient } from 'convex/browser';
 import { getFunctionName, type FunctionReference } from 'convex/server';
 import type { StreamDelta, StreamMessage } from '@convex-dev/agent/validators';
-import type { ChatSessionPort } from '../core/chat-session-port.js';
+import { ChatConversation, type ChatSessionPort } from '../core/chat-session-port.svelte.ts';
 import type { DeltaCursor } from '../core/delta-stream-cursors.js';
 import type { ChatMessage, ChatMessagesArgs } from '../core/types.js';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
@@ -199,9 +199,9 @@ function createFakeConvex(server: Map<string, ServerThread>) {
 }
 
 const session: ChatSessionPort = {
+	conversation: new ChatConversation(),
 	threadId: null,
 	isNewConversation: false,
-	threadGeneration: 0,
 	isSending: false,
 	isAwaitingStream: false,
 	awaitedTurn: null,

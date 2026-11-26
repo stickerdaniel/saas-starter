@@ -3,7 +3,7 @@
 import { getContext, setContext, untrack } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { ConvexClient } from 'convex/browser';
-import type { ChatSessionPort } from '../core/chat-session-port.js';
+import type { ChatConversation, ChatSessionPort } from '../core/chat-session-port.svelte.ts';
 import { MAX_MESSAGE_LENGTH } from '../core/types.js';
 import type { Attachment, DisplayMessage, MessageRole } from '../core/types.js';
 import { getChatSessionEpoch, isChatSessionCurrent } from '../core/chat-persisted-state.js';
@@ -20,8 +20,7 @@ import {
 	ComposerSendCoordinator,
 	type ComposerSendOutcome,
 	type ComposerSendResources,
-	type ComposerSendTarget,
-	type ThreadOriginBinder
+	type ComposerSendTarget
 } from './composer-send-coordinator.js';
 
 export type {
@@ -37,12 +36,11 @@ export type ChatInputProjection = {
 	value: string;
 	reason: ChatInputProjectionReason;
 	sessionEpoch: number;
-	origin: ChatConversationOrigin;
+	conversation: ChatConversation;
 	inputRevision: number;
 };
 
 export type ChatUIContextOptions = {
-	bindThreadOrigin?: (binder: ThreadOriginBinder | undefined) => void;
 	forgetSession?: () => void;
 	projectInput?: (projection: ChatInputProjection) => void;
 	/**
@@ -55,14 +53,9 @@ export type ChatUIContextOptions = {
 
 export type ChatAlignment = 'left' | 'right';
 
-export type ChatConversationOrigin = {
-	generation: number;
-	threadId: string | null;
-};
-
 export type ChatSendSnapshot = {
 	sessionEpoch: number;
-	origin: ChatConversationOrigin;
+	conversation: ChatConversation;
 	inputValue: string;
 	inputRevision: number;
 	inputClearedRevision?: number;
@@ -99,7 +92,6 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	inputValue = $state('');
 	private inputRevision = 0;
-	private conversationOrigin: ChatConversationOrigin;
 	private disposed = false;
 	private readonly options: ChatUIContextOptions;
 	private readonly sendOwner: ComposerSendCoordinator;
@@ -130,24 +122,13 @@ export class ChatUIContext implements ComposerSendTarget {
 		this.uploadConfig = uploadConfig;
 		this.userAlignment = userAlignment;
 		this.options = options;
-		this.conversationOrigin = {
-			generation: untrack(() => core.threadGeneration),
-			threadId: untrack(() => core.threadId)
-		};
 		this.sendOwner = options.sendOwner ?? new ComposerSendCoordinator();
-		// Registered with the owner rather than this context, so a conversation that
-		// receives its id after this composer unmounted still binds its pending sends.
-		options.bindThreadOrigin?.(this.sendOwner.originBinder(core));
 		this.attachmentCoordinator = new ComposerAttachmentCoordinator({
 			getThreadId: () => core.threadId,
 			uploadConfig,
 			activeUploads,
 			onForgetPersistedState: () => {
 				options.forgetSession?.();
-				this.conversationOrigin = {
-					generation: untrack(() => core.threadGeneration),
-					threadId: untrack(() => core.threadId)
-				};
 				this.inputValue = '';
 				this.inputRevision++;
 			},
@@ -221,7 +202,6 @@ export class ChatUIContext implements ComposerSendTarget {
 	}
 
 	setDisplayMessages(messages: DisplayMessage[]): void {
-		this.syncConversationOrigin();
 		// The attachment coordinator owns thread identity and its park/adopt
 		// transitions. The UI animation resets only when leaving a real thread, never
 		// when a new conversation first receives its id.
@@ -252,7 +232,6 @@ export class ChatUIContext implements ComposerSendTarget {
 	 * before the messages of the new thread are displayed.
 	 */
 	enterSelectedThread(): void {
-		this.syncConversationOrigin();
 		if (this.attachmentCoordinator.enterSelectedThread()) {
 			this.messagesFade.reset();
 			this._hasEverDisplayedMessages = false;
@@ -291,7 +270,7 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	setInputValue(value: string): void {
 		if (!this.applyInputValue(value)) return;
-		this.emitInputProjection('user-edit', getChatSessionEpoch(), this.syncConversationOrigin());
+		this.emitInputProjection('user-edit', getChatSessionEpoch(), this.conversation);
 	}
 
 	/** Apply a same-session peer projection without rebroadcasting it. */
@@ -309,7 +288,7 @@ export class ChatUIContext implements ComposerSendTarget {
 	private emitInputProjection(
 		reason: ChatInputProjectionReason,
 		sessionEpoch: number,
-		origin: ChatConversationOrigin,
+		conversation: ChatConversation,
 		inputRevision = this.inputRevision,
 		value = this.inputValue
 	): void {
@@ -317,7 +296,7 @@ export class ChatUIContext implements ComposerSendTarget {
 			value,
 			reason,
 			sessionEpoch,
-			origin,
+			conversation,
 			inputRevision
 		});
 	}
@@ -329,27 +308,15 @@ export class ChatUIContext implements ComposerSendTarget {
 	captureSendSnapshot(): ChatSendSnapshot {
 		return {
 			sessionEpoch: getChatSessionEpoch(),
-			origin: this.syncConversationOrigin(),
+			conversation: this.conversation,
 			inputValue: this.inputValue,
 			inputRevision: this.inputRevision,
 			attachments: this.attachmentCoordinator.captureSendAttachments()
 		};
 	}
 
-	private syncConversationOrigin(): ChatConversationOrigin {
-		const generation = untrack(() => this.core.threadGeneration);
-		const threadId = untrack(() => this.core.threadId);
-		if (this.conversationOrigin.generation !== generation) {
-			this.conversationOrigin = { generation, threadId };
-		} else if (this.conversationOrigin.threadId !== threadId) {
-			const assignedCurrentConversation =
-				this.conversationOrigin.threadId === null &&
-				threadId !== null &&
-				untrack(() => this.core.isNewConversation);
-			if (assignedCurrentConversation) this.conversationOrigin.threadId = threadId;
-			else this.conversationOrigin = { generation, threadId };
-		}
-		return this.conversationOrigin;
+	private get conversation(): ChatConversation {
+		return untrack(() => this.core.conversation);
 	}
 
 	clearInputForSend(snapshot: ChatSendSnapshot): void {
@@ -365,7 +332,7 @@ export class ChatUIContext implements ComposerSendTarget {
 		this.emitInputProjection(
 			'send-clear',
 			snapshot.sessionEpoch,
-			snapshot.origin,
+			snapshot.conversation,
 			snapshot.inputRevision
 		);
 	}
@@ -377,8 +344,7 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	isSendSnapshotCurrent(snapshot: ChatSendSnapshot): boolean {
 		return (
-			isChatSessionCurrent(snapshot.sessionEpoch) &&
-			this.syncConversationOrigin() === snapshot.origin
+			isChatSessionCurrent(snapshot.sessionEpoch) && this.conversation === snapshot.conversation
 		);
 	}
 
@@ -393,24 +359,10 @@ export class ChatUIContext implements ComposerSendTarget {
 		this.setInputValue(this.sendOwner.draftFor(threadId));
 	}
 
-	/** The conversation on screen now. */
-	get sendOrigin(): ChatConversationOrigin {
-		return this.syncConversationOrigin();
-	}
-
-	bindThreadOrigin(threadId: string, generation: number): void {
-		const origin = this.syncConversationOrigin();
-		if (origin.generation === generation && origin.threadId === null) origin.threadId = threadId;
-	}
-
 	restoreFailedSend(text: string, attachments: Attachment[]): void {
 		if (this.disposed) return;
 		if (this.applyInputValue(text)) {
-			this.emitInputProjection(
-				'send-restore',
-				getChatSessionEpoch(),
-				this.syncConversationOrigin()
-			);
+			this.emitInputProjection('send-restore', getChatSessionEpoch(), this.conversation);
 		}
 		this.attachmentCoordinator.restoreSendAttachments({ attachments });
 	}
@@ -425,11 +377,9 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	/** Files this conversation's unsettled sends hold, which a refusal would put back here. */
 	private get pendingSendAttachments(): number {
-		// The owner is a plain class and reads the origin untracked, so these reads
-		// are what re-run a dependent when a send settles or the thread changes.
+		// The owner keeps its sends in a plain map, so this read is what re-runs a
+		// dependent when a send settles.
 		void this.pendingSendsVersion;
-		void this.core.threadGeneration;
-		void this.core.threadId;
 		return this.sendOwner.pendingAttachmentCount(this);
 	}
 
