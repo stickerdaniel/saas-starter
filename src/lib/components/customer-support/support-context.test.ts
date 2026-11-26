@@ -112,4 +112,30 @@ describe('SupportContext', () => {
 		expect(support.conversation.threadGeneration).toBe(firstGeneration + 1);
 		expect(support.conversation.isNewConversation).toBe(true);
 	});
+
+	it('keeps a failed send outcome when a new conversation starts after the failure', async () => {
+		const defect = new Error('warm thread unavailable');
+		const mutation = vi
+			.fn()
+			.mockRejectedValueOnce(defect)
+			.mockResolvedValueOnce({ threadId: 'thread-next' });
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const support = new SupportContext();
+		support.conversation.setClient(clientWith(mutation));
+		support.conversation.beginNewConversation();
+		support.navigation.startNewThread();
+
+		const send = support.conversation.sendMessage(clientWith(mutation), 'hello');
+		const failed = expect(send).rejects.toBe(defect);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		support.startNewThread();
+		await failed;
+		await vi.waitFor(() => expect(support.conversation.threadId).toBe('thread-next'));
+
+		expect(support.conversation.error).toBe('send_failed');
+		expect(support.conversation.isSending).toBe(false);
+		expect(errorSpy).toHaveBeenCalledExactlyOnceWith('[SupportConversation.sendMessage] Failed');
+		expect(mutation).toHaveBeenCalledTimes(2);
+		errorSpy.mockRestore();
+	});
 });

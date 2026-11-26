@@ -1,5 +1,7 @@
 import type { ConvexClient } from 'convex/browser';
 import type { FunctionReturnType } from 'convex/server';
+import * as Data from 'effect/Data';
+import * as Effect from 'effect/Effect';
 import { version } from '$app/env';
 import { api } from '#lib/convex/_generated/api.js';
 import type { Attachment } from '#lib/chat/index.js';
@@ -12,6 +14,8 @@ import {
 import { ChatCommandError } from '#lib/chat/core/chat-command-error.js';
 import { ChatDraftManager } from '#lib/chat/core/chat-draft-manager.svelte.ts';
 import { getChatSessionEpoch, isChatSessionCurrent } from '#lib/chat/core/chat-persisted-state.ts';
+import { KeyedAcquisition } from '#lib/chat/core/keyed-acquisition.js';
+import { SendOwnership, type SendClaim } from '#lib/chat/core/send-ownership.js';
 import { StreamCacheManager } from '#lib/chat/core/stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from '#lib/chat/core/optimistic.js';
 import { CHAT_PAGE_SIZE } from '#lib/chat/core/types.js';
@@ -39,13 +43,38 @@ export type SupportOperationIdentity = {
 	operationRevision: number;
 };
 
-type ThreadCreation = {
-	epoch: number;
-	generation: number;
-	operationRevision: number;
-	navigationRevision: number;
-	promise: Promise<string>;
+type Empty = Record<never, never>;
+
+type SupportSendOp = Data.TaggedEnum<{
+	Idle: Empty;
+	Locked: Empty;
+	Sending: Empty;
+}>;
+const SupportSendOp = Data.taggedEnum<SupportSendOp>();
+
+type AcquisitionWait = Data.TaggedEnum<{
+	None: Empty;
+	Waiting: { readonly claim: SendClaim };
+}>;
+const AcquisitionWait = Data.taggedEnum<AcquisitionWait>();
+
+type SupportScope = {
+	readonly epoch: number;
+	readonly generation: number;
+	readonly operation: number;
+	readonly navigation: number;
 };
+
+const sameScope = (a: SupportScope, b: SupportScope): boolean =>
+	a.epoch === b.epoch &&
+	a.generation === b.generation &&
+	a.operation === b.operation &&
+	a.navigation === b.navigation;
+
+const mutate = <A>(run: () => Promise<A>): Effect.Effect<A, unknown> =>
+	Effect.tryPromise({ try: run, catch: (error) => error });
+
+const conversationChanged = () => Effect.fail(new Error('Support conversation changed'));
 
 /**
  * Conversation/session owner for customer support.
@@ -63,7 +92,7 @@ export class SupportConversation implements ChatSessionPort {
 	isHandedOff = $state(false);
 	assignedAdmin = $state<SupportAssignedAdmin | undefined>(undefined);
 	notificationEmail = $state<string | null>(null);
-	isSending = $state(false);
+	#op = $state.raw<SupportSendOp>(SupportSendOp.Idle());
 	error = $state<string | null>(null);
 	threadGeneration = $state(0);
 	isNewConversation = $state(false);
@@ -86,10 +115,13 @@ export class SupportConversation implements ChatSessionPort {
 	private streamCacheThreadId: string | null = null;
 	readonly drafts = new ChatDraftManager('support');
 	private client: ConvexClient | null = null;
-	private threadCreation: ThreadCreation | null = null;
-	private sendRevision = 0;
 	private operationRevision = 0;
-	private threadAcquisitionSendRevision: number | null = null;
+	readonly #ownership = new SendOwnership({
+		generation: () => this.threadGeneration,
+		operation: () => this.operationRevision
+	});
+	readonly #acquisition = new KeyedAcquisition<SupportScope, string>(sameScope);
+	#wait: AcquisitionWait = AcquisitionWait.None();
 
 	constructor(
 		private readonly navigation: SupportNavigationState,
@@ -102,6 +134,15 @@ export class SupportConversation implements ChatSessionPort {
 
 	get conversation(): ChatConversation {
 		return this.#conversation;
+	}
+
+	get isSending(): boolean {
+		return this.#op._tag !== 'Idle';
+	}
+
+	set isSending(sending: boolean) {
+		if (!sending) this.#op = SupportSendOp.Idle();
+		else if (this.#op._tag === 'Idle') this.#op = SupportSendOp.Locked();
 	}
 
 	get hasThread(): boolean {
@@ -216,38 +257,37 @@ export class SupportConversation implements ChatSessionPort {
 		);
 	}
 
-	private isSendOperationOwned(
-		epoch: number,
-		generation: number,
-		operationRevision: number
-	): boolean {
-		return this.isSendOperationCurrent(epoch, generation, operationRevision);
+	#scope(): SupportScope {
+		return {
+			epoch: getChatSessionEpoch(),
+			generation: this.threadGeneration,
+			operation: this.operationRevision,
+			navigation: this.navigation.operationRevision
+		};
 	}
 
-	private isSendOwnershipCurrent(
-		epoch: number,
-		generation: number,
-		operationRevision: number,
-		navigationRevision: number
-	): boolean {
-		return (
-			this.isSendOperationOwned(epoch, generation, operationRevision) &&
-			this.navigation.operationRevision === navigationRevision
-		);
+	#admits(scope: SupportScope): boolean {
+		return sameScope(scope, this.#scope());
 	}
 
-	private releaseAbandonedThreadAcquisition(): void {
-		if (this.threadAcquisitionSendRevision !== this.sendRevision) return;
-		this.threadAcquisitionSendRevision = null;
-		this.isSending = false;
+	#enter(claim: SendClaim, from: SupportSendOp['_tag'], next: SupportSendOp): void {
+		if (this.#ownership.owns(claim) && this.#op._tag === from) this.#op = next;
+	}
+
+	#endWait(claim: SendClaim): void {
+		if (this.#wait._tag === 'Waiting' && this.#wait.claim === claim) {
+			this.#wait = AcquisitionWait.None();
+		}
 	}
 
 	/** Stop an older warm-thread request from belonging to the active session. */
 	invalidateWarmThreadAcquisition(): void {
 		this.navigation.invalidateOperation();
-		this.releaseAbandonedThreadAcquisition();
-		this.threadCreation = null;
-		this.threadAcquisitionSendRevision = null;
+		if (this.#wait._tag === 'Waiting' && this.#ownership.isLatest(this.#wait.claim)) {
+			this.isSending = false;
+		}
+		this.#acquisition.invalidate();
+		this.#wait = AcquisitionWait.None();
 	}
 
 	/**
@@ -265,7 +305,7 @@ export class SupportConversation implements ChatSessionPort {
 		if (threadId !== this.threadId) {
 			const establishedThreadChanged = this.threadId !== null;
 			this.invalidateWarmThreadAcquisition();
-			this.sendRevision++;
+			this.#ownership.supersede();
 			this.operationRevision++;
 			if (establishedThreadChanged) this.threadGeneration++;
 			this.isSending = false;
@@ -288,7 +328,7 @@ export class SupportConversation implements ChatSessionPort {
 		if (threadId !== this.threadId) {
 			const establishedThreadChanged = this.threadId !== null;
 			this.invalidateWarmThreadAcquisition();
-			this.sendRevision++;
+			this.#ownership.supersede();
 			this.operationRevision++;
 			if (establishedThreadChanged) this.threadGeneration++;
 			this.isSending = false;
@@ -306,7 +346,7 @@ export class SupportConversation implements ChatSessionPort {
 	/** Begin a distinct compose session even when the previous thread was null. */
 	beginNewConversation(): void {
 		this.invalidateWarmThreadAcquisition();
-		this.sendRevision++;
+		this.#ownership.supersede();
 		this.operationRevision++;
 		this.isSending = false;
 		this.isAwaitingStream = false;
@@ -327,50 +367,25 @@ export class SupportConversation implements ChatSessionPort {
 	async ensureThread(client: ConvexClient): Promise<string> {
 		if (this.threadId) return this.threadId;
 
-		const epoch = getChatSessionEpoch();
+		const scope = this.#scope();
 		const conversation = this.#conversation;
-		const generation = this.threadGeneration;
-		const operationRevision = this.operationRevision;
-		const navigationRevision = this.navigation.operationRevision;
-		const current = this.threadCreation;
-		if (
-			current?.epoch === epoch &&
-			current.generation === generation &&
-			current.operationRevision === operationRevision &&
-			current.navigationRevision === navigationRevision
-		) {
-			return current.promise;
-		}
-
-		const creation = {} as ThreadCreation;
-		creation.epoch = epoch;
-		creation.generation = generation;
-		creation.operationRevision = operationRevision;
-		creation.navigationRevision = navigationRevision;
-		creation.promise = client
-			.mutation(api.support.threads.getOrCreateWarmThread, {
-				anonymousUserId: this.getAnonymousUserId(),
-				pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
-			})
-			.then((result) => {
-				if (
-					!this.isSendOwnershipCurrent(epoch, generation, operationRevision, navigationRevision)
-				) {
+		return this.#acquisition.acquire(scope, () =>
+			client
+				.mutation(api.support.threads.getOrCreateWarmThread, {
+					anonymousUserId: this.getAnonymousUserId(),
+					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
+				})
+				.then((result) => {
+					if (!this.#admits(scope)) return result.threadId;
+					if (conversation.threadId === null) conversation.assign(result.threadId);
+					if (!this.threadId && this.navigation.currentView === 'chat') {
+						this.threadId = result.threadId;
+						this.notificationEmail = result.notificationEmail ?? null;
+						this.navigation.emitThreadChange(result.threadId);
+					}
 					return result.threadId;
-				}
-				if (conversation.threadId === null) conversation.assign(result.threadId);
-				if (!this.threadId && this.navigation.currentView === 'chat') {
-					this.threadId = result.threadId;
-					this.notificationEmail = result.notificationEmail ?? null;
-					this.navigation.emitThreadChange(result.threadId);
-				}
-				return result.threadId;
-			})
-			.finally(() => {
-				if (this.threadCreation === creation) this.threadCreation = null;
-			});
-		this.threadCreation = creation;
-		return creation.promise;
+				})
+		);
 	}
 
 	ensureConfiguredThread(): Promise<string> | null {
@@ -392,68 +407,33 @@ export class SupportConversation implements ChatSessionPort {
 			throw new ChatCommandError('send_in_progress');
 		}
 
-		const sessionEpoch = getChatSessionEpoch();
+		const scope = this.#scope();
 		const conversation = this.#conversation;
-		const generation = this.threadGeneration;
-		const operationRevision = this.operationRevision;
-		const navigationRevision = this.navigation.operationRevision;
-		const sendRevision = ++this.sendRevision;
-		this.threadAcquisitionSendRevision = null;
+		const claim = this.#ownership.claim();
+		this.#wait = AcquisitionWait.None();
 		this.setSending(true);
+		this.#enter(claim, 'Locked', SupportSendOp.Sending());
 
 		let threadCreated = false;
 
-		try {
+		const program = Effect.gen({ self: this }, function* () {
 			let threadId = options?.threadId ?? this.threadId;
-			if (!threadId) this.threadAcquisitionSendRevision = sendRevision;
-			const inFlight = this.threadCreation;
-			if (
-				!threadId &&
-				inFlight?.epoch === sessionEpoch &&
-				inFlight.generation === generation &&
-				inFlight.operationRevision === operationRevision &&
-				inFlight.navigationRevision === navigationRevision
-			) {
-				try {
-					threadId = await inFlight.promise;
-				} catch (error) {
-					if (
-						!this.isSendOwnershipCurrent(
-							sessionEpoch,
-							generation,
-							operationRevision,
-							navigationRevision
-						)
-					) {
-						throw error;
-					}
-				}
-				if (
-					!this.isSendOwnershipCurrent(
-						sessionEpoch,
-						generation,
-						operationRevision,
-						navigationRevision
+			if (!threadId) this.#wait = AcquisitionWait.Waiting({ claim });
+			const joined = threadId ? undefined : this.#acquisition.current(scope);
+			if (joined) {
+				threadId = yield* mutate(() => joined).pipe(
+					Effect.catchCause((cause) =>
+						this.#admits(scope) ? Effect.succeed(null) : Effect.failCause(cause)
 					)
-				) {
-					throw new Error('Support conversation changed');
-				}
+				);
+				if (!this.#admits(scope)) return yield* conversationChanged();
 			}
 
 			if (!threadId) {
-				threadId = await this.ensureThread(client);
+				threadId = yield* mutate(() => this.ensureThread(client));
 				threadCreated = true;
 			}
-			if (
-				!this.isSendOwnershipCurrent(
-					sessionEpoch,
-					generation,
-					operationRevision,
-					navigationRevision
-				)
-			) {
-				throw new Error('Support conversation changed');
-			}
+			if (!this.#admits(scope)) return yield* conversationChanged();
 
 			if (!this.threadId) {
 				if (conversation.threadId === null) conversation.assign(threadId);
@@ -469,82 +449,59 @@ export class SupportConversation implements ChatSessionPort {
 				streamArgs: { kind: 'list' as const, startOrder: 0 }
 			};
 
-			if (
-				!this.isSendOwnershipCurrent(
-					sessionEpoch,
-					generation,
-					operationRevision,
-					navigationRevision
+			if (!this.#admits(scope)) return yield* conversationChanged();
+			this.#endWait(claim);
+			const sentThreadId = threadId;
+			yield* mutate(() =>
+				client.mutation(
+					api.support.messages.sendMessage,
+					{
+						threadId: sentThreadId,
+						prompt: trimmedPrompt,
+						anonymousUserId,
+						fileIds: options?.fileIds?.length ? options.fileIds : undefined,
+						// Read per message because the thread keeps only the route
+						// captured before its first message.
+						pageUrl: normalizeSupportPageRoute(
+							typeof window !== 'undefined' ? window.location.pathname : undefined
+						),
+						// The bundle this tab runs, which a stale tab keeps after a deploy.
+						appVersion: version
+					},
+					{
+						optimisticUpdate: createOptimisticUpdate(
+							api.support.messages.listMessages,
+							queryArgs,
+							'user',
+							trimmedPrompt,
+							{
+								attachments: options?.attachments?.length ? options.attachments : undefined
+							}
+						)
+					}
 				)
-			) {
-				throw new Error('Support conversation changed');
-			}
-			if (this.threadAcquisitionSendRevision === sendRevision) {
-				this.threadAcquisitionSendRevision = null;
-			}
-			await client.mutation(
-				api.support.messages.sendMessage,
-				{
-					threadId,
-					prompt: trimmedPrompt,
-					anonymousUserId,
-					fileIds: options?.fileIds?.length ? options.fileIds : undefined,
-					// Read per message because the thread keeps only the route
-					// captured before its first message.
-					pageUrl: normalizeSupportPageRoute(
-						typeof window !== 'undefined' ? window.location.pathname : undefined
-					),
-					// The bundle this tab runs, which a stale tab keeps after a deploy.
-					appVersion: version
-				},
-				{
-					optimisticUpdate: createOptimisticUpdate(
-						api.support.messages.listMessages,
-						queryArgs,
-						'user',
-						trimmedPrompt,
-						{
-							attachments: options?.attachments?.length ? options.attachments : undefined
-						}
-					)
-				}
 			);
-			if (
-				!this.isSendOperationOwned(sessionEpoch, generation, operationRevision) ||
-				this.sendRevision !== sendRevision
-			) {
-				return { threadId, threadCreated };
-			}
+			return { threadId: sentThreadId, threadCreated };
+		});
 
-			if (this.awaitsAgentReply) this.isAwaitingStream = true;
-			return { threadId, threadCreated };
-		} catch (error) {
-			if (
-				this.isSendOperationOwned(sessionEpoch, generation, operationRevision) &&
-				this.sendRevision === sendRevision
-			) {
+		return this.#ownership.run(claim, program, {
+			success: () => {
+				if (this.awaitsAgentReply) this.isAwaitingStream = true;
+			},
+			failure: () => {
 				console.error('[SupportConversation.sendMessage] Failed');
 				this.setError('send_failed');
-			}
-			throw error;
-		} finally {
-			if (this.threadAcquisitionSendRevision === sendRevision) {
-				this.threadAcquisitionSendRevision = null;
-			}
-			if (
-				this.isSendOperationOwned(sessionEpoch, generation, operationRevision) &&
-				this.sendRevision === sendRevision
-			) {
-				this.setSending(false);
-			}
-		}
+			},
+			release: () => this.#endWait(claim),
+			settle: () => this.setSending(false)
+		});
 	}
 
 	forgetChatSession(): void {
-		this.sendRevision++;
+		this.#ownership.supersede();
 		this.operationRevision++;
-		this.threadCreation = null;
-		this.threadAcquisitionSendRevision = null;
+		this.#acquisition.invalidate();
+		this.#wait = AcquisitionWait.None();
 		this.isSending = false;
 		this.isAwaitingStream = false;
 		this.error = null;
@@ -553,7 +510,7 @@ export class SupportConversation implements ChatSessionPort {
 
 	reset(): void {
 		this.invalidateWarmThreadAcquisition();
-		this.sendRevision++;
+		this.#ownership.supersede();
 		this.operationRevision++;
 		this.userId = null;
 		this.threadId = null;

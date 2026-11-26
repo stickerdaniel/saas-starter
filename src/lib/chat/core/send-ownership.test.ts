@@ -39,6 +39,47 @@ describe('SendOwnership', () => {
 		expect(calls.settle).not.toHaveBeenCalled();
 	});
 
+	it('refuses a claim after a revision source changes and keeps it latest', () => {
+		let generation = 0;
+		let operation = 0;
+		const ownership = new SendOwnership({
+			generation: () => generation,
+			operation: () => operation
+		});
+
+		const claim = ownership.claim();
+		operation++;
+		expect(ownership.owns(claim)).toBe(false);
+		expect(ownership.isLatest(claim)).toBe(true);
+
+		const next = ownership.claim();
+		generation++;
+		expect(ownership.owns(next)).toBe(false);
+		generation--;
+		expect(ownership.owns(next)).toBe(true);
+		expect(ownership.isLatest(claim)).toBe(false);
+	});
+
+	it('releases every run before the owned settle', async () => {
+		const ownership = new SendOwnership();
+		const order: string[] = [];
+		const calls = (name: string) => ({
+			success: () => order.push(`${name}:success`),
+			failure: () => order.push(`${name}:failure`),
+			settle: () => order.push(`${name}:settle`),
+			release: () => order.push(`${name}:release`)
+		});
+		const stale = Promise.withResolvers<string>();
+		const staleRun = ownership.run(ownership.claim(), settling(stale.promise), calls('stale'));
+		const owned = ownership.run(ownership.claim(), Effect.succeed('value'), calls('owned'));
+
+		await expect(owned).resolves.toBe('value');
+		stale.resolve('late');
+		await expect(staleRun).resolves.toBe('late');
+
+		expect(order).toEqual(['owned:success', 'owned:release', 'owned:settle', 'stale:release']);
+	});
+
 	it('passes a stale result and error through without a commit', async () => {
 		const ownership = new SendOwnership();
 		const defect = new Error('stale');

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
 import type * as AppEnv from '$app/env';
 import type { ChatCommandError } from '#lib/chat/core/chat-command-error.js';
+import { clearPersistedChatState } from '#lib/chat/core/chat-persisted-state.ts';
 import { resolveReasoning } from '#lib/chat/core/display-message-processor.js';
 import { SupportConversation } from './support-conversation.svelte.ts';
 import { SupportNavigationState } from './support-navigation-state.svelte.ts';
@@ -131,6 +132,27 @@ describe('SupportConversation', () => {
 		expect(conversation.threadId).toBe('thread-new-session');
 		expect(onThreadChange).toHaveBeenCalledOnce();
 		expect(onThreadChange).toHaveBeenCalledWith('thread-new-session');
+	});
+
+	it('starts a new acquisition after a navigation-only change', async () => {
+		const staleThread = deferred<{ threadId: string }>();
+		const mutation = vi
+			.fn()
+			.mockImplementationOnce(() => staleThread.promise)
+			.mockResolvedValueOnce({ threadId: 'thread-current' });
+		const client = clientWith(mutation);
+		conversation.beginNewConversation();
+		navigation.startNewThread();
+
+		const stale = conversation.ensureThread(client);
+		navigation.invalidateOperation();
+		const current = conversation.ensureThread(client);
+		staleThread.resolve({ threadId: 'thread-stale' });
+
+		await expect(current).resolves.toBe('thread-current');
+		await expect(stale).resolves.toBe('thread-stale');
+		expect(mutation).toHaveBeenCalledTimes(2);
+		expect(conversation.threadId).toBe('thread-current');
 	});
 
 	it('ignores a warm completion from an older compose session', async () => {
@@ -385,6 +407,167 @@ describe('SupportConversation', () => {
 		expect(errorSpy).toHaveBeenCalledExactlyOnceWith('[SupportConversation.sendMessage] Failed');
 		expect(errorSpy).not.toHaveBeenCalledWith(expect.anything(), defect);
 		expect(errorSpy.mock.calls.flat().join(' ')).not.toContain(defect.message);
+	});
+
+	it.each(['resolve', 'reject'] as const)(
+		'commits a dispatched send that %ss after a navigation-only change',
+		async (outcome) => {
+			const sent = deferred<void>();
+			const mutation = vi.fn(() => sent.promise);
+			conversation.setThread('thread-1');
+
+			const send = conversation.sendMessage(clientWith(mutation), 'hello');
+			navigation.invalidateOperation();
+			const defect = new Error('provider detail');
+			if (outcome === 'resolve') {
+				sent.resolve();
+				await expect(send).resolves.toEqual({ threadId: 'thread-1', threadCreated: false });
+				expect(conversation.isAwaitingStream).toBe(true);
+				expect(conversation.error).toBeNull();
+			} else {
+				sent.reject(defect);
+				await expect(send).rejects.toBe(defect);
+				expect(conversation.error).toBe('send_failed');
+			}
+			expect(conversation.isSending).toBe(false);
+			expect(conversation.threadId).toBe('thread-1');
+		}
+	);
+
+	it('refuses to dispatch a send after a navigation-only change during thread acquisition', async () => {
+		const warmThread = deferred<{ threadId: string }>();
+		const mutation = vi.fn(() => warmThread.promise);
+		conversation.beginNewConversation();
+		navigation.startNewThread();
+
+		const send = conversation.sendMessage(clientWith(mutation), 'hello');
+		navigation.invalidateOperation();
+		warmThread.resolve({ threadId: 'thread-warm' });
+
+		await expect(send).rejects.toThrow('Support conversation changed');
+		expect(mutation).toHaveBeenCalledOnce();
+		expect(conversation.isSending).toBe(false);
+		expect(conversation.error).toBe('send_failed');
+	});
+
+	it('releases the lock of a send waiting on an invalidated acquisition', async () => {
+		const warmThread = deferred<{ threadId: string }>();
+		const mutation = vi.fn(() => warmThread.promise);
+		conversation.beginNewConversation();
+		navigation.startNewThread();
+
+		const send = conversation.sendMessage(clientWith(mutation), 'hello');
+		expect(conversation.isSending).toBe(true);
+		conversation.invalidateWarmThreadAcquisition();
+		expect(conversation.isSending).toBe(false);
+
+		warmThread.resolve({ threadId: 'thread-late' });
+		await expect(send).rejects.toThrow('Support conversation changed');
+		expect(conversation.threadId).toBeNull();
+		expect(mutation).toHaveBeenCalledOnce();
+	});
+
+	it('keeps the acquisition wait across both setter writes', async () => {
+		const mutation = vi.fn(() => new Promise<never>(() => {}));
+		conversation.beginNewConversation();
+		navigation.startNewThread();
+
+		void conversation.sendMessage(clientWith(mutation), 'hello');
+		conversation.setSending(false);
+		conversation.setSending(true);
+		conversation.invalidateWarmThreadAcquisition();
+		await Promise.resolve();
+
+		expect(conversation.isSending).toBe(false);
+		expect(conversation.threadId).toBeNull();
+		expect(mutation).toHaveBeenCalledOnce();
+	});
+
+	it('lets only the latest human-only send settle the lock', async () => {
+		const first = deferred<void>();
+		const second = deferred<void>();
+		const mutation = vi
+			.fn()
+			.mockImplementationOnce(() => first.promise)
+			.mockImplementationOnce(() => second.promise);
+		const client = clientWith(mutation);
+		conversation.setThread('thread-1');
+		conversation.setHandedOff(true);
+
+		const firstSend = conversation.sendMessage(client, 'one');
+		const secondSend = conversation.sendMessage(client, 'two');
+		second.resolve();
+		await expect(secondSend).resolves.toEqual({ threadId: 'thread-1', threadCreated: false });
+		expect(conversation.isSending).toBe(false);
+
+		conversation.setSending(true);
+		const defect = new Error('first send detail');
+		first.reject(defect);
+		await expect(firstSend).rejects.toBe(defect);
+		expect(conversation.isSending).toBe(true);
+		expect(conversation.error).toBeNull();
+		expect(errorSpy).not.toHaveBeenCalled();
+	});
+
+	it('does not await a reply for an agent send superseded by a thread change', async () => {
+		const sent = deferred<void>();
+		conversation.setThread('thread-a');
+
+		const send = conversation.sendMessage(clientWith(vi.fn(() => sent.promise)), 'hello');
+		conversation.setThread('thread-b');
+		sent.resolve();
+
+		await expect(send).resolves.toEqual({ threadId: 'thread-a', threadCreated: false });
+		expect(conversation.isAwaitingStream).toBe(false);
+	});
+
+	it('keeps an awaited reply through reset', () => {
+		conversation.setThread('thread-1');
+		conversation.setAwaitingStream(true);
+
+		conversation.reset();
+
+		expect(conversation.isAwaitingStream).toBe(true);
+	});
+
+	it('joins a running warm-up and reports the thread as not created by the send', async () => {
+		const warmThread = deferred<{ threadId: string }>();
+		const mutation = vi
+			.fn()
+			.mockImplementationOnce(() => warmThread.promise)
+			.mockResolvedValueOnce(undefined);
+		const client = clientWith(mutation);
+		conversation.beginNewConversation();
+		navigation.startNewThread();
+
+		const warmup = conversation.ensureThread(client);
+		const send = conversation.sendMessage(client, 'hello');
+		warmThread.resolve({ threadId: 'thread-warm' });
+
+		await expect(warmup).resolves.toBe('thread-warm');
+		await expect(send).resolves.toEqual({ threadId: 'thread-warm', threadCreated: false });
+		expect(mutation).toHaveBeenCalledTimes(2);
+		expect(mutation.mock.calls[1]?.[1]).toMatchObject({ threadId: 'thread-warm', prompt: 'hello' });
+	});
+
+	it('keeps an operation identity across navigation and session changes only', () => {
+		conversation.setThread('thread-1');
+		const identity = conversation.captureOperationIdentity();
+
+		navigation.invalidateOperation();
+		clearPersistedChatState();
+		expect(conversation.isOperationIdentityCurrent(identity)).toBe(true);
+
+		conversation.threadGeneration++;
+		expect(conversation.isOperationIdentityCurrent(identity)).toBe(false);
+
+		const beforeOperation = conversation.captureOperationIdentity();
+		conversation.forgetChatSession();
+		expect(conversation.isOperationIdentityCurrent(beforeOperation)).toBe(false);
+
+		const beforeThread = conversation.captureOperationIdentity();
+		conversation.threadId = 'thread-2';
+		expect(conversation.isOperationIdentityCurrent(beforeThread)).toBe(false);
 	});
 });
 
