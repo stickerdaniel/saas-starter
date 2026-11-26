@@ -6,18 +6,18 @@
  * The copy gets the exporter, a non-frozen install that reconciles bun.lock, a frozen install,
  * Confect codegen with its clean-output check, the lint scope (both Knip runs included), the
  * types scope and the build. The check fails when a step fails, or when the copy differs from
- * the full tree outside the export contract: every path of the removed sets is gone, and of the
- * other tracked files only `contractFiles` may change.
+ * the full tree outside the export contract: every tracked path of the removed sets is gone, and
+ * of the other tracked files only `contractFiles` may change their content, none its mode.
  */
 import { spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { deletePathSets, reduceManifest } from './export-profile';
-import type { PathSetName } from './path-sets';
+import { inPathSets, type PathSetName } from './path-sets';
 
 const sets: readonly PathSetName[] = ['tests'];
-const contractFiles = new Set(['package.json', 'bun.lock', '.upstream-sync.json']);
+const contractFiles = new Set(['package.json', 'bun.lock']);
 const codegenRoots = ['src/lib/convex', 'src/lib/confect/_generated'];
 const env = { ...process.env, HUSKY: '0' };
 
@@ -68,8 +68,8 @@ function commit(copy: string, message: string): string {
 	return git(copy, 'rev-parse', 'HEAD').trim();
 }
 
-function copyTree(root: string, copy: string): string {
-	for (const path of records(git(root, 'ls-files', '-z'))) {
+function copyTree(root: string, copy: string, tracked: readonly string[]): string {
+	for (const path of tracked) {
 		mkdirSync(dirname(join(copy, path)), { recursive: true });
 		cpSync(join(root, path), join(copy, path), { verbatimSymlinks: true });
 	}
@@ -77,19 +77,17 @@ function copyTree(root: string, copy: string): string {
 	return commit(copy, 'full');
 }
 
-function contractViolations(copy: string, full: string, deleted: readonly string[]): string[] {
+function contractViolations(copy: string, full: string, omitted: readonly string[]): string[] {
 	git(copy, 'add', '--all');
-	const pending = new Set(deleted);
-	const fields = records(
-		git(copy, 'diff', '--cached', '--no-renames', '--name-status', '-z', full)
-	);
+	const pending = new Set(omitted);
+	const fields = records(git(copy, 'diff', '--cached', '--no-renames', '--raw', '-z', full));
 	const violations: string[] = [];
 	for (let index = 0; index < fields.length; index += 2) {
-		const status = fields[index]!;
+		const [fullMode, copyMode, , , status] = fields[index]!.slice(1).split(' ');
 		const path = fields[index + 1]!;
 		if (status === 'D' && pending.delete(path)) continue;
-		if (status === 'M' && contractFiles.has(path)) continue;
-		violations.push(`${status}\t${path}`);
+		if (status === 'M' && contractFiles.has(path) && fullMode === copyMode) continue;
+		violations.push(`${status} ${fullMode} ${copyMode}\t${path}`);
 	}
 	return [...violations, ...[...pending].map((path) => `kept\t${path}`)];
 }
@@ -98,8 +96,10 @@ const root = git(process.cwd(), 'rev-parse', '--show-toplevel').trim();
 const copy = mkdtempSync(join(tmpdir(), 'reduced-export-'));
 const started = performance.now();
 try {
-	const full = copyTree(root, copy);
-	const deleted = deletePathSets(copy, sets);
+	const tracked = records(git(root, 'ls-files', '-z'));
+	const omitted = tracked.filter((path) => inPathSets(path, sets));
+	const full = copyTree(root, copy, tracked);
+	const deleted = deletePathSets(copy, tracked, sets);
 	const manifest = join(copy, 'package.json');
 	writeFileSync(manifest, reduceManifest(readFileSync(manifest, 'utf8'), sets));
 	console.log(`Exported ${copy} without ${sets.join(', ')}: ${deleted.length} paths deleted.`);
@@ -121,12 +121,12 @@ try {
 	step(copy, 'Types scope', 'bun', 'scripts/static-checks.ts', '--ci', '--scope', 'types');
 	step(copy, 'Build', 'bun', 'run', 'build');
 
-	const violations = contractViolations(copy, full, deleted);
+	const violations = contractViolations(copy, full, omitted);
 	if (violations.length > 0) {
 		fail(`The export differs from the full tree outside its contract:\n${violations.join('\n')}`);
 	}
 	console.log(
-		`\nThe export passed. It differs by ${deleted.length} deleted paths and its contract files.`
+		`\nThe export passed. It differs by ${omitted.length} deleted paths and its contract files.`
 	);
 } catch (error) {
 	console.error(`\n${error instanceof Error ? error.message : String(error)}`);

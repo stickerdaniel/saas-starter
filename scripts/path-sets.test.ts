@@ -28,6 +28,13 @@ describe('the tests set', () => {
 		const paths = {
 			'e2e/public-a11y.spec.ts': true,
 			'playwright.config.ts': true,
+			'.github/actions/e2e-run/action.yml': true,
+			'.github/workflows/reduced-export.yml': true,
+			'.github/workflows/windows-process-lifecycle.yml': true,
+			'.github/workflows/static-checks.yml': false,
+			'packages/create-saas-starter/test/release-gate.test.ts': true,
+			'scripts/check-reduced-export.ts': true,
+			'scripts/export-profile.ts': false,
 			'src/lib/confect/admin/auditLog/queries.test.ts': true,
 			'scripts/__fixtures__/static-checks/private-checkout.ts': true,
 			'src/lib/confect/admin/journey/journeyStore.fixtures.ts': true,

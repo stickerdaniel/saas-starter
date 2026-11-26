@@ -2,16 +2,6 @@ import { readdirSync, rmdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { inPathSets, pathSets, type PathSetName } from './path-sets';
 
-const skippedDirectories = new Set(['.git', 'node_modules']);
-
-function treeFiles(root: string, directory = ''): string[] {
-	return readdirSync(join(root, directory), { withFileTypes: true }).flatMap((entry) => {
-		const path = directory ? `${directory}/${entry.name}` : entry.name;
-		if (!entry.isDirectory()) return [path];
-		return skippedDirectories.has(entry.name) ? [] : treeFiles(root, path);
-	});
-}
-
 function removeEmptyParents(root: string, path: string): void {
 	for (let directory = dirname(path); directory !== '.'; directory = dirname(directory)) {
 		if (readdirSync(join(root, directory)).length > 0) return;
@@ -19,11 +9,16 @@ function removeEmptyParents(root: string, path: string): void {
 	}
 }
 
-/** Deletes every file of the named sets under `root` and returns the deleted paths, sorted. */
-export function deletePathSets(root: string, names: readonly PathSetName[]): string[] {
-	const deleted = treeFiles(root)
-		.filter((path) => inPathSets(path, names))
-		.sort();
+/**
+ * Deletes the files of the named sets among `files`, the template's own paths under `root`,
+ * and returns the deleted paths, sorted. A file outside `files` stays, and so does its directory.
+ */
+export function deletePathSets(
+	root: string,
+	files: readonly string[],
+	names: readonly PathSetName[]
+): string[] {
+	const deleted = files.filter((path) => inPathSets(path, names)).sort();
 	for (const path of deleted) {
 		rmSync(join(root, path));
 		removeEmptyParents(root, path);
@@ -38,6 +33,7 @@ interface Manifest {
 
 /** Returns the text of `package.json` for a tree without the named sets. */
 export function reduceManifest(text: string, names: readonly PathSetName[]): string {
+	if (names.length === 0) return text;
 	const manifest: Manifest = JSON.parse(text);
 	for (const name of names) {
 		const set = pathSets[name];
