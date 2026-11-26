@@ -1,11 +1,23 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
 import * as Schema from 'effect/Schema';
 import { Id } from './_generated/id';
-import { CommunityRefusalCodec, RateLimitedCodec } from './errorCodecs';
+import { CommunityRefusalCodec, RateLimitedCodec, UnauthenticatedCodec } from './errorCodecs';
 import RequireUser from './middleware/RequireUser.spec';
 import { MessageFields } from './schemas/messages';
 
 const MessageIdArgs = () => ({ messageId: Id('messages') });
+
+const CommunityMessages = Schema.Array(
+	Schema.Struct({
+		_id: Id('messages'),
+		_creationTime: Schema.Number,
+		...MessageFields,
+		author: Schema.String,
+		authorImage: Schema.optional(Schema.String)
+	})
+);
+
+const SentMessage = Schema.Struct({ messageId: Id('messages') });
 
 export default GroupSpec.make()
 	.addFunction(
@@ -19,17 +31,16 @@ export default GroupSpec.make()
 		FunctionSpec.publicQuery({
 			name: 'list',
 			args: () => ({}),
-			returns: () =>
-				Schema.Array(
-					Schema.Struct({
-						_id: Id('messages'),
-						_creationTime: Schema.Number,
-						...MessageFields,
-						author: Schema.String,
-						authorImage: Schema.optional(Schema.String)
-					})
-				)
+			returns: () => CommunityMessages
 		}).middleware(RequireUser)
+	)
+	.addFunction(
+		FunctionSpec.internalQuery({
+			name: 'listAs',
+			args: () => ({ userId: Schema.String }),
+			returns: () => CommunityMessages,
+			error: () => UnauthenticatedCodec
+		})
 	)
 	.addFunction(
 		FunctionSpec.internalMutation({
@@ -49,7 +60,15 @@ export default GroupSpec.make()
 		FunctionSpec.publicMutation({
 			name: 'send',
 			args: () => ({ body: Schema.String }),
-			returns: () => Schema.Struct({ messageId: Id('messages') }),
+			returns: () => SentMessage,
 			error: () => Schema.Union([CommunityRefusalCodec, RateLimitedCodec])
 		}).middleware(RequireUser)
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'sendAs',
+			args: () => ({ userId: Schema.String, body: Schema.String }),
+			returns: () => SentMessage,
+			error: () => Schema.Union([CommunityRefusalCodec, RateLimitedCodec, UnauthenticatedCodec])
+		})
 	);

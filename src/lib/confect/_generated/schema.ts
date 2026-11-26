@@ -20,6 +20,7 @@ import founderWelcomeEmails from "./tables/founderWelcomeEmails";
 import internalUserNotes from "./tables/internalUserNotes";
 import journeyCaptureStarts from "./tables/journeyCaptureStarts";
 import messages from "./tables/messages";
+import oauthConnectionUses from "./tables/oauthConnectionUses";
 import oauthGrantEpochs from "./tables/oauthGrantEpochs";
 import passkeyNudgeDismissals from "./tables/passkeyNudgeDismissals";
 import pendingAdminNotifications from "./tables/pendingAdminNotifications";
@@ -51,6 +52,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<{
   readonly internalUserNotes: typeof internalUserNotes;
   readonly journeyCaptureStarts: typeof journeyCaptureStarts;
   readonly messages: typeof messages;
+  readonly oauthConnectionUses: typeof oauthConnectionUses;
   readonly oauthGrantEpochs: typeof oauthGrantEpochs;
   readonly passkeyNudgeDismissals: typeof passkeyNudgeDismissals;
   readonly pendingAdminNotifications: typeof pendingAdminNotifications;
@@ -81,6 +83,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<{
   internalUserNotes,
   journeyCaptureStarts,
   messages,
+  oauthConnectionUses,
   oauthGrantEpochs,
   passkeyNudgeDismissals,
   pendingAdminNotifications,

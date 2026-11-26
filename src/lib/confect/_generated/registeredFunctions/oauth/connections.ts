@@ -9,5 +9,6 @@ const definitions = ConvexFunctionDefinitions.buildForGroup<typeof import("../..
 export default {
 ["epoch"]: RegisteredConvexFunction.register({ ...definitions["epoch"], handler: forward(definitions["epoch"].handler) }),
 ["list"]: RegisteredConvexFunction.register({ ...definitions["list"], handler: forward(definitions["list"].handler) }),
+["recordUse"]: RegisteredConvexFunction.register({ ...definitions["recordUse"], handler: forward(definitions["recordUse"].handler) }),
 ["revoke"]: RegisteredConvexFunction.register({ ...definitions["revoke"], handler: forward(definitions["revoke"].handler) }),
 } as RegisteredFunctions.RegisteredFunctionsForGroupSpec<typeof import("../../../oauth/connections.spec")["default"]>;

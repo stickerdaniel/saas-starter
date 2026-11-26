@@ -8,7 +8,8 @@ const Connection = Schema.Struct({
 	clientId: Schema.String,
 	clientName: Schema.NullOr(Schema.String),
 	scopes: Schema.Array(Schema.String),
-	connectedAt: Schema.NullOr(Schema.Number)
+	connectedAt: Schema.NullOr(Schema.Number),
+	lastUsedAt: Schema.NullOr(Schema.Number)
 });
 
 export default GroupSpec.make()
@@ -30,6 +31,18 @@ export default GroupSpec.make()
 					continueCursor: Schema.String
 				})
 		}).middleware(RequireUser)
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
+			name: 'recordUse',
+			args: () => ({
+				userId: Schema.String,
+				clientId: Schema.String,
+				grant: Schema.String,
+				at: Schema.Number
+			}),
+			returns: () => Schema.Null
+		})
 	)
 	.addFunction(
 		FunctionSpec.publicMutation({

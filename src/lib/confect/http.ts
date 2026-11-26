@@ -12,10 +12,13 @@ import { handleAutumnWebhook } from './admin/customerNotifications/observe';
 import { authComponent, createAuth } from './authServer';
 import { resend } from './emails/resend';
 import { receiveUpload, uploadPreflight } from './files/uploadRoute';
+import { MCP_PATH, mcpRoutes, ProtectedResourceMetadataRoutes } from './mcp/endpoint';
+import { AppToolkit, AppToolkitLive } from './mcp/toolkit';
 import {
 	AUTHORIZATION_SERVER_METADATA_PATHS,
 	authorizationServerMetadataRoutes
 } from './oauth/metadata';
+import { PROTECTED_RESOURCE_METADATA_PATHS } from './oauth/resource';
 
 const http = httpRouter();
 
@@ -159,6 +162,12 @@ mountExact(
 	authorizationServerMetadataRoutes(refs.internal.oauth.metadata.authorizationServer),
 	AUTHORIZATION_SERVER_METADATA_PATHS,
 	['GET', 'OPTIONS']
+);
+mountExact(ProtectedResourceMetadataRoutes, PROTECTED_RESOURCE_METADATA_PATHS, ['GET', 'OPTIONS']);
+mountExact(
+	mcpRoutes(refs, AppToolkit, AppToolkitLive(refs)),
+	[MCP_PATH],
+	['POST', 'GET', 'DELETE', 'OPTIONS']
 );
 
 for (const [path, method, handler] of HttpRouter.make(Layer.empty).getRoutes()) {

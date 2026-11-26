@@ -29,5 +29,6 @@ export default {
 ["seedAiChatHistoryRows"]: RegisteredConvexFunction.register({ ...definitions["seedAiChatHistoryRows"], handler: forward(definitions["seedAiChatHistoryRows"].handler) }),
 ["seedAuditLogRows"]: RegisteredConvexFunction.register({ ...definitions["seedAuditLogRows"], handler: forward(definitions["seedAuditLogRows"].handler) }),
 ["seedSupportNotificationClaim"]: RegisteredConvexFunction.register({ ...definitions["seedSupportNotificationClaim"], handler: forward(definitions["seedSupportNotificationClaim"].handler) }),
+["verifyAccessToken"]: RegisteredConvexFunction.register({ ...definitions["verifyAccessToken"], handler: forward(definitions["verifyAccessToken"].handler) }),
 ["verifyTestUserEmail"]: RegisteredConvexFunction.register({ ...definitions["verifyTestUserEmail"], handler: forward(definitions["verifyTestUserEmail"].handler) }),
 } as RegisteredFunctions.RegisteredFunctionsForGroupSpec<typeof import("../../tests.spec")["default"]>;

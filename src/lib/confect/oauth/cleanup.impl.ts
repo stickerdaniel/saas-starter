@@ -132,6 +132,23 @@ export default GroupImpl.make(databaseSchema, cleanup).pipe(
 					return null;
 				}
 				const ctx = yield* MutationCtx;
+				const uses = yield* Effect.promise(() =>
+					ctx.db
+						.query('oauthConnectionUses')
+						.withIndex('by_userId_and_clientId', (q) => q.eq('userId', userId))
+						.take(PAGE.numItems)
+				);
+				for (const use of uses) {
+					yield* Effect.promise(() => ctx.db.delete('oauthConnectionUses', use._id));
+				}
+				if (uses.length === PAGE.numItems) {
+					yield* (yield* Scheduler).runAfter(
+						Duration.zero,
+						refs.internal.oauth.cleanup.eraseUserGrants,
+						{ userId }
+					);
+					return null;
+				}
 				yield* Effect.promise(() => deleteEpoch(ctx.db, userId));
 				return null;
 			})

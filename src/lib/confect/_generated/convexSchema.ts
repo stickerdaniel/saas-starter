@@ -21,6 +21,7 @@ import founderWelcomeEmails from "./tables/founderWelcomeEmails";
 import internalUserNotes from "./tables/internalUserNotes";
 import journeyCaptureStarts from "./tables/journeyCaptureStarts";
 import messages from "./tables/messages";
+import oauthConnectionUses from "./tables/oauthConnectionUses";
 import oauthGrantEpochs from "./tables/oauthGrantEpochs";
 import passkeyNudgeDismissals from "./tables/passkeyNudgeDismissals";
 import pendingAdminNotifications from "./tables/pendingAdminNotifications";
@@ -52,6 +53,7 @@ export default $defineSchema({
   internalUserNotes: $Table.tableDefinition(internalUserNotes),
   journeyCaptureStarts: $Table.tableDefinition(journeyCaptureStarts),
   messages: $Table.tableDefinition(messages),
+  oauthConnectionUses: $Table.tableDefinition(oauthConnectionUses),
   oauthGrantEpochs: $Table.tableDefinition(oauthGrantEpochs),
   passkeyNudgeDismissals: $Table.tableDefinition(passkeyNudgeDismissals),
   pendingAdminNotifications: $Table.tableDefinition(pendingAdminNotifications),

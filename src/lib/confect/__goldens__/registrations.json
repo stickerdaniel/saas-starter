@@ -318,10 +318,13 @@
 		"messages": {
 			"enforceAndTrackMessageUsage": ["internal", "action", "0344023963f4dfc5", "bcde375ebd4cbacf"],
 			"list": ["public", "query", "5151b7eb8536aa97", "8e7407263fbfc41c"],
+			"listAs": ["internal", "query", "3b83ee450a3cde21", "8e7407263fbfc41c"],
 			"markMessageSettled": ["internal", "mutation", "ef30e797aa8884ae", "bcde375ebd4cbacf"],
 			"removeMessage": ["internal", "mutation", "ef30e797aa8884ae", "bcde375ebd4cbacf"],
-			"send": ["public", "mutation", "af8c522ac6f049c6", "ef30e797aa8884ae"]
+			"send": ["public", "mutation", "af8c522ac6f049c6", "ef30e797aa8884ae"],
+			"sendAs": ["internal", "mutation", "6669bd127c720621", "ef30e797aa8884ae"]
 		},
+		"oauth/access": { "verify": ["internal", "query", "0557935292381b2b", "47c3af49d5bbfcfa"] },
 		"oauth/cleanup": {
 			"deleteExpiredTokens": ["internal", "mutation", "5151b7eb8536aa97", "bcde375ebd4cbacf"],
 			"deleteStaleClients": ["internal", "mutation", "e91a6f41160e06d0", "bcde375ebd4cbacf"],
@@ -329,7 +332,8 @@
 		},
 		"oauth/connections": {
 			"epoch": ["internal", "query", "3b83ee450a3cde21", "cddf8275afa15408"],
-			"list": ["public", "query", "aba4a69d6728db62", "294c0a201ea77c9d"],
+			"list": ["public", "query", "aba4a69d6728db62", "2361221e2a29e65d"],
+			"recordUse": ["internal", "mutation", "6811c68d9fccbccc", "bcde375ebd4cbacf"],
 			"revoke": ["public", "mutation", "bd9e044020132fa6", "fefea1c739ee397e"]
 		},
 		"oauth/metadata": {
@@ -449,6 +453,7 @@
 				"038f29651bb733e0",
 				"de0ea8e3b4328065"
 			],
+			"verifyAccessToken": ["public", "query", "cd9c36af5340bdb0", "47c3af49d5bbfcfa"],
 			"verifyTestUserEmail": ["public", "mutation", "fc1e15266873dd30", "ea8b91484616e13d"]
 		},
 		"users": {
@@ -456,7 +461,8 @@
 			"getPasskeyNudgeDismissal": ["public", "query", "5151b7eb8536aa97", "cddf8275afa15408"],
 			"hasPassword": ["public", "query", "5151b7eb8536aa97", "7cb541e84f226754"],
 			"setPassword": ["public", "mutation", "726ecaac6da85351", "923165779003134c"],
-			"viewer": ["public", "query", "5151b7eb8536aa97", "55a07d5ec395fa1b"]
+			"viewer": ["public", "query", "5151b7eb8536aa97", "55a07d5ec395fa1b"],
+			"viewerAs": ["internal", "query", "3b83ee450a3cde21", "55a07d5ec395fa1b"]
 		}
 	}
 }

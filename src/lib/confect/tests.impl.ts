@@ -2,10 +2,12 @@ import { FunctionImpl, GroupImpl } from '@confect/server';
 import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import { internal } from '../convex/_generated/api';
 import type { Doc } from '../convex/_generated/dataModel';
 import refs from './_generated/refs';
 import databaseSchema from './_generated/schema';
 import { MutationCtx, MutationRunner, QueryCtx, Scheduler } from './_generated/services';
+import type { VerifiedAccess } from './oauth/access.spec';
 import { appRateLimiter } from './rateLimit';
 import type {
 	DeleteOwnedFixtureArgs,
@@ -297,6 +299,15 @@ export default GroupImpl.make(databaseSchema, tests).pipe(
 			Effect.gen(function* () {
 				yield* requireTestSecret(args.secret);
 				return yield* seedSupportNotificationClaim(args);
+			})
+		),
+		FunctionImpl.make(databaseSchema, tests, 'verifyAccessToken', ({ secret, token, audiences }) =>
+			Effect.gen(function* () {
+				yield* requireTestSecret(secret);
+				const ctx = yield* QueryCtx;
+				return yield* Effect.promise((): Promise<typeof VerifiedAccess.Type> =>
+					ctx.runQuery(internal.oauth.access.verify, { token, audiences: [...audiences] })
+				);
 			})
 		),
 		FunctionImpl.make(databaseSchema, tests, 'verifyTestUserEmail', (args) =>

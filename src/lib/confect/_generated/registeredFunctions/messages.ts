@@ -9,7 +9,9 @@ const definitions = ConvexFunctionDefinitions.buildForGroup<typeof import("../..
 export default {
 ["enforceAndTrackMessageUsage"]: RegisteredConvexFunction.register({ ...definitions["enforceAndTrackMessageUsage"], handler: forward(definitions["enforceAndTrackMessageUsage"].handler) }),
 ["list"]: RegisteredConvexFunction.register({ ...definitions["list"], handler: forward(definitions["list"].handler) }),
+["listAs"]: RegisteredConvexFunction.register({ ...definitions["listAs"], handler: forward(definitions["listAs"].handler) }),
 ["markMessageSettled"]: RegisteredConvexFunction.register({ ...definitions["markMessageSettled"], handler: forward(definitions["markMessageSettled"].handler) }),
 ["removeMessage"]: RegisteredConvexFunction.register({ ...definitions["removeMessage"], handler: forward(definitions["removeMessage"].handler) }),
 ["send"]: RegisteredConvexFunction.register({ ...definitions["send"], handler: forward(definitions["send"].handler) }),
+["sendAs"]: RegisteredConvexFunction.register({ ...definitions["sendAs"], handler: forward(definitions["sendAs"].handler) }),
 } as RegisteredFunctions.RegisteredFunctionsForGroupSpec<typeof import("../../messages.spec")["default"]>;

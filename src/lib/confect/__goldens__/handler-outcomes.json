@@ -584,6 +584,11 @@
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
 		"user": "Error Unauthorized: Invalid test secret"
 	},
+	"tests:verifyAccessToken": {
+		"anonymous": "Error Unauthorized: Invalid test secret",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "Error Unauthorized: Invalid test secret"
+	},
 	"tests:verifyTestUserEmail": {
 		"anonymous": "Error Unauthorized: Invalid test secret",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
