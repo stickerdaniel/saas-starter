@@ -6,6 +6,7 @@
       "name": "saas-starter",
       "dependencies": {
         "@ai-sdk/provider": "4.0.35",
+        "@better-auth/oauth-provider": "1.7.26",
         "@better-auth/passkey": "1.7.26",
         "@better-svelte-email/components": "2.4.0",
         "@better-svelte-email/server": "2.4.0",
@@ -252,6 +253,8 @@
     "@better-auth/memory-adapter": ["@better-auth/memory-adapter@1.7.26", "", { "peerDependencies": { "@better-auth/core": "^1.7.26", "@better-auth/utils": "^0.4.2 || ^0.5.0" } }, "sha512-ttV2Q06uoJBJzp9J8zYwYwMY60jvlhziumyqUZ1gJKltvsOasbGfoGPYThypyydTVu8iApP9O4xI9jYXJ08syg=="],
 
     "@better-auth/mongo-adapter": ["@better-auth/mongo-adapter@1.7.26", "", { "peerDependencies": { "@better-auth/core": "^1.7.26", "@better-auth/utils": "^0.4.2 || ^0.5.0", "mongodb": "^6.0.0 || ^7.0.0" }, "optionalPeers": ["mongodb"] }, "sha512-mGVJ0UIL1hjrp5aCuv4hFinZhpB7vvpu1c/fSa40Ktk4GugXcXguVwHI4hiDqGCttslTz0LOa5gqT+BfzgdJWw=="],
+
+    "@better-auth/oauth-provider": ["@better-auth/oauth-provider@1.7.26", "", { "dependencies": { "jose": "^6.2.3", "zod": "^4.5.4" }, "peerDependencies": { "@better-auth/core": "^1.7.26", "@better-auth/utils": "^0.4.2 || ^0.5.0", "@better-fetch/fetch": "1.3.3", "better-auth": "^1.7.26", "better-call": "~1.4.5" } }, "sha512-wzeIJ2Yogsd8HN5QLm3avpEubJmwo/hg00qZf6c7Ivu/doJlg0PENJOxgK2oRdjbl787i9GOKp1pAzTCQpMGDg=="],
 
     "@better-auth/passkey": ["@better-auth/passkey@1.7.26", "", { "dependencies": { "@simplewebauthn/browser": "^13.3.0", "@simplewebauthn/server": "^13.3.2", "zod": "^4.5.4" }, "peerDependencies": { "@better-auth/core": "^1.7.26", "@better-auth/utils": "^0.4.2 || ^0.5.0", "@better-fetch/fetch": "1.3.3", "better-auth": "^1.7.26", "better-call": "~1.4.5", "nanostores": "^1.0.1" } }, "sha512-D3xoEewww2PzXODnXescOV1A/53xfLI5q0vHkELETuM/UT98GcAHgX/OG4YV5Km1DN28D1mhvZnx8+cKysV+Kg=="],
 
