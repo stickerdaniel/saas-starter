@@ -41,13 +41,16 @@
 		</script>
 		<script>
 			(() => {
-				const mode = localStorage.getItem('mode-watcher-mode') ?? 'system';
+				let mode = 'system';
+				try {
+					mode = localStorage.getItem('mode-watcher-mode') ?? 'system';
+					localStorage.setItem('mode-watcher-mode', mode);
+				} catch {}
 				const light =
 					mode === 'light' ||
 					(mode === 'system' && matchMedia('(prefers-color-scheme: light)').matches);
 				document.documentElement.classList.toggle('dark', !light);
 				document.documentElement.style.colorScheme = light ? 'light' : 'dark';
-				localStorage.setItem('mode-watcher-mode', mode);
 			})();
 		</script>
 		%sveltekit.head%
