@@ -24,7 +24,7 @@
 	import { MAX_MESSAGE_LENGTH } from '#lib/chat/core/types.js';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
-	import { mode } from 'mode-watcher';
+	import { mode } from '#lib/theme.svelte.ts';
 	import { tick, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';

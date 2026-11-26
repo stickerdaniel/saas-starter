@@ -26,7 +26,6 @@ import preferShadcnSliderImportsRule from './eslint/rules/prefer-shadcn-slider-i
 import variantsThroughCnRule from './eslint/rules/variants-through-cn.js';
 import safeSvelteParser from './eslint/parsers/safe-svelte-parser.js';
 import noMiddleDotOrEmDashRule from './eslint/rules/no-middle-dot-or-em-dash.js';
-import requireStaticModeInitializerRule from './eslint/rules/require-static-mode-initializer.js';
 import noTestInLoopRule from './eslint/rules/no-test-in-loop.js';
 import noRawCaughtErrorLogRule from './eslint/rules/no-raw-caught-error-log.js';
 import noHistoryCommentRule from './eslint/rules/no-history-comment.js';
@@ -156,7 +155,6 @@ const localPlugin = {
 		'prefer-shadcn-slider-imports': preferShadcnSliderImportsRule,
 		'variants-through-cn': variantsThroughCnRule,
 		'no-middle-dot-or-em-dash': noMiddleDotOrEmDashRule,
-		'require-static-mode-initializer': requireStaticModeInitializerRule,
 		'no-test-in-loop': noTestInLoopRule,
 		'no-raw-caught-error-log': noRawCaughtErrorLogRule,
 		'no-history-comment': noHistoryCommentRule,
@@ -379,18 +377,6 @@ export default defineConfig(
 		rules: {
 			'local/require-marketing-markdown': 'error',
 			'local/require-marketing-route-registration': 'error'
-		}
-	},
-	{
-		// The root layout mounts ModeWatcher; src/app.html owns the theme initializer
-		// whose CSP hash is derived from the template. See
-		// eslint/rules/require-static-mode-initializer.js.
-		files: ['src/routes/+layout.svelte'],
-		plugins: {
-			local: localPlugin
-		},
-		rules: {
-			'local/require-static-mode-initializer': 'error'
 		}
 	},
 	{
@@ -692,7 +678,6 @@ export default defineConfig(
 				{
 					roots: ['src', 'scripts'],
 					contracts: [
-						'eslint/rules/require-static-mode-initializer.contract.test.ts',
 						'scripts/avatar-inline-route.contract.test.ts',
 						'scripts/env-schema-parity.contract.test.ts',
 						'scripts/security-headers-sync.contract.test.ts',

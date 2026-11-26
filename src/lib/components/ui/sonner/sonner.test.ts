@@ -6,7 +6,7 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
-vi.mock('mode-watcher', () => ({ mode: { current: 'light' } }));
+vi.mock('#lib/theme.svelte.ts', () => ({ mode: { current: 'light' } }));
 
 import { toast } from 'svelte-sonner';
 import Toaster from './sonner.svelte';

@@ -28,7 +28,7 @@ What a product built on this template can do from its first deploy. Each page sa
 
 **User settings.** Users can update their profile, change their password with live strength feedback, swap their email (triggers re-verification), manage passkeys, and review or revoke active sessions. Uploaded avatars and attachments are validated on the server and cleaned up automatically. The page lives in [`app/settings`](../../src/routes/%5B%5Blang%5D%5D/app/settings/).
 
-**Dark mode.** Every component supports light and dark mode via `mode-watcher`. Interactive elements provide subtle haptic feedback on mobile via `web-haptics` (respects `prefers-reduced-motion`).
+**Dark mode.** Every component supports light and dark mode through `src/lib/theme.svelte.ts`, which follows the system setting until the user picks a mode. Interactive elements provide subtle haptic feedback on mobile via `web-haptics` (respects `prefers-reduced-motion`).
 
 ## Stack
 

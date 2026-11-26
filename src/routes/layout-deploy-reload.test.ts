@@ -59,7 +59,6 @@ vi.mock('@tolgee/svelte', async (importOriginal) => {
 		TolgeeProvider: Passthrough
 	};
 });
-vi.mock('mode-watcher', async () => ({ ModeWatcher: (await state.passthrough()).default }));
 vi.mock('#lib/components/ui/sonner/index.js', async () => ({
 	Toaster: (await state.passthrough()).default
 }));

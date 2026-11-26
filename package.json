@@ -120,7 +120,6 @@
 		"date-fns": "4.4.0",
 		"effect": "4.1.4",
 		"konva": "10.10.0",
-		"mode-watcher": "1.1.0",
 		"motion-sv": "0.2.2",
 		"paneforge": "1.0.2",
 		"posthog-js": "1.453.0",
