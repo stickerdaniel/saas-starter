@@ -29,6 +29,7 @@ vi.mock('@tolgee/svelte', async () => {
 import LanguageSwitcher from './LanguageSwitcher.svelte';
 
 let component: ReturnType<typeof mount> | undefined;
+let idle: Map<number, () => void>;
 
 // Transforming the menu and Bits UI takes longer than a waitFor under a full
 // run. Holding the chunk later still goes through the mock.
@@ -43,6 +44,13 @@ beforeEach(() => {
 			disconnect() {}
 		}
 	);
+	idle = new Map();
+	vi.stubGlobal('requestIdleCallback', (callback: () => void) => {
+		const id = idle.size + 1;
+		idle.set(id, callback);
+		return id;
+	});
+	vi.stubGlobal('cancelIdleCallback', (id: number) => idle.delete(id));
 	component = mount(LanguageSwitcher, { target: document.body });
 	flushSync();
 });
@@ -68,10 +76,11 @@ function menu(): HTMLElement | null {
 function holdMenuChunk() {
 	let release!: () => void;
 	const gate = new Promise<void>((resolve) => (release = resolve));
-	const chunk = { requested: false, release };
+	const chunk = { requested: false, requests: 0, release };
 	vi.doUnmock('./ui/language-switcher/language-switcher.svelte');
 	vi.doMock('./ui/language-switcher/language-switcher.svelte', async (importOriginal) => {
 		chunk.requested = true;
+		chunk.requests += 1;
 		await gate;
 		return importOriginal();
 	});
@@ -84,6 +93,32 @@ async function settle(): Promise<void> {
 }
 
 describe('LanguageSwitcher', () => {
+	it('loads the menu once when the page is idle', async () => {
+		const chunk = holdMenuChunk();
+		expect(chunk.requested).toBe(false);
+
+		for (const callback of idle.values()) callback();
+		await vi.waitFor(() => expect(chunk.requested).toBe(true));
+		trigger().dispatchEvent(
+			new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 })
+		);
+		chunk.release();
+
+		await vi.waitFor(() => expect(menu()).not.toBeNull());
+		await settle();
+		expect(document.querySelectorAll('[role="menu"]')).toHaveLength(1);
+		expect(chunk.requests).toBe(1);
+	});
+
+	it('drops the idle load when it unmounts first', async () => {
+		expect(idle.size).toBe(1);
+
+		await unmount(component!);
+		component = undefined;
+
+		expect(idle.size).toBe(0);
+	});
+
 	it('opens on a click without a pointer that arrives before the menu loads', async () => {
 		const chunk = holdMenuChunk();
 

@@ -120,7 +120,19 @@ async function expectOpensOnceAfterRelease(page: Page, activation: Activation) {
 	await expect(languageTrigger(page)).toBeFocused();
 }
 
+test('the language menu loads once the page is idle', async ({ page }) => {
+	await openPage(page);
+
+	await expect(languageTrigger(page)).toHaveAttribute('data-dropdown-menu-trigger', '');
+});
+
 test.describe('language menu on first activation', () => {
+	test.beforeEach(async ({ page }) => {
+		await page.addInitScript(() => {
+			window.requestIdleCallback = () => 0;
+		});
+	});
+
 	for (const activation of activations) {
 		test(`opens once on ${activation.name} while its chunk is loading`, async ({ page }) => {
 			await openPage(page);

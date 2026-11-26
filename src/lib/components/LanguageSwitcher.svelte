@@ -6,7 +6,7 @@
 		LANGUAGE_COOKIE_NAME,
 		LANGUAGE_COOKIE_MAX_AGE
 	} from '#lib/i18n/languages.js';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import LanguageSwitcherButton from './ui/language-switcher/language-switcher-button.svelte';
 	import type LanguageSwitcherMenu from './ui/language-switcher/language-switcher.svelte';
 	import type { LanguageSwitcherProps } from './ui/language-switcher/types';
@@ -77,8 +77,9 @@
 		}
 	}
 
-	// The menu, and Bits UI behind it, loads on the first hover, focus or press.
-	// Until then this button stands in for its trigger.
+	// The menu, and Bits UI behind it, loads once the page is idle after load,
+	// or earlier on the first hover, focus or press. Until then this button
+	// stands in for its trigger.
 	let Menu: typeof LanguageSwitcherMenu | null = $state(null);
 	let loading: Promise<void> | undefined;
 	let button: HTMLElement | null = $state(null);
@@ -97,6 +98,25 @@
 		});
 		return loading;
 	}
+
+	onMount(() => {
+		let cancelIdle = () => {};
+		const preloadWhenIdle = () => {
+			if ('requestIdleCallback' in window) {
+				const id = requestIdleCallback(() => void load());
+				cancelIdle = () => cancelIdleCallback(id);
+			} else {
+				const id = setTimeout(() => void load());
+				cancelIdle = () => clearTimeout(id);
+			}
+		};
+		if (document.readyState === 'complete') preloadWhenIdle();
+		else window.addEventListener('load', preloadWhenIdle, { once: true });
+		return () => {
+			window.removeEventListener('load', preloadWhenIdle);
+			cancelIdle();
+		};
+	});
 
 	// Mirrors the Bits UI trigger: a mouse opens on pointerdown, touch on
 	// pointerup, a key on Enter, Space or ArrowDown, and a click only when no

@@ -158,6 +158,12 @@ test.describe('Upload navigation guard', () => {
 				await servedByDevServer(page),
 				'Vite fires vite:preloadError only from the preload helper of a build'
 			);
+			await page.addInitScript(() => {
+				window.requestIdleCallback = () => 0;
+			});
+			await page.reload();
+			await waitForAuthenticated(page);
+			await expect(page.locator('textarea')).toBeVisible({ timeout: 10000 });
 			const storagePost = page.waitForRequest(STORAGE_UPLOAD);
 			await stallUpload(page);
 			await attachNotes(page, workerAccounts.user, 'in-flight.txt');
