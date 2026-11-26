@@ -76,6 +76,45 @@ test('a public client signs in, consents, exchanges the code and rotates its ref
 	expect(decodeOAuthError(await reused.json()).error).toBe('invalid_grant');
 });
 
+test('a passkey sign-in resumes the authorization at the consent page', async ({
+	page,
+	request
+}) => {
+	const metadata = await fetchMetadata(request);
+	const clientId = await registerClient(request, metadata, 'Passkey client');
+	const account = await newAccount('passkey');
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('WebAuthn.enable');
+	await cdp.send('WebAuthn.addVirtualAuthenticator', {
+		options: {
+			protocol: 'ctap2',
+			transport: 'internal',
+			hasResidentKey: true,
+			hasUserVerification: true,
+			isUserVerified: true,
+			automaticPresenceSimulation: true
+		}
+	});
+	await signInByRequest(page, account);
+	await page.goto('/en/app/settings?tab=security');
+	await page.locator('html[data-hydrated]').waitFor({ state: 'attached' });
+	await page.getByRole('button', { name: 'Add Passkey', exact: true }).click();
+	await expect
+		.poll(async () =>
+			(await page.request.get(`${siteUrl()}/api/auth/passkey/list-user-passkeys`)).json()
+		)
+		.toHaveLength(1);
+	await page.goto('about:blank');
+	await page.request.post(`${siteUrl()}/api/auth/sign-out`, { headers: { Origin: siteUrl() } });
+	await page.context().clearCookies();
+
+	await openAuthorization(page, authorization(metadata, clientId, BOTH_SCOPES), /\/signin\?/);
+	await page.getByRole('button', { name: 'Sign in with Passkey', exact: true }).click();
+	await page.waitForURL(/\/oauth\/consent\?/);
+	await expect(page.getByRole('heading', { name: 'Passkey client wants access' })).toBeVisible();
+	await expect(page.getByText(`You are signed in as ${account.email}.`)).toBeVisible();
+});
+
 test('Deny returns access_denied to the redirect URI', async ({ page, request }) => {
 	const metadata = await fetchMetadata(request);
 	const clientId = await registerClient(request, metadata, 'Denied client');
@@ -216,6 +255,14 @@ test('every authorization server metadata URL serves the rewritten document', as
 		{ maxRedirects: 0 }
 	);
 	expect(otherIssuer.status()).toBe(404);
+});
+
+test('registration refuses a client name longer than 100 characters', async ({ request }) => {
+	const metadata = await fetchMetadata(request);
+	const refused = await register(request, metadata, 'n'.repeat(101));
+	expect(refused.status()).toBe(400);
+	expect(decodeOAuthError(await refused.json()).error).toBe('invalid_client_metadata');
+	expect((await register(request, metadata, 'n'.repeat(100))).status()).toBe(201);
 });
 
 test('registration admits 60 clients per clock hour and refuses the 61st', async ({ request }) => {
