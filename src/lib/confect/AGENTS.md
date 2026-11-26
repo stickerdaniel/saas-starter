@@ -43,7 +43,7 @@ Validators and generated types carry the mechanical API boundary, so a test that
 
 Authorization and tenant-boundary policy belongs to the backend layer, never to a browser test. A pure test over an extracted rule or a hand-written context double is sufficient only when that rule is the behavior under test.
 
-`convex-test` is a mock. Once a release matching the pinned `convex` version is adopted, with the local Better Auth component registered, it can test function behavior such as application-driven rollback and atomic scheduling. It cannot prove platform retry, execution, or hosted-state guarantees. A hand-written store or scheduler spy has the same limit.
+`convex-test` is a mock. With the local Better Auth component registered over the module maps in `convexTest.modules.ts`, as in `__tests__/users.test.ts`, it tests function behavior such as application-driven rollback and atomic scheduling. It cannot prove platform retry, execution, or hosted-state guarantees. A hand-written store or scheduler spy has the same limit.
 
 The local backend runs the real backend code and covers transaction limits, cron activation, client subscriptions, search ranking, and index backfill/readiness against local state when kept current. Hosted retry behavior, plan quotas, cloud durability, and behavior that depends on production data require a preview or production deployment with the relevant state and constraints.
 

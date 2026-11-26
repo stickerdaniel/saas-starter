@@ -51,7 +51,7 @@
 			"args": ["run", "i18n:pull"],
 			"group": "none",
 			"problemMatcher": [],
-			"detail": "Pull latest translations from Tolgee Cloud",
+			"detail": "Live Tolgee opt-in only: pull latest translations from Tolgee Cloud",
 			"presentation": {
 				"clear": true
 			}
@@ -63,7 +63,7 @@
 			"args": ["run", "i18n:push"],
 			"group": "none",
 			"problemMatcher": [],
-			"detail": "Push local translation files to Tolgee Cloud",
+			"detail": "Live Tolgee opt-in only: push local translation files to Tolgee Cloud",
 			"presentation": {
 				"clear": true
 			}
@@ -75,7 +75,7 @@
 			"args": ["run", "i18n:cleanup"],
 			"group": "none",
 			"problemMatcher": [],
-			"detail": "Find deprecated keys and tag them (review in Tolgee Cloud UI after)",
+			"detail": "Live Tolgee opt-in only: find deprecated keys and tag them (review in Tolgee Cloud UI after)",
 			"presentation": {
 				"clear": true
 			}

@@ -47,7 +47,7 @@ A human starts the `upstream-sync` skill (`.agents/skills/upstream-sync/SKILL.md
 - The English policy guard covers authored Markdown/text prose, JS/TS/Svelte comments, JSON/JSONC `description` values, and every string leaf in `src/i18n/en.json`. Exact registered target-locale files and non-comment localized source assertions are outside this V1 scope. Check an ignored report before publication with `bun scripts/check-english.ts --artifact <path>` or pipe prose to `bun scripts/check-english.ts --stdin-label <label>`.
 - A comment states how the code works, how to use it, or a constraint the code cannot show. History, rejected designs and review findings go in the commit message or the PR body; `local/no-history-comment` rejects their literal forms.
 - Use Bun, never npm, for project commands.
-- Tolgee is offline. The committed `src/i18n/*.json` files are the only translation source: edit them directly and leave `i18n:pull`, `i18n:push`, and `i18n:cleanup` unused until Tolgee is explicitly re-enabled.
+- Edit the committed `src/i18n/*.json` files directly. Live Tolgee is an explicit opt-in: `VITE_TOLGEE_API_KEY` enables in-context editing in dev, and `TOLGEE_API_KEY` makes the deploy script tag and pull translations before the build. Leave `i18n:pull`, `i18n:push`, and `i18n:cleanup` unused until a human enables Tolgee sync for the project.
 - Scripts must work on macOS, Linux, and Windows. Use TypeScript with Bun for complex scripts and `bun-tasks` for parallel execution; avoid Bash-specific wrappers.
 - For current dependency behavior, use the `btca-local` skill and the resource clones registered in `btca.config.jsonc`. Read a clone at the tag of the installed version (`git -C <clone> show <tag>:<path>`), leaving its checked-out branch alone, and read the installed package for anything listed in `patchedDependencies`. Before trusting `node_modules`, check that the installed package's version matches its resolution in `bun.lock`; on a mismatch, run `bun install --frozen-lockfile`.
 - A human approves changes to product defaults and new or broadened lint or type suppressions; an automated review cannot approve them.
@@ -77,7 +77,7 @@ The command fetches and branches from remote trunk by default. Worktrees live be
 
 Never use `EnterWorktree`. Prefix every later action with the absolute worktree path because command working directories do not persist. Before committing, run `git branch` and confirm the worktree branch. After a merge, run `bun run worktree:prune`; it safely removes confirmed-merged worktrees and branches and fast-forwards a clean local trunk.
 
-The pre-commit hook intentionally runs fast staged lint only, so commit freely while iterating. Immediately before every push, including after a rebase or CI fix, run `bun scripts/static-checks.ts <all changed files...>` and do not push unless the full lint-and-types check passes.
+The pre-commit hook intentionally runs only fast staged lint and the staged secret scan, so commit freely while iterating. Immediately before every push, including after a rebase or CI fix, run `bun scripts/static-checks.ts <all changed files...>` and do not push unless the full lint-and-types check passes.
 
 Every change requires the narrowest executable verification that covers the changed behavior and its failure mode. Expand to a broader local suite only when the diff crosses feature or test boundaries, the narrow check exposes wider breakage, or no narrower check provides credible coverage.
 
@@ -135,7 +135,7 @@ A finished mechanical guard fails on the buggy revision for the same causal reas
 - `bun run dev` — local Vite + embedded Convex backend
 - `bun run dev:cloud` — Vite + cloud Convex backend
 - `bun scripts/static-checks.ts <changed files...>` — required after implementation
-- `bun scripts/static-checks.ts --scope types` — required once before final handoff or PR for changes to JS, TS, Svelte, Convex, email templates, or Autumn config; pre-commit intentionally runs staged lint only
+- `bun scripts/static-checks.ts --scope types` — required once before final handoff or PR for changes to JS, TS, Svelte, Convex, email templates, or Autumn config; pre-commit intentionally runs only staged lint and the staged secret scan
 - `bun run test:unit` — Vitest unit suite
 - `bun run test:upstream-report` — repository-backed detector suite; required after upstream-report code or test changes
 - `bun run test:e2e` — Playwright suite; required after E2E changes
