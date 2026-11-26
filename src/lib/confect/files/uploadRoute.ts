@@ -6,7 +6,7 @@ import { UPLOAD_PROFILES, type UploadProfile } from '../../uploads/profiles';
 import { buildTrustedOrigins } from '../authServer';
 import { SUPPORT_ERROR_CODES } from '../support/errors';
 import { createFileError, FILE_ERROR_CODES } from './errors';
-import { validateUploadBlob } from './upload';
+import { validateUpload } from './upload';
 
 export type UploadPurpose = 'aiChat' | 'support' | 'profileImage';
 
@@ -125,9 +125,9 @@ async function storeChatAttachment(
 	blob: Blob,
 	query: URLSearchParams
 ) {
-	const mimeType = validateUploadBlob(blob, undefined);
-	const isImage = mimeType.startsWith('image/');
-	const { file } = await storeFile(ctx, components.agent, blob, {
+	const upload = await validateUpload(blob);
+	const isImage = upload.type.startsWith('image/');
+	const { file } = await storeFile(ctx, components.agent, upload, {
 		filename: query.get('filename') ?? undefined
 	});
 	await ctx.runMutation(internal.files.owners.record, { fileId: file.fileId, ownerId });
@@ -157,15 +157,15 @@ async function discardStaged(ctx: ActionCtx, storageId: string) {
 }
 
 async function storeProfileImage(ctx: ActionCtx, blob: Blob) {
-	validateUploadBlob(blob, undefined, UPLOAD_PROFILES.profileImage);
+	const upload = await validateUpload(blob, UPLOAD_PROFILES.profileImage);
 	const { uploadUrl, uploadToken } = await ctx.runMutation(
 		components.convexFilesControl.upload.generateUploadUrl,
 		{ provider: 'convex' }
 	);
 	const posted = await fetch(uploadUrl, {
 		method: 'POST',
-		headers: { 'Content-Type': blob.type },
-		body: blob
+		headers: { 'Content-Type': upload.type },
+		body: upload
 	});
 	const answer: unknown = posted.ok ? await posted.json() : undefined;
 	const storageId =

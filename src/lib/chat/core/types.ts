@@ -211,7 +211,7 @@ export const DEFAULT_ATTACHMENT_PROFILE: UploadProfile = UPLOAD_PROFILES.chatAtt
 /**
  * Upload constraints of the default chat attachment profile. The profile in
  * `#lib/uploads/profiles.js` is shared with the server validator, so the picker
- * and `validateUploadBlob` agree. These names are public API
+ * and `validateUpload` agree. These names are public API
  * (`#lib/chat/index.js`).
  */
 export const ALLOWED_FILE_EXT_MIME: Readonly<Record<string, string>> =

@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, components } from '../../../convex/_generated/api';
 import schema from '../../../convex/schema';
 import authSchema from '../../../convex-components/betterAuth/schema';
-import { UPLOAD_PROFILES } from '../../../uploads/profiles';
+import { allowedMimeTypes, UPLOAD_PROFILES } from '../../../uploads/profiles';
 import { convexModules, preloadModules } from '../../convexTest.modules';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { UploadPurpose } from '../uploadRoute';
@@ -91,6 +91,16 @@ const CONVEX_SITE_URL = 'https://site.test';
 const UPLOAD_BURST = 10;
 const CHUNK_BYTES = 64 * 1024;
 const PNG_BYTES = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+const ascii = (text: string) => new TextEncoder().encode(text);
+const SAMPLES: Record<string, Uint8Array<ArrayBuffer>> = {
+	'image/png': PNG_BYTES,
+	'image/jpeg': new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16]),
+	'image/gif': ascii('GIF89a\x01\x00'),
+	'image/webp': ascii('RIFF\x24\x00\x00\x00WEBPVP8 '),
+	'application/pdf': ascii('%PDF-1.7\n'),
+	'text/markdown': ascii('# Notes'),
+	'text/plain': ascii('note')
+};
 
 const ownersModulePath = '../convex/files/owners.ts';
 const loadOwners = convexModules[ownersModulePath];
@@ -333,6 +343,22 @@ describe.each(Object.keys(PURPOSES) as UploadPurpose[])('POST /uploads/%s', (pur
 		expect(await stored(t)).toEqual(nothingStored);
 	});
 
+	it.each([
+		['PNG bytes', 'application/pdf', PNG_BYTES],
+		['HTML text', 'image/png', ascii('<html><script>alert(1)</script>')],
+		['NUL bytes', 'text/plain', new Uint8Array([0x6e, 0, 0x74])],
+		['PDF bytes', 'text/plain', ascii('%PDF-1.7\n')]
+	] as const)('refuses %s declared as %s and stores nothing', async (_label, type, bytes) => {
+		const t = harness();
+		const { caller, headers } = await asCaller(t, purpose);
+
+		const response = await post(caller, purpose, new Blob([bytes], { type }), { headers });
+
+		expect(response.status).toBe(415);
+		expect(await response.json()).toEqual({ code: 'FILE_TYPE_NOT_ALLOWED' });
+		expect(await stored(t)).toEqual(nothingStored);
+	});
+
 	it('answers 429 with the retry delay once the upload bucket is empty', async () => {
 		const t = harness();
 		const { caller, headers } = await asCaller(t, purpose);
@@ -386,6 +412,41 @@ describe.each(Object.keys(PURPOSES) as UploadPurpose[])('POST /uploads/%s', (pur
 });
 
 describe('chat attachment uploads', () => {
+	it.each(allowedMimeTypes(UPLOAD_PROFILES.chatAttachment))(
+		'stores a %s file whose bytes match its type',
+		async (type) => {
+			const t = harness();
+			const { caller } = await signIn(t);
+
+			const response = await post(caller, 'aiChat', new Blob([SAMPLES[type]!], { type }));
+
+			expect(response.status).toBe(200);
+		}
+	);
+
+	it('stores the checked type instead of the raw Content-Type header', async () => {
+		const t = harness();
+		const { caller } = await signIn(t);
+
+		const response = await post(caller, 'aiChat', new Blob([PNG_BYTES]), {
+			headers: { 'Content-Type': 'image/png; name=notes.html' }
+		});
+
+		expect(response.status).toBe(200);
+		const blobs = await t.run(async (ctx) => await ctx.db.system.query('_storage').take(10));
+		expect(blobs.map((blob) => blob.contentType)).toEqual(['image/png']);
+	});
+
+	it('stores a plain text note that is not UTF-8', async () => {
+		const t = harness();
+		const { caller } = await signIn(t);
+		const windows1252 = new Uint8Array([0x63, 0x61, 0x66, 0xe9]);
+
+		const response = await post(caller, 'aiChat', new Blob([windows1252], { type: 'text/plain' }));
+
+		expect(response.status).toBe(200);
+	});
+
 	it.each(['aiChat', 'support'] as const)(
 		'stores one %s file and returns its reference',
 		async (purpose) => {
@@ -584,13 +645,25 @@ describe('support upload identity', () => {
 });
 
 describe('profile image uploads', () => {
+	it('stages the avatar with the checked type instead of the raw header', async () => {
+		const t = harness();
+		const { caller } = await signIn(t);
+
+		const response = await post(caller, 'profileImage', new Blob([PNG_BYTES]), {
+			headers: { 'Content-Type': 'image/png; name=notes.html' }
+		});
+
+		expect(response.status).toBe(200);
+		expect([...staged.values()].map((upload) => upload.contentType)).toEqual(['image/png']);
+	});
+
 	it.each([...new Set(Object.values(UPLOAD_PROFILES.profileImage.extensions))])(
 		'returns an inline avatar URL for %s',
 		async (type) => {
 			const t = harness();
 			const { caller, userId } = await signIn(t);
 
-			const response = await post(caller, 'profileImage', new Blob([PNG_BYTES], { type }));
+			const response = await post(caller, 'profileImage', new Blob([SAMPLES[type]!], { type }));
 
 			const [grant] = (await grants(t)).page;
 			expect(await response.json()).toEqual({

@@ -23,21 +23,54 @@ export const ALLOWED_MIME_TYPES = Array.from(
 	new Set(Object.values(UPLOAD_PROFILES.chatAttachment.extensions))
 );
 
+const SIGNATURES: Readonly<Record<string, ReadonlyArray<ReadonlyArray<number | undefined>>>> = {
+	'image/png': [[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]],
+	'image/jpeg': [[0xff, 0xd8, 0xff]],
+	'image/gif': [
+		[0x47, 0x49, 0x46, 0x38, 0x37, 0x61],
+		[0x47, 0x49, 0x46, 0x38, 0x39, 0x61]
+	],
+	'image/webp': [
+		[0x52, 0x49, 0x46, 0x46, undefined, undefined, undefined, undefined, 0x57, 0x45, 0x42, 0x50]
+	],
+	'application/pdf': [[0x25, 0x50, 0x44, 0x46, 0x2d]]
+};
+
+const SIGNATURE_BYTES = 12;
+
+const startsWith = (head: Uint8Array, signature: ReadonlyArray<number | undefined>) =>
+	signature.every((byte, index) => byte === undefined || head[index] === byte);
+
+async function contentMatches(blob: Blob, mimeEssence: string): Promise<boolean> {
+	if (mimeEssence.startsWith('text/')) {
+		const bytes = new Uint8Array(await blob.arrayBuffer());
+		const binary = Object.values(SIGNATURES).flat();
+		return !bytes.includes(0) && !binary.some((signature) => startsWith(bytes, signature));
+	}
+	const signatures = SIGNATURES[mimeEssence];
+	if (signatures === undefined) return false;
+	const head = new Uint8Array(await blob.slice(0, SIGNATURE_BYTES).arrayBuffer());
+	return signatures.some((signature) => startsWith(head, signature));
+}
+
 /**
- * Validate a fetched upload blob against a profile's size and MIME constraints.
+ * Validates an upload against a profile's size cap, its declared MIME type and
+ * the file's bytes.
  *
- * Validates against the actual blob, not the client-supplied MIME type which is
- * untrusted input and could be spoofed. Compares the MIME essence only: text/*
- * often comes back with a charset suffix (e.g. "text/plain; charset=utf-8").
+ * The declared type comes from the request's Content-Type header. A binary type
+ * passes only when the first bytes carry that format's signature, and a text type
+ * only when the bytes contain no NUL byte and start with no binary signature. Compares the MIME
+ * essence only, so "text/plain; charset=utf-8" counts as text/plain.
  *
- * @returns the verified MIME essence (lowercased, no parameters)
- * @throws {ConvexError} when the blob exceeds the size cap or its type is not allowed
+ * @returns the same bytes typed with the MIME essence (lowercased, no parameters),
+ *   so a stored file never carries the header's raw value
+ * @throws {ConvexError} when the blob exceeds the size cap, its type is not
+ *   allowed, or its bytes do not match the type
  */
-export function validateUploadBlob(
+export async function validateUpload(
 	blob: Blob,
-	_locale: string | undefined,
 	profile: UploadProfile = UPLOAD_PROFILES.chatAttachment
-): string {
+): Promise<Blob> {
 	if (blob.size > profile.maxBytes) {
 		throw createFileError(FILE_ERROR_CODES.tooLarge, {
 			maxBytes: profile.maxBytes,
@@ -46,11 +79,11 @@ export function validateUploadBlob(
 	}
 
 	const mimeEssence = blob.type.split(';')[0]!.trim().toLowerCase();
-	if (!acceptsMimeType(profile, mimeEssence)) {
+	if (!acceptsMimeType(profile, mimeEssence) || !(await contentMatches(blob, mimeEssence))) {
 		throw createFileError(FILE_ERROR_CODES.typeNotAllowed, {
 			allowedTypes: Object.keys(profile.extensions)
 		});
 	}
 
-	return mimeEssence;
+	return new Blob([blob], { type: mimeEssence });
 }
