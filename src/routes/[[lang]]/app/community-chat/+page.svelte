@@ -139,12 +139,9 @@
 		return name.trim().split(/\s+/)[0] ?? name;
 	}
 
-	function formatTime(timestamp: number) {
-		return new Date(timestamp).toLocaleTimeString(data.lang ?? 'en', {
-			hour: 'numeric',
-			minute: '2-digit'
-		});
-	}
+	const timeFormat = $derived(
+		new Intl.DateTimeFormat(data.lang ?? 'en', { hour: 'numeric', minute: '2-digit' })
+	);
 
 	async function handleSend() {
 		const text = inputValue.trim();
@@ -227,6 +224,7 @@
 							{#each messages.data as message, index (message._id)}
 								{@const own = isOwnMessage(message.userId)}
 								{@const firstInGroup = isFirstInGroup(index)}
+								{@const time = timeFormat.format(message._creationTime)}
 								<div
 									in:fly={{ y: 8, duration: messageEnterDuration(message) }}
 									class="flex w-full gap-2 {own ? 'flex-row-reverse' : 'flex-row'} {firstInGroup
@@ -261,12 +259,12 @@
 										>
 											<span class="whitespace-pre-wrap">{message.body}</span>
 											<span class="invisible ml-2 text-xs" aria-hidden="true">
-												{formatTime(message._creationTime)}
+												{time}
 											</span>
 											<span
 												class="absolute right-3 bottom-2 text-xs whitespace-nowrap text-muted-foreground/60"
 											>
-												{formatTime(message._creationTime)}
+												{time}
 											</span>
 										</div>
 									</div>
