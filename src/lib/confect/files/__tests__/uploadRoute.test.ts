@@ -6,6 +6,7 @@ import rateLimiterSchema from '../../../../../node_modules/@convex-dev/rate-limi
 import filesControl from '@gilhrpenner/convex-files-control/test';
 import {
 	actionGeneric,
+	internalMutationGeneric,
 	mutationGeneric,
 	type GenericDataModel,
 	type GenericMutationCtx
@@ -91,8 +92,25 @@ const UPLOAD_BURST = 10;
 const CHUNK_BYTES = 64 * 1024;
 const PNG_BYTES = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
-const harness = () => {
-	const t = convexTest(schema, convexModules);
+const ownersModulePath = '../convex/files/owners.ts';
+const loadOwners = convexModules[ownersModulePath];
+if (loadOwners === undefined) throw new Error('No files/owners module');
+const failingRecordModules = {
+	...convexModules,
+	[ownersModulePath]: async () => ({
+		...((await loadOwners()) as object),
+		record: internalMutationGeneric({
+			args: { fileId: v.string(), ownerId: v.string() },
+			returns: v.null(),
+			handler: async () => {
+				throw new Error('Owner record failed');
+			}
+		})
+	})
+};
+
+const harness = (modules = convexModules) => {
+	const t = convexTest(schema, modules);
 	t.registerComponent('betterAuth', authSchema, betterAuthModules);
 	t.registerComponent('rateLimiter', rateLimiterSchema, rateLimiterModules);
 	t.registerComponent('agent', agentSchema, agentModules);
@@ -189,6 +207,11 @@ async function stored(t: Harness) {
 
 const nothingStored = { appBlobs: 0, componentFiles: 0, staged: 0 };
 
+const fileOwners = (t: Harness) =>
+	t.run(async (ctx) =>
+		(await ctx.db.query('fileOwners').take(10)).map(({ fileId, ownerId }) => ({ fileId, ownerId }))
+	);
+
 const grants = (t: Harness) =>
 	t.query(components.convexFilesControl.queries.listDownloadGrantsPage, {
 		paginationOpts: { numItems: 10, cursor: null }
@@ -247,6 +270,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	vi.useRealTimers();
 	vi.unstubAllEnvs();
 	vi.restoreAllMocks();
 	staged.clear();
@@ -407,6 +431,90 @@ describe('chat attachment uploads', () => {
 		expect(isImage).toBe(true);
 		const rows = await t.run(async (ctx) => await ctx.db.query('fileMetadata').take(10));
 		expect(rows).toEqual([expect.objectContaining({ url, width: 640, height: 480 })]);
+	});
+});
+
+describe('chat attachment owners', () => {
+	it('records the signed-in user as the owner of an AI chat upload', async () => {
+		const t = harness();
+		const { caller, userId } = await signIn(t);
+
+		const { fileId } = await (await post(caller, 'aiChat', PURPOSES.aiChat.accepted())).json();
+
+		expect(await fileOwners(t)).toEqual([{ fileId, ownerId: userId }]);
+	});
+
+	it('records the visitor, or the account that overrides it, as the owner of a support upload', async () => {
+		const t = harness();
+		const visitor = `anon_${crypto.randomUUID()}`;
+		const { caller, userId } = await signIn(t);
+		const headers = { 'X-Anonymous-User-Id': visitor };
+
+		const anonymous = await (
+			await post(t, 'support', PURPOSES.support.accepted(), { headers })
+		).json();
+		const signedIn = await (
+			await post(caller, 'support', new Blob(['other'], { type: 'text/plain' }), { headers })
+		).json();
+
+		expect(await fileOwners(t)).toEqual([
+			{ fileId: anonymous.fileId, ownerId: visitor },
+			{ fileId: signedIn.fileId, ownerId: userId }
+		]);
+	});
+
+	it('records no owner for a profile image', async () => {
+		const t = harness();
+		const { caller } = await signIn(t);
+
+		expect((await post(caller, 'profileImage', PURPOSES.profileImage.accepted())).status).toBe(200);
+
+		expect(await fileOwners(t)).toEqual([]);
+	});
+
+	it('answers 500 without a file reference when the owner cannot be recorded', async () => {
+		const t = harness(failingRecordModules);
+		const { caller } = await signIn(t);
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		const response = await post(caller, 'aiChat', PURPOSES.aiChat.accepted(), {
+			query: '?filename=notes.txt'
+		});
+
+		expect(response.status).toBe(500);
+		expect(await response.json()).toEqual({ code: 'FILE_STORAGE_UNAVAILABLE' });
+		expect(await fileOwners(t)).toEqual([]);
+	});
+
+	it('lets two visitors who upload the same file each attach it', async () => {
+		const t = harness();
+		const visitors = [`anon_${crypto.randomUUID()}`, `anon_${crypto.randomUUID()}`];
+
+		const uploads = [];
+		for (const visitor of visitors) {
+			const response = await post(t, 'support', new Blob(['# Notes'], { type: 'text/plain' }), {
+				headers: { 'X-Anonymous-User-Id': visitor },
+				query: '?filename=notes.txt'
+			});
+			uploads.push(await response.json());
+		}
+		const [first, second] = uploads;
+		expect(second.fileId).toBe(first.fileId);
+
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		for (const anonymousUserId of visitors) {
+			const { threadId } = await t.mutation(api.support.threads.getOrCreateWarmThread, {
+				anonymousUserId
+			});
+			await expect(
+				t.mutation(api.support.messages.sendMessage, {
+					threadId,
+					anonymousUserId,
+					prompt: 'See notes',
+					fileIds: [first.fileId]
+				})
+			).resolves.toEqual({ messageId: expect.any(String) });
+		}
 	});
 });
 

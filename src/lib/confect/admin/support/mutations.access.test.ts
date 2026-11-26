@@ -1,6 +1,7 @@
 // @vitest-environment node
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test';
+import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
 import { ConvexError } from 'convex/values';
 import { describe, expect, it } from 'vitest';
 import { api, components, internal } from '../../../convex/_generated/api';
@@ -14,10 +15,14 @@ import { ADMIN_SUPPORT_ERROR_CODES } from './errors';
 const betterAuthModules = await preloadModules(
 	import.meta.glob('../../../convex-components/betterAuth/**/*.ts')
 );
+const agentModules = await preloadModules(
+	import.meta.glob('../../../../../node_modules/@convex-dev/agent/dist/component/**/*.js')
+);
 
 const harness = () => {
 	const t = convexTest(schema, convexModules);
 	t.registerComponent('betterAuth', authSchema, betterAuthModules);
+	t.registerComponent('agent', agentSchema, agentModules);
 	return t;
 };
 type Harness = ReturnType<typeof harness>;
@@ -246,6 +251,91 @@ describe('admin support mutation refusals', () => {
 
 		expect(refusals).toEqual(Array(3).fill({ code: ADMIN_SUPPORT_ERROR_CODES.assigneeNotAdmin }));
 		expect(await snapshot(t)).toEqual(before);
+	});
+});
+
+describe('admin reply attachments', () => {
+	const seedAgentThread = (t: Harness) =>
+		t.run(async (ctx) => {
+			const { _id: threadId } = await ctx.runMutation(components.agent.threads.createThread, {
+				userId: 'anon_visitor'
+			});
+			await ctx.db.insert('supportThreads', {
+				threadId,
+				userId: 'anon_visitor',
+				status: 'open',
+				isHandedOff: true,
+				awaitingAdminResponse: true,
+				createdAt: 1,
+				updatedAt: 2
+			});
+			return threadId;
+		});
+
+	async function storeFile(t: Harness, ownerId: string | undefined, hash: string) {
+		const storageId = await t.run((ctx) =>
+			ctx.storage.store(new Blob([hash], { type: 'text/plain' }))
+		);
+		const { fileId } = await t.mutation(components.agent.files.addFile, {
+			storageId,
+			hash,
+			filename: `${hash}.txt`,
+			mediaType: 'text/plain'
+		});
+		if (ownerId !== undefined) {
+			await t.run((ctx) => ctx.db.insert('fileOwners', { fileId, ownerId }));
+		}
+		return fileId;
+	}
+
+	const fileParts = async (t: Harness, threadId: string) => {
+		const { page } = await t.query(components.agent.messages.listMessagesByThreadId, {
+			threadId,
+			order: 'asc',
+			paginationOpts: { numItems: 10, cursor: null }
+		});
+		return page.flatMap(({ message }) =>
+			Array.isArray(message?.content)
+				? message.content.flatMap((part) => (part.type === 'file' ? [part.filename] : []))
+				: []
+		);
+	};
+
+	it("refuses a visitor's file and an ownerless file in an admin reply without writing", async () => {
+		const t = harness();
+		const threadId = await seedAgentThread(t);
+		const admin = await signIn(t, 'admin', 'admin@example.com');
+		const visitorFile = await storeFile(t, 'anon_visitor', 'visitor');
+		const ownerlessFile = await storeFile(t, undefined, 'ownerless');
+		const before = await snapshot(t);
+
+		for (const fileId of [visitorFile, ownerlessFile]) {
+			const refused = await refusal(
+				admin.caller.mutation(mutations.sendAdminReply, {
+					threadId,
+					prompt: 'Files',
+					fileIds: [fileId]
+				})
+			);
+			expect(refused).toEqual({ code: ADMIN_SUPPORT_ERROR_CODES.attachmentUnavailable });
+		}
+		expect(await snapshot(t)).toEqual(before);
+		expect(await fileParts(t, threadId)).toEqual([]);
+	});
+
+	it('sends a file the admin uploaded', async () => {
+		const t = harness();
+		const threadId = await seedAgentThread(t);
+		const admin = await signIn(t, 'admin', 'admin@example.com');
+		const adminFile = await storeFile(t, admin.userId, 'admin');
+
+		await admin.caller.mutation(mutations.sendAdminReply, {
+			threadId,
+			prompt: 'Files',
+			fileIds: [adminFile]
+		});
+
+		expect(await fileParts(t, threadId)).toEqual(['admin.txt']);
 	});
 });
 

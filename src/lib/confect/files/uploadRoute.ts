@@ -119,12 +119,18 @@ function dimension(value: string | null): number | undefined {
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-async function storeChatAttachment(ctx: ActionCtx, blob: Blob, query: URLSearchParams) {
+async function storeChatAttachment(
+	ctx: ActionCtx,
+	ownerId: string,
+	blob: Blob,
+	query: URLSearchParams
+) {
 	const mimeType = validateUploadBlob(blob, undefined);
 	const isImage = mimeType.startsWith('image/');
 	const { file } = await storeFile(ctx, components.agent, blob, {
 		filename: query.get('filename') ?? undefined
 	});
+	await ctx.runMutation(internal.files.owners.record, { fileId: file.fileId, ownerId });
 	const width = dimension(query.get('width'));
 	const height = dimension(query.get('height'));
 	if (isImage && width !== undefined && height !== undefined) {
@@ -188,7 +194,7 @@ export const receiveUpload =
 			return refuse('Unauthenticated', cors);
 		}
 		try {
-			await authorize(ctx, request, purpose);
+			const ownerId = await authorize(ctx, request, purpose);
 			const { maxBytes } = PROFILES[purpose];
 			if (Number(request.headers.get('Content-Length')) > maxBytes) {
 				return refuse(FILE_ERROR_CODES.tooLarge, cors);
@@ -200,7 +206,7 @@ export const receiveUpload =
 			const result =
 				purpose === 'profileImage'
 					? await storeProfileImage(ctx, blob)
-					: await storeChatAttachment(ctx, blob, query);
+					: await storeChatAttachment(ctx, ownerId, blob, query);
 			return Response.json(result, { headers: cors });
 		} catch (error) {
 			const refusal = refusalOf(error, cors);

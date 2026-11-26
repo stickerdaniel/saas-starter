@@ -8,6 +8,8 @@ export const SUPPORT_ERROR_CODES = {
 	messageEmpty: 'SUPPORT_MESSAGE_EMPTY',
 	messageTooLong: 'SUPPORT_MESSAGE_TOO_LONG',
 	tooManyFiles: 'SUPPORT_TOO_MANY_FILES',
+	attachmentUnavailable: 'SUPPORT_ATTACHMENT_UNAVAILABLE',
+	migrationTooManyFiles: 'SUPPORT_MIGRATION_TOO_MANY_FILES',
 	notificationEmailInvalid: 'SUPPORT_NOTIFICATION_EMAIL_INVALID',
 	anonymousUserInvalid: 'SUPPORT_ANONYMOUS_USER_INVALID'
 } as const;

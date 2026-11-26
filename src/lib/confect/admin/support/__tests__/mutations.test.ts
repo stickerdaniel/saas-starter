@@ -9,9 +9,10 @@ vi.mock('../../../authServer', () => ({
 }));
 
 vi.mock('@convex-dev/agent', () => ({
-	saveMessage: vi.fn(),
-	getFile: vi.fn()
+	saveMessage: vi.fn()
 }));
+
+vi.mock('../../../files/owners', () => ({ requireOwnedFiles: vi.fn() }));
 
 vi.mock('../../../support/notificationPreferences', () => ({
 	shouldSendNotification: vi.fn(() => false)
@@ -34,13 +35,14 @@ vi.mock('../../../../convex/_generated/api', () => ({
 	}
 }));
 
-import { saveMessage, getFile } from '@convex-dev/agent';
+import { saveMessage } from '@convex-dev/agent';
+import * as Effect from 'effect/Effect';
+import { requireOwnedFiles } from '../../../files/owners';
 import { authComponent } from '../../../authServer';
 import { shouldSendNotification } from '../../../support/notificationPreferences';
 import { sendAdminReply, updateThreadAssignment } from '../../../../convex/admin/support/mutations';
 
 const saveMessageMock = saveMessage as unknown as ReturnType<typeof vi.fn>;
-const getFileMock = getFile as unknown as ReturnType<typeof vi.fn>;
 const getAuthUserMock = authComponent.safeGetAuthUser as unknown as ReturnType<typeof vi.fn>;
 const shouldSendNotificationMock = shouldSendNotification as unknown as ReturnType<typeof vi.fn>;
 
@@ -114,14 +116,16 @@ describe('sendAdminReply', () => {
 		});
 		shouldSendNotificationMock.mockReturnValue(false);
 		saveMessageMock.mockResolvedValue({ messageId: 'm1' });
-		getFileMock.mockResolvedValue({
-			filePart: {
-				type: 'file',
-				data: new URL('https://files/f1'),
-				mediaType: 'image/png',
-				filename: 'f1.png'
-			}
-		});
+		vi.mocked(requireOwnedFiles).mockReturnValue(
+			Effect.succeed([
+				{
+					type: 'file',
+					data: new URL('https://files/f1'),
+					mediaType: 'image/png',
+					filename: 'f1.png'
+				}
+			])
+		);
 	});
 
 	it('merges fileIds into the human metadata without dropping provider fields', async () => {

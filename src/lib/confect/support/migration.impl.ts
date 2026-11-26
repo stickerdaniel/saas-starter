@@ -1,10 +1,12 @@
 import { FunctionImpl, GroupImpl } from '@confect/server';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import type { Doc } from '../../convex/_generated/dataModel';
 import type { MutationCtx as ConvexMutationCtx } from '../../convex/_generated/server';
 import databaseSchema from '../_generated/schema';
 import { MutationCtx } from '../_generated/services';
 import { SupportRefusal } from '../errorCodecs';
+import { ownerRow } from '../files/owners';
 import RequireUserImpl from '../middleware/RequireUser.impl';
 import { CurrentUser } from '../middleware/RequireUser.spec';
 import { isAnonymousUser } from '../utils/anonymousUser';
@@ -14,6 +16,28 @@ import { SUPPORT_ERROR_CODES } from './errors';
 import migration from './migration.spec';
 
 type AccountProfile = { _id: string; name: string; email: string };
+
+const MAX_MOVED_FILE_OWNERS = 1_000;
+
+const anonymousFileOwners = (ctx: ConvexMutationCtx, anonymousUserId: string) =>
+	ctx.db
+		.query('fileOwners')
+		.withIndex('by_ownerId', (q) => q.eq('ownerId', anonymousUserId))
+		.take(MAX_MOVED_FILE_OWNERS + 1);
+
+async function moveFileOwners(
+	ctx: ConvexMutationCtx,
+	rows: ReadonlyArray<Doc<'fileOwners'>>,
+	accountId: string
+) {
+	for (const row of rows) {
+		if (await ownerRow(ctx, row.fileId, accountId)) {
+			await ctx.db.delete('fileOwners', row._id);
+		} else {
+			await ctx.db.patch('fileOwners', row._id, { ownerId: accountId });
+		}
+	}
+}
 
 async function moveTickets(
 	ctx: ConvexMutationCtx,
@@ -73,9 +97,15 @@ export default GroupImpl.make(databaseSchema, migration).pipe(
 						new SupportRefusal({ refusal: { code: SUPPORT_ERROR_CODES.anonymousUserInvalid } })
 					);
 				}
-				return yield* MutationCtx.use((ctx) =>
-					Effect.promise(() => moveTickets(ctx, anonymousUserId, user))
-				);
+				const ctx = yield* MutationCtx;
+				const fileOwners = yield* Effect.promise(() => anonymousFileOwners(ctx, anonymousUserId));
+				if (fileOwners.length > MAX_MOVED_FILE_OWNERS) {
+					return yield* Effect.fail(
+						new SupportRefusal({ refusal: { code: SUPPORT_ERROR_CODES.migrationTooManyFiles } })
+					);
+				}
+				yield* Effect.promise(() => moveFileOwners(ctx, fileOwners, user._id));
+				return yield* Effect.promise(() => moveTickets(ctx, anonymousUserId, user));
 			})
 		)
 	),

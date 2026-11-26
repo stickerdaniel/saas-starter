@@ -38,11 +38,17 @@ vi.mock('../ownership', () => ({
 	ownedAiChatThread: vi.fn()
 }));
 
+vi.mock('../../files/owners', async () => {
+	const Effect = await import('effect/Effect');
+	return {
+		requireOwnedFiles: vi.fn(() => Effect.succeed([{ type: 'file', data: 'f', mediaType: 'x' }]))
+	};
+});
+
 vi.mock('@convex-dev/agent', async (importOriginal) => {
 	const actual = await importOriginal<Record<string, unknown>>();
 	return {
 		...actual,
-		getFile: vi.fn().mockResolvedValue({ filePart: { type: 'file', data: 'f', mediaType: 'x' } }),
 		saveMessages: vi.fn().mockResolvedValue({ messages: [{ _id: 'notice', order: 0 }] }),
 		abortStream: vi.fn().mockResolvedValue(false)
 	};
