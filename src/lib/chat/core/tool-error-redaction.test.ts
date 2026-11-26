@@ -8,7 +8,8 @@ import {
 	type ToolSet
 } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
-import * as z from 'zod';
+import * as Schema from 'effect/Schema';
+import { toAiInputSchema } from '../../effect/schema';
 import type { MessageDoc, StreamDelta } from '@convex-dev/agent/validators';
 import {
 	prepareToolErrorRedactionStep,
@@ -292,7 +293,7 @@ describe('tool error redaction', () => {
 			messages: [{ role: 'user', content: 'Run the tool' }],
 			tools: {
 				operation: tool({
-					inputSchema: z.object({}),
+					inputSchema: toAiInputSchema(Schema.Struct({})),
 					execute: async (): Promise<string> => {
 						throw new Error(SENTINEL);
 					}
@@ -330,7 +331,7 @@ describe('tool error redaction', () => {
 			messages: [{ role: 'user', content: 'Run the tool' }],
 			tools: {
 				operation: tool({
-					inputSchema: z.object({}),
+					inputSchema: toAiInputSchema(Schema.Struct({})),
 					execute: async () => output
 				})
 			},

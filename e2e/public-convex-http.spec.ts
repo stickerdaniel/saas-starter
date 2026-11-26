@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect } from '@playwright/test';
-import { z } from 'zod';
+import * as Schema from 'effect/Schema';
 import { resolveConvexSiteUrl } from './utils/convex-url';
 import { test } from './utils/test';
 
@@ -13,19 +13,20 @@ const RESPONSE_HEADERS = [
 	'location'
 ];
 
-const Probes = z.array(
-	z.object({
-		method: z.string(),
-		path: z.string(),
-		request: z
-			.object({ headers: z.record(z.string(), z.string()).optional(), body: z.string().optional() })
-			.optional(),
-		status: z.array(z.number()),
-		headers: z.record(z.string(), z.string()).optional()
+const Headers = Schema.Record(Schema.String, Schema.String);
+const Probes = Schema.Array(
+	Schema.Struct({
+		method: Schema.String,
+		path: Schema.String,
+		request: Schema.optional(
+			Schema.Struct({ headers: Schema.optional(Headers), body: Schema.optional(Schema.String) })
+		),
+		status: Schema.Array(Schema.Number),
+		headers: Schema.optional(Headers)
 	})
 );
 
-const probes = Probes.parse(
+const probes = Schema.decodeUnknownSync(Probes)(
 	JSON.parse(
 		readFileSync(
 			new URL('../src/lib/confect/__goldens__/http-responses.json', import.meta.url),

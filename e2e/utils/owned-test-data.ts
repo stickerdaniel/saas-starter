@@ -24,7 +24,8 @@ import {
 	writeFileSync
 } from 'node:fs';
 import { join } from 'node:path';
-import { z } from 'zod';
+import * as Effect from 'effect/Effect';
+import * as Schema from 'effect/Schema';
 import { isAnonymousUser } from '../../src/lib/confect/utils/anonymousUser';
 
 const RUN_ID_ENV = 'E2E_OWNERSHIP_RUN_ID';
@@ -34,31 +35,38 @@ const legacyLedger = join(process.cwd(), 'e2e', '.auth', 'owned-test-data.json')
 
 // Every test-only fixture carries its token, so recovery deletes rows by token
 // and never by a user ID that a real account might hold.
-const ownedFixture = z.discriminatedUnion('kind', [
+const ownedFixture = Schema.Union([
 	// Audit rows are found through the `by_admin` index of their fixture ID.
-	z.object({ kind: z.literal('auditLog'), token: z.string(), fixtureId: z.string() }),
-	z.object({ kind: z.literal('aiChatHistory'), token: z.string() }),
-	z.object({ kind: z.literal('supportNotification'), token: z.string() })
+	Schema.Struct({
+		kind: Schema.Literal('auditLog'),
+		token: Schema.String,
+		fixtureId: Schema.String
+	}),
+	Schema.Struct({ kind: Schema.Literal('aiChatHistory'), token: Schema.String }),
+	Schema.Struct({ kind: Schema.Literal('supportNotification'), token: Schema.String })
 ]);
-const ownedAttempt = z.object({
-	runId: z.string(),
-	workerIndex: z.number().int(),
-	userEmails: z.array(z.string()),
-	recipientEmails: z.array(z.string()),
+const ownedAttempt = Schema.Struct({
+	runId: Schema.String,
+	workerIndex: Schema.Int,
+	userEmails: Schema.Array(Schema.String),
+	recipientEmails: Schema.Array(Schema.String),
 	/** Anonymous support IDs; teardown adds the user IDs of owned accounts. */
-	supportOwners: z.array(z.string()),
+	supportOwners: Schema.Array(Schema.String),
 	/**
 	 * Support threads by ID. A spec's own cleanup can delete the app rows that
 	 * teardown finds threads through while the agent thread survives, so the IDs
 	 * go here before that cleanup runs. Attempt files from before this field
 	 * read as an empty list, so their accounts and owners stay recoverable.
 	 */
-	supportThreadIds: z.array(z.string()).default([]),
-	fixtures: z.array(ownedFixture)
+	supportThreadIds: Schema.Array(Schema.String).pipe(
+		Schema.withDecodingDefault(Effect.succeed([]))
+	),
+	fixtures: Schema.Array(ownedFixture)
 });
+const decodeOwnedAttempt = Schema.decodeUnknownSync(ownedAttempt);
 
-export type OwnedFixture = z.infer<typeof ownedFixture>;
-export type OwnedAttempt = z.infer<typeof ownedAttempt>;
+export type OwnedFixture = typeof ownedFixture.Type;
+export type OwnedAttempt = typeof ownedAttempt.Type;
 type WithoutToken<F> = F extends unknown ? Omit<F, 'token'> : never;
 export type FixtureClaim = WithoutToken<OwnedFixture>;
 
@@ -102,7 +110,7 @@ function recordInWorker(change: (attempt: OwnedAttempt) => void) {
 		throw new Error('E2E ownership was not initialized');
 	const file = join(runDirectory(runId), `w${workerIndex}.json`);
 	const attempt: OwnedAttempt = existsSync(file)
-		? ownedAttempt.parse(JSON.parse(readFileSync(file, 'utf8')))
+		? decodeOwnedAttempt(JSON.parse(readFileSync(file, 'utf8')))
 		: {
 				runId,
 				workerIndex,
@@ -172,16 +180,16 @@ export function readOwnedRun(runId: string): OwnedAttempt[] {
 		throw new Error(`E2E ownership ledger e2e/.auth/owned/${runId} is missing`);
 	return readdirSync(directory)
 		.filter((name) => /^w\d+\.json$/.test(name))
-		.map((name) => ownedAttempt.parse(JSON.parse(readFileSync(join(directory, name), 'utf8'))));
+		.map((name) => decodeOwnedAttempt(JSON.parse(readFileSync(join(directory, name), 'utf8'))));
 }
 
-const teardownState = z.object({
+const teardownState = Schema.Struct({
 	/** Anonymous IDs plus the user IDs of owned accounts. */
-	supportOwners: z.array(z.string()),
+	supportOwners: Schema.Array(Schema.String),
 	/** Every support thread teardown found under those owners. */
-	supportThreadIds: z.array(z.string())
+	supportThreadIds: Schema.Array(Schema.String)
 });
-export type TeardownState = z.infer<typeof teardownState>;
+export type TeardownState = typeof teardownState.Type;
 const teardownFile = (runId: string) => join(runDirectory(runId), 'teardown.json');
 
 /**
@@ -196,7 +204,7 @@ export function rememberTeardownState(runId: string, state: TeardownState) {
 export function rememberedTeardownState(runId: string): TeardownState {
 	const file = teardownFile(runId);
 	return existsSync(file)
-		? teardownState.parse(JSON.parse(readFileSync(file, 'utf8')))
+		? Schema.decodeUnknownSync(teardownState)(JSON.parse(readFileSync(file, 'utf8')))
 		: { supportOwners: [], supportThreadIds: [] };
 }
 
