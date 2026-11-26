@@ -24,6 +24,7 @@ export default {
 		'eslint/shadcn-policy.js',
 		'scripts/*.ts',
 		'e2e/**/*.ts',
+		'src/lib/server/test-fixtures/*.ts',
 		// Loaded by the browser fixture checks through Vite's browser entry, not a static import.
 		'src/lib/components/tables/test-fixtures/TableScrollHarness.svelte',
 		'src/lib/components/test-fixtures/StreamdownOverlayHarness.svelte',
