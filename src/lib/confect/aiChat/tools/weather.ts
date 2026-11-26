@@ -1,11 +1,16 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import * as Schema from 'effect/Schema';
+import { toAiInputSchema } from '../../../effect/schema';
 
 export const getGeocoding = tool({
 	description: 'Get the latitude and longitude of a location',
-	inputSchema: z.object({
-		location: z.string().describe("The location to get the geocoding for, e.g. 'San Francisco'")
-	}),
+	inputSchema: toAiInputSchema(
+		Schema.Struct({
+			location: Schema.String.annotate({
+				description: "The location to get the geocoding for, e.g. 'San Francisco'"
+			})
+		})
+	),
 	execute: async ({ location }) => {
 		const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1`;
 		const response = await fetch(geocodingUrl);
@@ -31,10 +36,12 @@ export const getGeocoding = tool({
 
 export const getWeather = tool({
 	description: 'Get the weather for a location',
-	inputSchema: z.object({
-		latitude: z.number(),
-		longitude: z.number()
-	}),
+	inputSchema: toAiInputSchema(
+		Schema.Struct({
+			latitude: Schema.Finite,
+			longitude: Schema.Finite
+		})
+	),
 	execute: async (args) => {
 		const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${args.latitude}&longitude=${args.longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,weather_code&wind_speed_unit=mph&temperature_unit=fahrenheit`;
 

@@ -1,5 +1,5 @@
 import type { ToolCtx } from '@convex-dev/agent';
-import type { ZodObject } from 'zod';
+import { asSchema } from 'ai';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { internal } from '../../../convex/_generated/api';
 import { requestHandoff } from './handoff';
@@ -11,16 +11,19 @@ const executeOptions = {
 	context: {}
 };
 
-function executeRequestHandoff(
+async function executeRequestHandoff(
 	ctx: { threadId?: string; runMutation: ReturnType<typeof vi.fn> },
-	input: Record<string, unknown> = {}
+	input: unknown = {}
 ) {
 	const tool = { ...requestHandoff, ctx: ctx as unknown as ToolCtx };
-	const inputSchema = requestHandoff.inputSchema as unknown as ZodObject;
 	if (!tool.execute) {
 		throw new Error('requestHandoff must be executable');
 	}
-	return tool.execute(inputSchema.parse(input) as unknown as Record<string, never>, executeOptions);
+	const decoded = await asSchema(requestHandoff.inputSchema).validate?.(input);
+	if (!decoded?.success) {
+		throw new Error('requestHandoff refused its input');
+	}
+	return tool.execute(decoded.value, executeOptions);
 }
 
 afterEach(() => {
@@ -47,11 +50,25 @@ describe('requestHandoff', () => {
 		);
 	});
 
-	it('advertises an empty input object to the model', () => {
-		const inputSchema = requestHandoff.inputSchema as unknown as ZodObject;
+	it('advertises an empty input object to the model', async () => {
+		expect(await asSchema(requestHandoff.inputSchema).jsonSchema).toEqual({
+			$schema: 'http://json-schema.org/draft-07/schema#',
+			type: 'object',
+			properties: {},
+			additionalProperties: false
+		});
+	});
 
-		expect(inputSchema.safeParse({}).success).toBe(true);
-		expect(Object.keys(inputSchema.shape)).toEqual([]);
+	it('decodes any object from the model to an empty input', async () => {
+		expect(
+			await asSchema(requestHandoff.inputSchema).validate?.({ $reason: 'visitor-private-marker' })
+		).toEqual({ success: true, value: {} });
+	});
+
+	it.each([null, [], 'help', 1])('refuses %j as input', async (input) => {
+		expect(await asSchema(requestHandoff.inputSchema).validate?.(input)).toMatchObject({
+			success: false
+		});
 	});
 
 	it('returns the fallback without a thread id', async () => {
