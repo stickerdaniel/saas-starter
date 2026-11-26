@@ -137,7 +137,9 @@
 								</ul>
 							</div>
 						{:else}
-							<p class="text-sm font-medium">{$t('mcp.consent.no_access', { app })}</p>
+							<p class="text-sm font-medium wrap-anywhere">
+								{$t('mcp.consent.no_access', { app })}
+							</p>
 						{/if}
 						<div class="flex flex-wrap-reverse gap-2">
 							<Button
