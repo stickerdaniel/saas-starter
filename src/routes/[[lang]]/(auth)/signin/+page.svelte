@@ -36,8 +36,8 @@
 		FAILED_LINK_PARAM,
 		FAILED_RESET_LINK,
 		authPageURL,
-		callbackURLFor,
 		oauthErrorCallbackURL,
+		resumeErrorCallbackURL,
 		safeAuthDestination,
 		verificationErrorIn
 	} from '#lib/utils/url.js';
@@ -409,10 +409,7 @@
 					// Keep the raw value here: this deliberately uses the broader validation,
 					// and the page narrows the destination again when it navigates.
 					errorCallbackURL: resumesAuthorization
-						? callbackURLFor(
-								`${localizedHref('/signin')}${page.url.search}`,
-								localizedHref('/signin')
-							)
+						? resumeErrorCallbackURL(localizedHref('/signin'), page.url.search)
 						: oauthErrorCallbackURL(localizedHref('/signin'), rawDestination)
 				},
 				{
