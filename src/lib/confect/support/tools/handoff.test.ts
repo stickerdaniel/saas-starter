@@ -1,5 +1,5 @@
 import type { ToolCtx } from '@convex-dev/agent';
-import type { ZodObject } from 'zod';
+import { asSchema } from 'ai';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { internal } from '../../../convex/_generated/api';
 import { requestHandoff } from './handoff';
@@ -16,11 +16,10 @@ function executeRequestHandoff(
 	input: Record<string, unknown> = {}
 ) {
 	const tool = { ...requestHandoff, ctx: ctx as unknown as ToolCtx };
-	const inputSchema = requestHandoff.inputSchema as unknown as ZodObject;
 	if (!tool.execute) {
 		throw new Error('requestHandoff must be executable');
 	}
-	return tool.execute(inputSchema.parse(input) as unknown as Record<string, never>, executeOptions);
+	return tool.execute(input, executeOptions);
 }
 
 afterEach(() => {
@@ -47,11 +46,13 @@ describe('requestHandoff', () => {
 		);
 	});
 
-	it('advertises an empty input object to the model', () => {
-		const inputSchema = requestHandoff.inputSchema as unknown as ZodObject;
-
-		expect(inputSchema.safeParse({}).success).toBe(true);
-		expect(Object.keys(inputSchema.shape)).toEqual([]);
+	it('advertises an empty input object to the model', async () => {
+		expect(await asSchema(requestHandoff.inputSchema).jsonSchema).toEqual({
+			$schema: 'http://json-schema.org/draft-07/schema#',
+			type: 'object',
+			properties: {},
+			additionalProperties: false
+		});
 	});
 
 	it('returns the fallback without a thread id', async () => {

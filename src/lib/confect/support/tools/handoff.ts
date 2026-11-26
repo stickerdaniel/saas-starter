@@ -1,5 +1,5 @@
 import { createTool } from '@convex-dev/agent';
-import { z } from 'zod';
+import { jsonSchema } from 'ai';
 import { internal } from '../../../convex/_generated/api';
 
 /**
@@ -19,7 +19,12 @@ import { internal } from '../../../convex/_generated/api';
 export const requestHandoff = createTool({
 	description:
 		'Hand this conversation to a human on the team. Call it whenever something needs a human instead of guessing or only explaining: a bug or error the user reported (an explanation does not fix a bug), a question you cannot resolve yourself, or anything not covered by your instructions. It flags this same chat so the team takes over and replies right here. It does not ask the user for an email; the widget shows an email field below the chat where they can leave one to get notified.',
-	inputSchema: z.object({}),
+	inputSchema: jsonSchema<Record<string, unknown>>({
+		$schema: 'http://json-schema.org/draft-07/schema#',
+		type: 'object',
+		properties: {},
+		additionalProperties: false
+	}),
 	execute: async (ctx) => {
 		// threadId is injected by the agent into the tool ctx (streamText builds
 		// toolCtx = { ...ctx, threadId, userId } and wraps every tool with it).
