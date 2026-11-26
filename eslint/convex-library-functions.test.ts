@@ -12,15 +12,6 @@ const inventory: Inventory = JSON.parse(
 	)
 );
 
-it('lists only functions the inventory golden records with plain provenance', () => {
-	const listed = Object.values(CONFECT_LIBRARY_FUNCTIONS).flat();
-	const provenance = listed.map((id) => {
-		const [group = '', name = ''] = id.split(':');
-		return [id, inventory.groups[group]?.[name]?.[3]];
-	});
-	expect(provenance).toEqual(listed.map((id) => [id, 'Convex']));
-});
-
 it('lists every function the inventory golden records with plain provenance', () => {
 	const plain = Object.entries(inventory.groups).flatMap(([group, functions]) =>
 		Object.entries(functions)

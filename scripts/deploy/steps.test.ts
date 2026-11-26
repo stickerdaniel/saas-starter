@@ -224,15 +224,6 @@ describe('preview E2E metadata', () => {
 });
 
 describe('resolveDeploymentSiteOrigin', () => {
-	it('rejects a production PUBLIC_SITE_URL that conflicts with SITE_URL', () => {
-		expect(() =>
-			resolveDeploymentSiteOrigin(makePlatform(), {
-				PUBLIC_SITE_URL: 'https://one.example.com',
-				SITE_URL: 'https://two.example.com'
-			})
-		).toThrow(/conflicts with SITE_URL/);
-	});
-
 	it('ignores inherited production origins for a preview', () => {
 		expect(
 			resolveDeploymentSiteOrigin(

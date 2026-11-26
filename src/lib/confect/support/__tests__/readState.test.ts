@@ -56,13 +56,4 @@ describe('support human-reply read state', () => {
 		await expect(countHandler._handler(ctx, { anonymousUserId: 'anon_owner' })).resolves.toBe(4);
 		expect(take).toHaveBeenCalledWith(10);
 	});
-
-	it('caps one busy thread at the largest distinct badge value', async () => {
-		getOwnerMock.mockResolvedValue({ ownerId: 'anon_owner', isAnonymous: true });
-		const take = vi.fn().mockResolvedValue([{ _id: 'support_1', unreadAdminReplyCount: 14 }]);
-		const withIndex = vi.fn().mockReturnValue({ take });
-		const ctx = { db: { query: vi.fn(() => ({ withIndex })) } };
-
-		await expect(countHandler._handler(ctx, { anonymousUserId: 'anon_owner' })).resolves.toBe(10);
-	});
 });

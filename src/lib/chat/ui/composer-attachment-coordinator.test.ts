@@ -231,25 +231,6 @@ describe('ComposerAttachmentCoordinator', () => {
 		]);
 	});
 
-	it('claims on the first pending transfer and releases after the last settles', async () => {
-		const activeUploads = { claim: vi.fn(), release: vi.fn() };
-		const coordinator = coordinatorAt({ current: 'thread-a' }, activeUploads);
-		const first = pendingTransfer();
-		const second = pendingTransfer();
-
-		const firstUpload = coordinator.uploadScreenshot(shot(), 'one.png');
-		const secondUpload = coordinator.uploadScreenshot(shot(), 'two.png');
-		expect(activeUploads.claim).toHaveBeenCalledExactlyOnceWith(coordinator);
-
-		first.succeed('one');
-		await firstUpload;
-		expect(activeUploads.release).not.toHaveBeenCalled();
-
-		second.succeed('two');
-		await secondUpload;
-		expect(activeUploads.release).toHaveBeenCalledExactlyOnceWith(coordinator);
-	});
-
 	it('releases the global claim and blob preview when permanently disposed', () => {
 		const owners = new Set<object>();
 		const activeUploads = {

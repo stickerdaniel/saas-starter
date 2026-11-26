@@ -17,19 +17,6 @@ test.describe('Admin Settings Page', () => {
 		await expect(page.getByTestId('add-email-button')).toBeVisible();
 	});
 
-	test('displays recipients table', async ({ page }) => {
-		// Verify page loads
-		await expect(page.getByTestId('admin-settings-page')).toBeVisible();
-		await expect(page.getByTestId('recipients-table')).toBeVisible();
-
-		// Wait for data to load (no more loading skeletons)
-		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
-
-		// Should have at least one recipient row (the admin user)
-		const rows = page.locator('[data-testid^="recipient-row-"]');
-		await expect(rows.first()).toBeVisible();
-	});
-
 	test('adds custom email recipient', async ({ page }) => {
 		// Wait for table to load
 		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);

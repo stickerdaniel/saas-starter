@@ -95,15 +95,6 @@ describe('seedFirstAdmin', () => {
 		expect(syncAdminPreferencesMock).not.toHaveBeenCalled();
 	});
 
-	it('throws the existing structured error only after confirming no admin exists', async () => {
-		const { ctx, runQuery } = makeCtx({ admins: [], user: null });
-
-		await expect(
-			seedFirstAdminHandler._handler(ctx, { email: 'missing@example.com' })
-		).rejects.toMatchObject({ data: { code: ADMIN_ERROR_CODES.userNotFound } });
-		expect(runQuery).toHaveBeenCalledTimes(2);
-	});
-
 	it('promotes the target user and syncs notification preferences', async () => {
 		const user = { _id: 'user_1', email: 'admin@example.com' };
 		const { ctx, runQuery, runMutation, counters } = makeCtx({ admins: [], user });

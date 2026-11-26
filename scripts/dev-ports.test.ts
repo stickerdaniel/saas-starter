@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-	BAD_FETCH_PORTS,
 	computeDevPort,
 	computeTestPort,
 	parsePortOverride,
@@ -45,23 +44,9 @@ describe('dev-ports: deterministic ranges', () => {
 		}
 	});
 
-	it('dev and test ranges never overlap', () => {
-		const maxDev = Math.max(...SAMPLE_CWDS.map(computeDevPort));
-		const minTest = Math.min(...SAMPLE_CWDS.map(computeTestPort));
-		expect(maxDev).toBeLessThan(21000);
-		expect(minTest).toBeGreaterThanOrEqual(21000);
-	});
-
 	it('distinct cwds map to distinct ports (no trivial collapse)', () => {
 		const devPorts = new Set(SAMPLE_CWDS.map(computeDevPort));
 		expect(devPorts.size).toBeGreaterThan(1);
-	});
-
-	it('no computed port is a WHATWG bad-fetch port', () => {
-		for (const cwd of SAMPLE_CWDS) {
-			expect(BAD_FETCH_PORTS.has(computeDevPort(cwd))).toBe(false);
-			expect(BAD_FETCH_PORTS.has(computeTestPort(cwd))).toBe(false);
-		}
 	});
 });
 

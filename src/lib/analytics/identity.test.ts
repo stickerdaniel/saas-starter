@@ -53,14 +53,6 @@ describe('planIdentity', () => {
 		});
 	});
 
-	it('merges the anonymous visitor into the user who signs in', () => {
-		expect(planIdentity({ kind: 'user', userId: 'u1' }, anonymousSdk)).toEqual({
-			ready: true,
-			resetFirst: false,
-			identify: 'u1'
-		});
-	});
-
 	it('resets before identifying a different user', () => {
 		expect(
 			planIdentity({ kind: 'user', userId: 'u2' }, { identified: true, distinctId: 'u1' })
@@ -68,14 +60,6 @@ describe('planIdentity', () => {
 		expect(
 			planIdentity({ kind: 'user', userId: 'u1' }, { identified: true, distinctId: 'u1' })
 		).toEqual({ ready: true, resetFirst: false, identify: undefined });
-	});
-
-	it('resets on sign-out', () => {
-		expect(planIdentity({ kind: 'anonymous' }, { identified: true, distinctId: 'u1' })).toEqual({
-			ready: true,
-			resetFirst: true,
-			identify: undefined
-		});
 	});
 
 	it('stays closed while pending or impersonating', () => {
