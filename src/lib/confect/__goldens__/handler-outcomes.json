@@ -222,7 +222,7 @@
 	"aiChat/files:generateUploadUrl": {
 		"anonymous": "ConvexError \"Unauthenticated\"",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "ok"
+		"user": "ConvexError {\"code\":\"FILE_STORAGE_UNAVAILABLE\"}"
 	},
 	"aiChat/files:getAttachmentText": {
 		"anonymous": "ConvexError \"Unauthenticated\"",
@@ -230,9 +230,9 @@
 		"user": "ConvexError {\"code\":\"FILE_FETCH_FAILED\"}"
 	},
 	"aiChat/files:saveUploadedFile": {
-		"anonymous": "ConvexError \"Unauthenticated\"",
+		"anonymous": "ConvexError {\"code\":\"FILE_STORAGE_UNAVAILABLE\"}",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error Validator error: Expected ID for table \"pendingUploads\", got `golden`"
+		"user": "ConvexError {\"code\":\"FILE_STORAGE_UNAVAILABLE\"}"
 	},
 	"aiChat/messages:getFileMetadataBatch": {
 		"anonymous": "ConvexError \"Unauthenticated\"",
@@ -372,17 +372,17 @@
 	"storage:generateUploadUrl": {
 		"anonymous": "ConvexError \"Unauthenticated\"",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "ok"
+		"user": "ConvexError {\"code\":\"FILE_STORAGE_UNAVAILABLE\"}"
 	},
 	"storage:updateProfileImage": {
 		"anonymous": "ConvexError \"Unauthenticated\"",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error Validator error: Expected ID for table \"pendingUploads\", got `golden`"
+		"user": "ConvexError {\"code\":\"FILE_STORAGE_UNAVAILABLE\"}"
 	},
 	"support/files:generateUploadUrl": {
-		"anonymous": "ok",
+		"anonymous": "ConvexError {\"code\":\"FILE_STORAGE_UNAVAILABLE\"}",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "ok"
+		"user": "ConvexError {\"code\":\"FILE_STORAGE_UNAVAILABLE\"}"
 	},
 	"support/files:getAttachmentText": {
 		"anonymous": "ConvexError {\"code\":\"FILE_FETCH_FAILED\"}",
@@ -390,9 +390,9 @@
 		"user": "ConvexError {\"code\":\"FILE_FETCH_FAILED\"}"
 	},
 	"support/files:saveUploadedFile": {
-		"anonymous": "Error Validator error: Expected ID for table \"pendingUploads\", got `golden`",
+		"anonymous": "ConvexError {\"code\":\"FILE_STORAGE_UNAVAILABLE\"}",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error Validator error: Expected ID for table \"pendingUploads\", got `golden`"
+		"user": "ConvexError {\"code\":\"FILE_STORAGE_UNAVAILABLE\"}"
 	},
 	"support/messages:getFileMetadataBatch": {
 		"anonymous": "ok",

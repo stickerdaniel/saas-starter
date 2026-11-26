@@ -1,10 +1,4 @@
-import { allowedMimeTypes, UPLOAD_PROFILES } from '../uploads/profiles';
-
-// Profile image upload constraints, derived from the profile the picker also
-// reads, so the client cannot offer a type this file would reject.
-export const PROFILE_IMAGE_MAX_SIZE = UPLOAD_PROFILES.profileImage.maxBytes;
-export const PROFILE_IMAGE_MAX_SIZE_LABEL = UPLOAD_PROFILES.profileImage.maxBytesLabel;
-export const PROFILE_IMAGE_ALLOWED_TYPES = allowedMimeTypes(UPLOAD_PROFILES.profileImage);
+import { UPLOAD_PROFILES } from '../uploads/profiles';
 
 // Maximum characters allowed in a single chat message.
 // Mirrors the client-side MAX_MESSAGE_LENGTH in src/lib/chat/core/types.ts.

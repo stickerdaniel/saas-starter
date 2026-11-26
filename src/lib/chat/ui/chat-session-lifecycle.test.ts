@@ -4,7 +4,6 @@ import type * as Svelte from 'svelte';
 import { ConvexClient } from 'convex/browser';
 import { getFunctionName } from 'convex/server';
 import { version } from '$app/env';
-import { api } from '#lib/convex/_generated/api.js';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
 import { CHAT_PAGE_SIZE, type Attachment } from '../core/types.js';
@@ -329,8 +328,7 @@ describe('chat session lifecycle', () => {
 		const thread = new SupportThreadContext();
 		thread.startNewThread();
 		const context = createSupportContext(thread, {
-			generateUploadUrl: api.support.files.generateUploadUrl,
-			saveUploadedFile: api.support.files.saveUploadedFile,
+			purpose: 'support',
 			attachmentStore: new ChatAttachmentStore('support')
 		});
 		const message = Promise.withResolvers<Record<string, never>>();
@@ -421,8 +419,7 @@ describe('chat session lifecycle', () => {
 			const thread = new SupportThreadContext();
 			thread.startNewThread();
 			const context = createSupportContext(thread, {
-				generateUploadUrl: api.support.files.generateUploadUrl,
-				saveUploadedFile: api.support.files.saveUploadedFile,
+				purpose: 'support',
 				attachmentStore: new ChatAttachmentStore('support')
 			});
 			const creation = Promise.withResolvers<{
@@ -501,8 +498,7 @@ describe('chat session lifecycle', () => {
 	it('does not retry a rejected eager send into a thread selected after going back', async () => {
 		const thread = new SupportThreadContext();
 		const context = createSupportContext(thread, {
-			generateUploadUrl: api.support.files.generateUploadUrl,
-			saveUploadedFile: api.support.files.saveUploadedFile,
+			purpose: 'support',
 			attachmentStore: new ChatAttachmentStore('support')
 		});
 		const creation = Promise.withResolvers<{
@@ -600,8 +596,7 @@ describe('chat session lifecycle', () => {
 	it('uses a same-navigation eager creation with exact attachment order and optimistic payload', async () => {
 		const thread = new SupportThreadContext();
 		const context = createSupportContext(thread, {
-			generateUploadUrl: api.support.files.generateUploadUrl,
-			saveUploadedFile: api.support.files.saveUploadedFile,
+			purpose: 'support',
 			attachmentStore: new ChatAttachmentStore('support')
 		});
 		contexts.push(context);
@@ -765,8 +760,7 @@ describe('chat session lifecycle', () => {
 		const thread = new SupportThreadContext();
 		thread.selectThread('thread-a');
 		const context = createSupportContext(thread, {
-			generateUploadUrl: api.support.files.generateUploadUrl,
-			saveUploadedFile: api.support.files.saveUploadedFile,
+			purpose: 'support',
 			attachmentStore: new ChatAttachmentStore('support')
 		});
 		const message = Promise.withResolvers<Record<string, never>>();

@@ -12,11 +12,10 @@ import { waitForAuthenticated } from './utils/auth';
 const NOTES = 'Upload failure regression notes.\n';
 
 /**
- * The presigned storage endpoint. It is served by the Convex deployment, not
- * the app origin, so this matches on the path the backend hands out rather than
- * on a route in this repo.
+ * The AI chat upload route. It is served by the Convex site URL, not the app
+ * origin, so this matches on the route path rather than on a route in this repo.
  */
-const STORAGE_UPLOAD = /\/api\/storage\/upload/;
+const STORAGE_UPLOAD = /\/uploads\/aiChat\?/;
 
 /** Attach a text file through the hidden input the composer renders. */
 async function attachNotes(page: Page, name: string) {
@@ -35,8 +34,8 @@ test.describe('AI Chat - upload failure', () => {
 	});
 
 	test('a failed upload stays visible and blocks sending until resolved', async ({ page }) => {
-		// Kill the storage POST only. Presign and commit stay reachable, so this
-		// exercises the transport failure a flaky connection produces.
+		// Kill the upload POST only, so this exercises the transport failure a
+		// flaky connection produces.
 		await page.route(STORAGE_UPLOAD, (route) => route.abort('connectionfailed'));
 
 		await attachNotes(page, 'dropped.txt');

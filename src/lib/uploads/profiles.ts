@@ -168,9 +168,9 @@ export function checkUploadPayload(
  *
  * Picking is not a promise that the result is storable: the avatar transcoder
  * is not total (it passes GIFs through, keeps the original when the re-encode
- * is larger, and falls back on a decode failure). The server's finalize step
- * enforces the storage list on the uploaded type, `updateProfileImage` for the
- * avatar, so a surface that uses this must have one. Re-checking the
+ * is larger, and falls back on a decode failure). The server's upload route
+ * enforces the storage list on the uploaded type, `POST /uploads/profileImage`
+ * for the avatar, so a surface that uses this must have one. Re-checking the
  * transcoder's output with acceptsMimeType on the client only rejects early.
  */
 export function acceptsSource(profile: UploadProfile, mimeType: string): boolean {

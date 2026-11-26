@@ -2,14 +2,15 @@ import { FunctionImpl, GroupImpl } from '@confect/server';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
-import { components } from '../../convex/_generated/api';
 import type { MutationCtx as ConvexMutationCtx } from '../../convex/_generated/server';
 import refs from '../_generated/refs';
 import databaseSchema from '../_generated/schema';
-import { ActionCtx, MutationCtx, MutationRunner } from '../_generated/services';
+import { MutationCtx, MutationRunner } from '../_generated/services';
 import { RateLimited } from '../../effect/errors';
+import { SupportRefusal } from '../errorCodecs';
+import { SUPPORT_ERROR_CODES } from './errors';
 import { fetchAttachmentText } from '../files/attachmentText';
-import { registerUpload } from '../files/registerUpload';
+import { presignedUploadRefusal } from '../files/upload';
 import VisitorAccessImpl from '../middleware/VisitorAccess.impl';
 import { SupportOwner } from '../middleware/VisitorAccess.spec';
 import files from './files.spec';
@@ -35,6 +36,24 @@ const limitOwner = (ctx: ConvexMutationCtx, buckets: OwnerBuckets) =>
 
 export default GroupImpl.make(databaseSchema, files).pipe(
 	Layer.provide([
+		FunctionImpl.make(databaseSchema, files, 'authorizeUpload', () =>
+			Effect.gen(function* () {
+				const owner = yield* SupportOwner;
+				if (Option.isNone(owner)) {
+					return yield* Effect.fail(
+						new SupportRefusal({
+							refusal: { code: SUPPORT_ERROR_CODES.authenticationRequired }
+						})
+					);
+				}
+				const ctx = yield* MutationCtx;
+				yield* limitOwner(ctx, {
+					anonymous: 'supportFileUploadAnon',
+					signedIn: 'supportFileUpload'
+				});
+				return owner.value.ownerId;
+			})
+		),
 		FunctionImpl.make(databaseSchema, files, 'checkPreviewAccess', () =>
 			Effect.gen(function* () {
 				const ctx = yield* MutationCtx;
@@ -47,16 +66,7 @@ export default GroupImpl.make(databaseSchema, files).pipe(
 		),
 		FunctionImpl.make(databaseSchema, files, 'generateUploadUrl', () =>
 			Effect.gen(function* () {
-				const ctx = yield* MutationCtx;
-				yield* limitOwner(ctx, {
-					anonymous: 'supportFileUploadAnon',
-					signedIn: 'supportFileUpload'
-				});
-				return yield* Effect.promise(() =>
-					ctx.runMutation(components.convexFilesControl.upload.generateUploadUrl, {
-						provider: 'convex'
-					})
-				);
+				return yield* presignedUploadRefusal;
 			})
 		),
 		FunctionImpl.make(
@@ -72,10 +82,9 @@ export default GroupImpl.make(databaseSchema, files).pipe(
 					return yield* Effect.promise(() => fetchAttachmentText(url, locale));
 				})
 		),
-		FunctionImpl.make(databaseSchema, files, 'saveUploadedFile', (args) =>
+		FunctionImpl.make(databaseSchema, files, 'saveUploadedFile', () =>
 			Effect.gen(function* () {
-				const ctx = yield* ActionCtx;
-				return yield* Effect.promise(() => registerUpload(ctx, args, 'support'));
+				return yield* presignedUploadRefusal;
 			})
 		)
 	]),

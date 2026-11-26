@@ -68,8 +68,7 @@ function pendingTransfer() {
 function chatAt(threadId: string | null, { rendered = true } = {}) {
 	const core = { threadId } as unknown as ChatCore;
 	const uploadConfig = {
-		generateUploadUrl: 'storage:generateUploadUrl',
-		saveUploadedFile: 'storage:saveUploadedFile',
+		purpose: 'support',
 		attachmentStore: new ChatAttachmentStore(surface)
 	} as unknown as ConstructorParameters<typeof ChatUIContext>[2];
 	const ctx = new ChatUIContext(core, {} as ConvexClient, uploadConfig, 'right', null);

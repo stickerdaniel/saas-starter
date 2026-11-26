@@ -1,5 +1,6 @@
 import registeredFunctions from "../../confect/_generated/registeredFunctions/support/files";
 
+export const authorizeUpload = registeredFunctions.authorizeUpload;
 export const checkPreviewAccess = registeredFunctions.checkPreviewAccess;
 export const generateUploadUrl = registeredFunctions.generateUploadUrl;
 export const getAttachmentText = registeredFunctions.getAttachmentText;

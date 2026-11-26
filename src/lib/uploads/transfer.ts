@@ -1,10 +1,9 @@
 /**
  * Surface-neutral upload primitives.
  *
- * A surface supplies only its provider-specific grant and commit calls. This
- * module owns the matching browser transport, progress/cancelation semantics,
- * and one stable error vocabulary. Chat collection policy, persistence, retry
- * UI, and storage lifetime deliberately do not belong here.
+ * This module owns the browser transport, progress/cancelation semantics, and
+ * one stable error vocabulary. Chat collection policy, persistence, retry UI,
+ * and storage lifetime deliberately do not belong here.
  */
 
 export type UploadProgressCallback = (progress: number) => void;
@@ -53,22 +52,6 @@ export class UploadError extends Error {
 	}
 }
 
-export type UploadGrant = {
-	uploadUrl: string;
-	uploadToken: string;
-};
-
-export type UploadCommitInput = {
-	storageId: string;
-	uploadToken: string;
-};
-
-/** Provider-specific calls around the shared direct-to-storage transport. */
-export type UploadAdapter<TResult> = {
-	grant: () => Promise<UploadGrant>;
-	commit: (input: UploadCommitInput) => Promise<TResult>;
-};
-
 export type UploadPreprocessResult = {
 	blob: Blob;
 	mimeType: string;
@@ -82,105 +65,8 @@ export type UploadPreprocessor<TInput extends Blob = Blob> = (
 	input: TInput
 ) => Promise<UploadPreprocessResult>;
 
-export type GrantedUploadResult<TResult> = {
-	storageId: string;
-	value: TResult;
-};
-
 export function isUploadAbort(error: unknown): error is DOMException {
 	return error instanceof DOMException && error.name === 'AbortError';
-}
-
-function abortIfRequested(signal?: AbortSignal): void {
-	if (signal?.aborted) throw new DOMException('Upload canceled', 'AbortError');
-}
-
-type StructuredProviderData = Record<string, unknown>;
-
-function isStructuredProviderData(data: unknown): data is StructuredProviderData {
-	return data !== null && typeof data === 'object' && !Array.isArray(data);
-}
-
-function providerData(error: unknown): StructuredProviderData | undefined {
-	if (error === null || typeof error !== 'object' || !('data' in error)) return undefined;
-	const data = error.data;
-	return isStructuredProviderData(data) ? data : undefined;
-}
-
-/**
- * Normalize a provider rejection without exposing provider prose to the UI.
- * Structured safe fields survive for localized surface-specific handling.
- */
-export function normalizeUploadProviderError(error: unknown): Error {
-	if (isUploadAbort(error) || error instanceof UploadError) return error;
-
-	const data = providerData(error);
-	const providerCode = typeof data?.code === 'string' ? data.code : undefined;
-	const retryAfterMs =
-		typeof data?.retryAfter === 'number' && Number.isFinite(data.retryAfter)
-			? data.retryAfter
-			: undefined;
-
-	return new UploadError('server', undefined, {
-		cause: error,
-		providerCode,
-		retryAfterMs
-	});
-}
-
-async function callProvider<TResult>(call: () => Promise<TResult>): Promise<TResult> {
-	try {
-		return await call();
-	} catch (error) {
-		throw normalizeUploadProviderError(error);
-	}
-}
-
-/** Request a provider grant with shared cancelation and error semantics. */
-export async function requestUploadGrant<TResult>(
-	adapter: UploadAdapter<TResult>,
-	signal?: AbortSignal
-): Promise<UploadGrant> {
-	abortIfRequested(signal);
-	const grant = await callProvider(adapter.grant);
-	abortIfRequested(signal);
-	return grant;
-}
-
-/**
- * Upload using an already-issued grant, then run the surface-specific commit.
- *
- * The signal is honored through the last safe point before commit. Once commit
- * starts, the provider call is allowed to finish because it cannot be canceled
- * reliably and may already have registered the blob.
- */
-export async function uploadGrantedWithAdapter<TResult>(options: {
-	adapter: UploadAdapter<TResult>;
-	grant: UploadGrant;
-	blob: Blob;
-	onProgress: UploadProgressCallback;
-	signal?: AbortSignal;
-}): Promise<GrantedUploadResult<TResult>> {
-	const { adapter, grant, blob, onProgress, signal } = options;
-	abortIfRequested(signal);
-	const storageId = await uploadToStorage(grant.uploadUrl, blob, onProgress, signal);
-	abortIfRequested(signal);
-	const value = await callProvider(() =>
-		adapter.commit({ storageId, uploadToken: grant.uploadToken })
-	);
-	onProgress(100);
-	return { storageId, value };
-}
-
-/** Complete grant, direct upload, and commit through one configured adapter. */
-export async function uploadWithAdapter<TResult>(options: {
-	adapter: UploadAdapter<TResult>;
-	blob: Blob;
-	onProgress: UploadProgressCallback;
-	signal?: AbortSignal;
-}): Promise<GrantedUploadResult<TResult>> {
-	const grant = await requestUploadGrant(options.adapter, options.signal);
-	return await uploadGrantedWithAdapter({ ...options, grant });
 }
 
 export type UploadBlobOptions<T> = {
@@ -197,20 +83,33 @@ export type UploadBlobOptions<T> = {
 	signal?: AbortSignal;
 };
 
+function refusalOf(responseText: string, status: number): UploadError {
+	let body: unknown;
+	try {
+		body = JSON.parse(responseText);
+	} catch {
+		return new UploadError('http', status);
+	}
+	const fields = typeof body === 'object' && body !== null ? body : {};
+	const code = 'code' in fields ? fields.code : undefined;
+	if (typeof code !== 'string') return new UploadError('http', status);
+	const retryAfter = 'retryAfter' in fields ? fields.retryAfter : undefined;
+	return new UploadError('server', undefined, {
+		providerCode: code,
+		retryAfterMs:
+			typeof retryAfter === 'number' && Number.isFinite(retryAfter) ? retryAfter : undefined
+	});
+}
+
 /**
  * POST a blob with progress and AbortSignal support, then decode the response.
  *
  * Storage-neutral: any endpoint which takes the raw bytes and answers with
- * JSON can use it, whatever its authorization header and response shape.
+ * JSON can use it, whatever its authorization header and response shape. A
+ * refused status whose JSON body names a `code` rejects as `server` with that
+ * code and its `retryAfter`; any other refused status rejects as `http`.
  */
 export function uploadBlobWithProgress<T>(options: UploadBlobOptions<T>): Promise<T> {
-	return sendBlob(options, (status) => status >= 200 && status < 300);
-}
-
-function sendBlob<T>(
-	options: UploadBlobOptions<T>,
-	isSuccess: (status: number) => boolean
-): Promise<T> {
 	const { url, blob, headers, decode, onProgress, signal } = options;
 	return new Promise<T>((resolve, reject) => {
 		const xhr = new XMLHttpRequest();
@@ -228,8 +127,8 @@ function sendBlob<T>(
 		});
 
 		xhr.addEventListener('load', () => {
-			if (!isSuccess(xhr.status)) {
-				reject(new UploadError('http', xhr.status));
+			if (xhr.status < 200 || xhr.status >= 300) {
+				reject(refusalOf(xhr.responseText, xhr.status));
 				return;
 			}
 
@@ -263,26 +162,4 @@ function sendBlob<T>(
 		for (const [name, value] of extra) xhr.setRequestHeader(name, value);
 		xhr.send(blob);
 	});
-}
-
-function decodeStorageId(body: unknown): string {
-	const storageId =
-		body !== null && typeof body === 'object' && 'storageId' in body ? body.storageId : undefined;
-	if (typeof storageId !== 'string' || storageId === '') throw new UploadError('parse');
-	return storageId;
-}
-
-/** Upload a blob to a provider URL with progress and AbortSignal support. */
-export async function uploadToStorage(
-	uploadUrl: string,
-	blob: Blob,
-	onProgress: UploadProgressCallback,
-	signal?: AbortSignal
-): Promise<string> {
-	// Storage keeps its own contract: only a 200 is decoded and committed. Any
-	// other status, another 2xx included, is refused before commit can run.
-	return await sendBlob(
-		{ url: uploadUrl, blob, decode: decodeStorageId, onProgress, signal },
-		(status) => status === 200
-	);
 }

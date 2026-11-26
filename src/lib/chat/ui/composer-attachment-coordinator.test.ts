@@ -1,6 +1,4 @@
-import { api } from '#lib/convex/_generated/api.js';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ConvexClient } from 'convex/browser';
 import { MAX_ATTACHMENTS, type Attachment } from '../core/types.js';
 
 const uploadFileWithProgress = vi.fn();
@@ -17,8 +15,7 @@ const { ComposerAttachmentCoordinator } =
 type Coordinator = InstanceType<typeof ComposerAttachmentCoordinator>;
 
 const uploadConfig = {
-	generateUploadUrl: api.support.files.generateUploadUrl,
-	saveUploadedFile: api.support.files.saveUploadedFile
+	purpose: 'support'
 } satisfies NonNullable<
 	ConstructorParameters<typeof ComposerAttachmentCoordinator>[0]['uploadConfig']
 >;
@@ -58,7 +55,6 @@ function coordinatorAt(
 ): Coordinator {
 	const coordinator = new ComposerAttachmentCoordinator({
 		getThreadId: () => thread.current,
-		client: {} as ConvexClient,
 		uploadConfig,
 		activeUploads
 	});
@@ -160,8 +156,14 @@ describe('ComposerAttachmentCoordinator', () => {
 			}
 		]);
 		await vi.waitFor(() => expect(uploadFileWithProgress).toHaveBeenCalledOnce());
-		const [, payload, filename, , , dimensions, , signal] = uploadFileWithProgress.mock
-			.calls[0] as [unknown, Blob, string, unknown, unknown, unknown, unknown, AbortSignal];
+		const [payload, filename, , , dimensions, signal] = uploadFileWithProgress.mock.calls[0] as [
+			Blob,
+			string,
+			unknown,
+			unknown,
+			unknown,
+			AbortSignal
+		];
 		expect(payload.type).toBe('image/png');
 		expect(await payload.text()).toBe('edited screenshot');
 		expect(filename).toBe('shot.png');

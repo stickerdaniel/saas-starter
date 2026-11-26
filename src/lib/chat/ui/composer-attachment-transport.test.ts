@@ -1,14 +1,12 @@
 /**
- * The two ways a composer moves bytes. The direct transport grants, uploads
- * and commits through Convex storage. A surface's own transport gets the final
- * payload, returns an opaque result, and takes back through `release` what the
- * composer abandoned.
+ * The two ways a composer moves bytes. The direct transport posts the bytes to
+ * the surface's upload route. A surface's own transport gets the final payload,
+ * returns an opaque result, and takes back through `release` what the composer
+ * abandoned.
  */
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'svelte-sonner';
-import type { ConvexClient } from 'convex/browser';
-import { api } from '#lib/convex/_generated/api.js';
 import { uploadBlobWithProgress, UploadError } from '../../uploads/transfer.js';
 import type { UploadProfile } from '../../uploads/profiles.js';
 import type { AttachmentUploadResult } from '../core/file-uploader.js';
@@ -20,6 +18,10 @@ import {
 } from './composer-attachment-coordinator.svelte.ts';
 
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('$app/env/public', () => ({ PUBLIC_CONVEX_SITE_URL: 'https://site.test' }));
+vi.mock('../../auth-client.js', () => ({
+	authClient: { convex: { token: async () => ({ data: { token: 'jwt-1' }, error: null }) } }
+}));
 
 type Attempt = {
 	payload: AttachmentTransferPayload;
@@ -56,13 +58,10 @@ const coordinators: ComposerAttachmentCoordinator[] = [];
 function composer(
 	config: UploadConfig,
 	thread: { current: string | null } = { current: 'thread-a' },
-	activeUploads?: { claim(owner: object): void; release(owner: object): void },
-	// Any Convex call would throw: a custom transport must not reach storage.
-	client = {} as ConvexClient
+	activeUploads?: { claim(owner: object): void; release(owner: object): void }
 ) {
 	const coordinator = new ComposerAttachmentCoordinator({
 		getThreadId: () => thread.current,
-		client,
 		uploadConfig: config,
 		activeUploads
 	});
@@ -107,54 +106,49 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-describe('the direct storage transport', () => {
-	it('grants, uploads and commits through Convex, and removal deletes nothing', async () => {
-		const handlers: Record<string, () => void> = {};
-		const sent: Blob[] = [];
-		vi.stubGlobal('XMLHttpRequest', function XMLHttpRequestStub() {
-			return {
-				status: 200,
-				responseText: JSON.stringify({ storageId: 'storage-1' }),
-				upload: { addEventListener: () => {} },
-				addEventListener: (event: string, handler: () => void) => {
-					handlers[event] = handler;
-				},
-				open: () => {},
-				setRequestHeader: () => {},
-				abort: () => {},
-				send: (body: Blob) => {
-					sent.push(body);
-					handlers.load?.();
-				}
-			};
-		});
-		const client = {
-			mutation: vi.fn(async () => ({ uploadUrl: 'https://storage.test', uploadToken: 'token-1' })),
-			action: vi.fn(async () => ({ fileId: 'file-1', url: 'https://cdn.test/file-1' }))
-		};
-		const coordinator = composer(
-			{
-				generateUploadUrl: api.support.files.generateUploadUrl,
-				saveUploadedFile: api.support.files.saveUploadedFile
+function routeServer() {
+	const handlers: Record<string, () => void> = {};
+	const requests: Array<{ url: string; body: Blob }> = [];
+	const open = vi.fn();
+	vi.stubGlobal('XMLHttpRequest', function XMLHttpRequestStub() {
+		let url = '';
+		return {
+			status: 200,
+			responseText: JSON.stringify({
+				fileId: 'file-1',
+				url: 'https://cdn.test/file-1',
+				isImage: false
+			}),
+			upload: { addEventListener: () => {} },
+			addEventListener: (event: string, handler: () => void) => {
+				handlers[event] = handler;
 			},
-			{ current: 'thread-a' },
-			undefined,
-			client as unknown as ConvexClient
-		);
+			open: (_method: string, target: string) => {
+				open();
+				url = target;
+			},
+			setRequestHeader: () => {},
+			abort: () => {},
+			send: (body: Blob) => {
+				requests.push({ url, body });
+				handlers.load?.();
+			}
+		};
+	});
+	return { requests, open };
+}
+
+describe('the direct route transport', () => {
+	it('posts the bytes to the surface route once, and removal sends nothing', async () => {
+		const server = routeServer();
+		const coordinator = composer({ purpose: 'support' }, { current: 'thread-a' });
 		const file = textFile();
 
 		await coordinator.uploadFile(file);
 
-		expect(sent).toEqual([file]);
-		expect(client.action).toHaveBeenCalledExactlyOnceWith(
-			api.support.files.saveUploadedFile,
-			expect.objectContaining({
-				storageId: 'storage-1',
-				uploadToken: 'token-1',
-				filename: 'notes.txt',
-				mimeType: 'text/plain'
-			})
-		);
+		expect(server.requests).toEqual([
+			{ url: 'https://site.test/uploads/support?filename=notes.txt', body: file }
+		]);
 		expect(coordinator.attachments[0]).toMatchObject({
 			url: 'https://cdn.test/file-1',
 			uploadState: { status: 'success', fileId: 'file-1' }
@@ -162,8 +156,7 @@ describe('the direct storage transport', () => {
 
 		coordinator.removeAttachment(0);
 		coordinator.dispose();
-		expect(client.mutation).toHaveBeenCalledOnce();
-		expect(client.action).toHaveBeenCalledOnce();
+		expect(server.open).toHaveBeenCalledOnce();
 	});
 });
 
@@ -571,24 +564,14 @@ describe('the final payload check', () => {
 		expect(toast.error).toHaveBeenCalledExactlyOnceWith(...notAllowed('screenshot.webp'));
 	});
 
-	it('never asks direct storage for a grant for a refused payload', async () => {
-		const client = { mutation: vi.fn(), action: vi.fn() };
-		const coordinator = composer(
-			{
-				generateUploadUrl: api.support.files.generateUploadUrl,
-				saveUploadedFile: api.support.files.saveUploadedFile,
-				profile
-			},
-			undefined,
-			undefined,
-			client as unknown as ConvexClient
-		);
+	it('never posts a refused payload to the upload route', async () => {
+		const server = routeServer();
+		const coordinator = composer({ purpose: 'support', profile });
 
 		await coordinator.uploadFile(sized(101, 'notes.txt', 'text/plain'));
 		await coordinator.uploadScreenshot(screenshot(41), 'screenshot.png', { width: 4, height: 4 });
 
-		expect(client.mutation).not.toHaveBeenCalled();
-		expect(client.action).not.toHaveBeenCalled();
+		expect(server.open).not.toHaveBeenCalled();
 		expect(coordinator.attachments).toEqual([]);
 		expect(toast.error).toHaveBeenCalledTimes(2);
 	});

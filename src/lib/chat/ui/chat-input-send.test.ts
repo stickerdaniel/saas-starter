@@ -21,6 +21,13 @@ vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
+vi.mock('$app/env/public', () => ({ PUBLIC_CONVEX_SITE_URL: 'https://site.test' }));
+vi.mock('#lib/auth-client.js', () => ({
+	authClient: {
+		convex: { token: async () => ({ data: { token: 'jwt-1' }, error: null }) },
+		useSession: () => ({ subscribe: () => () => {} })
+	}
+}));
 vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 vi.mock('./ChatAttachments.svelte', () => ({ default: () => {} }));
 
@@ -85,8 +92,7 @@ function createContext(threadId: string | null): ChatUIContext {
 		contextCore,
 		client,
 		{
-			generateUploadUrl: api.aiChat.files.generateUploadUrl,
-			saveUploadedFile: api.aiChat.files.saveUploadedFile,
+			purpose: 'aiChat',
 			attachmentStore: new ChatAttachmentStore(surface)
 		},
 		'right',
@@ -214,10 +220,6 @@ describe('ChatInput send rollback through ChatRoot', () => {
 
 	it('merges the rejected snapshot before a later active upload without aborting it', async () => {
 		const { pending } = await startSend();
-		vi.spyOn(client, 'mutation').mockResolvedValue({
-			uploadUrl: 'https://storage.test',
-			uploadToken: 'token'
-		});
 		const abort = stallUpload();
 		void ctx.uploadFile(new File(['later'], 'later.txt', { type: 'text/plain' }));
 		await vi.waitFor(() => expect(ctx.hasUploadingFiles).toBe(true));
@@ -360,8 +362,7 @@ describe('ChatInput send rollback through ChatRoot', () => {
 			conversation,
 			client,
 			{
-				generateUploadUrl: api.support.files.generateUploadUrl,
-				saveUploadedFile: api.support.files.saveUploadedFile,
+				purpose: 'support',
 				attachmentStore: new ChatAttachmentStore(surface)
 			},
 			'right',

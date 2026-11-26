@@ -140,7 +140,6 @@ export class ChatUIContext implements ComposerSendTarget {
 		options.bindThreadOrigin?.(this.sendOwner.originBinder(core));
 		this.attachmentCoordinator = new ComposerAttachmentCoordinator({
 			getThreadId: () => core.threadId,
-			client,
 			uploadConfig,
 			activeUploads,
 			onForgetPersistedState: () => {

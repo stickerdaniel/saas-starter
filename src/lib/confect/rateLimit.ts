@@ -16,18 +16,9 @@ export const appRateLimiter = new RateLimiter(components.rateLimiter, {
 		capacity: 5
 	},
 
-	// Per-user profile image upload-URL minting
-	// Token bucket: 10-call burst, sustained 10/hour
+	// Per-user profile image uploads
+	// Token bucket: 10-upload burst, sustained 10/hour
 	profileImageUpload: {
-		kind: 'token bucket',
-		rate: 10,
-		period: HOUR,
-		capacity: 10
-	},
-
-	// Per-user profile image finalize/update
-	// Separate bucket from the upload-URL step (both are directly reachable)
-	profileImageUpdate: {
 		kind: 'token bucket',
 		rate: 10,
 		period: HOUR,

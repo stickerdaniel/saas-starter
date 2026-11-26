@@ -15,8 +15,8 @@ import type { TestAccount } from './utils/types';
 
 const NOTES = 'Navigation guard regression notes.\n';
 
-/** Presigned storage endpoint, served by Convex rather than by a route in this repo. */
-const STORAGE_UPLOAD = /\/api\/storage\/upload/;
+/** The AI chat upload route, served by the Convex site URL rather than by a route in this repo. */
+const STORAGE_UPLOAD = /\/uploads\/aiChat\?/;
 
 /**
  * Hold the storage POST open so the upload stays in flight for the whole test.
@@ -65,9 +65,8 @@ async function wouldPromptOnUnload(page: Page): Promise<boolean> {
 
 /**
  * The Convex client raises its own unload warning while one of its requests is
- * outstanding (`unsavedChangesWarning`, on by default), and an upload opens
- * with one: the presigned URL. Once the storage POST goes out that request has
- * answered, and this pause covers the client's own bookkeeping, so what the
+ * outstanding (`unsavedChangesWarning`, on by default). Once the upload POST
+ * goes out, this pause covers the client's own bookkeeping, so what the
  * assertion sees afterwards is this guard and nothing else. Measured with the
  * guard removed: the page stops preventing unload about a second after the POST
  * is issued, leaving the rest of the transfer unprotected. That gap is the
