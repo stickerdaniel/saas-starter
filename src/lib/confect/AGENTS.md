@@ -12,11 +12,13 @@ This guide covers three directories:
 | `src/lib/confect/`           | Everything else the backend runs or tests: the Confect groups with their functions, the entry files `http.ts`, `crons.ts` and `auth.ts`, helpers, shared validators, `env.ts`, the support prompt, tests, fixtures, the `convexTest.modules.ts` harness, one Confect table per file in `tables/`, and the committed CLI output in `_generated/` |
 | `src/lib/convex-components/` | The local Better Auth component, mounted by `src/lib/convex/convex.config.ts`                                                                                                                                                                                                                                                                   |
 
-Convex deploys every module in `src/lib/convex/`, and every edit there except to `convex.config.ts` and `tsconfig.json` is overwritten by the next codegen run. Put a new helper or test in `src/lib/confect/`, at the relative path of the module it serves. In `src/lib/confect/`, the names `http.ts`, `crons.ts`, `auth.ts` and `schema.ts` belong to Confect entry files: `http.ts` holds the HTTP router, `crons.ts` the cron jobs and `auth.ts` the auth provider config. The schema comes from `tables/`.
+Convex deploys every module in `src/lib/convex/`, and every edit there except to `convex.config.ts` and `tsconfig.json` is overwritten by the next codegen run. Put a new helper or test in `src/lib/confect/`, at the relative path of the module it serves. In `src/lib/confect/`, the names `http.ts`, `crons.ts` and `auth.ts` belong to Confect entry files: `http.ts` holds the HTTP router, `crons.ts` the cron jobs and `auth.ts` the auth provider config. The schema comes from `tables/`, and codegen refuses a `schema.ts` there.
 
-A function in a Confect group lives at `src/lib/confect/<path>.ts`, unchanged and with its own access guard, beside `<path>.spec.ts`, which declares it with a `FunctionSpec.convex*` constructor and a type-only import, and `<path>.impl.ts`, which passes it to `FunctionImpl.make`. The CLI generates `src/lib/convex/<path>.ts`, which publishes the same functions at the same path. The `auth` group's functions and the Better Auth server code live in `authServer.ts`. The definition module imports a spec only with `import type` and nothing from `@confect/server` or `_generated/registeredFunctions`; `local/confect-definition-imports` enforces this, and `groups.test.ts` fails when a group and its native module publish different functions.
+A Confect group is two files. `<path>.spec.ts` default-exports `GroupSpec.make()` and declares each function with a native `FunctionSpec` constructor such as `FunctionSpec.publicQuery`: its name, its arguments and return value as Effect Schema, and its access middleware (`RequireUser`, `RequireAdmin` or `VisitorAccess`). `<path>.impl.ts` implements each function as an Effect with `FunctionImpl.make` and provides the middleware layers. `messages.spec.ts` and `messages.impl.ts` are the reference; an optional sibling `<path>.ts` holds shared helpers. The CLI generates `src/lib/convex/<path>.ts`, which publishes the same functions at the same path, and `groups.test.ts` fails when the two differ.
 
-A table change goes into the table's file in `src/lib/confect/tables/`. `bun run confect:codegen` regenerates `src/lib/convex/` and `src/lib/confect/_generated/`, and `bun run dev` runs it on every save in local mode. Commit its output: CI fails on a stale copy.
+Outside test files, plain Convex registrations remain only for the library functions listed in `eslint/convex-registrars.js`: the Better Auth triggers in `authServer.ts`, beside the Better Auth server code, and the Autumn API in `autumn.ts`. Their spec declares each one with a `FunctionSpec.convex*` constructor and `import type`, the defining module imports nothing from `@confect/server` or `_generated/registeredFunctions` (`local/confect-definition-imports`), and `local/convex-canonical-registration` rejects every other plain registration in production code.
+
+A table change goes into the table's file in `src/lib/confect/tables/`. `bun run confect:codegen` regenerates `src/lib/convex/` and `src/lib/confect/_generated/`, and `bun run dev` reruns it in local mode when a watched source file changes. Commit its output: CI fails on a stale copy.
 
 ## Required verification
 
@@ -33,7 +35,7 @@ Generated Convex bindings may change as a local backend side effect. Revert `_ge
 
 Use the local Better Auth component. Derive identity server-side; never authorize from a caller-supplied user ID. `/app/**` and `/admin/**` route protection lives in server hooks, while every backend function still enforces its own authorization.
 
-The public E2E helper mutations in `src/lib/confect/tests.ts` are safe only while `AUTH_E2E_TEST_SECRET` is absent from production. Never configure that variable in the production Convex environment.
+The public E2E functions, declared in `src/lib/confect/tests.spec.ts` and guarded by the secret check in `tests.impl.ts`, are safe only while `AUTH_E2E_TEST_SECRET` is absent from production. Never configure that variable in the production Convex environment.
 
 ## Where a backend guard belongs
 
@@ -98,4 +100,4 @@ CI preview does not update either live catalog.
 
 ## Local execution
 
-Cloud functions use `bun convex run module:functionName '{"arg":"value"}'`. For the embedded local backend, use its HTTP query/mutation/action API with the admin key and backend URL printed by the dev server; the Convex CLI does not target that backend.
+Cloud functions use `bun convex run module:functionName '{"arg":"value"}'`. For the embedded local backend, use its HTTP query/mutation/action API with the backend URL printed by the dev server and the admin key from `.convex/<state-id>/keys.json`; the dev server prints that key redacted. `bun convex run` reaches that backend when both are passed, for example as `--url` and `--admin-key`.
