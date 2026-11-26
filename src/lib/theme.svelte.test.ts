@@ -153,10 +153,12 @@ describe('theme', () => {
 });
 
 describe('app.html theme initializer', () => {
-	const initializer = [
-		...readFileSync('src/app.html', 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)
-	]
-		.map((match) => match[1]!)
+	const template = new DOMParser().parseFromString(
+		readFileSync('src/app.html', 'utf8'),
+		'text/html'
+	);
+	const initializer = [...template.querySelectorAll('script')]
+		.map((script) => script.textContent)
 		.find((body) => body.includes(MODE_KEY));
 
 	it('paints the system scheme when storage throws on every access', () => {
