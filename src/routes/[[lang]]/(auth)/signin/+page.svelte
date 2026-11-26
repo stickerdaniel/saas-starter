@@ -300,7 +300,8 @@
 							}
 						}
 					),
-				'auth.messages.invalid_credentials'
+				'auth.messages.invalid_credentials',
+				null
 			);
 			return;
 		}
@@ -356,7 +357,8 @@
 
 	async function resumeAuthorization(
 		signIn: (client: typeof oauthAuthClient) => Promise<{ data: unknown; error: unknown }>,
-		fallbackKey: string
+		fallbackKey: string,
+		method: LastAuthMethod | null
 	) {
 		let failure = 'auth.messages.generic_error';
 		let url: string | null = null;
@@ -374,6 +376,9 @@
 		if (left) return;
 		if (url) {
 			haptic.trigger('success');
+			if (method) setLastSuccessfulAuthMethod(method);
+			else clearLastSuccessfulAuthMethod();
+			clearPendingOAuthProvider();
 			authorizationResumed = true;
 			navigateAfterAuthentication(url);
 			return;
@@ -479,7 +484,8 @@
 							ctx.data.redirect = false;
 						}
 					}),
-				'auth.messages.passkey_failed'
+				'auth.messages.passkey_failed',
+				'passkey'
 			);
 			return;
 		}

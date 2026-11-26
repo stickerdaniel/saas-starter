@@ -169,7 +169,9 @@ import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte
 import {
 	clearLastSuccessfulAuthMethod,
 	clearPendingOAuthProvider,
-	pendingOAuthProvider
+	lastSuccessfulAuthMethod,
+	pendingOAuthProvider,
+	setLastSuccessfulAuthMethod
 } from '#lib/hooks/last-auth-method.svelte.ts';
 import SignInPage from './+page.svelte';
 
@@ -760,6 +762,32 @@ describe('sign-in page OAuth start', () => {
 
 		expect(state.signIn.social).not.toHaveBeenCalled();
 		expect(pendingOAuthProvider.current).toBeNull();
+	});
+
+	it('drops an abandoned provider when a password sign-in resumes the authorization', async () => {
+		pendingOAuthProvider.current = 'google';
+		setLastSuccessfulAuthMethod('google');
+		state.oauthClientImport.resolve();
+		await renderSignIn('?client_id=client-a&sig=signed');
+
+		await submitPassword();
+
+		await vi.waitFor(() => expect(navigations).toHaveLength(1));
+		expect(pendingOAuthProvider.current).toBeNull();
+		expect(lastSuccessfulAuthMethod.current).toBeNull();
+	});
+
+	it('records the passkey when a passkey sign-in resumes the authorization', async () => {
+		pendingOAuthProvider.current = 'google';
+		state.signIn.passkey.mockResolvedValue({ data: { url: '/de/oauth/consent' }, error: null });
+		state.oauthClientImport.resolve();
+		await renderSignIn('?client_id=client-a&sig=signed');
+
+		button(en.auth.signin.passkey_button).click();
+
+		await vi.waitFor(() => expect(navigations).toEqual(['/de/oauth/consent']));
+		expect(pendingOAuthProvider.current).toBeNull();
+		expect(lastSuccessfulAuthMethod.current).toBe('passkey');
 	});
 
 	it('sends the visitor to the provider once the start succeeds', async () => {
