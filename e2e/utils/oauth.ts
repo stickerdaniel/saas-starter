@@ -40,7 +40,7 @@ const Redirect = Schema.Struct({ url: Schema.String });
 
 export const siteUrl = () => resolveSiteUrl();
 
-function testSecret(): string {
+export function testSecret(): string {
 	const secret = process.env.AUTH_E2E_TEST_SECRET;
 	if (!secret) throw new Error('OAuth specs need AUTH_E2E_TEST_SECRET');
 	return secret;
@@ -107,18 +107,24 @@ export async function signInByRequest({ request }: Pick<Page, 'request'>, accoun
 	expect(response.status()).toBe(200);
 }
 
-export async function convexToken(page: Page): Promise<string> {
-	const response = await page.request.get(`${siteUrl()}/api/auth/convex/token`);
+export async function convexToken({ request }: Pick<Page, 'request'>): Promise<string> {
+	const response = await request.get(`${siteUrl()}/api/auth/convex/token`);
 	expect(response.status()).toBe(200);
 	return Schema.decodeUnknownSync(ConvexToken)(await response.json()).token;
 }
 
-export type Authorization = { url: string; verifier: string };
+export type Authorization = { url: string; verifier: string; resource: string | null };
+
+export type AuthorizationOptions = {
+	readonly resource?: string | null;
+	readonly prompt?: 'consent';
+};
 
 export function authorization(
 	metadata: Metadata,
 	clientId: string,
-	scope: string | null
+	scope: string | null,
+	{ resource = resourceOf(metadata), prompt }: AuthorizationOptions = {}
 ): Authorization {
 	const verifier = randomBytes(48).toString('base64url');
 	const params = new URLSearchParams({
@@ -127,11 +133,12 @@ export function authorization(
 		redirect_uri: REDIRECT_URI,
 		state: randomBytes(8).toString('base64url'),
 		code_challenge: createHash('sha256').update(verifier).digest('base64url'),
-		code_challenge_method: 'S256',
-		resource: resourceOf(metadata)
+		code_challenge_method: 'S256'
 	});
+	if (resource !== null) params.set('resource', resource);
 	if (scope !== null) params.set('scope', scope);
-	return { url: `${metadata.authorization_endpoint}?${params}`, verifier };
+	if (prompt) params.set('prompt', prompt);
+	return { url: `${metadata.authorization_endpoint}?${params}`, verifier, resource };
 }
 
 const catchRedirects = (page: Page) =>
@@ -182,7 +189,7 @@ export async function exchange(
 		redirect_uri: REDIRECT_URI,
 		client_id: clientId,
 		code_verifier: start.verifier,
-		resource: resourceOf(metadata)
+		...(start.resource === null ? {} : { resource: start.resource })
 	});
 	expect(response.status()).toBe(200);
 	return decodeTokens(await response.json());
@@ -204,23 +211,28 @@ export const refresh = (
 export const parseTokens = async (response: APIResponse) => decodeTokens(await response.json());
 
 export async function connectByRequest(
-	page: Page,
+	{ request }: Pick<Page, 'request'>,
 	metadata: Metadata,
 	clientId: string,
-	scope = BOTH_SCOPES
+	scope = BOTH_SCOPES,
+	{ accept, ...options }: AuthorizationOptions & { readonly accept?: string } = {}
 ) {
-	const start = authorization(metadata, clientId, scope);
-	const authorize = await page.request.get(start.url, { maxRedirects: 0 });
+	const start = authorization(metadata, clientId, scope, options);
+	const authorize = await request.get(start.url, { maxRedirects: 0 });
 	const consentPath =
 		authorize.headers()['location'] ??
 		Schema.decodeUnknownSync(Redirect)(await authorize.json()).url;
-	const consent = await page.request.post(`${siteUrl()}/api/auth/oauth2/consent`, {
+	const consent = await request.post(`${siteUrl()}/api/auth/oauth2/consent`, {
 		headers: { Origin: siteUrl() },
-		data: { accept: true, oauth_query: new URL(consentPath, siteUrl()).search.slice(1) }
+		data: {
+			accept: true,
+			oauth_query: new URL(consentPath, siteUrl()).search.slice(1),
+			...(accept === undefined ? {} : { scope: accept })
+		}
 	});
 	expect(consent.status()).toBe(200);
 	const callback = new URL(Schema.decodeUnknownSync(Redirect)(await consent.json()).url);
 	const code = callback.searchParams.get('code');
 	if (!code) throw new Error(`No code in ${callback.search}`);
-	return exchange(page.request, metadata, clientId, code, start);
+	return exchange(request, metadata, clientId, code, start);
 }

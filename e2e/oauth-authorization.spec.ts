@@ -92,8 +92,7 @@ test('a narrowed consent stops the refresh token of the wider grant', async ({ p
 	const first = await exchange(request, metadata, clientId, await allow(page), wide);
 	expect(scopesOf(first.scope)).toEqual(scopesOf(BOTH_SCOPES));
 
-	const again = authorization(metadata, clientId, BOTH_SCOPES);
-	const narrow = { ...again, url: `${again.url}&prompt=consent` };
+	const narrow = authorization(metadata, clientId, BOTH_SCOPES, { prompt: 'consent' });
 	await openConsent(page, narrow);
 	await page.getByRole('checkbox', { name: CHANGE_CAPABILITY }).uncheck();
 	const second = await exchange(request, metadata, clientId, await allow(page), narrow);

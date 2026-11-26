@@ -36,16 +36,17 @@ const USER = {
 
 type Stubs = {
 	readonly scopes: readonly string[];
-	readonly sendAs?: () => Promise<unknown>;
+	readonly userId?: string;
+	readonly sendAs?: (args: unknown) => Promise<unknown>;
 };
 
-const services = ({ scopes, sendAs }: Stubs) => {
+const services = ({ scopes, userId = USER._id, sendAs }: Stubs) => {
 	const runQuery = vi.fn();
 	runQuery.mockImplementation((reference: FunctionReference<'query', 'internal'>) => {
 		switch (getFunctionName(reference)) {
 			case 'oauth/access:verify':
 				return Promise.resolve({
-					userId: USER._id,
+					userId,
 					clientId: 'client-1',
 					scopes,
 					expiresAt: Date.now() + 3_600_000,
@@ -61,10 +62,11 @@ const services = ({ scopes, sendAs }: Stubs) => {
 		return Promise.reject(new Error(`unexpected query ${getFunctionName(reference)}`));
 	});
 	const runMutation = vi.fn();
-	runMutation.mockImplementation((reference: FunctionReference<'mutation', 'internal'>) =>
-		getFunctionName(reference) === 'messages:sendAs' && sendAs
-			? sendAs()
-			: Promise.reject(new Error(`unexpected mutation ${getFunctionName(reference)}`))
+	runMutation.mockImplementation(
+		(reference: FunctionReference<'mutation', 'internal'>, args: unknown) =>
+			getFunctionName(reference) === 'messages:sendAs' && sendAs
+				? sendAs(args)
+				: Promise.reject(new Error(`unexpected mutation ${getFunctionName(reference)}`))
 	);
 	return Layer.mergeAll(QueryRunner.layer(runQuery), MutationRunner.layer(runMutation)).pipe(
 		Layer.build,
@@ -197,6 +199,29 @@ describe('tool list', () => {
 				expect(tool.annotations).toHaveProperty(hint, expect.any(Boolean));
 			}
 		}
+	});
+});
+
+describe('acting user', () => {
+	it('posts each message as the principal of its own request', async () => {
+		const received: unknown[] = [];
+		const sendAs = (args: unknown) => {
+			received.push(args);
+			return Promise.resolve({ messageId: 'message-1' });
+		};
+		for (const userId of ['user-1', 'user-2']) {
+			const response = await appHandler({ scopes: READ_WRITE, userId, sendAs })(
+				post('modern', 'tools/call', {
+					name: 'post_community_message',
+					arguments: { body: `from ${userId}` }
+				})()
+			);
+			expect(decodeCall(await response.text()).result.isError).toBeUndefined();
+		}
+		expect(received).toEqual([
+			{ userId: 'user-1', body: 'from user-1' },
+			{ userId: 'user-2', body: 'from user-2' }
+		]);
 	});
 });
 
