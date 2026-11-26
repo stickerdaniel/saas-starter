@@ -59,7 +59,7 @@ export default GroupImpl.make(databaseSchema, founderEmailBilling).pipe(
 			({ sendId, userId, attempt }) =>
 				Effect.gen(function* () {
 					if (!(yield* isPending(sendId))) return null;
-					const billing = yield* Effect.promise(() => readScheduledCancellation(userId));
+					const billing = yield* readScheduledCancellation(userId);
 					const mutations = yield* MutationRunner;
 					yield* deliverVerdict(
 						sendId,
@@ -79,15 +79,13 @@ export default GroupImpl.make(databaseSchema, founderEmailBilling).pipe(
 			({ sendId, userId }) =>
 				Effect.gen(function* () {
 					if (!(yield* isPending(sendId))) return null;
-					const read = yield* Effect.promise(() => readCustomerBilling(userId));
+					const read = yield* readCustomerBilling(userId);
 					const billing = classifyFeedbackBilling(read, Date.now());
 					if (billing === 'billing_unknown')
 						console.warn({ code: 'founder_feedback_billing_unknown' });
 					const ctx = yield* ActionCtx;
 					const thread =
-						billing === 'not_subscribed'
-							? yield* Effect.promise(() => findWelcomeThread(ctx, userId))
-							: undefined;
+						billing === 'not_subscribed' ? yield* findWelcomeThread(ctx, userId) : undefined;
 					const mutations = yield* MutationRunner;
 					yield* deliverVerdict(
 						sendId,

@@ -1,3 +1,4 @@
+import * as Effect from 'effect/Effect';
 import { requireBillingConfiguration } from '../../env';
 
 /**
@@ -48,15 +49,25 @@ function classifyStatus(status: number): CustomerBillingRead | null {
 }
 
 /** Read a customer's products and invoices from Autumn. */
-export async function readCustomerBilling(customerId: string): Promise<CustomerBillingRead> {
-	let secretKey: string;
-	try {
-		({ secretKey } = requireBillingConfiguration());
-	} catch {
-		return failed('billing_unconfigured');
-	}
+export const readCustomerBilling = (customerId: string): Effect.Effect<CustomerBillingRead> =>
+	Effect.try(() => requireBillingConfiguration().secretKey).pipe(
+		Effect.matchEffect({
+			onFailure: () => Effect.succeed(failed('billing_unconfigured')),
+			onSuccess: (secretKey) =>
+				Effect.promise((signal) => requestCustomer(customerId, secretKey, signal)).pipe(
+					Effect.timeoutOrElse({
+						duration: READ_TIMEOUT_MS,
+						orElse: () => Effect.succeed(retry('autumn_timeout'))
+					})
+				)
+		})
+	);
 
-	const signal = AbortSignal.timeout(READ_TIMEOUT_MS);
+async function requestCustomer(
+	customerId: string,
+	secretKey: string,
+	signal: AbortSignal
+): Promise<CustomerBillingRead> {
 	let response: Response;
 	try {
 		response = await fetch(
@@ -67,16 +78,19 @@ export async function readCustomerBilling(customerId: string): Promise<CustomerB
 			}
 		);
 	} catch {
-		return signal.aborted ? retry('autumn_timeout') : retry('autumn_network');
+		return retry('autumn_network');
 	}
 
 	const classified = classifyStatus(response.status);
-	if (classified) return classified;
+	if (classified) {
+		await response.body?.cancel().catch(() => undefined);
+		return classified;
+	}
 	try {
 		// The same signal bounds the body: a stalled body rejects when it aborts.
 		const data: unknown = JSON.parse(await response.text());
 		return { kind: 'ok', data };
 	} catch {
-		return signal.aborted ? retry('autumn_timeout') : retry('autumn_bad_response');
+		return retry('autumn_bad_response');
 	}
 }
