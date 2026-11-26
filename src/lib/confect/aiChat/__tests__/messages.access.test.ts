@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, components } from '../../../convex/_generated/api';
 import schema from '../../../convex/schema';
 import authSchema from '../../../convex-components/betterAuth/schema';
+import type { Id } from '../../../convex/_generated/dataModel';
 import { MAX_MESSAGE_FILES, MAX_MESSAGE_LENGTH } from '../../constants';
 import { convexModules, preloadModules } from '../../convexTest.modules';
 import { AI_CHAT_ERROR_CODES } from '../errors';
@@ -94,17 +95,26 @@ const effects = (t: Harness) =>
 			.map((row) => row.threadId)
 	}));
 
-async function storeFile(t: Harness) {
+async function storeFile(t: Harness, ownerId?: string, hash = 'notes') {
 	const storageId = await t.run((ctx) =>
-		ctx.storage.store(new Blob(['notes'], { type: 'text/plain' }))
+		ctx.storage.store(new Blob([hash], { type: 'text/plain' }))
 	);
 	const { fileId } = await t.mutation(components.agent.files.addFile, {
 		storageId,
-		hash: 'notes',
-		filename: 'notes.txt',
+		hash,
+		filename: `${hash}.txt`,
 		mediaType: 'text/plain'
 	});
+	if (ownerId !== undefined) {
+		await t.run((ctx) => ctx.db.insert('fileOwners', { fileId, ownerId }));
+	}
 	return fileId;
+}
+
+async function removeStorageBlob(t: Harness, fileId: string) {
+	const file = await t.query(components.agent.files.get, { fileId });
+	if (!file) throw new Error(`No component file ${fileId}`);
+	await t.run((ctx) => ctx.storage.delete(file.storageId as Id<'_storage'>));
 }
 
 const fileParts = async (t: Harness, threadId: string) => {
@@ -204,7 +214,7 @@ describe('aiChat/messages access', () => {
 	it('accepts a send with exactly the cap of file ids', async () => {
 		const t = harness();
 		const { userId, threadId, caller } = await signIn(t, 'files@example.com');
-		const fileId = await storeFile(t);
+		const fileId = await storeFile(t, userId);
 
 		await expect(
 			caller.mutation(api.aiChat.messages.sendMessage, {
@@ -215,6 +225,56 @@ describe('aiChat/messages access', () => {
 		).resolves.toEqual({ messageId: expect.any(String), order: 0 });
 		expect((await effects(t)).receipts).toEqual([userId]);
 		expect(await fileParts(t, threadId)).toBe(MAX_MESSAGE_FILES);
+	});
+
+	it('refuses a file another user uploaded or nobody uploaded, without writes', async () => {
+		const t = harness();
+		const owner = await signIn(t, 'owner@example.com');
+		const other = await signIn(t, 'other@example.com');
+		const own = await storeFile(t, owner.userId, 'own');
+		const foreign = await storeFile(t, other.userId, 'foreign');
+		const ownerless = await storeFile(t, undefined, 'ownerless');
+		const before = await effects(t);
+
+		for (const fileIds of [[foreign], [ownerless], [own, foreign]]) {
+			await expect(
+				refusal(
+					owner.caller.mutation(api.aiChat.messages.sendMessage, {
+						threadId: owner.threadId,
+						prompt: 'files',
+						fileIds
+					})
+				)
+			).resolves.toEqual({ code: AI_CHAT_ERROR_CODES.attachmentUnavailable });
+		}
+		expect(await effects(t)).toEqual(before);
+		expect(await fileParts(t, owner.threadId)).toBe(0);
+	});
+
+	it.each([
+		[
+			'component row',
+			(t: Harness, fileId: string) =>
+				t.mutation(components.agent.files.deleteFiles, { fileIds: [fileId], force: true })
+		],
+		['storage blob', removeStorageBlob]
+	])('refuses an own file whose %s is gone, without writes', async (_gone, remove) => {
+		const t = harness();
+		const { userId, threadId, caller } = await signIn(t, 'files@example.com');
+		const fileId = await storeFile(t, userId);
+		await remove(t, fileId);
+		const before = await effects(t);
+
+		await expect(
+			refusal(
+				caller.mutation(api.aiChat.messages.sendMessage, {
+					threadId,
+					prompt: 'files',
+					fileIds: [fileId]
+				})
+			)
+		).resolves.toEqual({ code: AI_CHAT_ERROR_CODES.attachmentUnavailable });
+		expect(await effects(t)).toEqual(before);
 	});
 
 	it("refuses another user's thread before the rate limit, without writes", async () => {

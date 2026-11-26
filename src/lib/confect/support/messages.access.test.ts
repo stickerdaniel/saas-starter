@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, components } from '../../convex/_generated/api';
 import schema from '../../convex/schema';
 import authSchema from '../../convex-components/betterAuth/schema';
+import type { Id } from '../../convex/_generated/dataModel';
 import { MAX_MESSAGE_FILES, MAX_MESSAGE_LENGTH } from '../constants';
 import { convexModules, preloadModules } from '../convexTest.modules';
 import { FILE_ERROR_CODES } from '../files/errors';
@@ -64,18 +65,34 @@ const fileParts = async (t: Harness, threadId: string) =>
 		)
 		.filter((type) => type === 'file').length;
 
-async function storeFile(t: Harness) {
+async function storeFile(t: Harness, ownerId?: string, hash = 'notes') {
 	const storageId = await t.run((ctx) =>
-		ctx.storage.store(new Blob(['notes'], { type: 'text/plain' }))
+		ctx.storage.store(new Blob([hash], { type: 'text/plain' }))
 	);
 	const { fileId } = await t.mutation(components.agent.files.addFile, {
 		storageId,
-		hash: 'notes',
-		filename: 'notes.txt',
+		hash,
+		filename: `${hash}.txt`,
 		mediaType: 'text/plain'
 	});
+	if (ownerId !== undefined) {
+		await t.run((ctx) => ctx.db.insert('fileOwners', { fileId, ownerId }));
+	}
 	return fileId;
 }
+
+async function removeStorageBlob(t: Harness, fileId: string) {
+	const file = await t.query(components.agent.files.get, { fileId });
+	if (!file) throw new Error(`No component file ${fileId}`);
+	await t.run((ctx) => ctx.storage.delete(file.storageId as Id<'_storage'>));
+}
+
+const sideEffects = (t: Harness) =>
+	t.run(async (ctx) => ({
+		threads: await ctx.db.query('supportThreads').take(20),
+		contexts: await ctx.db.query('supportMessageContexts').take(20),
+		jobs: await ctx.db.system.query('_scheduled_functions').take(20)
+	}));
 
 async function ownedThread(t: Harness) {
 	const { threadId } = await t.mutation(api.support.threads.getOrCreateWarmThread, {
@@ -189,7 +206,7 @@ describe('support message access', () => {
 	it('accepts a send with exactly the cap of file ids', async () => {
 		const t = harness();
 		const threadId = await ownedThread(t);
-		const fileId = await storeFile(t);
+		const fileId = await storeFile(t, OWNER);
 
 		await expect(
 			t.mutation(api.support.messages.sendMessage, {
@@ -201,6 +218,75 @@ describe('support message access', () => {
 		).resolves.toMatchObject({ messageId: expect.any(String) });
 		expect(await visitorMessages(t, threadId)).toHaveLength(1);
 		expect(await fileParts(t, threadId)).toBe(MAX_MESSAGE_FILES);
+	});
+
+	it('refuses a file another visitor uploaded or nobody uploaded, without writes', async () => {
+		const t = harness();
+		const threadId = await ownedThread(t);
+		const own = await storeFile(t, OWNER, 'own');
+		const foreign = await storeFile(t, STRANGER, 'foreign');
+		const ownerless = await storeFile(t, undefined, 'ownerless');
+		const before = await sideEffects(t);
+
+		for (const fileIds of [[foreign], [ownerless], [own, foreign]]) {
+			const call = t.mutation(api.support.messages.sendMessage, {
+				threadId,
+				anonymousUserId: OWNER,
+				prompt: 'Files',
+				fileIds
+			});
+			expect(await refusal(call)).toEqual({ code: SUPPORT_ERROR_CODES.attachmentUnavailable });
+		}
+		expect(await visitorMessages(t, threadId)).toEqual([]);
+		expect(await sideEffects(t)).toEqual(before);
+	});
+
+	it.each([
+		[
+			'component row',
+			(t: Harness, fileId: string) =>
+				t.mutation(components.agent.files.deleteFiles, { fileIds: [fileId], force: true })
+		],
+		['storage blob', removeStorageBlob]
+	])('refuses an own file whose %s is gone, without writes', async (_gone, remove) => {
+		const t = harness();
+		const threadId = await ownedThread(t);
+		const fileId = await storeFile(t, OWNER);
+		await remove(t, fileId);
+		const before = await sideEffects(t);
+
+		const call = t.mutation(api.support.messages.sendMessage, {
+			threadId,
+			anonymousUserId: OWNER,
+			prompt: 'Files',
+			fileIds: [fileId]
+		});
+
+		expect(await refusal(call)).toEqual({ code: SUPPORT_ERROR_CODES.attachmentUnavailable });
+		expect(await visitorMessages(t, threadId)).toEqual([]);
+		expect(await sideEffects(t)).toEqual(before);
+	});
+
+	it('lets a resolver fault other than a missing file fail the send', async () => {
+		const t = harness();
+		const threadId = await ownedThread(t);
+		await t.run((ctx) => ctx.db.insert('fileOwners', { fileId: 'not_a_file_id', ownerId: OWNER }));
+
+		const error = await t
+			.mutation(api.support.messages.sendMessage, {
+				threadId,
+				anonymousUserId: OWNER,
+				prompt: 'Files',
+				fileIds: ['not_a_file_id']
+			})
+			.then(
+				() => undefined,
+				(reason: unknown) => reason
+			);
+
+		expect(error).toBeInstanceOf(Error);
+		expect(error).not.toBeInstanceOf(ConvexError);
+		expect(await visitorMessages(t, threadId)).toEqual([]);
 	});
 
 	it('refuses an anonymous owner past the per-minute limit with a retry time', async () => {

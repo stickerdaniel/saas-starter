@@ -305,6 +305,10 @@
 		"files/metadata": {
 			"storeFileMetadata": ["internal", "mutation", "b8844095cf30aa53", "1f59fe9c346cb913"]
 		},
+		"files/owners": {
+			"purge": ["internal", "mutation", "ffa600649688302d", "bcde375ebd4cbacf"],
+			"record": ["internal", "mutation", "f34ff83f4d23fff3", "bcde375ebd4cbacf"]
+		},
 		"files/vacuum": {
 			"deleteUnusedFiles": ["internal", "mutation", "e91a6f41160e06d0", "bcde375ebd4cbacf"]
 		},

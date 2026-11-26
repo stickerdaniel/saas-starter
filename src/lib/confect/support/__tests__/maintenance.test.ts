@@ -389,7 +389,8 @@ describe('support maintenance helpers', () => {
 			db: {
 				query: vi.fn(() => ({
 					withIndex: vi.fn(() => ({
-						collect
+						collect,
+						take: vi.fn().mockResolvedValue([])
 					}))
 				})),
 				patch,

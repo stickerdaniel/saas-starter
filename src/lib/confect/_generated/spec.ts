@@ -38,6 +38,7 @@ import emails_founderIncidentSend from "../emails/founderIncidentSend.spec";
 import emails_send from "../emails/send.spec";
 import files_cleanup from "../files/cleanup.spec";
 import files_metadata from "../files/metadata.spec";
+import files_owners from "../files/owners.spec";
 import files_vacuum from "../files/vacuum.spec";
 import localDev from "../localDev.spec";
 import messages from "../messages.spec";
@@ -62,7 +63,7 @@ const spec: Spec.Spec<{
   readonly autumn: GroupSpec.NamedAt<typeof autumn, "autumn">;
   readonly capabilities: GroupSpec.NamedAt<typeof capabilities, "capabilities">;
   readonly emails: GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "emails", never, GroupSpec.NamedAt<typeof emails_events, "events"> | GroupSpec.NamedAt<typeof emails_founderEmailBilling, "founderEmailBilling"> | GroupSpec.NamedAt<typeof emails_founderEmailErasure, "founderEmailErasure"> | GroupSpec.NamedAt<typeof emails_founderEmailLedger, "founderEmailLedger"> | GroupSpec.NamedAt<typeof emails_founderEmails, "founderEmails"> | GroupSpec.NamedAt<typeof emails_founderIncidentDelivery, "founderIncidentDelivery"> | GroupSpec.NamedAt<typeof emails_founderIncidentDrafts, "founderIncidentDrafts"> | GroupSpec.NamedAt<typeof emails_founderIncidentSend, "founderIncidentSend"> | GroupSpec.NamedAt<typeof emails_send, "send">>, "emails">;
-  readonly files: GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "files", never, GroupSpec.NamedAt<typeof files_cleanup, "cleanup"> | GroupSpec.NamedAt<typeof files_metadata, "metadata"> | GroupSpec.NamedAt<typeof files_vacuum, "vacuum">>, "files">;
+  readonly files: GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "files", never, GroupSpec.NamedAt<typeof files_cleanup, "cleanup"> | GroupSpec.NamedAt<typeof files_metadata, "metadata"> | GroupSpec.NamedAt<typeof files_owners, "owners"> | GroupSpec.NamedAt<typeof files_vacuum, "vacuum">>, "files">;
   readonly localDev: GroupSpec.NamedAt<typeof localDev, "localDev">;
   readonly messages: GroupSpec.NamedAt<typeof messages, "messages">;
   readonly previewDev: GroupSpec.NamedAt<typeof previewDev, "previewDev">;
@@ -133,6 +134,7 @@ const spec: Spec.Spec<{
   ["files"]: GroupSpec.addGroupsAt(GroupSpec.make(), {
     ["cleanup"]: files_cleanup,
     ["metadata"]: files_metadata,
+    ["owners"]: files_owners,
     ["vacuum"]: files_vacuum,
   }),
   ["localDev"]: localDev,

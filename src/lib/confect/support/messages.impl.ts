@@ -1,6 +1,5 @@
 import { FunctionImpl, GroupImpl } from '@confect/server';
-import { getFile } from '@convex-dev/agent';
-import { APICallError, RetryError, type UserContent } from 'ai';
+import { APICallError, RetryError, type FilePart, type UserContent } from 'ai';
 import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
@@ -38,6 +37,7 @@ import {
 } from '../env';
 import { SupportRefusal } from '../errorCodecs';
 import { getFileMetadataByUrls } from '../files/metadata';
+import { requireOwnedFiles } from '../files/owners';
 import { extractLocaleFromUrl, t } from '../i18n/translations';
 import VisitorAccessImpl, { requireOwnedSupportThread } from '../middleware/VisitorAccess.impl';
 import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
@@ -232,9 +232,10 @@ const handToTeam = (threadId: string) =>
 
 async function saveVisitorMessage(
 	ctx: ConvexMutationCtx,
-	args: typeof SendMessageArgsSchema.Type
+	args: typeof SendMessageArgsSchema.Type,
+	fileParts: FilePart[]
 ): Promise<string> {
-	const messageId = await saveVisitorContent(ctx, args);
+	const messageId = await saveVisitorContent(ctx, args, fileParts);
 	await recordSupportMessageContext(ctx, {
 		threadId: args.threadId,
 		messageId,
@@ -296,17 +297,15 @@ async function listVisitorMessages(
 
 async function saveVisitorContent(
 	ctx: ConvexMutationCtx,
-	args: typeof SendMessageArgsSchema.Type
+	args: typeof SendMessageArgsSchema.Type,
+	fileParts: FilePart[]
 ): Promise<string> {
 	if (args.fileIds && args.fileIds.length > 0) {
 		const content: UserContent = [];
 		if (args.prompt.trim()) {
 			content.push({ type: 'text', text: args.prompt });
 		}
-		for (const fileId of args.fileIds) {
-			const { filePart } = await getFile(ctx, components.agent, fileId);
-			content.push(filePart);
-		}
+		content.push(...fileParts);
 		const result = await supportAgent.saveMessage(ctx, {
 			threadId: args.threadId,
 			message: { role: 'user', content },
@@ -495,8 +494,14 @@ export default GroupImpl.make(databaseSchema, messages).pipe(
 				if (!rateLimitStatus.ok) {
 					return yield* Effect.fail(new RateLimited({ retryAfter: rateLimitStatus.retryAfter }));
 				}
+				const fileParts = yield* requireOwnedFiles(
+					ctx,
+					effectiveUserId,
+					args.fileIds ?? [],
+					new SupportRefusal({ refusal: { code: SUPPORT_ERROR_CODES.attachmentUnavailable } })
+				);
 
-				const messageId = yield* Effect.promise(() => saveVisitorMessage(ctx, args));
+				const messageId = yield* Effect.promise(() => saveVisitorMessage(ctx, args, fileParts));
 
 				const announced =
 					isHumanOnly && !wasHandedOff && !wasWarmThread

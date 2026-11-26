@@ -149,6 +149,8 @@ export type ApiTypeGoldens = [
 	Expect<Equal<Golden<typeof internal.emails.send.sendVerificationEmail>, ['mutation', 'internal', { readonly email: string; readonly verificationUrl: string; readonly expiryMinutes?: number | undefined; }, null]>>,
 	Expect<Equal<Golden<typeof internal.files.cleanup.cleanupExpiredFiles>, ['mutation', 'internal', { readonly limit?: number | undefined; }, { readonly deletedCount: number; readonly hasMore: boolean; }]>>,
 	Expect<Equal<Golden<typeof internal.files.metadata.storeFileMetadata>, ['mutation', 'internal', { readonly url: string; readonly width: number; readonly height: number; readonly fileId: string; readonly storageId: string; }, string & { __tableName: 'fileMetadata'; }]>>,
+	Expect<Equal<Golden<typeof internal.files.owners.purge>, ['mutation', 'internal', { readonly fileIds: readonly string[]; }, null]>>,
+	Expect<Equal<Golden<typeof internal.files.owners.record>, ['mutation', 'internal', { readonly fileId: string; readonly ownerId: string; }, null]>>,
 	Expect<Equal<Golden<typeof internal.files.vacuum.deleteUnusedFiles>, ['mutation', 'internal', { readonly cursor?: string | undefined; }, null]>>,
 	Expect<Equal<Golden<typeof internal.localDev.ensureSeededAdmin>, ['mutation', 'internal', {}, { readonly created: boolean; readonly updatedRole: boolean; readonly updatedVerification: boolean; readonly skipped: boolean; }]>>,
 	Expect<Equal<Golden<typeof internal.messages.enforceAndTrackMessageUsage>, ['action', 'internal', { readonly userId: string; readonly messageId: import("convex/values").GenericId<'messages'>; }, null]>>,

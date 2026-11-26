@@ -90,10 +90,7 @@ vi.mock('../../env', () => {
 	};
 });
 
-vi.mock('@convex-dev/agent', async (importOriginal) => {
-	const actual = await importOriginal<Record<string, unknown>>();
-	return { ...actual, getFile: vi.fn() };
-});
+vi.mock('../../files/owners', () => ({ requireOwnedFiles: vi.fn() }));
 
 vi.mock('../../../convex/_generated/api', () => ({
 	components: {
@@ -137,7 +134,7 @@ function threadTable(thread: () => Record<string, unknown>) {
 }
 
 import { APICallError, RetryError } from 'ai';
-import { getFile } from '@convex-dev/agent';
+import { requireOwnedFiles } from '../../files/owners';
 import type { MessageDoc } from '@convex-dev/agent/validators';
 import { supportAgent } from '../agent';
 import { getSupportOwnerIdentity } from '../ownership';
@@ -338,8 +335,6 @@ describe('createAIResponse prompt override wiring', () => {
 // for the multimodal branch — a plain text message must not carry a fileIds key.
 describe('sendMessage attachment refcount metadata', () => {
 	const saveMessageMock = supportAgent.saveMessage as unknown as ReturnType<typeof vi.fn>;
-	const getFileMock = getFile as unknown as ReturnType<typeof vi.fn>;
-
 	const sendHandler = sendMessage as unknown as Fn<
 		{ threadId: string; prompt: string; fileIds?: string[] },
 		{ messageId: string }
@@ -365,14 +360,16 @@ describe('sendMessage attachment refcount metadata', () => {
 		vi.clearAllMocks();
 		ownerMock.mockResolvedValue(VISITOR);
 		saveMessageMock.mockResolvedValue({ messageId: 'm1' });
-		getFileMock.mockResolvedValue({
-			filePart: {
-				type: 'file',
-				data: new URL('https://files/f1'),
-				mediaType: 'image/png',
-				filename: 'f1.png'
-			}
-		});
+		vi.mocked(requireOwnedFiles).mockReturnValue(
+			Effect.succeed([
+				{
+					type: 'file',
+					data: new URL('https://files/f1'),
+					mediaType: 'image/png',
+					filename: 'f1.png'
+				}
+			])
+		);
 	});
 
 	it('forwards fileIds as saveMessage metadata for a multimodal message', async () => {
@@ -717,9 +714,9 @@ describe('sendMessage per-message route', () => {
 		ownerMock.mockResolvedValue(VISITOR);
 		let saves = 0;
 		saveMessageMock.mockImplementation(async () => ({ messageId: `message_${++saves}` }));
-		(getFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-			filePart: { type: 'file', data: new URL('https://files/f1'), mediaType: 'image/png' }
-		});
+		vi.mocked(requireOwnedFiles).mockReturnValue(
+			Effect.succeed([{ type: 'file', data: new URL('https://files/f1'), mediaType: 'image/png' }])
+		);
 	});
 
 	function makeCtx() {

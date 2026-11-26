@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "98db10f64d6188f6",
+	"digest": "fc9c56006e56793e",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -206,6 +206,10 @@
 		},
 		"files/cleanup": { "cleanupExpiredFiles": ["internal", "mutation", "Convex", "Confect"] },
 		"files/metadata": { "storeFileMetadata": ["internal", "mutation", "Convex", "Confect"] },
+		"files/owners": {
+			"purge": ["internal", "mutation", "Convex", "Confect"],
+			"record": ["internal", "mutation", "Convex", "Confect"]
+		},
 		"files/vacuum": { "deleteUnusedFiles": ["internal", "mutation", "Convex", "Confect"] },
 		"localDev": { "ensureSeededAdmin": ["internal", "mutation", "Convex", "Confect"] },
 		"messages": {
