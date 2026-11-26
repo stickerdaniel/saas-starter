@@ -103,7 +103,6 @@ const state = await vi.hoisted(async () => {
 			social: vi.fn<SocialSignIn>(),
 			passkey: vi.fn<() => Promise<AuthResult>>()
 		},
-		/** Holds the resume client's import until a test lets it finish. */
 		oauthClientImport: Promise.withResolvers<void>()
 	};
 });
