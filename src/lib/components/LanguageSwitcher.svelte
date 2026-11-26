@@ -85,7 +85,7 @@
 	let button: HTMLElement | null = $state(null);
 	let trigger: HTMLElement | null = $state(null);
 	let open = $state(false);
-	let openedWithKeyboard = $state(false);
+	let pending: 'keyboard' | 'pointer' | null = $state(null);
 
 	function load(): Promise<void> {
 		loading ??= importMenu();
@@ -97,12 +97,14 @@
 			const module = await import('./ui/language-switcher/language-switcher.svelte');
 			const focused = button !== null && document.activeElement === button;
 			Menu = module.default;
-			if (!focused) return;
-			// The trigger replaces the focused button, which takes focus with it.
 			await tick();
-			trigger?.focus();
+			// The trigger replaces the focused button, which takes focus with it.
+			if (focused) trigger?.focus();
+			if (pending) open = true;
+			pending = null;
 		} catch {
 			loading = undefined;
+			pending = null;
 		}
 	}
 
@@ -129,36 +131,35 @@
 	// pointerup, a key on Enter, Space or ArrowDown, and a click only when no
 	// pointer made it (detail 0, as from a screen reader). Every one of them
 	// opens, so a second activation before the menu loaded cannot close it.
-	function activate(keyboard: boolean) {
-		openedWithKeyboard ||= keyboard;
-		void load().then(() => {
-			if (Menu) open = true;
-		});
+	function activate(origin: 'keyboard' | 'pointer') {
+		pending = origin;
+		void load();
 	}
 
 	function onpointerdown(event: PointerEvent) {
 		if (event.pointerType === 'touch') return event.preventDefault();
 		if (event.button !== 0 || event.ctrlKey) return;
 		event.preventDefault();
-		activate(false);
+		activate('pointer');
 	}
 
 	function onpointerup(event: PointerEvent) {
 		if (event.pointerType !== 'touch') return;
 		event.preventDefault();
-		activate(false);
+		activate('pointer');
 	}
 
 	function onkeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') pending = null;
 		if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'ArrowDown') return;
 		event.preventDefault();
-		activate(true);
+		activate('keyboard');
 	}
 
 	function onclick(event: MouseEvent) {
 		if (event.detail !== 0) return;
 		event.preventDefault();
-		activate(false);
+		activate('pointer');
 	}
 </script>
 
@@ -170,7 +171,7 @@
 		{align}
 		bind:open
 		bind:trigger
-		{openedWithKeyboard}
+		openedWithKeyboard={pending === 'keyboard'}
 		onChange={switchLanguage}
 		onIntent={preloadTranslations}
 		class={className}
@@ -185,6 +186,9 @@
 		data-state="closed"
 		onpointerenter={() => void load()}
 		onfocus={() => void load()}
+		onfocusout={() => {
+			if (!Menu) pending = null;
+		}}
 		{onpointerdown}
 		{onpointerup}
 		{onkeydown}

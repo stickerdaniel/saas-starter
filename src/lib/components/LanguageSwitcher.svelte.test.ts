@@ -87,6 +87,10 @@ function holdMenuChunk() {
 	return chunk;
 }
 
+function press(key: string): void {
+	trigger().dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+}
+
 async function settle(): Promise<void> {
 	await vi.dynamicImportSettled();
 	await tick();
@@ -141,6 +145,62 @@ describe('LanguageSwitcher', () => {
 		await settle();
 		expect(document.querySelectorAll('[role="menu"]')).toHaveLength(1);
 		expect(trigger().getAttribute('aria-expanded')).toBe('true');
+	});
+
+	it('drops an activation cancelled with Escape before the menu loads', async () => {
+		const chunk = holdMenuChunk();
+		trigger().focus();
+		press('Enter');
+		press('Escape');
+		await vi.waitFor(() => expect(chunk.requested).toBe(true));
+
+		chunk.release();
+		await vi.waitFor(() =>
+			expect(document.activeElement?.hasAttribute('data-dropdown-menu-trigger')).toBe(true)
+		);
+		await settle();
+		expect(menu()).toBeNull();
+	});
+
+	it('drops an activation whose focus moved on before the menu loads', async () => {
+		const other = document.createElement('button');
+		document.body.append(other);
+		const chunk = holdMenuChunk();
+		trigger().focus();
+		press('Enter');
+		other.focus();
+		await vi.waitFor(() => expect(chunk.requested).toBe(true));
+
+		chunk.release();
+		await vi.waitFor(() =>
+			expect(document.querySelector('[data-dropdown-menu-trigger]')).not.toBeNull()
+		);
+		await settle();
+		expect(menu()).toBeNull();
+		expect(document.activeElement).toBe(other);
+	});
+
+	it('opens a pointer retry after a failed keyboard activation like a pointer', async () => {
+		vi.doUnmock('./ui/language-switcher/language-switcher.svelte');
+		vi.doMock('./ui/language-switcher/language-switcher.svelte', () => {
+			throw new Error('Failed to fetch dynamically imported module');
+		});
+		trigger().focus();
+		press('Enter');
+		await settle();
+		expect(menu()).toBeNull();
+
+		const chunk = holdMenuChunk();
+		trigger().dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType: 'mouse' })
+		);
+		await vi.waitFor(() => expect(chunk.requested).toBe(true));
+		chunk.release();
+
+		await vi.waitFor(() => expect(menu()).not.toBeNull());
+		await vi.waitFor(() => expect(document.activeElement).toBe(menu()));
+		await settle();
+		expect(document.activeElement).toBe(menu());
 	});
 
 	it('drops the idle load when it unmounts first', async () => {
