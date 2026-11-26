@@ -3,6 +3,7 @@
 import { parseUserInput } from 'better-auth/db';
 import { describe, expect, it, vi } from 'vitest';
 import { SUPPORTED_LANGUAGES } from '../../i18n/languages';
+import { createAuthOptions } from '../authServer';
 
 /**
  * `authClient.updateUser({ locale })` and sign-up both run the saved `locale`
@@ -24,7 +25,6 @@ vi.mock('../../convex/_generated/server', () => ({
 }));
 
 async function parseUser(user: Record<string, unknown>, action: 'create' | 'update') {
-	const { createAuthOptions } = await import('../authServer');
 	return parseUserInput(createAuthOptions({} as never), user, action);
 }
 
