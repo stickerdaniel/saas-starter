@@ -1186,3 +1186,76 @@ describe.skipIf(process.platform === 'win32')('lint job source identity', () => 
 		});
 	});
 });
+
+describe.skipIf(process.platform === 'win32')('superseded preview E2E cancellation', () => {
+	const jobs = parsedWorkflow('e2e-preview-cf.yml').jobs as Record<
+		string,
+		{ steps: Array<{ name?: string; run?: string }> }
+	>;
+	const steps = ['prepare', 'aggregate'].map((job) => {
+		const step = jobs[job]?.steps.find((candidate) => candidate.name?.includes('superseded'));
+		if (!step?.run) throw new Error(`${job} carries no supersession step`);
+		return { job, run: step.run };
+	});
+	const tested = 'a'.repeat(40);
+
+	/** Runs the step against a fake `gh`; a cancel stops the step as the runner would. */
+	function run(script: string, branch: string, api: string) {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'supersession-'));
+		try {
+			const log = path.join(dir, 'gh.log');
+			fs.writeFileSync(
+				path.join(dir, 'gh'),
+				[
+					'#!/bin/bash',
+					`echo "$*" >> ${JSON.stringify(log)}`,
+					'if [ "$1" = run ]; then kill -TERM "$PPID"; exit 0; fi',
+					'case "$FAKE_API" in',
+					'  HTTP*) echo "gh: failed ($FAKE_API)" >&2; exit 1 ;;',
+					'  *) echo "$FAKE_API" ;;',
+					'esac'
+				].join('\n'),
+				{ mode: 0o755 }
+			);
+			const result = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', script], {
+				cwd: dir,
+				env: {
+					PATH: `${dir}:${process.env.PATH}`,
+					GITHUB_REPOSITORY: REPOSITORY,
+					GITHUB_RUN_ID: '77',
+					E2E_EXPECTED_SHA: tested,
+					E2E_BRANCH: branch,
+					FAKE_API: api
+				},
+				encoding: 'utf-8',
+				timeout: 10_000
+			});
+			const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf-8').trim().split('\n') : [];
+			return { status: result.status, signal: result.signal, calls };
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	}
+
+	it.each(steps)('$job keeps a run whose build is still the branch head', ({ run: script }) => {
+		expect(run(script, 'feat/x', tested)).toMatchObject({ status: 0, calls: [expect.any(String)] });
+		expect(run(script, '', tested)).toMatchObject({ status: 0, calls: [] });
+	});
+
+	it.each(steps)('$job cancels a run once its branch moved or was deleted', ({ run: script }) => {
+		for (const api of [OLDER_HEAD, 'HTTP 404']) {
+			const result = run(script, 'feat/x', api);
+			expect(result.signal, api).toBe('SIGTERM');
+			expect(result.calls).toEqual([
+				`api repos/${REPOSITORY}/git/ref/heads/feat/x --jq .object.sha`,
+				'run cancel 77'
+			]);
+		}
+	});
+
+	it.each(steps)('$job fails instead of cancelling when the lookup fails', ({ run: script }) => {
+		const result = run(script, 'feat/x', 'HTTP 502');
+		expect(result.status).toBe(1);
+		expect(result.calls).not.toContain('run cancel 77');
+	});
+});

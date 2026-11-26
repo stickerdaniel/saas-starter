@@ -106,6 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
+      actions: write
       statuses: write
       contents: read
       checks: read
@@ -129,6 +130,30 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+
+      # A newer push to the branch recreates its Convex preview, so a build that
+      # is no longer the branch head would test a backend about to be deleted.
+      - name: Cancel when a newer push superseded this build
+        env: &supersession-env
+          GH_TOKEN: ${{ github.token }}
+          E2E_EXPECTED_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
+          E2E_BRANCH: ${{ github.event.check_run.check_suite.head_branch }}
+        # Inline, because the checkout holds the tested commit's scripts, which
+        # may predate this step.
+        run: &cancel-if-superseded |
+          [ -n "$E2E_BRANCH" ] || exit 0
+          if ! head=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${E2E_BRANCH}" --jq .object.sha 2>&1); then
+            case "$head" in
+              *'HTTP 404'*) head='(deleted)' ;;
+              *) echo "$head" >&2; exit 1 ;;
+            esac
+          fi
+          [ "$head" = "$E2E_EXPECTED_SHA" ] && exit 0
+          echo "::notice::Superseded: ${E2E_BRANCH} is at ${head}, not ${E2E_EXPECTED_SHA}. Cancelling the run, which publishes no verdict."
+          gh run cancel "$GITHUB_RUN_ID"
+          # The runner stops this job once the cancellation lands.
+          sleep 300
+          exit 1
 
       # Selects the triggering (or latest dispatched) Cloudflare build record and
       # waits until the alias serves that build's source SHA and build UUID.
@@ -287,6 +312,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
+      actions: write
       contents: read
       statuses: write
     steps:
@@ -294,6 +320,12 @@ jobs:
         with:
           ref: ${{ github.event.check_run.head_sha || inputs.sha }}
           persist-credentials: false
+      # A newer push or a branch deletion during the run removed the tested
+      # backend, so the failure says nothing about this build.
+      - name: Cancel a failed run that a newer push superseded
+        if: needs.prepare.result != 'success' || needs.exclusive.result != 'success' || (needs.public.result != 'success' && needs.public.result != 'skipped')
+        env: *supersession-env
+        run: *cancel-if-superseded
       - name: Require successful children
         env:
           PREPARE: ${{ needs.prepare.result }}
