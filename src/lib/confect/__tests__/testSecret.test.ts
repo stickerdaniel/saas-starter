@@ -1,50 +1,46 @@
+// @vitest-environment node
+/// <reference types="vite/client" />
+import { convexTest } from 'convex-test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { api } from '../../convex/_generated/api';
+import schema from '../../convex/schema';
+import * as registered from '../../convex/tests';
+import { convexModules } from '../convexTest.modules';
 
-vi.mock('../support/agent', () => ({ supportAgent: {} }));
-import * as testHelpers from '../tests';
+const publicHelpers = Object.entries(registered).filter(([, fn]) => fn.isPublic);
 
-type Registered = {
-	isPublic?: boolean;
-	exportArgs?: () => string;
-	_handler: (ctx: unknown, args: unknown) => unknown;
-};
+const exportedArgs = (fn: object) =>
+	'exportArgs' in fn && typeof fn.exportArgs === 'function'
+		? JSON.parse(String(fn.exportArgs()))
+		: undefined;
 
-/** Every public function in tests.ts; each one must refuse a caller without the E2E secret. */
-const publicHelpers = Object.entries(testHelpers as unknown as Record<string, Registered>).filter(
-	([, fn]) => fn.isPublic
-);
-
-/** A context that fails the test on any use, so a refusal must come before every read and write. */
-const untouchableCtx = new Proxy(
-	{},
-	{
-		get: (_target, property) => {
-			throw new Error(`ctx.${String(property)} used before the secret check`);
-		}
-	}
-);
+const health = (secret: string) =>
+	convexTest(schema, convexModules).query(api.tests.health, { secret });
 
 afterEach(() => vi.unstubAllEnvs());
 
 describe('E2E test helpers', () => {
 	it.each(publicHelpers)('%s requires a string secret argument', (_name, fn) => {
-		const args = JSON.parse(fn.exportArgs?.() ?? '{}');
-		expect(args.value?.secret).toEqual({ fieldType: { type: 'string' }, optional: false });
+		expect(exportedArgs(fn)?.value?.secret).toEqual({
+			fieldType: { type: 'string' },
+			optional: false
+		});
 	});
 
-	it.each(publicHelpers)('%s refuses a wrong secret of the right shape', async (_name, fn) => {
+	it('answers the configured secret', async () => {
 		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'test-secret');
-		await expect(async () =>
-			fn._handler(untouchableCtx, { secret: 'test-secreu' })
-		).rejects.toThrow('Unauthorized: Invalid test secret');
+		await expect(health('test-secret')).resolves.toEqual({ ok: true });
 	});
 
-	it.each(publicHelpers)('%s refuses every secret when none is configured', async (_name, fn) => {
+	it('refuses a wrong secret of the right shape', async () => {
+		vi.stubEnv('AUTH_E2E_TEST_SECRET', 'test-secret');
+		await expect(health('test-secreu')).rejects.toThrow('Unauthorized: Invalid test secret');
+	});
+
+	it('refuses every secret when none is configured', async () => {
 		vi.stubEnv('AUTH_E2E_TEST_SECRET', undefined);
 		for (const secret of ['', 'undefined', 'test-secret']) {
-			await expect(async () => fn._handler(untouchableCtx, { secret })).rejects.toThrow(
-				'Unauthorized: Invalid test secret'
-			);
+			await expect(health(secret)).rejects.toThrow('Unauthorized: Invalid test secret');
 		}
 	});
 });

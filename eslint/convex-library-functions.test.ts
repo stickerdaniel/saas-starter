@@ -22,13 +22,10 @@ it('lists only functions the inventory golden records with plain provenance', ()
 });
 
 it('lists every function the inventory golden records with plain provenance', () => {
-	const unconvertedGroups = new Set(['tests']);
-	const plain = Object.entries(inventory.groups)
-		.filter(([group]) => !unconvertedGroups.has(group))
-		.flatMap(([group, functions]) =>
-			Object.entries(functions)
-				.filter(([, row]) => row[3] === 'Convex')
-				.map(([name]) => `${group}:${name}`)
-		);
+	const plain = Object.entries(inventory.groups).flatMap(([group, functions]) =>
+		Object.entries(functions)
+			.filter(([, row]) => row[3] === 'Convex')
+			.map(([name]) => `${group}:${name}`)
+	);
 	expect(plain.toSorted()).toEqual(Object.values(CONFECT_LIBRARY_FUNCTIONS).flat().toSorted());
 });

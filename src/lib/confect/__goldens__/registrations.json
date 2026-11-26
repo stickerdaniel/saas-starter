@@ -377,7 +377,6 @@
 			"updateThreadMetadata": ["internal", "mutation", "06dab6a516d5daa0", "bcde375ebd4cbacf"]
 		},
 		"tests": {
-			"cleanupAllTestUsers": ["public", "mutation", "e3b36a6473b293e2", "1e83cc5378dea674"],
 			"cleanupAnonymousSupportThreads": [
 				"public",
 				"mutation",
@@ -413,14 +412,7 @@
 			"getLegacyAuditLogCursor": ["public", "query", "175bf4c72fd97d7a", "00404e686415370f"],
 			"getPasswordResetToken": ["public", "mutation", "fc1e15266873dd30", "c14b71aa2f8a5a56"],
 			"getSupportThreadsByUserId": ["public", "mutation", "f02ef852b7f485ac", "f22a4169bb82df99"],
-			"getTestUser": ["internal", "query", "92a026eb059d4cf1", "0c4eff9f3ccf00b3"],
 			"health": ["public", "query", "e3b36a6473b293e2", "efde83ecf2efd768"],
-			"recalculateDashboardCounters": [
-				"public",
-				"mutation",
-				"e3b36a6473b293e2",
-				"5936140f5090b9e0"
-			],
 			"recoverSupportNotificationFixture": [
 				"public",
 				"mutation",

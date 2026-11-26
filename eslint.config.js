@@ -62,7 +62,36 @@ const CONFECT_PUBLIC_FUNCTIONS = {
 	'aiChat/files:saveUploadedFile':
 		'Its first step, requireFileAccess, requires a session before the upload token is finalized.',
 	'support/messages:getFileMetadataBatch':
-		'Returns only image dimensions for storage URLs the caller already holds.'
+		'Returns only image dimensions for storage URLs the caller already holds.',
+	...Object.fromEntries(
+		[
+			'cleanupAnonymousSupportThreads',
+			'cleanupTestData',
+			'createAnonymousSupportThread',
+			'createTestAdminUser',
+			'createUnreadAnonymousSupportReply',
+			'deleteAiChatHistoryRows',
+			'deleteAuditLogRows',
+			'deleteOwnedFixture',
+			'deleteSupportNotificationFixture',
+			'deleteTestUser',
+			'findOwnedTestData',
+			'getAuthUserIdByEmail',
+			'getLegacyAuditLogCursor',
+			'getPasswordResetToken',
+			'getSupportThreadsByUserId',
+			'health',
+			'recoverSupportNotificationFixture',
+			'resetAiChatFileUploadLimit',
+			'seedAiChatHistoryRows',
+			'seedAuditLogRows',
+			'seedSupportNotificationClaim',
+			'verifyTestUserEmail'
+		].map((name) => [
+			`tests:${name}`,
+			'E2E fixture endpoint: its handler first refuses every caller without AUTH_E2E_TEST_SECRET, which only test deployments set.'
+		])
+	)
 };
 // Code the Convex runtime loads: the registration modules in the functions directory,
 // the helpers, tests and shared validators beside it, and the local components.

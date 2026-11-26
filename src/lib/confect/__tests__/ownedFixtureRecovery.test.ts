@@ -103,3 +103,67 @@ describe('owned fixture recovery', () => {
 		).rejects.toThrow('Invalid E2E fixture token');
 	});
 });
+
+describe('support notification fixture scheduling', () => {
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => vi.useRealTimers());
+
+	const states = (t: ReturnType<typeof convexTest>, notificationId: string) =>
+		t.run(async (ctx) =>
+			(await ctx.db.system.query('_scheduled_functions').collect())
+				.filter((job) => job.args[0]?.notificationId === notificationId)
+				.map((job): [string, string] => [job.name, job.state.kind])
+				.sort()
+		);
+
+	it('cancels the original send and, on cleanup, only the deleted fixture recovery', async () => {
+		const t = convexTest(schema, convexModules);
+		const a = await t.mutation(api.tests.seedSupportNotificationClaim, {
+			secret,
+			fixtureToken: token(1)
+		});
+		const b = await t.mutation(api.tests.seedSupportNotificationClaim, {
+			secret,
+			fixtureToken: token(2)
+		});
+		const seeded = [
+			['admin/support/notifications:recoverNotificationClaim', 'pending'],
+			['admin/support/notifications:sendPendingAdminNotification', 'canceled']
+		];
+		expect(await states(t, a.notificationId)).toEqual(seeded);
+
+		await t.mutation(api.tests.deleteOwnedFixture, {
+			secret,
+			fixture: { kind: 'supportNotification', token: token(1) }
+		});
+
+		expect(await states(t, a.notificationId)).toEqual([
+			['admin/support/notifications:recoverNotificationClaim', 'canceled'],
+			['admin/support/notifications:sendPendingAdminNotification', 'canceled']
+		]);
+		expect(await states(t, b.notificationId)).toEqual(seeded);
+	});
+
+	it('cancels the pending resend after a recovery', async () => {
+		const t = convexTest(schema, convexModules);
+		const { deadline: _deadline, ...ownership } = await t.mutation(
+			api.tests.seedSupportNotificationClaim,
+			{ secret, fixtureToken: token(3) }
+		);
+		await t.mutation(api.tests.recoverSupportNotificationFixture, { secret, ...ownership });
+		const resend = await t.run(
+			async (ctx) =>
+				(await ctx.db.get('pendingAdminNotifications', ownership.notificationId))?.scheduledFnId
+		);
+		const state = () =>
+			t.run(async (ctx) => (resend ? (await ctx.db.system.get(resend))?.state.kind : undefined));
+		expect(await state()).toBe('pending');
+
+		await t.mutation(api.tests.deleteSupportNotificationFixture, {
+			secret,
+			notificationId: ownership.notificationId
+		});
+
+		expect(await state()).toBe('canceled');
+	});
+});

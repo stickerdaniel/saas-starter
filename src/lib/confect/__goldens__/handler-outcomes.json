@@ -464,11 +464,6 @@
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
 		"user": "ConvexError {\"code\":\"SUPPORT_THREAD_NOT_FOUND\"}"
 	},
-	"tests:cleanupAllTestUsers": {
-		"anonymous": "Error Unauthorized: Invalid test secret",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error Unauthorized: Invalid test secret"
-	},
 	"tests:cleanupAnonymousSupportThreads": {
 		"anonymous": "Error Unauthorized: Invalid test secret",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
@@ -545,11 +540,6 @@
 		"user": "Error Unauthorized: Invalid test secret"
 	},
 	"tests:health": {
-		"anonymous": "Error Unauthorized: Invalid test secret",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error Unauthorized: Invalid test secret"
-	},
-	"tests:recalculateDashboardCounters": {
 		"anonymous": "Error Unauthorized: Invalid test secret",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
 		"user": "Error Unauthorized: Invalid test secret"
