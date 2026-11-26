@@ -26,6 +26,36 @@ export type AwaitedTurn =
 	| { readonly kind: 'accepted'; readonly order: number }
 	| { readonly kind: 'unordered' };
 
+export class ChatConversation {
+	#threadId = $state<string | null>(null);
+	#listeners: Array<(threadId: string) => void> = [];
+
+	constructor(threadId: string | null = null) {
+		this.#threadId = threadId;
+	}
+
+	get threadId(): string | null {
+		return this.#threadId;
+	}
+
+	assign(threadId: string): void {
+		if (this.#threadId !== null) {
+			throw new Error('Chat conversation has a thread id already');
+		}
+		this.#threadId = threadId;
+		const listeners = this.#listeners;
+		this.#listeners = [];
+		for (const listener of listeners) listener(threadId);
+	}
+
+	whenAssigned(listener: (threadId: string) => void): () => void {
+		this.#listeners = [...this.#listeners, listener];
+		return () => {
+			this.#listeners = this.#listeners.filter((candidate) => candidate !== listener);
+		};
+	}
+}
+
 /**
  * Consumer-driven state contract for the shared chat UI.
  *
@@ -34,9 +64,9 @@ export type AwaitedTurn =
  * reusable composer and message surface consume.
  */
 export interface ChatSessionPort {
+	readonly conversation: ChatConversation;
 	readonly threadId: string | null;
 	readonly isNewConversation: boolean;
-	readonly threadGeneration: number;
 	readonly isSending: boolean;
 	/** True exactly while `awaitedTurn` is set. */
 	readonly isAwaitingStream: boolean;

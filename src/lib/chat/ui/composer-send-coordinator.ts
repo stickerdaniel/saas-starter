@@ -6,11 +6,9 @@ import {
 	registerPersistedChatHolder,
 	type PersistedChatHolder
 } from '../core/chat-persisted-state.js';
+import type { ChatConversation, ChatSessionPort } from '../core/chat-session-port.svelte.ts';
 import type { Attachment } from '../core/types.js';
-import type { ChatConversationOrigin, ChatSendSnapshot } from './chat-context.svelte.ts';
-
-/** Called by a session port once a conversation that had no thread id receives one. */
-export type ThreadOriginBinder = (threadId: string, epoch: number, generation: number) => void;
+import type { ChatSendSnapshot } from './chat-context.svelte.ts';
 
 /** The checkpoint operations of the surface's draft store. */
 export interface ComposerDraftStore {
@@ -31,12 +29,9 @@ export type ComposerSendResources = {
 /** A mounted composer the coordinator can put refused work back into. */
 export interface ComposerSendTarget {
 	/** The session port whose conversation this composer shows. */
-	readonly core: object;
-	/** The conversation on screen now. */
-	readonly sendOrigin: ChatConversationOrigin;
+	readonly core: Pick<ChatSessionPort, 'conversation'>;
 	/** What the composer holds now. Everything in it is newer than the sends it cleared. */
 	readonly inputValue: string;
-	bindThreadOrigin(threadId: string, generation: number): void;
 	restoreFailedSend(text: string, attachments: Attachment[]): void;
 	sendResources(): ComposerSendResources;
 	/** Called whenever a send begins, settles or moves, so the composer can re-read its count. */
@@ -48,7 +43,6 @@ export type ComposerSendOutcome = 'accepted' | 'refused';
 type PendingSend = {
 	readonly id: number;
 	readonly sessionEpoch: number;
-	readonly core: object;
 	readonly snapshot: ChatSendSnapshot;
 	readonly source: ComposerSendTarget;
 	readonly resources: ComposerSendResources;
@@ -59,23 +53,17 @@ type PendingSend = {
 /** Refused work of a conversation that is off screen and has no thread id to be stored under yet. */
 type HeldRestoration = {
 	readonly sessionEpoch: number;
-	readonly core: object;
-	readonly origin: ChatConversationOrigin;
+	readonly conversation: ChatConversation;
 	readonly texts: string[];
 	readonly attachments: Attachment[];
 	readonly store?: ComposerSendResources['store'];
+	readonly unsubscribe: () => void;
 };
-
-type Conversation = { core: object; origin: ChatConversationOrigin };
 
 const SEPARATOR = '\n\n';
 
-function sameConversation(a: Conversation, b: Conversation): boolean {
-	if (a.origin === b.origin) return true;
-	if (a.origin.threadId !== null) return a.origin.threadId === b.origin.threadId;
-	return (
-		b.origin.threadId === null && a.core === b.core && a.origin.generation === b.origin.generation
-	);
+function sameConversation(a: ChatConversation, b: ChatConversation): boolean {
+	return a === b || (a.threadId !== null && a.threadId === b.threadId);
 }
 
 function joinWork(texts: string[], newer: string): string {
@@ -150,26 +138,16 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 		};
 	}
 
-	/**
-	 * The binder a session port calls when a conversation receives its thread
-	 * id. It reaches pending sends of that port even after the composer that
-	 * captured them is gone.
-	 */
-	originBinder(core: object): ThreadOriginBinder {
-		return (threadId, epoch, generation) => this.bindOrigin(core, threadId, epoch, generation);
-	}
-
 	/** Take over a send the composer has just cleared. */
 	begin(source: ComposerSendTarget, snapshot: ChatSendSnapshot): number {
 		const id = this.nextSendId++;
 		this.pending.set(id, {
 			id,
 			sessionEpoch: snapshot.sessionEpoch,
-			core: source.core,
 			snapshot,
 			source,
 			resources: source.sendResources(),
-			draftCheckpoint: this.drafts?.captureCheckpoint(snapshot.origin.threadId)
+			draftCheckpoint: this.drafts?.captureCheckpoint(snapshot.conversation.threadId)
 		});
 		this.pendingChanged();
 		return id;
@@ -192,13 +170,13 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 			return;
 		}
 		if (outcome === 'accepted' && send.draftCheckpoint) {
-			this.drafts?.clearDraftIfUnchanged(send.draftCheckpoint, send.snapshot.origin.threadId);
+			this.drafts?.clearDraftIfUnchanged(send.draftCheckpoint, send.snapshot.conversation.threadId);
 		}
 
 		const group = [...this.pending.values()].filter(
 			(candidate) =>
 				candidate.sessionEpoch === send.sessionEpoch &&
-				sameConversation(this.conversationOf(candidate), this.conversationOf(send))
+				sameConversation(candidate.snapshot.conversation, send.snapshot.conversation)
 		);
 		if (group.some((candidate) => !candidate.outcome)) return;
 		for (const candidate of group) this.pending.delete(candidate.id);
@@ -226,7 +204,7 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 		if (!this.drafts || threadId === null) return false;
 		const sends = [...this.pending.values()].filter(
 			(send) =>
-				isChatSessionCurrent(send.sessionEpoch) && send.snapshot.origin.threadId === threadId
+				isChatSessionCurrent(send.sessionEpoch) && send.snapshot.conversation.threadId === threadId
 		);
 		return this.storedDraftCaptured(threadId, sends);
 	}
@@ -236,18 +214,19 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 	 * would bring back if refused. An accepted send holds none.
 	 */
 	pendingAttachmentCount(target: ComposerSendTarget): number {
-		const shown = { core: target.core, origin: target.sendOrigin };
+		const shown = target.core.conversation;
 		const holding = [...this.pending.values()].filter(
 			(send) =>
 				send.outcome !== 'accepted' &&
 				isChatSessionCurrent(send.sessionEpoch) &&
-				sameConversation(this.conversationOf(send), shown)
+				sameConversation(send.snapshot.conversation, shown)
 		);
 		return sentAttachments(holding).length;
 	}
 
 	forgetPersistedState(): void {
 		this.abandon(() => true);
+		for (const held of this.held) held.unsubscribe();
 		this.held = [];
 		this.pendingChanged();
 	}
@@ -280,10 +259,6 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 		if (surface && this.pending.size === 0) dropSurfaceOwnerIfUnused(surface);
 	}
 
-	private conversationOf(send: PendingSend): Conversation {
-		return { core: send.core, origin: send.snapshot.origin };
-	}
-
 	private storedDraftCaptured(threadId: string, sends: PendingSend[]): boolean {
 		const drafts = this.drafts;
 		if (!drafts) return false;
@@ -297,19 +272,19 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 	}
 
 	private matchingTarget(
-		conversation: Conversation,
+		conversation: ChatConversation,
 		preferred?: ComposerSendTarget
 	): ComposerSendTarget | undefined {
 		const matches = (target: ComposerSendTarget) =>
-			sameConversation(conversation, { core: target.core, origin: target.sendOrigin });
+			sameConversation(conversation, target.core.conversation);
 		if (preferred && this.targets.has(preferred) && matches(preferred)) return preferred;
 		return [...this.targets].reverse().find(matches);
 	}
 
 	private publish(group: PendingSend[], refused: PendingSend[]): void {
 		const last = refused.at(-1)!;
-		const conversation = this.conversationOf(last);
-		const threadId = conversation.origin.threadId;
+		const conversation = last.snapshot.conversation;
+		const threadId = conversation.threadId;
 		const texts = refused.map((send) => send.snapshot.inputValue);
 		const target = this.matchingTarget(conversation, last.source);
 
@@ -326,14 +301,15 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 		const kept = refused.filter((send) => send.resources.store);
 		if (threadId === null) {
 			if (!this.drafts && kept.length === 0) return;
-			this.held.push({
+			const held: HeldRestoration = {
 				sessionEpoch: last.sessionEpoch,
-				core: last.core,
-				origin: conversation.origin,
+				conversation,
 				texts: this.drafts ? texts : [],
 				attachments: sentAttachments(kept),
-				store: kept[0]?.resources.store
-			});
+				store: kept[0]?.resources.store,
+				unsubscribe: conversation.whenAssigned((assigned) => this.flushHeld(held, assigned))
+			};
+			this.held.push(held);
 			return;
 		}
 
@@ -348,51 +324,34 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 		}
 	}
 
-	private bindOrigin(core: object, threadId: string, epoch: number, generation: number): void {
-		if (!isChatSessionCurrent(epoch)) return;
-		for (const target of this.targets) {
-			if (target.core === core) target.bindThreadOrigin(threadId, generation);
+	private flushHeld(held: HeldRestoration, threadId: string): void {
+		if (!isChatSessionCurrent(held.sessionEpoch)) return;
+		this.held = this.held.filter((candidate) => candidate !== held);
+		const target = this.matchingTarget(held.conversation);
+		if (target) {
+			const text = joinWork(held.texts, target.inputValue);
+			target.restoreFailedSend(text, held.attachments);
+			this.drafts?.setDraft(threadId, text);
+			return;
 		}
-		const binds = (candidate: { core: object; origin: ChatConversationOrigin }) =>
-			candidate.core === core &&
-			candidate.origin.threadId === null &&
-			candidate.origin.generation === generation;
-		for (const send of this.pending.values()) {
-			if (send.sessionEpoch === epoch && binds(this.conversationOf(send))) {
-				send.snapshot.origin.threadId = threadId;
-			}
+		if (this.drafts && held.texts.length > 0) {
+			this.drafts.setDraft(threadId, joinWork(held.texts, this.drafts.getDraft(threadId)));
 		}
-		this.pendingChanged();
-
-		const bound = this.held.filter((held) => held.sessionEpoch === epoch && binds(held));
-		if (bound.length === 0) return;
-		this.held = this.held.filter((held) => !bound.includes(held));
-		for (const held of bound) {
-			held.origin.threadId = threadId;
-			const target = this.matchingTarget(held);
-			if (target) {
-				const text = joinWork(held.texts, target.inputValue);
-				target.restoreFailedSend(text, held.attachments);
-				this.drafts?.setDraft(threadId, text);
-				continue;
-			}
-			if (this.drafts && held.texts.length > 0) {
-				this.drafts.setDraft(threadId, joinWork(held.texts, this.drafts.getDraft(threadId)));
-			}
-			if (held.attachments.length > 0) {
-				held.store?.restoreThreadAttachments(threadId, held.attachments);
-			}
+		if (held.attachments.length > 0) {
+			held.store?.restoreThreadAttachments(threadId, held.attachments);
 		}
 	}
 
 	private projectHeld(target: ComposerSendTarget): void {
-		const conversation = { core: target.core, origin: target.sendOrigin };
+		const conversation = target.core.conversation;
 		const matching = this.held.filter(
-			(held) => isChatSessionCurrent(held.sessionEpoch) && sameConversation(held, conversation)
+			(held) =>
+				isChatSessionCurrent(held.sessionEpoch) && sameConversation(held.conversation, conversation)
 		);
 		if (matching.length === 0) return;
 		this.held = this.held.filter((held) => !matching.includes(held));
 		for (const held of matching) {
+			held.unsubscribe();
 			target.restoreFailedSend(joinWork(held.texts, target.inputValue), held.attachments);
 		}
 	}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { onDestroy, untrack, type Snippet } from 'svelte';
-	import type { ChatSessionPort } from '../core/chat-session-port.js';
+	import type { ChatSessionPort } from '../core/chat-session-port.svelte.ts';
 	import {
 		appendDeltaPage,
 		deltaCursors,

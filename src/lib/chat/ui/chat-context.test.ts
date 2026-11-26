@@ -290,7 +290,7 @@ describe('ChatUIContext upload failures', () => {
 		ctx.setDisplayMessages([]);
 		ctx.addAttachments([fileAttachment(undefined)]);
 
-		core.threadId = 'thread-b';
+		core.setThread('thread-b');
 		ctx.setDisplayMessages([]);
 
 		expect(ctx.attachments).toHaveLength(0);
@@ -304,7 +304,7 @@ describe('ChatUIContext upload failures', () => {
 		ctx.setDisplayMessages([]);
 		ctx.addAttachments([fileAttachment(undefined)]);
 
-		core.threadId = 'thread-a';
+		core.conversation.assign('thread-a');
 		ctx.setDisplayMessages([]);
 
 		expect(ctx.attachments).toHaveLength(1);

@@ -145,7 +145,6 @@
 	const activeUploads = activeUploadsContext.getOr(null);
 	function createChatUIContext(sendOwner: ComposerSendCoordinator): ChatUIContext {
 		return new ChatUIContext(conversation, client, uploadConfig, 'right', activeUploads, {
-			bindThreadOrigin: (binder) => conversation.setThreadOriginBinder(binder),
 			forgetSession: () => conversation.forgetChatSession(),
 			sendOwner
 		});

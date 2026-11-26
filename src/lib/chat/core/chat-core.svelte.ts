@@ -13,7 +13,11 @@ import { DEFAULT_CHAT_CONFIG } from './types.js';
 import { StreamCacheManager } from './stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from './optimistic.js';
 import { getChatSessionEpoch, isChatSessionCurrent } from './chat-persisted-state.js';
-import type { AwaitedTurn, ChatSessionPort } from './chat-session-port.js';
+import {
+	ChatConversation,
+	type AwaitedTurn,
+	type ChatSessionPort
+} from './chat-session-port.svelte.ts';
 import { ChatCommandError, type ChatCommandErrorCode } from './chat-command-error.js';
 
 export type ChatCoreErrorCode = ChatCommandErrorCode | 'send_failed' | 'create_thread_failed';
@@ -52,12 +56,9 @@ export interface ChatCoreOptions {
 
 /** Stream processing lives in StreamCacheManager. */
 export class ChatCore implements ChatSessionPort {
-	threadId = $state<string | null>(null);
+	#conversation = $state.raw(new ChatConversation());
 	/** True while a new conversation starts, so suggestions show at once */
 	isNewConversation = $state(false);
-	/** Bumps on every new thread session. A {#key} on it replays the chip
-	 *  entrance animations. */
-	threadGeneration = $state(0);
 
 	isLoading = $state(false);
 	isSending = $state(false);
@@ -82,13 +83,20 @@ export class ChatCore implements ChatSessionPort {
 	private readonly config: Required<ChatConfig>;
 	private sendRevision = 0;
 	private provisionalThreadBinding: { threadId: string; sendRevision: number } | null = null;
-	private threadOriginBinder?: (threadId: string, epoch: number, generation: number) => void;
 
 	constructor(options: ChatCoreOptions) {
-		this.threadId = options.threadId ?? null;
+		this.#conversation = new ChatConversation(options.threadId ?? null);
 		this.isNewConversation = this.threadId === null;
 		this.api = options.api;
 		this.config = { ...DEFAULT_CHAT_CONFIG, ...options.config };
+	}
+
+	get conversation(): ChatConversation {
+		return this.#conversation;
+	}
+
+	get threadId(): string | null {
+		return this.#conversation.threadId;
 	}
 
 	get hasThread(): boolean {
@@ -97,12 +105,6 @@ export class ChatCore implements ChatSessionPort {
 
 	get isAwaitingStream(): boolean {
 		return this.awaitedTurn !== null;
-	}
-
-	setThreadOriginBinder(
-		binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
-	): void {
-		this.threadOriginBinder = binder;
 	}
 
 	setThread(threadId: string | null): void {
@@ -117,7 +119,10 @@ export class ChatCore implements ChatSessionPort {
 			this.isSending = false;
 			this.awaitedTurn = null;
 		}
-		this.threadId = threadId;
+		if (threadId !== this.threadId) {
+			if (bindsActiveProvisionalThread) this.#conversation.assign(threadId);
+			else this.#conversation = new ChatConversation(threadId);
+		}
 		this.isNewConversation = threadId === null;
 		this.hasMore = false;
 		this.continueCursor = null;
@@ -214,11 +219,9 @@ export class ChatCore implements ChatSessionPort {
 				threadId = result.threadId;
 				threadCreated = result;
 				this.provisionalThreadBinding = { threadId, sendRevision };
-				this.threadOriginBinder?.(threadId, sessionEpoch, this.threadGeneration);
-
 				// Assigned directly: setThread would clear streamCache, error, and the
 				// pagination cursors
-				this.threadId = threadId;
+				this.#conversation.assign(threadId);
 				this.provisionalThreadBinding = null;
 				this.isNewConversation = false;
 				failureCode = 'send_failed';
@@ -314,7 +317,7 @@ export class ChatCore implements ChatSessionPort {
 	reset(): void {
 		this.sendRevision++;
 		this.provisionalThreadBinding = null;
-		this.threadId = null;
+		this.#conversation = new ChatConversation();
 		this.isNewConversation = false;
 		this.isLoading = false;
 		this.isSending = false;

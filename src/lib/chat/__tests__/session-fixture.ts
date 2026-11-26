@@ -1,15 +1,24 @@
 import { vi } from 'vitest';
-import type { AwaitedTurn, ChatSessionPort } from '../core/chat-session-port';
+import {
+	ChatConversation,
+	type AwaitedTurn,
+	type ChatSessionPort
+} from '../core/chat-session-port.svelte.ts';
 
 /** A complete shared-session double; consumer tests cannot hide missing port members. */
 export function createChatSession(threadId: string | null = null) {
+	let conversation = new ChatConversation(threadId);
 	let awaitedTurn: AwaitedTurn | null = null;
-	return {
-		threadId,
-		get isNewConversation() {
-			return this.threadId === null;
+	const session = {
+		get conversation() {
+			return conversation;
 		},
-		threadGeneration: 0,
+		get threadId() {
+			return conversation.threadId;
+		},
+		get isNewConversation() {
+			return conversation.threadId === null;
+		},
 		isSending: false,
 		get isAwaitingStream() {
 			return awaitedTurn !== null;
@@ -26,4 +35,9 @@ export function createChatSession(threadId: string | null = null) {
 			clearReasoningCache: vi.fn<(order: number) => void>()
 		}
 	} satisfies ChatSessionPort;
+	return Object.assign(session, {
+		setThread(next: string | null) {
+			conversation = new ChatConversation(next);
+		}
+	});
 }

@@ -10,7 +10,7 @@ import {
 	hasStreamingAssistantMessage,
 	selectThreadStreamingUIMessages
 } from './streaming-display.js';
-import type { StreamCachePort } from '../core/chat-session-port.js';
+import type { StreamCachePort } from '../core/chat-session-port.svelte.ts';
 import { StreamCacheManager } from '../core/stream-cache.js';
 
 function createStreamCache(): StreamCachePort {

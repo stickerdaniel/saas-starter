@@ -71,7 +71,7 @@ export class SimpleChatSession {
 	projectInput(context: ChatUIContext, projection: ChatInputProjection): void {
 		if (
 			projection.sessionEpoch !== this.sessionEpoch ||
-			projection.origin.threadId !== this.threadId ||
+			projection.conversation.threadId !== this.threadId ||
 			!isChatSessionCurrent(this.sessionEpoch) ||
 			!this.contexts.has(context)
 		) {
@@ -96,7 +96,7 @@ export class SimpleChatSession {
 			value,
 			reason: 'user-edit',
 			sessionEpoch: this.sessionEpoch,
-			origin: { generation: context.core.threadGeneration, threadId: this.threadId },
+			conversation: context.core.conversation,
 			inputRevision: 0
 		});
 	}

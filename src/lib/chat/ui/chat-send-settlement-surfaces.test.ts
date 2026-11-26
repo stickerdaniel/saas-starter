@@ -307,7 +307,6 @@ describe('support widget accepted send', () => {
 		support.selectThread('thread-support');
 		conversation.setDraft('thread-support', 'send this');
 		const context = new ChatUIContext(conversation, client, undefined, 'right', null, {
-			bindThreadOrigin: (binder) => conversation.setThreadOriginBinder(binder),
 			forgetSession: () => conversation.forgetChatSession(),
 			sendOwner: support.sendOwner
 		});

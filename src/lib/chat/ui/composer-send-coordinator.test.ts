@@ -100,7 +100,6 @@ function chatSurface({
 
 	async function openComposer(threadId: string | null, core = new ChatCore({ threadId })) {
 		const context = new ChatUIContext(core, client, uploadConfig, 'right', null, {
-			bindThreadOrigin: (binder) => core.setThreadOriginBinder(binder),
 			projectInput: (projection) => {
 				if (projection.reason === 'send-restore') restorations.push(projection.value);
 			},
@@ -412,6 +411,25 @@ describe('composers that come and go', () => {
 		expect(reopened.text()).toBe('first words');
 		expect(reopened.attachments()).toEqual(['a']);
 	});
+
+	it('stores a refusal that arrived before its new conversation got an id', async () => {
+		const chat = chatSurface();
+		const core = new ChatCore({ threadId: null });
+		const composer = await chat.open(null, core);
+		await composer.send('held words', 'a');
+		await composer.close();
+		chat.sends[0]!.reject(new Error('refused'));
+		await settleWork();
+
+		core.conversation.assign('thread-created');
+		await settleWork();
+
+		expect(chat.drafts!.getDraft('thread-created')).toBe('held words');
+		expect(keys(chat.store!.readThread('thread-created'))).toEqual(['a']);
+		const reopened = await chat.open('thread-created', core);
+		expect(reopened.text()).toBe('held words');
+		expect(reopened.attachments()).toEqual(['a']);
+	});
 });
 
 describe('surface lifetime', () => {
@@ -449,6 +467,28 @@ describe('surface lifetime', () => {
 		expect(persisted.drafts!.getDraft('thread-a')).toBe('');
 		expect(persisted.store!.readThread('thread-a')).toEqual([]);
 		const reopened = await persisted.open('thread-a');
+		expect(reopened.text()).toBe('');
+		expect(reopened.attachments()).toEqual([]);
+	});
+
+	it('stores nothing of an ended session when its new conversation gets an id afterwards', async () => {
+		const chat = chatSurface();
+		const unmountSurface = chat.owner.mount();
+		const core = new ChatCore({ threadId: null });
+		const composer = await chat.open(null, core);
+		await composer.send('old session', 'a');
+		await composer.close();
+		chat.sends[0]!.reject(new Error('refused'));
+		await settleWork();
+
+		clearPersistedChatState();
+		core.conversation.assign('thread-created');
+		await settleWork();
+		unmountSurface();
+
+		expect(chat.drafts!.getDraft('thread-created')).toBe('');
+		expect(chat.store!.readThread('thread-created')).toEqual([]);
+		const reopened = await chat.open('thread-created', core);
 		expect(reopened.text()).toBe('');
 		expect(reopened.attachments()).toEqual([]);
 	});

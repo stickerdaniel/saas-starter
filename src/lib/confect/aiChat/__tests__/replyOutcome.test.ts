@@ -11,7 +11,7 @@ import { createOptimisticUpdate } from '../../../chat/core/optimistic';
 import { StreamCacheManager } from '../../../chat/core/stream-cache';
 import { redactLanguageModelProviderErrors } from '../../../chat/core/tool-error-redaction';
 import type { MessagesQueryResponse } from '../../../chat/core/types';
-import type { AwaitedTurn } from '../../../chat/core/chat-session-port';
+import type { AwaitedTurn } from '../../../chat/core/chat-session-port.svelte.ts';
 import {
 	buildDisplayMessages,
 	decodeStreamingUIMessages,

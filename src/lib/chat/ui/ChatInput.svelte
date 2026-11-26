@@ -887,7 +887,7 @@
 	     waits for the query on existing threads, which prevents a flash. -->
 	{#if showSuggestions}
 		<div class="pb-2">
-			{#key ctx.core.threadGeneration}
+			{#key ctx.core.conversation}
 				<div class="flex flex-wrap gap-2">
 					{#each suggestions as suggestion, i (suggestion.text)}
 						<div

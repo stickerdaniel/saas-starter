@@ -73,7 +73,7 @@
 			// When transitioning from null to a real threadId (initial creation),
 			// just update the ID without resetting state to avoid re-animating suggestions
 			if (chatCore.threadId === null && newId !== null) {
-				chatCore.threadId = newId;
+				chatCore.conversation.assign(newId);
 			} else {
 				chatCore.setThread(newId);
 			}
@@ -99,7 +99,6 @@
 		'right',
 		activeUploadsContext.getOr(null),
 		{
-			bindThreadOrigin: (binder) => chatCore.setThreadOriginBinder(binder),
 			forgetSession: () => chatCore.forgetChatSession(),
 			sendOwner: owner
 		}
@@ -163,7 +162,7 @@
 		<div class="relative z-20 mx-auto w-full max-w-3xl -translate-y-4">
 			{#if (chatCore.isNewConversation || chatUIContext.messagesReady) && chatUIContext.displayMessages.length === 0 && !chatUIContext.inputValue.trim() && hasMessagesAvailable && suggestions.length > 0}
 				<div class="mx-4 pb-2">
-					{#key chatCore.threadGeneration}
+					{#key chatCore.conversation}
 						<div class="flex flex-wrap gap-2">
 							{#each suggestions as suggestion, i (suggestion.text)}
 								<div

@@ -173,15 +173,11 @@
 	// before the chat shows the new thread, which would otherwise take the
 	// attachments it finds and mix them with the ones this clears.
 	watch.pre(
-		() => [conversation.threadId, conversation.threadGeneration] as const,
-		([currentThreadId, currentGeneration], previous) => {
-			const [previousThreadId, previousGeneration] = previous ?? [undefined, -1];
-			const assignedCurrentConversation =
-				previousThreadId === null &&
-				currentThreadId !== null &&
-				currentGeneration === previousGeneration &&
-				conversation.isNewConversation;
-			if (assignedCurrentConversation) {
+		() => [conversation.conversation, conversation.threadId] as const,
+		([currentConversation, currentThreadId], previous) => {
+			const [previousConversation, previousThreadId] = previous ?? [undefined, undefined];
+			const conversationChanged = currentConversation !== previousConversation;
+			if (!conversationChanged && previousThreadId === null && currentThreadId !== null) {
 				conversation.setDraft(currentThreadId, chatUIContext.inputValue);
 				return;
 			}
@@ -197,8 +193,7 @@
 				chatUIContext.enterSelectedThread();
 				return;
 			}
-			const generationChanged = currentGeneration !== previousGeneration;
-			if (generationChanged || (previousThreadId === null && !conversation.isNewConversation)) {
+			if (conversationChanged || (previousThreadId === null && !conversation.isNewConversation)) {
 				chatUIContext.clearAttachments();
 			}
 		}

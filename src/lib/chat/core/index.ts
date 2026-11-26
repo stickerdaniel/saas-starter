@@ -23,7 +23,7 @@ export type {
 	CreateThreadOptions
 } from './types.js';
 
-export type { ChatSessionPort, StreamCachePort } from './chat-session-port.js';
+export type { ChatSessionPort, StreamCachePort } from './chat-session-port.svelte.ts';
 export type { ChatCommandErrorCode } from './chat-command-error.js';
 
 export {

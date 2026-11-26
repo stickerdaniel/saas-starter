@@ -210,7 +210,7 @@ describe('ChatCore command outcomes', () => {
 				createThread: 'api.threads.create' as never
 			}
 		});
-		core.setThreadOriginBinder((threadId) => core.setThread(threadId));
+		core.conversation.whenAssigned((threadId) => core.setThread(threadId));
 
 		const send = core.sendMessage(makeClient(mutation), 'hello');
 		await vi.waitFor(() => expect(mutation).toHaveBeenCalledTimes(2));

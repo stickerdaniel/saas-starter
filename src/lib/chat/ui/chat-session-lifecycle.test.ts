@@ -78,9 +78,6 @@ class SupportThreadContext extends SupportContext {
 	get threadId() {
 		return this.conversation.threadId;
 	}
-	get threadGeneration() {
-		return this.conversation.threadGeneration;
-	}
 	get isSending() {
 		return this.conversation.isSending;
 	}
@@ -132,11 +129,6 @@ class SupportThreadContext extends SupportContext {
 	setRateLimited(retryAfterMs: number): void {
 		this.conversation.setRateLimited(retryAfterMs);
 	}
-	setThreadOriginBinder(
-		binder: ((threadId: string, epoch: number, generation: number) => void) | undefined
-	): void {
-		this.conversation.setThreadOriginBinder(binder);
-	}
 	forgetChatSession(): void {
 		this.conversation.forgetChatSession();
 		this.navigation.clearWidgetOpenRequest();
@@ -154,7 +146,6 @@ function createSupportContext(
 	uploadConfig?: UploadConfig
 ): ChatUIContext {
 	return new ChatUIContext(thread.conversation, client, uploadConfig, 'right', null, {
-		bindThreadOrigin: (binder) => thread.setThreadOriginBinder(binder),
 		forgetSession: () => thread.forgetChatSession(),
 		sendOwner: thread.sendOwner
 	});
@@ -533,10 +524,8 @@ describe('chat session lifecycle', () => {
 
 		expect(thread.isSending).toBe(false);
 		expect(thread.threadId).toBe('thread-b');
-		expect(context.captureSendSnapshot().origin).toEqual({
-			generation: thread.threadGeneration,
-			threadId: 'thread-b'
-		});
+		expect(context.captureSendSnapshot().conversation).toBe(thread.conversation.conversation);
+		expect(thread.conversation.conversation.threadId).toBe('thread-b');
 		expect(context.displayMessages).toEqual([]);
 		expect(mutation).toHaveBeenCalledTimes(1);
 		const [reference, args] = mutation.mock.calls[0]!;
@@ -570,6 +559,7 @@ describe('chat session lifecycle', () => {
 			thread.setClient(client);
 			thread.startNewThread();
 			await mountSupport(thread, context);
+			const started = thread.conversation.conversation;
 			const result = thread.sendMessage(client, 'stale prompt');
 			await vi.waitFor(() => expect(mutation).toHaveBeenCalledTimes(1));
 
@@ -584,10 +574,9 @@ describe('chat session lifecycle', () => {
 
 			expect(mutation).toHaveBeenCalledTimes(1);
 			expect(thread.threadId).toBe(selectedThreadId);
-			expect(context.captureSendSnapshot().origin).toEqual({
-				generation: thread.threadGeneration,
-				threadId: selectedThreadId
-			});
+			expect(context.captureSendSnapshot().conversation).toBe(thread.conversation.conversation);
+			expect(thread.conversation.conversation.threadId).toBe(selectedThreadId);
+			expect(started.threadId).toBeNull();
 			expect(thread.currentView).toBe(view);
 			expect(thread.isSending).toBe(false);
 		}
@@ -612,6 +601,7 @@ describe('chat session lifecycle', () => {
 		});
 		thread.setClient(client);
 		thread.startNewThread();
+		const started = thread.conversation.conversation;
 		context.addAttachments([oldAttachment, sharedFileAttachment, generationTwoAttachment]);
 		const attachments = [...context.attachments];
 		const result = thread.sendMessage(client, ' ordered prompt ', {
@@ -624,10 +614,8 @@ describe('chat session lifecycle', () => {
 			threadId: 'same-navigation-thread',
 			threadCreated: false
 		});
-		expect(context.captureSendSnapshot().origin).toEqual({
-			generation: thread.threadGeneration,
-			threadId: 'same-navigation-thread'
-		});
+		expect(context.captureSendSnapshot().conversation).toBe(started);
+		expect(started.threadId).toBe('same-navigation-thread');
 		expect(mutation).toHaveBeenCalledTimes(2);
 		const [warmReference, warmArgs] = mutation.mock.calls[0]!;
 		expect(getFunctionName(warmReference)).toBe('support/threads:getOrCreateWarmThread');
