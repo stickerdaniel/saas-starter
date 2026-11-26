@@ -53,6 +53,9 @@ describe('handleEmailEvent', () => {
 		await handler(ctx, { id: 'email_1' as EmailId, event });
 
 		expect(inserts).toMatchObject([{ emailId: 'email_1', eventType: type, data: event }]);
+		expect(logged[0]?.mock.calls).toEqual([
+			['Email event received:', { emailId: 'email_1', eventType: type }]
+		]);
 		expect(JSON.stringify(logged.map((spy) => spy.mock.calls))).not.toContain('alice@example.com');
 	});
 

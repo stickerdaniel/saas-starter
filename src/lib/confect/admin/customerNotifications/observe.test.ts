@@ -102,13 +102,19 @@ const json =
 /** Every console line the code under test wrote, as one string. */
 function captureLogs() {
 	const lines: string[] = [];
+	const calls: string[] = [];
 	for (const method of ['log', 'info', 'warn', 'error', 'debug'] as const) {
 		vi.spyOn(console, method).mockImplementation((...args: unknown[]) => {
-			lines.push(args.map((arg) => inspect(arg, { depth: 8 })).join(' '));
+			const line = args.map((arg) => inspect(arg, { depth: 8 })).join(' ');
+			lines.push(line);
+			calls.push(`${method} ${line}`);
 		});
 	}
-	return { text: () => lines.join('\n'), lines };
+	return { text: () => lines.join('\n'), lines, calls };
 }
+
+const consoleCall = (method: string, ...args: unknown[]) =>
+	`${method} ${args.map((arg) => inspect(arg, { depth: 8 })).join(' ')}`;
 
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['Date'] });
@@ -290,7 +296,7 @@ describe('response table', () => {
 		expect(response.status).toBe(400);
 		expect(fetchMock).not.toHaveBeenCalled();
 		expect(rows()).toEqual([]);
-		expect(logs.lines).toEqual([expect.stringContaining("'webhook_payload_malformed'")]);
+		expect(logs.calls).toEqual([consoleCall('warn', { code: 'webhook_payload_malformed' })]);
 	});
 
 	it.each([
@@ -347,8 +353,8 @@ describe('response table', () => {
 
 		expect(response.status).toBe(200);
 		expect(rows()).toEqual([]);
-		expect(logs.lines).toEqual([
-			expect.stringContaining("'billing_malformed_invoice_time_invalid'")
+		expect(logs.calls).toEqual([
+			consoleCall('warn', { code: 'billing_malformed_invoice_time_invalid', userId: CUSTOMER })
 		]);
 	});
 
@@ -366,7 +372,9 @@ describe('response table', () => {
 		const response = await deliver(delivery(billingUpdated(CUSTOMER)));
 
 		expect(response.status).toBe(503);
-		expect(logs.lines).toEqual([expect.stringContaining("'admission_failed'")]);
+		expect(logs.calls).toEqual([
+			consoleCall('error', { code: 'admission_failed', userId: CUSTOMER })
+		]);
 		expect(logs.text()).not.toContain(SENTINEL);
 	});
 

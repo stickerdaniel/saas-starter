@@ -59,6 +59,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	vi.useRealTimers();
+	vi.restoreAllMocks();
 });
 
 describe('files vacuum', () => {
@@ -96,8 +97,14 @@ describe('files vacuum', () => {
 		const t = harness();
 		for (let i = 0; i <= PAGE_SIZE; i++) await addAgentFile(t, `stale-${i}`);
 		vi.setSystemTime(START + 2 * DAY_MS);
+		const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
 
 		await vacuum(t);
+
+		expect(debug.mock.calls).toEqual([
+			[`Deleting ${PAGE_SIZE} files...`],
+			[`Deleted ${PAGE_SIZE} files but not done yet, continuing...`]
+		]);
 
 		expect(await scheduled(t)).toEqual([
 			expect.objectContaining({
