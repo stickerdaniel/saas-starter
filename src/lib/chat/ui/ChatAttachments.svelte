@@ -11,7 +11,8 @@
 	import Progress from '#lib/components/ui/progress/progress.svelte';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
-	import AttachmentTextPreview from './AttachmentTextPreview.svelte';
+	import AttachmentPreviewStatus from './AttachmentPreviewStatus.svelte';
+	import type AttachmentTextPreview from './AttachmentTextPreview.svelte';
 	import { isTextPreviewable } from '../core/attachmentPreview.js';
 	import type { Attachment, UploadState } from '../core/types.js';
 	import type { UploadErrorCode } from '../../uploads/transfer.js';
@@ -99,6 +100,29 @@
 		const attachment = selectedAttachment;
 		return loadText && attachment ? () => loadText(attachment) : undefined;
 	});
+
+	let textPreview: Promise<typeof AttachmentTextPreview> | undefined;
+
+	/**
+	 * The text preview carries the highlighter grammars and the KaTeX stylesheet,
+	 * so it loads when a text attachment first opens, and later opens reuse it.
+	 * A deploy can delete its chunk under an open page. app.html answers Vite's
+	 * preloadError with a reload, so the rejection is rethrown untouched to the
+	 * await block, which shows the error state; the next open imports again.
+	 */
+	function loadTextPreview() {
+		textPreview ??= importTextPreview();
+		return textPreview;
+	}
+
+	async function importTextPreview() {
+		try {
+			return (await import('./AttachmentTextPreview.svelte')).default;
+		} catch (error) {
+			textPreview = undefined;
+			throw error;
+		}
+	}
 
 	/** Ids of tile lines whose text is visually cut off. */
 	const clippedLines = new SvelteSet<string>();
@@ -344,13 +368,19 @@
 			{#if openUrl && !isImage}
 				{@const mimeType = getMimeType(selectedAttachment)}
 				{#if isTextPreviewable(mimeType, getFilename(selectedAttachment))}
-					<AttachmentTextPreview
-						url={openUrl}
-						{mimeType}
-						filename={getFilename(selectedAttachment)}
-						blob={getLocalBlob(selectedAttachment)}
-						loadText={loadSelectedText}
-					/>
+					{#await loadTextPreview()}
+						<AttachmentPreviewStatus status="loading" />
+					{:then TextPreview}
+						<TextPreview
+							url={openUrl}
+							{mimeType}
+							filename={getFilename(selectedAttachment)}
+							blob={getLocalBlob(selectedAttachment)}
+							loadText={loadSelectedText}
+						/>
+					{:catch}
+						<AttachmentPreviewStatus status="error" />
+					{/await}
 				{:else}
 					<iframe
 						src={openUrl}

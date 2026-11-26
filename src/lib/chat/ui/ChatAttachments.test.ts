@@ -21,8 +21,12 @@ vi.mock('svelte/reactivity', () =>
 // A duplicate list key throws in every mode; development mode adds the key and index detail.
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
-// Only an opened preview dialog renders the text preview; its stylesheet imports are out of scope.
-vi.mock('./AttachmentTextPreview.svelte', () => ({ default: () => {} }));
+// Only an opened preview dialog renders the text preview; its stylesheet imports are out of
+// scope. A test that opens one decides when its import settles with gatePreviewImport.
+vi.mock(
+	'./AttachmentTextPreview.svelte',
+	() => import('./test-fixtures/AttachmentTextPreviewStub.svelte')
+);
 
 type ChatAttachmentsProps = {
 	attachments: Attachment[];
@@ -179,6 +183,117 @@ describe('ChatAttachments', () => {
 
 		expect(chips[0]!.textContent).toContain(en.chat.error.upload_network);
 		expect(chips[0]!.textContent).not.toContain('ready to send');
+	});
+
+	describe('text preview', () => {
+		const unhandledRejections: unknown[] = [];
+		const recordRejection = (reason: unknown) => unhandledRejections.push(reason);
+
+		beforeEach(() => {
+			unhandledRejections.length = 0;
+			process.on('unhandledRejection', recordRejection);
+		});
+
+		afterEach(() => {
+			process.off('unhandledRejection', recordRejection);
+		});
+
+		/** Holds the preview's import pending until the test settles the returned gate. */
+		function gatePreviewImport() {
+			const gate = Promise.withResolvers<void>();
+			vi.doMock('./AttachmentTextPreview.svelte', async () => {
+				await gate.promise;
+				return import('./test-fixtures/AttachmentTextPreviewStub.svelte');
+			});
+			return gate;
+		}
+
+		async function settle() {
+			for (let i = 0; i < 3; i++) {
+				flushSync();
+				await tick();
+				await new Promise((resolve) => setTimeout(resolve, 0));
+			}
+			flushSync();
+		}
+
+		const loading = () => document.querySelector('[data-testid="attachment-preview-loading"]');
+		const error = () => document.querySelector('[data-testid="attachment-preview-error"]');
+		const preview = () => document.querySelector('[data-testid="attachment-text-preview"]');
+		const dialog = () => document.querySelector('[role="dialog"]');
+
+		async function openNotes() {
+			const chips = await renderAttachments({
+				attachments: [
+					{
+						type: 'remote-file',
+						url: 'https://cdn.test/notes.md',
+						filename: 'notes.md',
+						contentType: 'text/markdown'
+					}
+				],
+				readonly: true
+			});
+			chips[0]!.click();
+			await settle();
+		}
+
+		it('shows the loading state until the preview has loaded', async () => {
+			const gate = gatePreviewImport();
+
+			await openNotes();
+			expect(loading()).not.toBeNull();
+			expect(preview()).toBeNull();
+
+			gate.resolve();
+			await settle();
+			expect(preview()?.textContent).toBe('notes.md');
+			expect(loading()).toBeNull();
+		});
+
+		it('shows no preview once the dialog closed before it loaded', async () => {
+			const gate = gatePreviewImport();
+			await openNotes();
+			expect(loading()).not.toBeNull();
+
+			dialog()!.querySelector<HTMLElement>('[data-slot="dialog-close"]')!.click();
+			await settle();
+			gate.resolve();
+			await settle();
+
+			expect(dialog()).toBeNull();
+			expect(preview()).toBeNull();
+		});
+
+		it('shows the error state when the preview fails to load', async () => {
+			const gate = gatePreviewImport();
+			await openNotes();
+
+			gate.reject(new TypeError('Failed to fetch dynamically imported module'));
+			await settle();
+
+			expect(error()?.textContent?.trim()).toBe(en.chat.attachment.preview_error);
+			expect(loading()).toBeNull();
+			expect(preview()).toBeNull();
+			expect(unhandledRejections).toEqual([]);
+		});
+
+		it('loads the preview again on the next open after a failed load', async () => {
+			const failed = gatePreviewImport();
+			await openNotes();
+			failed.reject(new TypeError('Failed to fetch dynamically imported module'));
+			await settle();
+			expect(error()).not.toBeNull();
+			dialog()!.querySelector<HTMLElement>('[data-slot="dialog-close"]')!.click();
+			await settle();
+
+			gatePreviewImport().resolve();
+			document.querySelector<HTMLElement>('[data-testid="attachment-chip"]')!.click();
+			await settle();
+
+			expect(preview()?.textContent).toBe('notes.md');
+			expect(error()).toBeNull();
+		});
 	});
 
 	describe('overflow tooltips', () => {
