@@ -136,12 +136,12 @@ export default GroupImpl.make(databaseSchema, cleanup).pipe(
 					ctx.db
 						.query('oauthConnectionUses')
 						.withIndex('by_userId_and_clientId', (q) => q.eq('userId', userId))
-						.take(PAGE.numItems)
+						.paginate({ cursor: null, ...PAGE })
 				);
-				for (const use of uses) {
+				for (const use of uses.page) {
 					yield* Effect.promise(() => ctx.db.delete('oauthConnectionUses', use._id));
 				}
-				if (uses.length === PAGE.numItems) {
+				if (!uses.isDone) {
 					yield* (yield* Scheduler).runAfter(
 						Duration.zero,
 						refs.internal.oauth.cleanup.eraseUserGrants,
