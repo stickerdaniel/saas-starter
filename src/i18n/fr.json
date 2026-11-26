@@ -1449,13 +1449,14 @@
 		},
 		"consent": {
 			"title": "{app} veut accéder à ton compte",
-			"signed_in_as": "Tu es connecté en tant que {email}.",
-			"can_view": "{app} peut voir",
-			"cannot_change": "{app} ne peut rien modifier",
-			"change_question": "{app} peut-il aussi faire des modifications ?",
-			"view_only": "Non, voir uniquement",
-			"view_only_description": "{app} ne modifie rien.",
-			"view_and_change": "Oui, voir et modifier",
+			"signed_in_as": "Connecté en tant que {email}",
+			"permissions": "Autorisations",
+			"level": {
+				"view": "Voir",
+				"change": "Modifier"
+			},
+			"always_included": "{capability} (toujours inclus)",
+			"not_requested": "{capability} (non demandé)",
 			"no_access": "{app} n'obtient aucun accès à tes données.",
 			"allow": "Autoriser",
 			"deny": "Refuser",

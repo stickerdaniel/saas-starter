@@ -7,13 +7,11 @@
 	import AuthPanel from '#lib/components/auth/auth-panel.svelte';
 	import Logo from '#lib/components/icons/logo.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import * as Field from '#lib/components/ui/field/index.js';
-	import * as RadioGroup from '#lib/components/ui/radio-group/index.js';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import { oauthAuthClient } from '#lib/auth-client-oauth.js';
-	import { capabilitiesAt, type CapabilityLevel } from '#lib/mcp/capabilities.js';
+	import { capabilitiesAt, capabilityKey, type CapabilityLevel } from '#lib/mcp/capabilities.js';
 	import { localizedHref } from '#lib/utils/i18n.js';
 	import AuthGate from '../../AuthGate.svelte';
-	import CapabilityList from './capability-list.svelte';
 
 	let { data } = $props();
 
@@ -27,7 +25,13 @@
 	const offersChoice = $derived(canView && requested.includes('mcp:write'));
 	const app = $derived(data.client?.name || $t('mcp.consent.unnamed_app'));
 
-	let level = $state<CapabilityLevel>('change');
+	const capabilities = [...capabilitiesAt('view'), ...capabilitiesAt('change')];
+	const levelKey = {
+		view: 'mcp.consent.level.view',
+		change: 'mcp.consent.level.change'
+	} as const satisfies Record<CapabilityLevel, string>;
+
+	let change = $state(true);
 	let pending = $state(false);
 	let failed = $state(false);
 	let hydrated = $state(false);
@@ -38,7 +42,7 @@
 	});
 
 	const narrowedScope = $derived(
-		offersChoice && level === 'view'
+		offersChoice && !change
 			? requested.filter((scope) => scope !== 'mcp:write').join(' ')
 			: undefined
 	);
@@ -80,7 +84,7 @@
 						</p>
 					</div>
 				{:else}
-					<Field.Group>
+					<div class="flex flex-col gap-8">
 						<div class="flex flex-col gap-2">
 							<h1 class="text-2xl font-bold">{$t('mcp.consent.title', { app })}</h1>
 							{#if data.viewer?.email}
@@ -90,56 +94,48 @@
 							{/if}
 						</div>
 						{#if canView}
-							<div class="flex flex-col gap-3">
-								<p id="{id}-view" class="text-sm font-medium">
-									{$t('mcp.consent.can_view', { app })}
+							<div class="flex flex-col gap-4">
+								<p id="{id}-permissions" class="font-medium">
+									<T keyName="mcp.consent.permissions" />
 								</p>
-								<CapabilityList capabilities={capabilitiesAt('view')} labelledby="{id}-view" />
+								<ul aria-labelledby="{id}-permissions" class="divide-y rounded-md border">
+									{#each capabilities as capability (capability.tool)}
+										{@const sentence = $t(capabilityKey(capability))}
+										{@const optional = capability.level === 'change'}
+										{@const granted = !optional || (offersChoice && change)}
+										<li class="flex items-start gap-3 p-3 text-sm leading-snug">
+											{#if optional && offersChoice}
+												<Checkbox
+													id="{id}-{capability.tool}"
+													bind:checked={change}
+													{disabled}
+													class="mt-px"
+												/>
+											{:else}
+												<Checkbox
+													id="{id}-{capability.tool}"
+													checked={granted}
+													disabled
+													aria-label={$t(
+														optional ? 'mcp.consent.not_requested' : 'mcp.consent.always_included',
+														{ capability: sentence }
+													)}
+													class="mt-px"
+												/>
+											{/if}
+											<label
+												for="{id}-{capability.tool}"
+												class={['flex-1', !granted && 'text-muted-foreground']}
+											>
+												{sentence}
+											</label>
+											<span class="shrink-0 text-xs font-medium text-muted-foreground">
+												<T keyName={levelKey[capability.level]} />
+											</span>
+										</li>
+									{/each}
+								</ul>
 							</div>
-							{#if offersChoice}
-								<Field.Set class="gap-0">
-									<Field.Legend variant="label">
-										{$t('mcp.consent.change_question', { app })}
-									</Field.Legend>
-									<RadioGroup.Root bind:value={level} {disabled}>
-										<Field.Label for="{id}-level-view">
-											<Field.Field orientation="horizontal">
-												<RadioGroup.Item value="view" id="{id}-level-view" />
-												<Field.Content>
-													<Field.Title><T keyName="mcp.consent.view_only" /></Field.Title>
-													<Field.Description>
-														{$t('mcp.consent.view_only_description', { app })}
-													</Field.Description>
-												</Field.Content>
-											</Field.Field>
-										</Field.Label>
-										<Field.Label for="{id}-level-change">
-											<Field.Field orientation="horizontal">
-												<RadioGroup.Item value="change" id="{id}-level-change" />
-												<Field.Content class="gap-2.5">
-													<Field.Title id="{id}-change">
-														<T keyName="mcp.consent.view_and_change" />
-													</Field.Title>
-													<CapabilityList
-														capabilities={capabilitiesAt('change')}
-														labelledby="{id}-change"
-													/>
-												</Field.Content>
-											</Field.Field>
-										</Field.Label>
-									</RadioGroup.Root>
-								</Field.Set>
-							{:else}
-								<div class="flex flex-col gap-3">
-									<p id="{id}-denied" class="text-sm font-medium">
-										{$t('mcp.consent.cannot_change', { app })}
-									</p>
-									<CapabilityList
-										capabilities={capabilitiesAt('change')}
-										labelledby="{id}-denied"
-									/>
-								</div>
-							{/if}
 						{:else}
 							<p class="text-sm font-medium">{$t('mcp.consent.no_access', { app })}</p>
 						{/if}
@@ -157,7 +153,7 @@
 								<T keyName="mcp.consent.allow" />
 							</Button>
 						</div>
-					</Field.Group>
+					</div>
 				{/if}
 			</div>
 		</form>

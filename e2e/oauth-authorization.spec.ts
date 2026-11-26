@@ -39,6 +39,12 @@ test.beforeAll(resetRegistrationLimit);
 
 const scopesOf = (scope: string) => scope.split(' ').sort();
 
+const VIEW_CAPABILITIES = [
+	'See your name, email address and profile picture',
+	'Read the messages in the community chat'
+];
+const CHANGE_CAPABILITY = 'Post messages in the community chat as you';
+
 const loopbackOrigin = (url: string) => new URL(url.replace('//localhost:', '//127.0.0.1:')).origin;
 
 async function signedInPage(page: Page, label: string) {
@@ -59,7 +65,7 @@ test('a public client signs in, consents, exchanges the code and rotates its ref
 	await page.waitForURL(/\/oauth\/consent\?/);
 	await expect(page.getByRole('button', { name: 'Allow', exact: true })).toBeEnabled();
 	await expect(page.getByRole('heading', { name: 'Flow client wants access' })).toBeVisible();
-	await expect(page.getByText(`You are signed in as ${account.email}.`)).toBeVisible();
+	await expect(page.getByText(`Signed in as ${account.email}`)).toBeVisible();
 
 	const tokens = await exchange(request, metadata, clientId, await allow(page), start);
 	expect(scopesOf(tokens.scope)).toEqual(scopesOf(BOTH_SCOPES));
@@ -112,7 +118,7 @@ test('a passkey sign-in resumes the authorization at the consent page', async ({
 	await page.getByRole('button', { name: 'Sign in with Passkey', exact: true }).click();
 	await page.waitForURL(/\/oauth\/consent\?/);
 	await expect(page.getByRole('heading', { name: 'Passkey client wants access' })).toBeVisible();
-	await expect(page.getByText(`You are signed in as ${account.email}.`)).toBeVisible();
+	await expect(page.getByText(`Signed in as ${account.email}`)).toBeVisible();
 });
 
 test('Deny returns access_denied to the redirect URI', async ({ page, request }) => {
@@ -134,14 +140,14 @@ test('the chosen level and the requested scopes decide the scopes of the token',
 }) => {
 	const metadata = await fetchMetadata(request);
 	await signedInPage(page, 'scopes');
-	const viewAndChange = page.getByRole('radio', { name: /Yes, view and change/ });
-	const viewOnly = page.getByRole('radio', { name: /No, view only/ });
+	const change = page.getByRole('checkbox', { name: CHANGE_CAPABILITY });
+	const views = VIEW_CAPABILITIES.map((name) => page.getByRole('checkbox', { name }));
 
 	const consentAs = async (scope: string | null, choose?: 'view') => {
 		const clientId = await registerClient(request, metadata, 'Scoped client');
 		const start = authorization(metadata, clientId, scope);
 		await openConsent(page, start);
-		if (choose === 'view') await viewOnly.check();
+		if (choose === 'view') await change.uncheck();
 		return exchange(request, metadata, clientId, await allow(page), start);
 	};
 
@@ -149,8 +155,9 @@ test('the chosen level and the requested scopes decide the scopes of the token',
 		page,
 		authorization(metadata, await registerClient(request, metadata, 'Scoped client'), BOTH_SCOPES)
 	);
-	await expect(viewAndChange).toBeChecked();
-	await expect(viewOnly).not.toBeChecked();
+	await expect(change).toBeEnabled();
+	await expect(change).toBeChecked();
+	for (const view of views) await expect(view).toBeChecked();
 
 	const narrowed = await consentAs(BOTH_SCOPES, 'view');
 	expect(scopesOf(narrowed.scope)).toEqual(['mcp:read', 'offline_access']);
@@ -166,54 +173,42 @@ test('the chosen level and the requested scopes decide the scopes of the token',
 		page,
 		authorization(metadata, await registerClient(request, metadata, 'Scoped client'), 'mcp:read')
 	);
-	await expect(page.getByRole('radio')).toHaveCount(0);
+	await expect(change).toBeDisabled();
+	await expect(change).not.toBeChecked();
 
 	await openConsent(
 		page,
 		authorization(metadata, await registerClient(request, metadata, 'Scoped client'), null)
 	);
-	await expect(viewAndChange).toBeChecked();
+	await expect(change).toBeEnabled();
+	await expect(change).toBeChecked();
 
 	await openConsent(
 		page,
 		authorization(metadata, await registerClient(request, metadata, 'Scoped client'), '')
 	);
 	await expect(page.getByText('Scoped client gets no access to your data.')).toBeVisible();
-	await expect(page.getByRole('radio')).toHaveCount(0);
+	await expect(page.getByRole('checkbox')).toHaveCount(0);
 	await expect(page.getByRole('list')).toHaveCount(0);
 });
 
 test('the consent page names every capability under its level', async ({ page, request }) => {
 	const metadata = await fetchMetadata(request);
 	await signedInPage(page, 'capabilities');
-	const view = [
-		'See your name, email address and profile picture',
-		'Read the messages in the community chat'
+	const rows = page.getByRole('list', { name: 'Permissions' }).getByRole('listitem');
+	const row = (sentence: string, level: string) => new RegExp(`^\\s*${sentence}\\s+${level}\\s*$`);
+	const levels = [
+		...VIEW_CAPABILITIES.map((sentence) => row(sentence, 'View')),
+		row(CHANGE_CAPABILITY, 'Change')
 	];
-	const change = ['Post messages in the community chat as you'];
 
-	await openConsent(
-		page,
-		authorization(metadata, await registerClient(request, metadata, 'Listed client'), BOTH_SCOPES)
-	);
-	await expect(
-		page.getByRole('list', { name: 'Listed client can view' }).getByRole('listitem')
-	).toHaveText(view);
-	await expect(
-		page.getByRole('list', { name: 'Yes, view and change' }).getByRole('listitem')
-	).toHaveText(change);
-
-	await openConsent(
-		page,
-		authorization(metadata, await registerClient(request, metadata, 'Listed client'), 'mcp:read')
-	);
-	await expect(
-		page.getByRole('list', { name: 'Listed client can view' }).getByRole('listitem')
-	).toHaveText(view);
-	await expect(
-		page.getByRole('list', { name: 'Listed client cannot change' }).getByRole('listitem')
-	).toHaveText(change);
-	await expect(page.getByRole('radio')).toHaveCount(0);
+	for (const scope of [BOTH_SCOPES, 'mcp:read']) {
+		await openConsent(
+			page,
+			authorization(metadata, await registerClient(request, metadata, 'Listed client'), scope)
+		);
+		await expect(rows).toHaveText(levels);
+	}
 });
 
 test('every authorization server metadata URL serves the rewritten document', async ({

@@ -1449,13 +1449,14 @@
 		},
 		"consent": {
 			"title": "{app} möchte auf dein Konto zugreifen",
-			"signed_in_as": "Du bist als {email} angemeldet.",
-			"can_view": "{app} kann sehen",
-			"cannot_change": "{app} kann nicht ändern",
-			"change_question": "Darf {app} auch Änderungen vornehmen?",
-			"view_only": "Nein, nur ansehen",
-			"view_only_description": "{app} ändert nichts.",
-			"view_and_change": "Ja, ansehen und ändern",
+			"signed_in_as": "Angemeldet als {email}",
+			"permissions": "Berechtigungen",
+			"level": {
+				"view": "Ansehen",
+				"change": "Ändern"
+			},
+			"always_included": "{capability} (immer enthalten)",
+			"not_requested": "{capability} (nicht angefragt)",
 			"no_access": "{app} erhält keinen Zugriff auf deine Daten.",
 			"allow": "Erlauben",
 			"deny": "Ablehnen",

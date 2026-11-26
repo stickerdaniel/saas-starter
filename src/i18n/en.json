@@ -1449,13 +1449,14 @@
 		},
 		"consent": {
 			"title": "{app} wants access to your account",
-			"signed_in_as": "You are signed in as {email}.",
-			"can_view": "{app} can view",
-			"cannot_change": "{app} cannot change",
-			"change_question": "Can {app} also make changes?",
-			"view_only": "No, view only",
-			"view_only_description": "{app} changes nothing.",
-			"view_and_change": "Yes, view and change",
+			"signed_in_as": "Signed in as {email}",
+			"permissions": "Permissions",
+			"level": {
+				"view": "View",
+				"change": "Change"
+			},
+			"always_included": "{capability} (always included)",
+			"not_requested": "{capability} (not requested)",
 			"no_access": "{app} gets no access to your data.",
 			"allow": "Allow",
 			"deny": "Deny",
