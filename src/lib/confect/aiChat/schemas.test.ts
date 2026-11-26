@@ -110,17 +110,19 @@ describe('MigrationProgress', () => {
 describe('AiChatRefusal', () => {
 	it.each([
 		{ code: AI_CHAT_ERROR_CODES.threadNotFound },
-		{ code: AI_CHAT_ERROR_CODES.messageTooLong, maxLength: 4000 }
+		{ code: AI_CHAT_ERROR_CODES.messageTooLong, maxLength: 4000 },
+		{ code: AI_CHAT_ERROR_CODES.tooManyFiles, maxFiles: 6 }
 	])('keeps the wire data of %j', (refusal) => {
 		const encoded = Schema.encodeSync(AiChatRefusalCodec)(new AiChatRefusal({ refusal }));
 		expect(encoded).toEqual(refusal);
 		expect(Schema.decodeUnknownSync(AiChatRefusalCodec)(encoded).refusal).toEqual(refusal);
 	});
 
-	it.each([{ code: AI_CHAT_ERROR_CODES.messageTooLong }, { code: 'AI_CHAT_OTHER' }])(
-		'refuses wire data outside the refusal set: %j',
-		(value) => {
-			expect(() => Schema.decodeUnknownSync(AiChatRefusalCodec)(value)).toThrow();
-		}
-	);
+	it.each([
+		{ code: AI_CHAT_ERROR_CODES.messageTooLong },
+		{ code: AI_CHAT_ERROR_CODES.tooManyFiles },
+		{ code: 'AI_CHAT_OTHER' }
+	])('refuses wire data outside the refusal set: %j', (value) => {
+		expect(() => Schema.decodeUnknownSync(AiChatRefusalCodec)(value)).toThrow();
+	});
 });

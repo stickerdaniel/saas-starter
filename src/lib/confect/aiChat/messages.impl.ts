@@ -25,6 +25,7 @@ import { checkAndCountUsage, refundUsage } from '../autumn';
 import {
 	AI_CHAT_GENERATION_FAILED_NOTICE,
 	AI_CHAT_LIMIT_NOTICE,
+	MAX_MESSAGE_FILES,
 	MAX_MESSAGE_LENGTH,
 	type AiChatNotice
 } from '../constants';
@@ -281,6 +282,13 @@ export default GroupImpl.make(databaseSchema, messages).pipe(
 					return yield* Effect.fail(
 						new AiChatRefusal({
 							refusal: { code: AI_CHAT_ERROR_CODES.messageTooLong, maxLength: MAX_MESSAGE_LENGTH }
+						})
+					);
+				}
+				if (args.fileIds && args.fileIds.length > MAX_MESSAGE_FILES) {
+					return yield* Effect.fail(
+						new AiChatRefusal({
+							refusal: { code: AI_CHAT_ERROR_CODES.tooManyFiles, maxFiles: MAX_MESSAGE_FILES }
 						})
 					);
 				}

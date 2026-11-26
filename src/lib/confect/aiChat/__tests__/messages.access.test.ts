@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, components } from '../../../convex/_generated/api';
 import schema from '../../../convex/schema';
 import authSchema from '../../../convex-components/betterAuth/schema';
-import { MAX_MESSAGE_LENGTH } from '../../constants';
+import { MAX_MESSAGE_FILES, MAX_MESSAGE_LENGTH } from '../../constants';
 import { convexModules, preloadModules } from '../../convexTest.modules';
 import { AI_CHAT_ERROR_CODES } from '../errors';
 
@@ -94,6 +94,32 @@ const effects = (t: Harness) =>
 			.map((row) => row.threadId)
 	}));
 
+async function storeFile(t: Harness) {
+	const storageId = await t.run((ctx) =>
+		ctx.storage.store(new Blob(['notes'], { type: 'text/plain' }))
+	);
+	const { fileId } = await t.mutation(components.agent.files.addFile, {
+		storageId,
+		hash: 'notes',
+		filename: 'notes.txt',
+		mediaType: 'text/plain'
+	});
+	return fileId;
+}
+
+const fileParts = async (t: Harness, threadId: string) => {
+	const { page } = await t.query(components.agent.messages.listMessagesByThreadId, {
+		threadId,
+		order: 'asc',
+		paginationOpts: { numItems: 10, cursor: null }
+	});
+	return page
+		.flatMap(({ message }) =>
+			Array.isArray(message?.content) ? message.content.map((part) => part.type) : []
+		)
+		.filter((type) => type === 'file').length;
+};
+
 beforeEach(() => {
 	vi.stubEnv('AUTUMN_SECRET_KEY', 'am_sk_test_messages_access');
 	vi.stubEnv('OPENROUTER_API_KEY', 'sk-or-test-messages-access');
@@ -142,6 +168,53 @@ describe('aiChat/messages access', () => {
 			});
 		}
 		expect(await effects(t)).toEqual(before);
+	});
+
+	it('refuses more file ids than the cap before the thread check, the rate limit and any write', async () => {
+		const t = harness();
+		const owner = await signIn(t, 'owner@example.com');
+		const stranger = await signIn(t, 'stranger@example.com');
+		const fileId = await storeFile(t);
+		for (let i = 0; i < MESSAGE_BURST; i++) {
+			await owner.caller.mutation(api.aiChat.messages.sendMessage, {
+				threadId: owner.threadId,
+				prompt: `own ${i}`
+			});
+		}
+		const before = await effects(t);
+
+		for (const caller of [owner.caller, stranger.caller]) {
+			await expect(
+				refusal(
+					caller.mutation(api.aiChat.messages.sendMessage, {
+						threadId: owner.threadId,
+						prompt: 'files',
+						fileIds: Array(MAX_MESSAGE_FILES + 1).fill(fileId)
+					})
+				)
+			).resolves.toEqual({
+				code: AI_CHAT_ERROR_CODES.tooManyFiles,
+				maxFiles: MAX_MESSAGE_FILES
+			});
+		}
+		expect(await effects(t)).toEqual(before);
+		expect(before.warm).toEqual([stranger.threadId]);
+	});
+
+	it('accepts a send with exactly the cap of file ids', async () => {
+		const t = harness();
+		const { userId, threadId, caller } = await signIn(t, 'files@example.com');
+		const fileId = await storeFile(t);
+
+		await expect(
+			caller.mutation(api.aiChat.messages.sendMessage, {
+				threadId,
+				prompt: 'files',
+				fileIds: Array(MAX_MESSAGE_FILES).fill(fileId)
+			})
+		).resolves.toEqual({ messageId: expect.any(String), order: 0 });
+		expect((await effects(t)).receipts).toEqual([userId]);
+		expect(await fileParts(t, threadId)).toBe(MAX_MESSAGE_FILES);
 	});
 
 	it("refuses another user's thread before the rate limit, without writes", async () => {

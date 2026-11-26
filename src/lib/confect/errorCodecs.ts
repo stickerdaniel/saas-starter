@@ -220,6 +220,10 @@ const SupportRefusalWire = Schema.Union([
 	Schema.Struct({
 		code: Schema.Literal(SUPPORT_ERROR_CODES.messageTooLong),
 		maxLength: Schema.Number
+	}),
+	Schema.Struct({
+		code: Schema.Literal(SUPPORT_ERROR_CODES.tooManyFiles),
+		maxFiles: Schema.Number
 	})
 ]);
 
@@ -238,6 +242,10 @@ const AdminSupportRefusalWire = Schema.Union([
 	Schema.Struct({
 		code: Schema.Literal(ADMIN_SUPPORT_ERROR_CODES.messageTooLong),
 		maxLength: Schema.Number
+	}),
+	Schema.Struct({
+		code: Schema.Literal(ADMIN_SUPPORT_ERROR_CODES.tooManyFiles),
+		maxFiles: Schema.Number
 	}),
 	Schema.Struct({
 		code: Schema.Literals([
@@ -265,6 +273,10 @@ const AiChatRefusalWire = Schema.Union([
 	Schema.Struct({
 		code: Schema.Literal(AI_CHAT_ERROR_CODES.messageTooLong),
 		maxLength: Schema.Number
+	}),
+	Schema.Struct({
+		code: Schema.Literal(AI_CHAT_ERROR_CODES.tooManyFiles),
+		maxFiles: Schema.Number
 	})
 ]);
 

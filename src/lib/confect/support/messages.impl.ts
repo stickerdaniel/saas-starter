@@ -30,7 +30,7 @@ import {
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { mergeByModel, type CapturedModelUsage } from '../aiUsage/capture';
 import { recordAiUsage } from '../aiUsage/record.impl';
-import { MAX_MESSAGE_LENGTH } from '../constants';
+import { MAX_MESSAGE_FILES, MAX_MESSAGE_LENGTH } from '../constants';
 import {
 	CapabilityConfigurationError,
 	getCapabilityConfigurations,
@@ -469,6 +469,12 @@ export default GroupImpl.make(databaseSchema, messages).pipe(
 					return yield* refuse({
 						code: SUPPORT_ERROR_CODES.messageTooLong,
 						maxLength: MAX_MESSAGE_LENGTH
+					});
+				}
+				if (args.fileIds && args.fileIds.length > MAX_MESSAGE_FILES) {
+					return yield* refuse({
+						code: SUPPORT_ERROR_CODES.tooManyFiles,
+						maxFiles: MAX_MESSAGE_FILES
 					});
 				}
 
