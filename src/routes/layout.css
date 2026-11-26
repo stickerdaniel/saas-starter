@@ -1,6 +1,7 @@
 @import 'tailwindcss' source('..');
 /* Add Streamdown styles to your Tailwind build */
-@source '../../node_modules/svelte-streamdown/**/*';
+@source '../../node_modules/svelte-streamdown/dist/**/*.{js,svelte}';
+@source not '../lib/emails';
 
 @import 'tw-animate-css';
 /* shadcn-svelte's shared utilities (shimmer, scroll-fade) used by its registry items. */
