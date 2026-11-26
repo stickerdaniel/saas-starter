@@ -1,3 +1,7 @@
+import * as Cause from 'effect/Cause';
+import * as Data from 'effect/Data';
+import * as Effect from 'effect/Effect';
+import { LatestFiber, type Claim } from '../../effect/client-runtime.js';
 import type { UploadPreprocessor } from '../../uploads/transfer.js';
 import { UploadError, type UploadErrorCode } from '../../uploads/transfer.js';
 import type { Attachment } from '../core/types.js';
@@ -152,18 +156,68 @@ function readImageDimensions(blob: File | Blob): Promise<AttachmentDimensions> {
 	});
 }
 
+type Empty = Record<never, never>;
+
+type TransferState = Data.TaggedEnum<{
+	Idle: { readonly source: File | Blob };
+	Preprocessing: Empty;
+	Preparing: Empty;
+	Uploading: {
+		readonly attempt: number;
+		readonly payload: AttachmentTransferPayload;
+		readonly progress: number;
+	};
+	Aborted: { readonly attempt: number; readonly payload: AttachmentTransferPayload };
+	Failed: {
+		readonly attempt: number;
+		readonly payload: AttachmentTransferPayload;
+		readonly error: UploadErrorCode;
+	};
+	Faulted: { readonly error: UploadErrorCode };
+	Succeeded: { readonly fileId: string; readonly url?: string };
+	Refused: Empty;
+	Disposed: Empty;
+}>;
+
+const TransferState = Data.taggedEnum<TransferState>();
+
+type TransferView = Pick<
+	AttachmentTransferSnapshot,
+	'phase' | 'progress' | 'fileId' | 'url' | 'error'
+>;
+
+const viewOf = (state: TransferState): TransferView | undefined =>
+	TransferState.$match(state, {
+		Idle: () => undefined,
+		Preprocessing: () => ({ phase: 'preprocessing', progress: 0 }) satisfies TransferView,
+		Preparing: () => ({ phase: 'uploading', progress: 0 }) satisfies TransferView,
+		Uploading: ({ progress }) => ({ phase: 'uploading', progress }) satisfies TransferView,
+		Aborted: () => undefined,
+		Failed: ({ error }) => ({ phase: 'error', progress: 0, error }) satisfies TransferView,
+		Faulted: ({ error }) => ({ phase: 'error', progress: 0, error }) satisfies TransferView,
+		Succeeded: ({ fileId, url }) =>
+			({ phase: 'success', progress: 100, fileId, url }) satisfies TransferView,
+		Refused: () => undefined,
+		Disposed: () => undefined
+	});
+
+const isActive = (state: TransferState): boolean =>
+	state._tag === 'Preprocessing' || state._tag === 'Preparing' || state._tag === 'Uploading';
+
+const unavailable = (): AttachmentTransferResult => ({ status: 'unavailable' });
+const invalidated = (): AttachmentTransferResult => ({ status: 'invalidated' });
+
 /**
  * Owns one attachment's preprocessing and transport attempts.
  *
  * Composer collection, parking, persistence, and rendered attachment state stay
- * with ComposerAttachmentCoordinator; it receives only snapshots from this lifecycle owner.
+ * with ComposerAttachmentCoordinator; it receives only snapshots from this lifecycle claim.
  */
 export class AttachmentTransfer {
 	readonly key: string;
 	readonly sourceName: string;
 	readonly sourceSize: number;
 
-	private sourceBlob: File | Blob | undefined;
 	private name: string;
 	private mimeType: string;
 	private size: number;
@@ -178,21 +232,19 @@ export class AttachmentTransfer {
 	private readonly checkPayload?: (payload: AttachmentTransferPayload) => void;
 	private readonly release?: (result: AttachmentUploadResult) => void;
 
-	private generation = 0;
+	private state: TransferState;
+	private reportedActive = false;
 	private controller: AbortController | undefined;
-	private retryPayload: AttachmentTransferPayload | undefined;
-	private phase: AttachmentTransferSnapshot['phase'] = 'uploading';
-	private progress = 0;
-	private result: Pick<AttachmentTransferSnapshot, 'fileId' | 'url' | 'error'> = {};
-	private active = false;
-	private started = false;
-	private disposed = false;
+	private readonly fibers = new LatestFiber<AttachmentTransferResult>(() => {
+		this.controller?.abort();
+		this.controller = undefined;
+	});
 
 	constructor(options: AttachmentTransferOptions) {
 		this.key = options.key;
 		this.sourceName = options.filename;
 		this.sourceSize = options.blob.size;
-		this.sourceBlob = options.blob;
+		this.state = TransferState.Idle({ source: options.blob });
 		this.name = options.filename;
 		this.mimeType = options.mimeType;
 		this.size = options.blob.size;
@@ -210,23 +262,67 @@ export class AttachmentTransfer {
 
 	/** Start preprocessing and the first transport attempt exactly once. */
 	async start(preprocess?: AttachmentPreprocess): Promise<AttachmentTransferResult> {
-		if (this.started || this.disposed || !this.sourceBlob) return { status: 'unavailable' };
-		this.started = true;
-		const generation = this.claimGeneration();
-		this.setActive(true);
-		this.phase = preprocess ? 'preprocessing' : 'uploading';
-		this.progress = 0;
-		this.result = {};
-		this.publish();
+		const state = this.state;
+		if (state._tag !== 'Idle') return unavailable();
+		return await this.fibers.run(
+			(claim) => this.begin(claim, state.source, preprocess),
+			invalidated
+		);
+	}
 
-		try {
-			let blob = this.sourceBlob;
+	/** Supersede any current attempt and retry the exact retained payload. */
+	async retry(): Promise<AttachmentTransferResult> {
+		const state = this.state;
+		if (state._tag !== 'Uploading' && state._tag !== 'Aborted' && state._tag !== 'Failed') {
+			return unavailable();
+		}
+		return await this.fibers.run(
+			(claim) => this.attempt(claim, state.payload, state.attempt + 1),
+			invalidated
+		);
+	}
+
+	/** Permanently invalidate preprocessing/attempts and release transfer-owned bytes. */
+	dispose(): void {
+		if (this.state._tag === 'Disposed') return;
+		this.state = TransferState.Disposed();
+		this.fibers.close();
+		this.report(false);
+	}
+
+	private begin(
+		claim: Claim,
+		source: File | Blob,
+		preprocess?: AttachmentPreprocess
+	): Effect.Effect<AttachmentTransferResult> {
+		return Effect.sync(() =>
+			this.write(claim, preprocess ? TransferState.Preprocessing() : TransferState.Preparing())
+		).pipe(
+			Effect.andThen(() =>
+				this.prepare(claim, source, preprocess).pipe(
+					Effect.flatMap((payload) => this.attempt(claim, payload, 1)),
+					Effect.catchCause((cause) =>
+						Cause.hasInterruptsOnly(cause)
+							? Effect.interrupt
+							: this.fibers.settle(Effect.sync(() => this.refuse(claim, Cause.squash(cause))))
+					)
+				)
+			)
+		);
+	}
+
+	private prepare(
+		claim: Claim,
+		source: File | Blob,
+		preprocess?: AttachmentPreprocess
+	): Effect.Effect<AttachmentTransferPayload, unknown> {
+		return Effect.gen({ self: this }, function* () {
+			let blob = source;
 			let dimensions = this.dimensions;
 
 			if (preprocess) {
-				const processed = await preprocess(blob);
-				if (!this.isCurrent(generation)) return { status: 'invalidated' };
-
+				const processed = yield* claim.wait(fromPromise(() => preprocess(blob)));
+				yield* this.fibers.guard(claim);
 				blob = processed.blob;
 				this.name = processed.filename ?? this.name;
 				this.mimeType = processed.mimeType;
@@ -235,12 +331,11 @@ export class AttachmentTransfer {
 				const height = processed.height;
 				dimensions = width && height ? { width, height } : undefined;
 				this.dimensions = dimensions;
-				this.phase = 'uploading';
-				this.publish();
+				yield* Effect.sync(() => this.write(claim, TransferState.Preparing()));
 
 				if (this.mimeType.startsWith('image/') && (width === undefined || height === undefined)) {
-					const measured = await this.measureImage(blob);
-					if (!this.isCurrent(generation)) return { status: 'invalidated' };
+					const measured = yield* claim.wait(fromPromise(() => this.measureImage(blob)));
+					yield* this.fibers.guard(claim);
 					if (measured.width > 0 && measured.height > 0) dimensions = measured;
 				}
 			} else if (
@@ -248,12 +343,12 @@ export class AttachmentTransfer {
 				this.mimeType.startsWith('image/') &&
 				dimensions === undefined
 			) {
-				const measured = await this.measureImage(blob);
-				if (!this.isCurrent(generation)) return { status: 'invalidated' };
+				const measured = yield* claim.wait(fromPromise(() => this.measureImage(blob)));
+				yield* this.fibers.guard(claim);
 				if (measured.width > 0 && measured.height > 0) dimensions = measured;
 			}
 
-			if (!this.isCurrent(generation)) return { status: 'invalidated' };
+			yield* this.fibers.guard(claim);
 			this.dimensions = dimensions;
 			const payload: AttachmentTransferPayload = {
 				blob,
@@ -262,110 +357,139 @@ export class AttachmentTransfer {
 				dimensions,
 				accessKey: this.accessKey
 			};
-			this.checkPayload?.(payload);
-			this.retryPayload = payload;
-			this.sourceBlob = undefined;
-			this.phase = 'uploading';
-			this.progress = 0;
-			this.publish();
-			return await this.runAttempt(payload, generation);
-		} catch (error) {
-			if (!this.isCurrent(generation)) return { status: 'invalidated' };
-			this.sourceBlob = undefined;
-			this.retryPayload = undefined;
-			this.setActive(false);
-			return { status: 'preprocess-failed', error };
+			yield* Effect.try({ try: () => this.checkPayload?.(payload), catch: (error) => error });
+			return payload;
+		});
+	}
+
+	private attempt(
+		claim: Claim,
+		payload: AttachmentTransferPayload,
+		attempt: number
+	): Effect.Effect<AttachmentTransferResult> {
+		return Effect.sync(() =>
+			this.write(claim, TransferState.Uploading({ attempt, payload, progress: 0 }))
+		).pipe(
+			Effect.andThen(this.fibers.guard(claim)),
+			Effect.andThen(() => claim.wait(this.transport(claim, payload))),
+			Effect.matchEffect({
+				onSuccess: (result) =>
+					this.fibers.settle(
+						Effect.sync(() =>
+							this.finish(claim, () => this.succeed(claim, payload, attempt, result))
+						)
+					),
+				onFailure: (error) =>
+					this.fibers.settle(
+						Effect.sync(() =>
+							this.finish(claim, () => this.fail(claim, payload, attempt, error, true))
+						)
+					)
+			})
+		);
+	}
+
+	private finish(claim: Claim, step: () => AttachmentTransferResult): AttachmentTransferResult {
+		try {
+			return step();
+		} finally {
+			if (this.fibers.owns(claim)) {
+				this.controller = undefined;
+				this.report(false);
+			}
 		}
 	}
 
-	/** Supersede any current attempt and retry the exact retained payload. */
-	async retry(): Promise<AttachmentTransferResult> {
-		const payload = this.retryPayload;
-		if (this.disposed || !payload) return { status: 'unavailable' };
-
-		const generation = this.claimGeneration();
-		this.setActive(true);
-		this.phase = 'uploading';
-		this.progress = 0;
-		this.result = {};
-		this.publish();
-		return await this.runAttempt(payload, generation);
-	}
-
-	/** Permanently invalidate preprocessing/attempts and release transfer-owned bytes. */
-	dispose(): void {
-		if (this.disposed) return;
-		this.disposed = true;
-		this.generation += 1;
-		this.controller?.abort();
-		this.controller = undefined;
-		this.sourceBlob = undefined;
-		this.retryPayload = undefined;
-		this.setActive(false);
-	}
-
-	private claimGeneration(): number {
-		this.generation += 1;
-		this.controller?.abort();
-		this.controller = undefined;
-		return this.generation;
-	}
-
-	private isCurrent(generation: number): boolean {
-		return !this.disposed && this.generation === generation;
-	}
-
-	private async runAttempt(
+	private succeed(
+		claim: Claim,
 		payload: AttachmentTransferPayload,
-		generation: number
-	): Promise<AttachmentTransferResult> {
-		const controller = new AbortController();
-		this.controller = controller;
-
+		attempt: number,
+		result: AttachmentUploadResult
+	): AttachmentTransferResult {
 		try {
-			const result = await this.upload(
-				payload,
-				(progress) => {
-					if (!this.isCurrent(generation) || this.controller !== controller) return;
-					this.progress = progress;
-					this.publish();
-				},
-				controller.signal
-			);
-
-			if (!this.isCurrent(generation) || this.controller !== controller) {
+			if (!this.fibers.owns(claim)) {
 				this.release?.(result);
-				return { status: 'invalidated' };
+				return invalidated();
 			}
-			this.retryPayload = undefined;
-			this.phase = 'success';
-			this.progress = 100;
-			this.result = { fileId: result.fileId, url: result.url };
-			this.publish();
+			this.write(claim, TransferState.Succeeded({ fileId: result.fileId, url: result.url }));
 			return { status: 'success' };
 		} catch (error) {
-			if (
-				!this.isCurrent(generation) ||
-				this.controller !== controller ||
-				isAttachmentTransferAbort(error)
-			) {
-				return { status: 'invalidated' };
-			}
-			this.onAttemptError?.(error);
-			this.phase = 'error';
-			this.progress = 0;
-			this.result = { error: error instanceof UploadError ? error.code : 'server' };
-			this.publish();
-			return { status: 'error' };
-		} finally {
-			if (this.isCurrent(generation) && this.controller === controller) {
-				this.controller = undefined;
-				this.setActive(false);
-			}
+			return this.fail(claim, payload, attempt, error, false);
 		}
 	}
 
-	private publish(): void {
+	private fail(
+		claim: Claim,
+		payload: AttachmentTransferPayload,
+		attempt: number,
+		error: unknown,
+		retryable: boolean
+	): AttachmentTransferResult {
+		if (!this.fibers.owns(claim)) return invalidated();
+		if (isAttachmentTransferAbort(error)) {
+			if (retryable) this.state = TransferState.Aborted({ attempt, payload });
+			return invalidated();
+		}
+		this.onAttemptError?.(error);
+		const code = error instanceof UploadError ? error.code : 'server';
+		this.write(
+			claim,
+			retryable
+				? TransferState.Failed({ attempt, payload, error: code })
+				: TransferState.Faulted({ error: code })
+		);
+		return { status: 'error' };
+	}
+
+	private refuse(claim: Claim, error: unknown): AttachmentTransferResult {
+		if (!this.fibers.owns(claim)) return invalidated();
+		this.state = TransferState.Refused();
+		this.report(false);
+		return { status: 'preprocess-failed', error };
+	}
+
+	private transport(
+		claim: Claim,
+		payload: AttachmentTransferPayload
+	): Effect.Effect<AttachmentUploadResult, unknown> {
+		return Effect.callback<AttachmentUploadResult, unknown>((resume) => {
+			const controller = new AbortController();
+			this.controller = controller;
+			let pending: Promise<AttachmentUploadResult>;
+			try {
+				pending = this.upload(
+					payload,
+					(progress) => this.progress(claim, controller, progress),
+					controller.signal
+				);
+			} catch (error) {
+				resume(Effect.fail(error));
+				return;
+			}
+			pending.then(
+				(result) => resume(Effect.succeed(result)),
+				(error: unknown) => resume(Effect.fail(error))
+			);
+			return Effect.sync(() => {
+				controller.abort();
+				pending.then((result) => this.release?.(result)).catch(() => {});
+			});
+		});
+	}
+
+	private progress(claim: Claim, controller: AbortController, progress: number): void {
+		const state = this.state;
+		if (this.controller !== controller || state._tag !== 'Uploading') return;
+		this.write(claim, TransferState.Uploading({ ...state, progress }));
+	}
+
+	private write(claim: Claim, next: TransferState): void {
+		if (!this.fibers.owns(claim)) return;
+		this.state = next;
+		if (isActive(next)) this.report(true);
+		if (!this.fibers.owns(claim)) return;
+		const view = viewOf(next);
+		if (!view) return;
 		this.onSnapshot({
 			key: this.key,
 			sourceName: this.sourceName,
@@ -373,16 +497,17 @@ export class AttachmentTransfer {
 			name: this.name,
 			mimeType: this.mimeType,
 			size: this.size,
-			phase: this.phase,
-			progress: this.progress,
 			dimensions: this.dimensions,
-			...this.result
+			...view
 		});
 	}
 
-	private setActive(active: boolean): void {
-		if (this.active === active) return;
-		this.active = active;
+	private report(active: boolean): void {
+		if (this.reportedActive === active) return;
+		this.reportedActive = active;
 		this.onActivityChange?.(active);
 	}
 }
+
+const fromPromise = <A>(run: () => Promise<A>): Effect.Effect<A, unknown> =>
+	Effect.tryPromise({ try: run, catch: (error) => error });
