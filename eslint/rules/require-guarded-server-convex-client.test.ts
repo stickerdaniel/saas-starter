@@ -76,6 +76,35 @@ describe('require-guarded-server-convex-client', () => {
 		expect(reports).toHaveLength(0);
 	});
 
+	it('allows construction inside an Effect.gen piped through recoverWith', () => {
+		const reports = lint(`
+			export const load = (event) =>
+				runRequestEffect(
+					event,
+					Effect.gen(function* () {
+						const client = createServerConvexHttpClient({ token: event.locals.token });
+						return { viewer: yield* fromPromise(() => client.query(api.users.viewer, {})) };
+					}).pipe(recoverWith('[example] Viewer lookup failed', { viewer: null }))
+				);
+		`);
+		expect(reports).toHaveLength(0);
+	});
+
+	it.each([
+		['without a recovery', 'Effect.gen(function* () { return createServerConvexHttpClient({}); })'],
+		[
+			'with another pipe step',
+			'Effect.gen(function* () { return createServerConvexHttpClient({}); }).pipe(Effect.orDie)'
+		],
+		[
+			'before the recovered Effect.gen',
+			'(createServerConvexHttpClient({}), Effect.gen(function* () {}).pipe(recoverWith("x", null)))'
+		]
+	])('flags construction in an Effect %s', (_, effect) => {
+		const reports = lint(`export const load = (event) => runRequestEffect(event, ${effect});`);
+		expect(reports).toHaveLength(1);
+	});
+
 	it('flags construction in a catch block (handler is not the guarded path)', () => {
 		const reports = lint(`
 			export const load = async (event) => {

@@ -1,8 +1,9 @@
 /**
  * ESLint rule: require-guarded-server-convex-client
  *
- * Flags `createServerConvexHttpClient(...)` constructed outside a try block in
- * a SvelteKit server load (`+page.server.ts` / `+layout.server.ts`).
+ * Flags `createServerConvexHttpClient(...)` constructed outside a try block or
+ * an `Effect.gen(...).pipe(recoverWith(...))` in a SvelteKit server load
+ * (`+page.server.ts` / `+layout.server.ts`).
  *
  * Why: the helper throws SYNCHRONOUSLY when the Convex URL is unresolved (a
  * missing CONVEX_INTERNAL_URL/PUBLIC_CONVEX_URL, which happens on a freshly
@@ -30,12 +31,12 @@ export default {
 		type: 'problem',
 		docs: {
 			description:
-				'Require createServerConvexHttpClient() construction inside a try block in SvelteKit server loads (#594)'
+				'Require createServerConvexHttpClient() construction inside a try block or a recovered Effect.gen in SvelteKit server loads (#594)'
 		},
 		schema: [],
 		messages: {
 			unguardedConstruction:
-				'createServerConvexHttpClient() throws synchronously when the Convex URL is unresolved (e.g. a freshly provisioned preview before env propagates). Construct it inside a try so the SSR load degrades to a fallback instead of 500ing the page (#594). The per-query .catch does not cover the construction line.'
+				'createServerConvexHttpClient() throws synchronously when the Convex URL is unresolved (e.g. a freshly provisioned preview before env propagates). Construct it inside a try, or inside an Effect.gen piped through recoverWith(...), so the SSR load degrades to a fallback instead of 500ing the page (#594). The per-query .catch does not cover the construction line.'
 		}
 	},
 	create(context) {
@@ -44,6 +45,31 @@ export default {
 				node.type === 'CallExpression' &&
 				node.callee?.type === 'Identifier' &&
 				node.callee.name === 'createServerConvexHttpClient'
+			);
+		}
+
+		function isEffectGen(node) {
+			return (
+				node?.type === 'CallExpression' &&
+				node.callee?.type === 'MemberExpression' &&
+				node.callee.object?.type === 'Identifier' &&
+				node.callee.object.name === 'Effect' &&
+				node.callee.property?.name === 'gen'
+			);
+		}
+
+		function isRecoveredEffectGen(node) {
+			return (
+				node.type === 'CallExpression' &&
+				node.callee?.type === 'MemberExpression' &&
+				node.callee.property?.name === 'pipe' &&
+				isEffectGen(node.callee.object) &&
+				node.arguments.some(
+					(argument) =>
+						argument.type === 'CallExpression' &&
+						argument.callee?.type === 'Identifier' &&
+						argument.callee.name === 'recoverWith'
+				)
 			);
 		}
 
@@ -63,7 +89,10 @@ export default {
 					// Only a try's protected `block` guards construction; descending
 					// into `handler` (catch) or `finalizer` (finally) does not. Once
 					// inside a guarded block, everything below stays guarded.
-					const childGuarded = insideTry || (node.type === 'TryStatement' && key === 'block');
+					const childGuarded =
+						insideTry ||
+						(node.type === 'TryStatement' && key === 'block') ||
+						(key === 'callee' && isRecoveredEffectGen(node));
 					walk(child, childGuarded);
 				}
 			}

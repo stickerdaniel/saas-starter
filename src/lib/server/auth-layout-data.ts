@@ -1,4 +1,5 @@
 import type { ServerLoadEvent } from '@sveltejs/kit';
+import * as Effect from 'effect/Effect';
 import type { FunctionReturnType } from 'convex/server';
 import { api } from '#lib/convex/_generated/api.js';
 import { toAutumnClientApi } from '#lib/billing/autumn-api-adapter.js';
@@ -10,7 +11,8 @@ import {
 	UNAVAILABLE_CAPABILITY_USABILITY,
 	type PublicCapabilityUsability
 } from '#lib/dev/features.js';
-import { reportRecoveredFailure } from '#lib/server/recovered-failure.js';
+import { fromPromise, runRequestEffect, ServerRequest } from '#lib/server/effect-runtime.js';
+import { recoverWith } from '#lib/server/recovered-failure.js';
 
 type JwtViewer = {
 	_id: string;
@@ -130,59 +132,62 @@ export async function resolveAuthLayoutData(event: ServerLoadEvent) {
 	return pending;
 }
 
-async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
+function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
+	return runRequestEffect(event, authLayoutData);
+}
+
+const authLayoutData = Effect.gen(function* () {
+	const event = yield* ServerRequest;
 	// Check if JWT token exists (set by handleAuth in hooks.server.ts)
 	const isAuthenticated = !!event.locals.token;
 	const authState = { isAuthenticated, hasSession: hasBetterAuthSessionCookie(event) };
 	const fallbackViewer = getViewerFromJwt(event.locals.token);
-
-	let customer = null;
-	let viewer: LayoutViewer | null = fallbackViewer;
-	let capabilities: PublicCapabilityUsability = UNAVAILABLE_CAPABILITY_USABILITY;
 	const localE2E = isLocalE2E();
 
 	// Public marketing routes never reach this block. Other routes read the public
 	// projection even before sign-in so billing and AI controls have truthful state.
-	try {
+	const { customer, viewer, capabilities } = yield* Effect.gen(function* () {
 		const client = createServerConvexHttpClient({ token: event.locals.token });
-		const viewerPromise = isAuthenticated
-			? client.query(api.users.viewer, {}).catch((e) => {
-					reportRecoveredFailure(
+		const viewerLookup: Effect.Effect<LayoutViewer | null> = isAuthenticated
+			? fromPromise(() => client.query(api.users.viewer, {})).pipe(
+					recoverWith(
 						'[auth-layout-data] Viewer lookup failed, using the JWT payload',
-						e
-					);
-					return fallbackViewer;
-				})
-			: Promise.resolve(null);
-		const capabilityPromise = client.query(api.capabilities.getUsability, {}).catch((e) => {
-			reportRecoveredFailure('[auth-layout-data] Capability lookup failed', e);
-			return UNAVAILABLE_CAPABILITY_USABILITY;
+						fallbackViewer
+					)
+				)
+			: Effect.succeed(null);
+		const billingLookup = Effect.gen(function* () {
+			const capabilities: PublicCapabilityUsability = yield* fromPromise(() =>
+				client.query(api.capabilities.getUsability, {})
+			).pipe(
+				recoverWith('[auth-layout-data] Capability lookup failed', UNAVAILABLE_CAPABILITY_USABILITY)
+			);
+			const customer = localE2E
+				? E2E_CUSTOMER
+				: isAuthenticated && capabilities.billing.usable
+					? yield* fromPromise(() =>
+							createAutumnHandlers({
+								convexApi: toAutumnClientApi(api.autumn),
+								createClient: () => client
+							}).getCustomer(event)
+						).pipe(recoverWith('[auth-layout-data] Autumn getCustomer failed', null))
+					: null;
+			return { capabilities, customer };
 		});
 
 		// Viewer loading is already in flight while capability state resolves. Autumn
 		// is constructed and called only after billing is confirmed usable.
-		capabilities = await capabilityPromise;
-		const customerPromise = localE2E
-			? Promise.resolve(E2E_CUSTOMER)
-			: isAuthenticated && capabilities.billing.usable
-				? createAutumnHandlers({
-						convexApi: toAutumnClientApi(api.autumn),
-						createClient: () => client
-					})
-						.getCustomer(event)
-						.catch((e) => {
-							reportRecoveredFailure('[auth-layout-data] Autumn getCustomer failed', e);
-							return null;
-						})
-				: Promise.resolve(null);
-
-		[customer, viewer] = await Promise.all([customerPromise, viewerPromise]);
-	} catch (e) {
-		reportRecoveredFailure(
-			'[auth-layout-data] Convex client unavailable, using the JWT payload',
-			e
-		);
-	}
+		const [billing, viewer] = yield* Effect.all([billingLookup, viewerLookup], {
+			concurrency: 'unbounded'
+		});
+		return { ...billing, viewer };
+	}).pipe(
+		recoverWith('[auth-layout-data] Convex client unavailable, using the JWT payload', {
+			customer: null,
+			viewer: fallbackViewer,
+			capabilities: UNAVAILABLE_CAPABILITY_USABILITY
+		})
+	);
 
 	return {
 		authState,
@@ -194,7 +199,7 @@ async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
 		capabilities,
 		localE2E: localE2E ? E2E_UI : undefined
 	};
-}
+});
 
 /**
  * Pricing consumes the live Autumn customer. Its page load runs when client
