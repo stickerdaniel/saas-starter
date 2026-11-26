@@ -289,7 +289,11 @@
 			await resumeAuthorization(
 				(oauth) =>
 					oauth.signIn.email(
-						{ email: signInData.email, password: signInData.password },
+						{
+							email: signInData.email,
+							password: signInData.password,
+							callbackURL: authPageURL(localizedHref('/signin'), finalDestination)
+						},
 						{
 							onSuccess: (ctx) => {
 								ctx.data.redirect = false;
