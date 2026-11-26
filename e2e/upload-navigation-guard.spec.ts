@@ -3,6 +3,7 @@ import { expect, type Page, type Route } from '@playwright/test';
 import { test } from './utils/test';
 import { api } from '../src/lib/convex/_generated/api';
 import { waitForAuthenticated } from './utils/auth';
+import { servedByDevServer } from './utils/dev-server';
 import { resolveConvexUrl } from './utils/convex-url';
 import type { TestAccount } from './utils/types';
 
@@ -146,5 +147,46 @@ test.describe('Upload navigation guard', () => {
 		});
 		await expect(notice).toBeVisible({ timeout: 10000 });
 		expect(page.url()).toBe(urlBeforeClick);
+	});
+
+	test.describe('when a chunk fails to load', () => {
+		// The failed import still rejects after app.html decided to keep the page.
+		test.use({ allowedClientErrors: [/dynamically imported module/i] });
+
+		test('the page stays while a file is transferring', async ({ page, workerAccounts }) => {
+			test.skip(
+				await servedByDevServer(page),
+				'Vite fires vite:preloadError only from the preload helper of a build'
+			);
+			const storagePost = page.waitForRequest(STORAGE_UPLOAD);
+			await stallUpload(page);
+			await attachNotes(page, workerAccounts.user, 'in-flight.txt');
+			await storagePost;
+			await expect(uploadInFlight(page)).toBeVisible({ timeout: 15000 });
+
+			await page.route('**/*', (route) =>
+				route.request().resourceType() === 'script' ? route.abort('failed') : route.fallback()
+			);
+			await page.evaluate(() => {
+				(window as Window & { __reloadSentinel?: boolean }).__reloadSentinel = true;
+			});
+			const failed = page.evaluate(
+				() =>
+					new Promise<void>((resolve) =>
+						window.addEventListener('vite:preloadError', () => resolve(), { once: true })
+					)
+			);
+			// Hovering starts the language menu's load.
+			await page.getByRole('button', { name: 'Change language' }).hover();
+			await failed;
+
+			expect(await page.evaluate(() => sessionStorage.getItem('sk:preload-reloaded'))).toBeNull();
+			expect(
+				await page.evaluate(
+					() => (window as Window & { __reloadSentinel?: boolean }).__reloadSentinel
+				)
+			).toBe(true);
+			await expect(uploadInFlight(page)).toBeVisible();
+		});
 	});
 });

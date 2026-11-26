@@ -1,16 +1,16 @@
 <script lang="ts">
-	import GlobeIcon from '@lucide/svelte/icons/globe';
+	import { IsUsingKeyboard } from 'bits-ui';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
-	import { Button } from '#lib/components/ui/button/index.js';
+	import LanguageSwitcherButton from './language-switcher-button.svelte';
 	import type { LanguageSwitcherProps } from './types';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
-	import { getTranslate } from '@tolgee/svelte';
-
-	const { t } = getTranslate();
 
 	let {
 		languages = [],
 		value = $bindable(''),
+		open = $bindable(false),
+		trigger = $bindable(null),
+		openedWithKeyboard = false,
 		align = 'end',
 		variant = 'outline',
 		onChange,
@@ -24,15 +24,19 @@
 	$effect(() => {
 		if (!value && firstCode) value = firstCode;
 	});
+
+	// Bits UI moves focus to the first item only for a keyboard user, which it
+	// learns from a keydown it saw. A key pressed before this menu loaded never
+	// reached it.
+	const keyboard = new IsUsingKeyboard();
+	// svelte-ignore state_referenced_locally
+	if (openedWithKeyboard) keyboard.current = true;
 </script>
 
-<DropdownMenu.Root>
-	<DropdownMenu.Trigger>
+<DropdownMenu.Root bind:open>
+	<DropdownMenu.Trigger bind:ref={trigger}>
 		{#snippet child({ props })}
-			<Button {variant} size="icon" class={className} {...props}>
-				<GlobeIcon class="size-4" />
-				<span class="sr-only">{$t('aria.change_language')}</span>
-			</Button>
+			<LanguageSwitcherButton {variant} class={className} {...props} />
 		{/snippet}
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content {align}>

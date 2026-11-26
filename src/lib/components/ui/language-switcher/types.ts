@@ -12,6 +12,15 @@ export type LanguageSwitcherProps = {
 	/** Current selected language code */
 	value?: string;
 
+	/** Whether the menu is open */
+	open?: boolean;
+
+	/** The trigger button, once mounted */
+	trigger?: HTMLElement | null;
+
+	/** The activation that opened the menu came from the keyboard, so focus starts on the first item. */
+	openedWithKeyboard?: boolean;
+
 	/** Dropdown alignment */
 	align?: 'start' | 'center' | 'end';
 

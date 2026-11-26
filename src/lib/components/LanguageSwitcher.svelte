@@ -6,7 +6,9 @@
 		LANGUAGE_COOKIE_NAME,
 		LANGUAGE_COOKIE_MAX_AGE
 	} from '#lib/i18n/languages.js';
-	import { LanguageSwitcher as LanguageSwitcherUI } from '#lib/components/ui/language-switcher/index.js';
+	import { tick } from 'svelte';
+	import LanguageSwitcherButton from './ui/language-switcher/language-switcher-button.svelte';
+	import type LanguageSwitcherMenu from './ui/language-switcher/language-switcher.svelte';
 	import type { LanguageSwitcherProps } from './ui/language-switcher/types';
 	import { useLanguage } from '#lib/utils/i18n.js';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
@@ -74,14 +76,91 @@
 			}
 		}
 	}
+
+	// The menu, and Bits UI behind it, loads on the first hover, focus or press.
+	// Until then this button stands in for its trigger.
+	let Menu: typeof LanguageSwitcherMenu | null = $state(null);
+	let loading: Promise<void> | undefined;
+	let button: HTMLElement | null = $state(null);
+	let trigger: HTMLElement | null = $state(null);
+	let open = $state(false);
+	let openedWithKeyboard = $state(false);
+
+	function load(): Promise<void> {
+		loading ??= import('./ui/language-switcher/language-switcher.svelte').then(async (module) => {
+			const focused = button !== null && document.activeElement === button;
+			Menu = module.default;
+			if (!focused) return;
+			// The trigger replaces the focused button, which takes focus with it.
+			await tick();
+			trigger?.focus();
+		});
+		return loading;
+	}
+
+	// Mirrors the Bits UI trigger: a mouse opens on pointerdown, touch on
+	// pointerup, a key on Enter, Space or ArrowDown, and a click only when no
+	// pointer made it (detail 0, as from a screen reader). Every one of them
+	// opens, so a second activation before the menu loaded cannot close it.
+	function activate(keyboard: boolean) {
+		openedWithKeyboard ||= keyboard;
+		void load().then(() => {
+			open = true;
+		});
+	}
+
+	function onpointerdown(event: PointerEvent) {
+		if (event.pointerType === 'touch') return event.preventDefault();
+		if (event.button !== 0 || event.ctrlKey) return;
+		event.preventDefault();
+		activate(false);
+	}
+
+	function onpointerup(event: PointerEvent) {
+		if (event.pointerType !== 'touch') return;
+		event.preventDefault();
+		activate(false);
+	}
+
+	function onkeydown(event: KeyboardEvent) {
+		if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'ArrowDown') return;
+		event.preventDefault();
+		activate(true);
+	}
+
+	function onclick(event: MouseEvent) {
+		if (event.detail !== 0) return;
+		event.preventDefault();
+		activate(false);
+	}
 </script>
 
-<LanguageSwitcherUI
-	{languages}
-	value={currentLanguage}
-	{variant}
-	{align}
-	onChange={switchLanguage}
-	onIntent={preloadTranslations}
-	class={className}
-/>
+{#if Menu}
+	<Menu
+		{languages}
+		value={currentLanguage}
+		{variant}
+		{align}
+		bind:open
+		bind:trigger
+		{openedWithKeyboard}
+		onChange={switchLanguage}
+		onIntent={preloadTranslations}
+		class={className}
+	/>
+{:else}
+	<LanguageSwitcherButton
+		bind:ref={button}
+		{variant}
+		class={className}
+		aria-haspopup="menu"
+		aria-expanded="false"
+		data-state="closed"
+		onpointerenter={() => void load()}
+		onfocus={() => void load()}
+		{onpointerdown}
+		{onpointerup}
+		{onkeydown}
+		{onclick}
+	/>
+{/if}
