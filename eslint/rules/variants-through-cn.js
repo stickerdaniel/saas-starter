@@ -49,10 +49,14 @@ function findVariable(scope, name) {
 	return null;
 }
 
-function isPassiveReference(reference) {
+function isPassiveReference(variable, reference) {
 	const { identifier } = reference;
 	const parent = identifier.parent;
+	const declares = variable.identifiers.some(
+		(name) => name.range[0] === identifier.range[0] && name.range[1] === identifier.range[1]
+	);
 	return (
+		declares ||
 		reference.init === true ||
 		reference.isWriteOnly?.() === true ||
 		reference.isTypeReference === true ||
@@ -157,7 +161,7 @@ export default {
 
 				for (const variable of factories) {
 					for (const reference of variable.references) {
-						if (isPassiveReference(reference)) continue;
+						if (isPassiveReference(variable, reference)) continue;
 						const parent = reference.identifier.parent;
 						if (parent?.type === 'CallExpression' && parent.callee === reference.identifier) {
 							if (parent.parent?.type === 'VariableDeclarator' && parent.parent.init === parent) {
@@ -172,7 +176,7 @@ export default {
 
 				for (const variable of factoryNamespaces) {
 					for (const reference of variable.references) {
-						if (isPassiveReference(reference)) continue;
+						if (isPassiveReference(variable, reference)) continue;
 						const member = reference.identifier.parent;
 						const declarator = member?.parent?.parent;
 						const declared =
@@ -189,14 +193,14 @@ export default {
 
 				for (const variable of variants) {
 					for (const reference of variable.references) {
-						if (isPassiveReference(reference)) continue;
+						if (isPassiveReference(variable, reference)) continue;
 						checkFunctionUse(reference.identifier, variable.name);
 					}
 				}
 
 				for (const variable of namespaces) {
 					for (const reference of variable.references) {
-						if (isPassiveReference(reference)) continue;
+						if (isPassiveReference(variable, reference)) continue;
 						const parent = reference.identifier.parent;
 						if (parent?.type === 'MemberExpression' && parent.object === reference.identifier) {
 							const name = propertyName(parent.property, parent.computed);
