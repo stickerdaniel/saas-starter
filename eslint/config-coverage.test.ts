@@ -488,3 +488,51 @@ describe('registration ratchet through the flat config', () => {
 		).toEqual(['testModuleImport']);
 	}, 60_000);
 });
+
+describe('schema library imports through the flat config', () => {
+	async function restrictedImports(text: string, filePath: string) {
+		const [result] = await eslint.lintText(text, { filePath });
+		expect(result.fatalErrorCount).toBe(0);
+		return result.messages
+			.filter((message) => message.ruleId === 'no-restricted-imports')
+			.map((message) => message.message);
+	}
+
+	it.each([
+		["import * as val from 'valibot';", 'src/lib/confect/support/threads.impl.ts'],
+		["import { z } from 'zod';", 'src/lib/confect/aiChat/tools/weather.ts'],
+		["import { z } from 'zod/v4';", 'src/lib/convex-components/betterAuth/seedUser.ts'],
+		["import * as val from 'valibot';", 'src/lib/convex/probe.test.ts']
+	])(
+		'refuses %s in %s',
+		async (text, filePath) => {
+			expect(await restrictedImports(text, filePath)).toEqual([
+				expect.stringContaining('Convex code validates with effect/Schema.')
+			]);
+		},
+		60_000
+	);
+
+	it.each([
+		['src/lib/confect/admin/types.ts'],
+		['src/lib/schemas/auth.ts'],
+		['src/routes/[[lang]]/(auth)/signin/schema.ts']
+	])(
+		'leaves valibot open in %s',
+		async (filePath) => {
+			expect(await restrictedImports("import * as val from 'valibot';", filePath)).toEqual([]);
+		},
+		60_000
+	);
+
+	it('keeps the fontless/runtime restriction in Convex code', async () => {
+		expect(
+			await restrictedImports(
+				"import 'fontless/runtime';",
+				'src/lib/confect/support/threads.impl.ts'
+			)
+		).toEqual([
+			expect.stringContaining('Import fontless/runtime only in src/routes/+layout.svelte.')
+		]);
+	}, 60_000);
+});

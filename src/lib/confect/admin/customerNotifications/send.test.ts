@@ -276,6 +276,17 @@ describe('recipients and outcomes', () => {
 		expect(sendEmail).not.toHaveBeenCalled();
 	});
 
+	it('skips a customer whose account has no email like one that is gone', async () => {
+		const { ledgerRow, send, row } = setupSend({ customer: { name: 'Ada Lovelace' } });
+		const sendEmail = installResend();
+		const id = ledgerRow();
+
+		await send(id);
+
+		expect(row(id)).toMatchObject({ status: 'skipped', skippedReason: 'owner_deleted' });
+		expect(sendEmail).not.toHaveBeenCalled();
+	});
+
 	it('skips a test customer, unconfigured email and an empty audience', async () => {
 		const testCustomer = setupSend({ customer: { email: 'buyer@e2e.example.com' } });
 		const noAudience = setupSend({ admins: [] });
