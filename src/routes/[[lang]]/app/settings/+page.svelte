@@ -13,6 +13,7 @@
 	import EmailSettings from './email-settings.svelte';
 	import SecuritySettings from './security-settings.svelte';
 	import PrivacySettings from './privacy-settings.svelte';
+	import ConnectedAppsSettings from './connected-apps-settings.svelte';
 
 	interface Props {
 		data: PageData;
@@ -22,7 +23,7 @@
 
 	let user = $derived(data.user);
 	const { t } = getTranslate();
-	const SETTINGS_TABS = ['account', 'password', 'email', 'security'] as const;
+	const SETTINGS_TABS = ['account', 'password', 'email', 'security', 'apps'] as const;
 	type SettingsTab = (typeof SETTINGS_TABS)[number];
 	const DEFAULT_SETTINGS_TAB: SettingsTab = 'account';
 	// Read the active tab from page.url, which SvelteKit populates during SSR, so
@@ -95,6 +96,9 @@
 					<Tabs.Trigger value="security">
 						<T keyName="settings.tabs.security" />
 					</Tabs.Trigger>
+					<Tabs.Trigger value="apps">
+						<T keyName="settings.tabs.apps" />
+					</Tabs.Trigger>
 				</Tabs.List>
 			</div>
 
@@ -117,6 +121,10 @@
 
 			<Tabs.Content value="security" class="space-y-6">
 				<SecuritySettings {user} />
+			</Tabs.Content>
+
+			<Tabs.Content value="apps" class="space-y-6">
+				<ConnectedAppsSettings />
 			</Tabs.Content>
 		</Tabs.Root>
 	</div>

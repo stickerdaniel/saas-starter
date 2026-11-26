@@ -335,7 +335,8 @@ describe('account deletion trigger', () => {
 				delayMs: 60_000,
 				name: 'admin/journey/erasure:continueErasure',
 				args: { userId: USER, step: 'ledger', attempt: 2 }
-			}
+			},
+			{ delayMs: 0, name: 'oauth/cleanup:eraseUserGrants', args: { userId: USER } }
 		]);
 	});
 });

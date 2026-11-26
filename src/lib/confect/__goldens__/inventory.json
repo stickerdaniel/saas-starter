@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "fc9c56006e56793e",
+	"digest": "ff9d19b8bd2a7889",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -219,6 +219,17 @@
 			"removeMessage": ["internal", "mutation", "Convex", "Confect"],
 			"send": ["public", "mutation", "Convex", "Confect"]
 		},
+		"oauth/cleanup": {
+			"deleteExpiredTokens": ["internal", "mutation", "Convex", "Confect"],
+			"deleteStaleClients": ["internal", "mutation", "Convex", "Confect"],
+			"eraseUserGrants": ["internal", "mutation", "Convex", "Confect"]
+		},
+		"oauth/connections": {
+			"epoch": ["internal", "query", "Convex", "Confect"],
+			"list": ["public", "query", "Convex", "Confect"],
+			"revoke": ["public", "mutation", "Convex", "Confect"]
+		},
+		"oauth/metadata": { "authorizationServer": ["internal", "query", "Convex", "Confect"] },
 		"previewDev": { "ensurePreviewAdmin": ["internal", "mutation", "Convex", "Confect"] },
 		"storage": {
 			"authorizeUpload": ["internal", "mutation", "Convex", "Confect"],
@@ -295,6 +306,7 @@
 			"health": ["public", "query", "Convex", "Confect"],
 			"recoverSupportNotificationFixture": ["public", "mutation", "Convex", "Confect"],
 			"resetAiChatFileUploadLimit": ["public", "mutation", "Convex", "Confect"],
+			"resetOAuthRegistrationLimit": ["public", "mutation", "Convex", "Confect"],
 			"seedAiChatHistoryRows": ["public", "mutation", "Convex", "Confect"],
 			"seedAuditLogRows": ["public", "mutation", "Convex", "Confect"],
 			"seedSupportNotificationClaim": ["public", "mutation", "Convex", "Confect"],

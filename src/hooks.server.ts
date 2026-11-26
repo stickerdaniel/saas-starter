@@ -64,7 +64,7 @@ function safeUrlSearch(url: URL): string {
 }
 
 export function shouldBypassLanguageRedirect(pathname: string): boolean {
-	if (pathname.startsWith('/api')) {
+	if (pathname.startsWith('/api') || pathname.startsWith('/.well-known/')) {
 		return true;
 	}
 

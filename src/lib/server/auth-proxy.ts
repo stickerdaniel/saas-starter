@@ -1,4 +1,6 @@
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
+import * as Option from 'effect/Option';
+import * as Schema from 'effect/Schema';
 
 /**
  * Recognises a fetch/undici AbortError, including when it is wrapped as the
@@ -20,6 +22,29 @@ function normalizeResponse(response: Response): Response {
 	});
 }
 
+const decodeRedirectBody = Schema.decodeUnknownOption(
+	Schema.Struct({ redirect: Schema.Literal(true), url: Schema.String })
+);
+
+async function navigationRedirect(request: Request, response: Response): Promise<Response> {
+	if (request.headers.get('sec-fetch-mode') !== 'navigate' || response.status !== 200) {
+		return response;
+	}
+	if (!response.headers.get('content-type')?.includes('application/json')) return response;
+	const body = decodeRedirectBody(
+		await response
+			.clone()
+			.json()
+			.catch(() => null)
+	);
+	if (Option.isNone(body)) return response;
+	const headers = new Headers(response.headers);
+	headers.delete('content-type');
+	headers.delete('content-length');
+	headers.set('location', body.value.url);
+	return new Response(null, { status: 302, headers });
+}
+
 /**
  * Forwards an auth request through the Better Auth handler. A client abort
  * (page navigation, unload, query cleanup) propagates to the upstream fetch as
@@ -33,7 +58,7 @@ export async function proxyAuthRequest(
 	event: RequestEvent
 ): Promise<Response> {
 	try {
-		return normalizeResponse(await handler(event));
+		return await navigationRedirect(event.request, normalizeResponse(await handler(event)));
 	} catch (err) {
 		if (isAbortError(err) || event.request.signal.aborted) {
 			return new Response(null, { status: 499 });

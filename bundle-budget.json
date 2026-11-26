@@ -19,6 +19,10 @@
 			"initial": 270708,
 			"lazy": 228998
 		},
+		"/[[lang]]/(auth)/oauth/consent": {
+			"initial": 250433,
+			"lazy": 229557
+		},
 		"/[[lang]]/(auth)/passkey-setup": {
 			"initial": 269615,
 			"lazy": 228998

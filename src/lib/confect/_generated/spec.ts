@@ -42,6 +42,9 @@ import files_owners from "../files/owners.spec";
 import files_vacuum from "../files/vacuum.spec";
 import localDev from "../localDev.spec";
 import messages from "../messages.spec";
+import oauth_cleanup from "../oauth/cleanup.spec";
+import oauth_connections from "../oauth/connections.spec";
+import oauth_metadata from "../oauth/metadata.spec";
 import previewDev from "../previewDev.spec";
 import storage from "../storage.spec";
 import support_files from "../support/files.spec";
@@ -66,6 +69,7 @@ const spec: Spec.Spec<{
   readonly files: GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "files", never, GroupSpec.NamedAt<typeof files_cleanup, "cleanup"> | GroupSpec.NamedAt<typeof files_metadata, "metadata"> | GroupSpec.NamedAt<typeof files_owners, "owners"> | GroupSpec.NamedAt<typeof files_vacuum, "vacuum">>, "files">;
   readonly localDev: GroupSpec.NamedAt<typeof localDev, "localDev">;
   readonly messages: GroupSpec.NamedAt<typeof messages, "messages">;
+  readonly oauth: GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "oauth", never, GroupSpec.NamedAt<typeof oauth_cleanup, "cleanup"> | GroupSpec.NamedAt<typeof oauth_connections, "connections"> | GroupSpec.NamedAt<typeof oauth_metadata, "metadata">>, "oauth">;
   readonly previewDev: GroupSpec.NamedAt<typeof previewDev, "previewDev">;
   readonly storage: GroupSpec.NamedAt<typeof storage, "storage">;
   readonly support: GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "support", never, GroupSpec.NamedAt<typeof support_files, "files"> | GroupSpec.NamedAt<typeof support_handoff, "handoff"> | GroupSpec.NamedAt<typeof support_messages, "messages"> | GroupSpec.NamedAt<typeof support_migration, "migration"> | GroupSpec.NamedAt<typeof support_promptStore, "promptStore"> | GroupSpec.NamedAt<typeof support_rateLimitAlerts, "rateLimitAlerts"> | GroupSpec.NamedAt<typeof support_readState, "readState"> | GroupSpec.NamedAt<typeof support_threads, "threads">>, "support">;
@@ -139,6 +143,11 @@ const spec: Spec.Spec<{
   }),
   ["localDev"]: localDev,
   ["messages"]: messages,
+  ["oauth"]: GroupSpec.addGroupsAt(GroupSpec.make(), {
+    ["cleanup"]: oauth_cleanup,
+    ["connections"]: oauth_connections,
+    ["metadata"]: oauth_metadata,
+  }),
   ["previewDev"]: previewDev,
   ["storage"]: storage,
   ["support"]: GroupSpec.addGroupsAt(GroupSpec.make(), {

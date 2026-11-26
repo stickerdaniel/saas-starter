@@ -84,6 +84,7 @@ const CONFECT_PUBLIC_FUNCTIONS = {
 			'health',
 			'recoverSupportNotificationFixture',
 			'resetAiChatFileUploadLimit',
+			'resetOAuthRegistrationLimit',
 			'seedAiChatHistoryRows',
 			'seedAuditLogRows',
 			'seedSupportNotificationClaim',

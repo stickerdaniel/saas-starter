@@ -25,6 +25,7 @@ export default {
 ["health"]: RegisteredConvexFunction.register({ ...definitions["health"], handler: forward(definitions["health"].handler) }),
 ["recoverSupportNotificationFixture"]: RegisteredConvexFunction.register({ ...definitions["recoverSupportNotificationFixture"], handler: forward(definitions["recoverSupportNotificationFixture"].handler) }),
 ["resetAiChatFileUploadLimit"]: RegisteredConvexFunction.register({ ...definitions["resetAiChatFileUploadLimit"], handler: forward(definitions["resetAiChatFileUploadLimit"].handler) }),
+["resetOAuthRegistrationLimit"]: RegisteredConvexFunction.register({ ...definitions["resetOAuthRegistrationLimit"], handler: forward(definitions["resetOAuthRegistrationLimit"].handler) }),
 ["seedAiChatHistoryRows"]: RegisteredConvexFunction.register({ ...definitions["seedAiChatHistoryRows"], handler: forward(definitions["seedAiChatHistoryRows"].handler) }),
 ["seedAuditLogRows"]: RegisteredConvexFunction.register({ ...definitions["seedAuditLogRows"], handler: forward(definitions["seedAuditLogRows"].handler) }),
 ["seedSupportNotificationClaim"]: RegisteredConvexFunction.register({ ...definitions["seedSupportNotificationClaim"], handler: forward(definitions["seedSupportNotificationClaim"].handler) }),

@@ -1032,6 +1032,10 @@
 			"signup": {
 				"description": "Crea una cuenta nueva para empezar.",
 				"title": "Registrarse"
+			},
+			"consent": {
+				"title": "Permitir acceso",
+				"description": "Permite que una app acceda a tu cuenta."
 			}
 		},
 		"contact": {
@@ -1266,7 +1270,8 @@
 			"account": "Cuenta",
 			"email": "Correo electrónico",
 			"password": "Contraseña",
-			"security": "Seguridad"
+			"security": "Seguridad",
+			"apps": "Apps"
 		},
 		"title": "Configuración"
 	},
@@ -1435,5 +1440,53 @@
 		"text_link": "Descargar todos los avisos",
 		"title": "Licencias de terceros",
 		"unavailable": "Los avisos de licencia se generan en las compilaciones de producción y no están disponibles en desarrollo."
+	},
+	"mcp": {
+		"capability": {
+			"get_account": "Ver tu nombre, tu dirección de correo y tu foto de perfil",
+			"list_community_messages": "Leer los mensajes del chat de la comunidad",
+			"post_community_message": "Publicar mensajes en el chat de la comunidad en tu nombre"
+		},
+		"consent": {
+			"title": "{app} quiere acceder a tu cuenta",
+			"signed_in_as": "Sesión iniciada como {email}",
+			"permissions": "Permisos",
+			"level": {
+				"view": "Ver",
+				"change": "Cambiar"
+			},
+			"always_included": "{capability} (siempre incluido)",
+			"not_requested": "{capability} (no solicitado)",
+			"no_access": "{app} no obtiene acceso a tus datos.",
+			"allow": "Permitir",
+			"deny": "Denegar",
+			"footer_before": "Puedes eliminar esta conexión en",
+			"footer_link": "Configuración",
+			"footer_after": "en cualquier momento.",
+			"error_title": "Esta conexión no puede continuar",
+			"error_description": "Vuelve a iniciar la conexión en la app que quieres conectar.",
+			"unnamed_app": "Una app"
+		},
+		"connections": {
+			"title": "Apps conectadas",
+			"description": "Apps a las que permitiste trabajar con tu cuenta.",
+			"empty_title": "No hay apps conectadas",
+			"empty_description": "Las apps que conectes a tu cuenta aparecen aquí.",
+			"revoke": "Revocar",
+			"revoke_label": "Revocar el acceso de {app}",
+			"access": "Acceso",
+			"connected": "Conectada",
+			"level_view": "Solo ver",
+			"level_change": "Ver y cambiar",
+			"level_none": "Sin acceso",
+			"unknown_date": "Desconocida",
+			"unnamed_app": "App sin nombre",
+			"load_more": "Mostrar más",
+			"revoke_title": "¿Revocar el acceso de {app}?",
+			"revoke_description": "{app} pierde el acceso a tu cuenta de inmediato. Para volver a usarla, conéctala de nuevo en {app}.",
+			"revoke_cancel": "Cancelar",
+			"revoke_confirm": "Revocar acceso",
+			"revoke_failed": "No se pudo revocar el acceso. Inténtalo de nuevo."
+		}
 	}
 }

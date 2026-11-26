@@ -3,6 +3,7 @@ import {
 	authPageURL,
 	callbackURLFor,
 	oauthErrorCallbackURL,
+	resumeErrorCallbackURL,
 	safeAuthDestination,
 	safeRedirectPath,
 	splitDestinationError
@@ -103,6 +104,22 @@ describe('safeRedirectPath', () => {
 
 	it('returns a custom fallback when the path is invalid', () => {
 		expect(safeRedirectPath('http://evil.com', '/home')).toBe('/home');
+	});
+});
+
+describe('resumeErrorCallbackURL', () => {
+	it('returns the bare page path for an empty query', () => {
+		expect(resumeErrorCallbackURL('/signin', '')).toBe('/signin');
+	});
+
+	it('keeps every signed parameter when a value holds an asterisk', () => {
+		const search = '?client_id=abc&state=x*y&scope=mcp%3Aread+mcp%3Awrite&sig=s%2Fg';
+		const url = resumeErrorCallbackURL('/de/signin', search);
+
+		expect(url).toBe('/de/signin?client_id=abc&state=x%2Ay&scope=mcp%3Aread+mcp%3Awrite&sig=s%2Fg');
+		expect([...new URLSearchParams(url.slice(url.indexOf('?')))]).toEqual([
+			...new URLSearchParams(search)
+		]);
 	});
 });
 

@@ -171,6 +171,13 @@ export default GroupSpec.make()
 	)
 	.addFunction(
 		FunctionSpec.publicMutation({
+			name: 'resetOAuthRegistrationLimit',
+			args: () => ({ secret: Schema.String }),
+			returns: () => Schema.Null
+		})
+	)
+	.addFunction(
+		FunctionSpec.publicMutation({
 			name: 'seedAiChatHistoryRows',
 			args: () => SeedAiChatHistoryRowsArgs.fields,
 			returns: () => AiChatThreadIds

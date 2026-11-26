@@ -74,4 +74,39 @@ describe('proxyAuthRequest', () => {
 		expect(res.headers.get('content-type')).toBe('application/json');
 		expect(await res.text()).toBe('{"ok":true}');
 	});
+
+	it('answers a browser navigation with a 302 when Better Auth returns its JSON redirect', async () => {
+		const handler: RequestHandler = async () =>
+			new Response('{"redirect":true,"url":"/signin?client_id=a"}', {
+				status: 200,
+				headers: { 'content-type': 'application/json', 'set-cookie': 'state=1; Path=/' }
+			});
+		const event = {
+			request: new Request('http://localhost/api/auth/oauth2/authorize?client_id=a', {
+				headers: { 'sec-fetch-mode': 'navigate' }
+			})
+		} as RequestEvent;
+		const res = await proxyAuthRequest(handler, event);
+		expect(res.status).toBe(302);
+		expect(res.headers.get('location')).toBe('/signin?client_id=a');
+		expect(res.headers.get('set-cookie')).toBe('state=1; Path=/');
+		expect(await res.text()).toBe('');
+	});
+
+	it('keeps the JSON redirect for a fetch from the page', async () => {
+		const handler: RequestHandler = async () =>
+			new Response('{"redirect":true,"url":"/oauth/consent"}', {
+				status: 200,
+				headers: { 'content-type': 'application/json' }
+			});
+		const event = {
+			request: new Request('http://localhost/api/auth/sign-in/email', {
+				method: 'POST',
+				headers: { 'sec-fetch-mode': 'cors' }
+			})
+		} as RequestEvent;
+		const res = await proxyAuthRequest(handler, event);
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ redirect: true, url: '/oauth/consent' });
+	});
 });

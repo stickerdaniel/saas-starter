@@ -34,5 +34,12 @@ export const appRateLimiter = new RateLimiter(components.rateLimiter, {
 		rate: 5,
 		period: HOUR,
 		capacity: 5
+	},
+
+	oauthClientRegistration: {
+		kind: 'fixed window',
+		rate: 60,
+		period: HOUR,
+		start: 0
 	}
 });

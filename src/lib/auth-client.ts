@@ -5,8 +5,10 @@ import type { createAuth } from './confect/authServer';
 import { passkeyClient } from '@better-auth/passkey/client';
 import { browser } from '$app/env';
 
+export const authBaseURL = browser ? window.location.origin : undefined;
+
 export const authClient = createAuthClient({
-	baseURL: browser ? window.location.origin : undefined,
+	baseURL: authBaseURL,
 	plugins: [
 		convexClient(),
 		passkeyClient(),

@@ -128,6 +128,11 @@ export function oauthErrorCallbackURL(pagePath: string, redirectTo: string): str
 	return callbackURLFor(`${pagePath}?redirectTo=${encodeURIComponent(safeRedirectTo)}`, pagePath);
 }
 
+export function resumeErrorCallbackURL(pagePath: string, search: string): string {
+	const query = new URLSearchParams(search).toString().replaceAll('*', '%2A');
+	return query ? callbackURLFor(`${pagePath}?${query}`, pagePath) : pagePath;
+}
+
 /**
  * Marks a failed password-reset link that the hook sends on to sign-in.
  *

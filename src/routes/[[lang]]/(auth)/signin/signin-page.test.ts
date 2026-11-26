@@ -102,7 +102,8 @@ const state = await vi.hoisted(async () => {
 			email: vi.fn<EmailSignIn>(),
 			social: vi.fn<SocialSignIn>(),
 			passkey: vi.fn<() => Promise<AuthResult>>()
-		}
+		},
+		oauthClientImport: Promise.withResolvers<void>()
 	};
 });
 
@@ -127,6 +128,10 @@ vi.mock('#lib/auth-client.js', () => ({
 	}
 }));
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({ useAuth: () => state.auth }));
+vi.mock('#lib/auth-client-oauth.js', async () => {
+	await state.oauthClientImport.promise;
+	return { oauthAuthClient: { signIn: state.signIn } };
+});
 vi.mock('#lib/hooks/auth-flow.svelte.ts', () => ({
 	authFlowContext: { get: () => ({ email: '' }), set: () => {} }
 }));
@@ -164,7 +169,9 @@ import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte
 import {
 	clearLastSuccessfulAuthMethod,
 	clearPendingOAuthProvider,
-	pendingOAuthProvider
+	lastSuccessfulAuthMethod,
+	pendingOAuthProvider,
+	setLastSuccessfulAuthMethod
 } from '#lib/hooks/last-auth-method.svelte.ts';
 import SignInPage from './+page.svelte';
 
@@ -740,6 +747,47 @@ describe('sign-in page OAuth start', () => {
 		expect(pendingOAuthProvider.current).toBe('google');
 		expect(alertText()).toBe('');
 		expect(button(en.auth.signin.oauth_google).disabled).toBe(true);
+	});
+
+	it('stores no pending provider when the visitor leaves while the resume client loads', async () => {
+		await renderSignIn('?client_id=client-a&sig=signed');
+		button(en.auth.signin.oauth_google).click();
+		await tick();
+		await unmount(component!);
+		component = undefined;
+
+		state.oauthClientImport.resolve();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
+
+		expect(state.signIn.social).not.toHaveBeenCalled();
+		expect(pendingOAuthProvider.current).toBeNull();
+	});
+
+	it('drops an abandoned provider when a password sign-in resumes the authorization', async () => {
+		pendingOAuthProvider.current = 'google';
+		setLastSuccessfulAuthMethod('google');
+		state.oauthClientImport.resolve();
+		await renderSignIn('?client_id=client-a&sig=signed');
+
+		await submitPassword();
+
+		await vi.waitFor(() => expect(navigations).toHaveLength(1));
+		expect(pendingOAuthProvider.current).toBeNull();
+		expect(lastSuccessfulAuthMethod.current).toBeNull();
+	});
+
+	it('records the passkey when a passkey sign-in resumes the authorization', async () => {
+		pendingOAuthProvider.current = 'google';
+		state.signIn.passkey.mockResolvedValue({ data: { url: '/de/oauth/consent' }, error: null });
+		state.oauthClientImport.resolve();
+		await renderSignIn('?client_id=client-a&sig=signed');
+
+		button(en.auth.signin.passkey_button).click();
+
+		await vi.waitFor(() => expect(navigations).toEqual(['/de/oauth/consent']));
+		expect(pendingOAuthProvider.current).toBeNull();
+		expect(lastSuccessfulAuthMethod.current).toBe('passkey');
 	});
 
 	it('sends the visitor to the provider once the start succeeds', async () => {

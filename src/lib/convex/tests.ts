@@ -18,6 +18,7 @@ export const getSupportThreadsByUserId = registeredFunctions.getSupportThreadsBy
 export const health = registeredFunctions.health;
 export const recoverSupportNotificationFixture = registeredFunctions.recoverSupportNotificationFixture;
 export const resetAiChatFileUploadLimit = registeredFunctions.resetAiChatFileUploadLimit;
+export const resetOAuthRegistrationLimit = registeredFunctions.resetOAuthRegistrationLimit;
 export const seedAiChatHistoryRows = registeredFunctions.seedAiChatHistoryRows;
 export const seedAuditLogRows = registeredFunctions.seedAuditLogRows;
 export const seedSupportNotificationClaim = registeredFunctions.seedSupportNotificationClaim;
