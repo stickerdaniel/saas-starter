@@ -45,11 +45,9 @@
 		}
 	});
 
-	// Most pages never open a checkout, so the dialog loads on the first one and
-	// stays mounted after that, reading whatever state the manager has by then.
 	let dialog: Promise<{ default: typeof CheckoutDialog }> | null = $state(null);
 	$effect(() => {
-		if (checkout.open) dialog ??= import('./checkout-dialog.svelte');
+		if (checkout.isLoading || checkout.open) dialog ??= import('./checkout-dialog.svelte');
 	});
 </script>
 

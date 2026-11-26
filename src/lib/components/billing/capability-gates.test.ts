@@ -317,6 +317,29 @@ describe('billing checkout provider', () => {
 		);
 	});
 
+	it('ignores a second checkout while the dialog loads', async () => {
+		state.page.data = { capabilities: { billing: usable, ai: unavailable } };
+		autumn.checkout
+			.mockResolvedValueOnce(confirmationPreview)
+			.mockResolvedValue({ ...confirmationPreview, total: 20 });
+		const chunk = holdDialogChunk();
+		await mountUnderProvider(PricingThree, {});
+		checkoutButton().click();
+		await new Promise((resolve) => setTimeout(resolve));
+		expect(checkoutButton().disabled).toBe(false);
+
+		checkoutButton().click();
+		await tick();
+		chunk.release();
+
+		await vi.waitFor(() =>
+			expect(document.querySelector('[data-testid="billing-checkout-total"]')?.textContent).toBe(
+				'$10.00'
+			)
+		);
+		expect(autumn.checkout).toHaveBeenCalledOnce();
+	});
+
 	it('shows nothing when the checkout closes before its dialog loads', async () => {
 		state.page.data = { capabilities: { billing: usable, ai: unavailable } };
 		autumn.checkout.mockResolvedValue(confirmationPreview);
