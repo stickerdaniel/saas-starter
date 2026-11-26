@@ -85,7 +85,7 @@
 {#snippet cell(label: string, value: string)}
 	<div class="flex items-baseline justify-between gap-3 sm:flex-col sm:gap-1">
 		<dt class="text-muted-foreground sm:text-xs">{label}</dt>
-		<dd class="font-medium">{value}</dd>
+		<dd class="font-medium first-letter:uppercase">{value}</dd>
 	</div>
 {/snippet}
 
