@@ -562,8 +562,8 @@ function isConsumerSource(line: string): boolean {
  * A `git show` per file cost one process per source: measured 2026-11-03, 982 of them took
  * 22 s on a 24-core host at load 70, a fifth of the time a test had to run this check.
  */
-function consumerSourcesAt(commit: string): ConsumerSource[] {
-	const entries = git(['ls-tree', '-r', '-z', commit, '--', CONSUMER_ROOT])
+export function consumerSourcesAt(commit: string, cwd = process.cwd()): ConsumerSource[] {
+	const entries = git(['ls-tree', '-r', '-z', commit, '--', CONSUMER_ROOT], cwd)
 		.split('\0')
 		.filter(Boolean)
 		.map((record) => {
@@ -576,8 +576,9 @@ function consumerSourcesAt(commit: string): ConsumerSource[] {
 	if (entries.length === 0) return [];
 	const output = execFileSync(
 		'git',
-		['-c', `safe.directory=${realpathSync(process.cwd())}`, 'cat-file', '--batch'],
+		['-c', `safe.directory=${realpathSync(cwd)}`, 'cat-file', '--batch'],
 		{
+			cwd,
 			env: isolatedGitEnv(),
 			input: entries.map(({ object }) => `${object}\n`).join(''),
 			maxBuffer: 256 * 1024 * 1024,

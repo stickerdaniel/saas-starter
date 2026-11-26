@@ -17,6 +17,7 @@ import { confectCodegen } from './confect-codegen';
 import {
 	brokenReferences,
 	consumerReferencesIn,
+	consumerSourcesAt,
 	expandNamespaceReferences,
 	identifiersIn,
 	namespaceReferencesIn,
@@ -88,6 +89,51 @@ describe('worktree cleanup', () => {
 });
 
 describe('Convex consumer references', () => {
+	it('keeps a Unicode consumer path from the baseline commit', () => {
+		const repository = mkdtempSync(path.join(tmpdir(), 'convex-compat-unicode-'));
+		const env = compatibilityFixtureEnv();
+		const git = (args: string[]) =>
+			spawnSync('git', args, { cwd: repository, env, encoding: 'utf8' });
+		try {
+			expect(git(['init', '--quiet', '--initial-branch=main']).status).toBe(0);
+			const route = path.join(repository, 'src', 'routes', 'überblick');
+			mkdirSync(route, { recursive: true });
+			writeFileSync(
+				path.join(route, '+page.server.ts'),
+				`import { api } from '#lib/convex/_generated/api.js';
+
+void api.compatUnicodeTarget.viewer;
+`
+			);
+			expect(git(['add', '--all']).status).toBe(0);
+			expect(
+				git([
+					'-c',
+					'user.name=Probe',
+					'-c',
+					'user.email=probe@example.com',
+					'commit',
+					'--quiet',
+					'--no-gpg-sign',
+					'--no-verify',
+					'-m',
+					'Add Unicode consumer'
+				]).status
+			).toBe(0);
+			const baseline = git(['rev-parse', 'HEAD']).stdout.trim();
+
+			expect(consumerReferencesIn(consumerSourcesAt(baseline, repository)).references).toEqual([
+				{
+					identifier: 'compatUnicodeTarget:viewer',
+					visibility: 'public',
+					file: 'src/routes/überblick/+page.server.ts'
+				}
+			]);
+		} finally {
+			rmSync(repository, { recursive: true, force: true });
+		}
+	});
+
 	it('reads a direct public or internal function path', () => {
 		expect(
 			identifiersIn(
