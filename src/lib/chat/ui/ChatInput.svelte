@@ -786,7 +786,6 @@
 				{#snippet children(props)}
 					<ComposerAttachmentButton
 						{...props}
-						{compact}
 						disabled={!acceptsAttachments}
 						aria-disabled={atAttachmentCap || undefined}
 						onclickcapture={holdAtCap}
@@ -814,7 +813,6 @@
 						<FileUploadTrigger asChild={true}>
 							<ComposerAttachmentButton
 								{...props}
-								{compact}
 								disabled={!acceptsAttachments}
 								aria-disabled={atAttachmentCap || undefined}
 								onclickcapture={holdAtCap}

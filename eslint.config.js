@@ -724,7 +724,6 @@ export default defineConfig(
 					allow: [
 						'src/lib/effect/lifetime.ts',
 						'src/lib/server/effect-runtime.ts',
-						'src/lib/effect/client-runtime.ts',
 						'**/*.{test,spec}.ts'
 					]
 				}
